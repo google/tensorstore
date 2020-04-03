@@ -1,0 +1,111 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://github.com/google/tensorstore/json-schema/context
+title: Context
+description: >-
+  A context JSON object is a mapping of resource identifiers to
+  :json-schema:`https://github.com/google/tensorstore/json-schema/context-resource`
+  specifications.
+type: object
+properties:
+  <resource-type>:
+    $ref: https://github.com/google/tensorstore/json-schema/context-resource
+    description: >-
+      Overrides the default resource for the given
+      :json-member:`<resource-type>`, which must be a supported resource type.
+  <resource-type>#<id>:
+    $ref: https://github.com/google/tensorstore/json-schema/context-resource
+    description: >-
+      Defines a resource with identifier :json-member:`<id>` of the given
+      :json-member:`<resource-type>`.  The resource specification must be
+      compatible with :json-member:`<resource-type>`.
+examples:
+- cache_pool:
+    total_bytes_limit: 10000000
+  cache_pool#remote:
+    total_bytes_limit: 100000000
+  data_copy_concurrency:
+    limit: 8
+definitions:
+  resource:
+    $id: https://github.com/google/tensorstore/json-schema/context-resource
+    title: Context resource
+    description: >-
+      Specifies a context resource of a particular :json-member:`<resource-type>`.
+    oneOf:
+    - type: object
+      description: >-
+        Specifies the resource directly.  All members are specific to the
+        particular :json-member:`<resource-type>`.
+    - type: string
+      description: >-
+        References another resource of the same type in the current or parent
+        context using the syntax :json:`"<resource-type>"` or
+        :json:`"<resource-type>#<id>"`, where :json-member:`<resource-type>`
+        matches the type of this resource.
+    - type: 'null'
+      description: >-
+        Specifies a new instance of the default resource of the given
+        :json-member:`<resource-type>`.  Only valid within a
+        :json-schema:`https://github.com/google/tensorstore/json-schema/context`
+        specification.
+  cache_pool:
+    $id: https://github.com/google/tensorstore/json-schema/context/cache_pool
+    title: '``cache_pool`` context resource'
+    description: >-
+      Specifies the size of an in-memory Least Recently Used (LRU) cache.  Each
+      ``cache_pool`` resource specifies a separate memory pool.
+    type: object
+    properties:
+      total_bytes_limit:
+        type: integer
+        minimum: 0
+        description: >-
+          Soft limit on the total number of bytes in the cache.  The
+          least-recently used data that is not in use is evicted from the cache
+          when this limit is reached.
+        default: 0
+      queued_for_writeback_bytes_limit:
+        type: integer
+        minimum: 0
+        description: >-
+          Soft limit on the total number of bytes of data pending writeback.
+          Writeback is initated on the least-recently used data that is pending
+          writeback when this limit is reached.  Defaults to half of
+          :json-member:`total_bytes_limit`.
+  data_copy_concurrency:
+    $id: https://github.com/google/tensorstore/json-schema/context/data_copy_concurrency
+    title: '``data_copy_concurrency`` context resource'
+    description: >-
+      Specifies a limit on the number of CPU cores used concurrently for data
+      copying/encoding/decoding.
+    type: object
+    properties:
+      limit:
+        oneOf:
+        - type: integer
+          minimum: 1
+        - const: "shared"
+        description: >-
+          The maximum number of CPU cores that may be used.  If the special
+          value of :json:`"shared"` is specified, a shared global limit equal to
+          the number of CPU cores/threads available applies.
+        default: "shared"
+  file_io_concurrency:
+    $id: https://github.com/google/tensorstore/json-schema/context/file_io_concurrency
+    title: '``file_io_concurrency`` context resource'
+    description: >-
+      Specifies a limit on the number of concurrently local filesystem I/O
+      operations.
+    type: object
+    properties:
+      limit:
+        oneOf:
+        - type: integer
+          minimum: 1
+        - const: "shared"
+        description: >-
+          The maximum number of concurrent operations.  If the special value of
+          :json:`"shared"` is specified, a shared global limit equal to the
+          number of CPU cores/threads available (or 4 if there are fewer than 4
+          cores/threads available) applies.
+        default: "shared"

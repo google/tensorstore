@@ -1,0 +1,12 @@
+load("@com_github_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
+
+licenses(["notice"])
+
+exports_files(["LICENSE.txt"])
+
+cc_library_with_strip_include_prefix(
+    name = "half",
+    hdrs = ["include/half.hpp"],
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+)

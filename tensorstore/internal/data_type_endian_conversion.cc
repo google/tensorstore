@@ -1,0 +1,192 @@
+// Copyright 2020 The TensorStore Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "tensorstore/internal/data_type_endian_conversion.h"
+
+#include <array>
+#include <cassert>
+#include <complex>
+
+#include "absl/algorithm/container.h"
+#include <nlohmann/json.hpp>
+#include "tensorstore/array.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/internal/endian_elementwise_conversion.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/endian.h"
+#include "tensorstore/util/iterate.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
+
+namespace tensorstore {
+namespace internal {
+
+namespace {
+
+template <typename T>
+struct SwapEndianSizes {
+  constexpr static size_t element_size = sizeof(T);
+  constexpr static size_t num_elements = 1;
+};
+
+template <typename T>
+struct SwapEndianSizes<std::complex<T>> {
+  constexpr static size_t element_size = sizeof(T);
+  constexpr static size_t num_elements = 2;
+};
+
+}  // namespace
+
+const std::array<UnalignedDataTypeFunctions, kNumDataTypeIds>
+    kUnalignedDataTypeFunctions = MapCanonicalDataTypes([](auto data_type) {
+      using T = typename decltype(data_type)::Element;
+      UnalignedDataTypeFunctions functions;
+      if constexpr (std::is_trivial_v<T>) {
+        using Sizes = SwapEndianSizes<T>;
+        functions.copy = GetElementwiseFunction<CopyUnalignedLoopTemplate<
+            Sizes::element_size * Sizes::num_elements>>();
+        if constexpr (Sizes::element_size == 1) {
+          // No endian conversion required.
+          functions.swap_endian = functions.copy;
+        } else {
+          functions.swap_endian =
+              GetElementwiseFunction<SwapEndianUnalignedLoopTemplate<
+                  Sizes::element_size, Sizes::num_elements>>();
+          functions.swap_endian_inplace =
+              GetElementwiseFunction<SwapEndianUnalignedInplaceLoopTemplate<
+                  Sizes::element_size, Sizes::num_elements>>();
+        }
+      } else {
+        // Non-trivial types are not used with these functions.
+      }
+      return functions;
+    });
+
+void EncodeArray(ArrayView<const void> source, ArrayView<void> target,
+                 endian target_endian) {
+  const DataType dtype = source.data_type();
+  assert(absl::c_equal(source.shape(), target.shape()));
+  assert(dtype == target.data_type());
+  const auto& functions =
+      kUnalignedDataTypeFunctions[static_cast<size_t>(dtype.id())];
+  assert(functions.copy != nullptr);  // fail on non-trivial types
+  internal::IterateOverStridedLayouts<2>(
+      {/*function=*/(target_endian == endian::native) ? functions.copy
+                                                      : functions.swap_endian,
+       /*context=*/nullptr},
+      /*status=*/nullptr, source.shape(),
+      {{const_cast<void*>(source.data()), target.data()}},
+      {{source.byte_strides().data(), target.byte_strides().data()}},
+      /*constraints=*/skip_repeated_elements, {{dtype.size(), dtype.size()}});
+}
+
+namespace {
+static_assert(sizeof(bool) == 1);
+struct DecodeBoolArray {
+  void operator()(unsigned char* source, bool* output, Status*) const {
+    *output = static_cast<bool>(*source);
+  }
+};
+
+struct DecodeBoolArrayInplace {
+  void operator()(unsigned char* source, Status*) const {
+    *source = static_cast<bool>(*source);
+  }
+};
+}  // namespace
+
+void DecodeArray(ArrayView<const void> source, endian source_endian,
+                 ArrayView<void> target) {
+  const DataType dtype = source.data_type();
+  assert(absl::c_equal(source.shape(), target.shape()));
+  assert(dtype == target.data_type());
+  if (dtype.id() != DataTypeId::bool_t) {
+    EncodeArray(source, target, source_endian);
+    return;
+  }
+  // `bool` requires special decoding to ensure the decoded result only contains
+  // 0 or 1.
+  internal::IterateOverStridedLayouts<2>(
+      {/*function=*/SimpleElementwiseFunction<
+           DecodeBoolArray(unsigned char, bool), Status*>(),
+       /*context=*/nullptr},
+      /*status=*/nullptr, source.shape(),
+      {{const_cast<void*>(source.data()), target.data()}},
+      {{source.byte_strides().data(), target.byte_strides().data()}},
+      /*constraints=*/skip_repeated_elements, {{1, 1}});
+}
+
+void DecodeArray(SharedArrayView<void>* source, endian source_endian,
+                 StridedLayoutView<> decoded_layout) {
+  assert(source != nullptr);
+  assert(absl::c_equal(source->shape(), decoded_layout.shape()));
+  const DataType dtype = source->data_type();
+  const auto& functions =
+      kUnalignedDataTypeFunctions[static_cast<size_t>(dtype.id())];
+  assert(functions.copy != nullptr);  // fail on non-trivial types
+  if ((reinterpret_cast<std::uintptr_t>(source->data()) % dtype->alignment) ==
+          0 &&
+      (source->rank() == 0 ||
+       (source->byte_strides().back() % dtype->alignment) == 0)) {
+    // Source array is already suitably aligned.  Can decode in place.
+    const ElementwiseFunction<1, Status*>* convert_func = nullptr;
+    if (dtype.id() == DataTypeId::bool_t) {
+      convert_func =
+          SimpleElementwiseFunction<DecodeBoolArrayInplace(unsigned char),
+                                    Status*>();
+    } else if (source_endian != endian::native &&
+               functions.swap_endian_inplace) {
+      convert_func = functions.swap_endian_inplace;
+    }
+    if (convert_func) {
+      internal::IterateOverStridedLayouts<1>(
+          {/*function=*/convert_func,
+           /*context=*/nullptr},
+          /*status=*/nullptr, source->shape(), {{source->data()}},
+          {{source->byte_strides().data()}},
+          /*constraints=*/skip_repeated_elements, {{dtype.size()}});
+    }
+  } else {
+    // Source array is not suitably aligned.  We could still decode in-place,
+    // but the caller is expecting the decoded result to be in a properly
+    // aligned array.  Therefore, we allocate a separate array and decode into
+    // it.
+    auto target_ptr = internal::AllocateAndConstructSharedElements(
+        decoded_layout.num_elements(), default_init, dtype);
+    const ElementwiseFunction<2, Status*>* convert_func = nullptr;
+    if (dtype.id() == DataTypeId::bool_t) {
+      convert_func =
+          SimpleElementwiseFunction<DecodeBoolArray(unsigned char, bool),
+                                    Status*>();
+    } else if (source_endian != endian::native) {
+      convert_func = functions.swap_endian;
+    } else {
+      convert_func = functions.copy;
+    }
+    internal::IterateOverStridedLayouts<2>(
+        {/*function=*/convert_func,
+         /*context=*/nullptr},
+        /*status=*/nullptr, decoded_layout.shape(),
+        {{source->data(), target_ptr.data()}},
+        {{source->byte_strides().data(), decoded_layout.byte_strides().data()}},
+        /*constraints=*/skip_repeated_elements, {{dtype.size(), dtype.size()}});
+    source->element_pointer() = target_ptr;
+    source->layout() = decoded_layout;
+  }
+}
+
+}  // namespace internal
+}  // namespace tensorstore

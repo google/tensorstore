@@ -1,0 +1,23 @@
+load("@com_github_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+exports_files(["LICENSE"])
+
+cc_library_with_strip_include_prefix(
+    name = "bzip2",
+    srcs = [
+        "blocksort.c",
+        "bzlib.c",
+        "bzlib_private.h",
+        "compress.c",
+        "crctable.c",
+        "decompress.c",
+        "huffman.c",
+        "randtable.c",
+    ],
+    hdrs = ["bzlib.h"],
+    strip_include_prefix = "",
+)

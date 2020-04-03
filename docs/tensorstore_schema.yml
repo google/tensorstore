@@ -1,0 +1,51 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://github.com/google/tensorstore/json-schema/tensorstore
+type: object
+title: TensorStore
+description: |
+  Common properties supported by all TensorStore drivers.  Refer to the `driver
+  documentation<tensorstore-drivers>` for the supported :json-member:`driver`
+  identifiers and driver-specific properties.
+properties:
+  driver:
+    type: string
+    title: Driver identifier
+    description: Specifies the `TensorStore driver<tensorstore-drivers>`.
+  context:
+    $ref: https://github.com/google/tensorstore/json-schema/context
+    description: Specifies context resources that augment/override the parent context.
+  dtype:
+    $ref: https://github.com/google/tensorstore/json-schema/dtype
+    description: Specifies the data type.
+  rank:
+    type: integer
+    minimum: 0
+  transform:
+    $ref: https://github.com/google/tensorstore/json-schema/index-transform
+    description: Specifies a transform.
+required:
+- driver
+definitions:
+  dtype:
+    $id: https://github.com/google/tensorstore/json-schema/dtype
+    title: Data type
+    oneOf:
+      - const: "bool"
+      - const: "char"
+      - const: "byte"
+      - const: "int8"
+      - const: "uint8"
+      - const: "int16"
+      - const: "uint16"
+      - const: "int32"
+      - const: "uint32"
+      - const: "int64"
+      - const: "uint64"
+      - const: "float16"
+      - const: "float32"
+      - const: "float64"
+      - const: "complex64"
+      - const: "complex128"
+      - const: "string"
+      - const: "ustring"
+      - const: "json"

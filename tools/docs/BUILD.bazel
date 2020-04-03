@@ -1,0 +1,44 @@
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "json_pprint",
+    srcs = ["json_pprint.py"],
+)
+
+py_library(
+    name = "tensorstore_jsonschema_sphinx",
+    srcs = ["tensorstore_jsonschema_sphinx.py"],
+    imports = ["."],
+    deps = [":json_pprint"],
+)
+
+py_library(
+    name = "tensorstore_autosummary",
+    srcs = ["tensorstore_autosummary.py"],
+    imports = ["."],
+)
+
+py_binary(
+    name = "build_docs",
+    srcs = ["build_docs.py"],
+    legacy_create_init = False,
+    deps = [
+        ":tensorstore_autosummary",
+        ":tensorstore_jsonschema_sphinx",
+        "//python/tensorstore",
+        "@pypa_sphinx//:sphinx",
+        "@pypa_sphinx_autobuild//:sphinx_autobuild",
+    ],
+)
+
+py_binary(
+    name = "update_doctests",
+    srcs = ["update_doctests.py"],
+    legacy_create_init = False,
+    srcs_version = "PY3",
+    deps = [
+        "//python/tensorstore",
+    ],
+)

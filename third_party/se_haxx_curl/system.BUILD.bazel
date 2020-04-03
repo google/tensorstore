@@ -1,0 +1,5 @@
+cc_library(
+    name = "curl",
+    linkopts = ["-lcurl"],
+    visibility = ["//visibility:public"],
+)

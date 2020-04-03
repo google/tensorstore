@@ -1,0 +1,14 @@
+{
+    "blockSize": [
+        3,
+        2
+    ],
+    "compression": {
+        "type": "raw"
+    },
+    "dataType": "uint16",
+    "dimensions": [
+        5,
+        4
+    ]
+}

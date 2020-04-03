@@ -1,0 +1,67 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://github.com/google/tensorstore/json-schema/key-value-store/driver/gcs
+title: '``gcs`` Key-Value Store'
+allOf:
+- $ref: https://github.com/google/tensorstore/json-schema/key-value-store
+- type: object
+  properties:
+    driver:
+      const: gcs
+    bucket:
+      type: string
+      title: Google Cloud Storage bucket to use.
+      description: |
+        The Google Cloud account that is used must have appropriate permissions
+        on the bucket.  If the bucket has `Requestor Pays
+        <https://cloud.google.com/kvstore/docs/requester-pays>`_ enabled, either
+        additional permissions are required or a separate billing project must
+        be specified using
+        :json-schema:`https://github.com/google/tensorstore/json-schema/context/gcs_user_project`.
+    gcs_request_concurrency:
+      $ref: https://github.com/google/tensorstore/json-schema/context-resource
+      description: >-
+        Specifies or references a previously defined
+        :json-schema:`https://github.com/google/tensorstore/json-schema/context/gcs_request_concurrency`.
+    gcs_user_project:
+      $ref: https://github.com/google/tensorstore/json-schema/context-resource
+      description: >-
+        Specifies or references a previously defined
+        :json-schema:`https://github.com/google/tensorstore/json-schema/context/gcs_user_project`.
+  required:
+  - bucket
+definitions:
+  gcs_request_concurrency:
+    $id: https://github.com/google/tensorstore/json-schema/context/gcs_request_concurrency
+    title: '``gcs_request_concurrency`` context resource'
+    description: >-
+      Specifies a limit on the number of concurrent requests to Google Cloud
+      Storage.
+    type: object
+    properties:
+      limit:
+        oneOf:
+        - type: integer
+          minimum: 1
+        - const: "shared"
+        description: >-
+          The maximum number of concurrent requests.  If the special value of
+          :json:`"shared"` is specified, a shared global limit of 32 applies.
+        default: "shared"
+  gcs_user_project:
+    $id: https://github.com/google/tensorstore/json-schema/context/gcs_user_project
+    title: '``gcs_user_project`` context resource'
+    description: |
+      Specifies a Google Cloud project to bill for Google Cloud Storage
+      requests.  If a :json-member:`project_id` is not specified, requests are
+      billed to the project that owns the bucket by default.  For `Requestor
+      Pays <https://cloud.google.com/kvstore/docs/requester-pays>`_ buckets,
+      however, requests without a :json-member:`project_id` specified will fail
+      unless the Google Cloud account has additional permissions.
+    type: object
+    properties:
+      project_id:
+        type: string
+        title: |
+          Google Cloud project id, e.g. :json:`"my-project"`.  The Google Cloud
+          account that is used must have appropriate permissions to bill to the
+          specified project.

@@ -1,0 +1,249 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://github.com/google/tensorstore/json-schema/driver/neuroglancer_precomputed
+title: '``neuroglancer_precomputed`` Driver'
+allOf:
+- $ref: https://github.com/google/tensorstore/json-schema/driver/key-value-store-backed-chunk-driver
+- type: object
+  properties:
+    driver:
+      const: neuroglancer_precomputed
+    path:
+      type: string
+      default: ''
+      examples:
+      - path/to/array
+      description: >-
+        Path within the
+        :json-schema:`https://github.com/google/tensorstore/json-schema/key-value-store`
+        specified by :json-member:`storage` to the multiscale volume.
+    scale_index:
+      type: integer
+      minimum: 0
+      title: Zero-based index of the scale to open or create.
+      description: >-
+        When opening an existing volume, this member may be specified to
+        explicitly indicate the scale to open.  Otherwise, the first scale
+        matching the :json-member:`resolution` constraint, if any, specified by
+        the :json-member:`scale_metadata` member, is chosen.  To create a new
+        scale, this must either be left unspecified or equal the number of
+        existing scales (which is also the index that will be assigned to the
+        new scale).
+    multiscale_metadata:
+      type: object
+      title: Scale-independent metadata.
+      description: >-
+        Specifies the scale-independent metadata of a new volume exactly as in
+        the `info file
+        <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#info-json-file-specification>`_,
+        except that not all members are required.  Required when creating a new
+        multiscale volume.  When opening an existing volume or creating a new
+        scale within an existing multiscale volume, specifies constraints on the
+        existing metadata.
+      properties:
+        type:
+          enum:
+          - image
+          - segmentation
+          title: Specifying the type of volume.
+          description: >-
+            This has no bearing on TensorStore, but is used by Neuroglancer to
+            pick the default layer type to use.  Required when creating a new
+            multiscale volume.
+        data_type:
+          enum:
+          - uint8
+          - uint16
+          - uint32
+          - uint64
+          - float32
+          title: Specifies the data type.
+          description: >-
+            Required when creating a new multiscale volume.
+        num_channels:
+          type: integer
+          title: Number of channels.
+          description: >-
+            Required when creating a new volume.
+    scale_metadata:
+      type: object
+      title: Per-scale metadata.
+      description: >-
+        Specifies the per-scale metadata of a new volume as in the `info file
+        <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#info-json-file-specification>`_,
+        except that not all members are required, and the
+        :json-member:`chunk_size` member for specifying a single chunk size
+        takes the place of the :json-member:`chunk_sizes` member in the ``info``
+        file.  Required when creating a new scale.  When opening an existing
+        scale, serves to select the scale to open and constrains the existing
+        metadata.
+      properties:
+        key:
+          type: string
+          title: >-
+            Specifies the scale key (relative to :json-member:`path`).
+          description: >-
+            When opening an existing scale, may be specified to select the scale
+            by :json-member:`key`.  When creating a new scale, if not specified,
+            defaults to :json:`"<xres>_<yres>_<zres>"`, where ``[xres, yres,
+            zres]`` is the :json-member:`resolution`.
+        size:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: integer
+            minimum: 0
+          title: >-
+            Voxel dimensions of the volume (XYZ order).
+          description: >-
+            Required when creating a new scale.
+          examples:
+          - - 500
+            - 500
+            - 500
+        voxel_offset:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: integer
+          title: >-
+            Voxel origin of the volume (XYZ order).
+          description: >-
+            If specified, :json-member:`size` must also be specified.
+          default:
+          - 0
+          - 0
+          - 0
+        chunk_size:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: integer
+            minimum: 1
+          title: >-
+            Chunk dimensions (XYZ order).
+          description: >-
+            Required when creating a new scale.  When opening an existing scale
+            with multiple supported :json-member:`chunk_sizes`, may be specified
+            to select the chunk size to use.  Otherwise, the first supported
+            chunk size is used.
+          examples:
+          - - 500
+            - 500
+            - 500
+        resolution:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: number
+          title: >-
+            Voxel size in nanometers (XYZ order).
+          description: >-
+            When opening an existing scale, may be specified to select the scale
+            by :json-member:`resolution`.  Required when creating a new scale.
+        encoding:
+          enum:
+          - raw
+          - jpeg
+          - compressed_segmentation
+          title: >-
+            Specifies the chunk encoding.
+          description: >-
+            Required when creating a new scale.
+        compressed_segmentation_block_size:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: number
+          title: >-
+            Block size for compressed segmentation encoding.
+          description: >-
+            If :json-member:`encoding` is :json:`"compressed_segmentation"`,
+            required when creating a new scale, and serves as a constraint when
+            opening an existing scale.  Otherwise, must not be specified.
+        sharding:
+          oneOf:
+          - $ref: '#sharding-spec'
+          - type: 'null'
+          description: >-
+            Specifies to use the `unsharded
+            <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#unsharded-chunk-storage>`_
+            (indicated by :json:`null`) or `sharded
+            <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#sharded-chunk-storage>`_
+            format.  When creating a new scale, if not specified, the unsharded
+            format is used.
+definitions:
+  sharding-spec:
+    $id: '#sharding-spec'
+    title: Sharding
+    type: object
+    description: >-
+      Specifies the sharded format within the :json-member:`scale_metadata`
+      property.
+    properties:
+      '@type':
+        const: neuroglancer_uint64_sharded_v1
+      preshift_bits:
+        type: integer
+        title: >-
+          Number of low-order bits of the chunk ID that do not contribute to the
+          hashed chunk ID.
+        minimum: 0
+        maximum: 64
+      hash:
+        enum:
+        - identity
+        - murmurhash3_x86_128
+        title: >-
+          Specifies the hash function used to map chunk IDs to shards.
+      minishard_bits:
+        type: integer
+        title: >-
+          Number of bits of the hashed chunk ID that determine the minishard
+          number.
+        description: >-
+          The number of minishards within each shard is equal to
+          :math:`2^{\mathrm{minishard\_bits}}`.  The minishard number is equal
+          to bits ``[0, minishard_bits)`` of the hashed chunk id.
+        minimum: 0
+        maximum: 64
+      shard_bits:
+        type: integer
+        title: >-
+          Number of bits of the hashed chunk ID that determine the shard number.
+        description: >-
+          The number of shards is equal to :math:`2^{\mathrm{shard\_bits}}`.
+          The shard number is equal to bits ``[minishard_bits,
+          minishard_bits+shard_bits)`` of the hashed chunk ID.
+        minimum: 0
+        maximum: 64
+      minishard_index_encoding:
+        title: >-
+          Specifies the encoding of the minishard index.
+        description: >-
+          Normally :json:`"gzip"` is a good choice.
+        enum:
+        - raw
+        - gzip
+        default: raw
+      data_index_encoding:
+        title: >-
+          Specifies the encoding of the data chunks.
+        description: >-
+          Normally :json:`"gzip"` is a good choice, unless the volume uses
+          :json:`"jpeg"` :json-member:`encoding`.
+        enum:
+        - raw
+        - gzip
+        default: raw
+    required:
+    - '@type'
+    - preshift_bits
+    - hash
+    - minishard_bits
+    - shard_bits
+

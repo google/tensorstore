@@ -1,0 +1,172 @@
+load("@com_github_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix", "package_relative_path")
+
+package(default_visibility = ["//visibility:private"])
+
+config_setting(
+    name = "cpu_x86_64",
+    constraint_values = ["@platforms//cpu:x86_64"],
+)
+
+config_setting(
+    name = "windows",
+    constraint_values = ["@platforms//os:windows"],
+)
+
+BLOSC_LOCAL_DEFINES = select({
+    ":cpu_x86_64": [
+        "SHUFFLE_SSE2_ENABLED",
+        # Always build AVX2 support.  It is only used at runtime if the CPU
+        # supports it.
+        "SHUFFLE_AVX2_ENABLED",
+    ],
+    "//conditions:default": [],
+}) + [
+    # This makes the BLOSC_NO_EXPORT macro, which would otherwise make internal
+    # functions have hidden visibility, a no-op.  Hidden visibility isn't
+    # compatible with using multiple cc_library rules to compile this library,
+    # which is done in order to compile the AVX2 code with different compiler
+    # options.
+    "BLOSC_TESTING=1",
+    # Enable support for all of the compression libraries.
+    "HAVE_ZLIB",
+    "HAVE_LZ4",
+    "HAVE_ZSTD",
+    "HAVE_SNAPPY",
+]
+
+BLOSC_COPTS = ["-I" + package_relative_path("blosc")]
+
+cc_library(
+    name = "blosc_common",
+    hdrs = [
+        "blosc/blosc-common.h",
+        "blosc/blosc-comp-features.h",
+        "blosc/blosc-export.h",
+    ],
+    copts = BLOSC_COPTS,
+    local_defines = BLOSC_LOCAL_DEFINES,
+)
+
+cc_library(
+    name = "shuffle_generic",
+    srcs = [
+        "blosc/bitshuffle-generic.c",
+        "blosc/shuffle-generic.c",
+    ],
+    hdrs = [
+        "blosc/bitshuffle-generic.h",
+        "blosc/shuffle-generic.h",
+    ],
+    copts = BLOSC_COPTS,
+    local_defines = BLOSC_LOCAL_DEFINES,
+    deps = [
+        ":blosc_common",
+    ],
+)
+
+cc_library(
+    name = "shuffle_sse2",
+    srcs = [
+        "blosc/bitshuffle-sse2.c",
+        "blosc/shuffle-sse2.c",
+    ],
+    hdrs = [
+        "blosc/bitshuffle-sse2.h",
+        "blosc/shuffle-sse2.h",
+    ],
+    copts = BLOSC_COPTS,
+    local_defines = BLOSC_LOCAL_DEFINES,
+    deps = [
+        ":blosc_common",
+        ":shuffle_generic",
+    ],
+)
+
+cc_library(
+    name = "shuffle_avx2",
+    srcs = [
+        "blosc/bitshuffle-avx2.c",
+        "blosc/shuffle-avx2.c",
+    ],
+    hdrs = [
+        "blosc/bitshuffle-avx2.h",
+        "blosc/shuffle-avx2.h",
+    ],
+    copts = BLOSC_COPTS + select({
+        # This should really be based on the compiler, rather than the platform,
+        # but it is difficult to reliably detect the compiler.
+        ":windows": ["/arch:AVX2"],
+        "//conditions:default": ["-mavx2"],
+    }),
+    local_defines = BLOSC_LOCAL_DEFINES,
+    deps = [
+        ":blosc_common",
+        ":shuffle_generic",
+        ":shuffle_sse2",
+    ],
+)
+
+cc_library(
+    name = "shuffle",
+    srcs = [
+        "blosc/shuffle.c",
+    ],
+    hdrs = ["blosc/shuffle.h"],
+    copts = BLOSC_COPTS,
+    local_defines = BLOSC_LOCAL_DEFINES,
+    deps = [
+        ":blosc_common",
+        ":shuffle_generic",
+    ] + select({
+        ":cpu_x86_64": [
+            ":shuffle_avx2",
+            ":shuffle_sse2",
+        ],
+        "//conditions:default": [],
+    }) + select({
+        ":windows": [":win32"],
+        "//conditions:default": [],
+    }),
+)
+
+cc_library(
+    name = "win32",
+    hdrs = [
+        "blosc/win32/pthread.c",
+        "blosc/win32/pthread.h",
+        "blosc/win32/stdint-windows.h",
+    ],
+    copts = BLOSC_COPTS,
+    local_defines = BLOSC_LOCAL_DEFINES,
+)
+
+cc_library_with_strip_include_prefix(
+    name = "blosc",
+    srcs = [
+        "blosc/blosc.c",
+        "blosc/blosclz.c",
+        "blosc/blosclz.h",
+        "blosc/blosclz_impl.inc",
+        "blosc/fastcopy.c",
+        "blosc/fastcopy.h",
+    ],
+    hdrs = [
+        "blosc/blosc.h",
+        "blosc/blosc-export.h",
+    ],
+    copts = BLOSC_COPTS,
+    local_defines = BLOSC_LOCAL_DEFINES,
+    strip_include_prefix = "blosc",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":blosc_common",
+        ":shuffle",
+        "@com_facebook_zstd//:zstd",
+        "@com_google_snappy//:snappy",
+        "@net_zlib//:zlib",
+        "@org_lz4//:lz4",
+    ] + select({
+        ":windows": [":win32"],
+        "//conditions:default": [],
+    }),
+)

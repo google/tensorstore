@@ -1,0 +1,23 @@
+# Editor files
+*~
+.#*
+\#*#
+.DS_Store
+
+# Build artifacts
+/bazel-*
+bazel-*
+
+# VSCode artifacts
+.vscode
+
+# Python packaging artifacts
+/dist
+/.eggs
+*.egg-info
+
+# Python artifacts
+__pycache__
+*.pyc
+/python/tensorstore/*.so
+/python/tensorstore/*.pyd

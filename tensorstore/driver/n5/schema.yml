@@ -1,0 +1,188 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://github.com/google/tensorstore/json-schema/driver/n5
+title: '``n5`` Driver'
+allOf:
+- $ref: https://github.com/google/tensorstore/json-schema/driver/key-value-store-backed-chunk-driver
+- type: object
+  properties:
+    driver:
+      const: n5
+    metadata:
+      type: object
+      title: N5 array metadata.
+      description: |
+        Specifies the metdata of a dataset exactly as in the `attributes.json
+        file
+        <https://github.com/saalfeldlab/n5#file-system-specification-version-203-snapshot>`_.
+        Required when creating a new dataset.  When opening an existing dataset,
+        specifies constraints on the existing metadata.
+      properties:
+        dimensions:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+          title: Dimensions of the dataset.
+          description: Required when creating a new array.
+          examples:
+          - [500, 500, 500]
+        blockSize:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+          title: Chunk dimensions.
+          description: |
+            Required when creating a new dataset.  Must have the same length as
+            :json-member:`dimensions`.
+          examples:
+          - [64, 64, 64]
+        dataType:
+          type: string
+          enum:
+          - uint8
+          - uint16
+          - uint32
+          - uint64
+          - int8
+          - int16
+          - int32
+          - int64
+          - float32
+          - float64
+          title: Specifies the data type.
+          description: Required when creating a new dataset.
+        compression:
+          $ref: '#compression'
+          title: Specifies the chunk compression method.
+definitions:
+  compression:
+    $id: '#compression'
+    title: Compression
+    type: object
+    description: |
+      The :json-member:`type` member identifies the compression method.  The
+      remaining members are specific to the compression method.
+    properties:
+      type:
+        type: string
+        description: Identifies the compressor.
+    required:
+    - type
+  compression-raw:
+    $id: '#compression-raw'
+    title: '``raw`` compression'
+    description: Chunks are encoded directly as big endian values without compression.
+    type: object
+    properties:
+      type:
+        const: raw
+    required:
+    - type
+  compression-gzip:
+    $id: '#compression-gzip'
+    title: '``gzip`` compression'
+    description: Specifies zlib compression with a gzip or zlib header.
+    type: object
+    properties:
+      type:
+        const: gzip
+      level:
+        type: integer
+        minimum: -1
+        maximum: 9
+        default: -1
+        title: Specifies the zlib compression level to use.
+        description: |
+          Level 0 indicates no compression (fastest), while level 9 indicaets
+          the best compression ratio (slowest).  The default value of :json:`-1`
+          indicates to use the zlib default compression level (equal to 6).
+      useZlib:
+        type: boolean
+        default: false
+        description: If :json:`true`, use a zlib header.  Otherwise, use a gzip header.
+    required:
+    - type
+  compression-bzip2:
+    $id: '#compression-bzip2'
+    title: '``bzip2`` compression'
+    description: |
+      Specifies `bzip2 <https://sourceware.org/bzip2/>`_ compression.
+    type: object
+    properties:
+      type:
+        const: bzip2
+      blockSize:
+        type: integer
+        minimum: 1
+        maximum: 9
+        default: 9
+        title: Specifies the bzip2 block size to use (in units of 100KB), which also
+          determine the compression level.
+    required:
+    - type
+  compression-xz:
+    $id: '#compression-xz'
+    title: '``xz`` compression'
+    description: Specifies `xz <https://tukaani.org/xz/>`_ compression.
+    type: object
+    properties:
+      type:
+        const: xz
+      preset:
+        type: integer
+        minimum: 0
+        maximum: 9
+        default: 6
+        description: |
+          Specifies the XZ preset level.  Preset 0 corresponds to the fastest
+          compression with the worst compression ratio, while preset 9
+          corresponds to the slowest compression with the best compression
+          ratio.
+    required:
+    - type
+  compression-blosc:
+    $id: '#compression-blosc'
+    title: '``blosc`` compression'
+    description: Specifies `Blosc <https://github.com/Blosc/c-blosc>`_ compression.
+    type: object
+    properties:
+      type:
+        const: blosc
+      codec:
+        enum:
+        - blosclz
+        - lz4
+        - lz4hc
+        - snappy
+        - zlib
+        - zstd
+        default: lz4
+        description: Specifies the compression method used by Blosc.
+      level:
+        type: integer
+        minimum: 0
+        maximum: 9
+        default: 5
+        title: Specifies the Blosc compression level to use.
+        description: Higher values are slower but achieve a higher compression ratio.
+      shuffle:
+        oneOf:
+        - const: 0
+          title: No shuffle
+        - const: 1
+          title: Byte-wise shuffle
+        - const: 2
+          title: Bit-wise shuffle
+        default: -1
+    required:
+    - type
+    - codec
+    - level
+    - shuffle
+    examples:
+    - type: blosc
+      codec: blosclz
+      level: 9
+      shuffle: 2
+

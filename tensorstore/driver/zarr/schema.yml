@@ -1,0 +1,217 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://github.com/google/tensorstore/json-schema/driver/zarr
+title: '``zarr`` Driver'
+allOf:
+- $ref: https://github.com/google/tensorstore/json-schema/driver/key-value-store-backed-chunk-driver
+- type: object
+  properties:
+    driver:
+      const: zarr
+    field:
+      oneOf:
+      - type: string
+      - type: 'null'
+      title: Name of field to open.
+      description: |
+        Must be specified if the :json-member:`dtype` specified in the array
+        metadata has more than one field.
+      default: null
+    key_encoding:
+      enum:
+      - .
+      - /
+      type: string
+      default: .
+      title: Specifies the encoding of chunk indices into key-value store keys.
+      description: |
+        The default value of :json:`"."` corresponds to the default encoding
+        used by Zarr, while :json:`"/"` corresponds to the encoding used by
+        :py:obj:`zarr.storage.NestedDirectoryStore`.
+    metadata:
+      title: Zarr array metadata.
+      description: |
+        Specifies the metadata of a new array exactly as in the `.zarray
+        metadata file
+        <https://zarr.readthedocs.io/en/stable/spec/v2.html#metadata>`_, except
+        that not all members are required.  Required when creating a new array.
+        When opening an existing array, specifies constraints on the existing
+        metadata.
+      type: object
+      properties:
+        zarr_format:
+          const: 2
+        shape:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+          title: Dimensions of the array.
+          description: |
+            Required when creating a new array.
+          examples:
+          - [500, 500, 500]
+        chunks:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+          title: Chunk dimensions.
+          description: Required when creating a new array.  Must have the same length
+            as :json-member:`shape`.
+          examples:
+          - [64, 64, 64]
+        dtype:
+          title: Specifies the single-field or multiple-field data type.
+          description: |
+            Refer to the `Zarr data type encoding specification
+            <https://zarr.readthedocs.io/en/stable/spec/v2.html#data-type-encoding>`_.
+        compressor:
+          oneOf:
+          - $ref: '#compressor'
+          - type: 'null'
+          description: |
+            Specifies the chunk compressor.  Specifying :json:`null` disables
+            compression.  Required when creating a new array.
+        fill_value:
+          title: Specifies the fill value.
+          description: When creating a new array, defaults to :json:`null`.
+        order:
+          enum:
+          - C
+          - F
+          title: Specifies the data layout for encoded chunks.
+          description: |
+            :json:`"C"` for C order, :json:`"F"` for Fortran order.  When
+            creating a new array, defaults to :json:`"C"`.
+        filters:
+          type: 'null'
+          title: Specifies the filters to apply to chunks.
+          description: |
+            When encoding chunk, filters are applied before the compressor.
+            Currently, filters are not supported.
+examples:
+- driver: zarr
+  "kvstore":
+    driver: gcs
+    bucket: my-bucket
+  path: path/to/array
+  key_encoding: .
+  metadata:
+    shape:
+    - 1000
+    - 1000
+    chunks:
+    - 100
+    - 100
+    dtype: <i2
+    order: C
+    compressor:
+      id: blosc
+      shuffle: -1
+      clevel: 5
+      cname: lz4
+definitions:
+  compressor:
+    $id: '#compressor'
+    title: Compressor
+    type: object
+    description: |
+      The :json-member:`id` member identifies the compressor.  The remaining
+      members are specific to the compressor.
+    properties:
+      id:
+        type: string
+        description: Identifies the compressor.
+    required:
+    - id
+  compressor-zlib:
+    $id: '#compressor-zlib'
+    title: '``zlib`` compressor'
+    description: Specifies zlib compression with a zlib or gzip header.
+    type: object
+    properties:
+      id:
+        enum:
+        - zlib
+        - gzip
+      level:
+        type: integer
+        minimum: 0
+        maximum: 9
+        default: 1
+        title: Specifies the zlib compression level to use.
+        description: |
+          Level 0 indicates no compression (fastest), while level 9 indicates
+          the best compression ratio (slowest).
+    examples:
+    - id: gzip
+      level: 9
+  compressor-blosc:
+    $id: '#compressor-blosc'
+    title: '``blosc`` compressor'
+    description: Specifies `Blosc <https://github.com/Blosc/c-blosc>`_ compression.
+    type: object
+    properties:
+      id:
+        const: blosc
+      cname:
+        enum:
+        - blosclz
+        - lz4
+        - lz4hc
+        - snappy
+        - zlib
+        - zstd
+        default: lz4
+        description: Specifies the compression method used by Blosc.
+      clevel:
+        type: integer
+        minimum: 0
+        maximum: 9
+        default: 5
+        title: Specifies the Blosc compression level to use.
+        description: Higher values are slower but achieve a higher compression ratio.
+      shuffle:
+        oneOf:
+        - const: -1
+          title: Automatic shuffle.
+          description: |
+            Bit-wise shuffle if the element size is 1 byte, otherwise byte-wise
+            shuffle.
+        - const: 0
+          title: No shuffle
+        - const: 1
+          title: Byte-wise shuffle
+        - const: 2
+          title: Bit-wise shuffle
+        default: -1
+      blocksize:
+        type: integer
+        minimum: 0
+        title: Specifies the Blosc blocksize.
+        description: |
+          The default value of 0 causes the block size to be chosen
+          automatically.
+    examples:
+    - id: blosc
+      cname: blosclz
+      clevel: 9
+      shuffle: 2
+  compressor-bz2:
+    $id: '#compressor-bz2'
+    title: '``bz2`` compressor'
+    description: Specifies `bzip2 <https://sourceware.org/bzip2/>`_ compression.
+    type: object
+    properties:
+      id:
+        const: bz2
+      level:
+        type: integer
+        minimum: 1
+        maximum: 9
+        default: 1
+        title: Specifies the bzip2 buffer size/compression level to use.
+        description: |
+          A level of 1 indicates the smallest buffer (fastest), while level 9
+          indicates the best compression ratio (slowest).
+

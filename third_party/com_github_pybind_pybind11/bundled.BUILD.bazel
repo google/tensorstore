@@ -1,0 +1,16 @@
+load("@com_github_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+exports_files(["LICENSE"])
+
+cc_library_with_strip_include_prefix(
+    name = "pybind11",
+    hdrs = glob(include = ["include/pybind11/**/*.h"]),
+    strip_include_prefix = "include",
+    deps = [
+        "@local_config_python//:python_headers",
+    ],
+)

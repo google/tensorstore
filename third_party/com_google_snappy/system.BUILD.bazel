@@ -1,0 +1,5 @@
+cc_library(
+    name = "snappy",
+    linkopts = ["-lsnappy"],
+    visibility = ["//visibility:public"],
+)

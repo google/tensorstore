@@ -1,0 +1,21 @@
+load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+
+package(default_visibility = ["//visibility:private"])
+
+exports_files(glob(["*"]))
+
+# We assume libstdc++ when compiling on Linux.
+config_setting(
+    name = "libstdc++",
+    constraint_values = ["@platforms//os:linux"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "std_filesystem",
+    linkopts = select({
+        ":libstdc++": ["-lstdc++fs"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+)

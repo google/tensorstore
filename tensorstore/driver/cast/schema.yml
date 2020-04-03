@@ -1,0 +1,22 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://github.com/google/tensorstore/json-schema/driver/cast
+title: '``cast`` Driver'
+allOf:
+- $ref: https://github.com/google/tensorstore/json-schema/tensorstore
+- type: object
+  properties:
+    driver:
+      const: cast
+    base:
+      $ref: https://github.com/google/tensorstore/json-schema/tensorstore
+      title: Base TensorStore to convert.
+    dtype:
+      $ref: https://github.com/google/tensorstore/json-schema/dtype
+      title: |
+        Specifies the data type under which to view the :json-member:`base`
+        TensorStore.
+  required:
+    - base
+    - dtype
+examples:
+  - {"driver": "cast", "dtype": "int32", "base": {"driver": "zarr", "kvstore": {"driver": "gcs", "bucket": "my-bucket"}}}

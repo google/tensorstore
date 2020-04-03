@@ -1,0 +1,114 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://github.com/google/tensorstore/json-schema/driver/key-value-store-backed-chunk-driver
+title: Chunked storage driver
+description: >-
+  Common options supported by all chunked storage drivers.
+allOf:
+- $ref: https://github.com/google/tensorstore/json-schema/tensorstore
+- type: object
+  properties:
+    kvstore:
+      $ref: https://github.com/google/tensorstore/json-schema/key-value-store
+      description: >-
+        Specifies the underlying storage mechanism.
+    path:
+      type: string
+      default: ''
+      examples:
+      - path/to/data
+      description: >-
+        Path within the
+        :json-schema:`https://github.com/google/tensorstore/json-schema/key-value-store`
+        specified by :json-member:`kvstore`.
+    open:
+      type: boolean
+      description: >-
+        Open an existing TensorStore.  If neither :json-member:`open` nor
+        :json-member:`create` is specified, defaults to :json:`true`.
+    create:
+      type: boolean
+      description: >-
+        Create a new TensorStore.  Specify :json:`true` for both :json-member:`open`
+        and :json-member:`create` to permit either opening an existing TensorStore
+        or creating a new TensorStore if it does not already exist.
+      default: false
+    delete_existing:
+      type: boolean
+      description: >-
+        Delete any existing data at the specified path before creating
+        a new TensorStore.  Requires that :json-member:`create` is
+        :json:`true`, and that :json-member:`open` is :json:`false`.
+      default: false
+    allow_metadata_mismatch:
+      type: boolean
+      description: >-
+        Allow a mismatch between the existing metadata and the
+        metadata specified for creating a new TensorStore.  Requires
+        that :json-member:`create` is :json:`true`.
+      default: false
+    cache_pool:
+      $ref: https://github.com/google/tensorstore/json-schema/context-resource
+      description: >-
+        Specifies or references a previously defined
+        :json-schema:`https://github.com/google/tensorstore/json-schema/context/cache_pool`.
+        It is normally more convenient to specify a default
+        :json-member:`cache_pool` in the :json-member:`context`.
+      default: cache_pool
+    data_copy_concurrency:
+      $ref: https://github.com/google/tensorstore/json-schema/context-resource
+      description: >-
+        Specifies or references a previously defined
+        :json-schema:`https://github.com/google/tensorstore/json-schema/context/data_copy_concurrency`.
+        It is normally more convenient to specify a default
+        :json-member:`data_copy_concurrency` in the :json-member:`context`.
+      default: data_copy_concurrency
+    recheck_cached_metadata:
+      $ref: https://github.com/google/tensorstore/json-schema/cache-revalidation-bound
+      default: open
+      description: |
+        Time after which cached metadata is assumed to be fresh.  Cached
+        metadata older than the specified time is revalidated prior to use.  The
+        metadata is used to check the bounds of every read or write operation.
+
+        Specifying :json:`true` means that the metadata will be revalidated
+        prior to every read or write operation.  With the default value of
+        :json:`"open"`, any cached metadata is revalidated when the TensorStore
+        is opened but is not rechecked for each read or write operation.
+    recheck_cached_data:
+      $ref: https://github.com/google/tensorstore/json-schema/cache-revalidation-bound
+      default: true
+      description: |
+        Time after which cached data is assumed to be fresh.  Cached data older
+        than the specified time is revalidated prior to being returned from a
+        read operation.  Partial chunk writes are always consistent regardless
+        of the value of this option.
+
+        The default value of :json:`true` means that cached data is revalidated
+        on every read.  To enable in-memory data caching, you must both specify
+        a :json-schema:`https://github.com/google/tensorstore/json-schema/context/cache_pool`
+        with a non-zero :json-member:`total_bytes_limit` and also specify
+        :json:`false`, :json:`"open"`, or an explicit time bound for
+        :json-member:`recheck_cached_data`.
+  required:
+  - kvstore
+definitions:
+  cache-revalidation-bound:
+    $id: https://github.com/google/tensorstore/json-schema/cache-revalidation-bound
+    title: Cache revalidation bound
+    description: Determines under what circumstances cached data is revalidated.
+    oneOf:
+    - const: true
+      description: >-
+        Revalidate cached data at every operation.
+    - const: false
+      description: >-
+        Assume cached data is always fresh and never revalidate.
+    - const: open
+      description: >-
+        Revalidate cached data older than the time at which the TensorStore was
+        opened.
+    - type: number
+      description: >-
+        Revalidate cached data older than the specified time in seconds since
+        the unix epoch.
+

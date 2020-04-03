@@ -1,0 +1,211 @@
+load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+licenses(["notice"])
+
+tensorstore_cc_library(
+    name = "oauth2",
+    srcs = [
+        "auth_provider.cc",
+        "fixed_token_auth_provider.cc",
+        "gce_auth_provider.cc",
+    ],
+    hdrs = [
+        "auth_provider.h",
+        "fixed_token_auth_provider.h",
+        "gce_auth_provider.h",
+    ],
+    deps = [
+        ":oauth_utils",
+        "//tensorstore/internal:env",
+        "//tensorstore/internal:json",
+        "//tensorstore/internal:path",
+        "//tensorstore/internal:retry",
+        "//tensorstore/internal/http:curl",
+        "//tensorstore/internal/http:http_response",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:optional",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "fixed_token_auth_provider_test",
+    size = "small",
+    srcs = ["fixed_token_auth_provider_test.cc"],
+    deps = [
+        ":oauth2",
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "gce_auth_provider_test",
+    size = "small",
+    srcs = ["gce_auth_provider_test.cc"],
+    deps = [
+        ":oauth2",
+        "//tensorstore/internal:env",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "oauth2_auth_provider",
+    srcs = ["oauth2_auth_provider.cc"],
+    hdrs = ["oauth2_auth_provider.h"],
+    deps = [
+        ":oauth2",
+        ":oauth_utils",
+        "//tensorstore/internal:env",
+        "//tensorstore/internal:json",
+        "//tensorstore/internal:path",
+        "//tensorstore/internal/http:curl",
+        "//tensorstore/internal/http:http_response",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "oauth2_auth_provider_test",
+    size = "small",
+    srcs = ["oauth2_auth_provider_test.cc"],
+    deps = [
+        ":oauth2_auth_provider",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "google_service_account_auth_provider",
+    srcs = ["google_service_account_auth_provider.cc"],
+    hdrs = ["google_service_account_auth_provider.h"],
+    deps = [
+        ":oauth2",
+        ":oauth_utils",
+        "//tensorstore/internal:env",
+        "//tensorstore/internal:json",
+        "//tensorstore/internal:path",
+        "//tensorstore/internal/http:curl",
+        "//tensorstore/internal/http:http_response",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "google_service_account_auth_provider_test",
+    size = "small",
+    srcs = ["google_service_account_auth_provider_test.cc"],
+    deps = [
+        ":google_service_account_auth_provider",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "google_auth_provider",
+    srcs = [
+        "google_auth_provider.cc",
+    ],
+    hdrs = [
+        "google_auth_provider.h",
+    ],
+    deps = [
+        ":google_service_account_auth_provider",
+        ":oauth2",
+        ":oauth2_auth_provider",
+        ":oauth_utils",
+        "//tensorstore/internal:env",
+        "//tensorstore/internal:json",
+        "//tensorstore/internal:logging",
+        "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal:path",
+        "//tensorstore/internal:retry",
+        "//tensorstore/internal/http:curl",
+        "//tensorstore/internal/http:http_response",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:optional",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "google_auth_provider_test",
+    size = "small",
+    srcs = ["google_auth_provider_test.cc"],
+    deps = [
+        ":google_auth_provider",
+        ":google_service_account_auth_provider",
+        ":oauth2",
+        ":oauth2_auth_provider",
+        ":oauth_utils",
+        "//tensorstore/internal:env",
+        "//tensorstore/internal:path",
+        "//tensorstore/internal:test_util",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:to_string",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "oauth_utils",
+    srcs = [
+        "oauth_utils.cc",
+    ],
+    hdrs = [
+        "oauth_utils.h",
+    ],
+    deps = [
+        "//tensorstore/internal:json",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_boringssl//:crypto",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "oauth_utils_test",
+    size = "small",
+    srcs = ["oauth_utils_test.cc"],
+    deps = [
+        ":oauth_utils",
+        "//tensorstore/internal:json_gtest",
+        "//tensorstore/util:status",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

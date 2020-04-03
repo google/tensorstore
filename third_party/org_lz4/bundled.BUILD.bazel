@@ -1,0 +1,41 @@
+load("@com_github_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix", "package_relative_path")
+
+package(default_visibility = ["//visibility:private"])
+
+licenses(["notice"])
+
+exports_files(["lib/LICENSE"])
+
+# .c files that are #included (needed to avoid sandbox issues)
+cc_library(
+    name = "lz4_internal",
+    hdrs = [
+        "lib/lz4.c",
+        "lib/xxhash.c",
+        "lib/xxhash.h",
+    ],
+)
+
+cc_library_with_strip_include_prefix(
+    name = "lz4",
+    srcs = [
+        "lib/lz4.c",
+        "lib/lz4frame.c",
+        "lib/lz4hc.c",
+    ],
+    hdrs = [
+        "lib/lz4.h",
+        "lib/lz4frame.h",
+        "lib/lz4hc.h",
+    ],
+    copts = ["-I" + package_relative_path("lib")],
+    local_defines = [
+        # Inline XXH for better performance and to avoid exposing symbols.
+        "XXH_INLINE_ALL",
+    ],
+    strip_include_prefix = "lib",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":lz4_internal",
+    ],
+)

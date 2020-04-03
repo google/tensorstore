@@ -1,0 +1,15 @@
+{
+    "blockSize": [
+        3,
+        2
+    ],
+    "compression": {
+        "blockSize": 1,
+        "type": "bzip2"
+    },
+    "dataType": "uint16",
+    "dimensions": [
+        5,
+        4
+    ]
+}

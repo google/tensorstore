@@ -1,0 +1,5 @@
+cc_library(
+    name = "bzip2",
+    linkopts = ["-lbz2"],
+    visibility = ["//visibility:public"],
+)

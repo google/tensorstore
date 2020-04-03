@@ -1,0 +1,11 @@
+# Enable using platform specific build settings
+build --enable_platform_specific_config
+
+# Configure C++17 mode
+build:linux --copt=-fdiagnostics-color=always --cxxopt=-std=c++17 --cxxopt=-fsized-deallocation
+build:macos --copt=-fdiagnostics-color=always --cxxopt=-std=c++17 --cxxopt=-fsized-deallocation
+build:freebsd --copt=-fdiagnostics-color=always --cxxopt=-std=c++17 --cxxopt=-fsized-deallocation
+build:windows --cxxopt=/std:c++17
+
+# Windows 10 RS1 required for rename/delete with POSIX semantics
+build:windows --copt=-D_WIN32_WINNT=0x0A000002

@@ -1,0 +1,16 @@
+{
+    "blockSize": [
+        3,
+        2
+    ],
+    "compression": {
+        "level": 1,
+        "type": "gzip",
+        "useZlib": false
+    },
+    "dataType": "uint16",
+    "dimensions": [
+        5,
+        4
+    ]
+}
