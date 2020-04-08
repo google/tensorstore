@@ -80,6 +80,10 @@ default_role = 'any'
 # Extension options
 # -----------------
 
+mathjax_config = {
+    'displayAlign': 'left',
+}
+
 tensorstore_jsonschema_id_map = {
     'https://github.com/google/tensorstore/json-schema/tensorstore':
         os.path.abspath('tensorstore_schema.yml'),

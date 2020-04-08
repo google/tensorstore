@@ -8,5 +8,3 @@ parameters necessary for opening or creating a TensorStore.
    :title: TensorStore Spec JSON Schema
 
 .. json-schema:: tensorstore_schema.yml#/definitions/dtype
-
-.. json-schema:: index_transform_schema.yml

@@ -75,23 +75,24 @@ one of the following three forms:
    * - constant
      - .. math::
 
-          \mathrm{output}[j] = \mathrm{offset},
+          \mathtt{output}[j] = \mathtt{offset},
 
-       where :math:`\mathrm{offset}` is an arbitrary 64-bit integer.
+       where :math:`\mathtt{offset}` is an arbitrary 64-bit integer.
    * - single input dimension
      - .. math::
 
-          \mathrm{output}[j] = \mathrm{offset} + \mathrm{stride} \cdot \mathrm{input}[\mathrm{input\_dimension}],
+          \mathtt{output}[j] = \mathtt{offset} + \mathtt{stride} \cdot \mathtt{input}[\mathtt{input\_dimension}],
 
-       where :math:`\mathrm{offset}` and :math:`\mathrm{stride}` are arbitrary 64-bit integers and
-       :math:`\mathrm{input\_dimension}` is in the range :math:`[0, m)`.
+       where :math:`\mathtt{offset}` and :math:`\mathtt{stride}` are arbitrary
+       64-bit integers and :math:`\mathtt{input\_dimension}` is in the range
+       :math:`[0, m)`.
    * - index array
      - .. math::
 
-          \mathrm{output}[j] = \mathrm{offset} + \mathrm{stride} \cdot \mathrm{index\_array}[\mathrm{input}],
+          \mathtt{output}[j] = \mathtt{offset} + \mathtt{stride} \cdot \mathtt{index\_array}[\mathtt{input}],
 
-       where :math:`\mathrm{offset}` and :math:`\mathrm{stride}` are
-       arbitrary 64-bit integers and :math:`\mathrm{index\_array}` is
+       where :math:`\mathtt{offset}` and :math:`\mathtt{stride}` are
+       arbitrary 64-bit integers and :math:`\mathtt{index\_array}` is
        an :math:`n`-dimensional array of 64-bit integers indexed by a
        subset of the dimensions of the input index domain with
        explicit lower and upper bounds, stored as a strided array in
@@ -110,3 +111,164 @@ dimension maps may be composed with any other map without needing to
 copying any index arrays.  Only when composing two index array maps is
 it necessary to write a new index array, and in some cases this can
 result in index array with a larger representation size.
+
+.. json-schema:: index_transform_schema.yml
+   :title: JSON Schema
+
+.. _index-domain-alignment:
+
+Alignment and broadcasting
+--------------------------
+
+Many operations in TensorStore involving two :ref:`index domains<index-domain>`,
+such as read, write, and copy operations, automatically *align* the ``source``
+domain to the ``target`` domain.
+
+The following alignment methods are supported (by default, all alignment methods
+are used):
+
+permute
+    Source dimensions are permuted based on their labels in order to align the
+    source domain to the target domain.
+
+translate
+    Source dimensions are translated in order to align the source domain to the
+    target.
+
+broadcast
+    Source dimensions of size 1 do not have to match a target dimension, and not
+    all target dimensions must match a source dimension.
+
+
+
+Alignment is performed based on the following rules:
+
+First, a subset of the ``source`` dimensions are matched to a subset of the
+``target`` dimensions, according to one of two cases:
+
+.. list-table::
+   :widths: auto
+
+   * - M1
+     - At least one of ``source`` or ``target`` is entirely unlabeled (all
+       dimension labels are empty).  In this case, the last
+       :math:`\mathtt{match\_rank} = \min(\mathtt{source\_rank},
+       \mathtt{target\_rank})` dimensions of ``source`` match in order to the
+       last :math:`\mathtt{match\_rank}` dimensions of ``target``,
+       i.e. dimension :math:`\mathtt{source\_rank} - \mathtt{match\_rank} + i`
+       of ``source`` matches to dimension :math:`\mathtt{target\_rank} -
+       \mathtt{match\_rank} + i` of ``target``, for :math:`0 \leq i <
+       \mathtt{match\_rank}`.  This case also applies if the **permute**
+       alignment method is not permitted.
+
+   * - M2
+     - Both ``source`` and ``target`` have at least one labeled dimension.  In
+       this case, dimensions of ``source`` and ``target`` with matching labels
+       are matched.  Any remaining labeled dimensions remain unmatched.  The
+       unlabeled dimensions of ``source`` are matched to the unlabeled
+       dimensions of ``target`` using the same method as in case M1 (right to
+       left).
+
+The matching is then validated as follows:
+
+.. list-table::
+   :widths: auto
+
+   * - V1
+     - For each match between a dimension :math:`i` of ``source`` and a
+       dimension :math:`j` of ``target``, if :math:`\mathtt{source\_shape}[i]
+       \neq \mathtt{target\_shape}[j]`, the match is dropped.  Note that if
+       :math:`\mathtt{source\_shape}[i] \neq 1`, this leads to an error in step
+       V3.
+
+   * - V2
+     - If the **broadcast** alignment method is not permitted, it is an error
+       for any source or target dimension to be unmatched.  (In this case, any
+       matches dropped in step V1 result in an error.)
+
+   * - V3
+     - For every unmatched dimension :math:`i` of ``source``,
+       :math:`\mathtt{source\_shape}[i]` must equal :math:`1`.
+
+   * - V4
+     - If the **translate** alignment method is not permitted, for each match
+       between a dimension :math:`i` of ``source`` and a dimension :math:`j` of
+       ``target``, it is an error if :math:`\mathtt{source\_origin}[i] \neq
+       \mathtt{target\_origin}[j]`.
+
+If matching succeeds, a new ``alignment`` transform with an (input) domain equal
+to ``target`` and an output rank equal to :math:`\mathtt{source\_rank}` is
+computed as follows:
+
+.. list-table::
+   :widths: auto
+
+   * - A1
+     - For each dimension :math:`j` of ``target`` with a matching dimension
+       :math:`i` of ``source``, output dimension :math:`i` of ``alignment`` has
+       a *single_input_dimension* map to input dimension `j` with a stride of
+       `1` and offset of :math:`\mathtt{source\_origin}[i] -
+       \mathtt{target\_origin}[j]`.
+
+   * - A2
+     - For every unmatched dimension :math:`i` of ``source``, output dimension
+       :math:`i` of ``alignment`` is a *constant* map with an offset of
+       :math:`\mathtt{source\_origin}[i]`.  (It must be the case that
+       :math:`\mathtt{source\_shape}[i] = 1`.)
+
+The ``alignment`` transform maps ``target`` positions to corresponding
+``source`` positions; for example, when copying, each position of the ``target``
+domain is assigned the value at the corresponding position of the ``source``
+domain.  If the ``broadcast`` alignment method is used, the transform may map
+the same ``source`` position to multiple ``target`` positions.
+
+Examples:
+
+* All unlabeled dimensions
+
+  - source: ``[3, 7), [5, 6), [4, 10)``
+  - target: ``[2, 6), [0, 4), [6, 12)``
+  - alignment: rank :math:`3 \rightarrow 3`, with:
+
+    .. math::
+
+      \mathrm{source}[0] &= \mathrm{target}[0] + 1 \\
+      \mathrm{source}[1] &= 5 \\
+      \mathrm{source}[2] &= \mathrm{target}[2] - 2
+
+* All labeled dimensions
+
+  - source: ``"x": [3, 7), "y": [5, 6), "z": [4, 10)``
+  - target: ``"z": [6, 12), "x": [4, 8), "y": [0, 4)``
+  - alignment: rank :math:`3 \rightarrow 3`, with:
+
+    .. math::
+
+      \mathrm{source}[0] &= \mathrm{target}[1] - 1 \\
+      \mathrm{source}[1] &= 5 \\
+      \mathrm{source}[2] &= \mathrm{target}[0] - 2
+
+* Partially labeled dimensions
+
+  - source: ``"x": [3, 7), "y": [5, 6), "": [4, 10)``
+  - target: ``"": [0, 10) "": [6, 12), "x": [4, 8), "y": [0, 4)``
+  - alignment: rank :math:`4 \rightarrow 3`, with:
+
+    .. math::
+
+      \mathrm{source}[0] &= \mathrm{target}[2] - 1 \\
+      \mathrm{source}[1] &= 5 \\
+      \mathrm{source}[2] &= \mathrm{target}[1] - 2
+
+* Mismatched labeled dimensions
+
+  - source: ``"x": [3, 7), "y": [5, 6), "z": [4, 10)``
+  - target: ``"z": [6, 12), "w": [4, 8), "y": [0, 4)``
+  - ERROR: Unmatched source dimension 0 ``{"x": [3, 7)}``
+    does not have a size of 1
+
+.. note::
+
+   The alignment behavior supported by TensorStore is fully compatible with
+   `NumPy broadcasting<numpy:numpy.doc.broadcasting>` but additionally is
+   extended to support non-zero origins and labeled dimensions.

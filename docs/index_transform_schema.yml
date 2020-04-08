@@ -2,7 +2,8 @@ $schema: http://json-schema.org/draft-07/schema#
 $id: https://github.com/google/tensorstore/json-schema/index-transform
 title: 'Index transform'
 description: |
-  Specifies an `index-transform`.
+  :ref:`Index transforms<index-transform>` may be serialized to/from JSON using
+  the following schema.
 
   The input domain is specified by :json-member:`input_rank`,
   :json-member:`input_inclusive_min`, :json-member:`input_exclusive_max`,
@@ -126,7 +127,7 @@ properties:
           title: |
             Specifies an offset for this output dimension.  If neither
             :json-member:`input_dimension` nor :json-member:`index_array` is
-            specified, this specifies the constant value to which this output
+            specified, this specifies the **constant** value to which this output
             dimension maps.
         stride:
           type: integer
@@ -141,16 +142,16 @@ properties:
           type: integer
           minimum: 0
           title: |
-            If present, indicates that this output dimension uses a *single
-            input dimension* map with the specified input dimension.  Must not
+            If present, indicates that this output dimension uses a **single
+            input dimension** map with the specified input dimension.  Must not
             be specified in conjunction with :json-member:`index_array`.
         index_array:
           oneOf:
             - type: array
             - type: integer
           title: |
-            If present, indicates that this output dimension uses an *index
-            array* map, with the index array specified as a nested list of rank
+            If present, indicates that this output dimension uses an **index
+            array** map, with the index array specified as a nested list of rank
             equal to :json-member:`input_rank`.
           description: |
             If the input rank is 0, must be a numeric value.
