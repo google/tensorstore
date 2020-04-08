@@ -277,6 +277,9 @@ def _python_autoconf_impl(repository_ctx):
         _create_local_python_repository(repository_ctx)
 
 python_env_vars = [
+    # We rely on PATH via `repository_ctx.which` if `_PYTHON_BIN_PATH`
+    # is not specified.
+    "PATH",
     _PYTHON_BIN_PATH,
     _TENSORSTORE_PYTHON_CONFIG_REPO,
 ]
@@ -284,6 +287,7 @@ python_env_vars = [
 python_configure = repository_rule(
     implementation = _python_autoconf_impl,
     local = True,
+    configure = True,
     environ = python_env_vars,
 )
 """Detects and configures the local Python.
