@@ -63,7 +63,7 @@ py_binary(
 tensorstore_pytest_test(
     name = "index_interval_test",
     size = "small",
-    srcs = ["index_interval_test.py"],
+    srcs = ["tests/index_interval_test.py"],
     deps = [
         ":tensorstore",
     ],
@@ -72,7 +72,7 @@ tensorstore_pytest_test(
 tensorstore_pytest_test(
     name = "index_domain_test",
     size = "small",
-    srcs = ["index_domain_test.py"],
+    srcs = ["tests/index_domain_test.py"],
     deps = [
         ":tensorstore",
         "@pypa_numpy//:numpy",
@@ -82,7 +82,7 @@ tensorstore_pytest_test(
 tensorstore_pytest_test(
     name = "dim_expression_test",
     size = "small",
-    srcs = ["dim_expression_test.py"],
+    srcs = ["tests/dim_expression_test.py"],
     deps = [
         ":tensorstore",
         "@pypa_numpy//:numpy",
@@ -92,7 +92,7 @@ tensorstore_pytest_test(
 tensorstore_pytest_test(
     name = "indexing_test",
     size = "small",
-    srcs = ["indexing_test.py"],
+    srcs = ["tests/indexing_test.py"],
     deps = [
         ":tensorstore",
         "@pypa_numpy//:numpy",
@@ -102,7 +102,7 @@ tensorstore_pytest_test(
 tensorstore_pytest_test(
     name = "index_transform_test",
     size = "small",
-    srcs = ["index_transform_test.py"],
+    srcs = ["tests/index_transform_test.py"],
     deps = [
         ":tensorstore",
         "@pypa_numpy//:numpy",
@@ -335,7 +335,7 @@ pybind11_cc_library(
 tensorstore_pytest_test(
     name = "spec_test",
     size = "small",
-    srcs = ["spec_test.py"],
+    srcs = ["tests/spec_test.py"],
     deps = [
         ":tensorstore",
         "@pypa_numpy//:numpy",
@@ -345,7 +345,7 @@ tensorstore_pytest_test(
 tensorstore_pytest_test(
     name = "data_type_test",
     size = "small",
-    srcs = ["data_type_test.py"],
+    srcs = ["tests/data_type_test.py"],
     deps = [
         ":tensorstore",
         "@pypa_numpy//:numpy",
@@ -355,7 +355,7 @@ tensorstore_pytest_test(
 tensorstore_pytest_test(
     name = "tensorstore_test",
     size = "small",
-    srcs = ["tensorstore_test.py"],
+    srcs = ["tests/tensorstore_test.py"],
     deps = [
         ":tensorstore",
         "@pypa_numpy//:numpy",
@@ -365,7 +365,7 @@ tensorstore_pytest_test(
 tensorstore_pytest_test(
     name = "future_test",
     size = "small",
-    srcs = ["future_test.py"],
+    srcs = ["tests/future_test.py"],
     deps = [":tensorstore"],
 )
 

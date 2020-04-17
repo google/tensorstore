@@ -66,6 +66,8 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
 
   def run(self):
     if not self.dry_run:
+      # Ensure python_configure.bzl finds the correct Python verison.
+      os.environ['PYTHON_BIN_PATH'] = sys.executable
       self.spawn([
           sys.executable, 'bazelisk.py', 'build', '-c', 'opt',
           '//python/tensorstore:_tensorstore__shared_objects'
@@ -78,24 +80,6 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
                       ext_full_path)
 
 
-# Ensures that the package is considered to contain extension modules, even
-# though none are built by setuptools.
-class BinaryDistribution(setuptools.dist.Distribution):
-
-  def has_ext_modules(self):
-    return True
-
-
-class InstallCommand(setuptools.command.install.install):
-
-  def finalize_options(self):
-    ret = super().finalize_options()
-    # Ensures that the installed files don't end up in a purelib directory
-    # within the wheel.
-    self.install_lib = self.install_platlib
-    return ret
-
-
 setuptools.setup(
     name='tensorstore',
     use_scm_version=True,
@@ -106,16 +90,13 @@ setuptools.setup(
     license='Apache License 2.0',
     python_requires='>=3.5',
     packages=setuptools.find_packages('python'),
-    zip_safe=False,
     package_dir={'': 'python'},
     ext_modules=[setuptools.Extension('tensorstore/_tensorstore', sources=[])],
     setup_requires=['setuptools_scm'],
-    distclass=BinaryDistribution,
     cmdclass={
         'build': BuildCommand,
         'build_py': BuildPyCommand,
         'build_ext': BuildExtCommand,
-        'install': InstallCommand,
     },
     install_requires=[
         'numpy>=1.16.0',

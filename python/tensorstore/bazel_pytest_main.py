@@ -27,6 +27,10 @@ def main(argv):
   if 'TEST_TMPDIR' in os.environ:  # running as bazel test
     # set pytest's cache dir to a location that it can safely write to
     args += ['--override-ini', 'cache_dir=' + os.environ['TEST_TMPDIR']]
+  if 'XML_OUTPUT_FILE' in os.environ:
+    # Output per-test-case information in XML format to allow Bazel to aggregate
+    # with greater detail.
+    args += ['--junitxml', os.environ['XML_OUTPUT_FILE']]
   return pytest.main(args=args)
 
 
