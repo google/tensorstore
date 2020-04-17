@@ -31,7 +31,7 @@ struct InflateOp {
   }
   static int Process(z_stream* s, int flags) { return inflate(s, flags); }
   static int Destroy(z_stream* s) { return inflateEnd(s); }
-  static const bool kDataErrorPossible = true;
+  static constexpr bool kDataErrorPossible = true;
 };
 
 struct DeflateOp {
@@ -44,7 +44,7 @@ struct DeflateOp {
   }
   static int Process(z_stream* s, int flags) { return deflate(s, flags); }
   static int Destroy(z_stream* s) { return deflateEnd(s); }
-  static const bool kDataErrorPossible = false;
+  static constexpr bool kDataErrorPossible = false;
 };
 
 /// Inflates or deflates using zlib.
