@@ -119,8 +119,28 @@ Specification for opening or creating a TensorStore.
             std::move(new_transform);
         return new_spec;
       });
-  py::implicitly_convertible<::nlohmann::json, Spec>();
 }
 
 }  // namespace internal_python
 }  // namespace tensorstore
+
+namespace pybind11 {
+namespace detail {
+
+bool type_caster<tensorstore::Spec>::load(handle src, bool convert) {
+  // Handle the case that `src` is already a Python-wrapped
+  // `tensorstore::Spec`.
+  if (Base::load(src, convert)) {
+    return true;
+  }
+  // Attempt to convert argument to `::nlohmann::json`, then to
+  // `tensorstore::Spec`.
+  auto spec =
+      tensorstore::internal_python::ValueOrThrow(tensorstore::Spec::FromJson(
+          tensorstore::internal_python::PyObjectToJson(src)));
+  value = new tensorstore::Spec(spec);
+  return true;
+}
+
+}  // namespace detail
+}  // namespace pybind11

@@ -121,3 +121,13 @@ async def test_local_n5():
     dataset[80:82, 99:102] = [[1, 2, 3], [4, 5, 6]]
     np.testing.assert_equal([[1, 2, 3], [4, 5, 6], [0, 0, 0]],
                             dataset[80:83, 99:102].read().result())
+
+
+async def test_open_error_message():
+  with pytest.raises(ValueError,
+                     match='.*Error parsing object member "driver": .*'):
+    await ts.open({'invalid': 'key'})
+
+  with pytest.raises(ValueError,
+                     match='Expected object, but received: 3'):
+    await ts.open(3)
