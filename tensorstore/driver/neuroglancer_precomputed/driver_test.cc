@@ -196,7 +196,7 @@ TEST(DriverTest, Create) {
                                          {"size", {10, 99, 98}},
                                          {"voxel_offset", {1, 2, 3}},
                                      }}}})),
-          Pair("prefix/7-10_8-10_7-9",  //
+          Pair("prefix/1_1_1/7-10_8-10_7-9",  //
                ElementsAreArray({
                    // x=7           8           9
                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // y=8, z=7, channel=0
@@ -219,7 +219,7 @@ TEST(DriverTest, Create) {
                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // y=8, z=8, channel=3
                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // y=9, z=8, channel=3
                })),
-          Pair("prefix/10-11_8-10_7-9",  //
+          Pair("prefix/1_1_1/10-11_8-10_7-9",  //
                ElementsAreArray({
                    // x=10
                    0x00, 0x00,  // y=8, z=7, channel=0
@@ -243,7 +243,7 @@ TEST(DriverTest, Create) {
                    0x00, 0x00,  // y=9, z=8, channel=3
                })),
 
-          Pair("prefix/7-10_10-12_7-9",  //
+          Pair("prefix/1_1_1/7-10_10-12_7-9",  //
                ElementsAreArray({
                    // x=7           8           9
                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // y=10, z=7, channel=0
@@ -266,7 +266,7 @@ TEST(DriverTest, Create) {
                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // y=10, z=8, channel=3
                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // y=11, z=8, channel=3
                })),
-          Pair("prefix/10-11_10-12_7-9",  //
+          Pair("prefix/1_1_1/10-11_10-12_7-9",  //
                ElementsAreArray({
                    // x=10
                    0x00, 0x00,  // y=10, z=7, channel=0
@@ -335,7 +335,8 @@ TEST(DriverTest, Create) {
     auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
     EXPECT_EQ(
         Status(),
-        GetStatus(kv_store->Write("prefix/10-11_10-12_7-9", "junk").result()));
+        GetStatus(
+            kv_store->Write("prefix/1_1_1/10-11_10-12_7-9", "junk").result()));
     EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
                     ChainResult(store, tensorstore::AllDims().SizedInterval(
                                            {9, 7, 7, 0}, {2, 4, 2, 3})))
@@ -835,7 +836,7 @@ TEST(DriverTest, CompressedSegmentationEncodingUint32) {
                         {"size", {100, 100, 3}},
                         {"voxel_offset", {0, 0, 0}},
                     }}}})),
-          Pair("prefix/0-3_0-4_0-2",  //
+          Pair("prefix/1_1_1/0-3_0-4_0-2",  //
                ElementsAreArray({
                    0x01, 0x00, 0x00, 0x00,  // channel offset
                    0x08, 0x00, 0x00, 0x00,  // block (z=0,y=0,x=0) header0
@@ -851,7 +852,7 @@ TEST(DriverTest, CompressedSegmentationEncodingUint32) {
                    0x03, 0x00, 0x00, 0x00,  // block (z=1,y=0,x=0) table
                    0x04, 0x00, 0x00, 0x00,  // block (z=1,y=1,x=0) table
                })),
-          Pair("prefix/0-3_0-4_2-3",  //
+          Pair("prefix/1_1_1/0-3_0-4_2-3",  //
                ElementsAreArray({
                    0x01, 0x00, 0x00, 0x00,  // channel offset
                    0x04, 0x00, 0x00, 0x00,  // block (z=0,y=0,x=0) header0
@@ -948,7 +949,7 @@ TEST(DriverTest, CompressedSegmentationEncodingUint64) {
                         {"size", {100, 100, 3}},
                         {"voxel_offset", {0, 0, 0}},
                     }}}})),
-          Pair("prefix/0-3_0-4_0-2",  //
+          Pair("prefix/1_1_1/0-3_0-4_0-2",  //
                ElementsAreArray({
                    0x01, 0x00, 0x00, 0x00,  // channel offset
                    0x08, 0x00, 0x00, 0x00,  // block (z=0,y=0,x=0) header0
@@ -968,7 +969,7 @@ TEST(DriverTest, CompressedSegmentationEncodingUint64) {
                    0x04, 0x00, 0x00, 0x00,  // block (z=1,y=1,x=0) table
                    0x00, 0x00, 0x00, 0x00,
                })),
-          Pair("prefix/0-3_0-4_2-3",  //
+          Pair("prefix/1_1_1/0-3_0-4_2-3",  //
                ElementsAreArray({
                    0x01, 0x00, 0x00, 0x00,  // channel offset
                    0x04, 0x00, 0x00, 0x00,  // block (z=0,y=0,x=0) header0
@@ -1007,7 +1008,8 @@ TEST(DriverTest, CompressedSegmentationEncodingUint64) {
     auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
     EXPECT_EQ(
         Status(),
-        GetStatus(kv_store->Write("prefix/0-3_0-4_0-2", "junk").result()));
+        GetStatus(
+            kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", "junk").result()));
     EXPECT_THAT(
         tensorstore::Read<tensorstore::zero_origin>(
             ChainResult(store, tensorstore::Dims("channel").IndexSlice(0),
@@ -1096,8 +1098,10 @@ TEST(DriverTest, Jpeg1Channel) {
                                          {"voxel_offset", {0, 0, 0}},
                                      }}}})),
           // 0xff 0xd8 0xff is the JPEG header
-          Pair("prefix/0-3_0-4_0-2", ::testing::StartsWith("\xff\xd8\xff")),
-          Pair("prefix/3-5_0-4_0-2", ::testing::StartsWith("\xff\xd8\xff")),
+          Pair("prefix/1_1_1/0-3_0-4_0-2",
+               ::testing::StartsWith("\xff\xd8\xff")),
+          Pair("prefix/1_1_1/3-5_0-4_0-2",
+               ::testing::StartsWith("\xff\xd8\xff")),
       })));
 
   {
@@ -1124,14 +1128,16 @@ TEST(DriverTest, Jpeg1Channel) {
     // Write invalid jpeg
     EXPECT_EQ(
         Status(),
-        GetStatus(kv_store->Write("prefix/0-3_0-4_0-2", "junk").result()));
-    EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
-                    ChainResult(store, tensorstore::AllDims().SizedInterval(
-                                           0, array.shape())))
-                    .result(),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              ".*Error decoding chunk \"prefix/0-3_0-4_0-2\":"
-                              ".*Not a JPEG file.*"));
+        GetStatus(
+            kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", "junk").result()));
+    EXPECT_THAT(
+        tensorstore::Read<tensorstore::zero_origin>(
+            ChainResult(store,
+                        tensorstore::AllDims().SizedInterval(0, array.shape())))
+            .result(),
+        MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                      ".*Error decoding chunk \"prefix/1_1_1/0-3_0-4_0-2\":"
+                      ".*Not a JPEG file.*"));
 
     // Write valid JPEG with the wrong number of channels.
     {
@@ -1143,7 +1149,8 @@ TEST(DriverTest, Jpeg1Channel) {
                     tensorstore::jpeg::EncodeOptions{}, &jpeg_data));
       EXPECT_EQ(
           Status(),
-          GetStatus(kv_store->Write("prefix/0-3_0-4_0-2", jpeg_data).result()));
+          GetStatus(
+              kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", jpeg_data).result()));
     }
     EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
                     ChainResult(store, tensorstore::AllDims().SizedInterval(
@@ -1163,7 +1170,8 @@ TEST(DriverTest, Jpeg1Channel) {
                     tensorstore::jpeg::EncodeOptions{}, &jpeg_data));
       EXPECT_EQ(
           Status(),
-          GetStatus(kv_store->Write("prefix/0-3_0-4_0-2", jpeg_data).result()));
+          GetStatus(
+              kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", jpeg_data).result()));
     }
     EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
                     ChainResult(store, tensorstore::AllDims().SizedInterval(
@@ -1240,8 +1248,10 @@ TEST(DriverTest, Jpeg3Channel) {
                                          {"voxel_offset", {0, 0, 0}},
                                      }}}})),
           // 0xff 0xd8 0xff is the JPEG header
-          Pair("prefix/0-3_0-4_0-2", ::testing::StartsWith("\xff\xd8\xff")),
-          Pair("prefix/3-5_0-4_0-2", ::testing::StartsWith("\xff\xd8\xff")),
+          Pair("prefix/1_1_1/0-3_0-4_0-2",
+               ::testing::StartsWith("\xff\xd8\xff")),
+          Pair("prefix/1_1_1/3-5_0-4_0-2",
+               ::testing::StartsWith("\xff\xd8\xff")),
       })));
 
   // Verify that reading back has the expected result.

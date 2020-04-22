@@ -244,8 +244,6 @@ class DataCacheStateBase
   }
 
   std::string key_prefix_;
-  /// Resolved key prefix for the scale.
-  std::string scale_key_prefix_;
   std::size_t scale_index_;
   // channel, z, y, x
   StridedLayout<4> chunk_layout_czyx_;
@@ -266,7 +264,7 @@ class UnshardedDataCacheState : public DataCacheStateBase {
                                  span<const Index> cell_indices) override {
     const auto& metadata =
         *static_cast<const MultiscaleMetadata*>(metadata_ptr);
-    std::string key = key_prefix_;
+    std::string key = scale_key_prefix_;
     if (!key.empty()) key += '/';
     const auto& scale = metadata.scales[scale_index_];
     for (int i = 0; i < 3; ++i) {
@@ -279,6 +277,10 @@ class UnshardedDataCacheState : public DataCacheStateBase {
     }
     return key;
   }
+
+ private:
+  /// Resolved key prefix for the scale.
+  std::string scale_key_prefix_;
 };
 
 class ShardedDataCacheState : public DataCacheStateBase {
