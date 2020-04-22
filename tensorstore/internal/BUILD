@@ -73,7 +73,6 @@ tensorstore_cc_library(
         "test_util.h",
     ],
     deps = [
-        "//:std_filesystem",
         "//tensorstore/util:status",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/strings",
