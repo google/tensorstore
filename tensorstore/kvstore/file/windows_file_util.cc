@@ -21,39 +21,11 @@
 
 #include <stdio.h>
 
+#include "tensorstore/internal/os_error_code.h"
+
 namespace tensorstore {
 namespace internal_file_util {
 
-absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
-  switch (error) {
-    case ERROR_SUCCESS:
-      return absl::StatusCode::kOk;
-    case ERROR_FILE_EXISTS:
-    case ERROR_ALREADY_EXISTS:
-      return absl::StatusCode::kAlreadyExists;
-    case ERROR_FILE_NOT_FOUND:
-    case ERROR_PATH_NOT_FOUND:
-      return absl::StatusCode::kNotFound;
-    case ERROR_TOO_MANY_OPEN_FILES:
-    case ERROR_NOT_ENOUGH_MEMORY:
-      return absl::StatusCode::kResourceExhausted;
-    default:
-      return absl::StatusCode::kFailedPrecondition;
-  }
-}
-
-std::string GetOsErrorMessage(OsErrorCode error) {
-  char buf[4096];
-  DWORD size = ::FormatMessageA(
-      /*dwFlags=*/FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-      /*lpSource=*/nullptr,
-      /*dwMessageId=*/error,
-      /*dwLanguageId=*/0,
-      /*lpBuffer=*/buf,
-      /*nSize=*/std::size(buf),
-      /*Arguments=*/nullptr);
-  return std::string(buf, size);
-}
 
 inline ::OVERLAPPED GetOverlappedWithOffset(std::uint64_t offset) {
   ::OVERLAPPED overlapped = {};

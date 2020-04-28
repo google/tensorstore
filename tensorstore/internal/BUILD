@@ -73,8 +73,12 @@ tensorstore_cc_library(
         "test_util.h",
     ],
     deps = [
+        ":env",
+        ":os_error_code",
+        ":path",
         "//tensorstore/util:status",
         "@com_google_absl//absl/random",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -201,6 +205,16 @@ tensorstore_cc_test(
     deps = [
         ":meta",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "os_error_code",
+    srcs = ["os_error_code.cc"],
+    hdrs = ["os_error_code.h"],
+    deps = [
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
     ],
 )
 

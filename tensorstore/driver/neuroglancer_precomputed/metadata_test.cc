@@ -1370,7 +1370,7 @@ TEST(CreateScaleTest, ExistingMetadata) {
 
   // Tests that any of the following changes in the `multiscale_metadata` leads
   // to an error.
-  for (const auto [k, new_value] :
+  for (const auto& [k, new_value] :
        std::vector<std::pair<std::string, ::nlohmann::json>>{
            {"data_type", "uint32"}, {"num_channels", 3}, {"type", "image"}}) {
     auto j = constraints_json;
@@ -1697,7 +1697,7 @@ TEST_F(OpenScaleTest, MetadataMismatch) {
 
   // Tests that any of the following changes in the `scale_metadata` leads
   // to an error.
-  for (const auto [k, new_value] :
+  for (const auto& [k, new_value] :
        std::vector<std::pair<std::string, ::nlohmann::json>>{
            {"encoding", "raw"},
            {"compressed_segmentation_block_size", {7, 8, 9}},

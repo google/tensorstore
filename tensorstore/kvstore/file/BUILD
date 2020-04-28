@@ -18,6 +18,7 @@ tensorstore_cc_library(
         "windows_file_util.h",
     ],
     deps = [
+        "//tensorstore/internal:os_error_code",
         "//tensorstore/util:result",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
@@ -32,6 +33,7 @@ tensorstore_cc_library(
         "//tensorstore:context",
         "//tensorstore/internal:file_io_concurrency_resource",
         "//tensorstore/internal:json",
+        "//tensorstore/internal:os_error_code",
         "//tensorstore/internal:path",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",

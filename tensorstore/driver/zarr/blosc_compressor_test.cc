@@ -119,7 +119,7 @@ TEST(BloscCompressorTest, CheckComplib) {
                                {BLOSC_SNAPPY_COMPNAME, BLOSC_SNAPPY_LIBNAME},
                                {BLOSC_ZLIB_COMPNAME, BLOSC_ZLIB_LIBNAME},
                                {BLOSC_ZSTD_COMPNAME, BLOSC_ZSTD_LIBNAME}};
-  for (const auto pair : cnames_and_complib_names) {
+  for (const auto& pair : cnames_and_complib_names) {
     auto compressor =
         Compressor::FromJson({{"id", "blosc"}, {"cname", pair.first}}).value();
     std::string encoded;

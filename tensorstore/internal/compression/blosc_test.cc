@@ -99,7 +99,7 @@ TEST(BloscTest, CheckComplib) {
                                {BLOSC_SNAPPY_COMPNAME, BLOSC_SNAPPY_LIBNAME},
                                {BLOSC_ZLIB_COMPNAME, BLOSC_ZLIB_LIBNAME},
                                {BLOSC_ZSTD_COMPNAME, BLOSC_ZSTD_LIBNAME}};
-  for (const auto pair : cnames_and_complib_names) {
+  for (const auto& pair : cnames_and_complib_names) {
     blosc::Options options{/*.compressor==*/pair.first.c_str(), /*.clevel=*/5,
                            /*.shuffle=*/-1, /*.blocksize=*/0,
                            /*.element_size=*/1};

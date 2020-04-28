@@ -11,5 +11,10 @@ build:macos --copt=-fdiagnostics-color=always --cxxopt=-std=c++17 --cxxopt=-fsiz
 build:freebsd --copt=-fdiagnostics-color=always --cxxopt=-std=c++17 --cxxopt=-fsized-deallocation
 build:windows --cxxopt=/std:c++17
 
+# disable deprecated-declarations warnings
+build:linux --copt='-Wno-deprecated-declarations'
+build:macos --copt='-Wno-deprecated-declarations'
+build:freebsd --copt='-Wno-deprecated-declarations'
+
 # Windows 10 RS1 required for rename/delete with POSIX semantics
 build:windows --copt=-D_WIN32_WINNT=0x0A000002

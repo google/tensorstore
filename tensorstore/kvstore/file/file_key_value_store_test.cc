@@ -14,9 +14,9 @@
 
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <cstddef>
-#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <optional>
@@ -124,10 +124,16 @@ TEST(FileKeyValueStoreTest, InvalidKey) {
 /// Returns the list of relative paths contained within the directory `root`.
 std::vector<std::string> GetDirectoryContents(const std::string& root) {
   std::vector<std::string> paths;
-  for (const auto& entry :
-       std::filesystem::recursive_directory_iterator(root)) {
-    paths.push_back(entry.path().lexically_relative(root).generic_string());
-  }
+
+  auto status = tensorstore::internal::EnumeratePaths(
+      root, [&](const std::string& name, bool is_dir) {
+        if (name != root) {
+          paths.emplace_back(name.substr(root.size() + 1));
+        }
+        return absl::OkStatus();
+      });
+  TENSORSTORE_CHECK_OK(status);
+
   return paths;
 }
 
@@ -248,6 +254,11 @@ TEST(FileKeyValueStoreTest, ConcurrentWrites) {
 // permissions.
 #ifndef _WIN32
 TEST(FileKeyValueStoreTest, Permissions) {
+  // This test fails if our effective user id is root.
+  if (::geteuid() == 0) {
+    return;
+  }
+
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);

@@ -508,7 +508,7 @@ TEST(EncodeDecodeMetadataTest, ArrayStructured) {
 
 // Corresponds to the zarr test_encode_decode_fill_values_nan test case.
 TEST(EncodeDecodeMetadataTest, FillValuesNan) {
-  for (const auto pair : std::vector<std::pair<double, std::string>>{
+  for (const auto& pair : std::vector<std::pair<double, std::string>>{
            {std::numeric_limits<double>::quiet_NaN(), "NaN"},
            {std::numeric_limits<double>::infinity(), "Infinity"},
            {-std::numeric_limits<double>::infinity(), "-Infinity"}}) {

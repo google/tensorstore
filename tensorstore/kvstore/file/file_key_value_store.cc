@@ -98,6 +98,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/internal/file_io_concurrency_resource.h"
 #include "tensorstore/internal/json.h"
+#include "tensorstore/internal/os_error_code.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
@@ -138,14 +139,14 @@ namespace tensorstore {
 
 namespace {
 
+using internal::GetLastErrorCode;
+using internal::GetOsErrorStatusCode;
+using internal::OsErrorCode;
+using internal::StatusFromOsError;
 using internal_file_util::FileDescriptor;
 using internal_file_util::FileInfo;
 using internal_file_util::GetFileInfo;
-using internal_file_util::GetLastErrorCode;
-using internal_file_util::GetOsErrorMessage;
-using internal_file_util::GetOsErrorStatusCode;
 using internal_file_util::kLockSuffix;
-using internal_file_util::OsErrorCode;
 using internal_file_util::UniqueFileDescriptor;
 
 namespace jb = tensorstore::internal::json_binding;
@@ -196,16 +197,6 @@ StorageGeneration GetFileGeneration(const FileInfo& info) {
   write_field(file_id);
   write_field(mtime);
   return StorageGeneration{std::move(gen)};
-}
-
-/// Returns a Status from an OS error. The message is composed by catenation of
-/// the provided string parts.
-Status StatusFromOsError(OsErrorCode error_code, absl::string_view a = {},
-                         absl::string_view b = {}, absl::string_view c = {},
-                         absl::string_view d = {}) {
-  return absl::Status(
-      GetOsErrorStatusCode(error_code),
-      StrCat(a, b, c, d, " [OS error: ", GetOsErrorMessage(error_code), "]"));
 }
 
 /// Returns a Status for the current errno value. The message is composed

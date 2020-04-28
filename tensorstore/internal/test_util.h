@@ -17,13 +17,24 @@
 
 #include <string>
 
+#include "absl/status/status.h"
+
 namespace tensorstore {
 namespace internal {
 
+// Recursively enumerate all the paths starting at the given directory.
+absl::Status EnumeratePaths(
+    const std::string& directory,
+    std::function<absl::Status(const std::string& /*name*/, bool /*is_dir*/)>
+        on_directory_entry);
+
+// Create a temporary scoped directory.  When the object
+// goes out of scope, the directory and all files within are deleted.
 class ScopedTemporaryDirectory {
  public:
   ScopedTemporaryDirectory();
   ~ScopedTemporaryDirectory();
+
   const std::string& path() const { return path_; }
 
  private:

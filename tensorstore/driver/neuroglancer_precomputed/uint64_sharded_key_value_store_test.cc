@@ -93,12 +93,12 @@ TEST(Uint64ShardedKeyValueStoreTest, BasicFunctionality) {
   std::vector<std::pair<std::string, tensorstore::Executor>> executors{
       {"inline", tensorstore::InlineExecutor{}},
       {"thread_pool", tensorstore::internal::DetachedThreadPool(2)}};
-  for (const auto [executor_name, executor] : executors) {
+  for (const auto& [executor_name, executor] : executors) {
     for (const auto sequential_ids : {true, false}) {
-      for (const auto hash : {"identity", "murmurhash3_x86_128"}) {
-        for (const auto data_encoding : {"raw", "gzip"}) {
-          for (const auto minishard_index_encoding : {"raw", "gzip"}) {
-            for (const auto sharding_spec_json : ::nlohmann::json::array_t{
+      for (const auto& hash : {"identity", "murmurhash3_x86_128"}) {
+        for (const auto& data_encoding : {"raw", "gzip"}) {
+          for (const auto& minishard_index_encoding : {"raw", "gzip"}) {
+            for (const auto& sharding_spec_json : ::nlohmann::json::array_t{
                      {{"@type", "neuroglancer_uint64_sharded_v1"},
                       {"hash", hash},
                       {"preshift_bits", 0},

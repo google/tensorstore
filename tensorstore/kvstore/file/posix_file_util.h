@@ -28,7 +28,7 @@
 #include "tensorstore/kvstore/file/unique_handle.h"
 #include "tensorstore/util/result.h"
 
-// Include these system headers last to reduce impact of macros.
+// Include system headers last to reduce impact of macros.
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -45,19 +45,6 @@ namespace internal_file_util {
 
 /// Suffix used for lock files.
 inline constexpr absl::string_view kLockSuffix = ".__lock";
-
-/// Representation of error code returned by system APIs.
-using OsErrorCode = int;
-
-/// Returns the thread-local error code from the most recent system API call
-/// that failed.
-inline OsErrorCode GetLastErrorCode() { return errno; }
-
-/// Returns the error message associated with a system error code.
-std::string GetOsErrorMessage(OsErrorCode error);
-
-/// Converts a system error code to the corresponding `absl::StatusCode`.
-absl::StatusCode GetOsErrorStatusCode(OsErrorCode error);
 
 /// Representation of open file/directory.
 using FileDescriptor = int;

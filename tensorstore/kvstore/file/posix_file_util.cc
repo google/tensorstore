@@ -16,59 +16,10 @@
 
 #include "tensorstore/kvstore/file/posix_file_util.h"
 
+#include "tensorstore/internal/os_error_code.h"
+
 namespace tensorstore {
 namespace internal_file_util {
-
-// There are two versions of the ::strerror_r function:
-//
-// XSI-compliant:
-//
-//     int strerror_r(int errnum, char* buf, size_t buflen);
-//
-//   Always writes message to supplied buffer.
-//
-// GNU-specific:
-//
-//     char *strerror_r(int errnum, char* buf, size_t buflen);
-//
-//   Either writes message to supplied buffer, or returns a static string.
-//
-// The following overloads are used to detect the return type and return the
-// appropriate result.
-namespace {
-// GNU version
-[[maybe_unused]] const char* GetStrerrorResult(const char* buf,
-                                               const char* result) {
-  return result;
-}
-// XSI-compliant version
-[[maybe_unused]] const char* GetStrerrorResult(const char* buf, int result) {
-  return buf;
-}
-}  // namespace
-
-std::string GetOsErrorMessage(OsErrorCode error) {
-  char buf[4096];
-  buf[0] = 0;
-  return GetStrerrorResult(buf, ::strerror_r(error, buf, std::size(buf)));
-}
-
-absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
-  switch (error) {
-    case ENOENT:
-      return absl::StatusCode::kNotFound;
-    case EEXIST:
-      return absl::StatusCode::kAlreadyExists;
-    case ENOSPC:
-    case ENOMEM:
-      return absl::StatusCode::kResourceExhausted;
-    case EACCES:
-    case EPERM:
-      return absl::StatusCode::kPermissionDenied;
-    default:
-      return absl::StatusCode::kFailedPrecondition;
-  }
-}
 
 UniqueFileDescriptor OpenFileForWriting(const std::string& path) {
   UniqueFileDescriptor fd;

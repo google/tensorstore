@@ -38,10 +38,6 @@ namespace internal_file_util {
 
 inline constexpr absl::string_view kLockSuffix = ".__lock";
 
-using OsErrorCode = DWORD;
-inline OsErrorCode GetLastErrorCode() { return ::GetLastError(); }
-absl::StatusCode GetOsErrorStatusCode(OsErrorCode error);
-std::string GetOsErrorMessage(OsErrorCode error);
 
 using FileDescriptor = HANDLE;
 struct FileDescriptorTraits {
