@@ -14,7 +14,6 @@
 
 #include <errno.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <cstddef>
 #include <fstream>
@@ -43,8 +42,11 @@
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/to_string.h"
 
-// Include this system header last to reduce impact of macros.
+// Include system headers last to reduce impact of macros.
+#ifndef _WIN32
 #include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 namespace {
 
