@@ -17,6 +17,19 @@ tensorstore_cc_library(
     ],
 )
 
+tensorstore_cc_library(
+    name = "blosc_compressor",
+    hdrs = ["blosc_compressor.h"],
+    deps = [
+        ":blosc",
+        ":json_specified_compressor",
+        "//tensorstore/internal:json",
+        "//tensorstore/util:quote_string",
+        "@com_google_absl//absl/strings",
+        "@org_blosc_cblosc//:blosc",
+    ],
+)
+
 tensorstore_cc_test(
     name = "blosc_test",
     size = "small",
@@ -31,30 +44,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "zlib",
-    srcs = ["zlib.cc"],
-    hdrs = ["zlib.h"],
-    deps = [
-        "//tensorstore/util:assert_macros",
-        "//tensorstore/util:status",
-        "@com_google_absl//absl/strings",
-        "@net_zlib//:zlib",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "zlib_test",
-    size = "small",
-    srcs = ["zlib_test.cc"],
-    deps = [
-        ":zlib",
-        "//tensorstore/util:status",
-        "//tensorstore/util:status_testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "bzip2",
     srcs = ["bzip2.cc"],
     hdrs = ["bzip2.h"],
@@ -65,36 +54,22 @@ tensorstore_cc_library(
     ],
 )
 
+tensorstore_cc_library(
+    name = "bzip2_compressor",
+    hdrs = ["bzip2_compressor.h"],
+    deps = [
+        ":bzip2",
+        ":json_specified_compressor",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
 tensorstore_cc_test(
     name = "bzip2_test",
     size = "small",
     srcs = ["bzip2_test.cc"],
     deps = [
         ":bzip2",
-        "//tensorstore/util:status",
-        "//tensorstore/util:status_testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "lzma",
-    srcs = ["lzma.cc"],
-    hdrs = ["lzma.h"],
-    deps = [
-        "//tensorstore/util:assert_macros",
-        "//tensorstore/util:status",
-        "@com_google_absl//absl/strings",
-        "@org_tukaani_xz//:liblzma",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "lzma_test",
-    size = "small",
-    srcs = ["lzma_test.cc"],
-    deps = [
-        ":lzma",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
@@ -128,6 +103,43 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "json_specified_compressor",
+    srcs = ["json_specified_compressor.cc"],
+    hdrs = ["json_specified_compressor.h"],
+    deps = [
+        "//tensorstore:json_serialization_options",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:json_registry",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "lzma",
+    srcs = ["lzma.cc"],
+    hdrs = ["lzma.h"],
+    deps = [
+        "//tensorstore/util:assert_macros",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/strings",
+        "@org_tukaani_xz//:liblzma",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "lzma_test",
+    size = "small",
+    srcs = ["lzma_test.cc"],
+    deps = [
+        ":lzma",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "neuroglancer_compressed_segmentation",
     srcs = ["neuroglancer_compressed_segmentation.cc"],
     hdrs = ["neuroglancer_compressed_segmentation.h"],
@@ -149,15 +161,24 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "json_specified_compressor",
-    srcs = ["json_specified_compressor.cc"],
-    hdrs = ["json_specified_compressor.h"],
+    name = "xz_compressor",
+    hdrs = ["xz_compressor.h"],
     deps = [
-        "//tensorstore:json_serialization_options",
-        "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:json_registry",
-        "@com_google_absl//absl/status",
+        ":json_specified_compressor",
+        ":lzma",
         "@com_google_absl//absl/strings",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "zlib",
+    srcs = ["zlib.cc"],
+    hdrs = ["zlib.h"],
+    deps = [
+        "//tensorstore/util:assert_macros",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/strings",
+        "@net_zlib//:zlib",
     ],
 )
 
@@ -171,35 +192,14 @@ tensorstore_cc_library(
     ],
 )
 
-tensorstore_cc_library(
-    name = "bzip2_compressor",
-    hdrs = ["bzip2_compressor.h"],
+tensorstore_cc_test(
+    name = "zlib_test",
+    size = "small",
+    srcs = ["zlib_test.cc"],
     deps = [
-        ":bzip2",
-        ":json_specified_compressor",
-        "@com_google_absl//absl/strings",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "blosc_compressor",
-    hdrs = ["blosc_compressor.h"],
-    deps = [
-        ":blosc",
-        ":json_specified_compressor",
-        "//tensorstore/internal:json",
-        "//tensorstore/util:quote_string",
-        "@com_google_absl//absl/strings",
-        "@org_blosc_cblosc//:blosc",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "xz_compressor",
-    hdrs = ["xz_compressor.h"],
-    deps = [
-        ":json_specified_compressor",
-        ":lzma",
-        "@com_google_absl//absl/strings",
+        ":zlib",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
     ],
 )

@@ -78,6 +78,29 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "driver_testutil",
+    testonly = 1,
+    srcs = ["driver_testutil.cc"],
+    hdrs = ["driver_testutil.h"],
+    deps = [
+        "//tensorstore",
+        "//tensorstore:array",
+        "//tensorstore:data_type",
+        "//tensorstore:json_serialization_options",
+        "//tensorstore:open",
+        "//tensorstore:spec_request_options",
+        "//tensorstore/index_space:dim_expression",
+        "//tensorstore/index_space:index_transform_builder",
+        "//tensorstore/internal:data_type_random_generator",
+        "//tensorstore/internal:logging",
+        "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/algorithm:container",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+tensorstore_cc_library(
     name = "kvs_backed_chunk_driver",
     srcs = [
         "kvs_backed_chunk_driver.cc",
@@ -127,28 +150,5 @@ tensorstore_cc_test(
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "driver_testutil",
-    testonly = 1,
-    srcs = ["driver_testutil.cc"],
-    hdrs = ["driver_testutil.h"],
-    deps = [
-        "//tensorstore",
-        "//tensorstore:array",
-        "//tensorstore:data_type",
-        "//tensorstore:json_serialization_options",
-        "//tensorstore:open",
-        "//tensorstore:spec_request_options",
-        "//tensorstore/index_space:dim_expression",
-        "//tensorstore/index_space:index_transform_builder",
-        "//tensorstore/internal:data_type_random_generator",
-        "//tensorstore/internal:logging",
-        "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/algorithm:container",
-        "@com_google_googletest//:gtest",
     ],
 )

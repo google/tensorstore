@@ -5,6 +5,34 @@ package(default_visibility = ["//visibility:public"])
 licenses(["notice"])
 
 tensorstore_cc_library(
+    name = "byte_range",
+    srcs = ["byte_range.cc"],
+    hdrs = ["byte_range.h"],
+    deps = [
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:to_string",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "byte_range_test",
+    size = "small",
+    srcs = ["byte_range_test.cc"],
+    deps = [
+        ":byte_range",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "//tensorstore/util:to_string",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "generation",
     srcs = ["generation.cc"],
     hdrs = ["generation.h"],
@@ -34,34 +62,6 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "byte_range",
-    srcs = ["byte_range.cc"],
-    hdrs = ["byte_range.h"],
-    deps = [
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "//tensorstore/util:to_string",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "byte_range_test",
-    size = "small",
-    srcs = ["byte_range_test.cc"],
-    deps = [
-        ":byte_range",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "//tensorstore/util:status_testutil",
-        "//tensorstore/util:to_string",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
     ],
 )
 

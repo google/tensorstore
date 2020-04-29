@@ -7,25 +7,6 @@ package(default_visibility = ["//visibility:public"])
 licenses(["notice"])
 
 tensorstore_cc_library(
-    name = "file_util",
-    srcs = [
-        "posix_file_util.cc",
-        "windows_file_util.cc",
-    ],
-    hdrs = [
-        "posix_file_util.h",
-        "unique_handle.h",
-        "windows_file_util.h",
-    ],
-    deps = [
-        "//tensorstore/internal:os_error_code",
-        "//tensorstore/util:result",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-    ],
-)
-
-tensorstore_cc_library(
     name = "file",
     srcs = ["file_key_value_store.cc"],
     deps = [
@@ -76,5 +57,24 @@ tensorstore_cc_test(
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "file_util",
+    srcs = [
+        "posix_file_util.cc",
+        "windows_file_util.cc",
+    ],
+    hdrs = [
+        "posix_file_util.h",
+        "unique_handle.h",
+        "windows_file_util.h",
+    ],
+    deps = [
+        "//tensorstore/internal:os_error_code",
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
     ],
 )
