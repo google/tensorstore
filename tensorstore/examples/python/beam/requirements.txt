@@ -1,0 +1,5 @@
+apache-beam[gcp]
+absl-py
+gin-config
+numpy
+tensorstore
