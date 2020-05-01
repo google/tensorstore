@@ -6,17 +6,20 @@ package(default_visibility = ["//visibility:public"])
 licenses(["notice"])
 
 py_binary(
-    name = "reshard_tensor",
-    srcs = ["reshard_tensor.py"],
+    name = "run_pipeline",
+    srcs = ["run_pipeline.py"],
     python_version = "PY3",
     deps = [
         ":reshard_tensor_lib",
+        "@pypa_absl_py//:absl_py",
+        "@pypa_apache_beam//:apache_beam",
+        "@pypa_gin_config//:gin_config",
     ],
 )
 
 tensorstore_pytest_test(
     name = "reshard_tensor_test",
-    size = "medium",
+    size = "small",
     srcs = ["reshard_tensor_test.py"],
     deps = [
         ":reshard_tensor_lib",

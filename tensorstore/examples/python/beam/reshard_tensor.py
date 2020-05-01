@@ -1,22 +1,27 @@
-# Lint as: python3
-"""Reshards tensors from one block size to another.
+# Copyright 2020 The TensorStore Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-Reshards a tensor to a new subblock size. Example usage:
-python3 reshard_tensor.py --gin_config reshard.gin
+# Lint as: python3
+"""Library to reshard tensors from one block size to another.
+
+Reshards a tensor to a new subblock size.
 """
 
 import logging
-from absl import app
-from absl import flags
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 import gin
-
-FLAGS = flags.FLAGS
-flags.DEFINE_multi_string("gin_config", [],
-                          "List of paths to the config files.")
-flags.DEFINE_multi_string("gin_bindings", [],
-                          "Newline separated list of Gin parameter bindings.")
 
 
 class ReadTS(beam.core.DoFn):
@@ -74,13 +79,13 @@ class WriteTS(beam.core.DoFn):
     yield None
 
 
-@gin.configurable("run")
-def run(pipeline_options=gin.REQUIRED,
-        input_spec=gin.REQUIRED,
-        output_spec=gin.REQUIRED,
-        num_frames=gin.REQUIRED,
-        dx=gin.REQUIRED):
-  """Runs the pipeline.
+@gin.configurable("reshard_tensor_xy2t")
+def reshard_tensor_xy2t(pipeline_options=gin.REQUIRED,
+                        input_spec=gin.REQUIRED,
+                        output_spec=gin.REQUIRED,
+                        num_frames=gin.REQUIRED,
+                        dx=gin.REQUIRED):
+  """Reshards an XY contiguous tensor to t contiguous.
 
   Args:
     pipeline_options: dictionary of pipeline options
@@ -99,14 +104,3 @@ def run(pipeline_options=gin.REQUIRED,
     result = voxels_grouped | beam.ParDo(WriteTS(num_frames,
                                                  output_spec, dx))
   del result
-
-
-def main(argv):
-  # unused
-  del argv
-  gin.parse_config_files_and_bindings(FLAGS.gin_config, FLAGS.gin_bindings)
-  run()
-
-if __name__ == "__main__":
-  logging.getLogger().setLevel(logging.INFO)
-  app.run(main)

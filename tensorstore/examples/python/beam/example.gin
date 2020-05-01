@@ -1,0 +1,54 @@
+# Example gin config to reshard a tensor from xy contiguous to t.
+
+# This pipeline just has one step.
+run.steps = [ @reshard_tensor_xy2t ]
+
+reshard_tensor_xy2t.pipeline_options = {
+    "runner" : "DataFlowRunner",
+    "autoscaling_algorithm" : "THROUGHPUT_BASED",
+    "num_workers" : "50",
+    "max_num_workers" : "100",
+    # No public IPs means can use more workers but cannot access pip.
+    "no_use_public_ips" : False,
+    "experiments" : "shuffle_mode=service",
+    "project" : # Insert your project here,
+    "region" : # Your zone here",
+    "staging_location" : #gs://bucket/staging,
+    "temp_location" : #gs://bucket/staging/temp,
+    # Use either setup or requirements.
+    "setup_file" : "./setup.py",
+    #"requirements_file" : "requirements.txt",
+    #"requirements_cache" : "/tmp/requirements_cache",
+    "job_name" : "transpose",
+    "service_account_email" : #your service account
+}
+
+reshard_tensor_xy2t.num_frames = 44444
+reshard_tensor_xy2t.dx = 256
+
+reshard_tensor_xy2t.input_spec = {
+  "open" : True,
+  "driver" : "n5",
+  "path" : # Path to input,
+  "kvstore" : {
+    "driver": "gcs",
+    "bucket": # Your bucket
+   }
+}
+
+reshard_tensor_xy2t.output_spec = {
+  "create" : True,
+  "open" : True,
+  "driver" : "n5",
+  "path" : # Path to output,
+  "kvstore" : {
+    "driver": "gcs",
+    "bucket": # Your bucket
+   },
+   "metadata" : {
+     "compression": { "type": "gzip" },
+     "dataType" : "uint16",
+     "dimensions": [2048, 1116, 31, 44444],
+     "blockSize" : [256, 1, 1, 44444]
+   }
+}
