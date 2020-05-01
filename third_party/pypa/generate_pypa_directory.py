@@ -136,6 +136,9 @@ def generate(args):
         "jsonpointer",
         "jsonschema",
         "pyyaml",
+        # Examples
+        "apache-beam",
+        "gin-config",
     ]
   seen_packages = set()
   while all_packages:

@@ -1,0 +1,38 @@
+load("//python/tensorstore:pytest.bzl", "tensorstore_pytest_test")
+# Beam based tensorstore examples
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+py_binary(
+    name = "reshard_tensor",
+    srcs = ["reshard_tensor.py"],
+    python_version = "PY3",
+    deps = [
+        ":reshard_tensor_lib",
+    ],
+)
+
+tensorstore_pytest_test(
+    name = "reshard_tensor_test",
+    size = "medium",
+    srcs = ["reshard_tensor_test.py"],
+    deps = [
+        ":reshard_tensor_lib",
+        "//python/tensorstore",
+        "@pypa_numpy//:numpy",
+    ],
+)
+
+py_library(
+    name = "reshard_tensor_lib",
+    srcs = ["reshard_tensor.py"],
+    deps = [
+        "//python/tensorstore",
+        "@pypa_absl_py//:absl_py",
+        "@pypa_apache_beam//:apache_beam",
+        "@pypa_gin_config//:gin_config",
+        "@pypa_numpy//:numpy",
+    ],
+)

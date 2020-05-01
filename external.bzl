@@ -42,6 +42,8 @@ load("//third_party:pypa/ipython/workspace.bzl", repo_pypa_ipython = "repo")
 load("//third_party:pypa/wheel/workspace.bzl", repo_pypa_wheel = "repo")
 load("//third_party:pypa/sphinx/workspace.bzl", repo_pypa_sphinx = "repo")
 load("//third_party:pypa/sphinx_autobuild/workspace.bzl", repo_pypa_sphinx_autobuild = "repo")
+load("//third_party:pypa/apache_beam/workspace.bzl", repo_pypa_apache_beam = "repo")
+load("//third_party:pypa/gin_config/workspace.bzl", repo_pypa_gin_config = "repo")
 
 def _bazel_dependencies():
     maybe(
@@ -69,6 +71,8 @@ def _python_dependencies():
     repo_pypa_wheel()
     repo_pypa_sphinx()
     repo_pypa_sphinx_autobuild()
+    repo_pypa_apache_beam()
+    repo_pypa_gin_config()
 
 def _cc_dependencies():
     repo_com_google_absl()
