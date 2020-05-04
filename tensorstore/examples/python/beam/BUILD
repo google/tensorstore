@@ -10,7 +10,7 @@ py_binary(
     srcs = ["run_pipeline.py"],
     python_version = "PY3",
     deps = [
-        ":reshard_tensor_lib",
+        ":pipelines_lib",
         "@pypa_absl_py//:absl_py",
         "@pypa_apache_beam//:apache_beam",
         "@pypa_gin_config//:gin_config",
@@ -22,14 +22,14 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["reshard_tensor_test.py"],
     deps = [
-        ":reshard_tensor_lib",
+        ":pipelines_lib",
         "//python/tensorstore",
         "@pypa_numpy//:numpy",
     ],
 )
 
 py_library(
-    name = "reshard_tensor_lib",
+    name = "pipelines_lib",
     srcs = ["reshard_tensor.py"],
     deps = [
         "//python/tensorstore",
