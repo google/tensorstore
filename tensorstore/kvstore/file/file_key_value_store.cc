@@ -465,11 +465,6 @@ struct WriteTask {
             }
             return StatusFromErrno("Error writing to file: ", lock_path);
           }
-          FileInfo info;
-          if (!GetFileInfo(fd, &info) != 0) {
-            return StatusFromErrno("Error getting file info: ", lock_path);
-          }
-          StorageGeneration generation = GetFileGeneration(info);
           if (!internal_file_util::FsyncFile(fd)) {
             return StatusFromErrno("Error calling fsync on file: ", lock_path);
           }
@@ -478,7 +473,13 @@ struct WriteTask {
                                    full_path);
           }
           *delete_lock_file = false;
-          return generation;
+          // Retrieve `FileInfo` after the fsync and rename to ensure the
+          // modification time doesn't change afterwards.
+          FileInfo info;
+          if (!GetFileInfo(fd, &info) != 0) {
+            return StatusFromErrno("Error getting file info: ", lock_path);
+          }
+          return GetFileGeneration(info);
         });
     if (!generation_result) {
       return std::move(generation_result).status();
