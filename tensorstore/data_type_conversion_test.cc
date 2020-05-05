@@ -294,7 +294,8 @@ TEST(DataTypeConversionTest, Int32) {
   EXPECT_EQ(uint32_t(pos), TestConversion<uint32_t>(pos, kCanReinterpretCast));
   EXPECT_EQ(uint64_t(neg), TestConversion<uint64_t>(neg));
   EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos));
-  EXPECT_EQ(float16_t(neg), TestConversion<float16_t>(neg));
+  EXPECT_EQ(float16_t(static_cast<float>(neg)),
+            TestConversion<float16_t>(neg));  // inexact
   EXPECT_EQ(float32_t(neg), TestConversion<float32_t>(neg));
   EXPECT_EQ(float64_t(neg), TestConversion<float64_t>(neg, kSafeAndImplicit));
   EXPECT_EQ(complex64_t(float32_t(neg)), TestConversion<complex64_t>(neg));
@@ -329,7 +330,8 @@ TEST(DataTypeConversionTest, Uint32) {
                 pos, kSafeAndImplicit | kIdentity | kCanReinterpretCast));
   EXPECT_EQ(uint64_t(neg), TestConversion<uint64_t>(neg, kSafeAndImplicit));
   EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos, kSafeAndImplicit));
-  EXPECT_EQ(float16_t(neg), TestConversion<float16_t>(neg));
+  EXPECT_EQ(float16_t(static_cast<float>(neg)),
+            TestConversion<float16_t>(neg));  // inexact
   EXPECT_EQ(float32_t(neg), TestConversion<float32_t>(neg));
   EXPECT_EQ(float64_t(neg), TestConversion<float64_t>(neg, kSafeAndImplicit));
   EXPECT_EQ(complex64_t(float32_t(neg)), TestConversion<complex64_t>(neg));
@@ -362,7 +364,8 @@ TEST(DataTypeConversionTest, Int64) {
   EXPECT_EQ(uint32_t(pos), TestConversion<uint32_t>(pos));
   EXPECT_EQ(uint64_t(neg), TestConversion<uint64_t>(neg, kCanReinterpretCast));
   EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos, kCanReinterpretCast));
-  EXPECT_EQ(float16_t(neg), TestConversion<float16_t>(neg));
+  EXPECT_EQ(float16_t(static_cast<float>(neg)),
+            TestConversion<float16_t>(neg));  // inexact
   EXPECT_EQ(float32_t(neg), TestConversion<float32_t>(neg));
   EXPECT_EQ(float64_t(neg), TestConversion<float64_t>(neg));
   EXPECT_EQ(complex64_t(float32_t(neg)), TestConversion<complex64_t>(neg));
@@ -396,7 +399,8 @@ TEST(DataTypeConversionTest, Uint64) {
   EXPECT_EQ(uint64_t(pos),
             TestConversion<uint64_t>(
                 pos, kCanReinterpretCast | kSafeAndImplicit | kIdentity));
-  EXPECT_EQ(float16_t(neg), TestConversion<float16_t>(neg));
+  EXPECT_EQ(float16_t(static_cast<float>(neg)),
+            TestConversion<float16_t>(neg));  // inexact
   EXPECT_EQ(float32_t(neg), TestConversion<float32_t>(neg));
   EXPECT_EQ(float64_t(neg), TestConversion<float64_t>(neg));
   EXPECT_EQ(complex64_t(float32_t(neg)), TestConversion<complex64_t>(neg));

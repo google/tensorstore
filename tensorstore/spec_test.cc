@@ -42,9 +42,6 @@ using tensorstore::StaticDataType;
 using tensorstore::StaticRankCast;
 using tensorstore::StrCat;
 
-constexpr DataType int32_data_type = DataTypeOf<std::int32_t>();
-constexpr DataType uint32_data_type = DataTypeOf<std::uint32_t>();
-
 TEST(SpecTest, ToJson) {
   ::nlohmann::json spec_json({{"driver", "array"},
                               {"dtype", "int32"},
