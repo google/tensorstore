@@ -56,15 +56,12 @@ class ScopedEvent {
     DWORD res = ::WaitForMultipleObjectsEx(2, handles, /*bWaitAll=*/FALSE,
                                            /*dwMilliseconds=*/INFINITE,
                                            /*bAlertable=*/FALSE);
-    switch (res) {
-      case WAIT_OBJECT_0:
-        return true;
-      case WAIT_OBJECT_0 + 1:
-        ::ResetEvent(sigint_event);
-        return false;
-      default:
-        assert(false);
+    if (res == WAIT_OBJECT_0 + 1) {
+      ::ResetEvent(sigint_event);
+      return false;
     }
+    assert(res == WAIT_OBJECT_0);
+    return true;
   }
   HANDLE handle;
   HANDLE sigint_event;
