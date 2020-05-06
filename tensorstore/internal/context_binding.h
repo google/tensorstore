@@ -114,6 +114,10 @@
 namespace tensorstore {
 namespace internal {
 
+// clang: requires use when explicitly capturing a parameter pack
+template <typename... T>
+void SuppressMaybeUnusedWarning(T...) {}
+
 /// Traits type that may be specialized for a given `Spec` type to define the
 /// conversion to the corresponding `Bound` type.
 ///
@@ -181,6 +185,7 @@ struct ContextBindingTraits<
       // https://bugs.llvm.org/show_bug.cgi?id=42104
       return Bound::ApplyMembers(*bound, [&spec_member...,
                                           &context](auto&... bound_member) {
+        SuppressMaybeUnusedWarning(spec_member...);
         Status status;
         (void)((status = ContextBindingTraits<
                     remove_cvref_t<decltype(spec_member)>>::Bind(&spec_member,
@@ -200,6 +205,7 @@ struct ContextBindingTraits<
       // https://bugs.llvm.org/show_bug.cgi?id=42104
       Bound::ApplyMembers(*bound, [&spec_member...,
                                    &builder](const auto&... bound_member) {
+        SuppressMaybeUnusedWarning(spec_member...);
         (ContextBindingTraits<remove_cvref_t<decltype(spec_member)>>::Unbind(
              &spec_member, &bound_member, builder),
          ...);
