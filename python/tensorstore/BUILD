@@ -52,6 +52,7 @@ py_binary(
     name = "shell",
     srcs = ["shell.py"],
     python_version = "PY3",
+    tags = ["manual"],
     deps = [
         ":tensorstore",
         "@pypa_absl_py//:absl_py",

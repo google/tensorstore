@@ -24,6 +24,7 @@ py_binary(
     name = "build_docs",
     srcs = ["build_docs.py"],
     legacy_create_init = False,
+    tags = ["manual"],
     deps = [
         ":tensorstore_autosummary",
         ":tensorstore_jsonschema_sphinx",
