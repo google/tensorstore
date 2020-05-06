@@ -19,9 +19,9 @@ py_binary(
 )
 
 tensorstore_pytest_test(
-    name = "reshard_tensor_test",
-    size = "small",
-    srcs = ["reshard_tensor_test.py"],
+    name = "pipeline_test",
+    size = "medium",
+    srcs = ["pipeline_test.py"],
     tags = ["manual"],
     deps = [
         ":pipelines_lib",
@@ -32,7 +32,10 @@ tensorstore_pytest_test(
 
 py_library(
     name = "pipelines_lib",
-    srcs = ["reshard_tensor.py"],
+    srcs = [
+        "compute_percentiles.py",
+        "reshard_tensor.py",
+    ],
     tags = ["manual"],
     deps = [
         "//python/tensorstore",

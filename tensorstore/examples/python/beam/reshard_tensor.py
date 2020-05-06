@@ -25,7 +25,7 @@ import gin
 
 
 class ReadTS(beam.core.DoFn):
-  """Reads from Tensorstore."""
+  """Reads from Tensorstore stored with XY major format."""
 
   def __init__(self, spec, dx):
     self._spec = spec
@@ -36,7 +36,6 @@ class ReadTS(beam.core.DoFn):
     # pylint: disable=g-import-not-at-top, import-outside-toplevel
     import tensorstore as ts
     self._ds = ts.open(self._spec).result()
-    self._dtype = self._ds.dtype.numpy_dtype
 
   def process(self, frame):
     """Reads a voxel and emits as ((x, y, z) , (frame, values[dx])) tuples."""
@@ -51,7 +50,7 @@ class ReadTS(beam.core.DoFn):
 
 
 class WriteTS(beam.core.DoFn):
-  """Writes to tensorstore."""
+  """Writes to tensorstore in T major format."""
 
   def __init__(self, num_frames, spec, dx):
     self._num_frames = num_frames
@@ -101,6 +100,5 @@ def reshard_tensor_xy2t(pipeline_options=gin.REQUIRED,
     frames = p | beam.Create(range(num_frames))
     voxels = frames | beam.ParDo(ReadTS(input_spec, dx))
     voxels_grouped = voxels | beam.GroupByKey()
-    result = voxels_grouped | beam.ParDo(WriteTS(num_frames,
-                                                 output_spec, dx))
+    result = voxels_grouped | beam.ParDo(WriteTS(num_frames, output_spec, dx))
   del result
