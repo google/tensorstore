@@ -19,11 +19,12 @@
 import os
 import numpy as np
 import tensorstore as ts
+import compute_dfbyf
 import compute_percentiles
 import reshard_tensor
 
 
-def make_spec(path, dimensions, blocksize):
+def make_spec(path, dimensions, blocksize, dtype='uint32'):
   spec = {
       'driver': 'n5',
       'kvstore': {
@@ -32,7 +33,7 @@ def make_spec(path, dimensions, blocksize):
       },
       'metadata': {
           'compression': {'type': 'gzip'},
-          'dataType': 'uint32',
+          'dataType': dtype,
           'dimensions': dimensions,
           'blockSize': blocksize,
       },
@@ -111,3 +112,40 @@ def test_compute_percentile(tmp_path):
     np.testing.assert_array_equal(expected_min, output_ds[:, :, :, i, 0])
     np.testing.assert_array_equal(expected_median, output_ds[:, :, :, i, 1])
     np.testing.assert_array_equal(expected_max, output_ds[:, :, :, i, 2])
+
+
+def test_compute_dfbyf(tmp_path):
+  pipeline_options = {'runner': 'DirectRunner'}
+  input_file = os.path.join(tmp_path, 'a')
+  percentile_file = os.path.join(tmp_path, 'b')
+  output_file = os.path.join(tmp_path, 'c')
+
+  dim = [6, 7, 8, 9]
+  count = np.prod(dim)
+  data = np.arange(count, dtype=np.uint32)
+  data = np.reshape(data, dim)
+  input_spec = make_spec(input_file, dim, [1, 1, 1, 9])
+  input_ds = ts.open(input_spec).result()
+  input_ds[:, :, :, :] = data
+
+  dim_percentile = [6, 7, 8, 9, 3]
+  data_percentile = np.arange(np.prod(dim_percentile), dtype=np.uint32)
+  data_percentile = np.reshape(data_percentile, dim_percentile)
+  percentile_spec = make_spec(percentile_file, dim_percentile,
+                              [1, 1, 1, 9, 3])
+  percentile_ds = ts.open(percentile_spec).result()
+  percentile_ds[:, :, :, :, :] = data_percentile
+
+  output_spec = make_spec(output_file, dim, [1, 1, 1, 9], 'float32')
+  smoothing = 3.0
+  for percentile_index in range(3):
+    compute_dfbyf.compute_dfbyf(
+        pipeline_options, input_spec, percentile_spec,
+        output_spec, percentile_index, smoothing)
+    f = data.astype(np.float32)
+    b = data_percentile[:, :, :, :, percentile_index].astype(np.float32)
+    expected = (f - b) / (smoothing + b)
+    output_ds = ts.open(output_spec).result()
+    computed = output_ds[:, :, :, :]
+    np.testing.assert_array_almost_equal(expected, computed)
+

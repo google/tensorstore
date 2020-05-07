@@ -33,6 +33,7 @@ tensorstore_pytest_test(
 py_library(
     name = "pipelines_lib",
     srcs = [
+        "compute_dfbyf.py",
         "compute_percentiles.py",
         "reshard_tensor.py",
     ],

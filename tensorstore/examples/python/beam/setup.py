@@ -9,10 +9,16 @@ REQUIRED_PACKAGES = [
     "tensorstore==0.1.1"
 ]
 
+PY_MODULES = [
+    "compute_dfbyf",
+    "compute_percentiles",
+    "reshard_tensor"
+]
+
 setuptools.setup(
     name="tensorstore_beam_pipeline",
     version="0.0.0",
     install_requires=REQUIRED_PACKAGES,
-    py_modules=["compute_percentiles", "reshard_tensor"],
+    py_modules=PY_MODULES,
     packages=setuptools.find_packages()
 )

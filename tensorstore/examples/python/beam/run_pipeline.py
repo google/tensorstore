@@ -23,6 +23,7 @@ import logging
 from absl import app
 from absl import flags
 # pylint: disable=unused-import
+import compute_dfbyf
 import compute_percentiles
 import gin
 import reshard_tensor
