@@ -13,5 +13,6 @@ setuptools.setup(
     name="tensorstore_beam_pipeline",
     version="0.0.0",
     install_requires=REQUIRED_PACKAGES,
+    py_modules=["compute_percentiles", "reshard_tensor"],
     packages=setuptools.find_packages()
 )
