@@ -43,7 +43,7 @@ def make_spec(path, dimensions, blocksize, dtype='uint32'):
   return spec
 
 
-def test_reshard_tensor_xy2t(tmp_path):
+def test_reshard_tensor_xy2xt(tmp_path):
   pipeline_options = {'runner': 'DirectRunner'}
   input_file = os.path.join(tmp_path, 'a')
   output_file = os.path.join(tmp_path, 'b')
@@ -56,13 +56,20 @@ def test_reshard_tensor_xy2t(tmp_path):
   input_ds[:, :, :, :] = data
 
   output_spec = make_spec(output_file, dim, [1, 1, 1, 9])
-  num_frames = 9
   dx = 3
-  reshard_tensor.reshard_tensor_xy2t(pipeline_options, input_spec,
-                                     output_spec,
-                                     num_frames, dx)
+  reshard_tensor.reshard_tensor_xy2xt(pipeline_options, input_spec,
+                                      output_spec, dx)
   output_ds = ts.open(output_spec).result()
   np.testing.assert_array_equal(data, output_ds[:, :, :, :])
+
+  # Now go from xt back to xy
+  inverse_file = os.path.join(tmp_path, 'c')
+  inverse_spec = make_spec(inverse_file, dim, [6, 7, 1, 1])
+
+  reshard_tensor.reshard_tensor_xt2xy(pipeline_options, output_spec,
+                                      inverse_spec, dx)
+  inverse_ds = ts.open(inverse_spec).result()
+  np.testing.assert_array_equal(data, inverse_ds[:, :, :, :])
 
 
 def test_get_percentile_window():
