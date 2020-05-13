@@ -26,6 +26,7 @@ tensorstore_pytest_test(
     deps = [
         ":pipelines_lib",
         "//python/tensorstore",
+        "@pypa_apache_beam//:apache_beam",
         "@pypa_numpy//:numpy",
     ],
 )
