@@ -121,14 +121,20 @@ std::ostream& operator<<(std::ostream& os, const BenchmarkConfig& config) {
          << ", cached=" << config.cached << ", threads=" << config.threads;
 }
 
-class BenchmarkCache : public ChunkCache {
+class BenchmarkCache
+    : public tensorstore::internal::CacheBase<BenchmarkCache, ChunkCache> {
+  using Base = tensorstore::internal::CacheBase<BenchmarkCache, ChunkCache>;
+
  public:
-  using ChunkCache::ChunkCache;
+  using Base::Base;
   Executor executor;
 
-  void DoRead(ReadOptions options, ReadReceiver receiver) override {
+  void DoRead(AsyncStorageBackedCache::PinnedEntry base_entry,
+              absl::Time staleness_bound) override {
     auto req_time = absl::Now();
-    executor([receiver, req_time, this] {
+    executor([entry = tensorstore::internal::static_pointer_cast<Entry>(
+                  std::move(base_entry)),
+              req_time, this] {
       absl::InlinedVector<SharedArray<void>, 1> data;
       absl::InlinedVector<tensorstore::SharedArrayView<const void>, 1> data_ref;
       data.reserve(grid().components.size());
@@ -137,23 +143,28 @@ class BenchmarkCache : public ChunkCache {
         data.push_back(MakeCopy(component_spec.fill_value));
         data_ref.push_back(data.back());
       }
-      receiver.NotifyDone(ReadReceiver::ComponentsWithGeneration{
-          data_ref, {StorageGeneration{"gen"}, req_time}});
+      auto lock = entry->AcquireReadStateWriterLock();
+      entry->last_read_time = req_time;
+      this->NotifyReadSuccess(entry.get(), std::move(lock), data_ref);
     });
   }
-  void DoWriteback(TimestampedStorageGeneration existing_generation,
-                   WritebackReceiver receiver) override {
-    executor([receiver, this] {
+  void DoWriteback(AsyncStorageBackedCache::PinnedEntry base_entry) override {
+    executor([entry = tensorstore::internal::static_pointer_cast<Entry>(
+                  std::move(base_entry)),
+              this] {
       {
-        ChunkCache::WritebackSnapshot snapshot(receiver);
+        ChunkCache::WritebackSnapshot snapshot(
+            static_cast<ChunkCache::Entry*>(entry.get()));
         for (const auto& array : snapshot.component_arrays()) {
           ::benchmark::DoNotOptimize(MakeCopy(array));
         }
       }
       auto req_time = absl::Now();
-      executor([receiver, req_time] {
-        receiver.NotifyDone(
-            {absl::in_place, StorageGeneration{"gen"}, req_time});
+      executor([entry, req_time] {
+        auto lock = entry->AcquireWriteAndReadStateLock();
+        entry->last_read_time = req_time;
+        GetOwningCache(entry)->NotifyWritebackSuccess(entry.get(),
+                                                      std::move(lock));
       });
     });
   }

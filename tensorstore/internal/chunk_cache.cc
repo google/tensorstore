@@ -177,12 +177,10 @@ bool IsFullyOverwritten(ChunkCache::Entry* entry) {
 ///    which must be overridden by derived classes.
 ///
 /// 5. The derived class implementation of `DoRead` arranges to call
-///    `ChunkCache::ReadReceiver::NotifyDone` when the read has finished and
-///    either an error has occurred or the cell data has been decoded
-///    successfully.  If there is no data for the cell in the underlying storage
-///    (as indicated by an error code of `absl::StatusCode::kNotFound`), the
-///    cell is considered to implicitly contain the fill value, but no storage
-///    is actually allocated.
+///    `ChunkCache::NotifyReadSuccess` when the read has finished successfully.
+///    If there is no data for the cell in the underlying storage, the cell is
+///    considered to implicitly contain the fill value, but no storage is
+///    actually allocated.
 ///
 /// 6. Once the cell data has been updated (if necessary), the `ReadChunk`
 ///    constructed previously is sent to the user-specified `receiver`.
@@ -193,13 +191,13 @@ struct ReadChunkImpl {
   Result<NDIterable::Ptr> operator()(ReadChunk::AcquireReadLock,
                                      IndexTransform<> chunk_transform,
                                      Arena* arena) const {
-    absl::ReaderMutexLock read_lock(&entry->data_mutex);
     const auto& component_spec =
         GetOwningCache(entry)->grid().components[component_index];
     auto& component = entry->components[component_index];
     absl::FixedArray<Index, kNumInlinedDims> origin(component_spec.rank());
     GetComponentOrigin(GetOwningCache(entry)->grid(), component_spec,
                        entry->cell_indices(), origin);
+    auto lock = entry->AcquireReadStateReaderLock();
     return component.GetReadNDIterable(component_spec, origin,
                                        std::move(chunk_transform), arena);
   }
@@ -299,10 +297,10 @@ struct ReadState : public AtomicReferenceCount<ReadState> {
 ///    the cell has not been completely locally overwritten.  The derived class
 ///    implementation of `DoRead` is responsible for fetching and decoding the
 ///    existing data for the cell, if available, and calling
-///    `ChunkCache::ReadReceiver::NotifyDone` with the decoded component arrays
-///    for the cell.  The `ChunkCache` implementation merges the updated
-///    component arrays (or the fill value arrays if there is no existing data)
-///    with the local modifications using `RebaseMaskedArray`.
+///    `ChunkCache::NotifyReadSuccess` with the decoded component arrays for the
+///    cell.  The `ChunkCache` implementation merges the updated component
+///    arrays (or the fill value arrays if there is no existing data) with the
+///    local modifications using `RebaseMaskedArray`.
 ///
 /// 6. Once any necessary reads complete, `DoWriteback` is called.  The
 ///    implementation of `DoWriteback` uses the RAII `WritebackSnapshot` object
@@ -316,21 +314,20 @@ struct ReadState : public AtomicReferenceCount<ReadState> {
 ///    completes.
 ///
 /// 7. The derived class `DoWriteback` implementation arranges to call
-///    `ChunkCache::WritebackReceiver::NotifyDone` when the write to the
-///    underlying storage system completes (successfully or unsuccessfully).  If
-///    the write fails due to a concurrent modification (i.e. a
-///    `StorageGeneration` mismatch), as indicated by
-///    `StorageGeneration::Unknown()`, the `ChunkCache` implementation
-///    (facilitated by the `AsyncStorageBackedCache` implementation) returns to
-///    step 5 and issues another read request.  Otherwise, writeback is
-///    considered complete (even if an error occurs).  Any retry logic is the
-///    responsibility of the derived class implementation of `DoWriteback`.
+///    `ChunkCache::NotifyWritebackSuccess` when the write to the underlying
+///    storage system completes successfully.  If the writeback fails due to a
+///    concurrent modification (i.e. a `StorageGeneration` mismatch), the
+///    `DoWriteback` implementation instead calls
+///    `ChunkCache::NotifyWritebackNeedsRead` and the `ChunkCache`
+///    implementation (facilitated by the `AsyncStorageBackedCache`
+///    implementation) returns to step 5 and issues another read request.
+///    Otherwise, writeback is considered complete.
 struct WriteChunkImpl {
   std::size_t component_index;
   PinnedCacheEntry<ChunkCache> entry;
 
-  // On successful return, implicitly transfers ownership of an exclusive lock
-  // on `entry->data_mutex` to the caller.
+  // On successful return, implicitly transfers ownership of a `WriteStateLock`
+  // to the caller.
   Result<NDIterable::Ptr> operator()(
       WriteChunk::AcquireWriteLock, IndexTransform<> chunk_transform,
       Arena* arena) const ABSL_NO_THREAD_SAFETY_ANALYSIS {
@@ -339,7 +336,7 @@ struct WriteChunkImpl {
     absl::FixedArray<Index, kNumInlinedDims> origin(component_spec.rank());
     GetComponentOrigin(GetOwningCache(entry)->grid(), component_spec,
                        entry->cell_indices(), origin);
-    std::unique_lock<Mutex> lock(entry->data_mutex);
+    auto lock = entry->AcquireWriteStateLock();
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto iterable,
         entry->components[component_index].BeginWrite(
@@ -350,14 +347,14 @@ struct WriteChunkImpl {
     return iterable;
   }
 
-  // Unlocks the exclusive lock on `entry->data_mutex` acquired by successful
-  // call to the `AcquireWriteLock` method.
+  // Unlocks the exclusive lock on `entry->write_mutex` acquired by
+  // successful call to the `AcquireWriteLock` method.
   Future<const void> operator()(WriteChunk::ReleaseWriteLock,
                                 IndexTransformView<> chunk_transform,
                                 NDIterable::IterationLayoutView layout,
                                 span<const Index> write_end_position,
                                 Arena* arena) const {
-    std::unique_lock<Mutex> lock(entry->data_mutex, std::adopt_lock);
+    ChunkCache::WriteStateLock lock(entry.get(), std::adopt_lock);
     const auto& component_spec =
         GetOwningCache(entry)->grid().components[component_index];
     absl::FixedArray<Index, kNumInlinedDims> origin(component_spec.rank());
@@ -370,18 +367,16 @@ struct WriteChunkImpl {
       // The data array was modified.  Notify `AsyncStorageBackedCache` and
       // return the associated writeback `Future`.
       const bool is_fully_overwritten = IsFullyOverwritten(entry.get());
-      const std::size_t new_size =
-          GetOwningCache(entry)->DoGetSizeInBytes(entry.get());
+
       // Hand off lock to the `FinishWrite` method of
       // `AsyncStorageBackedCache`, which will release it.
       return entry->FinishWrite(
-          {std::move(lock), new_size},
+          std::move(lock),
           is_fully_overwritten
               ? AsyncStorageBackedCache::WriteFlags::kUnconditionalWriteback
               : AsyncStorageBackedCache::WriteFlags::kConditionalWriteback);
     }
-    // If `modified == false`, `lock` is implicitly released at the end of this
-    // scope.
+    entry->AbortWrite(std::move(lock));
     return {};
   }
 };
@@ -473,90 +468,18 @@ PinnedCacheEntry<ChunkCache> ChunkCache::GetEntryForCell(
   return GetCacheEntry(this, key);
 }
 
-Cache::Entry* ChunkCache::DoAllocateEntry() {
-  std::unique_ptr<Entry> entry(new Entry);
+void ChunkCache::DoInitializeEntry(Cache::Entry* base_entry) {
+  auto* entry = static_cast<Entry*>(base_entry);
   entry->components.reserve(grid().components.size());
   for (const auto& component_spec : grid().components) {
     entry->components.emplace_back(component_spec.rank());
   }
-  return entry.release();
-}
-
-void ChunkCache::DoDeleteEntry(Cache::Entry* base_entry) {
-  Entry* entry = static_cast<Entry*>(base_entry);
-  delete entry;
-}
-
-void ChunkCache::ReadReceiver::NotifyDone(
-    Result<ComponentsWithGeneration> components) const {
-  if (!components) {
-    // The read failed.
-    receiver_.NotifyDone(/*size_update=*/{}, components.status());
-    return;
-  }
-  if (StorageGeneration::IsUnknown(components->generation.generation)) {
-    // The existing data was already up to date.
-    assert(components->components.empty());
-    receiver_.NotifyDone(/*size_update=*/{}, std::move(components->generation));
-    return;
-  }
-  auto& entry = *this->entry();
-  std::unique_lock<Mutex> lock(entry.data_mutex);
-  auto* cache = GetOwningCache(&entry);
-  Box<dynamic_rank(kNumInlinedDims)> box;
-  const auto& spec = cache->grid();
-  const auto& component_specs = spec.components;
-  if (!components->components.empty()) {
-    assert(static_cast<size_t>(components->components.size()) ==
-           component_specs.size());
-  }
-  // Copy/update the data for each component array.  Use the fill value arrays
-  // if `components` is not specified (which can only occur at this point in the
-  // function due to an error of `absl::StatusCode::kNotFound`).
-  const bool use_fill_value = components->components.empty();
-  for (std::size_t component_i = 0; component_i < component_specs.size();
-       ++component_i) {
-    auto& component = entry.components[component_i];
-    if (use_fill_value) {
-      component.read_array = nullptr;
-    } else {
-      component.read_array = components->components[component_i];
-    }
-  }
-  // Notify the `AsyncStorageBackedCache` layer that the read operation has
-  // completed.
-  receiver_.NotifyDone({std::move(lock), cache->DoGetSizeInBytes(&entry)},
-                       std::move(components->generation));
-}
-
-void ChunkCache::WritebackReceiver::NotifyDone(
-    Result<TimestampedStorageGeneration> generation) const {
-  auto& entry = *this->entry();
-  auto* cache = GetOwningCache(&entry);
-  const auto& grid = cache->grid();
-  std::unique_lock<Mutex> lock(entry.data_mutex);
-  size_t num_components = grid.components.size();
-  const bool success =
-      generation && !StorageGeneration::IsUnknown(generation->generation);
-  const span<const Index> cell_indices = entry.cell_indices();
-  absl::InlinedVector<Index, kNumInlinedDims> origin;
-  for (size_t component_i = 0; component_i < num_components; ++component_i) {
-    auto& component = entry.components[component_i];
-    const auto& component_spec = grid.components[component_i];
-    origin.resize(component_spec.rank());
-    GetComponentOrigin(grid, component_spec, cell_indices, origin);
-    component.AfterWritebackCompletes(component_spec, origin, success);
-  }
-  // Notify the `AsyncStorageBackedCache` layer that the writeback operation has
-  // completed.
-  receiver_.NotifyDone({std::move(lock), cache->DoGetSizeInBytes(&entry)},
-                       std::move(generation));
 }
 
 Future<const void> ChunkCache::Entry::Delete() {
   // Deleting is equivalent to fully overwriting all components with the fill
   // value.
-  std::unique_lock<Mutex> lock(data_mutex);
+  auto lock = this->AcquireWriteStateLock();
   auto* cache = GetOwningCache(this);
   absl::InlinedVector<Index, kNumInlinedDims> origin;
   const span<const Index> cell_indices = this->cell_indices();
@@ -569,28 +492,34 @@ Future<const void> ChunkCache::Entry::Delete() {
     GetComponentOrigin(grid, component_spec, cell_indices, origin);
     components[component_index].WriteFillValue(component_spec, origin);
   }
-  const std::size_t new_size = cache->DoGetSizeInBytes(this);
-  return this->FinishWrite({std::move(lock), new_size},
+  return this->FinishWrite(std::move(lock),
                            WriteFlags::kUnconditionalWriteback);
 }
 
-std::size_t ChunkCache::DoGetSizeInBytes(Cache::Entry* base_entry) {
-  std::size_t total =
-      AsyncStorageBackedCache::DoGetSizeInBytes(base_entry) + sizeof(Entry);
+std::size_t ChunkCache::DoGetReadStateSizeInBytes(Cache::Entry* base_entry) {
+  std::size_t total = 0;
   Entry* entry = static_cast<Entry*>(base_entry);
   for (Index component_index = 0, num_components = grid_.components.size();
        component_index != num_components; ++component_index) {
-    total += entry->components[component_index].EstimateSizeInBytes(
+    total += entry->components[component_index].EstimateReadStateSizeInBytes(
         grid_.components[component_index]);
   }
   return total;
 }
 
-ChunkCache::WritebackSnapshot::WritebackSnapshot(
-    const WritebackReceiver& receiver)
-    : receiver_(receiver) {
-  auto* entry = receiver.entry();
-  std::unique_lock<Mutex> lock(entry->data_mutex);
+std::size_t ChunkCache::DoGetWriteStateSizeInBytes(Cache::Entry* base_entry) {
+  std::size_t total = 0;
+  Entry* entry = static_cast<Entry*>(base_entry);
+  for (Index component_index = 0, num_components = grid_.components.size();
+       component_index != num_components; ++component_index) {
+    total += entry->components[component_index].EstimateWriteStateSizeInBytes(
+        grid_.components[component_index]);
+  }
+  return total;
+}
+
+ChunkCache::WritebackSnapshot::WritebackSnapshot(Entry* entry) {
+  auto lock = entry->AcquireWriteStateLock();
   auto* cache = GetOwningCache(entry);
   const auto& component_specs = cache->grid().components;
   component_arrays_.resize(component_specs.size());
@@ -613,31 +542,70 @@ ChunkCache::WritebackSnapshot::WritebackSnapshot(
     equals_fill_value_ =
         equals_fill_value_ && component_snapshot.equals_fill_value;
   }
-  // Ensure the `data_mutex` remains locked even after the `lock` object is
-  // destroyed.  The `WritebackSnapshot` destructor releases the lock.
-  lock.release();
+  cache->NotifyWritebackStarted(entry, std::move(lock));
 }
 
-ChunkCache::WritebackSnapshot::~WritebackSnapshot() {
-  auto* entry = receiver_.entry();
-#if !defined(NDEBUG)
-  entry->data_mutex.AssertHeld();
-#endif
-  const std::size_t new_size = GetOwningCache(entry)->DoGetSizeInBytes(entry);
-  receiver_.receiver_.NotifyStarted(
-      {std::unique_lock<Mutex>(entry->data_mutex, std::adopt_lock), new_size});
+void ChunkCache::NotifyReadSuccess(
+    Cache::Entry* base_entry, ReadStateWriterLock lock,
+    span<const SharedArrayView<const void>> components) {
+  auto* entry = static_cast<Entry*>(base_entry);
+  const auto& spec = grid();
+  const auto& component_specs = spec.components;
+  if (!components.empty()) {
+    assert(static_cast<size_t>(components.size()) == component_specs.size());
+  }
+  for (std::size_t component_i = 0; component_i < component_specs.size();
+       ++component_i) {
+    auto& component = entry->components[component_i];
+    if (components.empty()) {
+      component.read_array = nullptr;
+    } else {
+      component.read_array = components[component_i];
+    }
+  }
+  this->NotifyReadSuccess(entry, std::move(lock));
 }
 
-void ChunkCache::DoRead(ReadOptions options,
-                        AsyncStorageBackedCache::ReadReceiver receiver) {
-  this->DoRead(std::move(options), ReadReceiver{std::move(receiver)});
+namespace {
+
+void AfterWritebackCompletes(ChunkCache* cache, ChunkCache::Entry* entry,
+                             bool success) {
+  const auto& grid = cache->grid();
+  size_t num_components = grid.components.size();
+  const span<const Index> cell_indices = entry->cell_indices();
+  absl::InlinedVector<Index, kNumInlinedDims> origin;
+  for (size_t component_i = 0; component_i < num_components; ++component_i) {
+    auto& component = entry->components[component_i];
+    const auto& component_spec = grid.components[component_i];
+    origin.resize(component_spec.rank());
+    GetComponentOrigin(grid, component_spec, cell_indices, origin);
+    component.AfterWritebackCompletes(component_spec, origin, success);
+  }
+}
+}  // namespace
+
+void ChunkCache::NotifyWritebackSuccess(Cache::Entry* base_entry,
+                                        WriteAndReadStateLock lock) {
+  AfterWritebackCompletes(this, static_cast<Entry*>(base_entry),
+                          /*success=*/true);
+  AsyncStorageBackedCache::NotifyWritebackSuccess(base_entry, std::move(lock));
 }
 
-void ChunkCache::DoWriteback(
-    TimestampedStorageGeneration existing_generation,
-    AsyncStorageBackedCache::WritebackReceiver receiver) {
-  this->DoWriteback(existing_generation,
-                    WritebackReceiver{std::move(receiver)});
+void ChunkCache::NotifyWritebackNeedsRead(Cache::Entry* base_entry,
+                                          WriteStateLock lock,
+                                          absl::Time staleness_bound) {
+  AfterWritebackCompletes(this, static_cast<Entry*>(base_entry),
+                          /*success=*/false);
+  AsyncStorageBackedCache::NotifyWritebackNeedsRead(base_entry, std::move(lock),
+                                                    staleness_bound);
+}
+
+void ChunkCache::NotifyWritebackError(Cache::Entry* base_entry,
+                                      WriteStateLock lock, Status error) {
+  AfterWritebackCompletes(this, static_cast<Entry*>(base_entry),
+                          /*success=*/false);
+  AsyncStorageBackedCache::NotifyWritebackError(base_entry, std::move(lock),
+                                                std::move(error));
 }
 
 ChunkCacheDriver::ChunkCacheDriver(CachePtr<ChunkCache> cache,

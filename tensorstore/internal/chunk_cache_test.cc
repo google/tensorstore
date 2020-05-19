@@ -92,24 +92,44 @@ using tensorstore::internal::ChunkGridSpecification;
 using tensorstore::internal::ConcurrentQueue;
 using tensorstore::internal::Driver;
 using tensorstore::internal::ElementCopyFunction;
+using tensorstore::internal::PinnedCacheEntry;
 using tensorstore::internal::SimpleElementwiseFunction;
 using testing::ElementsAre;
 
+struct RequestLog;
+
+class TestCache
+    : public tensorstore::internal::CacheBase<TestCache, ChunkCache> {
+  using Base = tensorstore::internal::CacheBase<TestCache, ChunkCache>;
+
+ public:
+  class Entry : public ChunkCache::Entry {
+   public:
+    StorageGeneration last_read_generation;
+  };
+
+  TestCache(ChunkGridSpecification grid, RequestLog* log)
+      : Base(std::move(grid)), log_(log) {}
+
+  void DoRead(PinnedEntry entry, absl::Time staleness_bound) override;
+
+  void DoWriteback(PinnedEntry entry) override;
+
+ private:
+  RequestLog* log_;
+};
+
 /// Represents a pending read request for a TestCache object.
 struct ReadRequest {
-  ChunkCache::ReadReceiver receiver;
+  PinnedCacheEntry<TestCache> entry;
   StorageGeneration generation;
   absl::Time staleness_bound;
-
-  ChunkCache::Entry* entry() const { return receiver.entry(); }
 };
 
 /// Represents a pending writeback request for a TestCache object.
 struct WritebackRequest {
-  ChunkCache::WritebackReceiver receiver;
+  PinnedCacheEntry<TestCache> entry;
   StorageGeneration generation;
-
-  ChunkCache::Entry* entry() const { return receiver.entry(); }
 };
 
 /// Contains the queue of pending chunk read and writeback requests for a
@@ -118,6 +138,29 @@ struct RequestLog {
   ConcurrentQueue<ReadRequest> reads;
   ConcurrentQueue<WritebackRequest> writebacks;
 };
+
+void TestCache::DoRead(PinnedEntry base_entry, absl::Time staleness_bound) {
+  auto entry =
+      tensorstore::internal::static_pointer_cast<Entry>(std::move(base_entry));
+  StorageGeneration generation;
+  {
+    auto lock = entry->AcquireReadStateReaderLock();
+    generation = entry->last_read_generation;
+  }
+  log_->reads.push(
+      ReadRequest{std::move(entry), std::move(generation), staleness_bound});
+}
+void TestCache::DoWriteback(AsyncStorageBackedCache::PinnedEntry base_entry) {
+  auto entry =
+      tensorstore::internal::static_pointer_cast<Entry>(std::move(base_entry));
+  StorageGeneration generation;
+  {
+    auto lock = entry->AcquireReadStateReaderLock();
+    generation = entry->last_read_generation;
+  }
+  log_->writebacks.push(
+      WritebackRequest{std::move(entry), std::move(generation)});
+}
 
 StorageGeneration GetStorageGenerationFromNumber(
     std::uint64_t generation_number) {
@@ -174,84 +217,66 @@ struct MockDataStore {
   /// `StorageGeneration::NoValue()`.
   void HandleRead(ReadRequest req) {
     absl::Time read_time = absl::Now();
-    auto it = chunks.find(req.entry()->key());
+    auto it = chunks.find(req.entry->key());
+    auto lock = req.entry->AcquireReadStateWriterLock();
+    req.entry->last_read_time = read_time;
+    auto* cache = GetOwningCache(req.entry);
     if (it == chunks.end()) {
-      if (StorageGeneration::IsNoValue(req.generation)) {
-        req.receiver.NotifyDone(
-            ChunkCache::ReadReceiver::ComponentsWithGeneration{
-                {}, {StorageGeneration::Unknown(), read_time}});
-        return;
-      }
-      req.receiver.NotifyDone(
-          ChunkCache::ReadReceiver::ComponentsWithGeneration{
-              {}, {StorageGeneration::NoValue(), read_time}});
+      req.entry->last_read_generation = StorageGeneration::NoValue();
+      cache->NotifyReadSuccess(req.entry.get(), std::move(lock),
+                               /*components=*/{});
       return;
     }
     const auto& stored_chunk = it->second;
     if (!StorageGeneration::IsUnknown(req.generation) &&
         GenerationMatches(stored_chunk.generation, req.generation)) {
-      req.receiver.NotifyDone(
-          ChunkCache::ReadReceiver::ComponentsWithGeneration{
-              {}, {StorageGeneration::Unknown(), read_time}});
+      req.entry->last_read_time = read_time;
+      cache->NotifyReadSuccess(req.entry.get(), std::move(lock));
       return;
     }
     std::vector<tensorstore::SharedArrayView<const void>> data(
         stored_chunk.data.begin(), stored_chunk.data.end());
-    req.receiver.NotifyDone(ChunkCache::ReadReceiver::ComponentsWithGeneration{
-        data,
-        {GetStorageGenerationFromNumber(stored_chunk.generation), read_time}});
+    req.entry->last_read_generation =
+        GetStorageGenerationFromNumber(stored_chunk.generation);
+    cache->NotifyReadSuccess(req.entry.get(), std::move(lock),
+                             /*components=*/data);
   }
 
   /// Starts a writeback (using WritebackSnapshot) and returns a function that
   /// completes the writeback (using the `chunks` map) when called.
   std::function<void()> HandleWriteback(WritebackRequest req) {
-    ChunkCache::WritebackSnapshot snapshot(req.receiver);
+    ChunkCache::WritebackSnapshot snapshot(req.entry.get());
     const bool equals_fill_value = snapshot.equals_fill_value();
     std::vector<SharedArray<const void>> data;
     for (const auto& array : snapshot.component_arrays()) {
       data.push_back(MakeCopy(array));
     }
     auto req_time = absl::Now();
-    return [data, req, this, req_time, equals_fill_value] {
-      auto& stored_chunk = chunks[req.entry()->key()];
+    return [data, this, req, req_time, equals_fill_value] {
+      auto& stored_chunk = chunks[req.entry->key()];
       if (GenerationMatches(stored_chunk.generation, req.generation)) {
+        auto lock = req.entry->AcquireWriteAndReadStateLock();
         stored_chunk.data = data;
         ++stored_chunk.generation;
         StorageGeneration storage_generation;
         if (equals_fill_value) {
-          chunks.erase(req.entry()->key());
+          chunks.erase(req.entry->key());
           storage_generation = StorageGeneration::NoValue();
         } else {
           storage_generation =
               GetStorageGenerationFromNumber(stored_chunk.generation);
         }
-        req.receiver.NotifyDone({std::in_place, storage_generation, req_time});
+        req.entry->last_read_generation = storage_generation;
+        req.entry->last_read_time = req_time;
+        GetOwningCache(req.entry)->NotifyWritebackSuccess(req.entry.get(),
+                                                          std::move(lock));
       } else {
-        req.receiver.NotifyDone(
-            {std::in_place, StorageGeneration::Unknown(), req_time});
+        auto lock = req.entry->AcquireWriteStateLock();
+        GetOwningCache(req.entry)->NotifyWritebackNeedsRead(
+            req.entry.get(), std::move(lock), req_time);
       }
     };
   }
-};
-
-class TestCache : public ChunkCache {
- public:
-  TestCache(ChunkGridSpecification grid, RequestLog* log)
-      : ChunkCache(std::move(grid)), log_(log) {}
-
-  void DoRead(ReadOptions options, ReadReceiver receiver) override {
-    log_->reads.push(ReadRequest{std::move(receiver),
-                                 std::move(options.existing_generation),
-                                 options.staleness_bound});
-  }
-  void DoWriteback(TimestampedStorageGeneration existing_generation,
-                   WritebackReceiver receiver) override {
-    log_->writebacks.push(WritebackRequest{
-        std::move(receiver), std::move(existing_generation.generation)});
-  }
-
- private:
-  RequestLog* log_;
 };
 
 TEST(ChunkGridSpecificationTest, Basic) {
@@ -369,13 +394,13 @@ TEST_P(ChunkCacheTest, ReadSingleComponentOneDimensionalFill) {
              read_array, absl::InfinitePast());
     {
       auto r = log.reads.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
       EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
       store.HandleRead(std::move(r));
     }
     {
       auto r = log.reads.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(2));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(2));
       EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
       store.HandleRead(std::move(r));
     }
@@ -413,13 +438,13 @@ TEST_P(ChunkCacheTest, ReadSingleComponentOneDimensionalFill) {
              read_array, absl::InfiniteFuture());
     {
       auto r = log.reads.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
       EXPECT_EQ(StorageGeneration::NoValue(), r.generation);
       store.HandleRead(std::move(r));
     }
     {
       auto r = log.reads.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(2));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(2));
       EXPECT_EQ(StorageGeneration::NoValue(), r.generation);
       store.HandleRead(std::move(r));
     }
@@ -545,13 +570,13 @@ TEST_P(ChunkCacheTest, ReadSingleComponentOneDimensionalExisting) {
              read_array, absl::InfinitePast());
     {
       auto r = log.reads.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
       EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
       store.HandleRead(std::move(r));
     }
     {
       auto r = log.reads.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(2));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(2));
       EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
       store.HandleRead(std::move(r));
     }
@@ -601,13 +626,13 @@ TEST_P(ChunkCacheTest, ReadSingleComponentOneDimensionalExisting) {
              read_array, absl::InfiniteFuture());
     {
       auto r = log.reads.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
       EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
       store.HandleRead(std::move(r));
     }
     {
       auto r = log.reads.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(2));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(2));
       EXPECT_EQ(StorageGeneration::NoValue(), r.generation);
       store.HandleRead(std::move(r));
     }
@@ -645,7 +670,7 @@ TEST_P(ChunkCacheTest, TwoDimensional) {
                                                            {3, 2},
                                                            {3, 3}}) {
     auto r = log.reads.pop();
-    EXPECT_THAT(r.entry()->cell_indices(),
+    EXPECT_THAT(r.entry->cell_indices(),
                 ::testing::ElementsAreArray(cell_indices));
     EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
     store.HandleRead(std::move(r));
@@ -698,15 +723,17 @@ TEST_P(ChunkCacheTest, ReadRequestErrorBasic) {
              read_array, absl::InfinitePast());
     {
       auto r = log.reads.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
       EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
       store.HandleRead(std::move(r));
     }
     {
       auto r = log.reads.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(2));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(2));
       EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-      r.receiver.NotifyDone(absl::UnknownError("Test read error"));
+
+      cache->NotifyReadError(r.entry.get(),
+                             absl::UnknownError("Test read error"));
     }
     EXPECT_EQ(absl::UnknownError("Test read error"),
               GetStatus(read_future.result()));
@@ -736,13 +763,13 @@ TEST_P(ChunkCacheTest, ReadRequestErrorBasic) {
              read_array, absl::InfiniteFuture());
     {
       auto r = log.reads.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
       EXPECT_EQ(StorageGeneration::NoValue(), r.generation);
       store.HandleRead(std::move(r));
     }
     {
       auto r = log.reads.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(2));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(2));
       EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
       store.HandleRead(std::move(r));
     }
@@ -778,7 +805,7 @@ TEST_P(ChunkCacheTest, WriteSingleComponentOneDimensional) {
              read_array, absl::InfinitePast());
     {
       auto r = log.reads.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(3));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(3));
       EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
       store.HandleRead(std::move(r));
     }
@@ -791,13 +818,13 @@ TEST_P(ChunkCacheTest, WriteSingleComponentOneDimensional) {
   write_future.Force();
   {
     auto r = log.reads.pop();
-    EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
     EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
     store.HandleRead(r);
   }
   {
     auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(2));
+    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(2));
     EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
     store.HandleWriteback(std::move(r))();
   }
@@ -808,7 +835,7 @@ TEST_P(ChunkCacheTest, WriteSingleComponentOneDimensional) {
   }
   {
     auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(3));
+    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(3));
     EXPECT_EQ(StorageGeneration::NoValue(), r.generation);
     store.HandleWriteback(std::move(r))();
   }
@@ -819,7 +846,7 @@ TEST_P(ChunkCacheTest, WriteSingleComponentOneDimensional) {
   }
   {
     auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
     EXPECT_EQ(StorageGeneration::NoValue(), r.generation);
     store.HandleWriteback(std::move(r))();
   }
@@ -850,7 +877,7 @@ TEST_P(ChunkCacheTest, OverwriteMissingWithFillValue) {
   write_future.Force();
   {
     auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
     EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
     auto complete_writeback = store.HandleWriteback(r);
     // Test that after starting the writeback, the representation has been
@@ -885,7 +912,7 @@ TEST_P(ChunkCacheTest, OverwriteExistingWithFillValue) {
     write_future.Force();
     {
       auto r = log.writebacks.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
       EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
       store.HandleWriteback(r)();
     }
@@ -904,7 +931,7 @@ TEST_P(ChunkCacheTest, OverwriteExistingWithFillValue) {
     write_future.Force();
     {
       auto r = log.writebacks.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
       EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
       store.HandleWriteback(r)();
     }
@@ -934,7 +961,7 @@ TEST_P(ChunkCacheTest, DeleteAfterNormalWriteback) {
     write_future.Force();
     {
       auto r = log.writebacks.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
       EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
       store.HandleWriteback(r)();
     }
@@ -947,7 +974,7 @@ TEST_P(ChunkCacheTest, DeleteAfterNormalWriteback) {
   write_future.Force();
   {
     auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
     EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
     store.HandleWriteback(r)();
   }
@@ -974,7 +1001,7 @@ TEST_P(ChunkCacheTest, PartialWriteAfterPendingDelete) {
     write_future.Force();
     {
       auto r = log.writebacks.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
       EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
       store.HandleWriteback(r)();
     }
@@ -997,7 +1024,7 @@ TEST_P(ChunkCacheTest, PartialWriteAfterPendingDelete) {
     write_future.Force();
     {
       auto r = log.writebacks.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
       EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
       store.HandleWriteback(r)();
     }
@@ -1046,7 +1073,7 @@ TEST_P(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
   write_future.Force();
   {
     auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
     EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
     store.HandleWriteback(r)();
   }
@@ -1070,7 +1097,7 @@ TEST_P(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
     write_future.Force();
     {
       auto r = log.writebacks.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
       EXPECT_EQ(StorageGeneration::NoValue(), r.generation);
       auto complete_writeback = store.HandleWriteback(r);
       // WritebackSnapshot fills in the unmasked data values with the fill
@@ -1132,7 +1159,7 @@ TEST_P(ChunkCacheTest, ReadAfterPendingDelete) {
 
     {
       auto r = log.reads.pop();
-      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
       EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
       store.HandleRead(std::move(r));
     }
@@ -1167,7 +1194,7 @@ TEST_P(ChunkCacheTest, DeleteWithPendingRead) {
   EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
 
   // Complete the read request.
-  EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+  EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
   EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
   store.HandleRead(r);
   EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
@@ -1215,7 +1242,7 @@ TEST_P(ChunkCacheTest, WriteToMaskedArrayError) {
   // Handle the read request.
   {
     auto r = log.reads.pop();
-    EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
     EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
     store.HandleRead(r);
   }
@@ -1249,7 +1276,7 @@ TEST_P(ChunkCacheTest, WriteGenerationMismatch) {
   // into the cache.
   {
     auto r = log.reads.pop();
-    EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
     EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
     store.HandleRead(r);
   }
@@ -1264,21 +1291,21 @@ TEST_P(ChunkCacheTest, WriteGenerationMismatch) {
   // mismatch.
   {
     auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
     EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
     store.HandleWriteback(std::move(r))();
   }
   // Handle the re-issued read request for chunk 1.
   {
     auto r = log.reads.pop();
-    EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
+    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
+    EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
     store.HandleRead(r);
   }
   // Handle the re-issued writeback request for chunk 1.
   {
     auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
     EXPECT_EQ(GetStorageGenerationFromNumber(2), r.generation);
     store.HandleWriteback(std::move(r))();
   }
@@ -1309,7 +1336,7 @@ TEST_P(ChunkCacheTest, ModifyDuringWriteback) {
   // overwritten).
   {
     auto r = log.reads.pop();
-    EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(0));
+    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(0));
     EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
     store.HandleRead(r);
   }
@@ -1318,7 +1345,7 @@ TEST_P(ChunkCacheTest, ModifyDuringWriteback) {
   // Handle the writeback request for chunk 1.
   {
     auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(0));
+    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(0));
     EXPECT_EQ(StorageGeneration::NoValue(), r.generation);
     auto complete_writeback = store.HandleWriteback(std::move(r));
     // While the writeback is in progress, write to chunk 0 again: [2]=7
@@ -1345,22 +1372,22 @@ TEST_P(ChunkCacheTest, ModifyDuringWriteback) {
   // mismatch).
   {
     auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(0));
+    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(0));
     EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
     store.HandleWriteback(std::move(r))();
   }
   // Handle the re-issued read request due to the generation mismatch.
   {
     auto r = log.reads.pop();
-    EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(0));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
+    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(0));
+    EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
     store.HandleRead(r);
   }
   // Handle the re-issued writeback request for chunk 0.
   {
     auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(0));
-    EXPECT_TRUE(r.entry()->components[0].write_data);
+    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(0));
+    EXPECT_TRUE(r.entry->components[0].write_data);
     EXPECT_EQ(GetStorageGenerationFromNumber(2), r.generation);
     store.HandleWriteback(std::move(r))();
   }

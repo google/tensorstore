@@ -53,6 +53,8 @@ struct AsyncWriteArray {
   explicit AsyncWriteArray(DimensionIndex rank);
 
   struct Spec {
+    Spec() = default;
+
     explicit Spec(SharedArray<const void> fill_value);
 
     /// The fill value of the array.  Must be non-null.  This also specifies the
@@ -111,7 +113,8 @@ struct AsyncWriteArray {
   std::shared_ptr<void> write_data_prior_to_writeback;
 
   /// Returns an estimate of the memory required.
-  std::size_t EstimateSizeInBytes(const Spec& spec) const;
+  std::size_t EstimateReadStateSizeInBytes(const Spec& spec) const;
+  std::size_t EstimateWriteStateSizeInBytes(const Spec& spec) const;
 
   /// Returns the array that should be used for reading.
   SharedArrayView<const void> GetReadArray(const Spec& spec) const {

@@ -373,7 +373,7 @@ class KeyValueStore : public internal::AtomicReferenceCount<KeyValueStore> {
   /// \param options Specifies options for reading.
   /// \returns A Future that resolves when the read completes successfully or
   ///     with an error.
-  virtual Future<ReadResult> Read(Key key, ReadOptions options = {}) = 0;
+  virtual Future<ReadResult> Read(Key key, ReadOptions options = {});
 
   struct WriteOptions {
     // Note: While it would be nice to use default member initializers to be
@@ -399,8 +399,8 @@ class KeyValueStore : public internal::AtomicReferenceCount<KeyValueStore> {
   /// \returns A Future that resolves to the generation corresponding to the new
   ///     value on success, or to `StorageGeneration::Unknown()` if the
   ///     conditions in `options` are not satisfied.
-  virtual Future<TimestampedStorageGeneration> Write(
-      Key key, Value value, WriteOptions options = {}) = 0;
+  virtual Future<TimestampedStorageGeneration> Write(Key key, Value value,
+                                                     WriteOptions options = {});
 
   using DeleteOptions = WriteOptions;
 
@@ -414,7 +414,7 @@ class KeyValueStore : public internal::AtomicReferenceCount<KeyValueStore> {
   ///     `StorageGeneration::Unknown()` if the conditions in `options` are not
   ///     satisfied.
   virtual Future<TimestampedStorageGeneration> Delete(
-      Key key, DeleteOptions options = {}) = 0;
+      Key key, DeleteOptions options = {});
 
   /// Deletes all keys starting with `prefix`.
   ///
@@ -426,7 +426,7 @@ class KeyValueStore : public internal::AtomicReferenceCount<KeyValueStore> {
   /// \returns A Future that becomes ready when the operation has completed
   ///     either successfully or with an error.  If it becomes ready in a
   ///     success state, the contained value is the number of keys deleted.
-  virtual Future<std::int64_t> DeletePrefix(Key prefix) = 0;
+  virtual Future<std::int64_t> DeletePrefix(Key prefix);
 
   /// Options for `List`.
   struct ListOptions {
@@ -436,7 +436,7 @@ class KeyValueStore : public internal::AtomicReferenceCount<KeyValueStore> {
 
   /// Implementation of `List` that driver implementations must define.
   virtual void ListImpl(const ListOptions& options,
-                        AnyFlowReceiver<Status, Key> receiver) = 0;
+                        AnyFlowReceiver<Status, Key> receiver);
 
   /// List keys in the KeyValueStore.
   ///
@@ -505,6 +505,11 @@ class KeyValueStore : public internal::AtomicReferenceCount<KeyValueStore> {
   friend void EncodeCacheKeyAdl(std::string* out, const Ptr& ptr) {
     ptr->EncodeCacheKey(out);
   }
+
+  /// Returns a human-readable description of a key for use in error messages.
+  ///
+  /// By default, returns `QuoteString(key)`.
+  virtual std::string DescribeKey(absl::string_view key);
 
   virtual ~KeyValueStore();
 };

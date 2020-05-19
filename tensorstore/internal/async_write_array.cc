@@ -44,12 +44,20 @@ AsyncWriteArray::Spec::Spec(SharedArray<const void> fill_value)
 AsyncWriteArray::AsyncWriteArray(DimensionIndex rank)
     : write_mask(rank), write_mask_prior_to_writeback(rank) {}
 
-std::size_t AsyncWriteArray::EstimateSizeInBytes(const Spec& spec) const {
+std::size_t AsyncWriteArray::EstimateReadStateSizeInBytes(
+    const Spec& spec) const {
   std::size_t total = 0;
   const Index num_elements = ProductOfExtents(spec.shape());
   if (read_array.data()) {
     total += num_elements * spec.fill_value.data_type()->size;
   }
+  return total;
+}
+
+std::size_t AsyncWriteArray::EstimateWriteStateSizeInBytes(
+    const Spec& spec) const {
+  std::size_t total = 0;
+  const Index num_elements = ProductOfExtents(spec.shape());
   if (write_data) {
     total += num_elements * spec.fill_value.data_type()->size;
   }

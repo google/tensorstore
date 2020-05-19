@@ -20,6 +20,7 @@
 /// basic `Cache` class with asynchronous read and read-modify-write
 /// functionality.
 
+#include "absl/base/thread_annotations.h"
 #include "tensorstore/internal/async_storage_backed_cache_impl.h"
 #include "tensorstore/internal/cache.h"
 #include "tensorstore/internal/intrusive_ptr.h"
@@ -32,8 +33,7 @@ namespace tensorstore {
 namespace internal {
 
 /// Abstract base class that extends `Cache` with asynchronous read and
-/// read-modify-write functionality based on optimistic concurrency using
-/// `StorageGeneration`.
+/// read-modify-write functionality based on optimistic concurrency.
 ///
 /// Derived cache classes inherit from this class and define a nested `Entry`
 /// class that extends `AsyncStorageBackedCache::Entry` with additional members
@@ -41,11 +41,10 @@ namespace internal {
 ///
 /// Each derived cache Entry is assumed to correspond to some persistent object
 /// (i.e. a particular hyperrectangular region of a multi-dimensional array, or
-/// the metadata for an array), which has an associated `StorageGeneration`,
-/// with the cache entry containing:
+/// the metadata for an array), with the cache entry containing:
 ///
 /// 1. optionally, some representation of the persistent object as of a
-///    particular StorageGeneration and local timestamp;
+///    particular local timestamp;
 ///
 /// 2. optionally, a representation of a partial or complete modification to the
 ///    persistent object, such that it can be applied to any version of the
@@ -56,7 +55,8 @@ namespace internal {
 ///
 /// Typically the "persistent object" is stored as a single key in a
 /// `KeyValueStore`, although `AsyncStorageBackedCache` does not directly
-/// interface with `KeyValueStore`, but that may be done by a derived class.
+/// interface with `KeyValueStore`, but that may be done by a derived class (see
+/// `KeyValueStoreCache`).
 ///
 /// Derived classes must define the virtual `DoRead` and `DoWriteback` methods,
 /// described below.  Derived classes should also provide an interface for
@@ -71,8 +71,8 @@ namespace internal {
 /// most one in-progress read or writeback operation (a read and writeback
 /// operation for a given entry cannot be in progress at the same time).
 ///
-/// `AsyncStorageBackedCache` is extended by `ChunkCache` to provide caching of
-/// chunked array data.
+/// `ChunkCache` extends `AsyncStorageBackedCache` to provide caching of chunked
+/// array data.
 ///
 class AsyncStorageBackedCache : public Cache {
  public:
@@ -84,8 +84,155 @@ class AsyncStorageBackedCache : public Cache {
     kUnconditionalWriteback = 1,
   };
 
+  class Entry;
+
+  /// Shared lock on the "read state" of an `Entry`.
+  class ReadStateReaderLock {
+   public:
+    ReadStateReaderLock() = default;
+    explicit ReadStateReaderLock(Entry* entry)
+        ABSL_SHARED_LOCK_FUNCTION(entry->entry_data_.read_mutex)
+        : entry_(entry) {
+      entry->entry_data_.read_mutex.ReaderLock();
+    }
+    explicit ReadStateReaderLock(Entry* entry, std::adopt_lock_t)
+        : entry_(entry) {}
+
+    Entry* entry() const { return entry_.get(); }
+
+    Entry* release() { return entry_.release(); }
+
+    explicit operator bool() const { return static_cast<bool>(entry_); }
+
+   private:
+    struct Unlocker {
+      void operator()(Entry* entry) const
+          ABSL_UNLOCK_FUNCTION(&entry->entry_data_.read_mutex) {
+        entry->entry_data_.read_mutex.ReaderUnlock();
+      }
+    };
+    std::unique_ptr<Entry, Unlocker> entry_;
+  };
+
+  /// Exclusive lock on the "read state" of an `Entry`.
+  class ReadStateWriterLock {
+   public:
+    ReadStateWriterLock() = default;
+    explicit ReadStateWriterLock(Entry* entry)
+        ABSL_EXCLUSIVE_LOCK_FUNCTION(entry->entry_data_.read_mutex)
+        : entry_(entry) {
+      entry->entry_data_.read_mutex.WriterLock();
+    }
+    explicit ReadStateWriterLock(Entry* entry, std::adopt_lock_t)
+        : entry_(entry) {}
+
+    Entry* entry() const { return entry_.get(); }
+
+    Entry* release() { return entry_.release(); }
+
+    explicit operator bool() const { return static_cast<bool>(entry_); }
+
+   private:
+    struct Unlocker {
+      void operator()(Entry* entry) const
+          ABSL_UNLOCK_FUNCTION(&entry->entry_data_.read_mutex) {
+        entry->entry_data_.read_mutex.WriterUnlock();
+      }
+    };
+    std::unique_ptr<Entry, Unlocker> entry_;
+  };
+
+  /// Exclusive lock on the "write state" and "read state" of an `Entry`.
+  ///
+  /// To avoid deadlock, the "write state" lock must always be acquired first.
+  class WriteAndReadStateLock {
+   public:
+    WriteAndReadStateLock() = default;
+    explicit WriteAndReadStateLock(Entry* entry)
+        ABSL_EXCLUSIVE_LOCK_FUNCTION(entry->entry_data_.write_mutex)
+            ABSL_EXCLUSIVE_LOCK_FUNCTION(entry->entry_data_.read_mutex)
+        : entry_(entry) {
+      entry->entry_data_.write_mutex.WriterLock();
+      entry->entry_data_.read_mutex.WriterLock();
+    }
+    explicit WriteAndReadStateLock(Entry* entry, std::adopt_lock_t)
+        : entry_(entry) {}
+
+    Entry* entry() const { return entry_.get(); }
+
+    Entry* release() { return entry_.release(); }
+
+    explicit operator bool() const { return static_cast<bool>(entry_); }
+
+   private:
+    struct Unlocker {
+      void operator()(Entry* entry) const
+          ABSL_UNLOCK_FUNCTION(&entry->entry_data_.read_mutex)
+              ABSL_UNLOCK_FUNCTION(&entry->entry_data_.write_mutex) {
+        entry->entry_data_.read_mutex.WriterUnlock();
+        entry->entry_data_.write_mutex.WriterUnlock();
+      }
+    };
+    std::unique_ptr<Entry, Unlocker> entry_;
+  };
+
+  /// Exclusive lock on the "write state" of an `Entry`.
+  class WriteStateLock {
+   public:
+    WriteStateLock() = default;
+    explicit WriteStateLock(Entry* entry)
+        ABSL_EXCLUSIVE_LOCK_FUNCTION(entry->entry_data_.write_mutex)
+        : entry_(entry) {
+      entry->entry_data_.write_mutex.WriterLock();
+    }
+    explicit WriteStateLock(Entry* entry, std::adopt_lock_t) : entry_(entry) {}
+
+    Entry* entry() const { return entry_.get(); }
+
+    Entry* release() { return entry_.release(); }
+
+    /// Upgrades to an exclusive lock on the "write state" and "read state".
+    WriteAndReadStateLock Upgrade() && ABSL_NO_THREAD_SAFETY_ANALYSIS {
+      assert(entry_);
+      entry_->entry_data_.read_mutex.WriterLock();
+      return WriteAndReadStateLock(entry_.release(), std::adopt_lock);
+    }
+
+    explicit operator bool() const { return static_cast<bool>(entry_); }
+
+   private:
+    struct Unlocker {
+      void operator()(Entry* entry) const
+          ABSL_UNLOCK_FUNCTION(entry->entry_data_.write_mutex) {
+        entry->entry_data_.write_mutex.WriterUnlock();
+      }
+    };
+    std::unique_ptr<Entry, Unlocker> entry_;
+  };
+
   /// Base Entry class.  Derived classes must define a nested `Entry` class that
   /// extends this `Entry` class.
+  ///
+  /// Data members of this class and derived `Entry` classes should be
+  /// designated as belonging to one of three groups:
+  ///
+  /// 1. Read state: immutable snapshot of the last state read or successfully
+  ///    written back.  "Read state" members must only be read by external code
+  ///    while holding a `ReadStateReaderLock`.  Only the implementation of
+  ///    `DoRead` and `DoWriteback` is permitted to modify "read state" members,
+  ///    and must do so while holding a `ReadStateWriterLock`.  The `DoRead` and
+  ///    `DoWriteback` implementation is permitted to read "read state" members
+  ///    without a lock (provided that it does not concurrent modify them),
+  ///    since there can be at most a single read or single writeback in
+  ///    progress.
+  ///
+  /// 2. Write state: represents uncommitted modifications.  "Write state"
+  ///    members must only be read or written while holding a `WriteStateLock`.
+  ///
+  /// 3. Read/writeback state: additional state used to track the current read
+  ///    or writeback operation.  There is no associated lock, but in the
+  ///    unlikely case that the read or writeback operation itself needs to
+  ///    access this state concurrently, it will need to provide its own mutex.
   class Entry : public Cache::Entry {
    public:
     using Cache = AsyncStorageBackedCache;
@@ -95,83 +242,76 @@ class AsyncStorageBackedCache : public Cache {
     /// \returns A future that resolves to a success state once data no older
     ///     than `staleness_bound` is available, or to an error state if the
     ///     request failed.
-    Future<const void> Read(StalenessBound staleness_bound);
+    Future<const void> Read(absl::Time staleness_bound);
 
     /// Must be called to indicate that the derived entry has been updated to
     /// reflect a local modification.
     ///
-    /// \param size_update Optional size update.  The `size_update.lock` field
-    ///     should specify a lock that protects the portion of the derived entry
-    ///     state that was updated by the write.
+    /// \param lock Valid lock on the "write state".
     /// \param flags Specifies flags that control the meaning of the write.
-    Future<const void> FinishWrite(SizeUpdate size_update, WriteFlags flags);
+    Future<const void> FinishWrite(WriteStateLock lock, WriteFlags flags);
+
+    /// Must be called if the "write state" size was modified but `FinishWrite`
+    /// will not be called before releasing `lock`.
+    void AbortWrite(WriteStateLock lock);
 
     /// Returns a Future that becomes ready when writeback of all prior writes
     /// has completed (successfully or unsuccessfully).
     Future<const void> GetWritebackFuture();
 
+    ReadStateReaderLock AcquireReadStateReaderLock() {
+      return ReadStateReaderLock(this);
+    }
+
+    ReadStateWriterLock AcquireReadStateWriterLock() {
+      return ReadStateWriterLock(this);
+    }
+
+    WriteStateLock AcquireWriteStateLock() { return WriteStateLock(this); }
+
+    WriteAndReadStateLock AcquireWriteAndReadStateLock() {
+      return WriteAndReadStateLock(this);
+    }
+
+    /// Timestamp as of which current "read state" is known to be up to date.
+    /// This is part of the "read state" and should be set by the `DoRead` and
+    /// `DoWriteback` implementations prior to calling `NotifyReadSuccess` or
+    /// `NotifyWritebackSuccess`.
+    absl::Time last_read_time = absl::InfinitePast();
+
    private:
-    internal_async_cache::AsyncEntryData entry_data_;
     friend class internal_async_cache::Access;
+    friend class AsyncStorageBackedCache;
+    internal_async_cache::AsyncEntryData entry_data_;
   };
 
-  /// Copyable shared handle used by `DoRead` representing an in-progress read
-  /// request.
-  class ReadReceiver {
-   public:
-    /// Must be called to indicate that the read attempt has finished
-    /// (successfully or with an error).
-    ///
-    /// To indicate that the read was aborted because the existing generation
-    /// was already up to date, specify a `generation` of
-    /// `StorageGeneration::Unknown()`.
-    void NotifyDone(CacheEntry::SizeUpdate size_update,
-                    Result<TimestampedStorageGeneration> generation) const;
+  /// Derived classes should override this to return the size of the "read
+  /// state".
+  ///
+  /// This method is always called with at least a shared lock on the "read
+  /// state".
+  virtual size_t DoGetReadStateSizeInBytes(Cache::Entry* entry);
 
-    /// Returns the entry associated with this read request.
-    Entry* entry() const { return entry_.get(); }
+  /// Derived classes should override this to return the combined size of the
+  /// "write state" and any "writeback state".
+  ///
+  /// This method is always called with a lock on the "write state".
+  virtual size_t DoGetWriteStateSizeInBytes(Cache::Entry* entry);
 
-    // Treat as private.
-    PinnedCacheEntry<AsyncStorageBackedCache> entry_;
-  };
+  /// Derived classes should override this to return the size of any additional
+  /// heap allocations that are unaffected by changes to the read state, write
+  /// state, or writeback state.
+  ///
+  /// Derived implementations should include in the returned sum the result of
+  /// calling this base implementation.
+  virtual size_t DoGetFixedSizeInBytes(Cache::Entry* entry);
 
-  /// Copyable shared handle used by `DoWriteback` representing an in-progress
-  /// writeback request.
-  class WritebackReceiver {
-   public:
-    /// Must be called at least once prior to completing the writeback request.
-    ///
-    /// Indicates that all current local modifications will be included in the
-    /// writeback.
-    void NotifyStarted(CacheEntry::SizeUpdate size_update) const;
-
-    /// Must be called to indicate that the writeback attempt has finished
-    /// (successfully or with an error).
-    ///
-    /// If writeback succeeded, specify a non-error `generation` value.
-    ///
-    /// To indicate the writeback failed due to a generation mismatch, or that
-    /// an updated read result is required despite a prior call to `FinishWrite`
-    /// with `kUnconditionalWriteback`, specify a `generation` of
-    /// `StorageGeneration::Unknown()`.  That will cause another read to be
-    /// issued, followed by another writeback.
-    ///
-    /// To indicate that the writeback was unnecessary, specify a generation of
-    /// `absl::StatusCode::kAborted`.
-    void NotifyDone(CacheEntry::SizeUpdate size_update,
-                    Result<TimestampedStorageGeneration> generation) const;
-
-    /// Returns the entry associated with this writeback request.
-    Entry* entry() const { return entry_.get(); }
-
-    // Treat as private.
-    PinnedCacheEntry<AsyncStorageBackedCache> entry_;
-  };
-
-  struct ReadOptions {
-    StorageGeneration existing_generation;
-    StalenessBound staleness_bound;
-  };
+  /// The total size in bytes is equal to
+  ///
+  ///     DoGetFixedSizeInBytes() +
+  ///     DoGetReadStateSizeInBytes(entry) +
+  ///     DoGetWriteStateSizeInBytes(entry)
+  size_t DoGetSizeInBytes(Cache::Entry* entry) final;
 
   /// Requests initial or updated data from persistent storage for a single
   /// `Entry`.
@@ -182,8 +322,29 @@ class AsyncStorageBackedCache : public Cache {
   /// the existing data.
   ///
   /// Derived classes must implement this method, and implementations must call
-  /// methods on `receiver` as specified by the `ReadReceiver` documentation.
-  virtual void DoRead(ReadOptions options, ReadReceiver receiver) = 0;
+  /// (either immediately or asynchronously) `NotifyReadSuccess` or
+  /// `NotifyReadError` to signal completion.
+  virtual void DoRead(PinnedEntry entry, absl::Time staleness_bound) = 0;
+
+  /// Signals that the read request initiated by the most recent call to
+  /// `DoRead` succeeded.
+  ///
+  /// Implementations of `DoRead` should first acquire a `ReadStateWriterLock`
+  /// on `entry`, update `entry->last_read_time` and any other applicable "read
+  /// state" members, then call this method.
+  ///
+  /// Derived classes may override this method, but must ensure this base class
+  /// method is called.
+  virtual void NotifyReadSuccess(Cache::Entry* entry, ReadStateWriterLock lock);
+
+  /// Signals that the read request initiated by the most recent call to
+  /// `DoRead` failed.
+  ///
+  /// The "read state" of `entry` should not have been modified.
+  ///
+  /// Derived classes may override this method, but must ensure this base class
+  /// method is called.
+  virtual void NotifyReadError(Cache::Entry* entry, absl::Status error);
 
   /// Requests that local modifications recorded in a single `Entry` be written
   /// back to persistent storage.
@@ -193,20 +354,106 @@ class AsyncStorageBackedCache : public Cache {
   /// on a `Future` returned from `Entry::FinishWrite`, or due to memory
   /// pressure in the containing `CachePool`.
   ///
-  /// Derived classes must implement this method, and implementations must call
-  /// methods on `receiver` as specified by the `WritebackReceiver`
-  /// documentation.
-  virtual void DoWriteback(TimestampedStorageGeneration existing_generation,
-                           WritebackReceiver receiver) = 0;
+  /// Derived classes must implement this method, which should synchronously or
+  /// asynchronously perform the following steps:
+  ///
+  /// 1. Acquire a `WriteStateLock` on `entry`.
+  ///
+  /// 2. Move the modifications reflected in the "write state" into the
+  ///    "writeback state" and call `NotifyWritebackStarted`, transferring
+  ///    ownership of the `WriteStateLock`.
+  ///
+  /// 3. Submit the writeback of the modifications that were moved into the
+  ///    "writeback state", possibly conditioned on the existing "read state"
+  ///    being current.
+  ///
+  /// 4. If writeback succeeds:
+  ///
+  ///    4a. Acquire a `WriteAndReadStateLock` on `entry`.
+  ///
+  ///    4b. Update the "read state" based on the modifications that were copied
+  ///        into the "writeback state" in step 2.
+  ///
+  ///    4c. Update `entry->last_read_time` to reflect the time just before the
+  ///        writeback was submitted.
+  ///
+  ///    4d. Call `NotifyWritebackSuccess`, transferring ownership of the
+  ///        `WriteAndReadStateLock`.
+  ///
+  /// 5. If writeback fails due to the existing "read state" being out of date:
+  ///
+  ///    5a. Acquire a `WriteStateLock` on `entry`.
+  ///
+  ///    5b. Rebase the "write state", which may now include additional
+  ///        concurrent modifications since step 2, on top of the modifications
+  ///        copied into the "writeback state" in step 2.
+  ///
+  ///    5c. Call `NotifyWritebackNeedsRead`, transferring ownership of the
+  ///        `WriteStateLock` and providing a timestamp as of which the current
+  ///        "read state" is known to be out of date.  This will result in a
+  ///        call to `DoRead` to obtain an updated "read state" followed by
+  ///        another call to `DoWriteback` to retry the writeback after the read
+  ///        completes successfully.
+  ///
+  /// 6. If writeback fails for any other reason:
+  ///
+  ///    6a. Acquire a `WriteStateLock` on `entry`.
+  ///
+  ///    6b. Delete the modifications saved in the "writeback state".
+  ///
+  ///    6c. Call `NotifyWritebackError`, transferring ownership of the
+  ///        `WriteStateLock`.  The modifications are lost.
+  virtual void DoWriteback(PinnedEntry entry);
+
+  /// Signals that the writeback request initiated by the most recent call to
+  /// `DoWriteback` has taken a snapshot of the current modifications to
+  /// `entry`.
+  ///
+  /// This must be called at least once, and may be called more than once
+  /// (e.g. if writeback is retried), by the implementation of `DoWriteback`.
+  ///
+  /// All modifications to the "write state" of `entry` made prior to calling
+  /// `NotifyWritebackStarted` are reflected in the writeback, while any
+  /// modifications made after the last call to `NotifyWritebackStarted` are not
+  /// reflected in the writeback.
+  ///
+  /// Derived classes may override this method, but must ensure this base class
+  /// method is called.
+  virtual void NotifyWritebackStarted(Cache::Entry* entry, WriteStateLock lock);
+
+  /// Signals that the writeback request initiated by the most recent call to
+  /// `DoWriteback` has completed successfully.
+  ///
+  /// Derived classes may override this method (e.g. to perform some or all of
+  /// the work of step 4b or 4c), but must ensure this base class method is
+  /// called.
+  virtual void NotifyWritebackSuccess(Cache::Entry* entry,
+                                      WriteAndReadStateLock lock);
+
+  /// Signals that the writeback request initiated by the most recent call to
+  /// `DoWriteback` failed.
+  ///
+  /// Derived classes may override this method (e.g. to perform some or all of
+  /// the work of step 6b), but must ensure this base class method is called.
+  virtual void NotifyWritebackError(Cache::Entry* entry, WriteStateLock lock,
+                                    absl::Status error);
+
+  /// Signals that the writeback request initiated by the most recent call to
+  /// `DoWriteback` failed due to the "read state" being out of date.
+  ///
+  /// The `staleness_bound` specifies a time as of which the current "read
+  /// state" is known to be out of date.
+  ///
+  /// Derived classes may override this method (e.g. to perform some or all of
+  /// the work of step 5b above), but must ensure this base class method is
+  /// called.
+  virtual void NotifyWritebackNeedsRead(Cache::Entry* entry,
+                                        WriteStateLock lock,
+                                        absl::Time staleness_bound);
 
   /// Handles writeback requests triggered by memory pressure in the containing
   /// `CachePool`.
-  void DoRequestWriteback(PinnedCacheEntry<Cache> base_entry) final;
-
-  /// Derived classes must override these methods from `Cache`, along with
-  /// `DoGetSizeInBytes`.
-  Cache::Entry* DoAllocateEntry() override = 0;
-  void DoDeleteEntry(Cache::Entry* entry) override = 0;
+  void DoRequestWriteback(PinnedEntry base_entry) final;
 };
 
 }  // namespace internal

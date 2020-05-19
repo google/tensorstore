@@ -804,7 +804,7 @@ TEST(N5DriverTest, OpenInvalidMetadata) {
                     .result(),
                 MatchesStatus(absl::StatusCode::kFailedPrecondition,
                               "Error opening \"n5\" driver: "
-                              "Error decoding metadata from "
+                              "Error reading "
                               "\"prefix/attributes.json\": Invalid JSON"));
   }
 
@@ -822,11 +822,10 @@ TEST(N5DriverTest, OpenInvalidMetadata) {
                                   {tensorstore::OpenMode::open,
                                    tensorstore::ReadWriteMode::read_write})
                     .result(),
-                MatchesStatus(
-                    absl::StatusCode::kFailedPrecondition,
-                    "Error opening \"n5\" driver: "
-                    "Error decoding metadata from \"prefix/attributes.json\": "
-                    "Missing object member \"dimensions\""));
+                MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                              "Error opening \"n5\" driver: "
+                              "Error reading \"prefix/attributes.json\": "
+                              "Missing object member \"dimensions\""));
   }
 }
 

@@ -125,6 +125,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json",
+        "//tensorstore/internal:key_value_store_cache",
         "//tensorstore/internal:type_traits",
         "//tensorstore/kvstore:key_value_store",
         "//tensorstore/util:bit_span",

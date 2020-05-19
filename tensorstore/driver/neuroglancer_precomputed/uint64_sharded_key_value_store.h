@@ -42,8 +42,7 @@ namespace neuroglancer_uint64_sharded {
 ///
 /// Both reading and writing are supported.
 ///
-/// Read requests require a maximum of 3 reads to the underlying
-/// `base_kv_store`:
+/// Read requests require a maximum of 3 reads to the underlying `base_kvstore`:
 ///
 /// 1. Retrieve the shard index entry.  Specifies the byte range of the
 ///    minishard index, if present.
@@ -55,7 +54,7 @@ namespace neuroglancer_uint64_sharded {
 ///
 /// However, the minshard indexes are cached in the specified `cache_pool`, and
 /// therefore subsequent reads within the same minishard require only a single
-/// read to the underlying `base_kv_store`.
+/// read to the underlying `base_kvstore`.
 ///
 /// Writing is supported, and concurrent writes from multiple machines are
 /// safely handled provided that the underlying `KeyValueStore` supports
@@ -72,16 +71,16 @@ namespace neuroglancer_uint64_sharded {
 ///    as possible (while still avoiding an excess number of objects in the
 ///    underlying `KeyValueStore`) if writes are to be performed.
 ///
-/// \param base_kv_store The underlying `KeyValueStore` that holds the shard
+/// \param base_kvstore The underlying `KeyValueStore` that holds the shard
 ///     files.
 /// \param executor Executor to use for data copying and encoding (not waiting
 ///     on I/O).
-/// \param key_prefix Prefix of the sharded database within `base_kv_store`.
+/// \param key_prefix Prefix of the sharded database within `base_kvstore`.
 /// \param sharding_spec Sharding specification.
 /// \param cache_pool The cache pool for the minishard index cache and for the
 ///     shard write cache.
 KeyValueStore::Ptr GetShardedKeyValueStore(
-    KeyValueStore::Ptr base_kv_store, Executor executor, std::string key_prefix,
+    KeyValueStore::Ptr base_kvstore, Executor executor, std::string key_prefix,
     const ShardingSpec& sharding_spec, internal::CachePool::WeakPtr cache_pool);
 
 }  // namespace neuroglancer_uint64_sharded

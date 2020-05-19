@@ -108,8 +108,10 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/function_view.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/to_string.h"
 
 // Include these last to reduce impact of macros.
 #include "tensorstore/kvstore/file/posix_file_util.h"
@@ -780,6 +782,12 @@ class FileKeyValueStore
   }
   const Executor& executor() { return spec_.file_io_concurrency->executor; }
   const std::string& root() { return spec_.path; }
+
+  std::string DescribeKey(absl::string_view key) override {
+    return tensorstore::StrCat(
+        "local file ",
+        tensorstore::QuoteString(internal::JoinPath(root(), key)));
+  }
 
   static void Open(internal::KeyValueStoreOpenState<FileKeyValueStore> state) {
     state.driver().spec_ = state.spec();

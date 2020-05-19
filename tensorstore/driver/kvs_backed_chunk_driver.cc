@@ -63,14 +63,12 @@ AtomicUpdateConstraint OpenState::GetCreateConstraint() {
 }
 
 MetadataCache::MetadataCache(
-    MetadataCacheState::Ptr state, KeyValueStore::Ptr base_store,
-    KeyValueStore::Ptr store,
+    MetadataCacheState::Ptr state,
     Context::Resource<internal::DataCopyConcurrencyResource>
         data_copy_concurrency,
     Context::Resource<internal::CachePoolResource> cache_pool)
-    : state_(std::move(state)),
-      base_store_(std::move(base_store)),
-      store_(std::move(store)),
+    : Base(KeyValueStore::Ptr(), data_copy_concurrency->executor),
+      state_(std::move(state)),
       data_copy_concurrency_(std::move(data_copy_concurrency)),
       cache_pool_(std::move(cache_pool)) {}
 
@@ -78,9 +76,9 @@ DataCache::DataCache(
     DataCacheState::Ptr state, KeyValueStore::Ptr store,
     internal::PinnedCacheEntry<MetadataCache> metadata_cache_entry,
     MetadataPtr metadata)
-    : ChunkCache(state->GetChunkGridSpecification(metadata.get())),
+    : Base(std::move(store), GetOwningCache(metadata_cache_entry)->executor(),
+           state->GetChunkGridSpecification(metadata.get())),
       state_(std::move(state)),
-      store_(std::move(store)),
       metadata_cache_entry_(std::move(metadata_cache_entry)),
       initial_metadata_(metadata),
       validated_metadata_(metadata) {}
@@ -596,7 +594,7 @@ Result<std::size_t> ValidateOpenRequest(OpenState* state,
 ///     `state->GetComponentIndex` with the same `metadata`.
 /// \pre `metadata != nullptr`
 Result<internal::Driver::ReadWriteHandle> CreateTensorStoreFromMetadata(
-    std::unique_ptr<OpenState> state, std::shared_ptr<const void> metadata,
+    OpenState::Ptr state, std::shared_ptr<const void> metadata,
     std::size_t component_index) {
   auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
   // TODO(jbms): The read-write mode should be determined based on the
@@ -621,8 +619,8 @@ Result<internal::Driver::ReadWriteHandle> CreateTensorStoreFromMetadata(
       (*state->cache_pool())
           ->GetCache<DataCache>(
               chunk_cache_identifier, [&]() -> std::unique_ptr<DataCache> {
-                auto store_result =
-                    state->GetDataKeyValueStore(base.store_, metadata.get());
+                auto store_result = state->GetDataKeyValueStore(
+                    GetMetadataCache(*state)->base_store_, metadata.get());
                 if (!store_result) {
                   data_key_value_store_status =
                       std::move(store_result).status();
@@ -653,7 +651,7 @@ Result<internal::Driver::ReadWriteHandle> CreateTensorStoreFromMetadata(
 
 /// Called when the metadata has been written (successfully or unsuccessfully).
 struct HandleWroteMetadata {
-  std::unique_ptr<OpenState> state;
+  OpenState::Ptr state;
   void operator()(Promise<internal::Driver::ReadWriteHandle> promise,
                   ReadyFuture<const void> future) {
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
@@ -680,7 +678,7 @@ struct HandleWroteMetadata {
 };
 
 /// Attempts to create new array.
-void CreateMetadata(std::unique_ptr<OpenState> state,
+void CreateMetadata(OpenState::Ptr state,
                     Promise<internal::Driver::ReadWriteHandle> promise) {
   auto state_ptr = state.get();
   auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
@@ -707,7 +705,7 @@ void CreateMetadata(std::unique_ptr<OpenState> state,
 
 /// Called when the metadata has been read (successfully or not found).
 struct HandleReadMetadata {
-  std::unique_ptr<OpenState> state;
+  OpenState::Ptr state;
   void operator()(Promise<internal::Driver::ReadWriteHandle> promise,
                   ReadyFuture<const void> metadata_future) {
     auto metadata = GetMetadataCacheEntry(*state)->GetMetadata();
@@ -734,27 +732,6 @@ struct GetMetadataForOpen {
   OpenState::Ptr state;
   void operator()(Promise<internal::Driver::ReadWriteHandle> promise) {
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
-    Status metadata_key_value_store_status;
-    auto metadata_cache =
-        (*state->cache_pool())
-            ->GetCache<MetadataCache>(
-                base.metadata_cache_key_,
-                [&]() -> std::unique_ptr<MetadataCache> {
-                  auto store_result =
-                      state->GetMetadataKeyValueStore(base.store_);
-                  if (!store_result) {
-                    promise.SetResult(std::move(store_result).status());
-                    return nullptr;
-                  }
-                  return std::make_unique<MetadataCache>(
-                      state->GetMetadataCacheState(), base.store_,
-                      std::move(*store_result),
-                      base.spec_->data_copy_concurrency,
-                      base.spec_->cache_pool);
-                });
-    if (!metadata_cache) return;
-    base.metadata_cache_entry_ =
-        GetCacheEntry(metadata_cache, state->GetMetadataCacheEntryKey());
     auto state_ptr = state.get();
     if (base.spec_->open) {
       LinkValue(WithExecutor(state_ptr->executor(),
@@ -775,12 +752,9 @@ struct GetMetadataForOpen {
 struct HandleKeyValueStoreReady {
   OpenState::Ptr state;
   void operator()(Promise<internal::Driver::ReadWriteHandle> promise,
-                  ReadyFuture<KeyValueStore::Ptr> store) {
+                  ReadyFuture<const void> store) {
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
-    base.store_ = std::move(store.value());
     auto* state_ptr = state.get();
-    internal::EncodeCacheKey(&base.metadata_cache_key_, base.store_,
-                             typeid(*state_ptr), state->GetMetadataCacheKey());
     if (base.spec_->delete_existing) {
       // Delete all keys starting with the key prefix.
       auto prefix_for_delete = state->GetPrefixForDeleteExisting();
@@ -788,7 +762,8 @@ struct HandleKeyValueStoreReady {
                                        GetMetadataForOpen{std::move(state)}),
                           std::placeholders::_1),
                 std::move(promise),
-                base.store_->DeletePrefix(std::move(prefix_for_delete)));
+                GetMetadataCache(*state_ptr)
+                    ->base_store_->DeletePrefix(std::move(prefix_for_delete)));
       return;
     }
     // Immediately proceed with reading/creating the metadata.
@@ -802,310 +777,266 @@ struct HandleKeyValueStoreReady {
 Future<const void> MetadataCache::Entry::RequestAtomicUpdate(
     UpdateFunction update, AtomicUpdateConstraint update_constraint,
     absl::Time request_time) {
-  std::unique_lock<Mutex> lock(metadata_mutex);
+  auto lock = this->AcquireWriteStateLock();
   auto [promise, future] = PromiseFuturePair<void>::Make();
-  pending_requests.push_back({request_time, std::move(update), promise});
+  pending_requests.push_back(
+      {request_time, std::move(update), promise, update_constraint});
   // If an error occurs with the underlying KeyValueStore, propagate that to the
   // returned future.  Otherwise, the `MetadataCache::DoWriteback`
   // implementation ensures that `promise.raw_result()` is updated to the result
   // returned by the `update` function before the writeback completes.
-  LinkValue([](Promise<void> promise,
-               ReadyFuture<const void> future) { promise.SetReady(); },
-            std::move(promise),
+  LinkError(std::move(promise),
             FinishWrite(
-                {std::move(lock)},
+                std::move(lock),
                 (update_constraint == AtomicUpdateConstraint::kRequireExisting)
                     ? WriteFlags::kConditionalWriteback
                     : WriteFlags::kUnconditionalWriteback));
   return std::move(future);
 }
 
-void MetadataCache::DoDeleteEntry(internal::Cache::Entry* base_entry) {
-  Entry* entry = static_cast<Entry*>(base_entry);
-  delete entry;
+void MetadataCache::DoDecode(
+    internal::AsyncStorageBackedCache::PinnedEntry base_entry,
+    std::optional<std::string> value) {
+  auto* entry = static_cast<Entry*>(base_entry.get());
+  MetadataPtr new_metadata;
+  if (value) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        new_metadata, state_->DecodeMetadata(entry->key(), *value),
+        this->NotifyReadError(entry,
+                              ConvertInvalidArgumentToFailedPrecondition(_)));
+  }
+  auto lock = entry->AcquireReadStateWriterLock();
+  entry->metadata = std::move(new_metadata);
+  this->NotifyReadSuccess(entry, std::move(lock));
 }
 
-internal::Cache::Entry* MetadataCache::DoAllocateEntry() { return new Entry; }
-
-std::size_t MetadataCache::DoGetSizeInBytes(Cache::Entry* base_entry) {
-  // FIXME: include size of heap-allocated data
-  return sizeof(Entry) + Cache::DoGetSizeInBytes(base_entry);
+std::string MetadataCache::GetKeyValueStoreKey(internal::Cache::Entry* entry) {
+  return state_->GetMetadataStorageKey(entry->key());
 }
 
-void MetadataCache::DoRead(ReadOptions options, ReadReceiver receiver) {
-  struct ReadyCallback {
-    ReadReceiver receiver;
-    void operator()(ReadyFuture<KeyValueStore::ReadResult> future) {
-      auto& entry = static_cast<Entry&>(*receiver.entry());
-      auto* cache = GetOwningCache(&entry);
-      auto& r = future.result();
-      if (!r) {
-        receiver.NotifyDone(/*size_update=*/{}, r.status());
-        return;
-      }
-      if (r->aborted()) {
-        receiver.NotifyDone(/*size_update=*/{}, std::move(r->generation));
-        return;
-      }
-      if (r->not_found()) {
-        std::unique_lock<Mutex> lock(entry.metadata_mutex);
-        entry.metadata = nullptr;
-        receiver.NotifyDone({std::move(lock),
-                             /*new_size=*/cache->DoGetSizeInBytes(&entry)},
-                            std::move(r->generation));
-        return;
-      }
-      auto metadata_result =
-          cache->state_->DecodeMetadata(entry.key(), *r->value);
-      if (!metadata_result) {
-        auto status = MaybeAnnotateStatus(
-            metadata_result.status(),
-            StrCat("Error decoding metadata from ",
-                   QuoteString(cache->state_->GetMetadataStorageKey(
-                       receiver.entry()->key()))));
-        if (status.code() == absl::StatusCode::kInvalidArgument) {
-          status = absl::FailedPreconditionError(status.message());
-        }
-        metadata_result = status;
-      }
-      std::unique_lock<Mutex> lock(entry.metadata_mutex);
-      if (metadata_result) {
-        entry.metadata = std::move(*metadata_result);
-      }
-      receiver.NotifyDone(
-          {std::move(lock), cache->DoGetSizeInBytes(&entry)},
-          metadata_result
-              ? Result<TimestampedStorageGeneration>(r->generation)
-              : Result<TimestampedStorageGeneration>(metadata_result.status()));
+namespace {
+
+void MarkIssuedRequestsPending(MetadataCache::Entry* entry) {
+  // Retry issued requests by adding them to the beginning of the
+  // pending request list.
+  if (!entry->issued_requests.empty()) {
+    std::swap(entry->issued_requests, entry->pending_requests);
+    entry->pending_requests.insert(
+        entry->pending_requests.end(),
+        std::make_move_iterator(entry->issued_requests.begin()),
+        std::make_move_iterator(entry->issued_requests.end()));
+    entry->issued_requests.clear();
+  }
+}
+
+}  // namespace
+
+void MetadataCache::NotifyWritebackNeedsRead(internal::Cache::Entry* base_entry,
+                                             WriteStateLock lock,
+                                             absl::Time staleness_bound) {
+  auto* entry = static_cast<Entry*>(base_entry);
+  if (absl::c_all_of(entry->issued_requests,
+                     [](const Entry::UpdateRequest& request) {
+                       return request.update_constraint ==
+                              AtomicUpdateConstraint::kRequireMissing;
+                     })) {
+    std::vector<Entry::UpdateRequest> issued_requests;
+    std::swap(issued_requests, entry->issued_requests);
+    Base::NotifyWritebackSuccess(entry, std::move(lock).Upgrade());
+    for (auto& request : issued_requests) {
+      int junk = 0;
+      // Pass in a bogus non-null pointer.  The update function is guaranteed to
+      // return an error.
+      request.promise.raw_result() = request.update(&junk).status();
     }
-  };
-  KeyValueStore::ReadOptions kvs_read_options;
-  kvs_read_options.if_not_equal = std::move(options.existing_generation);
-  kvs_read_options.staleness_bound = options.staleness_bound;
-  auto future =
-      store_->Read(state_->GetMetadataStorageKey(receiver.entry()->key()),
-                   std::move(kvs_read_options));
-  std::move(future).ExecuteWhenReady(
-      WithExecutor(executor(), ReadyCallback{std::move(receiver)}));
+    return;
+  }
+  MarkIssuedRequestsPending(entry);
+  Base::NotifyWritebackNeedsRead(entry, std::move(lock), staleness_bound);
 }
 
-void MetadataCache::DoWriteback(
-    TimestampedStorageGeneration existing_generation,
-    WritebackReceiver receiver) {
-  struct FinishWritebackTask {
-    WritebackReceiver receiver;
+void MetadataCache::NotifyWritebackError(internal::Cache::Entry* base_entry,
+                                         WriteStateLock lock, Status error) {
+  MarkIssuedRequestsPending(static_cast<Entry*>(base_entry));
+  Base::NotifyWritebackError(base_entry, std::move(lock), std::move(error));
+}
+
+void MetadataCache::NotifyWritebackSuccess(internal::Cache::Entry* base_entry,
+                                           WriteAndReadStateLock lock) {
+  auto* entry = static_cast<Entry*>(base_entry);
+  entry->issued_requests.clear();
+  entry->metadata = std::move(entry->new_metadata);
+  Base::NotifyWritebackSuccess(entry, std::move(lock));
+}
+
+void MetadataCache::DoWriteback(internal::Cache::PinnedEntry entry) {
+  executor()([entry = internal::static_pointer_cast<Entry>(std::move(entry))] {
     MetadataPtr new_metadata;
-    void operator()(ReadyFuture<TimestampedStorageGeneration> future) {
-      auto& entry = static_cast<Entry&>(*receiver.entry());
-      std::unique_lock<Mutex> lock(entry.metadata_mutex);
-      auto& r = future.result();
-      if (r) {
-        if (!StorageGeneration::IsUnknown(r->generation)) {
-          entry.metadata = std::move(new_metadata);
+    // Indicates whether there is an update request newer than the metadata.
+    absl::Time newest_request_time = absl::InfinitePast();
+    {
+      auto lock = entry->AcquireWriteStateLock();
+      const void* existing_metadata = entry->metadata.get();
+      for (const auto& request : entry->pending_requests) {
+        newest_request_time =
+            std::max(newest_request_time, request.request_time);
+        auto result = request.update(existing_metadata);
+        if (result) {
+          assert(*result);
+          assert(request.update_constraint !=
+                     AtomicUpdateConstraint::kRequireMissing ||
+                 existing_metadata == nullptr);
+          assert(request.update_constraint !=
+                     AtomicUpdateConstraint::kRequireExisting ||
+                 existing_metadata != nullptr);
+          new_metadata = std::move(*result);
+          existing_metadata = new_metadata.get();
+          request.promise.raw_result() = MakeResult();
         } else {
-          if (absl::c_all_of(entry.issued_requests,
-                             [](const Entry::UpdateRequest& request) {
-                               return request.update_constraint ==
-                                      AtomicUpdateConstraint::kRequireMissing;
-                             })) {
-            // All requests require that the metadata not exist.  Return
-            // `kAborted` to indicate that the writeback was not needed.
-            r = absl::AbortedError("");
-            entry.issued_requests.clear();
-          }
-
-          // Retry issued requests by adding them to the beginning of the
-          // pending request list.
-          if (!entry.issued_requests.empty()) {
-            std::swap(entry.issued_requests, entry.pending_requests);
-            entry.pending_requests.insert(
-                entry.pending_requests.end(),
-                std::make_move_iterator(entry.issued_requests.begin()),
-                std::make_move_iterator(entry.issued_requests.end()));
-          }
+          request.promise.raw_result() = std::move(result).status();
         }
       }
-
-      entry.issued_requests.clear();
-      receiver.NotifyDone({std::move(lock)}, std::move(r));
+      if (new_metadata) {
+        // Mark all pending requests as issued.
+        entry->issued_requests = std::move(entry->pending_requests);
+        entry->pending_requests.clear();
+      } else if (newest_request_time > entry->last_read_time) {
+        // Requests will be retried after re-reading the existing metadata.
+        // Leave the pending requests marked pending.
+      } else {
+        // Pending requests will not be retried.
+        entry->pending_requests.clear();
+      }
+      GetOwningCache(entry)->NotifyWritebackStarted(entry.get(),
+                                                    std::move(lock));
     }
-  };
-
-  struct StartWritebackTask {
-    WritebackReceiver receiver;
-    TimestampedStorageGeneration existing_generation;
-    void operator()() {
-      auto& entry = static_cast<Entry&>(*receiver.entry());
-      MetadataPtr new_metadata;
-      // Indicates whether there is an update request newer than the metadata.
-      absl::Time newest_request_time = existing_generation.time;
-      {
-        std::unique_lock<Mutex> lock(entry.metadata_mutex);
-        const void* existing_metadata = entry.metadata.get();
-        for (const auto& request : entry.pending_requests) {
-          newest_request_time =
-              std::max(newest_request_time, request.request_time);
-          auto result = request.update(existing_metadata);
-          if (result) {
-            assert(*result);
-            assert(request.update_constraint !=
-                       AtomicUpdateConstraint::kRequireMissing ||
-                   existing_metadata == nullptr);
-            assert(request.update_constraint !=
-                       AtomicUpdateConstraint::kRequireExisting ||
-                   existing_metadata != nullptr);
-            new_metadata = std::move(*result);
-            existing_metadata = new_metadata.get();
-            request.promise.raw_result() = MakeResult();
-          } else {
-            request.promise.raw_result() = std::move(result).status();
-          }
-        }
-        if (new_metadata) {
-          // Mark all pending requests as issued.
-          entry.issued_requests = std::move(entry.pending_requests);
-          entry.pending_requests.clear();
-        } else if (newest_request_time > existing_generation.time) {
-          // Requests will be retried after re-reading the existing metadata.
-          // Leave the pending requests marked pending.
-        } else {
-          // Pending requests will not be retried.
-          entry.pending_requests.clear();
-        }
-        receiver.NotifyStarted({std::move(lock)});
+    auto* cache = GetOwningCache(entry);
+    if (!new_metadata) {
+      // None of the requested changes are compatible with the current state.
+      // If at least one update request is newer than the current metadata, we
+      // specify `StorageGeneration::Unknown()` to force a re-read.
+      // Otherwise, we fail with `absl::StatusCode::kAborted` to indicate that
+      // no writeback was needed.
+      if (newest_request_time > entry->last_read_time) {
+        cache->Base::NotifyWritebackNeedsRead(
+            entry.get(), entry->AcquireWriteStateLock(), newest_request_time);
+      } else {
+        cache->Base::NotifyWritebackSuccess(
+            entry.get(), entry->AcquireWriteAndReadStateLock());
       }
-
-      if (!new_metadata) {
-        // None of the requested changes are compatible with the current state.
-        // If at least one update request is newer than the current metadata, we
-        // specify `StorageGeneration::Unknown()` to force a re-read.
-        // Otherwise, we fail with `absl::StatusCode::kAborted` to indicate that
-        // no writeback was needed.
-        receiver.NotifyDone(
-            /*size_update=*/{},
-            (newest_request_time > existing_generation.time)
-                ? Result<TimestampedStorageGeneration>(
-                      std::in_place, StorageGeneration::Unknown(),
-                      newest_request_time)
-                : Result<TimestampedStorageGeneration>(absl::AbortedError("")));
-        return;
-      }
-      auto* cache = GetOwningCache(&entry);
-      auto future = cache->store_->Write(
-          cache->state_->GetMetadataStorageKey(entry.key()),
-          cache->state_->EncodeMetadata(entry.key(), new_metadata.get()),
-          {StorageGeneration::IsUnknown(existing_generation.generation)
-               ? StorageGeneration::NoValue()
-               : existing_generation.generation});
-      future.Force();
-      std::move(future).ExecuteWhenReady(
-          WithExecutor(cache->executor(),
-                       FinishWritebackTask{std::move(receiver), new_metadata}));
+      return;
     }
-  };
-  executor()(
-      StartWritebackTask{std::move(receiver), std::move(existing_generation)});
+    auto encoded =
+        cache->state_->EncodeMetadata(entry->key(), new_metadata.get());
+    entry->new_metadata = std::move(new_metadata);
+    cache->Writeback(std::move(entry), std::move(encoded),
+                     /*unconditional=*/false);
+  });
 }
 
-void DataCache::DoRead(ReadOptions options, ReadReceiver receiver) {
-  struct ReadyCallback {
-    ReadReceiver receiver;
-    void operator()(ReadyFuture<KeyValueStore::ReadResult> future) {
-      auto* cache = static_cast<DataCache*>(GetOwningCache(receiver.entry()));
-      auto& r = future.result();
-      if (!r) {
-        receiver.NotifyDone(r.status());
-        return;
-      }
-      if (!r->value) {
-        // Aborted or not found.
-        receiver.NotifyDone(ReadReceiver::ComponentsWithGeneration{
-            {}, std::move(r->generation)});
-        return;
-      }
+std::string DataCache::GetKeyValueStoreKey(internal::Cache::Entry* base_entry) {
+  auto* entry = static_cast<Entry*>(base_entry);
+  return state_->GetChunkStorageKey(initial_metadata_.get(),
+                                    entry->cell_indices());
+}
+
+void DataCache::DoDecode(internal::Cache::PinnedEntry base_entry,
+                         std::optional<std::string> value) {
+  auto* entry = static_cast<Entry*>(base_entry.get());
+  if (!value) {
+    this->NotifyReadSuccess(entry, entry->AcquireReadStateWriterLock(),
+                            /*components=*/{});
+    return;
+  }
+  const auto validated_metadata = this->validated_metadata();
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto decoded,
+      this->state_->DecodeChunk(validated_metadata.get(), entry->cell_indices(),
+                                std::move(*value)),
+      this->NotifyReadError(entry,
+                            ConvertInvalidArgumentToFailedPrecondition(_)));
+  this->NotifyReadSuccess(entry, entry->AcquireReadStateWriterLock(),
+                          /*components=*/decoded);
+}
+
+void DataCache::DoWriteback(internal::Cache::PinnedEntry base_entry) {
+  executor()([entry = internal::static_pointer_cast<Entry>(
+                  std::move(base_entry))]() mutable {
+    auto* cache = static_cast<DataCache*>(GetOwningCache(entry));
+    std::optional<std::string> encoded;
+    ChunkCache::WritebackSnapshot snapshot(entry.get());
+    if (!snapshot.equals_fill_value()) {
       const auto validated_metadata = cache->validated_metadata();
-      Result<absl::InlinedVector<SharedArrayView<const void>, 1>> decoded =
-          cache->state_->DecodeChunk(validated_metadata.get(),
-                                     receiver.entry()->cell_indices(),
-                                     std::move(*r->value));
-      if (!decoded) {
-        decoded = MaybeAnnotateStatus(
-            decoded.status(),
-            StrCat("Error decoding chunk ",
-                   QuoteString(cache->GetChunkStorageKey(receiver.entry()))));
-      }
-      receiver.NotifyDone(MapResult(
-          [&](const absl::InlinedVector<SharedArrayView<const void>, 1>& data)
-              -> ReadReceiver::ComponentsWithGeneration {
-            return {data, std::move(r->generation)};
-          },
-          decoded));
-    }
-  };
-  KeyValueStore::ReadOptions kvs_read_options;
-  kvs_read_options.if_not_equal = std::move(options.existing_generation);
-  kvs_read_options.staleness_bound = options.staleness_bound;
-
-  auto future = store()->Read(GetChunkStorageKey(receiver.entry()),
-                              std::move(kvs_read_options));
-  std::move(future).ExecuteWhenReady(
-      WithExecutor(executor(), ReadyCallback{std::move(receiver)}));
-}
-
-void DataCache::DoWriteback(TimestampedStorageGeneration existing_generation,
-                            WritebackReceiver receiver) {
-  struct WriteDoneCallback {
-    WritebackReceiver receiver;
-    void operator()(ReadyFuture<TimestampedStorageGeneration> future) {
-      receiver.NotifyDone(std::move(future.result()));
-    }
-  };
-  struct ExecutorCallback {
-    WritebackReceiver receiver;
-    StorageGeneration existing_generation;
-    void operator()() {
-      ChunkCache::Entry* entry = receiver.entry();
-      auto* cache = static_cast<DataCache*>(GetOwningCache(entry));
-      std::string encoded;
-      bool equals_fill_value;
-      {
-        ChunkCache::WritebackSnapshot snapshot(receiver);
-        if (snapshot.unconditional()) {
-          existing_generation = StorageGeneration::Unknown();
-        }
-        equals_fill_value = snapshot.equals_fill_value();
-        if (!equals_fill_value) {
-          const auto validated_metadata = cache->validated_metadata();
-          // Convert from array of `SharedArrayView<const void>` to array of
-          // `ArrayView<const void>`.
-          absl::FixedArray<ArrayView<const void>, 2> component_arrays_unowned(
-              snapshot.component_arrays().begin(),
-              snapshot.component_arrays().end());
-          auto status = cache->state_->EncodeChunk(
+      // Convert from array of `SharedArrayView<const void>` to array of
+      // `ArrayView<const void>`.
+      absl::FixedArray<ArrayView<const void>, 2> component_arrays_unowned(
+          snapshot.component_arrays().begin(),
+          snapshot.component_arrays().end());
+      TENSORSTORE_RETURN_IF_ERROR(
+          cache->state_->EncodeChunk(
               validated_metadata.get(), entry->cell_indices(),
-              component_arrays_unowned, &encoded);
-          if (!status.ok()) {
-            receiver.NotifyDone(std::move(status));
-            return;
-          }
-        }
-      }
-      auto write_future =
-          equals_fill_value
-              ? cache->store()->Delete(cache->GetChunkStorageKey(entry),
-                                       {std::move(existing_generation)})
-              : cache->store()->Write(cache->GetChunkStorageKey(entry),
-                                      std::move(encoded),
-                                      {std::move(existing_generation)});
-      write_future.Force();
-      std::move(write_future)
-          .ExecuteWhenReady(WithExecutor(
-              cache->executor(), WriteDoneCallback{std::move(receiver)}));
+              component_arrays_unowned, &encoded.emplace()),
+          cache->NotifyWritebackError(entry.get(),
+                                      entry->AcquireWriteStateLock(), _));
     }
-  };
-  executor()(ExecutorCallback{std::move(receiver),
-                              std::move(existing_generation.generation)});
+    cache->Writeback(std::move(entry), std::move(encoded),
+                     snapshot.unconditional());
+  });
 }
+
+namespace {
+/// Returns the metadata cache for `state`, creating it if it doesn't already
+/// exist.
+///
+/// The key used to lookup the cache depends on the
+/// `KeyValueStore::Bound::Spec`; the actual `KeyValueStore` has not yet been
+/// opened.
+///
+/// The returned `metadata_cache` must not be used for read or write operations
+/// until the `metadata_cache->initialized_` future becomes ready.  This
+/// asynchronous initialization pattern is needed in order to asynchronously
+/// open the `KeyValueStore` when the metadata cache is created.
+internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(OpenState* state) {
+  auto& base = *(PrivateOpenState*)state;  // Cast to private base
+
+  auto& spec = *base.spec_;
+  internal::EncodeCacheKey(&base.metadata_cache_key_, spec.store,
+                           typeid(*state), state->GetMetadataCacheKey());
+  // Set to a promise paired with the `initialized_` future if the cache is
+  // created.
+  Promise<void> metadata_cache_promise;
+  auto metadata_cache =
+      (*state->cache_pool())
+          ->GetCache<MetadataCache>(
+              base.metadata_cache_key_,
+              [&]() -> std::unique_ptr<MetadataCache> {
+                auto metadata_cache = std::make_unique<MetadataCache>(
+                    state->GetMetadataCacheState(),
+                    base.spec_->data_copy_concurrency, base.spec_->cache_pool);
+                auto [promise, future] =
+                    PromiseFuturePair<void>::Make(MakeResult());
+                metadata_cache->initialized_ = std::move(future);
+                metadata_cache_promise = std::move(promise);
+                return metadata_cache;
+              });
+  if (metadata_cache_promise.valid()) {
+    // The cache didn't previously exist.  Open the KeyValueStore.
+    LinkValue(
+        [state = OpenState::Ptr(state), metadata_cache](
+            Promise<void> metadata_cache_promise,
+            ReadyFuture<KeyValueStore::Ptr> future) {
+          metadata_cache->base_store_ = *future.result();
+          TENSORSTORE_ASSIGN_OR_RETURN(
+              auto metadata_kvstore,
+              state->GetMetadataKeyValueStore(metadata_cache->base_store_),
+              static_cast<void>(metadata_cache_promise.SetResult(_)));
+          metadata_cache->SetKeyValueStore(std::move(metadata_kvstore));
+        },
+        metadata_cache_promise, spec.store->Open());
+  }
+  return metadata_cache;
+}
+}  // namespace
 
 Future<internal::Driver::ReadWriteHandle> OpenDriver(OpenState::Ptr state) {
   // TODO(jbms): possibly determine these options from the open options.
@@ -1132,10 +1063,12 @@ Future<internal::Driver::ReadWriteHandle> OpenDriver(OpenState::Ptr state) {
   }
 
   auto* state_ptr = state.get();
+  auto metadata_cache = GetOrCreateMetadataCache(state_ptr);
+  base.metadata_cache_entry_ =
+      GetCacheEntry(metadata_cache, state->GetMetadataCacheEntryKey());
   return PromiseFuturePair<internal::Driver::ReadWriteHandle>::LinkValue(
-             WithExecutor(state_ptr->executor(),
-                          HandleKeyValueStoreReady{std::move(state)}),
-             base.spec_->store->Open())
+             HandleKeyValueStoreReady{std::move(state)},
+             metadata_cache->initialized_)
       .future;
 }
 

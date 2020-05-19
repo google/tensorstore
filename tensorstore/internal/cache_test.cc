@@ -99,6 +99,8 @@ class TestCache : public Cache {
     }
   }
 
+  size_t DoGetSizeofEntry() override { return sizeof(Entry); }
+
   Entry* DoAllocateEntry() override {
     if (log_) {
       absl::MutexLock lock(&log_->mutex);
@@ -514,7 +516,7 @@ TEST_P(NamedOrAnonymousCacheTest, UpdateSizeThenEvict) {
     auto entry = GetCacheEntry(test_cache, "a");
     EXPECT_THAT(log->entry_allocate_log, ElementsAre(cache_key));  // No change
     entry->data = "a";
-    entry->UpdateState({/*lock=*/{}, /*new_state=*/{}, /*new_size=*/5000});
+    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/5000}});
     TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
     EXPECT_THAT(log->entry_destroy_log, ElementsAre());  // No change
   }
@@ -534,23 +536,22 @@ TEST_P(NamedOrAnonymousCacheTest, UpdateSizeNoEvict) {
     auto entry = GetCacheEntry(test_cache, "a");
     entry->data = "a";
     // No-op update
-    entry->UpdateState({/*lock=*/{}, /*new_state=*/{}, /*new_size=*/{}});
+    entry->UpdateState({});
     // Update size
-    entry->UpdateState({/*lock=*/{}, /*new_state=*/{}, /*new_size=*/5000});
+    entry->UpdateState({{/*.lock=*/{}, /*new_size=*/5000}});
     // Update size again with same size (no-op).
-    entry->UpdateState({/*lock=*/{}, /*new_state=*/{}, /*new_size=*/5000});
+    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/5000}});
 
     // Update size again with same state and size (no-op).
-    entry->UpdateState({/*lock=*/{},
-                        /*new_state=*/CacheEntryQueueState::clean_and_in_use,
-                        /*new_size=*/5000});
+    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/5000},
+                        /*.new_state=*/CacheEntryQueueState::clean_and_in_use});
   }
   EXPECT_THAT(log->entry_destroy_log, ElementsAre());  // No change
   TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
   {
     auto entry = GetCacheEntry(test_cache, "b");
     entry->data = "b";
-    entry->UpdateState({/*lock=*/{}, /*new_state=*/{}, /*new_size=*/5000});
+    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/5000}});
   }
 
   // Check that no entries were evicted.
@@ -584,8 +585,8 @@ TEST_P(NamedOrAnonymousCacheTest, ImmediateWritebackRequested) {
   {
     auto entry = GetCacheEntry(test_cache, "a");
     entry->data = "x";
-    entry->UpdateState({/*lock=*/{}, CacheEntryQueueState::dirty,
-                        /*new_size=*/{}});
+    entry->UpdateState({/*.SizeUpdate=*/{},
+                        /*.new_state=*/CacheEntryQueueState::dirty});
     TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
     EXPECT_EQ(1, log->writeback_requests.size());
   }
@@ -595,8 +596,8 @@ TEST_P(NamedOrAnonymousCacheTest, ImmediateWritebackRequested) {
     EXPECT_EQ("x", entry->data);
     log->writeback_requests.pop_front();
     // Simulate writeback.
-    entry->UpdateState({/*lock=*/{}, CacheEntryQueueState::clean_and_in_use,
-                        /*new_size=*/{}});
+    entry->UpdateState({/*.SizeUpdate=*/{},
+                        /*.new_state=*/CacheEntryQueueState::clean_and_in_use});
   }
   TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
 
@@ -617,28 +618,28 @@ TEST_P(NamedOrAnonymousCacheTest, DelayedWritebackRequested) {
   {
     auto entry = GetCacheEntry(test_cache, "a");
     entry->data = "x";
-    entry->UpdateState({/*lock=*/{}, CacheEntryQueueState::dirty,
-                        /*new_size=*/{}});
+    entry->UpdateState(
+        {/*.SizeUpdate=*/{}, /*.new_state=*/CacheEntryQueueState::dirty});
     TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
     EXPECT_EQ(0, log->writeback_requests.size());
 
     // Increase size while in dirty state (still below writeback limit).
-    entry->UpdateState({/*lock=*/{}, /*new_state=*/{}, /*new_size=*/500});
+    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/500}});
     TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
     EXPECT_EQ(0, log->writeback_requests.size());
 
     // Decrease size while in dirty state.
-    entry->UpdateState({/*lock=*/{}, /*new_state=*/{}, /*new_size=*/450});
+    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/450}});
     TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
     EXPECT_EQ(0, log->writeback_requests.size());
 
     // Increase size again while in dirty state (above writeback limit).
-    entry->UpdateState({/*lock=*/{}, /*new_state=*/{}, /*new_size=*/501});
+    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/501}});
     TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
     EXPECT_EQ(1, log->writeback_requests.size());
 
     // Decrease size while in writeback state.
-    entry->UpdateState({/*lock=*/{}, /*new_state=*/{}, /*new_size=*/400});
+    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/400}});
     TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
   }
   EXPECT_THAT(log->entry_destroy_log, ElementsAre());  // No change
@@ -648,8 +649,8 @@ TEST_P(NamedOrAnonymousCacheTest, DelayedWritebackRequested) {
     EXPECT_EQ("x", entry->data);
     log->writeback_requests.pop_front();
     // Simulate writeback
-    entry->UpdateState({/*lock=*/{}, CacheEntryQueueState::clean_and_in_use,
-                        /*new_size=*/501});
+    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/501},
+                        /*.new_state=*/CacheEntryQueueState::clean_and_in_use});
   }
   TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
 
@@ -668,8 +669,8 @@ TEST(CacheTest, DestroyWhileDirty) {
     {
       auto entry = GetCacheEntry(test_cache, "a");
       entry->data = "x";
-      entry->UpdateState({/*lock=*/{}, CacheEntryQueueState::dirty,
-                          /*new_size=*/{}});
+      entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/{}},
+                          /*.new_state=*/CacheEntryQueueState::dirty});
       TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
     }
 
@@ -689,25 +690,21 @@ TEST(CacheTest, DestroyWhileDirty) {
 // lead to a circular reference and memory leak (the actual test is done by the
 // heap leak checker or sanitizer).
 TEST(CacheTest, CacheDependsOnOtherCache) {
-  class CacheA : public Cache {
+  class CacheA : public tensorstore::internal::CacheBase<CacheA, Cache> {
+    using Base = tensorstore::internal::CacheBase<CacheA, Cache>;
+
    public:
     class Entry : public Cache::Entry {};
-    using Cache::Cache;
-    Entry* DoAllocateEntry() override { return new Entry; }
-    void DoDeleteEntry(Cache::Entry* entry) override {
-      delete static_cast<Entry*>(entry);
-    }
+    using Base::Base;
     void DoRequestWriteback(PinnedCacheEntry<Cache> base_entry) override {}
   };
 
-  class CacheB : public Cache {
+  class CacheB : public tensorstore::internal::CacheBase<CacheB, Cache> {
+    using Base = tensorstore::internal::CacheBase<CacheB, Cache>;
+
    public:
     class Entry : public Cache::Entry {};
-    using Cache::Cache;
-    Entry* DoAllocateEntry() override { return new Entry; }
-    void DoDeleteEntry(Cache::Entry* entry) override {
-      delete static_cast<Entry*>(entry);
-    }
+    using Base::Base;
     void DoRequestWriteback(PinnedCacheEntry<Cache> base_entry) override {}
     CachePtr<CacheA> cache_a;
   };

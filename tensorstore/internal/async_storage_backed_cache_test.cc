@@ -24,9 +24,6 @@
 #include "tensorstore/internal/cache.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/memory.h"
-#include "tensorstore/internal/mutex.h"
-#include "tensorstore/internal/tagged_ptr.h"
-#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
@@ -36,14 +33,12 @@
 namespace {
 
 using tensorstore::Future;
-using tensorstore::Mutex;
 using tensorstore::Status;
-using tensorstore::StorageGeneration;
-using tensorstore::TimestampedStorageGeneration;
 using tensorstore::internal::AsyncStorageBackedCache;
 using tensorstore::internal::Cache;
 using tensorstore::internal::CacheEntryQueueState;
 using tensorstore::internal::CachePool;
+using tensorstore::internal::PinnedCacheEntry;
 using tensorstore::internal::static_pointer_cast;
 using tensorstore::internal::UniqueNow;
 using WriteFlags = tensorstore::internal::AsyncStorageBackedCache::WriteFlags;
@@ -52,38 +47,33 @@ constexpr CachePool::Limits kSmallCacheLimits{10000000, 5000000};
 
 struct RequestLog {
   struct ReadRequest {
-    AsyncStorageBackedCache::ReadReceiver receiver;
-    StorageGeneration generation;
+    PinnedCacheEntry<AsyncStorageBackedCache> entry;
     absl::Time staleness_bound;
   };
   struct WritebackRequest {
-    AsyncStorageBackedCache::WritebackReceiver receiver;
-    TimestampedStorageGeneration generation;
+    PinnedCacheEntry<AsyncStorageBackedCache> entry;
   };
   std::vector<ReadRequest> reads;
   std::vector<WritebackRequest> writebacks;
 };
 
-class TestCache : public AsyncStorageBackedCache {
+class TestCache
+    : public tensorstore::internal::CacheBase<TestCache,
+                                              AsyncStorageBackedCache> {
  public:
   class Entry : public AsyncStorageBackedCache::Entry {};
 
   TestCache(RequestLog* log) : log_(log) {}
 
-  void DoRead(ReadOptions options, ReadReceiver receiver) override {
+  void DoRead(PinnedEntry entry, absl::Time staleness_bound) override {
     log_->reads.push_back(RequestLog::ReadRequest{
-        std::move(receiver), std::move(options.existing_generation),
-        options.staleness_bound});
+        tensorstore::internal::static_pointer_cast<Entry>(std::move(entry)),
+        staleness_bound});
   }
-  void DoWriteback(TimestampedStorageGeneration existing_generation,
-                   WritebackReceiver receiver) override {
+  void DoWriteback(PinnedEntry entry) override {
     log_->writebacks.push_back(RequestLog::WritebackRequest{
-        std::move(receiver), std::move(existing_generation)});
-  }
-
-  Entry* DoAllocateEntry() override { return new Entry; }
-  void DoDeleteEntry(Cache::Entry* entry) override {
-    delete static_cast<Entry*>(entry);
+        tensorstore::internal::static_pointer_cast<Entry>(std::move(entry)),
+    });
   }
 
  private:
@@ -97,6 +87,7 @@ TEST(AsyncCacheTest, ReadBasic) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
+  absl::Time read_time1, read_time2;
   {
     auto init_time = absl::Now();
     auto read_future = entry->Read(init_time);
@@ -110,14 +101,14 @@ TEST(AsyncCacheTest, ReadBasic) {
     }
     ASSERT_EQ(1u, log.reads.size());
     ASSERT_TRUE(log.writebacks.empty());
-    auto read_time = absl::Now();
+    read_time1 = absl::Now();
     {
       auto read_req = log.reads.front();
-      EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
+      EXPECT_EQ(absl::InfinitePast(), read_req.entry->last_read_time);
       log.reads.clear();
-      read_req.receiver.NotifyDone(
-          /*size_update=*/{},
-          {std::in_place, StorageGeneration{"g0"}, read_time});
+      auto lock = read_req.entry->AcquireReadStateWriterLock();
+      read_req.entry->last_read_time = read_time1;
+      cache->NotifyReadSuccess(read_req.entry.get(), std::move(lock));
     }
     ASSERT_TRUE(read_future.ready());
     EXPECT_TRUE(read_future.result());
@@ -125,7 +116,7 @@ TEST(AsyncCacheTest, ReadBasic) {
     // Tests that calling Read again with an old time doesn't issue any more
     // read requests.
     {
-      auto read_future3 = entry->Read(read_time);
+      auto read_future3 = entry->Read(read_time1);
       ASSERT_TRUE(read_future3.ready());
       EXPECT_TRUE(read_future3.result());
       ASSERT_TRUE(log.reads.empty());
@@ -139,35 +130,14 @@ TEST(AsyncCacheTest, ReadBasic) {
     ASSERT_FALSE(read_future.ready());
     ASSERT_EQ(1u, log.reads.size());
     ASSERT_TRUE(log.writebacks.empty());
-    auto read_time = absl::Now();
+    read_time2 = absl::Now();
     {
       auto read_req = log.reads.front();
       log.reads.clear();
-      EXPECT_EQ(StorageGeneration{"g0"}, read_req.generation);
-      read_req.receiver.NotifyDone(
-          /*size_update=*/{},
-          {std::in_place, StorageGeneration{"g1"}, read_time});
-    }
-    ASSERT_TRUE(read_future.ready());
-    EXPECT_TRUE(read_future.result());
-  }
-
-  // Tests that calling Read with a newer time issues another read request, and
-  // that the generation remains "g1" when the read completes with
-  // `StorageGeneration::Unknown()` to indicate the existing data is up to date.
-  for (int i = 0; i < 2; ++i) {
-    auto read_future = entry->Read(absl::InfiniteFuture());
-    ASSERT_FALSE(read_future.ready());
-    ASSERT_EQ(1, log.reads.size());
-    ASSERT_EQ(0, log.writebacks.size());
-    auto read_time = absl::Now();
-    {
-      auto read_req = log.reads.front();
-      log.reads.clear();
-      EXPECT_EQ(StorageGeneration{"g1"}, read_req.generation);
-      read_req.receiver.NotifyDone(
-          /*size_update=*/{},
-          {std::in_place, StorageGeneration::Unknown(), read_time});
+      EXPECT_EQ(read_time1, read_req.entry->last_read_time);
+      auto lock = read_req.entry->AcquireReadStateWriterLock();
+      read_req.entry->last_read_time = read_time2;
+      cache->NotifyReadSuccess(read_req.entry.get(), std::move(lock));
     }
     ASSERT_TRUE(read_future.ready());
     EXPECT_TRUE(read_future.result());
@@ -191,10 +161,10 @@ TEST(AsyncCacheTest, ReadBasic) {
     {
       auto read_req = log.reads.front();
       log.reads.clear();
-      EXPECT_EQ(StorageGeneration{"g1"}, read_req.generation);
-      read_req.receiver.NotifyDone(
-          /*size_update=*/{},
-          {std::in_place, StorageGeneration{"g2"}, read_time});
+      EXPECT_EQ(read_time2, read_req.entry->last_read_time);
+      read_req.entry->last_read_time = read_time;
+      cache->NotifyReadSuccess(read_req.entry.get(),
+                               read_req.entry->AcquireReadStateWriterLock());
     }
     ASSERT_TRUE(read_future.ready());
     ASSERT_FALSE(read_future1.ready());
@@ -202,14 +172,14 @@ TEST(AsyncCacheTest, ReadBasic) {
 
     ASSERT_EQ(1, log.reads.size());
     ASSERT_EQ(0, log.writebacks.size());
-    read_time = absl::Now();
+    auto read_time2 = absl::Now();
     {
       auto read_req = log.reads.front();
       log.reads.clear();
-      EXPECT_EQ(StorageGeneration{"g2"}, read_req.generation);
-      read_req.receiver.NotifyDone(
-          /*size_update=*/{},
-          {std::in_place, StorageGeneration{"g3"}, read_time});
+      EXPECT_EQ(read_time, read_req.entry->last_read_time);
+      read_req.entry->last_read_time = read_time2;
+      cache->NotifyReadSuccess(read_req.entry.get(),
+                               read_req.entry->AcquireReadStateWriterLock());
     }
     ASSERT_TRUE(read_future1.ready());
     EXPECT_TRUE(read_future1.result());
@@ -228,10 +198,9 @@ TEST(AsyncCacheTest, ReadBasic) {
     {
       auto read_req = log.reads.front();
       log.reads.clear();
-      EXPECT_EQ(StorageGeneration{"g3"}, read_req.generation);
-      read_req.receiver.NotifyDone(
-          /*size_update=*/{},
-          {std::in_place, StorageGeneration{"g4"}, read_time});
+      read_req.entry->last_read_time = read_time;
+      cache->NotifyReadSuccess(read_req.entry.get(),
+                               read_req.entry->AcquireReadStateWriterLock());
     }
     ASSERT_TRUE(read_future.ready());
     EXPECT_TRUE(read_future.result());
@@ -257,10 +226,9 @@ TEST(AsyncCacheTest, ReadBasic) {
     {
       auto read_req = log.reads.front();
       log.reads.clear();
-      EXPECT_EQ(StorageGeneration{"g4"}, read_req.generation);
-      read_req.receiver.NotifyDone(
-          /*size_update=*/{},
-          {std::in_place, StorageGeneration{"g5"}, read_time});
+      read_req.entry->last_read_time = read_time;
+      cache->NotifyReadSuccess(read_req.entry.get(),
+                               read_req.entry->AcquireReadStateWriterLock());
     }
     ASSERT_TRUE(read_future.ready());
     EXPECT_TRUE(read_future.result());
@@ -285,10 +253,9 @@ TEST(AsyncCacheTest, ReadBasic) {
     {
       auto read_req = log.reads.front();
       log.reads.clear();
-      EXPECT_EQ(StorageGeneration{"g5"}, read_req.generation);
-      read_req.receiver.NotifyDone(
-          /*size_update=*/{},
-          {std::in_place, StorageGeneration{"g6"}, read_time});
+      read_req.entry->last_read_time = read_time;
+      cache->NotifyReadSuccess(read_req.entry.get(),
+                               read_req.entry->AcquireReadStateWriterLock());
     }
     ASSERT_TRUE(read_future.ready());
     EXPECT_TRUE(read_future.result());
@@ -315,8 +282,7 @@ TEST(AsyncCacheTest, ReadFailed) {
     {
       auto read_req = log.reads.front();
       log.reads.clear();
-      EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-      read_req.receiver.NotifyDone(/*size_update=*/{}, read_status);
+      cache->NotifyReadError(read_req.entry.get(), read_status);
     }
     ASSERT_EQ(0, log.reads.size());
     ASSERT_EQ(0, log.writebacks.size());
@@ -342,10 +308,9 @@ TEST(AsyncCacheTest, ReadFailed) {
     {
       auto read_req = log.reads.front();
       log.reads.clear();
-      EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-      read_req.receiver.NotifyDone(
-          /*size_update=*/{},
-          {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+      read_req.entry->last_read_time = absl::Now();
+      cache->NotifyReadSuccess(read_req.entry.get(),
+                               read_req.entry->AcquireReadStateWriterLock());
     }
     ASSERT_TRUE(read_future.ready());
     EXPECT_TRUE(read_future.result());
@@ -370,10 +335,9 @@ TEST(AsyncCacheTest, ReadFailedAfterSuccessfulRead) {
     {
       auto read_req = log.reads.front();
       log.reads.clear();
-      EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-      read_req.receiver.NotifyDone(
-          /*size_update=*/{},
-          {std::in_place, StorageGeneration{"g0"}, absl::Now()});
+      read_req.entry->last_read_time = absl::Now();
+      cache->NotifyReadSuccess(read_req.entry.get(),
+                               read_req.entry->AcquireReadStateWriterLock());
     }
     ASSERT_EQ(0, log.reads.size());
     ASSERT_EQ(0, log.writebacks.size());
@@ -390,9 +354,7 @@ TEST(AsyncCacheTest, ReadFailedAfterSuccessfulRead) {
     {
       auto read_req = log.reads.front();
       log.reads.clear();
-      EXPECT_EQ(StorageGeneration{"g0"}, read_req.generation);
-
-      read_req.receiver.NotifyDone(/*size_update=*/{}, read_status);
+      cache->NotifyReadError(read_req.entry.get(), read_status);
     }
     ASSERT_EQ(0, log.reads.size());
     ASSERT_EQ(0, log.writebacks.size());
@@ -418,10 +380,9 @@ TEST(AsyncCacheTest, ReadFailedAfterSuccessfulRead) {
     {
       auto read_req = log.reads.front();
       log.reads.clear();
-      EXPECT_EQ(StorageGeneration{"g0"}, read_req.generation);
-      read_req.receiver.NotifyDone(
-          /*size_update=*/{},
-          {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+      read_req.entry->last_read_time = absl::Now();
+      cache->NotifyReadSuccess(read_req.entry.get(),
+                               read_req.entry->AcquireReadStateWriterLock());
     }
     ASSERT_TRUE(read_future.ready());
     EXPECT_TRUE(read_future.result());
@@ -437,8 +398,8 @@ TEST(AsyncCacheTest, Write) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                         WriteFlags::kConditionalWriteback);
 
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
@@ -450,10 +411,9 @@ TEST(AsyncCacheTest, Write) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
@@ -461,11 +421,11 @@ TEST(AsyncCacheTest, Write) {
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration{"g1"}, write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g2"}, absl::Now()});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
+    write_req.entry->last_read_time = absl::Now();
+    cache->NotifyWritebackSuccess(
+        write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   }
   ASSERT_TRUE(write_future.ready());
   ASSERT_TRUE(write_future.result());
@@ -480,7 +440,7 @@ TEST(AsyncCacheTest, ReadAfterUnconditionalWriteback) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future = entry->FinishWrite(/*size_update=*/{},
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                          WriteFlags::kUnconditionalWriteback);
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
@@ -493,11 +453,10 @@ TEST(AsyncCacheTest, ReadAfterUnconditionalWriteback) {
   ASSERT_EQ(0, log.writebacks.size());
   {
     auto read_req = log.reads.front();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
     log.reads.clear();
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g0"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
 
   EXPECT_TRUE(read_future.ready());
@@ -511,7 +470,7 @@ TEST(AsyncCacheTest, UnconditionalWriteback) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future = entry->FinishWrite(/*size_update=*/{},
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                          WriteFlags::kUnconditionalWriteback);
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
@@ -525,11 +484,11 @@ TEST(AsyncCacheTest, UnconditionalWriteback) {
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, write_time});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
+    write_req.entry->last_read_time = write_time;
+    cache->NotifyWritebackSuccess(
+        write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   }
   ASSERT_TRUE(write_future.ready());
   ASSERT_TRUE(write_future.result());
@@ -569,17 +528,16 @@ TEST(AsyncCacheTest, FullyOverwrittenAfterSuccessfulRead) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
   ASSERT_EQ(0, log.reads.size());
   ASSERT_EQ(0, log.writebacks.size());
   ASSERT_TRUE(read_future.ready());
   ASSERT_TRUE(read_future.result());
 
-  auto write_future = entry->FinishWrite(/*size_update=*/{},
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                          WriteFlags::kUnconditionalWriteback);
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
@@ -607,8 +565,7 @@ TEST(AsyncCacheTest, FullyOverwrittenAfterFailedRead) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(/*size_update=*/{}, read_error);
+    cache->NotifyReadError(read_req.entry.get(), read_error);
   }
   ASSERT_EQ(0, log.reads.size());
   ASSERT_EQ(0, log.writebacks.size());
@@ -616,7 +573,7 @@ TEST(AsyncCacheTest, FullyOverwrittenAfterFailedRead) {
   ASSERT_FALSE(read_future.result());
   EXPECT_EQ(read_error, read_future.result().status());
 
-  auto write_future = entry->FinishWrite(/*size_update=*/{},
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                          WriteFlags::kUnconditionalWriteback);
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
@@ -640,7 +597,7 @@ TEST(AsyncCacheTest, FullyOverwrittenWithIssuedRead) {
   ASSERT_EQ(1, log.reads.size());
   ASSERT_EQ(0, log.writebacks.size());
 
-  auto write_future = entry->FinishWrite(/*size_update=*/{},
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                          WriteFlags::kUnconditionalWriteback);
   // Write doesn't affect read request.
   ASSERT_FALSE(write_future.ready());
@@ -656,10 +613,9 @@ TEST(AsyncCacheTest, FullyOverwrittenWithIssuedRead) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
 
   ASSERT_TRUE(read_future.ready());
@@ -670,7 +626,6 @@ TEST(AsyncCacheTest, FullyOverwrittenWithIssuedRead) {
 
   auto write_req = log.writebacks.front();
   log.writebacks.clear();
-  EXPECT_EQ("g1", write_req.generation.generation);
 }
 
 TEST(AsyncCacheTest, FullyOverwrittenWithIssuedReadAndQueuedRead) {
@@ -686,7 +641,7 @@ TEST(AsyncCacheTest, FullyOverwrittenWithIssuedReadAndQueuedRead) {
   ASSERT_EQ(1, log.reads.size());
   ASSERT_EQ(0, log.writebacks.size());
 
-  auto write_future = entry->FinishWrite(/*size_update=*/{},
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                          WriteFlags::kUnconditionalWriteback);
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(1, log.reads.size());
@@ -699,7 +654,6 @@ TEST(AsyncCacheTest, FullyOverwrittenWithIssuedReadAndQueuedRead) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
   }
 }
 
@@ -710,7 +664,7 @@ TEST(AsyncCacheTest, ForcedQueuedWritebackIssuedAfterWriteback) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future = entry->FinishWrite(/*size_update=*/{},
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                          WriteFlags::kUnconditionalWriteback);
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
@@ -719,15 +673,15 @@ TEST(AsyncCacheTest, ForcedQueuedWritebackIssuedAfterWriteback) {
 
   auto write_req = log.writebacks.front();
   log.writebacks.clear();
-  EXPECT_EQ(StorageGeneration::Unknown(), write_req.generation.generation);
-  write_req.receiver.NotifyStarted(/*size_update=*/{});
-  auto write_future2 =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  cache->NotifyWritebackStarted(write_req.entry.get(),
+                                write_req.entry->AcquireWriteStateLock());
+  auto write_future2 = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                          WriteFlags::kConditionalWriteback);
   ASSERT_FALSE(HaveSameSharedState(write_future, write_future2));
   write_future2.Force();
-  write_req.receiver.NotifyDone(
-      /*size_update=*/{},
-      {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+  write_req.entry->last_read_time = absl::Now();
+  cache->NotifyWritebackSuccess(
+      write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   ASSERT_TRUE(write_future.ready());
   ASSERT_TRUE(write_future.result());
   ASSERT_FALSE(write_future2.ready());
@@ -737,11 +691,12 @@ TEST(AsyncCacheTest, ForcedQueuedWritebackIssuedAfterWriteback) {
   {
     auto write_req2 = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration{"g1"}, write_req2.generation.generation);
-    write_req2.receiver.NotifyStarted(/*size_update=*/{});
-    write_req2.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g2"}, absl::Now()});
+    cache->NotifyWritebackStarted(write_req2.entry.get(),
+                                  write_req2.entry->AcquireWriteStateLock());
+    write_req2.entry->last_read_time = absl::Now();
+    cache->NotifyWritebackSuccess(
+        write_req2.entry.get(),
+        write_req2.entry->AcquireWriteAndReadStateLock());
   }
   ASSERT_TRUE(write_future2.ready());
   ASSERT_TRUE(write_future2.result());
@@ -754,7 +709,7 @@ TEST(AsyncCacheTest, QueuedWritebackNotIssuedAfterWriteback) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future = entry->FinishWrite(/*size_update=*/{},
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                          WriteFlags::kUnconditionalWriteback);
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
@@ -763,14 +718,14 @@ TEST(AsyncCacheTest, QueuedWritebackNotIssuedAfterWriteback) {
 
   auto write_req = log.writebacks.front();
   log.writebacks.clear();
-  EXPECT_EQ(StorageGeneration::Unknown(), write_req.generation.generation);
-  write_req.receiver.NotifyStarted(/*size_update=*/{});
-  auto write_future2 =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  cache->NotifyWritebackStarted(write_req.entry.get(),
+                                write_req.entry->AcquireWriteStateLock());
+  auto write_future2 = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                          WriteFlags::kConditionalWriteback);
   ASSERT_FALSE(HaveSameSharedState(write_future, write_future2));
-  write_req.receiver.NotifyDone(
-      /*size_update=*/{},
-      {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+  write_req.entry->last_read_time = absl::Now();
+  cache->NotifyWritebackSuccess(
+      write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   ASSERT_TRUE(write_future.ready());
   ASSERT_TRUE(write_future.result());
   ASSERT_FALSE(write_future2.ready());
@@ -784,11 +739,12 @@ TEST(AsyncCacheTest, QueuedWritebackNotIssuedAfterWriteback) {
   {
     auto write_req2 = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), write_req.generation.generation);
-    write_req2.receiver.NotifyStarted(/*size_update=*/{});
-    write_req2.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+    cache->NotifyWritebackStarted(write_req2.entry.get(),
+                                  write_req2.entry->AcquireWriteStateLock());
+    write_req2.entry->last_read_time = absl::Now();
+    cache->NotifyWritebackSuccess(
+        write_req2.entry.get(),
+        write_req2.entry->AcquireWriteAndReadStateLock());
   }
   ASSERT_TRUE(write_future2.ready());
   ASSERT_TRUE(write_future2.result());
@@ -801,7 +757,7 @@ TEST(AsyncCacheTest, QueuedWritebackNotNeededAfterWriteback) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future = entry->FinishWrite(/*size_update=*/{},
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                          WriteFlags::kUnconditionalWriteback);
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
@@ -810,15 +766,16 @@ TEST(AsyncCacheTest, QueuedWritebackNotNeededAfterWriteback) {
 
   auto write_req = log.writebacks.front();
   log.writebacks.clear();
-  EXPECT_EQ(StorageGeneration::Unknown(), write_req.generation.generation);
-  write_req.receiver.NotifyStarted(/*size_update=*/{});
-  auto write_future2 =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  cache->NotifyWritebackStarted(write_req.entry.get(),
+                                write_req.entry->AcquireWriteStateLock());
+  auto write_future2 = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                          WriteFlags::kConditionalWriteback);
   ASSERT_FALSE(HaveSameSharedState(write_future, write_future2));
-  write_req.receiver.NotifyStarted(/*size_update=*/{});
-  write_req.receiver.NotifyDone(
-      /*size_update=*/{},
-      {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+  cache->NotifyWritebackStarted(write_req.entry.get(),
+                                write_req.entry->AcquireWriteStateLock());
+  write_req.entry->last_read_time = absl::Now();
+  cache->NotifyWritebackSuccess(
+      write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   ASSERT_TRUE(write_future.ready());
   ASSERT_TRUE(write_future.result());
   ASSERT_TRUE(write_future2.ready());
@@ -834,7 +791,7 @@ TEST(AsyncCacheTest, WritebackFailedWhenFullyOverwritten) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future = entry->FinishWrite(/*size_update=*/{},
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                          WriteFlags::kUnconditionalWriteback);
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
@@ -843,10 +800,12 @@ TEST(AsyncCacheTest, WritebackFailedWhenFullyOverwritten) {
 
   auto write_req = log.writebacks.front();
   log.writebacks.clear();
-  EXPECT_EQ(StorageGeneration::Unknown(), write_req.generation.generation);
-  write_req.receiver.NotifyStarted(/*size_update=*/{});
+  cache->NotifyWritebackStarted(write_req.entry.get(),
+                                write_req.entry->AcquireWriteStateLock());
   const Status error_status = absl::UnknownError("write failed");
-  write_req.receiver.NotifyDone(/*size_update=*/{}, error_status);
+  cache->NotifyWritebackError(write_req.entry.get(),
+                              write_req.entry->AcquireWriteStateLock(),
+                              error_status);
   ASSERT_TRUE(write_future.ready());
   ASSERT_EQ(error_status, write_future.result().status());
   ASSERT_EQ(0, log.reads.size());
@@ -860,8 +819,8 @@ TEST(AsyncCacheTest, WritebackFailedWhenNotFullyOverwritten) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                         WriteFlags::kConditionalWriteback);
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(1, log.reads.size());
@@ -870,10 +829,9 @@ TEST(AsyncCacheTest, WritebackFailedWhenNotFullyOverwritten) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
 
   ASSERT_EQ(0, log.reads.size());
@@ -881,10 +839,12 @@ TEST(AsyncCacheTest, WritebackFailedWhenNotFullyOverwritten) {
 
   auto write_req = log.writebacks.front();
   log.writebacks.clear();
-  EXPECT_EQ(StorageGeneration{"g1"}, write_req.generation.generation);
-  write_req.receiver.NotifyStarted(/*size_update=*/{});
+  cache->NotifyWritebackStarted(write_req.entry.get(),
+                                write_req.entry->AcquireWriteStateLock());
   const Status error_status = absl::UnknownError("write failed");
-  write_req.receiver.NotifyDone(/*size_update=*/{}, error_status);
+  cache->NotifyWritebackError(write_req.entry.get(),
+                              write_req.entry->AcquireWriteStateLock(),
+                              error_status);
   ASSERT_TRUE(write_future.ready());
   ASSERT_EQ(error_status, write_future.result().status());
   ASSERT_EQ(0, log.reads.size());
@@ -900,8 +860,8 @@ TEST(AsyncCacheTest, ReadFailedWithWritebackRequested) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                         WriteFlags::kConditionalWriteback);
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(1, log.reads.size());
@@ -911,8 +871,7 @@ TEST(AsyncCacheTest, ReadFailedWithWritebackRequested) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(/*size_update=*/{}, read_status);
+    cache->NotifyReadError(read_req.entry.get(), read_status);
   }
   ASSERT_EQ(0, log.reads.size());
   ASSERT_EQ(0, log.writebacks.size());
@@ -929,8 +888,8 @@ TEST(AsyncCacheTest, ReadFailedWithWritebackQueuedButNotRequested) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                         WriteFlags::kConditionalWriteback);
 
   auto read_future = entry->Read(absl::InfinitePast());
   ASSERT_FALSE(read_future.ready());
@@ -942,8 +901,7 @@ TEST(AsyncCacheTest, ReadFailedWithWritebackQueuedButNotRequested) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(/*size_update=*/{}, read_status);
+    cache->NotifyReadError(read_req.entry.get(), read_status);
   }
   ASSERT_EQ(0, log.reads.size());
   ASSERT_EQ(0, log.writebacks.size());
@@ -960,21 +918,20 @@ TEST(AsyncCacheTest, ReadFailedWithWritebackQueuedButNotRequested) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
 
   // Writeback request is issued.
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration{"g1"}, write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g2"}, absl::Now()});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
+    write_req.entry->last_read_time = absl::Now();
+    cache->NotifyWritebackSuccess(
+        write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   }
   ASSERT_EQ(0, log.reads.size());
   ASSERT_EQ(0, log.writebacks.size());
@@ -991,8 +948,8 @@ TEST(AsyncCacheTest, NotifyGenerationMismatch) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                         WriteFlags::kConditionalWriteback);
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
 
@@ -1004,10 +961,9 @@ TEST(AsyncCacheTest, NotifyGenerationMismatch) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
 
   // Writeback is issued.
@@ -1018,11 +974,11 @@ TEST(AsyncCacheTest, NotifyGenerationMismatch) {
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration{"g1"}, write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration::Unknown(), absl::Now()});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
+    cache->NotifyWritebackNeedsRead(write_req.entry.get(),
+                                    write_req.entry->AcquireWriteStateLock(),
+                                    absl::Now());
   }
 
   // Another read is required.
@@ -1040,8 +996,8 @@ TEST(AsyncCacheTest, NotifyGenerationMismatchAfterWritebackCancelled) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                         WriteFlags::kConditionalWriteback);
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
 
@@ -1053,10 +1009,9 @@ TEST(AsyncCacheTest, NotifyGenerationMismatchAfterWritebackCancelled) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
 
   // Writeback is issued.
@@ -1068,12 +1023,12 @@ TEST(AsyncCacheTest, NotifyGenerationMismatchAfterWritebackCancelled) {
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration{"g1"}, write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
     write_future = Future<void>();
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration::Unknown(), absl::Now()});
+    cache->NotifyWritebackNeedsRead(write_req.entry.get(),
+                                    write_req.entry->AcquireWriteStateLock(),
+                                    absl::Now());
   }
 
   ASSERT_EQ(0, log.writebacks.size());
@@ -1087,8 +1042,8 @@ TEST(AsyncCacheTest, ReadFailedWithWritebackRequestedAndQueued) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                         WriteFlags::kConditionalWriteback);
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
 
@@ -1100,10 +1055,9 @@ TEST(AsyncCacheTest, ReadFailedWithWritebackRequestedAndQueued) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
 
   // Writeback is issued.
@@ -1116,13 +1070,13 @@ TEST(AsyncCacheTest, ReadFailedWithWritebackRequestedAndQueued) {
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration{"g1"}, write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_future2 = entry->FinishWrite(/*size_update=*/{},
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
+    write_future2 = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                        WriteFlags::kConditionalWriteback);
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration::Unknown(), absl::Now()});
+    cache->NotifyWritebackNeedsRead(write_req.entry.get(),
+                                    write_req.entry->AcquireWriteStateLock(),
+                                    absl::Now());
   }
 
   // Another read is required.
@@ -1136,9 +1090,7 @@ TEST(AsyncCacheTest, ReadFailedWithWritebackRequestedAndQueued) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{}, read_status);
+    cache->NotifyReadError(read_req.entry.get(), read_status);
   }
   ASSERT_EQ(0, log.reads.size());
   ASSERT_EQ(0, log.writebacks.size());
@@ -1159,8 +1111,8 @@ TEST(AsyncCacheTest, WritebackCancelled) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                         WriteFlags::kConditionalWriteback);
 
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
@@ -1175,10 +1127,9 @@ TEST(AsyncCacheTest, WritebackCancelled) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
   EXPECT_EQ(CacheEntryQueueState::dirty, entry->queue_state());
   ASSERT_EQ(0, log.reads.size());
@@ -1192,8 +1143,8 @@ TEST(AsyncCacheTest, WritebackAndQueuedWritebackCancelled) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                         WriteFlags::kConditionalWriteback);
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
 
@@ -1205,10 +1156,9 @@ TEST(AsyncCacheTest, WritebackAndQueuedWritebackCancelled) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
 
   // Writeback is issued.
@@ -1218,18 +1168,19 @@ TEST(AsyncCacheTest, WritebackAndQueuedWritebackCancelled) {
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration{"g1"}, write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
     // Make and immediately cancel another writeback request.
-    entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+    entry->FinishWrite(entry->AcquireWriteStateLock(),
+                       WriteFlags::kConditionalWriteback);
 
     // Cancel original writeback request.
     write_future = Future<void>();
 
     // Fail writeback.
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration::Unknown(), absl::Now()});
+    cache->NotifyWritebackNeedsRead(write_req.entry.get(),
+                                    write_req.entry->AcquireWriteStateLock(),
+                                    absl::Now());
   }
 
   // No more reads are issued.
@@ -1244,8 +1195,8 @@ TEST(AsyncCacheTest, WritebackCancelledWithNonCancelledQueuedWriteback) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                         WriteFlags::kConditionalWriteback);
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
 
@@ -1257,10 +1208,9 @@ TEST(AsyncCacheTest, WritebackCancelledWithNonCancelledQueuedWriteback) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
 
   // Writeback is issued.
@@ -1271,10 +1221,10 @@ TEST(AsyncCacheTest, WritebackCancelledWithNonCancelledQueuedWriteback) {
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration{"g1"}, write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
     // Make another writeback request.
-    write_future2 = entry->FinishWrite(/*size_update=*/{},
+    write_future2 = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                        WriteFlags::kConditionalWriteback);
     write_future2.Force();
 
@@ -1282,9 +1232,9 @@ TEST(AsyncCacheTest, WritebackCancelledWithNonCancelledQueuedWriteback) {
     write_future = Future<void>();
 
     // Fail writeback.
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration::Unknown(), absl::Now()});
+    cache->NotifyWritebackNeedsRead(write_req.entry.get(),
+                                    write_req.entry->AcquireWriteStateLock(),
+                                    absl::Now());
   }
 
   ASSERT_FALSE(write_future2.ready());
@@ -1295,10 +1245,9 @@ TEST(AsyncCacheTest, WritebackCancelledWithNonCancelledQueuedWriteback) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g2"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
 
   ASSERT_FALSE(write_future2.ready());
@@ -1306,11 +1255,11 @@ TEST(AsyncCacheTest, WritebackCancelledWithNonCancelledQueuedWriteback) {
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration{"g2"}, write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g3"}, absl::Now()});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
+    write_req.entry->last_read_time = absl::Now();
+    cache->NotifyWritebackSuccess(
+        write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   }
   ASSERT_EQ(0, log.reads.size());
   ASSERT_EQ(0, log.writebacks.size());
@@ -1330,7 +1279,7 @@ TEST(AsyncCacheTest, ForceWritebackWhenClean) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future = entry->FinishWrite(/*size_update=*/{},
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                          WriteFlags::kUnconditionalWriteback);
   write_future.Force();
   write_future.Force();
@@ -1340,21 +1289,22 @@ TEST(AsyncCacheTest, ForceWritebackWhenClean) {
   Future<const void> write_future2;
   {
     auto write_req = log.writebacks.front();
-    EXPECT_EQ(StorageGeneration::Unknown(), write_req.generation.generation);
     log.writebacks.clear();
     // Call WritebackStarted so that a subsequent write gets a new Future.
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_future2 = entry->FinishWrite(/*size_update=*/{},
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
+    write_future2 = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                        WriteFlags::kUnconditionalWriteback);
     ASSERT_FALSE(HaveSameSharedState(write_future, write_future2));
     write_future.ExecuteWhenReady(
         [write_future2](Future<const void>) { write_future2.Force(); });
     // Call WritebackStarted again so that this writeback request makes the
     // entry clean.
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g2"}, absl::Now()});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
+    write_req.entry->last_read_time = absl::Now();
+    cache->NotifyWritebackSuccess(
+        write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   }
   ASSERT_TRUE(write_future.ready());
   ASSERT_TRUE(write_future.result());
@@ -1376,8 +1326,8 @@ TEST(AsyncCacheTest, WritebackRequestedWithReadIssued) {
   ASSERT_EQ(1, log.reads.size());
   ASSERT_EQ(0, log.writebacks.size());
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                         WriteFlags::kConditionalWriteback);
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
   ASSERT_FALSE(read_future.ready());
@@ -1387,10 +1337,9 @@ TEST(AsyncCacheTest, WritebackRequestedWithReadIssued) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
 
   ASSERT_FALSE(write_future.ready());
@@ -1401,11 +1350,11 @@ TEST(AsyncCacheTest, WritebackRequestedWithReadIssued) {
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration{"g1"}, write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g2"}, absl::Now()});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
+    write_req.entry->last_read_time = absl::Now();
+    cache->NotifyWritebackSuccess(
+        write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   }
   ASSERT_TRUE(write_future.ready());
   ASSERT_TRUE(write_future.result());
@@ -1421,10 +1370,10 @@ TEST(AsyncCacheTest, WriteFutureSharing) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
-  auto write_future2 =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                         WriteFlags::kConditionalWriteback);
+  auto write_future2 = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                          WriteFlags::kConditionalWriteback);
   EXPECT_TRUE(HaveSameSharedState(write_future, write_future2));
 }
 
@@ -1435,7 +1384,7 @@ TEST(AsyncCacheTest, WriteFutureSharingAfterWritebackIssued) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future = entry->FinishWrite(/*size_update=*/{},
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                          WriteFlags::kUnconditionalWriteback);
 
   ASSERT_FALSE(write_future.ready());
@@ -1448,13 +1397,13 @@ TEST(AsyncCacheTest, WriteFutureSharingAfterWritebackIssued) {
 
   auto write_req = log.writebacks.front();
   log.writebacks.clear();
-  EXPECT_EQ(StorageGeneration::Unknown(), write_req.generation.generation);
-  write_req.receiver.NotifyStarted(/*size_update=*/{});
-  auto write_future2 =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  cache->NotifyWritebackStarted(write_req.entry.get(),
+                                write_req.entry->AcquireWriteStateLock());
+  auto write_future2 = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                          WriteFlags::kConditionalWriteback);
   EXPECT_FALSE(HaveSameSharedState(write_future, write_future2));
-  auto write_future3 =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  auto write_future3 = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                          WriteFlags::kConditionalWriteback);
   EXPECT_TRUE(HaveSameSharedState(write_future2, write_future3));
   ASSERT_FALSE(write_future2.ready());
 }
@@ -1466,7 +1415,7 @@ TEST(AsyncCacheTest, FullyOverwrittenAfterWritebackStarted) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future = entry->FinishWrite(/*size_update=*/{},
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                          WriteFlags::kUnconditionalWriteback);
 
   ASSERT_FALSE(write_future.ready());
@@ -1481,13 +1430,13 @@ TEST(AsyncCacheTest, FullyOverwrittenAfterWritebackStarted) {
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_future2 = entry->FinishWrite(/*size_update=*/{},
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
+    write_future2 = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                        WriteFlags::kUnconditionalWriteback);
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g2"}, absl::Now()});
+    write_req.entry->last_read_time = absl::Now();
+    cache->NotifyWritebackSuccess(
+        write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   }
   ASSERT_FALSE(HaveSameSharedState(write_future, write_future2));
   ASSERT_FALSE(write_future2.ready());
@@ -1504,8 +1453,8 @@ TEST(AsyncCacheTest, WritebackRequestedByCache) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                         WriteFlags::kConditionalWriteback);
 
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(1, log.reads.size());
@@ -1513,11 +1462,10 @@ TEST(AsyncCacheTest, WritebackRequestedByCache) {
 
   {
     auto read_req = log.reads.front();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
     log.reads.clear();
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
@@ -1526,11 +1474,11 @@ TEST(AsyncCacheTest, WritebackRequestedByCache) {
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration{"g1"}, write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g2"}, absl::Now()});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
+    write_req.entry->last_read_time = absl::Now();
+    cache->NotifyWritebackSuccess(
+        write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   }
   ASSERT_TRUE(write_future.ready());
   ASSERT_TRUE(write_future.result());
@@ -1548,7 +1496,7 @@ TEST(AsyncCacheTest, GetWritebackFutureAfterWritebackIssued) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future = entry->FinishWrite(/*size_update=*/{},
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                          WriteFlags::kUnconditionalWriteback);
 
   ASSERT_FALSE(write_future.ready());
@@ -1562,17 +1510,17 @@ TEST(AsyncCacheTest, GetWritebackFutureAfterWritebackIssued) {
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
 
     {
       auto write_future2 = entry->GetWritebackFuture();
       EXPECT_TRUE(HaveSameSharedState(write_future, write_future2));
     }
 
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g2"}, absl::Now()});
+    write_req.entry->last_read_time = absl::Now();
+    cache->NotifyWritebackSuccess(
+        write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   }
   ASSERT_TRUE(write_future.ready());
   ASSERT_TRUE(write_future.result());
@@ -1589,7 +1537,7 @@ TEST(AsyncCacheTest, GetWritebackFutureWithWritebackQueuedAndNotCancelled) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future = entry->FinishWrite(/*size_update=*/{},
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                          WriteFlags::kUnconditionalWriteback);
 
   ASSERT_FALSE(write_future.ready());
@@ -1604,10 +1552,10 @@ TEST(AsyncCacheTest, GetWritebackFutureWithWritebackQueuedAndNotCancelled) {
 
   auto write_req = log.writebacks.front();
   log.writebacks.clear();
-  EXPECT_EQ(StorageGeneration::Unknown(), write_req.generation.generation);
-  write_req.receiver.NotifyStarted(/*size_update=*/{});
+  cache->NotifyWritebackStarted(write_req.entry.get(),
+                                write_req.entry->AcquireWriteStateLock());
 
-  write_future2 = entry->FinishWrite(/*size_update=*/{},
+  write_future2 = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                      WriteFlags::kUnconditionalWriteback);
   EXPECT_FALSE(HaveSameSharedState(write_future2, write_future));
   {
@@ -1623,7 +1571,7 @@ TEST(AsyncCacheTest, GetWritebackFutureWithWritebackQueuedAndCancelled) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future = entry->FinishWrite(/*size_update=*/{},
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                          WriteFlags::kUnconditionalWriteback);
 
   ASSERT_FALSE(write_future.ready());
@@ -1639,8 +1587,8 @@ TEST(AsyncCacheTest, GetWritebackFutureWithWritebackQueuedAndCancelled) {
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
 
     // Make another write, then cancel the returned future.
     {
@@ -1652,9 +1600,9 @@ TEST(AsyncCacheTest, GetWritebackFutureWithWritebackQueuedAndCancelled) {
     write_future3 = entry->GetWritebackFuture();
     write_future3.Force();
 
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+    write_req.entry->last_read_time = absl::Now();
+    cache->NotifyWritebackSuccess(
+        write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   }
   ASSERT_TRUE(write_future.ready());
   ASSERT_TRUE(write_future.result());
@@ -1665,11 +1613,11 @@ TEST(AsyncCacheTest, GetWritebackFutureWithWritebackQueuedAndCancelled) {
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration{"g1"}, write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g2"}, absl::Now()});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
+    write_req.entry->last_read_time = absl::Now();
+    cache->NotifyWritebackSuccess(
+        write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   }
   ASSERT_TRUE(write_future3.ready());
   ASSERT_TRUE(write_future3.result());
@@ -1684,8 +1632,8 @@ TEST(AsyncCacheTest, ReadIssuedDuetoWritebackWithReadQueued) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kConditionalWriteback);
+  auto write_future = entry->FinishWrite(entry->AcquireWriteStateLock(),
+                                         WriteFlags::kConditionalWriteback);
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
 
@@ -1697,10 +1645,9 @@ TEST(AsyncCacheTest, ReadIssuedDuetoWritebackWithReadQueued) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
 
   // Writeback is issued.
@@ -1717,12 +1664,12 @@ TEST(AsyncCacheTest, ReadIssuedDuetoWritebackWithReadQueued) {
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration{"g1"}, write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
     // Fail writeback due to generation mismatch.
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration::Unknown(), absl::Now()});
+    cache->NotifyWritebackNeedsRead(write_req.entry.get(),
+                                    write_req.entry->AcquireWriteStateLock(),
+                                    absl::Now());
   }
   ASSERT_FALSE(read_future.ready());
   ASSERT_FALSE(write_future.ready());
@@ -1735,10 +1682,9 @@ TEST(AsyncCacheTest, ReadIssuedDuetoWritebackWithReadQueued) {
   {
     auto read_req = log.reads.front();
     log.reads.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.generation);
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g2"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
   ASSERT_TRUE(read_future.ready());
   ASSERT_TRUE(read_future.result());
@@ -1751,11 +1697,11 @@ TEST(AsyncCacheTest, ReadIssuedDuetoWritebackWithReadQueued) {
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration{"g2"}, write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g3"}, absl::Now()});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
+    write_req.entry->last_read_time = absl::Now();
+    cache->NotifyWritebackSuccess(
+        write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   }
   ASSERT_TRUE(write_future.ready());
   ASSERT_TRUE(write_future.result());
@@ -1782,7 +1728,7 @@ TEST(AsyncCacheTest, WriteAfterNotifyStartedBeforeAbort) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future1 = entry->FinishWrite(/*size_update=*/{},
+  auto write_future1 = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                           WriteFlags::kUnconditionalWriteback);
 
   write_future1.Force();
@@ -1791,13 +1737,14 @@ TEST(AsyncCacheTest, WriteAfterNotifyStartedBeforeAbort) {
     ASSERT_EQ(1, log.writebacks.size());
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration::Unknown(), absl::Now()});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
+    cache->NotifyWritebackNeedsRead(write_req.entry.get(),
+                                    write_req.entry->AcquireWriteStateLock(),
+                                    absl::Now());
   }
 
-  auto write_future2 = entry->FinishWrite(/*size_update=*/{},
+  auto write_future2 = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                           WriteFlags::kUnconditionalWriteback);
   write_future2.Force();
 
@@ -1805,24 +1752,25 @@ TEST(AsyncCacheTest, WriteAfterNotifyStartedBeforeAbort) {
     ASSERT_EQ(1, log.reads.size());
     auto read_req = log.reads.front();
     log.reads.clear();
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g0"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
 
   ASSERT_EQ(1, log.writebacks.size());
   auto write_req1 = log.writebacks.front();
   log.writebacks.clear();
-  write_req1.receiver.NotifyStarted(/*size_update=*/{});
+  cache->NotifyWritebackStarted(write_req1.entry.get(),
+                                write_req1.entry->AcquireWriteStateLock());
 
-  auto write_future3 = entry->FinishWrite(/*size_update=*/{},
+  auto write_future3 = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                           WriteFlags::kUnconditionalWriteback);
   write_future3.Force();
   EXPECT_FALSE(HaveSameSharedState(write_future2, write_future3));
 
-  write_req1.receiver.NotifyDone(
-      /*size_update=*/{},
-      {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+  write_req1.entry->last_read_time = absl::Now();
+  cache->NotifyWritebackSuccess(
+      write_req1.entry.get(), write_req1.entry->AcquireWriteAndReadStateLock());
   EXPECT_TRUE(write_future2.ready());
   EXPECT_FALSE(write_future3.ready());
 
@@ -1831,10 +1779,11 @@ TEST(AsyncCacheTest, WriteAfterNotifyStartedBeforeAbort) {
   {
     auto write_req = log.writebacks.front();
     log.writebacks.clear();
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g2"}, absl::Now()});
+    cache->NotifyWritebackStarted(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock());
+    write_req.entry->last_read_time = absl::Now();
+    cache->NotifyWritebackSuccess(
+        write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   }
   EXPECT_TRUE(write_future3.ready());
 }
@@ -1846,7 +1795,7 @@ TEST(AsyncCacheTest, WriteAfterNotifyStartedAfterWriteAfterNotifyStarted) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future1 = entry->FinishWrite(/*size_update=*/{},
+  auto write_future1 = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                           WriteFlags::kUnconditionalWriteback);
 
   write_future1.Force();
@@ -1854,49 +1803,52 @@ TEST(AsyncCacheTest, WriteAfterNotifyStartedAfterWriteAfterNotifyStarted) {
   ASSERT_EQ(1, log.writebacks.size());
   auto write_req = log.writebacks.front();
   log.writebacks.clear();
-  write_req.receiver.NotifyStarted(/*size_update=*/{});
+  cache->NotifyWritebackStarted(write_req.entry.get(),
+                                write_req.entry->AcquireWriteStateLock());
 
-  auto write_future2 = entry->FinishWrite(/*size_update=*/{},
+  auto write_future2 = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                           WriteFlags::kUnconditionalWriteback);
   EXPECT_FALSE(HaveSameSharedState(write_future1, write_future2));
   write_future2.Force();
 
-  write_req.receiver.NotifyDone(
-      /*size_update=*/{},
-      {std::in_place, StorageGeneration::Unknown(), absl::Now()});
+  cache->NotifyWritebackNeedsRead(write_req.entry.get(),
+                                  write_req.entry->AcquireWriteStateLock(),
+                                  absl::Now());
 
   {
     ASSERT_EQ(1, log.reads.size());
     auto read_req = log.reads.front();
     log.reads.clear();
-    read_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g0"}, absl::Now()});
+    read_req.entry->last_read_time = absl::Now();
+    cache->NotifyReadSuccess(read_req.entry.get(),
+                             read_req.entry->AcquireReadStateWriterLock());
   }
 
   ASSERT_EQ(1, log.writebacks.size());
   write_req = log.writebacks.front();
   log.writebacks.clear();
-  write_req.receiver.NotifyStarted(/*size_update=*/{});
+  cache->NotifyWritebackStarted(write_req.entry.get(),
+                                write_req.entry->AcquireWriteStateLock());
 
-  auto write_future3 = entry->FinishWrite(/*size_update=*/{},
+  auto write_future3 = entry->FinishWrite(entry->AcquireWriteStateLock(),
                                           WriteFlags::kUnconditionalWriteback);
   write_future3.Force();
   EXPECT_FALSE(HaveSameSharedState(write_future2, write_future3));
 
-  write_req.receiver.NotifyDone(
-      /*size_update=*/{},
-      {std::in_place, StorageGeneration{"g1"}, absl::Now()});
+  write_req.entry->last_read_time = absl::Now();
+  cache->NotifyWritebackSuccess(
+      write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   EXPECT_TRUE(write_future2.ready());
   EXPECT_FALSE(write_future3.ready());
 
   ASSERT_EQ(1, log.writebacks.size());
   write_req = log.writebacks.front();
   log.writebacks.clear();
-  write_req.receiver.NotifyStarted(/*size_update=*/{});
-  write_req.receiver.NotifyDone(
-      /*size_update=*/{},
-      {std::in_place, StorageGeneration{"g2"}, absl::Now()});
+  cache->NotifyWritebackStarted(write_req.entry.get(),
+                                write_req.entry->AcquireWriteStateLock());
+  write_req.entry->last_read_time = absl::Now();
+  cache->NotifyWritebackSuccess(
+      write_req.entry.get(), write_req.entry->AcquireWriteAndReadStateLock());
   EXPECT_TRUE(write_future3.ready());
 }
 

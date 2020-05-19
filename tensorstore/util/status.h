@@ -80,6 +80,17 @@ inline Status InvokeForStatus(F&& f, Args&&... args) {
   }
 }
 
+/// Converts `kInvalidArgument` and `kOutOfRange` errors to
+/// `kFailedPrecondition` errors.
+inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
+    absl::Status status) {
+  if (status.code() == absl::StatusCode::kInvalidArgument ||
+      status.code() == absl::StatusCode::kOutOfRange) {
+    return absl::FailedPreconditionError(status.message());
+  }
+  return status;
+}
+
 namespace internal {
 [[noreturn]] void FatalStatus(const char* message, const Status& status,
                               SourceLocation loc

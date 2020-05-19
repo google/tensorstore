@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/call_once.h"
 #include "absl/base/macros.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_set.h"
@@ -167,14 +168,7 @@ void InitializeNewEntry(CacheEntryImpl* entry, CacheImpl* cache) noexcept {
   auto* pool = cache->pool_;
   entry->cache_ = cache;
   entry->reference_count_.store(1, std::memory_order_relaxed);
-  // This is the only call to `DoGetSizeInBytes` made by this cache framework
-  // directly.  Because `entry` is not yet visible to other threads, it is safe
-  // to call `DoGetSizeInBytes` without holding any locks.  All other calls are
-  // made by derived classes while holding any relevant locks on the portions of
-  // the entry state that the derived implementation of DoGetSizeInBytes may
-  // access.
-  entry->num_bytes_ = Access::StaticCast<Cache>(cache)->DoGetSizeInBytes(
-      Access::StaticCast<Cache::Entry>(entry));
+  entry->num_bytes_ = 0;
   entry->queue_state_ = CacheEntryQueueState::clean_and_in_use;
   pool->total_bytes_ += entry->num_bytes_;
   MaybeEvictEntries(pool);
@@ -334,39 +328,61 @@ CachePtr<Cache> GetCacheInternal(
 PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
                                               absl::string_view key) {
   auto* cache_impl = Access::StaticCast<CacheImpl>(cache);
-  absl::MutexLock lock(&cache_impl->pool_->mutex_);
-  auto it = cache_impl->entries_.find(key);
-  if (it != cache_impl->entries_.end()) {
-    auto* entry_impl = *it;
-    if (entry_impl->reference_count_.fetch_add(1, std::memory_order_acq_rel) ==
-        0) {
-      // When the first reference to an entry is acquired, also acquire a strong
-      // reference to the cache to be held by the entry.  This ensures the Cache
-      // object is not destroyed while any of its entries are referenced.
+  PinnedCacheEntry<Cache> returned_entry;
+  {
+    absl::MutexLock lock(&cache_impl->pool_->mutex_);
+    auto it = cache_impl->entries_.find(key);
+    if (it != cache_impl->entries_.end()) {
+      auto* entry_impl = *it;
+      if (entry_impl->reference_count_.fetch_add(
+              1, std::memory_order_acq_rel) == 0) {
+        // When the first reference to an entry is acquired, also acquire a
+        // strong reference to the cache to be held by the entry.  This ensures
+        // the Cache object is not destroyed while any of its entries are
+        // referenced.
+        StrongPtrTraitsCache::increment(cache);
+        EnsureNotOnCleanList(entry_impl);
+      }
+      // Adopt reference added via `fetch_add` above.
+      returned_entry =
+          PinnedCacheEntry<Cache>(Access::StaticCast<Cache::Entry>(entry_impl),
+                                  internal::adopt_object_ref);
+    } else {
+      std::string temp_key(key);  // May throw, done before allocating entry.
+      auto* entry_impl =
+          Access::StaticCast<CacheEntryImpl>(cache->DoAllocateEntry());
+      entry_impl->key_ = std::move(temp_key);      // noexcept
+      InitializeNewEntry(entry_impl, cache_impl);  // noexcept
+      struct EvictEntryDeleter {
+        void operator()(CacheEntry* entry) const noexcept {
+          EvictEntry(Access::StaticCast<CacheEntryImpl>(entry));
+        }
+      };
+      std::unique_ptr<CacheEntry, EvictEntryDeleter> entry(
+          Access::StaticCast<CacheEntry>(entry_impl));
+      // Add to entries table.  This may throw, in which case the entry will be
+      // cleaned up by `EvictEntry`.
+      cache_impl->entries_.insert(entry_impl);
       StrongPtrTraitsCache::increment(cache);
-      EnsureNotOnCleanList(entry_impl);
+      returned_entry =
+          PinnedCacheEntry<Cache>(entry.release(), internal::adopt_object_ref);
     }
-    // Adopt reference added via `fetch_add` above.
-    return PinnedCacheEntry<Cache>(Access::StaticCast<Cache::Entry>(entry_impl),
-                                   internal::adopt_object_ref);
   }
-  std::string temp_key(key);  // May throw, done before allocating entry.
-  auto* entry_impl =
-      Access::StaticCast<CacheEntryImpl>(cache->DoAllocateEntry());
-  entry_impl->key_ = std::move(temp_key);      // noexcept
-  InitializeNewEntry(entry_impl, cache_impl);  // noexcept
-  struct EvictEntryDeleter {
-    void operator()(CacheEntry* entry) const noexcept {
-      EvictEntry(Access::StaticCast<CacheEntryImpl>(entry));
-    }
-  };
-  std::unique_ptr<CacheEntry, EvictEntryDeleter> entry(
-      Access::StaticCast<CacheEntry>(entry_impl));
-  // Add to entries table.  This may throw, in which case the entry will be
-  // cleaned up by `EvictEntry`.
-  cache_impl->entries_.insert(entry_impl);
-  StrongPtrTraitsCache::increment(cache);
-  return PinnedCacheEntry<Cache>(entry.release(), internal::adopt_object_ref);
+  absl::call_once(
+      Access::StaticCast<CacheEntryImpl>(returned_entry.get())->initialized_,
+      [&] {
+        cache->DoInitializeEntry(returned_entry.get());
+        // This is the only call to `DoGetSizeInBytes` made by this cache
+        // framework directly.  Because `entry` is not yet visible to other
+        // threads, it is safe to call `DoGetSizeInBytes` without holding any
+        // locks.  All other calls are made by derived classes while holding any
+        // relevant locks on the portions of the entry state that the derived
+        // implementation of DoGetSizeInBytes may access.
+        CacheEntry::StateUpdate state_update;
+        state_update.new_size = cache->DoGetSizeInBytes(returned_entry.get());
+        returned_entry->UpdateState(std::move(state_update));
+      });
+  return returned_entry;
 }
 
 void StrongPtrTraitsCache::decrement(Cache* p) noexcept {
@@ -453,8 +469,11 @@ Cache::Cache() = default;
 Cache::~Cache() = default;
 
 std::size_t Cache::DoGetSizeInBytes(Cache::Entry* entry) {
-  return entry->key().size();
+  return ((internal_cache::CacheEntryImpl*)entry)->key_.capacity() +
+         this->DoGetSizeofEntry();
 }
+
+void Cache::DoInitializeEntry(Entry* entry) {}
 
 void Cache::Entry::UpdateState(StateUpdate update) {
   if (!update.new_state && !update.new_size) return;

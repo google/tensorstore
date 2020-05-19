@@ -1130,14 +1130,13 @@ TEST(DriverTest, Jpeg1Channel) {
         Status(),
         GetStatus(
             kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", "junk").result()));
-    EXPECT_THAT(
-        tensorstore::Read<tensorstore::zero_origin>(
-            ChainResult(store,
-                        tensorstore::AllDims().SizedInterval(0, array.shape())))
-            .result(),
-        MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                      ".*Error decoding chunk \"prefix/1_1_1/0-3_0-4_0-2\":"
-                      ".*Not a JPEG file.*"));
+    EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
+                    ChainResult(store, tensorstore::AllDims().SizedInterval(
+                                           0, array.shape())))
+                    .result(),
+                MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                              ".*Error reading \"prefix/1_1_1/0-3_0-4_0-2\":"
+                              ".*Not a JPEG file.*"));
 
     // Write valid JPEG with the wrong number of channels.
     {
@@ -1285,14 +1284,12 @@ TEST(DriverTest, CorruptMetadataTest) {
             GetStatus(kv_store->Write("prefix/info", "invalid").result()));
 
   auto json_spec = GetJsonSpec();
-  EXPECT_THAT(
-      tensorstore::Open(
-          context, json_spec,
-          {tensorstore::OpenMode::open, tensorstore::ReadWriteMode::read_write})
-          .result(),
-      MatchesStatus(
-          absl::StatusCode::kFailedPrecondition,
-          ".*: Error decoding metadata from \"prefix/info\": Invalid JSON"));
+  EXPECT_THAT(tensorstore::Open(context, json_spec,
+                                {tensorstore::OpenMode::open,
+                                 tensorstore::ReadWriteMode::read_write})
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*: Error reading \"prefix/info\": Invalid JSON"));
 
   // Write valid JSON that is invalid metadata.
   EXPECT_EQ(Status(),
@@ -1303,7 +1300,7 @@ TEST(DriverTest, CorruptMetadataTest) {
                                  tensorstore::ReadWriteMode::read_write})
                   .result(),
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*: Error decoding metadata from \"prefix/info\": "
+                            ".*: Error reading \"prefix/info\": "
                             "Expected object, but received: \\[1\\]"));
 }
 

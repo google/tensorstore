@@ -20,7 +20,7 @@
 ///
 /// Example usage:
 ///
-///   class MyCache : public Cache {
+///   class MyCache : public CacheBase<MyCache, Cache> {
 ///    public:
 ///     class Entry : public Cache::Entry {
 ///       using Cache = MyCache;
@@ -37,16 +37,6 @@
 ///                     GetOwningCache(this)->DoGetSizeInBytes(this));
 ///       }
 ///     };
-///
-///     Cache::Entry *DoAllocateEntry() override {
-///       // Could allocate variable-sized block
-///       return new Entry;
-///     }
-///
-///     void DoDeleteEntry(Cache::Entry* base_entry) override {
-///       auto* entry = static_cast<Entry*>(base_entry);
-///       delete entry;
-///     }
 ///
 ///     std::size_t DoGetSizeInBytes(Cache::Entry* base_entry) override {
 ///       auto* entry = static_cast<Entry*>(base_entry);
@@ -265,15 +255,8 @@ class CacheEntry : private internal_cache::CacheEntryImpl {
     absl::optional<std::size_t> new_size;
   };
 
+  /// Extends `SizeUpdate` with an optional state update.
   struct StateUpdate : public SizeUpdate {
-    StateUpdate(SizeUpdate size_update,
-                absl::optional<CacheEntryQueueState> new_state = {})
-        : SizeUpdate(std::move(size_update)), new_state(new_state) {}
-    StateUpdate(Lock lock = {},
-                absl::optional<CacheEntryQueueState> new_state = {},
-                absl::optional<std::size_t> new_size = {})
-        : SizeUpdate{std::move(lock), new_size}, new_state(new_state) {}
-
     /// If not `absl::nullopt`, the queue state will be changed to the specified
     /// value.  If `new_state` is `clean_and_not_in_use` or `dirty`, the entry
     /// will be moved to the back (most recently used) position of the eviction
@@ -314,6 +297,8 @@ class Cache : private internal_cache::CacheImpl {
   /// redefine `Entry` to be the derived entry type.
   using Entry = CacheEntry;
 
+  using PinnedEntry = PinnedCacheEntry<Cache>;
+
   Cache();
   virtual ~Cache();
 
@@ -332,6 +317,11 @@ class Cache : private internal_cache::CacheImpl {
   /// Derived classes must define this method.
   virtual Entry* DoAllocateEntry() = 0;
 
+  /// Initializes an entry after it is allocated.
+  ///
+  /// Derived classes may override this method if initialization is required.
+  virtual void DoInitializeEntry(Entry* entry);
+
   /// Destroys `entry`.
   ///
   /// Derived classes must define this method.
@@ -341,33 +331,30 @@ class Cache : private internal_cache::CacheImpl {
 
   /// Returns the size in bytes used by `entry`.
   ///
-  /// The implementation defined for the base `Cache` class just accounts for
-  /// the additional heap allocated storage used by the base `CacheEntry` class,
-  /// but does not account for `sizeof(Entry)` itself, since a derived entry
-  /// type will most likely be larger.
+  /// Derived classes that extend the `Entry` type with additional members that
+  /// point to heap-allocated memory should override this method to return the
+  /// sum of:
   ///
-  /// Derived classes must override this method, and should do so in one of two
-  /// ways:
+  /// 1. The result of `DoGetSizeofEntry`.
   ///
-  /// 1. If the derived class `DerivedCache` inherits from `BaseCache` (which
-  ///    may either be this `Cache` class or a class that derives from it)
-  ///    defines a derived entry type `DerivedCache::Entry` but does not define
-  ///    `DoAllocateEntry` (and is therefore an abstract base class), it should
-  ///    define `DoGetSizeInBytes` to return the sum of any additional heap
-  ///    allocated memory used by the derived entry type and the result of
-  ///    calling `BaseCache::DoGetSizeInBytes(entry)`; the returned size should
-  ///    not include `sizeof(DerivedCache::Entry)`.
+  /// 2. The result of `Base::DoGetSizeInBytes(entry)`, where `Base` is the
+  ///    superclass.
   ///
-  /// 2. If the derived class does define `DoAllocateEntry` (and it is therefore
-  ///    intended that no further derived class will override the entry type),
-  ///    then it should define `DoGetSizeInBytes` as for case 1 above, except
-  ///    that the returned size should include `sizeof(DerivedCache::Entry)`.
+  /// 3. The additional heap memory required by the additional members of
+  ///    `entry`.
   ///
   /// The cache pool implementation only calls this method once during
   /// initialization without holding any locks.  Otherwise, it should only be
   /// called while holding necessary locks to protect the state required to
   /// calculate the size.
   virtual std::size_t DoGetSizeInBytes(Entry* entry);
+
+  /// Returns `sizeof Entry`, where `Entry` is the derived class `Entry` type
+  /// allocated by `DoAllocateEntry`.
+  ///
+  /// Normally it is not necessary to manually define this method, because
+  /// `CacheBase` provides a suitable definition automatically.
+  virtual std::size_t DoGetSizeofEntry() = 0;
 
   /// Initiates writeback of `entry`.
   ///
@@ -383,10 +370,36 @@ class Cache : private internal_cache::CacheImpl {
   ///
   /// \param entry Non-null pointer to the entry contained in this cache for
   ///     which writeback is requested.
-  virtual void DoRequestWriteback(PinnedCacheEntry<Cache> entry) = 0;
+  virtual void DoRequestWriteback(PinnedEntry entry) = 0;
 
  private:
   friend class internal_cache::Access;
+};
+
+/// CRTP base class for defining derived `Cache` types.
+///
+/// This type should be the base class of the most-derived `Cache` class.
+///
+/// This ensures that `DoAllocateEntry`, `DoDeleteEntry`, and `DoGetSizeofEntry`
+/// are defined appropriately for the `Derived::Entry` type.
+template <typename Derived, typename Parent>
+class CacheBase : public Parent {
+  static_assert(std::is_base_of_v<Cache, Parent>);
+
+ public:
+  using Parent::Parent;
+  Cache::Entry* DoAllocateEntry() override {
+    static_assert(std::is_base_of_v<Cache::Entry, typename Derived::Entry>);
+    static_assert(
+        std::is_base_of_v<typename Parent::Entry, typename Derived::Entry>);
+    return new typename Derived::Entry;
+  }
+  void DoDeleteEntry(Cache::Entry* entry) override {
+    delete static_cast<typename Derived::Entry*>(entry);
+  }
+  std::size_t DoGetSizeofEntry() override {
+    return sizeof(typename Derived::Entry);
+  }
 };
 
 /// Returns a pointer to the cache that contains `entry`.  By default, the

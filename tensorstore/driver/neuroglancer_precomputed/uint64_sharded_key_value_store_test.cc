@@ -290,16 +290,18 @@ TEST_F(RawEncodingTest, MultipleDeleteNonExisting) {
 
 TEST_F(RawEncodingTest, ShardIndexTooShort) {
   base_kv_store->Write("prefix/0.shard", {1, 2, 3}).value();
-  EXPECT_THAT(store->Read(GetChunkKey(10)).result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Error retrieving shard index entry for shard 0 "
-                            "minishard 0: Requested byte range \\[0, 16\\) "
-                            "is not valid for value of size 3"));
+  EXPECT_THAT(
+      store->Read(GetChunkKey(10)).result(),
+      MatchesStatus(
+          absl::StatusCode::kFailedPrecondition,
+          "Error reading minishard 0 in \"prefix/0\\.shard\": "
+          "Error retrieving shard index entry: "
+          "Requested byte range \\[0, 16\\) is not valid for value of size 3"));
   EXPECT_THAT(
       store->Write(GetChunkKey(10), "abc").result(),
       MatchesStatus(
           absl::StatusCode::kFailedPrecondition,
-          "Error decoding existing shard 0: "
+          "Error writing \"prefix/0\\.shard\": "
           "Existing shard index has size 3, but expected at least: 16"));
 }
 
@@ -308,15 +310,16 @@ TEST_F(RawEncodingTest, ShardIndexInvalidByteRange) {
       ->Write("prefix/0.shard",
               Bytes({10, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0}))
       .value();
-  EXPECT_THAT(store->Read(GetChunkKey(10)).result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Error retrieving shard index entry for shard 0 "
-                            "minishard 0: Shard index specified invalid byte "
-                            "range: \\[10, 2\\)"));
+  EXPECT_THAT(
+      store->Read(GetChunkKey(10)).result(),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                    "Error reading minishard 0 in \"prefix/0\\.shard\": "
+                    "Error retrieving shard index entry: "
+                    "Shard index specified invalid byte range: \\[10, 2\\)"));
   EXPECT_THAT(store->Write(GetChunkKey(10), "abc").result(),
               MatchesStatus(
                   absl::StatusCode::kFailedPrecondition,
-                  "Error decoding existing shard 0: "
+                  "Error writing \"prefix/0\\.shard\": "
                   "Error decoding existing shard index entry for minishard 0: "
                   "Shard index specified invalid byte range: \\[10, 2\\)"));
 }
@@ -329,15 +332,17 @@ TEST_F(RawEncodingTest, ShardIndexByteRangeOverflow) {
                   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,  //
               }))
       .value();
-  EXPECT_THAT(store->Read(GetChunkKey(10)).result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Error retrieving shard index entry for shard 0 "
-                            "minishard 0: Byte range .* relative to the end of "
-                            "the shard index \\(16\\) is not valid"));
+  EXPECT_THAT(
+      store->Read(GetChunkKey(10)).result(),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                    "Error reading minishard 0 in \"prefix/0\\.shard\": "
+                    "Error retrieving shard index entry: "
+                    "Byte range .* relative to the end of "
+                    "the shard index \\(16\\) is not valid"));
   EXPECT_THAT(store->Write(GetChunkKey(10), "abc").result(),
               MatchesStatus(
                   absl::StatusCode::kFailedPrecondition,
-                  "Error decoding existing shard 0: "
+                  "Error writing \"prefix/0\\.shard\": "
                   "Error decoding existing shard index entry for minishard 0: "
                   "Byte range .* relative to the end of "
                   "the shard index \\(16\\) is not valid"));
@@ -348,15 +353,16 @@ TEST_F(RawEncodingTest, MinishardIndexOutOfRange) {
       ->Write("prefix/0.shard",
               Bytes({0, 0, 0, 0, 0, 0, 0, 0, 48, 0, 0, 0, 0, 0, 0, 0}))
       .value();
-  EXPECT_THAT(store->Read(GetChunkKey(10)).result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Error retrieving minishard index for shard 0 "
-                            "minishard 0: Requested byte range \\[16, 64\\) is "
-                            "not valid for value of size 16"));
+  EXPECT_THAT(
+      store->Read(GetChunkKey(10)).result(),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                    "Error reading minishard 0 in \"prefix/0\\.shard\": "
+                    "Requested byte range \\[16, 64\\) is "
+                    "not valid for value of size 16"));
   EXPECT_THAT(store->Write(GetChunkKey(10), "abc").result(),
               MatchesStatus(
                   absl::StatusCode::kFailedPrecondition,
-                  "Error decoding existing shard 0: "
+                  "Error writing \"prefix/0\\.shard\": "
                   "Error decoding existing shard index entry for minishard 0: "
                   "Requested byte range .* is not valid for value of size 16"));
 }
@@ -369,12 +375,12 @@ TEST_F(RawEncodingTest, MinishardIndexInvalidSize) {
   EXPECT_THAT(
       store->Read(GetChunkKey(10)).result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Error retrieving minishard index for shard 0 minishard 0: "
+                    "Error reading minishard 0 in \"prefix/0\\.shard\": "
                     "Invalid minishard index length: 1"));
   EXPECT_THAT(
       store->Write(GetChunkKey(10), "abc").result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Error decoding existing shard 0: "
+                    "Error writing \"prefix/0\\.shard\": "
                     "Error decoding existing minishard index for minishard 0: "
                     "Invalid minishard index length: 1"));
 }
@@ -390,12 +396,13 @@ TEST_F(RawEncodingTest, MinishardIndexByteRangeOverflow) {
                   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,  //
               }))
       .value();
-  EXPECT_THAT(store->Read(GetChunkKey(10)).result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Error retrieving minishard index for shard 0 "
-                            "minishard 0: Error decoding minishard index entry "
-                            "for chunk 10: Byte range .* relative to the end "
-                            "of the shard index \\(16\\) is not valid"));
+  EXPECT_THAT(
+      store->Read(GetChunkKey(10)).result(),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                    "Error reading minishard 0 in \"prefix/0\\.shard\": "
+                    "Error decoding minishard index entry "
+                    "for chunk 10: Byte range .* relative to the end "
+                    "of the shard index \\(16\\) is not valid"));
 }
 
 TEST_F(RawEncodingTest, MinishardIndexEntryByteRangeOutOfRange) {
@@ -411,7 +418,7 @@ TEST_F(RawEncodingTest, MinishardIndexEntryByteRangeOutOfRange) {
   EXPECT_THAT(store->Write(GetChunkKey(1), "x").result(),
               MatchesStatus(
                   absl::StatusCode::kFailedPrecondition,
-                  "Error decoding existing shard 0: "
+                  "Error writing \"prefix/0\\.shard\": "
                   "Invalid existing byte range for chunk 10: "
                   "Requested byte range .* is not valid for value of size .*"));
 }
@@ -431,7 +438,7 @@ TEST_F(RawEncodingTest, MinishardIndexWithDuplicateChunkId) {
       .value();
   EXPECT_THAT(store->Write(GetChunkKey(10), "abc").result(),
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Error decoding existing shard 0: "
+                            "Error writing \"prefix/0\\.shard\": "
                             "Chunk 10 occurs more than once in the minishard "
                             "index for minishard 0"));
 }
@@ -467,12 +474,12 @@ TEST_F(GzipEncodingTest, CorruptMinishardGzipEncoding) {
   EXPECT_THAT(
       store->Read(GetChunkKey(10)).result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Error retrieving minishard index for shard 0 minishard 0: "
+                    "Error reading minishard 0 in \"prefix/0\\.shard\": "
                     "Error decoding zlib-compressed data"));
   EXPECT_THAT(
       store->Write(GetChunkKey(10), "abc").result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Error decoding existing shard 0: "
+                    "Error writing \"prefix/0\\.shard\": "
                     "Error decoding existing minishard index for minishard 0: "
                     "Error decoding zlib-compressed data"));
 }
@@ -904,10 +911,12 @@ TEST_F(UnderlyingKeyValueStoreTest, ReadErrorReadingShardIndex) {
     req.promise.SetResult(absl::UnknownError("Read error"));
   }
   ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown,
-                            "Error retrieving shard index entry for shard 0 "
-                            "minishard 0: Read error"));
+  EXPECT_THAT(
+      future.result(),
+      MatchesStatus(absl::StatusCode::kUnknown,
+                    "Error reading minishard 0 in \"prefix/0\\.shard\": "
+                    "Error retrieving shard index entry: "
+                    "Read error"));
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, ReadErrorReadingMinishardShardIndex) {
@@ -934,10 +943,11 @@ TEST_F(UnderlyingKeyValueStoreTest, ReadErrorReadingMinishardShardIndex) {
     req.promise.SetResult(absl::UnknownError("Read error"));
   }
   ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown,
-                            "Error retrieving minishard index for shard 0 "
-                            "minishard 1: Read error"));
+  EXPECT_THAT(
+      future.result(),
+      MatchesStatus(absl::StatusCode::kUnknown,
+                    "Error reading minishard 1 in \"prefix/0\\.shard\": "
+                    "Read error"));
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, ReadErrorReadingData) {
@@ -1042,7 +1052,9 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShardError) {
   }
   ASSERT_TRUE(future.ready());
   EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown, "Write error"));
+              MatchesStatus(absl::StatusCode::kUnknown,
+                            "Error writing \"prefix/0\\.shard\": "
+                            "Write error"));
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShard) {
@@ -1136,7 +1148,9 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShardReadError) {
   }
   ASSERT_TRUE(future.ready());
   EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kUnknown, "Read error"));
+              MatchesStatus(absl::StatusCode::kUnknown,
+                            "Error reading \"prefix/0\\.shard\": "
+                            "Read error"));
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, List) {

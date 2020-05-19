@@ -56,6 +56,7 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/to_string.h"
 
 // Best Practices for GCS Storage usage & other GCS reference
 // links are:
@@ -368,6 +369,11 @@ class GcsKeyValueStore
   Status GetBoundSpecData(BoundSpecData* spec) const {
     *spec = spec_;
     return absl::OkStatus();
+  }
+
+  std::string DescribeKey(absl::string_view key) override {
+    return tensorstore::QuoteString(
+        tensorstore::StrCat("gs://", spec_.bucket, "/", key));
   }
 
   BoundSpecData spec_;

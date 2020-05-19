@@ -119,6 +119,33 @@ Future<KeyValueStore::Ptr> KeyValueStore::Open(
   return spec->Open(context, options);
 }
 
+Future<KeyValueStore::ReadResult> KeyValueStore::Read(Key key,
+                                                      ReadOptions options) {
+  return absl::UnimplementedError("KeyValueStore does not support reading");
+}
+
+Future<TimestampedStorageGeneration> KeyValueStore::Write(
+    Key key, Value value, WriteOptions options) {
+  return absl::UnimplementedError("KeyValueStore does not support writing");
+}
+
+Future<TimestampedStorageGeneration> KeyValueStore::Delete(
+    Key key, DeleteOptions options) {
+  return absl::UnimplementedError("KeyValueStore does not support deleting");
+}
+
+Future<std::int64_t> KeyValueStore::DeletePrefix(Key prefix) {
+  return absl::UnimplementedError(
+      "KeyValueStore does not support deleting by prefix");
+}
+
+void KeyValueStore::ListImpl(const ListOptions& options,
+                             AnyFlowReceiver<Status, Key> receiver) {
+  execution::submit(FlowSingleSender{ErrorSender{absl::UnimplementedError(
+                        "KeyValueStore does not support listing")}},
+                    std::move(receiver));
+}
+
 AnyFlowSender<Status, KeyValueStore::Key> KeyValueStore::List(
     ListOptions options) {
   struct ListSender {
@@ -129,6 +156,10 @@ AnyFlowSender<Status, KeyValueStore::Key> KeyValueStore::List(
     }
   };
   return ListSender{Ptr(this), std::move(options)};
+}
+
+std::string KeyValueStore::DescribeKey(absl::string_view key) {
+  return tensorstore::QuoteString(key);
 }
 
 Future<std::vector<KeyValueStore::Key>> ListFuture(

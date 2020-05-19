@@ -24,6 +24,7 @@
 #include <typeindex>
 #include <utility>
 
+#include "absl/base/call_once.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
 #include "absl/strings/string_view.h"
@@ -64,6 +65,8 @@ class CacheEntryImpl : public internal_cache::LruListNode {
   size_t num_bytes_;
   CacheEntryQueueState queue_state_;
   std::atomic<std::uint32_t> reference_count_;
+  // Guards calls to `DoInitializeEntry`.
+  absl::once_flag initialized_;
 };
 
 class CacheImpl {

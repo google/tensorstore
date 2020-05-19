@@ -90,16 +90,12 @@ Future<const void> IssueRead(AsyncStorageBackedCache::Entry* entry,
   ABSL_ASSERT(!ed.queued_read.valid());
   ABSL_ASSERT(!ed.issued_read.future.valid());
   ABSL_ASSERT(!ed.issued_read.promise.valid());
-  AsyncStorageBackedCache::ReadOptions options;
-  options.existing_generation = ed.ready_read_generation.generation;
-  options.staleness_bound = ed.issued_read_time = ed.queued_read_time;
+  absl::Time staleness_bound = ed.issued_read_time = ed.queued_read_time;
   ed.issued_read = PromiseFuturePair<void>::Make();
   auto future = ed.issued_read.future;
   entry->UpdateState(std::move(update));
   GetOwningCache(entry)->DoRead(
-      std::move(options),
-      AsyncStorageBackedCache::ReadReceiver{
-          PinnedCacheEntry<AsyncStorageBackedCache>(entry)});
+      PinnedCacheEntry<AsyncStorageBackedCache>(entry), staleness_bound);
   return future;
 }
 
@@ -119,13 +115,11 @@ void MaybeStartReadOrWriteback(AsyncStorageBackedCache::Entry* entry,
   // A read must not be in progress.
   assert(!ed.issued_read.promise.valid());
 
-  // A writeback must not have started (i.e. `WritebackReceiver::NotifyStarted`
-  // called).
+  // A writeback must not have started (i.e. `NotifyWritebackStarted` called).
   assert(ed.issued_writeback_generation == 0);
 
-  // A writeback must not be in progress even if
-  // `WritebackReceiver::NotifyStarted` has not yet been called, but we cannot
-  // check for that condition.
+  // A writeback must not be in progress even if `NotifyWritebackStarted` has
+  // not yet been called, but we cannot check for that condition.
 
   /// Starts a read if one has been requested.
   /// \returns `true` if a read has been started, in which case `update` has
@@ -150,16 +144,12 @@ void MaybeStartReadOrWriteback(AsyncStorageBackedCache::Entry* entry,
     ed.issued_read.promise = std::move(queued_read_promise);
     ed.issued_read_time = ed.queued_read_time;
 
-    AsyncStorageBackedCache::ReadOptions options;
-    options.existing_generation = ed.ready_read_generation.generation;
-    options.staleness_bound = ed.queued_read_time;
+    absl::Time staleness_bound = ed.queued_read_time;
     entry->UpdateState(std::move(update));
     TENSORSTORE_DEBUG_LOG(debug, "MaybeStartReadOrWriteback: entry=", entry,
                           " calling DoRead");
     GetOwningCache(entry)->DoRead(
-        std::move(options),
-        AsyncStorageBackedCache::ReadReceiver{
-            PinnedCacheEntry<AsyncStorageBackedCache>(entry)});
+        PinnedCacheEntry<AsyncStorageBackedCache>(entry), staleness_bound);
     return true;
   };
 
@@ -197,26 +187,26 @@ void MaybeStartReadOrWriteback(AsyncStorageBackedCache::Entry* entry,
       }
     }
     if (!ed.unconditional_writeback_generation &&
-        StorageGeneration::IsUnknown(ed.ready_read_generation.generation)) {
+        (ed.writeback_needs_read ||
+         entry->last_read_time == absl::InfinitePast())) {
       // Writeback can't be started yet because a read must complete first.
       TENSORSTORE_DEBUG_LOG(debug, "MaybeStartReadOrWriteback: entry=", entry,
                             " read required for writeback");
       if (!maybe_start_read()) {
-        IssueRead(entry, {std::move(update),
-                          CacheEntryQueueState::writeback_requested});
+        IssueRead(entry,
+                  {/*.SizeUpdate=*/std::move(update),
+                   /*.new_state=*/CacheEntryQueueState::writeback_requested});
       }
       return true;
     }
     // Writeback will be started.
-    auto existing_generation = ed.ready_read_generation;
     entry->UpdateState(
-        {std::move(update), CacheEntryQueueState::writeback_requested});
+        {/*.SizeUpdate=*/std::move(update),
+         /*.new_state=*/CacheEntryQueueState::writeback_requested});
     TENSORSTORE_DEBUG_LOG(debug, "MaybeStartReadOrWriteback: entry=", entry,
                           " calling DoWriteback");
     GetOwningCache(entry)->DoWriteback(
-        std::move(existing_generation),
-        AsyncStorageBackedCache::WritebackReceiver{
-            PinnedCacheEntry<AsyncStorageBackedCache>(entry)});
+        PinnedCacheEntry<AsyncStorageBackedCache>(entry));
     return true;
   };
 
@@ -228,8 +218,7 @@ void MaybeStartReadOrWriteback(AsyncStorageBackedCache::Entry* entry,
     }
   };
 
-  if (ed.queued_read.valid() &&
-      ed.queued_read_time <= ed.ready_read_generation.time) {
+  if (ed.queued_read.valid() && ed.queued_read_time <= entry->last_read_time) {
     // There is a pending read request that is satisfied by the existing read
     // result.  Remove it from the entry state before calling `update_state` to
     // avoid it triggering a new read operation, then mark it as completed
@@ -290,14 +279,16 @@ Future<const void> GetNewWritebackFuture(
                               "WritebackFuture Force: entry=", entry.get(),
                               " another read is in progress");
         entry->UpdateState(
-            {std::move(lock), CacheEntryQueueState::writeback_requested});
+            {/*.SizeUpdate=*/{std::move(lock)},
+             /*.new_state=*/CacheEntryQueueState::writeback_requested});
         return;
       }
       TENSORSTORE_DEBUG_LOG(debug, "WritebackFuture Force: entry=", entry.get(),
                             " attempting to start writeback");
       MaybeStartReadOrWriteback(
           entry.get(),
-          {std::move(lock), CacheEntryQueueState::writeback_requested});
+          {/*.SizeUpdate=*/{std::move(lock)},
+           /*.new_state=*/CacheEntryQueueState::writeback_requested});
     }
     PinnedCacheEntry<AsyncStorageBackedCache> entry;
   };
@@ -335,14 +326,136 @@ Future<const void> GetWritebackFutureWithLock(
   return GetNewWritebackFuture(entry);
 }
 
+template <bool Read, bool Write, typename ExistingLock>
+CacheEntry::SizeUpdate GetSizeUpdateImpl(AsyncStorageBackedCache::Entry* entry,
+                                         ExistingLock existing_lock) {
+  auto& ed = Access::entry_data(*entry);
+  CacheEntry::SizeUpdate size_update{
+      std::unique_lock<tensorstore::Mutex>(ed.mutex)};
+  auto* cache = GetOwningCache(entry);
+  if constexpr (Read) {
+    ed.read_state_size = cache->DoGetReadStateSizeInBytes(entry);
+  }
+  if constexpr (Write) {
+    ed.write_state_size = cache->DoGetWriteStateSizeInBytes(entry);
+  }
+  size_update.new_size = cache->DoGetFixedSizeInBytes(entry) +
+                         ed.read_state_size + ed.write_state_size;
+  return size_update;
+}
+
+/// Acquires a lock on `entry->entry_data_.mutex`, and computes an updated size,
+/// before releasing `existing_lock`.
+///
+/// The cached `read_state_size` and/or `write_state_size` are updated depending
+/// on the `lock` type.
+CacheEntry::SizeUpdate GetSizeUpdate(
+    AsyncStorageBackedCache::Entry* entry,
+    AsyncStorageBackedCache::ReadStateWriterLock lock) {
+  return GetSizeUpdateImpl</*Read=*/true, /*Write=*/false>(entry,
+                                                           std::move(lock));
+}
+
+CacheEntry::SizeUpdate GetSizeUpdate(
+    AsyncStorageBackedCache::Entry* entry,
+    AsyncStorageBackedCache::WriteStateLock lock) {
+  return GetSizeUpdateImpl</*Read=*/false, /*Write=*/true>(entry,
+                                                           std::move(lock));
+}
+
+CacheEntry::SizeUpdate GetSizeUpdate(
+    AsyncStorageBackedCache::Entry* entry,
+    AsyncStorageBackedCache::WriteAndReadStateLock lock) {
+  return GetSizeUpdateImpl</*Read=*/true, /*Write=*/true>(entry,
+                                                          std::move(lock));
+}
+
+/// Marks `issued_read` ready with the specified `status` after calling
+/// `MaybeStartReadOrWriteback`.
+void ResolveIssuedRead(AsyncStorageBackedCache::Entry* entry,
+                       CacheEntry::StateUpdate update, absl::Status status) {
+  auto& ed = Access::entry_data(*entry);
+  assert(ed.issued_read.promise.valid());
+  // Remove `issued_read` from the entry state prior to calling
+  // `MaybeStartReadOrWriteback` in order to indicate that a read operation is
+  // no longer in progress.
+  Promise<void> issued_read_promise = std::move(ed.issued_read.promise);
+  ed.issued_read.future = Future<void>();
+  MaybeStartReadOrWriteback(entry, std::move(update));
+  issued_read_promise.SetResult(MakeResult(status));
+}
+
+void ResolveIssuedWriteback(AsyncStorageBackedCache::Entry* entry,
+                            CacheEntry::SizeUpdate size_update,
+                            internal::CacheEntryQueueState new_state,
+                            absl::Status status) {
+  TENSORSTORE_DEBUG_LOG(debug, "ResolveIssuedWriteback: ", entry,
+                        ", status=", status);
+  auto& ed = Access::entry_data(*entry);
+  assert(ed.issued_writeback_generation != 0);
+  Promise<void> next_writeback = std::move(ed.writebacks[0]);
+  ed.writebacks[0] = std::move(ed.writebacks[1]);
+  Future<const void> writeback_requested_by_cache;
+  Promise<void> queued_writeback;
+  if (new_state == CacheEntryQueueState::clean_and_in_use) {
+    ed.write_generation = 0;
+    ed.requested_writeback_generation = 0;
+    writeback_requested_by_cache = std::move(ed.writeback_requested_by_cache);
+    queued_writeback = std::move(ed.writebacks[0]);
+  } else if (ed.requested_writeback_generation <=
+             ed.issued_writeback_generation) {
+    // Entry will remain dirty, but writeback was not requested since the last
+    // writeback started.  Therefore, mark the entry as not having a writeback
+    // request.
+    ed.requested_writeback_generation = 0;
+  }
+  ed.issued_writeback_generation = 0;
+
+  MaybeStartReadOrWriteback(entry, {/*.SizeUpdate=*/std::move(size_update),
+                                    /*.new_state=*/new_state});
+  // The order in which we call SetResult on these two promises is arbitrary,
+  // but the race condition test for a writeback being forced after the entry
+  // has been marked clean depends on next_writeback being ready before
+  // queued_writeback.
+  next_writeback.SetResult(MakeResult(status));
+  if (queued_writeback.valid()) {
+    queued_writeback.SetResult(MakeResult(status));
+  }
+}
+
 }  // namespace
 
+size_t AsyncStorageBackedCache::DoGetReadStateSizeInBytes(Cache::Entry* entry) {
+  return 0;
+}
+
+size_t AsyncStorageBackedCache::DoGetWriteStateSizeInBytes(
+    Cache::Entry* entry) {
+  return 0;
+}
+
+size_t AsyncStorageBackedCache::DoGetFixedSizeInBytes(Cache::Entry* entry) {
+  return this->Cache::DoGetSizeInBytes(entry);
+}
+
+size_t AsyncStorageBackedCache::DoGetSizeInBytes(Cache::Entry* base_entry) {
+  auto* entry = static_cast<Entry*>(base_entry);
+  return this->DoGetFixedSizeInBytes(entry) +
+         this->DoGetReadStateSizeInBytes(entry) +
+         this->DoGetWriteStateSizeInBytes(entry);
+}
+
 Future<const void> AsyncStorageBackedCache::Entry::Read(
-    StalenessBound staleness_bound) {
+    absl::Time staleness_bound) {
+  TENSORSTORE_DEBUG_LOG(debug, "Read: ", this,
+                        ", staleness_bound=", staleness_bound);
+  absl::Time last_read_time = [&] {
+    auto lock = this->AcquireReadStateReaderLock();
+    return this->last_read_time;
+  }();
   auto& ed = Access::entry_data(*this);
   std::unique_lock<Mutex> lock(ed.mutex);
-  if (ed.ready_read.valid() &&
-      ed.ready_read_generation.time >= staleness_bound) {
+  if (ed.ready_read.valid() && last_read_time >= staleness_bound) {
     // `staleness_bound` satisfied by current data.
     return ed.ready_read;
   }
@@ -373,34 +486,7 @@ Future<const void> AsyncStorageBackedCache::Entry::Read(
     return pair.future;
   }
   // No read or write is in progress.  Issue a new read operation.
-  return IssueRead(this, {std::move(lock)});
-}
-
-void AsyncStorageBackedCache::WritebackReceiver::NotifyStarted(
-    CacheEntry::SizeUpdate update) const {
-  auto* entry = this->entry();
-  auto& ed = Access::entry_data(*entry);
-  update.lock = std::unique_lock<Mutex>(ed.mutex);
-  ed.issued_writeback_generation = ed.write_generation;
-  TENSORSTORE_DEBUG_LOG(debug,
-                        "WritebackReceiver::NotifyStarted: entry=", entry);
-  if (ed.writebacks[1].valid()) {
-    if (auto future = GetFutureOrInvalidate(&ed.writebacks[0]);
-        future.valid()) {
-      auto promise = std::move(ed.writebacks[1]);
-      entry->UpdateState(
-          {std::move(update), CacheEntryQueueState::writeback_requested});
-      // Set up the link only after releasing the lock, because this could
-      // trigger a call to the force callback, which attempts to acquire the
-      // lock.
-      Link(std::move(promise), std::move(future));
-      return;
-    } else {
-      ed.writebacks[0] = std::move(ed.writebacks[1]);
-    }
-  }
-  entry->UpdateState(
-      {std::move(update), CacheEntryQueueState::writeback_requested});
+  return IssueRead(this, {/*.SizeUpdate=*/{std::move(lock)}});
 }
 
 Future<const void> AsyncStorageBackedCache::Entry::GetWritebackFuture() {
@@ -410,10 +496,9 @@ Future<const void> AsyncStorageBackedCache::Entry::GetWritebackFuture() {
 }
 
 Future<const void> AsyncStorageBackedCache::Entry::FinishWrite(
-    SizeUpdate size_update, WriteFlags flags) {
+    WriteStateLock lock, WriteFlags flags) {
+  auto size_update = GetSizeUpdate(this, std::move(lock));
   auto& ed = Access::entry_data(*this);
-  // Lock hand-off from existing lock (if any) to lock on `mutex`.
-  size_update.lock = std::unique_lock<Mutex>(ed.mutex);
   // State is transitioning to dirty, so the previous writeback request, if any,
   // is no longer applicable.  We will invalidate the handle once we have
   // released the mutex (to avoid running any ExecuteWhenNotNeeded callbacks
@@ -455,56 +540,39 @@ Future<const void> AsyncStorageBackedCache::Entry::FinishWrite(
     ed.unconditional_writeback_generation = ed.write_generation;
   }
 
-  UpdateState({std::move(size_update), CacheEntryQueueState::dirty});
+  UpdateState({/*.SizeUpdate=*/std::move(size_update),
+               /*.new_state=*/CacheEntryQueueState::dirty});
   return future;
 }
 
-void AsyncStorageBackedCache::ReadReceiver::NotifyDone(
-    CacheEntry::SizeUpdate size_update,
-    Result<TimestampedStorageGeneration> generation) const {
-  auto* entry = this->entry();
+void AsyncStorageBackedCache::Entry::AbortWrite(WriteStateLock lock) {
+  UpdateState({/*.SizeUpdate=*/GetSizeUpdate(this, std::move(lock))});
+}
+
+void AsyncStorageBackedCache::NotifyReadSuccess(Cache::Entry* base_entry,
+                                                ReadStateWriterLock lock) {
+  auto* entry = static_cast<Entry*>(base_entry);
+  TENSORSTORE_DEBUG_LOG(debug, "NotifyReadSuccess: ", entry);
+  assert(entry->last_read_time != absl::InfinitePast());
   auto& ed = Access::entry_data(*entry);
-  size_update.lock = std::unique_lock<Mutex>(ed.mutex);
+  auto size_update = GetSizeUpdate(entry, std::move(lock));
   assert(ed.issued_read.future.valid());
+  ed.ready_read = MakeReadyFuture<void>(MakeResult());
+  ed.writeback_needs_read = false;
+  ResolveIssuedRead(entry, {/*.SizeUpdate=*/std::move(size_update)},
+                    absl::OkStatus());
+}
 
-  if (generation) {
-    ed.ready_read_generation.time = generation->time;
-    if (StorageGeneration::IsUnknown(generation->generation)) {
-      assert(
-          !StorageGeneration::IsUnknown(ed.ready_read_generation.generation));
-      TENSORSTORE_DEBUG_LOG(debug, "ReadReceiver::NotifyDone: entry=", entry,
-                            " existing data is still up to date");
-      // The existing data is still up to date.  Keep existing storage
-      // generation.
-    } else {
-      TENSORSTORE_DEBUG_LOG(debug, "ReadReceiver::NotifyDone: entry=", entry,
-                            " received updated data");
-      ed.ready_read_generation.generation = generation->generation;
-    }
-  } else {
-    TENSORSTORE_DEBUG_LOG(debug, "ReadReceiver::NotifyDone: entry=", entry,
-                          " error=", generation.status().ToString());
-  }
-
-  ed.ready_read = MakeReadyFuture<void>(MakeResult(GetStatus(generation)));
-
-  /// Marks `issued_read` ready with the specified `status` after calling
-  /// `MaybeStartReadOrWriteback`.
-  const auto resolve_issued_read = [](AsyncStorageBackedCache::Entry* entry,
-                                      CacheEntry::StateUpdate update,
-                                      Status status) {
-    auto& ed = Access::entry_data(*entry);
-    assert(ed.issued_read.promise.valid());
-    // Remove `issued_read` from the entry state prior to calling
-    // `MaybeStartReadOrWriteback` in order to indicate that a read operation is
-    // no longer in progress.
-    Promise<void> issued_read_promise = std::move(ed.issued_read.promise);
-    ed.issued_read.future = Future<void>();
-    MaybeStartReadOrWriteback(entry, std::move(update));
-    issued_read_promise.SetResult(MakeResult(status));
-  };
-
-  if (!generation && ed.requested_writeback_generation &&
+void AsyncStorageBackedCache::NotifyReadError(Cache::Entry* base_entry,
+                                              absl::Status error) {
+  auto* entry = static_cast<Entry*>(base_entry);
+  TENSORSTORE_DEBUG_LOG(debug, "NotifyReadError: ", entry, ", error=", error);
+  assert(!error.ok());
+  auto& ed = Access::entry_data(*entry);
+  CacheEntry::SizeUpdate update{std::unique_lock<tensorstore::Mutex>(ed.mutex)};
+  assert(ed.issued_read.future.valid());
+  ed.ready_read = MakeReadyFuture<void>(MakeResult(error));
+  if (ed.requested_writeback_generation &&
       !ed.unconditional_writeback_generation) {
     // Read failed, and a requested writeback was waiting on this read.
     // Therefore, we treat the writeback as having failed.
@@ -514,28 +582,57 @@ void AsyncStorageBackedCache::ReadReceiver::NotifyDone(
     auto writeback_requested_by_cache =
         std::move(ed.writeback_requested_by_cache);
     ed.requested_writeback_generation = 0;
-    resolve_issued_read(
-        entry,
-        CacheEntry::StateUpdate(std::move(size_update),
-                                CacheEntryQueueState::clean_and_in_use),
-        generation.status());
-    next_writeback.SetResult(generation.status());
+    ResolveIssuedRead(entry,
+                      {/*.SizeUpdate=*/std::move(update),
+                       /*.new_state=*/CacheEntryQueueState::clean_and_in_use},
+                      error);
+    next_writeback.SetResult(error);
     if (queued_writeback.valid()) {
-      queued_writeback.SetResult(generation.status());
+      queued_writeback.SetResult(error);
     }
   } else {
-    // Either read succeeded, or read failed but no requested writeback depends
-    // on it.
-    resolve_issued_read(entry, std::move(size_update), GetStatus(generation));
+    ResolveIssuedRead(entry, {/*.SizeUpdate=*/std::move(update)},
+                      std::move(error));
   }
 }
 
-void AsyncStorageBackedCache::WritebackReceiver::NotifyDone(
-    CacheEntry::SizeUpdate size_update,
-    Result<TimestampedStorageGeneration> generation) const {
-  auto* entry = this->entry();
+void AsyncStorageBackedCache::DoWriteback(PinnedEntry entry) {
+  TENSORSTORE_UNREACHABLE;
+}
+
+void AsyncStorageBackedCache::NotifyWritebackStarted(Cache::Entry* base_entry,
+                                                     WriteStateLock lock) {
+  auto* entry = static_cast<Entry*>(base_entry);
+  TENSORSTORE_DEBUG_LOG(debug, "NotifyWritebackStarted: ", entry);
+  auto size_update = GetSizeUpdate(entry, std::move(lock));
   auto& ed = Access::entry_data(*entry);
-  size_update.lock = std::unique_lock<Mutex>(ed.mutex);
+  ed.issued_writeback_generation = ed.write_generation;
+  TENSORSTORE_DEBUG_LOG(debug, "NotifyWritebackStarted: entry=", entry);
+  if (ed.writebacks[1].valid()) {
+    if (auto future = GetFutureOrInvalidate(&ed.writebacks[0]);
+        future.valid()) {
+      auto promise = std::move(ed.writebacks[1]);
+      entry->UpdateState(
+          {std::move(size_update), CacheEntryQueueState::writeback_requested});
+      // Set up the link only after releasing the lock, because this could
+      // trigger a call to the force callback, which attempts to acquire the
+      // lock.
+      Link(std::move(promise), std::move(future));
+      return;
+    } else {
+      ed.writebacks[0] = std::move(ed.writebacks[1]);
+    }
+  }
+  entry->UpdateState(
+      {std::move(size_update), CacheEntryQueueState::writeback_requested});
+}
+
+void AsyncStorageBackedCache::NotifyWritebackSuccess(
+    Cache::Entry* base_entry, WriteAndReadStateLock lock) {
+  auto* entry = static_cast<Entry*>(base_entry);
+  TENSORSTORE_DEBUG_LOG(debug, "NotifyWritebackSuccess: ", entry);
+  auto size_update = GetSizeUpdate(entry, std::move(lock));
+  auto& ed = Access::entry_data(*entry);
 
   // Read operation must not be in progress.
   assert(!ed.issued_read.promise.valid());
@@ -543,101 +640,92 @@ void AsyncStorageBackedCache::WritebackReceiver::NotifyDone(
   // Writeback must have been pending.
   assert(ed.writebacks[0].valid());
 
-  if (generation && StorageGeneration::IsUnknown(generation->generation)) {
-    TENSORSTORE_DEBUG_LOG(debug, "WritebackReceiver::NotifyDone: entry=", entry,
-                          " writeback requires updated read result to proceed");
-    // Writeback requires updated read result to proceed.
-    ed.ready_read_generation.generation = StorageGeneration::Unknown();
-    ed.queued_read_time = std::max(ed.queued_read_time, generation->time);
-    ed.unconditional_writeback_generation = 0;
-    ed.issued_writeback_generation = 0;
-    MaybeStartReadOrWriteback(
-        entry, {std::move(size_update), CacheEntryQueueState::dirty});
-    return;
-  }
-  Promise<void> next_writeback = std::move(ed.writebacks[0]);
-  ed.writebacks[0] = std::move(ed.writebacks[1]);
-  TENSORSTORE_DEBUG_LOG(
-      debug, "WritebackReceiver::NotifyDone: entry=", entry,
-      " issued_writeback_generation=", ed.issued_writeback_generation,
-      ", write_generation=", ed.write_generation,
-      ", unconditional_writeback_generation=",
-      ed.unconditional_writeback_generation,
-      ", requested_writeback_generation=", ed.requested_writeback_generation,
-      ", status=", GetStatus(generation).ToString());
   assert(ed.issued_writeback_generation != 0);
 
-  Status writeback_status;
-
   CacheEntryQueueState new_state = CacheEntryQueueState::clean_and_in_use;
-  if (generation || generation.status().code() == absl::StatusCode::kAborted) {
-    // Writeback completed successfully.
-    ed.ready_read = MakeReadyFuture<void>(MakeResult(Status()));
-    if (generation) {
-      ed.ready_read_generation = *generation;
-    }
 
-    if (ed.unconditional_writeback_generation <=
-        ed.issued_writeback_generation) {
-      // FinishWrite with `flags=kUnconditionalWriteback` was not called since
-      // writeback was issued.  Mark this entry as no longer being in an
-      // "unconditional writeback" state.
-      ed.unconditional_writeback_generation = 0;
-    }
+  ed.ready_read = MakeReadyFuture<void>(MakeResult());
 
-    if (ed.issued_writeback_generation != ed.write_generation) {
-      // Additional writes were issued that were not included in the
-      // just-completed writeback.  Leave the entry marked dirty.
-      new_state = CacheEntryQueueState::dirty;
-    }
-  } else {
-    writeback_status = std::move(generation).status();
-    // An error occurred during writeback.  This may lead to losing pending
-    // writes, but we still need to maintain a consistent cache state.
-
-    // If `unconditional_writeback_generation` is non-zero, set it to 1 in order
-    // to retain its meaning but remain consistent with `write_generation` being
-    // reset to `0`.
-    if (ed.unconditional_writeback_generation != 0) {
-      ed.unconditional_writeback_generation = 1;
-    }
+  if (ed.unconditional_writeback_generation <= ed.issued_writeback_generation) {
+    // FinishWrite with `flags=kUnconditionalWriteback` was not called since
+    // writeback was issued.  Mark this entry as no longer being in an
+    // "unconditional writeback" state.
+    ed.unconditional_writeback_generation = 0;
   }
-  Future<const void> writeback_requested_by_cache;
-  Promise<void> queued_writeback;
-  if (new_state == CacheEntryQueueState::clean_and_in_use) {
-    ed.write_generation = 0;
-    ed.requested_writeback_generation = 0;
-    writeback_requested_by_cache = std::move(ed.writeback_requested_by_cache);
-    queued_writeback = std::move(ed.writebacks[0]);
-  } else if (ed.requested_writeback_generation <=
-             ed.issued_writeback_generation) {
-    // Entry will remain dirty, but writeback was not requested since the last
-    // writeback started.  Therefore, mark the entry as not having a writeback
-    // request.
-    ed.requested_writeback_generation = 0;
-  }
-  ed.issued_writeback_generation = 0;
 
-  MaybeStartReadOrWriteback(entry, {std::move(size_update), new_state});
-  // The order in which we call SetResult on these two promises is arbitrary,
-  // but the race condition test for a writeback being forced after the entry
-  // has been marked clean depends on next_writeback being ready before
-  // queued_writeback.
-  next_writeback.SetResult(MakeResult(writeback_status));
-  if (queued_writeback.valid()) {
-    queued_writeback.SetResult(MakeResult(writeback_status));
+  if (ed.issued_writeback_generation != ed.write_generation) {
+    // Additional writes were issued that were not included in the
+    // just-completed writeback.  Leave the entry marked dirty.
+    new_state = CacheEntryQueueState::dirty;
   }
+
+  ResolveIssuedWriteback(entry, std::move(size_update), new_state,
+                         absl::OkStatus());
 }
 
-void AsyncStorageBackedCache::DoRequestWriteback(
-    PinnedCacheEntry<Cache> base_entry) {
-  auto entry = static_pointer_cast<Entry>(base_entry);
+void AsyncStorageBackedCache::NotifyWritebackError(Cache::Entry* base_entry,
+                                                   WriteStateLock lock,
+                                                   Status error) {
+  auto* entry = static_cast<Entry*>(base_entry);
+  TENSORSTORE_DEBUG_LOG(debug, "NotifyWritebackError: ", entry,
+                        ", error=", error);
+  assert(!error.ok());
+  auto size_update = GetSizeUpdate(entry, std::move(lock));
+  auto& ed = Access::entry_data(*entry);
+
+  // Read operation must not be in progress.
+  assert(!ed.issued_read.promise.valid());
+
+  // Writeback must have been pending.
+  assert(ed.writebacks[0].valid());
+
+  assert(ed.issued_writeback_generation != 0);
+
+  // If `unconditional_writeback_generation` is non-zero, set it to 1 in order
+  // to retain its meaning but remain consistent with `write_generation` being
+  // reset to `0`.
+  if (ed.unconditional_writeback_generation != 0) {
+    ed.unconditional_writeback_generation = 1;
+  }
+
+  ResolveIssuedWriteback(entry, std::move(size_update),
+                         CacheEntryQueueState::clean_and_in_use,
+                         std::move(error));
+}
+
+void AsyncStorageBackedCache::NotifyWritebackNeedsRead(
+    Cache::Entry* base_entry, WriteStateLock lock, absl::Time staleness_bound) {
+  auto* entry = static_cast<Entry*>(base_entry);
+  TENSORSTORE_DEBUG_LOG(debug, "NotifyWritebackNeedsRead: ", entry,
+                        ", staleness_bound=", staleness_bound);
+  auto size_update = GetSizeUpdate(entry, std::move(lock));
+  auto& ed = Access::entry_data(*entry);
+
+  // Read operation must not be in progress.
+  assert(!ed.issued_read.promise.valid());
+
+  // Writeback must have been pending.
+  assert(ed.writebacks[0].valid());
+
+  TENSORSTORE_DEBUG_LOG(debug, "NotifyWritebackNeedsRead: entry=", entry,
+                        " writeback requires updated read result to proceed");
+  // Writeback requires updated read result to proceed.
+  ed.queued_read_time = std::max(ed.queued_read_time, staleness_bound);
+  ed.unconditional_writeback_generation = 0;
+  ed.issued_writeback_generation = 0;
+  ed.writeback_needs_read = true;
+  MaybeStartReadOrWriteback(
+      entry, {std::move(size_update), CacheEntryQueueState::dirty});
+}
+
+void AsyncStorageBackedCache::DoRequestWriteback(PinnedEntry base_entry) {
+  auto* entry = static_cast<Entry*>(base_entry.get());
   Future<const void> future;
   {
     auto& ed = Access::entry_data(*entry);
     absl::MutexLock lock(&ed.mutex);
     future = ed.writeback_requested_by_cache =
-        GetWritebackFutureWithLock(entry.get());
+        GetWritebackFutureWithLock(entry);
   }
   // If `future` is invalid, entry is already clean.
   if (future.valid()) {

@@ -42,13 +42,15 @@ using CacheGeneration = std::uint64_t;
 /// of `requested_writeback_generation` and
 /// `issued_read.promise.valid() == false` (while `mutex` is unlocked).
 struct AsyncEntryData {
-  /// Protects access to all other members.  Note that this does not protect
-  /// access to any actual "data" stored by a derived Entry class; the derived
-  /// class will define a separate lock for that purpose, in order to avoid
-  /// blocking fast operations that depend only on the AsyncEntryData metadata
-  /// from being blocked by long read/write operations on the actual derived
-  /// Entry data.
+  /// Protects access to all other members of this struct, but not to the
+  /// logical "read state" or "write state" of the entry.
   Mutex mutex;
+
+  /// Mutex for guarding access to the "read state".
+  Mutex read_mutex;
+
+  /// Mutex for guarding access to the "write state".
+  Mutex write_mutex;
 
   /// If valid, `ready_read`, `ready_read_generation`, and `ready_read_time`
   /// together specifies the most recent result for resolving read requests.
@@ -59,13 +61,6 @@ struct AsyncEntryData {
   /// 2. a successful (but not failed) writeback, in which case it is always in
   ///    a success state;
   ReadyFuture<const void> ready_read;
-
-  /// Most recent remote storage generation upon which any cached data stored by
-  /// a derived class of `AsyncStorageBackedCache::Entry` is conditioned.  If
-  /// equal to `StorageGeneration::Unknown()`, then the state is not conditioned
-  /// on any read state and indicates that there have been no successful reads
-  /// or writebacks since the entry was added to the cache.
-  TimestampedStorageGeneration ready_read_generation;
 
   /// Promise/future pair corresponding to an in-progress read request, which
   /// was initiated at the local time `issued_read_time`.
@@ -154,6 +149,21 @@ struct AsyncEntryData {
   /// `flags=kUnconditionalWriteback`.  This is reset to 0 once all local
   /// modifications have been written back.
   CacheGeneration unconditional_writeback_generation = 0;
+
+  /// Cached value of `DoGetReadStateSizeInBytes`.  This avoids the need to lock
+  /// `read_mutex` just to call `DoGetReadStateSizeInBytes` in cases where the
+  /// "read state" is known not to have changed.
+  size_t read_state_size = 0;
+
+  /// Cached value of `DoGetWriteStateSizeInBytes`.  This avoids the need to
+  /// lock `write_mutex` just to call `DoGetWriteStateSizeInBytes` in cases
+  /// where the "write state" is known not to have changed.
+  size_t write_state_size = 0;
+
+  /// If `true`, writeback requires an updated "read state".  This is set by
+  /// `NotifyWritebackNeedsRead` and cleared upon successful completion of a
+  /// read.
+  bool writeback_needs_read = false;
 };
 
 /// Friend class of `AsyncStorageBackedCache::Entry` used to access

@@ -1279,10 +1279,9 @@ TEST(ZarrDriverTest, OpenInvalidMetadata) {
                           {tensorstore::OpenMode::open,
                            tensorstore::ReadWriteMode::read_write})
             .result(),
-        MatchesStatus(
-            absl::StatusCode::kFailedPrecondition,
-            "Error opening \"zarr\" driver: "
-            "Error decoding metadata from \"prefix/.zarray\": Invalid JSON"));
+        MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                      "Error opening \"zarr\" driver: "
+                      "Error reading \"prefix/.zarray\": Invalid JSON"));
   }
 
   {
@@ -1295,15 +1294,14 @@ TEST(ZarrDriverTest, OpenInvalidMetadata) {
         GetStatus(
             kv_store->Write("prefix/.zarray", invalid_json.dump()).result()));
 
-    EXPECT_THAT(
-        tensorstore::Open(context, json_spec,
-                          {tensorstore::OpenMode::open,
-                           tensorstore::ReadWriteMode::read_write})
-            .result(),
-        MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                      "Error opening \"zarr\" driver: "
-                      "Error decoding metadata from \"prefix/.zarray\": "
-                      "Missing object member \"zarr_format\""));
+    EXPECT_THAT(tensorstore::Open(context, json_spec,
+                                  {tensorstore::OpenMode::open,
+                                   tensorstore::ReadWriteMode::read_write})
+                    .result(),
+                MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                              "Error opening \"zarr\" driver: "
+                              "Error reading \"prefix/.zarray\": "
+                              "Missing object member \"zarr_format\""));
   }
 }
 

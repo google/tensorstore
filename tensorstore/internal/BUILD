@@ -61,9 +61,6 @@ tensorstore_cc_test(
         ":cache",
         ":intrusive_ptr",
         ":memory",
-        ":mutex",
-        ":tagged_ptr",
-        "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:generation_testutil",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
@@ -92,6 +89,19 @@ tensorstore_cc_test(
     deps = [
         ":bit_operations",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "key_value_store_cache",
+    hdrs = ["key_value_store_cache.h"],
+    deps = [
+        ":async_storage_backed_cache",
+        "//tensorstore/kvstore:generation",
+        "//tensorstore/kvstore:key_value_store",
+        "//tensorstore/util:executor",
+        "//tensorstore/util:future",
+        "@com_google_absl//absl/time",
     ],
 )
 
@@ -138,6 +148,7 @@ tensorstore_cc_library(
         ":poly",
         "//tensorstore/util:assert_macros",
         "//tensorstore/util:function_view",
+        "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/hash",

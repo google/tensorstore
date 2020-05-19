@@ -29,6 +29,7 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/async_storage_backed_cache.h"
 #include "tensorstore/internal/chunk_cache.h"
+#include "tensorstore/internal/key_value_store_cache.h"
 #include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/result.h"
@@ -40,16 +41,23 @@ namespace internal_kvs_backed_chunk_driver {
 ///
 /// There is one entry in the `MetadataCache` for each `DataCache` (but there
 /// may be multiple `DataCache` objects associated with a single entry).
-class MetadataCache : public internal::AsyncStorageBackedCache {
+class MetadataCache
+    : public internal::CacheBase<
+          MetadataCache,
+          internal::KeyValueStoreCache<internal::AsyncStorageBackedCache>> {
+  using Base = internal::CacheBase<
+      MetadataCache,
+      internal::KeyValueStoreCache<internal::AsyncStorageBackedCache>>;
+
  public:
   using MetadataPtr = std::shared_ptr<const void>;
 
-  class Entry : public internal::AsyncStorageBackedCache::Entry {
+  class Entry : public Base::Entry {
    public:
     using Cache = MetadataCache;
 
     MetadataPtr GetMetadata() {
-      absl::ReaderMutexLock lock(&metadata_mutex);
+      auto lock = this->AcquireReadStateReaderLock();
       return metadata;
     }
 
@@ -89,8 +97,9 @@ class MetadataCache : public internal::AsyncStorageBackedCache {
       AtomicUpdateConstraint update_constraint;
     };
 
-    Mutex metadata_mutex;
     MetadataPtr metadata;
+
+    MetadataPtr new_metadata;
 
     /// Requests that have been enqueued but not yet attempted.
     std::vector<UpdateRequest> pending_requests;
@@ -100,37 +109,45 @@ class MetadataCache : public internal::AsyncStorageBackedCache {
     std::vector<UpdateRequest> issued_requests;
   };
 
-  MetadataCache(MetadataCacheState::Ptr state, KeyValueStore::Ptr base_store,
-                KeyValueStore::Ptr store,
+  MetadataCache(MetadataCacheState::Ptr state,
                 Context::Resource<internal::DataCopyConcurrencyResource>
                     data_copy_concurrency,
                 Context::Resource<internal::CachePoolResource> cache_pool);
 
   MetadataCacheState* state() { return state_.get(); }
   KeyValueStore* base_store() { return base_store_.get(); }
-  KeyValueStore* store() { return store_.get(); }
-  const Executor& executor() { return data_copy_concurrency_->executor; }
 
-  void DoDeleteEntry(internal::Cache::Entry* base_entry) override;
+  std::string GetKeyValueStoreKey(internal::Cache::Entry* entry) override;
 
-  internal::Cache::Entry* DoAllocateEntry() override;
-  std::size_t DoGetSizeInBytes(Cache::Entry* base_entry) override;
-  void DoRead(ReadOptions options, ReadReceiver receiver) override;
-  void DoWriteback(TimestampedStorageGeneration existing_generation,
-                   WritebackReceiver receiver) override;
+  void DoDecode(internal::Cache::PinnedEntry entry,
+                std::optional<std::string> value) override;
+  void DoWriteback(internal::Cache::PinnedEntry entry) override;
+
+  void NotifyWritebackNeedsRead(internal::Cache::Entry* entry,
+                                WriteStateLock lock,
+                                absl::Time staleness_bound) override;
+
+  void NotifyWritebackError(internal::Cache::Entry* entry, WriteStateLock lock,
+                            Status error) override;
+
+  void NotifyWritebackSuccess(internal::Cache::Entry* entry,
+                              WriteAndReadStateLock lock) override;
 
   MetadataCacheState::Ptr state_;
-  /// KeyValueStore from which `store_` was derived.  Used only by
+  /// KeyValueStore from which `kvstore()` was derived.  Used only by
   /// `DriverBase::GetBoundSpecData`.  A driver implementation may apply some
   /// type of adapter to the `KeyValueStore` in order to retrieve metadata by
   /// overriding the default implementation of
   /// `OpenState::GetMetadataKeyValueStore`.
   KeyValueStore::Ptr base_store_;
-  /// KeyValueStore used for retrieving the metadata.
-  KeyValueStore::Ptr store_;
   Context::Resource<internal::DataCopyConcurrencyResource>
       data_copy_concurrency_;
   Context::Resource<internal::CachePoolResource> cache_pool_;
+
+  /// Future that becomes ready when this MetadataCache can be used.  Prior to
+  /// `initialized_` becoming ready in a success state, no entries may be
+  /// retrieved.
+  Future<const void> initialized_;
 };
 
 inline MetadataCache::Entry* GetMetadataCacheEntry(const OpenState& state) {
@@ -151,7 +168,13 @@ inline internal::PinnedCacheEntry<MetadataCache> GetMetadataCacheEntry(
       std::move(base.metadata_cache_entry_));
 }
 
-class DataCache : public internal::ChunkCache {
+class DataCache
+    : public internal::CacheBase<
+          DataCache, internal::KeyValueStoreCache<internal::ChunkCache>> {
+  using Base =
+      internal::CacheBase<DataCache,
+                          internal::KeyValueStoreCache<internal::ChunkCache>>;
+
  public:
   using MetadataPtr = MetadataCache::MetadataPtr;
   explicit DataCache(
@@ -159,20 +182,16 @@ class DataCache : public internal::ChunkCache {
       internal::PinnedCacheEntry<MetadataCache> metadata_cache_entry,
       MetadataPtr metadata);
 
-  void DoRead(ReadOptions options, ReadReceiver receiver) override;
+  void DoDecode(internal::AsyncStorageBackedCache::PinnedEntry entry,
+                std::optional<std::string> value) override;
 
-  void DoWriteback(TimestampedStorageGeneration existing_generation,
-                   WritebackReceiver receiver) override;
+  void DoWriteback(
+      internal::AsyncStorageBackedCache::PinnedEntry entry) override;
+
+  std::string GetKeyValueStoreKey(internal::Cache::Entry* entry) override;
 
   MetadataCache* metadata_cache() {
     return GetOwningCache(metadata_cache_entry_);
-  }
-  KeyValueStore* store() { return store_.get(); }
-  const Executor& executor() { return metadata_cache()->executor(); }
-
-  std::string GetChunkStorageKey(Entry* entry) {
-    return state_->GetChunkStorageKey(initial_metadata_.get(),
-                                      entry->cell_indices());
   }
 
   MetadataPtr validated_metadata() {
@@ -181,7 +200,6 @@ class DataCache : public internal::ChunkCache {
   }
 
   const DataCacheState::Ptr state_;
-  KeyValueStore::Ptr store_;
   const internal::PinnedCacheEntry<MetadataCache> metadata_cache_entry_;
   const MetadataPtr initial_metadata_;
   absl::Mutex mutex_;

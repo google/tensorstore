@@ -212,85 +212,7 @@ class ChunkCache : public AsyncStorageBackedCache {
     /// \pre `data_mutex` is not locked by the current thread.
     Future<const void> Delete();
 
-    /// Mutex that protects access to all fields of `components`.  A shared
-    /// reader lock may be used when reading, while an exclusive lock must be
-    /// used for writing.
-    Mutex data_mutex;
     absl::InlinedVector<Component, 1> components;
-  };
-
-  /// Copyable shared handle used by `DoRead` representing an in-progress read
-  /// request.
-  struct ReadReceiver {
-    Entry* entry() const { return static_cast<Entry*>(receiver_.entry()); }
-
-    struct ComponentsWithGeneration {
-      /// Specifies the data for all component arrays.  Must have a length equal
-      /// to the number of component arrays, except to indicate that the read
-      /// was aborted or the chunk data was not found.
-      span<const SharedArrayView<const void>> components;
-
-      /// Specifies the storage generation corresponding to `components`.
-      ///
-      /// To indicate that the read was aborted because the existing generation
-      /// was already up to date, specify a `generation` of
-      /// `StorageGeneration::Unknown()` and an empty `components` array.
-      ///
-      /// To indicate that the data for the chunk as not found, specify a
-      /// `generation` not equal to `StorageGeneration::Unknown()` and an empty
-      /// `components` array.
-      TimestampedStorageGeneration generation;
-    };
-
-    /// Must be called exactly once by the implementation of `DoRead` to
-    /// indicate that the read operation has completed (successfully or
-    /// unsuccessfully).
-    ///
-    /// If `components` has an error state, it indicates a failed read that will
-    /// result in any pending read operation that depended on this chunk
-    /// failing.
-    ///
-    /// Otherwise, `components` should specify the successful read result.  Note
-    /// that if the existing data was already up to date or the chunk data was
-    /// not found, that is indicated by the `ComponentsWithGeneration` value,
-    /// not by an error status.
-    ///
-    /// \param components The error result, or component data for the chunk.
-    /// \param read_time The latest local machine time as of which the read
-    ///     result is known to be up-to-date (typically the time immediately
-    ///     before the actual read operation was issued).
-    void NotifyDone(Result<ComponentsWithGeneration> components) const;
-
-    // Treat as private
-    AsyncStorageBackedCache::ReadReceiver receiver_;
-  };
-
-  /// Copyable shared handle used by `DoWriteback` representing an in-progress
-  /// writeback request.
-  struct WritebackReceiver {
-    /// Must be called exactly once by the implementation of `DoWriteback` to
-    /// indicate that the writeback operation has completed (successfully or
-    /// unsuccessfully).
-    ///
-    /// Prior to calling `NotifyDone`, a `WritebackSnapshot` object must have
-    /// been constructed and destroyed to indicate that writeback started.
-    ///
-    /// If the request generation does not match, `generation` should have the
-    /// error `absl::StatusCode::kAborted`.
-    ///
-    /// \param generation If writeback is successful, specifies the new storage
-    ///     generation (or `StorageGeneration::NoValue()` if the chunk was
-    ///     deleted due to the component arrays all matching the fill value) and
-    ///     the latest local machine time as of which this storage generation is
-    ///     known to be up to date (typically the time immediately before the
-    ///     actual write operation was issued).
-    void NotifyDone(Result<TimestampedStorageGeneration> generation) const;
-
-    /// Returns the entry associated with this writeback operation.
-    Entry* entry() const { return static_cast<Entry*>(receiver_.entry()); }
-
-    // Treat as private
-    AsyncStorageBackedCache::WritebackReceiver receiver_;
   };
 
   /// RAII class used by implementations of `DoWriteback` to acquire a snapshot
@@ -299,12 +221,7 @@ class ChunkCache : public AsyncStorageBackedCache {
    public:
     /// Acquires a (shared) read lock on the entry referenced by `receiver`, and
     /// obtains a snapshot of the chunk data.
-    explicit WritebackSnapshot(const WritebackReceiver& receiver);
-    WritebackSnapshot(const WritebackSnapshot&) = delete;
-
-    /// Releases the read lock on the entry, and indicates that writeback has
-    /// started.
-    ~WritebackSnapshot();
+    explicit WritebackSnapshot(Entry* entry);
 
     /// Returns the snapshot of the component arrays.
     ///
@@ -328,7 +245,6 @@ class ChunkCache : public AsyncStorageBackedCache {
     absl::InlinedVector<SharedArrayView<const void>, 1> component_arrays_;
     bool equals_fill_value_;
     bool unconditional_;
-    const WritebackReceiver& receiver_;
   };
 
   /// Constructs a chunk cache with the specified grid.
@@ -356,47 +272,25 @@ class ChunkCache : public AsyncStorageBackedCache {
   void Write(std::size_t component_index, IndexTransform<> transform,
              AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver);
 
-  /// Requests initial or updated data from persistent storage for a single grid
-  /// cell.
-  ///
-  /// This is called automatically by the `ChunkCache` implementation either due
-  /// to a call to `Read` that cannot be satisfied by the existing cached data,
-  /// or due to a requested writeback that requires the existing data.
-  ///
-  /// Derived classes must implement this method, and implementations must call
-  /// methods on `receiver` as specified by the `ReadReceiver` documentation.
-  virtual void DoRead(ReadOptions options, ReadReceiver receiver) = 0;
-
-  /// Requests that local modifications recorded for a single grid cell be
-  /// written back to persistent storage.
-  ///
-  /// This is called automatically by the `ChunkCache` implementation when a
-  /// writeback is forced, either due to a call to `Force` on a `Future`
-  /// returned from `Write`, or due to memory pressure in the containing
-  /// `CachePool`.
-  ///
-  /// Derived classes must implement this method, and implementations must call
-  /// methods on `receiver` as specified by the `WritebackReceiver`
-  /// documentation.
-  virtual void DoWriteback(TimestampedStorageGeneration existing_generation,
-                           WritebackReceiver receiver) = 0;
-
-  /// Simply wraps `receiver` in a `ChunkCache::ReadReceiver` and calls `DoRead`
-  /// defined above.
-  void DoRead(ReadOptions options,
-              AsyncStorageBackedCache::ReadReceiver receiver) final;
-
-  /// Simply wraps `receiver` in a `ChunkCache::WritebackReceiver` and calls
-  /// `DoWriteback` defined above.
-  void DoWriteback(TimestampedStorageGeneration existing_generation,
-                   AsyncStorageBackedCache::WritebackReceiver receiver) final;
-
-  void DoDeleteEntry(Cache::Entry* base_entry) final;
-  Cache::Entry* DoAllocateEntry() final;
-  std::size_t DoGetSizeInBytes(Cache::Entry* base_entry) final;
+  void DoInitializeEntry(Cache::Entry* entry) override;
+  std::size_t DoGetReadStateSizeInBytes(Cache::Entry* base_entry) override;
+  std::size_t DoGetWriteStateSizeInBytes(Cache::Entry* base_entry) override;
 
   PinnedCacheEntry<ChunkCache> GetEntryForCell(
       span<const Index> grid_cell_indices);
+
+  using AsyncStorageBackedCache::NotifyReadSuccess;
+  void NotifyReadSuccess(Cache::Entry* entry, ReadStateWriterLock lock,
+                         span<const SharedArrayView<const void>> components);
+
+  void NotifyWritebackSuccess(Cache::Entry* entry,
+                              WriteAndReadStateLock lock) override;
+
+  void NotifyWritebackNeedsRead(Cache::Entry* entry, WriteStateLock lock,
+                                absl::Time staleness_bound) override;
+
+  void NotifyWritebackError(Cache::Entry* entry, WriteStateLock lock,
+                            Status error) override;
 
  private:
   ChunkGridSpecification grid_;

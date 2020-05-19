@@ -282,9 +282,9 @@ enum AtomicUpdateConstraint {
   kRequireExisting,
 
   /// The `update` function is guaranteed to fail if the metadata already
-  /// exists.  It will, however, still be called in such a case to determine
-  /// the appropriate error result.  Specifying this option allows
-  /// unnecessary re-reads to be avoided.
+  /// exists.  It may, however, still be called in such a case to determine the
+  /// appropriate error result.  Specifying this option allows unnecessary
+  /// re-reads to be avoided.
   kRequireMissing,
 };
 
@@ -292,7 +292,6 @@ enum AtomicUpdateConstraint {
 struct PrivateOpenState {
   internal::RegisteredDriverOpener<SpecT<internal::ContextBound>> spec_;
   ReadWriteMode read_write_mode_;
-  KeyValueStore::Ptr store_;
   std::string metadata_cache_key_;
   /// Pointer to `MetadataCache::Entry`, but upcast to type
   /// `internal::AsyncStorageBackedCache::Entry` to avoid having to define
@@ -358,9 +357,10 @@ class DriverBase : public internal::ChunkCacheDriver {
 /// Driver implementations should inherit from
 /// `RegisteredKvsDriver<Derived>::OpenStateBase`, rather than this class
 /// directly.
-class OpenState : private PrivateOpenState {
+class OpenState : public internal::AtomicReferenceCount<OpenState>,
+                  private PrivateOpenState {
  public:
-  using Ptr = std::unique_ptr<OpenState>;
+  using Ptr = internal::IntrusivePtr<OpenState>;
 
   struct Initializer {
     internal::RegisteredDriverOpener<SpecT<internal::ContextBound>> spec;
@@ -628,9 +628,10 @@ class RegisteredKvsDriver
         std::is_same_v<
             Spec, typename Derived::template SpecT<internal::ContextBound>>);
     return internal_kvs_backed_chunk_driver::OpenDriver(
-        std::make_unique<typename Derived::OpenState>(
-            internal_kvs_backed_chunk_driver::OpenState::Initializer{
-                std::move(spec), read_write_mode}));
+        internal_kvs_backed_chunk_driver::OpenState::Ptr(
+            new typename Derived::OpenState(
+                internal_kvs_backed_chunk_driver::OpenState::Initializer{
+                    std::move(spec), read_write_mode})));
   }
 };
 
