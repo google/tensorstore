@@ -777,20 +777,14 @@ struct HandleKeyValueStoreReady {
 Future<const void> MetadataCache::Entry::RequestAtomicUpdate(
     UpdateFunction update, AtomicUpdateConstraint update_constraint,
     absl::Time request_time) {
-  auto lock = this->AcquireWriteStateLock();
   auto [promise, future] = PromiseFuturePair<void>::Make();
-  pending_requests.push_back(
-      {request_time, std::move(update), promise, update_constraint});
-  // If an error occurs with the underlying KeyValueStore, propagate that to the
-  // returned future.  Otherwise, the `MetadataCache::DoWriteback`
-  // implementation ensures that `promise.raw_result()` is updated to the result
-  // returned by the `update` function before the writeback completes.
-  LinkError(std::move(promise),
-            FinishWrite(
-                std::move(lock),
-                (update_constraint == AtomicUpdateConstraint::kRequireExisting)
-                    ? WriteFlags::kConditionalWriteback
-                    : WriteFlags::kUnconditionalWriteback));
+  auto writeback_future = AddPendingWrite(
+      PendingWrite{std::move(update), update_constraint, promise},
+      (update_constraint == AtomicUpdateConstraint::kRequireExisting)
+          ? WriteFlags::kConditionalWriteback
+          : WriteFlags::kUnconditionalWriteback,
+      request_time);
+  LinkError(std::move(promise), std::move(writeback_future));
   return std::move(future);
 }
 
@@ -814,34 +808,16 @@ std::string MetadataCache::GetKeyValueStoreKey(internal::Cache::Entry* entry) {
   return state_->GetMetadataStorageKey(entry->key());
 }
 
-namespace {
-
-void MarkIssuedRequestsPending(MetadataCache::Entry* entry) {
-  // Retry issued requests by adding them to the beginning of the
-  // pending request list.
-  if (!entry->issued_requests.empty()) {
-    std::swap(entry->issued_requests, entry->pending_requests);
-    entry->pending_requests.insert(
-        entry->pending_requests.end(),
-        std::make_move_iterator(entry->issued_requests.begin()),
-        std::make_move_iterator(entry->issued_requests.end()));
-    entry->issued_requests.clear();
-  }
-}
-
-}  // namespace
-
 void MetadataCache::NotifyWritebackNeedsRead(internal::Cache::Entry* base_entry,
                                              WriteStateLock lock,
                                              absl::Time staleness_bound) {
   auto* entry = static_cast<Entry*>(base_entry);
-  if (absl::c_all_of(entry->issued_requests,
-                     [](const Entry::UpdateRequest& request) {
-                       return request.update_constraint ==
-                              AtomicUpdateConstraint::kRequireMissing;
-                     })) {
-    std::vector<Entry::UpdateRequest> issued_requests;
-    std::swap(issued_requests, entry->issued_requests);
+  if (absl::c_all_of(entry->issued_writes, [](const PendingWrite& request) {
+        return request.update_constraint ==
+               AtomicUpdateConstraint::kRequireMissing;
+      })) {
+    std::vector<PendingWrite> issued_requests;
+    std::swap(issued_requests, entry->issued_writes);
     Base::NotifyWritebackSuccess(entry, std::move(lock).Upgrade());
     for (auto& request : issued_requests) {
       int junk = 0;
@@ -851,20 +827,12 @@ void MetadataCache::NotifyWritebackNeedsRead(internal::Cache::Entry* base_entry,
     }
     return;
   }
-  MarkIssuedRequestsPending(entry);
   Base::NotifyWritebackNeedsRead(entry, std::move(lock), staleness_bound);
-}
-
-void MetadataCache::NotifyWritebackError(internal::Cache::Entry* base_entry,
-                                         WriteStateLock lock, Status error) {
-  MarkIssuedRequestsPending(static_cast<Entry*>(base_entry));
-  Base::NotifyWritebackError(base_entry, std::move(lock), std::move(error));
 }
 
 void MetadataCache::NotifyWritebackSuccess(internal::Cache::Entry* base_entry,
                                            WriteAndReadStateLock lock) {
   auto* entry = static_cast<Entry*>(base_entry);
-  entry->issued_requests.clear();
   entry->metadata = std::move(entry->new_metadata);
   Base::NotifyWritebackSuccess(entry, std::move(lock));
 }
@@ -873,13 +841,12 @@ void MetadataCache::DoWriteback(internal::Cache::PinnedEntry entry) {
   executor()([entry = internal::static_pointer_cast<Entry>(std::move(entry))] {
     MetadataPtr new_metadata;
     // Indicates whether there is an update request newer than the metadata.
-    absl::Time newest_request_time = absl::InfinitePast();
+    absl::Time newest_request_time;
     {
       auto lock = entry->AcquireWriteStateLock();
+      newest_request_time = entry->last_pending_write_time;
       const void* existing_metadata = entry->metadata.get();
-      for (const auto& request : entry->pending_requests) {
-        newest_request_time =
-            std::max(newest_request_time, request.request_time);
+      for (const auto& request : entry->pending_writes) {
         auto result = request.update(existing_metadata);
         if (result) {
           assert(*result);
@@ -896,31 +863,20 @@ void MetadataCache::DoWriteback(internal::Cache::PinnedEntry entry) {
           request.promise.raw_result() = std::move(result).status();
         }
       }
-      if (new_metadata) {
-        // Mark all pending requests as issued.
-        entry->issued_requests = std::move(entry->pending_requests);
-        entry->pending_requests.clear();
-      } else if (newest_request_time > entry->last_read_time) {
-        // Requests will be retried after re-reading the existing metadata.
-        // Leave the pending requests marked pending.
-      } else {
-        // Pending requests will not be retried.
-        entry->pending_requests.clear();
-      }
       GetOwningCache(entry)->NotifyWritebackStarted(entry.get(),
                                                     std::move(lock));
     }
     auto* cache = GetOwningCache(entry);
     if (!new_metadata) {
       // None of the requested changes are compatible with the current state.
-      // If at least one update request is newer than the current metadata, we
-      // specify `StorageGeneration::Unknown()` to force a re-read.
-      // Otherwise, we fail with `absl::StatusCode::kAborted` to indicate that
-      // no writeback was needed.
       if (newest_request_time > entry->last_read_time) {
+        // At least one update request is newer than the current metadata.
+        // Request an updated "read state".
         cache->Base::NotifyWritebackNeedsRead(
             entry.get(), entry->AcquireWriteStateLock(), newest_request_time);
       } else {
+        // Complete the writeback successfully (but all pending requests will
+        // fail).
         cache->Base::NotifyWritebackSuccess(
             entry.get(), entry->AcquireWriteAndReadStateLock());
       }

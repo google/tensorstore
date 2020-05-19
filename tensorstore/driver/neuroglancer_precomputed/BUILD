@@ -232,6 +232,7 @@ tensorstore_cc_library(
         ":uint64_sharded",
         ":uint64_sharded_decoder",
         ":uint64_sharded_encoder",
+        "//tensorstore/internal:aggregate_writeback_cache",
         "//tensorstore/internal:async_storage_backed_cache",
         "//tensorstore/internal:cache",
         "//tensorstore/internal:key_value_store_cache",

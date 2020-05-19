@@ -106,6 +106,16 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "aggregate_writeback_cache",
+    hdrs = ["aggregate_writeback_cache.h"],
+    deps = [
+        ":async_storage_backed_cache",
+        ":cache",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_library(
     name = "box_difference",
     srcs = ["box_difference.cc"],
     hdrs = ["box_difference.h"],

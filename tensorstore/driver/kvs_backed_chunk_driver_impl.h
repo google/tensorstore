@@ -27,6 +27,7 @@
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/internal/aggregate_writeback_cache.h"
 #include "tensorstore/internal/async_storage_backed_cache.h"
 #include "tensorstore/internal/chunk_cache.h"
 #include "tensorstore/internal/key_value_store_cache.h"
@@ -44,13 +45,38 @@ namespace internal_kvs_backed_chunk_driver {
 class MetadataCache
     : public internal::CacheBase<
           MetadataCache,
-          internal::KeyValueStoreCache<internal::AsyncStorageBackedCache>> {
+          internal::AggregateWritebackCache<
+              MetadataCache, internal::KeyValueStoreCache<
+                                 internal::AsyncStorageBackedCache>>> {
   using Base = internal::CacheBase<
       MetadataCache,
-      internal::KeyValueStoreCache<internal::AsyncStorageBackedCache>>;
+      internal::AggregateWritebackCache<
+          MetadataCache,
+          internal::KeyValueStoreCache<internal::AsyncStorageBackedCache>>>;
 
  public:
   using MetadataPtr = std::shared_ptr<const void>;
+
+  /// Function invoked to atomically modify a metadata entry (e.g. to create
+  /// or resize an array).
+  ///
+  /// This function may be called multiple times (even after returning an
+  /// error status) due to retries to handle concurrent modifications to the
+  /// metadata.
+  ///
+  /// \param existing_metadata Specifies the existing metadata of type
+  ///     `Metadata`, or `nullptr` to indicate no existing metadata.
+  /// \returns The new metadata on success, or an error result for the
+  /// request.
+  using UpdateFunction =
+      std::function<Result<MetadataPtr>(const void* existing_metadata)>;
+
+  /// Specifies a request to atomically read-modify-write a metadata entry.
+  struct PendingWrite {
+    UpdateFunction update;
+    AtomicUpdateConstraint update_constraint;
+    Promise<void> promise;
+  };
 
   class Entry : public Base::Entry {
    public:
@@ -60,20 +86,6 @@ class MetadataCache
       auto lock = this->AcquireReadStateReaderLock();
       return metadata;
     }
-
-    /// Function invoked to atomically modify a metadata entry (e.g. to create
-    /// or resize an array).
-    ///
-    /// This function may be called multiple times (even after returning an
-    /// error status) due to retries to handle concurrent modifications to the
-    /// metadata.
-    ///
-    /// \param existing_metadata Specifies the existing metadata of type
-    ///     `Metadata`, or `nullptr` to indicate no existing metadata.
-    /// \returns The new metadata on success, or an error result for the
-    /// request.
-    using UpdateFunction =
-        std::function<Result<MetadataPtr>(const void* existing_metadata)>;
 
     /// Requests an atomic metadata update.
     ///
@@ -89,24 +101,9 @@ class MetadataCache
         UpdateFunction update, AtomicUpdateConstraint update_constraint,
         absl::Time request_time = absl::Now());
 
-    /// Specifies a request to atomically read-modify-write a metadata entry.
-    struct UpdateRequest {
-      absl::Time request_time;
-      UpdateFunction update;
-      Promise<void> promise;
-      AtomicUpdateConstraint update_constraint;
-    };
-
     MetadataPtr metadata;
 
     MetadataPtr new_metadata;
-
-    /// Requests that have been enqueued but not yet attempted.
-    std::vector<UpdateRequest> pending_requests;
-
-    /// Requests that have already been attempted but not completed, and may be
-    /// retried.
-    std::vector<UpdateRequest> issued_requests;
   };
 
   MetadataCache(MetadataCacheState::Ptr state,
@@ -126,9 +123,6 @@ class MetadataCache
   void NotifyWritebackNeedsRead(internal::Cache::Entry* entry,
                                 WriteStateLock lock,
                                 absl::Time staleness_bound) override;
-
-  void NotifyWritebackError(internal::Cache::Entry* entry, WriteStateLock lock,
-                            Status error) override;
 
   void NotifyWritebackSuccess(internal::Cache::Entry* entry,
                               WriteAndReadStateLock lock) override;
