@@ -455,45 +455,6 @@ Future<const void> AsyncStorageBackedCache::Entry::FinishWrite(
     ed.unconditional_writeback_generation = ed.write_generation;
   }
 
-  if (flags == WriteFlags::kSupersedesRead &&
-      absl::exchange(ed.supersedes_read_generation, ed.write_generation) == 0) {
-    // As a result of this write, all read requests can be satisfied by the
-    // local modification data alone, making read operations unnecessary.
-    // Furthermore, this is the first write since the last completed writeback
-    // to cause this to be true.
-    ed.ready_read_generation = {StorageGeneration::Unknown(),
-                                absl::InfiniteFuture()};
-    // If the entry does not already have a successful read result state, mark
-    // it as such.
-    if (!ed.ready_read.valid() || !ed.ready_read.result()) {
-      ed.ready_read = MakeReadyFuture<void>(MakeResult(Status()));
-    }
-    if (ed.issued_read.future.valid() || ed.queued_read.valid()) {
-      // There is a pending read request.
-      //
-      // Mark pending reads as successfully completed (after
-      // calling `UpdateState` to release `mutex`).
-      //
-      // If a read operation is in progress, the result will be ignored, but any
-      // subsequent writeback operation will still wait to start until the read
-      // operation completes to avoid multiple concurrent read/write operations.
-
-      // Leave `ed.issued_read.promise` as is; if it is non-null, it must
-      // non-null to indicate that a read operation is still in progress.
-      auto read_promise = ed.issued_read.promise;
-      auto read_future = std::move(ed.issued_read.future);
-      auto queued_read = std::move(ed.queued_read);
-      UpdateState({std::move(size_update), CacheEntryQueueState::dirty});
-
-      if (read_promise.valid()) {
-        read_promise.SetResult(MakeResult(Status()));
-      }
-      if (queued_read.valid()) {
-        queued_read.SetResult(MakeResult(Status()));
-      }
-      return future;
-    }
-  }
   UpdateState({std::move(size_update), CacheEntryQueueState::dirty});
   return future;
 }
@@ -504,16 +465,7 @@ void AsyncStorageBackedCache::ReadReceiver::NotifyDone(
   auto* entry = this->entry();
   auto& ed = Access::entry_data(*entry);
   size_update.lock = std::unique_lock<Mutex>(ed.mutex);
-  if (!ed.issued_read.future.valid()) {
-    // The read was cancelled due to a prior call to `FinishWrite` with
-    // `flags=kSupersedesRead`.
-    TENSORSTORE_DEBUG_LOG(
-        debug, "ReadReceiver::NotifyDone: entry=", this,
-        "read was cancelled due to prior FinishWrite with kSupersedesRead");
-    ed.issued_read.promise = Promise<void>();
-    MaybeStartReadOrWriteback(entry, std::move(size_update));
-    return;
-  }
+  assert(ed.issued_read.future.valid());
 
   if (generation) {
     ed.ready_read_generation.time = generation->time;
@@ -556,7 +508,6 @@ void AsyncStorageBackedCache::ReadReceiver::NotifyDone(
       !ed.unconditional_writeback_generation) {
     // Read failed, and a requested writeback was waiting on this read.
     // Therefore, we treat the writeback as having failed.
-    assert(ed.supersedes_read_generation == 0);
     auto queued_writeback = std::move(ed.writebacks[1]);
     auto next_writeback = std::move(ed.writebacks[0]);
     assert(next_writeback.valid());
@@ -621,23 +572,16 @@ void AsyncStorageBackedCache::WritebackReceiver::NotifyDone(
   CacheEntryQueueState new_state = CacheEntryQueueState::clean_and_in_use;
   if (generation || generation.status().code() == absl::StatusCode::kAborted) {
     // Writeback completed successfully.
-    if (ed.supersedes_read_generation <= ed.issued_writeback_generation) {
-      // FinishWrite with `flags=kSupersedesRead` was not called since writeback
-      // was issued.  Mark this entry as no longer being in a "write supersedes
-      // read" state.
-      ed.supersedes_read_generation = 0;
-      ed.ready_read = MakeReadyFuture<void>(MakeResult(Status()));
-      if (generation) {
-        ed.ready_read_generation = *generation;
-      }
+    ed.ready_read = MakeReadyFuture<void>(MakeResult(Status()));
+    if (generation) {
+      ed.ready_read_generation = *generation;
     }
 
     if (ed.unconditional_writeback_generation <=
         ed.issued_writeback_generation) {
-      // FinishWrite with `flags=kSupersedesRead` or
-      // `flags=kUnconditionalWriteback` was not called since writeback was
-      // issued.  Mark this entry as no longer being in an "unconditional
-      // writeback" state.
+      // FinishWrite with `flags=kUnconditionalWriteback` was not called since
+      // writeback was issued.  Mark this entry as no longer being in an
+      // "unconditional writeback" state.
       ed.unconditional_writeback_generation = 0;
     }
 
@@ -651,12 +595,9 @@ void AsyncStorageBackedCache::WritebackReceiver::NotifyDone(
     // An error occurred during writeback.  This may lead to losing pending
     // writes, but we still need to maintain a consistent cache state.
 
-    // If `supersedes_read_generation` or `unconditional_writeback_generation`
-    // are non-zero, set them to 1 in order to retain their meaning but remain
-    // consistent with `write_generation` being reset to `0`.
-    if (ed.supersedes_read_generation != 0) {
-      ed.supersedes_read_generation = 1;
-    }
+    // If `unconditional_writeback_generation` is non-zero, set it to 1 in order
+    // to retain its meaning but remain consistent with `write_generation` being
+    // reset to `0`.
     if (ed.unconditional_writeback_generation != 0) {
       ed.unconditional_writeback_generation = 1;
     }

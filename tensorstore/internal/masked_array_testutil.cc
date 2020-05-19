@@ -35,6 +35,7 @@
 #include "tensorstore/internal/nditerable_elementwise_input_transform.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/nditerable_util.h"
+#include "tensorstore/internal/unowned_to_shared.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/element_pointer.h"
@@ -54,11 +55,11 @@ MaskedArrayWriteResult WriteToMaskedArray(ElementPointer<void> output_ptr,
   absl::FixedArray<Index, kNumInlinedDims> data_byte_strides(output_rank);
   ComputeStrides(ContiguousLayoutOrder::c, output_ptr.data_type()->size,
                  output_box.shape(), data_byte_strides);
-  TransformedArrayView<void> dest(
-      ArrayView<void, dynamic_rank, offset_origin>(
-          AddByteOffset(
-              output_ptr,
-              -IndexInnerProduct(output_box.origin(), span(data_byte_strides))),
+  TransformedArrayView<Shared<void>> dest(
+      ArrayView<Shared<void>, dynamic_rank, offset_origin>(
+          UnownedToShared(AddByteOffset(
+              output_ptr, -IndexInnerProduct(output_box.origin(),
+                                             span(data_byte_strides)))),
           StridedLayoutView<dynamic_rank, offset_origin>(output_box,
                                                          data_byte_strides)),
       input_to_output);
@@ -89,9 +90,10 @@ MaskedArrayWriteResult WriteToMaskedArray(
   unsigned char arena_buffer[48 * 1024];
   Arena arena(arena_buffer);
 
-  TENSORSTORE_ASSIGN_OR_RETURN(auto source_iterable,
-                               GetTransformedArrayNDIterable(source, &arena),
-                               (MaskedArrayWriteResult{_, false}));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto source_iterable,
+      GetTransformedArrayNDIterable(UnownedToShared(source), &arena),
+      (MaskedArrayWriteResult{_, false}));
   auto transformed_source_iterable = GetElementwiseInputTransformNDIterable(
       {{std::move(source_iterable)}}, output_ptr.data_type(), copy_function,
       &arena);

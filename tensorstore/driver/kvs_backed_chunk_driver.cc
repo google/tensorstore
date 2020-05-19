@@ -14,6 +14,7 @@
 
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
 
+#include "absl/container/fixed_array.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver_impl.h"
 #include "tensorstore/internal/box_difference.h"
 #include "tensorstore/internal/cache_key.h"
@@ -1033,19 +1034,12 @@ void DataCache::DoRead(ReadOptions options, ReadReceiver receiver) {
             StrCat("Error decoding chunk ",
                    QuoteString(cache->GetChunkStorageKey(receiver.entry()))));
       }
-      Result<absl::InlinedVector<ArrayView<const void>, 1>> decoded_ref =
-          MapResult(
-              [](span<const SharedArrayView<const void>> data) {
-                return absl::InlinedVector<ArrayView<const void>, 1>(
-                    data.begin(), data.end());
-              },
-              decoded);
       receiver.NotifyDone(MapResult(
-          [&](const absl::InlinedVector<ArrayView<const void>, 1>& data)
+          [&](const absl::InlinedVector<SharedArrayView<const void>, 1>& data)
               -> ReadReceiver::ComponentsWithGeneration {
             return {data, std::move(r->generation)};
           },
-          decoded_ref));
+          decoded));
     }
   };
   KeyValueStore::ReadOptions kvs_read_options;
@@ -1076,12 +1070,20 @@ void DataCache::DoWriteback(TimestampedStorageGeneration existing_generation,
       bool equals_fill_value;
       {
         ChunkCache::WritebackSnapshot snapshot(receiver);
+        if (snapshot.unconditional()) {
+          existing_generation = StorageGeneration::Unknown();
+        }
         equals_fill_value = snapshot.equals_fill_value();
         if (!equals_fill_value) {
           const auto validated_metadata = cache->validated_metadata();
+          // Convert from array of `SharedArrayView<const void>` to array of
+          // `ArrayView<const void>`.
+          absl::FixedArray<ArrayView<const void>, 2> component_arrays_unowned(
+              snapshot.component_arrays().begin(),
+              snapshot.component_arrays().end());
           auto status = cache->state_->EncodeChunk(
               validated_metadata.get(), entry->cell_indices(),
-              snapshot.component_arrays(), &encoded);
+              component_arrays_unowned, &encoded);
           if (!status.ok()) {
             receiver.NotifyDone(std::move(status));
             return;

@@ -398,6 +398,8 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
     std::vector<Index, ArenaAllocator<Index>> buffer_;
   };
 
+  /// Maintains ownership of the array data.
+  std::shared_ptr<const void> data_owner_;
   IndexTransform<> transform_;
   // TODO(jbms): Use arena allocator for SingleArrayIterationState as well.
   internal_index_space::SingleArrayIterationState state_;
@@ -411,8 +413,11 @@ Result<NDIterable::Ptr> MaybeConvertToArrayNDIterable(
     std::unique_ptr<IterableImpl, VirtualDestroyDeleter> impl, Arena* arena) {
   if (impl->state_.num_array_indexed_output_dimensions == 0) {
     return GetArrayNDIterable(
-        OffsetArrayView<const void>(
-            ElementPointer<void>(impl->state_.base_pointer, impl->data_type_),
+        SharedOffsetArrayView<const void>(
+            SharedElementPointer<const void>(
+                std::shared_ptr<const void>(std::move(impl->data_owner_),
+                                            impl->state_.base_pointer),
+                impl->data_type_),
             StridedLayoutView<>(impl->transform_.input_rank(),
                                 impl->transform_.input_shape().data(),
                                 impl->state_.input_byte_strides.data())),
@@ -424,9 +429,11 @@ Result<NDIterable::Ptr> MaybeConvertToArrayNDIterable(
 }  // namespace
 
 Result<NDIterable::Ptr> GetTransformedArrayNDIterable(
-    TransformedArrayView<const void> array, Arena* arena) {
+    TransformedArrayView<Shared<const void>> array, Arena* arena) {
   if (!array.has_transform()) {
-    return GetArrayNDIterable(array.base_array(), arena);
+    return GetArrayNDIterable({std::move(array.element_pointer()),
+                               array.untransformed_strided_layout()},
+                              arena);
   }
 
   auto impl = MakeUniqueWithVirtualIntrusiveAllocator<IterableImpl>(
@@ -438,20 +445,22 @@ Result<NDIterable::Ptr> GetTransformedArrayNDIterable(
       impl->transform_.input_shape().data(), &impl->state_,
       impl->input_dimension_flags_.data()));
   impl->data_type_ = array.data_type();
+  impl->data_owner_ = std::move(array.element_pointer().pointer());
   return MaybeConvertToArrayNDIterable(std::move(impl), arena);
 }
 
 Result<NDIterable::Ptr> GetNormalizedTransformedArrayNDIterable(
-    NormalizedTransformedArray<const void> array, Arena* arena) {
+    NormalizedTransformedArray<Shared<const void>> array, Arena* arena) {
   auto impl = MakeUniqueWithVirtualIntrusiveAllocator<IterableImpl>(
       ArenaAllocator<>(arena), std::move(array.transform()));
   TENSORSTORE_RETURN_IF_ERROR(InitializeSingleArrayIterationState(
-      array.element_pointer(),
+      ElementPointer<const void>(array.element_pointer()),
       internal_index_space::TransformAccess::rep(impl->transform_),
       impl->transform_.input_origin().data(),
       impl->transform_.input_shape().data(), &impl->state_,
       impl->input_dimension_flags_.data()));
   impl->data_type_ = array.data_type();
+  impl->data_owner_ = std::move(array.element_pointer().pointer());
   return MaybeConvertToArrayNDIterable(std::move(impl), arena);
 }
 

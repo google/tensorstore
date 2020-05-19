@@ -38,15 +38,14 @@
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/async_storage_backed_cache.h"
+#include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/internal/cache.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/grid_partition.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/masked_array.h"
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/nditerable.h"
-#include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/staleness_bound.h"
@@ -64,10 +63,9 @@
 namespace tensorstore {
 namespace internal {
 
-ChunkGridSpecification::Component::Component(
-    SharedArray<const void> fill_value) {
-  this->fill_value = fill_value;
-  chunked_to_cell_dimensions.resize(fill_value.rank());
+ChunkGridSpecification::Component::Component(SharedArray<const void> fill_value)
+    : internal::AsyncWriteArray::Spec(std::move(fill_value)) {
+  chunked_to_cell_dimensions.resize(rank());
   std::iota(chunked_to_cell_dimensions.begin(),
             chunked_to_cell_dimensions.end(), static_cast<DimensionIndex>(0));
 }
@@ -75,7 +73,7 @@ ChunkGridSpecification::Component::Component(
 ChunkGridSpecification::Component::Component(
     SharedArray<const void> fill_value,
     std::vector<DimensionIndex> chunked_to_cell_dimensions)
-    : fill_value(std::move(fill_value)),
+    : internal::AsyncWriteArray::Spec(std::move(fill_value)),
       chunked_to_cell_dimensions(std::move(chunked_to_cell_dimensions)) {}
 
 ChunkGridSpecification::ChunkGridSpecification(Components components_arg)
@@ -86,7 +84,7 @@ ChunkGridSpecification::ChunkGridSpecification(Components components_arg)
   for (DimensionIndex i = 0;
        i < static_cast<DimensionIndex>(chunk_shape.size()); ++i) {
     chunk_shape[i] =
-        components[0].cell_shape()[components[0].chunked_to_cell_dimensions[i]];
+        components[0].shape()[components[0].chunked_to_cell_dimensions[i]];
   }
   // Verify that the extents of the chunked dimensions are the same for all
   // components.
@@ -96,7 +94,7 @@ ChunkGridSpecification::ChunkGridSpecification(Components components_arg)
     for (DimensionIndex i = 0;
          i < static_cast<DimensionIndex>(chunk_shape.size()); ++i) {
       assert(chunk_shape[i] ==
-             component.cell_shape()[component.chunked_to_cell_dimensions[i]]);
+             component.shape()[component.chunked_to_cell_dimensions[i]]);
     }
   }
 #endif  // !defined(NDEBUG)
@@ -104,24 +102,24 @@ ChunkGridSpecification::ChunkGridSpecification(Components components_arg)
 
 namespace {
 
-/// Computes the bounding box of a cell for a particular component array at the
+/// Computes the origin of a cell for a particular component array at the
 /// specified grid position.
 ///
 /// \param spec Grid specification.
 /// \param component_spec Component specification.
 /// \param cell_indices Pointer to array of length `spec.rank()` specifying the
 ///     grid position.
-/// \param box[out] Non-null pointer where the result is stored.
-/// \post `RangesEqual(box->shape(), component_spec.cell_shape())`
-/// \post `box->origin()[i] == 0` for all unchunked dimensions `i`
-/// \post `box->origin()[component_spec.chunked_to_cell_dimensions[j]]` equals
+/// \param origin[out] Non-null pointer to array of length
+///     `component_spec.rank()`.
+/// \post `origin[i] == 0` for all unchunked dimensions `i`
+/// \post `origin[component_spec.chunked_to_cell_dimensions[j]]` equals
 ///     `cell_indices[j] * spec.chunk_shape[j]` for all grid dimensions `j`.
-void GetComponentBox(const ChunkGridSpecification& spec,
-                     const ChunkGridSpecification::Component& component_spec,
-                     const Index* cell_indices,
-                     Box<dynamic_rank(kNumInlinedDims)>* box) {
-  *box = BoxView(component_spec.cell_shape());
-  span<Index> origin = box->origin();
+void GetComponentOrigin(const ChunkGridSpecification& spec,
+                        const ChunkGridSpecification::Component& component_spec,
+                        span<const Index> cell_indices, span<Index> origin) {
+  assert(spec.rank() == cell_indices.size());
+  assert(component_spec.rank() == origin.size());
+  std::fill_n(origin.begin(), component_spec.rank(), Index(0));
   for (DimensionIndex chunk_dim_i = 0;
        chunk_dim_i < static_cast<DimensionIndex>(
                          component_spec.chunked_to_cell_dimensions.size());
@@ -133,25 +131,6 @@ void GetComponentBox(const ChunkGridSpecification& spec,
   }
 }
 
-/// Ensures the data array for a given component has been allocated.
-///
-/// \param component_spec Component specification.
-/// \param component[out] Non-null pointer to component.
-/// \returns `true` if a new data array was allocated, `false` if the data array
-///     was previously allocated.
-bool EnsureDataAllocated(
-    const ChunkGridSpecification::Component& component_spec,
-    ChunkCache::Entry::Component* component) {
-  if (!component->data) {
-    component->data = AllocateAndConstructSharedElements(
-                          component_spec.fill_value.num_elements(),
-                          default_init, component_spec.fill_value.data_type())
-                          .pointer();
-    return true;
-  }
-  return false;
-}
-
 /// Returns `true` if all components of `entry` have been fully overwritten.
 ///
 /// \param entry Non-null pointer to entry.
@@ -160,10 +139,8 @@ bool IsFullyOverwritten(ChunkCache::Entry* entry) {
   const auto& component_specs = cache->grid().components;
   for (std::size_t component_i = 0; component_i < component_specs.size();
        ++component_i) {
-    const auto& component = entry->components[component_i];
-    const auto& component_spec = component_specs[component_i];
-    if (component.write_mask.num_masked_elements !=
-        component_spec.fill_value.num_elements()) {
+    if (!entry->components[component_i].IsFullyOverwritten(
+            component_specs[component_i])) {
       return false;
     }
   }
@@ -195,11 +172,9 @@ bool IsFullyOverwritten(ChunkCache::Entry* entry) {
 ///    ready.
 ///
 /// 4. If data within the staleness bound is already available for the
-///    particular component array of the cell, or the cell's component array has
-///    been completely overwritten locally (in which case any externally-updated
-///    data is irrelevant), no actual read operation occurs.  Otherwise, this
-///    results in a call to the `ChunkCache::DoRead` method which must be
-///    overridden by derived classes.
+///    particular component array of the cell, no actual read operation occurs.
+///    Otherwise, this results in a call to the `ChunkCache::DoRead` method
+///    which must be overridden by derived classes.
 ///
 /// 5. The derived class implementation of `DoRead` arranges to call
 ///    `ChunkCache::ReadReceiver::NotifyDone` when the read has finished and
@@ -207,8 +182,7 @@ bool IsFullyOverwritten(ChunkCache::Entry* entry) {
 ///    successfully.  If there is no data for the cell in the underlying storage
 ///    (as indicated by an error code of `absl::StatusCode::kNotFound`), the
 ///    cell is considered to implicitly contain the fill value, but no storage
-///    is actually allocated.  If updated data for the cell was decoded, it is
-///    merged with any local writes to the cell using `RebaseMaskedArray`.
+///    is actually allocated.
 ///
 /// 6. Once the cell data has been updated (if necessary), the `ReadChunk`
 ///    constructed previously is sent to the user-specified `receiver`.
@@ -216,73 +190,21 @@ struct ReadChunkImpl {
   std::size_t component_index;
   PinnedCacheEntry<ChunkCache> entry;
 
-  // On successful return, implicitly transfers ownership of a shared lock on
-  // `entry->data_mutex` to the caller.
-  Result<NDIterable::Ptr> operator()(
-      ReadChunk::AcquireReadLock, IndexTransform<> chunk_transform,
-      Arena* arena) const ABSL_NO_THREAD_SAFETY_ANALYSIS {
-    // Hold shared reader lock on the `data_mutex` until `ReleaseReadLock` is
-    // called.
-    UniqueReaderLock read_lock(entry->data_mutex);
+  Result<NDIterable::Ptr> operator()(ReadChunk::AcquireReadLock,
+                                     IndexTransform<> chunk_transform,
+                                     Arena* arena) const {
+    absl::ReaderMutexLock read_lock(&entry->data_mutex);
     const auto& component_spec =
         GetOwningCache(entry)->grid().components[component_index];
     auto& component = entry->components[component_index];
-    Box<dynamic_rank(kNumInlinedDims)> box;
-    GetComponentBox(GetOwningCache(entry)->grid(), component_spec,
-                    entry->cell_indices().data(), &box);
-    StridedLayoutView<dynamic_rank, offset_origin> data_layout;
-    absl::FixedArray<Index, kNumInlinedDims> byte_strides(
-        component_spec.rank());
-    ElementPointer<const void> element_pointer;
-    if (!component.data) {
-      // No data array has been allocated for the component cell.  Since the
-      // read request completed successfully, that means the component cell
-      // implicitly contains the fill value.
-      data_layout = StridedLayoutView<dynamic_rank, offset_origin>{
-          box, component_spec.fill_value.byte_strides()};
-      element_pointer = component_spec.fill_value.element_pointer();
-    } else {
-      ComputeStrides(ContiguousLayoutOrder::c,
-                     component_spec.fill_value.data_type()->size, box.shape(),
-                     byte_strides);
-      data_layout =
-          StridedLayoutView<dynamic_rank, offset_origin>{box, byte_strides};
-      ElementPointer<void> component_element_pointer = {
-          component.data, component_spec.fill_value.data_type()};
-      element_pointer = component_element_pointer;
-      if (!component.valid_outside_write_mask) {
-        // A data array has been allocated, but has so far only been used for
-        // writes.  Initialize unwritten elements with the fill value.
-        //
-        // It is safe for `RebaseMaskedArray` to update the unmasked elements
-        // of the array while only holding a read lock, because the only
-        // possible concurrent access is another thread running the same
-        // `RebaseMaskedArray` call.
-        RebaseMaskedArray(box, component_spec.fill_value,
-                          component_element_pointer, component.write_mask);
-        component.valid_outside_write_mask = true;
-      }
-    }
-    element_pointer =
-        AddByteOffset(element_pointer, -data_layout.origin_byte_offset());
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        chunk_transform,
-        ComposeLayoutAndTransform(data_layout, std::move(chunk_transform)));
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto iterable,
-        GetNormalizedTransformedArrayNDIterable(
-            {element_pointer, std::move(chunk_transform)}, arena));
-    // Implicitly transfer ownership of shared lock to caller.  Note:
-    // `release()` does not unlock.
-    read_lock.release();
-    return iterable;
+    absl::FixedArray<Index, kNumInlinedDims> origin(component_spec.rank());
+    GetComponentOrigin(GetOwningCache(entry)->grid(), component_spec,
+                       entry->cell_indices(), origin);
+    return component.GetReadNDIterable(component_spec, origin,
+                                       std::move(chunk_transform), arena);
   }
-  // Unlocks the shared lock on `entry->data_mutex` acquired by successful call
-  // to the `AcquireReadLock` method.
-  void operator()(ReadChunk::ReleaseReadLock) const
-      ABSL_NO_THREAD_SAFETY_ANALYSIS {
-    entry->data_mutex.ReaderUnlock();
-  }
+  // No-op, since returned `NDIterable` holds a `shared_ptr` to the data.
+  void operator()(ReadChunk::ReleaseReadLock) const {}
 };
 
 /// Shared state used while `Read` is in progress.
@@ -414,49 +336,16 @@ struct WriteChunkImpl {
       Arena* arena) const ABSL_NO_THREAD_SAFETY_ANALYSIS {
     const auto& component_spec =
         GetOwningCache(entry)->grid().components[component_index];
-    Future<const void> writeback_future;
-    Status write_status;
-    Box<dynamic_rank(kNumInlinedDims)> box;
-    GetComponentBox(GetOwningCache(entry)->grid(), component_spec,
-                    entry->cell_indices().data(), &box);
-    absl::FixedArray<Index, kNumInlinedDims> byte_strides(
-        component_spec.rank());
-    ComputeStrides(ContiguousLayoutOrder::c,
-                   component_spec.fill_value.data_type()->size, box.shape(),
-                   byte_strides);
-    StridedLayoutView<dynamic_rank, offset_origin> data_layout{box,
-                                                               byte_strides};
-
-    // Hold an exclusive lock on `data_mutex` while allocating the data array
-    // (if necessary) and writing to it.
+    absl::FixedArray<Index, kNumInlinedDims> origin(component_spec.rank());
+    GetComponentOrigin(GetOwningCache(entry)->grid(), component_spec,
+                       entry->cell_indices(), origin);
     std::unique_lock<Mutex> lock(entry->data_mutex);
-    auto& component = entry->components[component_index];
-    const bool allocated_data = EnsureDataAllocated(component_spec, &component);
-    ElementPointer<void> data_ptr(component.data,
-                                  component_spec.fill_value.data_type());
-
-    if (allocated_data && component.write_mask.num_masked_elements ==
-                              component_spec.fill_value.num_elements()) {
-      // Previously, there was no data array allocated for the component but
-      // it was considered to have been implicitly overwritten with the fill
-      // value.  Now that the data array has been allocated, it must actually
-      // be initialized with the fill value.
-      CopyArray(component_spec.fill_value,
-                ArrayView<void>(
-                    data_ptr, StridedLayoutView<>(box.shape(), byte_strides)));
-      component.valid_outside_write_mask = true;
-    }
-
-    data_ptr = AddByteOffset(data_ptr, -data_layout.origin_byte_offset());
     TENSORSTORE_ASSIGN_OR_RETURN(
-        chunk_transform,
-        ComposeLayoutAndTransform(data_layout, std::move(chunk_transform)));
-
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto iterable, GetNormalizedTransformedArrayNDIterable(
-                           {data_ptr, std::move(chunk_transform)}, arena));
-    // Implicitly transfer ownership of lock to caller.  Note: `release()` does
-    // not unlock.
+        auto iterable,
+        entry->components[component_index].BeginWrite(
+            component_spec, origin, std::move(chunk_transform), arena));
+    // Implicitly transfer ownership of lock to caller.  Note: `release()`
+    // does not unlock.
     lock.release();
     return iterable;
   }
@@ -471,15 +360,12 @@ struct WriteChunkImpl {
     std::unique_lock<Mutex> lock(entry->data_mutex, std::adopt_lock);
     const auto& component_spec =
         GetOwningCache(entry)->grid().components[component_index];
-    Future<const void> writeback_future;
-    Box<dynamic_rank(kNumInlinedDims)> box;
-    GetComponentBox(GetOwningCache(entry)->grid(), component_spec,
-                    entry->cell_indices().data(), &box);
-    auto& component = entry->components[component_index];
-
-    const bool modified =
-        WriteToMask(&component.write_mask, box, chunk_transform, layout,
-                    write_end_position, arena);
+    absl::FixedArray<Index, kNumInlinedDims> origin(component_spec.rank());
+    GetComponentOrigin(GetOwningCache(entry)->grid(), component_spec,
+                       entry->cell_indices(), origin);
+    const bool modified = entry->components[component_index].EndWrite(
+        component_spec, origin, chunk_transform, layout, write_end_position,
+        arena);
     if (modified) {
       // The data array was modified.  Notify `AsyncStorageBackedCache` and
       // return the associated writeback `Future`.
@@ -491,7 +377,7 @@ struct WriteChunkImpl {
       return entry->FinishWrite(
           {std::move(lock), new_size},
           is_fully_overwritten
-              ? AsyncStorageBackedCache::WriteFlags::kSupersedesRead
+              ? AsyncStorageBackedCache::WriteFlags::kUnconditionalWriteback
               : AsyncStorageBackedCache::WriteFlags::kConditionalWriteback);
     }
     // If `modified == false`, `lock` is implicitly released at the end of this
@@ -501,9 +387,6 @@ struct WriteChunkImpl {
 };
 
 }  // namespace
-
-ChunkCache::Entry::Component::Component(DimensionIndex rank)
-    : write_mask(rank), write_mask_prior_to_writeback(rank) {}
 
 ChunkCache::ChunkCache(ChunkGridSpecification grid) : grid_(std::move(grid)) {}
 
@@ -621,7 +504,6 @@ void ChunkCache::ReadReceiver::NotifyDone(
   std::unique_lock<Mutex> lock(entry.data_mutex);
   auto* cache = GetOwningCache(&entry);
   Box<dynamic_rank(kNumInlinedDims)> box;
-  auto* cell_indices = entry.cell_indices().data();
   const auto& spec = cache->grid();
   const auto& component_specs = spec.components;
   if (!components->components.empty()) {
@@ -635,43 +517,11 @@ void ChunkCache::ReadReceiver::NotifyDone(
   for (std::size_t component_i = 0; component_i < component_specs.size();
        ++component_i) {
     auto& component = entry.components[component_i];
-    auto& component_spec = component_specs[component_i];
-    if (  // The chunk is no longer present in the underlying storage.
-        use_fill_value &&
-        (  // Either there are no local modifications to the component,
-            component.write_mask.num_masked_elements == 0 ||
-            // or the only local modification was to overwrite the chunk with
-            // the fill value.
-            !component.data)) {
-      // The only valid mask states are fully masked (meaning fully overwritten
-      // with the fill value, i.e. deleted), or fully unmasked.
-      assert(component.write_mask.num_masked_elements == 0 ||
-             (component.write_mask.num_masked_elements ==
-              component_spec.fill_value.num_elements()));
-      // Free any existing mask or data arrays, such that the cell is considered
-      // to implicitly contain the fill value.  The mask array, if present, is
-      // unnecessary for representing the fully masked or fully unmasked state.
-      component.write_mask.mask_array.reset();
-      component.data = nullptr;
-      component.valid_outside_write_mask = false;
-      continue;
+    if (use_fill_value) {
+      component.read_array = nullptr;
+    } else {
+      component.read_array = components->components[component_i];
     }
-    // Otherwise, actually initialize/update the component array data.
-    EnsureDataAllocated(component_spec, &component);
-    const ArrayView<const void> source_arr =
-        use_fill_value ? component_spec.fill_value
-                       : components->components[component_i];
-    assert(internal::RangesEqual(source_arr.shape(),
-                                 component_spec.fill_value.shape()));
-    // Update the unmasked portion of the data array with the new data or with
-    // the fill value.
-    GetComponentBox(spec, component_spec, cell_indices, &box);
-    RebaseMaskedArray(
-        box, source_arr,
-        ElementPointer<void>(component.data,
-                             component_spec.fill_value.data_type()),
-        component.write_mask);
-    component.valid_outside_write_mask = true;
   }
   // Notify the `AsyncStorageBackedCache` layer that the read operation has
   // completed.
@@ -683,28 +533,19 @@ void ChunkCache::WritebackReceiver::NotifyDone(
     Result<TimestampedStorageGeneration> generation) const {
   auto& entry = *this->entry();
   auto* cache = GetOwningCache(&entry);
+  const auto& grid = cache->grid();
   std::unique_lock<Mutex> lock(entry.data_mutex);
-  if (generation && !StorageGeneration::IsUnknown(generation->generation)) {
-    // Writeback was successful.  Reset the prior mask.
-    for (auto& component : entry.components) {
-      component.write_mask_prior_to_writeback.Reset();
-    }
-  } else {
-    // Writeback failed or was aborted.  For each component array, combine the
-    // current mask into the prior mask.
-    Box<dynamic_rank(kNumInlinedDims)> box;
-    auto* cell_indices = entry.cell_indices().data();
-    const auto& spec = cache->grid();
-    const auto& component_specs = spec.components;
-    for (std::size_t component_i = 0; component_i < component_specs.size();
-         ++component_i) {
-      auto& component = entry.components[component_i];
-      auto& component_spec = component_specs[component_i];
-      GetComponentBox(spec, component_spec, cell_indices, &box);
-      UnionMasks(box, &component.write_mask,
-                 &component.write_mask_prior_to_writeback);
-      component.write_mask_prior_to_writeback.Reset();
-    }
+  size_t num_components = grid.components.size();
+  const bool success =
+      generation && !StorageGeneration::IsUnknown(generation->generation);
+  const span<const Index> cell_indices = entry.cell_indices();
+  absl::InlinedVector<Index, kNumInlinedDims> origin;
+  for (size_t component_i = 0; component_i < num_components; ++component_i) {
+    auto& component = entry.components[component_i];
+    const auto& component_spec = grid.components[component_i];
+    origin.resize(component_spec.rank());
+    GetComponentOrigin(grid, component_spec, cell_indices, origin);
+    component.AfterWritebackCompletes(component_spec, origin, success);
   }
   // Notify the `AsyncStorageBackedCache` layer that the writeback operation has
   // completed.
@@ -717,20 +558,20 @@ Future<const void> ChunkCache::Entry::Delete() {
   // value.
   std::unique_lock<Mutex> lock(data_mutex);
   auto* cache = GetOwningCache(this);
+  absl::InlinedVector<Index, kNumInlinedDims> origin;
+  const span<const Index> cell_indices = this->cell_indices();
+  const auto& grid = cache->grid();
   for (Index component_index = 0,
              num_components = cache->grid().components.size();
        component_index != num_components; ++component_index) {
-    auto& component = components[component_index];
-    auto& component_spec = cache->grid().components[component_index];
-    component.data = nullptr;
-    component.valid_outside_write_mask = false;
-    component.write_mask.Reset();
-    component.write_mask.num_masked_elements =
-        component_spec.fill_value.num_elements();
+    const auto& component_spec = grid.components[component_index];
+    origin.resize(component_spec.rank());
+    GetComponentOrigin(grid, component_spec, cell_indices, origin);
+    components[component_index].WriteFillValue(component_spec, origin);
   }
   const std::size_t new_size = cache->DoGetSizeInBytes(this);
   return this->FinishWrite({std::move(lock), new_size},
-                           WriteFlags::kSupersedesRead);
+                           WriteFlags::kUnconditionalWriteback);
 }
 
 std::size_t ChunkCache::DoGetSizeInBytes(Cache::Entry* base_entry) {
@@ -739,18 +580,8 @@ std::size_t ChunkCache::DoGetSizeInBytes(Cache::Entry* base_entry) {
   Entry* entry = static_cast<Entry*>(base_entry);
   for (Index component_index = 0, num_components = grid_.components.size();
        component_index != num_components; ++component_index) {
-    const auto& component = entry->components[component_index];
-    const auto& component_spec = grid_.components[component_index];
-    const Index num_elements = ProductOfExtents(component_spec.cell_shape());
-    if (component.data) {
-      total += num_elements * component_spec.fill_value.data_type()->size;
-    }
-    if (component.write_mask.mask_array) {
-      total += num_elements * sizeof(bool);
-    }
-    if (component.write_mask_prior_to_writeback.mask_array) {
-      total += num_elements * sizeof(bool);
-    }
+    total += entry->components[component_index].EstimateSizeInBytes(
+        grid_.components[component_index]);
   }
   return total;
 }
@@ -760,54 +591,27 @@ ChunkCache::WritebackSnapshot::WritebackSnapshot(
     : receiver_(receiver) {
   auto* entry = receiver.entry();
   std::unique_lock<Mutex> lock(entry->data_mutex);
-  DimensionIndex total_cell_dims = 0;
   auto* cache = GetOwningCache(entry);
   const auto& component_specs = cache->grid().components;
-  // Allocate sufficient memory in a single vector to store the byte strides for
-  // all component arrays.
-  for (const auto& component_spec : component_specs) {
-    total_cell_dims += component_spec.rank();
-  }
-  byte_strides_.resize(total_cell_dims);
   component_arrays_.resize(component_specs.size());
-  total_cell_dims = 0;
   // Indicates whether all components (processed so far) are equal to the fill
   // value.
   equals_fill_value_ = true;
+  unconditional_ = true;
+  absl::InlinedVector<Index, kNumInlinedDims> origin;
+  const span<const Index> cell_indices = entry->cell_indices();
   for (std::size_t component_i = 0; component_i < component_specs.size();
        ++component_i) {
     auto& component_spec = component_specs[component_i];
     auto& component = entry->components[component_i];
-    total_cell_dims += component_spec.rank();
-    if (!component.data) {
-      component_arrays_[component_i] = component_spec.fill_value;
-      continue;
-    }
-    // Construct an ArrayView for this component array.
-    const span<Index> byte_strides(byte_strides_.data() + total_cell_dims,
-                                   component_spec.rank());
-    const DataType data_type = component_spec.fill_value.data_type();
-    ComputeStrides(ContiguousLayoutOrder::c, data_type->size,
-                   component_spec.cell_shape(), byte_strides);
-    ElementPointer<void> component_element_pointer(component.data, data_type);
-    ArrayView<void> component_array(
-        component_element_pointer,
-        StridedLayoutView<>(component_spec.cell_shape(), byte_strides));
-    if (!component.valid_outside_write_mask) {
-      // The unmasked portion of this component array has not yet been
-      // initialized, and implicitly is considered to contain the fill value.
-      // For writeback, we need to actually initialize it with the fill value.
-      Box<dynamic_rank(kNumInlinedDims)> box;
-      GetComponentBox(cache->grid(), component_spec,
-                      entry->cell_indices().data(), &box);
-      RebaseMaskedArray(box, component_spec.fill_value,
-                        component_element_pointer, component.write_mask);
-      component.valid_outside_write_mask = true;
-    }
-    component_arrays_[component_i] = component_array;
-    // Check if this component array cell is equal to the fill value.
+    origin.resize(component_spec.rank());
+    GetComponentOrigin(cache->grid(), component_spec, cell_indices, origin);
+    auto component_snapshot =
+        component.GetArrayForWriteback(component_spec, origin);
+    component_arrays_[component_i] = std::move(component_snapshot.array);
+    unconditional_ = unconditional_ && component_snapshot.unconditional;
     equals_fill_value_ =
-        equals_fill_value_ && (component_array == component_spec.fill_value);
+        equals_fill_value_ && component_snapshot.equals_fill_value;
   }
   // Ensure the `data_mutex` remains locked even after the `lock` object is
   // destroyed.  The `WritebackSnapshot` destructor releases the lock.
@@ -819,26 +623,7 @@ ChunkCache::WritebackSnapshot::~WritebackSnapshot() {
 #if !defined(NDEBUG)
   entry->data_mutex.AssertHeld();
 #endif
-  if (equals_fill_value_) {
-    // All component arrays are equal to their fill value.  To save memory,
-    // represent them implicitly rather than explicitly.
-    for (auto& component : entry->components) {
-      component.data = nullptr;
-      component.valid_outside_write_mask = false;
-    }
-  }
-
-  for (auto& component : entry->components) {
-    // Save the current `write_mask` in `write_mask_prior_to_writeback`, and
-    // reset `write_mask` so that new writes are recorded separately.  If
-    // writeback fails, `write_mask_prior_to_writeback` will be combined into
-    // `write_mask`.  If writeback succeeds, it will be discarded.
-    std::swap(component.write_mask, component.write_mask_prior_to_writeback);
-    component.write_mask.Reset();
-  }
-
   const std::size_t new_size = GetOwningCache(entry)->DoGetSizeInBytes(entry);
-
   receiver_.receiver_.NotifyStarted(
       {std::unique_lock<Mutex>(entry->data_mutex, std::adopt_lock), new_size});
 }

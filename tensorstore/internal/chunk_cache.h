@@ -60,9 +60,9 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/async_storage_backed_cache.h"
+#include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/internal/cache.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/masked_array.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/staleness_bound.h"
@@ -138,7 +138,16 @@ struct ChunkGridSpecification {
   /// encountered, the read is satisfied using the fill value.  When writing
   /// back a partially-written chunk for which there is no existing data, the
   /// fill value is substituted at unwritten positions.
-  struct Component {
+  ///
+  /// For chunked dimensions, the extent in `fill_value.shape()` must match the
+  /// corresponding extent in `chunk_shape`.  For unchunked dimensions, the
+  /// extent in `fill_value.shape()` specifies the full extent for that
+  /// dimension of the component array.
+  ///
+  /// For each `chunked_to_cell_dimensions[i]`, it must be the case that
+  /// `fill_value.shape()[chunked_to_cell_dimensions[i]] = chunk_shape[i]`,
+  /// where `chunk_shape` is from the containing `ChunkGridSpecification`.
+  struct Component : public AsyncWriteArray::Spec {
     /// Construct a component specification from a fill value.
     ///
     /// The `chunked_to_cell_dimensions` map is set to an identity map over
@@ -155,28 +164,6 @@ struct ChunkGridSpecification {
     /// set of chunked dimensions.
     Component(SharedArray<const void> fill_value,
               std::vector<DimensionIndex> chunked_to_cell_dimensions);
-
-    /// Returns the rank of this component array.
-    DimensionIndex rank() const { return fill_value.rank(); }
-
-    /// Returns the data type of this component array.
-    DataType data_type() const { return fill_value.data_type(); }
-
-    /// Shape of the array representing the data of a single grid cell of this
-    /// component array.
-    span<const Index> cell_shape() const { return fill_value.shape(); }
-
-    /// The fill value of this component array.  Must be non-null.  This also
-    /// specifies the shape of the grid cell.
-    ///
-    /// For chunked dimensions, the extent must match the corresponding extent
-    /// in `chunk_shape`.  For unchunked dimensions, the extent specifies the
-    /// full extent for that dimension of the component array.
-    ///
-    /// For each `chunked_to_cell_dimensions[i]`, it must be the case that
-    /// `fill_value.shape()[chunked_to_cell_dimensions[i]] = chunk_shape[i]`,
-    /// where `chunk_shape` is from the containing `ChunkGridSpecification`.
-    SharedArray<const void> fill_value;
 
     /// Mapping from chunked dimensions (corresponding to components of
     /// `chunk_shape`) to cell dimensions (corresponding to dimensions of
@@ -217,43 +204,8 @@ class ChunkCache : public AsyncStorageBackedCache {
     }
 
     /// Stores the data for a single component array.
-    struct Component {
-      /// Constructs a component of the specified rank.
-      ///
-      /// Does not actually allocate the `data` or mask arrays.
-      Component(DimensionIndex rank);
-
-      /// Never actually invoked, but required by `InlinedVector::reserve`.
-      Component(Component&& other) noexcept : Component(0) {
-        TENSORSTORE_UNREACHABLE;
-      }
-
-      /// Optional pointer to C-order multi-dimensional array of data type and
-      /// shape given by the `data_type` and `cell_shape`, respectively, of the
-      /// `ChunkGridSpecification::Component`.  If equal to `nullptr`, no data
-      /// has been read or written yet, or the contents may be equal to the fill
-      /// value.
-      std::shared_ptr<void> data;
-
-      /// If `write_mask` is all `true` (`num_masked_elements` is equal to the
-      /// total number of elements in the `data` array), `data == nullptr`
-      /// represents the same state as `data` containing the fill value.
-      MaskData write_mask;
-
-      /// Value of `write_mask` prior to the current in-progress writeback
-      /// operation.  If the writeback succeeds, this is discarded.  Otherwise,
-      /// it is merged with `write_mask` when the writeback fails (e.g. due to a
-      /// generation mismatch).
-      MaskData write_mask_prior_to_writeback;
-
-      /// Specifies whether the `data` array is valid at positions for which
-      /// `write_mask` is `true`.
-      ///
-      /// If `true`, all positions in the `data` array are valid (because they
-      /// have been filled either from a successful read or from the fill
-      /// value).  If `false`, only positions in the `data` array for which
-      /// `write_mask` is `true` are valid.
-      std::atomic<bool> valid_outside_write_mask{false};
+    struct Component : public internal::AsyncWriteArray {
+      using internal::AsyncWriteArray::AsyncWriteArray;
     };
 
     /// Overwrites all components with the fill value.
@@ -276,7 +228,7 @@ class ChunkCache : public AsyncStorageBackedCache {
       /// Specifies the data for all component arrays.  Must have a length equal
       /// to the number of component arrays, except to indicate that the read
       /// was aborted or the chunk data was not found.
-      span<const ArrayView<const void>> components;
+      span<const SharedArrayView<const void>> components;
 
       /// Specifies the storage generation corresponding to `components`.
       ///
@@ -358,7 +310,7 @@ class ChunkCache : public AsyncStorageBackedCache {
     ///
     /// The size of the returned `span` is equal to the number of component
     /// arrays.
-    span<const ArrayView<const void>> component_arrays() const {
+    span<const SharedArrayView<const void>> component_arrays() const {
       return component_arrays_;
     }
 
@@ -366,10 +318,16 @@ class ChunkCache : public AsyncStorageBackedCache {
     /// the driver, writeback can be accomplished by deleting the chunk.
     bool equals_fill_value() const { return equals_fill_value_; }
 
+    /// If `true`, the snapshot does not depend on any prior read (because all
+    /// positions were overwritten), and should therefore be written back
+    /// unconditionally.  If `false`, writeback should be conditioned on the
+    /// prior read generation.
+    bool unconditional() const { return unconditional_; }
+
    private:
-    absl::InlinedVector<ArrayView<const void>, 1> component_arrays_;
-    absl::InlinedVector<Index, kNumInlinedDims> byte_strides_;
+    absl::InlinedVector<SharedArrayView<const void>, 1> component_arrays_;
     bool equals_fill_value_;
+    bool unconditional_;
     const WritebackReceiver& receiver_;
   };
 

@@ -130,7 +130,7 @@ class BenchmarkCache : public ChunkCache {
     auto req_time = absl::Now();
     executor([receiver, req_time, this] {
       absl::InlinedVector<SharedArray<void>, 1> data;
-      absl::InlinedVector<ArrayView<const void>, 1> data_ref;
+      absl::InlinedVector<tensorstore::SharedArrayView<const void>, 1> data_ref;
       data.reserve(grid().components.size());
       data_ref.reserve(grid().components.size());
       for (const auto& component_spec : grid().components) {

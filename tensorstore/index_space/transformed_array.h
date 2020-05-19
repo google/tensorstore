@@ -548,9 +548,68 @@ class TransformedArray {
         layout_(Access::construct_element_pointer_tag{},
                 std::forward<Other>(other).transform()) {}
 
+  explicit TransformedArray(Access::construct_tag,
+                            ElementPointer element_pointer,
+                            LayoutStorage layout)
+      : element_pointer_(std::move(element_pointer)),
+        layout_(std::move(layout)) {}
+
   ElementPointer element_pointer_;
   LayoutStorage layout_;
 };
+
+/// Converts a `TransformedArray` with a non-`Shared` element pointer to
+/// `TransformedArray` with a `Shared` element pointer that does not manage
+/// ownership.
+///
+/// The caller is responsible for ensuring that the returned array is not used
+/// after the element data to which it points becomes invalid.
+///
+/// This is useful for passing a `TransformedArray` with non-`Shared` element
+/// pointer to a function that requires a `Shared` element pointer, when the
+/// caller can ensure that the array data remains valid as long as required by
+/// the callee.
+template <typename Element, DimensionIndex Rank, ContainerKind LayoutCKind>
+std::enable_if_t<!IsShared<Element>::value,
+                 TransformedArray<Shared<Element>, Rank, LayoutCKind>>
+UnownedToShared(TransformedArray<Element, Rank, LayoutCKind> array) {
+  using internal_index_space::TransformedArrayAccess;
+  return TransformedArrayAccess::Construct<
+      TransformedArray<Shared<Element>, Rank, LayoutCKind>>(
+      TransformedArrayAccess::construct_tag{},
+      UnownedToShared(array.element_pointer()),
+      std::move(TransformedArrayAccess::layout(array)));
+}
+
+/// Converts a `TransformedArray` with a non-`Shared` element pointer to a
+/// `TransformedArray` with a `Shared` element pointer that shares the ownership
+/// of the specified `owned` pointer, in the same way as the `std::shared_ptr`
+/// aliasing constructor.
+///
+/// The caller is responsible for ensuring that the returned array is not used
+/// after the element data to which it points becomes invalid.
+template <typename T, typename Element, DimensionIndex Rank,
+          ContainerKind LayoutCKind>
+std::enable_if_t<!IsShared<Element>::value,
+                 TransformedArray<Shared<Element>, Rank, LayoutCKind>>
+UnownedToShared(const std::shared_ptr<T>& owned,
+                TransformedArray<Element, Rank, LayoutCKind> array) {
+  using internal_index_space::TransformedArrayAccess;
+  return TransformedArrayAccess::Construct<
+      TransformedArray<Shared<Element>, Rank, LayoutCKind>>(
+      TransformedArrayAccess::construct_tag{},
+      UnownedToShared(owned, array.element_pointer()),
+      std::move(TransformedArrayAccess::layout(array)));
+}
+
+/// No-op overload for an existing `Shared` element type.
+///
+/// The returned array shares ownership with `array`.
+template <typename Element, DimensionIndex Rank, ContainerKind LayoutCKind>
+TransformedArray<Shared<Element>, Rank, LayoutCKind> UnownedToShared(
+    TransformedArray<Shared<Element>, Rank, LayoutCKind> array) {
+  return array;
+}
 
 /// NormalizedTransformedArray behaves like `TransformedArray` but always uses
 /// the "normalized" representation of an element pointer pair with an index
@@ -759,6 +818,52 @@ class NormalizedTransformedArray {
   Transform transform_;
 };
 
+/// Converts a `NormalizedTransformedArray` with a non-`Shared` element pointer
+/// to `NormalizedTransformedArray` with a `Shared` element pointer that does
+/// not manage ownership.
+///
+/// The caller is responsible for ensuring that the returned array is not used
+/// after the element data to which it points becomes invalid.
+///
+/// This is useful for passing a `NormalizedTransformedArray` with non-`Shared`
+/// element pointer to a function that requires a `Shared` element pointer, when
+/// the caller can ensure that the array data remains valid as long as required
+/// by the callee.
+template <typename Element, DimensionIndex Rank, ContainerKind LayoutCKind>
+std::enable_if_t<!IsShared<Element>::value,
+                 NormalizedTransformedArray<Shared<Element>, Rank, LayoutCKind>>
+UnownedToShared(NormalizedTransformedArray<Element, Rank, LayoutCKind> array) {
+  return NormalizedTransformedArray<Shared<Element>, Rank, LayoutCKind>(
+      UnownedToShared(array.element_pointer()), std::move(array.transform()));
+}
+
+/// Converts a `NormalizedTransformedArray` with a non-`Shared` element pointer
+/// to a `NormalizedTransformedArray` with a `Shared` element pointer that
+/// shares the ownership of the specified `owned` pointer, in the same way as
+/// the `std::shared_ptr` aliasing constructor.
+///
+/// The caller is responsible for ensuring that the returned array is not used
+/// after the element data to which it points becomes invalid.
+template <typename T, typename Element, DimensionIndex Rank,
+          ContainerKind LayoutCKind>
+std::enable_if_t<!IsShared<Element>::value,
+                 NormalizedTransformedArray<Shared<Element>, Rank, LayoutCKind>>
+UnownedToShared(const std::shared_ptr<T>& owned,
+                NormalizedTransformedArray<Element, Rank, LayoutCKind> array) {
+  return NormalizedTransformedArray<Shared<Element>, Rank, LayoutCKind>(
+      UnownedToShared(owned, array.element_pointer()),
+      std::move(array.transform()));
+}
+
+/// No-op overload for an existing `Shared` element type.
+///
+/// The returned array shares ownership with `array`.
+template <typename Element, DimensionIndex Rank, ContainerKind LayoutCKind>
+NormalizedTransformedArray<Shared<Element>, Rank, LayoutCKind> UnownedToShared(
+    NormalizedTransformedArray<Shared<Element>, Rank, LayoutCKind> array) {
+  return array;
+}
+
 /// Specializations of `StaticCastTraits` for `TransformedArray` and
 /// `NormalizedTransformedArray`, which enables `StaticCast`,
 /// `StaticDataTypeCast`, `ConstDataTypeCast`, and `StaticRankCast`.
@@ -833,19 +938,19 @@ using TransformedArrayTypeFromArray =
 template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind LayoutCKind>
 TransformedArray(Array<ElementTag, Rank, OriginKind, LayoutCKind> array)
-    ->TransformedArray<ElementTag, NormalizeRankSpec(Rank), LayoutCKind>;
+    -> TransformedArray<ElementTag, NormalizeRankSpec(Rank), LayoutCKind>;
 
 template <typename ElementTag, DimensionIndex Rank, ContainerKind LayoutCKind>
 TransformedArray(
     NormalizedTransformedArray<ElementTag, Rank, LayoutCKind> array)
-    ->TransformedArray<ElementTag, Rank, LayoutCKind>;
+    -> TransformedArray<ElementTag, Rank, LayoutCKind>;
 
 template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind LayoutCKind, DimensionIndex InputRank>
 TransformedArray(
     Array<ElementTag, Rank, OriginKind, LayoutCKind> array,
     IndexTransform<InputRank, NormalizeRankSpec(Rank), LayoutCKind> transform)
-    ->TransformedArray<ElementTag, InputRank, LayoutCKind>;
+    -> TransformedArray<ElementTag, InputRank, LayoutCKind>;
 
 /// Returns an equivalent normalized transformed array.
 ///

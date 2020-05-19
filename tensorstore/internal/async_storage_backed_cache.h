@@ -82,11 +82,6 @@ class AsyncStorageBackedCache : public Cache {
 
     /// Writeback does not require a prior read result.
     kUnconditionalWriteback = 1,
-
-    /// Read requests can be satisfied from the cache alone.  Any in-progress
-    /// read from the underlying storage will be cancelled.  This implies
-    /// `kUnconditionalWriteback`.
-    kSupersedesRead = 2,
   };
 
   /// Base Entry class.  Derived classes must define a nested `Entry` class that

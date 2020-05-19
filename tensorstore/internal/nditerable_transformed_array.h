@@ -27,7 +27,9 @@ namespace internal {
 ///
 /// \param array The array to iterate over.  The data must remain valid as long
 ///     as the iterable is used, but the layout need not remain valid after this
-///     function returns.
+///     function returns.  A non-`Shared` array guaranteed to remain valid for
+///     the lifetime of the returned `NDIterable` may be passed using
+///     `UnownedToShared`.
 /// \param arena Allocation arena to use, must remain valid until after the
 ///     returned `NDIterable` is destroyed.
 /// \returns Non-null pointer to `NDIterable`.
@@ -38,11 +40,11 @@ namespace internal {
 /// computing the
 ///     iteration state.
 Result<NDIterable::Ptr> GetTransformedArrayNDIterable(
-    TransformedArrayView<const void> array, Arena* arena);
+    TransformedArrayView<Shared<const void>> array, Arena* arena);
 
 /// Same as above, but for a `NormalizedTransfomedArray`.
 Result<NDIterable::Ptr> GetNormalizedTransformedArrayNDIterable(
-    NormalizedTransformedArray<const void> array, Arena* arena);
+    NormalizedTransformedArray<Shared<const void>> array, Arena* arena);
 
 }  // namespace internal
 }  // namespace tensorstore

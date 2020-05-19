@@ -444,6 +444,21 @@ UnownedToShared(ElementPointer<Element> element_pointer) {
           element_pointer.data_type()};
 }
 
+/// Converts a non-`Shared` `ElementPointer` to a `SharedElementPointer` that
+/// shares ownership of the specified `owned` pointer, in the same way as the
+/// `std::shared_ptr` aliasing constructor.
+///
+/// The caller is responsible for ensuring that the returned
+/// `SharedElementPointer` is not used after the element data to which it points
+/// becomes invalid.
+template <typename T, typename Element>
+absl::enable_if_t<!IsShared<Element>::value, ElementPointer<Shared<Element>>>
+UnownedToShared(const std::shared_ptr<T>& owned,
+                ElementPointer<Element> element_pointer) {
+  return {std::shared_ptr<Element>(owned, element_pointer.pointer()),
+          element_pointer.data_type()};
+}
+
 /// Adds a byte offset to a raw pointer.
 template <typename T>
 inline T* AddByteOffset(T* x, Index byte_offset) {

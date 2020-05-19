@@ -50,6 +50,7 @@ namespace {
 using tensorstore::DataTypeOf;
 using tensorstore::Index;
 using tensorstore::MakeArray;
+using tensorstore::Shared;
 using tensorstore::Status;
 using tensorstore::internal::GetElementwiseInputTransformNDIterable;
 using tensorstore::internal::GetElementwiseOutputTransformNDIterable;
@@ -131,7 +132,7 @@ TEST(NDIterableCopyTest, ExternalBuffer) {
                                 ", indexed_dest=", indexed_dest)
                        .c_str());
       auto source = tensorstore::MakeArray<int>({{1, 2, 3}, {4, 5, 6}});
-      tensorstore::TransformedArray<const int> tsource = source;
+      tensorstore::TransformedArray<Shared<const int>> tsource = source;
       if (indexed_source) {
         tsource =
             ChainResult(source, tensorstore::Dims(0, 1).OuterIndexArraySlice(
@@ -140,7 +141,7 @@ TEST(NDIterableCopyTest, ExternalBuffer) {
                 .value();
       }
       auto dest = tensorstore::AllocateArray<double>(source.shape());
-      tensorstore::TransformedArray<double> tdest = dest;
+      tensorstore::TransformedArray<Shared<double>> tdest = dest;
       if (indexed_dest) {
         tdest = ChainResult(dest, tensorstore::Dims(0, 1).OuterIndexArraySlice(
                                       MakeArray<Index>({0, 1}),

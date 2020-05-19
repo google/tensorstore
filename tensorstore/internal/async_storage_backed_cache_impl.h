@@ -58,27 +58,20 @@ struct AsyncEntryData {
   ///
   /// 2. a successful (but not failed) writeback, in which case it is always in
   ///    a success state;
-  ///
-  /// 3. a call to `AsyncStorageBackedCache::Entry::FinishWrite` with
-  ///    `flags=kSupersedesRead`, in which case it is always in a success state.
   ReadyFuture<const void> ready_read;
 
   /// Most recent remote storage generation upon which any cached data stored by
   /// a derived class of `AsyncStorageBackedCache::Entry` is conditioned.  If
   /// equal to `StorageGeneration::Unknown()`, then the state is not conditioned
   /// on any read state and indicates that there have been no successful reads
-  /// or writebacks since the entry was added to the cache, or
-  /// `AsyncStorageBackedCache::Entry::FinishWrite` was called with
-  /// `flags=kSupersedesRead`.
+  /// or writebacks since the entry was added to the cache.
   TimestampedStorageGeneration ready_read_generation;
 
   /// Promise/future pair corresponding to an in-progress read request, which
   /// was initiated at the local time `issued_read_time`.
   ///
   /// If `issued_read.promise.valid()`, then there is an in-progress read
-  /// request.  Additionally, if `issued_read.future.valid()`, then the result
-  /// won't be ignored.  Otherwise, it will be ignored because `FinishWrite` was
-  /// called with `flags=kSupersedesRead` while the read was in progress.
+  /// request.
   ///
   /// \invariant `issued_read.promise.valid() >= issued_read.future.valid()`
   PromiseFuturePair<void> issued_read;
@@ -158,13 +151,8 @@ struct AsyncEntryData {
   Future<const void> writeback_requested_by_cache;
 
   /// Last value of `write_generation` at which `FinishWrite` was called with
-  /// `flags=kSupersedesRead`.  This is reset to 0 once all local modifications
-  /// have been written back.
-  CacheGeneration supersedes_read_generation = 0;
-
-  /// Last value of `write_generation` at which `FinishWrite` was called with
-  /// `flags=kUnconditionalWriteback` or `flags=kSupersedesRead`.  This is reset
-  /// to 0 once all local modifications have been written back.
+  /// `flags=kUnconditionalWriteback`.  This is reset to 0 once all local
+  /// modifications have been written back.
   CacheGeneration unconditional_writeback_generation = 0;
 };
 

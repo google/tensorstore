@@ -59,7 +59,7 @@ TEST(NDIterableArrayTest, Direct) {
   Array<std::uint8_t> array(data + 500,
                             StridedLayout<>({6, 3, 4, 5}, {-1, -6, 0, 3}));
   Arena arena;
-  auto iterable = GetArrayNDIterable(array, &arena);
+  auto iterable = GetArrayNDIterable(UnownedToShared(array), &arena);
   {
     std::vector<DirectionPref> direction_prefs(4, DirectionPref::kCanSkip);
     iterable->UpdateDirectionPrefs(direction_prefs.data());
@@ -342,7 +342,7 @@ TEST(NDIterableArrayTest, SkipSize1Dimension) {
 
   Array<unsigned char> array = {&data[150],
                                 StridedLayout<>({2, 1, 3}, {5, 10, -20})};
-  auto iterable = GetArrayNDIterable(array, &arena);
+  auto iterable = GetArrayNDIterable(UnownedToShared(array), &arena);
 
   MultiNDIterator<1, /*Full=*/true> multi_iterator(array.shape(), {},
                                                    {{iterable.get()}}, &arena);
@@ -361,7 +361,7 @@ TEST(NDIterableArrayTest, SkipZeroByteStride) {
   Arena arena;
 
   Array<unsigned char> array = {&data[150], StridedLayout<>({2, 3}, {5, 0})};
-  auto iterable = GetArrayNDIterable(array, &arena);
+  auto iterable = GetArrayNDIterable(UnownedToShared(array), &arena);
 
   MultiNDIterator<1, /*Full=*/true> multi_iterator(
       array.shape(), tensorstore::skip_repeated_elements, {{iterable.get()}},
@@ -400,7 +400,7 @@ TEST(NDIterableArrayTest, ReversedDimensions) {
       StridedLayout<>({orig_shape[2], orig_shape[0], orig_shape[1]},
                       {-orig_strides[2], orig_strides[0], -orig_strides[1]}));
   Arena arena;
-  auto iterable = GetArrayNDIterable(array, &arena);
+  auto iterable = GetArrayNDIterable(UnownedToShared(array), &arena);
   MultiNDIterator<1, /*Full=*/true> multi_iterator(
       array.shape(), tensorstore::skip_repeated_elements, {{iterable.get()}},
       &arena);

@@ -39,6 +39,7 @@
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/nditerable_util.h"
+#include "tensorstore/internal/unowned_to_shared.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/byte_strided_pointer.h"
@@ -299,9 +300,10 @@ bool WriteToMask(MaskData* mask, BoxView<> output_box,
   Hull(mask->region, output_range, mask->region);
 
   if (use_mask_array) {
-    TransformedArrayView<bool> transformed_mask_array(
-        ArrayView<bool, dynamic_rank, offset_origin>(
-            AddByteOffset(ElementPointer<bool>(mask->mask_array.get()),
+    TransformedArrayView<Shared<bool>> transformed_mask_array(
+        ArrayView<Shared<bool>, dynamic_rank, offset_origin>(
+            AddByteOffset(SharedElementPointer<bool>(
+                              UnownedToShared(mask->mask_array.get())),
                           -IndexInnerProduct(output_box.origin(),
                                              span(mask_byte_strides))),
             mask_layout),

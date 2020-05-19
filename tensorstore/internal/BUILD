@@ -68,6 +68,7 @@ tensorstore_cc_test(
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],
@@ -209,15 +210,14 @@ tensorstore_cc_library(
     deps = [
         ":arena",
         ":async_storage_backed_cache",
+        ":async_write_array",
         ":cache",
         ":elementwise_function",
         ":grid_partition",
         ":intrusive_ptr",
-        ":masked_array",
         ":memory",
         ":mutex",
         ":nditerable",
-        ":nditerable_transformed_array",
         "//tensorstore:array",
         "//tensorstore:box",
         "//tensorstore:contiguous_layout",
@@ -1012,6 +1012,7 @@ tensorstore_cc_library(
         ":nditerable",
         ":nditerable_transformed_array",
         ":nditerable_util",
+        ":unowned_to_shared",
         "//tensorstore:array",
         "//tensorstore:box",
         "//tensorstore:contiguous_layout",
@@ -1067,6 +1068,25 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "async_write_array",
+    srcs = ["async_write_array.cc"],
+    hdrs = ["async_write_array.h"],
+    deps = [
+        ":masked_array",
+        ":nditerable",
+        ":nditerable_transformed_array",
+        ":unowned_to_shared",
+        "//tensorstore:array",
+        "//tensorstore:contiguous_layout",
+        "//tensorstore:index",
+        "//tensorstore:strided_layout",
+        "//tensorstore/util:element_pointer",
+        "//tensorstore/util:result",
+        "//tensorstore/util:span",
+    ],
+)
+
+tensorstore_cc_library(
     name = "masked_array_testutil",
     testonly = 1,
     srcs = ["masked_array_testutil.cc"],
@@ -1081,6 +1101,7 @@ tensorstore_cc_library(
         ":nditerable_elementwise_input_transform",
         ":nditerable_transformed_array",
         ":nditerable_util",
+        ":unowned_to_shared",
         "//tensorstore:array",
         "//tensorstore:box",
         "//tensorstore:contiguous_layout",

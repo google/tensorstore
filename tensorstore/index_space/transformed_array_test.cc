@@ -766,4 +766,54 @@ TEST(CopyTransformedArrayTest, InvalidDataType) {
                             "Cannot convert string -> float32"));
 }
 
+TEST(TransformedArrayTest, UnownedToShared) {
+  auto a = MakeArray<int>({1, 2, 3});
+  TransformedArray<int> ta = a;
+  auto shared_ta = UnownedToShared(ta);
+  static_assert(
+      std::is_same_v<decltype(shared_ta), TransformedArray<Shared<int>>>);
+}
+
+TEST(TransformedArrayTest, UnownedToSharedAliasing) {
+  auto a = MakeArray<int>({1, 2, 3});
+  TransformedArray<int> ta = a;
+  EXPECT_EQ(1, a.pointer().use_count());
+  {
+    auto shared_ta = UnownedToShared(a.pointer(), ta);
+    EXPECT_EQ(2, a.pointer().use_count());
+    static_assert(
+        std::is_same_v<decltype(shared_ta), TransformedArray<Shared<int>>>);
+    auto shared_ta_copy = UnownedToShared(shared_ta);
+    static_assert(
+        std::is_same_v<decltype(shared_ta), TransformedArray<Shared<int>>>);
+    EXPECT_EQ(3, a.pointer().use_count());
+  }
+  EXPECT_EQ(1, a.pointer().use_count());
+}
+
+TEST(NormalizedTransformedArrayTest, UnownedToShared) {
+  auto a = MakeArray<int>({1, 2, 3});
+  NormalizedTransformedArray<int> ta = MakeNormalizedTransformedArray(a);
+  auto shared_ta = UnownedToShared(ta);
+  static_assert(std::is_same_v<decltype(shared_ta),
+                               NormalizedTransformedArray<Shared<int>>>);
+}
+
+TEST(NormalizedTransformedArrayTest, UnownedToSharedAliasing) {
+  auto a = MakeArray<int>({1, 2, 3});
+  NormalizedTransformedArray<int> ta = MakeNormalizedTransformedArray(a);
+  EXPECT_EQ(1, a.pointer().use_count());
+  {
+    auto shared_ta = UnownedToShared(a.pointer(), ta);
+    EXPECT_EQ(2, a.pointer().use_count());
+    static_assert(std::is_same_v<decltype(shared_ta),
+                                 NormalizedTransformedArray<Shared<int>>>);
+    auto shared_ta_copy = UnownedToShared(shared_ta);
+    static_assert(std::is_same_v<decltype(shared_ta),
+                                 NormalizedTransformedArray<Shared<int>>>);
+    EXPECT_EQ(3, a.pointer().use_count());
+  }
+  EXPECT_EQ(1, a.pointer().use_count());
+}
+
 }  // namespace

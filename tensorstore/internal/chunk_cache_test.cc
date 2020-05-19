@@ -195,8 +195,8 @@ struct MockDataStore {
               {}, {StorageGeneration::Unknown(), read_time}});
       return;
     }
-    std::vector<ArrayView<const void>> data(stored_chunk.data.begin(),
-                                            stored_chunk.data.end());
+    std::vector<tensorstore::SharedArrayView<const void>> data(
+        stored_chunk.data.begin(), stored_chunk.data.end());
     req.receiver.NotifyDone(ChunkCache::ReadReceiver::ComponentsWithGeneration{
         data,
         {GetStorageGenerationFromNumber(stored_chunk.generation), read_time}});
@@ -766,20 +766,8 @@ TEST_P(ChunkCacheTest, WriteSingleComponentOneDimensional) {
                 .value(),
             MakeArray<int>({3, 4, 5, 6}));
 
-  // Test that reading fully overwritten chunk 2 does not issue a read request.
-  {
-    auto read_array = tensorstore::AllocateArray<int>({2});
-    auto read_future =
-        Read(0,
-             ChainResult(tensorstore::IdentityTransform(1),
-                         tensorstore::Dims(0).TranslateSizedInterval(4, 2))
-                 .value(),
-             read_array, absl::InfinitePast());
-    ASSERT_TRUE(read_future.result());
-    EXPECT_EQ(MakeArray<int>({4, 5}), read_array);
-  }
-
-  // Test that reading partially overwritten chunk 3 issues a read request.
+  // Test that reading a dirty chunk issues a read request and returns fill
+  // value.
   {
     auto read_array = tensorstore::AllocateArray<int>({2});
     auto read_future =
@@ -795,7 +783,7 @@ TEST_P(ChunkCacheTest, WriteSingleComponentOneDimensional) {
       store.HandleRead(std::move(r));
     }
     EXPECT_TRUE(read_future.result());
-    EXPECT_EQ(read_array, tensorstore::MakeArray({6, 2}));
+    EXPECT_EQ(read_array, tensorstore::MakeArray({1, 2}));
   }
 
   // Test that writeback issues a read request for chunk 1, and writeback
@@ -858,7 +846,7 @@ TEST_P(ChunkCacheTest, OverwriteMissingWithFillValue) {
                 .value(),
             MakeArray<int>({1, 2}));
   // Initially the representation is not normalized.
-  EXPECT_NE(nullptr, cell_entry->components[0].data);
+  EXPECT_NE(nullptr, cell_entry->components[0].write_data);
   write_future.Force();
   {
     auto r = log.writebacks.pop();
@@ -868,13 +856,13 @@ TEST_P(ChunkCacheTest, OverwriteMissingWithFillValue) {
     // Test that after starting the writeback, the representation has been
     // normalized such that no data is stored.  The normalization is done by
     // `WritebackSnapshot`.
-    EXPECT_EQ(nullptr, cell_entry->components[0].data);
+    EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
     complete_writeback();
   }
   EXPECT_FALSE(store.HasChunk(span<const Index>({1})));
   EXPECT_TRUE(write_future.result());
   // Verify that `cell_entry` still doesn't store data.
-  EXPECT_EQ(nullptr, cell_entry->components[0].data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
 }
 
 // Tests that overwriting an existing chunk with the fill value results in the
@@ -885,7 +873,7 @@ TEST_P(ChunkCacheTest, OverwriteExistingWithFillValue) {
       SharedArray<const void>(MakeArray<int>({1, 2}))}}));
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
   // Sanity check that entry initially contains no data.
-  EXPECT_EQ(nullptr, cell_entry->components[0].data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
   // Write initial value to chunk 1: [0]=3, [1]=4
   {
     auto write_future =
@@ -904,8 +892,6 @@ TEST_P(ChunkCacheTest, OverwriteExistingWithFillValue) {
     EXPECT_EQ(Status(), GetStatus(write_future.result()));
     EXPECT_TRUE(store.HasChunk(span<const Index>({1})));
   }
-  // Verify that `cell_entry` contains data.
-  EXPECT_NE(nullptr, cell_entry->components[0].data);
 
   // Overwrite chunk 1 with fill value: [0]=1, [1]=2
   {
@@ -919,9 +905,7 @@ TEST_P(ChunkCacheTest, OverwriteExistingWithFillValue) {
     {
       auto r = log.writebacks.pop();
       EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
-      // Because the chunk was fully overwritten, the prior StorageGeneration is
-      // ignored.
-      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
+      EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
       store.HandleWriteback(r)();
     }
     EXPECT_FALSE(store.HasChunk(span<const Index>({1})));
@@ -929,7 +913,7 @@ TEST_P(ChunkCacheTest, OverwriteExistingWithFillValue) {
   }
   // Test that after writeback, the representation has been normalized such that
   // no data is stored.
-  EXPECT_EQ(nullptr, cell_entry->components[0].data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
 }
 
 // Tests that deleting a chunk that was previously written results in the chunk
@@ -957,8 +941,6 @@ TEST_P(ChunkCacheTest, DeleteAfterNormalWriteback) {
     EXPECT_EQ(Status(), GetStatus(write_future.result()));
     EXPECT_TRUE(store.HasChunk(span<const Index>({1})));
   }
-  // Verify that `cell_entry` contains data.
-  EXPECT_NE(nullptr, cell_entry->components[0].data);
 
   // Perform delete.
   auto write_future = cell_entry->Delete();
@@ -966,14 +948,14 @@ TEST_P(ChunkCacheTest, DeleteAfterNormalWriteback) {
   {
     auto r = log.writebacks.pop();
     EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
+    EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
     store.HandleWriteback(r)();
   }
   EXPECT_FALSE(store.HasChunk(span<const Index>({1})));
   EXPECT_TRUE(write_future.result());
   // Test that after writeback, the representation has been normalized such that
   // no data is stored.
-  EXPECT_EQ(nullptr, cell_entry->components[0].data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
 }
 
 TEST_P(ChunkCacheTest, PartialWriteAfterPendingDelete) {
@@ -999,42 +981,37 @@ TEST_P(ChunkCacheTest, PartialWriteAfterPendingDelete) {
     EXPECT_EQ(Status(), GetStatus(write_future.result()));
     EXPECT_TRUE(store.HasChunk(span<const Index>({1})));
   }
-  // Verify that `cell_entry` contains data.
-  EXPECT_NE(nullptr, cell_entry->components[0].data);
 
   auto delete_future = cell_entry->Delete();
   // Test that no data is stored.
-  EXPECT_EQ(nullptr, cell_entry->components[0].data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
 
-  // Issue partial write: chunk 1, position [0]=3
+  // Issue partial write: chunk 1, position [0]=5
   {
     auto write_future =
         Write(0,
               ChainResult(tensorstore::IdentityTransform(1),
                           tensorstore::Dims(0).TranslateSizedInterval(2, 1))
                   .value(),
-              MakeArray<int>({3}));
+              MakeArray<int>({5}));
     write_future.Force();
     {
       auto r = log.writebacks.pop();
       EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
-      // Because the chunk was fully overwritten, the prior StorageGeneration is
-      // ignored.
-      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
+      EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
       store.HandleWriteback(r)();
     }
-    EXPECT_EQ(Status(), GetStatus(write_future.result()));
-    EXPECT_EQ(Status(), GetStatus(delete_future.result()));
+    TENSORSTORE_EXPECT_OK(write_future.result());
+    TENSORSTORE_EXPECT_OK(delete_future.result());
 
     ASSERT_TRUE(store.HasChunk(span<const Index>({1})));
     auto& chunk = store.GetChunk(span<const Index>({1}));
     EXPECT_EQ(2, chunk.generation);
-    EXPECT_THAT(chunk.data, ElementsAre(MakeArray({3, 2})));
+    EXPECT_THAT(chunk.data, ElementsAre(MakeArray({5, 2})));
   }
 
-  // Verify that `cell_entry` contains data.
-  ASSERT_NE(nullptr, cell_entry->components[0].data);
-  EXPECT_EQ(3, static_cast<int*>(cell_entry->components[0].data.get())[0]);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
+  EXPECT_EQ(MakeArray<int>({5, 2}), cell_entry->components[0].read_array);
 
   // Read back value from cache.
   {
@@ -1049,7 +1026,7 @@ TEST_P(ChunkCacheTest, PartialWriteAfterPendingDelete) {
     // Read result corresponds to:
     // [0]: chunk 1, position [0]
     // [1]: chunk 1, position [1] (fill value)
-    EXPECT_EQ(MakeArray<int>({3, 2}), read_array);
+    EXPECT_EQ(MakeArray<int>({5, 2}), read_array);
   }
 }
 
@@ -1061,11 +1038,11 @@ TEST_P(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
       SharedArray<const void>(MakeArray<int>({1, 2}))}}));
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
   // Cell initially has unknown data because no reads have been performed.
-  EXPECT_EQ(nullptr, cell_entry->components[0].data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].read_array.data());
   auto write_future = cell_entry->Delete();
   // Cell has known data equal to fill value after the Delete (indicated by
   // nullptr).
-  EXPECT_EQ(nullptr, cell_entry->components[0].data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
   write_future.Force();
   {
     auto r = log.writebacks.pop();
@@ -1076,7 +1053,7 @@ TEST_P(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
   EXPECT_FALSE(store.HasChunk(span<const Index>({1})));
   EXPECT_TRUE(write_future.result());
   // Data should still not be present after writeback.
-  EXPECT_EQ(nullptr, cell_entry->components[0].data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
 
   // Issue partial write: chunk 1, position [0]=3
   {
@@ -1086,13 +1063,11 @@ TEST_P(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
                           tensorstore::Dims(0).TranslateSizedInterval(2, 1))
                   .value(),
               MakeArray<int>({3}));
-    ASSERT_NE(nullptr, cell_entry->components[0].data);
-    EXPECT_EQ(3, static_cast<int*>(cell_entry->components[0].data.get())[0]);
-    EXPECT_FALSE(cell_entry->components[0].valid_outside_write_mask);
+    ASSERT_NE(nullptr, cell_entry->components[0].write_data);
+    EXPECT_EQ(3,
+              static_cast<int*>(cell_entry->components[0].write_data.get())[0]);
 
     write_future.Force();
-    // Forcing writeback does not affect `valid_outside_write_mask`.
-    EXPECT_FALSE(cell_entry->components[0].valid_outside_write_mask);
     {
       auto r = log.writebacks.pop();
       EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
@@ -1100,10 +1075,15 @@ TEST_P(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
       auto complete_writeback = store.HandleWriteback(r);
       // WritebackSnapshot fills in the unmasked data values with the fill
       // value.
-      EXPECT_TRUE(cell_entry->components[0].valid_outside_write_mask);
-      ASSERT_NE(nullptr, cell_entry->components[0].data);
-      EXPECT_EQ(3, static_cast<int*>(cell_entry->components[0].data.get())[0]);
-      EXPECT_EQ(2, static_cast<int*>(cell_entry->components[0].data.get())[1]);
+      ASSERT_EQ(nullptr, cell_entry->components[0].write_data);
+      ASSERT_NE(nullptr,
+                cell_entry->components[0].write_data_prior_to_writeback);
+      EXPECT_EQ(3,
+                static_cast<int*>(cell_entry->components[0]
+                                      .write_data_prior_to_writeback.get())[0]);
+      EXPECT_EQ(2,
+                static_cast<int*>(cell_entry->components[0]
+                                      .write_data_prior_to_writeback.get())[1]);
       complete_writeback();
     }
     EXPECT_EQ(Status(), GetStatus(write_future.result()));
@@ -1138,7 +1118,7 @@ TEST_P(ChunkCacheTest, ReadAfterPendingDelete) {
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
   // Perform delete.
   auto write_future = cell_entry->Delete();
-  EXPECT_EQ(nullptr, cell_entry->components[0].data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
 
   // Read back value from cache.
   {
@@ -1149,6 +1129,14 @@ TEST_P(ChunkCacheTest, ReadAfterPendingDelete) {
                          tensorstore::Dims(0).TranslateSizedInterval(2, 2))
                  .value(),
              read_array, absl::InfinitePast());
+
+    {
+      auto r = log.reads.pop();
+      EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
+      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
+      store.HandleRead(std::move(r));
+    }
+
     EXPECT_EQ(Status(), GetStatus(read_future.result()));
     // Read result corresponds to:
     // [0]: chunk 1, position [0] (fill value)
@@ -1174,21 +1162,21 @@ TEST_P(ChunkCacheTest, DeleteWithPendingRead) {
   // Wait for the read request to be received.
   auto r = log.reads.pop();
 
-  // Perform delete.  This fully overwrites chunk 1 and makes `read_future`
-  // ready even before the read request completes.
+  // Perform delete.  This fully overwrites chunk 1.
   auto write_future = cell_entry->Delete();
-  EXPECT_EQ(nullptr, cell_entry->components[0].data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
 
-  EXPECT_EQ(Status(), GetStatus(read_future.result()));
-  // Verify that read result matches fill value.
-  EXPECT_EQ(MakeArray<int>({1, 2}), read_array);
-  EXPECT_EQ(nullptr, cell_entry->components[0].data);
-
-  // Complete the read request even though it has been cancelled.
+  // Complete the read request.
   EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(1));
   EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
   store.HandleRead(r);
-  EXPECT_EQ(nullptr, cell_entry->components[0].data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
+
+  TENSORSTORE_EXPECT_OK(read_future.result());
+
+  // Verify that read result matches fill value.
+  EXPECT_EQ(MakeArray<int>({1, 2}), read_array);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
 }
 
 TEST_P(ChunkCacheTest, WriteToMaskedArrayError) {
@@ -1212,7 +1200,7 @@ TEST_P(ChunkCacheTest, WriteToMaskedArrayError) {
             MakeArray<int>({5, 6}));
   EXPECT_THAT(write_future.result(),
               MatchesStatus(absl::StatusCode::kOutOfRange));
-  EXPECT_TRUE(cell_entry->components[0].data);
+  EXPECT_TRUE(cell_entry->components[0].write_data);
   EXPECT_EQ(0, cell_entry->components[0].write_mask.num_masked_elements);
 
   // Verify read of same chunk after failed write returns fill value.
@@ -1343,7 +1331,7 @@ TEST_P(ChunkCacheTest, ModifyDuringWriteback) {
     complete_writeback();
   }
 
-  EXPECT_TRUE(write_future.result());
+  TENSORSTORE_EXPECT_OK(write_future.result());
   {
     // Verify that the writeback didn't include the second write.
     auto& chunk = store.GetChunk(span<const Index>({0}));
@@ -1353,7 +1341,7 @@ TEST_P(ChunkCacheTest, ModifyDuringWriteback) {
     chunk.generation = 2;
   }
   write_future2.Force();
-  // Handle the writeback request for chunk 1 (will fail due to generation
+  // Handle the writeback request for chunk 0 (will fail due to generation
   // mismatch).
   {
     auto r = log.writebacks.pop();
@@ -1368,14 +1356,15 @@ TEST_P(ChunkCacheTest, ModifyDuringWriteback) {
     EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
     store.HandleRead(r);
   }
-  // Handle the re-issued writeback request for chunk 1.
+  // Handle the re-issued writeback request for chunk 0.
   {
     auto r = log.writebacks.pop();
     EXPECT_THAT(r.entry()->cell_indices(), ElementsAre(0));
+    EXPECT_TRUE(r.entry()->components[0].write_data);
     EXPECT_EQ(GetStorageGenerationFromNumber(2), r.generation);
     store.HandleWriteback(std::move(r))();
   }
-  EXPECT_TRUE(write_future2.result());
+  TENSORSTORE_EXPECT_OK(write_future2.result());
   // Verify that the writeback only modified the single element touched by the
   // second write.
   {

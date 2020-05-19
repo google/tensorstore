@@ -133,6 +133,7 @@ tensorstore_cc_library(
         "//tensorstore/util:iterate_over_index_range",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
+        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/strings",
     ],

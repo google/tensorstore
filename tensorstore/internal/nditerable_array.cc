@@ -128,12 +128,15 @@ class IndexedIteratorImpl : public NDIterator::Base<IndexedIteratorImpl> {
 
 class ArrayIterableImpl : public NDIterable::Base<ArrayIterableImpl> {
  public:
-  ArrayIterableImpl(OffsetArrayView<const void> array,
+  ArrayIterableImpl(SharedOffsetArrayView<const void> array,
                     ArenaAllocator<> allocator)
-      : data_(const_cast<void*>(array.byte_strided_origin_pointer().get())),
-        data_type_(array.data_type()),
+      : data_type_(array.data_type()),
         byte_strides_(array.byte_strides().begin(), array.byte_strides().end(),
-                      allocator) {}
+                      allocator) {
+    void* origin_pointer =
+        const_cast<void*>(array.byte_strided_origin_pointer().get());
+    data_ = std::shared_ptr<void>(std::move(array.pointer()), origin_pointer);
+  }
   ArenaAllocator<> get_allocator() const override {
     return byte_strides_.get_allocator();
   }
@@ -178,24 +181,24 @@ class ArrayIterableImpl : public NDIterable::Base<ArrayIterableImpl> {
       IterationBufferKindLayoutView layout) const override {
     if (layout.buffer_kind == IterationBufferKind::kIndexed) {
       return MakeUniqueWithVirtualIntrusiveAllocator<IndexedIteratorImpl>(
-          get_allocator(), data_, byte_strides_, layout);
+          get_allocator(), data_.get(), byte_strides_, layout);
     }
     return MakeUniqueWithVirtualIntrusiveAllocator<StridedIteratorImpl>(
-        get_allocator(), data_, byte_strides_, layout);
+        get_allocator(), data_.get(), byte_strides_, layout);
   }
 
  private:
-  ByteStridedPointer<void> data_;
+  std::shared_ptr<void> data_;
   DataType data_type_;
   std::vector<Index, ArenaAllocator<Index>> byte_strides_;
 };
 
 }  // namespace
 
-NDIterable::Ptr GetArrayNDIterable(OffsetArrayView<const void> array,
+NDIterable::Ptr GetArrayNDIterable(SharedOffsetArrayView<const void> array,
                                    Arena* arena) {
   return MakeUniqueWithVirtualIntrusiveAllocator<ArrayIterableImpl>(
-      ArenaAllocator<>(arena), array);
+      ArenaAllocator<>(arena), std::move(array));
 }
 
 }  // namespace internal

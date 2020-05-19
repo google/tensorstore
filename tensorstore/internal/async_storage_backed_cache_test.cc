@@ -31,6 +31,7 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_testutil.h"
 
 namespace {
 
@@ -472,65 +473,6 @@ TEST(AsyncCacheTest, Write) {
   ASSERT_EQ(0, log.writebacks.size());
 }
 
-TEST(AsyncCacheTest, FullyOverwritten) {
-  auto pool = CachePool::Make(kSmallCacheLimits);
-  RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return absl::make_unique<TestCache>(&log); });
-  auto entry = GetCacheEntry(cache, "a");
-
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
-  ASSERT_FALSE(write_future.ready());
-  ASSERT_EQ(0, log.reads.size());
-  ASSERT_EQ(0, log.writebacks.size());
-
-  // Reading after a full overwrite, prior to writeback, doesn't require a new
-  // read request, regardless of the staleness bound.
-  {
-    auto read_future = entry->Read(absl::InfiniteFuture());
-    EXPECT_TRUE(read_future.ready());
-    EXPECT_TRUE(read_future.result());
-  }
-
-  write_future.Force();
-  ASSERT_FALSE(write_future.ready());
-  ASSERT_EQ(0, log.reads.size());
-  ASSERT_EQ(1, log.writebacks.size());
-  auto write_time = absl::Now();
-  {
-    auto write_req = log.writebacks.front();
-    log.writebacks.clear();
-    EXPECT_EQ(StorageGeneration::Unknown(), write_req.generation.generation);
-    write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_req.receiver.NotifyDone(
-        /*size_update=*/{},
-        {std::in_place, StorageGeneration{"g1"}, write_time});
-  }
-  ASSERT_TRUE(write_future.ready());
-  ASSERT_TRUE(write_future.result());
-  ASSERT_EQ(0, log.reads.size());
-  ASSERT_EQ(0, log.writebacks.size());
-
-  // Reading after writeback with an old time doesn't require a new read
-  // request.
-  {
-    auto read_future = entry->Read(write_time);
-    ASSERT_EQ(0, log.reads.size());
-    ASSERT_EQ(0, log.writebacks.size());
-    EXPECT_TRUE(read_future.ready());
-    EXPECT_TRUE(read_future.result());
-  }
-
-  // Reading after writeback with a new time does require a new read request.
-  {
-    auto read_future = entry->Read(absl::InfiniteFuture());
-    ASSERT_EQ(1, log.reads.size());
-    ASSERT_EQ(0, log.writebacks.size());
-    EXPECT_FALSE(read_future.ready());
-  }
-}
-
 TEST(AsyncCacheTest, ReadAfterUnconditionalWriteback) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   RequestLog log;
@@ -637,17 +579,17 @@ TEST(AsyncCacheTest, FullyOverwrittenAfterSuccessfulRead) {
   ASSERT_TRUE(read_future.ready());
   ASSERT_TRUE(read_future.result());
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
+  auto write_future = entry->FinishWrite(/*size_update=*/{},
+                                         WriteFlags::kUnconditionalWriteback);
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
   ASSERT_EQ(0, log.writebacks.size());
 
+  // Reading still results in a new read request.
   auto read_future2 = entry->Read(absl::InfiniteFuture());
-  ASSERT_EQ(0, log.reads.size());
-  ASSERT_EQ(0, log.writebacks.size());
-  ASSERT_TRUE(read_future2.ready());
-  EXPECT_TRUE(read_future2.result());
+  EXPECT_EQ(1, log.reads.size());
+  EXPECT_EQ(0, log.writebacks.size());
+  EXPECT_FALSE(read_future2.ready());
 }
 
 TEST(AsyncCacheTest, FullyOverwrittenAfterFailedRead) {
@@ -674,17 +616,17 @@ TEST(AsyncCacheTest, FullyOverwrittenAfterFailedRead) {
   ASSERT_FALSE(read_future.result());
   EXPECT_EQ(read_error, read_future.result().status());
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
+  auto write_future = entry->FinishWrite(/*size_update=*/{},
+                                         WriteFlags::kUnconditionalWriteback);
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
   ASSERT_EQ(0, log.writebacks.size());
 
+  // Reading still results in a new read request.
   auto read_future2 = entry->Read(absl::InfiniteFuture());
-  ASSERT_EQ(0, log.reads.size());
-  ASSERT_EQ(0, log.writebacks.size());
-  ASSERT_TRUE(read_future2.ready());
-  EXPECT_TRUE(read_future2.result());
+  EXPECT_EQ(1, log.reads.size());
+  EXPECT_EQ(0, log.writebacks.size());
+  EXPECT_FALSE(read_future2.ready());
 }
 
 TEST(AsyncCacheTest, FullyOverwrittenWithIssuedRead) {
@@ -698,11 +640,11 @@ TEST(AsyncCacheTest, FullyOverwrittenWithIssuedRead) {
   ASSERT_EQ(1, log.reads.size());
   ASSERT_EQ(0, log.writebacks.size());
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
+  auto write_future = entry->FinishWrite(/*size_update=*/{},
+                                         WriteFlags::kUnconditionalWriteback);
+  // Write doesn't affect read request.
   ASSERT_FALSE(write_future.ready());
-  EXPECT_TRUE(read_future.ready());
-  EXPECT_TRUE(read_future.result());
+  ASSERT_FALSE(read_future.ready());
 
   write_future.Force();
 
@@ -720,12 +662,15 @@ TEST(AsyncCacheTest, FullyOverwrittenWithIssuedRead) {
         {std::in_place, StorageGeneration{"g1"}, absl::Now()});
   }
 
+  ASSERT_TRUE(read_future.ready());
+  TENSORSTORE_ASSERT_OK(read_future.result());
+
   ASSERT_EQ(0, log.reads.size());
   ASSERT_EQ(1, log.writebacks.size());
 
   auto write_req = log.writebacks.front();
   log.writebacks.clear();
-  EXPECT_EQ(StorageGeneration::Unknown(), write_req.generation.generation);
+  EXPECT_EQ("g1", write_req.generation.generation);
 }
 
 TEST(AsyncCacheTest, FullyOverwrittenWithIssuedReadAndQueuedRead) {
@@ -741,16 +686,15 @@ TEST(AsyncCacheTest, FullyOverwrittenWithIssuedReadAndQueuedRead) {
   ASSERT_EQ(1, log.reads.size());
   ASSERT_EQ(0, log.writebacks.size());
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
+  auto write_future = entry->FinishWrite(/*size_update=*/{},
+                                         WriteFlags::kUnconditionalWriteback);
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(1, log.reads.size());
   ASSERT_EQ(0, log.writebacks.size());
 
-  ASSERT_TRUE(read_future.ready());
-  EXPECT_TRUE(read_future.result());
-  ASSERT_TRUE(read_future2.ready());
-  EXPECT_TRUE(read_future2.result());
+  // Write doesn't affect reads.
+  ASSERT_FALSE(read_future.ready());
+  ASSERT_FALSE(read_future2.ready());
 
   {
     auto read_req = log.reads.front();
@@ -766,8 +710,8 @@ TEST(AsyncCacheTest, ForcedQueuedWritebackIssuedAfterWriteback) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
+  auto write_future = entry->FinishWrite(/*size_update=*/{},
+                                         WriteFlags::kUnconditionalWriteback);
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
@@ -810,8 +754,8 @@ TEST(AsyncCacheTest, QueuedWritebackNotIssuedAfterWriteback) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
+  auto write_future = entry->FinishWrite(/*size_update=*/{},
+                                         WriteFlags::kUnconditionalWriteback);
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
@@ -857,8 +801,8 @@ TEST(AsyncCacheTest, QueuedWritebackNotNeededAfterWriteback) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
+  auto write_future = entry->FinishWrite(/*size_update=*/{},
+                                         WriteFlags::kUnconditionalWriteback);
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
@@ -890,8 +834,8 @@ TEST(AsyncCacheTest, WritebackFailedWhenFullyOverwritten) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
+  auto write_future = entry->FinishWrite(/*size_update=*/{},
+                                         WriteFlags::kUnconditionalWriteback);
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
@@ -1386,8 +1330,8 @@ TEST(AsyncCacheTest, ForceWritebackWhenClean) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
+  auto write_future = entry->FinishWrite(/*size_update=*/{},
+                                         WriteFlags::kUnconditionalWriteback);
   write_future.Force();
   write_future.Force();
   ASSERT_FALSE(write_future.ready());
@@ -1400,8 +1344,8 @@ TEST(AsyncCacheTest, ForceWritebackWhenClean) {
     log.writebacks.clear();
     // Call WritebackStarted so that a subsequent write gets a new Future.
     write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_future2 =
-        entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
+    write_future2 = entry->FinishWrite(/*size_update=*/{},
+                                       WriteFlags::kUnconditionalWriteback);
     ASSERT_FALSE(HaveSameSharedState(write_future, write_future2));
     write_future.ExecuteWhenReady(
         [write_future2](Future<const void>) { write_future2.Force(); });
@@ -1491,8 +1435,8 @@ TEST(AsyncCacheTest, WriteFutureSharingAfterWritebackIssued) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
+  auto write_future = entry->FinishWrite(/*size_update=*/{},
+                                         WriteFlags::kUnconditionalWriteback);
 
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
@@ -1522,8 +1466,8 @@ TEST(AsyncCacheTest, FullyOverwrittenAfterWritebackStarted) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
+  auto write_future = entry->FinishWrite(/*size_update=*/{},
+                                         WriteFlags::kUnconditionalWriteback);
 
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
@@ -1539,8 +1483,8 @@ TEST(AsyncCacheTest, FullyOverwrittenAfterWritebackStarted) {
     log.writebacks.clear();
     EXPECT_EQ(StorageGeneration::Unknown(), write_req.generation.generation);
     write_req.receiver.NotifyStarted(/*size_update=*/{});
-    write_future2 =
-        entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
+    write_future2 = entry->FinishWrite(/*size_update=*/{},
+                                       WriteFlags::kUnconditionalWriteback);
     write_req.receiver.NotifyDone(
         /*size_update=*/{},
         {std::in_place, StorageGeneration{"g2"}, absl::Now()});
@@ -1549,8 +1493,8 @@ TEST(AsyncCacheTest, FullyOverwrittenAfterWritebackStarted) {
   ASSERT_FALSE(write_future2.ready());
 
   auto read_future = entry->Read(absl::InfiniteFuture());
-  ASSERT_TRUE(read_future.ready());
-  ASSERT_TRUE(read_future.result());
+  // Read still requires additional read request.
+  ASSERT_FALSE(read_future.ready());
 }
 
 TEST(AsyncCacheTest, WritebackRequestedByCache) {
@@ -1604,8 +1548,8 @@ TEST(AsyncCacheTest, GetWritebackFutureAfterWritebackIssued) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
+  auto write_future = entry->FinishWrite(/*size_update=*/{},
+                                         WriteFlags::kUnconditionalWriteback);
 
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
@@ -1645,8 +1589,8 @@ TEST(AsyncCacheTest, GetWritebackFutureWithWritebackQueuedAndNotCancelled) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
+  auto write_future = entry->FinishWrite(/*size_update=*/{},
+                                         WriteFlags::kUnconditionalWriteback);
 
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
@@ -1663,8 +1607,8 @@ TEST(AsyncCacheTest, GetWritebackFutureWithWritebackQueuedAndNotCancelled) {
   EXPECT_EQ(StorageGeneration::Unknown(), write_req.generation.generation);
   write_req.receiver.NotifyStarted(/*size_update=*/{});
 
-  write_future2 =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
+  write_future2 = entry->FinishWrite(/*size_update=*/{},
+                                     WriteFlags::kUnconditionalWriteback);
   EXPECT_FALSE(HaveSameSharedState(write_future2, write_future));
   {
     auto write_future3 = entry->GetWritebackFuture();
@@ -1679,8 +1623,8 @@ TEST(AsyncCacheTest, GetWritebackFutureWithWritebackQueuedAndCancelled) {
       "", [&] { return absl::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto write_future =
-      entry->FinishWrite(/*size_update=*/{}, WriteFlags::kSupersedesRead);
+  auto write_future = entry->FinishWrite(/*size_update=*/{},
+                                         WriteFlags::kUnconditionalWriteback);
 
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());

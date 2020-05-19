@@ -26,11 +26,13 @@ namespace internal {
 ///
 /// \param array The array to iterate over.  The data must remain valid as long
 ///     as the iterable is used, but the layout need not remain valid after this
-///     function returns.
+///     function returns.  A non-`Shared` array guaranteed to remain valid for
+///     the lifetime of the returned `NDIterable` may be passed using
+///     `UnownedToShared`.
 /// \param arena Allocation arena to use, must remain valid until after the
 ///     returned `NDIterable` is destroyed.
 /// \returns Non-null pointer to `NDIterable`.
-NDIterable::Ptr GetArrayNDIterable(OffsetArrayView<const void> array,
+NDIterable::Ptr GetArrayNDIterable(SharedOffsetArrayView<const void> array,
                                    Arena* arena);
 
 }  // namespace internal

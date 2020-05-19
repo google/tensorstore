@@ -107,6 +107,11 @@ class TaggedTransformPtr<container>
 /// members and defines common utility functions used by the implementation.
 class TransformedArrayAccess {
  public:
+  template <typename T, typename... U>
+  static T Construct(U&&... u) {
+    return T(std::forward<U>(u)...);
+  }
+
   /// Internal tag type used to indicate construction from an existing
   /// transformed array.
   struct construct_tag {

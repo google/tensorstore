@@ -55,6 +55,7 @@ using tensorstore::MakeArray;
 using tensorstore::MatchesStatus;
 using tensorstore::NormalizedTransformedArray;
 using tensorstore::Result;
+using tensorstore::Shared;
 using tensorstore::SharedArray;
 using tensorstore::skip_repeated_elements;
 using tensorstore::Status;
@@ -108,7 +109,7 @@ class NDIterableTransformedArrayTest : public ::testing::TestWithParam<bool> {
   Arena arena;
 
   Result<NDIterable::Ptr> GetMaybeNormalizedTransformedArrayNDIterable(
-      NormalizedTransformedArray<const void> array) {
+      NormalizedTransformedArray<Shared<const void>> array) {
     if (GetParam()) {
       return GetNormalizedTransformedArrayNDIterable(std::move(array), &arena);
     } else {
@@ -380,7 +381,8 @@ TEST_P(NDIterableTransformedArrayTest, ZeroRankIndexArray) {
           .output_index_array(0, sizeof(int) * 2, sizeof(int) * 4, index_array)
           .Finalize()
           .value()};
-  auto iterable_a = GetMaybeNormalizedTransformedArrayNDIterable(ta).value();
+  auto iterable_a =
+      GetMaybeNormalizedTransformedArrayNDIterable(UnownedToShared(ta)).value();
   MultiNDIterator<1, /*Full=*/true> multi_iterator(
       ta.shape(), skip_repeated_elements, {{iterable_a.get()}}, &arena);
   EXPECT_THAT(multi_iterator.iteration_dimensions, ElementsAre(-1));
@@ -396,7 +398,7 @@ TEST(NDIterableTransformedArrayErrorTest, OutOfBoundsConstant) {
                        .output_constant(0, 8)
                        .Finalize()
                        .value();
-  TransformedArray<int> ta(a, transform);
+  TransformedArray<Shared<int>> ta(a, transform);
   EXPECT_THAT(GetTransformedArrayNDIterable(ta, &arena),
               MatchesStatus(
                   absl::StatusCode::kOutOfRange,
@@ -412,7 +414,7 @@ TEST(NDIterableTransformedArrayErrorTest, OutOfBoundsSingleInputDimension) {
                        .output_single_input_dimension(0, 2, 1, 0)
                        .Finalize()
                        .value();
-  TransformedArray<int> ta(a, transform);
+  TransformedArray<Shared<int>> ta(a, transform);
   EXPECT_THAT(GetTransformedArrayNDIterable(ta, &arena),
               MatchesStatus(absl::StatusCode::kOutOfRange,
                             "Output dimension 0 range of \\[2, 7\\) is not "
@@ -428,7 +430,7 @@ TEST(NDIterableTransformedArrayErrorTest, OutOfBoundsIndexArray) {
           .output_index_array(0, 2, 1, MakeArray<Index>({0, 0, 0, 0, 42}))
           .Finalize()
           .value();
-  TransformedArray<int> ta(a, transform);
+  TransformedArray<Shared<int>> ta(a, transform);
   EXPECT_THAT(GetTransformedArrayNDIterable(ta, &arena),
               MatchesStatus(absl::StatusCode::kOutOfRange,
                             "Index 42 is outside valid range \\[-2, 3\\)\\."));
@@ -444,7 +446,7 @@ TEST(NDIterableTransformedArrayErrorTest, OutOfBoundsSingletonIndexArray) {
                        .output_index_array(0, 2, 1, index_array)
                        .Finalize()
                        .value();
-  TransformedArray<int> ta(a, transform);
+  TransformedArray<Shared<int>> ta(a, transform);
   EXPECT_THAT(GetTransformedArrayNDIterable(ta, &arena),
               MatchesStatus(absl::StatusCode::kOutOfRange,
                             "Index 42 is outside valid range \\[-2, 3\\)\\."));
