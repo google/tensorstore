@@ -18,6 +18,8 @@
 #include <gtest/gtest.h>
 #include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_domain_builder.h"
+#include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/cache.h"
 #include "tensorstore/internal/compression/jpeg.h"
 #include "tensorstore/internal/parse_json_matches.h"
@@ -1330,7 +1332,12 @@ TEST(BasicFunctionalityTest, Uint16Raw) {
                  {"sharding", sharding_json},
              }},
         },
-        {"x", "y", "z", "channel"},
+        tensorstore::IndexDomainBuilder(4)
+            .origin({1, 2, 3, 0})
+            .shape({10, 11, 12, 4})
+            .labels({"x", "y", "z", "channel"})
+            .Finalize()
+            .value(),
         tensorstore::AllocateArray<std::uint16_t>(
             tensorstore::BoxView({1, 2, 3, 0}, {10, 11, 12, 4}),
             tensorstore::c_order, tensorstore::value_init));

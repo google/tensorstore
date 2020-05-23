@@ -19,6 +19,7 @@
 #include "absl/algorithm/container.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/data_type_random_generator.h"
 #include "tensorstore/internal/logging.h"
@@ -112,7 +113,7 @@ IndexTransform<> GetRandomTransform(IndexDomainView<> domain,
 }
 
 void TestTensorStoreDriverBasicFunctionality(
-    ::nlohmann::json create_spec, std::vector<std::string> expected_labels,
+    ::nlohmann::json create_spec, IndexDomain<> expected_domain,
     OffsetArrayView<const void> initial_value) {
   SCOPED_TRACE(StrCat("create_spec=", create_spec));
   auto context = Context::Default();
@@ -121,12 +122,6 @@ void TestTensorStoreDriverBasicFunctionality(
           .result();
   ASSERT_EQ(Status(), GetStatus(store_result));
   auto store = *store_result;
-  const IndexDomain<> expected_domain(
-      IndexTransformBuilder<>(initial_value.rank(), 0)
-          .input_bounds(initial_value.domain())
-          .input_labels(expected_labels)
-          .Finalize()
-          .value());
   ASSERT_EQ(expected_domain, store.domain());
   ASSERT_EQ(initial_value.data_type(), store.data_type());
   {

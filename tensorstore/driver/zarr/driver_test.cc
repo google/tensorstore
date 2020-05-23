@@ -17,7 +17,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/context.h"
+#include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/cache.h"
 #include "tensorstore/internal/compression/blosc.h"
@@ -1743,6 +1745,30 @@ TEST(ZarrDriverTest, ReadAfterUncommittedWrite) {
                   {42, 42, 42},
                   {42, 42, 42},
               })));
+}
+
+TEST(ZarrDriverTest, BasicFunctionalityTest) {
+  tensorstore::internal::TestTensorStoreDriverBasicFunctionality(
+      {
+          {"driver", "zarr"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"path", "prefix"},
+          {"metadata",
+           {
+               {"compressor", nullptr},
+               {"dtype", "<u2"},
+               {"shape", {10, 11}},
+               {"chunks", {4, 5}},
+           }},
+      },
+      tensorstore::IndexDomainBuilder(2)
+          .shape({10, 11})
+          .implicit_upper_bounds({1, 1})
+          .Finalize()
+          .value(),
+      tensorstore::AllocateArray<std::uint16_t>(tensorstore::BoxView({10, 11}),
+                                                tensorstore::c_order,
+                                                tensorstore::value_init));
 }
 
 }  // namespace

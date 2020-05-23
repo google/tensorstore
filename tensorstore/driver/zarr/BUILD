@@ -116,6 +116,7 @@ tensorstore_cc_test(
         ":zarr",
         "//tensorstore:context",
         "//tensorstore:open",
+        "//tensorstore/driver:driver_testutil",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/internal:cache",

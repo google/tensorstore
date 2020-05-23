@@ -21,6 +21,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/spec_request_options.h"
 
@@ -45,7 +46,7 @@ void TestTensorStoreDriverSpecConvert(::nlohmann::json orig_spec,
 /// Tests that `create_spec` creates a TensorStore with the specified domain and
 /// data type, and that `Read`, `Write`, and `ResolveBounds` functions work.
 void TestTensorStoreDriverBasicFunctionality(
-    ::nlohmann::json create_spec, std::vector<std::string> expected_labels,
+    ::nlohmann::json create_spec, IndexDomain<> expected_domain,
     OffsetArrayView<const void> initial_value);
 
 }  // namespace internal

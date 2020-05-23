@@ -47,6 +47,7 @@ tensorstore_cc_test(
         "//tensorstore:open",
         "//tensorstore/driver:driver_testutil",
         "//tensorstore/index_space:dim_expression",
+        "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/internal:cache",
         "//tensorstore/internal:parse_json_matches",
         "//tensorstore/internal/compression:jpeg",

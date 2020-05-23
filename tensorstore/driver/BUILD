@@ -90,6 +90,7 @@ tensorstore_cc_library(
         "//tensorstore:open",
         "//tensorstore:spec_request_options",
         "//tensorstore/index_space:dim_expression",
+        "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/internal:data_type_random_generator",
         "//tensorstore/internal:logging",
