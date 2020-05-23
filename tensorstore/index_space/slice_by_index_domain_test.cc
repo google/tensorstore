@@ -14,6 +14,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/util/status.h"
@@ -22,6 +23,7 @@
 namespace {
 
 using tensorstore::IndexDomain;
+using tensorstore::IndexDomainBuilder;
 using tensorstore::IndexTransformBuilder;
 using tensorstore::MatchesStatus;
 
@@ -33,11 +35,11 @@ TEST(SliceByIndexDomainTest, BothFullyUnlabeled) {
                        .output_single_input_dimension(1, 0)
                        .Finalize()
                        .value();
-  IndexDomain<> domain(IndexTransformBuilder<>(2, 0)
-                           .input_origin({2, 3})
-                           .input_exclusive_max({4, 6})
-                           .Finalize()
-                           .value());
+  auto domain = IndexDomainBuilder(2)
+                    .origin({2, 3})
+                    .exclusive_max({4, 6})
+                    .Finalize()
+                    .value();
   // transform: [0, 5), [1, 7)
   // domain:    [2, 4), [3, 6)
   // result:    [2, 4), [3, 6)
@@ -61,11 +63,11 @@ TEST(SliceByIndexDomainTest, FullyUnlabeledDomain) {
                        .output_single_input_dimension(1, 0)
                        .Finalize()
                        .value();
-  IndexDomain<> domain(IndexTransformBuilder<>(2, 0)
-                           .input_origin({2, 3})
-                           .input_exclusive_max({4, 6})
-                           .Finalize()
-                           .value());
+  auto domain = IndexDomainBuilder(2)
+                    .origin({2, 3})
+                    .exclusive_max({4, 6})
+                    .Finalize()
+                    .value();
   // transform: "x": [0, 5), "y": [1, 7)
   // domain:    [2, 4), [3, 6)
   // result:    "x": [2, 4), "y": [3, 6)
@@ -90,12 +92,12 @@ TEST(SliceByIndexDomainTest, FullyUnlabeledTransform) {
                        .output_single_input_dimension(1, 0)
                        .Finalize()
                        .value();
-  IndexDomain<> domain(IndexTransformBuilder<>(2, 0)
-                           .input_origin({2, 3})
-                           .input_exclusive_max({4, 6})
-                           .input_labels({"x", "y"})
-                           .Finalize()
-                           .value());
+  auto domain = IndexDomainBuilder(2)
+                    .origin({2, 3})
+                    .exclusive_max({4, 6})
+                    .labels({"x", "y"})
+                    .Finalize()
+                    .value();
   // transform: [0, 5), [1, 7)
   // domain:    "x": [2, 4), "y": [3, 6)
   // result:    "x": [2, 4), "y": [3, 6)
@@ -121,12 +123,12 @@ TEST(SliceByIndexDomainTest, LabeledFullMatch) {
                        .output_single_input_dimension(1, 0)
                        .Finalize()
                        .value();
-  IndexDomain<> domain(IndexTransformBuilder<>(2, 0)
-                           .input_origin({2, 3})
-                           .input_exclusive_max({6, 4})
-                           .input_labels({"y", "x"})
-                           .Finalize()
-                           .value());
+  auto domain = IndexDomainBuilder(2)
+                    .origin({2, 3})
+                    .exclusive_max({6, 4})
+                    .labels({"y", "x"})
+                    .Finalize()
+                    .value();
   // transform: "x": [0, 5), "y": [1, 7)
   // domain:    "y": [2, 6), "x": [3, 4)
   // result:    "x": [3, 4), "y": [2, 6)
@@ -151,12 +153,12 @@ TEST(SliceByIndexDomainTest, OutOfBounds) {
                        .output_single_input_dimension(1, 0)
                        .Finalize()
                        .value();
-  IndexDomain<> domain(IndexTransformBuilder<>(2, 0)
-                           .input_origin({2, -1})
-                           .input_exclusive_max({6, 4})
-                           .input_labels({"y", "x"})
-                           .Finalize()
-                           .value());
+  auto domain = IndexDomainBuilder(2)
+                    .origin({2, -1})
+                    .exclusive_max({6, 4})
+                    .labels({"y", "x"})
+                    .Finalize()
+                    .value();
   EXPECT_THAT(
       domain(transform),
       MatchesStatus(absl::StatusCode::kOutOfRange,
@@ -174,12 +176,12 @@ TEST(SliceByIndexDomainTest, LabeledPartialMatch) {
                        .output_single_input_dimension(1, 0)
                        .Finalize()
                        .value();
-  IndexDomain<> domain(IndexTransformBuilder<>(2, 0)
-                           .input_origin({2, 3})
-                           .input_exclusive_max({6, 4})
-                           .input_labels({"y", "x"})
-                           .Finalize()
-                           .value());
+  auto domain = IndexDomainBuilder(2)
+                    .origin({2, 3})
+                    .exclusive_max({6, 4})
+                    .labels({"y", "x"})
+                    .Finalize()
+                    .value();
   // transform: "x": [0, 5), "y": [1, 7), "z": [2, 9)
   // domain:    "y": [2, 6), "x": [3, 4)
   // result:    "x": [3, 4), "y": [2, 6), "z": [2, 9)
@@ -202,12 +204,12 @@ TEST(SliceByIndexDomainTest, PartiallyLabeled) {
                        .output_single_input_dimension(1, 0)
                        .Finalize()
                        .value();
-  IndexDomain<> domain(IndexTransformBuilder<>(4, 0)
-                           .input_origin({1, 2, 3, 4})
-                           .input_exclusive_max({6, 7, 8, 9})
-                           .input_labels({"y", "", "x", ""})
-                           .Finalize()
-                           .value());
+  auto domain = IndexDomainBuilder(4)
+                    .origin({1, 2, 3, 4})
+                    .exclusive_max({6, 7, 8, 9})
+                    .labels({"y", "", "x", ""})
+                    .Finalize()
+                    .value();
   // transform: "x": (inf), "": (inf), "": (inf), "y": (inf)
   // domain:    "y": [1, 6), "": [2, 7), "x": [3, 8), "": [4, 9)
   // result:    "x": [3, 8), "": [2, 7), "": [4, 9) "y": [1, 6)
@@ -230,12 +232,12 @@ TEST(SliceByIndexDomainTest, PartiallyLabeledRankMismatch) {
                        .output_single_input_dimension(1, 0)
                        .Finalize()
                        .value();
-  IndexDomain<> domain(IndexTransformBuilder<>(3, 0)
-                           .input_origin({1, 2, 3})
-                           .input_exclusive_max({6, 7, 8})
-                           .input_labels({"y", "", "x"})
-                           .Finalize()
-                           .value());
+  auto domain = IndexDomainBuilder(3)
+                    .origin({1, 2, 3})
+                    .exclusive_max({6, 7, 8})
+                    .labels({"y", "", "x"})
+                    .Finalize()
+                    .value();
   EXPECT_THAT(domain(std::move(transform)),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Rank \\(3\\) of index domain containing unlabeled "
@@ -249,12 +251,12 @@ TEST(SliceByIndexDomainTest, LabelMismatch) {
                        .output_single_input_dimension(1, 0)
                        .Finalize()
                        .value();
-  IndexDomain<> domain(IndexTransformBuilder<>(2, 0)
-                           .input_origin({1, 2})
-                           .input_exclusive_max({6, 7})
-                           .input_labels({"y", "z"})
-                           .Finalize()
-                           .value());
+  auto domain = IndexDomainBuilder(2)
+                    .origin({1, 2})
+                    .exclusive_max({6, 7})
+                    .labels({"y", "z"})
+                    .Finalize()
+                    .value();
   EXPECT_THAT(
       domain(std::move(transform)),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
@@ -268,12 +270,12 @@ TEST(SliceByIndexDomainTest, PartiallyLabeledUnlabeledDimensionMismatch) {
                        .output_single_input_dimension(1, 0)
                        .Finalize()
                        .value();
-  IndexDomain<> domain(IndexTransformBuilder<>(4, 0)
-                           .input_origin({1, 2, 3, 4})
-                           .input_exclusive_max({6, 7, 8, 9})
-                           .input_labels({"y", "", "x", ""})
-                           .Finalize()
-                           .value());
+  auto domain = IndexDomainBuilder(4)
+                    .origin({1, 2, 3, 4})
+                    .exclusive_max({6, 7, 8, 9})
+                    .labels({"y", "", "x", ""})
+                    .Finalize()
+                    .value();
   EXPECT_THAT(
       domain(std::move(transform)),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
@@ -289,11 +291,8 @@ TEST(SliceByIndexDomainTest, FullyUnlabeledRankMismatch) {
                        .output_single_input_dimension(1, 0)
                        .Finalize()
                        .value();
-  IndexDomain<> domain(IndexTransformBuilder<>(1, 0)
-                           .input_origin({2})
-                           .input_exclusive_max({4})
-                           .Finalize()
-                           .value());
+  auto domain =
+      IndexDomainBuilder(1).origin({2}).exclusive_max({4}).Finalize().value();
   EXPECT_THAT(
       domain(std::move(transform)),
       MatchesStatus(

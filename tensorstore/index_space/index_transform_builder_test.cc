@@ -14,10 +14,13 @@
 
 #include "tensorstore/index_space/index_transform_builder.h"
 
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
@@ -25,6 +28,7 @@
 namespace {
 
 using tensorstore::Index;
+using tensorstore::IndexDomainBuilder;
 using tensorstore::IndexInterval;
 using tensorstore::IndexTransform;
 using tensorstore::IndexTransformBuilder;
@@ -437,7 +441,7 @@ TEST(IndexTransformBuilderTest, ExclusiveMaxAfterShape) {
 }
 
 // Tests that the input domain bounds can be set from a box using the
-// `input_domain_box` method.
+// `input_bounds` method.
 TEST(IndexTransformBuilderTest, InputDomainBox) {
   auto t = IndexTransformBuilder<>(2, 2)
                .input_bounds(tensorstore::BoxView({1, 2}, {2, 3}))
@@ -480,6 +484,92 @@ TEST(IndexTransformBuilder, NonUniqueLabels) {
       IndexTransformBuilder<>(3, 0).input_labels({"a", "", "a"}).Finalize(),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Dimension label \"a\" is not unique"));
+}
+
+TEST(IndexDomainBuilderTest, Null) {
+  IndexDomainBuilder builder(nullptr);
+  EXPECT_FALSE(builder.valid());
+}
+
+TEST(IndexDomainBuilderTest, Basic) {
+  IndexDomainBuilder builder(3);
+  EXPECT_EQ(3, builder.rank());
+  builder.origin(span<const Index, 3>({1, 2, 3}));
+  EXPECT_THAT(builder.origin(), ::testing::ElementsAre(1, 2, 3));
+  builder.shape(span<const Index, 3>({4, 5, 6}));
+  EXPECT_THAT(builder.shape(), ::testing::ElementsAre(4, 5, 6));
+  builder.exclusive_max(span<const Index, 3>({4, 5, 6}));
+  EXPECT_THAT(builder.exclusive_max(), ::testing::ElementsAre(4, 5, 6));
+  builder.inclusive_max(span<const Index, 3>({4, 5, 6}));
+  EXPECT_THAT(builder.inclusive_max(), ::testing::ElementsAre(4, 5, 6));
+  builder.implicit_lower_bounds(span<const bool, 3>({0, 1, 1}));
+  builder.implicit_upper_bounds(span<const bool, 3>({1, 0, 1}));
+  EXPECT_THAT(builder.implicit_lower_bounds(), ::testing::ElementsAre(0, 1, 1));
+  EXPECT_THAT(builder.implicit_upper_bounds(), ::testing::ElementsAre(1, 0, 1));
+  builder.labels(std::vector<std::string>{"x", "y", "z"});
+  EXPECT_THAT(builder.labels(), ::testing::ElementsAre("x", "y", "z"));
+}
+
+// Tests that the labels can be set using the `labels` method.
+TEST(IndexDomainBuilderTest, Labels) {
+  auto d = IndexDomainBuilder(2).labels({"x", "y"}).Finalize().value();
+  EXPECT_THAT(d.labels(), ::testing::ElementsAre("x", "y"));
+}
+
+// Tests that the upper bound can be set using the `inclusive_max` method.
+TEST(IndexDomainBuilderTest, InclusiveMax) {
+  auto d = IndexDomainBuilder(2)
+               .origin({1, 2})
+               .inclusive_max({3, 5})
+               .Finalize()
+               .value();
+  EXPECT_THAT(d.origin(), ::testing::ElementsAre(1, 2));
+  EXPECT_THAT(d.shape(), ::testing::ElementsAre(3, 4));
+}
+
+// Tests that the upper bound can be set using the `shape` method.
+TEST(IndexDomainBuilderTest, Shape) {
+  auto d =
+      IndexDomainBuilder(2).origin({1, 2}).shape({3, 5}).Finalize().value();
+  EXPECT_THAT(d.origin(), ::testing::ElementsAre(1, 2));
+  EXPECT_THAT(d.shape(), ::testing::ElementsAre(3, 5));
+}
+
+// Tests that the upper bound can be set using the `exclusive_max` method.
+TEST(IndexDomainBuilderTest, ExclusiveMax) {
+  auto d = IndexDomainBuilder(2)
+               .origin({1, 2})
+               .exclusive_max({3, 5})
+               .Finalize()
+               .value();
+  EXPECT_THAT(d.origin(), ::testing::ElementsAre(1, 2));
+  EXPECT_THAT(d.shape(), ::testing::ElementsAre(2, 3));
+}
+
+// Tests that the bounds can be set from a box using the `bounds` method.
+TEST(IndexDomainBuilderTest, InputDomainBox) {
+  auto d = IndexDomainBuilder(2)
+               .bounds(tensorstore::BoxView({1, 2}, {2, 3}))
+               .Finalize()
+               .value();
+  EXPECT_THAT(d.origin(), ::testing::ElementsAre(1, 2));
+  EXPECT_THAT(d.shape(), ::testing::ElementsAre(2, 3));
+}
+
+// Tests that the domain can be set from an existing IndexDomain using the
+// `domain` method.
+TEST(IndexDomainBuilderTest, InputDomain) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(tensorstore::IndexDomain<2> domain,
+                                   IndexDomainBuilder<2>()
+                                       .origin({1, 2})
+                                       .shape({3, 4})
+                                       .implicit_lower_bounds({0, 1})
+                                       .implicit_upper_bounds({1, 0})
+                                       .labels({"x", "y"})
+                                       .Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto d, IndexDomainBuilder<>(2).domain(domain).Finalize());
+  EXPECT_EQ(domain, d);
 }
 
 }  // namespace

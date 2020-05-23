@@ -16,6 +16,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/util/status.h"
@@ -25,6 +26,7 @@ namespace {
 
 using tensorstore::DimensionIndex;
 using tensorstore::IndexDomain;
+using tensorstore::IndexDomainBuilder;
 using tensorstore::IndexTransform;
 using tensorstore::IndexTransformBuilder;
 using tensorstore::MatchesStatus;
@@ -33,16 +35,16 @@ using tensorstore::Status;
 using Dao = tensorstore::DomainAlignmentOptions;
 
 TEST(AlignDimensionsToTest, AllUnlabeled) {
-  IndexDomain<> source(IndexTransformBuilder<>(3, 0)
-                           .input_origin({3, 5, 4})
-                           .input_exclusive_max({7, 6, 10})
-                           .Finalize()
-                           .value());
-  IndexDomain<> target(IndexTransformBuilder<>(3, 0)
-                           .input_origin({2, 0, 6})
-                           .input_exclusive_max({6, 4, 12})
-                           .Finalize()
-                           .value());
+  auto source = IndexDomainBuilder(3)
+                    .origin({3, 5, 4})
+                    .exclusive_max({7, 6, 10})
+                    .Finalize()
+                    .value();
+  auto target = IndexDomainBuilder(3)
+                    .origin({2, 0, 6})
+                    .exclusive_max({6, 4, 12})
+                    .Finalize()
+                    .value();
   // source: [3, 7), [5, 6), [4, 10)
   // target: [2, 6), [0, 4), [6, 12)
   // alignment: rank 3 -> 3, with:
@@ -86,18 +88,18 @@ TEST(AlignDimensionsToTest, AllUnlabeled) {
 // Tests that mismatched labels are allowed to match when permutation is
 // disabled.
 TEST(AlignDimensionsToTest, MismatchedLabelsNoPermute) {
-  IndexDomain<> source(IndexTransformBuilder<>(3, 0)
-                           .input_labels({"x", "y", "z"})
-                           .input_origin({3, 5, 4})
-                           .input_exclusive_max({7, 6, 10})
-                           .Finalize()
-                           .value());
-  IndexDomain<> target(IndexTransformBuilder<>(3, 0)
-                           .input_labels({"a", "b", "c"})
-                           .input_origin({2, 0, 6})
-                           .input_exclusive_max({6, 4, 12})
-                           .Finalize()
-                           .value());
+  auto source = IndexDomainBuilder(3)
+                    .labels({"x", "y", "z"})
+                    .origin({3, 5, 4})
+                    .exclusive_max({7, 6, 10})
+                    .Finalize()
+                    .value();
+  auto target = IndexDomainBuilder(3)
+                    .labels({"a", "b", "c"})
+                    .origin({2, 0, 6})
+                    .exclusive_max({6, 4, 12})
+                    .Finalize()
+                    .value();
   std::vector<DimensionIndex> source_matches(source.rank());
   EXPECT_EQ(Status(), AlignDimensionsTo(source, target, source_matches,
                                         Dao::translate | Dao::broadcast));
@@ -111,17 +113,17 @@ TEST(AlignDimensionsToTest, MismatchedLabelsNoPermute) {
 }
 
 TEST(AlignDimensionsToTest, SourceUnlabeled) {
-  IndexDomain<> source(IndexTransformBuilder<>(3, 0)
-                           .input_origin({3, 5, 4})
-                           .input_exclusive_max({7, 6, 10})
-                           .Finalize()
-                           .value());
-  IndexDomain<> target(IndexTransformBuilder<>(3, 0)
-                           .input_origin({4, 0, 6})
-                           .input_labels({"x", "y", "z"})
-                           .input_exclusive_max({8, 4, 12})
-                           .Finalize()
-                           .value());
+  auto source = IndexDomainBuilder(3)
+                    .origin({3, 5, 4})
+                    .exclusive_max({7, 6, 10})
+                    .Finalize()
+                    .value();
+  auto target = IndexDomainBuilder(3)
+                    .origin({4, 0, 6})
+                    .labels({"x", "y", "z"})
+                    .exclusive_max({8, 4, 12})
+                    .Finalize()
+                    .value();
   // source: [3, 7), [5, 6), [4, 10)
   // target: "x": [2, 6), "y": [0, 4), "z": [6, 12)
   // alignment: rank 3 -> 3, with:
@@ -137,17 +139,17 @@ TEST(AlignDimensionsToTest, SourceUnlabeled) {
 }
 
 TEST(AlignDimensionsToTest, TargetUnlabeled) {
-  IndexDomain<> source(IndexTransformBuilder<>(3, 0)
-                           .input_origin({3, 5, 4})
-                           .input_labels({"x", "y", "z"})
-                           .input_exclusive_max({7, 6, 10})
-                           .Finalize()
-                           .value());
-  IndexDomain<> target(IndexTransformBuilder<>(3, 0)
-                           .input_origin({4, 0, 6})
-                           .input_exclusive_max({8, 4, 12})
-                           .Finalize()
-                           .value());
+  auto source = IndexDomainBuilder(3)
+                    .origin({3, 5, 4})
+                    .labels({"x", "y", "z"})
+                    .exclusive_max({7, 6, 10})
+                    .Finalize()
+                    .value();
+  auto target = IndexDomainBuilder(3)
+                    .origin({4, 0, 6})
+                    .exclusive_max({8, 4, 12})
+                    .Finalize()
+                    .value();
   // source: "x": [3, 7), "y": [5, 6), "z": [4, 10)
   // target: [2, 6), [0, 4), [6, 12)
   // alignment: rank 3 -> 3, with:
@@ -163,18 +165,18 @@ TEST(AlignDimensionsToTest, TargetUnlabeled) {
 }
 
 TEST(AlignDimensionsToTest, AllLabeled) {
-  IndexDomain<> source(IndexTransformBuilder<>(3, 0)
-                           .input_labels({"x", "y", "z"})
-                           .input_origin({3, 5, 4})
-                           .input_exclusive_max({7, 6, 10})
-                           .Finalize()
-                           .value());
-  IndexDomain<> target(IndexTransformBuilder<>(3, 0)
-                           .input_labels({"z", "x", "y"})
-                           .input_origin({6, 4, 0})
-                           .input_exclusive_max({12, 8, 4})
-                           .Finalize()
-                           .value());
+  auto source = IndexDomainBuilder(3)
+                    .labels({"x", "y", "z"})
+                    .origin({3, 5, 4})
+                    .exclusive_max({7, 6, 10})
+                    .Finalize()
+                    .value();
+  auto target = IndexDomainBuilder(3)
+                    .labels({"z", "x", "y"})
+                    .origin({6, 4, 0})
+                    .exclusive_max({12, 8, 4})
+                    .Finalize()
+                    .value();
   // source: "x": [3, 7), "y": [5, 6), "z": [4, 10)
   // target: "z": [6, 12), "x": [4, 8), "y": [0, 4)
   // alignment: rank 3 -> 3, with:
@@ -187,18 +189,18 @@ TEST(AlignDimensionsToTest, AllLabeled) {
 }
 
 TEST(AlignDimensionsToTest, AllLabeledPermuteOnly) {
-  IndexDomain<> source(IndexTransformBuilder<>(3, 0)
-                           .input_labels({"x", "y", "z"})
-                           .input_origin({3, 5, 4})
-                           .input_exclusive_max({7, 6, 10})
-                           .Finalize()
-                           .value());
-  IndexDomain<> target(IndexTransformBuilder<>(3, 0)
-                           .input_labels({"z", "x", "y"})
-                           .input_origin({4, 3, 5})
-                           .input_exclusive_max({10, 7, 6})
-                           .Finalize()
-                           .value());
+  auto source = IndexDomainBuilder(3)
+                    .labels({"x", "y", "z"})
+                    .origin({3, 5, 4})
+                    .exclusive_max({7, 6, 10})
+                    .Finalize()
+                    .value();
+  auto target = IndexDomainBuilder(3)
+                    .labels({"z", "x", "y"})
+                    .origin({4, 3, 5})
+                    .exclusive_max({10, 7, 6})
+                    .Finalize()
+                    .value();
   for (auto options : {Dao::permute, Dao::permute | Dao::translate,
                        Dao::permute | Dao::broadcast, Dao::all}) {
     std::vector<DimensionIndex> source_matches(source.rank());
@@ -220,18 +222,18 @@ TEST(AlignDimensionsToTest, AllLabeledPermuteOnly) {
 }
 
 TEST(AlignDimensionsToTest, AllLabeledPermuteTranslateOnly) {
-  IndexDomain<> source(IndexTransformBuilder<>(3, 0)
-                           .input_labels({"x", "y", "z"})
-                           .input_origin({3, 5, 4})
-                           .input_exclusive_max({7, 9, 10})
-                           .Finalize()
-                           .value());
-  IndexDomain<> target(IndexTransformBuilder<>(3, 0)
-                           .input_labels({"z", "x", "y"})
-                           .input_origin({6, 4, 0})
-                           .input_exclusive_max({12, 8, 4})
-                           .Finalize()
-                           .value());
+  auto source = IndexDomainBuilder(3)
+                    .labels({"x", "y", "z"})
+                    .origin({3, 5, 4})
+                    .exclusive_max({7, 9, 10})
+                    .Finalize()
+                    .value();
+  auto target = IndexDomainBuilder(3)
+                    .labels({"z", "x", "y"})
+                    .origin({6, 4, 0})
+                    .exclusive_max({12, 8, 4})
+                    .Finalize()
+                    .value();
   // source: "x": [3, 7), "y": [5, 9), "z": [4, 10)
   // target: "z": [6, 12), "x": [4, 8), "y": [0, 4)
   // alignment: rank 3 -> 3, with:
@@ -244,18 +246,18 @@ TEST(AlignDimensionsToTest, AllLabeledPermuteTranslateOnly) {
 }
 
 TEST(AlignDimensionsToTest, PartiallyLabeled) {
-  IndexDomain<> source(IndexTransformBuilder<>(3, 0)
-                           .input_labels({"x", "y", ""})
-                           .input_origin({3, 5, 4})
-                           .input_exclusive_max({7, 6, 10})
-                           .Finalize()
-                           .value());
-  IndexDomain<> target(IndexTransformBuilder<>(4, 0)
-                           .input_labels({"", "", "x", "y"})
-                           .input_origin({0, 6, 4, 0})
-                           .input_exclusive_max({10, 12, 8, 4})
-                           .Finalize()
-                           .value());
+  auto source = IndexDomainBuilder(3)
+                    .labels({"x", "y", ""})
+                    .origin({3, 5, 4})
+                    .exclusive_max({7, 6, 10})
+                    .Finalize()
+                    .value();
+  auto target = IndexDomainBuilder(4)
+                    .labels({"", "", "x", "y"})
+                    .origin({0, 6, 4, 0})
+                    .exclusive_max({10, 12, 8, 4})
+                    .Finalize()
+                    .value();
   // source: "x": [3, 7), "y": [5, 6), "": [4, 10)
   // target: "": [0, 10) "": [6, 12), "x": [4, 8), "y": [0, 4)
   // alignment: rank 4 -> 3, with:
@@ -273,18 +275,18 @@ TEST(AlignDimensionsToTest, PartiallyLabeled) {
 }
 
 TEST(AlignDomainToTest, PartiallyLabeled) {
-  IndexDomain<> source(IndexTransformBuilder<>(3, 0)
-                           .input_labels({"x", "y", ""})
-                           .input_origin({3, 5, 4})
-                           .input_exclusive_max({7, 6, 10})
-                           .Finalize()
-                           .value());
-  IndexDomain<> target(IndexTransformBuilder<>(4, 0)
-                           .input_labels({"", "", "x", "y"})
-                           .input_origin({0, 6, 4, 0})
-                           .input_exclusive_max({10, 12, 8, 4})
-                           .Finalize()
-                           .value());
+  auto source = IndexDomainBuilder(3)
+                    .labels({"x", "y", ""})
+                    .origin({3, 5, 4})
+                    .exclusive_max({7, 6, 10})
+                    .Finalize()
+                    .value();
+  auto target = IndexDomainBuilder(4)
+                    .labels({"", "", "x", "y"})
+                    .origin({0, 6, 4, 0})
+                    .exclusive_max({10, 12, 8, 4})
+                    .Finalize()
+                    .value();
   // source: "x": [3, 7), "y": [5, 6), "": [4, 10)
   // target: "": [0, 10) "": [6, 12), "x": [4, 8), "y": [0, 4)
   // alignment: rank 4 -> 3, with:
@@ -302,16 +304,16 @@ TEST(AlignDomainToTest, PartiallyLabeled) {
 }
 
 TEST(AlignDimensionsToTest, BroadcastOnly) {
-  IndexDomain<> source(IndexTransformBuilder<>(2, 0)
-                           .input_origin({2, 3})
-                           .input_exclusive_max({5, 6})
-                           .Finalize()
-                           .value());
-  IndexDomain<> target(IndexTransformBuilder<>(3, 0)
-                           .input_origin({1, 2, 3})
-                           .input_exclusive_max({4, 5, 6})
-                           .Finalize()
-                           .value());
+  auto source = IndexDomainBuilder(2)
+                    .origin({2, 3})
+                    .exclusive_max({5, 6})
+                    .Finalize()
+                    .value();
+  auto target = IndexDomainBuilder(3)
+                    .origin({1, 2, 3})
+                    .exclusive_max({4, 5, 6})
+                    .Finalize()
+                    .value();
   for (auto options : {Dao::broadcast, Dao::broadcast | Dao::translate,
                        Dao::broadcast | Dao::permute, Dao::all}) {
     std::vector<DimensionIndex> source_matches(source.rank());
@@ -331,18 +333,18 @@ TEST(AlignDimensionsToTest, BroadcastOnly) {
 }
 
 TEST(AlignDimensionsToTest, PermuteAndBroadcast) {
-  IndexDomain<> source(IndexTransformBuilder<>(2, 0)
-                           .input_origin({2, 3})
-                           .input_exclusive_max({5, 4})
-                           .input_labels({"x", "y"})
-                           .Finalize()
-                           .value());
-  IndexDomain<> target(IndexTransformBuilder<>(2, 0)
-                           .input_origin({2, 5})
-                           .input_exclusive_max({5, 10})
-                           .input_labels({"x", "z"})
-                           .Finalize()
-                           .value());
+  auto source = IndexDomainBuilder(2)
+                    .origin({2, 3})
+                    .exclusive_max({5, 4})
+                    .labels({"x", "y"})
+                    .Finalize()
+                    .value();
+  auto target = IndexDomainBuilder(2)
+                    .origin({2, 5})
+                    .exclusive_max({5, 10})
+                    .labels({"x", "z"})
+                    .Finalize()
+                    .value();
   for (auto options : {Dao::permute | Dao::broadcast, Dao::all}) {
     std::vector<DimensionIndex> source_matches(source.rank());
     EXPECT_EQ(Status(),
@@ -360,36 +362,36 @@ TEST(AlignDimensionsToTest, PermuteAndBroadcast) {
 }
 
 TEST(AlignDimensionsToTest, UnmatchedUnlabeledSourceDimension) {
-  IndexDomain<> source(IndexTransformBuilder<>(4, 0)
-                           .input_labels({"x", "y", "", ""})
-                           .input_origin({3, 5, 7, 4})
-                           .input_exclusive_max({7, 9, 8, 10})
-                           .Finalize()
-                           .value());
-  IndexDomain<> target(IndexTransformBuilder<>(3, 0)
-                           .input_labels({"", "x", "y"})
-                           .input_origin({0, 4, 0})
-                           .input_exclusive_max({6, 8, 4})
-                           .Finalize()
-                           .value());
+  auto source = IndexDomainBuilder(4)
+                    .labels({"x", "y", "", ""})
+                    .origin({3, 5, 7, 4})
+                    .exclusive_max({7, 9, 8, 10})
+                    .Finalize()
+                    .value();
+  auto target = IndexDomainBuilder(3)
+                    .labels({"", "x", "y"})
+                    .origin({0, 4, 0})
+                    .exclusive_max({6, 8, 4})
+                    .Finalize()
+                    .value();
   std::vector<DimensionIndex> source_matches(source.rank());
   EXPECT_EQ(Status(), AlignDimensionsTo(source, target, source_matches));
   EXPECT_THAT(source_matches, ::testing::ElementsAre(1, 2, -1, 0));
 }
 
 TEST(AlignDimensionsToTest, MismatchedLabeled) {
-  IndexDomain<> source(IndexTransformBuilder<>(3, 0)
-                           .input_labels({"x", "y", "z"})
-                           .input_origin({3, 5, 4})
-                           .input_exclusive_max({7, 6, 10})
-                           .Finalize()
-                           .value());
-  IndexDomain<> target(IndexTransformBuilder<>(3, 0)
-                           .input_labels({"z", "w", "y"})
-                           .input_origin({6, 4, 0})
-                           .input_exclusive_max({12, 8, 4})
-                           .Finalize()
-                           .value());
+  auto source = IndexDomainBuilder(3)
+                    .labels({"x", "y", "z"})
+                    .origin({3, 5, 4})
+                    .exclusive_max({7, 6, 10})
+                    .Finalize()
+                    .value();
+  auto target = IndexDomainBuilder(3)
+                    .labels({"z", "w", "y"})
+                    .origin({6, 4, 0})
+                    .exclusive_max({12, 8, 4})
+                    .Finalize()
+                    .value();
   std::vector<DimensionIndex> source_matches(source.rank());
   EXPECT_THAT(
       AlignDimensionsTo(source, target, source_matches),
@@ -399,35 +401,35 @@ TEST(AlignDimensionsToTest, MismatchedLabeled) {
 }
 
 TEST(AlignDomainToTest, MismatchedLabeled) {
-  IndexDomain<> source(IndexTransformBuilder<>(3, 0)
-                           .input_labels({"x", "y", "z"})
-                           .input_origin({3, 5, 4})
-                           .input_exclusive_max({7, 6, 10})
-                           .Finalize()
-                           .value());
-  IndexDomain<> target(IndexTransformBuilder<>(3, 0)
-                           .input_labels({"z", "w", "y"})
-                           .input_origin({6, 4, 0})
-                           .input_exclusive_max({12, 8, 4})
-                           .Finalize()
-                           .value());
+  auto source = IndexDomainBuilder(3)
+                    .labels({"x", "y", "z"})
+                    .origin({3, 5, 4})
+                    .exclusive_max({7, 6, 10})
+                    .Finalize()
+                    .value();
+  auto target = IndexDomainBuilder(3)
+                    .labels({"z", "w", "y"})
+                    .origin({6, 4, 0})
+                    .exclusive_max({12, 8, 4})
+                    .Finalize()
+                    .value();
   EXPECT_THAT(AlignDomainTo(source, target),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(AlignDimensionsToTest, MismatchedSizeLabeled) {
-  IndexDomain<> source(IndexTransformBuilder<>(3, 0)
-                           .input_labels({"x", "y", "z"})
-                           .input_origin({3, 5, 4})
-                           .input_exclusive_max({7, 7, 10})
-                           .Finalize()
-                           .value());
-  IndexDomain<> target(IndexTransformBuilder<>(3, 0)
-                           .input_labels({"z", "x", "y"})
-                           .input_origin({6, 4, 0})
-                           .input_exclusive_max({12, 8, 4})
-                           .Finalize()
-                           .value());
+  auto source = IndexDomainBuilder(3)
+                    .labels({"x", "y", "z"})
+                    .origin({3, 5, 4})
+                    .exclusive_max({7, 7, 10})
+                    .Finalize()
+                    .value();
+  auto target = IndexDomainBuilder(3)
+                    .labels({"z", "x", "y"})
+                    .origin({6, 4, 0})
+                    .exclusive_max({12, 8, 4})
+                    .Finalize()
+                    .value();
   std::vector<DimensionIndex> source_matches(source.rank());
   EXPECT_THAT(AlignDimensionsTo(source, target, source_matches),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
@@ -437,16 +439,16 @@ TEST(AlignDimensionsToTest, MismatchedSizeLabeled) {
 }
 
 TEST(AlignDimensionsToTest, MismatchedSizeUnlabeled) {
-  IndexDomain<> source(IndexTransformBuilder<>(3, 0)
-                           .input_origin({3, 5, 4})
-                           .input_exclusive_max({7, 7, 10})
-                           .Finalize()
-                           .value());
-  IndexDomain<> target(IndexTransformBuilder<>(3, 0)
-                           .input_origin({4, 0, 6})
-                           .input_exclusive_max({8, 4, 12})
-                           .Finalize()
-                           .value());
+  auto source = IndexDomainBuilder(3)
+                    .origin({3, 5, 4})
+                    .exclusive_max({7, 7, 10})
+                    .Finalize()
+                    .value();
+  auto target = IndexDomainBuilder(3)
+                    .origin({4, 0, 6})
+                    .exclusive_max({8, 4, 12})
+                    .Finalize()
+                    .value();
   std::vector<DimensionIndex> source_matches(source.rank());
   EXPECT_THAT(AlignDimensionsTo(source, target, source_matches),
               MatchesStatus(absl::StatusCode::kInvalidArgument,

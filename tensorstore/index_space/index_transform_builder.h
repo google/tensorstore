@@ -23,6 +23,7 @@
 #include "tensorstore/index_space/internal/deep_copy_transform_rep_ptr.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/util/bit_span.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
@@ -716,6 +717,8 @@ class IndexTransformBuilder {
     map.stride() = stride;
   }
 };
+
+IndexTransformBuilder()->IndexTransformBuilder<>;
 
 namespace internal_index_space {
 

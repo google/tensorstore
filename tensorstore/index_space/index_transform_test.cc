@@ -21,6 +21,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/array.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
@@ -33,6 +34,7 @@ using tensorstore::DimensionIndex;
 using tensorstore::IdentityTransform;
 using tensorstore::Index;
 using tensorstore::IndexDomain;
+using tensorstore::IndexDomainBuilder;
 using tensorstore::IndexDomainDimension;
 using tensorstore::IndexDomainView;
 using tensorstore::IndexInterval;
@@ -472,14 +474,14 @@ TEST(IndexDomainTest, DefaultConstruct) {
 }
 
 TEST(IndexDomainTest, ConstructFromTransform) {
-  IndexDomain<2> d(IndexTransformBuilder<2, 0>()
-                       .input_origin({1, 2})
-                       .input_shape({3, 4})
-                       .implicit_lower_bounds({1, 0})
-                       .implicit_upper_bounds({0, 1})
-                       .input_labels({"x", "y"})
-                       .Finalize()
-                       .value());
+  auto d = IndexDomainBuilder<2>()
+               .origin({1, 2})
+               .shape({3, 4})
+               .implicit_lower_bounds({1, 0})
+               .implicit_upper_bounds({0, 1})
+               .labels({"x", "y"})
+               .Finalize()
+               .value();
   ASSERT_TRUE(d.valid());
   EXPECT_EQ(2, d.rank());
   EXPECT_THAT(d.origin(), ::testing::ElementsAre(1, 2));
@@ -498,14 +500,14 @@ TEST(IndexDomainTest, ConstructFromTransform) {
 
 TEST(IndexDomainTest, CompareEqual) {
   IndexDomain<2> d1;
-  IndexDomain<2> d2(IndexTransformBuilder<2, 0>()
-                        .input_origin({1, 2})
-                        .input_shape({3, 4})
-                        .implicit_lower_bounds({1, 0})
-                        .implicit_upper_bounds({0, 1})
-                        .input_labels({"x", "y"})
-                        .Finalize()
-                        .value());
+  auto d2 = IndexDomainBuilder<2>()
+                .origin({1, 2})
+                .shape({3, 4})
+                .implicit_lower_bounds({1, 0})
+                .implicit_upper_bounds({0, 1})
+                .labels({"x", "y"})
+                .Finalize()
+                .value();
   // Differs from d2 only in output rank, which does not affect domain.
   IndexDomain<2> d3(IndexTransformBuilder<2, 1>()
                         .input_origin({1, 2})
@@ -517,50 +519,50 @@ TEST(IndexDomainTest, CompareEqual) {
                         .Finalize()
                         .value());
   // Differs from d2 only in `input_origin`.
-  IndexDomain<2> d4(IndexTransformBuilder<2, 0>()
-                        .input_origin({1, 3})
-                        .input_shape({3, 4})
-                        .implicit_lower_bounds({1, 0})
-                        .implicit_upper_bounds({0, 1})
-                        .input_labels({"x", "y"})
-                        .Finalize()
-                        .value());
+  auto d4 = IndexDomainBuilder<2>()
+                .origin({1, 3})
+                .shape({3, 4})
+                .implicit_lower_bounds({1, 0})
+                .implicit_upper_bounds({0, 1})
+                .labels({"x", "y"})
+                .Finalize()
+                .value();
   // Differs from d2 only in `input_shape`.
-  IndexDomain<2> d5(IndexTransformBuilder<2, 0>()
-                        .input_origin({1, 2})
-                        .input_shape({3, 5})
-                        .implicit_lower_bounds({1, 0})
-                        .implicit_upper_bounds({0, 1})
-                        .input_labels({"x", "y"})
-                        .Finalize()
-                        .value());
+  auto d5 = IndexDomainBuilder<2>()
+                .origin({1, 2})
+                .shape({3, 5})
+                .implicit_lower_bounds({1, 0})
+                .implicit_upper_bounds({0, 1})
+                .labels({"x", "y"})
+                .Finalize()
+                .value();
   // Differs from d2 only in `implicit_lower_bounds`.
-  IndexDomain<2> d6(IndexTransformBuilder<2, 0>()
-                        .input_origin({1, 2})
-                        .input_shape({3, 4})
-                        .implicit_lower_bounds({1, 1})
-                        .implicit_upper_bounds({0, 1})
-                        .input_labels({"x", "y"})
-                        .Finalize()
-                        .value());
+  auto d6 = IndexDomainBuilder<2>()
+                .origin({1, 2})
+                .shape({3, 4})
+                .implicit_lower_bounds({1, 1})
+                .implicit_upper_bounds({0, 1})
+                .labels({"x", "y"})
+                .Finalize()
+                .value();
   // Differs from d2 only in `implicit_upper_bounds`.
-  IndexDomain<2> d7(IndexTransformBuilder<2, 0>()
-                        .input_origin({1, 2})
-                        .input_shape({3, 4})
-                        .implicit_lower_bounds({1, 0})
-                        .implicit_upper_bounds({1, 1})
-                        .input_labels({"x", "y"})
-                        .Finalize()
-                        .value());
+  auto d7 = IndexDomainBuilder<2>()
+                .origin({1, 2})
+                .shape({3, 4})
+                .implicit_lower_bounds({1, 0})
+                .implicit_upper_bounds({1, 1})
+                .labels({"x", "y"})
+                .Finalize()
+                .value();
   // Differs from d2 only in `input_labels`.
-  IndexDomain<2> d8(IndexTransformBuilder<2, 0>()
-                        .input_origin({1, 2})
-                        .input_shape({3, 4})
-                        .implicit_lower_bounds({1, 0})
-                        .implicit_upper_bounds({0, 1})
-                        .input_labels({"z", "y"})
-                        .Finalize()
-                        .value());
+  auto d8 = IndexDomainBuilder<2>()
+                .origin({1, 2})
+                .shape({3, 4})
+                .implicit_lower_bounds({1, 0})
+                .implicit_upper_bounds({0, 1})
+                .labels({"z", "y"})
+                .Finalize()
+                .value();
   EXPECT_EQ(d1, d1);
   EXPECT_EQ(d2, d2);
   EXPECT_EQ(d3, d3);
@@ -581,14 +583,14 @@ TEST(IndexDomainTest, CompareEqual) {
 }
 
 TEST(IndexDomainTest, ConvertRank) {
-  IndexDomain<2> d2(IndexTransformBuilder<2, 0>()
-                        .input_origin({1, 2})
-                        .input_shape({3, 4})
-                        .implicit_lower_bounds({1, 0})
-                        .implicit_upper_bounds({0, 1})
-                        .input_labels({"x", "y"})
-                        .Finalize()
-                        .value());
+  auto d2 = IndexDomainBuilder<2>()
+                .origin({1, 2})
+                .shape({3, 4})
+                .implicit_lower_bounds({1, 0})
+                .implicit_upper_bounds({0, 1})
+                .labels({"x", "y"})
+                .Finalize()
+                .value();
 
   // Test implicit conversion from lvalue
   IndexDomain<> d_dynamic = d2;
@@ -619,36 +621,36 @@ TEST(IndexDomainTest, ConvertRank) {
 }
 
 TEST(IndexDomainTest, SubDomain) {
-  IndexDomain<2> d2(IndexTransformBuilder<2, 0>()
-                        .input_origin({1, 2})
-                        .input_shape({3, 4})
-                        .implicit_lower_bounds({1, 0})
-                        .implicit_upper_bounds({0, 1})
-                        .input_labels({"x", "y"})
-                        .Finalize()
-                        .value());
+  auto d2 = IndexDomainBuilder<2>()
+                .origin({1, 2})
+                .shape({3, 4})
+                .implicit_lower_bounds({1, 0})
+                .implicit_upper_bounds({0, 1})
+                .labels({"x", "y"})
+                .Finalize()
+                .value();
 
-  IndexDomain<2> d3(IndexTransformBuilder<2, 0>()
-                        .input_origin({2, 1})
-                        .input_shape({4, 3})
-                        .implicit_lower_bounds({0, 1})
-                        .implicit_upper_bounds({1, 0})
-                        .input_labels({"y", "x"})
-                        .Finalize()
-                        .value());
+  auto d3 = IndexDomainBuilder<2>()
+                .origin({2, 1})
+                .shape({4, 3})
+                .implicit_lower_bounds({0, 1})
+                .implicit_upper_bounds({1, 0})
+                .labels({"y", "x"})
+                .Finalize()
+                .value();
   EXPECT_EQ(d3, (d2[span<const DimensionIndex, 2>({1, 0})]));
 }
 
 TEST(IndexDomainTest, PrintToOstream) {
   EXPECT_EQ("<invalid index domain>", StrCat(IndexDomain<2>()));
-  IndexDomain<2> d2(IndexTransformBuilder<2, 0>()
-                        .input_origin({1, 2})
-                        .input_shape({3, 4})
-                        .implicit_lower_bounds({1, 0})
-                        .implicit_upper_bounds({0, 1})
-                        .input_labels({"x", "y"})
-                        .Finalize()
-                        .value());
+  auto d2 = IndexDomainBuilder<2>()
+                .origin({1, 2})
+                .shape({3, 4})
+                .implicit_lower_bounds({1, 0})
+                .implicit_upper_bounds({0, 1})
+                .labels({"x", "y"})
+                .Finalize()
+                .value();
 
   EXPECT_EQ(R"({ "x": [1*, 4), "y": [2, 6*) })", StrCat(d2));
 }

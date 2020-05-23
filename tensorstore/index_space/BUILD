@@ -355,13 +355,18 @@ tensorstore_cc_library(
 tensorstore_cc_library(
     name = "index_transform_builder",
     srcs = ["index_transform_builder.cc"],
-    hdrs = ["index_transform_builder.h"],
+    hdrs = [
+        "index_domain_builder.h",
+        "index_transform_builder.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":index_transform",
         ":internal/deep_copy_transform_rep_ptr",
+        "//tensorstore:index",
         "//tensorstore:rank",
         "//tensorstore/internal:integer_overflow",
+        "//tensorstore/util:bit_span",
         "//tensorstore/util:span",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/meta:type_traits",
