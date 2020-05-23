@@ -47,15 +47,28 @@ namespace {
 using tensorstore::MatchesStatus;
 namespace jb = tensorstore::internal::json_binding;
 
-void Cleanup(KeyValueStore::Ptr store, std::vector<std::string> objects) {
-  // Delete everything that we're going to use before starting.
-  // This is helpful if, for instance, we run against a persistent
-  // service and the test crashed half-way through last time.
-  TENSORSTORE_LOG("Cleanup");
-  for (const auto& to_remove : objects) {
-    store->Delete(to_remove).result();
+class Cleanup {
+ public:
+  Cleanup(KeyValueStore::Ptr store, std::vector<std::string> objects)
+      : store_(std::move(store)), objects_(std::move(objects)) {
+    DoCleanup();
   }
-}
+  void DoCleanup() {
+    // Delete everything that we're going to use before starting.
+    // This is helpful if, for instance, we run against a persistent
+    // service and the test crashed half-way through last time.
+    TENSORSTORE_LOG("Cleanup");
+    for (const auto& to_remove : objects_) {
+      store_->Delete(to_remove).result();
+    }
+  }
+
+  ~Cleanup() { DoCleanup(); }
+
+ private:
+  KeyValueStore::Ptr store_;
+  std::vector<std::string> objects_;
+};
 
 StorageGeneration GetStorageGeneration(KeyValueStore::Ptr store,
                                        std::string key) {
@@ -87,7 +100,7 @@ void TestKeyValueStoreUnconditionalOps(
     KeyValueStore::Ptr store,
     FunctionView<std::string(std::string key)> get_key) {
   const auto key = get_key("test");
-  Cleanup(store, {key});
+  Cleanup cleanup(store, {key});
 
   // Test unconditional read of missing key.
   TENSORSTORE_LOG("Test unconditional read of missing key");
@@ -146,7 +159,7 @@ void TestKeyValueStoreConditionalReadOps(
     FunctionView<std::string(std::string key)> get_key) {
   // Conditional read use an if-not-exists condition.
   const auto key = get_key("test1");
-  Cleanup(store, {key});
+  Cleanup cleanup(store, {key});
 
   // Generate a mismatched storage generation by writing and deleting.
   const StorageGeneration mismatch = GetMismatchStorageGeneration(store, key);
@@ -238,7 +251,7 @@ void TestKeyValueStoreConditionalWriteOps(
   const auto key1 = get_key("test2a");
   const auto key2 = get_key("test2b");
   const auto key3 = get_key("test2c");
-  Cleanup(store, {key1, key2, key3});
+  Cleanup cleanup(store, {key1, key2, key3});
 
   // Mismatch should not match any other generation.
   const StorageGeneration mismatch2a =
@@ -295,8 +308,6 @@ void TestKeyValueStoreConditionalWriteOps(
     EXPECT_THAT(store->Read(key3).result(),
                 MatchesKvsReadResult(value, write_conditional->generation));
   }
-
-  Cleanup(store, {key1, key2, key3});
 }
 
 void TestKeyValueStoreConditionalDeleteOps(
@@ -306,7 +317,7 @@ void TestKeyValueStoreConditionalDeleteOps(
   const auto key2 = get_key("test3b");
   const auto key3 = get_key("test3c");
   const auto key4 = get_key("test3d");
-  Cleanup(store, {key1, key2, key3, key4});
+  Cleanup cleanup(store, {key1, key2, key3, key4});
 
   // Mismatch should not match any other generation.
   const StorageGeneration mismatch3a =
@@ -316,22 +327,29 @@ void TestKeyValueStoreConditionalDeleteOps(
 
   // Create an existing key.
   StorageGeneration last_generation;
+  std::string existing_value = ".-=-.";
   for (const auto& name : {key4, key2}) {
-    auto write_result = store->Write(name, ".-=-.").result();
+    auto write_result = store->Write(name, existing_value).result();
     ASSERT_THAT(write_result, MatchesRegularTimestampedStorageGeneration());
     last_generation = std::move(write_result->generation);
   }
   ASSERT_NE(last_generation, mismatch3b);
+  EXPECT_THAT(store->Read(key2).result(), MatchesKvsReadResult(existing_value));
+  EXPECT_THAT(store->Read(key4).result(), MatchesKvsReadResult(existing_value));
 
   TENSORSTORE_LOG("Test conditional delete, non-existent key");
   EXPECT_THAT(
       store->Delete(key1, {mismatch3a}).result(),
       MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
+  EXPECT_THAT(store->Read(key2).result(), MatchesKvsReadResult(existing_value));
+  EXPECT_THAT(store->Read(key4).result(), MatchesKvsReadResult(existing_value));
 
   TENSORSTORE_LOG("Test conditional delete, mismatched generation");
   EXPECT_THAT(
       store->Delete(key2, {mismatch3b}).result(),
       MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
+  EXPECT_THAT(store->Read(key2).result(), MatchesKvsReadResult(existing_value));
+  EXPECT_THAT(store->Read(key4).result(), MatchesKvsReadResult(existing_value));
 
   TENSORSTORE_LOG("Test conditional delete, matching generation");
   ASSERT_THAT(store->Delete(key2, {last_generation}).result(),
@@ -339,6 +357,7 @@ void TestKeyValueStoreConditionalDeleteOps(
 
   // Verify that read reflects deletion.
   EXPECT_THAT(store->Read(key2).result(), MatchesKvsReadResultNotFound());
+  EXPECT_THAT(store->Read(key4).result(), MatchesKvsReadResult(existing_value));
 
   TENSORSTORE_LOG(
       "Test conditional delete, non-existent key StorageGeneration::NoValue");
@@ -347,6 +366,8 @@ void TestKeyValueStoreConditionalDeleteOps(
 
   TENSORSTORE_LOG(
       "Test conditional delete, existing key, StorageGeneration::NoValue");
+  EXPECT_THAT(store->Read(key2).result(), MatchesKvsReadResultNotFound());
+  EXPECT_THAT(store->Read(key4).result(), MatchesKvsReadResult(existing_value));
   EXPECT_THAT(
       store->Delete(key4, {StorageGeneration::NoValue()}).result(),
       MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
