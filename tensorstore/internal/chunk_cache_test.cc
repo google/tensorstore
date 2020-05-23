@@ -66,6 +66,7 @@
 namespace {
 
 using tensorstore::ArrayView;
+using tensorstore::Box;
 using tensorstore::DimensionIndex;
 using tensorstore::Executor;
 using tensorstore::Future;
@@ -281,7 +282,7 @@ struct MockDataStore {
 
 TEST(ChunkGridSpecificationTest, Basic) {
   ChunkGridSpecification grid({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2}))}});
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
   EXPECT_EQ(1, grid.components[0].fill_value.rank());
   EXPECT_EQ(1, grid.components[0].chunked_to_cell_dimensions.size());
   EXPECT_EQ(1, grid.chunk_shape.size());
@@ -380,7 +381,7 @@ INSTANTIATE_TEST_SUITE_P(WithCacheKey, ChunkCacheTest, ::testing::Values("k"));
 TEST_P(ChunkCacheTest, ReadSingleComponentOneDimensionalFill) {
   // Dimension 0 is chunked with a size of 2.
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2}))}}));
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
 
   // Test that chunks that aren't present in store get filled using the fill
   // value.
@@ -458,7 +459,7 @@ TEST_P(ChunkCacheTest, ReadSingleComponentOneDimensionalFill) {
 TEST_P(ChunkCacheTest, CancelRead) {
   // Dimension 0 is chunked with a size of 2.
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2}))}}));
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
 
   {
     auto read_array = tensorstore::AllocateArray<int>({3});
@@ -517,7 +518,7 @@ struct CancelWriteReceiver {
 TEST_P(ChunkCacheTest, CancelWrite) {
   // Dimension 0 is chunked with a size of 2.
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2}))}}));
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
 
   CancelWriteReceiver receiver;
   cache->Write(0,
@@ -533,9 +534,11 @@ TEST_P(ChunkCacheTest, CancelWrite) {
 TEST_P(ChunkCacheTest, DriverDataType) {
   InitCache(ChunkGridSpecification({
       ChunkGridSpecification::Component{
-          SharedArray<const void>(MakeArray<int>({1, 2}))},
+          SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)},
       ChunkGridSpecification::Component{
-          SharedArray<const void>(MakeArray<float>({{1, 2}, {3, 4}})), {1}},
+          SharedArray<const void>(MakeArray<float>({{1, 2}, {3, 4}})),
+          Box<>(2),
+          {1}},
   }));
 
   EXPECT_EQ(tensorstore::DataTypeOf<int>(), GetDriver(0)->data_type());
@@ -547,7 +550,7 @@ TEST_P(ChunkCacheTest, DriverDataType) {
 TEST_P(ChunkCacheTest, ReadSingleComponentOneDimensionalExisting) {
   // Dimension 0 is chunked with a size of 2.
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2}))}}));
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
 
   // Initialize chunk 1 in the data store.
   {
@@ -645,6 +648,7 @@ TEST_P(ChunkCacheTest, ReadSingleComponentOneDimensionalExisting) {
 TEST_P(ChunkCacheTest, TwoDimensional) {
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
       SharedArray<const void>(MakeArray<int>({{1, 2, 3}, {4, 5, 6}})),
+      Box<>(2),
       // Transpose the grid dimensions relative to the cell dimensions to test
       // that grid vs. cell indices are correctly handled.
       {1, 0}}}));
@@ -689,7 +693,7 @@ TEST_P(ChunkCacheTest, TwoDimensional) {
 TEST_P(ChunkCacheTest, ReadInvalidTransformedArray) {
   // Dimension 0 is chunked with a size of 2.
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2}))}}));
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
 
   // Create an invalid transformed array: the array has domain [1,3] but the
   // transform has an output range of [0,2].
@@ -709,7 +713,7 @@ TEST_P(ChunkCacheTest, ReadInvalidTransformedArray) {
 TEST_P(ChunkCacheTest, ReadRequestErrorBasic) {
   // Dimension 0 is chunked with a size of 2.
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2}))}}));
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
 
   // Test a read request failing (e.g. because the request to the underlying
   // storage system failed).
@@ -781,7 +785,7 @@ TEST_P(ChunkCacheTest, ReadRequestErrorBasic) {
 TEST_P(ChunkCacheTest, WriteSingleComponentOneDimensional) {
   // Dimension 0 is chunked with a size of 2.
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2}))}}));
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
 
   // Write chunk 1: [1]=3
   // Write chunk 2: [0]=4, [1]=5
@@ -863,7 +867,7 @@ TEST_P(ChunkCacheTest, WriteSingleComponentOneDimensional) {
 TEST_P(ChunkCacheTest, OverwriteMissingWithFillValue) {
   // Dimension 0 is chunked with a size of 2.
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2}))}}));
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
   // Overwrite chunk 1: [0]=1, [1]=2 (matches fill value)
   auto write_future =
@@ -873,7 +877,7 @@ TEST_P(ChunkCacheTest, OverwriteMissingWithFillValue) {
                 .value(),
             MakeArray<int>({1, 2}));
   // Initially the representation is not normalized.
-  EXPECT_NE(nullptr, cell_entry->components[0].write_data);
+  EXPECT_NE(nullptr, cell_entry->components[0].write_state.data);
   write_future.Force();
   {
     auto r = log.writebacks.pop();
@@ -883,13 +887,13 @@ TEST_P(ChunkCacheTest, OverwriteMissingWithFillValue) {
     // Test that after starting the writeback, the representation has been
     // normalized such that no data is stored.  The normalization is done by
     // `WritebackSnapshot`.
-    EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
+    EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
     complete_writeback();
   }
   EXPECT_FALSE(store.HasChunk(span<const Index>({1})));
   EXPECT_TRUE(write_future.result());
   // Verify that `cell_entry` still doesn't store data.
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
 }
 
 // Tests that overwriting an existing chunk with the fill value results in the
@@ -897,10 +901,10 @@ TEST_P(ChunkCacheTest, OverwriteMissingWithFillValue) {
 TEST_P(ChunkCacheTest, OverwriteExistingWithFillValue) {
   // Dimension 0 is chunked with a size of 2.
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2}))}}));
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
   // Sanity check that entry initially contains no data.
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
   // Write initial value to chunk 1: [0]=3, [1]=4
   {
     auto write_future =
@@ -940,7 +944,7 @@ TEST_P(ChunkCacheTest, OverwriteExistingWithFillValue) {
   }
   // Test that after writeback, the representation has been normalized such that
   // no data is stored.
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
 }
 
 // Tests that deleting a chunk that was previously written results in the chunk
@@ -948,7 +952,7 @@ TEST_P(ChunkCacheTest, OverwriteExistingWithFillValue) {
 TEST_P(ChunkCacheTest, DeleteAfterNormalWriteback) {
   // Dimension 0 is chunked with a size of 2.
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2}))}}));
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
   // Write initial value to chunk 1: [0]=3, [1]=4
   {
@@ -982,13 +986,13 @@ TEST_P(ChunkCacheTest, DeleteAfterNormalWriteback) {
   EXPECT_TRUE(write_future.result());
   // Test that after writeback, the representation has been normalized such that
   // no data is stored.
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
 }
 
 TEST_P(ChunkCacheTest, PartialWriteAfterPendingDelete) {
   // Dimension 0 is chunked with a size of 2.
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2}))}}));
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
   // Write initial value to chunk 1: [0]=3, [1]=4
   {
@@ -1011,7 +1015,7 @@ TEST_P(ChunkCacheTest, PartialWriteAfterPendingDelete) {
 
   auto delete_future = cell_entry->Delete();
   // Test that no data is stored.
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
 
   // Issue partial write: chunk 1, position [0]=5
   {
@@ -1037,7 +1041,7 @@ TEST_P(ChunkCacheTest, PartialWriteAfterPendingDelete) {
     EXPECT_THAT(chunk.data, ElementsAre(MakeArray({5, 2})));
   }
 
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
   EXPECT_EQ(MakeArray<int>({5, 2}), cell_entry->components[0].read_array);
 
   // Read back value from cache.
@@ -1062,14 +1066,14 @@ TEST_P(ChunkCacheTest, PartialWriteAfterPendingDelete) {
 TEST_P(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
   // Dimension 0 is chunked with a size of 2.
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2}))}}));
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
   // Cell initially has unknown data because no reads have been performed.
   EXPECT_EQ(nullptr, cell_entry->components[0].read_array.data());
   auto write_future = cell_entry->Delete();
   // Cell has known data equal to fill value after the Delete (indicated by
   // nullptr).
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
   write_future.Force();
   {
     auto r = log.writebacks.pop();
@@ -1080,7 +1084,7 @@ TEST_P(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
   EXPECT_FALSE(store.HasChunk(span<const Index>({1})));
   EXPECT_TRUE(write_future.result());
   // Data should still not be present after writeback.
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
 
   // Issue partial write: chunk 1, position [0]=3
   {
@@ -1090,9 +1094,9 @@ TEST_P(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
                           tensorstore::Dims(0).TranslateSizedInterval(2, 1))
                   .value(),
               MakeArray<int>({3}));
-    ASSERT_NE(nullptr, cell_entry->components[0].write_data);
-    EXPECT_EQ(3,
-              static_cast<int*>(cell_entry->components[0].write_data.get())[0]);
+    ASSERT_NE(nullptr, cell_entry->components[0].write_state.data);
+    EXPECT_EQ(3, static_cast<int*>(
+                     cell_entry->components[0].write_state.data.get())[0]);
 
     write_future.Force();
     {
@@ -1102,15 +1106,14 @@ TEST_P(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
       auto complete_writeback = store.HandleWriteback(r);
       // WritebackSnapshot fills in the unmasked data values with the fill
       // value.
-      ASSERT_EQ(nullptr, cell_entry->components[0].write_data);
-      ASSERT_NE(nullptr,
-                cell_entry->components[0].write_data_prior_to_writeback);
+      ASSERT_EQ(nullptr, cell_entry->components[0].write_state.data);
+      ASSERT_NE(nullptr, cell_entry->components[0].writeback_state.data);
       EXPECT_EQ(3,
-                static_cast<int*>(cell_entry->components[0]
-                                      .write_data_prior_to_writeback.get())[0]);
+                static_cast<int*>(
+                    cell_entry->components[0].writeback_state.data.get())[0]);
       EXPECT_EQ(2,
-                static_cast<int*>(cell_entry->components[0]
-                                      .write_data_prior_to_writeback.get())[1]);
+                static_cast<int*>(
+                    cell_entry->components[0].writeback_state.data.get())[1]);
       complete_writeback();
     }
     EXPECT_EQ(Status(), GetStatus(write_future.result()));
@@ -1141,11 +1144,11 @@ TEST_P(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
 TEST_P(ChunkCacheTest, ReadAfterPendingDelete) {
   // Dimension 0 is chunked with a size of 2.
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2}))}}));
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
   // Perform delete.
   auto write_future = cell_entry->Delete();
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
 
   // Read back value from cache.
   {
@@ -1176,7 +1179,7 @@ TEST_P(ChunkCacheTest, ReadAfterPendingDelete) {
 TEST_P(ChunkCacheTest, DeleteWithPendingRead) {
   // Dimension 0 is chunked with a size of 2.
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2}))}}));
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
   auto read_array = tensorstore::AllocateArray<int>({2});
   // Read chunk 1, position [0] and [1]
@@ -1191,19 +1194,19 @@ TEST_P(ChunkCacheTest, DeleteWithPendingRead) {
 
   // Perform delete.  This fully overwrites chunk 1.
   auto write_future = cell_entry->Delete();
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
 
   // Complete the read request.
   EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
   EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
   store.HandleRead(r);
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
 
   TENSORSTORE_EXPECT_OK(read_future.result());
 
   // Verify that read result matches fill value.
   EXPECT_EQ(MakeArray<int>({1, 2}), read_array);
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_data);
+  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
 }
 
 TEST_P(ChunkCacheTest, WriteToMaskedArrayError) {
@@ -1211,7 +1214,9 @@ TEST_P(ChunkCacheTest, WriteToMaskedArrayError) {
   // Dimension 1 has a size of 2 and is not chunked.
   // Fill value is: {{1,2}, {3,4}}
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({{1, 2}, {3, 4}})), {0}}}));
+      SharedArray<const void>(MakeArray<int>({{1, 2}, {3, 4}})),
+      Box<>(2),
+      {0}}}));
 
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
   auto write_future =
@@ -1227,8 +1232,8 @@ TEST_P(ChunkCacheTest, WriteToMaskedArrayError) {
             MakeArray<int>({5, 6}));
   EXPECT_THAT(write_future.result(),
               MatchesStatus(absl::StatusCode::kOutOfRange));
-  EXPECT_TRUE(cell_entry->components[0].write_data);
-  EXPECT_EQ(0, cell_entry->components[0].write_mask.num_masked_elements);
+  EXPECT_TRUE(cell_entry->components[0].write_state.data);
+  EXPECT_EQ(0, cell_entry->components[0].write_state.mask.num_masked_elements);
 
   // Verify read of same chunk after failed write returns fill value.
   auto read_array = tensorstore::AllocateArray<int>({2, 2});
@@ -1255,7 +1260,7 @@ TEST_P(ChunkCacheTest, WriteToMaskedArrayError) {
 TEST_P(ChunkCacheTest, WriteGenerationMismatch) {
   // Dimension 0 is chunked with a size of 2.
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2}))}}));
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
 
   auto write_future =
       Write(0,
@@ -1320,7 +1325,7 @@ TEST_P(ChunkCacheTest, WriteGenerationMismatch) {
 TEST_P(ChunkCacheTest, ModifyDuringWriteback) {
   // Dimension 0 is chunked with a size of 4.
   InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2, 3, 4}))}}));
+      SharedArray<const void>(MakeArray<int>({1, 2, 3, 4})), Box<>(1)}}));
 
   // Partial write to chunk 0: [1]=5, [3]=6
   auto write_future =
@@ -1387,7 +1392,7 @@ TEST_P(ChunkCacheTest, ModifyDuringWriteback) {
   {
     auto r = log.writebacks.pop();
     EXPECT_THAT(r.entry->cell_indices(), ElementsAre(0));
-    EXPECT_TRUE(r.entry->components[0].write_data);
+    EXPECT_TRUE(r.entry->components[0].write_state.data);
     EXPECT_EQ(GetStorageGenerationFromNumber(2), r.generation);
     store.HandleWriteback(std::move(r))();
   }
@@ -1398,6 +1403,57 @@ TEST_P(ChunkCacheTest, ModifyDuringWriteback) {
     auto& chunk = store.GetChunk(span<const Index>({0}));
     EXPECT_EQ(3, chunk.generation);
     EXPECT_THAT(chunk.data, ElementsAre(MakeArray({10, 11, 7, 13})));
+  }
+}
+
+// Tests that fully overwriting a partial chunk (as determined by the
+// `component_bounds`) results in an unconditional writeback.
+TEST_P(ChunkCacheTest, FullyOverwritePartialChunk) {
+  // Dimension 0 is chunked with a size of 4, but the component bounds are
+  // `[1, 6)`, meaning chunk 0 has a valid range of `[1, 4)` and chunk 1 has a
+  // valid range of `[4, 6)`.
+  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2, 3, 4})),
+      Box<>({1}, {5})}}));
+
+  // Fully overwrite chunk 0
+  {
+    auto write_future =
+        Write(0,
+              ChainResult(tensorstore::IdentityTransform(1),
+                          tensorstore::Dims(0).HalfOpenInterval(1, 4))
+                  .value(),
+              MakeArray<int>({1, 2, 3}));
+    write_future.Force();
+    {
+      auto r = log.writebacks.pop();
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(0));
+      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
+      store.HandleWriteback(std::move(r))();
+      EXPECT_THAT(store.GetChunk(span<const Index>({0})).data,
+                  ElementsAre(MakeArray({1, 1, 2, 3})));
+    }
+    TENSORSTORE_ASSERT_OK(write_future.result());
+  }
+
+  // Fully overwrite chunk 1
+  {
+    auto write_future =
+        Write(0,
+              ChainResult(tensorstore::IdentityTransform(1),
+                          tensorstore::Dims(0).HalfOpenInterval(4, 6))
+                  .value(),
+              MakeArray<int>({4, 5}));
+    write_future.Force();
+    {
+      auto r = log.writebacks.pop();
+      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
+      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
+      store.HandleWriteback(std::move(r))();
+      EXPECT_THAT(store.GetChunk(span<const Index>({1})).data,
+                  ElementsAre(MakeArray({4, 5, 3, 4})));
+    }
+    TENSORSTORE_ASSERT_OK(write_future.result());
   }
 }
 

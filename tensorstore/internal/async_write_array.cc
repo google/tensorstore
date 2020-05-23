@@ -34,88 +34,65 @@
 namespace tensorstore {
 namespace internal {
 
-AsyncWriteArray::Spec::Spec(SharedArray<const void> fill_value)
-    : fill_value(std::move(fill_value)) {
+AsyncWriteArray::Spec::Spec(SharedArray<const void> fill_value,
+                            Box<> component_bounds)
+    : fill_value(std::move(fill_value)),
+      component_bounds(std::move(component_bounds)) {
+  assert(this->fill_value.rank() == this->component_bounds.rank());
   c_order_byte_strides.resize(this->rank());
   tensorstore::ComputeStrides(c_order, this->data_type()->size, this->shape(),
                               c_order_byte_strides);
 }
 
-AsyncWriteArray::AsyncWriteArray(DimensionIndex rank)
-    : write_mask(rank), write_mask_prior_to_writeback(rank) {}
-
-std::size_t AsyncWriteArray::EstimateReadStateSizeInBytes(
-    const Spec& spec) const {
-  std::size_t total = 0;
-  const Index num_elements = ProductOfExtents(spec.shape());
-  if (read_array.data()) {
-    total += num_elements * spec.fill_value.data_type()->size;
+Index AsyncWriteArray::Spec::chunk_num_elements(
+    span<const Index> origin) const {
+  assert(origin.size() == this->rank());
+  Index product = 1;
+  for (DimensionIndex i = 0; i < origin.size(); ++i) {
+    product *= Intersect(IndexInterval::UncheckedSized(origin[i],
+                                                       fill_value.shape()[i]),
+                         component_bounds[i])
+                   .size();
   }
-  return total;
+  return product;
 }
 
-std::size_t AsyncWriteArray::EstimateWriteStateSizeInBytes(
-    const Spec& spec) const {
-  std::size_t total = 0;
-  const Index num_elements = ProductOfExtents(spec.shape());
-  if (write_data) {
-    total += num_elements * spec.fill_value.data_type()->size;
-  }
-  if (write_data_prior_to_writeback) {
-    total += num_elements * spec.fill_value.data_type()->size;
-  }
-  if (write_mask.mask_array) {
-    total += num_elements * sizeof(bool);
-  }
-  if (write_mask_prior_to_writeback.mask_array) {
-    total += num_elements * sizeof(bool);
-  }
-  return total;
-}
-void AsyncWriteArray::AfterWritebackCompletes(const Spec& spec,
-                                              span<const Index> origin,
-                                              bool success) {
-  if (success) {
-    // Writeback was successful.  Reset the prior mask.
-    write_mask_prior_to_writeback.Reset();
-    if (write_data_prior_to_writeback) {
-      read_array = SharedArrayView<const void>(
-          SharedElementPointer<const void>(
-              std::exchange(write_data_prior_to_writeback, nullptr),
-              spec.data_type()),
-          spec.write_layout());
-    } else {
-      read_array = nullptr;
-    }
-  } else {
-    // Writeback failed or was aborted.  Combine the current mask into the
-    // prior mask.
-    UnionMasks(BoxView(origin, spec.shape()), &write_mask,
-               &write_mask_prior_to_writeback);
-    write_mask_prior_to_writeback.Reset();
-    if (!write_data) {
-      write_data = std::move(write_data_prior_to_writeback);
-    } else {
-      write_data_prior_to_writeback = nullptr;
-    }
-  }
+Result<NDIterable::Ptr> AsyncWriteArray::Spec::GetReadNDIterable(
+    SharedArrayView<const void> array, span<const Index> origin,
+    IndexTransform<> chunk_transform, Arena* arena) const {
+  if (!array.valid()) array = fill_value;
+  assert(internal::RangesEqual(array.shape(), this->shape()));
+  StridedLayoutView<dynamic_rank, offset_origin> data_layout(
+      origin, shape(), array.byte_strides());
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      chunk_transform,
+      ComposeLayoutAndTransform(data_layout, std::move(chunk_transform)));
+  return GetNormalizedTransformedArrayNDIterable(
+      {AddByteOffset(std::move(array.element_pointer()),
+                     -data_layout.origin_byte_offset()),
+       std::move(chunk_transform)},
+      arena);
 }
 
-void AsyncWriteArray::WriteFillValue(const Spec& spec,
-                                     span<const Index> origin) {
-  write_data = nullptr;
-  write_mask.Reset();
-  write_mask.num_masked_elements = spec.num_elements();
-  write_mask.region = BoxView(origin, spec.shape());
+AsyncWriteArray::MaskedArray::MaskedArray(DimensionIndex rank) : mask(rank) {}
+
+void AsyncWriteArray::MaskedArray::WriteFillValue(const Spec& spec,
+                                                  span<const Index> origin) {
+  data = nullptr;
+  mask.Reset();
+  mask.num_masked_elements = spec.num_elements();
+  mask.region = BoxView(origin, spec.shape());
 }
 
-AsyncWriteArray::WritebackData AsyncWriteArray::GetArrayForWriteback(
-    const Spec& spec, span<const Index> origin) {
+AsyncWriteArray::WritebackData
+AsyncWriteArray::MaskedArray::GetArrayForWriteback(
+    const Spec& spec, span<const Index> origin,
+    const SharedArrayView<const void>& read_array,
+    bool read_state_already_integrated) {
   assert(origin.size() == spec.rank());
   WritebackData writeback;
-  AfterWritebackCompletes(spec, origin, /*success=*/false);
-  writeback.unconditional = IsFullyOverwritten(spec);
-  if (!write_data) {
+  writeback.unconditional = IsFullyOverwritten(spec, origin);
+  if (!data) {
     // No data has been allocated for the write array.  This is only possible in
     // two cases:
     if (writeback.unconditional) {
@@ -125,58 +102,70 @@ AsyncWriteArray::WritebackData AsyncWriteArray::GetArrayForWriteback(
     } else {
       // Case 2: array is unmodified.
       assert(IsUnmodified());
-      writeback.array = GetReadArray(spec);
+      if (read_array.data()) {
+        writeback.array = read_array;
+      } else {
+        writeback.array = spec.fill_value;
+      }
     }
   } else {
-    ElementPointer<void> writeback_element_pointer(write_data,
-                                                   spec.data_type());
+    ElementPointer<void> writeback_element_pointer(data, spec.data_type());
     writeback.array = SharedArrayView<void>(
         UnownedToShared(writeback_element_pointer), spec.write_layout());
-    if (!writeback.unconditional) {
+    if (!read_state_already_integrated &&
+        // If any elements in the array haven't been written, fill them from
+        // `read_array` or `spec.fill_value`.  Compare
+        // `mask.num_masked_elements` to `spec.num_elements()` rather than
+        // `spec.chunk_num_elements(origin)`, because even if the only positions
+        // not written are outside `spec.component_bounds`, we still need to
+        // ensure we don't leak the contents of uninitialized memory, in case
+        // the consumer of the `WritebackData` stores out-of-bounds data as
+        // well.
+        mask.num_masked_elements != spec.num_elements()) {
       // Array was only partially written.
-      RebaseMaskedArray(BoxView<>(origin, spec.shape()), GetReadArray(spec),
-                        writeback_element_pointer, write_mask);
+      RebaseMaskedArray(BoxView<>(origin, spec.shape()),
+                        read_array.data()
+                            ? ArrayView<const void>(read_array)
+                            : ArrayView<const void>(spec.fill_value),
+                        writeback_element_pointer, mask);
     }
   }
   writeback.equals_fill_value = (writeback.array == spec.fill_value);
 
   if (writeback.equals_fill_value && writeback.unconditional) {
-    write_data = nullptr;
+    data = nullptr;
     writeback.array = spec.fill_value;
   }
-
-  // Save the current `write_mask` in `write_mask_prior_to_writeback`, and
-  // reset `write_mask` so that new writes are recorded separately.  If
-  // writeback fails, `write_mask_prior_to_writeback` will be combined into
-  // `write_mask`.  If writeback succeeds, it will be discarded.
-  std::swap(write_mask, write_mask_prior_to_writeback);
-  write_mask.Reset();
-
-  write_data_prior_to_writeback = std::exchange(write_data, nullptr);
-
   return writeback;
 }
 
-Result<NDIterable::Ptr> AsyncWriteArray::BeginWrite(
+std::size_t AsyncWriteArray::MaskedArray::EstimateSizeInBytes(
+    const Spec& spec) const {
+  std::size_t total = 0;
+  const Index num_elements = ProductOfExtents(spec.shape());
+  if (data) {
+    total += num_elements * spec.fill_value.data_type()->size;
+  }
+  if (mask.mask_array) {
+    total += num_elements * sizeof(bool);
+  }
+  return total;
+}
+
+Result<NDIterable::Ptr> AsyncWriteArray::MaskedArray::BeginWrite(
     const Spec& spec, span<const Index> origin,
     IndexTransform<> chunk_transform, Arena* arena) {
   bool allocated_data = false;
-  if (!write_data) {
-    write_data = AllocateAndConstructSharedElements(
-                     spec.num_elements(), default_init, spec.data_type())
-                     .pointer();
+  if (!data) {
+    data = AllocateAndConstructSharedElements(spec.num_elements(), default_init,
+                                              spec.data_type())
+               .pointer();
     allocated_data = true;
   }
-  ArrayView<void> write_array(
-      ElementPointer<void>(write_data, spec.data_type()), spec.write_layout());
+  ArrayView<void> write_array(ElementPointer<void>(data, spec.data_type()),
+                              spec.write_layout());
   if (allocated_data) {
-    if (write_data_prior_to_writeback) {
-      CopyArray(
-          ArrayView<void>(ElementPointer<void>(write_data_prior_to_writeback,
-                                               spec.data_type()),
-                          spec.write_layout()),
-          write_array);
-    } else if (IsFullyOverwritten(spec)) {
+    if (IsFullyOverwritten(spec, origin)) {
       // Previously, there was no data array allocated for the array but it was
       // considered to have been implicitly overwritten with the fill value.
       // Now that the data array has been allocated, it must actually be
@@ -200,29 +189,109 @@ Result<NDIterable::Ptr> AsyncWriteArray::BeginWrite(
       arena);
 }
 
-bool AsyncWriteArray::EndWrite(const Spec& spec, span<const Index> origin,
-                               IndexTransformView<> chunk_transform,
-                               NDIterable::IterationLayoutView layout,
-                               span<const Index> write_end_position,
-                               Arena* arena) {
-  return WriteToMask(&write_mask, BoxView<>(origin, spec.shape()),
-                     chunk_transform, layout, write_end_position, arena);
+bool AsyncWriteArray::MaskedArray::EndWrite(
+    const Spec& spec, span<const Index> origin,
+    IndexTransformView<> chunk_transform,
+    NDIterable::IterationLayoutView layout,
+    span<const Index> write_end_position, Arena* arena) {
+  return WriteToMask(&mask, BoxView<>(origin, spec.shape()), chunk_transform,
+                     layout, write_end_position, arena);
+}
+
+void AsyncWriteArray::MaskedArray::Clear() {
+  mask.Reset();
+  data = nullptr;
+}
+
+void AsyncWriteArray::MaskedArray::RebaseOnto(
+    const Spec& spec, span<const Index> origin,
+    MaskedArray&& prior_masked_array) {
+  if (data) {
+    if (prior_masked_array.data) {
+      RebaseMaskedArray(
+          BoxView(origin, spec.shape()),
+          ArrayView<const void>(ElementPointer<const void>(
+                                    prior_masked_array.data, spec.data_type()),
+                                spec.write_layout()),
+          ElementPointer<void>(data, spec.data_type()), mask);
+    } else if (prior_masked_array.IsFullyOverwritten(spec, origin)) {
+      // `prior_masked_array` implicitly contains the fill value.
+      RebaseMaskedArray(BoxView(origin, spec.shape()), spec.fill_value,
+                        ElementPointer<void>(data, spec.data_type()), mask);
+    } else {
+      assert(prior_masked_array.IsUnmodified());
+    }
+    UnionMasks(BoxView(origin, spec.shape()), &mask, &prior_masked_array.mask);
+  } else if (IsUnmodified()) {
+    data = std::move(prior_masked_array.data);
+    mask = std::move(prior_masked_array.mask);
+  } else {
+    assert(IsFullyOverwritten(spec, origin));
+    // Implicitly contains the fill value.
+  }
+  prior_masked_array.Clear();
+}
+
+AsyncWriteArray::AsyncWriteArray(DimensionIndex rank)
+    : write_state(rank), writeback_state(rank) {}
+
+std::size_t AsyncWriteArray::EstimateReadStateSizeInBytes(
+    const Spec& spec) const {
+  std::size_t total = 0;
+  const Index num_elements = ProductOfExtents(spec.shape());
+  if (read_array.data()) {
+    total += num_elements * spec.fill_value.data_type()->size;
+  }
+  return total;
+}
+
+std::size_t AsyncWriteArray::EstimateWriteStateSizeInBytes(
+    const Spec& spec) const {
+  return write_state.EstimateSizeInBytes(spec) +
+         writeback_state.EstimateSizeInBytes(spec);
+}
+
+void AsyncWriteArray::AfterWritebackCompletes(const Spec& spec,
+                                              span<const Index> origin,
+                                              bool success) {
+  if (success) {
+    // Writeback was successful.  Reset the prior mask.
+    writeback_state.mask.Reset();
+    if (writeback_state.data) {
+      read_array = SharedArrayView<const void>(
+          SharedElementPointer<const void>(
+              std::exchange(writeback_state.data, nullptr), spec.data_type()),
+          spec.write_layout());
+    } else {
+      read_array = nullptr;
+    }
+  } else {
+    // Writeback failed or was aborted.  Combine the current mask into the
+    // prior mask.
+    write_state.RebaseOnto(spec, origin, std::move(writeback_state));
+  }
+}
+
+AsyncWriteArray::WritebackData AsyncWriteArray::GetArrayForWriteback(
+    const Spec& spec, span<const Index> origin) {
+  AfterWritebackCompletes(spec, origin, /*success=*/false);
+  auto writeback = write_state.GetArrayForWriteback(spec, origin, read_array);
+
+  // Save the current `write_state` in `writeback_state` and clear `write_state`
+  // so that new writes are recorded separately.  If writeback fails,
+  // `write_state` will be rebased onto `writeback_state`.  If writeback
+  // succeeds, `writeback_state` will be discarded.
+  writeback_state = std::move(write_state);
+  write_state.Clear();
+
+  return writeback;
 }
 
 Result<NDIterable::Ptr> AsyncWriteArray::GetReadNDIterable(
     const Spec& spec, span<const Index> origin,
     IndexTransform<> chunk_transform, Arena* arena) {
-  auto array = GetReadArray(spec);
-  StridedLayoutView<dynamic_rank, offset_origin> data_layout(
-      origin, spec.shape(), array.byte_strides());
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      chunk_transform,
-      ComposeLayoutAndTransform(data_layout, std::move(chunk_transform)));
-  return GetNormalizedTransformedArrayNDIterable(
-      {AddByteOffset(std::move(array.element_pointer()),
-                     -data_layout.origin_byte_offset()),
-       std::move(chunk_transform)},
-      arena);
+  return spec.GetReadNDIterable(GetReadArray(spec), origin,
+                                std::move(chunk_transform), arena);
 }
 
 }  // namespace internal

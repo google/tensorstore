@@ -158,11 +158,11 @@ struct ChunkGridSpecification {
     /// positions within a given dimension, you can specify a byte stride of 0
     /// for that dimension.  In particular, if the same value is used for all
     /// positions in the cell, you can specify all zero byte strides.
-    Component(SharedArray<const void> fill_value);
+    Component(SharedArray<const void> fill_value, Box<> component_bounds);
 
     /// Constructs a component specification with the specified fill value and
     /// set of chunked dimensions.
-    Component(SharedArray<const void> fill_value,
+    Component(SharedArray<const void> fill_value, Box<> component_bounds,
               std::vector<DimensionIndex> chunked_to_cell_dimensions);
 
     /// Mapping from chunked dimensions (corresponding to components of

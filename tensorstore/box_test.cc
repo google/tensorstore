@@ -85,6 +85,13 @@ TEST(BoxTest, SizeConstruct) {
   EXPECT_THAT(box.shape(), ElementsAre(kInfSize, kInfSize, kInfSize));
 }
 
+TEST(BoxTest, ShapeArrayConstruct) {
+  std::array<Index, 3> shape{{1, 2, 3}};
+  Box<> box(shape);
+  EXPECT_THAT(box.origin(), ElementsAre(0, 0, 0));
+  EXPECT_THAT(box.shape(), ElementsAre(1, 2, 3));
+}
+
 TEST(BoxTest, DynamicRankSpanConstruct) {
   const Index origin[] = {1, 2, 3};
   const Index shape[] = {3, 4, 5};

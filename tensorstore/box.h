@@ -270,7 +270,8 @@ class Box : public internal_box::BoxStorage<Rank> {
                 static_rank, ShapeVec>::value>>
   explicit Box(const ShapeVec& shape)
       : Box(GetStaticOrDynamicExtent(span(shape)),
-            GetConstantVector<Index, 0>(GetStaticOrDynamicExtent(shape)).data(),
+            GetConstantVector<Index, 0>(GetStaticOrDynamicExtent(span(shape)))
+                .data(),
             shape.data()) {}
 
   /// Constructs from another Box-like type with a compatible rank.

@@ -193,16 +193,14 @@ void MaybeStartReadOrWriteback(AsyncStorageBackedCache::Entry* entry,
       TENSORSTORE_DEBUG_LOG(debug, "MaybeStartReadOrWriteback: entry=", entry,
                             " read required for writeback");
       if (!maybe_start_read()) {
-        IssueRead(entry,
-                  {/*.SizeUpdate=*/std::move(update),
-                   /*.new_state=*/CacheEntryQueueState::writeback_requested});
+        update.new_state = CacheEntryQueueState::writeback_requested;
+        IssueRead(entry, std::move(update));
       }
       return true;
     }
     // Writeback will be started.
-    entry->UpdateState(
-        {/*.SizeUpdate=*/std::move(update),
-         /*.new_state=*/CacheEntryQueueState::writeback_requested});
+    update.new_state = CacheEntryQueueState::writeback_requested;
+    entry->UpdateState(std::move(update));
     TENSORSTORE_DEBUG_LOG(debug, "MaybeStartReadOrWriteback: entry=", entry,
                           " calling DoWriteback");
     GetOwningCache(entry)->DoWriteback(

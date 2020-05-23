@@ -25,6 +25,7 @@
 #include "absl/time/time.h"
 #include <benchmark/benchmark.h>
 #include "tensorstore/array.h"
+#include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/driver.h"
@@ -53,6 +54,7 @@
 namespace {
 
 using tensorstore::ArrayView;
+using tensorstore::Box;
 using tensorstore::DimensionIndex;
 using tensorstore::Executor;
 using tensorstore::Future;
@@ -203,7 +205,7 @@ class CopyBenchmarkRunner {
     ChunkGridSpecification grid({ChunkGridSpecification::Component{
         AllocateArray(config.cell_shape, tensorstore::c_order,
                       tensorstore::value_init, config.data_type),
-        chunked_dims}});
+        Box<>(rank), chunked_dims}});
     cache = pool->GetCache<BenchmarkCache>(
         "", [&] { return absl::make_unique<BenchmarkCache>(grid); });
     cache->executor = executor;

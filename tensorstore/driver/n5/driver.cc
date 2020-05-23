@@ -143,7 +143,12 @@ class DataCacheState : public internal_kvs_backed_chunk_driver::DataCacheState {
         StridedLayout<>(metadata.chunk_layout.shape(),
                         GetConstantVector<Index, 0>(metadata.rank())));
     return internal::ChunkGridSpecification(
-        {internal::ChunkGridSpecification::Component(std::move(fill_value))});
+        {internal::ChunkGridSpecification::Component(std::move(fill_value),
+                                                     // Since all dimensions are
+                                                     // resizable, just specify
+                                                     // unbounded
+                                                     // `component_bounds`.
+                                                     Box<>(metadata.rank()))});
   }
 
   Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(

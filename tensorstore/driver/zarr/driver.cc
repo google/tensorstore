@@ -271,7 +271,10 @@ class DataCacheState : public internal_kvs_backed_chunk_driver::DataCacheState {
             fill_value.byte_strides()[cell_dim - fill_value_start_dim];
       }
       components.emplace_back(std::move(chunk_fill_value),
-                              chunked_to_cell_dimensions);
+                              // Since all chunked dimensions are resizable in
+                              // zarr, just specify unbounded
+                              // `component_bounds`.
+                              Box<>(cell_rank), chunked_to_cell_dimensions);
     }
     return internal::ChunkGridSpecification{std::move(components)};
   }

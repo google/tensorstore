@@ -165,9 +165,22 @@ class DataCacheStateBase
                                                      metadata.data_type),
         StridedLayout<>(chunk_layout_czyx_.shape(),
                         GetConstantVector<Index, 0, 4>()));
+    // Resizing is not supported.  Specifying the `component_bounds` permits
+    // partial chunks at the upper bounds to be written unconditionally (which
+    // may be more efficient) if fully overwritten.
+    Box<> component_bounds_czyx(4);
+    component_bounds_czyx.origin()[0] = 0;
+    component_bounds_czyx.shape()[0] = metadata.num_channels;
+    const auto& box_xyz = metadata.scales[scale_index_].box;
+    for (DimensionIndex i = 0; i < 3; ++i) {
+      // The ChunkCache always uses an origin of 0.
+      component_bounds_czyx[3 - i] =
+          IndexInterval::UncheckedSized(0, box_xyz[i].size());
+    }
     return internal::ChunkGridSpecification(
-        {internal::ChunkGridSpecification::Component(std::move(fill_value),
-                                                     {3, 2, 1})});
+        {internal::ChunkGridSpecification::Component(
+            std::move(fill_value), std::move(component_bounds_czyx),
+            {3, 2, 1})});
   }
 
   Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(

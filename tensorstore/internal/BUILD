@@ -283,6 +283,7 @@ tensorstore_cc_binary(
         ":intrusive_ptr",
         ":thread_pool",
         "//tensorstore:array",
+        "//tensorstore:box",
         "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
         "//tensorstore:index",
@@ -1104,6 +1105,25 @@ tensorstore_cc_library(
         "//tensorstore/util:element_pointer",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "async_write_array_test",
+    size = "small",
+    srcs = ["async_write_array_test.cc"],
+    deps = [
+        ":arena",
+        ":async_write_array",
+        ":nditerable_array",
+        ":nditerable_copy",
+        "//tensorstore:array",
+        "//tensorstore:box",
+        "//tensorstore:index",
+        "//tensorstore:strided_layout",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

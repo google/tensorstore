@@ -63,17 +63,20 @@
 namespace tensorstore {
 namespace internal {
 
-ChunkGridSpecification::Component::Component(SharedArray<const void> fill_value)
-    : internal::AsyncWriteArray::Spec(std::move(fill_value)) {
+ChunkGridSpecification::Component::Component(SharedArray<const void> fill_value,
+                                             Box<> component_bounds)
+    : internal::AsyncWriteArray::Spec(std::move(fill_value),
+                                      std::move(component_bounds)) {
   chunked_to_cell_dimensions.resize(rank());
   std::iota(chunked_to_cell_dimensions.begin(),
             chunked_to_cell_dimensions.end(), static_cast<DimensionIndex>(0));
 }
 
 ChunkGridSpecification::Component::Component(
-    SharedArray<const void> fill_value,
+    SharedArray<const void> fill_value, Box<> component_bounds,
     std::vector<DimensionIndex> chunked_to_cell_dimensions)
-    : internal::AsyncWriteArray::Spec(std::move(fill_value)),
+    : internal::AsyncWriteArray::Spec(std::move(fill_value),
+                                      std::move(component_bounds)),
       chunked_to_cell_dimensions(std::move(chunked_to_cell_dimensions)) {}
 
 ChunkGridSpecification::ChunkGridSpecification(Components components_arg)
@@ -136,11 +139,18 @@ void GetComponentOrigin(const ChunkGridSpecification& spec,
 /// \param entry Non-null pointer to entry.
 bool IsFullyOverwritten(ChunkCache::Entry* entry) {
   const ChunkCache* cache = GetOwningCache(entry);
-  const auto& component_specs = cache->grid().components;
-  for (std::size_t component_i = 0; component_i < component_specs.size();
-       ++component_i) {
-    if (!entry->components[component_i].IsFullyOverwritten(
-            component_specs[component_i])) {
+  const auto& grid = cache->grid();
+  const auto& component_specs = grid.components;
+  absl::InlinedVector<Index, kNumInlinedDims> origin;
+  const span<const Index> cell_indices = entry->cell_indices();
+  for (Index component_index = 0,
+             num_components = cache->grid().components.size();
+       component_index != num_components; ++component_index) {
+    const auto& component_spec = component_specs[component_index];
+    origin.resize(component_spec.rank());
+    GetComponentOrigin(grid, component_spec, cell_indices, origin);
+    if (!entry->components[component_index].write_state.IsFullyOverwritten(
+            component_spec, origin)) {
       return false;
     }
   }
@@ -339,7 +349,7 @@ struct WriteChunkImpl {
     auto lock = entry->AcquireWriteStateLock();
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto iterable,
-        entry->components[component_index].BeginWrite(
+        entry->components[component_index].write_state.BeginWrite(
             component_spec, origin, std::move(chunk_transform), arena));
     // Implicitly transfer ownership of lock to caller.  Note: `release()`
     // does not unlock.
@@ -360,9 +370,10 @@ struct WriteChunkImpl {
     absl::FixedArray<Index, kNumInlinedDims> origin(component_spec.rank());
     GetComponentOrigin(GetOwningCache(entry)->grid(), component_spec,
                        entry->cell_indices(), origin);
-    const bool modified = entry->components[component_index].EndWrite(
-        component_spec, origin, chunk_transform, layout, write_end_position,
-        arena);
+    const bool modified =
+        entry->components[component_index].write_state.EndWrite(
+            component_spec, origin, chunk_transform, layout, write_end_position,
+            arena);
     if (modified) {
       // The data array was modified.  Notify `AsyncStorageBackedCache` and
       // return the associated writeback `Future`.
@@ -490,7 +501,8 @@ Future<const void> ChunkCache::Entry::Delete() {
     const auto& component_spec = grid.components[component_index];
     origin.resize(component_spec.rank());
     GetComponentOrigin(grid, component_spec, cell_indices, origin);
-    components[component_index].WriteFillValue(component_spec, origin);
+    components[component_index].write_state.WriteFillValue(component_spec,
+                                                           origin);
   }
   return this->FinishWrite(std::move(lock),
                            WriteFlags::kUnconditionalWriteback);
