@@ -283,6 +283,9 @@ TEST(AllocateAndConsructSharedTest, ValueInitialization) {
   EXPECT_EQ(0, ptr.get()[1]);
 }
 
+// Thread sanitizer considers `operator new` allocation failure an error, and
+// prevents this death test from working.
+#if !defined(THREAD_SANITIZER)
 TEST(AllocateAndConsructSharedDeathTest, OutOfMemory) {
   const auto allocate = [] {
     AllocateAndConstructShared<int>(0xFFFFFFFFFFFFFFF,
@@ -294,6 +297,7 @@ TEST(AllocateAndConsructSharedDeathTest, OutOfMemory) {
   EXPECT_DEATH(allocate(), "");
 #endif
 }
+#endif  // defined(THREAD_SANITIZER)
 
 TEST(DataTypeTest, Name) {
   EXPECT_EQ("bool", DataType(DataTypeOf<bool_t>()).name());
