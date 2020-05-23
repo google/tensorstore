@@ -179,6 +179,18 @@ TEST(ResultTest, Comparison) {
   EXPECT_EQ(false, r == 2);
   EXPECT_EQ(false, r != 1);
   EXPECT_EQ(true, r != 2);
+
+  // Compare Result<void>
+  const Result<void> rv = tensorstore::MakeResult();
+  Result<void> err3 = absl::UnknownError("Message");
+  EXPECT_TRUE(rv == rv);
+  EXPECT_FALSE(rv != rv);
+  EXPECT_TRUE(err3 == err3);
+  EXPECT_FALSE(err3 != err3);
+  EXPECT_FALSE(rv == err3);
+  EXPECT_FALSE(err3 == rv);
+  EXPECT_TRUE(rv != err3);
+  EXPECT_TRUE(err3 != rv);
 }
 
 TEST(ResultTest, AssignMoveFailure) {

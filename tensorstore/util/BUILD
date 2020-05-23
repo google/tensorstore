@@ -346,6 +346,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_linked_list",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:meta",
+        "//tensorstore/internal:no_destructor",
         "//tensorstore/internal:tagged_ptr",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal:void_wrapper",

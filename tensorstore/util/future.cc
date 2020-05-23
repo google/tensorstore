@@ -25,6 +25,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_linked_list.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/void_wrapper.h"
 #include "tensorstore/util/future_impl.h"
 
@@ -459,4 +460,11 @@ FutureStateBase::~FutureStateBase() {
 }
 
 }  // namespace internal_future
+
+ReadyFuture<const void> MakeReadyFuture() {
+  static internal::NoDestructor<ReadyFuture<const void>> future{
+      MakeReadyFuture<void>(MakeResult())};
+  return *future;
+}
+
 }  // namespace tensorstore

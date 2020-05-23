@@ -473,6 +473,10 @@ MakeReadyFuture(U&&... u) {
   return ReadyFuture<T>(pair.future);
 }
 
+/// Returns a ready `Future<const void>`.  This simply returns a global value
+/// and avoids allocations.
+ReadyFuture<const void> MakeReadyFuture();
+
 /// "Consumer" interface to a one-time channel.
 ///
 /// \tparam T Specifies the type of the value to be transmitted.  The actual
@@ -1109,6 +1113,17 @@ Future<T> MakeSenderFuture(Sender sender) {
   };
   pair.promise.ExecuteWhenForced(Callback{std::move(sender)});
   return pair.future;
+}
+
+/// If `promise` does not already have a result set, sets its result to `result`
+/// and sets `promise.result_needed() = false`.
+///
+/// This does not cause `promise.ready()` to become `true`.
+template <typename T, typename U>
+void SetDeferredResult(const Promise<T>& promise, U&& result) {
+  if (internal_future::FutureAccess::rep(promise).LockResult()) {
+    promise.raw_result() = std::forward<U>(result);
+  }
 }
 
 }  // namespace tensorstore

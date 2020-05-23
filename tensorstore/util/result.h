@@ -510,12 +510,21 @@ operator==(const Result<T>& a, const Result<U>& b) {
   return a.has_value() ? a.value() == b.value() : a.status() == b.status();
 }
 
+inline bool operator==(const Result<void>& a, const Result<void>& b) {
+  return (a.has_value() == b.has_value()) &&
+         (a.has_value() || (a.status() == b.status()));
+}
+
 /// \brief Checks if two Result values are not equal.
 template <typename T, typename U>
 std::enable_if_t<
     std::is_same<bool, decltype(std::declval<T>() == std::declval<U>())>::value,
     bool>
 operator!=(const Result<T>& a, const Result<U>& b) {
+  return !(a == b);
+}
+
+inline bool operator!=(const Result<void>& a, const Result<void>& b) {
   return !(a == b);
 }
 

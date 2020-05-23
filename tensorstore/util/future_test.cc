@@ -1601,4 +1601,31 @@ TEST(MapFutureErrorTest, ErrorMappedToError) {
               MatchesStatus(absl::StatusCode::kUnknown, "Mapped: message"));
 }
 
+TEST(MakeReadyFutureTest, Basic) {
+  auto future = MakeReadyFuture();
+  static_assert(std::is_same_v<ReadyFuture<const void>, decltype(future)>);
+  EXPECT_TRUE(future.ready());
+  EXPECT_EQ(MakeResult(), future.result());
+}
+
+TEST(FutureTest, SetDeferredResult) {
+  auto [promise, future] = PromiseFuturePair<int>::Make();
+  SetDeferredResult(promise, 2);
+  EXPECT_FALSE(future.ready());
+  SetDeferredResult(promise, 3);
+  EXPECT_FALSE(future.ready());
+  promise = Promise<int>();
+  ASSERT_TRUE(future.ready());
+  EXPECT_THAT(future.result(), ::testing::Optional(2));
+}
+
+TEST(FutureTest, SetDeferredResultAfterReady) {
+  auto [promise, future] = PromiseFuturePair<int>::Make();
+  promise.SetResult(1);
+  ASSERT_TRUE(future.ready());
+  SetDeferredResult(promise, 2);
+  ASSERT_TRUE(future.ready());
+  EXPECT_THAT(future.result(), ::testing::Optional(1));
+}
+
 }  // namespace
