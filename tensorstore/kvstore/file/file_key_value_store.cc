@@ -494,7 +494,7 @@ struct WriteTask {
 /// Implements `FileKeyValueStore::Delete`.
 struct DeleteTask {
   std::string full_path;
-  KeyValueStore::DeleteOptions options;
+  KeyValueStore::WriteOptions options;
   Result<TimestampedStorageGeneration> operator()() const {
     TimestampedStorageGeneration r;
     r.time = absl::Now();
@@ -727,19 +727,18 @@ class FileKeyValueStore
                                           std::move(options)});
   }
 
-  Future<TimestampedStorageGeneration> Write(Key key, Value value,
+  Future<TimestampedStorageGeneration> Write(Key key,
+                                             std::optional<Value> value,
                                              WriteOptions options) override {
     TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
-    return MapFuture(
-        executor(), WriteTask{internal::JoinPath(root(), key), std::move(value),
-                              std::move(options)});
-  }
-
-  Future<TimestampedStorageGeneration> Delete(Key key,
-                                              DeleteOptions options) override {
-    TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
-    return MapFuture(executor(), DeleteTask{internal::JoinPath(root(), key),
-                                            std::move(options)});
+    if (value) {
+      return MapFuture(executor(),
+                       WriteTask{internal::JoinPath(root(), key),
+                                 std::move(*value), std::move(options)});
+    } else {
+      return MapFuture(executor(), DeleteTask{internal::JoinPath(root(), key),
+                                              std::move(options)});
+    }
   }
 
   Future<std::int64_t> DeletePrefix(Key prefix) override {

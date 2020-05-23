@@ -220,9 +220,7 @@ class KeyValueStoreCache : public Parent {
     }
     auto key = this->GetKeyValueStoreKey(entry);
     Future<TimestampedStorageGeneration> future =
-        value ? kvstore_->Write(std::move(key), std::move(*value),
-                                std::move(options))
-              : kvstore_->Delete(std::move(key), std::move(options));
+        kvstore_->Write(std::move(key), std::move(value), std::move(options));
     future.Force();
     std::move(future).ExecuteWhenReady(WithExecutor(
         executor_,

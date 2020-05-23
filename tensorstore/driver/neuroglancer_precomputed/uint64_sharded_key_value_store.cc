@@ -1000,16 +1000,6 @@ class ShardedKeyValueStore : public KeyValueStore {
         .future;
   }
 
-  Future<TimestampedStorageGeneration> Write(Key key, Value value,
-                                             WriteOptions options) override {
-    return WriteImpl(std::move(key), std::move(value), std::move(options));
-  }
-
-  Future<TimestampedStorageGeneration> Delete(Key key,
-                                              DeleteOptions options) override {
-    return WriteImpl(std::move(key), std::nullopt, std::move(options));
-  }
-
   Future<std::int64_t> DeletePrefix(Key prefix) override {
     if (!prefix.empty()) {
       return absl::InvalidArgumentError("Only empty prefix is supported");
@@ -1019,8 +1009,9 @@ class ShardedKeyValueStore : public KeyValueStore {
                                                            : key_prefix + "/");
   }
 
-  Future<TimestampedStorageGeneration> WriteImpl(
-      Key key, std::optional<std::string> value, WriteOptions options) {
+  Future<TimestampedStorageGeneration> Write(Key key,
+                                             std::optional<std::string> value,
+                                             WriteOptions options) override {
     TENSORSTORE_ASSIGN_OR_RETURN(ChunkId chunk_id, ParseKey(key));
     const auto& sharding_spec = this->sharding_spec();
     const auto shard_info = GetSplitShardInfo(

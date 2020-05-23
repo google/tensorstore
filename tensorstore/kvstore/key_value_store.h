@@ -393,28 +393,25 @@ class KeyValueStore : public internal::AtomicReferenceCount<KeyValueStore> {
 
   /// Performs an optionally-conditional write.
   ///
-  /// Atomically updates the value stored for `key` subject to the conditions
-  /// specified in `options`.
+  /// Atomically updates or deletes the value stored for `key` subject to the
+  /// conditions specified in `options`.
   ///
+  /// \param key The key to write or delete.
+  /// \param value The value to write, or `std::nullopt` to delete.
   /// \returns A Future that resolves to the generation corresponding to the new
   ///     value on success, or to `StorageGeneration::Unknown()` if the
   ///     conditions in `options` are not satisfied.
-  virtual Future<TimestampedStorageGeneration> Write(Key key, Value value,
+  virtual Future<TimestampedStorageGeneration> Write(Key key,
+                                                     std::optional<Value> value,
                                                      WriteOptions options = {});
-
-  using DeleteOptions = WriteOptions;
 
   /// Performs an optionally-conditional delete.
   ///
-  /// Atomically deletes the stored value for `key` subject to the conditions
-  /// specified in `options`.
-  ///
-  /// \returns A Future that resolves to the generation associated with a
-  ///     not-present `key` when the object has been successfully deleted, or to
-  ///     `StorageGeneration::Unknown()` if the conditions in `options` are not
-  ///     satisfied.
-  virtual Future<TimestampedStorageGeneration> Delete(
-      Key key, DeleteOptions options = {});
+  /// Equivalent to calling `Write` with `value` equal to `std::nullopt`.
+  Future<TimestampedStorageGeneration> Delete(Key key,
+                                              WriteOptions options = {}) {
+    return Write(key, std::nullopt, std::move(options));
+  }
 
   /// Deletes all keys starting with `prefix`.
   ///

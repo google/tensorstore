@@ -126,8 +126,7 @@ class MockKeyValueStore : public KeyValueStore {
     std::optional<Value> value;
     WriteOptions options;
     void operator()(KeyValueStore::Ptr target) const {
-      Link(promise, value ? target->Write(key, *value, options)
-                          : target->Delete(key, options));
+      Link(promise, target->Write(key, value, options));
     }
   };
 
@@ -151,21 +150,13 @@ class MockKeyValueStore : public KeyValueStore {
     return future;
   }
 
-  Future<TimestampedStorageGeneration> Write(Key key, Value value,
+  Future<TimestampedStorageGeneration> Write(Key key,
+                                             std::optional<Value> value,
                                              WriteOptions options) override {
     auto [promise, future] =
         PromiseFuturePair<TimestampedStorageGeneration>::Make();
     write_requests.push({std::move(promise), std::move(key), std::move(value),
                          std::move(options)});
-    return future;
-  }
-
-  Future<TimestampedStorageGeneration> Delete(Key key,
-                                              WriteOptions options) override {
-    auto [promise, future] =
-        PromiseFuturePair<TimestampedStorageGeneration>::Make();
-    write_requests.push(
-        {std::move(promise), std::move(key), std::nullopt, std::move(options)});
     return future;
   }
 

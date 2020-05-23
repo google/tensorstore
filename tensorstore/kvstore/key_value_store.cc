@@ -125,13 +125,8 @@ Future<KeyValueStore::ReadResult> KeyValueStore::Read(Key key,
 }
 
 Future<TimestampedStorageGeneration> KeyValueStore::Write(
-    Key key, Value value, WriteOptions options) {
+    Key key, std::optional<Value> value, WriteOptions options) {
   return absl::UnimplementedError("KeyValueStore does not support writing");
-}
-
-Future<TimestampedStorageGeneration> KeyValueStore::Delete(
-    Key key, DeleteOptions options) {
-  return absl::UnimplementedError("KeyValueStore does not support deleting");
 }
 
 Future<std::int64_t> KeyValueStore::DeletePrefix(Key prefix) {

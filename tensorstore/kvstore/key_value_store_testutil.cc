@@ -466,14 +466,10 @@ class RegisteredMockKeyValueStore
     return base()->Read(std::move(key), std::move(options));
   }
 
-  Future<TimestampedStorageGeneration> Write(Key key, Value value,
+  Future<TimestampedStorageGeneration> Write(Key key,
+                                             std::optional<Value> value,
                                              WriteOptions options) override {
     return base()->Write(std::move(key), std::move(value), std::move(options));
-  }
-
-  Future<TimestampedStorageGeneration> Delete(Key key,
-                                              WriteOptions options) override {
-    return base()->Delete(std::move(key), std::move(options));
   }
 
   void ListImpl(const ListOptions& options,

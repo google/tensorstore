@@ -329,11 +329,9 @@ class GcsKeyValueStore
 
   Future<ReadResult> Read(Key key, ReadOptions options) override;
 
-  Future<TimestampedStorageGeneration> Write(Key key, Value value,
+  Future<TimestampedStorageGeneration> Write(Key key,
+                                             std::optional<Value> value,
                                              WriteOptions options) override;
-
-  Future<TimestampedStorageGeneration> Delete(Key key,
-                                              DeleteOptions options) override;
 
   Future<std::int64_t> DeletePrefix(Key prefix) override;
 
@@ -580,24 +578,12 @@ struct WriteTask {
   }
 };
 
-Future<TimestampedStorageGeneration> GcsKeyValueStore::Write(
-    Key key, Value value, WriteOptions options) {
-  TENSORSTORE_RETURN_IF_ERROR(
-      ValidateObjectAndStorageGeneration(key, options.if_equal));
-
-  std::string encoded_object_name =
-      tensorstore::internal_http::CurlEscapeString(key);
-  return MapFuture(executor(), WriteTask{GcsKeyValueStore::Ptr(this),
-                                         std::move(encoded_object_name),
-                                         std::move(value), std::move(options)});
-}
-
 /// A DeleteTask is a function object used to satisfy a
 /// GcsKeyValueStore::Delete request.
 struct DeleteTask {
   GcsKeyValueStore::Ptr owner;
   std::string resource;
-  KeyValueStore::DeleteOptions options;
+  KeyValueStore::WriteOptions options;
 
   /// Writes an object to GCS.
   Result<TimestampedStorageGeneration> operator()() {
@@ -665,17 +651,25 @@ struct DeleteTask {
   }
 };
 
-Future<TimestampedStorageGeneration> GcsKeyValueStore::Delete(
-    Key key, DeleteOptions options) {
+Future<TimestampedStorageGeneration> GcsKeyValueStore::Write(
+    Key key, std::optional<Value> value, WriteOptions options) {
   TENSORSTORE_RETURN_IF_ERROR(
       ValidateObjectAndStorageGeneration(key, options.if_equal));
 
-  auto encoded_object_name = tensorstore::internal_http::CurlEscapeString(key);
-  std::string resource = tensorstore::internal::JoinPath(resource_root_, "/o/",
-                                                         encoded_object_name);
-  return MapFuture(executor(),
-                   DeleteTask{GcsKeyValueStore::Ptr(this), std::move(resource),
-                              std::move(options)});
+  std::string encoded_object_name =
+      tensorstore::internal_http::CurlEscapeString(key);
+  if (value) {
+    return MapFuture(
+        executor(),
+        WriteTask{GcsKeyValueStore::Ptr(this), std::move(encoded_object_name),
+                  std::move(*value), std::move(options)});
+  } else {
+    std::string resource = tensorstore::internal::JoinPath(
+        resource_root_, "/o/", encoded_object_name);
+    return MapFuture(
+        executor(), DeleteTask{GcsKeyValueStore::Ptr(this), std::move(resource),
+                               std::move(options)});
+  }
 }
 
 std::string BuildListQueryParameters(absl::string_view prefix,

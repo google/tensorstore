@@ -362,7 +362,7 @@ TEST_F(RawEncodingTest, MultipleDeleteNonExisting) {
 }
 
 TEST_F(RawEncodingTest, ShardIndexTooShort) {
-  base_kv_store->Write("prefix/0.shard", {1, 2, 3}).value();
+  base_kv_store->Write("prefix/0.shard", Bytes({1, 2, 3})).value();
   EXPECT_THAT(
       store->Read(GetChunkKey(10)).result(),
       MatchesStatus(
@@ -537,12 +537,11 @@ class GzipEncodingTest : public ::testing::Test {
 
 TEST_F(GzipEncodingTest, CorruptMinishardGzipEncoding) {
   base_kv_store
-      ->Write("prefix/0.shard",
-              {
-                  0, 0, 0, 0, 0, 0, 0, 0,  //
-                  3, 0, 0, 0, 0, 0, 0, 0,  //
-                  1, 2, 3,                 //
-              })
+      ->Write("prefix/0.shard", Bytes({
+                                    0, 0, 0, 0, 0, 0, 0, 0,  //
+                                    3, 0, 0, 0, 0, 0, 0, 0,  //
+                                    1, 2, 3,                 //
+                                }))
       .value();
   EXPECT_THAT(
       store->Read(GetChunkKey(10)).result(),

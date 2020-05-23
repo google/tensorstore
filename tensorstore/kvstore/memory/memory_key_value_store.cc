@@ -163,11 +163,9 @@ class MemoryKeyValueStore
 
   Future<ReadResult> Read(Key key, ReadOptions options) override;
 
-  Future<TimestampedStorageGeneration> Write(Key key, Value value,
+  Future<TimestampedStorageGeneration> Write(Key key,
+                                             std::optional<Value> value,
                                              WriteOptions options) override;
-
-  Future<TimestampedStorageGeneration> Delete(Key key,
-                                              DeleteOptions options) override;
 
   Future<std::int64_t> DeletePrefix(Key prefix) override;
 
@@ -236,7 +234,7 @@ Future<KeyValueStore::ReadResult> MemoryKeyValueStore::Read(
 }
 
 Future<TimestampedStorageGeneration> MemoryKeyValueStore::Write(
-    Key key, Value value, WriteOptions options) {
+    Key key, std::optional<Value> value, WriteOptions options) {
   using ValueWithGenerationNumber =
       StoredKeyValuePairs::ValueWithGenerationNumber;
   auto& data = this->data();
@@ -251,11 +249,15 @@ Future<TimestampedStorageGeneration> MemoryKeyValueStore::Write(
       // generation of `if_equal`.  Abort.
       return GenerationNow(StorageGeneration::Unknown());
     }
+    if (!value) {
+      // Delete was requested, but key already doesn't exist.
+      return GenerationNow(StorageGeneration::NoValue());
+    }
     // Insert the value it into the hash table with the next unused
     // generation number.
     it = values
              .emplace(std::move(key),
-                      ValueWithGenerationNumber{std::move(value),
+                      ValueWithGenerationNumber{std::move(*value),
                                                 data.next_generation_number++})
              .first;
     return GenerationNow({std::string(it->second.generation())});
@@ -267,38 +269,16 @@ Future<TimestampedStorageGeneration> MemoryKeyValueStore::Write(
     // which does not match the current generation.  Abort.
     return GenerationNow(StorageGeneration::Unknown());
   }
+  if (!value) {
+    // Delete request.
+    values.erase(it);
+    return GenerationNow(StorageGeneration::NoValue());
+  }
   // Set the generation number to the next unused generation number.
   it->second.generation_number = data.next_generation_number++;
   // Update the value.
-  it->second.value = std::move(value);
+  it->second.value = std::move(*value);
   return GenerationNow({std::string(it->second.generation())});
-}
-
-Future<TimestampedStorageGeneration> MemoryKeyValueStore::Delete(
-    Key key, DeleteOptions options) {
-  auto& data = this->data();
-  absl::WriterMutexLock lock(&data.mutex);
-  auto& values = data.values;
-  auto it = values.find(key);
-  if (it == values.end()) {
-    // Key does not already exist.
-    if (!StorageGeneration::IsUnknown(options.if_equal) &&
-        !StorageGeneration::IsNoValue(options.if_equal)) {
-      // Write is conditioned on there being an existing key with a
-      // generation of `if_equal`.  Abort.
-      return GenerationNow(StorageGeneration::Unknown());
-    }
-    return GenerationNow(StorageGeneration::NoValue());
-  }
-  // Key already exists.
-  if (!StorageGeneration::IsUnknown(options.if_equal) &&
-      options.if_equal != it->second.generation()) {
-    // Write is conditioned on an existing generation of `value.generation`,
-    // which does not match the current generation.  Abort.
-    return GenerationNow(StorageGeneration::Unknown());
-  }
-  values.erase(it);
-  return GenerationNow(StorageGeneration::NoValue());
 }
 
 Future<std::int64_t> MemoryKeyValueStore::DeletePrefix(Key prefix) {
