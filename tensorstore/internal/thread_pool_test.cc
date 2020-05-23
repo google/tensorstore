@@ -15,6 +15,7 @@
 #include <atomic>
 #include <chrono>  // NOLINT
 #include <cstddef>
+#include <memory>
 #include <thread>  // NOLINT
 #include <vector>
 
@@ -78,6 +79,32 @@ TEST(DetachedThreadPoolTest, ThreadLimit) {
   for (size_t i = 0; i < notifications.size(); ++i) {
     notifications[i].WaitForNotification();
   }
+}
+
+// Tests that enqueuing a task from a task's destructor does not deadlock.
+TEST(DetachedThreadPoolTest, EnqueueFromTaskDestructor) {
+  auto executor = DetachedThreadPool(1);
+  absl::Notification notification1;
+  absl::Notification notification2;
+  struct Task {
+    Executor& executor;
+    absl::Notification* notification1;
+    absl::Notification* notification2;
+    void operator()() { notification1->Notify(); }
+    Task(const Task&) = delete;
+    ~Task() {
+      executor(
+          [notification2 = this->notification2] { notification2->Notify(); });
+    }
+  };
+  struct TaskWrapper {
+    std::unique_ptr<Task> task;
+    void operator()() { (*task)(); }
+  };
+  executor(TaskWrapper{std::unique_ptr<Task>(
+      new Task{executor, &notification1, &notification2})});
+  notification1.WaitForNotification();
+  notification2.WaitForNotification();
 }
 
 }  // namespace

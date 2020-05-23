@@ -182,6 +182,8 @@ void SharedThreadPool::StartThread() {
         ScopedMutexUnlock unlock(&self->mutex_);
         task.callback();
         task.managed_queue->TaskDone();
+        // Ensure the task destructor runs while the mutex is unlocked.
+        task = QueuedTask{};
       }
       ++self->idle_threads_;
     }
