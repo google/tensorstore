@@ -266,6 +266,7 @@ tensorstore_cc_test(
         "//tensorstore/util:executor",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "//tensorstore/util:to_string",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/random",
         "@com_google_googletest//:gtest_main",

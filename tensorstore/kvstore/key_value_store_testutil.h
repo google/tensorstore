@@ -105,6 +105,10 @@ MatchesKvsReadResultAborted(
                               StorageGeneration::Unknown(), time);
 }
 
+/// Mock KeyValueStore that simply records requests in a queue.
+///
+/// This can be used to test the behavior of code that interacts with a
+/// `KeyValueStore`, and to inject errors to test error handling.
 class MockKeyValueStore : public KeyValueStore {
  public:
   struct ReadRequest {
@@ -180,6 +184,40 @@ class MockKeyValueStore : public KeyValueStore {
   ConcurrentQueue<WriteRequest> write_requests;
   ConcurrentQueue<ListRequest> list_requests;
   ConcurrentQueue<DeletePrefixRequest> delete_prefix_requests;
+};
+
+/// Context resource for a `MockKeyValueStore`.
+///
+/// To use a `MockKeyValueStore` where a KeyValueStore must be specified via a
+/// JSON specification, specify:
+///
+///     {"driver": "mock_key_value_store"}
+///
+/// When opened, this will return a `KeyValueStore` that forwards to the
+/// `MockKeyValueStore` specified in the `Context`.
+///
+/// For example:
+///
+///     auto context = Context::Default();
+///
+///     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+///         auto mock_key_value_store_resource,
+///         context.GetResource(
+///             Context::ResourceSpec<
+///                 tensorstore::internal::MockKeyValueStoreResource>::
+///                 Default()));
+///     MockKeyValueStore *mock_key_value_store =
+///         mock_key_value_store_resource->get();
+///
+///     auto store_future = tensorstore::Open(context, ::nlohmann::json{
+///         {"driver", "n5"},
+///         {"kvstore", {{"driver", "mock_key_value_store"}}},
+///         ...
+///     });
+///
+struct MockKeyValueStoreResource {
+  static constexpr char id[] = "mock_key_value_store";
+  using Resource = KeyValueStore::PtrT<MockKeyValueStore>;
 };
 
 }  // namespace internal

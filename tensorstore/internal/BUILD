@@ -1733,7 +1733,10 @@ tensorstore_cc_library(
     name = "queue_testutil",
     testonly = 1,
     hdrs = ["queue_testutil.h"],
-    deps = ["@com_google_absl//absl/synchronization"],
+    deps = [
+        "//tensorstore/util:assert_macros",
+        "@com_google_absl//absl/synchronization",
+    ],
 )
 
 tensorstore_cc_library(

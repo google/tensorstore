@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_DRIVER_NEUROGLANCER_PRECOMPUTED_UINT64_SHARDED_KEY_VALUE_STORE_H_
 #define TENSORSTORE_DRIVER_NEUROGLANCER_PRECOMPUTED_UINT64_SHARDED_KEY_VALUE_STORE_H_
 
+#include <cstdint>
+#include <functional>
 #include <string>
 
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded.h"
@@ -25,11 +27,14 @@
 namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
 
+using GetMaxChunksPerShardFunction =
+    std::function<std::uint64_t(std::uint64_t)>;
+
 /// Provides read/write access to the Neuroglancer precomputed sharded format on
 /// top of a base `KeyValueStore` that supports byte range reads.
 ///
 /// Refer to the specification here:
-/// https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#sharded-format
+/// https://github.com/google/neuroglancer/blob/master/src/neuroglancer/datasource/precomputed/sharded.md
 ///
 /// The returned `KeyValueStore` requires keys to be 8 byte strings specifying
 /// the uint64 chunk id in native endian.  Note that the native endian encoding
@@ -79,9 +84,19 @@ namespace neuroglancer_uint64_sharded {
 /// \param sharding_spec Sharding specification.
 /// \param cache_pool The cache pool for the minishard index cache and for the
 ///     shard write cache.
+/// \param get_max_chunks_per_shard Optional.  Specifies function that computes
+///     the maximum number of chunks that may be assigned to the shard.  When
+///     writing a shard where the number of new chunks is equal to the maximum
+///     for the shard, an unconditional write will be used, which may avoid
+///     significant additional data transfer.  If not specified, the maximum is
+///     assumed to be unknown and all writes will be conditional.  This is used
+///     by the `neuroglancer_precomputed` volume driver to allow shard-aligned
+///     writes to be performed unconditionally, in the case where a shard
+///     corresponds to a rectangular region.
 KeyValueStore::Ptr GetShardedKeyValueStore(
     KeyValueStore::Ptr base_kvstore, Executor executor, std::string key_prefix,
-    const ShardingSpec& sharding_spec, internal::CachePool::WeakPtr cache_pool);
+    const ShardingSpec& sharding_spec, internal::CachePool::WeakPtr cache_pool,
+    GetMaxChunksPerShardFunction get_max_chunks_per_shard = {});
 
 }  // namespace neuroglancer_uint64_sharded
 }  // namespace tensorstore

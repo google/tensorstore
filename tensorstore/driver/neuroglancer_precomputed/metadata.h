@@ -23,6 +23,8 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <optional>
 #include <variant>
 #include <vector>
@@ -249,6 +251,23 @@ std::array<int, 3> GetCompressedZIndexBits(span<const Index, 3> shape,
 /// \pre `indices[i] < 2**bits[i]` for `0 <= i < 3`
 std::uint64_t EncodeCompressedZIndex(span<const Index, 3> indices,
                                      std::array<int, 3> bits);
+
+/// Returns a function that computes the number of chunks in a given shard of a
+/// sharded volume.
+///
+/// This is used to optimize the writeback behavior of
+/// `Uint64ShardedKeyValueStore`.
+///
+/// Returns a null function if shards do not correspond to rectangular regions
+/// of the volume.
+///
+/// \param sharding_spec The sharding spec.
+/// \param volume_shape The volume shape.
+/// \param chunk_shape The chunk shape.
+std::function<std::uint64_t(std::uint64_t shard)>
+GetChunksPerVolumeShardFunction(const ShardingSpec& sharding_spec,
+                                span<const Index, 3> volume_shape,
+                                span<const Index, 3> chunk_shape);
 
 }  // namespace internal_neuroglancer_precomputed
 }  // namespace tensorstore

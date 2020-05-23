@@ -59,6 +59,10 @@ KeyValueStoreDriverRegistry& GetKeyValueStoreDriverRegistry();
 /// by `RegisteredKeyValueStore`, and in addition must define the following
 /// members:
 ///
+/// - The `id` member specifies the string driver identifier:
+///
+///     static constexpr char id[] = "my_driver_id";
+///
 /// - The `SpecT` class template includes as members the parameters and
 ///   resources necessary to create/open the driver.  Depending on the
 ///   `MaybeBound` argument, which is either `ContextUnbound` or `ContextBound`,

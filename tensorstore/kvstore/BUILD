@@ -131,6 +131,7 @@ tensorstore_cc_library(
         ":key_value_store",
         "//tensorstore:context",
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:json",
         "//tensorstore/internal:json_object_with_type",
         "//tensorstore/internal:logging",
         "//tensorstore/internal:queue_testutil",
@@ -143,4 +144,5 @@ tensorstore_cc_library(
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest",
     ],
+    alwayslink = True,
 )

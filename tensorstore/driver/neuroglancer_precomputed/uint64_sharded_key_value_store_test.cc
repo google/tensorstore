@@ -14,6 +14,7 @@
 
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded_key_value_store.h"
 
+#include <functional>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -30,6 +31,7 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/to_string.h"
 
 namespace {
 
@@ -131,6 +133,33 @@ TEST(Uint64ShardedKeyValueStoreTest, BasicFunctionality) {
         }
       }
     }
+  }
+}
+
+TEST(Uint64ShardedKeyValueStoreTest, DescribeKey) {
+  ::nlohmann::json sharding_spec_json{
+      {"@type", "neuroglancer_uint64_sharded_v1"},
+      {"hash", "identity"},
+      {"preshift_bits", 0},
+      {"minishard_bits", 1},
+      {"shard_bits", 1},
+      {"data_encoding", "raw"},
+      {"minishard_index_encoding", "raw"}};
+  ShardingSpec sharding_spec =
+      ShardingSpec::FromJson(sharding_spec_json).value();
+  CachePool::StrongPtr cache_pool = CachePool::Make(kSmallCacheLimits);
+  KeyValueStore::Ptr base_kv_store = tensorstore::GetMemoryKeyValueStore();
+  KeyValueStore::Ptr store = GetShardedKeyValueStore(
+      base_kv_store, tensorstore::InlineExecutor{}, "prefix", sharding_spec,
+      CachePool::WeakPtr(cache_pool));
+  for (const auto& [key, description] :
+       std::vector<std::pair<std::uint64_t, std::string>>{
+           {0, "chunk 0 in minishard 0 in \"prefix/0.shard\""},
+           {1, "chunk 1 in minishard 1 in \"prefix/0.shard\""},
+           {2, "chunk 2 in minishard 0 in \"prefix/1.shard\""},
+           {3, "chunk 3 in minishard 1 in \"prefix/1.shard\""},
+       }) {
+    EXPECT_EQ(description, store->DescribeKey(GetChunkKey(key)));
   }
 }
 
@@ -238,42 +267,86 @@ TEST_F(RawEncodingTest, WritesAndDeletes) {
   EXPECT_THAT(store->Read(GetChunkKey(4)).result(), MatchesKvsReadResult("zz"));
 }
 
-TEST_F(RawEncodingTest, MultipleDeleteExisting) {
-  std::vector<Result<TimestampedStorageGeneration>> no_value_results;
-  // The order in which multiple requests for the same `ChunkId` are attempted
-  // depends on the order produced by `std::sort`, which is unspecified.  To
-  // ensure we test both possibilities, we run the test with both orders.  This
-  // assumes that `std::sort` is deterministic.
+// The order in which multiple requests for the same `ChunkId` are attempted
+// depends on the order produced by `std::sort`, which is unspecified.  To
+// ensure we test both possibilities, we run the test with both orders.  This
+// assumes that `std::sort` is deterministic.
+std::vector<std::vector<Result<TimestampedStorageGeneration>>>
+TestOrderDependentWrites(
+    std::function<void()> init,
+    std::function<Future<TimestampedStorageGeneration>()> op0,
+    std::function<Future<TimestampedStorageGeneration>()> op1) {
+  std::vector<std::vector<Result<TimestampedStorageGeneration>>> all_results;
   for (int i = 0; i < 2; ++i) {
-    auto gen = store->Write(GetChunkKey(1), "a").value().generation;
-    StorageGeneration if_equal[] = {
-        // Delete conditioned on `gen` is guaranteed to succeed.
-        gen,
-        // Delete conditioned on `StorageGeneration::NoValue()` succeeds if it
-        // is attempted before the other delete, otherwise it fails.
-        StorageGeneration::NoValue()};
-    std::vector futures{store->Delete(GetChunkKey(1), {if_equal[i]}),
-                        store->Delete(GetChunkKey(1), {if_equal[1 - i]})};
-    std::vector results{futures[i].result(), futures[1 - i].result()};
-    no_value_results.push_back(results[1]);
-    EXPECT_THAT(results,
-                ::testing::AnyOf(
-                    ::testing::ElementsAre(MatchesTimestampedStorageGeneration(
-                                               StorageGeneration::Invalid()),
-                                           MatchesTimestampedStorageGeneration(
-                                               StorageGeneration::NoValue())),
-                    ::testing::ElementsAre(MatchesTimestampedStorageGeneration(
-                                               StorageGeneration::NoValue()),
-                                           MatchesTimestampedStorageGeneration(
-                                               StorageGeneration::Unknown()))));
+    std::vector<Future<TimestampedStorageGeneration>> futures(2);
+    init();
+    if (i == 0) {
+      futures[0] = op0();
+      futures[1] = op1();
+    } else {
+      futures[1] = op1();
+      futures[0] = op0();
+    }
+    all_results.push_back({futures[0].result(), futures[1].result()});
   }
-  // Ensure that we covered both cases.  This could fail if `std::sort` is not
-  // deterministic.
+  return all_results;
+}
+
+TEST_F(RawEncodingTest, MultipleDeleteExisting) {
+  StorageGeneration gen;
   EXPECT_THAT(
-      no_value_results,
+      TestOrderDependentWrites(
+          /*init=*/
+          [&] { gen = store->Write(GetChunkKey(1), "a").value().generation; },
+          /*op0=*/
+          [&] {
+            // Delete conditioned on `gen` is guaranteed to succeed.
+            return store->Delete(GetChunkKey(1), {/*.if_equal=*/gen});
+          },
+          /*op1=*/
+          [&] {
+            // Delete conditioned on `StorageGeneration::NoValue()` succeeds if
+            // it is attempted before the other delete, otherwise it fails.
+            return store->Delete(GetChunkKey(1),
+                                 {/*.if_equal=*/StorageGeneration::NoValue()});
+          }),
+      // Test we covered each of the two cases (corresponding to different sort
+      // orders) exactly once.
       ::testing::UnorderedElementsAre(
-          MatchesTimestampedStorageGeneration(StorageGeneration::NoValue()),
-          MatchesTimestampedStorageGeneration(StorageGeneration::Unknown())));
+          ::testing::ElementsAre(
+              MatchesTimestampedStorageGeneration(StorageGeneration::Invalid()),
+              MatchesTimestampedStorageGeneration(
+                  StorageGeneration::NoValue())),
+          ::testing::ElementsAre(
+              MatchesTimestampedStorageGeneration(StorageGeneration::NoValue()),
+              MatchesTimestampedStorageGeneration(
+                  StorageGeneration::Unknown()))));
+}
+
+// Tests that a conditional `Write` performed in the same commit after another
+// `Write` fails.
+TEST_F(RawEncodingTest, WriteWithUnmatchedConditionAfterDelete) {
+  EXPECT_THAT(
+      TestOrderDependentWrites(
+          /*init=*/
+          [&] { store->Delete(GetChunkKey(0)).value(); },
+          /*op0=*/
+          [&] {
+            // Write should succeed.
+            return store->Write(GetChunkKey(0), "a");
+          },
+          /*op1=*/
+          [&] {
+            // Write should fail due to prior write.
+            return store->Write(GetChunkKey(0), "b",
+                                {/*.if_equal=*/StorageGeneration{"g"}});
+          }),
+      // Regardless of order of operations, the result is the same.
+      ::testing::Each(::testing::ElementsAre(
+          MatchesTimestampedStorageGeneration(
+              ::testing::AllOf(::testing::Not(StorageGeneration::NoValue()),
+                               ::testing::Not(StorageGeneration::Invalid()))),
+          MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()))));
 }
 
 TEST_F(RawEncodingTest, MultipleDeleteNonExisting) {
@@ -521,9 +594,14 @@ class UnderlyingKeyValueStoreTest : public ::testing::Test {
       ShardingSpec::FromJson(sharding_spec_json).value();
   CachePool::StrongPtr cache_pool = CachePool::Make(kSmallCacheLimits);
   KeyValueStore::PtrT<MockKeyValueStore> mock_store{new MockKeyValueStore};
-  KeyValueStore::Ptr store = GetShardedKeyValueStore(
-      mock_store, tensorstore::InlineExecutor{}, "prefix", sharding_spec,
-      CachePool::WeakPtr(cache_pool));
+  KeyValueStore::Ptr GetStore(
+      tensorstore::neuroglancer_uint64_sharded::GetMaxChunksPerShardFunction
+          get_max_chunks_per_shard = {}) {
+    return GetShardedKeyValueStore(
+        mock_store, tensorstore::InlineExecutor{}, "prefix", sharding_spec,
+        CachePool::WeakPtr(cache_pool), std::move(get_max_chunks_per_shard));
+  }
+  KeyValueStore::Ptr store = GetStore();
 };
 
 // Tests that a Read operation results in the expected sequence of calls to the
@@ -1014,33 +1092,111 @@ TEST_F(UnderlyingKeyValueStoreTest, DeleteInvalidKey) {
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShard) {
-  auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
+  for (const bool with_max_chunks : {false, true}) {
+    SCOPED_TRACE(tensorstore::StrCat("with_max_chunks=", with_max_chunks));
+    // Specifying the `get_max_chunks_per_shard` function has no effect because
+    // we only write 1 chunk, which is not equal to the maximum of 2.
+    if (with_max_chunks) {
+      store = GetStore(
+          /*get_max_chunks_per_shard=*/[](std::uint64_t shard)
+                                           -> std::uint64_t { return 2; });
+    } else {
+      store = GetStore();
+    }
+    auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
+    ASSERT_EQ(0, mock_store->read_requests.size());
+    ASSERT_EQ(0, mock_store->write_requests.size());
+    future.Force();
+    ASSERT_EQ(0, mock_store->read_requests.size());
+    absl::Time write_time;
+    {
+      auto req = mock_store->write_requests.pop_nonblock().value();
+      ASSERT_EQ(0, mock_store->write_requests.size());
+      EXPECT_EQ("prefix/0.shard", req.key);
+      EXPECT_EQ(StorageGeneration::NoValue(), req.options.if_equal);
+      EXPECT_THAT(req.value, ::testing::Optional(Bytes({
+                                 3,    0, 0, 0, 0, 0, 0, 0,  //
+                                 27,   0, 0, 0, 0, 0, 0, 0,  //
+                                 0,    0, 0, 0, 0, 0, 0, 0,  //
+                                 0,    0, 0, 0, 0, 0, 0, 0,  //
+                                 1,    2, 3,                 //
+                                 0x50, 0, 0, 0, 0, 0, 0, 0,  //
+                                 0,    0, 0, 0, 0, 0, 0, 0,  //
+                                 3,    0, 0, 0, 0, 0, 0, 0,  //
+                             })));
+      write_time = absl::Now();
+      req.promise.SetResult(std::in_place, StorageGeneration{"g0"}, write_time);
+    }
+    ASSERT_TRUE(future.ready());
+    EXPECT_THAT(future.result(),
+                MatchesTimestampedStorageGeneration("g0", write_time));
+  }
+}
+
+TEST_F(UnderlyingKeyValueStoreTest, UnconditionalWrite) {
+  store = GetStore(
+      /*get_max_chunks_per_shard=*/[](std::uint64_t shard) -> std::uint64_t {
+        return 2;
+      });
+  auto future1 = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
+  auto future2 = store->Write(GetChunkKey(0x54), Bytes({4, 5, 6}));
   ASSERT_EQ(0, mock_store->read_requests.size());
   ASSERT_EQ(0, mock_store->write_requests.size());
-  future.Force();
+  future1.Force();
+  future2.Force();
   ASSERT_EQ(0, mock_store->read_requests.size());
   absl::Time write_time;
   {
     auto req = mock_store->write_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->write_requests.size());
     EXPECT_EQ("prefix/0.shard", req.key);
-    EXPECT_EQ(StorageGeneration::NoValue(), req.options.if_equal);
+    // Since we wrote the maximum number of chunks to shard 0, the write is
+    // unconditional.
+    EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
     EXPECT_THAT(req.value, ::testing::Optional(Bytes({
-                               3,    0, 0, 0, 0, 0, 0, 0,  //
-                               27,   0, 0, 0, 0, 0, 0, 0,  //
+                               6,    0, 0, 0, 0, 0, 0, 0,  //
+                               54,   0, 0, 0, 0, 0, 0, 0,  //
                                0,    0, 0, 0, 0, 0, 0, 0,  //
                                0,    0, 0, 0, 0, 0, 0, 0,  //
                                1,    2, 3,                 //
+                               4,    5, 6,                 //
                                0x50, 0, 0, 0, 0, 0, 0, 0,  //
+                               0x04, 0, 0, 0, 0, 0, 0, 0,  //
                                0,    0, 0, 0, 0, 0, 0, 0,  //
+                               0,    0, 0, 0, 0, 0, 0, 0,  //
+                               3,    0, 0, 0, 0, 0, 0, 0,  //
                                3,    0, 0, 0, 0, 0, 0, 0,  //
                            })));
     write_time = absl::Now();
     req.promise.SetResult(std::in_place, StorageGeneration{"g0"}, write_time);
   }
-  ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(),
+  ASSERT_TRUE(future1.ready());
+  ASSERT_TRUE(future2.ready());
+  EXPECT_THAT(future1.result(),
               MatchesTimestampedStorageGeneration("g0", write_time));
+  EXPECT_THAT(future2.result(),
+              MatchesTimestampedStorageGeneration("g0", write_time));
+}
+
+TEST_F(UnderlyingKeyValueStoreTest, ConditionalWriteDespiteMaxChunks) {
+  store = GetStore(
+      /*get_max_chunks_per_shard=*/[](std::uint64_t shard) -> std::uint64_t {
+        return 1;
+      });
+  auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}),
+                             {/*.if_equal=*/StorageGeneration::NoValue()});
+  ASSERT_EQ(0, mock_store->read_requests.size());
+  ASSERT_EQ(0, mock_store->write_requests.size());
+  future.Force();
+  ASSERT_EQ(0, mock_store->read_requests.size());
+  {
+    auto req = mock_store->write_requests.pop_nonblock().value();
+    ASSERT_EQ(0, mock_store->write_requests.size());
+    EXPECT_EQ("prefix/0.shard", req.key);
+    // Write is conditional because original write was conditional, despite
+    // reaching the maximum number of chunks per shard.
+    EXPECT_EQ(StorageGeneration::NoValue(), req.options.if_equal);
+  }
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShardError) {
@@ -1121,6 +1277,109 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShard) {
   ASSERT_TRUE(future.ready());
   EXPECT_THAT(future.result(),
               MatchesTimestampedStorageGeneration("g1", write_time));
+}
+
+TEST_F(UnderlyingKeyValueStoreTest, WriteMaxChunksWithExistingShard) {
+  for (const bool specify_max_chunks : {false, true}) {
+    if (specify_max_chunks) {
+      store = GetStore(
+          /*get_max_chunks_per_shard=*/[](std::uint64_t shard)
+                                           -> std::uint64_t { return 1; });
+    }
+    // 1. Write a chunk to ensure the write cache has
+    // `full_shard_discarded_ = true`.
+    {
+      auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
+
+      ASSERT_EQ(0, mock_store->read_requests.size());
+      ASSERT_EQ(0, mock_store->write_requests.size());
+      future.Force();
+      ASSERT_EQ(0, mock_store->read_requests.size());
+      absl::Time write_time;
+      {
+        auto req = mock_store->write_requests.pop_nonblock().value();
+        ASSERT_EQ(0, mock_store->write_requests.size());
+        EXPECT_EQ("prefix/0.shard", req.key);
+        EXPECT_EQ((specify_max_chunks ? StorageGeneration::Unknown()
+                                      : StorageGeneration::NoValue()),
+                  req.options.if_equal);
+        EXPECT_THAT(req.value, ::testing::Optional(Bytes({
+                                   3,    0, 0, 0, 0, 0, 0, 0,  //
+                                   27,   0, 0, 0, 0, 0, 0, 0,  //
+                                   0,    0, 0, 0, 0, 0, 0, 0,  //
+                                   0,    0, 0, 0, 0, 0, 0, 0,  //
+                                   1,    2, 3,                 //
+                                   0x50, 0, 0, 0, 0, 0, 0, 0,  //
+                                   0,    0, 0, 0, 0, 0, 0, 0,  //
+                                   3,    0, 0, 0, 0, 0, 0, 0,  //
+                               })));
+        write_time = absl::Now();
+        req.promise.SetResult(std::in_place, StorageGeneration{"g0"},
+                              write_time);
+      }
+      ASSERT_TRUE(future.ready());
+      EXPECT_THAT(future.result(),
+                  MatchesTimestampedStorageGeneration("g0", write_time));
+    }
+
+    // 2. Rewrite the same chunk.
+    {
+      auto future = store->Write(GetChunkKey(0x50), Bytes({4, 5, 6}));
+
+      ASSERT_EQ(0, mock_store->read_requests.size());
+      ASSERT_EQ(0, mock_store->write_requests.size());
+      future.Force();
+
+      if (!specify_max_chunks) {
+        ASSERT_EQ(0, mock_store->write_requests.size());
+        ASSERT_EQ(1, mock_store->read_requests.size());
+        auto req = mock_store->read_requests.pop_nonblock().value();
+        ASSERT_EQ(0, mock_store->read_requests.size());
+        EXPECT_EQ("prefix/0.shard", req.key);
+        EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
+        EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_not_equal);
+        req.promise.SetResult(
+            KeyValueStore::ReadResult{Bytes({
+                                          3,    0, 0, 0, 0, 0, 0, 0,  //
+                                          27,   0, 0, 0, 0, 0, 0, 0,  //
+                                          0,    0, 0, 0, 0, 0, 0, 0,  //
+                                          0,    0, 0, 0, 0, 0, 0, 0,  //
+                                          1,    2, 3,                 //
+                                          0x50, 0, 0, 0, 0, 0, 0, 0,  //
+                                          0,    0, 0, 0, 0, 0, 0, 0,  //
+                                          3,    0, 0, 0, 0, 0, 0, 0,  //
+                                      }),
+                                      StorageGeneration{"g0"}, absl::Now()});
+      }
+      ASSERT_EQ(0, mock_store->read_requests.size());
+      ASSERT_EQ(1, mock_store->write_requests.size());
+      absl::Time write_time;
+      {
+        auto req = mock_store->write_requests.pop_nonblock().value();
+        ASSERT_EQ(0, mock_store->write_requests.size());
+        EXPECT_EQ("prefix/0.shard", req.key);
+        EXPECT_EQ((specify_max_chunks ? StorageGeneration::Unknown()
+                                      : StorageGeneration{"g0"}),
+                  req.options.if_equal);
+        EXPECT_THAT(req.value, ::testing::Optional(Bytes({
+                                   3,    0, 0, 0, 0, 0, 0, 0,  //
+                                   27,   0, 0, 0, 0, 0, 0, 0,  //
+                                   0,    0, 0, 0, 0, 0, 0, 0,  //
+                                   0,    0, 0, 0, 0, 0, 0, 0,  //
+                                   4,    5, 6,                 //
+                                   0x50, 0, 0, 0, 0, 0, 0, 0,  //
+                                   0,    0, 0, 0, 0, 0, 0, 0,  //
+                                   3,    0, 0, 0, 0, 0, 0, 0,  //
+                               })));
+        write_time = absl::Now();
+        req.promise.SetResult(std::in_place, StorageGeneration{"g1"},
+                              write_time);
+      }
+      ASSERT_TRUE(future.ready());
+      EXPECT_THAT(future.result(),
+                  MatchesTimestampedStorageGeneration("g1", write_time));
+    }
+  }
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShardReadError) {

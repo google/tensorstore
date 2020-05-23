@@ -558,10 +558,13 @@ class NeuroglancerPrecomputedDriver::OpenState
     assert(scale_index_);
     const auto& scale = metadata.scales[*scale_index_];
     if (auto* sharding_spec = std::get_if<ShardingSpec>(&scale.sharding)) {
+      assert(scale.chunk_sizes.size() == 1);
       return GetShardedKeyValueStore(
           std::move(base_kv_store), executor(),
           ResolveScaleKey(spec().key_prefix, scale.key), *sharding_spec,
-          *cache_pool());
+          *cache_pool(),
+          GetChunksPerVolumeShardFunction(*sharding_spec, scale.box.shape(),
+                                          scale.chunk_sizes[0]));
     }
     return base_kv_store;
   }

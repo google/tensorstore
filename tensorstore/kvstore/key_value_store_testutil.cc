@@ -25,13 +25,16 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "tensorstore/context.h"
+#include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_object_with_type.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/key_value_store.h"
+#include "tensorstore/kvstore/registry.h"
 #include "tensorstore/util/function_view.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
@@ -43,6 +46,7 @@ namespace internal {
 namespace {
 
 using tensorstore::MatchesStatus;
+namespace jb = tensorstore::internal::json_binding;
 
 void Cleanup(KeyValueStore::Ptr store, std::vector<std::string> objects) {
   // Delete everything that we're going to use before starting.
@@ -407,6 +411,91 @@ Result<std::map<std::string, std::string>> GetMap(KeyValueStore::Ptr kv_store) {
   }
   return result;
 }
+
+namespace {
+struct MockKeyValueStoreResourceTraits
+    : public ContextResourceTraits<MockKeyValueStoreResource> {
+  struct Spec {};
+  using Resource = MockKeyValueStoreResource::Resource;
+  static constexpr Spec Default() { return {}; }
+  static constexpr auto JsonBinder() { return jb::Object(); }
+  static Result<Resource> Create(const Spec& spec,
+                                 ContextResourceCreationContext context) {
+    return Resource(new MockKeyValueStore);
+  }
+
+  static Spec GetSpec(const Resource& resource,
+                      const ContextSpecBuilder& builder) {
+    return {};
+  }
+};
+const ContextResourceRegistration<MockKeyValueStoreResourceTraits>
+    mock_key_value_store_resource_registration;
+
+class RegisteredMockKeyValueStore
+    : public RegisteredKeyValueStore<RegisteredMockKeyValueStore> {
+ public:
+  static constexpr char id[] = "mock_key_value_store";
+  template <template <typename> class MaybeBound = ContextUnbound>
+  using SpecT = MaybeBound<Context::ResourceSpec<MockKeyValueStoreResource>>;
+
+  static constexpr auto json_binder =
+      jb::Object(jb::Member(MockKeyValueStoreResource::id));
+
+  static void EncodeCacheKey(std::string* out,
+                             const SpecT<ContextBound>& data) {
+    tensorstore::internal::EncodeCacheKey(out, data);
+  }
+
+  static absl::Status ConvertSpec(
+      SpecT<ContextUnbound>* spec,
+      const KeyValueStore::SpecRequestOptions& options) {
+    return absl::OkStatus();
+  }
+
+  static void Open(
+      internal::KeyValueStoreOpenState<RegisteredMockKeyValueStore> state) {
+    state.driver().base_ = state.spec();
+  }
+
+  absl::Status GetBoundSpecData(SpecT<ContextBound>* spec) const {
+    *spec = base_;
+    return absl::OkStatus();
+  }
+
+  Future<ReadResult> Read(Key key, ReadOptions options) override {
+    return base()->Read(std::move(key), std::move(options));
+  }
+
+  Future<TimestampedStorageGeneration> Write(Key key, Value value,
+                                             WriteOptions options) override {
+    return base()->Write(std::move(key), std::move(value), std::move(options));
+  }
+
+  Future<TimestampedStorageGeneration> Delete(Key key,
+                                              WriteOptions options) override {
+    return base()->Delete(std::move(key), std::move(options));
+  }
+
+  void ListImpl(const ListOptions& options,
+                AnyFlowReceiver<Status, Key> receiver) override {
+    base()->ListImpl(std::move(options), std::move(receiver));
+  }
+
+  Future<std::int64_t> DeletePrefix(Key prefix) override {
+    return base()->DeletePrefix(std::move(prefix));
+  }
+
+  MockKeyValueStore* base() { return base_->get(); }
+
+ private:
+  Context::Resource<MockKeyValueStoreResource> base_;
+};
+
+const KeyValueStoreDriverRegistration<RegisteredMockKeyValueStore>
+    mock_key_value_store_driver_registration;
+
+}  // namespace
 
 }  // namespace internal
 }  // namespace tensorstore

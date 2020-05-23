@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "absl/synchronization/mutex.h"
+#include "tensorstore/util/assert_macros.h"
 
 namespace tensorstore {
 namespace internal {
@@ -35,8 +36,12 @@ class ConcurrentQueue {
 
   T pop() {
     absl::MutexLock lock(&mutex_);
-    mutex_.Await(absl::Condition(
-        +[](std::queue<T>* q) { return !q->empty(); }, &queue_));
+    // If 5 seconds isn't enough, assume the test has failed.  This avoids
+    // delaying failure until the entire test times out.
+    TENSORSTORE_CHECK(mutex_.AwaitWithTimeout(
+        absl::Condition(
+            +[](std::queue<T>* q) { return !q->empty(); }, &queue_),
+        absl::Seconds(5)));
     T x = std::move(queue_.front());
     queue_.pop();
     return x;

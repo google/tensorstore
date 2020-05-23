@@ -371,11 +371,13 @@ class MergeShardImpl {
   }
 
   /// Merges the existing shard data with the new chunks.
+  ///
+  /// \dchecks `!existing_shard.empty()`
   Status ProcessExistingShard(absl::string_view existing_shard) {
+    assert(!existing_shard.empty());
     const std::uint64_t num_minishards =
         encoder_.sharding_spec().num_minishards();
-    if (!existing_shard.empty() &&
-        existing_shard.size() < num_minishards * 16) {
+    if (existing_shard.size() < num_minishards * 16) {
       return absl::FailedPreconditionError(
           StrCat("Existing shard index has size ", existing_shard.size(),
                  ", but expected at least: ", num_minishards * 16));
@@ -425,7 +427,7 @@ class MergeShardImpl {
   }
 
   /// Writes any remaining new chunks that follow any existing minishards.
-  Status Finalize() {
+  Status Finalize(size_t* total_chunks, bool* unconditional) {
     TENSORSTORE_RETURN_IF_ERROR(
         WriteNewChunksWhile([](std::uint64_t new_minishard,
                                ChunkId new_chunk_id) { return true; }));
@@ -441,17 +443,23 @@ class MergeShardImpl {
       std::memcpy(new_shard_->data() + shard_index_offset_, shard_index.data(),
                   shard_index.size());
     }
+    *total_chunks = total_chunks_;
+    *unconditional = unconditional_;
     return absl::OkStatus();
   }
 
  private:
   /// Writes a single new chunk.
   Status WriteNewChunk(PendingChunkWrite* chunk_to_write) {
+    if (!StorageGeneration::IsUnknown(chunk_to_write->if_equal)) {
+      unconditional_ = false;
+    }
     chunk_to_write->write_status = WriteStatus::kSuccess;
     if (chunk_to_write->data) {
       TENSORSTORE_RETURN_IF_ERROR(encoder_.WriteIndexedEntry(
           chunk_to_write->minishard, chunk_to_write->chunk_id,
           *chunk_to_write->data, /*compress=*/true));
+      ++total_chunks_;
     }
     return absl::OkStatus();
   }
@@ -541,9 +549,8 @@ class MergeShardImpl {
             // Chunk was already updated (re-written or deleted) as part of
             // this writeback.  The existing entry is irrelevant.
             if (chunk_to_write->data) {
-              // Chunk was re-written.  The new generation is not yet known,
-              // and it is
-              // therefore impossible for `if_equal` to match it.
+              // Chunk was re-written.  The new generation is not yet known, and
+              // it is therefore impossible for `if_equal` to match it.
               return false;
             }
             // Chunk was deleted.
@@ -582,6 +589,8 @@ class MergeShardImpl {
             internal::GetSubStringView(existing_shard,
                                        chunk_byte_range_result.value()),
             /*compress=*/false));
+        ++total_chunks_;
+        unconditional_ = false;
       }
     }
     return absl::OkStatus();
@@ -595,6 +604,8 @@ class MergeShardImpl {
   bool modified_ = false;
   PendingChunkWrite* chunk_it_;
   PendingChunkWrite* chunk_end_;
+  size_t total_chunks_ = 0;
+  bool unconditional_ = true;
 };
 
 /// Applies write/delete operations to an existing or empty shard.
@@ -611,6 +622,9 @@ class MergeShardImpl {
 ///     overwritten.
 /// \param new_shard[out] Pointer to string to which the new encoded shard data
 ///     will be appended.
+/// \param total_chunks[out] Set to total number of chunks in `new_shard`.
+/// \param unconditional[out] Set to `true` if the result is not conditioned on
+///     `existing_shard`.
 /// \returns `Status()` on success.
 /// \error `absl::StatusCode::kAborted` if no changes would be made.
 /// \error `absl::StatusCode::kFailedPrecondition` or
@@ -618,7 +632,8 @@ class MergeShardImpl {
 Status MergeShard(const ShardingSpec& sharding_spec,
                   const StorageGeneration& existing_generation,
                   absl::string_view existing_shard,
-                  span<PendingChunkWrite> new_chunks, std::string* new_shard) {
+                  span<PendingChunkWrite> new_chunks, std::string* new_shard,
+                  size_t* total_chunks, bool* unconditional) {
   absl::c_sort(new_chunks,
                [&](const PendingChunkWrite& a, const PendingChunkWrite& b) {
                  return std::tuple(a.minishard, a.chunk_id.value) <
@@ -631,7 +646,7 @@ Status MergeShard(const ShardingSpec& sharding_spec,
     TENSORSTORE_RETURN_IF_ERROR(
         merge_shard_impl.ProcessExistingShard(existing_shard));
   }
-  return merge_shard_impl.Finalize();
+  return merge_shard_impl.Finalize(total_chunks, unconditional);
 }
 
 /// Cache used to buffer writes to the KeyValueStore.
@@ -681,10 +696,12 @@ class ShardedKeyValueStoreWriteCache
   };
 
   explicit ShardedKeyValueStoreWriteCache(
-      internal::CachePtr<MinishardIndexCache> minishard_index_cache)
+      internal::CachePtr<MinishardIndexCache> minishard_index_cache,
+      GetMaxChunksPerShardFunction get_max_chunks_per_shard)
       : Base(KeyValueStore::Ptr(minishard_index_cache->base_kvstore()),
              minishard_index_cache->executor()),
-        minishard_index_cache_(std::move(minishard_index_cache)) {}
+        minishard_index_cache_(std::move(minishard_index_cache)),
+        get_max_chunks_per_shard_(std::move(get_max_chunks_per_shard)) {}
 
   size_t DoGetReadStateSizeInBytes(
       internal::Cache::Entry* base_entry) override {
@@ -726,6 +743,8 @@ class ShardedKeyValueStoreWriteCache
   }
 
   internal::CachePtr<MinishardIndexCache> minishard_index_cache_;
+
+  GetMaxChunksPerShardFunction get_max_chunks_per_shard_;
 };
 
 void ShardedKeyValueStoreWriteCache::NotifyWritebackSuccess(
@@ -764,18 +783,13 @@ void ShardedKeyValueStoreWriteCache::NotifyWritebackSuccess(
 
 void ShardedKeyValueStoreWriteCache::DoWriteback(
     internal::Cache::PinnedEntry base_entry) {
-  auto* entry = static_cast<Entry*>(base_entry.get());
-  if (entry->full_shard_discarded_) {
-    this->NotifyWritebackStarted(entry, entry->AcquireWriteStateLock());
-    this->NotifyWritebackNeedsRead(entry, entry->AcquireWriteStateLock(),
-                                   entry->last_read_time);
-    return;
-  }
   executor()([entry =
                   internal::static_pointer_cast<Entry>(base_entry)]() mutable {
     auto* cache = GetOwningCache(entry);
     std::string new_shard;
     Status merge_status;
+    size_t total_chunks = 0;
+    bool unconditional = false;
     absl::Time last_write_time;
     {
       auto lock = entry->AcquireWriteStateLock();
@@ -784,7 +798,7 @@ void ShardedKeyValueStoreWriteCache::DoWriteback(
           cache->sharding_spec(), entry->last_read_generation,
           entry->full_shard_data_ ? absl::string_view(*entry->full_shard_data_)
                                   : absl::string_view(),
-          entry->pending_writes, &new_shard);
+          entry->pending_writes, &new_shard, &total_chunks, &unconditional);
       if (!merge_status.ok() &&
           merge_status.code() != absl::StatusCode::kAborted) {
         merge_status = absl::FailedPreconditionError(merge_status.message());
@@ -792,12 +806,21 @@ void ShardedKeyValueStoreWriteCache::DoWriteback(
       cache->NotifyWritebackStarted(entry.get(), std::move(lock));
     }
 
+    if (unconditional &&
+        (!cache->get_max_chunks_per_shard_ ||
+         cache->get_max_chunks_per_shard_(entry->shard()) != total_chunks)) {
+      // If we aren't fully overwriting the shard, a conditional write is
+      // required.
+      unconditional = false;
+    }
+
     if (!merge_status.ok()) {
       Result<TimestampedStorageGeneration> writeback_result = merge_status;
       Result<TimestampedStorageGeneration> pending_chunk_result = merge_status;
       if (merge_status.code() == absl::StatusCode::kAborted) {
         // No changes were made to the shard.
-        if (last_write_time > entry->last_read_time) {
+        if (last_write_time > entry->last_read_time ||
+            entry->full_shard_discarded_) {
           // At least one write request is newer than the cached shard data,
           // which means the cached shard data may be out of date.
           cache->NotifyWritebackNeedsRead(
@@ -812,10 +835,17 @@ void ShardedKeyValueStoreWriteCache::DoWriteback(
       }
       return;
     }
+
+    if (entry->full_shard_discarded_ && !unconditional) {
+      cache->NotifyWritebackNeedsRead(
+          entry.get(), entry->AcquireWriteStateLock(), entry->last_read_time);
+      return;
+    }
+
     std::optional<std::string> new_value;
     if (!new_shard.empty()) new_value = std::move(new_shard);
     cache->Writeback(std::move(entry), std::move(new_value),
-                     /*unconditional=*/false);
+                     /*unconditional=*/unconditional);
   });
 }
 
@@ -932,18 +962,22 @@ struct MinishardIndexCacheEntryReadyCallback {
 
 class ShardedKeyValueStore : public KeyValueStore {
  public:
-  explicit ShardedKeyValueStore(KeyValueStore::Ptr base_kvstore,
-                                Executor executor, std::string key_prefix,
-                                const ShardingSpec& sharding_spec,
-                                internal::CachePool::WeakPtr cache_pool)
+  explicit ShardedKeyValueStore(
+      KeyValueStore::Ptr base_kvstore, Executor executor,
+      std::string key_prefix, const ShardingSpec& sharding_spec,
+      internal::CachePool::WeakPtr cache_pool,
+      GetMaxChunksPerShardFunction get_max_chunks_per_shard)
       : write_cache_(
             cache_pool->GetCache<ShardedKeyValueStoreWriteCache>("", [&] {
               return std::make_unique<ShardedKeyValueStoreWriteCache>(
-                  cache_pool->GetCache<MinishardIndexCache>("", [&] {
-                    return std::make_unique<MinishardIndexCache>(
-                        std::move(base_kvstore), std::move(executor),
-                        std::move(key_prefix), sharding_spec);
-                  }));
+                  cache_pool->GetCache<MinishardIndexCache>(
+                      "",
+                      [&] {
+                        return std::make_unique<MinishardIndexCache>(
+                            std::move(base_kvstore), std::move(executor),
+                            std::move(key_prefix), sharding_spec);
+                      }),
+                  std::move(get_max_chunks_per_shard));
             })) {}
 
   Future<ReadResult> Read(Key key, ReadOptions options) override {
@@ -1018,7 +1052,8 @@ class ShardedKeyValueStore : public KeyValueStore {
     const auto shard_info = GetSplitShardInfo(
         sharding_spec, GetChunkShardInfo(sharding_spec, chunk_id));
     return tensorstore::StrCat(
-        "chunk ", chunk_id, " in minishard ", shard_info.minishard, " in ",
+        "chunk ", chunk_id.value, " in minishard ", shard_info.minishard,
+        " in ",
         base_kvstore()->DescribeKey(
             GetShardKey(sharding_spec, key_prefix(), shard_info.shard)));
   }
@@ -1047,11 +1082,12 @@ class ShardedKeyValueStore : public KeyValueStore {
 
 KeyValueStore::Ptr GetShardedKeyValueStore(
     KeyValueStore::Ptr base_kvstore, Executor executor, std::string key_prefix,
-    const ShardingSpec& sharding_spec,
-    internal::CachePool::WeakPtr cache_pool) {
+    const ShardingSpec& sharding_spec, internal::CachePool::WeakPtr cache_pool,
+    GetMaxChunksPerShardFunction get_max_chunks_per_shard) {
   return KeyValueStore::Ptr(new ShardedKeyValueStore(
       std::move(base_kvstore), std::move(executor), std::move(key_prefix),
-      sharding_spec, std::move(cache_pool)));
+      sharding_spec, std::move(cache_pool),
+      std::move(get_max_chunks_per_shard)));
 }
 
 }  // namespace neuroglancer_uint64_sharded

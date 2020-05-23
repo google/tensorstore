@@ -42,6 +42,8 @@ using tensorstore::Status;
 using tensorstore::StrCat;
 using tensorstore::internal::ParseJson;
 using tensorstore::internal_neuroglancer_precomputed::EncodeCompressedZIndex;
+using tensorstore::internal_neuroglancer_precomputed::
+    GetChunksPerVolumeShardFunction;
 using tensorstore::internal_neuroglancer_precomputed::GetCompressedZIndexBits;
 using tensorstore::internal_neuroglancer_precomputed::
     GetMetadataCompatibilityKey;
@@ -1773,6 +1775,155 @@ TEST(EncodeCompressedZIndexTest, Basic) {
                          span<const Index, 3>({0b10, 0b11, 0b0}), bits));
   EXPECT_EQ(0b1010101, EncodeCompressedZIndex(
                            span<const Index, 3>({0b1001, 0b10, 0b1}), bits));
+}
+
+// Tests the simple case where all shards have the full number of chunks.
+TEST(GetChunksPerVolumeShardFunctionTest, AllShardsFull) {
+  ShardingSpec sharding_spec{
+      /*.hash_function=*/ShardingSpec::HashFunction::identity,
+      /*.preshift_bits=*/1,
+      /*.minishard_bits=*/2,
+      /*.shard_bits=*/3,
+      /*.data_encoding=*/ShardingSpec::DataEncoding::raw,
+      /*.minishard_index_encoding=*/ShardingSpec::DataEncoding::gzip,
+  };
+
+  const Index volume_shape[3] = {99, 98, 97};
+  const Index chunk_shape[3] = {50, 25, 13};
+  // Grid shape: {2, 4, 8}
+
+  auto f =
+      GetChunksPerVolumeShardFunction(sharding_spec, volume_shape, chunk_shape);
+
+  // Shard shape in chunks: {2, 2, 2}
+  for (std::uint64_t shard = 0; shard < 8; ++shard) {
+    EXPECT_EQ(8, f(shard)) << "shard=" << shard;
+  }
+
+  // Invalid shards have 0 chunks.
+  EXPECT_EQ(0, f(8));
+}
+
+// Tests the case where shards have varying number of chunks in 1 dimension.
+TEST(GetChunksPerVolumeShardFunctionTest, PartialShards1Dim) {
+  ShardingSpec sharding_spec{
+      /*.hash_function=*/ShardingSpec::HashFunction::identity,
+      /*.preshift_bits=*/1,
+      /*.minishard_bits=*/2,
+      /*.shard_bits=*/3,
+      /*.data_encoding=*/ShardingSpec::DataEncoding::raw,
+      /*.minishard_index_encoding=*/ShardingSpec::DataEncoding::gzip,
+  };
+
+  const Index volume_shape[3] = {99, 98, 90};
+  const Index chunk_shape[3] = {50, 25, 13};
+  // Grid shape: {2, 4, 7}
+  // Full shard shape is {2, 2, 2}.
+
+  auto f =
+      GetChunksPerVolumeShardFunction(sharding_spec, volume_shape, chunk_shape);
+
+  // Shard 0 has origin {0, 0, 0}
+  EXPECT_EQ(8, f(0));
+
+  // Shard 1 has origin {0, 2, 0}
+  EXPECT_EQ(8, f(1));
+
+  // Shard 2 has origin {0, 0, 2}
+  EXPECT_EQ(8, f(2));
+
+  // Shard 3 has origin {0, 2, 2}
+  EXPECT_EQ(8, f(3));
+
+  // Shard 4 has origin {0, 0, 4}
+  EXPECT_EQ(8, f(4));
+
+  // Shard 5 has origin {0, 2, 4}
+  EXPECT_EQ(8, f(5));
+
+  // Shard 6 has origin {0, 0, 6}
+  EXPECT_EQ(4, f(6));
+
+  // Shard 7 has origin {0, 2, 6}
+  EXPECT_EQ(4, f(7));
+}
+
+// Tests the case where shards have varying number of chunks in 2 dimensions.
+TEST(GetChunksPerVolumeShardFunctionTest, PartialShards2Dims) {
+  ShardingSpec sharding_spec{
+      /*.hash_function=*/ShardingSpec::HashFunction::identity,
+      /*.preshift_bits=*/1,
+      /*.minishard_bits=*/2,
+      /*.shard_bits=*/3,
+      /*.data_encoding=*/ShardingSpec::DataEncoding::raw,
+      /*.minishard_index_encoding=*/ShardingSpec::DataEncoding::gzip,
+  };
+
+  const Index volume_shape[3] = {99, 70, 90};
+  const Index chunk_shape[3] = {50, 25, 13};
+  // Grid shape: {2, 3, 7}
+  // Full shard shape is {2, 2, 2}.
+
+  auto f =
+      GetChunksPerVolumeShardFunction(sharding_spec, volume_shape, chunk_shape);
+
+  // Shard 0 has origin {0, 0, 0}
+  EXPECT_EQ(8, f(0));
+
+  // Shard 1 has origin {0, 2, 0}
+  EXPECT_EQ(4, f(1));
+
+  // Shard 2 has origin {0, 0, 2}
+  EXPECT_EQ(8, f(2));
+
+  // Shard 3 has origin {0, 2, 2}
+  EXPECT_EQ(4, f(3));
+
+  // Shard 4 has origin {0, 0, 4}
+  EXPECT_EQ(8, f(4));
+
+  // Shard 5 has origin {0, 2, 4}
+  EXPECT_EQ(4, f(5));
+
+  // Shard 6 has origin {0, 0, 6}
+  EXPECT_EQ(4, f(6));
+
+  // Shard 7 has origin {0, 2, 6}
+  EXPECT_EQ(2, f(7));
+}
+
+TEST(GetChunksPerVolumeShardFunctionTest, NotIdentity) {
+  ShardingSpec sharding_spec{
+      /*.hash_function=*/ShardingSpec::HashFunction::murmurhash3_x86_128,
+      /*.preshift_bits=*/1,
+      /*.minishard_bits=*/2,
+      /*.shard_bits=*/3,
+      /*.data_encoding=*/ShardingSpec::DataEncoding::raw,
+      /*.minishard_index_encoding=*/ShardingSpec::DataEncoding::gzip,
+  };
+
+  const Index volume_shape[3] = {99, 98, 90};
+  const Index chunk_shape[3] = {50, 25, 13};
+
+  EXPECT_FALSE(GetChunksPerVolumeShardFunction(sharding_spec, volume_shape,
+                                               chunk_shape));
+}
+
+TEST(GetChunksPerVolumeShardFunctionTest, NotEnoughBits) {
+  ShardingSpec sharding_spec{
+      /*.hash_function=*/ShardingSpec::HashFunction::identity,
+      /*.preshift_bits=*/1,
+      /*.minishard_bits=*/2,
+      /*.shard_bits=*/2,
+      /*.data_encoding=*/ShardingSpec::DataEncoding::raw,
+      /*.minishard_index_encoding=*/ShardingSpec::DataEncoding::gzip,
+  };
+
+  const Index volume_shape[3] = {99, 98, 90};
+  const Index chunk_shape[3] = {50, 25, 13};
+
+  EXPECT_FALSE(GetChunksPerVolumeShardFunction(sharding_spec, volume_shape,
+                                               chunk_shape));
 }
 
 }  // namespace

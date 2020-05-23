@@ -35,6 +35,7 @@ using tensorstore::Index;
 using tensorstore::KeyValueStore;
 using tensorstore::MatchesStatus;
 using tensorstore::Status;
+using tensorstore::StorageGeneration;
 using tensorstore::StrCat;
 using tensorstore::internal::GetMap;
 using tensorstore::internal::ParseJsonMatches;
@@ -1341,5 +1342,98 @@ TEST(BasicFunctionalityTest, Uint16Raw) {
                        {"hash", "identity"}});
   DoTest(/*sharding=*/nullptr);
 }
+
+// Disable due to race condition whereby writeback of a shard may start while
+// some chunks that have been modified are still being written back to it.
+#if 0
+TEST(FullShardWriteTest, Basic) {
+  auto context = Context::Default();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource(
+          Context::ResourceSpec<
+              tensorstore::internal::MockKeyValueStoreResource>::Default()));
+  auto mock_key_value_store = *mock_key_value_store_resource;
+
+  ::nlohmann::json json_spec{
+      // Use a cache to avoid early writeback of partial shard.
+      {"context", {{"cache_pool", {{"total_bytes_limit", 10'000'000}}}}},
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "mock_key_value_store"}}},
+      {"path", "prefix"},
+      {"create", true},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint16"},
+           {"num_channels", 1},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"key", "1_1_1"},
+           {"resolution", {1, 1, 1}},
+           {"encoding", "raw"},
+           {"chunk_size", {2, 2, 2}},
+           {"size", {4, 6, 10}},
+           {"voxel_offset", {0, 0, 0}},
+           {"sharding",
+            {{"@type", "neuroglancer_uint64_sharded_v1"},
+             {"preshift_bits", 1},
+             {"minishard_bits", 2},
+             {"shard_bits", 3},
+             {"data_encoding", "raw"},
+             {"minishard_index_encoding", "raw"},
+             {"hash", "identity"}}},
+       }},
+  };
+
+  // Grid shape: {2, 3, 5}
+  // Full shard shape is {2, 2, 2} in chunks.
+  // Full shard shape is {4, 4, 4} in voxels.
+  // Shard 0 origin: {0, 0, 0}
+  // Shard 1 origin: {0, 4, 0}
+  // Shard 2 origin: {0, 0, 4}
+  // Shard 3 origin: {0, 4, 4}
+  // Shard 4 origin: {0, 0, 8}
+  // Shard 5 origin: {0, 4, 8}
+
+  // Repeat the test to try to detect errors due to possible timing-dependent
+  // behavior differences.
+  for (int i = 0; i < 100; ++i) {
+    auto store_future = tensorstore::Open(context, json_spec);
+    store_future.Force();
+
+    {
+      auto req = mock_key_value_store->write_requests.pop();
+      EXPECT_EQ("prefix/info", req.key);
+      EXPECT_EQ(StorageGeneration::NoValue(), req.options.if_equal);
+      req.promise.SetResult(std::in_place, StorageGeneration{"g0"},
+                            absl::Now());
+    }
+
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, store_future.result());
+
+    auto future = tensorstore::Write(
+        tensorstore::MakeScalarArray<std::uint16_t>(42),
+        tensorstore::ChainResult(
+            store,
+            tensorstore::Dims(0, 1, 2).SizedInterval({0, 4, 8}, {4, 2, 2})));
+
+    future.Force();
+
+    {
+      auto req = mock_key_value_store->write_requests.pop();
+      ASSERT_EQ("prefix/1_1_1/5.shard", req.key);
+      // Writeback is unconditional because the entire shard is being written.
+      ASSERT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
+      req.promise.SetResult(std::in_place, StorageGeneration{"g0"},
+                            absl::Now());
+    }
+
+    TENSORSTORE_ASSERT_OK(future.result());
+  }
+}
+#endif
 
 }  // namespace
