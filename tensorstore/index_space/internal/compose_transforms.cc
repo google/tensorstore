@@ -100,6 +100,7 @@ Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
     switch (b_to_c_method) {
       case OutputIndexMethod::constant: {
         a_to_c_map.SetConstant();
+        a_to_c_map.stride() = 0;
         a_to_c_map.offset() = b_to_c_map.offset();
         break;
       }
@@ -124,7 +125,8 @@ Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
         if (a_to_b_method == OutputIndexMethod::constant) {
           // Handle the single_input_dimension -> constant case.  Bounds were
           // already checked by PropagateBounds.
-          a_to_c_output_index_maps[c_dim].SetConstant();
+          a_to_c_map.SetConstant();
+          a_to_c_map.stride() = 0;
           break;
         }
         // Compute the stride value of the new output index map.

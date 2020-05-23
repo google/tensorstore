@@ -153,6 +153,7 @@ Status PerformSingleIndexSlice(TransformRep* original_transform,
       case OutputIndexMethod::constant: {
         new_map.offset() = original_map.offset();
         new_map.SetConstant();
+        new_map.stride() = 0;
         break;
       }
       case OutputIndexMethod::single_input_dimension: {
@@ -177,6 +178,7 @@ Status PerformSingleIndexSlice(TransformRep* original_transform,
                 output_dim, "."));
           }
           new_map.SetConstant();
+          new_map.stride() = 0;
         } else {
           // The input dimension is not being sliced.
           new_map.SetSingleInputDimension(slice_info.new_input_dim);

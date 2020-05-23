@@ -124,6 +124,7 @@ TransformRep::Ptr<> MakeTransformFromJointIndexArrays(
       const DimensionIndex output_dim = (*dimensions)[indexed_dim];
       auto& map = maps[output_dim];
       map.SetConstant();
+      map.stride() = 0;
       map.offset() = *get_index_array_base_pointer(indexed_dim);
     }
   } else {
