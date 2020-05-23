@@ -28,7 +28,6 @@
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json.h"
-#include "tensorstore/internal/json_object_with_type.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"

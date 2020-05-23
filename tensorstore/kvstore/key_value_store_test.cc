@@ -18,7 +18,6 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "tensorstore/context.h"
-#include "tensorstore/internal/json_object_with_type.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"

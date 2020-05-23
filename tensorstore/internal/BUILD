@@ -890,36 +890,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "json_object_with_type",
-    srcs = ["json_object_with_type.cc"],
-    hdrs = ["json_object_with_type.h"],
-    deps = [
-        ":json",
-        "//tensorstore/util:quote_string",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "//tensorstore/util:to_string",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/base:core_headers",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "json_object_with_type_test",
-    size = "small",
-    srcs = ["json_object_with_type_test.cc"],
-    deps = [
-        ":json_object_with_type",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "//tensorstore/util:status_testutil",
-        "//tensorstore/util:to_string",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "json_pprint_python",
     srcs = ["json_pprint_python.cc"],
     hdrs = ["json_pprint_python.h"],

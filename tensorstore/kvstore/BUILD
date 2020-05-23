@@ -108,7 +108,6 @@ tensorstore_cc_test(
     deps = [
         ":key_value_store",
         "//tensorstore:context",
-        "//tensorstore/internal:json_object_with_type",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
@@ -132,7 +131,6 @@ tensorstore_cc_library(
         "//tensorstore:context",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json",
-        "//tensorstore/internal:json_object_with_type",
         "//tensorstore/internal:logging",
         "//tensorstore/internal:queue_testutil",
         "//tensorstore/util:function_view",

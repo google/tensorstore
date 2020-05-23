@@ -451,7 +451,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:attributes",
         "//tensorstore/internal:data_type_json_binder",
         "//tensorstore/internal:json",
-        "//tensorstore/internal:json_object_with_type",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "@com_github_nlohmann_json//:nlohmann_json",
