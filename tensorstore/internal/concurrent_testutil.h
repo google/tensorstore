@@ -53,6 +53,30 @@ void TestConcurrent(std::size_t num_iterations, Initialize initialize,
   for (auto& t : threads) t.join();
 }
 
+/// Same as above, but invokes `concurrent_op(Is)` concurrently for each index
+/// in `Is` rather than invoking separate independently-specified
+/// `concurrent_ops` functions.
+template <typename Initialize, typename Finalize, typename ConcurrentOp,
+          size_t... Is>
+void TestConcurrent(std::index_sequence<Is...>, std::size_t num_iterations,
+                    Initialize initialize, Finalize finalize,
+                    ConcurrentOp concurrent_op) {
+  TestConcurrent(
+      num_iterations, std::move(initialize), std::move(finalize),
+      [&] { concurrent_op(std::integral_constant<size_t, Is>{}); }...);
+}
+
+/// Same as above, but invokes
+/// `concurrent_op(0), ..., concurrent_op(NumConcurrentOps-1)` concurrently.
+template <size_t NumConcurrentOps, typename Initialize, typename Finalize,
+          typename ConcurrentOp>
+void TestConcurrent(std::size_t num_iterations, Initialize initialize,
+                    Finalize finalize, ConcurrentOp concurrent_op) {
+  return TestConcurrent(std::make_index_sequence<NumConcurrentOps>{},
+                        num_iterations, std::move(initialize),
+                        std::move(finalize), std::move(concurrent_op));
+}
+
 }  // namespace internal
 }  // namespace tensorstore
 

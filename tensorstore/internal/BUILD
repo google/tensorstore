@@ -974,6 +974,30 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "lock_collection",
+    srcs = ["lock_collection.cc"],
+    hdrs = ["lock_collection.h"],
+    deps = [
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/synchronization",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "lock_collection_test",
+    size = "small",
+    srcs = ["lock_collection_test.cc"],
+    deps = [
+        ":concurrent_testutil",
+        ":lock_collection",
+        "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "log_message",
     hdrs = ["log_message.h"],
     deps = [
