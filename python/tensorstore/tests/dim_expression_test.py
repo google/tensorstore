@@ -32,7 +32,7 @@ def test_dimension_selection():
   assert ts.d[1, 2, 3] == ts.d[1, [2, 3]]
   assert ts.d[1, 2, 3] == ts.d[1, ts.d[2, 3]]
 
-  with pytest.raises(TypeError, match=".* is not iterable"):
+  with pytest.raises(TypeError):
     iter(ts.d)
 
 
