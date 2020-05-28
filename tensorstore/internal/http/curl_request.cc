@@ -14,11 +14,21 @@
 
 #include "tensorstore/internal/http/curl_request.h"
 
+#include <cstdlib>
+
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_http {
+
+namespace {
+bool CurlVerboseEnabled() {
+  // Cache the result.
+  static bool value = std::getenv("TENSORSTORE_CURL_VERBOSE") != nullptr;
+  return value;
+}
+}  // namespace
 
 CurlRequestMockContext::~CurlRequestMockContext() = default;
 
@@ -62,6 +72,9 @@ Result<HttpResponse> CurlRequest::IssueRequest(absl::string_view payload,
   //
   // https://curl.haxx.se/libcurl/c/threadsafe.html
   CurlEasySetopt(handle.get(), CURLOPT_NOSIGNAL, 1L);
+  if (CurlVerboseEnabled()) {
+    CurlEasySetopt(handle.get(), CURLOPT_VERBOSE, 1L);
+  }
 
   CurlEasySetopt(handle.get(), CURLOPT_URL, url_.c_str());
   CurlEasySetopt(handle.get(), CURLOPT_HTTPHEADER, headers_.get());
