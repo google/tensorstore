@@ -75,10 +75,10 @@ CurlRequestBuilder& CurlRequestBuilder::EnableAcceptEncoding() {
 
 std::string GetRangeHeader(OptionalByteRangeRequest byte_range) {
   if (byte_range.exclusive_max) {
-    return StrCat("Range: ", byte_range.inclusive_min, "-",
+    return StrCat("Range: bytes=", byte_range.inclusive_min, "-",
                   *byte_range.exclusive_max - 1);
   } else {
-    return StrCat("Range: ", byte_range.inclusive_min, "-");
+    return StrCat("Range: bytes=", byte_range.inclusive_min, "-");
   }
 }
 
