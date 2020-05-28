@@ -23,6 +23,19 @@
 namespace tensorstore {
 namespace internal {
 
+#ifdef _WIN32
+/// On Windows, prevents concurrent invocations of `TestConcurrent` (including
+/// across multiple processes) to avoid test timeouts.
+class TestConcurrentLock {
+ public:
+  TestConcurrentLock();
+  ~TestConcurrentLock();
+
+ private:
+  void* mutex_;
+};
+#endif
+
 /// Repeatedly calls `initialize()`, then calls `concurrent_ops()...`
 /// concurrently from separate threads, then calls `finalize()` after the
 /// `concurrent_ops` finish.
@@ -31,6 +44,9 @@ namespace internal {
 template <typename Initialize, typename Finalize, typename... ConcurrentOps>
 void TestConcurrent(std::size_t num_iterations, Initialize initialize,
                     Finalize finalize, ConcurrentOps... concurrent_ops) {
+#ifdef _WIN32
+  TestConcurrentLock lock;
+#endif
   std::atomic<std::size_t> counter(0);
   // One count per concurrent op, plus one for initialize/finalize.
   constexpr std::size_t counts_per_iteration = sizeof...(ConcurrentOps) + 1;

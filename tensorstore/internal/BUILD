@@ -395,7 +395,9 @@ tensorstore_cc_library(
 tensorstore_cc_library(
     name = "concurrent_testutil",
     testonly = 1,
+    srcs = ["concurrent_testutil.cc"],
     hdrs = ["concurrent_testutil.h"],
+    deps = ["//tensorstore/util:assert_macros"],
 )
 
 tensorstore_cc_library(
