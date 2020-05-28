@@ -142,7 +142,6 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future_impl.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/result_util.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {

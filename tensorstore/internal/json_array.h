@@ -31,7 +31,6 @@
 #include "tensorstore/static_cast.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/result_util.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {

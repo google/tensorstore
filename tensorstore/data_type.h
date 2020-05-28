@@ -36,7 +36,6 @@
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/byte_strided_pointer.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/result_util.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/to_string.h"
 #include "tensorstore/util/utf8_string.h"

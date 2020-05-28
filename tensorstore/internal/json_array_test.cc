@@ -25,7 +25,6 @@
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/result_util.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 

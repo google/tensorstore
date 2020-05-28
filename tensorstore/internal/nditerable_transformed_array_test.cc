@@ -41,7 +41,6 @@
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/result_util.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 

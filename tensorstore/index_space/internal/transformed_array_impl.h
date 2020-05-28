@@ -27,7 +27,7 @@
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/iterate.h"
-#include "tensorstore/util/result_util.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 

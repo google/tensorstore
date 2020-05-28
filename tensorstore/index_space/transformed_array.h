@@ -28,7 +28,7 @@
 #include "tensorstore/index_space/internal/transformed_array_impl.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/iterate.h"
-#include "tensorstore/util/result_util.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 

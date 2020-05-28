@@ -57,7 +57,6 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/result_util.h"
 #include "tensorstore/util/sender.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"

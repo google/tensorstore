@@ -21,13 +21,20 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_testutil.h"
 
 namespace {
 
+using tensorstore::ChainResult;
+using tensorstore::FlatMapResultType;
+using tensorstore::FlatResult;
 using tensorstore::Result;
 using tensorstore::Status;
+using tensorstore::UnwrapQualifiedResultType;
+using tensorstore::UnwrapResultType;
 
 static_assert(std::is_convertible<Result<int>, Result<float>>::value, "");
 
@@ -1011,6 +1018,94 @@ TEST(ResultTest, AssignOrReturnAnnotate) {
   EXPECT_EQ(absl::UnknownError("No error"), Helper(3));
   EXPECT_EQ(absl::UnknownError("Annotated: Got error"),
             Helper(absl::UnknownError("Got error")));
+}
+
+/// FIXME: Is FlatMapResultType pulling it's weight?
+
+static_assert(std::is_same<UnwrapResultType<int>, int>::value);
+static_assert(std::is_same<UnwrapResultType<Result<int>>, int>::value);
+static_assert(std::is_same<UnwrapResultType<Status>, void>::value);
+static_assert(std::is_same<UnwrapQualifiedResultType<Status>, void>::value);
+static_assert(std::is_same<UnwrapQualifiedResultType<Result<int>>, int>::value);
+static_assert(
+    std::is_same<UnwrapQualifiedResultType<Result<int>&>, int&>::value);
+static_assert(std::is_same<UnwrapQualifiedResultType<const Result<int>&>,
+                           const int&>::value);
+
+static_assert(
+    std::is_same<UnwrapQualifiedResultType<Result<int>&&>, int&&>::value);
+
+/// FIXME: Typically a meta-function like FlatResult would be named MakeResult<>
+/// or similar.
+
+static_assert(std::is_same<FlatResult<Result<int>>, Result<int>>::value);
+
+static_assert(std::is_same<FlatResult<int>, Result<int>>::value);
+
+TEST(ChainResultTest, Example) {
+  auto func1 = [](int x) -> float { return 1.0f + x; };
+  auto func2 = [](float x) -> Result<std::string> {
+    return absl::StrCat("fn.", x);
+  };
+  auto func3 = [](absl::string_view x) -> bool { return x.length() > 4; };
+
+  Result<bool> y1 = ChainResult(Result<int>(3), func1, func2, func3);
+  Result<bool> y2 = ChainResult(3, func1, func2, func3);
+
+  EXPECT_TRUE(y1.has_value());
+  EXPECT_TRUE(y2.has_value());
+
+  EXPECT_EQ(y1.value(), y2.value());
+}
+
+TEST(ChainResultTest, Basic) {
+  EXPECT_EQ(Result<int>(2), ChainResult(2));
+  EXPECT_EQ(Result<int>(2), ChainResult(Result<int>(2)));
+
+  EXPECT_EQ(Result<int>(3),
+            ChainResult(Result<int>(2), [](int x) { return x + 1; }));
+
+  EXPECT_EQ(Result<float>(1.5), ChainResult(
+                                    Result<int>(2), [](int x) { return x + 1; },
+                                    [](int x) { return x / 2.0f; }));
+
+  EXPECT_EQ(Result<int>(absl::UnknownError("A")),
+            ChainResult(Result<int>(absl::UnknownError("A")),
+                        [](int x) { return x + 1; }));
+}
+
+TEST(MapResultTest, Basic) {
+  tensorstore::Status status;
+
+  EXPECT_EQ(Result<int>(absl::UnknownError("A")),
+            tensorstore::MapResult(std::plus<int>(),
+                                   Result<int>(absl::UnknownError("A")),
+                                   Result<int>(absl::UnknownError("B"))));
+  EXPECT_EQ(Result<int>(absl::UnknownError("B")),
+            tensorstore::MapResult(std::plus<int>(), 1,
+                                   Result<int>(absl::UnknownError("B"))));
+  EXPECT_EQ(Result<int>(3), tensorstore::MapResult(std::plus<int>(), 1, 2));
+  EXPECT_EQ(
+      Result<int>(absl::UnknownError("C")),
+      tensorstore::MapResult(
+          [](int a, int b) { return Result<int>(absl::UnknownError("C")); }, 1,
+          2));
+}
+
+TEST(PipelineOperator, Basic) {
+  auto func1 = [](int x) -> float { return 1.0f + x; };
+  auto func2 = [](float x) -> Result<std::string> {
+    return absl::StrCat("fn.", x);
+  };
+  auto func3 = [](absl::string_view x) -> bool { return x.length() > 4; };
+
+  auto y1 = Result<int>(3) | func1 | func2 | func3;
+  static_assert(std::is_same_v<decltype(y1), Result<bool>>);
+  EXPECT_THAT(y1, ::testing::Optional(false));
+
+  auto y2 = Result<float>(2.5) | func2;
+  static_assert(std::is_same_v<decltype(y2), Result<std::string>>);
+  EXPECT_THAT(y2, ::testing::Optional(std::string("fn.2.5")));
 }
 
 }  // namespace

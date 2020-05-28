@@ -27,7 +27,6 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/spec_impl.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/result_util.h"
 
 namespace tensorstore {
 

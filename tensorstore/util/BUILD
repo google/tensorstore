@@ -483,7 +483,6 @@ tensorstore_cc_library(
     hdrs = [
         "result.h",
         "result_impl.h",
-        "result_util.h",
     ],
     deps = [
         ":assert_macros",
@@ -531,20 +530,7 @@ tensorstore_cc_test(
     deps = [
         ":result",
         ":status",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "result_util_test",
-    size = "small",
-    srcs = [
-        "result_util_test.cc",
-    ],
-    deps = [
-        ":result",
-        ":status",
-        "@com_google_absl//absl/strings",
+        ":status_testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )

@@ -24,7 +24,6 @@
 #include "tensorstore/internal/json.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/result_util.h"
 
 namespace tensorstore {
 namespace internal {
