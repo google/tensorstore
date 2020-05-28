@@ -115,6 +115,7 @@ tensorstore_cc_library(
         "//tensorstore",
         "//tensorstore:box",
         "//tensorstore:index",
+        "//tensorstore:open_mode",
         "//tensorstore:spec",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:aggregate_writeback_cache",

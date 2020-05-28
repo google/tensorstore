@@ -95,6 +95,17 @@ class CacheImpl {
 
   CachePoolImpl* pool_;
 
+  /// Specifies the `cache_type_` to be used along with `cache_identifier_` for
+  /// looking up this cache in the `caches_` table of the cache pool.  This
+  /// should be equal to, or a base class of, the actual dynamic type of `this`.
+  ///
+  /// This holds `typeid(CacheType)`, where `CacheType` is the type specified to
+  /// `GetCache`.  This needs to be stored because the `make_cache` function
+  /// supplied to `GetCache` may actually return a derived cache type, and the
+  /// same type needs to be used for both the initial lookup and the insertion
+  /// into the `caches_` table.
+  const std::type_info* cache_type_;
+
   /// If non-empty, this cache is stored in the `caches_` table of the cache
   /// pool, and should only be destroyed once:
   ///
@@ -122,7 +133,7 @@ class CachePoolImpl {
    public:
     using Base::Base;
     CacheKey(const CacheImpl* ptr)
-        : Base(typeid(*ptr), ptr->cache_identifier_) {}
+        : Base(*ptr->cache_type_, ptr->cache_identifier_) {}
   };
 
   struct CacheKeyHash : public absl::Hash<CacheKey> {
@@ -215,7 +226,7 @@ using CachePoolWeakPtr =
     internal::IntrusivePtr<CachePoolImpl, WeakPtrTraitsCachePool>;
 
 CachePtr<Cache> GetCacheInternal(
-    CachePoolImpl* pool, std::type_index cache_type,
+    CachePoolImpl* pool, const std::type_info& cache_type,
     absl::string_view cache_key,
     FunctionView<std::unique_ptr<Cache>()> make_cache);
 

@@ -1350,6 +1350,46 @@ TEST(BasicFunctionalityTest, Uint16Raw) {
   DoTest(/*sharding=*/nullptr);
 }
 
+TEST(ShardedWriteTest, Basic) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(tensorstore::Context::Default(),
+                        ::nlohmann::json{
+                            {"driver", "neuroglancer_precomputed"},
+                            {"kvstore", {{"driver", "memory"}}},
+                            {"path", "prefix"},
+                            {"multiscale_metadata",
+                             {
+                                 {"data_type", "uint16"},
+                                 {"num_channels", 2},
+                                 {"type", "image"},
+                             }},
+                            {"scale_metadata",
+                             {
+                                 {"resolution", {1, 1, 1}},
+                                 {"encoding", "raw"},
+                                 {"chunk_size", {3, 4, 5}},
+                                 {"size", {4, 5, 1}},
+                                 {"voxel_offset", {0, 0, 0}},
+                                 {"sharding",
+                                  {{"@type", "neuroglancer_uint64_sharded_v1"},
+                                   {"preshift_bits", 1},
+                                   {"minishard_bits", 2},
+                                   {"shard_bits", 3},
+                                   {"hash", "identity"}}},
+                             }},
+                            {"create", true},
+                        })
+          .result());
+  auto array = tensorstore::MakeArray<std::uint16_t>(
+      {{{{1, 2}}, {{3, 4}}, {{5, 6}}, {{7, 8}}, {{9, 10}}},
+       {{{11, 12}}, {{13, 14}}, {{15, 16}}, {{17, 18}}, {{19, 20}}},
+       {{{21, 22}}, {{23, 24}}, {{25, 26}}, {{27, 28}}, {{29, 30}}},
+       {{{31, 32}}, {{33, 34}}, {{35, 36}}, {{37, 38}}, {{39, 40}}}});
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(array, store).result());
+  EXPECT_THAT(tensorstore::Read(store).result(), ::testing::Optional(array));
+}
+
 // Disable due to race condition whereby writeback of a shard may start while
 // some chunks that have been modified are still being written back to it.
 #if 0

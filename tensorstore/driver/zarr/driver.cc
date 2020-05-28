@@ -54,9 +54,11 @@ Result<ZarrMetadataPtr> ParseEncodedMetadata(absl::string_view encoded_value) {
   return metadata;
 }
 
-class MetadataCacheState
-    : public internal_kvs_backed_chunk_driver::MetadataCacheState {
+class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
+  using Base = internal_kvs_backed_chunk_driver::MetadataCache;
+
  public:
+  using Base::Base;
   std::string GetMetadataStorageKey(absl::string_view entry_key) override {
     return internal::JoinPath(entry_key, kZarrMetadataKey);
   }
@@ -178,10 +180,17 @@ class ZarrDriver
   }
 };
 
-class DataCacheState : public internal_kvs_backed_chunk_driver::DataCacheState {
+class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
+  using Base = internal_kvs_backed_chunk_driver::DataCache;
+
  public:
-  explicit DataCacheState(std::string key_prefix, ChunkKeyEncoding key_encoding)
-      : key_prefix_(std::move(key_prefix)), key_encoding_(key_encoding) {}
+  explicit DataCache(Initializer initializer, std::string key_prefix,
+                     ChunkKeyEncoding key_encoding)
+      : Base(initializer,
+             GetChunkGridSpecification(*static_cast<const ZarrMetadata*>(
+                 initializer.metadata.get()))),
+        key_prefix_(std::move(key_prefix)),
+        key_encoding_(key_encoding) {}
 
   Status ValidateMetadataCompatibility(const void* existing_metadata_ptr,
                                        const void* new_metadata_ptr) override {
@@ -230,9 +239,9 @@ class DataCacheState : public internal_kvs_backed_chunk_driver::DataCacheState {
     return new_metadata;
   }
 
-  internal::ChunkGridSpecification GetChunkGridSpecification(
-      const void* metadata_ptr) override {
-    const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
+  /// Returns the ChunkCache grid to use for the given metadata.
+  static internal::ChunkGridSpecification GetChunkGridSpecification(
+      const ZarrMetadata& metadata) {
     internal::ChunkGridSpecification::Components components;
     components.reserve(metadata.dtype.fields.size());
     std::vector<DimensionIndex> chunked_to_cell_dimensions(
@@ -336,8 +345,9 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
 
   std::string GetMetadataCacheEntryKey() override { return spec().key_prefix; }
 
-  MetadataCacheState::Ptr GetMetadataCacheState() override {
-    return MetadataCacheState::Ptr(new MetadataCacheState);
+  std::unique_ptr<internal_kvs_backed_chunk_driver::MetadataCache>
+  GetMetadataCache(MetadataCache::Initializer initializer) override {
+    return std::make_unique<MetadataCache>(std::move(initializer));
   }
 
   Result<std::shared_ptr<const void>> Create(
@@ -366,8 +376,10 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     return result;
   }
 
-  DataCacheState::Ptr GetDataCacheState(const void* metadata) override {
-    return MakeDataCacheState(spec().key_prefix, spec().key_encoding);
+  std::unique_ptr<internal_kvs_backed_chunk_driver::DataCache> GetDataCache(
+      DataCache::Initializer initializer) override {
+    return std::make_unique<DataCache>(std::move(initializer),
+                                       spec().key_prefix, spec().key_encoding);
   }
 
   Result<std::size_t> GetComponentIndex(const void* metadata_ptr,
@@ -386,12 +398,6 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
 const internal::DriverRegistration<ZarrDriver> registration;
 
 }  // namespace
-
-internal_kvs_backed_chunk_driver::DataCacheState::Ptr MakeDataCacheState(
-    std::string key_prefix, ChunkKeyEncoding key_encoding) {
-  return internal_kvs_backed_chunk_driver::DataCacheState::Ptr(
-      new DataCacheState(std::move(key_prefix), key_encoding));
-}
 
 std::string EncodeChunkIndices(span<const Index> indices,
                                ChunkKeyEncoding key_encoding) {

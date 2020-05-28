@@ -62,9 +62,12 @@ Result<std::shared_ptr<const N5Metadata>> ParseEncodedMetadata(
   return std::make_shared<N5Metadata>(std::move(metadata));
 }
 
-class MetadataCacheState
-    : public internal_kvs_backed_chunk_driver::MetadataCacheState {
+class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
+  using Base = internal_kvs_backed_chunk_driver::MetadataCache;
+
  public:
+  using Base::Base;
+
   // Metadata is stored as JSON under the `attributes.json` key.
   std::string GetMetadataStorageKey(absl::string_view entry_key) override {
     return internal::JoinPath(entry_key, kMetadataKey);
@@ -82,10 +85,15 @@ class MetadataCacheState
   }
 };
 
-class DataCacheState : public internal_kvs_backed_chunk_driver::DataCacheState {
+class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
+  using Base = internal_kvs_backed_chunk_driver::DataCache;
+
  public:
-  explicit DataCacheState(std::string key_prefix)
-      : key_prefix_(std::move(key_prefix)) {}
+  explicit DataCache(Initializer initializer, std::string key_prefix)
+      : Base(initializer,
+             GetChunkGridSpecification(
+                 *static_cast<const N5Metadata*>(initializer.metadata.get()))),
+        key_prefix_(std::move(key_prefix)) {}
 
   Status ValidateMetadataCompatibility(const void* existing_metadata_ptr,
                                        const void* new_metadata_ptr) override {
@@ -134,9 +142,8 @@ class DataCacheState : public internal_kvs_backed_chunk_driver::DataCacheState {
     return new_metadata;
   }
 
-  internal::ChunkGridSpecification GetChunkGridSpecification(
-      const void* metadata_ptr) override {
-    const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
+  static internal::ChunkGridSpecification GetChunkGridSpecification(
+      const N5Metadata& metadata) {
     SharedArray<const void> fill_value(
         internal::AllocateAndConstructSharedElements(1, value_init,
                                                      metadata.data_type),
@@ -271,11 +278,12 @@ class N5Driver::OpenState : public N5Driver::OpenStateBase {
 
   std::string GetMetadataCacheEntryKey() override { return spec().key_prefix; }
 
-  // MetadataCacheState is effectively a singleton object (the metadata cache
-  // isn't parameterized by anything other than the KeyValueStore); therefore,
-  // we don't need to override `GetMetadataCacheKey` to encode the state.
-  MetadataCacheState::Ptr GetMetadataCacheState() override {
-    return MetadataCacheState::Ptr(new MetadataCacheState);
+  // The metadata cache isn't parameterized by anything other than the
+  // KeyValueStore; therefore, we don't need to override `GetMetadataCacheKey`
+  // to encode the state.
+  std::unique_ptr<internal_kvs_backed_chunk_driver::MetadataCache>
+  GetMetadataCache(MetadataCache::Initializer initializer) override {
+    return std::make_unique<MetadataCache>(std::move(initializer));
   }
 
   std::string GetDataCacheKey(const void* metadata) override {
@@ -300,8 +308,10 @@ class N5Driver::OpenState : public N5Driver::OpenStateBase {
     }
   }
 
-  DataCacheState::Ptr GetDataCacheState(const void* metadata) override {
-    return DataCacheState::Ptr(new DataCacheState(spec().key_prefix));
+  std::unique_ptr<internal_kvs_backed_chunk_driver::DataCache> GetDataCache(
+      DataCache::Initializer initializer) override {
+    return std::make_unique<DataCache>(std::move(initializer),
+                                       spec().key_prefix);
   }
 
   Result<std::size_t> GetComponentIndex(const void* metadata_ptr,

@@ -28,10 +28,8 @@ namespace tensorstore {
 namespace internal_kvs_backed_chunk_driver {
 
 OpenState::~OpenState() = default;
-DataCacheState::~DataCacheState() = default;
-MetadataCacheState::~MetadataCacheState() = default;
 
-Result<IndexTransform<>> DataCacheState::GetExternalToInternalTransform(
+Result<IndexTransform<>> DataCache::GetExternalToInternalTransform(
     const void* metadata, std::size_t component_index) {
   return IndexTransform<>();
 }
@@ -62,26 +60,19 @@ AtomicUpdateConstraint OpenState::GetCreateConstraint() {
   return AtomicUpdateConstraint::kRequireMissing;
 }
 
-MetadataCache::MetadataCache(
-    MetadataCacheState::Ptr state,
-    Context::Resource<internal::DataCopyConcurrencyResource>
-        data_copy_concurrency,
-    Context::Resource<internal::CachePoolResource> cache_pool)
-    : Base(KeyValueStore::Ptr(), data_copy_concurrency->executor),
-      state_(std::move(state)),
-      data_copy_concurrency_(std::move(data_copy_concurrency)),
-      cache_pool_(std::move(cache_pool)) {}
+MetadataCache::MetadataCache(Initializer initializer)
+    : Base(KeyValueStore::Ptr(), initializer.data_copy_concurrency->executor),
+      data_copy_concurrency_(std::move(initializer.data_copy_concurrency)),
+      cache_pool_(std::move(initializer.cache_pool)) {}
 
-DataCache::DataCache(
-    DataCacheState::Ptr state, KeyValueStore::Ptr store,
-    internal::PinnedCacheEntry<MetadataCache> metadata_cache_entry,
-    MetadataPtr metadata)
-    : Base(std::move(store), GetOwningCache(metadata_cache_entry)->executor(),
-           state->GetChunkGridSpecification(metadata.get())),
-      state_(std::move(state)),
-      metadata_cache_entry_(std::move(metadata_cache_entry)),
-      initial_metadata_(metadata),
-      validated_metadata_(metadata) {}
+DataCache::DataCache(Initializer initializer,
+                     internal::ChunkGridSpecification grid)
+    : Base(std::move(initializer.store),
+           GetOwningCache(initializer.metadata_cache_entry)->executor(),
+           std::move(grid)),
+      metadata_cache_entry_(std::move(initializer.metadata_cache_entry)),
+      initial_metadata_(initializer.metadata),
+      validated_metadata_(std::move(initializer.metadata)) {}
 
 namespace {
 
@@ -221,18 +212,17 @@ Status ValidateExpandShrinkConstraints(BoxView<> current_domain,
 Result<std::shared_ptr<const void>> ValidateNewMetadata(DataCache* cache) {
   auto new_metadata = cache->metadata_cache_entry_->GetMetadata();
   absl::MutexLock lock(&cache->mutex_);
-  TENSORSTORE_RETURN_IF_ERROR(cache->state_->ValidateMetadataCompatibility(
+  TENSORSTORE_RETURN_IF_ERROR(cache->ValidateMetadataCompatibility(
       cache->validated_metadata_.get(), new_metadata.get()));
   cache->validated_metadata_ = new_metadata;
   return new_metadata;
 }
 
-void GetComponentBounds(DataCacheState& state,
-                        const internal::ChunkGridSpecification& grid,
-                        const void* metadata, std::size_t component_index,
-                        MutableBoxView<> bounds,
+void GetComponentBounds(DataCache* data_cache, const void* metadata,
+                        std::size_t component_index, MutableBoxView<> bounds,
                         BitSpan<std::uint64_t> implicit_lower_bounds,
                         BitSpan<std::uint64_t> implicit_upper_bounds) {
+  const auto& grid = data_cache->grid();
   const auto& component_spec = grid.components[component_index];
   assert(bounds.rank() == component_spec.rank());
   assert(implicit_lower_bounds.size() == bounds.rank());
@@ -241,8 +231,9 @@ void GetComponentBounds(DataCacheState& state,
       grid.chunk_shape.size());
   BitVec<> grid_implicit_lower_bounds(grid_bounds.rank());
   BitVec<> grid_implicit_upper_bounds(grid_bounds.rank());
-  state.GetChunkGridBounds(metadata, grid_bounds, grid_implicit_lower_bounds,
-                           grid_implicit_upper_bounds);
+  data_cache->GetChunkGridBounds(metadata, grid_bounds,
+                                 grid_implicit_lower_bounds,
+                                 grid_implicit_upper_bounds);
   span<const DimensionIndex> chunked_to_cell_dimensions =
       component_spec.chunked_to_cell_dimensions;
   bounds.DeepAssign(component_spec.fill_value.domain());
@@ -254,14 +245,6 @@ void GetComponentBounds(DataCacheState& state,
     implicit_lower_bounds[cell_dim] = grid_implicit_lower_bounds[grid_dim];
     implicit_upper_bounds[cell_dim] = grid_implicit_upper_bounds[grid_dim];
   }
-}
-
-Result<IndexTransform<>> ResolveBoundsFromMetadata(
-    DataCache* cache, const void* new_metadata, std::size_t component_index,
-    IndexTransform<> transform, ResolveBoundsOptions options) {
-  return ResolveBoundsFromMetadata(*cache->state_, cache->grid(), new_metadata,
-                                   component_index, std::move(transform),
-                                   options);
 }
 
 struct ResolveBoundsContinuation {
@@ -314,22 +297,21 @@ Future<const void> RequestResize(DataCache* cache, ResizeParameters parameters,
                                  absl::Time request_time) {
   return cache->metadata_cache_entry_->RequestAtomicUpdate(
       /*update=*/
-      [parameters = std::move(parameters), data_cache_state = cache->state_,
+      [parameters = std::move(parameters),
+       cache = internal::CachePtr<DataCache>(cache),
        metadata_constraint = cache->initial_metadata_](
           const void* current_metadata) -> Result<std::shared_ptr<const void>> {
         if (!current_metadata) {
           return absl::NotFoundError("Metadata was deleted");
         }
-        TENSORSTORE_RETURN_IF_ERROR(
-            data_cache_state->ValidateMetadataCompatibility(
-                metadata_constraint.get(), current_metadata));
+        TENSORSTORE_RETURN_IF_ERROR(cache->ValidateMetadataCompatibility(
+            metadata_constraint.get(), current_metadata));
         Box<dynamic_rank(internal::kNumInlinedDims)> bounds(
             parameters.new_inclusive_min.size());
         BitVec<> implicit_lower_bounds(bounds.rank());
         BitVec<> implicit_upper_bounds(bounds.rank());
-        data_cache_state->GetChunkGridBounds(current_metadata, bounds,
-                                             implicit_lower_bounds,
-                                             implicit_upper_bounds);
+        cache->GetChunkGridBounds(current_metadata, bounds,
+                                  implicit_lower_bounds, implicit_upper_bounds);
         // The resize request has already been validated against explicit grid
         // bounds (i.e. bounds corresponding to `false` values in
         // `implicit_{lower,upper}_bounds`), so we don't need to check again
@@ -340,9 +322,9 @@ Future<const void> RequestResize(DataCache* cache, ResizeParameters parameters,
             parameters.exclusive_max_constraint, parameters.expand_only,
             parameters.shrink_only));
 
-        return data_cache_state->GetResizedMetadata(
-            current_metadata, parameters.new_inclusive_min,
-            parameters.new_exclusive_max);
+        return cache->GetResizedMetadata(current_metadata,
+                                         parameters.new_inclusive_min,
+                                         parameters.new_exclusive_max);
       },
       AtomicUpdateConstraint::kRequireExisting, request_time);
 }
@@ -441,9 +423,9 @@ struct ResolveBoundsForDeleteAndResizeContinuation {
     Box<dynamic_rank(internal::kNumInlinedDims)> bounds(grid_rank);
     BitVec<> implicit_lower_bounds(grid_rank);
     BitVec<> implicit_upper_bounds(grid_rank);
-    state->cache->state_->GetChunkGridBounds(new_metadata.get(), bounds,
-                                             implicit_lower_bounds,
-                                             implicit_upper_bounds);
+    state->cache->GetChunkGridBounds(new_metadata.get(), bounds,
+                                     implicit_lower_bounds,
+                                     implicit_upper_bounds);
     // The resize request has already been validated against explicit grid
     // bounds (i.e. bounds corresponding to `false` values in
     // `implicit_{lower,upper}_bounds`), so we don't need to check again here.
@@ -474,8 +456,8 @@ Future<IndexTransform<>> DriverBase::Resize(IndexTransform<> transform,
                                             ResizeOptions options) {
   auto* cache = this->cache();
   auto resize_parameters = GetResizeParameters(
-      *cache->state_, cache->grid(), cache->initial_metadata_.get(),
-      component_index(), transform, inclusive_min, exclusive_max, options);
+      cache, cache->initial_metadata_.get(), component_index(), transform,
+      inclusive_min, exclusive_max, options);
   if (!resize_parameters) {
     if (resize_parameters.status().code() == absl::StatusCode::kAborted) {
       // Requested resize is a no-op.  Currently there is no resize option
@@ -535,15 +517,15 @@ Result<IndexTransformSpec> DriverBase::GetBoundSpecData(
     validated_metadata = cache->validated_metadata_;
   }
 
-  TENSORSTORE_RETURN_IF_ERROR(cache->state_->GetBoundSpecData(
+  TENSORSTORE_RETURN_IF_ERROR(cache->GetBoundSpecData(
       spec, validated_metadata.get(), this->component_index()));
 
   IndexTransform<> transform(transform_view);
 
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto external_to_internal_transform,
-      cache->state_->GetExternalToInternalTransform(validated_metadata.get(),
-                                                    component_index()));
+      cache->GetExternalToInternalTransform(validated_metadata.get(),
+                                            component_index()));
   if (external_to_internal_transform.valid()) {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto internal_to_external_transform,
@@ -580,11 +562,11 @@ namespace {
 Result<std::size_t> ValidateOpenRequest(OpenState* state,
                                         const void* metadata) {
   if (!metadata) {
-    return absl::NotFoundError(StrCat(
-        "Metadata key ",
-        QuoteString(GetMetadataCache(*state)->state_->GetMetadataStorageKey(
-            GetMetadataCacheEntry(*state)->key())),
-        " does not exist"));
+    return absl::NotFoundError(
+        StrCat("Metadata key ",
+               QuoteString(GetMetadataCache(*state)->GetMetadataStorageKey(
+                   GetMetadataCacheEntry(*state)->key())),
+               " does not exist"));
   }
   auto& base = *(PrivateOpenState*)state;  // Cast to private base
   return state->GetComponentIndex(metadata, base.spec_->open_mode());
@@ -626,15 +608,14 @@ Result<internal::Driver::ReadWriteHandle> CreateTensorStoreFromMetadata(
                       std::move(store_result).status();
                   return nullptr;
                 }
-                return std::make_unique<DataCache>(
-                    state->GetDataCacheState(metadata.get()),
-                    std::move(*store_result),
-                    GetMetadataCacheEntry(std::move(*state)), metadata);
+                return state->GetDataCache(
+                    {std::move(*store_result),
+                     GetMetadataCacheEntry(std::move(*state)), metadata});
               });
   TENSORSTORE_RETURN_IF_ERROR(data_key_value_store_status);
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto new_transform,
-      chunk_cache->state_->GetExternalToInternalTransform(
+      chunk_cache->GetExternalToInternalTransform(
           chunk_cache->initial_metadata_.get(), component_index));
 
   TENSORSTORE_ASSIGN_OR_RETURN(
@@ -696,9 +677,8 @@ void CreateMetadata(OpenState::Ptr state,
                     result.status(),
                     StrCat("Error creating array with metadata key ",
                            QuoteString(
-                               GetMetadataCache(*state)
-                                   ->state_->GetMetadataStorageKey(
-                                       GetMetadataCacheEntry(*state)->key()))));
+                               GetMetadataCache(*state)->GetMetadataStorageKey(
+                                   GetMetadataCacheEntry(*state)->key()))));
               },
               state_ptr->GetCreateConstraint(), base.request_time_));
 }
@@ -795,7 +775,7 @@ void MetadataCache::DoDecode(
   MetadataPtr new_metadata;
   if (value) {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        new_metadata, state_->DecodeMetadata(entry->key(), *value),
+        new_metadata, this->DecodeMetadata(entry->key(), *value),
         this->NotifyReadError(entry,
                               ConvertInvalidArgumentToFailedPrecondition(_)));
   }
@@ -805,7 +785,7 @@ void MetadataCache::DoDecode(
 }
 
 std::string MetadataCache::GetKeyValueStoreKey(internal::Cache::Entry* entry) {
-  return state_->GetMetadataStorageKey(entry->key());
+  return this->GetMetadataStorageKey(entry->key());
 }
 
 void MetadataCache::NotifyWritebackNeedsRead(internal::Cache::Entry* base_entry,
@@ -882,8 +862,7 @@ void MetadataCache::DoWriteback(internal::Cache::PinnedEntry entry) {
       }
       return;
     }
-    auto encoded =
-        cache->state_->EncodeMetadata(entry->key(), new_metadata.get());
+    auto encoded = cache->EncodeMetadata(entry->key(), new_metadata.get());
     entry->new_metadata = std::move(new_metadata);
     cache->Writeback(std::move(entry), std::move(encoded),
                      /*unconditional=*/false);
@@ -892,8 +871,7 @@ void MetadataCache::DoWriteback(internal::Cache::PinnedEntry entry) {
 
 std::string DataCache::GetKeyValueStoreKey(internal::Cache::Entry* base_entry) {
   auto* entry = static_cast<Entry*>(base_entry);
-  return state_->GetChunkStorageKey(initial_metadata_.get(),
-                                    entry->cell_indices());
+  return GetChunkStorageKey(initial_metadata_.get(), entry->cell_indices());
 }
 
 void DataCache::DoDecode(internal::Cache::PinnedEntry base_entry,
@@ -907,8 +885,8 @@ void DataCache::DoDecode(internal::Cache::PinnedEntry base_entry,
   const auto validated_metadata = this->validated_metadata();
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto decoded,
-      this->state_->DecodeChunk(validated_metadata.get(), entry->cell_indices(),
-                                std::move(*value)),
+      this->DecodeChunk(validated_metadata.get(), entry->cell_indices(),
+                        std::move(*value)),
       this->NotifyReadError(entry,
                             ConvertInvalidArgumentToFailedPrecondition(_)));
   this->NotifyReadSuccess(entry, entry->AcquireReadStateWriterLock(),
@@ -929,9 +907,8 @@ void DataCache::DoWriteback(internal::Cache::PinnedEntry base_entry) {
           snapshot.component_arrays().begin(),
           snapshot.component_arrays().end());
       TENSORSTORE_RETURN_IF_ERROR(
-          cache->state_->EncodeChunk(
-              validated_metadata.get(), entry->cell_indices(),
-              component_arrays_unowned, &encoded.emplace()),
+          cache->EncodeChunk(validated_metadata.get(), entry->cell_indices(),
+                             component_arrays_unowned, &encoded.emplace()),
           cache->NotifyWritebackError(entry.get(),
                                       entry->AcquireWriteStateLock(), _));
     }
@@ -961,21 +938,27 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(OpenState* state) {
   // Set to a promise paired with the `initialized_` future if the cache is
   // created.
   Promise<void> metadata_cache_promise;
+  MetadataCache* created_metadata_cache = nullptr;
   auto metadata_cache =
       (*state->cache_pool())
           ->GetCache<MetadataCache>(
               base.metadata_cache_key_,
               [&]() -> std::unique_ptr<MetadataCache> {
-                auto metadata_cache = std::make_unique<MetadataCache>(
-                    state->GetMetadataCacheState(),
-                    base.spec_->data_copy_concurrency, base.spec_->cache_pool);
+                auto metadata_cache =
+                    state->GetMetadataCache({base.spec_->data_copy_concurrency,
+                                             base.spec_->cache_pool});
+                created_metadata_cache = metadata_cache.get();
                 auto [promise, future] =
                     PromiseFuturePair<void>::Make(MakeResult());
                 metadata_cache->initialized_ = std::move(future);
                 metadata_cache_promise = std::move(promise);
                 return metadata_cache;
               });
-  if (metadata_cache_promise.valid()) {
+  // Even if we just created a new cache, it is possible that another cache for
+  // the same cache_identifier was created concurrently, in which case the cache
+  // we just created should be discarded.
+  if (metadata_cache_promise.valid() &&
+      metadata_cache.get() == created_metadata_cache) {
     // The cache didn't previously exist.  Open the KeyValueStore.
     LinkValue(
         [state = OpenState::Ptr(state), metadata_cache](
@@ -1029,14 +1012,15 @@ Future<internal::Driver::ReadWriteHandle> OpenDriver(OpenState::Ptr state) {
 }
 
 Result<IndexTransform<>> ResolveBoundsFromMetadata(
-    DataCacheState& state, const internal::ChunkGridSpecification& grid,
-    const void* new_metadata, std::size_t component_index,
-    IndexTransform<> transform, ResolveBoundsOptions options) {
+    DataCache* data_cache, const void* new_metadata,
+    std::size_t component_index, IndexTransform<> transform,
+    ResolveBoundsOptions options) {
+  auto& grid = data_cache->grid();
   const DimensionIndex base_rank = grid.components[component_index].rank();
   BitVec<> base_implicit_lower_bounds(base_rank);
   BitVec<> base_implicit_upper_bounds(base_rank);
   Box<dynamic_rank(internal::kNumInlinedDims)> base_bounds(base_rank);
-  GetComponentBounds(state, grid, new_metadata, component_index, base_bounds,
+  GetComponentBounds(data_cache, new_metadata, component_index, base_bounds,
                      base_implicit_lower_bounds, base_implicit_upper_bounds);
   if ((options.mode & fix_resizable_bounds) == fix_resizable_bounds) {
     base_implicit_lower_bounds.fill(false);
@@ -1064,19 +1048,19 @@ Status ValidateResizeConstraints(BoxView<> current_domain,
 }
 
 Result<ResizeParameters> GetResizeParameters(
-    DataCacheState& state, const internal::ChunkGridSpecification& grid,
-    const void* metadata, size_t component_index,
+    DataCache* data_cache, const void* metadata, size_t component_index,
     IndexTransformView<> transform, span<const Index> inclusive_min,
     span<const Index> exclusive_max, ResizeOptions options) {
   assert(transform.input_rank() == inclusive_min.size());
   assert(transform.input_rank() == exclusive_max.size());
   const DimensionIndex output_rank = transform.output_rank();
 
+  const auto& grid = data_cache->grid();
   const DimensionIndex base_rank = grid.components[component_index].rank();
   BitVec<> base_implicit_lower_bounds(base_rank);
   BitVec<> base_implicit_upper_bounds(base_rank);
   Box<dynamic_rank(internal::kNumInlinedDims)> base_bounds(base_rank);
-  GetComponentBounds(state, grid, metadata, component_index, base_bounds,
+  GetComponentBounds(data_cache, metadata, component_index, base_bounds,
                      base_implicit_lower_bounds, base_implicit_upper_bounds);
 
   const DimensionIndex grid_rank = grid.grid_rank();

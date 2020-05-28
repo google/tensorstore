@@ -183,8 +183,6 @@ void AssertInvariants(const CachePool::StrongPtr& pool,
       auto it = pool_impl->caches_.find(cache_impl);
       ASSERT_NE(it, pool_impl->caches_.end());
       EXPECT_EQ(cache_impl, *it);
-    } else {
-      EXPECT_EQ(0, pool_impl->caches_.count(cache_impl));
     }
 
     for (CacheEntryImpl* entry : cache_impl->entries_) {

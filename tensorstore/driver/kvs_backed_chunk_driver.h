@@ -30,6 +30,7 @@
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/internal/aggregate_writeback_cache.h"
 #include "tensorstore/internal/async_storage_backed_cache.h"
 #include "tensorstore/internal/cache_pool_resource.h"
 #include "tensorstore/internal/chunk_cache.h"
@@ -37,8 +38,10 @@
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/key_value_store_cache.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/key_value_store.h"
+#include "tensorstore/open_mode.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/bit_span.h"
@@ -86,23 +89,63 @@ TENSORSTORE_DECLARE_JSON_BINDER(SpecJsonBinder, SpecT<>,
                                 Context::ToJsonOptions,
                                 ::nlohmann::json::object_t);
 
-/// Interface by which driver implementations define the metadata cache
-/// behavior.
+/// Specifies constraints for atomic metadata updates.
+enum AtomicUpdateConstraint {
+  /// No additional constraints.  The update function may be called without
+  /// any prior attempt to read the existing metadata (in which case it will
+  /// be called with `existing_metadata=nullptr`).
+  kNone,
+
+  /// The `update` function is guaranteed to fail if the metadata does not
+  /// exist.  It will, however, still be called in such a case to determine
+  /// the appropriate error result.
+  kRequireExisting,
+
+  /// The `update` function is guaranteed to fail if the metadata already
+  /// exists.  It may, however, still be called in such a case to determine the
+  /// appropriate error result.  Specifying this option allows unnecessary
+  /// re-reads to be avoided.
+  kRequireMissing,
+};
+
+/// Caches metadata associated with a KeyValueStore-backed chunk driver.  Driver
+/// implementations must define a derived type that inherits from this class to
+/// perform driver-specific metadata handling.
 ///
-/// There is a one-to-one relationship between objects of this type and
-/// `MetadataCache` objects.  Typically for a given driver, there will be one
-/// `MetadataCache` per underlying `KeyValueStore` with which the driver is
-/// used, though there could be more than one if the `MetadataCacheState`
-/// depends on some additional parameters.  Entries within the `MetadataCache`
-/// correspond to individual paths within the `KeyValueStore` and store the
-/// decoded metadata representation.
+/// There is one entry in the `MetadataCache` for each `DataCache` (but there
+/// may be multiple `DataCache` objects associated with a single entry).
+///
+/// Typically for a given driver, there will be one `MetadataCache` per
+/// underlying `KeyValueStore` with which the driver is used, though there could
+/// be more than one if the `MetadataCache` depends on some additional
+/// parameters.  Entries within the `MetadataCache` correspond to individual
+/// paths within the `KeyValueStore` and store the decoded metadata
+/// representation.
 ///
 /// Implicitly, instances of this class assume a particular `Metadata` type.
-class MetadataCacheState
-    : public internal::AtomicReferenceCount<MetadataCacheState> {
+class MetadataCache
+    : public internal::CacheBase<
+          MetadataCache,
+          internal::AggregateWritebackCache<
+              MetadataCache, internal::KeyValueStoreCache<
+                                 internal::AsyncStorageBackedCache>>> {
+  using Base = internal::CacheBase<
+      MetadataCache,
+      internal::AggregateWritebackCache<
+          MetadataCache,
+          internal::KeyValueStoreCache<internal::AsyncStorageBackedCache>>>;
+
  public:
-  using Ptr = internal::IntrusivePtr<MetadataCacheState>;
   using MetadataPtr = std::shared_ptr<const void>;
+
+  /// Constructor parameters
+  struct Initializer {
+    Context::Resource<internal::DataCopyConcurrencyResource>
+        data_copy_concurrency;
+    Context::Resource<internal::CachePoolResource> cache_pool;
+  };
+
+  explicit MetadataCache(Initializer initializer);
 
   /// Returns the KeyValueStore key from which to read the encoded metadata
   /// for a given metadata cache entry.
@@ -129,25 +172,116 @@ class MetadataCacheState
   virtual std::string EncodeMetadata(absl::string_view entry_key,
                                      const void* metadata) = 0;
 
-  virtual ~MetadataCacheState();
+  // The members below are implementation details not relevant to derived class
+  // driver implementations.
+
+  /// Function invoked to atomically modify a metadata entry (e.g. to create
+  /// or resize an array).
+  ///
+  /// This function may be called multiple times (even after returning an
+  /// error status) due to retries to handle concurrent modifications to the
+  /// metadata.
+  ///
+  /// \param existing_metadata Specifies the existing metadata of type
+  ///     `Metadata`, or `nullptr` to indicate no existing metadata.
+  /// \returns The new metadata on success, or an error result for the
+  /// request.
+  using UpdateFunction =
+      std::function<Result<MetadataPtr>(const void* existing_metadata)>;
+
+  /// Specifies a request to atomically read-modify-write a metadata entry.
+  struct PendingWrite {
+    UpdateFunction update;
+    AtomicUpdateConstraint update_constraint;
+    Promise<void> promise;
+  };
+
+  class Entry : public Base::Entry {
+   public:
+    using Cache = MetadataCache;
+
+    MetadataPtr GetMetadata() {
+      auto lock = this->AcquireReadStateReaderLock();
+      return metadata;
+    }
+
+    /// Requests an atomic metadata update.
+    ///
+    /// \param update Update function to apply.
+    /// \param update_constraint Specifies additional constraints on the atomic
+    ///     update.
+    /// \returns Future that becomes ready when the request has completed
+    ///     (either successfully or with an error).  Any error returned from the
+    ///     last call to `update` (i.e. the last retry) is returned as the
+    ///     Future result.  Additionally, any error that occurs with the
+    ///     underlying KeyValueStore is also returned.
+    Future<const void> RequestAtomicUpdate(
+        UpdateFunction update, AtomicUpdateConstraint update_constraint,
+        absl::Time request_time = absl::Now());
+
+    /// Most recently read committed metadata.
+    MetadataPtr metadata;
+
+    /// Metadata currently being written back, if any.
+    MetadataPtr new_metadata;
+  };
+
+  KeyValueStore* base_store() { return base_store_.get(); }
+
+  std::string GetKeyValueStoreKey(internal::Cache::Entry* entry) override;
+
+  void DoDecode(internal::Cache::PinnedEntry entry,
+                std::optional<std::string> value) override;
+  void DoWriteback(internal::Cache::PinnedEntry entry) override;
+
+  void NotifyWritebackNeedsRead(internal::Cache::Entry* entry,
+                                WriteStateLock lock,
+                                absl::Time staleness_bound) override;
+
+  void NotifyWritebackSuccess(internal::Cache::Entry* entry,
+                              WriteAndReadStateLock lock) override;
+
+  /// KeyValueStore from which `kvstore()` was derived.  Used only by
+  /// `DriverBase::GetBoundSpecData`.  A driver implementation may apply some
+  /// type of adapter to the `KeyValueStore` in order to retrieve metadata by
+  /// overriding the default implementation of
+  /// `OpenState::GetMetadataKeyValueStore`.
+  KeyValueStore::Ptr base_store_;
+  Context::Resource<internal::DataCopyConcurrencyResource>
+      data_copy_concurrency_;
+  Context::Resource<internal::CachePoolResource> cache_pool_;
+
+  /// Future that becomes ready when this MetadataCache can be used.  Prior to
+  /// `initialized_` becoming ready in a success state, no entries may be
+  /// retrieved.
+  Future<const void> initialized_;
 };
 
-/// Interface by which driver implementations define the data cache behavior.
+/// Inherits from `ChunkCache` and represents one or more chunked arrays that
+/// are stored within the same set of chunks.
 ///
-/// There is a one-to-one relationship between objects of this type and
-/// `DataCache` objects.  `DataCache` inherits from `ChunkCache` and represents
-/// one or more chunked arrays that are stored within the same set of chunks.
+/// Driver implementations must define a derived class that inherits from
+/// `DataCache` in order to perform driver-specific data handling.
 ///
 /// Implicitly, instances of this class assume a particular `Metadata` type.
-class DataCacheState : public internal::AtomicReferenceCount<DataCacheState> {
- public:
-  using Ptr = internal::IntrusivePtr<DataCacheState>;
+class DataCache
+    : public internal::CacheBase<
+          DataCache, internal::KeyValueStoreCache<internal::ChunkCache>> {
+  using Base =
+      internal::CacheBase<DataCache,
+                          internal::KeyValueStoreCache<internal::ChunkCache>>;
 
-  /// Returns the chunk grid specification for `metadata`.
-  ///
-  /// This function is called once upon construction of the `ChunkCache`.
-  virtual internal::ChunkGridSpecification GetChunkGridSpecification(
-      const void* metadata) = 0;
+ public:
+  using MetadataPtr = MetadataCache::MetadataPtr;
+
+  struct Initializer {
+    KeyValueStore::Ptr store;
+    internal::PinnedCacheEntry<MetadataCache> metadata_cache_entry;
+    MetadataPtr metadata;
+  };
+
+  explicit DataCache(Initializer initializer,
+                     internal::ChunkGridSpecification grid);
 
   virtual std::string GetChunkStorageKey(const void* metadata,
                                          span<const Index> cell_indices) = 0;
@@ -192,7 +326,7 @@ class DataCacheState : public internal::AtomicReferenceCount<DataCacheState> {
   /// \pre `new_inclusive_min.size()` and `new_exclusive_max.size()` are equal
   ///     to `GetChunkGridSpecification(existing_metadata).grid_rank()`.
   /// \pre `existing_metadata` is compatible with the initial metadata from
-  ///     which this `DataCacheState` was constructed, according to
+  ///     which this `DataCache` was constructed, according to
   ///     `ValidateMetadataCompatibility`.
   virtual Result<std::shared_ptr<const void>> GetResizedMetadata(
       const void* existing_metadata, span<const Index> new_inclusive_min,
@@ -266,26 +400,30 @@ class DataCacheState : public internal::AtomicReferenceCount<DataCacheState> {
                              span<const ArrayView<const void>> component_arrays,
                              std::string* encoded) = 0;
 
-  virtual ~DataCacheState();
-};
+  // The members below are implementation details not relevant to derived class
+  // driver implementations.
 
-/// Specifies constraints for atomic metadata updates.
-enum AtomicUpdateConstraint {
-  /// No additional constraints.  The update function may be called without
-  /// any prior attempt to read the existing metadata (in which case it will
-  /// be called with `existing_metadata=nullptr`).
-  kNone,
+  void DoDecode(internal::AsyncStorageBackedCache::PinnedEntry entry,
+                std::optional<std::string> value) override;
 
-  /// The `update` function is guaranteed to fail if the metadata does not
-  /// exist.  It will, however, still be called in such a case to determine
-  /// the appropriate error result.
-  kRequireExisting,
+  void DoWriteback(
+      internal::AsyncStorageBackedCache::PinnedEntry entry) override;
 
-  /// The `update` function is guaranteed to fail if the metadata already
-  /// exists.  It may, however, still be called in such a case to determine the
-  /// appropriate error result.  Specifying this option allows unnecessary
-  /// re-reads to be avoided.
-  kRequireMissing,
+  std::string GetKeyValueStoreKey(internal::Cache::Entry* entry) override;
+
+  MetadataCache* metadata_cache() {
+    return GetOwningCache(metadata_cache_entry_);
+  }
+
+  MetadataPtr validated_metadata() {
+    absl::ReaderMutexLock lock(&mutex_);
+    return validated_metadata_;
+  }
+
+  const internal::PinnedCacheEntry<MetadataCache> metadata_cache_entry_;
+  const MetadataPtr initial_metadata_;
+  absl::Mutex mutex_;
+  MetadataPtr validated_metadata_ ABSL_GUARDED_BY(mutex_);
 };
 
 /// Private data members of `OpenState`.
@@ -301,8 +439,6 @@ struct PrivateOpenState {
   /// Time at which open request was initiated.
   absl::Time request_time_;
 };
-
-class DataCache;
 
 /// Base class of `RegisteredKvsDriver<Derived>` that defines methods that don't
 /// depend on the `Derived` class type.
@@ -399,17 +535,18 @@ class OpenState : public internal::AtomicReferenceCount<OpenState>,
       const void* existing_metadata) = 0;
 
   /// Returns a unique identifier (for a given value of `typeid(*this)`) of the
-  /// state returned by `GetMetadataCacheState`.
+  /// state returned by `GetMetadataCache`.
   ///
   /// By default, returns the empty string.
   virtual std::string GetMetadataCacheKey();
 
-  /// Returns a non-null pointer to a `MetadataCacheState` object associated
-  /// with the same `Metadata` type as this object.  If there is an existing
-  /// metadata cache in `context()` with the same cache key (as returned by
+  /// Returns a non-null pointer to a `MetadataCache` object associated with the
+  /// same `Metadata` type as this object.  If there is an existing metadata
+  /// cache in `context()` with the same cache key (as returned by
   /// `GetMetadataCacheKey`), it will be used instead and this method will not
   /// be called.
-  virtual MetadataCacheState::Ptr GetMetadataCacheState() = 0;
+  virtual std::unique_ptr<MetadataCache> GetMetadataCache(
+      MetadataCache::Initializer initializer) = 0;
 
   /// Returns the `KeyValueStore` to use for retrieving the metadata.
   ///
@@ -421,15 +558,15 @@ class OpenState : public internal::AtomicReferenceCount<OpenState>,
       KeyValueStore::Ptr base_kv_store);
 
   /// Returns a unique identifier (for a given value of `typeid(*this)`) of the
-  /// state returned by `GetDataCacheState`.
+  /// cache returned by `GetDataCache`.
   virtual std::string GetDataCacheKey(const void* metadata) = 0;
 
-  /// Returns a non-null pointer to a `DataCacheState` object associated with
-  /// the same `Metadata` type as this object.  If there is an existing data
-  /// cache in `context()` with the same cache key (as returned by
-  /// `GetDataCacheKey`), it will be used instead and this method will not be
-  /// called.
-  virtual DataCacheState::Ptr GetDataCacheState(const void* metadata) = 0;
+  /// Returns a non-null pointer to a `DataCache` object associated with the
+  /// same `Metadata` type as this object.  If there is an existing data cache
+  /// in `context()` with the same cache key (as returned by `GetDataCacheKey`),
+  /// it will be used instead and this method will not be called.
+  virtual std::unique_ptr<DataCache> GetDataCache(
+      DataCache::Initializer initializer) = 0;
 
   /// Returns the `KeyValueStore` to use for retrieving the data chunks.
   ///
@@ -515,14 +652,14 @@ class OpenState : public internal::AtomicReferenceCount<OpenState>,
 ///    `open_state->GetComponentIndex`.
 ///
 ///    - If it is, either re-uses an existing `DataCache` with a cache key that
-///      matches `open_state->GetDataCacheKey`, or creates a new `DataCache`
-///      from the state returned by `open_state->GetDataCacheState`.
+///      matches `open_state->GetDataCacheKey`, or obtain a new `DataCache` from
+///      `open_state->GetDataCache`.
 ///
 ///    - Otherwise, fails.
 ///
-/// 6. Calls `data_cache_state->GetExternalToInternalTransform` to compute the
-///    `IndexTransform` to use, where `data_cache_state` is either the existing
-///    or newly created `DataCacheState`.
+/// 6. Calls `data_cache->GetExternalToInternalTransform` to compute the
+///    `IndexTransform` to use, where `data_cache` is either the existing or
+///    newly created `DataCache`.
 ///
 /// \param open_state Non-null pointer to open state.
 Future<internal::Driver::ReadWriteHandle> OpenDriver(OpenState::Ptr open_state);

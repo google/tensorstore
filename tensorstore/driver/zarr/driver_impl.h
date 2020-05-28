@@ -38,12 +38,6 @@ namespace internal_zarr {
 std::string EncodeChunkIndices(span<const Index> indices,
                                ChunkKeyEncoding key_encoding);
 
-/// Returns a `DataCacheState`.
-///
-/// This is exposed for testing only.
-internal_kvs_backed_chunk_driver::DataCacheState::Ptr MakeDataCacheState(
-    std::string key_prefix, ChunkKeyEncoding key_encoding);
-
 }  // namespace internal_zarr
 }  // namespace tensorstore
 

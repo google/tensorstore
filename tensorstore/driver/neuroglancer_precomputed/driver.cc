@@ -65,9 +65,12 @@ Result<std::shared_ptr<const MultiscaleMetadata>> ParseEncodedMetadata(
   return std::make_shared<MultiscaleMetadata>(std::move(metadata));
 }
 
-class MetadataCacheState
-    : public internal_kvs_backed_chunk_driver::MetadataCacheState {
+class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
+  using Base = internal_kvs_backed_chunk_driver::MetadataCache;
+
  public:
+  using Base::Base;
+
   std::string GetMetadataStorageKey(absl::string_view entry_key) override {
     return internal::JoinPath(entry_key, kMetadataKey);
   }
@@ -96,14 +99,18 @@ class MetadataCacheState
 /// cache always stores each chunk component in C order, we use the reversed
 /// `(channel, z, y, x)` order for the component, and then permute the
 /// dimensions in `{Ex,In}ternalizeTransform`.
-class DataCacheStateBase
-    : public internal_kvs_backed_chunk_driver::DataCacheState {
+class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
+  using Base = internal_kvs_backed_chunk_driver::DataCache;
+
  public:
-  explicit DataCacheStateBase(absl::string_view key_prefix,
-                              const MultiscaleMetadata& metadata,
-                              std::size_t scale_index,
-                              std::array<Index, 3> chunk_size_xyz)
-      : key_prefix_(key_prefix), scale_index_(scale_index) {
+  explicit DataCacheBase(Initializer initializer, absl::string_view key_prefix,
+                         const MultiscaleMetadata& metadata,
+                         std::size_t scale_index,
+                         std::array<Index, 3> chunk_size_xyz)
+      : Base(std::move(initializer),
+             GetChunkGridSpecification(metadata, scale_index, chunk_size_xyz)),
+        key_prefix_(key_prefix),
+        scale_index_(scale_index) {
     chunk_layout_czyx_.shape()[0] = metadata.num_channels;
     for (int i = 0; i < 3; ++i) {
       chunk_layout_czyx_.shape()[1 + i] = chunk_size_xyz[2 - i];
@@ -155,25 +162,28 @@ class DataCacheStateBase
     return absl::UnimplementedError("");
   }
 
-  internal::ChunkGridSpecification GetChunkGridSpecification(
-      const void* metadata_ptr) override {
+  static internal::ChunkGridSpecification GetChunkGridSpecification(
+      const MultiscaleMetadata& metadata, size_t scale_index,
+      span<Index, 3> chunk_size_xyz) {
+    std::array<Index, 4> chunk_shape_czyx;
+    chunk_shape_czyx[0] = metadata.num_channels;
+    for (DimensionIndex i = 0; i < 3; ++i) {
+      chunk_shape_czyx[3 - i] = chunk_size_xyz[i];
+    }
     // Component dimension order is `[channel, z, y, x]`.
-    const auto& metadata =
-        *static_cast<const MultiscaleMetadata*>(metadata_ptr);
     SharedArray<const void> fill_value(
         internal::AllocateAndConstructSharedElements(1, value_init,
                                                      metadata.data_type),
-        StridedLayout<>(chunk_layout_czyx_.shape(),
-                        GetConstantVector<Index, 0, 4>()));
+        StridedLayout<>(chunk_shape_czyx, GetConstantVector<Index, 0, 4>()));
     // Resizing is not supported.  Specifying the `component_bounds` permits
     // partial chunks at the upper bounds to be written unconditionally (which
     // may be more efficient) if fully overwritten.
     Box<> component_bounds_czyx(4);
     component_bounds_czyx.origin()[0] = 0;
     component_bounds_czyx.shape()[0] = metadata.num_channels;
-    const auto& box_xyz = metadata.scales[scale_index_].box;
+    const auto& box_xyz = metadata.scales[scale_index].box;
     for (DimensionIndex i = 0; i < 3; ++i) {
-      // The ChunkCache always uses an origin of 0.
+      // The `ChunkCache` always translates the origin to `0`.
       component_bounds_czyx[3 - i] =
           IndexInterval::UncheckedSized(0, box_xyz[i].size());
     }
@@ -262,13 +272,15 @@ class DataCacheStateBase
   StridedLayout<4> chunk_layout_czyx_;
 };
 
-class UnshardedDataCacheState : public DataCacheStateBase {
+class UnshardedDataCache : public DataCacheBase {
  public:
-  explicit UnshardedDataCacheState(absl::string_view key_prefix,
-                                   const MultiscaleMetadata& metadata,
-                                   std::size_t scale_index,
-                                   std::array<Index, 3> chunk_size_xyz)
-      : DataCacheStateBase(key_prefix, metadata, scale_index, chunk_size_xyz) {
+  explicit UnshardedDataCache(Initializer initializer,
+                              absl::string_view key_prefix,
+                              const MultiscaleMetadata& metadata,
+                              std::size_t scale_index,
+                              std::array<Index, 3> chunk_size_xyz)
+      : DataCacheBase(std::move(initializer), key_prefix, metadata, scale_index,
+                      chunk_size_xyz) {
     const auto& scale = metadata.scales[scale_index];
     scale_key_prefix_ = ResolveScaleKey(key_prefix, scale.key);
   }
@@ -296,13 +308,15 @@ class UnshardedDataCacheState : public DataCacheStateBase {
   std::string scale_key_prefix_;
 };
 
-class ShardedDataCacheState : public DataCacheStateBase {
+class ShardedDataCache : public DataCacheBase {
  public:
-  explicit ShardedDataCacheState(absl::string_view key_prefix,
-                                 const MultiscaleMetadata& metadata,
-                                 std::size_t scale_index,
-                                 std::array<Index, 3> chunk_size_xyz)
-      : DataCacheStateBase(key_prefix, metadata, scale_index, chunk_size_xyz) {
+  explicit ShardedDataCache(Initializer initializer,
+                            absl::string_view key_prefix,
+                            const MultiscaleMetadata& metadata,
+                            std::size_t scale_index,
+                            std::array<Index, 3> chunk_size_xyz)
+      : DataCacheBase(std::move(initializer), key_prefix, metadata, scale_index,
+                      chunk_size_xyz) {
     const auto& scale = metadata.scales[scale_index];
     compressed_z_index_bits_ =
         GetCompressedZIndexBits(scale.box.shape(), chunk_size_xyz);
@@ -459,8 +473,9 @@ class NeuroglancerPrecomputedDriver::OpenState
 
   std::string GetMetadataCacheEntryKey() override { return spec().key_prefix; }
 
-  MetadataCacheState::Ptr GetMetadataCacheState() override {
-    return MetadataCacheState::Ptr(new MetadataCacheState);
+  std::unique_ptr<internal_kvs_backed_chunk_driver::MetadataCache>
+  GetMetadataCache(MetadataCache::Initializer initializer) override {
+    return std::make_unique<MetadataCache>(std::move(initializer));
   }
 
   std::string GetDataCacheKey(const void* metadata) override {
@@ -495,18 +510,22 @@ class NeuroglancerPrecomputedDriver::OpenState
     }
   }
 
-  DataCacheStateBase::Ptr GetDataCacheState(const void* metadata_ptr) override {
+  std::unique_ptr<internal_kvs_backed_chunk_driver::DataCache> GetDataCache(
+      internal_kvs_backed_chunk_driver::DataCache::Initializer initializer)
+      override {
     const auto& metadata =
-        *static_cast<const MultiscaleMetadata*>(metadata_ptr);
+        *static_cast<const MultiscaleMetadata*>(initializer.metadata.get());
     assert(scale_index_);
     const auto& scale = metadata.scales[scale_index_.value()];
-    return std::holds_alternative<ShardingSpec>(scale.sharding)
-               ? DataCacheStateBase::Ptr(new ShardedDataCacheState(
-                     spec().key_prefix, metadata, scale_index_.value(),
-                     chunk_size_xyz_))
-               : DataCacheStateBase::Ptr(new UnshardedDataCacheState(
-                     spec().key_prefix, metadata, scale_index_.value(),
-                     chunk_size_xyz_));
+    if (std::holds_alternative<ShardingSpec>(scale.sharding)) {
+      return std::make_unique<ShardedDataCache>(
+          std::move(initializer), spec().key_prefix, metadata,
+          scale_index_.value(), chunk_size_xyz_);
+    } else {
+      return std::make_unique<UnshardedDataCache>(
+          std::move(initializer), spec().key_prefix, metadata,
+          scale_index_.value(), chunk_size_xyz_);
+    }
   }
 
   Result<std::size_t> GetComponentIndex(const void* metadata_ptr,

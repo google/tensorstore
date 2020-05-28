@@ -18,11 +18,13 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/context.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver_impl.h"
 #include "tensorstore/driver/zarr/metadata.h"
 #include "tensorstore/driver/zarr/spec.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/json.h"
+#include "tensorstore/open.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
@@ -39,29 +41,50 @@ using tensorstore::span;
 using tensorstore::Status;
 using tensorstore::internal_kvs_backed_chunk_driver::ResizeParameters;
 using tensorstore::internal_zarr::ChunkKeyEncoding;
-using tensorstore::internal_zarr::MakeDataCacheState;
 using tensorstore::internal_zarr::ZarrMetadata;
 
 Result<tensorstore::IndexTransform<>> ResolveBoundsFromMetadata(
-    const ZarrMetadata& metadata, std::size_t field_index,
+    const ZarrMetadata& metadata, std::string field,
     tensorstore::IndexTransform<> transform,
     tensorstore::ResolveBoundsOptions options) {
-  auto state = MakeDataCacheState({}, {});
-  return tensorstore::internal_kvs_backed_chunk_driver::
-      ResolveBoundsFromMetadata(
-          *state, state->GetChunkGridSpecification(&metadata), &metadata,
-          field_index, std::move(transform), options);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto store,
+      tensorstore::Open(tensorstore::Context::Default(),
+                        ::nlohmann::json{
+                            {"driver", "zarr"},
+                            {"kvstore", {{"driver", "memory"}}},
+                            {"metadata", ::nlohmann::json(metadata)},
+                            {"field", field},
+                            {"create", true},
+                        })
+          .result());
+  return tensorstore::internal::TensorStoreAccess::driver(store)
+      ->ResolveBounds(transform, options)
+      .result();
 }
 
 Result<ResizeParameters> GetResizeParameters(
-    const ZarrMetadata& metadata, size_t field_index,
+    const ZarrMetadata& metadata, std::string field,
     tensorstore::IndexTransformView<> transform,
     span<const Index> inclusive_min, span<const Index> exclusive_max,
     tensorstore::ResizeOptions options) {
-  auto state = MakeDataCacheState({}, {});
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto store,
+      tensorstore::Open(tensorstore::Context::Default(),
+                        ::nlohmann::json{
+                            {"driver", "zarr"},
+                            {"kvstore", {{"driver", "memory"}}},
+                            {"metadata", ::nlohmann::json(metadata)},
+                            {"field", field},
+                            {"create", true},
+                        })
+          .result());
+  auto* driver =
+      static_cast<tensorstore::internal_kvs_backed_chunk_driver::DriverBase*>(
+          tensorstore::internal::TensorStoreAccess::driver_view(store));
   return tensorstore::internal_kvs_backed_chunk_driver::GetResizeParameters(
-      *state, state->GetChunkGridSpecification(&metadata), &metadata,
-      field_index, transform, inclusive_min, exclusive_max, options);
+      driver->cache(), &metadata, driver->component_index(), transform,
+      inclusive_min, exclusive_max, options);
 }
 
 TEST(EncodeChunkIndicesTest, DotSeparated) {
@@ -89,7 +112,7 @@ TEST(ResolveBoundsFromMetadataTest, Basic) {
                           },
                           &metadata));
   EXPECT_THAT(ResolveBoundsFromMetadata(
-                  /*metadata=*/metadata, /*field_index=*/0,
+                  /*metadata=*/metadata, /*field=*/"",
                   /*transform=*/tensorstore::IdentityTransform(2),
                   /*options=*/{}),
               (tensorstore::IndexTransformBuilder<>(2, 2)
@@ -104,7 +127,7 @@ TEST(ResolveBoundsFromMetadataTest, Basic) {
 
 // Tests that specifying fix_resizable_bounds with a valid transform results in
 // all bounds being explicit.
-TEST(ResolveBoundsFromMetadataTest, FixResizbleBoundsSuccess) {
+TEST(ResolveBoundsFromMetadataTest, FixResizableBoundsSuccess) {
   ZarrMetadata metadata;
   ASSERT_EQ(Status(), ParseMetadata(
                           {
@@ -119,7 +142,7 @@ TEST(ResolveBoundsFromMetadataTest, FixResizbleBoundsSuccess) {
                           },
                           &metadata));
   EXPECT_THAT(ResolveBoundsFromMetadata(
-                  /*metadata=*/metadata, /*field_index=*/0,
+                  /*metadata=*/metadata, /*field=*/"",
                   /*transform=*/tensorstore::IdentityTransform(2),
                   /*options=*/tensorstore::fix_resizable_bounds),
               (tensorstore::IndexTransformBuilder<>(2, 2)
@@ -133,7 +156,7 @@ TEST(ResolveBoundsFromMetadataTest, FixResizbleBoundsSuccess) {
 
 // Tests that specifying fix_resizable_bounds with a transform that maps to
 // out-of-bounds positions results in an error.
-TEST(ResolveBoundsFromMetadataTest, FixResizbleBoundsFailure) {
+TEST(ResolveBoundsFromMetadataTest, FixResizableBoundsFailure) {
   ZarrMetadata metadata;
   ASSERT_EQ(Status(), ParseMetadata(
                           {
@@ -148,7 +171,7 @@ TEST(ResolveBoundsFromMetadataTest, FixResizbleBoundsFailure) {
                           },
                           &metadata));
   EXPECT_THAT(ResolveBoundsFromMetadata(
-                  /*metadata=*/metadata, /*field_index=*/0,
+                  /*metadata=*/metadata, /*field=*/"",
                   /*transform=*/
                   tensorstore::IdentityTransform(span<const Index>({200, 100})),
                   /*options=*/tensorstore::fix_resizable_bounds),
@@ -178,7 +201,7 @@ TEST(ResolveBoundsFromMetadataTest, MultipleFieldsWithFieldShape) {
                           &metadata));
   EXPECT_THAT(
       ResolveBoundsFromMetadata(
-          /*metadata=*/metadata, /*field_index=*/0,
+          /*metadata=*/metadata, /*field=*/"x",
           /*transform=*/tensorstore::IdentityTransform(4), /*options=*/{}),
       (tensorstore::IndexTransformBuilder<>(4, 4)
            .input_origin({0, 0, 0, 0})
@@ -192,7 +215,7 @@ TEST(ResolveBoundsFromMetadataTest, MultipleFieldsWithFieldShape) {
            .value()));
   EXPECT_THAT(
       ResolveBoundsFromMetadata(
-          /*metadata=*/metadata, /*field_index=*/1,
+          /*metadata=*/metadata, /*field=*/"y",
           /*transform=*/tensorstore::IdentityTransform(3), /*options=*/{}),
       (tensorstore::IndexTransformBuilder<>(3, 3)
            .input_origin({0, 0, 0})
@@ -228,7 +251,7 @@ TEST(GetResizeParametersTest, Basic) {
                              .Finalize()
                              .value();
   auto p = GetResizeParameters(metadata,
-                               /*field_index=*/0, transform,
+                               /*field=*/"", transform,
                                span<const Index>({kImplicit, kImplicit}),
                                span<const Index>({kImplicit, 150}), {});
   ASSERT_EQ(Status(), GetStatus(p));
@@ -240,14 +263,14 @@ TEST(GetResizeParametersTest, Basic) {
 
   EXPECT_THAT(
       GetResizeParameters(metadata,
-                          /*field_index=*/0, transform,
+                          /*field=*/"", transform,
                           span<const Index>({kImplicit, kImplicit}),
                           span<const Index>({kImplicit, kImplicit}), {}),
       MatchesStatus(absl::StatusCode::kAborted));
 
   EXPECT_THAT(
       GetResizeParameters(metadata,
-                          /*field_index=*/0,
+                          /*field=*/"",
                           tensorstore::IndexTransformBuilder<>(2, 2)
                               .input_origin({0, 0})
                               .input_shape({100, 100})
@@ -294,7 +317,7 @@ TEST(GetResizeParametersTest, MultipleFields) {
   EXPECT_THAT(
       GetResizeParameters(
           metadata,
-          /*field_index=*/0, transform,
+          /*field=*/"x", transform,
           span<const Index>({kImplicit, kImplicit, kImplicit, kImplicit}),
           span<const Index>({kImplicit, 150, kImplicit, kImplicit}), {}),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
@@ -303,7 +326,7 @@ TEST(GetResizeParametersTest, MultipleFields) {
 
   auto p = GetResizeParameters(
       metadata,
-      /*field_index=*/0, transform,
+      /*field=*/"x", transform,
       span<const Index>({kImplicit, kImplicit, kImplicit, kImplicit}),
       span<const Index>({kImplicit, 150, kImplicit, kImplicit}),
       tensorstore::ResizeMode::resize_tied_bounds);

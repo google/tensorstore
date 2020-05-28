@@ -293,7 +293,7 @@ void StrongPtrTraitsCacheEntry::decrement(CacheEntry* p) noexcept {
 }
 
 CachePtr<Cache> GetCacheInternal(
-    CachePoolImpl* pool, std::type_index cache_type,
+    CachePoolImpl* pool, const std::type_info& cache_type,
     absl::string_view cache_key,
     FunctionView<std::unique_ptr<Cache>()> make_cache) {
   CachePoolImpl::CacheKey key(cache_type, cache_key);
@@ -315,6 +315,7 @@ CachePtr<Cache> GetCacheInternal(
     new_cache.release();
     return AcquireCacheStrongPtr(cache_impl);
   }
+  cache_impl->cache_type_ = &cache_type;
   cache_impl->cache_identifier_ = std::string(cache_key);
   absl::MutexLock lock(&pool->mutex_);
   auto insert_result = pool->caches_.insert(cache_impl);
