@@ -7,30 +7,42 @@ package(
 licenses(["notice"])
 
 tensorstore_cc_library(
-    name = "curl",
-    srcs = [
-        "curl_handle.cc",
-        "curl_request.cc",
-        "curl_request_builder.cc",
-    ],
-    hdrs = [
-        "curl_handle.h",
-        "curl_request.h",
-        "curl_request_builder.h",
-    ],
+    name = "curl_handle",
+    srcs = ["curl_handle.cc"],
+    hdrs = ["curl_handle.h"],
     deps = [
-        ":http_response",
         "//tensorstore/internal:attributes",
         "//tensorstore/internal:logging",
-        "//tensorstore/kvstore:byte_range",
         "//tensorstore/util:assert_macros",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "@com_google_absl//absl/strings",
+        "@se_haxx_curl//:curl",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "curl",
+    srcs = [
+        "curl_request.cc",
+        "curl_request_builder.cc",
+        "curl_request_initialize.cc",
+    ],
+    hdrs = [
+        "curl_request.h",
+        "curl_request_builder.h",
+    ],
+    deps = [
+        ":curl_handle",
+        ":http_response",
+        "//tensorstore/internal:logging",
+        "//tensorstore/kvstore:byte_range",
+        "//tensorstore/util:result",
+        "//tensorstore/util:span",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:variant",
-        "@se_haxx_curl//:curl",
     ],
 )
 

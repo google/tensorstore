@@ -43,6 +43,10 @@ class CurlRequestMockContext {
 /// CurlReceivedHeaders is a map of received http headers.
 using CurlReceivedHeaders = std::multimap<std::string, std::string>;
 
+/// Called to initialize any CURL handles used to make requests.  The
+/// definition can be overridden to set options such as certificate paths.
+void InitializeCurlHandle(CURL* handle);
+
 /// CurlRequest encapsulates a single HTTP request using CURL.
 class CurlRequest {
  public:

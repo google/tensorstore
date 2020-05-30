@@ -75,10 +75,12 @@ Result<HttpResponse> CurlRequest::IssueRequest(absl::string_view payload,
   if (CurlVerboseEnabled()) {
     CurlEasySetopt(handle.get(), CURLOPT_VERBOSE, 1L);
   }
+  CurlEasySetopt(handle.get(), CURLOPT_USERAGENT, user_agent_.c_str());
+
+  InitializeCurlHandle(handle.get());
 
   CurlEasySetopt(handle.get(), CURLOPT_URL, url_.c_str());
   CurlEasySetopt(handle.get(), CURLOPT_HTTPHEADER, headers_.get());
-  CurlEasySetopt(handle.get(), CURLOPT_USERAGENT, user_agent_.c_str());
   if (accept_encoding_) {
     CurlEasySetopt(handle.get(), CURLOPT_ACCEPT_ENCODING, "");
   }
