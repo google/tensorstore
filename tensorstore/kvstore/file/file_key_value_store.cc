@@ -208,6 +208,22 @@ Status StatusFromErrno(absl::string_view a = {}, absl::string_view b = {},
   return StatusFromOsError(GetLastErrorCode(), a, b, c, d);
 }
 
+/// RAII lock on an open file.
+struct FileLock {
+ public:
+  bool Acquire(FileDescriptor fd) {
+    auto result = internal_file_util::FileLockTraits::Acquire(fd);
+    if (result) {
+      lock_.reset(fd);
+    }
+    return result;
+  }
+
+ private:
+  internal::UniqueHandle<FileDescriptor, internal_file_util::FileLockTraits>
+      lock_;
+};
+
 /// Creates any directory ancestors of `path` that do not exist, and returns an
 /// open file descriptor to the parent directory of `path`.
 Result<UniqueFileDescriptor> OpenParentDirectory(std::string path) {
@@ -378,7 +394,7 @@ Result<StorageGeneration> WithWriteLock(
 
   auto outer_result = [&]() -> Result<StorageGeneration> {
     UniqueFileDescriptor fd;
-    internal_file_util::FileLock lock;
+    FileLock lock;
     FileInfo orig_info;
     TENSORSTORE_ASSIGN_OR_RETURN(fd, open_lock_file(&orig_info));
     // Loop until lock is acquired successfully.
@@ -400,7 +416,7 @@ Result<StorageGeneration> WithWriteLock(
       }
       orig_info = other_info;
       // Release lock
-      lock = internal_file_util::FileLock{};
+      lock = FileLock{};
       fd = std::move(other_fd);
     }
 

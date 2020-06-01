@@ -245,7 +245,7 @@ inline ::OVERLAPPED GetLockOverlapped() {
   return GetOverlappedWithOffset(0xffffffff'fffffffe);
 }
 
-void FileUnlockTraits::Close(HANDLE handle) {
+void FileLockTraits::Close(HANDLE handle) {
   auto lock_offset = GetLockOverlapped();
   // Ignore any errors.
   ::UnlockFileEx(handle, /*dwReserved=*/0, /*nNumberOfBytesToUnlockLow=*/1,
@@ -253,17 +253,13 @@ void FileUnlockTraits::Close(HANDLE handle) {
                  /*lpOverlapped=*/&lock_offset);
 }
 
-bool FileLock::Acquire(FileDescriptor fd) {
+bool FileLockTraits::Acquire(HANDLE handle) {
   auto lock_offset = GetLockOverlapped();
-  if (!::LockFileEx(fd, /*dwFlags=*/LOCKFILE_EXCLUSIVE_LOCK,
-                    /*dwReserved=*/0,
-                    /*nNumberOfBytesToLockLow=*/1,
-                    /*nNumberOfBytesToLockHigh=*/0,
-                    /*lpOverlapped=*/&lock_offset)) {
-    return false;
-  }
-  lock_.reset(fd);
-  return true;
+  return ::LockFileEx(handle, /*dwFlags=*/LOCKFILE_EXCLUSIVE_LOCK,
+                      /*dwReserved=*/0,
+                      /*nNumberOfBytesToLockLow=*/1,
+                      /*nNumberOfBytesToLockHigh=*/0,
+                      /*lpOverlapped=*/&lock_offset);
 }
 
 bool DirectoryIterator::Entry::Delete(bool is_directory) const {

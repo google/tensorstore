@@ -43,10 +43,10 @@ UniqueFileDescriptor OpenFileForWriting(const std::string& path) {
   return fd;
 }
 
-bool FileLock::Acquire(FileDescriptor fd) {
+bool FileLockTraits::Acquire(int fd) {
   while (true) {
-    // This blocks until the lock is acquired.  If any signal is received by
-    // the current thread, `fcntl` returns `EINTR`.
+    // This blocks until the lock is acquired (SETLKW).  If any signal is
+    // received by the current thread, `fcntl` returns `EINTR`.
     //
     // Note: If we wanted to support cancellation while waiting on the lock,
     // we could pass the Promise to this function and register an
@@ -68,6 +68,28 @@ bool FileLock::Acquire(FileDescriptor fd) {
 #endif
     if (errno == EINTR) continue;
     return false;
+  }
+}
+
+void FileLockTraits::Close(int fd) {
+  // This releases a lock acquired above.
+  // This is not strictly necessary as the posix/linux locks will be released
+  // when the fd is closed, but it allows easier reasoning by making locking
+  // behave similarly across platforms.
+  while (true) {
+#ifdef __linux__
+    // Use Linux 3.15+ open file descriptor lock.
+    struct ::flock lock;
+    lock.l_type = F_UNLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+    lock.l_pid = 0;
+    if (::fcntl(fd, 37 /*F_OFD_SETLK*/, &lock) != EINTR) return;
+#else
+    // Use `flock` on BSD/Mac OS.
+    if (::flock(fd, LOCK_UN) != EINTR) return;
+#endif
   }
 }
 

@@ -107,9 +107,14 @@ inline const PosixMTime GetMTime(const FileInfo& info) {
   return {t.tv_sec, t.tv_nsec};
 }
 
-/// RAII lock on an open file.
-struct FileLock {
- public:
+// File traits.
+struct FileLockTraits {
+  // technically any value <0 is invalid.
+  static const int Invalid() { return -1; }
+
+  // Release the lock on an open file descriptor.
+  static void Close(int fd);
+
   /// Acquires a lock on an open file descriptor.
   ///
   /// On POSIX, the lock is released automatically when the file descriptor is
@@ -121,7 +126,7 @@ struct FileLock {
   ///
   /// \returns `true` on success, or `false` in case of an error (in which case
   ///     `GetLastErrorCode()` retrieves the error).
-  static bool Acquire(FileDescriptor fd);
+  static bool Acquire(int fd);
 };
 
 /// Opens an file that must already exist for reading.

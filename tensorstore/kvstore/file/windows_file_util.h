@@ -79,15 +79,10 @@ inline std::uint64_t GetMTime(const FileInfo& info) {
          static_cast<std::uint64_t>(t.dwLowDateTime);
 }
 
-struct FileUnlockTraits {
+struct FileLockTraits {
   static const HANDLE Invalid() { return INVALID_HANDLE_VALUE; }
   static void Close(HANDLE handle);
-};
-
-class FileLock {
- public:
-  bool Acquire(FileDescriptor fd);
-  internal::UniqueHandle<HANDLE, FileUnlockTraits> lock_;
+  static bool Acquire(HANDLE handle);
 };
 
 UniqueFileDescriptor OpenExistingFileForReading(absl::string_view path);
