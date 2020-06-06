@@ -12,63 +12,57 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/http/curl_request_builder.h"
+#include "tensorstore/internal/http/http_request.h"
 
+#include <optional>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
+#include "tensorstore/internal/http/curl_handle.h"  // for CurlEscapeString
 #include "tensorstore/internal/logging.h"
+#include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/util/to_string.h"
 
 namespace tensorstore {
 namespace internal_http {
 
-CurlRequestBuilder::CurlRequestBuilder(
-    std::string base_url, std::shared_ptr<CurlHandleFactory> factory)
+HttpRequestBuilder::HttpRequestBuilder(std::string base_url)
     : query_parameter_separator_("?") {
   request_.url_ = std::move(base_url);
-  request_.factory_ = std::move(factory);
 }
 
-CurlRequest CurlRequestBuilder::BuildRequest() {
-  assert(request_.factory_);
-  request_.user_agent_ += GetCurlUserAgentSuffix();
-  return std::move(request_);
-}
+HttpRequest HttpRequestBuilder::BuildRequest() { return std::move(request_); }
 
-CurlRequestBuilder& CurlRequestBuilder::AddUserAgentPrefix(
+HttpRequestBuilder& HttpRequestBuilder::AddUserAgentPrefix(
     absl::string_view prefix) {
-  assert(request_.factory_);
   request_.user_agent_ = absl::StrCat(prefix, request_.user_agent_);
   return *this;
 }
 
-CurlRequestBuilder& CurlRequestBuilder::AddHeader(const std::string& header) {
-  assert(request_.factory_);
-  auto new_header = curl_slist_append(request_.headers_.get(), header.c_str());
-  (void)request_.headers_.release();
-  request_.headers_.reset(new_header);
+HttpRequestBuilder& HttpRequestBuilder::AddHeader(std::string header) {
+  request_.headers_.emplace_back(std::move(header));
   return *this;
 }
 
-CurlRequestBuilder& CurlRequestBuilder::AddQueryParameter(
+HttpRequestBuilder& HttpRequestBuilder::AddQueryParameter(
     absl::string_view key, absl::string_view value) {
-  assert(request_.factory_);
   std::string parameter =
       absl::StrCat(query_parameter_separator_, CurlEscapeString(key), "=",
-                   CurlEscapeString(value), "&");
+                   CurlEscapeString(value));
   query_parameter_separator_ = "&";
   request_.url_.append(parameter);
   return *this;
 }
 
-CurlRequestBuilder& CurlRequestBuilder::SetMethod(absl::string_view method) {
-  assert(request_.factory_);
+HttpRequestBuilder& HttpRequestBuilder::SetMethod(absl::string_view method) {
   request_.method_.assign(method.data(), method.size());
   return *this;
 }
 
-CurlRequestBuilder& CurlRequestBuilder::EnableAcceptEncoding() {
-  assert(request_.factory_);
+HttpRequestBuilder& HttpRequestBuilder::EnableAcceptEncoding() {
   request_.accept_encoding_ = true;
   return *this;
 }

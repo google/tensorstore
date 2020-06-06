@@ -95,7 +95,8 @@ constexpr char kBody[] =
 class TestAuthProvider : public GoogleServiceAccountAuthProvider {
  public:
   TestAuthProvider(const GoogleServiceAccountCredentials& creds)
-      : GoogleServiceAccountAuthProvider(creds, [this] { return this->time; }),
+      : GoogleServiceAccountAuthProvider(creds, nullptr,
+                                         [this] { return this->time; }),
         time(absl::FromUnixSeconds(1547666103)),
         idx(0) {}
 

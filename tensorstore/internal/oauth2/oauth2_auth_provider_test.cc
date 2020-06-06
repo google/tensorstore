@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 #include "absl/container/flat_hash_map.h"
 #include "absl/time/clock.h"
+#include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -42,7 +43,8 @@ constexpr char kOAuthV3Url[] = "https://www.googleapis.com/oauth2/v3/token";
 class TestAuthProvider : public OAuth2AuthProvider {
  public:
   TestAuthProvider(const RefreshToken& creds)
-      : OAuth2AuthProvider(creds, kOAuthV3Url, [this] { return this->time; }),
+      : OAuth2AuthProvider(creds, kOAuthV3Url, nullptr,
+                           [this] { return this->time; }),
         time(absl::Now()),
         idx(0) {}
 

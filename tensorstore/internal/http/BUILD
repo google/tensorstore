@@ -17,29 +17,61 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@se_haxx_curl//:curl",
     ],
 )
 
+tensorstore_cc_test(
+    name = "curl_handle_test",
+    srcs = ["curl_handle_test.cc"],
+    deps = [
+        ":curl_handle",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 tensorstore_cc_library(
-    name = "curl",
+    name = "curl_transport",
     srcs = [
-        "curl_request.cc",
-        "curl_request_builder.cc",
         "curl_request_initialize.cc",
+        "curl_transport.cc",
+    ],
+    hdrs = ["curl_transport.h"],
+    deps = [
+        ":curl_handle",
+        ":http",
+        "//tensorstore/internal:logging",
+        "//tensorstore/util:future",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
+        "@se_haxx_curl//:curl",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "http",
+    srcs = [
+        "http_request.cc",
+        "http_response.cc",
     ],
     hdrs = [
-        "curl_request.h",
-        "curl_request_builder.h",
+        "http_request.h",
+        "http_response.h",
+        "http_transport.h",
     ],
     deps = [
         ":curl_handle",
-        ":http_response",
         "//tensorstore/internal:logging",
         "//tensorstore/kvstore:byte_range",
+        "//tensorstore/util:future",
+        "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
-        "//tensorstore/util:span",
+        "//tensorstore/util:status",
+        "//tensorstore/util:to_string",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:variant",
@@ -47,24 +79,14 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_test(
-    name = "curl_request_builder_test",
+    name = "http_request_test",
     size = "small",
-    srcs = ["curl_request_builder_test.cc"],
-    deps = [
-        ":curl",
-        "@com_google_googletest//:gtest_main",
+    srcs = [
+        "http_request_test.cc",
     ],
-)
-
-tensorstore_cc_library(
-    name = "http_response",
-    srcs = ["http_response.cc"],
-    hdrs = ["http_response.h"],
     deps = [
-        "//tensorstore/kvstore:byte_range",
-        "//tensorstore/util:quote_string",
-        "//tensorstore/util:status",
-        "@com_google_absl//absl/strings",
+        ":http",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -75,7 +97,7 @@ tensorstore_cc_test(
         "http_response_test.cc",
     ],
     deps = [
-        ":http_response",
+        ":http",
         "//tensorstore/util:status",
         "@com_google_googletest//:gtest_main",
     ],

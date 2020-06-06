@@ -15,15 +15,12 @@
 #ifndef TENSORSTORE_INTERNAL_HTTP_CURL_HANDLE_H_
 #define TENSORSTORE_INTERNAL_HTTP_CURL_HANDLE_H_
 
+#include <stdint.h>
+
 #include <cstddef>
-#include <functional>
 #include <memory>
 #include <string>
-#include <type_traits>
-#include <typeinfo>
-#include <utility>
 
-#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include <curl/curl.h>  // IWYU pragma: export
 #include "tensorstore/internal/attributes.h"
@@ -95,68 +92,17 @@ inline void CurlEasySetopt(CURL* handle, CURLoption option, T value) {
   TENSORSTORE_CHECK(e == CURLE_OK);
 }
 
-template <typename Func>
-std::size_t CurlCallbackImpl(void* contents, std::size_t size,
-                             std::size_t nmemb, void* userdata) {
-  return (*static_cast<Func*>(userdata))(
-      absl::string_view(static_cast<char const*>(contents), size * nmemb));
+template <typename T>
+inline void CurlMultiSetopt(CURLM* handle, CURLMoption option, T value) {
+  auto e = curl_multi_setopt(handle, option, value);
+  TENSORSTORE_CHECK(e == CURLM_OK);
 }
 
-/// RAII write callback setter for CURL handles.
-///
-/// \tparam Func Callable with signature `std::size_t (absl::string_view)`.  The
-///     return value is the number of bytes that were consumed.
-template <typename Func>
-class CurlWriteCallback {
- public:
-  CurlWriteCallback(CURL* handle, Func func)
-      : handle_(handle), func_(std::move(func)) {
-    CurlEasySetopt(handle_, CURLOPT_WRITEDATA, &func_);
-    CurlEasySetopt(handle_, CURLOPT_WRITEFUNCTION, &CurlCallbackImpl<Func>);
-  }
-
-  ~CurlWriteCallback() {
-    CurlEasySetopt(handle_, CURLOPT_WRITEDATA, static_cast<void*>(nullptr));
-    CurlEasySetopt(handle_, CURLOPT_WRITEFUNCTION,
-                   static_cast<void (*)()>(nullptr));
-  }
-
- private:
-  CURL* handle_;
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS Func func_;
-};
-
-template <typename Func>
-CurlWriteCallback(CURL* handle, Func func)->CurlWriteCallback<Func>;
-
-/// RAII header callback setter for CURL handles.
-///
-/// \tparam Func Callable with signature `std::size_t (absl::string_view)`.  The
-///     return value is the number of bytes from the string that were consumed.
-template <typename Func>
-class CurlHeaderCallback {
- public:
-  CurlHeaderCallback(CURL* handle, Func func)
-      : handle_(handle), func_(std::move(func)) {
-    CurlEasySetopt(handle_, CURLOPT_HEADERDATA, &func_);
-    CurlEasySetopt(handle_, CURLOPT_HEADERFUNCTION, &CurlCallbackImpl<Func>);
-  }
-
-  ~CurlHeaderCallback() {
-    CurlEasySetopt(handle_, CURLOPT_HEADERDATA, static_cast<void*>(nullptr));
-    CurlEasySetopt(handle_, CURLOPT_HEADERFUNCTION,
-                   static_cast<void (*)()>(nullptr));
-  }
-
- private:
-  CURL* handle_;
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS Func func_;
-};
-
-template <typename Func>
-CurlHeaderCallback(CURL* handle, Func func)->CurlHeaderCallback<Func>;
-
+/// Returns the HTTP response code from a curl handle.
 int32_t CurlGetResponseCode(CURL* handle);
+
+/// Invokes curl_easy_perform on a curl handle. This
+/// issues a synchronous request and waits for the response.
 Status CurlEasyPerform(CURL* handle);
 
 }  // namespace internal_http

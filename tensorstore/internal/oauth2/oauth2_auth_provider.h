@@ -21,6 +21,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/internal/oauth2/oauth_utils.h"
 #include "tensorstore/util/result.h"
@@ -35,8 +36,10 @@ class OAuth2AuthProvider : public AuthProvider {
 
   ~OAuth2AuthProvider() override = default;
 
-  OAuth2AuthProvider(const RefreshToken& creds, std::string uri);
   OAuth2AuthProvider(const RefreshToken& creds, std::string uri,
+                     std::shared_ptr<internal_http::HttpTransport> transport);
+  OAuth2AuthProvider(const RefreshToken& creds, std::string uri,
+                     std::shared_ptr<internal_http::HttpTransport> transport,
                      std::function<absl::Time()> clock);
 
   using AuthProvider::BearerTokenWithExpiration;
@@ -64,6 +67,7 @@ class OAuth2AuthProvider : public AuthProvider {
   std::string access_token_;
   absl::Time expiration_;
 
+  std::shared_ptr<internal_http::HttpTransport> transport_;
   std::function<absl::Time()> clock_;  // mock time.
 };
 

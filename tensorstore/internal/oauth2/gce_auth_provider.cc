@@ -26,8 +26,8 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_handle.h"
-#include "tensorstore/internal/http/curl_request.h"
-#include "tensorstore/internal/http/curl_request_builder.h"
+#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/oauth2/oauth_utils.h"
@@ -39,7 +39,7 @@
 using tensorstore::Result;
 using tensorstore::internal::JsonRequireObjectMember;
 using tensorstore::internal::JsonRequireValueAs;
-using tensorstore::internal_http::CurlRequestBuilder;
+using tensorstore::internal_http::HttpRequestBuilder;
 using tensorstore::internal_http::HttpResponse;
 
 namespace tensorstore {
@@ -104,12 +104,17 @@ std::string GceMetadataHostname() {
   return "metadata.google.internal";
 }
 
-GceAuthProvider::GceAuthProvider() : GceAuthProvider(&absl::Now) {}
+GceAuthProvider::GceAuthProvider(
+    std::shared_ptr<internal_http::HttpTransport> transport)
+    : GceAuthProvider(std::move(transport), &absl::Now) {}
 
-GceAuthProvider::GceAuthProvider(std::function<absl::Time()> clock)
+GceAuthProvider::GceAuthProvider(
+    std::shared_ptr<internal_http::HttpTransport> transport,
+    std::function<absl::Time()> clock)
     : service_account_email_("default"),
       expiration_(absl::InfinitePast()),
-      clock_(clock) {}
+      transport_(std::move(transport)),
+      clock_(std::move(clock)) {}
 
 Result<GceAuthProvider::BearerTokenWithExpiration> GceAuthProvider::GetToken() {
   if (!IsValid()) {
@@ -121,15 +126,13 @@ Result<GceAuthProvider::BearerTokenWithExpiration> GceAuthProvider::GetToken() {
 
 Result<HttpResponse> GceAuthProvider::IssueRequest(std::string path,
                                                    bool recursive) {
-  CurlRequestBuilder request_builder(
-      internal::JoinPath("http://", GceMetadataHostname(), path),
-      internal_http::GetDefaultCurlHandleFactory());
-
+  HttpRequestBuilder request_builder(
+      internal::JoinPath("http://", GceMetadataHostname(), path));
   request_builder.AddHeader("Metadata-Flavor: Google");
   if (recursive) {
     request_builder.AddQueryParameter("recursive", "true");
   }
-  return request_builder.BuildRequest().IssueRequest("");
+  return transport_->IssueRequest(request_builder.BuildRequest(), "").result();
 }
 
 Status GceAuthProvider::RetrieveServiceAccountInfo() {

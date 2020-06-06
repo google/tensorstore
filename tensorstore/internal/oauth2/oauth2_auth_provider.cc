@@ -23,8 +23,8 @@
 #include "absl/time/clock.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_handle.h"
-#include "tensorstore/internal/http/curl_request.h"
-#include "tensorstore/internal/http/curl_request_builder.h"
+#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/path.h"
@@ -32,7 +32,7 @@
 #include "tensorstore/util/status.h"
 
 using tensorstore::Result;
-using tensorstore::internal_http::CurlRequestBuilder;
+using tensorstore::internal_http::HttpRequestBuilder;
 using tensorstore::internal_http::HttpResponse;
 
 namespace tensorstore {
@@ -52,17 +52,21 @@ std::string MakePayload(const internal_oauth2::RefreshToken& creds) {
 
 }  // namespace
 
-OAuth2AuthProvider::OAuth2AuthProvider(const RefreshToken& creds,
-                                       std::string uri)
-    : OAuth2AuthProvider(creds, std::move(uri), &absl::Now) {}
+OAuth2AuthProvider::OAuth2AuthProvider(
+    const RefreshToken& creds, std::string uri,
+    std::shared_ptr<internal_http::HttpTransport> transport)
+    : OAuth2AuthProvider(creds, std::move(uri), std::move(transport),
+                         &absl::Now) {}
 
-OAuth2AuthProvider::OAuth2AuthProvider(const RefreshToken& creds,
-                                       std::string uri,
-                                       std::function<absl::Time()> clock)
+OAuth2AuthProvider::OAuth2AuthProvider(
+    const RefreshToken& creds, std::string uri,
+    std::shared_ptr<internal_http::HttpTransport> transport,
+    std::function<absl::Time()> clock)
     : refresh_payload_(MakePayload(creds)),
       uri_(std::move(uri)),
       expiration_(absl::InfinitePast()),
-      clock_(clock) {}
+      transport_(std::move(transport)),
+      clock_(std::move(clock)) {}
 
 Result<AuthProvider::BearerTokenWithExpiration> OAuth2AuthProvider::GetToken() {
   if (!IsValid()) {
@@ -74,10 +78,9 @@ Result<AuthProvider::BearerTokenWithExpiration> OAuth2AuthProvider::GetToken() {
 
 Result<HttpResponse> OAuth2AuthProvider::IssueRequest(
     absl::string_view uri, absl::string_view payload) {
-  CurlRequestBuilder request_builder(
-      std::string(uri), internal_http::GetDefaultCurlHandleFactory());
-
-  return request_builder.BuildRequest().IssueRequest(payload);
+  HttpRequestBuilder request_builder(std::string{uri});
+  return transport_->IssueRequest(request_builder.BuildRequest(), payload)
+      .result();
 }
 
 Status OAuth2AuthProvider::Refresh() {

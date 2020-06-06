@@ -21,8 +21,8 @@
 #include "absl/time/clock.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_handle.h"
-#include "tensorstore/internal/http/curl_request.h"
-#include "tensorstore/internal/http/curl_request_builder.h"
+#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/path.h"
@@ -30,7 +30,7 @@
 #include "tensorstore/util/status.h"
 
 using tensorstore::Result;
-using tensorstore::internal_http::CurlRequestBuilder;
+using tensorstore::internal_http::HttpRequestBuilder;
 using tensorstore::internal_http::HttpResponse;
 
 // Using Google service account credentials.
@@ -49,16 +49,21 @@ constexpr char kOAuthV4Url[] = "https://www.googleapis.com/oauth2/v4/token";
 constexpr char kOAuthScope[] = "https://www.googleapis.com/auth/cloud-platform";
 
 GoogleServiceAccountAuthProvider::GoogleServiceAccountAuthProvider(
-    const AccountCredentials& creds)
-    : GoogleServiceAccountAuthProvider(creds, &absl::Now) {}
+    const AccountCredentials& creds,
+    std::shared_ptr<internal_http::HttpTransport> transport)
+    : GoogleServiceAccountAuthProvider(creds, std::move(transport),
+                                       &absl::Now) {}
 
 GoogleServiceAccountAuthProvider::GoogleServiceAccountAuthProvider(
-    const AccountCredentials& creds, std::function<absl::Time()> clock)
+    const AccountCredentials& creds,
+    std::shared_ptr<internal_http::HttpTransport> transport,
+    std::function<absl::Time()> clock)
     : creds_(creds),
       uri_(kOAuthV4Url),
       scope_(kOAuthScope),
       expiration_(absl::InfinitePast()),
-      clock_(clock) {}
+      transport_(std::move(transport)),
+      clock_(std::move(clock)) {}
 
 Result<AuthProvider::BearerTokenWithExpiration>
 GoogleServiceAccountAuthProvider::GetToken() {
@@ -72,12 +77,10 @@ GoogleServiceAccountAuthProvider::GetToken() {
 
 Result<HttpResponse> GoogleServiceAccountAuthProvider::IssueRequest(
     absl::string_view uri, absl::string_view payload) {
-  CurlRequestBuilder request_builder(
-      std::string(uri), internal_http::GetDefaultCurlHandleFactory());
-
+  HttpRequestBuilder request_builder(std::string{uri});
   request_builder.AddHeader("Content-Type: application/x-www-form-urlencoded");
-
-  return request_builder.BuildRequest().IssueRequest(payload);
+  return transport_->IssueRequest(request_builder.BuildRequest(), payload)
+      .result();
 }
 
 Status GoogleServiceAccountAuthProvider::Refresh() {

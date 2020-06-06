@@ -35,9 +35,10 @@
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/concurrency_resource_provider.h"
 #include "tensorstore/internal/http/curl_handle.h"
-#include "tensorstore/internal/http/curl_request.h"
-#include "tensorstore/internal/http/curl_request_builder.h"
+#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_bindable.h"
@@ -66,7 +67,10 @@
 // https://cloud.google.com/storage/docs/best-practices#uploading
 // https://cloud.google.com/storage/docs/json_api/v1/
 
+using tensorstore::internal_http::HttpRequest;
+using tensorstore::internal_http::HttpRequestBuilder;
 using tensorstore::internal_http::HttpResponse;
+using tensorstore::internal_http::HttpTransport;
 using tensorstore::internal_storage_gcs::ObjectMetadata;
 using tensorstore::internal_storage_gcs::ParseObjectMetadata;
 
@@ -113,20 +117,6 @@ const internal::ContextResourceRegistration<GcsRequestConcurrencyResourceTraits>
     gcs_request_concurrency_registration;
 const internal::ContextResourceRegistration<GcsUserProjectResource>
     gcs_user_project_registration;
-
-// Debug helper method invoked after each call with the request / response.
-void DebugGCSCall(const char* task, const internal_http::CurlRequest& request,
-                  const internal_http::HttpResponse& response) {
-#if 0
-  // If we want to log the URL & the response code, uncomment this.
-  TENSORSTORE_LOG(task, " ", response.status_code, " ", request.url());
-#endif
-#if 0
-  // If we want to log the entire request, uncomment this.
-  TENSORSTORE_LOG(task, " ",
-                  DumpRequestResponse(request, {}, response, {}));
-#endif
-}
 
 // Returns whether the bucket name is valid.
 // https://cloud.google.com/storage/docs/naming#requirements
@@ -342,7 +332,8 @@ class GcsKeyValueStore
   Result<std::string> GetAuthHeader() {
     absl::MutexLock lock(&auth_provider_mutex_);
     if (!auth_provider_) {
-      auto result = tensorstore::internal_oauth2::GetGoogleAuthProvider();
+      auto result =
+          tensorstore::internal_oauth2::GetGoogleAuthProvider(transport_);
       TENSORSTORE_RETURN_IF_ERROR(result);
       auth_provider_ = std::move(*result);
     }
@@ -358,6 +349,7 @@ class GcsKeyValueStore
     d.spec_ = state.spec();
     d.resource_root_ = BucketResourceRoot(d.spec_.bucket);
     d.upload_root_ = BucketUploadRoot(d.spec_.bucket);
+    d.transport_ = internal_http::GetDefaultHttpTransport();
     if (const auto& user_project = d.spec_.user_project->project_id) {
       d.encoded_user_project_ =
           tensorstore::internal_http::CurlEscapeString(*user_project);
@@ -374,10 +366,29 @@ class GcsKeyValueStore
         tensorstore::StrCat("gs://", spec_.bucket, "/", key));
   }
 
+  // Wrap transport to allow our old mocking to work.
+  Result<HttpResponse> IssueRequest(const char* description,
+                                    const HttpRequest& request,
+                                    absl::string_view payload) {
+    auto result = transport_->IssueRequest(request, payload).result();
+#if 0
+  // If we want to log the URL & the response code, uncomment this.
+  TENSORSTORE_LOG(description, " ", response.status_code, " ", request.url());
+#endif
+#if 0
+  // If we want to log the entire request, uncomment this.
+  TENSORSTORE_LOG(description, " ",
+                  DumpRequestResponse(request, {}, response, {}));
+#endif
+    return result;
+  }
+
   BoundSpecData spec_;
   std::string resource_root_;  // bucket resource root.
   std::string upload_root_;    // bucket upload root.
   std::string encoded_user_project_;
+
+  std::shared_ptr<HttpTransport> transport_;
 
   absl::Mutex auth_provider_mutex_;
   std::unique_ptr<internal_oauth2::AuthProvider> auth_provider_;
@@ -405,8 +416,7 @@ struct ReadTask {
     // it on the uri for a requestor pays bucket.
     AddUserProjectParam(&media_url, true, owner->encoded_user_project());
 
-    tensorstore::internal_http::CurlRequestBuilder request_builder(
-        media_url, internal_http::GetDefaultCurlHandleFactory());
+    HttpRequestBuilder request_builder(media_url);
     if (options.byte_range.inclusive_min != 0 ||
         options.byte_range.exclusive_max) {
       request_builder.AddHeader(
@@ -422,9 +432,8 @@ struct ReadTask {
     auto retry_status = internal::RetryWithBackoff(
         [&] {
           value.generation.time = absl::Now();
-          auto response = request.IssueRequest({});
+          auto response = owner->IssueRequest("ReadTask", request, {});
           if (!response.ok()) return GetStatus(response);
-          DebugGCSCall("ReadTask", request, *response);
           httpresponse = std::move(*response);
           switch (httpresponse.status_code) {
             // Special status codes handled outside the retry loop.
@@ -511,11 +520,9 @@ struct WriteTask {
     // it on the uri for a requestor pays bucket.
     AddUserProjectParam(&upload_url, true, owner->encoded_user_project());
 
-    tensorstore::internal_http::CurlRequestBuilder request_builder(
-        upload_url, internal_http::GetDefaultCurlHandleFactory());
-
     auto request =
-        request_builder.AddHeader(auth_header)
+        HttpRequestBuilder(upload_url)
+            .AddHeader(auth_header)
             .AddHeader("Content-Type: application/octet-stream")
             .AddHeader(absl::StrCat("Content-Length: ", value.size()))
             .BuildRequest();
@@ -526,9 +533,8 @@ struct WriteTask {
     auto retry_status = internal::RetryWithBackoff(
         [&] {
           r.time = absl::Now();
-          auto response = request.IssueRequest(value);
+          auto response = owner->IssueRequest("WriteTask", request, value);
           if (!response.ok()) return GetStatus(response);
-          DebugGCSCall("WriteTask", request, *response);
           httpresponse = std::move(*response);
           switch (httpresponse.status_code) {
             case 304:
@@ -599,9 +605,8 @@ struct DeleteTask {
     // it on the uri for a requestor pays bucket.
     AddUserProjectParam(&delete_url, has_query, owner->encoded_user_project());
 
-    tensorstore::internal_http::CurlRequestBuilder request_builder(
-        delete_url, internal_http::GetDefaultCurlHandleFactory());
-    auto request = request_builder.AddHeader(auth_header)
+    auto request = HttpRequestBuilder(delete_url)
+                       .AddHeader(auth_header)
                        .SetMethod("DELETE")
                        .BuildRequest();
 
@@ -611,9 +616,8 @@ struct DeleteTask {
     auto retry_status = internal::RetryWithBackoff(
         [&] {
           r.time = absl::Now();
-          auto response = request.IssueRequest({});
+          auto response = owner->IssueRequest("DeleteTask", request, {});
           if (!response.ok()) return GetStatus(response);
-          DebugGCSCall("DeleteTask", request, *response);
           httpresponse = std::move(*response);
           switch (httpresponse.status_code) {
             case 412:
@@ -764,17 +768,15 @@ struct ListOp {
                         "pageToken=", nextPageToken);
       }
 
-      tensorstore::internal_http::CurlRequestBuilder request_builder(
-          list_url, internal_http::GetDefaultCurlHandleFactory());
-      auto request = request_builder.AddHeader(header).BuildRequest();
+      auto request =
+          HttpRequestBuilder(list_url).AddHeader(header).BuildRequest();
 
       HttpResponse httpresponse;
       auto retry_status = internal::RetryWithBackoff(
           [&] {
             TENSORSTORE_RETURN_IF_ERROR(maybe_cancelled());
-            auto response = request.IssueRequest({});
+            auto response = state->owner->IssueRequest("List", request, {});
             if (!response.ok()) return GetStatus(response);
-            DebugGCSCall("List", request, *response);
             httpresponse = std::move(*response);
             return HttpResponseCodeToStatus(httpresponse);
           },

@@ -48,7 +48,7 @@ const char kOAuthResponse[] = R"(
 class TestAuthProvider : public GceAuthProvider {
  public:
   TestAuthProvider()
-      : GceAuthProvider([this] { return this->time; }),
+      : GceAuthProvider(nullptr, [this] { return this->time; }),
         time(absl::Now()),
         idx(0) {}
 

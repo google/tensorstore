@@ -33,7 +33,9 @@
 #include "absl/types/variant.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
-#include "tensorstore/internal/http/curl_request.h"
+#include "tensorstore/internal/http/curl_handle.h"
+#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/logging.h"
@@ -52,29 +54,32 @@
 
 using tensorstore::CompletionNotifyingReceiver;
 using tensorstore::Context;
+using tensorstore::Future;
 using tensorstore::GCSMockStorageBucket;
 using tensorstore::KeyValueStore;
 using tensorstore::MatchesStatus;
 using tensorstore::Status;
-using tensorstore::internal_http::CurlRequest;
-using tensorstore::internal_http::CurlRequestMockContext;
+using tensorstore::internal_http::HttpRequest;
 using tensorstore::internal_http::HttpResponse;
+using tensorstore::internal_http::HttpTransport;
+using tensorstore::internal_http::SetDefaultHttpTransport;
 
 namespace {
 
 // Responds to a "metadata.google.internal" request.
-class MockMetadataGoogleInternal : public CurlRequestMockContext {
+class MetadataMockTransport : public HttpTransport {
  public:
-  virtual ~MockMetadataGoogleInternal() = default;
-
-  absl::variant<absl::monostate, HttpResponse, Status> Match(
-      CurlRequest* request, absl::string_view payload) override {
+  Future<HttpResponse> IssueRequest(const HttpRequest& request,
+                                    absl::string_view payload,
+                                    absl::Duration request_timeout,
+                                    absl::Duration connect_timeout) override {
     absl::string_view scheme, host, path;
-    tensorstore::internal::ParseURI(request->url(), &scheme, &host, &path);
+    tensorstore::internal::ParseURI(request.url(), &scheme, &host, &path);
 
     if (host != "metadata.google.internal") {
-      return {};
+      return absl::UnimplementedError("Mock cannot satisfy the request.");
     }
+
     // Respond with the GCE OAuth2 token
     if (path == absl::string_view("/computeMetadata/v1/instance/"
                                   "service-accounts/user@nowhere.com/token")) {
@@ -96,38 +101,27 @@ class MockMetadataGoogleInternal : public CurlRequestMockContext {
   }
 };
 
-class MyMockContext : public MockMetadataGoogleInternal {
+class MyMockTransport : public HttpTransport {
  public:
-  absl::variant<absl::monostate, HttpResponse, Status> Match(
-      CurlRequest* request, absl::string_view payload) override {
-    absl::variant<absl::monostate, HttpResponse, Status> response;
+  Future<HttpResponse> IssueRequest(const HttpRequest& request,
+                                    absl::string_view payload,
+                                    absl::Duration request_timeout,
+                                    absl::Duration connect_timeout) override {
+    auto future = metadata_mock_.IssueRequest(request, payload, request_timeout,
+                                              connect_timeout);
+    if (future.result().ok()) return future;
 
-    do {
-      // First, try the metadata.google.internal mock service.
-      response = MockMetadataGoogleInternal::Match(request, payload);
-      if (!absl::holds_alternative<absl::monostate>(response)) {
-        break;
-      }
-
-      // Next, try each bucket until there is a success.
-      for (auto* bucket : buckets_) {
-        response = bucket->Match(request, payload);
-        if (!absl::holds_alternative<absl::monostate>(response)) {
-          break;
-        }
-      }
-    } while (false);
-
-    if (absl::holds_alternative<HttpResponse>(response)) {
-      TENSORSTORE_LOG(absl::get<HttpResponse>(response).status_code, " ",
-                      request->url());
-    } else {
-      TENSORSTORE_LOG(request->url());
+    // Next, try each bucket until there is a success.
+    for (auto* bucket : buckets_) {
+      future = bucket->IssueRequest(request, payload, request_timeout,
+                                    connect_timeout);
+      if (future.result().ok()) return future;
     }
 
-    return response;
+    return future;
   }
 
+  MetadataMockTransport metadata_mock_;
   std::vector<GCSMockStorageBucket*> buckets_;
 };
 
@@ -155,15 +149,15 @@ TEST(GCSKeyValueStoreTest, BadBucketNames) {
 TEST(GCSKeyValueStoreTest, BadObjectNames) {
   using tensorstore::StorageGeneration;
 
-  auto context = Context::Default();
+  auto mock_transport = std::make_shared<MyMockTransport>();
+  SetDefaultHttpTransport(mock_transport);
 
   GCSMockStorageBucket bucket("my-bucket");
+  mock_transport->buckets_.push_back(&bucket);
 
-  MyMockContext mock_context;
-  mock_context.buckets_.push_back(&bucket);
+  auto context = Context::Default();
 
   // https://www.googleapis.com/kvstore/v1/b/my-project/o/test
-  CurlRequest::SetMockContext(&mock_context);
   auto store_result =
       KeyValueStore::Open(context, {{"driver", "gcs"}, {"bucket", "my-bucket"}},
                           {})
@@ -186,16 +180,17 @@ TEST(GCSKeyValueStoreTest, BadObjectNames) {
   EXPECT_THAT(store->Read("abc", {StorageGeneration{"abc123"}}).result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 
-  CurlRequest::SetMockContext(nullptr);
+  SetDefaultHttpTransport(nullptr);
 }
 
 TEST(GCSKeyValueStoreTest, Basic) {
   // Setup mocks for:
   // https://www.googleapis.com/kvstore/v1/b/my-bucket/o/test
-  MyMockContext mock_context;
+  auto mock_transport = std::make_shared<MyMockTransport>();
+  SetDefaultHttpTransport(mock_transport);
+
   GCSMockStorageBucket bucket("my-bucket");
-  mock_context.buckets_.push_back(&bucket);
-  CurlRequest::SetMockContext(&mock_context);
+  mock_transport->buckets_.push_back(&bucket);
 
   auto context = Context::Default();
   auto store = KeyValueStore::Open(
@@ -207,16 +202,18 @@ TEST(GCSKeyValueStoreTest, Basic) {
   EXPECT_THAT(spec_result->ToJson(tensorstore::IncludeDefaults{false}),
               ::nlohmann::json({{"driver", "gcs"}, {"bucket", "my-bucket"}}));
   tensorstore::internal::TestKeyValueStoreBasicFunctionality(*store);
-  CurlRequest::SetMockContext(nullptr);
+
+  SetDefaultHttpTransport(nullptr);
 }
 
 TEST(GCSKeyValueStoreTest, List) {
   // Setup mocks for:
   // https://www.googleapis.com/kvstore/v1/b/my-bucket/o/test
-  MyMockContext mock_context;
+  auto mock_transport = std::make_shared<MyMockTransport>();
+  SetDefaultHttpTransport(mock_transport);
+
   GCSMockStorageBucket bucket("my-bucket");
-  mock_context.buckets_.push_back(&bucket);
-  CurlRequest::SetMockContext(&mock_context);
+  mock_transport->buckets_.push_back(&bucket);
 
   auto context = Context::Default();
   auto store_result =
@@ -348,22 +345,27 @@ TEST(GCSKeyValueStoreTest, List) {
   EXPECT_THAT(ListFuture(store.get(), {"a/c/"}).result(),
               ::testing::Optional(::testing::UnorderedElementsAre(
                   "a/c/z/f", "a/c/y", "a/c/z/e", "a/c/x")));
-  CurlRequest::SetMockContext(nullptr);
+
+  SetDefaultHttpTransport(nullptr);
 }
 
 TEST(GCSKeyValueStoreTest, SpecRoundtrip) {
-  MyMockContext mock_context;
+  auto mock_transport = std::make_shared<MyMockTransport>();
+  SetDefaultHttpTransport(mock_transport);
+
   GCSMockStorageBucket bucket("my-bucket");
-  mock_context.buckets_.push_back(&bucket);
-  CurlRequest::SetMockContext(&mock_context);
+  mock_transport->buckets_.push_back(&bucket);
+
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(
       {{"driver", "gcs"}, {"bucket", "my-bucket"}});
-  CurlRequest::SetMockContext(nullptr);
+
+  SetDefaultHttpTransport(nullptr);
 }
 
 TEST(GCSKeyValueStoreTest, InvalidSpec) {
-  MyMockContext mock_context;
-  CurlRequest::SetMockContext(&mock_context);
+  auto mock_transport = std::make_shared<MyMockTransport>();
+  SetDefaultHttpTransport(mock_transport);
+
   auto context = tensorstore::Context::Default();
 
   // Test with extra key.
@@ -384,16 +386,17 @@ TEST(GCSKeyValueStoreTest, InvalidSpec) {
           .result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument));
 
-  CurlRequest::SetMockContext(nullptr);
+  SetDefaultHttpTransport(nullptr);
 }
 
 TEST(GCSKeyValueStoreTest, RequestorPays) {
-  MyMockContext mock_context;
+  auto mock_transport = std::make_shared<MyMockTransport>();
+  SetDefaultHttpTransport(mock_transport);
+
   GCSMockStorageBucket bucket1("my-bucket1");
   GCSMockStorageBucket bucket2("my-bucket2", "myproject");
-  CurlRequest::SetMockContext(&mock_context);
-  mock_context.buckets_.push_back(&bucket1);
-  mock_context.buckets_.push_back(&bucket2);
+  mock_transport->buckets_.push_back(&bucket1);
+  mock_transport->buckets_.push_back(&bucket2);
 
   const auto TestWrite = [&](Context context, auto bucket2_status_matcher) {
     auto store_result1 =
@@ -422,15 +425,25 @@ TEST(GCSKeyValueStoreTest, RequestorPays) {
                         {{"gcs_user_project", {{"project_id", "myproject"}}}})
                         .value()),
             Status());
-  CurlRequest::SetMockContext(nullptr);
+
+  SetDefaultHttpTransport(nullptr);
 }
 
-class ConcurrentRequestMockContext : public MyMockContext {
+class MyConcurrentMockTransport : public MyMockTransport {
  public:
-  absl::variant<absl::monostate, HttpResponse, Status> Match(
-      CurlRequest* request, absl::string_view payload) override {
+  void reset(std::size_t limit) {
+    absl::MutexLock lock(&concurrent_request_mutex_);
+    expected_concurrent_requests_ = limit;
+    cur_concurrent_requests_ = 0;
+    max_concurrent_requests_ = 0;
+  }
+
+  Future<HttpResponse> IssueRequest(const HttpRequest& request,
+                                    absl::string_view payload,
+                                    absl::Duration request_timeout,
+                                    absl::Duration connect_timeout) override {
     absl::string_view scheme, host, path;
-    tensorstore::internal::ParseURI(request->url(), &scheme, &host, &path);
+    tensorstore::internal::ParseURI(request.url(), &scheme, &host, &path);
 
     // Don't do concurrency test on auth requests, as those don't happen
     // concurrently.
@@ -441,7 +454,7 @@ class ConcurrentRequestMockContext : public MyMockContext {
         max_concurrent_requests_ =
             std::max(max_concurrent_requests_, cur_concurrent_requests_);
         concurrent_request_mutex_.Await(absl::Condition(
-            +[](ConcurrentRequestMockContext* self) {
+            +[](MyConcurrentMockTransport* self) {
               return self->max_concurrent_requests_ ==
                      self->expected_concurrent_requests_;
             },
@@ -453,7 +466,9 @@ class ConcurrentRequestMockContext : public MyMockContext {
         --cur_concurrent_requests_;
       }
     }
-    return MyMockContext::Match(request, payload);
+
+    return MyMockTransport::IssueRequest(request, payload, request_timeout,
+                                         connect_timeout);
   }
 
   constexpr static auto kSleepAmount = absl::Milliseconds(10);
@@ -465,12 +480,14 @@ class ConcurrentRequestMockContext : public MyMockContext {
 };
 
 TEST(GCSKeyValueStoreTest, Concurrency) {
+  auto mock_transport = std::make_shared<MyConcurrentMockTransport>();
+  SetDefaultHttpTransport(mock_transport);
+
+  GCSMockStorageBucket bucket("my-bucket");
+  mock_transport->buckets_.push_back(&bucket);
+
   const auto TestConcurrency = [&](size_t limit) {
-    ConcurrentRequestMockContext mock_context;
-    mock_context.expected_concurrent_requests_ = limit;
-    GCSMockStorageBucket bucket("my-bucket");
-    CurlRequest::SetMockContext(&mock_context);
-    mock_context.buckets_.push_back(&bucket);
+    mock_transport->reset(limit);
     Context context{Context::Spec::FromJson(
                         {{"gcs_request_concurrency", {{"limit", limit}}}})
                         .value()};
@@ -487,13 +504,14 @@ TEST(GCSKeyValueStoreTest, Concurrency) {
     for (const auto& future : futures) {
       future.Wait();
     }
-    EXPECT_EQ(limit, mock_context.max_concurrent_requests_);
-    CurlRequest::SetMockContext(nullptr);
+    EXPECT_EQ(limit, mock_transport->max_concurrent_requests_);
   };
 
   TestConcurrency(1);
   TestConcurrency(2);
   TestConcurrency(3);
+
+  SetDefaultHttpTransport(nullptr);
 }
 
 }  // namespace

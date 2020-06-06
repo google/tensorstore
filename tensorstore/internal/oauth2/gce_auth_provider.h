@@ -21,6 +21,7 @@
 
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/internal/oauth2/oauth_utils.h"
 #include "tensorstore/util/result.h"
@@ -36,8 +37,9 @@ class GceAuthProvider : public AuthProvider {
  public:
   ~GceAuthProvider() override = default;
 
-  GceAuthProvider();
-  GceAuthProvider(std::function<absl::Time()> clock);
+  GceAuthProvider(std::shared_ptr<internal_http::HttpTransport> transport);
+  GceAuthProvider(std::shared_ptr<internal_http::HttpTransport> transport,
+                  std::function<absl::Time()> clock);
 
   using AuthProvider::BearerTokenWithExpiration;
 
@@ -67,6 +69,7 @@ class GceAuthProvider : public AuthProvider {
   std::string access_token_;
   absl::Time expiration_;
 
+  std::shared_ptr<internal_http::HttpTransport> transport_;
   std::function<absl::Time()> clock_;  // To mock the time.
 };
 

@@ -24,8 +24,9 @@
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/types/variant.h"
-#include "tensorstore/internal/http/curl_request.h"
+#include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/key_value_store_testutil.h"
 #include "tensorstore/util/executor.h"
@@ -35,7 +36,7 @@ namespace tensorstore {
 
 /// GCSMockStorageBucket provides a minimal mocking environment for
 /// GCS requests.
-class GCSMockStorageBucket : public internal_http::CurlRequestMockContext {
+class GCSMockStorageBucket {
  public:
   // An individual data object with a name, value, and generation.
   struct Object {
@@ -48,7 +49,7 @@ class GCSMockStorageBucket : public internal_http::CurlRequestMockContext {
 
   virtual ~GCSMockStorageBucket();
 
-  /// Constructs a CurlRequestMockContext for a GCS bucket.
+  /// Constructs a HttpRequestMockContext for a GCS bucket.
   ///
   /// \param bucket The bucket name.
   /// \param requestor_pays_project_id If not `std::nullopt`, this bucket
@@ -60,8 +61,15 @@ class GCSMockStorageBucket : public internal_http::CurlRequestMockContext {
       absl::string_view bucket,
       std::optional<std::string> requestor_pays_project_id = std::nullopt);
 
+  // Implement the HttpTransport::IssueRequest interface.
+  // Responds to a "www.google.apis/storage/v1/b/bucket" request.
+  Future<internal_http::HttpResponse> IssueRequest(
+      const internal_http::HttpRequest& request, absl::string_view payload,
+      absl::Duration request_timeout, absl::Duration connect_timeout);
+
+  // Main entry-point for matching requests.
   absl::variant<absl::monostate, internal_http::HttpResponse, Status> Match(
-      internal_http::CurlRequest* request, absl::string_view payload) override;
+      const internal_http::HttpRequest& request, absl::string_view payload);
 
   // List objects in the bucket.
   absl::variant<absl::monostate, internal_http::HttpResponse, Status>

@@ -26,8 +26,8 @@
 #include "absl/types/optional.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_handle.h"
-#include "tensorstore/internal/http/curl_request.h"
-#include "tensorstore/internal/http/curl_request_builder.h"
+#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/logging.h"
@@ -44,7 +44,7 @@
 
 using tensorstore::internal::GetEnv;
 using tensorstore::internal::JoinPath;
-using tensorstore::internal_http::CurlRequestBuilder;
+using tensorstore::internal_http::HttpRequestBuilder;
 
 namespace tensorstore {
 namespace internal_oauth2 {
@@ -79,16 +79,15 @@ bool IsFile(const std::string& filename) {
 }
 
 /// Returns whether this is running on GCE.
-bool IsRunningOnGce() {
-  CurlRequestBuilder request_builder(
-      JoinPath("http://", GceMetadataHostname()),
-      internal_http::GetDefaultCurlHandleFactory());
+bool IsRunningOnGce(internal_http::HttpTransport* transport) {
+  HttpRequestBuilder request_builder(
+      JoinPath("http://", GceMetadataHostname()));
 
   request_builder.AddHeader("Metadata-Flavor: Google");
   auto request = request_builder.BuildRequest();
 
-  const auto issue_request = [&request]() -> Status {
-    auto response = request.IssueRequest("");
+  const auto issue_request = [&request, transport]() -> Status {
+    auto response = transport->IssueRequest(request, "").result();
     TENSORSTORE_RETURN_IF_ERROR(response);
     return internal_http::HttpResponseCodeToStatus(*response);
   };
@@ -144,7 +143,8 @@ AuthProviderRegistry& GetGoogleAuthProviderRegistry() {
   return *registry;
 }
 
-Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider() {
+Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider(
+    std::shared_ptr<internal_http::HttpTransport> transport) {
   std::unique_ptr<AuthProvider> result;
 
   // 1. Check to see if the test environment variable is set.
@@ -178,7 +178,8 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider() {
     auto refresh_token = internal_oauth2::ParseRefreshToken(json);
     if (refresh_token.ok()) {
       TENSORSTORE_LOG("Using OAuth2 AuthProvider");
-      result.reset(new OAuth2AuthProvider(*refresh_token, kOAuthV3Url));
+      result.reset(new OAuth2AuthProvider(*refresh_token, kOAuthV3Url,
+                                          std::move(transport)));
       return std::move(result);
     }
 
@@ -186,7 +187,8 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider() {
         internal_oauth2::ParseGoogleServiceAccountCredentials(json);
     if (service_account.ok()) {
       TENSORSTORE_LOG("Using ServiceAccount AuthProvider");
-      result.reset(new GoogleServiceAccountAuthProvider(*service_account));
+      result.reset(new GoogleServiceAccountAuthProvider(*service_account,
+                                                        std::move(transport)));
       return std::move(result);
     }
 
@@ -196,9 +198,9 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider() {
   }
 
   // 3. Running on GCE?
-  if (IsRunningOnGce()) {
+  if (IsRunningOnGce(transport.get())) {
     TENSORSTORE_LOG("Running on GCE, using GCE Auth Provider");
-    result.reset(new GceAuthProvider());
+    result.reset(new GceAuthProvider(std::move(transport)));
     return std::move(result);
   }
 
@@ -218,7 +220,8 @@ void RegisterGoogleAuthProvider(GoogleAuthProvider provider, int priority) {
             [](const auto& a, const auto& b) { return a.first < b.first; });
 }
 
-Result<std::unique_ptr<AuthProvider>> GetGoogleAuthProvider() {
+Result<std::unique_ptr<AuthProvider>> GetGoogleAuthProvider(
+    std::shared_ptr<internal_http::HttpTransport> transport) {
   {
     auto& registry = GetGoogleAuthProviderRegistry();
     absl::ReaderMutexLock lock(&registry.mutex);
@@ -227,7 +230,7 @@ Result<std::unique_ptr<AuthProvider>> GetGoogleAuthProvider() {
       if (auth_result.ok()) return auth_result;
     }
   }
-  return internal_oauth2::GetDefaultGoogleAuthProvider();
+  return internal_oauth2::GetDefaultGoogleAuthProvider(std::move(transport));
 }
 
 }  // namespace internal_oauth2

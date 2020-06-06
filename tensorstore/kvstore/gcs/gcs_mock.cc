@@ -29,7 +29,7 @@
 #include "absl/types/optional.h"
 #include "absl/types/variant.h"
 #include "tensorstore/internal/http/curl_handle.h"
-#include "tensorstore/internal/http/curl_request.h"
+#include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/path.h"
@@ -38,9 +38,8 @@
 #include "tensorstore/util/status.h"
 
 using tensorstore::Status;
-using tensorstore::internal_http::CurlRequest;
-using tensorstore::internal_http::CurlRequestMockContext;
 using tensorstore::internal_http::CurlUnescapeString;
+using tensorstore::internal_http::HttpRequest;
 using tensorstore::internal_http::HttpResponse;
 
 namespace tensorstore {
@@ -82,7 +81,6 @@ absl::optional<internal_http::HttpResponse> ParseQueryParameters(
 
 }  // namespace
 
-// Responds to a "www.google.apis/storage/v1/b/bucket" request.
 GCSMockStorageBucket::~GCSMockStorageBucket() = default;
 
 GCSMockStorageBucket::GCSMockStorageBucket(
@@ -93,10 +91,27 @@ GCSMockStorageBucket::GCSMockStorageBucket(
       upload_path_(absl::StrCat("/upload/storage/v1/b/", bucket)),
       requestor_pays_project_id_(std::move(requestor_pays_project_id)) {}
 
+// Responds to a "www.google.apis/storage/v1/b/bucket" request.
+Future<HttpResponse> GCSMockStorageBucket::IssueRequest(
+    const HttpRequest& request, absl::string_view payload,
+    absl::Duration request_timeout, absl::Duration connect_timeout) {
+  // When using a mock context, we assume that the mock is
+  // thread safe and not uninstalled when it might introduce
+  // race conditions.
+  auto match_result = Match(request, payload);
+  if (absl::holds_alternative<Status>(match_result)) {
+    return std::move(absl::get<Status>(match_result));
+  } else if (absl::holds_alternative<HttpResponse>(match_result)) {
+    return std::move(absl::get<HttpResponse>(match_result));
+  }
+  return absl::UnimplementedError("Mock cannot satisfy the request.");
+}
+
 absl::variant<absl::monostate, HttpResponse, Status>
-GCSMockStorageBucket::Match(CurlRequest* request, absl::string_view payload) {
+GCSMockStorageBucket::Match(const HttpRequest& request,
+                            absl::string_view payload) {
   absl::string_view scheme, host, path;
-  tensorstore::internal::ParseURI(request->url(), &scheme, &host, &path);
+  tensorstore::internal::ParseURI(request.url(), &scheme, &host, &path);
 
   if (host != "www.googleapis.com") {
     return {};
@@ -152,10 +167,10 @@ GCSMockStorageBucket::Match(CurlRequest* request, absl::string_view payload) {
   }
 
   // Dispatch based on path, method, etc.
-  if (path == "/o" && request->method().empty() && payload.empty()) {
+  if (path == "/o" && request.method().empty() && payload.empty()) {
     // GET request for the bucket.
     return HandleListRequest(path, params);
-  } else if (path == "/o" && request->method().empty() && !payload.empty()) {
+  } else if (path == "/o" && request.method().empty() && !payload.empty()) {
     // POST
     if (!is_upload) {
       return HttpResponse{
@@ -163,10 +178,10 @@ GCSMockStorageBucket::Match(CurlRequest* request, absl::string_view payload) {
           R"({ "error": { "code": 400, "message": "Uploads must be sent to the upload URL." } })"};
     }
     return HandleInsertRequest(path, params, payload);
-  } else if (absl::StartsWith(path, "/o/") && request->method().empty()) {
+  } else if (absl::StartsWith(path, "/o/") && request.method().empty()) {
     // GET request on an object.
     return HandleGetRequest(path, params);
-  } else if (absl::StartsWith(path, "/o/") && request->method() == "DELETE") {
+  } else if (absl::StartsWith(path, "/o/") && request.method() == "DELETE") {
     // DELETE request on an object.
     return HandleDeleteRequest(path, params);
   }

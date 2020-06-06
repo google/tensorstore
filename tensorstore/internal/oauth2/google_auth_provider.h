@@ -18,6 +18,8 @@
 #include <functional>
 #include <memory>
 
+#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/util/result.h"
 
@@ -35,7 +37,9 @@ namespace internal_oauth2 {
 ///   3. Are we running on GCE?
 ///   4. Otherwise fail.
 ///
-Result<std::unique_ptr<AuthProvider>> GetGoogleAuthProvider();
+Result<std::unique_ptr<AuthProvider>> GetGoogleAuthProvider(
+    std::shared_ptr<internal_http::HttpTransport> transport =
+        internal_http::GetDefaultHttpTransport());
 
 using GoogleAuthProvider =
     std::function<Result<std::unique_ptr<AuthProvider>>()>;
