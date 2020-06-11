@@ -32,7 +32,7 @@ namespace internal_http {
 /// definition can be overridden to set options such as certificate paths.
 void InitializeCurlHandle(CURL* handle);
 
-/// Implementation of HttpTransport which uses libcurl via the curl_easy_
+/// Implementation of HttpTransport which uses libcurl via the curl_multi
 /// interface.
 class CurlTransport : public HttpTransport {
  public:
@@ -48,7 +48,8 @@ class CurlTransport : public HttpTransport {
                                     absl::Duration connect_timeout) override;
 
  private:
-  std::shared_ptr<CurlHandleFactory> factory_;
+  struct Impl;
+  std::shared_ptr<Impl> impl_;
 };
 
 /// Returns the default CurlTransport.

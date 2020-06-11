@@ -1,0 +1,5 @@
+cc_library(
+    name = "nghttp2",
+    linkopts = ["-lnghttp2"],
+    visibility = ["//visibility:public"],
+)

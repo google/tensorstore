@@ -162,21 +162,5 @@ int32_t CurlGetResponseCode(CURL* handle) {
   return static_cast<int32_t>(code);
 }
 
-Status CurlEasyPerform(CURL* handle) {
-  char error_buffer[CURL_ERROR_SIZE] = {0};
-  curl_easy_setopt(handle, CURLOPT_ERRORBUFFER, error_buffer);
-
-  auto e = curl_easy_perform(handle);
-  curl_easy_setopt(handle, CURLOPT_ERRORBUFFER, nullptr);
-
-  if (e == CURLE_OK) {
-    return absl::OkStatus();
-  }
-  TENSORSTORE_LOG("Error [", e, "]=", curl_easy_strerror(e),
-                  " in curl operation\n", error_buffer);
-
-  return CurlCodeToStatus(e, error_buffer);
-}
-
 }  // namespace internal_http
 }  // namespace tensorstore

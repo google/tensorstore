@@ -21,12 +21,12 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 def repo():
     maybe(
         third_party_http_archive,
-        name = "se_haxx_curl",
-        strip_prefix = "curl-7.70.0",
+        name = "org_nghttp2",
+        strip_prefix = "nghttp2-1.41.0",
         urls = [
-            "https://curl.haxx.se/download/curl-7.70.0.tar.gz",
+            "https://github.com/nghttp2/nghttp2/releases/download/v1.41.0/nghttp2-1.41.0.tar.gz",
         ],
-        sha256 = "ca2feeb8ef13368ce5d5e5849a5fd5e2dd4755fecf7d8f0cc94000a4206fb8e7",
-        build_file = Label("//third_party:se_haxx_curl/bundled.BUILD.bazel"),
-        system_build_file = Label("//third_party:se_haxx_curl/system.BUILD.bazel"),
+        sha256 = "eacc6f0f8543583ecd659faf0a3f906ed03826f1d4157b536b4b385fe47c5bb8",
+        build_file = Label("//third_party:org_nghttp2/bundled.BUILD.bazel"),
+        system_build_file = Label("//third_party:org_nghttp2/system.BUILD.bazel"),
     )

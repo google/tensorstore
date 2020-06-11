@@ -101,10 +101,6 @@ inline void CurlMultiSetopt(CURLM* handle, CURLMoption option, T value) {
 /// Returns the HTTP response code from a curl handle.
 int32_t CurlGetResponseCode(CURL* handle);
 
-/// Invokes curl_easy_perform on a curl handle. This
-/// issues a synchronous request and waits for the response.
-Status CurlEasyPerform(CURL* handle);
-
 }  // namespace internal_http
 }  // namespace tensorstore
 
