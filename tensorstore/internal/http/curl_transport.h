@@ -48,7 +48,7 @@ class CurlTransport : public HttpTransport {
                                     absl::Duration connect_timeout) override;
 
  private:
-  struct Impl;
+  class Impl;
   std::shared_ptr<Impl> impl_;
 };
 

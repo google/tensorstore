@@ -102,3 +102,17 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "curl_transport_test",
+    srcs = ["curl_transport_test.cc"],
+    deps = [
+        ":curl_transport",
+        ":http",
+        "//tensorstore/internal:mutex",
+        "//tensorstore/util:executor",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
