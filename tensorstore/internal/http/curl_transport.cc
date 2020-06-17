@@ -147,6 +147,11 @@ struct CurlRequestState {
     return AppendHeaderData(response_.headers, data);
   }
 
+  void SetForbidReuse() {
+    // https://curl.haxx.se/libcurl/c/CURLOPT_FORBID_REUSE.html
+    CurlEasySetopt(handle_.get(), CURLOPT_FORBID_REUSE, 1);
+  }
+
   Status CurlCodeToStatus(CURLcode code) {
     if (code == CURLE_OK) {
       return absl::OkStatus();
@@ -233,14 +238,21 @@ Future<HttpResponse> MultiTransportImpl::StartRequest(
 }
 
 void MultiTransportImpl::FinishRequest(CURL* e, CURLcode code) {
-  curl_multi_remove_handle(multi_.get(), e);
-
   std::unique_ptr<CurlRequestState> state([e] {
     CurlRequestState* pvt = nullptr;
     curl_easy_getinfo(e, CURLINFO_PRIVATE, &pvt);
     CurlEasySetopt(e, CURLOPT_PRIVATE, nullptr);
     return pvt;
   }());
+
+  if (code == CURLE_HTTP2) {
+    // If there was an error in the HTTP2 framing, try and force
+    // CURL to close the connection stream.
+    // https://curl.haxx.se/libcurl/c/CURLOPT_FORBID_REUSE.html
+    state->SetForbidReuse();
+  }
+
+  curl_multi_remove_handle(multi_.get(), e);
 
   if (code != CURLE_OK) {
     state->promise_.SetResult(state->CurlCodeToStatus(code));
