@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include <nlohmann/json.hpp>
@@ -117,6 +118,50 @@ Future<KeyValueStore::Ptr> KeyValueStore::Open(
     const KeyValueStoreSpec::OpenOptions& options) {
   TENSORSTORE_ASSIGN_OR_RETURN(auto spec, Spec::Ptr::FromJson(std::move(j)));
   return spec->Open(context, options);
+}
+
+namespace {
+struct OpenKeyValueStoreCache {
+  absl::Mutex mutex;
+  absl::flat_hash_map<std::string, KeyValueStore*> map ABSL_GUARDED_BY(mutex);
+};
+
+OpenKeyValueStoreCache& GetOpenKeyValueStoreCache() {
+  static internal::NoDestructor<OpenKeyValueStoreCache> cache_;
+  return *cache_;
+}
+}  // namespace
+
+Future<KeyValueStore::Ptr> KeyValueStoreSpec::Bound::Open() const {
+  return MapFutureValue(
+      InlineExecutor{},
+      [](KeyValueStore::Ptr store) {
+        std::string cache_key;
+        store->EncodeCacheKey(&cache_key);
+        auto& open_cache = GetOpenKeyValueStoreCache();
+        absl::MutexLock lock(&open_cache.mutex);
+        auto p = open_cache.map.emplace(cache_key, store.get());
+        return KeyValueStore::Ptr(p.first->second);
+      },
+      this->DoOpen());
+}
+
+void KeyValueStore::DestroyLastReference() {
+  auto& open_cache = GetOpenKeyValueStoreCache();
+  std::string cache_key;
+  this->EncodeCacheKey(&cache_key);
+  {
+    absl::MutexLock lock(&open_cache.mutex);
+    if (reference_count_.load(std::memory_order_relaxed) != 0) {
+      // Another reference was added concurrently.  Don't destroy.
+      return;
+    }
+    auto it = open_cache.map.find(cache_key);
+    if (it != open_cache.map.end() && it->second == this) {
+      open_cache.map.erase(it);
+    }
+  }
+  delete this;
 }
 
 Future<KeyValueStore::ReadResult> KeyValueStore::Read(Key key,

@@ -230,15 +230,22 @@ class KeyValueStoreSpec::Bound
     : public AtomicReferenceCount<KeyValueStoreSpec::Bound> {
  public:
   using Ptr = internal::IntrusivePtr<const Bound>;
-  virtual Future<KeyValueStorePtr> Open() const = 0;
 
-  /// Encodes any relevant data as a cache key.
+  /// Encodes any relevant parameters as a cache key.  This should only include
+  /// parameters relevant after the `KeyValueStore` is open that determine
+  /// whether two `KeyValueStore` objects may be used interchangeably.
+  /// Parameters that only affect creation should be excluded.
   virtual void EncodeCacheKey(std::string* out) const = 0;
+
+  Future<KeyValueStorePtr> Open() const;
 
   virtual KeyValueStoreSpec::Ptr Unbind(
       const internal::ContextSpecBuilder& builder = {}) const = 0;
 
   virtual ~Bound();
+
+ private:
+  virtual Future<KeyValueStorePtr> DoOpen() const = 0;
 
   /// For compatibility with `tensorstore::internal::EncodeCacheKey`.
   friend void EncodeCacheKeyAdl(std::string* out, const Ptr& ptr) {
@@ -296,7 +303,7 @@ struct KeyValueStoreReadOptions {
 /// The user is not required to hold a reference to the `KeyValueStore` while
 /// operations are outstanding; releasing the last externally held reference to
 /// a `KeyValueStore` object does not cancel outstanding operations.
-class KeyValueStore : public internal::AtomicReferenceCount<KeyValueStore> {
+class KeyValueStore {
  public:
   /// Keys and values are both represented as strings.
   using Key = std::string;
@@ -511,6 +518,21 @@ class KeyValueStore : public internal::AtomicReferenceCount<KeyValueStore> {
   virtual std::string DescribeKey(absl::string_view key);
 
   virtual ~KeyValueStore();
+
+ private:
+  void DestroyLastReference();
+
+  friend void intrusive_ptr_increment(KeyValueStore* store) {
+    store->reference_count_.fetch_add(1, std::memory_order_relaxed);
+  }
+
+  friend void intrusive_ptr_decrement(KeyValueStore* store) {
+    if (store->reference_count_.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+      store->DestroyLastReference();
+    }
+  }
+
+  std::atomic<size_t> reference_count_{0};
 };
 
 /// Calls `List` and collects the results in an `std::vector`.

@@ -261,4 +261,24 @@ TEST(MemoryKeyValueStoreTest, BoundSpec) {
   }
 }
 
+TEST(MemoryKeyValueStoreTest, OpenCache) {
+  auto context = tensorstore::Context::Default();
+  ::nlohmann::json json_spec{{"driver", "memory"}};
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store1, KeyValueStore::Open(context, json_spec).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store2, KeyValueStore::Open(context, json_spec).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store3,
+      KeyValueStore::Open(tensorstore::Context::Default(), json_spec).result());
+  EXPECT_EQ(store1.get(), store2.get());
+  EXPECT_NE(store1.get(), store3.get());
+
+  std::string cache_key1, cache_key3;
+  tensorstore::internal::EncodeCacheKey(&cache_key1, store1);
+  tensorstore::internal::EncodeCacheKey(&cache_key3, store3);
+  EXPECT_NE(cache_key1, cache_key3);
+}
+
 }  // namespace

@@ -258,17 +258,6 @@ class RegisteredKeyValueStoreBoundSpec : public KeyValueStoreSpec::Bound {
   using BoundSpecData = typename Derived::template SpecT<ContextBound>;
 
  public:
-  Future<KeyValueStore::Ptr> Open() const override {
-    KeyValueStoreOpenState<Derived> open_state;
-    open_state.bound_spec_.reset(this);
-    open_state.driver_.reset(new Derived);
-    auto [promise, future] =
-        PromiseFuturePair<KeyValueStore::Ptr>::Make(open_state.driver_);
-    open_state.promise_ = std::move(promise);
-    Derived::Open(std::move(open_state));
-    return future;
-  }
-
   KeyValueStoreSpec::Ptr Unbind(
       const internal::ContextSpecBuilder& context_builder) const override {
     IntrusivePtr<RegisteredKeyValueStoreSpec<Derived>> spec(
@@ -284,6 +273,17 @@ class RegisteredKeyValueStoreBoundSpec : public KeyValueStoreSpec::Bound {
   }
 
  private:
+  Future<KeyValueStore::Ptr> DoOpen() const override {
+    KeyValueStoreOpenState<Derived> open_state;
+    open_state.bound_spec_.reset(this);
+    open_state.driver_.reset(new Derived);
+    auto [promise, future] =
+        PromiseFuturePair<KeyValueStore::Ptr>::Make(open_state.driver_);
+    open_state.promise_ = std::move(promise);
+    Derived::Open(std::move(open_state));
+    return future;
+  }
+
   friend class RegisteredKeyValueStoreSpec<Derived>;
   friend class RegisteredKeyValueStore<Derived>;
   BoundSpecData data_;

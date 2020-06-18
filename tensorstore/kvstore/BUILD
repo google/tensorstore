@@ -115,6 +115,7 @@ tensorstore_cc_library(
         "//tensorstore/util:sync_flow_sender",
         "//tensorstore/util:to_string",
         "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
