@@ -52,6 +52,7 @@ namespace {
 
 using tensorstore::CompletionNotifyingReceiver;
 using tensorstore::Context;
+using tensorstore::KeyRange;
 using tensorstore::KeyValueStore;
 using tensorstore::MatchesStatus;
 using tensorstore::Status;
@@ -176,7 +177,7 @@ TEST(FileKeyValueStoreTest, LockFiles) {
   // Test that the "a" prefix can be deleted despite the presence of the lock
   // file.  Only a single key, "a/foo" is removed.  The lock file should not be
   // included in the count.
-  EXPECT_THAT(store->DeletePrefix("a/").result(), ::testing::Optional(1));
+  TENSORSTORE_EXPECT_OK(store->DeleteRange(KeyRange::Prefix("a/")));
   EXPECT_THAT(GetDirectoryContents(root), ::testing::UnorderedElementsAre());
 }
 
@@ -316,17 +317,14 @@ TEST(FileKeyValueStoreTest, DeletePrefix) {
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/b", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/d", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/x", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/y", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/z/e", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/z/f", "xyz").result()));
+  TENSORSTORE_EXPECT_OK(store->Write("a/b", "xyz").result());
+  TENSORSTORE_EXPECT_OK(store->Write("a/d", "xyz").result());
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", "xyz").result());
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", "xyz").result());
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", "xyz").result());
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", "xyz").result());
 
-  EXPECT_THAT(store->DeletePrefix("a/c").result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
-
-  EXPECT_EQ(4, store->DeletePrefix("a/c/").result());
+  TENSORSTORE_EXPECT_OK(store->DeleteRange(KeyRange::Prefix("a/c/")));
 
   EXPECT_EQ("xyz", store->Read("a/b").value().value);
   EXPECT_EQ("xyz", store->Read("a/d").value().value);
@@ -335,6 +333,44 @@ TEST(FileKeyValueStoreTest, DeletePrefix) {
   EXPECT_THAT(store->Read("a/c/y").result(), MatchesKvsReadResultNotFound());
   EXPECT_THAT(store->Read("a/c/z/e").result(), MatchesKvsReadResultNotFound());
   EXPECT_THAT(store->Read("a/c/z/f").result(), MatchesKvsReadResultNotFound());
+}
+
+TEST(FileKeyValueStoreTest, DeleteRange) {
+  tensorstore::internal::ScopedTemporaryDirectory tempdir;
+  std::string root = tempdir.path() + "/root";
+  auto store = GetStore(root);
+  for (auto key : {"a/a", "a/b", "a/c/a", "a/c/b", "b/a", "b/b"}) {
+    TENSORSTORE_EXPECT_OK(store->Write(key, "").result());
+  }
+  TENSORSTORE_EXPECT_OK(store->DeleteRange(KeyRange("a/b", "b/aa")));
+  EXPECT_THAT(
+      ListFuture(store.get()).result(),
+      ::testing::Optional(::testing::UnorderedElementsAre("a/a", "b/b")));
+}
+
+TEST(FileKeyValueStoreTest, DeleteRangeToEnd) {
+  tensorstore::internal::ScopedTemporaryDirectory tempdir;
+  std::string root = tempdir.path() + "/root";
+  auto store = GetStore(root);
+  for (auto key : {"a/a", "a/b", "a/c/a", "a/c/b", "b/a", "b/b"}) {
+    TENSORSTORE_EXPECT_OK(store->Write(key, "").result());
+  }
+  TENSORSTORE_EXPECT_OK(store->DeleteRange(KeyRange("a/b", "")));
+  EXPECT_THAT(ListFuture(store.get()).result(),
+              ::testing::Optional(::testing::UnorderedElementsAre("a/a")));
+}
+
+TEST(FileKeyValueStoreTest, DeleteRangeFromBeginning) {
+  tensorstore::internal::ScopedTemporaryDirectory tempdir;
+  std::string root = tempdir.path() + "/root";
+  auto store = GetStore(root);
+  for (auto key : {"a/a", "a/b", "a/c/a", "a/c/b", "b/a", "b/b"}) {
+    TENSORSTORE_EXPECT_OK(store->Write(key, "").result());
+  }
+  TENSORSTORE_EXPECT_OK(store->DeleteRange(KeyRange("", "a/c/aa")));
+  EXPECT_THAT(ListFuture(store.get()).result(),
+              ::testing::Optional(
+                  ::testing::UnorderedElementsAre("a/c/b", "b/a", "b/b")));
 }
 
 TEST(FileKeyValueStoreTest, ListErrors) {
@@ -346,14 +382,14 @@ TEST(FileKeyValueStoreTest, ListErrors) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({"a"}),
+        store->List({KeyRange::Prefix("a//")}),
         CompletionNotifyingReceiver{&notification,
                                     tensorstore::LoggingReceiver{&log}});
     notification.WaitForNotification();
-    EXPECT_THAT(log,
-                ::testing::ElementsAre("set_error: INVALID_ARGUMENT: "
-                                       "Prefix must be empty or end with '/'",
-                                       "set_stopping"));
+    EXPECT_THAT(log, ::testing::ElementsAre(
+                         "set_starting",
+                         "set_error: INVALID_ARGUMENT: Invalid key: \"a/\"",
+                         "set_stopping"));
   }
 }
 
@@ -366,7 +402,7 @@ TEST(FileKeyValueStoreTest, List) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({""}),
+        store->List({}),
         CompletionNotifyingReceiver{&notification,
                                     tensorstore::LoggingReceiver{&log}});
     notification.WaitForNotification();
@@ -374,19 +410,19 @@ TEST(FileKeyValueStoreTest, List) {
                                             "set_stopping"));
   }
 
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/b", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/d", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/x", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/y", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/z/e", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/z/f", "xyz").result()));
+  TENSORSTORE_EXPECT_OK(store->Write("a/b", "xyz").result());
+  TENSORSTORE_EXPECT_OK(store->Write("a/d", "xyz").result());
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", "xyz").result());
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", "xyz").result());
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", "xyz").result());
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", "xyz").result());
 
   // Listing the entire stream works.
   {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({""}),
+        store->List({}),
         CompletionNotifyingReceiver{&notification,
                                     tensorstore::LoggingReceiver{&log}});
     notification.WaitForNotification();
@@ -403,7 +439,7 @@ TEST(FileKeyValueStoreTest, List) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({"a/c/"}),
+        store->List({KeyRange::Prefix("a/c/")}),
         CompletionNotifyingReceiver{&notification,
                                     tensorstore::LoggingReceiver{&log}});
     notification.WaitForNotification();
@@ -426,7 +462,7 @@ TEST(FileKeyValueStoreTest, List) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({""}),
+        store->List({}),
         CompletionNotifyingReceiver{&notification, CancelOnStarting{{&log}}});
     notification.WaitForNotification();
 
@@ -456,7 +492,7 @@ TEST(FileKeyValueStoreTest, List) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({""}),
+        store->List({}),
         CompletionNotifyingReceiver{&notification, CancelAfter2{{&log}}});
     notification.WaitForNotification();
 

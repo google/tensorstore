@@ -129,9 +129,9 @@ Future<TimestampedStorageGeneration> KeyValueStore::Write(
   return absl::UnimplementedError("KeyValueStore does not support writing");
 }
 
-Future<std::int64_t> KeyValueStore::DeletePrefix(Key prefix) {
+Future<void> KeyValueStore::DeleteRange(KeyRange range) {
   return absl::UnimplementedError(
-      "KeyValueStore does not support deleting by prefix");
+      "KeyValueStore does not support deleting by range");
 }
 
 void KeyValueStore::ListImpl(const ListOptions& options,

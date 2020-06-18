@@ -1418,23 +1418,24 @@ TEST_F(UnderlyingKeyValueStoreTest, List) {
   EXPECT_THAT(future.result(), MatchesStatus(absl::StatusCode::kUnimplemented));
 }
 
-TEST_F(UnderlyingKeyValueStoreTest, DeletePrefixInvalid) {
-  auto future = store->DeletePrefix("abc");
+TEST_F(UnderlyingKeyValueStoreTest, DeleteRangeInvalid) {
+  auto future = store->DeleteRange(tensorstore::KeyRange::Prefix("abc"));
   ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(), MatchesStatus(absl::StatusCode::kInvalidArgument,
-                                             "Only empty prefix is supported"));
+  EXPECT_THAT(future.result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".* DeleteRange may only delete all keys"));
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, DeletePrefix) {
-  auto future = store->DeletePrefix("");
+  auto future = store->DeleteRange({});
   {
-    auto req = mock_store->delete_prefix_requests.pop_nonblock().value();
-    EXPECT_EQ(0, mock_store->delete_prefix_requests.size());
-    EXPECT_EQ("prefix/", req.prefix);
-    req.promise.SetResult(5);
+    auto req = mock_store->delete_range_requests.pop_nonblock().value();
+    EXPECT_EQ(0, mock_store->delete_range_requests.size());
+    EXPECT_EQ(tensorstore::KeyRange::Prefix("prefix/"), req.range);
+    req.promise.SetResult(tensorstore::MakeResult());
   }
   ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(), ::testing::Optional(5));
+  TENSORSTORE_EXPECT_OK(future.result());
 }
 
 }  // namespace

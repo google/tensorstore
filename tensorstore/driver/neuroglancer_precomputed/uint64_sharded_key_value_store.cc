@@ -1000,13 +1000,15 @@ class ShardedKeyValueStore : public KeyValueStore {
         .future;
   }
 
-  Future<std::int64_t> DeletePrefix(Key prefix) override {
-    if (!prefix.empty()) {
-      return absl::InvalidArgumentError("Only empty prefix is supported");
+  Future<void> DeleteRange(KeyRange range) override {
+    if (!range.inclusive_min.empty() || !range.exclusive_max.empty()) {
+      return absl::InvalidArgumentError(
+          "uint64_sharded_key_value_store DeleteRange may only delete all "
+          "keys");
     }
     const auto& key_prefix = this->key_prefix();
-    return base_kvstore()->DeletePrefix(key_prefix.empty() ? std::string()
-                                                           : key_prefix + "/");
+    return base_kvstore()->DeleteRange(KeyRange::Prefix(
+        key_prefix.empty() ? std::string() : key_prefix + "/"));
   }
 
   Future<TimestampedStorageGeneration> Write(Key key,

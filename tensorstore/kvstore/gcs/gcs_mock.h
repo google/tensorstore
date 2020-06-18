@@ -105,7 +105,8 @@ class GCSMockStorageBucket {
   int64_t next_generation_ = 123;
   int64_t request_count_ = 0;
 
-  std::map<std::string, Object> data_;
+  using Map = std::map<std::string, Object, std::less<>>;
+  Map data_;
 };
 
 }  // namespace tensorstore

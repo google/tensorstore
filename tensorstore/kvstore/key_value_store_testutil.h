@@ -130,11 +130,11 @@ class MockKeyValueStore : public KeyValueStore {
     }
   };
 
-  struct DeletePrefixRequest {
-    Promise<std::int64_t> promise;
-    Key prefix;
+  struct DeleteRangeRequest {
+    Promise<void> promise;
+    KeyRange range;
     void operator()(KeyValueStore::Ptr target) const {
-      Link(promise, target->DeletePrefix(prefix));
+      Link(promise, target->DeleteRange(range));
     }
   };
 
@@ -165,16 +165,16 @@ class MockKeyValueStore : public KeyValueStore {
     list_requests.push({options, std::move(receiver)});
   }
 
-  Future<std::int64_t> DeletePrefix(Key prefix) override {
-    auto [promise, future] = PromiseFuturePair<std::int64_t>::Make();
-    delete_prefix_requests.push({std::move(promise), std::move(prefix)});
+  Future<void> DeleteRange(KeyRange range) override {
+    auto [promise, future] = PromiseFuturePair<void>::Make();
+    delete_range_requests.push({std::move(promise), std::move(range)});
     return future;
   }
 
   ConcurrentQueue<ReadRequest> read_requests;
   ConcurrentQueue<WriteRequest> write_requests;
   ConcurrentQueue<ListRequest> list_requests;
-  ConcurrentQueue<DeletePrefixRequest> delete_prefix_requests;
+  ConcurrentQueue<DeleteRangeRequest> delete_range_requests;
 };
 
 /// Context resource for a `MockKeyValueStore`.

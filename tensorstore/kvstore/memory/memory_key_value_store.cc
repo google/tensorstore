@@ -21,7 +21,7 @@
 #include <utility>
 
 #include "absl/base/thread_annotations.h"
-#include "absl/container/flat_hash_map.h"
+#include "absl/container/btree_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
@@ -72,14 +72,22 @@ struct StoredKeyValuePairs
     }
   };
 
+  using Map = absl::btree_map<std::string, ValueWithGenerationNumber>;
+  std::pair<Map::iterator, Map::iterator> Find(const KeyRange& range)
+      ABSL_SHARED_LOCKS_REQUIRED(mutex) {
+    return {values.lower_bound(range.inclusive_min),
+            range.exclusive_max.empty()
+                ? values.end()
+                : values.lower_bound(range.exclusive_max)};
+  }
+
   absl::Mutex mutex;
   /// Next generation number to use when updating the value associated with a
   /// key.  Using a single per-store counter rather than a per-key counter
   /// ensures that creating a key, deleting it, then creating it again does
   /// not result in the same generation number being reused for a given key.
   std::size_t next_generation_number ABSL_GUARDED_BY(mutex) = 0;
-  absl::flat_hash_map<std::string, ValueWithGenerationNumber> values
-      ABSL_GUARDED_BY(mutex);
+  Map values ABSL_GUARDED_BY(mutex);
 };
 
 /// Defines the context resource (see `tensorstore/context.h`) that actually
@@ -167,7 +175,7 @@ class MemoryKeyValueStore
                                              std::optional<Value> value,
                                              WriteOptions options) override;
 
-  Future<std::int64_t> DeletePrefix(Key prefix) override;
+  Future<void> DeleteRange(KeyRange range) override;
 
   void ListImpl(const ListOptions& options,
                 AnyFlowReceiver<Status, Key> receiver) override;
@@ -281,20 +289,14 @@ Future<TimestampedStorageGeneration> MemoryKeyValueStore::Write(
   return GenerationNow({std::string(it->second.generation())});
 }
 
-Future<std::int64_t> MemoryKeyValueStore::DeletePrefix(Key prefix) {
+Future<void> MemoryKeyValueStore::DeleteRange(KeyRange range) {
   auto& data = this->data();
-  std::int64_t count = 0;
   absl::WriterMutexLock lock(&data.mutex);
-  auto& values = data.values;
-  for (auto it = values.begin(), end = values.end(); it != end;) {
-    auto next = std::next(it);
-    if (absl::StartsWith(it->first, prefix)) {
-      values.erase(it);
-      ++count;
-    }
-    it = next;
+  if (!range.empty()) {
+    auto it_range = data.Find(range);
+    data.values.erase(it_range.first, it_range.second);
   }
-  return count;
+  return MakeResult();
 }
 
 void MemoryKeyValueStore::ListImpl(const ListOptions& options,
@@ -308,13 +310,11 @@ void MemoryKeyValueStore::ListImpl(const ListOptions& options,
   // Collect the keys.
   std::deque<Key> keys;
   {
-    absl::WriterMutexLock lock(&data.mutex);
-    auto& values = data.values;
-    for (const auto& kv : values) {
+    absl::ReaderMutexLock lock(&data.mutex);
+    auto it_range = data.Find(options.range);
+    for (auto it = it_range.first; it != it_range.second; ++it) {
       if (cancelled.load(std::memory_order_relaxed)) break;
-      if (absl::StartsWith(kv.first, options.prefix)) {
-        keys.push_back(kv.first);
-      }
+      keys.push_back(it->first);
     }
   }
 

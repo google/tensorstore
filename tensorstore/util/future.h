@@ -1125,6 +1125,12 @@ void SetDeferredResult(const Promise<T>& promise, U&& result) {
   }
 }
 
+/// Waits for the future to be ready and returns the status.
+template <typename T>
+inline absl::Status GetStatus(const Future<T>& future) {
+  return tensorstore::GetStatus(future.result());
+}
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_FUTURE_H_

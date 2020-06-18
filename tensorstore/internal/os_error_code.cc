@@ -29,6 +29,7 @@ absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
       return absl::StatusCode::kOk;
     case ERROR_FILE_EXISTS:
     case ERROR_ALREADY_EXISTS:
+    case ERROR_DIR_NOT_EMPTY:
       return absl::StatusCode::kAlreadyExists;
     case ERROR_FILE_NOT_FOUND:
     case ERROR_PATH_NOT_FOUND:
@@ -96,6 +97,7 @@ absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
     case ENOENT:
       return absl::StatusCode::kNotFound;
     case EEXIST:
+    case ENOTEMPTY:
       return absl::StatusCode::kAlreadyExists;
     case ENOSPC:
     case ENOMEM:

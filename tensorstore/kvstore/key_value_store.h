@@ -97,6 +97,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/sender.h"
@@ -415,22 +416,21 @@ class KeyValueStore : public internal::AtomicReferenceCount<KeyValueStore> {
     return Write(key, std::nullopt, std::move(options));
   }
 
-  /// Deletes all keys starting with `prefix`.
+  /// Deletes all keys in the specified range.
   ///
   /// This operation is not guaranteed to be atomic with respect to other
-  /// operations affecting keys starting with `prefix`.  If there are concurrent
-  /// writes to keys starting with `prefix`, this operation may fail with an
-  /// error or indicate success despite not having removed the newly-added keys.
+  /// operations affecting keys in `range`.  If there are concurrent writes to
+  /// keys in `range`, this operation may fail with an error or indicate success
+  /// despite not having removed the newly-added keys.
   ///
   /// \returns A Future that becomes ready when the operation has completed
-  ///     either successfully or with an error.  If it becomes ready in a
-  ///     success state, the contained value is the number of keys deleted.
-  virtual Future<std::int64_t> DeletePrefix(Key prefix);
+  ///     either successfully or with an error.
+  virtual Future<void> DeleteRange(KeyRange range);
 
   /// Options for `List`.
   struct ListOptions {
-    /// Only keys starting with this prefix are emitted.
-    Key prefix;
+    /// Only keys in this range are emitted.
+    KeyRange range;
   };
 
   /// Implementation of `List` that driver implementations must define.

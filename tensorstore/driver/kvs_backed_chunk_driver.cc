@@ -743,7 +743,8 @@ struct HandleKeyValueStoreReady {
                           std::placeholders::_1),
                 std::move(promise),
                 GetMetadataCache(*state_ptr)
-                    ->base_store_->DeletePrefix(std::move(prefix_for_delete)));
+                    ->base_store_->DeleteRange(
+                        KeyRange::Prefix(std::move(prefix_for_delete))));
       return;
     }
     // Immediately proceed with reading/creating the metadata.

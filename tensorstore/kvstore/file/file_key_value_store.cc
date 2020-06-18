@@ -178,9 +178,23 @@ bool IsKeyValid(absl::string_view key) {
 
 Status ValidateKey(absl::string_view key) {
   if (!IsKeyValid(key)) {
-    return absl::InvalidArgumentError(absl::StrCat("Invalid key: ", key));
+    return absl::InvalidArgumentError(
+        absl::StrCat("Invalid key: ", tensorstore::QuoteString(key)));
   }
   return absl::OkStatus();
+}
+
+absl::string_view LongestDirectoryPrefix(const KeyRange& range) {
+  absl::string_view prefix = tensorstore::LongestPrefix(range);
+  const size_t i = prefix.rfind('/');
+  if (i == absl::string_view::npos) return {};
+  return prefix.substr(0, i);
+}
+
+absl::Status ValidateKeyRange(const KeyRange& range) {
+  auto prefix = LongestDirectoryPrefix(range);
+  if (prefix.empty()) return absl::OkStatus();
+  return ValidateKey(prefix);
 }
 
 // Encode in the generation fields that uniquely identify the file.
@@ -534,14 +548,27 @@ struct DeleteTask {
   }
 };
 
-struct PathPrefixVisitor {
+struct PathRangeVisitor {
+  KeyRange range;
   std::string prefix;
-  std::vector<std::unique_ptr<internal_file_util::DirectoryIterator>>
-      pending_dirs;
 
-  Status Visit(tensorstore::FunctionView<bool()> is_cancelled,
-               tensorstore::FunctionView<Status()> handle_file_at,
-               tensorstore::FunctionView<Status()> handle_dir_at) {
+  PathRangeVisitor(KeyRange range)
+      : range(std::move(range)), prefix(LongestDirectoryPrefix(this->range)) {}
+
+  struct PendingDir {
+    std::unique_ptr<internal_file_util::DirectoryIterator> iterator;
+    /// Indicates whether this directory is fully (rather than partially)
+    /// contained in `range`.  If `true`, we can save the cost of checking
+    /// whether every (recursive) child entry is contained in `range`.
+    bool fully_contained;
+  };
+
+  std::vector<PendingDir> pending_dirs;
+
+  Status Visit(
+      tensorstore::FunctionView<bool()> is_cancelled,
+      tensorstore::FunctionView<Status()> handle_file_at,
+      tensorstore::FunctionView<Status(bool fully_contained)> handle_dir_at) {
     auto status = VisitImpl(is_cancelled, handle_file_at, handle_dir_at);
     if (!status.ok()) {
       return MaybeAnnotateStatus(status,
@@ -550,9 +577,10 @@ struct PathPrefixVisitor {
     return absl::OkStatus();
   }
 
-  Status VisitImpl(tensorstore::FunctionView<bool()> is_cancelled,
-                   tensorstore::FunctionView<Status()> handle_file_at,
-                   tensorstore::FunctionView<Status()> handle_dir_at) {
+  Status VisitImpl(
+      tensorstore::FunctionView<bool()> is_cancelled,
+      tensorstore::FunctionView<Status()> handle_file_at,
+      tensorstore::FunctionView<Status(bool fully_contained)> handle_dir_at) {
     // First, try and open the prefix as a directory.
     TENSORSTORE_RETURN_IF_ERROR(EnqueueDirectory());
 
@@ -561,15 +589,22 @@ struct PathPrefixVisitor {
       if (is_cancelled()) {
         return absl::CancelledError("");
       }
-      if (auto& iterator = *pending_dirs.back(); iterator.Next()) {
+      bool fully_contained = pending_dirs.back().fully_contained;
+      if (auto& iterator = *pending_dirs.back().iterator; iterator.Next()) {
         const absl::string_view name_view = iterator.path_component();
         if (name_view != "." && name_view != "..") {
           if (iterator.is_directory()) {
-            TENSORSTORE_RETURN_IF_ERROR(EnqueueDirectory());
+            if (fully_contained ||
+                tensorstore::IntersectsPrefix(range, GetFullDirPath())) {
+              TENSORSTORE_RETURN_IF_ERROR(EnqueueDirectory());
+            }
           } else {
             // Treat the entry as a file; while this may not be strictly the
             // case, it is a reasonable default.
-            TENSORSTORE_RETURN_IF_ERROR(handle_file_at());
+            if (fully_contained ||
+                tensorstore::Contains(range, GetFullPath())) {
+              TENSORSTORE_RETURN_IF_ERROR(handle_file_at());
+            }
           }
         }
         continue;
@@ -578,7 +613,7 @@ struct PathPrefixVisitor {
       // No more entries were encountered in the directory, so finish handling
       // the current directory.
       pending_dirs.pop_back();
-      TENSORSTORE_RETURN_IF_ERROR(handle_dir_at());
+      TENSORSTORE_RETURN_IF_ERROR(handle_dir_at(fully_contained));
     }
 
     return absl::OkStatus();
@@ -588,7 +623,7 @@ struct PathPrefixVisitor {
     if (pending_dirs.empty()) {
       return internal_file_util::DirectoryIterator::Entry::FromPath(prefix);
     } else {
-      return pending_dirs.back()->GetEntry();
+      return pending_dirs.back().iterator->GetEntry();
     }
   }
 
@@ -599,45 +634,58 @@ struct PathPrefixVisitor {
       return StatusFromErrno("Failed to open directory");
     }
     if (iterator) {
-      pending_dirs.push_back(std::move(iterator));
+      bool fully_contained =
+          (!pending_dirs.empty() && pending_dirs.back().fully_contained) ||
+          tensorstore::ContainsPrefix(range, GetFullDirPath());
+      pending_dirs.push_back({std::move(iterator), fully_contained});
     }
     return absl::OkStatus();
   }
 
   std::string GetFullPath() {
     std::string path = prefix;
-    for (const auto& iterator : pending_dirs) {
+    for (const auto& entry : pending_dirs) {
       const char* slash =
           (!path.empty() && path[path.size() - 1] != '/') ? "/" : "";
-      AppendToString(&path, slash, iterator->path_component());
+      AppendToString(&path, slash, entry.iterator->path_component());
+    }
+    return path;
+  }
+
+  std::string GetFullDirPath() {
+    std::string path = GetFullPath();
+    if (!path.empty() && path.back() != '/') {
+      path += '/';
     }
     return path;
   }
 };
 
-struct DeletePrefixTask {
-  std::string prefix;
+struct DeleteRangeTask {
+  KeyRange range;
 
-  void operator()(Promise<std::int64_t> promise) {
-    PathPrefixVisitor visitor{prefix};
+  void operator()(Promise<void> promise) {
+    PathRangeVisitor visitor(range);
     auto is_cancelled = [&promise] { return !promise.result_needed(); };
-    auto remove_directory = [&] {
+    auto remove_directory = [&](bool fully_contained) {
+      if (!fully_contained) {
+        return absl::OkStatus();
+      }
       const auto entry = visitor.GetCurrentEntry();
-      if (entry.Delete(/*is_directory=*/true) ||
-          GetOsErrorStatusCode(GetLastErrorCode()) ==
-              absl::StatusCode::kNotFound) {
+      if (entry.Delete(/*is_directory=*/true)) {
+        return absl::OkStatus();
+      }
+      auto status_code = GetOsErrorStatusCode(GetLastErrorCode());
+      if (status_code == absl::StatusCode::kNotFound ||
+          status_code == absl::StatusCode::kAlreadyExists) {
         return absl::OkStatus();
       }
       return StatusFromErrno("Failed to remove directory");
     };
-    std::int64_t count = 0;
     auto delete_file = [&] {
       auto entry = visitor.GetCurrentEntry();
       if (entry.Delete(/*is_directory=*/false)) {
-        if (!absl::EndsWith(visitor.pending_dirs.back()->path_component(),
-                            kLockSuffix)) {
-          count++;
-        }
+        // File deleted.
       } else if (GetOsErrorStatusCode(GetLastErrorCode()) !=
                  absl::StatusCode::kNotFound) {
         return StatusFromErrno("Failed to remove file");
@@ -645,22 +693,18 @@ struct DeletePrefixTask {
       return absl::OkStatus();
     };
 
-    auto status = visitor.Visit(is_cancelled, delete_file, remove_directory);
-    if (!status.ok()) {
-      promise.SetResult(status);
-    } else {
-      promise.SetResult(count);
-    }
+    promise.SetResult(
+        MakeResult(visitor.Visit(is_cancelled, delete_file, remove_directory)));
   }
 };
 
 struct ListTask {
-  std::string full_path;
+  KeyRange range;
   std::size_t prefix_size;
   AnyFlowReceiver<absl::Status, KeyValueStore::Key> receiver;
 
   void operator()() {
-    PathPrefixVisitor visitor{full_path};
+    PathRangeVisitor visitor(range);
 
     std::atomic<bool> cancelled = false;
     execution::set_starting(receiver, [&cancelled] {
@@ -676,7 +720,7 @@ struct ListTask {
       }
       return absl::OkStatus();
     };
-    auto handle_dir_at = [] { return absl::OkStatus(); };
+    auto handle_dir_at = [](bool fully_contained) { return absl::OkStatus(); };
 
     auto status = visitor.Visit(is_cancelled, handle_file_at, handle_dir_at);
     if (!status.ok() && !is_cancelled()) {
@@ -757,43 +801,45 @@ class FileKeyValueStore
     }
   }
 
-  Future<std::int64_t> DeletePrefix(Key prefix) override {
-    if (!prefix.empty()) {
-      if (prefix[prefix.size() - 1] != '/') {
-        return absl::InvalidArgumentError(
-            "Prefix must be empty or end with '/'");
-      }
-      absl::string_view prefix_to_validate = prefix;
-      prefix_to_validate.remove_suffix(1);
-      TENSORSTORE_RETURN_IF_ERROR(ValidateKey(prefix_to_validate));
+  KeyRange GetFullKeyRange(const KeyRange& range) {
+    KeyRange full_range;
+    // We can't use `internal::JoinPath`, because we need "/" to be added
+    // consistently.
+    full_range.inclusive_min = absl::StrCat(root(), "/", range.inclusive_min);
+    if (range.exclusive_max.empty()) {
+      full_range.exclusive_max =
+          KeyRange::PrefixExclusiveMax(absl::StrCat(root(), "/"));
+    } else {
+      full_range.exclusive_max = absl::StrCat(root(), "/", range.exclusive_max);
     }
-    return PromiseFuturePair<std::int64_t>::Link(
-               WithExecutor(executor(), DeletePrefixTask{internal::JoinPath(
-                                            root(), prefix)}))
+    return full_range;
+  }
+
+  Future<void> DeleteRange(KeyRange range) override {
+    if (range.empty()) return MakeResult();
+    TENSORSTORE_RETURN_IF_ERROR(ValidateKeyRange(range));
+    return PromiseFuturePair<void>::Link(
+               WithExecutor(executor(),
+                            DeleteRangeTask{GetFullKeyRange(range)}))
         .future;
   }
 
   void ListImpl(const ListOptions& options,
                 AnyFlowReceiver<Status, Key> receiver) override {
-    if (!options.prefix.empty()) {
-      if (options.prefix[options.prefix.size() - 1] != '/') {
-        execution::set_error(
-            receiver,
-            absl::InvalidArgumentError("Prefix must be empty or end with '/'"));
-        execution::set_stopping(receiver);
-        return;
-      }
-      absl::string_view prefix_to_validate = options.prefix;
-      prefix_to_validate.remove_suffix(1);
-      auto status = ValidateKey(prefix_to_validate);
-      if (!status.ok()) {
-        execution::set_error(receiver, std::move(status));
-        execution::set_stopping(receiver);
-        return;
-      }
+    if (options.range.empty()) {
+      execution::set_starting(receiver, [] {});
+      execution::set_done(receiver);
+      execution::set_stopping(receiver);
+      return;
     }
-    executor()(ListTask{internal::JoinPath(root(), options.prefix),
-                        root().size() + 1, std::move(receiver)});
+    if (auto error = ValidateKeyRange(options.range); !error.ok()) {
+      execution::set_starting(receiver, [] {});
+      execution::set_error(receiver, std::move(error));
+      execution::set_stopping(receiver);
+      return;
+    }
+    executor()(ListTask{GetFullKeyRange(options.range), root().size() + 1,
+                        std::move(receiver)});
   }
   const Executor& executor() { return spec_.file_io_concurrency->executor; }
   const std::string& root() { return spec_.path; }

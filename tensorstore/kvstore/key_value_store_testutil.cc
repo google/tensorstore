@@ -498,8 +498,8 @@ class RegisteredMockKeyValueStore
     base()->ListImpl(std::move(options), std::move(receiver));
   }
 
-  Future<std::int64_t> DeletePrefix(Key prefix) override {
-    return base()->DeletePrefix(std::move(prefix));
+  Future<void> DeleteRange(KeyRange range) override {
+    return base()->DeleteRange(std::move(range));
   }
 
   MockKeyValueStore* base() { return base_->get(); }

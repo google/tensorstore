@@ -224,25 +224,35 @@ GCSMockStorageBucket::HandleListRequest(absl::string_view path,
     }
     break;
   }
-  absl::string_view prefix;
-  for (auto it = params.find("prefix"); it != params.end();) {
-    prefix = it->second;
-    break;
+
+  absl::string_view start_offset;
+  Map::const_iterator object_it;
+  if (auto it = params.find("pageToken"); it != params.end()) {
+    start_offset = it->second;
+    object_it = data_.upper_bound(it->second);
+  } else if (auto it = params.find("startOffset"); it != params.end()) {
+    start_offset = it->second;
+    object_it = data_.lower_bound(start_offset);
+  } else {
+    object_it = data_.begin();
   }
 
-  auto object_it = data_.lower_bound(std::string(prefix));
-  for (auto it = params.find("pageToken"); it != params.end();) {
-    object_it = data_.upper_bound(std::string(it->second));
-    break;
+  Map::const_iterator object_end_it;
+  if (auto it = params.find("endOffset"); it != params.end()) {
+    absl::string_view end_offset = it->second;
+    if (end_offset <= start_offset) {
+      object_end_it = object_it;
+    } else {
+      object_end_it = data_.lower_bound(end_offset);
+    }
+  } else {
+    object_end_it = data_.end();
   }
 
   // NOTE: Use ::nlohmann::json to construct json objects & dump the response.
   std::string result(kPrefix);
   bool add_comma = false;
-  for (; object_it != data_.end(); object_it++) {
-    if (!prefix.empty() && !absl::StartsWith(object_it->first, prefix)) {
-      continue;
-    }
+  for (; object_it != object_end_it; ++object_it) {
     if (add_comma) {
       absl::StrAppend(&result, ",\n");
     }
@@ -250,7 +260,7 @@ GCSMockStorageBucket::HandleListRequest(absl::string_view path,
     add_comma = true;
     if (maxResults-- <= 0) break;
   }
-  if (object_it == data_.end()) {
+  if (object_it == object_end_it) {
     absl::StrAppend(&result, kShortSuffix);
   } else {
     absl::StrAppend(&result, absl::Substitute(kSuffix, object_it->first));

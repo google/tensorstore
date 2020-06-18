@@ -66,6 +66,27 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "key_range",
+    srcs = ["key_range.cc"],
+    hdrs = ["key_range.h"],
+    deps = [
+        "//tensorstore/util:quote_string",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "key_range_test",
+    size = "small",
+    srcs = ["key_range_test.cc"],
+    deps = [
+        ":key_range",
+        "//tensorstore/util:to_string",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "key_value_store",
     srcs = ["key_value_store.cc"],
     hdrs = [
@@ -75,6 +96,7 @@ tensorstore_cc_library(
     deps = [
         ":byte_range",
         ":generation",
+        ":key_range",
         "//tensorstore:context",
         "//tensorstore/internal:context_binding",
         "//tensorstore/internal:intrusive_ptr",

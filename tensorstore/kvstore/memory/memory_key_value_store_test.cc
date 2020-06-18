@@ -35,6 +35,7 @@
 namespace {
 
 using tensorstore::Context;
+using tensorstore::KeyRange;
 using tensorstore::KeyValueStore;
 using tensorstore::MatchesStatus;
 using tensorstore::Status;
@@ -46,18 +47,16 @@ TEST(MemoryKeyValueStoreTest, Basic) {
   tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
 }
 
-TEST(MemoryKeyValueStoreTest, DeletePrefix) {
+TEST(MemoryKeyValueStoreTest, DeleteRange) {
   auto store = tensorstore::GetMemoryKeyValueStore();
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/b", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/d", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/x", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/y", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/z/e", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/z/f", "xyz").result()));
+  TENSORSTORE_EXPECT_OK(store->Write("a/b", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/d", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", "xyz"));
 
-  // Unlike the file-backed store, the memory-backed store does not require
-  // that DeletePrefix ends in any particular character.
-  EXPECT_EQ(4, store->DeletePrefix("a/c").result());
+  TENSORSTORE_EXPECT_OK(store->DeleteRange(KeyRange::Prefix("a/c")));
 
   EXPECT_EQ("xyz", store->Read("a/b").value().value);
   EXPECT_EQ("xyz", store->Read("a/d").value().value);
@@ -73,23 +72,23 @@ TEST(MemoryKeyValueStoreTest, List) {
 
   {
     std::vector<std::string> log;
-    tensorstore::execution::submit(store->List({""}),
+    tensorstore::execution::submit(store->List({}),
                                    tensorstore::LoggingReceiver{&log});
     EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_done",
                                             "set_stopping"));
   }
 
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/b", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/d", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/x", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/y", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/z/e", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/z/f", "xyz").result()));
+  TENSORSTORE_EXPECT_OK(store->Write("a/b", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/d", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", "xyz"));
 
   // Listing the entire stream works.
   {
     std::vector<std::string> log;
-    tensorstore::execution::submit(store->List({""}),
+    tensorstore::execution::submit(store->List({}),
                                    tensorstore::LoggingReceiver{&log});
 
     EXPECT_THAT(
@@ -102,7 +101,7 @@ TEST(MemoryKeyValueStoreTest, List) {
   // Listing a subset of the stream works.
   {
     std::vector<std::string> log;
-    tensorstore::execution::submit(store->List({"a/c/"}),
+    tensorstore::execution::submit(store->List({KeyRange::Prefix("a/c/")}),
                                    tensorstore::LoggingReceiver{&log});
 
     EXPECT_THAT(log, ::testing::UnorderedElementsAre(
@@ -121,7 +120,7 @@ TEST(MemoryKeyValueStoreTest, List) {
 
   {
     std::vector<std::string> log;
-    tensorstore::execution::submit(store->List({""}), CancelOnStarting{{&log}});
+    tensorstore::execution::submit(store->List({}), CancelOnStarting{{&log}});
 
     EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_done",
                                             "set_stopping"));
@@ -147,7 +146,7 @@ TEST(MemoryKeyValueStoreTest, List) {
 
   {
     std::vector<std::string> log;
-    tensorstore::execution::submit(store->List({""}), CancelAfter2{{&log}});
+    tensorstore::execution::submit(store->List({}), CancelAfter2{{&log}});
 
     EXPECT_THAT(log,
                 ::testing::ElementsAre(
@@ -165,7 +164,7 @@ TEST(MemoryKeyValueStoreTest, Open) {
   {
     auto store =
         KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value();
-    ASSERT_EQ(Status(), GetStatus(store->Write("key", "value").result()));
+    TENSORSTORE_ASSERT_OK(store->Write("key", "value"));
 
     {
       auto store2 =

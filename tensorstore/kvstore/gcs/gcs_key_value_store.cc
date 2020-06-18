@@ -323,8 +323,6 @@ class GcsKeyValueStore
                                              std::optional<Value> value,
                                              WriteOptions options) override;
 
-  Future<std::int64_t> DeletePrefix(Key prefix) override;
-
   void ListImpl(const ListOptions& options,
                 AnyFlowReceiver<Status, Key> receiver) override;
 
@@ -676,17 +674,18 @@ Future<TimestampedStorageGeneration> GcsKeyValueStore::Write(
   }
 }
 
-std::string BuildListQueryParameters(absl::string_view prefix,
-                                     absl::string_view delimiter,
+std::string BuildListQueryParameters(const KeyRange& range,
                                      absl::optional<int> max_results) {
   std::string result;
-  if (!prefix.empty()) {
-    result = absl::StrCat("prefix=",
-                          tensorstore::internal_http::CurlEscapeString(prefix));
+  if (!range.inclusive_min.empty()) {
+    result = absl::StrCat(
+        "startOffset=",
+        tensorstore::internal_http::CurlEscapeString(range.inclusive_min));
   }
-  if (!delimiter.empty()) {
-    auto d = tensorstore::internal_http::CurlEscapeString(delimiter);
-    absl::StrAppend(&result, (result.empty() ? "" : "&"), "delimiter=", d);
+  if (!range.exclusive_max.empty()) {
+    absl::StrAppend(
+        &result, (result.empty() ? "" : "&"), "endOffset=",
+        tensorstore::internal_http::CurlEscapeString(range.exclusive_max));
   }
   if (max_results.has_value()) {
     absl::StrAppend(&result, (result.empty() ? "" : "&"),
@@ -824,10 +823,6 @@ struct ListOp {
   }
 };
 
-Future<std::int64_t> GcsKeyValueStore::DeletePrefix(Key prefix) {
-  return absl::UnimplementedError("");
-}
-
 struct ListReceiver {
   AnyFlowReceiver<Status, KeyValueStore::Key> receiver;
 
@@ -863,7 +858,7 @@ void GcsKeyValueStore::ListImpl(const ListOptions& options,
   state->executor = executor();
   state->resource = tensorstore::internal::JoinPath(resource_root_, "/o");
   state->query_parameters =
-      BuildListQueryParameters(options.prefix, "", absl::nullopt);
+      BuildListQueryParameters(options.range, absl::nullopt);
   state->receiver.receiver = std::move(receiver);
 
   executor()(ListOp<ListReceiver>{state});

@@ -56,6 +56,7 @@ using tensorstore::CompletionNotifyingReceiver;
 using tensorstore::Context;
 using tensorstore::Future;
 using tensorstore::GCSMockStorageBucket;
+using tensorstore::KeyRange;
 using tensorstore::KeyValueStore;
 using tensorstore::MatchesStatus;
 using tensorstore::Status;
@@ -229,7 +230,7 @@ TEST(GCSKeyValueStoreTest, List) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({""}),
+        store->List({}),
         CompletionNotifyingReceiver{&notification,
                                     tensorstore::LoggingReceiver{&log}});
     notification.WaitForNotification();
@@ -238,22 +239,22 @@ TEST(GCSKeyValueStoreTest, List) {
   }
 
   // Listing an empty bucket via `ListFuture` works.
-  EXPECT_THAT(ListFuture(store.get(), {""}).result(),
+  EXPECT_THAT(ListFuture(store.get(), {}).result(),
               ::testing::Optional(::testing::ElementsAre()));
 
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/b", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/d", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/x", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/y", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/z/e", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/c/z/f", "xyz").result()));
+  TENSORSTORE_EXPECT_OK(store->Write("a/b", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/d", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", "xyz"));
 
   // Listing the entire stream via `List` works.
   {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({""}),
+        store->List({}),
         CompletionNotifyingReceiver{&notification,
                                     tensorstore::LoggingReceiver{&log}});
     notification.WaitForNotification();
@@ -265,7 +266,7 @@ TEST(GCSKeyValueStoreTest, List) {
   }
 
   // Listing the entire stream via `ListFuture` works.
-  EXPECT_THAT(ListFuture(store.get(), {""}).result(),
+  EXPECT_THAT(ListFuture(store.get(), {}).result(),
               ::testing::Optional(::testing::UnorderedElementsAre(
                   "a/d", "a/c/z/f", "a/c/y", "a/c/z/e", "a/c/x", "a/b")));
 
@@ -274,7 +275,7 @@ TEST(GCSKeyValueStoreTest, List) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({"a/c/"}),
+        store->List({KeyRange::Prefix("a/c/")}),
         CompletionNotifyingReceiver{&notification,
                                     tensorstore::LoggingReceiver{&log}});
     notification.WaitForNotification();
@@ -296,7 +297,7 @@ TEST(GCSKeyValueStoreTest, List) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({""}),
+        store->List({}),
         CompletionNotifyingReceiver{&notification, CancelOnStarting{{&log}}});
     notification.WaitForNotification();
     EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_done",
@@ -326,7 +327,7 @@ TEST(GCSKeyValueStoreTest, List) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({""}),
+        store->List({}),
         CompletionNotifyingReceiver{&notification, CancelAfter2{{&log}}});
     notification.WaitForNotification();
     EXPECT_THAT(log, ::testing::Contains("set_starting"));
@@ -342,7 +343,7 @@ TEST(GCSKeyValueStoreTest, List) {
   }
 
   // Listing a subset of the stream via `ListFuture` works.
-  EXPECT_THAT(ListFuture(store.get(), {"a/c/"}).result(),
+  EXPECT_THAT(ListFuture(store.get(), {KeyRange::Prefix("a/c/")}).result(),
               ::testing::Optional(::testing::UnorderedElementsAre(
                   "a/c/z/f", "a/c/y", "a/c/z/e", "a/c/x")));
 
@@ -409,9 +410,8 @@ TEST(GCSKeyValueStoreTest, RequestorPays) {
             .result();
     ASSERT_TRUE(store_result1.ok());
     ASSERT_TRUE(store_result2.ok());
-    EXPECT_EQ(Status(),
-              GetStatus((*store_result1)->Write("abc", "xyz").result()));
-    EXPECT_THAT(GetStatus((*store_result2)->Write("abc", "xyz").result()),
+    TENSORSTORE_EXPECT_OK((*store_result1)->Write("abc", "xyz"));
+    EXPECT_THAT(GetStatus((*store_result2)->Write("abc", "xyz")),
                 bucket2_status_matcher);
   };
 
@@ -491,15 +491,15 @@ TEST(GCSKeyValueStoreTest, Concurrency) {
     Context context{Context::Spec::FromJson(
                         {{"gcs_request_concurrency", {{"limit", limit}}}})
                         .value()};
-    auto store_result =
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
         KeyValueStore::Open(context,
                             {{"driver", "gcs"}, {"bucket", "my-bucket"}}, {})
-            .result();
-    ASSERT_TRUE(store_result.ok());
+            .result());
 
     std::vector<tensorstore::Future<KeyValueStore::ReadResult>> futures;
     for (size_t i = 0; i < 10 * limit; ++i) {
-      futures.push_back((*store_result)->Read("abc"));
+      futures.push_back(store->Read("abc"));
     }
     for (const auto& future : futures) {
       future.Wait();
