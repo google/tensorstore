@@ -76,7 +76,6 @@ tensorstore_cc_library(
         ":byte_range",
         ":generation",
         "//tensorstore:context",
-        "//tensorstore:staleness_bound",
         "//tensorstore/internal:context_binding",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json",

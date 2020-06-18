@@ -97,7 +97,6 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/staleness_bound.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/sender.h"
@@ -246,6 +245,38 @@ class KeyValueStoreSpec::Bound
   }
 };
 
+struct KeyValueStoreReadOptions {
+  /// The read is aborted if the generation associated with the stored `key`
+  /// matches `if_not_equal`.  The special values of
+  /// `StorageGeneration::Unknown()` (the default) or
+  /// `StorageGeneration::NoValue()` disable this condition.
+  StorageGeneration if_not_equal;
+
+  /// The read is aborted if the generation associated with `key` does not
+  /// match `if_equal`.  This is primarily useful in conjunction with a
+  /// `byte_range` request to ensure consistency.
+  ///
+  /// - The special value of `StorageGeneration::Unknown()` (the default)
+  ///   disables this condition.
+  ///
+  /// - The special value of `StorageGeneration::NoValue()` specifies a
+  ///   condition that the value not exist.  This condition is valid but of
+  ///   limited use since the only possible read results are "not found" and
+  ///   "aborted".
+  StorageGeneration if_equal;
+
+  /// Cached data may be used without validation if not older than
+  /// `staleness_bound`.  Cached data older than `staleness_bound` must be
+  /// validated before being returned.  A value of `absl::InfiniteFuture()` (the
+  /// default) indicates that the result must be current as of the time the
+  /// `Read` request was made, i.e. it is equivalent to specifying the value of
+  /// `absl::Now()` just before invoking `Read`.
+  absl::Time staleness_bound{absl::InfiniteFuture()};
+
+  /// Specifies the byte range.
+  OptionalByteRangeRequest byte_range;
+};
+
 /// Abstract base class representing a key-value store.
 ///
 /// Support for different storage systems is provided by individual key-value
@@ -334,38 +365,9 @@ class KeyValueStore : public internal::AtomicReferenceCount<KeyValueStore> {
     friend std::ostream& operator<<(std::ostream& os, const ReadResult& x);
   };
 
-  struct ReadOptions {
-    // Note: While it would be nice to use default member initializers to be
-    // more explicit about what the default values are, doing so would trigger
-    // Clang bug https://bugs.llvm.org/show_bug.cgi?id=36684.
-
-    /// The read is aborted if the generation associated with the stored `key`
-    /// matches `if_not_equal`.  The special values of
-    /// `StorageGeneration::Unknown()` (the default) or
-    /// `StorageGeneration::NoValue()` disable this condition.
-    StorageGeneration if_not_equal;
-
-    /// The read is aborted if the generation associated with `key` does not
-    /// match `if_equal`.  This is primarily useful in conjunction with a
-    /// `byte_range` request to ensure consistency.
-    ///
-    /// - The special value of `StorageGeneration::Unknown()` (the default)
-    ///   disables this condition.
-    ///
-    /// - The special value of `StorageGeneration::NoValue()` specifies a
-    ///   condition that the value not exist.  This condition is valid but of
-    ///   limited use since the only possible read results are "not found" and
-    ///   "aborted".
-    StorageGeneration if_equal;
-
-    /// Cached data may be used if not older than `staleness_bound`.  A value of
-    /// `absl::InfiniteFuture()` (the default) indicates that the result must be
-    /// current as of the time the `Read` request was made.
-    StalenessBound staleness_bound;
-
-    /// Specifies the byte range.
-    OptionalByteRangeRequest byte_range;
-  };
+  // Note: This is not defined directly as a nested class in order to work
+  // around Clang bug https://bugs.llvm.org/show_bug.cgi?id=36684.
+  using ReadOptions = KeyValueStoreReadOptions;
 
   /// Attempts to read the specified key.
   ///
