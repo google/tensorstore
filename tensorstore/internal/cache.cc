@@ -122,7 +122,7 @@ void EvictEntry(CacheEntryImpl* entry) noexcept ABSL_NO_THREAD_SAFETY_ANALYSIS {
     // Hold a reference to `cache` before releasing the mutex to ensure `cache`
     // is not destroyed.
     CachePtr<Cache> cache = AcquireCacheStrongPtr(entry->cache_);
-    internal::ScopedMutexUnlock unlock(&pool->mutex_);
+    internal::ScopedWriterUnlock unlock(pool->mutex_);
     Access::StaticCast<Cache>(entry->cache_)
         ->DoDeleteEntry(Access::StaticCast<CacheEntry>(entry));
     // Remove reference to cache while mutex is unlocked.  This may cause the
@@ -182,7 +182,7 @@ void RequestWriteback(CachePoolImpl* pool, CacheEntryImpl* entry) {
   // Acquire a reference to `entry` before releasing the mutex to ensure it
   // remains valid.
   StrongPtrTraitsCacheEntry::increment(Access::StaticCast<CacheEntry>(entry));
-  internal::ScopedMutexUnlock unlock(&pool->mutex_);
+  internal::ScopedWriterUnlock unlock(pool->mutex_);
   // Ensure that the reference to `entry` is released while the mutex is not
   // held to avoid deadlock.
   Access::StaticCast<Cache>(entry->cache_)
@@ -241,13 +241,13 @@ void DestroyCache(CacheImpl* cache) noexcept {
 }
 
 /// Decrements `*reference_count` in such a way that it only reaches zero while
-/// `*mutex` is held.
+/// `mutex` is held.
 ///
-/// If `*reference_count` was decremented to zero, returns a lock on `*mutex`.
-/// Otherwise, returns an unlocked `unique_lock`.
+/// If `*reference_count` was decremented to zero, returns a lock on `mutex`.
+/// Otherwise, returns an unlocked `UniqueWriterLock`.
 template <typename T>
-inline std::unique_lock<Mutex> DecrementReferenceCountWithLock(
-    std::atomic<T>* reference_count, Mutex* mutex) {
+inline UniqueWriterLock<absl::Mutex> DecrementReferenceCountWithLock(
+    std::atomic<T>* reference_count, absl::Mutex& mutex) {
   // If the new reference count will be > 0, we can simply decrement it.
   // However, if the reference count will possibly become 0, we must lock the
   // mutex before decrementing it to ensure that another thread doesn't
@@ -264,7 +264,7 @@ inline std::unique_lock<Mutex> DecrementReferenceCountWithLock(
 
   // Handle the case of the reference_count possibly becoming 0.
 
-  std::unique_lock<Mutex> lock(*mutex);
+  UniqueWriterLock lock(mutex);
   // Reference count may have changed between the time at which we last
   // checked it and the time at which we acquired the mutex.
   if (reference_count->fetch_sub(1, std::memory_order_acq_rel) != 1) {
@@ -281,7 +281,7 @@ void StrongPtrTraitsCacheEntry::decrement(CacheEntry* p) noexcept {
   auto* cache = entry->cache_;
   {
     auto lock = DecrementReferenceCountWithLock(&entry->reference_count_,
-                                                &cache->pool_->mutex_);
+                                                cache->pool_->mutex_);
     if (!lock) return;
     if (entry->queue_state_ == CacheEntryQueueState::clean_and_in_use) {
       SetStateAndSize(entry, CacheEntryQueueState::clean_and_not_in_use,
@@ -390,7 +390,7 @@ void StrongPtrTraitsCache::decrement(Cache* p) noexcept {
   auto* cache = Access::StaticCast<CacheImpl>(p);
   auto* pool = cache->pool_;
   auto lock = DecrementReferenceCountWithLock(&cache->reference_count_,
-                                              &cache->pool_->mutex_);
+                                              cache->pool_->mutex_);
   if (!lock) return;
   const bool owned_by_pool = !cache->cache_identifier_.empty();
 
@@ -439,7 +439,7 @@ void StrongPtrTraitsCachePool::increment(CachePool* p) noexcept {
 void StrongPtrTraitsCachePool::decrement(CachePool* p) noexcept {
   auto* pool = Access::StaticCast<CachePoolImpl>(p);
   auto lock =
-      DecrementReferenceCountWithLock(&pool->strong_references_, &pool->mutex_);
+      DecrementReferenceCountWithLock(&pool->strong_references_, pool->mutex_);
   if (!lock) return;
   std::vector<CachePtr<Cache>> caches;
   caches.reserve(pool->caches_.size());
@@ -482,7 +482,7 @@ void Cache::Entry::UpdateState(StateUpdate update) {
       internal_cache::Access::StaticCast<internal_cache::CacheImpl>(cache_);
   auto* pool = cache_impl->pool_;
   // Acquire `pool->mutex_` and then release `update.lock`.
-  std::unique_lock<Mutex> lock(pool->mutex_);
+  UniqueWriterLock lock(pool->mutex_);
   update.lock = nullptr;
   std::size_t old_num_bytes = num_bytes_;
   std::size_t new_num_bytes = update.new_size.value_or(old_num_bytes);

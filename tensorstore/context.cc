@@ -256,7 +256,7 @@ Result<ContextResourceImplStrongPtr> CreateResource(
   }
   context->resources_.insert(std::move(container));
   {
-    internal::ScopedMutexUnlock unlock(&context->root_->mutex_);
+    internal::ScopedWriterUnlock unlock(context->root_->mutex_);
     container_ptr->result_ = spec->CreateResource({context, container_ptr});
   }
   if (trigger) {
