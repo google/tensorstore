@@ -90,7 +90,6 @@
 
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
-#include "absl/types/optional.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/context_binding.h"
@@ -315,57 +314,66 @@ class KeyValueStore {
   using Ptr = PtrT<KeyValueStore>;
 
   struct ReadResult {
+    enum class State {
+      /// Indicates an unspecified value, used when a conditional read was
+      /// requested and the condition was not satisfied.  The `value` member
+      /// must be empty.
+      kUnspecified,
+      /// Indicates a missing value (not an error).  The `value` member must be
+      /// empty.
+      kMissing,
+      /// Indicates a value is present.
+      kValue
+    };
+
+    constexpr static State kUnspecified = State::kUnspecified;
+    constexpr static State kMissing = State::kMissing;
+    constexpr static State kValue = State::kValue;
+
+    friend std::ostream& operator<<(std::ostream& os, State state);
+
     ReadResult() = default;
 
-    ReadResult(std::optional<Value> value,
-               TimestampedStorageGeneration generation)
-        : value(std::move(value)), generation(std::move(generation)) {}
+    /// Constructs a `ReadResult` with the value unspecified.
+    ReadResult(TimestampedStorageGeneration stamp) : stamp(std::move(stamp)) {}
 
-    ReadResult(std::optional<Value> value, StorageGeneration generation,
-               absl::Time time)
-        : value(std::move(value)), generation(std::move(generation), time) {}
+    ReadResult(State state, Value value, TimestampedStorageGeneration stamp)
+        : state(state), value(std::move(value)), stamp(std::move(stamp)) {}
 
-    /// If engaged, specifies the value successfully read.  Otherwise, the value
-    /// of `generation` specifies whether the key was not found or the read was
-    /// aborted because the conditions were not satisfied.
-    std::optional<Value> value;
+    /// Indicates the interpretation of `value`.
+    State state = kUnspecified;
 
-    /// Generation associated with `value`.
-    ///
-    /// - If `value` is engaged, the `StorageGeneration` must not equal
-    ///   `StorageGeneration::Unknown()` or `StorageGeneration::NoValue()`.
-    ///
-    /// - Otherwise:
-    ///
-    ///   * The `StorageGeneration` equals `StorageGeneration::Unknown()` to
-    ///     indicate that the read was aborted because the conditions were not
-    ///     satisfied.
-    ///
-    ///   * If the `StorageGeneration` does not equal
-    ///     `StorageGeneration::Unknown()`, indicates that the key was not found
-    ///     and specifies the generation associated with the key not being
-    ///     present.  The generation in this case may equal
-    ///     `StorageGeneration::NoValue()`, but may also equal some other
-    ///     generation.
+    /// Specifies the value if `state == kValue`.  Otherwise must be empty.
+    Value value;
+
+    /// Generation and timestamp associated with `value` and `state`.
     ///
     /// The `time` must be greater than or equal to the `staleness_bound`
     /// specified in the `ReadOptions` (or the time of the read request, if a
     /// `staleness_bound` in the future was specified).
-    TimestampedStorageGeneration generation;
+    TimestampedStorageGeneration stamp;
 
     /// Returns `true` if the read was aborted because the conditions were not
     /// satisfied.
-    bool aborted() const {
-      return StorageGeneration::IsUnknown(generation.generation);
-    }
+    bool aborted() const { return state == kUnspecified; }
 
     /// Returns `true` if the key was not found.
-    bool not_found() const {
-      return !value && !StorageGeneration::IsUnknown(generation.generation);
+    bool not_found() const { return state == kMissing; }
+
+    bool has_value() const { return state == kValue; }
+
+    std::optional<Value> optional_value() const& {
+      if (state == kValue) return value;
+      return std::nullopt;
+    }
+
+    std::optional<Value> optional_value() && {
+      if (state == kValue) return std::move(value);
+      return std::nullopt;
     }
 
     friend bool operator==(const ReadResult& a, const ReadResult& b) {
-      return a.value == b.value && a.generation == b.generation;
+      return a.state == b.state && a.value == b.value && a.stamp == b.stamp;
     }
     friend bool operator!=(const ReadResult& a, const ReadResult& b) {
       return !(a == b);

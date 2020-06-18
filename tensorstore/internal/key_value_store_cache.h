@@ -129,14 +129,14 @@ class KeyValueStoreCache : public Parent {
             auto lock = entry->AcquireReadStateWriterLock();
             entry->current_read_generation.generation =
                 entry->last_read_generation;
-            entry->current_read_generation.time = result->generation.time;
+            entry->current_read_generation.time = result->stamp.time;
             GetOwningCache(entry)->NotifyReadSuccess(entry.get(),
                                                      std::move(lock));
             return;
           }
-          entry->current_read_generation = std::move(result->generation);
+          entry->current_read_generation = std::move(result->stamp);
           GetOwningCache(entry)->DoDecode(std::move(entry),
-                                          std::move(result->value));
+                                          std::move(result)->optional_value());
         }));
   }
 

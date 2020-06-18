@@ -161,7 +161,7 @@ class MinishardIndexKeyValueStore : public KeyValueStore {
           // Shard was modified since the index was read (case 2a above).
           // Retry.
           ReadOptions options;
-          options.staleness_bound = r->generation.time;
+          options.staleness_bound = r->stamp.time;
           self->DoRead(std::move(promise), split_info, std::move(options));
           return;
         }
@@ -202,7 +202,7 @@ class MinishardIndexKeyValueStore : public KeyValueStore {
         }
         // Read was successful (case 1c above).
         TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
-                                     DecodeShardIndexEntry(*r->value),
+                                     DecodeShardIndexEntry(r->value),
                                      SetError(promise, _));
         TENSORSTORE_ASSIGN_OR_RETURN(
             byte_range,
@@ -210,14 +210,15 @@ class MinishardIndexKeyValueStore : public KeyValueStore {
             SetError(promise, _));
         if (byte_range.size() == 0) {
           // Minishard index is 0 bytes, which means the minishard is empty.
-          r->value = std::nullopt;
+          r->value.clear();
+          r->state = KeyValueStore::ReadResult::kMissing;
           promise.SetResult(std::move(r));
           return;
         }
         KeyValueStore::ReadOptions kvs_read_options;
         // The `if_equal` condition ensure that an "aborted" `ReadResult` is
         // returned in the case of a concurrent modification (case 2a above).
-        kvs_read_options.if_equal = std::move(r->generation.generation);
+        kvs_read_options.if_equal = std::move(r->stamp.generation);
         kvs_read_options.staleness_bound = staleness_bound;
         kvs_read_options.byte_range = byte_range;
         auto read_future =
@@ -869,29 +870,30 @@ struct MinishardIndexCacheEntryReadyCallback {
   ReadOptions options_;
   void operator()(Promise<ReadResult> promise, ReadyFuture<const void>) {
     std::optional<ByteRange> byte_range;
-    TimestampedStorageGeneration generation;
+    TimestampedStorageGeneration stamp;
+    KeyValueStore::ReadResult::State state;
     {
       auto lock = entry_->AcquireReadStateReaderLock();
-      generation.time = entry_->last_read_time;
+      stamp.generation = entry_->last_read_generation;
+      stamp.time = entry_->last_read_time;
       if (!StorageGeneration::IsNoValue(entry_->last_read_generation) &&
           (options_.if_not_equal == entry_->last_read_generation ||
            (!StorageGeneration::IsUnknown(options_.if_equal) &&
             options_.if_equal != entry_->last_read_generation))) {
-        generation.generation = StorageGeneration::Unknown();
+        state = KeyValueStore::ReadResult::kUnspecified;
       } else {
         byte_range = FindChunkInMinishard(entry_->minishard_index_, chunk_id_);
-        generation.generation = entry_->last_read_generation;
+        state = KeyValueStore::ReadResult::kMissing;
       }
     }
     if (!byte_range) {
-      promise.SetResult(ReadResult{/*value=*/std::nullopt,
-                                   /*generation=*/std::move(generation)});
+      promise.SetResult(ReadResult{state, {}, std::move(stamp)});
       return;
     }
-    assert(!StorageGeneration::IsUnknown(generation.generation));
+    assert(!StorageGeneration::IsUnknown(stamp.generation));
     auto* cache = GetOwningCache(entry_);
     ReadOptions kvs_read_options;
-    kvs_read_options.if_equal = generation.generation;
+    kvs_read_options.if_equal = stamp.generation;
     kvs_read_options.staleness_bound = options_.staleness_bound;
     assert(options_.byte_range.SatisfiesInvariants());
     OptionalByteRangeRequest post_decode_byte_range;
@@ -937,20 +939,19 @@ struct MinishardIndexCacheEntryReadyCallback {
             return;
           }
           if (data_encoding != ShardingSpec::DataEncoding::raw) {
-            auto result = DecodeData(*r->value, data_encoding);
+            auto result = DecodeData(r->value, data_encoding);
             if (!result) {
               promise.SetResult(
                   absl::FailedPreconditionError(result.status().message()));
               return;
             } else {
-              *r->value = *result;
+              r->value = *result;
             }
           }
           TENSORSTORE_ASSIGN_OR_RETURN(
-              auto byte_range,
-              post_decode_byte_range.Validate(r->value->size()),
+              auto byte_range, post_decode_byte_range.Validate(r->value.size()),
               static_cast<void>(promise.SetResult(_)));
-          *r->value = internal::GetSubString(std::move(*r->value), byte_range);
+          r->value = internal::GetSubString(std::move(r->value), byte_range);
           promise.SetResult(std::move(r));
         },
         std::move(promise),

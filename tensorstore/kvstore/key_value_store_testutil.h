@@ -65,19 +65,23 @@ template <typename ValueMatcher>
     ::testing::Matcher<StorageGeneration> generation = ::testing::_,
     ::testing::Matcher<absl::Time> time = ::testing::_) {
   using ReadResult = KeyValueStore::ReadResult;
-  ::testing::Matcher<std::optional<std::string>> value_matcher;
+  ::testing::Matcher<KeyValueStore::ReadResult::State> state_matcher;
+  ::testing::Matcher<std::string> value_matcher;
   if constexpr (std::is_convertible_v<ValueMatcher,
                                       ::testing::Matcher<std::string>>) {
-    value_matcher = ::testing::Optional(::testing::Matcher<std::string>(value));
+    value_matcher = ::testing::Matcher<std::string>(value);
+    state_matcher = KeyValueStore::ReadResult::kValue;
   } else {
-    static_assert(
-        std::is_convertible_v<ValueMatcher,
-                              ::testing::Matcher<std::optional<std::string>>>);
-    value_matcher = ::testing::Matcher<std::optional<std::string>>(value);
+    static_assert(std::is_convertible_v<
+                  ValueMatcher,
+                  ::testing::Matcher<KeyValueStore::ReadResult::State>>);
+    value_matcher = "";
+    state_matcher = ::testing::Matcher<KeyValueStore::ReadResult::State>(value);
   }
   return ::testing::Optional(::testing::AllOf(
+      ::testing::Field("state", &ReadResult::state, state_matcher),
       ::testing::Field("value", &ReadResult::value, value_matcher),
-      ::testing::Field("generation", &ReadResult::generation,
+      ::testing::Field("stamp", &ReadResult::stamp,
                        MatchesTimestampedStorageGeneration(generation, time))));
 }
 
@@ -92,7 +96,7 @@ template <typename ValueMatcher>
 inline ::testing::Matcher<Result<KeyValueStore::ReadResult>>
 MatchesKvsReadResultNotFound(
     ::testing::Matcher<absl::Time> time = ::testing::_) {
-  return MatchesKvsReadResult(std::optional<std::string>(std::nullopt),
+  return MatchesKvsReadResult(KeyValueStore::ReadResult::kMissing,
                               ::testing::Not(StorageGeneration::Unknown()),
                               time);
 }
@@ -101,8 +105,8 @@ MatchesKvsReadResultNotFound(
 inline ::testing::Matcher<Result<KeyValueStore::ReadResult>>
 MatchesKvsReadResultAborted(
     ::testing::Matcher<absl::Time> time = ::testing::_) {
-  return MatchesKvsReadResult(std::optional<std::string>(std::nullopt),
-                              StorageGeneration::Unknown(), time);
+  return MatchesKvsReadResult(KeyValueStore::ReadResult::kUnspecified,
+                              ::testing::_, time);
 }
 
 /// Mock KeyValueStore that simply records requests in a queue.

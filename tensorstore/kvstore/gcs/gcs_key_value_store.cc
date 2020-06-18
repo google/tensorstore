@@ -423,13 +423,13 @@ struct ReadTask {
     auto request = request_builder.EnableAcceptEncoding()
                        .AddHeader(auth_header)
                        .BuildRequest();
-    KeyValueStore::ReadResult value;
+    KeyValueStore::ReadResult read_result;
 
     // TODO: Configure timeouts.
     HttpResponse httpresponse;
     auto retry_status = internal::RetryWithBackoff(
         [&] {
-          value.generation.time = absl::Now();
+          read_result.stamp.time = absl::Now();
           auto response = owner->IssueRequest("ReadTask", request, {});
           if (!response.ok()) return GetStatus(response);
           httpresponse = std::move(*response);
@@ -449,22 +449,26 @@ struct ReadTask {
       case 204:
       case 404:
         // Object not found.
-        value.generation.generation = StorageGeneration::NoValue();
-        return value;
+        read_result.stamp.generation = StorageGeneration::NoValue();
+        read_result.state = KeyValueStore::ReadResult::kMissing;
+        return read_result;
       case 412:
         // "Failed precondition": indicates the ifGenerationMatch condition did
         // not hold.
+        read_result.stamp.generation = StorageGeneration::Unknown();
+        return read_result;
       case 304:
         // "Not modified": indicates that the ifGenerationNotMatch condition did
         // not hold.
-        value.generation.generation = StorageGeneration::Unknown();
-        return value;
+        read_result.stamp.generation = options.if_not_equal;
+        return read_result;
     }
 
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto byte_range,
         GetHttpResponseByteRange(httpresponse, options.byte_range));
-    value.value =
+    read_result.state = KeyValueStore::ReadResult::kValue;
+    read_result.value =
         internal::GetSubString(std::move(httpresponse.payload), byte_range);
 
     // TODO: Avoid parsing the entire metadata & only extract the
@@ -472,9 +476,9 @@ struct ReadTask {
     ObjectMetadata metadata;
     SetObjectMetadataFromHeaders(httpresponse.headers, &metadata);
 
-    value.generation.generation =
+    read_result.stamp.generation =
         StorageGeneration{absl::StrCat(metadata.generation)};
-    return value;
+    return read_result;
   }
 };
 

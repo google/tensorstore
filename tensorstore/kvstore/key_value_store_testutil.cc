@@ -75,7 +75,7 @@ StorageGeneration GetStorageGeneration(KeyValueStore::Ptr store,
   auto get = store->Read(key).result();
   StorageGeneration gen;
   if (GetStatus(get).ok()) {
-    gen = get->generation.generation;
+    gen = get->stamp.generation;
   }
   return gen;
 }
@@ -427,7 +427,7 @@ Result<std::map<std::string, std::string>> GetMap(KeyValueStore::Ptr kv_store) {
                                  kv_store->Read(key).result());
     assert(!read_result.aborted());
     assert(!read_result.not_found());
-    result.emplace(key, *read_result.value);
+    result.emplace(key, read_result.value);
   }
   return result;
 }

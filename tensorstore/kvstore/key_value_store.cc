@@ -97,9 +97,36 @@ Future<KeyValueStore::Ptr> KeyValueStoreSpec::Open(
       [](const BoundPtr& bound_spec) { return bound_spec->Open(); });
 }
 
+std::ostream& operator<<(std::ostream& os,
+                         KeyValueStore::ReadResult::State state) {
+  switch (state) {
+    case KeyValueStore::ReadResult::kUnspecified:
+      os << "<unspecified>";
+      break;
+    case KeyValueStore::ReadResult::kMissing:
+      os << "<missing>";
+      break;
+    case KeyValueStore::ReadResult::kValue:
+      os << "<value>";
+      break;
+  }
+  return os;
+}
+
 std::ostream& operator<<(std::ostream& os, const KeyValueStore::ReadResult& x) {
-  return os << "{value=" << (x.value ? QuoteString(*x.value) : "nullopt")
-            << ", generation=" << x.generation << "}";
+  std::string value;
+  switch (x.state) {
+    case KeyValueStore::ReadResult::kUnspecified:
+      value = "<unspecified>";
+      break;
+    case KeyValueStore::ReadResult::kMissing:
+      value = "<missing>";
+      break;
+    case KeyValueStore::ReadResult::kValue:
+      value = tensorstore::QuoteString(x.value);
+      break;
+  }
+  return os << "{value=" << value << ", stamp=" << x.stamp << "}";
 }
 
 namespace internal {

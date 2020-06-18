@@ -337,22 +337,25 @@ struct ReadTask {
   KeyValueStore::ReadOptions options;
 
   Result<KeyValueStore::ReadResult> operator()() const {
-    KeyValueStore::ReadResult value;
-    value.generation.time = absl::Now();
+    KeyValueStore::ReadResult read_result;
+    read_result.stamp.time = absl::Now();
     std::int64_t size;
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto fd,
-        OpenValueFile(full_path.c_str(), &value.generation.generation, &size));
-    if (!fd.valid()) return value;
-    if (value.generation.generation == options.if_not_equal ||
+        OpenValueFile(full_path.c_str(), &read_result.stamp.generation, &size));
+    if (!fd.valid()) {
+      read_result.state = KeyValueStore::ReadResult::kMissing;
+      return read_result;
+    }
+    if (read_result.stamp.generation == options.if_not_equal ||
         (!StorageGeneration::IsUnknown(options.if_equal) &&
-         value.generation.generation != options.if_equal)) {
-      value.generation.generation = StorageGeneration::Unknown();
-      return value;
+         read_result.stamp.generation != options.if_equal)) {
+      return read_result;
     }
     TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
                                  options.byte_range.Validate(size));
-    auto& data = value.value.emplace();
+    read_result.state = KeyValueStore::ReadResult::kValue;
+    auto& data = read_result.value;
     data.resize(byte_range.size());
     std::size_t offset = 0;
     while (offset < data.size()) {
@@ -369,7 +372,7 @@ struct ReadTask {
       }
       return StatusFromErrno("Error reading file: ", full_path);
     }
-    return value;
+    return read_result;
   }
 };
 

@@ -228,12 +228,12 @@ TEST(FileKeyValueStoreTest, ConcurrentWrites) {
             value = new_value;
             break;
           }
-          auto read_result = store->Read(key).result();
-          ASSERT_EQ(Status(), GetStatus(read_result));
-          ASSERT_FALSE(read_result->aborted() || read_result->not_found());
-          value = *read_result->value;
+          TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read_result,
+                                           store->Read(key).result());
+          ASSERT_FALSE(read_result.aborted() || read_result.not_found());
+          value = read_result.value;
           ASSERT_EQ(sizeof(std::size_t) * num_threads, value.size());
-          generation = read_result->generation.generation;
+          generation = read_result.stamp.generation;
         }
       }
     }));
@@ -249,7 +249,7 @@ TEST(FileKeyValueStoreTest, ConcurrentWrites) {
       std::memcpy(const_cast<char*>(expected_value.data()),
                   expected_nums.data(), expected_value.size());
     }
-    EXPECT_THAT(read_result->value, ::testing::Optional(expected_value));
+    EXPECT_EQ(expected_value, read_result->value);
   }
 }
 

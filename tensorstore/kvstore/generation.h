@@ -130,7 +130,7 @@ struct TimestampedStorageGeneration {
   TimestampedStorageGeneration(StorageGeneration generation, absl::Time time)
       : generation(std::move(generation)), time(std::move(time)) {}
   StorageGeneration generation;
-  absl::Time time;
+  absl::Time time = absl::InfinitePast();
 
   friend bool operator==(const TimestampedStorageGeneration& a,
                          const TimestampedStorageGeneration& b) {

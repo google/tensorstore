@@ -221,23 +221,24 @@ Future<KeyValueStore::ReadResult> MemoryKeyValueStore::Read(
   auto it = values.find(key);
   if (it == values.end()) {
     // Key not found.
-    result.generation = GenerationNow(StorageGeneration::NoValue());
+    result.stamp = GenerationNow(StorageGeneration::NoValue());
+    result.state = KeyValueStore::ReadResult::kMissing;
     return result;
   }
   // Key found.
+  result.stamp =
+      GenerationNow(StorageGeneration{std::string(it->second.generation())});
   if (options.if_not_equal == it->second.generation() ||
       (!StorageGeneration::IsUnknown(options.if_equal) &&
        options.if_equal != it->second.generation())) {
     // Generation associated with `key` matches `if_not_equal`.  Abort.
-    result.generation = GenerationNow(StorageGeneration::Unknown());
     return result;
   }
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto byte_range, options.byte_range.Validate(it->second.value.size()));
+  result.state = KeyValueStore::ReadResult::kValue;
   result.value =
       std::string(internal::GetSubStringView(it->second.value, byte_range));
-  result.generation =
-      GenerationNow(StorageGeneration{std::string(it->second.generation())});
   return result;
 }
 
