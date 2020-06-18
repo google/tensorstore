@@ -224,6 +224,9 @@ void SetStateAndSize(CacheEntryImpl* entry, CacheEntryQueueState state,
 
   if (state == CacheEntryQueueState::clean_and_not_in_use) {
     AddToEvictionQueue(pool, entry);
+    if (entry->evict_when_not_in_use_) {
+      EvictEntry(entry);
+    }
   } else if (state == CacheEntryQueueState::dirty) {
     AddToWritebackQueue(pool, entry);
     pool->queued_for_writeback_bytes_ += num_bytes;

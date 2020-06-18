@@ -64,6 +64,7 @@ class CacheEntryImpl : public internal_cache::LruListNode {
   std::string key_;
   size_t num_bytes_;
   CacheEntryQueueState queue_state_;
+  bool evict_when_not_in_use_ = false;
   std::atomic<std::uint32_t> reference_count_;
   // Guards calls to `DoInitializeEntry`.
   absl::once_flag initialized_;

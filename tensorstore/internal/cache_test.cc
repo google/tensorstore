@@ -1036,4 +1036,33 @@ TEST(CacheQueueStateTest, PrintToOstream) {
   EXPECT_EQ("<unknown>", StrCat(static_cast<CacheEntryQueueState>(1000)));
 }
 
+TEST(CacheTest, SetEvictWhenNotInUse) {
+  auto log = std::make_shared<TestCache::RequestLog>();
+  auto pool = CachePool::Make(kSmallCacheLimits);
+
+  auto cache_a = GetTestCache(pool.get(), "cache_a", log);
+  EXPECT_THAT(log->cache_allocate_log, ElementsAre("cache_a"));
+
+  {
+    auto entry_a = GetCacheEntry(cache_a, "entry_a");
+    EXPECT_THAT(log->entry_allocate_log, ElementsAre("cache_a"));
+    entry_a->data = "entry_a";
+  }
+
+  // entry is not evicted
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+
+  {
+    auto entry_a = GetCacheEntry(cache_a, "entry_a");
+    EXPECT_EQ("entry_a", entry_a->data);
+    entry_a->data = "entry_a";
+    entry_a->SetEvictWhenNotInUse();
+    // entry is not yet evicted since it is still in use.
+    EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  }
+
+  // entry is evicted.
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair("cache_a", "entry_a")));
+}
+
 }  // namespace
