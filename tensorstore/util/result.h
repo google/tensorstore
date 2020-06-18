@@ -805,12 +805,6 @@ operator|(Arg&& arg, Func&& func) {
   }
 }
 
-// Since ## inhibits macro expansion, we need an extra level of indirection to
-// force expansion.
-#define TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_CAT1(a, b) a##b
-#define TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_CAT(a, b) \
-  TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_CAT1(a, b)
-
 #define TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_IMPL(temp, decl, expr,      \
                                                    error_expr, ...)       \
   auto temp = (expr);                                                     \
@@ -839,11 +833,10 @@ operator|(Arg&& arg, Func&& func) {
 ///
 ///     TENSORSTORE_ASSIGN_OR_RETURN(int x, GetSomeResult(),
 ///                                  _.Annotate("Context message"));
-#define TENSORSTORE_ASSIGN_OR_RETURN(decl, ...)                                \
-  TENSORSTORE_PP_EXPAND(TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_IMPL(            \
-      TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_CAT(tensorstore_assign_or_return_, \
-                                                __LINE__),                     \
-      decl, __VA_ARGS__, _))                                                   \
+#define TENSORSTORE_ASSIGN_OR_RETURN(decl, ...)                          \
+  TENSORSTORE_PP_EXPAND(TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_IMPL(      \
+      TENSORSTORE_PP_CAT(tensorstore_assign_or_return_, __LINE__), decl, \
+      __VA_ARGS__, _))                                                   \
   /**/
 // Note: the use of `TENSORSTORE_PP_EXPAND` above is a workaround for MSVC 2019
 // preprocessor limitations.

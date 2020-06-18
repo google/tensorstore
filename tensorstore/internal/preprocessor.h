@@ -28,4 +28,13 @@
 /// Defers macro expansion until the next scan.
 #define TENSORSTORE_PP_DEFER(...) __VA_ARGS__ TENSORSTORE_PP_EMPTY()
 
+/// Behaves like `a ## b`, but does not inhibit expansion of `a` or `b`.
+///
+/// This is useful for concatenating a token with `__LINE__` or `__COUNTER__`.
+#define TENSORSTORE_PP_CAT(a, b) TENSORSTORE_INTERNAL_PP_CAT1(a, b)
+
+// Since ## inhibits macro expansion, we need an extra level of indirection to
+// force expansion.
+#define TENSORSTORE_INTERNAL_PP_CAT1(a, b) a##b
+
 #endif  // TENSORSTORE_INTERNAL_PREPROCESSOR_H_

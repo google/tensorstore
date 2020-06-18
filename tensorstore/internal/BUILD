@@ -93,6 +93,22 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "global_initializer",
+    hdrs = ["global_initializer.h"],
+    deps = [":preprocessor"],
+)
+
+tensorstore_cc_test(
+    name = "global_initializer_test",
+    size = "small",
+    srcs = ["global_initializer_test.cc"],
+    deps = [
+        ":global_initializer",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "key_value_store_cache",
     hdrs = ["key_value_store_cache.h"],
     deps = [
