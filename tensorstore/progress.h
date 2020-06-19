@@ -68,7 +68,7 @@ struct CopyProgress {
   friend std::ostream& operator<<(std::ostream& os, const CopyProgress& a);
 };
 
-struct WriteFutures {
+struct [[nodiscard]] WriteFutures {
   WriteFutures() = default;
 
   WriteFutures(Future<void> copy_future, Future<void> commit_future)

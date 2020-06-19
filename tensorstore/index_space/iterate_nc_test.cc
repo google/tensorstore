@@ -21,7 +21,8 @@ void ArrayRankMismatchTest() {
   tensorstore::IterateOverTransformedArrays(
       [&](const float* source_ptr, const float* dest_ptr) {},
       /*constraints=*/{}, tensorstore::MakeArray<float>({1}),
-      tensorstore::MakeArray<float>({1}));
+      tensorstore::MakeArray<float>({1}))
+      .value();
 
   EXPECT_NON_COMPILE(
       "Arrays must have compatible static ranks.",

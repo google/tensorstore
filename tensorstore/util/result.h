@@ -30,7 +30,7 @@
 namespace tensorstore {
 
 template <typename T>
-class Result;
+class [[nodiscard]] Result;
 
 /// Bool-valued metafunction that evaluates to `true` if `T` is an instance of
 /// `Result`.
@@ -327,6 +327,10 @@ class Result : private internal_result::ResultStorage<T>,
   Construct(in_place_t, std::initializer_list<U> il, Args&&... args) {
     this->emplace_value(il, std::forward<Args>(args)...);
   }
+
+  /// Ignores the result. This method signals intent to ignore the result
+  /// to suppress compiler warnings from [[nodiscard]].
+  void IgnoreResult() const {}
 
   /// Result observers.
 

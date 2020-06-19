@@ -1171,8 +1171,10 @@ TEST(AsyncCacheTest, WritebackAndQueuedWritebackCancelled) {
     cache->NotifyWritebackStarted(write_req.entry.get(),
                                   write_req.entry->AcquireWriteStateLock());
     // Make and immediately cancel another writeback request.
-    entry->FinishWrite(entry->AcquireWriteStateLock(),
-                       WriteFlags::kConditionalWriteback);
+    entry
+        ->FinishWrite(entry->AcquireWriteStateLock(),
+                      WriteFlags::kConditionalWriteback)
+        .IgnoreFuture();
 
     // Cancel original writeback request.
     write_future = Future<void>();

@@ -122,9 +122,7 @@ int main(int argc, char** argv) {
   // Using Result<T>. Result<T> is similar in many ways to
   // std::expected<T, tensorstore::Status>.
   {
-    // FIXME: Result<T> should have ABSL_WARN_UNUSED_RESULT
-    ReturnResult(20);
-
+    ReturnResult(20).IgnoreResult();
     auto result = ReturnResult(15);
     if (!result) {
       std::cout << std::endl << result.status();

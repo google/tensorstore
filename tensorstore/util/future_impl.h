@@ -39,11 +39,11 @@
 namespace tensorstore {
 
 template <typename T>
-class Future;
+class [[nodiscard]] Future;
 template <typename T>
-class Promise;
+class [[nodiscard]] Promise;
 template <typename T>
-class ReadyFuture;
+class [[nodiscard]] ReadyFuture;
 
 class FutureCallbackRegistration;
 

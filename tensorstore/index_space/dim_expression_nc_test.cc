@@ -20,7 +20,9 @@
 namespace {
 
 void NoOpTest() {
-  tensorstore::Dims(0, 2).TranslateBy(5)(tensorstore::IdentityTransform<3>());
+  tensorstore::Dims(0, 2)
+      .TranslateBy(5)(tensorstore::IdentityTransform<3>())
+      .value();
 
   EXPECT_NON_COMPILE(
       "no matching function",
@@ -28,23 +30,28 @@ void NoOpTest() {
 }
 
 void TranslateRankMismatchTest() {
-  tensorstore::AllDims().TranslateBy({5, 2})(
-      tensorstore::IdentityTransform<2>());
+  tensorstore::AllDims()
+      .TranslateBy({5, 2})(tensorstore::IdentityTransform<2>())
+      .value();
+
   EXPECT_NON_COMPILE("no matching function",
                      tensorstore::AllDims().TranslateBy({5, 2})(
                          tensorstore::IdentityTransform<3>()));
 }
 
 void DimensionSelectionRankMismatchTest() {
-  tensorstore::Dims(0, 1, 2).TranslateBy(5)(
-      tensorstore::IdentityTransform<3>());
+  tensorstore::Dims(0, 1, 2)
+      .TranslateBy(5)(tensorstore::IdentityTransform<3>())
+      .value();
+
   EXPECT_NON_COMPILE("no matching function",
                      tensorstore::Dims(0, 1, 2).TranslateBy({5, 3, 2})(
                          tensorstore::IdentityTransform<2>()));
 }
 
 void AddNewLabeledDimensions() {
-  tensorstore::Dims(0).AddNew()(tensorstore::IdentityTransform({"x"}));
+  tensorstore::Dims(0).AddNew()(tensorstore::IdentityTransform({"x"})).value();
+
   EXPECT_NON_COMPILE(
       "New dimensions must be specified by index.",
       tensorstore::Dims("x").AddNew()(tensorstore::IdentityTransform({"x"})));

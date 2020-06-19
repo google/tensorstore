@@ -193,8 +193,10 @@ void MaybeStartReadOrWriteback(AsyncStorageBackedCache::Entry* entry,
       TENSORSTORE_DEBUG_LOG(debug, "MaybeStartReadOrWriteback: entry=", entry,
                             " read required for writeback");
       if (!maybe_start_read()) {
+        // Future is not needed because AsyncStorageBackedCache is the consumer
+        // of the read and handles the result directly.
         update.new_state = CacheEntryQueueState::writeback_requested;
-        IssueRead(entry, std::move(update));
+        IssueRead(entry, std::move(update)).IgnoreFuture();
       }
       return true;
     }

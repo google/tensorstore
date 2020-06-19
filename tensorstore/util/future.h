@@ -147,11 +147,13 @@
 namespace tensorstore {
 
 template <typename T>
-class Future;
+class [[nodiscard]] Future;
 template <typename T>
-class PromiseFuturePair;
+class [[nodiscard]] Promise;
 template <typename T>
-class ReadyFuture;
+class [[nodiscard]] PromiseFuturePair;
+template <typename T>
+class [[nodiscard]] ReadyFuture;
 
 /// Bool-valued metafunction equal to `true` if, and only if, `Future<SourceT>`
 /// is convertible to `Future<DestT>`.
@@ -542,6 +544,10 @@ class Future {
     rep_ = std::move(internal_future::FutureAccess::rep_pointer(x));
     return *this;
   }
+
+  /// Ignores the future. This method signals intent to ignore the result
+  /// to suppress compiler warnings from [[nodiscard]].
+  void IgnoreFuture() const {}
 
   /// Resets this Future to be invalid.
   /// \post `!valid()`.
