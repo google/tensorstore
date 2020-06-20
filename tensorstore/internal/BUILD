@@ -758,6 +758,17 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "init_tensorstore",
+    srcs = [
+        "init_tensorstore.cc",
+    ],
+    hdrs = ["init_tensorstore.h"],
+    deps = [
+        "@com_google_absl//absl/flags:parse",
+    ],
+)
+
+tensorstore_cc_library(
     name = "integer_overflow",
     hdrs = ["integer_overflow.h"],
     deps = [
