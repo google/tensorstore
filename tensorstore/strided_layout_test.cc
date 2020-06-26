@@ -21,7 +21,7 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 /// TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY behaves similarly to
 /// `EXPECT_DEBUG_DEATH` except that `stmt` is not executed when not in debug

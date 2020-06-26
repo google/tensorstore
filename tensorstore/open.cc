@@ -15,7 +15,7 @@
 #include "tensorstore/open.h"
 
 #include "absl/status/status.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_open {

@@ -14,26 +14,49 @@
 
 #include "python/tensorstore/index_space.h"
 
+#include <algorithm>
+#include <memory>
+#include <new>
 #include <optional>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "absl/hash/hash.h"
+#include "absl/strings/string_view.h"
+#include <nlohmann/json.hpp>
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/dim_expression.h"
 #include "python/tensorstore/indexing_spec.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/result_type_caster.h"
+#include "python/tensorstore/status.h"
+#include "pybind11/attr.h"
+#include "pybind11/cast.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
+#include "pybind11/pytypes.h"
 #include "pybind11/stl.h"
+#include "tensorstore/array.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/json.h"
+#include "tensorstore/index_space/output_index_map.h"
+#include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/json.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/assert_macros.h"
+#include "tensorstore/util/bit_span.h"
+#include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/quote_string.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {

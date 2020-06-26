@@ -40,7 +40,7 @@
 #include "tensorstore/util/sender_testutil.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 // Include system headers last to reduce impact of macros.
 #ifndef _WIN32

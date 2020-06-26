@@ -68,7 +68,7 @@ tensorstore_cc_test(
     deps = [
         ":bit_span",
         ":bit_vec",
-        ":to_string",
+        ":str_cat",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -203,7 +203,7 @@ tensorstore_cc_library(
     deps = [
         ":byte_strided_pointer",
         ":element_traits",
-        ":to_string",
+        ":str_cat",
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:static_cast",
@@ -385,7 +385,7 @@ tensorstore_cc_test(
         ":result",
         ":status",
         ":status_testutil",
-        ":to_string",
+        ":str_cat",
         "//tensorstore/internal:concurrent_testutil",
         "//tensorstore/internal:type_traits",
         "@com_google_absl//absl/time",
@@ -453,7 +453,7 @@ tensorstore_cc_test(
     deps = [
         ":iterate",
         ":span",
-        ":to_string",
+        ":str_cat",
         "//tensorstore:contiguous_layout",
         "//tensorstore:index",
         "@com_google_absl//absl/container:inlined_vector",
@@ -567,8 +567,8 @@ tensorstore_cc_library(
     hdrs = ["sender_testutil.h"],
     deps = [
         ":sender",
+        ":str_cat",
         ":sync_flow_sender",
-        ":to_string",
         "//tensorstore/internal:mutex",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
@@ -614,7 +614,7 @@ tensorstore_cc_test(
     srcs = ["span_test.cc"],
     deps = [
         ":span",
-        ":to_string",
+        ":str_cat",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/types:span",
         "@com_google_googletest//:gtest_main",
@@ -631,7 +631,7 @@ tensorstore_cc_library(
     ],
     deps = [
         ":assert_macros",
-        ":to_string",
+        ":str_cat",
         "//tensorstore/internal:preprocessor",
         "//tensorstore/internal:source_location",
         "//tensorstore/internal:type_traits",
@@ -651,7 +651,7 @@ tensorstore_cc_test(
     ],
     deps = [
         ":status",
-        ":to_string",
+        ":str_cat",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -687,8 +687,8 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "to_string",
-    hdrs = ["to_string.h"],
+    name = "str_cat",
+    hdrs = ["str_cat.h"],
     deps = [
         ":span",
         "//tensorstore/internal:type_traits",
@@ -698,11 +698,11 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_test(
-    name = "to_string_test",
+    name = "str_cat_test",
     size = "small",
-    srcs = ["to_string_test.cc"],
+    srcs = ["str_cat_test.cc"],
     deps = [
-        ":to_string",
+        ":str_cat",
         "@com_google_googletest//:gtest_main",
     ],
 )

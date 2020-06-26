@@ -17,7 +17,7 @@
 #include <system_error>
 
 #include <gtest/gtest.h>
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
 

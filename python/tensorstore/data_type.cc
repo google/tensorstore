@@ -14,13 +14,22 @@
 
 #include "python/tensorstore/data_type.h"
 
+#include <array>
+#include <new>
+#include <string>
+#include <utility>
+
 #include "absl/hash/hash.h"
+#include "absl/strings/string_view.h"
 #include <nlohmann/json.hpp>
 #include "python/tensorstore/json_type_caster.h"
+#include "pybind11/cast.h"
 #include "pybind11/numpy.h"
+#include "pybind11/pybind11.h"
+#include "pybind11/pytypes.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/util/quote_string.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {

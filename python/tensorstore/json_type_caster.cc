@@ -14,7 +14,14 @@
 
 #include "python/tensorstore/json_type_caster.h"
 
+#include <string>
+#include <utility>
+#include <vector>
+
+#include <nlohmann/json.hpp>
+#include "pybind11/cast.h"
 #include "pybind11/numpy.h"
+#include "pybind11/pytypes.h"
 
 namespace tensorstore {
 namespace internal_python {

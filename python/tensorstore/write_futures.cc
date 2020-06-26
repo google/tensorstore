@@ -14,6 +14,14 @@
 
 #include "python/tensorstore/write_futures.h"
 
+#include <memory>
+#include <new>
+#include <utility>
+
+#include "pybind11/cast.h"
+#include "pybind11/pybind11.h"
+#include "pybind11/pytypes.h"
+
 namespace tensorstore {
 namespace internal_python {
 

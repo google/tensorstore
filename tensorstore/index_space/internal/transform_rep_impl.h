@@ -19,7 +19,7 @@
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/util/iterate.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {

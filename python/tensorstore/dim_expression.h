@@ -19,15 +19,22 @@
 /// `tensorstore.d[...].op0...opN` syntax for specifying a Python "dimension
 /// expression".
 
+#include <memory>
+#include <optional>
+#include <string>
 #include <variant>
 #include <vector>
 
 #include "python/tensorstore/index.h"
+#include "pybind11/cast.h"
 #include "pybind11/pybind11.h"
+#include "pybind11/pytypes.h"
 #include "pybind11/stl.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_python {

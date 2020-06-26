@@ -71,7 +71,7 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:variant",

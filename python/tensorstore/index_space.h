@@ -22,21 +22,30 @@
 /// `tensorstore.d` (for specifying dimension expressions),
 /// `tensorstore.newaxis`, and `tensorstore.inf`.
 
+#include <string>
+#include <utility>
+
 #include "python/tensorstore/dim_expression.h"
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/indexing_spec.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
+#include "python/tensorstore/subscript_method.h"
+#include "pybind11/cast.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
+#include "pybind11/pytypes.h"
 #include "pybind11/stl.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_identifier.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/output_index_map.h"
 #include "tensorstore/index_space/output_index_method.h"
+#include "tensorstore/util/bit_span.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_python {

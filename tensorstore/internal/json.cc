@@ -32,7 +32,7 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_json {

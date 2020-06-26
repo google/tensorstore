@@ -17,7 +17,7 @@
 #include <string>
 
 #include "tensorstore/data_type.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_element_pointer {

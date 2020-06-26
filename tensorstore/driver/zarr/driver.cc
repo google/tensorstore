@@ -405,9 +405,9 @@ std::string EncodeChunkIndices(span<const Index> indices,
   std::string key;
   for (DimensionIndex i = 0; i < indices.size(); ++i) {
     if (i != 0) {
-      AppendToString(&key, separator, indices[i]);
+      StrAppend(&key, separator, indices[i]);
     } else {
-      AppendToString(&key, indices[i]);
+      StrAppend(&key, indices[i]);
     }
   }
   return key;

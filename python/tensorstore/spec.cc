@@ -14,14 +14,30 @@
 
 #include "python/tensorstore/spec.h"
 
+#include <new>
 #include <optional>
+#include <string>
+#include <utility>
 
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/json_type_caster.h"
+#include "pybind11/cast.h"
+#include "pybind11/pybind11.h"
+#include "pybind11/pytypes.h"
 #include "pybind11/stl.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/driver/driver.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/index_transform_spec.h"
+#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_pprint_python.h"
+#include "tensorstore/json_serialization_options.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -31,15 +47,15 @@ namespace py = pybind11;
 std::string PrettyPrintSpec(const Spec& s, const std::string& prefix,
                             const std::string& suffix, int width) {
   std::string pretty = prefix;
+  const char* dotdotdot = "...";
   if (auto j = s.ToJson(IncludeDefaults{false})) {
     PrettyPrintJsonAsPythonOptions options;
     options.width = width - suffix.size();
     options.cur_line_indent = prefix.size();
     PrettyPrintJsonAsPython(&pretty, *j, options);
-  } else {
-    pretty += "...";
+    dotdotdot = "";
   }
-  pretty += suffix;
+  StrAppend(&pretty, dotdotdot, suffix);
   return pretty;
 }
 

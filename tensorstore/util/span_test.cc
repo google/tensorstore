@@ -26,7 +26,7 @@
 #include <gtest/gtest.h>
 #include "absl/base/attributes.h"
 #include "absl/types/span.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 using tensorstore::span;
 using tensorstore::StrCat;

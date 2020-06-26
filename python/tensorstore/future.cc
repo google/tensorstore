@@ -14,6 +14,17 @@
 
 #include "python/tensorstore/future.h"
 
+#include <functional>
+#include <memory>
+#include <new>
+#include <string>
+#include <utility>
+
+#include "pybind11/cast.h"
+#include "pybind11/pybind11.h"
+#include "pybind11/pytypes.h"
+#include "tensorstore/util/future.h"
+
 #ifdef _WIN32
 #include <windows.h>
 #elif defined(__APPLE__)

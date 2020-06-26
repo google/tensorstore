@@ -40,8 +40,8 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/sender.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/sync_flow_sender.h"
-#include "tensorstore/util/to_string.h"
 
 namespace tensorstore {
 

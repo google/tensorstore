@@ -12,23 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/index_space/index_vector_or_scalar.h"
+#ifndef TENSORSTORE_INTERNAL_OAUTH2_FAKE_PRIVATE_KEY_H_
+#define TENSORSTORE_INTERNAL_OAUTH2_FAKE_PRIVATE_KEY_H_
 
-#include <system_error>  // NOLINT
-
-#include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
+#include <string>
 
 namespace tensorstore {
-namespace internal_index_space {
+namespace internal_oauth2 {
 
-Status CheckIndexVectorSize(IndexVectorOrScalar indices, DimensionIndex size) {
-  if (indices.pointer && indices.size_or_scalar != size)
-    return absl::InvalidArgumentError(StrCat(
-        "Number of dimensions (", size, ") does not match number of indices (",
-        indices.size_or_scalar, ")."));
-  return absl::OkStatus();
-}
+// Returns a fake private key for use in tests.
+std::string GetFakePrivateKey();
 
-}  // namespace internal_index_space
+}  // namespace internal_oauth2
 }  // namespace tensorstore
+
+#endif  // TENSORSTORE_INTERNAL_OAUTH2_FAKE_CREDENTIALS_H_

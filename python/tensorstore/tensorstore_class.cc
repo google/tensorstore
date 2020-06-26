@@ -14,19 +14,41 @@
 
 #include "python/tensorstore/tensorstore_class.h"
 
+#include <memory>
+#include <new>
 #include <optional>
+#include <string>
+#include <utility>
 
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/future.h"
 #include "python/tensorstore/index_space.h"
+#include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/write_futures.h"
+#include "pybind11/cast.h"
+#include "pybind11/numpy.h"
+#include "pybind11/pybind11.h"
+#include "pybind11/pytypes.h"
 #include "pybind11/stl.h"
+#include "tensorstore/array.h"
 #include "tensorstore/cast.h"
+#include "tensorstore/context.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/driver/array/array.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/open.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/progress.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/resize_options.h"
+#include "tensorstore/spec.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_python {

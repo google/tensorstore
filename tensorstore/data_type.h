@@ -37,7 +37,7 @@
 #include "tensorstore/util/byte_strided_pointer.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/utf8_string.h"
 
 namespace tensorstore {
@@ -512,7 +512,7 @@ struct DataTypeSimpleOperationsImpl {
   }
 
   static void AppendToString(std::string* result, const void* ptr) {
-    tensorstore::AppendToString(result, *static_cast<const T*>(ptr));
+    tensorstore::StrAppend(result, *static_cast<const T*>(ptr));
   }
 };
 

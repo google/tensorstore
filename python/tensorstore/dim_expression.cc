@@ -14,10 +14,29 @@
 
 #include "python/tensorstore/dim_expression.h"
 
+#include <memory>
+#include <new>
+#include <string>
+#include <utility>
+#include <variant>
+#include <vector>
+
 #include "absl/strings/escaping.h"
 #include "python/tensorstore/indexing_spec.h"
 #include "python/tensorstore/subscript_method.h"
+#include "pybind11/cast.h"
+#include "pybind11/pybind11.h"
+#include "pybind11/pytypes.h"
+#include "pybind11/stl.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/dimension_identifier.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -25,23 +44,22 @@ namespace internal_python {
 namespace py = ::pybind11;
 
 std::string DimensionSelection::repr() const {
+  if (dims.empty()) {
+    return "d[()]";
+  }
   std::string out = "d[";
   for (size_t i = 0; i < dims.size(); ++i) {
-    if (i != 0) out += ',';
     const auto& d = dims[i];
     if (auto* index = std::get_if<DimensionIndex>(&d)) {
-      AppendToString(&out, *index);
+      StrAppend(&out, (i == 0 ? "" : ","), *index);
     } else if (auto* label = std::get_if<std::string>(&d)) {
-      AppendToString(&out, "'", absl::CHexEscape(*label), "'");
+      StrAppend(&out, (i == 0 ? "" : ","), "'", absl::CHexEscape(*label), "'");
     } else {
       const auto& slice = std::get<DimRangeSpec>(d);
-      AppendToString(&out, slice);
+      StrAppend(&out, (i == 0 ? "" : ","), slice);
     }
   }
-  if (dims.empty()) {
-    out += "()";
-  }
-  out += ']';
+  StrAppend(&out, "]");
   return out;
 }
 
@@ -91,15 +109,11 @@ class PythonLabelOp : public PythonDimExpression {
       : parent_(std::move(parent)), labels_(std::move(labels)) {}
 
   std::string repr() const override {
-    std::string r = parent_->repr();
-    r += ".label[";
+    std::string r = StrCat(parent_->repr(), ".label[");
     for (size_t i = 0; i < labels_.size(); ++i) {
-      if (i != 0) r += ",";
-      r += '\'';
-      r += absl::CHexEscape(labels_[i]);
-      r += '\'';
+      StrAppend(&r, i == 0 ? "" : ",", "'", absl::CHexEscape(labels_[i]), "'");
     }
-    r += "]";
+    StrAppend(&r, "]");
     return r;
   }
 
@@ -174,9 +188,9 @@ class PythonTransposeOp : public PythonDimExpression {
       if (i != 0) out += ',';
       const auto& s = target_dim_specs_[i];
       if (auto* index = std::get_if<DimensionIndex>(&s)) {
-        AppendToString(&out, *index);
+        StrAppend(&out, *index);
       } else {
-        AppendToString(&out, std::get<DimRangeSpec>(s));
+        StrAppend(&out, std::get<DimRangeSpec>(s));
       }
     }
     if (target_dim_specs_.empty()) {

@@ -20,7 +20,7 @@
 #include "tensorstore/data_type_conversion.h"
 #include "tensorstore/internal/element_copy_function.h"
 #include "tensorstore/util/internal/iterate_impl.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_array {
@@ -177,8 +177,7 @@ void AppendToString(
   const span<const Index> origin = array.origin();
   if (std::any_of(origin.begin(), origin.end(),
                   [](Index x) { return x != 0; })) {
-    *result += " @ ";
-    AppendToString(result, origin);
+    StrAppend(result, " @ ", origin);
   }
 }
 

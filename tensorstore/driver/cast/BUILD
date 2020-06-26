@@ -19,7 +19,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:nditerable_data_type_conversion",
         "//tensorstore/internal:type_traits",
         "//tensorstore/util:result",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
     ],
     alwayslink = 1,

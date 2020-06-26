@@ -56,7 +56,7 @@ tensorstore_cc_test(
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -98,7 +98,7 @@ tensorstore_cc_test(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -246,7 +246,7 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/algorithm:container",
     ],
 )
@@ -267,7 +267,7 @@ tensorstore_cc_test(
         "//tensorstore/util:executor",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/random",
         "@com_google_googletest//:gtest_main",
@@ -283,7 +283,7 @@ tensorstore_cc_test(
         "//tensorstore/internal:json_gtest",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
         "@com_google_googletest//:gtest_main",
     ],
 )

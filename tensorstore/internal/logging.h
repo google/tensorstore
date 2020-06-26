@@ -19,7 +19,7 @@
 
 #include "tensorstore/internal/log_message.h"
 #include "tensorstore/internal/source_location.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 /// Logs the concatenation of all arguments converted to strings along with the
 /// filename and line number.

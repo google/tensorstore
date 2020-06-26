@@ -19,7 +19,7 @@
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
 

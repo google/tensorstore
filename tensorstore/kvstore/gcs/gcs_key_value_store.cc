@@ -57,7 +57,7 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 // Best Practices for GCS Storage usage & other GCS reference
 // links are:

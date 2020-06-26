@@ -12,16 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "tensorstore/index_interval.h"
+
 #include <ostream>
 #include <system_error>  // NOLINT
 
-#include "tensorstore/index_interval.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 

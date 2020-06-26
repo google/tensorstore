@@ -31,7 +31,7 @@
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/assert_macros.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 

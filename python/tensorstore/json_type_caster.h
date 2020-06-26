@@ -20,7 +20,9 @@
 /// Defines conversion between Python objects and `::nlohmann::json`.
 
 #include <nlohmann/json.hpp>
+#include "pybind11/cast.h"
 #include "pybind11/pybind11.h"
+#include "pybind11/pytypes.h"
 
 namespace tensorstore {
 namespace internal_python {

@@ -111,7 +111,7 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 // Include these last to reduce impact of macros.
 #include "tensorstore/kvstore/file/posix_file_util.h"
@@ -650,7 +650,7 @@ struct PathRangeVisitor {
     for (const auto& entry : pending_dirs) {
       const char* slash =
           (!path.empty() && path[path.size() - 1] != '/') ? "/" : "";
-      AppendToString(&path, slash, entry.iterator->path_component());
+      StrAppend(&path, slash, entry.iterator->path_component());
     }
     return path;
   }

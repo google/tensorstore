@@ -14,10 +14,16 @@
 
 #include "python/tensorstore/context.h"
 
+#include <optional>
+#include <utility>
+
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/result_type_caster.h"
+#include "pybind11/cast.h"
+#include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 #include "tensorstore/context.h"
+#include "tensorstore/json_serialization_options.h"
 
 namespace tensorstore {
 namespace internal_python {

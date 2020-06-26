@@ -24,7 +24,7 @@
 #include "tensorstore/open.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
 

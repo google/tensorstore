@@ -71,22 +71,6 @@ ToAlphaNumOrString(const T&) {
 
 }  // namespace internal
 
-/// Appends a string representation of arg... to `*result`.
-///
-/// The arguments are converted to a string representation using
-/// `absl::AlphaNum` if supported, or otherwise `ToStringUsingOstream`.
-template <typename... Arg>
-void AppendToString(std::string* result, const Arg&... arg) {
-  return absl::StrAppend(result, internal::ToAlphaNumOrString(arg)...);
-}
-
-/// Concatenates the string representation of `arg...` and returns the result.
-///
-/// The string conversion is done exactly the same as for `AppendToString`.
-template <typename... Arg>
-std::string StrCat(const Arg&... arg) {
-  return absl::StrCat(internal::ToAlphaNumOrString(arg)...);
-}
 
 /// Prints a string representation of a span.
 template <typename Element, std::ptrdiff_t N>
@@ -99,6 +83,23 @@ operator<<(std::ostream& os, span<Element, N> s) {
     os << s[i];
   }
   return os << "}";
+}
+
+/// Concatenates the string representation of `arg...` and returns the result.
+///
+/// The string conversion is done exactly the same as for `StrAppend`.
+template <typename... Arg>
+std::string StrCat(const Arg&... arg) {
+  return absl::StrCat(internal::ToAlphaNumOrString(arg)...);
+}
+
+/// Appends a string representation of arg... to `*result`.
+///
+/// The arguments are converted to a string representation using
+/// `absl::AlphaNum` if supported, or otherwise `ToStringUsingOstream`.
+template <typename... Arg>
+void StrAppend(std::string* result, const Arg&... arg) {
+  return absl::StrAppend(result, internal::ToAlphaNumOrString(arg)...);
 }
 
 }  // namespace tensorstore

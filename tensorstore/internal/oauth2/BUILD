@@ -6,6 +6,14 @@ package(
 
 licenses(["notice"])
 
+tensorstore_cc_library(
+    name = "fake_private_key",
+    testonly = 1,
+    srcs = ["fake_private_key.cc"],
+    hdrs = ["fake_private_key.h"],
+    deps = [],
+)
+
 tensorstore_cc_test(
     name = "fixed_token_auth_provider_test",
     size = "small",
@@ -69,6 +77,7 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["google_auth_provider_test.cc"],
     deps = [
+        ":fake_private_key",
         ":google_auth_provider",
         ":google_service_account_auth_provider",
         ":oauth2",
@@ -79,7 +88,8 @@ tensorstore_cc_test(
         "//tensorstore/internal:test_util",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],
@@ -110,6 +120,7 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["google_service_account_auth_provider_test.cc"],
     deps = [
+        ":fake_private_key",
         ":google_service_account_auth_provider",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
@@ -208,9 +219,12 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["oauth_utils_test.cc"],
     deps = [
+        ":fake_private_key",
         ":oauth_utils",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
     ],
 )

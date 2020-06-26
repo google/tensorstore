@@ -106,7 +106,7 @@ tensorstore_cc_test(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -133,7 +133,7 @@ tensorstore_cc_test(
         "//tensorstore/util:assert_macros",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
         "@com_google_googletest//:gtest_main",
     ],
 )

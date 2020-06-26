@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 #include <complex>
 #include <ostream>
@@ -41,9 +41,9 @@ TEST(ToStringUsingOstreamTest, Basic) {
             tensorstore::ToStringUsingOstream(std::complex<float>(1, 2)));
 }
 
-TEST(AppendToStringTest, Basic) {
+TEST(StrAppendTest, Basic) {
   std::string result = "X";
-  tensorstore::AppendToString(&result, "a", std::complex<float>(1, 2), 3);
+  tensorstore::StrAppend(&result, "a", std::complex<float>(1, 2), 3);
   EXPECT_EQ("Xa(1,2)3", result);
 }
 

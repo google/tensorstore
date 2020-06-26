@@ -14,7 +14,12 @@
 
 #include "python/tensorstore/index.h"
 
-#include "absl/strings/str_join.h"
+#include <string>
+#include <variant>
+#include <vector>
+
+#include "tensorstore/index.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -36,7 +41,7 @@ IndexVectorOrScalarContainer ToIndexVectorOrScalarContainer(
 
 std::string OptionallyImplicitIndexRepr(Index value) {
   if (value == kImplicit) return "None";
-  return std::to_string(value);
+  return StrCat(value);
 }
 
 std::string IndexVectorRepr(const IndexVectorOrScalarContainer& x,
@@ -46,24 +51,25 @@ std::string IndexVectorRepr(const IndexVectorOrScalarContainer& x,
     return StrCat(*index);
   }
   const auto& v = std::get<std::vector<Index>>(x);
+  if (v.empty()) {
+    return subscript ? "()" : "[]";
+  }
+
   std::string out;
-  if (!subscript) out += "[";
+  if (!subscript) out = "[";
   for (size_t i = 0; i < v.size(); ++i) {
-    if (i != 0) out += ',';
     if (implicit) {
-      out += OptionallyImplicitIndexRepr(v[i]);
+      StrAppend(&out, (i == 0 ? "" : ","), OptionallyImplicitIndexRepr(v[i]));
     } else {
-      AppendToString(&out, v[i]);
+      StrAppend(&out, (i == 0 ? "" : ","), v[i]);
     }
   }
   if (subscript) {
     if (v.size() == 1) {
-      out += ",";
-    } else if (v.empty()) {
-      out += "()";
+      StrAppend(&out, ",");
     }
   } else {
-    out += "]";
+    StrAppend(&out, "]");
   }
   return out;
 }

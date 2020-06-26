@@ -29,7 +29,7 @@
 #include "tensorstore/internal/concurrent_testutil.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/memory.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
 

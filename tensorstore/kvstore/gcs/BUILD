@@ -34,7 +34,7 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",

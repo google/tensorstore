@@ -24,7 +24,7 @@
 #include "tensorstore/internal/http/curl_handle.h"  // for CurlEscapeString
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/kvstore/byte_range.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_http {

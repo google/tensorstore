@@ -23,8 +23,8 @@
 #include "absl/synchronization/notification.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/util/sender.h"
+#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/sync_flow_sender.h"
-#include "tensorstore/util/to_string.h"
 
 namespace tensorstore {
 

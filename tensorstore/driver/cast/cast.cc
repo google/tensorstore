@@ -20,7 +20,7 @@
 #include "tensorstore/internal/nditerable_data_type_conversion.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/spec.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 

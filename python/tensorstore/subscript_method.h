@@ -21,11 +21,14 @@
 /// support syntax like `x.property[expr]`, used for the `vindex` and `oindex`
 /// indexing methods as well as other "dimension expression" operations.
 
-#include <memory>
+#include <new>
+#include <utility>
 
+#include "pybind11/cast.h"
 #include "pybind11/pybind11.h"
+#include "pybind11/pytypes.h"
 #include "tensorstore/internal/type_traits.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {

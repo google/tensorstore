@@ -14,18 +14,51 @@
 
 #include "python/tensorstore/indexing_spec.h"
 
+#include <algorithm>
 #include <cassert>
+#include <memory>
+#include <numeric>
+#include <string>
+#include <type_traits>
 #include <utility>
+#include <variant>
+#include <vector>
 
 #include "absl/container/fixed_array.h"
+#include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "python/tensorstore/array_type_caster.h"
+#include "python/tensorstore/data_type.h"
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
+#include "pybind11/cast.h"
 #include "pybind11/numpy.h"
+#include "pybind11/pytypes.h"
+#include "tensorstore/array.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/dimension_identifier.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/container_to_shared.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/static_cast.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/assert_macros.h"
+#include "tensorstore/util/bit_span.h"
+#include "tensorstore/util/byte_strided_pointer.h"
 #include "tensorstore/util/constant_vector.h"
+#include "tensorstore/util/iterate.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -837,14 +870,14 @@ std::string IndexingSpec::repr() const {
     if (i != 0) r += ",";
     const auto& term = terms[i];
     if (auto* index = std::get_if<Index>(&term)) {
-      AppendToString(&r, *index);
+      StrAppend(&r, *index);
       continue;
     }
     if (auto* s = std::get_if<IndexingSpec::Slice>(&term)) {
-      if (s->start != kImplicit) AppendToString(&r, s->start);
+      if (s->start != kImplicit) StrAppend(&r, s->start);
       r += ':';
-      if (s->stop != kImplicit) AppendToString(&r, s->stop);
-      if (s->step != 1) AppendToString(&r, ":", s->step);
+      if (s->stop != kImplicit) StrAppend(&r, s->stop);
+      if (s->step != 1) StrAppend(&r, ":", s->step);
       continue;
     }
     if (std::holds_alternative<IndexingSpec::NewAxis>(term)) {

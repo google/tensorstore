@@ -15,11 +15,23 @@
 #include "python/tensorstore/array_type_caster.h"
 
 #include <algorithm>
-#include <type_traits>
+#include <memory>
+#include <string>
+#include <utility>
 
+#include "python/tensorstore/data_type.h"
 #include "python/tensorstore/json_type_caster.h"
+#include "pybind11/numpy.h"
+#include "pybind11/pytypes.h"
+#include "tensorstore/array.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/util/iterate.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -118,9 +130,9 @@ void AssignArrayLayout(pybind11::array array_obj, DimensionIndex rank,
 pybind11::object GetNumpyArrayImpl(SharedArrayView<const void> value,
                                    bool is_const) {
   if (value.rank() > kMaxNumpyRank) {
-    throw std::out_of_range(
-        absl::StrCat("Array of rank ", value.rank(), " (which is greater than ",
-                     kMaxNumpyRank, ") cannot be converted to NumPy array"));
+    throw std::out_of_range(StrCat("Array of rank ", value.rank(),
+                                   " (which is greater than ", kMaxNumpyRank,
+                                   ") cannot be converted to NumPy array"));
   }
   if (const DataTypeId id = value.data_type().id();
       id != DataTypeId::custom &&

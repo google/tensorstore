@@ -177,7 +177,7 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:variant",
@@ -193,7 +193,7 @@ tensorstore_cc_test(
         "//tensorstore:index",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -346,7 +346,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:fixed_array",
     ],
@@ -400,7 +400,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:attributes",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
     ],
 )
 
@@ -419,7 +419,7 @@ tensorstore_cc_test(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -448,7 +448,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:type_traits",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
     ],
 )
 
@@ -531,7 +531,7 @@ tensorstore_cc_binary(
         "//tensorstore/util:assert_macros",
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
         "@com_google_benchmark//:benchmark",
         "@com_google_benchmark//:benchmark_main",
     ],
@@ -560,7 +560,7 @@ tensorstore_cc_test(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -836,7 +836,7 @@ tensorstore_cc_test(
         "//tensorstore:data_type",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
-        "//tensorstore/util:to_string",
+        "//tensorstore/util:str_cat",
         "@com_google_googletest//:gtest_main",
     ],
 )

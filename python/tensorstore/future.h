@@ -23,13 +23,21 @@
 ///
 /// This is used to expose all of the Future-based TensorStore APIs to Python.
 
+#include <algorithm>
+#include <functional>
+#include <iterator>
 #include <memory>
+#include <utility>
+#include <vector>
 
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
+#include "pybind11/cast.h"
 #include "pybind11/pybind11.h"
+#include "pybind11/pytypes.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_python {

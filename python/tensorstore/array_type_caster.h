@@ -17,16 +17,26 @@
 
 /// \file Defines conversion between NumPy arrays and `tensorstore::Array`.
 
-#include <algorithm>
+#include <memory>
+#include <type_traits>
+#include <utility>
 
 #include "absl/meta/type_traits.h"
-#include "absl/strings/str_cat.h"
 #include "python/tensorstore/data_type.h"
+#include "pybind11/cast.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
+#include "pybind11/pytypes.h"
 #include "tensorstore/array.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
-#include "tensorstore/util/to_string.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/static_cast.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {
