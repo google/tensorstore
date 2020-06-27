@@ -14,6 +14,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
     ],
 )
 
@@ -118,6 +119,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
     ],
 )
@@ -135,6 +137,7 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -160,6 +163,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest",
     ],

@@ -41,15 +41,14 @@ namespace neuroglancer_uint64_sharded {
 ///
 /// The format is described here:
 /// https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#minishard-index-format
-void EncodeMinishardIndex(span<const MinishardIndexEntry> minishard_index,
-                          std::string* out);
+absl::Cord EncodeMinishardIndex(
+    span<const MinishardIndexEntry> minishard_index);
 
 /// Encodes a shard index.
 ///
 /// The format is described here:
 /// https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#shardindex-index-file-format
-void EncodeShardIndex(span<const ShardIndexEntry> shard_index,
-                      std::string* out);
+absl::Cord EncodeShardIndex(span<const ShardIndexEntry> shard_index);
 
 /// Class that may be used to sequentially encode a single shard.
 ///
@@ -57,11 +56,8 @@ void EncodeShardIndex(span<const ShardIndexEntry> shard_index,
 ///
 /// Example usage:
 ///
-///     std::string out;
-///     ShardEncoder shard_encoder(sharding_spec, [&out](absl::string_view s) {
-///       out.append(s.begin(), s.end());
-///       return absl::OkStatus();
-///     });
+///     absl::Cord out;
+///     ShardEncoder shard_encoder(sharding_spec, out);
 ///     for (const auto &entry : entries) {
 ///       // Optionally write additional unindexed data
 ///       TENSORSTORE_ASSIGN_OR_RETURN(
@@ -80,7 +76,7 @@ void EncodeShardIndex(span<const ShardIndexEntry> shard_index,
 ///     TENSORSTORE_ASSIGN_OR_RETURN(auto shard_index, shard_writer.Finalize());
 class ShardEncoder {
  public:
-  using WriteFunction = std::function<Status(absl::string_view buffer)>;
+  using WriteFunction = std::function<absl::Status(const absl::Cord& buffer)>;
 
   /// Constructs a shard encoder.
   ///
@@ -89,8 +85,8 @@ class ShardEncoder {
   explicit ShardEncoder(const ShardingSpec& sharding_spec,
                         WriteFunction write_function);
 
-  /// Same as above, but appends output to `*out`.
-  explicit ShardEncoder(const ShardingSpec& sharding_spec, std::string* out);
+  /// Same as above, but appends output to `out`.
+  explicit ShardEncoder(const ShardingSpec& sharding_spec, absl::Cord& out);
 
   /// Writes a single chunk.
   ///
@@ -109,7 +105,7 @@ class ShardEncoder {
   /// \pre `Finalize()` was not called previously, and no prior method call
   ///     returned an error.
   Status WriteIndexedEntry(std::uint64_t minishard, ChunkId chunk_id,
-                           absl::string_view data, bool compress);
+                           const absl::Cord& data, bool compress);
 
   /// Writes an additional chunk of data to the shard data file, but does not
   /// include it in the index under a particular `chunk_id` key.
@@ -128,13 +124,13 @@ class ShardEncoder {
   /// \pre `Finalize()` was not called previously, and no prior method call
   ///     returned an error.
   Result<ByteRange> WriteUnindexedEntry(std::uint64_t minishard,
-                                        absl::string_view data, bool compress);
+                                        const absl::Cord& data, bool compress);
 
   /// Finalizes the shard data file and returns the encoded shard index file.
   ///
   /// \pre `Finalize()` was not called previously, and no prior method call
   ///     returned an error.
-  Result<std::string> Finalize();
+  Result<absl::Cord> Finalize();
 
   /// Returns the sharding specification.
   const ShardingSpec& sharding_spec() const { return sharding_spec_; }

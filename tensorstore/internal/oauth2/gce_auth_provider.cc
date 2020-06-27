@@ -132,41 +132,40 @@ Result<HttpResponse> GceAuthProvider::IssueRequest(std::string path,
   if (recursive) {
     request_builder.AddQueryParameter("recursive", "true");
   }
-  return transport_->IssueRequest(request_builder.BuildRequest(), "").result();
+  return transport_->IssueRequest(request_builder.BuildRequest(), {}).result();
 }
 
 Status GceAuthProvider::RetrieveServiceAccountInfo() {
-  auto response = IssueRequest(
-      absl::StrCat("/computeMetadata/v1/instance/service-accounts/",
-                   service_account_email_, "/"),
-      true);
-
-  TENSORSTORE_RETURN_IF_ERROR(response);
-  TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(*response));
-  auto service_info = ParseServiceAccountInfo(response->payload);
-  if (service_info.ok()) {
-    service_account_email_ = std::move(service_info->email);
-    scopes_ = std::move(service_info->scopes);
-  }
-  return GetStatus(service_info);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto response,
+      IssueRequest(
+          absl::StrCat("/computeMetadata/v1/instance/service-accounts/",
+                       service_account_email_, "/"),
+          true));
+  TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(response));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto service_info, ParseServiceAccountInfo(response.payload.Flatten()));
+  service_account_email_ = std::move(service_info.email);
+  scopes_ = std::move(service_info.scopes);
+  return absl::OkStatus();
 }
 
 Status GceAuthProvider::Refresh() {
   TENSORSTORE_RETURN_IF_ERROR(RetrieveServiceAccountInfo());
 
   const auto now = clock_();
-  auto response = IssueRequest(
-      absl::StrCat("/computeMetadata/v1/instance/service-accounts/",
-                   service_account_email_, "/token"),
-      false);
-  TENSORSTORE_RETURN_IF_ERROR(response);
-  TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(*response));
-  auto result = internal_oauth2::ParseOAuthResponse(response->payload);
-  if (result.ok()) {
-    expiration_ = now + absl::Seconds(result->expires_in);
-    access_token_ = std::move(result->access_token);
-  }
-  return GetStatus(result);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto response,
+      IssueRequest(
+          absl::StrCat("/computeMetadata/v1/instance/service-accounts/",
+                       service_account_email_, "/token"),
+          false));
+  TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(response));
+  TENSORSTORE_ASSIGN_OR_RETURN(auto result, internal_oauth2::ParseOAuthResponse(
+                                                response.payload.Flatten()));
+  expiration_ = now + absl::Seconds(result.expires_in);
+  access_token_ = std::move(result.access_token);
+  return absl::OkStatus();
 }
 
 }  // namespace internal_oauth2

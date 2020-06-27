@@ -176,39 +176,39 @@ TEST(RawCompressionTest, Golden) {
                                      {"compression", {{"type", "raw"}}}})
                       .value();
   auto array = MakeArray<std::uint16_t>({{{1, 3, 5}, {2, 4, 6}}});
-  EXPECT_EQ(array, DecodeChunk(metadata, encoded_data));
+  EXPECT_EQ(array, DecodeChunk(metadata, absl::Cord(encoded_data)));
   {
-    std::string buffer;
-    EXPECT_EQ(Status(), EncodeChunk(span<const Index>({0, 0, 0}), metadata,
-                                    array, &buffer));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto buffer,
+        EncodeChunk(span<const Index>({0, 0, 0}), metadata, array));
     EXPECT_EQ(encoded_data, buffer);
   }
 
   // Test with truncated array data.
-  EXPECT_THAT(
-      DecodeChunk(metadata, encoded_data.substr(0, encoded_data.size() - 1)),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data.substr(
+                                        0, encoded_data.size() - 1))),
+              MatchesStatus(absl::StatusCode::kInvalidArgument));
 
   // Test with truncated header data
-  EXPECT_THAT(DecodeChunk(metadata, encoded_data.substr(0, 6)),
+  EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data.substr(0, 6))),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 
   // Test with invalid mode
   std::string encoded_data_invalid_mode = encoded_data;
   encoded_data_invalid_mode[1] = 0x01;
-  EXPECT_THAT(DecodeChunk(metadata, encoded_data_invalid_mode),
+  EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data_invalid_mode)),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 
   // Test with invalid number of dimensions
   std::string encoded_data_invalid_rank = encoded_data;
   encoded_data_invalid_rank[3] = 0x02;
-  EXPECT_THAT(DecodeChunk(metadata, encoded_data_invalid_rank),
+  EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data_invalid_rank)),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 
   // Test with too large block shape
   std::string encoded_data_invalid_shape = encoded_data;
   encoded_data_invalid_shape[7] = 0x02;
-  EXPECT_THAT(DecodeChunk(metadata, encoded_data_invalid_shape),
+  EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data_invalid_shape)),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
@@ -231,7 +231,7 @@ TEST(RawCompressionTest, PartialChunk) {
                                      {"compression", {{"type", "raw"}}}})
                       .value();
   auto array = MakeArray<std::uint16_t>({{{1, 3, 0}, {2, 4, 0}}});
-  EXPECT_EQ(array, DecodeChunk(metadata, encoded_data));
+  EXPECT_EQ(array, DecodeChunk(metadata, absl::Cord(encoded_data)));
 }
 
 }  // namespace

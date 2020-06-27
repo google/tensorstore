@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_gtest.h"
 
 namespace tensorstore {
 namespace internal {
@@ -52,6 +53,10 @@ class Matcher : public ::testing::MatcherInterface<std::string> {
 ::testing::Matcher<std::string> ParseJsonMatches(
     ::testing::Matcher<::nlohmann::json> json_matcher) {
   return ::testing::MakeMatcher(new Matcher(std::move(json_matcher)));
+}
+
+::testing::Matcher<std::string> ParseJsonMatches(::nlohmann::json json) {
+  return ParseJsonMatches(MatchesJson(json));
 }
 
 }  // namespace internal

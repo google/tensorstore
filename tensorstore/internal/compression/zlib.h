@@ -21,7 +21,7 @@
 #include <cstddef>
 #include <string>
 
-#include "absl/strings/string_view.h"
+#include "absl/strings/cord.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
@@ -42,23 +42,22 @@ struct Options {
 /// Compresses `input` and appends the result to `*output`.
 ///
 /// \param input Input to encode.
-/// \param output[in,out] Non-null pointer to output string to which compressed
-///     data will be appended.
+/// \param output[in,out] Output cord to which compressed data will be appended.
 /// \param options Specifies the compression options.
-void Encode(absl::string_view input, std::string* output,
+void Encode(const absl::Cord& input, absl::Cord* output,
             const Options& options);
 
 /// Decompresses `input` and appends the result to `*output`.
 ///
 /// \param input Input to decode.
-/// \param output[in,out] Non-null pointer to output string to which
-///     decompressed data will be appended.
+/// \param output[in,out] Output cord to which decompressed data will be
+///     appended.
 /// \param use_gzip_header Specifies the header type with which `input` was
 ///     encoded.
 /// \returns `Status()` on success.
 /// \error `absl::StatusCode::kInvalidArgument` if `input` is corrupt.
-Status Decode(absl::string_view input, std::string* output,
-              bool use_gzip_header);
+absl::Status Decode(const absl::Cord& input, absl::Cord* output,
+                    bool use_gzip_header);
 
 }  // namespace zlib
 }  // namespace tensorstore

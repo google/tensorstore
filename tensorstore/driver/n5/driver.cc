@@ -73,15 +73,15 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
     return internal::JoinPath(entry_key, kMetadataKey);
   }
 
-  Result<MetadataPtr> DecodeMetadata(
-      absl::string_view entry_key,
-      absl::string_view encoded_metadata) override {
-    return ParseEncodedMetadata(encoded_metadata);
+  Result<MetadataPtr> DecodeMetadata(absl::string_view entry_key,
+                                     absl::Cord encoded_metadata) override {
+    return ParseEncodedMetadata(encoded_metadata.Flatten());
   }
 
-  std::string EncodeMetadata(absl::string_view entry_key,
-                             const void* metadata) override {
-    return ::nlohmann::json(*static_cast<const N5Metadata*>(metadata)).dump();
+  Result<absl::Cord> EncodeMetadata(absl::string_view entry_key,
+                                    const void* metadata) override {
+    return absl::Cord(
+        ::nlohmann::json(*static_cast<const N5Metadata*>(metadata)).dump());
   }
 };
 
@@ -160,21 +160,22 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
       const void* metadata, span<const Index> chunk_indices,
-      std::string data) override {
+      absl::Cord data) override {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        auto array, internal_n5::DecodeChunk(
-                        *static_cast<const N5Metadata*>(metadata), data));
+        auto array,
+        internal_n5::DecodeChunk(*static_cast<const N5Metadata*>(metadata),
+                                 std::move(data)));
     return absl::InlinedVector<SharedArrayView<const void>, 1>{
         std::move(array)};
   }
 
-  Status EncodeChunk(const void* metadata, span<const Index> chunk_indices,
-                     span<const ArrayView<const void>> component_arrays,
-                     std::string* encoded) override {
+  Result<absl::Cord> EncodeChunk(
+      const void* metadata, span<const Index> chunk_indices,
+      span<const ArrayView<const void>> component_arrays) override {
     assert(component_arrays.size() == 1);
     return internal_n5::EncodeChunk(chunk_indices,
                                     *static_cast<const N5Metadata*>(metadata),
-                                    component_arrays[0], encoded);
+                                    component_arrays[0]);
   }
 
   std::string GetChunkStorageKey(const void* metadata,

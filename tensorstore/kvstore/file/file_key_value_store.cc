@@ -97,6 +97,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/file_io_concurrency_resource.h"
+#include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/os_error_code.h"
 #include "tensorstore/internal/path.h"
@@ -355,13 +356,12 @@ struct ReadTask {
     TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
                                  options.byte_range.Validate(size));
     read_result.state = KeyValueStore::ReadResult::kValue;
-    auto& data = read_result.value;
-    data.resize(byte_range.size());
+    internal::FlatCordBuilder buffer(byte_range.size());
     std::size_t offset = 0;
-    while (offset < data.size()) {
+    while (offset < buffer.size()) {
       std::ptrdiff_t n = internal_file_util::ReadFromFile(
-          fd.get(), const_cast<char*>(data.data()) + offset,
-          data.size() - offset, byte_range.inclusive_min + offset);
+          fd.get(), buffer.data() + offset, buffer.size() - offset,
+          byte_range.inclusive_min + offset);
       if (n > 0) {
         offset += n;
         continue;
@@ -372,6 +372,7 @@ struct ReadTask {
       }
       return StatusFromErrno("Error reading file: ", full_path);
     }
+    read_result.value = std::move(buffer).Build();
     return read_result;
   }
 };
@@ -490,12 +491,17 @@ struct WriteTask {
           if (!internal_file_util::TruncateFile(fd)) {
             return StatusFromErrno("Failed to truncate file: ", lock_path);
           }
-          std::size_t offset = 0;
-          while (offset < value.size()) {
-            std::ptrdiff_t n = internal_file_util::WriteToFile(
-                fd, value.data() + offset, value.size() - offset);
+          // TODO(jbms): use ::writev on POSIX platforms to write multiple
+          // chunks at a time.
+          size_t value_remaining = value.size();
+          for (absl::Cord::CharIterator char_it = value.char_begin();
+               value_remaining;) {
+            std::string_view chunk = absl::Cord::ChunkRemaining(char_it);
+            std::ptrdiff_t n =
+                internal_file_util::WriteToFile(fd, chunk.data(), chunk.size());
             if (n > 0) {
-              offset += n;
+              value_remaining -= n;
+              absl::Cord::Advance(&char_it, n);
               continue;
             }
             return StatusFromErrno("Error writing to file: ", lock_path);

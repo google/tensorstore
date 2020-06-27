@@ -75,10 +75,16 @@ TEST(GceAuthProviderTest, InitialState) {
 TEST(GceAuthProviderTest, Status200) {
   TestAuthProvider auth;
   auth.responses = {
-      {0, {200, kServiceAccountInfo, {}}},  // RetrieveServiceAccountInfo
-      {1, {200, kOAuthResponse, {}}},       // OAuth request
-      {2, {200, kServiceAccountInfo, {}}},  // RetrieveServiceAccountInfo
-      {3, {200, kOAuthResponse, {}}},       // OAuth request
+      {0,
+       {200,
+        absl::Cord(kServiceAccountInfo),
+        {}}},                                      // RetrieveServiceAccountInfo
+      {1, {200, absl::Cord(kOAuthResponse), {}}},  // OAuth request
+      {2,
+       {200,
+        absl::Cord(kServiceAccountInfo),
+        {}}},                                      // RetrieveServiceAccountInfo
+      {3, {200, absl::Cord(kOAuthResponse), {}}},  // OAuth request
   };
 
   EXPECT_FALSE(auth.IsValid());
@@ -121,7 +127,10 @@ TEST(GceAuthProviderTest, NoResponse) {
 TEST(GceAuthProviderTest, Status400) {
   TestAuthProvider auth;
   auth.responses = {
-      {0, {400, kServiceAccountInfo, {}}},  // RetrieveServiceAccountInfo
+      {0,
+       {400,
+        absl::Cord(kServiceAccountInfo),
+        {}}},  // RetrieveServiceAccountInfo
   };
 
   auto result = auth.GetToken();
@@ -131,8 +140,11 @@ TEST(GceAuthProviderTest, Status400) {
 TEST(GceAuthProviderTest, Status400OnSecondCall) {
   TestAuthProvider auth;
   auth.responses = {
-      {0, {200, kServiceAccountInfo, {}}},  // RetrieveServiceAccountInfo
-      {1, {400, kOAuthResponse, {}}},       // OAuth request
+      {0,
+       {200,
+        absl::Cord(kServiceAccountInfo),
+        {}}},                                      // RetrieveServiceAccountInfo
+      {1, {400, absl::Cord(kOAuthResponse), {}}},  // OAuth request
   };
 
   auto result = auth.GetToken();

@@ -16,22 +16,31 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/cord.h"
+#include "absl/strings/cord_test_helpers.h"
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
+#include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/endian.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
 
 using tensorstore::Array;
 using tensorstore::c_order;
+using tensorstore::ContiguousLayoutOrder;
+using tensorstore::DataType;
+using tensorstore::DataTypeOf;
 using tensorstore::endian;
 using tensorstore::fortran_order;
+using tensorstore::Index;
 using tensorstore::MakeArray;
 using tensorstore::SharedArrayView;
 using tensorstore::StridedLayout;
 using tensorstore::internal::DecodeArray;
 using tensorstore::internal::EncodeArray;
+using tensorstore::internal::TryViewCordAsArray;
 
 // Test encoding an endian-neutral uint8 array.
 TEST(EncodeDecodeArrayTest, Uint8) {
@@ -144,6 +153,98 @@ TEST(DecodeArrayTest, Uint16InPlaceLittleEndianUnaligned) {
   EXPECT_EQ(source_array_view,
             MakeArray<std::uint16_t>(
                 {{0x3412, 0x7856, 0x1290}, {0x5634, 0x9078, 0x4433}}));
+}
+
+void TestConvertCordInplace(DataType data_type, endian endian_value,
+                            ContiguousLayoutOrder order,
+                            bool expected_inplace) {
+  SCOPED_TRACE(tensorstore::StrCat("data_type=", data_type, ", order=", order,
+                                   ", endian=", endian_value));
+  auto orig_array = tensorstore::AllocateArray(
+      {4, 5, 6}, order, tensorstore::default_init, data_type);
+  EXPECT_EQ(1, orig_array.pointer().use_count());
+  auto cord = absl::MakeCordFromExternal(
+      std::string_view(reinterpret_cast<const char*>(orig_array.data()),
+                       data_type.size() * orig_array.num_elements()),
+      [owner = orig_array.pointer()](std::string_view s) {});
+  auto cord_array = TryViewCordAsArray(cord, /*offset=*/0, data_type,
+                                       endian_value, orig_array.layout());
+  if (expected_inplace) {
+    EXPECT_EQ(orig_array.data(), cord_array.data());
+    EXPECT_EQ(2, orig_array.pointer().use_count());
+    cord.Clear();
+    EXPECT_EQ(2, orig_array.pointer().use_count());
+  } else {
+    EXPECT_FALSE(cord_array.valid());
+  }
+}
+
+TEST(TryViewCordAsArrayTest, Inplace) {
+  const DataType data_types[] = {DataTypeOf<uint8_t>(), DataTypeOf<uint16_t>(),
+                                 DataTypeOf<uint32_t>(),
+                                 DataTypeOf<uint64_t>()};
+  for (auto data_type : data_types) {
+    for (auto order : {tensorstore::c_order, tensorstore::fortran_order}) {
+      TestConvertCordInplace(data_type, endian::native, order,
+                             /*expected_inplace=*/true);
+    }
+  }
+
+  constexpr endian non_native =
+      endian::native == endian::little ? endian::big : endian::little;
+
+  // 1-byte types require no endian conversion
+  TestConvertCordInplace(DataTypeOf<uint8_t>(), non_native,
+                         tensorstore::c_order,
+                         /*expected_inplace=*/true);
+
+  // bool requires validation
+  TestConvertCordInplace(DataTypeOf<bool>(), non_native, tensorstore::c_order,
+                         /*expected_inplace=*/true);
+
+  TestConvertCordInplace(DataTypeOf<uint32_t>(), non_native,
+                         tensorstore::c_order,
+                         /*expected_inplace=*/false);
+}
+
+// Verify that FlatCordBuilder produces cords compatible with
+// `TryViewCordAsArray`.
+TEST(TryViewCordAsArrayTest, FlatCordBuilder) {
+  constexpr size_t kExtraBytes = 8;
+  tensorstore::internal::FlatCordBuilder builder(sizeof(uint32_t) * 3 * 4 * 5 +
+                                                 kExtraBytes);
+  StridedLayout<> layout(tensorstore::c_order, sizeof(uint32_t), {3, 4, 5});
+  char* data_ptr = builder.data();
+  auto cord = std::move(builder).Build();
+  for (size_t offset = 0; offset < kExtraBytes; ++offset) {
+    auto array = TryViewCordAsArray(cord, offset, DataTypeOf<uint32_t>(),
+                                    endian::native, layout);
+    if ((offset % alignof(uint32_t)) == 0) {
+      EXPECT_EQ(static_cast<void*>(data_ptr + offset), array.data());
+      EXPECT_EQ(layout, array.layout());
+    } else {
+      EXPECT_FALSE(array.valid());
+    }
+  }
+}
+
+TEST(TryViewCordAsArrayTest, Fragmented) {
+  std::vector<std::string> parts{
+      std::string(sizeof(uint32_t) * 3 * 3 * 5, '\0'),
+      std::string(sizeof(uint32_t) * 3 * 1 * 5, '\0')};
+  StridedLayout<> layout(tensorstore::c_order, sizeof(uint32_t), {3, 4, 5});
+  absl::Cord cord = absl::MakeFragmentedCord(parts);
+  auto array = TryViewCordAsArray(cord, /*offset=*/0, DataTypeOf<uint32_t>(),
+                                  endian::native, layout);
+  EXPECT_FALSE(array.valid());
+}
+
+TEST(TryViewCordAsArrayTest, SmallBuffer) {
+  StridedLayout<> layout(tensorstore::c_order, sizeof(uint8_t), {4});
+  absl::Cord cord("abcd");
+  auto array = TryViewCordAsArray(cord, /*offset=*/0, DataTypeOf<uint8_t>(),
+                                  endian::native, layout);
+  EXPECT_FALSE(array.valid());
 }
 
 }  // namespace

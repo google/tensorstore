@@ -23,14 +23,14 @@ JsonSpecifiedCompressor::~JsonSpecifiedCompressor() = default;
 
 bool JsonSpecifiedCompressor::valid() const { return true; }
 
-absl::Status JsonSpecifiedCompressor::Encode(absl::string_view input,
-                                             std::string* output,
+absl::Status JsonSpecifiedCompressor::Encode(const absl::Cord& input,
+                                             absl::Cord* output,
                                              std::size_t element_bytes) const {
   return absl::UnimplementedError("");
 }
 
-absl::Status JsonSpecifiedCompressor::Decode(absl::string_view input,
-                                             std::string* output,
+absl::Status JsonSpecifiedCompressor::Decode(const absl::Cord& input,
+                                             absl::Cord* output,
                                              std::size_t element_bytes) const {
   return absl::UnimplementedError("");
 }

@@ -23,28 +23,31 @@ namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
 
 Result<std::vector<MinishardIndexEntry>> DecodeMinishardIndex(
-    absl::string_view input, ShardingSpec::DataEncoding encoding) {
-  std::string decoded_input;
+    const absl::Cord& input, ShardingSpec::DataEncoding encoding) {
+  absl::Cord decoded_input;
   if (encoding != ShardingSpec::DataEncoding::raw) {
     TENSORSTORE_ASSIGN_OR_RETURN(decoded_input, DecodeData(input, encoding));
-    input = decoded_input;
+  } else {
+    decoded_input = input;
   }
-  if ((input.size() % 24) != 0) {
+  if ((decoded_input.size() % 24) != 0) {
     return absl::InvalidArgumentError(
-        StrCat("Invalid minishard index length: ", input.size()));
+        StrCat("Invalid minishard index length: ", decoded_input.size()));
   }
-  std::vector<MinishardIndexEntry> result(input.size() / 24);
+  std::vector<MinishardIndexEntry> result(decoded_input.size() / 24);
+  static_assert(sizeof(MinishardIndexEntry) == 24);
+  auto decoded_flat = decoded_input.Flatten();
   ChunkId chunk_id{0};
   std::uint64_t byte_offset = 0;
   for (size_t i = 0; i < result.size(); ++i) {
     auto& entry = result[i];
-    chunk_id.value += absl::little_endian::Load64(input.data() + i * 8);
+    chunk_id.value += absl::little_endian::Load64(decoded_flat.data() + i * 8);
     entry.chunk_id = chunk_id;
-    byte_offset +=
-        absl::little_endian::Load64(input.data() + i * 8 + 8 * result.size());
+    byte_offset += absl::little_endian::Load64(decoded_flat.data() + i * 8 +
+                                               8 * result.size());
     entry.byte_range.inclusive_min = byte_offset;
-    byte_offset +=
-        absl::little_endian::Load64(input.data() + i * 8 + 16 * result.size());
+    byte_offset += absl::little_endian::Load64(decoded_flat.data() + i * 8 +
+                                               16 * result.size());
     entry.byte_range.exclusive_max = byte_offset;
     if (!entry.byte_range.SatisfiesInvariants()) {
       return absl::InvalidArgumentError(
@@ -72,12 +75,12 @@ std::optional<ByteRange> FindChunkInMinishard(
   return it->byte_range;
 }
 
-Result<std::string> DecodeData(absl::string_view input,
-                               ShardingSpec::DataEncoding encoding) {
+Result<absl::Cord> DecodeData(const absl::Cord& input,
+                              ShardingSpec::DataEncoding encoding) {
   if (encoding == ShardingSpec::DataEncoding::raw) {
-    return std::string(input.data(), input.size());
+    return input;
   }
-  std::string uncompressed;
+  absl::Cord uncompressed;
   TENSORSTORE_RETURN_IF_ERROR(
       zlib::Decode(input, &uncompressed, /*use_gzip_header=*/true));
   return uncompressed;

@@ -441,6 +441,16 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "cord_util",
+    srcs = ["cord_util.cc"],
+    hdrs = ["cord_util.h"],
+    deps = [
+        "//tensorstore/util:span",
+        "@com_google_absl//absl/strings:cord",
+    ],
+)
+
+tensorstore_cc_library(
     name = "data_copy_concurrency_resource",
     srcs = ["data_copy_concurrency_resource.cc"],
     hdrs = ["data_copy_concurrency_resource.h"],
@@ -468,6 +478,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/strings:cord",
     ],
 )
 
@@ -477,10 +488,14 @@ tensorstore_cc_test(
     srcs = ["data_type_endian_conversion_test.cc"],
     deps = [
         ":data_type_endian_conversion",
+        ":flat_cord_builder",
         "//tensorstore:array",
         "//tensorstore:contiguous_layout",
         "//tensorstore:strided_layout",
         "//tensorstore/util:endian",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:cord_test_helpers",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -540,6 +555,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/util:status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest",
     ],
 )
@@ -643,6 +659,15 @@ tensorstore_cc_library(
         "//tensorstore:context",
     ],
     alwayslink = 1,
+)
+
+tensorstore_cc_library(
+    name = "flat_cord_builder",
+    hdrs = ["flat_cord_builder.h"],
+    deps = [
+        "//tensorstore/util:assert_macros",
+        "@com_google_absl//absl/strings:cord",
+    ],
 )
 
 tensorstore_cc_library(

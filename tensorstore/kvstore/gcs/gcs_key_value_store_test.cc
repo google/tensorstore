@@ -71,7 +71,7 @@ namespace {
 class MetadataMockTransport : public HttpTransport {
  public:
   Future<HttpResponse> IssueRequest(const HttpRequest& request,
-                                    absl::string_view payload,
+                                    absl::Cord payload,
                                     absl::Duration request_timeout,
                                     absl::Duration connect_timeout) override {
     absl::string_view scheme, host, path;
@@ -86,7 +86,8 @@ class MetadataMockTransport : public HttpTransport {
                                   "service-accounts/user@nowhere.com/token")) {
       return HttpResponse{
           200,
-          R"({ "token_type" : "refresh", "access_token": "abc", "expires_in": 3600 })"};
+          absl::Cord(
+              R"({ "token_type" : "refresh", "access_token": "abc", "expires_in": 3600 })")};
     }
 
     // Respond with the GCE context metadata.
@@ -94,18 +95,19 @@ class MetadataMockTransport : public HttpTransport {
                          "/computeMetadata/v1/instance/service-accounts/"
                          "default/?recursive=true")) {
       return HttpResponse{
-          200, R"({ "email": "user@nowhere.com", "scopes": [ "test" ] })"};
+          200, absl::Cord(
+                   R"({ "email": "user@nowhere.com", "scopes": [ "test" ] })")};
     }
 
     // Pretend to run on GCE.
-    return HttpResponse{200, ""};
+    return HttpResponse{200, absl::Cord()};
   }
 };
 
 class MyMockTransport : public HttpTransport {
  public:
   Future<HttpResponse> IssueRequest(const HttpRequest& request,
-                                    absl::string_view payload,
+                                    absl::Cord payload,
                                     absl::Duration request_timeout,
                                     absl::Duration connect_timeout) override {
     auto future = metadata_mock_.IssueRequest(request, payload, request_timeout,
@@ -242,12 +244,12 @@ TEST(GCSKeyValueStoreTest, List) {
   EXPECT_THAT(ListFuture(store.get(), {}).result(),
               ::testing::Optional(::testing::ElementsAre()));
 
-  TENSORSTORE_EXPECT_OK(store->Write("a/b", "xyz"));
-  TENSORSTORE_EXPECT_OK(store->Write("a/d", "xyz"));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", "xyz"));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", "xyz"));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", "xyz"));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/b", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/d", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", absl::Cord("xyz")));
 
   // Listing the entire stream via `List` works.
   {
@@ -410,8 +412,8 @@ TEST(GCSKeyValueStoreTest, RequestorPays) {
             .result();
     ASSERT_TRUE(store_result1.ok());
     ASSERT_TRUE(store_result2.ok());
-    TENSORSTORE_EXPECT_OK((*store_result1)->Write("abc", "xyz"));
-    EXPECT_THAT(GetStatus((*store_result2)->Write("abc", "xyz")),
+    TENSORSTORE_EXPECT_OK((*store_result1)->Write("abc", absl::Cord("xyz")));
+    EXPECT_THAT(GetStatus((*store_result2)->Write("abc", absl::Cord("xyz"))),
                 bucket2_status_matcher);
   };
 
@@ -439,7 +441,7 @@ class MyConcurrentMockTransport : public MyMockTransport {
   }
 
   Future<HttpResponse> IssueRequest(const HttpRequest& request,
-                                    absl::string_view payload,
+                                    absl::Cord payload,
                                     absl::Duration request_timeout,
                                     absl::Duration connect_timeout) override {
     absl::string_view scheme, host, path;

@@ -18,8 +18,9 @@
 #include <cstddef>
 #include <map>
 #include <string>
+#include <string_view>
 
-#include "absl/strings/string_view.h"
+#include "absl/strings/cord.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/status.h"
 
@@ -29,12 +30,12 @@ namespace internal_http {
 /// AppendHeaderData parses `data` as a header and append to the set of
 /// `headers`.
 std::size_t AppendHeaderData(std::multimap<std::string, std::string>& headers,
-                             absl::string_view data);
+                             std::string_view data);
 
 /// HttpResponse contains the results of an HTTP request.
 struct HttpResponse {
   int32_t status_code;
-  std::string payload;
+  absl::Cord payload;
   std::multimap<std::string, std::string> headers;
 };
 

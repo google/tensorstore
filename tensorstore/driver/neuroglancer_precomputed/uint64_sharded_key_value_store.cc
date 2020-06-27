@@ -46,7 +46,7 @@ namespace {
 /// \error `absl::StatusCode::kInvalidArgument` if the encoded minishard is
 ///   invalid.
 Result<std::vector<MinishardIndexEntry>>
-DecodeMinishardIndexAndAdjustByteRanges(absl::string_view encoded,
+DecodeMinishardIndexAndAdjustByteRanges(const absl::Cord& encoded,
                                         const ShardingSpec& sharding_spec) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto minishard_index,
@@ -202,7 +202,7 @@ class MinishardIndexKeyValueStore : public KeyValueStore {
         }
         // Read was successful (case 1c above).
         TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
-                                     DecodeShardIndexEntry(r->value),
+                                     DecodeShardIndexEntry(r->value.Flatten()),
                                      SetError(promise, _));
         TENSORSTORE_ASSIGN_OR_RETURN(
             byte_range,
@@ -210,7 +210,7 @@ class MinishardIndexKeyValueStore : public KeyValueStore {
             SetError(promise, _));
         if (byte_range.size() == 0) {
           // Minishard index is 0 bytes, which means the minishard is empty.
-          r->value.clear();
+          r->value.Clear();
           r->state = KeyValueStore::ReadResult::kMissing;
           promise.SetResult(std::move(r));
           return;
@@ -298,7 +298,7 @@ class MinishardIndexCache
   }
 
   void DoDecode(internal::Cache::PinnedEntry base_entry,
-                std::optional<std::string> value) override {
+                std::optional<absl::Cord> value) override {
     auto* entry = static_cast<Entry*>(base_entry.get());
     std::vector<MinishardIndexEntry> minishard_index;
     if (value) {
@@ -326,7 +326,7 @@ struct PendingChunkWrite {
   ChunkId chunk_id;
   /// Specifies the new value for the chunk, or `std::nullopt` to request that
   /// the chunk be deleted.
-  std::optional<std::string> data;
+  std::optional<absl::Cord> data;
 
   /// If not equal to `StorageGeneration::Unknown()`, apply the write/delete
   /// only if the existing generation matches.
@@ -360,13 +360,11 @@ class MergeShardImpl {
   explicit MergeShardImpl(const ShardingSpec& sharding_spec,
                           const StorageGeneration& existing_generation,
                           span<PendingChunkWrite> new_chunks,
-                          std::string* new_shard)
+                          absl::Cord& new_shard)
       : new_shard_(new_shard),
         encoder_(sharding_spec, new_shard),
         existing_generation_(existing_generation) {
-    shard_index_offset_ = new_shard->size();
-    new_shard->resize(shard_index_offset_ + ShardIndexSize(sharding_spec));
-    shard_data_offset_ = new_shard->size();
+    shard_data_offset_ = new_shard.size();
     chunk_it_ = new_chunks.data();
     chunk_end_ = new_chunks.data() + new_chunks.size();
   }
@@ -374,7 +372,7 @@ class MergeShardImpl {
   /// Merges the existing shard data with the new chunks.
   ///
   /// \dchecks `!existing_shard.empty()`
-  Status ProcessExistingShard(absl::string_view existing_shard) {
+  Status ProcessExistingShard(const absl::Cord& existing_shard) {
     assert(!existing_shard.empty());
     const std::uint64_t num_minishards =
         encoder_.sharding_spec().num_minishards();
@@ -391,7 +389,8 @@ class MergeShardImpl {
       const auto GetMinishardIndexByteRange = [&]() -> Result<ByteRange> {
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto minishard_index_byte_range,
-            DecodeShardIndexEntry(existing_shard.substr(16 * minishard, 16)));
+            DecodeShardIndexEntry(
+                existing_shard.Subcord(16 * minishard, 16).Flatten()));
         TENSORSTORE_ASSIGN_OR_RETURN(
             minishard_index_byte_range,
             GetAbsoluteShardByteRange(minishard_index_byte_range,
@@ -412,8 +411,7 @@ class MergeShardImpl {
         continue;
       }
       auto minishard_index_result = DecodeMinishardIndexAndAdjustByteRanges(
-          internal::GetSubStringView(existing_shard,
-                                     minishard_ibr_result.value()),
+          internal::GetSubCord(existing_shard, minishard_ibr_result.value()),
           encoder_.sharding_spec());
       if (!minishard_index_result.ok()) {
         return MaybeAnnotateStatus(
@@ -436,13 +434,13 @@ class MergeShardImpl {
       return absl::AbortedError("");
     }
     TENSORSTORE_ASSIGN_OR_RETURN(auto shard_index, encoder_.Finalize());
-    if (new_shard_->size() == shard_data_offset_) {
+    if (new_shard_.size() == shard_data_offset_) {
       // Empty shard.
-      new_shard_->resize(shard_index_offset_);
     } else {
-      assert(shard_index.size() == shard_data_offset_ - shard_index_offset_);
-      std::memcpy(new_shard_->data() + shard_index_offset_, shard_index.data(),
-                  shard_index.size());
+      absl::Cord temp;
+      temp.swap(new_shard_);
+      new_shard_.Append(std::move(shard_index));
+      new_shard_.Append(std::move(temp));
     }
     *total_chunks = total_chunks_;
     *unconditional = unconditional_;
@@ -518,7 +516,7 @@ class MergeShardImpl {
   ///
   /// This is called by `ProcessExistingShard` for each minishard in order.
   Status ProcessExistingMinishard(
-      absl::string_view existing_shard, std::uint64_t minishard,
+      const absl::Cord& existing_shard, std::uint64_t minishard,
       span<const MinishardIndexEntry> minishard_index) {
     std::optional<ChunkId> prev_chunk_id;
     for (const auto& existing_entry : minishard_index) {
@@ -587,8 +585,8 @@ class MergeShardImpl {
         }
         TENSORSTORE_RETURN_IF_ERROR(encoder_.WriteIndexedEntry(
             minishard, existing_entry.chunk_id,
-            internal::GetSubStringView(existing_shard,
-                                       chunk_byte_range_result.value()),
+            internal::GetSubCord(existing_shard,
+                                 chunk_byte_range_result.value()),
             /*compress=*/false));
         ++total_chunks_;
         unconditional_ = false;
@@ -597,9 +595,8 @@ class MergeShardImpl {
     return absl::OkStatus();
   }
 
-  std::size_t shard_index_offset_;
   std::size_t shard_data_offset_;
-  std::string* new_shard_;
+  absl::Cord& new_shard_;
   ShardEncoder encoder_;
   const StorageGeneration& existing_generation_;
   bool modified_ = false;
@@ -621,8 +618,8 @@ class MergeShardImpl {
 ///     `write_status` member of each `PendingChunkWrite` is updated to indicate
 ///     whether the operation was applied and whether it was subsequently
 ///     overwritten.
-/// \param new_shard[out] Pointer to string to which the new encoded shard data
-///     will be appended.
+/// \param new_shard[out] String to which the new encoded shard data will be
+///     appended.
 /// \param total_chunks[out] Set to total number of chunks in `new_shard`.
 /// \param unconditional[out] Set to `true` if the result is not conditioned on
 ///     `existing_shard`.
@@ -632,8 +629,8 @@ class MergeShardImpl {
 ///     `absl::StatusCode::kInvalidArgument` if the existing data is invalid.
 Status MergeShard(const ShardingSpec& sharding_spec,
                   const StorageGeneration& existing_generation,
-                  absl::string_view existing_shard,
-                  span<PendingChunkWrite> new_chunks, std::string* new_shard,
+                  const absl::Cord& existing_shard,
+                  span<PendingChunkWrite> new_chunks, absl::Cord& new_shard,
                   size_t* total_chunks, bool* unconditional) {
   absl::c_sort(new_chunks,
                [&](const PendingChunkWrite& a, const PendingChunkWrite& b) {
@@ -690,7 +687,7 @@ class ShardedKeyValueStoreWriteCache
     // Set to the full encoded shard that was read.  After writeback, this will
     // be reset to save memory, and `full_shard_discarded_` will be set to
     // `true`.
-    std::optional<std::string> full_shard_data_;
+    std::optional<absl::Cord> full_shard_data_;
     // Set to `true` to indicate that there is likely an existing shard that
     // should be read before re-writing.
     bool full_shard_discarded_ = false;
@@ -712,7 +709,7 @@ class ShardedKeyValueStoreWriteCache
   }
 
   void DoDecode(internal::Cache::PinnedEntry base_entry,
-                std::optional<std::string> value) override {
+                std::optional<absl::Cord> value) override {
     auto* entry = static_cast<Entry*>(base_entry.get());
     auto lock = entry->AcquireReadStateWriterLock();
     entry->full_shard_data_ = std::move(value);
@@ -787,7 +784,7 @@ void ShardedKeyValueStoreWriteCache::DoWriteback(
   executor()([entry =
                   internal::static_pointer_cast<Entry>(base_entry)]() mutable {
     auto* cache = GetOwningCache(entry);
-    std::string new_shard;
+    absl::Cord new_shard;
     Status merge_status;
     size_t total_chunks = 0;
     bool unconditional = false;
@@ -797,9 +794,8 @@ void ShardedKeyValueStoreWriteCache::DoWriteback(
       last_write_time = entry->last_pending_write_time;
       merge_status = MergeShard(
           cache->sharding_spec(), entry->last_read_generation,
-          entry->full_shard_data_ ? absl::string_view(*entry->full_shard_data_)
-                                  : absl::string_view(),
-          entry->pending_writes, &new_shard, &total_chunks, &unconditional);
+          entry->full_shard_data_ ? *entry->full_shard_data_ : absl::Cord(),
+          entry->pending_writes, new_shard, &total_chunks, &unconditional);
       if (!merge_status.ok() &&
           merge_status.code() != absl::StatusCode::kAborted) {
         merge_status = absl::FailedPreconditionError(merge_status.message());
@@ -843,7 +839,7 @@ void ShardedKeyValueStoreWriteCache::DoWriteback(
       return;
     }
 
-    std::optional<std::string> new_value;
+    std::optional<absl::Cord> new_value;
     if (!new_shard.empty()) new_value = std::move(new_shard);
     cache->Writeback(std::move(entry), std::move(new_value),
                      /*unconditional=*/unconditional);
@@ -951,7 +947,7 @@ struct MinishardIndexCacheEntryReadyCallback {
           TENSORSTORE_ASSIGN_OR_RETURN(
               auto byte_range, post_decode_byte_range.Validate(r->value.size()),
               static_cast<void>(promise.SetResult(_)));
-          r->value = internal::GetSubString(std::move(r->value), byte_range);
+          r->value = internal::GetSubCord(std::move(r->value), byte_range);
           promise.SetResult(std::move(r));
         },
         std::move(promise),
@@ -1013,7 +1009,7 @@ class ShardedKeyValueStore : public KeyValueStore {
   }
 
   Future<TimestampedStorageGeneration> Write(Key key,
-                                             std::optional<std::string> value,
+                                             std::optional<Value> value,
                                              WriteOptions options) override {
     TENSORSTORE_ASSIGN_OR_RETURN(ChunkId chunk_id, ParseKey(key));
     const auto& sharding_spec = this->sharding_spec();

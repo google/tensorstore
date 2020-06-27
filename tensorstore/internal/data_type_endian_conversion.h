@@ -17,6 +17,7 @@
 
 #include <array>
 
+#include "absl/strings/cord.h"
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/elementwise_function.h"
@@ -86,8 +87,8 @@ void DecodeArray(ArrayView<const void> source, endian source_endian,
 /// Decodes `*source` from `source_endian` into the native endianness.
 ///
 /// If `*source` is suitably aligned for its data type, it is transformed in
-/// place.  Otherwise, `source->element_pointer()` is assigned to a newly
-/// allocated buffer to which the decoded data has been copied.
+/// place.  Otherwise, sets
+/// `*source = CopyAndDecodeArray(*source, source_endian, decoded_layout)`.
 ///
 /// This performs endian conversion if necessary.  Additionally, for `bool` data
 /// it ensures the value is exactly `0` or `1` (i.e. masks out all but the
@@ -102,6 +103,31 @@ void DecodeArray(ArrayView<const void> source, endian source_endian,
 /// \dchecks `decoded_layout.shape() == source->shape()`
 void DecodeArray(SharedArrayView<void>* source, endian source_endian,
                  StridedLayoutView<> decoded_layout);
+
+/// Returns a decoded copy of `source` in a newly allocated array with
+/// `decoded_layout`.
+///
+/// \param source Source array, does not have to be suitably aligned for its
+///     data type.
+/// \param source_endian The source array endianness.
+/// \param decoded_layout Layout to use for copy.  Must be equivalent to a
+///     permutation of a C order layout.
+SharedArrayView<void> CopyAndDecodeArray(ArrayView<const void> source,
+                                         endian source_endian,
+                                         StridedLayoutView<> decoded_layout);
+
+/// Attempts to view the substring of `source` starting at `offset` as an array
+/// of the specified `data_type` and `layout`.
+///
+/// If `source` is already flattened, suitably aligned, and requires no
+/// conversion, then an array view that shares ownership with `source` is
+/// returned.
+///
+/// Otherwise, returns a null array.
+SharedArrayView<const void> TryViewCordAsArray(const absl::Cord& source,
+                                               Index offset, DataType dtype,
+                                               endian source_endian,
+                                               StridedLayoutView<> layout);
 
 }  // namespace internal
 }  // namespace tensorstore

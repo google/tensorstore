@@ -181,6 +181,7 @@ tensorstore_cc_library(
         "//tensorstore:data_type",
         "//tensorstore/internal:container_to_shared",
         "//tensorstore/internal:data_type_endian_conversion",
+        "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal:json",
         "//tensorstore/util:endian",
         "//tensorstore/util:result",

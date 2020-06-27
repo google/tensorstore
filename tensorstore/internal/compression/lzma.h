@@ -20,38 +20,13 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <string>
 
-#include "absl/strings/string_view.h"
+#include "absl/strings/cord.h"
 #include <lzma.h>
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace lzma {
-
-/// RAII adapter for LZMA stream encoding/decoding.
-struct BufferManager {
-  constexpr static std::size_t kBufferSize = 16 * 1024;
-  char buffer[kBufferSize];
-  lzma_stream strm = LZMA_STREAM_INIT;
-  std::string* output;
-
-  explicit BufferManager(absl::string_view input, std::string* output)
-      : output(output) {
-    strm.avail_in = input.size();
-    strm.next_in = reinterpret_cast<const std::uint8_t*>(input.data());
-  }
-
-  ::lzma_ret Process();
-
-  ~BufferManager() { ::lzma_end(&strm); }
-};
-
-/// Returns the Status associated with a liblzma error.
-Status GetInitErrorStatus(::lzma_ret r);
-Status GetEncodeErrorStatus(::lzma_ret r);
-Status GetDecodeErrorStatus(::lzma_ret r);
-
 namespace xz {
 
 /// Options for the XZ format, which is a variant of LZMA with simplified
@@ -69,19 +44,18 @@ struct Options {
 /// Compresses `input` and appends the result to `*output`.
 ///
 /// \param input Input to encode.
-/// \param output[in,out] Non-null pointer to output string to which compressed
-///     data will be appended.
+/// \param output[in,out] Output cord to which compressed data will be appended.
 /// \param options Specifies the compression options.
-Status Encode(absl::string_view input, std::string* output, Options options);
+Status Encode(const absl::Cord& input, absl::Cord* output, Options options);
 
 /// Decompresses `input` and appends the result to `*output`.
 ///
 /// \param input Input to decode.
-/// \param output[in,out] Non-null pointer to output string to which
-///     decompressed data will be appended.
+/// \param output[in,out] Output cord to which decompressed data will be
+///     appended.
 /// \returns `Status()` on success.
 /// \error `absl::StatusCode::kInvalidArgument` if `input` is corrupt.
-Status Decode(absl::string_view input, std::string* output);
+Status Decode(const absl::Cord& input, absl::Cord* output);
 
 }  // namespace xz
 }  // namespace lzma

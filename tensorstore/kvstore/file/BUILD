@@ -13,6 +13,7 @@ tensorstore_cc_library(
         ":file_util",
         "//tensorstore:context",
         "//tensorstore/internal:file_io_concurrency_resource",
+        "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal:json",
         "//tensorstore/internal:os_error_code",
         "//tensorstore/internal:path",

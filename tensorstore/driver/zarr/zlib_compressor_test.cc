@@ -34,27 +34,10 @@ INSTANTIATE_TEST_SUITE_P(ZlibCompressorTestCases, ZlibCompressorTest,
 TEST_P(ZlibCompressorTest, SmallRoundtrip) {
   auto compressor =
       Compressor::FromJson({{"id", GetParam()}, {"level", 6}}).value();
-  const std::string input = "The quick brown fox jumped over the lazy dog.";
-  std::string encode_result, decode_result;
-  ASSERT_EQ(Status(), compressor->Encode(input, &encode_result, 1));
-  ASSERT_EQ(Status(), compressor->Decode(encode_result, &decode_result, 1));
-  EXPECT_EQ(input, decode_result);
-}
-
-// Tests that round tripping works for with an input that exceeds the 16KiB
-// buffer size.
-TEST_P(ZlibCompressorTest, LargeRoundtrip) {
-  std::string input(100000, '\0');
-  unsigned char x = 0;
-  for (auto& v : input) {
-    v = x;
-    x += 7;
-  }
-  auto compressor =
-      Compressor::FromJson({{"id", GetParam()}, {"level", 6}}).value();
-  std::string encode_result, decode_result;
-  ASSERT_EQ(Status(), compressor->Encode(input, &encode_result, 1));
-  ASSERT_EQ(Status(), compressor->Decode(encode_result, &decode_result, 1));
+  const absl::Cord input("The quick brown fox jumped over the lazy dog.");
+  absl::Cord encode_result, decode_result;
+  TENSORSTORE_ASSERT_OK(compressor->Encode(input, &encode_result, 1));
+  TENSORSTORE_ASSERT_OK(compressor->Decode(encode_result, &decode_result, 1));
   EXPECT_EQ(input, decode_result);
 }
 
@@ -64,10 +47,10 @@ TEST_P(ZlibCompressorTest, DefaultLevel) {
   auto compressor1 = Compressor::FromJson({{"id", GetParam()}}).value();
   auto compressor2 =
       Compressor::FromJson({{"id", GetParam()}, {"level", 1}}).value();
-  const std::string input = "The quick brown fox jumped over the lazy dog.";
-  std::string encode_result1, encode_result2;
-  ASSERT_EQ(Status(), compressor1->Encode(input, &encode_result1, 1));
-  ASSERT_EQ(Status(), compressor2->Encode(input, &encode_result2, 1));
+  const absl::Cord input("The quick brown fox jumped over the lazy dog.");
+  absl::Cord encode_result1, encode_result2;
+  TENSORSTORE_ASSERT_OK(compressor1->Encode(input, &encode_result1, 1));
+  TENSORSTORE_ASSERT_OK(compressor2->Encode(input, &encode_result2, 1));
   EXPECT_EQ(encode_result1, encode_result2);
 }
 
@@ -77,13 +60,13 @@ TEST_P(ZlibCompressorTest, NonDefaultLevel) {
   auto compressor1 = Compressor::FromJson({{"id", GetParam()}}).value();
   auto compressor2 =
       Compressor::FromJson({{"id", GetParam()}, {"level", 9}}).value();
-  const std::string input = "The quick brown fox jumped over the lazy dog.";
-  std::string encode_result1, encode_result2;
-  ASSERT_EQ(Status(), compressor1->Encode(input, &encode_result1, 1));
-  ASSERT_EQ(Status(), compressor2->Encode(input, &encode_result2, 1));
+  const absl::Cord input("The quick brown fox jumped over the lazy dog.");
+  absl::Cord encode_result1, encode_result2;
+  TENSORSTORE_ASSERT_OK(compressor1->Encode(input, &encode_result1, 1));
+  TENSORSTORE_ASSERT_OK(compressor2->Encode(input, &encode_result2, 1));
   EXPECT_NE(encode_result1, encode_result2);
-  std::string decode_result;
-  ASSERT_EQ(Status(), compressor2->Decode(encode_result2, &decode_result, 1));
+  absl::Cord decode_result;
+  TENSORSTORE_ASSERT_OK(compressor2->Decode(encode_result2, &decode_result, 1));
   EXPECT_EQ(input, decode_result);
 }
 
@@ -101,32 +84,6 @@ TEST_P(ZlibCompressorTest, InvalidParameter) {
   EXPECT_THAT(Compressor::FromJson({{"id", GetParam()}, {"foo", 10}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Object includes extra members: \"foo\""));
-}
-
-// Tests that decoding corrupt data gives an error.
-TEST_P(ZlibCompressorTest, DecodeCorruptData) {
-  auto compressor = Compressor::FromJson({{"id", GetParam()}}).value();
-  const std::string input = "The quick brown fox jumped over the lazy dog.";
-
-  // Test corrupting the header.
-  {
-    std::string encode_result, decode_result;
-    ASSERT_EQ(Status(), compressor->Encode(input, &encode_result, 1));
-    ASSERT_GE(encode_result.size(), 1);
-    encode_result[0] = 0;
-    EXPECT_THAT(compressor->Decode(encode_result, &decode_result, 1),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
-  }
-
-  // Test corrupting the trailer.
-  {
-    std::string encode_result, decode_result;
-    ASSERT_EQ(Status(), compressor->Encode(input, &encode_result, 1));
-    ASSERT_GE(encode_result.size(), 1);
-    encode_result.resize(encode_result.size() - 1);
-    EXPECT_THAT(compressor->Decode(encode_result, &decode_result, 1),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
-  }
 }
 
 TEST_P(ZlibCompressorTest, ToJson) {

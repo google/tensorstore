@@ -23,7 +23,6 @@
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
-#include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
@@ -278,8 +277,8 @@ class GcsKeyValueStore
                                                         const std::string* x) {
                        if (!IsValidBucketName(*x)) {
                          return Status(absl::StatusCode::kInvalidArgument,
-                                       absl::StrCat("Invalid GCS bucket name: ",
-                                                    QuoteString(*x)));
+                                       StrCat("Invalid GCS bucket name: ",
+                                              QuoteString(*x)));
                        }
                        return absl::OkStatus();
                      }))),
@@ -367,7 +366,7 @@ class GcsKeyValueStore
   // Wrap transport to allow our old mocking to work.
   Result<HttpResponse> IssueRequest(const char* description,
                                     const HttpRequest& request,
-                                    absl::string_view payload) {
+                                    const absl::Cord& payload) {
     auto result = transport_->IssueRequest(request, payload).result();
 #if 0
   // If we want to log the URL & the response code, uncomment this.
@@ -403,7 +402,7 @@ struct ReadTask {
     TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
 
     /// Reads contents of a GCS object.
-    std::string media_url = absl::StrCat(resource, "?alt=media");
+    std::string media_url = StrCat(resource, "?alt=media");
 
     // Add the ifGenerationNotMatch condition.
     AddGenerationParam(&media_url, true, "ifGenerationNotMatch",
@@ -468,8 +467,7 @@ struct ReadTask {
         auto byte_range,
         GetHttpResponseByteRange(httpresponse, options.byte_range));
     read_result.state = KeyValueStore::ReadResult::kValue;
-    read_result.value =
-        internal::GetSubString(std::move(httpresponse.payload), byte_range);
+    read_result.value = internal::GetSubCord(httpresponse.payload, byte_range);
 
     // TODO: Avoid parsing the entire metadata & only extract the
     // generation field.
@@ -477,7 +475,7 @@ struct ReadTask {
     SetObjectMetadataFromHeaders(httpresponse.headers, &metadata);
 
     read_result.stamp.generation =
-        StorageGeneration{absl::StrCat(metadata.generation)};
+        StorageGeneration{StrCat(metadata.generation)};
     return read_result;
   }
 };
@@ -511,8 +509,8 @@ struct WriteTask {
     TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
 
     std::string upload_url =
-        absl::StrCat(owner->upload_root(), "/o", "?uploadType=media",
-                     "&name=", encoded_object_name);
+        StrCat(owner->upload_root(), "/o", "?uploadType=media",
+               "&name=", encoded_object_name);
 
     // Add the ifGenerationNotMatch condition.
     AddGenerationParam(&upload_url, true, "ifGenerationMatch",
@@ -522,12 +520,11 @@ struct WriteTask {
     // it on the uri for a requestor pays bucket.
     AddUserProjectParam(&upload_url, true, owner->encoded_user_project());
 
-    auto request =
-        HttpRequestBuilder(upload_url)
-            .AddHeader(auth_header)
-            .AddHeader("Content-Type: application/octet-stream")
-            .AddHeader(absl::StrCat("Content-Length: ", value.size()))
-            .BuildRequest();
+    auto request = HttpRequestBuilder(upload_url)
+                       .AddHeader(auth_header)
+                       .AddHeader("Content-Type: application/octet-stream")
+                       .AddHeader(StrCat("Content-Length: ", value.size()))
+                       .BuildRequest();
 
     TimestampedStorageGeneration r;
 
@@ -576,11 +573,12 @@ struct WriteTask {
 
     // TODO: Avoid parsing the entire metadata & only extract the
     // generation field.
-    auto parsed_object_metadata = ParseObjectMetadata(httpresponse.payload);
+    auto parsed_object_metadata =
+        ParseObjectMetadata(httpresponse.payload.Flatten());
     TENSORSTORE_RETURN_IF_ERROR(parsed_object_metadata);
 
     r.generation =
-        StorageGeneration{absl::StrCat(parsed_object_metadata->generation)};
+        StorageGeneration{StrCat(parsed_object_metadata->generation)};
 
     return r;
   }
@@ -682,7 +680,7 @@ std::string BuildListQueryParameters(const KeyRange& range,
                                      absl::optional<int> max_results) {
   std::string result;
   if (!range.inclusive_min.empty()) {
-    result = absl::StrCat(
+    result = StrCat(
         "startOffset=",
         tensorstore::internal_http::CurlEscapeString(range.inclusive_min));
   }
@@ -788,10 +786,10 @@ struct ListOp {
       TENSORSTORE_RETURN_IF_ERROR(retry_status);
       TENSORSTORE_RETURN_IF_ERROR(maybe_cancelled());
 
-      auto j = internal::ParseJson(httpresponse.payload);
+      auto j = internal::ParseJson(httpresponse.payload.Flatten());
       if (j.is_discarded()) {
-        return absl::InternalError(absl::StrCat(
-            "Failed to parse response metadata: ", httpresponse.payload));
+        return absl::InternalError(StrCat("Failed to parse response metadata: ",
+                                          httpresponse.payload.Flatten()));
       }
 
       nextPageToken.clear();

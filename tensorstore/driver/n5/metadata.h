@@ -128,11 +128,12 @@ Result<std::shared_ptr<const N5Metadata>> GetNewMetadata(
 ///
 /// The layout of the returned array is only valid as long as `metadata`.
 Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
-                                                std::string buffer);
+                                                absl::Cord buffer);
 
 /// Encodes a chunk.
-Status EncodeChunk(span<const Index> chunk_indices, const N5Metadata& metadata,
-                   ArrayView<const void> array, std::string* out);
+Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
+                               const N5Metadata& metadata,
+                               ArrayView<const void> array);
 
 /// Validates that `data_type` is supported by N5.
 ///

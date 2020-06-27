@@ -33,9 +33,8 @@ using tensorstore::neuroglancer_uint64_sharded::ShardingSpec;
 
 void TestEncodeMinishardRoundTrip(
     std::vector<MinishardIndexEntry> minishard_index) {
-  std::string out;
-  EncodeMinishardIndex(minishard_index, &out);
-  std::string compressed;
+  auto out = EncodeMinishardIndex(minishard_index);
+  absl::Cord compressed;
   zlib::Options options{/*.level=*/9, /*.use_gzip_header=*/true};
   zlib::Encode(out, &compressed, options);
   EXPECT_THAT(
@@ -62,21 +61,23 @@ TEST(DecodeMinishardIndexTest, MultipleEntries) {
 }
 
 TEST(DecodeMinishardIndexTest, InvalidGzip) {
-  EXPECT_THAT(DecodeMinishardIndex("abc", ShardingSpec::DataEncoding::gzip),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error decoding zlib-compressed data"));
+  EXPECT_THAT(
+      DecodeMinishardIndex(absl::Cord("abc"), ShardingSpec::DataEncoding::gzip),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Error decoding zlib-compressed data"));
 }
 
 TEST(DecodeMinishardIndexTest, InvalidSizeRaw) {
-  EXPECT_THAT(DecodeMinishardIndex("abc", ShardingSpec::DataEncoding::raw),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Invalid minishard index length: 3"));
+  EXPECT_THAT(
+      DecodeMinishardIndex(absl::Cord("abc"), ShardingSpec::DataEncoding::raw),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Invalid minishard index length: 3"));
 }
 
 TEST(DecodeMinishardIndexTest, InvalidSizeGzip) {
-  std::string temp;
+  absl::Cord temp;
   zlib::Options options{/*.level=*/9, /*.use_gzip_header=*/true};
-  zlib::Encode("abc", &temp, options);
+  zlib::Encode(absl::Cord("abc"), &temp, options);
   EXPECT_THAT(DecodeMinishardIndex(temp, ShardingSpec::DataEncoding::gzip),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Invalid minishard index length: 3"));
@@ -84,8 +85,7 @@ TEST(DecodeMinishardIndexTest, InvalidSizeGzip) {
 
 TEST(DecodeMinishardIndexTest, InvalidInterval) {
   std::vector<MinishardIndexEntry> minishard_index{{{3}, {1, 0}}};
-  std::string encoded;
-  EncodeMinishardIndex(minishard_index, &encoded);
+  auto encoded = EncodeMinishardIndex(minishard_index);
   EXPECT_THAT(
       DecodeMinishardIndex(encoded, ShardingSpec::DataEncoding::raw),
       MatchesStatus(

@@ -16,6 +16,8 @@
 
 #include <csetjmp>
 
+#include "absl/strings/cord.h"
+#include <jerror.h>
 #include <jpeglib.h>
 
 namespace tensorstore {
@@ -77,12 +79,85 @@ struct JpegStateWrapper {
   ::jpeg_error_mgr jerr;
 };
 
-struct MemoryDestManager {
+struct CordSourceManager {
+  struct ::jpeg_source_mgr mgr;
+  absl::Cord::CharIterator char_it;
+  size_t input_remaining;
+
+  explicit CordSourceManager(const absl::Cord& input)
+      : char_it(input.char_begin()), input_remaining(input.size()) {
+    mgr.init_source = &InitSource;
+    mgr.fill_input_buffer = &FillInputBuffer;
+    mgr.skip_input_data = &SkipInputData;
+    // Use default `resync_to_restart` implementation provided by libjpeg.
+    mgr.resync_to_restart = ::jpeg_resync_to_restart;
+    mgr.term_source = &TermSource;
+    mgr.next_input_byte = nullptr;
+    mgr.bytes_in_buffer = 0;
+  }
+
+  void Initialize(::jpeg_decompress_struct* cinfo) { cinfo->src = &mgr; }
+
+ private:
+  static CordSourceManager& GetSelf(::jpeg_decompress_struct* cinfo) {
+    // Because `CordSourceManager` is standard layout, we can safely
+    // `reinterpret_cast` from pointer to first member.
+    return *reinterpret_cast<CordSourceManager*>(cinfo->src);
+  }
+
+  static void InitSource(::jpeg_decompress_struct* cinfo) {}
+
+  // Note: `boolean` is an unfortunately-named platform-dependent type alias
+  // defined by `jpeglib.h`; typically it is `int` but may be a different type
+  // on some platforms.
+  static boolean FillInputBuffer(::jpeg_decompress_struct* cinfo) {
+    auto& self = GetSelf(cinfo);
+    if (self.input_remaining) {
+      auto chunk = absl::Cord::ChunkRemaining(self.char_it);
+      self.mgr.next_input_byte = reinterpret_cast<const JOCTET*>(chunk.data());
+      self.mgr.bytes_in_buffer = chunk.size();
+      absl::Cord::Advance(&self.char_it, chunk.size());
+      self.input_remaining -= chunk.size();
+    } else {
+      // libjpeg doesn't provide a clean way to signal EOF.  The documentation
+      // recommends emitting a fake EOI marker in the case that all input is
+      // consumed (that is what the built-in data sources do).
+      static const JOCTET fake_eoi_buffer[2] = {(JOCTET)0xFF, (JOCTET)JPEG_EOI};
+
+      // The warning emitted below will be treated as an error.
+      WARNMS(cinfo, JWRN_JPEG_EOF);
+
+      self.mgr.next_input_byte = fake_eoi_buffer;
+      self.mgr.bytes_in_buffer = 2;
+    }
+    return static_cast<boolean>(true);
+  }
+
+  static void SkipInputData(::jpeg_decompress_struct* cinfo, long num_bytes) {
+    if (num_bytes <= 0) return;
+    auto& self = GetSelf(cinfo);
+    size_t remove_from_buffer =
+        std::min(self.mgr.bytes_in_buffer, static_cast<size_t>(num_bytes));
+    self.mgr.bytes_in_buffer -= remove_from_buffer;
+    self.mgr.next_input_byte += remove_from_buffer;
+    num_bytes -= remove_from_buffer;
+    if (num_bytes) {
+      size_t num_to_advance =
+          std::min(static_cast<size_t>(num_bytes), self.input_remaining);
+      absl::Cord::Advance(&self.char_it, num_to_advance);
+      self.input_remaining -= num_to_advance;
+    }
+  }
+
+  static void TermSource(::jpeg_decompress_struct* cinfo) {}
+};
+
+struct CordDestManager {
   struct ::jpeg_destination_mgr mgr;
   char buffer[32 * 1024];
-  std::string* out;
+  absl::Cord* output;
 
-  explicit MemoryDestManager(std::string* out) : out(out) {
+  explicit CordDestManager(absl::Cord* output) : output(output) {
     mgr.init_destination = &InitDestination;
     mgr.empty_output_buffer = &EmptyOutputBuffer;
     mgr.term_destination = &TermDestination;
@@ -92,9 +167,9 @@ struct MemoryDestManager {
 
  private:
   static void InitDestination(::jpeg_compress_struct* cinfo) {
-    // Because `MemoryDestLayout` is standard layout, we can safely
+    // Because `CordDestManager` is standard layout, we can safely
     // `reinterpret_cast` from pointer to first member.
-    auto* self = reinterpret_cast<MemoryDestManager*>(cinfo->dest);
+    auto* self = reinterpret_cast<CordDestManager*>(cinfo->dest);
     self->mgr.next_output_byte = reinterpret_cast<JOCTET*>(self->buffer);
     self->mgr.free_in_buffer = std::size(self->buffer);
   }
@@ -103,48 +178,43 @@ struct MemoryDestManager {
   // defined by `jpeglib.h`; typically it is `int` but may be a different type
   // on some platforms.
   static boolean EmptyOutputBuffer(::jpeg_compress_struct* cinfo) {
-    // Because `MemoryDestLayout` is standard layout, we can safely
+    // Because `CordDestManager` is standard layout, we can safely
     // `reinterpret_cast` from pointer to first member.
-    auto* self = reinterpret_cast<MemoryDestManager*>(cinfo->dest);
-    self->out->append(self->buffer, std::size(self->buffer));
+    auto* self = reinterpret_cast<CordDestManager*>(cinfo->dest);
+    self->output->Append(
+        std::string_view(self->buffer, std::size(self->buffer)));
     InitDestination(cinfo);
     return static_cast<boolean>(true);
   }
 
   static void TermDestination(::jpeg_compress_struct* cinfo) {
-    // Because `MemoryDestLayout` is standard layout, we can safely
+    // Because `CordDestManager` is standard layout, we can safely
     // `reinterpret_cast` from pointer to first member.
-    auto* self = reinterpret_cast<MemoryDestManager*>(cinfo->dest);
-    self->out->append(self->buffer,
-                      std::size(self->buffer) - self->mgr.free_in_buffer);
+    auto* self = reinterpret_cast<CordDestManager*>(cinfo->dest);
+    self->output->Append(std::string_view(
+        self->buffer, std::size(self->buffer) - self->mgr.free_in_buffer));
   }
 };
 
 }  // namespace
 
-Status Decode(absl::string_view source,
+Status Decode(const absl::Cord& input,
               FunctionView<Result<unsigned char*>(size_t width, size_t height,
                                                   size_t num_components)>
                   validate_size) {
-  // libjpeg_turbo uses `unsigned long` to specify length of memory buffer,
-  // which on Windows is 32-bit.
-  if (source.size() > std::numeric_limits<unsigned long>::max()) {  // NOLINT
-    return absl::InvalidArgumentError("JPEG data exceeds maximum length");
-  }
   JpegStateWrapper<::jpeg_decompress_struct> state;
+  CordSourceManager source_manager(input);
   // Wrap actual logic in lambda to avoid having any non-trivial local variables
   // in function using setjmp.
   [&] {
     if (setjmp(state.jmpbuf)) return;
     ::jpeg_create_decompress(&state.cinfo);
-    ::jpeg_mem_src(&state.cinfo,
-                   reinterpret_cast<const unsigned char*>(source.data()),
-                   source.size());
+    source_manager.Initialize(&state.cinfo);
     {
       [[maybe_unused]] int code =
           ::jpeg_read_header(&state.cinfo, /*require_image=*/1);
-      // With `require_image=1` and a memory source, `jpeg_read_header` cannot
-      // return except in the case of success.
+      // With `require_image=1` and a non-suspending input source,
+      // `jpeg_read_header` cannot return except in the case of success.
       assert(code == JPEG_HEADER_OK);
     }
     if (state.cinfo.num_components != 1 && state.cinfo.num_components != 3) {
@@ -153,7 +223,7 @@ Status Decode(absl::string_view source,
                  state.cinfo.num_components));
       return;
     }
-    // Cannot return false since memory data source does not suspend.
+    // Cannot return false since cord data source does not suspend.
     ::jpeg_start_decompress(&state.cinfo);
     unsigned char* buf;
     if (auto result =
@@ -181,7 +251,7 @@ Status Decode(absl::string_view source,
 
 Status Encode(const unsigned char* source, size_t width, size_t height,
               size_t num_components, const EncodeOptions& options,
-              std::string* out) {
+              absl::Cord* output) {
   assert(options.quality >= 0 && options.quality <= 100);
   if (width > std::numeric_limits<JDIMENSION>::max() ||
       height > std::numeric_limits<JDIMENSION>::max()) {
@@ -193,7 +263,7 @@ Status Encode(const unsigned char* source, size_t width, size_t height,
         StrCat("Expected 1 or 3 components, but received: ", num_components));
   }
   JpegStateWrapper<::jpeg_compress_struct> state;
-  MemoryDestManager dest(out);
+  CordDestManager dest(output);
   [&] {
     if (setjmp(state.jmpbuf)) return;
     ::jpeg_create_compress(&state.cinfo);

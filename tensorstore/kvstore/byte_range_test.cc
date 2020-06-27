@@ -31,8 +31,7 @@ using tensorstore::ByteRange;
 using tensorstore::MatchesStatus;
 using tensorstore::OptionalByteRangeRequest;
 using tensorstore::StrCat;
-using tensorstore::internal::GetSubString;
-using tensorstore::internal::GetSubStringView;
+using tensorstore::internal::GetSubCord;
 
 TEST(ByteRangeTest, SatisfiesInvariants) {
   EXPECT_TRUE((ByteRange{0, 1}).SatisfiesInvariants());
@@ -146,10 +145,10 @@ TEST(OptionalByteRangeRequestTest, Validate) {
                     "value of size 9"));
 }
 
-TEST(GetSubStringViewTest, Basic) {
-  EXPECT_EQ("bcd", GetSubStringView("abcde", {1, 4}));
-  EXPECT_EQ("bcd", GetSubString(std::string("abcde"), {1, 4}));
-  EXPECT_EQ("abcde", GetSubString(std::string("abcde"), {0, 5}));
+TEST(GetSubStringTest, Basic) {
+  EXPECT_EQ("bcd", GetSubCord(absl::Cord("abcde"), {1, 4}));
+  EXPECT_EQ("bcd", GetSubCord(absl::Cord("abcde"), {1, 4}));
+  EXPECT_EQ("abcde", GetSubCord(absl::Cord("abcde"), {0, 5}));
 }
 
 }  // namespace

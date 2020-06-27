@@ -31,7 +31,7 @@ class HttpTransport {
   /// IssueRequest issues the request with the provided body `payload`,
   /// returning the HttpResponse.
   virtual Future<HttpResponse> IssueRequest(
-      const HttpRequest& request, absl::string_view payload,
+      const HttpRequest& request, absl::Cord payload,
       absl::Duration request_timeout = absl::ZeroDuration(),
       absl::Duration connect_timeout = absl::ZeroDuration()) = 0;
 };

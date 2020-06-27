@@ -771,7 +771,7 @@ Future<const void> MetadataCache::Entry::RequestAtomicUpdate(
 
 void MetadataCache::DoDecode(
     internal::AsyncStorageBackedCache::PinnedEntry base_entry,
-    std::optional<std::string> value) {
+    std::optional<absl::Cord> value) {
   auto* entry = static_cast<Entry*>(base_entry.get());
   MetadataPtr new_metadata;
   if (value) {
@@ -863,7 +863,10 @@ void MetadataCache::DoWriteback(internal::Cache::PinnedEntry entry) {
       }
       return;
     }
-    auto encoded = cache->EncodeMetadata(entry->key(), new_metadata.get());
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto encoded, cache->EncodeMetadata(entry->key(), new_metadata.get()),
+        cache->Base::NotifyWritebackError(entry.get(),
+                                          entry->AcquireWriteStateLock(), _));
     entry->new_metadata = std::move(new_metadata);
     cache->Writeback(std::move(entry), std::move(encoded),
                      /*unconditional=*/false);
@@ -876,7 +879,7 @@ std::string DataCache::GetKeyValueStoreKey(internal::Cache::Entry* base_entry) {
 }
 
 void DataCache::DoDecode(internal::Cache::PinnedEntry base_entry,
-                         std::optional<std::string> value) {
+                         std::optional<absl::Cord> value) {
   auto* entry = static_cast<Entry*>(base_entry.get());
   if (!value) {
     this->NotifyReadSuccess(entry, entry->AcquireReadStateWriterLock(),
@@ -898,7 +901,7 @@ void DataCache::DoWriteback(internal::Cache::PinnedEntry base_entry) {
   executor()([entry = internal::static_pointer_cast<Entry>(
                   std::move(base_entry))]() mutable {
     auto* cache = static_cast<DataCache*>(GetOwningCache(entry));
-    std::optional<std::string> encoded;
+    std::optional<absl::Cord> encoded;
     ChunkCache::WritebackSnapshot snapshot(entry.get());
     if (!snapshot.equals_fill_value()) {
       const auto validated_metadata = cache->validated_metadata();
@@ -907,9 +910,10 @@ void DataCache::DoWriteback(internal::Cache::PinnedEntry base_entry) {
       absl::FixedArray<ArrayView<const void>, 2> component_arrays_unowned(
           snapshot.component_arrays().begin(),
           snapshot.component_arrays().end());
-      TENSORSTORE_RETURN_IF_ERROR(
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          encoded,
           cache->EncodeChunk(validated_metadata.get(), entry->cell_indices(),
-                             component_arrays_unowned, &encoded.emplace()),
+                             component_arrays_unowned),
           cache->NotifyWritebackError(entry.get(),
                                       entry->AcquireWriteStateLock(), _));
     }

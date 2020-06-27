@@ -19,6 +19,8 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/cord.h"
+#include "absl/strings/cord_test_helpers.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -33,13 +35,33 @@ namespace bzip2 = tensorstore::bzip2;
 // output string without clearing the existing contents.
 TEST(Bzip2CompressorTest, SmallRoundtrip) {
   bzip2::Options options{6};
-  const std::string input = "The quick brown fox jumped over the lazy dog.";
-  std::string encode_result = "abc", decode_result = "def";
+  const absl::Cord input("The quick brown fox jumped over the lazy dog.");
+  absl::Cord encode_result("abc"), decode_result("def");
   bzip2::Encode(input, &encode_result, options);
   ASSERT_GE(encode_result.size(), 3);
-  EXPECT_EQ("abc", encode_result.substr(0, 3));
-  ASSERT_EQ(Status(), bzip2::Decode(encode_result.substr(3), &decode_result));
-  EXPECT_EQ("def" + input, decode_result);
+  EXPECT_EQ("abc", std::string(encode_result).substr(0, 3));
+  TENSORSTORE_ASSERT_OK(bzip2::Decode(
+      absl::Cord(encode_result.Subcord(3, encode_result.size() - 3)),
+      &decode_result));
+  EXPECT_EQ("def" + std::string(input), decode_result);
+}
+
+// Same as above, but with fragmented input.
+TEST(Bzip2CompressorTest, SmallRoundtripFragmented) {
+  bzip2::Options options{6};
+  const absl::Cord input = absl::MakeFragmentedCord(
+      {"The quick", " brown fox", " jumped over", " ", "the lazy dog."});
+  absl::Cord encode_result("abc"), decode_result("def");
+  bzip2::Encode(input, &encode_result, options);
+  ASSERT_GE(encode_result.size(), 3);
+  EXPECT_EQ("abc", std::string(encode_result).substr(0, 3));
+  std::vector<std::string> encode_result_fragments;
+  for (size_t i = 3; i < encode_result.size(); ++i) {
+    encode_result_fragments.push_back(std::string(encode_result.Subcord(i, 1)));
+  }
+  TENSORSTORE_ASSERT_OK(bzip2::Decode(
+      absl::MakeFragmentedCord(encode_result_fragments), &decode_result));
+  EXPECT_EQ("def" + std::string(input), decode_result);
 }
 
 // Tests that round tripping works for with an input that exceeds the 16KiB
@@ -52,9 +74,9 @@ TEST(Bzip2CompressorTest, LargeRoundtrip) {
     x += 7;
   }
   bzip2::Options options{6};
-  std::string encode_result, decode_result;
-  bzip2::Encode(input, &encode_result, options);
-  ASSERT_EQ(Status(), bzip2::Decode(encode_result, &decode_result));
+  absl::Cord encode_result, decode_result;
+  bzip2::Encode(absl::Cord(input), &encode_result, options);
+  TENSORSTORE_ASSERT_OK(bzip2::Decode(encode_result, &decode_result));
   EXPECT_EQ(input, decode_result);
 }
 
@@ -62,38 +84,40 @@ TEST(Bzip2CompressorTest, LargeRoundtrip) {
 TEST(Bzip2CompressorTest, NonDefaultLevel) {
   bzip2::Options options1{6};
   bzip2::Options options2{9};
-  const std::string input = "The quick brown fox jumped over the lazy dog.";
-  std::string encode_result1, encode_result2;
+  const absl::Cord input("The quick brown fox jumped over the lazy dog.");
+  absl::Cord encode_result1, encode_result2;
   bzip2::Encode(input, &encode_result1, options1);
   bzip2::Encode(input, &encode_result2, options2);
   EXPECT_NE(encode_result1, encode_result2);
-  std::string decode_result;
-  ASSERT_EQ(Status(), bzip2::Decode(encode_result2, &decode_result));
+  absl::Cord decode_result;
+  TENSORSTORE_ASSERT_OK(bzip2::Decode(encode_result2, &decode_result));
   EXPECT_EQ(input, decode_result);
 }
 
 // Tests that decoding corrupt data gives an error.
 TEST(Bzip2CompressorTest, DecodeCorruptData) {
   bzip2::Options options{6};
-  const std::string input = "The quick brown fox jumped over the lazy dog.";
+  const absl::Cord input("The quick brown fox jumped over the lazy dog.");
 
   // Test corrupting the header.
   {
-    std::string encode_result, decode_result;
+    absl::Cord encode_result, decode_result;
     bzip2::Encode(input, &encode_result, options);
     ASSERT_GE(encode_result.size(), 1);
-    encode_result[0] = 0;
-    EXPECT_THAT(bzip2::Decode(encode_result, &decode_result),
+    std::string corrupted(encode_result);
+    corrupted[0] = 0;
+    EXPECT_THAT(bzip2::Decode(absl::Cord(corrupted), &decode_result),
                 MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 
   // Test corrupting the trailer.
   {
-    std::string encode_result, decode_result;
+    absl::Cord encode_result, decode_result;
     bzip2::Encode(input, &encode_result, options);
     ASSERT_GE(encode_result.size(), 1);
-    encode_result.resize(encode_result.size() - 1);
-    EXPECT_THAT(bzip2::Decode(encode_result, &decode_result),
+    std::string corrupted(encode_result);
+    corrupted.resize(corrupted.size() - 1);
+    EXPECT_THAT(bzip2::Decode(absl::Cord(corrupted), &decode_result),
                 MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 }

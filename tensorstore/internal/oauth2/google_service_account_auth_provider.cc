@@ -76,10 +76,11 @@ GoogleServiceAccountAuthProvider::GetToken() {
 }
 
 Result<HttpResponse> GoogleServiceAccountAuthProvider::IssueRequest(
-    absl::string_view uri, absl::string_view payload) {
+    absl::string_view uri, absl::Cord payload) {
   HttpRequestBuilder request_builder(std::string{uri});
   request_builder.AddHeader("Content-Type: application/x-www-form-urlencoded");
-  return transport_->IssueRequest(request_builder.BuildRequest(), payload)
+  return transport_
+      ->IssueRequest(request_builder.BuildRequest(), std::move(payload))
       .result();
 }
 
@@ -87,23 +88,22 @@ Status GoogleServiceAccountAuthProvider::Refresh() {
   const auto now = clock_();
 
   // Try service account credentials.
-  auto body = internal_oauth2::BuildSignedJWTRequest(
-      creds_.private_key,
-      internal_oauth2::BuildJWTHeader(creds_.private_key_id),
-      internal_oauth2::BuildJWTClaimBody(creds_.client_email, scope_, uri_, now,
-                                         3600 /*1 hour*/));
-  TENSORSTORE_RETURN_IF_ERROR(body);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto body,
+      internal_oauth2::BuildSignedJWTRequest(
+          creds_.private_key,
+          internal_oauth2::BuildJWTHeader(creds_.private_key_id),
+          internal_oauth2::BuildJWTClaimBody(creds_.client_email, scope_, uri_,
+                                             now, 3600 /*1 hour*/)));
+  TENSORSTORE_ASSIGN_OR_RETURN(auto response,
+                               IssueRequest(uri_, absl::Cord(std::move(body))));
+  TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(response));
 
-  auto response = IssueRequest(uri_, *body);
-  TENSORSTORE_RETURN_IF_ERROR(response);
-  TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(*response));
-
-  auto result = internal_oauth2::ParseOAuthResponse(response->payload);
-  if (result.ok()) {
-    expiration_ = now + absl::Seconds(result->expires_in);
-    access_token_ = std::move(result->access_token);
-  }
-  return GetStatus(result);
+  TENSORSTORE_ASSIGN_OR_RETURN(auto result, internal_oauth2::ParseOAuthResponse(
+                                                response.payload.Flatten()));
+  expiration_ = now + absl::Seconds(result.expires_in);
+  access_token_ = std::move(result.access_token);
+  return absl::OkStatus();
 }
 
 }  // namespace internal_oauth2

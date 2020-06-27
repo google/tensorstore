@@ -56,8 +56,8 @@ using ReadResult = KeyValueStore::ReadResult;
 
 constexpr CachePool::Limits kSmallCacheLimits{10000000, 5000000};
 
-std::string Bytes(std::initializer_list<unsigned char> x) {
-  return std::string(x.begin(), x.end());
+absl::Cord Bytes(std::initializer_list<unsigned char> x) {
+  return absl::Cord(std::string(x.begin(), x.end()));
 }
 
 std::string GetChunkKey(std::uint64_t chunk_id) {
@@ -184,7 +184,8 @@ class RawEncodingTest : public ::testing::Test {
 };
 
 TEST_F(RawEncodingTest, MultipleUnconditionalWrites) {
-  std::vector<std::string> values{"abc", "aaaaa", "efgh"};
+  std::vector<absl::Cord> values{absl::Cord("abc"), absl::Cord("aaaaa"),
+                                 absl::Cord("efgh")};
   std::vector<Future<TimestampedStorageGeneration>> futures;
   auto key = GetChunkKey(10);
   for (auto value : values) {
@@ -220,9 +221,9 @@ TEST_F(RawEncodingTest, MultipleUnconditionalWrites) {
 }
 
 TEST_F(RawEncodingTest, WritesAndDeletes) {
-  auto init_future1 = store->Write(GetChunkKey(1), "a");
-  auto init_future2 = store->Write(GetChunkKey(2), "bc");
-  auto init_future3 = store->Write(GetChunkKey(3), "def");
+  auto init_future1 = store->Write(GetChunkKey(1), absl::Cord("a"));
+  auto init_future2 = store->Write(GetChunkKey(2), absl::Cord("bc"));
+  auto init_future3 = store->Write(GetChunkKey(3), absl::Cord("def"));
 
   auto gen1 = init_future1.value().generation;
   auto gen2 = init_future2.value().generation;
@@ -232,12 +233,12 @@ TEST_F(RawEncodingTest, WritesAndDeletes) {
   auto future1 = store->Delete(GetChunkKey(1), {StorageGeneration::NoValue()});
 
   // Conditional write with matching generation.
-  auto future2 = store->Write(GetChunkKey(2), "ww", {gen2});
-  auto future3 = store->Write(GetChunkKey(2), "xx", {gen2});
+  auto future2 = store->Write(GetChunkKey(2), absl::Cord("ww"), {gen2});
+  auto future3 = store->Write(GetChunkKey(2), absl::Cord("xx"), {gen2});
 
   // Conditional write with matching generation
-  auto future4 =
-      store->Write(GetChunkKey(4), "zz", {StorageGeneration::NoValue()});
+  auto future4 = store->Write(GetChunkKey(4), absl::Cord("zz"),
+                              {StorageGeneration::NoValue()});
 
   // Conditional delete with matching generation.
   auto future5 = store->Delete(GetChunkKey(3), {gen3});
@@ -257,15 +258,17 @@ TEST_F(RawEncodingTest, WritesAndDeletes) {
           MatchesTimestampedStorageGeneration(
               shard_generation->stamp.generation)));
 
-  EXPECT_THAT(store->Read(GetChunkKey(1)).result(), MatchesKvsReadResult("a"));
-  EXPECT_THAT(
-      store->Read(GetChunkKey(2)).result(),
-      MatchesKvsReadResult(std::string(
-          !StorageGeneration::IsUnknown(future2.result()->generation) ? "ww"
-                                                                      : "xx")));
+  EXPECT_THAT(store->Read(GetChunkKey(1)).result(),
+              MatchesKvsReadResult(absl::Cord("a")));
+  EXPECT_THAT(store->Read(GetChunkKey(2)).result(),
+              MatchesKvsReadResult(
+                  !StorageGeneration::IsUnknown(future2.result()->generation)
+                      ? absl::Cord("ww")
+                      : absl::Cord("xx")));
   EXPECT_THAT(store->Read(GetChunkKey(3)).result(),
               MatchesKvsReadResultNotFound());
-  EXPECT_THAT(store->Read(GetChunkKey(4)).result(), MatchesKvsReadResult("zz"));
+  EXPECT_THAT(store->Read(GetChunkKey(4)).result(),
+              MatchesKvsReadResult(absl::Cord("zz")));
 }
 
 // The order in which multiple requests for the same `ChunkId` are attempted
@@ -298,7 +301,11 @@ TEST_F(RawEncodingTest, MultipleDeleteExisting) {
   EXPECT_THAT(
       TestOrderDependentWrites(
           /*init=*/
-          [&] { gen = store->Write(GetChunkKey(1), "a").value().generation; },
+          [&] {
+            gen = store->Write(GetChunkKey(1), absl::Cord("a"))
+                      .value()
+                      .generation;
+          },
           /*op0=*/
           [&] {
             // Delete conditioned on `gen` is guaranteed to succeed.
@@ -334,12 +341,12 @@ TEST_F(RawEncodingTest, WriteWithUnmatchedConditionAfterDelete) {
           /*op0=*/
           [&] {
             // Write should succeed.
-            return store->Write(GetChunkKey(0), "a");
+            return store->Write(GetChunkKey(0), absl::Cord("a"));
           },
           /*op1=*/
           [&] {
             // Write should fail due to prior write.
-            return store->Write(GetChunkKey(0), "b",
+            return store->Write(GetChunkKey(0), absl::Cord("b"),
                                 {/*.if_equal=*/StorageGeneration{"g"}});
           }),
       // Regardless of order of operations, the result is the same.
@@ -372,7 +379,7 @@ TEST_F(RawEncodingTest, ShardIndexTooShort) {
           "Error retrieving shard index entry: "
           "Requested byte range \\[0, 16\\) is not valid for value of size 3"));
   EXPECT_THAT(
-      store->Write(GetChunkKey(10), "abc").result(),
+      store->Write(GetChunkKey(10), absl::Cord("abc")).result(),
       MatchesStatus(
           absl::StatusCode::kFailedPrecondition,
           "Error writing \"prefix/0\\.shard\": "
@@ -390,7 +397,7 @@ TEST_F(RawEncodingTest, ShardIndexInvalidByteRange) {
                     "Error reading minishard 0 in \"prefix/0\\.shard\": "
                     "Error retrieving shard index entry: "
                     "Shard index specified invalid byte range: \\[10, 2\\)"));
-  EXPECT_THAT(store->Write(GetChunkKey(10), "abc").result(),
+  EXPECT_THAT(store->Write(GetChunkKey(10), absl::Cord("abc")).result(),
               MatchesStatus(
                   absl::StatusCode::kFailedPrecondition,
                   "Error writing \"prefix/0\\.shard\": "
@@ -413,7 +420,7 @@ TEST_F(RawEncodingTest, ShardIndexByteRangeOverflow) {
                     "Error retrieving shard index entry: "
                     "Byte range .* relative to the end of "
                     "the shard index \\(16\\) is not valid"));
-  EXPECT_THAT(store->Write(GetChunkKey(10), "abc").result(),
+  EXPECT_THAT(store->Write(GetChunkKey(10), absl::Cord("abc")).result(),
               MatchesStatus(
                   absl::StatusCode::kFailedPrecondition,
                   "Error writing \"prefix/0\\.shard\": "
@@ -433,7 +440,7 @@ TEST_F(RawEncodingTest, MinishardIndexOutOfRange) {
                     "Error reading minishard 0 in \"prefix/0\\.shard\": "
                     "Requested byte range \\[16, 64\\) is "
                     "not valid for value of size 16"));
-  EXPECT_THAT(store->Write(GetChunkKey(10), "abc").result(),
+  EXPECT_THAT(store->Write(GetChunkKey(10), absl::Cord("abc")).result(),
               MatchesStatus(
                   absl::StatusCode::kFailedPrecondition,
                   "Error writing \"prefix/0\\.shard\": "
@@ -452,7 +459,7 @@ TEST_F(RawEncodingTest, MinishardIndexInvalidSize) {
                     "Error reading minishard 0 in \"prefix/0\\.shard\": "
                     "Invalid minishard index length: 1"));
   EXPECT_THAT(
-      store->Write(GetChunkKey(10), "abc").result(),
+      store->Write(GetChunkKey(10), absl::Cord("abc")).result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
                     "Error writing \"prefix/0\\.shard\": "
                     "Error decoding existing minishard index for minishard 0: "
@@ -489,7 +496,7 @@ TEST_F(RawEncodingTest, MinishardIndexEntryByteRangeOutOfRange) {
                                     200, 0, 0, 0, 0, 0, 0, 0,  //
                                 }))
       .value();
-  EXPECT_THAT(store->Write(GetChunkKey(1), "x").result(),
+  EXPECT_THAT(store->Write(GetChunkKey(1), absl::Cord("x")).result(),
               MatchesStatus(
                   absl::StatusCode::kFailedPrecondition,
                   "Error writing \"prefix/0\\.shard\": "
@@ -510,7 +517,7 @@ TEST_F(RawEncodingTest, MinishardIndexWithDuplicateChunkId) {
                                     0,  0, 0, 0, 0, 0, 0, 0,  //
                                 }))
       .value();
-  EXPECT_THAT(store->Write(GetChunkKey(10), "abc").result(),
+  EXPECT_THAT(store->Write(GetChunkKey(10), absl::Cord("abc")).result(),
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
                             "Error writing \"prefix/0\\.shard\": "
                             "Chunk 10 occurs more than once in the minishard "
@@ -550,7 +557,7 @@ TEST_F(GzipEncodingTest, CorruptMinishardGzipEncoding) {
                     "Error reading minishard 0 in \"prefix/0\\.shard\": "
                     "Error decoding zlib-compressed data"));
   EXPECT_THAT(
-      store->Write(GetChunkKey(10), "abc").result(),
+      store->Write(GetChunkKey(10), absl::Cord("abc")).result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
                     "Error writing \"prefix/0\\.shard\": "
                     "Error decoding existing minishard index for minishard 0: "
@@ -558,7 +565,7 @@ TEST_F(GzipEncodingTest, CorruptMinishardGzipEncoding) {
 }
 
 TEST_F(GzipEncodingTest, CorruptDataGzipEncoding) {
-  std::string shard_data = "abc";
+  absl::Cord shard_data("abc");
   zlib::Options zlib_options;
   zlib_options.use_gzip_header = true;
   zlib::Encode(Bytes({
@@ -568,12 +575,12 @@ TEST_F(GzipEncodingTest, CorruptDataGzipEncoding) {
                }),
                &shard_data, zlib_options);
   const unsigned char n = static_cast<unsigned char>(shard_data.size());
-  base_kv_store
-      ->Write("prefix/0.shard", Bytes({
-                                    3, 0, 0, 0, 0, 0, 0, 0,  //
-                                    n, 0, 0, 0, 0, 0, 0, 0,  //
-                                }) + shard_data)
-      .value();
+  absl::Cord temp = Bytes({
+      3, 0, 0, 0, 0, 0, 0, 0,  //
+      n, 0, 0, 0, 0, 0, 0, 0,  //
+  });
+  temp.Append(shard_data);
+  TENSORSTORE_ASSERT_OK(base_kv_store->Write("prefix/0.shard", temp));
   EXPECT_THAT(store->Read(GetChunkKey(10)).result(),
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
                             "Error decoding zlib-compressed data"));
@@ -1099,7 +1106,7 @@ TEST_F(UnderlyingKeyValueStoreTest, ReadInvalidKey) {
 }
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteInvalidKey) {
-  auto future = store->Write("abc", "x");
+  auto future = store->Write("abc", absl::Cord("x"));
   ASSERT_TRUE(future.ready());
   EXPECT_THAT(future.result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument));

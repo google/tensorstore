@@ -19,6 +19,7 @@
 #include "tensorstore/internal/compression/neuroglancer_compressed_segmentation.h"
 #include "tensorstore/internal/container_to_shared.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
+#include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/util/endian.h"
 
 namespace tensorstore {
@@ -26,32 +27,26 @@ namespace internal_neuroglancer_precomputed {
 
 Result<SharedArrayView<const void>> DecodeRawChunk(
     DataType data_type, span<const Index, 4> shape,
-    StridedLayoutView<4> chunk_layout, std::string buffer) {
+    StridedLayoutView<4> chunk_layout, absl::Cord buffer) {
   const Index expected_bytes = ProductOfExtents(shape) * data_type.size();
   if (expected_bytes != static_cast<Index>(buffer.size())) {
     return absl::InvalidArgumentError(StrCat("Expected chunk length to be ",
                                              expected_bytes, ", but received ",
                                              buffer.size(), " bytes"));
   }
+  auto flat_buffer = buffer.Flatten();
   if (absl::c_equal(shape, chunk_layout.shape())) {
     // Chunk is full size.  Attempt to decode in place.  Transfer ownership of
     // the existing `buffer` string into `decoded_array`.
-    SharedArrayView<void> decoded_array(
-        {std::shared_ptr<void>(internal::ContainerToSharedDataPointerWithOffset(
-             std::move(buffer))),
-         data_type},
-        chunk_layout);
-    // If `decoded_array.data()` is suitably aligned, decodes in place.
-    // Otherwise, decodes into a copy and updates `decoded_array` to point to
-    // it.
-    internal::DecodeArray(&decoded_array, endian::little, chunk_layout);
-    return decoded_array;
+    auto decoded_array = internal::TryViewCordAsArray(
+        buffer, /*offset=*/0, data_type, endian::little, chunk_layout);
+    if (decoded_array.valid()) return decoded_array;
   }
   // Partial chunk, must copy.  It is safe to default initialize because the
   // out-of-bounds positions will never be read, but we use value initialization
   // for simplicity in case resize is supported later.
   Array<const void, 4> source(
-      {static_cast<const void*>(buffer.data()), data_type}, shape);
+      {static_cast<const void*>(flat_buffer.data()), data_type}, shape);
   SharedArrayView<void> full_decoded_array(
       internal::AllocateAndConstructSharedElements(chunk_layout.num_elements(),
                                                    value_init, data_type),
@@ -65,7 +60,7 @@ Result<SharedArrayView<const void>> DecodeRawChunk(
 
 Result<SharedArrayView<const void>> DecodeJpegChunk(
     DataType data_type, span<const Index, 4> partial_shape,
-    StridedLayoutView<4> chunk_layout, absl::string_view encoded_input) {
+    StridedLayoutView<4> chunk_layout, absl::Cord encoded_input) {
   // `array` will contain decoded jpeg with C-order `(z, y, x, channel)` layout.
   //
   // If number of channels is 1, then this is equivalent to the
@@ -118,7 +113,8 @@ Result<SharedArrayView<const void>> DecodeJpegChunk(
 Result<SharedArrayView<const void>> DecodeCompressedSegmentationChunk(
     DataType data_type, span<const Index, 4> shape,
     StridedLayoutView<4> chunk_layout, std::array<Index, 3> block_size,
-    absl::string_view buffer) {
+    absl::Cord buffer) {
+  auto flat_buffer = buffer.Flatten();
   SharedArrayView<void> full_decoded_array(
       internal::AllocateAndConstructSharedElements(chunk_layout.num_elements(),
                                                    default_init, data_type),
@@ -134,13 +130,13 @@ Result<SharedArrayView<const void>> DecodeCompressedSegmentationChunk(
   switch (data_type.id()) {
     case DataTypeId::uint32_t:
       success = neuroglancer_compressed_segmentation::DecodeChannels(
-          buffer, block_shape_ptrdiff_t, output_shape_ptrdiff_t,
+          flat_buffer, block_shape_ptrdiff_t, output_shape_ptrdiff_t,
           output_byte_strides,
           static_cast<std::uint32_t*>(full_decoded_array.data()));
       break;
     case DataTypeId::uint64_t:
       success = neuroglancer_compressed_segmentation::DecodeChannels(
-          buffer, block_shape_ptrdiff_t, output_shape_ptrdiff_t,
+          flat_buffer, block_shape_ptrdiff_t, output_shape_ptrdiff_t,
           output_byte_strides,
           static_cast<std::uint64_t*>(full_decoded_array.data()));
       break;
@@ -178,7 +174,7 @@ void GetChunkShape(span<const Index> chunk_indices,
 Result<SharedArrayView<const void>> DecodeChunk(
     span<const Index> chunk_indices, const MultiscaleMetadata& metadata,
     std::size_t scale_index, StridedLayoutView<4> chunk_layout,
-    std::string buffer) {
+    absl::Cord buffer) {
   const auto& scale_metadata = metadata.scales[scale_index];
   std::array<Index, 4> chunk_shape;
   GetChunkShape(chunk_indices, metadata, scale_index, chunk_layout.shape(),
@@ -189,29 +185,30 @@ Result<SharedArrayView<const void>> DecodeChunk(
                             std::move(buffer));
     case ScaleMetadata::Encoding::jpeg:
       return DecodeJpegChunk(metadata.data_type, chunk_shape, chunk_layout,
-                             buffer);
+                             std::move(buffer));
     case ScaleMetadata::Encoding::compressed_segmentation:
       return DecodeCompressedSegmentationChunk(
           metadata.data_type, chunk_shape, chunk_layout,
-          scale_metadata.compressed_segmentation_block_size, buffer);
+          scale_metadata.compressed_segmentation_block_size, std::move(buffer));
   }
   TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
 }
 
-Status EncodeRawChunk(DataType data_type, span<const Index, 4> shape,
-                      ArrayView<const void> array, std::string* out) {
+absl::Cord EncodeRawChunk(DataType data_type, span<const Index, 4> shape,
+                          ArrayView<const void> array) {
   ArrayView<const void> partial_source(
       array.element_pointer(),
       StridedLayoutView<>(shape, array.byte_strides()));
-  out->resize(ProductOfExtents(shape) * data_type.size());
-  Array<void, 4> encoded_array({static_cast<void*>(out->data()), data_type},
+  internal::FlatCordBuilder buffer(ProductOfExtents(shape) * data_type.size());
+  Array<void, 4> encoded_array({static_cast<void*>(buffer.data()), data_type},
                                shape);
   internal::EncodeArray(partial_source, encoded_array, endian::little);
-  return absl::OkStatus();
+  return std::move(buffer).Build();
 }
 
-Status EncodeJpegChunk(DataType data_type, span<const Index, 4> shape,
-                       ArrayView<const void> array, std::string* out) {
+Result<absl::Cord> EncodeJpegChunk(DataType data_type,
+                                   span<const Index, 4> shape,
+                                   ArrayView<const void> array) {
   Array<const void, 4> partial_source(
       array.element_pointer(),
       StridedLayout<4>({shape[1], shape[2], shape[3], shape[0]},
@@ -219,20 +216,21 @@ Status EncodeJpegChunk(DataType data_type, span<const Index, 4> shape,
                         array.byte_strides()[3], array.byte_strides()[0]}));
   auto contiguous_array = MakeCopy(partial_source, c_order);
   jpeg::EncodeOptions options;
-  return jpeg::Encode(
+  absl::Cord buffer;
+  TENSORSTORE_RETURN_IF_ERROR(jpeg::Encode(
       reinterpret_cast<const unsigned char*>(contiguous_array.data()),
-      shape[1] * shape[2], shape[3], shape[0], options, out);
+      shape[1] * shape[2], shape[3], shape[0], options, &buffer));
+  return buffer;
 }
 
-Status EncodeCompressedSegmentationChunk(DataType data_type,
-                                         span<const Index, 4> shape,
-                                         ArrayView<const void> array,
-                                         std::array<Index, 3> block_size,
-                                         std::string* out) {
+Result<absl::Cord> EncodeCompressedSegmentationChunk(
+    DataType data_type, span<const Index, 4> shape, ArrayView<const void> array,
+    std::array<Index, 3> block_size) {
   std::ptrdiff_t input_shape_ptrdiff_t[4] = {shape[0], shape[1], shape[2],
                                              shape[3]};
   std::ptrdiff_t block_shape_ptrdiff_t[3] = {block_size[2], block_size[1],
                                              block_size[0]};
+  std::string out;
   std::ptrdiff_t input_byte_strides[4] = {
       array.byte_strides()[0], array.byte_strides()[1], array.byte_strides()[2],
       array.byte_strides()[3]};
@@ -241,23 +239,24 @@ Status EncodeCompressedSegmentationChunk(DataType data_type,
       neuroglancer_compressed_segmentation::EncodeChannels(
           static_cast<const std::uint32_t*>(array.data()),
           input_shape_ptrdiff_t, input_byte_strides, block_shape_ptrdiff_t,
-          out);
+          &out);
       break;
     case DataTypeId::uint64_t:
       neuroglancer_compressed_segmentation::EncodeChannels(
           static_cast<const std::uint64_t*>(array.data()),
           input_shape_ptrdiff_t, input_byte_strides, block_shape_ptrdiff_t,
-          out);
+          &out);
       break;
     default:
       TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
   }
-  return absl::OkStatus();
+  return absl::Cord(std::move(out));
 }
 
-Status EncodeChunk(span<const Index> chunk_indices,
-                   const MultiscaleMetadata& metadata, std::size_t scale_index,
-                   ArrayView<const void> array, std::string* out) {
+Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
+                               const MultiscaleMetadata& metadata,
+                               std::size_t scale_index,
+                               ArrayView<const void> array) {
   const auto& scale_metadata = metadata.scales[scale_index];
   std::array<Index, 4> partial_chunk_shape;
   GetChunkShape(chunk_indices, metadata, scale_index,
@@ -265,15 +264,13 @@ Status EncodeChunk(span<const Index> chunk_indices,
                 partial_chunk_shape);
   switch (scale_metadata.encoding) {
     case ScaleMetadata::Encoding::raw:
-      return EncodeRawChunk(metadata.data_type, partial_chunk_shape, array,
-                            out);
+      return EncodeRawChunk(metadata.data_type, partial_chunk_shape, array);
     case ScaleMetadata::Encoding::jpeg:
-      return EncodeJpegChunk(metadata.data_type, partial_chunk_shape, array,
-                             out);
+      return EncodeJpegChunk(metadata.data_type, partial_chunk_shape, array);
     case ScaleMetadata::Encoding::compressed_segmentation:
       return EncodeCompressedSegmentationChunk(
           metadata.data_type, partial_chunk_shape, array,
-          scale_metadata.compressed_segmentation_block_size, out);
+          scale_metadata.compressed_segmentation_block_size);
   }
   TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
 }

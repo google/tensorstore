@@ -14,24 +14,40 @@
 
 #include "tensorstore/internal/compression/lzma.h"
 
+#include "tensorstore/internal/compression/cord_stream_manager.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace lzma {
 
+/// RAII adapter for LZMA stream encoding/decoding.
+struct BufferManager {
+  constexpr static std::size_t kBufferSize = 16 * 1024;
+  lzma_stream stream = LZMA_STREAM_INIT;
+
+  explicit BufferManager(const absl::Cord& input, absl::Cord* output)
+      : stream_manager_(stream, input, output) {}
+
+  ::lzma_ret Process();
+
+  ~BufferManager() { ::lzma_end(&stream); }
+
+ private:
+  internal::CordStreamManager<lzma_stream, kBufferSize> stream_manager_;
+};
+
 ::lzma_ret BufferManager::Process() {
   ::lzma_ret r;
   do {
-    strm.avail_out = kBufferSize;
-    strm.next_out = reinterpret_cast<std::uint8_t*>(&buffer[0]);
-    r = ::lzma_code(&strm, LZMA_FINISH);
-    output->insert(output->end(), buffer,
-                   buffer + kBufferSize - strm.avail_out);
+    const bool input_complete = stream_manager_.FeedInputAndOutputBuffers();
+    r = ::lzma_code(&stream, input_complete ? LZMA_FINISH : LZMA_RUN);
+    stream_manager_.HandleOutput();
   } while (r == LZMA_OK);
   return r;
 }
 
+/// Returns the Status associated with a liblzma error.
 Status GetInitErrorStatus(::lzma_ret r) {
   switch (r) {
     case LZMA_OK:
@@ -77,21 +93,19 @@ Status GetDecodeErrorStatus(::lzma_ret r) {
 }
 
 namespace xz {
-Status Encode(absl::string_view input, std::string* output, Options options) {
+Status Encode(const absl::Cord& input, absl::Cord* output, Options options) {
   lzma::BufferManager manager(input, output);
   ::lzma_ret err =
-      ::lzma_easy_encoder(&manager.strm, options.preset, options.check);
+      ::lzma_easy_encoder(&manager.stream, options.preset, options.check);
   if (err != LZMA_OK) return lzma::GetInitErrorStatus(err);
-  // element_size is not used for xz compression.
   return lzma::GetEncodeErrorStatus(manager.Process());
 }
-Status Decode(absl::string_view input, std::string* output) {
+Status Decode(const absl::Cord& input, absl::Cord* output) {
   lzma::BufferManager manager(input, output);
   ::lzma_ret err = ::lzma_stream_decoder(
-      &manager.strm, /*memlimit=*/std::numeric_limits<std::uint64_t>::max(),
+      &manager.stream, /*memlimit=*/std::numeric_limits<std::uint64_t>::max(),
       /*flags=*/0);
   if (err != LZMA_OK) return lzma::GetInitErrorStatus(err);
-  // element_size is not used for xz compression.
   return lzma::GetDecodeErrorStatus(manager.Process());
 }
 }  // namespace xz

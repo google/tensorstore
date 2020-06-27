@@ -60,7 +60,7 @@ class GoogleServiceAccountAuthProvider : public AuthProvider {
 
  protected:
   virtual Result<internal_http::HttpResponse> IssueRequest(absl::string_view,
-                                                           absl::string_view);
+                                                           absl::Cord);
 
  private:
   const AccountCredentials creds_;

@@ -14,6 +14,7 @@
 
 #include "tensorstore/internal/compression/zlib.h"
 
+#include "tensorstore/internal/compression/cord_stream_manager.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/status.h"
 
@@ -51,8 +52,7 @@ struct DeflateOp {
 ///
 /// \tparam Op Either `InflateOp` or `DeflateOp`.
 /// \param input The input data.
-/// \param output[in,out] Pointer to output buffer to which output data is
-///     appended.  Must be non-null.
+/// \param output[in,out] Output buffer to which output data is appended.
 /// \param level Compression level, must be in the range [0, 9].
 /// \param use_gzip_header If `true`, use gzip header.  Otherwise, use zlib
 ///     header.
@@ -60,11 +60,11 @@ struct DeflateOp {
 /// \error `absl::StatusCode::kInvalidArgument` if decoding fails due to input
 ///     input.
 template <typename Op>
-Status ProcessZlib(absl::string_view input, std::string* output, int level,
+Status ProcessZlib(const absl::Cord& input, absl::Cord* output, int level,
                    bool use_gzip_header) {
   z_stream s = {};
-  constexpr std::size_t kBufferSize = 16 * 1024;
-  unsigned char buffer[kBufferSize];
+  internal::CordStreamManager<z_stream, /*BufferSize=*/16 * 1024>
+      stream_manager(s, input, output);
   const int header_option = use_gzip_header ? 16 /* require gzip header */
                                             : 0;
   int err = Op::Init(&s, level, header_option);
@@ -77,21 +77,20 @@ Status ProcessZlib(absl::string_view input, std::string* output, int level,
     ~StreamDestroyer() { Op::Destroy(s); }
   } stream_destroyer{&s};
 
-  do {
-    s.next_in = reinterpret_cast<unsigned char*>(
-        const_cast<char*>(input.data()) + s.total_in);
-    s.avail_in = std::min(
-        static_cast<std::size_t>(std::numeric_limits<unsigned int>::max()),
-        input.size() - s.total_in);
-    s.next_out = buffer;
-    s.avail_out = kBufferSize;
-    err = Op::Process(
-        &s, s.avail_in + s.total_in != input.size() ? Z_NO_FLUSH : Z_FINISH);
-    output->insert(output->end(), buffer, buffer + kBufferSize - s.avail_out);
-  } while (err == Z_OK || (s.total_in != input.size() && err == Z_BUF_ERROR));
+  while (true) {
+    const bool input_complete = stream_manager.FeedInputAndOutputBuffers();
+    err = Op::Process(&s, input_complete ? Z_FINISH : Z_NO_FLUSH);
+    const bool made_progress = stream_manager.HandleOutput();
+    if (err == Z_OK) continue;
+    if (err == Z_BUF_ERROR && made_progress) continue;
+    break;
+  }
   switch (err) {
     case Z_STREAM_END:
-      return absl::OkStatus();
+      if (!stream_manager.has_input_remaining()) {
+        return absl::OkStatus();
+      }
+      [[fallthrough]];
     case Z_NEED_DICT:
     case Z_DATA_ERROR:
     case Z_BUF_ERROR:
@@ -106,13 +105,13 @@ Status ProcessZlib(absl::string_view input, std::string* output, int level,
 
 }  // namespace
 
-void Encode(absl::string_view input, std::string* output,
+void Encode(const absl::Cord& input, absl::Cord* output,
             const Options& options) {
   ProcessZlib<DeflateOp>(input, output, options.level, options.use_gzip_header)
       .IgnoreError();
 }
 
-Status Decode(absl::string_view input, std::string* output,
+Status Decode(const absl::Cord& input, absl::Cord* output,
               bool use_gzip_header) {
   return ProcessZlib<InflateOp>(input, output, 0, use_gzip_header);
 }

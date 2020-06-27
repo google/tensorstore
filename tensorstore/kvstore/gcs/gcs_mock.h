@@ -41,7 +41,7 @@ class GCSMockStorageBucket {
   // An individual data object with a name, value, and generation.
   struct Object {
     std::string name;
-    std::string data;
+    absl::Cord data;
     int64_t generation;
   };
 
@@ -64,12 +64,12 @@ class GCSMockStorageBucket {
   // Implement the HttpTransport::IssueRequest interface.
   // Responds to a "www.google.apis/storage/v1/b/bucket" request.
   Future<internal_http::HttpResponse> IssueRequest(
-      const internal_http::HttpRequest& request, absl::string_view payload,
+      const internal_http::HttpRequest& request, absl::Cord payload,
       absl::Duration request_timeout, absl::Duration connect_timeout);
 
   // Main entry-point for matching requests.
   absl::variant<absl::monostate, internal_http::HttpResponse, Status> Match(
-      const internal_http::HttpRequest& request, absl::string_view payload);
+      const internal_http::HttpRequest& request, absl::Cord payload);
 
   // List objects in the bucket.
   absl::variant<absl::monostate, internal_http::HttpResponse, Status>
@@ -78,7 +78,7 @@ class GCSMockStorageBucket {
   // Insert an object into the bucket.
   absl::variant<absl::monostate, internal_http::HttpResponse, Status>
   HandleInsertRequest(absl::string_view path, const ParamMap& params,
-                      absl::string_view payload);
+                      absl::Cord payload);
 
   // Get an object, which might be the data or the metadata.
   absl::variant<absl::monostate, internal_http::HttpResponse, Status>

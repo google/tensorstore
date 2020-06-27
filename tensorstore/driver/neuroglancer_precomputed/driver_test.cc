@@ -45,6 +45,11 @@ using ::testing::ElementsAreArray;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;
 
+absl::Cord Bytes(std::vector<unsigned char> values) {
+  return absl::Cord(std::string_view(
+      reinterpret_cast<const char*>(values.data()), values.size()));
+}
+
 ::nlohmann::json GetJsonSpec() {
   return {
       {"driver", "neuroglancer_precomputed"},
@@ -183,24 +188,24 @@ TEST(DriverTest, Create) {
       GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
           .value(),
       (UnorderedElementsAreArray<
-          ::testing::Matcher<std::pair<std::string, std::string>>>({
+          ::testing::Matcher<std::pair<std::string, absl::Cord>>>({
           Pair("prefix/info",  //
-               ParseJsonMatches(
-                   ::nlohmann::json{{"@type", "neuroglancer_multiscale_volume"},
-                                    {"type", "image"},
-                                    {"data_type", "uint16"},
-                                    {"num_channels", 4},
-                                    {"scales",
-                                     {{
-                                         {"resolution", {1, 1, 1}},
-                                         {"encoding", "raw"},
-                                         {"key", "1_1_1"},
-                                         {"chunk_sizes", {{3, 2, 2}}},
-                                         {"size", {10, 99, 98}},
-                                         {"voxel_offset", {1, 2, 3}},
-                                     }}}})),
+               ::testing::MatcherCast<absl::Cord>(ParseJsonMatches(
+                   {{"@type", "neuroglancer_multiscale_volume"},
+                    {"type", "image"},
+                    {"data_type", "uint16"},
+                    {"num_channels", 4},
+                    {"scales",
+                     {{
+                         {"resolution", {1, 1, 1}},
+                         {"encoding", "raw"},
+                         {"key", "1_1_1"},
+                         {"chunk_sizes", {{3, 2, 2}}},
+                         {"size", {10, 99, 98}},
+                         {"voxel_offset", {1, 2, 3}},
+                     }}}}))),
           Pair("prefix/1_1_1/7-10_8-10_7-9",  //
-               ElementsAreArray({
+               Bytes({
                    // x=7           8           9
                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // y=8, z=7, channel=0
                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // y=9, z=7, channel=0
@@ -223,7 +228,7 @@ TEST(DriverTest, Create) {
                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // y=9, z=8, channel=3
                })),
           Pair("prefix/1_1_1/10-11_8-10_7-9",  //
-               ElementsAreArray({
+               Bytes({
                    // x=10
                    0x00, 0x00,  // y=8, z=7, channel=0
                    0x00, 0x00,  // y=9, z=7, channel=0
@@ -247,7 +252,7 @@ TEST(DriverTest, Create) {
                })),
 
           Pair("prefix/1_1_1/7-10_10-12_7-9",  //
-               ElementsAreArray({
+               Bytes({
                    // x=7           8           9
                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // y=10, z=7, channel=0
                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // y=11, z=7, channel=0
@@ -270,7 +275,7 @@ TEST(DriverTest, Create) {
                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // y=11, z=8, channel=3
                })),
           Pair("prefix/1_1_1/10-11_10-12_7-9",  //
-               ElementsAreArray({
+               Bytes({
                    // x=10
                    0x00, 0x00,  // y=10, z=7, channel=0
                    0x00, 0x00,  // y=11, z=7, channel=0
@@ -336,10 +341,8 @@ TEST(DriverTest, Create) {
     // Test corrupt "raw" chunk handling
     ::nlohmann::json storage_spec{{"driver", "memory"}};
     auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
-    EXPECT_EQ(
-        Status(),
-        GetStatus(
-            kv_store->Write("prefix/1_1_1/10-11_10-12_7-9", "junk").result()));
+    TENSORSTORE_EXPECT_OK(
+        kv_store->Write("prefix/1_1_1/10-11_10-12_7-9", absl::Cord("junk")));
     EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
                     ChainResult(store, tensorstore::AllDims().SizedInterval(
                                            {9, 7, 7, 0}, {2, 4, 2, 3})))
@@ -822,25 +825,25 @@ TEST(DriverTest, CompressedSegmentationEncodingUint32) {
       GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
           .value(),
       (UnorderedElementsAreArray<
-          ::testing::Matcher<std::pair<std::string, std::string>>>({
+          ::testing::Matcher<std::pair<std::string, absl::Cord>>>({
           Pair("prefix/info",  //
-               ParseJsonMatches(::nlohmann::json{
-                   {"@type", "neuroglancer_multiscale_volume"},
-                   {"type", "segmentation"},
-                   {"data_type", "uint32"},
-                   {"num_channels", 1},
-                   {"scales",
-                    {{
-                        {"resolution", {1, 1, 1}},
-                        {"encoding", "compressed_segmentation"},
-                        {"compressed_segmentation_block_size", {3, 2, 1}},
-                        {"key", "1_1_1"},
-                        {"chunk_sizes", {{3, 4, 2}}},
-                        {"size", {100, 100, 3}},
-                        {"voxel_offset", {0, 0, 0}},
-                    }}}})),
+               ::testing::MatcherCast<absl::Cord>(ParseJsonMatches(
+                   {{"@type", "neuroglancer_multiscale_volume"},
+                    {"type", "segmentation"},
+                    {"data_type", "uint32"},
+                    {"num_channels", 1},
+                    {"scales",
+                     {{
+                         {"resolution", {1, 1, 1}},
+                         {"encoding", "compressed_segmentation"},
+                         {"compressed_segmentation_block_size", {3, 2, 1}},
+                         {"key", "1_1_1"},
+                         {"chunk_sizes", {{3, 4, 2}}},
+                         {"size", {100, 100, 3}},
+                         {"voxel_offset", {0, 0, 0}},
+                     }}}}))),
           Pair("prefix/1_1_1/0-3_0-4_0-2",  //
-               ElementsAreArray({
+               Bytes({
                    0x01, 0x00, 0x00, 0x00,  // channel offset
                    0x08, 0x00, 0x00, 0x00,  // block (z=0,y=0,x=0) header0
                    0x08, 0x00, 0x00, 0x00,  // block (z=0,y=0,x=0) header1
@@ -856,7 +859,7 @@ TEST(DriverTest, CompressedSegmentationEncodingUint32) {
                    0x04, 0x00, 0x00, 0x00,  // block (z=1,y=1,x=0) table
                })),
           Pair("prefix/1_1_1/0-3_0-4_2-3",  //
-               ElementsAreArray({
+               Bytes({
                    0x01, 0x00, 0x00, 0x00,  // channel offset
                    0x04, 0x00, 0x00, 0x00,  // block (z=0,y=0,x=0) header0
                    0x04, 0x00, 0x00, 0x00,  // block (z=0,y=0,x=0) header1
@@ -935,25 +938,25 @@ TEST(DriverTest, CompressedSegmentationEncodingUint64) {
       GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
           .value(),
       (UnorderedElementsAreArray<
-          ::testing::Matcher<std::pair<std::string, std::string>>>({
+          ::testing::Matcher<std::pair<std::string, absl::Cord>>>({
           Pair("prefix/info",  //
-               ParseJsonMatches(::nlohmann::json{
-                   {"@type", "neuroglancer_multiscale_volume"},
-                   {"type", "segmentation"},
-                   {"data_type", "uint64"},
-                   {"num_channels", 1},
-                   {"scales",
-                    {{
-                        {"resolution", {1, 1, 1}},
-                        {"encoding", "compressed_segmentation"},
-                        {"compressed_segmentation_block_size", {3, 2, 1}},
-                        {"key", "1_1_1"},
-                        {"chunk_sizes", {{3, 4, 2}}},
-                        {"size", {100, 100, 3}},
-                        {"voxel_offset", {0, 0, 0}},
-                    }}}})),
+               ::testing::MatcherCast<absl::Cord>(ParseJsonMatches(
+                   {{"@type", "neuroglancer_multiscale_volume"},
+                    {"type", "segmentation"},
+                    {"data_type", "uint64"},
+                    {"num_channels", 1},
+                    {"scales",
+                     {{
+                         {"resolution", {1, 1, 1}},
+                         {"encoding", "compressed_segmentation"},
+                         {"compressed_segmentation_block_size", {3, 2, 1}},
+                         {"key", "1_1_1"},
+                         {"chunk_sizes", {{3, 4, 2}}},
+                         {"size", {100, 100, 3}},
+                         {"voxel_offset", {0, 0, 0}},
+                     }}}}))),
           Pair("prefix/1_1_1/0-3_0-4_0-2",  //
-               ElementsAreArray({
+               Bytes({
                    0x01, 0x00, 0x00, 0x00,  // channel offset
                    0x08, 0x00, 0x00, 0x00,  // block (z=0,y=0,x=0) header0
                    0x08, 0x00, 0x00, 0x00,  // block (z=0,y=0,x=0) header1
@@ -973,7 +976,7 @@ TEST(DriverTest, CompressedSegmentationEncodingUint64) {
                    0x00, 0x00, 0x00, 0x00,
                })),
           Pair("prefix/1_1_1/0-3_0-4_2-3",  //
-               ElementsAreArray({
+               Bytes({
                    0x01, 0x00, 0x00, 0x00,  // channel offset
                    0x04, 0x00, 0x00, 0x00,  // block (z=0,y=0,x=0) header0
                    0x04, 0x00, 0x00, 0x00,  // block (z=0,y=0,x=0) header1
@@ -1009,10 +1012,8 @@ TEST(DriverTest, CompressedSegmentationEncodingUint64) {
     // Test corrupt "compressed_segmentation" chunk handling
     ::nlohmann::json storage_spec{{"driver", "memory"}};
     auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
-    EXPECT_EQ(
-        Status(),
-        GetStatus(
-            kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", "junk").result()));
+    TENSORSTORE_EXPECT_OK(
+        kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", absl::Cord("junk")));
     EXPECT_THAT(
         tensorstore::Read<tensorstore::zero_origin>(
             ChainResult(store, tensorstore::Dims("channel").IndexSlice(0),
@@ -1084,27 +1085,31 @@ TEST(DriverTest, Jpeg1Channel) {
       GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
           .value(),
       (UnorderedElementsAreArray<
-          ::testing::Matcher<std::pair<std::string, std::string>>>({
+          ::testing::Matcher<std::pair<std::string, absl::Cord>>>({
           Pair("prefix/info",  //
-               ParseJsonMatches(
-                   ::nlohmann::json{{"@type", "neuroglancer_multiscale_volume"},
-                                    {"type", "image"},
-                                    {"data_type", "uint8"},
-                                    {"num_channels", 1},
-                                    {"scales",
-                                     {{
-                                         {"resolution", {1, 1, 1}},
-                                         {"encoding", "jpeg"},
-                                         {"key", "1_1_1"},
-                                         {"chunk_sizes", {{3, 4, 2}}},
-                                         {"size", {5, 100, 100}},
-                                         {"voxel_offset", {0, 0, 0}},
-                                     }}}})),
+               ::testing::MatcherCast<absl::Cord>(ParseJsonMatches(
+                   {{"@type", "neuroglancer_multiscale_volume"},
+                    {"type", "image"},
+                    {"data_type", "uint8"},
+                    {"num_channels", 1},
+                    {"scales",
+                     {{
+                         {"resolution", {1, 1, 1}},
+                         {"encoding", "jpeg"},
+                         {"key", "1_1_1"},
+                         {"chunk_sizes", {{3, 4, 2}}},
+                         {"size", {5, 100, 100}},
+                         {"voxel_offset", {0, 0, 0}},
+                     }}}}))),
           // 0xff 0xd8 0xff is the JPEG header
           Pair("prefix/1_1_1/0-3_0-4_0-2",
-               ::testing::StartsWith("\xff\xd8\xff")),
+               ::testing::MatcherCast<absl::Cord>(
+                   ::testing::Matcher<std::string>(
+                       ::testing::StartsWith("\xff\xd8\xff")))),
           Pair("prefix/1_1_1/3-5_0-4_0-2",
-               ::testing::StartsWith("\xff\xd8\xff")),
+               ::testing::MatcherCast<absl::Cord>(
+                   ::testing::Matcher<std::string>(
+                       ::testing::StartsWith("\xff\xd8\xff")))),
       })));
 
   {
@@ -1129,10 +1134,8 @@ TEST(DriverTest, Jpeg1Channel) {
     ::nlohmann::json storage_spec{{"driver", "memory"}};
     auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
     // Write invalid jpeg
-    EXPECT_EQ(
-        Status(),
-        GetStatus(
-            kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", "junk").result()));
+    TENSORSTORE_EXPECT_OK(
+        kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", absl::Cord("junk")));
     EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
                     ChainResult(store, tensorstore::AllDims().SizedInterval(
                                            0, array.shape())))
@@ -1143,16 +1146,13 @@ TEST(DriverTest, Jpeg1Channel) {
 
     // Write valid JPEG with the wrong number of channels.
     {
-      std::string jpeg_data;
-      EXPECT_EQ(Status(),
-                tensorstore::jpeg::Encode(
-                    std::vector<unsigned char>(3 * 4 * 2 * 3).data(),
-                    /*width=*/3, /*height=*/4 * 2, /*num_components=*/3,
-                    tensorstore::jpeg::EncodeOptions{}, &jpeg_data));
-      EXPECT_EQ(
-          Status(),
-          GetStatus(
-              kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", jpeg_data).result()));
+      absl::Cord jpeg_data;
+      TENSORSTORE_EXPECT_OK(tensorstore::jpeg::Encode(
+          std::vector<unsigned char>(3 * 4 * 2 * 3).data(),
+          /*width=*/3, /*height=*/4 * 2, /*num_components=*/3,
+          tensorstore::jpeg::EncodeOptions{}, &jpeg_data));
+      TENSORSTORE_EXPECT_OK(
+          kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", jpeg_data));
     }
     EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
                     ChainResult(store, tensorstore::AllDims().SizedInterval(
@@ -1164,16 +1164,13 @@ TEST(DriverTest, Jpeg1Channel) {
 
     // Write valid JPEG with the wrong dimensions.
     {
-      std::string jpeg_data;
-      EXPECT_EQ(Status(),
-                tensorstore::jpeg::Encode(
-                    std::vector<unsigned char>(3 * 5 * 2 * 1).data(),
-                    /*width=*/3, /*height=*/5 * 2, /*num_components=*/1,
-                    tensorstore::jpeg::EncodeOptions{}, &jpeg_data));
-      EXPECT_EQ(
-          Status(),
-          GetStatus(
-              kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", jpeg_data).result()));
+      absl::Cord jpeg_data;
+      TENSORSTORE_EXPECT_OK(tensorstore::jpeg::Encode(
+          std::vector<unsigned char>(3 * 5 * 2 * 1).data(),
+          /*width=*/3, /*height=*/5 * 2, /*num_components=*/1,
+          tensorstore::jpeg::EncodeOptions{}, &jpeg_data));
+      TENSORSTORE_EXPECT_OK(
+          kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", jpeg_data));
     }
     EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
                     ChainResult(store, tensorstore::AllDims().SizedInterval(
@@ -1233,27 +1230,31 @@ TEST(DriverTest, Jpeg3Channel) {
       GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
           .value(),
       (UnorderedElementsAreArray<
-          ::testing::Matcher<std::pair<std::string, std::string>>>({
+          ::testing::Matcher<std::pair<std::string, absl::Cord>>>({
           Pair("prefix/info",  //
-               ParseJsonMatches(
-                   ::nlohmann::json{{"@type", "neuroglancer_multiscale_volume"},
-                                    {"type", "image"},
-                                    {"data_type", "uint8"},
-                                    {"num_channels", 3},
-                                    {"scales",
-                                     {{
-                                         {"resolution", {1, 1, 1}},
-                                         {"encoding", "jpeg"},
-                                         {"key", "1_1_1"},
-                                         {"chunk_sizes", {{3, 4, 2}}},
-                                         {"size", {5, 100, 100}},
-                                         {"voxel_offset", {0, 0, 0}},
-                                     }}}})),
+               ::testing::MatcherCast<absl::Cord>(ParseJsonMatches(
+                   {{"@type", "neuroglancer_multiscale_volume"},
+                    {"type", "image"},
+                    {"data_type", "uint8"},
+                    {"num_channels", 3},
+                    {"scales",
+                     {{
+                         {"resolution", {1, 1, 1}},
+                         {"encoding", "jpeg"},
+                         {"key", "1_1_1"},
+                         {"chunk_sizes", {{3, 4, 2}}},
+                         {"size", {5, 100, 100}},
+                         {"voxel_offset", {0, 0, 0}},
+                     }}}}))),
           // 0xff 0xd8 0xff is the JPEG header
           Pair("prefix/1_1_1/0-3_0-4_0-2",
-               ::testing::StartsWith("\xff\xd8\xff")),
+               ::testing::MatcherCast<absl::Cord>(
+                   ::testing::Matcher<std::string>(
+                       ::testing::StartsWith("\xff\xd8\xff")))),
           Pair("prefix/1_1_1/3-5_0-4_0-2",
-               ::testing::StartsWith("\xff\xd8\xff")),
+               ::testing::MatcherCast<absl::Cord>(
+                   ::testing::Matcher<std::string>(
+                       ::testing::StartsWith("\xff\xd8\xff")))),
       })));
 
   // Verify that reading back has the expected result.
@@ -1283,8 +1284,7 @@ TEST(DriverTest, CorruptMetadataTest) {
   auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
 
   // Write invalid JSON
-  EXPECT_EQ(Status(),
-            GetStatus(kv_store->Write("prefix/info", "invalid").result()));
+  TENSORSTORE_EXPECT_OK(kv_store->Write("prefix/info", absl::Cord("invalid")));
 
   auto json_spec = GetJsonSpec();
   EXPECT_THAT(tensorstore::Open(context, json_spec,
@@ -1295,8 +1295,7 @@ TEST(DriverTest, CorruptMetadataTest) {
                             ".*: Error reading \"prefix/info\": Invalid JSON"));
 
   // Write valid JSON that is invalid metadata.
-  EXPECT_EQ(Status(),
-            GetStatus(kv_store->Write("prefix/info", "[1]").result()));
+  TENSORSTORE_EXPECT_OK(kv_store->Write("prefix/info", absl::Cord("[1]")));
 
   EXPECT_THAT(tensorstore::Open(context, json_spec,
                                 {tensorstore::OpenMode::open,

@@ -160,8 +160,8 @@ class MetadataCache
   /// \param encoded_metadata The encoded metadata read from the
   ///     `KeyValueStore`.
   /// \returns On success, non-null pointer to `Metadata` object.
-  virtual Result<MetadataPtr> DecodeMetadata(
-      absl::string_view entry_key, absl::string_view encoded_metadata) = 0;
+  virtual Result<MetadataPtr> DecodeMetadata(absl::string_view entry_key,
+                                             absl::Cord encoded_metadata) = 0;
 
   /// Encodes metadata for storage in the `KeyValueStore`.
   ///
@@ -169,8 +169,8 @@ class MetadataCache
   ///     with which this metadata is associated.
   /// \param metadata Non-null pointer to the metadata to encode, of type
   ///     `Metadata`.
-  virtual std::string EncodeMetadata(absl::string_view entry_key,
-                                     const void* metadata) = 0;
+  virtual Result<absl::Cord> EncodeMetadata(absl::string_view entry_key,
+                                            const void* metadata) = 0;
 
   // The members below are implementation details not relevant to derived class
   // driver implementations.
@@ -231,7 +231,7 @@ class MetadataCache
   std::string GetKeyValueStoreKey(internal::Cache::Entry* entry) override;
 
   void DoDecode(internal::Cache::PinnedEntry entry,
-                std::optional<std::string> value) override;
+                std::optional<absl::Cord> value) override;
   void DoWriteback(internal::Cache::PinnedEntry entry) override;
 
   void NotifyWritebackNeedsRead(internal::Cache::Entry* entry,
@@ -387,7 +387,7 @@ class DataCache
   ///     `grid = GetChunkGridSpecification(metadata)`.
   virtual Result<absl::InlinedVector<SharedArrayView<const void>, 1>>
   DecodeChunk(const void* metadata, span<const Index> chunk_indices,
-              std::string data) = 0;
+              absl::Cord data) = 0;
 
   /// Encodes a data chunk.
   ///
@@ -395,16 +395,15 @@ class DataCache
   /// \param component_arrays Chunk data for each component.
   /// \pre `component_arrays[i].shape() == grid.components[i].cell_shape()`,
   ///     where `grid = GetChunkGridSpecification(metadata)`.
-  virtual Status EncodeChunk(const void* metadata,
-                             span<const Index> chunk_indices,
-                             span<const ArrayView<const void>> component_arrays,
-                             std::string* encoded) = 0;
+  virtual Result<absl::Cord> EncodeChunk(
+      const void* metadata, span<const Index> chunk_indices,
+      span<const ArrayView<const void>> component_arrays) = 0;
 
   // The members below are implementation details not relevant to derived class
   // driver implementations.
 
   void DoDecode(internal::AsyncStorageBackedCache::PinnedEntry entry,
-                std::optional<std::string> value) override;
+                std::optional<absl::Cord> value) override;
 
   void DoWriteback(
       internal::AsyncStorageBackedCache::PinnedEntry entry) override;

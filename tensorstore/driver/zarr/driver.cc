@@ -63,15 +63,15 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
     return internal::JoinPath(entry_key, kZarrMetadataKey);
   }
 
-  Result<MetadataPtr> DecodeMetadata(
-      absl::string_view entry_key,
-      absl::string_view encoded_metadata) override {
-    return ParseEncodedMetadata(encoded_metadata);
+  Result<MetadataPtr> DecodeMetadata(std::string_view entry_key,
+                                     absl::Cord encoded_metadata) override {
+    return ParseEncodedMetadata(encoded_metadata.Flatten());
   }
 
-  std::string EncodeMetadata(absl::string_view entry_key,
-                             const void* metadata) override {
-    return ::nlohmann::json(*static_cast<const ZarrMetadata*>(metadata)).dump();
+  Result<absl::Cord> EncodeMetadata(absl::string_view entry_key,
+                                    const void* metadata) override {
+    return absl::Cord(
+        ::nlohmann::json(*static_cast<const ZarrMetadata*>(metadata)).dump());
   }
 };
 
@@ -290,16 +290,16 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
       const void* metadata, span<const Index> chunk_indices,
-      std::string data) override {
+      absl::Cord data) override {
     return internal_zarr::DecodeChunk(
-        *static_cast<const ZarrMetadata*>(metadata), data);
+        *static_cast<const ZarrMetadata*>(metadata), std::move(data));
   }
 
-  Status EncodeChunk(const void* metadata, span<const Index> chunk_indices,
-                     span<const ArrayView<const void>> component_arrays,
-                     std::string* encoded) override {
+  Result<absl::Cord> EncodeChunk(
+      const void* metadata, span<const Index> chunk_indices,
+      span<const ArrayView<const void>> component_arrays) override {
     return internal_zarr::EncodeChunk(
-        *static_cast<const ZarrMetadata*>(metadata), component_arrays, encoded);
+        *static_cast<const ZarrMetadata*>(metadata), component_arrays);
   }
 
   std::string GetChunkStorageKey(const void* metadata,

@@ -75,16 +75,16 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
     return internal::JoinPath(entry_key, kMetadataKey);
   }
 
-  Result<MetadataPtr> DecodeMetadata(
-      absl::string_view entry_key,
-      absl::string_view encoded_metadata) override {
-    return ParseEncodedMetadata(encoded_metadata);
+  Result<MetadataPtr> DecodeMetadata(absl::string_view entry_key,
+                                     absl::Cord encoded_metadata) override {
+    return ParseEncodedMetadata(encoded_metadata.Flatten());
   }
 
-  std::string EncodeMetadata(absl::string_view entry_key,
-                             const void* metadata) override {
-    return ::nlohmann::json(*static_cast<const MultiscaleMetadata*>(metadata))
-        .dump();
+  Result<absl::Cord> EncodeMetadata(absl::string_view entry_key,
+                                    const void* metadata) override {
+    return absl::Cord(
+        ::nlohmann::json(*static_cast<const MultiscaleMetadata*>(metadata))
+            .dump());
   }
 };
 
@@ -195,7 +195,7 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
 
   Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
       const void* metadata, span<const Index> chunk_indices,
-      std::string data) override {
+      absl::Cord data) override {
     if (auto result = internal_neuroglancer_precomputed::DecodeChunk(
             chunk_indices, *static_cast<const MultiscaleMetadata*>(metadata),
             scale_index_, chunk_layout_czyx_, std::move(data))) {
@@ -206,13 +206,13 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
     }
   }
 
-  Status EncodeChunk(const void* metadata, span<const Index> chunk_indices,
-                     span<const ArrayView<const void>> component_arrays,
-                     std::string* encoded) override {
+  Result<absl::Cord> EncodeChunk(
+      const void* metadata, span<const Index> chunk_indices,
+      span<const ArrayView<const void>> component_arrays) override {
     assert(component_arrays.size() == 1);
     return internal_neuroglancer_precomputed::EncodeChunk(
         chunk_indices, *static_cast<const MultiscaleMetadata*>(metadata),
-        scale_index_, component_arrays[0], encoded);
+        scale_index_, component_arrays[0]);
   }
 
   Result<IndexTransform<>> GetExternalToInternalTransform(

@@ -28,7 +28,7 @@ using tensorstore::internal::ParseJsonMatches;
 TEST(ParseJsonMatchesTest, Describe) {
   std::ostringstream ss;
   ParseJsonMatches(::nlohmann::json(true)).DescribeTo(&ss);
-  EXPECT_EQ("when parsed as JSON is equal to true", ss.str());
+  EXPECT_EQ("when parsed as JSON matches json true", ss.str());
 }
 
 TEST(ParseJsonMatchesTest, Explain) {

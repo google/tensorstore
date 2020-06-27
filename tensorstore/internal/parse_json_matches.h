@@ -34,6 +34,9 @@ namespace internal {
 ::testing::Matcher<std::string> ParseJsonMatches(
     ::testing::Matcher<::nlohmann::json> json_matcher);
 
+/// Equivalent to `ParseJsonMatches(MatchesJson(json))`.
+::testing::Matcher<std::string> ParseJsonMatches(::nlohmann::json json);
+
 }  // namespace internal
 }  // namespace tensorstore
 

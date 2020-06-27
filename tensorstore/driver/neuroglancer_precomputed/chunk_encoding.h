@@ -40,7 +40,7 @@ namespace internal_neuroglancer_precomputed {
 Result<SharedArrayView<const void>> DecodeChunk(
     span<const Index> chunk_indices, const MultiscaleMetadata& metadata,
     std::size_t scale_index, StridedLayoutView<4> chunk_layout,
-    std::string buffer);
+    absl::Cord buffer);
 
 /// Encodes a chunk.
 ///
@@ -49,12 +49,11 @@ Result<SharedArrayView<const void>> DecodeChunk(
 /// \param metadata Metadata (determines chunk format and volume bounds).
 /// \param scale_index Scale index, in range `[0, metadata.scales.size())`.
 /// \param array Chunk data, in "czyx" order.
-/// \param out[out] The encoded chunk data.
-/// \returns `Status()` on success, or an error status if encoding fails
-///     (unlikely).
-Status EncodeChunk(span<const Index> chunk_indices,
-                   const MultiscaleMetadata& metadata, std::size_t scale_index,
-                   ArrayView<const void> array, std::string* out);
+/// \returns The encoded chunk.
+Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
+                               const MultiscaleMetadata& metadata,
+                               std::size_t scale_index,
+                               ArrayView<const void> array);
 
 }  // namespace internal_neuroglancer_precomputed
 }  // namespace tensorstore

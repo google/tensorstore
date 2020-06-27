@@ -200,23 +200,20 @@ Status ParseShape(const ::nlohmann::json& value,
 ///
 /// \param metadata Metadata associated with the chunk.
 /// \param components Vector of per-field arrays.
-/// \param out[out] Must be non-null.  Pointer to buffer where encoded chunk is
-///     written.
 /// \dchecks `components.size() == metadata.dtype.fields.size()`
-/// \returns `Status()` on success, or an error that occurs while encoding the
-///     chunk.
-Status EncodeChunk(const ZarrMetadata& metadata,
-                   span<const ArrayView<const void>> components,
-                   std::string* out);
+/// \returns The encoded chunk.
+Result<absl::Cord> EncodeChunk(const ZarrMetadata& metadata,
+                               span<const ArrayView<const void>> components);
 
 /// Decodes an encoded zarr chunk into per-field arrays.
 ///
 /// \param metadata Metadata associated with the chunk.
+/// \param buffer The buffer to decode.
 /// \returns A vector of length `metadata.dtype.fields.size()`.
 /// \error `absl::StatusCode::kInvalidArgument` if `buffer` is not a valid
 ///     encoded zarr chunk according to `metadata`.
 Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
-    const ZarrMetadata& metadata, std::string buffer);
+    const ZarrMetadata& metadata, absl::Cord buffer);
 
 /// Returns `true` if `a` and `b` are compatible, meaning stored data created
 /// with `a` can be read using `b`.

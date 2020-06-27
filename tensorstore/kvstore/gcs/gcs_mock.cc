@@ -63,7 +63,8 @@ absl::optional<internal_http::HttpResponse> ParseQueryParameters(
   for (auto it = params.find("ifGenerationMatch"); it != params.end();) {
     std::int64_t v = 0;
     if (!absl::SimpleAtoi(it->second, &v)) {
-      return HttpResponse{400, absl::Substitute(kInvalidLongBody, it->second)};
+      return HttpResponse{
+          400, absl::Cord(absl::Substitute(kInvalidLongBody, it->second))};
     }
     query_params->ifGenerationMatch = v;
     break;
@@ -71,7 +72,8 @@ absl::optional<internal_http::HttpResponse> ParseQueryParameters(
   for (auto it = params.find("ifGenerationNotMatch"); it != params.end();) {
     std::int64_t v = 0;
     if (!absl::SimpleAtoi(it->second, &v)) {
-      return HttpResponse{400, absl::Substitute(kInvalidLongBody, it->second)};
+      return HttpResponse{
+          400, absl::Cord(absl::Substitute(kInvalidLongBody, it->second))};
     }
     query_params->ifGenerationNotMatch = v;
     break;
@@ -93,7 +95,7 @@ GCSMockStorageBucket::GCSMockStorageBucket(
 
 // Responds to a "www.google.apis/storage/v1/b/bucket" request.
 Future<HttpResponse> GCSMockStorageBucket::IssueRequest(
-    const HttpRequest& request, absl::string_view payload,
+    const HttpRequest& request, absl::Cord payload,
     absl::Duration request_timeout, absl::Duration connect_timeout) {
   // When using a mock context, we assume that the mock is
   // thread safe and not uninstalled when it might introduce
@@ -108,8 +110,7 @@ Future<HttpResponse> GCSMockStorageBucket::IssueRequest(
 }
 
 absl::variant<absl::monostate, HttpResponse, Status>
-GCSMockStorageBucket::Match(const HttpRequest& request,
-                            absl::string_view payload) {
+GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
   absl::string_view scheme, host, path;
   tensorstore::internal::ParseURI(request.url(), &scheme, &host, &path);
 
@@ -134,7 +135,7 @@ GCSMockStorageBucket::Match(const HttpRequest& request,
   // GCS can "randomly" return an HTTP 429.
   // In actuality, a 429 is based on the request rate for a resource, etc.
   if (request_count_++ % 5 == 0) {
-    return HttpResponse{429, ""};
+    return HttpResponse{429, absl::Cord()};
   }
 
   // Remove the query parameter substring.
@@ -163,7 +164,7 @@ GCSMockStorageBucket::Match(const HttpRequest& request,
   if (requestor_pays_project_id_ &&
       (!user_project || *user_project != *requestor_pays_project_id_)) {
     // https://cloud.google.com/storage/docs/requester-pays
-    return HttpResponse{400, "UserProjectMissing"};
+    return HttpResponse{400, absl::Cord("UserProjectMissing")};
   }
 
   // Dispatch based on path, method, etc.
@@ -175,7 +176,8 @@ GCSMockStorageBucket::Match(const HttpRequest& request,
     if (!is_upload) {
       return HttpResponse{
           400,
-          R"({ "error": { "code": 400, "message": "Uploads must be sent to the upload URL." } })"};
+          absl::Cord(
+              R"({ "error": { "code": 400, "message": "Uploads must be sent to the upload URL." } })")};
     }
     return HandleInsertRequest(path, params, payload);
   } else if (absl::StartsWith(path, "/o/") && request.method().empty()) {
@@ -194,7 +196,7 @@ GCSMockStorageBucket::Match(const HttpRequest& request,
   // patch (PATCH request)
   // .../copyTo/...
 
-  return HttpResponse{404, ""};
+  return HttpResponse{404, absl::Cord()};
 }
 
 absl::variant<absl::monostate, HttpResponse, Status>
@@ -220,7 +222,8 @@ GCSMockStorageBucket::HandleListRequest(absl::string_view path,
   std::int64_t maxResults = std::numeric_limits<std::int64_t>::max();
   for (auto it = params.find("maxResults"); it != params.end();) {
     if (!absl::SimpleAtoi(it->second, &maxResults) || maxResults < 1) {
-      return HttpResponse{400, absl::Substitute(kInvalidLongBody, it->second)};
+      return HttpResponse{
+          400, absl::Cord(absl::Substitute(kInvalidLongBody, it->second))};
     }
     break;
   }
@@ -266,13 +269,13 @@ GCSMockStorageBucket::HandleListRequest(absl::string_view path,
     absl::StrAppend(&result, absl::Substitute(kSuffix, object_it->first));
   }
 
-  return HttpResponse{200, std::move(result)};
+  return HttpResponse{200, absl::Cord(std::move(result))};
 }
 
 absl::variant<absl::monostate, HttpResponse, Status>
 GCSMockStorageBucket::HandleInsertRequest(absl::string_view path,
                                           const ParamMap& params,
-                                          absl::string_view payload) {
+                                          absl::Cord payload) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/insert
   QueryParameters parsed_parameters;
   {
@@ -297,12 +300,12 @@ GCSMockStorageBucket::HandleInsertRequest(absl::string_view path,
       if (v == 0) {
         if (it != data_.end()) {
           // Live version => failure
-          return HttpResponse{412, ""};
+          return HttpResponse{412, absl::Cord()};
         }
         // No live versions => success;
       } else if (it == data_.end() || v != it->second.generation) {
         // generation does not match.
-        return HttpResponse{412, ""};
+        return HttpResponse{412, absl::Cord()};
       }
     }
 
@@ -310,7 +313,7 @@ GCSMockStorageBucket::HandleInsertRequest(absl::string_view path,
       const std::int64_t v = parsed_parameters.ifGenerationNotMatch.value();
       if (it != data_.end() && v == it->second.generation) {
         // generation matches.
-        return HttpResponse{412, ""};
+        return HttpResponse{412, absl::Cord()};
       }
     }
 
@@ -319,14 +322,14 @@ GCSMockStorageBucket::HandleInsertRequest(absl::string_view path,
       obj.name = std::move(name);
     }
     obj.generation = ++next_generation_;
-    obj.data = std::string(payload);
+    obj.data = payload;
 
     TENSORSTORE_LOG("Uploaded: ", obj.name, " ", obj.generation);
 
     return ObjectMetadataResponse(obj);
   } while (false);
 
-  return HttpResponse{404, ""};
+  return HttpResponse{404, absl::Cord()};
 }
 
 absl::variant<absl::monostate, HttpResponse, Status>
@@ -352,13 +355,13 @@ GCSMockStorageBucket::HandleGetRequest(absl::string_view path,
       if (v == 0) {
         if (it != data_.end()) {
           // Live version => failure
-          return HttpResponse{412, ""};
+          return HttpResponse{412, absl::Cord()};
         }
         // No live versions => success;
-        return HttpResponse{204, ""};
+        return HttpResponse{204, absl::Cord()};
       } else if (it == data_.end() || v != it->second.generation) {
         // generation does not match.
-        return HttpResponse{412, ""};
+        return HttpResponse{412, absl::Cord()};
       }
     }
     if (it == data_.end()) break;
@@ -367,7 +370,7 @@ GCSMockStorageBucket::HandleGetRequest(absl::string_view path,
       const std::int64_t v = parsed_parameters.ifGenerationNotMatch.value();
       if (v == it->second.generation) {
         // generation matches.
-        return HttpResponse{304, ""};
+        return HttpResponse{304, absl::Cord()};
       }
     }
 
@@ -379,7 +382,7 @@ GCSMockStorageBucket::HandleGetRequest(absl::string_view path,
     return ObjectMediaResponse(it->second);
   } while (false);
 
-  return HttpResponse{404, ""};
+  return HttpResponse{404, absl::Cord()};
 }
 
 absl::variant<absl::monostate, HttpResponse, Status>
@@ -408,23 +411,23 @@ GCSMockStorageBucket::HandleDeleteRequest(absl::string_view path,
       const std::int64_t v = parsed_parameters.ifGenerationMatch.value();
       if (v == 0 || v != it->second.generation) {
         // Live version, but generation does not match.
-        return HttpResponse{412, ""};
+        return HttpResponse{412, absl::Cord()};
       }
     }
 
     TENSORSTORE_LOG("Deleted: ", path, " ", it->second.generation);
 
     data_.erase(it);
-    return HttpResponse{204, ""};
+    return HttpResponse{204, absl::Cord()};
   } while (false);
 
-  return HttpResponse{404, ""};
+  return HttpResponse{404, absl::Cord()};
 }
 
 HttpResponse GCSMockStorageBucket::ObjectMetadataResponse(
     const Object& object) {
   std::string data = ObjectMetadataString(object);
-  HttpResponse response{200, std::move(data)};
+  HttpResponse response{200, absl::Cord(std::move(data))};
   response.headers.insert(
       {"content-length", absl::StrCat(response.payload.size())});
   response.headers.insert({"content-type", "application/json"});

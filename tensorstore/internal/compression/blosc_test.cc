@@ -19,7 +19,10 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/cord.h"
+#include "absl/strings/cord_test_helpers.h"
 #include <blosc.h>
+#include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -51,11 +54,11 @@ std::vector<blosc::Options> GetTestOptions() {
   };
 }
 
-std::vector<std::string> GetTestArrays() {
-  std::vector<std::string> arrays;
+std::vector<absl::Cord> GetTestArrays() {
+  std::vector<absl::Cord> arrays;
 
   // Add empty array.
-  arrays.emplace_back(std::string());
+  arrays.emplace_back();
 
   {
     std::string arr(100, '\0');
@@ -63,7 +66,7 @@ std::vector<std::string> GetTestArrays() {
     for (auto& x : arr) {
       x = (v += 7);
     }
-    arrays.push_back(std::move(arr));
+    arrays.emplace_back(std::move(arr));
   }
 
   arrays.emplace_back("The quick brown fox jumped over the lazy dog.");
@@ -77,13 +80,14 @@ TEST(BloscTest, EncodeDecode) {
     for (const auto& array : GetTestArrays()) {
       for (const std::size_t element_size : {1, 2, 10}) {
         options.element_size = element_size;
-        std::string encode_result = "abc", decode_result = "def";
-        ASSERT_EQ(Status(), blosc::Encode(array, &encode_result, options));
+        absl::Cord encode_result("abc"), decode_result("def");
+        TENSORSTORE_ASSERT_OK(blosc::Encode(array, &encode_result, options));
         ASSERT_GE(encode_result.size(), 3);
-        EXPECT_EQ("abc", encode_result.substr(0, 3));
-        ASSERT_EQ(Status(),
-                  blosc::Decode(encode_result.substr(3), &decode_result));
-        EXPECT_EQ("def" + array, decode_result);
+        EXPECT_EQ("abc", encode_result.Subcord(0, 3));
+        TENSORSTORE_ASSERT_OK(
+            blosc::Decode(encode_result.Subcord(3, encode_result.size() - 3),
+                          &decode_result));
+        EXPECT_EQ("def" + std::string(array), decode_result);
       }
     }
   }
@@ -91,7 +95,7 @@ TEST(BloscTest, EncodeDecode) {
 
 // Tests that the compressed data has the expected blosc complib.
 TEST(BloscTest, CheckComplib) {
-  absl::string_view array = "The quick brown fox jumped over the lazy dog.";
+  absl::Cord array("The quick brown fox jumped over the lazy dog.");
   const std::vector<std::pair<std::string, std::string>>
       cnames_and_complib_names{{BLOSC_BLOSCLZ_COMPNAME, BLOSC_BLOSCLZ_LIBNAME},
                                {BLOSC_LZ4_COMPNAME, BLOSC_LZ4_LIBNAME},
@@ -103,10 +107,10 @@ TEST(BloscTest, CheckComplib) {
     blosc::Options options{/*.compressor==*/pair.first.c_str(), /*.clevel=*/5,
                            /*.shuffle=*/-1, /*.blocksize=*/0,
                            /*.element_size=*/1};
-    std::string encoded;
-    ASSERT_EQ(Status(), blosc::Encode(array, &encoded, options));
+    absl::Cord encoded;
+    TENSORSTORE_ASSERT_OK(blosc::Encode(array, &encoded, options));
     ASSERT_GE(encoded.size(), BLOSC_MIN_HEADER_LENGTH);
-    const char* complib = blosc_cbuffer_complib(encoded.data());
+    const char* complib = blosc_cbuffer_complib(encoded.Flatten().data());
     EXPECT_EQ(pair.second, complib);
   }
 }
@@ -114,18 +118,18 @@ TEST(BloscTest, CheckComplib) {
 // Tests that the compressed data has the expected blosc shuffle and type size
 // parameters.
 TEST(BloscTest, CheckShuffleAndElementSize) {
-  absl::string_view array = "The quick brown fox jumped over the lazy dog.";
+  absl::Cord array("The quick brown fox jumped over the lazy dog.");
   for (int shuffle = -1; shuffle <= 2; ++shuffle) {
     for (const std::size_t element_size : {1, 2, 10}) {
       blosc::Options options{/*.compressor==*/"lz4", /*.clevel=*/5,
                              /*.shuffle=*/shuffle, /*.blocksize=*/0,
                              /*.element_size=*/element_size};
-      std::string encoded;
-      ASSERT_EQ(Status(), blosc::Encode(array, &encoded, options));
+      absl::Cord encoded;
+      TENSORSTORE_ASSERT_OK(blosc::Encode(array, &encoded, options));
       ASSERT_GE(encoded.size(), BLOSC_MIN_HEADER_LENGTH);
       size_t typesize;
       int flags;
-      blosc_cbuffer_metainfo(encoded.data(), &typesize, &flags);
+      blosc_cbuffer_metainfo(encoded.Flatten().data(), &typesize, &flags);
       EXPECT_EQ(element_size, typesize);
       const bool expected_byte_shuffle =
           shuffle == 1 || (shuffle == -1 && element_size != 1);
@@ -141,18 +145,18 @@ TEST(BloscTest, CheckShuffleAndElementSize) {
 
 // Tests that the compressed data has the expected blosc blocksize.
 TEST(BloscTest, CheckBlocksize) {
-  std::string array(100000, '\0');
+  absl::Cord array{std::string(100000, '\0')};
   for (std::size_t blocksize : {256, 512, 1024}) {
     // Set clevel to 0 to ensure our blocksize choice will be respected.
     // Otherwise blosc may choose a different blocksize.
     blosc::Options options{/*.compressor==*/"lz4", /*.clevel=*/0,
                            /*.shuffle=*/0, /*.blocksize=*/blocksize,
                            /*.element_size=*/1};
-    std::string encoded;
-    ASSERT_EQ(Status(), blosc::Encode(array, &encoded, options));
+    absl::Cord encoded;
+    TENSORSTORE_ASSERT_OK(blosc::Encode(array, &encoded, options));
     ASSERT_GE(encoded.size(), BLOSC_MIN_HEADER_LENGTH);
     size_t nbytes, cbytes, bsize;
-    blosc_cbuffer_sizes(encoded.data(), &nbytes, &cbytes, &bsize);
+    blosc_cbuffer_sizes(encoded.Flatten().data(), &nbytes, &cbytes, &bsize);
     EXPECT_EQ(blocksize, bsize);
   }
 }
@@ -160,55 +164,58 @@ TEST(BloscTest, CheckBlocksize) {
 // Tests that encoding a buffer longer than BLOSC_MAX_BUFFERSIZE bytes results
 // in an error.
 TEST(BloscTest, TooLong) {
-  std::string buf(BLOSC_MAX_BUFFERSIZE + 1, '\0');
   blosc::Options options{/*.compressor==*/"lz4", /*.clevel=*/5,
                          /*.shuffle=*/-1, /*.blocksize=*/0,
                          /*.element_size=*/1};
-  std::string encoded;
-  EXPECT_THAT(blosc::Encode(buf, &encoded, options),
+  absl::Cord encoded;
+  EXPECT_THAT(blosc::Encode(tensorstore::internal::FlatCordBuilder(
+                                BLOSC_MAX_BUFFERSIZE + 1)
+                                .Build(),
+                            &encoded, options),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
 // Tests that decoding data with a corrupted blosc header returns an error.
 TEST(BloscTest, DecodeHeaderCorrupted) {
-  const std::string input = "The quick brown fox jumped over the lazy dog.";
-  std::string encode_result, decode_result;
-  ASSERT_EQ(Status(),
-            blosc::Encode(input, &encode_result,
-                          blosc::Options{/*.compressor=*/"lz4", /*.clevel=*/1,
-                                         /*.shuffle=*/-1, /*.blocksize=*/0,
-                                         /*element_size=*/1}));
+  const absl::Cord input("The quick brown fox jumped over the lazy dog.");
+  absl::Cord encode_result, decode_result;
+  TENSORSTORE_ASSERT_OK(
+      blosc::Encode(input, &encode_result,
+                    blosc::Options{/*.compressor=*/"lz4", /*.clevel=*/1,
+                                   /*.shuffle=*/-1, /*.blocksize=*/0,
+                                   /*element_size=*/1}));
   ASSERT_GE(encode_result.size(), 1);
-  encode_result[0] = 0;
-  EXPECT_THAT(blosc::Decode(encode_result, &decode_result),
+  std::string corrupted(encode_result);
+  corrupted[0] = 0;
+  EXPECT_THAT(blosc::Decode(absl::Cord(corrupted), &decode_result),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
 // Tests that decoding data with an incomplete blosc header returns an error.
 TEST(BloscCompressorTest, DecodeHeaderTruncated) {
-  const std::string input = "The quick brown fox jumped over the lazy dog.";
-  std::string encode_result, decode_result;
-  ASSERT_EQ(Status(),
-            blosc::Encode(input, &encode_result,
-                          blosc::Options{/*.compressor=*/"lz4", /*.clevel=*/1,
-                                         /*.shuffle=*/-1, /*.blocksize=*/0,
-                                         /*element_size=*/1}));
-  encode_result.resize(5);
-  EXPECT_THAT(blosc::Decode(encode_result, &decode_result),
+  const absl::Cord input("The quick brown fox jumped over the lazy dog.");
+  absl::Cord encode_result, decode_result;
+  TENSORSTORE_ASSERT_OK(
+      blosc::Encode(input, &encode_result,
+                    blosc::Options{/*.compressor=*/"lz4", /*.clevel=*/1,
+                                   /*.shuffle=*/-1, /*.blocksize=*/0,
+                                   /*element_size=*/1}));
+  ASSERT_GE(encode_result.size(), 5);
+  EXPECT_THAT(blosc::Decode(encode_result.Subcord(0, 5), &decode_result),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
 // Tests that decoding truncated data returns an error.
 TEST(BloscCompressorTest, DecodeDataTruncated) {
-  const std::string input = "The quick brown fox jumped over the lazy dog.";
-  std::string encode_result, decode_result;
-  ASSERT_EQ(Status(),
-            blosc::Encode(input, &encode_result,
-                          blosc::Options{/*.compressor=*/"lz4", /*.clevel=*/1,
-                                         /*.shuffle=*/-1, /*.blocksize=*/0,
-                                         /*element_size=*/1}));
-  encode_result.resize(BLOSC_MIN_HEADER_LENGTH);
-  EXPECT_THAT(blosc::Decode(encode_result, &decode_result),
+  const absl::Cord input("The quick brown fox jumped over the lazy dog.");
+  absl::Cord encode_result, decode_result;
+  TENSORSTORE_ASSERT_OK(
+      blosc::Encode(input, &encode_result,
+                    blosc::Options{/*.compressor=*/"lz4", /*.clevel=*/1,
+                                   /*.shuffle=*/-1, /*.blocksize=*/0,
+                                   /*element_size=*/1}));
+  EXPECT_THAT(blosc::Decode(encode_result.Subcord(0, BLOSC_MIN_HEADER_LENGTH),
+                            &decode_result),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 

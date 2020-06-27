@@ -45,29 +45,26 @@ void TestRoundtrip(::nlohmann::json metadata_json, bool compare) {
   for (Index i = 0, n = array.num_elements(); i < n; ++i) {
     array.data()[i] = static_cast<T>(i);
   }
-  std::string out;
   std::vector<Index> chunk_indices{0, 0, 0};
   const size_t scale_index = 0;
-  EXPECT_EQ(tensorstore::Status(),
-            EncodeChunk(chunk_indices, metadata, scale_index, array, &out));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      absl::Cord out, EncodeChunk(chunk_indices, metadata, scale_index, array));
   tensorstore::StridedLayout chunk_layout(
       tensorstore::c_order, data_type.size(), {metadata.num_channels, 5, 4, 3});
-  auto decode_result =
-      DecodeChunk(chunk_indices, metadata, scale_index, chunk_layout, out);
-  EXPECT_EQ(Status(), GetStatus(decode_result));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto decode_result,
+      DecodeChunk(chunk_indices, metadata, scale_index, chunk_layout, out));
 
   if (!out.empty()) {
     // Test that truncating the chunk leads to a decoding error.
-    auto corrupt = out;
-    corrupt.resize(corrupt.size() - 1);
-    auto corrupt_decode_result = DecodeChunk(
-        chunk_indices, metadata, scale_index, chunk_layout, corrupt);
-    EXPECT_THAT(tensorstore::GetStatus(corrupt_decode_result),
+    auto corrupt = out.Subcord(0, out.size() - 1);
+    EXPECT_THAT(DecodeChunk(chunk_indices, metadata, scale_index, chunk_layout,
+                            corrupt),
                 tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 
   if (!compare) return;
-  EXPECT_THAT(decode_result, ::testing::Optional(array));
+  EXPECT_THAT(decode_result, array);
 }
 
 TEST(ChunkEncodingTest, Roundtrip) {

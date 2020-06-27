@@ -40,7 +40,7 @@ namespace neuroglancer_uint64_sharded {
 /// \returns The minishard index, sorted by `chunk_id`.
 /// \error `absl::StatusCode::kInvalidArgument` if `input` is corrupt.
 Result<std::vector<MinishardIndexEntry>> DecodeMinishardIndex(
-    absl::string_view input, ShardingSpec::DataEncoding encoding);
+    const absl::Cord& input, ShardingSpec::DataEncoding encoding);
 
 /// Looks up the byte range associated with a given chunk id within a minishard
 /// index.
@@ -55,8 +55,8 @@ std::optional<ByteRange> FindChunkInMinishard(
 ///
 /// \returns The decoded string.
 /// \error `absl::StatusCode::kInvalidArgument` if `input` is corrupt.
-Result<std::string> DecodeData(absl::string_view input,
-                               ShardingSpec::DataEncoding encoding);
+Result<absl::Cord> DecodeData(const absl::Cord& input,
+                              ShardingSpec::DataEncoding encoding);
 
 /// Decodes a shard index entry for a given minishard.
 ///

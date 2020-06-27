@@ -63,7 +63,7 @@ struct StoredKeyValuePairs
     : public internal::AtomicReferenceCount<StoredKeyValuePairs> {
   using Ptr = internal::IntrusivePtr<StoredKeyValuePairs>;
   struct ValueWithGenerationNumber {
-    std::string value;
+    absl::Cord value;
     std::size_t generation_number;
     absl::string_view generation() const {
       return absl::string_view(
@@ -237,8 +237,7 @@ Future<KeyValueStore::ReadResult> MemoryKeyValueStore::Read(
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto byte_range, options.byte_range.Validate(it->second.value.size()));
   result.state = KeyValueStore::ReadResult::kValue;
-  result.value =
-      std::string(internal::GetSubStringView(it->second.value, byte_range));
+  result.value = internal::GetSubCord(it->second.value, byte_range);
   return result;
 }
 

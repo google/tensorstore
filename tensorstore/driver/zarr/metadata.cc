@@ -23,6 +23,7 @@
 #include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/internal/container_to_shared.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
+#include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/json.h"
 
 namespace tensorstore {
@@ -407,10 +408,10 @@ void to_json(::nlohmann::json& out,  // NOLINT,
 // only support raw decoder.
 
 Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
-    const ZarrMetadata& metadata, std::string buffer) {
+    const ZarrMetadata& metadata, absl::Cord buffer) {
   const size_t num_fields = metadata.dtype.fields.size();
   if (metadata.compressor) {
-    std::string decoded;
+    absl::Cord decoded;
     TENSORSTORE_RETURN_IF_ERROR(metadata.compressor->Decode(
         buffer, &decoded, metadata.dtype.bytes_per_outer_element));
     buffer = std::move(decoded);
@@ -421,27 +422,44 @@ Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
         "Uncompressed chunk is ", buffer.size(), " bytes, but should be ",
         metadata.chunk_layout.bytes_per_chunk, " bytes"));
   }
-  std::shared_ptr<void> buffer_ptr =
-      internal::ContainerToSharedDataPointerWithOffset(std::move(buffer));
   absl::InlinedVector<SharedArrayView<const void>, 1> field_arrays(num_fields);
+
+  bool must_copy = false;
+  // First, attempt to create arrays that reference the cord without copying.
   for (size_t field_i = 0; field_i < num_fields; ++field_i) {
     const auto& field = metadata.dtype.fields[field_i];
     const auto& field_layout = metadata.chunk_layout.fields[field_i];
-    SharedArrayView<void> array{
-        {AddByteOffset(buffer_ptr, field.byte_offset), field.data_type},
-        field_layout.encoded_chunk_layout};
-    DecodeArray(&array, field.endian, field_layout.decoded_chunk_layout);
-    field_arrays[field_i] = array;
+    field_arrays[field_i] = internal::TryViewCordAsArray(
+        buffer, field.byte_offset, field.data_type, field.endian,
+        field_layout.encoded_chunk_layout);
+    if (!field_arrays[field_i].valid()) {
+      must_copy = true;
+      break;
+    }
+  }
+  if (must_copy) {
+    auto flat_buffer = buffer.Flatten();
+    for (size_t field_i = 0; field_i < num_fields; ++field_i) {
+      const auto& field = metadata.dtype.fields[field_i];
+      const auto& field_layout = metadata.chunk_layout.fields[field_i];
+      ArrayView<const void> source_array{
+          ElementPointer<const void>(
+              static_cast<const void*>(flat_buffer.data() + field.byte_offset),
+              field.data_type),
+          field_layout.encoded_chunk_layout};
+      field_arrays[field_i] = internal::CopyAndDecodeArray(
+          source_array, field.endian, field_layout.decoded_chunk_layout);
+    }
   }
   return field_arrays;
 }
 
-Status EncodeChunk(const ZarrMetadata& metadata,
-                   span<const ArrayView<const void>> components,
-                   std::string* out) {
+Result<absl::Cord> EncodeChunk(const ZarrMetadata& metadata,
+                               span<const ArrayView<const void>> components) {
   const size_t num_fields = metadata.dtype.fields.size();
-  out->resize(metadata.chunk_layout.bytes_per_chunk);
-  ByteStridedPointer<void> data_ptr = out->data();
+  internal::FlatCordBuilder output_builder(
+      metadata.chunk_layout.bytes_per_chunk);
+  ByteStridedPointer<void> data_ptr = output_builder.data();
   for (size_t field_i = 0; field_i < num_fields; ++field_i) {
     const auto& field = metadata.dtype.fields[field_i];
     const auto& field_layout = metadata.chunk_layout.fields[field_i];
@@ -450,13 +468,14 @@ Status EncodeChunk(const ZarrMetadata& metadata,
         field_layout.encoded_chunk_layout};
     internal::EncodeArray(components[field_i], encoded_array, field.endian);
   }
+  auto output = std::move(output_builder).Build();
   if (metadata.compressor) {
-    std::string encoded;
+    absl::Cord encoded;
     TENSORSTORE_RETURN_IF_ERROR(metadata.compressor->Encode(
-        *out, &encoded, metadata.dtype.bytes_per_outer_element));
-    *out = std::move(encoded);
+        output, &encoded, metadata.dtype.bytes_per_outer_element));
+    return encoded;
   }
-  return absl::OkStatus();
+  return output;
 }
 
 bool IsMetadataCompatible(const ZarrMetadata& a, const ZarrMetadata& b) {

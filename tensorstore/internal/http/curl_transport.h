@@ -43,7 +43,7 @@ class CurlTransport : public HttpTransport {
   /// IssueRequest issues the request with the provided body `payload`,
   /// returning the HttpResponse.
   Future<HttpResponse> IssueRequest(const HttpRequest& request,
-                                    absl::string_view payload,
+                                    absl::Cord payload,
                                     absl::Duration request_timeout,
                                     absl::Duration connect_timeout) override;
 

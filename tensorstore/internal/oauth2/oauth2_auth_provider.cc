@@ -76,25 +76,25 @@ Result<AuthProvider::BearerTokenWithExpiration> OAuth2AuthProvider::GetToken() {
   return BearerTokenWithExpiration{access_token_, expiration_};
 }
 
-Result<HttpResponse> OAuth2AuthProvider::IssueRequest(
-    absl::string_view uri, absl::string_view payload) {
+Result<HttpResponse> OAuth2AuthProvider::IssueRequest(absl::string_view uri,
+                                                      absl::Cord payload) {
   HttpRequestBuilder request_builder(std::string{uri});
-  return transport_->IssueRequest(request_builder.BuildRequest(), payload)
+  return transport_
+      ->IssueRequest(request_builder.BuildRequest(), std::move(payload))
       .result();
 }
 
 Status OAuth2AuthProvider::Refresh() {
   const auto now = clock_();
-  auto response = IssueRequest(uri_, refresh_payload_);
-  TENSORSTORE_RETURN_IF_ERROR(response);
-  TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(*response));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto response, IssueRequest(uri_, absl::Cord(refresh_payload_)));
+  TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(response));
 
-  auto result = internal_oauth2::ParseOAuthResponse(response->payload);
-  if (result.ok()) {
-    expiration_ = now + absl::Seconds(result->expires_in);
-    access_token_ = std::move(result->access_token);
-  }
-  return GetStatus(result);
+  TENSORSTORE_ASSIGN_OR_RETURN(auto result, internal_oauth2::ParseOAuthResponse(
+                                                response.payload.Flatten()));
+  expiration_ = now + absl::Seconds(result.expires_in);
+  access_token_ = std::move(result.access_token);
+  return absl::OkStatus();
 }
 
 }  // namespace internal_oauth2

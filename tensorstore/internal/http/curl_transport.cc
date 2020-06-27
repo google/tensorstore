@@ -27,6 +27,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include <curl/curl.h>
+#include "tensorstore/internal/cord_util.h"
 #include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -47,6 +48,9 @@ struct CurlRequestState {
   CurlHandleFactory* factory_;
   CurlPtr handle_;
   CurlHeaders headers_;
+  absl::Cord payload_;
+  absl::Cord::CharIterator payload_it_;
+  size_t payload_remaining_;
   HttpResponse response_;
   Promise<HttpResponse> promise_;
   char error_buffer_[CURL_ERROR_SIZE] = {0};
@@ -71,6 +75,10 @@ struct CurlRequestState {
                    static_cast<void*>(nullptr));
     CurlEasySetopt(handle_.get(), CURLOPT_WRITEFUNCTION,
                    static_cast<void*>(nullptr));
+    CurlEasySetopt(handle_.get(), CURLOPT_READDATA,
+                   static_cast<void*>(nullptr));
+    CurlEasySetopt(handle_.get(), CURLOPT_READFUNCTION,
+                   static_cast<void*>(nullptr));
     CurlEasySetopt(handle_.get(), CURLOPT_HEADERDATA,
                    static_cast<void*>(nullptr));
     CurlEasySetopt(handle_.get(), CURLOPT_HEADERFUNCTION,
@@ -81,7 +89,7 @@ struct CurlRequestState {
     factory_->CleanupHandle(std::move(handle_));
   }
 
-  void Setup(const HttpRequest& request, std::string_view payload,
+  void Setup(const HttpRequest& request, absl::Cord payload,
              absl::Duration request_timeout, absl::Duration connect_timeout) {
     // For thread safety, don't use signals to time out name resolves (when
     // async name resolution is not supported).
@@ -121,16 +129,21 @@ struct CurlRequestState {
     }
 
     if (!payload.empty()) {
+      payload_ = std::move(payload);
+      payload_it_ = payload_.char_begin();
+      payload_remaining_ = payload_.size();
       if (!request.method().empty()) {
         TENSORSTORE_LOG("Changing custom http method [", request.method(),
                         "] to POST");
       }
-      CurlEasySetopt(handle_.get(), CURLOPT_POST, 1);
+      CurlEasySetopt(handle_.get(), CURLOPT_POST, 1L);
       CurlEasySetopt(handle_.get(), CURLOPT_POSTFIELDSIZE_LARGE,
-                     payload.length());
-      CurlEasySetopt(handle_.get(), CURLOPT_POSTFIELDS, payload.data());
+                     payload_.size());
+      CurlEasySetopt(handle_.get(), CURLOPT_READDATA, this);
+      CurlEasySetopt(handle_.get(), CURLOPT_READFUNCTION,
+                     &CurlRequestState::CurlReadCallback);
     } else if (request.method().empty()) {
-      CurlEasySetopt(handle_.get(), CURLOPT_HTTPGET, 1);
+      CurlEasySetopt(handle_.get(), CURLOPT_HTTPGET, 1L);
     }
   }
 
@@ -139,8 +152,15 @@ struct CurlRequestState {
   }
 
   size_t WriteCallback(absl::string_view data) {
-    response_.payload.append(data.data(), data.size());
+    response_.payload.Append(data);
     return data.size();
+  }
+
+  size_t ReadCallback(char* data, size_t size) {
+    size_t n = std::min(size, payload_remaining_);
+    internal::CopyCordToSpan(payload_it_, {data, static_cast<ptrdiff_t>(n)});
+    payload_remaining_ -= n;
+    return n;
   }
 
   size_t HeaderCallback(absl::string_view data) {
@@ -165,6 +185,12 @@ struct CurlRequestState {
                                        std::size_t nmemb, void* userdata) {
     return static_cast<CurlRequestState*>(userdata)->WriteCallback(
         absl::string_view(static_cast<char const*>(contents), size * nmemb));
+  }
+
+  static std::size_t CurlReadCallback(void* contents, std::size_t size,
+                                      std::size_t nmemb, void* userdata) {
+    return static_cast<CurlRequestState*>(userdata)->ReadCallback(
+        static_cast<char*>(contents), size * nmemb);
   }
 
   static std::size_t CurlHeaderCallback(void* contents, std::size_t size,
@@ -192,7 +218,7 @@ class MultiTransportImpl {
   }
 
   Future<HttpResponse> StartRequest(const HttpRequest& request,
-                                    absl::string_view payload,
+                                    absl::Cord payload,
                                     absl::Duration request_timeout,
                                     absl::Duration connect_timeout);
 
@@ -212,10 +238,10 @@ class MultiTransportImpl {
 };
 
 Future<HttpResponse> MultiTransportImpl::StartRequest(
-    const HttpRequest& request, absl::string_view payload,
+    const HttpRequest& request, absl::Cord payload,
     absl::Duration request_timeout, absl::Duration connect_timeout) {
   auto state = absl::make_unique<CurlRequestState>(factory_.get());
-  state->Setup(request, payload, request_timeout, connect_timeout);
+  state->Setup(request, std::move(payload), request_timeout, connect_timeout);
   state->SetHTTP2();
 
   auto pair = PromiseFuturePair<HttpResponse>::Make();
@@ -346,9 +372,9 @@ CurlTransport::CurlTransport(std::shared_ptr<CurlHandleFactory> factory)
 CurlTransport::~CurlTransport() = default;
 
 Future<HttpResponse> CurlTransport::IssueRequest(
-    const HttpRequest& request, absl::string_view payload,
+    const HttpRequest& request, absl::Cord payload,
     absl::Duration request_timeout, absl::Duration connect_timeout) {
-  return impl_->StartRequest(request, payload, request_timeout,
+  return impl_->StartRequest(request, std::move(payload), request_timeout,
                              connect_timeout);
 }
 

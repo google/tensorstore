@@ -41,12 +41,12 @@ namespace internal {
 /// `KeyValueStoreCache<Parent>`, where `Parent` is the desired base class.  The
 /// derived class is responsible for defining:
 ///
-/// 1. the decoding of an `std::optional<std::string>` read from the
+/// 1. the decoding of an `std::optional<absl::Cord>` read from the
 ///   `KeyValueStore` into the logical "read state" of an entry (see
 ///   `DoDecode`).
 ///
 /// 2. (if writing is supported) a `DoWriteback` implementation that encodes the
-///    "write state" into an `std::optional<std::string>`, and then calls
+///    "write state" into an `std::optional<absl::Cord>`, and then calls
 ///    `Writeback` to write it back to the `KeyValueStore`.
 ///
 /// 3. overrides `GetKeyValueStoreKey` if necessary.
@@ -158,7 +158,7 @@ class KeyValueStoreCache : public Parent {
   /// \param entry The entry being read.
   /// \param value The value read, or `std::nullopt` if the key was not found.
   virtual void DoDecode(Cache::PinnedEntry entry,
-                        std::optional<std::string> value) = 0;
+                        std::optional<absl::Cord> value) = 0;
 
   /// Extends `NotifyReadError` to annotate errors with the `KeyValueStore` key.
   void NotifyReadError(Cache::Entry* entry, absl::Status error) override {
@@ -207,8 +207,8 @@ class KeyValueStoreCache : public Parent {
   /// \param value The value to write, or `std::nullopt` to delete the key.
   /// \param unconditional If `false`, the write or delete will be conditioned
   ///     on the generation of the last read.
-  void Writeback(Cache::PinnedEntry base_entry,
-                 std::optional<std::string> value, bool unconditional) {
+  void Writeback(Cache::PinnedEntry base_entry, std::optional<absl::Cord> value,
+                 bool unconditional) {
     auto* entry = static_cast<Entry*>(base_entry.get());
     KeyValueStore::WriteOptions options;
     if (!unconditional) {

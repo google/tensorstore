@@ -21,6 +21,7 @@
 #include "absl/strings/str_join.h"
 #include "tensorstore/internal/container_to_shared.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
+#include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/util/quote_string.h"
 
@@ -215,7 +216,7 @@ std::size_t GetChunkHeaderSize(const N5Metadata& metadata) {
 }
 
 Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
-                                                std::string buffer) {
+                                                absl::Cord buffer) {
   // TODO(jbms): Currently, we do not check that `buffer.size()` is less than
   // the 2GiB limit, although we do implicitly check that the decoded array data
   // within the chunk is within the 2GiB limit due to the checks on the block
@@ -228,7 +229,9 @@ Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
         StrCat("Expected header of length ", header_size,
                ", but chunk has size ", buffer.size()));
   }
-  std::uint16_t mode = absl::big_endian::Load16(buffer.data());
+  auto header_cord = buffer.Subcord(0, header_size);
+  auto header = header_cord.Flatten();
+  std::uint16_t mode = absl::big_endian::Load16(header.data());
   switch (mode) {
     case 0:  // default
       break;
@@ -238,7 +241,7 @@ Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
       return absl::InvalidArgumentError(
           StrCat("Unexpected N5 chunk mode: ", mode));
   }
-  std::uint16_t num_dims = absl::big_endian::Load16(buffer.data() + 2);
+  std::uint16_t num_dims = absl::big_endian::Load16(header.data() + 2);
   if (num_dims != metadata.rank()) {
     return absl::InvalidArgumentError(StrCat("Received chunk with ", num_dims,
                                              " dimensions but expected ",
@@ -248,7 +251,7 @@ Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
   encoded_array.layout().set_rank(metadata.rank());
   for (DimensionIndex i = 0; i < num_dims; ++i) {
     encoded_array.shape()[i] =
-        absl::big_endian::Load32(buffer.data() + 4 + i * 4);
+        absl::big_endian::Load32(header.data() + 4 + i * 4);
   }
   for (DimensionIndex i = 0; i < num_dims; ++i) {
     if (encoded_array.shape()[i] > metadata.chunk_layout.shape()[i]) {
@@ -261,11 +264,10 @@ Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
   if (metadata.compressor) {
     // TODO(jbms): Change compressor interface to allow the output size to be
     // specified.
-    std::string decoded;
+    absl::Cord decoded;
     TENSORSTORE_RETURN_IF_ERROR(metadata.compressor->Decode(
-        absl::string_view(buffer.data() + header_size,
-                          buffer.size() - header_size),
-        &decoded, metadata.data_type.size()));
+        buffer.Subcord(header_size, buffer.size() - header_size), &decoded,
+        metadata.data_type.size()));
     buffer = std::move(decoded);
     decoded_offset = 0;
   }
@@ -281,22 +283,18 @@ Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
   if (absl::c_equal(encoded_array.shape(), metadata.chunk_layout.shape())) {
     // Chunk is full size.  Attempt to decode in place.  Transfer ownership of
     // the existing `buffer` string into `decoded_array`.
-    SharedArrayView<void> decoded_array(
-        {std::shared_ptr<void>(internal::ContainerToSharedDataPointerWithOffset(
-             std::move(buffer), decoded_offset)),
-         metadata.data_type},
-        metadata.chunk_layout);
-    // If `decoded_array.data()` is suitably aligned, decodes in place.
-    // Otherwise, decodes into a copy and updates `decoded_array` to point to
-    // it.
-    internal::DecodeArray(&decoded_array, endian::big, metadata.chunk_layout);
-    return decoded_array;
+    auto decoded_array =
+        internal::TryViewCordAsArray(buffer, decoded_offset, metadata.data_type,
+                                     endian::big, metadata.chunk_layout);
+    if (decoded_array.valid()) return decoded_array;
   }
   // Partial chunk, must copy.
+  auto flat_buffer = buffer.Flatten();
   ComputeStrides(fortran_order, metadata.data_type.size(),
                  encoded_array.shape(), encoded_array.byte_strides());
   encoded_array.element_pointer() = ElementPointer<const void>(
-      static_cast<void*>(buffer.data() + decoded_offset), metadata.data_type);
+      static_cast<const void*>(flat_buffer.data() + decoded_offset),
+      metadata.data_type);
   SharedArrayView<void> full_decoded_array(
       internal::AllocateAndConstructSharedElements(
           metadata.chunk_layout.num_elements(), value_init, metadata.data_type),
@@ -309,11 +307,11 @@ Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
   return full_decoded_array;
 }
 
-Status EncodeChunk(span<const Index> chunk_indices, const N5Metadata& metadata,
-                   ArrayView<const void> array, std::string* out) {
+Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
+                               const N5Metadata& metadata,
+                               ArrayView<const void> array) {
   assert(absl::c_equal(metadata.chunk_layout.shape(), array.shape()));
   assert(chunk_indices.size() == array.rank());
-  std::string encoded;
   Array<void, dynamic_rank(internal::kNumInlinedDims)> encoded_array;
   encoded_array.layout().set_rank(array.rank());
   for (DimensionIndex i = 0; i < array.rank(); ++i) {
@@ -321,7 +319,9 @@ Status EncodeChunk(span<const Index> chunk_indices, const N5Metadata& metadata,
     encoded_array.shape()[i] =
         std::min(full_size, metadata.shape[i] - full_size * chunk_indices[i]);
   }
-  encoded.resize(encoded_array.num_elements() * metadata.data_type.size());
+  const std::size_t header_size = GetChunkHeaderSize(metadata);
+  internal::FlatCordBuilder encoded(encoded_array.num_elements() *
+                                    metadata.data_type.size());
   encoded_array.element_pointer() = ElementPointer<void>(
       static_cast<void*>(encoded.data()), metadata.data_type);
   InitializeContiguousLayout(fortran_order, metadata.data_type.size(),
@@ -330,24 +330,25 @@ Status EncodeChunk(span<const Index> chunk_indices, const N5Metadata& metadata,
       array.element_pointer(),
       StridedLayoutView<>(encoded_array.shape(), array.byte_strides()));
   internal::EncodeArray(partial_source_array, encoded_array, endian::big);
+  auto encoded_cord = std::move(encoded).Build();
   if (metadata.compressor) {
-    std::string compressed;
+    absl::Cord compressed;
     TENSORSTORE_RETURN_IF_ERROR(metadata.compressor->Encode(
-        encoded, &compressed, metadata.data_type.size()));
-    encoded = std::move(compressed);
+        std::move(encoded_cord), &compressed, metadata.data_type.size()));
+    encoded_cord = std::move(compressed);
   }
-  const std::size_t header_size = GetChunkHeaderSize(metadata);
-  out->resize(header_size + encoded.size());
-  char* out_buf = out->data();
-  std::memcpy(out_buf + header_size, encoded.data(), encoded.size());
+  internal::FlatCordBuilder header(header_size);
   // Write header
-  absl::big_endian::Store16(out_buf, 0);  // mode: 0x0 = default
+  absl::big_endian::Store16(header.data(), 0);  // mode: 0x0 = default
   const DimensionIndex rank = metadata.rank();
-  absl::big_endian::Store16(out_buf + 2, rank);
+  absl::big_endian::Store16(header.data() + 2, rank);
   for (DimensionIndex i = 0; i < rank; ++i) {
-    absl::big_endian::Store32(out_buf + 4 + i * 4, encoded_array.shape()[i]);
+    absl::big_endian::Store32(header.data() + 4 + i * 4,
+                              encoded_array.shape()[i]);
   }
-  return absl::OkStatus();
+  auto full_cord = std::move(header).Build();
+  full_cord.Append(std::move(encoded_cord));
+  return full_cord;
 }
 
 Status ValidateMetadata(const N5Metadata& metadata,

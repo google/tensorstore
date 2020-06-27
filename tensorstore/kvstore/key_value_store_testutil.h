@@ -22,6 +22,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/kvstore/generation.h"
@@ -55,7 +56,8 @@ void TestKeyValueStoreBasicFunctionality(
 void TestKeyValueStoreSpecRoundtrip(::nlohmann::json json_spec);
 
 /// Returns the contents of `kv_store` as an `std::map`.
-Result<std::map<std::string, std::string>> GetMap(KeyValueStore::Ptr kv_store);
+Result<std::map<KeyValueStore::Key, KeyValueStore::Value>> GetMap(
+    KeyValueStore::Ptr kv_store);
 
 /// Returns a GMock matcher for a `KeyValueStore::ReadResult` or
 /// `Result<KeyValueStore::ReadResult>`.
@@ -66,16 +68,16 @@ template <typename ValueMatcher>
     ::testing::Matcher<absl::Time> time = ::testing::_) {
   using ReadResult = KeyValueStore::ReadResult;
   ::testing::Matcher<KeyValueStore::ReadResult::State> state_matcher;
-  ::testing::Matcher<std::string> value_matcher;
-  if constexpr (std::is_convertible_v<ValueMatcher,
-                                      ::testing::Matcher<std::string>>) {
-    value_matcher = ::testing::Matcher<std::string>(value);
+  ::testing::Matcher<KeyValueStore::Value> value_matcher;
+  if constexpr (std::is_convertible_v<
+                    ValueMatcher, ::testing::Matcher<KeyValueStore::Value>>) {
+    value_matcher = ::testing::Matcher<KeyValueStore::Value>(value);
     state_matcher = KeyValueStore::ReadResult::kValue;
   } else {
     static_assert(std::is_convertible_v<
                   ValueMatcher,
                   ::testing::Matcher<KeyValueStore::ReadResult::State>>);
-    value_matcher = "";
+    value_matcher = absl::Cord();
     state_matcher = ::testing::Matcher<KeyValueStore::ReadResult::State>(value);
   }
   return ::testing::Optional(::testing::AllOf(
@@ -85,10 +87,10 @@ template <typename ValueMatcher>
                        MatchesTimestampedStorageGeneration(generation, time))));
 }
 
-/// Overload that permits an `std::string` matcher to be specified for the
+/// Overload that permits an `absl::Cord` matcher to be specified for the
 /// `value`.
 ::testing::Matcher<Result<KeyValueStore::ReadResult>> MatchesKvsReadResult(
-    ::testing::Matcher<std::string> value,
+    ::testing::Matcher<KeyValueStore::Value> value,
     ::testing::Matcher<StorageGeneration> generation = ::testing::_,
     ::testing::Matcher<absl::Time> time = ::testing::_);
 

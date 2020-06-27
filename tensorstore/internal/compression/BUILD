@@ -11,8 +11,10 @@ tensorstore_cc_library(
     srcs = ["blosc.cc"],
     hdrs = ["blosc.h"],
     deps = [
+        "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/util:status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@org_blosc_cblosc//:blosc",
     ],
 )
@@ -36,8 +38,11 @@ tensorstore_cc_test(
     srcs = ["blosc_test.cc"],
     deps = [
         ":blosc",
+        "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:cord_test_helpers",
         "@com_google_googletest//:gtest_main",
         "@org_blosc_cblosc//:blosc",
     ],
@@ -48,8 +53,9 @@ tensorstore_cc_library(
     srcs = ["bzip2.cc"],
     hdrs = ["bzip2.h"],
     deps = [
+        ":cord_stream_manager",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@org_sourceware_bzip2//:bzip2",
     ],
 )
@@ -61,6 +67,7 @@ tensorstore_cc_library(
         ":bzip2",
         ":json_specified_compressor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
     ],
 )
 
@@ -72,7 +79,18 @@ tensorstore_cc_test(
         ":bzip2",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:cord_test_helpers",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "cord_stream_manager",
+    hdrs = ["cord_stream_manager.h"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "@com_google_absl//absl/strings:cord",
     ],
 )
 
@@ -84,7 +102,7 @@ tensorstore_cc_library(
         "//tensorstore/util:function_view",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@jpeg",
     ],
 )
@@ -98,6 +116,8 @@ tensorstore_cc_test(
         "//tensorstore:array",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:cord_test_helpers",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -111,7 +131,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json_registry",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
     ],
 )
 
@@ -120,9 +140,11 @@ tensorstore_cc_library(
     srcs = ["lzma.cc"],
     hdrs = ["lzma.h"],
     deps = [
+        ":cord_stream_manager",
         "//tensorstore/util:assert_macros",
         "//tensorstore/util:status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@org_tukaani_xz//:liblzma",
     ],
 )
@@ -135,6 +157,8 @@ tensorstore_cc_test(
         ":lzma",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:cord_test_helpers",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -167,6 +191,7 @@ tensorstore_cc_library(
         ":json_specified_compressor",
         ":lzma",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
     ],
 )
 
@@ -175,9 +200,11 @@ tensorstore_cc_library(
     srcs = ["zlib.cc"],
     hdrs = ["zlib.h"],
     deps = [
+        ":cord_stream_manager",
         "//tensorstore/util:assert_macros",
         "//tensorstore/util:status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@net_zlib//:zlib",
     ],
 )
@@ -189,6 +216,7 @@ tensorstore_cc_library(
         ":json_specified_compressor",
         ":zlib",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
     ],
 )
 
@@ -200,6 +228,8 @@ tensorstore_cc_test(
         ":zlib",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:cord_test_helpers",
         "@com_google_googletest//:gtest_main",
     ],
 )

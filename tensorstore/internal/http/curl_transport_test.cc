@@ -267,7 +267,7 @@ TEST_F(CurlTransportTest, Basic) {
           .AddQueryParameter("age", "1234")
           .EnableAcceptEncoding()
           .BuildRequest(),
-      "Hello");
+      absl::Cord("Hello"));
 
   response.value();
   serve_thread.join();

@@ -80,15 +80,15 @@ TEST(N5DriverTest, OpenOrCreate) {
                                     .result()));
 }
 
-::testing::Matcher<std::string> MatchesRawChunk(std::vector<Index> shape,
-                                                std::vector<char> data) {
+::testing::Matcher<absl::Cord> MatchesRawChunk(std::vector<Index> shape,
+                                               std::vector<char> data) {
   std::string out(shape.size() * 4 + 4 + data.size(), '\0');
   out[3] = shape.size();
   for (size_t i = 0; i < shape.size(); ++i) {
     out[7 + i * 4] = shape[i];
   }
   std::copy(data.begin(), data.end(), out.data() + shape.size() * 4 + 4);
-  return out;
+  return absl::Cord(out);
 }
 
 // Sanity check of `MatchesRawChunk`.
@@ -102,23 +102,23 @@ TEST(MatchesRawChunkTest, Basic) {
       0, 4, 0, 5,  // int16be data
       0, 0, 0, 0,  // int16be data
   };
-  EXPECT_THAT(chunk, MatchesRawChunk(  //
-                         {3, 2},       //
-                         {
-                             0, 1, 0, 2,  // int16be data
-                             0, 4, 0, 5,  // int16be data
-                             0, 0, 0, 0,  // int16be data
-                         }));
+  EXPECT_THAT(absl::Cord(chunk), MatchesRawChunk(  //
+                                     {3, 2},       //
+                                     {
+                                         0, 1, 0, 2,  // int16be data
+                                         0, 4, 0, 5,  // int16be data
+                                         0, 0, 0, 0,  // int16be data
+                                     }));
   // Change to invalid "mode" value as trivial test that matcher is doing a
   // comparison.
   chunk[0] = 1;
-  EXPECT_THAT(chunk, ::testing::Not(MatchesRawChunk(  //
-                         {3, 2},                      //
-                         {
-                             0, 1, 0, 2,  // int16be data
-                             0, 4, 0, 5,  // int16be data
-                             0, 0, 0, 0,  // int16be data
-                         })));
+  EXPECT_THAT(absl::Cord(chunk), ::testing::Not(MatchesRawChunk(  //
+                                     {3, 2},                      //
+                                     {
+                                         0, 1, 0, 2,  // int16be data
+                                         0, 4, 0, 5,  // int16be data
+                                         0, 0, 0, 0,  // int16be data
+                                     })));
 }
 
 TEST(N5DriverTest, Create) {
@@ -217,13 +217,13 @@ TEST(N5DriverTest, Create) {
           .value(),
       UnorderedElementsAreArray({
           Pair("prefix/attributes.json",  //
-               ParseJsonMatches(::nlohmann::json{
+               ::testing::MatcherCast<absl::Cord>(ParseJsonMatches({
                    {"compression", {{"type", "raw"}}},
                    {"dataType", "int16"},
                    {"dimensions", {10, 11}},
                    {"blockSize", {3, 2}},
                    {"extra", "attribute"},
-               })),
+               }))),
           Pair("prefix/2/4",  // chunk starting at: 6, 8
                MatchesRawChunk({3, 2},
                                {
@@ -412,7 +412,9 @@ TEST(N5DriverTest, Resize) {
       EXPECT_THAT(  //
           GetMap(kv_store).value(),
           UnorderedElementsAre(
-              Pair("prefix/attributes.json", ParseJsonMatches(metadata_json)),
+              Pair("prefix/attributes.json",
+                   ::testing::MatcherCast<absl::Cord>(
+                       ParseJsonMatches(metadata_json))),
               Pair("prefix/0/0", MatchesRawChunk({3, 2}, {0, 0, 0, 0, 0, 1})),
               Pair("prefix/0/1", MatchesRawChunk({3, 2}, {0, 0, 2, 0, 0, 3})),
               Pair("prefix/1/0", MatchesRawChunk({3, 2}, {0, 0, 0, 4, 0, 0})),
@@ -431,7 +433,8 @@ TEST(N5DriverTest, Resize) {
           GetMap(kv_store).value(),
           UnorderedElementsAre(
               Pair("prefix/attributes.json",
-                   ParseJsonMatches(resized_metadata_json)),
+                   ::testing::MatcherCast<absl::Cord>(
+                       ParseJsonMatches(resized_metadata_json))),
               Pair("prefix/0/0", MatchesRawChunk({3, 2}, {0, 0, 0, 0, 0, 1}))));
     }
   }
@@ -465,7 +468,8 @@ TEST(N5DriverTest, ResizeMetadataOnly) {
   EXPECT_THAT(  //
       GetMap(kv_store).value(),
       UnorderedElementsAre(
-          Pair("prefix/attributes.json", ParseJsonMatches(metadata_json)),
+          Pair("prefix/attributes.json", ::testing::MatcherCast<absl::Cord>(
+                                             ParseJsonMatches(metadata_json))),
           Pair("prefix/0/0", MatchesRawChunk({3, 2}, {0, 0, 0, 0, 0, 1})),
           Pair("prefix/0/1", MatchesRawChunk({3, 2}, {0, 0, 2, 0, 0, 3})),
           Pair("prefix/1/0", MatchesRawChunk({3, 2}, {0, 0, 0, 4, 0, 0})),
@@ -483,7 +487,8 @@ TEST(N5DriverTest, ResizeMetadataOnly) {
       GetMap(kv_store).value(),
       UnorderedElementsAre(
           Pair("prefix/attributes.json",
-               ParseJsonMatches(resized_metadata_json)),
+               ::testing::MatcherCast<absl::Cord>(
+                   ParseJsonMatches(resized_metadata_json))),
           Pair("prefix/0/0", MatchesRawChunk({3, 2}, {0, 0, 0, 0, 0, 1})),
           Pair("prefix/0/1", MatchesRawChunk({3, 2}, {0, 0, 2, 0, 0, 3})),
           Pair("prefix/1/0", MatchesRawChunk({3, 2}, {0, 0, 0, 4, 0, 0})),
@@ -793,10 +798,8 @@ TEST(N5DriverTest, OpenInvalidMetadata) {
 
   {
     // Write invalid JSON
-    EXPECT_EQ(
-        Status(),
-        GetStatus(
-            kv_store->Write("prefix/attributes.json", "invalid").result()));
+    TENSORSTORE_EXPECT_OK(
+        kv_store->Write("prefix/attributes.json", absl::Cord("invalid")));
 
     EXPECT_THAT(tensorstore::Open(context, json_spec,
                                   {tensorstore::OpenMode::open,
@@ -813,10 +816,8 @@ TEST(N5DriverTest, OpenInvalidMetadata) {
     invalid_json.erase("dimensions");
 
     // Write invalid metadata JSON
-    EXPECT_EQ(
-        Status(),
-        GetStatus(kv_store->Write("prefix/attributes.json", invalid_json.dump())
-                      .result()));
+    TENSORSTORE_EXPECT_OK(kv_store->Write("prefix/attributes.json",
+                                          absl::Cord(invalid_json.dump())));
 
     EXPECT_THAT(tensorstore::Open(context, json_spec,
                                   {tensorstore::OpenMode::open,

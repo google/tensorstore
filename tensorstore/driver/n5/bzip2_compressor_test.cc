@@ -96,13 +96,13 @@ TEST(Bzip2CompressionTest, Golden) {
                                      {"compression", {{"type", "bzip2"}}}})
                       .value();
   auto array = MakeArray<std::uint16_t>({{{1, 3, 5}, {2, 4, 6}}});
-  EXPECT_EQ(array, DecodeChunk(metadata, encoded_data));
+  EXPECT_EQ(array, DecodeChunk(metadata, absl::Cord(encoded_data)));
 
   // Verify round trip.
   {
-    std::string buffer;
-    EXPECT_EQ(Status(), EncodeChunk(span<const Index>({0, 0, 0}), metadata,
-                                    array, &buffer));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto buffer,
+        EncodeChunk(span<const Index>({0, 0, 0}), metadata, array));
     EXPECT_EQ(array, DecodeChunk(metadata, buffer));
   }
 }

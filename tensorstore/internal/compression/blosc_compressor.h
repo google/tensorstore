@@ -32,14 +32,14 @@ namespace internal {
 
 class BloscCompressor : public internal::JsonSpecifiedCompressor {
  public:
-  Status Encode(absl::string_view input, std::string* output,
+  Status Encode(const absl::Cord& input, absl::Cord* output,
                 std::size_t element_size) const override {
     return blosc::Encode(
         input, output,
         blosc::Options{codec.c_str(), level, shuffle, blocksize, element_size});
   }
 
-  Status Decode(absl::string_view input, std::string* output,
+  Status Decode(const absl::Cord& input, absl::Cord* output,
                 std::size_t element_size) const override {
     return blosc::Decode(input, output);
   }

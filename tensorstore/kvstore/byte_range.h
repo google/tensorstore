@@ -22,7 +22,7 @@
 #include <string>
 #include <utility>
 
-#include "absl/strings/string_view.h"
+#include "absl/strings/cord.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -101,23 +101,13 @@ struct OptionalByteRangeRequest {
 
 namespace internal {
 
-/// Returns a substring for a given byte range.
-inline absl::string_view GetSubStringView(absl::string_view s, ByteRange r) {
+/// Returns a sub-cord for a given byte range.
+inline absl::Cord GetSubCord(const absl::Cord& s, ByteRange r) {
   assert(r.SatisfiesInvariants());
-  assert(r.exclusive_max <= s.size());
-  return s.substr(r.inclusive_min, r.size());
-}
-
-/// Returns a substring for a given byte range.
-///
-/// This avoids a copy in the case that the full byte range is requested.
-inline std::string GetSubString(std::string&& s, ByteRange r) {
-  assert(r.SatisfiesInvariants());
-  assert(r.exclusive_max <= s.size());
-  if (r.inclusive_min == 0 && r.exclusive_max == s.size()) {
-    return std::move(s);
-  }
-  return s.substr(r.inclusive_min, r.size());
+  const size_t size = s.size();
+  assert(r.exclusive_max <= size);
+  if (r.inclusive_min == 0 && r.size() == size) return s;
+  return s.Subcord(r.inclusive_min, r.size());
 }
 
 }  // namespace internal

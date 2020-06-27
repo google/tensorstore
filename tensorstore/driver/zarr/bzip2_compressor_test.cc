@@ -29,10 +29,10 @@ using tensorstore::internal_zarr::Compressor;
 // Tests that a small input round trips.
 TEST(Bzip2CompressorTest, SmallRoundtrip) {
   auto compressor = Compressor::FromJson({{"id", "bz2"}, {"level", 6}}).value();
-  const std::string input = "The quick brown fox jumped over the lazy dog.";
-  std::string encode_result, decode_result;
-  ASSERT_EQ(Status(), compressor->Encode(input, &encode_result, 1));
-  ASSERT_EQ(Status(), compressor->Decode(encode_result, &decode_result, 1));
+  const absl::Cord input("The quick brown fox jumped over the lazy dog.");
+  absl::Cord encode_result, decode_result;
+  TENSORSTORE_ASSERT_OK(compressor->Encode(input, &encode_result, 1));
+  TENSORSTORE_ASSERT_OK(compressor->Decode(encode_result, &decode_result, 1));
   EXPECT_EQ(input, decode_result);
 }
 
@@ -46,9 +46,10 @@ TEST(Bzip2CompressorTest, LargeRoundtrip) {
     x += 7;
   }
   auto compressor = Compressor::FromJson({{"id", "bz2"}, {"level", 6}}).value();
-  std::string encode_result, decode_result;
-  ASSERT_EQ(Status(), compressor->Encode(input, &encode_result, 1));
-  ASSERT_EQ(Status(), compressor->Decode(encode_result, &decode_result, 1));
+  absl::Cord encode_result, decode_result;
+  TENSORSTORE_ASSERT_OK(
+      compressor->Encode(absl::Cord(input), &encode_result, 1));
+  TENSORSTORE_ASSERT_OK(compressor->Decode(encode_result, &decode_result, 1));
   EXPECT_EQ(input, decode_result);
 }
 
@@ -58,10 +59,10 @@ TEST(Bzip2CompressorTest, DefaultLevel) {
   auto compressor1 = Compressor::FromJson({{"id", "bz2"}}).value();
   auto compressor2 =
       Compressor::FromJson({{"id", "bz2"}, {"level", 1}}).value();
-  const std::string input = "The quick brown fox jumped over the lazy dog.";
-  std::string encode_result1, encode_result2;
-  ASSERT_EQ(Status(), compressor1->Encode(input, &encode_result1, 1));
-  ASSERT_EQ(Status(), compressor2->Encode(input, &encode_result2, 1));
+  const absl::Cord input("The quick brown fox jumped over the lazy dog.");
+  absl::Cord encode_result1, encode_result2;
+  TENSORSTORE_ASSERT_OK(compressor1->Encode(input, &encode_result1, 1));
+  TENSORSTORE_ASSERT_OK(compressor2->Encode(input, &encode_result2, 1));
   EXPECT_EQ(encode_result1, encode_result2);
 }
 
@@ -71,13 +72,13 @@ TEST(Bzip2CompressorTest, NonDefaultLevel) {
   auto compressor1 = Compressor::FromJson({{"id", "bz2"}}).value();
   auto compressor2 =
       Compressor::FromJson({{"id", "bz2"}, {"level", 9}}).value();
-  const std::string input = "The quick brown fox jumped over the lazy dog.";
-  std::string encode_result1, encode_result2;
-  ASSERT_EQ(Status(), compressor1->Encode(input, &encode_result1, 1));
-  ASSERT_EQ(Status(), compressor2->Encode(input, &encode_result2, 1));
+  const absl::Cord input("The quick brown fox jumped over the lazy dog.");
+  absl::Cord encode_result1, encode_result2;
+  TENSORSTORE_ASSERT_OK(compressor1->Encode(input, &encode_result1, 1));
+  TENSORSTORE_ASSERT_OK(compressor2->Encode(input, &encode_result2, 1));
   EXPECT_NE(encode_result1, encode_result2);
-  std::string decode_result;
-  ASSERT_EQ(Status(), compressor2->Decode(encode_result2, &decode_result, 1));
+  absl::Cord decode_result;
+  TENSORSTORE_ASSERT_OK(compressor2->Decode(encode_result2, &decode_result, 1));
   EXPECT_EQ(input, decode_result);
 }
 

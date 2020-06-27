@@ -28,18 +28,18 @@ namespace internal {
 
 namespace {
 using DecodeFunction =
-    std::function<Status(absl::string_view source, std::string* dest)>;
+    std::function<Status(const absl::Cord& input, absl::Cord* output)>;
 
-class Matcher : public ::testing::MatcherInterface<std::string> {
+class Matcher : public ::testing::MatcherInterface<absl::Cord> {
  public:
-  Matcher(::testing::Matcher<std::string> value_matcher, DecodeFunction decoder)
+  Matcher(::testing::Matcher<absl::Cord> value_matcher, DecodeFunction decoder)
       : value_matcher_(std::move(value_matcher)),
         decoder_(std::move(decoder)) {}
 
   bool MatchAndExplain(
-      std::string value,
+      absl::Cord value,
       ::testing::MatchResultListener* listener) const override {
-    std::string decoded;
+    absl::Cord decoded;
     auto status = decoder_(value, &decoded);
     if (!status.ok()) {
       *listener << "Failed to decode value: " << status;
@@ -54,14 +54,14 @@ class Matcher : public ::testing::MatcherInterface<std::string> {
   }
 
  private:
-  ::testing::Matcher<std::string> value_matcher_;
+  ::testing::Matcher<absl::Cord> value_matcher_;
   DecodeFunction decoder_;
 };
 
 }  // namespace
 
-::testing::Matcher<std::string> DecodedMatches(
-    ::testing::Matcher<std::string> value_matcher, DecodeFunction decoder) {
+::testing::Matcher<absl::Cord> DecodedMatches(
+    ::testing::Matcher<absl::Cord> value_matcher, DecodeFunction decoder) {
   return ::testing::MakeMatcher(
       new Matcher(std::move(value_matcher), std::move(decoder)));
 }

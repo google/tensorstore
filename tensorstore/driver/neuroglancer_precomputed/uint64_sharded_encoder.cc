@@ -15,43 +15,42 @@
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded_encoder.h"
 
 #include "tensorstore/internal/compression/zlib.h"
+#include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/function_view.h"
 
 namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
 
-void EncodeMinishardIndex(span<const MinishardIndexEntry> minishard_index,
-                          std::string* out) {
-  std::size_t base = out->size();
-  out->resize(base + minishard_index.size() * 24);
-  char* buf = out->data() + base;
+absl::Cord EncodeMinishardIndex(
+    span<const MinishardIndexEntry> minishard_index) {
+  internal::FlatCordBuilder builder(minishard_index.size() * 24);
   ChunkId prev_chunk_id{0};
   std::uint64_t prev_offset = 0;
   for (std::ptrdiff_t i = 0; i < minishard_index.size(); ++i) {
     const auto& e = minishard_index[i];
-    absl::little_endian::Store64(buf + i * 8,
+    absl::little_endian::Store64(builder.data() + i * 8,
                                  e.chunk_id.value - prev_chunk_id.value);
-    absl::little_endian::Store64(buf + minishard_index.size() * 8 + i * 8,
-                                 e.byte_range.inclusive_min - prev_offset);
     absl::little_endian::Store64(
-        buf + minishard_index.size() * 16 + i * 8,
+        builder.data() + minishard_index.size() * 8 + i * 8,
+        e.byte_range.inclusive_min - prev_offset);
+    absl::little_endian::Store64(
+        builder.data() + minishard_index.size() * 16 + i * 8,
         e.byte_range.exclusive_max - e.byte_range.inclusive_min);
     prev_chunk_id = e.chunk_id;
     prev_offset = e.byte_range.exclusive_max;
   }
+  return std::move(builder).Build();
 }
 
-void EncodeShardIndex(span<const ShardIndexEntry> shard_index,
-                      std::string* out) {
-  std::size_t base = out->size();
-  out->resize(base + shard_index.size() * 16);
-  char* buf = out->data() + base;
+absl::Cord EncodeShardIndex(span<const ShardIndexEntry> shard_index) {
+  internal::FlatCordBuilder builder(shard_index.size() * 16);
   for (std::ptrdiff_t i = 0; i < shard_index.size(); ++i) {
     const auto& e = shard_index[i];
-    absl::little_endian::Store64(buf + i * 16, e.inclusive_min);
-    absl::little_endian::Store64(buf + i * 16 + 8, e.exclusive_max);
+    absl::little_endian::Store64(builder.data() + i * 16, e.inclusive_min);
+    absl::little_endian::Store64(builder.data() + i * 16 + 8, e.exclusive_max);
   }
+  return std::move(builder).Build();
 }
 
 ShardEncoder::ShardEncoder(const ShardingSpec& sharding_spec,
@@ -62,16 +61,16 @@ ShardEncoder::ShardEncoder(const ShardingSpec& sharding_spec,
       cur_minishard_(0),
       data_file_offset_(0) {}
 
-ShardEncoder::ShardEncoder(const ShardingSpec& sharding_spec, std::string* out)
-    : ShardEncoder(sharding_spec, [out](absl::string_view buffer) {
-        out->append(buffer.data(), buffer.size());
+ShardEncoder::ShardEncoder(const ShardingSpec& sharding_spec, absl::Cord& out)
+    : ShardEncoder(sharding_spec, [&out](const absl::Cord& buffer) {
+        out.Append(buffer);
         return absl::OkStatus();
       }) {}
 
 namespace {
 Result<std::uint64_t> EncodeData(
-    absl::string_view input, ShardingSpec::DataEncoding encoding,
-    FunctionView<Status(absl::string_view buffer)> write_function) {
+    const absl::Cord& input, ShardingSpec::DataEncoding encoding,
+    FunctionView<Status(const absl::Cord& buffer)> write_function) {
   if (encoding == ShardingSpec::DataEncoding::raw) {
     if (auto status = write_function(input); status.ok()) {
       return input.size();
@@ -79,7 +78,7 @@ Result<std::uint64_t> EncodeData(
       return status;
     }
   }
-  std::string compressed;
+  absl::Cord compressed;
   zlib::Options options;
   options.level = 9;
   options.use_gzip_header = true;
@@ -94,8 +93,7 @@ Result<std::uint64_t> EncodeData(
 
 Status ShardEncoder::FinalizeMinishard() {
   if (minishard_index_.empty()) return absl::OkStatus();
-  std::string uncompressed_minishard_index;
-  EncodeMinishardIndex(minishard_index_, &uncompressed_minishard_index);
+  auto uncompressed_minishard_index = EncodeMinishardIndex(minishard_index_);
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto num_bytes,
       EncodeData(uncompressed_minishard_index,
@@ -107,15 +105,13 @@ Status ShardEncoder::FinalizeMinishard() {
   return absl::OkStatus();
 }
 
-Result<std::string> ShardEncoder::Finalize() {
+Result<absl::Cord> ShardEncoder::Finalize() {
   TENSORSTORE_RETURN_IF_ERROR(FinalizeMinishard());
-  std::string out;
-  EncodeShardIndex(shard_index_, &out);
-  return out;
+  return EncodeShardIndex(shard_index_);
 }
 
 Result<ByteRange> ShardEncoder::WriteUnindexedEntry(std::uint64_t minishard,
-                                                    absl::string_view data,
+                                                    const absl::Cord& data,
                                                     bool compress) {
   if (minishard != cur_minishard_) {
     if (minishard < cur_minishard_) {
@@ -138,7 +134,7 @@ Result<ByteRange> ShardEncoder::WriteUnindexedEntry(std::uint64_t minishard,
 }
 
 Status ShardEncoder::WriteIndexedEntry(std::uint64_t minishard,
-                                       ChunkId chunk_id, absl::string_view data,
+                                       ChunkId chunk_id, const absl::Cord& data,
                                        bool compress) {
   TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
                                WriteUnindexedEntry(minishard, data, compress));

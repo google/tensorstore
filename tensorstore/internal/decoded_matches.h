@@ -25,7 +25,7 @@
 namespace tensorstore {
 namespace internal {
 
-/// Returns a GoogleMock `std::string` matcher that matches if `decoder`
+/// Returns a GoogleMock `absl::Cord` matcher that matches if `decoder`
 /// successfully decodes the input argument and `value_matcher` matches the
 /// result.
 ///
@@ -35,10 +35,11 @@ namespace internal {
 /// Example usage:
 ///
 ///     EXPECT_THAT(some_blosc_compressed_string,
-///                 DecodedMatches("expected value", &blosc::Decode));
-::testing::Matcher<std::string> DecodedMatches(
-    ::testing::Matcher<std::string> value_matcher,
-    std::function<Status(absl::string_view source, std::string* dest)> decoder);
+///                 DecodedMatches(absl::Cord("expected value"),
+///                                &blosc::Decode));
+::testing::Matcher<absl::Cord> DecodedMatches(
+    ::testing::Matcher<absl::Cord> value_matcher,
+    std::function<Status(const absl::Cord& input, absl::Cord* output)> decoder);
 
 }  // namespace internal
 }  // namespace tensorstore

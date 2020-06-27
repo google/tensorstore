@@ -85,10 +85,11 @@
 #include <iosfwd>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
-#include "absl/strings/string_view.h"
+#include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
@@ -306,7 +307,7 @@ class KeyValueStore {
  public:
   /// Keys and values are both represented as strings.
   using Key = std::string;
-  using Value = std::string;
+  using Value = absl::Cord;
 
   template <typename T>
   using PtrT = internal::IntrusivePtr<T>;

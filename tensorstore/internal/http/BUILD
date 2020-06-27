@@ -42,6 +42,7 @@ tensorstore_cc_library(
     deps = [
         ":curl_handle",
         ":http",
+        "//tensorstore/internal:cord_util",
         "//tensorstore/internal:logging",
         "//tensorstore/util:future",
         "@com_google_absl//absl/status",
@@ -73,6 +74,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:variant",
     ],

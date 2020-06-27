@@ -19,7 +19,7 @@
 #include <string>
 
 #include "absl/status/status.h"
-#include "absl/strings/string_view.h"
+#include "absl/strings/cord.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_registry_fwd.h"
 #include "tensorstore/json_serialization_options.h"
@@ -43,28 +43,26 @@ class JsonSpecifiedCompressor
   /// Encodes `input`.
   ///
   /// \param input The input data.
-  /// \param output[out] Non-null pointer to output buffer to be cleared and
-  ///     filled with the encoded result.  The value is unspecified if an error
-  ///     occurs.
+  /// \param output[out] Output buffer to which encoded output will be appended.
+  ///     The value is unspecified if an error occurs.
   /// \param element_bytes Specifies the element size as a hint to the
   ///     compressor, e.g. `4` if `input` is actually a sequence of `int32_t`
   ///     values.  Must be `> 0`.
   /// \returns `Status()` on success, or an error if encoding fails.
-  virtual absl::Status Encode(absl::string_view input, std::string* output,
+  virtual absl::Status Encode(const absl::Cord& input, absl::Cord* output,
                               std::size_t element_bytes) const;
 
   /// Decodes `input`.
   ///
   /// \param input The input data.
-  /// \param output[out] Non-null pointer to output buffer to be cleared and
-  ///     filled with the decoded result.  The value is unspecified if an error
-  ///     occurs.
+  /// \param output[out] Output buffer to which decoded output will be appended.
+  ///     The value is unspecified if an error occurs.
   /// \param element_bytes Specifies the element size as a hint to the
   ///     compressor, e.g. `4` if `input` is actually a sequence of `int32_t`
   ///     values.  Must be `> 0`.
   /// \returns `Status()` on success, or an error if decoding fails.
   /// \error `absl::StatusCode::kInvalidArgument` if `input` is invalid.
-  virtual absl::Status Decode(absl::string_view input, std::string* output,
+  virtual absl::Status Decode(const absl::Cord& input, absl::Cord* output,
                               std::size_t element_bytes) const;
 
   using ToJsonOptions = IncludeDefaults;

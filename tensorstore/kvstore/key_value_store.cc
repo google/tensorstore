@@ -123,7 +123,7 @@ std::ostream& operator<<(std::ostream& os, const KeyValueStore::ReadResult& x) {
       value = "<missing>";
       break;
     case KeyValueStore::ReadResult::kValue:
-      value = tensorstore::QuoteString(x.value);
+      value = tensorstore::QuoteString(absl::Cord(x.value).Flatten());
       break;
   }
   return os << "{value=" << value << ", stamp=" << x.stamp << "}";

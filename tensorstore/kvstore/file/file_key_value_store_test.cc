@@ -145,12 +145,16 @@ TEST(FileKeyValueStoreTest, LockFiles) {
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
   TENSORSTORE_ASSERT_OK(
-      store->Write("a/foo", "xyz", {/*.if_equal=*/StorageGeneration::NoValue()})
+      store
+          ->Write("a/foo", absl::Cord("xyz"),
+                  {/*.if_equal=*/StorageGeneration::NoValue()})
           .result());
   EXPECT_THAT(GetDirectoryContents(root),
               ::testing::UnorderedElementsAre("a", "a/foo"));
   EXPECT_THAT(
-      store->Write("a/foo", "qqq", {/*.if_equal=*/StorageGeneration::NoValue()})
+      store
+          ->Write("a/foo", absl::Cord("qqq"),
+                  {/*.if_equal=*/StorageGeneration::NoValue()})
           .result(),
       MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
 
@@ -169,7 +173,7 @@ TEST(FileKeyValueStoreTest, LockFiles) {
               ::testing::Optional(::testing::UnorderedElementsAre("a/foo")));
 
   // Test that a stale lock file does not interfere with writing.
-  TENSORSTORE_ASSERT_OK(store->Write("a/foo", "xyz").result());
+  TENSORSTORE_ASSERT_OK(store->Write("a/foo", absl::Cord("xyz")).result());
 
   // Recreate the lock file.
   std::ofstream(root + "/a/foo.__lock");
@@ -185,12 +189,12 @@ TEST(FileKeyValueStoreTest, NestedDirectories) {
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/foo", "xyz").result()));
+  TENSORSTORE_EXPECT_OK(store->Write("a/foo", absl::Cord("xyz")));
 
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/ba/ccc/dddd", "xyz").result()));
-  EXPECT_EQ(Status(), GetStatus(store->Write("a/ba/ccc/foo", "xyz").result()));
+  TENSORSTORE_EXPECT_OK(store->Write("a/ba/ccc/dddd", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/ba/ccc/foo", absl::Cord("xyz")));
   EXPECT_THAT(
-      GetStatus(store->Write("a/ba/ccc", "xyz").result()),
+      store->Write("a/ba/ccc", absl::Cord("xyz")).result(),
       ::testing::AnyOf(MatchesStatus(absl::StatusCode::kPermissionDenied),
                        MatchesStatus(absl::StatusCode::kFailedPrecondition)));
 }
@@ -205,7 +209,7 @@ TEST(FileKeyValueStoreTest, ConcurrentWrites) {
   std::string initial_value;
   initial_value.resize(sizeof(std::size_t) * num_threads);
   auto initial_generation =
-      store->Write(key, {initial_value}).value().generation;
+      store->Write(key, absl::Cord(initial_value)).value().generation;
   constexpr std::size_t num_iterations = 100;
   for (std::size_t thread_i = 0; thread_i < num_threads; ++thread_i) {
     threads.push_back(std::thread([&, thread_i] {
@@ -221,7 +225,7 @@ TEST(FileKeyValueStoreTest, ConcurrentWrites) {
           x = i + 1;
           std::memcpy(&new_value[value_offset], &x, sizeof(std::size_t));
           auto write_result =
-              store->Write(key, new_value, {generation}).result();
+              store->Write(key, absl::Cord(new_value), {generation}).result();
           ASSERT_EQ(Status(), GetStatus(write_result));
           if (!StorageGeneration::IsUnknown(write_result->generation)) {
             generation = write_result->generation;
@@ -231,7 +235,7 @@ TEST(FileKeyValueStoreTest, ConcurrentWrites) {
           TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read_result,
                                            store->Read(key).result());
           ASSERT_FALSE(read_result.aborted() || read_result.not_found());
-          value = read_result.value;
+          value = std::string(read_result.value);
           ASSERT_EQ(sizeof(std::size_t) * num_threads, value.size());
           generation = read_result.stamp.generation;
         }
@@ -265,7 +269,8 @@ TEST(FileKeyValueStoreTest, Permissions) {
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
-  EXPECT_EQ(Status(), GetStatus(store->Write("foo", "xyz").result()));
+  EXPECT_EQ(Status(),
+            GetStatus(store->Write("foo", absl::Cord("xyz")).result()));
 
   // Remove write permission on directory.
   ASSERT_EQ(0, ::chmod(root.c_str(), 0500))
@@ -286,14 +291,14 @@ TEST(FileKeyValueStoreTest, Permissions) {
   EXPECT_EQ("xyz", store->Read("foo").value().value);
 
   // Writing an existing key should fail.
-  EXPECT_THAT(store->Write("foo", "abc").result(),
+  EXPECT_THAT(store->Write("foo", absl::Cord("abc")).result(),
               MatchesStatus(absl::StatusCode::kPermissionDenied));
 
   // Value should not have changed.
   EXPECT_EQ("xyz", store->Read("foo").value().value);
 
   // Writing a new key should fail.
-  EXPECT_THAT(store->Write("bar", "abc").result(),
+  EXPECT_THAT(store->Write("bar", absl::Cord("abc")).result(),
               MatchesStatus(absl::StatusCode::kPermissionDenied));
 
   // Value should not exist.
@@ -317,12 +322,12 @@ TEST(FileKeyValueStoreTest, DeletePrefix) {
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
-  TENSORSTORE_EXPECT_OK(store->Write("a/b", "xyz").result());
-  TENSORSTORE_EXPECT_OK(store->Write("a/d", "xyz").result());
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", "xyz").result());
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", "xyz").result());
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", "xyz").result());
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", "xyz").result());
+  TENSORSTORE_EXPECT_OK(store->Write("a/b", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/d", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", absl::Cord("xyz")));
 
   TENSORSTORE_EXPECT_OK(store->DeleteRange(KeyRange::Prefix("a/c/")));
 
@@ -340,7 +345,7 @@ TEST(FileKeyValueStoreTest, DeleteRange) {
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
   for (auto key : {"a/a", "a/b", "a/c/a", "a/c/b", "b/a", "b/b"}) {
-    TENSORSTORE_EXPECT_OK(store->Write(key, "").result());
+    TENSORSTORE_EXPECT_OK(store->Write(key, absl::Cord()).result());
   }
   TENSORSTORE_EXPECT_OK(store->DeleteRange(KeyRange("a/b", "b/aa")));
   EXPECT_THAT(
@@ -353,7 +358,7 @@ TEST(FileKeyValueStoreTest, DeleteRangeToEnd) {
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
   for (auto key : {"a/a", "a/b", "a/c/a", "a/c/b", "b/a", "b/b"}) {
-    TENSORSTORE_EXPECT_OK(store->Write(key, "").result());
+    TENSORSTORE_EXPECT_OK(store->Write(key, absl::Cord()).result());
   }
   TENSORSTORE_EXPECT_OK(store->DeleteRange(KeyRange("a/b", "")));
   EXPECT_THAT(ListFuture(store.get()).result(),
@@ -365,7 +370,7 @@ TEST(FileKeyValueStoreTest, DeleteRangeFromBeginning) {
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
   for (auto key : {"a/a", "a/b", "a/c/a", "a/c/b", "b/a", "b/b"}) {
-    TENSORSTORE_EXPECT_OK(store->Write(key, "").result());
+    TENSORSTORE_EXPECT_OK(store->Write(key, absl::Cord()).result());
   }
   TENSORSTORE_EXPECT_OK(store->DeleteRange(KeyRange("", "a/c/aa")));
   EXPECT_THAT(ListFuture(store.get()).result(),
@@ -410,12 +415,12 @@ TEST(FileKeyValueStoreTest, List) {
                                             "set_stopping"));
   }
 
-  TENSORSTORE_EXPECT_OK(store->Write("a/b", "xyz").result());
-  TENSORSTORE_EXPECT_OK(store->Write("a/d", "xyz").result());
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", "xyz").result());
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", "xyz").result());
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", "xyz").result());
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", "xyz").result());
+  TENSORSTORE_EXPECT_OK(store->Write("a/b", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/d", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", absl::Cord("xyz")));
 
   // Listing the entire stream works.
   {

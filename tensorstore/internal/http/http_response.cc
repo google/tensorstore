@@ -117,7 +117,7 @@ Status HttpResponseCodeToStatus(const HttpResponse& response) {
         "HTTP response code: ", response.status_code,
         ((pos < response.payload.size()) ? " with body (clipped): "
                                          : " with body: "),
-        absl::string_view(response.payload).substr(0, pos));
+        response.payload.Subcord(0, pos).Flatten());
   };
 
   switch (response.status_code) {

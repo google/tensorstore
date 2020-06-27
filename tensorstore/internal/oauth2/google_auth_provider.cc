@@ -87,9 +87,9 @@ bool IsRunningOnGce(internal_http::HttpTransport* transport) {
   auto request = request_builder.BuildRequest();
 
   const auto issue_request = [&request, transport]() -> Status {
-    auto response = transport->IssueRequest(request, "").result();
-    TENSORSTORE_RETURN_IF_ERROR(response);
-    return internal_http::HttpResponseCodeToStatus(*response);
+    TENSORSTORE_ASSIGN_OR_RETURN(auto response,
+                                 transport->IssueRequest(request, {}).result());
+    return internal_http::HttpResponseCodeToStatus(response);
   };
   auto status = internal::RetryWithBackoff(
       issue_request, 3, absl::Milliseconds(10), absl::Seconds(1));

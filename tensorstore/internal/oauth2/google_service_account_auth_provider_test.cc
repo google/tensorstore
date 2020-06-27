@@ -69,7 +69,7 @@ class TestAuthProvider : public GoogleServiceAccountAuthProvider {
         idx(0) {}
 
   virtual Result<HttpResponse> IssueRequest(absl::string_view uri,
-                                            absl::string_view body) {
+                                            absl::Cord body) {
     request.push_back(std::make_pair(std::string(uri), std::string(body)));
     if (responses.count(idx) != 0) {
       return responses[idx++];
@@ -114,8 +114,14 @@ TEST(GoogleServiceAccountAuthProviderTest, Status200) {
   TestAuthProvider auth(kCreds);
 
   auth.responses = {
-      {0, {200, kServiceAccountInfo, {}}},  // RetrieveServiceAccountInfo
-      {1, {200, kServiceAccountInfo, {}}},  // RetrieveServiceAccountInfo
+      {0,
+       {200,
+        absl::Cord(kServiceAccountInfo),
+        {}}},  // RetrieveServiceAccountInfo
+      {1,
+       {200,
+        absl::Cord(kServiceAccountInfo),
+        {}}},  // RetrieveServiceAccountInfo
   };
 
   {

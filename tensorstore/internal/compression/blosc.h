@@ -60,21 +60,20 @@ struct Options {
 /// Compresses `input` and append the result to `*output`.
 ///
 /// \param input The input data to compress.
-/// \param output[in,out] Non-null pointer to output string to which compressed
-///     data will be appended.
+/// \param output[in,out] Output cord to which compressed data will be appended.
 /// \param options Specifies compression options.
 /// \error `absl::StatusCode::kInvalidArgument` if `input.size()` exceeds
 ///     `BLOSC_MAX_BUFFERSIZE`.
-Status Encode(absl::string_view input, std::string* output,
+Status Encode(const absl::Cord& input, absl::Cord* output,
               const Options& options);
 
 /// Decompresses `input` and append the result to `*output`.
 ///
 /// \param input The input data to decompress.
-/// \param output[in,out] Non-null pointer to output string to which
-///     decompressed data will be appended.
+/// \param output[in,out] Output cord to which decompressed data will be
+///     appended.
 /// \error `absl::StatusCode::kInvalidArgument` if `input` is corrupt.
-Status Decode(absl::string_view input, std::string* output);
+Status Decode(const absl::Cord& input, absl::Cord* output);
 
 }  // namespace blosc
 }  // namespace tensorstore

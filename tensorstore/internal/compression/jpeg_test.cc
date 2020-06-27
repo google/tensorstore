@@ -18,6 +18,8 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/cord.h"
+#include "absl/strings/cord_test_helpers.h"
 #include "tensorstore/array.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
@@ -30,41 +32,53 @@ using tensorstore::Status;
 
 namespace jpeg = tensorstore::jpeg;
 
-/// Returns the square root of the mean squared error.
-double TestRoundTrip(unsigned char* input_image, size_t width, size_t height,
-                     size_t num_components) {
-  std::string encoded;
-  jpeg::EncodeOptions options;
-  auto encode_status = jpeg::Encode(input_image, width, height, num_components,
-                                    options, &encoded);
-  EXPECT_EQ(Status(), encode_status);
-  std::vector<unsigned char> decoded(width * height * num_components);
-  auto decode_status =
-      jpeg::Decode(encoded, [&](size_t w, size_t h, size_t num_c) {
-        EXPECT_EQ(width, w);
-        EXPECT_EQ(height, h);
-        EXPECT_EQ(num_components, num_c);
-        return decoded.data();
-      });
-  EXPECT_EQ(Status(), decode_status);
-  double squared_error = 0;
-  for (size_t i = 0; i < decoded.size(); ++i) {
-    const int diff =
-        static_cast<int>(input_image[i]) - static_cast<int>(decoded[i]);
-    squared_error += diff * diff;
+class JpegRoundtripTest : public ::testing::TestWithParam<bool> {
+ public:
+  /// Returns the square root of the mean squared error.
+  double TestRoundTrip(unsigned char* input_image, size_t width, size_t height,
+                       size_t num_components) {
+    absl::Cord encoded;
+    jpeg::EncodeOptions options;
+    TENSORSTORE_EXPECT_OK(jpeg::Encode(input_image, width, height,
+                                       num_components, options, &encoded));
+    if (GetParam()) {
+      std::vector<std::string> parts;
+      constexpr size_t kFragmentSize = 100;
+      for (size_t i = 0; i < encoded.size(); i += kFragmentSize) {
+        parts.push_back(std::string(encoded.Subcord(i, kFragmentSize)));
+      }
+      encoded = absl::MakeFragmentedCord(parts);
+    }
+    std::vector<unsigned char> decoded(width * height * num_components);
+    auto decode_status =
+        jpeg::Decode(encoded, [&](size_t w, size_t h, size_t num_c) {
+          EXPECT_EQ(width, w);
+          EXPECT_EQ(height, h);
+          EXPECT_EQ(num_components, num_c);
+          return decoded.data();
+        });
+    TENSORSTORE_EXPECT_OK(decode_status);
+    double squared_error = 0;
+    for (size_t i = 0; i < decoded.size(); ++i) {
+      const int diff =
+          static_cast<int>(input_image[i]) - static_cast<int>(decoded[i]);
+      squared_error += diff * diff;
+    }
+    const double rmse = std::sqrt(squared_error / decoded.size());
+    return rmse;
   }
-  const double rmse = std::sqrt(squared_error / decoded.size());
-  return rmse;
-}
+};
 
-TEST(JpegTest, OneComponentRoundTripConstant) {
+INSTANTIATE_TEST_SUITE_P(MaybeFragmented, JpegRoundtripTest, ::testing::Bool());
+
+TEST_P(JpegRoundtripTest, OneComponentConstant) {
   const size_t width = 100, height = 33, num_components = 1;
   std::vector<unsigned char> input_image(width * height * num_components, 42);
   EXPECT_LT(TestRoundTrip(input_image.data(), width, height, num_components),
             1);
 }
 
-TEST(JpegTest, OneComponentRoundTripGradient) {
+TEST_P(JpegRoundtripTest, OneComponentGradient) {
   const size_t width = 100, height = 33, num_components = 1;
   std::vector<unsigned char> input_image(width * height * num_components);
   for (size_t y = 0; y < height; ++y) {
@@ -78,7 +92,7 @@ TEST(JpegTest, OneComponentRoundTripGradient) {
             2);
 }
 
-TEST(JpegTest, ThreeComponentRoundTripGradient) {
+TEST_P(JpegRoundtripTest, ThreeComponentGradient) {
   const size_t width = 200, height = 33, num_components = 3;
   std::vector<unsigned char> input_image(width * height * num_components);
   for (size_t y = 0; y < height; ++y) {
@@ -100,7 +114,7 @@ TEST(JpegTest, ThreeComponentRoundTripGradient) {
             2);
 }
 
-TEST(JpegTest, ThreeComponentRoundTripConstant) {
+TEST_P(JpegRoundtripTest, ThreeComponentConstant) {
   const size_t width = 100, height = 33, num_components = 3;
   std::vector<unsigned char> input_image(width * height * num_components, 42);
   EXPECT_LT(TestRoundTrip(input_image.data(), width, height, num_components),
@@ -110,7 +124,7 @@ TEST(JpegTest, ThreeComponentRoundTripConstant) {
 TEST(JpegTest, EncodeInvalidNumComponents) {
   const size_t width = 100, height = 33, num_components = 2;
   std::vector<unsigned char> input_image(width * height * num_components, 42);
-  std::string encoded;
+  absl::Cord encoded;
   jpeg::EncodeOptions options;
   EXPECT_THAT(jpeg::Encode(input_image.data(), width, height, num_components,
                            options, &encoded),
@@ -119,7 +133,7 @@ TEST(JpegTest, EncodeInvalidNumComponents) {
 }
 
 TEST(JpegTest, EncodeInvalidWidth) {
-  std::string encoded;
+  absl::Cord encoded;
   jpeg::EncodeOptions options;
   EXPECT_THAT(jpeg::Encode(nullptr, 10000000000, 17, 1, options, &encoded),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
@@ -127,7 +141,7 @@ TEST(JpegTest, EncodeInvalidWidth) {
 }
 
 TEST(JpegTest, EncodeInvalidHeight) {
-  std::string encoded;
+  absl::Cord encoded;
   jpeg::EncodeOptions options;
   EXPECT_THAT(jpeg::Encode(nullptr, 17, 10000000000, 1, options, &encoded),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
@@ -137,19 +151,18 @@ TEST(JpegTest, EncodeInvalidHeight) {
 TEST(JpegTest, TruncateData) {
   const size_t width = 100, height = 33, num_components = 3;
   std::vector<unsigned char> input_image(width * height * num_components, 42);
-  std::string encoded;
+  absl::Cord encoded;
   jpeg::EncodeOptions options;
-  EXPECT_EQ(Status(), jpeg::Encode(input_image.data(), width, height,
-                                   num_components, options, &encoded));
-  encoded.resize(encoded.size() - 1);
+  TENSORSTORE_EXPECT_OK(jpeg::Encode(input_image.data(), width, height,
+                                     num_components, options, &encoded));
   std::vector<unsigned char> decoded(width * height * num_components);
-  auto decode_status =
-      jpeg::Decode(encoded, [&](size_t w, size_t h, size_t num_c) {
-        EXPECT_EQ(width, w);
-        EXPECT_EQ(height, h);
-        EXPECT_EQ(num_components, num_c);
-        return decoded.data();
-      });
+  auto decode_status = jpeg::Decode(encoded.Subcord(0, encoded.size() - 1),
+                                    [&](size_t w, size_t h, size_t num_c) {
+                                      EXPECT_EQ(width, w);
+                                      EXPECT_EQ(height, h);
+                                      EXPECT_EQ(num_components, num_c);
+                                      return decoded.data();
+                                    });
   EXPECT_THAT(decode_status, MatchesStatus(absl::StatusCode::kInvalidArgument,
                                            "Error decoding JPEG: .*"));
 }
@@ -157,16 +170,15 @@ TEST(JpegTest, TruncateData) {
 TEST(JpegTest, ValidateSizeError) {
   const size_t width = 100, height = 33, num_components = 3;
   std::vector<unsigned char> input_image(width * height * num_components, 42);
-  std::string encoded;
+  absl::Cord encoded;
   jpeg::EncodeOptions options;
-  EXPECT_EQ(Status(), jpeg::Encode(input_image.data(), width, height,
-                                   num_components, options, &encoded));
-  encoded.resize(encoded.size() - 1);
+  TENSORSTORE_EXPECT_OK(jpeg::Encode(input_image.data(), width, height,
+                                     num_components, options, &encoded));
   std::vector<unsigned char> decoded(width * height * num_components);
-  auto decode_status =
-      jpeg::Decode(encoded, [&](size_t w, size_t h, size_t num_c) {
-        return absl::UnknownError("Error");
-      });
+  auto decode_status = jpeg::Decode(encoded.Subcord(0, encoded.size() - 1),
+                                    [&](size_t w, size_t h, size_t num_c) {
+                                      return absl::UnknownError("Error");
+                                    });
   EXPECT_THAT(decode_status, MatchesStatus(absl::StatusCode::kUnknown,
                                            "Error decoding JPEG: Error"));
 }
@@ -201,7 +213,7 @@ TEST(JpegTest, LJT_01_003) {
   }
   // libjpeg-turbo reports a warning, and we treat all warnings as errors and
   // abort, which prevents the DoS.
-  EXPECT_THAT(jpeg::Decode(encoded,
+  EXPECT_THAT(jpeg::Decode(absl::Cord(encoded),
                            [&](size_t w, size_t h, size_t num_c) {
                              // Never reached
                              return absl::UnknownError("");

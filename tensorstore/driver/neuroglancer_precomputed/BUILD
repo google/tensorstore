@@ -16,6 +16,7 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore/internal:container_to_shared",
         "//tensorstore/internal:data_type_endian_conversion",
+        "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal/compression:jpeg",
         "//tensorstore/internal/compression:neuroglancer_compressed_segmentation",
         "//tensorstore/util:endian",
@@ -201,6 +202,7 @@ tensorstore_cc_library(
     hdrs = ["uint64_sharded_encoder.h"],
     deps = [
         ":uint64_sharded",
+        "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal/compression:zlib",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/util:endian",

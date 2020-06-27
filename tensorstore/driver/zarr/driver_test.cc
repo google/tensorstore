@@ -52,6 +52,11 @@ using ::testing::ElementsAreArray;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;
 
+absl::Cord Bytes(std::vector<unsigned char> values) {
+  return absl::Cord(std::string_view(
+      reinterpret_cast<const char*>(values.data()), values.size()));
+}
+
 ::nlohmann::json GetJsonSpec() {
   return {
       {"driver", "zarr"},
@@ -230,7 +235,7 @@ TEST(ZarrDriverTest, Create) {
           .value(),
       UnorderedElementsAreArray({
           Pair("prefix/.zarray",  //
-               ParseJsonMatches(::nlohmann::json{
+               ::testing::MatcherCast<absl::Cord>(ParseJsonMatches({
                    {"zarr_format", 2},
                    {"order", "C"},
                    {"filters", nullptr},
@@ -244,14 +249,14 @@ TEST(ZarrDriverTest, Create) {
                    {"dtype", "<i2"},
                    {"shape", {100, 100}},
                    {"chunks", {3, 2}},
-               })),
+               }))),
           Pair("prefix/3.4",    //
                DecodedMatches(  //
-                   ElementsAreArray({1, 0, 2, 0, 4, 0, 5, 0, 0, 0, 0, 0}),
+                   Bytes({1, 0, 2, 0, 4, 0, 5, 0, 0, 0, 0, 0}),
                    tensorstore::blosc::Decode)),
           Pair("prefix/3.5",    //
                DecodedMatches(  //
-                   ElementsAreArray({3, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0}),
+                   Bytes({3, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0}),
                    tensorstore::blosc::Decode)),
       }));
 
@@ -455,7 +460,7 @@ TEST(ZarrDriverTest, CreateBigEndian) {
           .value(),
       UnorderedElementsAreArray({
           Pair("prefix/.zarray",  //
-               ParseJsonMatches(::nlohmann::json{
+               ::testing::MatcherCast<absl::Cord>(ParseJsonMatches({
                    {"zarr_format", 2},
                    {"order", "C"},
                    {"filters", nullptr},
@@ -469,14 +474,14 @@ TEST(ZarrDriverTest, CreateBigEndian) {
                    {"dtype", ">i2"},
                    {"shape", {100, 100}},
                    {"chunks", {3, 2}},
-               })),
+               }))),
           Pair("prefix/3.4",    //
                DecodedMatches(  //
-                   ElementsAreArray({0, 1, 0, 2, 0, 4, 0, 5, 0, 0, 0, 0}),
+                   Bytes({0, 1, 0, 2, 0, 4, 0, 5, 0, 0, 0, 0}),
                    tensorstore::blosc::Decode)),
           Pair("prefix/3.5",    //
                DecodedMatches(  //
-                   ElementsAreArray({0, 3, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0}),
+                   Bytes({0, 3, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0}),
                    tensorstore::blosc::Decode)),
       }));
 }
@@ -504,7 +509,7 @@ TEST(ZarrDriverTest, CreateBigEndianUnaligned) {
           .value(),
       UnorderedElementsAreArray({
           Pair("prefix/.zarray",
-               ParseJsonMatches(::nlohmann::json{
+               ::testing::MatcherCast<absl::Cord>(ParseJsonMatches({
                    {"zarr_format", 2},
                    {"order", "C"},
                    {"filters", nullptr},
@@ -519,17 +524,17 @@ TEST(ZarrDriverTest, CreateBigEndianUnaligned) {
                     ::nlohmann::json::array_t{{"x", "|b1"}, {"y", ">i2"}}},
                    {"shape", {100, 100}},
                    {"chunks", {3, 2}},
-               })),
-          Pair("prefix/3.4",    //
-               DecodedMatches(  //
-                   ElementsAreArray(
-                       {0, 0, 1, 0, 0, 2, 0, 0, 4, 0, 0, 5, 0, 0, 0, 0, 0, 0}),
-                   tensorstore::blosc::Decode)),
-          Pair("prefix/3.5",    //
-               DecodedMatches(  //
-                   ElementsAreArray(
-                       {0, 0, 3, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
-                   tensorstore::blosc::Decode)),
+               }))),
+          Pair(
+              "prefix/3.4",    //
+              DecodedMatches(  //
+                  Bytes({0, 0, 1, 0, 0, 2, 0, 0, 4, 0, 0, 5, 0, 0, 0, 0, 0, 0}),
+                  tensorstore::blosc::Decode)),
+          Pair(
+              "prefix/3.5",    //
+              DecodedMatches(  //
+                  Bytes({0, 0, 3, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
+                  tensorstore::blosc::Decode)),
       }));
 }
 
@@ -574,7 +579,7 @@ TEST(ZarrDriverTest, CreateLittleEndianUnaligned) {
           .value(),
       UnorderedElementsAreArray({
           Pair("prefix/.zarray",
-               ParseJsonMatches(::nlohmann::json{
+               ::testing::MatcherCast<absl::Cord>(ParseJsonMatches({
                    {"zarr_format", 2},
                    {"order", "C"},
                    {"filters", nullptr},
@@ -589,17 +594,17 @@ TEST(ZarrDriverTest, CreateLittleEndianUnaligned) {
                     ::nlohmann::json::array_t{{"x", "|b1"}, {"y", "<i2"}}},
                    {"shape", {100, 100}},
                    {"chunks", {3, 2}},
-               })),
-          Pair("prefix/3.4",    //
-               DecodedMatches(  //
-                   ElementsAreArray(
-                       {0, 1, 0, 0, 2, 0, 0, 4, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0}),
-                   tensorstore::blosc::Decode)),
-          Pair("prefix/3.5",    //
-               DecodedMatches(  //
-                   ElementsAreArray(
-                       {0, 3, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
-                   tensorstore::blosc::Decode)),
+               }))),
+          Pair(
+              "prefix/3.4",    //
+              DecodedMatches(  //
+                  Bytes({0, 1, 0, 0, 2, 0, 0, 4, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0}),
+                  tensorstore::blosc::Decode)),
+          Pair(
+              "prefix/3.5",    //
+              DecodedMatches(  //
+                  Bytes({0, 3, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
+                  tensorstore::blosc::Decode)),
       }));
 }
 
@@ -666,11 +671,12 @@ TEST(ZarrDriverTest, KeyEncodingWithSlash) {
   EXPECT_THAT(  //
       GetMap(kv_store).value(),
       UnorderedElementsAre(
-          Pair("prefix/.zarray", ParseJsonMatches(zarr_metadata_json)),
-          Pair("prefix/0/0", ElementsAreArray({0, 0, 0, 0, 0, 1})),
-          Pair("prefix/0/1", ElementsAreArray({0, 0, 0, 0, 2, 3})),
-          Pair("prefix/1/0", ElementsAreArray({0, 4, 0, 0, 0, 0})),
-          Pair("prefix/1/1", ElementsAreArray({5, 6, 0, 0, 0, 0}))));
+          Pair("prefix/.zarray", ::testing::MatcherCast<absl::Cord>(
+                                     ParseJsonMatches(zarr_metadata_json))),
+          Pair("prefix/0/0", Bytes({0, 0, 0, 0, 0, 1})),
+          Pair("prefix/0/1", Bytes({0, 0, 0, 0, 2, 3})),
+          Pair("prefix/1/0", Bytes({0, 4, 0, 0, 0, 0})),
+          Pair("prefix/1/1", Bytes({5, 6, 0, 0, 0, 0}))));
 }
 
 TEST(ZarrDriverTest, Resize) {
@@ -710,11 +716,12 @@ TEST(ZarrDriverTest, Resize) {
       EXPECT_THAT(  //
           GetMap(kv_store).value(),
           UnorderedElementsAre(
-              Pair("prefix/.zarray", ParseJsonMatches(zarr_metadata_json)),
-              Pair("prefix/0.0", ElementsAreArray({0, 0, 0, 0, 0, 1})),
-              Pair("prefix/0.1", ElementsAreArray({0, 0, 0, 0, 2, 3})),
-              Pair("prefix/1.0", ElementsAreArray({0, 4, 0, 0, 0, 0})),
-              Pair("prefix/1.1", ElementsAreArray({5, 6, 0, 0, 0, 0}))));
+              Pair("prefix/.zarray", ::testing::MatcherCast<absl::Cord>(
+                                         ParseJsonMatches(zarr_metadata_json))),
+              Pair("prefix/0.0", Bytes({0, 0, 0, 0, 0, 1})),
+              Pair("prefix/0.1", Bytes({0, 0, 0, 0, 2, 3})),
+              Pair("prefix/1.0", Bytes({0, 4, 0, 0, 0, 0})),
+              Pair("prefix/1.1", Bytes({5, 6, 0, 0, 0, 0}))));
 
       auto resize_future =
           Resize(store, span<const Index>({kImplicit, kImplicit}),
@@ -729,8 +736,9 @@ TEST(ZarrDriverTest, Resize) {
           GetMap(kv_store).value(),
           UnorderedElementsAre(
               Pair("prefix/.zarray",
-                   ParseJsonMatches(resized_zarr_metadata_json)),
-              Pair("prefix/0.0", ElementsAreArray({0, 0, 0, 0, 0, 1}))));
+                   ::testing::MatcherCast<absl::Cord>(
+                       ParseJsonMatches(resized_zarr_metadata_json))),
+              Pair("prefix/0.0", Bytes({0, 0, 0, 0, 0, 1}))));
     }
   }
 }
@@ -851,11 +859,12 @@ TEST(ZarrDriverTest, ResizeMetadataOnly) {
   EXPECT_THAT(  //
       GetMap(kv_store).value(),
       UnorderedElementsAre(
-          Pair("prefix/.zarray", ParseJsonMatches(zarr_metadata_json)),
-          Pair("prefix/0.0", ElementsAreArray({0, 0, 0, 0, 0, 1})),
-          Pair("prefix/0.1", ElementsAreArray({0, 0, 0, 0, 2, 3})),
-          Pair("prefix/1.0", ElementsAreArray({0, 4, 0, 0, 0, 0})),
-          Pair("prefix/1.1", ElementsAreArray({5, 6, 0, 0, 0, 0}))));
+          Pair("prefix/.zarray", ::testing::MatcherCast<absl::Cord>(
+                                     ParseJsonMatches(zarr_metadata_json))),
+          Pair("prefix/0.0", Bytes({0, 0, 0, 0, 0, 1})),
+          Pair("prefix/0.1", Bytes({0, 0, 0, 0, 2, 3})),
+          Pair("prefix/1.0", Bytes({0, 4, 0, 0, 0, 0})),
+          Pair("prefix/1.1", Bytes({5, 6, 0, 0, 0, 0}))));
 
   auto resize_future =
       Resize(store, span<const Index>({kImplicit, kImplicit}),
@@ -868,11 +877,13 @@ TEST(ZarrDriverTest, ResizeMetadataOnly) {
   EXPECT_THAT(  //
       GetMap(kv_store).value(),
       UnorderedElementsAre(
-          Pair("prefix/.zarray", ParseJsonMatches(resized_zarr_metadata_json)),
-          Pair("prefix/0.0", ElementsAreArray({0, 0, 0, 0, 0, 1})),
-          Pair("prefix/0.1", ElementsAreArray({0, 0, 0, 0, 2, 3})),
-          Pair("prefix/1.0", ElementsAreArray({0, 4, 0, 0, 0, 0})),
-          Pair("prefix/1.1", ElementsAreArray({5, 6, 0, 0, 0, 0}))));
+          Pair("prefix/.zarray",
+               ::testing::MatcherCast<absl::Cord>(
+                   ParseJsonMatches(resized_zarr_metadata_json))),
+          Pair("prefix/0.0", Bytes({0, 0, 0, 0, 0, 1})),
+          Pair("prefix/0.1", Bytes({0, 0, 0, 0, 2, 3})),
+          Pair("prefix/1.0", Bytes({0, 4, 0, 0, 0, 0})),
+          Pair("prefix/1.1", Bytes({5, 6, 0, 0, 0, 0}))));
 }
 
 TEST(ZarrDriverTest, ResizeExpandOnly) {
@@ -903,11 +914,12 @@ TEST(ZarrDriverTest, ResizeExpandOnly) {
   EXPECT_THAT(  //
       GetMap(kv_store).value(),
       UnorderedElementsAre(
-          Pair("prefix/.zarray", ParseJsonMatches(zarr_metadata_json)),
-          Pair("prefix/0.0", ElementsAreArray({0, 0, 0, 0, 0, 1})),
-          Pair("prefix/0.1", ElementsAreArray({0, 0, 0, 0, 2, 3})),
-          Pair("prefix/1.0", ElementsAreArray({0, 4, 0, 0, 0, 0})),
-          Pair("prefix/1.1", ElementsAreArray({5, 6, 0, 0, 0, 0}))));
+          Pair("prefix/.zarray", ::testing::MatcherCast<absl::Cord>(
+                                     ParseJsonMatches(zarr_metadata_json))),
+          Pair("prefix/0.0", Bytes({0, 0, 0, 0, 0, 1})),
+          Pair("prefix/0.1", Bytes({0, 0, 0, 0, 2, 3})),
+          Pair("prefix/1.0", Bytes({0, 4, 0, 0, 0, 0})),
+          Pair("prefix/1.1", Bytes({5, 6, 0, 0, 0, 0}))));
 
   auto resize_future =
       Resize(store, span<const Index>({kImplicit, kImplicit}),
@@ -921,11 +933,13 @@ TEST(ZarrDriverTest, ResizeExpandOnly) {
   EXPECT_THAT(  //
       GetMap(kv_store).value(),
       UnorderedElementsAre(
-          Pair("prefix/.zarray", ParseJsonMatches(resized_zarr_metadata_json)),
-          Pair("prefix/0.0", ElementsAreArray({0, 0, 0, 0, 0, 1})),
-          Pair("prefix/0.1", ElementsAreArray({0, 0, 0, 0, 2, 3})),
-          Pair("prefix/1.0", ElementsAreArray({0, 4, 0, 0, 0, 0})),
-          Pair("prefix/1.1", ElementsAreArray({5, 6, 0, 0, 0, 0}))));
+          Pair("prefix/.zarray",
+               ::testing::MatcherCast<absl::Cord>(
+                   ParseJsonMatches(resized_zarr_metadata_json))),
+          Pair("prefix/0.0", Bytes({0, 0, 0, 0, 0, 1})),
+          Pair("prefix/0.1", Bytes({0, 0, 0, 0, 2, 3})),
+          Pair("prefix/1.0", Bytes({0, 4, 0, 0, 0, 0})),
+          Pair("prefix/1.1", Bytes({5, 6, 0, 0, 0, 0}))));
 }
 
 TEST(ZarrDriverTest, InvalidResize) {
@@ -1273,8 +1287,8 @@ TEST(ZarrDriverTest, OpenInvalidMetadata) {
 
   {
     // Write invalid JSON
-    EXPECT_EQ(Status(),
-              GetStatus(kv_store->Write("prefix/.zarray", "invalid").result()));
+    TENSORSTORE_EXPECT_OK(
+        kv_store->Write("prefix/.zarray", absl::Cord("invalid")));
 
     EXPECT_THAT(
         tensorstore::Open(context, json_spec,
@@ -1291,10 +1305,8 @@ TEST(ZarrDriverTest, OpenInvalidMetadata) {
     invalid_json.erase("zarr_format");
 
     // Write invalid metadata JSON
-    EXPECT_EQ(
-        Status(),
-        GetStatus(
-            kv_store->Write("prefix/.zarray", invalid_json.dump()).result()));
+    TENSORSTORE_EXPECT_OK(
+        kv_store->Write("prefix/.zarray", absl::Cord(invalid_json.dump())));
 
     EXPECT_THAT(tensorstore::Open(context, json_spec,
                                   {tensorstore::OpenMode::open,

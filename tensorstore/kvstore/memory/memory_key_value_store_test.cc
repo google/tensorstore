@@ -49,12 +49,12 @@ TEST(MemoryKeyValueStoreTest, Basic) {
 
 TEST(MemoryKeyValueStoreTest, DeleteRange) {
   auto store = tensorstore::GetMemoryKeyValueStore();
-  TENSORSTORE_EXPECT_OK(store->Write("a/b", "xyz"));
-  TENSORSTORE_EXPECT_OK(store->Write("a/d", "xyz"));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", "xyz"));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", "xyz"));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", "xyz"));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/b", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/d", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", absl::Cord("xyz")));
 
   TENSORSTORE_EXPECT_OK(store->DeleteRange(KeyRange::Prefix("a/c")));
 
@@ -78,12 +78,12 @@ TEST(MemoryKeyValueStoreTest, List) {
                                             "set_stopping"));
   }
 
-  TENSORSTORE_EXPECT_OK(store->Write("a/b", "xyz"));
-  TENSORSTORE_EXPECT_OK(store->Write("a/d", "xyz"));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", "xyz"));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", "xyz"));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", "xyz"));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", "xyz"));
+  TENSORSTORE_EXPECT_OK(store->Write("a/b", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/d", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", absl::Cord("xyz")));
 
   // Listing the entire stream works.
   {
@@ -164,13 +164,14 @@ TEST(MemoryKeyValueStoreTest, Open) {
   {
     auto store =
         KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value();
-    TENSORSTORE_ASSERT_OK(store->Write("key", "value"));
+    TENSORSTORE_ASSERT_OK(store->Write("key", absl::Cord("value")));
 
     {
       auto store2 =
           KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value();
       // Verify that `store2` shares the same underlying storage as `store`.
-      EXPECT_THAT(store2->Read("key").result(), MatchesKvsReadResult("value"));
+      EXPECT_THAT(store2->Read("key").result(),
+                  MatchesKvsReadResult(absl::Cord("value")));
     }
 
     auto other_context =

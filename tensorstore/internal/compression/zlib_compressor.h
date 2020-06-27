@@ -20,7 +20,7 @@
 #include <cstddef>
 #include <string>
 
-#include "absl/strings/string_view.h"
+#include "absl/strings/cord.h"
 #include "tensorstore/internal/compression/json_specified_compressor.h"
 #include "tensorstore/internal/compression/zlib.h"
 
@@ -30,13 +30,13 @@ namespace internal {
 class ZlibCompressor : public internal::JsonSpecifiedCompressor,
                        public zlib::Options {
  public:
-  Status Encode(absl::string_view input, std::string* output,
+  Status Encode(const absl::Cord& input, absl::Cord* output,
                 std::size_t element_size) const override {
     // element_size is not used for zlib compression.
     zlib::Encode(input, output, *this);
     return absl::OkStatus();
   }
-  Status Decode(absl::string_view input, std::string* output,
+  Status Decode(const absl::Cord& input, absl::Cord* output,
                 std::size_t element_size) const override {
     // element_size is not used for zlib compression.
     return zlib::Decode(input, output, this->use_gzip_header);

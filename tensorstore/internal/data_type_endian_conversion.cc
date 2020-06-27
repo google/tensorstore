@@ -139,8 +139,10 @@ void DecodeArray(SharedArrayView<void>* source, endian source_endian,
   assert(functions.copy != nullptr);  // fail on non-trivial types
   if ((reinterpret_cast<std::uintptr_t>(source->data()) % dtype->alignment) ==
           0 &&
-      (source->rank() == 0 ||
-       (source->byte_strides().back() % dtype->alignment) == 0)) {
+      std::all_of(source->byte_strides().begin(), source->byte_strides().end(),
+                  [&](Index byte_stride) {
+                    return (byte_stride % dtype->alignment) == 0;
+                  })) {
     // Source array is already suitably aligned.  Can decode in place.
     const ElementwiseFunction<1, Status*>* convert_func = nullptr;
     if (dtype.id() == DataTypeId::bool_t) {
@@ -164,28 +166,62 @@ void DecodeArray(SharedArrayView<void>* source, endian source_endian,
     // but the caller is expecting the decoded result to be in a properly
     // aligned array.  Therefore, we allocate a separate array and decode into
     // it.
-    auto target_ptr = internal::AllocateAndConstructSharedElements(
-        decoded_layout.num_elements(), default_init, dtype);
-    const ElementwiseFunction<2, Status*>* convert_func = nullptr;
-    if (dtype.id() == DataTypeId::bool_t) {
-      convert_func =
-          SimpleElementwiseFunction<DecodeBoolArray(unsigned char, bool),
-                                    Status*>();
-    } else if (source_endian != endian::native) {
-      convert_func = functions.swap_endian;
-    } else {
-      convert_func = functions.copy;
-    }
-    internal::IterateOverStridedLayouts<2>(
-        {/*function=*/convert_func,
-         /*context=*/nullptr},
-        /*status=*/nullptr, decoded_layout.shape(),
-        {{source->data(), target_ptr.data()}},
-        {{source->byte_strides().data(), decoded_layout.byte_strides().data()}},
-        /*constraints=*/skip_repeated_elements, {{dtype.size(), dtype.size()}});
-    source->element_pointer() = target_ptr;
-    source->layout() = decoded_layout;
+    *source = CopyAndDecodeArray(*source, source_endian, decoded_layout);
   }
+}
+
+SharedArrayView<void> CopyAndDecodeArray(ArrayView<const void> source,
+                                         endian source_endian,
+                                         StridedLayoutView<> decoded_layout) {
+  SharedArrayView<void> target(
+      internal::AllocateAndConstructSharedElements(
+          decoded_layout.num_elements(), default_init, source.data_type()),
+      decoded_layout);
+  DecodeArray(source, source_endian, target);
+  return target;
+}
+
+SharedArrayView<const void> TryViewCordAsArray(const absl::Cord& source,
+                                               Index offset, DataType dtype,
+                                               endian source_endian,
+                                               StridedLayoutView<> layout) {
+  const auto& functions =
+      kUnalignedDataTypeFunctions[static_cast<size_t>(dtype.id())];
+  assert(functions.copy != nullptr);  // fail on non-trivial types
+  if (source_endian != endian::native && functions.swap_endian_inplace) {
+    // Source data requires endian conversion, and we can't modify the data in
+    // an `absl::Cord`.
+    return {};
+  }
+  auto maybe_flat = source.TryFlat();
+  if (!maybe_flat) {
+    // Source string is not flat.
+    return {};
+  }
+  ByteStridedPointer<const void> ptr = maybe_flat->data();
+  ptr += offset;
+
+  if ((reinterpret_cast<std::uintptr_t>(ptr.get()) % dtype->alignment) != 0 ||
+      !std::all_of(layout.byte_strides().begin(), layout.byte_strides().end(),
+                   [&](Index byte_stride) {
+                     return (byte_stride % dtype->alignment) == 0;
+                   })) {
+    // Source string is not suitably aligned.
+    return {};
+  }
+  auto shared_cord = std::make_shared<absl::Cord>(source);
+  // Verify that `shared_cord` has the same flat buffer (this will only fail in
+  // the unusual case that `source` was using the inline representation).
+  if (auto shared_flat = shared_cord->TryFlat();
+      !shared_flat || shared_flat->data() != maybe_flat->data()) {
+    return {};
+  }
+
+  return SharedArrayView<const void>(
+      SharedElementPointer<const void>(
+          std::shared_ptr<const void>(std::move(shared_cord), ptr.get()),
+          dtype),
+      layout);
 }
 
 }  // namespace internal
