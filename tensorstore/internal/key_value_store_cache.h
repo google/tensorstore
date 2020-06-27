@@ -71,9 +71,9 @@ class KeyValueStoreCache : public Parent {
   template <typename... U>
   explicit KeyValueStoreCache(KeyValueStore::Ptr kvstore, Executor executor,
                               U&&... args)
-      : kvstore_(std::move(kvstore)),
-        executor_(std::move(executor)),
-        Parent(std::forward<U>(args)...) {}
+      : Parent(std::forward<U>(args)...),
+        kvstore_(std::move(kvstore)),
+        executor_(std::move(executor)) {}
 
   class Entry : public Parent::Entry {
    public:
