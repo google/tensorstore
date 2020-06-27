@@ -23,10 +23,8 @@
 #include "absl/strings/string_view.h"
 #include <nlohmann/json.hpp>
 #include "python/tensorstore/json_type_caster.h"
-#include "pybind11/cast.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
-#include "pybind11/pytypes.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/str_cat.h"

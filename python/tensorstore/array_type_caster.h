@@ -23,10 +23,8 @@
 
 #include "absl/meta/type_traits.h"
 #include "python/tensorstore/data_type.h"
-#include "pybind11/cast.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
-#include "pybind11/pytypes.h"
 #include "tensorstore/array.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/contiguous_layout.h"

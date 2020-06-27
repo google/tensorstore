@@ -24,9 +24,7 @@
 /// `Result` objects to values or exceptions.
 
 #include "python/tensorstore/status.h"
-#include "pybind11/cast.h"
 #include "pybind11/pybind11.h"
-#include "pybind11/pytypes.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {

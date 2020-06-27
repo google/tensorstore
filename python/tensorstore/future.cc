@@ -20,9 +20,7 @@
 #include <string>
 #include <utility>
 
-#include "pybind11/cast.h"
 #include "pybind11/pybind11.h"
-#include "pybind11/pytypes.h"
 #include "tensorstore/util/future.h"
 
 #ifdef _WIN32

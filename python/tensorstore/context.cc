@@ -19,7 +19,6 @@
 
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/result_type_caster.h"
-#include "pybind11/cast.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 #include "tensorstore/context.h"

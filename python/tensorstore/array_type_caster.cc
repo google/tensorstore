@@ -22,7 +22,7 @@
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "pybind11/numpy.h"
-#include "pybind11/pytypes.h"
+#include "pybind11/pybind11.h"
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"

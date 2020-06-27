@@ -24,9 +24,7 @@
 
 #include "absl/strings/string_view.h"
 #include "python/tensorstore/subscript_method.h"
-#include "pybind11/cast.h"
 #include "pybind11/pybind11.h"
-#include "pybind11/pytypes.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_identifier.h"

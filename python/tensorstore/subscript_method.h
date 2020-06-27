@@ -24,9 +24,7 @@
 #include <new>
 #include <utility>
 
-#include "pybind11/cast.h"
 #include "pybind11/pybind11.h"
-#include "pybind11/pytypes.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/str_cat.h"
 

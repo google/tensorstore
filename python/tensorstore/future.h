@@ -32,9 +32,7 @@
 
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
-#include "pybind11/cast.h"
 #include "pybind11/pybind11.h"
-#include "pybind11/pytypes.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
