@@ -3,7 +3,7 @@
 namespace tensorstore {
 namespace internal {
 
-void LockCollection::MutexSharedLockFunction(void* mutex, bool lock)
+bool LockCollection::MutexSharedLockFunction(void* mutex, bool lock)
     ABSL_NO_THREAD_SAFETY_ANALYSIS {
   auto& m = *static_cast<absl::Mutex*>(mutex);
   if (lock) {
@@ -11,9 +11,10 @@ void LockCollection::MutexSharedLockFunction(void* mutex, bool lock)
   } else {
     m.ReaderUnlock();
   }
+  return true;
 }
 
-void LockCollection::MutexExclusiveLockFunction(void* mutex, bool lock)
+bool LockCollection::MutexExclusiveLockFunction(void* mutex, bool lock)
     ABSL_NO_THREAD_SAFETY_ANALYSIS {
   auto& m = *static_cast<absl::Mutex*>(mutex);
   if (lock) {
@@ -21,9 +22,10 @@ void LockCollection::MutexExclusiveLockFunction(void* mutex, bool lock)
   } else {
     m.WriterUnlock();
   }
+  return true;
 }
 
-void LockCollection::lock() {
+bool LockCollection::try_lock() {
   if (locks_.size() > 1) {
     // Sort by `tagged_pointer` value.  Since the tag bit is the least
     // significant bit, this groups together all entries with the same data
@@ -42,9 +44,20 @@ void LockCollection::lock() {
                              }),
                  locks_.end());
   }
-  for (const auto& entry : locks_) {
-    entry.lock_function(entry.data(), /*lock=*/true);
+  size_t i = 0, size = locks_.size();
+  auto* locks = locks_.data();
+  for (; i < size; ++i) {
+    auto& entry = locks[i];
+    if (!entry.lock_function(entry.data(), /*lock=*/true)) {
+      while (i > 0) {
+        --i;
+        auto& prev_entry = locks[i];
+        prev_entry.lock_function(prev_entry.data(), /*lock=*/false);
+      }
+      return false;
+    }
   }
+  return true;
 }
 
 void LockCollection::unlock() {
@@ -52,6 +65,8 @@ void LockCollection::unlock() {
     entry.lock_function(entry.data(), /*lock=*/false);
   }
 }
+
+void LockCollection::clear() { locks_.clear(); }
 
 }  // namespace internal
 }  // namespace tensorstore

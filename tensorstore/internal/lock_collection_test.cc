@@ -28,7 +28,8 @@ using tensorstore::internal::LockCollection;
 TEST(LockCollectionTest, Empty) {
   LockCollection c;
   {
-    std::lock_guard<LockCollection> guard{c};
+    std::unique_lock<LockCollection> guard(c, std::try_to_lock);
+    ASSERT_TRUE(guard);
     // Nothing to check.
   }
 }
@@ -38,12 +39,14 @@ TEST(LockCollectionTest, SingleShared) {
   LockCollection c;
   c.RegisterShared(m);
   {
-    std::lock_guard<LockCollection> guard{c};
+    std::unique_lock<LockCollection> guard(c, std::try_to_lock);
+    ASSERT_TRUE(guard);
     m.AssertReaderHeld();
   }
   m.AssertNotHeld();
   {
-    std::lock_guard<LockCollection> guard{c};
+    std::unique_lock<LockCollection> guard(c, std::try_to_lock);
+    ASSERT_TRUE(guard);
     m.AssertReaderHeld();
   }
   m.AssertNotHeld();
@@ -56,12 +59,14 @@ TEST(LockCollectionTest, SingleSharedDuplicate) {
   c.RegisterShared(m);
   c.RegisterShared(m);
   {
-    std::lock_guard<LockCollection> guard{c};
+    std::unique_lock<LockCollection> guard(c, std::try_to_lock);
+    ASSERT_TRUE(guard);
     m.AssertReaderHeld();
   }
   m.AssertNotHeld();
   {
-    std::lock_guard<LockCollection> guard{c};
+    std::unique_lock<LockCollection> guard(c, std::try_to_lock);
+    ASSERT_TRUE(guard);
     m.AssertReaderHeld();
   }
   m.AssertNotHeld();
@@ -72,12 +77,14 @@ TEST(LockCollectionTest, SingleExclusive) {
   LockCollection c;
   c.RegisterExclusive(m);
   {
-    std::lock_guard<LockCollection> guard{c};
+    std::unique_lock<LockCollection> guard(c, std::try_to_lock);
+    ASSERT_TRUE(guard);
     m.AssertHeld();
   }
   m.AssertNotHeld();
   {
-    std::lock_guard<LockCollection> guard{c};
+    std::unique_lock<LockCollection> guard(c, std::try_to_lock);
+    ASSERT_TRUE(guard);
     m.AssertHeld();
   }
   m.AssertNotHeld();
@@ -90,7 +97,8 @@ TEST(LockCollectionTest, SingleExclusiveDuplicate) {
   c.RegisterExclusive(m);
   c.RegisterShared(m);
   {
-    std::lock_guard<LockCollection> guard{c};
+    std::unique_lock<LockCollection> guard(c, std::try_to_lock);
+    ASSERT_TRUE(guard);
     m.AssertHeld();
   }
   m.AssertNotHeld();
@@ -108,7 +116,8 @@ TEST(LockCollectionTest, Multiple) {
   c.RegisterShared(m[1]);
   c.RegisterShared(m[2]);
   {
-    std::lock_guard<LockCollection> guard{c};
+    std::unique_lock<LockCollection> guard(c, std::try_to_lock);
+    ASSERT_TRUE(guard);
     m[0].AssertHeld();
     m[1].AssertReaderHeld();
     m[2].AssertReaderHeld();
@@ -117,6 +126,12 @@ TEST(LockCollectionTest, Multiple) {
   m[1].AssertNotHeld();
   m[2].AssertNotHeld();
 }
+
+// TestConcurrent can cause extreme system slowdowns on MS Windows, resulting in
+// test timeouts.  These tests aren't critical and don't have any
+// platform-specific behavior that shouldn't already be tested by Abseil, so we
+// skip them on Windows.
+#if !defined(_WIN32)
 
 // Tests that LockCollection avoids deadlock.
 TEST(LockCollectionTest, MultipleConcurrentExclusive) {
@@ -145,7 +160,10 @@ TEST(LockCollectionTest, MultipleConcurrentExclusive) {
         /*initialize=*/[] {},
         /*finalize=*/[] {},
         /*concurrent_op=*/
-        [&](size_t i) { std::lock_guard<LockCollection> guard(c[i]); });
+        [&](size_t i) {
+          std::unique_lock<LockCollection> guard(c[i], std::try_to_lock);
+          ASSERT_TRUE(guard);
+        });
   }
 }
 
@@ -187,9 +205,50 @@ TEST(LockCollectionTest, MultipleConcurrentExclusiveShared) {
           /*initialize=*/[] {},
           /*finalize=*/[] {},
           /*concurrent_op=*/
-          [&](size_t i) { std::lock_guard<LockCollection> guard(c[i]); });
+          [&](size_t i) {
+            std::unique_lock<LockCollection> guard(c[i], std::try_to_lock);
+            EXPECT_TRUE(guard);
+          });
     }
   }
+}
+
+#endif  // !defined(_WIN32)
+
+struct LoggingLockable;
+using LockLog = std::vector<std::pair<LoggingLockable*, bool>>;
+struct LoggingLockable {
+  LockLog& log;
+  bool fail;
+};
+
+/// Tests handling of a lock failure.
+TEST(LockCollectionTest, Fail) {
+  LockLog log;
+  LoggingLockable lockables[4] = {
+      LoggingLockable{log, false},
+      LoggingLockable{log, false},
+      LoggingLockable{log, true},
+      LoggingLockable{log, true},
+  };
+  constexpr auto lock_function = [](void* data, bool lock) -> bool {
+    auto* lockable = static_cast<LoggingLockable*>(data);
+    lockable->log.emplace_back(lockable, lock);
+    if (lock && lockable->fail) return false;
+    return true;
+  };
+  LockCollection c;
+  for (auto& lockable : lockables) {
+    c.Register(&lockable, lock_function, false);
+  }
+  std::unique_lock<LockCollection> guard(c, std::try_to_lock);
+  EXPECT_FALSE(guard);
+  EXPECT_THAT(log,
+              ::testing::ElementsAre(::testing::Pair(&lockables[0], true),
+                                     ::testing::Pair(&lockables[1], true),
+                                     ::testing::Pair(&lockables[2], true),
+                                     ::testing::Pair(&lockables[1], false),
+                                     ::testing::Pair(&lockables[0], false)));
 }
 
 }  // namespace
