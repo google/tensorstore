@@ -131,6 +131,26 @@ struct FreeDeleter {
   void operator()(void* ptr) const { std::free(ptr); }
 };
 
+template <typename T>
+struct ArrayDeleter {
+  void operator()(T* ptr) const { delete[] ptr; }
+};
+
+/// Allocates an array of `n` objects of type `U`, where `T = U[]`.
+///
+/// The objects are default initialized, meaning that primitive types remain
+/// uninitialized.
+///
+/// This matches the behavior of the C++20 standard library function of the same
+/// name, though unlike the C++20 standard library function, it still requires
+/// an allocation for the control block separate from the array allocation.
+template <typename T>
+std::enable_if_t<std::is_array_v<T>, std::shared_ptr<T>>
+make_shared_for_overwrite(size_t n) {
+  using U = std::remove_extent_t<T>;
+  return std::shared_ptr<T>(new U[n], ArrayDeleter<U>{});
+}
+
 }  // namespace internal
 }  // namespace tensorstore
 
