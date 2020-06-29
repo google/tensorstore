@@ -49,7 +49,7 @@ TEST(ValidateIndexArrayBoundsTest, Basic) {
   EXPECT_THAT(ValidateIndexArrayBounds(IndexInterval::UncheckedClosed(5, 8),
                                        MakeArray<Index>({5, 6, 7, 8, 9})),
               MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Index 9 is outside valid range \\[5, 9\\)\\."));
+                            "Index 9 is outside valid range \\[5, 9\\)"));
   // +/-kInfIndex are not valid even if the bounds include them.
   EXPECT_THAT(
       ValidateIndexArrayBounds(IndexInterval(), MakeArray<Index>({kInfIndex})),
@@ -219,17 +219,16 @@ TEST(IterateOverTransformedArraysTest, StridedOnly) {
 }
 
 TEST(IterateOverTransformedArraysTest, ErrorHandling) {
-  EXPECT_THAT(
-      IterateOverTransformedArrays(
-          [&](const float* source_ptr, float* dest_ptr) {},
-          /*constraints=*/{},
-          tensorstore::ArrayView<const float>(
-              tensorstore::MakeScalarArray<float>(1)),
-          MakeArray<float>({1}))
-          .status(),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Transformed array input ranks must all be the same \\(0 vs 1\\)."));
+  EXPECT_THAT(IterateOverTransformedArrays(
+                  [&](const float* source_ptr, float* dest_ptr) {},
+                  /*constraints=*/{},
+                  tensorstore::ArrayView<const float>(
+                      tensorstore::MakeScalarArray<float>(1)),
+                  MakeArray<float>({1}))
+                  .status(),
+              MatchesStatus(
+                  absl::StatusCode::kInvalidArgument,
+                  "Transformed array input ranks \\{0, 1\\} do not all match"));
 }
 
 TEST(IterateOverTransformedArrayTest, EarlyStoppingWithoutStatus) {

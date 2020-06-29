@@ -84,7 +84,7 @@ Result<TransformRep::Ptr<>> MakeTransformFromStridedLayoutAndTransform(
   if (transform->output_rank != layout.rank()) {
     return absl::InvalidArgumentError(
         StrCat("Transform output rank (", transform->output_rank,
-               ") does not equal array rank (", layout.rank(), ")."));
+               ") does not equal array rank (", layout.rank(), ")"));
   }
   TENSORSTORE_ASSIGN_OR_RETURN(
       transform, PropagateExplicitBoundsToTransform(layout.domain(),
@@ -126,14 +126,27 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
 
   Box<dynamic_rank(kNumInlinedDims)> input_bounds(input_rank);
 
+  // Validate domain ranks
+  bool failed = false;
+  for (std::size_t i = 0; i < Arity; ++i) {
+    if (transformed_arrays[i].domain().rank() != input_rank) {
+      failed = true;
+    }
+  }
+  if (failed) {
+    absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
+        transformed_ranks(Arity);
+    for (std::size_t i = 0; i < Arity; ++i) {
+      transformed_ranks[i] = transformed_arrays[i].domain().rank();
+    }
+    return absl::InvalidArgumentError(StrCat("Transformed array input ranks ",
+                                             span(transformed_ranks),
+                                             " do not all match"));
+  }
+
   // Compute input_bounds.
   for (std::size_t i = 0; i < Arity; ++i) {
     const BoxView<> domain = transformed_arrays[i].domain();
-    if (domain.rank() != input_rank) {
-      return absl::InvalidArgumentError(
-          StrCat("Transformed array input ranks must all be the same (",
-                 input_rank, " vs ", domain.rank(), ")."));
-    }
     TENSORSTORE_RETURN_IF_ERROR(
         internal_index_space::ValidateAndIntersectBounds(
             domain, input_bounds, [](IndexInterval a, IndexInterval b) {

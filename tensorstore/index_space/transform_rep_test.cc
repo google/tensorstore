@@ -142,17 +142,18 @@ TEST(ReplaceZeroRankIndexArrayIndexMapTest, OutOfBounds) {
                   10, IndexInterval::UncheckedClosed(11, 15), &output_offset,
                   &output_stride),
               MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Index 10 is outside valid range \\[11, 16\\)\\."));
+                            "Index 10 is outside valid range \\[11, 16\\)"));
 }
 
 TEST(ReplaceZeroRankIndexArrayIndexMapTest, OverflowOffset) {
   Index output_offset = std::numeric_limits<Index>::max(), output_stride = 3;
-  EXPECT_THAT(ReplaceZeroRankIndexArrayIndexMap(
-                  10, IndexInterval::UncheckedClosed(5, 15), &output_offset,
-                  &output_stride),
-              MatchesStatus(
-                  absl::StatusCode::kInvalidArgument,
-                  "Integer overflow computing offset for output dimension\\."));
+  EXPECT_THAT(
+      ReplaceZeroRankIndexArrayIndexMap(10,
+                                        IndexInterval::UncheckedClosed(5, 15),
+                                        &output_offset, &output_stride),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          ".*Integer overflow computing offset for output dimension.*"));
 }
 
 TEST(ReplaceZeroRankIndexArrayIndexMapTest, OverflowStride) {
@@ -162,7 +163,7 @@ TEST(ReplaceZeroRankIndexArrayIndexMapTest, OverflowStride) {
                                         &output_offset, &output_stride),
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,
-          "Integer overflow computing offset for output dimension\\."));
+          ".*Integer overflow computing offset for output dimension.*"));
 }
 
 TEST(Allocate, Basic) {
@@ -436,9 +437,10 @@ TEST(ValidateAndIntersectBoundsTest, Failure) {
       });
   EXPECT_THAT(
       status,
-      MatchesStatus(absl::StatusCode::kOutOfRange,
-                    "Propagated bounds \\[5, \\+inf\\) for dimension 1 are "
-                    "incompatible with existing bounds \\[4, 7\\)\\."));
+      MatchesStatus(
+          absl::StatusCode::kOutOfRange,
+          ".*Propagated bounds are incompatible with existing bounds in "
+          "dimension 1 bounds .* vs. propagated bounds.*"));
 }
 
 TEST(ValidateLabelsAreUniqueTest, Basic) {
@@ -452,11 +454,11 @@ TEST(ValidateLabelsAreUniqueTest, Basic) {
   EXPECT_THAT(
       ValidateLabelsAreUnique(std::vector<std::string>{"a", "b", "c", "a"}),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Dimension label \"a\" is not unique"));
+                    "Dimension label.* \"a\" not unique"));
   EXPECT_THAT(
       ValidateLabelsAreUnique(std::vector<std::string>{"a", "b", "c", "b"}),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Dimension label \"b\" is not unique"));
+                    "Dimension label.* \"b\" not unique"));
 }
 
 }  // namespace

@@ -554,7 +554,7 @@ TEST(ComposeLayoutAndTransformTest, RankMismatch) {
                   layout, tensorstore::IdentityTransform(3)),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Transform output rank \\(3\\) does not equal "
-                            "array rank \\(2\\)\\."));
+                            "array rank \\(2\\)"));
 }
 
 TEST(MakeNormalizedTransformedArrayTest, UntransformedArray) {

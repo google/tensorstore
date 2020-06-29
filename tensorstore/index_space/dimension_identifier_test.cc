@@ -300,7 +300,7 @@ TEST(NormalizeDimRangeSpecTest, InvalidIndex) {
   EXPECT_THAT(NormalizeDimRangeSpec(DimRangeSpec{1, 8, 1}, 5, &buffer),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Dimension exclusive stop index 8 is outside valid "
-                            "range \\[-6, 5\\]\\."));
+                            "range \\[-6, 5\\]"));
 }
 
 }  // namespace

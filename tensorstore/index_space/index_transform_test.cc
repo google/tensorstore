@@ -450,7 +450,7 @@ TEST(TransformIndicesTest, IndexRangeError) {
               MatchesStatus(absl::StatusCode::kOutOfRange,
                             "Computing index for output dimension 0: "
                             "Checking result of index array output index map: "
-                            "Index 5 is outside valid range \\[6, 8\\)\\."));
+                            "Index 5 is outside valid range \\[6, 8\\)"));
 }
 
 TEST(IndexTransformTest, ConstructMove) {

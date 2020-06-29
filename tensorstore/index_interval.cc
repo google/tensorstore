@@ -31,7 +31,7 @@ Result<IndexInterval> IndexInterval::Closed(Index inclusive_min,
   if (!ValidClosed(inclusive_min, inclusive_max)) {
     return absl::InvalidArgumentError(
         StrCat("(", inclusive_min, ", ", inclusive_max,
-               ") do not specify a valid closed index interval."));
+               ") do not specify a valid closed index interval"));
   }
   return UncheckedClosed(inclusive_min, inclusive_max);
 }
@@ -41,7 +41,7 @@ Result<IndexInterval> IndexInterval::HalfOpen(Index inclusive_min,
   if (!ValidHalfOpen(inclusive_min, exclusive_max)) {
     return absl::InvalidArgumentError(
         StrCat("(", inclusive_min, ", ", exclusive_max,
-               ") do not specify a valid half-open index interval."));
+               ") do not specify a valid half-open index interval"));
   }
   return UncheckedHalfOpen(inclusive_min, exclusive_max);
 }
@@ -50,7 +50,7 @@ Result<IndexInterval> IndexInterval::Sized(Index inclusive_min, Index size) {
   if (!ValidSized(inclusive_min, size)) {
     return absl::InvalidArgumentError(
         StrCat("(", inclusive_min, ", ", size,
-               ") do not specify a valid sized index interval."));
+               ") do not specify a valid sized index interval"));
   }
   return UncheckedSized(inclusive_min, size);
 }
@@ -174,7 +174,7 @@ Result<IndexInterval> ShiftInterval(IndexInterval interval, Index offset) {
   if (!IsFiniteIndex(offset)) {
     return absl::OutOfRangeError(StrCat("Index offset ", offset,
                                         " is outside valid range ",
-                                        IndexInterval::FiniteRange(), "."));
+                                        IndexInterval::FiniteRange()));
   }
   Index inclusive_min;
   if (interval.inclusive_min() == -kInfIndex) {
@@ -182,9 +182,9 @@ Result<IndexInterval> ShiftInterval(IndexInterval interval, Index offset) {
   } else {
     inclusive_min = interval.inclusive_min() + offset;
     if (!IsFiniteIndex(inclusive_min)) {
-      return absl::InvalidArgumentError(StrCat(
-          "Shifted inclusive_min value ", inclusive_min,
-          " is outside valid range ", IndexInterval::FiniteRange(), "."));
+      return absl::InvalidArgumentError(
+          StrCat("Shifted inclusive_min value ", inclusive_min,
+                 " is outside valid range ", IndexInterval::FiniteRange()));
     }
   }
   Index inclusive_max;
@@ -193,9 +193,9 @@ Result<IndexInterval> ShiftInterval(IndexInterval interval, Index offset) {
   } else {
     inclusive_max = interval.inclusive_max() + offset;
     if (!IsFiniteIndex(inclusive_max)) {
-      return absl::InvalidArgumentError(StrCat(
-          "Shifted inclusive_max value ", inclusive_max,
-          " is outside valid range ", IndexInterval::FiniteRange(), "."));
+      return absl::InvalidArgumentError(
+          StrCat("Shifted inclusive_max value ", inclusive_max,
+                 " is outside valid range ", IndexInterval::FiniteRange()));
     }
   }
   return IndexInterval::UncheckedClosed(inclusive_min, inclusive_max);
@@ -205,11 +205,11 @@ Result<IndexInterval> ShiftIntervalTo(IndexInterval interval, Index origin) {
   if (!IsFiniteIndex(origin)) {
     return absl::OutOfRangeError(StrCat("Origin ", origin,
                                         " is outside valid range ",
-                                        IndexInterval::FiniteRange(), "."));
+                                        IndexInterval::FiniteRange()));
   }
   if (interval.inclusive_min() == -kInfIndex) {
     return absl::InvalidArgumentError(
-        StrCat("Interval ", interval, " is not bounded below."));
+        StrCat("Interval ", interval, " is not bounded below"));
   }
   // Guaranteed not to overflow because `IsFiniteIndex(origin) == true`.
   Index offset;
@@ -221,9 +221,8 @@ Result<IndexInterval> ShiftIntervalTo(IndexInterval interval, Index origin) {
 
 Status CheckContains(IndexInterval interval, Index index) {
   if (Contains(interval, index)) return absl::OkStatus();
-  return Status(
-      absl::StatusCode::kOutOfRange,
-      StrCat("Index ", index, " is outside valid range ", interval, "."));
+  return Status(absl::StatusCode::kOutOfRange,
+                StrCat("Index ", index, " is outside valid range ", interval));
 }
 
 Result<std::pair<OptionallyImplicitIndexInterval, Index>> ExtractStridedSlice(
@@ -236,14 +235,13 @@ Result<std::pair<OptionallyImplicitIndexInterval, Index>> ExtractStridedSlice(
 
   // Check for 0 and std::numeric_limits<Index>::min(), which are both invalid.
   if (stride == 0 || stride == std::numeric_limits<Index>::min()) {
-    return absl::InvalidArgumentError(StrCat("Invalid stride ", stride, "."));
+    return absl::InvalidArgumentError(StrCat("Invalid stride ", stride));
   }
   if (start == kImplicit) {
     start = stride > 0 ? orig.inclusive_min() : orig.inclusive_max();
   } else {
     if (!IsValidIndex(start)) {
-      return absl::InvalidArgumentError(
-          StrCat("Invalid start index ", start, "."));
+      return absl::InvalidArgumentError(StrCat("Invalid start index ", start));
     }
     orig.implicit_lower() = false;
   }
@@ -256,7 +254,7 @@ Result<std::pair<OptionallyImplicitIndexInterval, Index>> ExtractStridedSlice(
       if (size < 0) {
         return Status(
             absl::StatusCode::kInvalidArgument,
-            StrCat("Negative size ", size, " specified for sized interval."));
+            StrCat("Negative size ", size, " specified for sized interval"));
       }
       orig.implicit_upper() = false;
       if (size == 0) {
@@ -267,7 +265,7 @@ Result<std::pair<OptionallyImplicitIndexInterval, Index>> ExtractStridedSlice(
         if (internal::MulOverflow(stride, size - 1, &inclusive_stop) ||
             internal::AddOverflow(start, inclusive_stop, &inclusive_stop)) {
           return absl::OutOfRangeError(
-              StrCat("Integer overflow computing slice result."));
+              StrCat("Integer overflow computing slice result"));
         }
       }
     }
@@ -287,9 +285,9 @@ Result<std::pair<OptionallyImplicitIndexInterval, Index>> ExtractStridedSlice(
     }
   }
   if (std::abs(stride) != 1 && !IsFiniteIndex(start)) {
-    return absl::InvalidArgumentError(
-        StrCat("Slicing with non-unit stride of ", stride,
-               " requires a finite start index."));
+    return absl::InvalidArgumentError(StrCat("Slicing with non-unit stride of ",
+                                             stride,
+                                             " requires a finite start index"));
   }
   Index adjusted_inclusive_min, adjusted_inclusive_max;
   if (stride > 0) {
@@ -306,7 +304,7 @@ Result<std::pair<OptionallyImplicitIndexInterval, Index>> ExtractStridedSlice(
   if (!Contains(constraint, adjusted_interval)) {
     return absl::OutOfRangeError(StrCat("Slice interval ", adjusted_interval,
                                         " is not contained within domain ",
-                                        constraint, "."));
+                                        constraint));
   }
 
   Index new_start = start / stride;

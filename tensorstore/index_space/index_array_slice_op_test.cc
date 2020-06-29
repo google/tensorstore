@@ -422,21 +422,21 @@ TEST(IndexArraySliceTest, ErrorHandling) {
           .IndexArraySlice(MakeArray<Index>({1, 2}), MakeArray<Index>({3, 4})),
       absl::StatusCode::kInvalidArgument,
       "Number of selected dimensions \\(1\\) does not equal number of index "
-      "arrays \\(2\\)\\.");
+      "arrays \\(2\\)");
 
   TestDimExpressionError(
       IndexTransformBuilder<1, 0>().Finalize().value(),
       Dims(span<const DimensionIndex>())
           .IndexArraySlice(span<const SharedArrayView<const Index>>()),
       absl::StatusCode::kInvalidArgument,
-      "At least one index array must be specified\\.");
+      "At least one index array must be specified");
   TestDimExpressionError(
       IndexTransformBuilder<2, 0>().Finalize().value(),
       Dims(0, 1).IndexArraySlice(MakeArray<Index>({1, 2}),
                                  MakeArray<Index>({3, 4, 5})),
       absl::StatusCode::kInvalidArgument,
-      "Index arrays cannot be broadcast to a common shape: \\{2\\} vs "
-      "\\{3\\}\\.");
+      "Index arrays with shapes \\{2\\}, \\{3\\} cannot be broadcast "
+      "to a common shape");
 }
 
 TEST(IndexVectorArraySliceTest, OneDOutputOneDArray) {
@@ -594,13 +594,13 @@ TEST(IndexVectorArraySliceTest, ErrorHandling) {
       Dims(0).IndexVectorArraySlice(MakeArray<Index>({1, 2}), 0),
       absl::StatusCode::kInvalidArgument,
       "Number of selected dimensions \\(1\\) does not equal index vector "
-      "length \\(2\\)\\.");
+      "length \\(2\\)");
 
   TestDimExpressionError(
       IndexTransformBuilder<2, 0>().Finalize().value(),
       Dims(0).IndexVectorArraySlice(MakeArray<Index>({1, 2}), 1),
       absl::StatusCode::kInvalidArgument,
-      "Dimension index 1 is outside valid range \\[-1, 1\\)\\.");
+      "Dimension index 1 is outside valid range \\[-1, 1\\)");
 }
 
 TEST(OuterIndexArraySliceTest, Integration) {
@@ -709,7 +709,7 @@ TEST(OuterIndexArraySliceTest, ErrorHandling) {
                                 MakeArray<Index>({3, 4})),
       absl::StatusCode::kInvalidArgument,
       "Number of selected dimensions \\(1\\) does not equal number of index "
-      "arrays \\(2\\)\\.");
+      "arrays \\(2\\)");
 }
 
 }  // namespace

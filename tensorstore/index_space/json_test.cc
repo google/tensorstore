@@ -619,7 +619,7 @@ TEST(ParseIndexTransformTest, DuplicateLabels) {
 )")),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Error parsing index transform from JSON: "  //
-                            "Dimension label \"x\" is not unique"));
+                            "Dimension label.*"));
 }
 
 void TestIndexTransformSpecRoundTrip(IndexTransformSpec spec,

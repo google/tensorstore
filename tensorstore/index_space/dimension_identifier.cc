@@ -38,7 +38,7 @@ Result<DimensionIndex> NormalizeDimensionIndex(DimensionIndex index,
   if (index < -rank || index >= rank) {
     return absl::InvalidArgumentError(StrCat("Dimension index ", index,
                                              " is outside valid range [-", rank,
-                                             ", ", rank, ")."));
+                                             ", ", rank, ")"));
   }
   return index >= 0 ? index : index + rank;
 }
@@ -49,7 +49,7 @@ Result<DimensionIndex> NormalizeDimensionExclusiveStopIndex(
   if (index < -rank - 1 || index > rank) {
     return absl::InvalidArgumentError(
         StrCat("Dimension exclusive stop index ", index,
-               " is outside valid range [-", rank + 1, ", ", rank, "]."));
+               " is outside valid range [-", rank + 1, ", ", rank, "]"));
   }
   return index >= 0 ? index : index + rank;
 }

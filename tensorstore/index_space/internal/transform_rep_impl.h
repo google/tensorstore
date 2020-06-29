@@ -48,15 +48,21 @@ template <typename Predicate>
 Status ValidateAndIntersectBounds(BoxView<> inner, MutableBoxView<> combined,
                                   Predicate predicate) {
   ABSL_ASSERT(inner.rank() == combined.rank());
+  std::string error;
   for (DimensionIndex dim = 0; dim < inner.rank(); ++dim) {
     IndexIntervalRef outer_bounds = combined[dim];
     auto inner_bounds = inner[dim];
     if (!predicate(outer_bounds, inner_bounds)) {
-      return absl::OutOfRangeError(
-          StrCat("Propagated bounds ", outer_bounds, " for dimension ", dim,
-                 " are incompatible with existing bounds ", inner_bounds, "."));
+      StrAppend(&error, error.empty() ? "" : ", ", "in dimension ", dim,
+                " bounds ", inner_bounds, " vs. propagated bounds, ",
+                outer_bounds);
+    } else {
+      outer_bounds = Intersect(outer_bounds, inner_bounds);
     }
-    outer_bounds = Intersect(outer_bounds, inner_bounds);
+  }
+  if (!error.empty()) {
+    return absl::OutOfRangeError(StrCat(
+        "Propagated bounds are incompatible with existing bounds ", error));
   }
   return absl::OkStatus();
 }

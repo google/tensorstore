@@ -321,7 +321,7 @@ TEST(SingleIndexSliceTest, ErrorHandling) {
                              .value(),
                          AllDims().IndexSlice({5}),
                          absl::StatusCode::kOutOfRange,
-                         "Slice index .* is outside valid domain .*");
+                         "Slice mismatch: .* is outside valid domain .*");
 
   TestDimExpressionError(IndexTransformBuilder<1, 1>()
                              .input_origin({-kInfIndex})
@@ -330,7 +330,7 @@ TEST(SingleIndexSliceTest, ErrorHandling) {
                              .value(),
                          AllDims().IndexSlice({-kInfIndex}),
                          absl::StatusCode::kOutOfRange,
-                         "Slice index .* is outside valid domain .*");
+                         "Slice mismatch: .* is outside valid domain .*");
 
   TestDimExpressionError(
       IndexTransformBuilder<1, 1>()

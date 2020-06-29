@@ -42,7 +42,7 @@ TEST(DimsTest, ErrorHandling) {
   TestDimExpressionError(IndexTransformBuilder<2, 0>().Finalize().value(),
                          Dims(1, 1).Label("b", "c"),
                          absl::StatusCode::kInvalidArgument,
-                         "Input dimension 1 specified more than once.*");
+                         "Input dimensions \\{1\\} specified more than once.*");
 }
 
 TEST(DimsTest, SelectUsingLabels) {

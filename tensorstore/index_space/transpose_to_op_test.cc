@@ -107,7 +107,7 @@ TEST(TransposeToTest, ErrorHandling) {
           .Finalize()
           .value(),
       Dims(0).Transpose({2}), absl::StatusCode::kInvalidArgument,
-      "Dimension index 2 is outside valid range \\[-2, 2\\)\\.");
+      "Dimension index 2 is outside valid range \\[-2, 2\\)");
 }
 
 }  // namespace

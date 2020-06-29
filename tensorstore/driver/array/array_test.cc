@@ -46,6 +46,9 @@ using tensorstore::WriteProgress;
 using tensorstore::WriteProgressFunction;
 using tensorstore::zero_origin;
 
+constexpr const char kMismatchRE[] = ".* mismatch with target dimension .*";
+constexpr const char kOutsideValidRangeRE[] = ".* is outside valid range .*";
+
 namespace driver_tests {
 
 TEST(ArrayDriverTest, Read) {
@@ -110,7 +113,7 @@ TEST(ArrayDriverTest, ReadDomainMismatch) {
         read_progress.push_back(progress);
       }});
   EXPECT_THAT(GetStatus(future.result()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, "Mismatch .*"));
+              MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
   EXPECT_THAT(read_progress, ::testing::ElementsAre());
 }
 
@@ -139,7 +142,7 @@ TEST(ArrayDriverTest, ReadCopyTransformError) {
   // validated when copying from the ReadChunk to the target array.
   EXPECT_THAT(GetStatus(future.result()),
               MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Index 1 is outside valid range .*"));
+                            ".* is outside valid range .*"));
   EXPECT_THAT(read_progress, ::testing::ElementsAre());
 }
 
@@ -222,9 +225,9 @@ TEST(ArrayDriverTest, WriteDomainMismatch) {
         write_progress.push_back(progress);
       }});
   EXPECT_THAT(GetStatus(write_result.copy_future.result()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, "Mismatch .*"));
+              MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
   EXPECT_THAT(GetStatus(write_result.commit_future.result()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, "Mismatch .*"));
+              MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
   EXPECT_THAT(write_progress, ::testing::ElementsAre());
 }
 
@@ -285,7 +288,7 @@ TEST(ArrayDriverTest, CopyDomainMismatch) {
         progress.push_back(p);
       }});
   EXPECT_THAT(GetStatus(write_result.copy_future.result()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, "Mismatch .*"));
+              MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
   EXPECT_EQ(GetStatus(write_result.copy_future.result()),
             GetStatus(write_result.commit_future.result()));
   EXPECT_THAT(progress, ::testing::ElementsAre());
@@ -402,7 +405,7 @@ TEST(FromArrayTest, ReadDomainMismatch) {
              read_progress.push_back(progress);
            }});
   EXPECT_THAT(GetStatus(future.result()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, "Mismatch .*"));
+              MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
   EXPECT_THAT(read_progress, ::testing::ElementsAre());
 }
 
@@ -420,9 +423,9 @@ TEST(FromArrayTest, ReadCopyTransformError) {
       ReadProgressFunction{[&read_progress](ReadProgress progress) {
         read_progress.push_back(progress);
       }});
-  EXPECT_THAT(GetStatus(future.result()),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Index 1 is outside valid range .*"));
+  EXPECT_THAT(
+      GetStatus(future.result()),
+      MatchesStatus(absl::StatusCode::kOutOfRange, kOutsideValidRangeRE));
   EXPECT_THAT(read_progress, ::testing::ElementsAre());
 }
 
@@ -501,9 +504,9 @@ TEST(FromArrayTest, WriteDomainMismatch) {
         write_progress.push_back(progress);
       }});
   EXPECT_THAT(GetStatus(write_result.copy_future.result()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, "Mismatch .*"));
+              MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
   EXPECT_THAT(GetStatus(write_result.commit_future.result()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, "Mismatch .*"));
+              MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
   EXPECT_THAT(write_progress, ::testing::ElementsAre());
 }
 
@@ -565,7 +568,7 @@ TEST(FromArrayTest, CopyDomainMismatch) {
         progress.push_back(p);
       }});
   EXPECT_THAT(GetStatus(write_result.copy_future.result()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, "Mismatch .*"));
+              MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
   EXPECT_EQ(GetStatus(write_result.copy_future.result()),
             GetStatus(write_result.commit_future.result()));
   EXPECT_THAT(progress, ::testing::ElementsAre());

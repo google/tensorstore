@@ -483,7 +483,7 @@ TEST(IndexTransformBuilder, NonUniqueLabels) {
   EXPECT_THAT(
       IndexTransformBuilder<>(3, 0).input_labels({"a", "", "a"}).Finalize(),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Dimension label \"a\" is not unique"));
+                    "Dimension label\\(s\\) \"a\" not unique"));
 }
 
 TEST(IndexDomainBuilderTest, Null) {

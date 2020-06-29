@@ -398,11 +398,11 @@ TEST(NDIterableTransformedArrayErrorTest, OutOfBoundsConstant) {
                        .Finalize()
                        .value();
   TransformedArray<Shared<int>> ta(a, transform);
-  EXPECT_THAT(GetTransformedArrayNDIterable(ta, &arena),
-              MatchesStatus(
-                  absl::StatusCode::kOutOfRange,
-                  "Checking bounds of constant output index map for "
-                  "dimension 0: Index 8 is outside valid range \\[0, 5\\)\\."));
+  EXPECT_THAT(
+      GetTransformedArrayNDIterable(ta, &arena),
+      MatchesStatus(absl::StatusCode::kOutOfRange,
+                    "Checking bounds of constant output index map for "
+                    "dimension 0: Index 8 is outside valid range \\[0, 5\\)"));
 }
 
 TEST(NDIterableTransformedArrayErrorTest, OutOfBoundsSingleInputDimension) {
@@ -432,7 +432,7 @@ TEST(NDIterableTransformedArrayErrorTest, OutOfBoundsIndexArray) {
   TransformedArray<Shared<int>> ta(a, transform);
   EXPECT_THAT(GetTransformedArrayNDIterable(ta, &arena),
               MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Index 42 is outside valid range \\[-2, 3\\)\\."));
+                            ".*Index 42 is outside valid range \\[-2, 3\\)"));
 }
 
 TEST(NDIterableTransformedArrayErrorTest, OutOfBoundsSingletonIndexArray) {
@@ -448,7 +448,7 @@ TEST(NDIterableTransformedArrayErrorTest, OutOfBoundsSingletonIndexArray) {
   TransformedArray<Shared<int>> ta(a, transform);
   EXPECT_THAT(GetTransformedArrayNDIterable(ta, &arena),
               MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Index 42 is outside valid range \\[-2, 3\\)\\."));
+                            ".*Index 42 is outside valid range \\[-2, 3\\)"));
 }
 
 }  // namespace

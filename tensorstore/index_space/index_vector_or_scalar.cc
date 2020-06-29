@@ -26,7 +26,7 @@ Status CheckIndexVectorSize(IndexVectorOrScalar indices, DimensionIndex size) {
   if (indices.pointer && indices.size_or_scalar != size)
     return absl::InvalidArgumentError(StrCat(
         "Number of dimensions (", size, ") does not match number of indices (",
-        indices.size_or_scalar, ")."));
+        indices.size_or_scalar, ")"));
   return absl::OkStatus();
 }
 

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "tensorstore/index_space/internal/single_index_slice_op.h"
+
 #include "absl/container/fixed_array.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
 #include "tensorstore/internal/integer_overflow.h"
@@ -75,22 +76,27 @@ Result<SingletonSlicingInfo> GetSingletonSlicingInfo(
   // specified slice index and update the corresponding
   // InputDimensionSingletonSliceInfo structure, which also marks the existing
   // dimension as being one of the sliced dimensions.
+  std::string slice_error;
   for (DimensionIndex i = 0; i < num_dims; ++i) {
     const DimensionIndex original_input_dim = dimensions[i];
     const Index index = indices_pointer[i * indices_stride];
     const auto domain = original->input_dimension(original_input_dim)
                             .optionally_implicit_domain();
     if (!Contains(domain.effective_interval(), index)) {
-      // Assign to result, rather than just returning the error, to encourage
-      // NRVO.
-      result = absl::OutOfRangeError(
-          StrCat("Slice index ", index, " for input dimension ",
-                 original_input_dim, " is outside valid domain ", domain, "."));
-      return result;
+      StrAppend(&slice_error, (slice_error.empty() ? "" : ", "),
+                "in input dimension ", original_input_dim, " index ", index,
+                " is outside valid domain ", domain);
     }
     result->original_input_dimension_info[original_input_dim] =
         InputDimensionSingletonSliceInfo{-1, index};
   }
+  if (!slice_error.empty()) {
+    // Assign to result, rather than just returning the error, to encourage
+    // NRVO.
+    result = absl::OutOfRangeError(StrCat("Slice mismatch: ", slice_error));
+    return result;
+  }
+
   // For each existing dimension not being sliced, set the corresponding the
   // InputDimensionSingletonSliceInfo structure to indicate the mapping from
   // original input dimension index to new input dimension index.

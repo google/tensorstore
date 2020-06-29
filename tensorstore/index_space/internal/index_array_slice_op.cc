@@ -171,25 +171,34 @@ Result<TransformRep::Ptr<>> MakeTransformFromIndexArrays(
     span<const SharedArrayView<const Index>> index_arrays) {
   const DimensionIndex num_indexed_dims = dimensions->size();
   if (index_arrays.size() != num_indexed_dims) {
-    return absl::InvalidArgumentError(
-        StrCat("Number of selected dimensions (", num_indexed_dims,
-               ") does not equal number of index arrays (", index_arrays.size(),
-               ")."));
+    return absl::InvalidArgumentError(StrCat(
+        "Number of selected dimensions (", num_indexed_dims,
+        ") does not equal number of index arrays (", index_arrays.size(), ")"));
   }
   if (index_arrays.empty()) {
     return absl::InvalidArgumentError(
-        StrCat("At least one index array must be specified."));
+        StrCat("At least one index array must be specified"));
   }
   absl::FixedArray<Index, internal::kNumInlinedDims> shape(
       index_arrays[0].rank(), 1);
+
+  bool error = false;
   for (DimensionIndex i = 0; i < index_arrays.size(); ++i) {
     if (!BroadcastShapes(index_arrays[i].shape(), shape)) {
-      return Status(
-          absl::StatusCode::kInvalidArgument,
-          StrCat("Index arrays cannot be broadcast to a common shape: ",
-                 span(shape), " vs ", index_arrays[i].shape(), "."));
+      error = true;
     }
   }
+  if (error) {
+    std::string shape_msg;
+    for (DimensionIndex i = 0; i < index_arrays.size(); ++i) {
+      StrAppend(&shape_msg, (shape_msg.empty() ? "" : ", "),
+                index_arrays[i].shape());
+    }
+    return absl::InvalidArgumentError(
+        StrCat("Index arrays with shapes ", shape_msg,
+               " cannot be broadcast to a common shape"));
+  }
+
   const DimensionIndex num_new_dims = shape.size();
   const auto get_new_dimension_bounds = [&](DimensionIndex new_dim) {
     return IndexInterval::UncheckedSized(0, shape[new_dim]);
@@ -213,10 +222,9 @@ Result<TransformRep::Ptr<>> MakeTransformFromOuterIndexArrays(
     span<const SharedArrayView<const Index>> index_arrays) {
   const DimensionIndex num_indexed_dims = dimensions->size();
   if (index_arrays.size() != num_indexed_dims) {
-    return absl::InvalidArgumentError(
-        StrCat("Number of selected dimensions (", num_indexed_dims,
-               ") does not equal number of index arrays (", index_arrays.size(),
-               ")."));
+    return absl::InvalidArgumentError(StrCat(
+        "Number of selected dimensions (", num_indexed_dims,
+        ") does not equal number of index arrays (", index_arrays.size(), ")"));
   }
   const DimensionIndex output_rank = orig_transform->input_rank;
   DimensionIndex input_rank = output_rank - num_indexed_dims;
@@ -315,7 +323,7 @@ Result<TransformRep::Ptr<>> MakeTransformFromIndexVectorArray(
     return absl::InvalidArgumentError(
         StrCat("Number of selected dimensions (", num_indexed_dims,
                ") does not equal index vector length (",
-               index_vector_array.shape()[vector_dimension], ")."));
+               index_vector_array.shape()[vector_dimension], ")"));
   }
   const DimensionIndex num_new_dims = index_vector_array.rank() - 1;
   const auto get_index_vector_array_dim = [&](DimensionIndex new_dim) {

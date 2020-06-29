@@ -176,7 +176,7 @@ TEST(ComposeTransformsTest, ConstantOutOfDomain) {
                     .value();
   EXPECT_THAT(ComposeTransforms(b_to_c, a_to_b).status(),
               MatchesStatus(absl::StatusCode::kOutOfRange,
-                            ".*Index 2 is outside valid range \\[3, 10\\)\\."));
+                            ".*Index 2 is outside valid range \\[3, 10\\)"));
 }
 
 TEST(ComposeTransformsTest, ConstantOverflow) {

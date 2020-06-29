@@ -25,6 +25,7 @@
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -502,13 +503,18 @@ Status ValidateLabelsAreUnique(span<const std::string> labels) {
   size_t i;
   for (i = 1; i < sorted_labels.size() && sorted_labels[i].empty(); ++i)
     continue;
+  std::string error;
   for (; i < sorted_labels.size(); ++i) {
     absl::string_view label = sorted_labels[i];
     if (label == sorted_labels[i - 1]) {
-      return absl::InvalidArgumentError(
-          StrCat("Dimension label ", QuoteString(label), " is not unique"));
+      StrAppend(&error, error.empty() ? "" : ", ", QuoteString(label));
     }
   }
+  if (!error.empty()) {
+    return absl::InvalidArgumentError(
+        StrCat("Dimension label(s) ", error, " not unique"));
+  }
+
   return absl::OkStatus();
 }
 

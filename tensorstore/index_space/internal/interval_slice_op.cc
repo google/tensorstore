@@ -138,13 +138,13 @@ Result<IndexTransform<>> ApplyIntervalSliceOp(
             internal::AddOverflow(offset, map.offset(), &map.offset())) {
           return absl::InvalidArgumentError(
               StrCat("Integer overflow computing offset for output dimension ",
-                     output_dim, "."));
+                     output_dim));
         }
         if (internal::MulOverflow(slice_info.stride, map.stride(),
                                   &map.stride())) {
           return absl::InvalidArgumentError(
               StrCat("Integer overflow computing stride for output dimension ",
-                     output_dim, "."));
+                     output_dim));
         }
         break;
       }

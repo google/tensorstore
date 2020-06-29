@@ -576,7 +576,7 @@ def test_dimension_selection_dimrange_index_invalid_start():
   expr = ts.d[5:][...]
   with pytest.raises(
       IndexError,
-      match=re.escape("Dimension index 5 is outside valid range [-3, 3)."),
+      match=re.escape("Dimension index 5 is outside valid range [-3, 3)"),
   ):
     x[expr]
 
@@ -587,7 +587,7 @@ def test_dimension_selection_dimrange_index_invalid_stop():
   with pytest.raises(
       IndexError,
       match=re.escape(
-          "Dimension exclusive stop index 5 is outside valid range [-4, 3]."),
+          "Dimension exclusive stop index 5 is outside valid range [-4, 3]"),
   ):
     x[expr]
 

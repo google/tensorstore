@@ -188,7 +188,11 @@ Status InitializeSingleArrayIterationStateImpl(
         // The index array has only a single distinct value; therefore, we treat
         // it as a constant output index map.
         const Index index = *index_array_pointer;
-        TENSORSTORE_RETURN_IF_ERROR(CheckContains(index_bounds, index));
+        TENSORSTORE_RETURN_IF_ERROR(
+            CheckContains(index_bounds, index),
+            MaybeAnnotateStatus(
+                _, StrCat("In index array map for output dimension ",
+                          output_dim)));
         single_array_state->base_pointer +=
             internal::wrap_on_overflow::Multiply(
                 byte_stride,
@@ -205,17 +209,22 @@ Status InitializeSingleArrayIterationStateImpl(
         single_array_state->index_array_output_byte_strides[index_array_num] =
             internal::wrap_on_overflow::Multiply(byte_stride, output_stride);
 
-        TENSORSTORE_RETURN_IF_ERROR(ValidateIndexArrayBounds(
-            index_bounds,
-            ArrayView<const Index>(index_array_pointer.get(),
-                                   StridedLayoutView<dynamic_rank>(
-                                       input_rank, iteration_shape,
-                                       index_array_data.byte_strides))));
+        TENSORSTORE_RETURN_IF_ERROR(
+            ValidateIndexArrayBounds(
+                index_bounds,
+                ArrayView<const Index>(index_array_pointer.get(),
+                                       StridedLayoutView<dynamic_rank>(
+                                           input_rank, iteration_shape,
+                                           index_array_data.byte_strides))),
+            MaybeAnnotateStatus(
+                _, StrCat("In index array map for output dimension ",
+                          output_dim)));
       }
     }
   }
   return {};
 }
+
 }  // namespace
 
 Status InitializeSingleArrayIterationState(

@@ -225,7 +225,8 @@ TEST(TransformArrayTest, ArrayIndexOutOfBounds) {
               .value())
           .status(),
       MatchesStatus(absl::StatusCode::kOutOfRange,
-                    ".*Index 2 is outside valid range \\[0, 2\\)\\."));
+                    ".*Index 2 is outside valid range \\[0, 2\\).*"));
+
   EXPECT_THAT(
       tensorstore::TransformArray(
           original_array,
@@ -238,7 +239,7 @@ TEST(TransformArrayTest, ArrayIndexOutOfBounds) {
               .value())
           .status(),
       MatchesStatus(absl::StatusCode::kOutOfRange,
-                    ".*Index -1 is outside valid range \\[0, 2\\)\\."));
+                    ".*Index -1 is outside valid range \\[0, 2\\).*"));
 }
 
 TEST(TransformArrayTest, TwoDArrayOneDIndexArrayStridedWithOrigin) {

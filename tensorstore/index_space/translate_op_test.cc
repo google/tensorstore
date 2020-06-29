@@ -249,7 +249,7 @@ TEST(TranslateByTest, ErrorHandling) {
       AllDims().TranslateBy(span<const Index>({1, 2})),
       absl::StatusCode::kInvalidArgument,
       "Number of dimensions \\(1\\) does not match number of "
-      "indices \\(2\\)\\.");
+      "indices \\(2\\)");
 
   TestDimExpressionError(IndexTransformBuilder<1, 1>()
                              .input_origin({kMinFiniteIndex})
@@ -468,7 +468,7 @@ TEST(TranslateToTest, ErrorHandling) {
   TestDimExpressionError(IndexTransformBuilder<1, 1>().Finalize().value(),
                          AllDims().TranslateTo(1),
                          absl::StatusCode::kInvalidArgument,
-                         "Interval \\(-inf, \\+inf\\) is not bounded below\\.");
+                         "Interval \\(-inf, \\+inf\\) is not bounded below");
 
   TestDimExpressionError(
       IndexTransformBuilder<1, 1>()
@@ -477,8 +477,7 @@ TEST(TranslateToTest, ErrorHandling) {
           .Finalize()
           .value(),
       AllDims().TranslateTo(std::numeric_limits<Index>::max()),
-      absl::StatusCode::kOutOfRange,
-      "Origin [0-9]+ is outside valid range .*\\.");
+      absl::StatusCode::kOutOfRange, "Origin [0-9]+ is outside valid range .*");
 }
 
 }  // namespace

@@ -372,7 +372,7 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, IndexArrayOutOfBounds) {
       transform, grid_output_dimensions, grid_cell_shape, &partitioned);
   EXPECT_THAT(status,
               MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Index 2 is outside valid range \\[3, 11\\)\\."));
+                            "Index 2 is outside valid range \\[3, 11\\)"));
 }
 
 // Tests that integer overflow due to a `single_input_dimension` mapping leads

@@ -31,18 +31,26 @@ Status CheckAndNormalizeDimensions(DimensionIndex input_rank,
         StrCat("Number of dimensions (", dimensions.size(),
                ") exceeds input rank (", input_rank, ")."));
   }
+
+  std::vector<DimensionIndex> error_dimensions;
   for (DimensionIndex i = 0; i < dimensions.size(); ++i) {
     TENSORSTORE_ASSIGN_OR_RETURN(
         const DimensionIndex dim,
         NormalizeDimensionIndex(dimensions[i], input_rank));
+
     dimensions[i] = dim;
     for (DimensionIndex j = 0; j < i; ++j) {
       if (dimensions[j] == dim) {
-        return absl::InvalidArgumentError(
-            StrCat("Input dimension ", dim, " specified more than once."));
+        error_dimensions.push_back(dim);
       }
     }
   }
+  if (!error_dimensions.empty()) {
+    return absl::InvalidArgumentError(
+        StrCat("Input dimensions {", absl::StrJoin(error_dimensions, ", "),
+               "} specified more than once"));
+  }
+
   return absl::OkStatus();
 }
 

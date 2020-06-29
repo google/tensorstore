@@ -81,6 +81,7 @@ Status AlignDimensionsTo(IndexDomainView<> source, IndexDomainView<> target,
     }
   }
   // Validate matches
+  std::string mismatch_error;
   const auto source_shape = source.shape();
   const auto target_shape = target.shape();
   for (DimensionIndex i = 0; i < source_rank; ++i) {
@@ -92,24 +93,28 @@ Status AlignDimensionsTo(IndexDomainView<> source, IndexDomainView<> target,
               : source_size != target_shape[j]) {
         if (!(options & DomainAlignmentOptions::broadcast) ||
             source_size != 1) {
-          return absl::InvalidArgumentError(
-              StrCat("Mismatch between source dimension ", i, " {", source[i],
-                     "} and target dimension ", j, " {", target[j], "}"));
+          StrAppend(&mismatch_error, "source dimension ", i, " ", source[i],
+                    " mismatch with target dimension ", j, " ", target[j],
+                    ", ");
         }
         j = -1;
       }
     } else {
       // j == -1
       if (!(options & DomainAlignmentOptions::broadcast)) {
-        return absl::InvalidArgumentError(
-            StrCat("Unmatched source dimension ", i, " {", source[i], "}"));
+        StrAppend(&mismatch_error, "unmatched source dimension ", i, " ",
+                  source[i], ", ");
       }
       if (source_size != 1) {
-        return absl::InvalidArgumentError(
-            StrCat("Unmatched source dimension ", i, " {", source[i],
-                   "} does not have a size of 1"));
+        StrAppend(&mismatch_error, "unmatched source dimension ", i, " ",
+                  source[i], " does not have a size of 1, ");
       }
     }
+  }
+  if (!mismatch_error.empty()) {
+    mismatch_error.resize(mismatch_error.size() - 2);
+    return absl::InvalidArgumentError(
+        StrCat("Error aligning dimensions: ", mismatch_error));
   }
   return absl::OkStatus();
 }
