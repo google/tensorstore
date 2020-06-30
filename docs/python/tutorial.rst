@@ -55,7 +55,7 @@ not written have the fill value of ``0``):
 Reading the Janelia FlyEM Hemibrain dataset
 -------------------------------------------
 
-This example demonstrates accessing the `Janelia FlyeEM Hemibrain 1.0
+This example demonstrates accessing the `Janelia FlyeEM Hemibrain 1.1
 segmentation <https://www.janelia.org/project-team/flyem/hemibrain>`_ using the
 :ref:`neuroglancer-precomputed-driver`.
 
@@ -74,7 +74,7 @@ Open the dataset asynchronously to obtain a :py:obj:`tensorstore.Future`:
    ...         'driver': 'gcs',
    ...         'bucket': 'neuroglancer-janelia-flyem-hemibrain',
    ...     },
-   ...     'path': 'v1.0/segmentation',
+   ...     'path': 'v1.1/segmentation',
    ...     # Use 100MB in-memory cache.
    ...     'context': {
    ...         'cache_pool': {
@@ -101,7 +101,7 @@ Wait for the open to complete:
        'driver': 'gcs',
      },
      'multiscale_metadata': {'num_channels': 1, 'type': 'segmentation'},
-     'path': 'v1.0/segmentation',
+     'path': 'v1.1/segmentation',
      'recheck_cached_data': 'open',
      'scale_index': 0,
      'scale_metadata': {
@@ -164,7 +164,7 @@ Create a view of a 100x100x1 slice from the middle, without performing any I/O:
        'driver': 'gcs',
      },
      'multiscale_metadata': {'num_channels': 1, 'type': 'segmentation'},
-     'path': 'v1.0/segmentation',
+     'path': 'v1.1/segmentation',
      'recheck_cached_data': 'open',
      'scale_index': 0,
      'scale_metadata': {
