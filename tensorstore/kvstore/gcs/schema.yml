@@ -27,6 +27,11 @@ allOf:
       description: >-
         Specifies or references a previously defined
         :json-schema:`https://github.com/google/tensorstore/json-schema/context/gcs_user_project`.
+    gcs_request_retries:
+      $ref: https://github.com/google/tensorstore/json-schema/context-resource
+      description: >-
+        Specifies or references a previously defined
+        :json-schema:`https://github.com/google/tensorstore/json-schema/context/gcs_request_retries`.
   required:
   - bucket
 definitions:
@@ -65,3 +70,16 @@ definitions:
           Google Cloud project id, e.g. :json:`"my-project"`.  The Google Cloud
           account that is used must have appropriate permissions to bill to the
           specified project.
+  gcs_request_retries:
+    $id: https://github.com/google/tensorstore/json-schema/context/gcs_request_retries
+    title: '``gcs_request_retries`` context resource'
+    description: |
+      Specifies retry parameters for handling transient network errors.
+    type: object
+    properties:
+      max_retries:
+        type: integer
+        minimum: 1
+        description: >-
+          Maximum number of attempts in the case of transient errors.
+        default: 32

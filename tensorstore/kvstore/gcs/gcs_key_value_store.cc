@@ -107,6 +107,32 @@ struct GcsUserProjectResource
   }
 };
 
+/// Specifies a limit on the number of retries.
+struct GcsRequestRetries
+    : public internal::ContextResourceTraits<GcsRequestRetries> {
+  static constexpr char id[] = "gcs_request_retries";
+  struct Spec {
+    int64_t max_retries = 32;
+  };
+  using Resource = Spec;
+  static Spec Default() { return {}; }
+  static constexpr auto JsonBinder() {
+    return jb::Object(
+        jb::Member("max_retries",
+                   jb::Projection(&Spec::max_retries,
+                                  jb::DefaultValue([](auto* v) { *v = 32; },
+                                                   jb::Integer<int64_t>(1)))));
+  }
+  static Result<Spec> Create(const Spec& spec,
+                             internal::ContextResourceCreationContext context) {
+    return spec;
+  }
+  static Spec GetSpec(const Spec& spec,
+                      const internal::ContextSpecBuilder& builder) {
+    return spec;
+  }
+};
+
 struct GcsRequestConcurrencyResourceTraits
     : public internal::ConcurrencyResourceTraits,
       public internal::ContextResourceTraits<GcsRequestConcurrencyResource> {
@@ -116,6 +142,8 @@ const internal::ContextResourceRegistration<GcsRequestConcurrencyResourceTraits>
     gcs_request_concurrency_registration;
 const internal::ContextResourceRegistration<GcsUserProjectResource>
     gcs_user_project_registration;
+const internal::ContextResourceRegistration<GcsRequestRetries>
+    gcs_request_retries_registration;
 
 // Returns whether the bucket name is valid.
 // https://cloud.google.com/storage/docs/naming#requirements
@@ -259,9 +287,10 @@ class GcsKeyValueStore
     MaybeBound<Context::ResourceSpec<GcsRequestConcurrencyResource>>
         request_concurrency;
     MaybeBound<Context::ResourceSpec<GcsUserProjectResource>> user_project;
+    MaybeBound<Context::ResourceSpec<GcsRequestRetries>> retries;
 
     constexpr static auto ApplyMembers = [](auto& x, auto f) {
-      return f(x.bucket, x.request_concurrency, x.user_project);
+      return f(x.bucket, x.request_concurrency, x.user_project, x.retries);
     };
   };
 
@@ -288,11 +317,13 @@ class GcsKeyValueStore
       // `context` since it is not part of the identity of the resource being
       // accessed.
       jb::Member(GcsUserProjectResource::id,
-                 jb::Projection(&SpecData::user_project)));
+                 jb::Projection(&SpecData::user_project)),
+      jb::Member(GcsRequestRetries::id, jb::Projection(&SpecData::retries)));
 
   static void EncodeCacheKey(std::string* out, const BoundSpecData& spec) {
     internal::EncodeCacheKey(out, spec.bucket, spec.request_concurrency,
-                             spec.user_project->project_id);
+                             spec.user_project->project_id,
+                             spec.retries->max_retries);
   }
 
   static Status ConvertSpec(SpecData* spec,
@@ -380,6 +411,12 @@ class GcsKeyValueStore
     return result;
   }
 
+  absl::Status RetryRequestWithBackoff(std::function<Status()> function) {
+    return internal::RetryWithBackoff(
+        std::move(function), spec_.retries->max_retries,
+        absl::Milliseconds(100), absl::Seconds(5), IsRetriable);
+  }
+
   BoundSpecData spec_;
   std::string resource_root_;  // bucket resource root.
   std::string upload_root_;    // bucket upload root.
@@ -426,22 +463,20 @@ struct ReadTask {
 
     // TODO: Configure timeouts.
     HttpResponse httpresponse;
-    auto retry_status = internal::RetryWithBackoff(
-        [&] {
-          read_result.stamp.time = absl::Now();
-          auto response = owner->IssueRequest("ReadTask", request, {});
-          if (!response.ok()) return GetStatus(response);
-          httpresponse = std::move(*response);
-          switch (httpresponse.status_code) {
-            // Special status codes handled outside the retry loop.
-            case 412:
-            case 404:
-            case 304:
-              return absl::OkStatus();
-          }
-          return HttpResponseCodeToStatus(httpresponse);
-        },
-        3, absl::Milliseconds(100), absl::Seconds(5), IsRetriable);
+    auto retry_status = owner->RetryRequestWithBackoff([&] {
+      read_result.stamp.time = absl::Now();
+      auto response = owner->IssueRequest("ReadTask", request, {});
+      if (!response.ok()) return GetStatus(response);
+      httpresponse = std::move(*response);
+      switch (httpresponse.status_code) {
+        // Special status codes handled outside the retry loop.
+        case 412:
+        case 404:
+        case 304:
+          return absl::OkStatus();
+      }
+      return HttpResponseCodeToStatus(httpresponse);
+    });
 
     TENSORSTORE_RETURN_IF_ERROR(retry_status);
     switch (httpresponse.status_code) {
@@ -529,30 +564,28 @@ struct WriteTask {
     TimestampedStorageGeneration r;
 
     HttpResponse httpresponse;
-    auto retry_status = internal::RetryWithBackoff(
-        [&] {
-          r.time = absl::Now();
-          auto response = owner->IssueRequest("WriteTask", request, value);
-          if (!response.ok()) return GetStatus(response);
-          httpresponse = std::move(*response);
-          switch (httpresponse.status_code) {
-            case 304:
-              // Not modified implies that the generation did not match.
-              [[fallthrough]];
-            case 412:
-              // Failed precondition implies the generation did not match.
-              return absl::OkStatus();
-            case 404:
-              if (!StorageGeneration::IsUnknown(options.if_equal)) {
-                return absl::OkStatus();
-              }
-              break;
-            default:
-              break;
+    auto retry_status = owner->RetryRequestWithBackoff([&] {
+      r.time = absl::Now();
+      auto response = owner->IssueRequest("WriteTask", request, value);
+      if (!response.ok()) return GetStatus(response);
+      httpresponse = std::move(*response);
+      switch (httpresponse.status_code) {
+        case 304:
+          // Not modified implies that the generation did not match.
+          [[fallthrough]];
+        case 412:
+          // Failed precondition implies the generation did not match.
+          return absl::OkStatus();
+        case 404:
+          if (!StorageGeneration::IsUnknown(options.if_equal)) {
+            return absl::OkStatus();
           }
-          return HttpResponseCodeToStatus(httpresponse);
-        },
-        3, absl::Milliseconds(100), absl::Seconds(5), IsRetriable);
+          break;
+        default:
+          break;
+      }
+      return HttpResponseCodeToStatus(httpresponse);
+    });
 
     TENSORSTORE_RETURN_IF_ERROR(retry_status);
 
@@ -613,24 +646,22 @@ struct DeleteTask {
     TimestampedStorageGeneration r;
 
     HttpResponse httpresponse;
-    auto retry_status = internal::RetryWithBackoff(
-        [&] {
-          r.time = absl::Now();
-          auto response = owner->IssueRequest("DeleteTask", request, {});
-          if (!response.ok()) return GetStatus(response);
-          httpresponse = std::move(*response);
-          switch (httpresponse.status_code) {
-            case 412:
-              // Failed precondition implies the generation did not match.
-              [[fallthrough]];
-            case 404:
-              return absl::OkStatus();
-            default:
-              break;
-          }
-          return HttpResponseCodeToStatus(httpresponse);
-        },
-        3, absl::Milliseconds(100), absl::Seconds(5), IsRetriable);
+    auto retry_status = owner->RetryRequestWithBackoff([&] {
+      r.time = absl::Now();
+      auto response = owner->IssueRequest("DeleteTask", request, {});
+      if (!response.ok()) return GetStatus(response);
+      httpresponse = std::move(*response);
+      switch (httpresponse.status_code) {
+        case 412:
+          // Failed precondition implies the generation did not match.
+          [[fallthrough]];
+        case 404:
+          return absl::OkStatus();
+        default:
+          break;
+      }
+      return HttpResponseCodeToStatus(httpresponse);
+    });
 
     TENSORSTORE_RETURN_IF_ERROR(retry_status);
 
@@ -773,15 +804,13 @@ struct ListOp {
           HttpRequestBuilder(list_url).AddHeader(header).BuildRequest();
 
       HttpResponse httpresponse;
-      auto retry_status = internal::RetryWithBackoff(
-          [&] {
-            TENSORSTORE_RETURN_IF_ERROR(maybe_cancelled());
-            auto response = state->owner->IssueRequest("List", request, {});
-            if (!response.ok()) return GetStatus(response);
-            httpresponse = std::move(*response);
-            return HttpResponseCodeToStatus(httpresponse);
-          },
-          3, absl::Milliseconds(100), absl::Seconds(5), IsRetriable);
+      auto retry_status = state->owner->RetryRequestWithBackoff([&] {
+        TENSORSTORE_RETURN_IF_ERROR(maybe_cancelled());
+        auto response = state->owner->IssueRequest("List", request, {});
+        if (!response.ok()) return GetStatus(response);
+        httpresponse = std::move(*response);
+        return HttpResponseCodeToStatus(httpresponse);
+      });
 
       TENSORSTORE_RETURN_IF_ERROR(retry_status);
       TENSORSTORE_RETURN_IF_ERROR(maybe_cancelled());

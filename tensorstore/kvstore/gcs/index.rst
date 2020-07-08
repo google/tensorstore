@@ -16,6 +16,8 @@ safely allow concurrent access from multiple machines.
                  
 .. json-schema:: schema.yml#/definitions/gcs_request_concurrency
 
+.. json-schema:: schema.yml#/definitions/gcs_request_retries
+
 .. _gcs-authentication:
 
 Authentication

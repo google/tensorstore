@@ -96,6 +96,12 @@ class GCSMockStorageBucket {
 
   std::string ObjectMetadataString(const Object& object);
 
+  // Triggers a guaranteed error for the next `count` requests.
+  void TriggerErrors(int64_t count) {
+    assert(count >= 0);
+    next_error_count_ += count;
+  }
+
  private:
   const std::string bucket_;
   const std::string bucket_path_;
@@ -104,6 +110,7 @@ class GCSMockStorageBucket {
   absl::Mutex mutex_;
   int64_t next_generation_ = 123;
   int64_t request_count_ = 0;
+  int64_t next_error_count_ = 0;
 
   using Map = std::map<std::string, Object, std::less<>>;
   Map data_;

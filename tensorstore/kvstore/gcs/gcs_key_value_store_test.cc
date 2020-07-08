@@ -209,6 +209,41 @@ TEST(GCSKeyValueStoreTest, Basic) {
   SetDefaultHttpTransport(nullptr);
 }
 
+TEST(GCSKeyValueStoreTest, Retry) {
+  for (int max_retries : {2, 3, 4}) {
+    for (bool fail : {false, true}) {
+      // Setup mocks for:
+      // https://www.googleapis.com/kvstore/v1/b/my-bucket/o/test
+      auto mock_transport = std::make_shared<MyMockTransport>();
+      SetDefaultHttpTransport(mock_transport);
+
+      GCSMockStorageBucket bucket("my-bucket");
+      mock_transport->buckets_.push_back(&bucket);
+
+      auto context = Context::Default();
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store,
+          KeyValueStore::Open(
+              context,
+              {{"driver", "gcs"},
+               {"bucket", "my-bucket"},
+               {"context",
+                {{"gcs_request_retries", {{"max_retries", max_retries}}}}}},
+              {})
+              .result());
+      if (fail) {
+        bucket.TriggerErrors(max_retries);
+        EXPECT_THAT(store->Read("x").result(),
+                    MatchesStatus(absl::StatusCode::kAborted));
+      } else {
+        bucket.TriggerErrors(max_retries - 2);
+        TENSORSTORE_EXPECT_OK(store->Read("x").result());
+      }
+      SetDefaultHttpTransport(nullptr);
+    }
+  }
+}
+
 TEST(GCSKeyValueStoreTest, List) {
   // Setup mocks for:
   // https://www.googleapis.com/kvstore/v1/b/my-bucket/o/test

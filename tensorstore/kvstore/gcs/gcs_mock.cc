@@ -134,7 +134,15 @@ GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
 
   // GCS can "randomly" return an HTTP 429.
   // In actuality, a 429 is based on the request rate for a resource, etc.
+  bool trigger_error = false;
+  if (next_error_count_ > 0) {
+    trigger_error = true;
+    --next_error_count_;
+  }
   if (request_count_++ % 5 == 0) {
+    trigger_error = true;
+  }
+  if (trigger_error) {
     return HttpResponse{429, absl::Cord()};
   }
 

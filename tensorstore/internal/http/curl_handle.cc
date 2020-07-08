@@ -101,6 +101,11 @@ Status CurlCodeToStatus(CURLcode code, absl::string_view detail) {
 
     case CURLE_COULDNT_RESOLVE_HOST:
     case CURLE_COULDNT_CONNECT:
+    case CURLE_SEND_ERROR:
+    case CURLE_RECV_ERROR:
+    case CURLE_HTTP2:
+    case CURLE_SSL_CONNECT_ERROR:
+    case CURLE_HTTP2_STREAM:
       error_code = absl::StatusCode::kUnavailable;
       break;
 
