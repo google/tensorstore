@@ -129,6 +129,8 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json",
         "//tensorstore/internal:key_value_store_cache",
+        "//tensorstore/internal:open_mode_spec",
+        "//tensorstore/internal:staleness_bound_json_binder",
         "//tensorstore/internal:type_traits",
         "//tensorstore/kvstore:key_value_store",
         "//tensorstore/util:bit_span",

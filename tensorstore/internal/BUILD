@@ -1992,3 +1992,43 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "staleness_bound_json_binder",
+    srcs = ["staleness_bound_json_binder.cc"],
+    hdrs = ["staleness_bound_json_binder.h"],
+    deps = [
+        ":json",
+        "//tensorstore:staleness_bound",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "staleness_bound_json_binder_test",
+    size = "small",
+    srcs = ["staleness_bound_json_binder_test.cc"],
+    deps = [
+        ":json",
+        ":json_gtest",
+        ":staleness_bound_json_binder",
+        "//tensorstore:staleness_bound",
+        "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "open_mode_spec",
+    srcs = ["open_mode_spec.cc"],
+    hdrs = ["open_mode_spec.h"],
+    deps = [
+        ":json",
+        "//tensorstore:open_mode",
+        "//tensorstore:spec_request_options",
+    ],
+)

@@ -39,6 +39,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/internal/key_value_store_cache.h"
+#include "tensorstore/internal/open_mode_spec.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/open_mode.h"
@@ -56,29 +57,18 @@ namespace internal_kvs_backed_chunk_driver {
 ///
 /// This inherits from `DriverConstraints` as required by the driver registry.
 template <template <typename> class MaybeBound = internal::ContextUnbound>
-struct SpecT : public internal::DriverConstraints {
+struct SpecT : public internal::DriverConstraints,
+               public internal::OpenModeSpec {
   MaybeBound<KeyValueStore::Spec::Ptr> store;
   MaybeBound<Context::ResourceSpec<internal::DataCopyConcurrencyResource>>
       data_copy_concurrency;
   MaybeBound<Context::ResourceSpec<internal::CachePoolResource>> cache_pool;
   StalenessBounds staleness;
-  bool open;
-  bool create;
-  bool delete_existing;
-  bool allow_metadata_mismatch;
-
-  OpenMode open_mode() const {
-    return (open ? OpenMode::open : OpenMode{}) |
-           (create ? OpenMode::create : OpenMode{}) |
-           (delete_existing ? OpenMode::delete_existing : OpenMode{}) |
-           (allow_metadata_mismatch ? OpenMode::allow_option_mismatch
-                                    : OpenMode{});
-  }
 
   static constexpr auto ApplyMembers = [](auto& x, auto f) {
-    return f(internal::BaseCast<internal::DriverConstraints>(x), x.store,
-             x.data_copy_concurrency, x.cache_pool, x.staleness, x.open,
-             x.create, x.delete_existing, x.allow_metadata_mismatch);
+    return f(internal::BaseCast<internal::DriverConstraints>(x),
+             internal::BaseCast<internal::OpenModeSpec>(x), x.store,
+             x.data_copy_concurrency, x.cache_pool, x.staleness);
   };
 };
 

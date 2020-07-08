@@ -20,6 +20,7 @@
 #include "tensorstore/internal/cache_key.h"
 #include "tensorstore/internal/cache_pool_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
+#include "tensorstore/internal/staleness_bound_json_binder.h"
 #include "tensorstore/util/bit_vec.h"
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/quote_string.h"
@@ -543,17 +544,7 @@ Status DriverBase::ConvertSpec(SpecT<internal::ContextUnbound>* spec,
   if (options.staleness) {
     spec->staleness = *options.staleness;
   }
-  if (options.open_mode) {
-    const OpenMode open_mode = *options.open_mode;
-    spec->open = (open_mode & OpenMode::open) == OpenMode::open;
-    spec->create = (open_mode & OpenMode::create) == OpenMode::create;
-    spec->allow_metadata_mismatch =
-        (open_mode & OpenMode::allow_option_mismatch) ==
-        OpenMode::allow_option_mismatch;
-    spec->delete_existing =
-        (open_mode & OpenMode::delete_existing) == OpenMode::delete_existing;
-  }
-  return Status();
+  return spec->OpenModeSpec::ConvertSpec(options);
 }
 
 namespace {
@@ -983,29 +974,10 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(OpenState* state) {
 }  // namespace
 
 Future<internal::Driver::ReadWriteHandle> OpenDriver(OpenState::Ptr state) {
-  // TODO(jbms): possibly determine these options from the open options.
   auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
-
   auto& spec = *base.spec_;
-  if (spec.delete_existing && !spec.create) {
-    return Status(absl::StatusCode::kInvalidArgument,
-                  "Cannot specify an open mode of `delete_existing` "
-                  "without `create`");
-  }
-
-  if (spec.delete_existing && spec.open) {
-    return Status(absl::StatusCode::kInvalidArgument,
-                  "Cannot specify an open mode of `delete_existing` "
-                  "with `open`");
-  }
-
-  if (spec.create && (base.read_write_mode_ != ReadWriteMode::dynamic &&
-                      !(base.read_write_mode_ & ReadWriteMode::write))) {
-    return Status(absl::StatusCode::kInvalidArgument,
-                  "Cannot specify an open mode of `create` "
-                  "without `write`");
-  }
-
+  TENSORSTORE_RETURN_IF_ERROR(
+      spec.OpenModeSpec::Validate(base.read_write_mode_));
   auto* state_ptr = state.get();
   auto metadata_cache = GetOrCreateMetadataCache(state_ptr);
   base.metadata_cache_entry_ =
@@ -1166,46 +1138,6 @@ DataCache* DriverBase::cache() const {
 Executor DriverBase::data_copy_executor() { return cache()->executor(); }
 
 namespace jb = tensorstore::internal::json_binding;
-namespace {
-struct MaybeOpenCreate {
-  std::optional<bool> open;
-  std::optional<bool> create;
-};
-
-/// JSON binder for `tensorstore::StalenessBound`.
-inline constexpr auto StalenessBoundJsonBinder =
-    [](auto is_loading, const auto& options, auto* obj,
-       ::nlohmann::json* j) -> absl::Status {
-  if constexpr (is_loading) {
-    if (const auto* b = j->get_ptr<const bool*>()) {
-      *obj = *b ? absl::InfiniteFuture() : absl::InfinitePast();
-    } else if (j->is_number()) {
-      const double t = static_cast<double>(*j);
-      *obj = absl::UnixEpoch() + absl::Seconds(t);
-    } else if (*j == "open") {
-      static_cast<absl::Time&>(*obj) = absl::InfiniteFuture();
-      obj->bounded_by_open_time = true;
-    } else {
-      return internal_json::ExpectedError(*j, "boolean, number, or \"open\"");
-    }
-  } else {
-    if (obj->bounded_by_open_time) {
-      *j = "open";
-    } else {
-      const absl::Time& t = *obj;
-      if (t == absl::InfiniteFuture()) {
-        *j = true;
-      } else if (t == absl::InfinitePast()) {
-        *j = false;
-      } else {
-        *j = absl::ToDoubleSeconds(t - absl::UnixEpoch());
-      }
-    }
-  }
-  return absl::OkStatus();
-};
-}  // namespace
-
 TENSORSTORE_DEFINE_JSON_BINDER(
     SpecJsonBinder,
     jb::Sequence(
@@ -1219,43 +1151,13 @@ TENSORSTORE_DEFINE_JSON_BINDER(
             jb::Sequence(
                 jb::Member("recheck_cached_metadata",
                            jb::Projection(&StalenessBounds::metadata,
-                                          jb::DefaultValue(
-                                              [](auto* obj) {
-                                                obj->bounded_by_open_time =
-                                                    true;
-                                              },
-                                              StalenessBoundJsonBinder))),
+                                          jb::DefaultValue([](auto* obj) {
+                                            obj->bounded_by_open_time = true;
+                                          }))),
                 jb::Member("recheck_cached_data",
                            jb::Projection(&StalenessBounds::data,
-                                          jb::DefaultInitializedValue(
-                                              StalenessBoundJsonBinder))))),
-        jb::GetterSetter(
-            [](auto& obj) {
-              return MaybeOpenCreate{(obj.open == true && obj.create == true)
-                                         ? std::optional<bool>(true)
-                                         : std::optional<bool>(),
-                                     (obj.create == true)
-                                         ? std::optional<bool>(true)
-                                         : std::optional<bool>()};
-            },
-            [](auto& obj, const auto& x) {
-              obj.open = x.open || x.create ? x.open.value_or(false) : true;
-              obj.create = x.create.value_or(false);
-            },
-            jb::Sequence(jb::Member("open",
-                                    jb::Projection(&MaybeOpenCreate::open)),
-                         jb::Member("create",
-                                    jb::Projection(&MaybeOpenCreate::create)))),
-        jb::Member("delete_existing",
-                   jb::Projection(&SpecT<>::delete_existing,
-                                  jb::DefaultValue([](bool* v) {
-                                    *v = false;
-                                  }))),
-        jb::Member("allow_metadata_mismatch",
-                   jb::Projection(&SpecT<>::allow_metadata_mismatch,
-                                  jb::DefaultValue([](bool* v) {
-                                    *v = false;
-                                  })))));
+                                          jb::DefaultInitializedValue())))),
+        internal::OpenModeSpecJsonBinder));
 
 }  // namespace internal_kvs_backed_chunk_driver
 }  // namespace tensorstore
