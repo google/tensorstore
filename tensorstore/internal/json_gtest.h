@@ -39,6 +39,8 @@ inline void PrintTo(json const& j, std::ostream* os) { *os << j.dump(); }
 namespace tensorstore {
 
 MATCHER_P(MatchesJson, j, "") {
+  *result_listener << "where the difference is:\n"
+                   << ::nlohmann::json::diff(j, arg).dump(2);
   return tensorstore::internal_json::JsonSame(arg, j);
 }
 

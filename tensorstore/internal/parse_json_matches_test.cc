@@ -35,7 +35,16 @@ TEST(ParseJsonMatchesTest, Explain) {
   ::testing::StringMatchResultListener listener;
   ::testing::ExplainMatchResult(ParseJsonMatches(::nlohmann::json(true)),
                                 "false", &listener);
-  EXPECT_EQ("", listener.str());
+  EXPECT_EQ(
+      "where the difference is:\n"
+      "[\n"
+      "  {\n"
+      "    \"op\": \"replace\",\n"
+      "    \"path\": \"\",\n"
+      "    \"value\": false\n"
+      "  }\n"
+      "]",
+      listener.str());
 }
 
 TEST(ParseJsonMatchesTest, Matches) {
