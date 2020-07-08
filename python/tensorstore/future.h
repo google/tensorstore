@@ -69,9 +69,31 @@ pybind11::object GetCancelledError();
 ///
 /// This function factors out the type-independent, platform-dependent logic
 /// from the `PythonFuture<T>::WaitForResult` method defined below.
-void InterruptibleWait(
+void InterruptibleWaitImpl(
     std::function<FutureCallbackRegistration(std::function<void()> notify_done)>
         register_listener);
+
+/// Waits for the Future to be ready, but supports interruption by operating
+/// system signals.
+///
+/// This allows the user to use Control+C to stop waiting on "stuck"
+/// asynchronous operations.
+///
+/// We can't simply use the normal `tensorstore::Future<T>::Wait` method, since
+/// that does not support interruption.
+template <typename T>
+typename Future<T>::result_type& InterruptibleWait(const Future<T>& future) {
+  assert(future.valid());
+  if (!future.ready() && _PyOS_IsMainThread()) {
+    // If on main thread and not already ready, use "interruptible" wait that
+    // may throw a KeyboardInterrupt exception if SIGINT is received.
+    internal_python::InterruptibleWaitImpl([&](auto signal) {
+      return future.ExecuteWhenReady(
+          [signal = std::move(signal)](ReadyFuture<const T> f) { signal(); });
+    });
+  }
+  return future.result();
+}
 
 /// Base class that represents a Future exposed to Python.
 ///
@@ -132,31 +154,14 @@ struct PythonValueOrException {
 template <typename T>
 class PythonFuture : public PythonFutureBase {
  public:
-  PythonFuture(Future<T> future) : future_(std::move(future)) {}
+  PythonFuture(Future<const T> future) : future_(std::move(future)) {}
 
   bool done() const override { return !future_.valid() || future_.ready(); }
 
   bool cancelled() const override { return !future_.valid(); }
 
-  /// Waits for the Future to be ready, but supports interruption by operating
-  /// system signals.
-  ///
-  /// This allows the user to use Control+C to stop waiting on "stuck"
-  /// asynchronous operations.
-  ///
-  /// We can't simply use the normal `tensorstore::Future<T>::Wait` method,
-  /// since that does not support interruption.
-  Result<T>& WaitForResult() {
-    assert(future_.valid());
-    if (!future_.ready() && _PyOS_IsMainThread()) {
-      // If on main thread and not already ready, use "interruptible" wait that
-      // may throw a KeyboardInterrupt exception if SIGINT is received.
-      internal_python::InterruptibleWait([&](auto signal) {
-        return future_.ExecuteWhenReady(
-            [signal = std::move(signal)](ReadyFuture<T> f) { signal(); });
-      });
-    }
-    return future_.result();
+  const Result<T>& WaitForResult() {
+    return internal_python::InterruptibleWait(future_);
   }
 
   pybind11::object exception() override {
@@ -183,7 +188,7 @@ class PythonFuture : public PythonFutureBase {
     if (!future_.valid() || future_.ready()) {
       return false;
     }
-    future_ = Future<T>{};
+    future_ = Future<const T>{};
     registration_.Unregister();
     RunCallbacks();
     return true;
@@ -215,7 +220,7 @@ class PythonFuture : public PythonFutureBase {
       registration_.Unregister();
       auto self = std::static_pointer_cast<PythonFuture<T>>(shared_from_this());
       future_.Force();
-      registration_ = future_.ExecuteWhenReady([self](Future<T> future) {
+      registration_ = future_.ExecuteWhenReady([self](Future<const T> future) {
         pybind11::gil_scoped_acquire gil_acquire;
         self->RunCallbacks();
       });
@@ -237,7 +242,7 @@ class PythonFuture : public PythonFutureBase {
   ~PythonFuture() override = default;
 
  private:
-  Future<T> future_;
+  Future<const T> future_;
   std::vector<pybind11::object> callbacks_;
   FutureCallbackRegistration registration_;
 };
@@ -255,7 +260,7 @@ namespace detail {
 template <typename T>
 struct type_caster<tensorstore::Future<T>> {
   using FutureType = tensorstore::Future<T>;
-  using value_conv = make_caster<tensorstore::Result<T>>;
+  using value_conv = make_caster<typename FutureType::result_type>;
 
   PYBIND11_TYPE_CASTER(FutureType, _("Future[") + value_conv::name + _("]"));
 
@@ -263,8 +268,8 @@ struct type_caster<tensorstore::Future<T>> {
                      handle parent) {
     return pybind11::cast(
                std::shared_ptr<tensorstore::internal_python::PythonFutureBase>(
-                   std::make_shared<
-                       tensorstore::internal_python::PythonFuture<T>>(future)))
+                   std::make_shared<tensorstore::internal_python::PythonFuture<
+                       std::remove_const_t<T>>>(future)))
         .release();
   }
 };
