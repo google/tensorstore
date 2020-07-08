@@ -58,8 +58,8 @@ Result<tensorstore::IndexTransform<>> ResolveBoundsFromMetadata(
                             {"create", true},
                         })
           .result());
-  return tensorstore::internal::TensorStoreAccess::driver(store)
-      ->ResolveBounds(transform, options)
+  return tensorstore::internal::TensorStoreAccess::handle(store)
+      .driver->ResolveBounds(transform, options)
       .result();
 }
 
@@ -81,7 +81,7 @@ Result<ResizeParameters> GetResizeParameters(
           .result());
   auto* driver =
       static_cast<tensorstore::internal_kvs_backed_chunk_driver::DriverBase*>(
-          tensorstore::internal::TensorStoreAccess::driver_view(store));
+          tensorstore::internal::TensorStoreAccess::handle(store).driver.get());
   return tensorstore::internal_kvs_backed_chunk_driver::GetResizeParameters(
       driver->cache(), &metadata, driver->component_index(), transform,
       inclusive_min, exclusive_max, options);

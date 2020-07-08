@@ -37,41 +37,9 @@ class TensorStoreAccess {
   constexpr static auto Construct =
       [](auto&&... arg) { return T(static_cast<decltype(arg)>(arg)...); };
 
-  template <typename ElementType, DimensionIndex Rank, ReadWriteMode Mode>
-  static Driver::Ptr driver(const TensorStore<ElementType, Rank, Mode>& store) {
-    return store.driver_;
-  }
-  template <typename ElementType, DimensionIndex Rank, ReadWriteMode Mode>
-  static Driver::Ptr take_driver(TensorStore<ElementType, Rank, Mode>& store) {
-    return std::move(store.driver_);
-  }
-  template <typename ElementType, DimensionIndex Rank, ReadWriteMode Mode>
-  static Driver* driver_view(
-      const TensorStore<ElementType, Rank, Mode>& store) {
-    return store.driver_.get();
-  }
-  template <typename ElementType, DimensionIndex Rank, ReadWriteMode Mode>
-  static IndexTransform<Rank> transform(
-      const TensorStore<ElementType, Rank, Mode>& store) {
-    return store.transform_;
-  }
-  template <typename ElementType, DimensionIndex Rank, ReadWriteMode Mode>
-  static IndexTransform<Rank> take_transform(
-      TensorStore<ElementType, Rank, Mode>& store) {
-    return std::move(store.transform_);
-  }
-  template <typename ElementType, DimensionIndex Rank, ReadWriteMode Mode>
-  static IndexTransformView<Rank> transform_view(
-      const TensorStore<ElementType, Rank, Mode>& store) {
-    return store.transform_;
-  }
-
-  template <typename ElementType, DimensionIndex Rank, ReadWriteMode Mode>
-  static Driver::ReadWriteHandle take_handle(
-      TensorStore<ElementType, Rank, Mode>& store) {
-    return Driver::ReadWriteHandle{std::move(store.driver_),
-                                   std::move(store.transform_),
-                                   store.read_write_mode()};
+  template <typename X>
+  static auto& handle(X&& store) {
+    return store.handle_;
   }
 };
 
@@ -211,8 +179,7 @@ Result<internal::TransformedDriver> GetReadSource(
     TensorStore<Element, Rank, Mode> source) {
   TENSORSTORE_RETURN_IF_ERROR(
       internal::ValidateSupportsRead(source.read_write_mode()));
-  return internal::TransformedDriver{TensorStoreAccess::take_driver(source),
-                                     TensorStoreAccess::take_transform(source)};
+  return std::move(source.handle_);
 }
 
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
@@ -220,8 +187,7 @@ Result<internal::TransformedDriver> GetWriteTarget(
     TensorStore<Element, Rank, Mode> target) {
   TENSORSTORE_RETURN_IF_ERROR(
       internal::ValidateSupportsWrite(target.read_write_mode()));
-  return internal::TransformedDriver{TensorStoreAccess::take_driver(target),
-                                     TensorStoreAccess::take_transform(target)};
+  return std::move(target.handle_);
 }
 
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode,
@@ -231,11 +197,12 @@ Future<void> ReadImpl(TensorStore<Element, Rank, Mode> source,
   auto data_type = source.data_type();
   TENSORSTORE_RETURN_IF_ERROR(internal::GetDataTypeConverterOrError(
       data_type, dest.data_type(), DataTypeConversionFlags::kSafeAndImplicit));
-  TENSORSTORE_ASSIGN_OR_RETURN(auto read_source,
-                               GetReadSource(std::move(source)));
-  auto executor = read_source.driver->data_copy_executor();
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::ValidateSupportsRead(source.read_write_mode()));
+  auto executor =
+      TensorStoreAccess::handle(source).driver->data_copy_executor();
   return internal::DriverRead(
-      std::move(executor), std::move(read_source), dest,
+      std::move(executor), std::move(TensorStoreAccess::handle(source)), dest,
       /*options=*/
       {/*.progress_function=*/std::move(options).progress_function,
        /*.alignment_options=*/options.alignment_options});
@@ -246,9 +213,10 @@ template <ArrayOriginKind OriginKind, typename Element, DimensionIndex Rank,
 Future<SharedArray<Element, Rank, OriginKind>> ReadIntoNewArrayImpl(
     TensorStore<Element, Rank, Mode> source, ReadIntoNewArrayOptions options) {
   auto data_type = source.data_type();
-  TENSORSTORE_ASSIGN_OR_RETURN(auto read_source,
-                               GetReadSource(std::move(source)));
-  auto executor = read_source.driver->data_copy_executor();
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::ValidateSupportsRead(source.read_write_mode()));
+  auto executor =
+      TensorStoreAccess::handle(source).driver->data_copy_executor();
   return MapFutureValue(
       InlineExecutor{},
       [](SharedOffsetArray<void>& array)
@@ -260,8 +228,8 @@ Future<SharedArray<Element, Rank, OriginKind>> ReadIntoNewArrayImpl(
                 std::move(array)));
       },
       internal::DriverRead(
-          std::move(executor), std::move(read_source), data_type,
-          options.layout_order,
+          std::move(executor), std::move(TensorStoreAccess::handle(source)),
+          data_type, options.layout_order,
           /*options=*/
           {/*.progress_function=*/std::move(options).progress_function}));
 }
@@ -269,38 +237,42 @@ Future<SharedArray<Element, Rank, OriginKind>> ReadIntoNewArrayImpl(
 template <typename SourceArray, typename Element, DimensionIndex Rank,
           ReadWriteMode Mode>
 WriteFutures WriteImpl(const SourceArray& source,
-                       TensorStore<Element, Rank, Mode> dest,
+                       TensorStore<Element, Rank, Mode> target,
                        WriteOptions options) {
-  auto data_type = dest.data_type();
+  auto data_type = target.data_type();
   TENSORSTORE_RETURN_IF_ERROR(internal::GetDataTypeConverterOrError(
       source.data_type(), data_type,
       DataTypeConversionFlags::kSafeAndImplicit));
-  TENSORSTORE_ASSIGN_OR_RETURN(auto write_target,
-                               GetWriteTarget(std::move(dest)));
-  auto executor = write_target.driver->data_copy_executor();
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::ValidateSupportsWrite(target.read_write_mode()));
+  auto executor =
+      TensorStoreAccess::handle(target).driver->data_copy_executor();
   return internal::DriverWrite(
-      std::move(executor), source, std::move(write_target),
+      std::move(executor), source, std::move(TensorStoreAccess::handle(target)),
       /*options=*/
       {/*.progress_function=*/std::move(options).progress_function,
        /*.alignment_options=*/options.alignment_options});
 }
 
 template <typename SourceElement, DimensionIndex SourceRank,
-          ReadWriteMode SourceMode, typename DestElement,
-          DimensionIndex DestRank, ReadWriteMode DestMode>
+          ReadWriteMode SourceMode, typename TargetElement,
+          DimensionIndex TargetRank, ReadWriteMode TargetMode>
 WriteFutures CopyImpl(TensorStore<SourceElement, SourceRank, SourceMode> source,
-                      TensorStore<DestElement, DestRank, DestMode> dest,
+                      TensorStore<TargetElement, TargetRank, TargetMode> target,
                       CopyOptions options) {
   auto data_type = source.data_type();
   TENSORSTORE_RETURN_IF_ERROR(internal::GetDataTypeConverterOrError(
-      data_type, dest.data_type(), DataTypeConversionFlags::kSafeAndImplicit));
-  TENSORSTORE_ASSIGN_OR_RETURN(auto read_source,
-                               GetReadSource(std::move(source)));
-  TENSORSTORE_ASSIGN_OR_RETURN(auto write_target,
-                               GetWriteTarget(std::move(dest)));
-  auto executor = read_source.driver->data_copy_executor();
+      data_type, target.data_type(),
+      DataTypeConversionFlags::kSafeAndImplicit));
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::ValidateSupportsRead(source.read_write_mode()));
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::ValidateSupportsWrite(target.read_write_mode()));
+  auto executor =
+      TensorStoreAccess::handle(source).driver->data_copy_executor();
   return internal::DriverCopy(
-      std::move(executor), std::move(read_source), std::move(write_target),
+      std::move(executor), std::move(TensorStoreAccess::handle(source)),
+      std::move(TensorStoreAccess::handle(target)),
       /*options=*/
       {/*.progress_function=*/std::move(options).progress_function,
        /*.alignment_options=*/options.alignment_options});
@@ -312,8 +284,10 @@ struct IndexTransformFutureCallback {
   ReadWriteMode read_write_mode;
   TensorStore<Element, Rank, Mode> operator()(IndexTransform<>& transform) {
     return TensorStoreAccess::Construct<TensorStore<Element, Rank, Mode>>(
-        std::move(driver),
-        StaticRankCast<Rank, unchecked>(std::move(transform)), read_write_mode);
+        internal::DriverReadWriteHandle{
+            std::move(driver),
+            StaticRankCast<Rank, unchecked>(std::move(transform)),
+            read_write_mode});
   }
 };
 

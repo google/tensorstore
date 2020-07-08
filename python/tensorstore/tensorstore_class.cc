@@ -149,12 +149,13 @@ void RegisterTensorStoreBindings(pybind11::module m) {
   DefineIndexTransformOperations(
       &cls_tensorstore,
       [](std::shared_ptr<TensorStore<>> self) {
-        return internal::TensorStoreAccess::transform(*self);
+        return internal::TensorStoreAccess::handle(*self).transform;
       },
       [](std::shared_ptr<TensorStore<>> self, IndexTransform<> new_transform) {
+        auto handle = internal::TensorStoreAccess::handle(*self);
+        handle.transform = std::move(new_transform);
         return internal::TensorStoreAccess::Construct<TensorStore<>>(
-            internal::TensorStoreAccess::driver(*self),
-            std::move(new_transform), self->read_write_mode());
+            std::move(handle));
       },
       [](TensorStore<> self, const TensorStore<>& source) {
         py::gil_scoped_release gil;

@@ -618,7 +618,7 @@ Result<internal::Driver::ReadWriteHandle> CreateTensorStoreFromMetadata(
       {std::move(chunk_cache), component_index,
        base.spec_->staleness.BoundAtOpen(base.request_time_)}));
   return internal::Driver::ReadWriteHandle{
-      std::move(driver), std::move(new_transform), read_write_mode};
+      {std::move(driver), std::move(new_transform)}, read_write_mode};
 }
 
 /// Called when the metadata has been written (successfully or unsuccessfully).

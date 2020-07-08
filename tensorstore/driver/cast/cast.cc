@@ -266,10 +266,11 @@ Result<Driver::ReadWriteHandle> MakeCastDriver(Driver::ReadWriteHandle base,
       auto conversions,
       GetCastDataTypeConversions(base.driver->data_type(), target_data_type,
                                  base.read_write_mode, read_write_mode));
-  return Driver::ReadWriteHandle{
+  base.driver =
       Driver::Ptr(new CastDriver(std::move(base.driver), target_data_type,
-                                 conversions.input, conversions.output)),
-      std::move(base.transform), conversions.mode};
+                                 conversions.input, conversions.output));
+  base.read_write_mode = conversions.mode;
+  return base;
 }
 
 }  // namespace internal

@@ -58,10 +58,9 @@ FromArray(Context context, const Array& array) {
           std::move(context),
           ConstDataTypeCast<typename Store::Element>(array)));
   return internal::TensorStoreAccess::Construct<Store>(
-      std::move(transformed_driver.driver),
-      tensorstore::StaticRankCast<Store::static_rank, unchecked>(
-          std::move(transformed_driver.transform)),
-      ReadWriteMode::read_write /* masked based on Store type */);
+      internal::DriverReadWriteHandle{
+          std::move(transformed_driver),
+          ReadWriteMode::read_write /* masked based on Store type */});
 }
 
 }  // namespace tensorstore

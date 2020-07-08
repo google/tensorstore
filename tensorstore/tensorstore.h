@@ -94,8 +94,7 @@ class TensorStore {
                               SourceElement, SourceRank, SourceMode,  //
                               Element, Rank, Mode>::value)>* = nullptr>
   TensorStore(TensorStore<SourceElement, SourceRank, SourceMode> other)
-      : TensorStore(Access::take_driver(other), Access::take_transform(other),
-                    other.read_write_mode()) {}
+      : TensorStore(std::move(Access::handle(other))) {}
 
   /// Unchecked conversion from an existing TensorStore.
   ///
@@ -112,9 +111,7 @@ class TensorStore {
                               Element, Rank, Mode>::value)>* = nullptr>
   explicit TensorStore(unchecked_t,
                        TensorStore<SourceElement, SourceRank, SourceMode> other)
-      : TensorStore(Access::take_driver(other),
-                    Transform(unchecked, Access::take_transform(other)),
-                    other.read_write_mode()) {}
+      : TensorStore(std::move(Access::handle(other))) {}
 
   /// Assigns from an existing implicitly compatible `TensorStore`.
   template <typename SourceElement, DimensionIndex SourceRank,
@@ -128,23 +125,28 @@ class TensorStore {
     return *this;
   }
 
-  ReadWriteMode read_write_mode() const { return mode_; }
+  ReadWriteMode read_write_mode() const { return handle_.read_write_mode; }
 
   /// Returns `true` if this is a valid handle to a TensorStore.
-  bool valid() const noexcept { return static_cast<bool>(driver_); }
+  bool valid() const noexcept { return static_cast<bool>(handle_.driver); }
 
   /// Returns the data type.
   /// \pre `valid()`
   DataType data_type() const {
-    return StaticDataTypeCast<ElementType, unchecked>(driver_->data_type());
+    return StaticDataTypeCast<ElementType, unchecked>(
+        handle_.driver->data_type());
   }
 
   /// Returns the rank.
   /// \pre `valid()`
-  RankType rank() const { return transform_.input_rank(); }
+  RankType rank() const {
+    return StaticRankCast<Rank, unchecked>(handle_.transform.input_rank());
+  }
 
   /// Returns the domain.
-  IndexDomainView<Rank> domain() const { return transform_.domain(); }
+  IndexDomainView<Rank> domain() const {
+    return IndexDomainView<Rank>(unchecked, handle_.transform.domain());
+  }
 
   /// Returns a Spec that may be used to open/recreate this TensorStore.
   /// \pre `valid()`
@@ -153,13 +155,15 @@ class TensorStore {
       const internal::ContextSpecBuilder& context_builder = {}) const {
     TENSORSTORE_ASSIGN_OR_RETURN(
         internal::TransformedDriverSpec<> transformed_driver_spec,
-        driver_->GetSpec(transform_, options, context_builder));
+        handle_.driver->GetSpec(handle_.transform, options, context_builder));
     Spec spec;
     internal_spec::SpecAccess::impl(spec) = std::move(transformed_driver_spec);
     return spec;
   }
 
  private:
+  friend class internal::TensorStoreAccess;
+
   /// Applies a function that operates on an IndexTransform to a TensorStore.
   ///
   /// This definition allows DimExpression objects to be applied to TensorStore
@@ -170,30 +174,21 @@ class TensorStore {
                                 Expr, Transform>>::static_input_rank,
                             Mode>>
   ApplyIndexTransform(Expr&& expr, TensorStore store) {
-    TENSORSTORE_ASSIGN_OR_RETURN(auto new_transform,
-                                 expr(std::move(store.transform_)));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto new_transform, expr(tensorstore::StaticRankCast<Rank, unchecked>(
+                                std::move(store.handle_.transform))));
+    store.handle_.transform = std::move(new_transform);
     return internal::TensorStoreAccess::Construct<
         TensorStore<Element, decltype(new_transform)::static_input_rank, Mode>>(
-        std::move(store.driver_), std::move(new_transform),
-        store.read_write_mode());
+        std::move(store.handle_));
   }
 
-  friend class internal::TensorStoreAccess;
-  explicit TensorStore(internal::Driver::Ptr driver,
-                       IndexTransform<Rank> transform,
-                       ReadWriteMode read_write_mode)
-      : driver_(std::move(driver)),
-        transform_(std::move(transform)),
-        mode_(read_write_mode & internal::StaticReadWriteMask(Mode)) {}
-
   explicit TensorStore(internal::Driver::ReadWriteHandle handle)
-      : driver_(std::move(handle.driver)),
-        transform_(unchecked, std::move(handle.transform)),
-        mode_(handle.read_write_mode & internal::StaticReadWriteMask(Mode)) {}
+      : handle_(std::move(handle)) {
+    handle_.read_write_mode &= internal::StaticReadWriteMask(Mode);
+  }
 
-  internal::Driver::Ptr driver_;
-  Transform transform_;
-  ReadWriteMode mode_;
+  internal::Driver::ReadWriteHandle handle_;
 };
 
 /// Specialization of `StaticCastTraits` for the `TensorStore` class template,
@@ -265,19 +260,30 @@ using TensorWriter = TensorStore<Element, Rank, ReadWriteMode::write>;
 ///     TensorStore<std::int32_t, 3> store = ...;
 ///     store = ResolveBounds(store).value();
 ///
-/// \param store The TensorStore to resolve.
+/// \param store_result The TensorStore to resolve.  May be `Result`-wrapped.
 /// \param options Options for resolving bounds.
-template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
-Future<TensorStore<Element, Rank, Mode>> ResolveBounds(
-    TensorStore<Element, Rank, Mode> store, ResolveBoundsOptions options = {}) {
-  using internal::TensorStoreAccess;
-  auto* driver = TensorStoreAccess::driver(store).get();
-  return MapFutureValue(
-      InlineExecutor{},
-      internal_tensorstore::IndexTransformFutureCallback<Element, Rank, Mode>{
-          TensorStoreAccess::take_driver(store), store.read_write_mode()},
-      driver->ResolveBounds(
-          IndexTransform<>(TensorStoreAccess::take_transform(store)), options));
+template <typename StoreResult>
+std::enable_if_t<internal::IsTensorStore<UnwrapResultType<StoreResult>>::value,
+                 Future<UnwrapResultType<StoreResult>>>
+ResolveBounds(StoreResult store_result, ResolveBoundsOptions options = {}) {
+  using Store = UnwrapResultType<StoreResult>;
+  return MapResult(
+      [&](auto&& store) -> Future<Store> {
+        using internal::TensorStoreAccess;
+        auto* driver = TensorStoreAccess::handle(store).driver.get();
+        return MapFutureValue(
+            InlineExecutor{},
+            internal_tensorstore::IndexTransformFutureCallback<
+                typename Store::Element, Store::static_rank,
+                Store::static_mode>{
+                std::move(TensorStoreAccess::handle(store).driver),
+                store.read_write_mode()},
+            driver->ResolveBounds(
+                IndexTransform<>(
+                    std::move(TensorStoreAccess::handle(store).transform)),
+                options));
+      },
+      std::move(store_result));
 }
 
 /// Resizes a `TensorStore` to have the specified `inclusive_min` and
@@ -307,27 +313,37 @@ Future<TensorStore<Element, Rank, Mode>> ResolveBounds(
 /// \param options Options affecting the resize behavior.
 /// \returns A future that becomes ready once the resize operation has completed
 ///     (successfully or unsuccessfully).
-template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
-Future<TensorStore<Element, Rank, Mode>> Resize(
-    TensorStore<Element, Rank, Mode> store,
-    internal::type_identity_t<span<const Index, Rank>> inclusive_min,
-    internal::type_identity_t<span<const Index, Rank>> exclusive_max,
+template <typename StoreResult>
+std::enable_if_t<internal::IsTensorStore<UnwrapResultType<StoreResult>>::value,
+                 Future<UnwrapResultType<StoreResult>>>
+Resize(
+    StoreResult store_result,
+    span<const Index, UnwrapResultType<StoreResult>::static_rank> inclusive_min,
+    span<const Index, UnwrapResultType<StoreResult>::static_rank> exclusive_max,
     ResizeOptions options = {}) {
-  if (inclusive_min.size() != store.rank() ||
-      exclusive_max.size() != store.rank()) {
-    return internal_tensorstore::ResizeRankError(store.rank());
-  }
-  // FIXME: do compile-time checking of Mode
-  TENSORSTORE_RETURN_IF_ERROR(
-      internal::ValidateSupportsWrite(store.read_write_mode()));
-  using internal::TensorStoreAccess;
-  auto* driver = TensorStoreAccess::driver(store).get();
-  return MapFutureValue(
-      InlineExecutor{},
-      internal_tensorstore::IndexTransformFutureCallback<Element, Rank, Mode>{
-          TensorStoreAccess::take_driver(store), store.read_write_mode()},
-      driver->Resize(IndexTransform<>(TensorStoreAccess::take_transform(store)),
-                     inclusive_min, exclusive_max, options));
+  using Store = UnwrapResultType<StoreResult>;
+  return MapResult(
+      [&](auto&& store) -> Future<Store> {
+        using internal::TensorStoreAccess;
+        if (inclusive_min.size() != store.rank() ||
+            exclusive_max.size() != store.rank()) {
+          return internal_tensorstore::ResizeRankError(store.rank());
+        }
+        // FIXME: do compile-time checking of Mode
+        TENSORSTORE_RETURN_IF_ERROR(
+            internal::ValidateSupportsWrite(store.read_write_mode()));
+        auto& handle = internal::TensorStoreAccess::handle(store);
+        auto* driver = handle.driver.get();
+        return MapFutureValue(
+            InlineExecutor{},
+            internal_tensorstore::IndexTransformFutureCallback<
+                typename Store::Element, Store::static_rank,
+                Store::static_mode>{std::move(handle.driver),
+                                    store.read_write_mode()},
+            driver->Resize(IndexTransform<>(std::move(handle.transform)),
+                           inclusive_min, exclusive_max, options));
+      },
+      std::move(store_result));
 }
 
 /// Copies from `source` TensorStore to `target` array.

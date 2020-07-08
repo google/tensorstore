@@ -74,17 +74,19 @@ using DriverPtr = IntrusivePtr<Driver>;
 class DriverSpec;
 using DriverSpecPtr = IntrusivePtr<DriverSpec>;
 
-/// Combines a TensorStore `Driver` with an `IndexTransform` and
-/// `ReadWriteMode`.
-struct DriverReadWriteHandle {
-  /// Non-null driver pointer.
+/// Pairs a `Driver::Ptr` with an `IndexTransform<>` to apply to the driver.
+struct TransformedDriver {
   DriverPtr driver;
 
-  /// Specifies a index transform to use for operations.
-  ///
-  /// `transform.output_rank()` must equal `driver->rank()`.
+  /// Transform to apply to `driver`.  Note that read and write operations do
+  /// not use this transform directly, but rather use the transform obtained by
+  /// from `driver->ResolveBounds(transform)`.
   IndexTransform<> transform;
+};
 
+/// Combines a TensorStore `Driver` with an `IndexTransform` and
+/// `ReadWriteMode`.
+struct DriverReadWriteHandle : public TransformedDriver {
   /// Specifies `ReadWriteMode::read`, `ReadWriteMode::write`, or both.
   ReadWriteMode read_write_mode;
 };
@@ -410,16 +412,6 @@ Future<Driver::ReadWriteHandle> OpenDriver(Context context,
 Future<Driver::ReadWriteHandle> OpenDriver(
     TransformedDriverSpec<ContextBound> bound_spec,
     ReadWriteMode read_write_mode);
-
-/// Pairs a `Driver::Ptr` with an `IndexTransform<>` to apply to the driver.
-struct TransformedDriver {
-  Driver::Ptr driver;
-
-  /// Transform to apply to `driver`.  Note that read and write operations do
-  /// not use this transform directly, but rather use the transform obtained by
-  /// from `driver->ResolveBounds(transform)`.
-  IndexTransform<> transform;
-};
 
 /// Options for DriverRead.
 struct DriverReadOptions {

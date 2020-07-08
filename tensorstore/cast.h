@@ -65,8 +65,9 @@ Result<TensorStore<
 Cast(TensorStore<ElementType, Rank, Mode> store,
      StaticDataType<TargetElementType> target_data_type = {}) {
   return tensorstore::ChainResult(
-      internal::MakeCastDriver(internal::TensorStoreAccess::take_handle(store),
-                               target_data_type),
+      internal::MakeCastDriver(
+          std::move(internal::TensorStoreAccess::handle(store)),
+          target_data_type),
       internal::TensorStoreAccess::Construct<TensorStore<
           TargetElementType, Rank,
           tensorstore::internal::GetCastMode<ElementType, TargetElementType>(
@@ -81,8 +82,9 @@ Result<TensorStore<void, Rank,
                                                       : Mode)>>
 Cast(TensorStore<ElementType, Rank, Mode> store, DataType target_data_type) {
   return tensorstore::ChainResult(
-      internal::MakeCastDriver(internal::TensorStoreAccess::take_handle(store),
-                               target_data_type),
+      internal::MakeCastDriver(
+          std::move(internal::TensorStoreAccess::handle(store)),
+          target_data_type),
       internal::TensorStoreAccess::Construct<TensorStore<
           void, Rank,
           (Mode == ReadWriteMode::read_write ? ReadWriteMode::dynamic
