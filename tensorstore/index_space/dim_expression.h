@@ -16,6 +16,7 @@
 #define TENSORSTORE_INDEX_SPACE_DIM_EXPRESSION_H_
 
 #include <type_traits>
+#include <utility>
 
 #include "absl/meta/type_traits.h"
 #include "tensorstore/array.h"
@@ -1039,7 +1040,7 @@ class DimExpression<LastOp, PriorOp...> {
   ///     overflow occurs when computing the resultant transform.
   template <typename... IndexArray>
   IndexArraySliceOpExpr<IndexArray...> IndexArraySlice(
-      const IndexArray... index_array) const {
+      const IndexArray&... index_array) const {
     return {{index_array...}, *this};
   }
 

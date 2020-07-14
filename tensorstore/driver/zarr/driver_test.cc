@@ -808,6 +808,15 @@ void TestResizeToZeroAndBack(Op... op) {
 // This test verifies that the intermediate transform with a domain of
 // `[0, 2), [0, 0*)` is handled correctly.
 TEST(ZarrDriverTest, ResizeToZeroAndBackIndexArray) {
+  auto array = tensorstore::MakeArray<Index>({0, 1});
+  // Explicitly pass SharedArrayView
+  TestResizeToZeroAndBack(
+      tensorstore::Dims(0).IndexArraySlice(array.shared_array_view()),
+      tensorstore::Dims(1).TranslateSizedInterval(0, 3));
+  // Passing const lvalue-ref calls overload which converts to SharedArrayView.
+  TestResizeToZeroAndBack(tensorstore::Dims(0).IndexArraySlice(array),
+                          tensorstore::Dims(1).TranslateSizedInterval(0, 3));
+  // Passing temporary calls overload which converts to SharedArrayView.
   TestResizeToZeroAndBack(tensorstore::Dims(0).IndexArraySlice(
                               tensorstore::MakeArray<Index>({0, 1})),
                           tensorstore::Dims(1).TranslateSizedInterval(0, 3));
