@@ -59,6 +59,11 @@ struct CurlRequestState {
       : factory_(factory), handle_(factory->CreateHandle()) {
     InitializeCurlHandle(handle_.get());
 
+    if (CurlVerboseEnabled()) {
+      CurlEasySetopt(handle_.get(), CURLOPT_VERBOSE, 1L);
+      // TODO: Consider also using CURLOPT_DEBUGFUNCTION
+    }
+
     CurlEasySetopt(handle_.get(), CURLOPT_WRITEDATA, this);
     CurlEasySetopt(handle_.get(), CURLOPT_WRITEFUNCTION,
                    &CurlRequestState::CurlWriteCallback);
@@ -96,9 +101,7 @@ struct CurlRequestState {
     //
     // https://curl.haxx.se/libcurl/c/threadsafe.html
     CurlEasySetopt(handle_.get(), CURLOPT_NOSIGNAL, 1L);
-    if (CurlVerboseEnabled()) {
-      CurlEasySetopt(handle_.get(), CURLOPT_VERBOSE, 1L);
-    }
+
     std::string user_agent = request.user_agent() + GetCurlUserAgentSuffix();
     CurlEasySetopt(handle_.get(), CURLOPT_USERAGENT, user_agent.c_str());
 
@@ -272,6 +275,7 @@ void MultiTransportImpl::FinishRequest(CURL* e, CURLcode code) {
   }());
 
   if (code == CURLE_HTTP2) {
+    TENSORSTORE_LOG("CURLE_HTTP2 ", state->error_buffer_);
     // If there was an error in the HTTP2 framing, try and force
     // CURL to close the connection stream.
     // https://curl.haxx.se/libcurl/c/CURLOPT_FORBID_REUSE.html

@@ -111,10 +111,13 @@ cc_test(
     deps = [
         ":curl_transport",
         ":http",
+        "//tensorstore/internal:logging",
         "//tensorstore/internal:mutex",
         "//tensorstore/util:executor",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
+        "@org_nghttp2//:nghttp2",
     ],
 )

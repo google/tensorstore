@@ -14,21 +14,6 @@
 
 #include "tensorstore/internal/http/curl_transport.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <cstring>
-#include <thread>
-
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-#include "absl/base/thread_annotations.h"
-#include "absl/strings/str_cat.h"
-#include "absl/strings/string_view.h"
-#include "tensorstore/internal/http/http_request.h"
-#include "tensorstore/internal/mutex.h"
-#include "tensorstore/util/executor.h"
-
 #ifdef _WIN32
 
 #undef UNICODE
@@ -38,9 +23,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
-#pragma comment(lib, "Ws2_32.lib")
-
-using socket_t = SOCKET;
+#pragma comment(lib, "ws2_32.lib")
 
 #else  // _WIN32
 
@@ -54,11 +37,43 @@ using socket_t = SOCKET;
 #include <sys/types.h>
 #include <unistd.h>
 
+#endif  // _WIN32
+
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <cstring>
+#include <thread>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+#include "absl/base/thread_annotations.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/strings/escaping.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
+#include "tensorstore/internal/http/http_request.h"
+#include "tensorstore/internal/logging.h"
+#include "tensorstore/internal/mutex.h"
+#include "tensorstore/util/executor.h"
+
+// Platform specific defines.
+#ifdef _WIN32
+
+// nghttp2 may not have ssize_t defined correctly,
+using ssize_t = ptrdiff_t;
+using socket_t = SOCKET;
+
+#else  // _WIN32
+
 using socket_t = int;
 constexpr socket_t INVALID_SOCKET = -1;
 int closesocket(socket_t fd) { return close(fd); }
 
-#endif
+#endif  // _WIN32
+
+#include <nghttp2/nghttp2.h>
 
 using tensorstore::internal_http::HttpRequestBuilder;
 
@@ -189,32 +204,36 @@ bool WaitForRead(socket_t sock) {
   }
 }
 
-std::string AcceptAndRespond(socket_t server_fd, std::string my_response) {
+socket_t AcceptNonBlocking(socket_t server_fd) {
   struct sockaddr_storage peer_addr;
   socklen_t peer_len = sizeof(peer_addr);
 
   socket_t client_fd =
       accept(server_fd, (struct sockaddr *)&peer_addr, &peer_len);
-  if (client_fd < 0) return "ERROR";
+  assert(client_fd >= 0);
 
   SetSocketNonBlocking(client_fd);
+  return client_fd;
+}
 
+std::string ReceiveAvailable(socket_t client_fd) {
   constexpr size_t kBufferSize = 4096;
   char buf[kBufferSize];
-  std::string request;
-
+  std::string data;
   for (; WaitForRead(client_fd);) {
     int r = recv(client_fd, buf, kBufferSize, 0);
     if (r <= 0) break;
-    request.append(buf, r);
+    data.append(buf, r);
   }
+  TENSORSTORE_LOG("recv ", data.size(), ": ", data);
+  return data;
+}
 
-  int err = send(client_fd, my_response.data(), my_response.size(), 0);
-  if (err < 0) {
-    printf("Error transmitting\n");
-  }
-  closesocket(client_fd);
-  return request;
+int AssertSend(socket_t client_fd, absl::string_view data) {
+  TENSORSTORE_LOG("send ", data.size(), ":", data);
+  auto err = send(client_fd, data.data(), data.size(), 0);
+  assert(err == data.size());
+  return err;
 }
 
 class CurlTransportTest : public ::testing::Test {
@@ -232,7 +251,7 @@ class CurlTransportTest : public ::testing::Test {
   }
 };
 
-TEST_F(CurlTransportTest, Basic) {
+TEST_F(CurlTransportTest, Http1) {
   auto transport = ::tensorstore::internal_http::GetDefaultHttpTransport();
 
   // This test sets up a simple single-request tcp/ip service which allows
@@ -252,10 +271,12 @@ TEST_F(CurlTransportTest, Basic) {
       "<html>\n<body>\n<h1>Hello, World!</h1>\n</body>\n</html>\n";
 
   // Start a thread to handle a single request.
-  std::string actual_request;
-  std::thread serve_thread = std::thread([socket = socket, &actual_request] {
-    actual_request = AcceptAndRespond(socket, kResponse);
-    closesocket(socket);
+  std::string initial_request;
+  std::thread serve_thread = std::thread([&] {
+    auto client_fd = AcceptNonBlocking(socket);
+    initial_request = ReceiveAvailable(client_fd);
+    AssertSend(client_fd, kResponse);
+    closesocket(client_fd);
   });
 
   // Issue a request.
@@ -269,28 +290,323 @@ TEST_F(CurlTransportTest, Basic) {
           .BuildRequest(),
       absl::Cord("Hello"));
 
-  response.value();
   serve_thread.join();
+  std::cout << GetStatus(response);
 
   using ::testing::HasSubstr;
-  EXPECT_THAT(actual_request, HasSubstr("/?name=dragon&age=1234"));
-  EXPECT_THAT(actual_request,
+  EXPECT_THAT(initial_request, HasSubstr("/?name=dragon&age=1234"));
+  EXPECT_THAT(initial_request,
               HasSubstr(absl::StrCat("Host: ", hostport, "\r\n")));
 
   // User-Agent versions change based on zlib, nghttp2, and curl versions.
-  EXPECT_THAT(actual_request, HasSubstr("User-Agent: testtensorstore/0.1 "));
+  EXPECT_THAT(initial_request, HasSubstr("User-Agent: testtensorstore/0.1 "));
 
-  EXPECT_THAT(actual_request, HasSubstr("Accept: */*\r\n"));
-  EXPECT_THAT(actual_request, HasSubstr("Accept-Encoding: deflate, gzip\r\n"));
-  EXPECT_THAT(actual_request, HasSubstr("X-foo: bar\r\n"));
-  EXPECT_THAT(actual_request, HasSubstr("Content-Length: 5"));
-  EXPECT_THAT(actual_request,
+  EXPECT_THAT(initial_request, HasSubstr("Accept: */*\r\n"));
+  EXPECT_THAT(initial_request, HasSubstr("Accept-Encoding: deflate, gzip\r\n"));
+  EXPECT_THAT(initial_request, HasSubstr("X-foo: bar\r\n"));
+  EXPECT_THAT(initial_request, HasSubstr("Content-Length: 5"));
+  EXPECT_THAT(initial_request,
               HasSubstr("Content-Type: application/x-www-form-urlencoded\r\n"));
-  EXPECT_THAT(actual_request, HasSubstr("Hello"));
+  EXPECT_THAT(initial_request, HasSubstr("Hello"));
 
   EXPECT_EQ(200, response.value().status_code);
   EXPECT_EQ("<html>\n<body>\n<h1>Hello, World!</h1>\n</body>\n</html>\n",
             response.value().payload);
+}
+
+class Http2Session {
+ public:
+  struct Stream {
+    std::vector<std::pair<std::string, std::string>> headers;
+    std::string data;
+  };
+
+  socket_t client_fd;
+  nghttp2_session* session;
+  int32_t last_stream_id;
+
+  absl::flat_hash_map<int32_t, Stream> streams;
+  absl::flat_hash_map<int32_t, Stream> completed;
+
+  // Callbacks for nghttp2_session:
+  static ssize_t Send(nghttp2_session* session, const uint8_t* data,
+                      size_t length, int flags, void* user_data) {
+    TENSORSTORE_LOG("http2 send ", length, ":",
+                    absl::BytesToHexString(absl::string_view(
+                        reinterpret_cast<const char*>(data), length)));
+    Http2Session* self = static_cast<Http2Session*>(user_data);
+    auto err =
+        send(self->client_fd, reinterpret_cast<const char*>(data), length, 0);
+    TENSORSTORE_CHECK(err > 0);
+    return err;
+  }
+
+  static int OnFrameRecv(nghttp2_session* session, const nghttp2_frame* frame,
+                         void* user_data) {
+    Http2Session* self = static_cast<Http2Session*>(user_data);
+    const auto stream_id = frame->hd.stream_id;
+    const auto type = frame->hd.type;
+
+    TENSORSTORE_LOG("http2 frame ", stream_id, ": ", type);
+
+    if ((type == NGHTTP2_DATA || type == NGHTTP2_HEADERS) &&
+        (frame->hd.flags & NGHTTP2_FLAG_END_STREAM)) {
+      // The request is done.
+      TENSORSTORE_LOG("http2 stream done ", stream_id);
+      if (self->streams.count(stream_id) != 0) {
+        self->last_stream_id = stream_id;
+        self->completed[stream_id] = std::move(self->streams[stream_id]);
+        self->streams.erase(stream_id);
+      }
+    }
+    return 0;
+  }
+
+  static int OnHeader(nghttp2_session* session, const nghttp2_frame* frame,
+                      const uint8_t* name, size_t namelen, const uint8_t* value,
+                      size_t valuelen, uint8_t flags, void* user_data) {
+    Http2Session* self = static_cast<Http2Session*>(user_data);
+    const int32_t stream_id = frame->hd.stream_id;
+    auto& stream = self->streams[stream_id];
+    stream.headers.emplace_back(
+        std::string(reinterpret_cast<const char*>(name), namelen),
+        std::string(reinterpret_cast<const char*>(value), valuelen));
+    TENSORSTORE_LOG("http2 header ", stream_id, ": ",
+                    stream.headers.back().first, " ",
+                    stream.headers.back().second);
+
+    return 0;
+  }
+
+  static int OnDataChunkRecv(nghttp2_session* session, uint8_t flags,
+                             int32_t stream_id, const uint8_t* data, size_t len,
+                             void* user_data) {
+    TENSORSTORE_LOG("http2 data chunk:", stream_id);
+    Http2Session* self = static_cast<Http2Session*>(user_data);
+    auto& stream = self->streams[stream_id];
+    stream.data.append(reinterpret_cast<const char*>(data), len);
+    return 0;
+  }
+
+  static int OnStreamClose(nghttp2_session* session, int32_t stream_id,
+                           uint32_t error_code, void* user_data) {
+    TENSORSTORE_LOG("http2 stream close:", stream_id);
+    return 0;
+  }
+
+  struct StringViewDataSource {
+    absl::string_view view;
+  };
+
+  static ssize_t StringViewRead(nghttp2_session* session, int32_t stream_id,
+                                uint8_t* buf, size_t length,
+                                uint32_t* data_flags,
+                                nghttp2_data_source* source, void*) {
+    auto my_data = reinterpret_cast<StringViewDataSource*>(source->ptr);
+    if (length > my_data->view.size()) {
+      length = my_data->view.size();
+      memcpy(buf, my_data->view.data(), length);
+      *data_flags |= NGHTTP2_DATA_FLAG_EOF;
+      delete my_data;
+      return length;
+    }
+    memcpy(buf, my_data->view.data(), length);
+    my_data->view.remove_prefix(length);
+    return length;
+  }
+
+  Http2Session(socket_t client, absl::string_view settings)
+      : client_fd(client) {
+    nghttp2_session_callbacks* callbacks;
+    TENSORSTORE_CHECK(0 == nghttp2_session_callbacks_new(&callbacks));
+    nghttp2_session_callbacks_set_send_callback(callbacks, &Http2Session::Send);
+    nghttp2_session_callbacks_set_on_header_callback(callbacks,
+                                                     &Http2Session::OnHeader);
+    nghttp2_session_callbacks_set_on_data_chunk_recv_callback(
+        callbacks, &Http2Session::OnDataChunkRecv);
+    nghttp2_session_callbacks_set_on_stream_close_callback(
+        callbacks, &Http2Session::OnStreamClose);
+    nghttp2_session_callbacks_set_on_frame_recv_callback(
+        callbacks, &Http2Session::OnFrameRecv);
+
+    nghttp2_session_server_new2(&session, callbacks, this, nullptr);
+    nghttp2_session_callbacks_del(callbacks);
+
+    // The initial stream id is 1.
+    auto result = nghttp2_session_upgrade2(
+        session, reinterpret_cast<const uint8_t*>(settings.data()),
+        settings.size(), false, nullptr);
+    TENSORSTORE_CHECK(0 == result);
+
+    // Queue a settings
+    result = nghttp2_submit_settings(session, NGHTTP2_FLAG_NONE, nullptr, 0);
+    TENSORSTORE_CHECK(0 == result);
+  }
+
+  ~Http2Session() { nghttp2_session_del(session); }
+
+  void GoAway() { nghttp2_session_terminate_session(session, 0); }
+
+  bool Done() {
+    return !nghttp2_session_want_write(session) &&
+           !nghttp2_session_want_read(session);
+  }
+
+  void TrySendReceive() {
+    constexpr size_t kBufferSize = 4096;
+    char buf[kBufferSize];
+
+    nghttp2_session_send(session);
+    if (WaitForRead(client_fd)) {
+      int r = recv(client_fd, buf, kBufferSize, 0);
+      TENSORSTORE_CHECK(r >= 0);
+      TENSORSTORE_LOG("http2 recv: ", r);
+
+      auto result = nghttp2_session_mem_recv(
+          session, reinterpret_cast<const uint8_t*>(buf), r);
+      TENSORSTORE_CHECK(result >= 0);
+    }
+  }
+
+  void SendResponse(int32_t stream_id,
+                    std::vector<std::pair<std::string, std::string>> headers,
+                    absl::string_view data) {
+    TENSORSTORE_CHECK(stream_id >= 0);
+    TENSORSTORE_LOG("http2 respond on ", stream_id, ": ",
+                    absl::BytesToHexString(data));
+
+    const size_t num_headers = headers.size();
+    std::unique_ptr<nghttp2_nv[]> nvs(new nghttp2_nv[num_headers]);
+    for (size_t i = 0; i < num_headers; ++i) {
+      auto& header = headers[i];
+      nghttp2_nv* nv = &nvs[i];
+      nv->name = reinterpret_cast<uint8_t*>(header.first.data());
+      nv->value = reinterpret_cast<uint8_t*>(header.second.data());
+      nv->namelen = header.first.size();
+      nv->valuelen = header.second.size();
+      nv->flags = NGHTTP2_NV_FLAG_NONE;
+    }
+    nghttp2_data_provider data_provider;
+    if (!data.empty()) {
+      data_provider.source.ptr = new StringViewDataSource{data};
+      data_provider.read_callback = &Http2Session::StringViewRead;
+    }
+    auto result =
+        nghttp2_submit_response(session, stream_id, nvs.get(), num_headers,
+                                data.empty() ? nullptr : &data_provider);
+    TENSORSTORE_CHECK(0 == result);
+  }
+};
+
+TEST_F(CurlTransportTest, Http2) {
+  auto transport = ::tensorstore::internal_http::GetDefaultHttpTransport();
+
+  // This test sets up a simple single-request tcp/ip service which allows
+  // us to mock a simple HTTP/2 server.
+  socket_t socket = CreateBoundSocket();
+  TENSORSTORE_CHECK(socket != INVALID_SOCKET);
+
+  auto hostport = FormatSocketAddress(socket);
+  TENSORSTORE_CHECK(!hostport.empty());
+
+  static constexpr char kSwitchProtocols[] =  // 69
+      "HTTP/1.1 101 Switching Protocols\r\n"  //  35
+      "Connection: Upgrade\r\n"               //
+      "Upgrade: h2c\r\n"                      //
+      "\r\n";
+
+  // AAMAAABkAAQCAAAAAAIAAAAA
+  static constexpr char kSettings[] = "\0\3\0\0\0\x64\0\4\2\0\0\0\0\2\0\0\0\0";
+
+  std::string initial_request;
+  std::string second_request;
+
+  std::thread serve_thread = std::thread([&] {
+    auto client_fd = AcceptNonBlocking(socket);
+    initial_request = ReceiveAvailable(client_fd);
+
+    // Manually upgrade the h2c to HTTP/2
+    AssertSend(client_fd, kSwitchProtocols);
+
+    Http2Session session(client_fd, absl::string_view(kSettings, 18));
+    session.SendResponse(
+        1, {{":status", "200"}, {"content-type", "text/html"}},
+        "<html>\n<body>\n<h1>Hello, World!</h1>\n</body>\n</html>\n");
+    session.TrySendReceive();
+
+    // After that has been sent, we have an additional request to
+    // handle,, but it is sent asynchronously on another thread,
+    // so loop here. 10 is somewhat arbitrary, though several send/recv
+    // calls are required to transmit various frames, since each stream
+    // likely needs to send/recv HEADER, DATA, & WINDOW, and then the
+    // GOAWAY is triggered below.
+    for (int i = 0; i < 10; i++) {
+      session.TrySendReceive();
+      if (!session.completed.empty()) {
+        auto it = session.completed.begin();
+        session.SendResponse(
+            session.completed.begin()->first,
+            {{":status", "200"}, {"content-type", "text/html"}}, "McFly");
+        session.completed.erase(it);
+      }
+    }
+    session.TrySendReceive();
+    session.GoAway();
+    session.TrySendReceive();
+
+    // We have not sent a shutdown message.
+    closesocket(client_fd);
+  });
+
+  // Issue a request 1.
+  {
+    auto response = transport->IssueRequest(
+        HttpRequestBuilder(absl::StrCat("http://", hostport, "/"))
+            .AddUserAgentPrefix("test")
+            .AddHeader("X-foo: bar")
+            .AddQueryParameter("name", "dragon")
+            .AddQueryParameter("age", "1234")
+            .EnableAcceptEncoding()
+            .BuildRequest(),
+        absl::Cord("Hello"));
+
+    // Waits for the response.
+    TENSORSTORE_LOG(GetStatus(response));
+
+    using ::testing::HasSubstr;
+    EXPECT_THAT(initial_request, HasSubstr("/?name=dragon&age=1234"));
+    EXPECT_THAT(initial_request,
+                HasSubstr(absl::StrCat("Host: ", hostport, "\r\n")));
+
+    // User-Agent versions change based on zlib, nghttp2, and curl versions.
+    EXPECT_THAT(initial_request, HasSubstr("User-Agent: testtensorstore/0.1 "));
+
+    EXPECT_THAT(initial_request, HasSubstr("Accept: */*\r\n"));
+    EXPECT_THAT(initial_request,
+                HasSubstr("Accept-Encoding: deflate, gzip\r\n"));
+    EXPECT_THAT(initial_request, HasSubstr("X-foo: bar\r\n"));
+    EXPECT_THAT(initial_request, HasSubstr("Content-Length: 5"));
+    EXPECT_THAT(
+        initial_request,
+        HasSubstr("Content-Type: application/x-www-form-urlencoded\r\n"));
+    EXPECT_THAT(initial_request, HasSubstr("Hello"));
+
+    EXPECT_EQ(200, response.value().status_code);
+    EXPECT_EQ("<html>\n<body>\n<h1>Hello, World!</h1>\n</body>\n</html>\n",
+              response.value().payload);
+  }
+
+  {
+    auto response = transport->IssueRequest(
+        HttpRequestBuilder(absl::StrCat("http://", hostport, "/boo"))
+            .BuildRequest(),
+        absl::Cord());
+
+    // Waits for the response.
+    TENSORSTORE_LOG(GetStatus(response));
+  }
+
+  serve_thread.join();
 }
 
 }  // namespace
