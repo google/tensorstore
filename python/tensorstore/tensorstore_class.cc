@@ -21,9 +21,11 @@
 #include <utility>
 
 #include "python/tensorstore/array_type_caster.h"
+#include "python/tensorstore/context.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/future.h"
 #include "python/tensorstore/index_space.h"
+#include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/write_futures.h"
@@ -37,6 +39,7 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/array/array.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/internal/json_pprint_python.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/progress.h"
@@ -87,10 +90,12 @@ void RegisterTensorStoreBindings(pybind11::module m) {
           })
       .def("__repr__",
            [](const TensorStore<>& self) -> std::string {
-             if (auto spec_result = self.spec()) {
-               return PrettyPrintSpec(*spec_result, "TensorStore(", ")");
-             }
-             return "TensorStore(...)";
+             return internal_python::PrettyPrintJsonAsPythonRepr(
+                 self.spec() |
+                     [](const auto& spec) {
+                       return spec.ToJson(IncludeDefaults{false});
+                     },
+                 "TensorStore(", ")");
            })
       .def(
           "__array__",
@@ -143,7 +148,27 @@ void RegisterTensorStoreBindings(pybind11::module m) {
             return ValueOrThrow(tensorstore::Cast(self, target_data_type));
           },
           "Returns a read/write view as the specified data type.",
-          py::arg("dtype"));
+          py::arg("dtype"))
+      .def(py::pickle(
+          [](const TensorStore<>& self) -> py::tuple {
+            auto builder = internal::ContextSpecBuilder::Make();
+            auto spec = ValueOrThrow(self.spec({}, builder));
+            auto pickled_context =
+                internal_python::PickleContextSpecBuilder(std::move(builder));
+            auto json_spec = ValueOrThrow(spec.ToJson());
+            return py::make_tuple(py::cast(json_spec),
+                                  std::move(pickled_context));
+          },
+          [](py::tuple t) -> tensorstore::TensorStore<> {
+            auto json_spec = py::cast<::nlohmann::json>(t[0]);
+            auto context =
+                WrapImpl(internal_python::UnpickleContextSpecBuilder(t[1]));
+            py::gil_scoped_release gil_release;
+            return ValueOrThrow(
+                tensorstore::Open(std::move(context), std::move(json_spec))
+                    .result());
+          }));
+
   cls_tensorstore.attr("__iter__") = py::none();
 
   DefineIndexTransformOperations(
@@ -183,27 +208,31 @@ void RegisterTensorStoreBindings(pybind11::module m) {
   m.def(
       "array",
       [](SharedArray<void> array,
-         std::optional<Context> context) -> TensorStore<> {
-        if (!context) context = Context::Default();
-        return ValueOrThrow(FromArray(std::move(*context), array));
+         internal_context::ContextImplPtr context) -> TensorStore<> {
+        if (!context) {
+          context = internal_context::Access::impl(Context::Default());
+        }
+        return ValueOrThrow(FromArray(WrapImpl(std::move(context)), array));
       },
       "Returns a TensorStore that reads/writes from an in-memory array.",
-      py::arg("array"), py::arg("context") = std::nullopt);
+      py::arg("array"), py::arg("context") = nullptr);
 
   m.def(
       "array",
       [](ArrayArgumentPlaceholder array, DataType dtype,
-         std::optional<Context> context) -> TensorStore<> {
-        if (!context) context = Context::Default();
+         internal_context::ContextImplPtr context) -> TensorStore<> {
+        if (!context) {
+          context = internal_context::Access::impl(Context::Default());
+        }
         SharedArray<void> converted_array;
         ConvertToArray</*Element=*/void, /*Rank=*/dynamic_rank,
                        /*NoThrow=*/false, /*AllowCopy=*/true>(
             array.obj, &converted_array, dtype);
-        return ValueOrThrow(
-            FromArray(std::move(*context), std::move(converted_array)));
+        return ValueOrThrow(FromArray(WrapImpl(std::move(context)),
+                                      std::move(converted_array)));
       },
       "Returns a TensorStore that reads/writes from an in-memory array.",
-      py::arg("array"), py::arg("dtype"), py::arg("context") = std::nullopt);
+      py::arg("array"), py::arg("dtype"), py::arg("context") = nullptr);
 
   m.def(
       "open",
@@ -211,8 +240,10 @@ void RegisterTensorStoreBindings(pybind11::module m) {
          std::optional<bool> open, std::optional<bool> create,
          std::optional<bool> delete_existing,
          std::optional<bool> allow_option_mismatch,
-         std::optional<Context> context) {
-        if (!context) context = Context::Default();
+         internal_context::ContextImplPtr context) {
+        if (!context) {
+          context = internal_context::Access::impl(Context::Default());
+        }
         OpenOptions options;
         if (!read && !write) {
           read = true;
@@ -243,14 +274,15 @@ void RegisterTensorStoreBindings(pybind11::module m) {
           }
           options.open_mode = open_mode;
         }
-        return tensorstore::Open(std::move(*context), spec, std::move(options));
+        return tensorstore::Open(WrapImpl(std::move(context)), spec,
+                                 std::move(options));
       },
       "Opens a TensorStore", py::arg("spec"), py::arg("read") = std::nullopt,
       py::arg("write") = std::nullopt, py::arg("open") = std::nullopt,
       py::arg("create") = std::nullopt,
       py::arg("delete_existing") = std::nullopt,
       py::arg("allow_option_mismatch") = std::nullopt,
-      py::arg("context") = std::nullopt);
+      py::arg("context") = nullptr);
 }
 
 }  // namespace internal_python

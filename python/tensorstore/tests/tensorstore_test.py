@@ -13,6 +13,7 @@
 # limitations under the License.
 """Tests for tensorstore.TensorStore."""
 
+import pickle
 import re
 import tempfile
 
@@ -102,21 +103,21 @@ async def test_cast():
 async def test_local_n5():
   with tempfile.TemporaryDirectory() as dir_path:
     dataset = ts.open({
-        'driver': 'n5',
-        'kvstore': {
-            'driver': 'file',
-            'path': dir_path,
+        "driver": "n5",
+        "kvstore": {
+            "driver": "file",
+            "path": dir_path,
         },
-        'metadata': {
-            'compression': {
-                'type': 'gzip'
+        "metadata": {
+            "compression": {
+                "type": "gzip"
             },
-            'dataType': 'uint32',
-            'dimensions': [1000, 20000],
-            'blockSize': [10, 10],
+            "dataType": "uint32",
+            "dimensions": [1000, 20000],
+            "blockSize": [10, 10],
         },
-        'create': True,
-        'delete_existing': True,
+        "create": True,
+        "delete_existing": True,
     }).result()
     dataset[80:82, 99:102] = [[1, 2, 3], [4, 5, 6]]
     np.testing.assert_equal([[1, 2, 3], [4, 5, 6], [0, 0, 0]],
@@ -125,9 +126,52 @@ async def test_local_n5():
 
 async def test_open_error_message():
   with pytest.raises(ValueError,
-                     match='.*Error parsing object member "driver": .*'):
-    await ts.open({'invalid': 'key'})
+                     match=".*Error parsing object member \"driver\": .*"):
+    await ts.open({"invalid": "key"})
 
   with pytest.raises(ValueError,
-                     match='Expected object, but received: 3'):
+                     match="Expected object, but received: 3"):
     await ts.open(3)
+
+
+async def test_pickle():
+  with tempfile.TemporaryDirectory() as dir_path:
+    context = ts.Context({"cache_pool": { "total_bytes_limit": 1000000}})
+    spec = {
+      "driver": "n5",
+      "kvstore": {
+        "driver": "file",
+        "path": dir_path,
+      },
+      "metadata": {
+        "compression": {
+          "type": "raw",
+        },
+        "dataType": "uint32",
+        "dimensions": [100, 100],
+        "blockSize": [10, 10],
+      },
+      "recheck_cached_data": False,
+      "recheck_cached_metadata": False,
+      "create": True,
+      "open": True,
+    }
+    t1 = await ts.open(spec, context=context)
+    t2 = await ts.open(spec, context=context)
+
+    pickled = pickle.dumps([t1, t2])
+    unpickled = pickle.loads(pickled)
+    new_t1, new_t2 = unpickled
+
+    assert new_t1[0, 0].read().result() == 0
+    assert new_t2[0, 0].read().result() == 0
+    new_t1[0, 0] = 42
+
+    # Delete data
+    await ts.open(spec, create=True, delete_existing=True)
+
+    # new_t1 still sees old data in cache
+    assert new_t1[0, 0].read().result() == 42
+
+    # new_t2 shares cache with new_t1
+    assert new_t2[0, 0].read().result() == 42

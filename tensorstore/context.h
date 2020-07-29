@@ -18,7 +18,7 @@
 /// \file Interfaces for creating and using context resources.
 
 #include <nlohmann/json.hpp>
-#include "tensorstore/context_impl.h"
+#include "tensorstore/context_impl_base.h"
 #include "tensorstore/internal/cache_key.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_bindable.h"
@@ -101,6 +101,7 @@ class Context {
                                             ToJsonOptions)
 
    private:
+    friend class internal_context::Access;
     friend class Context;
     friend class internal::ContextSpecBuilder;
     internal_context::ContextSpecImplPtr impl_;
@@ -231,6 +232,7 @@ class Context {
   explicit operator bool() const { return static_cast<bool>(impl_); }
 
  private:
+  friend class internal_context::Access;
   internal_context::ContextImplPtr impl_;
 };
 
@@ -246,7 +248,7 @@ class ContextSpecBuilder {
   ContextSpecBuilder() = default;
 
   /// Returns `true` if this is not a null builder.
-  explicit operator bool() const { return static_cast<bool>(builder_impl_); }
+  explicit operator bool() const { return static_cast<bool>(impl_); }
 
   /// Constructs a new `ContextSpecBuilder`.
   ///
@@ -274,9 +276,10 @@ class ContextSpecBuilder {
   template <typename Provider>
   Context::ResourceSpec<Provider> AddResource(
       const Context::Resource<Provider>& resource) const {
-    assert(builder_impl_);
+    assert(impl_);
     Context::ResourceSpec<Provider> resource_spec;
-    resource_spec.impl_ = AddResource(resource.impl_.get());
+    resource_spec.impl_ =
+        internal_context::AddResource(*this, resource.impl_.get());
     return resource_spec;
   }
 
@@ -285,9 +288,8 @@ class ContextSpecBuilder {
   Context::Spec spec() const;
 
  private:
-  internal_context::ContextResourceSpecImplPtr AddResource(
-      internal_context::ContextResourceImplBase* resource) const;
-  internal_context::BuilderImplPtr builder_impl_;
+  friend class internal_context::Access;
+  internal_context::BuilderImplPtr impl_;
   internal_context::ContextSpecImplPtr spec_impl_;
 };
 

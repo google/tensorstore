@@ -133,10 +133,11 @@ tensorstore_cc_library(
     name = "context",
     srcs = [
         "context.cc",
-        "context_impl.h",
+        "context_impl_base.h",
     ],
     hdrs = [
         "context.h",
+        "context_impl.h",
         "context_resource_provider.h",
     ],
     deps = [

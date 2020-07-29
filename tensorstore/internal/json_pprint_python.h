@@ -28,6 +28,7 @@
 #include <string>
 
 #include <nlohmann/json.hpp>
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -51,6 +52,14 @@ void PrettyPrintJsonAsPython(
 
 std::string PrettyPrintJsonAsPython(
     const ::nlohmann::json& j,
+    const PrettyPrintJsonAsPythonOptions& options = {});
+
+/// Formats `prefix + *j + suffix`.
+///
+/// If `!j.ok()`, substitutes `"..."` for `*j`.
+std::string PrettyPrintJsonAsPythonRepr(
+    const Result<::nlohmann::json>& j, std::string_view prefix,
+    std::string_view suffix,
     const PrettyPrintJsonAsPythonOptions& options = {});
 
 }  // namespace internal_python

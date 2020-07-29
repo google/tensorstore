@@ -16,6 +16,7 @@
 import abc as _abc
 
 from ._tensorstore import *
+from ._tensorstore import _ContextResource
 
 newaxis = None
 """Alias for `None` used in `indexing expressions<python-indexing>` to specify a

@@ -27,10 +27,6 @@
 namespace tensorstore {
 namespace internal_python {
 
-std::string PrettyPrintSpec(const Spec& s, const std::string& prefix,
-                            const std::string& suffix,
-                            int width = 80);
-
 void RegisterSpecBindings(pybind11::module m);
 
 }  // namespace internal_python

@@ -18,6 +18,7 @@
 
 #include "absl/strings/escaping.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -69,6 +70,10 @@ void FormatAsSingleLineForPython(std::string* out, const ::nlohmann::json& j) {
     }
     case ::nlohmann::json::value_t::boolean: {
       *out += (j.get_ref<const bool&>() ? "True" : "False");
+      break;
+    }
+    case ::nlohmann::json::value_t::null: {
+      *out += "None";
       break;
     }
     default:
@@ -151,6 +156,22 @@ std::string PrettyPrintJsonAsPython(
   std::string out;
   PrettyPrintJsonAsPython(&out, j, options);
   return out;
+}
+
+std::string PrettyPrintJsonAsPythonRepr(
+    const Result<::nlohmann::json>& j, std::string_view prefix,
+    std::string_view suffix, const PrettyPrintJsonAsPythonOptions& options) {
+  std::string pretty{prefix};
+  const char* dotdotdot = "...";
+  if (j.ok()) {
+    PrettyPrintJsonAsPythonOptions adjusted_options = options;
+    adjusted_options.width -= suffix.size();
+    adjusted_options.cur_line_indent += prefix.size();
+    PrettyPrintJsonAsPython(&pretty, *j, options);
+    dotdotdot = "";
+  }
+  StrAppend(&pretty, dotdotdot, suffix);
+  return pretty;
 }
 
 }  // namespace internal_python

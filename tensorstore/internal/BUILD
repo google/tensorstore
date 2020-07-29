@@ -948,6 +948,7 @@ tensorstore_cc_library(
     srcs = ["json_pprint_python.cc"],
     hdrs = ["json_pprint_python.h"],
     deps = [
+        "//tensorstore/util:result",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/strings",
     ],

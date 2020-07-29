@@ -42,21 +42,6 @@ namespace internal_python {
 
 namespace py = pybind11;
 
-std::string PrettyPrintSpec(const Spec& s, const std::string& prefix,
-                            const std::string& suffix, int width) {
-  std::string pretty = prefix;
-  const char* dotdotdot = "...";
-  if (auto j = s.ToJson(IncludeDefaults{false})) {
-    PrettyPrintJsonAsPythonOptions options;
-    options.width = width - suffix.size();
-    options.cur_line_indent = prefix.size();
-    PrettyPrintJsonAsPython(&pretty, *j, options);
-    dotdotdot = "";
-  }
-  StrAppend(&pretty, dotdotdot, suffix);
-  return pretty;
-}
-
 void RegisterSpecBindings(pybind11::module m) {
   py::class_<Spec> cls_spec(m, "Spec", R"(
 Specification for opening or creating a TensorStore.
@@ -105,7 +90,10 @@ Specification for opening or creating a TensorStore.
           py::arg("include_defaults") = false,
           py::arg("include_context") = true)
       .def("__repr__",
-           [](const Spec& self) { return PrettyPrintSpec(self, "Spec(", ")"); })
+           [](const Spec& self) {
+             return internal_python::PrettyPrintJsonAsPythonRepr(
+                 self.ToJson(IncludeDefaults{false}), "Spec(", ")");
+           })
       .def(
           "__eq__",
           [](const Spec& self, const Spec& other) { return self == other; },

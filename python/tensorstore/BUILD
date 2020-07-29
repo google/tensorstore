@@ -142,6 +142,15 @@ pybind11_cc_library(
 )
 
 pybind11_cc_library(
+    name = "intrusive_ptr_holder",
+    hdrs = ["intrusive_ptr_holder.h"],
+    deps = [
+        "//tensorstore/internal:intrusive_ptr",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+)
+
+pybind11_cc_library(
     name = "index",
     srcs = ["index.cc"],
     hdrs = ["index.h"],
@@ -297,9 +306,11 @@ pybind11_cc_library(
     hdrs = ["tensorstore_class.h"],
     deps = [
         ":array_type_caster",
+        ":context",
         ":data_type",
         ":future",
         ":index_space",
+        ":json_type_caster",
         ":result_type_caster",
         ":spec",
         ":write_futures",
@@ -318,6 +329,7 @@ pybind11_cc_library(
         "//tensorstore:strided_layout",
         "//tensorstore/driver/array",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:json_pprint_python",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "@com_github_pybind_pybind11//:pybind11",
@@ -329,10 +341,12 @@ pybind11_cc_library(
     srcs = ["context.cc"],
     hdrs = ["context.h"],
     deps = [
+        ":intrusive_ptr_holder",
         ":json_type_caster",
         ":result_type_caster",
         "//tensorstore:context",
         "//tensorstore:json_serialization_options",
+        "//tensorstore/internal:json_pprint_python",
         "@com_github_pybind_pybind11//:pybind11",
     ],
 )
@@ -401,6 +415,15 @@ pybind11_cc_library(
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+    ],
+)
+
+tensorstore_pytest_test(
+    name = "context_test",
+    size = "small",
+    srcs = ["tests/context_test.py"],
+    deps = [
+        ":tensorstore",
     ],
 )
 

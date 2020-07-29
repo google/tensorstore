@@ -24,9 +24,10 @@
 namespace {
 
 using tensorstore::internal_python::PrettyPrintJsonAsPython;
+using tensorstore::internal_python::PrettyPrintJsonAsPythonRepr;
 
 TEST(PrettyPrintJsonAsPythonTest, Basic) {
-  EXPECT_EQ("null", PrettyPrintJsonAsPython(::nlohmann::json(nullptr)));
+  EXPECT_EQ("None", PrettyPrintJsonAsPython(::nlohmann::json(nullptr)));
   EXPECT_EQ("True", PrettyPrintJsonAsPython(::nlohmann::json(true)));
   EXPECT_EQ("False", PrettyPrintJsonAsPython(::nlohmann::json(false)));
   EXPECT_EQ("'abc'", PrettyPrintJsonAsPython(::nlohmann::json("abc")));
@@ -81,6 +82,22 @@ TEST(PrettyPrintJsonAsPythonTest, Basic) {
       PrettyPrintJsonAsPython(
           ::nlohmann::json({{"a", 1}, {"b", 2}, {"c", {1, 2, 3, 4}}}),
           {/*.indent=*/2, /*.width=*/21}));
+}
+
+TEST(PrettyPrintJsonAsPythonReprTest, Basic) {
+  EXPECT_EQ("Foo(None)", PrettyPrintJsonAsPythonRepr(::nlohmann::json(nullptr),
+                                                     "Foo(", ")"));
+  EXPECT_EQ("Foo(...)",
+            PrettyPrintJsonAsPythonRepr(absl::UnknownError(""), "Foo(", ")"));
+  EXPECT_EQ(
+      R"(Foo({
+  'a': 1,
+  'b': 2,
+  'c': [1, 2, 3, 4],
+}))",
+      PrettyPrintJsonAsPythonRepr(
+          ::nlohmann::json({{"a", 1}, {"b", 2}, {"c", {1, 2, 3, 4}}}), "Foo(",
+          ")", {/*.indent=*/2, /*.width=*/21}));
 }
 
 }  // namespace
