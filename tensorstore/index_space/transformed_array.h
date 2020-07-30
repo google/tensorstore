@@ -1160,6 +1160,44 @@ ApplyIndexTransform(Expr&& expr, T&& t) {
 
 namespace internal {
 
+/// Function object implementation of Materialize()
+template <ArrayOriginKind OriginKind>
+struct MaterializeFn {
+  TransformArrayConstraints constraints;
+
+  template <typename A>
+  inline std::enable_if_t<
+      (IsTransformedArray<A>::value || IsNormalizedTransformedArray<A>::value),
+      decltype(std::declval<A>().template Materialize<OriginKind>())>
+  operator()(const A& array) const {
+    return array.template Materialize<OriginKind>(constraints);
+  }
+};
+
+}  // namespace internal
+
+/// Materializes the transformed array as a strided array.
+///
+/// Refer to the documentation for `TransformArray`.  Depending on
+/// `constraints` and whether the transform uses index arrays, the returned
+/// array may be newly allocated or point to a sub-region of the existing
+/// array.  In the latter case, the returned array is only valid as long as
+/// the existing array despite being stored as a `SharedArray`.
+///
+/// Example:
+///    auto materialized_array = array | AllDims().Diagonal() | Materialize();
+///
+/// \tparam OriginKind Specifies whether to retain the origin offset.
+/// \param constraints If `constraints == std::nullopt`, the returned array
+///     may refer to `base_array()`.
+template <ArrayOriginKind OriginKind = offset_origin>
+inline internal::MaterializeFn<OriginKind> Materialize(
+    TransformArrayConstraints constraints = skip_repeated_elements) {
+  return internal::MaterializeFn<OriginKind>{constraints};
+}
+
+namespace internal {
+
 /// Internal untyped interface to tensorstore::IterateOverTransformedArrays.
 template <std::size_t Arity>
 Result<ArrayIterateResult> IterateOverTransformedArrays(

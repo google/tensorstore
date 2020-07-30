@@ -15,6 +15,10 @@
 #include <iostream>
 
 #include "tensorstore/array.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/status.h"
 
@@ -32,12 +36,13 @@ struct X {
   }
 };
 
-template <typename T, tensorstore::DimensionIndex N>
-void PrintCSVArray(tensorstore::ArrayView<T, N> data) {
+template <typename Array>
+void PrintCSVArray(Array&& data) {
   if (data.rank() == 0) {
-    std::cout << data;
+    std::cout << data << std::endl;
     return;
   }
+
   // Iterate over the shape of the data array, which gives us one
   // reference for every element.
   //
@@ -70,19 +75,42 @@ void PrintCSVArray(tensorstore::ArrayView<T, N> data) {
           s.append("\t");
         }
       });
-  std::cout << s;
+  std::cout << s << std::endl;
 }
+
 }  // namespace
 
 int main(int argc, char** argv) {
   // How do we create arrays? Let's try this multiple different ways.
+  const int two_dim[5][5] =  //
+      {{0, 0, 0, 0, 0},      //
+       {0, 72, 53, 60, 0},   //
+       {0, 76, 56, 65, 0},   //
+       {0, 88, 78, 82, 0},   //
+       {0, 0, 0, 0, 0}};
 
-  std::cout << std::endl << "Native C++ arrays" << std::endl;
+  const float three_dim[3][3][3] = {{
+                                        {1, 2, 3},  //
+                                        {4, 5, 6},  //
+                                        {7, 8, 9}   //
+                                    },
+                                    {
+                                        {10, 11, 12},  //
+                                        {13, 14, 15},  //
+                                        {16, 17, 18}   //
+                                    },
+                                    {
+                                        {19, 20, 21},  //
+                                        {22, 23, 24},  //
+                                        {25, 26, 27}   //
+                                    }};
 
   // tensorstore::ArrayView can be created from native C++ arrays of arbitrary
   // dimensions. The number of dimensions in an array is the rank of the array.
 
   {
+    std::cout << std::endl << "Native C++ arrays (rank 1)" << std::endl;
+
     // This creates a reference to an array of rank 1.
     int one_dim[5] = {1, 2, 3, 4, 5};
     auto array_ref = tensorstore::MakeArrayView(one_dim);
@@ -100,61 +128,55 @@ int main(int argc, char** argv) {
     /*
     PrintCSVArray(tensorstore::MakeArrayView(tensorstore::span(one_dim)));
     */
+  }
 
-    std::cout << std::endl;
+  {
+    std::cout << std::endl << "Native C++ arrays (rank 2)" << std::endl;
+
+    PrintCSVArray(tensorstore::MakeArrayView(two_dim));
   }
 
   // tensorstore::Array and tensorstore::ArrayView can be of any primitive type.
   {
-    const double two_dim[5][5] =  //
-        {{0, 0, 0, 0, 0},         //
-         {0, .72, .53, .60, 0},   //
-         {0, .76, .56, .65, 0},   //
-         {0, .88, .78, .82, 0},   //
+    std::cout << std::endl << "Native C++ arrays (double)" << std::endl;
+
+    const double two_dim_double[5][5] =  //
+        {{0, 0, 0, 0, 0},                //
+         {0, .72, .53, .60, 0},          //
+         {0, .76, .56, .65, 0},          //
+         {0, .88, .78, .82, 0},          //
          {0, 0, 0, 0, 0}};
 
-    auto array_ref = tensorstore::MakeArrayView(two_dim);
+    auto array_ref = tensorstore::MakeArrayView(two_dim_double);
     PrintCSVArray(array_ref);
 
     // The rank and shape of an array can be inspected:
     std::cout << "rank=" << array_ref.rank() << " shape=" << array_ref.shape();
-    std::cout << std::endl;
   }
-
-  // image is an array of rank 2.
-  const int image[5][5] =   //
-      {{0, 0, 0, 0, 0},     //
-       {0, 72, 53, 60, 0},  //
-       {0, 76, 56, 65, 0},  //
-       {0, 88, 78, 82, 0},  //
-       {0, 0, 0, 0, 0}};
-  PrintCSVArray(tensorstore::MakeArrayView(image));
-  std::cout << std::endl;
 
   // FIXME: We cannot create an array ref from a C++ std::array type.
   /*
   std::array<std::array<int, 3>, 3> arr = {{{5, 8, 2}, {8, 3, 1}, {5, 3, 9}}};
-  PrintCSVArray(tensorstore::MakeArrayView(image));
+  PrintCSVArray(tensorstore::MakeArrayView(arr));
   */
 
   // tensorstore also includes the concept of rank-0 arrays, or Scalars.
   // these are created from a single value.
   {
-    std::cout << "Scalar Array" << std::endl;
+    std::cout << std::endl << "Scalar Array" << std::endl;
     PrintCSVArray(tensorstore::MakeScalarArray(123).array_view());
-    std::cout << std::endl;
   }
 
   // In addition to the tensorstore::ArrayView types, tensorstore can allocate
   // arrays dynamically of specified types, rank, and dimensions.
   {
-    std::cout << "Allocated Array" << std::endl;
+    std::cout << std::endl << "Allocated Array" << std::endl;
     auto allocated = tensorstore::AllocateArray<int>({5, 5});
-    if (tensorstore::ArraysHaveSameShapes(tensorstore::MakeArrayView(image),
+    if (tensorstore::ArraysHaveSameShapes(tensorstore::MakeArrayView(two_dim),
                                           allocated)) {
       // Copy uses the same order as std::copy, rather than the reversed
       // order from std::memcpy.
-      tensorstore::CopyArray(tensorstore::MakeArrayView(image), allocated);
+      tensorstore::CopyArray(tensorstore::MakeArrayView(two_dim), allocated);
     }
     PrintCSVArray(allocated.array_view());
     std::cout << std::endl;
@@ -163,12 +185,11 @@ int main(int argc, char** argv) {
     // explicit rather than silently allowing the conversion.
     tensorstore::ArrayView<void> untyped = allocated;
     PrintCSVArray(untyped.array_view());
-    std::cout << std::endl;
   }
 
   // Arrays can be of other types as well:
   {
-    std::cout << "Array<X>" << std::endl;
+    std::cout << std::endl << "Array<X>" << std::endl;
 
     // Uninitialized...
     auto allocated = tensorstore::AllocateArray<X>({3, 3});
@@ -183,12 +204,11 @@ int main(int argc, char** argv) {
     tensorstore::InitializeArray(allocated);
 
     PrintCSVArray(allocated.array_view());
-    std::cout << std::endl;
   }
 
   // We can allocate arrays and then cast them as untyped.
   {
-    std::cout << "Dynamic Array" << std::endl;
+    std::cout << std::endl << "Dynamic Array" << std::endl;
 
     // NOTE: To get the untyped result from AllocateArray, we have to cast off
     // the type from DataTypeOf, otherwise the templates will deduce the result
@@ -197,19 +217,43 @@ int main(int argc, char** argv) {
         {5, 5}, tensorstore::c_order, tensorstore::default_init,
         static_cast<tensorstore::DataType>(tensorstore::DataTypeOf<int>()));
 
-    if (tensorstore::ArraysHaveSameShapes(tensorstore::MakeArrayView(image),
+    if (tensorstore::ArraysHaveSameShapes(tensorstore::MakeArrayView(two_dim),
                                           untyped)) {
-      tensorstore::CopyArray(tensorstore::MakeArrayView(image), untyped);
+      tensorstore::CopyArray(tensorstore::MakeArrayView(two_dim), untyped);
     }
     PrintCSVArray(untyped.array_view());
-    std::cout << std::endl;
 
     // FIXME: How do we reinterpret_cast ArrayView<int> to ArrayView<short>?
   }
 
   // FIXME: Add example of dynamic-rank arrays as well.
 
+  // Array with filter operations.
+  {
+    std::cout << std::endl << "Transformed Arrays" << std::endl;
+
+    auto array_ref = tensorstore::MakeArrayView(three_dim);
+    PrintCSVArray(array_ref);
+
+    // IndexArraySlice requires an array to store the indices,
+    // thus the raw variant is currently not allowed.
+    //
+    // ::tensorstore::Dims(2).IndexArraySlice({2, 0})
+
+    std::vector<tensorstore::Index> desired_channels = {2, 0};
+    auto indices = tensorstore::UnownedToShared(
+        tensorstore::MakeArrayView(desired_channels));
+
+    auto channels = array_ref |
+                    ::tensorstore::Dims(2).IndexArraySlice(indices) |
+                    ::tensorstore::Materialize();
+
+    PrintCSVArray(channels.value());
+  }
+
   // FIXME: How do I cast a dense rank-2 array to a rank-1 array?
   // There is no mechanism to reshape arrays, though a transform
   // could make views of arrays.
+
+  return 0;
 }
