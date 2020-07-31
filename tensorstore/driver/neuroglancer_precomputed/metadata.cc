@@ -810,6 +810,9 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
                       {kResolutionId, scale.resolution},
                       {kChunkSizesId, scale.chunk_sizes},
                       {kEncodingId, scale.encoding}};
+  if (auto* sharding = std::get_if<ShardingSpec>(&scale.sharding)) {
+    scale.attributes[kShardingId] = scale.sharding;
+  }
   if (scale.encoding == ScaleMetadata::Encoding::jpeg) {
     scale.jpeg_quality =
         constraints.scale.jpeg_quality.value_or(kDefaultJpegQuality);

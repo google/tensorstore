@@ -35,30 +35,36 @@ void TestTensorStoreDriverSpecRoundtrip(::nlohmann::json full_spec,
                                         ContextToJsonOptions options) {
   // Test that the full Spec round trips for creating a new TensorStore.
   auto context = Context::Default();
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      tensorstore::Open(context, full_spec, tensorstore::OpenMode::create)
-          .result());
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto full_spec_obj, store.spec());
-  EXPECT_THAT(full_spec_obj.ToJson(options), ::testing::Optional(full_spec));
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(context, full_spec, tensorstore::OpenMode::create)
+            .result());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto full_spec_obj, store.spec());
+    EXPECT_THAT(full_spec_obj.ToJson(options), ::testing::Optional(full_spec));
 
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto minimal_spec_obj,
-                                   store.spec(tensorstore::MinimalSpec{true}));
-  EXPECT_THAT(minimal_spec_obj.ToJson(options),
-              ::testing::Optional(minimal_spec));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto minimal_spec_obj, store.spec(tensorstore::MinimalSpec{true}));
+    EXPECT_THAT(minimal_spec_obj.ToJson(options),
+                ::testing::Optional(minimal_spec));
+    // End block before opening with minimal spec below to ensure `store` is not
+    // cached in `context` (which might compromise the test).
+  }
 
   // Test that the minimal spec round trips for opening existing TensorStore.
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store2,
-      tensorstore::Open(context, minimal_spec, tensorstore::OpenMode::open)
-          .result());
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto full_spec_obj2, store2.spec());
-  EXPECT_THAT(full_spec_obj2.ToJson(options), ::testing::Optional(full_spec));
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store2,
+        tensorstore::Open(context, minimal_spec, tensorstore::OpenMode::open)
+            .result());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto full_spec_obj2, store2.spec());
+    EXPECT_THAT(full_spec_obj2.ToJson(options), ::testing::Optional(full_spec));
 
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto minimal_spec_obj2,
-                                   store2.spec(tensorstore::MinimalSpec{true}));
-  EXPECT_THAT(minimal_spec_obj2.ToJson(options),
-              ::testing::Optional(minimal_spec));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto minimal_spec_obj2, store2.spec(tensorstore::MinimalSpec{true}));
+    EXPECT_THAT(minimal_spec_obj2.ToJson(options),
+                ::testing::Optional(minimal_spec));
+  }
 }
 
 void TestTensorStoreDriverSpecConvert(
