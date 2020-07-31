@@ -161,6 +161,22 @@ class TensorStore {
     return spec;
   }
 
+  /// "Pipeline" operator.
+  ///
+  /// In the expression  `x | y`, if
+  ///   * y is a function having signature `Result<U>(T)`
+  ///
+  /// Then operator| applies y to the value of x, returning a
+  /// Result<U>. See tensorstore::Result operator| for examples.
+  template <typename Func>
+  PipelineResultType<const TensorStore&, Func> operator|(Func&& func) const& {
+    return static_cast<Func&&>(func)(*this);
+  }
+  template <typename Func>
+  PipelineResultType<TensorStore&&, Func> operator|(Func&& func) && {
+    return static_cast<Func&&>(func)(std::move(*this));
+  }
+
  private:
   friend class internal::TensorStoreAccess;
 

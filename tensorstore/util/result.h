@@ -40,6 +40,63 @@ struct IsResult : public std::false_type {};
 template <typename T>
 struct IsResult<Result<T>> : public std::true_type {};
 
+namespace internal_result {
+
+/// Result type traits helper structs for UnwrapResultType / FlatResultType.
+template <typename T>
+struct UnwrapResultHelper {
+  static_assert(std::is_same<T, internal::remove_cvref_t<T>>::value,
+                "Type argument to UnwrapResultType must be unqualified.");
+  using type = T;
+  using result_type = Result<T>;
+};
+
+template <typename T>
+struct UnwrapResultHelper<Result<T>> {
+  using type = T;
+  using result_type = Result<T>;
+};
+
+template <>
+struct UnwrapResultHelper<Status> {
+  using type = void;
+  using result_type = Result<void>;
+};
+
+}  // namespace internal_result
+
+/// UnwrapResultType<T> maps
+///
+///   Result<T> -> T
+///   Status -> void
+///   T -> T
+template <typename T>
+using UnwrapResultType = typename internal_result::UnwrapResultHelper<T>::type;
+
+/// As above, preserving const / volatile / reference qualifiers.
+template <typename T>
+using UnwrapQualifiedResultType =
+    internal::CopyQualifiers<T, UnwrapResultType<internal::remove_cvref_t<T>>>;
+
+/// FlatResult<T> maps
+///
+///     T -> Result<T>
+///     Result<T> -> Result<T>
+///     Status -> Result<void>
+///
+template <typename T>
+using FlatResult = typename internal_result::UnwrapResultHelper<T>::result_type;
+
+/// Type alias that maps `Result<T>` to `Result<U>`, where `U = MapType<U>`.
+template <template <typename...> class MapType, typename... T>
+using FlatMapResultType = Result<MapType<UnwrapResultType<T>...>>;
+
+/// Type alias used by initial overloads of the "Pipeline" operator|.
+template <typename T, typename Func>
+using PipelineResultType =
+    std::enable_if_t<IsResult<std::invoke_result_t<Func&&, T>>::value,
+                     std::invoke_result_t<Func&&, T>>;
+
 // in_place and in_place_type are disambiguation tags that can be passed to the
 // constructor of Result to indicate that the contained object should be
 // constructed in-place.
@@ -406,6 +463,30 @@ class Result : private internal_result::ResultStorage<T>,
     return std::move(this->value_);
   }
 
+  /// "Pipeline" operator for `Result`.
+  ///
+  /// In the expression  `x | y`, if
+  ///   * x is of type `Result<T>`
+  ///   * y is a function having signature `U (T)` or `Result<U>(T)`
+  ///
+  /// Then operator| applies y to the value contained in x, returning a
+  /// Result<U>. In other words, this function is roughly expressed as:
+  ///
+  ///    `return !x.ok() ? x.status() | StatusOr<U>(y(x.value()))`
+  ///
+  template <typename Func>
+  inline FlatResult<std::invoke_result_t<Func&&, reference_type>>  //
+  operator|(Func&& func) const& {
+    if (!ok()) return status();
+    return static_cast<Func&&>(func)(value());
+  }
+  template <typename Func>
+  inline FlatResult<std::invoke_result_t<Func&&, value_type>>  //
+  operator|(Func&& func) && {
+    if (!ok()) return status();
+    return static_cast<Func&&>(func)(value());
+  }
+
   template <typename U>
   constexpr value_type value_or(U&& default_value) const& {
     return has_value() ? this->value_ : std::forward<U>(default_value);
@@ -648,57 +729,6 @@ inline T&& UnwrapResult(Result<T>&& t) {
   return *std::move(t);
 }
 
-namespace internal_result {
-
-/// Result type traits helper structs for UnwrapResultType / FlatResultType.
-template <typename T>
-struct UnwrapResultHelper {
-  static_assert(std::is_same<T, internal::remove_cvref_t<T>>::value,
-                "Type argument to UnwrapResultType must be unqualified.");
-  using type = T;
-  using result_type = Result<T>;
-};
-
-template <typename T>
-struct UnwrapResultHelper<Result<T>> {
-  using type = T;
-  using result_type = Result<T>;
-};
-
-template <>
-struct UnwrapResultHelper<Status> {
-  using type = void;
-  using result_type = Result<void>;
-};
-
-}  // namespace internal_result
-
-/// UnwrapResultType<T> maps
-///
-///   Result<T> -> T
-///   Status -> void
-///   T -> T
-template <typename T>
-using UnwrapResultType = typename internal_result::UnwrapResultHelper<T>::type;
-
-/// As above, preserving const / volatile / reference qualifiers.
-template <typename T>
-using UnwrapQualifiedResultType =
-    internal::CopyQualifiers<T, UnwrapResultType<internal::remove_cvref_t<T>>>;
-
-/// FlatResult<T> maps
-///
-///     T -> Result<T>
-///     Result<T> -> Result<T>
-///     Status -> Result<void>
-///
-template <typename T>
-using FlatResult = typename internal_result::UnwrapResultHelper<T>::result_type;
-
-/// Type alias that maps `Result<T>` to `Result<U>`, where `U = MapType<U>`.
-template <template <typename...> class MapType, typename... T>
-using FlatMapResultType = Result<MapType<UnwrapResultType<T>...>>;
-
 /// Tries to call `func` with `Result`-wrapped arguments.
 ///
 /// The return value of `func` is wrapped in a `Result` if it not already a
@@ -779,34 +809,6 @@ internal_result::ChainResultType<T, Func0, Func...> ChainResult(
   return ChainResult(
       MapResult(std::forward<Func0>(func0), std::forward<T>(arg)),
       std::forward<Func>(func)...);
-}
-
-/// "Pipeline" operator for `Result`.
-///
-/// If `x` is of type `Result<T>` or `T`, `f` is function with signature `U (T)`
-/// or `Result<U> (T)`, then `x | f` has type `Result<U>` and either returns the
-/// error in `x`, if any, or returns the result of applying `f` to the contained
-/// value.
-///
-/// This can also be chained: if `x` is of type `Result<U>` or `T`, and `f0`
-/// maps `T -> U`, and `f1` maps `U -> W`, then `x | f0 | f1` has type
-/// `Result<W>`.
-///
-/// This operator only participates in overload resolution if `arg` is a
-/// `Result` type or `func(UnwrapResult(arg))` is a `Result` type.
-template <typename Arg, typename Func>
-std::enable_if_t<
-    (IsResult<internal::remove_cvref_t<Arg>>::value ||
-     IsResult<internal::remove_cvref_t<std::invoke_result_t<
-         Func&&, UnwrapQualifiedResultType<Arg&&>>>>::value),
-    FlatResult<std::invoke_result_t<Func&&, UnwrapQualifiedResultType<Arg&&>>>>
-operator|(Arg&& arg, Func&& func) {
-  if constexpr (IsResult<internal::remove_cvref_t<Arg>>::value) {
-    if (!arg.ok()) return static_cast<Arg&&>(arg).status();
-    return static_cast<Func&&>(func)(*static_cast<Arg&&>(arg));
-  } else {
-    return static_cast<Func&&>(func)(static_cast<Arg&&>(arg));
-  }
 }
 
 #define TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_IMPL(temp, decl, expr,      \

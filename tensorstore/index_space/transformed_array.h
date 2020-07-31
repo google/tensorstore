@@ -507,6 +507,23 @@ class TransformedArray {
                                       transform(), constraints);
   }
 
+  /// "Pipeline" operator.
+  ///
+  /// In the expression  `x | y`, if
+  ///   * y is a function having signature `Result<U>(T)`
+  ///
+  /// Then operator| applies y to the value of x, returning a
+  /// StatusOr<U>. See tensorstore::Result operator| for examples.
+  template <typename Func>
+  PipelineResultType<const TransformedArray&, Func> operator|(
+      Func&& func) const& {
+    return static_cast<Func&&>(func)(*this);
+  }
+  template <typename Func>
+  PipelineResultType<TransformedArray&&, Func> operator|(Func&& func) && {
+    return static_cast<Func&&>(func)(std::move(*this));
+  }
+
  private:
   friend class internal_index_space::TransformedArrayAccess;
 
@@ -811,6 +828,24 @@ class NormalizedTransformedArray {
       TransformArrayConstraints constraints = skip_repeated_elements) const {
     return TransformArray<OriginKind>(UnownedToShared(base_array()),
                                       transform(), constraints);
+  }
+
+  /// "Pipeline" operator.
+  ///
+  /// In the expression  `x | y`, if
+  ///   * y is a function having signature `Result<U>(T)`
+  ///
+  /// Then operator| applies y to the value of x, returning a
+  /// Result<U>. See tensorstore::Result operator| for examples.
+  template <typename Func>
+  PipelineResultType<const NormalizedTransformedArray&, Func> operator|(
+      Func&& func) const& {
+    return static_cast<Func&&>(func)(*this);
+  }
+  template <typename Func>
+  PipelineResultType<NormalizedTransformedArray&&, Func> operator|(
+      Func&& func) && {
+    return static_cast<Func&&>(func)(std::move(*this));
   }
 
  private:

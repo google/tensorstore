@@ -361,6 +361,23 @@ class IndexTransform {
     return !AreEqual(Access::rep(a), Access::rep(b));
   }
 
+  /// "Pipeline" operator.
+  ///
+  /// In the expression  `x | y`, if
+  ///   * y is a function having signature `Result<U>(T)`
+  ///
+  /// Then operator| applies y to the value of x, returning a
+  /// Result<U>. See tensorstore::Result operator| for examples.
+  template <typename Func>
+  PipelineResultType<const IndexTransform&, Func> operator|(
+      Func&& func) const& {
+    return static_cast<Func&&>(func)(*this);
+  }
+  template <typename Func>
+  PipelineResultType<IndexTransform&&, Func> operator|(Func&& func) && {
+    return static_cast<Func&&>(func)(std::move(*this));
+  }
+
   /// Prints a string representation of an index space transform.
   ///
   /// This function is intended primarily for tests/debugging.
