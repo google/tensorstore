@@ -153,6 +153,18 @@ allOf:
             Specifies the chunk encoding.
           description: >-
             Required when creating a new scale.
+        jpeg_quality:
+          type: integer
+          minimum: 0
+          maximum: 100
+          default: 75
+          title: >-
+            JPEG encoding quality.
+          description: >-
+            Only applies if :json-member:`encoding` is :json:`"jpeg"`.  The
+            quality is specified using the IJG (Independent JPEG Group) [0, 100]
+            recommended scale, with 0 being the worst quality (smallest file
+            size) and 100 the best quality (largest file size).
         compressed_segmentation_block_size:
           type: array
           minItems: 3

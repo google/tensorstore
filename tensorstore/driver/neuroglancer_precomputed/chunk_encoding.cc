@@ -206,7 +206,7 @@ absl::Cord EncodeRawChunk(DataType data_type, span<const Index, 4> shape,
   return std::move(buffer).Build();
 }
 
-Result<absl::Cord> EncodeJpegChunk(DataType data_type,
+Result<absl::Cord> EncodeJpegChunk(DataType data_type, int quality,
                                    span<const Index, 4> shape,
                                    ArrayView<const void> array) {
   Array<const void, 4> partial_source(
@@ -216,6 +216,7 @@ Result<absl::Cord> EncodeJpegChunk(DataType data_type,
                         array.byte_strides()[3], array.byte_strides()[0]}));
   auto contiguous_array = MakeCopy(partial_source, c_order);
   jpeg::EncodeOptions options;
+  options.quality = quality;
   absl::Cord buffer;
   TENSORSTORE_RETURN_IF_ERROR(jpeg::Encode(
       reinterpret_cast<const unsigned char*>(contiguous_array.data()),
@@ -266,7 +267,8 @@ Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
     case ScaleMetadata::Encoding::raw:
       return EncodeRawChunk(metadata.data_type, partial_chunk_shape, array);
     case ScaleMetadata::Encoding::jpeg:
-      return EncodeJpegChunk(metadata.data_type, partial_chunk_shape, array);
+      return EncodeJpegChunk(metadata.data_type, scale_metadata.jpeg_quality,
+                             partial_chunk_shape, array);
     case ScaleMetadata::Encoding::compressed_segmentation:
       return EncodeCompressedSegmentationChunk(
           metadata.data_type, partial_chunk_shape, array,

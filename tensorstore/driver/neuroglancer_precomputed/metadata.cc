@@ -133,6 +133,11 @@ Status ParseEncoding(const ::nlohmann::json& value,
   return absl::OkStatus();
 }
 
+Status ParseJpegQuality(const ::nlohmann::json& value, int* jpeg_quality) {
+  return internal::JsonRequireInteger<int>(value, jpeg_quality, /*strict=*/true,
+                                           0, 100);
+}
+
 Status ParseCompressedSegmentationBlockSize(
     const ::nlohmann::json& value,
     std::array<Index, 3>* compressed_segmentation_block_size) {
@@ -284,6 +289,17 @@ Result<ScaleMetadata> ParseScaleMetadata(const ::nlohmann::json& j,
       j, kEncodingId, [&](const ::nlohmann::json& value) {
         return ParseEncoding(value, &metadata.encoding);
       }));
+  if (metadata.encoding == ScaleMetadata::Encoding::jpeg) {
+    TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
+        j, kJpegQualityId, [&](const ::nlohmann::json& value) {
+          return ParseJpegQuality(value, &metadata.jpeg_quality);
+        }));
+  } else {
+    TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
+        j, kJpegQualityId, [&](const ::nlohmann::json& value) {
+          return absl::InvalidArgumentError("Only valid for \"jpeg\" encoding");
+        }));
+  }
   if (metadata.encoding == ScaleMetadata::Encoding::compressed_segmentation) {
     TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireObjectMember(
         j, kCompressedSegmentationBlockSizeId,
@@ -335,6 +351,12 @@ Status ValidateScaleConstraintsForOpen(
   }
   if (constraints.encoding && *constraints.encoding != metadata.encoding) {
     return Error(kEncodingId, *constraints.encoding, metadata.encoding);
+  }
+  if (metadata.encoding == ScaleMetadata::Encoding::jpeg &&
+      constraints.jpeg_quality &&
+      *constraints.jpeg_quality != metadata.jpeg_quality) {
+    return Error(kJpegQualityId, *constraints.jpeg_quality,
+                 metadata.jpeg_quality);
   }
   if (metadata.encoding == ScaleMetadata::Encoding::compressed_segmentation &&
       constraints.compressed_segmentation_block_size &&
@@ -504,7 +526,8 @@ Result<ScaleMetadataConstraints> ScaleMetadataConstraints::Parse(
   ScaleMetadataConstraints metadata;
   TENSORSTORE_RETURN_IF_ERROR(internal::JsonValidateObjectMembers(
       j, {kKeyId, kSizeId, kChunkSizeId, kVoxelOffsetId, kResolutionId,
-          kEncodingId, kCompressedSegmentationBlockSizeId, kShardingId}));
+          kEncodingId, kJpegQualityId, kCompressedSegmentationBlockSizeId,
+          kShardingId}));
   TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
       j, kKeyId, [&](const ::nlohmann::json& value) {
         return internal::JsonRequireValueAs(value, &metadata.key.emplace(),
@@ -548,6 +571,13 @@ Result<ScaleMetadataConstraints> ScaleMetadataConstraints::Parse(
   TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
       j, kEncodingId, [&](const ::nlohmann::json& value) {
         return ParseEncoding(value, &metadata.encoding.emplace());
+      }));
+  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
+      j, kJpegQualityId, [&](const ::nlohmann::json& value) {
+        if (metadata.encoding != ScaleMetadata::Encoding::jpeg) {
+          return absl::InvalidArgumentError("Only valid for \"jpeg\" encoding");
+        }
+        return ParseJpegQuality(value, &metadata.jpeg_quality.emplace());
       }));
   TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
       j, kCompressedSegmentationBlockSizeId,
@@ -655,6 +685,7 @@ Status ValidateMetadataCompatibility(
     return MismatchError(kEncodingId, existing_scale.encoding,
                          new_scale.encoding);
   }
+  // jpeg_quality not checked because it does not affect compatibility.
   if (existing_scale.encoding ==
           ScaleMetadata::Encoding::compressed_segmentation &&
       existing_scale.compressed_segmentation_block_size !=
@@ -682,6 +713,7 @@ std::string GetMetadataCompatibilityKey(
   obj.emplace(kVoxelOffsetId, scale_metadata.box.origin());
   obj.emplace(kSizeId, scale_metadata.box.shape());
   obj.emplace(kEncodingId, scale_metadata.encoding);
+  // jpeg_quality excluded does not affect compatibility.
   if (scale_metadata.encoding ==
       ScaleMetadata::Encoding::compressed_segmentation) {
     obj.emplace(kCompressedSegmentationBlockSizeId,
@@ -778,6 +810,11 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
                       {kResolutionId, scale.resolution},
                       {kChunkSizesId, scale.chunk_sizes},
                       {kEncodingId, scale.encoding}};
+  if (scale.encoding == ScaleMetadata::Encoding::jpeg) {
+    scale.jpeg_quality =
+        constraints.scale.jpeg_quality.value_or(kDefaultJpegQuality);
+    scale.attributes[kJpegQualityId] = scale.jpeg_quality;
+  }
   if (scale.encoding == ScaleMetadata::Encoding::compressed_segmentation) {
     scale.compressed_segmentation_block_size =
         *constraints.scale.compressed_segmentation_block_size;

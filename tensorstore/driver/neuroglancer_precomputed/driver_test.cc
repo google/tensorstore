@@ -1096,6 +1096,7 @@ TEST(DriverTest, Jpeg1Channel) {
                      {{
                          {"resolution", {1, 1, 1}},
                          {"encoding", "jpeg"},
+                         {"jpeg_quality", 75},
                          {"key", "1_1_1"},
                          {"chunk_sizes", {{3, 4, 2}}},
                          {"size", {5, 100, 100}},
@@ -1182,6 +1183,73 @@ TEST(DriverTest, Jpeg1Channel) {
   }
 }
 
+// Verify that jpeg quality has an effect.
+TEST(DriverTest, JpegQuality) {
+  std::vector<int> jpeg_quality_values{0, 50, 75, 100};
+  std::vector<size_t> sizes;
+
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"path", "prefix"},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint8"},
+           {"num_channels", 1},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"resolution", {1, 1, 1}},
+           {"encoding", "jpeg"},
+           {"chunk_size", {3, 4, 2}},
+           {"size", {5, 100, 100}},
+       }},
+  };
+
+  auto array = tensorstore::AllocateArray<std::uint8_t>({5, 4, 2, 1});
+  for (int x = 0; x < array.shape()[0]; ++x) {
+    for (int y = 0; y < array.shape()[1]; ++y) {
+      for (int z = 0; z < array.shape()[2]; ++z) {
+        array(x, y, z, 0) = x * 20 + y * 5 + z * 3;
+      }
+    }
+  }
+
+  const auto get_size = [&](::nlohmann::json json_spec) -> size_t {
+    auto context = Context::Default();
+    auto store =
+        tensorstore::Open(context, json_spec, tensorstore::OpenMode::create)
+            .value();
+    tensorstore::Write(array,
+                       ChainResult(store, tensorstore::AllDims().SizedInterval(
+                                              0, array.shape())))
+        .commit_future.value();
+    size_t size = 0;
+    for (const auto& [key, value] :
+         GetMap(
+             KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
+             .value()) {
+      size += value.size();
+    }
+    return size;
+  };
+
+  size_t default_size = get_size(json_spec);
+  for (int quality : jpeg_quality_values) {
+    auto spec = json_spec;
+    spec["scale_metadata"]["jpeg_quality"] = quality;
+    size_t size = get_size(spec);
+    if (!sizes.empty()) {
+      EXPECT_LT(sizes.back(), size) << "quality=" << quality;
+    }
+    sizes.push_back(size);
+    if (quality == 75) {
+      EXPECT_EQ(default_size, size);
+    }
+  }
+}
+
 TEST(DriverTest, Jpeg3Channel) {
   auto context = Context::Default();
 
@@ -1241,6 +1309,7 @@ TEST(DriverTest, Jpeg3Channel) {
                      {{
                          {"resolution", {1, 1, 1}},
                          {"encoding", "jpeg"},
+                         {"jpeg_quality", 75},
                          {"key", "1_1_1"},
                          {"chunk_sizes", {{3, 4, 2}}},
                          {"size", {5, 100, 100}},

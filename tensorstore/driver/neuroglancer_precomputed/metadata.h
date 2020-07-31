@@ -51,6 +51,7 @@ constexpr inline const char kCompressedSegmentationBlockSizeId[] =
 constexpr inline const char kDataTypeId[] = "data_type";
 constexpr inline const char kDriverId[] = "neuroglancer_precomputed";
 constexpr inline const char kEncodingId[] = "encoding";
+constexpr inline const char kJpegQualityId[] = "jpeg_quality";
 constexpr inline const char kKeyId[] = "key";
 constexpr inline const char kMetadataKey[] = "info";
 constexpr inline const char kMultiscaleMetadataId[] = "multiscale_metadata";
@@ -64,6 +65,10 @@ constexpr inline const char kShardingId[] = "sharding";
 constexpr inline const char kSizeId[] = "size";
 constexpr inline const char kTypeId[] = "type";
 constexpr inline const char kVoxelOffsetId[] = "voxel_offset";
+
+/// Don't change this, since it would affect the behavior when jpeg_quality
+/// isn't specified explicitly.
+constexpr inline int kDefaultJpegQuality = 75;
 
 using ShardingSpec = ::tensorstore::neuroglancer_uint64_sharded::ShardingSpec;
 
@@ -108,6 +113,7 @@ struct ScaleMetadata {
   Box<3> box;
   std::vector<std::array<Index, 3>> chunk_sizes;
   Encoding encoding;
+  int jpeg_quality = kDefaultJpegQuality;
   std::array<Index, 3> compressed_segmentation_block_size{};
   std::variant<NoShardingSpec, ShardingSpec> sharding;
   std::array<double, 3> resolution;
@@ -159,6 +165,7 @@ struct ScaleMetadataConstraints {
   std::optional<std::array<Index, 3>> chunk_size;
   std::optional<std::array<double, 3>> resolution;
   std::optional<ScaleMetadata::Encoding> encoding;
+  std::optional<int> jpeg_quality;
   std::optional<std::array<Index, 3>> compressed_segmentation_block_size;
   std::optional<std::variant<NoShardingSpec, ShardingSpec>> sharding;
   static Result<ScaleMetadataConstraints> Parse(
