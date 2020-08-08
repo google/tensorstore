@@ -84,6 +84,10 @@ struct CurlRequestState {
                    static_cast<void*>(nullptr));
     CurlEasySetopt(handle_.get(), CURLOPT_READFUNCTION,
                    static_cast<void*>(nullptr));
+    CurlEasySetopt(handle_.get(), CURLOPT_SEEKDATA,
+                   static_cast<void*>(nullptr));
+    CurlEasySetopt(handle_.get(), CURLOPT_SEEKFUNCTION,
+                   static_cast<void*>(nullptr));
     CurlEasySetopt(handle_.get(), CURLOPT_HEADERDATA,
                    static_cast<void*>(nullptr));
     CurlEasySetopt(handle_.get(), CURLOPT_HEADERFUNCTION,
@@ -145,6 +149,15 @@ struct CurlRequestState {
       CurlEasySetopt(handle_.get(), CURLOPT_READDATA, this);
       CurlEasySetopt(handle_.get(), CURLOPT_READFUNCTION,
                      &CurlRequestState::CurlReadCallback);
+      // Seek callback allows curl to re-read input, which it sometimes needs to
+      // do.
+      //
+      // https://curl.haxx.se/mail/lib-2010-01/0183.html
+      //
+      // If this is not set, curl may fail with CURLE_SEND_FAIL_REWIND.
+      CurlEasySetopt(handle_.get(), CURLOPT_SEEKFUNCTION,
+                     &CurlRequestState::CurlSeekCallback);
+      CurlEasySetopt(handle_.get(), CURLOPT_SEEKDATA, this);
     } else if (request.method().empty()) {
       CurlEasySetopt(handle_.get(), CURLOPT_HTTPGET, 1L);
     }
@@ -164,6 +177,23 @@ struct CurlRequestState {
     internal::CopyCordToSpan(payload_it_, {data, static_cast<ptrdiff_t>(n)});
     payload_remaining_ -= n;
     return n;
+  }
+
+  size_t SeekCallback(curl_off_t offset, int origin) {
+    if (origin != SEEK_SET) {
+      // According to the documentation:
+      // https://curl.haxx.se/libcurl/c/CURLOPT_SEEKFUNCTION.html
+      //
+      // curl only uses SEEK_SET.
+      return CURL_SEEKFUNC_CANTSEEK;
+    }
+    if (offset < 0 || offset > payload_.size()) {
+      return CURL_SEEKFUNC_FAIL;
+    }
+    payload_it_ = payload_.char_begin();
+    absl::Cord::Advance(&payload_it_, static_cast<size_t>(offset));
+    payload_remaining_ = payload_.size() - static_cast<size_t>(offset);
+    return CURL_SEEKFUNC_OK;
   }
 
   size_t HeaderCallback(absl::string_view data) {
@@ -194,6 +224,11 @@ struct CurlRequestState {
                                       std::size_t nmemb, void* userdata) {
     return static_cast<CurlRequestState*>(userdata)->ReadCallback(
         static_cast<char*>(contents), size * nmemb);
+  }
+
+  static int CurlSeekCallback(void* userdata, curl_off_t offset, int origin) {
+    return static_cast<CurlRequestState*>(userdata)->SeekCallback(offset,
+                                                                  origin);
   }
 
   static std::size_t CurlHeaderCallback(void* contents, std::size_t size,

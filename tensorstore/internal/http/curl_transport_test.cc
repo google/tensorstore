@@ -314,6 +314,90 @@ TEST_F(CurlTransportTest, Http1) {
             response.value().payload);
 }
 
+// Tests that resending (using CURL_SEEKFUNCTION) works correctly.
+TEST_F(CurlTransportTest, Http1Resend) {
+  auto transport = ::tensorstore::internal_http::GetDefaultHttpTransport();
+
+  socket_t socket = CreateBoundSocket();
+  TENSORSTORE_CHECK(socket != INVALID_SOCKET);
+
+  auto hostport = FormatSocketAddress(socket);
+  TENSORSTORE_CHECK(!hostport.empty());
+
+  // Include content-length to allow connection reuse.
+  static constexpr char kResponse[] =  //
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Type: text/html\r\n"
+      "Connection: Keep-Alive\r\n"
+      "Content-Length: 53\r\n"
+      "\r\n"
+      "<html>\n<body>\n<h1>Hello, World!</h1>\n</body>\n</html>\n";
+
+  // Start a thread to handle a two requests.
+  std::string initial_request1;
+  std::string initial_request2;
+  std::string initial_request3;
+  std::thread serve_thread = std::thread([&] {
+    auto client_fd = AcceptNonBlocking(socket);
+    initial_request1 = ReceiveAvailable(client_fd);
+    std::cout << "Got initial request1: " << initial_request1 << std::endl;
+    AssertSend(client_fd, kResponse);
+    initial_request2 = ReceiveAvailable(client_fd);
+    std::cout << "Got initial request2: " << initial_request2 << std::endl;
+    // Terminate the connection after receiving the second request (simulates
+    // the race condition under which the server closes the connection due to a
+    // timeout just the client is reusing the connection to send another
+    // request).
+    closesocket(client_fd);
+    std::cout << "Waiting for listen again" << std::endl;
+    client_fd = AcceptNonBlocking(socket);
+    initial_request3 = ReceiveAvailable(client_fd);
+    std::cout << "Got initial request3: " << initial_request3 << std::endl;
+    AssertSend(client_fd, kResponse);
+    closesocket(client_fd);
+  });
+
+  // Issue a request.
+  for (int i = 0; i < 2; ++i) {
+    auto response = transport->IssueRequest(
+        HttpRequestBuilder(absl::StrCat("http://", hostport, "/"))
+            .AddUserAgentPrefix("test")
+            .AddHeader("X-foo: bar")
+            .AddQueryParameter("name", "dragon")
+            .AddQueryParameter("age", "1234")
+            .EnableAcceptEncoding()
+            .BuildRequest(),
+        absl::Cord("Hello"));
+
+    std::cout << GetStatus(response) << std::endl;
+    EXPECT_EQ(200, response.value().status_code);
+    EXPECT_EQ("<html>\n<body>\n<h1>Hello, World!</h1>\n</body>\n</html>\n",
+              response.value().payload);
+  }
+  serve_thread.join();
+
+  for (auto& initial_request :
+       {initial_request1, initial_request2, initial_request3}) {
+    using ::testing::HasSubstr;
+    EXPECT_THAT(initial_request, HasSubstr("/?name=dragon&age=1234"));
+    EXPECT_THAT(initial_request,
+                HasSubstr(absl::StrCat("Host: ", hostport, "\r\n")));
+
+    // User-Agent versions change based on zlib, nghttp2, and curl versions.
+    EXPECT_THAT(initial_request, HasSubstr("User-Agent: testtensorstore/0.1 "));
+
+    EXPECT_THAT(initial_request, HasSubstr("Accept: */*\r\n"));
+    EXPECT_THAT(initial_request,
+                HasSubstr("Accept-Encoding: deflate, gzip\r\n"));
+    EXPECT_THAT(initial_request, HasSubstr("X-foo: bar\r\n"));
+    EXPECT_THAT(initial_request, HasSubstr("Content-Length: 5"));
+    EXPECT_THAT(
+        initial_request,
+        HasSubstr("Content-Type: application/x-www-form-urlencoded\r\n"));
+    EXPECT_THAT(initial_request, HasSubstr("Hello"));
+  }
+}
+
 class Http2Session {
  public:
   struct Stream {
