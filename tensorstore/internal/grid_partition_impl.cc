@@ -204,12 +204,11 @@ Status ForEachConnectedSet(span<const DimensionIndex> grid_output_dimensions,
       case OutputIndexMethod::array: {
         const OutputIndexMapRef<>::IndexArrayView index_array =
             map.index_array();
-        if (std::any_of(
-                input_dims.begin() + input_dim_set_begin,
-                input_dims.begin() + input_dim_set_end,
-                [&](DimensionIndex input_i) {
-                  return index_array.byte_strides()[input_dims[input_i]] != 0;
-                })) {
+        if (std::any_of(input_dims.begin() + input_dim_set_begin,
+                        input_dims.begin() + input_dim_set_end,
+                        [&](DimensionIndex input_dim) {
+                          return index_array.byte_strides()[input_dim] != 0;
+                        })) {
           current_set_has_array = true;
           return true;
         }

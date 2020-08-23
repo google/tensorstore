@@ -309,6 +309,52 @@ TEST(PrePartitionIndexTransformOverRegularGridTest,
   EXPECT_THAT(partitioned->strided_sets(), ElementsAre());
 }
 
+// Tests that two output dimensions (included in grid_output_dimensions) and two
+// input dimensions, where one output dimension has a `single_input_dimension`
+// map from input dimension 1, and the other output dimension has an index array
+// map that depends only on input dimension 0, leads to two connected sets, each
+// containing one grid dimension and one input dimension.  This also tests that
+// transposed input dimensions are handled correctly.
+TEST(PrePartitionIndexTransformOverRegularGridTest,
+     IndexArrayAndStridedDimensionIndependent) {
+  auto transform =
+      tensorstore::IndexTransformBuilder<>(2, 2)
+          .input_origin({0, 0})
+          .input_shape({2, 3})
+          .output_single_input_dimension(0, 1)
+          .output_index_array(1, 0, 1, MakeArray<Index>({{0}, {0}}))
+          .Finalize()
+          .value();
+  const DimensionIndex grid_output_dimensions[] = {0, 1};
+  const Index grid_cell_shape[] = {3, 1};
+  absl::optional<IndexTransformGridPartition> partitioned;
+  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
+      transform, grid_output_dimensions, grid_cell_shape, &partitioned));
+  // Input indices for input dimension 1 are:   {0,  1,  2}
+
+  // Output indices for output dimension 0 are: {0,  1,  2}
+  // Note: output dimension 0 is grid dimension 0.
+
+  // Input indices for input dimension 0 are:   {0,  1}
+
+  // Output indices for output dimension 1 are: {0,  0}
+  // Note: output dimension 1 is grid dimension 1.
+
+  // Cell indices for grid dimension 0 are:     {0}
+  // Cell indices for grid dimension 1 are:     {0}
+  EXPECT_THAT(partitioned->index_array_sets(),
+              ElementsAre(IndexTransformGridPartition::IndexArraySet{
+                  /*.grid_dimensions=*/span<const DimensionIndex>({1}),
+                  /*.input_dimensions=*/span<const DimensionIndex>({0}),
+                  /*.grid_cell_indices=*/{0},
+                  /*.partitioned_input_indices=*/MakeArray<Index>({{0}, {1}}),
+                  /*.grid_cell_partition_offsets=*/{0}}));
+  EXPECT_THAT(partitioned->strided_sets(),
+              ElementsAre(IndexTransformGridPartition::StridedSet{
+                  /*.grid_dimensions=*/span<const DimensionIndex>({0}),
+                  /*.input_dimension=*/1}));
+}
+
 // Tests that a connected set containing two index array output index maps is
 // correctly handled.
 TEST(PrePartitionIndexTransformOverRegularGridTest,
