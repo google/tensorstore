@@ -35,8 +35,8 @@ Wait for the write to complete using :py:obj:`tensorstore.Future.result`:
 
    >>> write_future.result()
 
-In an `async` function (or with top-level `await` support), `await` can also be
-used for interoperability with `asyncio`:
+In an `async<async>` function (or with top-level `await<await>` support),
+`await<await>` can also be used for interoperability with `asyncio`:
 
    >>> await write_future
 
@@ -129,7 +129,8 @@ Wait for the open to complete:
      },
    })
 
-In an `async` function, a `tensorstore.Future` is also compatible with `await`.
+In an `async<async>` function, a `tensorstore.Future` is also compatible with
+`await<await>`.
 
 .. doctest::
 
@@ -140,8 +141,8 @@ In an `async` function, a `tensorstore.Future` is also compatible with `await`.
    >>> dataset.domain
    { "x": [0, 34432), "y": [0, 39552), "z": [0, 41408), "channel": [0, 1) }
 
-There is only a single channel, so create a 3-d view without the :py:`'channel'`
-dimension:
+There is only a single channel, so create a 3-d view without the
+:python:`'channel'` dimension:
 
 .. doctest::
 

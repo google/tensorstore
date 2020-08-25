@@ -47,3 +47,22 @@ can be done through one of the following methods:
 3. On Google Compute Engine (GCE), the default service account credentials are
    retrieved automatically from the metadata service if credentials are not
    otherwise specified.
+
+TLS CA certificates
+-------------------
+
+TensorStore connects to the Google Cloud Storage API using HTTP and depends on
+the system certificate authority (CA) store to secure connections.  In many
+cases it will work by default without any additional configuration, but if you
+receive an error like:
+
+.. code-block:: none
+
+   CURL error[77] Problem with the SSL CA cert (path? access rights?):
+   error setting certificate verify locations:
+     CAfile: /etc/ssl/certs/ca-certificates.crt
+     CApath: none
+
+refer to the :ref:`HTTP request-related environment
+variables<http_environment_variables>` section for information on how to specify
+the path to the system certificate store at runtime.

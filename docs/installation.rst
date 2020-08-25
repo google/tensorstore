@@ -178,10 +178,13 @@ build, which requires no additional effort.
 On Linux and macOS, however, it is possible to override this behavior for a
 subset of these libraries and instead link to a system-provided version.  This
 reduces the binary size, and if your system packages are kept up to date,
-ensures TensorStore uses up-to-date versions of these dependencies.  To use
-system-provided libraries, set the :envvar:`TENSORSTORE_SYSTEM_LIBS` environment
-variable to a comma-separated list of the following identifiers prior to
-invoking Bazel:
+ensures TensorStore uses up-to-date versions of these dependencies.
+
+.. envvar:: TENSORSTORE_SYSTEM_LIBS
+
+   To use system-provided libraries, set the :envvar:`TENSORSTORE_SYSTEM_LIBS`
+   environment variable to a comma-separated list of the following identifiers
+   prior to invoking Bazel:
 
 .. include:: third_party_libraries.rst
 

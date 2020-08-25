@@ -28,20 +28,29 @@
 #include "absl/time/time.h"
 #include <curl/curl.h>
 #include "tensorstore/internal/cord_util.h"
+#include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/logging.h"
+#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
 namespace internal_http {
 namespace {
 
-bool CurlVerboseEnabled() {
-  // Cache the result.
-  static bool value = std::getenv("TENSORSTORE_CURL_VERBOSE") != nullptr;
-  return value;
+// Cached configuration from environment variables.
+struct CurlConfig {
+  bool verbose = std::getenv("TENSORSTORE_CURL_VERBOSE") != nullptr;
+  std::optional<std::string> ca_path = internal::GetEnv("TENSORSTORE_CA_PATH");
+  std::optional<std::string> ca_bundle =
+      internal::GetEnv("TENSORSTORE_CA_BUNDLE");
+};
+
+const CurlConfig& CurlEnvConfig() {
+  static const internal::NoDestructor<CurlConfig> curl_config{};
+  return *curl_config;
 }
 
 struct CurlRequestState {
@@ -59,9 +68,18 @@ struct CurlRequestState {
       : factory_(factory), handle_(factory->CreateHandle()) {
     InitializeCurlHandle(handle_.get());
 
-    if (CurlVerboseEnabled()) {
+    const auto& config = CurlEnvConfig();
+    if (config.verbose) {
       CurlEasySetopt(handle_.get(), CURLOPT_VERBOSE, 1L);
       // TODO: Consider also using CURLOPT_DEBUGFUNCTION
+    }
+
+    if (const auto& x = config.ca_path) {
+      CurlEasySetopt(handle_.get(), CURLOPT_CAPATH, x->c_str());
+    }
+
+    if (const auto& x = config.ca_bundle) {
+      CurlEasySetopt(handle_.get(), CURLOPT_CAINFO, x->c_str());
     }
 
     CurlEasySetopt(handle_.get(), CURLOPT_WRITEDATA, this);

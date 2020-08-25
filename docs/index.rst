@@ -9,6 +9,7 @@ TensorStore is a library for efficiently reading and writing large multi-dimensi
 
    overview
    installation
+   environment
    index_space
    context
 
