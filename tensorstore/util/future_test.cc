@@ -112,6 +112,12 @@ TEST(FutureTest, MakeReadyFuture) {
   EXPECT_EQ(result, future.result());
 }
 
+TEST(FutureTest, MakeInPlace) {
+  auto pair = PromiseFuturePair<int>::Make(tensorstore::in_place, 4);
+  pair.promise.reset();  // drop link.
+  EXPECT_EQ(4, pair.future.value());
+}
+
 /// Tests that a ready future can be constructed implicitly.
 TEST(FutureTest, ConstructFromValue) {
   Future<int> x = 3;

@@ -16,12 +16,31 @@
 #define TENSORSTORE_UTIL_FUTURE_H_
 
 /// \file
-/// Implements an asynchronous one-time channel between a producer and a
-/// consumer.
+/// Implements
+/// `Future<T>` and `Promise<T>` which provide an asynchronous one-time channel
+/// between a producer and a consumer.
+///
+/// `Future<T>` provides an interface for a consumer to asynchronously receive a
+/// value of type `T` or an error through a `Result<T>`.
+///
+/// In typical use, a consumer uses the `Future::ExecuteWhenReady` method to
+/// register a callback to be invoked when the shared state becomes ready.
+/// Alternatively, `Future::result` may be called to synchronously wait for
+/// result, blocking the current thread.
 ///
 /// `Promise<T>` provides an interface for a producer to asynchronously send a
-/// value of type `T` or an error; `Future<T>` provides an interface for a
-/// consumer to asynchronously receive a value of type `T` or an error.
+/// value of type `T` or an error through a `Result<T>`.
+///
+/// In typical usage, an asynchronous operation initiator will create paired
+/// Future<T> and Promise<T> objects by invoking `PromiseFuturePair<T>::Make()`.
+/// From there, the asynchronous operation which returns a T can be installed on
+/// the Promise<>, typically putting the operation and the promise onto an
+/// executor or other thread pool, and storing the result of the operation on
+/// the promise, while returning the Future<> to the caller.
+///
+/// Both `Promise<void>` and `Future<void>` are supported and return a
+/// Result<void>.
+///
 /// `Promise<T>` and `Future<T>` behave like reference counted pointers to a
 /// shared state that stores the actual value.  In normal usage, there will be
 /// one or more instances of `Promise<T>`, and one or more instances of
@@ -30,10 +49,12 @@
 /// producer sets the result.  Once the state becomes "ready", it cannot become
 /// "not ready", and any further attempts to set the value have no effect.
 ///
-/// In typical use, a consumer uses the `Future::ExecuteWhenReady` method to
-/// register a callback to be invoked when the shared state becomes ready.
-/// Alternatively, `Future::result` may be called to synchronously wait for
-/// result, blocking the current thread.
+/// A limited form of cancellation is supported. Cancellation is signalled when
+/// all `Future<T>` instances referencing the shared state are destroyed or
+/// go out of scope before the operation completes. Using the
+/// `Promise::ExecuteWhenNotNeeded` method, a producer may register callbacks to
+/// be invoked when either the shared state becomes ready or there are no more
+/// futures referencing the shared state.
 ///
 /// In addition to the producer -> consumer communication of a value or error, a
 /// limited form of consumer -> producer communication is also supported: a
@@ -45,11 +66,6 @@
 /// result is needed, and is also invoked automatically when a thread
 /// synchronously waits for the result.  This calls any callbacks that a
 /// producer has registered using the `Promise::ExecuteWhenForced` method.
-///
-/// A limited form of cancellation is supported: using the
-/// `Promise::ExecuteWhenNotNeeded` method, a producer may register callbacks to
-/// be invoked when either the shared state becomes ready or there are no more
-/// futures referencing the shared state.
 ///
 /// This Promise/Future implementation is executor-agnostic: all callbacks that
 /// are registered are either invoked immediately before the registration
@@ -77,6 +93,10 @@
 ///       });
 ///       return std::move(pair.future);
 ///     }
+///     Future<void> future = RunAsync([]->void {
+///         std::count << " Async! " << std::endl;
+///     }, executor);
+///     future.Wait();
 ///
 ///     // Like `RunAsync`, except execution of `function` is deferred until
 ///     // Force is called on the returned Future.
@@ -291,8 +311,9 @@ class Promise {
   ///     return `false`.
   bool ready() const noexcept { return rep().ready(); }
 
-  /// Returns `true` if there are any remaining `Future` objects or ready
-  /// callbacks associated with the shared state.
+  /// Returns `true` if this future has not been cancelled.
+  /// Once there are no remaining `Future` objects or ready callbacks
+  /// associated with the shared state, the future will be cancelled.
   ///
   /// \remark Once this returns `false` for a given shared state, it will never
   ///     return `true`.
@@ -452,7 +473,7 @@ class Promise {
   explicit Promise(internal_future::PromiseStatePointer rep)
       : rep_(std::move(rep)) {}
   friend class internal_future::FutureAccess;
-  SharedState& rep() const {
+  constexpr SharedState& rep() const {
     ABSL_ASSERT(rep_);
     return static_cast<SharedState&>(*rep_);
   }
@@ -657,7 +678,7 @@ class Future {
   explicit Future(internal_future::FutureStatePointer rep)
       : rep_(std::move(rep)) {}
   friend class internal_future::FutureAccess;
-  SharedState& rep() const {
+  constexpr SharedState& rep() const {
     ABSL_ASSERT(rep_);
     return static_cast<SharedState&>(*rep_);
   }
