@@ -24,6 +24,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/container/node_hash_set.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/box.h"
 #include "tensorstore/internal/json_bindable.h"
@@ -119,8 +120,8 @@ TEST(JsonTest, Meta) {
   };
 }
 
-std::unordered_set<std::string> GetKeys() {
-  return std::unordered_set<std::string>{{
+absl::node_hash_set<std::string> GetKeys() {
+  return absl::node_hash_set<std::string>{{
       "bool_true",
       "bool_false",
       "str_bool",
@@ -168,7 +169,7 @@ TEST(JsonTest, JsonParseBool) {
   EXPECT_EQ(true, *JsonParseBool(result, "str_bool"));
 
   // Some values cannot be parsed.
-  std::unordered_set<std::string> remaining = keys;
+  absl::node_hash_set<std::string> remaining = keys;
   for (const std::string& x : remaining) {
     EXPECT_FALSE(JsonParseBool(result, x.c_str())) << x;
   }
@@ -320,7 +321,7 @@ TEST(JsonTest, JsonParseInt) {
   EXPECT_EQ(789, *JsonParseInt(result, "str_number"));
 
   // Some values cannot be parsed.
-  std::unordered_set<std::string> remaining = keys;
+  absl::node_hash_set<std::string> remaining = keys;
   for (const std::string& x : remaining) {
     EXPECT_FALSE(JsonParseInt(result, x.c_str())) << x;
   }
@@ -356,7 +357,7 @@ TEST(JsonTest, JsonParseUnsigned) {
   EXPECT_EQ(789, *JsonParseUnsigned(result, "str_number"));
 
   // Some values cannot be parsed.
-  std::unordered_set<std::string> remaining = keys;
+  absl::node_hash_set<std::string> remaining = keys;
   for (const std::string& x : remaining) {
     EXPECT_FALSE(JsonParseUnsigned(result, x.c_str())) << x;
   }
@@ -404,7 +405,7 @@ TEST(JsonTest, JsonParseDouble) {
   EXPECT_EQ(123.4, *JsonParseDouble(result, "str_float"));
 
   // Some values cannot be parsed.
-  std::unordered_set<std::string> remaining = keys;
+  absl::node_hash_set<std::string> remaining = keys;
   for (const std::string& x : remaining) {
     EXPECT_FALSE(JsonParseDouble(result, x.c_str())) << x;
   }
@@ -440,7 +441,7 @@ TEST(JsonTest, JsonParseString) {
   EXPECT_EQ("123.40", *JsonParseString(result, "str_float"));
 
   // Some values cannot be parsed.
-  std::unordered_set<std::string> remaining = keys;
+  absl::node_hash_set<std::string> remaining = keys;
   for (const std::string& x : remaining) {
     EXPECT_FALSE(JsonParseString(result, x.c_str())) << x;
   }
