@@ -8,6 +8,7 @@ tensorstore_cc_test(
     name = "compute_percentiles",
     size = "small",
     srcs = ["compute_percentiles.cc"],
+    tags = ["manual"],
     deps = [
         "//tensorstore",
         "//tensorstore:array",
