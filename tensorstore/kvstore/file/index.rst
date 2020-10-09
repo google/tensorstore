@@ -20,4 +20,4 @@ Limitations
 .. note::
 
    This driver is only supported on Windows 10 RS1 or later, due to its reliance
-   of file operations with POSIX semantics.
+   on file operations with POSIX semantics.

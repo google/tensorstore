@@ -1,0 +1,35 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://github.com/google/tensorstore/json-schema/key-value-store/driver/memory
+title: '``memory`` Key-Value Store'
+allOf:
+- $ref: https://github.com/google/tensorstore/json-schema/key-value-store
+- type: object
+  properties:
+    driver:
+      const: memory
+    memory_key_value_store:
+      $ref: https://github.com/google/tensorstore/json-schema/context-resource
+      description: >-
+        Specifies or references a previously defined
+        :json-schema:`https://github.com/google/tensorstore/json-schema/context/memory_key_value_store`.
+    atomic:
+      type: boolean
+      default: true
+      description: >-
+        Support atomic multi-key transactions.  If set to :json:`false`, the
+        transaction behavior matches that of the
+        :json-schema:`https://github.com/google/tensorstore/json-schema/key-value-store/driver/file`
+        and
+        :json-schema:`https://github.com/google/tensorstore/json-schema/key-value-store/driver/gcs`
+        drivers, which may be useful for testing purposes.
+definitions:
+  memory_key_value_store:
+    $id: https://github.com/google/tensorstore/json-schema/context/memory_key_value_store
+    title: '``memory_key_value_store`` context resource'
+    description: >-
+      Represents the in-memory key-value store.  If multiple
+      :json-schema:`https://github.com/google/tensorstore/json-schema/key-value-store/driver/memory`
+      specifications reference the same
+      :json-schema:`https://github.com/google/tensorstore/json-schema/context/memory_key_value_store`,
+      they all refer to the same in-memory set of key/value pairs.
+    type: object

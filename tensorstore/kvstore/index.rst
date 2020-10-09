@@ -16,6 +16,7 @@ Drivers
 .. toctree::
    :maxdepth: 1
 
+   memory/index
    file/index
    gcs/index
 
