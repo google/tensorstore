@@ -28,6 +28,7 @@
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/spec.h"
+#include "python/tensorstore/transaction.h"
 #include "python/tensorstore/write_futures.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
@@ -171,6 +172,25 @@ void RegisterTensorStoreBindings(pybind11::module m) {
 
   cls_tensorstore.attr("__iter__") = py::none();
 
+  cls_tensorstore.def_property_readonly(
+      "transaction",
+      [](const TensorStore<>& self) {
+        return internal::TransactionState::ToCommitPtr(self.transaction());
+      },
+      R"(Associated transaction used for read/write operations.)");
+
+  cls_tensorstore.def(
+      "with_transaction",
+      [](const TensorStore<>& self,
+         internal::TransactionState::CommitPtr transaction) {
+        return ValueOrThrow(self | internal::TransactionState::ToTransaction(
+                                       std::move(transaction)));
+      },
+      R"(Returns a transaction-bound view of this TensorStore.
+
+The returned view may be used to perform transactional read/write operations.
+)");
+
   DefineIndexTransformOperations(
       &cls_tensorstore,
       [](std::shared_ptr<TensorStore<>> self) {
@@ -240,7 +260,8 @@ void RegisterTensorStoreBindings(pybind11::module m) {
          std::optional<bool> open, std::optional<bool> create,
          std::optional<bool> delete_existing,
          std::optional<bool> allow_option_mismatch,
-         internal_context::ContextImplPtr context) {
+         internal_context::ContextImplPtr context,
+         internal::TransactionState::CommitPtr transaction) {
         if (!context) {
           context = internal_context::Access::impl(Context::Default());
         }
@@ -274,15 +295,17 @@ void RegisterTensorStoreBindings(pybind11::module m) {
           }
           options.open_mode = open_mode;
         }
-        return tensorstore::Open(WrapImpl(std::move(context)), spec,
-                                 std::move(options));
+        return tensorstore::Open(
+            WrapImpl(std::move(context)),
+            internal::TransactionState::ToTransaction(std::move(transaction)),
+            spec, std::move(options));
       },
       "Opens a TensorStore", py::arg("spec"), py::arg("read") = std::nullopt,
       py::arg("write") = std::nullopt, py::arg("open") = std::nullopt,
       py::arg("create") = std::nullopt,
       py::arg("delete_existing") = std::nullopt,
       py::arg("allow_option_mismatch") = std::nullopt,
-      py::arg("context") = nullptr);
+      py::arg("context") = nullptr, py::arg("transaction") = nullptr);
 }
 
 }  // namespace internal_python

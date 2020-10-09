@@ -20,6 +20,7 @@ pybind11_py_extension(
         ":index_space",
         ":spec",
         ":tensorstore_class",
+        ":transaction",
         ":write_futures",
         "//tensorstore/driver/n5",
         "//tensorstore/driver/n5:blosc_compressor",
@@ -313,6 +314,7 @@ pybind11_cc_library(
         ":json_type_caster",
         ":result_type_caster",
         ":spec",
+        ":transaction",
         ":write_futures",
         "//tensorstore",
         "//tensorstore:array",
@@ -458,6 +460,16 @@ tensorstore_pytest_test(
 )
 
 tensorstore_pytest_test(
+    name = "transaction_test",
+    size = "small",
+    srcs = ["tests/transaction_test.py"],
+    deps = [
+        ":tensorstore",
+        "@pypa_numpy//:numpy",
+    ],
+)
+
+tensorstore_pytest_test(
     name = "future_test",
     size = "small",
     srcs = ["tests/future_test.py"],
@@ -472,5 +484,16 @@ pybind11_cc_test(
         ":index",
         "//tensorstore:index",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+pybind11_cc_library(
+    name = "transaction",
+    srcs = ["transaction.cc"],
+    hdrs = ["transaction.h"],
+    deps = [
+        ":future",
+        "//tensorstore:transaction",
+        "@com_github_pybind_pybind11//:pybind11",
     ],
 )

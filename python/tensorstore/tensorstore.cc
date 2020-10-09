@@ -22,6 +22,7 @@
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/tensorstore_class.h"
+#include "python/tensorstore/transaction.h"
 #include "python/tensorstore/write_futures.h"
 #include "pybind11/pybind11.h"
 
@@ -57,6 +58,7 @@ PYBIND11_MODULE(_tensorstore, m) {
   RegisterDataTypeBindings(m);
   RegisterSpecBindings(m);
   RegisterContextBindings(m);
+  RegisterTransactionBindings(m);
   RegisterTensorStoreBindings(m);
   RegisterFutureBindings(m);
   RegisterWriteFuturesBindings(m);
