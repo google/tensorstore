@@ -17,8 +17,7 @@
 
 #include <iosfwd>
 #include <string>
-
-#include "absl/strings/string_view.h"
+#include <string_view>
 
 namespace tensorstore {
 
@@ -50,18 +49,33 @@ class KeyRange {
   /// Returns the range that contains all keys that start with `prefix`.
   static KeyRange Prefix(std::string prefix);
 
+  /// Returns the key that occurs immediately after `key`.
+  ///
+  /// This is equal to `key` with '\x00` appended.
+  static std::string Successor(std::string_view key);
+
   /// Returns the `exclusive_max` value representing the upper bound for keys
   /// that start with `prefix`.
   static std::string PrefixExclusiveMax(std::string prefix);
 
-  /// Returns `true` if `a <= b`, interpreting them as `exclusive_max` values,
-  /// where an empty string is not less than any string.
-  static bool ExclusiveMaxLessEqual(absl::string_view a, absl::string_view b);
+  /// Returns the three-way comparison result between a key and an exclusive max
+  /// bound.
+  static int CompareKeyAndExclusiveMax(std::string_view key,
+                                       std::string_view bound);
+
+  static int CompareExclusiveMaxAndKey(std::string_view bound,
+                                       std::string_view key) {
+    return -CompareKeyAndExclusiveMax(key, bound);
+  }
+
+  /// Returns the three-way comparison result between two `exclusive_max`
+  /// values.
+  static int CompareExclusiveMax(std::string_view a, std::string_view b);
 
   /// Returns the minimum of `a` and `b`, interpreting them as `exclusive_max`
   /// values.
-  static absl::string_view MinExclusiveMax(absl::string_view a,
-                                           absl::string_view b);
+  static std::string_view MinExclusiveMax(std::string_view a,
+                                          std::string_view b);
 
   /// Returns `true` if the range contains no keys.
   bool empty() const {
@@ -84,13 +98,13 @@ class KeyRange {
 };
 
 /// Returns `true` if `haystack` contains the key `needle`.
-bool Contains(const KeyRange& haystack, absl::string_view needle);
+bool Contains(const KeyRange& haystack, std::string_view needle);
 
 /// Returns `true` if `haystack` fully contains the range `needle`.
 bool Contains(const KeyRange& haystack, const KeyRange& needle);
 
 /// Returns `Contains(haystack, KeyRange::Prefix(prefix))`.
-bool ContainsPrefix(const KeyRange& haystack, absl::string_view prefix);
+bool ContainsPrefix(const KeyRange& haystack, std::string_view prefix);
 
 /// Returns the intersection of `a` and `b`.
 KeyRange Intersect(const KeyRange& a, const KeyRange& b);
@@ -99,11 +113,11 @@ KeyRange Intersect(const KeyRange& a, const KeyRange& b);
 bool Intersects(const KeyRange& a, const KeyRange& b);
 
 /// Returns `Intersects(a, KeyRange::Prefix(b))`.
-bool IntersectsPrefix(const KeyRange& a, absl::string_view prefix);
+bool IntersectsPrefix(const KeyRange& a, std::string_view prefix);
 
 /// Returns the longest string `prefix` that satisfies
 /// `Contains(range, KeyRange::Prefix(prefix))`.
-absl::string_view LongestPrefix(const KeyRange& range);
+std::string_view LongestPrefix(const KeyRange& range);
 
 }  // namespace tensorstore
 

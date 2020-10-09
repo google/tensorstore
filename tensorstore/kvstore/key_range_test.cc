@@ -71,6 +71,11 @@ TEST(KeyRangeTest, Prefix) {
   EXPECT_EQ(KeyRange("\xff\xff\xff", ""), KeyRange::Prefix("\xff\xff\xff"));
 }
 
+TEST(KeyRangeTest, Successor) {
+  EXPECT_EQ(std::string({'a', 'b', 'c', '\x00'}), KeyRange::Successor("abc"));
+  EXPECT_EQ(std::string({'\x00'}), KeyRange::Successor(""));
+}
+
 TEST(KeyRangeTest, ContainsKey) {
   EXPECT_TRUE(tensorstore::Contains(KeyRange("a", "c"), "a"));
   EXPECT_TRUE(tensorstore::Contains(KeyRange("a", "c"), "ab"));
@@ -137,6 +142,29 @@ TEST(KeyRangeTest, LongestPrefix) {
 TEST(KeyRangeTest, Ostream) {
   EXPECT_EQ("[\"a\", \"b\")", tensorstore::StrCat(KeyRange("a", "b")));
   EXPECT_EQ("[\"a\", \"ba\")", tensorstore::StrCat(KeyRange("a", "ba")));
+}
+
+TEST(KeyRangeTest, CompareKeyAndExclusiveMax) {
+  EXPECT_THAT(KeyRange::CompareKeyAndExclusiveMax("a", "a"), ::testing::Eq(0));
+  EXPECT_THAT(KeyRange::CompareKeyAndExclusiveMax("a", "b"), ::testing::Lt(0));
+  EXPECT_THAT(KeyRange::CompareKeyAndExclusiveMax("b", "a"), ::testing::Gt(0));
+  EXPECT_THAT(KeyRange::CompareKeyAndExclusiveMax("", ""), ::testing::Lt(0));
+  EXPECT_THAT(KeyRange::CompareKeyAndExclusiveMax("a", ""), ::testing::Lt(0));
+
+  EXPECT_THAT(KeyRange::CompareExclusiveMaxAndKey("a", "a"), ::testing::Eq(0));
+  EXPECT_THAT(KeyRange::CompareExclusiveMaxAndKey("a", "b"), ::testing::Lt(0));
+  EXPECT_THAT(KeyRange::CompareExclusiveMaxAndKey("b", "a"), ::testing::Gt(0));
+  EXPECT_THAT(KeyRange::CompareExclusiveMaxAndKey("", ""), ::testing::Gt(0));
+  EXPECT_THAT(KeyRange::CompareExclusiveMaxAndKey("", "a"), ::testing::Gt(0));
+}
+
+TEST(KeyRangeTest, CompareExclusiveMax) {
+  EXPECT_THAT(KeyRange::CompareExclusiveMax("", ""), ::testing::Eq(0));
+  EXPECT_THAT(KeyRange::CompareExclusiveMax("a", "a"), ::testing::Eq(0));
+  EXPECT_THAT(KeyRange::CompareExclusiveMax("a", "b"), ::testing::Lt(0));
+  EXPECT_THAT(KeyRange::CompareExclusiveMax("b", "a"), ::testing::Gt(0));
+  EXPECT_THAT(KeyRange::CompareExclusiveMax("a", ""), ::testing::Lt(0));
+  EXPECT_THAT(KeyRange::CompareExclusiveMax("", "a"), ::testing::Gt(0));
 }
 
 }  // namespace

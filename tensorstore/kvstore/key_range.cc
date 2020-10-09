@@ -16,8 +16,8 @@
 
 #include <ostream>
 #include <string>
+#include <string_view>
 
-#include "absl/strings/string_view.h"
 #include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
@@ -27,6 +27,14 @@ KeyRange KeyRange::Prefix(std::string prefix) {
   range.exclusive_max = PrefixExclusiveMax(prefix);
   range.inclusive_min = std::move(prefix);
   return range;
+}
+
+std::string KeyRange::Successor(std::string_view key) {
+  std::string successor;
+  successor.reserve(key.size() + 1);
+  successor.append(key);
+  successor += '\x00';
+  return successor;
 }
 
 std::string KeyRange::PrefixExclusiveMax(std::string prefix) {
@@ -42,20 +50,24 @@ std::string KeyRange::PrefixExclusiveMax(std::string prefix) {
   return prefix;
 }
 
-bool KeyRange::ExclusiveMaxLessEqual(absl::string_view a, absl::string_view b) {
-  if (b.empty()) return true;
-  if (a.empty()) return false;
-  return a <= b;
+int KeyRange::CompareKeyAndExclusiveMax(std::string_view key,
+                                        std::string_view bound) {
+  return bound.empty() ? -1 : key.compare(bound);
 }
 
-absl::string_view KeyRange::MinExclusiveMax(absl::string_view a,
-                                            absl::string_view b) {
-  return ExclusiveMaxLessEqual(a, b) ? a : b;
+int KeyRange::CompareExclusiveMax(std::string_view a, std::string_view b) {
+  return a.empty() != b.empty() ? (a.empty() ? 1 : -1) : a.compare(b);
 }
 
-bool Contains(const KeyRange& haystack, absl::string_view needle) {
+std::string_view KeyRange::MinExclusiveMax(std::string_view a,
+                                           std::string_view b) {
+  return CompareExclusiveMax(a, b) < 0 ? a : b;
+}
+
+bool Contains(const KeyRange& haystack, std::string_view needle) {
   return haystack.inclusive_min <= needle &&
-         (haystack.exclusive_max.empty() || needle < haystack.exclusive_max);
+         KeyRange::CompareKeyAndExclusiveMax(needle, haystack.exclusive_max) <
+             0;
 }
 
 KeyRange Intersect(const KeyRange& a, const KeyRange& b) {
@@ -80,13 +92,13 @@ bool Intersects(const KeyRange& a, const KeyRange& b) {
 
 bool Contains(const KeyRange& haystack, const KeyRange& needle) {
   return haystack.inclusive_min <= needle.inclusive_min &&
-         KeyRange::ExclusiveMaxLessEqual(needle.exclusive_max,
-                                         haystack.exclusive_max);
+         KeyRange::CompareExclusiveMax(needle.exclusive_max,
+                                       haystack.exclusive_max) <= 0;
 }
 
-absl::string_view LongestPrefix(const KeyRange& range) {
-  absl::string_view inclusive_min = range.inclusive_min;
-  absl::string_view exclusive_max = range.exclusive_max;
+std::string_view LongestPrefix(const KeyRange& range) {
+  std::string_view inclusive_min = range.inclusive_min;
+  std::string_view exclusive_max = range.exclusive_max;
   size_t i = 0;
   if (exclusive_max.empty()) {
     // The range has no upper bound.  The common prefix is the longest prefix of
@@ -120,11 +132,11 @@ absl::string_view LongestPrefix(const KeyRange& range) {
   return inclusive_min.substr(0, i);
 }
 
-bool ContainsPrefix(const KeyRange& haystack, absl::string_view prefix) {
+bool ContainsPrefix(const KeyRange& haystack, std::string_view prefix) {
   return tensorstore::Contains(haystack, KeyRange::Prefix(std::string(prefix)));
 }
 
-bool IntersectsPrefix(const KeyRange& a, absl::string_view prefix) {
+bool IntersectsPrefix(const KeyRange& a, std::string_view prefix) {
   return tensorstore::Intersects(a, KeyRange::Prefix(std::string(prefix)));
 }
 
