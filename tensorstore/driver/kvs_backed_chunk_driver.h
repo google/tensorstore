@@ -31,20 +31,19 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/aggregate_writeback_cache.h"
-#include "tensorstore/internal/async_storage_backed_cache.h"
+#include "tensorstore/internal/async_cache.h"
 #include "tensorstore/internal/cache_pool_resource.h"
 #include "tensorstore/internal/chunk_cache.h"
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_bindable.h"
-#include "tensorstore/internal/key_value_store_cache.h"
+#include "tensorstore/internal/kvs_backed_cache.h"
 #include "tensorstore/internal/open_mode_spec.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/spec.h"
-#include "tensorstore/tensorstore.h"
 #include "tensorstore/util/bit_span.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
@@ -98,6 +97,13 @@ enum AtomicUpdateConstraint {
   kRequireMissing,
 };
 
+class MetadataCache;
+using MetadataCacheBase = internal::AsyncCacheBase<
+    MetadataCache,
+    internal::AggregateWritebackCache<
+        MetadataCache,
+        internal::KvsBackedCache<MetadataCache, internal::AsyncCache>>>;
+
 /// Caches metadata associated with a KeyValueStore-backed chunk driver.  Driver
 /// implementations must define a derived type that inherits from this class to
 /// perform driver-specific metadata handling.
@@ -113,17 +119,8 @@ enum AtomicUpdateConstraint {
 /// representation.
 ///
 /// Implicitly, instances of this class assume a particular `Metadata` type.
-class MetadataCache
-    : public internal::CacheBase<
-          MetadataCache,
-          internal::AggregateWritebackCache<
-              MetadataCache, internal::KeyValueStoreCache<
-                                 internal::AsyncStorageBackedCache>>> {
-  using Base = internal::CacheBase<
-      MetadataCache,
-      internal::AggregateWritebackCache<
-          MetadataCache,
-          internal::KeyValueStoreCache<internal::AsyncStorageBackedCache>>>;
+class MetadataCache : public MetadataCacheBase {
+  using Base = MetadataCacheBase;
 
  public:
   using MetadataPtr = std::shared_ptr<const void>;
@@ -177,7 +174,7 @@ class MetadataCache
   /// \returns The new metadata on success, or an error result for the
   /// request.
   using UpdateFunction =
-      std::function<Result<MetadataPtr>(const void* existing_metadata)>;
+      std::function<Result<MetadataPtr>(const MetadataPtr& existing_metadata)>;
 
   /// Specifies a request to atomically read-modify-write a metadata entry.
   struct PendingWrite {
@@ -190,13 +187,20 @@ class MetadataCache
    public:
     using Cache = MetadataCache;
 
-    MetadataPtr GetMetadata() {
-      auto lock = this->AcquireReadStateReaderLock();
-      return metadata;
-    }
+    MetadataPtr GetMetadata() { return ReadLock<void>(*this).shared_data(); }
+
+    Result<MetadataPtr> GetMetadata(internal::OpenTransactionPtr transaction);
+
+    void DoDecode(std::optional<absl::Cord> value,
+                  DecodeReceiver receiver) override;
+    void DoEncode(std::shared_ptr<const void> data,
+                  UniqueWriterLock<AsyncCache::TransactionNode> lock,
+                  EncodeReceiver receiver) override;
+    std::string GetKeyValueStoreKey() override;
 
     /// Requests an atomic metadata update.
     ///
+    /// \param transaction The transaction to use.
     /// \param update Update function to apply.
     /// \param update_constraint Specifies additional constraints on the atomic
     ///     update.
@@ -206,30 +210,37 @@ class MetadataCache
     ///     Future result.  Additionally, any error that occurs with the
     ///     underlying KeyValueStore is also returned.
     Future<const void> RequestAtomicUpdate(
-        UpdateFunction update, AtomicUpdateConstraint update_constraint,
-        absl::Time request_time = absl::Now());
+        const internal::OpenTransactionPtr& transaction, UpdateFunction update,
+        AtomicUpdateConstraint update_constraint);
+  };
 
-    /// Most recently read committed metadata.
-    MetadataPtr metadata;
+  class TransactionNode : public Base::TransactionNode {
+   public:
+    using Cache = MetadataCache;
+    using MetadataCache::Base::TransactionNode::TransactionNode;
+    /// Returns the metadata after applying all requested updates.
+    ///
+    /// Returns an error if any updates cannot be applied.
+    Result<MetadataPtr> GetUpdatedMetadata(MetadataPtr metadata);
 
-    /// Metadata currently being written back, if any.
-    MetadataPtr new_metadata;
+    Result<MetadataPtr> GetUpdatedMetadata();
+
+    void DoApply(ApplyOptions options, ApplyReceiver receiver) override;
+
+    void InvalidateReadState() override;
+
+   private:
+    friend class Entry;
+
+    /// Base read state on which `updated_metadata_` is based.
+    MetadataPtr updated_metadata_base_state_;
+    /// Cached result of applying updates to `updated_metadata_base_state_`.
+    Result<MetadataPtr> updated_metadata_ = nullptr;
   };
 
   KeyValueStore* base_store() { return base_store_.get(); }
 
-  std::string GetKeyValueStoreKey(internal::Cache::Entry* entry) override;
-
-  void DoDecode(internal::Cache::PinnedEntry entry,
-                std::optional<absl::Cord> value) override;
-  void DoWriteback(internal::Cache::PinnedEntry entry) override;
-
-  void NotifyWritebackNeedsRead(internal::Cache::Entry* entry,
-                                WriteStateLock lock,
-                                absl::Time staleness_bound) override;
-
-  void NotifyWritebackSuccess(internal::Cache::Entry* entry,
-                              WriteAndReadStateLock lock) override;
+  const Executor& executor() { return data_copy_concurrency_->executor; }
 
   /// KeyValueStore from which `kvstore()` was derived.  Used only by
   /// `DriverBase::GetBoundSpecData`.  A driver implementation may apply some
@@ -247,6 +258,10 @@ class MetadataCache
   Future<const void> initialized_;
 };
 
+class DataCache;
+using DataCacheBase = internal::AsyncCacheBase<
+    DataCache, internal::KvsBackedCache<DataCache, internal::ChunkCache>>;
+
 /// Inherits from `ChunkCache` and represents one or more chunked arrays that
 /// are stored within the same set of chunks.
 ///
@@ -254,12 +269,8 @@ class MetadataCache
 /// `DataCache` in order to perform driver-specific data handling.
 ///
 /// Implicitly, instances of this class assume a particular `Metadata` type.
-class DataCache
-    : public internal::CacheBase<
-          DataCache, internal::KeyValueStoreCache<internal::ChunkCache>> {
-  using Base =
-      internal::CacheBase<DataCache,
-                          internal::KeyValueStoreCache<internal::ChunkCache>>;
+class DataCache : public DataCacheBase {
+  using Base = DataCacheBase;
 
  public:
   using MetadataPtr = MetadataCache::MetadataPtr;
@@ -392,39 +403,36 @@ class DataCache
   // The members below are implementation details not relevant to derived class
   // driver implementations.
 
-  void DoDecode(internal::AsyncStorageBackedCache::PinnedEntry entry,
-                std::optional<absl::Cord> value) override;
-
-  void DoWriteback(
-      internal::AsyncStorageBackedCache::PinnedEntry entry) override;
-
-  std::string GetKeyValueStoreKey(internal::Cache::Entry* entry) override;
+  class Entry : public Base::Entry {
+   public:
+    using Cache = DataCache;
+    void DoDecode(std::optional<absl::Cord> value,
+                  DecodeReceiver receiver) override;
+    void DoEncode(std::shared_ptr<const ReadData> data,
+                  UniqueWriterLock<AsyncCache::TransactionNode> lock,
+                  EncodeReceiver receiver) override;
+    std::string GetKeyValueStoreKey() override;
+  };
 
   MetadataCache* metadata_cache() {
     return GetOwningCache(metadata_cache_entry_);
   }
 
-  MetadataPtr validated_metadata() {
-    absl::ReaderMutexLock lock(&mutex_);
-    return validated_metadata_;
-  }
-
   const internal::PinnedCacheEntry<MetadataCache> metadata_cache_entry_;
   const MetadataPtr initial_metadata_;
   absl::Mutex mutex_;
-  MetadataPtr validated_metadata_ ABSL_GUARDED_BY(mutex_);
 };
 
 /// Private data members of `OpenState`.
 struct PrivateOpenState {
+  internal::OpenTransactionPtr transaction_;
   internal::RegisteredDriverOpener<SpecT<internal::ContextBound>> spec_;
   ReadWriteMode read_write_mode_;
   std::string metadata_cache_key_;
   /// Pointer to `MetadataCache::Entry`, but upcast to type
-  /// `internal::AsyncStorageBackedCache::Entry` to avoid having to define
+  /// `internal::AsyncCache::Entry` to avoid having to define
   /// `MetadataCache` in this header.
-  internal::PinnedCacheEntry<internal::AsyncStorageBackedCache>
-      metadata_cache_entry_;
+  internal::PinnedCacheEntry<MetadataCache> metadata_cache_entry_;
   /// Time at which open request was initiated.
   absl::Time request_time_;
 };
@@ -442,27 +450,28 @@ class DriverBase : public internal::ChunkCacheDriver {
 
   /// Forwards to `ResolveBound` overload below with
   /// `metadata_staleness_bound_`.
-  Future<IndexTransform<>> ResolveBounds(IndexTransform<> transform,
-                                         ResolveBoundsOptions options) override;
+  Future<IndexTransform<>> ResolveBounds(
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      ResolveBoundsOptions options) override;
 
   Future<IndexTransform<>> ResolveBounds(
-      IndexTransform<> transform, StalenessBound metadata_staleness_bound,
-      ResolveBoundsOptions options);
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      StalenessBound metadata_staleness_bound, ResolveBoundsOptions options);
 
-  Future<IndexTransform<>> Resize(IndexTransform<> transform,
+  Future<IndexTransform<>> Resize(internal::OpenTransactionPtr transaction,
+                                  IndexTransform<> transform,
                                   span<const Index> inclusive_min,
                                   span<const Index> exclusive_max,
                                   ResizeOptions options) override;
 
   DataCache* cache() const;
 
-  Executor data_copy_executor() override;
-
   const StalenessBound& metadata_staleness_bound() const {
     return metadata_staleness_bound_;
   }
 
   Result<IndexTransformSpec> GetBoundSpecData(
+      internal::OpenTransactionPtr transaction,
       SpecT<internal::ContextBound>* spec, IndexTransformView<> transform);
 
   static Status ConvertSpec(SpecT<internal::ContextUnbound>* spec,
@@ -488,6 +497,7 @@ class OpenState : public internal::AtomicReferenceCount<OpenState>,
   using Ptr = internal::IntrusivePtr<OpenState>;
 
   struct Initializer {
+    internal::OpenTransactionPtr transaction;
     internal::RegisteredDriverOpener<SpecT<internal::ContextBound>> spec;
     ReadWriteMode read_write_mode;
   };
@@ -746,6 +756,7 @@ class RegisteredKvsDriver
   /// terms of `internal_kvs_backed_chunk_driver::OpenDriver`.
   template <typename Spec>
   static Future<internal::Driver::ReadWriteHandle> Open(
+      internal::OpenTransactionPtr transaction,
       internal::RegisteredDriverOpener<Spec> spec,
       ReadWriteMode read_write_mode) {
     // We have to use a template parameter because `Derived` is incomplete when
@@ -757,7 +768,8 @@ class RegisteredKvsDriver
         internal_kvs_backed_chunk_driver::OpenState::Ptr(
             new typename Derived::OpenState(
                 internal_kvs_backed_chunk_driver::OpenState::Initializer{
-                    std::move(spec), read_write_mode})));
+                    std::move(transaction), std::move(spec),
+                    read_write_mode})));
   }
 };
 

@@ -148,14 +148,21 @@ class TensorStore {
     return IndexDomainView<Rank>(unchecked, handle_.transform.domain());
   }
 
+  /// Returns the associated transaction.
+  const Transaction& transaction() const { return handle_.transaction; }
+
   /// Returns a Spec that may be used to open/recreate this TensorStore.
   /// \pre `valid()`
   Result<Spec> spec(
       SpecRequestOptions options = {},
       const internal::ContextSpecBuilder& context_builder = {}) const {
     TENSORSTORE_ASSIGN_OR_RETURN(
+        auto open_transaction,
+        internal::AcquireOpenTransactionPtrOrError(handle_.transaction));
+    TENSORSTORE_ASSIGN_OR_RETURN(
         internal::TransformedDriverSpec<> transformed_driver_spec,
-        handle_.driver->GetSpec(handle_.transform, options, context_builder));
+        handle_.driver->GetSpec(std::move(open_transaction), handle_.transform,
+                                options, context_builder));
     Spec spec;
     internal_spec::SpecAccess::impl(spec) = std::move(transformed_driver_spec);
     return spec;
@@ -197,6 +204,26 @@ class TensorStore {
     return internal::TensorStoreAccess::Construct<
         TensorStore<Element, decltype(new_transform)::static_input_rank, Mode>>(
         std::move(store.handle_));
+  }
+
+  /// Changes to a new transaction.
+  ///
+  /// Fails if `store` is already associated with an uncommitted transaction.
+  ///
+  /// This is intended to be used with the "pipeline" `operator|` or
+  /// `ChainResult`.
+  ///
+  /// Example:
+  ///
+  ///     tensorstore::TensorStore<> store = ...;
+  ///     auto transaction = tensorstore::Transaction(tensorstore::isolated);
+  ///     TENSORSTORE_ASSIGN_OR_RETURN(store, store | transaction);
+  ///
+  friend Result<TensorStore> ApplyTensorStoreTransaction(
+      TensorStore store, Transaction transaction) {
+    TENSORSTORE_RETURN_IF_ERROR(internal::ChangeTransaction(
+        store.handle_.transaction, std::move(transaction)));
+    return store;
   }
 
   explicit TensorStore(internal::Driver::ReadWriteHandle handle)
@@ -287,14 +314,20 @@ ResolveBounds(StoreResult store_result, ResolveBoundsOptions options = {}) {
       [&](auto&& store) -> Future<Store> {
         using internal::TensorStoreAccess;
         auto* driver = TensorStoreAccess::handle(store).driver.get();
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto open_transaction,
+            internal::AcquireOpenTransactionPtrOrError(
+                TensorStoreAccess::handle(store).transaction));
         return MapFutureValue(
             InlineExecutor{},
             internal_tensorstore::IndexTransformFutureCallback<
                 typename Store::Element, Store::static_rank,
                 Store::static_mode>{
                 std::move(TensorStoreAccess::handle(store).driver),
+                std::move(TensorStoreAccess::handle(store).transaction),
                 store.read_write_mode()},
             driver->ResolveBounds(
+                std::move(open_transaction),
                 IndexTransform<>(
                     std::move(TensorStoreAccess::handle(store).transform)),
                 options));
@@ -349,14 +382,19 @@ Resize(
         TENSORSTORE_RETURN_IF_ERROR(
             internal::ValidateSupportsWrite(store.read_write_mode()));
         auto& handle = internal::TensorStoreAccess::handle(store);
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto open_transaction,
+            internal::AcquireOpenTransactionPtrOrError(handle.transaction));
         auto* driver = handle.driver.get();
         return MapFutureValue(
             InlineExecutor{},
             internal_tensorstore::IndexTransformFutureCallback<
                 typename Store::Element, Store::static_rank,
                 Store::static_mode>{std::move(handle.driver),
+                                    std::move(handle.transaction),
                                     store.read_write_mode()},
-            driver->Resize(IndexTransform<>(std::move(handle.transform)),
+            driver->Resize(std::move(open_transaction),
+                           IndexTransform<>(std::move(handle.transform)),
                            inclusive_min, exclusive_max, options));
       },
       std::move(store_result));

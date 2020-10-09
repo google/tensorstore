@@ -121,11 +121,11 @@ class ArrayDriver
   using Ptr = Driver::PtrT<ArrayDriver>;
 
   void Read(
-      IndexTransform<> transform,
+      OpenTransactionPtr transaction, IndexTransform<> transform,
       AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) override;
 
   void Write(
-      IndexTransform<> transform,
+      OpenTransactionPtr transaction, IndexTransform<> transform,
       AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) override;
 
   DataType data_type() override { return data_.data_type(); }
@@ -140,10 +140,12 @@ class ArrayDriver
     return absl::OkStatus();
   }
 
-  Result<IndexTransform<>> GetBoundSpecData(BoundSpecData* spec,
-                                            IndexTransformView<> transform);
+  Result<IndexTransform<>> GetBoundSpecData(
+      internal::OpenTransactionPtr transaction, BoundSpecData* spec,
+      IndexTransformView<> transform);
 
   static Future<internal::Driver::ReadWriteHandle> Open(
+      internal::OpenTransactionPtr transaction,
       internal::RegisteredDriverOpener<BoundSpecData> spec,
       ReadWriteMode read_write_mode);
 
@@ -158,61 +160,69 @@ class ArrayDriver
   absl::Mutex mutex_;
 };
 
+absl::Status TransactionError() {
+  return absl::UnimplementedError(
+      "\"array\" driver does not support transactions");
+}
+
 void ArrayDriver::Read(
-    IndexTransform<> transform,
+    OpenTransactionPtr transaction, IndexTransform<> transform,
     AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) {
+  // Implementation of `tensorstore::internal::ReadChunk::Impl` Poly interface.
   struct ChunkImpl {
     ArrayDriver::Ptr self;
-    // On successful return, implicitly transfers ownership of a shared lock on
-    // `self->mutex_` to the caller.
-    Result<NDIterable::Ptr> operator()(
-        ReadChunk::AcquireReadLock, IndexTransform<> chunk_transform,
-        Arena* arena) const ABSL_NO_THREAD_SAFETY_ANALYSIS {
-      auto iterable = GetTransformedArrayNDIterable(
-          {self->data_, std::move(chunk_transform)}, arena);
-      if (iterable.ok()) self->mutex_.ReaderLock();
-      return iterable;
+
+    absl::Status operator()(internal::LockCollection& lock_collection) {
+      lock_collection.RegisterShared(self->mutex_);
+      return absl::OkStatus();
     }
-    // Unlocks the shared lock acquired by successful call to the
-    // `AcquireReadLock` method.
-    void operator()(ReadChunk::ReleaseReadLock) const
-        ABSL_NO_THREAD_SAFETY_ANALYSIS {
-      self->mutex_.ReaderUnlock();
+
+    Result<NDIterable::Ptr> operator()(ReadChunk::BeginRead,
+                                       IndexTransform<> chunk_transform,
+                                       Arena* arena) {
+      return GetTransformedArrayNDIterable(
+          {self->data_, std::move(chunk_transform)}, arena);
     }
   };
   // Cancellation does not make sense since there is only a single call to
   // `set_value` which occurs immediately after `set_starting`.
   execution::set_starting(receiver, [] {});
-  auto cell_transform = IdentityTransform(transform.input_domain());
-  execution::set_value(receiver,
-                       ReadChunk{ChunkImpl{Ptr(this)}, std::move(transform)},
-                       std::move(cell_transform));
+  if (transaction) {
+    execution::set_error(receiver, TransactionError());
+  } else {
+    auto cell_transform = IdentityTransform(transform.input_domain());
+    execution::set_value(receiver,
+                         ReadChunk{ChunkImpl{Ptr(this)}, std::move(transform)},
+                         std::move(cell_transform));
+    execution::set_done(receiver);
+  }
   execution::set_stopping(receiver);
 }
 
 void ArrayDriver::Write(
-    IndexTransform<> transform,
+    OpenTransactionPtr transaction, IndexTransform<> transform,
     AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) {
+  // Implementation of `tensorstore::internal::WriteChunk::Impl` Poly interface.
   struct ChunkImpl {
     ArrayDriver::Ptr self;
-    // On successful return, implicitly transfers ownership of an exclusive lock
-    // on `self->mutex_` to the caller.
-    Result<NDIterable::Ptr> operator()(
-        WriteChunk::AcquireWriteLock, IndexTransform<> chunk_transform,
-        Arena* arena) const ABSL_NO_THREAD_SAFETY_ANALYSIS {
-      auto iterable = GetTransformedArrayNDIterable(
-          {self->data_, std::move(chunk_transform)}, arena);
-      if (iterable.ok()) self->mutex_.WriterLock();
-      return iterable;
+
+    absl::Status operator()(internal::LockCollection& lock_collection) {
+      lock_collection.RegisterExclusive(self->mutex_);
+      return absl::OkStatus();
     }
-    // Unlocks the exclusive lock acquired by successful call to the
-    // `AcquireWriteLock` method.
-    Future<const void> operator()(
-        WriteChunk::ReleaseWriteLock, IndexTransformView<> chunk_transform,
-        NDIterable::IterationLayoutView layout,
-        span<const Index> write_end_position,
-        Arena* arena) const ABSL_NO_THREAD_SAFETY_ANALYSIS {
-      self->mutex_.WriterUnlock();
+
+    Result<NDIterable::Ptr> operator()(WriteChunk::BeginWrite,
+                                       IndexTransform<> chunk_transform,
+                                       Arena* arena) {
+      return GetTransformedArrayNDIterable(
+          {self->data_, std::move(chunk_transform)}, arena);
+    }
+
+    Future<const void> operator()(WriteChunk::EndWrite,
+                                  IndexTransformView<> chunk_transform,
+                                  NDIterable::IterationLayoutView layout,
+                                  span<const Index> write_end_position,
+                                  Arena* arena) {
       return {};
     }
   };
@@ -220,15 +230,21 @@ void ArrayDriver::Write(
   // `set_value` which occurs immediately after `set_starting`.
   execution::set_starting(receiver, [] {});
   auto cell_transform = IdentityTransform(transform.input_domain());
-  execution::set_value(receiver,
-                       WriteChunk{ChunkImpl{Ptr(this)}, std::move(transform)},
-                       std::move(cell_transform));
-  execution::set_done(receiver);
+  if (transaction) {
+    execution::set_error(receiver, TransactionError());
+  } else {
+    execution::set_value(receiver,
+                         WriteChunk{ChunkImpl{Ptr(this)}, std::move(transform)},
+                         std::move(cell_transform));
+    execution::set_done(receiver);
+  }
   execution::set_stopping(receiver);
 }
 
 Result<IndexTransform<>> ArrayDriver::GetBoundSpecData(
-    BoundSpecData* spec, IndexTransformView<> transform) {
+    internal::OpenTransactionPtr transaction, BoundSpecData* spec,
+    IndexTransformView<> transform) {
+  if (transaction) return TransactionError();
   SharedArray<const void> array;
   {
     absl::ReaderMutexLock lock(&mutex_);
@@ -264,8 +280,10 @@ Result<IndexTransform<>> ArrayDriver::GetBoundSpecData(
 }
 
 Future<internal::Driver::ReadWriteHandle> ArrayDriver::Open(
+    internal::OpenTransactionPtr transaction,
     internal::RegisteredDriverOpener<BoundSpecData> spec,
     ReadWriteMode read_write_mode) {
+  if (transaction) return TransactionError();
   Ptr driver(new ArrayDriver(spec->data_copy_concurrency,
                              tensorstore::MakeCopy(spec->array)));
   if (read_write_mode == ReadWriteMode::dynamic) {

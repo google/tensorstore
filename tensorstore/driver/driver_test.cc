@@ -41,9 +41,11 @@ class ChunkErrorDriver : public tensorstore::internal::Driver {
   }
   tensorstore::DimensionIndex rank() override { return 0; }
   void Read(
+      tensorstore::internal::OpenTransactionPtr transaction,
       IndexTransform<> transform,
       AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) override {}
   void Write(
+      tensorstore::internal::OpenTransactionPtr transaction,
       IndexTransform<> transform,
       AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) override {
     tensorstore::execution::set_starting(receiver, [] {});

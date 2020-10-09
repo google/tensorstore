@@ -124,6 +124,7 @@ tensorstore_cc_test(
         "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/internal:cache",
         "//tensorstore/internal:decoded_matches",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:json",
         "//tensorstore/internal:parse_json_matches",
         "//tensorstore/internal/compression:blosc",

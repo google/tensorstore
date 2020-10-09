@@ -20,10 +20,21 @@
 #include "tensorstore/internal/cache_key.h"
 #include "tensorstore/internal/cache_pool_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
+#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/staleness_bound_json_binder.h"
+#include "tensorstore/internal/unowned_to_shared.h"
+#include "tensorstore/tensorstore.h"
 #include "tensorstore/util/bit_vec.h"
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/quote_string.h"
+
+#if 0
+#define TENSORSTORE_KVS_DRIVER_DEBUG_LOG(...) TENSORSTORE_LOG(__VA_ARGS__)
+#else
+#define TENSORSTORE_KVS_DRIVER_DEBUG_LOG(...) \
+  do {                                        \
+  } while (false)
+#endif
 
 namespace tensorstore {
 namespace internal_kvs_backed_chunk_driver {
@@ -36,7 +47,8 @@ Result<IndexTransform<>> DataCache::GetExternalToInternalTransform(
 }
 
 OpenState::OpenState(Initializer initializer)
-    : PrivateOpenState{std::move(initializer.spec),
+    : PrivateOpenState{std::move(initializer.transaction),
+                       std::move(initializer.spec),
                        initializer.read_write_mode} {
   request_time_ = absl::Now();
 }
@@ -62,20 +74,21 @@ AtomicUpdateConstraint OpenState::GetCreateConstraint() {
 }
 
 MetadataCache::MetadataCache(Initializer initializer)
-    : Base(KeyValueStore::Ptr(), initializer.data_copy_concurrency->executor),
+    : Base(KeyValueStore::Ptr()),
       data_copy_concurrency_(std::move(initializer.data_copy_concurrency)),
       cache_pool_(std::move(initializer.cache_pool)) {}
 
 DataCache::DataCache(Initializer initializer,
                      internal::ChunkGridSpecification grid)
-    : Base(std::move(initializer.store),
-           GetOwningCache(initializer.metadata_cache_entry)->executor(),
-           std::move(grid)),
+    : Base(std::move(initializer.store), std::move(grid),
+           GetOwningCache(*initializer.metadata_cache_entry).executor()),
       metadata_cache_entry_(std::move(initializer.metadata_cache_entry)),
-      initial_metadata_(initializer.metadata),
-      validated_metadata_(std::move(initializer.metadata)) {}
+      initial_metadata_(std::move(initializer.metadata)) {}
 
 namespace {
+
+// Address of this variable is used to signal an invalid metadata value.
+const char invalid_metadata = 0;
 
 /// Returns an error status indicating that a resize request would implicitly
 /// affect a region of dimension `output_dim`, or an out-of-bounds region.
@@ -203,20 +216,54 @@ Status ValidateExpandShrinkConstraints(BoxView<> current_domain,
   return absl::OkStatus();
 }
 
+std::string GetMetadataMissingErrorMessage(
+    MetadataCache::Entry* metadata_cache_entry) {
+  return tensorstore::StrCat(
+      "Metadata at ",
+      GetOwningCache(*metadata_cache_entry)
+          .kvstore()
+          ->DescribeKey(metadata_cache_entry->GetKeyValueStoreKey()),
+      " does not exist");
+}
+
 /// Validates that the parsed metadata in the metadata cache entry associated
 /// with `cache` is compatible with the existing metadata from which `cache` was
 /// constructed.
 ///
 /// If the metadata has changed in an incompatible way (e.g. a change to the
-/// chunk shape), returns an error.  Otherwise, sets
-/// `cache->validated_metadata_` to the new parsed metadata.
-Result<std::shared_ptr<const void>> ValidateNewMetadata(DataCache* cache) {
-  auto new_metadata = cache->metadata_cache_entry_->GetMetadata();
-  absl::MutexLock lock(&cache->mutex_);
+/// chunk shape), returns an error.
+absl::Status ValidateNewMetadata(DataCache* cache, const void* new_metadata) {
+  if (!new_metadata) {
+    return absl::FailedPreconditionError(
+        GetMetadataMissingErrorMessage(cache->metadata_cache_entry_.get()));
+  }
   TENSORSTORE_RETURN_IF_ERROR(cache->ValidateMetadataCompatibility(
-      cache->validated_metadata_.get(), new_metadata.get()));
-  cache->validated_metadata_ = new_metadata;
+      cache->initial_metadata_.get(), new_metadata));
+  return absl::OkStatus();
+}
+
+/// Returns the updated metadata for `cache` in the context of `transaction`.
+///
+/// If the metadata has changed in an incompatible way, returns an error.
+Result<std::shared_ptr<const void>> ValidateNewMetadata(
+    DataCache* cache, internal::OpenTransactionPtr transaction) {
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto new_metadata,
+      cache->metadata_cache_entry_->GetMetadata(std::move(transaction)));
+  TENSORSTORE_RETURN_IF_ERROR(ValidateNewMetadata(cache, new_metadata.get()));
   return new_metadata;
+}
+
+Result<IndexTransform<>> GetInitialTransform(DataCache* cache,
+                                             const void* metadata,
+                                             size_t component_index) {
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto new_transform, cache->GetExternalToInternalTransform(
+                              cache->initial_metadata_.get(), component_index));
+
+  return ResolveBoundsFromMetadata(cache, metadata, component_index,
+                                   std::move(new_transform),
+                                   /*options=*/{});
 }
 
 void GetComponentBounds(DataCache* data_cache, const void* metadata,
@@ -248,38 +295,33 @@ void GetComponentBounds(DataCache* data_cache, const void* metadata,
   }
 }
 
-struct ResolveBoundsContinuation {
-  internal::CachePtr<DataCache> cache;
-  IndexTransform<> transform;
-  std::size_t component_index;
-  ResolveBoundsOptions options;
-  Result<IndexTransform<>> operator()(const Result<void>& result) {
-    TENSORSTORE_RETURN_IF_ERROR(result);
-    TENSORSTORE_ASSIGN_OR_RETURN(auto new_metadata,
-                                 ValidateNewMetadata(cache.get()));
-    return ResolveBoundsFromMetadata(cache.get(), new_metadata.get(),
-                                     component_index, std::move(transform),
-                                     options);
-  }
-};
-
 }  // namespace
 
 Future<IndexTransform<>> DriverBase::ResolveBounds(
-    IndexTransform<> transform, ResolveBoundsOptions options) {
-  return ResolveBounds(transform, metadata_staleness_bound_, options);
+    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+    ResolveBoundsOptions options) {
+  return ResolveBounds(std::move(transaction), std::move(transform),
+                       metadata_staleness_bound_, options);
 }
 
 Future<IndexTransform<>> DriverBase::ResolveBounds(
-    IndexTransform<> transform, StalenessBound metadata_staleness_bound,
-    ResolveBoundsOptions options) {
+    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+    StalenessBound metadata_staleness_bound, ResolveBoundsOptions options) {
   auto* cache = this->cache();
-
   return MapFuture(
       cache->executor(),
-      ResolveBoundsContinuation{internal::CachePtr<DataCache>(cache),
-                                std::move(transform), component_index(),
-                                options},
+      [cache = internal::CachePtr<DataCache>(cache),
+       transaction = std::move(transaction), transform = std::move(transform),
+       component_index = this->component_index(), options = std::move(options)](
+          const Result<void>& result) -> Result<IndexTransform<>> {
+        TENSORSTORE_RETURN_IF_ERROR(result);
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto new_metadata,
+            ValidateNewMetadata(cache.get(), std::move(transaction)));
+        return ResolveBoundsFromMetadata(cache.get(), new_metadata.get(),
+                                         component_index, std::move(transform),
+                                         options);
+      },
       cache->metadata_cache_entry_->Read(metadata_staleness_bound));
 }
 
@@ -288,30 +330,32 @@ namespace {
 /// Enqueues a request to resize the chunked dimensions of a DataCache.
 ///
 /// \param cache The DataCache to resize.
+/// \param transaction The transaction to use.
 /// \param parameters Specifies the resize request.
-/// \param request_time Time at which the request was initiated (affects
-///     retrying in the case of concurrent modifications).
 /// \returns A `Future` that becomes ready when the request completes
 ///     successfully or with an error.  Must call `Force` to ensure the request
 ///     is actually issued.
-Future<const void> RequestResize(DataCache* cache, ResizeParameters parameters,
-                                 absl::Time request_time) {
+Future<const void> RequestResize(DataCache* cache,
+                                 internal::OpenTransactionPtr transaction,
+                                 ResizeParameters parameters) {
   return cache->metadata_cache_entry_->RequestAtomicUpdate(
+      transaction,
       /*update=*/
       [parameters = std::move(parameters),
        cache = internal::CachePtr<DataCache>(cache),
        metadata_constraint = cache->initial_metadata_](
-          const void* current_metadata) -> Result<std::shared_ptr<const void>> {
+          const MetadataCache::MetadataPtr& current_metadata)
+          -> Result<std::shared_ptr<const void>> {
         if (!current_metadata) {
           return absl::NotFoundError("Metadata was deleted");
         }
         TENSORSTORE_RETURN_IF_ERROR(cache->ValidateMetadataCompatibility(
-            metadata_constraint.get(), current_metadata));
+            metadata_constraint.get(), current_metadata.get()));
         Box<dynamic_rank(internal::kNumInlinedDims)> bounds(
             parameters.new_inclusive_min.size());
         BitVec<> implicit_lower_bounds(bounds.rank());
         BitVec<> implicit_upper_bounds(bounds.rank());
-        cache->GetChunkGridBounds(current_metadata, bounds,
+        cache->GetChunkGridBounds(current_metadata.get(), bounds,
                                   implicit_lower_bounds, implicit_upper_bounds);
         // The resize request has already been validated against explicit grid
         // bounds (i.e. bounds corresponding to `false` values in
@@ -323,20 +367,22 @@ Future<const void> RequestResize(DataCache* cache, ResizeParameters parameters,
             parameters.exclusive_max_constraint, parameters.expand_only,
             parameters.shrink_only));
 
-        return cache->GetResizedMetadata(current_metadata,
+        return cache->GetResizedMetadata(current_metadata.get(),
                                          parameters.new_inclusive_min,
                                          parameters.new_exclusive_max);
       },
-      AtomicUpdateConstraint::kRequireExisting, request_time);
+      AtomicUpdateConstraint::kRequireExisting);
 }
 
 struct ResizeContinuation {
   internal::CachePtr<DataCache> cache;
+  internal::OpenTransactionPtr transaction;
   std::size_t component_index;
   IndexTransform<> transform;
   Result<IndexTransform<>> GetResult() {
-    TENSORSTORE_ASSIGN_OR_RETURN(auto new_metadata,
-                                 ValidateNewMetadata(cache.get()));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto new_metadata,
+        ValidateNewMetadata(cache.get(), std::move(transaction)));
     return ResolveBoundsFromMetadata(cache.get(), new_metadata.get(),
                                      component_index, std::move(transform),
                                      /*options=*/{});
@@ -349,21 +395,22 @@ struct ResizeContinuation {
 
 struct ResizeState {
   internal::CachePtr<DataCache> cache;
+  internal::OpenTransactionPtr transaction;
   std::size_t component_index;
-  absl::Time request_time;
   IndexTransform<> transform;
   ResizeParameters resize_parameters;
 };
 
 void SubmitResizeRequest(Promise<IndexTransform<>> promise, ResizeState state) {
   auto* cache_ptr = state.cache.get();
-  LinkValue(WithExecutor(cache_ptr->executor(),
-                         ResizeContinuation{std::move(state.cache),
-                                            state.component_index,
-                                            std::move(state.transform)}),
-            std::move(promise),
-            RequestResize(cache_ptr, std::move(state.resize_parameters),
-                          state.request_time));
+  LinkValue(
+      WithExecutor(cache_ptr->executor(),
+                   ResizeContinuation{std::move(state.cache), state.transaction,
+                                      state.component_index,
+                                      std::move(state.transform)}),
+      std::move(promise),
+      RequestResize(cache_ptr, state.transaction,
+                    std::move(state.resize_parameters)));
 }
 
 struct DeleteChunksForResizeContinuation {
@@ -373,10 +420,10 @@ struct DeleteChunksForResizeContinuation {
   }
 };
 
-Future<const void> DeleteChunksForResize(internal::CachePtr<DataCache> cache,
-                                         BoxView<> current_bounds,
-                                         span<const Index> new_inclusive_min,
-                                         span<const Index> new_exclusive_max) {
+Future<const void> DeleteChunksForResize(
+    internal::CachePtr<DataCache> cache, BoxView<> current_bounds,
+    span<const Index> new_inclusive_min, span<const Index> new_exclusive_max,
+    internal::OpenTransactionPtr transaction) {
   span<const Index> chunk_shape = cache->grid().chunk_shape;
   const DimensionIndex rank = chunk_shape.size();
   assert(current_bounds.rank() == rank);
@@ -406,7 +453,7 @@ Future<const void> DeleteChunksForResize(internal::CachePtr<DataCache> cache,
     box_difference.GetSubBox(box_i, part);
     IterateOverIndexRange(part, [&](span<const Index> cell_indices) {
       auto entry = cache->GetEntryForCell(cell_indices);
-      LinkError(pair.promise, entry->Delete());
+      LinkError(pair.promise, entry->Delete(transaction));
     });
   }
   return pair.future;
@@ -415,9 +462,15 @@ Future<const void> DeleteChunksForResize(internal::CachePtr<DataCache> cache,
 struct ResolveBoundsForDeleteAndResizeContinuation {
   std::unique_ptr<ResizeState> state;
   void operator()(Promise<IndexTransform<>> promise, ReadyFuture<const void>) {
-    TENSORSTORE_ASSIGN_OR_RETURN(auto new_metadata,
-                                 ValidateNewMetadata(state->cache.get()),
-                                 static_cast<void>(promise.SetResult(_)));
+    std::shared_ptr<const void> new_metadata;
+    if (auto result =
+            ValidateNewMetadata(state->cache.get(), state->transaction);
+        result.ok()) {
+      new_metadata = std::move(*result);
+    } else {
+      promise.SetResult(std::move(result).status());
+      return;
+    }
     // Chunks should never be deleted if `expand_only==false`.
     const DimensionIndex grid_rank = state->cache->grid().chunk_shape.size();
     assert(!state->resize_parameters.expand_only);
@@ -430,15 +483,17 @@ struct ResolveBoundsForDeleteAndResizeContinuation {
     // The resize request has already been validated against explicit grid
     // bounds (i.e. bounds corresponding to `false` values in
     // `implicit_{lower,upper}_bounds`), so we don't need to check again here.
-    TENSORSTORE_RETURN_IF_ERROR(
-        ValidateResizeConstraints(
+    if (auto status = ValidateResizeConstraints(
             bounds, state->resize_parameters.new_inclusive_min,
             state->resize_parameters.new_exclusive_max,
             state->resize_parameters.inclusive_min_constraint,
             state->resize_parameters.exclusive_max_constraint,
             /*expand_only=*/false,
-            /*shrink_only=*/state->resize_parameters.shrink_only),
-        static_cast<void>(promise.SetResult(_)));
+            /*shrink_only=*/state->resize_parameters.shrink_only);
+        !status.ok()) {
+      promise.SetResult(std::move(status));
+      return;
+    }
     auto* state_ptr = state.get();
     LinkValue(
         WithExecutor(state_ptr->cache->executor(),
@@ -446,36 +501,38 @@ struct ResolveBoundsForDeleteAndResizeContinuation {
         std::move(promise),
         DeleteChunksForResize(state_ptr->cache, bounds,
                               state_ptr->resize_parameters.new_inclusive_min,
-                              state_ptr->resize_parameters.new_exclusive_max));
+                              state_ptr->resize_parameters.new_exclusive_max,
+                              state_ptr->transaction));
   }
 };
 }  // namespace
 
-Future<IndexTransform<>> DriverBase::Resize(IndexTransform<> transform,
-                                            span<const Index> inclusive_min,
-                                            span<const Index> exclusive_max,
-                                            ResizeOptions options) {
+Future<IndexTransform<>> DriverBase::Resize(
+    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+    span<const Index> inclusive_min, span<const Index> exclusive_max,
+    ResizeOptions options) {
   auto* cache = this->cache();
   auto resize_parameters = GetResizeParameters(
       cache, cache->initial_metadata_.get(), component_index(), transform,
-      inclusive_min, exclusive_max, options);
+      inclusive_min, exclusive_max, options,
+      transaction ? transaction->mode() : TransactionMode::no_transaction_mode);
   if (!resize_parameters) {
     if (resize_parameters.status().code() == absl::StatusCode::kAborted) {
       // Requested resize is a no-op.  Currently there is no resize option
       // corresponding to the `fix_resizable_bounds` resolve option, so we
       // don't specify it.
-      return ResolveBounds(std::move(transform), /*staleness=*/{},
+      return ResolveBounds(std::move(transaction), std::move(transform),
+                           /*metadata_staleness_bound=*/{},
                            /*options=*/{});
     }
     return resize_parameters.status();
   }
 
   auto pair = PromiseFuturePair<IndexTransform<>>::Make();
-  const absl::Time request_time = absl::Now();
   ResizeState resize_state{
       /*.cache=*/internal::CachePtr<DataCache>(cache),
+      /*.transaction=*/std::move(transaction),
       /*.component_index=*/component_index(),
-      /*.request_time=*/request_time,
       /*.transform=*/std::move(transform),
       /*.resize_parameters=*/std::move(*resize_parameters),
   };
@@ -490,12 +547,13 @@ Future<IndexTransform<>> DriverBase::Resize(IndexTransform<> transform,
                   ResolveBoundsForDeleteAndResizeContinuation{
                       std::make_unique<ResizeState>(std::move(resize_state))}),
               std::move(pair.promise),
-              cache->metadata_cache_entry_->Read(request_time));
+              cache->metadata_cache_entry_->Read(absl::Now()));
   }
   return std::move(pair.future);
 }
 
 Result<IndexTransformSpec> DriverBase::GetBoundSpecData(
+    internal::OpenTransactionPtr transaction,
     SpecT<internal::ContextBound>* spec, IndexTransformView<> transform_view) {
   auto* cache = this->cache();
   auto* metadata_cache = cache->metadata_cache();
@@ -512,12 +570,9 @@ Result<IndexTransformSpec> DriverBase::GetBoundSpecData(
   spec->rank = this->rank();
   spec->data_type = this->data_type();
 
-  std::shared_ptr<const void> validated_metadata;
-  {
-    absl::ReaderMutexLock lock(&cache->mutex_);
-    validated_metadata = cache->validated_metadata_;
-  }
-
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto validated_metadata,
+      ValidateNewMetadata(cache, std::move(transaction)));
   TENSORSTORE_RETURN_IF_ERROR(cache->GetBoundSpecData(
       spec, validated_metadata.get(), this->component_index()));
 
@@ -552,14 +607,11 @@ namespace {
 /// `metadata`.
 Result<std::size_t> ValidateOpenRequest(OpenState* state,
                                         const void* metadata) {
+  auto& base = *(PrivateOpenState*)state;  // Cast to private base
   if (!metadata) {
     return absl::NotFoundError(
-        StrCat("Metadata key ",
-               QuoteString(GetMetadataCache(*state)->GetMetadataStorageKey(
-                   GetMetadataCacheEntry(*state)->key())),
-               " does not exist"));
+        GetMetadataMissingErrorMessage(base.metadata_cache_entry_.get()));
   }
-  auto& base = *(PrivateOpenState*)state;  // Cast to private base
   return state->GetComponentIndex(metadata, base.spec_->open_mode());
 }
 
@@ -569,6 +621,8 @@ Result<std::size_t> ValidateOpenRequest(OpenState* state,
 Result<internal::Driver::ReadWriteHandle> CreateTensorStoreFromMetadata(
     OpenState::Ptr state, std::shared_ptr<const void> metadata,
     std::size_t component_index) {
+  TENSORSTORE_KVS_DRIVER_DEBUG_LOG("CreateTensorStoreFromMetadata: state=",
+                                   state.get());
   auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
   // TODO(jbms): The read-write mode should be determined based on the
   // KeyValueStore mode, once that is exposed.
@@ -593,32 +647,52 @@ Result<internal::Driver::ReadWriteHandle> CreateTensorStoreFromMetadata(
           ->GetCache<DataCache>(
               chunk_cache_identifier, [&]() -> std::unique_ptr<DataCache> {
                 auto store_result = state->GetDataKeyValueStore(
-                    GetMetadataCache(*state)->base_store_, metadata.get());
+                    GetOwningCache(*base.metadata_cache_entry_).base_store_,
+                    metadata.get());
                 if (!store_result) {
                   data_key_value_store_status =
                       std::move(store_result).status();
                   return nullptr;
                 }
-                return state->GetDataCache(
-                    {std::move(*store_result),
-                     GetMetadataCacheEntry(std::move(*state)), metadata});
+                return state->GetDataCache({std::move(*store_result),
+                                            base.metadata_cache_entry_,
+                                            metadata});
               });
   TENSORSTORE_RETURN_IF_ERROR(data_key_value_store_status);
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto new_transform,
-      chunk_cache->GetExternalToInternalTransform(
-          chunk_cache->initial_metadata_.get(), component_index));
+      GetInitialTransform(chunk_cache.get(), metadata.get(), component_index));
 
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      new_transform,
-      ResolveBoundsFromMetadata(chunk_cache.get(), metadata.get(),
-                                component_index, std::move(new_transform),
-                                /*options=*/{}));
+  if (base.transaction_) {
+    // Add consistency check.
+    chunk_cache->metadata_cache_entry_
+        ->RequestAtomicUpdate(
+            base.transaction_,
+            [cache = chunk_cache, transform = new_transform, component_index](
+                const MetadataCache::MetadataPtr& existing_metadata)
+                -> Result<MetadataCache::MetadataPtr> {
+              TENSORSTORE_RETURN_IF_ERROR(
+                  ValidateNewMetadata(cache.get(), existing_metadata.get()));
+              TENSORSTORE_ASSIGN_OR_RETURN(
+                  auto new_transform,
+                  GetInitialTransform(cache.get(), existing_metadata.get(),
+                                      component_index));
+              if (transform != new_transform) {
+                return absl::AbortedError("Metadata is inconsistent");
+              }
+              return existing_metadata;
+            },
+            AtomicUpdateConstraint::kRequireExisting)
+        .IgnoreFuture();
+  }
+
   internal::Driver::Ptr driver(state->AllocateDriver(
       {std::move(chunk_cache), component_index,
        base.spec_->staleness.BoundAtOpen(base.request_time_)}));
   return internal::Driver::ReadWriteHandle{
-      {std::move(driver), std::move(new_transform)}, read_write_mode};
+      {std::move(driver), std::move(new_transform),
+       internal::TransactionState::ToTransaction(std::move(base.transaction_))},
+      read_write_mode};
 }
 
 /// Called when the metadata has been written (successfully or unsuccessfully).
@@ -628,6 +702,8 @@ struct HandleWroteMetadata {
                   ReadyFuture<const void> future) {
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
     auto& result = future.result();
+    TENSORSTORE_KVS_DRIVER_DEBUG_LOG("HandleWroteMetadata: state=", state.get(),
+                                     ", status=", GetStatus(result));
     if (!result) {
       // Creation of new array metadata failed.
       if (result.status().code() != absl::StatusCode::kAlreadyExists ||
@@ -639,7 +715,9 @@ struct HandleWroteMetadata {
       // open the existing array.
     }
     promise.SetResult([&]() -> Result<internal::Driver::ReadWriteHandle> {
-      auto metadata = GetMetadataCacheEntry(*state)->GetMetadata();
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto metadata,
+          base.metadata_cache_entry_->GetMetadata(base.transaction_));
       TENSORSTORE_ASSIGN_OR_RETURN(
           std::size_t component_index,
           ValidateOpenRequest(state.get(), metadata.get()));
@@ -652,26 +730,22 @@ struct HandleWroteMetadata {
 /// Attempts to create new array.
 void CreateMetadata(OpenState::Ptr state,
                     Promise<internal::Driver::ReadWriteHandle> promise) {
+  TENSORSTORE_KVS_DRIVER_DEBUG_LOG("CreateMetadata: state=", state.get());
   auto state_ptr = state.get();
   auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
-  LinkValue(
-      WithExecutor(state_ptr->executor(),
-                   HandleWroteMetadata{std::move(state)}),
-      std::move(promise),
-      GetMetadataCacheEntry(*state_ptr)
-          ->RequestAtomicUpdate(
-              [state = state_ptr](const void* existing_metadata)
-                  -> Result<std::shared_ptr<const void>> {
-                auto result = state->Create(existing_metadata);
-                if (result) return result;
-                return MaybeAnnotateStatus(
-                    result.status(),
-                    StrCat("Error creating array with metadata key ",
-                           QuoteString(
-                               GetMetadataCache(*state)->GetMetadataStorageKey(
-                                   GetMetadataCacheEntry(*state)->key()))));
-              },
-              state_ptr->GetCreateConstraint(), base.request_time_));
+  internal::OpenTransactionPtr transaction = base.transaction_;
+  auto state_copy = state;
+  Link(WithExecutor(state_ptr->executor(),
+                    HandleWroteMetadata{std::move(state)}),
+       std::move(promise),
+       base.metadata_cache_entry_->RequestAtomicUpdate(
+           transaction,
+           [state = std::move(state_copy)](
+               const MetadataCache::MetadataPtr& existing_metadata)
+               -> Result<MetadataCache::MetadataPtr> {
+             return state->Create(existing_metadata.get());
+           },
+           state_ptr->GetCreateConstraint()));
 }
 
 /// Called when the metadata has been read (successfully or not found).
@@ -679,8 +753,16 @@ struct HandleReadMetadata {
   OpenState::Ptr state;
   void operator()(Promise<internal::Driver::ReadWriteHandle> promise,
                   ReadyFuture<const void> metadata_future) {
-    auto metadata = GetMetadataCacheEntry(*state)->GetMetadata();
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
+    std::shared_ptr<const void> metadata;
+    if (auto result =
+            base.metadata_cache_entry_->GetMetadata(base.transaction_);
+        result.ok()) {
+      metadata = std::move(*result);
+    } else {
+      promise.SetResult(std::move(result).status());
+      return;
+    }
     auto component_index_result =
         ValidateOpenRequest(state.get(), metadata.get());
     if (component_index_result) {
@@ -694,7 +776,7 @@ struct HandleReadMetadata {
         return;
       }
     }
-    promise.SetResult(component_index_result.status());
+    promise.SetResult(std::move(component_index_result).status());
   }
 };
 
@@ -702,14 +784,16 @@ struct HandleReadMetadata {
 struct GetMetadataForOpen {
   OpenState::Ptr state;
   void operator()(Promise<internal::Driver::ReadWriteHandle> promise) {
+    TENSORSTORE_KVS_DRIVER_DEBUG_LOG("GetMetadataForOpen: state=", state.get());
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
     auto state_ptr = state.get();
     if (base.spec_->open) {
-      LinkValue(WithExecutor(state_ptr->executor(),
-                             HandleReadMetadata{std::move(state)}),
-                std::move(promise),
-                GetMetadataCacheEntry(*state_ptr)
-                    ->Read(base.spec_->staleness.metadata));
+      LinkValue(
+          WithExecutor(state_ptr->executor(),
+                       HandleReadMetadata{std::move(state)}),
+          std::move(promise),
+          base.metadata_cache_entry_->Read(
+              base.spec_->staleness.metadata.BoundAtOpen(base.request_time_)));
       return;
     }
     // `tensorstore::Open` ensures that at least one of `OpenMode::create` and
@@ -724,193 +808,251 @@ struct HandleKeyValueStoreReady {
   OpenState::Ptr state;
   void operator()(Promise<internal::Driver::ReadWriteHandle> promise,
                   ReadyFuture<const void> store) {
+    TENSORSTORE_KVS_DRIVER_DEBUG_LOG("Metadata KeyValueStore ready: state=",
+                                     state.get());
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
     auto* state_ptr = state.get();
     if (base.spec_->delete_existing) {
       // Delete all keys starting with the key prefix.
-      auto prefix_for_delete = state->GetPrefixForDeleteExisting();
-      LinkValue(std::bind(WithExecutor(state_ptr->executor(),
-                                       GetMetadataForOpen{std::move(state)}),
-                          std::placeholders::_1),
-                std::move(promise),
-                GetMetadataCache(*state_ptr)
-                    ->base_store_->DeleteRange(
-                        KeyRange::Prefix(std::move(prefix_for_delete))));
-      return;
+      KeyRange range_to_delete =
+          KeyRange::Prefix(state->GetPrefixForDeleteExisting());
+      auto* kvstore =
+          GetOwningCache(*base.metadata_cache_entry_).base_store_.get();
+      if (!base.transaction_) {
+        LinkValue(std::bind(WithExecutor(state_ptr->executor(),
+                                         GetMetadataForOpen{std::move(state)}),
+                            std::placeholders::_1),
+                  std::move(promise),
+                  kvstore->DeleteRange(std::move(range_to_delete)));
+        return;
+      }
+      if (auto status = kvstore->TransactionalDeleteRange(
+              base.transaction_, std::move(range_to_delete));
+          !status.ok()) {
+        promise.SetResult(status);
+        return;
+      }
+      base.transaction_->Barrier();
     }
     // Immediately proceed with reading/creating the metadata.
-    GetMetadataForOpen callback{std::move(state)};
-    callback(std::move(promise));
+    GetMetadataForOpen{std::move(state)}(std::move(promise));
   }
 };
 
 }  // namespace
 
 Future<const void> MetadataCache::Entry::RequestAtomicUpdate(
-    UpdateFunction update, AtomicUpdateConstraint update_constraint,
-    absl::Time request_time) {
-  auto [promise, future] = PromiseFuturePair<void>::Make();
-  auto writeback_future = AddPendingWrite(
-      PendingWrite{std::move(update), update_constraint, promise},
-      (update_constraint == AtomicUpdateConstraint::kRequireExisting)
-          ? WriteFlags::kConditionalWriteback
-          : WriteFlags::kUnconditionalWriteback,
-      request_time);
-  LinkError(std::move(promise), std::move(writeback_future));
-  return std::move(future);
-}
-
-void MetadataCache::DoDecode(
-    internal::AsyncStorageBackedCache::PinnedEntry base_entry,
-    std::optional<absl::Cord> value) {
-  auto* entry = static_cast<Entry*>(base_entry.get());
-  MetadataPtr new_metadata;
-  if (value) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        new_metadata, this->DecodeMetadata(entry->key(), *value),
-        this->NotifyReadError(entry,
-                              ConvertInvalidArgumentToFailedPrecondition(_)));
+    const internal::OpenTransactionPtr& transaction, UpdateFunction update,
+    AtomicUpdateConstraint update_constraint) {
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto node, GetWriteLockedTransactionNode(*this, transaction));
+  node->updated_metadata_base_state_ =
+      internal::UnownedToShared(&invalid_metadata);
+  node->updated_metadata_ = nullptr;
+  if (node->transaction()->implicit_transaction()) {
+    auto [promise, future] = PromiseFuturePair<void>::Make();
+    node->AddPendingWrite(
+        PendingWrite{std::move(update), update_constraint, promise});
+    LinkError(std::move(promise), node.unlock()->transaction()->future());
+    return std::move(future);
   }
-  auto lock = entry->AcquireReadStateWriterLock();
-  entry->metadata = std::move(new_metadata);
-  this->NotifyReadSuccess(entry, std::move(lock));
+  node->AddPendingWrite(PendingWrite{std::move(update), update_constraint});
+  return MakeReadyFuture();
 }
 
-std::string MetadataCache::GetKeyValueStoreKey(internal::Cache::Entry* entry) {
-  return this->GetMetadataStorageKey(entry->key());
+Result<MetadataCache::MetadataPtr> MetadataCache::Entry::GetMetadata(
+    internal::OpenTransactionPtr transaction) {
+  if (!transaction) return GetMetadata();
+  TENSORSTORE_ASSIGN_OR_RETURN(auto node,
+                               GetTransactionNode(*this, transaction));
+  TENSORSTORE_ASSIGN_OR_RETURN(auto metadata, node->GetUpdatedMetadata(),
+                               this->AnnotateError(_, /*reading=*/false));
+  return metadata;
 }
 
-void MetadataCache::NotifyWritebackNeedsRead(internal::Cache::Entry* base_entry,
-                                             WriteStateLock lock,
-                                             absl::Time staleness_bound) {
-  auto* entry = static_cast<Entry*>(base_entry);
-  if (absl::c_all_of(entry->issued_writes, [](const PendingWrite& request) {
-        return request.update_constraint ==
-               AtomicUpdateConstraint::kRequireMissing;
-      })) {
-    std::vector<PendingWrite> issued_requests;
-    std::swap(issued_requests, entry->issued_writes);
-    Base::NotifyWritebackSuccess(entry, std::move(lock).Upgrade());
-    for (auto& request : issued_requests) {
-      int junk = 0;
-      // Pass in a bogus non-null pointer.  The update function is guaranteed to
-      // return an error.
-      request.promise.raw_result() = request.update(&junk).status();
-    }
-    return;
+Result<MetadataCache::MetadataPtr>
+MetadataCache::TransactionNode::GetUpdatedMetadata(MetadataPtr metadata) {
+  UniqueWriterLock lock(*this);
+  if (this->updated_metadata_base_state_ == metadata) {
+    return this->updated_metadata_;
   }
-  Base::NotifyWritebackNeedsRead(entry, std::move(lock), staleness_bound);
-}
-
-void MetadataCache::NotifyWritebackSuccess(internal::Cache::Entry* base_entry,
-                                           WriteAndReadStateLock lock) {
-  auto* entry = static_cast<Entry*>(base_entry);
-  entry->metadata = std::move(entry->new_metadata);
-  Base::NotifyWritebackSuccess(entry, std::move(lock));
-}
-
-void MetadataCache::DoWriteback(internal::Cache::PinnedEntry entry) {
-  executor()([entry = internal::static_pointer_cast<Entry>(std::move(entry))] {
-    MetadataPtr new_metadata;
-    // Indicates whether there is an update request newer than the metadata.
-    absl::Time newest_request_time;
-    {
-      auto lock = entry->AcquireWriteStateLock();
-      newest_request_time = entry->last_pending_write_time;
-      const void* existing_metadata = entry->metadata.get();
-      for (const auto& request : entry->pending_writes) {
-        auto result = request.update(existing_metadata);
-        if (result) {
-          assert(*result);
-          assert(request.update_constraint !=
-                     AtomicUpdateConstraint::kRequireMissing ||
-                 existing_metadata == nullptr);
-          assert(request.update_constraint !=
-                     AtomicUpdateConstraint::kRequireExisting ||
-                 existing_metadata != nullptr);
-          new_metadata = std::move(*result);
-          existing_metadata = new_metadata.get();
-          request.promise.raw_result() = MakeResult();
-        } else {
-          request.promise.raw_result() = std::move(result).status();
-        }
+  this->updated_metadata_base_state_ = metadata;
+  for (const auto& request : this->pending_writes) {
+    auto result = request.update(metadata);
+    if (result) {
+      assert(*result);
+      assert(request.update_constraint !=
+                 AtomicUpdateConstraint::kRequireMissing ||
+             metadata == nullptr);
+      assert(request.update_constraint !=
+                 AtomicUpdateConstraint::kRequireExisting ||
+             metadata != nullptr);
+      metadata = std::move(*result);
+      if (request.promise.valid()) {
+        request.promise.raw_result() = MakeResult();
       }
-      GetOwningCache(entry)->NotifyWritebackStarted(entry.get(),
-                                                    std::move(lock));
-    }
-    auto* cache = GetOwningCache(entry);
-    if (!new_metadata) {
-      // None of the requested changes are compatible with the current state.
-      if (newest_request_time > entry->last_read_time) {
-        // At least one update request is newer than the current metadata.
-        // Request an updated "read state".
-        cache->Base::NotifyWritebackNeedsRead(
-            entry.get(), entry->AcquireWriteStateLock(), newest_request_time);
+    } else {
+      if (request.promise.valid()) {
+        request.promise.raw_result() = GetOwningEntry(*this).AnnotateError(
+            result.status(), /*reading=*/false);
       } else {
-        // Complete the writeback successfully (but all pending requests will
-        // fail).
-        cache->Base::NotifyWritebackSuccess(
-            entry.get(), entry->AcquireWriteAndReadStateLock());
+        this->updated_metadata_ = result.status();
+        return std::move(result).status();
       }
+    }
+  }
+  this->updated_metadata_ = metadata;
+  return metadata;
+}
+
+Result<MetadataCache::MetadataPtr>
+MetadataCache::TransactionNode::GetUpdatedMetadata() {
+  auto metadata = ReadLock<void>(*this).shared_data();
+  return GetUpdatedMetadata(std::move(metadata));
+}
+
+void MetadataCache::Entry::DoDecode(std::optional<absl::Cord> value,
+                                    DecodeReceiver receiver) {
+  GetOwningCache(*this).executor()([this, value = std::move(value),
+                                    receiver = std::move(receiver)]() mutable {
+    MetadataPtr new_metadata;
+    auto& cache = GetOwningCache(*this);
+    if (value) {
+      if (auto result = cache.DecodeMetadata(this->key(), *value);
+          result.ok()) {
+        new_metadata = std::move(*result);
+      } else {
+        execution::set_error(receiver,
+                             ConvertInvalidArgumentToFailedPrecondition(
+                                 std::move(result).status()));
+        return;
+      }
+    }
+    execution::set_value(receiver, std::move(new_metadata));
+  });
+}
+
+std::string MetadataCache::Entry::GetKeyValueStoreKey() {
+  return GetOwningCache(*this).GetMetadataStorageKey(this->key());
+}
+
+void MetadataCache::TransactionNode::DoApply(ApplyOptions options,
+                                             ApplyReceiver receiver) {
+  auto continuation = [this, receiver = std::move(receiver)](
+                          ReadyFuture<const void> future) mutable {
+    if (!future.result().ok()) {
+      return execution::set_error(receiver, future.result().status());
+    }
+    TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "Apply metadata");
+    auto read_state = AsyncCache::ReadLock<void>(*this).read_state();
+    std::shared_ptr<const void> new_data;
+    if (auto result = this->GetUpdatedMetadata(read_state.data); result.ok()) {
+      new_data = std::move(*result);
+    } else {
+      execution::set_error(receiver, std::move(result).status());
       return;
     }
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto encoded, cache->EncodeMetadata(entry->key(), new_metadata.get()),
-        cache->Base::NotifyWritebackError(entry.get(),
-                                          entry->AcquireWriteStateLock(), _));
-    entry->new_metadata = std::move(new_metadata);
-    cache->Writeback(std::move(entry), std::move(encoded),
-                     /*unconditional=*/false);
+    if (new_data != read_state.data) {
+      read_state.stamp.generation.MarkDirty();
+      read_state.data = std::move(new_data);
+    }
+    execution::set_value(receiver, std::move(read_state),
+                         UniqueWriterLock<AsyncCache::TransactionNode>{});
+  };
+  this->Read(options.staleness_bound)
+      .ExecuteWhenReady(WithExecutor(GetOwningCache(*this).executor(),
+                                     std::move(continuation)));
+}
+
+void MetadataCache::TransactionNode::InvalidateReadState() {
+  Base::TransactionNode::InvalidateReadState();
+  this->updated_metadata_base_state_ =
+      internal::UnownedToShared(&invalid_metadata);
+  this->updated_metadata_ = nullptr;
+}
+
+void MetadataCache::Entry::DoEncode(
+    std::shared_ptr<const void> data,
+    UniqueWriterLock<AsyncCache::TransactionNode> lock,
+    EncodeReceiver receiver) {
+  // We can safely access `data` even after releasing `lock`.
+  lock.unlock();
+  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "Encoding metadata");
+  auto& entry = GetOwningEntry(*this);
+  auto& cache = GetOwningCache(entry);
+  if (auto encoded_result = cache.EncodeMetadata(entry.key(), data.get());
+      encoded_result.ok()) {
+    execution::set_value(receiver, std::move(*encoded_result));
+  } else {
+    execution::set_error(receiver, std::move(encoded_result).status());
+  }
+}
+
+std::string DataCache::Entry::GetKeyValueStoreKey() {
+  auto& cache = GetOwningCache(*this);
+  return cache.GetChunkStorageKey(cache.initial_metadata_.get(),
+                                  this->cell_indices());
+}
+
+void DataCache::Entry::DoDecode(std::optional<absl::Cord> value,
+                                DecodeReceiver receiver) {
+  GetOwningCache(*this).executor()([this, value = std::move(value),
+                                    receiver = std::move(receiver)]() mutable {
+    if (!value) {
+      execution::set_value(receiver, nullptr);
+      return;
+    }
+    auto& cache = GetOwningCache(*this);
+    auto decoded_result = cache.DecodeChunk(
+        cache.initial_metadata_.get(), this->cell_indices(), std::move(*value));
+    if (!decoded_result.ok()) {
+      execution::set_error(receiver, ConvertInvalidArgumentToFailedPrecondition(
+                                         std::move(decoded_result).status()));
+      return;
+    }
+    const size_t num_components = this->component_specs().size();
+    auto new_read_data =
+        internal::make_shared_for_overwrite<ReadData[]>(num_components);
+    assert(decoded_result->size() == num_components);
+    std::copy_n(decoded_result->begin(), num_components, new_read_data.get());
+    execution::set_value(
+        receiver, std::static_pointer_cast<ReadData>(std::move(new_read_data)));
   });
 }
 
-std::string DataCache::GetKeyValueStoreKey(internal::Cache::Entry* base_entry) {
-  auto* entry = static_cast<Entry*>(base_entry);
-  return GetChunkStorageKey(initial_metadata_.get(), entry->cell_indices());
-}
-
-void DataCache::DoDecode(internal::Cache::PinnedEntry base_entry,
-                         std::optional<absl::Cord> value) {
-  auto* entry = static_cast<Entry*>(base_entry.get());
-  if (!value) {
-    this->NotifyReadSuccess(entry, entry->AcquireReadStateWriterLock(),
-                            /*components=*/{});
+void DataCache::Entry::DoEncode(
+    std::shared_ptr<const ReadData> data,
+    UniqueWriterLock<AsyncCache::TransactionNode> lock,
+    EncodeReceiver receiver) {
+  if (!data) {
+    lock.unlock();
+    execution::set_value(receiver, std::nullopt);
     return;
   }
-  const auto validated_metadata = this->validated_metadata();
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto decoded,
-      this->DecodeChunk(validated_metadata.get(), entry->cell_indices(),
-                        std::move(*value)),
-      this->NotifyReadError(entry,
-                            ConvertInvalidArgumentToFailedPrecondition(_)));
-  this->NotifyReadSuccess(entry, entry->AcquireReadStateWriterLock(),
-                          /*components=*/decoded);
-}
-
-void DataCache::DoWriteback(internal::Cache::PinnedEntry base_entry) {
-  executor()([entry = internal::static_pointer_cast<Entry>(
-                  std::move(base_entry))]() mutable {
-    auto* cache = static_cast<DataCache*>(GetOwningCache(entry));
-    std::optional<absl::Cord> encoded;
-    ChunkCache::WritebackSnapshot snapshot(entry.get());
-    if (!snapshot.equals_fill_value()) {
-      const auto validated_metadata = cache->validated_metadata();
-      // Convert from array of `SharedArrayView<const void>` to array of
-      // `ArrayView<const void>`.
-      absl::FixedArray<ArrayView<const void>, 2> component_arrays_unowned(
-          snapshot.component_arrays().begin(),
-          snapshot.component_arrays().end());
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          encoded,
-          cache->EncodeChunk(validated_metadata.get(), entry->cell_indices(),
-                             component_arrays_unowned),
-          cache->NotifyWritebackError(entry.get(),
-                                      entry->AcquireWriteStateLock(), _));
+  auto& entry = GetOwningEntry(*this);
+  auto& cache = GetOwningCache(entry);
+  // Convert from array of `SharedArrayView<const void>` to array of
+  // `ArrayView<const void>`.
+  auto* components = data.get();
+  const auto component_specs = this->component_specs();
+  absl::FixedArray<ArrayView<const void>, 2> component_arrays_unowned(
+      component_specs.size());
+  for (size_t i = 0; i < component_arrays_unowned.size(); ++i) {
+    if (components[i].valid()) {
+      component_arrays_unowned[i] = components[i];
+    } else {
+      component_arrays_unowned[i] = component_specs[i].fill_value;
     }
-    cache->Writeback(std::move(entry), std::move(encoded),
-                     snapshot.unconditional());
-  });
+  }
+  auto encoded_result =
+      cache.EncodeChunk(cache.initial_metadata_.get(), entry.cell_indices(),
+                        component_arrays_unowned);
+  lock.unlock();
+  if (!encoded_result.ok()) {
+    execution::set_error(receiver, std::move(encoded_result).status());
+    return;
+  }
+  execution::set_value(receiver, std::move(*encoded_result));
 }
 
 namespace {
@@ -940,6 +1082,8 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(OpenState* state) {
           ->GetCache<MetadataCache>(
               base.metadata_cache_key_,
               [&]() -> std::unique_ptr<MetadataCache> {
+                TENSORSTORE_KVS_DRIVER_DEBUG_LOG(
+                    "Creating metadata cache: open_state=", state);
                 auto metadata_cache =
                     state->GetMetadataCache({base.spec_->data_copy_concurrency,
                                              base.spec_->cache_pool});
@@ -955,17 +1099,21 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(OpenState* state) {
   // we just created should be discarded.
   if (metadata_cache_promise.valid() &&
       metadata_cache.get() == created_metadata_cache) {
+    TENSORSTORE_KVS_DRIVER_DEBUG_LOG(
+        "Opening metadata KeyValueStore: open_state=", state);
     // The cache didn't previously exist.  Open the KeyValueStore.
     LinkValue(
         [state = OpenState::Ptr(state), metadata_cache](
             Promise<void> metadata_cache_promise,
             ReadyFuture<KeyValueStore::Ptr> future) {
           metadata_cache->base_store_ = *future.result();
-          TENSORSTORE_ASSIGN_OR_RETURN(
-              auto metadata_kvstore,
-              state->GetMetadataKeyValueStore(metadata_cache->base_store_),
-              static_cast<void>(metadata_cache_promise.SetResult(_)));
-          metadata_cache->SetKeyValueStore(std::move(metadata_kvstore));
+          if (auto result =
+                  state->GetMetadataKeyValueStore(metadata_cache->base_store_);
+              result.ok()) {
+            metadata_cache->SetKeyValueStore(std::move(*result));
+          } else {
+            metadata_cache_promise.SetResult(std::move(result).status());
+          }
         },
         metadata_cache_promise, spec.store->Open());
   }
@@ -974,6 +1122,8 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(OpenState* state) {
 }  // namespace
 
 Future<internal::Driver::ReadWriteHandle> OpenDriver(OpenState::Ptr state) {
+  TENSORSTORE_KVS_DRIVER_DEBUG_LOG("OpenDriver: open_state=", state.get());
+  // TODO(jbms): possibly determine these options from the open options.
   auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
   auto& spec = *base.spec_;
   TENSORSTORE_RETURN_IF_ERROR(
@@ -1027,7 +1177,8 @@ Status ValidateResizeConstraints(BoxView<> current_domain,
 Result<ResizeParameters> GetResizeParameters(
     DataCache* data_cache, const void* metadata, size_t component_index,
     IndexTransformView<> transform, span<const Index> inclusive_min,
-    span<const Index> exclusive_max, ResizeOptions options) {
+    span<const Index> exclusive_max, ResizeOptions options,
+    TransactionMode transaction_mode) {
   assert(transform.input_rank() == inclusive_min.size());
   assert(transform.input_rank() == exclusive_max.size());
   const DimensionIndex output_rank = transform.output_rank();
@@ -1097,6 +1248,14 @@ Result<ResizeParameters> GetResizeParameters(
                    dim_bounds.exclusive_max(), ", to ", new_exclusive_max));
       }
     }
+    if (transaction_mode == TransactionMode::atomic_isolated &&
+        !(options.mode & resize_metadata_only) &&
+        !(options.mode & expand_only)) {
+      // Since chunks will be deleted, there must not be another concurrent
+      // resize to ensure consistency.
+      output_inclusive_min_constraint[output_dim] = dim_bounds.inclusive_min();
+      output_exclusive_max_constraint[output_dim] = dim_bounds.exclusive_max();
+    }
   }
 
   // Convert resize request on component dimensions to chunk dimensions.
@@ -1134,8 +1293,6 @@ DriverBase::DriverBase(Initializer&& initializer)
 DataCache* DriverBase::cache() const {
   return static_cast<DataCache*>(internal::ChunkCacheDriver::cache());
 }
-
-Executor DriverBase::data_copy_executor() { return cache()->executor(); }
 
 namespace jb = tensorstore::internal::json_binding;
 TENSORSTORE_DEFINE_JSON_BINDER(

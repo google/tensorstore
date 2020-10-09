@@ -71,7 +71,7 @@ def update_doctests(filename, in_place, verbose):
     # Prefix added to all examples to ensure `await` is parsed correctly.
     async_prefix = 'async def foo():\n'
     formatted, valid = yapf.yapflib.yapf_api.FormatCode(
-        async_prefix + '  ' + example.source,
+        async_prefix + textwrap.indent(example.source, '  '),
         style_config={
             'based_on_style': 'google',
             # Add 2 due to extra `async def foo` wrapping.

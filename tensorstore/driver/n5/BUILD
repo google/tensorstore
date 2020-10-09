@@ -89,8 +89,11 @@ tensorstore_cc_test(
     deps = [
         ":n5",
         "//tensorstore:open",
+        "//tensorstore/driver:driver_testutil",
         "//tensorstore/index_space:dim_expression",
+        "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/internal:cache",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:parse_json_matches",
         "//tensorstore/kvstore:key_value_store",
         "//tensorstore/kvstore:key_value_store_testutil",

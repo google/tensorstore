@@ -23,9 +23,9 @@
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded_decoder.h"
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded_encoder.h"
 #include "tensorstore/internal/aggregate_writeback_cache.h"
-#include "tensorstore/internal/async_storage_backed_cache.h"
+#include "tensorstore/internal/async_cache.h"
 #include "tensorstore/internal/compression/zlib.h"
-#include "tensorstore/internal/key_value_store_cache.h"
+#include "tensorstore/internal/kvs_backed_cache.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/util/future.h"
@@ -72,7 +72,7 @@ DecodeMinishardIndexAndAdjustByteRanges(const absl::Cord& encoded,
 /// This is used by `MinishardIndexCache`, which decodes and caches the
 /// minishard indices.  By using a separate `KeyValueStore` rather than just
 /// including this logic directly in `MinishardIndexCache`, we are able to take
-/// advantage of `KeyValueStoreCache` to define `MinishardIndexCache`.
+/// advantage of `KvsBackedCache` to define `MinishardIndexCache`.
 class MinishardIndexKeyValueStore : public KeyValueStore {
  public:
   explicit MinishardIndexKeyValueStore(KeyValueStore::Ptr base,
@@ -249,33 +249,61 @@ class MinishardIndexKeyValueStore : public KeyValueStore {
   ShardingSpec sharding_spec_;
 };
 
+class MinishardIndexCache;
+using MinishardIndexCacheBase = internal::AsyncCacheBase<
+    MinishardIndexCache,
+    internal::KvsBackedCache<MinishardIndexCache, internal::AsyncCache>>;
+
 /// Caches minishard indexes.
 ///
 /// Each cache entry corresponds to a particular minishard within a particular
 /// shard.  The entry keys directly encode `ChunkCombinedShardInfo` values (via
 /// `memcpy`), specifying a shard and minishard number.
 ///
-/// This cache is only used for reading.  `FinishWrite` must never be called.
-class MinishardIndexCache
-    : public internal::CacheBase<
-          MinishardIndexCache,
-          internal::KeyValueStoreCache<internal::AsyncStorageBackedCache>> {
-  using Base = internal::CacheBase<
-      MinishardIndexCache,
-      internal::KeyValueStoreCache<internal::AsyncStorageBackedCache>>;
+/// This cache is only used for reading.
+class MinishardIndexCache : public MinishardIndexCacheBase {
+  using Base = MinishardIndexCacheBase;
 
  public:
+  using ReadData = std::vector<MinishardIndexEntry>;
+
   class Entry : public Base::Entry {
    public:
     using Cache = MinishardIndexCache;
-    std::vector<MinishardIndexEntry> minishard_index_;
 
     ChunkSplitShardInfo shard_info() {
       ChunkCombinedShardInfo combined_info;
       assert(this->key().size() == sizeof(combined_info));
       std::memcpy(&combined_info, this->key().data(), sizeof(combined_info));
-      return GetSplitShardInfo(GetOwningCache(this)->sharding_spec(),
+      return GetSplitShardInfo(GetOwningCache(*this).sharding_spec(),
                                combined_info);
+    }
+
+    std::size_t ComputeReadDataSizeInBytes(const void* read_data) override {
+      return internal::EstimateHeapUsage(
+          static_cast<const ReadData*>(read_data));
+    }
+
+    void DoDecode(std::optional<absl::Cord> value,
+                  DecodeReceiver receiver) override {
+      GetOwningCache(*this).executor()([this, value = std::move(value),
+                                        receiver =
+                                            std::move(receiver)]() mutable {
+        std::shared_ptr<ReadData> read_data;
+        if (value) {
+          if (auto result = DecodeMinishardIndexAndAdjustByteRanges(
+                  *value, GetOwningCache(*this).sharding_spec());
+              result.ok()) {
+            read_data = std::make_shared<ReadData>(std::move(*result));
+          } else {
+            execution::set_error(receiver,
+                                 ConvertInvalidArgumentToFailedPrecondition(
+                                     std::move(result).status()));
+            return;
+          }
+        }
+        execution::set_value(receiver, std::move(read_data));
+      });
     }
   };
 
@@ -283,34 +311,11 @@ class MinishardIndexCache
                                Executor executor, std::string key_prefix,
                                const ShardingSpec& sharding_spec)
       : Base(KeyValueStore::Ptr(new MinishardIndexKeyValueStore(
-                 std::move(base_kvstore), executor, std::move(key_prefix),
-                 sharding_spec)),
-             executor) {}
+            std::move(base_kvstore), executor, std::move(key_prefix),
+            sharding_spec))) {}
 
   MinishardIndexKeyValueStore* kvstore() {
     return static_cast<MinishardIndexKeyValueStore*>(this->Base::kvstore());
-  }
-
-  std::size_t DoGetReadStateSizeInBytes(
-      internal::Cache::Entry* base_entry) override {
-    Entry* entry = static_cast<Entry*>(base_entry);
-    return entry->minishard_index_.capacity() * sizeof(MinishardIndexEntry);
-  }
-
-  void DoDecode(internal::Cache::PinnedEntry base_entry,
-                std::optional<absl::Cord> value) override {
-    auto* entry = static_cast<Entry*>(base_entry.get());
-    std::vector<MinishardIndexEntry> minishard_index;
-    if (value) {
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          minishard_index,
-          DecodeMinishardIndexAndAdjustByteRanges(*value, sharding_spec()),
-          this->NotifyReadError(entry,
-                                ConvertInvalidArgumentToFailedPrecondition(_)));
-    }
-    auto lock = entry->AcquireReadStateWriterLock();
-    entry->minishard_index_ = std::move(minishard_index);
-    this->NotifyReadSuccess(entry, std::move(lock));
   }
 
   const ShardingSpec& sharding_spec() { return kvstore()->sharding_spec(); }
@@ -426,7 +431,7 @@ class MergeShardImpl {
   }
 
   /// Writes any remaining new chunks that follow any existing minishards.
-  Status Finalize(size_t* total_chunks, bool* unconditional) {
+  Status Finalize(size_t* total_chunks) {
     TENSORSTORE_RETURN_IF_ERROR(
         WriteNewChunksWhile([](std::uint64_t new_minishard,
                                ChunkId new_chunk_id) { return true; }));
@@ -443,16 +448,12 @@ class MergeShardImpl {
       new_shard_.Append(std::move(temp));
     }
     *total_chunks = total_chunks_;
-    *unconditional = unconditional_;
     return absl::OkStatus();
   }
 
  private:
   /// Writes a single new chunk.
   Status WriteNewChunk(PendingChunkWrite* chunk_to_write) {
-    if (!StorageGeneration::IsUnknown(chunk_to_write->if_equal)) {
-      unconditional_ = false;
-    }
     chunk_to_write->write_status = WriteStatus::kSuccess;
     if (chunk_to_write->data) {
       TENSORSTORE_RETURN_IF_ERROR(encoder_.WriteIndexedEntry(
@@ -589,7 +590,6 @@ class MergeShardImpl {
                                  chunk_byte_range_result.value()),
             /*compress=*/false));
         ++total_chunks_;
-        unconditional_ = false;
       }
     }
     return absl::OkStatus();
@@ -603,7 +603,6 @@ class MergeShardImpl {
   PendingChunkWrite* chunk_it_;
   PendingChunkWrite* chunk_end_;
   size_t total_chunks_ = 0;
-  bool unconditional_ = true;
 };
 
 /// Applies write/delete operations to an existing or empty shard.
@@ -621,8 +620,6 @@ class MergeShardImpl {
 /// \param new_shard[out] String to which the new encoded shard data will be
 ///     appended.
 /// \param total_chunks[out] Set to total number of chunks in `new_shard`.
-/// \param unconditional[out] Set to `true` if the result is not conditioned on
-///     `existing_shard`.
 /// \returns `Status()` on success.
 /// \error `absl::StatusCode::kAborted` if no changes would be made.
 /// \error `absl::StatusCode::kFailedPrecondition` or
@@ -631,12 +628,7 @@ Status MergeShard(const ShardingSpec& sharding_spec,
                   const StorageGeneration& existing_generation,
                   const absl::Cord& existing_shard,
                   span<PendingChunkWrite> new_chunks, absl::Cord& new_shard,
-                  size_t* total_chunks, bool* unconditional) {
-  absl::c_sort(new_chunks,
-               [&](const PendingChunkWrite& a, const PendingChunkWrite& b) {
-                 return std::tuple(a.minishard, a.chunk_id.value) <
-                        std::tuple(b.minishard, b.chunk_id.value);
-               });
+                  size_t* total_chunks) {
   MergeShardImpl merge_shard_impl(sharding_spec, existing_generation,
                                   new_chunks, new_shard);
 
@@ -644,8 +636,16 @@ Status MergeShard(const ShardingSpec& sharding_spec,
     TENSORSTORE_RETURN_IF_ERROR(
         merge_shard_impl.ProcessExistingShard(existing_shard));
   }
-  return merge_shard_impl.Finalize(total_chunks, unconditional);
+  return merge_shard_impl.Finalize(total_chunks);
 }
+
+class ShardedKeyValueStoreWriteCache;
+using ShardedKeyValueStoreWriteCacheBase = internal::AsyncCacheBase<
+    ShardedKeyValueStoreWriteCache,
+    internal::AggregateWritebackCache<
+        ShardedKeyValueStoreWriteCache,
+        internal::KvsBackedCache<ShardedKeyValueStoreWriteCache,
+                                 internal::AsyncCache>>>;
 
 /// Cache used to buffer writes to the KeyValueStore.
 ///
@@ -657,19 +657,12 @@ Status MergeShard(const ShardingSpec& sharding_spec,
 /// existing shard and store it within the cache entry.  This data is discarded
 /// once writeback completes.
 class ShardedKeyValueStoreWriteCache
-    : public internal::CacheBase<ShardedKeyValueStoreWriteCache,
-                                 internal::AggregateWritebackCache<
-                                     ShardedKeyValueStoreWriteCache,
-                                     internal::KeyValueStoreCache<
-                                         internal::AsyncStorageBackedCache>>> {
-  using Base = internal::CacheBase<
-      ShardedKeyValueStoreWriteCache,
-      internal::AggregateWritebackCache<
-          ShardedKeyValueStoreWriteCache,
-          internal::KeyValueStoreCache<internal::AsyncStorageBackedCache>>>;
+    : public ShardedKeyValueStoreWriteCacheBase {
+  using Base = ShardedKeyValueStoreWriteCacheBase;
 
  public:
   using PendingWrite = PendingChunkWrite;
+  using ReadData = absl::Cord;
 
   class Entry : public Base::Entry {
    public:
@@ -682,51 +675,52 @@ class ShardedKeyValueStoreWriteCache
       return shard;
     }
 
-    // The following members are part of the read state:
+    size_t ComputeReadDataSizeInBytes(const void* data) override {
+      return internal::EstimateHeapUsage(*static_cast<const absl::Cord*>(data));
+    }
 
-    // Set to the full encoded shard that was read.  After writeback, this will
-    // be reset to save memory, and `full_shard_discarded_` will be set to
-    // `true`.
-    std::optional<absl::Cord> full_shard_data_;
-    // Set to `true` to indicate that there is likely an existing shard that
-    // should be read before re-writing.
-    bool full_shard_discarded_ = false;
+    void DoDecode(std::optional<absl::Cord> value,
+                  DecodeReceiver receiver) override {
+      execution::set_value(
+          receiver, value ? std::make_shared<absl::Cord>(std::move(*value))
+                          : std::shared_ptr<absl::Cord>());
+    }
+
+    void DoEncode(std::shared_ptr<const absl::Cord> data,
+                  UniqueWriterLock<AsyncCache::TransactionNode> lock,
+                  EncodeReceiver receiver) {
+      // Can safely access `data` after releasing `lock`.
+      lock.unlock();
+      if (!data) {
+        execution::set_value(receiver, std::nullopt);
+      } else {
+        execution::set_value(receiver, *data);
+      }
+    }
+
+    std::string GetKeyValueStoreKey() override {
+      auto* cache = GetOwningCache(this);
+      return GetShardKey(cache->sharding_spec(), cache->key_prefix(),
+                         this->shard());
+    }
+  };
+
+  class TransactionNode : public Base::TransactionNode {
+   public:
+    using Cache = ShardedKeyValueStoreWriteCache;
+    using Base::TransactionNode::TransactionNode;
+
+    void DoApply(ApplyOptions options, ApplyReceiver receiver) override;
+
+    void WritebackSuccess(ReadState&& read_state) override;
   };
 
   explicit ShardedKeyValueStoreWriteCache(
       internal::CachePtr<MinishardIndexCache> minishard_index_cache,
       GetMaxChunksPerShardFunction get_max_chunks_per_shard)
-      : Base(KeyValueStore::Ptr(minishard_index_cache->base_kvstore()),
-             minishard_index_cache->executor()),
+      : Base(KeyValueStore::Ptr(minishard_index_cache->base_kvstore())),
         minishard_index_cache_(std::move(minishard_index_cache)),
         get_max_chunks_per_shard_(std::move(get_max_chunks_per_shard)) {}
-
-  size_t DoGetReadStateSizeInBytes(
-      internal::Cache::Entry* base_entry) override {
-    auto* entry = static_cast<Entry*>(base_entry);
-    if (entry->full_shard_data_) return entry->full_shard_data_->size();
-    return 0;
-  }
-
-  void DoDecode(internal::Cache::PinnedEntry base_entry,
-                std::optional<absl::Cord> value) override {
-    auto* entry = static_cast<Entry*>(base_entry.get());
-    auto lock = entry->AcquireReadStateWriterLock();
-    entry->full_shard_data_ = std::move(value);
-    entry->full_shard_discarded_ = false;
-    this->NotifyReadSuccess(entry, std::move(lock));
-  }
-
-  std::string GetKeyValueStoreKey(internal::Cache::Entry* base_entry) override {
-    auto* entry = static_cast<Entry*>(base_entry);
-    const std::uint64_t shard = entry->shard();
-    return GetShardKey(sharding_spec(), key_prefix(), shard);
-  }
-
-  void DoWriteback(internal::Cache::PinnedEntry entry) override;
-
-  void NotifyWritebackSuccess(internal::Cache::Entry* entry,
-                              WriteAndReadStateLock lock) override;
 
   const ShardingSpec& sharding_spec() const {
     return minishard_index_cache()->sharding_spec();
@@ -740,30 +734,27 @@ class ShardedKeyValueStoreWriteCache
     return minishard_index_cache_;
   }
 
+  const Executor& executor() { return minishard_index_cache()->executor(); }
+
   internal::CachePtr<MinishardIndexCache> minishard_index_cache_;
 
   GetMaxChunksPerShardFunction get_max_chunks_per_shard_;
 };
 
-void ShardedKeyValueStoreWriteCache::NotifyWritebackSuccess(
-    internal::Cache::Entry* base_entry, WriteAndReadStateLock lock) {
-  auto* entry = static_cast<Entry*>(base_entry);
+void ShardedKeyValueStoreWriteCache::TransactionNode::WritebackSuccess(
+    ReadState&& read_state) {
   std::vector<PendingChunkWrite> issued_writes;
-  std::swap(issued_writes, entry->issued_writes);
+  std::swap(issued_writes, this->pending_writes);
 
-  // Timestamp and generation were set by `KeyValueStoreCache`.
-  TimestampedStorageGeneration generation;
-  generation.time = entry->last_read_time;
-  generation.generation = std::move(entry->last_read_generation);
+  // Timestamp and generation were set by `KvsBackedCache`.
+  auto stamp = std::move(read_state.stamp);
+  this->Base::TransactionNode::WritebackSuccess(ReadState{});
 
-  entry->full_shard_discarded_ = true;
-  entry->full_shard_data_ = std::nullopt;
-  entry->last_read_generation = StorageGeneration::Unknown();
-  Base::NotifyWritebackSuccess(entry, std::move(lock));
+  // `this` may have been destroyed.
 
   for (auto& chunk : issued_writes) {
     TimestampedStorageGeneration chunk_result;
-    chunk_result.time = generation.time;
+    chunk_result.time = stamp.time;
     switch (chunk.write_status) {
       case PendingChunkWrite::WriteStatus::kAborted:
         chunk_result.generation = StorageGeneration::Unknown();
@@ -772,77 +763,109 @@ void ShardedKeyValueStoreWriteCache::NotifyWritebackSuccess(
         chunk_result.generation = StorageGeneration::Invalid();
         break;
       case PendingChunkWrite::WriteStatus::kSuccess:
-        chunk_result.generation = generation.generation;
+        chunk_result.generation = stamp.generation;
         break;
     }
     chunk.promise.SetResult(std::move(chunk_result));
   }
 }
 
-void ShardedKeyValueStoreWriteCache::DoWriteback(
-    internal::Cache::PinnedEntry base_entry) {
-  executor()([entry =
-                  internal::static_pointer_cast<Entry>(base_entry)]() mutable {
-    auto* cache = GetOwningCache(entry);
-    absl::Cord new_shard;
-    Status merge_status;
-    size_t total_chunks = 0;
-    bool unconditional = false;
-    absl::Time last_write_time;
-    {
-      auto lock = entry->AcquireWriteStateLock();
-      last_write_time = entry->last_pending_write_time;
-      merge_status = MergeShard(
-          cache->sharding_spec(), entry->last_read_generation,
-          entry->full_shard_data_ ? *entry->full_shard_data_ : absl::Cord(),
-          entry->pending_writes, new_shard, &total_chunks, &unconditional);
-      if (!merge_status.ok() &&
-          merge_status.code() != absl::StatusCode::kAborted) {
-        merge_status = absl::FailedPreconditionError(merge_status.message());
-      }
-      cache->NotifyWritebackStarted(entry.get(), std::move(lock));
-    }
+void ShardedKeyValueStoreWriteCache::TransactionNode::DoApply(
+    ApplyOptions options, ApplyReceiver receiver) {
+  GetOwningCache(*this).executor()([this, options = std::move(options),
+                                    receiver = std::move(receiver)]() mutable {
+    // Determine if the writeback is conditional.
 
+    // Sort by minishard id and then by chunk id.  This ensures that duplicate
+    // chunk ids end up in adjacent positions, which makes it easy to determine
+    // the number of unique chunk ids.  This order is also required by
+    // `MergeShard` to correctly encode the shard.
+    absl::c_sort(pending_writes,
+                 [&](const PendingChunkWrite& a, const PendingChunkWrite& b) {
+                   return std::tuple(a.minishard, a.chunk_id.value) <
+                          std::tuple(b.minishard, b.chunk_id.value);
+                 });
+    ChunkId prev_chunk_id{0};
+    if (!pending_writes.empty() && pending_writes[0].chunk_id.value == 0) {
+      prev_chunk_id.value = 1;
+    }
+    size_t num_unique_ids = 0;
+    bool unconditional = true;
+    for (const auto& pending_chunk : pending_writes) {
+      auto chunk_id = pending_chunk.chunk_id;
+      if (chunk_id.value != prev_chunk_id.value) {
+        ++num_unique_ids;
+      }
+      if (!StorageGeneration::IsUnknown(pending_chunk.if_equal)) {
+        unconditional = false;
+        break;
+      }
+      prev_chunk_id = chunk_id;
+    }
+    auto& cache = GetOwningCache(*this);
     if (unconditional &&
-        (!cache->get_max_chunks_per_shard_ ||
-         cache->get_max_chunks_per_shard_(entry->shard()) != total_chunks)) {
+        (!cache.get_max_chunks_per_shard_ ||
+         cache.get_max_chunks_per_shard_(GetOwningEntry(*this).shard()) !=
+             num_unique_ids)) {
       // If we aren't fully overwriting the shard, a conditional write is
       // required.
       unconditional = false;
     }
 
-    if (!merge_status.ok()) {
-      Result<TimestampedStorageGeneration> writeback_result = merge_status;
-      Result<TimestampedStorageGeneration> pending_chunk_result = merge_status;
-      if (merge_status.code() == absl::StatusCode::kAborted) {
-        // No changes were made to the shard.
-        if (last_write_time > entry->last_read_time ||
-            entry->full_shard_discarded_) {
-          // At least one write request is newer than the cached shard data,
-          // which means the cached shard data may be out of date.
-          cache->NotifyWritebackNeedsRead(
-              entry.get(), entry->AcquireWriteStateLock(), last_write_time);
-        } else {
-          cache->NotifyWritebackSuccess(entry.get(),
-                                        entry->AcquireWriteAndReadStateLock());
-        }
-      } else {
-        cache->NotifyWritebackError(entry.get(), entry->AcquireWriteStateLock(),
-                                    std::move(merge_status));
+    auto continuation = [this, unconditional, receiver = std::move(receiver)](
+                            ReadyFuture<const void> future) mutable {
+      if (!future.result().ok()) {
+        return execution::set_error(receiver, future.result().status());
       }
-      return;
+      auto& entry = GetOwningEntry(*this);
+      auto& cache = GetOwningCache(entry);
+      absl::Cord new_shard;
+      Status merge_status;
+      size_t total_chunks = 0;
+      ReadState read_state;
+      if (!unconditional) {
+        read_state = AsyncCache::ReadLock<absl::Cord>(*this).read_state();
+      } else {
+        read_state.stamp = TimestampedStorageGeneration::Unconditional();
+      }
+      merge_status = MergeShard(
+          cache.sharding_spec(), read_state.stamp.generation,
+          read_state.data
+              ? *static_cast<const absl::Cord*>(read_state.data.get())
+              : absl::Cord(),
+          pending_writes, new_shard, &total_chunks);
+      if (merge_status.code() == absl::StatusCode::kAborted) {
+        // Aborted is a special error code used by `MergeShard` to indicate
+        // that no changes were made to the shard, because any writes that
+        // would have resulted in changes did not have their conditions
+        // satisfied.  In this case we send the ApplyReceiver a writeback
+        // value that is unmodified from the existing read state.  In most
+        // cases this will lead to a retry of the writes at a higher level.
+        execution::set_value(receiver, std::move(read_state),
+                             UniqueWriterLock<AsyncCache::TransactionNode>{});
+        return;
+      }
+      if (!merge_status.ok()) {
+        execution::set_error(
+            receiver, absl::FailedPreconditionError(merge_status.message()));
+        return;
+      }
+      read_state.stamp.generation.MarkDirty();
+      if (!new_shard.empty()) {
+        read_state.data = std::make_shared<absl::Cord>(std::move(new_shard));
+      } else {
+        read_state.data = nullptr;
+      }
+      execution::set_value(receiver, std::move(read_state),
+                           UniqueWriterLock<AsyncCache::TransactionNode>{});
+    };
+    if (unconditional) {
+      continuation(MakeReadyFuture());
+    } else {
+      this->Read(options.staleness_bound)
+          .ExecuteWhenReady(WithExecutor(GetOwningCache(*this).executor(),
+                                         std::move(continuation)));
     }
-
-    if (entry->full_shard_discarded_ && !unconditional) {
-      cache->NotifyWritebackNeedsRead(
-          entry.get(), entry->AcquireWriteStateLock(), entry->last_read_time);
-      return;
-    }
-
-    std::optional<absl::Cord> new_value;
-    if (!new_shard.empty()) new_value = std::move(new_shard);
-    cache->Writeback(std::move(entry), std::move(new_value),
-                     /*unconditional=*/unconditional);
   });
 }
 
@@ -869,16 +892,18 @@ struct MinishardIndexCacheEntryReadyCallback {
     TimestampedStorageGeneration stamp;
     KeyValueStore::ReadResult::State state;
     {
-      auto lock = entry_->AcquireReadStateReaderLock();
-      stamp.generation = entry_->last_read_generation;
-      stamp.time = entry_->last_read_time;
-      if (!StorageGeneration::IsNoValue(entry_->last_read_generation) &&
-          (options_.if_not_equal == entry_->last_read_generation ||
+      auto lock = internal::AsyncCache::ReadLock<MinishardIndexCache::ReadData>(
+          *entry_);
+      stamp = lock.stamp();
+      if (!StorageGeneration::IsNoValue(stamp.generation) &&
+          (options_.if_not_equal == stamp.generation ||
            (!StorageGeneration::IsUnknown(options_.if_equal) &&
-            options_.if_equal != entry_->last_read_generation))) {
+            options_.if_equal != stamp.generation))) {
         state = KeyValueStore::ReadResult::kUnspecified;
       } else {
-        byte_range = FindChunkInMinishard(entry_->minishard_index_, chunk_id_);
+        span<const MinishardIndexEntry> minishard_index;
+        if (lock.data()) minishard_index = *lock.data();
+        byte_range = FindChunkInMinishard(minishard_index, chunk_id_);
         state = KeyValueStore::ReadResult::kMissing;
       }
     }
@@ -940,9 +965,8 @@ struct MinishardIndexCacheEntryReadyCallback {
               promise.SetResult(
                   absl::FailedPreconditionError(result.status().message()));
               return;
-            } else {
-              r->value = *result;
             }
+            r->value = *result;
           }
           TENSORSTORE_ASSIGN_OR_RETURN(
               auto byte_range, post_decode_byte_range.Validate(r->value.size()),
@@ -1027,10 +1051,10 @@ class ShardedKeyValueStore : public KeyValueStore {
     chunk.chunk_id = chunk_id;
     chunk.data = std::move(value);
     chunk.if_equal = std::move(options.if_equal);
-    LinkError(std::move(promise),
-              entry->AddPendingWrite(std::move(chunk),
-                                     internal::AsyncStorageBackedCache::
-                                         WriteFlags::kUnconditionalWriteback));
+    TENSORSTORE_ASSIGN_OR_RETURN(auto node,
+                                 GetWriteLockedTransactionNode(*entry, {}));
+    node->AddPendingWrite(std::move(chunk));
+    LinkError(std::move(promise), node.unlock()->transaction()->future());
     return future;
   }
 

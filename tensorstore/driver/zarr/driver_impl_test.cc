@@ -39,6 +39,7 @@ using tensorstore::MatchesStatus;
 using tensorstore::Result;
 using tensorstore::span;
 using tensorstore::Status;
+using tensorstore::TransactionMode;
 using tensorstore::internal_kvs_backed_chunk_driver::ResizeParameters;
 using tensorstore::internal_zarr::ChunkKeyEncoding;
 using tensorstore::internal_zarr::ZarrMetadata;
@@ -59,7 +60,7 @@ Result<tensorstore::IndexTransform<>> ResolveBoundsFromMetadata(
                         })
           .result());
   return tensorstore::internal::TensorStoreAccess::handle(store)
-      .driver->ResolveBounds(transform, options)
+      .driver->ResolveBounds(/*transaction=*/{}, transform, options)
       .result();
 }
 
@@ -67,7 +68,8 @@ Result<ResizeParameters> GetResizeParameters(
     const ZarrMetadata& metadata, std::string field,
     tensorstore::IndexTransformView<> transform,
     span<const Index> inclusive_min, span<const Index> exclusive_max,
-    tensorstore::ResizeOptions options) {
+    tensorstore::ResizeOptions options,
+    TransactionMode transaction_mode = TransactionMode::no_transaction_mode) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto store,
       tensorstore::Open(tensorstore::Context::Default(),
@@ -84,7 +86,7 @@ Result<ResizeParameters> GetResizeParameters(
           tensorstore::internal::TensorStoreAccess::handle(store).driver.get());
   return tensorstore::internal_kvs_backed_chunk_driver::GetResizeParameters(
       driver->cache(), &metadata, driver->component_index(), transform,
-      inclusive_min, exclusive_max, options);
+      inclusive_min, exclusive_max, options, transaction_mode);
 }
 
 TEST(EncodeChunkIndicesTest, DotSeparated) {
@@ -250,16 +252,75 @@ TEST(GetResizeParametersTest, Basic) {
                              .output_single_input_dimension(1, 1)
                              .Finalize()
                              .value();
-  auto p = GetResizeParameters(metadata,
-                               /*field=*/"", transform,
-                               span<const Index>({kImplicit, kImplicit}),
-                               span<const Index>({kImplicit, 150}), {});
-  ASSERT_EQ(Status(), GetStatus(p));
-  EXPECT_THAT(p->new_exclusive_max, ::testing::ElementsAre(kImplicit, 150));
-  EXPECT_THAT(p->exclusive_max_constraint,
-              ::testing::ElementsAre(kImplicit, kImplicit));
-  EXPECT_FALSE(p->expand_only);
-  EXPECT_FALSE(p->shrink_only);
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto p, GetResizeParameters(metadata,
+                                    /*field=*/"", transform,
+                                    span<const Index>({kImplicit, kImplicit}),
+                                    span<const Index>({kImplicit, 150}), {}));
+    EXPECT_THAT(p.new_exclusive_max, ::testing::ElementsAre(kImplicit, 150));
+    EXPECT_THAT(p.exclusive_max_constraint,
+                ::testing::ElementsAre(kImplicit, kImplicit));
+    EXPECT_FALSE(p.expand_only);
+    EXPECT_FALSE(p.shrink_only);
+  }
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto p, GetResizeParameters(metadata,
+                                    /*field=*/"", transform,
+                                    span<const Index>({kImplicit, kImplicit}),
+                                    span<const Index>({kImplicit, 150}),
+                                    tensorstore::expand_only));
+    EXPECT_THAT(p.new_exclusive_max, ::testing::ElementsAre(kImplicit, 150));
+    EXPECT_THAT(p.exclusive_max_constraint,
+                ::testing::ElementsAre(kImplicit, kImplicit));
+    EXPECT_TRUE(p.expand_only);
+    EXPECT_FALSE(p.shrink_only);
+  }
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto p, GetResizeParameters(metadata,
+                                    /*field=*/"", transform,
+                                    span<const Index>({kImplicit, kImplicit}),
+                                    span<const Index>({kImplicit, 150}),
+                                    tensorstore::shrink_only));
+    EXPECT_THAT(p.new_exclusive_max, ::testing::ElementsAre(kImplicit, 150));
+    EXPECT_THAT(p.exclusive_max_constraint,
+                ::testing::ElementsAre(kImplicit, kImplicit));
+    EXPECT_FALSE(p.expand_only);
+    EXPECT_TRUE(p.shrink_only);
+  }
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto p, GetResizeParameters(metadata,
+                                    /*field=*/"", transform,
+                                    span<const Index>({kImplicit, kImplicit}),
+                                    span<const Index>({kImplicit, 150}), {},
+                                    TransactionMode::atomic_isolated));
+    EXPECT_THAT(p.new_exclusive_max, ::testing::ElementsAre(kImplicit, 150));
+    EXPECT_THAT(p.exclusive_max_constraint, ::testing::ElementsAre(100, 100));
+    EXPECT_THAT(p.inclusive_min_constraint, ::testing::ElementsAre(0, 0));
+    EXPECT_FALSE(p.expand_only);
+    EXPECT_FALSE(p.shrink_only);
+  }
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto p, GetResizeParameters(metadata,
+                                    /*field=*/"", transform,
+                                    span<const Index>({kImplicit, kImplicit}),
+                                    span<const Index>({kImplicit, 150}),
+                                    tensorstore::resize_metadata_only,
+                                    TransactionMode::atomic_isolated));
+    EXPECT_THAT(p.new_exclusive_max, ::testing::ElementsAre(kImplicit, 150));
+    EXPECT_THAT(p.exclusive_max_constraint,
+                ::testing::ElementsAre(kImplicit, kImplicit));
+    EXPECT_FALSE(p.expand_only);
+    EXPECT_FALSE(p.shrink_only);
+  }
 
   EXPECT_THAT(
       GetResizeParameters(metadata,

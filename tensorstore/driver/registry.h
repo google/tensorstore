@@ -108,6 +108,7 @@ class RegisteredDriverOpener;
 ///   the `SpecT<ContextBound>`.
 ///
 ///     static Future<internal::Driver::ReadWriteHandle> Open(
+///         internal::OpenTransactionPtr transaction,
 ///         internal::RegisteredDriverOpener<Derived> spec,
 ///         ReadWriteMode read_write_mode) {
 ///       // Access the `SpecT<ContextBound>` representation as `*spec`.
@@ -138,16 +139,18 @@ class RegisteredDriver : public Parent {
   using Parent::Parent;
 
   Result<TransformedDriverSpec<>> GetSpec(
-      IndexTransformView<> transform, const SpecRequestOptions& options,
+      internal::OpenTransactionPtr transaction, IndexTransformView<> transform,
+      const SpecRequestOptions& options,
       const ContextSpecBuilder& context_builder) override {
     using SpecData = typename Derived::template SpecT<ContextUnbound>;
     using BoundSpecData = typename Derived::template SpecT<ContextBound>;
     // 1. Obtain the `BoundSpecData` representation of the `Driver`.
     BoundSpecData bound_spec_data;
     TransformedDriverSpec<> transformed_spec;
-    TENSORSTORE_ASSIGN_OR_RETURN(transformed_spec.transform_spec,
-                                 static_cast<Derived*>(this)->GetBoundSpecData(
-                                     &bound_spec_data, transform));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        transformed_spec.transform_spec,
+        static_cast<Derived*>(this)->GetBoundSpecData(
+            std::move(transaction), &bound_spec_data, transform));
     // 2. "Unbind" to convert the `BoundSpecData` representation to the
     // `SpecData` representation.
     IntrusivePtr<DriverSpecImpl> spec(new DriverSpecImpl);
@@ -168,13 +171,15 @@ class RegisteredDriver : public Parent {
   }
 
   Result<TransformedDriverSpec<ContextBound>> GetBoundSpec(
+      internal::OpenTransactionPtr transaction,
       IndexTransformView<> transform) override {
     IntrusivePtr<typename DriverSpecImpl::Bound> bound_spec(
         new typename DriverSpecImpl::Bound);
     TransformedDriverSpec<ContextBound> transformed_spec;
-    TENSORSTORE_ASSIGN_OR_RETURN(transformed_spec.transform_spec,
-                                 static_cast<Derived*>(this)->GetBoundSpecData(
-                                     &bound_spec->data_, transform));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        transformed_spec.transform_spec,
+        static_cast<Derived*>(this)->GetBoundSpecData(
+            std::move(transaction), &bound_spec->data_, transform));
     transformed_spec.driver_spec = std::move(bound_spec);
     return transformed_spec;
   }
@@ -211,6 +216,7 @@ class RegisteredDriver : public Parent {
     class Bound : public internal::DriverSpec::Bound {
      public:
       Future<Driver::ReadWriteHandle> Open(
+          OpenTransactionPtr transaction,
           ReadWriteMode read_write_mode) const override {
         RegisteredDriverOpener<BoundSpecData> data_ptr;
         data_ptr.owner_.reset(this);
@@ -224,7 +230,8 @@ class RegisteredDriver : public Parent {
                                       tensorstore::QuoteString(Derived::id),
                                       " driver"));
             },
-            Derived::Open(std::move(data_ptr), read_write_mode));
+            Derived::Open(std::move(transaction), std::move(data_ptr),
+                          read_write_mode));
       }
 
       DriverSpecPtr Unbind(

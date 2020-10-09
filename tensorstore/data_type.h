@@ -40,6 +40,19 @@
 #include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/utf8_string.h"
 
+#ifdef _MSC_VER
+// On MSVC, if `MakeDataTypeOperations<T>::operations` is not declared
+// constexpr, it is initialized dynamically, which can happen too late if
+// `DataType` is used from a global dynamic initializer, e.g. in order to
+// allocate an Array.
+#define TENSORSTORE_DATA_TYPE_CONSTEXPR_OPERATIONS
+#endif
+
+#ifdef TENSORSTORE_DATA_TYPE_CONSTEXPR_OPERATIONS
+// Required by constexpr definition of `MakeDataTypeOperations<T>::operations`.
+#include <nlohmann/json.hpp>
+#endif
+
 namespace tensorstore {
 
 namespace data_types {
@@ -271,6 +284,54 @@ inline constexpr DataTypeConversionFlags operator&(DataTypeConversionFlags a,
 
 namespace internal {
 
+#ifndef _MSC_VER
+using TypeInfo = const std::type_info&;
+template <typename T>
+constexpr const std::type_info& GetTypeInfo() {
+  return typeid(T);
+}
+#else
+/// Wrapper that behaves like `const std::type_info&` but which is
+/// constexpr-compatible on MSVC.
+class TypeInfo {
+ public:
+  using Getter = const std::type_info& (*)();
+  explicit constexpr TypeInfo(Getter getter) : getter_(getter) {}
+
+  operator const std::type_info&() const { return getter_(); }
+  const std::type_info& type() const { return getter_(); }
+  const char* name() const noexcept { return getter_().name(); }
+  friend bool operator==(TypeInfo a, TypeInfo b) {
+    return a.type() == b.type();
+  }
+  friend bool operator==(TypeInfo a, const std::type_info& b) {
+    return a.type() == b;
+  }
+  friend bool operator==(const std::type_info& a, TypeInfo b) {
+    return a == b.type();
+  }
+  friend bool operator!=(TypeInfo a, TypeInfo b) { return !(a == b); }
+  friend bool operator!=(TypeInfo a, const std::type_info& b) {
+    return !(a == b);
+  }
+  friend bool operator!=(const std::type_info& a, TypeInfo b) {
+    return !(a == b);
+  }
+
+  template <typename T>
+  static const std::type_info& GetImpl() {
+    return typeid(T);
+  }
+
+ private:
+  Getter getter_;
+};
+template <typename T>
+constexpr TypeInfo GetTypeInfo() {
+  return TypeInfo(&TypeInfo::GetImpl<T>);
+}
+#endif
+
 /// Type-specific operations needed for dynamically-typed multi-dimensional
 /// arrays.
 ///
@@ -283,7 +344,7 @@ struct DataTypeOperations {
   absl::string_view name;
 
   /// The type_info structure for this type.
-  const std::type_info& type;
+  TypeInfo type;
 
   /// The size in bytes of this type.
   std::ptrdiff_t size;
@@ -467,9 +528,15 @@ class DataType {
 
 namespace internal_data_type {
 
+/// Returns the name of the data type corresponding to the C++ type `T`.
+///
+/// For all of the standard data types, a specialization is defined below.  This
+/// definition is only used for custom data types.
 template <typename T>
 constexpr absl::string_view GetTypeName() {
-  return typeid(T).name();
+  // While it would be nice to return a meaningful name, `typeid(T).name()` is
+  // not constexpr (and includes mangling).
+  return "unknown";
 }
 
 #define TENSORSTORE_INTERNAL_DO_DATA_TYPE_NAME(T, ...) \
@@ -563,16 +630,10 @@ struct DataTypeElementwiseOperationsImpl {
 };
 
 template <typename T>
-class MakeDataTypeOperations {
- public:
-  static internal::DataTypeOperations operations;
-};
-
-template <typename T>
-internal::DataTypeOperations MakeDataTypeOperations<T>::operations = {
+constexpr internal::DataTypeOperations DataTypeOperationsImpl = {
     /*.id=*/DataTypeIdOf<T>,
     /*.name=*/GetTypeName<T>(),
-    /*.type=*/typeid(T),
+    /*.type=*/internal::GetTypeInfo<T>(),
     /*.size=*/sizeof(T),
     /*.align=*/alignof(T),
     /*.construct=*/&DataTypeSimpleOperationsImpl<T>::Construct,
@@ -590,6 +651,23 @@ internal::DataTypeOperations MakeDataTypeOperations<T>::operations = {
     typename DataTypeElementwiseOperationsImpl<T>::CompareEqual(),
     /*.canonical_conversion=*/nullptr,
 };
+
+template <typename T>
+class MakeDataTypeOperations {
+ public:
+#ifdef TENSORSTORE_DATA_TYPE_CONSTEXPR_OPERATIONS
+  static constexpr internal::DataTypeOperations operations =
+      DataTypeOperationsImpl<T>;
+#else
+  static const internal::DataTypeOperations operations;
+#endif
+};
+
+#ifndef TENSORSTORE_DATA_TYPE_CONSTEXPR_OPERATIONS
+template <typename T>
+const internal::DataTypeOperations MakeDataTypeOperations<T>::operations =
+    DataTypeOperationsImpl<T>;
+#endif
 
 #define TENSORSTORE_DATA_TYPE_EXPLICIT_INSTANTIATION(T, ...)   \
   __VA_ARGS__ template class MakeDataTypeOperations<T>;        \

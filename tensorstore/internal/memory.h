@@ -144,11 +144,13 @@ struct ArrayDeleter {
 /// This matches the behavior of the C++20 standard library function of the same
 /// name, though unlike the C++20 standard library function, it still requires
 /// an allocation for the control block separate from the array allocation.
+/// Also, it returns `std::shared_ptr<U>` rather than `std::shared_ptr<U[]>` for
+/// compatibility with Apple Clang 12.0.0 and MSVC // 19.24.
 template <typename T>
-std::enable_if_t<std::is_array_v<T>, std::shared_ptr<T>>
+std::enable_if_t<std::is_array_v<T>, std::shared_ptr<std::remove_extent_t<T>>>
 make_shared_for_overwrite(size_t n) {
   using U = std::remove_extent_t<T>;
-  return std::shared_ptr<T>(new U[n], ArrayDeleter<U>{});
+  return std::shared_ptr<U>(new U[n], ArrayDeleter<U>{});
 }
 
 }  // namespace internal

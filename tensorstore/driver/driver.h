@@ -60,6 +60,7 @@
 #include "tensorstore/progress.h"
 #include "tensorstore/resize_options.h"
 #include "tensorstore/spec_request_options.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/sender.h"
@@ -74,7 +75,8 @@ using DriverPtr = IntrusivePtr<Driver>;
 class DriverSpec;
 using DriverSpecPtr = IntrusivePtr<DriverSpec>;
 
-/// Pairs a `Driver::Ptr` with an `IndexTransform<>` to apply to the driver.
+/// Pairs a `Driver::Ptr` with an `IndexTransform<>` to apply to the driver and
+/// a transaction to use.
 struct TransformedDriver {
   DriverPtr driver;
 
@@ -82,10 +84,13 @@ struct TransformedDriver {
   /// not use this transform directly, but rather use the transform obtained by
   /// from `driver->ResolveBounds(transform)`.
   IndexTransform<> transform;
+
+  /// Transaction to use.
+  Transaction transaction{no_transaction};
 };
 
-/// Combines a TensorStore `Driver` with an `IndexTransform` and
-/// `ReadWriteMode`.
+/// Combines a TensorStore `Driver` with an `IndexTransform`, a `Transaction`,
+/// and `ReadWriteMode`.
 struct DriverReadWriteHandle : public TransformedDriver {
   /// Specifies `ReadWriteMode::read`, `ReadWriteMode::write`, or both.
   ReadWriteMode read_write_mode;
@@ -164,10 +169,13 @@ class DriverSpec::Bound : public AtomicReferenceCount<DriverSpec::Bound> {
   /// "intrinsic" transform implicit in the specification.  It will be composed
   /// with the `IndexTransformSpec` specified in the `TransformedDriverSpec`.
   ///
+  /// \param transaction The transaction to use for opening, or `nullptr` to not
+  ///     use a transaction.  If specified, the same transaction should be
+  ///     returned in the `DriverReadWriteHandle`.
   /// \param read_write_mode Required mode, or `ReadWriteMode::dynamic` to
   ///     determine the allowed modes.
   virtual Future<DriverReadWriteHandle> Open(
-      ReadWriteMode read_write_mode) const = 0;
+      OpenTransactionPtr transaction, ReadWriteMode read_write_mode) const = 0;
 
   /// Returns a corresponding `DriverSpec`.
   ///
@@ -288,6 +296,7 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// This is equivalent to chaining `Driver::GetBoundSpec`,
   /// `DriverSpec::Bound::Unbind`, and `DriverSpec::Convert`.
   ///
+  /// \param transaction The transaction to use.
   /// \param transform Transform from the domain exposed to the user to the
   ///     domain expected by the driver.
   /// \param options Specifies options for modifying the returned `DriverSpec`.
@@ -298,7 +307,8 @@ class Driver : public AtomicReferenceCount<Driver> {
   ///     context resources are recorded in the `Context::Spec` owned by the
   ///     returned `DriverSpec`.
   virtual Result<TransformedDriverSpec<>> GetSpec(
-      IndexTransformView<> transform, const SpecRequestOptions& options,
+      internal::OpenTransactionPtr transaction, IndexTransformView<> transform,
+      const SpecRequestOptions& options,
       const ContextSpecBuilder& context_builder);
 
   /// Returns a `TransformedDriverSpec<ContextBound>` that can be used to
@@ -314,10 +324,11 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// transform, or the returned `DriverSpec::Bound` may somehow incorporate
   /// part or all of the transform.
   ///
+  /// \param transaction The transaction to use.
   /// \param transform Transform from the domain exposed to the user to the
   ///     domain expected by the driver.
   virtual Result<TransformedDriverSpec<ContextBound>> GetBoundSpec(
-      IndexTransformView<> transform);
+      internal::OpenTransactionPtr transaction, IndexTransformView<> transform);
 
   /// Returns the Executor to use for data copying to/from this Driver (e.g. for
   /// Read and Write operations).
@@ -340,7 +351,7 @@ class Driver : public AtomicReferenceCount<Driver> {
   ///     of a transform returned from a prior call to `ResolveBounds`,
   ///     `Resize`, or the transform returned when the driver was opened.
   virtual void Read(
-      IndexTransform<> transform,
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
       AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) = 0;
 
   /// Requests a partition of the output range of `transform` into chunks that
@@ -360,7 +371,7 @@ class Driver : public AtomicReferenceCount<Driver> {
   ///     of a transform returned from a prior call to `ResolveBounds`,
   ///     `Resize`, or the transform returned when the driver was opened.
   virtual void Write(
-      IndexTransform<> transform,
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
       AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) = 0;
 
   /// Resolves implicit bounds of `transform`.
@@ -369,7 +380,8 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// \returns A copy of `transform` with implicit bounds possibly updated.
   /// \error If explicit bounds of `transform` are incompatible with the
   ///     existing transform.
-  virtual Future<IndexTransform<>> ResolveBounds(IndexTransform<> transform,
+  virtual Future<IndexTransform<>> ResolveBounds(OpenTransactionPtr transaction,
+                                                 IndexTransform<> transform,
                                                  ResolveBoundsOptions options);
 
   /// Resizes the TensorStore.
@@ -387,7 +399,8 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// \dchecks `inclusive_max.size() == transform.input_rank()`.
   /// \error `absl::StatusCode::kInvalidArgument` if
   ///     `transform.implicit_lower_bound()[i] == false`.
-  virtual Future<IndexTransform<>> Resize(IndexTransform<> transform,
+  virtual Future<IndexTransform<>> Resize(OpenTransactionPtr transaction,
+                                          IndexTransform<> transform,
                                           span<const Index> inclusive_min,
                                           span<const Index> exclusive_max,
                                           ResizeOptions options);
@@ -400,6 +413,12 @@ class Driver : public AtomicReferenceCount<Driver> {
 /// This simply chains `DriverSpec::Convert`, `DriverSpec::Bind`, and the
 /// `OpenDriver` overload defined below.
 Future<Driver::ReadWriteHandle> OpenDriver(Context context,
+                                           OpenTransactionPtr transaction,
+                                           TransformedDriverSpec<> spec,
+                                           OpenOptions options);
+
+Future<Driver::ReadWriteHandle> OpenDriver(Context context,
+                                           Transaction transaction,
                                            TransformedDriverSpec<> spec,
                                            OpenOptions options);
 
@@ -410,6 +429,7 @@ Future<Driver::ReadWriteHandle> OpenDriver(Context context,
 /// `transform` of the returned `Driver::ReadWriteHandle` with
 /// `bound_spec.transform_spec`.
 Future<Driver::ReadWriteHandle> OpenDriver(
+    OpenTransactionPtr transaction,
     TransformedDriverSpec<ContextBound> bound_spec,
     ReadWriteMode read_write_mode);
 

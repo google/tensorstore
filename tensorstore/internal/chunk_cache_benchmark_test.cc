@@ -34,7 +34,7 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/transformed_array.h"
-#include "tensorstore/internal/async_storage_backed_cache.h"
+#include "tensorstore/internal/async_cache.h"
 #include "tensorstore/internal/cache.h"
 #include "tensorstore/internal/chunk_cache.h"
 #include "tensorstore/internal/element_copy_function.h"
@@ -62,6 +62,7 @@ using tensorstore::IndexTransform;
 using tensorstore::MakeArray;
 using tensorstore::MakeCopy;
 using tensorstore::SharedArray;
+using tensorstore::SharedArrayView;
 using tensorstore::span;
 using tensorstore::Status;
 using tensorstore::StorageGeneration;
@@ -73,6 +74,7 @@ using tensorstore::internal::ChunkCacheDriver;
 using tensorstore::internal::ChunkGridSpecification;
 using tensorstore::internal::Driver;
 using tensorstore::internal::ElementCopyFunction;
+using tensorstore::internal::GetOwningCache;
 
 /// Benchmark configuration for read/write benchmark.
 struct BenchmarkConfig {
@@ -123,62 +125,77 @@ std::ostream& operator<<(std::ostream& os, const BenchmarkConfig& config) {
 }
 
 class BenchmarkCache
-    : public tensorstore::internal::CacheBase<BenchmarkCache, ChunkCache> {
-  using Base = tensorstore::internal::CacheBase<BenchmarkCache, ChunkCache>;
+    : public tensorstore::internal::AsyncCacheBase<BenchmarkCache, ChunkCache> {
+  using Base =
+      tensorstore::internal::AsyncCacheBase<BenchmarkCache, ChunkCache>;
 
  public:
   using Base::Base;
-  Executor executor;
 
-  void DoRead(AsyncStorageBackedCache::PinnedEntry base_entry,
-              absl::Time staleness_bound) override {
-    auto req_time = absl::Now();
-    executor([entry = tensorstore::internal::static_pointer_cast<Entry>(
-                  std::move(base_entry)),
-              req_time, this] {
-      absl::InlinedVector<SharedArray<void>, 1> data;
-      absl::InlinedVector<tensorstore::SharedArrayView<const void>, 1> data_ref;
-      data.reserve(grid().components.size());
-      data_ref.reserve(grid().components.size());
-      for (const auto& component_spec : grid().components) {
-        data.push_back(MakeCopy(component_spec.fill_value));
-        data_ref.push_back(data.back());
-      }
-      auto lock = entry->AcquireReadStateWriterLock();
-      entry->last_read_time = req_time;
-      this->NotifyReadSuccess(entry.get(), std::move(lock), data_ref);
-    });
-  }
-  void DoWriteback(AsyncStorageBackedCache::PinnedEntry base_entry) override {
-    executor([entry = tensorstore::internal::static_pointer_cast<Entry>(
-                  std::move(base_entry)),
-              this] {
-      {
-        ChunkCache::WritebackSnapshot snapshot(
-            static_cast<ChunkCache::Entry*>(entry.get()));
-        for (const auto& array : snapshot.component_arrays()) {
-          ::benchmark::DoNotOptimize(MakeCopy(array));
+  class Entry : public Base::Entry {
+   public:
+    using Cache = BenchmarkCache;
+    void DoRead(absl::Time staleness_bound) override {
+      GetOwningCache(*this).executor()([this] {
+        const auto component_specs = this->component_specs();
+        auto read_data = tensorstore::internal::make_shared_for_overwrite<
+            ChunkCache::ReadData[]>(component_specs.size());
+        for (size_t component_i = 0;
+             component_i < static_cast<size_t>(component_specs.size());
+             ++component_i) {
+          const auto& spec = component_specs[component_i];
+          read_data.get()[component_i] = SharedArrayView<const void>(
+              MakeCopy(spec.fill_value).element_pointer(), spec.write_layout());
         }
-      }
-      auto req_time = absl::Now();
-      executor([entry, req_time] {
-        auto lock = entry->AcquireWriteAndReadStateLock();
-        entry->last_read_time = req_time;
-        GetOwningCache(entry)->NotifyWritebackSuccess(entry.get(),
-                                                      std::move(lock));
+        this->ReadSuccess(
+            {std::move(read_data),
+             {StorageGeneration::FromString("gen"), absl::Now()}});
       });
-    });
-  }
+    }
+  };
+
+  class TransactionNode : public Base::TransactionNode {
+   public:
+    using Cache = BenchmarkCache;
+    using Base::TransactionNode::TransactionNode;
+    absl::Status DoInitialize(
+        tensorstore::internal::OpenTransactionPtr& transaction) {
+      this->SetReadsCommitted();
+      return Base::TransactionNode::DoInitialize(transaction);
+    }
+    void DoRead(absl::Time staleness_bound) { TENSORSTORE_UNREACHABLE; }
+    void Commit() override {
+      struct ApplyReceiver {
+        TransactionNode* self_;
+        void set_value(
+            AsyncCache::ReadState update,
+            tensorstore::UniqueWriterLock<AsyncCache::TransactionNode> lock) {
+          if (update.data) {
+            auto* read_data = static_cast<const ReadData*>(update.data.get());
+            const auto component_specs = self_->component_specs();
+            for (size_t i = 0; i < static_cast<size_t>(component_specs.size());
+                 ++i) {
+              auto& array = read_data[i];
+              ::benchmark::DoNotOptimize(MakeCopy(array));
+            }
+          }
+          self_->WritebackSuccess(
+              {std::move(update.data),
+               {StorageGeneration::FromString("gen"), absl::Now()}});
+        }
+        void set_error(absl::Status error) { TENSORSTORE_UNREACHABLE; }
+        void set_cancel() { TENSORSTORE_UNREACHABLE; }
+      };
+      AsyncCache::TransactionNode::ApplyOptions apply_options;
+      apply_options.staleness_bound = absl::InfinitePast();
+      this->DoApply(std::move(apply_options), ApplyReceiver{this});
+    }
+  };
 };
 
 class TestDriver : public ChunkCacheDriver {
  public:
   using ChunkCacheDriver::ChunkCacheDriver;
-
-  /// Not actually used.
-  Executor data_copy_executor() override {
-    return static_cast<BenchmarkCache*>(cache())->executor;
-  }
 };
 
 class CopyBenchmarkRunner {
@@ -206,8 +223,7 @@ class CopyBenchmarkRunner {
                       tensorstore::value_init, config.data_type),
         Box<>(rank), chunked_dims}});
     cache = pool->GetCache<BenchmarkCache>(
-        "", [&] { return absl::make_unique<BenchmarkCache>(grid); });
-    cache->executor = executor;
+        "", [&] { return absl::make_unique<BenchmarkCache>(grid, executor); });
     driver.reset(new TestDriver(cache, 0));
     array = AllocateArray(config.copy_shape, tensorstore::c_order,
                           tensorstore::value_init, config.data_type);
@@ -243,11 +259,11 @@ class CopyBenchmarkRunner {
 
   void RunOnce() {
     if (config.read) {
-      tensorstore::internal::DriverRead(cache->executor, {driver, transform},
+      tensorstore::internal::DriverRead(cache->executor(), {driver, transform},
                                         array, {/*.progress_function=*/{}})
           .result();
     } else {
-      tensorstore::internal::DriverWrite(cache->executor, array,
+      tensorstore::internal::DriverWrite(cache->executor(), array,
                                          /*target=*/{driver, transform},
                                          {/*.progress_function=*/{}})
           .commit_future.result();

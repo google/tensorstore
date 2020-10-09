@@ -194,6 +194,8 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   Status ValidateMetadataCompatibility(const void* existing_metadata_ptr,
                                        const void* new_metadata_ptr) override {
+    assert(existing_metadata_ptr);
+    assert(new_metadata_ptr);
     const auto& existing_metadata =
         *static_cast<const ZarrMetadata*>(existing_metadata_ptr);
     const auto& new_metadata =

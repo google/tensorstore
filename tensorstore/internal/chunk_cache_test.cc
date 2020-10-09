@@ -26,6 +26,9 @@
 #include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/inlined_vector.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -39,11 +42,12 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/transformed_array.h"
-#include "tensorstore/internal/async_storage_backed_cache.h"
+#include "tensorstore/internal/async_cache.h"
 #include "tensorstore/internal/cache.h"
 #include "tensorstore/internal/element_copy_function.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/kvs_backed_cache.h"
 #include "tensorstore/internal/masked_array.h"
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/meta.h"
@@ -51,9 +55,12 @@
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/internal/thread_pool.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/key_value_store_testutil.h"
+#include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/progress.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/staleness_bound.h"
+#include "tensorstore/tensorstore.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
@@ -71,19 +78,25 @@ using tensorstore::Executor;
 using tensorstore::Future;
 using tensorstore::Index;
 using tensorstore::IndexTransform;
+using tensorstore::KeyValueStore;
 using tensorstore::MakeArray;
 using tensorstore::MakeCopy;
 using tensorstore::MatchesStatus;
+using tensorstore::no_transaction;
 using tensorstore::ReadProgressFunction;
+using tensorstore::Result;
 using tensorstore::SharedArray;
 using tensorstore::span;
 using tensorstore::StalenessBound;
 using tensorstore::Status;
 using tensorstore::StorageGeneration;
+using tensorstore::TensorStore;
 using tensorstore::TimestampedStorageGeneration;
+using tensorstore::Transaction;
 using tensorstore::TransformedSharedArrayView;
 using tensorstore::WriteFutures;
 using tensorstore::WriteProgressFunction;
+using tensorstore::internal::AsyncCache;
 using tensorstore::internal::CachePool;
 using tensorstore::internal::CachePtr;
 using tensorstore::internal::ChunkCache;
@@ -92,83 +105,108 @@ using tensorstore::internal::ChunkGridSpecification;
 using tensorstore::internal::ConcurrentQueue;
 using tensorstore::internal::Driver;
 using tensorstore::internal::ElementCopyFunction;
+using tensorstore::internal::MockKeyValueStore;
 using tensorstore::internal::PinnedCacheEntry;
 using tensorstore::internal::SimpleElementwiseFunction;
 using testing::ElementsAre;
 
-struct RequestLog;
+/// Decodes component arrays encoded as native-endian C order.
+Result<std::shared_ptr<const ChunkCache::ReadData>> DecodeRaw(
+    const ChunkGridSpecification& grid, const absl::Cord* value) {
+  const auto& component_specs = grid.components;
+  std::shared_ptr<ChunkCache::ReadData> read_data;
+  if (value) {
+    read_data = tensorstore::internal::make_shared_for_overwrite<
+        ChunkCache::ReadData[]>(component_specs.size());
+    size_t offset = 0;
+    absl::Cord temp_value = *value;
+    auto flat_value = temp_value.Flatten();
+    for (size_t component_i = 0; component_i < component_specs.size();
+         ++component_i) {
+      const auto& spec = component_specs[component_i];
+      tensorstore::SharedArrayView<void> array(
+          tensorstore::SharedElementPointer<void>(
+              spec.AllocateAndConstructBuffer(), spec.data_type()),
+          spec.write_layout());
+      read_data.get()[component_i] = array;
+      const size_t num_bytes = spec.num_elements() * spec.data_type().size();
+      if (num_bytes + offset < value->size()) {
+        return absl::UnknownError("Decode error");
+      }
+      std::memcpy(array.data(), flat_value.data() + offset, num_bytes);
+      offset += num_bytes;
+    }
+  }
+  return std::static_pointer_cast<ChunkCache::ReadData>(std::move(read_data));
+}
 
-class TestCache
-    : public tensorstore::internal::CacheBase<TestCache, ChunkCache> {
-  using Base = tensorstore::internal::CacheBase<TestCache, ChunkCache>;
+/// Encodes component arrays as native-endian C order.
+template <typename ComponentArrays>
+absl::Cord EncodeRaw(const ChunkGridSpecification& grid,
+                     const ComponentArrays& component_arrays) {
+  std::string value;
+  const auto& component_specs = grid.components;
+  for (size_t component_i = 0; component_i < component_specs.size();
+       ++component_i) {
+    const auto& spec = component_specs[component_i];
+    auto array = MakeCopy(component_arrays[component_i]);
+    TENSORSTORE_CHECK(
+        tensorstore::internal::RangesEqual(array.shape(), spec.shape()));
+    TENSORSTORE_CHECK(array.data_type() == spec.data_type());
+    const size_t num_bytes = spec.num_elements() * spec.data_type().size();
+    value.append(reinterpret_cast<const char*>(array.data()), num_bytes);
+  }
+  return absl::Cord(value);
+}
+
+std::string EncodeKey(span<const Index> indices) {
+  return absl::StrJoin(indices, ",");
+}
+
+class TestCache;
+using TestCacheBase = tensorstore::internal::AsyncCacheBase<
+    TestCache, tensorstore::internal::KvsBackedCache<TestCache, ChunkCache>>;
+class TestCache : public TestCacheBase {
+  using Base = TestCacheBase;
 
  public:
-  class Entry : public ChunkCache::Entry {
+  using Base::Base;
+
+  class Entry : public Base::Entry {
    public:
-    StorageGeneration last_read_generation;
+    using Cache = TestCache;
+    // DoDecode implementation required by `KvsBackedCache`.
+    void DoDecode(std::optional<absl::Cord> value,
+                  DecodeReceiver receiver) override {
+      GetOwningCache(*this).executor()([this, value = std::move(value),
+                                        receiver =
+                                            std::move(receiver)]() mutable {
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto read_data,
+            DecodeRaw(GetOwningCache(this)->grid(), value ? &*value : nullptr),
+            tensorstore::execution::set_error(receiver, _));
+        tensorstore::execution::set_value(receiver, std::move(read_data));
+      });
+    }
+
+    // DoEncode implementation required by `KvsBackedCache`.
+    void DoEncode(
+        std::shared_ptr<const ReadData> data,
+        tensorstore::UniqueWriterLock<AsyncCache::TransactionNode> lock,
+        EncodeReceiver receiver) override {
+      std::optional<absl::Cord> encoded;
+      if (data) {
+        encoded = EncodeRaw(GetOwningCache(*this).grid(), data.get());
+      }
+      lock.unlock();
+      tensorstore::execution::set_value(receiver, std::move(encoded));
+    }
+
+    std::string GetKeyValueStoreKey() override {
+      return EncodeKey(this->cell_indices());
+    }
   };
-
-  TestCache(ChunkGridSpecification grid, RequestLog* log)
-      : Base(std::move(grid)), log_(log) {}
-
-  void DoRead(PinnedEntry entry, absl::Time staleness_bound) override;
-
-  void DoWriteback(PinnedEntry entry) override;
-
- private:
-  RequestLog* log_;
 };
-
-/// Represents a pending read request for a TestCache object.
-struct ReadRequest {
-  PinnedCacheEntry<TestCache> entry;
-  StorageGeneration generation;
-  absl::Time staleness_bound;
-};
-
-/// Represents a pending writeback request for a TestCache object.
-struct WritebackRequest {
-  PinnedCacheEntry<TestCache> entry;
-  StorageGeneration generation;
-};
-
-/// Contains the queue of pending chunk read and writeback requests for a
-/// TestCache object.
-struct RequestLog {
-  ConcurrentQueue<ReadRequest> reads;
-  ConcurrentQueue<WritebackRequest> writebacks;
-};
-
-void TestCache::DoRead(PinnedEntry base_entry, absl::Time staleness_bound) {
-  auto entry =
-      tensorstore::internal::static_pointer_cast<Entry>(std::move(base_entry));
-  StorageGeneration generation;
-  {
-    auto lock = entry->AcquireReadStateReaderLock();
-    generation = entry->last_read_generation;
-  }
-  log_->reads.push(
-      ReadRequest{std::move(entry), std::move(generation), staleness_bound});
-}
-void TestCache::DoWriteback(AsyncStorageBackedCache::PinnedEntry base_entry) {
-  auto entry =
-      tensorstore::internal::static_pointer_cast<Entry>(std::move(base_entry));
-  StorageGeneration generation;
-  {
-    auto lock = entry->AcquireReadStateReaderLock();
-    generation = entry->last_read_generation;
-  }
-  log_->writebacks.push(
-      WritebackRequest{std::move(entry), std::move(generation)});
-}
-
-StorageGeneration GetStorageGenerationFromNumber(
-    std::uint64_t generation_number) {
-  StorageGeneration generation;
-  generation.value.resize(sizeof(std::uint64_t));
-  std::memcpy(&generation.value[0], &generation_number, sizeof(std::uint64_t));
-  return generation;
-}
 
 template <typename T>
 ElementCopyFunction GetCopyFunction() {
@@ -176,108 +214,6 @@ ElementCopyFunction GetCopyFunction() {
       [](const T* source, T* dest, Status* status) { *dest = *source; };
   return SimpleElementwiseFunction<decltype(copy_func), const T, T>();
 }
-
-bool GenerationMatches(std::uint64_t generation_number,
-                       const StorageGeneration& condition) {
-  if (StorageGeneration::IsUnknown(condition)) return true;
-  if (generation_number == 0 && StorageGeneration::IsNoValue(condition))
-    return true;
-  return GetStorageGenerationFromNumber(generation_number) == condition;
-}
-
-/// Data store used for testing that stores the component arrays for each chunk
-/// directly in a `flat_hash_map`.
-struct MockDataStore {
- public:
-  struct StoredChunk {
-    std::uint64_t generation = 0;
-    std::vector<SharedArray<const void>> data;
-  };
-
-  absl::flat_hash_map<std::string, StoredChunk> chunks;
-
-  bool HasChunk(span<const Index> indices) {
-    std::string key;
-    key.resize(sizeof(Index) * indices.size());
-    std::memcpy(&key[0], indices.data(), key.size());
-    return chunks.find(key) != chunks.end();
-  }
-
-  StoredChunk& GetChunk(span<const Index> indices) {
-    std::string key;
-    key.resize(sizeof(Index) * indices.size());
-    std::memcpy(&key[0], indices.data(), key.size());
-    return chunks[key];
-  }
-
-  /// Look up a chunk in the `chunks` map specified in the given read request.
-  /// If the chunk is found, complete the request successfully (if
-  /// `req.generation` does not match) or with `StorageGeneration::Unknown()`
-  /// (if `req.generation` does match).  Otherwise, complete the request with
-  /// `StorageGeneration::NoValue()`.
-  void HandleRead(ReadRequest req) {
-    absl::Time read_time = absl::Now();
-    auto it = chunks.find(req.entry->key());
-    auto lock = req.entry->AcquireReadStateWriterLock();
-    req.entry->last_read_time = read_time;
-    auto* cache = GetOwningCache(req.entry);
-    if (it == chunks.end()) {
-      req.entry->last_read_generation = StorageGeneration::NoValue();
-      cache->NotifyReadSuccess(req.entry.get(), std::move(lock),
-                               /*components=*/{});
-      return;
-    }
-    const auto& stored_chunk = it->second;
-    if (!StorageGeneration::IsUnknown(req.generation) &&
-        GenerationMatches(stored_chunk.generation, req.generation)) {
-      req.entry->last_read_time = read_time;
-      cache->NotifyReadSuccess(req.entry.get(), std::move(lock));
-      return;
-    }
-    std::vector<tensorstore::SharedArrayView<const void>> data(
-        stored_chunk.data.begin(), stored_chunk.data.end());
-    req.entry->last_read_generation =
-        GetStorageGenerationFromNumber(stored_chunk.generation);
-    cache->NotifyReadSuccess(req.entry.get(), std::move(lock),
-                             /*components=*/data);
-  }
-
-  /// Starts a writeback (using WritebackSnapshot) and returns a function that
-  /// completes the writeback (using the `chunks` map) when called.
-  std::function<void()> HandleWriteback(WritebackRequest req) {
-    ChunkCache::WritebackSnapshot snapshot(req.entry.get());
-    const bool equals_fill_value = snapshot.equals_fill_value();
-    std::vector<SharedArray<const void>> data;
-    for (const auto& array : snapshot.component_arrays()) {
-      data.push_back(MakeCopy(array));
-    }
-    auto req_time = absl::Now();
-    return [data, this, req, req_time, equals_fill_value] {
-      auto& stored_chunk = chunks[req.entry->key()];
-      if (GenerationMatches(stored_chunk.generation, req.generation)) {
-        auto lock = req.entry->AcquireWriteAndReadStateLock();
-        stored_chunk.data = data;
-        ++stored_chunk.generation;
-        StorageGeneration storage_generation;
-        if (equals_fill_value) {
-          chunks.erase(req.entry->key());
-          storage_generation = StorageGeneration::NoValue();
-        } else {
-          storage_generation =
-              GetStorageGenerationFromNumber(stored_chunk.generation);
-        }
-        req.entry->last_read_generation = storage_generation;
-        req.entry->last_read_time = req_time;
-        GetOwningCache(req.entry)->NotifyWritebackSuccess(req.entry.get(),
-                                                          std::move(lock));
-      } else {
-        auto lock = req.entry->AcquireWriteStateLock();
-        GetOwningCache(req.entry)->NotifyWritebackNeedsRead(
-            req.entry.get(), std::move(lock), req_time);
-      }
-    };
-  }
-};
 
 TEST(ChunkGridSpecificationTest, Basic) {
   ChunkGridSpecification grid({ChunkGridSpecification::Component{
@@ -287,187 +223,164 @@ TEST(ChunkGridSpecificationTest, Basic) {
   EXPECT_EQ(1, grid.chunk_shape.size());
 }
 
-class TestDriver : public ChunkCacheDriver {
- public:
-  using ChunkCacheDriver::ChunkCacheDriver;
-
-  /// Not actually used.
-  Executor data_copy_executor() override {
-    return tensorstore::InlineExecutor{};
+std::vector<Index> ParseKey(absl::string_view key) {
+  std::vector<Index> result;
+  for (auto s : absl::StrSplit(key, ',')) {
+    Index i = 0;
+    TENSORSTORE_CHECK(absl::SimpleAtoi(s, &i));
+    result.push_back(i);
   }
-};
+  return result;
+}
 
-// Test fixture for tests to be run with both an anonymous and named cache.  The
-// behavior of `ChunkCache` itself does not depend on whether the cache is
-// named, but this ensures that the reference counting of the base `Cache`
-// object works correctly.
-class ChunkCacheTest : public ::testing::TestWithParam<const char*> {
- protected:
+Driver::Ptr MakeDriver(CachePtr<ChunkCache> cache, size_t component_index = 0,
+                       StalenessBound data_staleness = {}) {
+  return Driver::Ptr(
+      new ChunkCacheDriver(cache, component_index, data_staleness));
+}
+
+class ChunkCacheTest : public ::testing::Test {
+ public:
   /// Thread pool used by the ChunkCacheDriver to perform read/write operations.
   Executor thread_pool = tensorstore::internal::DetachedThreadPool(1);
 
-  /// Limits used by `InitCache` for creating `pool`.  Tests that override the
-  /// default limits must do so before calling `InitCache`.
-  CachePool::Limits cache_limits{10000000, 5000000};
+  std::optional<ChunkGridSpecification> grid;
 
-  /// Cache pool created by `InitCache` to contain the `TestCache`.
-  CachePool::StrongPtr pool;
+  KeyValueStore::Ptr memory_store = tensorstore::GetMemoryKeyValueStore();
+  KeyValueStore::PtrT<MockKeyValueStore> mock_store{new MockKeyValueStore};
 
-  /// Contains the queues of pending read/writeback requests made by the
-  /// ChunkCache implementation.
-  RequestLog log;
-
-  /// Mock data store used to handle pending read/writeback requests, except
-  /// when errors need to be explicitly injected, or the test does not require
-  /// that the read/writeback request be completed.
-  MockDataStore store;
-
-  /// Instance of `TestCache` created by `InitCache`.  Read and writeback
-  /// requests are not handled automatically, but are added to `log`.
-  CachePtr<ChunkCache> cache;
-
-  /// Cache key used by `InitCache` to obtain `cache`.
-  std::string cache_key = GetParam();
-
-  void InitCache(ChunkGridSpecification grid) {
-    pool = CachePool::Make(cache_limits);
-    cache = pool->GetCache<TestCache>(
-        cache_key, [&] { return absl::make_unique<TestCache>(grid, &log); });
+  std::vector<ChunkCache::ReadData> GetChunk(
+      const std::vector<Index>& indices) {
+    auto read_result = memory_store->Read(EncodeKey(indices)).value();
+    const size_t num_components = grid->components.size();
+    std::vector<ChunkCache::ReadData> components(num_components);
+    if (auto read_data =
+            DecodeRaw(*grid,
+                      read_result.has_value() ? &read_result.value : nullptr)
+                .value()) {
+      for (size_t i = 0; i < num_components; ++i) {
+        components[i] = read_data.get()[i];
+      }
+    }
+    return components;
   }
 
-  /// Creates a ChunkCacheDriver used by the `Read` and `Write` methods defined
-  /// below.
-  Driver::Ptr GetDriver(std::size_t component_index,
-                        StalenessBound data_staleness = {}) {
-    // Create a new driver each time rather than caching it since it reduces
-    // complexity and the cost of the additional memory allocation is not
-    // important for the tests.
-    return Driver::Ptr(new TestDriver(cache, component_index, data_staleness));
+  bool HasChunk(const std::vector<Index>& indices) {
+    auto read_result = memory_store->Read(EncodeKey(indices)).value();
+    return read_result.has_value();
   }
 
-  Future<void> Read(std::size_t component_index,
-                    IndexTransform<> source_transform,
-                    TransformedSharedArrayView<void> dest,
-                    StalenessBound data_staleness,
-                    ReadProgressFunction read_progress_function = {}) {
-    return tensorstore::internal::DriverRead(
-        thread_pool,
-        {GetDriver(component_index, data_staleness),
-         std::move(source_transform)},
-        std::move(dest), {std::move(read_progress_function)});
+  void SetChunk(const std::vector<Index>& indices,
+                std::vector<ArrayView<const void>> components) {
+    TENSORSTORE_CHECK_OK(
+        memory_store->Write(EncodeKey(indices), EncodeRaw(*grid, components)));
   }
 
-  Future<void> Write(std::size_t component_index,
-                     IndexTransform<> dest_transform,
-                     TransformedSharedArrayView<const void> source,
-                     WriteProgressFunction write_progress_function = {}) {
-    auto write_futures = tensorstore::internal::DriverWrite(
-        thread_pool, std::move(source),
-        {GetDriver(component_index), std::move(dest_transform)},
-        {std::move(write_progress_function)});
-    // Wait until the copying is complete, and any errors due to copying have
-    // propagated to `commit_future` before this function returns.
-    write_futures.copy_future.Wait();
-    return write_futures.commit_future;
+  CachePtr<ChunkCache> MakeChunkCache(std::string_view cache_identifier = {},
+                                      CachePool::StrongPtr pool = {}) {
+    if (!pool) {
+      pool = CachePool::Make(CachePool::Limits{10000000, 5000000});
+    }
+    return pool->GetCache<TestCache>(cache_identifier, [&] {
+      return absl::make_unique<TestCache>(mock_store, *grid, thread_pool);
+    });
+  }
+
+  TensorStore<> GetTensorStore(CachePtr<ChunkCache> cache = {},
+                               StalenessBound data_staleness = {},
+                               size_t component_index = 0,
+                               Transaction transaction = no_transaction) {
+    if (!cache) cache = MakeChunkCache();
+    return tensorstore::internal::TensorStoreAccess::Construct<TensorStore<>>(
+        tensorstore::internal::DriverReadWriteHandle{
+            {MakeDriver(cache, component_index, data_staleness),
+             tensorstore::IdentityTransform(
+                 grid->components[component_index].rank()),
+             transaction},
+            tensorstore::ReadWriteMode::read_write});
   }
 };
 
-INSTANTIATE_TEST_SUITE_P(WithoutCacheKey, ChunkCacheTest,
-                         ::testing::Values(""));
-INSTANTIATE_TEST_SUITE_P(WithCacheKey, ChunkCacheTest, ::testing::Values("k"));
-
 // Tests reading of chunks not present in the data store.
-TEST_P(ChunkCacheTest, ReadSingleComponentOneDimensionalFill) {
+TEST_F(ChunkCacheTest, ReadSingleComponentOneDimensionalFill) {
   // Dimension 0 is chunked with a size of 2.
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+
+  auto cache = MakeChunkCache();
 
   // Test that chunks that aren't present in store get filled using the fill
   // value.
   {
-    auto read_array = tensorstore::AllocateArray<int>({3});
     auto read_future =
-        Read(0,
-             ChainResult(tensorstore::IdentityTransform(1),
-                         tensorstore::Dims(0).TranslateSizedInterval(3, 3))
-                 .value(),
-             read_array, absl::InfinitePast());
+        tensorstore::Read(GetTensorStore(cache, absl::InfinitePast()) |
+                          tensorstore::Dims(0).TranslateSizedInterval(3, 3));
     {
-      auto r = log.reads.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-      store.HandleRead(std::move(r));
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_not_equal);
+      r(memory_store);
     }
     {
-      auto r = log.reads.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(2));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-      store.HandleRead(std::move(r));
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(2));
+      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_not_equal);
+      r(memory_store);
     }
-    EXPECT_TRUE(read_future.result());
     // Index:         0 1 2 3 4 5 ...
     // Fill value:    1 2 1 2 1 2 ...
     // Read region:        [     ]
-    EXPECT_EQ(read_array, tensorstore::MakeArray({2, 1, 2}));
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(tensorstore::MakeArray({2, 1, 2})));
   }
 
   // Test reading cached chunks.  The staleness bound of `absl::InfinitePast()`
   // is always satisfied by an existing read response.
   {
-    auto read_array = tensorstore::AllocateArray<int>({3});
     auto read_future =
-        Read(0,
-             ChainResult(tensorstore::IdentityTransform(1),
-                         tensorstore::Dims(0).TranslateSizedInterval(3, 3))
-                 .value(),
-             read_array, absl::InfinitePast());
-    EXPECT_TRUE(read_future.result());
+        tensorstore::Read(GetTensorStore(cache, absl::InfinitePast()) |
+                          tensorstore::Dims(0).TranslateSizedInterval(3, 3));
     // Verify that same response as before is received (fill value).
-    EXPECT_EQ(read_array, tensorstore::MakeArray({2, 1, 2}));
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(tensorstore::MakeArray({2, 1, 2})));
   }
 
   // Test re-reading chunks.  The staleness bound of `absl::InfiniteFuture()` is
   // never satisfied by an existing read response.
   {
-    auto read_array = tensorstore::AllocateArray<int>({3});
     auto read_future =
-        Read(0,
-             ChainResult(tensorstore::IdentityTransform(1),
-                         tensorstore::Dims(0).TranslateSizedInterval(3, 3))
-                 .value(),
-             read_array, absl::InfiniteFuture());
+        tensorstore::Read(GetTensorStore(cache, absl::InfiniteFuture()) |
+                          tensorstore::Dims(0).TranslateSizedInterval(3, 3));
     {
-      auto r = log.reads.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::NoValue(), r.generation);
-      store.HandleRead(std::move(r));
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+      EXPECT_EQ(StorageGeneration::NoValue(), r.options.if_not_equal);
+      r(memory_store);
     }
     {
-      auto r = log.reads.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(2));
-      EXPECT_EQ(StorageGeneration::NoValue(), r.generation);
-      store.HandleRead(std::move(r));
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(2));
+      EXPECT_EQ(StorageGeneration::NoValue(), r.options.if_not_equal);
+      r(memory_store);
     }
-    EXPECT_TRUE(read_future.result());
     // Verify that result matches fill value after the new read response.
-    EXPECT_EQ(read_array, tensorstore::MakeArray({2, 1, 2}));
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(tensorstore::MakeArray({2, 1, 2})));
   }
 }
 
 // Tests cancelling a read request.
-TEST_P(ChunkCacheTest, CancelRead) {
+TEST_F(ChunkCacheTest, CancelRead) {
   // Dimension 0 is chunked with a size of 2.
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+
+  auto cache = MakeChunkCache();
 
   {
-    auto read_array = tensorstore::AllocateArray<int>({3});
     auto read_future =
-        Read(0,
-             ChainResult(tensorstore::IdentityTransform(1),
-                         tensorstore::Dims(0).TranslateSizedInterval(3, 3))
-                 .value(),
-             read_array, absl::InfinitePast());
+        tensorstore::Read(GetTensorStore(cache, absl::InfinitePast()) |
+                          tensorstore::Dims(0).TranslateSizedInterval(3, 3));
     // Read request is cancelled when `read_future` is destroyed.  At the
     // moment, however, there is no mechanism for propagating cancellation to
     // the implementation of `DoRead` in order to cancel already in-progress
@@ -514,13 +427,14 @@ struct CancelWriteReceiver {
 };
 
 // Tests cancelling a write request.
-TEST_P(ChunkCacheTest, CancelWrite) {
+TEST_F(ChunkCacheTest, CancelWrite) {
   // Dimension 0 is chunked with a size of 2.
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
 
   CancelWriteReceiver receiver;
-  cache->Write(0,
+  auto cache = MakeChunkCache();
+  cache->Write(/*transaction=*/{}, 0,
                ChainResult(tensorstore::IdentityTransform(1),
                            tensorstore::Dims(0).TranslateSizedInterval(3, 3))
                    .value(),
@@ -530,88 +444,73 @@ TEST_P(ChunkCacheTest, CancelWrite) {
 
 // Tests that the implementation of `ChunkCacheDriver::data_type` returns the
 // data type of the associated component array.
-TEST_P(ChunkCacheTest, DriverDataType) {
-  InitCache(ChunkGridSpecification({
+TEST_F(ChunkCacheTest, DriverDataType) {
+  grid = ChunkGridSpecification({
       ChunkGridSpecification::Component{
           SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)},
       ChunkGridSpecification::Component{
           SharedArray<const void>(MakeArray<float>({{1, 2}, {3, 4}})),
           Box<>(2),
           {1}},
-  }));
+  });
 
-  EXPECT_EQ(tensorstore::DataTypeOf<int>(), GetDriver(0)->data_type());
+  auto cache = MakeChunkCache();
 
-  EXPECT_EQ(tensorstore::DataTypeOf<float>(), GetDriver(1)->data_type());
+  EXPECT_EQ(tensorstore::DataTypeOf<int>(), MakeDriver(cache, 0)->data_type());
+
+  EXPECT_EQ(tensorstore::DataTypeOf<float>(),
+            MakeDriver(cache, 1)->data_type());
 }
 
 // Tests reading of existing data.
-TEST_P(ChunkCacheTest, ReadSingleComponentOneDimensionalExisting) {
+TEST_F(ChunkCacheTest, ReadSingleComponentOneDimensionalExisting) {
   // Dimension 0 is chunked with a size of 2.
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
 
-  // Initialize chunk 1 in the data store.
-  {
-    auto& chunk = store.GetChunk(span<const Index>({1}));
-    chunk.generation = 1;
-    chunk.data.resize(1);
-    chunk.data[0] = MakeArray<int>({5, 6});
-  }
+  // Initialize chunk 1 in the `memory_store`.
+  SetChunk({1}, {MakeArray<int>({5, 6})});
+
+  auto cache = MakeChunkCache();
 
   // Test reading from an existing chunk (read request partially overlaps
   // existing data).
   {
-    auto read_array = tensorstore::AllocateArray<int>({3});
     // Read chunk 1, position [1], and chunk 2, positions [0] and [1].
     auto read_future =
-        Read(0,
-             ChainResult(tensorstore::IdentityTransform(1),
-                         tensorstore::Dims(0).TranslateSizedInterval(3, 3))
-                 .value(),
-             read_array, absl::InfinitePast());
+        tensorstore::Read(GetTensorStore(cache, absl::InfinitePast()) |
+                          tensorstore::Dims(0).TranslateSizedInterval(3, 3));
     {
-      auto r = log.reads.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-      store.HandleRead(std::move(r));
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+      r(memory_store);
     }
     {
-      auto r = log.reads.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(2));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-      store.HandleRead(std::move(r));
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(2));
+      r(memory_store);
     }
-    EXPECT_TRUE(read_future.result());
-    EXPECT_EQ(read_array, tensorstore::MakeArray({6, 1, 2}));
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(tensorstore::MakeArray({6, 1, 2})));
   }
 
   // Initialize chunk 2 in the data store.  The cache does not yet reflect this
   // chunk.
-  {
-    auto& chunk = store.GetChunk(span<const Index>({2}));
-    chunk.generation = 1;
-    chunk.data.resize(1);
-    chunk.data[0] = MakeArray<int>({7, 8});
-  }
+  SetChunk({2}, {MakeArray<int>({7, 8})});
 
   // Test reading cached chunks (verifies that the previously cached cells were
   // not evicted).
   {
-    auto read_array = tensorstore::AllocateArray<int>({3});
     auto read_future =
-        Read(0,
-             ChainResult(tensorstore::IdentityTransform(1),
-                         tensorstore::Dims(0).TranslateSizedInterval(3, 3))
-                 .value(),
-             read_array, absl::InfinitePast());
+        tensorstore::Read(GetTensorStore(cache, absl::InfinitePast()) |
+                          tensorstore::Dims(0).TranslateSizedInterval(3, 3));
     // Read is satisfied without issuing any new read requests.
-    EXPECT_TRUE(read_future.result());
     // Read result corresponds to:
     // [0]: chunk 1, position [1]
     // [1]: chunk 2, position [0] (fill value)
     // [2]: chunk 2, position [1] (fill value)
-    EXPECT_EQ(read_array, tensorstore::MakeArray({6, 1, 2}));
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(tensorstore::MakeArray({6, 1, 2})));
   }
 
   // Test re-reading chunks by using a staleness bound of
@@ -619,47 +518,37 @@ TEST_P(ChunkCacheTest, ReadSingleComponentOneDimensionalExisting) {
   // response.  This causes the cache to re-read chunk 2, which has been
   // updated.
   {
-    auto read_array = tensorstore::AllocateArray<int>({3});
     auto read_future =
-        Read(0,
-             ChainResult(tensorstore::IdentityTransform(1),
-                         tensorstore::Dims(0).TranslateSizedInterval(3, 3))
-                 .value(),
-             read_array, absl::InfiniteFuture());
+        tensorstore::Read(GetTensorStore(cache, absl::InfiniteFuture()) |
+                          tensorstore::Dims(0).TranslateSizedInterval(3, 3));
     {
-      auto r = log.reads.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-      EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
-      store.HandleRead(std::move(r));
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+      r(memory_store);
     }
     {
-      auto r = log.reads.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(2));
-      EXPECT_EQ(StorageGeneration::NoValue(), r.generation);
-      store.HandleRead(std::move(r));
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(2));
+      r(memory_store);
     }
-    EXPECT_TRUE(read_future.result());
-    EXPECT_EQ(read_array, tensorstore::MakeArray({6, 7, 8}));
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(tensorstore::MakeArray({6, 7, 8})));
   }
 }
 
 // Test reading the fill value from a two-dimensional chunk cache.
-TEST_P(ChunkCacheTest, TwoDimensional) {
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
+TEST_F(ChunkCacheTest, TwoDimensional) {
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
       SharedArray<const void>(MakeArray<int>({{1, 2, 3}, {4, 5, 6}})),
       Box<>(2),
       // Transpose the grid dimensions relative to the cell dimensions to test
       // that grid vs. cell indices are correctly handled.
-      {1, 0}}}));
-  auto read_array = tensorstore::AllocateArray<int>({6, 5});
-  auto read_future =
-      Read(0,
-           ChainResult(
-               tensorstore::IdentityTransform(2),
-               // Read box starting at {1, 5} of shape {6, 5}.
-               tensorstore::Dims(0, 1).TranslateSizedInterval({1, 5}, {6, 5}))
-               .value(),
-           read_array, absl::InfinitePast());
+      {1, 0}}});
+  auto cache = MakeChunkCache();
+  auto read_future = tensorstore::Read(
+      GetTensorStore(cache, absl::InfinitePast()) |
+      // Read box starting at {1, 5} of shape {6, 5}.
+      tensorstore::Dims(0, 1).TranslateSizedInterval({1, 5}, {6, 5}));
   for (auto cell_indices : std::vector<std::vector<Index>>{{1, 0},
                                                            {1, 1},
                                                            {1, 2},
@@ -672,27 +561,26 @@ TEST_P(ChunkCacheTest, TwoDimensional) {
                                                            {3, 1},
                                                            {3, 2},
                                                            {3, 3}}) {
-    auto r = log.reads.pop();
-    EXPECT_THAT(r.entry->cell_indices(),
-                ::testing::ElementsAreArray(cell_indices));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-    store.HandleRead(std::move(r));
+    auto r = mock_store->read_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ::testing::ElementsAreArray(cell_indices));
+    r(memory_store);
   }
-  ASSERT_EQ(Status(), GetStatus(read_future.result()));
-  EXPECT_EQ(read_array, MakeArray<int>({{6, 4, 5, 6, 4},
-                                        {3, 1, 2, 3, 1},
-                                        {6, 4, 5, 6, 4},
-                                        {3, 1, 2, 3, 1},
-                                        {6, 4, 5, 6, 4},
-                                        {3, 1, 2, 3, 1}}));
+  EXPECT_THAT(read_future.result(),
+              ::testing::Optional(MakeArray<int>({{6, 4, 5, 6, 4},
+                                                  {3, 1, 2, 3, 1},
+                                                  {6, 4, 5, 6, 4},
+                                                  {3, 1, 2, 3, 1},
+                                                  {6, 4, 5, 6, 4},
+                                                  {3, 1, 2, 3, 1}})));
 }
 
 // Tests that an invalid transformed array as the read destination leads to an
 // error.
-TEST_P(ChunkCacheTest, ReadInvalidTransformedArray) {
+TEST_F(ChunkCacheTest, ReadInvalidTransformedArray) {
   // Dimension 0 is chunked with a size of 2.
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  auto cache = MakeChunkCache();
 
   // Create an invalid transformed array: the array has domain [1,3] but the
   // transform has an output range of [0,2].
@@ -700,760 +588,939 @@ TEST_P(ChunkCacheTest, ReadInvalidTransformedArray) {
       tensorstore::AllocateArray<int>(tensorstore::BoxView<1>({1}, {3})),
       tensorstore::IdentityTransform(tensorstore::BoxView<1>({3})));
   auto read_future =
-      Read(0,
-           ChainResult(tensorstore::IdentityTransform(1),
-                       tensorstore::Dims(0).TranslateSizedInterval(3, 3))
-               .value(),
-           read_array, absl::InfinitePast());
-  EXPECT_THAT(GetStatus(read_future.result()),
+      tensorstore::Read(GetTensorStore(cache, absl::InfinitePast()) |
+                            tensorstore::Dims(0).TranslateSizedInterval(3, 3),
+                        read_array);
+  EXPECT_THAT(read_future.result(),
               MatchesStatus(absl::StatusCode::kOutOfRange));
 }
 
-TEST_P(ChunkCacheTest, ReadRequestErrorBasic) {
+TEST_F(ChunkCacheTest, ReadRequestErrorBasic) {
   // Dimension 0 is chunked with a size of 2.
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+
+  auto cache = MakeChunkCache();
 
   // Test a read request failing (e.g. because the request to the underlying
   // storage system failed).
   {
-    auto read_array = tensorstore::AllocateArray<int>({3});
     auto read_future =
-        Read(0,
-             ChainResult(tensorstore::IdentityTransform(1),
-                         tensorstore::Dims(0).TranslateSizedInterval(3, 3))
-                 .value(),
-             read_array, absl::InfinitePast());
+        tensorstore::Read(GetTensorStore(cache, absl::InfinitePast()) |
+                          tensorstore::Dims(0).TranslateSizedInterval(3, 3));
     {
-      auto r = log.reads.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-      store.HandleRead(std::move(r));
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+      r(memory_store);
     }
     {
-      auto r = log.reads.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(2));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-
-      cache->NotifyReadError(r.entry.get(),
-                             absl::UnknownError("Test read error"));
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(2));
+      r.promise.SetResult(absl::UnknownError("Test read error"));
     }
-    EXPECT_EQ(absl::UnknownError("Test read error"),
-              GetStatus(read_future.result()));
+    EXPECT_THAT(read_future.result(),
+                MatchesStatus(absl::StatusCode::kUnknown,
+                              "Error reading .*: Test read error"));
   }
 
-  // Test that the error is cached.
+  // Test that the error is not cached.
   {
-    auto read_array = tensorstore::AllocateArray<int>({3});
     auto read_future =
-        Read(0,
-             ChainResult(tensorstore::IdentityTransform(1),
-                         tensorstore::Dims(0).TranslateSizedInterval(3, 3))
-                 .value(),
-             read_array, absl::InfinitePast());
-    EXPECT_EQ(absl::UnknownError("Test read error"),
-              GetStatus(read_future.result()));
+        tensorstore::Read(GetTensorStore(cache, absl::InfinitePast()) |
+                          tensorstore::Dims(0).TranslateSizedInterval(3, 3));
+    {
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(2));
+      r.promise.SetResult(absl::UnknownError("Test read error 2"));
+    }
+    EXPECT_THAT(read_future.result(),
+                MatchesStatus(absl::StatusCode::kUnknown,
+                              "Error reading .*: Test read error 2"));
   }
 
   // Test that the request is repeated if we require a later timestamp.
   {
-    auto read_array = tensorstore::AllocateArray<int>({3});
     auto read_future =
-        Read(0,
-             ChainResult(tensorstore::IdentityTransform(1),
-                         tensorstore::Dims(0).TranslateSizedInterval(3, 3))
-                 .value(),
-             read_array, absl::InfiniteFuture());
+        tensorstore::Read(GetTensorStore(cache, absl::InfiniteFuture()) |
+                          tensorstore::Dims(0).TranslateSizedInterval(3, 3));
     {
-      auto r = log.reads.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::NoValue(), r.generation);
-      store.HandleRead(std::move(r));
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+      r(memory_store);
     }
     {
-      auto r = log.reads.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(2));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-      store.HandleRead(std::move(r));
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(2));
+      r(memory_store);
     }
-    EXPECT_TRUE(read_future.result());
-    EXPECT_EQ(read_array, tensorstore::MakeArray({2, 1, 2}));
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(tensorstore::MakeArray({2, 1, 2})));
   }
 }
 
-TEST_P(ChunkCacheTest, WriteSingleComponentOneDimensional) {
+TEST_F(ChunkCacheTest, WriteSingleComponentOneDimensional) {
   // Dimension 0 is chunked with a size of 2.
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  auto cache = MakeChunkCache();
 
   // Write chunk 1: [1]=3
   // Write chunk 2: [0]=4, [1]=5
   // Write chunk 3: [0]=6
   auto write_future =
-      Write(0,
-            ChainResult(tensorstore::IdentityTransform(1),
-                        tensorstore::Dims(0).TranslateSizedInterval(3, 4))
-                .value(),
-            MakeArray<int>({3, 4, 5, 6}));
+      tensorstore::Write(MakeArray<int>({3, 4, 5, 6}),
+                         GetTensorStore(cache) |
+                             tensorstore::Dims(0).TranslateSizedInterval(3, 4));
 
   // Test that reading a dirty chunk issues a read request and returns fill
   // value.
   {
-    auto read_array = tensorstore::AllocateArray<int>({2});
     auto read_future =
-        Read(0,
-             ChainResult(tensorstore::IdentityTransform(1),
-                         tensorstore::Dims(0).TranslateSizedInterval(6, 2))
-                 .value(),
-             read_array, absl::InfinitePast());
+        tensorstore::Read(GetTensorStore(cache, absl::InfinitePast()) |
+                          tensorstore::Dims(0).TranslateSizedInterval(6, 2));
     {
-      auto r = log.reads.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(3));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-      store.HandleRead(std::move(r));
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(3));
+      r(memory_store);
     }
-    EXPECT_TRUE(read_future.result());
-    EXPECT_EQ(read_array, tensorstore::MakeArray({1, 2}));
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(tensorstore::MakeArray({1, 2})));
   }
 
   // Test that writeback issues a read request for chunk 1, and writeback
-  // requests for chunks 2 and 3.
+  // requests for chunks 2, 3, and 1.
   write_future.Force();
   {
-    auto r = log.reads.pop();
-    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-    store.HandleRead(r);
+    auto r = mock_store->read_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+    r(memory_store);
   }
   {
-    auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(2));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-    store.HandleWriteback(std::move(r))();
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(2));
+    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+    r(memory_store);
   }
+  EXPECT_THAT(GetChunk({2}), ElementsAre(MakeArray<int>({4, 5})));
   {
-    auto& chunk = store.GetChunk(span<const Index>({2}));
-    EXPECT_EQ(1, chunk.generation);
-    EXPECT_THAT(chunk.data, ElementsAre(MakeArray<int>({4, 5})));
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(3));
+    EXPECT_EQ(StorageGeneration::NoValue(), r.options.if_equal);
+    r(memory_store);
   }
+  EXPECT_THAT(GetChunk({3}), ElementsAre(MakeArray<int>({6, 2})));
   {
-    auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(3));
-    EXPECT_EQ(StorageGeneration::NoValue(), r.generation);
-    store.HandleWriteback(std::move(r))();
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+    EXPECT_EQ(StorageGeneration::NoValue(), r.options.if_equal);
+    r(memory_store);
   }
-  {
-    auto& chunk = store.GetChunk(span<const Index>({3}));
-    EXPECT_EQ(1, chunk.generation);
-    EXPECT_THAT(chunk.data, ElementsAre(MakeArray<int>({6, 2})));
-  }
-  {
-    auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-    EXPECT_EQ(StorageGeneration::NoValue(), r.generation);
-    store.HandleWriteback(std::move(r))();
-  }
-  {
-    auto& chunk = store.GetChunk(span<const Index>({1}));
-    EXPECT_EQ(1, chunk.generation);
-    EXPECT_THAT(chunk.data, ElementsAre(MakeArray<int>({1, 3})));
-  }
-  EXPECT_TRUE(write_future.result());
+  EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray<int>({1, 3})));
+  TENSORSTORE_EXPECT_OK(write_future);
 }
 
 // Tests that overwriting a non-present chunk with the fill value results in the
 // chunk remaining deleted.
-TEST_P(ChunkCacheTest, OverwriteMissingWithFillValue) {
+TEST_F(ChunkCacheTest, OverwriteMissingWithFillValue) {
   // Dimension 0 is chunked with a size of 2.
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  auto cache = MakeChunkCache();
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
   // Overwrite chunk 1: [0]=1, [1]=2 (matches fill value)
   auto write_future =
-      Write(0,
-            ChainResult(tensorstore::IdentityTransform(1),
-                        tensorstore::Dims(0).TranslateSizedInterval(2, 2))
-                .value(),
-            MakeArray<int>({1, 2}));
-  // Initially the representation is not normalized.
-  EXPECT_NE(nullptr, cell_entry->components[0].write_state.data);
+      tensorstore::Write(MakeArray<int>({1, 2}),
+                         GetTensorStore(cache) |
+                             tensorstore::Dims(0).TranslateSizedInterval(2, 2));
   write_future.Force();
   {
-    auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-    auto complete_writeback = store.HandleWriteback(r);
-    // Test that after starting the writeback, the representation has been
-    // normalized such that no data is stored.  The normalization is done by
-    // `WritebackSnapshot`.
-    EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
-    complete_writeback();
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+    r(memory_store);
   }
-  EXPECT_FALSE(store.HasChunk(span<const Index>({1})));
-  EXPECT_TRUE(write_future.result());
-  // Verify that `cell_entry` still doesn't store data.
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
+  EXPECT_FALSE(HasChunk({1}));
+  TENSORSTORE_EXPECT_OK(write_future);
 }
 
 // Tests that overwriting an existing chunk with the fill value results in the
 // chunk being deleted.
-TEST_P(ChunkCacheTest, OverwriteExistingWithFillValue) {
+TEST_F(ChunkCacheTest, OverwriteExistingWithFillValue) {
   // Dimension 0 is chunked with a size of 2.
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  auto cache = MakeChunkCache();
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
-  // Sanity check that entry initially contains no data.
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
   // Write initial value to chunk 1: [0]=3, [1]=4
   {
-    auto write_future =
-        Write(0,
-              ChainResult(tensorstore::IdentityTransform(1),
-                          tensorstore::Dims(0).TranslateSizedInterval(2, 2))
-                  .value(),
-              MakeArray<int>({3, 4}));
+    auto write_future = tensorstore::Write(
+        MakeArray<int>({3, 4}),
+        GetTensorStore(cache) |
+            tensorstore::Dims(0).TranslateSizedInterval(2, 2));
     write_future.Force();
     {
-      auto r = log.writebacks.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-      store.HandleWriteback(r)();
+      auto r = mock_store->write_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      r(memory_store);
     }
-    EXPECT_EQ(Status(), GetStatus(write_future.result()));
-    EXPECT_TRUE(store.HasChunk(span<const Index>({1})));
+    TENSORSTORE_EXPECT_OK(write_future);
+    EXPECT_TRUE(HasChunk({1}));
   }
 
   // Overwrite chunk 1 with fill value: [0]=1, [1]=2
   {
-    auto write_future =
-        Write(0,
-              ChainResult(tensorstore::IdentityTransform(1),
-                          tensorstore::Dims(0).TranslateSizedInterval(2, 2))
-                  .value(),
-              MakeArray<int>({1, 2}));
+    auto write_future = tensorstore::Write(
+        MakeArray<int>({1, 2}),
+        GetTensorStore(cache) |
+            tensorstore::Dims(0).TranslateSizedInterval(2, 2));
     write_future.Force();
     {
-      auto r = log.writebacks.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-      EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
-      store.HandleWriteback(r)();
+      auto r = mock_store->write_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      r(memory_store);
     }
-    EXPECT_FALSE(store.HasChunk(span<const Index>({1})));
-    EXPECT_TRUE(write_future.result());
+    EXPECT_FALSE(HasChunk({1}));
+    TENSORSTORE_EXPECT_OK(write_future);
   }
-  // Test that after writeback, the representation has been normalized such that
-  // no data is stored.
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
 }
 
 // Tests that deleting a chunk that was previously written results in the chunk
 // being deleted.
-TEST_P(ChunkCacheTest, DeleteAfterNormalWriteback) {
+TEST_F(ChunkCacheTest, DeleteAfterNormalWriteback) {
   // Dimension 0 is chunked with a size of 2.
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  auto cache = MakeChunkCache();
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
   // Write initial value to chunk 1: [0]=3, [1]=4
   {
-    auto write_future =
-        Write(0,
-              ChainResult(tensorstore::IdentityTransform(1),
-                          tensorstore::Dims(0).TranslateSizedInterval(2, 2))
-                  .value(),
-              MakeArray<int>({3, 4}));
+    auto write_future = tensorstore::Write(
+        MakeArray<int>({3, 4}),
+        GetTensorStore(cache) |
+            tensorstore::Dims(0).TranslateSizedInterval(2, 2));
     write_future.Force();
     {
-      auto r = log.writebacks.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-      store.HandleWriteback(r)();
+      auto r = mock_store->write_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      r(memory_store);
     }
-    EXPECT_EQ(Status(), GetStatus(write_future.result()));
-    EXPECT_TRUE(store.HasChunk(span<const Index>({1})));
+    TENSORSTORE_EXPECT_OK(write_future);
+    EXPECT_TRUE(HasChunk({1}));
   }
 
   // Perform delete.
-  auto write_future = cell_entry->Delete();
+  auto write_future = cell_entry->Delete({});
   write_future.Force();
   {
-    auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-    EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
-    store.HandleWriteback(r)();
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+    r(memory_store);
   }
-  EXPECT_FALSE(store.HasChunk(span<const Index>({1})));
-  EXPECT_TRUE(write_future.result());
-  // Test that after writeback, the representation has been normalized such that
-  // no data is stored.
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
+  EXPECT_FALSE(HasChunk({1}));
+  TENSORSTORE_EXPECT_OK(write_future);
 }
 
-TEST_P(ChunkCacheTest, PartialWriteAfterPendingDelete) {
+TEST_F(ChunkCacheTest, PartialWriteAfterPendingDelete) {
   // Dimension 0 is chunked with a size of 2.
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  auto cache = MakeChunkCache();
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
   // Write initial value to chunk 1: [0]=3, [1]=4
   {
-    auto write_future =
-        Write(0,
-              ChainResult(tensorstore::IdentityTransform(1),
-                          tensorstore::Dims(0).TranslateSizedInterval(2, 2))
-                  .value(),
-              MakeArray<int>({3, 4}));
+    auto write_future = tensorstore::Write(
+        MakeArray<int>({3, 4}),
+        GetTensorStore(cache) |
+            tensorstore::Dims(0).TranslateSizedInterval(2, 2));
     write_future.Force();
     {
-      auto r = log.writebacks.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-      store.HandleWriteback(r)();
+      auto r = mock_store->write_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      r(memory_store);
     }
-    EXPECT_EQ(Status(), GetStatus(write_future.result()));
-    EXPECT_TRUE(store.HasChunk(span<const Index>({1})));
+    TENSORSTORE_EXPECT_OK(write_future);
+    EXPECT_TRUE(HasChunk({1}));
   }
 
-  auto delete_future = cell_entry->Delete();
-  // Test that no data is stored.
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
+  auto delete_future = cell_entry->Delete({});
 
   // Issue partial write: chunk 1, position [0]=5
   {
-    auto write_future =
-        Write(0,
-              ChainResult(tensorstore::IdentityTransform(1),
-                          tensorstore::Dims(0).TranslateSizedInterval(2, 1))
-                  .value(),
-              MakeArray<int>({5}));
+    auto write_future = tensorstore::Write(
+        MakeArray<int>({5}),
+        GetTensorStore(cache) |
+            tensorstore::Dims(0).TranslateSizedInterval(2, 1));
     write_future.Force();
     {
-      auto r = log.writebacks.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-      EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
-      store.HandleWriteback(r)();
+      auto r = mock_store->write_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      r(memory_store);
     }
-    TENSORSTORE_EXPECT_OK(write_future.result());
-    TENSORSTORE_EXPECT_OK(delete_future.result());
+    TENSORSTORE_EXPECT_OK(write_future);
+    TENSORSTORE_EXPECT_OK(delete_future);
 
-    ASSERT_TRUE(store.HasChunk(span<const Index>({1})));
-    auto& chunk = store.GetChunk(span<const Index>({1}));
-    EXPECT_EQ(2, chunk.generation);
-    EXPECT_THAT(chunk.data, ElementsAre(MakeArray({5, 2})));
+    EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray({5, 2})));
   }
 
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
-  EXPECT_EQ(MakeArray<int>({5, 2}), cell_entry->components[0].read_array);
+  EXPECT_EQ(
+      MakeArray<int>({5, 2}),
+      ChunkCache::GetReadComponent(
+          AsyncCache::ReadLock<ChunkCache::ReadData>(*cell_entry).data(), 0));
 
   // Read back value from cache.
   {
-    auto read_array = tensorstore::AllocateArray<int>({2});
     auto read_future =
-        Read(0,
-             ChainResult(tensorstore::IdentityTransform(1),
-                         tensorstore::Dims(0).TranslateSizedInterval(2, 2))
-                 .value(),
-             read_array, absl::InfinitePast());
-    EXPECT_EQ(Status(), GetStatus(read_future.result()));
+        tensorstore::Read(GetTensorStore(cache, absl::InfinitePast()) |
+                          tensorstore::Dims(0).TranslateSizedInterval(2, 2));
     // Read result corresponds to:
     // [0]: chunk 1, position [0]
     // [1]: chunk 1, position [1] (fill value)
-    EXPECT_EQ(MakeArray<int>({5, 2}), read_array);
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(MakeArray<int>({5, 2})));
   }
 }
 
 // Tests that a partial write works correctly after a delete that has been
 // written back.
-TEST_P(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
+TEST_F(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
   // Dimension 0 is chunked with a size of 2.
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  auto cache = MakeChunkCache();
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
   // Cell initially has unknown data because no reads have been performed.
-  EXPECT_EQ(nullptr, cell_entry->components[0].read_array.data());
-  auto write_future = cell_entry->Delete();
-  // Cell has known data equal to fill value after the Delete (indicated by
-  // nullptr).
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
+  EXPECT_EQ(
+      nullptr,
+      ChunkCache::GetReadComponent(
+          AsyncCache::ReadLock<ChunkCache::ReadData>(*cell_entry).data(), 0)
+          .data());
+  auto write_future = cell_entry->Delete({});
   write_future.Force();
   {
-    auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-    store.HandleWriteback(r)();
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+    r(memory_store);
   }
-  EXPECT_FALSE(store.HasChunk(span<const Index>({1})));
-  EXPECT_TRUE(write_future.result());
-  // Data should still not be present after writeback.
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
+  EXPECT_FALSE(HasChunk({1}));
+  TENSORSTORE_EXPECT_OK(write_future);
 
   // Issue partial write: chunk 1, position [0]=3
   {
-    auto write_future =
-        Write(0,
-              ChainResult(tensorstore::IdentityTransform(1),
-                          tensorstore::Dims(0).TranslateSizedInterval(2, 1))
-                  .value(),
-              MakeArray<int>({3}));
-    ASSERT_NE(nullptr, cell_entry->components[0].write_state.data);
-    EXPECT_EQ(3, static_cast<int*>(
-                     cell_entry->components[0].write_state.data.get())[0]);
-
+    auto write_future = tensorstore::Write(
+        MakeArray<int>({3}),
+        GetTensorStore(cache) |
+            tensorstore::Dims(0).TranslateSizedInterval(2, 1));
     write_future.Force();
     {
-      auto r = log.writebacks.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::NoValue(), r.generation);
-      auto complete_writeback = store.HandleWriteback(r);
+      auto r = mock_store->write_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+      EXPECT_EQ(StorageGeneration::NoValue(), r.options.if_equal);
       // WritebackSnapshot fills in the unmasked data values with the fill
       // value.
-      ASSERT_EQ(nullptr, cell_entry->components[0].write_state.data);
-      ASSERT_NE(nullptr, cell_entry->components[0].writeback_state.data);
-      EXPECT_EQ(3,
-                static_cast<int*>(
-                    cell_entry->components[0].writeback_state.data.get())[0]);
-      EXPECT_EQ(2,
-                static_cast<int*>(
-                    cell_entry->components[0].writeback_state.data.get())[1]);
-      complete_writeback();
+      r(memory_store);
     }
-    EXPECT_EQ(Status(), GetStatus(write_future.result()));
-    ASSERT_TRUE(store.HasChunk(span<const Index>({1})));
-    auto& chunk = store.GetChunk(span<const Index>({1}));
-    EXPECT_EQ(1, chunk.generation);
-    EXPECT_THAT(chunk.data, ElementsAre(MakeArray({3, 2})));
+    TENSORSTORE_EXPECT_OK(write_future);
+    EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray({3, 2})));
   }
 
   // Read back value from cache.
   {
-    auto read_array = tensorstore::AllocateArray<int>({2});
     auto read_future =
-        Read(0,
-             ChainResult(tensorstore::IdentityTransform(1),
-                         tensorstore::Dims(0).TranslateSizedInterval(2, 2))
-                 .value(),
-             read_array, absl::InfinitePast());
-    EXPECT_EQ(Status(), GetStatus(read_future.result()));
+        tensorstore::Read(GetTensorStore(cache, absl::InfinitePast()) |
+                          tensorstore::Dims(0).TranslateSizedInterval(2, 2));
     // Read result corresponds to:
     // [0]: chunk 1, position [0]
     // [1]: chunk 1, position [1] (fill value)
-    EXPECT_EQ(MakeArray<int>({3, 2}), read_array);
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(MakeArray<int>({3, 2})));
   }
 }
 
 // Tests reading a chunk while it has a pending delete.
-TEST_P(ChunkCacheTest, ReadAfterPendingDelete) {
+TEST_F(ChunkCacheTest, ReadAfterPendingDelete) {
   // Dimension 0 is chunked with a size of 2.
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  auto cache = MakeChunkCache();
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
   // Perform delete.
-  auto write_future = cell_entry->Delete();
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
+  auto write_future = cell_entry->Delete({});
 
   // Read back value from cache.
   {
-    auto read_array = tensorstore::AllocateArray<int>({2});
     auto read_future =
-        Read(0,
-             ChainResult(tensorstore::IdentityTransform(1),
-                         tensorstore::Dims(0).TranslateSizedInterval(2, 2))
-                 .value(),
-             read_array, absl::InfinitePast());
-
+        tensorstore::Read(GetTensorStore(cache, absl::InfinitePast()) |
+                          tensorstore::Dims(0).TranslateSizedInterval(2, 2));
     {
-      auto r = log.reads.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-      store.HandleRead(std::move(r));
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      r(memory_store);
     }
-
-    EXPECT_EQ(Status(), GetStatus(read_future.result()));
     // Read result corresponds to:
     // [0]: chunk 1, position [0] (fill value)
     // [1]: chunk 1, position [1] (fill value)
-    EXPECT_EQ(MakeArray<int>({1, 2}), read_array);
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(MakeArray<int>({1, 2})));
   }
 }
 
 // Tests calling Delete on a chunk while a read is pending.
-TEST_P(ChunkCacheTest, DeleteWithPendingRead) {
+TEST_F(ChunkCacheTest, DeleteWithPendingRead) {
   // Dimension 0 is chunked with a size of 2.
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  auto cache = MakeChunkCache();
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
-  auto read_array = tensorstore::AllocateArray<int>({2});
   // Read chunk 1, position [0] and [1]
   auto read_future =
-      Read(0,
-           ChainResult(tensorstore::IdentityTransform(1),
-                       tensorstore::Dims(0).TranslateSizedInterval(2, 2))
-               .value(),
-           read_array, absl::InfinitePast());
+      tensorstore::Read(GetTensorStore(cache, absl::InfinitePast()) |
+                        tensorstore::Dims(0).TranslateSizedInterval(2, 2));
   // Wait for the read request to be received.
-  auto r = log.reads.pop();
+  auto r = mock_store->read_requests.pop();
 
   // Perform delete.  This fully overwrites chunk 1.
-  auto write_future = cell_entry->Delete();
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
+  auto write_future = cell_entry->Delete({});
 
   // Complete the read request.
-  EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-  EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-  store.HandleRead(r);
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
-
-  TENSORSTORE_EXPECT_OK(read_future.result());
+  EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+  EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_not_equal);
+  r(memory_store);
 
   // Verify that read result matches fill value.
-  EXPECT_EQ(MakeArray<int>({1, 2}), read_array);
-  EXPECT_EQ(nullptr, cell_entry->components[0].write_state.data);
+  EXPECT_THAT(read_future.result(),
+              ::testing::Optional(MakeArray<int>({1, 2})));
 }
 
-TEST_P(ChunkCacheTest, WriteToMaskedArrayError) {
+TEST_F(ChunkCacheTest, WriteToMaskedArrayError) {
   // Dimension 0 is chunked with a size of 2.
   // Dimension 1 has a size of 2 and is not chunked.
   // Fill value is: {{1,2}, {3,4}}
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
       SharedArray<const void>(MakeArray<int>({{1, 2}, {3, 4}})),
       Box<>(2),
-      {0}}}));
+      {0}}});
 
+  auto cache = MakeChunkCache();
   auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
-  auto write_future =
-      Write(0,
-            ChainResult(tensorstore::IdentityTransform(2),
-                        // Specify out-of-bounds index of 2 for dimension 1.
-                        tensorstore::Dims(1)
-                            .IndexArraySlice(MakeArray<Index>({2, 2}))
-                            .MoveToBack(),
-                        // Select single index of dimension 0.
-                        tensorstore::Dims(0).IndexSlice(2))
-                .value(),
-            MakeArray<int>({5, 6}));
+  auto write_future = tensorstore::Write(
+      MakeArray<int>({5, 6}),
+      GetTensorStore(cache)
+          // Specify out-of-bounds index of 2 for dimension 1.
+          | tensorstore::Dims(1)
+                .IndexArraySlice(MakeArray<Index>({2, 2}))
+                .MoveToBack()
+          // Select single index of dimension 0.
+          | tensorstore::Dims(0).IndexSlice(2));
   EXPECT_THAT(write_future.result(),
               MatchesStatus(absl::StatusCode::kOutOfRange));
-  EXPECT_TRUE(cell_entry->components[0].write_state.data);
-  EXPECT_EQ(0, cell_entry->components[0].write_state.mask.num_masked_elements);
 
   // Verify read of same chunk after failed write returns fill value.
-  auto read_array = tensorstore::AllocateArray<int>({2, 2});
-  auto read_future =
-      Read(0,
-           ChainResult(
-               tensorstore::IdentityTransform(2),
-               tensorstore::Dims(0, 1).TranslateSizedInterval({2, 0}, {2, 2}))
-               .value(),
-           read_array, absl::InfinitePast());
+  auto read_future = tensorstore::Read(
+      GetTensorStore(cache, absl::InfinitePast()) |
+      tensorstore::Dims(0, 1).TranslateSizedInterval({2, 0}, {2, 2}));
   // Handle the read request.
   {
-    auto r = log.reads.pop();
-    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-    store.HandleRead(r);
+    auto r = mock_store->read_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_not_equal);
+    r(memory_store);
   }
-  EXPECT_EQ(Status(), GetStatus(read_future.result()));
-  EXPECT_EQ(MakeArray<int>({{1, 2}, {3, 4}}), read_array);
+  EXPECT_THAT(read_future.result(),
+              ::testing::Optional(MakeArray<int>({{1, 2}, {3, 4}})));
 }
 
 // Tests writeback where the store was modified after the read and before the
 // writeback.
-TEST_P(ChunkCacheTest, WriteGenerationMismatch) {
+TEST_F(ChunkCacheTest, WriteGenerationMismatch) {
   // Dimension 0 is chunked with a size of 2.
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}}));
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+
+  auto cache = MakeChunkCache();
 
   auto write_future =
-      Write(0,
-            ChainResult(tensorstore::IdentityTransform(1),
-                        tensorstore::Dims(0).TranslateSizedInterval(3, 1))
-                .value(),
-            MakeArray<int>({3}));
+      tensorstore::Write(MakeArray<int>({3}),
+                         GetTensorStore(cache) |
+                             tensorstore::Dims(0).TranslateSizedInterval(3, 1));
 
   write_future.Force();
   // Initialize chunk 1 in the store.
-  {
-    auto& chunk = store.GetChunk(span<const Index>({1}));
-    chunk.generation = 1;
-    chunk.data.resize(1);
-    chunk.data[0] = MakeArray({5, 6});
-  }
+  SetChunk({1}, {MakeArray({5, 6})});
+
   // Handle the read request for chunk 1, which copies the generation 1 data
   // into the cache.
   {
-    auto r = log.reads.pop();
-    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-    store.HandleRead(r);
+    auto r = mock_store->read_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_not_equal);
+    r(memory_store);
   }
+
   // Modify chunk 1 in the store.
-  {
-    auto& chunk = store.GetChunk(span<const Index>({1}));
-    chunk.generation = 2;
-    chunk.data.resize(1);
-    chunk.data[0] = MakeArray({7, 8});
-  }
+  SetChunk({1}, {MakeArray({7, 8})});
+
   // Handle the writeback request for chunk 1, which fails due to a generation
   // mismatch.
   {
-    auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-    EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
-    store.HandleWriteback(std::move(r))();
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+    EXPECT_NE(StorageGeneration::Unknown(), r.options.if_equal);
+    r(memory_store);
   }
   // Handle the re-issued read request for chunk 1.
   {
-    auto r = log.reads.pop();
-    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-    EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
-    store.HandleRead(r);
+    auto r = mock_store->read_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+    r(memory_store);
   }
   // Handle the re-issued writeback request for chunk 1.
   {
-    auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-    EXPECT_EQ(GetStorageGenerationFromNumber(2), r.generation);
-    store.HandleWriteback(std::move(r))();
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+    EXPECT_NE(StorageGeneration::Unknown(), r.options.if_equal);
+    r(memory_store);
   }
-  EXPECT_TRUE(write_future.result());
-  {
-    auto& chunk = store.GetChunk(span<const Index>({1}));
-    EXPECT_EQ(3, chunk.generation);
-    EXPECT_THAT(chunk.data, ElementsAre(MakeArray({7, 3})));
-  }
+  TENSORSTORE_EXPECT_OK(write_future);
+  EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray({7, 3})));
 }
 
-TEST_P(ChunkCacheTest, ModifyDuringWriteback) {
+TEST_F(ChunkCacheTest, ModifyDuringWriteback) {
   // Dimension 0 is chunked with a size of 4.
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2, 3, 4})), Box<>(1)}}));
-
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2, 3, 4})), Box<>(1)}});
+  auto cache = MakeChunkCache();
   // Partial write to chunk 0: [1]=5, [3]=6
-  auto write_future =
-      Write(0,
-            ChainResult(
-                tensorstore::IdentityTransform(1),
-                tensorstore::Dims(0).IndexArraySlice(MakeArray<Index>({1, 3})))
-                .value(),
-            MakeArray<int>({5, 6}));
+  auto write_future = tensorstore::Write(
+      MakeArray<int>({5, 6}),
+      GetTensorStore(cache) |
+          tensorstore::Dims(0).IndexArraySlice(MakeArray<Index>({1, 3})));
 
   write_future.Force();
   // Handle the read request for chunk 0 (the chunk was only partially
   // overwritten).
   {
-    auto r = log.reads.pop();
-    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(0));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-    store.HandleRead(r);
+    auto r = mock_store->read_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_not_equal);
+    r(memory_store);
   }
 
   Future<const void> write_future2;
   // Handle the writeback request for chunk 1.
   {
-    auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(0));
-    EXPECT_EQ(StorageGeneration::NoValue(), r.generation);
-    auto complete_writeback = store.HandleWriteback(std::move(r));
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+    EXPECT_EQ(StorageGeneration::NoValue(), r.options.if_equal);
     // While the writeback is in progress, write to chunk 0 again: [2]=7
-    write_future2 = Write(
-        0,
-        ChainResult(tensorstore::IdentityTransform(1),
-                    tensorstore::Dims(0).IndexArraySlice(MakeArray<Index>({2})))
-            .value(),
-        MakeArray<int>({7}));
-    complete_writeback();
+    write_future2 =
+        tensorstore::Write(
+            MakeArray<int>({7}),
+            GetTensorStore(cache) |
+                tensorstore::Dims(0).IndexArraySlice(MakeArray<Index>({2})))
+            .commit_future;
+    r(memory_store);
   }
 
-  TENSORSTORE_EXPECT_OK(write_future.result());
-  {
-    // Verify that the writeback didn't include the second write.
-    auto& chunk = store.GetChunk(span<const Index>({0}));
-    EXPECT_EQ(1, chunk.generation);
-    EXPECT_THAT(chunk.data, ElementsAre(MakeArray({1, 5, 3, 6})));
-    chunk.data[0] = MakeArray({10, 11, 12, 13});
-    chunk.generation = 2;
-  }
+  TENSORSTORE_EXPECT_OK(write_future);
+
+  // Verify that the writeback didn't include the second write.
+  EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray({1, 5, 3, 6})));
+
+  // Modify the chunk in the `memory_store`.
+  SetChunk({0}, {MakeArray({10, 11, 12, 13})});
+
   write_future2.Force();
   // Handle the writeback request for chunk 0 (will fail due to generation
   // mismatch).
   {
-    auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(0));
-    EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
-    store.HandleWriteback(std::move(r))();
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+    EXPECT_NE(StorageGeneration::Unknown(), r.options.if_equal);
+    r(memory_store);
   }
   // Handle the re-issued read request due to the generation mismatch.
   {
-    auto r = log.reads.pop();
-    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(0));
-    EXPECT_EQ(GetStorageGenerationFromNumber(1), r.generation);
-    store.HandleRead(r);
+    auto r = mock_store->read_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+    r(memory_store);
   }
   // Handle the re-issued writeback request for chunk 0.
   {
-    auto r = log.writebacks.pop();
-    EXPECT_THAT(r.entry->cell_indices(), ElementsAre(0));
-    EXPECT_TRUE(r.entry->components[0].write_state.data);
-    EXPECT_EQ(GetStorageGenerationFromNumber(2), r.generation);
-    store.HandleWriteback(std::move(r))();
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+    EXPECT_NE(StorageGeneration::Unknown(), r.options.if_equal);
+    r(memory_store);
   }
-  TENSORSTORE_EXPECT_OK(write_future2.result());
+  TENSORSTORE_EXPECT_OK(write_future2);
+
   // Verify that the writeback only modified the single element touched by the
   // second write.
-  {
-    auto& chunk = store.GetChunk(span<const Index>({0}));
-    EXPECT_EQ(3, chunk.generation);
-    EXPECT_THAT(chunk.data, ElementsAre(MakeArray({10, 11, 7, 13})));
-  }
+  EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray({10, 11, 7, 13})));
 }
 
 // Tests that fully overwriting a partial chunk (as determined by the
 // `component_bounds`) results in an unconditional writeback.
-TEST_P(ChunkCacheTest, FullyOverwritePartialChunk) {
+TEST_F(ChunkCacheTest, FullyOverwritePartialChunk) {
   // Dimension 0 is chunked with a size of 4, but the component bounds are
   // `[1, 6)`, meaning chunk 0 has a valid range of `[1, 4)` and chunk 1 has a
   // valid range of `[4, 6)`.
-  InitCache(ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2, 3, 4})),
-      Box<>({1}, {5})}}));
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2, 3, 4})), Box<>({1}, {5})}});
+  auto cache = MakeChunkCache();
 
   // Fully overwrite chunk 0
   {
-    auto write_future =
-        Write(0,
-              ChainResult(tensorstore::IdentityTransform(1),
-                          tensorstore::Dims(0).HalfOpenInterval(1, 4))
-                  .value(),
-              MakeArray<int>({1, 2, 3}));
+    auto write_future = tensorstore::Write(
+        MakeArray<int>({1, 2, 3}),
+        GetTensorStore(cache) | tensorstore::Dims(0).HalfOpenInterval(1, 4));
     write_future.Force();
     {
-      auto r = log.writebacks.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(0));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-      store.HandleWriteback(std::move(r))();
-      EXPECT_THAT(store.GetChunk(span<const Index>({0})).data,
-                  ElementsAre(MakeArray({1, 1, 2, 3})));
+      auto r = mock_store->write_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      r(memory_store);
+      EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray({1, 1, 2, 3})));
     }
-    TENSORSTORE_ASSERT_OK(write_future.result());
+    TENSORSTORE_ASSERT_OK(write_future);
   }
 
   // Fully overwrite chunk 1
   {
-    auto write_future =
-        Write(0,
-              ChainResult(tensorstore::IdentityTransform(1),
-                          tensorstore::Dims(0).HalfOpenInterval(4, 6))
-                  .value(),
-              MakeArray<int>({4, 5}));
+    auto write_future = tensorstore::Write(
+        MakeArray<int>({4, 5}),
+        GetTensorStore(cache) | tensorstore::Dims(0).HalfOpenInterval(4, 6));
     write_future.Force();
     {
-      auto r = log.writebacks.pop();
-      EXPECT_THAT(r.entry->cell_indices(), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.generation);
-      store.HandleWriteback(std::move(r))();
-      EXPECT_THAT(store.GetChunk(span<const Index>({1})).data,
-                  ElementsAre(MakeArray({4, 5, 3, 4})));
+      auto r = mock_store->write_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      r(memory_store);
+      EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray({4, 5, 3, 4})));
     }
-    TENSORSTORE_ASSERT_OK(write_future.result());
+    TENSORSTORE_ASSERT_OK(write_future);
   }
+}
+
+TEST_F(ChunkCacheTest, WritebackError) {
+  // Dimension 0 is chunked with a size of 2.
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  auto cache = MakeChunkCache();
+
+  auto write_future =
+      tensorstore::Write(
+          MakeArray<int>({3, 4}),
+          GetTensorStore(cache) | tensorstore::Dims(0).SizedInterval(0, 2))
+          .commit_future;
+  write_future.Force();
+
+  {
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+    r.promise.SetResult(absl::UnknownError("Writeback error"));
+  }
+
+  EXPECT_THAT(write_future.result(),
+              MatchesStatus(absl::StatusCode::kUnknown,
+                            "Error writing .*: Writeback error"));
+}
+
+class ChunkCacheTransactionalTest : public ChunkCacheTest,
+                                    public ::testing::WithParamInterface<bool> {
+ protected:
+  bool UseTransaction() const { return GetParam(); }
+};
+
+INSTANTIATE_TEST_SUITE_P(Instantiation, ChunkCacheTransactionalTest,
+                         ::testing::Bool());
+
+// Tests that copying from a chunk to a different chunk in the same
+// `ChunkCache`, when the source chunk has not previously been modified, does
+// not deadlock.
+//
+// There isn't really any reason why this would potentially deadlock, but it
+// serves as a sanity check.
+TEST_P(ChunkCacheTransactionalTest, SelfCopyDifferentChunksNoExistingData) {
+  // Dimension 0 is chunked with a size of 2.
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  auto cache = MakeChunkCache();
+  Transaction transaction{no_transaction};
+  if (UseTransaction()) {
+    transaction = Transaction(tensorstore::isolated);
+  }
+
+  // Copies the fill value of `1` from position 0 to position 3.
+  auto write_future =
+      tensorstore::Copy(GetTensorStore(cache, {}, 0, transaction) |
+                            tensorstore::Dims(0).SizedInterval(0, 1),
+                        GetTensorStore(cache, {}, 0, transaction) |
+                            tensorstore::Dims(0).SizedInterval(3, 1));
+  {
+    auto r = mock_store->read_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+    r(memory_store);
+  }
+  write_future.Force();
+  if (UseTransaction()) {
+    transaction.CommitAsync().IgnoreFuture();
+  }
+  {
+    auto r = mock_store->read_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+    r(memory_store);
+  }
+
+  {
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+    r(memory_store);
+  }
+  TENSORSTORE_EXPECT_OK(write_future);
+  if (UseTransaction()) {
+    TENSORSTORE_EXPECT_OK(transaction.future());
+  }
+
+  EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray<int>({1, 1})));
+}
+
+// Tests that copying from a chunk to a different chunk in the same
+// `ChunkCache`, when the source chunk *has* previously been modified, does not
+// deadlock.
+//
+// There isn't really any reason why this would potentially deadlock, but it
+// serves as a sanity check.
+TEST_P(ChunkCacheTransactionalTest, SelfCopyDifferentChunksWithExistingData) {
+  // Dimension 0 is chunked with a size of 2.
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+
+  auto cache = MakeChunkCache();
+
+  Transaction transaction{no_transaction};
+  if (UseTransaction()) {
+    transaction = Transaction(tensorstore::isolated);
+  }
+
+  // Writes 42 to position 0 and 43 to position 1.
+  auto write_future1 =
+      tensorstore::Write(MakeArray<int>({42, 43}),
+                         GetTensorStore(cache, {}, 0, transaction) |
+                             tensorstore::Dims(0).TranslateSizedInterval(0, 2));
+  // Ensure write completes before Copy to ensure consistent behavior.
+  TENSORSTORE_EXPECT_OK(write_future1.copy_future);
+  auto write_future2 =
+      tensorstore::Copy(GetTensorStore(cache, {}, 0, transaction) |
+                            tensorstore::Dims(0).SizedInterval(0, 1),
+                        GetTensorStore(cache, {}, 0, transaction) |
+                            tensorstore::Dims(0).SizedInterval(3, 1));
+  if (!UseTransaction()) {
+    // For a non-transactional write, the fully-overwritten source chunk is
+    // ignored, and the committed data is requested.
+    auto r = mock_store->read_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+    r(memory_store);
+  }
+  // Ensure that the copying step has completed to ensure consistent behavior.
+  TENSORSTORE_EXPECT_OK(write_future2.copy_future);
+  write_future1.Force();
+  write_future2.Force();
+  if (UseTransaction()) {
+    transaction.CommitAsync().IgnoreFuture();
+  }
+  {
+    auto r = mock_store->read_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+    r(memory_store);
+  }
+
+  // Both chunks will be written back.
+  for (size_t i = 0; i < 2; ++i) {
+    auto r = mock_store->write_requests.pop();
+    r(memory_store);
+  }
+  TENSORSTORE_EXPECT_OK(write_future1);
+  TENSORSTORE_EXPECT_OK(write_future2);
+  if (UseTransaction()) {
+    TENSORSTORE_EXPECT_OK(transaction.future());
+  }
+
+  EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray<int>({42, 43})));
+
+  if (UseTransaction()) {
+    EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray<int>({1, 42})));
+  } else {
+    EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray<int>({1, 1})));
+  }
+}
+
+// Tests that copying from a chunk to itself, when the chunk has not previously
+// been modified, does not deadlock.
+//
+// There isn't really any reason why this would potentially deadlock, but it
+// serves as a sanity check.
+TEST_P(ChunkCacheTransactionalTest, SelfCopySameChunkNoExistingData) {
+  // Dimension 0 is chunked with a size of 2.
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+
+  auto cache = MakeChunkCache();
+
+  Transaction transaction{no_transaction};
+  if (UseTransaction()) {
+    transaction = Transaction(tensorstore::isolated);
+  }
+
+  // Copies the fill value of `1` from position 0 to position 1.
+  auto write_future =
+      tensorstore::Copy(GetTensorStore(cache, {}, 0, transaction) |
+                            tensorstore::Dims(0).SizedInterval(0, 1),
+                        GetTensorStore(cache, {}, 0, transaction) |
+                            tensorstore::Dims(0).SizedInterval(1, 1));
+  {
+    auto r = mock_store->read_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+    r(memory_store);
+  }
+  write_future.Force();
+  if (UseTransaction()) {
+    transaction.CommitAsync().IgnoreFuture();
+  }
+  {
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+    r(memory_store);
+  }
+  TENSORSTORE_EXPECT_OK(write_future);
+  if (UseTransaction()) {
+    TENSORSTORE_EXPECT_OK(transaction.future());
+  }
+
+  EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray<int>({1, 1})));
+}
+
+// Tests that copying from a chunk to itself, when the chunk *has* previously
+// been modified, does not deadlock.
+//
+// In the case of `UseTransaction() == true`, the copy operation involves
+// reading and writing from the same chunk, and relies on `LockCollection` to
+// avoid deadlock.
+TEST_P(ChunkCacheTransactionalTest, SelfCopySameChunkWithExistingData) {
+  // Dimension 0 is chunked with a size of 2.
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  auto cache = MakeChunkCache();
+
+  Transaction transaction{no_transaction};
+  if (UseTransaction()) {
+    transaction = Transaction(tensorstore::isolated);
+  }
+
+  auto write_future1 =
+      tensorstore::Write(MakeArray<int>({42, 43}),
+                         GetTensorStore(cache, {}, 0, transaction) |
+                             tensorstore::Dims(0).TranslateSizedInterval(0, 2));
+  // Ensure write completes before Copy to ensure consistent behavior.
+  TENSORSTORE_EXPECT_OK(write_future1.copy_future);
+  auto write_future2 =
+      tensorstore::Copy(GetTensorStore(cache, {}, 0, transaction) |
+                            tensorstore::Dims(0).SizedInterval(0, 1),
+                        GetTensorStore(cache, {}, 0, transaction) |
+                            tensorstore::Dims(0).SizedInterval(1, 1));
+  if (!UseTransaction()) {
+    // For a non-transactional write, the fully-overwritten source chunk is
+    // ignored, and the committed data is requested.
+    auto r = mock_store->read_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+    r(memory_store);
+  }
+  // Ensure that the copying step has completed to ensure consistent behavior.
+  TENSORSTORE_EXPECT_OK(write_future2.copy_future);
+
+  write_future1.Force();
+  write_future2.Force();
+  if (UseTransaction()) {
+    transaction.CommitAsync().IgnoreFuture();
+  }
+  // Regardless of `UseTransaction()`, both writes are coalesced.
+  {
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+    r(memory_store);
+  }
+
+  TENSORSTORE_EXPECT_OK(write_future1);
+  TENSORSTORE_EXPECT_OK(write_future2);
+  if (UseTransaction()) {
+    TENSORSTORE_EXPECT_OK(transaction.future());
+  }
+
+  if (UseTransaction()) {
+    EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray<int>({42, 42})));
+  } else {
+    // In the non-transactional case, the write to position 1 (`write_future2`)
+    // does not see the prior write of `42` to position 0 (`write_future1`), and
+    // instead reads the fill value of `1`.
+    EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray<int>({42, 1})));
+  }
+}
+
+// As above, tests that copying from a chunk to itself, when the chunk *has*
+// previously been modified, does not deadlock.  Additionally, in this case, the
+// read and write chunks use separate caches (connected to the same
+// KeyValueStore), in order to test the interaction of `AsyncCache::Revoke` with
+// the chunk locking behavior.
+//
+// TODO(jbms): Add variant of this test that writes to a "transformed"
+// TensorStore that locks multiple chunks for writing, once such a transform
+// adapter exists.
+TEST_F(ChunkCacheTest, SelfCopySameChunkSeparateCachesWithExistingData) {
+  // Dimension 0 is chunked with a size of 2.
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  auto cache1 = MakeChunkCache();
+  auto cache2 = MakeChunkCache();
+
+  Transaction transaction(tensorstore::isolated);
+
+  auto write_future1 =
+      tensorstore::Write(MakeArray<int>({42, 43}),
+                         GetTensorStore(cache1, {}, 0, transaction) |
+                             tensorstore::Dims(0).TranslateSizedInterval(0, 2));
+  // Ensure write completes before Copy to ensure consistent behavior.
+  TENSORSTORE_EXPECT_OK(write_future1.copy_future);
+  auto write_future2 =
+      tensorstore::Copy(GetTensorStore(cache1, {}, 0, transaction) |
+                            tensorstore::Dims(0).SizedInterval(0, 1),
+                        GetTensorStore(cache2, {}, 0, transaction) |
+                            tensorstore::Dims(0).SizedInterval(1, 1));
+  // Ensure that the copying step has completed to ensure consistent behavior.
+  TENSORSTORE_EXPECT_OK(write_future2.copy_future);
+
+  write_future1.Force();
+  write_future2.Force();
+  transaction.CommitAsync().IgnoreFuture();
+  {
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+    r(memory_store);
+  }
+
+  TENSORSTORE_EXPECT_OK(write_future1);
+  TENSORSTORE_EXPECT_OK(write_future2);
+  TENSORSTORE_EXPECT_OK(transaction.future());
+
+  EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray<int>({42, 42})));
 }
 
 }  // namespace

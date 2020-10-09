@@ -22,6 +22,7 @@
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/cache.h"
 #include "tensorstore/internal/compression/jpeg.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/parse_json_matches.h"
 #include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/kvstore/key_value_store_testutil.h"
@@ -91,7 +92,7 @@ TEST(DriverTest, OpenNonExisting) {
                                  tensorstore::ReadWriteMode::read_write})
                   .result(),
               MatchesStatus(absl::StatusCode::kNotFound,
-                            ".*Metadata key \"prefix/info\" does not exist"));
+                            ".*Metadata at \"prefix/info\" does not exist"));
 }
 
 TEST(DriverTest, OpenOrCreate) {
@@ -372,45 +373,6 @@ TEST(DriverTest, Create) {
   }
 }
 
-TEST(DriverTest, SpecRaw) {
-  tensorstore::internal::TestTensorStoreDriverSpecRoundtrip(
-      /*full_spec=*/
-      {{"dtype", "uint16"},
-       {"driver", "neuroglancer_precomputed"},
-       {"kvstore", {{"driver", "memory"}}},
-       {"path", "prefix"},
-       {"multiscale_metadata",
-        {
-            {"num_channels", 4},
-            {"type", "image"},
-        }},
-       {"scale_metadata",
-        {
-            {"key", "1_1_1"},
-            {"resolution", {1.0, 1.0, 1.0}},
-            {"encoding", "raw"},
-            {"chunk_size", {3, 2, 2}},
-            {"size", {10, 99, 98}},
-            {"voxel_offset", {1, 2, 3}},
-            {"sharding", nullptr},
-        }},
-       {"scale_index", 0},
-       {"transform",
-        {{"input_labels", {"x", "y", "z", "channel"}},
-         {"input_exclusive_max", {11, 101, 101, 4}},
-         {"input_inclusive_min", {1, 2, 3, 0}}}}},
-      /*minimal_spec=*/
-      {{"dtype", "uint16"},
-       {"driver", "neuroglancer_precomputed"},
-       {"scale_index", 0},
-       {"path", "prefix"},
-       {"kvstore", {{"driver", "memory"}}},
-       {"transform",
-        {{"input_labels", {"x", "y", "z", "channel"}},
-         {"input_exclusive_max", {11, 101, 101, 4}},
-         {"input_inclusive_min", {1, 2, 3, 0}}}}});
-}
-
 TEST(DriverTest, ConvertSpec) {
   ::nlohmann::json spec{
       {"dtype", "uint16"},
@@ -493,132 +455,6 @@ TEST(DriverTest, ConvertSpec) {
             absl::InfinitePast(), absl::InfinitePast()}},
         /*expected_converted_spec=*/converted_spec);
   }
-}
-
-TEST(DriverTest, SpecRawCachePool) {
-  tensorstore::internal::TestTensorStoreDriverSpecRoundtrip(
-      /*full_spec=*/
-      {{"dtype", "uint16"},
-       {"driver", "neuroglancer_precomputed"},
-       {"kvstore", {{"driver", "memory"}}},
-       {"path", "prefix"},
-       {"multiscale_metadata",
-        {
-            {"num_channels", 4},
-            {"type", "image"},
-        }},
-       {"scale_metadata",
-        {
-            {"key", "1_1_1"},
-            {"resolution", {1.0, 1.0, 1.0}},
-            {"encoding", "raw"},
-            {"chunk_size", {3, 2, 2}},
-            {"size", {10, 99, 98}},
-            {"voxel_offset", {1, 2, 3}},
-            {"sharding", nullptr},
-        }},
-       {"scale_index", 0},
-       {"transform",
-        {{"input_labels", {"x", "y", "z", "channel"}},
-         {"input_exclusive_max", {11, 101, 101, 4}},
-         {"input_inclusive_min", {1, 2, 3, 0}}}},
-       {"context", {{"cache_pool", {{"total_bytes_limit", 10000000}}}}}},
-      /*minimal_spec=*/
-      {{"dtype", "uint16"},
-       {"driver", "neuroglancer_precomputed"},
-       {"scale_index", 0},
-       {"path", "prefix"},
-       {"kvstore", {{"driver", "memory"}}},
-       {"transform",
-        {{"input_labels", {"x", "y", "z", "channel"}},
-         {"input_exclusive_max", {11, 101, 101, 4}},
-         {"input_inclusive_min", {1, 2, 3, 0}}}},
-       {"context", {{"cache_pool", {{"total_bytes_limit", 10000000}}}}}});
-}
-
-TEST(DriverTest, SpecRawSharded) {
-  tensorstore::internal::TestTensorStoreDriverSpecRoundtrip(
-      /*full_spec=*/
-      {{"dtype", "uint16"},
-       {"driver", "neuroglancer_precomputed"},
-       {"kvstore", {{"driver", "memory"}}},
-       {"path", "prefix"},
-       {"multiscale_metadata",
-        {
-            {"num_channels", 4},
-            {"type", "image"},
-        }},
-       {"scale_metadata",
-        {
-            {"key", "1_1_1"},
-            {"resolution", {1.0, 1.0, 1.0}},
-            {"encoding", "raw"},
-            {"chunk_size", {3, 2, 2}},
-            {"size", {10, 99, 98}},
-            {"voxel_offset", {1, 2, 3}},
-            {"sharding",
-             {{"@type", "neuroglancer_uint64_sharded_v1"},
-              {"preshift_bits", 1},
-              {"minishard_bits", 2},
-              {"shard_bits", 3},
-              {"data_encoding", "raw"},
-              {"minishard_index_encoding", "raw"},
-              {"hash", "identity"}}},
-        }},
-       {"scale_index", 0},
-       {"transform",
-        {{"input_labels", {"x", "y", "z", "channel"}},
-         {"input_exclusive_max", {11, 101, 101, 4}},
-         {"input_inclusive_min", {1, 2, 3, 0}}}}},
-      /*minimal_spec=*/
-      {{"dtype", "uint16"},
-       {"driver", "neuroglancer_precomputed"},
-       {"scale_index", 0},
-       {"path", "prefix"},
-       {"kvstore", {{"driver", "memory"}}},
-       {"transform",
-        {{"input_labels", {"x", "y", "z", "channel"}},
-         {"input_exclusive_max", {11, 101, 101, 4}},
-         {"input_inclusive_min", {1, 2, 3, 0}}}}});
-}
-
-TEST(DriverTest, SpecCompressedSegmentation) {
-  tensorstore::internal::TestTensorStoreDriverSpecRoundtrip(
-      /*full_spec=*/
-      {{"dtype", "uint32"},
-       {"driver", "neuroglancer_precomputed"},
-       {"kvstore", {{"driver", "memory"}}},
-       {"path", "prefix"},
-       {"multiscale_metadata",
-        {
-            {"num_channels", 4},
-            {"type", "segmentation"},
-        }},
-       {"scale_metadata",
-        {
-            {"key", "1_1_1"},
-            {"resolution", {1.0, 1.0, 1.0}},
-            {"encoding", "compressed_segmentation"},
-            {"compressed_segmentation_block_size", {3, 2, 1}},
-            {"chunk_size", {3, 2, 2}},
-            {"size", {10, 99, 98}},
-            {"voxel_offset", {1, 2, 3}},
-            {"sharding", nullptr},
-        }},
-       {"scale_index", 0},
-       {"transform",
-        {{"input_labels", {"x", "y", "z", "channel"}},
-         {"input_exclusive_max", {11, 101, 101, 4}},
-         {"input_inclusive_min", {1, 2, 3, 0}}}}},
-      /*minimal_spec=*/{{"dtype", "uint32"},
-                        {"driver", "neuroglancer_precomputed"},
-                        {"scale_index", 0},
-                        {"path", "prefix"},
-                        {"kvstore", {{"driver", "memory"}}},
-                        {"transform",
-                         {{"input_labels", {"x", "y", "z", "channel"}},
-                          {"input_exclusive_max", {11, 101, 101, 4}},
-                          {"input_inclusive_min", {1, 2, 3, 0}}}}});
 }
 
 TEST(DriverTest, UnsupportedDataTypeInSpec) {
@@ -1375,47 +1211,251 @@ TEST(DriverTest, CorruptMetadataTest) {
                             "Expected object, but received: \\[1\\]"));
 }
 
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TestTensorStoreDriverSpecRoundtripOptions options;
+  options.test_name = "neuroglancer_precomputed/raw";
+  options.full_spec = {{"dtype", "uint16"},
+                       {"driver", "neuroglancer_precomputed"},
+                       {"kvstore", {{"driver", "memory"}}},
+                       {"path", "prefix"},
+                       {"multiscale_metadata",
+                        {
+                            {"num_channels", 4},
+                            {"type", "image"},
+                        }},
+                       {"scale_metadata",
+                        {
+                            {"key", "1_1_1"},
+                            {"resolution", {1.0, 1.0, 1.0}},
+                            {"encoding", "raw"},
+                            {"chunk_size", {3, 2, 2}},
+                            {"size", {10, 99, 98}},
+                            {"voxel_offset", {1, 2, 3}},
+                            {"sharding", nullptr},
+                        }},
+                       {"scale_index", 0},
+                       {"transform",
+                        {{"input_labels", {"x", "y", "z", "channel"}},
+                         {"input_exclusive_max", {11, 101, 101, 4}},
+                         {"input_inclusive_min", {1, 2, 3, 0}}}}};
+  options.minimal_spec = {{"dtype", "uint16"},
+                          {"driver", "neuroglancer_precomputed"},
+                          {"scale_index", 0},
+                          {"path", "prefix"},
+                          {"kvstore", {{"driver", "memory"}}},
+                          {"transform",
+                           {{"input_labels", {"x", "y", "z", "channel"}},
+                            {"input_exclusive_max", {11, 101, 101, 4}},
+                            {"input_inclusive_min", {1, 2, 3, 0}}}}};
+  tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
+      std::move(options));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TestTensorStoreDriverSpecRoundtripOptions options;
+  options.test_name = "raw/cache_pool";
+  options.full_spec = {
+      {"dtype", "uint16"},
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"path", "prefix"},
+      {"multiscale_metadata",
+       {
+           {"num_channels", 4},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"key", "1_1_1"},
+           {"resolution", {1.0, 1.0, 1.0}},
+           {"encoding", "raw"},
+           {"chunk_size", {3, 2, 2}},
+           {"size", {10, 99, 98}},
+           {"voxel_offset", {1, 2, 3}},
+           {"sharding", nullptr},
+       }},
+      {"scale_index", 0},
+      {"transform",
+       {{"input_labels", {"x", "y", "z", "channel"}},
+        {"input_exclusive_max", {11, 101, 101, 4}},
+        {"input_inclusive_min", {1, 2, 3, 0}}}},
+      {"context", {{"cache_pool", {{"total_bytes_limit", 10000000}}}}},
+  };
+  options.minimal_spec = {
+      {"dtype", "uint16"},
+      {"driver", "neuroglancer_precomputed"},
+      {"scale_index", 0},
+      {"path", "prefix"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"transform",
+       {{"input_labels", {"x", "y", "z", "channel"}},
+        {"input_exclusive_max", {11, 101, 101, 4}},
+        {"input_inclusive_min", {1, 2, 3, 0}}}},
+      {"context", {{"cache_pool", {{"total_bytes_limit", 10000000}}}}},
+  };
+  options.check_transactional_open_before_commit = false;
+  tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
+      std::move(options));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TestTensorStoreDriverSpecRoundtripOptions options;
+  options.test_name = "raw/sharded";
+  options.full_spec = {
+      {"dtype", "uint16"},
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"path", "prefix"},
+      {"multiscale_metadata",
+       {
+           {"num_channels", 4},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"key", "1_1_1"},
+           {"resolution", {1.0, 1.0, 1.0}},
+           {"encoding", "raw"},
+           {"chunk_size", {3, 2, 2}},
+           {"size", {10, 99, 98}},
+           {"voxel_offset", {1, 2, 3}},
+           {"sharding",
+            {{"@type", "neuroglancer_uint64_sharded_v1"},
+             {"preshift_bits", 1},
+             {"minishard_bits", 2},
+             {"shard_bits", 3},
+             {"data_encoding", "raw"},
+             {"minishard_index_encoding", "raw"},
+             {"hash", "identity"}}},
+       }},
+      {"scale_index", 0},
+      {"transform",
+       {{"input_labels", {"x", "y", "z", "channel"}},
+        {"input_exclusive_max", {11, 101, 101, 4}},
+        {"input_inclusive_min", {1, 2, 3, 0}}}},
+  };
+  options.minimal_spec = {
+      {"dtype", "uint16"},
+      {"driver", "neuroglancer_precomputed"},
+      {"scale_index", 0},
+      {"path", "prefix"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"transform",
+       {{"input_labels", {"x", "y", "z", "channel"}},
+        {"input_exclusive_max", {11, 101, 101, 4}},
+        {"input_inclusive_min", {1, 2, 3, 0}}}},
+  };
+  tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
+      std::move(options));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TestTensorStoreDriverSpecRoundtripOptions options;
+  options.test_name = "compressed_segmentation";
+  options.full_spec = {
+      {"dtype", "uint32"},
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"path", "prefix"},
+      {"multiscale_metadata",
+       {
+           {"num_channels", 4},
+           {"type", "segmentation"},
+       }},
+      {"scale_metadata",
+       {
+           {"key", "1_1_1"},
+           {"resolution", {1.0, 1.0, 1.0}},
+           {"encoding", "compressed_segmentation"},
+           {"compressed_segmentation_block_size", {3, 2, 1}},
+           {"chunk_size", {3, 2, 2}},
+           {"size", {10, 99, 98}},
+           {"voxel_offset", {1, 2, 3}},
+           {"sharding", nullptr},
+       }},
+      {"scale_index", 0},
+      {"transform",
+       {{"input_labels", {"x", "y", "z", "channel"}},
+        {"input_exclusive_max", {11, 101, 101, 4}},
+        {"input_inclusive_min", {1, 2, 3, 0}}}},
+  };
+  options.minimal_spec = {
+      {"dtype", "uint32"},
+      {"driver", "neuroglancer_precomputed"},
+      {"scale_index", 0},
+      {"path", "prefix"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"transform",
+       {{"input_labels", {"x", "y", "z", "channel"}},
+        {"input_exclusive_max", {11, 101, 101, 4}},
+        {"input_inclusive_min", {1, 2, 3, 0}}}},
+  };
+  tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
+      std::move(options));
+}
+
 // Tests basic read/write functionality, including concurrent writes, for both
 // the unsharded and sharded formats.
-TEST(BasicFunctionalityTest, Uint16Raw) {
-  const auto DoTest = [&](const ::nlohmann::json& sharding_json) {
-    tensorstore::internal::TestTensorStoreDriverBasicFunctionality(
-        {
-            {"driver", "neuroglancer_precomputed"},
-            {"kvstore", {{"driver", "memory"}}},
-            {"path", "prefix"},
-            {"multiscale_metadata",
-             {
-                 {"data_type", "uint16"},
-                 {"num_channels", 4},
-                 {"type", "image"},
-             }},
-            {"scale_metadata",
-             {
-                 {"resolution", {1, 1, 1}},
-                 {"encoding", "raw"},
-                 {"chunk_size", {4, 5, 6}},
-                 {"size", {10, 11, 12}},
-                 {"voxel_offset", {1, 2, 3}},
-                 {"sharding", sharding_json},
-             }},
-        },
-        tensorstore::IndexDomainBuilder(4)
-            .origin({1, 2, 3, 0})
-            .shape({10, 11, 12, 4})
-            .labels({"x", "y", "z", "channel"})
-            .Finalize()
-            .value(),
-        tensorstore::AllocateArray<std::uint16_t>(
-            tensorstore::BoxView({1, 2, 3, 0}, {10, 11, 12, 4}),
-            tensorstore::c_order, tensorstore::value_init));
+TENSORSTORE_GLOBAL_INITIALIZER {
+  const auto RegisterShardingVariant = [](std::string sharding_name,
+                                          const ::nlohmann::json&
+                                              sharding_json) {
+    const auto RegisterShapeVariant = [&](const Index(&shape)[4],
+                                          std::vector<Index> chunk_size) {
+      const auto [x_size, y_size, z_size, c_size] = shape;
+      tensorstore::internal::TensorStoreDriverBasicFunctionalityTestOptions
+          options;
+      options.test_name = tensorstore::StrCat(
+          "neuroglancer_precomputed", "/sharding=", sharding_name,
+          "/shape=", x_size, ",", y_size, ",", z_size, ",", c_size);
+      options.create_spec = {
+          {"driver", "neuroglancer_precomputed"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"path", "prefix"},
+          {"multiscale_metadata",
+           {
+               {"data_type", "uint16"},
+               {"num_channels", c_size},
+               {"type", "image"},
+           }},
+          {"scale_metadata",
+           {
+               {"resolution", {1, 1, 1}},
+               {"encoding", "raw"},
+               {"chunk_size", chunk_size},
+               {"size", {x_size, y_size, z_size}},
+               {"voxel_offset", {1, 2, 3}},
+               {"sharding", sharding_json},
+           }},
+      };
+      options.expected_domain = tensorstore::IndexDomainBuilder(4)
+                                    .origin({1, 2, 3, 0})
+                                    .shape({x_size, y_size, z_size, c_size})
+                                    .labels({"x", "y", "z", "channel"})
+                                    .Finalize()
+                                    .value();
+      options.initial_value = tensorstore::AllocateArray<std::uint16_t>(
+          tensorstore::BoxView({1, 2, 3, 0}, {x_size, y_size, z_size, c_size}),
+          tensorstore::c_order, tensorstore::value_init);
+      tensorstore::internal::RegisterTensorStoreDriverBasicFunctionalityTest(
+          std::move(options));
+    };
+    RegisterShapeVariant({2, 2, 1, 1}, {2, 2, 1});
+    RegisterShapeVariant({10, 11, 12, 4}, {4, 5, 6});
   };
-  DoTest(/*sharding=*/{{"@type", "neuroglancer_uint64_sharded_v1"},
-                       {"preshift_bits", 1},
-                       {"minishard_bits", 2},
-                       {"shard_bits", 3},
-                       {"hash", "identity"}});
-  DoTest(/*sharding=*/nullptr);
+  RegisterShardingVariant("null", nullptr);
+  RegisterShardingVariant("single_shard_and_minishard",
+                          {{"@type", "neuroglancer_uint64_sharded_v1"},
+                           {"preshift_bits", 0},
+                           {"minishard_bits", 0},
+                           {"shard_bits", 0},
+                           {"hash", "identity"}});
+  RegisterShardingVariant("multiple_shards",
+                          {{"@type", "neuroglancer_uint64_sharded_v1"},
+                           {"preshift_bits", 1},
+                           {"minishard_bits", 2},
+                           {"shard_bits", 3},
+                           {"hash", "identity"}});
 }
 
 TEST(ShardedWriteTest, Basic) {
@@ -1520,6 +1560,13 @@ TEST(FullShardWriteTest, Basic) {
     store_future.Force();
 
     {
+      auto req = mock_key_value_store->read_requests.pop();
+      EXPECT_EQ("prefix/info", req.key);
+      req.promise.SetResult(std::in_place, std::nullopt,
+                            StorageGeneration::NoValue(), absl::Now());
+    }
+
+    {
       auto req = mock_key_value_store->write_requests.pop();
       EXPECT_EQ("prefix/info", req.key);
       EXPECT_EQ(StorageGeneration::NoValue(), req.options.if_equal);
@@ -1534,6 +1581,10 @@ TEST(FullShardWriteTest, Basic) {
         tensorstore::ChainResult(
             store,
             tensorstore::Dims(0, 1, 2).SizedInterval({0, 4, 8}, {4, 2, 2})));
+
+    // Ensure copying finishes before writeback starts.
+    TENSORSTORE_ASSERT_OK(future.copy_future.result());
+    ASSERT_FALSE(future.commit_future.ready());
 
     future.Force();
 

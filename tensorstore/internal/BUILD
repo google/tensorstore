@@ -99,50 +99,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "async_storage_backed_cache",
-    srcs = [
-        "async_storage_backed_cache.cc",
-        "async_storage_backed_cache_impl.h",
-    ],
-    hdrs = ["async_storage_backed_cache.h"],
-    deps = [
-        ":cache",
-        ":intrusive_ptr",
-        ":logging",
-        ":mutex",
-        ":type_traits",
-        "//tensorstore:staleness_bound",
-        "//tensorstore/kvstore:generation",
-        "//tensorstore/util:future",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
-        "@com_google_absl//absl/utility",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "async_storage_backed_cache_test",
-    size = "small",
-    srcs = ["async_storage_backed_cache_test.cc"],
-    deps = [
-        ":async_storage_backed_cache",
-        ":cache",
-        ":intrusive_ptr",
-        ":memory",
-        "//tensorstore/kvstore:generation_testutil",
-        "//tensorstore/util:future",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "attributes",
     hdrs = ["attributes.h"],
     deps = ["@com_google_absl//absl/base:core_headers"],
@@ -176,19 +132,6 @@ tensorstore_cc_test(
     deps = [
         ":global_initializer",
         "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "key_value_store_cache",
-    hdrs = ["key_value_store_cache.h"],
-    deps = [
-        ":async_storage_backed_cache",
-        "//tensorstore/kvstore:generation",
-        "//tensorstore/kvstore:key_value_store",
-        "//tensorstore/util:executor",
-        "//tensorstore/util:future",
-        "@com_google_absl//absl/time",
     ],
 )
 
@@ -264,9 +207,9 @@ tensorstore_cc_library(
     name = "aggregate_writeback_cache",
     hdrs = ["aggregate_writeback_cache.h"],
     deps = [
-        ":async_storage_backed_cache",
+        ":async_cache",
         ":cache",
-        "@com_google_absl//absl/time",
+        ":estimate_heap_usage",
     ],
 )
 
@@ -385,7 +328,7 @@ tensorstore_cc_library(
     hdrs = ["chunk_cache.h"],
     deps = [
         ":arena",
-        ":async_storage_backed_cache",
+        ":async_cache",
         ":async_write_array",
         ":cache",
         ":elementwise_function",
@@ -403,11 +346,11 @@ tensorstore_cc_library(
         "//tensorstore:rank",
         "//tensorstore:staleness_bound",
         "//tensorstore:strided_layout",
+        "//tensorstore:transaction",
         "//tensorstore/driver",
         "//tensorstore/driver:chunk",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transformed_array",
-        "//tensorstore/kvstore:generation",
         "//tensorstore/util:assert_macros",
         "//tensorstore/util:element_pointer",
         "//tensorstore/util:execution",
@@ -431,7 +374,7 @@ tensorstore_cc_binary(
     srcs = ["chunk_cache_benchmark_test.cc"],
     tags = ["benchmark"],
     deps = [
-        ":async_storage_backed_cache",
+        ":async_cache",
         ":cache",
         ":chunk_cache",
         ":element_copy_function",
@@ -469,18 +412,20 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["chunk_cache_test.cc"],
     deps = [
-        ":async_storage_backed_cache",
+        ":async_cache",
         ":cache",
         ":chunk_cache",
         ":element_copy_function",
         ":elementwise_function",
         ":intrusive_ptr",
+        ":kvs_backed_cache",
         ":masked_array",
         ":memory",
         ":meta",
         ":poly",
         ":queue_testutil",
         ":thread_pool",
+        "//tensorstore",
         "//tensorstore:array",
         "//tensorstore:box",
         "//tensorstore:data_type",
@@ -495,6 +440,8 @@ tensorstore_cc_test(
         "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/kvstore:generation",
+        "//tensorstore/kvstore:key_value_store_testutil",
+        "//tensorstore/kvstore/memory",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
@@ -778,6 +725,12 @@ tensorstore_cc_test(
         ":env",
         "@com_google_googletest//:gtest_main",
     ],
+)
+
+tensorstore_cc_library(
+    name = "estimate_heap_usage",
+    hdrs = ["estimate_heap_usage.h"],
+    deps = ["@com_google_absl//absl/strings:cord"],
 )
 
 tensorstore_cc_library(
@@ -1309,6 +1262,7 @@ tensorstore_cc_library(
         "//tensorstore:contiguous_layout",
         "//tensorstore:index",
         "//tensorstore:strided_layout",
+        "//tensorstore/kvstore:generation",
         "//tensorstore/util:element_pointer",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
@@ -1328,6 +1282,7 @@ tensorstore_cc_test(
         "//tensorstore:box",
         "//tensorstore:index",
         "//tensorstore:strided_layout",
+        "//tensorstore/kvstore:generation",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",

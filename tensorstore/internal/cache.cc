@@ -375,7 +375,7 @@ PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
   absl::call_once(
       Access::StaticCast<CacheEntryImpl>(returned_entry.get())->initialized_,
       [&] {
-        cache->DoInitializeEntry(returned_entry.get());
+        returned_entry->DoInitialize();
         // This is the only call to `DoGetSizeInBytes` made by this cache
         // framework directly.  Because `entry` is not yet visible to other
         // threads, it is safe to call `DoGetSizeInBytes` without holding any
@@ -477,9 +477,9 @@ std::size_t Cache::DoGetSizeInBytes(Cache::Entry* entry) {
          this->DoGetSizeofEntry();
 }
 
-void Cache::DoInitializeEntry(Entry* entry) {}
-
 CacheEntry::~CacheEntry() = default;
+
+void CacheEntry::DoInitialize() {}
 
 void Cache::Entry::UpdateState(StateUpdate update) {
   if (!update.new_state && !update.new_size) return;

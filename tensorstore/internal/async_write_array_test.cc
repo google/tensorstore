@@ -24,12 +24,14 @@
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/nditerable_array.h"
 #include "tensorstore/internal/nditerable_copy.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
+using tensorstore::StorageGeneration;
 using tensorstore::internal::AsyncWriteArray;
 using Spec = AsyncWriteArray::Spec;
 using MaskedArray = AsyncWriteArray::MaskedArray;
@@ -293,6 +295,169 @@ TEST(MaskedArrayTest, PartialChunk) {
             tensorstore::MakeOffsetArray<int32_t>({-1, 0}, {{7, 8, 9}}),
             /*expected_modified=*/true);
   EXPECT_TRUE(write_state.IsFullyOverwritten(spec, origin));
+}
+
+TEST(AsyncWriteArrayTest, Basic) {
+  AsyncWriteArray async_write_array(2);
+  auto fill_value = MakeArray<int32_t>({{1, 2, 3}, {4, 5, 6}});
+  tensorstore::Box<> component_bounds({-1, -kInfIndex}, {3, kInfSize});
+  Spec spec(fill_value, component_bounds);
+  std::vector<Index> origin{0, 0};
+
+  // Test that `GetReadNDIterable` correctly handles the case of an unmodified
+  // write state.
+  {
+    Arena arena;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto iterable,
+        async_write_array.GetReadNDIterable(
+            spec, origin, /*read_array=*/{},
+            /*read_generation=*/StorageGeneration::FromString("a"),
+            tensorstore::IdentityTransform(tensorstore::Box<>({0, 1}, {2, 2})),
+            &arena));
+    EXPECT_EQ(
+        MakeArray<int32_t>({{2, 3}, {5, 6}}),
+        CopyNDIterable(std::move(iterable), span<const Index>({2, 2}), &arena));
+  }
+
+  // Test that `GetArrayForWriteback` handles an unmodified write state.
+  {
+    auto read_array = MakeArray<int32_t>({{21, 22, 23}, {24, 25, 26}});
+    Arena arena;
+    auto writeback_data = async_write_array.GetArrayForWriteback(
+        spec, origin, read_array,
+        /*read_generation=*/StorageGeneration::FromString("b"));
+    EXPECT_FALSE(writeback_data.equals_fill_value);
+    // Writeback reflects updated `read_array`.
+    EXPECT_EQ(read_array, writeback_data.array);
+    EXPECT_EQ(StorageGeneration::Invalid(), async_write_array.read_generation);
+  }
+
+  // Test that `GetReadNDIterable` correctly handles the case of a
+  // partially-modified write state.
+  TestWrite(&async_write_array, spec, origin,
+            tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{8}}),
+            /*expected_modified=*/true);
+
+  // Test that writing does not normally copy the data array.
+  {
+    auto* data_ptr = async_write_array.write_state.data.get();
+    TestWrite(&async_write_array, spec, origin,
+              tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{7}}),
+              /*expected_modified=*/true);
+    EXPECT_EQ(data_ptr, async_write_array.write_state.data.get());
+  }
+
+  {
+    Arena arena;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto iterable,
+        async_write_array.GetReadNDIterable(
+            spec, origin, /*read_array=*/{},
+            /*read_generation=*/StorageGeneration::FromString("a"),
+            tensorstore::IdentityTransform(tensorstore::Box<>({0, 0}, {2, 3})),
+            &arena));
+    EXPECT_EQ(
+        MakeArray<int32_t>({{7, 2, 3}, {4, 5, 6}}),
+        CopyNDIterable(std::move(iterable), span<const Index>({2, 3}), &arena));
+  }
+
+  // Test that `GetReadNDIterable` handles a non-updated read array.
+  {
+    auto read_array = MakeArray<int32_t>({{11, 12, 13}, {14, 15, 16}});
+    Arena arena;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto iterable,
+        async_write_array.GetReadNDIterable(
+            spec, origin, read_array,
+            /*read_generation=*/StorageGeneration::FromString("a"),
+            tensorstore::IdentityTransform(tensorstore::Box<>({0, 0}, {2, 3})),
+            &arena));
+    // Result should not reflect updated `read_array`.
+    EXPECT_EQ(
+        MakeArray<int32_t>({{7, 2, 3}, {4, 5, 6}}),
+        CopyNDIterable(std::move(iterable), span<const Index>({2, 3}), &arena));
+  }
+
+  // Test that `GetArrayForWriteback` handles a non-updated read array.
+  {
+    auto read_array = MakeArray<int32_t>({{11, 12, 13}, {14, 15, 16}});
+    Arena arena;
+    auto writeback_data = async_write_array.GetArrayForWriteback(
+        spec, origin, read_array,
+        /*read_generation=*/StorageGeneration::FromString("a"));
+    EXPECT_FALSE(writeback_data.equals_fill_value);
+    // Writeback does not reflect updated `read_array`.
+    EXPECT_EQ(MakeArray<int32_t>({{7, 2, 3}, {4, 5, 6}}), writeback_data.array);
+  }
+
+  // Test that `GetReadNDIterable` handles an updated read array.
+  {
+    auto read_array = MakeArray<int32_t>({{11, 12, 13}, {14, 15, 16}});
+    Arena arena;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto iterable,
+        async_write_array.GetReadNDIterable(
+            spec, origin, read_array,
+            /*read_generation=*/StorageGeneration::FromString("b"),
+            tensorstore::IdentityTransform(tensorstore::Box<>({0, 0}, {2, 3})),
+            &arena));
+    EXPECT_EQ(
+        MakeArray<int32_t>({{7, 12, 13}, {14, 15, 16}}),
+        CopyNDIterable(std::move(iterable), span<const Index>({2, 3}), &arena));
+  }
+
+  // Test that `GetArrayForWriteback` handles an updated read array.
+  {
+    auto read_array = MakeArray<int32_t>({{21, 22, 23}, {24, 25, 26}});
+    Arena arena;
+    auto writeback_data = async_write_array.GetArrayForWriteback(
+        spec, origin, read_array,
+        /*read_generation=*/StorageGeneration::FromString("c"));
+    EXPECT_FALSE(writeback_data.equals_fill_value);
+    // Writeback reflects updated `read_array`.
+    EXPECT_EQ(MakeArray<int32_t>({{7, 22, 23}, {24, 25, 26}}),
+              writeback_data.array);
+    EXPECT_EQ(StorageGeneration::FromString("c"),
+              async_write_array.read_generation);
+  }
+
+  // Test that `GetReadNDIterable` handles a write state fully-overwritten with
+  // the fill value.
+  async_write_array.write_state.WriteFillValue(spec, origin);
+  {
+    auto read_array = MakeArray<int32_t>({{11, 12, 13}, {14, 15, 16}});
+    Arena arena;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto iterable,
+        async_write_array.GetReadNDIterable(
+            spec, origin, read_array,
+            /*read_generation=*/StorageGeneration::FromString("b"),
+            tensorstore::IdentityTransform(tensorstore::Box<>({0, 0}, {2, 3})),
+            &arena));
+    EXPECT_EQ(fill_value, CopyNDIterable(std::move(iterable),
+                                         span<const Index>({2, 3}), &arena));
+  }
+
+  // Test that `GetReadNDIterable` handles a write state fully-overwritten not
+  // with the fill value.
+  TestWrite(&async_write_array, spec, origin,
+            tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{9}}),
+            /*expected_modified=*/true);
+  {
+    auto read_array = MakeArray<int32_t>({{11, 12, 13}, {14, 15, 16}});
+    Arena arena;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto iterable,
+        async_write_array.GetReadNDIterable(
+            spec, origin, read_array,
+            /*read_generation=*/StorageGeneration::FromString("b"),
+            tensorstore::IdentityTransform(tensorstore::Box<>({0, 0}, {2, 3})),
+            &arena));
+    EXPECT_EQ(
+        MakeArray<int32_t>({{9, 2, 3}, {4, 5, 6}}),
+        CopyNDIterable(std::move(iterable), span<const Index>({2, 3}), &arena));
+  }
 }
 
 }  // namespace

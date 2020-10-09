@@ -14,6 +14,7 @@
 
 #include "tensorstore/driver/driver.h"
 
+#include <mutex>
 #include <ostream>
 
 #include "tensorstore/driver/registry.h"
@@ -21,6 +22,7 @@
 #include "tensorstore/index_space/json.h"
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/data_type_json_binder.h"
+#include "tensorstore/internal/lock_collection.h"
 #include "tensorstore/internal/nditerable_copy.h"
 #include "tensorstore/internal/nditerable_data_type_conversion.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
@@ -50,7 +52,7 @@ DriverRegistry& GetDriverRegistry() {
 }
 
 Future<Driver::ReadWriteHandle> DriverSpec::Bound::Open(
-    ReadWriteMode read_write_mode) const {
+    OpenTransactionPtr transaction, ReadWriteMode read_write_mode) const {
   return absl::UnimplementedError("JSON representation not supported");
 }
 
@@ -59,6 +61,18 @@ DriverSpec::~DriverSpec() = default;
 DriverSpec::Bound::~Bound() = default;
 
 Future<Driver::ReadWriteHandle> OpenDriver(Context context,
+                                           Transaction transaction,
+                                           TransformedDriverSpec<> spec,
+                                           OpenOptions options) {
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto open_transaction,
+      internal::AcquireOpenTransactionPtrOrError(transaction));
+  return internal::OpenDriver(std::move(context), std::move(open_transaction),
+                              std::move(spec), std::move(options));
+}
+
+Future<Driver::ReadWriteHandle> OpenDriver(Context context,
+                                           OpenTransactionPtr transaction,
                                            TransformedDriverSpec<> spec,
                                            OpenOptions options) {
   TENSORSTORE_ASSIGN_OR_RETURN(
@@ -67,11 +81,13 @@ Future<Driver::ReadWriteHandle> OpenDriver(Context context,
   TENSORSTORE_ASSIGN_OR_RETURN(auto bound_spec,
                                spec.driver_spec->Bind(std::move(context)));
   return internal::OpenDriver(
+      std::move(transaction),
       {std::move(bound_spec), std::move(spec.transform_spec)},
       options.read_write_mode);
 }
 
 Future<Driver::ReadWriteHandle> OpenDriver(
+    OpenTransactionPtr transaction,
     TransformedDriverSpec<ContextBound> bound_spec,
     ReadWriteMode read_write_mode) {
   return MapFutureValue(
@@ -87,28 +103,31 @@ Future<Driver::ReadWriteHandle> OpenDriver(
         assert(handle.transform.valid());
         return handle;
       },
-      bound_spec.driver_spec->Open(read_write_mode));
+      bound_spec.driver_spec->Open(std::move(transaction), read_write_mode));
 }
 
 Driver::~Driver() = default;
 
 Result<TransformedDriverSpec<>> Driver::GetSpec(
-    IndexTransformView<> transform, const SpecRequestOptions& options,
+    internal::OpenTransactionPtr transaction, IndexTransformView<> transform,
+    const SpecRequestOptions& options,
     const ContextSpecBuilder& context_builder) {
   return absl::UnimplementedError("JSON representation not supported");
 }
 
 Result<TransformedDriverSpec<ContextBound>> Driver::GetBoundSpec(
-    IndexTransformView<> transform) {
+    internal::OpenTransactionPtr transaction, IndexTransformView<> transform) {
   return absl::UnimplementedError("JSON representation not supported");
 }
 
-Future<IndexTransform<>> Driver::ResolveBounds(IndexTransform<> transform,
+Future<IndexTransform<>> Driver::ResolveBounds(OpenTransactionPtr transaction,
+                                               IndexTransform<> transform,
                                                ResolveBoundsOptions options) {
   return std::move(transform);
 }
 
-Future<IndexTransform<>> Driver::Resize(IndexTransform<> transform,
+Future<IndexTransform<>> Driver::Resize(OpenTransactionPtr transaction,
+                                        IndexTransform<> transform,
                                         span<const Index> inclusive_min,
                                         span<const Index> exclusive_max,
                                         ResizeOptions options) {
@@ -188,6 +207,38 @@ void SetErrorWithoutCommit(const Promise<T>& promise, Status error) {
   }
 }
 
+/// Attempts to lock one or more `ReadChunk`/`WriteChunk` objects.
+///
+/// If registering a chunk with the lock collection fails, the error propagates
+/// immediately.
+///
+/// If the lock collection fails to acquire a lock, we retry.
+///
+/// \tparam ChunkImpl Must be either `ReadChunk::Impl` or `WriteChunk::Impl`.
+template <typename... ChunkImpl>
+Result<std::unique_lock<LockCollection>> LockChunks(
+    LockCollection& lock_collection, ChunkImpl&... chunk_impl) {
+  std::unique_lock<LockCollection> guard(lock_collection, std::defer_lock);
+  while (true) {
+    // Attempt to register each chunk with the `lock_collection`.
+    if (absl::Status status;
+        !((status = chunk_impl(lock_collection)).ok() && ...)) {
+      return status;
+    }
+    if (guard.try_lock()) return guard;
+    // Locking failed.  Clear the lock collection and re-register the chunks,
+    // because the locks to be registered may have changed (in order to avoid
+    // failing again).  For example, failure may be due to an
+    // `AsyncCache::TransactionNode` having been revoked, and in that case a new
+    // transaction node will be obtained when the chunk is re-registered.  The
+    // lock function registered with the `lock_collection` cannot itself obtain
+    // a new TransactionNode, because that could lead to deadlock, since the
+    // lock ordering and deduplication was based on the original transaction
+    // node.
+    lock_collection.clear();
+  }
+}
+
 /// Local state for the asynchronous operation initiated by the two `DriverRead`
 /// overloads.
 ///
@@ -225,6 +276,7 @@ struct ReadState
     : public internal::AtomicReferenceCount<ReadState<PromiseValue>> {
   Executor executor;
   Driver::Ptr source_driver;
+  internal::OpenTransactionPtr source_transaction;
   DataTypeConversionLookupResult data_type_conversion;
   NormalizedTransformedArray<Shared<void>> target;
   DomainAlignmentOptions alignment_options;
@@ -268,14 +320,15 @@ struct ReadChunkOp {
           GetNormalizedTransformedArrayNDIterable(target, arena),
           state->SetError(_));
 
-      // Lock the chunk for reading, and obtain an NDIterable view of the chunk.
+      LockCollection lock_collection;
+      TENSORSTORE_ASSIGN_OR_RETURN(auto guard,
+                                   LockChunks(lock_collection, chunk.impl),
+                                   state->SetError(_));
+
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto source_iterable,
-          chunk.impl(ReadChunk::AcquireReadLock{}, std::move(chunk.transform),
-                     arena),
+          chunk.impl(ReadChunk::BeginRead{}, std::move(chunk.transform), arena),
           state->SetError(_));
-
-      ReadChunk::ReadLockReleaser read_lock(&chunk.impl);
 
       source_iterable = GetConvertedInputNDIterable(
           std::move(source_iterable), target_iterable->data_type(),
@@ -338,7 +391,9 @@ struct DriverReadIntoExistingInitiateOp {
 
     // Initiate the read on the driver.
     auto source_driver = std::move(state->source_driver);
-    source_driver->Read(std::move(source_transform),
+    auto source_transaction = std::move(state->source_transaction);
+    source_driver->Read(std::move(source_transaction),
+                        std::move(source_transform),
                         ReadChunkReceiver<void>{std::move(state)});
   }
 };
@@ -364,8 +419,9 @@ struct DriverReadIntoNewInitiateOp {
 
     // Initiate the read on the driver.
     auto source_driver = std::move(state->source_driver);
+    auto source_transaction = std::move(state->source_transaction);
     source_driver->Read(
-        std::move(source_transform),
+        std::move(source_transaction), std::move(source_transform),
         ReadChunkReceiver<SharedOffsetArray<void>>{std::move(state)});
   }
 };
@@ -386,6 +442,9 @@ Future<void> DriverRead(Executor executor, TransformedDriver source,
       GetDataTypeConverterOrError(source.driver->data_type(),
                                   normalized_target.data_type()));
   state->source_driver = std::move(source.driver);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      state->source_transaction,
+      internal::AcquireOpenTransactionPtrOrError(source.transaction));
   state->target = std::move(normalized_target);
   state->alignment_options = options.alignment_options;
   state->read_progress_function = std::move(options.progress_function);
@@ -393,7 +452,8 @@ Future<void> DriverRead(Executor executor, TransformedDriver source,
 
   // Resolve the bounds for `source.transform`.
   auto transform_future = state->source_driver->ResolveBounds(
-      std::move(source.transform), fix_resizable_bounds);
+      state->source_transaction, std::move(source.transform),
+      fix_resizable_bounds);
 
   // Initiate the read once the bounds have been resolved.
   LinkValue(WithExecutor(std::move(executor),
@@ -414,12 +474,16 @@ Future<SharedOffsetArray<void>> DriverRead(
                                   target_data_type));
   state->executor = executor;
   state->source_driver = std::move(source.driver);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      state->source_transaction,
+      internal::AcquireOpenTransactionPtrOrError(source.transaction));
   state->read_progress_function = std::move(options.progress_function);
   auto pair = PromiseFuturePair<SharedOffsetArray<void>>::Make();
 
   // Resolve the bounds for `source.transform`.
   auto transform_future = state->source_driver->ResolveBounds(
-      std::move(source.transform), fix_resizable_bounds);
+      state->source_transaction, std::move(source.transform),
+      fix_resizable_bounds);
 
   // Initiate the read once the bounds have been resolved.
   LinkValue(WithExecutor(
@@ -497,6 +561,7 @@ struct WriteState : public internal::AtomicReferenceCount<WriteState> {
   NormalizedTransformedArray<Shared<const void>> source;
   DataTypeConversionLookupResult data_type_conversion;
   Driver::Ptr target_driver;
+  internal::OpenTransactionPtr target_transaction;
   DomainAlignmentOptions alignment_options;
   Promise<void> copy_promise;
   Promise<void> commit_promise;
@@ -528,23 +593,32 @@ struct WriteChunkOp {
         GetNormalizedTransformedArrayNDIterable(std::move(source), arena),
         state->SetError(_));
 
-    // Acquire a write lock and obtain a write-only NDIterable view of the
-    // target `chunk`.
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto target_iterable,
-        chunk.impl(WriteChunk::AcquireWriteLock{}, chunk.transform, arena),
-        state->SetError(_));
+    LockCollection lock_collection;
 
-    source_iterable = GetConvertedInputNDIterable(std::move(source_iterable),
-                                                  target_iterable->data_type(),
-                                                  state->data_type_conversion);
+    absl::Status copy_status;
+    Future<const void> commit_future;
 
-    NDIterableCopier copier(*source_iterable, *target_iterable,
-                            chunk.transform.input_shape(), arena);
-    Status copy_status = copier.Copy();
-    auto commit_future = chunk.impl(
-        WriteChunk::ReleaseWriteLock{}, chunk.transform,
-        copier.layout_info().layout_view(), copier.stepper().position(), arena);
+    {
+      TENSORSTORE_ASSIGN_OR_RETURN(auto guard,
+                                   LockChunks(lock_collection, chunk.impl),
+                                   state->SetError(_));
+
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto target_iterable,
+          chunk.impl(WriteChunk::BeginWrite{}, chunk.transform, arena),
+          state->SetError(_));
+
+      source_iterable = GetConvertedInputNDIterable(
+          std::move(source_iterable), target_iterable->data_type(),
+          state->data_type_conversion);
+
+      NDIterableCopier copier(*source_iterable, *target_iterable,
+                              chunk.transform.input_shape(), arena);
+      copy_status = copier.Copy();
+      commit_future = chunk.impl(WriteChunk::EndWrite{}, chunk.transform,
+                                 copier.layout_info().layout_view(),
+                                 copier.stepper().position(), arena);
+    }
 
     if (copy_status.ok()) {
       const Index num_elements = chunk.transform.input_domain().num_elements();
@@ -556,7 +630,8 @@ struct WriteChunkOp {
           state->UpdateCommitProgress(num_elements);
         }
       };
-      if (commit_future.valid()) {
+      if (state->commit_promise.valid() && commit_future.valid()) {
+        // For transactional writes, `state->commit_promise` is null.
         LinkValue(CommitCallback{state->commit_state, num_elements},
                   state->commit_promise, std::move(commit_future));
       } else {
@@ -610,7 +685,9 @@ struct DriverWriteInitiateOp {
 
     // Initiate the write on the driver.
     auto target_driver = std::move(state->target_driver);
-    target_driver->Write(std::move(target_transform),
+    auto target_transaction = std::move(state->target_transaction);
+    target_driver->Write(std::move(target_transaction),
+                         std::move(target_transform),
                          WriteChunkReceiver{std::move(state)});
   }
 };
@@ -630,18 +707,27 @@ WriteFutures DriverWrite(Executor executor,
       GetDataTypeConverterOrError(normalized_source.data_type(),
                                   target.driver->data_type()));
   state->target_driver = std::move(target.driver);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      state->target_transaction,
+      internal::AcquireOpenTransactionPtrOrError(target.transaction));
   state->source = std::move(normalized_source);
   state->alignment_options = options.alignment_options;
   state->commit_state->write_progress_function =
       std::move(options.progress_function);
   auto copy_pair = PromiseFuturePair<void>::Make(MakeResult());
-  auto commit_pair =
-      PromiseFuturePair<void>::LinkError(MakeResult(), copy_pair.future);
-  state->commit_promise = std::move(commit_pair.promise);
+  PromiseFuturePair<void> commit_pair;
+  if (!state->target_transaction) {
+    commit_pair =
+        PromiseFuturePair<void>::LinkError(MakeResult(), copy_pair.future);
+    state->commit_promise = std::move(commit_pair.promise);
+  } else {
+    commit_pair.future = copy_pair.future;
+  }
 
   // Resolve the bounds for `target.transform`.
   auto transform_future = state->target_driver->ResolveBounds(
-      std::move(target.transform), fix_resizable_bounds);
+      state->target_transaction, std::move(target.transform),
+      fix_resizable_bounds);
 
   // Initiate the write once the bounds have been resolved.
   LinkValue(WithExecutor(std::move(executor),
@@ -731,8 +817,10 @@ struct CopyState : public internal::AtomicReferenceCount<CopyState> {
   };
   Executor executor;
   Driver::Ptr source_driver;
+  internal::OpenTransactionPtr source_transaction;
   DataTypeConversionLookupResult data_type_conversion;
   Driver::Ptr target_driver;
+  internal::OpenTransactionPtr target_transaction;
   IndexTransform<> target_transform;
   DomainAlignmentOptions alignment_options;
   Promise<void> copy_promise;
@@ -753,40 +841,43 @@ struct CopyChunkOp {
   void operator()() {
     DefaultNDIterableArena arena;
 
-    // Lock the source chunk for reading, and obtain an NDIterable view of
-    // `adjusted_read_chunk`.
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto source_iterable,
-        adjusted_read_chunk.impl(ReadChunk::AcquireReadLock{},
-                                 std::move(adjusted_read_chunk.transform),
-                                 arena),
-        state->SetError(_));
+    LockCollection lock_collection;
 
-    ReadChunk::ReadLockReleaser read_lock(&adjusted_read_chunk.impl);
+    absl::Status copy_status;
+    Future<const void> commit_future;
+    {
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto guard,
+          LockChunks(lock_collection, adjusted_read_chunk.impl,
+                     write_chunk.impl),
+          state->SetError(_));
 
-    // Lock the target chunk for writing, and obtain a write-only NDIterable
-    // view of `write_chunk`.
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto target_iterable,
-        write_chunk.impl(WriteChunk::AcquireWriteLock{}, write_chunk.transform,
-                         arena),
-        state->SetError(_));
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto source_iterable,
+          adjusted_read_chunk.impl(ReadChunk::BeginRead{},
+                                   std::move(adjusted_read_chunk.transform),
+                                   arena),
+          state->SetError(_));
 
-    source_iterable = GetConvertedInputNDIterable(std::move(source_iterable),
-                                                  target_iterable->data_type(),
-                                                  state->data_type_conversion);
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto target_iterable,
+          write_chunk.impl(WriteChunk::BeginWrite{}, write_chunk.transform,
+                           arena),
+          state->SetError(_));
 
-    NDIterableCopier copier(*source_iterable, *target_iterable,
-                            write_chunk.transform.input_shape(), arena);
-    Status copy_status = copier.Copy();
+      source_iterable = GetConvertedInputNDIterable(
+          std::move(source_iterable), target_iterable->data_type(),
+          state->data_type_conversion);
 
-    // Unlock `adjusted_read_chunk` and `write_chunk` regardless of whether the
-    // copy was successful.
-    read_lock.reset();
+      NDIterableCopier copier(*source_iterable, *target_iterable,
+                              write_chunk.transform.input_shape(), arena);
+      copy_status = copier.Copy();
 
-    auto commit_future = write_chunk.impl(
-        WriteChunk::ReleaseWriteLock{}, write_chunk.transform,
-        copier.layout_info().layout_view(), copier.stepper().position(), arena);
+      commit_future =
+          write_chunk.impl(WriteChunk::EndWrite{}, write_chunk.transform,
+                           copier.layout_info().layout_view(),
+                           copier.stepper().position(), arena);
+    }
     if (copy_status.ok()) {
       const Index num_elements = write_chunk.transform.domain().num_elements();
       state->commit_state->UpdateCopyProgress(num_elements);
@@ -797,7 +888,8 @@ struct CopyChunkOp {
           state->UpdateCommitProgress(num_elements);
         }
       };
-      if (commit_future.valid()) {
+      if (state->commit_promise.valid() && commit_future.valid()) {
+        // For transactional writes, `state->commit_promise` is null.
         LinkValue(CommitCallback{state->commit_state, num_elements},
                   state->commit_promise, commit_future);
       } else {
@@ -864,7 +956,7 @@ struct CopyInitiateWriteOp {
     // Initiate a write for the portion of the target TensorStore
     // corresponding to this source `chunk`.
     state->target_driver->Write(
-        std::move(write_transform),
+        state->target_transaction, std::move(write_transform),
         CopyWriteChunkReceiver{state, std::move(chunk)});
   }
 };
@@ -916,7 +1008,9 @@ struct DriverCopyInitiateOp {
 
     // Initiate the read operation on the source driver.
     auto source_driver = std::move(state->source_driver);
-    source_driver->Read(std::move(source_transform),
+    auto source_transaction = std::move(state->source_transaction);
+    source_driver->Read(std::move(source_transaction),
+                        std::move(source_transform),
                         CopyReadChunkReceiver{std::move(state)});
   }
 };
@@ -932,19 +1026,32 @@ WriteFutures DriverCopy(Executor executor, TransformedDriver source,
       GetDataTypeConverterOrError(source.driver->data_type(),
                                   target.driver->data_type()));
   state->source_driver = std::move(source.driver);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      state->source_transaction,
+      internal::AcquireOpenTransactionPtrOrError(source.transaction));
   state->target_driver = std::move(target.driver);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      state->target_transaction,
+      internal::AcquireOpenTransactionPtrOrError(target.transaction));
   state->alignment_options = options.alignment_options;
   state->commit_state->progress_function = std::move(options.progress_function);
   auto copy_pair = PromiseFuturePair<void>::Make(MakeResult());
-  auto commit_pair =
-      PromiseFuturePair<void>::LinkError(MakeResult(), copy_pair.future);
-  state->commit_promise = std::move(commit_pair.promise);
+  PromiseFuturePair<void> commit_pair;
+  if (!state->target_transaction) {
+    commit_pair =
+        PromiseFuturePair<void>::LinkError(MakeResult(), copy_pair.future);
+    state->commit_promise = std::move(commit_pair.promise);
+  } else {
+    commit_pair.future = copy_pair.future;
+  }
 
   // Resolve the source and target bounds.
   auto source_transform_future = state->source_driver->ResolveBounds(
-      std::move(source.transform), fix_resizable_bounds);
+      state->source_transaction, std::move(source.transform),
+      fix_resizable_bounds);
   auto target_transform_future = state->target_driver->ResolveBounds(
-      std::move(target.transform), fix_resizable_bounds);
+      state->target_transaction, std::move(target.transform),
+      fix_resizable_bounds);
 
   // Initiate the copy once the bounds have been resolved.
   LinkValue(

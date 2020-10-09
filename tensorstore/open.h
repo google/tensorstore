@@ -34,7 +34,9 @@ Status ValidateDataTypeAndRank(internal::DriverConstraints expected,
 /// Opens a TensorStore from a Spec.
 template <typename Element = void, DimensionIndex Rank = dynamic_rank,
           ReadWriteMode Mode = ReadWriteMode::dynamic>
-Future<TensorStore<Element, Rank, Mode>> Open(Context context, Spec spec,
+Future<TensorStore<Element, Rank, Mode>> Open(Context context,
+                                              Transaction transaction,
+                                              Spec spec,
                                               OpenOptions options = {}) {
   if constexpr (Mode != ReadWriteMode::dynamic) {
     if (options.read_write_mode == ReadWriteMode::dynamic) {
@@ -54,8 +56,16 @@ Future<TensorStore<Element, Rank, Mode>> Open(Context context, Spec spec,
         return internal::TensorStoreAccess::Construct<
             TensorStore<Element, Rank, Mode>>(std::move(handle));
       },
-      internal::OpenDriver(std::move(context),
+      internal::OpenDriver(std::move(context), std::move(transaction),
                            internal_spec::SpecAccess::impl(spec), options));
+}
+
+template <typename Element = void, DimensionIndex Rank = dynamic_rank,
+          ReadWriteMode Mode = ReadWriteMode::dynamic>
+Future<TensorStore<Element, Rank, Mode>> Open(Context context, Spec spec,
+                                              OpenOptions options = {}) {
+  return tensorstore::Open<Element, Rank, Mode>(
+      std::move(context), no_transaction, std::move(spec), std::move(options));
 }
 
 /// Opens a TensorStore from a JSON specification.
@@ -63,10 +73,22 @@ template <typename Element = void, DimensionIndex Rank = dynamic_rank,
           ReadWriteMode Mode = ReadWriteMode::dynamic, typename J>
 absl::enable_if_t<std::is_same<J, ::nlohmann::json>::value,
                   Future<TensorStore<Element, Rank, Mode>>>
-Open(Context context, const J& json_spec, OpenOptions options = {}) {
+Open(Context context, Transaction transaction, const J& json_spec,
+     OpenOptions options = {}) {
   TENSORSTORE_ASSIGN_OR_RETURN(auto spec, Spec::FromJson(json_spec));
   return tensorstore::Open<Element, Rank, Mode>(
-      std::move(context), std::move(spec), std::move(options));
+      std::move(context), std::move(transaction), std::move(spec),
+      std::move(options));
+}
+
+template <typename Element = void, DimensionIndex Rank = dynamic_rank,
+          ReadWriteMode Mode = ReadWriteMode::dynamic, typename J>
+absl::enable_if_t<std::is_same<J, ::nlohmann::json>::value,
+                  Future<TensorStore<Element, Rank, Mode>>>
+Open(Context context, const J& json_spec, OpenOptions options = {}) {
+  return tensorstore::Open<Element, Rank, Mode>(
+      std::move(context), no_transaction, std::move(json_spec),
+      std::move(options));
 }
 
 }  // namespace tensorstore

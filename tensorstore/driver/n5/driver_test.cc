@@ -16,8 +16,11 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/parse_json_matches.h"
 #include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/kvstore/key_value_store_testutil.h"
@@ -59,14 +62,14 @@ using ::testing::UnorderedElementsAreArray;
 TEST(N5DriverTest, OpenNonExisting) {
   auto context = Context::Default();
 
-  EXPECT_THAT(tensorstore::Open(context, GetJsonSpec(),
-                                {tensorstore::OpenMode::open,
-                                 tensorstore::ReadWriteMode::read_write})
-                  .result(),
-              MatchesStatus(
-                  absl::StatusCode::kNotFound,
-                  "Error opening \"n5\" driver: "
-                  "Metadata key \"prefix/attributes\\.json\" does not exist"));
+  EXPECT_THAT(
+      tensorstore::Open(
+          context, GetJsonSpec(),
+          {tensorstore::OpenMode::open, tensorstore::ReadWriteMode::read_write})
+          .result(),
+      MatchesStatus(absl::StatusCode::kNotFound,
+                    "Error opening \"n5\" driver: "
+                    "Metadata at \"prefix/attributes\\.json\" does not exist"));
 }
 
 TEST(N5DriverTest, OpenOrCreate) {
@@ -308,64 +311,6 @@ TEST(N5DriverTest, Create) {
   }
 }
 
-TEST(N5DriverTest, Spec) {
-  const ::nlohmann::json create_spec = GetJsonSpec();
-  const ::nlohmann::json full_spec{{"dtype", "int16"},
-                                   {"driver", "n5"},
-                                   {"path", "prefix"},
-                                   {"metadata",
-                                    {{"blockSize", {3, 2}},
-                                     {"compression", {{"type", "raw"}}},
-                                     {"dataType", "int16"},
-                                     {"dimensions", {10, 11}}}},
-                                   {"kvstore", {{"driver", "memory"}}},
-                                   {"transform",
-                                    {{"input_exclusive_max", {{10}, {11}}},
-                                     {"input_inclusive_min", {0, 0}}}}};
-
-  const ::nlohmann::json minimal_spec{{"dtype", "int16"},
-                                      {"driver", "n5"},
-                                      {"path", "prefix"},
-                                      {"kvstore", {{"driver", "memory"}}},
-                                      {"transform",
-                                       {{"input_exclusive_max", {{10}, {11}}},
-                                        {"input_inclusive_min", {0, 0}}}}};
-
-  {
-    auto context = Context::Default();
-    auto store =
-        tensorstore::Open(context, create_spec, tensorstore::OpenMode::create)
-            .value();
-
-    // Test retrieving the full and minimal Spec.
-    EXPECT_EQ(full_spec,
-              store.spec().value().ToJson(tensorstore::IncludeDefaults{false}));
-    EXPECT_EQ(minimal_spec, store.spec(tensorstore::MinimalSpec{true})
-                                .value()
-                                .ToJson(tensorstore::IncludeDefaults{false}));
-
-    // Test that the minimal spec round trips for opening existing TensorStore.
-    auto store2 =
-        tensorstore::Open(context, minimal_spec, tensorstore::OpenMode::open)
-            .value();
-    EXPECT_EQ(full_spec, store2.spec().value().ToJson(
-                             tensorstore::IncludeDefaults{false}));
-    EXPECT_EQ(minimal_spec, store2.spec(tensorstore::MinimalSpec{true})
-                                .value()
-                                .ToJson(tensorstore::IncludeDefaults{false}));
-  }
-
-  // Test that the full Spec round trips for creating a new TensorStore.
-  {
-    auto context = Context::Default();
-    auto store =
-        tensorstore::Open(context, full_spec, tensorstore::OpenMode::create)
-            .value();
-    EXPECT_EQ(full_spec,
-              store.spec().value().ToJson(tensorstore::IncludeDefaults{false}));
-  }
-}
-
 ::nlohmann::json GetBasicResizeMetadata() {
   return {
       {"compression", {{"type", "raw"}}},
@@ -538,6 +483,7 @@ TEST(N5DriverTest, InvalidResize) {
           .result(),
       MatchesStatus(
           absl::StatusCode::kFailedPrecondition,
+          "Error writing \"prefix/attributes\\.json\": "
           "Resize operation would shrink output dimension 1 from "
           "\\[0, 100\\) to \\[0, 10\\) but `expand_only` was specified"));
 
@@ -639,6 +585,7 @@ TEST(N5DriverTest, InvalidResizeIncompatibleMetadata) {
              span<const Index>({5, 5}), tensorstore::resize_metadata_only)
           .result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                    "Error writing \"prefix/attributes\\.json\": "
                     "Updated N5 metadata .* is incompatible with "
                     "existing metadata .*"));
 }
@@ -666,7 +613,9 @@ TEST(N5DriverTest, InvalidResizeDeletedMetadata) {
       Resize(store, span<const Index>({kImplicit, kImplicit}),
              span<const Index>({5, 5}), tensorstore::resize_metadata_only)
           .result(),
-      MatchesStatus(absl::StatusCode::kNotFound, "Metadata was deleted"));
+      MatchesStatus(absl::StatusCode::kNotFound,
+                    "Error writing \"prefix/attributes\\.json\": "
+                    "Metadata was deleted"));
 }
 
 TEST(N5DriverTest, UnsupportedDataTypeInSpec) {
@@ -867,6 +816,95 @@ TEST(N5DriverTest, ResolveBoundsIncompatibleMetadata) {
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
                             "Updated N5 metadata .* is incompatible with "
                             "existing metadata .*"));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TestTensorStoreDriverSpecRoundtripOptions options;
+  options.test_name = "n5";
+  options.create_spec = GetJsonSpec();
+  options.full_spec = {
+      {"dtype", "int16"},
+      {"driver", "n5"},
+      {"path", "prefix"},
+      {"metadata",
+       {{"blockSize", {3, 2}},
+        {"compression", {{"type", "raw"}}},
+        {"dataType", "int16"},
+        {"dimensions", {10, 11}}}},
+      {"kvstore", {{"driver", "memory"}}},
+      {"transform",
+       {{"input_exclusive_max", {{10}, {11}}},
+        {"input_inclusive_min", {0, 0}}}},
+  };
+
+  options.minimal_spec = {
+      {"dtype", "int16"},
+      {"driver", "n5"},
+      {"path", "prefix"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"transform",
+       {{"input_exclusive_max", {{10}, {11}}},
+        {"input_inclusive_min", {0, 0}}}},
+  };
+  options.to_json_options = tensorstore::IncludeDefaults{false};
+  tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
+      std::move(options));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TensorStoreDriverBasicFunctionalityTestOptions options;
+  options.test_name = "n5";
+  options.create_spec = {
+      {"driver", "n5"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"path", "prefix"},
+      {"metadata",
+       {
+           {"compression", {{"type", "raw"}}},
+           {"dataType", "uint16"},
+           {"dimensions", {10, 11}},
+           {"blockSize", {4, 5}},
+       }},
+  };
+  options.expected_domain = tensorstore::IndexDomainBuilder(2)
+                                .shape({10, 11})
+                                .implicit_upper_bounds({1, 1})
+                                .Finalize()
+                                .value();
+  options.initial_value = tensorstore::AllocateArray<std::uint16_t>(
+      tensorstore::BoxView({10, 11}), tensorstore::c_order,
+      tensorstore::value_init);
+  tensorstore::internal::RegisterTensorStoreDriverBasicFunctionalityTest(
+      std::move(options));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TestTensorStoreDriverResizeOptions options;
+  options.test_name = "n5";
+  options.get_create_spec = [](tensorstore::BoxView<> bounds) {
+    return ::nlohmann::json{
+        {"driver", "n5"},
+        {"kvstore", {{"driver", "memory"}}},
+        {"path", "prefix"},
+        {"dtype", "uint16"},
+        {"metadata",
+         {
+             {"dataType", "uint16"},
+             {"dimensions", bounds.shape()},
+             {"blockSize", {4, 5}},
+             {"compression", {{"type", "raw"}}},
+         }},
+        {"transform",
+         {
+             {"input_inclusive_min", {0, 0}},
+             {"input_exclusive_max",
+              {{bounds.shape()[0]}, {bounds.shape()[1]}}},
+         }},
+    };
+  };
+  options.initial_bounds = tensorstore::Box<>({0, 0}, {10, 11});
+  tensorstore::internal::RegisterTensorStoreDriverResizeTest(
+      std::move(options));
 }
 
 }  // namespace

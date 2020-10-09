@@ -286,6 +286,11 @@ class CacheEntry : private internal_cache::CacheEntryImpl {
   /// freeing additional heap memory referenced by the entry).
   void UpdateState(StateUpdate update);
 
+  /// Initializes an entry after it is allocated.
+  ///
+  /// Derived classes may override this method if initialization is required.
+  virtual void DoInitialize();
+
   virtual ~CacheEntry();
 
  private:
@@ -328,11 +333,6 @@ class Cache : private internal_cache::CacheImpl {
   ///
   /// Derived classes must define this method.
   virtual Entry* DoAllocateEntry() = 0;
-
-  /// Initializes an entry after it is allocated.
-  ///
-  /// Derived classes may override this method if initialization is required.
-  virtual void DoInitializeEntry(Entry* entry);
 
   /// Destroys `entry`.
   ///

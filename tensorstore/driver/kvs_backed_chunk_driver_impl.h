@@ -30,24 +30,6 @@
 namespace tensorstore {
 namespace internal_kvs_backed_chunk_driver {
 
-inline MetadataCache::Entry* GetMetadataCacheEntry(const OpenState& state) {
-  auto& base = (PrivateOpenState&)state;  // Cast to private base
-  return static_cast<MetadataCache::Entry*>(base.metadata_cache_entry_.get());
-}
-
-inline MetadataCache* GetMetadataCache(const OpenState& state) {
-  auto& base = (PrivateOpenState&)state;  // Cast to private base
-  return static_cast<MetadataCache*>(
-      GetOwningCache(base.metadata_cache_entry_));
-}
-
-inline internal::PinnedCacheEntry<MetadataCache> GetMetadataCacheEntry(
-    OpenState&& state) {
-  auto& base = (PrivateOpenState&)state;  // Cast to private base
-  return internal::static_pointer_cast<MetadataCache::Entry>(
-      std::move(base.metadata_cache_entry_));
-}
-
 /// Validates that the resize operation specified by
 /// `new_{inclusive_min,exclusive_max}` can be applied to `current_domaian`
 /// subject to the constraints of `{inclusive_min,exclusive_max}_constraint` and
@@ -129,6 +111,10 @@ Result<IndexTransform<>> ResolveBoundsFromMetadata(
 /// \param exclusive_min The new exclusive max bounds for the input domain of
 ///     `transform`, or `kImplicit` for no change.
 /// \param options The resize options.
+/// \param transaction_mode The transaction mode.  If equal to
+///     `atomic_isolated`, additional constraints are included in
+///     `inclusive_min_constraint` and `exclusive_max_constraint` to ensure
+///     consistency.
 /// \returns The computed resize parameters for the output index space if the
 ///     resize request is valid.
 /// \error `absl::StatusCode::kAborted` if the resize would be a no-op.
@@ -141,7 +127,8 @@ Result<IndexTransform<>> ResolveBoundsFromMetadata(
 Result<ResizeParameters> GetResizeParameters(
     DataCache* data_cache, const void* metadata, size_t component_index,
     IndexTransformView<> transform, span<const Index> inclusive_min,
-    span<const Index> exclusive_max, ResizeOptions options);
+    span<const Index> exclusive_max, ResizeOptions options,
+    TransactionMode transaction_mode);
 
 }  // namespace internal_kvs_backed_chunk_driver
 }  // namespace tensorstore

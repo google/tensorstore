@@ -27,6 +27,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/internal/masked_array.h"
 #include "tensorstore/internal/nditerable.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -51,6 +52,9 @@ struct AsyncWriteArray {
   ///
   /// Does not actually allocate any data arrays.
   explicit AsyncWriteArray(DimensionIndex rank);
+  AsyncWriteArray(AsyncWriteArray&& other)
+      : write_state(std::move(other.write_state)),
+        read_generation(std::move(other.read_generation)) {}
 
   struct Spec {
     Spec() = default;
@@ -100,6 +104,10 @@ struct AsyncWriteArray {
       return StridedLayoutView<>(fill_value.shape(), c_order_byte_strides);
     }
 
+    /// Allocates and constructs an array of `num_elements()` elements of type
+    /// `data_type()`.
+    std::shared_ptr<void> AllocateAndConstructBuffer() const;
+
     /// Returns an `NDIterable` for that may be used for reading the specified
     /// `array`, using the specified `chunk_transform`.
     ///
@@ -124,9 +132,6 @@ struct AsyncWriteArray {
     SharedArrayView<const void> array;
     /// If `true`, `array` is equal to the `fill_value of the associated `Spec`.
     bool equals_fill_value;
-    /// If `true`, `array` updates all positions and can therefore potentially
-    /// be written back unconditionally.
-    bool unconditional;
   };
 
   /// Represents an array with an associated mask indicating the positions that
@@ -232,41 +237,51 @@ struct AsyncWriteArray {
         bool read_state_already_integrated = false);
   };
 
-  /// Optional pointer to array with `shape` and `data_type` matching that of
-  /// the `Spec`.  If equal to `nullptr`, no data has been read yet or the value
-  /// is equal to the fill value.
-  ///
-  /// The array data must be immutable.
-  SharedArrayView<const void> read_array;
-
-  /// Modifications since the last writeback started (if any).
+  /// Modifications to the read state.
   MaskedArray write_state;
 
-  /// Modifications reflected in the current in-progress writeback (if any).
-  MaskedArray writeback_state;
+  void InvalidateReadState() { read_generation = StorageGeneration::Invalid(); }
 
-  /// Returns an estimate of the memory required.
-  std::size_t EstimateReadStateSizeInBytes(const Spec& spec) const;
-  std::size_t EstimateWriteStateSizeInBytes(const Spec& spec) const;
+  /// Read generation on which `write_state` is based.
+  StorageGeneration read_generation = StorageGeneration::Invalid();
 
-  /// Returns the array that should be used for reading.
-  SharedArrayView<const void> GetReadArray(const Spec& spec) const {
-    if (read_array.data()) return read_array;
-    return spec.fill_value;
-  }
-
-  /// Returns an `NDIterable` for that may be used for reading the committed
-  /// state of this array (i.e. `read_array`), using the specified
-  /// `chunk_transform`.
+  /// Returns an `NDIterable` for that may be used for reading the current write
+  /// state of this array, using the specified `chunk_transform`.
   ///
   /// \param spec The associated `Spec`.
   /// \param origin The associated origin of the array.
+  /// \param read_array The last read state.  If `read_array.data() == nullptr`,
+  ///     implies `spec.fill_value()`.  Must match `spec.shape()` and
+  ///     `spec.data_type()`, but the layout does not necessarily have to match
+  ///     `spec.write_layout()`.
+  /// \param read_generation The read generation corresponding to `read_array`.
+  ///     This is compared to `this->read_generation` to determine if the read
+  ///     state is up to date.
   /// \param chunk_transform Transform to use for reading, the output rank must
   ///     equal `spec.rank()`.
-  Result<NDIterable::Ptr> GetReadNDIterable(const Spec& spec,
-                                            span<const Index> origin,
-                                            IndexTransform<> chunk_transform,
-                                            Arena* arena);
+  Result<NDIterable::Ptr> GetReadNDIterable(
+      const Spec& spec, span<const Index> origin,
+      SharedArrayView<const void> read_array,
+      const StorageGeneration& read_generation,
+      IndexTransform<> chunk_transform, Arena* arena);
+
+  /// Returns an `NDIterable` that may be used for writing to this array using
+  /// the specified `chunk_transform`.
+  ///
+  /// \param spec The associated `Spec`.
+  /// \param origin The associated origin of the array.
+  /// \param chunk_transform Transform to use for writing, the output rank
+  ///     must equal `spec.rank()`.
+  /// \param arena Arena Non-null pointer to allocation arena that may be used
+  ///     for allocating memory.
+  Result<NDIterable::Ptr> BeginWrite(const Spec& spec, span<const Index> origin,
+                                     IndexTransform<> chunk_transform,
+                                     Arena* arena);
+
+  bool EndWrite(const Spec& spec, span<const Index> origin,
+                IndexTransformView<> chunk_transform,
+                NDIterable::IterationLayoutView layout,
+                span<const Index> write_end_position, Arena* arena);
 
   /// Returns an array to write back the current modifications.
   ///
@@ -276,17 +291,10 @@ struct AsyncWriteArray {
   ///
   /// \param spec The associated `Spec`.
   /// \param origin The associated origin of the array.
-  WritebackData GetArrayForWriteback(const Spec& spec,
-                                     span<const Index> origin);
-
-  /// Should be called after writeback completes successfully or with an error
-  /// to update the state.
-  ///
-  /// \param spec The associated `Spec`.
-  /// \param origin The associated origin of the array.
-  /// \param success Specifies whether writeback was successful.
-  void AfterWritebackCompletes(const Spec& spec, span<const Index> origin,
-                               bool success);
+  WritebackData GetArrayForWriteback(
+      const Spec& spec, span<const Index> origin,
+      const SharedArrayView<const void>& read_array,
+      const StorageGeneration& read_generation);
 };
 
 }  // namespace internal

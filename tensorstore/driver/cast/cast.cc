@@ -79,6 +79,7 @@ class CastDriver
   }
 
   static Future<internal::Driver::ReadWriteHandle> Open(
+      internal::OpenTransactionPtr transaction,
       internal::RegisteredDriverOpener<BoundSpecData> spec,
       ReadWriteMode read_write_mode) {
     return MapFutureValue(
@@ -88,13 +89,16 @@ class CastDriver
           return MakeCastDriver(std::move(handle), target_data_type,
                                 read_write_mode);
         },
-        internal::OpenDriver(spec->base, read_write_mode));
+        internal::OpenDriver(std::move(transaction), spec->base,
+                             read_write_mode));
   }
 
-  Result<IndexTransformSpec> GetBoundSpecData(BoundSpecData* spec,
-                                              IndexTransformView<> transform) {
-    TENSORSTORE_ASSIGN_OR_RETURN(spec->base,
-                                 base_driver_->GetBoundSpec(transform));
+  Result<IndexTransformSpec> GetBoundSpecData(
+      internal::OpenTransactionPtr transaction, BoundSpecData* spec,
+      IndexTransformView<> transform) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        spec->base,
+        base_driver_->GetBoundSpec(std::move(transaction), transform));
     spec->rank = base_driver_->rank();
     spec->data_type = target_data_type_;
     auto transform_spec = std::move(spec->base.transform_spec);
@@ -118,12 +122,29 @@ class CastDriver
   }
 
   void Read(
-      IndexTransform<> transform,
+      OpenTransactionPtr transaction, IndexTransform<> transform,
       AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) override;
 
   void Write(
-      IndexTransform<> transform,
+      OpenTransactionPtr transaction, IndexTransform<> transform,
       AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) override;
+
+  Future<IndexTransform<>> ResolveBounds(
+      OpenTransactionPtr transaction, IndexTransform<> transform,
+      ResolveBoundsOptions options) override {
+    return base_driver_->ResolveBounds(
+        std::move(transaction), std::move(transform), std::move(options));
+  }
+
+  Future<IndexTransform<>> Resize(OpenTransactionPtr transaction,
+                                  IndexTransform<> transform,
+                                  span<const Index> inclusive_min,
+                                  span<const Index> exclusive_max,
+                                  ResizeOptions options) override {
+    return base_driver_->Resize(std::move(transaction), std::move(transform),
+                                inclusive_min, exclusive_max,
+                                std::move(options));
+  }
 
   Driver::Ptr base_driver_;
   DataType target_data_type_;
@@ -131,42 +152,51 @@ class CastDriver
   DataTypeConversionLookupResult output_conversion_;
 };
 
+// Implementation of `tensorstore::internal::ReadChunk::Impl` Poly interface.
 struct ReadChunkImpl {
   CastDriver::Ptr self;
   ReadChunk::Impl base;
-  Result<NDIterable::Ptr> operator()(ReadChunk::AcquireReadLock,
+
+  absl::Status operator()(internal::LockCollection& lock_collection) {
+    return base(lock_collection);
+  }
+
+  Result<NDIterable::Ptr> operator()(ReadChunk::BeginRead,
                                      IndexTransform<> chunk_transform,
-                                     Arena* arena) const {
+                                     Arena* arena) {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto iterable,
-        base(ReadChunk::AcquireReadLock{}, std::move(chunk_transform), arena));
+        base(ReadChunk::BeginRead{}, std::move(chunk_transform), arena));
     return GetConvertedInputNDIterable(
         std::move(iterable), self->target_data_type_, self->input_conversion_);
   }
-  void operator()(ReadChunk::ReleaseReadLock) const {
-    base(ReadChunk::ReleaseReadLock{});
-  }
 };
 
+// Implementation of `tensorstore::internal::WriteChunk::Impl` Poly interface.
 struct WriteChunkImpl {
   CastDriver::Ptr self;
   WriteChunk::Impl base;
-  Result<NDIterable::Ptr> operator()(WriteChunk::AcquireWriteLock,
+
+  absl::Status operator()(internal::LockCollection& lock_collection) {
+    return base(lock_collection);
+  }
+
+  Result<NDIterable::Ptr> operator()(WriteChunk::BeginWrite,
                                      IndexTransform<> chunk_transform,
-                                     Arena* arena) const {
-    TENSORSTORE_ASSIGN_OR_RETURN(auto iterable,
-                                 base(WriteChunk::AcquireWriteLock{},
-                                      std::move(chunk_transform), arena));
+                                     Arena* arena) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto iterable,
+        base(WriteChunk::BeginWrite{}, std::move(chunk_transform), arena));
     return GetConvertedOutputNDIterable(
         std::move(iterable), self->target_data_type_, self->output_conversion_);
   }
 
-  Future<const void> operator()(WriteChunk::ReleaseWriteLock,
+  Future<const void> operator()(WriteChunk::EndWrite,
                                 IndexTransformView<> chunk_transform,
                                 NDIterable::IterationLayoutView layout,
                                 span<const Index> write_end_position,
-                                Arena* arena) const {
-    return base(WriteChunk::ReleaseWriteLock{}, chunk_transform, layout,
+                                Arena* arena) {
+    return base(WriteChunk::EndWrite{}, chunk_transform, layout,
                 write_end_position, arena);
   }
 };
@@ -198,17 +228,17 @@ struct ChunkReceiverAdapter {
 };
 
 void CastDriver::Read(
-    IndexTransform<> transform,
+    OpenTransactionPtr transaction, IndexTransform<> transform,
     AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) {
-  base_driver_->Read(std::move(transform),
+  base_driver_->Read(std::move(transaction), std::move(transform),
                      ChunkReceiverAdapter<ReadChunk, ReadChunkImpl>{
                          Ptr(this), std::move(receiver)});
 }
 
 void CastDriver::Write(
-    IndexTransform<> transform,
+    OpenTransactionPtr transaction, IndexTransform<> transform,
     AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) {
-  base_driver_->Write(std::move(transform),
+  base_driver_->Write(std::move(transaction), std::move(transform),
                       ChunkReceiverAdapter<WriteChunk, WriteChunkImpl>{
                           Ptr(this), std::move(receiver)});
 }

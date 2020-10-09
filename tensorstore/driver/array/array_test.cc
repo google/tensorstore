@@ -150,7 +150,7 @@ TEST(ArrayDriverTest, Write) {
   auto array =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
   auto context = Context::Default();
-  auto [driver, transform] =
+  auto [driver, transform, transaction] =
       tensorstore::internal::MakeArrayDriver<offset_origin>(context, array)
           .value();
   std::vector<WriteProgress> write_progress;
@@ -178,7 +178,7 @@ TEST(ArrayDriverTest, WriteInvalidSourceTransform) {
   auto array =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
   auto context = Context::Default();
-  auto [driver, transform] =
+  auto [driver, transform, transaction] =
       tensorstore::internal::MakeArrayDriver<offset_origin>(context, array)
           .value();
   std::vector<WriteProgress> write_progress;
@@ -210,7 +210,7 @@ TEST(ArrayDriverTest, WriteDomainMismatch) {
   auto array =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
   auto context = Context::Default();
-  auto [driver, transform] =
+  auto [driver, transform, transaction] =
       tensorstore::internal::MakeArrayDriver<offset_origin>(context, array)
           .value();
   std::vector<WriteProgress> write_progress;
@@ -235,12 +235,12 @@ TEST(ArrayDriverTest, Copy) {
   auto context = Context::Default();
   auto array_a =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto [driver_a, transform_a] =
+  auto [driver_a, transform_a, transaction_a] =
       tensorstore::internal::MakeArrayDriver<offset_origin>(context, array_a)
           .value();
   auto array_b =
       tensorstore::MakeOffsetArray<int>({1, 4}, {{7, 7, 7}, {7, 7, 7}});
-  auto [driver_b, transform_b] =
+  auto [driver_b, transform_b, transaction_b] =
       tensorstore::internal::MakeArrayDriver<offset_origin>(context, array_b)
           .value();
   std::vector<CopyProgress> progress;
@@ -800,6 +800,21 @@ TEST(OpenTest, InvalidRank) {
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Error parsing object member \"array\": "
                     "Array rank \\(2\\) does not match expected rank \\(3\\)"));
+}
+
+// Tests that copying from an array driver to itself does not lead to deadlock.
+TEST(CopyTest, SelfCopy) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::FromArray(Context::Default(),
+                             tensorstore::MakeArray<int>({1, 2, 3, 4})));
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Copy(
+          ChainResult(store, tensorstore::Dims(0).SizedInterval(0, 2)),
+          ChainResult(store, tensorstore::Dims(0).SizedInterval(2, 2)))
+          .result());
+  EXPECT_EQ(tensorstore::Read(store).result(),
+            tensorstore::MakeArray<int>({1, 2, 1, 2}));
 }
 
 }  // namespace open_tests

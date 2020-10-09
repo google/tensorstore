@@ -24,10 +24,12 @@
 #include "tensorstore/internal/cache.h"
 #include "tensorstore/internal/compression/blosc.h"
 #include "tensorstore/internal/decoded_matches.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/parse_json_matches.h"
 #include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/kvstore/key_value_store_testutil.h"
+#include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/open.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/status.h"
@@ -119,14 +121,13 @@ TEST(OpenTest, CreateWithoutWrite) {
 TEST(ZarrDriverTest, OpenNonExisting) {
   auto context = Context::Default();
 
-  EXPECT_THAT(
-      tensorstore::Open(
-          context, GetJsonSpec(),
-          {tensorstore::OpenMode::open, tensorstore::ReadWriteMode::read_write})
-          .result(),
-      MatchesStatus(absl::StatusCode::kNotFound,
-                    "Error opening \"zarr\" driver: "
-                    "Metadata key \"prefix/\\.zarray\" does not exist"));
+  EXPECT_THAT(tensorstore::Open(context, GetJsonSpec(),
+                                {tensorstore::OpenMode::open,
+                                 tensorstore::ReadWriteMode::read_write})
+                  .result(),
+              MatchesStatus(absl::StatusCode::kNotFound,
+                            "Error opening \"zarr\" driver: "
+                            "Metadata at \"prefix/\\.zarray\" does not exist"));
 }
 
 TEST(ZarrDriverTest, OpenOrCreate) {
@@ -262,15 +263,13 @@ TEST(ZarrDriverTest, Create) {
 
   // Check that attempting to create the store again fails.
   {
-    EXPECT_THAT(
-        tensorstore::Open(context, json_spec,
-                          {tensorstore::OpenMode::create,
-                           tensorstore::ReadWriteMode::read_write})
-            .result(),
-        MatchesStatus(
-            absl::StatusCode::kAlreadyExists,
-            "Error opening \"zarr\" driver: "
-            "Error creating array with metadata key \"prefix/\\.zarray\""));
+    EXPECT_THAT(tensorstore::Open(context, json_spec,
+                                  {tensorstore::OpenMode::create,
+                                   tensorstore::ReadWriteMode::read_write})
+                    .result(),
+                MatchesStatus(absl::StatusCode::kAlreadyExists,
+                              "Error opening \"zarr\" driver: "
+                              "Error writing \"prefix/\\.zarray\""));
   }
 
   // Check that create or open succeeds.
@@ -299,8 +298,12 @@ TEST(ZarrDriverTest, Create) {
   }
 
   // Check that delete_existing works.
-  {
-    auto store = tensorstore::Open(context, json_spec,
+  for (auto transaction_mode :
+       {tensorstore::TransactionMode::no_transaction_mode,
+        tensorstore::TransactionMode::isolated,
+        tensorstore::TransactionMode::atomic_isolated}) {
+    tensorstore::Transaction transaction(transaction_mode);
+    auto store = tensorstore::Open(context, transaction, json_spec,
                                    {tensorstore::OpenMode::create |
                                         tensorstore::OpenMode::delete_existing,
                                     tensorstore::ReadWriteMode::read_write})
@@ -313,6 +316,7 @@ TEST(ZarrDriverTest, Create) {
             ChainResult(store, tensorstore::AllDims().TranslateSizedInterval(
                                    {9, 7}, {3, 5})))
             .value());
+    TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
     auto kv_store =
         KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value();
     EXPECT_THAT(ListFuture(kv_store.get()).value(),
@@ -320,89 +324,274 @@ TEST(ZarrDriverTest, Create) {
   }
 }
 
-TEST(ZarrDriverTest, Spec) {
-  const ::nlohmann::json create_spec = GetJsonSpec();
-  const ::nlohmann::json full_spec  //
-      {{"dtype", "int16"},
-       {"driver", "zarr"},
-       {"path", "prefix"},
-       {"allow_metadata_mismatch", false},
-       {"delete_existing", false},
-       {"recheck_cached_data", true},
-       {"recheck_cached_metadata", "open"},
-       {"key_encoding", "."},
-       {"metadata",
-        {{"chunks", {3, 2}},
-         {"compressor",
-          {{"blocksize", 0},
-           {"clevel", 5},
-           {"cname", "lz4"},
-           {"id", "blosc"},
-           {"shuffle", -1}}},
-         {"dtype", "<i2"},
-         {"fill_value", nullptr},
-         {"filters", nullptr},
-         {"order", "C"},
-         {"shape", {100, 100}},
-         {"zarr_format", 2}}},
-       {"kvstore", {{"driver", "memory"}}},
-       {"transform",
-        {{"input_exclusive_max", {{100}, {100}}},
-         {"input_inclusive_min", {0, 0}}}}};
+// Tests that the metadata cache avoids repeated requests.
+TEST(ZarrDriverTest, MetadataCache) {
+  Context context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource(
+          Context::ResourceSpec<
+              tensorstore::internal::MockKeyValueStoreResource>::Default()));
+  auto mock_key_value_store = *mock_key_value_store_resource;
+  auto memory_store = tensorstore::GetMemoryKeyValueStore();
 
-  const ::nlohmann::json minimal_spec  //
-      {{"dtype", "int16"},
-       {"driver", "zarr"},
-       {"path", "prefix"},
-       {"allow_metadata_mismatch", false},
-       {"delete_existing", false},
-       {"recheck_cached_data", true},
-       {"recheck_cached_metadata", "open"},
-       {"key_encoding", "."},
-       {"kvstore", {{"driver", "memory"}}},
-       {"transform",
-        {{"input_exclusive_max", {{100}, {100}}},
-         {"input_inclusive_min", {0, 0}}}}};
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "mock_key_value_store"}}},
+      {"path", "prefix"},
+      {"metadata",
+       {
+           {"compressor", {{"id", "blosc"}}},
+           {"dtype", "<i2"},
+           {"shape", {100, 100}},
+           {"chunks", {3, 2}},
+       }},
+      {"recheck_cached_metadata", false},
+      {"create", true},
+      {"open", true},
+  };
+  auto store_future = tensorstore::Open(context, json_spec);
+  mock_key_value_store->read_requests.pop()(memory_store);
+  mock_key_value_store->write_requests.pop()(memory_store);
+  TENSORSTORE_EXPECT_OK(store_future.result());
 
-  {
-    auto context = Context::Default();
-    auto store =
-        tensorstore::Open(context, create_spec, tensorstore::OpenMode::create)
-            .value();
+  // Reopening should not result in any requests.
+  TENSORSTORE_EXPECT_OK(tensorstore::Open(context, json_spec).result());
+}
 
-    // Test retrieving the full and minimal Spec.
-    EXPECT_EQ(full_spec, store.spec()
-                             .value()
-                             .ToJson(tensorstore::IncludeContext{false})
-                             .value());
-    EXPECT_EQ(minimal_spec, store.spec(tensorstore::MinimalSpec{true})
-                                .value()
-                                .ToJson(tensorstore::IncludeContext{false})
-                                .value());
+class MockKeyValueStoreTest : public ::testing::Test {
+ protected:
+  Context context = Context::Default();
+  KeyValueStore::PtrT<tensorstore::internal::MockKeyValueStore>
+      mock_key_value_store =
+          *context
+               .GetResource(Context::ResourceSpec<
+                            tensorstore::internal::MockKeyValueStoreResource>::
+                                Default())
+               .value();
+  tensorstore::KeyValueStore::Ptr memory_store =
+      tensorstore::GetMemoryKeyValueStore();
+};
 
-    // Test that the minimal spec round trips for opening existing TensorStore.
-    auto store2 =
-        tensorstore::Open(context, minimal_spec, tensorstore::OpenMode::open)
-            .value();
-    EXPECT_EQ(full_spec, store2.spec()
-                             .value()
-                             .ToJson(tensorstore::IncludeContext{false})
-                             .value());
-    EXPECT_EQ(minimal_spec, store2.spec(tensorstore::MinimalSpec{true})
-                                .value()
-                                .ToJson(tensorstore::IncludeContext{false})
-                                .value());
-  }
+// Tests that an error when creating the metadata is handled correctly.
+TEST_F(MockKeyValueStoreTest, CreateMetadataError) {
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "mock_key_value_store"}}},
+      {"path", "prefix"},
+      {"metadata",
+       {
+           {"compressor", {{"id", "blosc"}}},
+           {"dtype", "<i2"},
+           {"shape", {100, 100}},
+           {"chunks", {3, 2}},
+       }},
+      {"create", true},
+      {"open", true},
+  };
+  auto store_future = tensorstore::Open(context, json_spec);
+  store_future.Force();
+  mock_key_value_store->read_requests.pop()(memory_store);
+  mock_key_value_store->write_requests.pop().promise.SetResult(
+      absl::UnknownError("create error"));
+  EXPECT_THAT(store_future.result(),
+              MatchesStatus(absl::StatusCode::kUnknown,
+                            "Error opening \"zarr\" driver: "
+                            "Error writing \"prefix/\\.zarray\": "
+                            "create error"));
+}
 
-  // Test that the full Spec round trips for creating a new TensorStore.
-  {
-    auto context = Context::Default();
-    auto store =
-        tensorstore::Open(context, full_spec, tensorstore::OpenMode::create)
-            .value();
-    EXPECT_EQ(full_spec,
-              store.spec().value().ToJson(tensorstore::IncludeContext{false}));
-  }
+// Tests concurrently creating a zarr array with `create=true` and `open=false`,
+// using independent cache pools.
+TEST_F(MockKeyValueStoreTest,
+       CreateMetadataConcurrentErrorIndependentCachePools) {
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "mock_key_value_store"}}},
+      {"path", "prefix"},
+      {"metadata",
+       {
+           {"compressor", {{"id", "blosc"}}},
+           {"dtype", "<i2"},
+           {"shape", {100, 100}},
+           {"chunks", {3, 2}},
+       }},
+      {"create", true},
+      // Ensure independent cache pools are used.
+      {"cache_pool", {{"total_bytes_limit", 0}}},
+  };
+  auto store_future1 = tensorstore::Open(context, json_spec);
+  auto store_future2 = tensorstore::Open(context, json_spec);
+  store_future1.Force();
+  store_future2.Force();
+  // Handling both read requests before the write requests ensures the create
+  // attempts happen concurrently.
+  mock_key_value_store->read_requests.pop()(memory_store);
+  mock_key_value_store->read_requests.pop()(memory_store);
+  mock_key_value_store->write_requests.pop()(memory_store);
+  mock_key_value_store->write_requests.pop()(memory_store);
+  mock_key_value_store->read_requests.pop()(memory_store);
+  // Exactly one of the create requests succeeds.
+  EXPECT_THAT(
+      std::vector({GetStatus(store_future1.result()),
+                   GetStatus(store_future2.result())}),
+      ::testing::UnorderedElementsAre(
+          absl::Status(), MatchesStatus(absl::StatusCode::kAlreadyExists,
+                                        "Error opening \"zarr\" driver: "
+                                        "Error writing \"prefix/.zarray\"")));
+}
+
+// Tests concurrently creating a zarr array with `create=true` and `open=false`,
+// using a shared cache pool.
+TEST(ZarrDriverTest, CreateMetadataConcurrentErrorSharedCachePool) {
+  auto context = Context::Default();
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"path", "prefix"},
+      {"metadata",
+       {
+           {"compressor", {{"id", "blosc"}}},
+           {"dtype", "<i2"},
+           {"shape", {100, 100}},
+           {"chunks", {3, 2}},
+       }},
+      {"create", true},
+  };
+  auto store_future1 = tensorstore::Open(context, json_spec);
+  auto store_future2 = tensorstore::Open(context, json_spec);
+  store_future1.Force();
+  store_future2.Force();
+  // Exactly one of the create requests succeeds.
+  EXPECT_THAT(
+      std::vector({GetStatus(store_future1.result()),
+                   GetStatus(store_future2.result())}),
+      ::testing::UnorderedElementsAre(
+          absl::Status(), MatchesStatus(absl::StatusCode::kAlreadyExists,
+                                        "Error opening \"zarr\" driver: "
+                                        "Error writing \"prefix/.zarray\"")));
+}
+
+// Tests concurrently creating a zarr array with `create=true` and `open=true`,
+// using independent cache pools.
+TEST_F(MockKeyValueStoreTest,
+       CreateMetadataConcurrentSuccessIndependentCachePools) {
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "mock_key_value_store"}}},
+      {"path", "prefix"},
+      {"metadata",
+       {
+           {"compressor", {{"id", "blosc"}}},
+           {"dtype", "<i2"},
+           {"shape", {100, 100}},
+           {"chunks", {3, 2}},
+       }},
+      {"create", true},
+      {"open", true},
+      {"cache_pool", {{"total_bytes_limit", 0}}},
+  };
+  auto store_future1 = tensorstore::Open(context, json_spec);
+  auto store_future2 = tensorstore::Open(context, json_spec);
+  store_future1.Force();
+  store_future2.Force();
+  // Handling both read requests before the write requests ensures the create
+  // attempts happen concurrently.
+  mock_key_value_store->read_requests.pop()(memory_store);
+  mock_key_value_store->read_requests.pop()(memory_store);
+  mock_key_value_store->write_requests.pop()(memory_store);
+  mock_key_value_store->write_requests.pop()(memory_store);
+  mock_key_value_store->read_requests.pop()(memory_store);
+  TENSORSTORE_EXPECT_OK(store_future1.result());
+  TENSORSTORE_EXPECT_OK(store_future2.result());
+}
+
+// Tests concurrently creating a zarr array with `create=true` and `open=true`,
+// using a shared cache pool.
+TEST(ZarrDriverTest, CreateMetadataConcurrentSuccessSharedCachePool) {
+  auto context = Context::Default();
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"path", "prefix"},
+      {"metadata",
+       {
+           {"compressor", {{"id", "blosc"}}},
+           {"dtype", "<i2"},
+           {"shape", {100, 100}},
+           {"chunks", {3, 2}},
+       }},
+      {"create", true},
+      {"open", true},
+  };
+  auto store_future1 = tensorstore::Open(context, json_spec);
+  auto store_future2 = tensorstore::Open(context, json_spec);
+  TENSORSTORE_EXPECT_OK(store_future1.result());
+  TENSORSTORE_EXPECT_OK(store_future2.result());
+}
+
+TEST_F(MockKeyValueStoreTest, CreateWithTransactionWriteError) {
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "mock_key_value_store"}}},
+      {"path", "prefix"},
+      {"metadata",
+       {
+           {"compressor", {{"id", "blosc"}}},
+           {"dtype", "<i2"},
+           {"shape", {100, 100}},
+           {"chunks", {3, 2}},
+       }},
+      {"create", true},
+  };
+  auto transaction = tensorstore::Transaction(tensorstore::isolated);
+  auto store_future = tensorstore::Open(context, transaction, json_spec);
+  TENSORSTORE_EXPECT_OK(store_future.result());
+  transaction.CommitAsync().IgnoreFuture();
+  mock_key_value_store->read_requests.pop()(memory_store);
+  mock_key_value_store->write_requests.pop().promise.SetResult(
+      absl::UnknownError("write error"));
+  EXPECT_THAT(transaction.future().result(),
+              MatchesStatus(absl::StatusCode::kUnknown,
+                            "Error writing \"prefix/.zarray\": "
+                            "write error"));
+}
+
+TEST_F(MockKeyValueStoreTest, CreateWithTransactionAlreadyExists) {
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "mock_key_value_store"}}},
+      {"path", "prefix"},
+      {"metadata",
+       {
+           {"compressor", {{"id", "blosc"}}},
+           {"dtype", "<i2"},
+           {"shape", {100, 100}},
+           {"chunks", {3, 2}},
+       }},
+      {"create", true},
+      // Ensure independent caches are used.
+      {"cache_pool", {{"total_bytes_limit", 0}}},
+  };
+  auto transaction = tensorstore::Transaction(tensorstore::isolated);
+  auto store_future = tensorstore::Open(context, transaction, json_spec);
+  TENSORSTORE_EXPECT_OK(store_future.result());
+  EXPECT_TRUE(mock_key_value_store->read_requests.empty());
+  EXPECT_TRUE(mock_key_value_store->write_requests.empty());
+
+  // Create the array before the transaction commit completes.
+  auto store2_future = tensorstore::Open(context, json_spec);
+  store2_future.Force();
+  mock_key_value_store->read_requests.pop()(memory_store);
+  mock_key_value_store->write_requests.pop()(memory_store);
+  TENSORSTORE_EXPECT_OK(store2_future.result());
+
+  transaction.CommitAsync().IgnoreFuture();
+  mock_key_value_store->read_requests.pop()(memory_store);
+
+  EXPECT_THAT(transaction.future().result(),
+              MatchesStatus(absl::StatusCode::kAlreadyExists,
+                            "Error writing \"prefix/.zarray\""));
 }
 
 void TestCreateWriteRead(Context context, ::nlohmann::json json_spec) {
@@ -702,15 +891,12 @@ TEST(ZarrDriverTest, Resize) {
                                      {tensorstore::OpenMode::create,
                                       tensorstore::ReadWriteMode::read_write})
                        .value();
-      EXPECT_EQ(
-          Status(),
-          GetStatus(
-              tensorstore::Write(
-                  tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
-                  ChainResult(store,
-                              tensorstore::AllDims().TranslateSizedInterval(
-                                  {2, 1}, {2, 3})))
-                  .commit_future.result()));
+      TENSORSTORE_EXPECT_OK(
+          tensorstore::Write(
+              tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
+              ChainResult(store, tensorstore::AllDims().TranslateSizedInterval(
+                                     {2, 1}, {2, 3})))
+              .commit_future.result());
       // Check that key value store has expected contents.
       auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
       EXPECT_THAT(  //
@@ -994,6 +1180,7 @@ TEST(ZarrDriverTest, InvalidResize) {
           .result(),
       MatchesStatus(
           absl::StatusCode::kFailedPrecondition,
+          "Error writing \"prefix/\\.zarray\": "
           "Resize operation would shrink output dimension 1 from "
           "\\[0, 100\\) to \\[0, 10\\) but `expand_only` was specified"));
 
@@ -1168,23 +1355,85 @@ TEST(ZarrDriverTest, InvalidResizeIncompatibleMetadata) {
       {"path", "prefix"},
       {"metadata", zarr_metadata_json},
   };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(context, json_spec,
+                                    {tensorstore::OpenMode::create,
+                                     tensorstore::ReadWriteMode::read_write})
+                      .result());
+  json_spec["metadata"]["chunks"] = {5, 5};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store2,
+      tensorstore::Open(context, json_spec,
+                        {tensorstore::OpenMode::create |
+                             tensorstore::OpenMode::delete_existing,
+                         tensorstore::ReadWriteMode::read_write})
+          .result());
+  EXPECT_THAT(
+      Resize(store, span<const Index>({kImplicit, kImplicit}),
+             span<const Index>({5, 5}), tensorstore::resize_metadata_only)
+          .result(),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                    "Error writing \"prefix/\\.zarray\": "
+                    "Updated zarr metadata .* is incompatible with "
+                    "existing metadata .*"));
+}
+
+TEST(ZarrDriverTest, InvalidResizeConstraintsViolated) {
+  auto context = Context::Default();
+  // Create the store.
+  ::nlohmann::json storage_spec{{"driver", "memory"}};
+  ::nlohmann::json zarr_metadata_json = GetBasicResizeMetadata();
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", storage_spec},
+      {"path", "prefix"},
+      {"metadata", zarr_metadata_json},
+  };
   auto store = tensorstore::Open(context, json_spec,
                                  {tensorstore::OpenMode::create,
                                   tensorstore::ReadWriteMode::read_write})
                    .value();
-  json_spec["metadata"]["chunks"] = {5, 5};
+  json_spec["metadata"]["shape"] = {150, 100};
   auto store2 = tensorstore::Open(context, json_spec,
                                   {tensorstore::OpenMode::create |
                                        tensorstore::OpenMode::delete_existing,
                                    tensorstore::ReadWriteMode::read_write})
                     .value();
   EXPECT_THAT(
-      Resize(store, span<const Index>({kImplicit, kImplicit}),
-             span<const Index>({5, 5}), tensorstore::resize_metadata_only)
+      Resize(store | tensorstore::Dims(0).SizedInterval(0, 100),
+             span<const Index>({kImplicit, kImplicit}),
+             span<const Index>({kImplicit, 5}),
+             tensorstore::resize_metadata_only)
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Updated zarr metadata .* is incompatible with "
-                    "existing metadata .*"));
+      MatchesStatus(
+          absl::StatusCode::kFailedPrecondition,
+          "Error writing \"prefix/\\.zarray\": "
+          "Resize operation would also affect output dimension 0 over the "
+          "interval \\[100, 150\\) but `resize_tied_bounds` was not "
+          "specified"));
+}
+
+TEST(ZarrDriverTest, ResolveBoundsDeletedMetadata) {
+  auto context = Context::Default();
+  // Create the store.
+  ::nlohmann::json storage_spec{{"driver", "memory"}};
+  ::nlohmann::json zarr_metadata_json = GetBasicResizeMetadata();
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", storage_spec},
+      {"path", "prefix"},
+      {"metadata", zarr_metadata_json},
+      {"recheck_cached_metadata", true},
+  };
+  auto store = tensorstore::Open(context, json_spec,
+                                 {tensorstore::OpenMode::create,
+                                  tensorstore::ReadWriteMode::read_write})
+                   .value();
+  auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+  kv_store->Delete("prefix/.zarray").value();
+  EXPECT_THAT(ResolveBounds(store).result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            "Metadata at \"prefix/.zarray\" does not exist"));
 }
 
 TEST(ZarrDriverTest, InvalidResizeDeletedMetadata) {
@@ -1208,7 +1457,9 @@ TEST(ZarrDriverTest, InvalidResizeDeletedMetadata) {
       Resize(store, span<const Index>({kImplicit, kImplicit}),
              span<const Index>({5, 5}), tensorstore::resize_metadata_only)
           .result(),
-      MatchesStatus(absl::StatusCode::kNotFound, "Metadata was deleted"));
+      MatchesStatus(absl::StatusCode::kNotFound,
+                    "Error writing \"prefix/\\.zarray\": "
+                    "Metadata was deleted"));
 }
 
 TEST(ZarrDriverTest, InvalidSpec) {
@@ -1517,58 +1768,68 @@ void TestDataCaching(RecheckOption recheck_option, bool modify_before_reopen,
             value2);
 }
 
-TEST(ZarrDriverTest, RecheckCachedData) {
-  // Test the case where stale cached data is always used.
-  for (const auto recheck_option : {
-           RecheckOption::kExplicitBeforeModifyBound,
-           RecheckOption::kNeverRecheck,
-           RecheckOption::kExplicitEpochBound,
-       }) {
-    for (const bool modify_before_reopen : {false, true}) {
-      for (const bool modify_after_reopen : {false, true}) {
-        TestDataCaching(
-            /*recheck_option=*/recheck_option,
-            /*modify_before_reopen=*/modify_before_reopen,
-            /*modify_after_reopen=*/modify_after_reopen,
-            /*expected_value1=*/0,
-            /*expected_value2=*/0);
-      }
-    }
+class RecheckCachedTest
+    : public ::testing::TestWithParam<std::tuple<RecheckOption, bool, bool>> {
+ public:
+  RecheckOption recheck_option() const { return std::get<0>(GetParam()); }
+  bool modify_before_reopen() const { return std::get<1>(GetParam()); }
+  bool modify_after_reopen() const { return std::get<2>(GetParam()); }
+  static std::string PrintToStringParamName(
+      const testing::TestParamInfo<ParamType>& info) {
+    return tensorstore::StrCat(std::get<0>(info.param), "_before",
+                               std::get<1>(info.param), "_after",
+                               std::get<2>(info.param));
   }
+};
 
-  // Test the case where only modifications prior to opening are seen.
-  for (const auto recheck_option : {
-           RecheckOption::kExplicitOpenTimeBound,
-           RecheckOption::kOpen,
-       }) {
-    for (const bool modify_before_reopen : {false, true}) {
-      for (const bool modify_after_reopen : {false, true}) {
-        TestDataCaching(
-            /*recheck_option=*/recheck_option,
-            /*modify_before_reopen=*/modify_before_reopen,
-            /*modify_after_reopen=*/modify_after_reopen,
-            /*expected_value1=*/modify_before_reopen ? 1 : 0,
-            /*expected_value2=*/modify_before_reopen ? 1 : 0);
-      }
-    }
-  }
+INSTANTIATE_TEST_SUITE_P(
+    Instantiation, RecheckCachedTest,
+    ::testing::Combine(
+        ::testing::Values(RecheckOption::kExplicitBeforeModifyBound,
+                          RecheckOption::kExplicitOpenTimeBound,
+                          RecheckOption::kExplicitFutureBound,
+                          RecheckOption::kNeverRecheck,
+                          RecheckOption::kAlwaysRecheck, RecheckOption::kOpen,
+                          RecheckOption::kExplicitEpochBound),
+        ::testing::Bool(), ::testing::Bool()),
+    &RecheckCachedTest::PrintToStringParamName);
 
-  // Test the case where all modifications are seen.
-  for (const auto recheck_option : {
-           RecheckOption::kAlwaysRecheck,
-           RecheckOption::kExplicitFutureBound,
-       }) {
-    for (const bool modify_before_reopen : {false, true}) {
-      for (const bool modify_after_reopen : {false, true}) {
-        TestDataCaching(
-            /*recheck_option=*/recheck_option,
-            /*modify_before_reopen=*/modify_before_reopen,
-            /*modify_after_reopen=*/modify_after_reopen,
-            /*expected_value1=*/modify_before_reopen ? 1 : 0,
-            /*expected_value2=*/
-            modify_after_reopen ? 2 : (modify_before_reopen ? 1 : 0));
-      }
-    }
+TEST_P(RecheckCachedTest, RecheckCachedData) {
+  switch (recheck_option()) {
+      // Test the case where stale cached data is always used.
+    case RecheckOption::kExplicitBeforeModifyBound:
+    case RecheckOption::kNeverRecheck:
+    case RecheckOption::kExplicitEpochBound:
+      TestDataCaching(
+          /*recheck_option=*/recheck_option(),
+          /*modify_before_reopen=*/modify_before_reopen(),
+          /*modify_after_reopen=*/modify_after_reopen(),
+          /*expected_value1=*/0,
+          /*expected_value2=*/0);
+      break;
+
+      // Test the case where only modifications prior to opening are seen.
+    case RecheckOption::kExplicitOpenTimeBound:
+    case RecheckOption::kOpen:
+      TestDataCaching(
+          /*recheck_option=*/recheck_option(),
+          /*modify_before_reopen=*/modify_before_reopen(),
+          /*modify_after_reopen=*/modify_after_reopen(),
+          /*expected_value1=*/modify_before_reopen() ? 1 : 0,
+          /*expected_value2=*/modify_before_reopen() ? 1 : 0);
+      break;
+
+    // Test the case where all modifications are seen.
+    case RecheckOption::kAlwaysRecheck:
+    case RecheckOption::kExplicitFutureBound:
+      TestDataCaching(
+          /*recheck_option=*/recheck_option(),
+          /*modify_before_reopen=*/modify_before_reopen(),
+          /*modify_after_reopen=*/modify_after_reopen(),
+          /*expected_value1=*/modify_before_reopen() ? 1 : 0,
+          /*expected_value2=*/
+          modify_after_reopen() ? 2 : (modify_before_reopen() ? 1 : 0));
+      break;
   }
 }
 
@@ -1595,9 +1856,6 @@ TEST(ZarrDriverTest, RecheckCachedData) {
 void TestMetadataCaching(RecheckOption recheck_option,
                          bool modify_before_reopen, bool modify_after_reopen,
                          Index expected_dim0, Index expected_dim1) {
-  SCOPED_TRACE(tensorstore::StrCat(
-      "recheck_option=", recheck_option, ", modify_before_open=",
-      modify_before_reopen, ", modify_after_open=", modify_after_reopen));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto context_spec,
       Context::Spec::FromJson(
@@ -1659,57 +1917,41 @@ void TestMetadataCaching(RecheckOption recheck_option,
   EXPECT_EQ(expected_dim1, new_store.domain().shape()[1]);
 }
 
-TEST(ZarrDriverTest, RecheckCachedMetadata) {
-  // Test the case where stale cached data is always used.
-  for (const auto recheck_option : {
-           RecheckOption::kExplicitBeforeModifyBound,
-           RecheckOption::kNeverRecheck,
-           RecheckOption::kExplicitEpochBound,
-       }) {
-    for (const bool modify_before_reopen : {false, true}) {
-      for (const bool modify_after_reopen : {false, true}) {
-        TestMetadataCaching(
-            /*recheck_option=*/recheck_option,
-            /*modify_before_reopen=*/modify_before_reopen,
-            /*modify_after_reopen=*/modify_after_reopen,
-            /*expected_dim0=*/100,
-            /*expected_dim1=*/100);
-      }
-    }
-  }
+TEST_P(RecheckCachedTest, RecheckCachedMetadata) {
+  switch (recheck_option()) {
+      // Test the case where stale cached data is always used.
+    case RecheckOption::kExplicitBeforeModifyBound:
+    case RecheckOption::kNeverRecheck:
+    case RecheckOption::kExplicitEpochBound:
+      TestMetadataCaching(
+          /*recheck_option=*/recheck_option(),
+          /*modify_before_reopen=*/modify_before_reopen(),
+          /*modify_after_reopen=*/modify_after_reopen(),
+          /*expected_dim0=*/100,
+          /*expected_dim1=*/100);
+      break;
 
-  // Test the case where only modifications prior to opening are seen.
-  for (const auto recheck_option : {
-           RecheckOption::kExplicitOpenTimeBound,
-           RecheckOption::kOpen,
-       }) {
-    for (const bool modify_before_reopen : {false, true}) {
-      for (const bool modify_after_reopen : {false, true}) {
-        TestMetadataCaching(
-            /*recheck_option=*/recheck_option,
-            /*modify_before_reopen=*/modify_before_reopen,
-            /*modify_after_reopen=*/modify_after_reopen,
-            /*expected_dim0=*/modify_before_reopen ? 200 : 100,
-            /*expected_dim1=*/100);
-      }
-    }
-  }
+    // Test the case where only modifications prior to opening are seen.
+    case RecheckOption::kExplicitOpenTimeBound:
+    case RecheckOption::kOpen:
+      TestMetadataCaching(
+          /*recheck_option=*/recheck_option(),
+          /*modify_before_reopen=*/modify_before_reopen(),
+          /*modify_after_reopen=*/modify_after_reopen(),
+          /*expected_dim0=*/modify_before_reopen() ? 200 : 100,
+          /*expected_dim1=*/100);
+      break;
 
-  // Test the case where all modifications are seen.
-  for (const auto recheck_option : {
-           RecheckOption::kAlwaysRecheck,
-           RecheckOption::kExplicitFutureBound,
-       }) {
-    for (const bool modify_before_reopen : {false, true}) {
-      for (const bool modify_after_reopen : {false, true}) {
-        TestMetadataCaching(
-            /*recheck_option=*/recheck_option,
-            /*modify_before_reopen=*/modify_before_reopen,
-            /*modify_after_reopen=*/modify_after_reopen,
-            /*expected_dim0=*/modify_before_reopen ? 200 : 100,
-            /*expected_dim1=*/modify_after_reopen ? 200 : 100);
-      }
-    }
+    // Test the case where all modifications are seen.
+    case RecheckOption::kAlwaysRecheck:
+    case RecheckOption::kExplicitFutureBound:
+      TestMetadataCaching(
+          /*recheck_option=*/recheck_option(),
+          /*modify_before_reopen=*/modify_before_reopen(),
+          /*modify_after_reopen=*/modify_after_reopen(),
+          /*expected_dim0=*/modify_before_reopen() ? 200 : 100,
+          /*expected_dim1=*/modify_after_reopen() ? 200 : 100);
+      break;
   }
 }
 
@@ -1768,28 +2010,115 @@ TEST(ZarrDriverTest, ReadAfterUncommittedWrite) {
               })));
 }
 
-TEST(ZarrDriverTest, BasicFunctionalityTest) {
-  tensorstore::internal::TestTensorStoreDriverBasicFunctionality(
-      {
-          {"driver", "zarr"},
-          {"kvstore", {{"driver", "memory"}}},
-          {"path", "prefix"},
-          {"metadata",
-           {
-               {"compressor", nullptr},
-               {"dtype", "<u2"},
-               {"shape", {10, 11}},
-               {"chunks", {4, 5}},
-           }},
-      },
-      tensorstore::IndexDomainBuilder(2)
-          .shape({10, 11})
-          .implicit_upper_bounds({1, 1})
-          .Finalize()
-          .value(),
-      tensorstore::AllocateArray<std::uint16_t>(tensorstore::BoxView({10, 11}),
-                                                tensorstore::c_order,
-                                                tensorstore::value_init));
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TestTensorStoreDriverSpecRoundtripOptions options;
+  options.test_name = "zarr";
+  options.create_spec = GetJsonSpec();
+  options.full_spec = {
+      {"dtype", "int16"},
+      {"driver", "zarr"},
+      {"path", "prefix"},
+      {"allow_metadata_mismatch", false},
+      {"delete_existing", false},
+      {"recheck_cached_data", true},
+      {"recheck_cached_metadata", "open"},
+      {"key_encoding", "."},
+      {"metadata",
+       {{"chunks", {3, 2}},
+        {"compressor",
+         {{"blocksize", 0},
+          {"clevel", 5},
+          {"cname", "lz4"},
+          {"id", "blosc"},
+          {"shuffle", -1}}},
+        {"dtype", "<i2"},
+        {"fill_value", nullptr},
+        {"filters", nullptr},
+        {"order", "C"},
+        {"shape", {100, 100}},
+        {"zarr_format", 2}}},
+      {"kvstore", {{"driver", "memory"}, {"atomic", true}}},
+      {"transform",
+       {{"input_exclusive_max", {{100}, {100}}},
+        {"input_inclusive_min", {0, 0}}}},
+  };
+  options.minimal_spec = {
+      {"dtype", "int16"},
+      {"driver", "zarr"},
+      {"path", "prefix"},
+      {"allow_metadata_mismatch", false},
+      {"delete_existing", false},
+      {"recheck_cached_data", true},
+      {"recheck_cached_metadata", "open"},
+      {"key_encoding", "."},
+      {"kvstore", {{"driver", "memory"}, {"atomic", true}}},
+      {"transform",
+       {{"input_exclusive_max", {{100}, {100}}},
+        {"input_inclusive_min", {0, 0}}}},
+  };
+  options.to_json_options = tensorstore::IncludeContext{false};
+  tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
+      std::move(options));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TensorStoreDriverBasicFunctionalityTestOptions options;
+  options.test_name = "zarr";
+  options.create_spec = {
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"path", "prefix"},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", "<u2"},
+           {"shape", {10, 11}},
+           {"chunks", {4, 5}},
+       }},
+  };
+  options.expected_domain = tensorstore::IndexDomainBuilder(2)
+                                .shape({10, 11})
+                                .implicit_upper_bounds({1, 1})
+                                .Finalize()
+                                .value();
+  options.initial_value = tensorstore::AllocateArray<std::uint16_t>(
+      tensorstore::BoxView({10, 11}), tensorstore::c_order,
+      tensorstore::value_init);
+  tensorstore::internal::RegisterTensorStoreDriverBasicFunctionalityTest(
+      std::move(options));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TestTensorStoreDriverResizeOptions options;
+  options.test_name = "zarr";
+  options.get_create_spec = [](tensorstore::BoxView<> bounds) {
+    return ::nlohmann::json{
+        {"driver", "zarr"},
+        {"kvstore", {{"driver", "memory"}}},
+        {"path", "prefix"},
+        {"dtype", "uint16"},
+        {"metadata",
+         {
+             {"compressor", nullptr},
+             {"dtype", "<u2"},
+             {"fill_value", nullptr},
+             {"order", "C"},
+             {"zarr_format", 2},
+             {"shape", bounds.shape()},
+             {"chunks", {4, 5}},
+             {"filters", nullptr},
+         }},
+        {"transform",
+         {
+             {"input_inclusive_min", {0, 0}},
+             {"input_exclusive_max",
+              {{bounds.shape()[0]}, {bounds.shape()[1]}}},
+         }},
+    };
+  };
+  options.initial_bounds = tensorstore::Box<>({0, 0}, {10, 11});
+  tensorstore::internal::RegisterTensorStoreDriverResizeTest(
+      std::move(options));
 }
 
 }  // namespace

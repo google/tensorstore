@@ -37,9 +37,14 @@ class TensorStoreAccess {
   constexpr static auto Construct =
       [](auto&&... arg) { return T(static_cast<decltype(arg)>(arg)...); };
 
+  /// Provides access to the `handle_` member of `store`, just like normal
+  /// member access.
+  ///
+  /// Note that `TensorStoreAccess::handle(expr)` is equivalent to
+  /// `expr.handle_`.
   template <typename X>
-  static auto& handle(X&& store) {
-    return store.handle_;
+  static auto handle(X&& store) -> decltype((std::declval<X>().handle_)) {
+    return static_cast<X&&>(store).handle_;
   }
 };
 
@@ -281,12 +286,14 @@ WriteFutures CopyImpl(TensorStore<SourceElement, SourceRank, SourceMode> source,
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
 struct IndexTransformFutureCallback {
   internal::Driver::Ptr driver;
+  Transaction transaction;
   ReadWriteMode read_write_mode;
   TensorStore<Element, Rank, Mode> operator()(IndexTransform<>& transform) {
     return TensorStoreAccess::Construct<TensorStore<Element, Rank, Mode>>(
         internal::DriverReadWriteHandle{
-            std::move(driver),
-            StaticRankCast<Rank, unchecked>(std::move(transform)),
+            {std::move(driver),
+             StaticRankCast<Rank, unchecked>(std::move(transform)),
+             std::move(transaction)},
             read_write_mode});
   }
 };

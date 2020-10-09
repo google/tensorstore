@@ -17,7 +17,7 @@
 
 /// \file
 /// Defines the abstract base class `ChunkCache`, which extends
-/// `AsyncStorageBackedCache` for the specific case of representing
+/// `AsyncCache` for the specific case of representing
 /// multi-dimensional arrays where a subset of the dimensions are partitioned
 /// according to a regular grid.  In this context, a regular grid means a grid
 /// where all cells have the same size.
@@ -59,13 +59,13 @@
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
-#include "tensorstore/internal/async_storage_backed_cache.h"
+#include "tensorstore/internal/async_cache.h"
 #include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/internal/cache.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
-#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/staleness_bound.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/iterate.h"
@@ -187,13 +187,19 @@ struct ChunkGridSpecification {
 };
 
 /// Cache for chunked multi-dimensional arrays.
-class ChunkCache : public AsyncStorageBackedCache {
+class ChunkCache : public AsyncCache {
  public:
-  /// Extends `AsyncStorageBackedCache::Entry` with storage of the data for all
+  using ReadData = SharedArrayView<const void>;
+
+  static SharedArrayView<const void> GetReadComponent(
+      const ChunkCache::ReadData* components, size_t component_index) {
+    if (!components) return {};
+    return components[component_index];
+  }
+
+  /// Extends `AsyncCache::Entry` with storage of the data for all
   /// component arrays corresponding to a single grid cell.
-  ///
-  /// Derived classes must not define a different nested `Entry` type.
-  class Entry : public AsyncStorageBackedCache::Entry {
+  class Entry : public AsyncCache::Entry {
    public:
     using Cache = ChunkCache;
 
@@ -203,52 +209,90 @@ class ChunkCache : public AsyncStorageBackedCache {
               static_cast<std::ptrdiff_t>(key().size() / sizeof(Index))};
     }
 
-    /// Stores the data for a single component array.
-    struct Component : public internal::AsyncWriteArray {
-      using internal::AsyncWriteArray::AsyncWriteArray;
-    };
+    span<const ChunkGridSpecification::Component> component_specs() {
+      return GetOwningCache(this)->grid().components;
+    }
 
-    /// Overwrites all components with the fill value.
-    /// \pre `data_mutex` is not locked by the current thread.
-    Future<const void> Delete();
+    Future<const void> Delete(internal::OpenTransactionPtr transaction);
 
-    absl::InlinedVector<Component, 1> components;
+    std::size_t ComputeReadDataSizeInBytes(const void* read_data) override;
   };
 
-  /// RAII class used by implementations of `DoWriteback` to acquire a snapshot
-  /// of the chunk data.
+  class TransactionNode : public AsyncCache::TransactionNode {
+   public:
+    using Cache = ChunkCache;
+
+    explicit TransactionNode(Entry& entry);
+
+    using Component = AsyncWriteArray;
+
+    span<Component> components() { return components_; }
+
+    /// Overwrites all components with the fill value.
+    void Delete();
+
+    std::size_t ComputeWriteStateSizeInBytes() override;
+
+    span<const ChunkGridSpecification::Component> component_specs() {
+      return GetOwningCache(*this).grid().components;
+    }
+
+    bool IsUnconditional() const {
+      return unconditional_.load(std::memory_order_relaxed);
+    }
+    void SetUnconditional() {
+      unconditional_.store(true, std::memory_order_relaxed);
+    }
+
+    void DoApply(ApplyOptions options, ApplyReceiver receiver) override;
+
+    void InvalidateReadState() override;
+
+   private:
+    friend class ChunkCache;
+    absl::InlinedVector<Component, 1> components_;
+    std::atomic<bool> unconditional_{false};
+
+   public:
+    bool is_modified{false};
+  };
+
+  /// Acquires a snapshot of the chunk data for use by derived class
+  /// `DoWriteback` implementations.
   class WritebackSnapshot {
    public:
-    /// Acquires a (shared) read lock on the entry referenced by `receiver`, and
-    /// obtains a snapshot of the chunk data.
-    explicit WritebackSnapshot(Entry* entry);
-
-    /// Returns the snapshot of the component arrays.
+    /// Obtains a snapshot of the write state, rebased on top of `read_state`.
     ///
-    /// The size of the returned `span` is equal to the number of component
-    /// arrays.
-    span<const SharedArrayView<const void>> component_arrays() const {
-      return component_arrays_;
-    }
+    /// \param node The node to snapshot.
+    /// \param read_state The read state on which to base the snapshot.  If
+    ///     `node.IsUnconditional()`, `read_state` is ignored.  Otherwise, if
+    ///     the write state is not already based on
+    ///     `read_state.generation().generation`, unmasked positions will be
+    ///     copied from `read_state`.  The value of
+    ///     `read_state.generation().generation` is used to avoid duplicate work
+    ///     in the case that the write state has already been updated for this
+    ///     generation.  The special value of `StorageGeneration::Local()`
+    ///     serves to indicate a temporary read state with no assigned
+    ///     generation.  If specified, the write state will always be rebased
+    ///     again on top of `read_state`.
+    explicit WritebackSnapshot(TransactionNode& node,
+                               AsyncCache::ReadView<ReadData> read_state);
 
     /// If `true`, all components are equal to the fill value.  If supported by
     /// the driver, writeback can be accomplished by deleting the chunk.
-    bool equals_fill_value() const { return equals_fill_value_; }
+    bool equals_fill_value() const { return !new_read_data_; }
 
-    /// If `true`, the snapshot does not depend on any prior read (because all
-    /// positions were overwritten), and should therefore be written back
-    /// unconditionally.  If `false`, writeback should be conditioned on the
-    /// prior read generation.
-    bool unconditional() const { return unconditional_; }
+    const std::shared_ptr<ReadData>& new_read_data() const {
+      return new_read_data_;
+    }
+    std::shared_ptr<ReadData>& new_read_data() { return new_read_data_; }
 
    private:
-    absl::InlinedVector<SharedArrayView<const void>, 1> component_arrays_;
-    bool equals_fill_value_;
-    bool unconditional_;
+    std::shared_ptr<ReadData> new_read_data_;
   };
 
   /// Constructs a chunk cache with the specified grid.
-  explicit ChunkCache(ChunkGridSpecification grid);
+  explicit ChunkCache(ChunkGridSpecification grid, Executor executor);
 
   /// Returns the grid specification.
   const ChunkGridSpecification& grid() const { return grid_; }
@@ -257,43 +301,47 @@ class ChunkCache : public AsyncStorageBackedCache {
   ///
   /// Each chunk sent to `receiver` corresponds to a single grid cell.
   ///
+  /// \param transaction If not null, the read will reflect the uncommitted
+  ///     modifications made in `transaction`.  Otherwise, the read will only
+  ///     reflect the committed state.  (The read will never reflect uncommitted
+  ///     non-transactional modifications.)
   /// \param component_index Component array index in the range
   ///     `[0, grid().components.size())`.
-  void Read(std::size_t component_index, IndexTransform<> transform,
-            StalenessBound staleness,
+  /// \param transform The transform to apply.
+  /// \param staleness Cached data older than `staleness` will not be returned
+  ///     without being rechecked.
+  /// \param receiver Receiver for the chunks.
+  void Read(internal::OpenTransactionPtr transaction,
+            std::size_t component_index, IndexTransform<> transform,
+            absl::Time staleness,
             AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver);
 
   /// Implements the behavior of `Driver::Write` for a given component array.
   ///
   /// Each chunk sent to `receiver` corresponds to a single grid cell.
   ///
+  /// \param transaction If not null, the modifications will be recorded for
+  ///     `transaction`.  If null, fine-grained implicit transactions will be
+  ///     used (typically one per chunk, not a single implicit transaction for
+  ///     the entire write).
   /// \param component_index Component array index in the range
   ///     `[0, grid().components.size())`.
-  void Write(std::size_t component_index, IndexTransform<> transform,
+  /// \param transform The transform to apply.
+  /// \param receiver Receiver for the chunks.
+  void Write(internal::OpenTransactionPtr transaction,
+             std::size_t component_index, IndexTransform<> transform,
              AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver);
 
-  void DoInitializeEntry(Cache::Entry* entry) override;
-  std::size_t DoGetReadStateSizeInBytes(Cache::Entry* base_entry) override;
-  std::size_t DoGetWriteStateSizeInBytes(Cache::Entry* base_entry) override;
-
+  /// Returns the entry for the specified grid cell.  If it does not already
+  /// exist, it will be created.
   PinnedCacheEntry<ChunkCache> GetEntryForCell(
       span<const Index> grid_cell_indices);
 
-  using AsyncStorageBackedCache::NotifyReadSuccess;
-  void NotifyReadSuccess(Cache::Entry* entry, ReadStateWriterLock lock,
-                         span<const SharedArrayView<const void>> components);
-
-  void NotifyWritebackSuccess(Cache::Entry* entry,
-                              WriteAndReadStateLock lock) override;
-
-  void NotifyWritebackNeedsRead(Cache::Entry* entry, WriteStateLock lock,
-                                absl::Time staleness_bound) override;
-
-  void NotifyWritebackError(Cache::Entry* entry, WriteStateLock lock,
-                            Status error) override;
+  const Executor& executor() const { return executor_; }
 
  private:
   ChunkGridSpecification grid_;
+  Executor executor_;
 };
 
 /// Base class that partially implements the TensorStore `Driver` interface
@@ -326,16 +374,17 @@ class ChunkCacheDriver : public Driver {
   /// Returns `cache->grid().components[component_index()].data_type()`.
   DataType data_type() override;
 
+  /// Returns the rank of the component.
   DimensionIndex rank() override;
 
   /// Simply forwards to `ChunkCache::Read`.
   void Read(
-      IndexTransform<> transform,
+      OpenTransactionPtr transaction, IndexTransform<> transform,
       AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) override;
 
   /// Simply forwards to `ChunkCache::Write`.
   void Write(
-      IndexTransform<> transform,
+      OpenTransactionPtr transaction, IndexTransform<> transform,
       AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) override;
 
   std::size_t component_index() const { return component_index_; }
@@ -345,6 +394,8 @@ class ChunkCacheDriver : public Driver {
   const StalenessBound& data_staleness_bound() const {
     return data_staleness_bound_;
   }
+
+  Executor data_copy_executor() override;
 
   ~ChunkCacheDriver() override;
 
