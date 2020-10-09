@@ -193,6 +193,74 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "kvs_backed_cache",
+    hdrs = ["kvs_backed_cache.h"],
+    deps = [
+        ":async_cache",
+        "//tensorstore/kvstore:generation",
+        "//tensorstore/kvstore:key_value_store",
+        "//tensorstore/util:executor",
+        "//tensorstore/util:future",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "kvs_backed_cache_test",
+    size = "small",
+    srcs = ["kvs_backed_cache_test.cc"],
+    deps = [
+        ":async_cache",
+        ":cache",
+        ":global_initializer",
+        ":kvs_backed_cache",
+        ":kvs_backed_cache_testutil",
+        "//tensorstore:transaction",
+        "//tensorstore/kvstore:generation_testutil",
+        "//tensorstore/kvstore:key_value_store",
+        "//tensorstore/kvstore:key_value_store_testutil",
+        "//tensorstore/kvstore/memory",
+        "//tensorstore/util:executor",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/random",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "kvs_backed_cache_testutil",
+    testonly = True,
+    srcs = ["kvs_backed_cache_testutil.cc"],
+    hdrs = ["kvs_backed_cache_testutil.h"],
+    deps = [
+        ":async_cache",
+        ":intrusive_ptr",
+        ":kvs_backed_cache",
+        ":mutex",
+        ":source_location",
+        ":test_util",
+        "//tensorstore:transaction",
+        "//tensorstore/kvstore:generation",
+        "//tensorstore/kvstore:generation_testutil",
+        "//tensorstore/kvstore:key_value_store_testutil",
+        "//tensorstore/util:assert_macros",
+        "//tensorstore/util:execution",
+        "//tensorstore/util:future",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
+        "//tensorstore/util:sender",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+tensorstore_cc_library(
     name = "aggregate_writeback_cache",
     hdrs = ["aggregate_writeback_cache.h"],
     deps = [
@@ -1968,6 +2036,7 @@ tensorstore_cc_library(
     ],
     deps = [
         ":env",
+        ":logging",
         ":os_error_code",
         ":path",
         ":source_location",

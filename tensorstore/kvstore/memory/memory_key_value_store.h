@@ -22,7 +22,13 @@
 
 namespace tensorstore {
 
-KeyValueStore::Ptr GetMemoryKeyValueStore();
+/// Creates a new (unique) in-memory KeyValueStore.
+///
+/// \param atomic If `true`, atomic multi-key transactions are supported.  If
+///     `false`, only single-key atomic transactions are supported.  Both
+///     versions are exposed for testing implementations of transactional
+///     operations.
+KeyValueStore::Ptr GetMemoryKeyValueStore(bool atomic = true);
 
 }  // namespace tensorstore
 

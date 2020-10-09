@@ -1,4 +1,5 @@
 load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -84,20 +85,45 @@ tensorstore_cc_test(
     ],
 )
 
+# To enable debug checks, specify:
+# bazel build --//tensorstore/kvstore:transaction_debug
+bool_flag(
+    name = "transaction_debug",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "transaction_debug_setting",
+    flag_values = {
+        ":transaction_debug": "True",
+    },
+    visibility = ["//visibility:private"],
+)
+
 tensorstore_cc_library(
     name = "key_value_store",
-    srcs = ["key_value_store.cc"],
+    srcs = [
+        "key_value_store.cc",
+        "transaction.cc",
+    ],
     hdrs = [
         "key_value_store.h",
         "registry.h",
+        "transaction.h",
     ],
+    local_defines = select({
+        ":transaction_debug_setting": ["TENSORSTORE_INTERNAL_KVSTORE_TRANSACTION_DEBUG"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":byte_range",
         ":generation",
         ":key_range",
         "//tensorstore:context",
+        "//tensorstore:transaction",
         "//tensorstore/internal:context_binding",
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:intrusive_red_black_tree",
         "//tensorstore/internal:json",
         "//tensorstore/internal:json_registry",
         "//tensorstore/internal:logging",

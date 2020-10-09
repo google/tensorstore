@@ -18,13 +18,13 @@
 #include <deque>
 #include <iterator>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/container/btree_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
-#include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
@@ -36,6 +36,7 @@
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/kvstore/registry.h"
+#include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/util/execution.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
@@ -71,12 +72,17 @@ struct StoredKeyValuePairs
   };
 
   using Map = absl::btree_map<std::string, ValueWithGenerationNumber>;
+  std::pair<Map::iterator, Map::iterator> Find(const std::string& inclusive_min,
+                                               const std::string& exclusive_max)
+      ABSL_SHARED_LOCKS_REQUIRED(mutex) {
+    return {values.lower_bound(inclusive_min),
+            exclusive_max.empty() ? values.end()
+                                  : values.lower_bound(exclusive_max)};
+  }
+
   std::pair<Map::iterator, Map::iterator> Find(const KeyRange& range)
       ABSL_SHARED_LOCKS_REQUIRED(mutex) {
-    return {values.lower_bound(range.inclusive_min),
-            range.exclusive_max.empty()
-                ? values.end()
-                : values.lower_bound(range.exclusive_max)};
+    return Find(range.inclusive_min, range.exclusive_max);
   }
 
   absl::Mutex mutex;
@@ -132,11 +138,13 @@ class MemoryKeyValueStore
     MaybeBound<Context::ResourceSpec<MemoryKeyValueStoreResource>>
         memory_key_value_store;
 
+    bool atomic = true;
+
     /// Make this type compatible with `ContextBindingTraits`.
     constexpr static auto ApplyMembers = [](auto& x, auto f) {
       // `x` is a reference to a `SpecT` object.  This function must invoke `f`
       // with a reference to each member of `x`.
-      return f(x.memory_key_value_store);
+      return f(x.memory_key_value_store, x.atomic);
     };
   };
 
@@ -147,16 +155,19 @@ class MemoryKeyValueStore
   using BoundSpecData = SpecT<internal::ContextBound>;
 
   /// Must specify a JSON binder for the `SpecData` type.
-  constexpr static auto json_binder =
-      jb::Object(jb::Member(MemoryKeyValueStoreResource::id,
-                            jb::Projection(&SpecData::memory_key_value_store)));
+  constexpr static auto json_binder = jb::Object(
+      jb::Member(MemoryKeyValueStoreResource::id,
+                 jb::Projection(&SpecData::memory_key_value_store)),
+      jb::Member("atomic",
+                 jb::Projection(&SpecData::atomic,
+                                jb::DefaultValue([](auto* y) { *y = true; }))));
 
   /// Encodes the `BoundSpecData` as a cache key.  Typically this is defined by
   /// calling `internal::EncodeCacheKey` with the members of `BoundSpecData`
   /// that are relevant to caching.  Members that only affect creation but not
   /// opening should normally be skipped.
   static void EncodeCacheKey(std::string* out, const BoundSpecData& spec) {
-    internal::EncodeCacheKey(out, spec.memory_key_value_store);
+    internal::EncodeCacheKey(out, spec.memory_key_value_store, spec.atomic);
   }
 
   /// Converts a `SpecData` representation in place.
@@ -177,6 +188,15 @@ class MemoryKeyValueStore
 
   void ListImpl(const ListOptions& options,
                 AnyFlowReceiver<Status, Key> receiver) override;
+
+  absl::Status ReadModifyWrite(internal::OpenTransactionPtr& transaction,
+                               size_t& phase, Key key,
+                               ReadModifyWriteSource& source) override;
+
+  absl::Status TransactionalDeleteRange(
+      const internal::OpenTransactionPtr& transaction, KeyRange range) override;
+
+  class TransactionNode;
 
   /// Returns a reference to the stored key value pairs.  The stored data is
   /// owned by the `Context::Resource` rather than directly by
@@ -208,6 +228,148 @@ class MemoryKeyValueStore
   /// In simple cases, such as the "memory" driver, the `Driver` can simply
   /// store a copy of the `BoundSpecData` as a member.
   BoundSpecData spec_;
+};
+
+using BufferedReadModifyWriteEntry =
+    internal_kvs::AtomicMultiPhaseMutation::BufferedReadModifyWriteEntry;
+using internal_kvs::DeleteRangeEntry;
+using internal_kvs::kReadModifyWrite;
+
+class MemoryKeyValueStore::TransactionNode
+    : public internal_kvs::AtomicTransactionNode {
+  using Base = internal_kvs::AtomicTransactionNode;
+
+ public:
+  using Base::Base;
+
+  /// Commits a (possibly multi-key) transaction atomically.
+  ///
+  /// The commit involves two steps, both while holding a lock on the entire
+  /// KeyValueStore:
+  ///
+  /// 1. Without making any modifications, validates that the underlying
+  ///    KeyValueStore data matches the generation constraints specified in the
+  ///    transaction.  If validation fails, the commit is retried, which
+  ///    normally results in any modifications being "rebased" on top of any
+  ///    modified values.
+  ///
+  /// 2. If validation succeeds, applies the modifications.
+  void AllEntriesDone(internal_kvs::SinglePhaseMutation& single_phase_mutation)
+      override ABSL_NO_THREAD_SAFETY_ANALYSIS {
+    if (!single_phase_mutation.remaining_entries_.HasError()) {
+      auto& data = static_cast<MemoryKeyValueStore&>(*this->kvstore()).data();
+      TimestampedStorageGeneration generation;
+      UniqueWriterLock lock(data.mutex);
+      absl::Time commit_time = absl::Now();
+      if (!ValidateEntryConditions(data, single_phase_mutation, commit_time)) {
+        lock.unlock();
+        internal_kvs::RetryAtomicWriteback(single_phase_mutation, commit_time);
+        return;
+      }
+      ApplyMutation(data, single_phase_mutation, commit_time);
+      lock.unlock();
+      internal_kvs::AtomicCommitWritebackSuccess(single_phase_mutation);
+    } else {
+      internal_kvs::WritebackError(single_phase_mutation);
+    }
+    MultiPhaseMutation::AllEntriesDone(single_phase_mutation);
+  }
+
+  /// Validates that the underlying `data` matches the generation constraints
+  /// specified in the transaction.  No changes are made to the `data`.
+  static bool ValidateEntryConditions(
+      StoredKeyValuePairs& data,
+      internal_kvs::SinglePhaseMutation& single_phase_mutation,
+      const absl::Time& commit_time) ABSL_SHARED_LOCKS_REQUIRED(data.mutex) {
+    bool validated = true;
+    for (auto& entry : single_phase_mutation.entries_) {
+      if (!ValidateEntryConditions(data, entry, commit_time)) {
+        validated = false;
+      }
+    }
+    return validated;
+  }
+
+  static bool ValidateEntryConditions(StoredKeyValuePairs& data,
+                                      internal_kvs::MutationEntry& entry,
+                                      const absl::Time& commit_time)
+      ABSL_SHARED_LOCKS_REQUIRED(data.mutex) {
+    if (entry.entry_type() == kReadModifyWrite) {
+      return ValidateEntryConditions(
+          data, static_cast<BufferedReadModifyWriteEntry&>(entry), commit_time);
+    }
+    auto& dr_entry = static_cast<DeleteRangeEntry&>(entry);
+    // `DeleteRangeEntry` imposes no constraints itself, but the superseded
+    // `ReadModifyWriteEntry` nodes may have constraints.
+    bool validated = true;
+    for (auto& deleted_entry : dr_entry.superseded_) {
+      if (!ValidateEntryConditions(
+              data, static_cast<BufferedReadModifyWriteEntry&>(deleted_entry),
+              commit_time)) {
+        validated = false;
+      }
+    }
+    return validated;
+  }
+
+  static bool ValidateEntryConditions(StoredKeyValuePairs& data,
+                                      BufferedReadModifyWriteEntry& entry,
+                                      const absl::Time& commit_time)
+      ABSL_SHARED_LOCKS_REQUIRED(data.mutex) {
+    auto& stamp = entry.read_result_.stamp;
+    auto if_equal = StorageGeneration::Clean(stamp.generation);
+    if (StorageGeneration::IsUnknown(if_equal)) {
+      assert(stamp.time == absl::InfiniteFuture());
+      return true;
+    }
+    auto it = data.values.find(entry.key_);
+    if (it == data.values.end()) {
+      if (StorageGeneration::IsNoValue(if_equal)) {
+        entry.read_result_.stamp.time = commit_time;
+        return true;
+      }
+    } else if (if_equal == it->second.generation()) {
+      entry.read_result_.stamp.time = commit_time;
+      return true;
+    }
+    return false;
+  }
+
+  /// Applies the changes in the transaction to the stored `data`.
+  ///
+  /// It is assumed that the constraints have already been validated by
+  /// `ValidateConditions`.
+  static void ApplyMutation(
+      StoredKeyValuePairs& data,
+      internal_kvs::SinglePhaseMutation& single_phase_mutation,
+      const absl::Time& commit_time) ABSL_EXCLUSIVE_LOCKS_REQUIRED(data.mutex) {
+    for (auto& entry : single_phase_mutation.entries_) {
+      if (entry.entry_type() == kReadModifyWrite) {
+        auto& rmw_entry = static_cast<BufferedReadModifyWriteEntry&>(entry);
+        auto& stamp = rmw_entry.read_result_.stamp;
+        stamp.time = commit_time;
+        if (!StorageGeneration::IsDirty(
+                rmw_entry.read_result_.stamp.generation)) {
+          // Do nothing
+        } else if (rmw_entry.read_result_.state ==
+                   KeyValueStore::ReadResult::kMissing) {
+          data.values.erase(rmw_entry.key_);
+          stamp.generation = StorageGeneration::NoValue();
+        } else {
+          assert(rmw_entry.read_result_.state ==
+                 KeyValueStore::ReadResult::kValue);
+          auto& v = data.values[rmw_entry.key_];
+          v.generation_number = data.next_generation_number++;
+          v.value = std::move(rmw_entry.read_result_.value);
+          stamp.generation = v.generation();
+        }
+      } else {
+        auto& dr_entry = static_cast<DeleteRangeEntry&>(entry);
+        auto it_range = data.Find(dr_entry.key_, dr_entry.exclusive_max_);
+        data.values.erase(it_range.first, it_range.second);
+      }
+    }
+  }
 };
 
 Future<KeyValueStore::ReadResult> MemoryKeyValueStore::Read(
@@ -324,19 +486,41 @@ void MemoryKeyValueStore::ListImpl(const ListOptions& options,
   execution::set_stopping(receiver);
 }
 
+absl::Status MemoryKeyValueStore::ReadModifyWrite(
+    internal::OpenTransactionPtr& transaction, size_t& phase, Key key,
+    ReadModifyWriteSource& source) {
+  if (!spec_.atomic) {
+    return KeyValueStore::ReadModifyWrite(transaction, phase, std::move(key),
+                                          source);
+  }
+  return internal_kvs::AddReadModifyWrite<TransactionNode>(
+      this, transaction, phase, std::move(key), source);
+}
+
+absl::Status MemoryKeyValueStore::TransactionalDeleteRange(
+    const internal::OpenTransactionPtr& transaction, KeyRange range) {
+  if (!spec_.atomic) {
+    return KeyValueStore::TransactionalDeleteRange(transaction,
+                                                   std::move(range));
+  }
+  return internal_kvs::AddDeleteRange<TransactionNode>(this, transaction,
+                                                       std::move(range));
+}
+
 // Registers the driver.
 const internal::KeyValueStoreDriverRegistration<MemoryKeyValueStore>
     registration;
 
 }  // namespace
 
-KeyValueStore::Ptr GetMemoryKeyValueStore() {
+KeyValueStore::Ptr GetMemoryKeyValueStore(bool atomic) {
   KeyValueStore::PtrT<MemoryKeyValueStore> ptr(new MemoryKeyValueStore);
   ptr->spec_.memory_key_value_store =
       Context::Default()
           .GetResource(
               Context::ResourceSpec<MemoryKeyValueStoreResource>::Default())
           .value();
+  ptr->spec_.atomic = atomic;
   return ptr;
 }
 

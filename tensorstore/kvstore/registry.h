@@ -33,15 +33,6 @@ namespace internal {
 template <typename Derived>
 class KeyValueStoreOpenState;
 
-template <typename Derived>
-class RegisteredKeyValueStore;
-
-template <typename Derived>
-class RegisteredKeyValueStoreSpec;
-
-template <typename Derived>
-class RegisteredKeyValueStoreBoundSpec;
-
 using KeyValueStoreDriverRegistry =
     JsonRegistry<KeyValueStoreSpec, KeyValueStoreSpec::FromJsonOptions,
                  KeyValueStoreSpec::ToJsonOptions>;
@@ -138,8 +129,8 @@ KeyValueStoreDriverRegistry& GetKeyValueStoreDriverRegistry();
 ///
 /// Refer to `memory/memory_key_value_store.cc` for an example driver
 /// implementation.
-template <typename Derived>
-class RegisteredKeyValueStore : public KeyValueStore {
+template <typename Derived, typename Parent = KeyValueStore>
+class RegisteredKeyValueStore : public Parent {
  private:
   /// Encodes the cache key from the `BoundSpecData` representation.
   ///
@@ -219,7 +210,7 @@ class RegisteredKeyValueStore : public KeyValueStore {
 /// operation completes.
 template <typename Derived>
 class KeyValueStoreOpenState {
-  template <typename>
+  template <typename, typename>
   friend class RegisteredKeyValueStore;
 
   template <typename>
@@ -269,7 +260,7 @@ class RegisteredKeyValueStoreBoundSpec : public KeyValueStoreSpec::Bound {
   }
 
   void EncodeCacheKey(std::string* out) const override {
-    RegisteredKeyValueStore<Derived>::EncodeCacheKeyImpl(out, data_);
+    Derived::RegisteredKeyValueStore::EncodeCacheKeyImpl(out, data_);
   }
 
  private:
@@ -285,7 +276,8 @@ class RegisteredKeyValueStoreBoundSpec : public KeyValueStoreSpec::Bound {
   }
 
   friend class RegisteredKeyValueStoreSpec<Derived>;
-  friend class RegisteredKeyValueStore<Derived>;
+  template <typename, typename>
+  friend class RegisteredKeyValueStore;
   BoundSpecData data_;
 };
 

@@ -50,6 +50,10 @@ void RegisterGoogleTestCaseDynamically(std::string test_suite_name,
                                        std::function<void()> test_func,
                                        SourceLocation loc);
 
+/// Returns a seed for a random number generator, which will either be obtained
+/// from `env_var` if specified, or randomly generated and logged.
+unsigned int GetRandomSeedForTest(const char* env_var);
+
 }  // namespace internal
 }  // namespace tensorstore
 #endif  // TENSORSTORE_INTERNAL_TEST_UTIL_H_

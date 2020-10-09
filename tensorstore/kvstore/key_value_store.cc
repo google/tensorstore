@@ -23,6 +23,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
@@ -227,6 +228,22 @@ AnyFlowSender<Status, KeyValueStore::Key> KeyValueStore::List(
 
 std::string KeyValueStore::DescribeKey(absl::string_view key) {
   return tensorstore::QuoteString(key);
+}
+
+absl::Status KeyValueStore::AnnotateError(std::string_view key,
+                                          std::string_view action,
+                                          const absl::Status& error) {
+  return AnnotateErrorWithKeyDescription(DescribeKey(key), action, error);
+}
+
+absl::Status KeyValueStore::AnnotateErrorWithKeyDescription(
+    std::string_view key_description, std::string_view action,
+    const absl::Status& error) {
+  if (absl::StrContains(error.message(), key_description)) {
+    return error;
+  }
+  return tensorstore::MaybeAnnotateStatus(
+      error, tensorstore::StrCat("Error ", action, " ", key_description));
 }
 
 Future<std::vector<KeyValueStore::Key>> ListFuture(

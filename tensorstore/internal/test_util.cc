@@ -14,6 +14,7 @@
 
 #include "tensorstore/internal/test_util.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <iterator>
 #include <string>
@@ -21,8 +22,10 @@
 #include <gtest/gtest.h>
 #include "absl/random/random.h"
 #include "absl/strings/escaping.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/string_view.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/os_error_code.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/util/status.h"
@@ -214,6 +217,20 @@ void RegisterGoogleTestCaseDynamically(std::string test_suite_name,
                           [test_func = std::move(test_func)]() -> Fixture* {
                             return new Test(test_func);
                           });
+}
+
+unsigned int GetRandomSeedForTest(const char* env_var) {
+  unsigned int seed;
+  if (auto env_seed = internal::GetEnv(env_var)) {
+    if (absl::SimpleAtoi(*env_seed, &seed)) {
+      TENSORSTORE_LOG("Using deterministic random seed ", env_var, "=", seed);
+      return seed;
+    }
+  }
+  seed = std::random_device()();
+  TENSORSTORE_LOG("Define environment variable ", env_var, "=", seed,
+                  " for deterministic seeding");
+  return seed;
 }
 
 }  // namespace internal

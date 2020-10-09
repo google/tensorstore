@@ -180,9 +180,12 @@ TEST(GCSKeyValueStoreTest, BadObjectNames) {
   EXPECT_THAT(store->Read("foo\rbar").result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 
-  EXPECT_THAT(
-      store->Read("abc", {StorageGeneration::FromString("abc123")}).result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+  {
+    KeyValueStore::ReadOptions options;
+    options.if_not_equal = StorageGeneration::FromString("abc123");
+    EXPECT_THAT(store->Read("abc", options).result(),
+                MatchesStatus(absl::StatusCode::kInvalidArgument));
+  }
 
   SetDefaultHttpTransport(nullptr);
 }

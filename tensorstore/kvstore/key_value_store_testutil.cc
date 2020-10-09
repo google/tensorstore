@@ -167,8 +167,12 @@ void TestKeyValueStoreConditionalReadOps(
   const StorageGeneration mismatch = GetMismatchStorageGeneration(store, key);
 
   TENSORSTORE_LOG("Test conditional read, missing");
-  EXPECT_THAT(store->Read(key, {mismatch}).result(),
-              MatchesKvsReadResultNotFound());
+  {
+    KeyValueStore::ReadOptions options;
+    options.if_not_equal = mismatch;
+    EXPECT_THAT(store->Read(key, options).result(),
+                MatchesKvsReadResultNotFound());
+  }
 
   TENSORSTORE_LOG(
       "Test conditional read, matching if_equal=StorageGeneration::NoValue");
@@ -184,8 +188,12 @@ void TestKeyValueStoreConditionalReadOps(
   // `StorageGeneration::NoValue()` even though the `if_not_equal` condition
   // does not hold.
   TENSORSTORE_LOG("Test conditional read, StorageGeneration::NoValue");
-  EXPECT_THAT(store->Read(key, {StorageGeneration::NoValue()}).result(),
-              MatchesKvsReadResultNotFound());
+  {
+    KeyValueStore::ReadOptions options;
+    options.if_not_equal = StorageGeneration::NoValue();
+    EXPECT_THAT(store->Read(key, options).result(),
+                MatchesKvsReadResultNotFound());
+  }
 
   // Write a value.
   absl::Cord value("five by five");
@@ -198,18 +206,30 @@ void TestKeyValueStoreConditionalReadOps(
                                    ::testing::Not(mismatch))));
 
   TENSORSTORE_LOG("Test conditional read, matching `if_not_equal` generation");
-  EXPECT_THAT(store->Read(key, {write_result->generation}).result(),
-              MatchesKvsReadResultAborted());
+  {
+    KeyValueStore::ReadOptions options;
+    options.if_not_equal = write_result->generation;
+    EXPECT_THAT(store->Read(key, options).result(),
+                MatchesKvsReadResultAborted());
+  }
 
   TENSORSTORE_LOG(
       "Test conditional read, mismatched `if_not_equal` generation");
-  EXPECT_THAT(store->Read(key, {mismatch}).result(),
-              MatchesKvsReadResult(value, write_result->generation));
+  {
+    KeyValueStore::ReadOptions options;
+    options.if_not_equal = mismatch;
+    EXPECT_THAT(store->Read(key, options).result(),
+                MatchesKvsReadResult(value, write_result->generation));
+  }
 
   TENSORSTORE_LOG(
       "Test conditional read, if_not_equal=StorageGeneration::NoValue");
-  EXPECT_THAT(store->Read(key, {StorageGeneration::NoValue()}).result(),
-              MatchesKvsReadResult(value, write_result->generation));
+  {
+    KeyValueStore::ReadOptions options;
+    options.if_not_equal = StorageGeneration::NoValue();
+    EXPECT_THAT(store->Read(key, options).result(),
+                MatchesKvsReadResult(value, write_result->generation));
+  }
 
   TENSORSTORE_LOG("Test conditional read, matching `if_equal` generation");
   {
@@ -221,8 +241,12 @@ void TestKeyValueStoreConditionalReadOps(
 
   TENSORSTORE_LOG(
       "Test conditional read, mismatched `if_not_equal` generation");
-  EXPECT_THAT(store->Read(key, {mismatch}).result(),
-              MatchesKvsReadResult(value, write_result->generation));
+  {
+    KeyValueStore::ReadOptions options;
+    options.if_not_equal = mismatch;
+    EXPECT_THAT(store->Read(key, options).result(),
+                MatchesKvsReadResult(value, write_result->generation));
+  }
 
   TENSORSTORE_LOG("Test conditional read, mismatched `if_equal` generation");
   {
@@ -243,8 +267,12 @@ void TestKeyValueStoreConditionalReadOps(
 
   TENSORSTORE_LOG(
       "Test conditional read, if_not_equal=StorageGeneration::NoValue");
-  EXPECT_THAT(store->Read(key, {StorageGeneration::NoValue()}).result(),
-              MatchesKvsReadResult(value, write_result->generation));
+  {
+    KeyValueStore::ReadOptions options;
+    options.if_not_equal = StorageGeneration::NoValue();
+    EXPECT_THAT(store->Read(key, options).result(),
+                MatchesKvsReadResult(value, write_result->generation));
+  }
 }
 
 void TestKeyValueStoreConditionalWriteOps(
@@ -505,6 +533,12 @@ class RegisteredMockKeyValueStore
 
   Future<void> DeleteRange(KeyRange range) override {
     return base()->DeleteRange(std::move(range));
+  }
+
+  absl::Status ReadModifyWrite(internal::OpenTransactionPtr& transaction,
+                               size_t& phase, Key key,
+                               ReadModifyWriteSource& source) override {
+    return base()->ReadModifyWrite(transaction, phase, std::move(key), source);
   }
 
   MockKeyValueStore* base() { return base_->get(); }
