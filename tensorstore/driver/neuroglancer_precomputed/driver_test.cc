@@ -1523,7 +1523,7 @@ TEST(FullShardWriteTest, Basic) {
       auto req = mock_key_value_store->write_requests.pop();
       EXPECT_EQ("prefix/info", req.key);
       EXPECT_EQ(StorageGeneration::NoValue(), req.options.if_equal);
-      req.promise.SetResult(std::in_place, StorageGeneration{"g0"},
+      req.promise.SetResult(std::in_place, StorageGeneration::FromString("g0"),
                             absl::Now());
     }
 
@@ -1542,7 +1542,7 @@ TEST(FullShardWriteTest, Basic) {
       ASSERT_EQ("prefix/1_1_1/5.shard", req.key);
       // Writeback is unconditional because the entire shard is being written.
       ASSERT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
-      req.promise.SetResult(std::in_place, StorageGeneration{"g0"},
+      req.promise.SetResult(std::in_place, StorageGeneration::FromString("g0"),
                             absl::Now());
     }
 

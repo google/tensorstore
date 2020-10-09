@@ -64,11 +64,9 @@ struct StoredKeyValuePairs
   using Ptr = internal::IntrusivePtr<StoredKeyValuePairs>;
   struct ValueWithGenerationNumber {
     absl::Cord value;
-    std::size_t generation_number;
-    absl::string_view generation() const {
-      return absl::string_view(
-          reinterpret_cast<const char*>(&generation_number),
-          sizeof(generation_number));
+    uint64_t generation_number;
+    StorageGeneration generation() const {
+      return StorageGeneration::FromUint64(generation_number);
     }
   };
 
@@ -86,7 +84,7 @@ struct StoredKeyValuePairs
   /// key.  Using a single per-store counter rather than a per-key counter
   /// ensures that creating a key, deleting it, then creating it again does
   /// not result in the same generation number being reused for a given key.
-  std::size_t next_generation_number ABSL_GUARDED_BY(mutex) = 0;
+  uint64_t next_generation_number ABSL_GUARDED_BY(mutex) = 0;
   Map values ABSL_GUARDED_BY(mutex);
 };
 
@@ -226,8 +224,7 @@ Future<KeyValueStore::ReadResult> MemoryKeyValueStore::Read(
     return result;
   }
   // Key found.
-  result.stamp =
-      GenerationNow(StorageGeneration{std::string(it->second.generation())});
+  result.stamp = GenerationNow(it->second.generation());
   if (options.if_not_equal == it->second.generation() ||
       (!StorageGeneration::IsUnknown(options.if_equal) &&
        options.if_equal != it->second.generation())) {
@@ -268,7 +265,7 @@ Future<TimestampedStorageGeneration> MemoryKeyValueStore::Write(
                       ValueWithGenerationNumber{std::move(*value),
                                                 data.next_generation_number++})
              .first;
-    return GenerationNow({std::string(it->second.generation())});
+    return GenerationNow(it->second.generation());
   }
   // Key already exists.
   if (!StorageGeneration::IsUnknown(options.if_equal) &&
@@ -286,7 +283,7 @@ Future<TimestampedStorageGeneration> MemoryKeyValueStore::Write(
   it->second.generation_number = data.next_generation_number++;
   // Update the value.
   it->second.value = std::move(*value);
-  return GenerationNow({std::string(it->second.generation())});
+  return GenerationNow(it->second.generation());
 }
 
 Future<void> MemoryKeyValueStore::DeleteRange(KeyRange range) {

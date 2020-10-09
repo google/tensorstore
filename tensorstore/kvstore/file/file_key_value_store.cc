@@ -200,20 +200,9 @@ absl::Status ValidateKeyRange(const KeyRange& range) {
 
 // Encode in the generation fields that uniquely identify the file.
 StorageGeneration GetFileGeneration(const FileInfo& info) {
-  std::string gen;
-  std::size_t offset = 0;
-  const auto write_field = [&](const auto& x) {
-    std::memcpy(&gen[offset], &x, sizeof(x));
-    offset += sizeof(x);
-  };
-  const auto device_id = internal_file_util::GetDeviceId(info);
-  const auto file_id = internal_file_util::GetFileId(info);
-  const auto mtime = internal_file_util::GetMTime(info);
-  gen.resize(sizeof(device_id) + sizeof(file_id) + sizeof(mtime));
-  write_field(device_id);
-  write_field(file_id);
-  write_field(mtime);
-  return StorageGeneration{std::move(gen)};
+  return StorageGeneration::FromValues(internal_file_util::GetDeviceId(info),
+                                       internal_file_util::GetFileId(info),
+                                       internal_file_util::GetMTime(info));
 }
 
 /// Returns a Status for the current errno value. The message is composed

@@ -18,16 +18,44 @@
 
 namespace {
 
-TEST(StorageGenerationTest, Basic) {
-  EXPECT_TRUE(tensorstore::StorageGeneration::IsUnknown(
-      tensorstore::StorageGeneration::Unknown()));
-  EXPECT_FALSE(tensorstore::StorageGeneration::IsUnknown(
-      tensorstore::StorageGeneration::NoValue()));
+using tensorstore::StorageGeneration;
 
-  EXPECT_FALSE(tensorstore::StorageGeneration::IsNoValue(
-      tensorstore::StorageGeneration::Unknown()));
-  EXPECT_TRUE(tensorstore::StorageGeneration::IsNoValue(
-      tensorstore::StorageGeneration::NoValue()));
+TEST(StorageGenerationTest, Basic) {
+  EXPECT_TRUE(StorageGeneration::IsUnknown(StorageGeneration::Unknown()));
+  EXPECT_FALSE(StorageGeneration::IsUnknown(StorageGeneration::NoValue()));
+
+  EXPECT_FALSE(StorageGeneration::IsNoValue(StorageGeneration::Unknown()));
+  EXPECT_TRUE(StorageGeneration::IsNoValue(StorageGeneration::NoValue()));
+
+  EXPECT_EQ(StorageGeneration{std::string{StorageGeneration::kDirty}},
+            StorageGeneration::Dirty(StorageGeneration::Unknown()));
+
+  StorageGeneration gen{
+      std::string{1, 2, 3, 4, 5, StorageGeneration::kBaseGeneration}};
+  StorageGeneration local_gen{std::string{
+      1, 2, 3, 4, 5,
+      StorageGeneration::kBaseGeneration | StorageGeneration::kDirty}};
+  EXPECT_FALSE(StorageGeneration::IsUnknown(gen));
+  EXPECT_FALSE(StorageGeneration::IsUnknown(local_gen));
+  EXPECT_TRUE(StorageGeneration::IsClean(gen));
+  EXPECT_FALSE(StorageGeneration::IsClean(local_gen));
+  EXPECT_FALSE(StorageGeneration::IsDirty(gen));
+  EXPECT_TRUE(StorageGeneration::IsDirty(local_gen));
+  EXPECT_EQ(local_gen, StorageGeneration::Dirty(gen));
+  EXPECT_EQ(gen, StorageGeneration::Clean(local_gen));
+  EXPECT_TRUE(StorageGeneration::IsClean(StorageGeneration::NoValue()));
+  EXPECT_FALSE(StorageGeneration::IsClean(StorageGeneration::Unknown()));
+  EXPECT_EQ(StorageGeneration::NoValue(),
+            StorageGeneration::Clean(StorageGeneration::NoValue()));
+}
+
+TEST(StorageGenerationTest, Uint64) {
+  auto g = StorageGeneration::FromUint64(12345);
+  EXPECT_TRUE(StorageGeneration::IsUint64(g));
+  EXPECT_EQ(12345, StorageGeneration::ToUint64(g));
+  EXPECT_FALSE(StorageGeneration::IsUint64(StorageGeneration::Unknown()));
+  EXPECT_FALSE(StorageGeneration::IsUint64(StorageGeneration::NoValue()));
+  EXPECT_FALSE(StorageGeneration::IsUint64(StorageGeneration::Invalid()));
 }
 
 }  // namespace

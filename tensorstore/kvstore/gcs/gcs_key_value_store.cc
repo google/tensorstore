@@ -197,15 +197,6 @@ bool IsValidObjectName(absl::string_view name) {
   return true;
 }
 
-// Returns whether the storage generation is legal for GCS.
-bool IsValidStorageGeneration(absl::string_view name) {
-  // A StorageGeneration must be composed only of ascii digits.
-  for (absl::string_view::size_type i = 0; i < name.size(); i++) {
-    if (!absl::ascii_isdigit(name[i])) return false;
-  }
-  return true;
-}
-
 /// Returns an error Status when either the object name or the StorageGeneration
 /// are not legal values for the GCS storage backend.
 Status ValidateObjectAndStorageGeneration(absl::string_view object,
@@ -214,8 +205,7 @@ Status ValidateObjectAndStorageGeneration(absl::string_view object,
     return absl::InvalidArgumentError("Invalid GCS object name");
   }
   if (!StorageGeneration::IsUnknown(gen) &&
-      !StorageGeneration::IsNoValue(gen) &&
-      !IsValidStorageGeneration(gen.value)) {
+      !StorageGeneration::IsNoValue(gen) && !StorageGeneration::IsUint64(gen)) {
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
   return absl::OkStatus();
@@ -228,13 +218,20 @@ bool AddGenerationParam(std::string* url, const bool has_query,
   if (StorageGeneration::IsUnknown(gen)) {
     // Unconditional.
     return false;
-  } else if (StorageGeneration::IsNoValue(gen)) {
-    // Conditional based on existence.
-    absl::StrAppend(url, (has_query ? "&" : "?"), param_name, "=0");
-    return true;
   } else {
-    // Conditional based on the requested generation.
-    absl::StrAppend(url, (has_query ? "&" : "?"), param_name, "=", gen.value);
+    // One of two cases applies:
+    //
+    // 1. `gen` is a `StorageGeneration::FromUint64` generation.  In this case,
+    //    the condition is specified as `=N`, where `N` is the decimal
+    //    representation of the generation number.
+    //
+    // 2. `gen` is `StorageGeneration::NoValue()`.  In this case, the condition
+    //    is specified as `=0`.
+    //
+    // In either case, `StorageGeneration::ToUint64` provides the correct
+    // result.
+    absl::StrAppend(url, (has_query ? "&" : "?"), param_name, "=",
+                    StorageGeneration::ToUint64(gen));
     return true;
   }
 }
@@ -510,7 +507,7 @@ struct ReadTask {
     SetObjectMetadataFromHeaders(httpresponse.headers, &metadata);
 
     read_result.stamp.generation =
-        StorageGeneration{StrCat(metadata.generation)};
+        StorageGeneration::FromUint64(metadata.generation);
     return read_result;
   }
 };
@@ -611,7 +608,7 @@ struct WriteTask {
     TENSORSTORE_RETURN_IF_ERROR(parsed_object_metadata);
 
     r.generation =
-        StorageGeneration{StrCat(parsed_object_metadata->generation)};
+        StorageGeneration::FromUint64(parsed_object_metadata->generation);
 
     return r;
   }
