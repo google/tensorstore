@@ -18,6 +18,7 @@
 #include <iterator>
 #include <string>
 
+#include <gtest/gtest.h>
 #include "absl/random/random.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/string_view.h"
@@ -192,6 +193,27 @@ ScopedTemporaryDirectory::ScopedTemporaryDirectory() {
 
 ScopedTemporaryDirectory::~ScopedTemporaryDirectory() {
   TENSORSTORE_CHECK_OK(RemoveAll(path_));
+}
+
+void RegisterGoogleTestCaseDynamically(std::string test_suite_name,
+                                       std::string test_name,
+                                       std::function<void()> test_func,
+                                       SourceLocation loc) {
+  struct Fixture : public ::testing::Test {};
+  class Test : public Fixture {
+   public:
+    Test(const std::function<void()>& test_func) : test_func_(test_func) {}
+    void TestBody() override { test_func_(); }
+
+   private:
+    std::function<void()> test_func_;
+  };
+  ::testing::RegisterTest(test_suite_name.c_str(), test_name.c_str(),
+                          /*type_param=*/nullptr,
+                          /*value_param=*/nullptr, loc.file_name(), loc.line(),
+                          [test_func = std::move(test_func)]() -> Fixture* {
+                            return new Test(test_func);
+                          });
 }
 
 }  // namespace internal

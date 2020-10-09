@@ -15,9 +15,12 @@
 #ifndef TENSORSTORE_INTERNAL_TEST_UTIL_H_
 #define TENSORSTORE_INTERNAL_TEST_UTIL_H_
 
+#include <functional>
 #include <string>
 
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
+#include "tensorstore/internal/source_location.h"
 
 namespace tensorstore {
 namespace internal {
@@ -40,6 +43,12 @@ class ScopedTemporaryDirectory {
  private:
   std::string path_;
 };
+
+/// Registers a GoogleTest case dynamically.
+void RegisterGoogleTestCaseDynamically(std::string test_suite_name,
+                                       std::string test_name,
+                                       std::function<void()> test_func,
+                                       SourceLocation loc);
 
 }  // namespace internal
 }  // namespace tensorstore

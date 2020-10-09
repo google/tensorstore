@@ -1870,6 +1870,7 @@ tensorstore_cc_test(
 
 tensorstore_cc_library(
     name = "test_util",
+    testonly = True,
     srcs = [
         "test_util.cc",
     ],
@@ -1880,10 +1881,12 @@ tensorstore_cc_library(
         ":env",
         ":os_error_code",
         ":path",
+        ":source_location",
         "//tensorstore/util:status",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest",
     ],
 )
 
