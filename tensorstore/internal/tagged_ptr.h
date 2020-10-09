@@ -51,8 +51,6 @@ namespace internal {
 ///
 template <typename T, int TagBits>
 class TaggedPtr {
-  static_assert(alignof(T) >= (1 << TagBits),
-                "Number of TagBits is incompatible with alignment of T.");
   constexpr static std::uintptr_t kTagMask =
       (static_cast<std::uintptr_t>(1) << TagBits) - 1;
   constexpr static std::uintptr_t kPointerMask = ~kTagMask;
@@ -123,6 +121,10 @@ class TaggedPtr {
 
   /// Returns the pointer.
   T* get() const noexcept {
+    // Check alignment here, rather than at the class level, to allow `T` to be
+    // incomplete when the class is instantiated.
+    static_assert(alignof(T) >= (1 << TagBits),
+                  "Number of TagBits is incompatible with alignment of T.");
     return reinterpret_cast<T*>(value_ & kPointerMask);
   }
 

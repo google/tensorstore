@@ -855,6 +855,24 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "intrusive_red_black_tree",
+    srcs = ["intrusive_red_black_tree.cc"],
+    hdrs = ["intrusive_red_black_tree.h"],
+    deps = [":tagged_ptr"],
+)
+
+tensorstore_cc_test(
+    name = "intrusive_red_black_tree_test",
+    size = "small",
+    srcs = ["intrusive_red_black_tree_test.cc"],
+    deps = [
+        ":intrusive_red_black_tree",
+        "@com_google_absl//absl/random",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "json",
     srcs = ["json.cc"],
     hdrs = [
