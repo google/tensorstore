@@ -24,13 +24,15 @@
 
 #include <ostream>
 #include <string>
+#include <string_view>
 
-#include "absl/strings/string_view.h"
+#include "absl/strings/cord.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
@@ -101,7 +103,7 @@ class ShardingSpec {
 
 /// Returns the data path for the specified shard.
 std::string GetShardKey(const ShardingSpec& sharding_spec,
-                        absl::string_view prefix, std::uint64_t shard_number);
+                        std::string_view prefix, std::uint64_t shard_number);
 
 struct ChunkId {
   std::uint64_t value;
@@ -157,6 +159,37 @@ std::uint64_t ShardIndexSize(const ShardingSpec& sharding_spec);
 /// to the start of the shard file.
 Result<ByteRange> GetAbsoluteShardByteRange(ByteRange relative_range,
                                             const ShardingSpec& sharding_spec);
+
+struct MinishardAndChunkId {
+  uint64_t minishard;
+  ChunkId chunk_id;
+  friend bool operator<(const MinishardAndChunkId& a,
+                        const MinishardAndChunkId& b) {
+    return (a.minishard < b.minishard) ||
+           (a.minishard == b.minishard && a.chunk_id.value < b.chunk_id.value);
+  }
+  friend bool operator==(const MinishardAndChunkId& a,
+                         const MinishardAndChunkId& b) {
+    return a.minishard == b.minishard && a.chunk_id.value == b.chunk_id.value;
+  }
+
+  friend bool operator!=(const MinishardAndChunkId& a,
+                         const MinishardAndChunkId& b) {
+    return !(a == b);
+  }
+};
+
+struct EncodedChunk {
+  MinishardAndChunkId minishard_and_chunk_id;
+  /// Chunk data, compressed according to the `DataEncoding` value.
+  absl::Cord encoded_data;
+};
+
+using EncodedChunks = std::vector<EncodedChunk>;
+
+/// Finds a chunk in an ordered list of chunks.
+const EncodedChunk* FindChunk(span<const EncodedChunk> chunks,
+                              MinishardAndChunkId minishard_and_chunk_id);
 
 }  // namespace neuroglancer_uint64_sharded
 }  // namespace tensorstore

@@ -14,6 +14,8 @@
 
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded.h"
 
+#include <algorithm>
+
 #include "absl/strings/str_format.h"
 #include "tensorstore/driver/neuroglancer_precomputed/murmurhash3.h"
 #include "tensorstore/internal/integer_overflow.h"
@@ -185,6 +187,20 @@ Result<ByteRange> GetAbsoluteShardByteRange(ByteRange relative_range,
         " relative to the end of the shard index (", offset, ") is not valid"));
   }
   return result;
+}
+
+const EncodedChunk* FindChunk(span<const EncodedChunk> chunks,
+                              MinishardAndChunkId minishard_and_chunk_id) {
+  const auto chunk_it = std::lower_bound(
+      chunks.begin(), chunks.end(), minishard_and_chunk_id,
+      [](const auto& chunk, const auto& minishard_and_chunk_id) {
+        return chunk.minishard_and_chunk_id < minishard_and_chunk_id;
+      });
+  if (chunk_it == chunks.end() ||
+      chunk_it->minishard_and_chunk_id != minishard_and_chunk_id) {
+    return nullptr;
+  }
+  return &*chunk_it;
 }
 
 }  // namespace neuroglancer_uint64_sharded

@@ -327,8 +327,7 @@ class ShardedDataCache : public DataCacheBase {
     assert(cell_indices.size() == 3);
     const std::uint64_t chunk_key = EncodeCompressedZIndex(
         {cell_indices.data(), 3}, compressed_z_index_bits_);
-    return std::string(reinterpret_cast<const char*>(&chunk_key),
-                       sizeof(chunk_key));
+    return neuroglancer_uint64_sharded::ChunkIdToKey({chunk_key});
   }
 
   std::array<int, 3> compressed_z_index_bits_;
@@ -578,7 +577,7 @@ class NeuroglancerPrecomputedDriver::OpenState
     const auto& scale = metadata.scales[*scale_index_];
     if (auto* sharding_spec = std::get_if<ShardingSpec>(&scale.sharding)) {
       assert(scale.chunk_sizes.size() == 1);
-      return GetShardedKeyValueStore(
+      return neuroglancer_uint64_sharded::GetShardedKeyValueStore(
           std::move(base_kv_store), executor(),
           ResolveScaleKey(spec().key_prefix, scale.key), *sharding_spec,
           *cache_pool(),

@@ -71,20 +71,9 @@ namespace {
 Result<std::uint64_t> EncodeData(
     const absl::Cord& input, ShardingSpec::DataEncoding encoding,
     FunctionView<Status(const absl::Cord& buffer)> write_function) {
-  if (encoding == ShardingSpec::DataEncoding::raw) {
-    if (auto status = write_function(input); status.ok()) {
-      return input.size();
-    } else {
-      return status;
-    }
-  }
-  absl::Cord compressed;
-  zlib::Options options;
-  options.level = 9;
-  options.use_gzip_header = true;
-  zlib::Encode(input, &compressed, options);
-  if (auto status = write_function(compressed); status.ok()) {
-    return compressed.size();
+  auto encoded = EncodeData(input, encoding);
+  if (auto status = write_function(encoded); status.ok()) {
+    return encoded.size();
   } else {
     return status;
   }
@@ -143,6 +132,35 @@ Status ShardEncoder::WriteIndexedEntry(std::uint64_t minishard,
 }
 
 ShardEncoder::~ShardEncoder() = default;
+
+std::optional<absl::Cord> EncodeShard(const ShardingSpec& spec,
+                                      span<const EncodedChunk> chunks) {
+  absl::Cord shard_data;
+  ShardEncoder encoder(spec, shard_data);
+  for (const auto& chunk : chunks) {
+    TENSORSTORE_CHECK_OK(
+        encoder.WriteIndexedEntry(chunk.minishard_and_chunk_id.minishard,
+                                  chunk.minishard_and_chunk_id.chunk_id,
+                                  chunk.encoded_data, /*compress=*/false));
+  }
+  auto shard_index = encoder.Finalize().value();
+  if (shard_data.empty()) return std::nullopt;
+  shard_index.Append(shard_data);
+  return shard_index;
+}
+
+absl::Cord EncodeData(const absl::Cord& input,
+                      ShardingSpec::DataEncoding encoding) {
+  if (encoding == ShardingSpec::DataEncoding::raw) {
+    return input;
+  }
+  absl::Cord compressed;
+  zlib::Options options;
+  options.level = 9;
+  options.use_gzip_header = true;
+  zlib::Encode(input, &compressed, options);
+  return compressed;
+}
 
 }  // namespace neuroglancer_uint64_sharded
 }  // namespace tensorstore

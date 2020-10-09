@@ -23,6 +23,8 @@
 #include "absl/random/random.h"
 #include "tensorstore/internal/cache.h"
 #include "tensorstore/internal/compression/zlib.h"
+#include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/internal/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/thread_pool.h"
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/key_value_store.h"
@@ -44,12 +46,15 @@ using tensorstore::Result;
 using tensorstore::Status;
 using tensorstore::StorageGeneration;
 using tensorstore::TimestampedStorageGeneration;
+using tensorstore::Transaction;
 using tensorstore::internal::CachePool;
+using tensorstore::internal::KvsBackedTestCache;
 using tensorstore::internal::MatchesKvsReadResult;
 using tensorstore::internal::MatchesKvsReadResultNotFound;
 using tensorstore::internal::MatchesTimestampedStorageGeneration;
 using tensorstore::internal::MockKeyValueStore;
 using tensorstore::internal::UniqueNow;
+using tensorstore::neuroglancer_uint64_sharded::ChunkIdToKey;
 using tensorstore::neuroglancer_uint64_sharded::GetShardedKeyValueStore;
 using tensorstore::neuroglancer_uint64_sharded::ShardingSpec;
 using ReadResult = KeyValueStore::ReadResult;
@@ -61,8 +66,7 @@ absl::Cord Bytes(std::initializer_list<unsigned char> x) {
 }
 
 std::string GetChunkKey(std::uint64_t chunk_id) {
-  return std::string(reinterpret_cast<const char*>(&chunk_id),
-                     sizeof(std::uint64_t));
+  return ChunkIdToKey({chunk_id});
 }
 
 class GetUint64Key {
@@ -199,7 +203,7 @@ TEST_F(RawEncodingTest, MultipleUnconditionalWrites) {
     results.push_back(future.result());
   }
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto shard_generation, base_kv_store->Read("prefix/0.shard").result());
+      auto shard_read, base_kv_store->Read("prefix/0.shard").result());
 
   // All writes succeed, but all but one write is assigned a generation of
   // `StorageGeneration::Invalid()` since it is overwritten immediately before
@@ -209,15 +213,26 @@ TEST_F(RawEncodingTest, MultipleUnconditionalWrites) {
       ::testing::UnorderedElementsAre(
           MatchesTimestampedStorageGeneration(StorageGeneration::Invalid()),
           MatchesTimestampedStorageGeneration(StorageGeneration::Invalid()),
-          MatchesTimestampedStorageGeneration(
-              shard_generation.stamp.generation)));
+          MatchesTimestampedStorageGeneration(shard_read.stamp.generation)));
   for (size_t i = 0; i < results.size(); ++i) {
-    if (results[i] &&
-        results[i]->generation == shard_generation.stamp.generation) {
+    if (results[i] && results[i]->generation == shard_read.stamp.generation) {
       EXPECT_THAT(store->Read(key).result(),
                   MatchesKvsReadResult(values[i], results[i]->generation));
     }
   }
+}
+
+TEST_F(RawEncodingTest, List) {
+  std::map<std::string, absl::Cord> values{
+      {GetChunkKey(1), absl::Cord("a")},
+      {GetChunkKey(2), absl::Cord("bc")},
+      {GetChunkKey(3), absl::Cord("def")},
+      {GetChunkKey(10), absl::Cord("xyz")}};
+  for (auto [key, value] : values) {
+    TENSORSTORE_EXPECT_OK(store->Write(key, value));
+  }
+  EXPECT_THAT(tensorstore::internal::GetMap(store),
+              ::testing::Optional(::testing::ElementsAreArray(values)));
 }
 
 TEST_F(RawEncodingTest, WritesAndDeletes) {
@@ -246,8 +261,8 @@ TEST_F(RawEncodingTest, WritesAndDeletes) {
   EXPECT_THAT(future1.result(), MatchesTimestampedStorageGeneration(
                                     StorageGeneration::Unknown()));
 
-  auto shard_generation = base_kv_store->Read("prefix/0.shard").result();
-  ASSERT_EQ(Status(), GetStatus(shard_generation));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto shard_read, base_kv_store->Read("prefix/0.shard").result());
 
   // Exactly one of `future2` and `future3` succeeds, and the other is aborted
   // due to generation mismatch.
@@ -255,8 +270,7 @@ TEST_F(RawEncodingTest, WritesAndDeletes) {
       std::vector({future2.result(), future3.result()}),
       ::testing::UnorderedElementsAre(
           MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()),
-          MatchesTimestampedStorageGeneration(
-              shard_generation->stamp.generation)));
+          MatchesTimestampedStorageGeneration(shard_read.stamp.generation)));
 
   EXPECT_THAT(store->Read(GetChunkKey(1)).result(),
               MatchesKvsReadResult(absl::Cord("a")));
@@ -390,10 +404,9 @@ TEST_F(RawEncodingTest, ShardIndexTooShort) {
           "Requested byte range \\[0, 16\\) is not valid for value of size 3"));
   EXPECT_THAT(
       store->Write(GetChunkKey(10), absl::Cord("abc")).result(),
-      MatchesStatus(
-          absl::StatusCode::kFailedPrecondition,
-          "Error writing \"prefix/0\\.shard\": "
-          "Existing shard index has size 3, but expected at least: 16"));
+      MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                    "Error reading \"prefix/0\\.shard\": "
+                    "Existing shard has size 3, but expected at least: 16"));
 }
 
 TEST_F(RawEncodingTest, ShardIndexInvalidByteRange) {
@@ -410,7 +423,7 @@ TEST_F(RawEncodingTest, ShardIndexInvalidByteRange) {
   EXPECT_THAT(store->Write(GetChunkKey(10), absl::Cord("abc")).result(),
               MatchesStatus(
                   absl::StatusCode::kFailedPrecondition,
-                  "Error writing \"prefix/0\\.shard\": "
+                  "Error reading \"prefix/0\\.shard\": "
                   "Error decoding existing shard index entry for minishard 0: "
                   "Shard index specified invalid byte range: \\[10, 2\\)"));
 }
@@ -433,7 +446,7 @@ TEST_F(RawEncodingTest, ShardIndexByteRangeOverflow) {
   EXPECT_THAT(store->Write(GetChunkKey(10), absl::Cord("abc")).result(),
               MatchesStatus(
                   absl::StatusCode::kFailedPrecondition,
-                  "Error writing \"prefix/0\\.shard\": "
+                  "Error reading \"prefix/0\\.shard\": "
                   "Error decoding existing shard index entry for minishard 0: "
                   "Byte range .* relative to the end of "
                   "the shard index \\(16\\) is not valid"));
@@ -453,7 +466,7 @@ TEST_F(RawEncodingTest, MinishardIndexOutOfRange) {
   EXPECT_THAT(store->Write(GetChunkKey(10), absl::Cord("abc")).result(),
               MatchesStatus(
                   absl::StatusCode::kFailedPrecondition,
-                  "Error writing \"prefix/0\\.shard\": "
+                  "Error reading \"prefix/0\\.shard\": "
                   "Error decoding existing shard index entry for minishard 0: "
                   "Requested byte range .* is not valid for value of size 16"));
 }
@@ -471,7 +484,7 @@ TEST_F(RawEncodingTest, MinishardIndexInvalidSize) {
   EXPECT_THAT(
       store->Write(GetChunkKey(10), absl::Cord("abc")).result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Error writing \"prefix/0\\.shard\": "
+                    "Error reading \"prefix/0\\.shard\": "
                     "Error decoding existing minishard index for minishard 0: "
                     "Invalid minishard index length: 1"));
 }
@@ -509,7 +522,7 @@ TEST_F(RawEncodingTest, MinishardIndexEntryByteRangeOutOfRange) {
   EXPECT_THAT(store->Write(GetChunkKey(1), absl::Cord("x")).result(),
               MatchesStatus(
                   absl::StatusCode::kFailedPrecondition,
-                  "Error writing \"prefix/0\\.shard\": "
+                  "Error reading \"prefix/0\\.shard\": "
                   "Invalid existing byte range for chunk 10: "
                   "Requested byte range .* is not valid for value of size .*"));
 }
@@ -529,7 +542,7 @@ TEST_F(RawEncodingTest, MinishardIndexWithDuplicateChunkId) {
       .value();
   EXPECT_THAT(store->Write(GetChunkKey(10), absl::Cord("abc")).result(),
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Error writing \"prefix/0\\.shard\": "
+                            "Error reading \"prefix/0\\.shard\": "
                             "Chunk 10 occurs more than once in the minishard "
                             "index for minishard 0"));
 }
@@ -569,7 +582,7 @@ TEST_F(GzipEncodingTest, CorruptMinishardGzipEncoding) {
   EXPECT_THAT(
       store->Write(GetChunkKey(10), absl::Cord("abc")).result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Error writing \"prefix/0\\.shard\": "
+                    "Error reading \"prefix/0\\.shard\": "
                     "Error decoding existing minishard index for minishard 0: "
                     "Error decoding zlib-compressed data"));
 }
@@ -1409,31 +1422,159 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShardReadError) {
                             "Read error"));
 }
 
-TEST_F(UnderlyingKeyValueStoreTest, List) {
-  auto future = ListFuture(store.get());
-  future.Force();
-  ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(), MatchesStatus(absl::StatusCode::kUnimplemented));
+TEST_F(UnderlyingKeyValueStoreTest, DeleteRangeUnimplemented) {
+  EXPECT_THAT(store->DeleteRange(tensorstore::KeyRange::Prefix("abc")).result(),
+              MatchesStatus(absl::StatusCode::kUnimplemented));
 }
 
-TEST_F(UnderlyingKeyValueStoreTest, DeleteRangeInvalid) {
-  auto future = store->DeleteRange(tensorstore::KeyRange::Prefix("abc"));
-  ASSERT_TRUE(future.ready());
-  EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".* DeleteRange may only delete all keys"));
+TEST_F(UnderlyingKeyValueStoreTest, TransactionalDeleteRangeUnimplemented) {
+  EXPECT_THAT(
+      store->TransactionalDeleteRange({}, tensorstore::KeyRange::Prefix("abc")),
+      MatchesStatus(absl::StatusCode::kUnimplemented));
 }
 
-TEST_F(UnderlyingKeyValueStoreTest, DeletePrefix) {
-  auto future = store->DeleteRange({});
-  {
-    auto req = mock_store->delete_range_requests.pop_nonblock().value();
-    EXPECT_EQ(0, mock_store->delete_range_requests.size());
-    EXPECT_EQ(tensorstore::KeyRange::Prefix("prefix/"), req.range);
-    req.promise.SetResult(tensorstore::MakeResult());
+// Tests of ReadModifyWrite operations, using `KvsBackedTestCache` ->
+// `Uint64ShardedKeyValueStore` -> `MockKeyValueStore`.
+class ReadModifyWriteTest : public ::testing::Test {
+ protected:
+  ::nlohmann::json sharding_spec_json{
+      {"@type", "neuroglancer_uint64_sharded_v1"},
+      {"hash", "identity"},
+      {"preshift_bits", 0},
+      {"minishard_bits", 1},
+      {"shard_bits", 1},
+      {"data_encoding", "raw"},
+      {"minishard_index_encoding", "raw"}};
+  ShardingSpec sharding_spec =
+      ShardingSpec::FromJson(sharding_spec_json).value();
+  KeyValueStore::PtrT<MockKeyValueStore> mock_store{new MockKeyValueStore};
+  tensorstore::KeyValueStore::Ptr memory_store =
+      tensorstore::GetMemoryKeyValueStore();
+
+  /// Returns a new (unique) `Uint64ShardedKeyValueStore` backed by
+  /// `mock_store`.
+  KeyValueStore::Ptr GetStore(
+      tensorstore::neuroglancer_uint64_sharded::GetMaxChunksPerShardFunction
+          get_max_chunks_per_shard = {}) {
+    return GetShardedKeyValueStore(
+        mock_store, tensorstore::InlineExecutor{}, "prefix", sharding_spec,
+        CachePool::WeakPtr(CachePool::Make(CachePool::Limits{})),
+        std::move(get_max_chunks_per_shard));
   }
-  ASSERT_TRUE(future.ready());
-  TENSORSTORE_EXPECT_OK(future.result());
+
+  /// Returns a new (unique) `KvsBackedTestCache` backed by the specified
+  /// `KeyValueStore`; if none is specified, calls `GetStore()`.
+  auto GetKvsBackedCache(KeyValueStore::Ptr store = {}) {
+    if (!store) store = GetStore();
+    return CachePool::Make(CachePool::Limits{})
+        ->GetCache<KvsBackedTestCache>(
+            "", [&] { return std::make_unique<KvsBackedTestCache>(store); });
+  }
+};
+
+TEST_F(ReadModifyWriteTest, MultipleCaches) {
+  auto cache1 = GetKvsBackedCache();
+  auto cache2 = GetKvsBackedCache();
+  auto transaction = Transaction(tensorstore::isolated);
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto open_transaction,
+        tensorstore::internal::AcquireOpenTransactionPtrOrError(transaction));
+    TENSORSTORE_ASSERT_OK(GetCacheEntry(cache1, GetChunkKey(0x0))
+                              ->Modify(open_transaction, false, "abc"));
+    TENSORSTORE_ASSERT_OK(GetCacheEntry(cache2, GetChunkKey(0x0))
+                              ->Modify(open_transaction, false, "def"));
+    auto read_future =
+        GetCacheEntry(cache1, GetChunkKey(0x0))->ReadValue(open_transaction);
+    // Currently, reading a modified shard is not optimized, such that we end up
+    // performing one read of the entire shard, and also one read of the single
+    // modified chunk.
+    mock_store->read_requests.pop()(memory_store);
+    mock_store->read_requests.pop()(memory_store);
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(absl::Cord("abcdef")));
+  }
+  transaction.CommitAsync().IgnoreFuture();
+  auto write_req = mock_store->write_requests.pop();
+  write_req(memory_store);
+  TENSORSTORE_EXPECT_OK(transaction.future());
+}
+
+TEST_F(ReadModifyWriteTest, MultiplePhasesMultipleCaches) {
+  auto cache1 = GetKvsBackedCache();
+  auto cache2 = GetKvsBackedCache();
+  auto transaction = Transaction(tensorstore::isolated);
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto open_transaction,
+        tensorstore::internal::AcquireOpenTransactionPtrOrError(transaction));
+    TENSORSTORE_ASSERT_OK(GetCacheEntry(cache1, GetChunkKey(0x0))
+                              ->Modify(open_transaction, false, "abc"));
+    TENSORSTORE_ASSERT_OK(GetCacheEntry(cache2, GetChunkKey(0x0))
+                              ->Modify(open_transaction, false, "def"));
+    open_transaction->Barrier();
+    TENSORSTORE_ASSERT_OK(GetCacheEntry(cache1, GetChunkKey(0x0))
+                              ->Modify(open_transaction, false, "ghi"));
+    TENSORSTORE_ASSERT_OK(GetCacheEntry(cache2, GetChunkKey(0x0))
+                              ->Modify(open_transaction, false, "jkl"));
+    auto read_future =
+        GetCacheEntry(cache1, GetChunkKey(0x0))->ReadValue(open_transaction);
+    // Currently, reading a modified shard is not optimized, such that we end up
+    // performing one read of the entire shard, and also one read of the single
+    // modified chunk.
+    mock_store->read_requests.pop()(memory_store);
+    mock_store->read_requests.pop()(memory_store);
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(absl::Cord("abcdefghijkl")));
+  }
+  transaction.CommitAsync().IgnoreFuture();
+  // Handle write request for first phase.
+  mock_store->write_requests.pop()(memory_store);
+  // Currently, invalidation after the commit of the first phase is not
+  // optimized.  We therefore have to re-read the contents of chunk 0, which
+  // involves 3 read requests to the underlying key value store (shard index,
+  // minishard index, chunk).
+  mock_store->read_requests.pop()(memory_store);
+  mock_store->read_requests.pop()(memory_store);
+  mock_store->read_requests.pop()(memory_store);
+  // Handle write request for second phase.
+  mock_store->write_requests.pop()(memory_store);
+  TENSORSTORE_EXPECT_OK(transaction.future());
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  using tensorstore::internal::KvsBackedCacheBasicTransactionalTestOptions;
+  using tensorstore::internal::RegisterKvsBackedCacheBasicTransactionalTest;
+
+  ::nlohmann::json sharding_spec_json{
+      {"@type", "neuroglancer_uint64_sharded_v1"},
+      {"hash", "identity"},
+      {"preshift_bits", 0},
+      {"minishard_bits", 1},
+      {"shard_bits", 1},
+      {"data_encoding", "raw"},
+      {"minishard_index_encoding", "raw"}};
+  ShardingSpec sharding_spec =
+      ShardingSpec::FromJson(sharding_spec_json).value();
+
+  for (bool underlying_atomic : {false, true}) {
+    KvsBackedCacheBasicTransactionalTestOptions options;
+    options.test_name = tensorstore::StrCat("Uint64Sharded/underlying_atomic=",
+                                            underlying_atomic);
+    options.get_store = [=] {
+      return GetShardedKeyValueStore(
+          tensorstore::GetMemoryKeyValueStore(/*atomic=*/underlying_atomic),
+          tensorstore::InlineExecutor{}, "prefix", sharding_spec,
+          CachePool::WeakPtr(CachePool::Make(CachePool::Limits{})), {});
+    };
+    options.delete_range_supported = false;
+    options.multi_key_atomic_supported = true;
+    options.get_key_getter = [] {
+      return [getter = std::make_shared<GetUint64Key>(/*sequential_ids=*/true)](
+                 auto key) { return (*getter)(key); };
+    };
+    RegisterKvsBackedCacheBasicTransactionalTest(options);
+  }
 }
 
 }  // namespace

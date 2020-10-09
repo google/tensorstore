@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded.h"
@@ -97,6 +98,15 @@ KeyValueStore::Ptr GetShardedKeyValueStore(
     KeyValueStore::Ptr base_kvstore, Executor executor, std::string key_prefix,
     const ShardingSpec& sharding_spec, internal::CachePool::WeakPtr cache_pool,
     GetMaxChunksPerShardFunction get_max_chunks_per_shard = {});
+
+/// Returns a key suitable for use with a `KeyValueStore` returned from
+/// `GetShardedKeyValueStore`.
+///
+/// The chunk id is encoded as an 8-byte `uint64be` value.
+std::string ChunkIdToKey(ChunkId chunk_id);
+
+/// Inverse of `ChunkIdToKey`.
+std::optional<ChunkId> KeyToChunkId(std::string_view key);
 
 }  // namespace neuroglancer_uint64_sharded
 }  // namespace tensorstore

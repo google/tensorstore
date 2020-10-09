@@ -40,6 +40,7 @@ using tensorstore::MatchesStatus;
 using tensorstore::Status;
 using tensorstore::StorageGeneration;
 using tensorstore::StrCat;
+using tensorstore::TimestampedStorageGeneration;
 using tensorstore::internal::GetMap;
 using tensorstore::internal::ParseJsonMatches;
 using ::testing::ElementsAreArray;
@@ -1500,7 +1501,6 @@ TEST(ShardedWriteTest, Basic) {
 
 // Disable due to race condition whereby writeback of a shard may start while
 // some chunks that have been modified are still being written back to it.
-#if 0
 TEST(FullShardWriteTest, Basic) {
   auto context = Context::Default();
 
@@ -1562,16 +1562,18 @@ TEST(FullShardWriteTest, Basic) {
     {
       auto req = mock_key_value_store->read_requests.pop();
       EXPECT_EQ("prefix/info", req.key);
-      req.promise.SetResult(std::in_place, std::nullopt,
-                            StorageGeneration::NoValue(), absl::Now());
+      req.promise.SetResult(KeyValueStore::ReadResult{
+          KeyValueStore::ReadResult::kMissing,
+          {},
+          {StorageGeneration::NoValue(), absl::Now()}});
     }
 
     {
       auto req = mock_key_value_store->write_requests.pop();
       EXPECT_EQ("prefix/info", req.key);
       EXPECT_EQ(StorageGeneration::NoValue(), req.options.if_equal);
-      req.promise.SetResult(std::in_place, StorageGeneration::FromString("g0"),
-                            absl::Now());
+      req.promise.SetResult(TimestampedStorageGeneration{
+          StorageGeneration::FromString("g0"), absl::Now()});
     }
 
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, store_future.result());
@@ -1593,13 +1595,12 @@ TEST(FullShardWriteTest, Basic) {
       ASSERT_EQ("prefix/1_1_1/5.shard", req.key);
       // Writeback is unconditional because the entire shard is being written.
       ASSERT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
-      req.promise.SetResult(std::in_place, StorageGeneration::FromString("g0"),
-                            absl::Now());
+      req.promise.SetResult(TimestampedStorageGeneration{
+          StorageGeneration::FromString("g0"), absl::Now()});
     }
 
     TENSORSTORE_ASSERT_OK(future.result());
   }
 }
-#endif
 
 }  // namespace

@@ -64,6 +64,24 @@ Result<absl::Cord> DecodeData(const absl::Cord& input,
 /// \returns The byte range of the minishard index.
 Result<ByteRange> DecodeShardIndexEntry(absl::string_view input);
 
+/// Decodes a minishard and adjusts the byte ranges to account for the implicit
+/// offset of the end of the shard index.
+///
+/// \returns The decoded minishard index on success.
+/// \error `absl::StatusCode::kInvalidArgument` if the encoded minishard is
+///   invalid.
+Result<std::vector<MinishardIndexEntry>>
+DecodeMinishardIndexAndAdjustByteRanges(const absl::Cord& encoded,
+                                        const ShardingSpec& sharding_spec);
+
+/// Splits an entire shard into a list of chunks, ordered by minishard then by
+/// chunk id.
+///
+/// The individual chunks remain in their original, possibly compressed,
+/// encoding.
+Result<EncodedChunks> SplitShard(const ShardingSpec& sharding_spec,
+                                 const absl::Cord& shard_data);
+
 }  // namespace neuroglancer_uint64_sharded
 }  // namespace tensorstore
 

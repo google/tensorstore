@@ -161,8 +161,9 @@ tensorstore_cc_library(
         "//tensorstore/util:division",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
+        "//tensorstore/util:span",
         "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
     ],
 )
@@ -173,6 +174,7 @@ tensorstore_cc_library(
     hdrs = ["uint64_sharded_decoder.h"],
     deps = [
         ":uint64_sharded",
+        "//tensorstore/internal:cord_util",
         "//tensorstore/internal/compression:zlib",
         "//tensorstore/util:endian",
         "//tensorstore/util:result",
@@ -239,6 +241,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:aggregate_writeback_cache",
         "//tensorstore/internal:async_cache",
         "//tensorstore/internal:cache",
+        "//tensorstore/internal:estimate_heap_usage",
         "//tensorstore/internal:kvs_backed_cache",
         "//tensorstore/internal:mutex",
         "//tensorstore/internal/compression:zlib",
@@ -251,6 +254,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/base:endian",
     ],
 )
 
@@ -261,6 +265,8 @@ tensorstore_cc_test(
     deps = [
         ":uint64_sharded_key_value_store",
         "//tensorstore/internal:cache",
+        "//tensorstore/internal:global_initializer",
+        "//tensorstore/internal:kvs_backed_cache_testutil",
         "//tensorstore/internal:thread_pool",
         "//tensorstore/internal/compression:zlib",
         "//tensorstore/kvstore:generation_testutil",

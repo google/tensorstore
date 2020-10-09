@@ -161,6 +161,16 @@ class ShardEncoder {
   std::uint64_t data_file_offset_;
 };
 
+/// Encodes a full shard from a list of chunks.
+///
+/// \param chunks The chunks to include, must be ordered by minishard index and
+///     then by chunk id.
+std::optional<absl::Cord> EncodeShard(const ShardingSpec& spec,
+                                      span<const EncodedChunk> chunks);
+
+absl::Cord EncodeData(const absl::Cord& input,
+                      ShardingSpec::DataEncoding encoding);
+
 }  // namespace neuroglancer_uint64_sharded
 }  // namespace tensorstore
 
