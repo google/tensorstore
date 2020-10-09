@@ -286,6 +286,8 @@ class CacheEntry : private internal_cache::CacheEntryImpl {
   /// freeing additional heap memory referenced by the entry).
   void UpdateState(StateUpdate update);
 
+  virtual ~CacheEntry();
+
  private:
   friend class internal_cache::Access;
 };
@@ -422,6 +424,15 @@ inline std::enable_if_t<std::is_base_of<Cache::Entry, Entry>::value,
 GetOwningCache(Entry* entry) {
   return internal_cache::Access::StaticCast<typename Entry::Cache>(
       internal_cache::Access::StaticCast<internal_cache::CacheEntryImpl>(entry)
+          ->cache_);
+}
+
+template <typename Entry>
+inline std::enable_if_t<std::is_base_of_v<Cache::Entry, Entry>,
+                        typename Entry::Cache&>
+GetOwningCache(Entry& entry) {
+  return *internal_cache::Access::StaticCast<typename Entry::Cache>(
+      internal_cache::Access::StaticCast<internal_cache::CacheEntryImpl>(&entry)
           ->cache_);
 }
 

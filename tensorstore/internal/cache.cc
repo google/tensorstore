@@ -479,6 +479,8 @@ std::size_t Cache::DoGetSizeInBytes(Cache::Entry* entry) {
 
 void Cache::DoInitializeEntry(Entry* entry) {}
 
+CacheEntry::~CacheEntry() = default;
+
 void Cache::Entry::UpdateState(StateUpdate update) {
   if (!update.new_state && !update.new_size) return;
   auto* cache_impl =

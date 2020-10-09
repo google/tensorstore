@@ -1,4 +1,5 @@
 load("//tensorstore:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -23,6 +24,76 @@ tensorstore_cc_test(
     deps = [
         ":arena",
         "//tensorstore/util:span",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+bool_flag(
+    name = "async_cache_debug",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "async_cache_debug_setting",
+    flag_values = {
+        ":async_cache_debug": "True",
+    },
+    visibility = ["//visibility:private"],
+)
+
+# To enable debug logging, specify:
+# bazel build --//tensorstore/internal:async_cache_debug
+tensorstore_cc_library(
+    name = "async_cache",
+    srcs = ["async_cache.cc"],
+    hdrs = ["async_cache.h"],
+    defines = select({
+        ":async_cache_debug_setting": ["TENSORSTORE_ASYNC_CACHE_DEBUG"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":cache",
+        ":intrusive_linked_list",
+        ":intrusive_ptr",
+        ":intrusive_red_black_tree",
+        ":logging",
+        ":mutex",
+        ":no_destructor",
+        ":source_location",
+        ":tagged_ptr",
+        ":type_traits",
+        "//tensorstore:transaction",
+        "//tensorstore/kvstore:generation",
+        "//tensorstore/util:future",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
+        "//tensorstore/util:sender",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/utility",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "async_cache_test",
+    size = "small",
+    srcs = ["async_cache_test.cc"],
+    deps = [
+        ":async_cache",
+        ":cache",
+        ":concurrent_testutil",
+        ":intrusive_ptr",
+        ":memory",
+        ":queue_testutil",
+        "//tensorstore/kvstore:generation",
+        "//tensorstore/kvstore:generation_testutil",
+        "//tensorstore/util:future",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],
 )
