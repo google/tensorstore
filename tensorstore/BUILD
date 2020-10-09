@@ -575,3 +575,34 @@ tensorstore_cc_library(
         "//tensorstore/util:future",
     ],
 )
+
+tensorstore_cc_library(
+    name = "transaction",
+    srcs = ["transaction.cc"],
+    hdrs = [
+        "transaction.h",
+        "transaction_impl.h",
+    ],
+    deps = [
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:intrusive_red_black_tree",
+        "//tensorstore/internal:mutex",
+        "//tensorstore/util:function_view",
+        "//tensorstore/util:future",
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/synchronization",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "transaction_test",
+    size = "small",
+    srcs = ["transaction_test.cc"],
+    deps = [
+        ":transaction",
+        "//tensorstore/util:status_testutil",
+        "//tensorstore/util:str_cat",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
