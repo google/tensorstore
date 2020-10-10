@@ -1,0 +1,6 @@
+tensorstore.DimExpression.transpose
+===================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: DimExpression.transpose

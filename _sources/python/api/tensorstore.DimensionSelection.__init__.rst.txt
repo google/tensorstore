@@ -1,0 +1,6 @@
+tensorstore.DimensionSelection.\_\_init\_\_
+===========================================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: DimensionSelection.__init__

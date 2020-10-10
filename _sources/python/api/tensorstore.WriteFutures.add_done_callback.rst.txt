@@ -1,0 +1,6 @@
+tensorstore.WriteFutures.add\_done\_callback
+============================================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: WriteFutures.add_done_callback

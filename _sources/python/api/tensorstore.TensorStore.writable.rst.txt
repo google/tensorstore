@@ -1,0 +1,6 @@
+tensorstore.TensorStore.writable
+================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: TensorStore.writable

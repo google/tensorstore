@@ -1,0 +1,6 @@
+tensorstore.Dim.inclusive\_max
+==============================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: Dim.inclusive_max

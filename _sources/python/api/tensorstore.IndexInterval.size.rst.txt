@@ -1,0 +1,6 @@
+tensorstore.IndexInterval.size
+==============================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: IndexInterval.size

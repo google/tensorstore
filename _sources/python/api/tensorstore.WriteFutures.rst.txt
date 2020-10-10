@@ -1,0 +1,37 @@
+tensorstore.WriteFutures
+========================
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: WriteFutures
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~WriteFutures.__init__
+      ~WriteFutures.add_done_callback
+      ~WriteFutures.cancel
+      ~WriteFutures.cancelled
+      ~WriteFutures.done
+      ~WriteFutures.exception
+      ~WriteFutures.remove_done_callback
+      ~WriteFutures.result
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: .
+   
+      ~WriteFutures.commit
+      ~WriteFutures.copy
+   
+   

@@ -1,0 +1,6 @@
+tensorstore.DimExpression.translate\_by
+=======================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: DimExpression.translate_by

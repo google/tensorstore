@@ -1,0 +1,6 @@
+tensorstore.dtype.name
+======================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: dtype.name

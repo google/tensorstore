@@ -1,0 +1,345 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Context framework &mdash; TensorStore  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"displayAlign": "left"})</script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="TensorStore JSON Spec" href="spec.html" />
+    <link rel="prev" title="Index space" href="index_space.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> TensorStore
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Building and Installing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="environment.html">Environment variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="index_space.html">Index space</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Context framework</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#context-json-schema">Context JSON Schema</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#context-resource-json-schema">Context resource JSON Schema</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cache-pool-context-resource-json-schema"><code class="docutils literal notranslate"><span class="pre">cache_pool</span></code> context resource JSON Schema</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#data-copy-concurrency-context-resource-json-schema"><code class="docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code> context resource JSON Schema</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#file-io-concurrency-context-resource-json-schema"><code class="docutils literal notranslate"><span class="pre">file_io_concurrency</span></code> context resource JSON Schema</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="spec.html">TensorStore JSON Spec</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tensorstore/driver/index.html">Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tensorstore/kvstore/index.html">Key-Value Storage Layer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/index.html">Python API</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">TensorStore</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Context framework</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/context.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="context-framework">
+<h1>Context framework<a class="headerlink" href="#context-framework" title="Permalink to this headline">¶</a></h1>
+<p>Configuration options for TensorStore drivers are specified using a <em>context</em>
+framework, which allows resources such as cache pools, concurrent execution
+pools, and authentication credentials to be specified using JSON in a way that
+allows sharing of resources by multiple TensorStore drivers.</p>
+<div class="section" id="context-json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/context"></span><h2>Context JSON Schema<a class="headerlink" href="#context-json-schema" title="Permalink to this headline">¶</a></h2>
+<p>A context JSON object is a mapping of resource identifiers to <a class="reference internal" href="#json-schema-https://github.com/google/tensorstore/json-schema/context-resource"><span class="std std-ref">Context resource</span></a> specifications.</p>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="#json-schema-https://github.com/google/tensorstore/json-schema/context-resource"><span class="std std-ref">Context resource</span></a></span></div>
+<p>Overrides the default resource for the given <code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code>, which must be a supported resource type.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;#&lt;id&gt;</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="#json-schema-https://github.com/google/tensorstore/json-schema/context-resource"><span class="std std-ref">Context resource</span></a></span></div>
+<p>Defines a resource with identifier <code class="docutils literal notranslate"><span class="pre">&lt;id&gt;</span></code> of the given <code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code>.  The resource specification must be compatible with <code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code>.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id1" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span> 
+  <span class="nt">&quot;cache_pool&quot;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&quot;total_bytes_limit&quot;</span><span class="p">:</span> <span class="mi">10000000</span><span class="p">},</span>
+  <span class="nt">&quot;cache_pool#remote&quot;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&quot;total_bytes_limit&quot;</span><span class="p">:</span> <span class="mi">100000000</span><span class="p">},</span>
+  <span class="nt">&quot;data_copy_concurrency&quot;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&quot;limit&quot;</span><span class="p">:</span> <span class="mi">8</span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="context-resource-json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/context-resource"></span><h2>Context resource JSON Schema<a class="headerlink" href="#context-resource-json-schema" title="Permalink to this headline">¶</a></h2>
+<div class="docutils container">
+<code class="docutils literal notranslate"><span class="pre">object</span></code> | string | <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">null</span></span></code></div>
+<p>Specifies a context resource of a particular <code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code>.</p>
+<div class="docutils container">
+One of:</div>
+<ul>
+<li><div class="docutils container">
+<code class="docutils literal notranslate"><span class="pre">object</span></code></div>
+<p>Specifies the resource directly.  All members are specific to the particular <code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code>.</p>
+</li>
+<li><div class="docutils container">
+string</div>
+<p>References another resource of the same type in the current or parent context using the syntax <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“&lt;resource-type&gt;”</span></span></code> or <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“&lt;resource-type&gt;#&lt;id&gt;”</span></span></code>, where <code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code> matches the type of this resource.</p>
+</li>
+<li><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">null</span></span></code></div>
+<p>Specifies a new instance of the default resource of the given <code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code>.  Only valid within a <a class="reference internal" href="#json-schema-https://github.com/google/tensorstore/json-schema/context"><span class="std std-ref">Context</span></a> specification.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="cache-pool-context-resource-json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/context/cache_pool"></span><h2><code class="docutils literal notranslate"><span class="pre">cache_pool</span></code> context resource JSON Schema<a class="headerlink" href="#cache-pool-context-resource-json-schema" title="Permalink to this headline">¶</a></h2>
+<p>Specifies the size of an in-memory Least Recently Used (LRU) cache.  Each <code class="docutils literal notranslate"><span class="pre">cache_pool</span></code> resource specifies a separate memory pool.</p>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">total_bytes_limit</span></code></td>
+<td><div class="docutils container">
+integer [0, ∞) (default is <code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">0</span></span></code>)</div>
+<p>Soft limit on the total number of bytes in the cache.  The least-recently used data that is not in use is evicted from the cache when this limit is reached.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">queued_for_writeback_bytes_limit</span></code></td>
+<td><div class="docutils container">
+integer [0, ∞)</div>
+<p>Soft limit on the total number of bytes of data pending writeback. Writeback is initated on the least-recently used data that is pending writeback when this limit is reached.  Defaults to half of <code class="docutils literal notranslate"><span class="pre">total_bytes_limit</span></code>.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="data-copy-concurrency-context-resource-json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/context/data_copy_concurrency"></span><h2><code class="docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code> context resource JSON Schema<a class="headerlink" href="#data-copy-concurrency-context-resource-json-schema" title="Permalink to this headline">¶</a></h2>
+<p>Specifies a limit on the number of CPU cores used concurrently for data copying/encoding/decoding.</p>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">limit</span></code></td>
+<td><div class="docutils container">
+integer [1, ∞) | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“shared”</span></span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“shared”</span></span></code>)</div>
+<p>The maximum number of CPU cores that may be used.  If the special value of <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“shared”</span></span></code> is specified, a shared global limit equal to the number of CPU cores/threads available applies.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="file-io-concurrency-context-resource-json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/context/file_io_concurrency"></span><h2><code class="docutils literal notranslate"><span class="pre">file_io_concurrency</span></code> context resource JSON Schema<a class="headerlink" href="#file-io-concurrency-context-resource-json-schema" title="Permalink to this headline">¶</a></h2>
+<p>Specifies a limit on the number of concurrently local filesystem I/O operations.</p>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">limit</span></code></td>
+<td><div class="docutils container">
+integer [1, ∞) | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“shared”</span></span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“shared”</span></span></code>)</div>
+<p>The maximum number of concurrent operations.  If the special value of <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“shared”</span></span></code> is specified, a shared global limit equal to the number of CPU cores/threads available (or 4 if there are fewer than 4 cores/threads available) applies.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="spec.html" class="btn btn-neutral float-right" title="TensorStore JSON Spec" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="index_space.html" class="btn btn-neutral float-left" title="Index space" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020 The TensorStore Authors
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

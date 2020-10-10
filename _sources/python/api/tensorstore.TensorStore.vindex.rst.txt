@@ -1,0 +1,6 @@
+tensorstore.TensorStore.vindex
+==============================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: TensorStore.vindex

@@ -1,0 +1,6 @@
+tensorstore.OutputIndexMethod.constant
+======================================
+
+.. currentmodule:: tensorstore
+
+.. autoattribute:: OutputIndexMethod.constant

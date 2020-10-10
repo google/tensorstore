@@ -1,0 +1,6 @@
+tensorstore.Dim.exclusive\_min
+==============================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: Dim.exclusive_min

@@ -1,0 +1,6 @@
+tensorstore.Spec.rank
+=====================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: Spec.rank

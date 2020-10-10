@@ -1,0 +1,295 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>cast Driver &mdash; TensorStore  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/language_data.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"displayAlign": "left"})</script>
+    
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="array Driver" href="../array/index.html" />
+    <link rel="prev" title="Drivers" href="../index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> TensorStore
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Building and Installing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../environment.html">Environment variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../index_space.html">Index space</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../context.html">Context framework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../spec.html">TensorStore JSON Spec</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Drivers</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">cast</span></code> Driver</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#json-schema">JSON Schema</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../array/index.html"><code class="docutils literal notranslate"><span class="pre">array</span></code> Driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../index.html#chunked-storage-drivers">Chunked storage drivers</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../kvstore/index.html">Key-Value Storage Layer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/index.html">Python API</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">TensorStore</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Drivers</a> &raquo;</li>
+        
+      <li><code class="docutils literal notranslate"><span class="pre">cast</span></code> Driver</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../../_sources/tensorstore/driver/cast/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="cast-driver">
+<h1><code class="docutils literal notranslate"><span class="pre">cast</span></code> Driver<a class="headerlink" href="#cast-driver" title="Permalink to this headline">¶</a></h1>
+<p>Virtual read/write view that performs element-wise data type conversion.</p>
+<ul class="simple">
+<li><p>Reading is supported if the <code class="docutils literal notranslate"><span class="pre">base</span></code> TensorStore supports reading
+and conversion from the base data type to the view data type is supported.</p></li>
+<li><p>Writing is supported if the <code class="docutils literal notranslate"><span class="pre">base</span></code> TensorStore supports writing
+and conversion from the view data type to the base data type is supported.</p></li>
+</ul>
+<p>The top-level <code class="docutils literal notranslate"><span class="pre">transform</span></code>, if any, is composed with the
+<code class="docutils literal notranslate"><span class="pre">transform</span></code>, if any, specified on <code class="docutils literal notranslate"><span class="pre">base</span></code>.</p>
+<div class="section" id="json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/driver/cast"></span><h2>JSON Schema<a class="headerlink" href="#json-schema" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">driver</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“cast”</span></span></code></div>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">context</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context"><span class="std std-ref">Context</span></a></span></div>
+<p>Specifies context resources that augment/override the parent context.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">dtype</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../../../spec.html#json-schema-https://github.com/google/tensorstore/json-schema/dtype"><span class="std std-ref">Data type</span></a></span></div>
+<span>Specifies the data type under which to view the <code class="docutils literal notranslate"><span class="pre">base</span></code>
+TensorStore.
+  </span></td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">rank</span></code></td>
+<td><div class="docutils container">
+integer [0, ∞)</div>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">transform</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../../../index_space.html#json-schema-https://github.com/google/tensorstore/json-schema/index-transform"><span class="std std-ref">Index transform</span></a></span></div>
+<p>Specifies a transform.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">base</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../../../spec.html#json-schema-https://github.com/google/tensorstore/json-schema/tensorstore"><span class="std std-ref">TensorStore</span></a></span></div>
+<span>Base TensorStore to convert.  </span></td>
+</tr>
+</tbody>
+</table>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id1" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span> 
+  <span class="nt">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;cast&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;dtype&quot;</span><span class="p">:</span> <span class="s2">&quot;int32&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;base&quot;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;zarr&quot;</span><span class="p">,</span> <span class="nt">&quot;kvstore&quot;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;gcs&quot;</span><span class="p">,</span> <span class="nt">&quot;bucket&quot;</span><span class="p">:</span> <span class="s2">&quot;my-bucket&quot;</span><span class="p">}}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../array/index.html" class="btn btn-neutral float-right" title="array Driver" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="../index.html" class="btn btn-neutral float-left" title="Drivers" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020 The TensorStore Authors
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

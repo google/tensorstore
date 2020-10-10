@@ -1,0 +1,32 @@
+tensorstore.OutputIndexMethod
+=============================
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: OutputIndexMethod
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~OutputIndexMethod.__init__
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: .
+   
+      ~OutputIndexMethod.array
+      ~OutputIndexMethod.constant
+      ~OutputIndexMethod.name
+      ~OutputIndexMethod.single_input_dimension
+   
+   

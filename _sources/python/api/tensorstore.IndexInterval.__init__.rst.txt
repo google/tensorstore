@@ -1,0 +1,6 @@
+tensorstore.IndexInterval.\_\_init\_\_
+======================================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: IndexInterval.__init__

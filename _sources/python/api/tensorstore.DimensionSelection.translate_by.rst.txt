@@ -1,0 +1,6 @@
+tensorstore.DimensionSelection.translate\_by
+============================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: DimensionSelection.translate_by

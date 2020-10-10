@@ -1,0 +1,6 @@
+tensorstore.WriteFutures.done
+=============================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: WriteFutures.done

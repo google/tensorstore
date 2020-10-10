@@ -1,0 +1,6 @@
+tensorstore.Future.result
+=========================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: Future.result

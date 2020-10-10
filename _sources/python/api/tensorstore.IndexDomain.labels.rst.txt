@@ -1,0 +1,6 @@
+tensorstore.IndexDomain.labels
+==============================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: IndexDomain.labels

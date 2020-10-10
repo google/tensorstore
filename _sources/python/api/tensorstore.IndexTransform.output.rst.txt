@@ -1,0 +1,6 @@
+tensorstore.IndexTransform.output
+=================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: IndexTransform.output

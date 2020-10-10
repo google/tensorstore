@@ -1,0 +1,6 @@
+tensorstore.Transaction.commit\_sync
+====================================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: Transaction.commit_sync

@@ -1,0 +1,6 @@
+tensorstore.TensorStore.transaction
+===================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: TensorStore.transaction

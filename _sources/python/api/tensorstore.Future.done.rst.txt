@@ -1,0 +1,6 @@
+tensorstore.Future.done
+=======================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: Future.done

@@ -1,0 +1,6 @@
+tensorstore.DimExpression.diagonal
+==================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: DimExpression.diagonal

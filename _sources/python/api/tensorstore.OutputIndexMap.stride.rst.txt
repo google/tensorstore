@@ -1,0 +1,6 @@
+tensorstore.OutputIndexMap.stride
+=================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: OutputIndexMap.stride

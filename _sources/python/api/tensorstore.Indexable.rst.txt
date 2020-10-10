@@ -1,0 +1,22 @@
+tensorstore.Indexable
+=====================
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: Indexable
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~Indexable.__init__
+   
+   
+
+   
+   
+   

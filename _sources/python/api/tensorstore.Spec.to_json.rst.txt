@@ -1,0 +1,6 @@
+tensorstore.Spec.to\_json
+=========================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: Spec.to_json

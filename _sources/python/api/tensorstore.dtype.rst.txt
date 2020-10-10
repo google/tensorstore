@@ -1,0 +1,32 @@
+tensorstore.dtype
+=================
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: dtype
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~dtype.__init__
+      ~dtype.to_json
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: .
+   
+      ~dtype.name
+      ~dtype.numpy_dtype
+      ~dtype.type
+   
+   

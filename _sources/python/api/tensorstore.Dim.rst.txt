@@ -1,0 +1,38 @@
+tensorstore.Dim
+===============
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: Dim
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~Dim.__init__
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: .
+   
+      ~Dim.empty
+      ~Dim.exclusive_max
+      ~Dim.exclusive_min
+      ~Dim.finite
+      ~Dim.implicit_lower
+      ~Dim.implicit_upper
+      ~Dim.inclusive_max
+      ~Dim.inclusive_min
+      ~Dim.label
+      ~Dim.size
+   
+   

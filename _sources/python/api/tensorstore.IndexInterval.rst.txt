@@ -1,0 +1,35 @@
+tensorstore.IndexInterval
+=========================
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: IndexInterval
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~IndexInterval.__init__
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: .
+   
+      ~IndexInterval.empty
+      ~IndexInterval.exclusive_max
+      ~IndexInterval.exclusive_min
+      ~IndexInterval.finite
+      ~IndexInterval.inclusive_max
+      ~IndexInterval.inclusive_min
+      ~IndexInterval.size
+   
+   

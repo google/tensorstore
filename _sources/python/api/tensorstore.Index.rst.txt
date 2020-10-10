@@ -1,0 +1,22 @@
+tensorstore.Index
+=================
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: Index
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~Index.__init__
+   
+   
+
+   
+   
+   

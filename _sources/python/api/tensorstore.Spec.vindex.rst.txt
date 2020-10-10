@@ -1,0 +1,6 @@
+tensorstore.Spec.vindex
+=======================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: Spec.vindex

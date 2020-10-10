@@ -1,0 +1,6 @@
+tensorstore.WriteFutures.cancelled
+==================================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: WriteFutures.cancelled

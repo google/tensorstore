@@ -1,0 +1,617 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Index space &mdash; TensorStore  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"displayAlign": "left"})</script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Context framework" href="context.html" />
+    <link rel="prev" title="Environment variables" href="environment.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> TensorStore
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Building and Installing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="environment.html">Environment variables</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Index space</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#index-domain">Index domain</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#index-transform">Index transform</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#json-schema">JSON Schema</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#alignment-and-broadcasting">Alignment and broadcasting</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="context.html">Context framework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="spec.html">TensorStore JSON Spec</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tensorstore/driver/index.html">Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tensorstore/kvstore/index.html">Key-Value Storage Layer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/index.html">Python API</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">TensorStore</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Index space</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/index_space.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="index-space">
+<h1>Index space<a class="headerlink" href="#index-space" title="Permalink to this headline">¶</a></h1>
+<p>TensorStore defines an <em>index space</em> as an <span class="math notranslate nohighlight">\(n\)</span>-dimensional
+space, where <span class="math notranslate nohighlight">\(n\)</span> is the <em>rank</em> of the space and each
+index is an integer in the closed interval <span class="math notranslate nohighlight">\([-(2^{62}-2),
++(2^{62}-2)]\)</span>.  The special values <span class="math notranslate nohighlight">\(\pm (2^{62}-1)\)</span> are not valid
+indices but represent bounds of <span class="math notranslate nohighlight">\(\pm \infty\)</span>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The limits of <span class="math notranslate nohighlight">\(\pm (2^{62}-2)\)</span> permit <span class="math notranslate nohighlight">\(\pm (2^{62}-1)\)</span> to be
+reserved to represent <span class="math notranslate nohighlight">\(\pm \infty\)</span> and still allow the
+difference between any two bounds to be represented as a signed
+64-bit integer.</p>
+</div>
+<p id="dimension-labels">Each of the <span class="math notranslate nohighlight">\(n\)</span> dimensions may optionally be identified by a unique
+string <em>label</em>, such as <code class="docutils literal notranslate"><span class="pre">&quot;x&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;y&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;z&quot;</span></code>.  Unlabeled
+dimensions are indicated by an empty string as the label.</p>
+<div class="section" id="index-domain">
+<span id="implicit-bounds"></span><span id="id1"></span><h2>Index domain<a class="headerlink" href="#index-domain" title="Permalink to this headline">¶</a></h2>
+<p>An <em>index domain</em> is a rectangular region of an index space.</p>
+<ul class="simple">
+<li><p>The inclusive lower bound of each dimensions is specified as an
+integer in <span class="math notranslate nohighlight">\([-(2^{62}-1), 2^{62}-2]\)</span>, where the special value of
+<span class="math notranslate nohighlight">\(-2^{62}-1\)</span> indicates the dimension is unbounded below.</p></li>
+<li><p>The inclusive upper bound of each dimension is specified as an
+integer in <span class="math notranslate nohighlight">\([-(2^{62}-2), 2^{62}-1]\)</span>, where the special value of
+<span class="math notranslate nohighlight">\(2^{62}-1\)</span> indicates the dimension is unbounded above.</p></li>
+<li><p>The lower and upper bound of each dimension is marked either
+<em>explicit</em> or <em>implicit</em> (represented as two additional bits per
+dimension).  Explicit bounds indicate hard constraints on the valid
+indices for that dimension.  Implicit bounds may be used for
+resizable dimensions of arrays: the implicit bound indicates the
+bound as of a certain time, but the bound may change if a resizable
+operation is performed, and indexing operations are not constrained
+by implicit bounds.  Implicit bounds of <span class="math notranslate nohighlight">\(\pm \infty\)</span> are also
+used to indicate unknown or unspecified bounds.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Specifying infinite bounds <span class="math notranslate nohighlight">\((-\infty, +\infty)\)</span> for a
+dimension is similar to specifying the finite bounds
+<span class="math notranslate nohighlight">\([-(2^{62}-2, +(2^{62}-2)]\)</span>, in that in both cases the domain
+contains the full range of possible indices.  The difference is
+that translating a dimension with infinite bounds has no effect,
+while translating a dimension with bounds <span class="math notranslate nohighlight">\([-(2^{62}-2,
++(2^{62}-2)]\)</span> by any non-zero offset results in an out-of-bounds
+error.</p>
+</div>
+</div>
+<div class="section" id="index-transform">
+<span id="id2"></span><h2>Index transform<a class="headerlink" href="#index-transform" title="Permalink to this headline">¶</a></h2>
+<p>An <em>index transform</em> from rank <span class="math notranslate nohighlight">\(m\)</span> to rank <span class="math notranslate nohighlight">\(n\)</span> maps every
+<span class="math notranslate nohighlight">\(m\)</span>-dimensional index vector in a rank-<span class="math notranslate nohighlight">\(m\)</span> <a class="reference internal" href="#index-domain"><span class="std std-ref">index
+domain</span></a> to an <span class="math notranslate nohighlight">\(n\)</span>-dimensional index vector in the
+output space.</p>
+<p>It is defined by its input index domain and <span class="math notranslate nohighlight">\(n\)</span> <em>output index
+maps</em>, one for each dimension <span class="math notranslate nohighlight">\(j\)</span> of the output space, each of
+one of the following three forms:</p>
+<table class="colwidths-auto docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>constant</p></td>
+<td><div class="math notranslate nohighlight">
+\[\mathtt{output}[j] = \mathtt{offset},\]</div>
+<p>where <span class="math notranslate nohighlight">\(\mathtt{offset}\)</span> is an arbitrary 64-bit integer.</p>
+</td>
+</tr>
+<tr class="row-even"><td><p>single input dimension</p></td>
+<td><div class="math notranslate nohighlight">
+\[\mathtt{output}[j] = \mathtt{offset} + \mathtt{stride} \cdot \mathtt{input}[\mathtt{input\_dimension}],\]</div>
+<p>where <span class="math notranslate nohighlight">\(\mathtt{offset}\)</span> and <span class="math notranslate nohighlight">\(\mathtt{stride}\)</span> are arbitrary
+64-bit integers and <span class="math notranslate nohighlight">\(\mathtt{input\_dimension}\)</span> is in the range
+<span class="math notranslate nohighlight">\([0, m)\)</span>.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><p>index array</p></td>
+<td><div class="math notranslate nohighlight">
+\[\mathtt{output}[j] = \mathtt{offset} + \mathtt{stride} \cdot \mathtt{index\_array}[\mathtt{input}],\]</div>
+<p>where <span class="math notranslate nohighlight">\(\mathtt{offset}\)</span> and <span class="math notranslate nohighlight">\(\mathtt{stride}\)</span> are
+arbitrary 64-bit integers and <span class="math notranslate nohighlight">\(\mathtt{index\_array}\)</span> is
+an <span class="math notranslate nohighlight">\(n\)</span>-dimensional array of 64-bit integers indexed by a
+subset of the dimensions of the input index domain with
+explicit lower and upper bounds, stored as a strided array in
+memory.  (The dimensions by which it is indexed are indicated
+by non-zero strides.)</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p>TensorStore uses this normalized index transform representation to
+represent any composition of indexing operations.  This representation
+is complete, since <em>any</em> mapping can be represented as an index array,
+but in many cases just the more efficient constant and single input
+dimension maps suffice.</p>
+<p>In most cases, two index transforms can be composed with low cost that
+is independent of the bounds specified in the domains: single input
+dimension maps may be composed with any other map without needing to
+copying any index arrays.  Only when composing two index array maps is
+it necessary to write a new index array, and in some cases this can
+result in index array with a larger representation size.</p>
+<div class="section" id="json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/index-transform"></span><h3>JSON Schema<a class="headerlink" href="#json-schema" title="Permalink to this headline">¶</a></h3>
+<p><a class="reference internal" href="#index-transform"><span class="std std-ref">Index transforms</span></a> may be serialized to/from JSON using
+the following schema.</p>
+<p>The input domain is specified by <code class="docutils literal notranslate"><span class="pre">input_rank</span></code>,
+<code class="docutils literal notranslate"><span class="pre">input_inclusive_min</span></code>, <code class="docutils literal notranslate"><span class="pre">input_exclusive_max</span></code>,
+<code class="docutils literal notranslate"><span class="pre">input_inclusive_max</span></code>, <code class="docutils literal notranslate"><span class="pre">input_shape</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">input_labels</span></code>, while the output index maps are specified by
+<code class="docutils literal notranslate"><span class="pre">output</span></code>.</p>
+<p>If neither <code class="docutils literal notranslate"><span class="pre">input_inclusive_min</span></code> nor <code class="docutils literal notranslate"><span class="pre">input_shape</span></code>
+is specified, all dimensions receive an implicit lower bound of
+<span class="math notranslate nohighlight">\(-\infty\)</span>.  If <code class="docutils literal notranslate"><span class="pre">input_shape</span></code> is specified but
+<code class="docutils literal notranslate"><span class="pre">input_inclusive_min</span></code> is not specified, all dimensions receive an
+explicit lower bound of 0.</p>
+<p>At most one of <code class="docutils literal notranslate"><span class="pre">input_exclusive_max</span></code>,
+<code class="docutils literal notranslate"><span class="pre">input_inclusive_max</span></code>, and <code class="docutils literal notranslate"><span class="pre">input_shape</span></code> may be
+specified.  If none are specified, all dimensions receive an implicit upper
+bound of <span class="math notranslate nohighlight">\(+\infty\)</span>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">input_rank</span></code></td>
+<td><div class="docutils container">
+integer [0, ∞)</div>
+<span>Number of input dimensions.  </span><p>The input rank must be specified either directly, or implicitly by the
+number of dimensions specified for <code class="docutils literal notranslate"><span class="pre">input_inclusive_min</span></code>,
+<code class="docutils literal notranslate"><span class="pre">input_inclusive_max</span></code>, <code class="docutils literal notranslate"><span class="pre">input_exclusive_max</span></code>,
+<code class="docutils literal notranslate"><span class="pre">input_shape</span></code>, or <code class="docutils literal notranslate"><span class="pre">input_labels</span></code>.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">input_inclusive_min</span></code></td>
+<td><div class="docutils container">
+array of integer (-∞, ∞) | [integer (-∞, ∞)]</div>
+<span>Inclusive lower bounds of the input domain.
+  </span><p>Length must equal the <code class="docutils literal notranslate"><span class="pre">input_rank</span></code>.  Bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code> indicate normal, explicit bounds, while
+bounds specified as <code class="samp docutils literal notranslate"><span class="pre">[</span><em><span class="pre">n</span></em><span class="pre">]</span></code> indicate <a class="reference internal" href="#implicit-bounds"><span class="std std-ref">implicit
+bounds</span></a>.  For example, <code class="code highlight json docutils literal notranslate"><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span> <span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">2</span></span><span class="p"><span class="pre">]]</span></span></code> specifies an
+explicit bound of <span class="math notranslate nohighlight">\(1 \leq x\)</span> for the first dimension and an implicit
+bound of <span class="math notranslate nohighlight">\(2 \leq x\)</span> for the second dimension.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">input_exclusive_max</span></code></td>
+<td><div class="docutils container">
+array of integer (-∞, ∞) | [integer (-∞, ∞)]</div>
+<span>Exclusive upper bounds of the input domain.
+  </span><p>Length must equal the <code class="docutils literal notranslate"><span class="pre">input_rank</span></code>.  As for <code class="docutils literal notranslate"><span class="pre">input_inclusive_min</span></code>, bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code>
+indicate normal, explicit bounds, while bounds specified as <code class="samp docutils literal notranslate"><span class="pre">[</span><em><span class="pre">n</span></em><span class="pre">]</span></code>
+indicate <a class="reference internal" href="#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>.  For example, <code class="code highlight json docutils literal notranslate"><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">5</span></span><span class="p"><span class="pre">,</span></span>
+<span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">7</span></span><span class="p"><span class="pre">]]</span></span></code> specifies an explicit bound of <span class="math notranslate nohighlight">\(x &lt; 5\)</span> for the first dimension
+and an implicit bound of <span class="math notranslate nohighlight">\(x &lt; 7\)</span> for the second dimension.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">input_inclusive_max</span></code></td>
+<td><div class="docutils container">
+array of integer (-∞, ∞) | [integer (-∞, ∞)]</div>
+<span>Inclusive upper bounds of the input domain.
+  </span><p>Length must equal the <code class="docutils literal notranslate"><span class="pre">input_rank</span></code>.  As for
+<code class="docutils literal notranslate"><span class="pre">input_inclusive_min</span></code>, bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code>
+indicate normal, explicit bounds, while bounds specified as <code class="samp docutils literal notranslate"><span class="pre">[</span><em><span class="pre">n</span></em><span class="pre">]</span></code>
+indicate <a class="reference internal" href="#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>.  For example, <code class="code highlight json docutils literal notranslate"><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">5</span></span><span class="p"><span class="pre">,</span></span>
+<span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">7</span></span><span class="p"><span class="pre">]]</span></span></code> specifies an explicit bound of <span class="math notranslate nohighlight">\(x \leq 5\)</span> for the first
+dimension and an implicit bound of <span class="math notranslate nohighlight">\(x \leq 7\)</span> for the second
+dimension.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">input_shape</span></code></td>
+<td><div class="docutils container">
+array of integer (-∞, ∞) | [integer (-∞, ∞)]</div>
+<span>Extent of each dimension of the input domain.
+  </span><p>Length must equal the <code class="docutils literal notranslate"><span class="pre">input_rank</span></code>.  As for
+<code class="docutils literal notranslate"><span class="pre">input_inclusive_min</span></code>, bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code>
+indicate normal, explicit bounds, while bounds specified as <code class="samp docutils literal notranslate"><span class="pre">[</span><em><span class="pre">n</span></em><span class="pre">]</span></code>
+indicate <a class="reference internal" href="#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>.  For example, assuming an
+<code class="docutils literal notranslate"><span class="pre">input_inclusive_min</span></code> of <code class="code highlight json docutils literal notranslate"><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span> <span class="mi"><span class="pre">2</span></span><span class="p"><span class="pre">]</span></span></code>, an
+<code class="docutils literal notranslate"><span class="pre">input_shape</span></code> of <code class="code highlight json docutils literal notranslate"><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">5</span></span><span class="p"><span class="pre">,</span></span> <span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">7</span></span><span class="p"><span class="pre">]]</span></span></code> specifies an explicit bound
+of <span class="math notranslate nohighlight">\(x &lt; 6\)</span> for the first dimension and an implicit bound of <span class="math notranslate nohighlight">\(x
+&lt; 9\)</span> for the second dimension.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">input_labels</span></code></td>
+<td><div class="docutils container">
+array of string</div>
+<span><a class="reference internal" href="#dimension-labels"><span class="std std-ref">Dimension labels</span></a> for each input domain dimension.
+  </span><p>Length must equal the <code class="docutils literal notranslate"><span class="pre">input_rank</span></code>.  An empty string
+indicates an unlabeled dimension.  Non-empty strings must not occur more
+than once.  By default, all dimensions are unlabeled.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">output</span></code></td>
+<td><span>Specifies the output index map for each output dimension.
+  </span><p>If not specified, defaults to an identity transform over the input domain.
+Otherwise, the length determines the output rank of the transform.</p>
+<p>array of <code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">offset</span></code></td>
+<td><div class="docutils container">
+integer (-∞, ∞)</div>
+<span>Specifies an offset for this output dimension.  If neither
+<code class="docutils literal notranslate"><span class="pre">input_dimension</span></code> nor <code class="docutils literal notranslate"><span class="pre">index_array</span></code> is
+specified, this specifies the <strong>constant</strong> value to which this output
+dimension maps.
+  </span></td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">stride</span></code></td>
+<td><div class="docutils container">
+integer (-∞, ∞)</div>
+<span>Multiplier for the input index specified by
+<code class="docutils literal notranslate"><span class="pre">input_dimension</span></code> or the index array value specified by
+<code class="docutils literal notranslate"><span class="pre">index_array</span></code>.
+  </span><p>Only valid to specify in conjunction with
+<code class="docutils literal notranslate"><span class="pre">input_dimension</span></code> or <code class="docutils literal notranslate"><span class="pre">index_array</span></code>.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">input_dimension</span></code></td>
+<td><div class="docutils container">
+integer [0, ∞)</div>
+<span>If present, indicates that this output dimension uses a <strong>single
+input dimension</strong> map with the specified input dimension.  Must not
+be specified in conjunction with <code class="docutils literal notranslate"><span class="pre">index_array</span></code>.
+  </span></td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">index_array</span></code></td>
+<td><div class="docutils container">
+array | integer (-∞, ∞)</div>
+<span>If present, indicates that this output dimension uses an <strong>index
+array</strong> map, with the index array specified as a nested list of rank
+equal to <code class="docutils literal notranslate"><span class="pre">input_rank</span></code>.
+  </span><p>If the input rank is 0, must be a numeric value.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="alignment-and-broadcasting">
+<span id="index-domain-alignment"></span><h2>Alignment and broadcasting<a class="headerlink" href="#alignment-and-broadcasting" title="Permalink to this headline">¶</a></h2>
+<p>Many operations in TensorStore involving two <a class="reference internal" href="#index-domain"><span class="std std-ref">index domains</span></a>,
+such as read, write, and copy operations, automatically <em>align</em> the <code class="docutils literal notranslate"><span class="pre">source</span></code>
+domain to the <code class="docutils literal notranslate"><span class="pre">target</span></code> domain.</p>
+<p>The following alignment methods are supported (by default, all alignment methods
+are used):</p>
+<dl class="simple">
+<dt>permute</dt><dd><p>Source dimensions are permuted based on their labels in order to align the
+source domain to the target domain.</p>
+</dd>
+<dt>translate</dt><dd><p>Source dimensions are translated in order to align the source domain to the
+target.</p>
+</dd>
+<dt>broadcast</dt><dd><p>Source dimensions of size 1 do not have to match a target dimension, and not
+all target dimensions must match a source dimension.</p>
+</dd>
+</dl>
+<p>Alignment is performed based on the following rules:</p>
+<p>First, a subset of the <code class="docutils literal notranslate"><span class="pre">source</span></code> dimensions are matched to a subset of the
+<code class="docutils literal notranslate"><span class="pre">target</span></code> dimensions, according to one of two cases:</p>
+<table class="colwidths-auto docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>M1</p></td>
+<td><p>At least one of <code class="docutils literal notranslate"><span class="pre">source</span></code> or <code class="docutils literal notranslate"><span class="pre">target</span></code> is entirely unlabeled (all
+dimension labels are empty).  In this case, the last
+<span class="math notranslate nohighlight">\(\mathtt{match\_rank} = \min(\mathtt{source\_rank},
+\mathtt{target\_rank})\)</span> dimensions of <code class="docutils literal notranslate"><span class="pre">source</span></code> match in order to the
+last <span class="math notranslate nohighlight">\(\mathtt{match\_rank}\)</span> dimensions of <code class="docutils literal notranslate"><span class="pre">target</span></code>,
+i.e. dimension <span class="math notranslate nohighlight">\(\mathtt{source\_rank} - \mathtt{match\_rank} + i\)</span>
+of <code class="docutils literal notranslate"><span class="pre">source</span></code> matches to dimension <span class="math notranslate nohighlight">\(\mathtt{target\_rank} -
+\mathtt{match\_rank} + i\)</span> of <code class="docutils literal notranslate"><span class="pre">target</span></code>, for <span class="math notranslate nohighlight">\(0 \leq i &lt;
+\mathtt{match\_rank}\)</span>.  This case also applies if the <strong>permute</strong>
+alignment method is not permitted.</p></td>
+</tr>
+<tr class="row-even"><td><p>M2</p></td>
+<td><p>Both <code class="docutils literal notranslate"><span class="pre">source</span></code> and <code class="docutils literal notranslate"><span class="pre">target</span></code> have at least one labeled dimension.  In
+this case, dimensions of <code class="docutils literal notranslate"><span class="pre">source</span></code> and <code class="docutils literal notranslate"><span class="pre">target</span></code> with matching labels
+are matched.  Any remaining labeled dimensions remain unmatched.  The
+unlabeled dimensions of <code class="docutils literal notranslate"><span class="pre">source</span></code> are matched to the unlabeled
+dimensions of <code class="docutils literal notranslate"><span class="pre">target</span></code> using the same method as in case M1 (right to
+left).</p></td>
+</tr>
+</tbody>
+</table>
+<p>The matching is then validated as follows:</p>
+<table class="colwidths-auto docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>V1</p></td>
+<td><p>For each match between a dimension <span class="math notranslate nohighlight">\(i\)</span> of <code class="docutils literal notranslate"><span class="pre">source</span></code> and a
+dimension <span class="math notranslate nohighlight">\(j\)</span> of <code class="docutils literal notranslate"><span class="pre">target</span></code>, if <span class="math notranslate nohighlight">\(\mathtt{source\_shape}[i]
+\neq \mathtt{target\_shape}[j]\)</span>, the match is dropped.  Note that if
+<span class="math notranslate nohighlight">\(\mathtt{source\_shape}[i] \neq 1\)</span>, this leads to an error in step
+V3.</p></td>
+</tr>
+<tr class="row-even"><td><p>V2</p></td>
+<td><p>If the <strong>broadcast</strong> alignment method is not permitted, it is an error
+for any source or target dimension to be unmatched.  (In this case, any
+matches dropped in step V1 result in an error.)</p></td>
+</tr>
+<tr class="row-odd"><td><p>V3</p></td>
+<td><p>For every unmatched dimension <span class="math notranslate nohighlight">\(i\)</span> of <code class="docutils literal notranslate"><span class="pre">source</span></code>,
+<span class="math notranslate nohighlight">\(\mathtt{source\_shape}[i]\)</span> must equal <span class="math notranslate nohighlight">\(1\)</span>.</p></td>
+</tr>
+<tr class="row-even"><td><p>V4</p></td>
+<td><p>If the <strong>translate</strong> alignment method is not permitted, for each match
+between a dimension <span class="math notranslate nohighlight">\(i\)</span> of <code class="docutils literal notranslate"><span class="pre">source</span></code> and a dimension <span class="math notranslate nohighlight">\(j\)</span> of
+<code class="docutils literal notranslate"><span class="pre">target</span></code>, it is an error if <span class="math notranslate nohighlight">\(\mathtt{source\_origin}[i] \neq
+\mathtt{target\_origin}[j]\)</span>.</p></td>
+</tr>
+</tbody>
+</table>
+<p>If matching succeeds, a new <code class="docutils literal notranslate"><span class="pre">alignment</span></code> transform with an (input) domain equal
+to <code class="docutils literal notranslate"><span class="pre">target</span></code> and an output rank equal to <span class="math notranslate nohighlight">\(\mathtt{source\_rank}\)</span> is
+computed as follows:</p>
+<table class="colwidths-auto docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>A1</p></td>
+<td><p>For each dimension <span class="math notranslate nohighlight">\(j\)</span> of <code class="docutils literal notranslate"><span class="pre">target</span></code> with a matching dimension
+<span class="math notranslate nohighlight">\(i\)</span> of <code class="docutils literal notranslate"><span class="pre">source</span></code>, output dimension <span class="math notranslate nohighlight">\(i\)</span> of <code class="docutils literal notranslate"><span class="pre">alignment</span></code> has
+a <em>single_input_dimension</em> map to input dimension <code class="xref any docutils literal notranslate"><span class="pre">j</span></code> with a stride of
+<code class="xref any docutils literal notranslate"><span class="pre">1</span></code> and offset of <span class="math notranslate nohighlight">\(\mathtt{source\_origin}[i] -
+\mathtt{target\_origin}[j]\)</span>.</p></td>
+</tr>
+<tr class="row-even"><td><p>A2</p></td>
+<td><p>For every unmatched dimension <span class="math notranslate nohighlight">\(i\)</span> of <code class="docutils literal notranslate"><span class="pre">source</span></code>, output dimension
+<span class="math notranslate nohighlight">\(i\)</span> of <code class="docutils literal notranslate"><span class="pre">alignment</span></code> is a <em>constant</em> map with an offset of
+<span class="math notranslate nohighlight">\(\mathtt{source\_origin}[i]\)</span>.  (It must be the case that
+<span class="math notranslate nohighlight">\(\mathtt{source\_shape}[i] = 1\)</span>.)</p></td>
+</tr>
+</tbody>
+</table>
+<p>The <code class="docutils literal notranslate"><span class="pre">alignment</span></code> transform maps <code class="docutils literal notranslate"><span class="pre">target</span></code> positions to corresponding
+<code class="docutils literal notranslate"><span class="pre">source</span></code> positions; for example, when copying, each position of the <code class="docutils literal notranslate"><span class="pre">target</span></code>
+domain is assigned the value at the corresponding position of the <code class="docutils literal notranslate"><span class="pre">source</span></code>
+domain.  If the <code class="docutils literal notranslate"><span class="pre">broadcast</span></code> alignment method is used, the transform may map
+the same <code class="docutils literal notranslate"><span class="pre">source</span></code> position to multiple <code class="docutils literal notranslate"><span class="pre">target</span></code> positions.</p>
+<p>Examples:</p>
+<ul>
+<li><p>All unlabeled dimensions</p>
+<ul>
+<li><p>source: <code class="docutils literal notranslate"><span class="pre">[3,</span> <span class="pre">7),</span> <span class="pre">[5,</span> <span class="pre">6),</span> <span class="pre">[4,</span> <span class="pre">10)</span></code></p></li>
+<li><p>target: <code class="docutils literal notranslate"><span class="pre">[2,</span> <span class="pre">6),</span> <span class="pre">[0,</span> <span class="pre">4),</span> <span class="pre">[6,</span> <span class="pre">12)</span></code></p></li>
+<li><p>alignment: rank <span class="math notranslate nohighlight">\(3 \rightarrow 3\)</span>, with:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\mathrm{source}[0] &amp;= \mathrm{target}[0] + 1 \\
+\mathrm{source}[1] &amp;= 5 \\
+\mathrm{source}[2] &amp;= \mathrm{target}[2] - 2\end{split}\]</div>
+</li>
+</ul>
+</li>
+<li><p>All labeled dimensions</p>
+<ul>
+<li><p>source: <code class="docutils literal notranslate"><span class="pre">&quot;x&quot;:</span> <span class="pre">[3,</span> <span class="pre">7),</span> <span class="pre">&quot;y&quot;:</span> <span class="pre">[5,</span> <span class="pre">6),</span> <span class="pre">&quot;z&quot;:</span> <span class="pre">[4,</span> <span class="pre">10)</span></code></p></li>
+<li><p>target: <code class="docutils literal notranslate"><span class="pre">&quot;z&quot;:</span> <span class="pre">[6,</span> <span class="pre">12),</span> <span class="pre">&quot;x&quot;:</span> <span class="pre">[4,</span> <span class="pre">8),</span> <span class="pre">&quot;y&quot;:</span> <span class="pre">[0,</span> <span class="pre">4)</span></code></p></li>
+<li><p>alignment: rank <span class="math notranslate nohighlight">\(3 \rightarrow 3\)</span>, with:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\mathrm{source}[0] &amp;= \mathrm{target}[1] - 1 \\
+\mathrm{source}[1] &amp;= 5 \\
+\mathrm{source}[2] &amp;= \mathrm{target}[0] - 2\end{split}\]</div>
+</li>
+</ul>
+</li>
+<li><p>Partially labeled dimensions</p>
+<ul>
+<li><p>source: <code class="docutils literal notranslate"><span class="pre">&quot;x&quot;:</span> <span class="pre">[3,</span> <span class="pre">7),</span> <span class="pre">&quot;y&quot;:</span> <span class="pre">[5,</span> <span class="pre">6),</span> <span class="pre">&quot;&quot;:</span> <span class="pre">[4,</span> <span class="pre">10)</span></code></p></li>
+<li><p>target: <code class="docutils literal notranslate"><span class="pre">&quot;&quot;:</span> <span class="pre">[0,</span> <span class="pre">10)</span> <span class="pre">&quot;&quot;:</span> <span class="pre">[6,</span> <span class="pre">12),</span> <span class="pre">&quot;x&quot;:</span> <span class="pre">[4,</span> <span class="pre">8),</span> <span class="pre">&quot;y&quot;:</span> <span class="pre">[0,</span> <span class="pre">4)</span></code></p></li>
+<li><p>alignment: rank <span class="math notranslate nohighlight">\(4 \rightarrow 3\)</span>, with:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\mathrm{source}[0] &amp;= \mathrm{target}[2] - 1 \\
+\mathrm{source}[1] &amp;= 5 \\
+\mathrm{source}[2] &amp;= \mathrm{target}[1] - 2\end{split}\]</div>
+</li>
+</ul>
+</li>
+<li><p>Mismatched labeled dimensions</p>
+<ul class="simple">
+<li><p>source: <code class="docutils literal notranslate"><span class="pre">&quot;x&quot;:</span> <span class="pre">[3,</span> <span class="pre">7),</span> <span class="pre">&quot;y&quot;:</span> <span class="pre">[5,</span> <span class="pre">6),</span> <span class="pre">&quot;z&quot;:</span> <span class="pre">[4,</span> <span class="pre">10)</span></code></p></li>
+<li><p>target: <code class="docutils literal notranslate"><span class="pre">&quot;z&quot;:</span> <span class="pre">[6,</span> <span class="pre">12),</span> <span class="pre">&quot;w&quot;:</span> <span class="pre">[4,</span> <span class="pre">8),</span> <span class="pre">&quot;y&quot;:</span> <span class="pre">[0,</span> <span class="pre">4)</span></code></p></li>
+<li><p>ERROR: Unmatched source dimension 0 <code class="docutils literal notranslate"><span class="pre">{&quot;x&quot;:</span> <span class="pre">[3,</span> <span class="pre">7)}</span></code>
+does not have a size of 1</p></li>
+</ul>
+</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The alignment behavior supported by TensorStore is fully compatible with
+<a class="reference external" href="https://numpy.org/doc/stable/user/basics.broadcasting.html#module-numpy.doc.broadcasting" title="(in NumPy v1.19)"><code class="xref any docutils literal notranslate"><span class="pre">NumPy</span> <span class="pre">broadcasting</span></code></a> but additionally is
+extended to support non-zero origins and labeled dimensions.</p>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="context.html" class="btn btn-neutral float-right" title="Context framework" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="environment.html" class="btn btn-neutral float-left" title="Environment variables" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020 The TensorStore Authors
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

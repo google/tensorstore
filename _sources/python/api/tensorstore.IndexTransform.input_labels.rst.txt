@@ -1,0 +1,6 @@
+tensorstore.IndexTransform.input\_labels
+========================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: IndexTransform.input_labels

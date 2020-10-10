@@ -1,0 +1,6 @@
+tensorstore.Context.spec
+========================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: Context.spec

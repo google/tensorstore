@@ -1,0 +1,401 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>tensorstore.Transaction &mdash; TensorStore  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/language_data.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"displayAlign": "left"})</script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="tensorstore.Transaction.__init__" href="tensorstore.Transaction.__init__.html" />
+    <link rel="prev" title="tensorstore.TensorStore.writable" href="tensorstore.TensorStore.writable.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> TensorStore
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Building and Installing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../environment.html">Environment variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../index_space.html">Index space</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../context.html">Context framework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../spec.html">TensorStore JSON Spec</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tensorstore/driver/index.html">Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tensorstore/kvstore/index.html">Key-Value Storage Layer</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Python API</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../tutorial.html">Tutorial</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../indexing.html">Indexing</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">API reference</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.array.html">tensorstore.array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.cast.html">tensorstore.cast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.open.html">tensorstore.open</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.Context.html">tensorstore.Context</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.ContextSpec.html">tensorstore.ContextSpec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.Dim.html">tensorstore.Dim</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.DimExpression.html">tensorstore.DimExpression</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.DimensionSelection.html">tensorstore.DimensionSelection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.Future.html">tensorstore.Future</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.Index.html">tensorstore.Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.IndexDomain.html">tensorstore.IndexDomain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.IndexInterval.html">tensorstore.IndexInterval</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.IndexTransform.html">tensorstore.IndexTransform</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.Indexable.html">tensorstore.Indexable</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.OutputIndexMap.html">tensorstore.OutputIndexMap</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.OutputIndexMaps.html">tensorstore.OutputIndexMaps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.OutputIndexMethod.html">tensorstore.OutputIndexMethod</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.Promise.html">tensorstore.Promise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.Spec.html">tensorstore.Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.TensorStore.html">tensorstore.TensorStore</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">tensorstore.Transaction</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.Transaction.__init__.html">tensorstore.Transaction.__init__</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.Transaction.abort.html">tensorstore.Transaction.abort</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.Transaction.commit_async.html">tensorstore.Transaction.commit_async</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.Transaction.commit_sync.html">tensorstore.Transaction.commit_sync</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.Transaction.aborted.html">tensorstore.Transaction.aborted</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.Transaction.atomic.html">tensorstore.Transaction.atomic</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.Transaction.commit_started.html">tensorstore.Transaction.commit_started</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.Transaction.future.html">tensorstore.Transaction.future</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.Transaction.open.html">tensorstore.Transaction.open</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.WriteFutures.html">tensorstore.WriteFutures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.dtype.html">tensorstore.dtype</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.newaxis.html">tensorstore.newaxis</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">TensorStore</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Python API</a> &raquo;</li>
+        
+          <li><a href="index.html">API reference</a> &raquo;</li>
+        
+      <li>tensorstore.Transaction</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../_sources/python/api/tensorstore.Transaction.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="tensorstore-transaction">
+<h1>tensorstore.Transaction<a class="headerlink" href="#tensorstore-transaction" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="tensorstore.Transaction">
+<em class="property">class </em><code class="sig-prename descclassname">tensorstore.</code><code class="sig-name descname">Transaction</code><a class="headerlink" href="#tensorstore.Transaction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transactions are used to stage a group of modifications (e.g. writes to
+<a class="reference internal" href="tensorstore.TensorStore.html#tensorstore.TensorStore" title="tensorstore.TensorStore"><code class="xref any py py-class docutils literal notranslate"><span class="pre">TensorStore</span></code></a> objects) in memory, and then either commit the group all at once
+or abort it.</p>
+<p>Two transaction modes are currently supported:</p>
+<p>“Isolated” transactions provide write isolation: no modifications made are
+visible or persist outside the transactions until the transaction is committed.
+In addition to allowing modifications to be aborted/rolled back, this can also
+improve efficiency by ensuring multiple writes to the same underlying storage
+key are coalesced.</p>
+<p>“Atomic isolated” transactions have all the properties of “isolated”
+transactions but additionally guarantee that all of the modifications will be
+committed atomically, i.e. at no point will an external reader observe only some
+but not all of the modifications.  If the modifications made in the transaction
+cannot be committed atomically, the transaction will fail (without any changes
+being made).</p>
+<p>Example usage:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">txn</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Transaction</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
+<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;n5&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;file&#39;</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="s1">&#39;/tmp/dataset&#39;</span>
+<span class="gp">... </span>    <span class="p">},</span>
+<span class="gp">... </span>    <span class="s1">&#39;metadata&#39;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">&#39;dataType&#39;</span><span class="p">:</span> <span class="s1">&#39;uint16&#39;</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">&#39;blockSize&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>        <span class="s1">&#39;dimensions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
+<span class="gp">... </span>        <span class="s1">&#39;compression&#39;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;raw&#39;</span>
+<span class="gp">... </span>        <span class="p">}</span>
+<span class="gp">... </span>    <span class="p">},</span>
+<span class="gp">... </span>    <span class="s1">&#39;create&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">&#39;delete_existing&#39;</span><span class="p">:</span> <span class="kc">True</span>
+<span class="gp">... </span><span class="p">})</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">with_transaction</span><span class="p">(</span><span class="n">txn</span><span class="p">)[</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span><span class="mi">5</span><span class="p">]</span> <span class="o">=</span> <span class="mi">42</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">with_transaction</span><span class="p">(</span><span class="n">txn</span><span class="p">)[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="mi">43</span>
+</pre></div>
+</div>
+<p>Uncommitted changes made in a transaction are visible from a transactional read
+using the same transaction, but not from a non-transactional read:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">with_transaction</span><span class="p">(</span><span class="n">txn</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+<span class="go">array([[ 0,  0,  0,  0, 43,  0],</span>
+<span class="go">       [ 0,  0, 42, 42, 43,  0],</span>
+<span class="go">       [ 0,  0, 42, 42, 42,  0],</span>
+<span class="go">       [ 0,  0, 42, 42, 42,  0],</span>
+<span class="go">       [ 0,  0,  0,  0,  0,  0]], dtype=uint16)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+<span class="go">array([[0, 0, 0, 0, 0, 0],</span>
+<span class="go">       [0, 0, 0, 0, 0, 0],</span>
+<span class="go">       [0, 0, 0, 0, 0, 0],</span>
+<span class="go">       [0, 0, 0, 0, 0, 0],</span>
+<span class="go">       [0, 0, 0, 0, 0, 0]], dtype=uint16)</span>
+</pre></div>
+</div>
+<p>The transaction can be committed using
+<a class="reference internal" href="tensorstore.Transaction.commit_async.html#tensorstore.Transaction.commit_async" title="tensorstore.Transaction.commit_async"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tensorstore.Transaction.commit_async</span></code></a>.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">txn</span><span class="o">.</span><span class="n">commit_async</span><span class="p">()</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+<span class="go">array([[ 0,  0,  0,  0, 43,  0],</span>
+<span class="go">       [ 0,  0, 42, 42, 43,  0],</span>
+<span class="go">       [ 0,  0, 42, 42, 42,  0],</span>
+<span class="go">       [ 0,  0, 42, 42, 42,  0],</span>
+<span class="go">       [ 0,  0,  0,  0,  0,  0]], dtype=uint16)</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="#tensorstore.Transaction" title="tensorstore.Transaction"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tensorstore.Transaction</span></code></a> class can also be used as a regular or
+asynchronous context manager:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">with</span> <span class="n">ts</span><span class="o">.</span><span class="n">Transaction</span><span class="p">()</span> <span class="k">as</span> <span class="n">txn</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">store</span><span class="o">.</span><span class="n">with_transaction</span><span class="p">(</span><span class="n">txn</span><span class="p">)[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="mi">44</span>
+<span class="gp">... </span>    <span class="n">store</span><span class="o">.</span><span class="n">with_transaction</span><span class="p">(</span><span class="n">txn</span><span class="p">)[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">45</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+<span class="go">array([[45, 44, 44,  0, 43,  0],</span>
+<span class="go">       [ 0, 44, 44, 42, 43,  0],</span>
+<span class="go">       [ 0,  0, 42, 42, 42,  0],</span>
+<span class="go">       [ 0,  0, 42, 42, 42,  0],</span>
+<span class="go">       [ 0,  0,  0,  0,  0,  0]], dtype=uint16)</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">async</span> <span class="k">with</span> <span class="n">ts</span><span class="o">.</span><span class="n">Transaction</span><span class="p">()</span> <span class="k">as</span> <span class="n">txn</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">store</span><span class="o">.</span><span class="n">with_transaction</span><span class="p">(</span><span class="n">txn</span><span class="p">)[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="mi">44</span>
+<span class="gp">... </span>    <span class="n">store</span><span class="o">.</span><span class="n">with_transaction</span><span class="p">(</span><span class="n">txn</span><span class="p">)[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">45</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+<span class="go">array([[45, 44, 44,  0, 43,  0],</span>
+<span class="go">       [ 0, 44, 44, 42, 43,  0],</span>
+<span class="go">       [ 0,  0, 42, 42, 42,  0],</span>
+<span class="go">       [ 0,  0, 42, 42, 42,  0],</span>
+<span class="go">       [ 0,  0,  0,  0,  0,  0]], dtype=uint16)</span>
+</pre></div>
+</div>
+<p>If the block exits normally, the transaction is committed automatically.  If the
+block raises an exception, the transaction is aborted.</p>
+<p class="rubric">Methods</p>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.Transaction.__init__.html#tensorstore.Transaction.__init__" title="tensorstore.Transaction.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(self, atomic)</p></td>
+<td><p>Creates a new transaction.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.Transaction.abort.html#tensorstore.Transaction.abort" title="tensorstore.Transaction.abort"><code class="xref py py-obj docutils literal notranslate"><span class="pre">abort</span></code></a>(self)</p></td>
+<td><p>Aborts the transaction.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.Transaction.commit_async.html#tensorstore.Transaction.commit_async" title="tensorstore.Transaction.commit_async"><code class="xref py py-obj docutils literal notranslate"><span class="pre">commit_async</span></code></a>(self)</p></td>
+<td><p>Asynchronously commits the transaction.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.Transaction.commit_sync.html#tensorstore.Transaction.commit_sync" title="tensorstore.Transaction.commit_sync"><code class="xref py py-obj docutils literal notranslate"><span class="pre">commit_sync</span></code></a>(self)</p></td>
+<td><p>Synchronously commits the transaction.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Attributes</p>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.Transaction.aborted.html#tensorstore.Transaction.aborted" title="tensorstore.Transaction.aborted"><code class="xref py py-obj docutils literal notranslate"><span class="pre">aborted</span></code></a>: bool</p></td>
+<td><p>Indicates whether the transaction has been aborted.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.Transaction.atomic.html#tensorstore.Transaction.atomic" title="tensorstore.Transaction.atomic"><code class="xref py py-obj docutils literal notranslate"><span class="pre">atomic</span></code></a>: bool</p></td>
+<td><p>Indicates whether the transaction is atomic.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.Transaction.commit_started.html#tensorstore.Transaction.commit_started" title="tensorstore.Transaction.commit_started"><code class="xref py py-obj docutils literal notranslate"><span class="pre">commit_started</span></code></a>: bool</p></td>
+<td><p>Indicates whether the commit of the transaction has already started.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.Transaction.future.html#tensorstore.Transaction.future" title="tensorstore.Transaction.future"><code class="xref py py-obj docutils literal notranslate"><span class="pre">future</span></code></a>: Future[None]</p></td>
+<td><p>Commit result future.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.Transaction.open.html#tensorstore.Transaction.open" title="tensorstore.Transaction.open"><code class="xref py py-obj docutils literal notranslate"><span class="pre">open</span></code></a>: bool</p></td>
+<td><p>Indicates whether the transaction is still open.</p></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="tensorstore.Transaction.__init__.html" class="btn btn-neutral float-right" title="tensorstore.Transaction.__init__" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="tensorstore.TensorStore.writable.html" class="btn btn-neutral float-left" title="tensorstore.TensorStore.writable" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020 The TensorStore Authors
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

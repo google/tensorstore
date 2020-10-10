@@ -1,0 +1,29 @@
+tensorstore.Future
+==================
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: Future
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~Future.__init__
+      ~Future.add_done_callback
+      ~Future.cancel
+      ~Future.cancelled
+      ~Future.done
+      ~Future.exception
+      ~Future.remove_done_callback
+      ~Future.result
+   
+   
+
+   
+   
+   

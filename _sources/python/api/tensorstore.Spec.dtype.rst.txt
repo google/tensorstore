@@ -1,0 +1,6 @@
+tensorstore.Spec.dtype
+======================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: Spec.dtype

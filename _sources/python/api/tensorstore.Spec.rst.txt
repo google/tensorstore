@@ -1,0 +1,35 @@
+tensorstore.Spec
+================
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: Spec
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~Spec.__init__
+      ~Spec.to_json
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: .
+   
+      ~Spec.domain
+      ~Spec.dtype
+      ~Spec.oindex
+      ~Spec.rank
+      ~Spec.transform
+      ~Spec.vindex
+   
+   

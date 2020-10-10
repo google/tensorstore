@@ -1,0 +1,6 @@
+tensorstore.OutputIndexMethod.array
+===================================
+
+.. currentmodule:: tensorstore
+
+.. autoattribute:: OutputIndexMethod.array

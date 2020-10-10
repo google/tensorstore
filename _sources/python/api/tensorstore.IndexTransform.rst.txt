@@ -1,0 +1,43 @@
+tensorstore.IndexTransform
+==========================
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: IndexTransform
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~IndexTransform.__init__
+      ~IndexTransform.to_json
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: .
+   
+      ~IndexTransform.domain
+      ~IndexTransform.implicit_lower_bounds
+      ~IndexTransform.implicit_upper_bounds
+      ~IndexTransform.input_exclusive_max
+      ~IndexTransform.input_inclusive_max
+      ~IndexTransform.input_inclusive_min
+      ~IndexTransform.input_labels
+      ~IndexTransform.input_origin
+      ~IndexTransform.input_rank
+      ~IndexTransform.input_shape
+      ~IndexTransform.oindex
+      ~IndexTransform.output
+      ~IndexTransform.output_rank
+      ~IndexTransform.vindex
+   
+   

@@ -1,0 +1,6 @@
+tensorstore.array
+=================
+
+.. currentmodule:: tensorstore
+
+.. autofunction:: array

@@ -1,0 +1,6 @@
+tensorstore.OutputIndexMap.offset
+=================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: OutputIndexMap.offset

@@ -1,0 +1,6 @@
+tensorstore.Dim.implicit\_upper
+===============================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: Dim.implicit_upper

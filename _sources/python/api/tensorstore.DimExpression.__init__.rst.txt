@@ -1,0 +1,6 @@
+tensorstore.DimExpression.\_\_init\_\_
+======================================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: DimExpression.__init__

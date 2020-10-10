@@ -1,0 +1,449 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Building and Installing &mdash; TensorStore  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"displayAlign": "left"})</script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Environment variables" href="environment.html" />
+    <link rel="prev" title="Overview" href="overview.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> TensorStore
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Building and Installing</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#python-api">Python API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#installation-from-pypi-package">Installation from PyPI package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#installation-from-local-checkout">Installation from local checkout</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#ipython-shell-without-installing">IPython shell without installing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#publishing-a-pypi-package">Publishing a PyPI package</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#c-api">C++ API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#development">Development</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#building-the-documentation">Building the documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#running-tests">Running tests</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#build-dependencies">Build dependencies</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="environment.html">Environment variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="index_space.html">Index space</a></li>
+<li class="toctree-l1"><a class="reference internal" href="context.html">Context framework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="spec.html">TensorStore JSON Spec</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tensorstore/driver/index.html">Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tensorstore/kvstore/index.html">Key-Value Storage Layer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/index.html">Python API</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">TensorStore</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Building and Installing</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/installation.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="building-and-installing">
+<h1>Building and Installing<a class="headerlink" href="#building-and-installing" title="Permalink to this headline">¶</a></h1>
+<p>There are several ways to build and install TensorStore, depending on the
+intended use case.</p>
+<div class="section" id="python-api">
+<h2>Python API<a class="headerlink" href="#python-api" title="Permalink to this headline">¶</a></h2>
+<p>The TensorStore <a class="reference internal" href="python/index.html#python-api"><span class="std std-ref">Python API</span></a> requires Python 3.5 or later (Python 2
+is not supported).</p>
+<div class="section" id="installation-from-pypi-package">
+<h3>Installation from PyPI package<a class="headerlink" href="#installation-from-pypi-package" title="Permalink to this headline">¶</a></h3>
+<p>The Python bindings can be installed directly from the <a class="reference external" href="https://pypi.org/project/tensorstore/">tensorstore PyPI package</a> using <a class="reference external" href="https://pip.pypa.io/en/stable/">pip</a>.  It is recommended to first create a
+<a class="reference external" href="https://packaging.python.org/tutorials/installing-packages/#creating-virtual-environments">virtual environment</a>.</p>
+<p>To install the latest published version, use:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Use -vv option to show progress</span>
+python3 -m pip install tensorstore -vv
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>On Windows, you may have to use instead:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>py -3 -m pip install tensorstore -vv
+</pre></div>
+</div>
+</div>
+<p>This is the simplest and fastest way to install the TensorStore Python bindings
+if you aren’t intending to make changes to the TensorStore source code.</p>
+<p>If a pre-built binary package is available for your specific platform and Python
+version, it will be used and no additional build tools are required.  Otherwise,
+the package will be built from the source distribution and the normal
+<a class="reference internal" href="#build-dependencies"><span class="std std-ref">build dependencies</span></a> are required.</p>
+</div>
+<div class="section" id="installation-from-local-checkout">
+<h3>Installation from local checkout<a class="headerlink" href="#installation-from-local-checkout" title="Permalink to this headline">¶</a></h3>
+<p>If you intend to make changes to the TensorStore source code while
+simultaneously using TensorStore as a dependency, you can create a <a class="reference external" href="https://packaging.python.org/tutorials/installing-packages/#creating-virtual-environments">virtual
+environment</a>
+and then install from a local checkout of the git repository:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/google/tensorstore
+<span class="nb">cd</span> tensorstore
+python3 -m pip install -e .
+</pre></div>
+</div>
+<p>This invokes <a class="reference external" href="https://bazel.build/">Bazel</a> to build the TensorStore C++
+extension module.  You must have the required <a class="reference internal" href="#build-dependencies"><span class="std std-ref">build
+dependencies</span></a>.</p>
+<p>After making changes to the C++ source code, you must re-run:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python3 -m pip install -e .
+</pre></div>
+</div>
+<p>to rebuild the extension module.  Rebuilds are incremental and will be much
+faster than the initial build.</p>
+</div>
+<div class="section" id="ipython-shell-without-installing">
+<h3>IPython shell without installing<a class="headerlink" href="#ipython-shell-without-installing" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python bazelisk.py run -c opt //python/tensorstore:shell
+</pre></div>
+</div>
+</div>
+<div class="section" id="publishing-a-pypi-package">
+<h3>Publishing a PyPI package<a class="headerlink" href="#publishing-a-pypi-package" title="Permalink to this headline">¶</a></h3>
+<p>To build a source package:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python3 setup.py sdist
+</pre></div>
+</div>
+<p>To build a binary package:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python3 setup.py bdist_wheel
+</pre></div>
+</div>
+<p>The packages are written to the <code class="docutils literal notranslate"><span class="pre">dist/</span></code> sub-directory.</p>
+</div>
+</div>
+<div class="section" id="c-api">
+<h2>C++ API<a class="headerlink" href="#c-api" title="Permalink to this headline">¶</a></h2>
+<p>Currently, use of the TensorStore C++ API is only supported from projects built
+using <a class="reference external" href="https://bazel.build/">Bazel</a>.  CMake support will be added in the
+future.</p>
+<p>To add TensorStore as a dependency to an existing Bazel workspace:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;@bazel_tools//tools/build_defs/repo:http.bzl&quot;</span><span class="p">,</span> <span class="s2">&quot;http_archive&quot;</span><span class="p">)</span>
+<span class="n">load</span><span class="p">(</span><span class="s2">&quot;@bazel_tools//tools/build_defs/repo:utils.bzl&quot;</span><span class="p">,</span> <span class="s2">&quot;maybe&quot;</span><span class="p">)</span>
+
+<span class="n">maybe</span><span class="p">(</span>
+    <span class="n">http_archive</span><span class="p">,</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;com_github_google_tensorstore&quot;</span><span class="p">,</span>
+    <span class="n">strip_prefix</span> <span class="o">=</span> <span class="s2">&quot;tensorstore-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX&quot;</span><span class="p">,</span>
+    <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;https://github.com/google/tensorstore/archive/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX&quot;</span><span class="p">,</span>
+    <span class="n">sha256</span> <span class="o">=</span> <span class="s2">&quot;YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Additionally, TensorStore must be built in C++17 mode.  You should add the
+compiler flags specified in the <code class="docutils literal notranslate"><span class="pre">.bazelrc</span></code> file in the TensorStore repository
+to your dependent project’s <code class="docutils literal notranslate"><span class="pre">.bazelrc</span></code>.</p>
+</div>
+<div class="section" id="development">
+<h2>Development<a class="headerlink" href="#development" title="Permalink to this headline">¶</a></h2>
+<p>For development of TensorStore, ensure that you have the required <a class="reference internal" href="#build-dependencies"><span class="std std-ref">build
+dependencies</span></a>.</p>
+<div class="section" id="building-the-documentation">
+<h3>Building the documentation<a class="headerlink" href="#building-the-documentation" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python bazelisk.py run //tools/docs:build_docs -- --out /tmp/tensorstore-docs
+</pre></div>
+</div>
+</div>
+<div class="section" id="running-tests">
+<h3>Running tests<a class="headerlink" href="#running-tests" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python bazelisk.py <span class="nb">test</span> //...
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="build-dependencies">
+<span id="id3"></span><h2>Build dependencies<a class="headerlink" href="#build-dependencies" title="Permalink to this headline">¶</a></h2>
+<p>TensorStore is written in C++ and is compatible with the following C++
+compilers:</p>
+<ul class="simple">
+<li><p>GCC 9 or later (Linux)</p></li>
+<li><p>Clang 8 or later (Linux)</p></li>
+<li><p>Microsoft Visual Studio 2019 version 16.4 (MSVC 19.24) or later</p></li>
+<li><p>Clang-cl 9 or later (Windows)</p></li>
+<li><p>Apple Xcode 11.3.1 or later (earlier versions of XCode 11 have a code
+generation bug related to stack alignment)</p></li>
+</ul>
+<p>TensorStore uses the <a class="reference external" href="https://bazel.build/">Bazel build system</a>.  You don’t
+need to install Bazel manually; the included copy of <a class="reference external" href="https://github.com/bazelbuild/bazelisk">bazelisk</a> automatically downloads a suitable
+version for your operating system.  Bazelisk requires Python to run.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>On macOS, starting with Python 3.6, installing Python using the installer
+from <a class="reference external" href="python.org">python.org</a> does not automatically set up Python with the
+SSL/TLS certificates needed by bazelisk.</p>
+<p>If you have not already done so, you need to run the
+<code class="file docutils literal notranslate"><span class="pre">/Applications/Python</span> <span class="pre">3.</span><em><span class="pre">x</span></em><span class="pre">/Install</span> <span class="pre">Certificates.command</span></code> script in
+your Python installation directory.  Refer to the the documentation at
+<code class="file docutils literal notranslate"><span class="pre">/Applications/Python</span> <span class="pre">3.</span><em><span class="pre">x</span></em><span class="pre">/ReadMe.rtf</span></code> for more information.</p>
+</div>
+<p>TensorStore depends on a number of third-party libraries.  By default, these
+dependencies are fetched and built automatically as part of the TensorStore
+build, which requires no additional effort.</p>
+<p>On Linux and macOS, however, it is possible to override this behavior for a
+subset of these libraries and instead link to a system-provided version.  This
+reduces the binary size, and if your system packages are kept up to date,
+ensures TensorStore uses up-to-date versions of these dependencies.</p>
+<dl class="envvar">
+<dt id="envvar-TENSORSTORE_SYSTEM_LIBS">
+<code class="sig-name descname">TENSORSTORE_SYSTEM_LIBS</code><a class="headerlink" href="#envvar-TENSORSTORE_SYSTEM_LIBS" title="Permalink to this definition">¶</a></dt>
+<dd><p>To use system-provided libraries, set the <span class="target" id="index-0"></span><a class="reference internal" href="#envvar-TENSORSTORE_SYSTEM_LIBS"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">TENSORSTORE_SYSTEM_LIBS</span></code></a>
+environment variable to a comma-separated list of the following identifiers
+prior to invoking Bazel:</p>
+</dd></dl>
+
+<table class="docutils align-default" id="id4">
+<caption><span class="caption-text">Required third-party libraries</span><a class="headerlink" href="#id4" title="Permalink to this table">¶</a></caption>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Identifier</p></th>
+<th class="head"><p>Bundled library</p></th>
+<th class="head"><p>Version</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">com_google_boringssl</span></code></p></td>
+<td><p><a class="reference external" href="https://github.com/google/boringssl/">boringssl</a></p></td>
+<td><p>34693f02f6cf</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">org_sourceware_bzip2</span></code></p></td>
+<td><p><a class="reference external" href="https://sourceware.org/pub/bzip2/">bzip2</a></p></td>
+<td><p>1.0.8</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">org_blosc_cblosc</span></code></p></td>
+<td><p><a class="reference external" href="https://github.com/Blosc/c-blosc/">c-blosc</a></p></td>
+<td><p>1.16.3</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">se_haxx_curl</span></code></p></td>
+<td><p><a class="reference external" href="https://curl.haxx.se">curl</a></p></td>
+<td><p>7.70.0</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">jpeg</span></code></p></td>
+<td><p><a class="reference external" href="https://github.com/libjpeg-turbo/libjpeg-turbo/">libjpeg-turbo</a></p></td>
+<td><p>2.0.0</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">org_lz4</span></code></p></td>
+<td><p><a class="reference external" href="https://github.com/lz4/lz4/">lz4</a></p></td>
+<td><p>1.9.2</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">nasm</span></code></p></td>
+<td><p><a class="reference external" href="https://www.nasm.us">nasm</a></p></td>
+<td><p>2.13.03</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">org_nghttp2</span></code></p></td>
+<td><p><a class="reference external" href="https://github.com/nghttp2/nghttp2/">nghttp2</a></p></td>
+<td><p>1.41.0</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">com_google_snappy</span></code></p></td>
+<td><p><a class="reference external" href="https://github.com/google/snappy/">snappy</a></p></td>
+<td><p>1.1.7</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">org_tukaani_xz</span></code></p></td>
+<td><p><a class="reference external" href="https://tukaani.org/xz/">xz</a></p></td>
+<td><p>5.2.4</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">net_zlib</span></code></p></td>
+<td><p><a class="reference external" href="https://zlib.net">zlib</a></p></td>
+<td><p>1.2.11</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">com_facebook_zstd</span></code></p></td>
+<td><p><a class="reference external" href="https://github.com/facebook/zstd/">zstd</a></p></td>
+<td><p>1.4.3</p></td>
+</tr>
+</tbody>
+</table>
+<p>For example, to run the tests using the system-provided curl, jpeg, and SSL
+libraries:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">TENSORSTORE_SYSTEM_LIBS</span><span class="o">=</span>se_haxx_curl,jpeg,com_google_boringssl
+python bazelisk.py <span class="nb">test</span> //...
+</pre></div>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="environment.html" class="btn btn-neutral float-right" title="Environment variables" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="overview.html" class="btn btn-neutral float-left" title="Overview" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020 The TensorStore Authors
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

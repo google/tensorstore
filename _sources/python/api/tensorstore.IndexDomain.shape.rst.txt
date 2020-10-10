@@ -1,0 +1,6 @@
+tensorstore.IndexDomain.shape
+=============================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: IndexDomain.shape

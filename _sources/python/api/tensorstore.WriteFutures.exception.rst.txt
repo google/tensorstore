@@ -1,0 +1,6 @@
+tensorstore.WriteFutures.exception
+==================================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: WriteFutures.exception

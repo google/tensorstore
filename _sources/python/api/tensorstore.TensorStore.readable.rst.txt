@@ -1,0 +1,6 @@
+tensorstore.TensorStore.readable
+================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: TensorStore.readable

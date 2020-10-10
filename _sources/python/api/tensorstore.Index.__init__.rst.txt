@@ -1,0 +1,6 @@
+tensorstore.Index.\_\_init\_\_
+==============================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: Index.__init__

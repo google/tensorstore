@@ -1,0 +1,6 @@
+tensorstore.IndexTransform.domain
+=================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: IndexTransform.domain

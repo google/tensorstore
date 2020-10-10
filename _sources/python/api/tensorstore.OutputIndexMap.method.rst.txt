@@ -1,0 +1,6 @@
+tensorstore.OutputIndexMap.method
+=================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: OutputIndexMap.method

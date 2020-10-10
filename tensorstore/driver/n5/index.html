@@ -1,0 +1,613 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>n5 Driver &mdash; TensorStore  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/language_data.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"displayAlign": "left"})</script>
+    
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="neuroglancer_precomputed Driver" href="../neuroglancer_precomputed/index.html" />
+    <link rel="prev" title="zarr Driver" href="../zarr/index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> TensorStore
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Building and Installing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../environment.html">Environment variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../index_space.html">Index space</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../context.html">Context framework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../spec.html">TensorStore JSON Spec</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Drivers</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../cast/index.html"><code class="docutils literal notranslate"><span class="pre">cast</span></code> Driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../array/index.html"><code class="docutils literal notranslate"><span class="pre">array</span></code> Driver</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html#chunked-storage-drivers">Chunked storage drivers</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../zarr/index.html"><code class="docutils literal notranslate"><span class="pre">zarr</span></code> Driver</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">n5</span></code> Driver</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#json-schema">JSON Schema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#compression">Compression</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#limitations">Limitations</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../neuroglancer_precomputed/index.html"><code class="docutils literal notranslate"><span class="pre">neuroglancer_precomputed</span></code> Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#chunked-storage-driver-json-schema">Chunked storage driver JSON Schema</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#cache-revalidation-bound-json-schema">Cache revalidation bound JSON Schema</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../kvstore/index.html">Key-Value Storage Layer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/index.html">Python API</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">TensorStore</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Drivers</a> &raquo;</li>
+        
+      <li><code class="docutils literal notranslate"><span class="pre">n5</span></code> Driver</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../../_sources/tensorstore/driver/n5/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="n5-driver">
+<span id="id1"></span><h1><code class="docutils literal notranslate"><span class="pre">n5</span></code> Driver<a class="headerlink" href="#n5-driver" title="Permalink to this headline">¶</a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">n5</span></code> driver provides access to <a class="reference external" href="https://github.com/saalfeldlab/n5">N5</a> arrays backed by any supported <a class="reference internal" href="../../kvstore/index.html#key-value-store"><span class="std std-ref">Key-Value Storage Layer</span></a>.  It supports reading, writing, creating new datasets, and resizing datasets.</p>
+<div class="section" id="json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/driver/n5"></span><h2>JSON Schema<a class="headerlink" href="#json-schema" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">driver</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“n5”</span></span></code></div>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">context</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context"><span class="std std-ref">Context</span></a></span></div>
+<p>Specifies context resources that augment/override the parent context.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">dtype</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../../../spec.html#json-schema-https://github.com/google/tensorstore/json-schema/dtype"><span class="std std-ref">Data type</span></a></span></div>
+<p>Specifies the data type.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">rank</span></code></td>
+<td><div class="docutils container">
+integer [0, ∞)</div>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">transform</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../../../index_space.html#json-schema-https://github.com/google/tensorstore/json-schema/index-transform"><span class="std std-ref">Index transform</span></a></span></div>
+<p>Specifies a transform.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">kvstore</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../../kvstore/index.html#json-schema-https://github.com/google/tensorstore/json-schema/key-value-store"><span class="std std-ref">Key-Value Store</span></a></span></div>
+<p>Specifies the underlying storage mechanism.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">path</span></code></td>
+<td><div class="docutils container">
+string (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“”</span></span></code>)</div>
+<p>Path within the <a class="reference internal" href="../../kvstore/index.html#json-schema-https://github.com/google/tensorstore/json-schema/key-value-store"><span class="std std-ref">Key-Value Store</span></a> specified by <code class="docutils literal notranslate"><span class="pre">kvstore</span></code>.</p>
+<div class="literal-block-wrapper docutils container" id="id2">
+<div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id2" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;path/to/data&quot;</span>
+</pre></div>
+</div>
+</div>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">open</span></code></td>
+<td><div class="docutils container">
+<code class="docutils literal notranslate"><span class="pre">boolean</span></code></div>
+<p>Open an existing TensorStore.  If neither <code class="docutils literal notranslate"><span class="pre">open</span></code> nor <code class="docutils literal notranslate"><span class="pre">create</span></code> is specified, defaults to <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code>.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">create</span></code></td>
+<td><div class="docutils container">
+<code class="docutils literal notranslate"><span class="pre">boolean</span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">false</span></span></code>)</div>
+<p>Create a new TensorStore.  Specify <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code> for both <code class="docutils literal notranslate"><span class="pre">open</span></code> and <code class="docutils literal notranslate"><span class="pre">create</span></code> to permit either opening an existing TensorStore or creating a new TensorStore if it does not already exist.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">delete_existing</span></code></td>
+<td><div class="docutils container">
+<code class="docutils literal notranslate"><span class="pre">boolean</span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">false</span></span></code>)</div>
+<p>Delete any existing data at the specified path before creating a new TensorStore.  Requires that <code class="docutils literal notranslate"><span class="pre">create</span></code> is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code>, and that <code class="docutils literal notranslate"><span class="pre">open</span></code> is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">false</span></span></code>.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">allow_metadata_mismatch</span></code></td>
+<td><div class="docutils container">
+<code class="docutils literal notranslate"><span class="pre">boolean</span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">false</span></span></code>)</div>
+<p>Allow a mismatch between the existing metadata and the metadata specified for creating a new TensorStore.  Requires that <code class="docutils literal notranslate"><span class="pre">create</span></code> is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code>.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">cache_pool</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context-resource"><span class="std std-ref">Context resource</span></a></span> (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“cache_pool”</span></span></code>)</div>
+<p>Specifies or references a previously defined <a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context/cache_pool"><span class="std std-ref">cache_pool context resource</span></a>. It is normally more convenient to specify a default <code class="docutils literal notranslate"><span class="pre">cache_pool</span></code> in the <code class="docutils literal notranslate"><span class="pre">context</span></code>.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context-resource"><span class="std std-ref">Context resource</span></a></span> (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“data_copy_concurrency”</span></span></code>)</div>
+<p>Specifies or references a previously defined <a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context/data_copy_concurrency"><span class="std std-ref">data_copy_concurrency context resource</span></a>. It is normally more convenient to specify a default <code class="docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code> in the <code class="docutils literal notranslate"><span class="pre">context</span></code>.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">recheck_cached_metadata</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../index.html#json-schema-https://github.com/google/tensorstore/json-schema/cache-revalidation-bound"><span class="std std-ref">Cache revalidation bound</span></a></span> (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“open”</span></span></code>)</div>
+<p>Time after which cached metadata is assumed to be fresh.  Cached
+metadata older than the specified time is revalidated prior to use.  The
+metadata is used to check the bounds of every read or write operation.</p>
+<p>Specifying <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code> means that the metadata will be revalidated
+prior to every read or write operation.  With the default value of
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“open”</span></span></code>, any cached metadata is revalidated when the TensorStore
+is opened but is not rechecked for each read or write operation.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">recheck_cached_data</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../index.html#json-schema-https://github.com/google/tensorstore/json-schema/cache-revalidation-bound"><span class="std std-ref">Cache revalidation bound</span></a></span> (default is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code>)</div>
+<p>Time after which cached data is assumed to be fresh.  Cached data older
+than the specified time is revalidated prior to being returned from a
+read operation.  Partial chunk writes are always consistent regardless
+of the value of this option.</p>
+<p>The default value of <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code> means that cached data is revalidated
+on every read.  To enable in-memory data caching, you must both specify
+a <a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context/cache_pool"><span class="std std-ref">cache_pool context resource</span></a>
+with a non-zero <code class="docutils literal notranslate"><span class="pre">total_bytes_limit</span></code> and also specify
+<code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">false</span></span></code>, <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“open”</span></span></code>, or an explicit time bound for
+<code class="docutils literal notranslate"><span class="pre">recheck_cached_data</span></code>.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">metadata</span></code></td>
+<td><span>N5 array metadata.  </span><p>Specifies the metdata of a dataset exactly as in the <a class="reference external" href="https://github.com/saalfeldlab/n5#file-system-specification-version-203-snapshot">attributes.json
+file</a>.
+Required when creating a new dataset.  When opening an existing dataset,
+specifies constraints on the existing metadata.</p>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">dimensions</span></code></td>
+<td><div class="docutils container">
+array of integer [0, ∞)</div>
+<span>Dimensions of the dataset.  </span><p>Required when creating a new array.</p>
+<div class="literal-block-wrapper docutils container" id="id3">
+<div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id3" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">blockSize</span></code></td>
+<td><div class="docutils container">
+array of integer [1, ∞)</div>
+<span>Chunk dimensions.  </span><p>Required when creating a new dataset.  Must have the same length as
+<code class="docutils literal notranslate"><span class="pre">dimensions</span></code>.</p>
+<div class="literal-block-wrapper docutils container" id="id4">
+<div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id4" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">dataType</span></code></td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“uint8”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“uint16”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“uint32”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“uint64”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“int8”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“int16”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“int32”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“int64”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“float32”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“float64”</span></span></code></div>
+<span>Specifies the data type.  </span><p>Required when creating a new dataset.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">compression</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="#json-schema-https://github.com/google/tensorstore/json-schema/driver/n5#compression"><span class="std std-ref">Compression</span></a></span></div>
+<span>Specifies the chunk compression method.  </span></td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="compression">
+<h2>Compression<a class="headerlink" href="#compression" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="compression-json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/driver/n5#compression"></span><h3>Compression JSON Schema<a class="headerlink" href="#compression-json-schema" title="Permalink to this headline">¶</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">type</span></code> member identifies the compression method.  The
+remaining members are specific to the compression method.</p>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">type</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+string</div>
+<p>Identifies the compressor.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The following compression methods are supported:</p>
+<div class="section" id="raw-compression-json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/driver/n5#compression-raw"></span><h3><code class="docutils literal notranslate"><span class="pre">raw</span></code> compression JSON Schema<a class="headerlink" href="#raw-compression-json-schema" title="Permalink to this headline">¶</a></h3>
+<p>Chunks are encoded directly as big endian values without compression.</p>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">type</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“raw”</span></span></code></div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="gzip-compression-json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/driver/n5#compression-gzip"></span><h3><code class="docutils literal notranslate"><span class="pre">gzip</span></code> compression JSON Schema<a class="headerlink" href="#gzip-compression-json-schema" title="Permalink to this headline">¶</a></h3>
+<p>Specifies zlib compression with a gzip or zlib header.</p>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">type</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“gzip”</span></span></code></div>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">level</span></code></td>
+<td><div class="docutils container">
+integer [-1, 9] (default is <code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">-1</span></span></code>)</div>
+<span>Specifies the zlib compression level to use.  </span><p>Level 0 indicates no compression (fastest), while level 9 indicaets
+the best compression ratio (slowest).  The default value of <code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">-1</span></span></code>
+indicates to use the zlib default compression level (equal to 6).</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">useZlib</span></code></td>
+<td><div class="docutils container">
+<code class="docutils literal notranslate"><span class="pre">boolean</span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">false</span></span></code>)</div>
+<p>If <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code>, use a zlib header.  Otherwise, use a gzip header.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="bzip2-compression-json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/driver/n5#compression-bzip2"></span><h3><code class="docutils literal notranslate"><span class="pre">bzip2</span></code> compression JSON Schema<a class="headerlink" href="#bzip2-compression-json-schema" title="Permalink to this headline">¶</a></h3>
+<p>Specifies <a class="reference external" href="https://sourceware.org/bzip2/">bzip2</a> compression.</p>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">type</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“bzip2”</span></span></code></div>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">blockSize</span></code></td>
+<td><div class="docutils container">
+integer [1, 9] (default is <code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">9</span></span></code>)</div>
+<span>Specifies the bzip2 block size to use (in units of 100KB), which also determine the compression level.  </span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="xz-compression-json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/driver/n5#compression-xz"></span><h3><code class="docutils literal notranslate"><span class="pre">xz</span></code> compression JSON Schema<a class="headerlink" href="#xz-compression-json-schema" title="Permalink to this headline">¶</a></h3>
+<p>Specifies <a class="reference external" href="https://tukaani.org/xz/">xz</a> compression.</p>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">type</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“xz”</span></span></code></div>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">preset</span></code></td>
+<td><div class="docutils container">
+integer [0, 9] (default is <code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">6</span></span></code>)</div>
+<p>Specifies the XZ preset level.  Preset 0 corresponds to the fastest
+compression with the worst compression ratio, while preset 9
+corresponds to the slowest compression with the best compression
+ratio.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="blosc-compression-json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/driver/n5#compression-blosc"></span><h3><code class="docutils literal notranslate"><span class="pre">blosc</span></code> compression JSON Schema<a class="headerlink" href="#blosc-compression-json-schema" title="Permalink to this headline">¶</a></h3>
+<p>Specifies <a class="reference external" href="https://github.com/Blosc/c-blosc">Blosc</a> compression.</p>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">type</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“blosc”</span></span></code></div>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">cname</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“blosclz”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“lz4”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“lz4hc”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“snappy”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“zlib”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“zstd”</span></span></code></div>
+<p>Specifies the compression method used by Blosc.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">clevel</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+integer [0, 9]</div>
+<span>Specifies the Blosc compression level to use.  </span><p>Higher values are slower but achieve a higher compression ratio.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">shuffle</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">0</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">1</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">2</span></span></code></div>
+<div class="docutils container">
+One of:</div>
+<ul>
+<li><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">0</span></span></code></div>
+<span>No shuffle  </span></li>
+<li><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">1</span></span></code></div>
+<span>Byte-wise shuffle  </span></li>
+<li><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">2</span></span></code></div>
+<span>Bit-wise shuffle  </span></li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="literal-block-wrapper docutils container" id="id5">
+<div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id5" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;blosc&quot;</span><span class="p">,</span> <span class="nt">&quot;cname&quot;</span><span class="p">:</span> <span class="s2">&quot;blosclz&quot;</span><span class="p">,</span> <span class="nt">&quot;clevel&quot;</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span> <span class="nt">&quot;shuffle&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="limitations">
+<h2>Limitations<a class="headerlink" href="#limitations" title="Permalink to this headline">¶</a></h2>
+<p>Datasets with varlength chunks are not supported.</p>
+<p>The N5 specification does not define a fill value, but TensorStore
+assumes a fill value of 0.</p>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../neuroglancer_precomputed/index.html" class="btn btn-neutral float-right" title="neuroglancer_precomputed Driver" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="../zarr/index.html" class="btn btn-neutral float-left" title="zarr Driver" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020 The TensorStore Authors
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

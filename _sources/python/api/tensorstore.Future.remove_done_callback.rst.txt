@@ -1,0 +1,6 @@
+tensorstore.Future.remove\_done\_callback
+=========================================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: Future.remove_done_callback

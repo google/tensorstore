@@ -1,0 +1,6 @@
+tensorstore.TensorStore.mode
+============================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: TensorStore.mode

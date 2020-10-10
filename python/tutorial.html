@@ -1,0 +1,452 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Tutorial &mdash; TensorStore  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/language_data.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"displayAlign": "left"})</script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Indexing" href="indexing.html" />
+    <link rel="prev" title="Python API" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> TensorStore
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Building and Installing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../environment.html">Environment variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../index_space.html">Index space</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../context.html">Context framework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../spec.html">TensorStore JSON Spec</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tensorstore/driver/index.html">Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tensorstore/kvstore/index.html">Key-Value Storage Layer</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Python API</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Tutorial</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#reading-and-writing-a-local-n5-dataset">Reading and writing a local N5 dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#reading-the-janelia-flyem-hemibrain-dataset">Reading the Janelia FlyEM Hemibrain dataset</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="indexing.html">Indexing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html">API reference</a></li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">TensorStore</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="index.html">Python API</a> &raquo;</li>
+        
+      <li>Tutorial</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/python/tutorial.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="tutorial">
+<h1>Tutorial<a class="headerlink" href="#tutorial" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="reading-and-writing-a-local-n5-dataset">
+<h2>Reading and writing a local N5 dataset<a class="headerlink" href="#reading-and-writing-a-local-n5-dataset" title="Permalink to this headline">¶</a></h2>
+<p>Create a new <a class="reference internal" href="../tensorstore/driver/n5/index.html#n5-driver"><span class="std std-ref">N5</span></a> dataset on the local filesystem using the
+<a class="reference internal" href="../tensorstore/kvstore/file/index.html#file-kvstore-driver"><span class="std std-ref">file Key-Value Store driver</span></a>:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">tensorstore</span> <span class="k">as</span> <span class="nn">ts</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
+<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;n5&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;file&#39;</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="s1">&#39;/tmp/dataset&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="p">},</span>
+<span class="gp">... </span>    <span class="s1">&#39;metadata&#39;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">&#39;compression&#39;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;gzip&#39;</span>
+<span class="gp">... </span>        <span class="p">},</span>
+<span class="gp">... </span>        <span class="s1">&#39;dataType&#39;</span><span class="p">:</span> <span class="s1">&#39;uint32&#39;</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">&#39;dimensions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">20000</span><span class="p">],</span>
+<span class="gp">... </span>        <span class="s1">&#39;blockSize&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="p">},</span>
+<span class="gp">... </span>    <span class="s1">&#39;create&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">&#39;delete_existing&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<span class="gp">... </span><span class="p">})</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Asynchronously write to to a sub-region:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">write_future</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[</span><span class="mi">80</span><span class="p">:</span><span class="mi">82</span><span class="p">,</span> <span class="mi">99</span><span class="p">:</span><span class="mi">102</span><span class="p">]</span><span class="o">.</span><span class="n">write</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">]])</span>
+</pre></div>
+</div>
+<p>Wait for the write to complete using <a class="reference internal" href="api/tensorstore.Future.result.html#tensorstore.Future.result" title="tensorstore.Future.result"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tensorstore.Future.result</span></code></a>:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">write_future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>In an <a class="reference external" href="https://docs.python.org/3/reference/compound_stmts.html#async" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">async</span></code></a> function (or with top-level <a class="reference external" href="https://docs.python.org/3/reference/expressions.html#await" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">await</span></code></a> support),
+<a class="reference external" href="https://docs.python.org/3/reference/expressions.html#await" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">await</span></code></a> can also be used for interoperability with <a class="reference external" href="https://docs.python.org/3/library/asyncio.html#module-asyncio" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">asyncio</span></code></a>:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">write_future</span>
+</pre></div>
+</div>
+<p>Subscript assignment can also be used to write synchronously:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span><span class="p">[</span><span class="mi">80</span><span class="p">:</span><span class="mi">82</span><span class="p">,</span> <span class="mi">99</span><span class="p">:</span><span class="mi">102</span><span class="p">]</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">]]</span>
+</pre></div>
+</div>
+<p>Read back a larger region that contains the region that was written (positions
+not written have the fill value of <code class="docutils literal notranslate"><span class="pre">0</span></code>):</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span><span class="p">[</span><span class="mi">80</span><span class="p">:</span><span class="mi">83</span><span class="p">,</span> <span class="mi">99</span><span class="p">:</span><span class="mi">102</span><span class="p">]</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+<span class="go">array([[1, 2, 3],</span>
+<span class="go">       [4, 5, 6],</span>
+<span class="go">       [0, 0, 0]], dtype=uint32)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="reading-the-janelia-flyem-hemibrain-dataset">
+<h2>Reading the Janelia FlyEM Hemibrain dataset<a class="headerlink" href="#reading-the-janelia-flyem-hemibrain-dataset" title="Permalink to this headline">¶</a></h2>
+<p>This example demonstrates accessing the <a class="reference external" href="https://www.janelia.org/project-team/flyem/hemibrain">Janelia FlyeEM Hemibrain 1.1
+segmentation</a> using the
+<a class="reference internal" href="../tensorstore/driver/neuroglancer_precomputed/index.html#neuroglancer-precomputed-driver"><span class="std std-ref">neuroglancer_precomputed Driver</span></a>.</p>
+<p>While this dataset is public, the <a class="reference internal" href="../tensorstore/kvstore/gcs/index.html#gcs-kvstore-driver"><span class="std std-ref">gcs Key-Value Store driver</span></a> currently requires
+that you supply <a class="reference internal" href="../tensorstore/kvstore/gcs/index.html#gcs-authentication"><span class="std std-ref">Google Cloud credentials</span></a>.</p>
+<p>Open the dataset asynchronously to obtain a <a class="reference internal" href="api/tensorstore.Future.html#tensorstore.Future" title="tensorstore.Future"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tensorstore.Future</span></code></a>:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">tensorstore</span> <span class="k">as</span> <span class="nn">ts</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dataset_future</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
+<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;neuroglancer_precomputed&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;gcs&#39;</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">&#39;bucket&#39;</span><span class="p">:</span> <span class="s1">&#39;neuroglancer-janelia-flyem-hemibrain&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="p">},</span>
+<span class="gp">... </span>    <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="s1">&#39;v1.1/segmentation&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="c1"># Use 100MB in-memory cache.</span>
+<span class="gp">... </span>    <span class="s1">&#39;context&#39;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">&#39;cache_pool&#39;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>            <span class="s1">&#39;total_bytes_limit&#39;</span><span class="p">:</span> <span class="mi">100_000_000</span>
+<span class="gp">... </span>        <span class="p">}</span>
+<span class="gp">... </span>    <span class="p">},</span>
+<span class="gp">... </span>    <span class="s1">&#39;recheck_cached_data&#39;</span><span class="p">:</span> <span class="s1">&#39;open&#39;</span><span class="p">,</span>
+<span class="gp">... </span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dataset_future</span>
+<span class="go">&lt;tensorstore.Future object at 0x...&gt;</span>
+</pre></div>
+</div>
+<p>Wait for the open to complete:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset_future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;context&#39;: {&#39;cache_pool&#39;: {&#39;total_bytes_limit&#39;: 100000000}},</span>
+<span class="go">  &#39;driver&#39;: &#39;neuroglancer_precomputed&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;uint64&#39;,</span>
+<span class="go">  &#39;kvstore&#39;: {</span>
+<span class="go">    &#39;bucket&#39;: &#39;neuroglancer-janelia-flyem-hemibrain&#39;,</span>
+<span class="go">    &#39;driver&#39;: &#39;gcs&#39;,</span>
+<span class="go">  },</span>
+<span class="go">  &#39;multiscale_metadata&#39;: {&#39;num_channels&#39;: 1, &#39;type&#39;: &#39;segmentation&#39;},</span>
+<span class="go">  &#39;path&#39;: &#39;v1.1/segmentation&#39;,</span>
+<span class="go">  &#39;recheck_cached_data&#39;: &#39;open&#39;,</span>
+<span class="go">  &#39;scale_index&#39;: 0,</span>
+<span class="go">  &#39;scale_metadata&#39;: {</span>
+<span class="go">    &#39;chunk_size&#39;: [64, 64, 64],</span>
+<span class="go">    &#39;compressed_segmentation_block_size&#39;: [8, 8, 8],</span>
+<span class="go">    &#39;encoding&#39;: &#39;compressed_segmentation&#39;,</span>
+<span class="go">    &#39;key&#39;: &#39;8.0x8.0x8.0&#39;,</span>
+<span class="go">    &#39;resolution&#39;: [8.0, 8.0, 8.0],</span>
+<span class="go">    &#39;sharding&#39;: {</span>
+<span class="go">      &#39;@type&#39;: &#39;neuroglancer_uint64_sharded_v1&#39;,</span>
+<span class="go">      &#39;data_encoding&#39;: &#39;gzip&#39;,</span>
+<span class="go">      &#39;hash&#39;: &#39;identity&#39;,</span>
+<span class="go">      &#39;minishard_bits&#39;: 6,</span>
+<span class="go">      &#39;minishard_index_encoding&#39;: &#39;gzip&#39;,</span>
+<span class="go">      &#39;preshift_bits&#39;: 9,</span>
+<span class="go">      &#39;shard_bits&#39;: 15,</span>
+<span class="go">    },</span>
+<span class="go">    &#39;size&#39;: [34432, 39552, 41408],</span>
+<span class="go">    &#39;voxel_offset&#39;: [0, 0, 0],</span>
+<span class="go">  },</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [34432, 39552, 41408, 1],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [0, 0, 0, 0],</span>
+<span class="go">    &#39;input_labels&#39;: [&#39;x&#39;, &#39;y&#39;, &#39;z&#39;, &#39;channel&#39;],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>In an <a class="reference external" href="https://docs.python.org/3/reference/compound_stmts.html#async" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">async</span></code></a> function, a <a class="reference internal" href="api/tensorstore.Future.html#tensorstore.Future" title="tensorstore.Future"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Future</span></code></a> is also compatible with
+<a class="reference external" href="https://docs.python.org/3/reference/expressions.html#await" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">await</span></code></a>.</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span> <span class="o">=</span> <span class="k">await</span> <span class="n">dataset_future</span>
+</pre></div>
+</div>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span><span class="o">.</span><span class="n">domain</span>
+<span class="go">{ &quot;x&quot;: [0, 34432), &quot;y&quot;: [0, 39552), &quot;z&quot;: [0, 41408), &quot;channel&quot;: [0, 1) }</span>
+</pre></div>
+</div>
+<p>There is only a single channel, so create a 3-d view without the
+<code class="code highlight python docutils literal notranslate"><span class="s1"><span class="pre">‘channel’</span></span></code> dimension:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dataset_3d</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;channel&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dataset_3d</span><span class="o">.</span><span class="n">domain</span>
+<span class="go">{ &quot;x&quot;: [0, 34432), &quot;y&quot;: [0, 39552), &quot;z&quot;: [0, 41408) }</span>
+</pre></div>
+</div>
+<p>Create a view of a 100x100x1 slice from the middle, without performing any I/O:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">dataset_3d</span><span class="p">[</span><span class="mi">15000</span><span class="p">:</span><span class="mi">15100</span><span class="p">,</span> <span class="mi">15000</span><span class="p">:</span><span class="mi">15100</span><span class="p">,</span> <span class="mi">20000</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;context&#39;: {&#39;cache_pool&#39;: {&#39;total_bytes_limit&#39;: 100000000}},</span>
+<span class="go">  &#39;driver&#39;: &#39;neuroglancer_precomputed&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;uint64&#39;,</span>
+<span class="go">  &#39;kvstore&#39;: {</span>
+<span class="go">    &#39;bucket&#39;: &#39;neuroglancer-janelia-flyem-hemibrain&#39;,</span>
+<span class="go">    &#39;driver&#39;: &#39;gcs&#39;,</span>
+<span class="go">  },</span>
+<span class="go">  &#39;multiscale_metadata&#39;: {&#39;num_channels&#39;: 1, &#39;type&#39;: &#39;segmentation&#39;},</span>
+<span class="go">  &#39;path&#39;: &#39;v1.1/segmentation&#39;,</span>
+<span class="go">  &#39;recheck_cached_data&#39;: &#39;open&#39;,</span>
+<span class="go">  &#39;scale_index&#39;: 0,</span>
+<span class="go">  &#39;scale_metadata&#39;: {</span>
+<span class="go">    &#39;chunk_size&#39;: [64, 64, 64],</span>
+<span class="go">    &#39;compressed_segmentation_block_size&#39;: [8, 8, 8],</span>
+<span class="go">    &#39;encoding&#39;: &#39;compressed_segmentation&#39;,</span>
+<span class="go">    &#39;key&#39;: &#39;8.0x8.0x8.0&#39;,</span>
+<span class="go">    &#39;resolution&#39;: [8.0, 8.0, 8.0],</span>
+<span class="go">    &#39;sharding&#39;: {</span>
+<span class="go">      &#39;@type&#39;: &#39;neuroglancer_uint64_sharded_v1&#39;,</span>
+<span class="go">      &#39;data_encoding&#39;: &#39;gzip&#39;,</span>
+<span class="go">      &#39;hash&#39;: &#39;identity&#39;,</span>
+<span class="go">      &#39;minishard_bits&#39;: 6,</span>
+<span class="go">      &#39;minishard_index_encoding&#39;: &#39;gzip&#39;,</span>
+<span class="go">      &#39;preshift_bits&#39;: 9,</span>
+<span class="go">      &#39;shard_bits&#39;: 15,</span>
+<span class="go">    },</span>
+<span class="go">    &#39;size&#39;: [34432, 39552, 41408],</span>
+<span class="go">    &#39;voxel_offset&#39;: [0, 0, 0],</span>
+<span class="go">  },</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [15100, 15100],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [15000, 15000],</span>
+<span class="go">    &#39;input_labels&#39;: [&#39;x&#39;, &#39;y&#39;],</span>
+<span class="go">    &#39;output&#39;: [</span>
+<span class="go">      {&#39;input_dimension&#39;: 0},</span>
+<span class="go">      {&#39;input_dimension&#39;: 1},</span>
+<span class="go">      {&#39;offset&#39;: 20000},</span>
+<span class="go">      {},</span>
+<span class="go">    ],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="o">.</span><span class="n">domain</span>
+<span class="go">{ &quot;x&quot;: [15000, 15100), &quot;y&quot;: [15000, 15100) }</span>
+</pre></div>
+</div>
+<p>Read the slice asynchronously using the <a class="reference internal" href="api/tensorstore.TensorStore.read.html#tensorstore.TensorStore.read" title="tensorstore.TensorStore.read"><code class="xref any py py-meth docutils literal notranslate"><span class="pre">tensorstore.TensorStore.read</span></code></a> method to
+obtain a <a class="reference internal" href="api/tensorstore.Future.html#tensorstore.Future" title="tensorstore.Future"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Future</span></code></a>:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">read_future</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Wait for the read to complete:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">read_future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+<span class="go">array([[1194100437, 1194100437, 1194100437, ..., 1408314276, 1408314276,</span>
+<span class="go">        1408314276],</span>
+<span class="go">       [1194100437, 1194100437, 1194100437, ..., 1408314276, 1408314276,</span>
+<span class="go">        1408314276],</span>
+<span class="go">       [1194100437, 1194100437, 1194100437, ..., 1161117856, 1161117856,</span>
+<span class="go">        1161117856],</span>
+<span class="go">       ...,</span>
+<span class="go">       [1132030694, 1132030694, 1132030694, ..., 5813054053, 5813054053,</span>
+<span class="go">        5813054053],</span>
+<span class="go">       [1132030694, 1132030694, 1132030694, ..., 5813054053, 5813054053,</span>
+<span class="go">        5813054053],</span>
+<span class="go">       [1132030694, 1132030694, 1132030694, ..., 5813054053, 5813054053,</span>
+<span class="go">        5813054053]], dtype=uint64)</span>
+</pre></div>
+</div>
+<p>Conversion to an <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.19)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a> also implicitly performs a synchronous
+read (which hits the in-memory cache since the same region was just retrieved):</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">dataset_3d</span><span class="p">[</span><span class="mi">15000</span><span class="p">:</span><span class="mi">15100</span><span class="p">,</span> <span class="mi">15000</span><span class="p">:</span><span class="mi">15100</span><span class="p">,</span> <span class="mi">20000</span><span class="p">])</span>
+<span class="go">array([[1194100437, 1194100437, 1194100437, ..., 1408314276, 1408314276,</span>
+<span class="go">        1408314276],</span>
+<span class="go">       [1194100437, 1194100437, 1194100437, ..., 1408314276, 1408314276,</span>
+<span class="go">        1408314276],</span>
+<span class="go">       [1194100437, 1194100437, 1194100437, ..., 1161117856, 1161117856,</span>
+<span class="go">        1161117856],</span>
+<span class="go">       ...,</span>
+<span class="go">       [1132030694, 1132030694, 1132030694, ..., 5813054053, 5813054053,</span>
+<span class="go">        5813054053],</span>
+<span class="go">       [1132030694, 1132030694, 1132030694, ..., 5813054053, 5813054053,</span>
+<span class="go">        5813054053],</span>
+<span class="go">       [1132030694, 1132030694, 1132030694, ..., 5813054053, 5813054053,</span>
+<span class="go">        5813054053]], dtype=uint64)</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="indexing.html" class="btn btn-neutral float-right" title="Indexing" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="index.html" class="btn btn-neutral float-left" title="Python API" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020 The TensorStore Authors
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

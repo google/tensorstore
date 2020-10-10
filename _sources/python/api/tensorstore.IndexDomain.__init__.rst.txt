@@ -1,0 +1,6 @@
+tensorstore.IndexDomain.\_\_init\_\_
+====================================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: IndexDomain.__init__

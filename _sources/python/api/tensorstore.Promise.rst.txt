@@ -1,0 +1,25 @@
+tensorstore.Promise
+===================
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: Promise
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~Promise.__init__
+      ~Promise.new
+      ~Promise.set_exception
+      ~Promise.set_result
+   
+   
+
+   
+   
+   

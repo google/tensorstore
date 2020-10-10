@@ -1,0 +1,6 @@
+tensorstore.WriteFutures.commit
+===============================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: WriteFutures.commit

@@ -1,0 +1,6 @@
+tensorstore.IndexTransform.to\_json
+===================================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: IndexTransform.to_json

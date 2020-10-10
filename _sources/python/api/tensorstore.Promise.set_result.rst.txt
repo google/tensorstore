@@ -1,0 +1,6 @@
+tensorstore.Promise.set\_result
+===============================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: Promise.set_result

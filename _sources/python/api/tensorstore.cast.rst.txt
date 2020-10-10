@@ -1,0 +1,6 @@
+tensorstore.cast
+================
+
+.. currentmodule:: tensorstore
+
+.. autofunction:: cast

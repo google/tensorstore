@@ -1,0 +1,43 @@
+
+.. list-table:: Required third-party libraries
+   :header-rows: 1
+
+   * - Identifier
+     - Bundled library
+     - Version
+   * - ``com_google_boringssl``
+     - `boringssl <https://github.com/google/boringssl/>`_
+     - 34693f02f6cf
+   * - ``org_sourceware_bzip2``
+     - `bzip2 <https://sourceware.org/pub/bzip2/>`_
+     - 1.0.8
+   * - ``org_blosc_cblosc``
+     - `c-blosc <https://github.com/Blosc/c-blosc/>`_
+     - 1.16.3
+   * - ``se_haxx_curl``
+     - `curl <https://curl.haxx.se>`_
+     - 7.70.0
+   * - ``jpeg``
+     - `libjpeg-turbo <https://github.com/libjpeg-turbo/libjpeg-turbo/>`_
+     - 2.0.0
+   * - ``org_lz4``
+     - `lz4 <https://github.com/lz4/lz4/>`_
+     - 1.9.2
+   * - ``nasm``
+     - `nasm <https://www.nasm.us>`_
+     - 2.13.03
+   * - ``org_nghttp2``
+     - `nghttp2 <https://github.com/nghttp2/nghttp2/>`_
+     - 1.41.0
+   * - ``com_google_snappy``
+     - `snappy <https://github.com/google/snappy/>`_
+     - 1.1.7
+   * - ``org_tukaani_xz``
+     - `xz <https://tukaani.org/xz/>`_
+     - 5.2.4
+   * - ``net_zlib``
+     - `zlib <https://zlib.net>`_
+     - 1.2.11
+   * - ``com_facebook_zstd``
+     - `zstd <https://github.com/facebook/zstd/>`_
+     - 1.4.3

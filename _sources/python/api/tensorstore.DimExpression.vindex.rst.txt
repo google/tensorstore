@@ -1,0 +1,6 @@
+tensorstore.DimExpression.vindex
+================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: DimExpression.vindex

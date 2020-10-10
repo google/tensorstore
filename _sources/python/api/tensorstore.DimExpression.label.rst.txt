@@ -1,0 +1,6 @@
+tensorstore.DimExpression.label
+===============================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: DimExpression.label

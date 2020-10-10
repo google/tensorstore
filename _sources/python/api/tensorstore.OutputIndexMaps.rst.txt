@@ -1,0 +1,29 @@
+tensorstore.OutputIndexMaps
+===========================
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: OutputIndexMaps
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~OutputIndexMaps.__init__
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: .
+   
+      ~OutputIndexMaps.rank
+   
+   

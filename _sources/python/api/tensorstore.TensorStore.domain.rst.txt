@@ -1,0 +1,6 @@
+tensorstore.TensorStore.domain
+==============================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: TensorStore.domain

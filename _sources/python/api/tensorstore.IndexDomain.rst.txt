@@ -1,0 +1,37 @@
+tensorstore.IndexDomain
+=======================
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: IndexDomain
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~IndexDomain.__init__
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: .
+   
+      ~IndexDomain.exclusive_max
+      ~IndexDomain.implicit_lower_bounds
+      ~IndexDomain.implicit_upper_bounds
+      ~IndexDomain.inclusive_max
+      ~IndexDomain.inclusive_min
+      ~IndexDomain.labels
+      ~IndexDomain.origin
+      ~IndexDomain.rank
+      ~IndexDomain.shape
+   
+   

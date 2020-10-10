@@ -1,0 +1,6 @@
+tensorstore.DimensionSelection.diagonal
+=======================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: DimensionSelection.diagonal

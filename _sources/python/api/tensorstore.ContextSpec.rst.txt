@@ -1,0 +1,23 @@
+tensorstore.ContextSpec
+=======================
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: ContextSpec
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~ContextSpec.__init__
+      ~ContextSpec.to_json
+   
+   
+
+   
+   
+   

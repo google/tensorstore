@@ -1,0 +1,6 @@
+tensorstore.DimensionSelection.vindex
+=====================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: DimensionSelection.vindex

@@ -1,0 +1,6 @@
+tensorstore.Transaction.aborted
+===============================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: Transaction.aborted

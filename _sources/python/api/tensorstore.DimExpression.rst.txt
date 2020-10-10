@@ -1,0 +1,35 @@
+tensorstore.DimExpression
+=========================
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: DimExpression
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~DimExpression.__init__
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: .
+   
+      ~DimExpression.diagonal
+      ~DimExpression.label
+      ~DimExpression.oindex
+      ~DimExpression.translate_by
+      ~DimExpression.translate_to
+      ~DimExpression.transpose
+      ~DimExpression.vindex
+   
+   

@@ -1,0 +1,6 @@
+tensorstore.IndexInterval.inclusive\_min
+========================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: IndexInterval.inclusive_min

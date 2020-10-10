@@ -1,0 +1,6 @@
+tensorstore.IndexDomain.inclusive\_max
+======================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: IndexDomain.inclusive_max

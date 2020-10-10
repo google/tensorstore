@@ -1,0 +1,6 @@
+tensorstore.Context.\_\_init\_\_
+================================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: Context.__init__

@@ -1,0 +1,6 @@
+tensorstore.Promise.set\_exception
+==================================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: Promise.set_exception

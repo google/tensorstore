@@ -1,0 +1,275 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>tensorstore.IndexTransform.input_rank &mdash; TensorStore  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/language_data.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"displayAlign": "left"})</script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="tensorstore.IndexTransform.input_shape" href="tensorstore.IndexTransform.input_shape.html" />
+    <link rel="prev" title="tensorstore.IndexTransform.input_origin" href="tensorstore.IndexTransform.input_origin.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> TensorStore
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Building and Installing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../environment.html">Environment variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../index_space.html">Index space</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../context.html">Context framework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../spec.html">TensorStore JSON Spec</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tensorstore/driver/index.html">Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tensorstore/kvstore/index.html">Key-Value Storage Layer</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Python API</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../tutorial.html">Tutorial</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../indexing.html">Indexing</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">API reference</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.array.html">tensorstore.array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.cast.html">tensorstore.cast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.open.html">tensorstore.open</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.Context.html">tensorstore.Context</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.ContextSpec.html">tensorstore.ContextSpec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.Dim.html">tensorstore.Dim</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.DimExpression.html">tensorstore.DimExpression</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.DimensionSelection.html">tensorstore.DimensionSelection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.Future.html">tensorstore.Future</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.Index.html">tensorstore.Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.IndexDomain.html">tensorstore.IndexDomain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.IndexInterval.html">tensorstore.IndexInterval</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="tensorstore.IndexTransform.html">tensorstore.IndexTransform</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.IndexTransform.__init__.html">tensorstore.IndexTransform.__init__</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.IndexTransform.to_json.html">tensorstore.IndexTransform.to_json</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.IndexTransform.domain.html">tensorstore.IndexTransform.domain</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.IndexTransform.implicit_lower_bounds.html">tensorstore.IndexTransform.implicit_lower_bounds</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.IndexTransform.implicit_upper_bounds.html">tensorstore.IndexTransform.implicit_upper_bounds</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.IndexTransform.input_exclusive_max.html">tensorstore.IndexTransform.input_exclusive_max</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.IndexTransform.input_inclusive_max.html">tensorstore.IndexTransform.input_inclusive_max</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.IndexTransform.input_inclusive_min.html">tensorstore.IndexTransform.input_inclusive_min</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.IndexTransform.input_labels.html">tensorstore.IndexTransform.input_labels</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.IndexTransform.input_origin.html">tensorstore.IndexTransform.input_origin</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">tensorstore.IndexTransform.input_rank</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.IndexTransform.input_shape.html">tensorstore.IndexTransform.input_shape</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.IndexTransform.oindex.html">tensorstore.IndexTransform.oindex</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.IndexTransform.output.html">tensorstore.IndexTransform.output</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.IndexTransform.output_rank.html">tensorstore.IndexTransform.output_rank</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.IndexTransform.vindex.html">tensorstore.IndexTransform.vindex</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.Indexable.html">tensorstore.Indexable</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.OutputIndexMap.html">tensorstore.OutputIndexMap</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.OutputIndexMaps.html">tensorstore.OutputIndexMaps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.OutputIndexMethod.html">tensorstore.OutputIndexMethod</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.Promise.html">tensorstore.Promise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.Spec.html">tensorstore.Spec</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.TensorStore.html">tensorstore.TensorStore</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.Transaction.html">tensorstore.Transaction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.WriteFutures.html">tensorstore.WriteFutures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.dtype.html">tensorstore.dtype</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.newaxis.html">tensorstore.newaxis</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">TensorStore</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Python API</a> &raquo;</li>
+        
+          <li><a href="index.html">API reference</a> &raquo;</li>
+        
+          <li><a href="tensorstore.IndexTransform.html">tensorstore.IndexTransform</a> &raquo;</li>
+        
+      <li>tensorstore.IndexTransform.input_rank</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../_sources/python/api/tensorstore.IndexTransform.input_rank.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="tensorstore-indextransform-input-rank">
+<h1>tensorstore.IndexTransform.input_rank<a class="headerlink" href="#tensorstore-indextransform-input-rank" title="Permalink to this headline">¶</a></h1>
+<dl class="method">
+<dt id="tensorstore.IndexTransform.input_rank">
+<em class="property">property </em><code class="sig-prename descclassname">IndexTransform.</code><code class="sig-name descname">input_rank</code><a class="headerlink" href="#tensorstore.IndexTransform.input_rank" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rank of input space</p>
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="tensorstore.IndexTransform.input_shape.html" class="btn btn-neutral float-right" title="tensorstore.IndexTransform.input_shape" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="tensorstore.IndexTransform.input_origin.html" class="btn btn-neutral float-left" title="tensorstore.IndexTransform.input_origin" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020 The TensorStore Authors
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

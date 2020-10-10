@@ -1,0 +1,6 @@
+tensorstore.WriteFutures.\_\_init\_\_
+=====================================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: WriteFutures.__init__

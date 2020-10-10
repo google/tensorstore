@@ -1,0 +1,6 @@
+tensorstore.Context.parent
+==========================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: Context.parent

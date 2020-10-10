@@ -1,0 +1,6 @@
+tensorstore.IndexTransform.input\_inclusive\_min
+================================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: IndexTransform.input_inclusive_min

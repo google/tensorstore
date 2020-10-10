@@ -1,0 +1,6 @@
+tensorstore.Future.add\_done\_callback
+======================================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: Future.add_done_callback

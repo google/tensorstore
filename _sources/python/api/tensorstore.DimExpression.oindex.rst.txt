@@ -1,0 +1,6 @@
+tensorstore.DimExpression.oindex
+================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: DimExpression.oindex

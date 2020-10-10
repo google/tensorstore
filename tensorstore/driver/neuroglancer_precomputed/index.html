@@ -1,0 +1,646 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>neuroglancer_precomputed Driver &mdash; TensorStore  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/language_data.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"displayAlign": "left"})</script>
+    
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Key-Value Storage Layer" href="../../kvstore/index.html" />
+    <link rel="prev" title="n5 Driver" href="../n5/index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> TensorStore
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Building and Installing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../environment.html">Environment variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../index_space.html">Index space</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../context.html">Context framework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../spec.html">TensorStore JSON Spec</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Drivers</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../cast/index.html"><code class="docutils literal notranslate"><span class="pre">cast</span></code> Driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../array/index.html"><code class="docutils literal notranslate"><span class="pre">array</span></code> Driver</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html#chunked-storage-drivers">Chunked storage drivers</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../zarr/index.html"><code class="docutils literal notranslate"><span class="pre">zarr</span></code> Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../n5/index.html"><code class="docutils literal notranslate"><span class="pre">n5</span></code> Driver</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">neuroglancer_precomputed</span></code> Driver</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#json-schema">JSON Schema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sharding-json-schema">Sharding JSON Schema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#example-json-specifications">Example JSON specifications</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#limitations">Limitations</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#chunked-storage-driver-json-schema">Chunked storage driver JSON Schema</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#cache-revalidation-bound-json-schema">Cache revalidation bound JSON Schema</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../kvstore/index.html">Key-Value Storage Layer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/index.html">Python API</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">TensorStore</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Drivers</a> &raquo;</li>
+        
+      <li><code class="docutils literal notranslate"><span class="pre">neuroglancer_precomputed</span></code> Driver</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../../_sources/tensorstore/driver/neuroglancer_precomputed/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="neuroglancer-precomputed-driver">
+<span id="id1"></span><h1><code class="docutils literal notranslate"><span class="pre">neuroglancer_precomputed</span></code> Driver<a class="headerlink" href="#neuroglancer-precomputed-driver" title="Permalink to this headline">¶</a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">neuroglancer_precomputed</span></code> driver provides access to <a class="reference external" href="https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed">Neuroglancer Precomputed format</a> volumes backed by any supported <a class="reference internal" href="../../kvstore/index.html#key-value-store"><span class="std std-ref">Key-Value Storage Layer</span></a>.  It supports reading, writing, and creating new volumes.</p>
+<p>Multiscale volumes are supported, but each scale must be opened individually.</p>
+<div class="section" id="json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/driver/neuroglancer_precomputed"></span><h2>JSON Schema<a class="headerlink" href="#json-schema" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">driver</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“neuroglancer_precomputed”</span></span></code></div>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">context</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context"><span class="std std-ref">Context</span></a></span></div>
+<p>Specifies context resources that augment/override the parent context.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">dtype</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../../../spec.html#json-schema-https://github.com/google/tensorstore/json-schema/dtype"><span class="std std-ref">Data type</span></a></span></div>
+<p>Specifies the data type.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">rank</span></code></td>
+<td><div class="docutils container">
+integer [0, ∞)</div>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">transform</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../../../index_space.html#json-schema-https://github.com/google/tensorstore/json-schema/index-transform"><span class="std std-ref">Index transform</span></a></span></div>
+<p>Specifies a transform.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">kvstore</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../../kvstore/index.html#json-schema-https://github.com/google/tensorstore/json-schema/key-value-store"><span class="std std-ref">Key-Value Store</span></a></span></div>
+<p>Specifies the underlying storage mechanism.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">path</span></code></td>
+<td><div class="docutils container">
+string (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“”</span></span></code>)</div>
+<p>Path within the <a class="reference internal" href="../../kvstore/index.html#json-schema-https://github.com/google/tensorstore/json-schema/key-value-store"><span class="std std-ref">Key-Value Store</span></a> specified by <code class="docutils literal notranslate"><span class="pre">storage</span></code> to the multiscale volume.</p>
+<div class="literal-block-wrapper docutils container" id="id3">
+<div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id3" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;path/to/array&quot;</span>
+</pre></div>
+</div>
+</div>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">open</span></code></td>
+<td><div class="docutils container">
+<code class="docutils literal notranslate"><span class="pre">boolean</span></code></div>
+<p>Open an existing TensorStore.  If neither <code class="docutils literal notranslate"><span class="pre">open</span></code> nor <code class="docutils literal notranslate"><span class="pre">create</span></code> is specified, defaults to <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code>.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">create</span></code></td>
+<td><div class="docutils container">
+<code class="docutils literal notranslate"><span class="pre">boolean</span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">false</span></span></code>)</div>
+<p>Create a new TensorStore.  Specify <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code> for both <code class="docutils literal notranslate"><span class="pre">open</span></code> and <code class="docutils literal notranslate"><span class="pre">create</span></code> to permit either opening an existing TensorStore or creating a new TensorStore if it does not already exist.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">delete_existing</span></code></td>
+<td><div class="docutils container">
+<code class="docutils literal notranslate"><span class="pre">boolean</span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">false</span></span></code>)</div>
+<p>Delete any existing data at the specified path before creating a new TensorStore.  Requires that <code class="docutils literal notranslate"><span class="pre">create</span></code> is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code>, and that <code class="docutils literal notranslate"><span class="pre">open</span></code> is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">false</span></span></code>.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">allow_metadata_mismatch</span></code></td>
+<td><div class="docutils container">
+<code class="docutils literal notranslate"><span class="pre">boolean</span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">false</span></span></code>)</div>
+<p>Allow a mismatch between the existing metadata and the metadata specified for creating a new TensorStore.  Requires that <code class="docutils literal notranslate"><span class="pre">create</span></code> is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code>.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">cache_pool</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context-resource"><span class="std std-ref">Context resource</span></a></span> (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“cache_pool”</span></span></code>)</div>
+<p>Specifies or references a previously defined <a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context/cache_pool"><span class="std std-ref">cache_pool context resource</span></a>. It is normally more convenient to specify a default <code class="docutils literal notranslate"><span class="pre">cache_pool</span></code> in the <code class="docutils literal notranslate"><span class="pre">context</span></code>.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context-resource"><span class="std std-ref">Context resource</span></a></span> (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“data_copy_concurrency”</span></span></code>)</div>
+<p>Specifies or references a previously defined <a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context/data_copy_concurrency"><span class="std std-ref">data_copy_concurrency context resource</span></a>. It is normally more convenient to specify a default <code class="docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code> in the <code class="docutils literal notranslate"><span class="pre">context</span></code>.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">recheck_cached_metadata</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../index.html#json-schema-https://github.com/google/tensorstore/json-schema/cache-revalidation-bound"><span class="std std-ref">Cache revalidation bound</span></a></span> (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“open”</span></span></code>)</div>
+<p>Time after which cached metadata is assumed to be fresh.  Cached
+metadata older than the specified time is revalidated prior to use.  The
+metadata is used to check the bounds of every read or write operation.</p>
+<p>Specifying <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code> means that the metadata will be revalidated
+prior to every read or write operation.  With the default value of
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“open”</span></span></code>, any cached metadata is revalidated when the TensorStore
+is opened but is not rechecked for each read or write operation.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">recheck_cached_data</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="../index.html#json-schema-https://github.com/google/tensorstore/json-schema/cache-revalidation-bound"><span class="std std-ref">Cache revalidation bound</span></a></span> (default is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code>)</div>
+<p>Time after which cached data is assumed to be fresh.  Cached data older
+than the specified time is revalidated prior to being returned from a
+read operation.  Partial chunk writes are always consistent regardless
+of the value of this option.</p>
+<p>The default value of <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code> means that cached data is revalidated
+on every read.  To enable in-memory data caching, you must both specify
+a <a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context/cache_pool"><span class="std std-ref">cache_pool context resource</span></a>
+with a non-zero <code class="docutils literal notranslate"><span class="pre">total_bytes_limit</span></code> and also specify
+<code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">false</span></span></code>, <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“open”</span></span></code>, or an explicit time bound for
+<code class="docutils literal notranslate"><span class="pre">recheck_cached_data</span></code>.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">scale_index</span></code></td>
+<td><div class="docutils container">
+integer [0, ∞)</div>
+<span>Zero-based index of the scale to open or create.  </span><p>When opening an existing volume, this member may be specified to explicitly indicate the scale to open.  Otherwise, the first scale matching the <code class="docutils literal notranslate"><span class="pre">resolution</span></code> constraint, if any, specified by the <code class="docutils literal notranslate"><span class="pre">scale_metadata</span></code> member, is chosen.  To create a new scale, this must either be left unspecified or equal the number of existing scales (which is also the index that will be assigned to the new scale).</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">multiscale_metadata</span></code></td>
+<td><span>Scale-independent metadata.  </span><p>Specifies the scale-independent metadata of a new volume exactly as in the <a class="reference external" href="https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#info-json-file-specification">info file</a>, except that not all members are required.  Required when creating a new multiscale volume.  When opening an existing volume or creating a new scale within an existing multiscale volume, specifies constraints on the existing metadata.</p>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">type</span></code></td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“image”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“segmentation”</span></span></code></div>
+<span>Specifying the type of volume.  </span><p>This has no bearing on TensorStore, but is used by Neuroglancer to pick the default layer type to use.  Required when creating a new multiscale volume.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">data_type</span></code></td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“uint8”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“uint16”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“uint32”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“uint64”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“float32”</span></span></code></div>
+<span>Specifies the data type.  </span><p>Required when creating a new multiscale volume.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">num_channels</span></code></td>
+<td><div class="docutils container">
+integer (-∞, ∞)</div>
+<span>Number of channels.  </span><p>Required when creating a new volume.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">scale_metadata</span></code></td>
+<td><span>Per-scale metadata.  </span><p>Specifies the per-scale metadata of a new volume as in the <a class="reference external" href="https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#info-json-file-specification">info file</a>, except that not all members are required, and the <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> member for specifying a single chunk size takes the place of the <code class="docutils literal notranslate"><span class="pre">chunk_sizes</span></code> member in the <code class="docutils literal notranslate"><span class="pre">info</span></code> file.  Required when creating a new scale.  When opening an existing scale, serves to select the scale to open and constrains the existing metadata.</p>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">key</span></code></td>
+<td><div class="docutils container">
+string</div>
+<span>Specifies the scale key (relative to <code class="docutils literal notranslate"><span class="pre">path</span></code>).  </span><p>When opening an existing scale, may be specified to select the scale by <code class="docutils literal notranslate"><span class="pre">key</span></code>.  When creating a new scale, if not specified, defaults to <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“&lt;xres&gt;_&lt;yres&gt;_&lt;zres&gt;”</span></span></code>, where <code class="docutils literal notranslate"><span class="pre">[xres,</span> <span class="pre">yres,</span> <span class="pre">zres]</span></code> is the <code class="docutils literal notranslate"><span class="pre">resolution</span></code>.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">size</span></code></td>
+<td><div class="docutils container">
+array[3] of integer [0, ∞)</div>
+<span>Voxel dimensions of the volume (XYZ order).  </span><p>Required when creating a new scale.</p>
+<div class="literal-block-wrapper docutils container" id="id4">
+<div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id4" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">voxel_offset</span></code></td>
+<td><div class="docutils container">
+array[3] of integer (-∞, ∞) (default is <code class="code highlight json docutils literal notranslate"><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">0</span></span><span class="p"><span class="pre">,</span></span> <span class="mi"><span class="pre">0</span></span><span class="p"><span class="pre">,</span></span> <span class="mi"><span class="pre">0</span></span><span class="p"><span class="pre">]</span></span></code>)</div>
+<span>Voxel origin of the volume (XYZ order).  </span><p>If specified, <code class="docutils literal notranslate"><span class="pre">size</span></code> must also be specified.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">chunk_size</span></code></td>
+<td><div class="docutils container">
+array[3] of integer [1, ∞)</div>
+<span>Chunk dimensions (XYZ order).  </span><p>Required when creating a new scale.  When opening an existing scale with multiple supported <code class="docutils literal notranslate"><span class="pre">chunk_sizes</span></code>, may be specified to select the chunk size to use.  Otherwise, the first supported chunk size is used.</p>
+<div class="literal-block-wrapper docutils container" id="id5">
+<div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id5" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">resolution</span></code></td>
+<td><div class="docutils container">
+array[3] of number (-∞, ∞)</div>
+<span>Voxel size in nanometers (XYZ order).  </span><p>When opening an existing scale, may be specified to select the scale by <code class="docutils literal notranslate"><span class="pre">resolution</span></code>.  Required when creating a new scale.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">encoding</span></code></td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“raw”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“jpeg”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“compressed_segmentation”</span></span></code></div>
+<span>Specifies the chunk encoding.  </span><p>Required when creating a new scale.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">jpeg_quality</span></code></td>
+<td><div class="docutils container">
+integer [0, 100] (default is <code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">75</span></span></code>)</div>
+<span>JPEG encoding quality.  </span><p>Only applies if <code class="docutils literal notranslate"><span class="pre">encoding</span></code> is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“jpeg”</span></span></code>.  The quality is specified using the IJG (Independent JPEG Group) [0, 100] recommended scale, with 0 being the worst quality (smallest file size) and 100 the best quality (largest file size).</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">compressed_segmentation_block_size</span></code></td>
+<td><div class="docutils container">
+array[3] of number (-∞, ∞)</div>
+<span>Block size for compressed segmentation encoding.  </span><p>If <code class="docutils literal notranslate"><span class="pre">encoding</span></code> is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“compressed_segmentation”</span></span></code>, required when creating a new scale, and serves as a constraint when opening an existing scale.  Otherwise, must not be specified.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">sharding</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="#json-schema-https://github.com/google/tensorstore/json-schema/driver/neuroglancer_precomputed#sharding-spec"><span class="std std-ref">Sharding</span></a></span> | <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">null</span></span></code></div>
+<p>Specifies to use the <a class="reference external" href="https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#unsharded-chunk-storage">unsharded</a> (indicated by <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">null</span></span></code>) or <a class="reference external" href="https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#sharded-chunk-storage">sharded</a> format.  When creating a new scale, if not specified, the unsharded format is used.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="sharding-json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/driver/neuroglancer_precomputed#sharding-spec"></span><h2>Sharding JSON Schema<a class="headerlink" href="#sharding-json-schema" title="Permalink to this headline">¶</a></h2>
+<p>Specifies the sharded format within the <code class="docutils literal notranslate"><span class="pre">scale_metadata</span></code> property.</p>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">&#64;type</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“neuroglancer_uint64_sharded_v1”</span></span></code></div>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">preshift_bits</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+integer [0, 64]</div>
+<span>Number of low-order bits of the chunk ID that do not contribute to the hashed chunk ID.  </span></td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">hash</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“identity”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“murmurhash3_x86_128”</span></span></code></div>
+<span>Specifies the hash function used to map chunk IDs to shards.  </span></td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">minishard_bits</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+integer [0, 64]</div>
+<span>Number of bits of the hashed chunk ID that determine the minishard number.  </span><p>The number of minishards within each shard is equal to <span class="math notranslate nohighlight">\(2^{\mathrm{minishard\_bits}}\)</span>.  The minishard number is equal to bits <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">minishard_bits)</span></code> of the hashed chunk id.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">shard_bits</span></code><div class="docutils container">
+<strong>Required</strong></div>
+</td>
+<td><div class="docutils container">
+integer [0, 64]</div>
+<span>Number of bits of the hashed chunk ID that determine the shard number.  </span><p>The number of shards is equal to <span class="math notranslate nohighlight">\(2^{\mathrm{shard\_bits}}\)</span>. The shard number is equal to bits <code class="docutils literal notranslate"><span class="pre">[minishard_bits,</span> <span class="pre">minishard_bits+shard_bits)</span></code> of the hashed chunk ID.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">minishard_index_encoding</span></code></td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“raw”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“gzip”</span></span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“raw”</span></span></code>)</div>
+<span>Specifies the encoding of the minishard index.  </span><p>Normally <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“gzip”</span></span></code> is a good choice.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">data_index_encoding</span></code></td>
+<td><div class="docutils container">
+<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“raw”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“gzip”</span></span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“raw”</span></span></code>)</div>
+<span>Specifies the encoding of the data chunks.  </span><p>Normally <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“gzip”</span></span></code> is a good choice, unless the volume uses <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“jpeg”</span></span></code> <code class="docutils literal notranslate"><span class="pre">encoding</span></code>.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="example-json-specifications">
+<h2>Example JSON specifications<a class="headerlink" href="#example-json-specifications" title="Permalink to this headline">¶</a></h2>
+<div class="literal-block-wrapper docutils container" id="id6">
+<div class="code-block-caption"><span class="caption-text">Example: Opening the first (or only) scale of an existing multiscale volume.</span><a class="headerlink" href="#id6" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+  <span class="nt">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;neuroglancer_precomputed&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;kvstore&quot;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;gcs&quot;</span><span class="p">,</span> <span class="nt">&quot;bucket&quot;</span><span class="p">:</span> <span class="s2">&quot;my-bucket&quot;</span><span class="p">},</span>
+  <span class="nt">&quot;path&quot;</span><span class="p">:</span> <span class="s2">&quot;path/to/volume&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="literal-block-wrapper docutils container" id="id7">
+<div class="code-block-caption"><span class="caption-text">Example: Opening an existing scale by index.</span><a class="headerlink" href="#id7" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+  <span class="nt">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;neuroglancer_precomputed&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;kvstore&quot;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;gcs&quot;</span><span class="p">,</span> <span class="nt">&quot;bucket&quot;</span><span class="p">:</span> <span class="s2">&quot;my-bucket&quot;</span><span class="p">},</span>
+  <span class="nt">&quot;path&quot;</span><span class="p">:</span> <span class="s2">&quot;path/to/volume&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;scale_index&quot;</span><span class="p">:</span> <span class="mi">1</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="literal-block-wrapper docutils container" id="id8">
+<div class="code-block-caption"><span class="caption-text">Example: Opening an existing scale by resolution.</span><a class="headerlink" href="#id8" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+  <span class="nt">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;neuroglancer_precomputed&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;kvstore&quot;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;gcs&quot;</span><span class="p">,</span> <span class="nt">&quot;bucket&quot;</span><span class="p">:</span> <span class="s2">&quot;my-bucket&quot;</span><span class="p">},</span>
+  <span class="nt">&quot;path&quot;</span><span class="p">:</span> <span class="s2">&quot;path/to/volume&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;scale_metadata&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">&quot;resolution&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">40</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="literal-block-wrapper docutils container" id="id9">
+<div class="code-block-caption"><span class="caption-text">Example: Opening an existing scale by key.</span><a class="headerlink" href="#id9" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+  <span class="nt">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;neuroglancer_precomputed&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;kvstore&quot;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;gcs&quot;</span><span class="p">,</span> <span class="nt">&quot;bucket&quot;</span><span class="p">:</span> <span class="s2">&quot;my-bucket&quot;</span><span class="p">},</span>
+  <span class="nt">&quot;path&quot;</span><span class="p">:</span> <span class="s2">&quot;path/to/volume&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;scale_metadata&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">&quot;key&quot;</span><span class="p">:</span> <span class="s2">&quot;4_4_40&quot;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="literal-block-wrapper docutils container" id="id10">
+<div class="code-block-caption"><span class="caption-text">Example: Creating a new scale in an existing multiscale volume.</span><a class="headerlink" href="#id10" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+  <span class="nt">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;neuroglancer_precomputed&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;kvstore&quot;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;gcs&quot;</span><span class="p">,</span> <span class="nt">&quot;bucket&quot;</span><span class="p">:</span> <span class="s2">&quot;my-bucket&quot;</span><span class="p">},</span>
+  <span class="nt">&quot;path&quot;</span><span class="p">:</span> <span class="s2">&quot;path/to/volume&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;scale_metadata&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">40000</span><span class="p">,</span> <span class="mi">50000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">],</span>
+    <span class="nt">&quot;encoding&quot;</span><span class="p">:</span> <span class="s2">&quot;compressed_segmentation&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;compressed_segmentation_block_size&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span>
+    <span class="nt">&quot;chunk_size&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span>
+    <span class="nt">&quot;resolution&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">40</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="literal-block-wrapper docutils container" id="id11">
+<div class="code-block-caption"><span class="caption-text">Example: Creating a new multiscale volume.</span><a class="headerlink" href="#id11" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+  <span class="nt">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;neuroglancer_precomputed&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;kvstore&quot;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;gcs&quot;</span><span class="p">,</span> <span class="nt">&quot;bucket&quot;</span><span class="p">:</span> <span class="s2">&quot;my-bucket&quot;</span><span class="p">},</span>
+  <span class="nt">&quot;path&quot;</span><span class="p">:</span> <span class="s2">&quot;path/to/volume&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;multiscale_metadata&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;segmentation&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;data_type&quot;</span><span class="p">:</span> <span class="s2">&quot;uint64&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;num_channels&quot;</span><span class="p">:</span> <span class="mi">1</span>
+  <span class="p">},</span>
+  <span class="nt">&quot;scale_metadata&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">&quot;size&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">40000</span><span class="p">,</span> <span class="mi">50000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">],</span>
+    <span class="nt">&quot;encoding&quot;</span><span class="p">:</span> <span class="s2">&quot;compressed_segmentation&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;compressed_segmentation_block_size&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span>
+    <span class="nt">&quot;chunk_size&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span>
+    <span class="nt">&quot;resolution&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">40</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="limitations">
+<h2>Limitations<a class="headerlink" href="#limitations" title="Permalink to this headline">¶</a></h2>
+<p>Resizing is not supported.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Writing to volumes in the sharded format is supported,
+but because updating a shard requires rewriting it entirely, write
+operations may be very inefficient unless special care is taken:</p>
+<ol class="arabic simple">
+<li><p>It is most efficient to group writes by shard.</p></li>
+<li><p>The temporary memory required to write a shard is 2 to 3 times
+the size of the shard.  It is therefore advised that the shards
+be kept as small as possible (while still avoiding an excess
+number of objects in the underlying
+<a class="reference internal" href="../../kvstore/index.html#json-schema-https://github.com/google/tensorstore/json-schema/key-value-store"><span class="std std-ref">Key-Value Store</span></a>).</p></li>
+</ol>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../../kvstore/index.html" class="btn btn-neutral float-right" title="Key-Value Storage Layer" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="../n5/index.html" class="btn btn-neutral float-left" title="n5 Driver" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020 The TensorStore Authors
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

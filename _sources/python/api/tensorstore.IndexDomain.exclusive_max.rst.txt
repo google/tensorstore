@@ -1,0 +1,6 @@
+tensorstore.IndexDomain.exclusive\_max
+======================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: IndexDomain.exclusive_max

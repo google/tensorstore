@@ -1,0 +1,1358 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Indexing &mdash; TensorStore  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/language_data.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"displayAlign": "left"})</script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="API reference" href="api/index.html" />
+    <link rel="prev" title="Tutorial" href="tutorial.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> TensorStore
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Building and Installing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../environment.html">Environment variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../index_space.html">Index space</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../context.html">Context framework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../spec.html">TensorStore JSON Spec</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tensorstore/driver/index.html">Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tensorstore/kvstore/index.html">Key-Value Storage Layer</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Python API</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="tutorial.html">Tutorial</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Indexing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#numpy-style-indexing">NumPy-style indexing</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#integer-indexing">Integer indexing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#interval-indexing">Interval indexing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#adding-singleton-dimensions">Adding singleton dimensions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#ellipsis">Ellipsis</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#integer-array-indexing">Integer array indexing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#boolean-array-indexing">Boolean array indexing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#differences-compared-to-numpy-indexing">Differences compared to NumPy indexing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vectorized-indexing-mode-vindex">Vectorized indexing mode (<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">vindex</span></span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#outer-indexing-mode-oindex">Outer indexing mode (<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">oindex</span></span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#dimension-expressions">Dimension expressions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#dimension-selections">Dimension selections</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dimension-expression-construction">Dimension expression construction</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#numpy-style-dimension-expression-indexing">NumPy-style dimension expression indexing</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#index-transforms">Index transforms</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html">API reference</a></li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">TensorStore</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="index.html">Python API</a> &raquo;</li>
+        
+      <li>Indexing</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/python/indexing.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="indexing">
+<span id="python-indexing"></span><h1>Indexing<a class="headerlink" href="#indexing" title="Permalink to this headline">¶</a></h1>
+<p><a class="reference internal" href="api/tensorstore.TensorStore.html#tensorstore.TensorStore" title="tensorstore.TensorStore"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.TensorStore</span></code></a> (and objects of other
+<a class="reference internal" href="api/tensorstore.Indexable.html#tensorstore.Indexable" title="tensorstore.Indexable"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> types) support a common set of <em>indexing
+operations</em> for read/write access to individual positions and subsets
+of positions.  In addition to full support for <a class="reference internal" href="#python-numpy-style-indexing"><span class="std std-ref">NumPy-style basic and
+advanced indexing</span></a>, <a class="reference internal" href="#python-dim-expressions"><span class="std std-ref">dimension expressions</span></a> provide additional indexing capabilities
+integrated with TensorStore’s support for <a class="reference internal" href="../index_space.html#dimension-labels"><span class="std std-ref">labeled/named
+dimensions</span></a> and non-zero origins.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In TensorStore, all indexing operations result in a (read/write)
+<em>view</em> of the original object, represented as a new object of the
+same type with a different <a class="reference internal" href="api/tensorstore.IndexDomain.html#tensorstore.IndexDomain" title="tensorstore.IndexDomain"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.IndexDomain</span></code></a>.  Indexing
+operations never implicitly perform I/O or copy data.  This differs
+from <a class="reference external" href="https://numpy.org/doc/stable/user/basics.indexing.html#module-numpy.doc.indexing" title="(in NumPy v1.19)"><code class="xref any docutils literal notranslate"><span class="pre">NumPy</span> <span class="pre">indexing</span></code></a>, where basic
+indexing results in a view of the original data, but advanced
+indexing always results in a copy.</p>
+</div>
+<div class="section" id="numpy-style-indexing">
+<span id="python-numpy-style-indexing"></span><h2>NumPy-style indexing<a class="headerlink" href="#numpy-style-indexing" title="Permalink to this headline">¶</a></h2>
+<p>NumPy-style indexing is performed using the syntax
+<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">expr</span></span><span class="p"><span class="pre">]</span></span></code>, where <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span></code> is any <a class="reference internal" href="api/tensorstore.Indexable.html#tensorstore.Indexable" title="tensorstore.Indexable"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> object
+and the indexing expression <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">expr</span></span></code> is one of:</p>
+<table class="colwidths-auto docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>an integer;</p></td>
+<td><p><a class="reference internal" href="#python-indexing-integer"><span class="std std-ref">Integer indexing</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p>a <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a> object <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">start</span></span><span class="p"><span class="pre">:</span></span><span class="n"><span class="pre">stop</span></span><span class="p"><span class="pre">:</span></span><span class="n"><span class="pre">step</span></span></code>, e.g. <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">[:]</span></span></code> or <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">3</span></span><span class="p"><span class="pre">:</span></span><span class="mi"><span class="pre">5</span></span><span class="p"><span class="pre">]</span></span></code> or
+<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">1</span></span><span class="p"><span class="pre">:</span></span><span class="mi"><span class="pre">7</span></span><span class="p"><span class="pre">:</span></span><span class="mi"><span class="pre">2</span></span><span class="p"><span class="pre">]</span></span></code>, where the <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">start</span></span></code>, <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">stop</span></span></code>, or <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">step</span></span></code> values are
+each <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a>, integers or sequences of integer or <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a> values;</p></td>
+<td><p><a class="reference internal" href="#python-indexing-interval"><span class="std std-ref">Interval indexing</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/tensorstore.newaxis.html#tensorstore.newaxis" title="tensorstore.newaxis"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tensorstore.newaxis</span></code></a> or <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>;</p></td>
+<td><p><a class="reference internal" href="#python-indexing-newaxis"><span class="std std-ref">Adding singleton dimensions</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="code highlight python docutils literal notranslate"><span class="o"><span class="pre">…</span></span></code> or <a class="reference external" href="https://docs.python.org/3/library/constants.html#Ellipsis" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Ellipsis</span></code></a>;</p></td>
+<td><p><a class="reference internal" href="#python-indexing-ellipsis"><span class="std std-ref">Ellipsis</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="https://numpy.org/doc/stable/glossary.html#term-array-like" title="(in NumPy v1.19)"><code class="xref any docutils literal notranslate"><span class="pre">array_like</span></code></a> with integer data type;</p></td>
+<td><p><a class="reference internal" href="#python-indexing-integer-array"><span class="std std-ref">Integer array indexing</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="https://numpy.org/doc/stable/glossary.html#term-array-like" title="(in NumPy v1.19)"><code class="xref any docutils literal notranslate"><span class="pre">array_like</span></code></a> with <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">bool</span></code></a> data type;</p></td>
+<td><p><a class="reference internal" href="#python-indexing-boolean-array"><span class="std std-ref">Boolean array indexing</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tuple</span></code></a> of any of the above, e.g. <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span> <span class="mi"><span class="pre">2</span></span><span class="p"><span class="pre">,</span></span> <span class="p"><span class="pre">:,</span></span> <span class="mi"><span class="pre">3</span></span><span class="p"><span class="pre">]</span></span></code> or <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span> <span class="o"><span class="pre">…</span></span><span class="p"><span class="pre">,</span></span> <span class="p"><span class="pre">:,</span></span> <span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">0</span></span><span class="p"><span class="pre">,</span></span> <span class="mi"><span class="pre">2</span></span><span class="p"><span class="pre">,</span></span> <span class="mi"><span class="pre">3</span></span><span class="p"><span class="pre">]]</span></span></code>.</p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>This form of indexing always operates on a prefix of the dimensions,
+consuming dimensions from the existing domain and adding dimensions to
+the resultant domain in order; if the indexing expression consumes
+fewer than <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">rank</span></span></code> dimensions, the remaining dimensions are
+retained unchanged as if indexed by <code class="code highlight python docutils literal notranslate"><span class="p"><span class="pre">:</span></span></code>.</p>
+<div class="section" id="integer-indexing">
+<span id="python-indexing-integer"></span><h3>Integer indexing<a class="headerlink" href="#integer-indexing" title="Permalink to this headline">¶</a></h3>
+<p>Indexing with an integer selects a single position within the corresponding dimension:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [3, 4, 5],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [3], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: 5,</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [], &#39;input_inclusive_min&#39;: []},</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>Each integer index consumes a single dimension from the original
+domain and adds no dimensions to the result domain.</p>
+<p>Because TensorStore supports index domains defined over negative
+indices, negative values have no special meaning; they simply refer to
+negative positions:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
+<span class="gp">... </span>    <span class="s2">&quot;dtype&quot;</span><span class="p">:</span> <span class="s2">&quot;int32&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s2">&quot;driver&quot;</span><span class="p">:</span> <span class="s2">&quot;array&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s2">&quot;array&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="s2">&quot;transform&quot;</span><span class="p">:</span> <span class="p">{</span>
+<span class="gp">... </span>        <span class="s2">&quot;input_shape&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+<span class="gp">... </span>        <span class="s2">&quot;input_inclusive_min&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mi">10</span><span class="p">],</span>
+<span class="gp">... </span>        <span class="s2">&quot;output&quot;</span><span class="p">:</span> <span class="p">[{</span>
+<span class="gp">... </span>            <span class="s2">&quot;input_dimension&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<span class="gp">... </span>            <span class="s2">&quot;offset&quot;</span><span class="p">:</span> <span class="mi">10</span>
+<span class="gp">... </span>        <span class="p">}],</span>
+<span class="gp">... </span>    <span class="p">},</span>
+<span class="gp">... </span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">10</span><span class="p">]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: 1,</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [], &#39;input_inclusive_min&#39;: []},</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This differs from the behavior of the built-in sequence types and
+<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.19)"><code class="xref any docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a>, where a negative index specifies a position
+relative to the end (upper bound).</p>
+</div>
+<p>Specifying an index outside the explicit bounds of a dimension is results in an immediate error:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+<span class="gt">Traceback (most recent call last):</span>
+    <span class="o">...</span>
+<span class="gr">ValueError</span>: <span class="n">Checking bounds of constant output index map for dimension 0: Index 4 is outside valid range [0, 4).</span>
+</pre></div>
+</div>
+<p>Specifying an index outside the <a class="reference internal" href="../index_space.html#implicit-bounds"><span class="std std-ref">implicit bounds</span></a> of
+a dimension is permitted:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_shape</span><span class="o">=</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">implicit_lower_bounds</span><span class="o">=</span><span class="p">[</span><span class="kc">True</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<span class="go">Rank 0 -&gt; 1 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = -1</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+<span class="gt">Traceback (most recent call last):</span>
+    <span class="o">...</span>
+<span class="gr">ValueError</span>: <span class="n">Checking bounds of constant output index map for dimension 0: Index 4 is outside valid range (-inf, 4).</span>
+</pre></div>
+</div>
+<p>While implicit bounds do not constrain indexing operations, the bounds
+will still be checked by any subsequent read or write operation, which
+will fail if any index is actually out of bounds.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In addition to the <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">int</span></code></a> type, integer indices may be specified
+using any object that supports the <code class="code highlight python docutils literal notranslate"><span class="fm"><span class="pre">__index__</span></span></code> protocol
+(<span class="target" id="index-0"></span><a class="pep reference external" href="https://www.python.org/dev/peps/pep-0357"><strong>PEP 357</strong></a>), including <a class="reference external" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#arrays-scalars" title="(in NumPy v1.19)"><span class="xref std std-ref">NumPy integer scalar types</span></a>.</p>
+</div>
+</div>
+<div class="section" id="interval-indexing">
+<span id="python-indexing-interval"></span><h3>Interval indexing<a class="headerlink" href="#interval-indexing" title="Permalink to this headline">¶</a></h3>
+<p>Indexing with a <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a> object <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">start</span></span><span class="p"><span class="pre">:</span></span><span class="n"><span class="pre">stop</span></span><span class="p"><span class="pre">:</span></span><span class="n"><span class="pre">step</span></span></code> selects an
+interval or strided interval within the corresponding dimension:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">5</span><span class="p">]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [1, 2, 3, 4],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [5],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [1],</span>
+<span class="go">    &#39;output&#39;: [{&#39;input_dimension&#39;: 0, &#39;offset&#39;: -1}],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>As for the built-in sequence types, the <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">start</span></span></code> value is
+inclusive while the <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">stop</span></span></code> value is exclusive.</p>
+<p>Each of <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">start</span></span></code>, <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">stop</span></span></code>, and <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">step</span></span></code> may be an
+integer, <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a>, or omitted (equivalent to specifying <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a>).
+Specifying <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a> for <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">start</span></span></code> or <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">stop</span></span></code> retains the
+existing lower or upper bound, respectively, for the dimension.
+Specifying <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a> for <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">step</span></span></code> is equivalent to specifying
+<code class="code highlight python docutils literal notranslate"><span class="mi"><span class="pre">1</span></span></code>.</p>
+<p>When the <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">step</span></span></code> is <code class="code highlight python docutils literal notranslate"><span class="mi"><span class="pre">1</span></span></code>, the domain of the resulting
+sliced dimension is <em>not</em> translated to have an origin of zero;
+instead, it has an origin equal to the start position of the interval
+(or the existing origin of the start position is unspecified):</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">5</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: 2,</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [], &#39;input_inclusive_min&#39;: []},</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>If the <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">step</span></span></code> is not <code class="code highlight python docutils literal notranslate"><span class="mi"><span class="pre">1</span></span></code>, the origin of the resulting
+sliced dimension is equal to the <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">start</span></span></code> position divided by
+the <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">step</span></span></code> value, rounded towards zero:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">:</span><span class="mi">8</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [3, 5, 7],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [4],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [1],</span>
+<span class="go">    &#39;output&#39;: [{&#39;input_dimension&#39;: 0, &#39;offset&#39;: -1}],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="mi">7</span><span class="p">:</span><span class="mi">3</span><span class="p">:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [7, 5],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [-1],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [-3],</span>
+<span class="go">    &#39;output&#39;: [{&#39;input_dimension&#39;: 0, &#39;offset&#39;: 3}],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>It is an error to specify an interval outside the explicit bounds of a
+dimension:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">:</span><span class="mi">12</span><span class="p">]</span>
+<span class="gt">Traceback (most recent call last):</span>
+    <span class="o">...</span>
+<span class="gr">IndexError</span>: <span class="n">Computing interval slice for dimension 0: Slice interval [3, 12) is not contained within domain [0, 10).</span>
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This behavior differs from that of the built-in sequence types and
+<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.19)"><code class="xref any docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a>, where any out-of-bounds indices within the
+interval are silently skipped.</p>
+</div>
+<p>Specifying an interval outside the <a class="reference internal" href="../index_space.html#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>
+of a dimension is permitted:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_shape</span><span class="o">=</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">implicit_lower_bounds</span><span class="o">=</span><span class="p">[</span><span class="kc">True</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
+<span class="go">Rank 1 -&gt; 1 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: [-1, 2)</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[0]</span>
+</pre></div>
+</div>
+<p>If a non-<a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a> value is specified for <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">start</span></span></code> or
+<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">stop</span></span></code>, the lower or upper bound, respectively, of the
+resultant dimension will be marked explicit.  If <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a> is specified
+for <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">start</span></span></code> or <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">stop</span></span></code>, the lower or upper bound,
+respectively, of the resultant dimension will be marked explicit if
+the corresponding original bound is marked explicit.</p>
+<p>As with integer indexing, negative <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">start</span></span></code> or <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">stop</span></span></code>
+values have no special meaning, and simply indicate negative positions.</p>
+<p>Any of the <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">start</span></span></code>, <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">stop</span></span></code>, or <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">stop</span></span></code> values
+may be specified as a sequence of integer or <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a> values (e.g. a
+<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">list</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">tuple</span></code></a> or 1-d <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.19)"><code class="xref any docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a>), rather than a single integer:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span> <span class="p">[</span><span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">]],</span>
+<span class="gp">... </span>             <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">):(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[6, 7, 8], [10, 11, 12]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [3, 4],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [1, 1],</span>
+<span class="go">    &#39;output&#39;: [</span>
+<span class="go">      {&#39;input_dimension&#39;: 0, &#39;offset&#39;: -1},</span>
+<span class="go">      {&#39;input_dimension&#39;: 1, &#39;offset&#39;: -1},</span>
+<span class="go">    ],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>This is equivalent to specifying a sequence of <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a> objects:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[6, 7, 8], [10, 11, 12]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [3, 4],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [1, 1],</span>
+<span class="go">    &#39;output&#39;: [</span>
+<span class="go">      {&#39;input_dimension&#39;: 0, &#39;offset&#39;: -1},</span>
+<span class="go">      {&#39;input_dimension&#39;: 1, &#39;offset&#39;: -1},</span>
+<span class="go">    ],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>It is an error to specify a <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">slice</span></code></a> with sequences of unequal
+lengths, but a sequence may be combined with a scalar value:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">:(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[6, 7, 8], [10, 11, 12]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [3, 4],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [1, 1],</span>
+<span class="go">    &#39;output&#39;: [</span>
+<span class="go">      {&#39;input_dimension&#39;: 0, &#39;offset&#39;: -1},</span>
+<span class="go">      {&#39;input_dimension&#39;: 1, &#39;offset&#39;: -1},</span>
+<span class="go">    ],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="adding-singleton-dimensions">
+<span id="python-indexing-newaxis"></span><h3>Adding singleton dimensions<a class="headerlink" href="#adding-singleton-dimensions" title="Permalink to this headline">¶</a></h3>
+<p>Specifying a value of <a class="reference internal" href="api/tensorstore.newaxis.html#tensorstore.newaxis" title="tensorstore.newaxis"><code class="xref any py py-data docutils literal notranslate"><span class="pre">tensorstore.newaxis</span></code></a> (equal to <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a>) adds a
+new dummy/singleton dimension with <a class="reference internal" href="../index_space.html#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>
+<span class="math notranslate nohighlight">\([0, 1)\)</span>:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_rank</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+<span class="go">Rank 3 -&gt; 2 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: [0*, 1*)</span>
+<span class="go">    1: (-inf*, +inf*)</span>
+<span class="go">    2: (-inf*, +inf*)</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[1]</span>
+<span class="go">    out[1] = 0 + 1 * in[2]</span>
+</pre></div>
+</div>
+<p>This indexing term consumes no dimensions from the original domain and
+adds a single dimension after any dimensions added by prior indexing
+operations:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[:,</span> <span class="n">ts</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="n">ts</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+<span class="go">Rank 4 -&gt; 2 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: (-inf*, +inf*)</span>
+<span class="go">    1: [0*, 1*)</span>
+<span class="go">    2: [0*, 1*)</span>
+<span class="go">    3: (-inf*, +inf*)</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[0]</span>
+<span class="go">    out[1] = 0 + 1 * in[3]</span>
+</pre></div>
+</div>
+<p>Because the added dimension has implicit bounds, it may be given
+arbitrary bounds by a subsequent interval indexing term:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">newaxis</span><span class="p">][</span><span class="mi">3</span><span class="p">:</span><span class="mi">10</span><span class="p">]</span>
+<span class="go">Rank 3 -&gt; 2 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: [3, 10)</span>
+<span class="go">    1: (-inf*, +inf*)</span>
+<span class="go">    2: (-inf*, +inf*)</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[1]</span>
+<span class="go">    out[1] = 0 + 1 * in[2]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="ellipsis">
+<span id="python-indexing-ellipsis"></span><h3>Ellipsis<a class="headerlink" href="#ellipsis" title="Permalink to this headline">¶</a></h3>
+<p>Specifying the special <a class="reference external" href="https://docs.python.org/3/library/constants.html#Ellipsis" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">Ellipsis</span></code></a> value (<code class="code highlight python docutils literal notranslate"><span class="o"><span class="pre">…</span></span></code>) is equivalent
+to specifying as many full slices <code class="code highlight python docutils literal notranslate"><span class="p"><span class="pre">:</span></span></code> as needed to consume the
+remaining dimensions of the original domin not consumed by other
+indexing terms:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">]]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [2, 5],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [1, 2],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [0, 0],</span>
+<span class="go">    &#39;output&#39;: [{&#39;input_dimension&#39;: 1}],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>At most one <a class="reference external" href="https://docs.python.org/3/library/constants.html#Ellipsis" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">Ellipsis</span></code></a> may be specified within a single NumPy-style
+indexing expression:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+<span class="gt">Traceback (most recent call last):</span>
+    <span class="o">...</span>
+<span class="gr">IndexError</span>: <span class="n">An index can only have a single ellipsis (`...`)</span>
+</pre></div>
+</div>
+<p>As a complete indexing expression , <a class="reference external" href="https://docs.python.org/3/library/constants.html#Ellipsis" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">Ellipsis</span></code></a> has no effect and is
+equivalent to the empty tuple <code class="code highlight python docutils literal notranslate"><span class="p"><span class="pre">()</span></span></code>, but can still be useful
+for the purpose of an assignment:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="mi">7</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [7, 7, 7, 7],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [4], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="integer-array-indexing">
+<span id="python-indexing-integer-array"></span><h3>Integer array indexing<a class="headerlink" href="#integer-array-indexing" title="Permalink to this headline">¶</a></h3>
+<p>Specifying an <a class="reference external" href="https://numpy.org/doc/stable/glossary.html#term-array-like" title="(in NumPy v1.19)"><code class="xref any docutils literal notranslate"><span class="pre">array_like</span></code></a> <em>index array</em> of integer values selects the
+coordinates of the dimension given by the elements of the array:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [5, 2, 2],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [3], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[5, 4], [3, 2]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [2, 2], &#39;input_inclusive_min&#39;: [0, 0]},</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>This indexing term consumes a single dimension from the original
+domain, and when the full indexing expression involves just a single
+array indexing term, adds the dimensions of the index array to the
+result domain.</p>
+<p>As with integer and interval indexing, and unlike NumPy, negative
+values in an index array have no special meaning, and simply indicate
+negative positions.</p>
+<p>When a single indexing expression includes multiple index arrays,
+<em>vectorized</em> array indexing semantics apply by default: the shapes of
+the index arrays must all be broadcast-compatible, and the dimensions
+of the single broadcasted domain are added to the result domain:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [1, 4, 5],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [3], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]],</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[1, 4], [6, 5]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [2, 2], &#39;input_inclusive_min&#39;: [0, 0]},</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[1, 4], [5, 6]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [2, 2], &#39;input_inclusive_min&#39;: [0, 0]},</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>If all of the index arrays are applied to consecutive dimensions
+without any interleaved <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#Ellipsis" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">Ellipsis</span></code></a>, or <a class="reference internal" href="api/tensorstore.newaxis.html#tensorstore.newaxis" title="tensorstore.newaxis"><code class="xref any py py-data docutils literal notranslate"><span class="pre">tensorstore.newaxis</span></code></a>
+terms (interleaved integer index terms are permitted), then by default
+<em>legacy NumPy</em> semantics are used: the dimensions of the broadcasted
+array domain are added <em>inline</em> to the result domain after any
+dimensions added by prior indexing terms in the indexing expression:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]],</span> <span class="p">[[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span> <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">]]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[:,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[4, 2], [8, 6]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [2, 2], &#39;input_inclusive_min&#39;: [0, 0]},</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>If there are any interleaved <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#Ellipsis" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">Ellipsis</span></code></a>, or
+<a class="reference internal" href="api/tensorstore.newaxis.html#tensorstore.newaxis" title="tensorstore.newaxis"><code class="xref any py py-data docutils literal notranslate"><span class="pre">tensorstore.newaxis</span></code></a> terms, then instead the dimensions of the
+broadcasted array domain are added as the first dimensions of the
+result domain:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[:,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">ts</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[4, 8], [2, 6]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [2, 2, [1]],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [0, 0, [0]],</span>
+<span class="go">    &#39;output&#39;: [{&#39;input_dimension&#39;: 0}, {&#39;input_dimension&#39;: 1}],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>To ensure that the added array domain dimensions are added as the
+first dimensions of the result domain regardless of whether there are
+any interleaved <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#Ellipsis" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">Ellipsis</span></code></a>, or <a class="reference internal" href="api/tensorstore.newaxis.html#tensorstore.newaxis" title="tensorstore.newaxis"><code class="xref any py py-data docutils literal notranslate"><span class="pre">tensorstore.newaxis</span></code></a> terms,
+use the <a class="reference internal" href="#python-vindex-indexing"><span class="std std-ref">vindex indexing method</span></a>.</p>
+<p>To instead perform <em>outer</em> array indexing, where each index array is
+applied orthogonally, use the <a class="reference internal" href="#python-oindex-indexing"><span class="std std-ref">oindex indexing
+method</span></a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <em>legacy NumPy</em> indexing behavior, whereby array domain
+dimensions are added either <em>inline</em> or as the first dimensions
+depending on whether the index arrays are applied to consecutive
+dimensions, is the default behavior for compatibility with NumPy
+but may be confusing.  It is recommended to instead use either the
+<a class="reference internal" href="#python-vindex-indexing"><span class="std std-ref">vindex</span></a> or
+<a class="reference internal" href="#python-oindex-indexing"><span class="std std-ref">oindex</span></a> indexing method for less
+confusing behavior when using multiple index arrays.</p>
+</div>
+</div>
+<div class="section" id="boolean-array-indexing">
+<span id="python-indexing-boolean-array"></span><h3>Boolean array indexing<a class="headerlink" href="#boolean-array-indexing" title="Permalink to this headline">¶</a></h3>
+<p>Specifying an <a class="reference external" href="https://numpy.org/doc/stable/glossary.html#term-array-like" title="(in NumPy v1.19)"><code class="xref any docutils literal notranslate"><span class="pre">array_like</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">bool</span></code></a> values is equivalent to
+specifying a sequence of integer index arrays containing the
+coordinates of <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">True</span></code></a> values (in C order), e.g. as obtained from
+<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.nonzero.html#numpy.nonzero" title="(in NumPy v1.19)"><code class="xref any docutils literal notranslate"><span class="pre">numpy.nonzero</span></code></a>.</p>
+<p>Specifying a 1-d <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">bool</span></code></a> array is equivalent to a single index array of the
+non-zero coordinates:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [0, 2, 3],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [3], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># equivalent, using index array</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [0, 2, 3],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [3], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>More generally, specifying an <code class="docutils literal notranslate"><span class="pre">n</span></code>-dimensional <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">bool</span></code></a> array is equivalent to
+specifying <code class="docutils literal notranslate"><span class="pre">n</span></code> index arrays, where the <code class="docutils literal notranslate"><span class="pre">i</span></code>th index array specifies
+the <code class="docutils literal notranslate"><span class="pre">i</span></code>th coordinate of the <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">True</span></code></a> values:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[[[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">],</span> <span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">]]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [0, 3, 4],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [3], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># equivalent, using index arrays</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [0, 3, 4],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [3], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>This indexing term consumes <code class="docutils literal notranslate"><span class="pre">n</span></code> dimensions from the original domain,
+where <code class="docutils literal notranslate"><span class="pre">n</span></code> is the rank of the <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">bool</span></code></a> array.</p>
+<p>It is perfectly valid to mix boolean array indexing with other forms
+of indexing, including integer array indexing, with exactly the same
+result as if the boolean array were replaced by the equivalent
+sequence of integer index arrays:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [2, 8],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [2], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># equivalent, using index array</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [2, 8],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [2], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Mixing boolean and integer index arrays in the default vectorized
+indexing mode, while supported for compatibility with NumPy, is
+likely to be confusing.  In most cases of mixed boolean and integer
+array indexing, <a class="reference internal" href="#python-oindex-indexing"><span class="std std-ref">outer indexing mode</span></a>
+provides more useful behavior.</p>
+</div>
+<p>The scalar values <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">True</span></code></a> and <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">False</span></code></a> are treated as zero-rank boolean
+arrays.  Zero-rank boolean arrays are supported, but there is no
+equivalent integer index array representation.  If there are no other
+integer or boolean arrays, specifying a zero-rank boolean array is
+equivalent to specifying <a class="reference internal" href="api/tensorstore.newaxis.html#tensorstore.newaxis" title="tensorstore.newaxis"><code class="xref any py py-data docutils literal notranslate"><span class="pre">tensorstore.newaxis</span></code></a>, except that the added
+dimension has explicit rather than implicit bounds, and in the case of
+a <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">False</span></code></a> array the added dimension has the empty bounds of <span class="math notranslate nohighlight">\([0,
+0)\)</span>:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_rank</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[:,</span> <span class="kc">True</span><span class="p">]</span>
+<span class="go">Rank 3 -&gt; 2 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: (-inf*, +inf*)</span>
+<span class="go">    1: [0, 1)</span>
+<span class="go">    2: (-inf*, +inf*)</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[0]</span>
+<span class="go">    out[1] = 0 + 1 * in[2]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[:,</span> <span class="kc">False</span><span class="p">]</span>
+<span class="go">Rank 3 -&gt; 2 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: (-inf*, +inf*)</span>
+<span class="go">    1: [0, 0)</span>
+<span class="go">    2: (-inf*, +inf*)</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[0]</span>
+<span class="go">    out[1] = 0 + 1 * in[2]</span>
+</pre></div>
+</div>
+<p>If there are other integer or boolean arrays, specifying a zero-rank
+boolean array has no effect except that:</p>
+<ol class="arabic simple">
+<li><p>the other index array shapes must be broadcast-compatible with the
+shape <code class="code highlight python docutils literal notranslate"><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">0</span></span><span class="p"><span class="pre">]</span></span></code> in the case of a <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">False</span></code></a> zero-rank array,
+meaning they are all empty arrays (in the case of a <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">True</span></code></a>
+zero-rank array, the other index array shapes must be
+broadcast-compatible with the shape <code class="code highlight python docutils literal notranslate"><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">1</span></span><span class="p"><span class="pre">]</span></span></code>, which is always
+satisfied);</p></li>
+<li><p>in legacy NumPy indexing mode, if it is separated from another
+integer or boolean array term by a <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#Ellipsis" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">Ellipsis</span></code></a>, or
+<a class="reference internal" href="api/tensorstore.newaxis.html#tensorstore.newaxis" title="tensorstore.newaxis"><code class="xref any py py-data docutils literal notranslate"><span class="pre">tensorstore.newaxis</span></code></a>, it causes the dimensions of the broadcast
+array domain to be added as the first dimensions of the result
+domain:</p></li>
+</ol>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Index array dimension added to result domain inline</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[:,</span> <span class="kc">True</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span>
+<span class="go">Rank 2 -&gt; 2 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: (-inf*, +inf*)</span>
+<span class="go">    1: [0, 2)</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[0]</span>
+<span class="go">    out[1] = 0 + 1 * bounded((-inf, +inf), array(in)), where array =</span>
+<span class="go">      {{0, 1}}</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[:,</span> <span class="kc">False</span><span class="p">,</span> <span class="p">[]]</span>
+<span class="go">Rank 2 -&gt; 2 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: (-inf*, +inf*)</span>
+<span class="go">    1: [0, 0)</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[0]</span>
+<span class="go">    out[1] = 0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Index array dimensions added as first dimension of result domain</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="p">:,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span>
+<span class="go">Rank 2 -&gt; 2 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: [0, 2)</span>
+<span class="go">    1: (-inf*, +inf*)</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[1]</span>
+<span class="go">    out[1] = 0 + 1 * bounded((-inf, +inf), array(in)), where array =</span>
+<span class="go">      {{0}, {1}}</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="p">:,</span> <span class="p">[]]</span>
+<span class="go">Rank 2 -&gt; 2 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: [0, 0)</span>
+<span class="go">    1: (-inf*, +inf*)</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[1]</span>
+<span class="go">    out[1] = 0</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Zero-rank boolean arrays are supported for consistency and for
+compatibility with NumPy, but are rarely useful.</p>
+</div>
+</div>
+<div class="section" id="differences-compared-to-numpy-indexing">
+<span id="python-indexing-numpy-comparison"></span><h3>Differences compared to NumPy indexing<a class="headerlink" href="#differences-compared-to-numpy-indexing" title="Permalink to this headline">¶</a></h3>
+<p>TensorStore indexing has near-perfect compatibility with NumPy, but
+there are a few differences to be aware of:</p>
+<ul class="simple">
+<li><p>Negative indices have no special meaning in TensorStore, and simply
+refer to negative positions.  TensorStore does not support an
+equivalent shortcut syntax to specify a position <code class="docutils literal notranslate"><span class="pre">n</span></code> relative to
+the upper bound of a dimension; instead, it must be specified
+explicitly, e.g. <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">domain</span></span><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">0</span></span><span class="p"><span class="pre">]</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">exclusive_max</span></span> <span class="o"><span class="pre">-</span></span> <span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">]</span></span></code>.</p></li>
+<li><p>In TensorStore, out-of-bounds intervals specified by a <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a>
+result in an error.  In NumPy, out-of-bounds indices specified by a
+<a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a> are silently truncated.</p></li>
+<li><p>To specify a sequence of indexing terms when using the syntax <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">expr</span></span><span class="p"><span class="pre">]</span></span></code> in TensorStore, <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">expr</span></span></code> must be a <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">tuple</span></code></a>. In NumPy, for compatibility with its predecessor library <em>Numeric</em>, if
+<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">expr</span></span></code> is a <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">list</span></code></a> or other non-<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.19)"><code class="xref any docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a> sequence type containing at least one <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#Ellipsis" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">Ellipsis</span></code></a>, or <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a> value, it is interpreted the same as a <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">tuple</span></code></a> <a class="reference external" href="https://numpy.org/doc/stable/reference/arrays.indexing.html#arrays-indexing" title="(in NumPy v1.19)"><span class="xref std std-ref">(this behavior is deprecated in NumPy since version 1.15.0)</span></a>.  TensorStore, in contrast, will attempt to convert any non-<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">tuple</span></code></a> sequence to an integer or boolean array, which results in an error if the sequence contains a <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#Ellipsis" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">Ellipsis</span></code></a>, or <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a> value.</p></li>
+</ul>
+</div>
+<div class="section" id="vectorized-indexing-mode-vindex">
+<span id="python-vindex-indexing"></span><h3>Vectorized indexing mode (<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">vindex</span></span></code>)<a class="headerlink" href="#vectorized-indexing-mode-vindex" title="Permalink to this headline">¶</a></h3>
+<p>The expression <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">vindex</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">expr</span></span><span class="p"><span class="pre">]</span></span></code>, where <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span></code> is any
+<a class="reference internal" href="api/tensorstore.Indexable.html#tensorstore.Indexable" title="tensorstore.Indexable"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> object and <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">expr</span></span></code> is a valid
+<a class="reference internal" href="#python-numpy-style-indexing"><span class="std std-ref">NumPy-style indexing expression</span></a>, has a
+similar effect to <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">expr</span></span><span class="p"><span class="pre">]</span></span></code> except that if <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">expr</span></span></code>
+specifies any array indexing terms, the broadcasted array dimensions
+are unconditionally added as the first dimensions of the result
+domain:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]],</span> <span class="p">[[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span> <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">]]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="o">.</span><span class="n">vindex</span><span class="p">[:,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[4, 8], [2, 6]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [2, 2], &#39;input_inclusive_min&#39;: [0, 0]},</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>This avoids the potentially-confusing behavior of the default legacy
+NumPy semantics, under which the broadcasted array dimensions are
+added inline to the result domain if none of the array indexing terms
+are separated by a <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#Ellipsis" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">Ellipsis</span></code></a>, or <a class="reference internal" href="api/tensorstore.newaxis.html#tensorstore.newaxis" title="tensorstore.newaxis"><code class="xref any py py-data docutils literal notranslate"><span class="pre">tensorstore.newaxis</span></code></a> term.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">expr</span></span></code> does not include any array indexing terms,
+<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">vindex</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">expr</span></span><span class="p"><span class="pre">]</span></span></code> is exactly equivalent to
+<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">expr</span></span><span class="p"><span class="pre">]</span></span></code>.</p>
+</div>
+<p>This indexing method is similar to the behavior of:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://docs.dask.org/en/latest/array-api.html#dask.array.Array.vindex" title="(in Dask)"><code class="docutils literal notranslate"><span class="pre">dask.array.Array.vindex</span></code></a>,</p></li>
+<li><p><a class="reference external" href="https://zarr.readthedocs.io/en/stable/api/core.html#zarr.core.Array" title="(in zarr v2.5.0)"><code class="xref any docutils literal notranslate"><span class="pre">zarr.core.Array.vindex</span></code></a>, and</p></li>
+<li><p>the proposed <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">vindex</span></span></code> in <a class="reference external" href="https://numpy.org/neps/nep-0021-advanced-indexing.html">NumPy Enhancement Proposal 21</a>.</p></li>
+</ul>
+</div>
+<div class="section" id="outer-indexing-mode-oindex">
+<span id="python-oindex-indexing"></span><h3>Outer indexing mode (<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">oindex</span></span></code>)<a class="headerlink" href="#outer-indexing-mode-oindex" title="Permalink to this headline">¶</a></h3>
+<p>The expression <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">oindex</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">expr</span></span><span class="p"><span class="pre">]</span></span></code>, where <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span></code> is any
+<a class="reference internal" href="api/tensorstore.Indexable.html#tensorstore.Indexable" title="tensorstore.Indexable"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> object and <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">expr</span></span></code> is a valid
+<a class="reference internal" href="#python-numpy-style-indexing"><span class="std std-ref">NumPy-style indexing expression</span></a>,
+performs <em>outer</em>/<em>orthogonal</em> indexing.  The effect is similar to
+<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">expr</span></span><span class="p"><span class="pre">]</span></span></code>, but differs in that any integer or boolean array
+indexing terms are applied orthogonally:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="o">.</span><span class="n">oindex</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[1, 2], [1, 2], [4, 5]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [3, 2], &#39;input_inclusive_min&#39;: [0, 0]},</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># equivalent, using boolean array</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="o">.</span><span class="n">oindex</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[1, 2], [1, 2], [4, 5]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [3, 2], &#39;input_inclusive_min&#39;: [0, 0]},</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>Unlike in the <a class="reference internal" href="#python-indexing-integer-array"><span class="std std-ref">default</span></a> or
+the <a class="reference internal" href="#python-vindex-indexing"><span class="std std-ref">vindex</span></a> indexing modes, the index array
+shapes need not be broadcast-compatible; instead, the dimensions of
+each index array (or the 1-d index array equivalent of a boolean
+array) are added to the result domain immediately after any dimensions
+added by the previous indexing terms:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]],</span> <span class="p">[[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span> <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">]]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="o">.</span><span class="n">oindex</span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">:,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[[5, 5, 6], [7, 7, 8]], [[1, 1, 2], [3, 3, 4]]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [2, 2, 3],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [0, 0, 0],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>Each boolean array indexing term adds a single dimension to the result
+domain:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="o">.</span><span class="n">oindex</span><span class="p">[[[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">],</span> <span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">]],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[2, 1], [8, 7]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [2, 2], &#39;input_inclusive_min&#39;: [0, 0]},</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">expr</span></span></code> does not include any array indexing terms,
+<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">oindex</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">expr</span></span><span class="p"><span class="pre">]</span></span></code> is exactly equivalent to
+<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">expr</span></span><span class="p"><span class="pre">]</span></span></code>.</p>
+</div>
+<p>This indexing method is similar to the behavior of:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://zarr.readthedocs.io/en/stable/api/core.html#zarr.core.Array" title="(in zarr v2.5.0)"><code class="xref any docutils literal notranslate"><span class="pre">zarr.core.Array.oindex</span></code></a>, and</p></li>
+<li><p>the proposed <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">oindex</span></span></code> in <a class="reference external" href="https://numpy.org/neps/nep-0021-advanced-indexing.html">NumPy Enhancement Proposal 21</a>.</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="dimension-expressions">
+<span id="python-dim-expressions"></span><h2>Dimension expressions<a class="headerlink" href="#dimension-expressions" title="Permalink to this headline">¶</a></h2>
+<p><em>Dimension expressions</em> provide an alternative indexing mechanism to
+<a class="reference internal" href="#python-numpy-style-indexing"><span class="std std-ref">NumPy-style indexing</span></a> that is more powerful and expressive and
+supports <a class="reference internal" href="../index_space.html#dimension-labels"><span class="std std-ref">dimension labels</span></a> (but can be more
+verbose):</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">]],</span> <span class="p">[[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">],</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]]],</span>
+<span class="gp">... </span>             <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Label the dimensions &quot;x&quot;, &quot;y&quot;, &quot;z&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[:]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[[0, 1], [2, 3], [4, 5]], [[6, 7], [8, 9], [10, 11]]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [2, 3, 2],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [0, 0, 0],</span>
+<span class="go">    &#39;input_labels&#39;: [&#39;x&#39;, &#39;y&#39;, &#39;z&#39;],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Select the x=0 slice</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[0, 1], [2, 3], [4, 5]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [3, 2],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [0, 0],</span>
+<span class="go">    &#39;input_labels&#39;: [&#39;y&#39;, &#39;z&#39;],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Select the y=1, x=0 slice</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [2, 3],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [2],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [0],</span>
+<span class="go">    &#39;input_labels&#39;: [&#39;z&#39;],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Transpose &quot;x&quot; and &quot;z&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[[0, 6], [2, 8], [4, 10]], [[1, 7], [3, 9], [5, 11]]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [2, 3, 2],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [0, 0, 0],</span>
+<span class="go">    &#39;input_labels&#39;: [&#39;z&#39;, &#39;y&#39;, &#39;x&#39;],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Select the x=d, y=d diagonal, and transpose &quot;d&quot; to end</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">diagonal</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s2">&quot;d&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[0, 8], [1, 9]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [2, 2],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [0, 0],</span>
+<span class="go">    &#39;input_labels&#39;: [&#39;z&#39;, &#39;d&#39;],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Slice z=0, apply outer indexing to &quot;x&quot; and &quot;y&quot;, label as &quot;a&quot;, &quot;b&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;z&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">oindex</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">]]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[4, 2], [10, 8]],</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [2, 2],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [0, 0],</span>
+<span class="go">    &#39;input_labels&#39;: [&#39;a&#39;, &#39;b&#39;],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+</pre></div>
+</div>
+<p>The usual syntax for applying a dimension expression is:
+<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">ts</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">d</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">sel</span></span><span class="p"><span class="pre">]</span></span> <span class="n"><span class="pre">op1</span></span> <span class="o"><span class="pre">…</span></span> <span class="n"><span class="pre">opN</span></span><span class="p"><span class="pre">]</span></span></code>, where <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span></code> is any
+<a class="reference internal" href="api/tensorstore.Indexable.html#tensorstore.Indexable" title="tensorstore.Indexable"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> object, <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">sel</span></span></code> specifies the initial
+<a class="reference internal" href="#python-dim-selections"><span class="std std-ref">dimension selection</span></a> and <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">op1</span></span>
+<span class="o"><span class="pre">…</span></span> <span class="n"><span class="pre">opN</span></span></code> specifies a chain of one or more
+<a class="reference internal" href="#python-dim-expression-construction"><span class="std std-ref">operations</span></a> supported by
+<a class="reference internal" href="api/tensorstore.DimExpression.html#tensorstore.DimExpression" title="tensorstore.DimExpression"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.DimExpression</span></code></a> (the <code class="code highlight python docutils literal notranslate"><span class="o"><span class="pre">…</span></span></code> in <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">op1</span></span>
+<span class="o"><span class="pre">…</span></span> <span class="n"><span class="pre">opN</span></span></code> is not a literal Python <a class="reference external" href="https://docs.python.org/3/library/constants.html#Ellipsis" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">Ellipsis</span></code></a> (<code class="code highlight python docutils literal notranslate"><span class="o"><span class="pre">…</span></span></code>), but
+simply denotes a sequence of operation invocations).</p>
+<p>The <a class="reference internal" href="api/tensorstore.DimExpression.html#tensorstore.DimExpression" title="tensorstore.DimExpression"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.DimExpression</span></code></a> object itself, constructed using the
+syntax <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">ts</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">d</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">sel</span></span><span class="p"><span class="pre">]</span></span> <span class="n"><span class="pre">op1</span></span> <span class="o"><span class="pre">…</span></span> <span class="n"><span class="pre">opN</span></span></code> is simply a lightweight,
+immutable representation of the sequence of operations and their
+arguments, and performs only minimal validation upon construction;
+full validation is deferred until it is actually applied to an
+<a class="reference internal" href="api/tensorstore.Indexable.html#tensorstore.Indexable" title="tensorstore.Indexable"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> object, using the syntax
+<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">ts</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">d</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">sel</span></span><span class="p"><span class="pre">]</span></span> <span class="n"><span class="pre">op1</span></span> <span class="o"><span class="pre">…</span></span> <span class="n"><span class="pre">opN</span></span><span class="p"><span class="pre">]</span></span></code>.</p>
+<div class="section" id="dimension-selections">
+<span id="python-dim-selections"></span><h3>Dimension selections<a class="headerlink" href="#dimension-selections" title="Permalink to this headline">¶</a></h3>
+<p>A dimension selection is specified using the syntax <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">ts</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">d</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">sel</span></span><span class="p"><span class="pre">]</span></span></code>, where <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">sel</span></span></code> is one of:</p>
+<ul class="simple">
+<li><p>an integer, specifying an existing or new dimension by index (as with built-in sequence types, negative numbers
+specify a dimension index relative to the end);</p></li>
+<li><p>a non-empty <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">str</span></code></a>, specifying an existing dimension by label;</p></li>
+<li><p>a <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a> object, <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">start</span></span><span class="p"><span class="pre">:</span></span><span class="n"><span class="pre">stop</span></span><span class="p"><span class="pre">:</span></span><span class="n"><span class="pre">step</span></span></code>, where <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">start</span></span></code>,
+<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">stop</span></span></code>, and <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">step</span></span></code> are either integers or <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a>,
+specifying a range of existing or new dimensions by index (as for built-in sequence types, negative numbers specify a dimension index relative to the end);</p></li>
+<li><p>any sequence (including a <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">tuple</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">list</span></code></a>, or another <a class="reference internal" href="api/tensorstore.DimensionSelection.html#tensorstore.DimensionSelection" title="tensorstore.DimensionSelection"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.DimensionSelection</span></code></a> object) of any of the above.</p></li>
+</ul>
+<p>The result is a <a class="reference internal" href="api/tensorstore.DimensionSelection.html#tensorstore.DimensionSelection" title="tensorstore.DimensionSelection"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.DimensionSelection</span></code></a>, which is simply a
+lightweight, immutable container representing the flattened sequence
+of <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">int</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">str</span></code></a>, or <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a> objects:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+<span class="go">d[0,1,2]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">]</span>
+<span class="go">d[0:1,2,&#39;x&#39;]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">]]</span>
+<span class="go">d[0,1,2]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]]</span>
+<span class="go">d[0,1,2,3]</span>
+</pre></div>
+</div>
+<p>A <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">str</span></code></a> label always identifies an existing dimension, and is only
+compatible with operations/terms that expect an existing dimension:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">][</span><span class="mi">2</span><span class="p">:</span><span class="mi">3</span><span class="p">]]</span>
+<span class="go">Rank 1 -&gt; 1 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: [2, 3) &quot;x&quot;</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[0]</span>
+</pre></div>
+</div>
+<p>An integer may identify either an existing or new dimension depending
+on whether it is used with a <a class="reference internal" href="api/tensorstore.newaxis.html#tensorstore.newaxis" title="tensorstore.newaxis"><code class="xref any py py-data docutils literal notranslate"><span class="pre">tensorstore.newaxis</span></code></a> term:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># `1` refers to existing dimension &quot;y&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">:</span><span class="mi">3</span><span class="p">]]</span>
+<span class="go">Rank 2 -&gt; 2 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: (-inf*, +inf*) &quot;x&quot;</span>
+<span class="go">    1: [2, 3) &quot;y&quot;</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[0]</span>
+<span class="go">    out[1] = 0 + 1 * in[1]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># `1` refers to new singleton dimension</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">ts</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]]</span>
+<span class="go">Rank 3 -&gt; 2 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: (-inf*, +inf*) &quot;x&quot;</span>
+<span class="go">    1: [0*, 1*)</span>
+<span class="go">    2: (-inf*, +inf*) &quot;y&quot;</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[0]</span>
+<span class="go">    out[1] = 0 + 1 * in[2]</span>
+</pre></div>
+</div>
+<p>A negative dimension index <code class="code highlight python docutils literal notranslate"><span class="o"><span class="pre">-</span></span><span class="n"><span class="pre">i</span></span></code> is equivalent to <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">n</span></span> <span class="o"><span class="pre">-</span></span>
+<span class="n"><span class="pre">i</span></span></code>, where <code class="docutils literal notranslate"><span class="pre">n</span></code> is the <em>sum</em> of the rank of the original domain <em>plus</em>
+the number of <a class="reference internal" href="api/tensorstore.newaxis.html#tensorstore.newaxis" title="tensorstore.newaxis"><code class="xref any py py-data docutils literal notranslate"><span class="pre">tensorstore.newaxis</span></code></a> terms:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># `-1` is equivalent to 1, refers to existing dimension &quot;y&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">:</span><span class="mi">3</span><span class="p">]]</span>
+<span class="go">Rank 2 -&gt; 2 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: (-inf*, +inf*) &quot;x&quot;</span>
+<span class="go">    1: [2, 3) &quot;y&quot;</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[0]</span>
+<span class="go">    out[1] = 0 + 1 * in[1]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># `-1` is equivalent to 2, refers to new singleton dimension</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="n">ts</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]]</span>
+<span class="go">Rank 3 -&gt; 2 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: (-inf*, +inf*) &quot;x&quot;</span>
+<span class="go">    1: (-inf*, +inf*) &quot;y&quot;</span>
+<span class="go">    2: [0*, 1*)</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[0]</span>
+<span class="go">    out[1] = 0 + 1 * in[1]</span>
+</pre></div>
+</div>
+<p>Likewise, a <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a> may identify either existing or new dimensions:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># `:2` refers to existing dimensions &quot;x&quot;, &quot;y&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[:</span><span class="mi">2</span><span class="p">][</span><span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span><span class="mi">4</span><span class="p">]]</span>
+<span class="go">Rank 3 -&gt; 3 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: [1, 2) &quot;x&quot;</span>
+<span class="go">    1: [3, 4) &quot;y&quot;</span>
+<span class="go">    2: (-inf*, +inf*) &quot;z&quot;</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[0]</span>
+<span class="go">    out[1] = 0 + 1 * in[1]</span>
+<span class="go">    out[2] = 0 + 1 * in[2]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># `:2` refers to two new singleton dimensions</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[:</span><span class="mi">2</span><span class="p">][</span><span class="n">ts</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="n">ts</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]]</span>
+<span class="go">Rank 5 -&gt; 3 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: [0*, 1*)</span>
+<span class="go">    1: [0*, 1*)</span>
+<span class="go">    2: (-inf*, +inf*) &quot;x&quot;</span>
+<span class="go">    3: (-inf*, +inf*) &quot;y&quot;</span>
+<span class="go">    4: (-inf*, +inf*) &quot;z&quot;</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[2]</span>
+<span class="go">    out[1] = 0 + 1 * in[3]</span>
+<span class="go">    out[2] = 0 + 1 * in[4]</span>
+</pre></div>
+</div>
+<p>If a <a class="reference internal" href="api/tensorstore.newaxis.html#tensorstore.newaxis" title="tensorstore.newaxis"><code class="xref any py py-data docutils literal notranslate"><span class="pre">tensorstore.newaxis</span></code></a> term is mixed with a term that consumes an
+existing dimension, any dimension indices specified in the dimension
+selection (either directly or via <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a> objects) are with respect to
+an <em>intermediate</em> domain with any new singleton dimensions inserted
+but no existing dimensions consumed:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># `1` refers to new singleton dimension, `2` refers to &quot;y&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># intermediate domain is: {0: &quot;x&quot;, 1: &quot;&quot;, 2: &quot;y&quot;}</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">][</span><span class="n">ts</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]</span>
+<span class="go">Rank 2 -&gt; 2 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: (-inf*, +inf*) &quot;x&quot;</span>
+<span class="go">    1: [0*, 1*)</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[0]</span>
+<span class="go">    out[1] = 0</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="dimension-expression-construction">
+<span id="python-dim-expression-construction"></span><h3>Dimension expression construction<a class="headerlink" href="#dimension-expression-construction" title="Permalink to this headline">¶</a></h3>
+<p>A <a class="reference internal" href="api/tensorstore.DimExpression.html#tensorstore.DimExpression" title="tensorstore.DimExpression"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.DimExpression</span></code></a> that applies a given operation to an
+initial dimension selection <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">dexpr</span></span> <span class="o"><span class="pre">=</span></span> <span class="n"><span class="pre">ts</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">d</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">sel</span></span><span class="p"><span class="pre">]</span></span></code> is constructed using:</p>
+<ul class="simple">
+<li><p>subscript syntax <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">dexpr</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">iexpr</span></span><span class="p"><span class="pre">]</span></span></code> (for <a class="reference internal" href="#python-dim-expression-numpy-indexing"><span class="std std-ref">NumPy-style indexing</span></a>);</p></li>
+<li><p>attribute syntax <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">dexpr</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">diagonal</span></span></code> for operations that take no arguments; or</p></li>
+<li><p>attribute subscript syntax <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">dexpr</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">label</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">arg</span></span><span class="p"><span class="pre">]</span></span></code>.</p></li>
+</ul>
+<p>The same syntax may also be used to chain additional operations onto
+an existing <a class="reference internal" href="api/tensorstore.DimExpression.html#tensorstore.DimExpression" title="tensorstore.DimExpression"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.DimExpression</span></code></a>:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_rank</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">ts</span><span class="o">.</span><span class="n">newaxis</span><span class="p">][</span><span class="mi">1</span><span class="p">:</span><span class="mi">10</span><span class="p">]</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">&#39;z&#39;</span><span class="p">]]</span>
+<span class="go">Rank 1 -&gt; 0 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: [1, 10) &quot;z&quot;</span>
+<span class="go">  Output index maps:</span>
+</pre></div>
+</div>
+<p>When a <a class="reference internal" href="api/tensorstore.DimExpression.html#tensorstore.DimExpression" title="tensorstore.DimExpression"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.DimExpression</span></code></a> <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">dexpr</span></span></code> is applied to a
+<a class="reference internal" href="api/tensorstore.Indexable.html#tensorstore.Indexable" title="tensorstore.Indexable"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> object <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span></code>, using the syntax
+<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">dexpr</span></span><span class="p"><span class="pre">]</span></span></code>, the following steps occur:</p>
+<ol class="arabic simple">
+<li><p>The initial dimension selection specified in <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">dexpr</span></span></code> is
+resolved based on the domain of <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span></code> and the first
+operation of <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">dexpr</span></span></code>.</p></li>
+<li><p>The first operation specified in <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">dexpr</span></span></code> is applied to
+<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span></code> using the resolved initial dimension selection.  This results
+in a new <a class="reference internal" href="api/tensorstore.Indexable.html#tensorstore.Indexable" title="tensorstore.Indexable"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> object of the same type as
+<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">obj</span></span></code> and a new dimension selection consisting of the dimensions retained from the prior dimension selection or added by the operation.</p></li>
+<li><p>Each subsequent operation, is applied, in order, to the new
+<a class="reference internal" href="api/tensorstore.Indexable.html#tensorstore.Indexable" title="tensorstore.Indexable"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> object and new dimension selection produced
+by each prior operation.</p></li>
+</ol>
+</div>
+<div class="section" id="numpy-style-dimension-expression-indexing">
+<span id="python-dim-expression-numpy-indexing"></span><h3>NumPy-style dimension expression indexing<a class="headerlink" href="#numpy-style-dimension-expression-indexing" title="Permalink to this headline">¶</a></h3>
+<p>The syntax <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">dexpr</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">iexpr</span></span><span class="p"><span class="pre">]</span></span></code>, <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">dexpr</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">vindex</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">iexpr</span></span><span class="p"><span class="pre">]</span></span></code>, and
+<code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">dexpr</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">oindex</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">iexpr</span></span><span class="p"><span class="pre">]</span></span></code> chains a NumPy-style indexing operation
+to an existing <a class="reference internal" href="api/tensorstore.DimensionSelection.html#tensorstore.DimensionSelection" title="tensorstore.DimensionSelection"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.DimensionSelection</span></code></a> or
+<a class="reference internal" href="api/tensorstore.DimExpression.html#tensorstore.DimExpression" title="tensorstore.DimExpression"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.DimExpression</span></code></a>.</p>
+<p>The behavior is similar to that of regular <a class="reference internal" href="#python-numpy-style-indexing"><span class="std std-ref">NumPy-style
+indexing</span></a> applied directly to a
+<a class="reference internal" href="api/tensorstore.Indexable.html#tensorstore.Indexable" title="tensorstore.Indexable"><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> object, with the following differences:</p>
+<ul>
+<li><p>The terms of the indexing expression <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">iexpr</span></span></code> consume
+dimensions in order from the dimension selection rather than
+starting from the first dimension of the domain, and unless an
+<a class="reference external" href="https://docs.python.org/3/library/constants.html#Ellipsis" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">Ellipsis</span></code></a> (<code class="code highlight python docutils literal notranslate"><span class="o"><span class="pre">…</span></span></code>) term is specified, <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">iexpr</span></span></code> must
+include a sufficient number of indexing terms to consume the entire
+dimension selection.</p></li>
+<li><p><a class="reference internal" href="api/tensorstore.newaxis.html#tensorstore.newaxis" title="tensorstore.newaxis"><code class="xref any py py-data docutils literal notranslate"><span class="pre">tensorstore.newaxis</span></code></a> terms are only permitted in the first
+operation of a dimension expression, since in subsequent operations
+all dimensions of the dimension selection necessarily refer to
+existing dimensions.  Additionally, the dimension selection must
+specify the index of the new dimension for each
+<a class="reference internal" href="api/tensorstore.newaxis.html#tensorstore.newaxis" title="tensorstore.newaxis"><code class="xref any py py-data docutils literal notranslate"><span class="pre">tensorstore.newaxis</span></code></a> term.</p></li>
+<li><p>If <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">iexpr</span></span></code> is a <em>scalar</em> indexing expression that consists of a:</p>
+<ul class="simple">
+<li><p>single integer,</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a> <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">start</span></span><span class="p"><span class="pre">:</span></span><span class="n"><span class="pre">stop</span></span><span class="p"><span class="pre">:</span></span><span class="n"><span class="pre">step</span></span></code> where <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">start</span></span></code>, <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">stop</span></span></code>, and <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">step</span></span></code>
+are integers or <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a>, or</p></li>
+<li><p><a class="reference internal" href="api/tensorstore.newaxis.html#tensorstore.newaxis" title="tensorstore.newaxis"><code class="xref any py py-data docutils literal notranslate"><span class="pre">tensorstore.newaxis</span></code></a> term,</p></li>
+</ul>
+<p>it may be used with a dimension selection of more than one
+dimension, in which case <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">iexpr</span></span></code> is implicitly duplicated to
+match the number of dimensions in the dimension selection:</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># add singleton dimension to beginning and end</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="n">ts</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]]</span>
+<span class="go">Rank 4 -&gt; 2 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: [0*, 1*)</span>
+<span class="go">    1: (-inf*, +inf*) &quot;x&quot;</span>
+<span class="go">    2: (-inf*, +inf*) &quot;y&quot;</span>
+<span class="go">    3: [0*, 1*)</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[1]</span>
+<span class="go">    out[1] = 0 + 1 * in[2]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># slice out square region</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[:][</span><span class="mi">0</span><span class="p">:</span><span class="mi">10</span><span class="p">]]</span>
+<span class="go">Rank 2 -&gt; 2 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: [0, 10) &quot;x&quot;</span>
+<span class="go">    1: [0, 10) &quot;y&quot;</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[0]</span>
+<span class="go">    out[1] = 0 + 1 * in[1]</span>
+</pre></div>
+</div>
+</li>
+<li><p>When using the default indexing mode, i.e. <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">dexpr</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">iexpr</span></span><span class="p"><span class="pre">]</span></span></code>, if more
+than one array indexing term is specified (even if they are
+consecutive), the array dimensions are always added as the first
+dimensions of the result domain (as if <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">dexpr</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">vindex</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">iexpr</span></span><span class="p"><span class="pre">]</span></span></code>
+were specified).</p></li>
+<li><p>When using outer indexing mode, i.e. <code class="code highlight python docutils literal notranslate"><span class="n"><span class="pre">dexpr</span></span><span class="o"><span class="pre">.</span></span><span class="n"><span class="pre">oindex</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">iexpr</span></span><span class="p"><span class="pre">]</span></span></code>,
+zero-rank boolean arrays are not permitted.</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="index-transforms">
+<h2>Index transforms<a class="headerlink" href="#index-transforms" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="api/index.html" class="btn btn-neutral float-right" title="API reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="tutorial.html" class="btn btn-neutral float-left" title="Tutorial" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020 The TensorStore Authors
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

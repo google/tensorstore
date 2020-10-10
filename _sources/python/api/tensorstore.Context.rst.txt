@@ -1,0 +1,30 @@
+tensorstore.Context
+===================
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: Context
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~Context.__init__
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: .
+   
+      ~Context.parent
+      ~Context.spec
+   
+   

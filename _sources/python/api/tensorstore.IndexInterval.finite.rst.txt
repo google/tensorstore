@@ -1,0 +1,6 @@
+tensorstore.IndexInterval.finite
+================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: IndexInterval.finite

@@ -1,0 +1,6 @@
+tensorstore.dtype.numpy\_dtype
+==============================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: dtype.numpy_dtype

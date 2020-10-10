@@ -1,0 +1,34 @@
+tensorstore.OutputIndexMap
+==========================
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: OutputIndexMap
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~OutputIndexMap.__init__
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: .
+   
+      ~OutputIndexMap.index_array
+      ~OutputIndexMap.index_range
+      ~OutputIndexMap.input_dimension
+      ~OutputIndexMap.method
+      ~OutputIndexMap.offset
+      ~OutputIndexMap.stride
+   
+   

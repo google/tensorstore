@@ -1,0 +1,6 @@
+tensorstore.Promise.new
+=======================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: Promise.new

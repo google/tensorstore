@@ -1,0 +1,35 @@
+tensorstore.DimensionSelection
+==============================
+
+.. currentmodule:: tensorstore
+
+.. autoclass:: DimensionSelection
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~DimensionSelection.__init__
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: .
+   
+      ~DimensionSelection.diagonal
+      ~DimensionSelection.label
+      ~DimensionSelection.oindex
+      ~DimensionSelection.translate_by
+      ~DimensionSelection.translate_to
+      ~DimensionSelection.transpose
+      ~DimensionSelection.vindex
+   
+   

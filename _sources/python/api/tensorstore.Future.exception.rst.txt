@@ -1,0 +1,6 @@
+tensorstore.Future.exception
+============================
+
+.. currentmodule:: tensorstore
+
+.. automethod:: Future.exception
