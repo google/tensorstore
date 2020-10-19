@@ -38,11 +38,13 @@ template <template <typename U, typename V, typename... Args>
           class NumberFloatType /* = double*/,
           template <typename U> class AllocatorType /* = std::allocator*/,
           template <typename T, typename SFINAE = void>
-          class JSONSerializer /* = adl_serializer*/>
+          class JSONSerializer /* = adl_serializer*/,
+          class BinaryType /* = std::vector<std::uint8_t>*/>
 class basic_json;
 
 using json = basic_json<std::map, std::vector, std::string, bool, std::int64_t,
-                        std::uint64_t, double, std::allocator, adl_serializer>;
+                        std::uint64_t, double, std::allocator, adl_serializer,
+                        std::vector<std::uint8_t>>;
 
 }  // namespace nlohmann
 
