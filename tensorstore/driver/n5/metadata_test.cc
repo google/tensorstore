@@ -37,39 +37,61 @@ using tensorstore::StridedLayout;
 using tensorstore::internal_n5::DecodeChunk;
 using tensorstore::internal_n5::N5Metadata;
 
-TEST(MetadataTest, Parse) {
-  ::nlohmann::json attributes{{"dimensions", {10, 11, 12}},
-                              {"blockSize", {1, 2, 3}},
-                              {"dataType", "uint16"},
-                              {"compression", {{"type", "raw"}}},
-                              {"extra", "value"}};
+TEST(MetadataTest, ParseValid) {
+  ::nlohmann::json attributes{
+      {"dimensions", {10, 11, 12}},       {"axes", {"a", "", ""}},
+      {"blockSize", {1, 2, 3}},           {"dataType", "uint16"},
+      {"compression", {{"type", "raw"}}}, {"extra", "value"},
+  };
   auto metadata = N5Metadata::Parse(attributes);
   ASSERT_EQ(Status(), GetStatus(metadata));
   EXPECT_THAT(metadata->shape, ::testing::ElementsAre(10, 11, 12));
   EXPECT_THAT(metadata->data_type, tensorstore::DataTypeOf<std::uint16_t>());
+  EXPECT_THAT(metadata->axes, ::testing::ElementsAre("a", "", ""));
   EXPECT_EQ(attributes, metadata->attributes);
   EXPECT_EQ(attributes["compression"], ::nlohmann::json(metadata->compressor));
   EXPECT_EQ(StridedLayout(fortran_order, 2, {1, 2, 3}), metadata->chunk_layout);
+}
 
-  // Missing dimensions
+TEST(MetadataTest, ParseValidNoAxes) {
+  ::nlohmann::json attributes{
+      {"dimensions", {10, 11, 12}},
+      {"blockSize", {1, 2, 3}},
+      {"dataType", "uint16"},
+      {"compression", {{"type", "raw"}}},
+  };
+  auto metadata = N5Metadata::Parse(attributes);
+  ASSERT_EQ(Status(), GetStatus(metadata));
+  EXPECT_THAT(metadata->shape, ::testing::ElementsAre(10, 11, 12));
+  EXPECT_THAT(metadata->data_type, tensorstore::DataTypeOf<std::uint16_t>());
+  EXPECT_THAT(metadata->axes, ::testing::ElementsAre("", "", ""));
+  EXPECT_EQ(attributes, metadata->attributes);
+  EXPECT_EQ(attributes["compression"], ::nlohmann::json(metadata->compressor));
+  EXPECT_EQ(StridedLayout(fortran_order, 2, {1, 2, 3}), metadata->chunk_layout);
+}
+
+TEST(MetadataTest, ParseMissingDimensions) {
   EXPECT_THAT(N5Metadata::Parse({{"blockSize", {1, 2, 3}},
                                  {"dataType", "uint16"},
                                  {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
 
-  // Missing blockSize
+TEST(MetadataTest, ParseMissingBlockSize) {
   EXPECT_THAT(N5Metadata::Parse({{"dimensions", {10, 11, 12}},
                                  {"dataType", "uint16"},
                                  {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
 
-  // Missing data type.
+TEST(MetadataTest, ParseMissingDataType) {
   EXPECT_THAT(N5Metadata::Parse({{"dimensions", {10, 11, 12}},
                                  {"blockSize", {1, 2, 3}},
                                  {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
 
-  // Invalid data type
+TEST(MetadataTest, ParseInvalidDataType) {
   EXPECT_THAT(N5Metadata::Parse({{"dimensions", {10, 11, 12}},
                                  {"blockSize", {1, 2, 3}},
                                  {"dataType", 10},
@@ -80,21 +102,24 @@ TEST(MetadataTest, Parse) {
                                  {"dataType", "string"},
                                  {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
 
-  // Missing compression.
+TEST(MetadataTest, ParseMissingCompression) {
   EXPECT_THAT(N5Metadata::Parse({{"dimensions", {10, 11, 12}},
                                  {"blockSize", {1, 2, 3}},
                                  {"dataType", "uint16"}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
 
-  // Invalid compression
+TEST(MetadataTest, ParseInvalidCompression) {
   EXPECT_THAT(N5Metadata::Parse({{"dimensions", {10, 11, 12}},
                                  {"blockSize", {1, 2, 3}},
                                  {"dataType", "uint16"},
                                  {"compression", 3}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
 
-  // Invalid dimensions
+TEST(MetadataTest, ParseInvalidDimensions) {
   EXPECT_THAT(N5Metadata::Parse({{"dimensions", "x"},
                                  {"blockSize", {1, 2, 3}},
                                  {"dataType", "uint16"},
@@ -110,8 +135,9 @@ TEST(MetadataTest, Parse) {
                                  {"dataType", "uint16"},
                                  {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
 
-  // Invalid blockSize
+TEST(MetadataTest, ParseInvalidBlockSize) {
   EXPECT_THAT(N5Metadata::Parse({{"dimensions", {10, 11, 12}},
                                  {"blockSize", "x"},
                                  {"dataType", "uint16"},
@@ -132,6 +158,29 @@ TEST(MetadataTest, Parse) {
                                  {"dataType", "uint16"},
                                  {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(MetadataTest, ParseInvalidAxes) {
+  EXPECT_THAT(N5Metadata::Parse({
+                  {"dimensions", {10, 11, 12}},
+                  {"axes", {"a", "b", "c", "d"}},
+                  {"blockSize", {1, 2, 3}},
+                  {"dataType", "uint16"},
+                  {"compression", {{"type", "raw"}}},
+              }),
+              MatchesStatus(
+                  absl::StatusCode::kInvalidArgument,
+                  ".* \"axes\": Array has length 4 but should have length 3"));
+
+  EXPECT_THAT(
+      N5Metadata::Parse({
+          {"dimensions", {10, 11, 12}},
+          {"axes", {"a", "a", ""}},
+          {"blockSize", {1, 2, 3}},
+          {"dataType", "uint16"},
+          {"compression", {{"type", "raw"}}},
+      }),
+      MatchesStatus(absl::StatusCode::kInvalidArgument, ".* \"a\" not unique"));
 }
 
 TEST(MetadataTest, DataTypes) {

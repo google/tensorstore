@@ -879,6 +879,35 @@ TENSORSTORE_GLOBAL_INITIALIZER {
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TensorStoreDriverBasicFunctionalityTestOptions options;
+  options.test_name = "n5/with_axes";
+  options.create_spec = {
+      {"driver", "n5"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"path", "prefix"},
+      {"metadata",
+       {
+           {"compression", {{"type", "raw"}}},
+           {"dataType", "uint16"},
+           {"dimensions", {10, 11}},
+           {"axes", {"x", "y"}},
+           {"blockSize", {4, 5}},
+       }},
+  };
+  options.expected_domain = tensorstore::IndexDomainBuilder(2)
+                                .shape({10, 11})
+                                .labels({"x", "y"})
+                                .implicit_upper_bounds({1, 1})
+                                .Finalize()
+                                .value();
+  options.initial_value = tensorstore::AllocateArray<std::uint16_t>(
+      tensorstore::BoxView({10, 11}), tensorstore::c_order,
+      tensorstore::value_init);
+  tensorstore::internal::RegisterTensorStoreDriverBasicFunctionalityTest(
+      std::move(options));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
   tensorstore::internal::TestTensorStoreDriverResizeOptions options;
   options.test_name = "n5";
   options.get_create_spec = [](tensorstore::BoxView<> bounds) {

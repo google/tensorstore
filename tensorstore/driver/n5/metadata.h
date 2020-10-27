@@ -62,6 +62,9 @@ class N5Metadata {
   /// Specifies the current shape of the full volume.
   std::vector<Index> shape;
 
+  /// Specifies the dimension labels.
+  std::vector<std::string> axes;
+
   /// Specifies the chunk size (corresponding to the `"blockSize"` attribute)
   /// and the in-memory layout of a full chunk (always C order).
   StridedLayout<> chunk_layout;
@@ -96,6 +99,7 @@ class N5Metadata {
 class N5MetadataConstraints {
  public:
   std::optional<std::vector<Index>> shape;
+  std::optional<std::vector<std::string>> axes;
   std::optional<std::vector<Index>> chunk_shape;
   std::optional<Compressor> compressor;
   /// Specifies the data type, or may be invalid to indicate an unspecified data

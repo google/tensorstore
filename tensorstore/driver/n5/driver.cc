@@ -21,6 +21,7 @@
 #include "tensorstore/driver/n5/metadata.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/chunk_cache.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/path.h"
@@ -187,6 +188,22 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     return key;
   }
 
+  Result<IndexTransform<>> GetExternalToInternalTransform(
+      const void* metadata_ptr, std::size_t component_index) override {
+    assert(component_index == 0);
+    const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
+    const auto& axes = metadata.axes;
+    const DimensionIndex rank = metadata.axes.size();
+    auto builder = tensorstore::IndexTransformBuilder<>(rank, rank)
+                       .input_shape(metadata.shape)
+                       .input_labels(axes);
+    builder.implicit_upper_bounds().fill(true);
+    for (DimensionIndex i = 0; i < rank; ++i) {
+      builder.output_single_input_dimension(i, i);
+    }
+    return builder.Finalize();
+  }
+
   Status GetBoundSpecData(
       internal_kvs_backed_chunk_driver::SpecT<internal::ContextBound>*
           spec_base,
@@ -197,6 +214,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
     auto& constraints = spec.metadata_constraints;
     constraints.shape = metadata.shape;
+    constraints.axes = metadata.axes;
     constraints.data_type = metadata.data_type;
     constraints.compressor = metadata.compressor;
     constraints.attributes = metadata.attributes;

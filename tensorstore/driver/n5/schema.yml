@@ -55,6 +55,24 @@ allOf:
         compression:
           $ref: '#compression'
           title: Specifies the chunk compression method.
+        axes:
+          type: array
+          items:
+            type: string
+          title: Specifies a label for each dimension of the dataset.
+          description: |
+            Optional.  If not specified when creating a new dataset, all
+            dimensions are unlabeled (equivalent to specifying an empty string
+            for each dimension).  Labels are specified in the same order as the
+            :json-member:`dimensions` and :json-member:`blockSize` properties.
+            Note that this specifies the *stored* dimension labels.  As with any
+            TensorStore driver, dimension labels may also be overridden by
+            specifying an :json-schema:`index transform
+            <https://github.com/google/tensorstore/json-schema/index-transform>`
+            via the :json-member:`transform` property.
+          examples:
+          - ["x", "y", "z"]
+
 definitions:
   compression:
     $id: '#compression'

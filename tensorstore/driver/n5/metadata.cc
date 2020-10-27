@@ -19,6 +19,7 @@
 #include "absl/algorithm/container.h"
 #include "absl/base/internal/endian.h"
 #include "absl/strings/str_join.h"
+#include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/container_to_shared.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
 #include "tensorstore/internal/flat_cord_builder.h"
@@ -74,6 +75,27 @@ Status ParseShape(const ::nlohmann::json& value,
   return ParseIndexVector(value, rank, shape, /*min_value=*/0, kInfIndex);
 }
 
+Status ParseAxes(const ::nlohmann::json& value,
+                 std::optional<DimensionIndex>* rank,
+                 std::vector<std::string>* axes) {
+  TENSORSTORE_RETURN_IF_ERROR(internal::JsonParseArray(
+      value,
+      [&](std::ptrdiff_t size) {
+        if (*rank) {
+          TENSORSTORE_RETURN_IF_ERROR(
+              internal::JsonValidateArrayLength(size, **rank));
+        } else {
+          *rank = size;
+        }
+        axes->resize(size);
+        return absl::OkStatus();
+      },
+      [&](const ::nlohmann::json& v, std::ptrdiff_t i) {
+        return internal::JsonRequireValueAs(v, &(*axes)[i], /*strict=*/true);
+      }));
+  return internal_index_space::ValidateLabelsAreUnique(*axes);
+}
+
 std::string GetSupportedDataTypes() {
   return absl::StrJoin(
       kSupportedDataTypes, ", ", [](std::string* out, DataTypeId id) {
@@ -120,6 +142,11 @@ Result<N5Metadata> N5Metadata::Parse(::nlohmann::json j) {
         TENSORSTORE_ASSIGN_OR_RETURN(metadata.compressor,
                                      Compressor::FromJson(value));
         return absl::OkStatus();
+      }));
+  metadata.axes.resize(*rank);
+  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
+      metadata.attributes, "axes", [&](const ::nlohmann::json& value) {
+        return ParseAxes(value, &rank, &metadata.axes);
       }));
   // Per the specification:
   // https://github.com/saalfeldlab/n5#file-system-specification-version-203-snapshot
@@ -175,6 +202,10 @@ Result<N5MetadataConstraints> N5MetadataConstraints::Parse(::nlohmann::json j) {
         TENSORSTORE_ASSIGN_OR_RETURN(metadata.compressor,
                                      Compressor::FromJson(value));
         return absl::OkStatus();
+      }));
+  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
+      metadata.attributes, "axes", [&](const ::nlohmann::json& value) {
+        return ParseAxes(value, &rank, &metadata.axes.emplace());
       }));
   return metadata;
 }
@@ -365,6 +396,9 @@ Status ValidateMetadata(const N5Metadata& metadata,
     return MetadataMismatchError("dimensions", *constraints.shape,
                                  metadata.shape);
   }
+  if (constraints.axes && !absl::c_equal(metadata.axes, *constraints.axes)) {
+    return MetadataMismatchError("axes", *constraints.axes, metadata.axes);
+  }
   if (constraints.chunk_shape &&
       !absl::c_equal(metadata.chunk_layout.shape(), *constraints.chunk_shape)) {
     return MetadataMismatchError("blockSize", *constraints.chunk_shape,
@@ -400,6 +434,11 @@ Result<std::shared_ptr<const N5Metadata>> GetNewMetadata(
   auto metadata = std::make_shared<N5Metadata>();
   metadata->attributes = metadata_constraints.attributes;
   metadata->shape = *metadata_constraints.shape;
+  if (metadata_constraints.axes) {
+    metadata->axes = *metadata_constraints.axes;
+  } else {
+    metadata->axes.resize(metadata->shape.size());
+  }
 
   InitializeContiguousLayout(
       fortran_order, metadata_constraints.data_type.size(),
