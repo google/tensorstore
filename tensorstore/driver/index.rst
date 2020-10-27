@@ -9,6 +9,14 @@ Drivers
    cast/index
    array/index
 
+Single file drivers
+-------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   json/index
+
 Chunked storage drivers
 -----------------------
 

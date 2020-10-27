@@ -67,8 +67,8 @@ allOf:
             :json-member:`dimensions` and :json-member:`blockSize` properties.
             Note that this specifies the *stored* dimension labels.  As with any
             TensorStore driver, dimension labels may also be overridden by
-            specifying an :json-schema:`index transform
-            <https://github.com/google/tensorstore/json-schema/index-transform>`
+            specifying an
+            :json-schema:`https://github.com/google/tensorstore/json-schema/index-transform`
             via the :json-member:`transform` property.
           examples:
           - ["x", "y", "z"]

@@ -127,6 +127,7 @@ class RegisteredDriverOpener;
 ///   transform.
 ///
 ///     Result<IndexTransform<>> GetBoundSpecData(
+///         internal::OpenTransactionPtr transaction,
 ///         SpecT<ContextBound>* spec,
 ///         IndexTransformView<> transform) const;
 ///

@@ -97,6 +97,11 @@ struct [[nodiscard]] WriteFutures {
   Future<void> commit_future;
 };
 
+/// Waits for `future.commit_future` to be ready and returns the status.
+inline absl::Status GetStatus(const WriteFutures& future) {
+  return tensorstore::GetStatus(future.result());
+}
+
 using ReadProgressFunction =
     internal::Poly<sizeof(void*) * 2, /*Copyable=*/false, void(ReadProgress)>;
 

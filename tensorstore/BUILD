@@ -611,6 +611,7 @@ tensorstore_cc_library(
     name = "all_drivers",
     deps = [
         "//tensorstore/driver/array",
+        "//tensorstore/driver/json",
         "//tensorstore/driver/n5",
         "//tensorstore/driver/n5:blosc_compressor",
         "//tensorstore/driver/n5:bzip2_compressor",

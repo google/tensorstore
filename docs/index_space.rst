@@ -206,8 +206,8 @@ computed as follows:
    * - A1
      - For each dimension :math:`j` of ``target`` with a matching dimension
        :math:`i` of ``source``, output dimension :math:`i` of ``alignment`` has
-       a *single_input_dimension* map to input dimension `j` with a stride of
-       `1` and offset of :math:`\mathtt{source\_origin}[i] -
+       a *single_input_dimension* map to input dimension :math:`j` with a stride
+       of :math:`1` and offset of :math:`\mathtt{source\_origin}[i] -
        \mathtt{target\_origin}[j]`.
 
    * - A2
