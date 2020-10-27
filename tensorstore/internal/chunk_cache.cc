@@ -432,11 +432,11 @@ struct WriteChunkImpl {
         component_spec, origin, std::move(chunk_transform), arena);
   }
 
-  Future<const void> operator()(WriteChunk::EndWrite,
-                                IndexTransformView<> chunk_transform,
-                                NDIterable::IterationLayoutView layout,
-                                span<const Index> write_end_position,
-                                Arena* arena) const {
+  WriteChunk::EndWriteResult operator()(WriteChunk::EndWrite,
+                                        IndexTransformView<> chunk_transform,
+                                        NDIterable::IterationLayoutView layout,
+                                        span<const Index> write_end_position,
+                                        Arena* arena) const {
     auto& entry = GetOwningEntry(*node);
     const auto& component_spec = entry.component_specs()[component_index];
     absl::FixedArray<Index, kNumInlinedDims> origin(component_spec.rank());
@@ -449,7 +449,7 @@ struct WriteChunkImpl {
     if (modified && IsFullyOverwritten(*node)) {
       node->SetUnconditional();
     }
-    if (modified) return node->transaction()->future();
+    if (modified) return {absl::OkStatus(), node->transaction()->future()};
     return {};
   }
 };

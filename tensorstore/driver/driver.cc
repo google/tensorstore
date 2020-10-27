@@ -615,9 +615,14 @@ struct WriteChunkOp {
       NDIterableCopier copier(*source_iterable, *target_iterable,
                               chunk.transform.input_shape(), arena);
       copy_status = copier.Copy();
-      commit_future = chunk.impl(WriteChunk::EndWrite{}, chunk.transform,
-                                 copier.layout_info().layout_view(),
-                                 copier.stepper().position(), arena);
+      auto end_write_result =
+          chunk.impl(WriteChunk::EndWrite{}, chunk.transform,
+                     copier.layout_info().layout_view(),
+                     copier.stepper().position(), arena);
+      commit_future = std::move(end_write_result.commit_future);
+      if (copy_status.ok()) {
+        copy_status = std::move(end_write_result.copy_status);
+      }
     }
 
     if (copy_status.ok()) {
@@ -873,10 +878,14 @@ struct CopyChunkOp {
                               write_chunk.transform.input_shape(), arena);
       copy_status = copier.Copy();
 
-      commit_future =
+      auto end_write_result =
           write_chunk.impl(WriteChunk::EndWrite{}, write_chunk.transform,
                            copier.layout_info().layout_view(),
                            copier.stepper().position(), arena);
+      commit_future = std::move(end_write_result.commit_future);
+      if (copy_status.ok()) {
+        copy_status = std::move(end_write_result.copy_status);
+      }
     }
     if (copy_status.ok()) {
       const Index num_elements = write_chunk.transform.domain().num_elements();

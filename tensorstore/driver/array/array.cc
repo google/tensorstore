@@ -218,11 +218,10 @@ void ArrayDriver::Write(
           {self->data_, std::move(chunk_transform)}, arena);
     }
 
-    Future<const void> operator()(WriteChunk::EndWrite,
-                                  IndexTransformView<> chunk_transform,
-                                  NDIterable::IterationLayoutView layout,
-                                  span<const Index> write_end_position,
-                                  Arena* arena) {
+    WriteChunk::EndWriteResult operator()(
+        WriteChunk::EndWrite, IndexTransformView<> chunk_transform,
+        NDIterable::IterationLayoutView layout,
+        span<const Index> write_end_position, Arena* arena) {
       return {};
     }
   };

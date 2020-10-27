@@ -191,11 +191,11 @@ struct WriteChunkImpl {
         std::move(iterable), self->target_data_type_, self->output_conversion_);
   }
 
-  Future<const void> operator()(WriteChunk::EndWrite,
-                                IndexTransformView<> chunk_transform,
-                                NDIterable::IterationLayoutView layout,
-                                span<const Index> write_end_position,
-                                Arena* arena) {
+  WriteChunk::EndWriteResult operator()(WriteChunk::EndWrite,
+                                        IndexTransformView<> chunk_transform,
+                                        NDIterable::IterationLayoutView layout,
+                                        span<const Index> write_end_position,
+                                        Arena* arena) {
     return base(WriteChunk::EndWrite{}, chunk_transform, layout,
                 write_end_position, arena);
   }

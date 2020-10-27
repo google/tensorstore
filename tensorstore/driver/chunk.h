@@ -80,6 +80,28 @@ struct ReadChunk {
 struct WriteChunk {
   struct BeginWrite {};
   struct EndWrite {};
+
+  struct [[nodiscard]] EndWriteResult {
+    /// Indicates an error recording write operation in memory.  Errors
+    /// committing the write operation should instead be reported using
+    /// `commit_future`.
+    absl::Status copy_status;
+
+    /// For write operations without an explicit transaction, specifies a Future
+    /// that becomes ready when the write has been committed (specifically, when
+    /// durability is guaranteed), or an error occurs.  In the case of an error,
+    /// the write may be lost.  `Force` must be called to ensure the future
+    /// eventually becomes ready.
+    ///
+    /// A null (invalid) `Future` is equivalent to `MakeReadyFuture()`, and may
+    /// be returned if this write operation had no effect and no changes need to
+    /// be committed.
+    ///
+    /// For write operations with an explicit transaction, this is assumed to
+    /// equal the future associated with the transaction, and is ignored.
+    Future<const void> commit_future;
+  };
+
   using Impl =
       Poly<sizeof(void*) * 2,
            /*Copyable=*/true,  //
@@ -131,16 +153,9 @@ struct WriteChunk {
            ///     respect to `layout`) that was modified.
            /// \param arena Non-null pointer to allocation arena that may be
            ///     used for allocating memory.
-           /// \returns A Future that becomes ready when the write has been
-           ///     committed (specifically, when durability is guaranteed), or
-           ///     an error occurs. In the case of an error, the write may be
-           ///     lost.  `Force` must be called to ensure the future eventually
-           ///     becomes ready.  A return value of a null (invalid) `Future`
-           ///     is equivalent to a ready future in the success state.
-           Future<const void>(EndWrite, IndexTransformView<> chunk_transform,
-                              NDIterable::IterationLayoutView layout,
-                              span<const Index> write_end_position,
-                              Arena* arena)>;
+           EndWriteResult(EndWrite, IndexTransformView<> chunk_transform,
+                          NDIterable::IterationLayoutView layout,
+                          span<const Index> write_end_position, Arena* arena)>;
 
   /// Type-erased chunk implementation.  In the case of the chunks produced by
   /// `ChunkCache::Write`, for example, the contained object holds a
