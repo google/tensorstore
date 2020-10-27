@@ -159,11 +159,13 @@ class BenchmarkCache
     using Cache = BenchmarkCache;
     using Base::TransactionNode::TransactionNode;
     absl::Status DoInitialize(
-        tensorstore::internal::OpenTransactionPtr& transaction) {
+        tensorstore::internal::OpenTransactionPtr& transaction) override {
       this->SetReadsCommitted();
       return Base::TransactionNode::DoInitialize(transaction);
     }
-    void DoRead(absl::Time staleness_bound) { TENSORSTORE_UNREACHABLE; }
+    void DoRead(absl::Time staleness_bound) override {
+      TENSORSTORE_UNREACHABLE;
+    }
     void Commit() override {
       struct ApplyReceiver {
         TransactionNode* self_;

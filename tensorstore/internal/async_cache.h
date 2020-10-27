@@ -300,14 +300,15 @@ class AsyncCache : public Cache {
 
     /// Unlocks the write lock, and returns (releases) the open transaction node
     /// pointer.
-    internal::OpenTransactionNodePtr<DerivedNode> unlock() {
+    internal::OpenTransactionNodePtr<DerivedNode> unlock()
+        ABSL_NO_THREAD_SAFETY_ANALYSIS {
       if (node_) {
         node_->WriterUnlock();
       }
       return std::exchange(node_, {});
     }
 
-    ~WriteLock() {
+    ~WriteLock() ABSL_NO_THREAD_SAFETY_ANALYSIS {
       if (node_) node_->WriterUnlock();
     }
 
@@ -381,7 +382,8 @@ class AsyncCache : public Cache {
         std::is_base_of_v<Entry, DerivedEntry>,
         Result<WriteLock<typename DerivedEntry::Cache::TransactionNode>>>
     GetWriteLockedTransactionNode(
-        DerivedEntry& entry, const internal::OpenTransactionPtr& transaction) {
+        DerivedEntry& entry, const internal::OpenTransactionPtr& transaction)
+        ABSL_NO_THREAD_SAFETY_ANALYSIS {
       using DerivedNode = typename DerivedEntry::Cache::TransactionNode;
       while (true) {
         auto transaction_copy = transaction;
