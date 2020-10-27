@@ -1055,6 +1055,35 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "json_pointer",
+    srcs = ["json_pointer.cc"],
+    hdrs = ["json_pointer.h"],
+    deps = [
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
+        "//tensorstore/util:str_cat",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "json_pointer_test",
+    size = "small",
+    srcs = ["json_pointer_test.cc"],
+    deps = [
+        ":json_gtest",
+        ":json_pointer",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "json_pprint_python",
     srcs = ["json_pprint_python.cc"],
     hdrs = ["json_pprint_python.h"],
