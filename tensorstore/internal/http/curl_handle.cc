@@ -106,6 +106,7 @@ Status CurlCodeToStatus(CURLcode code, absl::string_view detail) {
     case CURLE_HTTP2:
     case CURLE_SSL_CONNECT_ERROR:
     case CURLE_HTTP2_STREAM:
+    case CURLE_PARTIAL_FILE:
       error_code = absl::StatusCode::kUnavailable;
       break;
 
