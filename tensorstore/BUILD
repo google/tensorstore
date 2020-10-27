@@ -606,3 +606,23 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "all_drivers",
+    deps = [
+        "//tensorstore/driver/array",
+        "//tensorstore/driver/n5",
+        "//tensorstore/driver/n5:blosc_compressor",
+        "//tensorstore/driver/n5:bzip2_compressor",
+        "//tensorstore/driver/n5:gzip_compressor",
+        "//tensorstore/driver/n5:xz_compressor",
+        "//tensorstore/driver/neuroglancer_precomputed",
+        "//tensorstore/driver/zarr",
+        "//tensorstore/driver/zarr:blosc_compressor",
+        "//tensorstore/driver/zarr:bzip2_compressor",
+        "//tensorstore/driver/zarr:zlib_compressor",
+        "//tensorstore/kvstore/file",
+        "//tensorstore/kvstore/gcs",
+        "//tensorstore/kvstore/memory",
+    ],
+)
