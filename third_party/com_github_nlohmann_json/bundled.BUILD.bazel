@@ -6,7 +6,7 @@ exports_files(["LICENSE.MIT"])
 
 cc_library_with_strip_include_prefix(
     name = "nlohmann_json",
-    hdrs = glob(["**/*.hpp"]),
+    hdrs = glob(["include/**/*.hpp"]),
     strip_include_prefix = "include",
     visibility = ["//visibility:public"],
 )

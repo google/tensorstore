@@ -94,13 +94,7 @@ namespace internal {
 
 // ParseJson wraps the ::nlohmann::json::parse calls to avoid throwing
 // exceptions.
-::nlohmann::json ParseJson(absl::string_view str);
-
-template <typename... Args>
-std::enable_if_t<(sizeof...(Args) > 1), ::nlohmann::json> ParseJson(
-    Args&&... args) {
-  return ::nlohmann::json::parse({args...}, nullptr, false);
-}
+::nlohmann::json ParseJson(std::string_view str);
 
 /// Return a json object as the C++ type, if conversion is possible.
 /// Will attempt to parse strings and perform exact-numeric conversions

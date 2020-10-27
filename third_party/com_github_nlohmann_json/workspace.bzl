@@ -23,8 +23,8 @@ def repo():
         third_party_http_archive,
         name = "com_github_nlohmann_json",
         urls = [
-            "https://github.com/nlohmann/json/releases/download/v3.7.0/include.zip",
+            "https://github.com/nlohmann/json/releases/download/v3.9.1/include.zip",
         ],
-        sha256 = "541c34438fd54182e9cdc68dd20c898d766713ad6d901fb2c6e28ff1f1e7c10d",
+        sha256 = "6bea5877b1541d353bd77bdfbdb2696333ae5ed8f9e8cc22df657192218cad91",
         build_file = Label("//third_party:com_github_nlohmann_json/bundled.BUILD.bazel"),
     )

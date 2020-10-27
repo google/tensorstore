@@ -441,8 +441,8 @@ struct JsonFlag {
 std::string AbslUnparseFlag(JsonFlag j) {
   return absl::UnparseFlag(j.json.dump());
 }
-bool AbslParseFlag(absl::string_view in, JsonFlag* out, std::string* error) {
-  out->json = ::nlohmann::json::parse({in.begin(), in.end()}, nullptr, false);
+bool AbslParseFlag(std::string_view in, JsonFlag* out, std::string* error) {
+  out->json = ::nlohmann::json::parse(in, nullptr, false);
   if (!out->json.is_object()) {
     *error = "Failed to parse json flag.";
   }

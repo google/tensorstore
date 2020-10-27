@@ -53,17 +53,14 @@ TEST(JsonTest, SimpleParse) {
   using tensorstore::internal::ParseJson;
   const char kArray[] = R"({ "foo": "bar" })";
 
-  auto x = ParseJson("");  // absl::string_view
+  auto x = ParseJson("");  // std::string_view
   EXPECT_TRUE(x.is_discarded());
 
   // Test parsing objects.
-  auto y = ParseJson(kArray);  // absl::string_view
+  auto y = ParseJson(kArray);  // std::string_view
   EXPECT_FALSE(y.is_discarded());
 
-  auto z = ParseJson(std::begin(kArray), std::end(kArray));  // template
-  EXPECT_FALSE(z.is_discarded());
-
-  auto one = ParseJson("1");  // absl::string_view
+  auto one = ParseJson("1");  // std::string_view
   EXPECT_FALSE(one.is_discarded());
 }
 

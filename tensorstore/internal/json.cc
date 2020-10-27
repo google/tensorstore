@@ -98,10 +98,8 @@ Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj) {
              })));
 }
 
-// ParseJson wraps the ::nlohmann::json::parse calls to avoid throwing
-// exceptions.
-::nlohmann::json ParseJson(absl::string_view str) {
-  return ::nlohmann::json::parse({str.begin(), str.end()}, nullptr, false);
+::nlohmann::json ParseJson(std::string_view str) {
+  return ::nlohmann::json::parse(str, nullptr, false);
 }
 
 template <>
