@@ -559,4 +559,17 @@ Transaction::Transaction(TransactionMode mode) {
                internal::adopt_object_ref);
 }
 
+std::ostream& operator<<(std::ostream& os, TransactionMode mode) {
+  switch (mode) {
+    case TransactionMode::no_transaction_mode:
+      return os << "no_transaction_mode";
+    case TransactionMode::isolated:
+      return os << "isolated";
+    case TransactionMode::atomic_isolated:
+      return os << "atomic_isolated";
+    default:
+      return os << "unknown(" << static_cast<int>(mode) << ")";
+  }
+}
+
 }  // namespace tensorstore

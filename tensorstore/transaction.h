@@ -22,6 +22,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <iosfwd>
 
 #include "absl/status/status.h"
 #include "tensorstore/transaction_impl.h"
@@ -81,6 +82,8 @@ enum TransactionMode : std::uint8_t {
   /// - Durability is guaranteed.
   atomic_isolated = 3,
 };
+
+std::ostream& operator<<(std::ostream& os, TransactionMode mode);
 
 /// Shared handle to a transaction.
 class Transaction {
