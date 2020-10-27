@@ -127,6 +127,7 @@ tensorstore_cc_library(
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:aggregate_writeback_cache",
         "//tensorstore/internal:async_cache",
+        "//tensorstore/internal:async_initialized_cache_mixin",
         "//tensorstore/internal:box_difference",
         "//tensorstore/internal:cache_key",
         "//tensorstore/internal:cache_pool_resource",

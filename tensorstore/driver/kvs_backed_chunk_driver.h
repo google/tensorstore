@@ -32,6 +32,7 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/aggregate_writeback_cache.h"
 #include "tensorstore/internal/async_cache.h"
+#include "tensorstore/internal/async_initialized_cache_mixin.h"
 #include "tensorstore/internal/cache_pool_resource.h"
 #include "tensorstore/internal/chunk_cache.h"
 #include "tensorstore/internal/context_binding.h"
@@ -119,7 +120,8 @@ using MetadataCacheBase = internal::AsyncCacheBase<
 /// representation.
 ///
 /// Implicitly, instances of this class assume a particular `Metadata` type.
-class MetadataCache : public MetadataCacheBase {
+class MetadataCache : public MetadataCacheBase,
+                      public internal::AsyncInitializedCacheMixin {
   using Base = MetadataCacheBase;
 
  public:
@@ -251,11 +253,6 @@ class MetadataCache : public MetadataCacheBase {
   Context::Resource<internal::DataCopyConcurrencyResource>
       data_copy_concurrency_;
   Context::Resource<internal::CachePoolResource> cache_pool_;
-
-  /// Future that becomes ready when this MetadataCache can be used.  Prior to
-  /// `initialized_` becoming ready in a success state, no entries may be
-  /// retrieved.
-  Future<const void> initialized_;
 };
 
 class DataCache;

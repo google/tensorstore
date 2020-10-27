@@ -16,6 +16,7 @@
 
 #include "absl/container/fixed_array.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver_impl.h"
+#include "tensorstore/internal/async_initialized_cache_mixin.h"
 #include "tensorstore/internal/box_difference.h"
 #include "tensorstore/internal/cache_key.h"
 #include "tensorstore/internal/cache_pool_resource.h"
@@ -1073,51 +1074,35 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(OpenState* state) {
   auto& spec = *base.spec_;
   internal::EncodeCacheKey(&base.metadata_cache_key_, spec.store,
                            typeid(*state), state->GetMetadataCacheKey());
-  // Set to a promise paired with the `initialized_` future if the cache is
-  // created.
-  Promise<void> metadata_cache_promise;
-  MetadataCache* created_metadata_cache = nullptr;
-  auto metadata_cache =
-      (*state->cache_pool())
-          ->GetCache<MetadataCache>(
-              base.metadata_cache_key_,
-              [&]() -> std::unique_ptr<MetadataCache> {
-                TENSORSTORE_KVS_DRIVER_DEBUG_LOG(
-                    "Creating metadata cache: open_state=", state);
-                auto metadata_cache =
-                    state->GetMetadataCache({base.spec_->data_copy_concurrency,
-                                             base.spec_->cache_pool});
-                created_metadata_cache = metadata_cache.get();
-                auto [promise, future] =
-                    PromiseFuturePair<void>::Make(MakeResult());
-                metadata_cache->initialized_ = std::move(future);
-                metadata_cache_promise = std::move(promise);
-                return metadata_cache;
-              });
-  // Even if we just created a new cache, it is possible that another cache for
-  // the same cache_identifier was created concurrently, in which case the cache
-  // we just created should be discarded.
-  if (metadata_cache_promise.valid() &&
-      metadata_cache.get() == created_metadata_cache) {
-    TENSORSTORE_KVS_DRIVER_DEBUG_LOG(
-        "Opening metadata KeyValueStore: open_state=", state);
-    // The cache didn't previously exist.  Open the KeyValueStore.
-    LinkValue(
-        [state = OpenState::Ptr(state), metadata_cache](
-            Promise<void> metadata_cache_promise,
-            ReadyFuture<KeyValueStore::Ptr> future) {
-          metadata_cache->base_store_ = *future.result();
-          if (auto result =
-                  state->GetMetadataKeyValueStore(metadata_cache->base_store_);
-              result.ok()) {
-            metadata_cache->SetKeyValueStore(std::move(*result));
-          } else {
-            metadata_cache_promise.SetResult(std::move(result).status());
-          }
-        },
-        metadata_cache_promise, spec.store->Open());
-  }
-  return metadata_cache;
+  return internal::GetOrCreateAsyncInitializedCache<MetadataCache>(
+      **state->cache_pool(), base.metadata_cache_key_,
+      [&] {
+        TENSORSTORE_KVS_DRIVER_DEBUG_LOG("Creating metadata cache: open_state=",
+                                         state);
+        return state->GetMetadataCache(
+            {base.spec_->data_copy_concurrency, base.spec_->cache_pool});
+      },
+      [&](Promise<void> initialized,
+          internal::CachePtr<MetadataCache> metadata_cache) {
+        TENSORSTORE_KVS_DRIVER_DEBUG_LOG(
+            "Opening metadata KeyValueStore: open_state=", state);
+        // The cache didn't previously exist.  Open the KeyValueStore.
+        LinkValue(
+            [state = OpenState::Ptr(state),
+             metadata_cache = std::move(metadata_cache)](
+                Promise<void> metadata_cache_promise,
+                ReadyFuture<KeyValueStore::Ptr> future) {
+              metadata_cache->base_store_ = *future.result();
+              if (auto result = state->GetMetadataKeyValueStore(
+                      metadata_cache->base_store_);
+                  result.ok()) {
+                metadata_cache->SetKeyValueStore(std::move(*result));
+              } else {
+                metadata_cache_promise.SetResult(std::move(result).status());
+              }
+            },
+            initialized, spec.store->Open());
+      });
 }
 }  // namespace
 

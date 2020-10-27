@@ -99,6 +99,15 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "async_initialized_cache_mixin",
+    hdrs = ["async_initialized_cache_mixin.h"],
+    deps = [
+        ":cache",
+        "//tensorstore/util:future",
+    ],
+)
+
+tensorstore_cc_library(
     name = "attributes",
     hdrs = ["attributes.h"],
     deps = ["@com_google_absl//absl/base:core_headers"],

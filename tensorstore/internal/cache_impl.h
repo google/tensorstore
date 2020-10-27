@@ -221,10 +221,10 @@ struct WeakPtrTraitsCachePool {
 };
 
 using CachePoolStrongPtr =
-    internal::IntrusivePtr<CachePoolImpl, StrongPtrTraitsCachePool>;
+    internal::IntrusivePtr<CachePool, StrongPtrTraitsCachePool>;
 
 using CachePoolWeakPtr =
-    internal::IntrusivePtr<CachePoolImpl, WeakPtrTraitsCachePool>;
+    internal::IntrusivePtr<CachePool, WeakPtrTraitsCachePool>;
 
 CachePtr<Cache> GetCacheInternal(
     CachePoolImpl* pool, const std::type_info& cache_type,
