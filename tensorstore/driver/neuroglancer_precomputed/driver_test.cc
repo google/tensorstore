@@ -1603,4 +1603,44 @@ TEST(FullShardWriteTest, Basic) {
   }
 }
 
+// Tests that an empty path is handled correctly.
+TEST(DriverTest, NoPrefix) {
+  auto context = Context::Default();
+  // Create the store.
+  ::nlohmann::json storage_spec{{"driver", "memory"}};
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint8"},
+           {"num_channels", 1},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"resolution", {1, 1, 1}},
+           {"encoding", "raw"},
+           {"chunk_size", {2, 3, 1}},
+           {"size", {2, 3, 1}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(context, json_spec,
+                                    {tensorstore::OpenMode::create,
+                                     tensorstore::ReadWriteMode::read_write})
+                      .result());
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(
+      tensorstore::MakeArray<std::uint8_t>({{1, 2, 3}, {4, 5, 6}}),
+      store | tensorstore::Dims("z", "channel").IndexSlice({0, 0})));
+  // Check that key value store has expected contents.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kv_store, KeyValueStore::Open(context, storage_spec, {}).result());
+  EXPECT_THAT(  //
+      GetMap(kv_store).value(),
+      ::testing::UnorderedElementsAre(
+          Pair("info", ::testing::_),
+          Pair("1_1_1/0-2_0-3_0-1", Bytes({1, 4, 2, 5, 3, 6}))));
+}
+
 }  // namespace

@@ -936,4 +936,35 @@ TENSORSTORE_GLOBAL_INITIALIZER {
       std::move(options));
 }
 
+// Tests that an empty path is handled correctly.
+TEST(DriverTest, NoPrefix) {
+  auto context = Context::Default();
+  // Create the store.
+  ::nlohmann::json storage_spec{{"driver", "memory"}};
+  ::nlohmann::json metadata_json = GetBasicResizeMetadata();
+  ::nlohmann::json json_spec{
+      {"driver", "n5"},
+      {"kvstore", storage_spec},
+      {"metadata", metadata_json},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(context, json_spec,
+                                    {tensorstore::OpenMode::create,
+                                     tensorstore::ReadWriteMode::read_write})
+                      .result());
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(
+      tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
+      store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
+  // Check that key value store has expected contents.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kv_store, KeyValueStore::Open(context, storage_spec, {}).result());
+  EXPECT_THAT(  //
+      GetMap(kv_store).value(),
+      UnorderedElementsAre(
+          Pair("attributes.json", ::testing::MatcherCast<absl::Cord>(
+                                      ParseJsonMatches(metadata_json))),
+          Pair("0/0", ::testing::_), Pair("0/1", ::testing::_),
+          Pair("1/0", ::testing::_), Pair("1/1", ::testing::_)));
+}
+
 }  // namespace

@@ -881,6 +881,7 @@ Result<std::size_t> OpenScale(const MultiscaleMetadata& metadata,
 
 std::string ResolveScaleKey(absl::string_view key_prefix,
                             absl::string_view scale_key) {
+  if (key_prefix.empty()) return std::string(scale_key);
   std::vector<absl::string_view> output_parts = absl::StrSplit(key_prefix, '/');
   for (absl::string_view part : absl::StrSplit(scale_key, '/')) {
     if (part == ".." && !output_parts.empty()) {

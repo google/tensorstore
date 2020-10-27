@@ -2121,4 +2121,38 @@ TENSORSTORE_GLOBAL_INITIALIZER {
       std::move(options));
 }
 
+// Tests that an empty path is handled correctly.
+TEST(DriverTest, NoPrefix) {
+  auto context = Context::Default();
+  // Create the store.
+  ::nlohmann::json storage_spec{{"driver", "memory"}};
+  ::nlohmann::json zarr_metadata_json = GetBasicResizeMetadata();
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", storage_spec},
+      {"key_encoding", "/"},
+      {"metadata", zarr_metadata_json},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(context, json_spec,
+                                    {tensorstore::OpenMode::create,
+                                     tensorstore::ReadWriteMode::read_write})
+                      .result());
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(
+      tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
+      store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
+  // Check that key value store has expected contents.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kv_store, KeyValueStore::Open(context, storage_spec, {}).result());
+  EXPECT_THAT(  //
+      GetMap(kv_store).value(),
+      UnorderedElementsAre(
+          Pair(".zarray", ::testing::MatcherCast<absl::Cord>(
+                              ParseJsonMatches(zarr_metadata_json))),
+          Pair("0/0", Bytes({0, 0, 0, 0, 0, 1})),
+          Pair("0/1", Bytes({0, 0, 0, 0, 2, 3})),
+          Pair("1/0", Bytes({0, 4, 0, 0, 0, 0})),
+          Pair("1/1", Bytes({5, 6, 0, 0, 0, 0}))));
+}
+
 }  // namespace
