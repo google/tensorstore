@@ -315,6 +315,7 @@ tensorstore_cc_test(
 tensorstore_cc_test(
     name = "cache_test",
     size = "small",
+    timeout = "moderate",
     srcs = [
         "cache_test.cc",
     ],
