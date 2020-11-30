@@ -135,12 +135,14 @@ bool type_caster<tensorstore::Spec>::load(handle src, bool convert) {
   if (Base::load(src, convert)) {
     return true;
   }
+  if (!convert) return false;
   // Attempt to convert argument to `::nlohmann::json`, then to
   // `tensorstore::Spec`.
-  auto spec =
+  auto converted =
       tensorstore::internal_python::ValueOrThrow(tensorstore::Spec::FromJson(
           tensorstore::internal_python::PyObjectToJson(src)));
-  value = new tensorstore::Spec(spec);
+  converted_value_ = std::move(converted);
+  value = &converted_value_;
   return true;
 }
 

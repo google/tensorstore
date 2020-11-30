@@ -156,22 +156,6 @@ DataType GetDataType(pybind11::dtype dt);
 /// \throws `pybind11::value_error` if there is no corresponding DataType.
 DataType GetDataTypeOrThrow(pybind11::dtype dt);
 
-/// Implementation of the `DataType` type caster defined below.
-///
-/// The `str` and `bytes` Python type constructors map to the `ustring` and
-/// `string` types, respectively.
-///
-/// Otherwise, we rely on NumPy's conversion of Python objects to a NumPy data
-/// type
-/// (https://docs.scipy.org/doc/numpy-1.13.0/reference/arrays.dtypes.html#specifying-and-constructing-data-types)
-/// and then convert to a TensorStore data type.
-///
-/// On success, sets `*value` to the address of a new `DataType` object
-/// allocated with `operator new` and returns `true`.  On failure, returns
-/// `false`.  (This unusual return protocol is for compatibility with pybind11's
-/// type caster framework.)
-bool ConvertToDataType(pybind11::handle src, bool convert, void** value);
-
 /// Defines the Python types and constants.
 void RegisterDataTypeBindings(pybind11::module m);
 
@@ -183,17 +167,22 @@ namespace detail {
 
 /// Defines automatic conversion from compatible Python objects to
 /// `tensorstore::DataType` parameters of pybind11-exposed functions.
+///
+/// The `str` and `bytes` Python type constructors map to the `ustring` and
+/// `string` types, respectively.
+///
+/// Otherwise, we rely on NumPy's conversion of Python objects to a NumPy data
+/// type
+/// (https://docs.scipy.org/doc/numpy-1.13.0/reference/arrays.dtypes.html#specifying-and-constructing-data-types)
+/// and then convert to a TensorStore data type.
 template <>
 struct type_caster<tensorstore::DataType>
     : public type_caster_base<tensorstore::DataType> {
   using Base = type_caster_base<tensorstore::DataType>;
-  bool load(handle src, bool convert) {
-    if (Base::load(src, convert)) {
-      return true;
-    }
-    return tensorstore::internal_python::ConvertToDataType(src, convert,
-                                                           &value);
-  }
+  bool load(handle src, bool convert);
+
+  // Holds the converted value if a conversion is used.
+  tensorstore::DataType converted_value_;
 };
 
 }  // namespace detail

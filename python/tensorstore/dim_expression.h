@@ -137,19 +137,10 @@ struct type_caster<tensorstore::internal_python::DimensionSelection>
   using Base =
       type_caster_base<tensorstore::internal_python::DimensionSelection>;
 
-  bool load(handle src, bool convert) {
-    if (Base::load(src, convert)) {
-      return true;
-    }
-    auto obj =
-        std::make_unique<tensorstore::internal_python::DimensionSelection>();
-    if (tensorstore::internal_python::CastToDimensionSelection(src,
-                                                               obj.get())) {
-      value = obj.release();
-      return true;
-    }
-    return false;
-  }
+  bool load(handle src, bool convert);
+
+  // Holds the converted value if a conversion is used.
+  tensorstore::internal_python::DimensionSelection converted_value_;
 };
 
 /// Defines automatic conversion between `DimRangeSpec` and Python slice
@@ -158,26 +149,9 @@ template <>
 struct type_caster<tensorstore::DimRangeSpec> {
   PYBIND11_TYPE_CASTER(tensorstore::DimRangeSpec, _("slice"));
 
-  bool load(handle src, bool convert) {
-    if (!PySlice_Check(src.ptr())) return false;
-    ssize_t start, stop, step;
-    if (PySlice_Unpack(src.ptr(), &start, &stop, &step) != 0) {
-      return false;
-    }
-    auto* slice_obj = reinterpret_cast<PySliceObject*>(src.ptr());
-    if (slice_obj->start != Py_None) value.inclusive_start = start;
-    if (slice_obj->stop != Py_None) value.exclusive_stop = stop;
-    value.step = step;
-    return true;
-  }
-
+  bool load(handle src, bool convert);
   static handle cast(const tensorstore::DimRangeSpec& x,
-                     return_value_policy /* policy */, handle /* parent */) {
-    return handle(
-        PySlice_New(pybind11::cast(x.inclusive_start).ptr(),
-                    pybind11::cast(x.exclusive_stop).ptr(),
-                    x.step == 1 ? nullptr : pybind11::cast(x.step).ptr()));
-  }
+                     return_value_policy /* policy */, handle /* parent */);
 };
 
 }  // namespace detail

@@ -43,6 +43,9 @@ struct type_caster<tensorstore::Spec>
     : public type_caster_base<tensorstore::Spec> {
   using Base = type_caster_base<tensorstore::Spec>;
   bool load(handle src, bool convert);
+
+  // Holds the converted value if a conversion is used.
+  tensorstore::Spec converted_value_;
 };
 
 }  // namespace detail

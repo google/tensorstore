@@ -153,14 +153,28 @@ Represents a TensorStore data type.
   }
 }
 
-bool ConvertToDataType(pybind11::handle src, bool convert, void** value) {
+}  // namespace internal_python
+}  // namespace tensorstore
+
+namespace pybind11 {
+namespace detail {
+
+bool type_caster<tensorstore::DataType>::load(handle src, bool convert) {
+  using tensorstore::DataType;
+  using tensorstore::DataTypeOf;
+  if (Base::load(src, convert)) {
+    return true;
+  }
   if (src.is_none()) return false;
+  if (!convert) return false;
   if (src.ptr() == reinterpret_cast<PyObject*>(&PyUnicode_Type)) {
-    *value = new DataType(DataTypeOf<ustring_t>());
+    converted_value_ = DataTypeOf<tensorstore::ustring_t>();
+    value = &converted_value_;
     return true;
   }
   if (src.ptr() == reinterpret_cast<PyObject*>(&PyBytes_Type)) {
-    *value = new DataType(DataTypeOf<string_t>());
+    converted_value_ = DataTypeOf<tensorstore::string_t>();
+    value = &converted_value_;
     return true;
   }
   PyObject* ptr = nullptr;
@@ -171,11 +185,11 @@ bool ConvertToDataType(pybind11::handle src, bool convert, void** value) {
     PyErr_Clear();
     return false;
   }
-  auto data_type =
-      GetDataTypeOrThrow(pybind11::reinterpret_steal<pybind11::dtype>(ptr));
-  *value = new DataType(data_type);
+  converted_value_ = tensorstore::internal_python::GetDataTypeOrThrow(
+      pybind11::reinterpret_steal<pybind11::dtype>(ptr));
+  value = &converted_value_;
   return true;
 }
 
-}  // namespace internal_python
-}  // namespace tensorstore
+}  // namespace detail
+}  // namespace pybind11

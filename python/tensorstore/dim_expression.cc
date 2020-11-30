@@ -471,3 +471,46 @@ bool CastToDimensionSelection(py::handle src, DimensionSelection* out) {
 
 }  // namespace internal_python
 }  // namespace tensorstore
+
+namespace pybind11 {
+namespace detail {
+
+bool type_caster<tensorstore::internal_python::DimensionSelection>::load(
+    handle src, bool convert) {
+  if (Base::load(src, convert)) {
+    return true;
+  }
+  if (!convert) return false;
+  if (tensorstore::internal_python::CastToDimensionSelection(
+          src, &converted_value_)) {
+    value = &converted_value_;
+    return true;
+  }
+  return false;
+}
+
+bool type_caster<tensorstore::DimRangeSpec>::load(handle src, bool convert) {
+  if (!PySlice_Check(src.ptr())) return false;
+  ssize_t start, stop, step;
+  if (PySlice_Unpack(src.ptr(), &start, &stop, &step) != 0) {
+    return false;
+  }
+  auto* slice_obj = reinterpret_cast<PySliceObject*>(src.ptr());
+  if (slice_obj->start != Py_None) value.inclusive_start = start;
+  if (slice_obj->stop != Py_None) value.exclusive_stop = stop;
+  value.step = step;
+  return true;
+}
+
+handle type_caster<tensorstore::DimRangeSpec>::cast(
+    const tensorstore::DimRangeSpec& x, return_value_policy /* policy */,
+    handle /* parent */) {
+  handle h(PySlice_New(pybind11::cast(x.inclusive_start).ptr(),
+                       pybind11::cast(x.exclusive_stop).ptr(),
+                       x.step == 1 ? nullptr : pybind11::cast(x.step).ptr()));
+  if (!h.ptr()) throw error_already_set();
+  return h;
+}
+
+}  // namespace detail
+}  // namespace pybind11
