@@ -663,7 +663,7 @@ TEST(BoxTest, Contains) {
   const Index indices1[] = {2, 3};
   const Index indices2[] = {0, 3};
   const Index indices3[] = {0};
-  const Index indices4[] = {2};
+  Index indices4[] = {2};
 
   auto span1 = span(indices1);
   auto span2 = span(indices2);

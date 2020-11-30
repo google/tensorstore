@@ -757,7 +757,8 @@ std::enable_if_t<(HasBoxDomain<BoxType>::value &&
                  bool>
 ContainsPartial(const BoxType& box, const Indices& indices) {
   return internal_box::ContainsPartial(
-      BoxView<BoxType::static_rank>(GetBoxDomainOf(box)), span(indices));
+      BoxView<BoxType::static_rank>(GetBoxDomainOf(box)),
+      internal::ConstSpanType<Indices>(indices));
 }
 
 /// Overload that can be called using a braced list to specify the index vector,
