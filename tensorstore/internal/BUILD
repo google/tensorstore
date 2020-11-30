@@ -640,6 +640,7 @@ tensorstore_cc_library(
         "//tensorstore/util:assert_macros",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/random",
+        "@com_google_absl//absl/random:bit_gen_ref",
     ],
 )
 

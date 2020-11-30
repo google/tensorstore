@@ -17,7 +17,7 @@
 
 #include <array>
 
-#include "absl/random/random.h"
+#include "absl/random/bit_gen_ref.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
@@ -27,19 +27,17 @@
 namespace tensorstore {
 namespace internal {
 
-using RandomGeneratorRef = absl::BitGen&;
-
 /// Functions for each canonical data type that fill a buffer with random values
 /// using the specified random source.
 ///
 /// This is intended for testing.
-extern const std::array<ElementwiseFunction<1, RandomGeneratorRef>,
+extern const std::array<ElementwiseFunction<1, absl::BitGenRef>,
                         kNumDataTypeIds>
     kDataTypeRandomGenerationFunctions;
 
 /// Returns an array of the specified data type filled with random values.
 SharedOffsetArray<const void> MakeRandomArray(
-    RandomGeneratorRef gen, BoxView<> domain, DataType data_type,
+    absl::BitGenRef gen, BoxView<> domain, DataType data_type,
     ContiguousLayoutOrder order = c_order);
 
 }  // namespace internal

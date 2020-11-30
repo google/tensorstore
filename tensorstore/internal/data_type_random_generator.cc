@@ -21,6 +21,7 @@
 #include <limits>
 #include <string>
 
+#include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
@@ -36,7 +37,7 @@ namespace internal {
 namespace {
 template <typename T>
 struct SampleRandomValue {
-  T operator()(RandomGeneratorRef gen) const {
+  T operator()(absl::BitGenRef gen) const {
     if constexpr (std::is_integral_v<T>) {
       return absl::Uniform(absl::IntervalClosedClosed, gen,
                            std::numeric_limits<T>::min(),
@@ -50,7 +51,7 @@ struct SampleRandomValue {
 
 template <typename T>
 struct SampleRandomValue<std::complex<T>> {
-  std::complex<T> operator()(RandomGeneratorRef gen) const {
+  std::complex<T> operator()(absl::BitGenRef gen) const {
     SampleRandomValue<T> sample;
     return std::complex<T>(sample(gen), sample(gen));
   }
@@ -58,21 +59,21 @@ struct SampleRandomValue<std::complex<T>> {
 
 template <>
 struct SampleRandomValue<bool> {
-  bool operator()(RandomGeneratorRef gen) const {
+  bool operator()(absl::BitGenRef gen) const {
     return absl::Bernoulli(gen, 0.5);
   }
 };
 
 template <>
 struct SampleRandomValue<std::byte> {
-  std::byte operator()(RandomGeneratorRef gen) const {
+  std::byte operator()(absl::BitGenRef gen) const {
     return static_cast<std::byte>(absl::Uniform<unsigned char>(gen));
   }
 };
 
 template <>
 struct SampleRandomValue<std::string> {
-  std::string operator()(RandomGeneratorRef gen) const {
+  std::string operator()(absl::BitGenRef gen) const {
     std::string out;
     out.resize(
         absl::Uniform<std::size_t>(absl::IntervalClosedClosed, gen, 0, 50));
@@ -87,14 +88,14 @@ struct SampleRandomValue<std::string> {
 
 template <>
 struct SampleRandomValue<ustring_t> {
-  ustring_t operator()(RandomGeneratorRef gen) const {
+  ustring_t operator()(absl::BitGenRef gen) const {
     return {SampleRandomValue<std::string>()(gen)};
   }
 };
 
 template <>
 struct SampleRandomValue<json_t> {
-  json_t operator()(RandomGeneratorRef gen) const {
+  json_t operator()(absl::BitGenRef gen) const {
     switch (absl::Uniform(absl::IntervalClosedClosed, gen, 0, 7)) {
       case 0:
         return nullptr;
@@ -135,18 +136,18 @@ struct SampleRandomValue<json_t> {
 
 }  // namespace
 
-const std::array<ElementwiseFunction<1, RandomGeneratorRef>, kNumDataTypeIds>
+const std::array<ElementwiseFunction<1, absl::BitGenRef>, kNumDataTypeIds>
     kDataTypeRandomGenerationFunctions = MapCanonicalDataTypes(
-        [](auto d) -> ElementwiseFunction<1, RandomGeneratorRef> {
+        [](auto d) -> ElementwiseFunction<1, absl::BitGenRef> {
           using T = typename decltype(d)::Element;
-          constexpr auto sample = [](T* out, RandomGeneratorRef gen) {
+          constexpr auto sample = [](T* out, absl::BitGenRef gen) {
             *out = SampleRandomValue<T>()(gen);
           };
           return SimpleElementwiseFunction<decltype(sample)(T),
-                                           RandomGeneratorRef>();
+                                           absl::BitGenRef>();
         });
 
-SharedOffsetArray<const void> MakeRandomArray(RandomGeneratorRef gen,
+SharedOffsetArray<const void> MakeRandomArray(absl::BitGenRef gen,
                                               BoxView<> domain,
                                               DataType data_type,
                                               ContiguousLayoutOrder order) {
