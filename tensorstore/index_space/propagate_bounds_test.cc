@@ -123,6 +123,20 @@ TEST(PropagateBoundsTest, ConstantError) {
                     "dimension 0: Index 1 is outside valid range .*"));
 }
 
+TEST(PropagateBoundsTest, ConstantEmptyDomain) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto transform,
+                                   (IndexTransformBuilder<2, 1>()
+                                        .input_shape({0, 2})
+                                        .output_constant(0, 42)
+                                        .Finalize()));
+  Box<2> a;
+  TENSORSTORE_EXPECT_OK(PropagateBounds(
+      /*b_domain=*/Box<1>({5}),
+      /*b_implicit_lower_bounds=*/BitVec({0}),
+      /*b_implicit_upper_bounds=*/BitVec({0}), transform, a));
+  EXPECT_EQ(a, BoxView({0, 2}));
+}
+
 TEST(PropagateBoundsTest, Propagate0Upper1Lower) {
   auto transform = IndexTransformBuilder<2, 3>()
                        .input_origin({2, 3})
@@ -363,6 +377,21 @@ TEST(PropagateExplicitBoundsTest, OutOfBounds) {
       MatchesStatus(absl::StatusCode::kOutOfRange,
                     "Propagated bounds \\[-9, 11\\) for dimension 1 are "
                     "incompatible with existing bounds \\[3, 13\\)\\."));
+}
+
+// Tests that bounds checking is not performed in the case of an empty domain.
+TEST(PropagateExplicitBoundsTest, OutOfBoundsEmptyDomain) {
+  auto transform = IndexTransformBuilder<2, 3>()
+                       .input_origin({2, 3})
+                       .input_shape({0, 10})
+                       .output_single_input_dimension(0, 15, 2, 0)
+                       .output_single_input_dimension(1, 30, 3, 1)
+                       .output_single_input_dimension(2, 45, 4, 1)
+                       .Finalize()
+                       .value();
+  const Box<3> b({2, 3, 4}, {50, 60, 100});
+  Box<2> a;
+  TENSORSTORE_EXPECT_OK(PropagateExplicitBounds(b, transform, a));
 }
 
 TEST(PropagateExplicitBoundsTest, OutOfBoundsInfLower) {

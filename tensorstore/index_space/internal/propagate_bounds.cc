@@ -55,6 +55,21 @@ Status PropagateBounds(BoxView<> b,
   BitVec<> inferred_implicit_lower_bounds(a.rank(), true);
   BitVec<> inferred_implicit_upper_bounds(a.rank(), true);
 
+  const auto implicit_lower_bounds = a_to_b->implicit_lower_bounds(a.rank());
+  const auto implicit_upper_bounds = a_to_b->implicit_upper_bounds(a.rank());
+  const auto existing_input_domain = a_to_b->input_domain(a.rank());
+
+  // Determine if the domain is empty.  If the domain is empty, bounds checking
+  // is skipped.
+  bool is_domain_empty = false;
+  for (DimensionIndex a_dim = 0; a_dim < a.rank(); ++a_dim) {
+    if (!implicit_lower_bounds[a_dim] && !implicit_upper_bounds[a_dim] &&
+        existing_input_domain[a_dim].empty()) {
+      is_domain_empty = true;
+      break;
+    }
+  }
+
   // Validate the output index map for each `b` dimension, and for
   // single_input_dimension maps also updates the propagated bounds for the
   // corresponding `a` dimension.
@@ -67,19 +82,19 @@ Status PropagateBounds(BoxView<> b,
                                                 b_implicit_lower_bounds[b_dim],
                                                 b_implicit_upper_bounds[b_dim]};
     if (output_stride == 0 || map.method() == OutputIndexMethod::constant) {
-      // Validate the constant output index map.  We can't propagate bounds to
-      // `a` in this case.
-      TENSORSTORE_RETURN_IF_ERROR(
-          CheckContains(b_bounds_oi.effective_interval(), map.offset()),
-          MaybeAnnotateStatus(
-              _,
-              StrCat(
-                  "Checking bounds of constant output index map for dimension ",
-                  b_dim)));
+      if (!is_domain_empty) {
+        // Validate the constant output index map.  We can't propagate bounds to
+        // `a` in this case.
+        TENSORSTORE_RETURN_IF_ERROR(
+            CheckContains(b_bounds_oi.effective_interval(), map.offset()),
+            MaybeAnnotateStatus(_, StrCat("Checking bounds of constant output "
+                                          "index map for dimension ",
+                                          b_dim)));
+      }
       continue;
     }
     const DimensionIndex a_dim = map.input_dimension();
-    ABSL_ASSERT(a_dim >= 0 && a_dim < a.rank());
+    assert(a_dim >= 0 && a_dim < a.rank());
     // TODO(jbms): In some cases, this will result in a result_out_of_range
     // error even though we could have obtained a non-overflowed bound from a
     // different dimension, or from the input domain.
@@ -101,9 +116,6 @@ Status PropagateBounds(BoxView<> b,
     propagated_to_a[a_dim] = true;
   }
 
-  const auto implicit_lower_bounds = a_to_b->implicit_lower_bounds(a.rank());
-  const auto implicit_upper_bounds = a_to_b->implicit_upper_bounds(a.rank());
-  const auto existing_input_domain = a_to_b->input_domain(a.rank());
   // Validate that the inferred bounds are compatible with the bounds specified
   // in the `a_to_b` transform.
   for (DimensionIndex a_dim = 0; a_dim < a.rank(); ++a_dim) {
@@ -125,7 +137,8 @@ Status PropagateBounds(BoxView<> b,
     const OptionallyImplicitIndexInterval inferred_oi{
         inferred, inferred_implicit_lower_bounds[a_dim],
         inferred_implicit_upper_bounds[a_dim]};
-    if (!Contains(inferred_oi.effective_interval(), combined)) {
+    if (!is_domain_empty &&
+        !Contains(inferred_oi.effective_interval(), combined)) {
       return absl::OutOfRangeError(
           StrCat("Propagated bounds ", inferred_oi, " for dimension ", a_dim,
                  " are incompatible with existing bounds ", combined, "."));
