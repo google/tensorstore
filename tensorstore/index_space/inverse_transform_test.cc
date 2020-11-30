@@ -39,24 +39,30 @@ TEST(InverseTransformTest, Null) {
 }
 
 TEST(InverseTransformTest, Example) {
-  auto t =  //
-      IndexTransformBuilder<>(2, 2)
-          .input_labels({"x", "y"})
-          .input_origin({1, 2})
-          .input_exclusive_max({5, 8})
-          .output_single_input_dimension(0, 5, -1, 1)
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto t,  //
+      IndexTransformBuilder(3, 3)
+          .input_labels({"x", "", "y"})
+          .input_origin({1, 3, 2})
+          .input_exclusive_max({5, 4, 8})
+          .implicit_lower_bounds({1, 0, 0})
+          .implicit_upper_bounds({0, 0, 1})
+          .output_single_input_dimension(0, 5, -1, 2)
           .output_single_input_dimension(1, 3, 1, 0)
-          .Finalize()
-          .value();
-  auto expected_inv =  //
-      IndexTransformBuilder<>(2, 2)
-          .input_labels({"y", "x"})
-          .input_origin({-2, 4})
-          .input_exclusive_max({4, 8})
+          .output_constant(2, 7)
+          .Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto expected_inv,  //
+      IndexTransformBuilder(3, 3)
+          .input_labels({"y", "x", ""})
+          .input_origin({-2, 4, 7})
+          .input_exclusive_max({4, 8, 8})
+          .implicit_lower_bounds({1, 1, 0})
+          .implicit_upper_bounds({0, 0, 0})
           .output_single_input_dimension(0, -3, 1, 1)
-          .output_single_input_dimension(1, 5, -1, 0)
-          .Finalize()
-          .value();
+          .output_constant(1, 3)
+          .output_single_input_dimension(2, 5, -1, 0)
+          .Finalize());
   EXPECT_EQ(expected_inv, InverseTransform(t));
   EXPECT_EQ(t, InverseTransform(expected_inv));
 }
@@ -212,33 +218,80 @@ TEST(InverseTransformTest, OffsetsAndStridesAndPermutation) {
   EXPECT_EQ(t, InverseTransform(expected_inv));
 }
 
-TEST(InverseTransformTest, RankMismatch) {
+TEST(InverseTransformTest, ErrorNonSingletonUnmappedInputDimension) {
   EXPECT_THAT(
-      InverseTransform(IndexTransformBuilder<>(3, 2).Finalize().value()),
+      InverseTransform(IndexTransformBuilder<>(3, 2)
+                           .output_identity_transform()
+                           .Finalize()
+                           .value()),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Transform with input rank \\(3\\) != output rank \\(2\\) "
-                    "is not invertible"));
+                    "Transform is not invertible due to non-singleton "
+                    "input dimension 2 with domain \\(-inf\\*, \\+inf\\*\\) "
+                    "that is not mapped by an output dimension"));
+  EXPECT_THAT(InverseTransform(IndexTransformBuilder(1, 0)
+                                   .input_origin({0})
+                                   .input_shape({2})
+                                   .Finalize()
+                                   .value()),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Transform is not invertible due to non-singleton "
+                            "input dimension 0 with domain \\[0, 2\\) "
+                            "that is not mapped by an output dimension"));
+  EXPECT_THAT(InverseTransform(IndexTransformBuilder(1, 0)
+                                   .input_origin({0})
+                                   .input_shape({1})
+                                   .implicit_lower_bounds({1})
+                                   .Finalize()
+                                   .value()),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Transform is not invertible due to non-singleton "
+                            "input dimension 0 with domain \\[0\\*, 1\\) "
+                            "that is not mapped by an output dimension"));
+  EXPECT_THAT(InverseTransform(IndexTransformBuilder(1, 0)
+                                   .input_origin({0})
+                                   .input_shape({1})
+                                   .implicit_upper_bounds({1})
+                                   .Finalize()
+                                   .value()),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Transform is not invertible due to non-singleton "
+                            "input dimension 0 with domain \\[0, 1\\*\\) "
+                            "that is not mapped by an output dimension"));
 }
 
 TEST(InverseTransformTest, ConstantMap) {
-  EXPECT_THAT(
-      InverseTransform(IndexTransformBuilder<>(1, 1).Finalize().value()),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Transform is not invertible due to "
-                    "non-`single_input_dimension` map for output dimension 0"));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto t, IndexTransformBuilder(0, 1).output_constant(0, 42).Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_inv,
+                                   IndexTransformBuilder(1, 0)
+                                       .input_origin({42})
+                                       .input_shape({1})
+                                       .Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_inv_with_label,
+                                   IndexTransformBuilder(1, 0)
+                                       .input_origin({42})
+                                       .input_labels({"x"})
+                                       .input_shape({1})
+                                       .Finalize());
+  EXPECT_THAT(InverseTransform(t), ::testing::Optional(expected_inv));
+  EXPECT_THAT(InverseTransform(expected_inv), ::testing::Optional(t));
+  // Input dimension label is lost, since IndexTransform does not support output
+  // dimension labels and singleton input dimensions don't correspond to an
+  // input dimension in the inverse transform.
+  EXPECT_THAT(InverseTransform(expected_inv_with_label),
+              ::testing::Optional(t));
 }
 
 TEST(InverseTransformTest, IndexArrayMap) {
-  EXPECT_THAT(
-      InverseTransform(
-          IndexTransformBuilder<>(1, 1)
-              .input_shape({2})
-              .output_index_array(0, 0, 1, MakeArray<Index>({0, 1}))
-              .Finalize()
-              .value()),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Transform is not invertible due to "
-                    "non-`single_input_dimension` map for output dimension 0"));
+  EXPECT_THAT(InverseTransform(
+                  IndexTransformBuilder<>(1, 1)
+                      .input_shape({2})
+                      .output_index_array(0, 0, 1, MakeArray<Index>({0, 1}))
+                      .Finalize()
+                      .value()),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Transform is not invertible due to "
+                            "index array map for output dimension 0"));
 }
 
 TEST(InverseTransformTest, NonUnitStride) {

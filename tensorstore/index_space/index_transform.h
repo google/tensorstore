@@ -818,25 +818,42 @@ inline IndexTransform<Rank, Rank> IdentityTransform(
 
 /// Returns the inverse transform if one exists.
 ///
-/// A transform is invertible if, and only if, the input rank is equal to the
-/// output rank and for every input dimension there is exactly one
-/// `single_input_dimension` output index map with a stride of `1` or `-1`.
+/// A transform is invertible if, and only if, the following criteria are met:
+///
+/// 1. All output index maps are either:
+///
+///    (a) `constant`, or
+///
+///    (b) `single_input_dimension`, with a stride of `1` or `-1` and a unique
+///        input dimension not referenced by any other output index map.
+///
+/// 2. Every input dimension not referenced by a `single_input_dimension` output
+///    index map must be a "singleton dimension" with explicit lower/upper
+///    bounds and an extent of 1.
+///
+/// Note that `constant` output index maps correspond to singleton input
+/// dimensions in the inverse transform, and vice versa.  The labels of
+/// singleton input dimensions are not preserved.
 ///
 /// For example:
 ///
 /// Given a `transform` with domain:
-///   "x": [1, 5)
-///   "y": [2, 8)
+///   "x": [1*, 5)
+///   "":  [3,  4)
+///   "y": [2,  8*)
 /// and output index maps:
-///   output[0] = 5 + -1 * input[1]
+///   output[0] = 5 + -1 * input[2]
 ///   output[1] = 3 + 1 * input[0],
+///   output[2] = 7
 ///
 /// the inverse transform has a domain of:
-///   "y": [-2, 4)
-///   "x": [4, 8)
+///   "y": [-2*, 4)
+///   "x": [ 4*, 8)
+///   "":  [ 7,  8)
 /// and output index maps:
 ///   output[0] = -3 + input[1]
-///   output[1] = 5 + -1 * input[0]
+///   output[1] = 3
+///   output[2] = 5 + -1 * input[0]
 ///
 /// \param transform The transform to invert.  May be null, in which case a null
 ///     transform is returned.

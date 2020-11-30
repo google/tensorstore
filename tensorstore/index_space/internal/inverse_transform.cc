@@ -25,67 +25,98 @@ Result<TransformRep::Ptr<>> InverseTransform(TransformRep* transform) {
     return TransformRep::Ptr<>();
   }
 
-  const DimensionIndex rank = transform->input_rank;
-  if (rank != transform->output_rank) {
-    return Status(
-        absl::StatusCode::kInvalidArgument,
-        StrCat("Transform with input rank (", rank, ") != output rank (",
-               transform->output_rank, ") is not invertible"));
-  }
+  const DimensionIndex input_rank = transform->input_rank;
+  const DimensionIndex output_rank = transform->output_rank;
 
-  auto new_transform = TransformRep::Allocate(rank, rank);
-  new_transform->input_rank = new_transform->output_rank = rank;
+  auto new_transform = TransformRep::Allocate(output_rank, input_rank);
+  new_transform->input_rank = output_rank;
+  new_transform->output_rank = input_rank;
 
-  const auto maps = transform->output_index_maps().first(rank);
-  const auto new_maps = new_transform->output_index_maps().first(rank);
-  for (DimensionIndex output_dim = 0; output_dim < rank; ++output_dim) {
+  const auto maps = transform->output_index_maps().first(output_rank);
+  const auto new_maps = new_transform->output_index_maps().first(input_rank);
+  for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
     const auto& map = maps[output_dim];
-    if (map.method() != OutputIndexMethod::single_input_dimension) {
-      return Status(
-          absl::StatusCode::kInvalidArgument,
-          StrCat("Transform is not invertible due to "
-                 "non-`single_input_dimension` map for output dimension ",
-                 output_dim));
+    const auto new_d = new_transform->input_dimension(output_dim);
+    switch (map.method()) {
+      case OutputIndexMethod::array:
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Transform is not invertible due to index array "
+            "map for output dimension ",
+            output_dim));
+      case OutputIndexMethod::constant: {
+        if (!IsFiniteIndex(map.offset())) {
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              "Transform is not invertible due to offset ", map.offset(),
+              " outside valid range ", IndexInterval::FiniteRange(),
+              " for output dimension ", output_dim));
+        }
+        new_d.domain() = IndexInterval::UncheckedSized(map.offset(), 1);
+        new_d.implicit_lower_bound() = false;
+        new_d.implicit_upper_bound() = false;
+        break;
+      }
+      case OutputIndexMethod::single_input_dimension: {
+        if (map.stride() != 1 && map.stride() != -1) {
+          return absl::InvalidArgumentError(
+              StrCat("Transform is not invertible due to "
+                     "stride of ",
+                     map.stride(), " for output dimension ", output_dim));
+        }
+        const DimensionIndex input_dim = map.input_dimension();
+        auto& new_map = new_maps[input_dim];
+        if (new_map.method() == OutputIndexMethod::single_input_dimension) {
+          return Status(
+              absl::StatusCode::kInvalidArgument,
+              StrCat("Transform is not invertible because input dimension ",
+                     input_dim, " maps to output dimensions ",
+                     new_map.input_dimension(), " and ", output_dim));
+        }
+        new_map.SetSingleInputDimension(output_dim);
+        auto new_domain_result = GetAffineTransformRange(
+            transform->input_dimension(input_dim).optionally_implicit_domain(),
+            map.offset(), map.stride());
+        if (!new_domain_result.ok()) {
+          return MaybeAnnotateStatus(
+              new_domain_result.status(),
+              StrCat("Error inverting map from input dimension ", input_dim,
+                     " -> output dimension ", output_dim));
+        }
+        if (map.offset() == std::numeric_limits<Index>::min()) {
+          return absl::InvalidArgumentError(
+              StrCat("Integer overflow occurred while inverting map from "
+                     "input dimension ",
+                     input_dim, " -> output dimension ", output_dim));
+        }
+        new_map.offset() = -map.offset() * map.stride();
+        new_map.stride() = map.stride();
+        new_d.domain() = new_domain_result->interval();
+        new_d.label() = transform->input_dimension(input_dim).label();
+        new_d.implicit_lower_bound() = new_domain_result->implicit_lower();
+        new_d.implicit_upper_bound() = new_domain_result->implicit_upper();
+        break;
+      }
     }
-    if (map.stride() != 1 && map.stride() != -1) {
-      return absl::InvalidArgumentError(
-          StrCat("Transform is not invertible due to "
-                 "stride of ",
-                 map.stride(), " for output dimension ", output_dim));
-    }
-    const DimensionIndex input_dim = map.input_dimension();
+  }
+  for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {
     auto& new_map = new_maps[input_dim];
     if (new_map.method() == OutputIndexMethod::single_input_dimension) {
-      return Status(
-          absl::StatusCode::kInvalidArgument,
-          StrCat("Transform is not invertible because input dimension ",
-                 input_dim, " maps to output dimensions ",
-                 new_map.input_dimension(), " and ", output_dim));
+      // This input dimension is referenced by exactly one output index map, and
+      // has already been set.
+      continue;
     }
-    new_map.SetSingleInputDimension(output_dim);
-
-    auto new_domain_result = GetAffineTransformRange(
-        transform->input_dimension(input_dim).optionally_implicit_domain(),
-        map.offset(), map.stride());
-    if (!new_domain_result.ok()) {
-      return MaybeAnnotateStatus(
-          new_domain_result.status(),
-          StrCat("Error inverting map from input dimension ", input_dim,
-                 " -> output dimension ", output_dim));
+    // Otherwise, this input dimension is not referenced by an output index map.
+    // If it is a singleton dimension, it can be inverted to a constant output
+    // index map.
+    auto input_domain =
+        transform->input_dimension(input_dim).optionally_implicit_domain();
+    if (input_domain.implicit_lower() || input_domain.implicit_upper() ||
+        input_domain.size() != 1) {
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "Transform is not invertible due to non-singleton input dimension ",
+          input_dim, " with domain ", input_domain,
+          " that is not mapped by an output dimension"));
     }
-    if (map.offset() == std::numeric_limits<Index>::min()) {
-      return absl::InvalidArgumentError(
-          StrCat("Integer overflow occurred while inverting map from "
-                 "input dimension ",
-                 input_dim, " -> output dimension ", output_dim));
-    }
-    new_map.offset() = -map.offset() * map.stride();
-    new_map.stride() = map.stride();
-    const auto new_d = new_transform->input_dimension(output_dim);
-    new_d.domain() = new_domain_result->interval();
-    new_d.label() = transform->input_dimension(input_dim).label();
-    new_d.implicit_lower_bound() = new_domain_result->implicit_lower();
-    new_d.implicit_upper_bound() = new_domain_result->implicit_upper();
+    new_map.offset() = input_domain.inclusive_min();
   }
   return new_transform;
 }
