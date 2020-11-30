@@ -189,6 +189,10 @@ class NDIterator {
 /// where combining with other dimensions may be possible regardless of the
 /// iteration direction, e.g. data generated on the fly during iteration.
 ///
+/// The `DirectionPref::kForwardRequired` value is intended to be used for
+/// special cases where the NDIterable implementation may be simplified by not
+/// having to consider skipped / backward iteration for a dimension.
+///
 /// For the example above, the result is:
 ///
 ///     | Dimension index | Size | Byte stride | DirectionPref |
@@ -203,33 +207,30 @@ class NDIterator {
 /// iterable.
 class NDIterableLayoutConstraint {
  public:
-  /// Specifies preferences for iterating over a given dimension.
+  /// Specifies preferences for iterating over a given dimension.  Precedence is
+  /// according to magnitude.
   enum class DirectionPref {
     /// Forward is more likely to permit combining.  This dimension cannot be
     /// skipped.
-    kForward = 1,
+    kForward = 2,
+    /// Forward direction is required for iteration.  This dimension cannot be
+    /// skipped, even if the extent is 1.
+    kForwardRequired = 3,
     /// Backward is more likely to permit combining.  This dimension cannot be
     /// skipped.
-    kBackward = -1,
+    kBackward = -2,
     /// Either direction is equally good.  This dimension cannot be skipped.
-    kEither = 0,
+    kEither = 1,
     /// Either direction is equally good.  This dimension can be skipped.
-    kCanSkip = 2,
+    kCanSkip = 0,
   };
 
-  /// Returns the combined `DirectionPref`.
+  /// Returns the most restrictive `DirectionPref`, or `a` if both are equally
+  /// restrictive.
   static inline DirectionPref CombineDirectionPrefs(DirectionPref a,
                                                     DirectionPref b) {
-    switch (a) {
-      case DirectionPref::kForward:
-      case DirectionPref::kBackward:
-        return a;
-      case DirectionPref::kCanSkip:
-        return b;
-      case DirectionPref::kEither:
-        return (b == DirectionPref::kCanSkip) ? DirectionPref::kEither : b;
-    }
-    TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+    return (std::abs(static_cast<int>(a)) >= std::abs(static_cast<int>(b))) ? a
+                                                                            : b;
   }
 
   /// Returns the iteration direction (`+1` for forward, `-1` for backward) for
@@ -278,7 +279,7 @@ class NDIterableBufferConstraint : public NDIterableLayoutConstraint {
 
     /// The iteration direction for each original dimension.  A value of `+1`
     /// means forward, a value of `-1` means reverse.  A value of `0` is only
-    /// valid when it corresponds to a dummy iteration dimension of `-1`.
+    /// valid when it corresponds to a skipped (but not a combined) dimension.
     span<const int> directions;
 
     /// The sequence of simplified dimensions.  The first dimension is the

@@ -58,7 +58,9 @@ void GetNDIterationLayoutInfo(const NDIterableLayoutConstraint& iterable,
     const Index size = shape[dim_i];
     if (size == 0) {
       info->empty = true;
-    } else if (size == 1 || direction_prefs[dim_i] == DirectionPref::kCanSkip) {
+    } else if ((size == 1 &&
+                direction_prefs[dim_i] != DirectionPref::kForwardRequired) ||
+               direction_prefs[dim_i] == DirectionPref::kCanSkip) {
       if constexpr (Full) {
         info->full_iteration_dimensions.push_back(dim_i);
       }
