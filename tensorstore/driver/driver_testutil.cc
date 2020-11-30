@@ -23,15 +23,18 @@
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/data_type_random_generator.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/logging.h"
+#include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/sync_flow_sender.h"
 
 namespace tensorstore {
 namespace internal {
@@ -556,6 +559,130 @@ void RegisterTensorStoreDriverResizeTest(
   for (auto transaction_mode : options.supported_transaction_modes) {
     RegisterVariant(transaction_mode);
   }
+}
+
+Future<std::vector<std::pair<SharedOffsetArray<void>, IndexTransform<>>>>
+ReadAsIndividualChunks(TensorStore<> store) {
+  using ChunkPair = std::pair<SharedOffsetArray<void>, IndexTransform<>>;
+  using ChunkVec = std::vector<ChunkPair>;
+  struct ReceiverImpl {
+    Promise<ChunkVec> promise_;
+    DataType data_type_;
+    FutureCallbackRegistration cancel_registration_;
+    void set_starting(AnyCancelReceiver cancel) {
+      cancel_registration_ = promise_.ExecuteWhenNotNeeded(std::move(cancel));
+    }
+    void set_value(ReadChunk chunk, IndexTransform<> request_transform) {
+      auto array = AllocateArray(chunk.transform.domain().box(), c_order,
+                                 default_init, data_type_);
+      auto& r = promise_.raw_result();
+      if (!r.ok()) return;
+      r->emplace_back(array, request_transform);
+      TENSORSTORE_RETURN_IF_ERROR(
+          internal::CopyReadChunk(chunk.impl, std::move(chunk.transform),
+                                  MakeNormalizedTransformedArray(array)),
+          this->set_error(_));
+    }
+    void set_done() { promise_ = {}; }
+    void set_error(absl::Status error) {
+      promise_.SetResult(std::move(error));
+      promise_ = {};
+    }
+    void set_stopping() { cancel_registration_.Unregister(); }
+  };
+  auto [promise, future] = PromiseFuturePair<ChunkVec>::Make(std::in_place);
+  auto transformed_driver = TensorStoreAccess::handle(store);
+  TENSORSTORE_ASSIGN_OR_RETURN(auto transaction,
+                               internal::AcquireOpenTransactionPtrOrError(
+                                   transformed_driver.transaction));
+  transformed_driver.driver->Read(
+      transaction, transformed_driver.transform,
+      SyncFlowReceiver<tensorstore::Mutex, ReceiverImpl>{ReceiverImpl{
+          std::move(promise), transformed_driver.driver->data_type()}});
+  return future;
+}
+
+Future<std::vector<std::pair<ReadChunk, IndexTransform<>>>> CollectReadChunks(
+    TensorStore<> store) {
+  using ChunkPair = std::pair<ReadChunk, IndexTransform<>>;
+  using ChunkVec = std::vector<ChunkPair>;
+  struct ReceiverImpl {
+    Promise<ChunkVec> promise_;
+    FutureCallbackRegistration cancel_registration_;
+    void set_starting(AnyCancelReceiver cancel) {
+      cancel_registration_ = promise_.ExecuteWhenNotNeeded(std::move(cancel));
+    }
+    void set_value(ReadChunk chunk, IndexTransform<> request_transform) {
+      auto& r = promise_.raw_result();
+      if (!r.ok()) return;
+      r->emplace_back(std::move(chunk), request_transform);
+    }
+    void set_done() { promise_ = {}; }
+    void set_error(absl::Status error) {
+      promise_.SetResult(std::move(error));
+      promise_ = {};
+    }
+    void set_stopping() { cancel_registration_.Unregister(); }
+  };
+  auto [promise, future] = PromiseFuturePair<ChunkVec>::Make(std::in_place);
+  auto transformed_driver = TensorStoreAccess::handle(store);
+  TENSORSTORE_ASSIGN_OR_RETURN(auto transaction,
+                               internal::AcquireOpenTransactionPtrOrError(
+                                   transformed_driver.transaction));
+  transformed_driver.driver->Read(
+      transaction, transformed_driver.transform,
+      SyncFlowReceiver<tensorstore::Mutex, ReceiverImpl>{
+          ReceiverImpl{std::move(promise)}});
+  return future;
+}
+
+void MockDriver::Read(internal::OpenTransactionPtr transaction,
+                      IndexTransform<> transform, ReadChunkReceiver receiver) {
+  read_requests.push(ReadRequest{std::move(transaction), std::move(transform),
+                                 std::move(receiver)});
+}
+
+void MockDriver::Write(internal::OpenTransactionPtr transaction,
+                       IndexTransform<> transform,
+                       WriteChunkReceiver receiver) {
+  write_requests.push(WriteRequest{std::move(transaction), std::move(transform),
+                                   std::move(receiver)});
+}
+
+TensorStore<> MockDriver::Wrap(IndexTransform<> transform) {
+  if (!transform.valid()) transform = IdentityTransform(rank_);
+  tensorstore::internal::DriverReadWriteHandle handle;
+  handle.driver.reset(this);
+  handle.transform = std::move(transform);
+  handle.read_write_mode = ReadWriteMode::read_write;
+  return TensorStoreAccess::Construct<TensorStore<>>(std::move(handle));
+}
+
+ReadChunk MakeArrayBackedReadChunk(
+    NormalizedTransformedArray<Shared<const void>> data) {
+  /// Implementation of the `ReadChunk::Impl` Poly interface.
+  struct ReadChunkImpl {
+    SharedElementPointer<const void> data;
+    absl::Status operator()(LockCollection& lock_collection) {
+      return absl::OkStatus();
+    }
+
+    Result<NDIterable::Ptr> operator()(ReadChunk::BeginRead,
+                                       IndexTransform<> chunk_transform,
+                                       Arena* arena) {
+      return GetNormalizedTransformedArrayNDIterable({data, chunk_transform},
+                                                     arena);
+    }
+  };
+  ReadChunk chunk;
+  chunk.impl = ReadChunkImpl{data.element_pointer()};
+  chunk.transform = data.transform();
+  return chunk;
+}
+
+ReadChunk MakeArrayBackedReadChunk(
+    SharedOffsetArray<const void, dynamic_rank, view> data) {
+  return MakeArrayBackedReadChunk(MakeNormalizedTransformedArray(data));
 }
 
 }  // namespace internal

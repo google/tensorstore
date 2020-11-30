@@ -21,9 +21,14 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/driver/chunk.h"
+#include "tensorstore/driver/driver.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/transformed_array.h"
+#include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/spec_request_options.h"
+#include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
 
 namespace tensorstore {
@@ -96,6 +101,69 @@ struct TestTensorStoreDriverResizeOptions {
 /// Tests metadata-only resize functionality.
 void RegisterTensorStoreDriverResizeTest(
     TestTensorStoreDriverResizeOptions options);
+
+/// Returns the data from the individual chunks obtained from reading a
+/// TensorStore.
+///
+/// This can be useful for testing.
+Future<std::vector<std::pair<SharedOffsetArray<void>, IndexTransform<>>>>
+ReadAsIndividualChunks(TensorStore<> store);
+
+/// Returns the individual chunks obtained from reading a TensorStore.
+///
+/// This can be useful for testing.
+Future<std::vector<std::pair<ReadChunk, IndexTransform<>>>> CollectReadChunks(
+    TensorStore<> store);
+
+/// Mock TensorStore driver that records Read/Write requests in a queue.
+class MockDriver : public Driver {
+ public:
+  using Ptr = PtrT<MockDriver>;
+
+  explicit MockDriver(DataType data_type, DimensionIndex rank,
+                      Executor data_copy_executor = InlineExecutor{})
+      : data_type_(data_type),
+        rank_(rank),
+        executor_(std::move(data_copy_executor)) {}
+
+  struct ReadRequest {
+    internal::OpenTransactionPtr transaction;
+    IndexTransform<> transform;
+    ReadChunkReceiver receiver;
+  };
+
+  struct WriteRequest {
+    internal::OpenTransactionPtr transaction;
+    IndexTransform<> transform;
+    WriteChunkReceiver receiver;
+  };
+
+  DataType data_type() override { return data_type_; }
+  DimensionIndex rank() override { return rank_; }
+
+  void Read(internal::OpenTransactionPtr transaction,
+            IndexTransform<> transform, ReadChunkReceiver receiver) override;
+
+  void Write(internal::OpenTransactionPtr transaction,
+             IndexTransform<> transform, WriteChunkReceiver receiver) override;
+
+  Executor data_copy_executor() override { return executor_; }
+
+  TensorStore<> Wrap(IndexTransform<> transform = {});
+
+  DataType data_type_;
+  DimensionIndex rank_;
+  Executor executor_;
+
+  ConcurrentQueue<ReadRequest> read_requests;
+  ConcurrentQueue<WriteRequest> write_requests;
+};
+
+/// Returns a `ReadChunk` that simply reads from the specified array.
+ReadChunk MakeArrayBackedReadChunk(
+    NormalizedTransformedArray<Shared<const void>> data);
+ReadChunk MakeArrayBackedReadChunk(
+    SharedOffsetArray<const void, dynamic_rank, view> data);
 
 }  // namespace internal
 }  // namespace tensorstore
