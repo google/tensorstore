@@ -23,9 +23,12 @@
 #include "tensorstore/index_space/internal/transform_array.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/output_index_map.h"
+#include "tensorstore/internal/gdb_scripting.h"
 #include "tensorstore/internal/string_like.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/constant_vector.h"
+
+TENSORSTORE_GDB_AUTO_SCRIPT("index_space_gdb.py")
 
 namespace tensorstore {
 

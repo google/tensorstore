@@ -330,6 +330,7 @@ tensorstore_cc_library(
         "//tensorstore:rank",
         "//tensorstore:strided_layout",
         "//tensorstore/internal:elementwise_function",
+        "//tensorstore/internal:gdb_scripting",
         "//tensorstore/internal:integer_overflow",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:memory",
