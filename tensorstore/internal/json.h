@@ -874,6 +874,24 @@ constexpr auto MapValue(Value value, JsonValue json_value,
       };
 }
 
+/// Returns a `Binder` for enum-like types.
+///
+/// Example usage:
+///
+///     enum class TestEnum { a, b };
+///     const auto binder = jb::Enum<TestEnum, std::string_view>({
+///         {TestEnum::a, "a"},
+///         {TestEnum::b, "b"},
+///     });
+///
+/// When converting to JSON, equality comparison is used for the `EnumValue`
+/// values.  When converting from JSON, `JsonSame` is used for comparison.
+///
+/// \tparam EnumValue The C++ enum-like type to bind.  May be any regular type
+///     that supports equality comparison.
+/// \tparam JsonValue The JSON value representation, may be `std::string_view`,
+///     `int`, or another type convertible to `::nlohmann::json`.
+/// \param values Array of `EnumValue`/`JsonValue` pairs.
 template <typename EnumValue, typename JsonValue, std::size_t N>
 constexpr auto Enum(const std::pair<EnumValue, JsonValue> (&values)[N]) {
   return
@@ -893,7 +911,7 @@ constexpr auto Enum(const std::pair<EnumValue, JsonValue> (&values)[N]) {
         }
         if constexpr (is_loading) {
           return internal_json::ExpectedError(
-              *j, StrCat("one of",
+              *j, StrCat("one of ",
                          absl::StrJoin(
                              values, ", ", [](std::string* out, const auto& p) {
                                *out += ::nlohmann::json(p.second).dump();

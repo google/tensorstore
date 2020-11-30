@@ -918,6 +918,26 @@ TEST(JsonBindingTest, FixedSizeArray) {
                     "Array has length 4 but should have length 3"));
 }
 
+TEST(JsonBindingTest, Enum) {
+  enum class TestEnum { a, b };
+  const auto binder = jb::Enum<TestEnum, std::string_view>({
+      {TestEnum::a, "a"},
+      {TestEnum::b, "b"},
+  });
+  EXPECT_THAT(jb::ToJson(TestEnum::a, binder),
+              ::testing::Optional(std::string("a")));
+  EXPECT_THAT(jb::ToJson(TestEnum::b, binder),
+              ::testing::Optional(std::string("b")));
+  EXPECT_THAT(jb::FromJson<TestEnum>(::nlohmann::json("a"), binder),
+              ::testing::Optional(TestEnum::a));
+  EXPECT_THAT(jb::FromJson<TestEnum>(::nlohmann::json("b"), binder),
+              ::testing::Optional(TestEnum::b));
+  EXPECT_THAT(
+      jb::FromJson<TestEnum>(::nlohmann::json("c"), binder),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Expected one of \"a\", \"b\", but received: \"c\""));
+}
+
 // Tests `FixedSizeArray` applied to `tensorstore::span<tensorstore::Index, 3>`.
 TEST(JsonBindingTest, StaticRankBox) {
   using Value = tensorstore::Box<3>;
