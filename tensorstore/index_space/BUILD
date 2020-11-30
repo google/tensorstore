@@ -441,6 +441,19 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "index_transform_testutil",
+    testonly = True,
+    srcs = ["index_transform_testutil.cc"],
+    hdrs = ["index_transform_testutil.h"],
+    deps = [
+        ":dim_expression",
+        ":index_transform",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/random:bit_gen_ref",
+    ],
+)
+
+tensorstore_cc_library(
     name = "index_vector_or_scalar",
     srcs = ["index_vector_or_scalar.cc"],
     hdrs = ["index_vector_or_scalar.h"],

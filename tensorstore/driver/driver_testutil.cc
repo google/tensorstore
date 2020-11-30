@@ -147,6 +147,8 @@ void TestTensorStoreDriverSpecConvert(
 
 namespace {
 
+// TODO(jbms): Consider migrating to/unifying this with
+// `MakeRandomIndexTransform` in `index_space/index_transform_testutil.h`.
 IndexTransform<> GetRandomTransform(IndexDomainView<> domain,
                                     absl::BitGen* gen) {
   auto transform = IdentityTransform(domain);
