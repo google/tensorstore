@@ -85,6 +85,46 @@ def test_translate_to():
   )
 
 
+def test_stride_vector():
+  x = ts.IndexTransform(
+      input_inclusive_min=[0, 2, 1],
+      input_inclusive_max=[6, 5, 8],
+      input_labels=["x", "y", "z"])
+
+  expr = ts.d["x", "z"].stride[-2, 3]
+  assert repr(expr) == "d['x','z'].stride[-2,3]"
+  assert x[expr] == ts.IndexTransform(
+      input_inclusive_min=[-3, 2, 1],
+      input_inclusive_max=[0, 5, 2],
+      input_labels=["x", "y", "z"],
+      output=[
+          ts.OutputIndexMap(stride=-2, input_dimension=0),
+          ts.OutputIndexMap(stride=1, input_dimension=1),
+          ts.OutputIndexMap(stride=3, input_dimension=2),
+      ],
+  )
+
+
+def test_stride_scalar():
+  x = ts.IndexTransform(
+      input_inclusive_min=[0, 2, 1],
+      input_inclusive_max=[6, 5, 8],
+      input_labels=["x", "y", "z"])
+
+  expr = ts.d["x", "z"].stride[3]
+  assert repr(expr) == "d['x','z'].stride[3]"
+  assert x[expr] == ts.IndexTransform(
+      input_inclusive_min=[0, 2, 1],
+      input_inclusive_max=[2, 5, 2],
+      input_labels=["x", "y", "z"],
+      output=[
+          ts.OutputIndexMap(stride=3, input_dimension=0),
+          ts.OutputIndexMap(stride=1, input_dimension=1),
+          ts.OutputIndexMap(stride=3, input_dimension=2),
+      ],
+  )
+
+
 def test_label_single():
   x = ts.IndexTransform(input_shape=[2, 3], input_labels=["x", "y"])
 

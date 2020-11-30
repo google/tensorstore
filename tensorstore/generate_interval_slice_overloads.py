@@ -104,7 +104,7 @@ def main():
   /// Equiv. input indices| {2, 3, 6}              | {2, 3, -3}
   /// Equiv. input indices| {x, y, z * -2}         | {x, y, z}
   ///
-  /// where `x` is any index in `[1, 4]`, `y` is any index in [2, 5]`, and `z`
+  /// where `x` is any index in `[1, 4]`, `y` is any index in `[2, 5]`, and `z`
   /// is any index in `[-4, -2]`.
   ///
   /// Note that in the case of a stride component not equal to `1` or `-1`, if
@@ -122,7 +122,7 @@ def main():
   /// Equiv. input indices| {2, 3, 7}              | {2, 3, -3}
   /// Equiv. input indices| {x, y, z * -2 + 1}     | {x, y, z}
   ///
-  /// where `x` is any index in `[1, 4]`, `y` is any index in [2, 5]`, and `z`
+  /// where `x` is any index in `[1, 4]`, `y` is any index in `[2, 5]`, and `z`
   /// is any index in `[-4, -1]`.
   ///
 """)
@@ -139,7 +139,7 @@ def main():
   /// Equiv. input indices| {2, 3, 6}              | {2, 3, -3}
   /// Equiv. input indices| {x, y, z * -2}         | {x, y, z}
   ///
-  /// where `x` is any index in `[1, 4]`, `y` is any index in [2, 5]`, and `z`
+  /// where `x` is any index in `[1, 4]`, `y` is any index in `[2, 5]`, and `z`
   /// is any index in `[-4, -2]`.
   ///
 """)
@@ -156,7 +156,7 @@ def main():
   /// Equiv. input indices| {2, 3, 6}              | {2, 3, -3}
   /// Equiv. input indices| {x, y, z * -2}         | {x, y, z}
   ///
-  /// where `x` is any index in `[1, 3]`, `y` is any index in [2, 5]`, and `z`
+  /// where `x` is any index in `[1, 3]`, `y` is any index in `[2, 5]`, and `z`
   /// is any index in `[-4, -3]`.
   ///
 """)

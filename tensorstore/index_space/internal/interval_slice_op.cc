@@ -64,7 +64,7 @@ struct InputDimensionIntervalSliceInfo {
 /// \error `absl::StatusCode::kOutOfRange` if the specified interval is invalid.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs while
 ///     computing the result.
-static Status GetIntervalSliceInfo(
+Status GetIntervalSliceInfo(
     span<InputDimensionIntervalSliceInfo> dimension_info,
     TransformRep* transform, span<const DimensionIndex> dimensions,
     IntervalForm interval_form, bool translate,
@@ -101,27 +101,11 @@ static Status GetIntervalSliceInfo(
   }
   return absl::OkStatus();
 }
-}  // namespace
 
-Result<IndexTransform<>> ApplyIntervalSliceOp(
-    IndexTransform<> transform, DimensionIndexBuffer* dimensions,
-    IntervalForm interval_form, bool translate,
-    IndexVectorOrScalar start_vector, IndexVectorOrScalar stop_or_size_vector,
-    IndexVectorOrScalar stride_vector) {
-  const DimensionIndex num_dims = dimensions->size();
-  const DimensionIndex input_rank = transform.input_rank();
-  TENSORSTORE_RETURN_IF_ERROR(CheckIndexVectorSize(start_vector, num_dims));
-  TENSORSTORE_RETURN_IF_ERROR(
-      CheckIndexVectorSize(stop_or_size_vector, num_dims));
-  TENSORSTORE_RETURN_IF_ERROR(CheckIndexVectorSize(stride_vector, num_dims));
-  TransformRep::Ptr<> rep =
-      MutableRep(TransformAccess::rep_ptr<container>(std::move(transform)));
-  absl::FixedArray<InputDimensionIntervalSliceInfo, internal::kNumInlinedDims>
-      input_dimension_info(input_rank);
-  // Computes slicing parameters and updates `input_origin` and `input_shape`.
-  TENSORSTORE_RETURN_IF_ERROR(GetIntervalSliceInfo(
-      input_dimension_info, rep.get(), *dimensions, interval_form, translate,
-      start_vector, stop_or_size_vector, stride_vector));
+absl::Status ApplyOffsetsAndStridesToOutputIndexMaps(
+    TransformRep* rep,
+    span<const InputDimensionIntervalSliceInfo> input_dimension_info) {
+  const DimensionIndex input_rank = input_dimension_info.size();
   const DimensionIndex output_rank = rep->output_rank;
   span<OutputIndexMap> maps = rep->output_index_maps().first(output_rank);
   // Updates the output index maps.
@@ -168,6 +152,71 @@ Result<IndexTransform<>> ApplyIntervalSliceOp(
       }
     }
   }
+  return absl::OkStatus();
+}
+
+}  // namespace
+
+Result<IndexTransform<>> ApplyIntervalSliceOp(
+    IndexTransform<> transform, DimensionIndexBuffer* dimensions,
+    IntervalForm interval_form, bool translate,
+    IndexVectorOrScalar start_vector, IndexVectorOrScalar stop_or_size_vector,
+    IndexVectorOrScalar stride_vector) {
+  const DimensionIndex num_dims = dimensions->size();
+  const DimensionIndex input_rank = transform.input_rank();
+  TENSORSTORE_RETURN_IF_ERROR(CheckIndexVectorSize(start_vector, num_dims));
+  TENSORSTORE_RETURN_IF_ERROR(
+      CheckIndexVectorSize(stop_or_size_vector, num_dims));
+  TENSORSTORE_RETURN_IF_ERROR(CheckIndexVectorSize(stride_vector, num_dims));
+  TransformRep::Ptr<> rep =
+      MutableRep(TransformAccess::rep_ptr<container>(std::move(transform)));
+  absl::FixedArray<InputDimensionIntervalSliceInfo, internal::kNumInlinedDims>
+      input_dimension_info(input_rank);
+  // Computes slicing parameters and updates `input_origin` and `input_shape`.
+  TENSORSTORE_RETURN_IF_ERROR(GetIntervalSliceInfo(
+      input_dimension_info, rep.get(), *dimensions, interval_form, translate,
+      start_vector, stop_or_size_vector, stride_vector));
+  TENSORSTORE_RETURN_IF_ERROR(
+      ApplyOffsetsAndStridesToOutputIndexMaps(rep.get(), input_dimension_info));
+  return TransformAccess::Make<IndexTransform<>>(std::move(rep));
+}
+
+Result<IndexTransform<>> ApplyStrideOp(IndexTransform<> transform,
+                                       DimensionIndexBuffer* dimensions,
+                                       IndexVectorOrScalar strides) {
+  const DimensionIndex num_dims = dimensions->size();
+  const DimensionIndex input_rank = transform.input_rank();
+  TENSORSTORE_RETURN_IF_ERROR(CheckIndexVectorSize(strides, num_dims));
+  TransformRep::Ptr<> rep =
+      MutableRep(TransformAccess::rep_ptr<container>(std::move(transform)));
+  absl::FixedArray<InputDimensionIntervalSliceInfo, internal::kNumInlinedDims>
+      input_dimension_info(input_rank, InputDimensionIntervalSliceInfo{0, 1});
+  const auto compute_input_domain = [&](DimensionIndex i,
+                                        DimensionIndex input_dim) {
+    const Index stride = strides[i];
+    if (stride == 0) {
+      return absl::InvalidArgumentError("Stride must be non-zero");
+    }
+    input_dimension_info[input_dim].stride = stride;
+    const InputDimensionRef d = rep->input_dimension(input_dim);
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto new_domain,
+        GetAffineTransformDomain(d.optionally_implicit_domain(), /*offset=*/0,
+                                 /*divisor=*/stride));
+    d.domain() = new_domain.interval();
+    d.implicit_lower_bound() = new_domain.implicit_lower();
+    d.implicit_upper_bound() = new_domain.implicit_upper();
+    return absl::OkStatus();
+  };
+  for (DimensionIndex i = 0; i < num_dims; ++i) {
+    const DimensionIndex input_dim = (*dimensions)[i];
+    TENSORSTORE_RETURN_IF_ERROR(
+        compute_input_domain(i, input_dim),
+        MaybeAnnotateStatus(
+            _, StrCat("Applying stride to input dimension ", input_dim)));
+  }
+  TENSORSTORE_RETURN_IF_ERROR(
+      ApplyOffsetsAndStridesToOutputIndexMaps(rep.get(), input_dimension_info));
   return TransformAccess::Make<IndexTransform<>>(std::move(rep));
 }
 

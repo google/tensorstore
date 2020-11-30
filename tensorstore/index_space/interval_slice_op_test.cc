@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// Tests for the DimExpression::{Translate,}{Closed,HalfOpen,Sized}Interval
+/// Tests for the
+/// DimExpression::{{Translate,}{Closed,HalfOpen,Sized}Interval,Stride}
 /// operations.
 
 #include <gmock/gmock.h>
@@ -915,6 +916,66 @@ TEST(SliceSizedIntervalTest, OneDimensionalNegativeStridedUnboundedSize) {
                         .Finalize()
                         .value(),
                     /*equivalent_indices=*/{});
+}
+
+TEST(StrideTest, Example) {
+  const auto original_transform = IndexTransformBuilder<3, 3>()
+                                      .input_origin({0, 2, 1})
+                                      .input_inclusive_max({6, 5, 8})
+                                      .input_labels({"x", "y", "z"})
+                                      .output_single_input_dimension(0, 0)
+                                      .output_single_input_dimension(1, 1)
+                                      .output_single_input_dimension(2, 2)
+                                      .Finalize()
+                                      .value();
+  const auto expected_new_transform =
+      IndexTransformBuilder<3, 3>()
+          .input_origin({-3, 2, 1})
+          .input_inclusive_max({0, 5, 2})
+          .input_labels({"x", "y", "z"})
+          .output_single_input_dimension(0, 0, -2, 0)
+          .output_single_input_dimension(1, 0, 1, 1)
+          .output_single_input_dimension(2, 0, 3, 2)
+          .Finalize()
+          .value();
+  const EquivalentIndices equivalent_indices = {
+      {{4, 3, 3}, {-2, 3, 1}},
+  };
+  TestDimExpression(
+      /*original_transform=*/original_transform,
+      /*expression=*/Dims(0, 2).Stride({-2, 3}),
+      /*expected_new_dimension_selection=*/{0, 2},
+      /*expected_identity_new_transform=*/expected_new_transform,
+      /*expected_new_transform=*/expected_new_transform,
+      /*equivalent_indices=*/equivalent_indices);
+
+  // Test using labels to select dimensions.
+  TestDimExpression(
+      /*original_transform=*/original_transform,
+      /*expression=*/Dims("x", "z").Stride({-2, 3}),
+      /*expected_new_dimension_selection=*/{0, 2},
+      /*expected_identity_new_transform=*/expected_new_transform,
+      /*expected_new_transform=*/expected_new_transform,
+      /*equivalent_indices=*/equivalent_indices);
+}
+
+TEST(StrideTest, ErrorZeroStride) {
+  TestDimExpressionError(
+      IndexTransformBuilder<1, 0>().Finalize().value(), Dims(0).Stride(0),
+      absl::StatusCode::kInvalidArgument,
+      StrCat("Applying stride to input dimension 0: Stride must be non-zero"));
+}
+
+TEST(StrideTest, ErrorStrideOverflow) {
+  TestDimExpressionError(
+      IndexTransformBuilder<1, 1>()
+          .output_single_input_dimension(0, 0,
+                                         std::numeric_limits<Index>::min(), 0)
+          .Finalize()
+          .value(),
+      Dims(0).Stride(std::numeric_limits<Index>::min()),
+      absl::StatusCode::kInvalidArgument,
+      StrCat("Integer overflow computing stride for output dimension 0"));
 }
 
 }  // namespace

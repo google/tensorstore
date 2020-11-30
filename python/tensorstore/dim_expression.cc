@@ -99,6 +99,32 @@ class PythonTranslateOp : public PythonDimExpression {
   bool translate_to_;
 };
 
+/// Python equivalent of `tensorstore::internal_index_space::StrideOp`.
+class PythonStrideOp : public PythonDimExpression {
+ public:
+  explicit PythonStrideOp(std::shared_ptr<const PythonDimExpressionBase> parent,
+                          IndexVectorOrScalarContainer strides)
+      : parent_(std::move(parent)), strides_(std::move(strides)) {}
+
+  std::string repr() const override {
+    return StrCat(
+        parent_->repr(), ".stride[",
+        IndexVectorRepr(strides_, /*implicit=*/true, /*subscript=*/true), "]");
+  }
+
+  Result<IndexTransform<>> Apply(IndexTransform<> transform,
+                                 DimensionIndexBuffer* buffer) const override {
+    TENSORSTORE_ASSIGN_OR_RETURN(transform,
+                                 parent_->Apply(std::move(transform), buffer));
+    return internal_index_space::ApplyStrideOp(std::move(transform), buffer,
+                                               ToIndexVectorOrScalar(strides_));
+  }
+
+ private:
+  std::shared_ptr<const PythonDimExpressionBase> parent_;
+  IndexVectorOrScalarContainer strides_;
+};
+
 /// Python equivalent of `tensorstore::internal_index_space::LabelOp`.
 class PythonLabelOp : public PythonDimExpression {
  public:
@@ -350,6 +376,19 @@ void RegisterDimExpressionBindings(pybind11::module m) {
                 /*translate_to=*/false);
           },
           py::arg("offsets"));
+
+  DefineSubscriptMethod<std::shared_ptr<PythonDimExpressionBase>,
+                        struct StrideTag>(&dim_expression_base, "stride",
+                                          "_Stride")
+      .def(
+          "__getitem__",
+          +[](std::shared_ptr<PythonDimExpressionBase> self,
+              OptionallyImplicitIndexVectorOrScalarContainer strides)
+              -> std::shared_ptr<PythonDimExpression> {
+            return std::make_shared<PythonStrideOp>(
+                std::move(self), ToIndexVectorOrScalarContainer(strides));
+          },
+          py::arg("strides"));
 
   DefineSubscriptMethod<std::shared_ptr<PythonDimExpressionBase>,
                         struct TransposeTag>(&dim_expression_base, "transpose",

@@ -133,6 +133,11 @@ class DimExpression<LastOp, PriorOp...> {
   using TranslateToOpExpr =
       IndexVectorOpExpr<internal_index_space::TranslateToOp, IndexVector>;
 
+  /// Defines the return type for Stride.
+  template <typename IndexVector>
+  using StrideOpExpr =
+      IndexVectorOpExpr<internal_index_space::StrideOp, IndexVector>;
+
   /// Defines the return type for IndexSlice with an index vector.
   template <typename IndexVector>
   using SingleIndexSliceOpExpr =
@@ -461,7 +466,7 @@ class DimExpression<LastOp, PriorOp...> {
   /// Equiv. input indices| {2, 3, 7}              | {2, 3, -3}
   /// Equiv. input indices| {x, y, z * -2 + 1}     | {x, y, z}
   ///
-  /// where `x` is any index in `[1, 4]`, `y` is any index in [2, 5]`, and `z`
+  /// where `x` is any index in `[1, 4]`, `y` is any index in `[2, 5]`, and `z`
   /// is any index in `[-4, -1]`.
   ///
   /// \requires `Start`, `Stop`, and `Strides` satisfy the IsIndexVectorOrScalar
@@ -578,7 +583,7 @@ class DimExpression<LastOp, PriorOp...> {
   /// Equiv. input indices| {2, 3, 6}              | {2, 3, -3}
   /// Equiv. input indices| {x, y, z * -2}         | {x, y, z}
   ///
-  /// where `x` is any index in `[1, 4]`, `y` is any index in [2, 5]`, and `z`
+  /// where `x` is any index in `[1, 4]`, `y` is any index in `[2, 5]`, and `z`
   /// is any index in `[-4, -2]`.
   ///
   /// \requires `Start`, `Stop`, and `Strides` satisfy the IsIndexVectorOrScalar
@@ -695,7 +700,7 @@ class DimExpression<LastOp, PriorOp...> {
   /// Equiv. input indices| {2, 3, 6}              | {2, 3, -3}
   /// Equiv. input indices| {x, y, z * -2}         | {x, y, z}
   ///
-  /// where `x` is any index in `[1, 3]`, `y` is any index in [2, 5]`, and `z`
+  /// where `x` is any index in `[1, 3]`, `y` is any index in `[2, 5]`, and `z`
   /// is any index in `[-4, -3]`.
   ///
   /// \requires `Start`, `Size`, and `Strides` satisfy the IsIndexVectorOrScalar
@@ -1483,7 +1488,54 @@ class DimExpression<LastOp, PriorOp...> {
     return {{/*.implicit=*/true, lower, upper}, *this};
   }
 
-  // TODO(jbms): Add Stride operation
+  /// Strides the domains of the selected input dimensions by the specified
+  /// `strides` vector.
+  ///
+  /// For each selected dimension `i`, the new domain is the set of indices `x`
+  /// such that `x * strides[i]` is contained in the original domain.
+  ///
+  /// This has the same effect as `SizedInterval(kImplicit, kImplicit, strides)`
+  /// except that the domain may be translated by 1 and does not require a
+  /// bounded start index.
+  ///
+  /// The new dimension selection is the same as the prior dimension selection,
+  /// with a static rank equal to the merged static rank of the prior dimension
+  /// selection and the static extent of the `strides` vector.
+  ///
+  /// For example: `Dims(0, 2).Stride({-2, 3})` has the following effects:
+  ///
+  /// *                   | Prior                  | New
+  /// ------------------- | ---                    | ---
+  /// Dimension selection | {0, 2}                 | {0, 2}
+  /// Input domain        | [0, 6], [2, 5], [1, 8] | [-3, 0], [2, 5], [1, 2]
+  /// Labels              | {"x", "y", "z"}        | {"x", "y", "z"}
+  /// Equiv. input indices| {4, 3, 3}              | {-2, 3, 1}
+  /// Equiv. input indices| {-2 * x, y, 3 * z}     | {x, y, z}
+  ///
+  /// where `x` is any index in `[-3, 0]`, `y` is any index in `[2, 5]`, and `z`
+  /// is any index in `[1, 2]`.
+  ///
+  /// \requires `Strides` satisfies the IsIndexVectorOrScalar concept with a
+  ///     static extent compatible with the static rank of the dimension
+  ///     selection.
+  /// \param strides Index vector specifying the stride for each selected
+  ///     dimension.  May be a braced list, e.g. `Stride({1, 2, 3})`.  May also
+  ///     be a scalar, e.g. `Stride(5)`, in which case the same stride is used
+  ///     for all selected dimensions.
+  /// \error `absl::StatusCode::kInvalidArgument` if the extent of the `strides`
+  ///     vector is not equal to the number of selected dimensions.
+  /// \error `absl::StatusCode::kInvalidArgument` if a stride value is `0`.
+  template <typename Strides>
+  StrideOpExpr<Strides> Stride(const Strides& strides) const {
+    return {{strides}, *this};
+  }
+
+  /// Overload that permits the strides vector to be specified as a braced list.
+  template <DimensionIndex Rank>
+  StrideOpExpr<const Index (&)[Rank]> Stride(
+      const Index (&strides)[Rank]) const {
+    return {{span(strides)}, *this};
+  }
 
   // TODO(jbms): Add Squeeze operation
 

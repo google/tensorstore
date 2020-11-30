@@ -23,7 +23,8 @@
 #include "tensorstore/util/result.h"
 
 /// Implementation of the
-/// DimExpression::{Translate,}{Closed,HalfOpen,Sized}Interval operations.
+/// DimExpression::{{Translate,}{Closed,HalfOpen,Sized}Interval,Stride}
+/// operations.
 
 // IWYU pragma: private, include "third_party/tensorstore/index_space/dim_expression.h"
 
@@ -127,6 +128,65 @@ struct IntervalSliceOp {
 
   StartVector start_vector;
   StopOrSizeVector stop_or_size_vector;
+  StrideVector stride_vector;
+};
+
+/// Returns a new index transform with the domains of the specified input
+/// dimensions strided by the specified stride vector.
+///
+/// See DimExpression::Stride for details.
+///
+/// \param transform Existing transform.
+/// \param dimensions[in] Non-null pointer to the list of indices of the
+///     dimensions for which to stride the domains.  The value is not modified,
+///     since these indices already correspond to the indices of those
+///     dimensions in the result.
+/// \param strides The vector of strides corresponding to the specified
+///     dimensions.
+/// \pre `transform.valid()`
+/// \pre Each `index` in `*dimensions` must be unique and satisfy `0 <= index`
+///     and `index < transform.input_rank()`.
+/// \returns The new index transform.
+/// \error `absl::StatusCode::kInvalidArgument` if `strides.size()` is not
+///     compatible with `dimensions->size()`.
+/// \error `absl::StatusCode::kInvalidArgument` if a stride value is `0`.
+Result<IndexTransform<>> ApplyStrideOp(IndexTransform<> transform,
+                                       DimensionIndexBuffer* dimensions,
+                                       IndexVectorOrScalar strides);
+
+/// Type representing the DimExpression::Stride operation.
+/// \tparam StrideVector The container type for the strides vector.  Must
+///     satisfy IsIndexVectorOrScalar.
+template <typename StrideVector>
+struct StrideOp {
+  static constexpr bool selected_dimensions_are_new = false;
+
+  static constexpr DimensionIndex static_selection_rank =
+      IsIndexVectorOrScalar<StrideVector>::extent;
+
+  constexpr static DimensionIndex GetNewStaticInputRank(
+      DimensionIndex input_rank, DimensionIndex num_input_dims) {
+    TENSORSTORE_CONSTEXPR_ASSERT(
+        (input_rank == dynamic_rank || input_rank >= static_selection_rank) &&
+        "Number of dimensions must not exceed input rank.");
+    return input_rank;
+  }
+
+  constexpr static DimensionIndex GetStaticSelectionRank(
+      DimensionIndex num_input_dims) {
+    TENSORSTORE_CONSTEXPR_ASSERT(
+        IsRankExplicitlyConvertible(num_input_dims, static_selection_rank) &&
+        "Number of selected dimensions must match number of strides.");
+    return num_input_dims == dynamic_rank ? static_selection_rank
+                                          : num_input_dims;
+  }
+
+  Result<IndexTransform<>> Apply(IndexTransform<> transform,
+                                 DimensionIndexBuffer* dimensions) const {
+    return ApplyStrideOp(std::move(transform), dimensions,
+                         IndexVectorOrScalar(stride_vector));
+  }
+
   StrideVector stride_vector;
 };
 
