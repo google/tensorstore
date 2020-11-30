@@ -42,9 +42,7 @@ TEST(IndexArraySliceTest, Example) {
                                       .input_origin({0, 2, 0})
                                       .input_shape({7, 4, 10})
                                       .input_labels({"x", "y", "z"})
-                                      .output_single_input_dimension(0, 0, 1, 0)
-                                      .output_single_input_dimension(1, 0, 1, 1)
-                                      .output_single_input_dimension(2, 0, 1, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
   const auto expected_new_transform =
@@ -55,7 +53,7 @@ TEST(IndexArraySliceTest, Example) {
           .output_index_array(
               0, 0, 1, MakeArray<Index>({{{1}, {2}, {3}}, {{4}, {5}, {6}}}),
               IndexInterval::Sized(0, 7))
-          .output_single_input_dimension(1, 0, 1, 2)
+          .output_single_input_dimension(1, 2)
           .output_index_array(
               2, 0, 1, MakeArray<Index>({{{7}, {8}, {9}}, {{0}, {1}, {2}}}),
               IndexInterval::Sized(0, 10))
@@ -96,9 +94,7 @@ TEST(IndexVectorArraySliceTest, Example) {
                                       .input_origin({0, 2, 0})
                                       .input_shape({7, 4, 10})
                                       .input_labels({"x", "y", "z"})
-                                      .output_single_input_dimension(0, 0, 1, 0)
-                                      .output_single_input_dimension(1, 0, 1, 1)
-                                      .output_single_input_dimension(2, 0, 1, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
   const auto expected_new_transform =
@@ -109,7 +105,7 @@ TEST(IndexVectorArraySliceTest, Example) {
           .output_index_array(
               0, 0, 1, MakeArray<Index>({{{1}, {2}, {3}}, {{4}, {5}, {6}}}),
               IndexInterval::Sized(0, 7))
-          .output_single_input_dimension(1, 0, 1, 2)
+          .output_single_input_dimension(1, 2)
           .output_index_array(
               2, 0, 1, MakeArray<Index>({{{7}, {8}, {9}}, {{0}, {1}, {2}}}),
               IndexInterval::Sized(0, 10))
@@ -152,9 +148,7 @@ TEST(IndexArrayOuterIndexArraySliceTest, Example) {
                                       .input_origin({4, 2, 0})
                                       .input_shape({5, 4, 10})
                                       .input_labels({"x", "y", "z"})
-                                      .output_single_input_dimension(0, 0, 1, 0)
-                                      .output_single_input_dimension(1, 0, 1, 1)
-                                      .output_single_input_dimension(2, 0, 1, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
   const auto expected_new_transform =
@@ -164,7 +158,7 @@ TEST(IndexArrayOuterIndexArraySliceTest, Example) {
           .input_labels({"", "y", "", ""})
           .output_index_array(0, 0, 1, MakeArray<Index>({{{{6}}}, {{{7}}}}),
                               IndexInterval::Sized(4, 5))
-          .output_single_input_dimension(1, 0, 1, 1)
+          .output_single_input_dimension(1, 1)
           .output_index_array(2, 0, 1, MakeArray<Index>({{{{2, 3}, {4, 5}}}}),
                               IndexInterval::Sized(0, 10))
           .Finalize()
@@ -214,7 +208,7 @@ TEST(IndexArraySliceTest, OneDOutputOneDArray) {
           .input_shape({2, 200})
           .output_index_array(0, 0, 1, MakeArray<Index>({{1}, {2}}),
                               IndexInterval::Sized(-10, 20))
-          .output_single_input_dimension(1, 0, 1, 1)
+          .output_single_input_dimension(1, 1)
           .Finalize()
           .value(),
       /*expected_new_transform=*/
@@ -279,7 +273,7 @@ TEST(IndexArraySliceTest, OneElementIndexArray) {
           .input_origin({0, 0, -100})
           .input_shape({1, 1, 200})
           .output_constant(0, 5)
-          .output_single_input_dimension(1, 0, 1, 2)
+          .output_single_input_dimension(1, 2)
           .Finalize()
           .value(),
       /*expected_new_transform=*/
@@ -317,7 +311,7 @@ TEST(IndexArraySliceTest, OneDOutputOneDArrayLabeled) {
                         .output_index_array(0, 0, 1,
                                             MakeArray<Index>({{1}, {2}}),
                                             IndexInterval::Sized(-10, 20))
-                        .output_single_input_dimension(1, 0, 1, 1)
+                        .output_single_input_dimension(1, 1)
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -459,7 +453,7 @@ TEST(IndexVectorArraySliceTest, OneDOutputOneDArray) {
                         .output_index_array(0, 0, 1,
                                             MakeArray<Index>({{1}, {2}}),
                                             IndexInterval::Sized(-10, 20))
-                        .output_single_input_dimension(1, 0, 1, 1)
+                        .output_single_input_dimension(1, 1)
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -493,7 +487,7 @@ TEST(IndexVectorArraySliceTest, OneElementIndexArray) {
           .input_origin({0, -100})
           .input_shape({1, 200})
           .output_constant(0, 1)
-          .output_single_input_dimension(1, 0, 1, 1)
+          .output_single_input_dimension(1, 1)
           .Finalize()
           .value(),
       /*expected_new_transform=*/
@@ -530,7 +524,7 @@ TEST(IndexVectorArraySliceTest, OneDOutputOneDArrayLabeled) {
           .input_labels({"index", "y"})
           .output_index_array(0, 0, 1, MakeArray<Index>({{1}, {2}}),
                               IndexInterval::Sized(-10, 20))
-          .output_single_input_dimension(1, 0, 1, 1)
+          .output_single_input_dimension(1, 1)
           .Finalize()
           .value(),
       /*expected_new_transform=*/
@@ -627,7 +621,7 @@ TEST(OuterIndexArraySliceTest, Integration) {
                             MakeArray<Index>({{{{3}}, {{4}}, {{5}}},
                                               {{{8}}, {{9}}, {{10}}}}),
                             IndexInterval::Sized(-10, 21))
-                        .output_single_input_dimension(1, 0, 1, 2)
+                        .output_single_input_dimension(1, 2)
                         .output_index_array(2, 0, 1,
                                             MakeArray<Index>({{{{1, 2}}}}),
                                             IndexInterval::Sized(-2, 15))
@@ -680,7 +674,7 @@ TEST(OuterIndexArraySliceTest, OneElementIndexArray) {
                             MakeArray<Index>({{{{3}}, {{4}}, {{5}}},
                                               {{{8}}, {{9}}, {{10}}}}),
                             IndexInterval::Sized(-10, 21))
-                        .output_single_input_dimension(1, 0, 1, 2)
+                        .output_single_input_dimension(1, 2)
                         .output_constant(2, 1)
                         .Finalize()
                         .value(),

@@ -235,6 +235,12 @@ class IndexDomainBuilder {
     return *this;
   }
 
+  /// Returns the mutable `bounds` box, and marks the lower and upper bounds as
+  /// having been set.
+  ///
+  /// \pre `valid() == true`
+  MutableBoxView<Rank> bounds() { return builder_.input_bounds(); }
+
   /// Copies an existing domain.  Individual parts of the domain may then be
   /// overridden by calling other methods.
   ///

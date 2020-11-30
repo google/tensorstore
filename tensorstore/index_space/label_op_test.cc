@@ -35,21 +35,16 @@ TEST(LabelTest, Example) {
                                       .input_origin({1, 2, 3})
                                       .input_shape({3, 4, 2})
                                       .input_labels({"x", "y", "z"})
-                                      .output_single_input_dimension(0, 0, 1, 0)
-                                      .output_single_input_dimension(1, 0, 1, 1)
-                                      .output_single_input_dimension(2, 0, 1, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
-  const auto expected_new_transform =
-      IndexTransformBuilder<3, 3>()
-          .input_origin({1, 2, 3})
-          .input_shape({3, 4, 2})
-          .input_labels({"a", "y", "b"})
-          .output_single_input_dimension(0, 0, 1, 0)
-          .output_single_input_dimension(1, 0, 1, 1)
-          .output_single_input_dimension(2, 0, 1, 2)
-          .Finalize()
-          .value();
+  const auto expected_new_transform = IndexTransformBuilder<3, 3>()
+                                          .input_origin({1, 2, 3})
+                                          .input_shape({3, 4, 2})
+                                          .input_labels({"a", "y", "b"})
+                                          .output_identity_transform()
+                                          .Finalize()
+                                          .value();
   TestDimExpression(/*original_transform=*/original_transform,
                     /*expression=*/Dims(0, 2).Label("a", "b"),
                     /*expected_new_dimension_selection=*/{0, 2},
@@ -77,9 +72,7 @@ TEST(LabelTest, MultipleArguments) {
                     /*expected_identity_new_transform=*/
                     IndexTransformBuilder<3, 3>()
                         .input_labels({"y", "x", ""})
-                        .output_single_input_dimension(0, 0, 1, 0)
-                        .output_single_input_dimension(1, 0, 1, 1)
-                        .output_single_input_dimension(2, 0, 1, 2)
+                        .output_identity_transform()
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/

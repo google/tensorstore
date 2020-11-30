@@ -38,23 +38,20 @@ TEST(TransposeTest, Example) {
                                       .implicit_lower_bounds({1, 0, 0})
                                       .implicit_upper_bounds({0, 1, 0})
                                       .input_labels({"x", "y", "z"})
-                                      .output_single_input_dimension(0, 0, 1, 0)
-                                      .output_single_input_dimension(1, 0, 1, 1)
-                                      .output_single_input_dimension(2, 0, 1, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
-  const auto expected_new_transform =
-      IndexTransformBuilder<3, 3>()
-          .input_origin({3, 1, 2})
-          .input_shape({2, 3, 4})
-          .implicit_lower_bounds({0, 1, 0})
-          .implicit_upper_bounds({0, 0, 1})
-          .input_labels({"z", "x", "y"})
-          .output_single_input_dimension(0, 0, 1, 1)
-          .output_single_input_dimension(1, 0, 1, 2)
-          .output_single_input_dimension(2, 0, 1, 0)
-          .Finalize()
-          .value();
+  const auto expected_new_transform = IndexTransformBuilder<3, 3>()
+                                          .input_origin({3, 1, 2})
+                                          .input_shape({2, 3, 4})
+                                          .implicit_lower_bounds({0, 1, 0})
+                                          .implicit_upper_bounds({0, 0, 1})
+                                          .input_labels({"z", "x", "y"})
+                                          .output_single_input_dimension(0, 1)
+                                          .output_single_input_dimension(1, 2)
+                                          .output_single_input_dimension(2, 0)
+                                          .Finalize()
+                                          .value();
   const EquivalentIndices equivalent_indices = {{{2, 3, 4}, {4, 2, 3}}};
   TestDimExpression(/*original_transform=*/original_transform,
                     /*expression=*/Dims(2, 0, 1).Transpose(),
@@ -89,10 +86,10 @@ TEST(TransposeTest, Simple) {
                     IndexTransformBuilder<4, 4>()
                         .input_origin({3, 1, 2, 4})
                         .input_shape({4, 5, 6, 8})
-                        .output_single_input_dimension(0, 0, 1, 1)
-                        .output_single_input_dimension(1, 0, 1, 2)
-                        .output_single_input_dimension(2, 0, 1, 0)
-                        .output_single_input_dimension(3, 0, 1, 3)
+                        .output_single_input_dimension(0, 1)
+                        .output_single_input_dimension(1, 2)
+                        .output_single_input_dimension(2, 0)
+                        .output_single_input_dimension(3, 3)
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -124,8 +121,8 @@ TEST(TransposeTest, Constant) {
                     IndexTransformBuilder<2, 2>()
                         .input_origin({2, 1})
                         .input_shape({6, 5})
-                        .output_single_input_dimension(0, 0, 1, 1)
-                        .output_single_input_dimension(1, 0, 1, 0)
+                        .output_single_input_dimension(0, 1)
+                        .output_single_input_dimension(1, 0)
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -171,10 +168,10 @@ TEST(TransposeTest, Labeled) {
                         .input_origin({3, 1, 2, 4})
                         .input_shape({4, 5, 6, 8})
                         .input_labels({"c", "a", "b", "d"})
-                        .output_single_input_dimension(0, 0, 1, 1)
-                        .output_single_input_dimension(1, 0, 1, 2)
-                        .output_single_input_dimension(2, 0, 1, 0)
-                        .output_single_input_dimension(3, 0, 1, 3)
+                        .output_single_input_dimension(0, 1)
+                        .output_single_input_dimension(1, 2)
+                        .output_single_input_dimension(2, 0)
+                        .output_single_input_dimension(3, 3)
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/

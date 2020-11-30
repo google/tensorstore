@@ -43,9 +43,7 @@ TEST(ClosedIntervalTest, Example) {
                                       .input_origin({0, 2, 0})
                                       .input_shape({7, 4, 10})
                                       .input_labels({"x", "y", "z"})
-                                      .output_single_input_dimension(0, 0, 1, 0)
-                                      .output_single_input_dimension(1, 0, 1, 1)
-                                      .output_single_input_dimension(2, 0, 1, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
   const auto expected_new_transform =
@@ -53,8 +51,8 @@ TEST(ClosedIntervalTest, Example) {
           .input_origin({1, 2, -4})
           .input_shape({4, 4, 3})
           .input_labels({"x", "y", "z"})
-          .output_single_input_dimension(0, 0, 1, 0)
-          .output_single_input_dimension(1, 0, 1, 1)
+          .output_single_input_dimension(0, 0)
+          .output_single_input_dimension(1, 1)
           .output_single_input_dimension(2, 0, -2, 2)
           .Finalize()
           .value();
@@ -84,9 +82,7 @@ TEST(ClosedIntervalTest, ExampleWithOffset) {
                                       .input_origin({0, 2, 0})
                                       .input_shape({7, 4, 10})
                                       .input_labels({"x", "y", "z"})
-                                      .output_single_input_dimension(0, 0, 1, 0)
-                                      .output_single_input_dimension(1, 0, 1, 1)
-                                      .output_single_input_dimension(2, 0, 1, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
   const auto expected_new_transform =
@@ -94,8 +90,8 @@ TEST(ClosedIntervalTest, ExampleWithOffset) {
           .input_origin({1, 2, -4})
           .input_shape({4, 4, 4})
           .input_labels({"x", "y", "z"})
-          .output_single_input_dimension(0, 0, 1, 0)
-          .output_single_input_dimension(1, 0, 1, 1)
+          .output_single_input_dimension(0, 0)
+          .output_single_input_dimension(1, 1)
           .output_single_input_dimension(2, 1, -2, 2)
           .Finalize()
           .value();
@@ -117,8 +113,8 @@ TEST(HalfOpenIntervalTest, Example) {
           .input_origin({1, 2, -4})
           .input_shape({3, 4, 3})
           .input_labels({"x", "y", "z"})
-          .output_single_input_dimension(0, 0, 1, 0)
-          .output_single_input_dimension(1, 0, 1, 1)
+          .output_single_input_dimension(0, 0)
+          .output_single_input_dimension(1, 1)
           .output_single_input_dimension(2, 0, -2, 2)
           .Finalize()
           .value();
@@ -127,9 +123,7 @@ TEST(HalfOpenIntervalTest, Example) {
           .input_origin({0, 2, 0})
           .input_shape({7, 4, 10})
           .input_labels({"x", "y", "z"})
-          .output_single_input_dimension(0, 0, 1, 0)
-          .output_single_input_dimension(1, 0, 1, 1)
-          .output_single_input_dimension(2, 0, 1, 2)
+          .output_identity_transform()
           .Finalize()
           .value(),
       /*expression=*/Dims(0, 2).HalfOpenInterval({1, 8}, {4, 3}, {1, -2}),
@@ -145,8 +139,8 @@ TEST(SizedIntervalTest, Example) {
           .input_origin({1, 2, -4})
           .input_shape({3, 4, 2})
           .input_labels({"x", "y", "z"})
-          .output_single_input_dimension(0, 0, 1, 0)
-          .output_single_input_dimension(1, 0, 1, 1)
+          .output_single_input_dimension(0, 0)
+          .output_single_input_dimension(1, 1)
           .output_single_input_dimension(2, 0, -2, 2)
           .Finalize()
           .value();
@@ -155,9 +149,7 @@ TEST(SizedIntervalTest, Example) {
           .input_origin({0, 2, 0})
           .input_shape({7, 4, 10})
           .input_labels({"x", "y", "z"})
-          .output_single_input_dimension(0, 0, 1, 0)
-          .output_single_input_dimension(1, 0, 1, 1)
-          .output_single_input_dimension(2, 0, 1, 2)
+          .output_identity_transform()
           .Finalize()
           .value(),
       /*expression=*/Dims(0, 2).SizedInterval({1, 8}, {3, 2}, {1, -2}),
@@ -180,7 +172,7 @@ TEST(ClosedIntervalTest, OneDimensionalConstantNonStrided) {
                     IndexTransformBuilder<1, 1>()
                         .input_origin({-3})
                         .input_shape({8})
-                        .output_single_input_dimension(0, 0, 1, 0)
+                        .output_identity_transform()
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -258,7 +250,7 @@ TEST(ClosedIntervalTest, OneDimensionalSingleInputDimensionNonStrided) {
                     IndexTransformBuilder<1, 1>()
                         .input_origin({-3})
                         .input_shape({8})
-                        .output_single_input_dimension(0, 0, 1, 0)
+                        .output_identity_transform()
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -311,7 +303,7 @@ TEST(ClosedIntervalTest, OneDimensionalArrayNonStrided) {
       IndexTransformBuilder<1, 1>()
           .input_origin({-1})
           .input_shape({3})
-          .output_single_input_dimension(0, 0, 1, 0)
+          .output_identity_transform()
           .Finalize()
           .value(),
       /*expected_new_transform=*/
@@ -402,10 +394,7 @@ TEST(ClosedIntervalTest, DimSubset) {
                     IndexTransformBuilder<4, 4>()
                         .input_origin({-5, 2, 2, -kInfIndex})
                         .input_shape({16, 2, 3, kInfIndex + 7})
-                        .output_single_input_dimension(0, 0, 1, 0)
-                        .output_single_input_dimension(1, 0, 1, 1)
-                        .output_single_input_dimension(2, 0, 1, 2)
-                        .output_single_input_dimension(3, 0, 1, 3)
+                        .output_identity_transform()
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -483,7 +472,7 @@ TEST(SliceClosedIntervalTest, UnboundedStart) {
                     IndexTransformBuilder<1, 1>()
                         .input_origin({5})
                         .input_shape({5})
-                        .output_single_input_dimension(0, 0, 1, 0)
+                        .output_identity_transform()
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -531,7 +520,7 @@ TEST(SliceHalfOpenIntervalTest, OneDimensionalUnstrided) {
                     IndexTransformBuilder<1, 1>()
                         .input_origin({6})
                         .input_shape({4})
-                        .output_single_input_dimension(0, 0, 1, 0)
+                        .output_identity_transform()
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -555,7 +544,7 @@ TEST(SliceHalfOpenIntervalTest, OneDimensionalUnstridedUnboundedStart) {
                     IndexTransformBuilder<1, 1>()
                         .input_origin({5})
                         .input_shape({5})
-                        .output_single_input_dimension(0, 0, 1, 0)
+                        .output_identity_transform()
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -579,7 +568,7 @@ TEST(SliceHalfOpenIntervalTest, OneDimensionalUnstridedUnboundedStop) {
                     IndexTransformBuilder<1, 1>()
                         .input_origin({6})
                         .input_shape({9})
-                        .output_single_input_dimension(0, 0, 1, 0)
+                        .output_identity_transform()
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -740,7 +729,7 @@ TEST(SliceSizedIntervalTest, OneDimensionalUnstrided) {
                     IndexTransformBuilder<1, 1>()
                         .input_origin({6})
                         .input_shape({3})
-                        .output_single_input_dimension(0, 0, 1, 0)
+                        .output_identity_transform()
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -764,7 +753,7 @@ TEST(SliceSizedIntervalTest, OneDimensionalUnstridedUnboundedMin) {
                     IndexTransformBuilder<1, 1>()
                         .input_origin({5})
                         .input_shape({3})
-                        .output_single_input_dimension(0, 0, 1, 0)
+                        .output_identity_transform()
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -788,7 +777,7 @@ TEST(SliceSizedIntervalTest, OneDimensionalUnstridedUnboundedSize) {
                     IndexTransformBuilder<1, 1>()
                         .input_origin({6})
                         .input_shape({9})
-                        .output_single_input_dimension(0, 0, 1, 0)
+                        .output_identity_transform()
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -923,9 +912,7 @@ TEST(StrideTest, Example) {
                                       .input_origin({0, 2, 1})
                                       .input_inclusive_max({6, 5, 8})
                                       .input_labels({"x", "y", "z"})
-                                      .output_single_input_dimension(0, 0)
-                                      .output_single_input_dimension(1, 1)
-                                      .output_single_input_dimension(2, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
   const auto expected_new_transform =
@@ -934,7 +921,7 @@ TEST(StrideTest, Example) {
           .input_inclusive_max({0, 5, 2})
           .input_labels({"x", "y", "z"})
           .output_single_input_dimension(0, 0, -2, 0)
-          .output_single_input_dimension(1, 0, 1, 1)
+          .output_single_input_dimension(1, 1)
           .output_single_input_dimension(2, 0, 3, 2)
           .Finalize()
           .value();

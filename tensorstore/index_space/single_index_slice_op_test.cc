@@ -40,21 +40,18 @@ TEST(SingleIndexSliceTest, Example) {
                                       .input_origin({1, 2, 3})
                                       .input_shape({3, 4, 2})
                                       .input_labels({"x", "y", "z"})
-                                      .output_single_input_dimension(0, 0, 1, 0)
-                                      .output_single_input_dimension(1, 0, 1, 1)
-                                      .output_single_input_dimension(2, 0, 1, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
-  const auto expected_new_transform =
-      IndexTransformBuilder<1, 3>()
-          .input_origin({2})
-          .input_shape({4})
-          .input_labels({"y"})
-          .output_constant(0, 2)
-          .output_single_input_dimension(1, 0, 1, 0)
-          .output_constant(2, 4)
-          .Finalize()
-          .value();
+  const auto expected_new_transform = IndexTransformBuilder<1, 3>()
+                                          .input_origin({2})
+                                          .input_shape({4})
+                                          .input_labels({"y"})
+                                          .output_constant(0, 2)
+                                          .output_single_input_dimension(1, 0)
+                                          .output_constant(2, 4)
+                                          .Finalize()
+                                          .value();
   const EquivalentIndices equivalent_indices = {
       {{2, 3, 4}, {3}},
   };
@@ -81,22 +78,19 @@ TEST(SingleIndexSliceTest, ImplicitLowerBound) {
                                       .implicit_lower_bounds({1, 1, 0})
                                       .input_shape({3, 4, 2})
                                       .input_labels({"x", "y", "z"})
-                                      .output_single_input_dimension(0, 0)
-                                      .output_single_input_dimension(1, 1)
-                                      .output_single_input_dimension(2, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
-  const auto expected_new_transform =
-      IndexTransformBuilder<1, 3>()
-          .input_origin({2})
-          .implicit_lower_bounds({1})
-          .input_shape({4})
-          .input_labels({"y"})
-          .output_constant(0, -7)
-          .output_single_input_dimension(1, 0, 1, 0)
-          .output_constant(2, 4)
-          .Finalize()
-          .value();
+  const auto expected_new_transform = IndexTransformBuilder<1, 3>()
+                                          .input_origin({2})
+                                          .implicit_lower_bounds({1})
+                                          .input_shape({4})
+                                          .input_labels({"y"})
+                                          .output_constant(0, -7)
+                                          .output_single_input_dimension(1, 0)
+                                          .output_constant(2, 4)
+                                          .Finalize()
+                                          .value();
   const EquivalentIndices equivalent_indices = {
       {{-7, 3, 4}, {3}},
   };
@@ -130,7 +124,7 @@ TEST(SingleIndexSliceTest, DimSubsetUniformIndexArrayRetained) {
                     IndexTransformBuilder<1, 3>()
                         .input_origin({1})
                         .input_shape({4})
-                        .output_single_input_dimension(0, 0, 1, 0)
+                        .output_single_input_dimension(0, 0)
                         .output_constant(1, 3)
                         .output_constant(2, 3)
                         .Finalize()
@@ -168,7 +162,7 @@ TEST(SingleIndexSliceTest, DimSubsetUniformIndexArrayEliminated) {
                     IndexTransformBuilder<1, 3>()
                         .input_origin({1})
                         .input_shape({4})
-                        .output_single_input_dimension(0, 0, 1, 0)
+                        .output_single_input_dimension(0, 0)
                         .output_constant(1, 3)
                         .output_constant(2, 3)
                         .Finalize()
@@ -208,7 +202,7 @@ TEST(SingleIndexSliceTest, DimSubsetNonUniform) {
                     IndexTransformBuilder<1, 3>()
                         .input_origin({1})
                         .input_shape({4})
-                        .output_single_input_dimension(0, 0, 1, 0)
+                        .output_single_input_dimension(0, 0)
                         .output_constant(1, 3)
                         .output_constant(2, 4)
                         .Finalize()
@@ -251,7 +245,7 @@ TEST(SingleIndexSliceTest, DimSubsetNonUniformLabeled) {
                         .input_origin({1})
                         .input_shape({4})
                         .input_labels({"x"})
-                        .output_single_input_dimension(0, 0, 1, 0)
+                        .output_single_input_dimension(0, 0)
                         .output_constant(1, 3)
                         .output_constant(2, 4)
                         .Finalize()
@@ -291,7 +285,7 @@ TEST(SingleIndexSliceTest, EmptyDomain) {
                         .input_origin({1})
                         .input_shape({0})
                         .input_labels({"x"})
-                        .output_single_input_dimension(0, 0, 1, 0)
+                        .output_single_input_dimension(0, 0)
                         .output_constant(1, 3)
                         .Finalize()
                         .value(),

@@ -132,17 +132,17 @@ TEST(IndexTransformTest, Equality) {
   // Check with different output index map methods.
   EXPECT_NE(IndexTransformBuilder<>(3, 2).Finalize().value(),
             IndexTransformBuilder<>(3, 2)
-                .output_single_input_dimension(0, 0, 1, 0)
+                .output_single_input_dimension(0, 0)
                 .Finalize()
                 .value());
 
   // Check with different output index map input_dimension values.
   EXPECT_NE(IndexTransformBuilder<>(3, 2)
-                .output_single_input_dimension(0, 0, 1, 1)
+                .output_single_input_dimension(0, 1)
                 .Finalize()
                 .value(),
             IndexTransformBuilder<>(3, 2)
-                .output_single_input_dimension(0, 0, 1, 0)
+                .output_single_input_dimension(0, 0)
                 .Finalize()
                 .value());
 
@@ -172,7 +172,7 @@ TEST(IndexTransformTest, Equality) {
                 .Finalize()
                 .value(),
             IndexTransformBuilder<>(3, 2)
-                .output_single_input_dimension(1, 0, 1, 1)
+                .output_single_input_dimension(1, 1)
                 .Finalize()
                 .value());
 

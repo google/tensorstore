@@ -52,15 +52,14 @@ TEST(TransformArrayTest, OneDimensionalIdentityWithOrigin) {
 
 TEST(TransformArrayTest, OneDimensionalSliceUnstrided) {
   auto original_array = tensorstore::MakeArray<int>({1, 2, 3, 4});
-  auto new_array =
-      tensorstore::TransformArray(original_array,
-                                  IndexTransformBuilder<1, 1>()
-                                      .input_origin({1})
-                                      .input_shape({2})
-                                      .output_single_input_dimension(0, 0, 1, 0)
-                                      .Finalize()
-                                      .value())
-          .value();
+  auto new_array = tensorstore::TransformArray(
+                       original_array, IndexTransformBuilder<1, 1>()
+                                           .input_origin({1})
+                                           .input_shape({2})
+                                           .output_single_input_dimension(0, 0)
+                                           .Finalize()
+                                           .value())
+                       .value();
   EXPECT_EQ(&original_array(1), &new_array(1));
   EXPECT_EQ(MakeOffsetArray<int>({1}, {2, 3}), new_array);
 }

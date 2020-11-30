@@ -220,9 +220,7 @@ TEST(IndexTransformSpecTest, ApplyIndexTransform) {
                       .input_exclusive_max({10, kInfIndex + 1, kInfIndex + 1})
                       .implicit_lower_bounds({false, true, true})
                       .implicit_upper_bounds({false, true, true})
-                      .output_single_input_dimension(0, 0)
-                      .output_single_input_dimension(1, 1)
-                      .output_single_input_dimension(2, 2)
+                      .output_identity_transform()
                       .Finalize()
                       .value()}));
 }

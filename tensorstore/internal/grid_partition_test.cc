@@ -132,8 +132,7 @@ TEST(PartitionIndexTransformOverRegularGrid, ConstantTwoDimensional) {
             IndexTransformBuilder<>(2, 2)
                 .input_origin({2, 3})
                 .input_shape({4, 5})
-                .output_single_input_dimension(0, 0)
-                .output_single_input_dimension(1, 1)
+                .output_identity_transform()
                 .Finalize()
                 .value()}));
 }
@@ -146,7 +145,7 @@ TEST(PartitionIndexTransformOverRegularGrid, OneDimensionalUnitStride) {
                                      IndexTransformBuilder<>(1, 1)
                                          .input_origin({-4})
                                          .input_shape({5})
-                                         .output_single_input_dimension(0, 0)
+                                         .output_identity_transform()
                                          .Finalize()
                                          .value());
   // Input index:   -4  -3  -2  -1   0
@@ -161,21 +160,21 @@ TEST(PartitionIndexTransformOverRegularGrid, OneDimensionalUnitStride) {
             IndexTransformBuilder<>(1, 1)
                 .input_origin({-4})
                 .input_shape({2})
-                .output_single_input_dimension(0, 0)
+                .output_identity_transform()
                 .Finalize()
                 .value()},
           R{{-1},
             IndexTransformBuilder<>(1, 1)
                 .input_origin({-2})
                 .input_shape({2})
-                .output_single_input_dimension(0, 0)
+                .output_identity_transform()
                 .Finalize()
                 .value()},
           R{{0},
             IndexTransformBuilder<>(1, 1)
                 .input_origin({0})
                 .input_shape({1})
-                .output_single_input_dimension(0, 0)
+                .output_identity_transform()
                 .Finalize()
                 .value()}));
 }
@@ -189,8 +188,7 @@ TEST(PartitionIndexTransformOverRegularGrid, TwoDimensionalIdentity) {
                                      IndexTransformBuilder<>(2, 2)
                                          .input_origin({0, 0})
                                          .input_shape({30, 30})
-                                         .output_single_input_dimension(0, 0)
-                                         .output_single_input_dimension(1, 1)
+                                         .output_identity_transform()
                                          .Finalize()
                                          .value());
   EXPECT_THAT(      //
@@ -200,48 +198,42 @@ TEST(PartitionIndexTransformOverRegularGrid, TwoDimensionalIdentity) {
             IndexTransformBuilder<>(2, 2)
                 .input_origin({0, 0})
                 .input_shape({20, 10})
-                .output_single_input_dimension(0, 0)
-                .output_single_input_dimension(1, 1)
+                .output_identity_transform()
                 .Finalize()
                 .value()},
           R{{0, 1},
             IndexTransformBuilder<>(2, 2)
                 .input_origin({0, 10})
                 .input_shape({20, 10})
-                .output_single_input_dimension(0, 0)
-                .output_single_input_dimension(1, 1)
+                .output_identity_transform()
                 .Finalize()
                 .value()},
           R{{0, 2},
             IndexTransformBuilder<>(2, 2)
                 .input_origin({0, 20})
                 .input_shape({20, 10})
-                .output_single_input_dimension(0, 0)
-                .output_single_input_dimension(1, 1)
+                .output_identity_transform()
                 .Finalize()
                 .value()},
           R{{1, 0},
             IndexTransformBuilder<>(2, 2)
                 .input_origin({20, 0})
                 .input_shape({10, 10})
-                .output_single_input_dimension(0, 0)
-                .output_single_input_dimension(1, 1)
+                .output_identity_transform()
                 .Finalize()
                 .value()},
           R{{1, 1},
             IndexTransformBuilder<>(2, 2)
                 .input_origin({20, 10})
                 .input_shape({10, 10})
-                .output_single_input_dimension(0, 0)
-                .output_single_input_dimension(1, 1)
+                .output_identity_transform()
                 .Finalize()
                 .value()},
           R{{1, 2},
             IndexTransformBuilder<>(2, 2)
                 .input_origin({20, 20})
                 .input_shape({10, 10})
-                .output_single_input_dimension(0, 0)
-                .output_single_input_dimension(1, 1)
+                .output_identity_transform()
                 .Finalize()
                 .value()}));
 }
@@ -270,14 +262,14 @@ TEST(PartitionIndexTransformOverRegularGrid, SingleStridedDimension) {
             IndexTransformBuilder<>(1, 1)
                 .input_origin({-4})
                 .input_shape({3})
-                .output_single_input_dimension(0, 0)
+                .output_identity_transform()
                 .Finalize()
                 .value()},
           R{{0},
             IndexTransformBuilder<>(1, 1)
                 .input_origin({-1})
                 .input_shape({3})
-                .output_single_input_dimension(0, 0)
+                .output_identity_transform()
                 .Finalize()
                 .value()}));
 }
@@ -314,21 +306,21 @@ TEST(PartitionIndexTransformOverRegularGrid, DiagonalStridedDimensions) {
             IndexTransformBuilder<>(1, 1)
                 .input_origin({-4})
                 .input_shape({3})
-                .output_single_input_dimension(0, 0)
+                .output_identity_transform()
                 .Finalize()
                 .value()},
           R{{0, 1},
             IndexTransformBuilder<>(1, 1)
                 .input_origin({-1})
                 .input_shape({1})
-                .output_single_input_dimension(0, 0)
+                .output_identity_transform()
                 .Finalize()
                 .value()},
           R{{0, 0},
             IndexTransformBuilder<>(1, 1)
                 .input_origin({0})
                 .input_shape({2})
-                .output_single_input_dimension(0, 0)
+                .output_identity_transform()
                 .Finalize()
                 .value()}));
 }

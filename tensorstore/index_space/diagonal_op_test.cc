@@ -36,21 +36,18 @@ TEST(DiagonalTest, Example) {
                                       .input_origin({1, 2, 3})
                                       .input_shape({5, 4, 5})
                                       .input_labels({"x", "y", "z"})
-                                      .output_single_input_dimension(0, 0, 1, 0)
-                                      .output_single_input_dimension(1, 0, 1, 1)
-                                      .output_single_input_dimension(2, 0, 1, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
-  const auto expected_new_transform =
-      IndexTransformBuilder<2, 3>()
-          .input_origin({3, 2})
-          .input_shape({3, 4})
-          .input_labels({"", "y"})
-          .output_single_input_dimension(0, 0, 1, 0)
-          .output_single_input_dimension(1, 0, 1, 1)
-          .output_single_input_dimension(2, 0, 1, 0)
-          .Finalize()
-          .value();
+  const auto expected_new_transform = IndexTransformBuilder<2, 3>()
+                                          .input_origin({3, 2})
+                                          .input_shape({3, 4})
+                                          .input_labels({"", "y"})
+                                          .output_single_input_dimension(0, 0)
+                                          .output_single_input_dimension(1, 1)
+                                          .output_single_input_dimension(2, 0)
+                                          .Finalize()
+                                          .value();
   const EquivalentIndices equivalent_indices = {
       {{4, 3, 4}, {4, 3}},
   };
@@ -77,7 +74,7 @@ TEST(DiagonalTest, ZeroDimensional) {
                         .input_shape({5, 4})
                         .input_labels({"x", "y"})
                         .output_single_input_dimension(0, 5, 1, 0)
-                        .output_single_input_dimension(1, 0, 1, 1)
+                        .output_single_input_dimension(1, 1)
                         .Finalize()
                         .value(),
                     /*expression=*/Dims().Diagonal(),
@@ -89,8 +86,8 @@ TEST(DiagonalTest, ZeroDimensional) {
                         .implicit_lower_bounds({1, 0, 0})
                         .implicit_upper_bounds({1, 0, 0})
                         .input_labels({"", "x", "y"})
-                        .output_single_input_dimension(0, 0, 1, 1)
-                        .output_single_input_dimension(1, 0, 1, 2)
+                        .output_single_input_dimension(0, 1)
+                        .output_single_input_dimension(1, 2)
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -101,7 +98,7 @@ TEST(DiagonalTest, ZeroDimensional) {
                         .implicit_upper_bounds({1, 0, 0})
                         .input_labels({"", "x", "y"})
                         .output_single_input_dimension(0, 5, 1, 1)
-                        .output_single_input_dimension(1, 0, 1, 2)
+                        .output_single_input_dimension(1, 2)
                         .Finalize()
                         .value(),
                     /*equivalent_indices=*/{{{3, 4}, {8, 3, 4}}},
@@ -116,8 +113,8 @@ TEST(DiagonalTest, OneDimensional) {
                         .input_shape({5, 4, 5})
                         .input_labels({"x", "y", "z"})
                         .output_single_input_dimension(0, 5, 1, 0)
-                        .output_single_input_dimension(1, 0, 1, 1)
-                        .output_single_input_dimension(2, 0, 1, 2)
+                        .output_single_input_dimension(1, 1)
+                        .output_single_input_dimension(2, 2)
                         .Finalize()
                         .value(),
                     /*expression=*/Dims(1).Diagonal(),
@@ -127,9 +124,9 @@ TEST(DiagonalTest, OneDimensional) {
                         .input_origin({2, 1, 3})
                         .input_shape({4, 5, 5})
                         .input_labels({"", "x", "z"})
-                        .output_single_input_dimension(0, 0, 1, 1)
-                        .output_single_input_dimension(1, 0, 1, 0)
-                        .output_single_input_dimension(2, 0, 1, 2)
+                        .output_single_input_dimension(0, 1)
+                        .output_single_input_dimension(1, 0)
+                        .output_single_input_dimension(2, 2)
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -138,8 +135,8 @@ TEST(DiagonalTest, OneDimensional) {
                         .input_shape({4, 5, 5})
                         .input_labels({"", "x", "z"})
                         .output_single_input_dimension(0, 5, 1, 1)
-                        .output_single_input_dimension(1, 0, 1, 0)
-                        .output_single_input_dimension(2, 0, 1, 2)
+                        .output_single_input_dimension(1, 0)
+                        .output_single_input_dimension(2, 2)
                         .Finalize()
                         .value(),
                     /*equivalent_indices=*/{{{4, 3, 5}, {3, 4, 5}}});
@@ -160,9 +157,9 @@ TEST(DiagonalTest, TwoDimensionalSimple) {
                     IndexTransformBuilder<2, 3>()
                         .input_origin({7, 6})
                         .input_shape({8, 9})
-                        .output_single_input_dimension(0, 0, 1, 0)
-                        .output_single_input_dimension(1, 0, 1, 1)
-                        .output_single_input_dimension(2, 0, 1, 0)
+                        .output_single_input_dimension(0, 0)
+                        .output_single_input_dimension(1, 1)
+                        .output_single_input_dimension(2, 0)
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -195,9 +192,9 @@ TEST(DiagonalTest, TwoDimensionalSimpleImplicitLower) {
           .input_origin({7, 6})
           .input_shape({8, 9})
           .implicit_lower_bounds({1, 0})
-          .output_single_input_dimension(0, 0, 1, 0)
-          .output_single_input_dimension(1, 0, 1, 1)
-          .output_single_input_dimension(2, 0, 1, 0)
+          .output_single_input_dimension(0, 0)
+          .output_single_input_dimension(1, 1)
+          .output_single_input_dimension(2, 0)
           .Finalize()
           .value(),
       /*expected_new_transform=*/
@@ -231,9 +228,9 @@ TEST(DiagonalTest, TwoDimensionalSimpleImplicitUpper) {
           .input_origin({7, 6})
           .input_shape({8, 9})
           .implicit_upper_bounds({1, 0})
-          .output_single_input_dimension(0, 0, 1, 0)
-          .output_single_input_dimension(1, 0, 1, 1)
-          .output_single_input_dimension(2, 0, 1, 0)
+          .output_single_input_dimension(0, 0)
+          .output_single_input_dimension(1, 1)
+          .output_single_input_dimension(2, 0)
           .Finalize()
           .value(),
       /*expected_new_transform=*/
@@ -267,9 +264,9 @@ TEST(DiagonalTest, IndexArray) {
                     IndexTransformBuilder<2, 3>()
                         .input_origin({6, 6})
                         .input_shape({2, 5})
-                        .output_single_input_dimension(0, 0, 1, 0)
-                        .output_single_input_dimension(1, 0, 1, 1)
-                        .output_single_input_dimension(2, 0, 1, 0)
+                        .output_single_input_dimension(0, 0)
+                        .output_single_input_dimension(1, 1)
+                        .output_single_input_dimension(2, 0)
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -304,9 +301,9 @@ TEST(DiagonalTest, Labeled) {
                         .input_origin({6, 6})
                         .input_shape({2, 5})
                         .input_labels({"diag", "b"})
-                        .output_single_input_dimension(0, 0, 1, 0)
-                        .output_single_input_dimension(1, 0, 1, 1)
-                        .output_single_input_dimension(2, 0, 1, 0)
+                        .output_single_input_dimension(0, 0)
+                        .output_single_input_dimension(1, 1)
+                        .output_single_input_dimension(2, 0)
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/

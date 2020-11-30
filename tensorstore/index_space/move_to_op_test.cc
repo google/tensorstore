@@ -36,21 +36,18 @@ TEST(MoveToTest, Example) {
                                       .input_origin({1, 2, 3})
                                       .input_shape({3, 4, 2})
                                       .input_labels({"x", "y", "z"})
-                                      .output_single_input_dimension(0, 0, 1, 0)
-                                      .output_single_input_dimension(1, 0, 1, 1)
-                                      .output_single_input_dimension(2, 0, 1, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
-  const auto expected_new_transform =
-      IndexTransformBuilder<3, 3>()
-          .input_origin({2, 3, 1})
-          .input_shape({4, 2, 3})
-          .input_labels({"y", "z", "x"})
-          .output_single_input_dimension(0, 0, 1, 2)
-          .output_single_input_dimension(1, 0, 1, 0)
-          .output_single_input_dimension(2, 0, 1, 1)
-          .Finalize()
-          .value();
+  const auto expected_new_transform = IndexTransformBuilder<3, 3>()
+                                          .input_origin({2, 3, 1})
+                                          .input_shape({4, 2, 3})
+                                          .input_labels({"y", "z", "x"})
+                                          .output_single_input_dimension(0, 2)
+                                          .output_single_input_dimension(1, 0)
+                                          .output_single_input_dimension(2, 1)
+                                          .Finalize()
+                                          .value();
   const EquivalentIndices equivalent_indices = {
       {{2, 3, 4}, {3, 4, 2}},
   };
@@ -87,10 +84,10 @@ TEST(MoveToTest, Simple) {
                     IndexTransformBuilder<4, 4>()
                         .input_origin({3, 1, 2, 4})
                         .input_shape({4, 5, 6, 8})
-                        .output_single_input_dimension(0, 0, 1, 1)
-                        .output_single_input_dimension(1, 0, 1, 2)
-                        .output_single_input_dimension(2, 0, 1, 0)
-                        .output_single_input_dimension(3, 0, 1, 3)
+                        .output_single_input_dimension(0, 1)
+                        .output_single_input_dimension(1, 2)
+                        .output_single_input_dimension(2, 0)
+                        .output_single_input_dimension(3, 3)
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -125,10 +122,10 @@ TEST(MoveToTest, NegativeTarget) {
                     IndexTransformBuilder<4, 4>()
                         .input_origin({3, 1, 2, 4})
                         .input_shape({4, 5, 6, 8})
-                        .output_single_input_dimension(0, 0, 1, 1)
-                        .output_single_input_dimension(1, 0, 1, 2)
-                        .output_single_input_dimension(2, 0, 1, 0)
-                        .output_single_input_dimension(3, 0, 1, 3)
+                        .output_single_input_dimension(0, 1)
+                        .output_single_input_dimension(1, 2)
+                        .output_single_input_dimension(2, 0)
+                        .output_single_input_dimension(3, 3)
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -164,10 +161,10 @@ TEST(MoveToTest, NegativeTargetLimit) {
                     IndexTransformBuilder<4, 4>()
                         .input_origin({4, 3, 1, 2})
                         .input_shape({8, 4, 5, 6})
-                        .output_single_input_dimension(0, 0, 1, 2)
-                        .output_single_input_dimension(1, 0, 1, 3)
-                        .output_single_input_dimension(2, 0, 1, 1)
-                        .output_single_input_dimension(3, 0, 1, 0)
+                        .output_single_input_dimension(0, 2)
+                        .output_single_input_dimension(1, 3)
+                        .output_single_input_dimension(2, 1)
+                        .output_single_input_dimension(3, 0)
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -199,8 +196,7 @@ TEST(MoveToTest, NoDims) {
                     IndexTransformBuilder<2, 2>()
                         .input_origin({1, 2})
                         .input_shape({5, 6})
-                        .output_single_input_dimension(0, 0, 1, 0)
-                        .output_single_input_dimension(1, 0, 1, 1)
+                        .output_identity_transform()
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/

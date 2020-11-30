@@ -121,8 +121,7 @@ TEST(ResolveBoundsFromMetadataTest, Basic) {
                    .input_origin({0, 0})
                    .input_shape({100, 100})
                    .implicit_upper_bounds({1, 1})
-                   .output_single_input_dimension(0, 0)
-                   .output_single_input_dimension(1, 1)
+                   .output_identity_transform()
                    .Finalize()
                    .value()));
 }
@@ -150,8 +149,7 @@ TEST(ResolveBoundsFromMetadataTest, FixResizableBoundsSuccess) {
               (tensorstore::IndexTransformBuilder<>(2, 2)
                    .input_origin({0, 0})
                    .input_shape({100, 100})
-                   .output_single_input_dimension(0, 0)
-                   .output_single_input_dimension(1, 1)
+                   .output_identity_transform()
                    .Finalize()
                    .value()));
 }
@@ -209,10 +207,7 @@ TEST(ResolveBoundsFromMetadataTest, MultipleFieldsWithFieldShape) {
            .input_origin({0, 0, 0, 0})
            .input_shape({100, 100, 2, 3})
            .implicit_upper_bounds({1, 1, 0, 0})
-           .output_single_input_dimension(0, 0)
-           .output_single_input_dimension(1, 1)
-           .output_single_input_dimension(2, 2)
-           .output_single_input_dimension(3, 3)
+           .output_identity_transform()
            .Finalize()
            .value()));
   EXPECT_THAT(
@@ -223,9 +218,7 @@ TEST(ResolveBoundsFromMetadataTest, MultipleFieldsWithFieldShape) {
            .input_origin({0, 0, 0})
            .input_shape({100, 100, 4})
            .implicit_upper_bounds({1, 1, 0})
-           .output_single_input_dimension(0, 0)
-           .output_single_input_dimension(1, 1)
-           .output_single_input_dimension(2, 2)
+           .output_identity_transform()
            .Finalize()
            .value()));
 }
@@ -248,8 +241,7 @@ TEST(GetResizeParametersTest, Basic) {
                              .input_origin({0, 0})
                              .input_shape({100, 100})
                              .implicit_upper_bounds({1, 1})
-                             .output_single_input_dimension(0, 0)
-                             .output_single_input_dimension(1, 1)
+                             .output_identity_transform()
                              .Finalize()
                              .value();
   {
@@ -337,8 +329,7 @@ TEST(GetResizeParametersTest, Basic) {
                               .input_shape({100, 100})
                               .implicit_lower_bounds({1, 1})
                               .implicit_upper_bounds({1, 1})
-                              .output_single_input_dimension(0, 0)
-                              .output_single_input_dimension(1, 1)
+                              .output_identity_transform()
                               .Finalize()
                               .value(),
                           span<const Index>({2, kImplicit}),
@@ -369,10 +360,7 @@ TEST(GetResizeParametersTest, MultipleFields) {
                              .input_shape({100, 100, 2, 3})
                              .implicit_lower_bounds({1, 1, 1, 1})
                              .implicit_upper_bounds({1, 1, 1, 1})
-                             .output_single_input_dimension(0, 0)
-                             .output_single_input_dimension(1, 1)
-                             .output_single_input_dimension(2, 2)
-                             .output_single_input_dimension(3, 3)
+                             .output_identity_transform()
                              .Finalize()
                              .value();
   EXPECT_THAT(

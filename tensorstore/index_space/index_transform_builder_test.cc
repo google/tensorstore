@@ -277,7 +277,7 @@ TEST(IndexTransformBuilderTest, SingleInputDimensionDefaults) {
                 .Finalize()
                 .value(),
             IndexTransformBuilder<>(3, 1)
-                .output_single_input_dimension(0, 0, 1, 2)
+                .output_single_input_dimension(0, 2)
                 .Finalize()
                 .value());
 }
@@ -301,7 +301,7 @@ TEST(IndexTransformBuilderTest, ErrorHandling) {
 
   // invalid input dimension
   EXPECT_THAT(IndexTransformBuilder<>(2, 1)
-                  .output_single_input_dimension(0, 0, 1, 2)
+                  .output_single_input_dimension(0, 2)
                   .Finalize(),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 
@@ -466,6 +466,31 @@ TEST(IndexTransformBuilderTest, InputDomain) {
   auto t =
       IndexTransformBuilder<>(2, 2).input_domain(domain).Finalize().value();
   EXPECT_EQ(domain, t.domain());
+}
+
+TEST(IndexTransformBuilderTest, OutputIdentityTransform) {
+  EXPECT_THAT(
+      IndexTransformBuilder(2, 2).output_identity_transform().Finalize(),
+      ::testing::Optional(tensorstore::IdentityTransform(2)));
+  EXPECT_EQ(IndexTransformBuilder(3, 2)
+                .output_single_input_dimension(0, 0)
+                .output_single_input_dimension(1, 1)
+                .Finalize()
+                .value(),
+            IndexTransformBuilder(3, 2)
+                .output_identity_transform()
+                .Finalize()
+                .value());
+  EXPECT_EQ(IndexTransformBuilder(2, 3)
+                .output_single_input_dimension(0, 0)
+                .output_single_input_dimension(1, 1)
+                .output_constant(2, 0)
+                .Finalize()
+                .value(),
+            IndexTransformBuilder(2, 3)
+                .output_identity_transform()
+                .Finalize()
+                .value());
 }
 
 TEST(InitializeTransformRepForBuilder, Basic) {

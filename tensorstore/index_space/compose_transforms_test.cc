@@ -39,15 +39,13 @@ TEST(ComposeTransformsTest, EmptyDomain) {
   auto b_to_c = IndexTransformBuilder<3, 2>()
                     .input_origin({1, 2, 3})
                     .input_shape({5, 6, 7})
-                    .output_single_input_dimension(0, 0)
-                    .output_single_input_dimension(1, 1)
+                    .output_identity_transform()
                     .Finalize()
                     .value();
   auto a_to_b = IndexTransformBuilder<2, 3>()
                     .input_origin({1, 2})
                     .input_shape({5, 0})
-                    .output_single_input_dimension(0, 0)
-                    .output_single_input_dimension(1, 1)
+                    .output_identity_transform()
                     .output_constant(2, 5)
                     .Finalize()
                     .value();
@@ -55,8 +53,7 @@ TEST(ComposeTransformsTest, EmptyDomain) {
   auto expected_a_to_c = IndexTransformBuilder<2, 2>()
                              .input_origin({1, 2})
                              .input_shape({5, 0})
-                             .output_single_input_dimension(0, 0)
-                             .output_single_input_dimension(1, 1)
+                             .output_identity_transform()
                              .Finalize()
                              .value();
   EXPECT_EQ(expected_a_to_c, a_to_c);
@@ -90,7 +87,7 @@ TEST(ComposeTransformsTest, BtoCIndexArrayWithSingleIndex) {
   auto a_to_b = IndexTransformBuilder<1, 1>()
                     .input_origin({1})
                     .input_shape({1})
-                    .output_single_input_dimension(0, 0)
+                    .output_identity_transform()
                     .Finalize()
                     .value();
   auto a_to_c = ComposeTransforms(b_to_c, a_to_b).value();
@@ -114,7 +111,7 @@ TEST(ComposeTransformsTest, BtoCIndexArrayWithInvalidSingleIndex) {
   auto a_to_b = IndexTransformBuilder<1, 1>()
                     .input_origin({1})
                     .input_shape({1})
-                    .output_single_input_dimension(0, 0)
+                    .output_identity_transform()
                     .Finalize()
                     .value();
   EXPECT_THAT(ComposeTransforms(b_to_c, a_to_b),
@@ -123,7 +120,7 @@ TEST(ComposeTransformsTest, BtoCIndexArrayWithInvalidSingleIndex) {
 
 TEST(ComposeTransformsTest, AtoBIndexArrayWithSingleIndex) {
   auto b_to_c = IndexTransformBuilder<1, 1>()
-                    .output_single_input_dimension(0, 0)
+                    .output_identity_transform()
                     .Finalize()
                     .value();
   auto a_to_b = IndexTransformBuilder<1, 1>()
@@ -144,7 +141,7 @@ TEST(ComposeTransformsTest, AtoBIndexArrayWithSingleIndex) {
 
 TEST(ComposeTransformsTest, AtoBIndexArrayWithInvalidSingleIndex) {
   auto b_to_c = IndexTransformBuilder<1, 1>()
-                    .output_single_input_dimension(0, 0)
+                    .output_identity_transform()
                     .Finalize()
                     .value();
   auto a_to_b = IndexTransformBuilder<1, 1>()
@@ -162,15 +159,13 @@ TEST(ComposeTransformsTest, ConstantOutOfDomain) {
   auto b_to_c = IndexTransformBuilder<3, 2>()
                     .input_origin({1, 2, 3})
                     .input_shape({5, 6, 7})
-                    .output_single_input_dimension(0, 0)
-                    .output_single_input_dimension(1, 1)
+                    .output_identity_transform()
                     .Finalize()
                     .value();
   auto a_to_b = IndexTransformBuilder<2, 3>()
                     .input_origin({1, 2})
                     .input_shape({5, 4})
-                    .output_single_input_dimension(0, 0)
-                    .output_single_input_dimension(1, 1)
+                    .output_identity_transform()
                     .output_constant(2, 2)
                     .Finalize()
                     .value();
@@ -262,7 +257,7 @@ TEST(ComposeTransformsTest, IndexArrayBoundsOverflow) {
                   IndexTransformBuilder<1, 1>()
                       .input_origin({2})
                       .input_shape({100})
-                      .output_single_input_dimension(0, 0)
+                      .output_identity_transform()
                       .Finalize()
                       .value(),
                   IndexTransformBuilder<1, 1>()
@@ -323,14 +318,14 @@ TEST(ComposeTransformsTest, ImplicitOutOfBounds) {
                       .input_origin({0})
                       .input_shape({4})
                       .implicit_lower_bounds({1})
-                      .output_single_input_dimension(0, 0)
+                      .output_identity_transform()
                       .Finalize()
                       .value();
 
   const auto t1 = IndexTransformBuilder<1, 1>()
                       .input_origin({-1})
                       .input_exclusive_max({2})
-                      .output_single_input_dimension(0, 0)
+                      .output_identity_transform()
                       .Finalize()
                       .value();
   EXPECT_THAT(ComposeTransforms(t0, t1), ::testing::Optional(t1));

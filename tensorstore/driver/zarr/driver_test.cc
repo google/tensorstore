@@ -1014,14 +1014,12 @@ TEST(ZarrDriverTest, ResizeToZeroAndBackIndexTransform) {
   TestResizeToZeroAndBack(tensorstore::IndexTransformBuilder<>(2, 2)
                               .input_shape({2, 0})
                               .implicit_upper_bounds({0, 1})
-                              .output_single_input_dimension(0, 0)
-                              .output_single_input_dimension(1, 1)
+                              .output_identity_transform()
                               .Finalize()
                               .value(),
                           tensorstore::IndexTransformBuilder<>(2, 2)
                               .input_shape({2, 3})
-                              .output_single_input_dimension(0, 0)
-                              .output_single_input_dimension(1, 1)
+                              .output_identity_transform()
                               .Finalize()
                               .value());
 }

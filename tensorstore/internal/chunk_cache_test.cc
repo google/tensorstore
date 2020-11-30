@@ -410,7 +410,7 @@ struct CancelWriteReceiver {
     EXPECT_EQ(tensorstore::IndexTransformBuilder<>(1, 1)
                   .input_origin({0})
                   .input_shape({1})
-                  .output_single_input_dimension(0, 0, 1, 0)
+                  .output_single_input_dimension(0, 0)
                   .Finalize()
                   .value(),
               cell_transform);

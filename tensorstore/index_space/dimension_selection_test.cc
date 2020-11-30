@@ -56,8 +56,7 @@ TEST(DimsTest, SelectUsingLabels) {
       /*expected_identity_new_transform=*/
       IndexTransformBuilder<2, 2>()
           .input_labels({"a", "y"})
-          .output_single_input_dimension(0, 0, 1, 0)
-          .output_single_input_dimension(1, 0, 1, 1)
+          .output_identity_transform()
           .Finalize()
           .value(),
       /*expected_new_transform=*/
@@ -84,8 +83,7 @@ TEST(DimsTest, SelectUsingLabels) {
       /*expected_identity_new_transform=*/
       IndexTransformBuilder<2, 2>()
           .input_labels({"a", "b"})
-          .output_single_input_dimension(0, 0, 1, 0)
-          .output_single_input_dimension(1, 0, 1, 1)
+          .output_identity_transform()
           .Finalize()
           .value(),
       /*expected_new_transform=*/
@@ -101,10 +99,7 @@ TEST(DynamicDimsTest, Existing) {
   const auto expected_identity_new_transform =
       IndexTransformBuilder<4, 4>()
           .input_labels({"a1", "b1", "c1", "d1"})
-          .output_single_input_dimension(0, 0)
-          .output_single_input_dimension(1, 1)
-          .output_single_input_dimension(2, 2)
-          .output_single_input_dimension(3, 3)
+          .output_identity_transform()
           .Finalize()
           .value();
   const auto expected_new_transform =

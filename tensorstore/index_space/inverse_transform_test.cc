@@ -69,9 +69,7 @@ TEST(InverseTransformTest, IdentityRank3) {
           .input_shape({10, 11, 12})
           .implicit_lower_bounds({1, 0, 1})
           .implicit_upper_bounds({0, 1, 1})
-          .output_single_input_dimension(0, 0, 1, 0)
-          .output_single_input_dimension(1, 0, 1, 1)
-          .output_single_input_dimension(2, 0, 1, 2)
+          .output_identity_transform()
           .Finalize()
           .value();
   EXPECT_EQ(t, InverseTransform(t));
@@ -114,7 +112,7 @@ TEST(InverseTransformTest, Strides) {
                .implicit_lower_bounds({1, 0, 1})
                .implicit_upper_bounds({0, 1, 1})
                .output_single_input_dimension(0, 0, -1, 0)
-               .output_single_input_dimension(1, 0, 1, 1)
+               .output_single_input_dimension(1, 1)
                .output_single_input_dimension(2, 0, -1, 2)
                .Finalize()
                .value();
@@ -125,7 +123,7 @@ TEST(InverseTransformTest, Strides) {
                           .implicit_lower_bounds({0, 0, 1})
                           .implicit_upper_bounds({1, 1, 1})
                           .output_single_input_dimension(0, 0, -1, 0)
-                          .output_single_input_dimension(1, 0, 1, 1)
+                          .output_single_input_dimension(1, 1)
                           .output_single_input_dimension(2, 0, -1, 2)
                           .Finalize()
                           .value();
@@ -140,9 +138,9 @@ TEST(InverseTransformTest, Permutation) {
                .input_shape({10, 11, 12})
                .implicit_lower_bounds({1, 0, 1})
                .implicit_upper_bounds({0, 1, 1})
-               .output_single_input_dimension(0, 0, 1, 1)
-               .output_single_input_dimension(1, 0, 1, 2)
-               .output_single_input_dimension(2, 0, 1, 0)
+               .output_single_input_dimension(0, 1)
+               .output_single_input_dimension(1, 2)
+               .output_single_input_dimension(2, 0)
                .Finalize()
                .value();
   auto expected_inv = IndexTransformBuilder<>(3, 3)
@@ -151,9 +149,9 @@ TEST(InverseTransformTest, Permutation) {
                           .input_shape({11, 12, 10})
                           .implicit_lower_bounds({0, 1, 1})
                           .implicit_upper_bounds({1, 1, 0})
-                          .output_single_input_dimension(1, 0, 1, 0)
-                          .output_single_input_dimension(2, 0, 1, 1)
-                          .output_single_input_dimension(0, 0, 1, 2)
+                          .output_single_input_dimension(1, 0)
+                          .output_single_input_dimension(2, 1)
+                          .output_single_input_dimension(0, 2)
                           .Finalize()
                           .value();
   EXPECT_EQ(expected_inv, InverseTransform(t));
@@ -255,8 +253,8 @@ TEST(InverseTransformTest, NonUnitStride) {
 
 TEST(InverseTransformTest, Diagonal) {
   EXPECT_THAT(InverseTransform(IndexTransformBuilder<>(2, 2)
-                                   .output_single_input_dimension(0, 0, 1, 0)
-                                   .output_single_input_dimension(1, 0, 1, 0)
+                                   .output_single_input_dimension(0, 0)
+                                   .output_single_input_dimension(1, 0)
                                    .Finalize()
                                    .value()),
               MatchesStatus(absl::StatusCode::kInvalidArgument,

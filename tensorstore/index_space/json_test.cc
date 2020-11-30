@@ -195,8 +195,7 @@ TEST(ParseIndexTransformTest, IdentityTransformExclusiveMax) {
   EXPECT_EQ(tensorstore::IndexTransformBuilder<>(2, 2)
                 .input_origin({1, 2})
                 .input_exclusive_max({5, kInfIndex + 1})
-                .output_single_input_dimension(0, 0)
-                .output_single_input_dimension(1, 1)
+                .output_identity_transform()
                 .Finalize()
                 .value(),
             tensorstore::ParseIndexTransform(ParseJson(R"(
@@ -211,8 +210,7 @@ TEST(ParseIndexTransformTest, IdentityTransformInclusiveMax) {
   EXPECT_EQ(tensorstore::IndexTransformBuilder<>(2, 2)
                 .input_origin({1, 2})
                 .input_inclusive_max({5, kInfIndex})
-                .output_single_input_dimension(0, 0)
-                .output_single_input_dimension(1, 1)
+                .output_identity_transform()
                 .Finalize()
                 .value(),
             tensorstore::ParseIndexTransform(ParseJson(R"(
@@ -227,8 +225,7 @@ TEST(ParseIndexTransformTest, IdentityTransformShape) {
   EXPECT_EQ(tensorstore::IndexTransformBuilder<>(2, 2)
                 .input_origin({1, 2})
                 .input_shape({5, kInfSize})
-                .output_single_input_dimension(0, 0)
-                .output_single_input_dimension(1, 1)
+                .output_identity_transform()
                 .Finalize()
                 .value(),
             tensorstore::ParseIndexTransform(ParseJson(R"(
@@ -241,8 +238,7 @@ TEST(ParseIndexTransformTest, IdentityTransformShape) {
 
 TEST(ParseIndexTransformTest, IdentityTransformInputRank) {
   EXPECT_EQ(tensorstore::IndexTransformBuilder<>(2, 2)
-                .output_single_input_dimension(0, 0)
-                .output_single_input_dimension(1, 1)
+                .output_identity_transform()
                 .Finalize()
                 .value(),
             tensorstore::ParseIndexTransform(ParseJson(R"(
@@ -377,8 +373,7 @@ TEST(ParseIndexTransformTest, MissingOutputs) {
   EXPECT_EQ((tensorstore::IndexTransformBuilder<2, 2>()
                  .input_origin({1, 2})
                  .input_exclusive_max({5, 10})
-                 .output_single_input_dimension(0, 0)
-                 .output_single_input_dimension(1, 1)
+                 .output_identity_transform()
                  .Finalize()
                  .value()),
             (tensorstore::ParseIndexTransform<dynamic_rank, 2>(json)));
@@ -642,7 +637,7 @@ TEST(IndexTransformSpecTest, JsonBinding) {
   TestIndexTransformSpecRoundTrip(
       IndexTransformSpec(IndexTransformBuilder<>(2, 1)
                              .input_shape({2, 3})
-                             .output_single_input_dimension(0, 0)
+                             .output_identity_transform()
                              .Finalize()
                              .value()),
       ::nlohmann::json{{"transform",

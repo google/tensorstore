@@ -35,9 +35,7 @@ TEST(MarkBoundsExplicitTest, Example) {
                                       .implicit_lower_bounds({0, 1, 1})
                                       .implicit_upper_bounds({1, 0, 0})
                                       .input_labels({"x", "y", "z"})
-                                      .output_single_input_dimension(0, 0)
-                                      .output_single_input_dimension(1, 1)
-                                      .output_single_input_dimension(2, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
   const auto expected_new_transform = IndexTransformBuilder<3, 3>()
@@ -46,9 +44,7 @@ TEST(MarkBoundsExplicitTest, Example) {
                                           .implicit_lower_bounds({0, 1, 0})
                                           .implicit_upper_bounds({0, 0, 0})
                                           .input_labels({"x", "y", "z"})
-                                          .output_single_input_dimension(0, 0)
-                                          .output_single_input_dimension(1, 1)
-                                          .output_single_input_dimension(2, 2)
+                                          .output_identity_transform()
                                           .Finalize()
                                           .value();
   TestDimExpression(/*original_transform=*/original_transform,
@@ -82,9 +78,7 @@ TEST(UnsafeMarkBoundsImplicitTest, Example) {
                                       .implicit_lower_bounds({0, 0, 0})
                                       .implicit_upper_bounds({0, 0, 0})
                                       .input_labels({"x", "y", "z"})
-                                      .output_single_input_dimension(0, 0)
-                                      .output_single_input_dimension(1, 1)
-                                      .output_single_input_dimension(2, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
   const auto expected_new_transform = IndexTransformBuilder<3, 3>()
@@ -93,9 +87,7 @@ TEST(UnsafeMarkBoundsImplicitTest, Example) {
                                           .implicit_lower_bounds({1, 0, 1})
                                           .implicit_upper_bounds({1, 0, 1})
                                           .input_labels({"x", "y", "z"})
-                                          .output_single_input_dimension(0, 0)
-                                          .output_single_input_dimension(1, 1)
-                                          .output_single_input_dimension(2, 2)
+                                          .output_identity_transform()
                                           .Finalize()
                                           .value();
   TestDimExpression(/*original_transform=*/original_transform,
@@ -135,9 +127,7 @@ TEST(MarkBoundsExplicitTest, LowerOnly) {
                                       .input_shape({3, 4, 2})
                                       .implicit_lower_bounds({0, 1, 1})
                                       .implicit_upper_bounds({1, 0, 0})
-                                      .output_single_input_dimension(0, 0)
-                                      .output_single_input_dimension(1, 1)
-                                      .output_single_input_dimension(2, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
   const auto expected_new_transform = IndexTransformBuilder<3, 3>()
@@ -145,9 +135,7 @@ TEST(MarkBoundsExplicitTest, LowerOnly) {
                                           .input_shape({3, 4, 2})
                                           .implicit_lower_bounds({0, 1, 0})
                                           .implicit_upper_bounds({1, 0, 0})
-                                          .output_single_input_dimension(0, 0)
-                                          .output_single_input_dimension(1, 1)
-                                          .output_single_input_dimension(2, 2)
+                                          .output_identity_transform()
                                           .Finalize()
                                           .value();
   TestDimExpression(/*original_transform=*/original_transform,
@@ -164,9 +152,7 @@ TEST(MarkBoundsExplicitTest, UpperOnly) {
                                       .input_shape({3, 4, 2})
                                       .implicit_lower_bounds({0, 1, 1})
                                       .implicit_upper_bounds({1, 0, 0})
-                                      .output_single_input_dimension(0, 0)
-                                      .output_single_input_dimension(1, 1)
-                                      .output_single_input_dimension(2, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
   const auto expected_new_transform = IndexTransformBuilder<3, 3>()
@@ -174,9 +160,7 @@ TEST(MarkBoundsExplicitTest, UpperOnly) {
                                           .input_shape({3, 4, 2})
                                           .implicit_lower_bounds({0, 1, 1})
                                           .implicit_upper_bounds({0, 0, 0})
-                                          .output_single_input_dimension(0, 0)
-                                          .output_single_input_dimension(1, 1)
-                                          .output_single_input_dimension(2, 2)
+                                          .output_identity_transform()
                                           .Finalize()
                                           .value();
   TestDimExpression(/*original_transform=*/original_transform,
@@ -193,9 +177,7 @@ TEST(MarkBoundsExplicitTest, None) {
                                       .input_shape({3, 4, 2})
                                       .implicit_lower_bounds({0, 1, 1})
                                       .implicit_upper_bounds({1, 0, 0})
-                                      .output_single_input_dimension(0, 0)
-                                      .output_single_input_dimension(1, 1)
-                                      .output_single_input_dimension(2, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
   TestDimExpression(/*original_transform=*/original_transform,

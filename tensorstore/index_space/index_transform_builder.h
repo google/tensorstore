@@ -455,9 +455,20 @@ class IndexTransformBuilder {
       IsBoxLikeImplicitlyConvertibleToRank<BoxLike, InputRank>::value,
       IndexTransformBuilder&>
   input_bounds(const BoxLike& box) {
-    input_origin(box.origin());
-    input_shape(box.shape());
+    this->input_bounds().DeepAssign(box);
     return *this;
+  }
+
+  /// Returns the mutable `input_bounds` box, and marks the lower and upper
+  /// bounds as having been set.
+  ///
+  /// \pre `valid() == true`
+  MutableBoxView<InputRank> input_bounds() {
+    flags_ |=
+        (internal_index_space::kSetLower | internal_index_space::kSetUpper);
+    interval_form_ = IntervalForm::sized;
+    return MutableBoxView<InputRank>(input_rank(), rep_->input_origin().data(),
+                                     rep_->input_shape().data());
   }
 
   /// Specifies the input domain.
@@ -681,6 +692,19 @@ class IndexTransformBuilder {
     AssignOutput(output_dim, offset, stride,
                  internal_index_space::OutputIndexMapInitializer(
                      index_array, std::move(index_range)));
+    return *this;
+  }
+
+  /// Sets the first `min(input_rank(), output_rank())` output dimensions to
+  /// identity map to input dimensions.
+  ///
+  /// \pre `valid() == true`
+  IndexTransformBuilder& output_identity_transform() {
+    for (DimensionIndex i = 0, rank = std::min(DimensionIndex(input_rank()),
+                                               DimensionIndex(output_rank()));
+         i < rank; ++i) {
+      this->output_single_input_dimension(i, i);
+    }
     return *this;
   }
 

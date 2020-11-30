@@ -370,7 +370,7 @@ TEST(PropagateInputDomainResizeToOutputTest, InvalidArguments) {
     EXPECT_THAT(
         tensorstore::PropagateInputDomainResizeToOutput(
             IndexTransformBuilder<>(1, 2)
-                .output_single_input_dimension(0, 0)
+                .output_identity_transform()
                 .output_constant(1, kInfIndex)
                 .Finalize()
                 .value(),

@@ -168,7 +168,7 @@ TEST(PropagateBoundsTest, PropagateImplicitConstraints1) {
                              .input_origin({-1})
                              .input_exclusive_max({2})
                              .implicit_upper_bounds({1})
-                             .output_single_input_dimension(0, 0)
+                             .output_identity_transform()
                              .Finalize()
                              .value();
   Box<1> a;
@@ -447,8 +447,7 @@ TEST(PropagateExplicitBoundsToTransformTest,
                 .input_bounds(output_domain)
                 .implicit_lower_bounds({0, 0})
                 .implicit_upper_bounds({0, 0})
-                .output_single_input_dimension(0, 0)
-                .output_single_input_dimension(1, 1)
+                .output_identity_transform()
                 .Finalize()
                 .value(),
             *t_result);
@@ -467,8 +466,7 @@ TEST(PropagateBoundsToTransformTest,
                 .input_bounds(output_domain)
                 .implicit_lower_bounds({1, 0})
                 .implicit_upper_bounds({0, 1})
-                .output_single_input_dimension(0, 0)
-                .output_single_input_dimension(1, 1)
+                .output_identity_transform()
                 .Finalize()
                 .value(),
             *t_result);

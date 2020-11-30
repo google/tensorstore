@@ -43,9 +43,7 @@ TEST(TranslateByTest, Example) {
                                       .input_origin({1, 2, 3})
                                       .input_shape({3, 4, 2})
                                       .input_labels({"x", "y", "z"})
-                                      .output_single_input_dimension(0, 0, 1, 0)
-                                      .output_single_input_dimension(1, 0, 1, 1)
-                                      .output_single_input_dimension(2, 0, 1, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
   const auto expected_new_transform =
@@ -54,7 +52,7 @@ TEST(TranslateByTest, Example) {
           .input_shape({3, 4, 2})
           .input_labels({"x", "y", "z"})
           .output_single_input_dimension(0, -10, 1, 0)
-          .output_single_input_dimension(1, 0, 1, 1)
+          .output_single_input_dimension(1, 1)
           .output_single_input_dimension(2, -20, 1, 2)
           .Finalize()
           .value();
@@ -82,9 +80,7 @@ TEST(TranslateToTest, Example) {
                                       .input_origin({1, 2, 3})
                                       .input_shape({3, 4, 2})
                                       .input_labels({"x", "y", "z"})
-                                      .output_single_input_dimension(0, 0, 1, 0)
-                                      .output_single_input_dimension(1, 0, 1, 1)
-                                      .output_single_input_dimension(2, 0, 1, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
   const auto expected_new_transform =
@@ -93,7 +89,7 @@ TEST(TranslateToTest, Example) {
           .input_shape({3, 4, 2})
           .input_labels({"x", "y", "z"})
           .output_single_input_dimension(0, -9, 1, 0)
-          .output_single_input_dimension(1, 0, 1, 1)
+          .output_single_input_dimension(1, 1)
           .output_single_input_dimension(2, -17, 1, 2)
           .Finalize()
           .value();
@@ -168,7 +164,7 @@ TEST(TranslateByTest, OneDimensionalSingleInputDimensionImplicit) {
                     /*expected_new_dimension_selection=*/{0},
                     /*expected_identity_new_transform=*/
                     IndexTransformBuilder<1, 1>()
-                        .output_single_input_dimension(0, 0)
+                        .output_identity_transform()
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -303,7 +299,7 @@ TEST(TranslateByTest, DimSubsetUniform) {
                         .input_origin({6, 2, -kInfIndex})
                         .input_shape({4, 5, kInfIndex + 7 + 5})
                         .output_single_input_dimension(0, -5, 1, 0)
-                        .output_single_input_dimension(1, 0, 1, 1)
+                        .output_single_input_dimension(1, 1)
                         .output_single_input_dimension(2, -5, 1, 2)
                         .Finalize()
                         .value(),
@@ -333,7 +329,7 @@ TEST(TranslateByTest, DimSubsetNonUniform) {
                         .input_origin({6, 2, -kInfIndex})
                         .input_shape({4, 5, kInfIndex + 7 + 6})
                         .output_single_input_dimension(0, -5, 1, 0)
-                        .output_single_input_dimension(1, 0, 1, 1)
+                        .output_single_input_dimension(1, 1)
                         .output_single_input_dimension(2, -6, 1, 2)
                         .Finalize()
                         .value(),

@@ -39,7 +39,7 @@ TEST(AddNewTest, Example) {
           .implicit_lower_bounds({1, 0, 1})
           .implicit_upper_bounds({1, 0, 1})
           .input_labels({"", "x", ""})
-          .output_single_input_dimension(0, 0, 1, 1)
+          .output_single_input_dimension(0, 1)
           .Finalize()
           .value();
   TestDimExpression(
@@ -47,7 +47,7 @@ TEST(AddNewTest, Example) {
           .input_origin({1})
           .input_shape({5})
           .input_labels({"x"})
-          .output_single_input_dimension(0, 0, 1, 0)
+          .output_single_input_dimension(0, 0)
           .Finalize()
           .value(),
       /*expression=*/Dims(0, -1).AddNew(),
@@ -82,8 +82,8 @@ TEST(AddNewTest, Simple) {
                         .input_shape({kInfSize, 3, 4, kInfSize})
                         .implicit_lower_bounds({1, 0, 0, 1})
                         .implicit_upper_bounds({1, 0, 0, 1})
-                        .output_single_input_dimension(0, 0, 1, 1)
-                        .output_single_input_dimension(1, 0, 1, 2)
+                        .output_single_input_dimension(0, 1)
+                        .output_single_input_dimension(1, 2)
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -122,7 +122,7 @@ TEST(AddNewTest, Constant) {
                         .input_shape({kInfSize, 5})
                         .implicit_lower_bounds({1, 0})
                         .implicit_upper_bounds({1, 0})
-                        .output_single_input_dimension(0, 0, 1, 1)
+                        .output_single_input_dimension(0, 1)
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -159,7 +159,7 @@ TEST(AddNewTest, Labeled) {
                         .implicit_lower_bounds({1, 0, 1})
                         .implicit_upper_bounds({1, 0, 1})
                         .input_labels({"y", "a", "x"})
-                        .output_single_input_dimension(0, 0, 1, 1)
+                        .output_single_input_dimension(0, 1)
                         .Finalize()
                         .value(),
                     /*expected_new_transform=*/
@@ -185,7 +185,7 @@ TEST(AddNewTest, EmptyDimensionSelection) {
                              .input_origin({1})
                              .input_shape({5})
                              .input_labels({"x"})
-                             .output_single_input_dimension(0, 0, 1, 0)
+                             .output_single_input_dimension(0, 0)
                              .Finalize()
                              .value();
   TestDimExpression(

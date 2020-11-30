@@ -40,9 +40,7 @@ TEST(TransposeToTest, Example) {
                                       .implicit_lower_bounds({1, 0, 0})
                                       .implicit_upper_bounds({0, 1, 0})
                                       .input_labels({"x", "y", "z"})
-                                      .output_single_input_dimension(0, 0, 1, 0)
-                                      .output_single_input_dimension(1, 0, 1, 1)
-                                      .output_single_input_dimension(2, 0, 1, 2)
+                                      .output_identity_transform()
                                       .Finalize()
                                       .value();
   const auto expected_new_transform = IndexTransformBuilder<3, 3>()
