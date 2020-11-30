@@ -32,6 +32,7 @@ tensorstore_cc_library(
     deps = [
         ":chunk",
         "//tensorstore:context",
+        "//tensorstore:data_type",
         "//tensorstore:open_mode",
         "//tensorstore:progress",
         "//tensorstore:resize_options",

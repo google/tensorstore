@@ -23,6 +23,8 @@
 /// Typically, a transform from a known index space to this "cell domain" is
 /// provided along with the ReadChunk/WriteChunk object.
 
+#include <mutex>
+
 #include "tensorstore/data_type.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/arena.h"
@@ -166,6 +168,38 @@ struct WriteChunk {
   /// Transform from the "cell domain" to the chunk.
   IndexTransform<> transform;
 };
+
+/// Attempts to lock one or more `ReadChunk`/`WriteChunk` objects.
+///
+/// If registering a chunk with the lock collection fails, the error propagates
+/// immediately.
+///
+/// If the lock collection fails to acquire a lock, we retry.
+///
+/// \tparam ChunkImpl Must be either `ReadChunk::Impl` or `WriteChunk::Impl`.
+template <typename... ChunkImpl>
+Result<std::unique_lock<LockCollection>> LockChunks(
+    LockCollection& lock_collection, ChunkImpl&... chunk_impl) {
+  std::unique_lock<LockCollection> guard(lock_collection, std::defer_lock);
+  while (true) {
+    // Attempt to register each chunk with the `lock_collection`.
+    if (absl::Status status;
+        !((status = chunk_impl(lock_collection)).ok() && ...)) {
+      return status;
+    }
+    if (guard.try_lock()) return guard;
+    // Locking failed.  Clear the lock collection and re-register the chunks,
+    // because the locks to be registered may have changed (in order to avoid
+    // failing again).  For example, failure may be due to an
+    // `AsyncCache::TransactionNode` having been revoked, and in that case a new
+    // transaction node will be obtained when the chunk is re-registered.  The
+    // lock function registered with the `lock_collection` cannot itself obtain
+    // a new TransactionNode, because that could lead to deadlock, since the
+    // lock ordering and deduplication was based on the original transaction
+    // node.
+    lock_collection.clear();
+  }
+}
 
 }  // namespace internal
 }  // namespace tensorstore

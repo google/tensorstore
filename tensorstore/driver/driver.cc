@@ -14,7 +14,6 @@
 
 #include "tensorstore/driver/driver.h"
 
-#include <mutex>
 #include <ostream>
 
 #include "tensorstore/driver/registry.h"
@@ -126,6 +125,18 @@ Future<IndexTransform<>> Driver::ResolveBounds(OpenTransactionPtr transaction,
   return std::move(transform);
 }
 
+void Driver::Read(internal::OpenTransactionPtr transaction,
+                  IndexTransform<> transform, ReadChunkReceiver receiver) {
+  execution::set_error(FlowSingleReceiver{std::move(receiver)},
+                       absl::UnimplementedError("Reading not supported"));
+}
+
+void Driver::Write(internal::OpenTransactionPtr transaction,
+                   IndexTransform<> transform, WriteChunkReceiver receiver) {
+  execution::set_error(FlowSingleReceiver{std::move(receiver)},
+                       absl::UnimplementedError("Writing not supported"));
+}
+
 Future<IndexTransform<>> Driver::Resize(OpenTransactionPtr transaction,
                                         IndexTransform<> transform,
                                         span<const Index> inclusive_min,
@@ -189,8 +200,15 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                                           },
                                           ConstrainedDataTypeBinder)))),
           jb::Projection(&TransformedDriverSpec<>::driver_spec,
-                         registry.RegisteredObjectBinder()))(is_loading,
-                                                             options, obj, j);
+                         registry.RegisteredObjectBinder()),
+          jb::Initialize([](auto* obj) {
+            if (const DimensionIndex driver_rank =
+                    obj->driver_spec->constraints().rank;
+                driver_rank != dynamic_rank &&
+                obj->transform_spec.output_rank() == dynamic_rank) {
+              obj->transform_spec = IndexTransformSpec(driver_rank);
+            }
+          }))(is_loading, options, obj, j);
     })
 
 namespace {
@@ -204,38 +222,6 @@ template <typename T>
 void SetErrorWithoutCommit(const Promise<T>& promise, Status error) {
   if (internal_future::FutureAccess::rep(promise).LockResult()) {
     promise.raw_result() = std::move(error);
-  }
-}
-
-/// Attempts to lock one or more `ReadChunk`/`WriteChunk` objects.
-///
-/// If registering a chunk with the lock collection fails, the error propagates
-/// immediately.
-///
-/// If the lock collection fails to acquire a lock, we retry.
-///
-/// \tparam ChunkImpl Must be either `ReadChunk::Impl` or `WriteChunk::Impl`.
-template <typename... ChunkImpl>
-Result<std::unique_lock<LockCollection>> LockChunks(
-    LockCollection& lock_collection, ChunkImpl&... chunk_impl) {
-  std::unique_lock<LockCollection> guard(lock_collection, std::defer_lock);
-  while (true) {
-    // Attempt to register each chunk with the `lock_collection`.
-    if (absl::Status status;
-        !((status = chunk_impl(lock_collection)).ok() && ...)) {
-      return status;
-    }
-    if (guard.try_lock()) return guard;
-    // Locking failed.  Clear the lock collection and re-register the chunks,
-    // because the locks to be registered may have changed (in order to avoid
-    // failing again).  For example, failure may be due to an
-    // `AsyncCache::TransactionNode` having been revoked, and in that case a new
-    // transaction node will be obtained when the chunk is re-registered.  The
-    // lock function registered with the `lock_collection` cannot itself obtain
-    // a new TransactionNode, because that could lead to deadlock, since the
-    // lock ordering and deduplication was based on the original transaction
-    // node.
-    lock_collection.clear();
   }
 }
 
@@ -310,38 +296,9 @@ struct ReadChunkOp {
         auto target,
         ApplyIndexTransform(std::move(cell_transform), state->target),
         state->SetError(_));
-    Status copy_status;
-
-    {
-      DefaultNDIterableArena arena;
-
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          auto target_iterable,
-          GetNormalizedTransformedArrayNDIterable(target, arena),
-          state->SetError(_));
-
-      LockCollection lock_collection;
-      TENSORSTORE_ASSIGN_OR_RETURN(auto guard,
-                                   LockChunks(lock_collection, chunk.impl),
-                                   state->SetError(_));
-
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          auto source_iterable,
-          chunk.impl(ReadChunk::BeginRead{}, std::move(chunk.transform), arena),
-          state->SetError(_));
-
-      source_iterable = GetConvertedInputNDIterable(
-          std::move(source_iterable), target_iterable->data_type(),
-          state->data_type_conversion);
-
-      // Copy the chunk to the relevant portion of the target array.
-      NDIterableCopier copier(*source_iterable, *target_iterable,
-                              target.shape(), arena);
-      copy_status = copier.Copy();
-
-      // Unlock the chunk regardless of whether the copy was successful.
-    }
-
+    Status copy_status =
+        internal::CopyReadChunk(chunk.impl, std::move(chunk.transform),
+                                state->data_type_conversion, target);
     if (copy_status.ok()) {
       state->UpdateProgress(ProductOfExtents(target.shape()));
     } else {
@@ -1068,6 +1025,42 @@ WriteFutures DriverCopy(Executor executor, TransformedDriver source,
       std::move(copy_pair.promise), std::move(source_transform_future),
       std::move(target_transform_future));
   return {std::move(copy_pair.future), std::move(commit_pair.future)};
+}
+
+absl::Status CopyReadChunk(
+    ReadChunk::Impl& chunk, IndexTransform<> chunk_transform,
+    const DataTypeConversionLookupResult& chunk_conversion,
+    NormalizedTransformedArray<void, dynamic_rank, view> target) {
+  DefaultNDIterableArena arena;
+
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto target_iterable,
+      GetNormalizedTransformedArrayNDIterable(UnownedToShared(target), arena));
+
+  LockCollection lock_collection;
+  TENSORSTORE_ASSIGN_OR_RETURN(auto guard, LockChunks(lock_collection, chunk));
+
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto source_iterable,
+      chunk(ReadChunk::BeginRead{}, std::move(chunk_transform), arena));
+
+  source_iterable = GetConvertedInputNDIterable(std::move(source_iterable),
+                                                target_iterable->data_type(),
+                                                chunk_conversion);
+
+  // Copy the chunk to the relevant portion of the target array.
+  NDIterableCopier copier(*source_iterable, *target_iterable, target.shape(),
+                          arena);
+  return copier.Copy();
+}
+
+absl::Status CopyReadChunk(
+    ReadChunk::Impl& chunk, IndexTransform<> chunk_transform,
+    NormalizedTransformedArray<void, dynamic_rank, view> target) {
+  auto converter =
+      internal::GetDataTypeConverter(target.data_type(), target.data_type());
+  return CopyReadChunk(chunk, std::move(chunk_transform), converter,
+                       std::move(target));
 }
 
 }  // namespace internal

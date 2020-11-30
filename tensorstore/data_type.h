@@ -404,6 +404,17 @@ struct DataTypeOperations {
 
   const BidirectionalCanonicalConversionOperations* canonical_conversion;
 };
+
+/// Specifies a conversion between two data types.
+///
+/// This serves as the return type of `GetDataTypeConverter` declared in
+/// `data_type_conversion.h`.
+struct DataTypeConversionLookupResult {
+  /// Valid only if the `flags` value includes `kSupported`.
+  ElementwiseClosure<2, Status*> closure;
+  DataTypeConversionFlags flags;
+};
+
 }  // namespace internal
 
 /// Run-time representation of a C++ type used as the element type for a

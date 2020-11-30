@@ -80,12 +80,6 @@ extern const std::array<DataTypeOperations::CanonicalConversionOperations,
                         kNumDataTypeIds>
     canonical_data_type_conversions;
 
-struct DataTypeConversionLookupResult {
-  /// Valid only if the `flags` value includes `kSupported`.
-  ElementwiseClosure<2, Status*> closure;
-  DataTypeConversionFlags flags;
-};
-
 /// Returns the data type converter.
 ///
 /// If `from == to`, `flags` is set to

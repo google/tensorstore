@@ -49,6 +49,7 @@
 #include <iosfwd>
 
 #include "tensorstore/context.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/index_space/alignment.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -334,6 +335,9 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// Read and Write operations).
   virtual Executor data_copy_executor() = 0;
 
+  using ReadChunkReceiver =
+      AnyFlowReceiver<Status, ReadChunk, IndexTransform<>>;
+
   /// Requests a partition of the output range of `transform` into chunks that
   /// may each be read synchronously and atomically.
   ///
@@ -350,9 +354,11 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// \pre The output range of `transform` must be a subset of the output range
   ///     of a transform returned from a prior call to `ResolveBounds`,
   ///     `Resize`, or the transform returned when the driver was opened.
-  virtual void Read(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) = 0;
+  virtual void Read(internal::OpenTransactionPtr transaction,
+                    IndexTransform<> transform, ReadChunkReceiver receiver);
+
+  using WriteChunkReceiver =
+      AnyFlowReceiver<Status, WriteChunk, IndexTransform<>>;
 
   /// Requests a partition of the output range of `transform` into chunks that
   /// may each be written synchronously and atomically.
@@ -370,9 +376,8 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// \pre The output range of `transform` must be a subset of the output range
   ///     of a transform returned from a prior call to `ResolveBounds`,
   ///     `Resize`, or the transform returned when the driver was opened.
-  virtual void Write(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) = 0;
+  virtual void Write(internal::OpenTransactionPtr transaction,
+                     IndexTransform<> transform, WriteChunkReceiver receiver);
 
   /// Resolves implicit bounds of `transform`.
   ///
@@ -556,6 +561,16 @@ WriteFutures DriverWrite(Executor executor,
 ///     cannot be converted to `target.driver->data_type()`.
 WriteFutures DriverCopy(Executor executor, TransformedDriver source,
                         TransformedDriver target, DriverCopyOptions options);
+
+/// Copies `chunk` transformed by `chunk_transform` to `target`.
+absl::Status CopyReadChunk(
+    ReadChunk::Impl& chunk, IndexTransform<> chunk_transform,
+    const DataTypeConversionLookupResult& chunk_conversion,
+    NormalizedTransformedArray<void, dynamic_rank, view> target);
+
+absl::Status CopyReadChunk(
+    ReadChunk::Impl& chunk, IndexTransform<> chunk_transform,
+    NormalizedTransformedArray<void, dynamic_rank, view> target);
 
 }  // namespace internal
 }  // namespace tensorstore
