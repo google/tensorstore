@@ -734,28 +734,30 @@ Examples:
       .def(py::pickle(&PickleIndexDomainDimension,
                       &UnpickleIndexDomainDimension));
 
-  py::class_<IndexDomain<>>(m, "IndexDomain", R"(
+  py::class_<IndexDomain<>> cls_index_domain(m, "IndexDomain", R"(
 Specifies bounds and dimension labels of an N-dimensional index space.
 
 Logically, an IndexDomain is the cartesian product of a sequence of Dim objects.
-)")
-      .def(py::init([](std::optional<DimensionIndex> rank,
-                       std::optional<std::vector<Index>> inclusive_min,
-                       std::optional<std::vector<bool>> implicit_lower_bounds,
-                       std::optional<std::vector<Index>> exclusive_max,
-                       std::optional<std::vector<Index>> inclusive_max,
-                       std::optional<std::vector<Index>> shape,
-                       std::optional<std::vector<bool>> implicit_upper_bounds,
-                       std::optional<std::vector<std::optional<std::string>>>
-                           labels) -> IndexDomain<> {
-             auto builder = InitializeIndexTransformBuilder(
-                 rank, "rank", inclusive_min, "inclusive_min",
-                 implicit_lower_bounds, exclusive_max, "exclusive_max",
-                 inclusive_max, "inclusive_max", shape, "shape",
-                 implicit_upper_bounds, labels, "labels",
-                 /*output_rank=*/0);
-             return IndexDomain<>(ValueOrThrow(builder.Finalize()));
-           }),
+)");
+  cls_index_domain
+      .def(py::init(
+               [](std::optional<DimensionIndex> rank,
+                  std::optional<std::vector<Index>> inclusive_min,
+                  std::optional<std::vector<bool>> implicit_lower_bounds,
+                  std::optional<std::vector<Index>> exclusive_max,
+                  std::optional<std::vector<Index>> inclusive_max,
+                  std::optional<std::vector<Index>> shape,
+                  std::optional<std::vector<bool>> implicit_upper_bounds,
+                  std::optional<std::vector<std::optional<std::string>>> labels)
+                   -> IndexDomain<> {
+                 auto builder = InitializeIndexTransformBuilder(
+                     rank, "rank", inclusive_min, "inclusive_min",
+                     implicit_lower_bounds, exclusive_max, "exclusive_max",
+                     inclusive_max, "inclusive_max", shape, "shape",
+                     implicit_upper_bounds, labels, "labels",
+                     /*output_rank=*/0);
+                 return IndexDomain<>(ValueOrThrow(builder.Finalize()));
+               }),
            py::arg("rank") = std::nullopt,
            py::arg("inclusive_min") = std::nullopt,
            py::arg("implicit_lower_bounds") = std::nullopt,
@@ -782,8 +784,12 @@ Logically, an IndexDomain is the cartesian product of a sequence of Dim objects.
              }
              return IndexDomain<>(ValueOrThrow(builder.Finalize()));
            }),
-           py::arg("dimensions"))
-      .def_property_readonly("rank", &IndexDomain<>::rank, "Number of dimensions in the index space.")
+           py::arg("dimensions"));
+  cls_index_domain
+      .def_property_readonly("rank", &IndexDomain<>::rank,
+                             "Number of dimensions in the index space.")
+      .def_property_readonly("ndim", &IndexDomain<>::rank,
+                             "Alias for `self.rank`.")
       .def(
           "__len__", [](const IndexDomain<>& d) { return d.rank(); },
           "Number of dimensions in the index space.")
@@ -829,48 +835,51 @@ Logically, an IndexDomain is the cartesian product of a sequence of Dim objects.
             return MakeArrayReadonly(
                 py::array_t<Index>(self.rank(), self.origin().data()));
           },
-          "Inclusive lower bound of the domain.", py::return_value_policy::move,
-          py::keep_alive<0, 1>())
+          "Inclusive lower bound of the domain.", py::keep_alive<0, 1>())
       .def_property_readonly(
           "inclusive_min",
           [](const IndexDomain<>& d) {
             return MakeArrayReadonly(
                 py::array_t<Index>(d.rank(), d.origin().data()));
           },
-          "Inclusive lower bound of the domain.", py::return_value_policy::move,
-          py::keep_alive<0, 1>())
+          "Inclusive lower bound of the domain.", py::keep_alive<0, 1>())
       .def_property_readonly(
           "shape",
           [](const IndexDomain<>& d) {
             return MakeArrayReadonly(
                 py::array_t<Index>(d.rank(), d.shape().data()));
           },
-          "Shape of the domain.", py::return_value_policy::move,
-          py::keep_alive<0, 1>())
+          "Shape of the domain.", py::keep_alive<0, 1>())
       .def_property_readonly(
           "exclusive_max",
           [](const IndexDomain<>& self) { return GetExclusiveMax(self); },
-          "Exclusive upper bound of the domain.", py::return_value_policy::move)
+          "Exclusive upper bound of the domain.")
       .def_property_readonly(
           "inclusive_max",
           [](const IndexDomain<>& self) { return GetInclusiveMax(self); },
-          "Inclusive upper bound of the domain.", py::return_value_policy::move)
+          "Inclusive upper bound of the domain.")
       .def_property_readonly(
           "labels",
           [](const IndexDomain<>& d) { return GetLabelsTuple(d.labels()); },
-          "Dimension labels", py::return_value_policy::move)
+          "Dimension labels")
       .def_property_readonly(
           "implicit_lower_bounds",
           [](const IndexDomain<>& d) {
             return MakeArrayReadonly(GetBitVector(d.implicit_lower_bounds()));
           },
-          "Implicit lower bounds", py::return_value_policy::move)
+          "Implicit lower bounds");
+  cls_index_domain
       .def_property_readonly(
           "implicit_upper_bounds",
           [](const IndexDomain<>& d) {
             return MakeArrayReadonly(GetBitVector(d.implicit_upper_bounds()));
           },
-          "Implicit upper bounds", py::return_value_policy::move)
+          "Implicit upper bounds")
+      .def_property_readonly(
+          "size", [](const IndexDomain<>& self) { return self.num_elements(); },
+          R"(Total number of elements in the domain.
+
+This is simply the product of the extents in `shape`.)")
       .def(
           "__repr__", [](const IndexDomain<>& d) { return StrCat(d); },
           "Returns the string representation.")
@@ -936,12 +945,13 @@ Logically, an IndexDomain is the cartesian product of a sequence of Dim objects.
            py::arg("json"))
       .def_property_readonly(
           "domain",
-          [](const IndexTransform<>& t) -> IndexDomain<> { return t.domain(); },
-          py::return_value_policy::move)
+          [](const IndexTransform<>& t) -> IndexDomain<> { return t.domain(); })
       .def_property_readonly("input_rank", &IndexTransform<>::input_rank,
                              "Rank of input space")
       .def_property_readonly("output_rank", &IndexTransform<>::output_rank,
                              "Rank of output space")
+      .def_property_readonly("ndim", &IndexTransform<>::input_rank,
+                             "Alias for `self.input_rank`.")
       .def_property_readonly(
           "input_origin",
           [](const IndexTransform<>& t) {

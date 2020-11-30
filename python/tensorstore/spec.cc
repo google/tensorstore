@@ -72,15 +72,19 @@ Specification for opening or creating a TensorStore.
             if (self.transform().valid()) return self.transform().domain();
             return std::nullopt;
           },
-          "Returns the domain, or `None` if no transform has been specified.")
+          "Returns the domain, or `None` if no transform has been specified.");
+  constexpr auto get_optional_rank =
+      [](const Spec& self) -> std::optional<DimensionIndex> {
+    const DimensionIndex rank = self.rank();
+    if (rank == dynamic_rank) return std::nullopt;
+    return rank;
+  };
+  cls_spec
       .def_property_readonly(
-          "rank",
-          [](const Spec& self) -> std::optional<DimensionIndex> {
-            const DimensionIndex rank = self.rank();
-            if (rank == dynamic_rank) return std::nullopt;
-            return rank;
-          },
+          "rank", get_optional_rank,
           "Returns the rank, or `None` if no transform has been specified.")
+      .def_property_readonly("ndim", get_optional_rank,
+                             "Alias for `self.rank`.")
       .def(
           "to_json",
           [](const Spec& self, bool include_defaults, bool include_context) {

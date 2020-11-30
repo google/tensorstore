@@ -24,6 +24,7 @@ import numpy as np
 def test_init_rank():
   x = ts.IndexDomain(rank=2)
   assert x.rank == 2
+  assert x.ndim == 2
   np.testing.assert_equal(x.inclusive_min, [-ts.inf] * 2)
   np.testing.assert_equal(x.inclusive_max, [+ts.inf] * 2)
   np.testing.assert_equal(x.exclusive_max, [+ts.inf + 1] * 2)

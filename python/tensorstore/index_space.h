@@ -206,7 +206,8 @@ void DefineIndexTransformOperations(pybind11::class_<T, ClassOptions...>* cls,
   [[maybe_unused]] const auto DirectAssignMethod = [get_transform,
                                                     apply_transform](
                                                        auto assign) {
-    return [=](Self self, IndexingSpec spec,
+    return [get_transform, apply_transform, assign](
+               Self self, IndexingSpec spec,
                typename FunctionArgType<
                    1, py::detail::function_signature_t<decltype(assign)>>::type
                    source) {
@@ -238,6 +239,59 @@ void DefineIndexTransformOperations(pybind11::class_<T, ClassOptions...>* cls,
         return apply_transform(std::move(self), std::move(transform));
       },
       DirectAssignMethod(assign)...);
+  cls->def_property_readonly(
+      "T",
+      [get_transform, apply_transform](Self self) {
+        IndexTransform<> transform = get_transform(self);
+        const DimensionIndex rank = transform.input_rank();
+        DimensionIndexBuffer reversed_dims(rank);
+        for (DimensionIndex i = 0; i < rank; ++i) {
+          reversed_dims[i] = rank - 1 - i;
+        }
+        return apply_transform(
+            std::move(self),
+            ValueOrThrow(std::move(transform) |
+                         tensorstore::Dims(reversed_dims).Transpose()));
+      },
+      R"(View with transposed domain (reversed dimension order).
+
+This is equivalent to: `self[ts.d[::-1].transpose[:]]`.
+)");
+  cls->def_property_readonly(
+      "origin",
+      [get_transform](const Self& self) {
+        auto transform = get_transform(self);
+        return MakeArrayReadonly(py::array_t<Index>(
+            transform.input_rank(), transform.domain().origin().data()));
+      },
+      R"(Inclusive lower bound of the domain.
+
+This is equivalent to `self.domain.origin`.
+)",
+      py::keep_alive<0, 1>());
+  cls->def_property_readonly(
+      "shape",
+      [get_transform](const Self& self) {
+        auto transform = get_transform(self);
+        return MakeArrayReadonly(py::array_t<Index>(
+            transform.input_rank(), transform.domain().shape().data()));
+      },
+      R"(Shape of the domain.
+
+This is equivalent to `self.domain.shape`.
+)",
+      py::keep_alive<0, 1>());
+  cls->def_property_readonly(
+      "size",
+      [get_transform](const Self& self) {
+        auto transform = get_transform(self);
+        return transform.domain().num_elements();
+      },
+      R"(Total number of elements in the domain.
+
+This is equivalent to `self.domain.size`.
+)",
+      py::keep_alive<0, 1>());
 }
 
 }  // namespace internal_python

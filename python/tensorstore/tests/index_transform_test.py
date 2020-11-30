@@ -23,6 +23,7 @@ import numpy as np
 
 def test_identity():
   x = ts.IndexTransform(input_rank=3)
+  assert x.ndim == 3
   assert x.input_rank == 3
   assert x.output_rank == 3
   np.testing.assert_equal(x.input_inclusive_min, [-ts.inf] * 3)
@@ -142,3 +143,16 @@ def test_eq():
   y = ts.IndexTransform(input_rank=3)
   assert x == x
   assert x != y
+
+
+def test_domain_access():
+  x = ts.IndexTransform(input_inclusive_min=[1, 2, 3], input_shape=[5, 6, 7])
+  np.testing.assert_equal(x.origin, [1, 2, 3])
+  np.testing.assert_equal(x.shape, [5, 6, 7])
+  assert x.size == 5 * 6 * 7
+  assert x.T == ts.IndexTransform(
+      input_inclusive_min=[3, 2, 1],
+      input_shape=[7, 6, 5],
+      output=[ts.OutputIndexMap(input_dimension=i) for i in [2, 1, 0]],
+  )
+  assert x.T == x[ts.d[::-1].transpose[:]]

@@ -31,6 +31,10 @@ async def test_open_array_driver():
       "dtype": "int32",
   })
   assert t.domain == ts.IndexDomain(shape=[2, 3])
+  assert t.rank == 2
+  assert t.ndim == 2
+  np.testing.assert_equal(t.origin, [0, 0])
+  np.testing.assert_equal(t.shape, [2, 3])
   assert t.dtype == ts.int32
   assert t.readable == True
   assert t.writable == True
@@ -64,6 +68,16 @@ async def test_array():
       "transform": {
           "input_inclusive_min": [0, 0],
           "input_exclusive_max": [2, 3]
+      },
+  }
+
+  assert t.T.spec().to_json(include_defaults=False) == {
+      "driver": "array",
+      "array": [[1, 4], [2, 5], [3, 6]],
+      "dtype": "int64",
+      "transform": {
+          "input_inclusive_min": [0, 0],
+          "input_exclusive_max": [3, 2],
       },
   }
 

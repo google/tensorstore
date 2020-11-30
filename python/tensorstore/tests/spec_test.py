@@ -30,6 +30,8 @@ def test_spec_init_json():
       "dtype": "int32",
   })
   assert s.transform == ts.IndexTransform(input_rank=2)
+  assert s.rank == 2
+  assert s.ndim == 2
   assert s.dtype == ts.int32
   assert s.to_json(include_defaults=False) == {
       "driver": "array",
@@ -40,6 +42,22 @@ def test_spec_init_json():
           "input_exclusive_max": [["+inf"], ["+inf"]],
       },
   }
+  assert s.T == ts.Spec({
+      "driver": "array",
+      "array": [[1, 2], [3, 4]],
+      "transform": {
+          "input_rank": 2,
+          "output": [
+              {
+                  "input_dimension": 1
+              },
+              {
+                  "input_dimension": 0
+              },
+          ],
+      },
+      "dtype": "int32",
+  })
 
 
 def test_spec_pickle():
@@ -79,9 +97,15 @@ def test_spec_indexing():
 
 def test_spec_indexing_unknown_rank():
   s = ts.Spec({
-      "driver": "array",
-      "array": [[1, 2], [3, 4]],
+      "driver": "zarr",
+      "kvstore": {
+          "driver": "memory"
+      },
       "dtype": "int32",
   })
+  assert s.rank is None
+  assert s.ndim is None
   with pytest.raises(ValueError, match="IndexTransform is unspecified"):
     s[..., ts.newaxis]
+  with pytest.raises(ValueError, match="IndexTransform is unspecified"):
+    s.T
