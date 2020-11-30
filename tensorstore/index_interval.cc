@@ -170,35 +170,33 @@ bool ContainsOrUnbounded(IndexInterval outer, IndexInterval inner) {
           inner.inclusive_max() <= outer.inclusive_max());
 }
 
-Result<IndexInterval> ShiftInterval(IndexInterval interval, Index offset) {
-  if (!IsFiniteIndex(offset)) {
-    return absl::OutOfRangeError(StrCat("Index offset ", offset,
-                                        " is outside valid range ",
-                                        IndexInterval::FiniteRange()));
-  }
+Result<IndexInterval> ShiftInterval(IndexInterval interval, Index min_offset,
+                                    Index max_offset) {
   Index inclusive_min;
   if (interval.inclusive_min() == -kInfIndex) {
     inclusive_min = -kInfIndex;
-  } else {
-    inclusive_min = interval.inclusive_min() + offset;
-    if (!IsFiniteIndex(inclusive_min)) {
-      return absl::InvalidArgumentError(
-          StrCat("Shifted inclusive_min value ", inclusive_min,
-                 " is outside valid range ", IndexInterval::FiniteRange()));
-    }
+  } else if (internal::AddOverflow(interval.inclusive_min(), min_offset,
+                                   &inclusive_min) ||
+             !IsFiniteIndex(inclusive_min)) {
+    return absl::InvalidArgumentError(
+        StrCat(interval.inclusive_min(), " + ", min_offset,
+               " is outside valid range ", IndexInterval::FiniteRange()));
   }
   Index inclusive_max;
   if (interval.inclusive_max() == kInfIndex) {
     inclusive_max = kInfIndex;
-  } else {
-    inclusive_max = interval.inclusive_max() + offset;
-    if (!IsFiniteIndex(inclusive_max)) {
-      return absl::InvalidArgumentError(
-          StrCat("Shifted inclusive_max value ", inclusive_max,
-                 " is outside valid range ", IndexInterval::FiniteRange()));
-    }
+  } else if (internal::AddOverflow(interval.inclusive_max(), max_offset,
+                                   &inclusive_max) ||
+             !IsFiniteIndex(inclusive_max)) {
+    return absl::InvalidArgumentError(
+        StrCat(interval.inclusive_max(), " + ", max_offset,
+               " is outside valid range ", IndexInterval::FiniteRange()));
   }
   return IndexInterval::UncheckedClosed(inclusive_min, inclusive_max);
+}
+
+Result<IndexInterval> ShiftInterval(IndexInterval interval, Index offset) {
+  return ShiftInterval(interval, offset, offset);
 }
 
 Result<IndexInterval> ShiftIntervalTo(IndexInterval interval, Index origin) {

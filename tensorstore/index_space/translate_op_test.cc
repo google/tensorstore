@@ -257,35 +257,26 @@ TEST(TranslateByTest, ErrorHandling) {
                              .Finalize()
                              .value(),
                          AllDims().TranslateBy(-kInfIndex),
-                         absl::StatusCode::kOutOfRange,
-                         "Index offset .* is outside valid range .*");
+                         absl::StatusCode::kInvalidArgument,
+                         ".* is outside valid range .*");
 
   TestDimExpressionError(IndexTransformBuilder<1, 1>()
                              .input_origin({kMinFiniteIndex})
                              .input_shape({10})
                              .Finalize()
                              .value(),
-                         AllDims().TranslateBy(kInfIndex),
-                         absl::StatusCode::kOutOfRange,
-                         "Index offset .* is outside valid range .*");
+                         AllDims().TranslateBy(-1),
+                         absl::StatusCode::kInvalidArgument,
+                         ".* is outside valid range .*");
 
-  TestDimExpressionError(
-      IndexTransformBuilder<1, 1>()
-          .input_origin({kMinFiniteIndex})
-          .input_shape({10})
-          .Finalize()
-          .value(),
-      AllDims().TranslateBy(-1), absl::StatusCode::kInvalidArgument,
-      "Shifted inclusive_min value .* is outside valid range .*");
-
-  TestDimExpressionError(
-      IndexTransformBuilder<1, 1>()
-          .input_origin({kMaxFiniteIndex - 1})
-          .input_shape({2})
-          .Finalize()
-          .value(),
-      AllDims().TranslateBy(1), absl::StatusCode::kInvalidArgument,
-      "Shifted inclusive_max value .* is outside valid range .*");
+  TestDimExpressionError(IndexTransformBuilder<1, 1>()
+                             .input_origin({kMaxFiniteIndex - 1})
+                             .input_shape({2})
+                             .Finalize()
+                             .value(),
+                         AllDims().TranslateBy(1),
+                         absl::StatusCode::kInvalidArgument,
+                         ".* is outside valid range .*");
 
   TestDimExpressionError(IndexTransformBuilder<1, 1>()
                              .output_single_input_dimension(

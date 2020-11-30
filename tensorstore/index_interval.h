@@ -333,16 +333,20 @@ bool AreCompatibleOrUnbounded(IndexInterval a, IndexInterval b);
 ///     inner.inclusive_max() <= outer.inclusive_max())`.
 bool ContainsOrUnbounded(IndexInterval outer, IndexInterval inner);
 
-/// Adds an offset to both the min and max bounds of an interval.
+/// Adds an offset to the min and max bounds of an interval.
 ///
 /// If `interval.inclusive_min() == -kInfIndex`, it is not shifted.  Likewise,
 /// if `interval.inclusive_max() == -kInfIndex`, it is also not shifted.
 ///
 /// \returns The shifted interval.
-/// \error `absl::StatusCode::kOutOfRange` if `offset < kMinFiniteIndex` or
-///     `offset > kMaxFiniteIndex`.
 /// \error `absl::StatusCode::kInvalidArgument` if the resultant `inclusive_min`
 ///     or `inclusive_max` value would be outside the valid range.
+Result<IndexInterval> ShiftInterval(IndexInterval interval, Index min_offset,
+                                    Index max_offset);
+
+/// Adds an offset to both the min and max bounds of an interval.
+///
+/// Equivalent to `ShiftInterval(interval, offset, offset)`.
 Result<IndexInterval> ShiftInterval(IndexInterval interval, Index offset);
 
 /// Shifts the `inclusive_min` value of `interval` to `origin`.
