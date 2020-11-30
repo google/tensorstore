@@ -1290,6 +1290,54 @@ TEST(AllocateArrayTest, Default) {
   result(1, 2) = 1;
 }
 
+TEST(AllocateArrayElementsLikeTest, ZeroOrigin) {
+  StridedLayout<2, zero_origin> source_layout({2, 3}, {1, 10});
+  std::vector<Index> byte_strides(2);
+  auto array_pointer = tensorstore::AllocateArrayElementsLike<int32_t>(
+      source_layout, byte_strides.data(), tensorstore::skip_repeated_elements,
+      tensorstore::value_init);
+  ASSERT_THAT(byte_strides, testing::ElementsAre(4, 8));
+  for (Index i = 0; i < source_layout.num_elements(); ++i) {
+    EXPECT_EQ(0, array_pointer.data()[i]);
+  }
+}
+
+TEST(AllocateArrayElementsLikeTest, ZeroOriginSkipRepeatedElements) {
+  StridedLayout<2, zero_origin> source_layout({2, 3}, {0, 10});
+  std::vector<Index> byte_strides(2);
+  auto array_pointer = tensorstore::AllocateArrayElementsLike<int32_t>(
+      source_layout, byte_strides.data(), tensorstore::skip_repeated_elements,
+      tensorstore::value_init);
+  ASSERT_THAT(byte_strides, testing::ElementsAre(0, 4));
+  for (Index i = 0; i < 3; ++i) {
+    EXPECT_EQ(0, array_pointer.data()[i]);
+  }
+}
+
+TEST(AllocateArrayElementsLikeTest, OffsetOrigin) {
+  StridedLayout<2, offset_origin> source_layout({1, 2}, {2, 3}, {1, 10});
+  std::vector<Index> byte_strides(2);
+  auto array_pointer = tensorstore::AllocateArrayElementsLike<int32_t>(
+      source_layout, byte_strides.data(), tensorstore::skip_repeated_elements,
+      tensorstore::value_init);
+  ASSERT_THAT(byte_strides, testing::ElementsAre(4, 8));
+  for (Index i = 0; i < source_layout.num_elements(); ++i) {
+    EXPECT_EQ(0, array_pointer.data()[1 + 4 + i]);
+  }
+}
+
+TEST(AllocateArrayElementsLikeTest, OffsetOriginSkipRepeatedElements) {
+  StridedLayout<2, offset_origin> source_layout({1, 2}, {2, 3}, {0, 10});
+  std::vector<Index> byte_strides(2);
+  auto array_pointer = tensorstore::AllocateArrayElementsLike<int32_t>(
+      source_layout, byte_strides.data(), tensorstore::skip_repeated_elements,
+      tensorstore::value_init);
+  EXPECT_THAT(byte_strides, testing::ElementsAre(0, 4));
+  for (Index i = 0; i < 3; ++i) {
+    EXPECT_EQ(0, array_pointer.data()[2 + i]);
+  }
+}
+
 TEST(IterateOverArrays, VoidReturn) {
   std::vector<std::pair<int, int>> values;
   EXPECT_EQ(

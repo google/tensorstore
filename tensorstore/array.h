@@ -1335,11 +1335,52 @@ AllocateArray(
   };
 }
 
-/// Allocates an array with a layout similar to an existing strided layout.
+/// Allocates an array data buffer with a layout similar to an existing strided
+/// layout.
 ///
 /// The newly allocated array has the same `domain` as `layout`.
 ///
-/// This overload handles the `zero_origin` case.
+/// This provides a lower-level interface where the byte strides are stored in
+/// an existing buffer.  In most cases it is more convenient to use
+/// `AllocateArrayLike` instead`.
+///
+/// \param layout The existing strided layout.
+/// \param byte_strides[out] Pointer to array of length `layout.rank()` where
+///     the byte strides of the new array will be stored.
+/// \param constraints If `constraints.has_order_constraint()`, the returned
+///     array will use `constraints.order_constraint_value()`.  Otherwise, an
+///     order will be chosen such that the byte strides of the allocated array
+///     have the same order (with respect to their absolute values) as
+///     `layout.byte_strides()`.
+/// \param initialization Specifies the initialization type.
+/// \param representation Specifies the element type (optional if `Element` is
+///     non-`void`).
+template <typename Element, DimensionIndex Rank, ArrayOriginKind OriginKind,
+          ContainerKind CKind>
+SharedElementPointer<Element> AllocateArrayElementsLike(
+    const StridedLayout<Rank, OriginKind, CKind>& layout, Index* byte_strides,
+    IterationConstraints constraints,
+    ElementInitialization initialization = default_init,
+    StaticOrDynamicDataTypeOf<Element> data_type = DataTypeOf<Element>()) {
+  auto element_pointer =
+      StaticDataTypeCast<Element, unchecked>(internal::AllocateArrayLike(
+          data_type,
+          StridedLayoutView<>(layout.rank(), layout.shape().data(),
+                              layout.byte_strides().data()),
+          byte_strides, constraints, initialization));
+  if constexpr (OriginKind == offset_origin) {
+    return AddByteOffset(
+        std::move(element_pointer),
+        -IndexInnerProduct(layout.rank(), layout.origin().data(),
+                           byte_strides));
+  } else {
+    return element_pointer;
+  }
+}
+
+/// Allocates an array with a layout similar to an existing strided layout.
+///
+/// The newly allocated array has the same `domain` as `layout`.
 ///
 /// \param layout The existing strided layout.
 /// \param constraints If `constraints.has_order_constraint()`, the returned
@@ -1350,41 +1391,23 @@ AllocateArray(
 /// \param initialization Specifies the initialization type.
 /// \param representation Specifies the element type (optional if `Element` is
 ///     non-`void`).
-template <typename Element, DimensionIndex Rank, ContainerKind CKind>
-SharedArray<Element, Rank, zero_origin> AllocateArrayLike(
-    const StridedLayout<Rank, zero_origin, CKind>& layout,
+template <typename Element, DimensionIndex Rank, ArrayOriginKind OriginKind,
+          ContainerKind CKind>
+SharedArray<Element, Rank, OriginKind> AllocateArrayLike(
+    const StridedLayout<Rank, OriginKind, CKind>& layout,
     IterationConstraints constraints = c_order,
     ElementInitialization initialization = default_init,
     StaticOrDynamicDataTypeOf<Element> data_type = DataTypeOf<Element>()) {
-  SharedArray<Element, Rank, zero_origin> array;
+  SharedArray<Element, Rank, OriginKind> array;
   array.layout().set_rank(layout.rank());
   std::copy_n(layout.shape().data(), layout.rank(), array.shape().data());
+  if constexpr (OriginKind == offset_origin) {
+    std::copy_n(layout.origin().data(), layout.rank(), array.origin().data());
+  }
   array.element_pointer() =
-      StaticDataTypeCast<Element, unchecked>(internal::AllocateArrayLike(
-          data_type, StridedLayoutView<>(layout), array.byte_strides().data(),
-          constraints, initialization));
-  return array;
-}
-
-/// Overload for the `offset_origin` case.
-template <typename Element, DimensionIndex Rank, ContainerKind CKind>
-SharedArray<Element, Rank, offset_origin> AllocateArrayLike(
-    const StridedLayout<Rank, offset_origin, CKind>& layout,
-    IterationConstraints constraints = c_order,
-    ElementInitialization initialization = default_init,
-    StaticOrDynamicDataTypeOf<Element> data_type = DataTypeOf<Element>()) {
-  SharedArray<Element, Rank, offset_origin> array;
-  array.layout().set_rank(layout.rank());
-  std::copy_n(layout.shape().data(), layout.rank(), array.shape().data());
-  std::copy_n(layout.origin().data(), layout.rank(), array.origin().data());
-  auto origin_pointer =
-      StaticDataTypeCast<Element, unchecked>(internal::AllocateArrayLike(
-          data_type,
-          StridedLayoutView<>(layout.rank(), layout.shape().data(),
-                              layout.byte_strides().data()),
-          array.byte_strides().data(), constraints, initialization));
-  array.element_pointer() = AddByteOffset(std::move(origin_pointer),
-                                          -array.layout().origin_byte_offset());
+      tensorstore::AllocateArrayElementsLike<Element, Rank, OriginKind>(
+          layout, array.byte_strides().data(), constraints, initialization,
+          data_type);
   return array;
 }
 
