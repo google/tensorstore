@@ -175,10 +175,9 @@ Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
             // Convert index array map to constant map.
             a_to_c_map.SetConstant();
             TENSORSTORE_RETURN_IF_ERROR(ReplaceZeroRankIndexArrayIndexMap(
-                a_to_b_index_array_data.element_pointer
-                    .byte_strided_pointer()[IndexInnerProduct(
-                        a_rank, a_to_b_index_array_data.byte_strides,
-                        a_to_b->input_origin().data())],
+                *a_to_b_index_array_data
+                     .array_view(a_to_b->input_domain(a_rank))
+                     .byte_strided_origin_pointer(),
                 index_range, &a_to_c_map.offset(), &a_to_c_map.stride()));
             break;
           }
@@ -200,13 +199,8 @@ Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
         auto& result_array_data = a_to_c_map.SetArrayIndexing(a_rank);
         result_array_data.index_range = index_array_data.index_range;
         auto transform_result = TransformArraySubRegion(
-            SharedArrayView<const void, dynamic_rank, offset_origin>(
-                index_array_data.element_pointer,
-                StridedLayoutView<dynamic_rank, offset_origin>(
-                    b_rank, b_to_c_domain.origin().data(),
-                    b_to_c_domain.shape().data(),
-                    index_array_data.byte_strides)),
-            a_to_b, a_to_c_domain.origin().data(), a_to_c_domain.shape().data(),
+            index_array_data.shared_array_view(b_to_c_domain), a_to_b,
+            a_to_c_domain.origin().data(), a_to_c_domain.shape().data(),
             result_array_data.byte_strides,
             /*constraints=*/{});
         if (!transform_result) return transform_result.status();

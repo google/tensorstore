@@ -53,6 +53,24 @@ struct IndexArrayData {
   IndexInterval index_range;
   DimensionIndex rank_capacity;
   Index byte_strides[];
+
+  StridedLayoutView<dynamic_rank, offset_origin> layout(
+      BoxView<> input_domain) const {
+    assert(rank_capacity >= input_domain.rank());
+    return StridedLayoutView<dynamic_rank, offset_origin>(
+        input_domain.rank(), input_domain.origin().data(),
+        input_domain.shape().data(), byte_strides);
+  }
+
+  ArrayView<const Index, dynamic_rank, offset_origin> array_view(
+      BoxView<> input_domain) const {
+    return {element_pointer, layout(input_domain)};
+  }
+
+  SharedArrayView<const Index, dynamic_rank, offset_origin> shared_array_view(
+      BoxView<> input_domain) const {
+    return {element_pointer, layout(input_domain)};
+  }
 };
 // Alignment of IndexArrayData must be >= 2 to ensure that the low bit of
 // pointers to IndexArrayData is always 0.
