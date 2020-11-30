@@ -121,6 +121,13 @@ SharedArray<Element, Rank> UncheckedArrayFromNumpy(pybind11::array array_obj) {
   return array;
 }
 
+/// Implementation of `ConvertToArray`, see documentation below.
+bool ConvertToArrayImpl(pybind11::handle src,
+                        SharedArray<void, dynamic_rank>* out,
+                        DataType data_type_constraint, DimensionIndex min_rank,
+                        DimensionIndex max_rank, bool writable, bool no_throw,
+                        bool allow_copy);
+
 /// Converts a Python object to a `SharedArray`.
 ///
 /// \tparam Element Compile-time element type constraint, or `void` to indicate
@@ -151,49 +158,16 @@ std::conditional_t<NoThrow, bool, void> ConvertToArray(
     StaticOrDynamicDataTypeOf<Element> data_type_constraint = {},
     StaticOrDynamicRank<Rank> min_rank = GetDefaultRank<Rank>(),
     StaticOrDynamicRank<Rank> max_rank = GetDefaultRank<Rank>()) {
-  DataType data_type = data_type_constraint;
-  // Determine the NumPy data type corresponding to `data_type_constraint`.
-  pybind11::dtype dtype_handle =
-      data_type.valid()
-          ? GetNumpyDtypeOrThrow(data_type)
-          : pybind11::reinterpret_steal<pybind11::dtype>(pybind11::handle());
-  int flags = NPY_ARRAY_ALIGNED_;
-  if constexpr (!std::is_const_v<Element>) {
-    flags |= NPY_ARRAY_WRITEABLE_;
+  SharedArray<void, dynamic_rank> dynamic_out;
+  bool result =
+      ConvertToArrayImpl(src, &dynamic_out, data_type_constraint, min_rank,
+                         max_rank, /*writable=*/std::is_const_v<Element>,
+                         /*no_throw=*/NoThrow, /*allow_copy=*/AllowCopy);
+  if constexpr (NoThrow) {
+    if (!result) return false;
   }
-  // Convert `src` to a NumPy array.
-  auto obj = pybind11::reinterpret_steal<pybind11::array>(
-      npy_api::get().PyArray_FromAny_(
-          src.ptr(), dtype_handle.release().ptr(),
-          min_rank == dynamic_rank ? 0 : static_cast<DimensionIndex>(min_rank),
-          max_rank == dynamic_rank ? 0 : static_cast<DimensionIndex>(max_rank),
-          flags, nullptr));
-  if (!obj) {
-    if constexpr (NoThrow) {
-      PyErr_Clear();
-      return false;
-    }
-    throw pybind11::error_already_set();
-  }
-  if (!AllowCopy && obj.ptr() != src.ptr()) {
-    // PyArray_FromAny created a copy, which is not allowed for a non-const
-    // Element type.
-    if constexpr (NoThrow) {
-      return false;
-    }
-    throw pybind11::value_error(
-        "Argument is not a writable array with suitable dtype");
-  }
-  // PyArray_FromAny does not handle rank constraints of 0, so we need to
-  // check them separately.
-  if (max_rank == 0 && obj.ndim() != 0) {
-    if constexpr (NoThrow) {
-      return false;
-    }
-    throw pybind11::value_error(StrCat(
-        "Expected array of rank 0, but received array of rank ", obj.ndim()));
-  }
-  *out = UncheckedArrayFromNumpy<Element, Rank>(std::move(obj));
+  *out = tensorstore::StaticCast<SharedArray<Element, Rank>, unchecked>(
+      std::move(dynamic_out));
   if constexpr (NoThrow) {
     return true;
   }

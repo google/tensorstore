@@ -167,7 +167,13 @@ namespace {
   }
   PyErr_Clear();
 
-  return PyObjectToJson(h.attr("to_json")(), max_depth - 1);
+  py::object to_json_method;
+  try {
+    to_json_method = h.attr("to_json");
+  } catch (...) {
+    throw py::type_error("Object does not support conversion to JSON");
+  }
+  return PyObjectToJson(to_json_method(), max_depth - 1);
 }
 
 }  // namespace internal_python
