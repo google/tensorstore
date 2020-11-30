@@ -1581,6 +1581,32 @@ class DimExpression<LastOp, PriorOp...> {
                                std::forward<Transformable>(transformable));
   }
 
+  /// Resolves a dimension selection to dimension indices.
+  ///
+  /// For example:
+  ///
+  ///     auto transform = IdentityTransform({"x", "y", "z"});
+  ///     DimensionIndexBuffer buffer;
+  ///     TENSORSTORE_EXPECT_OK(Dims("x", "z").Resolve(transform.domain(),
+  ///                                                  &buffer));
+  ///     EXPECT_THAT(buffer, ::testing::ElementsAre(0, 2));
+  ///
+  /// \param domain The domain for which to resolve the dimension selection.
+  /// \param selection_output[out] Non-null pointer to buffer that will be
+  ///     filled with dimension indices.
+  /// \requires There is no prior operation in the sequence.
+  /// \error `absl::StatusCode::kInvalidArgument` if this dimension selection is
+  ///     not compatible with `domain`.
+  template <DimensionIndex Rank, ContainerKind CKind>
+  DimExpressionHelper::EnableIfCanResolveDimensions<absl::Status, Rank, LastOp,
+                                                    PriorOp...>
+  Resolve(const IndexDomain<Rank, CKind>& domain,
+          DimensionIndexBuffer* selection_output) const {
+    return last_op_.GetDimensions(
+        internal_index_space::TransformAccess::transform(domain),
+        selection_output);
+  }
+
   /// Constructs a DimExpression from a new op and the parent DimExpression (if
   /// any) to which it should be chained.  This is for internal use only.
   DimExpression(LastOp last_op = {}, const Parent& parent = {})

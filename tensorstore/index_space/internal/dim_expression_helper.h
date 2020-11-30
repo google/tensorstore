@@ -182,6 +182,12 @@ class DimExpressionHelper {
       IndexVectorsCompatible<StaticSelectionRank, void, IndexVector...>,
       OpTemplate<
           typename IsIndexVectorOrScalar<IndexVector>::normalized_type...>>;
+
+  template <typename ReturnType, DimensionIndex InputRank, typename... Op>
+  using EnableIfCanResolveDimensions =
+      std::enable_if_t<(sizeof...(Op) == 1 &&
+                        GetStaticSelectionRank<Op...>(InputRank) >= -1),
+                       ReturnType>;
 };
 
 // Used to implement `EnableIfApplyIndexTransformResult` below.

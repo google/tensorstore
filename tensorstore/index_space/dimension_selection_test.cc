@@ -15,6 +15,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/dim_expression_testutil.h"
 #include "tensorstore/util/status.h"
@@ -22,10 +23,12 @@
 namespace {
 
 using tensorstore::DimensionIndex;
+using tensorstore::DimensionIndexBuffer;
 using tensorstore::DimRangeSpec;
 using tensorstore::Dims;
 using tensorstore::dynamic_rank;
 using tensorstore::DynamicDims;
+using tensorstore::IndexDomainBuilder;
 using tensorstore::IndexTransformBuilder;
 using tensorstore::span;
 using tensorstore::internal_index_space::TestDimExpressionError;
@@ -423,6 +426,14 @@ TEST(DimsTest, DimRangeSpecImplicitStartNew) {
           .value(),
       /*equivalent_indices=*/{},
       /*can_operate_in_place=*/false);
+}
+
+TEST(ResolveTest, Example) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto domain, IndexDomainBuilder<3>().labels({"x", "y", "z"}).Finalize());
+  DimensionIndexBuffer buffer;
+  TENSORSTORE_EXPECT_OK(Dims("x", "z").Resolve(domain, &buffer));
+  EXPECT_THAT(buffer, ::testing::ElementsAre(0, 2));
 }
 
 }  // namespace
