@@ -38,6 +38,7 @@ tensorstore_cc_test(
         "//tensorstore:context",
         "//tensorstore:open",
         "//tensorstore:open_mode",
+        "//tensorstore:spec",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/internal:elementwise_function",
         "//tensorstore/util:executor",

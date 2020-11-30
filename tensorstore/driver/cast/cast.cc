@@ -54,21 +54,27 @@ class CastDriver
         }
         return absl::OkStatus();
       }),
-      jb::Member(
-          "base", [](auto is_loading, const auto& options, auto* obj, auto* j) {
-            constexpr auto binder = jb::Projection(&SpecData::base);
-            if constexpr (is_loading) {
-              return binder(
-                  is_loading,
-                  DriverSpecFromJsonOptions{options, {DataType(), obj->rank}},
-                  obj, j);
-            } else {
-              return binder(
-                  is_loading,
-                  DriverSpecToJsonOptions{options, {DataType(), obj->rank}},
-                  obj, j);
-            }
-          }));
+      jb::Member("base",
+                 [](auto is_loading, const auto& options, auto* obj, auto* j) {
+                   constexpr auto binder = jb::Projection(&SpecData::base);
+                   if constexpr (is_loading) {
+                     return binder(is_loading,
+                                   DriverSpecFromJsonOptions{
+                                       options, {DataType(), obj->rank}},
+                                   obj, j);
+                   } else {
+                     return binder(is_loading,
+                                   DriverSpecToJsonOptions{
+                                       options, {DataType(), obj->rank}},
+                                   obj, j);
+                   }
+                 }),
+      jb::Initialize([](auto* obj) -> absl::Status {
+        if (obj->rank == dynamic_rank) {
+          obj->rank = obj->base.transform_spec.input_rank();
+        }
+        return absl::OkStatus();
+      }));
 
   using Ptr = Driver::PtrT<CastDriver>;
 

@@ -24,6 +24,7 @@
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/spec.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/status.h"
@@ -815,6 +816,15 @@ TEST(CopyTest, SelfCopy) {
           .result());
   EXPECT_EQ(tensorstore::Read(store).result(),
             tensorstore::MakeArray<int>({1, 2, 1, 2}));
+}
+
+TEST(ArrayTest, SpecRankPropagation) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, tensorstore::Spec::FromJson({
+                                                  {"driver", "array"},
+                                                  {"array", {1, 2, 3}},
+                                                  {"dtype", "int32"},
+                                              }));
+  EXPECT_EQ(1, spec.rank());
 }
 
 }  // namespace open_tests

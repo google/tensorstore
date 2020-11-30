@@ -21,6 +21,7 @@
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/json.h"
 #include "tensorstore/open.h"
+#include "tensorstore/spec.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
@@ -445,6 +446,20 @@ TEST(CastTest, ComposeTransformsError) {
                             "Error parsing object member \"base\": "
                             "Cannot compose transform of rank 1 -> 1 "
                             "with transform of rank 2 -> 2"));
+}
+
+TEST(CastTest, SpecRankPropagation) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, tensorstore::Spec::FromJson({
+                                                  {"driver", "cast"},
+                                                  {"base",
+                                                   {
+                                                       {"driver", "array"},
+                                                       {"array", {1, 2, 3}},
+                                                       {"dtype", "int32"},
+                                                   }},
+                                                  {"dtype", "int64"},
+                                              }));
+  EXPECT_EQ(1, spec.rank());
 }
 
 }  // namespace

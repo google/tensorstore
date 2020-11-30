@@ -116,7 +116,13 @@ class ArrayDriver
                    return jb::Projection(
                        &SpecData::array,
                        jb::NestedArray(obj->data_type, obj->rank));
-                 })));
+                 })),
+      jb::Initialize([](SpecData* obj) {
+        // `jb::NestedArray` ensures that the array rank is compatible with
+        // `obj->rank`.
+        assert(AreStaticRanksCompatible(obj->array.rank(), obj->rank));
+        obj->rank = obj->array.rank();
+      }));
 
   using Ptr = Driver::PtrT<ArrayDriver>;
 
