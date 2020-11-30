@@ -267,17 +267,17 @@ The returned view may be used to perform transactional read/write operations.
         }
         OpenOptions options;
         if (!read && !write) {
-          read = true;
-          write = true;
-        }
-        options.read_write_mode = ReadWriteMode{};
-        if (read && *read == true) {
-          options.read_write_mode =
-              options.read_write_mode | ReadWriteMode::read;
-        }
-        if (write && *write == true) {
-          options.read_write_mode =
-              options.read_write_mode | ReadWriteMode::write;
+          options.read_write_mode = ReadWriteMode::dynamic;
+        } else {
+          options.read_write_mode = ReadWriteMode{};
+          if (read && *read == true) {
+            options.read_write_mode =
+                options.read_write_mode | ReadWriteMode::read;
+          }
+          if (write && *write == true) {
+            options.read_write_mode =
+                options.read_write_mode | ReadWriteMode::write;
+          }
         }
         if (open || create || delete_existing || allow_option_mismatch) {
           OpenMode open_mode = OpenMode{};
