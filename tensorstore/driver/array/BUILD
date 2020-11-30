@@ -41,6 +41,7 @@ tensorstore_cc_test(
         "//tensorstore:spec",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/internal:elementwise_function",
+        "//tensorstore/internal:json_gtest",
         "//tensorstore/util:executor",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",

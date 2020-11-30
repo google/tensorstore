@@ -341,4 +341,27 @@ Result<internal::TransformedDriver> MakeArrayDriver<offset_origin>(
 }
 
 }  // namespace internal
+
+Result<tensorstore::Spec> SpecFromArray(
+    SharedOffsetArrayView<const void> array) {
+  using internal::ArrayDriver;
+  using internal_spec::SpecAccess;
+  Spec spec;
+  auto& impl = SpecAccess::impl(spec);
+  auto driver_spec = ArrayDriver::DriverSpecBuilder::Make();
+  driver_spec->rank = array.rank();
+  driver_spec->data_type = array.data_type();
+  driver_spec->data_copy_concurrency =
+      Context::ResourceSpec<internal::DataCopyConcurrencyResource>::Default();
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      impl.transform_spec,
+      tensorstore::IdentityTransform(array.shape()) |
+          tensorstore::AllDims().TranslateTo(array.origin()));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      driver_spec->array,
+      (tensorstore::ArrayOriginCast<zero_origin, container>(std::move(array))));
+  impl.driver_spec = std::move(driver_spec).Build();
+  return spec;
+}
+
 }  // namespace tensorstore

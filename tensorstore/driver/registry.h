@@ -136,6 +136,8 @@ class RegisteredDriverOpener;
 ///     `internal::Driver` (for example, may be `ChunkCacheDriver`).
 template <typename Derived, typename Parent>
 class RegisteredDriver : public Parent {
+  class DriverSpecImpl;
+
  public:
   using Parent::Parent;
 
@@ -184,6 +186,38 @@ class RegisteredDriver : public Parent {
     transformed_spec.driver_spec = std::move(bound_spec);
     return transformed_spec;
   }
+
+  /// Builder class that may be used to construct a DriverSpec directly for the
+  /// derived driver without parsing JSON.
+  ///
+  /// Example usage:
+  ///
+  ///     auto driver_spec_builder = Derived::DriverSpecBuilder::Make();
+  ///     driver_spec_builder->some_property = value;
+  ///     DriverSpec::Ptr driver_spec = std::move(driver_spec_builder).Build();
+  class DriverSpecBuilder {
+   public:
+    using SpecData = typename Derived::template SpecT<ContextUnbound>;
+
+    static DriverSpecBuilder Make() {
+      DriverSpecBuilder builder;
+      builder.impl_.reset(new DriverSpecImpl);
+      return builder;
+    }
+
+    DriverSpecBuilder() = default;
+    DriverSpecBuilder(DriverSpecBuilder&&) = default;
+    DriverSpecBuilder(const DriverSpecBuilder&) = delete;
+    DriverSpecBuilder& operator=(const DriverSpecBuilder&) = delete;
+    DriverSpecBuilder& operator=(DriverSpecBuilder&&) = default;
+
+    SpecData& operator*() { return impl_->data_; }
+    SpecData* operator->() { return &impl_->data_; }
+    DriverSpec::Ptr Build() && { return std::move(impl_); }
+
+   private:
+    IntrusivePtr<DriverSpecImpl> impl_;
+  };
 
  private:
   class DriverSpecImpl : public internal::DriverSpec {

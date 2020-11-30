@@ -63,6 +63,13 @@ FromArray(Context context, const Array& array) {
           ReadWriteMode::read_write /* masked based on Store type */});
 }
 
+/// Returns a `Spec` for an array driver that holds the given `array`.
+///
+/// The specified `array` is shared with the returned `Spec` and should not be
+/// modified, but opening the returned `Spec` makes a copy of the array.
+Result<tensorstore::Spec> SpecFromArray(
+    SharedOffsetArrayView<const void> array);
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_DRIVER_ARRAY_ARRAY_H_

@@ -22,6 +22,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/spec.h"
@@ -825,6 +826,31 @@ TEST(ArrayTest, SpecRankPropagation) {
                                                   {"dtype", "int32"},
                                               }));
   EXPECT_EQ(1, spec.rank());
+}
+
+TEST(ArrayTest, SpecFromArray) {
+  auto orig_array = tensorstore::MakeOffsetArray<float>({2}, {1, 2, 3});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::SpecFromArray(orig_array));
+  EXPECT_EQ(1, spec.rank());
+  EXPECT_EQ(tensorstore::DataTypeOf<float>(), spec.data_type());
+  EXPECT_THAT(spec.ToJson(tensorstore::IncludeContext{false}),
+              ::testing::Optional(tensorstore::MatchesJson(::nlohmann::json{
+                  {"driver", "array"},
+                  {"array", {1, 2, 3}},
+                  {"dtype", "float32"},
+                  {"transform",
+                   {
+                       {"input_inclusive_min", {2}},
+                       {"input_exclusive_max", {5}},
+                       {"output", {{{"input_dimension", 0}, {"offset", -2}}}},
+                   }},
+              })));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(Context::Default(), spec).result());
+  EXPECT_THAT(tensorstore::Read(store).result(),
+              ::testing::Optional(orig_array));
 }
 
 }  // namespace open_tests
