@@ -32,14 +32,17 @@
 namespace {
 
 using tensorstore::ArrayIterateResult;
+using tensorstore::c_order;
 using tensorstore::ContiguousLayoutOrder;
 using tensorstore::DimensionIndex;
+using tensorstore::fortran_order;
 using tensorstore::include_repeated_elements;
 using tensorstore::Index;
 using tensorstore::IterationConstraints;
 using tensorstore::LayoutOrderConstraint;
 using tensorstore::skip_repeated_elements;
 using tensorstore::span;
+using tensorstore::internal::AdvanceIndices;
 using tensorstore::internal_iterate::
     ComputeStridedLayoutDimensionIterationOrder;
 using tensorstore::internal_iterate::ExtractInnerShapeAndStrides;
@@ -521,6 +524,66 @@ TEST(ArrayIterateResultTest, Comparison) {
 TEST(ArrayIterateResultTest, PrintToOstream) {
   EXPECT_EQ("{success=1, count=3}",
             tensorstore::StrCat(ArrayIterateResult{true, 3}));
+}
+
+template <ContiguousLayoutOrder Order>
+std::vector<std::vector<int>> GetIndexVectors(std::vector<int> shape) {
+  std::vector<std::vector<int>> result;
+
+  std::vector<int> indices(shape.size());
+  do {
+    result.push_back(indices);
+  } while (AdvanceIndices<Order>(indices.size(), indices.data(), shape.data()));
+  return result;
+}
+
+template <ContiguousLayoutOrder Order>
+std::vector<std::vector<int>> GetIndexVectors(std::vector<int> inclusive_min,
+                                              std::vector<int> exclusive_max) {
+  std::vector<std::vector<int>> result;
+
+  std::vector<int> indices = inclusive_min;
+  do {
+    result.push_back(indices);
+  } while (AdvanceIndices<Order>(indices.size(), indices.data(),
+                                 inclusive_min.data(), exclusive_max.data()));
+  return result;
+}
+
+TEST(AdvanceIndicesTest, COrderRank0) {
+  EXPECT_THAT(GetIndexVectors<c_order>({}), ElementsAre(ElementsAre()));
+}
+
+TEST(AdvanceIndicesTest, FortranOrderRank0) {
+  EXPECT_THAT(GetIndexVectors<fortran_order>({}), ElementsAre(ElementsAre()));
+}
+
+TEST(AdvanceIndicesTest, COrderShape) {
+  EXPECT_THAT(GetIndexVectors<c_order>({2, 3}),
+              ElementsAre(  //
+                  ElementsAre(0, 0), ElementsAre(0, 1), ElementsAre(0, 2),
+                  ElementsAre(1, 0), ElementsAre(1, 1), ElementsAre(1, 2)));
+}
+
+TEST(AdvanceIndicesTest, FortranOrderShape) {
+  EXPECT_THAT(GetIndexVectors<fortran_order>({2, 3}),
+              ElementsAre(ElementsAre(0, 0), ElementsAre(1, 0),  //
+                          ElementsAre(0, 1), ElementsAre(1, 1),  //
+                          ElementsAre(0, 2), ElementsAre(1, 2)));
+}
+
+TEST(AdvanceIndicesTest, COrderInclusiveMinExclusiveMax) {
+  EXPECT_THAT(
+      GetIndexVectors<c_order>({1, 2}, {3, 5}),
+      ElementsAre(ElementsAre(1, 2), ElementsAre(1, 3), ElementsAre(1, 4),
+                  ElementsAre(2, 2), ElementsAre(2, 3), ElementsAre(2, 4)));
+}
+
+TEST(AdvanceIndicesTest, FortranOrderInclusiveMinExclusiveMax) {
+  EXPECT_THAT(GetIndexVectors<fortran_order>({1, 2}, {3, 5}),
+              ElementsAre(ElementsAre(1, 2), ElementsAre(2, 2),  //
+                          ElementsAre(1, 3), ElementsAre(2, 3),  //
+                          ElementsAre(1, 4), ElementsAre(2, 4)));
 }
 
 }  // namespace

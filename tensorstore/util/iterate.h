@@ -193,6 +193,78 @@ ArrayIterateResult IterateOverStridedLayouts(
 /// allocation.
 constexpr DimensionIndex kNumInlinedDims = 10;
 
+/// Low-level facility for iterating over a multi-dimensional index range.
+///
+/// Advances an index vector into a multi-dimensional index space to the next
+/// position, in the specified `Order`.
+///
+/// Example usage:
+///
+///     Index indices[2];
+///     std::fill_n(indices, 2, 0);
+///     const Index shape[2] = {2, 3};
+///     do {
+///       std::cout << tensorstore::span(indices) << std::endl;
+///     } while (tensorstore::internal::AdvanceIndices(2, indices, shape));
+///
+/// Example output:
+///
+///     {0, 0}
+///     {0, 1}
+///     {0, 2}
+///     {1, 0}
+///     {1, 1}
+///     {1, 2}
+///
+/// \tparam Order The order in which to iterate.
+/// \tparam I The index type.
+/// \param rank The rank of the index space over which to iterate.
+/// \param indices[in,out] Pointer to array of length `rank` over which to
+///     iterate.  On input, must be a valid position in `[0, shape)`.  If `true`
+///     is returned, set to the next valid position.  If `false` is returned,
+///     the value is unspecified.
+/// \param shape[in] Pointer to array of length `rank` specifying the extent of
+///     each dimension of the index space.  All extents must be positive, since
+///     otherwise the precondition on `indices` cannot be satisfied.
+/// \returns `true` if `indices` has been advanced to the next position within
+///     the range, or `false` if the last position has been reached.
+template <ContiguousLayoutOrder Order = c_order, typename I>
+inline bool AdvanceIndices(DimensionIndex rank, I* indices, const I* shape) {
+  DimensionIndex i = Order == c_order ? rank : 0;
+  while (true) {
+    if constexpr (Order == c_order) {
+      if (i-- == 0) return false;
+    } else {
+      if (i == rank) return false;
+    }
+    if (++indices[i] != shape[i]) return true;
+    indices[i] = 0;
+    if constexpr (Order == fortran_order) {
+      ++i;
+    }
+  }
+}
+
+/// Same as above, but iterates over `[inclusive_min, exclusive_max)` rather
+/// than `[0, shape)`.
+template <ContiguousLayoutOrder Order = c_order, typename I>
+inline bool AdvanceIndices(DimensionIndex rank, I* indices,
+                           const I* inclusive_min, const I* exclusive_max) {
+  DimensionIndex i = Order == c_order ? rank : 0;
+  while (true) {
+    if constexpr (Order == c_order) {
+      if (i-- == 0) return false;
+    } else {
+      if (i == rank) return false;
+    }
+    if (++indices[i] != exclusive_max[i]) return true;
+    indices[i] = inclusive_min[i];
+    if constexpr (Order == fortran_order) {
+      ++i;
+    }
+  }
+}
+
 }  // namespace internal
 }  // namespace tensorstore
 
