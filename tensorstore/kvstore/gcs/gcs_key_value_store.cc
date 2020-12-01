@@ -433,8 +433,6 @@ struct ReadTask {
   KeyValueStore::ReadOptions options;
 
   Result<KeyValueStore::ReadResult> operator()() {
-    TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
-
     /// Reads contents of a GCS object.
     std::string media_url = StrCat(resource, "?alt=media");
 
@@ -446,21 +444,21 @@ struct ReadTask {
     // Assume that if the user_project field is set, that we want to provide
     // it on the uri for a requestor pays bucket.
     AddUserProjectParam(&media_url, true, owner->encoded_user_project());
-
-    HttpRequestBuilder request_builder(media_url);
-    if (options.byte_range.inclusive_min != 0 ||
-        options.byte_range.exclusive_max) {
-      request_builder.AddHeader(
-          internal_http::GetRangeHeader(options.byte_range));
-    }
-    auto request = request_builder.EnableAcceptEncoding()
-                       .AddHeader(auth_header)
-                       .BuildRequest();
     KeyValueStore::ReadResult read_result;
 
     // TODO: Configure timeouts.
     HttpResponse httpresponse;
     auto retry_status = owner->RetryRequestWithBackoff([&] {
+      TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
+      HttpRequestBuilder request_builder(media_url);
+      if (options.byte_range.inclusive_min != 0 ||
+          options.byte_range.exclusive_max) {
+        request_builder.AddHeader(
+            internal_http::GetRangeHeader(options.byte_range));
+      }
+      auto request = request_builder.EnableAcceptEncoding()
+                         .AddHeader(auth_header)
+                         .BuildRequest();
       read_result.stamp.time = absl::Now();
       auto response = owner->IssueRequest("ReadTask", request, {});
       if (!response.ok()) return GetStatus(response);
@@ -538,7 +536,6 @@ struct WriteTask {
   /// Writes an object to GCS.
   Result<TimestampedStorageGeneration> operator()() {
     // We use the SimpleUpload technique.
-    TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
 
     std::string upload_url =
         StrCat(owner->upload_root(), "/o", "?uploadType=media",
@@ -552,16 +549,16 @@ struct WriteTask {
     // it on the uri for a requestor pays bucket.
     AddUserProjectParam(&upload_url, true, owner->encoded_user_project());
 
-    auto request = HttpRequestBuilder(upload_url)
-                       .AddHeader(auth_header)
-                       .AddHeader("Content-Type: application/octet-stream")
-                       .AddHeader(StrCat("Content-Length: ", value.size()))
-                       .BuildRequest();
-
     TimestampedStorageGeneration r;
 
     HttpResponse httpresponse;
     auto retry_status = owner->RetryRequestWithBackoff([&] {
+      TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
+      auto request = HttpRequestBuilder(upload_url)
+                         .AddHeader(auth_header)
+                         .AddHeader("Content-Type: application/octet-stream")
+                         .AddHeader(StrCat("Content-Length: ", value.size()))
+                         .BuildRequest();
       r.time = absl::Now();
       auto response = owner->IssueRequest("WriteTask", request, value);
       if (!response.ok()) return GetStatus(response);
@@ -623,8 +620,6 @@ struct DeleteTask {
 
   /// Writes an object to GCS.
   Result<TimestampedStorageGeneration> operator()() {
-    TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
-
     std::string delete_url = resource;
 
     // Add the ifGenerationNotMatch condition.
@@ -634,16 +629,15 @@ struct DeleteTask {
     // Assume that if the user_project field is set, that we want to provide
     // it on the uri for a requestor pays bucket.
     AddUserProjectParam(&delete_url, has_query, owner->encoded_user_project());
-
-    auto request = HttpRequestBuilder(delete_url)
-                       .AddHeader(auth_header)
-                       .SetMethod("DELETE")
-                       .BuildRequest();
-
     TimestampedStorageGeneration r;
 
     HttpResponse httpresponse;
     auto retry_status = owner->RetryRequestWithBackoff([&] {
+      TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
+      auto request = HttpRequestBuilder(delete_url)
+                         .AddHeader(auth_header)
+                         .SetMethod("DELETE")
+                         .BuildRequest();
       r.time = absl::Now();
       auto response = owner->IssueRequest("DeleteTask", request, {});
       if (!response.ok()) return GetStatus(response);
@@ -788,21 +782,20 @@ struct ListOp {
     while (true) {
       TENSORSTORE_RETURN_IF_ERROR(maybe_cancelled());
 
-      TENSORSTORE_ASSIGN_OR_RETURN(auto header, state->owner->GetAuthHeader());
-      TENSORSTORE_RETURN_IF_ERROR(maybe_cancelled());
-
       std::string list_url = base_list_url;
       if (!nextPageToken.empty()) {
         absl::StrAppend(&list_url, (url_has_query ? "&" : "?"),
                         "pageToken=", nextPageToken);
       }
 
-      auto request =
-          HttpRequestBuilder(list_url).AddHeader(header).BuildRequest();
-
       HttpResponse httpresponse;
       auto retry_status = state->owner->RetryRequestWithBackoff([&] {
         TENSORSTORE_RETURN_IF_ERROR(maybe_cancelled());
+        TENSORSTORE_ASSIGN_OR_RETURN(auto header,
+                                     state->owner->GetAuthHeader());
+        TENSORSTORE_RETURN_IF_ERROR(maybe_cancelled());
+        auto request =
+            HttpRequestBuilder(list_url).AddHeader(header).BuildRequest();
         auto response = state->owner->IssueRequest("List", request, {});
         if (!response.ok()) return GetStatus(response);
         httpresponse = std::move(*response);
