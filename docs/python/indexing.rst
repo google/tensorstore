@@ -998,11 +998,11 @@ A dimension selection is specified using the syntax :python:`ts.d[sel]`, where :
   :python:`stop`, and :python:`step` are either integers or `None`,
   specifying a range of existing or new dimensions by index (as for built-in sequence types, negative numbers specify a dimension index relative to the end);
 
-- any sequence (including a `tuple`, `list`, or another `tensorstore.DimensionSelection` object) of any of the above.
+- any sequence (including a `tuple`, `list`, or another `tensorstore.d` object) of any of the above.
 
-The result is a `tensorstore.DimensionSelection`, which is simply a
-lightweight, immutable container representing the flattened sequence
-of `int`, `str`, or `slice` objects:
+The result is a `tensorstore.d` object, which is simply a lightweight, immutable
+container representing the flattened sequence of `int`, `str`, or `slice`
+objects:
 
 .. doctest::
 
@@ -1174,9 +1174,8 @@ NumPy-style dimension expression indexing
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The syntax :python:`dexpr[iexpr]`, :python:`dexpr.vindex[iexpr]`, and
-:python:`dexpr.oindex[iexpr]` chains a NumPy-style indexing operation
-to an existing `tensorstore.DimensionSelection` or
-`tensorstore.DimExpression`.
+:python:`dexpr.oindex[iexpr]` chains a NumPy-style indexing operation to an
+existing `tensorstore.d` or `tensorstore.DimExpression`.
 
 The behavior is similar to that of regular `NumPy-style
 indexing<python-numpy-style-indexing>` applied directly to a

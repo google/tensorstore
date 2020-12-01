@@ -305,18 +305,64 @@ class PythonInitialIndexOp : public PythonDimExpression {
   IndexingSpec spec_;
 };
 
+namespace {
+
+PyTypeObject* GetClassGetitemMetaclass() {
+#if PY_VERSION_HEX < 0x030700000
+  // Polyfill __class_getitem__ support for Python < 3.7
+  static auto* metaclass = [] {
+    PyTypeObject* base_metaclass =
+        pybind11::detail::get_internals().default_metaclass;
+    PyType_Slot slots[] = {
+        {Py_tp_base, base_metaclass},
+        {Py_mp_subscript,
+         (void*)+[](PyObject* self, PyObject* arg) -> PyObject* {
+           auto method = py::reinterpret_steal<py::object>(
+               PyObject_GetAttrString(self, "__class_getitem__"));
+           if (!method.ptr()) return nullptr;
+           return PyObject_CallFunctionObjArgs(method.ptr(), arg, nullptr);
+         }},
+        {0},
+    };
+    PyType_Spec spec = {};
+    spec.name = "tensorstore._Metaclass";
+    spec.basicsize = base_metaclass->tp_basicsize;
+    spec.flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+    spec.slots = slots;
+    PyTypeObject* metaclass = (PyTypeObject*)PyType_FromSpec(&spec);
+    if (!metaclass) throw py::error_already_set();
+    return metaclass;
+  }();
+  return metaclass;
+#else  // Python version >= 3.7 supports __class_getitem__ natively.
+  return nullptr;
+#endif
+}
+}  // namespace
+
 void RegisterDimExpressionBindings(pybind11::module m) {
   py::class_<PythonDimExpressionBase, std::shared_ptr<PythonDimExpressionBase>>
       dim_expression_base(m, "_DimExpressionBase");
+
   py::class_<DimensionSelection, PythonDimExpressionBase,
              std::shared_ptr<DimensionSelection>>
       dimension_selection_class(
-          m, "DimensionSelection",
-          "Specifies a sequence of index space dimensions.");
-  dimension_selection_class.def(
-      "__eq__", [](const DimensionSelection& a, const DimensionSelection& b) {
-        return a.dims == b.dims;
-      });
+          m, "d", py::metaclass((PyObject*)GetClassGetitemMetaclass()),
+          R"(Specifies a dimension selection, a sequence of index space dimensions.
+
+:ref:`python-dim-selections` may be used as part of a
+`dimension expression<python-dim-expression-construction>` to specify the
+dimensions to which an indexing operation applies.
+)");
+  dimension_selection_class
+      .def("__eq__",
+           [](const DimensionSelection& a, const DimensionSelection& b) {
+             return a.dims == b.dims;
+           })
+      .def_static(
+          "__class_getitem__",
+          [](const DimensionSelection& selection) { return selection; },
+          py::arg("selection"));
 
   DefineIndexingMethods<IndexingSpec::Usage::kDimSelectionInitial>(
       &dimension_selection_class,
@@ -326,15 +372,6 @@ void RegisterDimExpressionBindings(pybind11::module m) {
                                                       std::move(spec));
       });
 
-  struct DimensionSelectionHelper {};
-  py::class_<DimensionSelectionHelper> cls_dimension_selection_helper(
-      m, "_DimensionSelectionHelper");
-  cls_dimension_selection_helper.def(
-      "__getitem__",
-      [](const DimensionSelectionHelper& self,
-         const DimensionSelection& selection) { return selection; });
-  cls_dimension_selection_helper.attr("__iter__") = py::none();
-  m.attr("d") = DimensionSelectionHelper{};
   m.attr("newaxis") = py::none();
 
   py::class_<PythonDimExpression, PythonDimExpressionBase,
