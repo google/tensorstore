@@ -16,6 +16,12 @@
 This invokes bazel via the included `bazelisk.py` wrapper script.
 """
 
+# Import setuptools before distutils because setuptools monkey patches
+# distutils:
+#
+# https://github.com/pypa/setuptools/commit/bd1102648109c85c782286787e4d5290ae280abe
+import setuptools
+
 import atexit
 import distutils.command.build
 import os
@@ -23,7 +29,6 @@ import shutil
 import sys
 import tempfile
 
-import setuptools
 import setuptools.command.build_ext
 import setuptools.command.build_py
 import setuptools.command.install
