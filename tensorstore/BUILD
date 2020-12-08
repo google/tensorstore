@@ -611,6 +611,8 @@ tensorstore_cc_library(
     name = "all_drivers",
     deps = [
         "//tensorstore/driver/array",
+        "//tensorstore/driver/cast",
+        "//tensorstore/driver/downsample",
         "//tensorstore/driver/json",
         "//tensorstore/driver/n5",
         "//tensorstore/driver/n5:blosc_compressor",
@@ -625,5 +627,33 @@ tensorstore_cc_library(
         "//tensorstore/kvstore/file",
         "//tensorstore/kvstore/gcs",
         "//tensorstore/kvstore/memory",
+    ],
+)
+
+# Package group with visibility to internal-only targets.
+package_group(
+    name = "internal_packages",
+    packages = [
+        "//tensorstore/...",
+        "//third_party/py/tensorstore/...",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "downsample_method",
+    srcs = ["downsample_method.cc"],
+    hdrs = ["downsample_method.h"],
+)
+
+cc_library(
+    name = "downsample",
+    hdrs = ["downsample.h"],
+    deps = [
+        ":downsample_method",
+        ":rank",
+        ":spec",
+        ":tensorstore",
+        "//tensorstore/driver/downsample",
+        "//tensorstore/internal:type_traits",
     ],
 )

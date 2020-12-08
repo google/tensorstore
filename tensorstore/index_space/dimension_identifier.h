@@ -165,7 +165,7 @@ struct DimRangeSpec {
   absl::optional<DimensionIndex> exclusive_stop;
 
   /// Step size, must not equal 0.
-  DimensionIndex step;
+  DimensionIndex step = 1;
 
   /// Returns a Python-style `start:stop` or `start:stop:step` slice expression,
   /// where `start` and `stop` are omitted if equal to `nullopt` and `step` is

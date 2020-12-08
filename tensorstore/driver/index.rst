@@ -7,6 +7,7 @@ Drivers
    :maxdepth: 1
 
    cast/index
+   downsample/index
    array/index
 
 Single file drivers

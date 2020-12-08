@@ -18,6 +18,7 @@
 
 #include "python/tensorstore/context.h"
 #include "python/tensorstore/data_type.h"
+#include "python/tensorstore/downsample.h"
 #include "python/tensorstore/future.h"
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/spec.h"
@@ -62,6 +63,7 @@ PYBIND11_MODULE(_tensorstore, m) {
   RegisterTensorStoreBindings(m);
   RegisterFutureBindings(m);
   RegisterWriteFuturesBindings(m);
+  RegisterDownsampleBindings(m);
 }
 
 }  // namespace

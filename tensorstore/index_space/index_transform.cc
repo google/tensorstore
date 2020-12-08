@@ -108,8 +108,7 @@ Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
         d.optionally_implicit_domain().effective_interval();
     const IndexInterval new_domain = domain[i];
     if (!Contains(orig_domain, new_domain)) {
-      return Status(
-          absl::StatusCode::kOutOfRange,
+      return absl::OutOfRangeError(
           StrCat("Cannot slice target dimension ", j, " {",
                  d.index_domain_dimension<view>(),
                  "} with index domain dimension ", i, " {", domain[i], "}"));

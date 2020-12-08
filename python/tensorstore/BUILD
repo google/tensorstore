@@ -16,6 +16,7 @@ pybind11_py_extension(
     deps = [
         ":context",
         ":data_type",
+        ":downsample",
         ":future",
         ":index_space",
         ":spec",
@@ -93,6 +94,16 @@ tensorstore_pytest_test(
     name = "index_transform_test",
     size = "small",
     srcs = ["tests/index_transform_test.py"],
+    deps = [
+        ":tensorstore",
+        "@pypa_numpy//:numpy",
+    ],
+)
+
+tensorstore_pytest_test(
+    name = "downsample_test",
+    size = "small",
+    srcs = ["tests/downsample_test.py"],
     deps = [
         ":tensorstore",
         "@pypa_numpy//:numpy",
@@ -482,6 +493,23 @@ pybind11_cc_library(
     deps = [
         ":future",
         "//tensorstore:transaction",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+)
+
+pybind11_cc_library(
+    name = "downsample",
+    srcs = ["downsample.cc"],
+    hdrs = ["downsample.h"],
+    deps = [
+        ":index",
+        ":result_type_caster",
+        ":spec",
+        ":status",
+        "//tensorstore:downsample",
+        "//tensorstore:downsample_method",
+        "//tensorstore:spec",
+        "//tensorstore/driver/downsample:downsample_method_json_binder",
         "@com_github_pybind_pybind11//:pybind11",
     ],
 )

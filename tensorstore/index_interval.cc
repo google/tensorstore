@@ -219,8 +219,8 @@ Result<IndexInterval> ShiftIntervalTo(IndexInterval interval, Index origin) {
 
 Status CheckContains(IndexInterval interval, Index index) {
   if (Contains(interval, index)) return absl::OkStatus();
-  return Status(absl::StatusCode::kOutOfRange,
-                StrCat("Index ", index, " is outside valid range ", interval));
+  return absl::OutOfRangeError(
+      StrCat("Index ", index, " is outside valid range ", interval));
 }
 
 Result<std::pair<OptionallyImplicitIndexInterval, Index>> ExtractStridedSlice(

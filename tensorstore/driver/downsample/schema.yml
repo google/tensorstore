@@ -1,0 +1,114 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://github.com/google/tensorstore/json-schema/driver/downsample
+title: '``downsample`` Driver'
+allOf:
+- $ref: https://github.com/google/tensorstore/json-schema/tensorstore
+- type: object
+  properties:
+    driver:
+      const: downsample
+    base:
+      $ref: https://github.com/google/tensorstore/json-schema/tensorstore
+      title: Base TensorStore to downsample.
+      description: |
+        Downsampling is always performed with respect to an origin of 0 in all
+        dimensions in the :json-member:`base` TensorStore.  To use a different
+        origin, translate the domain by specifying an
+        :json-schema:`https://github.com/google/tensorstore/json-schema/index-transform`
+        via the :json-member:`transform` property of :json-member:`base`.
+        
+        Translating the domain of the downsampled view by a given ``offset`` is
+        equivalent to translating the domain of :json-member:`base` by ``offset
+        * downsample_factors``.  However, there is no translation of the
+        downsampled view that is exactly equivalent to translating the domain of
+        :json-member:`base` by an offset that is not a multiple of
+        :json-member:`downsample_factors`.
+    downsample_factors:
+      type: array
+      items:
+        type: integer
+        minimum: 1
+      description: |
+        Factors by which to downsample each dimension of :json-member:`base`.
+        The length must match the rank of :json-member:`base`.  Specifying a
+        factor of 1 indicates not to downsample a given dimension.
+      examples:
+        - [2, 2]
+    downsample_method:
+      oneOf:
+        - const: "stride"
+          description: |
+            Downsampling is performed by striding: reading a given position
+            ``position`` in the downsampled view is exactly equivalent to
+            reading ``position * downsample_factors`` in the original view.
+            This method supports all data types and is quite efficient (there is
+            no additional buffering of data).  It is equivalent to applying a
+            striding index transform to :json-member:`base`; while it offers no
+            additional functionality, it offers uniformity with other methods
+            and may be simpler to specify.
+
+            Note that striding is always with respect to an origin of 0 in all
+            dimensions.  For example, downsampling a 1-dimensional TensorStore
+            with a factor of 3 reads from positions ``0``, ``3``, ``6``, etc.
+            To use a different offset, translate the domain of
+            :json-member:`base`.
+        - const: "median"
+          description: |
+            Downsampling computes the median value: reading a given ``position``
+            in the downsampled view returns the median value within the
+            rectangular region ``[position * downsample_factors, (position + 1)
+            * downsample_factors)`` of the original view.  Only non-complex
+            numeric data types and bool are supported.  The computed median
+            value is always a value present in the original data.  In the case
+            that the rectangular region contains an odd number of elements, the
+            lower value is always used.  For example, the median computed for
+            :json:`[4.0, 3.0, 1.0, 2.0]` is :json:`2.0`.
+        - const: "mode"
+          description: |
+            Downsampling computes the mode (most frequent value): reading a
+            given ``position`` in the downsampled view returns the mode within
+            the rectangular region ``[position * downsample_factors, (position +
+            1) * downsample_factors)`` of the original view.  All data types are
+            supported.  In the case of a tie, for non-complex numeric data types
+            and bool, the lowest value (among the set of common frequent values)
+            is chosen.  For strings, the lexicographically smallest value is
+            chosen.  For other data types, an unspecified (but deterministic for
+            a given version of TensorStore) most frequent value is chosen.
+        - const: "mean"
+          description: |
+            Downsampling is performed by arithmetic mean (averaging): reading a
+            given ``position`` in the downsampled view returns the arithmetic
+            mean within the rectangular region ``[position * downsample_factors,
+            (position + 1) * downsample_factors)`` of the original view, where
+            the average is computed only over positions that are within the
+            bounds of the original view.  Only numeric data types and
+            :json:`"bool"` are supported.  For integer data types, the means are
+            computed exactly and rounded to the nearest integer, and rounded to
+            even in the case of a tie.  For the :json:`"bool"` data type, the
+            mode is chosen.
+
+            Note that the blocks used for averaging start with an origin of 0 in
+            all dimensions.  For example, downsampling a 1-dimensional
+            TensorStore with a downsample factor of 3 averages the intervals
+            ``[0, 3)``, ``[3, 6)``, ``[6, 9)``, etc.  To use a different offset,
+            translate the domain of :json-member:`base`.
+        - const: "min"
+          description: |
+            Downsampling computes the minimum value: reading a given
+            ``position`` in the downsampled view returns the minimum value
+            within the rectangular region ``[position * downsample_factors,
+            (position + 1) * downsample_factors)`` of the original view.  Only
+            non-complex numeric data types and bool are supported.
+        - const: "max"
+          description: |
+            Downsampling computes the maximum value: reading a given
+            ``position`` in the downsampled view returns the maximum value
+            within the rectangular region ``[position * downsample_factors,
+            (position + 1) * downsample_factors)`` of the original view.  Only
+            non-complex numeric data types and bool are supported.
+  required:
+    - base
+    - downsample_factors
+    - downsample_method
+examples:
+  - {"driver": "downsample", "downsample_factors": [1, 2, 2], "downsample_method": "mean", "base": {"driver": "zarr", "kvstore": {"driver": "gcs", "bucket": "my-bucket"}}}
