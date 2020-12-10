@@ -152,16 +152,20 @@ absl::Status ExtendOutputIndexMap(
     internal_index_space::OutputIndexMap& new_output_map,
     DimensionIndex input_rank, DimensionIndex new_input_rank) {
   new_output_map.offset() = output_map.offset();
+  // Unconditionally copy stride.  While not strictly necessary for
+  // `OutputIndexMethod::constant`, leaving the stride uninitialized in that
+  // case leads to MemorySanitizer use-of-uninitialized-value errors because
+  // some code paths check for `stride == 0` before checking if the method is
+  // `constant`.
+  new_output_map.stride() = output_map.stride();
   switch (output_map.method()) {
     case OutputIndexMethod::constant:
       new_output_map.SetConstant();
       break;
     case OutputIndexMethod::single_input_dimension:
-      new_output_map.stride() = output_map.stride();
       new_output_map.SetSingleInputDimension(output_map.input_dimension());
       break;
     case OutputIndexMethod::array: {
-      new_output_map.stride() = output_map.stride();
       const auto& index_array_data = output_map.index_array_data();
       auto& new_index_array_data =
           new_output_map.SetArrayIndexing(new_input_rank);
@@ -425,6 +429,12 @@ absl::Status PropagateIndexArrayMapDownsampling(
               new_input_domain.rank() - input_rank, Index(0));
   new_index_array_data.byte_strides[new_input_dim] =
       std::numeric_limits<Index>::max();
+  // Note that we pass `new_input_domain` to `AllocateArrayElementsLike` even
+  // though it is only partially initialized; only dimensions up to
+  // `new_input_dim` are initialized.  That is not a problem because
+  // `AllocateArrayElementsLike` only relies on the shape for dimensions with a
+  // non-zero byte_stride, and the byte_stride is only non-zero for dimension
+  // `new_input_dim` and for dimensions < input_rank.
   new_index_array_data.element_pointer = AllocateArrayElementsLike<Index>(
       new_index_array_data.layout(new_input_domain),
       new_index_array_data.byte_strides, skip_repeated_elements);
@@ -495,6 +505,14 @@ absl::Status PropagateIndexTransformDownsampling(
   new_transform->implicit_lower_bounds(new_input_rank).fill(false);
   new_transform->implicit_upper_bounds(new_input_rank).fill(false);
   MutableBoxView<> input_domain = new_transform->input_domain(new_input_rank);
+  // Zero initialize origin and shape for new input dimensions, to avoid a
+  // spurious MemorySanitizer use-of-uninitialized-value error in
+  // PropagateIndexArrayMapDownsampling due to the (safe) use of `input_domain`
+  // while it is partially initialized.
+  std::fill(input_domain.origin().begin() + input_rank,
+            input_domain.origin().begin() + new_input_rank, Index(0));
+  std::fill(input_domain.shape().begin() + input_rank,
+            input_domain.shape().begin() + new_input_rank, Index(0));
   propagated.input_downsample_factors.clear();
   propagated.input_downsample_factors.resize(new_input_rank, 1);
   DimensionIndex next_input_dim = input_rank;
