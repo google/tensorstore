@@ -103,7 +103,7 @@ void ParseURI(absl::string_view uri, absl::string_view* scheme,
   }
 
   // 1. Parse host
-  auto path_loc = remaining.find("/");
+  auto path_loc = remaining.find('/');
   if (path_loc == absl::string_view::npos) {
     // No path, everything is the host.
     if (host) *host = remaining;
