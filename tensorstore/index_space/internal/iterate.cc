@@ -303,7 +303,8 @@ void FillOffsetsArray(span<Index> offsets, span<const Index> position,
     for (Index j = 0; j < offsets.size(); ++j) {
       offsets[j] = internal::wrap_on_overflow::Add(
           offsets[j],
-          internal::wrap_on_overflow::Multiply(final_input_dim_byte_stride, j));
+          internal::wrap_on_overflow::Multiply(
+              final_input_dim_byte_stride, j + final_input_dim_start_position));
     }
   }
 }

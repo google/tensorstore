@@ -202,7 +202,7 @@ Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
             index_array_data.shared_array_view(b_to_c_domain), a_to_b,
             a_to_c_domain.origin().data(), a_to_c_domain.shape().data(),
             result_array_data.byte_strides,
-            /*constraints=*/{});
+            /*constraints=*/{skip_repeated_elements});
         if (!transform_result) return transform_result.status();
         auto new_index_array_origin_pointer =
             StaticDataTypeCast<const Index, unchecked>(*transform_result);

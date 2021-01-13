@@ -124,6 +124,48 @@ TEST(TransformArrayTest, OneDArrayOneDIndexArray) {
   EXPECT_EQ(MakeOffsetArray<int>({2}, {2, 4, 4, 3}), new_array);
 }
 
+// Tests that TransformArray correctly handles index arrays that exceed the
+// internal buffer size of 1024.
+TEST(TransformArrayTest, OneDArrayOneDIndexArray1025) {
+  constexpr Index kSize = 1025;
+  auto index_array = tensorstore::AllocateArray<Index>({kSize});
+  for (Index i = 0; i < kSize; ++i) index_array(i) = i;
+  auto new_array =
+      tensorstore::TransformArray(index_array,
+                                  IndexTransformBuilder<1, 1>()
+                                      .input_shape({kSize})
+                                      .output_index_array(0, 0, 1, index_array)
+                                      .Finalize()
+                                      .value())
+          .value();
+  EXPECT_EQ(index_array, new_array);
+}
+
+// Tests that TransformArray retains zero-stride dimensions of the array as
+// zero-stride when `skip_repeated_elements` is specified.
+TEST(TransformArrayTest, TwoDArrayOneDIndexArrayRetainZeroStride) {
+  auto index_array = tensorstore::MakeArray<Index>({0, 1, 2, 3, 4});
+  tensorstore::SharedArray<Index, 2> index_array2;
+  index_array2.element_pointer() = index_array.element_pointer();
+  index_array2.shape()[0] = 5;
+  index_array2.shape()[1] = 2;
+  index_array2.byte_strides()[0] = index_array.byte_strides()[0];
+  index_array2.byte_strides()[1] = 0;
+  EXPECT_EQ(index_array2,
+            MakeArray<Index>({{0, 0}, {1, 1}, {2, 2}, {3, 3}, {4, 4}}));
+  auto new_array =
+      tensorstore::TransformArray(index_array2,
+                                  IndexTransformBuilder<2, 2>()
+                                      .input_shape({5, 2})
+                                      .output_index_array(0, 0, 1, index_array2)
+                                      .output_single_input_dimension(1, 1)
+                                      .Finalize()
+                                      .value())
+          .value();
+  EXPECT_EQ(index_array2, new_array);
+  EXPECT_EQ(index_array2.layout(), new_array.layout());
+}
+
 TEST(TransformArrayTest, IndexArrayBoundsOverflow) {
   auto original_array = tensorstore::MakeOffsetArray<int>({5}, {1, 2, 3, 4});
   EXPECT_THAT(tensorstore::TransformArray(

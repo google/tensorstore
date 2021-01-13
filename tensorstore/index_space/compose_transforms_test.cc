@@ -331,4 +331,20 @@ TEST(ComposeTransformsTest, ImplicitOutOfBounds) {
   EXPECT_THAT(ComposeTransforms(t0, t1), ::testing::Optional(t1));
 }
 
+TEST(ComposeTransformsTest, TransformIndexArraySkipRepeatedElements) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto t0, IndexTransformBuilder(2, 2)
+                   .input_shape({5, 2})
+                   .output_index_array(
+                       0, 0, 1, MakeArray<Index>({{0}, {1}, {2}, {3}, {4}}))
+                   .output_single_input_dimension(1, 1)
+                   .Finalize());
+  EXPECT_THAT(t0.output_index_maps()[0].index_array().byte_strides(),
+              ::testing::ElementsAre(8, 0));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto t1, ComposeTransforms(t0, t0));
+  EXPECT_EQ(t0, t1);
+  EXPECT_THAT(t1.output_index_maps()[0].index_array().byte_strides(),
+              ::testing::ElementsAre(8, 0));
+}
+
 }  // namespace
