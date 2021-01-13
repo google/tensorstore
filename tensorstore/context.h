@@ -188,6 +188,15 @@ class Context {
     /// Returns `true` if this is a valid handle.
     explicit operator bool() const { return static_cast<bool>(impl_); }
 
+    /// Returns `true` if `a` and `b` refer to the same resource.
+    friend bool operator==(const Resource& a, const Resource& b) {
+      return a.impl_ == b.impl_;
+    }
+
+    friend bool operator!=(const Resource& a, const Resource& b) {
+      return !(a == b);
+    }
+
     friend void EncodeCacheKeyAdl(std::string* out, const Resource& resource) {
       internal::EncodeCacheKey(
           out, reinterpret_cast<std::uintptr_t>(resource.get()));
@@ -214,6 +223,16 @@ class Context {
   ///     equivalent to specifying `Default()`.
   explicit Context(const Spec& spec, Context parent = {});
 
+  /// Constructs a context from a JSON spec.
+  ///
+  /// \param json_spec The JSON spec.
+  /// \param parent The parent context to extend.  Specifying a null context is
+  ///     equivalent to specifying `Default()`.
+  /// \param options Options for parsing `json_spec`.
+  static Result<Context> FromJson(::nlohmann::json json_spec,
+                                  Context parent = {},
+                                  FromJsonOptions options = {});
+
   /// Returns a resource.
   ///
   /// \param resource_spec The resource spec.
@@ -228,8 +247,44 @@ class Context {
     return resource;
   }
 
+  /// Returns a resource from a JSON spec.
+  ///
+  /// \param resource_spec The JSON resource spec.
+  /// \threadsafety Thread safe.
+  template <typename Provider>
+  Result<Resource<Provider>> GetResource(
+      const ::nlohmann::json& json_spec) const {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto spec,
+                                 ResourceSpec<Provider>::FromJson(json_spec));
+    return GetResource(spec);
+  }
+
+  /// Returns the default resource for a given provider.
+  ///
+  /// \threadsafety Thread safe.
+  template <typename Provider>
+  Result<Resource<Provider>> GetResource() {
+    return GetResource<Provider>(Provider::id);
+  }
+
   /// Returns `true` if this is not a null context.
   explicit operator bool() const { return static_cast<bool>(impl_); }
+
+  /// Returns `true` if the two context objects refer to the same underlying
+  /// shared state.
+  friend bool operator==(const Context& a, const Context& b) {
+    return a.impl_ == b.impl_;
+  }
+
+  friend bool operator!=(const Context& a, const Context& b) {
+    return !(a == b);
+  }
+
+  /// Returns the spec used to create this context.
+  Context::Spec spec() const;
+
+  /// Returns the parent Context, if any.
+  Context parent() const;
 
  private:
   friend class internal_context::Access;

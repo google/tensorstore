@@ -439,6 +439,27 @@ Context::Context(const Context::Spec& spec, Context parent)
   }
 }
 
+Result<Context> Context::FromJson(::nlohmann::json json_spec, Context parent,
+                                  FromJsonOptions options) {
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto spec, Spec::FromJson(std::move(json_spec), std::move(options)));
+  return Context(spec, std::move(parent));
+}
+
+Context::Spec Context::spec() const {
+  if (!impl_) return {};
+  Context::Spec spec;
+  internal_context::Access::impl(spec) = impl_->spec_;
+  return spec;
+}
+
+Context Context::parent() const {
+  if (!impl_) return {};
+  Context parent_context;
+  parent_context.impl_ = impl_->parent_;
+  return parent_context;
+}
+
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Context::Spec, [](auto is_loading,
                                                          const auto& options,
                                                          auto* obj, auto* j) {

@@ -112,12 +112,29 @@ TEST(IntResourceTest, InvalidDirectSpec) {
 
 TEST(IntResourceTest, Default) {
   auto context = Context::Default();
-  auto resource_spec =
-      Context::ResourceSpec<IntResource>::FromJson("int_resource");
-  ASSERT_EQ(absl::OkStatus(), GetStatus(resource_spec));
-  auto resource = context.GetResource(*resource_spec);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(resource));
-  EXPECT_EQ(42, **resource);
+  EXPECT_EQ(context, context);
+  EXPECT_FALSE(context.parent());
+  auto context2 = Context::Default();
+  EXPECT_NE(context, context2);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto resource_spec,
+      Context::ResourceSpec<IntResource>::FromJson("int_resource"));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource,
+                                   context.GetResource(resource_spec));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource2,
+                                   context.GetResource(resource_spec));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource3,
+                                   context2.GetResource(resource_spec));
+  EXPECT_EQ(resource, resource);
+  EXPECT_EQ(resource, resource2);
+  EXPECT_NE(resource, resource3);
+  EXPECT_THAT(context.GetResource<IntResource>(),
+              ::testing::Optional(resource));
+  EXPECT_THAT(context.GetResource<IntResource>("int_resource"),
+              ::testing::Optional(resource));
+  EXPECT_THAT(resource, ::testing::Pointee(42));
+  EXPECT_THAT(context.GetResource<IntResource>({{"value", 50}}),
+              ::testing::Optional(::testing::Pointee(50)));
 }
 
 TEST(IntResourceTest, ValidDirectSpec) {
@@ -139,6 +156,13 @@ TEST(IntResourceTest, ValidIndirectSpecDefaultId) {
   auto resource = context.GetResource(resource_spec);
   ASSERT_EQ(absl::OkStatus(), GetStatus(resource));
   EXPECT_EQ(7, **resource);
+}
+
+TEST(IntResourceTest, ContextFromJson) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto context, Context::FromJson({{"int_resource", {{"value", 7}}}}));
+  EXPECT_THAT(context.GetResource<IntResource>(),
+              ::testing::Optional(::testing::Pointee(7)));
 }
 
 TEST(IntResourceTest, ValidIndirectSpecDefault) {
@@ -224,7 +248,8 @@ TEST(IntResourceTest, Inherit) {
       {"int_resource#d", {{"value", 42}}},
       {"int_resource#c", nullptr},
   };
-  auto spec1 = Context::Spec::FromJson(json_spec1).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec1,
+                                   Context::Spec::FromJson(json_spec1));
   EXPECT_EQ(::nlohmann::json({
                 {"int_resource", {{"value", 7}}},
                 {"int_resource#a", {{"value", 9}}},
@@ -239,13 +264,17 @@ TEST(IntResourceTest, Inherit) {
                 {"int_resource#c", nullptr},
             }),
             ::nlohmann::json(spec1.ToJson(IncludeDefaults{true}).value()));
-  auto spec2 = Context::Spec::FromJson({
-                                           {"int_resource", {{"value", 8}}},
-                                           {"int_resource#b", nullptr},
-                                       })
-                   .value();
+  ::nlohmann::json json_spec2{
+      {"int_resource", {{"value", 8}}},
+      {"int_resource#b", nullptr},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec2,
+                                   Context::Spec::FromJson(json_spec2));
   auto context1 = Context(spec1);
   auto context2 = Context(spec2, context1);
+  EXPECT_EQ(context1, context2.parent());
+  EXPECT_THAT(context1.spec().ToJson(), ::testing::Optional(json_spec1));
+  EXPECT_THAT(context2.spec().ToJson(), ::testing::Optional(json_spec2));
   auto resource1 = context2.GetResource(
       Context::ResourceSpec<IntResource>::FromJson("int_resource").value());
   auto resource2 = context2.GetResource(
