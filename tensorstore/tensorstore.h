@@ -178,11 +178,11 @@ class TensorStore {
   /// Result<U>. See tensorstore::Result operator| for examples.
   template <typename Func>
   PipelineResultType<const TensorStore&, Func> operator|(Func&& func) const& {
-    return static_cast<Func&&>(func)(*this);
+    return std::forward<Func>(func)(*this);
   }
   template <typename Func>
   PipelineResultType<TensorStore&&, Func> operator|(Func&& func) && {
-    return static_cast<Func&&>(func)(std::move(*this));
+    return std::forward<Func>(func)(std::move(*this));
   }
 
  private:
@@ -194,8 +194,11 @@ class TensorStore {
   /// objects.
   template <typename Expr>
   friend Result<TensorStore<Element,
-                            UnwrapResultType<std::invoke_result_t<
-                                Expr, Transform>>::static_input_rank,
+                            // Note: Use `decltype` directly rather than
+                            // `std::invoke_result_t` to avoid recursive alias
+                            // definition error on MSVC 2019.
+                            UnwrapResultType<decltype(std::declval<Expr>()(
+                                std::declval<Transform>()))>::static_input_rank,
                             Mode>>
   ApplyIndexTransform(Expr&& expr, TensorStore store) {
     TENSORSTORE_ASSIGN_OR_RETURN(

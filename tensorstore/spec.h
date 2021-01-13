@@ -24,6 +24,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_spec.h"
+#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/spec_impl.h"
 #include "tensorstore/util/result.h"
@@ -74,7 +75,11 @@ class Spec {
   /// \error `absl::StatusCode::kInvalidArgument` if `spec.transform()` is not
   ///     valid.
   template <typename Expr>
-  friend Result<Spec> ApplyIndexTransform(Expr&& expr, Spec spec) {
+  friend internal::FirstType<
+      Result<Spec>,
+      decltype(ApplyIndexTransform(std::declval<Expr>(),
+                                   std::declval<IndexTransformSpec>()))>
+  ApplyIndexTransform(Expr&& expr, Spec spec) {
     TENSORSTORE_ASSIGN_OR_RETURN(
         spec.impl_.transform_spec,
         ApplyIndexTransform(std::forward<Expr>(expr),
@@ -88,6 +93,11 @@ class Spec {
   friend bool operator==(const Spec& a, const Spec& b);
 
   friend bool operator!=(const Spec& a, const Spec& b) { return !(a == b); }
+
+  template <typename Func>
+  friend PipelineResultType<Spec, Func> operator|(Spec spec, Func&& func) {
+    return std::forward<Func>(func)(std::move(spec));
+  }
 
  private:
   friend class internal_spec::SpecAccess;

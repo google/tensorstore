@@ -95,6 +95,8 @@ Result<IndexTransform<RankA, RankC>> ComposeTransforms(
 namespace internal_index_space {
 Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
                                             IndexDomainView<> domain);
+Result<IndexTransform<>> SliceByBox(IndexTransform<> transform,
+                                    BoxView<> domain);
 }  // namespace internal_index_space
 
 /// Transform from an input index space to an output index space.
@@ -374,13 +376,9 @@ class IndexTransform {
   /// Then operator| applies y to the value of x, returning a
   /// Result<U>. See tensorstore::Result operator| for examples.
   template <typename Func>
-  PipelineResultType<const IndexTransform&, Func> operator|(
-      Func&& func) const& {
-    return static_cast<Func&&>(func)(*this);
-  }
-  template <typename Func>
-  PipelineResultType<IndexTransform&&, Func> operator|(Func&& func) && {
-    return static_cast<Func&&>(func)(std::move(*this));
+  friend PipelineResultType<IndexTransform&&, Func> operator|(
+      IndexTransform transform, Func&& func) {
+    return std::forward<Func>(func)(std::move(transform));
   }
 
   /// Prints a string representation of an index space transform.
@@ -390,6 +388,34 @@ class IndexTransform {
                                   const IndexTransform& transform) {
     internal_index_space::PrintToOstream(os, Access::rep(transform));
     return os;
+  }
+
+  /// Restricts the domain of an index transform by a box of the same rank.
+  ///
+  /// This is normally invoked via the pipeline operator:
+  ///
+  ///     TENSORSTORE_ASSIGN_OR_RETURN(auto new_transform, transform | box);
+  ///
+  /// The resultant index transform has a domain with explicit bounds given by
+  /// `box`, but with the dimension labels preserved.
+  ///
+  /// \requires The static rank of `box` must be compatible with the static
+  ///     input rank of `transform`.
+  /// \param box The box to apply.
+  /// \param transform The index transform to restrict.
+  /// \error `absl::StatusCode::kInvalidArgument` if `box.rank()` is not equal
+  ///     to `transform.input_rank()`.
+  /// \error `absl::StatusCode::kInvalidArgument` if `box` is not contained
+  ///     within the explicit bounds of `transform.domain()`.
+  template <DimensionIndex OtherRank>
+  friend std::enable_if_t<
+      IsRankExplicitlyConvertible(OtherRank, InputRank),
+      Result<IndexTransform<MaxStaticRank(InputRank, OtherRank), OutputRank>>>
+  ApplyIndexTransform(BoxView<OtherRank> box, IndexTransform transform) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto new_transform,
+        internal_index_space::SliceByBox(std::move(transform), box));
+    return {std::in_place, unchecked, std::move(new_transform)};
   }
 
  private:
@@ -617,6 +643,47 @@ class IndexDomain {
   friend bool operator!=(const IndexDomain& a,
                          const IndexDomain<RankB, CKindB>& b) {
     return !(a == b);
+  }
+
+  /// "Pipeline" operator.
+  ///
+  /// In the expression  `x | y`, if
+  ///   * y is a function having signature `Result<U>(T)`
+  ///
+  /// Then operator| applies y to the value of x, returning a
+  /// Result<U>. See tensorstore::Result operator| for examples.
+  template <typename Func>
+  friend PipelineResultType<IndexDomain&&, Func> operator|(
+      IndexDomain transform, Func&& func) {
+    return std::forward<Func>(func)(std::move(transform));
+  }
+
+  /// Restricts an index domain by a box of the same rank.
+  ///
+  /// This is normally invoked via the pipeline operator:
+  ///
+  ///     TENSORSTORE_ASSIGN_OR_RETURN(auto new_domain, domain | box);
+  ///
+  /// The resultant index domain has the explicit bounds given by `box`, but
+  /// preserves the labels of `domain`.
+  ///
+  /// \requires The static rank of `box` must be compatible with the static rank
+  ///     of `domain`.
+  /// \param box The box to apply.
+  /// \param domain The existing index domain to restrict.
+  /// \error `absl::StatusCode::kInvalidArgument` if `box.rank()` is not equal
+  ///     to `domain.rank()`.
+  /// \error `absl::StatusCode::kInvalidArgument` if `box` is not contained
+  ///     within the explicit bounds of `domain`.
+  template <DimensionIndex OtherRank>
+  friend std::enable_if_t<IsRankExplicitlyConvertible(OtherRank, Rank),
+                          Result<IndexDomain<MaxStaticRank(Rank, OtherRank)>>>
+  ApplyIndexTransform(BoxView<OtherRank> box, IndexDomain domain) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto transform,
+        internal_index_space::SliceByBox(std::move(domain.transform_), box));
+    return {std::in_place,
+            IndexTransform<Rank>(unchecked, std::move(transform))};
   }
 
  private:

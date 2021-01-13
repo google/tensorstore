@@ -515,6 +515,7 @@ tensorstore_cc_test(
         ":dim_expression",
         ":dim_expression_testutil",
         ":index_transform_builder",
+        "//tensorstore:box",
         "//tensorstore/util:status",
         "@com_google_googletest//:gtest_main",
     ],
@@ -754,6 +755,19 @@ tensorstore_cc_test(
         ":dim_expression_testutil",
         ":index_transform_builder",
         "//tensorstore/util:status",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "slice_by_box_test",
+    size = "small",
+    srcs = ["slice_by_box_test.cc"],
+    deps = [
+        ":index_transform",
+        ":index_transform_builder",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )

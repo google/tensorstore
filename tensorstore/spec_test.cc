@@ -91,24 +91,23 @@ TEST(SpecTest, ApplyIndexTransform) {
           .value();
   EXPECT_EQ(2, spec_with_transform.rank());
   EXPECT_THAT(
-      ChainResult(Spec::FromJson(
-                      ::nlohmann::json(
-                          {{"driver", "array"},
-                           {"dtype", "int32"},
-                           {"array",
-                            {
-                                {1, 2, 3, 4},
-                                {5, 6, 7, 8},
-                                {9, 10, 11, 12},
-                            }},
-                           {"transform",
-                            {{"input_inclusive_min", {2, 4}},
-                             {"input_shape", {3, 4}},
-                             {"output",
-                              {{{"input_dimension", 0}, {"offset", -2}},
-                               {{"input_dimension", 1}, {"offset", -4}}}}}}}),
-                      tensorstore::AllowUnregistered{true}),
-                  tensorstore::Dims(1).SizedInterval(4, 2)),
+      Spec::FromJson(
+          ::nlohmann::json({{"driver", "array"},
+                            {"dtype", "int32"},
+                            {"array",
+                             {
+                                 {1, 2, 3, 4},
+                                 {5, 6, 7, 8},
+                                 {9, 10, 11, 12},
+                             }},
+                            {"transform",
+                             {{"input_inclusive_min", {2, 4}},
+                              {"input_shape", {3, 4}},
+                              {"output",
+                               {{{"input_dimension", 0}, {"offset", -2}},
+                                {{"input_dimension", 1}, {"offset", -4}}}}}}}),
+          tensorstore::AllowUnregistered{true}) |
+          tensorstore::Dims(1).SizedInterval(4, 2),
       ::testing::Optional(spec_with_transform));
 
   // Tests applying a DimExpression to a Spec with unknown rank (fails).
@@ -123,10 +122,51 @@ TEST(SpecTest, ApplyIndexTransform) {
                                         }}}),
                      tensorstore::AllowUnregistered{true})
           .value();
-  EXPECT_THAT(ChainResult(spec_without_transform,
-                          tensorstore::Dims(1).SizedInterval(4, 2)),
+  EXPECT_THAT(spec_without_transform | tensorstore::Dims(1).SizedInterval(4, 2),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Transform is unspecified"));
+}
+
+TEST(SpecTest, ApplyBox) {
+  // Tests successfully applying a Box to a Spec.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec_with_transform,
+      Spec::FromJson(
+          ::nlohmann::json({{"driver", "array"},
+                            {"dtype", "int32"},
+                            {"array",
+                             {
+                                 {1, 2, 3, 4},
+                                 {5, 6, 7, 8},
+                                 {9, 10, 11, 12},
+                             }},
+                            {"transform",
+                             {{"input_inclusive_min", {3, 4}},
+                              {"input_shape", {2, 2}},
+                              {"output",
+                               {{{"input_dimension", 0}, {"offset", -2}},
+                                {{"input_dimension", 1}, {"offset", -4}}}}}}}),
+          tensorstore::AllowUnregistered{true}));
+  EXPECT_EQ(2, spec_with_transform.rank());
+  EXPECT_THAT(
+      Spec::FromJson(
+          ::nlohmann::json({{"driver", "array"},
+                            {"dtype", "int32"},
+                            {"array",
+                             {
+                                 {1, 2, 3, 4},
+                                 {5, 6, 7, 8},
+                                 {9, 10, 11, 12},
+                             }},
+                            {"transform",
+                             {{"input_inclusive_min", {2, 4}},
+                              {"input_shape", {3, 4}},
+                              {"output",
+                               {{{"input_dimension", 0}, {"offset", -2}},
+                                {{"input_dimension", 1}, {"offset", -4}}}}}}}),
+          tensorstore::AllowUnregistered{true}) |
+          tensorstore::Box({3, 4}, {2, 2}),
+      ::testing::Optional(spec_with_transform));
 }
 
 TEST(SpecTest, PrintToOstream) {

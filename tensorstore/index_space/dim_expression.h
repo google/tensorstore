@@ -148,6 +148,13 @@ class DimExpression<LastOp, PriorOp...> {
   using IntervalSliceOpExpr =
       IndexVectorOpExpr<internal_index_space::IntervalSliceOp, IndexVector...>;
 
+  template <typename BoxType>
+  using BoxSliceOpExpr = NewExpr<std::enable_if_t<
+      (IsBoxLike<BoxType>::value &&
+       IsRankExplicitlyConvertible(static_selection_rank::value,
+                                   BoxType::static_rank)),
+      internal_index_space::BoxSliceOp<BoxType::static_rank>>>;
+
   /// Defines the return type for IndexArraySlice with a parameter pack of index
   /// arrays.
   template <typename... IndexArray>
@@ -414,6 +421,59 @@ class DimExpression<LastOp, PriorOp...> {
   SingleIndexSliceOpExpr<const Index (&)[Rank]> IndexSlice(
       const Index (&indices)[Rank]) const {
     return {{span(indices)}, *this};
+  }
+
+  /// Extracts a box from the selected dimensions.
+  ///
+  /// This is equivalent to `SizedInterval(box.origin(), box.shape())`.
+  ///
+  /// For example: `Dims(0, 2).BoxSlice(BoxView({1, 4}, {3, 4}))` has the
+  /// following effects:
+  ///
+  /// *                   | Prior                  | New
+  /// ------------------- | ---                    | ---
+  /// Dimension selection | {0, 2}                 | {0, 2}
+  /// Input domain        | [0, 6], [2, 5], [0, 9] | [1, 3], [2, 5], [4, 7]
+  /// Labels              | {"x", "y", "z"}        | {"x", "y", "z"}
+  /// Equiv. input indices| {1, 3, 4}              | {1, 3, 4}
+  /// Equiv. input indices| {x, y, z}              | {x, y, z}
+  ///
+  /// where `x` is any index in `[1, 3]`, `y` is any index in `[2, 5]`, and `z`
+  /// is any index in `[4, 7]`.
+  ///
+  /// \requires `BoxType` satisfies `IsBoxLike` and has a rank compatible with
+  ///     the static rank of the dimension selection.
+  /// \param box The box to extract.
+  template <typename BoxType>
+  BoxSliceOpExpr<BoxType> BoxSlice(const BoxType& box) const {
+    return {{box, false}, *this};
+  }
+
+  /// Extracts a box from the selected dimensions, and translates its origin to
+  /// 0.
+  ///
+  /// This is equivalent to `TranslateSizedInterval(box.origin(), box.shape())`.
+  ///
+  /// For example: `Dims(0, 2).TranslateBoxSlice(BoxView({1, 4}, {3, 4}))` has
+  /// the following effects:
+  ///
+  /// *                   | Prior                  | New
+  /// ------------------- | ---                    | ---
+  /// Dimension selection | {0, 2}                 | {0, 2}
+  /// Input domain        | [0, 6], [2, 5], [0, 9] | [0, 2], [2, 5], [0, 3]
+  /// Labels              | {"x", "y", "z"}        | {"x", "y", "z"}
+  /// Equiv. input indices| {1, 3, 2}              | {0, 3, 0}
+  /// Equiv. input indices| {x + 1, y, z + 4}      | {x, y, z}
+  ///
+  /// where `x` is any index in `[0, 2]`, `y` is any index in `[2, 5]`, and `z`
+  /// is any index in `[0, 3]`.
+  ///
+  /// \requires `BoxType` satisfies `IsBoxLike` and has a rank compatible with
+  ///     the static rank of the dimension selection.
+  /// \param box The box to extract.
+  template <typename BoxType>
+  BoxSliceOpExpr<BoxType> TranslateBoxSlice(const BoxType& box) const {
+    return {{box, true}, *this};
   }
 
   // [BEGIN GENERATED: generate_interval_slice_overloads.py]

@@ -120,6 +120,34 @@ Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
   return TransformAccess::Make<IndexTransform<>>(std::move(rep));
 }
 
+Result<IndexTransform<>> SliceByBox(IndexTransform<> transform,
+                                    BoxView<> domain) {
+  using internal_index_space::TransformAccess;
+  assert(transform.valid());
+  if (transform.input_rank() != domain.rank()) {
+    return absl::InvalidArgumentError(
+        tensorstore::StrCat("Rank of index domain (", transform.input_rank(),
+                            ") must match rank of box (", domain.rank(), ")"));
+  }
+  TransformRep::Ptr<> rep =
+      MutableRep(TransformAccess::rep_ptr<container>(std::move(transform)));
+  for (DimensionIndex i = 0; i < domain.rank(); ++i) {
+    const internal_index_space::InputDimensionRef d = rep->input_dimension(i);
+    const IndexInterval orig_domain =
+        d.optionally_implicit_domain().effective_interval();
+    const IndexInterval new_domain = domain[i];
+    if (!Contains(orig_domain, new_domain)) {
+      return absl::OutOfRangeError(StrCat("Cannot slice dimension ", i, " {",
+                                          d.index_domain_dimension<view>(),
+                                          "} with interval {", domain[i], "}"));
+    }
+    d.domain() = new_domain;
+    d.implicit_lower_bound() = false;
+    d.implicit_upper_bound() = false;
+  }
+  return TransformAccess::Make<IndexTransform<>>(std::move(rep));
+}
+
 }  // namespace internal_index_space
 
 Result<bool> GetOutputRange(IndexTransformView<> transform,

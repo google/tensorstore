@@ -449,11 +449,9 @@ tensorstore_cc_library(
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:index_transform_spec",
         "//tensorstore/index_space:json",
-        "//tensorstore/internal:attributes",
-        "//tensorstore/internal:data_type_json_binder",
         "//tensorstore/internal:json",
+        "//tensorstore/internal:type_traits",
         "//tensorstore/util:result",
-        "//tensorstore/util:status",
         "@com_github_nlohmann_json//:nlohmann_json",
     ],
 )

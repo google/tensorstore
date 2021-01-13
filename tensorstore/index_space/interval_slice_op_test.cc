@@ -18,6 +18,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/box.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/dim_expression_testutil.h"
@@ -26,6 +27,7 @@
 namespace {
 
 using tensorstore::AllDims;
+using tensorstore::BoxView;
 using tensorstore::Dims;
 using tensorstore::Index;
 using tensorstore::IndexTransformBuilder;
@@ -963,6 +965,81 @@ TEST(StrideTest, ErrorStrideOverflow) {
       Dims(0).Stride(std::numeric_limits<Index>::min()),
       absl::StatusCode::kInvalidArgument,
       StrCat("Integer overflow computing stride for output dimension 0"));
+}
+
+TEST(BoxSliceTest, Example) {
+  const auto original_transform = IndexTransformBuilder<3, 3>()
+                                      .input_origin({0, 2, 0})
+                                      .input_inclusive_max({6, 5, 9})
+                                      .input_labels({"x", "y", "z"})
+                                      .output_identity_transform()
+                                      .Finalize()
+                                      .value();
+  const auto expected_new_transform = IndexTransformBuilder<3, 3>()
+                                          .input_origin({1, 2, 4})
+                                          .input_inclusive_max({3, 5, 7})
+                                          .input_labels({"x", "y", "z"})
+                                          .output_identity_transform()
+                                          .Finalize()
+                                          .value();
+  const EquivalentIndices equivalent_indices = {
+      {{1, 3, 4}, {1, 3, 4}},
+  };
+  TestDimExpression(
+      /*original_transform=*/original_transform,
+      /*expression=*/Dims(0, 2).BoxSlice(BoxView({1, 4}, {3, 4})),
+      /*expected_new_dimension_selection=*/{0, 2},
+      /*expected_identity_new_transform=*/expected_new_transform,
+      /*expected_new_transform=*/expected_new_transform,
+      /*equivalent_indices=*/equivalent_indices);
+
+  // Test using labels to select dimensions.
+  TestDimExpression(
+      /*original_transform=*/original_transform,
+      /*expression=*/Dims("x", "z").BoxSlice(BoxView({1, 4}, {3, 4})),
+      /*expected_new_dimension_selection=*/{0, 2},
+      /*expected_identity_new_transform=*/expected_new_transform,
+      /*expected_new_transform=*/expected_new_transform,
+      /*equivalent_indices=*/equivalent_indices);
+}
+
+TEST(TranslateBoxSliceTest, Example) {
+  const auto original_transform = IndexTransformBuilder<3, 3>()
+                                      .input_origin({0, 2, 0})
+                                      .input_inclusive_max({6, 5, 9})
+                                      .input_labels({"x", "y", "z"})
+                                      .output_identity_transform()
+                                      .Finalize()
+                                      .value();
+  const auto expected_new_transform =
+      IndexTransformBuilder<3, 3>()
+          .input_origin({0, 2, 0})
+          .input_inclusive_max({2, 5, 3})
+          .input_labels({"x", "y", "z"})
+          .output_single_input_dimension(0, 1, 1, 0)
+          .output_single_input_dimension(1, 1)
+          .output_single_input_dimension(2, 4, 1, 2)
+          .Finalize()
+          .value();
+  const EquivalentIndices equivalent_indices = {
+      {{1, 3, 4}, {0, 3, 0}},
+  };
+  TestDimExpression(
+      /*original_transform=*/original_transform,
+      /*expression=*/Dims(0, 2).TranslateBoxSlice(BoxView({1, 4}, {3, 4})),
+      /*expected_new_dimension_selection=*/{0, 2},
+      /*expected_identity_new_transform=*/expected_new_transform,
+      /*expected_new_transform=*/expected_new_transform,
+      /*equivalent_indices=*/equivalent_indices);
+
+  // Test using labels to select dimensions.
+  TestDimExpression(
+      /*original_transform=*/original_transform,
+      /*expression=*/Dims("x", "z").TranslateBoxSlice(BoxView({1, 4}, {3, 4})),
+      /*expected_new_dimension_selection=*/{0, 2},
+      /*expected_identity_new_transform=*/expected_new_transform,
+      /*expected_new_transform=*/expected_new_transform,
+      /*equivalent_indices=*/equivalent_indices);
 }
 
 }  // namespace

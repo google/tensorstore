@@ -190,6 +190,41 @@ struct StrideOp {
   StrideVector stride_vector;
 };
 
+/// Type representing the DimExpression::{Translate,}Slice(Box) operation.
+template <DimensionIndex Rank>
+struct BoxSliceOp {
+  static constexpr bool selected_dimensions_are_new = false;
+
+  static constexpr DimensionIndex static_selection_rank = Rank;
+
+  constexpr static DimensionIndex GetNewStaticInputRank(
+      DimensionIndex input_rank, DimensionIndex num_input_dims) {
+    TENSORSTORE_CONSTEXPR_ASSERT(
+        (input_rank == dynamic_rank || input_rank >= static_selection_rank) &&
+        "Number of dimensions must not exceed input rank.");
+    return input_rank;
+  }
+
+  constexpr static DimensionIndex GetStaticSelectionRank(
+      DimensionIndex num_input_dims) {
+    TENSORSTORE_CONSTEXPR_ASSERT(
+        IsRankExplicitlyConvertible(num_input_dims, static_selection_rank) &&
+        "Number of selected dimensions must match number of strides.");
+    return num_input_dims == dynamic_rank ? static_selection_rank
+                                          : num_input_dims;
+  }
+
+  Result<IndexTransform<>> Apply(IndexTransform<> transform,
+                                 DimensionIndexBuffer* dimensions) const {
+    return ApplyIntervalSliceOp(
+        std::move(transform), dimensions, IntervalForm::sized, translate,
+        IndexVectorOrScalar(box.origin()), IndexVectorOrScalar(box.shape()), 1);
+  }
+
+  BoxView<Rank> box;
+  bool translate;
+};
+
 }  // namespace internal_index_space
 }  // namespace tensorstore
 

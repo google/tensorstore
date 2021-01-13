@@ -357,6 +357,36 @@ class Box : public internal_box::BoxStorage<Rank> {
   friend std::ostream& operator<<(std::ostream& os, const Box& box) {
     return internal_box::PrintToOstream(os, box);
   }
+
+  /// Slices a supported type by a box.
+  ///
+  /// Supported types that define `ApplyIndexTransform` and the pipeline
+  /// `operator|` can be transformed using the syntax:
+  ///
+  ///     TENSORSTORE_ASSIGN_OR_RETURN(auto new_obj, obj | box);
+  ///
+  /// Supported types include `IndexTransform`, `IndexDomain`, `TensorStore`,
+  /// `Spec`, `TransformedArray`.
+  ///
+  /// To make a type `T` compatible, define in the same namespace or as a hidden
+  /// friend of `T`:
+  ///
+  ///     template <DimensionIndex Rank>
+  ///     std::enable_if_t<IsRankExplicitlyConvertible(Rank, static_rank),
+  ///                      Result<U>>
+  ///     ApplyIndexTransform(Box<Rank> rank, T t) {
+  ///       // ...
+  ///     }
+  ///
+  /// where `U` is the return type.
+  template <typename Transformable>
+  decltype(ApplyIndexTransform(
+      std::declval<BoxView<NormalizeRankSpec(Rank), false>>(),
+      std::declval<Transformable>()))
+  operator()(Transformable&& transformable) const {
+    return ApplyIndexTransform(BoxView<NormalizeRankSpec(Rank), false>(*this),
+                               std::forward<Transformable>(transformable));
+  }
 };
 
 Box(DimensionIndex rank)->Box<>;
@@ -568,6 +598,17 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
 
   friend std::ostream& operator<<(std::ostream& os, const BoxView& view) {
     return internal_box::PrintToOstream(os, view);
+  }
+
+  /// Slices a supported type by a box.
+  ///
+  /// See documentation of `Box::operator()`.
+  template <typename Transformable>
+  decltype(ApplyIndexTransform(std::declval<BoxView>(),
+                               std::declval<Transformable>()))
+  operator()(Transformable&& transformable) const {
+    return ApplyIndexTransform(*this,
+                               std::forward<Transformable>(transformable));
   }
 };
 
