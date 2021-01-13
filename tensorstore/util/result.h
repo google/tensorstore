@@ -175,7 +175,7 @@ class Result : private internal_result::ResultStorage<T>,
   }
   Result(Status&& status)
       : storage(internal_result::status_t(), std::move(status)) {
-    TENSORSTORE_CHECK(!status.ok());
+    TENSORSTORE_CHECK(!this->status_.ok());
   }
 
   /// \brief Constructs a non-empty `Result` direct-initialized value of type
