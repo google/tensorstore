@@ -685,6 +685,11 @@ class Future {
   internal_future::FutureStatePointer rep_;
 };
 
+template <typename T>
+Future(Result<T>&& result) -> Future<T>;
+template <typename T>
+Future(const Result<T>& result) -> Future<T>;
+
 /// Returns `true` if both futures refer to the same shared state, or are both
 /// invalid.
 template <typename T, typename U>
