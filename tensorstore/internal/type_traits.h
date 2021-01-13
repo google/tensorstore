@@ -329,6 +329,23 @@ using PossiblyEmptyObjectGetter =
     absl::conditional_t<std::is_empty<T>::value, EmptyObject<T>,
                         NonEmptyObjectGetter>;
 
+template <typename T>
+struct DefaultConstructibleFunction {
+  constexpr DefaultConstructibleFunction() = default;
+  constexpr DefaultConstructibleFunction(const T&) {}
+  template <typename... Arg>
+  constexpr std::invoke_result_t<T&, Arg...> operator()(Arg&&... arg) const {
+    EmptyObject<T> obj;
+    return obj.get()(static_cast<Arg&&>(arg)...);
+  }
+};
+
+template <typename T>
+using DefaultConstructibleFunctionIfEmpty =
+    std::conditional_t<(std::is_empty_v<T> &&
+                        !std::is_default_constructible_v<T>),
+                       DefaultConstructibleFunction<T>, T>;
+
 /// Identity metafunction for types, as added in C++20.
 ///
 /// See https://en.cppreference.com/w/cpp/types/type_identity

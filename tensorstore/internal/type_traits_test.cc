@@ -201,4 +201,13 @@ static_assert(IsPairOnlyExplicitlyConvertible<float*, double*, X, Y>::value,
 
 }  // namespace explict_conversion_tests
 
+TEST(DefaultConstructibleFunctionIfEmptyTest, Basic) {
+  auto fn = [](int x) { return x + 1; };
+  using Wrapper =
+      tensorstore::internal::DefaultConstructibleFunctionIfEmpty<decltype(fn)>;
+  static_assert(std::is_default_constructible_v<Wrapper>);
+  EXPECT_EQ(4, Wrapper()(3));
+  EXPECT_EQ(4, Wrapper(fn)(3));
+}
+
 }  // namespace
