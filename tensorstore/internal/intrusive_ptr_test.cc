@@ -400,6 +400,54 @@ TEST(IntrusivePtrTest, CustomTraits) {
   EXPECT_EQ(y3, y1);
 }
 
+struct InvokeInDestructorType
+    : public AtomicReferenceCount<InvokeInDestructorType> {
+  std::function<void()> invoke_in_destructor;
+  ~InvokeInDestructorType() { invoke_in_destructor(); }
+};
+
+TEST(AtomicReferenceCountTest, IncrementReferenceCountIfNonZero) {
+  AtomicReferenceCount<int> x;  // refcount == 0.
+  EXPECT_FALSE(IncrementReferenceCountIfNonZero(x));
+  EXPECT_EQ(0, x.use_count());
+  intrusive_ptr_increment(&x);  // refcount == 1.
+  EXPECT_TRUE(IncrementReferenceCountIfNonZero(x));
+  EXPECT_EQ(2, x.use_count());
+}
+
+TEST(AtomicReferenceCountTest,
+     IncrementReferenceCountIfNonZeroDuringDestructor) {
+  IntrusivePtr<InvokeInDestructorType> ptr(new InvokeInDestructorType);
+
+  // Test that `IncrementReferenceCountIfNonZero` succeeds when reference count
+  // is non-zero.
+  {
+    // Can acquire reference
+    ASSERT_TRUE(tensorstore::internal::IncrementReferenceCountIfNonZero(*ptr));
+    IntrusivePtr<InvokeInDestructorType> ptr2(ptr.get(), adopt_object_ref);
+
+    // Can acquire another reference
+    ASSERT_TRUE(tensorstore::internal::IncrementReferenceCountIfNonZero(*ptr));
+    IntrusivePtr<InvokeInDestructorType> ptr3(ptr.get(), adopt_object_ref);
+  }
+
+  // Test that `IncrementReferenceCountIfNonZero` fails when reference count is
+  // zero (called while destructor is in progress).  This is simulating the case
+  // where a "weak reference" is accessed after the reference count has reached
+  // 0 (and the destructor is called) but before the destructor invalidates the
+  // weak reference.
+  bool test_ran = false;
+  bool could_acquire = false;
+  ptr->invoke_in_destructor = [&, ptr_copy = ptr.get()] {
+    test_ran = true;
+    could_acquire =
+        tensorstore::internal::IncrementReferenceCountIfNonZero(*ptr_copy);
+  };
+  ptr.reset();
+  EXPECT_TRUE(test_ran);
+  EXPECT_FALSE(could_acquire);
+}
+
 }  // namespace custom_traits
 
 }  // namespace

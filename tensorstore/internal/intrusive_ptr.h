@@ -165,8 +165,22 @@ class AtomicReferenceCount {
   }
 
  private:
+  template <typename D>
+  friend bool IncrementReferenceCountIfNonZero(
+      const AtomicReferenceCount<D>& base);
   mutable std::atomic<std::uint32_t> ref_count_{0};
 };
+
+template <typename Derived>
+inline bool IncrementReferenceCountIfNonZero(
+    const AtomicReferenceCount<Derived>& base) {
+  uint32_t count = base.ref_count_.load(std::memory_order_relaxed);
+  do {
+    if (count == 0) return false;
+  } while (!base.ref_count_.compare_exchange_weak(count, count + 1,
+                                                  std::memory_order_acq_rel));
+  return true;
+}
 
 /// Specifies the default behavior of `IntrusivePtr<T>`.
 struct DefaultIntrusivePtrTraits {
