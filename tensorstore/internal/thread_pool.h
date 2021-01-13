@@ -25,8 +25,10 @@ namespace internal {
 /// The thread pool remains alive until the last copy of the returned executor
 /// is destroyed and all queued work has finished.
 ///
-/// \param num_threads Number of threads to use.
-Executor DetachedThreadPool(std::size_t num_threads);
+/// \param num_threads Number of threads to use.  By default, the number of
+///     threads is unbounded.
+Executor DetachedThreadPool(
+    size_t num_threads = std::numeric_limits<size_t>::max());
 
 }  // namespace internal
 }  // namespace tensorstore
