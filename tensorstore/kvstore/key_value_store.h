@@ -56,19 +56,19 @@
 ///
 /// Example of opening via `KeyValueStore::Spec`:
 ///
-///     KeyValueStore::Spec spec =
-///         KeyValueStore::Spec::FromJson({"driver", "memory"}).value();
+///     KeyValueStore::Spec::Ptr spec =
+///         KeyValueStore::Spec::Ptr::FromJson({"driver", "memory"}).value();
 ///
-///     Future<KeyValueStore::Ptr> store = spec.Open(Context::Default());
+///     Future<KeyValueStore::Ptr> store = spec->Open(Context::Default());
 ///
 /// Example of opening via `KeyValueStore::Spec` and
 /// `KeyValueStore::BoundSpec::Ptr`:
 ///
-///     KeyValueStore::Spec spec =
-///         KeyValueStore::Spec::FromJson({"driver", "memory"}).value();
+///     KeyValueStore::Spec::Ptr spec =
+///         KeyValueStore::Spec::Ptr::FromJson({"driver", "memory"}).value();
 ///
 ///     KeyValueStore::BoundSpec::Ptr bound_spec =
-///         spec.Bind(Context::Default()).value();
+///         spec->Bind(Context::Default()).value();
 ///
 ///     std::string store_cache_key;
 ///     internal::EncodeCacheKey(&store_cache_key, bound_spec);
