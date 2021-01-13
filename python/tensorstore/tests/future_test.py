@@ -30,6 +30,15 @@ def test_promise_new():
   assert future.result() == 5
 
 
+def test_promise_result_release_gil():
+  promise, future = ts.Promise.new()
+  t = threading.Thread(target=future.result)
+  t.start()
+  time.sleep(0.1)
+  promise.set_result(5)
+  t.join()
+
+
 def test_promise_set_exception():
 
   promise, future = ts.Promise.new()

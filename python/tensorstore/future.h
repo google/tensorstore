@@ -85,6 +85,10 @@ template <typename T>
 typename Future<T>::result_type& InterruptibleWait(const Future<T>& future) {
   assert(future.valid());
   if (!future.ready() && _PyOS_IsMainThread()) {
+    {
+      pybind11::gil_scoped_release gil_release;
+      future.Force();
+    }
     // If on main thread and not already ready, use "interruptible" wait that
     // may throw a KeyboardInterrupt exception if SIGINT is received.
     internal_python::InterruptibleWaitImpl([&](auto signal) {
@@ -92,7 +96,10 @@ typename Future<T>::result_type& InterruptibleWait(const Future<T>& future) {
           [signal = std::move(signal)](ReadyFuture<const T> f) { signal(); });
     });
   }
-  return future.result();
+  {
+    pybind11::gil_scoped_release gil_release;
+    return future.result();
+  }
 }
 
 /// Base class that represents a Future exposed to Python.
@@ -219,7 +226,10 @@ class PythonFuture : public PythonFutureBase {
     if (callbacks_.size() == 1) {
       registration_.Unregister();
       auto self = std::static_pointer_cast<PythonFuture<T>>(shared_from_this());
-      future_.Force();
+      {
+        pybind11::gil_scoped_release gil_release;
+        future_.Force();
+      }
       registration_ = future_.ExecuteWhenReady([self](Future<const T> future) {
         pybind11::gil_scoped_acquire gil_acquire;
         self->RunCallbacks();

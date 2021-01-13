@@ -138,6 +138,30 @@ async def test_local_n5():
                             dataset[80:83, 99:102].read().result())
 
 
+async def test_memory_n5_cache_open():
+  dataset = ts.open({
+      "context": {
+          "cache_pool": {
+              "total_bytes_limit": 1000000
+          }
+      },
+      "driver": "n5",
+      "kvstore": {
+          "driver": "memory",
+      },
+      "metadata": {
+          "compression": {
+              "type": "gzip"
+          },
+          "dataType": "uint32",
+          "dimensions": [1000, 20000],
+          "blockSize": [10, 10],
+      },
+      "create": True,
+      "delete_existing": True,
+  }).result()
+
+
 async def test_open_error_message():
   with pytest.raises(ValueError,
                      match=".*Error parsing object member \"driver\": .*"):
