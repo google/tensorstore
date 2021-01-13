@@ -1536,6 +1536,14 @@ TEST(MapFutureTest, LValueReference) {
   EXPECT_EQ(10, a.value());
 }
 
+TEST(MapFutureTest, ReturnFuture) {
+  Future<int> a = 5;
+  auto f = MapFuture(
+      InlineExecutor{},
+      [](Result<int> a) -> Future<int> { return a.value() + 3; }, a);
+  EXPECT_THAT(f.result(), ::testing::Optional(8));
+}
+
 TEST(MapFutureValueTest, BothReady) {
   auto a = MakeReadyFuture<int>(3);
   auto b = MakeReadyFuture<int>(5);
@@ -1567,6 +1575,13 @@ TEST(MapFutureValueTest, ValueToError) {
       a);
   EXPECT_THAT(b.result(),
               MatchesStatus(absl::StatusCode::kUnknown, "Got value: 3"));
+}
+
+TEST(MapFutureValueTest, ReturnFuture) {
+  Future<int> a = 5;
+  auto f = MapFutureValue(
+      InlineExecutor{}, [](int a) -> Future<int> { return a + 3; }, a);
+  EXPECT_THAT(f.result(), ::testing::Optional(8));
 }
 
 TEST(MapFutureErrorTest, Success) {

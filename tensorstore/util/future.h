@@ -175,10 +175,22 @@ class [[nodiscard]] PromiseFuturePair;
 template <typename T>
 class [[nodiscard]] ReadyFuture;
 
+template <typename T>
+constexpr inline bool IsFuture = false;
+
+template <typename T>
+constexpr inline bool IsFuture<Future<T>> = true;
+template <typename T>
+constexpr inline bool IsFuture<ReadyFuture<T>> = true;
+
 /// Bool-valued metafunction equal to `true` if, and only if, `Future<SourceT>`
 /// is convertible to `Future<DestT>`.
 template <typename SourceT, typename DestT>
 using IsFutureConvertible = internal::IsConstConvertible<SourceT, DestT>;
+
+/// Alias that maps `Future<T> -> T`, `Result<T> -> T`, or otherwise `T -> T`.
+template <typename T>
+using UnwrapFutureType = typename internal_future::UnwrapFutureHelper<T>::type;
 
 /// Handle to a registered Future or Promise callback, that may be used to
 /// unregister it.
@@ -1026,21 +1038,25 @@ class PromiseFuturePair {
 ///     objects are already ready.
 /// \param future The `Future` objects to link.
 /// \dchecks `future.valid() && ...`
-/// \returns A `Future<UnwrapResultType<remove_cvref_t<U>>>`, where `U` is the
+/// \returns A `Future<UnwrapFutureType<remove_cvref_t<U>>>`, where `U` is the
 ///     return type of the specified `callback` function.
 template <typename Executor, typename Callback, typename... FutureValue>
-Future<UnwrapResultType<internal::remove_cvref_t<std::invoke_result_t<
+Future<UnwrapFutureType<internal::remove_cvref_t<std::invoke_result_t<
     Callback, internal_future::ResultType<FutureValue>&...>>>>
 MapFuture(Executor&& executor, Callback&& callback,
           Future<FutureValue>... future) {
-  using PromiseValue =
-      UnwrapResultType<internal::remove_cvref_t<std::invoke_result_t<
-          Callback, internal_future::ResultType<FutureValue>&...>>>;
+  using R = internal::remove_cvref_t<std::invoke_result_t<
+      Callback, internal_future::ResultType<FutureValue>&...>>;
+  using PromiseValue = UnwrapResultType<UnwrapFutureType<R>>;
   struct SetPromiseFromCallback {
     internal::remove_cvref_t<Callback> callback;
     void operator()(Promise<PromiseValue> promise,
                     Future<FutureValue>... future) {
-      promise.SetResult(callback(future.result()...));
+      if constexpr (IsFuture<R>) {
+        Link(std::move(promise), callback(future.result()...));
+      } else {
+        promise.SetResult(callback(future.result()...));
+      }
     }
   };
   return PromiseFuturePair<PromiseValue>::Link(
@@ -1072,20 +1088,25 @@ MapFuture(Executor&& executor, Callback&& callback,
 ///     become ready with non-error results.
 /// \param future The `Future` objects to link.
 /// \dchecks `future.valid() && ...`
-/// \returns A `Future<UnwrapResultType<remove_cvref_t<U>>>`, where `U` is the
+/// \returns A `Future<UnwrapFutureType<remove_cvref_t<U>>>`, where `U` is the
 ///     return type of the specified `callback` function.
 template <typename Executor, typename Callback, typename... FutureValue>
-Future<UnwrapResultType<
+Future<UnwrapFutureType<
     internal::remove_cvref_t<std::invoke_result_t<Callback, FutureValue&...>>>>
 MapFutureValue(Executor&& executor, Callback&& callback,
                Future<FutureValue>... future) {
-  using PromiseValue = UnwrapResultType<internal::remove_cvref_t<
-      std::invoke_result_t<Callback, FutureValue&...>>>;
+  using R =
+      internal::remove_cvref_t<std::invoke_result_t<Callback, FutureValue&...>>;
+  using PromiseValue = UnwrapFutureType<R>;
   struct SetPromiseFromCallback {
     internal::remove_cvref_t<Callback> callback;
     void operator()(Promise<PromiseValue> promise,
                     Future<FutureValue>... future) {
-      promise.SetResult(callback(future.result().value()...));
+      if constexpr (IsFuture<R>) {
+        Link(std::move(promise), callback(future.result().value()...));
+      } else {
+        promise.SetResult(callback(future.result().value()...));
+      }
     }
   };
   return PromiseFuturePair<PromiseValue>::LinkValue(

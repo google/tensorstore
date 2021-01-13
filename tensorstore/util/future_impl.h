@@ -677,8 +677,7 @@ class FutureLinkReadyCallback : public ReadyCallbackBase {
   using SharedState = FutureStateType<T>;
 
   explicit FutureLinkReadyCallback(FutureStateBase* shared_state)
-      : ReadyCallbackBase(shared_state) {
-  }
+      : ReadyCallbackBase(shared_state) {}
 
   void OnReady() noexcept override {
     GetParent()->OnFutureReady(shared_state());
@@ -1446,6 +1445,27 @@ struct MakeLinkedFutureState<Policy, PromiseValue> {
             PromiseStatePointer(state)));
     return state;
   }
+};
+
+template <typename T>
+struct UnwrapFutureHelper {
+  using type = std::remove_cv_t<T>;
+};
+
+template <typename T>
+struct UnwrapFutureHelper<Future<T>> {
+  using type = std::remove_cv_t<T>;
+};
+
+template <typename T>
+struct UnwrapFutureHelper<ReadyFuture<T>> {
+  using type = std::remove_cv_t<T>;
+};
+
+template <typename T>
+struct UnwrapFutureHelper<Result<T>> {
+  // Result<T> requires `T` to be unqualified.
+  using type = T;
 };
 
 }  // namespace internal_future
