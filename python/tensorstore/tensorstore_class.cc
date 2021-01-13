@@ -165,16 +165,25 @@ This is equivalent to `domain.rank`.
                 internal_python::PickleContextSpecBuilder(std::move(builder));
             auto json_spec = ValueOrThrow(spec.ToJson());
             return py::make_tuple(py::cast(json_spec),
-                                  std::move(pickled_context));
+                                  std::move(pickled_context),
+                                  static_cast<int>(self.read_write_mode()));
           },
           [](py::tuple t) -> tensorstore::TensorStore<> {
             auto json_spec = py::cast<::nlohmann::json>(t[0]);
             auto context =
                 WrapImpl(internal_python::UnpickleContextSpecBuilder(t[1]));
+            auto read_write_mode = static_cast<ReadWriteMode>(
+                py::cast<int>(t[2]) &
+                static_cast<int>(ReadWriteMode::read_write));
+            if (read_write_mode == ReadWriteMode::dynamic) {
+              throw py::value_error(
+                  "Invalid ReadWriteMode encountered unpickling TensorStore");
+            }
             py::gil_scoped_release gil_release;
-            return ValueOrThrow(
-                tensorstore::Open(std::move(context), std::move(json_spec))
-                    .result());
+            return ValueOrThrow(tensorstore::Open(std::move(context),
+                                                  std::move(json_spec),
+                                                  {read_write_mode})
+                                    .result());
           }));
 
   cls_tensorstore.attr("__iter__") = py::none();

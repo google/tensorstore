@@ -31,7 +31,7 @@ def tensorstore_pytest_test(
     deps.append("@pypa_pytest_asyncio//:pytest_asyncio")
     native.py_test(
         name = name,
-        args = args + ["-vv", "--pyargs"] + ["$(rootpath %s)" % test for test in tests],
+        args = args + ["-vv", "-s", "--pyargs"] + ["$(rootpath %s)" % test for test in tests],
         srcs = ["//python/tensorstore:bazel_pytest_main.py"] + srcs,
         main = "//python/tensorstore:bazel_pytest_main.py",
         legacy_create_init = False,
