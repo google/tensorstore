@@ -362,7 +362,10 @@ class ElementwiseFunction {
 
   constexpr ElementwiseFunction() = default;
 
-  template <typename LoopTemplate>
+  template <
+      typename LoopTemplate,
+      typename = decltype(&LoopTemplate::template Loop<IterationBufferAccessor<
+                              IterationBufferKind::kContiguous>>)>
   constexpr explicit ElementwiseFunction(LoopTemplate)
       : functions_{
             &LoopTemplate::template Loop<
@@ -464,20 +467,20 @@ struct SimpleElementwiseFunction;
 ///     MyFunc obj;
 ///     // Implicitly converts to `ElementwiseFunction`.
 ///     ElementwiseFunction<2> func =
-///         SimpleElementwiseFunction<MyFunc, int, float>();
+///         SimpleElementwiseFunction<MyFunc(int, float)>();
 ///
 ///     // Implicitly converts to `const ElementwiseFunction*` (static constant)
 ///     const ElementwiseFunction<2>* func_ptr =
-///         SimpleElementwiseFunction<MyFunc, int, float>();
+///         SimpleElementwiseFunction<MyFunc(int, float)>();
 ///
 ///     // Converts to the closure `{ func_ptr, &obj }`.
 ///     ElementwiseClosure<2> closure =
-///         SimpleElementwiseFunction<MyFunc, int, float>::Closure(&obj);
+///         SimpleElementwiseFunction<MyFunc(int, float)>::Closure(&obj);
 ///
 ///     // Converts to the closure `{ func_ptr, nullptr }` since `MyFunc` is
 ///     // empty.
 ///     ElementwiseClosure<2> stateless_closure =
-///         SimpleElementwiseFunction<MyFunc, int, float>();
+///         SimpleElementwiseFunction<MyFunc(int, float)>();
 ///
 /// \tparam Func The function object type.  Must be callable with
 ///     `(Element*..., ExtraArg...)`, and return either a type explicitly
