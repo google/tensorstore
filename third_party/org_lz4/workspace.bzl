@@ -22,11 +22,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "org_lz4",
-        strip_prefix = "lz4-1.9.2",
+        strip_prefix = "lz4-1.9.3",
         urls = [
-            "https://github.com/lz4/lz4/archive/v1.9.2.zip",
+            "https://github.com/lz4/lz4/archive/v1.9.3.zip",
         ],
-        sha256 = "0b8bf249fd54a0b974de1a50f0a13ba809a78fd48f90c465c240ee28a9e4784d",
+        sha256 = "4ec935d99aa4950eadfefbd49c9fad863185ac24c32001162c44a683ef61b580",
         build_file = Label("//third_party:org_lz4/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:org_lz4/system.BUILD.bazel"),
     )

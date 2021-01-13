@@ -146,7 +146,6 @@ cc_library_with_strip_include_prefix(
         "blosc/blosc.c",
         "blosc/blosclz.c",
         "blosc/blosclz.h",
-        "blosc/blosclz_impl.inc",
         "blosc/fastcopy.c",
         "blosc/fastcopy.h",
     ],

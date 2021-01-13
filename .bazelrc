@@ -18,3 +18,7 @@ build:freebsd --copt='-Wno-deprecated-declarations'
 
 # Windows 10 RS1 required for rename/delete with POSIX semantics
 build:windows --copt=-D_WIN32_WINNT=0x0A000002
+
+# Workaround for https://github.com/abseil/abseil-cpp/issues/848
+# Root cause: https://github.com/bazelbuild/bazel/issues/4341
+build:macos --features=-supports_dynamic_linker

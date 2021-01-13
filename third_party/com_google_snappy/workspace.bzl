@@ -22,9 +22,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_snappy",
-        urls = ["https://github.com/google/snappy/archive/1.1.7.zip"],
-        sha256 = "61e05a0295fd849072668b1f3494801237d809427cfe8fd014cda455036c3ef7",
-        strip_prefix = "snappy-1.1.7",
+        urls = ["https://github.com/google/snappy/archive/1.1.8.zip"],
+        sha256 = "38b4aabf88eb480131ed45bfb89c19ca3e2a62daeb081bdf001cfb17ec4cd303",
+        strip_prefix = "snappy-1.1.8",
         build_file = Label("//third_party:com_google_snappy/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:com_google_snappy/system.BUILD.bazel"),
     )

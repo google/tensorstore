@@ -22,9 +22,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_absl",
-        sha256 = "d7cc10e05882417ae7a53bc0b121d39863cee82b6b68952e38505c89265c9e5d",
-        strip_prefix = "abseil-cpp-4a851046a0102cd986a5714a1af8deef28a544c4",
+        sha256 = "b54c84452fc0786c1763eeb1a8d999272f0ecc9ec4ee74eb6cfe0a61adb6aa1c",
+        strip_prefix = "abseil-cpp-62ce712ecc887f669610a93efe18abecf70b47a0",
         urls = [
-            "https://github.com/abseil/abseil-cpp/archive/4a851046a0102cd986a5714a1af8deef28a544c4.tar.gz",  # 2020-06-16
+            "https://github.com/abseil/abseil-cpp/archive/62ce712ecc887f669610a93efe18abecf70b47a0.tar.gz",  # master(2021-01-09)
         ],
     )

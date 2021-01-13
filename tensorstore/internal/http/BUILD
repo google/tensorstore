@@ -19,7 +19,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
-        "@se_haxx_curl//:curl",
+        "@se_curl//:curl",
     ],
 )
 
@@ -51,7 +51,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
-        "@se_haxx_curl//:curl",
+        "@se_curl//:curl",
     ],
 )
 

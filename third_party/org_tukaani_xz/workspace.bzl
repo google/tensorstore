@@ -19,11 +19,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "org_tukaani_xz",
-        strip_prefix = "xz-5.2.4",
+        strip_prefix = "xz-5.2.5",
         urls = [
-            "https://tukaani.org/xz/xz-5.2.4.tar.gz",
+            "https://tukaani.org/xz/xz-5.2.5.tar.gz",
         ],
-        sha256 = "b512f3b726d3b37b6dc4c8570e137b9311e7552e8ccbab4d39d47ce5f4177145",
+        sha256 = "f6f4910fd033078738bd82bfba4f49219d03b17eb0794eb91efbae419f4aba10",
         build_file = Label("//third_party:org_tukaani_xz/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:org_tukaani_xz/system.BUILD.bazel"),
     )

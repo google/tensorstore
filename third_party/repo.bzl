@@ -17,7 +17,7 @@
 The `TENSORSTORE_SYSTEM_LIBS` environment variable may be used to
 specify that system libraries should be used in place of bundled
 libraries.  It should be set to a comma-separated list of the repo
-names, e.g. `TENSORSTORE_SYSTEM_LIBS=net_zlib,se_haxx_curl` to use
+names, e.g. `TENSORSTORE_SYSTEM_LIBS=net_zlib,se_curl` to use
 system-provided zlib and libcurl.
 """
 

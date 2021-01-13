@@ -23,10 +23,9 @@ def repo():
         third_party_http_archive,
         name = "com_google_boringssl",
         urls = [
-            # When updating, always use commit from master-with-bazel branch.
-            "https://github.com/google/boringssl/archive/34693f02f6cf9ac7982778b761c16a27f32433c1.tar.gz",  # 2019-09-25
+            "https://github.com/google/boringssl/archive/bdbe37905216bea8dd4d0fdee93f6ee415d3aa15.tar.gz",  # master-with-bazel(2021-01-09)
         ],
-        sha256 = "633e2e806d01a07a20725d1e68fff0be96db18344ed4389c00de042dcd874cac",
-        strip_prefix = "boringssl-34693f02f6cf9ac7982778b761c16a27f32433c1",
+        sha256 = "ce183cb587c0a0f5982e441dff91cb5456d4c85cfa3fb12816e7a93f20645e51",
+        strip_prefix = "boringssl-bdbe37905216bea8dd4d0fdee93f6ee415d3aa15",
         system_build_file = Label("//third_party/com_google_boringssl:system.BUILD.bazel"),
     )

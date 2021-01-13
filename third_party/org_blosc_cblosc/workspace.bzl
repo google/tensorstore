@@ -22,11 +22,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "org_blosc_cblosc",
-        strip_prefix = "c-blosc-1.16.3",
+        strip_prefix = "c-blosc-1.21.0",
         urls = [
-            "https://github.com/Blosc/c-blosc/archive/v1.16.3.zip",
+            "https://github.com/Blosc/c-blosc/archive/v1.21.0.zip",
         ],
-        sha256 = "e3b4d25296d81e004e8207022c389b38b9376af46be02b1fb22d244ea71331be",
+        sha256 = "09dee9dc4d1b85463b87d92f1494a44d23eafadbda2580b76e327eaa59f8a9ef",
         build_file = Label("//third_party:org_blosc_cblosc/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:org_blosc_cblosc/system.BUILD.bazel"),
     )

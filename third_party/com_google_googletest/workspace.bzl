@@ -22,7 +22,7 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_googletest",
-        urls = ["https://github.com/google/googletest/archive/f2fb48c3b3d79a75a88a99fba6576b25d42ec528.zip"],  # 2019-09-15
-        sha256 = "89e98c265b80181d902b1a19c10c29b3a22d804b207214d8104ad42905fbae87",
-        strip_prefix = "googletest-f2fb48c3b3d79a75a88a99fba6576b25d42ec528",
+        urls = ["https://github.com/google/googletest/archive/389cb68b87193358358ae87cc56d257fd0d80189.zip"],  # master(2021-01-09)
+        sha256 = "763e20249e76417bed7ebc44aa85fedf5fbac6f9fb6d30bddb628ab07ebf04f5",
+        strip_prefix = "googletest-389cb68b87193358358ae87cc56d257fd0d80189",
     )

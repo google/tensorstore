@@ -6,63 +6,14 @@ exports_files(["COPYING"])
 
 cc_library_with_strip_include_prefix(
     name = "nghttp2",
-    srcs = [
-        "lib/nghttp2_version.c",
-        "lib/nghttp2_net.h",
-        "lib/nghttp2_callbacks.c",
-        "lib/nghttp2_map.c",
-        "lib/nghttp2_helper.h",
-        "lib/nghttp2_stream.h",
-        "lib/nghttp2_int.h",
-        "lib/nghttp2_buf.h",
-        "lib/nghttp2_priority_spec.c",
-        "lib/nghttp2_npn.h",
-        "lib/nghttp2_frame.h",
-        "lib/nghttp2_queue.h",
-        "lib/nghttp2_hd_huffman_data.c",
-        "lib/nghttp2_buf.c",
-        "lib/nghttp2_map.h",
-        "lib/nghttp2_queue.c",
-        "lib/nghttp2_outbound_item.h",
-        "lib/nghttp2_frame.c",
-        "lib/nghttp2_http.h",
-        "lib/nghttp2_option.c",
-        "lib/nghttp2_option.h",
-        "lib/nghttp2_submit.c",
-        "lib/nghttp2_callbacks.h",
-        "lib/nghttp2_mem.h",
-        "lib/nghttp2_rcbuf.c",
-        "lib/nghttp2_mem.c",
-        "lib/nghttp2_submit.h",
-        "lib/nghttp2_debug.h",
-        "lib/nghttp2_hd.h",
-        "lib/nghttp2_hd_huffman.c",
-        "lib/nghttp2_session.c",
-        "lib/nghttp2_debug.c",
-        "lib/nghttp2_stream.c",
-        "lib/nghttp2_pq.c",
-        "lib/nghttp2_hd.c",
-        "lib/nghttp2_pq.h",
-        "lib/nghttp2_rcbuf.h",
-        "lib/nghttp2_npn.c",
-        "lib/nghttp2_helper.c",
-        "lib/nghttp2_session.h",
-        "lib/nghttp2_outbound_item.c",
-        "lib/nghttp2_hd_huffman.h",
-        "lib/nghttp2_priority_spec.h",
-        "lib/nghttp2_http.c",
-    ],
+    srcs = glob([
+        "lib/nghttp2_*.h",
+        "lib/nghttp2_*.c",
+    ]),
     hdrs = [
+        "lib/includes/config.h",  # from :configure
         "lib/includes/nghttp2/nghttp2.h",
         "lib/includes/nghttp2/nghttp2ver.h",
-        "lib/includes/config.h",  # from :configure
-    ],
-    local_defines = [
-        "BUILDING_NGHTTP2",
-        "HAVE_CONFIG_H",
-    ],
-    defines = [
-        "NGHTTP2_STATICLIB",
     ],
     copts = [
         "-I" + package_relative_path("lib"),
@@ -73,10 +24,16 @@ cc_library_with_strip_include_prefix(
             "-Wno-string-plus-int",
         ],
     }),
+    defines = [
+        "NGHTTP2_STATICLIB",
+    ],
+    local_defines = [
+        "BUILDING_NGHTTP2",
+        "HAVE_CONFIG_H",
+    ],
     strip_include_prefix = "lib/includes",
     visibility = ["//visibility:public"],
 )
-
 
 # Generated based on running configure on several platforms.
 # May need to be updated in future versions.
@@ -217,7 +174,6 @@ genrule(
         "EOF",
     ]),
 )
-
 
 config_setting(
     name = "windows",
