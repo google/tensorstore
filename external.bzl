@@ -35,16 +35,7 @@ load("//third_party:nasm/workspace.bzl", repo_nasm = "repo")
 load("//third_party:org_tukaani_xz/workspace.bzl", repo_org_tukaani_xz = "repo")
 load("//third_party:python/python_configure.bzl", "python_configure")
 load("//third_party:com_github_pybind_pybind11/workspace.bzl", repo_com_github_pybind_pybind11 = "repo")
-load("//third_party:pypa/numpy/workspace.bzl", repo_pypa_numpy = "repo")
-load("//third_party:pypa/pytest/workspace.bzl", repo_pypa_pytest = "repo")
-load("//third_party:pypa/absl_py/workspace.bzl", repo_pypa_absl_py = "repo")
-load("//third_party:pypa/pytest_asyncio/workspace.bzl", repo_pypa_pytest_asyncio = "repo")
-load("//third_party:pypa/ipython/workspace.bzl", repo_pypa_ipython = "repo")
-load("//third_party:pypa/wheel/workspace.bzl", repo_pypa_wheel = "repo")
-load("//third_party:pypa/sphinx/workspace.bzl", repo_pypa_sphinx = "repo")
-load("//third_party:pypa/sphinx_autobuild/workspace.bzl", repo_pypa_sphinx_autobuild = "repo")
-load("//third_party:pypa/apache_beam/workspace.bzl", repo_pypa_apache_beam = "repo")
-load("//third_party:pypa/gin_config/workspace.bzl", repo_pypa_gin_config = "repo")
+load("//third_party:pypa/workspace.bzl", repo_pypa = "repo")
 
 def _bazel_dependencies():
     maybe(
@@ -64,16 +55,7 @@ def _bazel_dependencies():
 def _python_dependencies():
     python_configure(name = "local_config_python")
     repo_com_github_pybind_pybind11()
-    repo_pypa_numpy()
-    repo_pypa_absl_py()
-    repo_pypa_pytest()
-    repo_pypa_pytest_asyncio()
-    repo_pypa_ipython()
-    repo_pypa_wheel()
-    repo_pypa_sphinx()
-    repo_pypa_sphinx_autobuild()
-    repo_pypa_apache_beam()
-    repo_pypa_gin_config()
+    repo_pypa()
 
 def _cc_dependencies():
     repo_com_google_absl()

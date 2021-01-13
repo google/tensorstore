@@ -6,6 +6,14 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
+filegroup(
+    name = "doc_sources",
+    srcs = glob([
+        "**/*.rst",
+        "**/*.yml",
+    ]),
+)
+
 tensorstore_cc_library(
     name = "chunk_encoding",
     srcs = ["chunk_encoding.cc"],

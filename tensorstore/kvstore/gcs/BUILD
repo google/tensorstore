@@ -6,6 +6,14 @@ package(
 
 licenses(["notice"])
 
+filegroup(
+    name = "doc_sources",
+    srcs = glob([
+        "**/*.rst",
+        "**/*.yml",
+    ]),
+)
+
 tensorstore_cc_library(
     name = "gcs",
     srcs = [

@@ -23,6 +23,14 @@ version = ''
 # The full version, including alpha/beta/rc tags
 release = ''
 
+# Override default of `utf-8-sig` which can cause problems with autosummary due
+# to the extra Unicode Byte Order Mark that gets inserted.
+source_encoding = 'utf-8'
+
+# Don't include "View page source" links, since they aren't very helpful,
+# especially for generated pages.
+html_show_sourcelink = False
+
 extensions = [
     'sphinx_rtd_theme',
     'tensorstore_jsonschema_sphinx',
@@ -38,6 +46,7 @@ exclude_patterns = [
     # This is included directly by `python/api/index.rst`, so we don't want to
     # generate a separate page for it.
     'python/api/tensorstore.rst',
+    '_templates/**',
 ]
 
 source_suffix = '.rst'
@@ -56,10 +65,14 @@ html_context = {
 }
 
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/3', None),
-    'zarr': ('https://zarr.readthedocs.io/en/stable', None),
-    'numpy': ('https://docs.scipy.org/doc/numpy/', None),
-    'dask': ('https://docs.dask.org/en/latest/', None),
+    'python':
+        ('https://docs.python.org/3', ('intersphinx_inv/python3.inv', None)),
+    'zarr': ('https://zarr.readthedocs.io/en/stable',
+             ('intersphinx_inv/zarr.inv', None)),
+    'numpy':
+        ('https://numpy.org/doc/stable/', ('intersphinx_inv/numpy.inv', None)),
+    'dask': ('https://docs.dask.org/en/latest/', ('intersphinx_inv/dask.inv',
+                                                  None)),
 }
 
 rst_prolog = """

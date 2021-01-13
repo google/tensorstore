@@ -4,6 +4,23 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
+filegroup(
+    name = "doc_sources",
+    srcs = glob([
+        "**/*.rst",
+        "**/*.yml",
+    ]),
+    data = [
+        "//tensorstore/driver/array:doc_sources",
+        "//tensorstore/driver/cast:doc_sources",
+        "//tensorstore/driver/downsample:doc_sources",
+        "//tensorstore/driver/json:doc_sources",
+        "//tensorstore/driver/n5:doc_sources",
+        "//tensorstore/driver/neuroglancer_precomputed:doc_sources",
+        "//tensorstore/driver/zarr:doc_sources",
+    ],
+)
+
 tensorstore_cc_library(
     name = "chunk",
     hdrs = ["chunk.h"],

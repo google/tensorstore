@@ -5,6 +5,19 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
+filegroup(
+    name = "doc_sources",
+    srcs = glob([
+        "**/*.rst",
+        "**/*.yml",
+    ]),
+    data = [
+        "//tensorstore/kvstore/file:doc_sources",
+        "//tensorstore/kvstore/gcs:doc_sources",
+        "//tensorstore/kvstore/memory:doc_sources",
+    ],
+)
+
 tensorstore_cc_library(
     name = "byte_range",
     srcs = ["byte_range.cc"],
