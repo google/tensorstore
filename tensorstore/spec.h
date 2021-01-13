@@ -39,6 +39,9 @@ class Spec {
   /// Constructs an invalid specification.
   Spec() = default;
 
+  /// Returns `true` if this is a valid spec.
+  bool valid() const { return static_cast<bool>(impl_.driver_spec); }
+
   /// Returns the data type.
   ///
   /// If the data type is unknown, returns the invalid data type.

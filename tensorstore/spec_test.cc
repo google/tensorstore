@@ -42,6 +42,11 @@ using tensorstore::StaticDataType;
 using tensorstore::StaticRankCast;
 using tensorstore::StrCat;
 
+TEST(SpecTest, Invalid) {
+  Spec spec;
+  EXPECT_FALSE(spec.valid());
+}
+
 TEST(SpecTest, ToJson) {
   ::nlohmann::json spec_json({{"driver", "array"},
                               {"dtype", "int32"},
@@ -50,6 +55,7 @@ TEST(SpecTest, ToJson) {
   Spec spec =
       Spec::FromJson(spec_json, tensorstore::AllowUnregistered{true}).value();
   EXPECT_THAT(spec.ToJson(), ::testing::Optional(spec_json));
+  EXPECT_TRUE(spec.valid());
 }
 
 TEST(SpecTest, Comparison) {
