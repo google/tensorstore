@@ -33,6 +33,9 @@ def test_init_rank():
   np.testing.assert_equal(x.implicit_lower_bounds, [1, 1])
   np.testing.assert_equal(x.implicit_upper_bounds, [1, 1])
 
+  with pytest.raises(ValueError):
+    ts.IndexDomain(rank=33)
+
 
 def test_init_inclusive_min():
   x = ts.IndexDomain(inclusive_min=[1, 2])
@@ -43,6 +46,9 @@ def test_init_inclusive_min():
   assert x.labels == ("", "")
   np.testing.assert_equal(x.implicit_lower_bounds, [0, 0])
   np.testing.assert_equal(x.implicit_upper_bounds, [1, 1])
+
+  with pytest.raises(ValueError):
+    ts.IndexDomain(inclusive_min=[1] * 33)
 
 
 def test_init_exclusive_max():

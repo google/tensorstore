@@ -134,6 +134,7 @@ Result<IndexTransform<>> ApplyAddNewDims(IndexTransform<> transform,
                                          DimensionIndexBuffer* dimensions) {
   const DimensionIndex new_input_rank =
       transform.input_rank() + dimensions->size();
+  TENSORSTORE_RETURN_IF_ERROR(ValidateRank(new_input_rank));
   auto new_rep = NewOrMutableRep(TransformAccess::rep(transform),
                                  new_input_rank, transform.output_rank());
   AddNewDims(TransformAccess::rep(transform), new_rep.get(), dimensions);

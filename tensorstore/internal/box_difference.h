@@ -39,14 +39,6 @@ class BoxDifference {
   /// \dchecks `outer.rank() == inner.rank()`.
   BoxDifference(BoxView<> outer, BoxView<> inner);
 
-  /// Returns `true` if the `BoxDifference` data structure is valid.  The data
-  /// structure is invalid if, and only if, the number of sub-boxes would exceed
-  /// `std::numeric_limits<Index>::max()` (and it would anyway be infeasible to
-  /// iterate over that many boxes).
-  bool valid() const {
-    return num_sub_boxes_ != std::numeric_limits<Index>::max();
-  }
-
   /// Returns the rank of the boxes.
   DimensionIndex rank() const { return outer_.rank(); }
 

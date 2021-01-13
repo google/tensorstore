@@ -14,6 +14,9 @@ indices but represent bounds of :math:`\pm \infty`.
    difference between any two bounds to be represented as a signed
    64-bit integer.
 
+TensorStore currently supports ranks :math:`n` less than or equal to 32, which
+is the same constraint imposed by NumPy.
+
 .. _dimension-labels:
 
 Each of the :math:`n` dimensions may optionally be identified by a unique

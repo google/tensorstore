@@ -120,6 +120,13 @@ TEST(MetadataTest, ParseInvalidCompression) {
 }
 
 TEST(MetadataTest, ParseInvalidDimensions) {
+  // Exceeds rank.
+  EXPECT_THAT(
+      N5Metadata::Parse({{"dimensions", ::nlohmann::json::array_t(33, 10)},
+                         {"blockSize", ::nlohmann::json::array_t(33, 1)},
+                         {"dataType", "uint16"},
+                         {"compression", {{"type", "raw"}}}}),
+      MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(N5Metadata::Parse({{"dimensions", "x"},
                                  {"blockSize", {1, 2, 3}},
                                  {"dataType", "uint16"},

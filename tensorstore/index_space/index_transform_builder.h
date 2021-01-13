@@ -225,6 +225,9 @@ struct IsStaticExtentCompatibleWithRange<
 template <DimensionIndex InputRank = dynamic_rank,
           DimensionIndex OutputRank = dynamic_rank>
 class IndexTransformBuilder {
+  static_assert(IsValidStaticRank(InputRank));
+  static_assert(IsValidStaticRank(OutputRank));
+
  public:
   /// Constructs an invalid `IndexTransformBuilder`.
   ///

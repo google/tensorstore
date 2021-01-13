@@ -353,6 +353,7 @@ class StridedLayout
     : public internal_strided_layout::LayoutStorageSelector<Rank, OriginKind,
                                                             CKind>::Storage {
  private:
+  static_assert(IsValidRankSpec(Rank));
   using Selector =
       internal_strided_layout::LayoutStorageSelector<Rank, OriginKind, CKind>;
   using Storage = typename Selector::Storage;

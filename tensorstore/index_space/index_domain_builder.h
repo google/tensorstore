@@ -53,6 +53,8 @@ namespace tensorstore {
 ///
 template <DimensionIndex Rank = dynamic_rank>
 class IndexDomainBuilder {
+  static_assert(IsValidStaticRank(Rank));
+
  public:
   /// Constructs an invalid `IndexDomainBuilder`.
   ///

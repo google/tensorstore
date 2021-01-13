@@ -137,14 +137,17 @@ void OutputIndexMap::Assign(DimensionIndex rank, const OutputIndexMap& other) {
 
 // Singleton transform instance used when the input and output rank are both
 // zero.
-static TransformRep rank_zero_transform_data{0, 0, 0, 0, 1};
+static TransformRep rank_zero_transform_data{
+    /*.input_rank=*/0,          /*.output_rank=*/0,
+    /*.input_rank_capacity=*/0, /*.output_rank_capacity=*/0,
+    /*.implicit_bitvector=*/0,  /*.reference_count=*/1,
+};
 
 TransformRep::Ptr<> TransformRep::Allocate(
     DimensionIndex input_rank_capacity, DimensionIndex output_rank_capacity) {
-  TENSORSTORE_CHECK(
-      input_rank_capacity >= 0 && output_rank_capacity >= 0 &&
-      input_rank_capacity <= std::numeric_limits<std::int32_t>::max() &&
-      output_rank_capacity <= std::numeric_limits<std::int32_t>::max());
+  TENSORSTORE_CHECK(input_rank_capacity >= 0 && output_rank_capacity >= 0 &&
+                    input_rank_capacity <= kMaxRank &&
+                    output_rank_capacity <= kMaxRank);
   if (input_rank_capacity == 0 && output_rank_capacity == 0) {
     return TransformRep::Ptr<>(&rank_zero_transform_data);
   }
@@ -153,9 +156,6 @@ TransformRep::Ptr<> TransformRep::Allocate(
       sizeof(TransformRep) +
       // size of OutputIndexMap array
       sizeof(OutputIndexMap) * output_rank_capacity +
-      // size of implicit_bitvector_storage
-      sizeof(std::uint64_t) * CeilOfRatio(input_rank_capacity * 2,
-                                          static_cast<DimensionIndex>(64)) +
       // size of input_origin, input_shape, and input_labels arrays
       input_rank_capacity * (sizeof(Index) * 2 + sizeof(std::string));
   char* base_ptr = static_cast<char*>(::operator new(total_size));
@@ -474,7 +474,7 @@ Status ReplaceZeroRankIndexArrayIndexMap(Index index, IndexInterval bounds,
 
 TransformRep::Ptr<> GetSubDomain(TransformRep* rep,
                                  span<const DimensionIndex> dims) {
-  ABSL_ASSERT(rep);
+  assert(rep);
   const DimensionIndex old_rank = rep->input_rank;
   const DimensionIndex new_rank = dims.size();
   auto new_rep = TransformRep::Allocate(new_rank, 0);

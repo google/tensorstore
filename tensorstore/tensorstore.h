@@ -69,6 +69,7 @@ template <typename ElementType = void, DimensionIndex Rank = dynamic_rank,
 class TensorStore {
   static_assert(std::is_same_v<ElementType, std::decay_t<ElementType>>,
                 "Invalid ElementType.");
+  static_assert(IsValidStaticRank(Rank));
   using Access = internal::TensorStoreAccess;
   using Transform = IndexTransform<Rank>;
 

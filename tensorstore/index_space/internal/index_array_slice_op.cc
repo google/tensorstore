@@ -75,9 +75,11 @@ bool BroadcastShapes(span<const Index> source_shape, span<Index> result_shape) {
 /// \returns The transform where the output dimensions specified in
 ///     `*dimensions` are mapped using the specified index arrays, and the
 ///     remaining output dimensions are identity mapped.
+/// \error `absl::StatusCode::kInvalidArgument` if the resultant input rank is
+///     invalid.
 template <typename GetNewDimensionShapeFn, typename GetIndexArrayBasePointerFn,
           typename GetIndexArrayByteStrideFn>
-TransformRep::Ptr<> MakeTransformFromJointIndexArrays(
+Result<TransformRep::Ptr<>> MakeTransformFromJointIndexArrays(
     DimensionIndex num_new_dims, TransformRep* orig_transform,
     DimensionIndexBuffer* dimensions,
     GetNewDimensionShapeFn get_new_dimension_bounds,
@@ -87,14 +89,14 @@ TransformRep::Ptr<> MakeTransformFromJointIndexArrays(
   const DimensionIndex output_rank = orig_transform->input_rank;
   const DimensionIndex input_rank =
       output_rank - dimensions->size() + num_new_dims;
+  TENSORSTORE_RETURN_IF_ERROR(ValidateRank(input_rank));
   auto result = TransformRep::Allocate(input_rank, output_rank);
   result->input_rank = input_rank;
   result->output_rank = output_rank;
-  // Set all bounds to explicit, and all labels to explicit.  These defaults are
-  // only used for dimensions corresponding to the domain of the index arrays.
-  // For identity-mapped dimensions, the defaults are overridden.
-  std::fill_n(result->implicit_bitvector_base(),
-              result->implicit_bitvector_storage().size(), 0);
+  // Set all bounds to explicit.  These defaults are only used for dimensions
+  // corresponding to the domain of the index arrays.  For identity-mapped
+  // dimensions, the defaults are overridden.
+  result->implicit_bitvector = 0;
   span<OutputIndexMap> maps = result->output_index_maps().first(output_rank);
   const DimensionIndex num_preserved_dims = output_rank - num_indexed_dims;
   // Set all output dimensions to single_input_dimension index method.  The
@@ -231,14 +233,14 @@ Result<TransformRep::Ptr<>> MakeTransformFromOuterIndexArrays(
   for (const auto& index_array : index_arrays) {
     input_rank += index_array.rank();
   }
+  TENSORSTORE_RETURN_IF_ERROR(ValidateRank(input_rank));
   auto result = TransformRep::Allocate(input_rank, output_rank);
   result->input_rank = input_rank;
   result->output_rank = output_rank;
-  // Set all bounds to explicit, and all labels to explicit.  These defaults are
-  // only used for dimensions corresponding to the domain of the index arrays.
-  // For identity-mapped dimensions, the defaults are overridden.
-  std::fill_n(result->implicit_bitvector_base(),
-              result->implicit_bitvector_storage().size(), 0);
+  // Set all bounds to explicit.  These defaults are only used for dimensions
+  // corresponding to the domain of the index arrays.  For identity-mapped
+  // dimensions, the defaults are overridden.
+  result->implicit_bitvector = 0;
   absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
       index_array_start_dim(num_indexed_dims);
   absl::FixedArray<DimensionIndex, internal::kNumInlinedDims> index_array_order(

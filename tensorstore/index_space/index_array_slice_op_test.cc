@@ -433,6 +433,15 @@ TEST(IndexArraySliceTest, ErrorHandling) {
       "to a common shape");
 }
 
+TEST(IndexArraySliceTest, InvalidRank) {
+  auto index_array = tensorstore::AllocateArray<Index>(
+      std::vector<Index>(32, 1), tensorstore::c_order, tensorstore::value_init);
+  TestDimExpressionError(tensorstore::IdentityTransform(2),
+                         Dims(0).IndexArraySlice(index_array),
+                         absl::StatusCode::kInvalidArgument,
+                         "Rank 33 is outside valid range \\[0, 32\\]");
+}
+
 TEST(IndexVectorArraySliceTest, OneDOutputOneDArray) {
   TestDimExpression(/*original_transform=*/
                     IndexTransformBuilder<2, 2>()
@@ -597,6 +606,21 @@ TEST(IndexVectorArraySliceTest, ErrorHandling) {
       "Dimension index 1 is outside valid range \\[-1, 1\\)");
 }
 
+TEST(IndexVectorArraySliceTest, InvalidRank) {
+  TestDimExpressionError(
+      tensorstore::IdentityTransform(4),
+      Dims(0, 1).IndexVectorArraySlice(
+          tensorstore::AllocateArray<Index>({1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  //
+                                             1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  //
+                                             1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  //
+                                             1, 2},
+                                            tensorstore::c_order,
+                                            tensorstore::default_init),
+          -1),
+      absl::StatusCode::kInvalidArgument,
+      "Rank 33 is outside valid range \\[0, 32\\]");
+}
+
 TEST(OuterIndexArraySliceTest, Integration) {
   TestDimExpression(/*original_transform=*/
                     IndexTransformBuilder<3, 3>()
@@ -704,6 +728,16 @@ TEST(OuterIndexArraySliceTest, ErrorHandling) {
       absl::StatusCode::kInvalidArgument,
       "Number of selected dimensions \\(1\\) does not equal number of index "
       "arrays \\(2\\)");
+}
+
+TEST(OuterIndexArraySliceTest, InvalidRank) {
+  auto index_array = tensorstore::AllocateArray<Index>(
+      std::vector<Index>(17, 1), tensorstore::c_order, tensorstore::value_init);
+  TestDimExpressionError(
+      tensorstore::IdentityTransform(2),
+      Dims(0, 1).OuterIndexArraySlice(index_array, index_array),
+      absl::StatusCode::kInvalidArgument,
+      "Rank 34 is outside valid range \\[0, 32\\]");
 }
 
 }  // namespace

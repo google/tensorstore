@@ -412,6 +412,7 @@ IndexTransform<> ToIndexTransform(
   const DimensionIndex num_ellipsis_dims =
       indexed_output_dims.size() - spec.num_output_dims;
   const DimensionIndex input_rank = unindexed_input_dims.size();
+  ThrowStatusException(ValidateRank(input_rank));
   IndexTransformBuilder<> builder(input_rank, output_space.rank());
   DimensionIndex selected_input_dim_i = 0;
   DimensionIndex index_array_input_start_dim_i = -1;

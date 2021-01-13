@@ -111,6 +111,8 @@ Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 class IndexTransform {
+  static_assert(IsValidStaticRank(InputRank));
+  static_assert(IsValidStaticRank(OutputRank));
   using Access = internal_index_space::TransformAccess;
 
  public:
@@ -400,6 +402,7 @@ class IndexTransform {
 template <DimensionIndex Rank, ContainerKind CKind>
 class IndexDomain {
   using Access = internal_index_space::TransformAccess;
+  static_assert(IsValidStaticRank(Rank));
 
  public:
   using Transform = IndexTransform<Rank, dynamic_rank, CKind>;

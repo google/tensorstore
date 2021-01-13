@@ -35,6 +35,17 @@
 
 namespace tensorstore {
 
+/// Maximum supported rank.
+constexpr DimensionIndex kMaxRank = 32;
+
+constexpr inline bool IsValidRank(DimensionIndex rank) {
+  return 0 <= rank && rank <= kMaxRank;
+}
+
+constexpr inline bool IsValidRankSpec(DimensionIndex rank_spec) {
+  return rank_spec >= (-kMaxRank - 1) && rank_spec <= kMaxRank;
+}
+
 struct DynamicRank {
   /// Enables the use of `dynamic_rank` below as a constant argument for
   /// `DimensionIndex Rank` template parameters to indicate a dynamic rank (with
@@ -46,6 +57,7 @@ struct DynamicRank {
   /// an inline buffer of size `n`.
   constexpr DimensionIndex operator()(DimensionIndex inline_buffer_size) const {
     assert(inline_buffer_size >= 0);
+    assert(inline_buffer_size <= kMaxRank);
     return -1 - inline_buffer_size;
   }
 };
@@ -71,7 +83,8 @@ constexpr inline DimensionIndex NormalizeRankSpec(DimensionIndex rank_spec) {
 
 /// Returns `true` if `rank` is a valid static rank value.
 constexpr inline bool IsValidStaticRank(DimensionIndex static_rank) {
-  return static_rank >= 0 || static_rank == dynamic_rank;
+  return (static_rank >= 0 && static_rank <= kMaxRank) ||
+         static_rank == dynamic_rank;
 }
 
 /// Returns `true` if, and only if, a conversion from `source_rank` to
@@ -348,6 +361,11 @@ struct StaticCastTraits<std::integral_constant<DimensionIndex, Rank>> {
   template <DimensionIndex TargetRank>
   using RebindRank = StaticOrDynamicRank<TargetRank>;
 };
+
+/// Validates that `0 <= rank <= kMaxRank`.
+///
+/// \error `absl::StatusCode::kInvalidArgument` if `rank` is not valid.
+absl::Status ValidateRank(DimensionIndex rank);
 
 }  // namespace tensorstore
 

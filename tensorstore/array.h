@@ -387,6 +387,7 @@ template <typename ElementTagType, DimensionIndex Rank = dynamic_rank,
           ContainerKind LayoutContainerKind = container>
 class Array {
  public:
+  static_assert(IsValidRankSpec(Rank));
   static_assert(IsElementTag<ElementTagType>::value,
                 "ElementTagType must be an ElementTag type.");
   static_assert(LayoutContainerKind == container || Rank >= dynamic_rank,

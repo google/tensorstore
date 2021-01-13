@@ -293,6 +293,7 @@ Status ParseInputDimsData(const ::nlohmann::json& j_bounds,
           TENSORSTORE_RETURN_IF_ERROR(
               internal::JsonValidateArrayLength(rank, **input_rank));
         } else {
+          TENSORSTORE_RETURN_IF_ERROR(ValidateRank(rank));
           *input_rank = rank;
         }
         values->resize(rank);
@@ -329,6 +330,7 @@ Status ParseInputLabels(const ::nlohmann::json& j_bounds,
           TENSORSTORE_RETURN_IF_ERROR(
               internal::JsonValidateArrayLength(rank, **input_rank));
         } else {
+          TENSORSTORE_RETURN_IF_ERROR(ValidateRank(rank));
           *input_rank = rank;
         }
         labels->resize(rank);
@@ -462,7 +464,8 @@ struct TransformParser {
           TENSORSTORE_RETURN_IF_ERROR(
               internal::JsonRequireInteger(value, &rank,
                                            /*strict=*/true,
-                                           /*min_value=*/0));
+                                           /*min_value=*/0,
+                                           /*max_value=*/kMaxRank));
           input_rank = rank;
           return absl::OkStatus();
         }));
@@ -660,7 +663,7 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                                },
                                jb::DefaultValue</*NeverIncludeDefaults=*/true>(
                                    [](DimensionIndex* r) { *r = dynamic_rank; },
-                                   jb::Integer<DimensionIndex>(0))))),
+                                   jb::Integer<DimensionIndex>(0, kMaxRank))))),
             jb::Member(
                 "transform",
                 jb::GetterSetter<IndexTransform<>>(

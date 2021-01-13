@@ -19,6 +19,7 @@ properties:
   rank:
     type: integer
     minimum: 0
+    maximum: 32
     title: Number of dimensions.
     description: |
       The rank must be specified either directly, or implicitly by the number of

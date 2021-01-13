@@ -445,11 +445,6 @@ Future<const void> DeleteChunksForResize(
   }
   internal::BoxDifference box_difference(current_grid_bounds, new_grid_bounds);
   Box<dynamic_rank(internal::kNumInlinedDims)> part(rank);
-  if (!box_difference.valid()) {
-    return absl::InvalidArgumentError(StrCat("Resize would require more than ",
-                                             std::numeric_limits<Index>::max(),
-                                             " chunk regions to be deleted"));
-  }
   for (Index box_i = 0; box_i < box_difference.num_sub_boxes(); ++box_i) {
     box_difference.GetSubBox(box_i, part);
     IterateOverIndexRange(part, [&](span<const Index> cell_indices) {

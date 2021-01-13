@@ -704,6 +704,8 @@ TEST(IndexTransformSpecTest, JsonBinding) {
       {
           {IndexTransformSpec(), ::nlohmann::json::object()},
           {IndexTransformSpec(3), {{"rank", 3}}},
+          {IndexTransformSpec(0), {{"rank", 0}}},
+          {IndexTransformSpec(32), {{"rank", 32}}},
           {IndexTransformSpec(IndexTransformBuilder<>(2, 1)
                                   .input_shape({2, 3})
                                   .output_identity_transform()
@@ -715,6 +717,11 @@ TEST(IndexTransformSpecTest, JsonBinding) {
                  {"input_inclusive_min", {0, 0}},
                  {"output", {{{"input_dimension", 0}}}},
              }}}},
+      },
+      binder);
+  tensorstore::TestJsonBinderFromJson<IndexTransformSpec>(
+      {
+          {{{"rank", 33}}, MatchesStatus(absl::StatusCode::kInvalidArgument)},
       },
       binder);
 }
@@ -734,6 +741,45 @@ TEST(IndexDomainJsonBinderTest, Simple) {
            {"exclusive_max", {"+inf", 10, {"+inf"}, {17}}},
            {"labels", {"x", "y", "z", "t"}},
        }},
+  });
+  tensorstore::TestJsonBinderFromJson<tensorstore::IndexDomain<>>({
+      {{
+           {"rank", 33},
+       },
+       MatchesStatus(
+           absl::StatusCode::kInvalidArgument,
+           "Error parsing index domain from JSON: "
+           "Error parsing object member \"rank\": "
+           "Expected integer in the range \\[0, 32\\], but received: 33")},
+      {{
+           {"shape", {1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  //
+                      1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  //
+                      1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  //
+                      1, 1, 1}},
+       },
+       MatchesStatus(absl::StatusCode::kInvalidArgument,
+                     "Error parsing index domain from JSON: "
+                     "Error parsing object member \"shape\": "
+                     "Rank 33 is outside valid range \\[0, 32\\]")},
+      {{
+           {"labels", {"", "", "", "", "", "", "", "", "", "",  //
+                       "", "", "", "", "", "", "", "", "", "",  //
+                       "", "", "", "", "", "", "", "", "", "",  //
+                       "", "", ""}},
+       },
+       MatchesStatus(absl::StatusCode::kInvalidArgument,
+                     "Error parsing index domain from JSON: "
+                     "Error parsing object member \"labels\": "
+                     "Rank 33 is outside valid range \\[0, 32\\]")},
+      {{
+           {"inclusive_min", {"-inf", 7, {"-inf"}, {8}}},
+           {"exclusive_max", {"+inf", 10, {"+inf"}, {17}}},
+           {"labels", {"x", "y", "z", "t"}},
+           {"output", "abc"},
+       },
+       MatchesStatus(absl::StatusCode::kInvalidArgument,
+                     "Error parsing index domain from JSON: "
+                     "Object includes extra members: \"output\"")},
   });
 }
 

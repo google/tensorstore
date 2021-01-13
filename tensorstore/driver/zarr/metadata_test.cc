@@ -677,4 +677,20 @@ TEST(ParseMetadataTest, InvalidChunks) {
       MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"chunks\".*"));
 }
 
+TEST(ParseMetadataTest, InvalidRank) {
+  ZarrMetadata metadata;
+  EXPECT_THAT(ParseMetadata(
+                  ::nlohmann::json{{"chunks", ::nlohmann::json::array_t(33, 1)},
+                                   {"compressor", nullptr},
+                                   {"dtype", "|i1"},
+                                   {"fill_value", 0},
+                                   {"filters", nullptr},
+                                   {"order", "F"},
+                                   {"shape", ::nlohmann::json::array_t(33, 10)},
+                                   {"zarr_format", 2}},
+                  &metadata),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: Rank 33 is outside valid range \\[0, 32\\]"));
+}
+
 }  // namespace

@@ -204,6 +204,7 @@ template <DimensionIndex Rank = dynamic_rank>
 class Box : public internal_box::BoxStorage<Rank> {
   using Storage = internal_box::BoxStorage<Rank>;
   using Access = internal::MultiVectorAccess<Storage>;
+  static_assert(IsValidRankSpec(Rank));
 
  public:
   constexpr static DimensionIndex static_rank = NormalizeRankSpec(Rank);
@@ -403,6 +404,7 @@ template <DimensionIndex Rank = dynamic_rank, bool Mutable = false>
 class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   using Storage = internal_box::BoxViewStorage<Rank, Mutable>;
   using Access = internal::MultiVectorAccess<Storage>;
+  static_assert(IsValidStaticRank(Rank));
 
  public:
   constexpr static DimensionIndex static_rank = Rank;

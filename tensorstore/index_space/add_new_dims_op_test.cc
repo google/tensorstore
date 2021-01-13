@@ -30,6 +30,7 @@ using tensorstore::kInfIndex;
 using tensorstore::kInfSize;
 using tensorstore::MakeArray;
 using tensorstore::internal_index_space::TestDimExpression;
+using tensorstore::internal_index_space::TestDimExpressionError;
 
 TEST(AddNewTest, Example) {
   const auto expected_new_transform =
@@ -200,6 +201,13 @@ TEST(AddNewTest, EmptyDimensionSelection) {
           {{3}, {3}},
       },
       /*can_operate_in_place=*/true);
+}
+
+TEST(AddNewTest, InvalidRank) {
+  TestDimExpressionError(tensorstore::IdentityTransform(31),
+                         Dims(0, 1).AddNew(),
+                         absl::StatusCode::kInvalidArgument,
+                         ".*Rank 33 is outside valid range \\[0, 32\\]");
 }
 
 }  // namespace

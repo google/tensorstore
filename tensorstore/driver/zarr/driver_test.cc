@@ -1316,32 +1316,6 @@ TEST(ZarrDriverTest, InvalidResizeDueToFieldShapeConstraints) {
                     "not specified"));
 }
 
-TEST(ZarrDriverTest, InvalidResizeTooManyChunksToDelete) {
-  auto context = Context::Default();
-  // Create the store.
-  ::nlohmann::json storage_spec{{"driver", "memory"}};
-  ::nlohmann::json zarr_metadata_json = GetBasicResizeMetadata();
-  zarr_metadata_json["shape"] = ::nlohmann::json::array_t(100, 10);
-  zarr_metadata_json["chunks"] = ::nlohmann::json::array_t(100, 1);
-  ::nlohmann::json json_spec{
-      {"driver", "zarr"},
-      {"kvstore", storage_spec},
-      {"path", "prefix"},
-      {"metadata", zarr_metadata_json},
-  };
-  auto store = tensorstore::Open(context, json_spec,
-                                 {tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write})
-                   .value();
-  EXPECT_THAT(Resize(store, std::vector<Index>(100, kImplicit),
-                     std::vector<Index>(100, 5))
-                  .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            StrCat("Resize would require more than ",
-                                   std::numeric_limits<Index>::max(),
-                                   " chunk regions to be deleted")));
-}
-
 TEST(ZarrDriverTest, InvalidResizeIncompatibleMetadata) {
   auto context = Context::Default();
   // Create the store.

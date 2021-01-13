@@ -189,7 +189,7 @@ IndexTransformBuilder<> InitializeIndexTransformBuilder(
     std::optional<DimensionIndex> output_rank) {
   const char* input_rank_field = nullptr;
   if (input_rank) {
-    if (*input_rank < 0) {
+    if (!IsValidRank(*input_rank)) {
       throw py::value_error(
           StrCat("Invalid ", input_rank_field_name, ": ", *input_rank));
     }
@@ -198,6 +198,11 @@ IndexTransformBuilder<> InitializeIndexTransformBuilder(
 
   const auto check_rank = [&](DimensionIndex rank, const char* field_name) {
     if (!input_rank) {
+      if (!IsValidRank(rank)) {
+        throw py::value_error(StrCat("Rank specified by `", field_name, "` (",
+                                     rank, ") exceeds maximum rank of ",
+                                     kMaxRank));
+      }
       input_rank = rank;
       input_rank_field = field_name;
     } else if (*input_rank != rank) {
@@ -242,6 +247,11 @@ IndexTransformBuilder<> InitializeIndexTransformBuilder(
   }
   if (!input_rank) {
     throw py::value_error(StrCat("Must specify `", input_rank_field_name, "`"));
+  }
+  if (output_rank && !IsValidRank(*output_rank)) {
+    throw py::value_error(
+        tensorstore::StrCat("Number of output dimensions (", *output_rank,
+                            ") exceeds maximum rank of ", kMaxRank));
   }
   auto builder =
       IndexTransformBuilder<>(*input_rank, output_rank.value_or(*input_rank));

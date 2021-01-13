@@ -210,6 +210,10 @@ Result<SharedArray<void>> JsonParseNestedArray(
       const Index size = j_array->size();
       if (!array.data()) {
         shape_or_position.push_back(size);
+        if (shape_or_position.size() > kMaxRank) {
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              "Nesting level exceeds maximum rank of ", kMaxRank));
+        }
         if (size == 0) {
           // Allocate zero-element array.
           allocate_array();

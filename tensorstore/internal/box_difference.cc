@@ -74,7 +74,7 @@ namespace internal {
 /// difference is simply equal to `outer` (which is just a single box).
 namespace {
 Index GetNumSubtractionSubBoxes(BoxView<> outer, BoxView<> inner) {
-  ABSL_ASSERT(outer.rank() == inner.rank());
+  assert(outer.rank() == inner.rank());
   const DimensionIndex rank = outer.rank();
   Index total_count = 1;
   for (DimensionIndex i = 0; i < rank; ++i) {
@@ -94,9 +94,9 @@ Index GetNumSubtractionSubBoxes(BoxView<> outer, BoxView<> inner) {
       // "after" part is non-empty
       ++num_parts;
     }
-    if (MulOverflow(num_parts, total_count, &total_count)) {
-      return std::numeric_limits<Index>::max();
-    }
+    // Note: total_count is bounded by `pow(3, kMaxRank)`, which cannot
+    // overflow.
+    total_count *= num_parts;
   }
   // Subtract 1 for the one box corresponding to the intersection interval in
   // all dimensions, which is not included in the difference.
@@ -111,8 +111,8 @@ BoxDifference::BoxDifference(BoxView<> outer, BoxView<> inner)
 
 void BoxDifference::GetSubBox(Index sub_box_index, MutableBoxView<> out) const {
   const DimensionIndex rank = out.rank();
-  ABSL_ASSERT(rank == outer_.rank());
-  ABSL_ASSERT(sub_box_index >= 0 && sub_box_index < num_sub_boxes_);
+  assert(rank == outer_.rank());
+  assert(sub_box_index >= 0 && sub_box_index < num_sub_boxes_);
   // Increment by 1, because the all zero bit pattern corresponds to the
   // intersection interval of all dimensions, which is not part of the
   // subtraction result.

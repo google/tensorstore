@@ -286,6 +286,7 @@ Status ParseIndexVector(const ::nlohmann::json& value,
           TENSORSTORE_RETURN_IF_ERROR(
               internal::JsonValidateArrayLength(size, **rank));
         } else {
+          TENSORSTORE_RETURN_IF_ERROR(ValidateRank(size));
           *rank = size;
         }
         vec->resize(size);

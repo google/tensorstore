@@ -159,6 +159,16 @@ TEST(JsonParseNestedArrayTest, RankTwo) {
                                  &DecodeInt64));
 }
 
+TEST(JsonParseNestedArrayTest, InvalidRank) {
+  ::nlohmann::json j = ::nlohmann::json::array_t{1};
+  for (int level = 1; level < 33; ++level) {
+    j = ::nlohmann::json::array_t{j};
+  }
+  EXPECT_THAT(JsonParseNestedArray(j, &DecodeInt64),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Nesting level exceeds maximum rank of 32"));
+}
+
 TEST(JsonParseNestedArrayTest, DecodeElementError) {
   EXPECT_THAT(JsonParseNestedArray(::nlohmann::json{{1, 2, 3}, {4, 5, "a"}},
                                    &DecodeInt64),

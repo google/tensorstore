@@ -23,4 +23,12 @@ std::string StaticCastTraits<DimensionIndex>::Describe(DimensionIndex value) {
   return StrCat("rank of ", value);
 }
 
+absl::Status ValidateRank(DimensionIndex rank) {
+  if (!IsValidRank(rank)) {
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Rank ", rank, " is outside valid range [0, ", kMaxRank, "]"));
+  }
+  return absl::OkStatus();
+}
+
 }  // namespace tensorstore

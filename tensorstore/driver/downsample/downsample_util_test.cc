@@ -69,6 +69,16 @@ TEST(PropagateIndexTransformDownsamplingTest, Rank1SingleInputDimension) {
                   tensorstore::IdentityTransform(BoxView({2}, {5})), {2}}));
 }
 
+TEST(PropagateIndexTransformDownsamplingTest, InvalidRank) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto downsampled_transform,
+      tensorstore::IdentityTransform(32) | Dims(0).Stride(2));
+  EXPECT_THAT(PropagateIndexTransformDownsampling(
+                  downsampled_transform, Box(32), std::vector<Index>(32, 2)),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Rank 33 is outside valid range \\[0, 32\\]"));
+}
+
 TEST(PropagateIndexTransformDownsamplingTest, Rank1Constant) {
   EXPECT_THAT(
       PropagateIndexTransformDownsampling(

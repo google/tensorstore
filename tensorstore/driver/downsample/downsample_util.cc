@@ -493,6 +493,7 @@ absl::Status PropagateIndexTransformDownsampling(
       input_dimension_ref_counts, is_domain_empty);
 
   const DimensionIndex new_input_rank = input_rank + additional_input_dims;
+  TENSORSTORE_RETURN_IF_ERROR(ValidateRank(new_input_rank));
   auto new_transform = TransformRep::Allocate(new_input_rank, output_rank);
   new_transform->output_rank = output_rank;
   internal_index_space::CopyTransformRepDomain(

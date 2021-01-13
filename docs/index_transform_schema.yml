@@ -27,6 +27,7 @@ properties:
   input_rank:
     type: integer
     minimum: 0
+    maximum: 32
     title: Number of input dimensions.
     description: |
       The input rank must be specified either directly, or implicitly by the

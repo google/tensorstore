@@ -243,11 +243,6 @@ Result<TransformRep::Ptr<>> PropagateBoundsToTransform(
     a_to_b->input_rank = a_to_b->output_rank = b_rank;
     SetToIdentityTransform(a_to_b->output_index_maps().first(b_rank));
     a_to_b->input_domain(b_rank).DeepAssign(b_domain);
-    // Mark all labels as implicit (for efficiency, also mark lower/upper bounds
-    // as implicit as well, but the caller will ignore).
-    const auto implicit_bitvector = a_to_b->implicit_bitvector_storage();
-    std::fill(implicit_bitvector.begin(), implicit_bitvector.end(),
-              ~static_cast<std::uint64_t>(0));
     a_to_b->implicit_lower_bounds(b_rank).DeepAssign(b_implicit_lower_bounds);
     a_to_b->implicit_upper_bounds(b_rank).DeepAssign(b_implicit_upper_bounds);
     return a_to_b;

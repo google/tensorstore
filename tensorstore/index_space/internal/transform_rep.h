@@ -183,8 +183,6 @@ class InputDimensionRef;
 ///     TransformRep header;
 ///     Index input_origin[input_rank_capacity];
 ///     Index input_shape[input_rank_capacity];
-///     std::uint64_t implicit_bitvector_storage[
-///         CeilOfRatio(2 * input_rank_capacity, 64)];
 ///     std::string input_labels[input_rank_capacity];
 ///
 /// The representation is reference counted, and IndexTransform provide a safe,
@@ -202,23 +200,30 @@ class InputDimensionRef;
 struct TransformRep {
   /// The input rank.
   /// \invariant `0 <= input_rank && input_rank <= input_rank_capacity`.
-  std::int32_t input_rank;
+  std::int16_t input_rank;
 
   /// The output rank.
   /// \invariant `0 <= output_rank && output_rank <= output_rank_capacity`.
-  std::int32_t output_rank;
+  std::int16_t output_rank;
 
   /// The length of the `input_origin`, `input_shape`, and `input_labels` arrays
   /// that immediately follow this TransformRep header in memory.
   ///
-  /// \invariant `0 <= input_rank_capacity`.
-  std::int32_t input_rank_capacity;
+  /// \invariant `0 <= input_rank_capacity <= kMaxRank`.
+  std::int16_t input_rank_capacity;
 
   /// The length of the `output_index_maps` array that precedes this
   /// TransformRep header in memory.
   ///
-  /// \invariant `0 <= output_rank_capacity`.
-  std::int32_t output_rank_capacity;
+  /// \invariant `0 <= output_rank_capacity <= kMaxRank`.
+  std::int16_t output_rank_capacity;
+
+  /// Storage for `implicit_lower_bounds` and `implicit_upper_bounds`.  The
+  /// first `kMaxRank` bits are for `implicit_lower_bounds`, then the next
+  /// `kMaxRank` bits are for `implicit_upper_bounds`.
+  uint64_t implicit_bitvector;
+
+  static_assert(kMaxRank * 2 <= 64);
 
   /// Reference count.
   ///
@@ -267,34 +272,20 @@ struct TransformRep {
     return MutableBoxView<>(rank, input_origin().data(), input_shape().data());
   }
 
-  /// Returns the base pointer for the bit vector containing
-  /// `implicit_lower_bounds` and `implicit_upper_bounds`.
-  std::uint64_t* implicit_bitvector_base() {
-    return reinterpret_cast<std::uint64_t*>(input_shape().end());
-  }
-
-  /// Returns the span that stores the bit vector containing
-  /// `implicit_lower_bounds` and `implicit_upper_bounds`.
-  span<std::uint64_t> implicit_bitvector_storage() {
-    return {implicit_bitvector_base(),
-            CeilOfRatio(static_cast<DimensionIndex>(input_rank_capacity) * 2,
-                        static_cast<DimensionIndex>(64))};
-  }
-
   /// Returns the `implicit_lower_bounds` of length `rank`.
   ///
   /// \dchecks `0 <= rank && rank <= input_rank_capacity`.
   BitSpan<std::uint64_t> implicit_lower_bounds(DimensionIndex rank) {
-    ABSL_ASSERT(0 <= rank && rank <= input_rank_capacity);
-    return {implicit_bitvector_base(), 0, rank};
+    assert(0 <= rank && rank <= input_rank_capacity);
+    return {&implicit_bitvector, 0, rank};
   }
 
   /// Returns the `implicit_upper_bounds` of length `rank`.
   ///
   /// \dchecks `0 <= rank && rank <= input_rank_capacity`.
   BitSpan<std::uint64_t> implicit_upper_bounds(DimensionIndex rank) {
-    ABSL_ASSERT(0 <= rank && rank <= input_rank_capacity);
-    return {implicit_bitvector_base(), input_rank_capacity, rank};
+    assert(0 <= rank && rank <= input_rank_capacity);
+    return {&implicit_bitvector, kMaxRank, rank};
   }
 
   /// Returns the `output_index_maps` array of length `output_rank_capacity`.
@@ -316,9 +307,8 @@ struct TransformRep {
 
   /// Returns the `input_labels` array of length `input_rank_capacity`.
   span<std::string> input_labels() {
-    return span(
-        reinterpret_cast<std::string*>(implicit_bitvector_storage().end()),
-        input_rank_capacity);
+    return span(reinterpret_cast<std::string*>(input_shape().end()),
+                input_rank_capacity);
   }
 
   /// Free a TransformRep allocated by Allocate.
