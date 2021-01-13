@@ -33,6 +33,7 @@
 #include "tensorstore/box.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/contiguous_layout.h"
+#include "tensorstore/internal/gdb_scripting.h"
 #include "tensorstore/internal/multi_vector.h"
 #include "tensorstore/internal/multi_vector_view.h"
 #include "tensorstore/internal/type_traits.h"
@@ -41,6 +42,8 @@
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/span.h"
+
+TENSORSTORE_GDB_AUTO_SCRIPT("multi_vector_gdb.py")
 
 namespace tensorstore {
 

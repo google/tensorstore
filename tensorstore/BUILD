@@ -526,6 +526,7 @@ tensorstore_cc_library(
         ":container_kind",
         ":contiguous_layout",
         ":rank",
+        "//tensorstore/internal:gdb_scripting",
         "//tensorstore/internal:multi_vector",
         "//tensorstore/internal:multi_vector_view",
         "//tensorstore/internal:type_traits",
