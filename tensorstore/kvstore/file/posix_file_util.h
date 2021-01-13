@@ -65,7 +65,7 @@ using UniqueFileDescriptor =
 constexpr inline bool IsDirSeparator(char c) { return c == '/'; }
 
 /// Representation of file metadata.
-using FileInfo = struct ::stat;
+typedef struct ::stat FileInfo;
 
 /// Retrieves the metadata for an open file.
 ///

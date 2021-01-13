@@ -16,6 +16,11 @@ build:linux --copt='-Wno-deprecated-declarations'
 build:macos --copt='-Wno-deprecated-declarations'
 build:freebsd --copt='-Wno-deprecated-declarations'
 
+# disable mixed sign comparison warnings
+build:linux --copt='-Wno-sign-compare'
+build:macos --copt='-Wno-sign-compare'
+build:freebsd --copt='-Wno-sign-compare'
+
 # Windows 10 RS1 required for rename/delete with POSIX semantics
 build:windows --copt=-D_WIN32_WINNT=0x0A000002
 

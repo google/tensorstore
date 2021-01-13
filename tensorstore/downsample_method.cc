@@ -32,6 +32,8 @@ std::ostream& operator<<(std::ostream& os, DownsampleMethod method) {
       return os << "median";
     case DownsampleMethod::kMode:
       return os << "mode";
+    default:
+      return os << "<invalid downsamping mode>";
   }
 }
 
