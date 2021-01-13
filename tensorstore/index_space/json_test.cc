@@ -17,6 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_gtest.h"
@@ -29,11 +30,13 @@ namespace {
 using tensorstore::DimensionIndex;
 using tensorstore::dynamic_rank;
 using tensorstore::Index;
+using tensorstore::IndexInterval;
 using tensorstore::IndexTransform;
 using tensorstore::IndexTransformBuilder;
 using tensorstore::IndexTransformSpec;
 using tensorstore::kInfIndex;
 using tensorstore::kInfSize;
+using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
 using tensorstore::Result;
 using tensorstore::internal::ParseJson;
@@ -70,7 +73,8 @@ IndexTransform<> MakeUnlabeledExampleTransform() {
                               {{1}},
                               {{2}},
                               {{3}},
-                          }}))
+                          }}),
+                          IndexInterval::Closed(1, 2))
       .Finalize()
       .value();
 }
@@ -83,7 +87,11 @@ IndexTransform<> MakeUnlabeledExampleTransform() {
     "output": [
         {"offset": 3},
         {"stride": 2, "input_dimension": 2},
-        {"offset": 7, "index_array": [[ [[1]], [[2]], [[3]] ]]}
+        {
+            "offset": 7,
+            "index_array": [[ [[1]], [[2]], [[3]] ]],
+            "index_array_bounds": [1, 2]
+        }
     ]
 }
 )");
@@ -111,6 +119,78 @@ TEST(ToJsonTest, Unlabeled) {
 
 TEST(ToJsonTest, Labeled) {
   EXPECT_EQ(MakeLabeledExampleJson(), ::nlohmann::json(MakeExampleTransform()));
+}
+
+TEST(IndexTransformJsonBinderTest, IndexArrayOutOfBounds) {
+  tensorstore::TestJsonBinderRoundTrip<IndexTransform<>>({
+      // Index array does not contain out-of-bounds index.
+      {IndexTransformBuilder(1, 1)
+           .input_shape({3})
+           .output_index_array(0, 0, 1,
+                               tensorstore::MakeArray<Index>({1, 2, 3}))
+           .Finalize()
+           .value(),
+       {
+           {"input_inclusive_min", {0}},
+           {"input_exclusive_max", {3}},
+           {"output",
+            {
+                {{"index_array", {1, 2, 3}}},
+            }},
+       }},
+      // Index array contains out-of-bounds index and `index_range` is
+      // bounded.
+      {IndexTransformBuilder(1, 1)
+           .input_shape({3})
+           .output_index_array(0, 0, 1,
+                               tensorstore::MakeArray<Index>({1, 2, 3}),
+                               IndexInterval::UncheckedClosed(1, 2))
+           .Finalize()
+           .value(),
+       {
+           {"input_inclusive_min", {0}},
+           {"input_exclusive_max", {3}},
+           {"output",
+            {
+                {{"index_array", {1, 2, 3}}, {"index_array_bounds", {1, 2}}},
+            }},
+       }},
+      // Index array contains out-of-bounds index, but `index_range` is
+      // unbounded anyway.
+      {IndexTransformBuilder(1, 1)
+           .input_shape({3})
+           .output_index_array(
+               0, 0, 1, tensorstore::MakeArray<Index>({1, kInfIndex + 1, 3}))
+           .Finalize()
+           .value(),
+       {
+           {"input_inclusive_min", {0}},
+           {"input_exclusive_max", {3}},
+           {"output",
+            {
+                {{"index_array", {1, kInfIndex + 1, 3}}},
+            }},
+       }},
+  });
+  tensorstore::TestJsonBinderToJson<IndexTransform<>>({
+      // Because index array does not contain an out-of-bounds index, the
+      // `index_range` of `[1, 3]` is not encoded.
+      {IndexTransformBuilder(1, 1)
+           .input_shape({3})
+           .output_index_array(0, 0, 1,
+                               tensorstore::MakeArray<Index>({1, 2, 3}),
+                               IndexInterval::Closed(1, 3))
+           .Finalize()
+           .value(),
+       ::testing::Optional(MatchesJson(::nlohmann::json{
+           {"input_inclusive_min", {0}},
+           {"input_exclusive_max", {3}},
+           {"output",
+            {
+                {{"index_array", {1, 2, 3}}},
+            }},
+       }))},
+  });
 }
 
 TEST(ToJsonTest, NullTransform) {
@@ -253,7 +333,7 @@ TEST(ParseIndexTransformTest, StaticInputRankMismatch) {
       (tensorstore::ParseIndexTransform<3, 3>(MakeLabeledExampleJson())),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Error parsing index transform from JSON: "  //
-                    "Expected input rank to be 3, but is: 4"));
+                    "Expected input_rank to be 3, but is: 4"));
 }
 
 TEST(ParseIndexTransformTest, StaticOutputRankMismatch) {
@@ -617,35 +697,83 @@ TEST(ParseIndexTransformTest, DuplicateLabels) {
                             "Dimension label.*"));
 }
 
-void TestIndexTransformSpecRoundTrip(IndexTransformSpec spec,
-                                     ::nlohmann::json json) {
-  SCOPED_TRACE(json.dump());
-  namespace jb = tensorstore::internal::json_binding;
-  const auto binder = jb::Object(tensorstore::IndexTransformSpecBinder);
-  EXPECT_THAT(jb::ToJson(spec, binder), ::testing::Optional(json));
-  EXPECT_THAT(jb::FromJson<IndexTransformSpec>(json, binder),
-              ::testing::Optional(spec));
+TEST(IndexTransformSpecTest, JsonBinding) {
+  const auto binder = tensorstore::internal::json_binding::Object(
+      tensorstore::IndexTransformSpecBinder);
+  tensorstore::TestJsonBinderRoundTrip<IndexTransformSpec>(
+      {
+          {IndexTransformSpec(), ::nlohmann::json::object()},
+          {IndexTransformSpec(3), {{"rank", 3}}},
+          {IndexTransformSpec(IndexTransformBuilder<>(2, 1)
+                                  .input_shape({2, 3})
+                                  .output_identity_transform()
+                                  .Finalize()
+                                  .value()),
+           {{"transform",
+             {
+                 {"input_exclusive_max", {2, 3}},
+                 {"input_inclusive_min", {0, 0}},
+                 {"output", {{{"input_dimension", 0}}}},
+             }}}},
+      },
+      binder);
 }
 
-TEST(IndexTransformSpecTest, JsonBinding) {
-  TestIndexTransformSpecRoundTrip(IndexTransformSpec(),
-                                  ::nlohmann::json::object());
+TEST(IndexDomainJsonBinderTest, Simple) {
+  tensorstore::TestJsonBinderRoundTrip<tensorstore::IndexDomain<>>({
+      {tensorstore::IndexDomainBuilder<4>()
+           .origin({-kInfIndex, 7, -kInfIndex, 8})
+           .exclusive_max({kInfIndex + 1, 10, kInfIndex + 1, 17})
+           .implicit_lower_bounds({0, 0, 1, 1})
+           .implicit_upper_bounds({0, 0, 1, 1})
+           .labels({"x", "y", "z", "t"})
+           .Finalize()
+           .value(),
+       {
+           {"inclusive_min", {"-inf", 7, {"-inf"}, {8}}},
+           {"exclusive_max", {"+inf", 10, {"+inf"}, {17}}},
+           {"labels", {"x", "y", "z", "t"}},
+       }},
+  });
+}
 
-  TestIndexTransformSpecRoundTrip(IndexTransformSpec(3),
-                                  ::nlohmann::json{{"rank", 3}});
+TEST(IndexBinderTest, Basic) {
+  using tensorstore::kMaxFiniteIndex;
+  tensorstore::TestJsonBinderRoundTrip<Index>(
+      {
+          {-kInfIndex, "-inf"},
+          {+kInfIndex, "+inf"},
+          {-kMaxFiniteIndex, -kMaxFiniteIndex},
+          {0, 0},
+          {5, 5},
+          {+kMaxFiniteIndex, +kMaxFiniteIndex},
+      },
+      tensorstore::internal::json_binding::IndexBinder);
+  tensorstore::TestJsonBinderFromJson<Index>(
+      {
+          {"abc", MatchesStatus(absl::StatusCode::kInvalidArgument)},
+          {-kInfIndex, ::testing::Optional(MatchesJson(-kInfIndex))},
+          {+kInfIndex, ::testing::Optional(MatchesJson(+kInfIndex))},
+          {-kInfIndex - 1, MatchesStatus(absl::StatusCode::kInvalidArgument)},
+          {kInfIndex + 1, MatchesStatus(absl::StatusCode::kInvalidArgument)},
+      },
+      tensorstore::internal::json_binding::IndexBinder);
+}
 
-  TestIndexTransformSpecRoundTrip(
-      IndexTransformSpec(IndexTransformBuilder<>(2, 1)
-                             .input_shape({2, 3})
-                             .output_identity_transform()
-                             .Finalize()
-                             .value()),
-      ::nlohmann::json{{"transform",
-                        {
-                            {"input_exclusive_max", {2, 3}},
-                            {"input_inclusive_min", {0, 0}},
-                            {"output", {{{"input_dimension", 0}}}},
-                        }}});
+TEST(IndexIntervalBinderTest, Basic) {
+  using tensorstore::IndexInterval;
+  tensorstore::TestJsonBinderRoundTrip<IndexInterval>({
+      {IndexInterval::UncheckedClosed(5, 10), {5, 10}},
+      {IndexInterval(), {"-inf", "+inf"}},
+      {IndexInterval::UncheckedClosed(5, 4), {5, 4}},
+      {IndexInterval::UncheckedClosed(-kInfIndex, 20), {"-inf", 20}},
+      {IndexInterval::UncheckedClosed(20, +kInfIndex), {20, "+inf"}},
+  });
+  tensorstore::TestJsonBinderFromJson<IndexInterval>({
+      {"abc", MatchesStatus(absl::StatusCode::kInvalidArgument)},
+      {{-kInfIndex - 1, 10}, MatchesStatus(absl::StatusCode::kInvalidArgument)},
+      {{10, 5}, MatchesStatus(absl::StatusCode::kInvalidArgument)},
+  });
 }
 
 }  // namespace

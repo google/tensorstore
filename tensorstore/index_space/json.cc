@@ -29,27 +29,38 @@ namespace {
   j.push_back(std::move(v));
   return j;
 }
-}  // namespace
 
-void to_json(::nlohmann::json& j,  // NOLINT
-             IndexTransformView<> transform) {
-  if (!transform.valid()) {
-    j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
-    return;
-  }
-  ::nlohmann::json::object_t obj;
-  const DimensionIndex input_rank = transform.input_rank();
-  auto input_domain = transform.input_domain();
+struct DomainJsonKeys {
+  const char* rank;
+  const char* inclusive_min;
+  const char* inclusive_max;
+  const char* shape;
+  const char* exclusive_max;
+  const char* labels;
+};
 
-  // Compute the `"input_inclusive_min"` and `"input_exclusive_max"` members.
+constexpr DomainJsonKeys kIndexDomainJsonKeys = {
+    "rank",  "inclusive_min", "inclusive_max",
+    "shape", "exclusive_max", "labels",
+};
+
+constexpr DomainJsonKeys kIndexTransformJsonKeys = {
+    "input_rank",  "input_inclusive_min", "input_inclusive_max",
+    "input_shape", "input_exclusive_max", "input_labels",
+};
+
+void EncodeDomain(::nlohmann::json::object_t& obj, IndexDomainView<> domain,
+                  const DomainJsonKeys& keys) {
+  // Compute the `inclusive_min` and `exclusive_max` members.
+  DimensionIndex rank = domain.rank();
   {
-    auto implicit_lower_bounds = transform.implicit_lower_bounds();
-    auto implicit_upper_bounds = transform.implicit_upper_bounds();
+    auto implicit_lower_bounds = domain.implicit_lower_bounds();
+    auto implicit_upper_bounds = domain.implicit_upper_bounds();
     ::nlohmann::json::array_t j_inclusive_min, j_exclusive_max;
-    j_inclusive_min.reserve(input_rank);
-    j_exclusive_max.reserve(input_rank);
-    for (DimensionIndex i = 0; i < input_rank; ++i) {
-      const auto d = input_domain[i];
+    j_inclusive_min.reserve(rank);
+    j_exclusive_max.reserve(rank);
+    for (DimensionIndex i = 0; i < rank; ++i) {
+      const auto d = domain[i];
       const bool implicit_lower = implicit_lower_bounds[i];
       const bool implicit_upper = implicit_upper_bounds[i];
       j_inclusive_min.push_back(
@@ -61,18 +72,18 @@ void to_json(::nlohmann::json& j,  // NOLINT
               ? EncodeImplicit("+inf", implicit_upper)
               : EncodeImplicit(d.exclusive_max(), implicit_upper));
     }
-    obj.emplace("input_inclusive_min", std::move(j_inclusive_min));
-    obj.emplace("input_exclusive_max", std::move(j_exclusive_max));
+    obj.emplace(keys.inclusive_min, std::move(j_inclusive_min));
+    obj.emplace(keys.exclusive_max, std::move(j_exclusive_max));
   }
 
-  // Compute the `"input_labels"` member.
+  // Compute the `labels` member.
   {
     ::nlohmann::json::array_t j_labels;
-    j_labels.reserve(input_rank);
-    auto input_labels = transform.input_labels();
+    j_labels.reserve(rank);
+    auto labels = domain.labels();
     bool encode_labels = false;
-    for (DimensionIndex i = 0; i < input_rank; ++i) {
-      auto const& label = input_labels[i];
+    for (DimensionIndex i = 0; i < rank; ++i) {
+      auto const& label = labels[i];
       if (!label.empty()) {
         encode_labels = true;
       }
@@ -81,9 +92,23 @@ void to_json(::nlohmann::json& j,  // NOLINT
     // If all labels are empty, skip the `"input_labels"` member to produce a
     // shorter representation.
     if (encode_labels) {
-      obj.emplace("input_labels", std::move(j_labels));
+      obj.emplace(keys.labels, std::move(j_labels));
     }
   }
+}
+
+}  // namespace
+
+void to_json(::nlohmann::json& j,  // NOLINT
+             IndexTransformView<> transform) {
+  if (!transform.valid()) {
+    j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
+    return;
+  }
+  ::nlohmann::json::object_t obj;
+  EncodeDomain(obj, transform.input_domain(), kIndexTransformJsonKeys);
+  const DimensionIndex input_rank = transform.input_rank();
+  auto input_domain = transform.input_domain();
 
   // Compute the `"output"` member, which encodes the output index maps in
   // output dimension index order.
@@ -134,10 +159,16 @@ void to_json(::nlohmann::json& j,  // NOLINT
                                     index_array_data.byte_strides().data())),
               StridedLayoutView<>(input_rank, index_array_shape.data(),
                                   index_array_data.byte_strides().data()));
-          // TODO(jbms): check bounds
           j_output.emplace("index_array",
                            internal::JsonEncodeNestedArray(
                                index_array, [](const Index* x) { return *x; }));
+          IndexInterval index_range = index_array_data.index_range();
+          // If `index_array` contains values outside `index_range`, encode
+          // `index_range` as well to avoid expanding the range.
+          if (index_range != IndexInterval() &&  // NOLINT
+              !ValidateIndexArrayBounds(index_range, index_array).ok()) {
+            j_output.emplace("index_array_bounds", index_range);
+          }
           break;
         }
       }
@@ -150,6 +181,59 @@ void to_json(::nlohmann::json& j,  // NOLINT
     }
   }
   j = std::move(obj);
+}
+
+void to_json(::nlohmann::json& j,  // NOLINT
+             IndexDomainView<> domain) {
+  if (!domain.valid()) {
+    j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
+    return;
+  }
+  ::nlohmann::json::object_t obj;
+  EncodeDomain(obj, domain, kIndexDomainJsonKeys);
+  j = std::move(obj);
+}
+
+::nlohmann::json IndexToJson(Index index) {
+  switch (index) {
+    case -kInfIndex:
+      return "-inf";
+    case +kInfIndex:
+      return "+inf";
+    default:
+      return index;
+  }
+}
+
+Result<Index> ParseIndex(const ::nlohmann::json& j) {
+  if (const std::string* s = j.get_ptr<const std::string*>()) {
+    if (*s == "-inf") return -kInfIndex;
+    if (*s == "+inf") return +kInfIndex;
+  }
+  Index value;
+  TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireValueAs(
+      j, &value, [](Index i) { return tensorstore::IsValidIndex(i); }));
+  return value;
+}
+
+void to_json(::nlohmann::json& j,  // NOLINT
+             IndexInterval interval) {
+  ::nlohmann::json::array_t bounds(2);
+  bounds[0] = IndexToJson(interval.inclusive_min());
+  bounds[1] = IndexToJson(interval.inclusive_max());
+  j = std::move(bounds);
+}
+
+Result<IndexInterval> ParseIndexInterval(const ::nlohmann::json& j) {
+  Index bounds[2];
+  TENSORSTORE_RETURN_IF_ERROR(internal::JsonParseArray(
+      j,
+      [](ptrdiff_t size) { return internal::JsonValidateArrayLength(size, 2); },
+      [&](const ::nlohmann::json& j_value, ptrdiff_t index) {
+        TENSORSTORE_ASSIGN_OR_RETURN(bounds[index], ParseIndex(j_value));
+        return absl::OkStatus();
+      }));
+  return IndexInterval::Closed(bounds[0], bounds[1]);
 }
 
 namespace internal_index_space {
@@ -275,7 +359,8 @@ Status ParseOutput(const ::nlohmann::json& j,
                    OutputOffsetAndStride* offset_and_stride,
                    OutputIndexMapInitializer* output_map) {
   TENSORSTORE_RETURN_IF_ERROR(internal::JsonValidateObjectMembers(
-      j, {"offset", "input_dimension", "index_array", "stride"}));
+      j, {"offset", "input_dimension", "index_array", "stride",
+          "index_array_bounds"}));
 
   TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
       j, "offset", [&](const ::nlohmann::json& value) {
@@ -304,6 +389,17 @@ Status ParseOutput(const ::nlohmann::json& j,
         TENSORSTORE_ASSIGN_OR_RETURN(
             output_map->index_array,
             internal::JsonParseNestedArray(value, &ParseInt64));
+        return absl::OkStatus();
+      }));
+
+  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
+      j, "index_array_bounds", [&](const ::nlohmann::json& value) {
+        if (!output_map->index_array.data()) {
+          return absl::InvalidArgumentError(
+              "\"index_array_bounds\" is only valid with \"index_array\"");
+        }
+        TENSORSTORE_ASSIGN_OR_RETURN(output_map->index_array_bounds,
+                                     tensorstore::ParseIndexInterval(value));
         return absl::OkStatus();
       }));
 
@@ -340,36 +436,28 @@ Status ParseOutputs(
       });
 }
 
-}  // namespace
+struct TransformParser {
+  absl::optional<DimensionIndex> input_rank, output_rank;
+  IntervalForm interval_form = IntervalForm::half_open;
+  InlinedVector<Index> input_lower, input_upper;
+  InlinedVector<std::string> input_labels;
+  InlinedVector<OutputOffsetAndStride> output_offsets_and_strides;
+  InlinedVector<OutputIndexMapInitializer> output_maps;
+  InlinedVector<bool> implicit_lower_bounds, implicit_upper_bounds;
+  BuilderFlags flags = 0;
 
-Result<TransformRep::Ptr<>> ParseIndexTransformAsJson(
-    const ::nlohmann::json& j, DimensionIndex input_rank_constraint,
-    DimensionIndex output_rank_constraint) {
-  if (j.is_discarded()) return TransformRep::Ptr<>(nullptr);
-  auto result = [&]() -> Result<TransformRep::Ptr<>> {
-    absl::optional<DimensionIndex> input_rank, output_rank;
-    IntervalForm interval_form = IntervalForm::half_open;
-    InlinedVector<Index> input_lower, input_upper;
-    InlinedVector<std::string> input_labels;
-    InlinedVector<OutputOffsetAndStride> output_offsets_and_strides;
-    InlinedVector<OutputIndexMapInitializer> output_maps;
-    InlinedVector<bool> implicit_lower_bounds, implicit_upper_bounds;
-    BuilderFlags flags = 0;
-    bool has_output = false;
-
-    TENSORSTORE_RETURN_IF_ERROR(internal::JsonValidateObjectMembers(
-        j, {"input_rank", "input_inclusive_min", "input_shape",
-            "input_inclusive_max", "input_exclusive_max", "input_labels",
-            "output"}));
-
-    const auto upper_bound_error = [] {
-      return absl::InvalidArgumentError(
-          "At most one of \"input_shape\", \"input_inclusive_max\", and "
-          "\"input_exclusive_max\" members must be specified");
+  absl::Status ParseDomain(const ::nlohmann::json& j,
+                           const DomainJsonKeys& keys,
+                           DimensionIndex input_rank_constraint) {
+    const auto upper_bound_error = [&] {
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "At most one of \"", keys.shape, "\", \"", keys.inclusive_max,
+          "\", and ", "\"", keys.exclusive_max,
+          "\" members must be specified"));
     };
 
     TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-        j, "input_rank", [&](const ::nlohmann::json& value) {
+        j, keys.rank, [&](const ::nlohmann::json& value) {
           DimensionIndex rank;
           TENSORSTORE_RETURN_IF_ERROR(
               internal::JsonRequireInteger(value, &rank,
@@ -380,14 +468,14 @@ Result<TransformRep::Ptr<>> ParseIndexTransformAsJson(
         }));
 
     TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-        j, "input_inclusive_min", [&](const ::nlohmann::json& value) {
+        j, keys.inclusive_min, [&](const ::nlohmann::json& value) {
           flags |= (kSetLower | kSetImplicitLower);
           return ParseInputBounds(value, &input_rank, &input_lower,
                                   &implicit_lower_bounds, -kInfIndex, 0);
         }));
 
     TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-        j, "input_shape", [&](const ::nlohmann::json& value) {
+        j, keys.shape, [&](const ::nlohmann::json& value) {
           interval_form = IntervalForm::sized;
           flags |= (kSetUpper | kSetImplicitUpper);
           return ParseInputBounds(value, &input_rank, &input_upper,
@@ -395,7 +483,7 @@ Result<TransformRep::Ptr<>> ParseIndexTransformAsJson(
         }));
 
     TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-        j, "input_inclusive_max", [&](const ::nlohmann::json& value) {
+        j, keys.inclusive_max, [&](const ::nlohmann::json& value) {
           if (flags & kSetUpper) return upper_bound_error();
           flags |= (kSetUpper | kSetImplicitUpper);
           interval_form = IntervalForm::closed;
@@ -404,7 +492,7 @@ Result<TransformRep::Ptr<>> ParseIndexTransformAsJson(
         }));
 
     TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-        j, "input_exclusive_max", [&](const ::nlohmann::json& value) {
+        j, keys.exclusive_max, [&](const ::nlohmann::json& value) {
           if (flags & kSetUpper) return upper_bound_error();
           flags |= (kSetUpper | kSetImplicitUpper);
           interval_form = IntervalForm::half_open;
@@ -413,30 +501,36 @@ Result<TransformRep::Ptr<>> ParseIndexTransformAsJson(
         }));
 
     TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-        j, "input_labels", [&](const ::nlohmann::json& value) {
+        j, keys.labels, [&](const ::nlohmann::json& value) {
           return ParseInputLabels(value, &input_rank, &input_labels);
         }));
 
+    if (!input_rank) {
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "At least one of \"", keys.rank, "\", \"", keys.inclusive_min, "\", ",
+          "\"", keys.shape, "\", \"", keys.inclusive_max, "\", \"",
+          keys.exclusive_max, "\", ", "or \"", keys.labels,
+          "\" must be specified"));
+    }
+
+    if (input_rank_constraint != dynamic_rank &&
+        *input_rank != input_rank_constraint) {
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "Expected ", keys.rank, " to be ", input_rank_constraint,
+          ", but is: ", *input_rank));
+    }
+    return absl::OkStatus();
+  }
+
+  absl::Status ParseOutput(const ::nlohmann::json& j,
+                           DimensionIndex output_rank_constraint) {
+    bool has_output = false;
     TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
         j, "output", [&](const ::nlohmann::json& value) {
           has_output = true;
           return ParseOutputs(value, &output_rank, &output_offsets_and_strides,
                               &output_maps);
         }));
-
-    if (!input_rank) {
-      return absl::InvalidArgumentError(
-          "At least one of \"input_rank\", \"input_inclusive_min\", "
-          "\"input_shape\", \"input_inclusive_max\", \"input_exclusive_max\", "
-          "or \"input_labels\" must be specified");
-    }
-
-    if (input_rank_constraint != dynamic_rank &&
-        *input_rank != input_rank_constraint) {
-      return absl::InvalidArgumentError(StrCat("Expected input rank to be ",
-                                               input_rank_constraint,
-                                               ", but is: ", *input_rank));
-    }
 
     if (output_rank_constraint != dynamic_rank) {
       if (!output_rank) {
@@ -459,6 +553,10 @@ Result<TransformRep::Ptr<>> ParseIndexTransformAsJson(
         output_maps[i].input_dimension = i;
       }
     }
+    return absl::OkStatus();
+  }
+
+  Result<TransformRep::Ptr<>> Finalize() {
     auto transform = TransformRep::Allocate(*input_rank, *output_rank);
     transform->input_rank = *input_rank;
     transform->output_rank = *output_rank;
@@ -488,11 +586,49 @@ Result<TransformRep::Ptr<>> ParseIndexTransformAsJson(
     TENSORSTORE_RETURN_IF_ERROR(SetOutputIndexMapsAndValidateTransformRep(
         transform.get(), output_maps, interval_form, flags));
     return transform;
+  }
+};
+
+}  // namespace
+
+Result<TransformRep::Ptr<>> ParseIndexTransformFromJson(
+    const ::nlohmann::json& j, DimensionIndex input_rank_constraint,
+    DimensionIndex output_rank_constraint) {
+  if (j.is_discarded()) return TransformRep::Ptr<>(nullptr);
+  auto result = [&]() -> Result<TransformRep::Ptr<>> {
+    TransformParser parser;
+    TENSORSTORE_RETURN_IF_ERROR(internal::JsonValidateObjectMembers(
+        j, {"input_rank", "input_inclusive_min", "input_shape",
+            "input_inclusive_max", "input_exclusive_max", "input_labels",
+            "output"}));
+    TENSORSTORE_RETURN_IF_ERROR(
+        parser.ParseDomain(j, kIndexTransformJsonKeys, input_rank_constraint));
+    TENSORSTORE_RETURN_IF_ERROR(parser.ParseOutput(j, output_rank_constraint));
+    return parser.Finalize();
   }();
 
   if (result) return result;
   return MaybeAnnotateStatus(result.status(),
                              "Error parsing index transform from JSON");
+}
+
+Result<TransformRep::Ptr<>> ParseIndexDomainFromJson(
+    const ::nlohmann::json& j, DimensionIndex rank_constraint) {
+  if (j.is_discarded()) return TransformRep::Ptr<>(nullptr);
+  auto result = [&]() -> Result<TransformRep::Ptr<>> {
+    TransformParser parser;
+    TENSORSTORE_RETURN_IF_ERROR(internal::JsonValidateObjectMembers(
+        j, {"rank", "inclusive_min", "shape", "inclusive_max", "exclusive_max",
+            "labels"}));
+    parser.output_rank = 0;
+    TENSORSTORE_RETURN_IF_ERROR(
+        parser.ParseDomain(j, kIndexDomainJsonKeys, rank_constraint));
+    return parser.Finalize();
+  }();
+
+  if (result) return result;
+  return MaybeAnnotateStatus(result.status(),
+                             "Error parsing index domain from JSON");
 }
 
 }  // namespace internal_index_space

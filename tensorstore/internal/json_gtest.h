@@ -16,6 +16,7 @@
 #define TENSORSTORE_INTERNAL_JSON_GTEST_H_
 
 #include <ostream>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <nlohmann/json.hpp>
@@ -42,6 +43,77 @@ MATCHER_P(MatchesJson, j, "") {
   *result_listener << "where the difference is:\n"
                    << ::nlohmann::json::diff(j, arg).dump(2);
   return tensorstore::internal_json::JsonSame(arg, j);
+}
+
+/// Tests that a sequence of examples for json binding of `T` values round
+/// trips.
+///
+/// \param round_trips Sequence of round trip pairs to test.
+/// \param binder Optional.  The JSON binder to use.
+/// \param to_json_options Optional.  Options for converting to JSON.
+/// \param from_json_options Optional.  Options for converting from JSON.
+template <typename T,
+          typename Binder = decltype(internal::json_binding::DefaultBinder<>),
+          typename ToJsonOptions = IncludeDefaults,
+          typename FromJsonOptions = internal::json_binding::NoOptions>
+void TestJsonBinderRoundTrip(
+    std::vector<std::pair<T, ::nlohmann::json>> round_trips,
+    Binder binder = internal::json_binding::DefaultBinder<>,
+    ToJsonOptions to_json_options = IncludeDefaults{true},
+    FromJsonOptions from_json_options = {}) {
+  for (const auto& [value, j] : round_trips) {
+    SCOPED_TRACE(tensorstore::StrCat("value=", value, ", j=", j));
+    EXPECT_THAT(tensorstore::internal::json_binding::ToJson(value, binder,
+                                                            to_json_options),
+                ::testing::Optional(MatchesJson(j)));
+    EXPECT_THAT(tensorstore::internal::json_binding::FromJson<T>(
+                    j, binder, from_json_options),
+                ::testing::Optional(value));
+  }
+}
+
+/// Tests a sequence of examples for converting `T` values to JSON.
+///
+/// \param to_json_cases Sequence of conversions to json to test (useful for
+///     error cases or other cases that don't round trip).
+/// \param binder Optional.  The JSON binder to use.
+/// \param to_json_options Optional.  Options for converting to JSON.
+template <typename T,
+          typename Binder = decltype(internal::json_binding::DefaultBinder<>),
+          typename ToJsonOptions = IncludeDefaults>
+void TestJsonBinderToJson(
+    std::vector<std::pair<T, ::testing::Matcher<Result<::nlohmann::json>>>>
+        to_json_cases,
+    Binder binder = internal::json_binding::DefaultBinder<>,
+    ToJsonOptions to_json_options = IncludeDefaults{true}) {
+  for (const auto& [value, matcher] : to_json_cases) {
+    SCOPED_TRACE(tensorstore::StrCat("value=", value));
+    EXPECT_THAT(tensorstore::internal::json_binding::ToJson(value, binder,
+                                                            to_json_options),
+                matcher);
+  }
+}
+
+/// Tests a sequence of examples for converting `T` values from JSON.
+///
+/// \param from_json_cases Sequence of conversions from json to test (useful for
+///     error cases or other cases that don't round trip).
+/// \param binder Optional.  The JSON binder to use.
+/// \param from_json_options Optional.  Options for converting from JSON.
+template <typename T,
+          typename Binder = decltype(internal::json_binding::DefaultBinder<>),
+          typename FromJsonOptions = internal::json_binding::NoOptions>
+void TestJsonBinderFromJson(
+    std::vector<std::pair<::nlohmann::json, ::testing::Matcher<Result<T>>>>
+        from_json_cases,
+    Binder binder = internal::json_binding::DefaultBinder<>,
+    FromJsonOptions from_json_options = {}) {
+  for (const auto& [j, matcher] : from_json_cases) {
+    SCOPED_TRACE(tensorstore::StrCat("j=", j));
+    EXPECT_THAT(tensorstore::internal::json_binding::FromJson<T>(
+                    j, binder, from_json_options),
+                matcher);
+  }
 }
 
 }  // namespace tensorstore

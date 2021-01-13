@@ -844,78 +844,73 @@ TEST(JsonBindingTest, Constant) {
 }
 
 TEST(JsonBindingTest, Optional) {
-  EXPECT_THAT(jb::ToJson(std::optional<int>(3)),
-              ::testing::Optional(::nlohmann::json(3)));
-  EXPECT_THAT(jb::FromJson<std::optional<int>>(::nlohmann::json(3)),
-              ::testing::Optional(::testing::Optional(3)));
-  EXPECT_THAT(jb::FromJson<std::optional<int>>(
-                  ::nlohmann::json(::nlohmann::json::value_t::discarded)),
-              ::testing::Optional(std::nullopt));
-  EXPECT_THAT(jb::ToJson(std::optional<int>{}),
-              ::testing::Optional(tensorstore::MatchesJson(
-                  ::nlohmann::json(::nlohmann::json::value_t::discarded))));
+  tensorstore::TestJsonBinderRoundTrip<std::optional<int>>({
+      {3, ::nlohmann::json(3)},
+      {std::nullopt, ::nlohmann::json(::nlohmann::json::value_t::discarded)},
+  });
 }
 
 TEST(JsonBindingTest, OptionalExplicitNullopt) {
   const auto binder =
       jb::Optional(jb::DefaultBinder<>, [] { return "nullopt"; });
-  EXPECT_THAT(jb::ToJson(std::optional<int>(3), binder),
-              ::testing::Optional(::nlohmann::json(3)));
-  EXPECT_THAT(jb::FromJson<std::optional<int>>(::nlohmann::json(3), binder),
-              ::testing::Optional(::testing::Optional(3)));
-  EXPECT_THAT(
-      jb::FromJson<std::optional<int>>(::nlohmann::json("nullopt"), binder),
-      ::testing::Optional(std::nullopt));
-  EXPECT_THAT(jb::ToJson(std::optional<int>{}, binder),
-              ::testing::Optional(::nlohmann::json("nullopt")));
+  tensorstore::TestJsonBinderRoundTrip<std::optional<int>>(
+      {
+          {3, 3},
+          {std::nullopt, "nullopt"},
+      },
+      binder);
 }
 
 TEST(JsonBindingTest, DefaultValueDiscarded) {
   const auto binder =
       jb::DefaultValue([](auto* obj) { *obj = 3; },
                        jb::DefaultValue([](auto* obj) { *obj = 3; }));
-  EXPECT_THAT(jb::ToJson(3, binder, tensorstore::IncludeDefaults{false}),
-              ::testing::Optional(tensorstore::MatchesJson(
-                  ::nlohmann::json(::nlohmann::json::value_t::discarded))));
-  EXPECT_THAT(jb::ToJson(3, binder, tensorstore::IncludeDefaults{true}),
-              ::testing::Optional(::nlohmann::json(3)));
-  EXPECT_THAT(jb::ToJson(4, binder, tensorstore::IncludeDefaults{true}),
-              ::testing::Optional(::nlohmann::json(4)));
-  EXPECT_THAT(jb::ToJson(4, binder, tensorstore::IncludeDefaults{false}),
-              ::testing::Optional(::nlohmann::json(4)));
-  EXPECT_THAT(jb::FromJson<int>(::nlohmann::json(4), binder),
-              ::testing::Optional(4));
-  EXPECT_THAT(jb::FromJson<int>(::nlohmann::json(3), binder),
-              ::testing::Optional(3));
-  EXPECT_THAT(
-      jb::FromJson<int>(::nlohmann::json(::nlohmann::json::value_t::discarded),
-                        binder),
-      ::testing::Optional(3));
+  tensorstore::TestJsonBinderRoundTrip<int>(
+      {
+          {3, ::nlohmann::json(::nlohmann::json::value_t::discarded)},
+          {4, 4},
+      },
+      binder, tensorstore::IncludeDefaults{false});
+  tensorstore::TestJsonBinderRoundTrip<int>(
+      {
+          {3, 3},
+          {4, 4},
+      },
+      binder, tensorstore::IncludeDefaults{true});
 }
 
 TEST(JsonBindingTest, Array) {
   const auto binder = jb::Array();
-  EXPECT_THAT(jb::ToJson(std::vector<int>{1, 2, 3}, binder),
-              ::testing::Optional(::nlohmann::json({1, 2, 3})));
-  EXPECT_THAT(jb::FromJson<std::vector<int>>(::nlohmann::json{1, 2, 3}, binder),
-              ::testing::Optional(std::vector<int>{1, 2, 3}));
-  EXPECT_THAT(
-      jb::FromJson<std::vector<int>>(::nlohmann::json{1, 2, "a"}, binder),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing value at position 2: Expected integer .*"));
+  tensorstore::TestJsonBinderRoundTrip<std::vector<int>>(
+      {
+          {{1, 2, 3}, {1, 2, 3}},
+      },
+      binder);
+  tensorstore::TestJsonBinderFromJson<std::vector<int>>(
+      {
+          {{1, 2, "a"},
+           MatchesStatus(
+               absl::StatusCode::kInvalidArgument,
+               "Error parsing value at position 2: Expected integer .*")},
+      },
+      binder);
 }
 
 TEST(JsonBindingTest, FixedSizeArray) {
   const auto binder = jb::FixedSizeArray();
-  EXPECT_THAT(jb::ToJson(std::array<int, 3>{{1, 2, 3}}, binder),
-              ::testing::Optional(::nlohmann::json({1, 2, 3})));
-  EXPECT_THAT(
-      (jb::FromJson<std::array<int, 3>>(::nlohmann::json{1, 2, 3}, binder)),
-      ::testing::Optional(std::array<int, 3>{{1, 2, 3}}));
-  EXPECT_THAT(
-      (jb::FromJson<std::array<int, 3>>(::nlohmann::json{1, 2, 3, 4}, binder)),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Array has length 4 but should have length 3"));
+  tensorstore::TestJsonBinderRoundTrip<std::array<int, 3>>(
+      {
+          {{{1, 2, 3}}, {1, 2, 3}},
+      },
+      binder);
+  tensorstore::TestJsonBinderFromJson<std::array<int, 3>>(
+      {
+
+          {{1, 2, 3, 4},
+           MatchesStatus(absl::StatusCode::kInvalidArgument,
+                         "Array has length 4 but should have length 3")},
+      },
+      binder);
 }
 
 TEST(JsonBindingTest, Enum) {
@@ -924,18 +919,19 @@ TEST(JsonBindingTest, Enum) {
       {TestEnum::a, "a"},
       {TestEnum::b, "b"},
   });
-  EXPECT_THAT(jb::ToJson(TestEnum::a, binder),
-              ::testing::Optional(std::string("a")));
-  EXPECT_THAT(jb::ToJson(TestEnum::b, binder),
-              ::testing::Optional(std::string("b")));
-  EXPECT_THAT(jb::FromJson<TestEnum>(::nlohmann::json("a"), binder),
-              ::testing::Optional(TestEnum::a));
-  EXPECT_THAT(jb::FromJson<TestEnum>(::nlohmann::json("b"), binder),
-              ::testing::Optional(TestEnum::b));
-  EXPECT_THAT(
-      jb::FromJson<TestEnum>(::nlohmann::json("c"), binder),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Expected one of \"a\", \"b\", but received: \"c\""));
+  tensorstore::TestJsonBinderRoundTrip<TestEnum>(
+      {
+          {TestEnum::a, "a"},
+          {TestEnum::b, "b"},
+      },
+      binder);
+  tensorstore::TestJsonBinderFromJson<TestEnum>(
+      {
+          {"c",
+           MatchesStatus(absl::StatusCode::kInvalidArgument,
+                         "Expected one of \"a\", \"b\", but received: \"c\"")},
+      },
+      binder);
 }
 
 // Tests `FixedSizeArray` applied to `tensorstore::span<tensorstore::Index, 3>`.
@@ -944,10 +940,12 @@ TEST(JsonBindingTest, StaticRankBox) {
   const auto binder = jb::Object(
       jb::Member("origin", jb::Projection([](auto& x) { return x.origin(); })),
       jb::Member("shape", jb::Projection([](auto& x) { return x.shape(); })));
-  const auto value = Value({1, 2, 3}, {4, 5, 6});
-  const ::nlohmann::json json{{"origin", {1, 2, 3}}, {"shape", {4, 5, 6}}};
-  EXPECT_THAT(jb::ToJson(value, binder), ::testing::Optional(json));
-  EXPECT_THAT(jb::FromJson<Value>(json, binder), ::testing::Optional(value));
+  tensorstore::TestJsonBinderRoundTrip<Value>(
+      {
+          {Value({1, 2, 3}, {4, 5, 6}),
+           {{"origin", {1, 2, 3}}, {"shape", {4, 5, 6}}}},
+      },
+      binder);
 }
 
 // Tests `FixedSizeArray` applied to `tensorstore::span<tensorstore::Index>`.
@@ -962,11 +960,12 @@ TEST(JsonBindingTest, DynamicRankBox) {
                              jb::Integer(0))),
       jb::Member("origin", jb::Projection([](auto& x) { return x.origin(); })),
       jb::Member("shape", jb::Projection([](auto& x) { return x.shape(); })));
-  const auto value = Value({1, 2, 3}, {4, 5, 6});
-  const ::nlohmann::json json{
-      {"rank", 3}, {"origin", {1, 2, 3}}, {"shape", {4, 5, 6}}};
-  EXPECT_THAT(jb::ToJson(value, binder), ::testing::Optional(json));
-  EXPECT_THAT(jb::FromJson<Value>(json, binder), ::testing::Optional(value));
+  tensorstore::TestJsonBinderRoundTrip<Value>(
+      {
+          {Value({1, 2, 3}, {4, 5, 6}),
+           {{"rank", 3}, {"origin", {1, 2, 3}}, {"shape", {4, 5, 6}}}},
+      },
+      binder);
 }
 
 TEST(JsonSame, Basic) {

@@ -55,6 +55,9 @@ An *index domain* is a rectangular region of an index space.
    +(2^{62}-2)]` by any non-zero offset results in an out-of-bounds
    error.
 
+.. json-schema:: index_domain_schema.yml
+   :title: JSON Schema
+
 .. _index-transform:
 
 Index transform
@@ -114,6 +117,9 @@ result in index array with a larger representation size.
 
 .. json-schema:: index_transform_schema.yml
    :title: JSON Schema
+
+.. json-schema:: index_transform_schema.yml#/definitions/index-interval
+   :title: Index interval JSON Schema
 
 .. _index-domain-alignment:
 

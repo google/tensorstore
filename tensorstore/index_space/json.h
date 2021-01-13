@@ -69,21 +69,68 @@
 ///             equal the extent of the corresponding input dimension, or equal
 ///             `1` for broadcasting.
 ///
+///         `index_array_bounds`: Optional.  If present, must be an array of two
+///             numbers specifying inclusive bounds on values in `index_array`.
+///             Infinite bounds are indicated by `"-inf"` and `"+inf"`.  Only
+///             valid to specify if `index_array` is also specified.  If the
+///             indices in `index_array` have already been validated, this need
+///             not be specified.  This allows transforms containing
+///             out-of-bounds index array indices to correctly round trip
+///             through JSON, but normally need not be specified manually.
+///
 ///       Specifying neither `input_dimension` nor `index_array` indicates a
 ///       constant map.
 ///
-/// Example encoding:
+/// Example index transform encoding:
 ///
 ///     {
 ///         "input_inclusive_min": ["-inf", 7, ["-inf"], [8]],
 ///         "input_exclusive_max": ["+inf", 10, ["+inf"], [17]],
-///         "input_labels": ["x", "y", "z", "t"],
+///         "input_labels": ["x", "y", "z", ""],
 ///         "output": [
 ///             {"offset": 3},
 ///             {"stride": 2, "input_dimension": 2},
-///             {"offset": 7, "index_array": [[ [[1]], [[2]], [[3]], [[4]] ]]}
+///             {
+///                 "offset": 7,
+///                 "index_array": [[ [[1]], [[2]], [[3]], [[4]] ]],
+///                 "index_array_bounds": [1, 4]
+///             }
 ///         ]
 ///     }
+///
+/// An index domain `t` is encoded as a JSON object with the following members:
+///
+///   `rank`: Optional.  If present, must be a a non-negative integer specifying
+///       `t.rank()`.  If not present, the rank is inferred from the other
+///       members.
+///
+///   `inclusive_min`: Optional.  A list of length `t.rank()` specifying the
+///       inclusive lower bounds of the domain.  Explicit finite bounds are
+///       encoded as integers, e.g. `17`, while explicit infinite bounds are
+///       encoded as the string constants `"-inf"` or `"+inf"`.  An implicit
+///       bound is encoded as a 1-element list containing the explicit encoding
+///       of the bound, e.g. `[17]`, or `["-inf"]`.  If not present, all
+///       dimensions are assumed to have an implicit lower bound of `-inf` (if
+///       `shape` is not specified) or an explicit lower bound of `0` (if
+///       `shape` is specified).
+///
+///   `shape`/`exclusive_max`/`inclusive_max`: Required (must specify exactly
+///        one of these properties).  A list of length `t.rank()` specifying the
+///        upper bounds of the domain.  The encoding is the same as for the
+///        `inclusive_min` member.
+///
+///   `labels`: Optional.  A list of length `t.rank()` specifying the dimension
+///       labels as strings.  If the `labels` member is not specified, the
+///       dimension labels are all set to the empty string.
+///
+/// Example index domain encoding:
+///
+///     {
+///         "inclusive_min": ["-inf", 7, ["-inf"], [8]],
+///         "exclusive_max": ["+inf", 10, ["+inf"], [17]],
+///         "labels": ["x", "y", "z", ""]
+///     }
+///
 
 #include <type_traits>
 
@@ -99,13 +146,14 @@ namespace tensorstore {
 
 namespace internal_index_space {
 
-/// Converts an IndexTransform to JSON.
-::nlohmann::json EncodeIndexTransformAsJson(TransformRep* transform);
-
 /// Parses an IndexTransform from JSON.
-Result<TransformRep::Ptr<>> ParseIndexTransformAsJson(
+Result<TransformRep::Ptr<>> ParseIndexTransformFromJson(
     const ::nlohmann::json& j, DimensionIndex input_rank_constraint,
     DimensionIndex output_rank_constraint);
+
+/// Parses an IndexDomain from JSON.
+Result<TransformRep::Ptr<>> ParseIndexDomainFromJson(
+    const ::nlohmann::json& j, DimensionIndex rank_constraint);
 
 /// Options for converting `IndexTransformSpec` to JSON.
 ///
@@ -132,9 +180,9 @@ struct IndexTransformSpecFromJsonOptions : public RankConstraint {
 
 /// Encodes an index transform as JSON.
 ///
-/// The input domain is specified using the `inclusive_min` and `exclusive_max`
-/// members, and the `outputs` member is omitted if `t` is an identity
-/// transform.
+/// The input domain is specified using the `input_inclusive_min` and
+/// `input_exclusive_max` members, and the `outputs` member is omitted if `t` is
+/// an identity transform.
 ///
 /// If `!t.valid()`, sets `j` to discarded.
 ///
@@ -142,6 +190,18 @@ struct IndexTransformSpecFromJsonOptions : public RankConstraint {
 /// \param t Index transform.
 void to_json(::nlohmann::json& j,  // NOLINT
              IndexTransformView<> t);
+
+/// Encodes an index domain as JSON.
+///
+/// The domain is specified using the `inclusive_min` and `exclusive_max`
+/// members.
+///
+/// If `!t.valid()`, sets `j` to discarded.
+///
+/// \param j[out] Set to the JSON representation.
+/// \param t Index transform.
+void to_json(::nlohmann::json& j,  // NOLINT
+             IndexDomainView<> t);
 
 /// Decodes an index transform from JSON.
 ///
@@ -159,12 +219,54 @@ Result<IndexTransform<InputRank, OutputRank>> ParseIndexTransform(
     StaticOrDynamicRank<InputRank> input_rank = GetDefaultRank<InputRank>(),
     StaticOrDynamicRank<OutputRank> output_rank =
         GetDefaultRank<OutputRank>()) {
-  TENSORSTORE_ASSIGN_OR_RETURN(auto transform,
-                               internal_index_space::ParseIndexTransformAsJson(
-                                   j, input_rank, output_rank));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto transform, internal_index_space::ParseIndexTransformFromJson(
+                          j, input_rank, output_rank));
   return internal_index_space::TransformAccess::Make<
       IndexTransform<InputRank, OutputRank>>(std::move(transform));
 }
+
+/// Decodes an index domain from JSON.
+///
+/// If `j` is `discarded`, returns an invalid index domain.
+///
+/// \param j The JSON representation.
+/// \param rank Optional.  Constrains the rank.
+/// \error `absl::StatusCode::kInvalidArgument` if `j` is not a valid index
+///     domain encoding.
+template <DimensionIndex Rank = dynamic_rank>
+Result<IndexDomain<Rank>> ParseIndexDomain(
+    const ::nlohmann::json& j,
+    StaticOrDynamicRank<Rank> rank = GetDefaultRank<Rank>()) {
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto transform, internal_index_space::ParseIndexDomainFromJson(j, rank));
+  return IndexDomain<Rank>(
+      internal_index_space::TransformAccess::Make<IndexTransform<Rank>>(
+          std::move(transform)));
+}
+
+/// Encodes an index as JSON.
+///
+/// The special values -/+kInfIndex are encoded as `"-inf"` and `"+inf"`.
+::nlohmann::json IndexToJson(Index index);
+
+/// Parses an index from JSON.
+Result<Index> ParseIndex(const ::nlohmann::json& j);
+
+/// Encodes an interval interval as JSON.
+///
+/// The interval is encoded as a two-element array, `[a, b]`, where `a` is
+/// `interval.inclusive_min()` and `b` is `interval.inclusive_max()`.  Infinite
+/// lower and upper bounds are indicated by `"-inf"` and `"+inf"`, respectively.
+void to_json(::nlohmann::json& j,  // NOLINT
+             IndexInterval interval);
+
+/// Parses an index interval from JSON.
+///
+/// \param j The JSON representation.
+/// \error `absl::StatusCode::kInvalidArgument` if `j` is not a valid index
+///     interval encoding.
+Result<IndexInterval> ParseIndexInterval(const ::nlohmann::json& j);
 
 /// JSON object binder for `IndexTransformSpec` (for use with
 /// `tensorstore::internal::json_binding::Object`).
@@ -216,10 +318,65 @@ inline constexpr auto IndexTransformBinder = [](auto is_loading,
 };
 }  // namespace index_transform_binder
 
+// Defined in separate namespace to work around clang-cl bug
+// https://bugs.llvm.org/show_bug.cgi?id=45213
+namespace index_domain_binder {
+inline constexpr auto IndexDomainBinder =
+    [](auto is_loading, const auto& options, auto* obj, auto* j) {
+      if constexpr (is_loading) {
+        using T = std::decay_t<decltype(*obj)>;
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            *obj, (tensorstore::ParseIndexDomain<T::static_rank>(*j)));
+      } else {
+        tensorstore::to_json(*j, *obj);
+      }
+      return absl::OkStatus();
+    };
+}  // namespace index_domain_binder
+
+// Defined in separate namespace to work around clang-cl bug
+// https://bugs.llvm.org/show_bug.cgi?id=45213
+namespace index_interval_binder {
+inline constexpr auto IndexIntervalBinder =
+    [](auto is_loading, const auto& options, auto* obj, auto* j) {
+      if constexpr (is_loading) {
+        TENSORSTORE_ASSIGN_OR_RETURN(*obj, tensorstore::ParseIndexInterval(*j));
+      } else {
+        tensorstore::to_json(*j, *obj);
+      }
+      return absl::OkStatus();
+    };
+}  // namespace index_interval_binder
+
+// Defined in separate namespace to work around clang-cl bug
+// https://bugs.llvm.org/show_bug.cgi?id=45213
+namespace index_binder {
+inline constexpr auto IndexBinder = [](auto is_loading, const auto& options,
+                                       auto* obj, auto* j) {
+  if constexpr (is_loading) {
+    TENSORSTORE_ASSIGN_OR_RETURN(*obj, tensorstore::ParseIndex(*j));
+  } else {
+    *j = tensorstore::IndexToJson(*obj);
+  }
+  return absl::OkStatus();
+};
+}  // namespace index_binder
+
+using index_binder::IndexBinder;
+
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
-constexpr auto DefaultBinder<IndexTransform<InputRank, OutputRank, CKind>> =
-    index_transform_binder::IndexTransformBinder;
+constexpr inline auto
+    DefaultBinder<IndexTransform<InputRank, OutputRank, CKind>> =
+        index_transform_binder::IndexTransformBinder;
+
+template <DimensionIndex Rank, ContainerKind CKind>
+constexpr inline auto DefaultBinder<IndexDomain<Rank, CKind>> =
+    index_domain_binder::IndexDomainBinder;
+
+template <>
+constexpr inline auto DefaultBinder<IndexInterval> =
+    index_interval_binder::IndexIntervalBinder;
 
 }  // namespace json_binding
 }  // namespace internal
