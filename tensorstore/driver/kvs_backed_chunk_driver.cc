@@ -29,7 +29,7 @@
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/quote_string.h"
 
-#if 0
+#ifdef TENSORSTORE_KVS_DRIVER_DEBUG
 #define TENSORSTORE_KVS_DRIVER_DEBUG_LOG(...) TENSORSTORE_LOG(__VA_ARGS__)
 #else
 #define TENSORSTORE_KVS_DRIVER_DEBUG_LOG(...) \

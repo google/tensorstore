@@ -1,4 +1,5 @@
 load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -133,6 +134,21 @@ tensorstore_cc_library(
     ],
 )
 
+bool_flag(
+    name = "kvs_backed_chunk_driver_debug",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "kvs_backed_chunk_driver_debug_setting",
+    flag_values = {
+        ":kvs_backed_chunk_driver_debug": "True",
+    },
+    visibility = ["//visibility:private"],
+)
+
+# To enable debug logging, specify:
+# bazel build --//tensorstore/driver:kvs_backed_chunk_driver_debug
 tensorstore_cc_library(
     name = "kvs_backed_chunk_driver",
     srcs = [
@@ -142,6 +158,10 @@ tensorstore_cc_library(
         "kvs_backed_chunk_driver.h",
         "kvs_backed_chunk_driver_impl.h",
     ],
+    local_defines = select({
+        ":kvs_backed_chunk_driver_debug_setting": ["TENSORSTORE_KVS_DRIVER_DEBUG"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":driver",
         "//tensorstore",
