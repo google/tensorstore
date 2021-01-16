@@ -19,6 +19,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/context_impl.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_gtest.h"
@@ -475,6 +476,46 @@ TEST(ContextSpecBuilderTest, InlineShared) {
             new_spec.ToJson());
   EXPECT_EQ("int_resource#0", new_resource_spec1.ToJson());
   EXPECT_EQ("int_resource#0", new_resource_spec2.ToJson());
+}
+
+TEST(ContextTest, WeakCreator) {
+  using tensorstore::internal_context::Access;
+  using tensorstore::internal_context::GetCreator;
+
+  const ::nlohmann::json json_spec1{
+      {"int_resource", {{"value", 7}}},
+      {"int_resource#a", {{"value", 9}}},
+      {"int_resource#d", {{"value", 42}}},
+      {"int_resource#c", nullptr},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec1,
+                                   Context::Spec::FromJson(json_spec1));
+  ::nlohmann::json json_spec2{
+      {"int_resource", {{"value", 8}}},
+      {"int_resource#b", nullptr},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec2,
+                                   Context::Spec::FromJson(json_spec2));
+  auto context1 = Context(spec1);
+  auto context2 = Context(spec2, context1);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource1,
+                                   context1.GetResource<IntResource>());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource2,
+                                   context2.GetResource<IntResource>());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto resource2_a, context2.GetResource<IntResource>("int_resource#a"));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto resource2_b, context2.GetResource<IntResource>("int_resource#b"));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto resource2_c, context2.GetResource<IntResource>("int_resource#c"));
+  EXPECT_EQ(Access::impl(context1), GetCreator(*Access::impl(resource1)));
+  EXPECT_EQ(Access::impl(context1), GetCreator(*Access::impl(resource2_a)));
+  EXPECT_EQ(Access::impl(context1), GetCreator(*Access::impl(resource2_b)));
+  EXPECT_EQ(Access::impl(context1), GetCreator(*Access::impl(resource2_c)));
+  EXPECT_EQ(Access::impl(context2), GetCreator(*Access::impl(resource2)));
+  context2 = Context();
+  EXPECT_EQ(Access::impl(context1), GetCreator(*Access::impl(resource1)));
+  EXPECT_FALSE(GetCreator(*Access::impl(resource2)));
 }
 
 }  // namespace

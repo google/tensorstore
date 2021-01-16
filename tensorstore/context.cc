@@ -17,6 +17,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_join.h"
+#include "absl/synchronization/mutex.h"
 #include "tensorstore/context_impl.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/json.h"
@@ -31,6 +32,16 @@ namespace internal_context {
 ContextResourceProviderImplBase::~ContextResourceProviderImplBase() = default;
 ContextResourceImplBase::~ContextResourceImplBase() = default;
 ContextResourceSpecImplBase::~ContextResourceSpecImplBase() = default;
+
+ContextImplPtr GetCreator(ContextResourceImplBase& resource) {
+  absl::MutexLock lock(&resource.mutex_);
+  auto* creator_ptr = resource.weak_creator_;
+  if (!creator_ptr ||
+      !internal::IncrementReferenceCountIfNonZero(*creator_ptr)) {
+    return {};
+  }
+  return ContextImplPtr(creator_ptr, internal::adopt_object_ref);
+}
 
 void ContextResourceImplWeakPtrTraits::increment(ContextResourceImplBase* p) {
   intrusive_ptr_increment(p);
@@ -68,6 +79,23 @@ void intrusive_ptr_increment(ContextImpl* p) {
 void intrusive_ptr_decrement(ContextImpl* p) {
   intrusive_ptr_decrement(
       static_cast<internal::AtomicReferenceCount<ContextImpl>*>(p));
+}
+
+ContextImpl::ContextImpl() = default;
+ContextImpl::~ContextImpl() {
+  // Invalidate weak references to `this`.
+  for (const auto& resource_container : resources_) {
+    auto& result = resource_container->result_;
+    if (!result.ok()) continue;
+    auto& resource = **result;
+    absl::MutexLock lock(&resource.mutex_);
+    // Only reset the `weak_creator_` if it points to `this`.  `resources_` can
+    // contain resources that are actually references to resources in a parent
+    // context, in which case we must not change `weak_creator_`.
+    if (resource.weak_creator_ == this) {
+      resource.weak_creator_ = nullptr;
+    }
+  }
 }
 
 namespace {
@@ -177,6 +205,24 @@ Result<ContextResourceImplStrongPtr> CreateResource(
   {
     internal::ScopedWriterUnlock unlock(context->root_->mutex_);
     container_ptr->result_ = spec->CreateResource({context, container_ptr});
+    if (container_ptr->result_.ok()) {
+      auto& resource = **container_ptr->result_;
+      // Set `weak_creator_` if `resource` was created directly from `spec` by
+      // `context`.  The alternative is that `spec` is a
+      // `ContextResourceReference` and `resource` was created by a parent
+      // context, in which case `weak_creator_` must not be modified.
+      if (resource.spec_.get() == spec) {
+        // Resource was created directly from `spec`, which means it was defined
+        // directly by `context->spec_`.  At this point, no other thread has
+        // access to `resource`, because `trigger->creation_blocked_on_` has not
+        // yet been cleared.  Therefore, it is safe to access
+        // `resource.weak_creator_` without locking `resource.mutex_`.  However,
+        // for consistency we acquire it anyway.
+        absl::MutexLock lock(&resource.mutex_);
+        assert(resource.weak_creator_ == nullptr);
+        resource.weak_creator_ = context;
+      }
+    }
   }
   if (trigger) {
     trigger->creation_blocked_on_ = nullptr;
@@ -262,10 +308,7 @@ class ContextResourceReference : public ContextResourceSpecImplBase {
         referent = provider_->id_;
       } else {
         // Create new default value.
-        auto default_spec = provider_->Default();
-        default_spec->provider_ = provider_;
-        default_spec->key_ = key_;
-        default_spec->is_default_ = true;
+        auto default_spec = MakeDefaultResourceSpec(*provider_, key_);
         return internal_context::CreateResource(c, default_spec.get(),
                                                 creation_context.trigger_);
       }
@@ -289,10 +332,7 @@ class ContextResourceReference : public ContextResourceSpecImplBase {
               StrCat("Resource not defined: ", QuoteString(referent)));
         }
         // Create default.
-        auto default_spec = provider_->Default();
-        default_spec->provider_ = provider_;
-        default_spec->key_ = std::string(provider_->id_);
-        default_spec->is_default_ = true;
+        auto default_spec = MakeDefaultResourceSpec(*provider_, provider_->id_);
         return internal_context::CreateResource(c, default_spec.get(),
                                                 creation_context.trigger_);
       }
@@ -323,6 +363,25 @@ const ContextResourceProviderImplBase* GetProvider(std::string_view id) {
   auto it = registry.providers_.find(id);
   if (it == registry.providers_.end()) return nullptr;
   return it->get();
+}
+
+const ContextResourceProviderImplBase& GetProviderOrDie(std::string_view id) {
+  auto* provider = GetProvider(id);
+  if (!provider) {
+    // Indicates a build configuration problem.
+    TENSORSTORE_LOG_FATAL("Context resource provider ", QuoteString(id),
+                          " not registered");
+  }
+  return *provider;
+}
+
+ContextResourceSpecImplPtr MakeDefaultResourceSpec(
+    const ContextResourceProviderImplBase& provider, std::string_view key) {
+  auto default_spec = provider.Default();
+  default_spec->provider_ = &provider;
+  default_spec->key_ = key;
+  default_spec->is_default_ = true;
+  return default_spec;
 }
 
 // Returns the provider id.
@@ -401,16 +460,11 @@ Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJsonWithKey(
 Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJson(
     absl::string_view provider_id, const ::nlohmann::json& j,
     Context::FromJsonOptions options) {
-  auto* provider = GetProvider(provider_id);
-  if (!provider) {
-    // Indicates a build configuration problem.
-    TENSORSTORE_LOG_FATAL("Context resource provider ",
-                          QuoteString(provider_id), " not registered");
-  }
+  auto& provider = GetProviderOrDie(provider_id);
   if (j.is_null()) {
     return internal_json::ExpectedError(j, "string or object");
   }
-  return ContextResourceSpecFromJson(*provider, j, options);
+  return ContextResourceSpecFromJson(provider, j, options);
 }
 
 ContextResourceSpecImplPtr DefaultContextResourceSpec(

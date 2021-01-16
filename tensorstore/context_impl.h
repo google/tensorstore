@@ -22,6 +22,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/synchronization/mutex.h"
 #include "tensorstore/context.h"
 
 namespace tensorstore {
@@ -74,14 +75,9 @@ class ContextResourceContainer {
 /// objects.
 class ContextImpl : public internal::AtomicReferenceCount<ContextImpl> {
  public:
-  // To create for a given resource spec:
-  //
-  //    if resource spec is not a reference, create but don't store result in
-  //    the context
-  //
-  //    if resource spec is a reference, traverse upwards until we
-  //       (a) find existing resource   or (b) find spec.
-  //       If we don't find spec,  create in root.
+  ContextImpl();
+  ~ContextImpl();
+
   ContextSpecImplPtr spec_;
   ContextImplPtr parent_;
   ContextImpl* root_;
@@ -152,6 +148,19 @@ class BuilderImpl : public internal::AtomicReferenceCount<BuilderImpl> {
 /// `id` has not been registered.
 const ContextResourceProviderImplBase* GetProvider(std::string_view id);
 
+/// Same as above, but a fatal error if the provider is not registered.
+const ContextResourceProviderImplBase& GetProviderOrDie(std::string_view id);
+
+/// Returns a new copy of the default spec for the given provider with the
+/// specified key.
+///
+/// Note that this returns a new `ContextResourceSpecImpl` of the type defined
+/// by the `provider`.  In contrast, `DefaultContextResourceSpec` merely returns
+/// a `ContextResourceReference` referring to the value defined under the
+/// default key in a parent context.
+ContextResourceSpecImplPtr MakeDefaultResourceSpec(
+    const ContextResourceProviderImplBase& provider, std::string_view key);
+
 /// Given a `key` of the form `<provider-id>#tag`, returns the `<provider-id>`
 /// portion.
 std::string_view ParseResourceProvider(std::string_view key);
@@ -170,6 +179,10 @@ Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJson(
 Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJsonWithKey(
     absl::string_view key, const ::nlohmann::json& j,
     Context::FromJsonOptions options);
+
+/// Returns the `ContextImpl` that created `resource`, or `nullptr` if that
+/// context has been destroyed.
+ContextImplPtr GetCreator(ContextResourceImplBase& resource);
 
 }  // namespace internal_context
 }  // namespace tensorstore

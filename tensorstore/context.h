@@ -159,6 +159,7 @@ class Context {
    private:
     friend class Context;
     friend class internal::ContextSpecBuilder;
+    friend class internal_context::Access;
     internal_context::ContextResourceSpecImplPtr impl_;
   };
 
@@ -205,6 +206,7 @@ class Context {
    private:
     friend class Context;
     friend class internal::ContextSpecBuilder;
+    friend class internal_context::Access;
     internal_context::ContextResourceImplWeakPtr impl_;
   };
 

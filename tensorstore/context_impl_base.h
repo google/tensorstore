@@ -23,6 +23,7 @@
 #include <string>
 #include <type_traits>
 
+#include "absl/synchronization/mutex.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/intrusive_ptr.h"
@@ -146,8 +147,8 @@ class ContextResourceSpecImplBase
 
   /// Specifies the key associated with this resource spec.  Must be empty if,
   /// and only if, the resource spec is specified inline outside a context spec.
-  /// If `key_` is not empty, no `Context::Spec` objects may point to this
-  /// resource spec.
+  /// If `key_` is empty, no `Context::Spec` objects may point to this resource
+  /// spec.
   std::string key_;
 
   /// Provider associated with this spec.
@@ -164,6 +165,15 @@ class ContextResourceImplBase
       : spec_(std::move(spec)) {}
   virtual ~ContextResourceImplBase();
   ContextResourceSpecImplPtr spec_;
+  // Protects access to `weak_creator_`.
+  absl::Mutex mutex_;
+  // Weak pointer to `ContextImpl` that created this resource.  Note that this
+  // is a weak pointer, and if the `ContextImpl` is destroyed before this
+  // resource is destroyed, `weak_context_` will be set to `nullptr`.  This is
+  // used by tensorstore.distributed when serializing context objects to ensure
+  // resource identity is consistent when a Context object is "shared" between
+  // the controller and a worker.
+  ContextImpl* weak_creator_ = nullptr;
 };
 
 /// For each resource provider type, `ContextResourceImpl<Provider>` is the
