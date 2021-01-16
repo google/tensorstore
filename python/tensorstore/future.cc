@@ -101,7 +101,15 @@ class ScopedEvent {
     }
   }
   void Set() {
-    set.store(true);
+    {
+      [[maybe_unused]] int err = ::pthread_mutex_lock(&mutex);
+      assert(err == 0);
+    }
+    set = true;
+    {
+      [[maybe_unused]] int err = ::pthread_mutex_unlock(&mutex);
+      assert(err == 0);
+    }
     ::pthread_cond_signal(&cond);
   }
   bool Wait() {
@@ -109,14 +117,18 @@ class ScopedEvent {
       [[maybe_unused]] int err = ::pthread_mutex_lock(&mutex);
       assert(err == 0);
     }
-    ::pthread_cond_wait(&cond, &mutex);
+    bool set_value = set;
+    if (!set_value) {
+      ::pthread_cond_wait(&cond, &mutex);
+      set_value = set;
+    }
     {
       [[maybe_unused]] int err = ::pthread_mutex_unlock(&mutex);
       assert(err == 0);
     }
-    return set.load();
+    return set_value;
   }
-  std::atomic<bool> set{false};
+  bool set{false};
   ::pthread_mutex_t mutex;
   ::pthread_cond_t cond;
 };
@@ -227,6 +239,7 @@ void RegisterFutureBindings(pybind11::module m) {
   cls_future.def("result", &PythonFutureBase::result);
   cls_future.def("exception", &PythonFutureBase::exception);
   cls_future.def("done", &PythonFutureBase::done);
+  cls_future.def("force", &PythonFutureBase::force);
   cls_future.def("cancelled", &PythonFutureBase::cancelled);
   cls_future.def("cancel", &PythonFutureBase::cancel);
 

@@ -117,6 +117,9 @@ class PythonFutureBase : public std::enable_shared_from_this<PythonFutureBase> {
   /// an error) or already cancelled.
   virtual bool done() const = 0;
 
+  /// Calls `Force` on the underlying `Future`.
+  virtual void force() = 0;
+
   /// Waits for the Future to be done (interruptible by `KeyboardInterrupt`).
   /// If it has finished with a value, returns `None`.  Otherwise, returns the
   /// Python exception object representing the error.
@@ -165,15 +168,30 @@ class PythonFuture : public PythonFutureBase {
 
   bool done() const override { return !future_.valid() || future_.ready(); }
 
+  void force() override {
+    if (!done()) {
+      // Use copy of `future_`, since `future_` may be modified by another
+      // thread calling `PythonFuture::cancel` once GIL is released.
+      auto future_copy = future_;
+      pybind11::gil_scoped_release gil_release;
+      future_copy.Force();
+    }
+  }
+
   bool cancelled() const override { return !future_.valid(); }
 
-  const Result<T>& WaitForResult() {
-    return internal_python::InterruptibleWait(future_);
+  Future<const T> WaitForResult() {
+    // Copy `future_`, since `future_` may be modified by another threading
+    // calling `PythonFuture::cancel` once GIL is released.
+    auto future_copy = future_;
+    internal_python::InterruptibleWait(future_copy);
+    return future_copy;
   }
 
   pybind11::object exception() override {
     if (!future_.valid()) return GetCancelledError();
-    auto& result = WaitForResult();
+    auto future = WaitForResult();
+    auto& result = future.result();
     if (result.has_value()) {
       if constexpr (std::is_same_v<T, PythonValueOrException>) {
         if (!result->value.ptr()) {
@@ -187,8 +205,8 @@ class PythonFuture : public PythonFutureBase {
 
   pybind11::object result() override {
     if (!future_.valid()) ThrowCancelledError();
-    auto& result = WaitForResult();
-    return pybind11::cast(result);
+    auto future = WaitForResult();
+    return pybind11::cast(future.result());
   }
 
   bool cancel() override {
@@ -226,14 +244,13 @@ class PythonFuture : public PythonFutureBase {
     if (callbacks_.size() == 1) {
       registration_.Unregister();
       auto self = std::static_pointer_cast<PythonFuture<T>>(shared_from_this());
-      {
-        pybind11::gil_scoped_release gil_release;
-        future_.Force();
-      }
       registration_ = future_.ExecuteWhenReady([self](Future<const T> future) {
         pybind11::gil_scoped_acquire gil_acquire;
         self->RunCallbacks();
       });
+      // Set up `ExecuteWhenReady` registration before calling `force`, since
+      // `force` releases the GIL.
+      force();
     }
   }
 

@@ -139,7 +139,7 @@ async def test_local_n5():
 
 
 async def test_memory_n5_cache_open():
-  dataset = ts.open({
+  ts.open({
       "context": {
           "cache_pool": {
               "total_bytes_limit": 1000000
@@ -193,34 +193,24 @@ async def test_pickle():
         "create": True,
         "open": True,
     }
-    print('opening t1', flush=True)
     t1 = await ts.open(spec, context=context)
-    print('opening t2', flush=True)
     t2 = await ts.open(spec, context=context)
 
-    print('pickling', flush=True)
     pickled = pickle.dumps([t1, t2])
-    print('unpickling', flush=True)
     unpickled = pickle.loads(pickled)
     new_t1, new_t2 = unpickled
 
-    print('reading new_t1', flush=True)
     assert new_t1[0, 0].read().result() == 0
-    print('reading new_t2', flush=True)
     assert new_t2[0, 0].read().result() == 0
-    print('writing to new_t1', flush=True)
     new_t1[0, 0] = 42
 
     # Delete data
-    print('deleting data', flush=True)
     await ts.open(spec, create=True, delete_existing=True)
 
     # new_t1 still sees old data in cache
-    print('reading new_t1', flush=True)
     assert new_t1[0, 0].read().result() == 42
 
     # new_t2 shares cache with new_t1
-    print('reading new_t2', flush=True)
     assert new_t2[0, 0].read().result() == 42
 
 
