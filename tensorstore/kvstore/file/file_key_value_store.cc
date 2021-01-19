@@ -81,28 +81,41 @@
 ///    `rename` operations are durable).  This step is skipped on MS Windows,
 ///    where `fsync` is not supported for directories.
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <atomic>
 #include <cassert>
 #include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
-#include "absl/base/macros.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/match.h"
+#include "absl/strings/string_view.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include "absl/utility/utility.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
+#include "tensorstore/internal/cache_key.h"
+#include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/file_io_concurrency_resource.h"
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/internal/os_error_code.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/internal/poly.h"
+#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/file/unique_handle.h"
+#include "tensorstore/kvstore/file/util.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/util/execution.h"
@@ -111,6 +124,7 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/sender.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -149,47 +163,19 @@ using internal::StatusFromOsError;
 using internal_file_util::FileDescriptor;
 using internal_file_util::FileInfo;
 using internal_file_util::GetFileInfo;
+using internal_file_util::IsKeyValid;
 using internal_file_util::kLockSuffix;
+using internal_file_util::LongestDirectoryPrefix;
 using internal_file_util::UniqueFileDescriptor;
 
 namespace jb = tensorstore::internal::json_binding;
 
-/// A key is valid if its consists of one or more '/'-separated non-empty valid
-/// path components, where each valid path component does not contain '\0', and
-/// is not equal to "." or "..".
-bool IsKeyValid(absl::string_view key) {
-  if (key.find('\0') != absl::string_view::npos) return false;
-  if (key.empty()) return false;
-  while (true) {
-    std::size_t next_delimiter = key.find('/');
-    absl::string_view component = next_delimiter == absl::string_view::npos
-                                      ? key
-                                      : key.substr(0, next_delimiter);
-    if (component.empty()) return false;
-    if (component == ".") return false;
-    if (component == "..") return false;
-    if (component.size() > kLockSuffix.size() &&
-        absl::EndsWith(component, kLockSuffix)) {
-      return false;
-    }
-    if (next_delimiter == absl::string_view::npos) return true;
-    key.remove_prefix(next_delimiter + 1);
-  }
-}
-
 Status ValidateKey(absl::string_view key) {
-  if (!IsKeyValid(key)) {
+  if (!IsKeyValid(key, kLockSuffix)) {
     return absl::InvalidArgumentError(
         absl::StrCat("Invalid key: ", tensorstore::QuoteString(key)));
   }
   return absl::OkStatus();
-}
-
-absl::string_view LongestDirectoryPrefix(const KeyRange& range) {
-  absl::string_view prefix = tensorstore::LongestPrefix(range);
-  const size_t i = prefix.rfind('/');
-  if (i == absl::string_view::npos) return {};
-  return prefix.substr(0, i);
 }
 
 absl::Status ValidateKeyRange(const KeyRange& range) {
