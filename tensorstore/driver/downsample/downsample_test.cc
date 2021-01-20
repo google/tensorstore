@@ -58,6 +58,17 @@ TEST(DownsampleTest, Rank1Mean) {
               Optional(MakeArray<float>({1.5, 6})));
 }
 
+TEST(DownsampleTest, Rank1Median) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::FromArray(Context::Default(),
+                                         MakeArray<float>({1, 2, 5, 7})));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto downsampled_store,
+      tensorstore::Downsample(store, {2}, DownsampleMethod::kMin));
+  EXPECT_THAT(tensorstore::Read(downsampled_store).result(),
+              Optional(MakeArray<float>({1, 5})));
+}
+
 TEST(DownsampleTest, Rank1Empty) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,

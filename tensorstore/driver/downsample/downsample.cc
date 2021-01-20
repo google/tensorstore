@@ -688,7 +688,6 @@ void DownsampleDriver::Read(
                        std::move(receiver));
     return;
   }
-  assert(downsample_method_ == DownsampleMethod::kMean);
   auto base_resolve_future = base_driver_->ResolveBounds(
       transaction, base_transform_, {fix_resizable_bounds});
   ReadState::Ptr state(new ReadState);
