@@ -114,6 +114,36 @@ TEST(ResultTest, ConstructStatusMove) {
   EXPECT_EQ(message.data(), result.status().message().data());
 }
 
+TEST(ResultTest, ConstructVoidStatus) {
+  tensorstore::Status status(absl::StatusCode::kUnknown, "Message");
+  Result<void> result(status);
+  EXPECT_FALSE(result);
+  EXPECT_FALSE(result.ok());
+
+  EXPECT_EQ(status, result.status());
+}
+
+TEST(ResultTest, ConstructVoidStatusMove) {
+  tensorstore::Status status(absl::StatusCode::kUnknown, "Message");
+  auto message = status.message();  // string_view
+  Result<void> result(std::move(status));
+  EXPECT_EQ(message.data(), result.status().message().data());
+}
+
+TEST(ResultTest, ConstructVoidOkStatus) {
+  absl::Status status = absl::OkStatus();
+  Result<void> result(status);
+  EXPECT_TRUE(result);
+  EXPECT_TRUE(result.ok());
+}
+
+TEST(ResultTest, ConstructVoidOkStatusMove) {
+  absl::Status status = absl::OkStatus();
+  Result<void> result(std::move(status));
+  EXPECT_TRUE(result);
+  EXPECT_TRUE(result.ok());
+}
+
 TEST(ResultTest, ConstructValueMove) {
   std::unique_ptr<int> value(new int(3));
   Result<std::unique_ptr<int>> result(std::move(value));

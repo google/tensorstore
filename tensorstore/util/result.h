@@ -115,7 +115,9 @@ using std::in_place_t;
 /// Use `Result<T>{in_place, ...}` or `Result<T>{Status(...)}`
 /// to construct a Result with the desired state.
 ///
-/// Initialization with a non-error Status is not allowed.
+/// Initialization with a non-error Status is only allowed for Result<void>,
+/// otherwise non-error Status initilization is nonsensical because it
+/// does not provide a value.
 ///
 /// There are quite a few similar classes extant:
 ///
@@ -168,14 +170,31 @@ class Result : private internal_result::ResultStorage<T>,
   Result(const Result& src) = default;
   Result(Result&& src) = default;
 
-  /// \brief Construct a Result<T> with an error status.
-  /// \requires `!status`
-  Result(const Status& status) : storage(internal_result::status_t(), status) {
-    TENSORSTORE_CHECK(!status.ok());
+  /// \brief Construct a Result<T> with a Status.
+  /// \requires `!status` unless T is void.
+  Result(const Status& status) : storage(internal_result::noinit_t{}) {
+    if constexpr (std::is_void_v<value_type>) {
+      if (status.ok()) {
+        this->construct_value();
+      } else {
+        this->construct_status(status);
+      }
+    } else {
+      this->construct_status(status);
+      TENSORSTORE_CHECK(!status.ok());
+    }
   }
-  Result(Status&& status)
-      : storage(internal_result::status_t(), std::move(status)) {
-    TENSORSTORE_CHECK(!this->status_.ok());
+  Result(Status&& status) : storage(internal_result::noinit_t{}) {
+    if constexpr (std::is_void_v<value_type>) {
+      if (status.ok()) {
+        this->construct_value();
+      } else {
+        this->construct_status(status);
+      }
+    } else {
+      this->construct_status(status);
+      TENSORSTORE_CHECK(!status.ok());
+    }
   }
 
   /// \brief Constructs a non-empty `Result` direct-initialized value of type
@@ -268,13 +287,11 @@ class Result : private internal_result::ResultStorage<T>,
 
   /// \brief Copy and move assignment for Status.
   Result& operator=(const Status& status) {
-    TENSORSTORE_CHECK(!status.ok());
-    this->assign_status(status);
+    this->Construct(status);
     return *this;
   }
   Result& operator=(Status&& status) {
-    TENSORSTORE_CHECK(!status.ok());
-    this->assign_status(std::move(status));
+    this->Construct(std::move(status));
     return *this;
   }
 
@@ -340,12 +357,29 @@ class Result : private internal_result::ResultStorage<T>,
   }
 
   void Construct(const Status& status) {
-    TENSORSTORE_CHECK(!status.ok());
-    this->assign_status(status);
+    if constexpr (std::is_void_v<value_type>) {
+      if (status.ok()) {
+        this->emplace_value();
+      } else {
+        this->assign_status(status);
+      }
+    } else {
+      TENSORSTORE_CHECK(!status.ok());
+      this->assign_status(status);
+    }
   }
+
   void Construct(Status&& status) {
-    TENSORSTORE_CHECK(!status.ok());
-    this->assign_status(std::move(status));
+    if constexpr (std::is_void_v<value_type>) {
+      if (status.ok()) {
+        this->emplace_value();
+      } else {
+        this->assign_status(status);
+      }
+    } else {
+      TENSORSTORE_CHECK(!status.ok());
+      this->assign_status(status);
+    }
   }
 
   template <typename U>
@@ -671,7 +705,7 @@ inline Result<U> MakeResult(Args&&... args) {
 
 /// Returns a Result corresponding to a success or error `status`.
 inline Result<void> MakeResult(Status status) {
-  return status.ok() ? Result<void>(in_place) : Result<void>(std::move(status));
+  return Result<void>(std::move(status));
 }
 
 template <typename U>

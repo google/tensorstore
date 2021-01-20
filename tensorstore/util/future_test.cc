@@ -62,8 +62,8 @@ static_assert(
     "");
 static_assert(
     std::is_same<
-        decltype(
-            FutureAccess::rep_pointer(std::declval<const Future<void>&>())),
+        decltype(FutureAccess::rep_pointer(
+            std::declval<const Future<void>&>())),
         const tensorstore::internal_future::FutureStatePointer&>::value,
     "");
 static_assert(
@@ -78,8 +78,8 @@ static_assert(
     "");
 static_assert(
     std::is_same<
-        decltype(
-            FutureAccess::rep_pointer(std::declval<const Promise<void>&>())),
+        decltype(FutureAccess::rep_pointer(
+            std::declval<const Promise<void>&>())),
         const tensorstore::internal_future::PromiseStatePointer&>::value,
     "");
 static_assert(
@@ -168,22 +168,105 @@ TEST(FutureTest, FlattenResultLvalue) {
 
 /// Tests that Future::SetResult works.
 TEST(FutureTest, SetResult) {
-  auto pair = PromiseFuturePair<int>::Make();
-  EXPECT_FALSE(pair.promise.ready());
-  EXPECT_TRUE(pair.promise.result_needed());
-  EXPECT_FALSE(pair.future.ready());
-  Result<int> result{tensorstore::in_place};
-  bool got_result = false;
-  pair.future.ExecuteWhenReady([&](ReadyFuture<int> r) {
-    got_result = true;
-    result = r.result();
-  });
-  EXPECT_FALSE(got_result);
-  EXPECT_TRUE(pair.promise.SetResult(5));
-  EXPECT_FALSE(pair.promise.result_needed());
-  EXPECT_TRUE(pair.future.ready());
-  EXPECT_TRUE(pair.promise.ready());
-  EXPECT_EQ(result, 5);
+  // Success
+  {
+    auto pair = PromiseFuturePair<int>::Make();
+    EXPECT_FALSE(pair.promise.ready());
+    EXPECT_TRUE(pair.promise.result_needed());
+    EXPECT_FALSE(pair.future.ready());
+    Result<int> result{tensorstore::in_place};
+    bool got_result = false;
+    pair.future.ExecuteWhenReady([&](ReadyFuture<int> r) {
+      got_result = true;
+      result = r.result();
+    });
+    EXPECT_FALSE(got_result);
+    EXPECT_TRUE(pair.promise.SetResult(5));
+    EXPECT_FALSE(pair.promise.result_needed());
+    EXPECT_TRUE(pair.future.ready());
+    EXPECT_TRUE(pair.promise.ready());
+    EXPECT_EQ(result, 5);
+  }
+  // Success
+  {
+    auto pair = PromiseFuturePair<int>::Make();
+    pair.promise.SetResult(std::in_place, 6);
+    EXPECT_TRUE(pair.future.ready());
+    EXPECT_TRUE(pair.promise.ready());
+    EXPECT_TRUE(pair.future.result().ok());
+  }
+  // Success
+  {
+    auto pair = PromiseFuturePair<int>::Make();
+    pair.promise.SetResult(MakeResult(7));
+    EXPECT_TRUE(pair.future.ready());
+    EXPECT_TRUE(pair.promise.ready());
+    EXPECT_TRUE(pair.future.result().ok());
+  }
+  // Error
+  {
+    auto pair = PromiseFuturePair<int>::Make();
+    pair.promise.SetResult(absl::InternalError("error"));
+    EXPECT_TRUE(pair.future.ready());
+    EXPECT_TRUE(pair.promise.ready());
+    EXPECT_FALSE(pair.future.result().ok());
+  }
+  // Error
+  {
+    auto pair = PromiseFuturePair<int>::Make();
+    pair.promise.SetResult(MakeResult<int>(absl::InternalError("error")));
+    EXPECT_TRUE(pair.future.ready());
+    EXPECT_TRUE(pair.promise.ready());
+    EXPECT_FALSE(pair.future.result().ok());
+  }
+}
+
+TEST(FutureTest, SetResultVoid) {
+  // Success
+  {
+    auto pair = PromiseFuturePair<void>::Make();
+    EXPECT_FALSE(pair.promise.ready());
+    EXPECT_TRUE(pair.promise.result_needed());
+    EXPECT_FALSE(pair.future.ready());
+
+    EXPECT_TRUE(pair.promise.SetResult(absl::OkStatus()));
+    EXPECT_FALSE(pair.promise.result_needed());
+    EXPECT_TRUE(pair.future.ready());
+    EXPECT_TRUE(pair.promise.ready());
+    EXPECT_TRUE(pair.future.result().ok());
+  }
+  // Success
+  {
+    auto pair = PromiseFuturePair<void>::Make();
+    pair.promise.SetResult(std::in_place);
+    EXPECT_TRUE(pair.future.ready());
+    EXPECT_TRUE(pair.promise.ready());
+    EXPECT_TRUE(pair.future.result().ok());
+  }
+  // Success
+  {
+    auto pair = PromiseFuturePair<void>::Make();
+    pair.promise.SetResult(MakeResult<void>(absl::OkStatus()));
+    EXPECT_TRUE(pair.future.ready());
+    EXPECT_TRUE(pair.promise.ready());
+    EXPECT_TRUE(pair.future.result().ok());
+  }
+  // Error
+  {
+    auto pair = PromiseFuturePair<void>::Make();
+    pair.promise.SetResult(absl::InternalError("error"));
+    EXPECT_TRUE(pair.future.ready());
+    EXPECT_TRUE(pair.promise.ready());
+    EXPECT_FALSE(pair.future.result().ok());
+  }
+  // Error
+  {
+    auto pair = PromiseFuturePair<void>::Make();
+    pair.promise.SetResult(MakeResult<void>(absl::InternalError("error")));
+    EXPECT_TRUE(pair.future.ready());
+    EXPECT_TRUE(pair.promise.ready());
+    EXPECT_FALSE(pair.future.result().ok());
+  }
 }
 
 /// Tests that Future::Wait works.
