@@ -234,21 +234,22 @@ TEST(N5DriverTest, Create) {
                                    0, 0, 0, 0, 0, 2,  // int16be data
                                })),
           Pair("prefix/2/5",  // chunk starting at 6, 10
-               MatchesRawChunk({3, 1},
+               MatchesRawChunk({3, 2},
                                {
-                                   0, 0,  // int16be data
-                                   0, 0,  // int16be data
-                                   0, 3,  // int16be data
+                                   0, 0, 0, 0, 0, 3,  // int16be data
+                                   0, 0, 0, 0, 0, 0,  // int16be data
                                })),
           Pair("prefix/3/4",  // chunk starting at 9, 8
-               MatchesRawChunk({1, 2},
+               MatchesRawChunk({3, 2},
                                {
-                                   0, 4, 0, 5,  // int16be data
+                                   0, 4, 0, 0, 0, 0,  // int16be data
+                                   0, 5, 0, 0, 0, 0,  // int16be data
                                })),
           Pair("prefix/3/5",  // chunk starting at 9, 10
-               MatchesRawChunk({1, 1},
+               MatchesRawChunk({3, 2},
                                {
-                                   0, 6,  // int16be data
+                                   0, 6, 0, 0, 0, 0,  // int16be data
+                                   0, 0, 0, 0, 0, 0,  // int16be data
                                })),
       }));
 
@@ -262,31 +263,27 @@ TEST(N5DriverTest, Create) {
   }
 
   // Check that create or open succeeds.
-  {
-    EXPECT_EQ(Status(), GetStatus(tensorstore::Open(
-                                      context, json_spec,
-                                      {tensorstore::OpenMode::create |
-                                           tensorstore::OpenMode::open,
-                                       tensorstore::ReadWriteMode::read_write})
-                                      .result()));
-  }
+  TENSORSTORE_EXPECT_OK(tensorstore::Open(
+      context, json_spec,
+      {tensorstore::OpenMode::create | tensorstore::OpenMode::open,
+       tensorstore::ReadWriteMode::read_write}));
 
   // Check that open succeeds.
   {
-    auto store = tensorstore::Open(context, json_spec,
-                                   {tensorstore::OpenMode::open,
-                                    tensorstore::ReadWriteMode::read_write})
-                     .value();
-    EXPECT_EQ(
-        tensorstore::MakeArray<std::int16_t>({
-            {0, 0, 0, 0},
-            {0, 1, 2, 3},
-            {0, 4, 5, 6},
-        }),
-        tensorstore::Read<tensorstore::zero_origin>(
-            ChainResult(store, tensorstore::AllDims().TranslateSizedInterval(
-                                   {7, 7}, {3, 4})))
-            .value());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store, tensorstore::Open(context, json_spec,
+                                      {tensorstore::OpenMode::open,
+                                       tensorstore::ReadWriteMode::read_write})
+                        .result());
+    EXPECT_EQ(tensorstore::MakeArray<std::int16_t>({
+                  {0, 0, 0, 0},
+                  {0, 1, 2, 3},
+                  {0, 4, 5, 6},
+              }),
+              tensorstore::Read<tensorstore::zero_origin>(
+                  store |
+                  tensorstore::AllDims().TranslateSizedInterval({7, 7}, {3, 4}))
+                  .value());
   }
 
   // Check that delete_existing works.

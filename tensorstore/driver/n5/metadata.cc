@@ -345,24 +345,14 @@ Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
                                ArrayView<const void> array) {
   assert(absl::c_equal(metadata.chunk_layout.shape(), array.shape()));
   assert(chunk_indices.size() == array.rank());
-  Array<void, dynamic_rank(internal::kNumInlinedDims)> encoded_array;
-  encoded_array.layout().set_rank(array.rank());
-  for (DimensionIndex i = 0; i < array.rank(); ++i) {
-    const Index full_size = array.shape()[i];
-    encoded_array.shape()[i] =
-        std::min(full_size, metadata.shape[i] - full_size * chunk_indices[i]);
-  }
-  const std::size_t header_size = GetChunkHeaderSize(metadata);
-  internal::FlatCordBuilder encoded(encoded_array.num_elements() *
+  // Always write chunks as full size, to avoid race conditions or data loss
+  // in the event of a concurrent resize.
+  internal::FlatCordBuilder encoded(array.num_elements() *
                                     metadata.data_type.size());
-  encoded_array.element_pointer() = ElementPointer<void>(
-      static_cast<void*>(encoded.data()), metadata.data_type);
-  InitializeContiguousLayout(fortran_order, metadata.data_type.size(),
-                             &encoded_array.layout());
-  ArrayView<const void> partial_source_array(
-      array.element_pointer(),
-      StridedLayoutView<>(encoded_array.shape(), array.byte_strides()));
-  internal::EncodeArray(partial_source_array, encoded_array, endian::big);
+  Array<void, dynamic_rank(internal::kNumInlinedDims)> encoded_array(
+      {static_cast<void*>(encoded.data()), metadata.data_type}, array.shape(),
+      fortran_order);
+  internal::EncodeArray(array, encoded_array, endian::big);
   auto encoded_cord = std::move(encoded).Build();
   if (metadata.compressor) {
     absl::Cord compressed;
@@ -370,7 +360,7 @@ Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
         std::move(encoded_cord), &compressed, metadata.data_type.size()));
     encoded_cord = std::move(compressed);
   }
-  internal::FlatCordBuilder header(header_size);
+  internal::FlatCordBuilder header(GetChunkHeaderSize(metadata));
   // Write header
   absl::big_endian::Store16(header.data(), 0);  // mode: 0x0 = default
   const DimensionIndex rank = metadata.rank();
