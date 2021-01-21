@@ -29,7 +29,6 @@
 namespace {
 
 using tensorstore::Index;
-using tensorstore::Status;
 using tensorstore::internal::ElementwiseClosure;
 using tensorstore::internal::ElementwiseFunction;
 using tensorstore::internal::IterationBufferAccessor;

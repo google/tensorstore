@@ -37,7 +37,6 @@
 namespace {
 
 using tensorstore::Index;
-using tensorstore::Status;
 using tensorstore::internal::NDIterableCopier;
 using ::testing::_;
 using ::testing::Pair;
@@ -45,14 +44,14 @@ using ::testing::Pair;
 /// Returns the `Status` returned by `Copy()` and the final
 /// `copier.stepper().position()` value.
 template <typename Func, typename SourceArray, typename DestArray>
-std::pair<Status, std::vector<Index>> TestCopy(
+std::pair<absl::Status, std::vector<Index>> TestCopy(
     Func func, tensorstore::IterationConstraints constraints,
     SourceArray source_array, DestArray dest_array) {
   tensorstore::internal::Arena arena;
-  tensorstore::internal::ElementwiseClosure<2, Status*> closure =
+  tensorstore::internal::ElementwiseClosure<2, absl::Status*> closure =
       tensorstore::internal::SimpleElementwiseFunction<
           Func(typename SourceArray::Element, typename DestArray::Element),
-          Status*>::Closure(&func);
+          absl::Status*>::Closure(&func);
   auto iterable =
       tensorstore::internal::GetElementwiseOutputTransformNDIterable(
           tensorstore::internal::GetTransformedArrayNDIterable(dest_array,
@@ -75,9 +74,9 @@ TEST(NDIterableElementwiseOutputTransformTest, Basic) {
   auto source = tensorstore::MakeArray<int>({{1, 2, 3}, {4, 5, 6}});
   auto dest = tensorstore::AllocateArray<double>(source.shape());
   EXPECT_THAT(TestCopy([](const int* source, double* dest,
-                          Status* status) { *dest = -*source; },
+                          absl::Status* status) { *dest = -*source; },
                        /*constraints=*/{}, source, dest),
-              Pair(Status(), _));
+              Pair(absl::OkStatus(), _));
   EXPECT_EQ(
       tensorstore::MakeArray<double>({{-1.0, -2.0, -3.0}, {-4.0, -5.0, -6.0}}),
       dest);
@@ -88,7 +87,7 @@ TEST(NDIterableElementwiseOutputTransformTest, PartialCopy) {
   auto dest = tensorstore::AllocateArray<double>(
       source.shape(), tensorstore::c_order, tensorstore::value_init);
   EXPECT_THAT(TestCopy(
-                  [](const int* source, double* dest, Status* status) {
+                  [](const int* source, double* dest, absl::Status* status) {
                     if (*source == 0) {
                       *status = absl::UnknownError("zero");
                       return false;

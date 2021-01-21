@@ -50,7 +50,6 @@ using tensorstore::DataTypeOf;
 using tensorstore::Index;
 using tensorstore::MakeArray;
 using tensorstore::Shared;
-using tensorstore::Status;
 using tensorstore::internal::GetElementwiseInputTransformNDIterable;
 using tensorstore::internal::GetElementwiseOutputTransformNDIterable;
 using tensorstore::internal::GetTransformedArrayNDIterable;
@@ -60,7 +59,7 @@ TEST(NDIterableCopyTest, Example) {
   auto dest_array = tensorstore::AllocateArray<int>(
       {2, 3}, tensorstore::c_order, tensorstore::value_init);
   auto dest_element_transform = [](const int* source, int* dest,
-                                   Status* status) {
+                                   absl::Status* status) {
     if (*source == 5) {
       *status = absl::UnknownError("5");
       return false;
@@ -68,10 +67,10 @@ TEST(NDIterableCopyTest, Example) {
     *dest = *source;
     return true;
   };
-  tensorstore::internal::ElementwiseClosure<2, Status*> dest_closure =
+  tensorstore::internal::ElementwiseClosure<2, absl::Status*> dest_closure =
       tensorstore::internal::SimpleElementwiseFunction<
           decltype(dest_element_transform)(const int, int),
-          Status*>::Closure(&dest_element_transform);
+          absl::Status*>::Closure(&dest_element_transform);
 
   tensorstore::internal::Arena arena;
   auto source_iterable =
@@ -92,22 +91,22 @@ TEST(NDIterableCopyTest, Example) {
 template <typename IntermediateElement, typename SourceArray,
           typename SourceElementTransform, typename DestElementTransform,
           typename DestArray>
-Status TestCopy(tensorstore::IterationConstraints constraints,
-                SourceArray source_array,
-                SourceElementTransform source_element_transform,
-                DestElementTransform dest_element_transform,
-                DestArray dest_array) {
+absl::Status TestCopy(tensorstore::IterationConstraints constraints,
+                      SourceArray source_array,
+                      SourceElementTransform source_element_transform,
+                      DestElementTransform dest_element_transform,
+                      DestArray dest_array) {
   tensorstore::internal::Arena arena;
-  tensorstore::internal::ElementwiseClosure<2, Status*> source_closure =
+  tensorstore::internal::ElementwiseClosure<2, absl::Status*> source_closure =
       tensorstore::internal::SimpleElementwiseFunction<
           SourceElementTransform(typename SourceArray::Element,
                                  IntermediateElement),
-          Status*>::Closure(&source_element_transform);
-  tensorstore::internal::ElementwiseClosure<2, Status*> dest_closure =
+          absl::Status*>::Closure(&source_element_transform);
+  tensorstore::internal::ElementwiseClosure<2, absl::Status*> dest_closure =
       tensorstore::internal::SimpleElementwiseFunction<
           DestElementTransform(IntermediateElement,
                                typename DestArray::Element),
-          Status*>::Closure(&dest_element_transform);
+          absl::Status*>::Closure(&dest_element_transform);
   auto source_iterable = GetElementwiseInputTransformNDIterable(
       {{GetTransformedArrayNDIterable(source_array, &arena).value()}},
       DataTypeOf<IntermediateElement>(), source_closure, &arena);
@@ -147,13 +146,14 @@ TEST(NDIterableCopyTest, ExternalBuffer) {
                                       MakeArray<Index>({0, 1, 2})))
                     .value();
       }
-      EXPECT_EQ(Status(), (TestCopy<unsigned int>(
-                              /*constraints=*/{}, tsource,
-                              [](const int* source, unsigned int* dest,
-                                 Status* status) { *dest = *source * 2; },
-                              [](const unsigned int* source, double* dest,
-                                 Status* status) { *dest = *source + 100.0; },
-                              tdest)));
+      EXPECT_EQ(absl::OkStatus(),
+                (TestCopy<unsigned int>(
+                    /*constraints=*/{}, tsource,
+                    [](const int* source, unsigned int* dest,
+                       absl::Status* status) { *dest = *source * 2; },
+                    [](const unsigned int* source, double* dest,
+                       absl::Status* status) { *dest = *source + 100.0; },
+                    tdest)));
       EXPECT_EQ(tensorstore::MakeArray<double>(
                     {{102.0, 104.0, 106.0}, {108.0, 110.0, 112.0}}),
                 dest);

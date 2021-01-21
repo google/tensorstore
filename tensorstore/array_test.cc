@@ -70,7 +70,6 @@ using tensorstore::span;
 using tensorstore::StaticCast;
 using tensorstore::StaticDataTypeCast;
 using tensorstore::StaticRankCast;
-using tensorstore::Status;
 using tensorstore::StrCat;
 using tensorstore::StridedLayout;
 using tensorstore::SubArray;
@@ -1059,7 +1058,7 @@ TEST(CopyArrayTest, OffsetOrigin) {
 TEST(CopyConvertedArrayTest, Int32ToFloat32) {
   auto a = MakeArray<tensorstore::int32_t>({{1, 2, 3}, {4, 5, 6}});
   auto b = tensorstore::AllocateArray<tensorstore::float32_t>({2, 3});
-  EXPECT_EQ(Status(), CopyConvertedArray(a, b));
+  EXPECT_EQ(absl::OkStatus(), CopyConvertedArray(a, b));
   EXPECT_EQ(
       b, MakeArray<tensorstore::float32_t>({{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}}));
 }
@@ -1067,7 +1066,7 @@ TEST(CopyConvertedArrayTest, Int32ToFloat32) {
 TEST(CopyConvertedArrayTest, Int32ToUint32) {
   auto a = MakeArray<tensorstore::int32_t>({{1, 2, 3}, {4, 5, 6}});
   auto b = tensorstore::AllocateArray<tensorstore::uint32_t>({2, 3});
-  EXPECT_EQ(Status(), CopyConvertedArray(a, b));
+  EXPECT_EQ(absl::OkStatus(), CopyConvertedArray(a, b));
   EXPECT_EQ(b, MakeArray<tensorstore::uint32_t>({{1, 2, 3}, {4, 5, 6}}));
 }
 
@@ -1354,11 +1353,11 @@ TEST(IterateOverArrays, VoidReturn) {
 
 TEST(IterateOverArrays, VoidReturnStatus) {
   std::vector<std::pair<int, int>> values;
-  Status status;
+  absl::Status status;
   EXPECT_EQ(
       (ArrayIterateResult{true, 4}),
       IterateOverArrays(
-          [&](const int* a, const int* b, Status* status_ptr) {
+          [&](const int* a, const int* b, absl::Status* status_ptr) {
             values.emplace_back(*a, *b);
             EXPECT_EQ(&status, status_ptr);
           },

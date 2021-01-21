@@ -38,7 +38,6 @@ using tensorstore::MakeArray;
 using tensorstore::MatchesStatus;
 using tensorstore::OutputIndexMethod;
 using tensorstore::span;
-using tensorstore::Status;
 using tensorstore::internal_index_space::TransformAccess;
 
 TEST(IndexTransformTest, BuilderValid) {
@@ -99,8 +98,9 @@ TEST(IndexTransformTest, BuilderValid) {
   }
   {
     std::array<Index, 4> output_indices;
-    ASSERT_EQ(Status(), t.TransformIndices(span<const Index, 3>({1, 2, 3}),
-                                           output_indices));
+    ASSERT_EQ(
+        absl::OkStatus(),
+        t.TransformIndices(span<const Index, 3>({1, 2, 3}), output_indices));
     EXPECT_THAT(output_indices, ::testing::ElementsAre(4, 26, 6, 16));
   }
 }

@@ -39,7 +39,6 @@ using tensorstore::Array;
 using tensorstore::DimensionIndex;
 using tensorstore::Index;
 using tensorstore::span;
-using tensorstore::Status;
 using tensorstore::StridedLayout;
 using tensorstore::internal::Arena;
 using tensorstore::internal::GetArrayNDIterable;
@@ -177,12 +176,12 @@ TEST(NDIterableArrayTest, Direct) {
           /*.block_size=*/3},
          /*.buffer_kind=*/IterationBufferKind::kContiguous});
     IterationBufferPointer pointer;
-    Status status;
+    absl::Status status;
     EXPECT_EQ(3, iterator->GetBlock(span<const Index>({2, 3, 1}), 3, &pointer,
                                     &status));
     EXPECT_EQ(&array((6 - 1) - 1, (3 - 1) - 2, 0, 3), pointer.pointer.get());
     EXPECT_EQ(1, pointer.byte_stride);
-    EXPECT_EQ(Status(), status);
+    EXPECT_EQ(absl::OkStatus(), status);
   }
 
   {
@@ -194,13 +193,13 @@ TEST(NDIterableArrayTest, Direct) {
           /*.block_size=*/3},
          /*.buffer_kind=*/IterationBufferKind::kIndexed});
     IterationBufferPointer pointer;
-    Status status;
+    absl::Status status;
     EXPECT_EQ(3, iterator->GetBlock(span<const Index>({2, 3, 1}), 3, &pointer,
                                     &status));
     EXPECT_EQ(&array((6 - 1) - 1, (3 - 1) - 2, 0, 3), pointer.pointer.get());
     EXPECT_THAT(span<const Index>(pointer.byte_offsets, 3),
                 ::testing::ElementsAre(0, 1, 2));
-    EXPECT_EQ(Status(), status);
+    EXPECT_EQ(absl::OkStatus(), status);
   }
 }
 
@@ -223,10 +222,10 @@ TEST(NDIterableArrayTest, RankZero) {
   EXPECT_EQ(1, multi_iterator.block_size);
 
   EXPECT_EQ(1, multi_iterator.ResetAtBeginning());
-  Status status;
+  absl::Status status;
   EXPECT_TRUE(multi_iterator.GetBlock(1, &status));
   EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(0));
-  EXPECT_EQ(Status(), status);
+  EXPECT_EQ(absl::OkStatus(), status);
   EXPECT_EQ(array.data(), multi_iterator.block_pointers()[0].pointer);
   EXPECT_EQ(0, multi_iterator.block_pointers()[0].byte_stride);
   EXPECT_EQ(0, multi_iterator.StepForward(1));
@@ -252,10 +251,10 @@ TEST(NDIterableArrayTest, RankOne) {
   EXPECT_EQ(5, multi_iterator.block_size);
 
   EXPECT_EQ(5, multi_iterator.ResetAtBeginning());
-  Status status;
+  absl::Status status;
   EXPECT_TRUE(multi_iterator.GetBlock(5, &status));
   EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(0));
-  EXPECT_EQ(Status(), status);
+  EXPECT_EQ(absl::OkStatus(), status);
   EXPECT_EQ(array.data(), multi_iterator.block_pointers()[0].pointer);
   EXPECT_EQ(sizeof(int), multi_iterator.block_pointers()[0].byte_stride);
   EXPECT_EQ(0, multi_iterator.StepForward(5));
@@ -281,10 +280,10 @@ TEST(NDIterableArrayTest, RankTwoContiguous) {
   EXPECT_EQ(6, multi_iterator.block_size);
 
   EXPECT_EQ(6, multi_iterator.ResetAtBeginning());
-  Status status;
+  absl::Status status;
   EXPECT_TRUE(multi_iterator.GetBlock(6, &status));
   EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(0));
-  EXPECT_EQ(Status(), status);
+  EXPECT_EQ(absl::OkStatus(), status);
   EXPECT_EQ(array.data(), multi_iterator.block_pointers()[0].pointer);
   EXPECT_EQ(sizeof(int), multi_iterator.block_pointers()[0].byte_stride);
   EXPECT_EQ(0, multi_iterator.StepForward(6));
@@ -311,22 +310,22 @@ TEST(NDIterableArrayTest, RankTwoTranspose) {
   EXPECT_EQ(2, multi_iterator.block_size);
 
   EXPECT_EQ(2, multi_iterator.ResetAtBeginning());
-  Status status;
+  absl::Status status;
   EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(0, 0));
   EXPECT_TRUE(multi_iterator.GetBlock(2, &status));
-  EXPECT_EQ(Status(), status);
+  EXPECT_EQ(absl::OkStatus(), status);
   EXPECT_EQ(&array(0, 0), multi_iterator.block_pointers()[0].pointer);
   EXPECT_EQ(sizeof(int) * 3, multi_iterator.block_pointers()[0].byte_stride);
   EXPECT_EQ(2, multi_iterator.StepForward(2));
   EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(1, 0));
   EXPECT_TRUE(multi_iterator.GetBlock(2, &status));
-  EXPECT_EQ(Status(), status);
+  EXPECT_EQ(absl::OkStatus(), status);
   EXPECT_EQ(&array(0, 1), multi_iterator.block_pointers()[0].pointer);
   EXPECT_EQ(sizeof(int) * 3, multi_iterator.block_pointers()[0].byte_stride);
   EXPECT_EQ(2, multi_iterator.StepForward(2));
   EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(2, 0));
   EXPECT_TRUE(multi_iterator.GetBlock(2, &status));
-  EXPECT_EQ(Status(), status);
+  EXPECT_EQ(absl::OkStatus(), status);
   EXPECT_EQ(&array(0, 2), multi_iterator.block_pointers()[0].pointer);
   EXPECT_EQ(sizeof(int) * 3, multi_iterator.block_pointers()[0].byte_stride);
   EXPECT_EQ(0, multi_iterator.StepForward(2));
@@ -417,10 +416,10 @@ TEST(NDIterableArrayTest, ReversedDimensions) {
   EXPECT_EQ(3 * 4 * 5, multi_iterator.block_size);
 
   EXPECT_EQ(3 * 4 * 5, multi_iterator.ResetAtBeginning());
-  Status status;
+  absl::Status status;
   EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(0));
   EXPECT_TRUE(multi_iterator.GetBlock(3 * 4 * 5, &status));
-  EXPECT_EQ(Status(), status);
+  EXPECT_EQ(absl::OkStatus(), status);
   EXPECT_EQ(orig_array.byte_strided_pointer(),
             multi_iterator.block_pointers()[0].pointer);
   EXPECT_EQ(sizeof(int), multi_iterator.block_pointers()[0].byte_stride);
@@ -448,10 +447,10 @@ TEST(NDIterableArrayTest, MultipleArrays) {
   EXPECT_EQ(false, multi_iterator.empty);
   EXPECT_EQ(3, multi_iterator.block_size);
   EXPECT_EQ(3, multi_iterator.ResetAtBeginning());
-  Status status;
+  absl::Status status;
   EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(0, 0));
   EXPECT_TRUE(multi_iterator.GetBlock(3, &status));
-  EXPECT_EQ(Status(), status);
+  EXPECT_EQ(absl::OkStatus(), status);
   EXPECT_EQ(&array_a(0, 0), multi_iterator.block_pointers()[0].pointer);
   EXPECT_EQ(&array_b(0, 0), multi_iterator.block_pointers()[1].pointer);
   EXPECT_EQ(sizeof(int), multi_iterator.block_pointers()[0].byte_stride);
@@ -460,7 +459,7 @@ TEST(NDIterableArrayTest, MultipleArrays) {
   EXPECT_EQ(3, multi_iterator.StepForward(3));
   EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(1, 0));
   EXPECT_TRUE(multi_iterator.GetBlock(3, &status));
-  EXPECT_EQ(Status(), status);
+  EXPECT_EQ(absl::OkStatus(), status);
   EXPECT_EQ(&array_a(1, 0), multi_iterator.block_pointers()[0].pointer);
   EXPECT_EQ(&array_b(1, 0), multi_iterator.block_pointers()[1].pointer);
   EXPECT_EQ(sizeof(int), multi_iterator.block_pointers()[0].byte_stride);

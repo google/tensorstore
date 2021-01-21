@@ -58,7 +58,7 @@ struct UnwrapResultHelper<Result<T>> {
 };
 
 template <>
-struct UnwrapResultHelper<Status> {
+struct UnwrapResultHelper<absl::Status> {
   using type = void;
   using result_type = Result<void>;
 };
@@ -68,7 +68,7 @@ struct UnwrapResultHelper<Status> {
 /// UnwrapResultType<T> maps
 ///
 ///   Result<T> -> T
-///   Status -> void
+///   absl::Status -> void
 ///   T -> T
 template <typename T>
 using UnwrapResultType = typename internal_result::UnwrapResultHelper<T>::type;
@@ -82,7 +82,7 @@ using UnwrapQualifiedResultType =
 ///
 ///     T -> Result<T>
 ///     Result<T> -> Result<T>
-///     Status -> Result<void>
+///     absl::Status -> Result<void>
 ///
 template <typename T>
 using FlatResult = typename internal_result::UnwrapResultHelper<T>::result_type;
@@ -104,7 +104,7 @@ using std::in_place;
 using std::in_place_t;
 
 /// \brief Result<R> implements a value-or-error concept using the
-/// existing tensorstore::Status mechanism. It provides a discriminated
+/// existing absl::Status mechanism. It provides a discriminated
 /// union of a usable value, T, or an error Status explaining why the value
 /// is not present.
 ///
@@ -142,8 +142,9 @@ class Result : private internal_result::ResultStorage<T>,
                private internal_result::ResultAssignMixinBase<
                    internal_result::GetConstructorMixinTraits<T>()> {
   static_assert(!std::is_reference<T>::value, "T must not be a reference");
-  static_assert(!std::is_same<T, Status>::value, "T must not be a Status");
-  static_assert(!std::is_convertible<T, Status>::value,
+  static_assert(!std::is_same<T, absl::Status>::value,
+                "T must not be a Status");
+  static_assert(!std::is_convertible<T, absl::Status>::value,
                 "T must not be convertible to a Status");
   static_assert(!std::is_array<T>::value, "T must not be a std::array type");
   static_assert(!IsResult<T>::value, "T must not be a Result");
@@ -159,7 +160,7 @@ class Result : private internal_result::ResultStorage<T>,
   using reference_type = typename storage::reference_type;
   using const_reference_type = typename storage::const_reference_type;
 
-  using error_type = Status;
+  using error_type = absl::Status;
 
   template <typename U>
   using rebind = Result<U>;
@@ -172,7 +173,7 @@ class Result : private internal_result::ResultStorage<T>,
 
   /// \brief Construct a Result<T> with a Status.
   /// \requires `!status` unless T is void.
-  Result(const Status& status) : storage(internal_result::noinit_t{}) {
+  Result(const absl::Status& status) : storage(internal_result::noinit_t{}) {
     if constexpr (std::is_void_v<value_type>) {
       if (status.ok()) {
         this->construct_value();
@@ -184,7 +185,7 @@ class Result : private internal_result::ResultStorage<T>,
       TENSORSTORE_CHECK(!status.ok());
     }
   }
-  Result(Status&& status) : storage(internal_result::noinit_t{}) {
+  Result(absl::Status&& status) : storage(internal_result::noinit_t{}) {
     if constexpr (std::is_void_v<value_type>) {
       if (status.ok()) {
         this->construct_value();
@@ -210,22 +211,24 @@ class Result : private internal_result::ResultStorage<T>,
       : storage(internal_result::value_t(), il, std::forward<Args>(args)...) {}
 
   /// \brief Value constructor (implicit)
-  template <typename U,
-            std::enable_if_t<
-                (!IsResult<internal::remove_cvref_t<U>>::value &&  //
-                 !std::is_same<Status, internal::remove_cvref_t<U>>::value &&
-                 std::is_convertible<U&&, T>::value  //
-                 )>* = nullptr>
+  template <
+      typename U,
+      std::enable_if_t<
+          (!IsResult<internal::remove_cvref_t<U>>::value &&  //
+           !std::is_same<absl::Status, internal::remove_cvref_t<U>>::value &&
+           std::is_convertible<U&&, T>::value  //
+           )>* = nullptr>
   Result(U&& v) : storage(internal_result::value_t(), std::forward<U>(v)) {}
 
   /// \brief Value constructor (explicit)
-  template <typename U,
-            std::enable_if_t<
-                (!IsResult<internal::remove_cvref_t<U>>::value &&  //
-                 !std::is_same<Status, internal::remove_cvref_t<U>>::value &&
-                 !std::is_convertible<U&&, T>::value &&  //
-                 std::is_constructible<T, U&&>::value    //
-                 )>* = nullptr>
+  template <
+      typename U,
+      std::enable_if_t<
+          (!IsResult<internal::remove_cvref_t<U>>::value &&  //
+           !std::is_same<absl::Status, internal::remove_cvref_t<U>>::value &&
+           !std::is_convertible<U&&, T>::value &&  //
+           std::is_constructible<T, U&&>::value    //
+           )>* = nullptr>
   explicit Result(U&& v)
       : storage(internal_result::value_t(), std::forward<U>(v)) {}
 
@@ -286,11 +289,11 @@ class Result : private internal_result::ResultStorage<T>,
   Result& operator=(Result&& src) = default;
 
   /// \brief Copy and move assignment for Status.
-  Result& operator=(const Status& status) {
+  Result& operator=(const absl::Status& status) {
     this->Construct(status);
     return *this;
   }
-  Result& operator=(Status&& status) {
+  Result& operator=(absl::Status&& status) {
     this->Construct(std::move(status));
     return *this;
   }
@@ -302,7 +305,7 @@ class Result : private internal_result::ResultStorage<T>,
   template <typename U>
   typename std::enable_if_t<
       (!IsResult<internal::remove_cvref_t<U>>::value &&
-       !std::is_same<Status, internal::remove_cvref_t<U>>::value &&
+       !std::is_same<absl::Status, internal::remove_cvref_t<U>>::value &&
        std::is_constructible<value_type, U&&>::value),
       Result&>
   operator=(U&& v) {
@@ -356,7 +359,7 @@ class Result : private internal_result::ResultStorage<T>,
     return this->value_;
   }
 
-  void Construct(const Status& status) {
+  void Construct(const absl::Status& status) {
     if constexpr (std::is_void_v<value_type>) {
       if (status.ok()) {
         this->emplace_value();
@@ -369,7 +372,7 @@ class Result : private internal_result::ResultStorage<T>,
     }
   }
 
-  void Construct(Status&& status) {
+  void Construct(absl::Status&& status) {
     if constexpr (std::is_void_v<value_type>) {
       if (status.ok()) {
         this->emplace_value();
@@ -458,12 +461,12 @@ class Result : private internal_result::ResultStorage<T>,
     }
   }
 
-  const Status& status() const& noexcept {
+  const absl::Status& status() const& noexcept {
     TENSORSTORE_CHECK(!has_value());
     return this->status_;
   }
 
-  Status status() && {
+  absl::Status status() && {
     TENSORSTORE_CHECK(!has_value());
     return std::move(this->status_);
   }
@@ -506,7 +509,7 @@ class Result : private internal_result::ResultStorage<T>,
   /// Then operator| applies y to the value contained in x, returning a
   /// Result<U>. In other words, this function is roughly expressed as:
   ///
-  ///    `return !x.ok() ? x.status() | StatusOr<U>(y(x.value()))`
+  ///    `return !x.ok() ? x.status() | Result<U>(y(x.value()))`
   ///
   template <typename Func>
   inline FlatResult<std::invoke_result_t<Func&&, reference_type>>  //
@@ -559,7 +562,7 @@ class Result : private internal_result::ResultStorage<T>,
   /// Implements the Receiver `set_error` operation.
   ///
   /// Overrides the existing value/error with `status`.
-  friend void set_error(Result& result, Status status) {
+  friend void set_error(Result& result, absl::Status status) {
     result = std::move(status);
   }
 
@@ -581,7 +584,7 @@ class Result : private internal_result::ResultStorage<T>,
   friend std::void_t<decltype(execution::set_value, std::declval<Receiver&>(),
                               std::declval<T>()),
                      decltype(execution::set_error, std::declval<Receiver&>(),
-                              std::declval<Status>()),
+                              std::declval<absl::Status>()),
                      decltype(execution::set_cancel, std::declval<Receiver&>())>
   submit(Result& result, Receiver&& receiver) {
     if (result.has_value()) {
@@ -704,12 +707,12 @@ inline Result<U> MakeResult(Args&&... args) {
 }
 
 /// Returns a Result corresponding to a success or error `status`.
-inline Result<void> MakeResult(Status status) {
+inline Result<void> MakeResult(absl::Status status) {
   return Result<void>(std::move(status));
 }
 
 template <typename U>
-inline Result<U> MakeResult(Status status) {
+inline Result<U> MakeResult(absl::Status status) {
   return status.ok() ? Result<U>(in_place) : Result<U>(std::move(status));
 }
 
@@ -725,19 +728,19 @@ inline Result<U> MakeResult(Status status) {
 /// This overload handles the case of a non-Status, non-Result type.
 /// \returns `Status()`
 template <typename T>
-inline Status GetStatus(const T& other) {
+inline absl::Status GetStatus(const T& other) {
   return absl::OkStatus();
 }
 
 /// Overload for the case of an argument that is an instance of `Result`.
 /// \returns `result.status()`
 template <typename T>
-inline Status GetStatus(const Result<T>& result) {
+inline absl::Status GetStatus(const Result<T>& result) {
   return result.has_value() ? Status() : result.status();
 }
 
 template <typename T>
-inline Status GetStatus(Result<T>&& result) {
+inline absl::Status GetStatus(Result<T>&& result) {
   return result.has_value() ? Status() : std::move(result).status();
 }
 

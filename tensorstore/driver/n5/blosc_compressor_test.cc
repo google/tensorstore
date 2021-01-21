@@ -30,7 +30,6 @@ using tensorstore::Index;
 using tensorstore::MakeArray;
 using tensorstore::MatchesStatus;
 using tensorstore::span;
-using tensorstore::Status;
 using tensorstore::internal_n5::Compressor;
 using tensorstore::internal_n5::DecodeChunk;
 using tensorstore::internal_n5::N5Metadata;
@@ -46,7 +45,7 @@ TEST(BloscCompressionTest, Parse) {
                              {"clevel", level},
                              {"blocksize", blocksize}};
           auto c = Compressor::FromJson(j);
-          EXPECT_EQ(Status(), GetStatus(c));
+          EXPECT_EQ(absl::OkStatus(), GetStatus(c));
           EXPECT_EQ(j, ::nlohmann::json(*c));
         }
       }

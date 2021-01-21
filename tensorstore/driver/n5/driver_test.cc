@@ -37,7 +37,6 @@ using tensorstore::KeyValueStore;
 using tensorstore::kImplicit;
 using tensorstore::MatchesStatus;
 using tensorstore::span;
-using tensorstore::Status;
 using tensorstore::StrCat;
 using tensorstore::internal::GetMap;
 using tensorstore::internal::ParseJsonMatches;
@@ -75,12 +74,13 @@ TEST(N5DriverTest, OpenNonExisting) {
 TEST(N5DriverTest, OpenOrCreate) {
   auto context = Context::Default();
 
-  EXPECT_EQ(Status(), GetStatus(tensorstore::Open(
-                                    context, GetJsonSpec(),
-                                    {tensorstore::OpenMode::open |
-                                         tensorstore::OpenMode::create,
-                                     tensorstore::ReadWriteMode::read_write})
-                                    .result()));
+  EXPECT_EQ(
+      absl::OkStatus(),
+      GetStatus(tensorstore::Open(context, GetJsonSpec(),
+                                  {tensorstore::OpenMode::open |
+                                       tensorstore::OpenMode::create,
+                                   tensorstore::ReadWriteMode::read_write})
+                    .result()));
 }
 
 ::testing::Matcher<absl::Cord> MatchesRawChunk(std::vector<Index> shape,
@@ -181,7 +181,7 @@ TEST(N5DriverTest, Create) {
 
     // Issue a valid write.
     EXPECT_EQ(
-        Status(),
+        absl::OkStatus(),
         GetStatus(
             tensorstore::Write(
                 tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
@@ -341,7 +341,7 @@ TEST(N5DriverTest, Resize) {
                                       tensorstore::ReadWriteMode::read_write})
                        .value();
       EXPECT_EQ(
-          Status(),
+          absl::OkStatus(),
           GetStatus(
               tensorstore::Write(
                   tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
@@ -365,7 +365,7 @@ TEST(N5DriverTest, Resize) {
       auto resize_future =
           Resize(store, span<const Index>({kImplicit, kImplicit}),
                  span<const Index>({3, 2}), resize_mode);
-      ASSERT_EQ(Status(), GetStatus(resize_future.result()));
+      ASSERT_EQ(absl::OkStatus(), GetStatus(resize_future.result()));
       EXPECT_EQ(tensorstore::BoxView({3, 2}),
                 resize_future.value().domain().box());
 
@@ -398,7 +398,7 @@ TEST(N5DriverTest, ResizeMetadataOnly) {
                                   tensorstore::ReadWriteMode::read_write})
                    .value();
   EXPECT_EQ(
-      Status(),
+      absl::OkStatus(),
       GetStatus(
           tensorstore::Write(
               tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
@@ -420,7 +420,7 @@ TEST(N5DriverTest, ResizeMetadataOnly) {
   auto resize_future =
       Resize(store, span<const Index>({kImplicit, kImplicit}),
              span<const Index>({3, 2}), tensorstore::resize_metadata_only);
-  ASSERT_EQ(Status(), GetStatus(resize_future.result()));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(resize_future.result()));
   EXPECT_EQ(tensorstore::BoxView({3, 2}), resize_future.value().domain().box());
 
   ::nlohmann::json resized_metadata_json = metadata_json;
@@ -514,7 +514,7 @@ TEST(N5DriverTest, InvalidResizeConcurrentModification) {
   auto store_slice =
       ChainResult(store, tensorstore::Dims(0).HalfOpenInterval(0, 100)).value();
 
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             GetStatus(Resize(store, span<const Index>({kImplicit, kImplicit}),
                              span<const Index>({50, kImplicit}))
                           .result()));

@@ -31,7 +31,6 @@ using tensorstore::IndexDomainBuilder;
 using tensorstore::IndexTransform;
 using tensorstore::IndexTransformBuilder;
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 
 using Dao = tensorstore::DomainAlignmentOptions;
 
@@ -54,7 +53,7 @@ TEST(AlignDimensionsToTest, AllUnlabeled) {
   //   output dimension 2 -> input dimension 2, offset -2
   for (auto options : {Dao::all, Dao::translate | Dao::broadcast}) {
     std::vector<DimensionIndex> source_matches(source.rank());
-    EXPECT_EQ(Status(),
+    EXPECT_EQ(absl::OkStatus(),
               AlignDimensionsTo(source, target, source_matches, options));
     EXPECT_THAT(source_matches, ::testing::ElementsAre(0, -1, 2));
   }
@@ -62,7 +61,7 @@ TEST(AlignDimensionsToTest, AllUnlabeled) {
   // Test aligning `source` to itself without any alignment transforms.
   {
     std::vector<DimensionIndex> source_matches(source.rank());
-    EXPECT_EQ(Status(),
+    EXPECT_EQ(absl::OkStatus(),
               AlignDimensionsTo(source, source, source_matches, Dao::none));
     EXPECT_THAT(source_matches, ::testing::ElementsAre(0, 1, 2));
   }
@@ -106,8 +105,9 @@ TEST(AlignDimensionsToTest, MismatchedLabelsNoPermute) {
                     .Finalize()
                     .value();
   std::vector<DimensionIndex> source_matches(source.rank());
-  EXPECT_EQ(Status(), AlignDimensionsTo(source, target, source_matches,
-                                        Dao::translate | Dao::broadcast));
+  EXPECT_EQ(absl::OkStatus(),
+            AlignDimensionsTo(source, target, source_matches,
+                              Dao::translate | Dao::broadcast));
   EXPECT_THAT(source_matches, ::testing::ElementsAre(0, -1, 2));
 
   EXPECT_THAT(AlignDimensionsTo(source, target, source_matches, Dao::all),
@@ -139,7 +139,7 @@ TEST(AlignDimensionsToTest, SourceUnlabeled) {
   //   output dimension 2 -> input dimension 2, offset -2
   for (auto options : {Dao::all, Dao::translate | Dao::broadcast}) {
     std::vector<DimensionIndex> source_matches(source.rank());
-    EXPECT_EQ(Status(),
+    EXPECT_EQ(absl::OkStatus(),
               AlignDimensionsTo(source, target, source_matches, options));
     EXPECT_THAT(source_matches, ::testing::ElementsAre(0, -1, 2));
   }
@@ -165,7 +165,7 @@ TEST(AlignDimensionsToTest, TargetUnlabeled) {
   //   output dimension 2 -> input dimension 2, offset -2
   for (auto options : {Dao::all, Dao::translate | Dao::broadcast}) {
     std::vector<DimensionIndex> source_matches(source.rank());
-    EXPECT_EQ(Status(),
+    EXPECT_EQ(absl::OkStatus(),
               AlignDimensionsTo(source, target, source_matches, options));
     EXPECT_THAT(source_matches, ::testing::ElementsAre(0, -1, 2));
   }
@@ -191,7 +191,8 @@ TEST(AlignDimensionsToTest, AllLabeled) {
   //   output dimension 1 -> constant 5
   //   output dimension 2 -> input dimension 0, offset -2
   std::vector<DimensionIndex> source_matches(source.rank());
-  EXPECT_EQ(Status(), AlignDimensionsTo(source, target, source_matches));
+  EXPECT_EQ(absl::OkStatus(),
+            AlignDimensionsTo(source, target, source_matches));
   EXPECT_THAT(source_matches, ::testing::ElementsAre(1, -1, 0));
 }
 
@@ -211,7 +212,7 @@ TEST(AlignDimensionsToTest, AllLabeledPermuteOnly) {
   for (auto options : {Dao::permute, Dao::permute | Dao::translate,
                        Dao::permute | Dao::broadcast, Dao::all}) {
     std::vector<DimensionIndex> source_matches(source.rank());
-    EXPECT_EQ(Status(),
+    EXPECT_EQ(absl::OkStatus(),
               AlignDimensionsTo(source, target, source_matches, options));
     EXPECT_THAT(source_matches, ::testing::ElementsAre(1, 2, 0));
   }
@@ -245,7 +246,8 @@ TEST(AlignDimensionsToTest, AllLabeledPermuteTranslateOnly) {
   //   output dimension 1 -> input dimension 2, offset 1
   //   output dimension 2 -> input dimension 0, offset -2
   std::vector<DimensionIndex> source_matches(source.rank());
-  EXPECT_EQ(Status(), AlignDimensionsTo(source, target, source_matches));
+  EXPECT_EQ(absl::OkStatus(),
+            AlignDimensionsTo(source, target, source_matches));
   EXPECT_THAT(source_matches, ::testing::ElementsAre(1, 2, 0));
 }
 
@@ -269,7 +271,8 @@ TEST(AlignDimensionsToTest, PartiallyLabeled) {
   //   output dimension 1 -> constant 5
   //   output dimension 2 -> input dimension 1, offset -2
   std::vector<DimensionIndex> source_matches(source.rank());
-  EXPECT_EQ(Status(), AlignDimensionsTo(source, target, source_matches));
+  EXPECT_EQ(absl::OkStatus(),
+            AlignDimensionsTo(source, target, source_matches));
   EXPECT_THAT(source_matches, ::testing::ElementsAre(2, -1, 1));
 
   EXPECT_THAT(AlignDimensionsTo(source, target, source_matches, Dao::none),
@@ -321,7 +324,7 @@ TEST(AlignDimensionsToTest, BroadcastOnly) {
   for (auto options : {Dao::broadcast, Dao::broadcast | Dao::translate,
                        Dao::broadcast | Dao::permute, Dao::all}) {
     std::vector<DimensionIndex> source_matches(source.rank());
-    EXPECT_EQ(Status(),
+    EXPECT_EQ(absl::OkStatus(),
               AlignDimensionsTo(source, target, source_matches, options));
     EXPECT_THAT(source_matches, ::testing::ElementsAre(1, 2));
   }
@@ -351,7 +354,7 @@ TEST(AlignDimensionsToTest, PermuteAndBroadcast) {
                     .value();
   for (auto options : {Dao::permute | Dao::broadcast, Dao::all}) {
     std::vector<DimensionIndex> source_matches(source.rank());
-    EXPECT_EQ(Status(),
+    EXPECT_EQ(absl::OkStatus(),
               AlignDimensionsTo(source, target, source_matches, options));
     EXPECT_THAT(source_matches, ::testing::ElementsAre(0, -1));
   }
@@ -380,7 +383,8 @@ TEST(AlignDimensionsToTest, UnmatchedUnlabeledSourceDimension) {
                     .Finalize()
                     .value();
   std::vector<DimensionIndex> source_matches(source.rank());
-  EXPECT_EQ(Status(), AlignDimensionsTo(source, target, source_matches));
+  EXPECT_EQ(absl::OkStatus(),
+            AlignDimensionsTo(source, target, source_matches));
   EXPECT_THAT(source_matches, ::testing::ElementsAre(1, 2, -1, 0));
 }
 

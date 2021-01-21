@@ -27,7 +27,6 @@
 namespace {
 
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 
 namespace zlib = tensorstore::zlib;
 
@@ -85,8 +84,8 @@ TEST_P(ZlibCompressorTest, LargeRoundtrip) {
   zlib::Options options{6, use_gzip_header};
   absl::Cord encode_result, decode_result;
   zlib::Encode(absl::Cord(input), &encode_result, options);
-  ASSERT_EQ(Status(), zlib::Decode(encode_result, &decode_result,
-                                   options.use_gzip_header));
+  ASSERT_EQ(absl::OkStatus(), zlib::Decode(encode_result, &decode_result,
+                                           options.use_gzip_header));
   EXPECT_EQ(input, decode_result);
 }
 

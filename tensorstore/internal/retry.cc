@@ -31,22 +31,22 @@
 namespace tensorstore {
 namespace internal {
 
-bool DefaultIsRetriable(const tensorstore::Status& status) {
+bool DefaultIsRetriable(const absl::Status& status) {
   return (status.code() == absl::StatusCode::kUnknown ||
           status.code() == absl::StatusCode::kDeadlineExceeded ||
           status.code() == absl::StatusCode::kUnavailable);
 }
 
-Status RetryWithBackoff(std::function<Status()> function, int max_retries,
-                        absl::Duration initial_delay_time,
-                        absl::Duration max_delay_time,
-                        std::function<bool(const Status&)> is_retriable) {
+absl::Status RetryWithBackoff(
+    std::function<absl::Status()> function, int max_retries,
+    absl::Duration initial_delay_time, absl::Duration max_delay_time,
+    std::function<bool(const absl::Status&)> is_retriable) {
   ABSL_ASSERT(initial_delay_time >= absl::ZeroDuration());
   ABSL_ASSERT(max_delay_time >= initial_delay_time);
   ABSL_ASSERT(max_retries >= 0);
 
   std::optional<absl::BitGen> rng;
-  Status status;
+  absl::Status status;
   for (int retries = 0; retries < max_retries; retries++) {
     status = function();
     if (status.ok() || !is_retriable(status)) {

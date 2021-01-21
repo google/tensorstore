@@ -37,7 +37,6 @@ using tensorstore::MakeArray;
 using tensorstore::MatchesStatus;
 using tensorstore::ReadWriteMode;
 using tensorstore::Result;
-using tensorstore::Status;
 using tensorstore::string_t;
 using tensorstore::zero_origin;
 using tensorstore::internal::CastDataTypeConversions;
@@ -303,7 +302,7 @@ TEST(CastTest, StringToInt32Dynamic) {
   EXPECT_EQ(store.read_write_mode(), ReadWriteMode::read_write);
   auto cast_store = Cast(store, DataTypeOf<std::int32_t>()).value();
   EXPECT_EQ(cast_store.read_write_mode(), ReadWriteMode::write);
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             GetStatus(tensorstore::Write(MakeArray<std::int32_t>({1, 2, 3}),
                                          cast_store)
                           .commit_future.result()));
@@ -323,7 +322,7 @@ TEST(CastTest, OpenInt32ToInt64) {
   EXPECT_EQ(store.read_write_mode(), ReadWriteMode::read_write);
   EXPECT_EQ(tensorstore::Read<zero_origin>(store).result(),
             MakeArray<std::int64_t>({1, 2, 3}));
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             GetStatus(tensorstore::Write(
                           tensorstore::MakeScalarArray<std::int64_t>(10), store)
                           .commit_future.result()));

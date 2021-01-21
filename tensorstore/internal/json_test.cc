@@ -39,7 +39,6 @@ namespace {
 namespace jb = tensorstore::internal::json_binding;
 using ::nlohmann::json;
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 using tensorstore::internal::JsonHandleObjectMember;
 using tensorstore::internal::JsonParseArray;
 using tensorstore::internal::JsonRequireInteger;
@@ -567,42 +566,44 @@ TEST(JsonRequireValueAs, Failure) {
 TEST(JsonRequireIntegerTest, Success) {
   {
     std::int32_t result_int32 = 42;
-    EXPECT_EQ(Status(), JsonRequireInteger<std::int32_t>(
-                            ::nlohmann::json(-5), &result_int32,
-                            /*strict=*/true, -7, -3));
+    EXPECT_EQ(absl::OkStatus(), JsonRequireInteger<std::int32_t>(
+                                    ::nlohmann::json(-5), &result_int32,
+                                    /*strict=*/true, -7, -3));
     EXPECT_EQ(-5, result_int32);
   }
   {
     std::int32_t result_int32 = 42;
-    EXPECT_EQ(Status(), JsonRequireInteger<std::int32_t>(
-                            ::nlohmann::json(-7), &result_int32,
-                            /*strict=*/true, -7, -3));
+    EXPECT_EQ(absl::OkStatus(), JsonRequireInteger<std::int32_t>(
+                                    ::nlohmann::json(-7), &result_int32,
+                                    /*strict=*/true, -7, -3));
     EXPECT_EQ(-7, result_int32);
   }
   {
     std::int32_t result_int32 = 42;
-    EXPECT_EQ(Status(), JsonRequireInteger<std::int32_t>(
-                            ::nlohmann::json("-7"), &result_int32,
-                            /*strict=*/false, -7, -3));
+    EXPECT_EQ(absl::OkStatus(), JsonRequireInteger<std::int32_t>(
+                                    ::nlohmann::json("-7"), &result_int32,
+                                    /*strict=*/false, -7, -3));
     EXPECT_EQ(-7, result_int32);
   }
   {
     std::int32_t result_int32 = 42;
-    EXPECT_EQ(Status(), JsonRequireInteger<std::int32_t>(
-                            ::nlohmann::json(-3), &result_int32,
-                            /*strict=*/true, -7, -3));
+    EXPECT_EQ(absl::OkStatus(), JsonRequireInteger<std::int32_t>(
+                                    ::nlohmann::json(-3), &result_int32,
+                                    /*strict=*/true, -7, -3));
     EXPECT_EQ(-3, result_int32);
   }
   {
     std::uint32_t result_uint32 = 42;
-    EXPECT_EQ(Status(), JsonRequireInteger(::nlohmann::json(5), &result_uint32,
-                                           /*strict=*/true, 2, 7));
+    EXPECT_EQ(absl::OkStatus(),
+              JsonRequireInteger(::nlohmann::json(5), &result_uint32,
+                                 /*strict=*/true, 2, 7));
     EXPECT_EQ(5u, result_uint32);
   }
   {
     std::int16_t result_int16 = 42;
-    EXPECT_EQ(Status(), JsonRequireInteger(::nlohmann::json(5), &result_int16,
-                                           /*strict=*/true, 2, 7));
+    EXPECT_EQ(absl::OkStatus(),
+              JsonRequireInteger(::nlohmann::json(5), &result_int16,
+                                 /*strict=*/true, 2, 7));
     EXPECT_EQ(5, result_int16);
   }
 }
@@ -642,18 +643,19 @@ TEST(JsonRequireIntegerTest, Failure) {
 TEST(JsonParseArrayTest, Basic) {
   bool size_received = false;
   std::vector<std::pair<::nlohmann::json, std::ptrdiff_t>> elements;
-  EXPECT_EQ(Status(), JsonParseArray(
-                          ::nlohmann::json{1, 2, 3},
-                          [&](std::ptrdiff_t s) {
-                            EXPECT_EQ(3, s);
-                            size_received = true;
-                            return JsonValidateArrayLength(s, 3);
-                          },
-                          [&](const ::nlohmann::json& j, std::ptrdiff_t i) {
-                            EXPECT_TRUE(size_received);
-                            elements.emplace_back(j, i);
-                            return absl::OkStatus();
-                          }));
+  EXPECT_EQ(absl::OkStatus(),
+            JsonParseArray(
+                ::nlohmann::json{1, 2, 3},
+                [&](std::ptrdiff_t s) {
+                  EXPECT_EQ(3, s);
+                  size_received = true;
+                  return JsonValidateArrayLength(s, 3);
+                },
+                [&](const ::nlohmann::json& j, std::ptrdiff_t i) {
+                  EXPECT_TRUE(size_received);
+                  elements.emplace_back(j, i);
+                  return absl::OkStatus();
+                }));
   EXPECT_TRUE(size_received);
   EXPECT_THAT(elements, ::testing::ElementsAre(::testing::Pair(1, 0),
                                                ::testing::Pair(2, 1),
@@ -672,7 +674,7 @@ TEST(JsonParseArrayTest, NotArray) {
 }
 
 TEST(JsonValidateArrayLength, Success) {
-  EXPECT_EQ(Status(), JsonValidateArrayLength(3, 3));
+  EXPECT_EQ(absl::OkStatus(), JsonValidateArrayLength(3, 3));
 }
 
 TEST(JsonValidateArrayLength, Failure) {

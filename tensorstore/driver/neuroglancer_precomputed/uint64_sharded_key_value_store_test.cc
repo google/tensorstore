@@ -43,7 +43,6 @@ using tensorstore::KeyValueStore;
 using tensorstore::MatchesStatus;
 using tensorstore::OptionalByteRangeRequest;
 using tensorstore::Result;
-using tensorstore::Status;
 using tensorstore::StorageGeneration;
 using tensorstore::TimestampedStorageGeneration;
 using tensorstore::Transaction;

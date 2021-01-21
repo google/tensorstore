@@ -37,7 +37,6 @@ using tensorstore::Context;
 using tensorstore::Index;
 using tensorstore::KeyValueStore;
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 using tensorstore::StorageGeneration;
 using tensorstore::StrCat;
 using tensorstore::TimestampedStorageGeneration;
@@ -99,12 +98,13 @@ TEST(DriverTest, OpenNonExisting) {
 TEST(DriverTest, OpenOrCreate) {
   auto context = Context::Default();
 
-  EXPECT_EQ(Status(), GetStatus(tensorstore::Open(
-                                    context, GetJsonSpec(),
-                                    {tensorstore::OpenMode::open |
-                                         tensorstore::OpenMode::create,
-                                     tensorstore::ReadWriteMode::read_write})
-                                    .result()));
+  EXPECT_EQ(
+      absl::OkStatus(),
+      GetStatus(tensorstore::Open(context, GetJsonSpec(),
+                                  {tensorstore::OpenMode::open |
+                                       tensorstore::OpenMode::create,
+                                   tensorstore::ReadWriteMode::read_write})
+                    .result()));
 }
 
 TEST(DriverTest, Create) {
@@ -146,7 +146,7 @@ TEST(DriverTest, Create) {
 
     // Issue a valid write.
     EXPECT_EQ(
-        Status(),
+        absl::OkStatus(),
         GetStatus(tensorstore::Write(
                       tensorstore::MakeArray<std::uint16_t>(
                           {{{{0x9871, 0x9872}, {0x9881, 0x9882}},
@@ -312,12 +312,13 @@ TEST(DriverTest, Create) {
 
   // Check that create or open succeeds.
   {
-    EXPECT_EQ(Status(), GetStatus(tensorstore::Open(
-                                      context, json_spec,
-                                      {tensorstore::OpenMode::create |
-                                           tensorstore::OpenMode::open,
-                                       tensorstore::ReadWriteMode::read_write})
-                                      .result()));
+    EXPECT_EQ(
+        absl::OkStatus(),
+        GetStatus(tensorstore::Open(context, json_spec,
+                                    {tensorstore::OpenMode::create |
+                                         tensorstore::OpenMode::open,
+                                     tensorstore::ReadWriteMode::read_write})
+                      .result()));
   }
 
   // Check that open succeeds.

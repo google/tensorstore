@@ -28,7 +28,6 @@ namespace {
 
 using tensorstore::Context;
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 using tensorstore::internal::CachePoolResource;
 
 TEST(CachePoolResourceTest, Default) {
@@ -41,7 +40,7 @@ TEST(CachePoolResourceTest, Default) {
 TEST(CachePoolResourceTest, EmptyObject) {
   auto resource_spec = Context::ResourceSpec<CachePoolResource>::FromJson(
       ::nlohmann::json::object_t{});
-  ASSERT_EQ(Status(), GetStatus(resource_spec));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(resource_spec));
   auto cache = Context::Default().GetResource(*resource_spec).value();
   EXPECT_EQ(0u, (*cache)->limits().total_bytes_limit);
   EXPECT_EQ(0u, (*cache)->limits().queued_for_writeback_bytes_limit);
@@ -50,7 +49,7 @@ TEST(CachePoolResourceTest, EmptyObject) {
 TEST(CachePoolResourceTest, TotalBytesLimitOnly) {
   auto resource_spec = Context::ResourceSpec<CachePoolResource>::FromJson(
       {{"total_bytes_limit", 100}});
-  ASSERT_EQ(Status(), GetStatus(resource_spec));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(resource_spec));
   auto cache = Context::Default().GetResource(*resource_spec).value();
   EXPECT_EQ(100u, (*cache)->limits().total_bytes_limit);
   EXPECT_EQ(50u, (*cache)->limits().queued_for_writeback_bytes_limit);
@@ -59,7 +58,7 @@ TEST(CachePoolResourceTest, TotalBytesLimitOnly) {
 TEST(CachePoolResourceTest, Both) {
   auto resource_spec = Context::ResourceSpec<CachePoolResource>::FromJson(
       {{"total_bytes_limit", 100}, {"queued_for_writeback_bytes_limit", 30}});
-  ASSERT_EQ(Status(), GetStatus(resource_spec));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(resource_spec));
   auto cache = Context::Default().GetResource(*resource_spec).value();
   EXPECT_EQ(100u, (*cache)->limits().total_bytes_limit);
   EXPECT_EQ(30u, (*cache)->limits().queued_for_writeback_bytes_limit);
@@ -68,7 +67,7 @@ TEST(CachePoolResourceTest, Both) {
 TEST(CachePoolResourceTest, BothEqual) {
   auto resource_spec = Context::ResourceSpec<CachePoolResource>::FromJson(
       {{"total_bytes_limit", 100}, {"queued_for_writeback_bytes_limit", 100}});
-  ASSERT_EQ(Status(), GetStatus(resource_spec));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(resource_spec));
   auto cache = Context::Default().GetResource(*resource_spec).value();
   EXPECT_EQ(100u, (*cache)->limits().total_bytes_limit);
   EXPECT_EQ(100u, (*cache)->limits().queued_for_writeback_bytes_limit);

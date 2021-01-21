@@ -27,7 +27,6 @@
 namespace {
 
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 
 namespace xz = tensorstore::lzma::xz;
 

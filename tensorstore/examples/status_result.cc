@@ -18,11 +18,10 @@
 #include "tensorstore/util/status.h"
 
 using tensorstore::Result;
-using tensorstore::Status;
 
 namespace {
 
-Status ReturnStatus(int x) {
+absl::Status ReturnStatus(int x) {
   if (x < 10) {
     // FIXME: We should adopt equivalent error codes as tensorflow and
     // avoid defining our own errorspace.
@@ -31,7 +30,7 @@ Status ReturnStatus(int x) {
   return absl::OkStatus();
 }
 
-Status ReturnStatusIfError(int y) {
+absl::Status ReturnStatusIfError(int y) {
   TENSORSTORE_RETURN_IF_ERROR(ReturnStatus(y + 1));
   TENSORSTORE_RETURN_IF_ERROR(ReturnStatus(y - 1));
   return ReturnStatus(y);

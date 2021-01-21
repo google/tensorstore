@@ -27,7 +27,6 @@
 namespace {
 
 namespace zlib = tensorstore::zlib;
-using tensorstore::Status;
 using tensorstore::neuroglancer_uint64_sharded::EncodeMinishardIndex;
 using tensorstore::neuroglancer_uint64_sharded::EncodeShardIndex;
 using tensorstore::neuroglancer_uint64_sharded::MinishardIndexEntry;

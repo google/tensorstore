@@ -38,7 +38,6 @@ using tensorstore::kInfIndex;
 using tensorstore::MakeArray;
 using tensorstore::MatchesStatus;
 using tensorstore::span;
-using tensorstore::Status;
 using tensorstore::TransformedArray;
 using tensorstore::internal_index_space::TransformAccess;
 
@@ -74,7 +73,7 @@ TEST(InitializeSingleArrayIterationStateTest, Basic) {
   tensorstore::internal_index_space::SingleArrayIterationState
       single_array_state(2, 2);
   EXPECT_EQ(
-      tensorstore::Status(),
+      absl::OkStatus(),
       tensorstore::internal_index_space::InitializeSingleArrayIterationState(
           array, TransformAccess::rep(transform),
           transform.input_origin().data(), transform.input_shape().data(),
@@ -243,7 +242,7 @@ TEST(IterateOverTransformedArrayTest, EarlyStoppingWithoutStatus) {
         return true;
       },
       /*constraints=*/{}, array_a, array_b);
-  ASSERT_EQ(Status(), GetStatus(result));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
   EXPECT_FALSE(result->success);
   EXPECT_EQ(2, result->count);
   EXPECT_EQ(MakeArray<float>({5, 6, 7, 9}), array_a);
@@ -253,9 +252,9 @@ TEST(IterateOverTransformedArrayTest, EarlyStoppingWithoutStatus) {
 TEST(IterateOverTransformedArrayTest, EarlyStoppingWithStatus) {
   auto array_a = MakeArray<float>({5, 6, 7, 9});
   auto array_b = MakeArray<float>({5, 6, 8, 9});
-  Status status;
+  absl::Status status;
   auto result = IterateOverTransformedArrays(
-      [&](const float* a_ptr, float* b_ptr, Status* status) {
+      [&](const float* a_ptr, float* b_ptr, absl::Status* status) {
         if (*a_ptr != *b_ptr) {
           *status =
               absl::UnknownError(tensorstore::StrCat(*a_ptr, " ", *b_ptr));
@@ -269,7 +268,7 @@ TEST(IterateOverTransformedArrayTest, EarlyStoppingWithStatus) {
       },
       &status,
       /*constraints=*/{}, array_a, array_b);
-  ASSERT_EQ(Status(), GetStatus(result));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
   EXPECT_THAT(status, MatchesStatus(absl::StatusCode::kUnknown, "7 8"));
   EXPECT_FALSE(result->success);
   EXPECT_EQ(2, result->count);

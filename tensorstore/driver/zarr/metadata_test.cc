@@ -33,7 +33,6 @@ using tensorstore::DataTypeOf;
 using tensorstore::MakeArray;
 using tensorstore::MakeScalarArray;
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 using tensorstore::internal_zarr::EncodeFillValue;
 using tensorstore::internal_zarr::ParseDType;
 using tensorstore::internal_zarr::ParseFillValue;
@@ -61,7 +60,8 @@ void TestFillValueRoundTrip(
     std::vector<tensorstore::SharedArray<const void>> fill_values,
     std::vector<tensorstore::ArrayMatcher> fill_values_matcher) {
   auto parsed_dtype = ParseDType(dtype);
-  ASSERT_EQ(Status(), GetStatus(parsed_dtype)) << "dtype=" << dtype.dump();
+  ASSERT_EQ(absl::OkStatus(), GetStatus(parsed_dtype))
+      << "dtype=" << dtype.dump();
   EXPECT_THAT(
       ParseFillValue(encoded_fill_value, *parsed_dtype),
       ::testing::Optional(::testing::ElementsAreArray(fill_values_matcher)))
@@ -276,7 +276,7 @@ TEST(EncodeDecodeMetadataTest, Array1) {
                                            /*allow_exceptions=*/false);
   ASSERT_FALSE(j.is_discarded());
   ZarrMetadata metadata;
-  EXPECT_EQ(Status(), ParseMetadata(j, &metadata));
+  EXPECT_EQ(absl::OkStatus(), ParseMetadata(j, &metadata));
   EXPECT_EQ(2, metadata.zarr_format);
   EXPECT_THAT(metadata.shape, ElementsAre(100));
   EXPECT_THAT(metadata.chunks, ElementsAre(10));
@@ -328,7 +328,7 @@ TEST(EncodeDecodeMetadataTest, Array2) {
                                            /*allow_exceptions=*/false);
   ASSERT_FALSE(j.is_discarded());
   ZarrMetadata metadata;
-  EXPECT_EQ(Status(), ParseMetadata(j, &metadata));
+  EXPECT_EQ(absl::OkStatus(), ParseMetadata(j, &metadata));
   EXPECT_EQ(2, metadata.zarr_format);
   EXPECT_THAT(metadata.shape, ElementsAre(100, 100));
   EXPECT_THAT(metadata.chunks, ElementsAre(10, 10));
@@ -394,7 +394,7 @@ TEST(EncodeDecodeMetadataTest, Array2Modified) {
                                            /*allow_exceptions=*/false);
   ASSERT_FALSE(j.is_discarded());
   ZarrMetadata metadata;
-  EXPECT_EQ(Status(), ParseMetadata(j, &metadata));
+  EXPECT_EQ(absl::OkStatus(), ParseMetadata(j, &metadata));
   EXPECT_EQ(2, metadata.zarr_format);
   EXPECT_THAT(metadata.shape, ElementsAre(100, 100));
   EXPECT_THAT(metadata.chunks, ElementsAre(10, 10));
@@ -454,7 +454,7 @@ TEST(EncodeDecodeMetadataTest, ArrayStructured) {
                                            /*allow_exceptions=*/false);
   ASSERT_FALSE(j.is_discarded());
   ZarrMetadata metadata;
-  EXPECT_EQ(Status(), ParseMetadata(j, &metadata));
+  EXPECT_EQ(absl::OkStatus(), ParseMetadata(j, &metadata));
   EXPECT_EQ(2, metadata.zarr_format);
   EXPECT_THAT(metadata.shape, ElementsAre(100));
   EXPECT_THAT(metadata.chunks, ElementsAre(10));
@@ -530,7 +530,7 @@ TEST(EncodeDecodeMetadataTest, FillValuesNan) {
                                              /*allow_exceptions=*/false);
     ASSERT_FALSE(j.is_discarded());
     ZarrMetadata metadata;
-    EXPECT_EQ(Status(), ParseMetadata(j, &metadata));
+    EXPECT_EQ(absl::OkStatus(), ParseMetadata(j, &metadata));
     EXPECT_EQ(2, metadata.zarr_format);
     EXPECT_THAT(metadata.shape, ElementsAre(100));
     EXPECT_THAT(metadata.chunks, ElementsAre(10));
@@ -581,7 +581,7 @@ void EncodeDecodeMetadataTestArrayComplex(std::string zarr_dtype) {
                    {"shape", {100, 100}},
                    {"zarr_format", 2}};
   ZarrMetadata metadata;
-  EXPECT_EQ(Status(), ParseMetadata(j, &metadata));
+  EXPECT_EQ(absl::OkStatus(), ParseMetadata(j, &metadata));
   EXPECT_EQ(2, metadata.zarr_format);
   EXPECT_THAT(metadata.shape, ElementsAre(100, 100));
   EXPECT_THAT(metadata.chunks, ElementsAre(10, 10));
@@ -644,7 +644,7 @@ TEST(ParseMetadataTest, Simple) {
                                            /*allow_exceptions=*/false);
   ASSERT_FALSE(j.is_discarded());
   ZarrMetadata metadata;
-  EXPECT_EQ(Status(), ParseMetadata(j, &metadata));
+  EXPECT_EQ(absl::OkStatus(), ParseMetadata(j, &metadata));
   EXPECT_EQ(2, metadata.zarr_format);
   EXPECT_THAT(metadata.shape, ElementsAre(1111));
   EXPECT_THAT(metadata.chunks, ElementsAre(100));

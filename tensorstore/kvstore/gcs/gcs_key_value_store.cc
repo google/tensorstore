@@ -199,8 +199,8 @@ bool IsValidObjectName(absl::string_view name) {
 
 /// Returns an error Status when either the object name or the StorageGeneration
 /// are not legal values for the GCS storage backend.
-Status ValidateObjectAndStorageGeneration(absl::string_view object,
-                                          const StorageGeneration& gen) {
+absl::Status ValidateObjectAndStorageGeneration(absl::string_view object,
+                                                const StorageGeneration& gen) {
   if (!IsValidObjectName(object)) {
     return absl::InvalidArgumentError("Invalid GCS object name");
   }
@@ -266,7 +266,7 @@ std::string BucketUploadRoot(absl::string_view bucket) {
 }
 
 /// Returns whether the Status is a retriable request.
-bool IsRetriable(const tensorstore::Status& status) {
+bool IsRetriable(const absl::Status& status) {
   return (status.code() == absl::StatusCode::kDeadlineExceeded ||
           status.code() == absl::StatusCode::kUnavailable);
 }
@@ -302,9 +302,8 @@ class GcsKeyValueStore
                      &SpecData::bucket, jb::Validate([](const auto& options,
                                                         const std::string* x) {
                        if (!IsValidBucketName(*x)) {
-                         return Status(absl::StatusCode::kInvalidArgument,
-                                       StrCat("Invalid GCS bucket name: ",
-                                              QuoteString(*x)));
+                         return absl::InvalidArgumentError(StrCat(
+                             "Invalid GCS bucket name: ", QuoteString(*x)));
                        }
                        return absl::OkStatus();
                      }))),
@@ -323,8 +322,8 @@ class GcsKeyValueStore
                              spec.retries->max_retries);
   }
 
-  static Status ConvertSpec(SpecData* spec,
-                            KeyValueStore::SpecRequestOptions options) {
+  static absl::Status ConvertSpec(SpecData* spec,
+                                  KeyValueStore::SpecRequestOptions options) {
     return absl::OkStatus();
   }
 
@@ -351,7 +350,7 @@ class GcsKeyValueStore
                                              WriteOptions options) override;
 
   void ListImpl(const ListOptions& options,
-                AnyFlowReceiver<Status, Key> receiver) override;
+                AnyFlowReceiver<absl::Status, Key> receiver) override;
 
   /// Returns the Auth header for a GCS request.
   Result<std::string> GetAuthHeader() {
@@ -381,7 +380,7 @@ class GcsKeyValueStore
     }
   }
 
-  Status GetBoundSpecData(BoundSpecData* spec) const {
+  absl::Status GetBoundSpecData(BoundSpecData* spec) const {
     *spec = spec_;
     return absl::OkStatus();
   }
@@ -408,7 +407,7 @@ class GcsKeyValueStore
     return result;
   }
 
-  absl::Status RetryRequestWithBackoff(std::function<Status()> function) {
+  absl::Status RetryRequestWithBackoff(std::function<absl::Status()> function) {
     return internal::RetryWithBackoff(
         std::move(function), spec_.retries->max_retries,
         absl::Milliseconds(100), absl::Seconds(5), IsRetriable);
@@ -744,7 +743,7 @@ struct ListOp {
   using State = ListState<Receiver>;
   internal::IntrusivePtr<State> state;
 
-  inline Status maybe_cancelled() {
+  inline absl::Status maybe_cancelled() {
     return state->is_cancelled() ? absl::CancelledError("") : absl::OkStatus();
   }
 
@@ -764,7 +763,7 @@ struct ListOp {
     execution::set_stopping(state->receiver);
   }
 
-  Status Run() {
+  absl::Status Run() {
     // Construct the base LIST url. This will be modified to
     // include the nextPageToken
     std::string base_list_url = state->resource;
@@ -845,7 +844,7 @@ struct ListOp {
 };
 
 struct ListReceiver {
-  AnyFlowReceiver<Status, KeyValueStore::Key> receiver;
+  AnyFlowReceiver<absl::Status, KeyValueStore::Key> receiver;
 
   // set_value extracts the name from the object metadata.
   friend void set_value(ListReceiver& self, std::vector<ObjectMetadata> v) {
@@ -872,7 +871,7 @@ struct ListReceiver {
 };
 
 void GcsKeyValueStore::ListImpl(const ListOptions& options,
-                                AnyFlowReceiver<Status, Key> receiver) {
+                                AnyFlowReceiver<absl::Status, Key> receiver) {
   using State = ListState<ListReceiver>;
   internal::IntrusivePtr<State> state(new State);
   state->owner = GcsKeyValueStore::Ptr{this};

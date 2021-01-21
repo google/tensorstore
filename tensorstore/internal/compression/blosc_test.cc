@@ -29,7 +29,6 @@
 namespace {
 
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 
 namespace blosc = tensorstore::blosc;
 

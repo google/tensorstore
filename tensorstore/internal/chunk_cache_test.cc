@@ -88,7 +88,6 @@ using tensorstore::Result;
 using tensorstore::SharedArray;
 using tensorstore::span;
 using tensorstore::StalenessBound;
-using tensorstore::Status;
 using tensorstore::StorageGeneration;
 using tensorstore::TensorStore;
 using tensorstore::TimestampedStorageGeneration;
@@ -211,7 +210,7 @@ class TestCache : public TestCacheBase {
 template <typename T>
 ElementCopyFunction GetCopyFunction() {
   const auto copy_func ABSL_ATTRIBUTE_UNUSED =
-      [](const T* source, T* dest, Status* status) { *dest = *source; };
+      [](const T* source, T* dest, absl::Status* status) { *dest = *source; };
   return SimpleElementwiseFunction<decltype(copy_func), const T, T>();
 }
 
@@ -417,7 +416,7 @@ struct CancelWriteReceiver {
     receiver.cancel();
   }
   friend void set_done(CancelWriteReceiver& receiver) {}
-  friend void set_error(CancelWriteReceiver& receiver, Status status) {}
+  friend void set_error(CancelWriteReceiver& receiver, absl::Status status) {}
   friend void set_stopping(CancelWriteReceiver& receiver) {
     receiver.cancel = nullptr;
   }

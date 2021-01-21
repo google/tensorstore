@@ -32,7 +32,6 @@ using tensorstore::ChainResult;
 using tensorstore::FlatMapResultType;
 using tensorstore::FlatResult;
 using tensorstore::Result;
-using tensorstore::Status;
 using tensorstore::UnwrapQualifiedResultType;
 using tensorstore::UnwrapResultType;
 
@@ -60,13 +59,13 @@ TEST(ResultTest, ConstructValue) {
 }
 
 TEST(ResultDeathTest, ConstructSuccess) {
-  tensorstore::Status status;
+  absl::Status status;
   ASSERT_DEATH(Result<int> result(status), "status");
 }
 
 TEST(ResultDeathTest, AssignSuccess) {
   // Cannot get blood from a stone.
-  tensorstore::Status status;
+  absl::Status status;
   Result<int> result{absl::in_place};
   ASSERT_DEATH(result = status, "status");
 }
@@ -78,8 +77,7 @@ TEST(ResultDeathTest, ConstructDefaultHasNoStatus) {
 
 TEST(ResultDeathTest, ConstructStatusHasNoValue) {
   // Cannot get blood from a stone.
-  tensorstore::Status status(absl::StatusCode::kUnknown,
-                             "My custom error message");
+  absl::Status status = absl::UnknownError("My custom error message");
   Result<int> result(status);
 
   ASSERT_DEATH(result.value(), "");
@@ -99,7 +97,8 @@ TEST(ResultDeathTest, ValidResultChecksOnStatus) {
 }
 
 TEST(ResultTest, ConstructStatus) {
-  tensorstore::Status status(absl::StatusCode::kUnknown, "Message");
+  absl::Status status = absl::UnknownError("Message");
+
   Result<int> result(status);
   EXPECT_FALSE(result);
   EXPECT_FALSE(result.ok());
@@ -108,14 +107,14 @@ TEST(ResultTest, ConstructStatus) {
 }
 
 TEST(ResultTest, ConstructStatusMove) {
-  tensorstore::Status status(absl::StatusCode::kUnknown, "Message");
+  absl::Status status = absl::UnknownError("Message");
   auto message = status.message();  // string_view
   Result<int> result(std::move(status));
   EXPECT_EQ(message.data(), result.status().message().data());
 }
 
 TEST(ResultTest, ConstructVoidStatus) {
-  tensorstore::Status status(absl::StatusCode::kUnknown, "Message");
+  absl::Status status = absl::UnknownError("Message");
   Result<void> result(status);
   EXPECT_FALSE(result);
   EXPECT_FALSE(result.ok());
@@ -124,7 +123,7 @@ TEST(ResultTest, ConstructVoidStatus) {
 }
 
 TEST(ResultTest, ConstructVoidStatusMove) {
-  tensorstore::Status status(absl::StatusCode::kUnknown, "Message");
+  absl::Status status = absl::UnknownError("Message");
   auto message = status.message();  // string_view
   Result<void> result(std::move(status));
   EXPECT_EQ(message.data(), result.status().message().data());
@@ -277,7 +276,7 @@ TEST(ResultTest, AssignCopySuccess) {
 
 TEST(ResultTest, ConvertingValueConstructor) {
   float a = 3.0f;
-  const tensorstore::Status b(absl::StatusCode::kUnknown, "Hello");
+  const absl::Status b(absl::StatusCode::kUnknown, "Hello");
 
   Result<double> c(a);
   EXPECT_TRUE(c);
@@ -324,7 +323,7 @@ TEST(ResultTest, ConvertingConstructor) {
 TEST(ResultTest, Swap) {
   using std::swap;
 
-  tensorstore::Status status(absl::StatusCode::kUnknown, "Message");
+  absl::Status status(absl::StatusCode::kUnknown, "Message");
 
   Result<int> result(status);
   Result<int> result2(3);
@@ -615,13 +614,13 @@ TEST(ResultVoidTest, MoveConstructFromStatus) {
 }
 
 TEST(ResultVoidTest, CopyConstructFromStatus) {
-  Status s = absl::UnknownError("C");
+  absl::Status s = absl::UnknownError("C");
   Result<void> r = s;
   EXPECT_EQ(absl::UnknownError("C"), r.status());
 }
 
 TEST(ResultVoidTest, CopyAssignFromStatus) {
-  Status s = absl::UnknownError("C");
+  absl::Status s = absl::UnknownError("C");
   Result<void> t(absl::in_place);
   Result<void> r{absl::in_place};
   r = s;
@@ -961,7 +960,7 @@ TEST(ResultTest, MakeResult) {
     EXPECT_EQ(0, *result);
   }
 
-  const Status err(absl::StatusCode::kUnknown, "C");
+  const absl::Status err(absl::StatusCode::kUnknown, "C");
   {
     auto result = tensorstore::MakeResult(err);
     EXPECT_FALSE(result.has_value());
@@ -976,7 +975,7 @@ TEST(ResultTest, MakeResult) {
 
 TEST(ResultConstructTest, AssignStatusCopy) {
   Result<int> res = absl::UnknownError("");
-  const Status status(absl::StatusCode::kUnknown, "new");
+  const absl::Status status(absl::StatusCode::kUnknown, "new");
   res.Construct(status);
   EXPECT_FALSE(res);
   EXPECT_EQ(status, res.status());
@@ -984,7 +983,7 @@ TEST(ResultConstructTest, AssignStatusCopy) {
 
 TEST(ResultConstructTest, AssignStatusMove) {
   Result<int> res = absl::UnknownError("");
-  Status status(absl::StatusCode::kUnknown, "new");
+  absl::Status status(absl::StatusCode::kUnknown, "new");
   res.Construct(absl::UnknownError("new"));
   EXPECT_FALSE(res);
   EXPECT_EQ(status, res.status());
@@ -1054,8 +1053,9 @@ TEST(ResultTest, AssignOrReturnAnnotate) {
 
 static_assert(std::is_same<UnwrapResultType<int>, int>::value);
 static_assert(std::is_same<UnwrapResultType<Result<int>>, int>::value);
-static_assert(std::is_same<UnwrapResultType<Status>, void>::value);
-static_assert(std::is_same<UnwrapQualifiedResultType<Status>, void>::value);
+static_assert(std::is_same<UnwrapResultType<absl::Status>, void>::value);
+static_assert(
+    std::is_same<UnwrapQualifiedResultType<absl::Status>, void>::value);
 static_assert(std::is_same<UnwrapQualifiedResultType<Result<int>>, int>::value);
 static_assert(
     std::is_same<UnwrapQualifiedResultType<Result<int>&>, int&>::value);
@@ -1105,7 +1105,7 @@ TEST(ChainResultTest, Basic) {
 }
 
 TEST(MapResultTest, Basic) {
-  tensorstore::Status status;
+  absl::Status status;
 
   EXPECT_EQ(Result<int>(absl::UnknownError("A")),
             tensorstore::MapResult(std::plus<int>(),

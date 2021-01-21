@@ -29,13 +29,12 @@ using tensorstore::Box;
 using tensorstore::Index;
 using tensorstore::kImplicit;
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 using tensorstore::internal_kvs_backed_chunk_driver::ValidateResizeConstraints;
 
 using ISpan = tensorstore::span<const Index>;
 
 TEST(ValidateResizeConstraintsTest, Success) {
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateResizeConstraints(
                 /*current_domain=*/Box({0, 0}, {4, 5}),
                 /*new_inclusive_min=*/ISpan({kImplicit, kImplicit}),
@@ -45,16 +44,17 @@ TEST(ValidateResizeConstraintsTest, Success) {
                 /*expand_only=*/false,
                 /*shrink_only=*/false));
 
-  EXPECT_EQ(Status(), ValidateResizeConstraints(
-                          /*current_domain=*/Box({0, 0}, {4, 5}),
-                          /*new_inclusive_min=*/ISpan({kImplicit, kImplicit}),
-                          /*new_exclusive_max=*/ISpan({4, 6}),
-                          /*inclusive_min_constraint=*/ISpan({0, 0}),
-                          /*exclusive_max_constraint=*/ISpan({4, kImplicit}),
-                          /*expand_only=*/false,
-                          /*shrink_only=*/false));
+  EXPECT_EQ(absl::OkStatus(),
+            ValidateResizeConstraints(
+                /*current_domain=*/Box({0, 0}, {4, 5}),
+                /*new_inclusive_min=*/ISpan({kImplicit, kImplicit}),
+                /*new_exclusive_max=*/ISpan({4, 6}),
+                /*inclusive_min_constraint=*/ISpan({0, 0}),
+                /*exclusive_max_constraint=*/ISpan({4, kImplicit}),
+                /*expand_only=*/false,
+                /*shrink_only=*/false));
 
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateResizeConstraints(
                 /*current_domain=*/Box({0, 0}, {4, 5}),
                 /*new_inclusive_min=*/ISpan({kImplicit, kImplicit}),
@@ -64,7 +64,7 @@ TEST(ValidateResizeConstraintsTest, Success) {
                 /*expand_only=*/true,
                 /*shrink_only=*/false));
 
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateResizeConstraints(
                 /*current_domain=*/Box({0, 0}, {4, 5}),
                 /*new_inclusive_min=*/ISpan({kImplicit, kImplicit}),
@@ -74,7 +74,7 @@ TEST(ValidateResizeConstraintsTest, Success) {
                 /*expand_only=*/false,
                 /*shrink_only=*/true));
 
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateResizeConstraints(
                 /*current_domain=*/Box({0, 0}, {4, 5}),
                 /*new_inclusive_min=*/ISpan({kImplicit, kImplicit}),
@@ -84,7 +84,7 @@ TEST(ValidateResizeConstraintsTest, Success) {
                 /*expand_only=*/true,
                 /*shrink_only=*/true));
 
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateResizeConstraints(
                 /*current_domain=*/Box({0, 0}, {4, 5}),
                 /*new_inclusive_min=*/ISpan({kImplicit, kImplicit}),

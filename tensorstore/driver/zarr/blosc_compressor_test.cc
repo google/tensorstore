@@ -26,7 +26,6 @@
 namespace {
 
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 using tensorstore::internal_zarr::Compressor;
 
 std::vector<::nlohmann::json> GetTestCompressorSpecs() {

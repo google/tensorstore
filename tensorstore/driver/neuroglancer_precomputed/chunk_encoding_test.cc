@@ -31,7 +31,6 @@ namespace {
 
 using tensorstore::Index;
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 using tensorstore::internal_neuroglancer_precomputed::DecodeChunk;
 using tensorstore::internal_neuroglancer_precomputed::EncodeChunk;
 using tensorstore::internal_neuroglancer_precomputed::MultiscaleMetadata;

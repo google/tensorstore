@@ -24,18 +24,17 @@
 namespace {
 
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 using tensorstore::internal_zarr::Compressor;
 
 TEST(ParseCompressorTest, Null) {
   auto compressor_result = Compressor::FromJson(nullptr);
-  EXPECT_EQ(Status(), GetStatus(compressor_result));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(compressor_result));
   EXPECT_EQ(nullptr, ::nlohmann::json(*compressor_result));
 }
 
 TEST(ParseCompressorTest, ZlibSuccess) {
   auto compressor_result = Compressor::FromJson({{"id", "zlib"}, {"level", 5}});
-  EXPECT_EQ(Status(), GetStatus(compressor_result));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(compressor_result));
   EXPECT_EQ((::nlohmann::json{{"id", "zlib"}, {"level", 5}}),
             ::nlohmann::json(*compressor_result));
 }

@@ -37,22 +37,22 @@
 namespace {
 
 using tensorstore::Index;
-using tensorstore::Status;
 using tensorstore::internal::NDIterableCopier;
 using ::testing::_;
 using ::testing::Pair;
 
-/// Returns the `Status` returned by `Copy()` and the final
+/// Returns the `absl::Status` returned by `Copy()` and the final
 /// `copier.stepper().position()` value.
 template <typename Func, typename DestArray, typename... SourceArray>
-std::pair<Status, std::vector<Index>> TestCopy(
+std::pair<absl::Status, std::vector<Index>> TestCopy(
     Func func, tensorstore::IterationConstraints constraints,
     DestArray dest_array, SourceArray... source_array) {
   tensorstore::internal::Arena arena;
-  tensorstore::internal::ElementwiseClosure<sizeof...(SourceArray) + 1, Status*>
+  tensorstore::internal::ElementwiseClosure<sizeof...(SourceArray) + 1,
+                                            absl::Status*>
       closure = tensorstore::internal::SimpleElementwiseFunction<
           Func(typename SourceArray::Element..., typename DestArray::Element),
-          Status*>::Closure(&func);
+          absl::Status*>::Closure(&func);
   auto iterable = tensorstore::internal::GetElementwiseInputTransformNDIterable(
       {{tensorstore::internal::GetTransformedArrayNDIterable(source_array,
                                                              &arena)
@@ -71,9 +71,9 @@ std::pair<Status, std::vector<Index>> TestCopy(
 
 TEST(NDIterableElementwiseInputTransformTest, Nullary) {
   auto dest = tensorstore::AllocateArray<double>({2, 3});
-  EXPECT_THAT(TestCopy([](double* dest, Status* status) { *dest = 42.0; },
+  EXPECT_THAT(TestCopy([](double* dest, absl::Status* status) { *dest = 42.0; },
                        /*constraints=*/{}, dest),
-              Pair(Status(), _));
+              Pair(absl::OkStatus(), _));
   EXPECT_EQ(
       tensorstore::MakeArray<double>({{42.0, 42.0, 42.0}, {42.0, 42.0, 42.0}}),
       dest);
@@ -83,9 +83,9 @@ TEST(NDIterableElementwiseInputTransformTest, Unary) {
   auto source = tensorstore::MakeArray<int>({{1, 2, 3}, {4, 5, 6}});
   auto dest = tensorstore::AllocateArray<double>(source.shape());
   EXPECT_THAT(TestCopy([](const int* source, double* dest,
-                          Status* status) { *dest = -*source; },
+                          absl::Status* status) { *dest = -*source; },
                        /*constraints=*/{}, dest, source),
-              Pair(Status(), _));
+              Pair(absl::OkStatus(), _));
   EXPECT_EQ(
       tensorstore::MakeArray<double>({{-1.0, -2.0, -3.0}, {-4.0, -5.0, -6.0}}),
       dest);
@@ -96,9 +96,9 @@ TEST(NDIterableElementwiseInputTransformTest, Binary) {
   auto b = tensorstore::MakeArray<int>({{10, 12, 14}, {16, 18, 20}});
   auto dest = tensorstore::AllocateArray<double>(a.shape());
   EXPECT_THAT(TestCopy([](const int* a, const int* b, double* dest,
-                          Status* status) { *dest = 2.0 * *a + *b; },
+                          absl::Status* status) { *dest = 2.0 * *a + *b; },
                        /*constraints=*/{}, dest, a, b),
-              Pair(Status(), _));
+              Pair(absl::OkStatus(), _));
   EXPECT_EQ(
       tensorstore::MakeArray<double>({{12.0, 16.0, 20.0}, {24.0, 28.0, 32.0}}),
       dest);
@@ -111,9 +111,9 @@ TEST(NDIterableElementwiseInputTransformTest, Ternary) {
   auto dest = tensorstore::AllocateArray<double>(a.shape());
   EXPECT_THAT(
       TestCopy([](const int* a, const int* b, const double* c, double* dest,
-                  Status* status) { *dest = *a + *b * *c; },
+                  absl::Status* status) { *dest = *a + *b * *c; },
                /*constraints=*/{}, dest, a, b, c),
-      Pair(Status(), _));
+      Pair(absl::OkStatus(), _));
   EXPECT_EQ(
       tensorstore::MakeArray<double>({{1 + 10 * 1, 2 + 12 * -1, 3 + 14 * 1},
                                       {4 + 16 * -1, 5 + 18 * -1, 6 + 20 * 1}}),
@@ -125,7 +125,7 @@ TEST(NDIterableElementwiseInputTransformTest, PartialCopy) {
   auto dest = tensorstore::AllocateArray<double>(
       source.shape(), tensorstore::c_order, tensorstore::value_init);
   EXPECT_THAT(TestCopy(
-                  [](const int* source, double* dest, Status* status) {
+                  [](const int* source, double* dest, absl::Status* status) {
                     if (*source == 0) {
                       *status = absl::UnknownError("zero");
                       return false;

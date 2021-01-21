@@ -44,7 +44,6 @@ using tensorstore::kMaxFiniteIndex;
 using tensorstore::kMinFiniteIndex;
 using tensorstore::MatchesStatus;
 using tensorstore::OutputIndexMethod;
-using tensorstore::Status;
 using tensorstore::internal::TestConcurrent;
 using tensorstore::internal_index_space::CopyTransformRep;
 using tensorstore::internal_index_space::MoveTransformRep;
@@ -129,9 +128,9 @@ TEST(OutputIndexMapDeathTest, Basic) {
 
 TEST(ReplaceZeroRankIndexArrayIndexMapTest, Basic) {
   Index output_offset = 5, output_stride = 3;
-  EXPECT_EQ(Status(), ReplaceZeroRankIndexArrayIndexMap(
-                          10, IndexInterval::UncheckedClosed(3, 15),
-                          &output_offset, &output_stride));
+  EXPECT_EQ(absl::OkStatus(), ReplaceZeroRankIndexArrayIndexMap(
+                                  10, IndexInterval::UncheckedClosed(3, 15),
+                                  &output_offset, &output_stride));
   EXPECT_EQ(5 + 10 * 3, output_offset);
   EXPECT_EQ(0, output_stride);
 }
@@ -444,13 +443,14 @@ TEST(ValidateAndIntersectBoundsTest, Failure) {
 }
 
 TEST(ValidateLabelsAreUniqueTest, Basic) {
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateLabelsAreUnique(std::vector<std::string>{"a", "b", "c"}));
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateLabelsAreUnique(std::vector<std::string>{"", "", ""}));
-  EXPECT_EQ(Status(), ValidateLabelsAreUnique(
-                          std::vector<std::string>{"a", "b", "", "d", ""}));
-  EXPECT_EQ(Status(), ValidateLabelsAreUnique(std::vector<std::string>{}));
+  EXPECT_EQ(absl::OkStatus(), ValidateLabelsAreUnique(std::vector<std::string>{
+                                  "a", "b", "", "d", ""}));
+  EXPECT_EQ(absl::OkStatus(),
+            ValidateLabelsAreUnique(std::vector<std::string>{}));
   EXPECT_THAT(
       ValidateLabelsAreUnique(std::vector<std::string>{"a", "b", "c", "a"}),
       MatchesStatus(absl::StatusCode::kInvalidArgument,

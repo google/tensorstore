@@ -29,7 +29,6 @@ namespace {
 using tensorstore::AnyFlowReceiver;
 using tensorstore::IndexTransform;
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 using tensorstore::WriteProgress;
 using tensorstore::internal::ReadChunk;
 using tensorstore::internal::WriteChunk;
@@ -40,14 +39,14 @@ class ChunkErrorDriver : public tensorstore::internal::Driver {
     return tensorstore::DataTypeOf<int>();
   }
   tensorstore::DimensionIndex rank() override { return 0; }
-  void Read(
-      tensorstore::internal::OpenTransactionPtr transaction,
-      IndexTransform<> transform,
-      AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) override {}
-  void Write(
-      tensorstore::internal::OpenTransactionPtr transaction,
-      IndexTransform<> transform,
-      AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) override {
+  void Read(tensorstore::internal::OpenTransactionPtr transaction,
+            IndexTransform<> transform,
+            AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
+      override {}
+  void Write(tensorstore::internal::OpenTransactionPtr transaction,
+             IndexTransform<> transform,
+             AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>
+                 receiver) override {
     tensorstore::execution::set_starting(receiver, [] {});
     tensorstore::execution::set_error(receiver,
                                       absl::UnknownError("Chunk error"));

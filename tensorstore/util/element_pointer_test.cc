@@ -38,7 +38,6 @@ using tensorstore::Result;
 using tensorstore::Shared;
 using tensorstore::SharedElementPointer;
 using tensorstore::StaticDataTypeCast;
-using tensorstore::Status;
 
 static_assert(IsElementTag<int>::value, "");
 static_assert(IsElementTag<void>::value, "");
@@ -214,7 +213,7 @@ TEST(ElementPointerTest, StaticType) {
     static_assert(
         std::is_same<decltype(p2), Result<ElementPointer<const float>>>::value,
         "");
-    ASSERT_EQ(Status(), GetStatus(p2));
+    ASSERT_EQ(absl::OkStatus(), GetStatus(p2));
     EXPECT_EQ(&value, p2->data());
   }
 

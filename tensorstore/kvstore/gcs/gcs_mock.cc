@@ -37,7 +37,6 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::Status;
 using tensorstore::internal_http::CurlUnescapeString;
 using tensorstore::internal_http::HttpRequest;
 using tensorstore::internal_http::HttpResponse;
@@ -101,15 +100,15 @@ Future<HttpResponse> GCSMockStorageBucket::IssueRequest(
   // thread safe and not uninstalled when it might introduce
   // race conditions.
   auto match_result = Match(request, payload);
-  if (absl::holds_alternative<Status>(match_result)) {
-    return std::move(absl::get<Status>(match_result));
+  if (absl::holds_alternative<absl::Status>(match_result)) {
+    return std::move(absl::get<absl::Status>(match_result));
   } else if (absl::holds_alternative<HttpResponse>(match_result)) {
     return std::move(absl::get<HttpResponse>(match_result));
   }
   return absl::UnimplementedError("Mock cannot satisfy the request.");
 }
 
-absl::variant<absl::monostate, HttpResponse, Status>
+absl::variant<absl::monostate, HttpResponse, absl::Status>
 GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
   absl::string_view scheme, host, path;
   tensorstore::internal::ParseURI(request.url(), &scheme, &host, &path);
@@ -207,7 +206,7 @@ GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
   return HttpResponse{404, absl::Cord()};
 }
 
-absl::variant<absl::monostate, HttpResponse, Status>
+absl::variant<absl::monostate, HttpResponse, absl::Status>
 GCSMockStorageBucket::HandleListRequest(absl::string_view path,
                                         const ParamMap& params) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/list
@@ -280,7 +279,7 @@ GCSMockStorageBucket::HandleListRequest(absl::string_view path,
   return HttpResponse{200, absl::Cord(std::move(result))};
 }
 
-absl::variant<absl::monostate, HttpResponse, Status>
+absl::variant<absl::monostate, HttpResponse, absl::Status>
 GCSMockStorageBucket::HandleInsertRequest(absl::string_view path,
                                           const ParamMap& params,
                                           absl::Cord payload) {
@@ -340,7 +339,7 @@ GCSMockStorageBucket::HandleInsertRequest(absl::string_view path,
   return HttpResponse{404, absl::Cord()};
 }
 
-absl::variant<absl::monostate, HttpResponse, Status>
+absl::variant<absl::monostate, HttpResponse, absl::Status>
 GCSMockStorageBucket::HandleGetRequest(absl::string_view path,
                                        const ParamMap& params) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/get
@@ -393,7 +392,7 @@ GCSMockStorageBucket::HandleGetRequest(absl::string_view path,
   return HttpResponse{404, absl::Cord()};
 }
 
-absl::variant<absl::monostate, HttpResponse, Status>
+absl::variant<absl::monostate, HttpResponse, absl::Status>
 GCSMockStorageBucket::HandleDeleteRequest(absl::string_view path,
                                           const ParamMap& params) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/delete

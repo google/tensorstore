@@ -72,7 +72,7 @@ std::vector<R> GetPartitions(
             results.emplace_back(std::vector<Index>(grid_cell_indices.begin(),
                                                     grid_cell_indices.end()),
                                  IndexTransform<>(cell_transform));
-            return tensorstore::Status();
+            return absl::OkStatus();
           }));
   return results;
 }

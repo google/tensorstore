@@ -32,7 +32,6 @@ using tensorstore::Index;
 using tensorstore::MakeArray;
 using tensorstore::MatchesStatus;
 using tensorstore::span;
-using tensorstore::Status;
 using tensorstore::StridedLayout;
 using tensorstore::internal_n5::DecodeChunk;
 using tensorstore::internal_n5::N5Metadata;
@@ -44,7 +43,7 @@ TEST(MetadataTest, ParseValid) {
       {"compression", {{"type", "raw"}}}, {"extra", "value"},
   };
   auto metadata = N5Metadata::Parse(attributes);
-  ASSERT_EQ(Status(), GetStatus(metadata));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(metadata));
   EXPECT_THAT(metadata->shape, ::testing::ElementsAre(10, 11, 12));
   EXPECT_THAT(metadata->data_type, tensorstore::DataTypeOf<std::uint16_t>());
   EXPECT_THAT(metadata->axes, ::testing::ElementsAre("a", "", ""));
@@ -61,7 +60,7 @@ TEST(MetadataTest, ParseValidNoAxes) {
       {"compression", {{"type", "raw"}}},
   };
   auto metadata = N5Metadata::Parse(attributes);
-  ASSERT_EQ(Status(), GetStatus(metadata));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(metadata));
   EXPECT_THAT(metadata->shape, ::testing::ElementsAre(10, 11, 12));
   EXPECT_THAT(metadata->data_type, tensorstore::DataTypeOf<std::uint16_t>());
   EXPECT_THAT(metadata->axes, ::testing::ElementsAre("", "", ""));
@@ -204,7 +203,7 @@ TEST(MetadataTest, DataTypes) {
                                 {"dataType", data_type_name},
                                 {"compression", {{"type", "raw"}}}};
     auto metadata = N5Metadata::Parse(attributes);
-    ASSERT_EQ(Status(), GetStatus(metadata));
+    ASSERT_EQ(absl::OkStatus(), GetStatus(metadata));
     EXPECT_EQ(tensorstore::GetDataType(data_type_name), metadata->data_type);
   }
 }

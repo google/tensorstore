@@ -60,7 +60,6 @@ using tensorstore::Context;
 using tensorstore::KeyRange;
 using tensorstore::KeyValueStore;
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 using tensorstore::StorageGeneration;
 using tensorstore::internal::MatchesKvsReadResultNotFound;
 using tensorstore::internal::MatchesTimestampedStorageGeneration;
@@ -231,7 +230,7 @@ TEST(FileKeyValueStoreTest, ConcurrentWrites) {
           std::memcpy(&new_value[value_offset], &x, sizeof(std::size_t));
           auto write_result =
               store->Write(key, absl::Cord(new_value), {generation}).result();
-          ASSERT_EQ(Status(), GetStatus(write_result));
+          ASSERT_EQ(absl::OkStatus(), GetStatus(write_result));
           if (!StorageGeneration::IsUnknown(write_result->generation)) {
             generation = write_result->generation;
             value = new_value;
@@ -274,7 +273,7 @@ TEST(FileKeyValueStoreTest, Permissions) {
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             GetStatus(store->Write("foo", absl::Cord("xyz")).result()));
 
   // Remove write permission on directory.

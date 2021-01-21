@@ -23,7 +23,6 @@
 namespace {
 
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 using tensorstore::internal_zarr::Compressor;
 
 // Tests that a small input round trips.

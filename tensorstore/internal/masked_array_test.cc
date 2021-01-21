@@ -62,7 +62,6 @@ using tensorstore::MatchesStatus;
 using tensorstore::offset_origin;
 using tensorstore::SharedArray;
 using tensorstore::span;
-using tensorstore::Status;
 using tensorstore::StridedLayout;
 using tensorstore::TransformedArrayView;
 using tensorstore::internal::ElementCopyFunction;
@@ -117,10 +116,11 @@ class MaskedArrayWriteTester : public MaskedArrayTester {
                                  sizeof(T), box.shape()) {}
 
   template <typename CopyFunc>
-  Status Write(IndexTransformView<> dest_transform,
-               TransformedArrayView<const T> source, CopyFunc&& copy_func) {
+  absl::Status Write(IndexTransformView<> dest_transform,
+                     TransformedArrayView<const T> source,
+                     CopyFunc&& copy_func) {
     ElementCopyFunction copy_function = SimpleElementwiseFunction<
-        absl::remove_reference_t<CopyFunc>(const T, T), Status*>();
+        absl::remove_reference_t<CopyFunc>(const T, T), absl::Status*>();
     auto result = WriteToMaskedArray(dest_.byte_strided_origin_pointer().get(),
                                      &mask_, dest_.domain(), dest_transform,
                                      source, {&copy_function, &copy_func});
@@ -128,10 +128,11 @@ class MaskedArrayWriteTester : public MaskedArrayTester {
     return result.status;
   }
 
-  Status Write(IndexTransformView<> dest_transform,
-               TransformedArrayView<const T> source) {
-    return Write(dest_transform, source,
-                 [](const T* source, T* dest, Status*) { *dest = *source; });
+  absl::Status Write(IndexTransformView<> dest_transform,
+                     TransformedArrayView<const T> source) {
+    return Write(
+        dest_transform, source,
+        [](const T* source, T* dest, absl::Status*) { *dest = *source; });
   }
 
   void Rebase(ArrayView<const T> source) {
@@ -164,7 +165,8 @@ TEST(MaskDataTest, Construct) {
 
 TEST(WriteToMaskedArrayTest, RankZero) {
   MaskedArrayWriteTester<int> tester{BoxView<>(0)};
-  EXPECT_EQ(Status(), tester.Write(tester.transform(), MakeScalarArray(5)));
+  EXPECT_EQ(absl::OkStatus(),
+            tester.Write(tester.transform(), MakeScalarArray(5)));
   EXPECT_EQ(true, tester.was_modified());
   EXPECT_EQ(1, tester.num_masked_elements());
   EXPECT_FALSE(tester.mask_array().valid());
@@ -174,9 +176,10 @@ TEST(WriteToMaskedArrayTest, RankZero) {
 TEST(WriteToMaskedArrayTest, RankZeroError) {
   MaskedArrayWriteTester<int> tester{BoxView<>(0)};
   EXPECT_THAT(
-      tester.Write(
-          tester.transform(), MakeScalarArray(5),
-          [](const int* source, int* dest, Status* status) { return false; }),
+      tester.Write(tester.transform(), MakeScalarArray(5),
+                   [](const int* source, int* dest, absl::Status* status) {
+                     return false;
+                   }),
       MatchesStatus(absl::StatusCode::kUnknown, "Data conversion failure."));
 
   EXPECT_EQ(false, tester.was_modified());
@@ -189,7 +192,7 @@ TEST(WriteToMaskedArrayTest, RankZeroError) {
 // returns that no modifications were made.
 TEST(WriteToMaskedArrayTest, RankOneNoElementsWritten) {
   MaskedArrayWriteTester<int> tester{BoxView<>(0)};
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(ChainResult(tester.transform(),
                                      Dims(0).AddNew().SizedInterval(0, 0))
                              .value(),
@@ -204,7 +207,7 @@ TEST(WriteToMaskedArrayTest, RankOne) {
   MaskedArrayWriteTester<int> tester{BoxView({1}, {10})};
   // Copy a rectangular region
   EXPECT_EQ(
-      Status(),
+      absl::OkStatus(),
       // Write values {1, 2, 3} to positions {2, 3, 4}.
       tester.Write(
           ChainResult(tester.transform(), Dims(0).SizedInterval(2, 3)).value(),
@@ -218,7 +221,7 @@ TEST(WriteToMaskedArrayTest, RankOne) {
 
   // Copy another rectangular region that can be merged with the previous one
   // and still represented as a rectangle.
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             // Write values {4, 5} to positions {5, 6}.
             tester.Write(ChainResult(tester.transform(),
                                      Dims(0).TranslateSizedInterval(5, 2))
@@ -231,7 +234,7 @@ TEST(WriteToMaskedArrayTest, RankOne) {
   EXPECT_EQ(MakeArrayView({0, 1, 2, 3, 4, 5, 0, 0, 0, 0}), tester.dest_array());
 
   // Copy another rectangular region that can't be merged with the previous one.
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             // Write values {6, 7} to positions {9, 10}.
             tester.Write(ChainResult(tester.transform(),
                                      Dims(0).TranslateSizedInterval(9, 2))
@@ -254,7 +257,7 @@ TEST(WriteToMaskedArrayTest, RankOneStrided) {
                              .Finalize()
                              .value();
   EXPECT_EQ(
-      Status(),
+      absl::OkStatus(),
       // Write values {1, 2, 3} to positions {2, 4, 6}.
       tester.Write(ChainResult(tester.transform(),
                                Dims(0).SizedInterval(2, 3, 2).TranslateTo(0))
@@ -270,7 +273,7 @@ TEST(WriteToMaskedArrayTest, RankOneStrided) {
 TEST(WriteToMaskedArrayTest, RankTwo) {
   MaskedArrayWriteTester<int> tester{BoxView({1, 2}, {4, 5})};
   // Copy a rectangular region
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(
                 ChainResult(tester.transform(),
                             Dims(0, 1).TranslateSizedInterval({2, 3}, {3, 2}))
@@ -295,7 +298,7 @@ TEST(WriteToMaskedArrayTest, RankTwo) {
 
   // Copy another rectangular region that can be merged with the previous one
   // and still represented as a rectangle.
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(
                 ChainResult(tester.transform(),
                             Dims(0, 1).TranslateSizedInterval({2, 2}, {3, 2}))
@@ -318,7 +321,7 @@ TEST(WriteToMaskedArrayTest, RankTwo) {
             tester.dest_array());
 
   // Copy another rectangular region that can't be merged with the previous one.
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(
                 ChainResult(tester.transform(),
                             Dims(0, 1).TranslateSizedInterval({3, 5}, {2, 2}))
@@ -349,7 +352,7 @@ TEST(WriteToMaskedArrayTest, RankTwo) {
 TEST(WriteToMaskedArrayTest, RankTwoNonExactContainedInExistingMaskRegion) {
   MaskedArrayWriteTester<int> tester{BoxView({1, 2}, {4, 5})};
   // Copy a rectangular region
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(
                 ChainResult(tester.transform(),
                             Dims(0, 1).TranslateSizedInterval({2, 3}, {3, 2}))
@@ -373,7 +376,7 @@ TEST(WriteToMaskedArrayTest, RankTwoNonExactContainedInExistingMaskRegion) {
             tester.dest_array());
 
   // Copy a non-exact rectangular region contained in the existing mask region.
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(ChainResult(tester.transform(),
                                      Dims(0, 1).TranslateSizedInterval(
                                          {2, 3}, {2, 2}, {2, 1}))
@@ -409,7 +412,7 @@ TEST(WriteToMaskedArrayTest, RankTwoPartialCopy) {
               {3, 4},
               {5, 6},
           }),
-          [](const int* source, int* dest, Status* status) {
+          [](const int* source, int* dest, absl::Status* status) {
             if (*source == 4) return false;
             *dest = *source;
             return true;
@@ -437,7 +440,7 @@ TEST(WriteToMaskedArrayTest, RankTwoPartialCopy) {
 
 TEST(WriteToMaskedArrayTest, RankTwoIndexArray) {
   MaskedArrayWriteTester<int> tester{BoxView({1, 2}, {4, 5})};
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(
                 ChainResult(tester.transform(),
                             Dims(0, 1).IndexVectorArraySlice(MakeArray<Index>({
@@ -466,7 +469,7 @@ TEST(WriteToMaskedArrayTest, RankTwoIndexArray) {
             tester.mask_array());
 
   // Copy a partially overlapping set of positions.
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(
                 ChainResult(tester.transform(),
                             Dims(0, 1).IndexVectorArraySlice(MakeArray<Index>({
@@ -518,7 +521,7 @@ TEST(WriteToMaskedArrayTest, RankOnePartialCopyDefaultError) {
           ChainResult(tester.transform(), Dims(0).TranslateSizedInterval(2, 3))
               .value(),
           MakeArray({1, 2, 3}),
-          [](const int* source, int* dest, Status* status) {
+          [](const int* source, int* dest, absl::Status* status) {
             if (*source == 2) return false;
             *dest = *source;
             return true;
@@ -534,19 +537,20 @@ TEST(WriteToMaskedArrayTest, RankOnePartialCopyDefaultError) {
 
 TEST(WriteToMaskedArrayTest, RankOnePartialCopyCustomError) {
   MaskedArrayWriteTester<int> tester{BoxView({1}, {5})};
-  EXPECT_THAT(tester.Write(ChainResult(tester.transform(),
-                                       Dims(0).TranslateSizedInterval(2, 3))
-                               .value(),
-                           MakeArray({1, 2, 3}),
-                           [](const int* source, int* dest, Status* status) {
-                             if (*source == 2) {
-                               *status = absl::UnknownError("My custom error");
-                               return false;
-                             }
-                             *dest = *source;
-                             return true;
-                           }),
-              MatchesStatus(absl::StatusCode::kUnknown, "My custom error"));
+  EXPECT_THAT(
+      tester.Write(
+          ChainResult(tester.transform(), Dims(0).TranslateSizedInterval(2, 3))
+              .value(),
+          MakeArray({1, 2, 3}),
+          [](const int* source, int* dest, absl::Status* status) {
+            if (*source == 2) {
+              *status = absl::UnknownError("My custom error");
+              return false;
+            }
+            *dest = *source;
+            return true;
+          }),
+      MatchesStatus(absl::StatusCode::kUnknown, "My custom error"));
 
   EXPECT_EQ(true, tester.was_modified());
   EXPECT_EQ(1, tester.num_masked_elements());
@@ -574,7 +578,7 @@ TEST(RebaseMaskedArrayTest, Empty) {
 TEST(RebaseMaskedArrayTest, Full) {
   MaskedArrayWriteTester<int> tester{BoxView({1, 2}, {2, 3})};
   // Fill entire output box.
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(
                 ChainResult(tester.transform(),
                             Dims(0, 1).TranslateSizedInterval({1, 2}, {2, 3}))
@@ -609,7 +613,7 @@ TEST(RebaseMaskedArrayTest, Full) {
 TEST(RebaseMaskedArrayTest, NoMaskArray) {
   MaskedArrayWriteTester<int> tester{BoxView({1, 2}, {2, 3})};
   // Copy a rectangular region
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(
                 ChainResult(tester.transform(),
                             Dims(0, 1).TranslateSizedInterval({2, 3}, {1, 2}))
@@ -644,7 +648,7 @@ TEST(RebaseMaskedArrayTest, NoMaskArray) {
 
 TEST(RebaseMaskedArrayTest, MaskArray) {
   MaskedArrayWriteTester<int> tester{BoxView({1, 2}, {2, 3})};
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(
                 ChainResult(tester.transform(),
                             Dims(0, 1).IndexVectorArraySlice(MakeArray<Index>({
@@ -690,7 +694,7 @@ TEST(UnionMasksTest, FirstEmpty) {
   MaskedArrayWriteTester<int> tester_b{BoxView({1}, {5})};
 
   // Use MaskedArrayWriteTester::Write as a simple way to modify the mask.
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester_b.Write(ChainResult(tester_b.transform(),
                                        Dims(0).TranslateSizedInterval(2, 3))
                                .value(),
@@ -707,7 +711,7 @@ TEST(UnionMasksTest, SecondEmpty) {
   MaskedArrayTester tester_b{BoxView({1}, {5})};
 
   // Use MaskedArrayWriteTester::Write as a simple way to modify the mask.
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(ChainResult(tester.transform(),
                                      Dims(0).TranslateSizedInterval(2, 3))
                              .value(),
@@ -724,14 +728,14 @@ TEST(UnionMasksTest, MaskArrayAndMaskArrayEqualsMaskArray) {
   MaskedArrayWriteTester<int> tester_b{BoxView({1}, {5})};
 
   // Use MaskedArrayWriteTester::Write as a simple way to modify the mask.
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(
                 ChainResult(tester.transform(),
                             Dims(0).IndexArraySlice(MakeArray<Index>({1, 3})))
                     .value(),
                 MakeArray({1, 2})));
   EXPECT_TRUE(tester.mask_array().valid());
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester_b.Write(
                 ChainResult(tester_b.transform(),
                             Dims(0).IndexArraySlice(MakeArray<Index>({1, 4})))
@@ -750,13 +754,13 @@ TEST(UnionMasksTest, MaskArrayAndMaskArrayEqualsNoMaskArray) {
   MaskedArrayWriteTester<int> tester_b{BoxView({1}, {5})};
 
   // Use MaskedArrayWriteTester::Write as a simple way to modify the mask.
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(ChainResult(tester.transform(),
                                      Dims(0).TranslateSizedInterval(1, 2, 2))
                              .value(),
                          MakeArray({1, 2})));
   EXPECT_TRUE(tester.mask_array().valid());
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester_b.Write(ChainResult(tester_b.transform(),
                                        Dims(0).TranslateSizedInterval(2, 2, 2))
                                .value(),
@@ -773,12 +777,12 @@ TEST(UnionMasksTest, NoMaskArrayAndNoMaskArrayEqualsNoMaskArray) {
   MaskedArrayWriteTester<int> tester{BoxView({1}, {5})};
   MaskedArrayWriteTester<int> tester_b{BoxView({1}, {5})};
 
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(ChainResult(tester.transform(),
                                      Dims(0).TranslateSizedInterval(1, 2))
                              .value(),
                          MakeArray({1, 2})));
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester_b.Write(ChainResult(tester_b.transform(),
                                        Dims(0).TranslateSizedInterval(2, 2))
                                .value(),
@@ -794,12 +798,12 @@ TEST(UnionMasksTest, NoMaskArrayAndNoMaskArrayEqualsMaskArray) {
   MaskedArrayWriteTester<int> tester{BoxView({1}, {5})};
   MaskedArrayWriteTester<int> tester_b{BoxView({1}, {5})};
 
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(ChainResult(tester.transform(),
                                      Dims(0).TranslateSizedInterval(1, 2))
                              .value(),
                          MakeArray({1, 2})));
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester_b.Write(ChainResult(tester_b.transform(),
                                        Dims(0).TranslateSizedInterval(4, 2))
                                .value(),
@@ -815,13 +819,13 @@ TEST(UnionMasksTest, MaskArrayAndNoMaskArrayEqualsMaskArray) {
   MaskedArrayWriteTester<int> tester{BoxView({1}, {5})};
   MaskedArrayWriteTester<int> tester_b{BoxView({1}, {5})};
 
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(ChainResult(tester.transform(),
                                      Dims(0).TranslateSizedInterval(1, 2, 2))
                              .value(),
                          MakeArray({1, 2})));
   EXPECT_TRUE(tester.mask_array().valid());
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester_b.Write(ChainResult(tester_b.transform(),
                                        Dims(0).TranslateSizedInterval(4, 2))
                                .value(),
@@ -838,13 +842,13 @@ TEST(UnionMasksTest, NoMaskArrayAndMaskArrayEqualsMaskArray) {
   MaskedArrayWriteTester<int> tester{BoxView({1}, {5})};
   MaskedArrayWriteTester<int> tester_b{BoxView({1}, {5})};
 
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(ChainResult(tester.transform(),
                                      Dims(0).TranslateSizedInterval(4, 2))
                              .value(),
                          MakeArray({1, 2})));
   EXPECT_FALSE(tester.mask_array().valid());
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester_b.Write(ChainResult(tester_b.transform(),
                                        Dims(0).TranslateSizedInterval(1, 2, 2))
                                .value(),
@@ -861,13 +865,13 @@ TEST(UnionMasksTest, MaskArrayAndNoMaskArrayEqualsNoMaskArray) {
   MaskedArrayWriteTester<int> tester{BoxView({1}, {5})};
   MaskedArrayWriteTester<int> tester_b{BoxView({1}, {5})};
 
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(ChainResult(tester.transform(),
                                      Dims(0).TranslateSizedInterval(1, 2, 2))
                              .value(),
                          MakeArray({1, 2})));
   EXPECT_TRUE(tester.mask_array().valid());
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester_b.Write(ChainResult(tester_b.transform(),
                                        Dims(0).TranslateSizedInterval(1, 2))
                                .value(),
@@ -882,7 +886,7 @@ TEST(UnionMasksTest, MaskArrayAndNoMaskArrayEqualsNoMaskArray) {
 
 TEST(ResetTest, NoMaskArray) {
   MaskedArrayWriteTester<int> tester{BoxView({1}, {5})};
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(ChainResult(tester.transform(),
                                      Dims(0).TranslateSizedInterval(4, 2))
                              .value(),
@@ -898,7 +902,7 @@ TEST(ResetTest, NoMaskArray) {
 
 TEST(ResetTest, MaskArray) {
   MaskedArrayWriteTester<int> tester{BoxView({1}, {5})};
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             tester.Write(ChainResult(tester.transform(),
                                      Dims(0).TranslateSizedInterval(1, 2, 2))
                              .value(),

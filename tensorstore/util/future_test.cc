@@ -49,7 +49,6 @@ using tensorstore::Promise;
 using tensorstore::PromiseFuturePair;
 using tensorstore::ReadyFuture;
 using tensorstore::Result;
-using tensorstore::Status;
 using tensorstore::internal::TestConcurrent;
 using tensorstore::internal_future::FutureAccess;
 
@@ -1670,7 +1669,7 @@ TEST(MapFutureValueTest, ReturnFuture) {
 TEST(MapFutureErrorTest, Success) {
   auto pair = PromiseFuturePair<int>::Make();
   auto mapped = MapFutureError(
-      InlineExecutor{}, [](Status status) { return 5; }, pair.future);
+      InlineExecutor{}, [](absl::Status status) { return 5; }, pair.future);
   EXPECT_FALSE(mapped.ready());
   pair.promise.SetResult(7);
   EXPECT_EQ(7, mapped.result());
@@ -1680,7 +1679,7 @@ TEST(MapFutureErrorTest, ErrorMappedToSuccess) {
   auto pair = PromiseFuturePair<int>::Make();
   auto mapped = MapFutureError(
       InlineExecutor{},
-      [](Status status) {
+      [](absl::Status status) {
         EXPECT_EQ(absl::UnknownError("message"), status);
         return 5;
       },
@@ -1694,7 +1693,7 @@ TEST(MapFutureErrorTest, ErrorMappedToError) {
   auto pair = PromiseFuturePair<int>::Make();
   auto mapped = MapFutureError(
       InlineExecutor{},
-      [](Status status) {
+      [](absl::Status status) {
         return tensorstore::MaybeAnnotateStatus(status, "Mapped");
       },
       pair.future);

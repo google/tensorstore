@@ -30,7 +30,6 @@ using tensorstore::Index;
 using tensorstore::MakeArray;
 using tensorstore::MatchesStatus;
 using tensorstore::span;
-using tensorstore::Status;
 using tensorstore::internal_n5::Compressor;
 using tensorstore::internal_n5::DecodeChunk;
 using tensorstore::internal_n5::N5Metadata;
@@ -39,7 +38,7 @@ TEST(GzipCompressionTest, Parse) {
   // Parse without any options.
   {
     auto c = Compressor::FromJson({{"type", "gzip"}});
-    EXPECT_EQ(Status(), GetStatus(c));
+    EXPECT_EQ(absl::OkStatus(), GetStatus(c));
     EXPECT_EQ(
         ::nlohmann::json({{"type", "gzip"}, {"level", -1}, {"useZlib", false}}),
         ::nlohmann::json(*c));
@@ -48,7 +47,7 @@ TEST(GzipCompressionTest, Parse) {
   // Parse with level option.
   {
     auto c = Compressor::FromJson({{"type", "gzip"}, {"level", 3}});
-    EXPECT_EQ(Status(), GetStatus(c));
+    EXPECT_EQ(absl::OkStatus(), GetStatus(c));
     EXPECT_EQ(
         ::nlohmann::json({{"type", "gzip"}, {"level", 3}, {"useZlib", false}}),
         ::nlohmann::json(*c));
@@ -57,7 +56,7 @@ TEST(GzipCompressionTest, Parse) {
   // Parse with useZlib=true option.
   {
     auto c = Compressor::FromJson({{"type", "gzip"}, {"useZlib", true}});
-    EXPECT_EQ(Status(), GetStatus(c));
+    EXPECT_EQ(absl::OkStatus(), GetStatus(c));
     EXPECT_EQ(
         ::nlohmann::json({{"type", "gzip"}, {"level", -1}, {"useZlib", true}}),
         ::nlohmann::json(*c));
@@ -67,7 +66,7 @@ TEST(GzipCompressionTest, Parse) {
   {
     auto c = Compressor::FromJson(
         {{"type", "gzip"}, {"level", 3}, {"useZlib", false}});
-    EXPECT_EQ(Status(), GetStatus(c));
+    EXPECT_EQ(absl::OkStatus(), GetStatus(c));
     EXPECT_EQ(
         ::nlohmann::json({{"type", "gzip"}, {"level", 3}, {"useZlib", false}}),
         ::nlohmann::json(*c));

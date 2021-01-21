@@ -21,10 +21,10 @@
 
 namespace {
 
+using absl::Status;
 using tensorstore::GetFirstErrorStatus;
 using tensorstore::InvokeForStatus;
 using tensorstore::MaybeAnnotateStatus;
-using tensorstore::Status;
 
 TEST(StatusTest, StrCat) {
   const Status s = absl::UnknownError("Message");

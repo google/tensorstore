@@ -64,7 +64,6 @@ using tensorstore::MakeCopy;
 using tensorstore::SharedArray;
 using tensorstore::SharedArrayView;
 using tensorstore::span;
-using tensorstore::Status;
 using tensorstore::StorageGeneration;
 using tensorstore::TimestampedStorageGeneration;
 using tensorstore::internal::CachePool;

@@ -37,7 +37,6 @@ namespace {
 
 using tensorstore::Future;
 using tensorstore::no_transaction;
-using tensorstore::Status;
 using tensorstore::StorageGeneration;
 using tensorstore::Transaction;
 using tensorstore::UniqueWriterLock;
@@ -344,7 +343,7 @@ TEST(AsyncCacheTest, ReadFailed) {
       "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  const Status read_status = absl::UnknownError("read failed");
+  const auto read_status = absl::UnknownError("read failed");
   {
     auto read_future = entry->Read(absl::InfiniteFuture());
     ASSERT_FALSE(read_future.ready());
@@ -400,7 +399,7 @@ TEST(AsyncCacheTest, ReadFailedAfterSuccessfulRead) {
     TENSORSTORE_EXPECT_OK(read_future);
   }
 
-  const Status read_status = absl::UnknownError("read failed");
+  const auto read_status = absl::UnknownError("read failed");
   {
     auto read_future = entry->Read(absl::InfiniteFuture());
     ASSERT_FALSE(read_future.ready());

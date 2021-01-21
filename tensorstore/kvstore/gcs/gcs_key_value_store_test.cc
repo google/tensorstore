@@ -59,7 +59,6 @@ using tensorstore::GCSMockStorageBucket;
 using tensorstore::KeyRange;
 using tensorstore::KeyValueStore;
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 using tensorstore::internal_http::HttpRequest;
 using tensorstore::internal_http::HttpResponse;
 using tensorstore::internal_http::HttpTransport;
@@ -203,9 +202,9 @@ TEST(GCSKeyValueStoreTest, Basic) {
   auto store = KeyValueStore::Open(
                    context, {{"driver", "gcs"}, {"bucket", "my-bucket"}}, {})
                    .result();
-  ASSERT_EQ(Status(), GetStatus(store));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(store));
   auto spec_result = (*store)->spec();
-  ASSERT_EQ(Status(), GetStatus(spec_result));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(spec_result));
   EXPECT_THAT(spec_result->ToJson(tensorstore::IncludeDefaults{false}),
               ::nlohmann::json({{"driver", "gcs"}, {"bucket", "my-bucket"}}));
   tensorstore::internal::TestKeyValueStoreBasicFunctionality(*store);
@@ -465,7 +464,7 @@ TEST(GCSKeyValueStoreTest, RequestorPays) {
   TestWrite(Context(Context::Spec::FromJson(
                         {{"gcs_user_project", {{"project_id", "myproject"}}}})
                         .value()),
-            Status());
+            absl::OkStatus());
 
   SetDefaultHttpTransport(nullptr);
 }

@@ -22,7 +22,6 @@
 namespace {
 
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 using tensorstore::internal_zarr::Compressor;
 
 class ZlibCompressorTest : public ::testing::TestWithParam<const char*> {};

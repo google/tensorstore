@@ -49,10 +49,6 @@ struct noinit_t {};
 // * Owns the underlying Status and T data objects.
 // * Specialized construction and assignment for T=void vs. non-void.
 //
-// FIXME: tensorstore::Status use of std::error_code means that the
-// Status() constructor, and consequently all the constructors of
-// Result<T> which take status cannot be constexpr.
-//
 template <class T>
 struct ResultStorageBase {
   using value_type = T;
@@ -63,11 +59,11 @@ struct ResultStorageBase {
       : dummy_(), has_value_(false) {}
 
   template <typename... Args>
-  explicit ResultStorageBase(value_t, Args&&... args)
+  constexpr explicit ResultStorageBase(value_t, Args&&... args)
       : value_(std::forward<Args>(args)...), has_value_(true) {}
 
   template <typename... Args>
-  explicit ResultStorageBase(status_t, Args&&... args) noexcept
+  constexpr explicit ResultStorageBase(status_t, Args&&... args) noexcept
       : status_(std::forward<Args>(args)...), has_value_(false) {}
 
   ~ResultStorageBase() { destruct(); }

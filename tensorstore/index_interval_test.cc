@@ -47,7 +47,6 @@ using tensorstore::MatchesStatus;
 using tensorstore::OptionallyImplicitIndexInterval;
 using tensorstore::ShiftInterval;
 using tensorstore::ShiftIntervalTo;
-using tensorstore::Status;
 using tensorstore::StrCat;
 using tensorstore::view;
 using ::testing::Optional;
@@ -739,7 +738,7 @@ TEST(ExtractStridedSliceTest, HalfOpen) {
 TEST(ComputeStridedSliceMapTest, NoTranslationStride1) {
   OptionallyImplicitIndexInterval new_domain;
   Index output_offset;
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ComputeStridedSliceMap(
                 OptionallyImplicitIndexInterval{
                     IndexInterval::UncheckedHalfOpen(1, 10), false, false},
@@ -757,7 +756,7 @@ TEST(ComputeStridedSliceMapTest, NoTranslationStride1) {
 TEST(ComputeStridedSliceMapTest, NoTranslationStride2) {
   OptionallyImplicitIndexInterval new_domain;
   Index output_offset;
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ComputeStridedSliceMap(
                 OptionallyImplicitIndexInterval{
                     IndexInterval::UncheckedHalfOpen(1, 10), false, false},
@@ -775,7 +774,7 @@ TEST(ComputeStridedSliceMapTest, NoTranslationStride2) {
 TEST(ComputeStridedSliceMapTest, NoTranslationStrideNegative2) {
   OptionallyImplicitIndexInterval new_domain;
   Index output_offset;
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ComputeStridedSliceMap(
                 OptionallyImplicitIndexInterval{
                     IndexInterval::UncheckedHalfOpen(1, 10), false, false},
@@ -793,7 +792,7 @@ TEST(ComputeStridedSliceMapTest, NoTranslationStrideNegative2) {
 TEST(ComputeStridedSliceMapTest, TranslationStride1) {
   OptionallyImplicitIndexInterval new_domain;
   Index output_offset;
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ComputeStridedSliceMap(
                 OptionallyImplicitIndexInterval{
                     IndexInterval::UncheckedHalfOpen(1, 10), false, false},

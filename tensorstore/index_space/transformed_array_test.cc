@@ -40,7 +40,6 @@ using tensorstore::Result;
 using tensorstore::Shared;
 using tensorstore::StaticDataTypeCast;
 using tensorstore::StaticRankCast;
-using tensorstore::Status;
 using tensorstore::TransformedArray;
 
 static_assert(
@@ -417,7 +416,7 @@ TEST(TransformedArrayTest, MaterializeConstraints) {
   const auto ValidateCopy =
       [&](const Result<tensorstore::SharedOffsetArray<const int, 3>>& new_array,
           const std::vector<Index>& expected_byte_strides) {
-        ASSERT_EQ(Status(), GetStatus(new_array));
+        ASSERT_EQ(absl::OkStatus(), GetStatus(new_array));
         EXPECT_NE(GetPointers(transformed_array), GetPointers(*new_array));
         EXPECT_EQ(expected_array, *new_array);
         EXPECT_THAT(new_array->byte_strides(),
@@ -588,7 +587,7 @@ TEST(MakeNormalizedTransformedArrayTest, BaseArrayAndTransform) {
                .value();
   auto result = tensorstore::MakeNormalizedTransformedArray(
       tensorstore::TransformedArray(array, t));
-  ASSERT_EQ(Status(), GetStatus(result));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
   EXPECT_EQ(array.element_pointer(), result->element_pointer());
   EXPECT_EQ(
       tensorstore::IndexTransformBuilder<>(1, 2)
@@ -684,7 +683,7 @@ TEST(TransformedArrayTest, CastArrayToTransformedArray) {
   tensorstore::SharedArray<std::int32_t> a = MakeArray<std::int32_t>({1, 2});
   auto ta_result = tensorstore::StaticCast<
       tensorstore::TransformedArrayView<std::int32_t, 1>>(a);
-  ASSERT_EQ(Status(), GetStatus(ta_result));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(ta_result));
   EXPECT_THAT(GetPointers(*ta_result), ::testing::ElementsAre(&a(0), &a(1)));
 }
 
@@ -726,14 +725,14 @@ TEST(NormalizedTransformedArrayTest, StaticRankCast) {
 TEST(TransformedArrayTest, ApplyIndexTransform) {
   auto array = MakeArray<int>({{1, 2, 3}, {4, 5, 6}});
   auto result = ChainResult(array, tensorstore::IdentityTransform<2>());
-  ASSERT_EQ(Status(), GetStatus(result));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
   EXPECT_EQ(array, MakeCopy(*result));
 }
 
 TEST(CopyTransformedArrayTest, Int32ToUint32) {
   auto a = MakeArray<tensorstore::int32_t>({{1, 2, 3}, {4, 5, 6}});
   auto b = tensorstore::AllocateArray<tensorstore::uint32_t>({3, 2});
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             CopyTransformedArray(
                 a, ChainResult(b, tensorstore::Dims(1, 0).Transpose())));
   EXPECT_EQ(b, MakeArray<tensorstore::uint32_t>({{1, 4}, {2, 5}, {3, 6}}));
@@ -742,7 +741,7 @@ TEST(CopyTransformedArrayTest, Int32ToUint32) {
 TEST(CopyTransformedArrayTest, Int32ToInt32) {
   auto a = MakeArray<tensorstore::int32_t>({{1, 2, 3}, {4, 5, 6}});
   auto b = tensorstore::AllocateArray<tensorstore::int32_t>({3, 2});
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             CopyTransformedArray(
                 a, ChainResult(b, tensorstore::Dims(1, 0).Transpose())));
   EXPECT_EQ(b, MakeArray<tensorstore::int32_t>({{1, 4}, {2, 5}, {3, 6}}));
@@ -751,7 +750,7 @@ TEST(CopyTransformedArrayTest, Int32ToInt32) {
 TEST(CopyTransformedArrayTest, Int32ToFloat32) {
   auto a = MakeArray<tensorstore::int32_t>({{1, 2, 3}, {4, 5, 6}});
   auto b = tensorstore::AllocateArray<tensorstore::float32_t>({3, 2});
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             CopyTransformedArray(
                 ChainResult(a, tensorstore::Dims(1, 0).Transpose()), b));
   EXPECT_EQ(b, MakeArray<tensorstore::float32_t>(

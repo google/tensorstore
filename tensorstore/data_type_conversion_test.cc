@@ -38,7 +38,6 @@ using tensorstore::Index;
 using tensorstore::IsDataTypeConversionSupported;
 using tensorstore::MatchesStatus;
 using tensorstore::Result;
-using tensorstore::Status;
 using tensorstore::StrCat;
 using tensorstore::internal::GetDataTypeConverter;
 using tensorstore::internal::GetDataTypeConverterOrError;
@@ -80,7 +79,7 @@ Result<To> TestConversion(
   auto r = GetDataTypeConverter(DataTypeOf<From>(), DataTypeOf<To>());
   EXPECT_EQ(flags, r.flags);
   To value;
-  Status status;
+  absl::Status status;
   if ((*r.closure.function)[IterationBufferKind::kContiguous](
           r.closure.context, 1, IterationBufferPointer(&from, Index(0)),
           IterationBufferPointer(&value, Index(0)), &status) != 1) {
@@ -694,18 +693,18 @@ TEST(DataTypeConversionTest, Json) {
 }
 
 TEST(GetDataTypeConverterOrErrorTest, Basic) {
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             GetStatus(GetDataTypeConverterOrError(DataTypeOf<std::int32_t>(),
                                                   DataTypeOf<std::int32_t>())));
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             GetStatus(GetDataTypeConverterOrError(
                 DataTypeOf<int32_t>(), DataTypeOf<int32_t>(), kIdentity)));
-  EXPECT_EQ(Status(), GetStatus(GetDataTypeConverterOrError(
-                          DataTypeOf<int32_t>(), DataTypeOf<int64_t>(),
-                          kSafeAndImplicit)));
-  EXPECT_EQ(Status(), GetStatus(GetDataTypeConverterOrError(
-                          DataTypeOf<int32_t>(), DataTypeOf<uint32_t>(),
-                          kCanReinterpretCast)));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(GetDataTypeConverterOrError(
+                                  DataTypeOf<int32_t>(), DataTypeOf<int64_t>(),
+                                  kSafeAndImplicit)));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(GetDataTypeConverterOrError(
+                                  DataTypeOf<int32_t>(), DataTypeOf<uint32_t>(),
+                                  kCanReinterpretCast)));
   EXPECT_THAT(GetDataTypeConverterOrError(DataTypeOf<json_t>(),
                                           DataTypeOf<complex64_t>()),
               MatchesStatus(absl::StatusCode::kInvalidArgument,

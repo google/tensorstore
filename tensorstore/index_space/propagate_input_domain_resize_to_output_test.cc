@@ -37,54 +37,53 @@ using tensorstore::kInfIndex;
 using tensorstore::MakeArray;
 using tensorstore::MatchesStatus;
 using tensorstore::span;
-using tensorstore::Status;
 using tensorstore::StrCat;
 
 TEST(ValidateInputDimensionResizeTest, ValidArguments) {
   using tensorstore::internal_index_space::ValidateInputDimensionResize;
   using OIII = tensorstore::OptionallyImplicitIndexInterval;
 
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateInputDimensionResize(  //
                 OIII{},
                 /*requested_inclusive_min=*/kImplicit,
                 /*requested_exclusive_max=*/kImplicit));
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateInputDimensionResize(  //
                 OIII{},
                 /*requested_inclusive_min=*/1,
                 /*requested_exclusive_max=*/1));
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateInputDimensionResize(  //
                 OIII{},
                 /*requested_inclusive_min=*/kImplicit,
                 /*requested_exclusive_max=*/1));
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateInputDimensionResize(  //
                 OIII{},
                 /*requested_inclusive_min=*/1,
                 /*requested_exclusive_max=*/kImplicit));
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateInputDimensionResize(  //
                 OIII{},
                 /*requested_inclusive_min=*/-kInfIndex + 1,
                 /*requested_exclusive_max=*/kImplicit));
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateInputDimensionResize(  //
                 OIII{},
                 /*requested_inclusive_min=*/kImplicit,
                 /*requested_exclusive_max=*/+kInfIndex));
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateInputDimensionResize(  //
                 OIII{},
                 /*requested_inclusive_min=*/kImplicit,
                 /*requested_exclusive_max=*/-kInfIndex + 2));
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateInputDimensionResize(  //
                 OIII{IndexInterval::UncheckedClosed(1, 10), false, false},
                 /*requested_inclusive_min=*/kImplicit,
                 /*requested_exclusive_max=*/kImplicit));
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateInputDimensionResize(  //
                 OIII{IndexInterval::UncheckedClosed(1, 10), true, true},
                 /*requested_inclusive_min=*/-kInfIndex,
@@ -168,7 +167,7 @@ TEST(PropagateInputDomainResizeToOutputTest, ResizedSingleInputDimension) {
     Index new_output_exclusive_max[1];
     bool is_noop;
     ASSERT_EQ(
-        Status(),
+        absl::OkStatus(),
         tensorstore::PropagateInputDomainResizeToOutput(
             transform, requested_input_inclusive_min,
             requested_input_exclusive_max, can_resize_tied_bounds,
@@ -210,7 +209,7 @@ TEST(PropagateInputDomainResizeToOutputTest,
     Index new_output_exclusive_max[2];
     bool is_noop;
     ASSERT_EQ(
-        Status(),
+        absl::OkStatus(),
         tensorstore::PropagateInputDomainResizeToOutput(
             transform, requested_input_inclusive_min,
             requested_input_exclusive_max, can_resize_tied_bounds,
@@ -265,7 +264,7 @@ TEST(PropagateInputDomainResizeToOutputTest,
   Index new_output_exclusive_max[2];
   bool is_noop;
   ASSERT_EQ(
-      Status(),
+      absl::OkStatus(),
       tensorstore::PropagateInputDomainResizeToOutput(
           transform, requested_input_inclusive_min,
           requested_input_exclusive_max, /*can_resize_tied_bounds=*/true,
@@ -308,7 +307,7 @@ TEST(PropagateInputDomainResizeToOutputTest,
     Index new_output_exclusive_max[2];
     bool is_noop;
     ASSERT_EQ(
-        Status(),
+        absl::OkStatus(),
         tensorstore::PropagateInputDomainResizeToOutput(
             transform, requested_input_inclusive_min,
             requested_input_exclusive_max, can_resize_tied_bounds,

@@ -45,7 +45,6 @@ using tensorstore::KeyValueStore;
 using tensorstore::kImplicit;
 using tensorstore::MatchesStatus;
 using tensorstore::span;
-using tensorstore::Status;
 using tensorstore::StrCat;
 using tensorstore::internal::DecodedMatches;
 using tensorstore::internal::GetMap;
@@ -133,12 +132,13 @@ TEST(ZarrDriverTest, OpenNonExisting) {
 TEST(ZarrDriverTest, OpenOrCreate) {
   auto context = Context::Default();
 
-  EXPECT_EQ(Status(), GetStatus(tensorstore::Open(
-                                    context, GetJsonSpec(),
-                                    {tensorstore::OpenMode::open |
-                                         tensorstore::OpenMode::create,
-                                     tensorstore::ReadWriteMode::read_write})
-                                    .result()));
+  EXPECT_EQ(
+      absl::OkStatus(),
+      GetStatus(tensorstore::Open(context, GetJsonSpec(),
+                                  {tensorstore::OpenMode::open |
+                                       tensorstore::OpenMode::create,
+                                   tensorstore::ReadWriteMode::read_write})
+                    .result()));
 }
 
 TEST(ZarrDriverTest, OpenInvalidRank) {
@@ -202,7 +202,7 @@ TEST(ZarrDriverTest, Create) {
 
     // Issue a valid write.
     EXPECT_EQ(
-        Status(),
+        absl::OkStatus(),
         GetStatus(
             tensorstore::Write(
                 tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
@@ -274,12 +274,13 @@ TEST(ZarrDriverTest, Create) {
 
   // Check that create or open succeeds.
   {
-    EXPECT_EQ(Status(), GetStatus(tensorstore::Open(
-                                      context, json_spec,
-                                      {tensorstore::OpenMode::create |
-                                           tensorstore::OpenMode::open,
-                                       tensorstore::ReadWriteMode::read_write})
-                                      .result()));
+    EXPECT_EQ(
+        absl::OkStatus(),
+        GetStatus(tensorstore::Open(context, json_spec,
+                                    {tensorstore::OpenMode::create |
+                                         tensorstore::OpenMode::open,
+                                     tensorstore::ReadWriteMode::read_write})
+                      .result()));
   }
 
   // Check that open succeeds.
@@ -436,9 +437,9 @@ TEST_F(MockKeyValueStoreTest,
       std::vector({GetStatus(store_future1.result()),
                    GetStatus(store_future2.result())}),
       ::testing::UnorderedElementsAre(
-          absl::Status(), MatchesStatus(absl::StatusCode::kAlreadyExists,
-                                        "Error opening \"zarr\" driver: "
-                                        "Error writing \"prefix/.zarray\"")));
+          absl::OkStatus(), MatchesStatus(absl::StatusCode::kAlreadyExists,
+                                          "Error opening \"zarr\" driver: "
+                                          "Error writing \"prefix/.zarray\"")));
 }
 
 // Tests concurrently creating a zarr array with `create=true` and `open=false`,
@@ -467,9 +468,9 @@ TEST(ZarrDriverTest, CreateMetadataConcurrentErrorSharedCachePool) {
       std::vector({GetStatus(store_future1.result()),
                    GetStatus(store_future2.result())}),
       ::testing::UnorderedElementsAre(
-          absl::Status(), MatchesStatus(absl::StatusCode::kAlreadyExists,
-                                        "Error opening \"zarr\" driver: "
-                                        "Error writing \"prefix/.zarray\"")));
+          absl::OkStatus(), MatchesStatus(absl::StatusCode::kAlreadyExists,
+                                          "Error opening \"zarr\" driver: "
+                                          "Error writing \"prefix/.zarray\"")));
 }
 
 // Tests concurrently creating a zarr array with `create=true` and `open=true`,
@@ -602,7 +603,7 @@ void TestCreateWriteRead(Context context, ::nlohmann::json json_spec) {
                                     tensorstore::ReadWriteMode::read_write})
                      .value();
     EXPECT_EQ(
-        Status(),
+        absl::OkStatus(),
         GetStatus(
             tensorstore::Write(
                 tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
@@ -848,7 +849,7 @@ TEST(ZarrDriverTest, KeyEncodingWithSlash) {
                                   tensorstore::ReadWriteMode::read_write})
                    .value();
   EXPECT_EQ(
-      Status(),
+      absl::OkStatus(),
       GetStatus(
           tensorstore::Write(
               tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
@@ -912,7 +913,7 @@ TEST(ZarrDriverTest, Resize) {
       auto resize_future =
           Resize(store, span<const Index>({kImplicit, kImplicit}),
                  span<const Index>({3, 2}), resize_mode);
-      ASSERT_EQ(Status(), GetStatus(resize_future.result()));
+      ASSERT_EQ(absl::OkStatus(), GetStatus(resize_future.result()));
       EXPECT_EQ(tensorstore::BoxView({3, 2}),
                 resize_future.value().domain().box());
 
@@ -952,23 +953,23 @@ void TestResizeToZeroAndBack(Op... op) {
   // Resize to shape of {0, 0}
   auto resize_future = Resize(store, span<const Index>({kImplicit, kImplicit}),
                               span<const Index>({0, 0}));
-  ASSERT_EQ(Status(), GetStatus(resize_future.result()));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(resize_future.result()));
   EXPECT_EQ(tensorstore::BoxView({0, 0}), resize_future.value().domain().box());
 
   // Resize back to non-zero shape of {10, 20}.
   auto resize_future2 = Resize(store, span<const Index>({kImplicit, kImplicit}),
                                span<const Index>({10, 20}));
-  ASSERT_EQ(Status(), GetStatus(resize_future2.result()));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(resize_future2.result()));
   EXPECT_EQ(tensorstore::BoxView({10, 20}),
             resize_future2.value().domain().box());
 
   auto transformed_store = ChainResult(resize_future.value(), op...);
-  EXPECT_EQ(Status(), GetStatus(transformed_store));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(transformed_store));
 
   // Should be able to write using `resize_future.value()`.  Use
   // `IndexArraySlice` to ensure that edge cases of `ComposeTransforms` are
   // tested.
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             GetStatus(tensorstore::Write(tensorstore::MakeArray<std::int8_t>(
                                              {{1, 2, 3}, {4, 5, 6}}),
                                          transformed_store)
@@ -1040,7 +1041,7 @@ TEST(ZarrDriverTest, ResizeMetadataOnly) {
                                   tensorstore::ReadWriteMode::read_write})
                    .value();
   EXPECT_EQ(
-      Status(),
+      absl::OkStatus(),
       GetStatus(
           tensorstore::Write(
               tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
@@ -1062,7 +1063,7 @@ TEST(ZarrDriverTest, ResizeMetadataOnly) {
   auto resize_future =
       Resize(store, span<const Index>({kImplicit, kImplicit}),
              span<const Index>({3, 2}), tensorstore::resize_metadata_only);
-  ASSERT_EQ(Status(), GetStatus(resize_future.result()));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(resize_future.result()));
   EXPECT_EQ(tensorstore::BoxView({3, 2}), resize_future.value().domain().box());
 
   ::nlohmann::json resized_zarr_metadata_json = zarr_metadata_json;
@@ -1095,7 +1096,7 @@ TEST(ZarrDriverTest, ResizeExpandOnly) {
                                   tensorstore::ReadWriteMode::read_write})
                    .value();
   EXPECT_EQ(
-      Status(),
+      absl::OkStatus(),
       GetStatus(
           tensorstore::Write(
               tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
@@ -1117,7 +1118,7 @@ TEST(ZarrDriverTest, ResizeExpandOnly) {
   auto resize_future =
       Resize(store, span<const Index>({kImplicit, kImplicit}),
              span<const Index>({150, 200}), tensorstore::expand_only);
-  ASSERT_EQ(Status(), GetStatus(resize_future.result()));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(resize_future.result()));
   EXPECT_EQ(tensorstore::BoxView({150, 200}),
             resize_future.value().domain().box());
 
@@ -1212,7 +1213,7 @@ TEST(ZarrDriverTest, InvalidResizeConcurrentModification) {
   auto store_slice =
       ChainResult(store, tensorstore::Dims(0).HalfOpenInterval(0, 100)).value();
 
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             GetStatus(Resize(store, span<const Index>({kImplicit, kImplicit}),
                              span<const Index>({50, kImplicit}))
                           .result()));

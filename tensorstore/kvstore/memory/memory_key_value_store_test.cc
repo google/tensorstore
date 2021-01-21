@@ -38,7 +38,6 @@ using tensorstore::Context;
 using tensorstore::KeyRange;
 using tensorstore::KeyValueStore;
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 using tensorstore::internal::MatchesKvsReadResult;
 using tensorstore::internal::MatchesKvsReadResultNotFound;
 

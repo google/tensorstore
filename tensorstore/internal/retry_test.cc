@@ -25,15 +25,14 @@
 #include "absl/time/time.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::Status;
 using tensorstore::internal::RetryWithBackoff;
 
 namespace {
 
 TEST(RetryTest, ImmediateSuccess) {
-  std::deque<Status> results({absl::OkStatus()});
+  std::deque<absl::Status> results({absl::OkStatus()});
 
-  std::function<Status()> f = [&results]() {
+  std::function<absl::Status()> f = [&results]() {
     auto result = results[0];
     results.erase(results.begin());
     return result;
@@ -47,7 +46,7 @@ TEST(RetryTest, ImmediateSuccess) {
 
 TEST(RetryTest, NeverSuccess) {
   int calls = 0;
-  std::function<Status()> f = [&calls]() {
+  std::function<absl::Status()> f = [&calls]() {
     calls++;
     return absl::UnavailableError("Not available.");
   };
@@ -58,11 +57,11 @@ TEST(RetryTest, NeverSuccess) {
 }
 
 TEST(RetryTest, EventualSuccess_NoSleep) {
-  std::deque<Status> results({absl::UnavailableError("Failed."),
-                              absl::UnavailableError("Failed again."),
-                              absl::OkStatus()});
+  std::deque<absl::Status> results({absl::UnavailableError("Failed."),
+                                    absl::UnavailableError("Failed again."),
+                                    absl::OkStatus()});
 
-  std::function<Status()> f = [&results]() {
+  std::function<absl::Status()> f = [&results]() {
     auto result = std::move(results[0]);
     results.erase(results.begin());
     return result;
@@ -75,11 +74,11 @@ TEST(RetryTest, EventualSuccess_NoSleep) {
 }
 
 TEST(RetryTest, EventualSuccess_Sleep) {
-  std::deque<Status> results({absl::UnavailableError("Failed."),
-                              absl::UnavailableError("Failed again."),
-                              absl::OkStatus()});
+  std::deque<absl::Status> results({absl::UnavailableError("Failed."),
+                                    absl::UnavailableError("Failed again."),
+                                    absl::OkStatus()});
 
-  std::function<Status()> f = [&results]() {
+  std::function<absl::Status()> f = [&results]() {
     auto result = std::move(results[0]);
     results.erase(results.begin());
     return result;

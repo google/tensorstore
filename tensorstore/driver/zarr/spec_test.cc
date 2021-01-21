@@ -25,7 +25,6 @@
 namespace {
 
 using tensorstore::MatchesStatus;
-using tensorstore::Status;
 using tensorstore::internal_zarr::ChunkKeyEncoding;
 using tensorstore::internal_zarr::GetCompatibleField;
 using tensorstore::internal_zarr::ParseDType;
@@ -86,7 +85,7 @@ TEST(ParsePartialMetadataTest, InvalidFilters) {
 
 TEST(ParsePartialMetadataTest, Empty) {
   auto result = ParsePartialMetadata(::nlohmann::json::object_t{});
-  ASSERT_EQ(Status(), GetStatus(result));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
   EXPECT_EQ(absl::nullopt, result->zarr_format);
   EXPECT_EQ(absl::nullopt, result->order);
   EXPECT_EQ(absl::nullopt, result->compressor);
@@ -114,7 +113,7 @@ TEST(ParsePartialMetadataTest, Empty) {
 
 TEST(ParsePartialMetadataTest, Complete) {
   auto result = ParsePartialMetadata(GetMetadataSpec());
-  ASSERT_EQ(Status(), GetStatus(result));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
   EXPECT_EQ(2, result->zarr_format);
   EXPECT_EQ(tensorstore::c_order, result->order);
   ASSERT_TRUE(result->compressor);
@@ -318,7 +317,7 @@ TEST(GetNewMetadataTest, IntegerOverflow) {
 TEST(ValidateMetadataTest, Success) {
   ZarrMetadata metadata;
   ASSERT_TRUE(ParseMetadata(GetMetadataSpec(), &metadata).ok());
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateMetadata(metadata,
                              ParsePartialMetadata(GetMetadataSpec()).value()));
 }
@@ -326,7 +325,7 @@ TEST(ValidateMetadataTest, Success) {
 TEST(ValidateMetadataTest, Unconstrained) {
   ZarrMetadata metadata;
   ASSERT_TRUE(ParseMetadata(GetMetadataSpec(), &metadata).ok());
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             ValidateMetadata(
                 metadata,
                 ParsePartialMetadata(::nlohmann::json::object_t{}).value()));

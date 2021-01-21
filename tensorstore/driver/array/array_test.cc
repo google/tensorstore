@@ -42,7 +42,6 @@ using tensorstore::offset_origin;
 using tensorstore::ReadProgress;
 using tensorstore::ReadProgressFunction;
 using tensorstore::ReadWriteMode;
-using tensorstore::Status;
 using tensorstore::TensorStore;
 using tensorstore::WriteProgress;
 using tensorstore::WriteProgressFunction;
@@ -69,7 +68,7 @@ TEST(ArrayDriverTest, Read) {
       {/*.progress_function=*/[&read_progress](ReadProgress progress) {
         read_progress.push_back(progress);
       }});
-  EXPECT_EQ(Status(), GetStatus(future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(future.result()));
   EXPECT_EQ(array, dest_array);
   EXPECT_THAT(read_progress, ::testing::ElementsAre(ReadProgress{6, 6}));
 }
@@ -90,7 +89,7 @@ TEST(ArrayDriverTest, ReadIntoNewArray) {
       {/*.progress_function=*/[&read_progress](ReadProgress progress) {
         read_progress.push_back(progress);
       }});
-  EXPECT_EQ(Status(), GetStatus(future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(future.result()));
   EXPECT_EQ(array, future.value());
   EXPECT_THAT(read_progress, ::testing::ElementsAre(ReadProgress{6, 6}));
 }
@@ -166,8 +165,8 @@ TEST(ArrayDriverTest, Write) {
       {/*.progress_function=*/[&write_progress](WriteProgress progress) {
         write_progress.push_back(progress);
       }});
-  EXPECT_EQ(Status(), GetStatus(write_result.copy_future.result()));
-  EXPECT_EQ(Status(), GetStatus(write_result.commit_future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.copy_future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.commit_future.result()));
   EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 7, 8}}),
             array);
   EXPECT_THAT(write_progress, ::testing::ElementsAre(WriteProgress{2, 2, 0},
@@ -260,8 +259,8 @@ TEST(ArrayDriverTest, Copy) {
       {/*.progress_function=*/[&progress](CopyProgress p) {
         progress.push_back(p);
       }});
-  EXPECT_EQ(Status(), GetStatus(write_result.copy_future.result()));
-  EXPECT_EQ(Status(), GetStatus(write_result.commit_future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.copy_future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.commit_future.result()));
   EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 4}, {{7, 1, 3}, {7, 4, 6}}),
             array_b);
   EXPECT_THAT(progress, ::testing::ElementsAre(CopyProgress{4, 4, 0, 0},
@@ -339,7 +338,7 @@ TEST(FromArrayTest, Read) {
            ReadProgressFunction{[&read_progress](ReadProgress progress) {
              read_progress.push_back(progress);
            }});
-  EXPECT_EQ(Status(), GetStatus(future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(future.result()));
   EXPECT_EQ(array, dest_array);
   EXPECT_THAT(read_progress, ::testing::ElementsAre(ReadProgress{6, 6}));
 }
@@ -351,7 +350,7 @@ TEST(FromArrayTest, ReadBroadcast) {
   auto store = tensorstore::FromArray(context, array).value();
   auto dest_array = tensorstore::AllocateArray<int>({2, 2, 3});
   auto future = Read(store, dest_array);
-  EXPECT_EQ(Status(), GetStatus(future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(future.result()));
   EXPECT_EQ(tensorstore::MakeArray<int>(
                 {{{1, 2, 3}, {4, 5, 6}}, {{1, 2, 3}, {4, 5, 6}}}),
             dest_array);
@@ -369,7 +368,7 @@ TEST(FromArrayTest, ReadAlignByLabel) {
   auto future =
       Read(ChainResult(store, tensorstore::AllDims().Label("x", "y")),
            ChainResult(dest_array, tensorstore::AllDims().Label("y", "x")));
-  EXPECT_EQ(Status(), GetStatus(future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(future.result()));
   EXPECT_EQ(tensorstore::MakeArray<int>({{1, 4}, {2, 5}, {3, 6}}), dest_array);
 }
 
@@ -385,7 +384,7 @@ TEST(FromArrayTest, ReadIntoNewArray) {
           ReadProgressFunction{[&read_progress](ReadProgress progress) {
             read_progress.push_back(progress);
           }}});
-  EXPECT_EQ(Status(), GetStatus(future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(future.result()));
   auto read_array = future.value();
   EXPECT_EQ(array, read_array);
   EXPECT_THAT(read_progress, ::testing::ElementsAre(ReadProgress{6, 6}));
@@ -443,8 +442,8 @@ TEST(FromArrayTest, Write) {
       WriteProgressFunction{[&write_progress](WriteProgress progress) {
         write_progress.push_back(progress);
       }});
-  EXPECT_EQ(Status(), GetStatus(write_result.copy_future.result()));
-  EXPECT_EQ(Status(), GetStatus(write_result.commit_future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.copy_future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.commit_future.result()));
   EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 7, 8}}),
             array);
   EXPECT_THAT(write_progress, ::testing::ElementsAre(WriteProgress{2, 2, 0},
@@ -460,8 +459,8 @@ TEST(FromArrayTest, WriteBroadcast) {
       tensorstore::MakeScalarArray<int>(42),
       ChainResult(store,
                   tensorstore::Dims(0, 1).SizedInterval({2, 3}, {1, 2})));
-  EXPECT_EQ(Status(), GetStatus(write_result.copy_future.result()));
-  EXPECT_EQ(Status(), GetStatus(write_result.commit_future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.copy_future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.commit_future.result()));
   EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 42, 42}}),
             array);
 }
@@ -528,8 +527,8 @@ TEST(FromArrayTest, Copy) {
                                {1, 5}, {2, 2})),
       CopyProgressFunction{
           [&progress](CopyProgress p) { progress.push_back(p); }});
-  EXPECT_EQ(Status(), GetStatus(write_result.copy_future.result()));
-  EXPECT_EQ(Status(), GetStatus(write_result.commit_future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.copy_future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.commit_future.result()));
   EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 4}, {{7, 1, 3}, {7, 4, 6}}),
             array_b);
   EXPECT_THAT(progress, ::testing::ElementsAre(CopyProgress{4, 4, 0, 0},
@@ -550,8 +549,8 @@ TEST(FromArrayTest, CopyBroadcast) {
                   tensorstore::Dims(0).IndexSlice(1)),
       ChainResult(store_b,
                   tensorstore::Dims(0, 1).SizedInterval({1, 5}, {2, 2})));
-  EXPECT_EQ(Status(), GetStatus(write_result.copy_future.result()));
-  EXPECT_EQ(Status(), GetStatus(write_result.commit_future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.copy_future.result()));
+  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.commit_future.result()));
   EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 4}, {{7, 1, 3}, {7, 1, 3}}),
             array_b);
 }
@@ -581,7 +580,7 @@ TEST(FromArrayTest, ReadDataTypeConversion) {
   auto source = tensorstore::MakeArray<std::int32_t>({1, 2, 3});
   auto dest = tensorstore::AllocateArray<std::int64_t>({3});
   EXPECT_EQ(
-      Status(),
+      absl::OkStatus(),
       GetStatus(tensorstore::Read(tensorstore::FromArray(context, source), dest)
                     .result()));
   EXPECT_EQ(dest, tensorstore::MakeArray<std::int64_t>({1, 2, 3}));
@@ -604,7 +603,7 @@ TEST(FromArrayTest, WriteDataTypeConversion) {
   auto context = Context::Default();
   auto source = tensorstore::MakeArray<std::int32_t>({1, 2, 3});
   auto dest = tensorstore::AllocateArray<std::int64_t>({3});
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             GetStatus(tensorstore::Write(source,
                                          tensorstore::FromArray(context, dest))
                           .commit_future.result()));
@@ -629,7 +628,7 @@ TEST(FromArrayTest, CopyDataTypeConversion) {
   auto context = Context::Default();
   auto source = tensorstore::MakeArray<std::int32_t>({1, 2, 3});
   auto dest = tensorstore::AllocateArray<std::int64_t>({3});
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             GetStatus(tensorstore::Copy(tensorstore::FromArray(context, source),
                                         tensorstore::FromArray(context, dest))
                           .commit_future.result()));

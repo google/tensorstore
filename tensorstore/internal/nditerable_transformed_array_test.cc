@@ -57,7 +57,6 @@ using tensorstore::Result;
 using tensorstore::Shared;
 using tensorstore::SharedArray;
 using tensorstore::skip_repeated_elements;
-using tensorstore::Status;
 using tensorstore::StridedLayout;
 using tensorstore::TransformedArray;
 using tensorstore::internal::Arena;
@@ -71,10 +70,11 @@ using ::testing::Pair;
 using IterationTrace = std::vector<void*>;
 
 template <typename... Element>
-std::pair<std::array<IterationTrace, sizeof...(Element)>, Status>
+std::pair<std::array<IterationTrace, sizeof...(Element)>, absl::Status>
 GetIterationTrace(
     MultiNDIterator<sizeof...(Element), /*Full=*/true>* multi_iterator) {
-  std::pair<std::array<IterationTrace, sizeof...(Element)>, Status> result;
+  std::pair<std::array<IterationTrace, sizeof...(Element)>, absl::Status>
+      result;
   for (Index block_size = multi_iterator->ResetAtBeginning(); block_size;
        block_size = multi_iterator->StepForward(block_size)) {
     if (!multi_iterator->GetBlock(block_size, &result.second)) {
@@ -136,7 +136,7 @@ TEST_P(NDIterableTransformedArrayTest, Strided) {
   EXPECT_THAT(
       GetIterationTrace<int>(&multi_iterator),
       Pair(ElementsAre(ElementsAre(&a(0, 0), &a(0, 2), &a(1, 0), &a(1, 2))),
-           Status()));
+           absl::OkStatus()));
 }
 
 // Test the case of an array with both index array input dimensions and purely
@@ -157,7 +157,7 @@ TEST_P(NDIterableTransformedArrayTest, Indexed) {
       GetIterationTrace<int>(&multi_iterator),
       Pair(ElementsAre(ElementsAre(&a(0, 0), &a(1, 0), &a(0, 2), &a(1, 2),
                                    &a(0, 1), &a(1, 1), &a(0, 1), &a(1, 1))),
-           Status()));
+           absl::OkStatus()));
 }
 
 // Test the case of an array with both an index array input dimension and a
@@ -183,7 +183,7 @@ TEST_P(NDIterableTransformedArrayTest, IndexedAndReversedStrided) {
       GetIterationTrace<int>(&multi_iterator),
       Pair(ElementsAre(ElementsAre(&a(0, 0), &a(1, 0), &a(0, 2), &a(1, 2),
                                    &a(0, 1), &a(1, 1), &a(0, 1), &a(1, 1))),
-           Status()));
+           absl::OkStatus()));
 }
 
 // Tests that input dimensions on which index array maps depend can be combined.
@@ -201,7 +201,7 @@ TEST_P(NDIterableTransformedArrayTest, IndexedCombine) {
       GetIterationTrace<int>(&multi_iterator),
       Pair(ElementsAre(ElementsAre(&a(0, 0), &a(1, 0), &a(0, 2), &a(1, 2),
                                    &a(0, 2), &a(1, 2), &a(0, 0), &a(1, 0))),
-           Status()));
+           absl::OkStatus()));
 }
 
 // Tests that index array maps depending on reversed dimensions are handled
@@ -223,7 +223,7 @@ TEST_P(NDIterableTransformedArrayTest, IndexedCombinePartiallyReversed) {
       GetIterationTrace<int>(&multi_iterator),
       Pair(ElementsAre(ElementsAre(&a(0, 0), &a(1, 0), &a(0, 2), &a(1, 2),
                                    &a(0, 2), &a(1, 2), &a(0, 0), &a(1, 0))),
-           Status()));
+           absl::OkStatus()));
 }
 
 // Same as above, but with both index array dimensions reversed.
@@ -244,7 +244,7 @@ TEST_P(NDIterableTransformedArrayTest, IndexedCombineBothReversed) {
       GetIterationTrace<int>(&multi_iterator),
       Pair(ElementsAre(ElementsAre(&a(0, 0), &a(1, 0), &a(0, 2), &a(1, 2),
                                    &a(0, 2), &a(1, 2), &a(0, 0), &a(1, 0))),
-           Status()));
+           absl::OkStatus()));
 }
 
 // Tests that the preference for input dimensions on which index arrays to come
@@ -268,7 +268,7 @@ TEST_P(NDIterableTransformedArrayTest, IndexedVsStrided) {
       (GetIterationTrace<int, int>(&multi_iterator)),
       Pair(ElementsAre(ElementsAre(&a(0, 0), &a(1, 0), &a(0, 1), &a(1, 1)),
                        ElementsAre(&b(0, 0), &b(1, 0), &b(0, 2), &b(1, 2))),
-           Status()));
+           absl::OkStatus()));
 }
 
 TEST_P(NDIterableTransformedArrayTest, IndexedWith2StridedDims) {
@@ -288,7 +288,7 @@ TEST_P(NDIterableTransformedArrayTest, IndexedWith2StridedDims) {
                        &a(0, 0, 0), &a(0, 1, 0), &a(1, 0, 0), &a(1, 1, 0),
                        &a(0, 0, 2), &a(0, 1, 2), &a(1, 0, 2), &a(1, 1, 2),
                        &a(0, 0, 1), &a(0, 1, 1), &a(1, 0, 1), &a(1, 1, 1))),
-                   Status()));
+                   absl::OkStatus()));
 }
 
 TEST_P(NDIterableTransformedArrayTest, TwoIndexedDims) {
@@ -309,7 +309,7 @@ TEST_P(NDIterableTransformedArrayTest, TwoIndexedDims) {
   EXPECT_THAT(GetIterationTrace<int>(&multi_iterator),
               Pair(ElementsAre(ElementsAre(&a(0, 0), &a(0, 2), &a(1, 0),
                                            &a(1, 2), &a(1, 0), &a(1, 2))),
-                   Status()));
+                   absl::OkStatus()));
 }
 
 TEST_P(NDIterableTransformedArrayTest, FourIndexedDims) {
@@ -343,7 +343,7 @@ TEST_P(NDIterableTransformedArrayTest, FourIndexedDims) {
                   b.data() + 4, b.data() + 5, b.data() + 6, b.data() + 7,
                   b.data() + 8, b.data() + 9, b.data() + 10, b.data() + 11,
                   b.data() + 12, b.data() + 13, b.data() + 14, b.data() + 15)),
-          Status()));
+          absl::OkStatus()));
 }
 
 TEST_P(NDIterableTransformedArrayTest, TwoTransformedArrays) {
@@ -366,7 +366,7 @@ TEST_P(NDIterableTransformedArrayTest, TwoTransformedArrays) {
                                            &a(1, 0), &a(1, 1), &a(1, 2)),
                                ElementsAre(&b(0, 0), &b(0, 1), &b(0, 2),
                                            &b(1, 0), &b(1, 1), &b(1, 2))),
-                   Status()));
+                   absl::OkStatus()));
 }
 
 TEST_P(NDIterableTransformedArrayTest, ZeroRankIndexArray) {
@@ -385,8 +385,9 @@ TEST_P(NDIterableTransformedArrayTest, ZeroRankIndexArray) {
   MultiNDIterator<1, /*Full=*/true> multi_iterator(
       ta.shape(), skip_repeated_elements, {{iterable_a.get()}}, &arena);
   EXPECT_THAT(multi_iterator.iteration_dimensions, ElementsAre(-1));
-  EXPECT_THAT((GetIterationTrace<int>(&multi_iterator)),
-              Pair(ElementsAre(ElementsAre(&data[4 * 3 + 2])), Status()));
+  EXPECT_THAT(
+      (GetIterationTrace<int>(&multi_iterator)),
+      Pair(ElementsAre(ElementsAre(&data[4 * 3 + 2])), absl::OkStatus()));
 }
 
 TEST(NDIterableTransformedArrayErrorTest, OutOfBoundsConstant) {

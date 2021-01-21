@@ -38,7 +38,6 @@ using tensorstore::kDataTypes;
 using tensorstore::MatchesStatus;
 using tensorstore::OpenMode;
 using tensorstore::span;
-using tensorstore::Status;
 using tensorstore::StrCat;
 using tensorstore::internal::ParseJson;
 using tensorstore::internal_neuroglancer_precomputed::EncodeCompressedZIndex;
@@ -104,7 +103,7 @@ TEST(MetadataTest, ParseUnsharded) {
 )");
 
   auto metadata_result = MultiscaleMetadata::Parse(metadata_json);
-  ASSERT_EQ(Status(), GetStatus(metadata_result));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(metadata_result));
   auto& m = *metadata_result;
   EXPECT_EQ("image", m.type);
   EXPECT_EQ(DataTypeOf<std::uint8_t>(), m.data_type);
@@ -164,7 +163,7 @@ TEST(MetadataTest, ParseSharded) {
 )");
 
   auto metadata_result = MultiscaleMetadata::Parse(metadata_json);
-  ASSERT_EQ(Status(), GetStatus(metadata_result));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(metadata_result));
   auto& m = *metadata_result;
   EXPECT_EQ("segmentation", m.type);
   EXPECT_EQ(DataTypeOf<std::uint64_t>(), m.data_type);
@@ -263,7 +262,7 @@ TEST(MetadataTest, ParseDefaultVoxelOffset) {
                                  {"type", "image"},
                                  {"data_type", "uint8"}};
   auto metadata_result = MultiscaleMetadata::Parse(metadata_json);
-  ASSERT_EQ(Status(), GetStatus(metadata_result));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(metadata_result));
   auto& m = *metadata_result;
   EXPECT_EQ(Box({6446, 6643, 8090}), m.scales.at(0).box);
 }
@@ -320,7 +319,7 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
     const auto data_type = kDataTypes[static_cast<int>(data_type_id)];
     auto metadata_result = MultiscaleMetadata::Parse(
         GetMetadata(data_type.name(), ScaleMetadata::Encoding::raw));
-    ASSERT_EQ(Status(), GetStatus(metadata_result));
+    ASSERT_EQ(absl::OkStatus(), GetStatus(metadata_result));
     auto& m = *metadata_result;
     ASSERT_EQ(1, m.scales.size());
     EXPECT_EQ(data_type, m.data_type);
@@ -407,7 +406,7 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
     const auto data_type = kDataTypes[static_cast<int>(data_type_id)];
     auto metadata_result = MultiscaleMetadata::Parse(GetMetadata(
         data_type.name(), ScaleMetadata::Encoding::compressed_segmentation));
-    ASSERT_EQ(Status(), GetStatus(metadata_result));
+    ASSERT_EQ(absl::OkStatus(), GetStatus(metadata_result));
     auto& m = *metadata_result;
     ASSERT_EQ(1, m.scales.size());
     EXPECT_EQ(data_type, m.data_type);
@@ -512,7 +511,7 @@ TEST(MetadataTest, ParseInvalid) {
 
 TEST(MultiscaleMetadataConstraintsTest, ParseEmptyObject) {
   auto m = MultiscaleMetadataConstraints::Parse(::nlohmann::json::object_t{});
-  ASSERT_EQ(Status(), GetStatus(m));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   EXPECT_FALSE(m->type);
   EXPECT_FALSE(m->data_type.valid());
   EXPECT_FALSE(m->num_channels);
@@ -521,7 +520,7 @@ TEST(MultiscaleMetadataConstraintsTest, ParseEmptyObject) {
 TEST(MultiscaleMetadataConstraintsTest, ParseValid) {
   auto m = MultiscaleMetadataConstraints::Parse(
       {{"data_type", "uint8"}, {"num_channels", 3}, {"type", "image"}});
-  ASSERT_EQ(Status(), GetStatus(m));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   EXPECT_EQ("image", m->type.value());
   EXPECT_EQ(DataTypeOf<std::uint8_t>(), m->data_type);
   EXPECT_EQ(3, m->num_channels.value());
@@ -545,7 +544,7 @@ TEST(MultiscaleMetadataConstraintsTest, ParseInvalid) {
 TEST(ScaleMetadataConstraintsTest, ParseEmptyObject) {
   auto m = ScaleMetadataConstraints::Parse(
       ::nlohmann::json::object_t{}, /*data_type=*/{}, /*num_channels=*/{});
-  ASSERT_EQ(Status(), GetStatus(m));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   EXPECT_FALSE(m->key);
   EXPECT_FALSE(m->box);
   EXPECT_FALSE(m->chunk_size);
@@ -572,7 +571,7 @@ TEST(ScaleMetadataConstraintsTest, ParseValid) {
          {"shard_bits", 3},
          {"hash", "identity"}}}},
       /*data_type=*/{}, /*num_channels=*/{});
-  ASSERT_EQ(Status(), GetStatus(m));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   EXPECT_EQ("k", m->key.value());
   EXPECT_EQ(Box({4, 5, 6}, {1, 2, 3}), m->box.value());
   EXPECT_THAT(m->resolution, ::testing::Optional(ElementsAre(5, 6, 7)));
@@ -604,7 +603,7 @@ TEST(ScaleMetadataConstraintsTest, ParseValidNullSharding) {
        {"compressed_segmentation_block_size", {4, 5, 6}},
        {"sharding", nullptr}},
       /*data_type=*/{}, /*num_channels=*/{});
-  ASSERT_EQ(Status(), GetStatus(m));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   ASSERT_TRUE(m->sharding);
   EXPECT_TRUE(std::holds_alternative<NoShardingSpec>(*m->sharding));
 }
@@ -754,7 +753,7 @@ TEST(SscaleMetadataConstraintsTest, ParseInvalid) {
 
     // Verify that error does not occur when `"sharding"` is not specified.
     j["sharding"] = nullptr;
-    EXPECT_EQ(Status(),
+    EXPECT_EQ(absl::OkStatus(),
               GetStatus(ScaleMetadataConstraints::Parse(j, /*data_type=*/{},
                                                         /*num_channels=*/{})));
   }
@@ -763,7 +762,7 @@ TEST(SscaleMetadataConstraintsTest, ParseInvalid) {
 TEST(OpenConstraintsTest, ParseEmptyObject) {
   auto m = OpenConstraints::Parse(::nlohmann::json::object_t{},
                                   /*data_type_constraint=*/{});
-  ASSERT_EQ(Status(), GetStatus(m));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   EXPECT_FALSE(m->scale_index);
 }
 
@@ -771,7 +770,7 @@ TEST(OpenConstraintsTest, ParseEmptyObjectDataTypeConstraint) {
   auto m = OpenConstraints::Parse(
       ::nlohmann::json::object_t{},
       /*data_type_constraint=*/DataTypeOf<std::uint8_t>());
-  ASSERT_EQ(Status(), GetStatus(m));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   EXPECT_FALSE(m->scale_index);
   EXPECT_EQ(DataTypeOf<std::uint8_t>(), m->multiscale.data_type);
 }
@@ -791,7 +790,7 @@ TEST(OpenConstraintsTest, ParseValid) {
                               {"scale_metadata", {{"encoding", "jpeg"}}},
                               {"scale_index", 2}},
                              /*data_type_constraint=*/{});
-  ASSERT_EQ(Status(), GetStatus(m));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   EXPECT_THAT(m->scale_index, ::testing::Optional(2));
   EXPECT_EQ(DataTypeOf<std::uint8_t>(), m->multiscale.data_type);
   EXPECT_EQ(ScaleMetadata::Encoding::jpeg, m->scale.encoding);
@@ -801,7 +800,7 @@ TEST(OpenConstraintsTest, ParseDataTypeConstraint) {
   auto m = OpenConstraints::Parse(
       {{"multiscale_metadata", {{"data_type", "uint8"}}}},
       /*data_type_constraint=*/DataTypeOf<std::uint8_t>());
-  ASSERT_EQ(Status(), GetStatus(m));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   EXPECT_EQ(DataTypeOf<std::uint8_t>(), m->multiscale.data_type);
 }
 
@@ -901,7 +900,7 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
 
   const auto Validate = [](const MultiscaleMetadata& a,
                            const MultiscaleMetadata& b, std::size_t scale_index,
-                           std::array<Index, 3> chunk_size) -> Status {
+                           std::array<Index, 3> chunk_size) -> absl::Status {
     SCOPED_TRACE(StrCat("a=", ::nlohmann::json(a).dump()));
     SCOPED_TRACE(StrCat("b=", ::nlohmann::json(b).dump()));
     SCOPED_TRACE(StrCat("scale_index=", scale_index));
@@ -918,29 +917,29 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
   };
 
   // Identical metadata is always compatible.
-  EXPECT_EQ(Status(), Validate(a, a, 0, {{64, 65, 66}}));
-  EXPECT_EQ(Status(), Validate(a, a, 1, {{8, 9, 10}}));
-  EXPECT_EQ(Status(), Validate(a, a, 1, {{11, 12, 13}}));
+  EXPECT_EQ(absl::OkStatus(), Validate(a, a, 0, {{64, 65, 66}}));
+  EXPECT_EQ(absl::OkStatus(), Validate(a, a, 1, {{8, 9, 10}}));
+  EXPECT_EQ(absl::OkStatus(), Validate(a, a, 1, {{11, 12, 13}}));
 
   {
     SCOPED_TRACE("Other scales can be removed");
     auto b = a;
     b.scales.resize(1);
-    EXPECT_EQ(Status(), Validate(a, b, 0, {{64, 65, 66}}));
+    EXPECT_EQ(absl::OkStatus(), Validate(a, b, 0, {{64, 65, 66}}));
   }
 
   {
     SCOPED_TRACE("Other scales can be added");
     auto b = a;
     b.scales.push_back(b.scales[1]);
-    EXPECT_EQ(Status(), Validate(a, b, 0, {{64, 65, 66}}));
+    EXPECT_EQ(absl::OkStatus(), Validate(a, b, 0, {{64, 65, 66}}));
   }
 
   {
     SCOPED_TRACE("Other scales can change");
     auto b = a;
     b.scales[1].key = "new_key";
-    EXPECT_EQ(Status(), Validate(a, b, 0, {{64, 65, 66}}));
+    EXPECT_EQ(absl::OkStatus(), Validate(a, b, 0, {{64, 65, 66}}));
   }
 
   {
@@ -965,14 +964,14 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
     SCOPED_TRACE("`type` can change");
     auto b = a;
     b.type = "image";
-    EXPECT_EQ(Status(), Validate(a, b, 0, {{64, 65, 66}}));
+    EXPECT_EQ(absl::OkStatus(), Validate(a, b, 0, {{64, 65, 66}}));
   }
 
   {
     SCOPED_TRACE("`resolution` can change");
     auto b = a;
     b.scales[0].resolution[0] = 42;
-    EXPECT_EQ(Status(), Validate(a, b, 0, {{64, 65, 66}}));
+    EXPECT_EQ(absl::OkStatus(), Validate(a, b, 0, {{64, 65, 66}}));
   }
 
   {
@@ -1011,7 +1010,7 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
     EXPECT_THAT(ValidateMetadataCompatibility(a, b, 1, {{11, 12, 13}}),
                 MatchesStatus(absl::StatusCode::kFailedPrecondition,
                               ".*\\[11,12,13\\].*"));
-    EXPECT_EQ(Status(), GetStatus(Validate(a, b, 1, {{8, 9, 10}})));
+    EXPECT_EQ(absl::OkStatus(), GetStatus(Validate(a, b, 1, {{8, 9, 10}})));
   }
 
   {
@@ -1074,7 +1073,7 @@ TEST(CreateScaleTest, NoExistingMetadata) {
                          /*data_type_constraint=*/{})
                          .value();
   auto result = CreateScale(/*existing_metadata=*/nullptr, constraints);
-  ASSERT_EQ(Status(), GetStatus(result));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
   const auto& [metadata, scale_index] = *result;
   ASSERT_TRUE(metadata);
   EXPECT_EQ(0, scale_index);
@@ -1124,7 +1123,7 @@ TEST(CreateScaleTest, NoExistingMetadataGenerateKey) {
                          /*data_type_constraint=*/{})
                          .value();
   auto result = CreateScale(/*existing_metadata=*/nullptr, constraints);
-  ASSERT_EQ(Status(), GetStatus(result));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
   const auto& [metadata, scale_index] = *result;
   ASSERT_TRUE(metadata);
   EXPECT_EQ(0, scale_index);
@@ -1163,7 +1162,7 @@ TEST(CreateScaleTest, NoExistingMetadataCompressedSegmentation) {
           /*data_type_constraint=*/{})
           .value();
   auto result = CreateScale(/*existing_metadata=*/nullptr, constraints);
-  ASSERT_EQ(Status(), GetStatus(result));
+  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
   const auto& [metadata, scale_index] = *result;
   ASSERT_TRUE(metadata);
   EXPECT_EQ(0, scale_index);
@@ -1215,11 +1214,12 @@ TEST(CreateScaleTest, InvalidScaleConstraints) {
            {"chunk_size", {8, 9, 10}},
        }}};
   // Control case
-  EXPECT_EQ(Status(), GetStatus(CreateScale(
-                          /*existing_metadata=*/nullptr,
-                          OpenConstraints::Parse(constraints_json,
-                                                 /*data_type_constraint=*/{})
-                              .value())));
+  EXPECT_EQ(absl::OkStatus(),
+            GetStatus(CreateScale(
+                /*existing_metadata=*/nullptr,
+                OpenConstraints::Parse(constraints_json,
+                                       /*data_type_constraint=*/{})
+                    .value())));
 
   // Tests that removing any of the following keys results in an error.
   for (const char* k : {"encoding", "compressed_segmentation_block_size",
@@ -1274,11 +1274,12 @@ TEST(CreateScaleTest, InvalidMultiscaleConstraints) {
            {"chunk_size", {8, 9, 10}},
        }}};
   // Control case
-  EXPECT_EQ(Status(), GetStatus(CreateScale(
-                          /*existing_metadata=*/nullptr,
-                          OpenConstraints::Parse(constraints_json,
-                                                 /*data_type_constraint=*/{})
-                              .value())));
+  EXPECT_EQ(absl::OkStatus(),
+            GetStatus(CreateScale(
+                /*existing_metadata=*/nullptr,
+                OpenConstraints::Parse(constraints_json,
+                                       /*data_type_constraint=*/{})
+                    .value())));
 
   // Tests that removing any of the following keys results in an error.
   for (const char* k : {"type", "data_type", "num_channels"}) {
@@ -1363,7 +1364,7 @@ TEST(CreateScaleTest, ExistingMetadata) {
                                               /*data_type_constraint=*/{})
                            .value();
     auto result = CreateScale(&existing_metadata, constraints);
-    ASSERT_EQ(Status(), GetStatus(result));
+    ASSERT_EQ(absl::OkStatus(), GetStatus(result));
     const auto& [metadata, scale_index] = *result;
     ASSERT_TRUE(metadata);
     EXPECT_EQ(2, scale_index);
@@ -1390,7 +1391,7 @@ TEST(CreateScaleTest, ExistingMetadata) {
         &existing_metadata, OpenConstraints::Parse(j,
                                                    /*data_type_constraint=*/{})
                                 .value());
-    ASSERT_EQ(Status(), GetStatus(result));
+    ASSERT_EQ(absl::OkStatus(), GetStatus(result));
     const auto& [metadata, scale_index] = *result;
     ASSERT_TRUE(metadata);
     EXPECT_EQ(2, scale_index);
@@ -1406,7 +1407,7 @@ TEST(CreateScaleTest, ExistingMetadata) {
         &existing_metadata, OpenConstraints::Parse(j,
                                                    /*data_type_constraint=*/{})
                                 .value());
-    ASSERT_EQ(Status(), GetStatus(result));
+    ASSERT_EQ(absl::OkStatus(), GetStatus(result));
     const auto& [metadata, scale_index] = *result;
     ASSERT_TRUE(metadata);
     EXPECT_EQ(2, scale_index);
@@ -1425,7 +1426,7 @@ TEST(CreateScaleTest, ExistingMetadata) {
         &existing_metadata, OpenConstraints::Parse(j,
                                                    /*data_type_constraint=*/{})
                                 .value());
-    ASSERT_EQ(Status(), GetStatus(result));
+    ASSERT_EQ(absl::OkStatus(), GetStatus(result));
     const auto& [metadata, scale_index] = *result;
     ASSERT_TRUE(metadata);
     EXPECT_EQ(2, scale_index);
@@ -1799,7 +1800,7 @@ TEST(ValidateDataTypeTest, Basic) {
        {DataTypeId::uint8_t, DataTypeId::uint16_t, DataTypeId::uint32_t,
         DataTypeId::uint64_t, DataTypeId::float32_t}) {
     const auto data_type = kDataTypes[static_cast<int>(data_type_id)];
-    EXPECT_EQ(Status(), ValidateDataType(data_type));
+    EXPECT_EQ(absl::OkStatus(), ValidateDataType(data_type));
   }
   for (auto data_type_id :
        {DataTypeId::string_t, DataTypeId::json_t, DataTypeId::ustring_t,

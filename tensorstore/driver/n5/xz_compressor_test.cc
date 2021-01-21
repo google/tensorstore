@@ -30,7 +30,6 @@ using tensorstore::Index;
 using tensorstore::MakeArray;
 using tensorstore::MatchesStatus;
 using tensorstore::span;
-using tensorstore::Status;
 using tensorstore::internal_n5::Compressor;
 using tensorstore::internal_n5::DecodeChunk;
 using tensorstore::internal_n5::N5Metadata;
@@ -39,7 +38,7 @@ TEST(XzCompressionTest, Parse) {
   // Parse without any options.
   {
     auto c = Compressor::FromJson({{"type", "xz"}});
-    EXPECT_EQ(Status(), GetStatus(c));
+    EXPECT_EQ(absl::OkStatus(), GetStatus(c));
     EXPECT_EQ(::nlohmann::json({{"type", "xz"}, {"preset", 6}}),
               ::nlohmann::json(*c));
   }
@@ -47,7 +46,7 @@ TEST(XzCompressionTest, Parse) {
   // Parse with preset option.
   {
     auto c = Compressor::FromJson({{"type", "xz"}, {"preset", 3}});
-    EXPECT_EQ(Status(), GetStatus(c));
+    EXPECT_EQ(absl::OkStatus(), GetStatus(c));
     EXPECT_EQ(::nlohmann::json({{"type", "xz"}, {"preset", 3}}),
               ::nlohmann::json(*c));
   }

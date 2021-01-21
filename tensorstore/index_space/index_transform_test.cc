@@ -53,7 +53,6 @@ using tensorstore::Result;
 using tensorstore::span;
 using tensorstore::StaticCast;
 using tensorstore::StaticRankCast;
-using tensorstore::Status;
 using tensorstore::StrCat;
 using tensorstore::unchecked;
 using tensorstore::view;
@@ -362,7 +361,7 @@ TEST(IndexTransformTest, Constant) {
                .Finalize()
                .value();
   std::array<Index, 1> output_indices;
-  ASSERT_EQ(Status(),
+  ASSERT_EQ(absl::OkStatus(),
             t.TransformIndices(span<const Index, 1>({3}), output_indices));
   EXPECT_THAT(output_indices, ::testing::ElementsAre(10));
 }
@@ -375,7 +374,7 @@ TEST(IndexTransformTest, SingleInputDimension) {
                .Finalize()
                .value();
   std::array<Index, 1> output_indices;
-  ASSERT_EQ(Status(),
+  ASSERT_EQ(absl::OkStatus(),
             t.TransformIndices(span<const Index, 1>({6}), output_indices));
   EXPECT_THAT(output_indices, ::testing::ElementsAre(5 + 2 * 6));
 }
@@ -388,13 +387,13 @@ TEST(IndexTransformTest, IndexArray) {
                .Finalize()
                .value();
   std::array<Index, 1> output_indices;
-  ASSERT_EQ(Status(),
+  ASSERT_EQ(absl::OkStatus(),
             t.TransformIndices(span<const Index, 1>({1}), output_indices));
   EXPECT_THAT(output_indices, ::testing::ElementsAre(5 + 2 * 4));
-  ASSERT_EQ(Status(),
+  ASSERT_EQ(absl::OkStatus(),
             t.TransformIndices(span<const Index, 1>({2}), output_indices));
   EXPECT_THAT(output_indices, ::testing::ElementsAre(5 + 2 * 5));
-  ASSERT_EQ(Status(),
+  ASSERT_EQ(absl::OkStatus(),
             t.TransformIndices(span<const Index, 1>({3}), output_indices));
   EXPECT_THAT(output_indices, ::testing::ElementsAre(5 + 2 * 6));
 }
@@ -410,8 +409,9 @@ TEST(TransformIndicesTest, ConstantAndSingleInputDimensionAndIndexArray) {
                .Finalize()
                .value();
   std::array<Index, 3> output_indices;
-  ASSERT_EQ(Status(), t.TransformIndices(span<const Index, 3>({2, 4, 5}),
-                                         output_indices));
+  ASSERT_EQ(
+      absl::OkStatus(),
+      t.TransformIndices(span<const Index, 3>({2, 4, 5}), output_indices));
   EXPECT_THAT(output_indices,
               ::testing::ElementsAre(10, 20 + 2 * 5, 30 + 3 * 7));
 }
@@ -425,7 +425,7 @@ TEST(TransformIndicesTest, Implicit) {
                .Finalize()
                .value();
   std::array<Index, 1> output_indices;
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             t.TransformIndices(span<const Index, 1>({-3}), output_indices));
   EXPECT_THAT(output_indices, ::testing::ElementsAre(-3));
   EXPECT_THAT(t.TransformIndices(span<const Index, 1>({10}), output_indices),
@@ -443,7 +443,7 @@ TEST(TransformIndicesTest, IndexRangeError) {
                .Finalize()
                .value();
   std::array<Index, 1> output_indices;
-  EXPECT_EQ(Status(),
+  EXPECT_EQ(absl::OkStatus(),
             t.TransformIndices(span<const Index, 1>({2}), output_indices));
   EXPECT_THAT(output_indices, ::testing::ElementsAre(6));
   EXPECT_THAT(t.TransformIndices(span<const Index, 1>({1}), output_indices),

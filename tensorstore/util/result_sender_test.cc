@@ -28,25 +28,24 @@
 namespace {
 
 using tensorstore::Result;
-using tensorstore::Status;
 
 TEST(ResultReceiverTest, SetCancel) {
   Result<int> result = absl::UnknownError("");
-  tensorstore::AnyReceiver<Status, int> receiver{std::ref(result)};
+  tensorstore::AnyReceiver<absl::Status, int> receiver{std::ref(result)};
   tensorstore::execution::set_cancel(receiver);
   EXPECT_EQ(result, Result<int>(absl::CancelledError("")));
 }
 
 TEST(ResultReceiverTest, SetValue) {
   Result<int> result = absl::UnknownError("");
-  tensorstore::AnyReceiver<Status, int> receiver{std::ref(result)};
+  tensorstore::AnyReceiver<absl::Status, int> receiver{std::ref(result)};
   tensorstore::execution::set_value(receiver, 3);
   EXPECT_EQ(result, Result<int>(3));
 }
 
 TEST(ResultReceiverTest, SetError) {
   Result<int> result = absl::UnknownError("");
-  tensorstore::AnyReceiver<Status, int> receiver{std::ref(result)};
+  tensorstore::AnyReceiver<absl::Status, int> receiver{std::ref(result)};
   tensorstore::execution::set_error(receiver, absl::UnknownError("message"));
   EXPECT_EQ(result, Result<int>(absl::UnknownError("message")));
 }
@@ -55,7 +54,7 @@ TEST(ResultSenderTest, SetValue) {
   Result<int> result(3);
   std::vector<std::string> log;
   tensorstore::execution::submit(
-      tensorstore::AnySender<Status, int>(std::ref(result)),
+      tensorstore::AnySender<absl::Status, int>(std::ref(result)),
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre("set_value: 3"));
 }
@@ -64,7 +63,7 @@ TEST(ResultSenderTest, SetError) {
   Result<int> result{absl::UnknownError("")};
   std::vector<std::string> log;
   tensorstore::execution::submit(
-      tensorstore::AnySender<Status, int>(std::ref(result)),
+      tensorstore::AnySender<absl::Status, int>(std::ref(result)),
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre("set_error: UNKNOWN: "));
 }
@@ -73,7 +72,7 @@ TEST(ResultSenderTest, SetCancel) {
   Result<int> result{absl::CancelledError("")};
   std::vector<std::string> log;
   tensorstore::execution::submit(
-      tensorstore::AnySender<Status, int>(std::ref(result)),
+      tensorstore::AnySender<absl::Status, int>(std::ref(result)),
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre("set_cancel"));
 }

@@ -34,7 +34,6 @@ using ::nlohmann::json;
 using tensorstore::DataTypeOf;
 using tensorstore::MatchesStatus;
 using tensorstore::Result;
-using tensorstore::Status;
 using tensorstore::internal::JsonEncodeNestedArray;
 using tensorstore::internal::JsonParseNestedArray;
 using tensorstore::internal::JsonValueAs;
