@@ -22,6 +22,7 @@
 using tensorstore::internal::CreateURI;
 using tensorstore::internal::JoinPath;
 using tensorstore::internal::ParseURI;
+using tensorstore::internal::PathDirnameBasename;
 
 namespace {
 
@@ -53,6 +54,26 @@ TEST(PathTest, JoinPath_MixedArgs) {
   EXPECT_EQ("/foo/bar", JoinPath(foo_view, "bar"));
   EXPECT_EQ("/foo/bar", JoinPath(foo, "bar"));
   EXPECT_EQ("/foo/bar", JoinPath(kFoo, "/bar"));
+}
+
+TEST(PathTest, PathDirnameBasename) {
+  EXPECT_EQ("/a/b", PathDirnameBasename("/a/b/bar").first);
+  EXPECT_EQ("bar", PathDirnameBasename("/a/b/bar").second);
+
+  EXPECT_EQ("a/b", PathDirnameBasename("a/b/bar").first);
+  EXPECT_EQ("bar", PathDirnameBasename("a/b/bar").second);
+
+  EXPECT_EQ("", PathDirnameBasename("bar").first);
+  EXPECT_EQ("bar", PathDirnameBasename("bar").second);
+
+  EXPECT_EQ("/", PathDirnameBasename("/bar").first);
+  EXPECT_EQ("bar", PathDirnameBasename("/bar").second);
+
+  EXPECT_EQ("//a/b", PathDirnameBasename("//a/b///bar").first);
+  EXPECT_EQ("bar", PathDirnameBasename("//a/b///bar").second);
+
+  EXPECT_EQ("/", PathDirnameBasename("///bar").first);
+  EXPECT_EQ("bar", PathDirnameBasename("///bar").second);
 }
 
 #define EXPECT_PARSE_URI(uri, scheme, host, path)                  \

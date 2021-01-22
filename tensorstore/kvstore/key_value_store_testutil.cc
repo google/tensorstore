@@ -82,7 +82,7 @@ StorageGeneration GetStorageGeneration(KeyValueStore::Ptr store,
 
 StorageGeneration GetMismatchStorageGeneration(KeyValueStore::Ptr store,
                                                std::string name) {
-  absl::Cord value("8888");
+  absl::Cord value("1234567890123456789012345678901234567890123456789012345");
   auto last = store->Write(name, value).result();
   EXPECT_THAT(last, MatchesRegularTimestampedStorageGeneration());
   EXPECT_THAT(store->Delete(name).result(),

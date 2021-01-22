@@ -48,6 +48,11 @@ std::string JoinPath(const T&... args) {
   return internal_path::JoinPathImpl({args...});
 }
 
+// Splits a path into the pair {dirname, basename} using platform-specific
+// path separator ([/\] on Windows, otherwise [/]).
+std::pair<absl::string_view, absl::string_view> PathDirnameBasename(
+    absl::string_view path);
+
 // Create a URI from a `scheme`, `host`, and `path`. If the scheme
 // is empty, then the result is the path.
 std::string CreateURI(absl::string_view scheme, absl::string_view host,

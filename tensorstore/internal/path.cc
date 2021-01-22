@@ -27,6 +27,12 @@ inline bool IsValidSchemeChar(char ch) {
          ch == '+' || ch == '-';
 }
 
+#ifdef _WIN32
+constexpr inline bool IsDirSeparator(char c) { return c == '\\' || c == '/'; }
+#else
+constexpr inline bool IsDirSeparator(char c) { return c == '/'; }
+#endif
+
 }  // namespace
 namespace tensorstore {
 namespace internal_path {
@@ -67,6 +73,27 @@ std::string JoinPathImpl(std::initializer_list<absl::string_view> paths) {
 
 }  // namespace internal_path
 namespace internal {
+
+// Splits a path into the pair {dirname, basename}
+std::pair<absl::string_view, absl::string_view> PathDirnameBasename(
+    absl::string_view path) {
+  size_t pos = path.size();
+  while (pos != 0 && !IsDirSeparator(path[pos - 1])) {
+    --pos;
+  }
+  size_t basename = pos;
+  --pos;
+  if (pos == absl::string_view::npos) {
+    return {"", path};
+  }
+  while (pos != 0 && IsDirSeparator(path[pos - 1])) {
+    --pos;
+  }
+  if (pos == 0) {
+    return {"/", path.substr(basename)};
+  }
+  return {path.substr(0, pos), path.substr(basename)};
+}
 
 void ParseURI(absl::string_view uri, absl::string_view* scheme,
               absl::string_view* host, absl::string_view* path) {
