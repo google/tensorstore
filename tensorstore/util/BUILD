@@ -376,6 +376,7 @@ tensorstore_cc_test(
 tensorstore_cc_test(
     name = "future_test",
     size = "small",
+    timeout = "moderate",
     srcs = [
         "future_test.cc",
     ],
