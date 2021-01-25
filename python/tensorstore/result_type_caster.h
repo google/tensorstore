@@ -23,6 +23,8 @@
 /// type corresponding to `tensorstore::Result`; instead, we just convert
 /// `Result` objects to values or exceptions.
 
+#include <type_traits>
+
 #include "python/tensorstore/status.h"
 #include "pybind11/pybind11.h"
 #include "tensorstore/util/result.h"
@@ -41,7 +43,9 @@ T ValueOrThrow(const tensorstore::Result<T>& result,
   if (!result.ok()) {
     ThrowStatusException(result.status(), policy);
   }
-  return *result;
+  if constexpr (!std::is_void_v<T>) {
+    return *result;
+  }
 }
 
 /// Same as above, but for rvalue Result.
@@ -53,29 +57,8 @@ T ValueOrThrow(tensorstore::Result<T>&& result,
   if (!result.ok()) {
     ThrowStatusException(result.status(), policy);
   }
-  return *std::move(result);
-}
-
-/// Throws an exception that will map to the corresponding Python exception if
-/// `!result.ok()`.
-///
-/// Requires GIL.
-inline void ValueOrThrow(
-    const tensorstore::Result<void>& result,
-    StatusExceptionPolicy policy = StatusExceptionPolicy::kDefault) {
-  if (!result.ok()) {
-    ThrowStatusException(result.status(), policy);
-  }
-}
-
-/// Same as above, but for rvalue Result.
-///
-/// Requires GIL.
-inline void ValueOrThrow(
-    tensorstore::Result<void>&& result,
-    StatusExceptionPolicy policy = StatusExceptionPolicy::kDefault) {
-  if (!result.ok()) {
-    ThrowStatusException(result.status(), policy);
+  if constexpr (!std::is_void_v<T>) {
+    return *std::move(result);
   }
 }
 

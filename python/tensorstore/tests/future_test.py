@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import os
 import time
 import signal
@@ -68,3 +69,29 @@ def test_promise_wait_interrupt():
   with pytest.raises(KeyboardInterrupt):
     threading.Thread(target=do_interrupt).start()
     value = future.result()
+
+
+def test_promise_cancel():
+  promise, future = ts.Promise.new()
+  assert future.done() == False
+
+  def do_cancel():
+    time.sleep(0.1)
+    future.cancel()
+
+  t = threading.Thread(target=do_cancel)
+  t.start()
+  with pytest.raises(asyncio.CancelledError):
+    future.result()
+  t.join()
+
+
+def test_promise_timeout():
+  promise, future = ts.Promise.new()
+  assert future.done() == False
+  with pytest.raises(TimeoutError):
+    future.result(timeout=0.1)
+  with pytest.raises(TimeoutError):
+    future.result(deadline=time.time() + 0.1)
+  promise.set_result(5)
+  assert future.result(timeout=0) == 5

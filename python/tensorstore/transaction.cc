@@ -135,7 +135,7 @@ check if the commit was successful.
       "commit_sync",
       [](const TransactionState::CommitPtr& self) {
         self->RequestCommit();
-        return self->future();
+        ValueOrThrow(InterruptibleWait(self->future()));
       },
       R"(Synchronously commits the transaction.
 

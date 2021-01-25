@@ -33,7 +33,9 @@
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
 #include "pybind11/pybind11.h"
+#include "tensorstore/internal/intrusive_linked_list.h"
 #include "tensorstore/internal/logging.h"
+#include "tensorstore/util/function_view.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 
@@ -41,10 +43,110 @@ namespace tensorstore {
 namespace internal_python {
 
 /// Throws an exception that maps to the Python `asyncio.CancelledError`.
-void ThrowCancelledError();
+[[noreturn]] void ThrowCancelledError();
+
+/// Throws an exception that maps to the Python `TimeoutError`.
+[[noreturn]] void ThrowTimeoutError();
 
 /// Returns a new Python object of type `asyncio.CancelledError`.
 pybind11::object GetCancelledError();
+
+/// Converts an optional timeout or deadline in seconds to an `absl::Time`
+/// deadline.
+///
+/// If neither `timeout` nor `deadline` is specified, returns
+/// `absl::InfiniteFuture()`.
+absl::Time GetWaitDeadline(std::optional<double> timeout,
+                           std::optional<double> deadline);
+
+/// Base class that represents a Future exposed to Python.
+///
+/// This provides an interface similar to the `concurrent.futures.Future` Python
+/// type, but also is directly compatible with asyncio (via `await`).
+///
+/// The value type is erased.
+///
+/// For each concrete value type `T`, the actual run time type is the derived
+/// class `PythonFuture<T>`.
+class PythonFutureBase : public std::enable_shared_from_this<PythonFutureBase> {
+ public:
+  PythonFutureBase();
+
+  /// Returns `true` if the underlying Future is ready (either with a value or
+  /// an error) or already cancelled.
+  virtual bool done() const = 0;
+
+  /// Calls `Force` on the underlying `Future`.
+  virtual void force() = 0;
+
+  /// Waits for the Future to be done (interruptible by `KeyboardInterrupt`).
+  /// If it has finished with a value, returns `None`.  Otherwise, returns the
+  /// Python exception object representing the error.
+  ///
+  /// If the deadline is exceeded, raises `TimeoutError`.
+  virtual pybind11::object exception(absl::Time deadline) = 0;
+
+  /// Waits for the Future to be done (interruptible by `KeyboardInterrupt`).
+  /// Returns the value if the Future completed successfully, otherwise throws
+  /// an exception that maps to the corresponding Python exception.
+  ///
+  /// If the deadline is exceeded, raises `TimeoutError`.
+  virtual pybind11::object result(absl::Time deadline) = 0;
+
+  /// Returns `true` if the Future was cancelled.
+  virtual bool cancelled() const = 0;
+
+  /// Attempts to cancel the `Future`.  Returns `true` if the `Future` is not
+  /// already done.  It is possible that any computation corresponding to the
+  /// Future may still continue, however.
+  virtual bool cancel() = 0;
+
+  /// Adds a nullary callback to be invoked when the Future is done.
+  virtual void add_done_callback(pybind11::object callback) = 0;
+
+  /// Removes any previously-registered callback identical to `callback`.
+  /// Returns the number of callbacks removed.
+  virtual std::size_t remove_done_callback(pybind11::object callback);
+
+  /// Returns a corresponding `asyncio`-compatible future object.
+  pybind11::object get_await_result();
+
+  virtual ~PythonFutureBase();
+
+  struct CancelCallbackBase {
+    CancelCallbackBase* next;
+    CancelCallbackBase* prev;
+  };
+
+  struct CancelCallback : public CancelCallbackBase {
+    using Accessor =
+        internal::intrusive_linked_list::MemberAccessor<CancelCallbackBase>;
+    explicit CancelCallback(PythonFutureBase* base,
+                            FunctionView<void()> callback)
+        : callback(callback) {
+      internal::intrusive_linked_list::InsertBefore(
+          Accessor{}, &base->cancel_callbacks_, this);
+    }
+    ~CancelCallback() {
+      internal::intrusive_linked_list::Remove(Accessor{}, this);
+    }
+    FunctionView<void()> callback;
+  };
+
+ protected:
+  void RunCallbacks();
+  void RunCancelCallbacks();
+
+  /// Callbacks to be invoked when the future becomes ready.  Guarded by the
+  /// GIL.
+  std::vector<pybind11::object> callbacks_;
+  /// Registration of `ExecuteWhenReady` callback used when `callbacks_` is
+  /// non-empty.  Guarded by the GIL.
+  FutureCallbackRegistration registration_;
+  /// Linked list of callbacks to be invoked when cancelled.  Guarded by the
+  /// GIL.
+  CancelCallbackBase cancel_callbacks_;
+};
 
 /// Waits for an event to occur, but supports interruption due to a Python
 /// signal handler throwing a Python exception.
@@ -60,18 +162,26 @@ pybind11::object GetCancelledError();
 /// `FutureCallbackRegistration` that can be used to cancel the registration of
 /// the `notify_done` callback.
 ///
-/// If an operating system signal results in a Python signal handler throwing an
-/// exception (e.g. KeyboardInterrupt), this function stops waiting immediately
-/// and throws `pybind11::error_already_set`.
+/// The following events terminate the wait:
 ///
-/// Otherwise, this function waits until `notify_done` is called, and returns
-/// normally.
+/// 1. If `notify_done` is called, this function returns normally.
+///
+/// 2. If an operating system signal results in a Python signal handler throwing
+///    an exception (e.g. KeyboardInterrupt), this function stops waiting
+///    immediately and throws `pybind11::error_already_set`.
+///
+/// 3. If the deadline is reached, this functions throws
+///    `pybind11::error_already_set`, with a `TimeoutError` set.
+///
+/// 4. If `python_future` is non-null and is cancelled, this function throws
+///    `pybind11::error_already_set`, with an `asyncio.CancelledError` set.
 ///
 /// This function factors out the type-independent, platform-dependent logic
 /// from the `PythonFuture<T>::WaitForResult` method defined below.
 void InterruptibleWaitImpl(
-    std::function<FutureCallbackRegistration(std::function<void()> notify_done)>
-        register_listener);
+    FunctionView<FutureCallbackRegistration(FunctionView<void()> notify_done)>
+        register_listener,
+    absl::Time deadline, PythonFutureBase* python_future);
 
 /// Waits for the Future to be ready, but supports interruption by operating
 /// system signals.
@@ -80,77 +190,28 @@ void InterruptibleWaitImpl(
 /// asynchronous operations.
 ///
 /// We can't simply use the normal `tensorstore::Future<T>::Wait` method, since
-/// that does not support interruption.
+/// that does not support interruption or cancellation.
 template <typename T>
-typename Future<T>::result_type& InterruptibleWait(const Future<T>& future) {
+typename Future<T>::result_type& InterruptibleWait(
+    const Future<T>& future, absl::Time deadline = absl::InfiniteFuture(),
+    PythonFutureBase* python_future = nullptr) {
   assert(future.valid());
-  if (!future.ready() && _PyOS_IsMainThread()) {
+  if (!future.ready()) {
     {
       pybind11::gil_scoped_release gil_release;
       future.Force();
     }
-    // If on main thread and not already ready, use "interruptible" wait that
-    // may throw a KeyboardInterrupt exception if SIGINT is received.
-    internal_python::InterruptibleWaitImpl([&](auto signal) {
-      return future.ExecuteWhenReady(
-          [signal = std::move(signal)](ReadyFuture<const T> f) { signal(); });
-    });
+    internal_python::InterruptibleWaitImpl(
+        [&](auto signal) {
+          return future.ExecuteWhenReady(
+              [signal = std::move(signal)](ReadyFuture<const T> f) {
+                signal();
+              });
+        },
+        deadline, python_future);
   }
-  {
-    pybind11::gil_scoped_release gil_release;
-    return future.result();
-  }
+  return future.result();
 }
-
-/// Base class that represents a Future exposed to Python.
-///
-/// This provides an interface similar to the `concurrent.futures.Future` Python
-/// type, but also is directly compatible with asyncio (via `await`).
-///
-/// The value type is erased.
-///
-/// For each concrete value type `T`, the actual run time type is the derived
-/// class `PythonFuture<T>`.
-class PythonFutureBase : public std::enable_shared_from_this<PythonFutureBase> {
- public:
-  /// Returns `true` if the underlying Future is ready (either with a value or
-  /// an error) or already cancelled.
-  virtual bool done() const = 0;
-
-  /// Calls `Force` on the underlying `Future`.
-  virtual void force() = 0;
-
-  /// Waits for the Future to be done (interruptible by `KeyboardInterrupt`).
-  /// If it has finished with a value, returns `None`.  Otherwise, returns the
-  /// Python exception object representing the error.
-  virtual pybind11::object exception() = 0;
-
-  /// Waits for the Future to be done (interruptible by `KeyboardInterrupt`).
-  /// Returns the value if the Future completed successfully, otherwise throws
-  /// an exception that maps to the corresponding Python exception.
-  virtual pybind11::object result() = 0;
-
-  /// Returns `true` if the Future completed with
-  /// `absl::StatusCode::kCancelled`.
-  virtual bool cancelled() const = 0;
-
-  /// Attempts to cancel the `Future`.  Returns `true` if the `Future` is not
-  /// already done.  It is possible that any computation corresponding to the
-  /// Future may still continue, however.
-  virtual bool cancel() = 0;
-
-  /// Adds a nullary callback to be invoked when the Future is done.
-  virtual void add_done_callback(pybind11::object callback) = 0;
-
-  /// Removes any previously-registered callback identical to `callback`.
-  /// Returns the number of callbacks removed.
-  virtual std::size_t remove_done_callback(pybind11::object callback) = 0;
-
-  /// Returns a corresponding `asyncio`-compatible future object.
-  pybind11::object get_await_result();
-
-  virtual ~PythonFutureBase();
-};
 
 /// Special type capable of holding any Python value or exception.  This is used
 /// as the result type for `Promise`/`Future` pairs created by Python.
@@ -180,17 +241,17 @@ class PythonFuture : public PythonFutureBase {
 
   bool cancelled() const override { return !future_.valid(); }
 
-  Future<const T> WaitForResult() {
+  Future<const T> WaitForResult(absl::Time deadline) {
     // Copy `future_`, since `future_` may be modified by another threading
     // calling `PythonFuture::cancel` once GIL is released.
     auto future_copy = future_;
-    internal_python::InterruptibleWait(future_copy);
+    internal_python::InterruptibleWait(future_copy, deadline, this);
     return future_copy;
   }
 
-  pybind11::object exception() override {
+  pybind11::object exception(absl::Time deadline) override {
     if (!future_.valid()) return GetCancelledError();
-    auto future = WaitForResult();
+    auto future = WaitForResult(deadline);
     auto& result = future.result();
     if (result.has_value()) {
       if constexpr (std::is_same_v<T, PythonValueOrException>) {
@@ -203,9 +264,9 @@ class PythonFuture : public PythonFutureBase {
     return GetStatusPythonException(result.status());
   }
 
-  pybind11::object result() override {
+  pybind11::object result(absl::Time deadline) override {
     if (!future_.valid()) ThrowCancelledError();
-    auto future = WaitForResult();
+    auto future = WaitForResult(deadline);
     return pybind11::cast(future.result());
   }
 
@@ -215,24 +276,9 @@ class PythonFuture : public PythonFutureBase {
     }
     future_ = Future<const T>{};
     registration_.Unregister();
+    RunCancelCallbacks();
     RunCallbacks();
     return true;
-  }
-
-  void RunCallbacks() {
-    auto callbacks = std::move(callbacks_);
-    auto py_self = pybind11::cast(shared_from_this());
-    for (const auto& callback : callbacks) {
-      try {
-        callback(py_self);
-      } catch (pybind11::error_already_set& e) {
-        e.restore();
-        PyErr_WriteUnraisable(nullptr);
-        PyErr_Clear();
-      } catch (...) {
-        TENSORSTORE_LOG("Unexpected exception thrown by python callback");
-      }
-    }
   }
 
   void add_done_callback(pybind11::object callback) override {
@@ -254,24 +300,10 @@ class PythonFuture : public PythonFutureBase {
     }
   }
 
-  std::size_t remove_done_callback(pybind11::object callback) override {
-    auto it = std::remove_if(
-        callbacks_.begin(), callbacks_.end(),
-        [&](pybind11::handle h) { return h.ptr() == callback.ptr(); });
-    const size_t num_removed = callbacks_.end() - it;
-    callbacks_.erase(it, callbacks_.end());
-    if (callbacks_.empty()) {
-      registration_.Unregister();
-    }
-    return num_removed;
-  }
-
   ~PythonFuture() override = default;
 
  private:
   Future<const T> future_;
-  std::vector<pybind11::object> callbacks_;
-  FutureCallbackRegistration registration_;
 };
 
 void RegisterFutureBindings(pybind11::module m);

@@ -21,6 +21,7 @@
 #include <utility>
 
 #include "pybind11/pybind11.h"
+#include "pybind11/stl.h"
 #include "tensorstore/util/future.h"
 
 #ifdef _WIN32
@@ -38,13 +39,17 @@ namespace py = ::pybind11;
 PythonFutureBase::~PythonFutureBase() = default;
 
 namespace {
+enum class ScopedEventWaitResult {
+  kSuccess,
+  kInterrupt,
+  kTimeout,
+};
 // Define platform-dependent `ScopedEvent` class that supports waiting that is
 // interrupted if the process receives a signal.
 //
 // Initially, the event is in the "unset" state.  The `Set` method changes the
-// event to the "set" state.  The `Wait` method waits until either the "set"
-// state is reached (in which case it returns `true`) or the process receives a
-// signal (in which case it returns "false").
+// event to the "set" state.  The `Wait` method waits until the "set" state is
+// reached, the process receives a signal, or the deadline is reached.
 #ifdef _WIN32
 class ScopedEvent {
  public:
@@ -60,24 +65,37 @@ class ScopedEvent {
   }
   ~ScopedEvent() { ::CloseHandle(handle); }
   void Set() { ::SetEvent(handle); }
-  bool Wait() {
+  ScopedEventWaitResult Wait(absl::Time deadline) {
     const HANDLE handles[2] = {handle, sigint_event};
+    DWORD timeout;
+    if (deadline == absl::InfiniteFuture()) {
+      timeout = INFINITE;
+    } else {
+      int64_t ms = absl::ToInt64Milliseconds(deadline - absl::Now());
+      ms = std::max(int64_t(0), ms);
+      timeout =
+          static_cast<DWORD>(std::min(ms, static_cast<int64_t>(INFINITE)));
+    }
     DWORD res = ::WaitForMultipleObjectsEx(2, handles, /*bWaitAll=*/FALSE,
-                                           /*dwMilliseconds=*/INFINITE,
+                                           /*dwMilliseconds=*/timeout,
                                            /*bAlertable=*/FALSE);
     if (res == WAIT_OBJECT_0 + 1) {
       ::ResetEvent(sigint_event);
-      return false;
+      return ScopedEventWaitResult::kInterrupt;
+    } else if (res == WAIT_OBJECT_0) {
+      return ScopedEventWaitResult::kSuccess;
+    } else {
+      assert(res == WAIT_TIMEOUT);
+      return ScopedEventWaitResult::kTimeout;
     }
-    assert(res == WAIT_OBJECT_0);
-    return true;
   }
   HANDLE handle;
   HANDLE sigint_event;
 };
 #elif defined(__APPLE__)
 // POSIX unnamed semaphores are not implemented on Mac OS.  Use
-// `pthread_cond_wait` instead, as it is also interruptible by signals.
+// `pthread_cond_wait`/`pthread_cond_timedwait` instead, as it is also
+// interruptible by signals.
 class ScopedEvent {
  public:
   ScopedEvent() {
@@ -112,21 +130,29 @@ class ScopedEvent {
     }
     ::pthread_cond_signal(&cond);
   }
-  bool Wait() {
+  ScopedEventWaitResult Wait(absl::Time deadline) {
     {
       [[maybe_unused]] int err = ::pthread_mutex_lock(&mutex);
       assert(err == 0);
     }
     bool set_value = set;
+    bool timeout = false;
     if (!set_value) {
-      ::pthread_cond_wait(&cond, &mutex);
+      if (deadline == absl::InfiniteFuture()) {
+        ::pthread_cond_wait(&cond, &mutex);
+      } else {
+        const auto tspec = ToTimespec(deadline);
+        timeout = ::pthread_cond_timedwait(&cond, &mutex, &tspec) == ETIMEDOUT;
+      }
       set_value = set;
     }
     {
       [[maybe_unused]] int err = ::pthread_mutex_unlock(&mutex);
       assert(err == 0);
     }
-    return set_value;
+    return set_value ? ScopedEventWaitResult::kSuccess
+                     : (timeout ? ScopedEventWaitResult::kTimeout
+                                : ScopedEventWaitResult::kInterrupt);
   }
   bool set{false};
   ::pthread_mutex_t mutex;
@@ -148,10 +174,18 @@ class ScopedEvent {
     [[maybe_unused]] int err = ::sem_post(&sem);
     assert(err == 0);
   }
-  bool Wait() {
-    if (::sem_wait(&sem) == 0) return true;
-    assert(errno == EINTR);
-    return false;
+  ScopedEventWaitResult Wait(absl::Time deadline) {
+    if (deadline == absl::InfiniteFuture()) {
+      if (::sem_wait(&sem) == 0) return ScopedEventWaitResult::kSuccess;
+      assert(errno == EINTR);
+    } else {
+      const auto tspec = absl::ToTimespec(deadline);
+      if (::sem_timedwait(&sem, &tspec) == 0)
+        return ScopedEventWaitResult::kSuccess;
+      assert(errno == EINTR || errno == ETIMEDOUT);
+      if (errno == ETIMEDOUT) return ScopedEventWaitResult::kTimeout;
+    }
+    return ScopedEventWaitResult::kInterrupt;
   }
   ::sem_t sem;
 };
@@ -169,9 +203,16 @@ class ScopedFutureCallbackRegistration {
 };
 }  // namespace
 
-void ThrowCancelledError() {
+[[noreturn]] void ThrowCancelledError() {
   auto cancelled_error = py::module::import("asyncio").attr("CancelledError");
   PyErr_SetNone(cancelled_error.ptr());
+  throw py::error_already_set();
+}
+
+[[noreturn]] void ThrowTimeoutError() {
+  auto timeout_error = py::module::import("builtins").attr("TimeoutError");
+  PyErr_SetNone(timeout_error.ptr());
+  throw py::error_already_set();
 }
 
 pybind11::object GetCancelledError() {
@@ -179,15 +220,32 @@ pybind11::object GetCancelledError() {
 }
 
 void InterruptibleWaitImpl(
-    std::function<FutureCallbackRegistration(std::function<void()> notify_done)>
-        register_listener) {
+    FunctionView<FutureCallbackRegistration(FunctionView<void()> notify_done)>
+        register_listener,
+    absl::Time deadline, PythonFutureBase* python_future) {
   ScopedEvent event;
-  ScopedFutureCallbackRegistration registration{
-      register_listener([&event] { event.Set(); })};
+  const auto notify_done = [&event] { event.Set(); };
+  std::optional<PythonFutureBase::CancelCallback> cancel_callback;
+  if (python_future) {
+    cancel_callback.emplace(python_future, notify_done);
+  }
+  ScopedFutureCallbackRegistration registration{register_listener(notify_done)};
   while (true) {
+    ScopedEventWaitResult wait_result;
     {
       pybind11::gil_scoped_release gil_release;
-      if (event.Wait()) return;
+      wait_result = event.Wait(deadline);
+    }
+    switch (wait_result) {
+      case ScopedEventWaitResult::kSuccess:
+        if (python_future && python_future->cancelled()) {
+          ThrowCancelledError();
+        }
+        return;
+      case ScopedEventWaitResult::kInterrupt:
+        break;
+      case ScopedEventWaitResult::kTimeout:
+        ThrowTimeoutError();
     }
     if (PyErr_CheckSignals() == -1) {
       throw py::error_already_set();
@@ -227,6 +285,61 @@ pybind11::object PythonFutureBase::get_await_result() {
   return awaitable_future.attr("__await__")();
 }
 
+std::size_t PythonFutureBase::remove_done_callback(pybind11::object callback) {
+  auto it = std::remove_if(
+      callbacks_.begin(), callbacks_.end(),
+      [&](pybind11::handle h) { return h.ptr() == callback.ptr(); });
+  const size_t num_removed = callbacks_.end() - it;
+  callbacks_.erase(it, callbacks_.end());
+  if (callbacks_.empty()) {
+    registration_.Unregister();
+  }
+  return num_removed;
+}
+
+PythonFutureBase::PythonFutureBase() {
+  internal::intrusive_linked_list::Initialize(CancelCallback::Accessor{},
+                                              &cancel_callbacks_);
+}
+
+void PythonFutureBase::RunCancelCallbacks() {
+  for (CancelCallbackBase* callback = cancel_callbacks_.next;
+       callback != &cancel_callbacks_;) {
+    auto* next = callback->next;
+    static_cast<CancelCallback*>(callback)->callback();
+    callback = next;
+  }
+}
+
+void PythonFutureBase::RunCallbacks() {
+  auto callbacks = std::move(callbacks_);
+  auto py_self = pybind11::cast(shared_from_this());
+  for (const auto& callback : callbacks) {
+    try {
+      callback(py_self);
+    } catch (pybind11::error_already_set& e) {
+      e.restore();
+      PyErr_WriteUnraisable(nullptr);
+      PyErr_Clear();
+    } catch (...) {
+      TENSORSTORE_LOG("Unexpected exception thrown by python callback");
+    }
+  }
+}
+
+absl::Time GetWaitDeadline(std::optional<double> timeout,
+                           std::optional<double> deadline) {
+  absl::Time deadline_time = absl::InfiniteFuture();
+  if (deadline) {
+    deadline_time = absl::UnixEpoch() + absl::Seconds(*deadline);
+  }
+  if (timeout) {
+    deadline_time =
+        std::min(deadline_time, absl::Now() + absl::Seconds(*timeout));
+  }
+  return deadline_time;
+}
+
 void RegisterFutureBindings(pybind11::module m) {
   py::class_<PythonFutureBase, std::shared_ptr<PythonFutureBase>> cls_future(
       m, "Future");
@@ -236,8 +349,20 @@ void RegisterFutureBindings(pybind11::module m) {
                  py::arg("callback"));
   cls_future.def("remove_done_callback",
                  &PythonFutureBase::remove_done_callback, py::arg("callback"));
-  cls_future.def("result", &PythonFutureBase::result);
-  cls_future.def("exception", &PythonFutureBase::exception);
+  cls_future.def(
+      "result",
+      [](PythonFutureBase& self, std::optional<double> timeout,
+         std::optional<double> deadline) -> py::object {
+        return self.result(GetWaitDeadline(timeout, deadline));
+      },
+      py::arg("timeout") = std::nullopt, py::arg("deadline") = std::nullopt);
+  cls_future.def(
+      "exception",
+      [](PythonFutureBase& self, std::optional<double> timeout,
+         std::optional<double> deadline) -> py::object {
+        return self.exception(GetWaitDeadline(timeout, deadline));
+      },
+      py::arg("timeout") = std::nullopt, py::arg("deadline") = std::nullopt);
   cls_future.def("done", &PythonFutureBase::done);
   cls_future.def("force", &PythonFutureBase::force);
   cls_future.def("cancelled", &PythonFutureBase::cancelled);

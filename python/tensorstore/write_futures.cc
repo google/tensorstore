@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "pybind11/pybind11.h"
+#include "pybind11/stl.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -32,14 +33,22 @@ void RegisterWriteFuturesBindings(pybind11::module m) {
            [](const PythonWriteFutures& self) {
              return self.commit_future->get_await_result();
            })
-      .def("result",
-           [](const PythonWriteFutures& self) {
-             return self.commit_future->result();
-           })
-      .def("exception",
-           [](const PythonWriteFutures& self) {
-             return self.commit_future->exception();
-           })
+      .def(
+          "result",
+          [](const PythonWriteFutures& self, std::optional<double> timeout,
+             std::optional<double> deadline) {
+            return self.commit_future->result(
+                GetWaitDeadline(timeout, deadline));
+          },
+          py::arg("timeout") = std::nullopt, py::arg("deadline") = std::nullopt)
+      .def(
+          "exception",
+          [](const PythonWriteFutures& self, std::optional<double> timeout,
+             std::optional<double> deadline) {
+            return self.commit_future->exception(
+                GetWaitDeadline(timeout, deadline));
+          },
+          py::arg("timeout") = std::nullopt, py::arg("deadline") = std::nullopt)
       .def("done",
            [](const PythonWriteFutures& self) {
              return self.commit_future->done();
