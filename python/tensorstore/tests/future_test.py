@@ -54,21 +54,21 @@ def test_promise_set_exception():
     os.name == 'nt',
     reason='CTRL_C_EVENT is delayed on Windows until keyboard input is received'
 )
+@pytest.mark.skipif(
+    'signal.getsignal(signal.SIGINT) != signal.default_int_handler',
+    reason='SIGINT handler not installed')
 def test_promise_wait_interrupt():
 
   promise, future = ts.Promise.new()
-  event = threading.Event()
 
   def do_interrupt():
-    time.sleep(0.001)
+    time.sleep(0.01)
     sig = signal.CTRL_C_EVENT if os.name == 'nt' else signal.SIGINT
     os.kill(os.getpid(), sig)
 
-  started = False
-  value = None
   with pytest.raises(KeyboardInterrupt):
     threading.Thread(target=do_interrupt).start()
-    value = future.result()
+    future.result(timeout=5)
 
 
 def test_promise_cancel():
@@ -82,7 +82,7 @@ def test_promise_cancel():
   t = threading.Thread(target=do_cancel)
   t.start()
   with pytest.raises(asyncio.CancelledError):
-    future.result()
+    future.result(timeout=5)
   t.join()
 
 
