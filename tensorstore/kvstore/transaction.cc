@@ -822,21 +822,22 @@ void MultiPhaseMutation::CommitNextPhase() {
   DebugCheckInvariants(*this, false);
   {
     DebugCheckInvariantsInDestructor debug_check(*this, true);
-    if (cur_phase_number == 0 && phases_.next_ != &phases_) {
-      // Multiple phases
+    if (cur_phase_number == 0) {
+      if (phases_.next_ != &phases_) {
+        // Multiple phases
 
-      auto* last_phase = phases_.prev_;
-      for (MutationEntryTree::iterator entry = last_phase->entries_.begin(),
-                                       next;
-           entry != last_phase->entries_.end(); entry = next) {
-        // Save next entry pointer since we may remove this entry below.
-        next = std::next(entry);
-        if (&entry->single_phase_mutation() != last_phase) {
-          last_phase->entries_.Remove(entry);
-          InsertIntoPriorPhase(entry);
+        auto* last_phase = phases_.prev_;
+        for (MutationEntryTree::iterator entry = last_phase->entries_.begin(),
+                                         next;
+             entry != last_phase->entries_.end(); entry = next) {
+          // Save next entry pointer since we may remove this entry below.
+          next = std::next(entry);
+          if (&entry->single_phase_mutation() != last_phase) {
+            last_phase->entries_.Remove(entry);
+            InsertIntoPriorPhase(entry);
+          }
         }
       }
-
       if (cur_phase_number != phases_.phase_number_) {
         this->PhaseCommitDone(phases_.phase_number_);
         return;

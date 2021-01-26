@@ -267,7 +267,7 @@ class RandomOperationTester {
         PerformRandomAction(open_transaction);
       }
     }
-    transaction.CommitAsync().IgnoreFuture();
+    TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto kvstore_cord_map,
                                      tensorstore::internal::GetMap(kvstore));
     EXPECT_THAT(Map(kvstore_cord_map.begin(), kvstore_cord_map.end()),
@@ -483,6 +483,40 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
 
         {
           auto transaction = Transaction(tensorstore::atomic_isolated);
+          {
+            TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+                auto open_transaction,
+                tensorstore::internal::AcquireOpenTransactionPtrOrError(
+                    transaction));
+            TENSORSTORE_ASSERT_OK(entry->Modify(open_transaction, true, "def"));
+          }
+          TENSORSTORE_EXPECT_OK(transaction.CommitAsync().result());
+        }
+
+        EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
+                    Pointee(absl::Cord("def")));
+        EXPECT_THAT(
+            kvstore->Read(a_key).result(),
+            MatchesKvsReadResult(
+                absl::Cord("def"),
+                AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation));
+      },
+      TENSORSTORE_LOC);
+
+  RegisterGoogleTestCaseDynamically(
+      suite_name, "BarrierThenUnconditionalWriteback",
+      [=] {
+        auto kvstore = options.get_store();
+        auto cache = KvsBackedTestCache::Make(kvstore);
+        auto get_key = options.get_key_getter();
+        auto a_key = get_key("a");
+        TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("ghi")));
+        auto entry = GetCacheEntry(cache, a_key);
+        TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()).result());
+
+        {
+          auto transaction = Transaction(tensorstore::isolated);
+          transaction.Barrier();
           {
             TENSORSTORE_ASSERT_OK_AND_ASSIGN(
                 auto open_transaction,
