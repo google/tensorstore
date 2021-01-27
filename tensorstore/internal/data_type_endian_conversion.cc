@@ -54,7 +54,7 @@ const std::array<UnalignedDataTypeFunctions, kNumDataTypeIds>
     kUnalignedDataTypeFunctions = MapCanonicalDataTypes([](auto data_type) {
       using T = typename decltype(data_type)::Element;
       UnalignedDataTypeFunctions functions;
-      if constexpr (std::is_trivial_v<T>) {
+      if constexpr (std::is_trivial_v<T> || std::is_same_v<T, float16_t>) {
         using Sizes = SwapEndianSizes<T>;
         functions.copy = GetElementwiseFunction<CopyUnalignedLoopTemplate<
             Sizes::element_size * Sizes::num_elements>>();
