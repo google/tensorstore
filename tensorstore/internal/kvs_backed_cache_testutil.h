@@ -22,6 +22,7 @@
 /// `KeyValueStore` implementations.
 
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -32,9 +33,13 @@
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/async_cache.h"
+#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/fuzz_data_provider.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/kvs_backed_cache.h"
 #include "tensorstore/internal/mutex.h"
+#include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/transaction_impl.h"
 #include "tensorstore/util/future.h"
@@ -181,6 +186,42 @@ struct KvsBackedCacheBasicTransactionalTestOptions {
 /// KeyValueStore should be sufficient.
 void RegisterKvsBackedCacheBasicTransactionalTest(
     const KvsBackedCacheBasicTransactionalTestOptions& options);
+
+/// KvsRandomOperationTester implements random/fuzz based testing for
+/// KeyValueStore.
+class KvsRandomOperationTester {
+ public:
+  using Map = std::map<std::string, std::string>;
+
+  explicit KvsRandomOperationTester(
+      std::unique_ptr<FuzzDataProvider> fuzz_data, KeyValueStore::Ptr kvstore,
+      std::function<std::string(std::string)> get_key);
+
+  void SimulateDeleteRange(const KeyRange& range);
+
+  void SimulateWrite(const std::string& key, bool clear,
+                     const std::string& append);
+
+  std::string SampleKey();
+  std::string SampleKeyOrEmpty();
+
+  void PerformRandomAction(OpenTransactionPtr transaction);
+
+  void PerformRandomActions();
+
+  std::unique_ptr<FuzzDataProvider> data_provider;
+  KeyValueStore::Ptr kvstore;
+  Map map;
+
+  std::vector<std::string> keys;
+  std::vector<CachePtr<KvsBackedTestCache>> caches;
+
+  double write_probability = 0.8;
+  double clear_probability = 0.5;
+  double barrier_probability = 0.05;
+  size_t write_number = 0;
+  bool log = true;
+};
 
 }  // namespace internal
 }  // namespace tensorstore

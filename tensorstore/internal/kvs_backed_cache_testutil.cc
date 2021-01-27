@@ -14,7 +14,10 @@
 
 #include "tensorstore/internal/kvs_backed_cache_testutil.h"
 
+#include <stddef.h>
+
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <random>
@@ -24,19 +27,28 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/memory/memory.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/match.h"
+#include "absl/strings/string_view.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/async_cache.h"
+#include "tensorstore/internal/cache.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/kvs_backed_cache.h"
+#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
+#include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/kvstore/key_value_store_testutil.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/transaction_impl.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/execution.h"
@@ -53,7 +65,7 @@ namespace internal {
 
 void KvsBackedTestCache::Entry::DoDecode(std::optional<absl::Cord> value,
                                          DecodeReceiver receiver) {
-  if (value && value->Flatten().find('Z') != std::string_view::npos) {
+  if (value && absl::StrContains(value->Flatten(), 'Z')) {
     return execution::set_error(
         receiver, absl::FailedPreconditionError("existing value contains Z"));
   }
@@ -138,7 +150,7 @@ void KvsBackedTestCache::TransactionNode::DoApply(ApplyOptions options,
     if (!r) {
       return execution::set_error(receiver, r.status());
     }
-    if (value.find('Z') != std::string::npos) {
+    if (absl::StrContains(value, 'Z')) {
       return execution::set_error(
           receiver, absl::InvalidArgumentError("new value contains Z"));
     }
@@ -189,106 +201,98 @@ CachePtr<KvsBackedTestCache> KvsBackedTestCache::Make(
   });
 }
 
-class RandomOperationTester {
- public:
-  explicit RandomOperationTester(
-      KeyValueStore::Ptr kvstore,
-      std::function<std::string(std::string)> get_key)
-      : kvstore(kvstore) {
-    for (auto key : {"x", "y"}) {
-      caches.push_back(KvsBackedTestCache::Make(kvstore, {}, key));
-    }
-    for (size_t i = 0; i < 10; ++i) {
-      keys.push_back(get_key(std::string{static_cast<char>('a' + i)}));
-    }
+KvsRandomOperationTester::KvsRandomOperationTester(
+    std::unique_ptr<FuzzDataProvider> fuzz_data, KeyValueStore::Ptr kvstore,
+    std::function<std::string(std::string)> get_key)
+    : data_provider(std::move(fuzz_data)), kvstore(kvstore) {
+  for (const auto& key : {"x", "y"}) {
+    caches.push_back(KvsBackedTestCache::Make(kvstore, {}, key));
   }
-
-  void SimulateDeleteRange(const KeyRange& range) {
-    if (range.empty()) return;
-    map.erase(map.lower_bound(range.inclusive_min),
-              range.exclusive_max.empty()
-                  ? map.end()
-                  : map.lower_bound(range.exclusive_max));
+  for (const auto& tmp_key : data_provider->GenerateKeys()) {
+    keys.push_back(get_key(tmp_key));
   }
+}
 
-  void SimulateWrite(const std::string& key, bool clear,
-                     const std::string& append) {
-    auto& value = map[key];
-    if (clear) value.clear();
-    value += append;
-  }
+void KvsRandomOperationTester::SimulateDeleteRange(const KeyRange& range) {
+  if (range.empty()) return;
+  map.erase(map.lower_bound(range.inclusive_min),
+            range.exclusive_max.empty() ? map.end()
+                                        : map.lower_bound(range.exclusive_max));
+}
 
-  using Map = std::map<std::string, std::string>;
+void KvsRandomOperationTester::SimulateWrite(const std::string& key, bool clear,
+                                             const std::string& append) {
+  auto& value = map[key];
+  if (clear) value.clear();
+  value += append;
+}
 
-  std::string SampleKey() {
-    return keys[absl::Uniform(bitgen, 0u, keys.size())];
-  }
+std::string KvsRandomOperationTester::SampleKey() {
+  return keys[data_provider->Uniform(0, keys.size() - 1)];
+}
 
-  std::string SampleKeyOrEmpty() {
-    size_t key_index = absl::Uniform(bitgen, 0u, keys.size() + 1);
-    if (key_index == 0) return "";
-    return keys[key_index - 1];
-  }
+std::string KvsRandomOperationTester::SampleKeyOrEmpty() {
+  size_t key_index = data_provider->Uniform(0, keys.size() - 1);
+  if (key_index == 0) return "";
+  return keys[key_index - 1];
+}
 
-  void PerformRandomAction(OpenTransactionPtr transaction) {
-    if (absl::Bernoulli(bitgen, barrier_probability)) {
-      transaction->Barrier();
+void KvsRandomOperationTester::PerformRandomAction(
+    OpenTransactionPtr transaction) {
+  if (barrier_probability > 0 &&
+      data_provider->Bernoulli(barrier_probability)) {
+    transaction->Barrier();
+    if (log) {
       TENSORSTORE_LOG("Barrier");
     }
-    if (absl::Bernoulli(bitgen, write_probability)) {
-      const auto& key = SampleKey();
-      const auto& cache = caches[absl::Uniform(bitgen, 0u, caches.size())];
-      bool clear = absl::Bernoulli(bitgen, clear_probability);
-      std::string append = tensorstore::StrCat(", ", ++write_number);
-      SimulateWrite(key, clear, append);
+  }
+  if (data_provider->Bernoulli(write_probability)) {
+    const auto& key = SampleKey();
+    const auto& cache = caches[data_provider->Uniform(0, caches.size() - 1)];
+    bool clear = data_provider->Bernoulli(clear_probability);
+    std::string append = tensorstore::StrCat(", ", ++write_number);
+    SimulateWrite(key, clear, append);
+    if (log) {
       TENSORSTORE_LOG("Write: key=", QuoteString(key),
                       ", cache_key=", cache->cache_identifier(),
                       ", clear=", clear, ", append=\"", append, "\"");
-      TENSORSTORE_EXPECT_OK(
-          GetCacheEntry(cache, key)->Modify(transaction, clear, append));
-    } else {
-      KeyRange range{SampleKeyOrEmpty(), SampleKeyOrEmpty()};
+    }
+    TENSORSTORE_EXPECT_OK(
+        GetCacheEntry(cache, key)->Modify(transaction, clear, append));
+  } else {
+    KeyRange range{SampleKeyOrEmpty(), SampleKeyOrEmpty()};
+    if (log) {
       TENSORSTORE_LOG("DeleteRange: ", range);
-      SimulateDeleteRange(range);
-      TENSORSTORE_EXPECT_OK(
-          kvstore->TransactionalDeleteRange(transaction, range));
     }
+    SimulateDeleteRange(range);
+    TENSORSTORE_EXPECT_OK(
+        kvstore->TransactionalDeleteRange(transaction, range));
+  }
+}
+
+void KvsRandomOperationTester::PerformRandomActions() {
+  const size_t num_actions = data_provider->Uniform(1, 100);
+  if (log) {
+    TENSORSTORE_LOG("--PerformRandomActions-- ", num_actions);
   }
 
-  size_t num_actions = 100;
-
-  void PerformRandomActions() {
-    auto transaction = Transaction(tensorstore::isolated);
-    {
-      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-          auto open_transaction,
-          tensorstore::internal::AcquireOpenTransactionPtrOrError(transaction));
-      for (size_t i = 0; i < 100; ++i) {
-        PerformRandomAction(open_transaction);
-      }
+  auto transaction = Transaction(tensorstore::isolated);
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto open_transaction,
+        tensorstore::internal::AcquireOpenTransactionPtrOrError(transaction));
+    for (size_t i = 0; i < num_actions; ++i) {
+      PerformRandomAction(open_transaction);
     }
-    TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto kvstore_cord_map,
-                                     tensorstore::internal::GetMap(kvstore));
-    EXPECT_THAT(Map(kvstore_cord_map.begin(), kvstore_cord_map.end()),
-                ::testing::ElementsAreArray(map));
   }
+  TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
 
-  KeyValueStore::Ptr kvstore;
-  Map map;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto kvstore_cord_map,
+                                   tensorstore::internal::GetMap(kvstore));
 
-  std::vector<std::string> keys;
-  std::vector<CachePtr<KvsBackedTestCache>> caches;
-
-  // TODO(jbms): Use absl::BitGen when it supports deterministic seeding.
-  std::minstd_rand bitgen{internal::GetRandomSeedForTest(
-      "TENSORSTORE_RANDOM_OPERATION_TESTER_SEED")};
-
-  double write_probability = 0.8;
-  double clear_probability = 0.5;
-  double barrier_probability = 0.05;
-  size_t write_number = 0;
-};
+  EXPECT_THAT(Map(kvstore_cord_map.begin(), kvstore_cord_map.end()),
+              ::testing::ElementsAreArray(map));
+}
 
 void RegisterKvsBackedCacheBasicTransactionalTest(
     const KvsBackedCacheBasicTransactionalTestOptions& options) {
@@ -733,8 +737,9 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
   RegisterGoogleTestCaseDynamically(
       suite_name, "RandomOperationTest/SinglePhase",
       [=] {
-        RandomOperationTester tester(options.get_store(),
-                                     options.get_key_getter());
+        KvsRandomOperationTester tester(MakeDefaultFuzzDataProvider(),
+                                        options.get_store(),
+                                        options.get_key_getter());
         if (!options.delete_range_supported) {
           tester.write_probability = 1;
         }
@@ -746,8 +751,9 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
   RegisterGoogleTestCaseDynamically(
       suite_name, "RandomOperationTest/MultiPhase",
       [=] {
-        RandomOperationTester tester(options.get_store(),
-                                     options.get_key_getter());
+        KvsRandomOperationTester tester(MakeDefaultFuzzDataProvider(),
+                                        options.get_store(),
+                                        options.get_key_getter());
         if (!options.delete_range_supported) {
           tester.write_probability = 1;
         }
