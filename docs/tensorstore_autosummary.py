@@ -238,8 +238,14 @@ def _make_python_type_ref_from_annotation(a: ast.AST):
   return _make_python_type_ref(astor.to_source(a).strip())
 
 
+# Must have compatible argument list with `sphinx.domains.python._parse_arglist`
+# that we are monkey patching.
+#
+# Newer versions of sphinx call that function before calling
+# `_parse_pseudo_arglist` as a fallback.
 def _render_python_arglist(arglist: str,
                            env=None) -> sphinx.addnodes.desc_parameterlist:
+  del env
   paramlist = sphinx.addnodes.desc_parameterlist()
   args_ast = ast.parse('def f(' + arglist + '): pass').body[0].args
 
@@ -269,6 +275,11 @@ def _render_python_arglist(arglist: str,
   return paramlist
 
 
+# Must have compatible argument list with
+# `sphinx.domains.python._pseudo_parse_arglist` that we are monkey patching.
+#
+# This is only used on older versions of sphinx that don't call
+# `_parse_arglist`.
 def _render_python_pseudo_arglist(signode: sphinx.addnodes.desc_signature,
                                   arglist: str):
   signode += _render_python_arglist(arglist)

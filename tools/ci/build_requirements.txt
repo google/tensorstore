@@ -1,0 +1,2 @@
+wheel==0.36.2
+setuptools_scm==5.0.1

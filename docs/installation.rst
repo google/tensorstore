@@ -55,7 +55,7 @@ and then install from a local checkout of the git repository:
 
    git clone https://github.com/google/tensorstore
    cd tensorstore
-   python3 -m pip install -e .
+   python3 setup.py develop
 
 This invokes `Bazel <https://bazel.build/>`_ to build the TensorStore C++
 extension module.  You must have the required `build
@@ -65,10 +65,68 @@ After making changes to the C++ source code, you must re-run:
 
 .. code-block:: shell
 
-   python3 -m pip install -e .
+   python3 setup.py develop
 
 to rebuild the extension module.  Rebuilds are incremental and will be much
 faster than the initial build.
+
+Note that while it also works to invoke ``python3 -m pip install -e .`` or
+``python3 -m pip install .``, that will result in Bazel being invoked from a
+temporary copy of the source tree, which prevents incremental rebuilds.
+
+The build is affected by the following environment variables:
+
+.. envvar:: TENSORSTORE_BAZELISK
+
+   Path to `Bazelisk <https://github.com/bazelbuild/bazelisk>`_ script that is
+   invoked in order to execute the build.  By default the bundled
+   ``bazelisk.py`` is used, but this environment variable allows that to be
+   overridden in order to pass additional options, etc.
+
+.. envvar:: BAZELISK_HOME
+
+   Path to cache directory used by `Bazelisk
+   <https://github.com/bazelbuild/bazelisk>`_ for downloaded Bazel versions.
+   Defaults to a platform-specific cache directory.
+
+.. envvar:: TENSORSTORE_BAZEL_COMPILATION_MODE
+
+   Bazel `compilation mode
+   <https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode>`
+   to use.  Defaults to ``opt`` (optimized build).
+
+.. envvar:: TENSORSTORE_BAZEL_STARTUP_OPTIONS
+
+   Additional `Bazel startup options
+   <https://docs.bazel.build/versions/master/user-manual.html#startup_options>`_
+   to specify when building.  Multiple options may be separated by spaces;
+   options containing spaces or other special characters should be encoded
+   according to Posix shell escaping rules as implemented by
+   :py:func:`shlex.split`.
+
+   This may be used to specify a non-standard cache directory:
+
+   .. code-block:: shell
+
+      TENSORSTORE_BAZEL_STARTUP_OPTIONS="--output_user_root /path/to/bazel_cache"
+
+.. envvar:: TENSORSTORE_BAZEL_BUILD_OPTIONS
+
+   Additional `Bazel build options
+   <https://docs.bazel.build/versions/master/user-manual.html#semantics-options>`_
+   to specify when building.  The encoding is the same as for
+   :envvar:`TENSORSTORE_BAZEL_STARTUP_OPTIONS`.
+
+.. envvar:: TENSORSTORE_PREBUILT_DIR
+
+   If specified, building is skipped, and instead ``setup.py`` expects to find
+   the pre-built extension module in the specified directory, from a prior
+   invocation of ``build_ext``:
+
+   .. code-block:: shell
+
+      python3 setup.py build_ext -b /tmp/prebuilt
+      TENSORSTORE_PREBUILT_DIR=/tmp/prebuilt pip wheel .
 
 IPython shell without installing
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

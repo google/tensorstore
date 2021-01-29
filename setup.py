@@ -30,6 +30,7 @@ import setuptools
 import atexit
 import distutils.command.build
 import os
+import shlex
 import shutil
 import sysconfig
 import tempfile
@@ -144,31 +145,57 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
 
   def run(self):
     if not self.dry_run:
-      # Ensure python_configure.bzl finds the correct Python verison.
-      os.environ['PYTHON_BIN_PATH'] = sys.executable
-      bazelisk = os.getenv('TENSORSTORE_BAZELISK', 'bazelisk.py')
-      # Controlled via `setup.py build_ext --debug` flag.
-      compilation_mode = 'dbg' if self.debug else 'opt'
-      build_command = [
-          sys.executable,
-          bazelisk,
-          'build',
-          '-c',
-          compilation_mode,
-          '//python/tensorstore:_tensorstore__shared_objects',
-          '--verbose_failures',
-      ]
-      if 'darwin' in sys.platform:
-        # Note: Bazel does not use the MACOSX_DEPLOYMENT_TARGET environment
-        # variable.
-        build_command += ['--macos_minimum_os=%s' % _macos_deployment_target]
-      self.spawn(build_command)
-      suffix = '.pyd' if os.name == 'nt' else '.so'
-
       ext = self.extensions[0]
       ext_full_path = self.get_ext_fullpath(ext.name)
-      shutil.copyfile('bazel-bin/python/tensorstore/_tensorstore' + suffix,
-                      ext_full_path)
+
+      prebuilt_path = os.getenv('TENSORSTORE_PREBUILT_DIR')
+      if not prebuilt_path:
+        # Ensure python_configure.bzl finds the correct Python verison.
+        os.environ['PYTHON_BIN_PATH'] = sys.executable
+        bazelisk = os.getenv('TENSORSTORE_BAZELISK', 'bazelisk.py')
+        # Controlled via `setup.py build_ext --debug` flag.
+        default_compilation_mode = 'dbg' if self.debug else 'opt'
+        compilation_mode = os.getenv('TENSORSTORE_BAZEL_COMPILATION_MODE',
+                                     default_compilation_mode)
+        startup_options = shlex.split(
+            os.getenv('TENSORSTORE_BAZEL_STARTUP_OPTIONS', ''))
+        build_options = shlex.split(
+            os.getenv('TENSORSTORE_BAZEL_BUILD_OPTIONS', ''))
+        build_command = [sys.executable, '-u', bazelisk] + startup_options + [
+            'build',
+            '-c',
+            compilation_mode,
+            '//python/tensorstore:_tensorstore__shared_objects',
+            '--verbose_failures',
+        ] + build_options
+        if 'darwin' in sys.platform:
+          # Note: Bazel does not use the MACOSX_DEPLOYMENT_TARGET environment
+          # variable.
+          build_command += ['--macos_minimum_os=%s' % _macos_deployment_target]
+        self.spawn(build_command)
+        suffix = '.pyd' if os.name == 'nt' else '.so'
+        built_ext_path = os.path.join(
+            'bazel-bin/python/tensorstore/_tensorstore' + suffix)
+      else:
+        # If `TENSORSTORE_PREBUILT_DIR` is set, the extension module is assumed
+        # to have already been built a prior call to `build_ext -b
+        # $TENSORSTORE_PREBUILT_DIR`.
+        #
+        # This is used in conjunction with cibuildwheel to first perform an
+        # in-tree build of the extension module in order to take advantage of
+        # Bazel caching:
+        #
+        # https://github.com/pypa/pip/pull/9091
+        # https://github.com/joerick/cibuildwheel/issues/486
+        built_ext_path = os.path.join(prebuilt_path, 'tensorstore',
+                                      os.path.basename(ext_full_path))
+
+      os.makedirs(os.path.dirname(ext_full_path), exist_ok=True)
+      print('Copying extension %s -> %s' % (
+          built_ext_path,
+          ext_full_path,
+      ))
+      shutil.copyfile(built_ext_path, ext_full_path)
 
 
 class InstallCommand(setuptools.command.install.install):

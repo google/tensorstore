@@ -5,6 +5,9 @@ build --enable_platform_specific_config
 # https://github.com/google/tensorstore/issues/2
 build --incompatible_linkopts_to_linklibs
 
+# Ensure the cache is not invalidated by changes to $PATH
+build --incompatible_strict_action_env=true
+
 # Configure C++17 mode
 build:linux --copt=-fdiagnostics-color=always --cxxopt=-std=c++17 --cxxopt=-fsized-deallocation
 build:macos --copt=-fdiagnostics-color=always --cxxopt=-std=c++17 --cxxopt=-fsized-deallocation
