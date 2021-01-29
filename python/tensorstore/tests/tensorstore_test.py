@@ -259,14 +259,32 @@ async def test_write_json():
   assert await t[1].read() == {"a": 2}
   assert await t[0].read() == 1
   assert await t[2].read() == 3
-  np.testing.assert_equal(await t.read(), [1, {"a": 2}, 3])
+  np.testing.assert_equal(await t.read(),
+                          np.array([1, {
+                              "a": 2
+                          }, 3], dtype=object))
   t[0] = {"x": 3}
-  np.testing.assert_equal(await t.read(), [{"x": 3}, {"a": 2}, 3])
+  np.testing.assert_equal(await t.read(),
+                          np.array([{
+                              "x": 3
+                          }, {
+                              "a": 2
+                          }, 3], dtype=object))
   with pytest.raises(TypeError):
     t[1] = object()
-  np.testing.assert_equal(await t.read(), [{"x": 3}, {"a": 2}, 3])
+  np.testing.assert_equal(await t.read(),
+                          np.array([{
+                              "x": 3
+                          }, {
+                              "a": 2
+                          }, 3], dtype=object))
   t[2] = [1, 2, 3]
-  np.testing.assert_equal(await t.read(), [{"x": 3}, {"a": 2}, [1, 2, 3]])
+  np.testing.assert_equal(
+      await t.read(), np.array([{
+          "x": 3
+      }, {
+          "a": 2
+      }, [1, 2, 3]], dtype=object))
   await t.write([1, 2, "abc"])
   np.testing.assert_equal(await t.read(), np.array([1, 2, "abc"], dtype=object))
 
