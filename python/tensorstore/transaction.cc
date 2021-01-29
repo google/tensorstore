@@ -72,8 +72,7 @@ using the same transaction, but not from a non-transactional read:
            [0, 0, 0, 0, 0, 0],
            [0, 0, 0, 0, 0, 0]], dtype=uint16)
 
-The transaction can be committed using
-:py:obj:`tensorstore.Transaction.commit_async`.
+The transaction can be committed using :py:meth:`.commit_async`.
 
     >>> txn.commit_async().result()
     >>> store.read().result()
@@ -125,11 +124,11 @@ block raises an exception, the transaction is aborted.
       },
       R"(Asynchronously commits the transaction.
 
-Has no effect if the `tensorstore.Transaction.commit_async` or
-`tensorstore.Transaction.abort` has already been called.
+Has no effect if :py:meth:`.commit_async` or :py:meth:`.abort` has already been
+called.
 
-Returns the associated `tensorstore.Transaction.future`, which may be used to
-check if the commit was successful.
+Returns the associated :py:obj:`.future`, which may be used to check if the
+commit was successful.
 )");
   cls_transaction.def(
       "commit_sync",
@@ -150,8 +149,8 @@ Returns `None` if the commit is successful, and raises an error otherwise.
       [](const TransactionState::CommitPtr& self) { self->RequestAbort(); },
       R"(Aborts the transaction.
 
-Has no effect if the `tensorstore.Transaction.commit_async` or
-`tensorstore.Transaction.abort` has already been called.
+Has no effect if :py:meth:`.commit_async` or :py:meth:`.abort` has already been
+called.
 )");
   cls_transaction.def_property_readonly(
       "future",

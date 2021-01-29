@@ -146,6 +146,7 @@ def _overloaded_function_generate_documentation(self, old_documenter, *args,
       self._new_docstrings = [prepare_docstring(full_part_doc, 1, tab_width)]  # pylint: disable=protected-access
       self.indent = old_indent
       old_documenter(self, *args, **kwargs)
+      self.options.noindex = True
 
 
 orig_autodoc_function_documenter_generate = sphinx.ext.autodoc.FunctionDocumenter.generate
@@ -182,24 +183,35 @@ def get_autodoc_signature(app, what, name, obj, options, signature,
 
 def _make_python_type_ref(target):
   reftarget = target
+  refdomain = 'py'
+  reftype = 'obj'
   if target == 'Optional' or target == 'List' or target == 'Union' or target == 'Dict':
     reftarget = 'typing.' + target
-  elif target == 'Future' or target == 'Index':
+  elif target in ('Future', 'Index', 'WriteFutures'):
     reftarget = 'tensorstore.' + target
   elif target == 'array':
     reftarget = 'numpy.ndarray'
   elif target == 'dtype':
     reftarget = 'numpy.dtype'
+  elif target == 'array_like':
+    reftarget = 'numpy:array_like'
+    refdomain = 'std'
+    reftype = 'any'
+  elif target == 'DownsampleMethod':
+    reftarget = 'json-schema-https://github.com/google/tensorstore/json-schema/driver/downsample#method'
+    refdomain = 'std'
+    reftype = 'ref'
   prefix = 'tensorstore.'
   if target.startswith(prefix):
     target = target[len(prefix):]
   tnode = sphinx.addnodes.desc_type(target, target)
   pnode = sphinx.addnodes.pending_xref(
       '',
-      refdomain='py',
-      reftype='obj',
+      refdomain=refdomain,
+      reftype=reftype,
       reftarget=reftarget,
       refwarn=True,
+      refexplicit=True,
   )
   pnode += tnode
   return pnode
@@ -210,7 +222,9 @@ def _make_python_type_ref_from_annotation(a: ast.AST):
     combined_node = sphinx.addnodes.desc_type()
     combined_node += _make_python_type_ref_from_annotation(a.value)
     combined_node += docutils.nodes.emphasis('[', '[')
-    slice_value = a.slice.value
+    slice_value = a.slice
+    if isinstance(slice_value, ast.Expr):
+      slice_value = slice_value.value
     if isinstance(slice_value, ast.Tuple):
       slice_elts = slice_value.elts
     else:
@@ -224,8 +238,8 @@ def _make_python_type_ref_from_annotation(a: ast.AST):
   return _make_python_type_ref(astor.to_source(a).strip())
 
 
-def _render_python_arglist(signode: sphinx.addnodes.desc_signature,
-                           arglist: str) -> None:
+def _render_python_arglist(arglist: str,
+                           env=None) -> sphinx.addnodes.desc_parameterlist:
   paramlist = sphinx.addnodes.desc_parameterlist()
   args_ast = ast.parse('def f(' + arglist + '): pass').body[0].args
 
@@ -252,10 +266,16 @@ def _render_python_arglist(signode: sphinx.addnodes.desc_signature,
       do_arg(arg)
   if args_ast.kwarg:
     do_arg(args_ast.kwarg, '**')
-  signode += paramlist
+  return paramlist
 
 
-sphinx.domains.python._pseudo_parse_arglist = _render_python_arglist  # pylint: disable=protected-access
+def _render_python_pseudo_arglist(signode: sphinx.addnodes.desc_signature,
+                                  arglist: str):
+  signode += _render_python_arglist(arglist)
+
+
+sphinx.domains.python._parse_arglist = _render_python_arglist  # pylint: disable=protected-access
+sphinx.domains.python._pseudo_parse_arglist = _render_python_pseudo_arglist  # pylint: disable=protected-access
 
 old_desc_returns = sphinx.addnodes.desc_returns
 

@@ -332,13 +332,14 @@ class JsonSchema(docutils.parsers.rst.Directive):
       target_node.line = self.lineno
       result.append(target_node)
 
-      labels = self.env.domaindata['std']['labels']
-
       tempnodes, _ = self.state.inline_text(schema['title'], self.lineno)
       temp_titlenode = docutils.nodes.title(schema['title'], '', *tempnodes)
 
+      labels = self.env.domaindata['std']['labels']
       labels[
           target_name] = self.env.docname, target_name, temp_titlenode.astext()
+      anonlabels = self.env.domaindata['std']['anonlabels']
+      anonlabels[target_name] = self.env.docname, target_name
 
       memo = self.state.memo
       mylevel = memo.section_level

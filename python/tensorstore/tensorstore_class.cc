@@ -66,11 +66,11 @@ void RegisterTensorStoreBindings(pybind11::module m) {
           "rank", [](const TensorStore<>& self) { return self.rank(); },
           R"(Number of dimensions in the domain.
 
-This is equivalent to `domain.rank`.
+This is equivalent to :python:`self.domain.rank`.
 )")
       .def_property_readonly(
           "ndim", [=](const TensorStore<>& self) { return self.rank(); },
-          "Alias for `self.rank`.")
+          "Alias for :py:obj:`.rank`.")
       .def_property_readonly("domain",
                              [](const TensorStore<>& self) -> IndexDomain<> {
                                return self.domain();

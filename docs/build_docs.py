@@ -115,11 +115,13 @@ def run(args, unknown):
   if args.sphinx_help:
     unknown = unknown + ['--help']
   runfiles_dir = os.getcwd()
-  os.makedirs(args.output, exist_ok=True)
+  output_dir = os.path.join(os.getenv('BUILD_WORKING_DIRECTORY', os.getcwd()),
+                            args.output)
+  os.makedirs(output_dir, exist_ok=True)
   with _prepare_source_tree(runfiles_dir) as temp_src_dir:
     import sphinx.cmd.build
     sys.exit(
-        sphinx.cmd.build.main(['-j', 'auto', '-a', temp_src_dir, args.output] +
+        sphinx.cmd.build.main(['-j', 'auto', '-a', temp_src_dir, output_dir] +
                               unknown))
 
 

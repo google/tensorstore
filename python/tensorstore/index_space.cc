@@ -799,7 +799,7 @@ Logically, an IndexDomain is the cartesian product of a sequence of Dim objects.
       .def_property_readonly("rank", &IndexDomain<>::rank,
                              "Number of dimensions in the index space.")
       .def_property_readonly("ndim", &IndexDomain<>::rank,
-                             "Alias for `self.rank`.")
+                             "Alias for :py:obj:`.rank`.")
       .def(
           "__len__", [](const IndexDomain<>& d) { return d.rank(); },
           "Number of dimensions in the index space.")
@@ -889,7 +889,7 @@ Logically, an IndexDomain is the cartesian product of a sequence of Dim objects.
           "size", [](const IndexDomain<>& self) { return self.num_elements(); },
           R"(Total number of elements in the domain.
 
-This is simply the product of the extents in `shape`.)")
+This is simply the product of the extents in :py:obj:`.shape`.)")
       .def(
           "__repr__", [](const IndexDomain<>& d) { return StrCat(d); },
           "Returns the string representation.")
@@ -961,7 +961,7 @@ This is simply the product of the extents in `shape`.)")
       .def_property_readonly("output_rank", &IndexTransform<>::output_rank,
                              "Rank of output space")
       .def_property_readonly("ndim", &IndexTransform<>::input_rank,
-                             "Alias for `self.input_rank`.")
+                             "Alias for :py:obj:`.input_rank`.")
       .def_property_readonly(
           "input_origin",
           [](const IndexTransform<>& t) {

@@ -255,7 +255,7 @@ void DefineIndexTransformOperations(pybind11::class_<T, ClassOptions...>* cls,
       },
       R"(View with transposed domain (reversed dimension order).
 
-This is equivalent to: `self[ts.d[::-1].transpose[:]]`.
+This is equivalent to: :python:`self[ts.d[::-1].transpose[:]]`.
 )");
   cls->def_property_readonly(
       "origin",
@@ -266,7 +266,7 @@ This is equivalent to: `self[ts.d[::-1].transpose[:]]`.
       },
       R"(Inclusive lower bound of the domain.
 
-This is equivalent to `self.domain.origin`.
+This is equivalent to :python:`self.domain.origin`.
 )",
       py::keep_alive<0, 1>());
   cls->def_property_readonly(
@@ -278,7 +278,7 @@ This is equivalent to `self.domain.origin`.
       },
       R"(Shape of the domain.
 
-This is equivalent to `self.domain.shape`.
+This is equivalent to :python:`self.domain.shape`.
 )",
       py::keep_alive<0, 1>());
   cls->def_property_readonly(
@@ -289,7 +289,7 @@ This is equivalent to `self.domain.shape`.
       },
       R"(Total number of elements in the domain.
 
-This is equivalent to `self.domain.size`.
+This is equivalent to :python:`self.domain.size`.
 )",
       py::keep_alive<0, 1>());
 }

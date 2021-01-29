@@ -131,7 +131,7 @@ Building the documentation
 
 .. code-block:: shell
 
-   python bazelisk.py run //tools/docs:build_docs -- --out /tmp/tensorstore-docs
+   python bazelisk.py run //tools/docs:build_docs -- --output /tmp/tensorstore-docs
 
 Running tests
 ^^^^^^^^^^^^^

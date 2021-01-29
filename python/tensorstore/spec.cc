@@ -84,7 +84,7 @@ Specification for opening or creating a TensorStore.
           "rank", get_optional_rank,
           "Returns the rank, or `None` if no transform has been specified.")
       .def_property_readonly("ndim", get_optional_rank,
-                             "Alias for `self.rank`.")
+                             "Alias for :py:obj:`.rank`.")
       .def(
           "to_json",
           [](const Spec& self, bool include_defaults, bool include_context) {

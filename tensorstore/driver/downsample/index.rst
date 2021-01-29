@@ -8,3 +8,7 @@ downsampled view that are read.
 
 .. json-schema:: schema.yml
    :title: JSON Schema
+
+The following downsampling methods are supported:
+
+.. json-schema:: schema.yml#/definitions/method
