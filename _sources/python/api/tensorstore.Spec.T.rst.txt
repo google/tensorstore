@@ -1,0 +1,6 @@
+tensorstore.Spec.T
+==================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: Spec.T

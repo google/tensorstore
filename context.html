@@ -1,41 +1,44 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <title>Context framework &mdash; TensorStore  documentation</title>
   
 
   
-  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
+
   
   
 
   
-  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
         <script src="_static/doctools.js"></script>
-        <script src="_static/language_data.js"></script>
-        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
         <script type="text/x-mathjax-config">MathJax.Hub.Config({"displayAlign": "left"})</script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
     
-
-  
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="TensorStore JSON Spec" href="spec.html" />
@@ -76,6 +79,7 @@
           
         </div>
 
+        
         <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
           
             
@@ -106,6 +110,7 @@
             
           
         </div>
+        
       </div>
     </nav>
 
@@ -140,19 +145,19 @@
 
 
 
+
+
 <div role="navigation" aria-label="breadcrumbs navigation">
 
   <ul class="wy-breadcrumbs">
     
-      <li><a href="index.html">Docs</a> &raquo;</li>
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
         
       <li>Context framework</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
-            
-            <a href="_sources/context.rst.txt" rel="nofollow"> View page source</a>
           
         
       </li>
@@ -209,7 +214,7 @@ allows sharing of resources by multiple TensorStore drivers.</p>
 <div class="section" id="context-resource-json-schema">
 <span id="json-schema-https://github.com/google/tensorstore/json-schema/context-resource"></span><h2>Context resource JSON Schema<a class="headerlink" href="#context-resource-json-schema" title="Permalink to this headline">¶</a></h2>
 <div class="docutils container">
-<code class="docutils literal notranslate"><span class="pre">object</span></code> | string | <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">null</span></span></code></div>
+<code class="docutils literal notranslate"><span class="pre">object</span></code> | string | <code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">null</span></span></code></div>
 <p>Specifies a context resource of a particular <code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code>.</p>
 <div class="docutils container">
 One of:</div>
@@ -220,10 +225,10 @@ One of:</div>
 </li>
 <li><div class="docutils container">
 string</div>
-<p>References another resource of the same type in the current or parent context using the syntax <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“&lt;resource-type&gt;”</span></span></code> or <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“&lt;resource-type&gt;#&lt;id&gt;”</span></span></code>, where <code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code> matches the type of this resource.</p>
+<p>References another resource of the same type in the current or parent context using the syntax <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“&lt;resource-type&gt;”</span></span></code> or <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“&lt;resource-type&gt;#&lt;id&gt;”</span></span></code>, where <code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code> matches the type of this resource.</p>
 </li>
 <li><div class="docutils container">
-<code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">null</span></span></code></div>
+<code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">null</span></span></code></div>
 <p>Specifies a new instance of the default resource of the given <code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code>.  Only valid within a <a class="reference internal" href="#json-schema-https://github.com/google/tensorstore/json-schema/context"><span class="std std-ref">Context</span></a> specification.</p>
 </li>
 </ul>
@@ -240,7 +245,7 @@ string</div>
 <tbody>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">total_bytes_limit</span></code></td>
 <td><div class="docutils container">
-integer [0, ∞) (default is <code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">0</span></span></code>)</div>
+integer [0, ∞) (default is <code class="code highlight json docutils literal notranslate"><span class="literal number integer"><span class="pre">0</span></span></code>)</div>
 <p>Soft limit on the total number of bytes in the cache.  The least-recently used data that is not in use is evicted from the cache when this limit is reached.</p>
 </td>
 </tr>
@@ -265,8 +270,8 @@ integer [0, ∞)</div>
 <tbody>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">limit</span></code></td>
 <td><div class="docutils container">
-integer [1, ∞) | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“shared”</span></span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“shared”</span></span></code>)</div>
-<p>The maximum number of CPU cores that may be used.  If the special value of <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“shared”</span></span></code> is specified, a shared global limit equal to the number of CPU cores/threads available applies.</p>
+integer [1, ∞) | <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“shared”</span></span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“shared”</span></span></code>)</div>
+<p>The maximum number of CPU cores that may be used.  If the special value of <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“shared”</span></span></code> is specified, a shared global limit equal to the number of CPU cores/threads available applies.</p>
 </td>
 </tr>
 </tbody>
@@ -284,8 +289,8 @@ integer [1, ∞) | <code class="code highlight json docutils literal notranslate
 <tbody>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">limit</span></code></td>
 <td><div class="docutils container">
-integer [1, ∞) | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“shared”</span></span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“shared”</span></span></code>)</div>
-<p>The maximum number of concurrent operations.  If the special value of <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“shared”</span></span></code> is specified, a shared global limit equal to the number of CPU cores/threads available (or 4 if there are fewer than 4 cores/threads available) applies.</p>
+integer [1, ∞) | <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“shared”</span></span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“shared”</span></span></code>)</div>
+<p>The maximum number of concurrent operations.  If the special value of <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“shared”</span></span></code> is specified, a shared global limit equal to the number of CPU cores/threads available (or 4 if there are fewer than 4 cores/threads available) applies.</p>
 </td>
 </tr>
 </tbody>
@@ -298,29 +303,29 @@ integer [1, ∞) | <code class="code highlight json docutils literal notranslate
            
           </div>
           <footer>
-  
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-      
-        <a href="spec.html" class="btn btn-neutral float-right" title="TensorStore JSON Spec" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
-      
-      
-        <a href="index_space.html" class="btn btn-neutral float-left" title="Index space" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
-      
+        <a href="spec.html" class="btn btn-neutral float-right" title="TensorStore JSON Spec" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="index_space.html" class="btn btn-neutral float-left" title="Index space" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
-  
 
   <hr/>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2020 The TensorStore Authors
+        &#169; Copyright 2020 The TensorStore Authors.
 
     </p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
-
         </div>
       </div>
 
@@ -328,7 +333,6 @@ integer [1, ∞) | <code class="code highlight json docutils literal notranslate
 
   </div>
   
-
 
   <script type="text/javascript">
       jQuery(function () {

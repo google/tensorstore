@@ -27,6 +27,7 @@ tensorstore.DimExpression
       ~DimExpression.diagonal
       ~DimExpression.label
       ~DimExpression.oindex
+      ~DimExpression.stride
       ~DimExpression.translate_by
       ~DimExpression.translate_to
       ~DimExpression.transpose

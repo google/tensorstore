@@ -30,12 +30,17 @@ tensorstore.TensorStore
    .. autosummary::
       :toctree: .
    
+      ~TensorStore.T
       ~TensorStore.domain
       ~TensorStore.dtype
       ~TensorStore.mode
+      ~TensorStore.ndim
       ~TensorStore.oindex
+      ~TensorStore.origin
       ~TensorStore.rank
       ~TensorStore.readable
+      ~TensorStore.shape
+      ~TensorStore.size
       ~TensorStore.transaction
       ~TensorStore.vindex
       ~TensorStore.writable

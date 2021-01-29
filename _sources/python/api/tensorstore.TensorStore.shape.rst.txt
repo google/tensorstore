@@ -1,0 +1,6 @@
+tensorstore.TensorStore.shape
+=============================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: TensorStore.shape

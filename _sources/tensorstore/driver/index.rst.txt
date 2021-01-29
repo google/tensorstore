@@ -7,7 +7,16 @@ Drivers
    :maxdepth: 1
 
    cast/index
+   downsample/index
    array/index
+
+Single file drivers
+-------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   json/index
 
 Chunked storage drivers
 -----------------------

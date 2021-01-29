@@ -1,6 +1,0 @@
-tensorstore.DimensionSelection.oindex
-=====================================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: DimensionSelection.oindex

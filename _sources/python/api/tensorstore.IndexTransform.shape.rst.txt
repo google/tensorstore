@@ -1,0 +1,6 @@
+tensorstore.IndexTransform.shape
+================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: IndexTransform.shape

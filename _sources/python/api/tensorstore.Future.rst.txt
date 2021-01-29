@@ -19,6 +19,7 @@ tensorstore.Future
       ~Future.cancelled
       ~Future.done
       ~Future.exception
+      ~Future.force
       ~Future.remove_done_callback
       ~Future.result
    

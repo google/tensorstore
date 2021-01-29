@@ -1,0 +1,6 @@
+tensorstore.d.diagonal
+======================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: d.diagonal

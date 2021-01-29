@@ -1,0 +1,6 @@
+tensorstore.d.vindex
+====================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: d.vindex

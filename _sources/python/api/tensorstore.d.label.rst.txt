@@ -1,0 +1,6 @@
+tensorstore.d.label
+===================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: d.label

@@ -1,0 +1,6 @@
+tensorstore.DimExpression.stride
+================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: DimExpression.stride

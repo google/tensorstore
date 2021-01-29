@@ -1,41 +1,44 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <title>Building and Installing &mdash; TensorStore  documentation</title>
   
 
   
-  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
+
   
   
 
   
-  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
         <script src="_static/doctools.js"></script>
-        <script src="_static/language_data.js"></script>
-        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
         <script type="text/x-mathjax-config">MathJax.Hub.Config({"displayAlign": "left"})</script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
     
-
-  
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Environment variables" href="environment.html" />
@@ -76,6 +79,7 @@
           
         </div>
 
+        
         <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
           
             
@@ -115,6 +119,7 @@
             
           
         </div>
+        
       </div>
     </nav>
 
@@ -149,19 +154,19 @@
 
 
 
+
+
 <div role="navigation" aria-label="breadcrumbs navigation">
 
   <ul class="wy-breadcrumbs">
     
-      <li><a href="index.html">Docs</a> &raquo;</li>
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
         
       <li>Building and Installing</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
-            
-            <a href="_sources/installation.rst.txt" rel="nofollow"> View page source</a>
           
         
       </li>
@@ -213,18 +218,79 @@ environment</a>
 and then install from a local checkout of the git repository:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/google/tensorstore
 <span class="nb">cd</span> tensorstore
-python3 -m pip install -e .
+python3 setup.py develop
 </pre></div>
 </div>
 <p>This invokes <a class="reference external" href="https://bazel.build/">Bazel</a> to build the TensorStore C++
 extension module.  You must have the required <a class="reference internal" href="#build-dependencies"><span class="std std-ref">build
 dependencies</span></a>.</p>
 <p>After making changes to the C++ source code, you must re-run:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python3 -m pip install -e .
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python3 setup.py develop
 </pre></div>
 </div>
 <p>to rebuild the extension module.  Rebuilds are incremental and will be much
 faster than the initial build.</p>
+<p>Note that while it also works to invoke <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">-m</span> <span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-e</span> <span class="pre">.</span></code> or
+<code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">-m</span> <span class="pre">pip</span> <span class="pre">install</span> <span class="pre">.</span></code>, that will result in Bazel being invoked from a
+temporary copy of the source tree, which prevents incremental rebuilds.</p>
+<p>The build is affected by the following environment variables:</p>
+<dl class="std envvar">
+<dt id="envvar-TENSORSTORE_BAZELISK">
+<code class="sig-name descname">TENSORSTORE_BAZELISK</code><a class="headerlink" href="#envvar-TENSORSTORE_BAZELISK" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to <a class="reference external" href="https://github.com/bazelbuild/bazelisk">Bazelisk</a> script that is
+invoked in order to execute the build.  By default the bundled
+<code class="docutils literal notranslate"><span class="pre">bazelisk.py</span></code> is used, but this environment variable allows that to be
+overridden in order to pass additional options, etc.</p>
+</dd></dl>
+
+<dl class="std envvar">
+<dt id="envvar-BAZELISK_HOME">
+<code class="sig-name descname">BAZELISK_HOME</code><a class="headerlink" href="#envvar-BAZELISK_HOME" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to cache directory used by <a class="reference external" href="https://github.com/bazelbuild/bazelisk">Bazelisk</a> for downloaded Bazel versions.
+Defaults to a platform-specific cache directory.</p>
+</dd></dl>
+
+<dl class="std envvar">
+<dt id="envvar-TENSORSTORE_BAZEL_COMPILATION_MODE">
+<code class="sig-name descname">TENSORSTORE_BAZEL_COMPILATION_MODE</code><a class="headerlink" href="#envvar-TENSORSTORE_BAZEL_COMPILATION_MODE" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bazel <code class="xref any docutils literal notranslate"><span class="pre">compilation</span> <span class="pre">mode</span></code>
+to use.  Defaults to <code class="docutils literal notranslate"><span class="pre">opt</span></code> (optimized build).</p>
+</dd></dl>
+
+<dl class="std envvar">
+<dt id="envvar-TENSORSTORE_BAZEL_STARTUP_OPTIONS">
+<code class="sig-name descname">TENSORSTORE_BAZEL_STARTUP_OPTIONS</code><a class="headerlink" href="#envvar-TENSORSTORE_BAZEL_STARTUP_OPTIONS" title="Permalink to this definition">¶</a></dt>
+<dd><p>Additional <a class="reference external" href="https://docs.bazel.build/versions/master/user-manual.html#startup_options">Bazel startup options</a>
+to specify when building.  Multiple options may be separated by spaces;
+options containing spaces or other special characters should be encoded
+according to Posix shell escaping rules as implemented by
+<a class="reference external" href="https://docs.python.org/3/library/shlex.html#shlex.split" title="(in Python v3.9)"><code class="xref py py-func docutils literal notranslate"><span class="pre">shlex.split()</span></code></a>.</p>
+<p>This may be used to specify a non-standard cache directory:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nv">TENSORSTORE_BAZEL_STARTUP_OPTIONS</span><span class="o">=</span><span class="s2">&quot;--output_user_root /path/to/bazel_cache&quot;</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="std envvar">
+<dt id="envvar-TENSORSTORE_BAZEL_BUILD_OPTIONS">
+<code class="sig-name descname">TENSORSTORE_BAZEL_BUILD_OPTIONS</code><a class="headerlink" href="#envvar-TENSORSTORE_BAZEL_BUILD_OPTIONS" title="Permalink to this definition">¶</a></dt>
+<dd><p>Additional <a class="reference external" href="https://docs.bazel.build/versions/master/user-manual.html#semantics-options">Bazel build options</a>
+to specify when building.  The encoding is the same as for
+<span class="target" id="index-0"></span><a class="reference internal" href="#envvar-TENSORSTORE_BAZEL_STARTUP_OPTIONS"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">TENSORSTORE_BAZEL_STARTUP_OPTIONS</span></code></a>.</p>
+</dd></dl>
+
+<dl class="std envvar">
+<dt id="envvar-TENSORSTORE_PREBUILT_DIR">
+<code class="sig-name descname">TENSORSTORE_PREBUILT_DIR</code><a class="headerlink" href="#envvar-TENSORSTORE_PREBUILT_DIR" title="Permalink to this definition">¶</a></dt>
+<dd><p>If specified, building is skipped, and instead <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> expects to find
+the pre-built extension module in the specified directory, from a prior
+invocation of <code class="docutils literal notranslate"><span class="pre">build_ext</span></code>:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python3 setup.py build_ext -b /tmp/prebuilt
+<span class="nv">TENSORSTORE_PREBUILT_DIR</span><span class="o">=</span>/tmp/prebuilt pip wheel .
+</pre></div>
+</div>
+</dd></dl>
+
 </div>
 <div class="section" id="ipython-shell-without-installing">
 <h3>IPython shell without installing<a class="headerlink" href="#ipython-shell-without-installing" title="Permalink to this headline">¶</a></h3>
@@ -273,7 +339,7 @@ to your dependent project’s <code class="docutils literal notranslate"><span c
 dependencies</span></a>.</p>
 <div class="section" id="building-the-documentation">
 <h3>Building the documentation<a class="headerlink" href="#building-the-documentation" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python bazelisk.py run //tools/docs:build_docs -- --out /tmp/tensorstore-docs
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python bazelisk.py run //tools/docs:build_docs -- --output /tmp/tensorstore-docs
 </pre></div>
 </div>
 </div>
@@ -285,7 +351,7 @@ dependencies</span></a>.</p>
 </div>
 </div>
 <div class="section" id="build-dependencies">
-<span id="id3"></span><h2>Build dependencies<a class="headerlink" href="#build-dependencies" title="Permalink to this headline">¶</a></h2>
+<span id="id4"></span><h2>Build dependencies<a class="headerlink" href="#build-dependencies" title="Permalink to this headline">¶</a></h2>
 <p>TensorStore is written in C++ and is compatible with the following C++
 compilers:</p>
 <ul class="simple">
@@ -316,16 +382,16 @@ build, which requires no additional effort.</p>
 subset of these libraries and instead link to a system-provided version.  This
 reduces the binary size, and if your system packages are kept up to date,
 ensures TensorStore uses up-to-date versions of these dependencies.</p>
-<dl class="envvar">
+<dl class="std envvar">
 <dt id="envvar-TENSORSTORE_SYSTEM_LIBS">
 <code class="sig-name descname">TENSORSTORE_SYSTEM_LIBS</code><a class="headerlink" href="#envvar-TENSORSTORE_SYSTEM_LIBS" title="Permalink to this definition">¶</a></dt>
-<dd><p>To use system-provided libraries, set the <span class="target" id="index-0"></span><a class="reference internal" href="#envvar-TENSORSTORE_SYSTEM_LIBS"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">TENSORSTORE_SYSTEM_LIBS</span></code></a>
+<dd><p>To use system-provided libraries, set the <span class="target" id="index-1"></span><a class="reference internal" href="#envvar-TENSORSTORE_SYSTEM_LIBS"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">TENSORSTORE_SYSTEM_LIBS</span></code></a>
 environment variable to a comma-separated list of the following identifiers
 prior to invoking Bazel:</p>
 </dd></dl>
 
-<table class="docutils align-default" id="id4">
-<caption><span class="caption-text">Required third-party libraries</span><a class="headerlink" href="#id4" title="Permalink to this table">¶</a></caption>
+<table class="docutils align-default" id="id6">
+<caption><span class="caption-text">Required third-party libraries</span><a class="headerlink" href="#id6" title="Permalink to this table">¶</a></caption>
 <colgroup>
 <col style="width: 33%" />
 <col style="width: 33%" />
@@ -340,7 +406,7 @@ prior to invoking Bazel:</p>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">com_google_boringssl</span></code></p></td>
 <td><p><a class="reference external" href="https://github.com/google/boringssl/">boringssl</a></p></td>
-<td><p>34693f02f6cf</p></td>
+<td><p>bdbe37905216</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">org_sourceware_bzip2</span></code></p></td>
 <td><p><a class="reference external" href="https://sourceware.org/pub/bzip2/">bzip2</a></p></td>
@@ -348,19 +414,19 @@ prior to invoking Bazel:</p>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">org_blosc_cblosc</span></code></p></td>
 <td><p><a class="reference external" href="https://github.com/Blosc/c-blosc/">c-blosc</a></p></td>
-<td><p>1.16.3</p></td>
+<td><p>1.21.0</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">se_haxx_curl</span></code></p></td>
-<td><p><a class="reference external" href="https://curl.haxx.se">curl</a></p></td>
-<td><p>7.70.0</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">se_curl</span></code></p></td>
+<td><p><a class="reference external" href="https://curl.se">curl</a></p></td>
+<td><p>7.74.0</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">jpeg</span></code></p></td>
 <td><p><a class="reference external" href="https://github.com/libjpeg-turbo/libjpeg-turbo/">libjpeg-turbo</a></p></td>
-<td><p>2.0.0</p></td>
+<td><p>2.0.5</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">org_lz4</span></code></p></td>
 <td><p><a class="reference external" href="https://github.com/lz4/lz4/">lz4</a></p></td>
-<td><p>1.9.2</p></td>
+<td><p>1.9.3</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">nasm</span></code></p></td>
 <td><p><a class="reference external" href="https://www.nasm.us">nasm</a></p></td>
@@ -368,15 +434,15 @@ prior to invoking Bazel:</p>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">org_nghttp2</span></code></p></td>
 <td><p><a class="reference external" href="https://github.com/nghttp2/nghttp2/">nghttp2</a></p></td>
-<td><p>1.41.0</p></td>
+<td><p>1.42.0</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">com_google_snappy</span></code></p></td>
 <td><p><a class="reference external" href="https://github.com/google/snappy/">snappy</a></p></td>
-<td><p>1.1.7</p></td>
+<td><p>1.1.8</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">org_tukaani_xz</span></code></p></td>
 <td><p><a class="reference external" href="https://tukaani.org/xz/">xz</a></p></td>
-<td><p>5.2.4</p></td>
+<td><p>5.2.5</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">net_zlib</span></code></p></td>
 <td><p><a class="reference external" href="https://zlib.net">zlib</a></p></td>
@@ -384,13 +450,13 @@ prior to invoking Bazel:</p>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">com_facebook_zstd</span></code></p></td>
 <td><p><a class="reference external" href="https://github.com/facebook/zstd/">zstd</a></p></td>
-<td><p>1.4.3</p></td>
+<td><p>1.4.8</p></td>
 </tr>
 </tbody>
 </table>
 <p>For example, to run the tests using the system-provided curl, jpeg, and SSL
 libraries:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">TENSORSTORE_SYSTEM_LIBS</span><span class="o">=</span>se_haxx_curl,jpeg,com_google_boringssl
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">TENSORSTORE_SYSTEM_LIBS</span><span class="o">=</span>se_curl,jpeg,com_google_boringssl
 python bazelisk.py <span class="nb">test</span> //...
 </pre></div>
 </div>
@@ -402,29 +468,29 @@ python bazelisk.py <span class="nb">test</span> //...
            
           </div>
           <footer>
-  
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-      
-        <a href="environment.html" class="btn btn-neutral float-right" title="Environment variables" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
-      
-      
-        <a href="overview.html" class="btn btn-neutral float-left" title="Overview" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
-      
+        <a href="environment.html" class="btn btn-neutral float-right" title="Environment variables" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="overview.html" class="btn btn-neutral float-left" title="Overview" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
-  
 
   <hr/>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2020 The TensorStore Authors
+        &#169; Copyright 2020 The TensorStore Authors.
 
     </p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
-
         </div>
       </div>
 
@@ -432,7 +498,6 @@ python bazelisk.py <span class="nb">test</span> //...
 
   </div>
   
-
 
   <script type="text/javascript">
       jQuery(function () {

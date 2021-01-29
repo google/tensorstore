@@ -1,6 +1,0 @@
-tensorstore.DimensionSelection.label
-====================================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: DimensionSelection.label

@@ -30,8 +30,10 @@ tensorstore.IndexDomain
       ~IndexDomain.inclusive_max
       ~IndexDomain.inclusive_min
       ~IndexDomain.labels
+      ~IndexDomain.ndim
       ~IndexDomain.origin
       ~IndexDomain.rank
       ~IndexDomain.shape
+      ~IndexDomain.size
    
    

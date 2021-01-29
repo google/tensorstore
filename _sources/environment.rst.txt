@@ -55,7 +55,7 @@ variables:
 
    On Linux and BSD, TensoprStore may optionally be built to dynamically link to
    a system-provided version of libcurl by specifying
-   :envvar:`TENSORSTORE_SYSTEM_LIBS=se_haxx_curl<TENSORSTORE_SYSTEM_LIBS>`.  In
+   :envvar:`TENSORSTORE_SYSTEM_LIBS=se_curl<TENSORSTORE_SYSTEM_LIBS>`.  In
    this case, the default CA bundle path of
    :file:`/etc/ssl/certs/ca-certificates.crt` does not apply; instead, the
    default depends on how the system-provided libcurl was built, and most likely

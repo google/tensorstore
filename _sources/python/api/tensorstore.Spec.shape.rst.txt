@@ -1,0 +1,6 @@
+tensorstore.Spec.shape
+======================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: Spec.shape

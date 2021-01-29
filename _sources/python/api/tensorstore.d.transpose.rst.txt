@@ -1,0 +1,6 @@
+tensorstore.d.transpose
+=======================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: d.transpose

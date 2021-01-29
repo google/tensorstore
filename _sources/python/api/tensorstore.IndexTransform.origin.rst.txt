@@ -1,0 +1,6 @@
+tensorstore.IndexTransform.origin
+=================================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: IndexTransform.origin

@@ -1,0 +1,6 @@
+tensorstore.IndexTransform.T
+============================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: IndexTransform.T

@@ -1,45 +1,48 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <title>zarr Driver &mdash; TensorStore  documentation</title>
   
 
   
-  
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
+
   
   
 
   
-  <script type="text/javascript" src="../../../_static/js/modernizr.min.js"></script>
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
         <script src="../../../_static/jquery.js"></script>
         <script src="../../../_static/underscore.js"></script>
         <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/language_data.js"></script>
-        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
         <script type="text/x-mathjax-config">MathJax.Hub.Config({"displayAlign": "left"})</script>
     
     <script type="text/javascript" src="../../../_static/js/theme.js"></script>
 
     
-
-  
-  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../../../_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
     <link rel="next" title="n5 Driver" href="../n5/index.html" />
-    <link rel="prev" title="array Driver" href="../array/index.html" /> 
+    <link rel="prev" title="json Driver" href="../json/index.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -76,6 +79,7 @@
           
         </div>
 
+        
         <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
           
             
@@ -93,7 +97,9 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../spec.html">TensorStore JSON Spec</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../index.html">Drivers</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../cast/index.html"><code class="docutils literal notranslate"><span class="pre">cast</span></code> Driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../downsample/index.html"><code class="docutils literal notranslate"><span class="pre">downsample</span></code> Driver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../array/index.html"><code class="docutils literal notranslate"><span class="pre">array</span></code> Driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../index.html#single-file-drivers">Single file drivers</a></li>
 <li class="toctree-l2 current"><a class="reference internal" href="../index.html#chunked-storage-drivers">Chunked storage drivers</a><ul class="current">
 <li class="toctree-l3 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">zarr</span></code> Driver</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#json-schema">JSON Schema</a></li>
@@ -116,6 +122,7 @@
             
           
         </div>
+        
       </div>
     </nav>
 
@@ -150,11 +157,13 @@
 
 
 
+
+
 <div role="navigation" aria-label="breadcrumbs navigation">
 
   <ul class="wy-breadcrumbs">
     
-      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
         
           <li><a href="../index.html">Drivers</a> &raquo;</li>
         
@@ -163,8 +172,6 @@
     
       <li class="wy-breadcrumbs-aside">
         
-            
-            <a href="../../../_sources/tensorstore/driver/zarr/index.rst.txt" rel="nofollow"> View page source</a>
           
         
       </li>
@@ -201,7 +208,7 @@ separately.</p>
 <strong>Required</strong></div>
 </td>
 <td><div class="docutils container">
-<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“zarr”</span></span></code></div>
+<code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“zarr”</span></span></code></div>
 </td>
 </tr>
 <tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">context</span></code></td>
@@ -237,7 +244,7 @@ integer [0, ∞)</div>
 </tr>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">path</span></code></td>
 <td><div class="docutils container">
-string (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“”</span></span></code>)</div>
+string (default is <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“”</span></span></code>)</div>
 <p>Path within the <a class="reference internal" href="../../kvstore/index.html#json-schema-https://github.com/google/tensorstore/json-schema/key-value-store"><span class="std std-ref">Key-Value Store</span></a> specified by <code class="docutils literal notranslate"><span class="pre">kvstore</span></code>.</p>
 <div class="literal-block-wrapper docutils container" id="id2">
 <div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id2" title="Permalink to this code">¶</a></div>
@@ -250,79 +257,79 @@ string (default is <code class="code highlight json docutils literal notranslate
 <tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">open</span></code></td>
 <td><div class="docutils container">
 <code class="docutils literal notranslate"><span class="pre">boolean</span></code></div>
-<p>Open an existing TensorStore.  If neither <code class="docutils literal notranslate"><span class="pre">open</span></code> nor <code class="docutils literal notranslate"><span class="pre">create</span></code> is specified, defaults to <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code>.</p>
+<p>Open an existing TensorStore.  If neither <code class="docutils literal notranslate"><span class="pre">open</span></code> nor <code class="docutils literal notranslate"><span class="pre">create</span></code> is specified, defaults to <code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">true</span></span></code>.</p>
 </td>
 </tr>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">create</span></code></td>
 <td><div class="docutils container">
-<code class="docutils literal notranslate"><span class="pre">boolean</span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">false</span></span></code>)</div>
-<p>Create a new TensorStore.  Specify <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code> for both <code class="docutils literal notranslate"><span class="pre">open</span></code> and <code class="docutils literal notranslate"><span class="pre">create</span></code> to permit either opening an existing TensorStore or creating a new TensorStore if it does not already exist.</p>
+<code class="docutils literal notranslate"><span class="pre">boolean</span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">false</span></span></code>)</div>
+<p>Create a new TensorStore.  Specify <code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">true</span></span></code> for both <code class="docutils literal notranslate"><span class="pre">open</span></code> and <code class="docutils literal notranslate"><span class="pre">create</span></code> to permit either opening an existing TensorStore or creating a new TensorStore if it does not already exist.</p>
 </td>
 </tr>
 <tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">delete_existing</span></code></td>
 <td><div class="docutils container">
-<code class="docutils literal notranslate"><span class="pre">boolean</span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">false</span></span></code>)</div>
-<p>Delete any existing data at the specified path before creating a new TensorStore.  Requires that <code class="docutils literal notranslate"><span class="pre">create</span></code> is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code>, and that <code class="docutils literal notranslate"><span class="pre">open</span></code> is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">false</span></span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">boolean</span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">false</span></span></code>)</div>
+<p>Delete any existing data at the specified path before creating a new TensorStore.  Requires that <code class="docutils literal notranslate"><span class="pre">create</span></code> is <code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">true</span></span></code>, and that <code class="docutils literal notranslate"><span class="pre">open</span></code> is <code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">false</span></span></code>.</p>
 </td>
 </tr>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">allow_metadata_mismatch</span></code></td>
 <td><div class="docutils container">
-<code class="docutils literal notranslate"><span class="pre">boolean</span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">false</span></span></code>)</div>
-<p>Allow a mismatch between the existing metadata and the metadata specified for creating a new TensorStore.  Requires that <code class="docutils literal notranslate"><span class="pre">create</span></code> is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">boolean</span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">false</span></span></code>)</div>
+<p>Allow a mismatch between the existing metadata and the metadata specified for creating a new TensorStore.  Requires that <code class="docutils literal notranslate"><span class="pre">create</span></code> is <code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">true</span></span></code>.</p>
 </td>
 </tr>
 <tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">cache_pool</span></code></td>
 <td><div class="docutils container">
-<span><a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context-resource"><span class="std std-ref">Context resource</span></a></span> (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“cache_pool”</span></span></code>)</div>
+<span><a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context-resource"><span class="std std-ref">Context resource</span></a></span> (default is <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“cache_pool”</span></span></code>)</div>
 <p>Specifies or references a previously defined <a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context/cache_pool"><span class="std std-ref">cache_pool context resource</span></a>. It is normally more convenient to specify a default <code class="docutils literal notranslate"><span class="pre">cache_pool</span></code> in the <code class="docutils literal notranslate"><span class="pre">context</span></code>.</p>
 </td>
 </tr>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></td>
 <td><div class="docutils container">
-<span><a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context-resource"><span class="std std-ref">Context resource</span></a></span> (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“data_copy_concurrency”</span></span></code>)</div>
+<span><a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context-resource"><span class="std std-ref">Context resource</span></a></span> (default is <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“data_copy_concurrency”</span></span></code>)</div>
 <p>Specifies or references a previously defined <a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context/data_copy_concurrency"><span class="std std-ref">data_copy_concurrency context resource</span></a>. It is normally more convenient to specify a default <code class="docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code> in the <code class="docutils literal notranslate"><span class="pre">context</span></code>.</p>
 </td>
 </tr>
 <tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">recheck_cached_metadata</span></code></td>
 <td><div class="docutils container">
-<span><a class="reference internal" href="../index.html#json-schema-https://github.com/google/tensorstore/json-schema/cache-revalidation-bound"><span class="std std-ref">Cache revalidation bound</span></a></span> (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“open”</span></span></code>)</div>
+<span><a class="reference internal" href="../index.html#json-schema-https://github.com/google/tensorstore/json-schema/cache-revalidation-bound"><span class="std std-ref">Cache revalidation bound</span></a></span> (default is <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“open”</span></span></code>)</div>
 <p>Time after which cached metadata is assumed to be fresh.  Cached
 metadata older than the specified time is revalidated prior to use.  The
 metadata is used to check the bounds of every read or write operation.</p>
-<p>Specifying <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code> means that the metadata will be revalidated
+<p>Specifying <code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">true</span></span></code> means that the metadata will be revalidated
 prior to every read or write operation.  With the default value of
-<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“open”</span></span></code>, any cached metadata is revalidated when the TensorStore
+<code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“open”</span></span></code>, any cached metadata is revalidated when the TensorStore
 is opened but is not rechecked for each read or write operation.</p>
 </td>
 </tr>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">recheck_cached_data</span></code></td>
 <td><div class="docutils container">
-<span><a class="reference internal" href="../index.html#json-schema-https://github.com/google/tensorstore/json-schema/cache-revalidation-bound"><span class="std std-ref">Cache revalidation bound</span></a></span> (default is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code>)</div>
+<span><a class="reference internal" href="../index.html#json-schema-https://github.com/google/tensorstore/json-schema/cache-revalidation-bound"><span class="std std-ref">Cache revalidation bound</span></a></span> (default is <code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">true</span></span></code>)</div>
 <p>Time after which cached data is assumed to be fresh.  Cached data older
 than the specified time is revalidated prior to being returned from a
 read operation.  Partial chunk writes are always consistent regardless
 of the value of this option.</p>
-<p>The default value of <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">true</span></span></code> means that cached data is revalidated
+<p>The default value of <code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">true</span></span></code> means that cached data is revalidated
 on every read.  To enable in-memory data caching, you must both specify
 a <a class="reference internal" href="../../../context.html#json-schema-https://github.com/google/tensorstore/json-schema/context/cache_pool"><span class="std std-ref">cache_pool context resource</span></a>
 with a non-zero <code class="docutils literal notranslate"><span class="pre">total_bytes_limit</span></code> and also specify
-<code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">false</span></span></code>, <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“open”</span></span></code>, or an explicit time bound for
+<code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">false</span></span></code>, <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“open”</span></span></code>, or an explicit time bound for
 <code class="docutils literal notranslate"><span class="pre">recheck_cached_data</span></code>.</p>
 </td>
 </tr>
 <tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">field</span></code></td>
 <td><div class="docutils container">
-string | <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">null</span></span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">null</span></span></code>)</div>
+string | <code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">null</span></span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">null</span></span></code>)</div>
 <span>Name of field to open.  </span><p>Must be specified if the <code class="docutils literal notranslate"><span class="pre">dtype</span></code> specified in the array
 metadata has more than one field.</p>
 </td>
 </tr>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">key_encoding</span></code></td>
 <td><div class="docutils container">
-<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“.”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“/”</span></span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“.”</span></span></code>)</div>
-<span>Specifies the encoding of chunk indices into key-value store keys.  </span><p>The default value of <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“.”</span></span></code> corresponds to the default encoding
-used by Zarr, while <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“/”</span></span></code> corresponds to the encoding used by
-<a class="reference external" href="https://zarr.readthedocs.io/en/stable/api/storage.html#zarr.storage.NestedDirectoryStore" title="(in zarr v2.5.0)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">zarr.storage.NestedDirectoryStore</span></code></a>.</p>
+<code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“.”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“/”</span></span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“.”</span></span></code>)</div>
+<span>Specifies the encoding of chunk indices into key-value store keys.  </span><p>The default value of <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“.”</span></span></code> corresponds to the default encoding
+used by Zarr, while <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“/”</span></span></code> corresponds to the encoding used by
+<a class="reference external" href="https://zarr.readthedocs.io/en/stable/api/storage.html#zarr.storage.NestedDirectoryStore" title="(in zarr v2.6.1)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">zarr.storage.NestedDirectoryStore</span></code></a>.</p>
 </td>
 </tr>
 <tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">metadata</span></code></td>
@@ -340,7 +347,7 @@ metadata.</p>
 <tbody>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">zarr_format</span></code></td>
 <td><div class="docutils container">
-<code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">2</span></span></code></div>
+<code class="code highlight json docutils literal notranslate"><span class="literal number integer"><span class="pre">2</span></span></code></div>
 </td>
 </tr>
 <tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">shape</span></code></td>
@@ -373,25 +380,25 @@ array of integer [1, ∞)</div>
 </tr>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">compressor</span></code></td>
 <td><div class="docutils container">
-<span><a class="reference internal" href="#json-schema-https://github.com/google/tensorstore/json-schema/driver/zarr#compressor"><span class="std std-ref">Compressor</span></a></span> | <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">null</span></span></code></div>
-<p>Specifies the chunk compressor.  Specifying <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">null</span></span></code> disables
+<span><a class="reference internal" href="#json-schema-https://github.com/google/tensorstore/json-schema/driver/zarr#compressor"><span class="std std-ref">Compressor</span></a></span> | <code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">null</span></span></code></div>
+<p>Specifies the chunk compressor.  Specifying <code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">null</span></span></code> disables
 compression.  Required when creating a new array.</p>
 </td>
 </tr>
 <tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">fill_value</span></code></td>
-<td><span>Specifies the fill value.  </span><p>When creating a new array, defaults to <code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">null</span></span></code>.</p>
+<td><span>Specifies the fill value.  </span><p>When creating a new array, defaults to <code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">null</span></span></code>.</p>
 </td>
 </tr>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">order</span></code></td>
 <td><div class="docutils container">
-<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“C”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“F”</span></span></code></div>
-<span>Specifies the data layout for encoded chunks.  </span><p><code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“C”</span></span></code> for C order, <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“F”</span></span></code> for Fortran order.  When
-creating a new array, defaults to <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“C”</span></span></code>.</p>
+<code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“C”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“F”</span></span></code></div>
+<span>Specifies the data layout for encoded chunks.  </span><p><code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“C”</span></span></code> for C order, <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“F”</span></span></code> for Fortran order.  When
+creating a new array, defaults to <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“C”</span></span></code>.</p>
 </td>
 </tr>
 <tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">filters</span></code></td>
 <td><div class="docutils container">
-<code class="code highlight json docutils literal notranslate"><span class="kc"><span class="pre">null</span></span></code></div>
+<code class="code highlight json docutils literal notranslate"><span class="keyword constant"><span class="pre">null</span></span></code></div>
 <span>Specifies the filters to apply to chunks.  </span><p>When encoding chunk, filters are applied before the compressor.
 Currently, filters are not supported.</p>
 </td>
@@ -459,12 +466,12 @@ string</div>
 <tbody>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">id</span></code></td>
 <td><div class="docutils container">
-<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“zlib”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“gzip”</span></span></code></div>
+<code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“zlib”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“gzip”</span></span></code></div>
 </td>
 </tr>
 <tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">level</span></code></td>
 <td><div class="docutils container">
-integer [0, 9] (default is <code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">1</span></span></code>)</div>
+integer [0, 9] (default is <code class="code highlight json docutils literal notranslate"><span class="literal number integer"><span class="pre">1</span></span></code>)</div>
 <span>Specifies the zlib compression level to use.  </span><p>Level 0 indicates no compression (fastest), while level 9 indicates
 the best compression ratio (slowest).</p>
 </td>
@@ -490,40 +497,40 @@ the best compression ratio (slowest).</p>
 <tbody>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">id</span></code></td>
 <td><div class="docutils container">
-<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“blosc”</span></span></code></div>
+<code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“blosc”</span></span></code></div>
 </td>
 </tr>
 <tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">cname</span></code></td>
 <td><div class="docutils container">
-<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“blosclz”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“lz4”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“lz4hc”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“snappy”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“zlib”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“zstd”</span></span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“lz4”</span></span></code>)</div>
+<code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“blosclz”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“lz4”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“lz4hc”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“snappy”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“zlib”</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“zstd”</span></span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“lz4”</span></span></code>)</div>
 <p>Specifies the compression method used by Blosc.</p>
 </td>
 </tr>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">clevel</span></code></td>
 <td><div class="docutils container">
-integer [0, 9] (default is <code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">5</span></span></code>)</div>
+integer [0, 9] (default is <code class="code highlight json docutils literal notranslate"><span class="literal number integer"><span class="pre">5</span></span></code>)</div>
 <span>Specifies the Blosc compression level to use.  </span><p>Higher values are slower but achieve a higher compression ratio.</p>
 </td>
 </tr>
 <tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">shuffle</span></code></td>
 <td><div class="docutils container">
-<code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">-1</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">0</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">1</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">2</span></span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">-1</span></span></code>)</div>
+<code class="code highlight json docutils literal notranslate"><span class="literal number integer"><span class="pre">-1</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="literal number integer"><span class="pre">0</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="literal number integer"><span class="pre">1</span></span></code> | <code class="code highlight json docutils literal notranslate"><span class="literal number integer"><span class="pre">2</span></span></code> (default is <code class="code highlight json docutils literal notranslate"><span class="literal number integer"><span class="pre">-1</span></span></code>)</div>
 <div class="docutils container">
 One of:</div>
 <ul>
 <li><div class="docutils container">
-<code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">-1</span></span></code></div>
+<code class="code highlight json docutils literal notranslate"><span class="literal number integer"><span class="pre">-1</span></span></code></div>
 <span>Automatic shuffle.  </span><p>Bit-wise shuffle if the element size is 1 byte, otherwise byte-wise
 shuffle.</p>
 </li>
 <li><div class="docutils container">
-<code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">0</span></span></code></div>
+<code class="code highlight json docutils literal notranslate"><span class="literal number integer"><span class="pre">0</span></span></code></div>
 <span>No shuffle  </span></li>
 <li><div class="docutils container">
-<code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">1</span></span></code></div>
+<code class="code highlight json docutils literal notranslate"><span class="literal number integer"><span class="pre">1</span></span></code></div>
 <span>Byte-wise shuffle  </span></li>
 <li><div class="docutils container">
-<code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">2</span></span></code></div>
+<code class="code highlight json docutils literal notranslate"><span class="literal number integer"><span class="pre">2</span></span></code></div>
 <span>Bit-wise shuffle  </span></li>
 </ul>
 </td>
@@ -556,12 +563,12 @@ automatically.</p>
 <tbody>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">id</span></code></td>
 <td><div class="docutils container">
-<code class="code highlight json docutils literal notranslate"><span class="s2"><span class="pre">“bz2”</span></span></code></div>
+<code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“bz2”</span></span></code></div>
 </td>
 </tr>
 <tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">level</span></code></td>
 <td><div class="docutils container">
-integer [1, 9] (default is <code class="code highlight json docutils literal notranslate"><span class="mi"><span class="pre">1</span></span></code>)</div>
+integer [1, 9] (default is <code class="code highlight json docutils literal notranslate"><span class="literal number integer"><span class="pre">1</span></span></code>)</div>
 <span>Specifies the bzip2 buffer size/compression level to use.  </span><p>A level of 1 indicates the smallest buffer (fastest), while level 9
 indicates the best compression ratio (slowest).</p>
 </td>
@@ -582,29 +589,29 @@ indicates the best compression ratio (slowest).</p>
            
           </div>
           <footer>
-  
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-      
-        <a href="../n5/index.html" class="btn btn-neutral float-right" title="n5 Driver" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
-      
-      
-        <a href="../array/index.html" class="btn btn-neutral float-left" title="array Driver" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
-      
+        <a href="../n5/index.html" class="btn btn-neutral float-right" title="n5 Driver" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="../json/index.html" class="btn btn-neutral float-left" title="json Driver" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
-  
 
   <hr/>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2020 The TensorStore Authors
+        &#169; Copyright 2020 The TensorStore Authors.
 
     </p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
-
         </div>
       </div>
 
@@ -612,7 +619,6 @@ indicates the best compression ratio (slowest).</p>
 
   </div>
   
-
 
   <script type="text/javascript">
       jQuery(function () {

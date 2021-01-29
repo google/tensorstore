@@ -1,0 +1,6 @@
+tensorstore.Spec.ndim
+=====================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: Spec.ndim

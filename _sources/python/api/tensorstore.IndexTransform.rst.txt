@@ -25,6 +25,7 @@ tensorstore.IndexTransform
    .. autosummary::
       :toctree: .
    
+      ~IndexTransform.T
       ~IndexTransform.domain
       ~IndexTransform.implicit_lower_bounds
       ~IndexTransform.implicit_upper_bounds
@@ -35,9 +36,13 @@ tensorstore.IndexTransform
       ~IndexTransform.input_origin
       ~IndexTransform.input_rank
       ~IndexTransform.input_shape
+      ~IndexTransform.ndim
       ~IndexTransform.oindex
+      ~IndexTransform.origin
       ~IndexTransform.output
       ~IndexTransform.output_rank
+      ~IndexTransform.shape
+      ~IndexTransform.size
       ~IndexTransform.vindex
    
    

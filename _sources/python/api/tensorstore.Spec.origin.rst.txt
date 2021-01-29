@@ -1,0 +1,6 @@
+tensorstore.Spec.origin
+=======================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: Spec.origin

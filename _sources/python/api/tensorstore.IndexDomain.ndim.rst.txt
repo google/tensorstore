@@ -1,0 +1,6 @@
+tensorstore.IndexDomain.ndim
+============================
+
+.. currentmodule:: tensorstore
+
+.. autoproperty:: IndexDomain.ndim

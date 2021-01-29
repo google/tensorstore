@@ -1,41 +1,44 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <title>API reference &mdash; TensorStore  documentation</title>
   
 
   
-  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
+
   
   
 
   
-  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
         <script src="../../_static/jquery.js"></script>
         <script src="../../_static/underscore.js"></script>
         <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/language_data.js"></script>
-        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
         <script type="text/x-mathjax-config">MathJax.Hub.Config({"displayAlign": "left"})</script>
     
     <script type="text/javascript" src="../../_static/js/theme.js"></script>
 
     
-
-  
-  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../../_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="tensorstore.array" href="tensorstore.array.html" />
@@ -76,6 +79,7 @@
           
         </div>
 
+        
         <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
           
             
@@ -99,12 +103,12 @@
 <li class="toctree-l2 current"><a class="current reference internal" href="#">API reference</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.array.html">tensorstore.array</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.cast.html">tensorstore.cast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.downsample.html">tensorstore.downsample</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.open.html">tensorstore.open</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.Context.html">tensorstore.Context</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.ContextSpec.html">tensorstore.ContextSpec</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.Dim.html">tensorstore.Dim</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.DimExpression.html">tensorstore.DimExpression</a></li>
-<li class="toctree-l3"><a class="reference internal" href="tensorstore.DimensionSelection.html">tensorstore.DimensionSelection</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.Future.html">tensorstore.Future</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.Index.html">tensorstore.Index</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.IndexDomain.html">tensorstore.IndexDomain</a></li>
@@ -119,6 +123,7 @@
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.TensorStore.html">tensorstore.TensorStore</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.Transaction.html">tensorstore.Transaction</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.WriteFutures.html">tensorstore.WriteFutures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.d.html">tensorstore.d</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.dtype.html">tensorstore.dtype</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.newaxis.html">tensorstore.newaxis</a></li>
 </ul>
@@ -130,6 +135,7 @@
             
           
         </div>
+        
       </div>
     </nav>
 
@@ -164,11 +170,13 @@
 
 
 
+
+
 <div role="navigation" aria-label="breadcrumbs navigation">
 
   <ul class="wy-breadcrumbs">
     
-      <li><a href="../../index.html">Docs</a> &raquo;</li>
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
         
           <li><a href="../index.html">Python API</a> &raquo;</li>
         
@@ -177,8 +185,6 @@
     
       <li class="wy-breadcrumbs-aside">
         
-            
-            <a href="../../_sources/python/api/index.rst.txt" rel="nofollow"> View page source</a>
           
         
       </li>
@@ -209,6 +215,12 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.cast.html#tensorstore.cast" title="tensorstore.cast"><code class="xref py py-obj docutils literal notranslate"><span class="pre">cast</span></code></a>(store, dtype)</p></td>
 <td><p>Returns a read/write TensorStore view as the specified data type.</p></td>
 </tr>
+<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.downsample.html#tensorstore.downsample" title="tensorstore.downsample"><code class="xref py py-obj docutils literal notranslate"><span class="pre">downsample</span></code></a>(base, downsample_factors, method)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.downsample.html#tensorstore.downsample" title="tensorstore.downsample"><code class="xref py py-obj docutils literal notranslate"><span class="pre">downsample</span></code></a>(base, downsample_factors, method)</p></td>
+<td><p></p></td>
+</tr>
 <tr class="row-even"><td><p><a class="reference internal" href="tensorstore.open.html#tensorstore.open" title="tensorstore.open"><code class="xref py py-obj docutils literal notranslate"><span class="pre">open</span></code></a>(spec, read, write, open, create, …)</p></td>
 <td><p>Opens a TensorStore</p></td>
 </tr>
@@ -233,50 +245,50 @@
 <tr class="row-even"><td><p><a class="reference internal" href="tensorstore.DimExpression.html#tensorstore.DimExpression" title="tensorstore.DimExpression"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DimExpression</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.DimensionSelection.html#tensorstore.DimensionSelection" title="tensorstore.DimensionSelection"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DimensionSelection</span></code></a></p></td>
-<td><p>Specifies a sequence of index space dimensions.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.Future.html#tensorstore.Future" title="tensorstore.Future"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Future</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.Future.html#tensorstore.Future" title="tensorstore.Future"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Future</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.Index.html#tensorstore.Index" title="tensorstore.Index"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Index</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.Index.html#tensorstore.Index" title="tensorstore.Index"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Index</span></code></a></p></td>
 <td><p>Array index</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.IndexDomain.html#tensorstore.IndexDomain" title="tensorstore.IndexDomain"><code class="xref py py-obj docutils literal notranslate"><span class="pre">IndexDomain</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.IndexDomain.html#tensorstore.IndexDomain" title="tensorstore.IndexDomain"><code class="xref py py-obj docutils literal notranslate"><span class="pre">IndexDomain</span></code></a></p></td>
 <td><p>Specifies bounds and dimension labels of an N-dimensional index space.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.IndexInterval.html#tensorstore.IndexInterval" title="tensorstore.IndexInterval"><code class="xref py py-obj docutils literal notranslate"><span class="pre">IndexInterval</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.IndexInterval.html#tensorstore.IndexInterval" title="tensorstore.IndexInterval"><code class="xref py py-obj docutils literal notranslate"><span class="pre">IndexInterval</span></code></a></p></td>
 <td><p>Represents an interval of index values, with support for +/-inf bounds.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.IndexTransform.html#tensorstore.IndexTransform" title="tensorstore.IndexTransform"><code class="xref py py-obj docutils literal notranslate"><span class="pre">IndexTransform</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.IndexTransform.html#tensorstore.IndexTransform" title="tensorstore.IndexTransform"><code class="xref py py-obj docutils literal notranslate"><span class="pre">IndexTransform</span></code></a></p></td>
 <td><p>Represents a transform between two index spaces.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.Indexable.html#tensorstore.Indexable" title="tensorstore.Indexable"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Indexable</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.Indexable.html#tensorstore.Indexable" title="tensorstore.Indexable"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Indexable</span></code></a>()</p></td>
 <td><p>Abstract base class for types that</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.OutputIndexMap.html#tensorstore.OutputIndexMap" title="tensorstore.OutputIndexMap"><code class="xref py py-obj docutils literal notranslate"><span class="pre">OutputIndexMap</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.OutputIndexMap.html#tensorstore.OutputIndexMap" title="tensorstore.OutputIndexMap"><code class="xref py py-obj docutils literal notranslate"><span class="pre">OutputIndexMap</span></code></a></p></td>
 <td><p>Represents an output index map for an index transform.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.OutputIndexMaps.html#tensorstore.OutputIndexMaps" title="tensorstore.OutputIndexMaps"><code class="xref py py-obj docutils literal notranslate"><span class="pre">OutputIndexMaps</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.OutputIndexMaps.html#tensorstore.OutputIndexMaps" title="tensorstore.OutputIndexMaps"><code class="xref py py-obj docutils literal notranslate"><span class="pre">OutputIndexMaps</span></code></a></p></td>
 <td><p>View of the output index maps for an index transform.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.OutputIndexMethod.html#tensorstore.OutputIndexMethod" title="tensorstore.OutputIndexMethod"><code class="xref py py-obj docutils literal notranslate"><span class="pre">OutputIndexMethod</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.OutputIndexMethod.html#tensorstore.OutputIndexMethod" title="tensorstore.OutputIndexMethod"><code class="xref py py-obj docutils literal notranslate"><span class="pre">OutputIndexMethod</span></code></a></p></td>
 <td><p>Members:</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.Promise.html#tensorstore.Promise" title="tensorstore.Promise"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Promise</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.Promise.html#tensorstore.Promise" title="tensorstore.Promise"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Promise</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.Spec.html#tensorstore.Spec" title="tensorstore.Spec"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Spec</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.Spec.html#tensorstore.Spec" title="tensorstore.Spec"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Spec</span></code></a></p></td>
 <td><p>Specification for opening or creating a TensorStore.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.TensorStore.html#tensorstore.TensorStore" title="tensorstore.TensorStore"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TensorStore</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.TensorStore.html#tensorstore.TensorStore" title="tensorstore.TensorStore"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TensorStore</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.Transaction.html#tensorstore.Transaction" title="tensorstore.Transaction"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Transaction</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.Transaction.html#tensorstore.Transaction" title="tensorstore.Transaction"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Transaction</span></code></a></p></td>
 <td><p>Transactions are used to stage a group of modifications (e.g.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.WriteFutures.html#tensorstore.WriteFutures" title="tensorstore.WriteFutures"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WriteFutures</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="tensorstore.WriteFutures.html#tensorstore.WriteFutures" title="tensorstore.WriteFutures"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WriteFutures</span></code></a></p></td>
 <td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.d.html#tensorstore.d" title="tensorstore.d"><code class="xref py py-obj docutils literal notranslate"><span class="pre">d</span></code></a></p></td>
+<td><p>Specifies a dimension selection, a sequence of index space dimensions.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="tensorstore.dtype.html#tensorstore.dtype" title="tensorstore.dtype"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dtype</span></code></a></p></td>
 <td><p>Represents a TensorStore data type.</p></td>
@@ -291,7 +303,7 @@
 </colgroup>
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="tensorstore.newaxis.html#tensorstore.newaxis" title="tensorstore.newaxis"><code class="xref py py-obj docutils literal notranslate"><span class="pre">newaxis</span></code></a></p></td>
-<td><p>Alias for <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a> used in <a class="reference internal" href="../indexing.html#python-indexing"><span class="std std-ref">indexing expressions</span></a> to specify a</p></td>
+<td><p>Alias for <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a> used in <a class="reference internal" href="../indexing.html#python-indexing"><span class="std std-ref">indexing expressions</span></a> to specify a new singleton dimension.</p></td>
 </tr>
 </tbody>
 </table>
@@ -302,29 +314,29 @@
            
           </div>
           <footer>
-  
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-      
-        <a href="tensorstore.array.html" class="btn btn-neutral float-right" title="tensorstore.array" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
-      
-      
-        <a href="../indexing.html" class="btn btn-neutral float-left" title="Indexing" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
-      
+        <a href="tensorstore.array.html" class="btn btn-neutral float-right" title="tensorstore.array" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="../indexing.html" class="btn btn-neutral float-left" title="Indexing" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
-  
 
   <hr/>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2020 The TensorStore Authors
+        &#169; Copyright 2020 The TensorStore Authors.
 
     </p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
-
         </div>
       </div>
 
@@ -332,7 +344,6 @@
 
   </div>
   
-
 
   <script type="text/javascript">
       jQuery(function () {

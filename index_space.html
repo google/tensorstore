@@ -1,41 +1,44 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <title>Index space &mdash; TensorStore  documentation</title>
   
 
   
-  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
+
   
   
 
   
-  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
         <script src="_static/doctools.js"></script>
-        <script src="_static/language_data.js"></script>
-        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
         <script type="text/x-mathjax-config">MathJax.Hub.Config({"displayAlign": "left"})</script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
     
-
-  
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Context framework" href="context.html" />
@@ -76,6 +79,7 @@
           
         </div>
 
+        
         <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
           
             
@@ -89,9 +93,13 @@
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Building and Installing</a></li>
 <li class="toctree-l1"><a class="reference internal" href="environment.html">Environment variables</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Index space</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#index-domain">Index domain</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#index-transform">Index transform</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#index-domain">Index domain</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#json-schema">JSON Schema</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#index-transform">Index transform</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#json-schema-https://github.com/google/tensorstore/json-schema/index-transform">JSON Schema</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#index-interval-json-schema">Index interval JSON Schema</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#alignment-and-broadcasting">Alignment and broadcasting</a></li>
@@ -107,6 +115,7 @@
             
           
         </div>
+        
       </div>
     </nav>
 
@@ -141,19 +150,19 @@
 
 
 
+
+
 <div role="navigation" aria-label="breadcrumbs navigation">
 
   <ul class="wy-breadcrumbs">
     
-      <li><a href="index.html">Docs</a> &raquo;</li>
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
         
       <li>Index space</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
-            
-            <a href="_sources/index_space.rst.txt" rel="nofollow"> View page source</a>
           
         
       </li>
@@ -180,6 +189,8 @@ reserved to represent <span class="math notranslate nohighlight">\(\pm \infty\)<
 difference between any two bounds to be represented as a signed
 64-bit integer.</p>
 </div>
+<p>TensorStore currently supports ranks <span class="math notranslate nohighlight">\(n\)</span> less than or equal to 32, which
+is the same constraint imposed by NumPy.</p>
 <p id="dimension-labels">Each of the <span class="math notranslate nohighlight">\(n\)</span> dimensions may optionally be identified by a unique
 string <em>label</em>, such as <code class="docutils literal notranslate"><span class="pre">&quot;x&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;y&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;z&quot;</span></code>.  Unlabeled
 dimensions are indicated by an empty string as the label.</p>
@@ -213,6 +224,96 @@ that translating a dimension with infinite bounds has no effect,
 while translating a dimension with bounds <span class="math notranslate nohighlight">\([-(2^{62}-2,
 +(2^{62}-2)]\)</span> by any non-zero offset results in an out-of-bounds
 error.</p>
+</div>
+<div class="section" id="json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/index-domain"></span><h3>JSON Schema<a class="headerlink" href="#json-schema" title="Permalink to this headline">¶</a></h3>
+<p><a class="reference internal" href="#index-domain"><span class="std std-ref">Index domains</span></a> may be serialized to/from JSON using
+the following schema.</p>
+<p>If neither <code class="docutils literal notranslate"><span class="pre">inclusive_min</span></code> nor <code class="docutils literal notranslate"><span class="pre">shape</span></code> is specified,
+all dimensions receive an implicit lower bound of <span class="math notranslate nohighlight">\(-\infty\)</span>.  If
+<code class="docutils literal notranslate"><span class="pre">shape</span></code> is specified but <code class="docutils literal notranslate"><span class="pre">inclusive_min</span></code> is not
+specified, all dimensions receive an explicit lower bound of 0.</p>
+<p>At most one of <code class="docutils literal notranslate"><span class="pre">exclusive_max</span></code>, <code class="docutils literal notranslate"><span class="pre">inclusive_max</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">shape</span></code> may be specified.  If none are specified, all dimensions
+receive an implicit upper bound of <span class="math notranslate nohighlight">\(+\infty\)</span>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">object</span></code> with members:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 0%" />
+<col style="width: 100%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">rank</span></code></td>
+<td><div class="docutils container">
+integer [0, 32]</div>
+<span>Number of dimensions.  </span><p>The rank must be specified either directly, or implicitly by the number of
+dimensions specified for <code class="docutils literal notranslate"><span class="pre">inclusive_min</span></code>,
+<code class="docutils literal notranslate"><span class="pre">inclusive_max</span></code>, <code class="docutils literal notranslate"><span class="pre">exclusive_max</span></code>,
+<code class="docutils literal notranslate"><span class="pre">shape</span></code>, or <code class="docutils literal notranslate"><span class="pre">labels</span></code>.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">inclusive_min</span></code></td>
+<td><div class="docutils container">
+array of integer (-∞, ∞) | [integer (-∞, ∞)]</div>
+<span>Inclusive lower bounds of the domain.
+  </span><p>Length must equal the <code class="docutils literal notranslate"><span class="pre">rank</span></code>.  Bounds specified as
+<code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code> indicate normal, explicit bounds, while bounds specified as
+<code class="samp docutils literal notranslate"><span class="pre">[</span><em><span class="pre">n</span></em><span class="pre">]</span></code> indicate <a class="reference internal" href="#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>.  For example,
+<code class="code highlight json docutils literal notranslate"><span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">1</span></span><span class="punctuation"><span class="pre">,</span></span> <span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">2</span></span><span class="punctuation"><span class="pre">]]</span></span></code> specifies an explicit bound of <span class="math notranslate nohighlight">\(1 \leq x\)</span> for the
+first dimension and an implicit bound of <span class="math notranslate nohighlight">\(2 \leq x\)</span> for the second
+dimension.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">exclusive_max</span></code></td>
+<td><div class="docutils container">
+array of integer (-∞, ∞) | [integer (-∞, ∞)]</div>
+<span>Exclusive upper bounds of the domain.
+  </span><p>Length must equal the <code class="docutils literal notranslate"><span class="pre">rank</span></code>.  As for
+<code class="docutils literal notranslate"><span class="pre">inclusive_min</span></code>, bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code>
+indicate normal, explicit bounds, while bounds specified as <code class="samp docutils literal notranslate"><span class="pre">[</span><em><span class="pre">n</span></em><span class="pre">]</span></code>
+indicate <a class="reference internal" href="#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>.  For example, <code class="code highlight json docutils literal notranslate"><span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">5</span></span><span class="punctuation"><span class="pre">,</span></span>
+<span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">7</span></span><span class="punctuation"><span class="pre">]]</span></span></code> specifies an explicit bound of <span class="math notranslate nohighlight">\(x &lt; 5\)</span> for the first dimension
+and an implicit bound of <span class="math notranslate nohighlight">\(x &lt; 7\)</span> for the second dimension.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">inclusive_max</span></code></td>
+<td><div class="docutils container">
+array of integer (-∞, ∞) | [integer (-∞, ∞)]</div>
+<span>Inclusive upper bounds of the domain.
+  </span><p>Length must equal the <code class="docutils literal notranslate"><span class="pre">rank</span></code>.  As for
+<code class="docutils literal notranslate"><span class="pre">inclusive_min</span></code>, bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code>
+indicate normal, explicit bounds, while bounds specified as <code class="samp docutils literal notranslate"><span class="pre">[</span><em><span class="pre">n</span></em><span class="pre">]</span></code>
+indicate <a class="reference internal" href="#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>.  For example, <code class="code highlight json docutils literal notranslate"><span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">5</span></span><span class="punctuation"><span class="pre">,</span></span>
+<span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">7</span></span><span class="punctuation"><span class="pre">]]</span></span></code> specifies an explicit bound of <span class="math notranslate nohighlight">\(x \leq 5\)</span> for the first
+dimension and an implicit bound of <span class="math notranslate nohighlight">\(x \leq 7\)</span> for the second
+dimension.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">shape</span></code></td>
+<td><div class="docutils container">
+array of integer (-∞, ∞) | [integer (-∞, ∞)]</div>
+<span>Extent of each dimension of the domain.
+  </span><p>Length must equal the <code class="docutils literal notranslate"><span class="pre">rank</span></code>.  As for
+<code class="docutils literal notranslate"><span class="pre">inclusive_min</span></code>, bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code>
+indicate normal, explicit bounds, while bounds specified as <code class="samp docutils literal notranslate"><span class="pre">[</span><em><span class="pre">n</span></em><span class="pre">]</span></code>
+indicate <a class="reference internal" href="#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>.  For example, assuming an
+<code class="docutils literal notranslate"><span class="pre">inclusive_min</span></code> of <code class="code highlight json docutils literal notranslate"><span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">1</span></span><span class="punctuation"><span class="pre">,</span></span> <span class="literal number integer"><span class="pre">2</span></span><span class="punctuation"><span class="pre">]</span></span></code>, an
+<code class="docutils literal notranslate"><span class="pre">shape</span></code> of <code class="code highlight json docutils literal notranslate"><span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">5</span></span><span class="punctuation"><span class="pre">,</span></span> <span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">7</span></span><span class="punctuation"><span class="pre">]]</span></span></code> specifies an explicit bound
+of <span class="math notranslate nohighlight">\(x &lt; 6\)</span> for the first dimension and an implicit bound of <span class="math notranslate nohighlight">\(x
+&lt; 9\)</span> for the second dimension.</p>
+</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal notranslate"><span class="pre">labels</span></code></td>
+<td><div class="docutils container">
+array of string</div>
+<span><a class="reference internal" href="#dimension-labels"><span class="std std-ref">Dimension labels</span></a> for each dimension.
+  </span><p>Length must equal the <code class="docutils literal notranslate"><span class="pre">rank</span></code>.  An empty string
+indicates an unlabeled dimension.  Non-empty strings must not occur more
+than once.  By default, all dimensions are unlabeled.</p>
+</td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 <div class="section" id="index-transform">
@@ -265,8 +366,8 @@ dimension maps may be composed with any other map without needing to
 copying any index arrays.  Only when composing two index array maps is
 it necessary to write a new index array, and in some cases this can
 result in index array with a larger representation size.</p>
-<div class="section" id="json-schema">
-<span id="json-schema-https://github.com/google/tensorstore/json-schema/index-transform"></span><h3>JSON Schema<a class="headerlink" href="#json-schema" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="json-schema-https://github.com/google/tensorstore/json-schema/index-transform">
+<span id="id3"></span><h3>JSON Schema<a class="headerlink" href="#json-schema-https://github.com/google/tensorstore/json-schema/index-transform" title="Permalink to this headline">¶</a></h3>
 <p><a class="reference internal" href="#index-transform"><span class="std std-ref">Index transforms</span></a> may be serialized to/from JSON using
 the following schema.</p>
 <p>The input domain is specified by <code class="docutils literal notranslate"><span class="pre">input_rank</span></code>,
@@ -292,7 +393,7 @@ bound of <span class="math notranslate nohighlight">\(+\infty\)</span>.</p>
 <tbody>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">input_rank</span></code></td>
 <td><div class="docutils container">
-integer [0, ∞)</div>
+integer [0, 32]</div>
 <span>Number of input dimensions.  </span><p>The input rank must be specified either directly, or implicitly by the
 number of dimensions specified for <code class="docutils literal notranslate"><span class="pre">input_inclusive_min</span></code>,
 <code class="docutils literal notranslate"><span class="pre">input_inclusive_max</span></code>, <code class="docutils literal notranslate"><span class="pre">input_exclusive_max</span></code>,
@@ -303,21 +404,23 @@ number of dimensions specified for <code class="docutils literal notranslate"><s
 <td><div class="docutils container">
 array of integer (-∞, ∞) | [integer (-∞, ∞)]</div>
 <span>Inclusive lower bounds of the input domain.
-  </span><p>Length must equal the <code class="docutils literal notranslate"><span class="pre">input_rank</span></code>.  Bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code> indicate normal, explicit bounds, while
-bounds specified as <code class="samp docutils literal notranslate"><span class="pre">[</span><em><span class="pre">n</span></em><span class="pre">]</span></code> indicate <a class="reference internal" href="#implicit-bounds"><span class="std std-ref">implicit
-bounds</span></a>.  For example, <code class="code highlight json docutils literal notranslate"><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span> <span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">2</span></span><span class="p"><span class="pre">]]</span></span></code> specifies an
-explicit bound of <span class="math notranslate nohighlight">\(1 \leq x\)</span> for the first dimension and an implicit
-bound of <span class="math notranslate nohighlight">\(2 \leq x\)</span> for the second dimension.</p>
+  </span><p>Length must equal the <code class="docutils literal notranslate"><span class="pre">input_rank</span></code>.  Bounds specified as
+<code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code> indicate normal, explicit bounds, while bounds specified as
+<code class="samp docutils literal notranslate"><span class="pre">[</span><em><span class="pre">n</span></em><span class="pre">]</span></code> indicate <a class="reference internal" href="#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>.  For example,
+<code class="code highlight json docutils literal notranslate"><span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">1</span></span><span class="punctuation"><span class="pre">,</span></span> <span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">2</span></span><span class="punctuation"><span class="pre">]]</span></span></code> specifies an explicit bound of <span class="math notranslate nohighlight">\(1 \leq x\)</span> for the
+first dimension and an implicit bound of <span class="math notranslate nohighlight">\(2 \leq x\)</span> for the second
+dimension.</p>
 </td>
 </tr>
 <tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">input_exclusive_max</span></code></td>
 <td><div class="docutils container">
 array of integer (-∞, ∞) | [integer (-∞, ∞)]</div>
 <span>Exclusive upper bounds of the input domain.
-  </span><p>Length must equal the <code class="docutils literal notranslate"><span class="pre">input_rank</span></code>.  As for <code class="docutils literal notranslate"><span class="pre">input_inclusive_min</span></code>, bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code>
+  </span><p>Length must equal the <code class="docutils literal notranslate"><span class="pre">input_rank</span></code>.  As for
+<code class="docutils literal notranslate"><span class="pre">input_inclusive_min</span></code>, bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code>
 indicate normal, explicit bounds, while bounds specified as <code class="samp docutils literal notranslate"><span class="pre">[</span><em><span class="pre">n</span></em><span class="pre">]</span></code>
-indicate <a class="reference internal" href="#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>.  For example, <code class="code highlight json docutils literal notranslate"><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">5</span></span><span class="p"><span class="pre">,</span></span>
-<span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">7</span></span><span class="p"><span class="pre">]]</span></span></code> specifies an explicit bound of <span class="math notranslate nohighlight">\(x &lt; 5\)</span> for the first dimension
+indicate <a class="reference internal" href="#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>.  For example, <code class="code highlight json docutils literal notranslate"><span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">5</span></span><span class="punctuation"><span class="pre">,</span></span>
+<span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">7</span></span><span class="punctuation"><span class="pre">]]</span></span></code> specifies an explicit bound of <span class="math notranslate nohighlight">\(x &lt; 5\)</span> for the first dimension
 and an implicit bound of <span class="math notranslate nohighlight">\(x &lt; 7\)</span> for the second dimension.</p>
 </td>
 </tr>
@@ -328,8 +431,8 @@ array of integer (-∞, ∞) | [integer (-∞, ∞)]</div>
   </span><p>Length must equal the <code class="docutils literal notranslate"><span class="pre">input_rank</span></code>.  As for
 <code class="docutils literal notranslate"><span class="pre">input_inclusive_min</span></code>, bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code>
 indicate normal, explicit bounds, while bounds specified as <code class="samp docutils literal notranslate"><span class="pre">[</span><em><span class="pre">n</span></em><span class="pre">]</span></code>
-indicate <a class="reference internal" href="#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>.  For example, <code class="code highlight json docutils literal notranslate"><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">5</span></span><span class="p"><span class="pre">,</span></span>
-<span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">7</span></span><span class="p"><span class="pre">]]</span></span></code> specifies an explicit bound of <span class="math notranslate nohighlight">\(x \leq 5\)</span> for the first
+indicate <a class="reference internal" href="#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>.  For example, <code class="code highlight json docutils literal notranslate"><span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">5</span></span><span class="punctuation"><span class="pre">,</span></span>
+<span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">7</span></span><span class="punctuation"><span class="pre">]]</span></span></code> specifies an explicit bound of <span class="math notranslate nohighlight">\(x \leq 5\)</span> for the first
 dimension and an implicit bound of <span class="math notranslate nohighlight">\(x \leq 7\)</span> for the second
 dimension.</p>
 </td>
@@ -342,8 +445,8 @@ array of integer (-∞, ∞) | [integer (-∞, ∞)]</div>
 <code class="docutils literal notranslate"><span class="pre">input_inclusive_min</span></code>, bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code>
 indicate normal, explicit bounds, while bounds specified as <code class="samp docutils literal notranslate"><span class="pre">[</span><em><span class="pre">n</span></em><span class="pre">]</span></code>
 indicate <a class="reference internal" href="#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>.  For example, assuming an
-<code class="docutils literal notranslate"><span class="pre">input_inclusive_min</span></code> of <code class="code highlight json docutils literal notranslate"><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span> <span class="mi"><span class="pre">2</span></span><span class="p"><span class="pre">]</span></span></code>, an
-<code class="docutils literal notranslate"><span class="pre">input_shape</span></code> of <code class="code highlight json docutils literal notranslate"><span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">5</span></span><span class="p"><span class="pre">,</span></span> <span class="p"><span class="pre">[</span></span><span class="mi"><span class="pre">7</span></span><span class="p"><span class="pre">]]</span></span></code> specifies an explicit bound
+<code class="docutils literal notranslate"><span class="pre">input_inclusive_min</span></code> of <code class="code highlight json docutils literal notranslate"><span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">1</span></span><span class="punctuation"><span class="pre">,</span></span> <span class="literal number integer"><span class="pre">2</span></span><span class="punctuation"><span class="pre">]</span></span></code>, an
+<code class="docutils literal notranslate"><span class="pre">input_shape</span></code> of <code class="code highlight json docutils literal notranslate"><span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">5</span></span><span class="punctuation"><span class="pre">,</span></span> <span class="punctuation"><span class="pre">[</span></span><span class="literal number integer"><span class="pre">7</span></span><span class="punctuation"><span class="pre">]]</span></span></code> specifies an explicit bound
 of <span class="math notranslate nohighlight">\(x &lt; 6\)</span> for the first dimension and an implicit bound of <span class="math notranslate nohighlight">\(x
 &lt; 9\)</span> for the second dimension.</p>
 </td>
@@ -404,12 +507,50 @@ equal to <code class="docutils literal notranslate"><span class="pre">input_rank
   </span><p>If the input rank is 0, must be a numeric value.</p>
 </td>
 </tr>
+<tr class="row-odd"><td><code class="docutils literal notranslate"><span class="pre">index_array_bounds</span></code></td>
+<td><div class="docutils container">
+<span><a class="reference internal" href="#json-schema-https://github.com/google/tensorstore/json-schema/index-interval"><span class="std std-ref">Index interval</span></a></span> (default is <code class="code highlight json docutils literal notranslate"><span class="punctuation"><span class="pre">[</span></span><span class="literal string double"><span class="pre">“-inf”</span></span><span class="punctuation"><span class="pre">,</span></span> <span class="literal string double"><span class="pre">“+inf”</span></span><span class="punctuation"><span class="pre">]</span></span></code>)</div>
+<p>If present, specifies constraints on the values within
+<code class="docutils literal notranslate"><span class="pre">index_array</span></code> (which must also be specified).  If
+<code class="docutils literal notranslate"><span class="pre">index_array</span></code> contains an out-of-bounds index, an error
+may not be returned immediately but will be returned if the
+corresponding position within the domain is accessed.  If the
+indices in <code class="docutils literal notranslate"><span class="pre">index_array</span></code> have already been validated,
+this need not be specified.  This allows transforms containing
+out-of-bounds index array indices to correctly round trip through
+JSON, but normally need not be specified manually.</p>
+<div class="literal-block-wrapper docutils container" id="id4">
+<div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id4" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">100</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+<div class="literal-block-wrapper docutils container" id="id5">
+<div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id5" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="s2">&quot;-inf&quot;</span><span class="p">,</span> <span class="mi">10</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+<div class="literal-block-wrapper docutils container" id="id6">
+<div class="code-block-caption"><span class="caption-text">Example</span><a class="headerlink" href="#id6" title="Permalink to this code">¶</a></div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="mi">-20</span><span class="p">,</span> <span class="s2">&quot;+inf&quot;</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</td>
+</tr>
 </tbody>
 </table>
 </td>
 </tr>
 </tbody>
 </table>
+</div>
+<div class="section" id="index-interval-json-schema">
+<span id="json-schema-https://github.com/google/tensorstore/json-schema/index-interval"></span><h3>Index interval JSON Schema<a class="headerlink" href="#index-interval-json-schema" title="Permalink to this headline">¶</a></h3>
+<div class="docutils container">
+[integer (-∞, ∞) | <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“-inf”</span></span></code>, integer (-∞, ∞) | <code class="code highlight json docutils literal notranslate"><span class="literal string double"><span class="pre">“+inf”</span></span></code>]</div>
+<p>Specifies a closed interval of integer index values.</p>
 </div>
 </div>
 <div class="section" id="alignment-and-broadcasting">
@@ -492,8 +633,8 @@ computed as follows:</p>
 <tr class="row-odd"><td><p>A1</p></td>
 <td><p>For each dimension <span class="math notranslate nohighlight">\(j\)</span> of <code class="docutils literal notranslate"><span class="pre">target</span></code> with a matching dimension
 <span class="math notranslate nohighlight">\(i\)</span> of <code class="docutils literal notranslate"><span class="pre">source</span></code>, output dimension <span class="math notranslate nohighlight">\(i\)</span> of <code class="docutils literal notranslate"><span class="pre">alignment</span></code> has
-a <em>single_input_dimension</em> map to input dimension <code class="xref any docutils literal notranslate"><span class="pre">j</span></code> with a stride of
-<code class="xref any docutils literal notranslate"><span class="pre">1</span></code> and offset of <span class="math notranslate nohighlight">\(\mathtt{source\_origin}[i] -
+a <em>single_input_dimension</em> map to input dimension <span class="math notranslate nohighlight">\(j\)</span> with a stride
+of <span class="math notranslate nohighlight">\(1\)</span> and offset of <span class="math notranslate nohighlight">\(\mathtt{source\_origin}[i] -
 \mathtt{target\_origin}[j]\)</span>.</p></td>
 </tr>
 <tr class="row-even"><td><p>A2</p></td>
@@ -570,29 +711,29 @@ extended to support non-zero origins and labeled dimensions.</p>
            
           </div>
           <footer>
-  
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-      
-        <a href="context.html" class="btn btn-neutral float-right" title="Context framework" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
-      
-      
-        <a href="environment.html" class="btn btn-neutral float-left" title="Environment variables" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
-      
+        <a href="context.html" class="btn btn-neutral float-right" title="Context framework" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="environment.html" class="btn btn-neutral float-left" title="Environment variables" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
-  
 
   <hr/>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2020 The TensorStore Authors
+        &#169; Copyright 2020 The TensorStore Authors.
 
     </p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
-
         </div>
       </div>
 
@@ -600,7 +741,6 @@ extended to support non-zero origins and labeled dimensions.</p>
 
   </div>
   
-
 
   <script type="text/javascript">
       jQuery(function () {

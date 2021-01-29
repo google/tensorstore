@@ -1,41 +1,44 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <title>Environment variables &mdash; TensorStore  documentation</title>
   
 
   
-  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
+
   
   
 
   
-  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
         <script src="_static/doctools.js"></script>
-        <script src="_static/language_data.js"></script>
-        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
         <script type="text/x-mathjax-config">MathJax.Hub.Config({"displayAlign": "left"})</script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
     
-
-  
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Index space" href="index_space.html" />
@@ -76,6 +79,7 @@
           
         </div>
 
+        
         <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
           
             
@@ -108,6 +112,7 @@
             
           
         </div>
+        
       </div>
     </nav>
 
@@ -142,19 +147,19 @@
 
 
 
+
+
 <div role="navigation" aria-label="breadcrumbs navigation">
 
   <ul class="wy-breadcrumbs">
     
-      <li><a href="index.html">Docs</a> &raquo;</li>
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
         
       <li>Environment variables</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
-            
-            <a href="_sources/environment.rst.txt" rel="nofollow"> View page source</a>
           
         
       </li>
@@ -189,7 +194,7 @@ at that path, no additional configuration is necessary.</p>
 alternative certificate bundle path or certificate directory at <em>runtime</em> with
 the <span class="target" id="index-0"></span><a class="reference internal" href="#envvar-TENSORSTORE_CA_BUNDLE"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">TENSORSTORE_CA_BUNDLE</span></code></a> or <span class="target" id="index-1"></span><a class="reference internal" href="#envvar-TENSORSTORE_CA_PATH"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">TENSORSTORE_CA_PATH</span></code></a> environment
 variables:</p>
-<dl class="envvar">
+<dl class="std envvar">
 <dt id="envvar-TENSORSTORE_CA_BUNDLE">
 <code class="sig-name descname">TENSORSTORE_CA_BUNDLE</code><a class="headerlink" href="#envvar-TENSORSTORE_CA_BUNDLE" title="Permalink to this definition">¶</a></dt>
 <dd><p>Specifies the path to a local file containing one or more CA certificates
@@ -200,7 +205,7 @@ documentation</a> for
 more details.</p>
 </dd></dl>
 
-<dl class="envvar">
+<dl class="std envvar">
 <dt id="envvar-TENSORSTORE_CA_PATH">
 <code class="sig-name descname">TENSORSTORE_CA_PATH</code><a class="headerlink" href="#envvar-TENSORSTORE_CA_PATH" title="Permalink to this definition">¶</a></dt>
 <dd><p>Specifies the path of a local directory containing one or more CA
@@ -216,7 +221,7 @@ specified using <span class="target" id="index-2"></span><a class="reference int
 <p class="admonition-title">Note</p>
 <p>On Linux and BSD, TensoprStore may optionally be built to dynamically link to
 a system-provided version of libcurl by specifying
-<span class="target" id="index-3"></span><a class="reference internal" href="installation.html#envvar-TENSORSTORE_SYSTEM_LIBS"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">TENSORSTORE_SYSTEM_LIBS=se_haxx_curl</span></code></a>.  In
+<span class="target" id="index-3"></span><a class="reference internal" href="installation.html#envvar-TENSORSTORE_SYSTEM_LIBS"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">TENSORSTORE_SYSTEM_LIBS=se_curl</span></code></a>.  In
 this case, the default CA bundle path of
 <code class="file docutils literal notranslate"><span class="pre">/etc/ssl/certs/ca-certificates.crt</span></code> does not apply; instead, the
 default depends on how the system-provided libcurl was built, and most likely
@@ -225,28 +230,28 @@ no additional configuration will be necessary.</p>
 </div>
 <div class="section" id="proxy-configuration">
 <h3>Proxy configuration<a class="headerlink" href="#proxy-configuration" title="Permalink to this headline">¶</a></h3>
-<dl class="envvar">
+<dl class="std envvar">
 <dt id="envvar-all_proxy">
 <code class="sig-name descname">all_proxy</code><a class="headerlink" href="#envvar-all_proxy" title="Permalink to this definition">¶</a></dt>
 <dd><p>Specifies a proxy server to use for making any HTTP or HTTPS request.  Refer
 to the <a class="reference external" href="https://curl.haxx.se/libcurl/c/CURLOPT_PROXY.html">libcurl documentation</a> for more details.</p>
 </dd></dl>
 
-<dl class="envvar">
+<dl class="std envvar">
 <dt id="envvar-http_proxy">
 <code class="sig-name descname">http_proxy</code><a class="headerlink" href="#envvar-http_proxy" title="Permalink to this definition">¶</a></dt>
 <dd><p>Specifies a proxy server to use for making HTTP (not HTTPS) requests.  Takes
 precedence over <span class="target" id="index-4"></span><a class="reference internal" href="#envvar-all_proxy"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">all_proxy</span></code></a>.  Refer to the <a class="reference external" href="https://curl.haxx.se/libcurl/c/CURLOPT_PROXY.html">libcurl documentation</a> for more details.</p>
 </dd></dl>
 
-<dl class="envvar">
+<dl class="std envvar">
 <dt id="envvar-https_proxy">
 <code class="sig-name descname">https_proxy</code><a class="headerlink" href="#envvar-https_proxy" title="Permalink to this definition">¶</a></dt>
 <dd><p>Specifies a proxy server to use for making HTTPS requests.  Takes precedence
 over <span class="target" id="index-5"></span><a class="reference internal" href="#envvar-all_proxy"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">all_proxy</span></code></a>.  Refer to the <a class="reference external" href="https://curl.haxx.se/libcurl/c/CURLOPT_PROXY.html">libcurl documentation</a> for more details.</p>
 </dd></dl>
 
-<dl class="envvar">
+<dl class="std envvar">
 <dt id="envvar-no_proxy">
 <code class="sig-name descname">no_proxy</code><a class="headerlink" href="#envvar-no_proxy" title="Permalink to this definition">¶</a></dt>
 <dd><p>Specifies a comma-separated list of hostnames or ip addresses for which
@@ -256,14 +261,14 @@ proxying is disabled.  Refer to the <a class="reference external" href="https://
 </div>
 <div class="section" id="debugging">
 <h3>Debugging<a class="headerlink" href="#debugging" title="Permalink to this headline">¶</a></h3>
-<dl class="envvar">
+<dl class="std envvar">
 <dt id="envvar-TENSORSTORE_CURL_VERBOSE">
 <code class="sig-name descname">TENSORSTORE_CURL_VERBOSE</code><a class="headerlink" href="#envvar-TENSORSTORE_CURL_VERBOSE" title="Permalink to this definition">¶</a></dt>
 <dd><p>If set to any value, verbose debugging information will be printed to stderr
 for all HTTP requests.</p>
 </dd></dl>
 
-<dl class="envvar">
+<dl class="std envvar">
 <dt id="envvar-SSLKEYLOGFILE">
 <code class="sig-name descname">SSLKEYLOGFILE</code><a class="headerlink" href="#envvar-SSLKEYLOGFILE" title="Permalink to this definition">¶</a></dt>
 <dd><p>Specifies the path to a local file where information necessary to decrypt
@@ -276,7 +281,7 @@ details.</p>
 </div>
 <div class="section" id="google-cloud-credentials">
 <h2>Google Cloud Credentials<a class="headerlink" href="#google-cloud-credentials" title="Permalink to this headline">¶</a></h2>
-<dl class="envvar">
+<dl class="std envvar">
 <dt id="envvar-GOOGLE_APPLICATION_CREDENTIALS">
 <code class="sig-name descname">GOOGLE_APPLICATION_CREDENTIALS</code><a class="headerlink" href="#envvar-GOOGLE_APPLICATION_CREDENTIALS" title="Permalink to this definition">¶</a></dt>
 <dd><p>Specifies the local path to a <a class="reference external" href="https://cloud.google.com/docs/authentication/getting-started">Google Cloud JSON credentials file</a>.  Refer to
@@ -292,29 +297,29 @@ for details.</p>
            
           </div>
           <footer>
-  
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-      
-        <a href="index_space.html" class="btn btn-neutral float-right" title="Index space" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
-      
-      
-        <a href="installation.html" class="btn btn-neutral float-left" title="Building and Installing" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
-      
+        <a href="index_space.html" class="btn btn-neutral float-right" title="Index space" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="installation.html" class="btn btn-neutral float-left" title="Building and Installing" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
-  
 
   <hr/>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2020 The TensorStore Authors
+        &#169; Copyright 2020 The TensorStore Authors.
 
     </p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
-
         </div>
       </div>
 
@@ -322,7 +327,6 @@ for details.</p>
 
   </div>
   
-
 
   <script type="text/javascript">
       jQuery(function () {

@@ -1,6 +1,0 @@
-tensorstore.DimensionSelection.transpose
-========================================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: DimensionSelection.transpose

@@ -25,10 +25,15 @@ tensorstore.Spec
    .. autosummary::
       :toctree: .
    
+      ~Spec.T
       ~Spec.domain
       ~Spec.dtype
+      ~Spec.ndim
       ~Spec.oindex
+      ~Spec.origin
       ~Spec.rank
+      ~Spec.shape
+      ~Spec.size
       ~Spec.transform
       ~Spec.vindex
    

@@ -1,45 +1,48 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <title>tensorstore.TensorStore.transaction &mdash; TensorStore  documentation</title>
   
 
   
-  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
+
   
   
 
   
-  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
         <script src="../../_static/jquery.js"></script>
         <script src="../../_static/underscore.js"></script>
         <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/language_data.js"></script>
-        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
         <script type="text/x-mathjax-config">MathJax.Hub.Config({"displayAlign": "left"})</script>
     
     <script type="text/javascript" src="../../_static/js/theme.js"></script>
 
     
-
-  
-  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../../_static/sphinx_rtd_theme_table_word_wrap_fix.css" type="text/css" />
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="tensorstore.TensorStore.vindex" href="tensorstore.TensorStore.vindex.html" />
-    <link rel="prev" title="tensorstore.TensorStore.readable" href="tensorstore.TensorStore.readable.html" /> 
+    <link rel="prev" title="tensorstore.TensorStore.size" href="tensorstore.TensorStore.size.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -76,6 +79,7 @@
           
         </div>
 
+        
         <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
           
             
@@ -99,12 +103,12 @@
 <li class="toctree-l2 current"><a class="reference internal" href="index.html">API reference</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.array.html">tensorstore.array</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.cast.html">tensorstore.cast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.downsample.html">tensorstore.downsample</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.open.html">tensorstore.open</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.Context.html">tensorstore.Context</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.ContextSpec.html">tensorstore.ContextSpec</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.Dim.html">tensorstore.Dim</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.DimExpression.html">tensorstore.DimExpression</a></li>
-<li class="toctree-l3"><a class="reference internal" href="tensorstore.DimensionSelection.html">tensorstore.DimensionSelection</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.Future.html">tensorstore.Future</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.Index.html">tensorstore.Index</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.IndexDomain.html">tensorstore.IndexDomain</a></li>
@@ -123,12 +127,17 @@
 <li class="toctree-l4"><a class="reference internal" href="tensorstore.TensorStore.spec.html">tensorstore.TensorStore.spec</a></li>
 <li class="toctree-l4"><a class="reference internal" href="tensorstore.TensorStore.with_transaction.html">tensorstore.TensorStore.with_transaction</a></li>
 <li class="toctree-l4"><a class="reference internal" href="tensorstore.TensorStore.write.html">tensorstore.TensorStore.write</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.TensorStore.T.html">tensorstore.TensorStore.T</a></li>
 <li class="toctree-l4"><a class="reference internal" href="tensorstore.TensorStore.domain.html">tensorstore.TensorStore.domain</a></li>
 <li class="toctree-l4"><a class="reference internal" href="tensorstore.TensorStore.dtype.html">tensorstore.TensorStore.dtype</a></li>
 <li class="toctree-l4"><a class="reference internal" href="tensorstore.TensorStore.mode.html">tensorstore.TensorStore.mode</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.TensorStore.ndim.html">tensorstore.TensorStore.ndim</a></li>
 <li class="toctree-l4"><a class="reference internal" href="tensorstore.TensorStore.oindex.html">tensorstore.TensorStore.oindex</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.TensorStore.origin.html">tensorstore.TensorStore.origin</a></li>
 <li class="toctree-l4"><a class="reference internal" href="tensorstore.TensorStore.rank.html">tensorstore.TensorStore.rank</a></li>
 <li class="toctree-l4"><a class="reference internal" href="tensorstore.TensorStore.readable.html">tensorstore.TensorStore.readable</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.TensorStore.shape.html">tensorstore.TensorStore.shape</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tensorstore.TensorStore.size.html">tensorstore.TensorStore.size</a></li>
 <li class="toctree-l4 current"><a class="current reference internal" href="#">tensorstore.TensorStore.transaction</a></li>
 <li class="toctree-l4"><a class="reference internal" href="tensorstore.TensorStore.vindex.html">tensorstore.TensorStore.vindex</a></li>
 <li class="toctree-l4"><a class="reference internal" href="tensorstore.TensorStore.writable.html">tensorstore.TensorStore.writable</a></li>
@@ -136,6 +145,7 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.Transaction.html">tensorstore.Transaction</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.WriteFutures.html">tensorstore.WriteFutures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tensorstore.d.html">tensorstore.d</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.dtype.html">tensorstore.dtype</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tensorstore.newaxis.html">tensorstore.newaxis</a></li>
 </ul>
@@ -147,6 +157,7 @@
             
           
         </div>
+        
       </div>
     </nav>
 
@@ -181,11 +192,13 @@
 
 
 
+
+
 <div role="navigation" aria-label="breadcrumbs navigation">
 
   <ul class="wy-breadcrumbs">
     
-      <li><a href="../../index.html">Docs</a> &raquo;</li>
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
         
           <li><a href="../index.html">Python API</a> &raquo;</li>
         
@@ -198,8 +211,6 @@
     
       <li class="wy-breadcrumbs-aside">
         
-            
-            <a href="../../_sources/python/api/tensorstore.TensorStore.transaction.rst.txt" rel="nofollow"> View page source</a>
           
         
       </li>
@@ -214,7 +225,7 @@
             
   <div class="section" id="tensorstore-tensorstore-transaction">
 <h1>tensorstore.TensorStore.transaction<a class="headerlink" href="#tensorstore-tensorstore-transaction" title="Permalink to this headline">¶</a></h1>
-<dl class="method">
+<dl class="py method">
 <dt id="tensorstore.TensorStore.transaction">
 <em class="property">property </em><code class="sig-prename descclassname">TensorStore.</code><code class="sig-name descname">transaction</code><a class="headerlink" href="#tensorstore.TensorStore.transaction" title="Permalink to this definition">¶</a></dt>
 <dd><p>Associated transaction used for read/write operations.</p>
@@ -227,29 +238,29 @@
            
           </div>
           <footer>
-  
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-      
-        <a href="tensorstore.TensorStore.vindex.html" class="btn btn-neutral float-right" title="tensorstore.TensorStore.vindex" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
-      
-      
-        <a href="tensorstore.TensorStore.readable.html" class="btn btn-neutral float-left" title="tensorstore.TensorStore.readable" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
-      
+        <a href="tensorstore.TensorStore.vindex.html" class="btn btn-neutral float-right" title="tensorstore.TensorStore.vindex" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="tensorstore.TensorStore.size.html" class="btn btn-neutral float-left" title="tensorstore.TensorStore.size" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
-  
 
   <hr/>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2020 The TensorStore Authors
+        &#169; Copyright 2020 The TensorStore Authors.
 
     </p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
-
         </div>
       </div>
 
@@ -257,7 +268,6 @@
 
   </div>
   
-
 
   <script type="text/javascript">
       jQuery(function () {
