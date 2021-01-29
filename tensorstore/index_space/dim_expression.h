@@ -15,6 +15,13 @@
 #ifndef TENSORSTORE_INDEX_SPACE_DIM_EXPRESSION_H_
 #define TENSORSTORE_INDEX_SPACE_DIM_EXPRESSION_H_
 
+/// \file
+///
+/// A DimExpression represents an ordered "selection" of dimensions of an index
+/// space and a sequence of "operations" to apply to those dimensions.
+///
+/// Most users should #include  "third_party/tensorstore/index_space.h" instead.
+
 #include <type_traits>
 #include <utility>
 
@@ -1533,7 +1540,8 @@ class DimExpression<LastOp, PriorOp...> {
   ///
   /// The new dimension selection is the same as the prior dimension selection.
   ///
-  /// For example: `Dims(0, 2).MarkBoundsImplicit()` has the following effects:
+  /// For example: `Dims(0, 2).UnsafeMarkBoundsImplicit()` has the following
+  /// effects:
   ///
   /// *                   | Prior                  | New
   /// ------------------- | ---                    | ---

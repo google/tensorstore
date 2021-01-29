@@ -153,6 +153,25 @@ cc_with_non_compile_test(
     ],
 )
 
+tensorstore_cc_test(
+    name = "dim_expression_test",
+    srcs = ["dim_expression_test.cc"],
+    deps = [
+        ":dim_expression",
+        ":index_transform",
+        ":transformed_array",
+        "//tensorstore:array",
+        "//tensorstore:box",
+        "//tensorstore:index",
+        "//tensorstore:rank",
+        "//tensorstore/util:result",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 tensorstore_cc_library(
     name = "dim_expression_testutil",
     testonly = 1,
