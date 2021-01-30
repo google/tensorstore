@@ -172,6 +172,13 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
           # Note: Bazel does not use the MACOSX_DEPLOYMENT_TARGET environment
           # variable.
           build_command += ['--macos_minimum_os=%s' % _macos_deployment_target]
+        if sys.platform == 'win32':
+          # Disable newer exception handling from Visual Studio 2019, since it
+          # requires a newer C++ runtime than shipped with Python.
+          #
+          # https://cibuildwheel.readthedocs.io/en/stable/faq/#importerror-dll-load-failed-the-specific-module-could-not-be-found-error-on-windows
+          build_command += ['--copt=/d2FH4-']
+
         self.spawn(build_command)
         suffix = '.pyd' if os.name == 'nt' else '.so'
         built_ext_path = os.path.join(
@@ -205,12 +212,23 @@ class InstallCommand(setuptools.command.install.install):
     super().run()
 
 
+with open(os.path.join(os.path.dirname(__file__), 'README.md'), mode='r',
+          encoding='utf-8') as f:
+  long_description = f.read()
+
 setuptools.setup(
     name='tensorstore',
     use_scm_version={
+        # It would be nice to include the commit hash in the version, but that
+        # can't be done in a PEP 440-compatible way.
+        'version_scheme': 'no-guess-dev',
+        # Test PyPI does not support local versions.
+        'local_scheme': 'no-local-version',
         'fallback_version': '0.0.0',
     },
     description='Read and write large, multi-dimensional arrays',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     author='Google Inc.',
     author_email='jbms@google.com',
     url='https://github.com/google/tensorstore',
