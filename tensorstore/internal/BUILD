@@ -191,7 +191,6 @@ tensorstore_cc_library(
     deps = [
         ":async_cache",
         ":cache",
-        ":fuzz_data_provider",
         ":intrusive_ptr",
         ":kvs_backed_cache",
         ":logging",
@@ -215,6 +214,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/random",
+        "@com_google_absl//absl/random:bit_gen_ref",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
@@ -2200,17 +2200,5 @@ tensorstore_cc_library(
         ":json",
         "//tensorstore:open_mode",
         "//tensorstore:spec_request_options",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "fuzz_data_provider",
-    testonly = True,
-    srcs = ["fuzz_data_provider.cc"],
-    hdrs = ["fuzz_data_provider.h"],
-    deps = [
-        ":test_util",
-        "@com_google_absl//absl/memory",
-        "@com_google_absl//absl/random",
     ],
 )

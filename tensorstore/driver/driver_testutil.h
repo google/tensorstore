@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/random/bit_gen_ref.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
@@ -162,8 +163,28 @@ class MockDriver : public Driver {
 /// Returns a `ReadChunk` that simply reads from the specified array.
 ReadChunk MakeArrayBackedReadChunk(
     NormalizedTransformedArray<Shared<const void>> data);
+
 ReadChunk MakeArrayBackedReadChunk(
     SharedOffsetArray<const void, dynamic_rank, view> data);
+
+/// DriverRandomOperationTester implements random/fuzz based testing for a
+/// driver.
+class DriverRandomOperationTester {
+ public:
+  DriverRandomOperationTester(
+      absl::BitGenRef gen,
+      TensorStoreDriverBasicFunctionalityTestOptions options);
+
+  void TestBasicFunctionality(TransactionMode transaction_mode,
+                              size_t num_iterations);
+
+  void TestMultiTransactionWrite(TransactionMode mode, size_t num_transactions,
+                                 size_t num_iterations, bool use_random_values);
+
+  absl::BitGenRef gen;  // Not owned.
+  TensorStoreDriverBasicFunctionalityTestOptions options;
+  bool log = true;
+};
 
 }  // namespace internal
 }  // namespace tensorstore

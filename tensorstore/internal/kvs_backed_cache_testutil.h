@@ -29,12 +29,12 @@
 #include <string_view>
 #include <vector>
 
+#include "absl/random/bit_gen_ref.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/async_cache.h"
 #include "tensorstore/internal/cache.h"
-#include "tensorstore/internal/fuzz_data_provider.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/kvs_backed_cache.h"
 #include "tensorstore/internal/mutex.h"
@@ -188,13 +188,14 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
     const KvsBackedCacheBasicTransactionalTestOptions& options);
 
 /// KvsRandomOperationTester implements random/fuzz based testing for
-/// KeyValueStore.
+/// KeyValueStore. The absl::BitGenRef must outlive the
+/// KvsRandomOperationTester.
 class KvsRandomOperationTester {
  public:
   using Map = std::map<std::string, std::string>;
 
   explicit KvsRandomOperationTester(
-      std::unique_ptr<FuzzDataProvider> fuzz_data, KeyValueStore::Ptr kvstore,
+      absl::BitGenRef gen, KeyValueStore::Ptr kvstore,
       std::function<std::string(std::string)> get_key);
 
   void SimulateDeleteRange(const KeyRange& range);
@@ -209,7 +210,7 @@ class KvsRandomOperationTester {
 
   void PerformRandomActions();
 
-  std::unique_ptr<FuzzDataProvider> data_provider;
+  absl::BitGenRef gen;  // Not owned.
   KeyValueStore::Ptr kvstore;
   Map map;
 

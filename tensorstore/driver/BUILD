@@ -117,6 +117,7 @@ tensorstore_cc_library(
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:index_transform_builder",
+        "//tensorstore/index_space:index_transform_testutil",
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/internal:data_type_random_generator",
         "//tensorstore/internal:json_gtest",
@@ -130,6 +131,7 @@ tensorstore_cc_library(
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/random",
+        "@com_google_absl//absl/random:bit_gen_ref",
         "@com_google_googletest//:gtest",
     ],
 )

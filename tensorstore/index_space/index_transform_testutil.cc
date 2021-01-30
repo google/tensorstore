@@ -14,16 +14,22 @@
 
 #include "tensorstore/index_space/index_transform_testutil.h"
 
+#include <numeric>
+#include <random>
+
+#include "absl/algorithm/container.h"
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/internal/logging.h"
 
 namespace tensorstore {
 namespace internal {
 
 IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
                                           IndexTransform<> transform) {
+  constexpr bool log = true;
   const auto sample_input_dim = [&] {
     return absl::Uniform<DimensionIndex>(absl::IntervalClosedOpen, gen, 0,
                                          transform.input_rank());
@@ -66,6 +72,7 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
         if (absl::Bernoulli(gen, 0.5)) {
           stride *= -1;
         }
+        if (log) TENSORSTORE_LOG("Stride(", stride, ")");
         return (transform | Dims(input_dim).Stride(stride)).value();
       }
       case ExpressionKind::kTranslate: {
@@ -73,6 +80,7 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
         for (auto& i : translation) {
           i = absl::Uniform<Index>(absl::IntervalClosedClosed, gen, -10, 10);
         }
+        if (log) TENSORSTORE_LOG("TranslateBy(", translation, ")");
         return (transform | AllDims().TranslateBy(translation)).value();
       }
       case ExpressionKind::kIndexSlice: {
@@ -81,11 +89,13 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
           // Cannot slice empty dimension.
           continue;
         }
-        return (transform | Dims(dim).IndexSlice(absl::Uniform<Index>(
-                                absl::IntervalClosedOpen, gen,
-                                transform.domain()[dim].inclusive_min(),
-                                transform.domain()[dim].exclusive_max())))
-            .value();
+        Index slice =
+            absl::Uniform<Index>(absl::IntervalClosedOpen, gen,
+                                 transform.domain()[dim].inclusive_min(),
+                                 transform.domain()[dim].exclusive_max());
+
+        if (log) TENSORSTORE_LOG("IndexSlice(", slice, ")");
+        return (transform | Dims(dim).IndexSlice(slice)).value();
       }
       case ExpressionKind::kIntervalSlice: {
         auto dim = sample_input_dim();
@@ -122,18 +132,21 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
               absl::IntervalClosedOpen, gen, index_range.inclusive_min(),
               index_range.exclusive_max());
         }
+        if (log) TENSORSTORE_LOG("IndexArraySlice(", new_array, ")");
         return (transform | Dims(input_dim).IndexArraySlice(new_array)).value();
       }
       case ExpressionKind::kPermute: {
         std::vector<DimensionIndex> dims(transform.input_rank());
         std::iota(dims.begin(), dims.end(), DimensionIndex(0));
         std::shuffle(dims.begin(), dims.end(), gen);
+        if (log) TENSORSTORE_LOG("Transpose(", dims, ")");
         return (transform | AllDims().Transpose(dims)).value();
       }
       case ExpressionKind::kDiagonal: {
         while (true) {
           DimensionIndex dim1 = sample_input_dim(), dim2 = sample_input_dim();
           if (dim1 == dim2) continue;
+          if (log) TENSORSTORE_LOG("Diagonal(", dim1, dim2, ")");
           return (transform | Dims(dim1, dim2).Diagonal()).value();
         }
       }

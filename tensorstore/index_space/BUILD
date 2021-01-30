@@ -467,6 +467,8 @@ tensorstore_cc_library(
     deps = [
         ":dim_expression",
         ":index_transform",
+        "//tensorstore/internal:logging",
+        "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/random:bit_gen_ref",
     ],

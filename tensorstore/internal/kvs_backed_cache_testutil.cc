@@ -202,14 +202,15 @@ CachePtr<KvsBackedTestCache> KvsBackedTestCache::Make(
 }
 
 KvsRandomOperationTester::KvsRandomOperationTester(
-    std::unique_ptr<FuzzDataProvider> fuzz_data, KeyValueStore::Ptr kvstore,
+    absl::BitGenRef gen, KeyValueStore::Ptr kvstore,
     std::function<std::string(std::string)> get_key)
-    : data_provider(std::move(fuzz_data)), kvstore(kvstore) {
+    : gen(gen), kvstore(kvstore) {
   for (const auto& key : {"x", "y"}) {
     caches.push_back(KvsBackedTestCache::Make(kvstore, {}, key));
   }
-  for (const auto& tmp_key : data_provider->GenerateKeys()) {
-    keys.push_back(get_key(tmp_key));
+  size_t num_keys = absl::Uniform(gen, 5u, 15u);
+  for (size_t i = 0; i < num_keys; ++i) {
+    keys.push_back(get_key(std::string{static_cast<char>('a' + i)}));
   }
 }
 
@@ -228,28 +229,28 @@ void KvsRandomOperationTester::SimulateWrite(const std::string& key, bool clear,
 }
 
 std::string KvsRandomOperationTester::SampleKey() {
-  return keys[data_provider->Uniform(0, keys.size() - 1)];
+  return keys[absl::Uniform(gen, 0u, keys.size())];
 }
 
 std::string KvsRandomOperationTester::SampleKeyOrEmpty() {
-  size_t key_index = data_provider->Uniform(0, keys.size() - 1);
+  size_t key_index =
+      absl::Uniform(absl::IntervalClosedClosed, gen, 0u, keys.size());
   if (key_index == 0) return "";
   return keys[key_index - 1];
 }
 
 void KvsRandomOperationTester::PerformRandomAction(
     OpenTransactionPtr transaction) {
-  if (barrier_probability > 0 &&
-      data_provider->Bernoulli(barrier_probability)) {
+  if (barrier_probability > 0 && absl::Bernoulli(gen, barrier_probability)) {
     transaction->Barrier();
     if (log) {
       TENSORSTORE_LOG("Barrier");
     }
   }
-  if (data_provider->Bernoulli(write_probability)) {
+  if (absl::Bernoulli(gen, write_probability)) {
     const auto& key = SampleKey();
-    const auto& cache = caches[data_provider->Uniform(0, caches.size() - 1)];
-    bool clear = data_provider->Bernoulli(clear_probability);
+    const auto& cache = caches[absl::Uniform(gen, 0u, caches.size())];
+    bool clear = absl::Bernoulli(gen, clear_probability);
     std::string append = tensorstore::StrCat(", ", ++write_number);
     SimulateWrite(key, clear, append);
     if (log) {
@@ -271,7 +272,7 @@ void KvsRandomOperationTester::PerformRandomAction(
 }
 
 void KvsRandomOperationTester::PerformRandomActions() {
-  const size_t num_actions = data_provider->Uniform(1, 100);
+  const size_t num_actions = absl::Uniform(gen, 1u, 100u);
   if (log) {
     TENSORSTORE_LOG("--PerformRandomActions-- ", num_actions);
   }
@@ -737,8 +738,10 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
   RegisterGoogleTestCaseDynamically(
       suite_name, "RandomOperationTest/SinglePhase",
       [=] {
-        KvsRandomOperationTester tester(MakeDefaultFuzzDataProvider(),
-                                        options.get_store(),
+        std::minstd_rand gen{internal::GetRandomSeedForTest(
+            "TENSORSTORE_INTERNAL_KVS_TESTUTIL_SINGLEPHASE")};
+
+        KvsRandomOperationTester tester(gen, options.get_store(),
                                         options.get_key_getter());
         if (!options.delete_range_supported) {
           tester.write_probability = 1;
@@ -751,8 +754,10 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
   RegisterGoogleTestCaseDynamically(
       suite_name, "RandomOperationTest/MultiPhase",
       [=] {
-        KvsRandomOperationTester tester(MakeDefaultFuzzDataProvider(),
-                                        options.get_store(),
+        std::minstd_rand gen{internal::GetRandomSeedForTest(
+            "TENSORSTORE_INTERNAL_KVS_TESTUTIL_MULTIPHASE")};
+
+        KvsRandomOperationTester tester(gen, options.get_store(),
                                         options.get_key_getter());
         if (!options.delete_range_supported) {
           tester.write_probability = 1;

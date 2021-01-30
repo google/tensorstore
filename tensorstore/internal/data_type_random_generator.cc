@@ -19,6 +19,7 @@
 #include <complex>
 #include <cstddef>
 #include <limits>
+#include <random>
 #include <string>
 
 #include "absl/random/bit_gen_ref.h"

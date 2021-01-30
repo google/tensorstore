@@ -17,12 +17,14 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/algorithm/container.h"
+#include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/index_space/index_transform_testutil.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/data_type_random_generator.h"
 #include "tensorstore/internal/json_gtest.h"
@@ -152,25 +154,25 @@ namespace {
 
 // TODO(jbms): Consider migrating to/unifying this with
 // `MakeRandomIndexTransform` in `index_space/index_transform_testutil.h`.
-IndexTransform<> GetRandomTransform(IndexDomainView<> domain,
-                                    absl::BitGen* gen) {
+IndexTransform<> GetRandomTransform(absl::BitGenRef gen,
+                                    IndexDomainView<> domain) {
   auto transform = IdentityTransform(domain);
   const auto ApplyExpression = [&](auto e) {
     transform = (transform | e).value();
   };
   for (DimensionIndex i = 0; i < domain.rank(); ++i) {
     if (domain[i].empty()) continue;
-    switch (absl::Uniform(absl::IntervalClosedClosed, *gen, 0, 1)) {
+    switch (absl::Uniform(absl::IntervalClosedClosed, gen, 0, 1)) {
       case 0: {
         const Index start =
-            absl::Uniform(absl::IntervalClosedOpen, *gen,
+            absl::Uniform(absl::IntervalClosedOpen, gen,
                           domain[i].inclusive_min(), domain[i].exclusive_max());
-        const Index stop = absl::Uniform(absl::IntervalOpenClosed, *gen, start,
+        const Index stop = absl::Uniform(absl::IntervalOpenClosed, gen, start,
                                          domain[i].exclusive_max());
         const Index stride =
-            absl::Uniform(absl::IntervalClosedClosed, *gen, Index(1), Index(3));
+            absl::Uniform(absl::IntervalClosedClosed, gen, Index(1), Index(3));
         ApplyExpression(Dims(i).HalfOpenInterval(start, stop, stride));
-        if (absl::Bernoulli(*gen, 0.5)) {
+        if (absl::Bernoulli(gen, 0.5)) {
           ApplyExpression(Dims(i).HalfOpenInterval(kImplicit, kImplicit, -1));
         }
         break;
@@ -178,8 +180,9 @@ IndexTransform<> GetRandomTransform(IndexDomainView<> domain,
       case 1: {
         std::vector<Index> values(domain[i].size());
         absl::c_iota(values, domain[i].inclusive_min());
-        absl::c_shuffle(values, *gen);
-        values.resize(absl::Uniform(absl::IntervalClosedClosed, *gen,
+        std::minstd_rand derived_rng(absl::Uniform<uint32_t>(gen));
+        absl::c_shuffle(values, derived_rng);
+        values.resize(absl::Uniform(absl::IntervalClosedClosed, gen,
                                     std::size_t(1), values.size()));
         ApplyExpression(
             Dims(i).OuterIndexArraySlice(MakeCopy(MakeArrayView((values)))));
@@ -190,8 +193,13 @@ IndexTransform<> GetRandomTransform(IndexDomainView<> domain,
   return transform;
 }
 
-void TestBasicFunctionality(
-    const TensorStoreDriverBasicFunctionalityTestOptions& options,
+}  // namespace
+
+DriverRandomOperationTester::DriverRandomOperationTester(
+    absl::BitGenRef gen, TensorStoreDriverBasicFunctionalityTestOptions options)
+    : gen(gen), options(std::move(options)) {}
+
+void DriverRandomOperationTester::TestBasicFunctionality(
     TransactionMode transaction_mode, size_t num_iterations) {
   SCOPED_TRACE(StrCat("create_spec=", options.create_spec));
   Transaction transaction(transaction_mode);
@@ -227,13 +235,11 @@ void TestBasicFunctionality(
 
   auto expected_value = MakeCopy(options.initial_value);
 
-  absl::BitGen gen;
-
   for (std::size_t i = 0; i < num_iterations; ++i) {
-    auto transform = GetRandomTransform(options.expected_domain, &gen);
+    auto transform = GetRandomTransform(gen, options.expected_domain);
     auto random_array = MakeRandomArray(gen, transform.domain().box(),
                                         options.initial_value.data_type());
-    TENSORSTORE_LOG("i = ", i);
+    if (log) TENSORSTORE_LOG("i = ", i);
     SCOPED_TRACE(StrCat("i=", i));
     SCOPED_TRACE(StrCat("transform=", transform));
     SCOPED_TRACE(StrCat("original_domain=", options.initial_value.domain()));
@@ -296,8 +302,8 @@ void TestBasicFunctionality(
 
     {
       SCOPED_TRACE(
-          "Switched to non-transacitonal: Compare full read result to expected "
-          "value");
+          "Switched to non-transacitonal: Compare full read result to "
+          "expected value");
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read_full_result,
                                        Read(store | no_transaction).result());
       options.compare_arrays(expected_value, read_full_result);
@@ -305,8 +311,8 @@ void TestBasicFunctionality(
 
     {
       SCOPED_TRACE(
-          "Switched to new transaction: Compare full read result to expected "
-          "value");
+          "Switched to new transaction: Compare full read result to "
+          "expected value");
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
           auto read_full_result,
           Read(store | Transaction(transaction.mode())).result());
@@ -315,8 +321,7 @@ void TestBasicFunctionality(
   }
 }
 
-void TestMultiTransactionWrite(
-    const TensorStoreDriverBasicFunctionalityTestOptions& options,
+void DriverRandomOperationTester::TestMultiTransactionWrite(
     TransactionMode mode, size_t num_transactions, size_t num_iterations,
     bool use_random_values) {
   SCOPED_TRACE(StrCat("create_spec=", options.create_spec));
@@ -335,9 +340,8 @@ void TestMultiTransactionWrite(
   };
   std::vector<std::vector<WriteEntry>> transaction_entries(num_transactions);
 
-  absl::BitGen gen;
   for (size_t i = 0; i < num_iterations; ++i) {
-    auto transform = GetRandomTransform(options.expected_domain, &gen);
+    auto transform = GetRandomTransform(gen, options.expected_domain);
     SharedOffsetArray<const void> array;
     if (use_random_values) {
       array = MakeRandomArray(gen, transform.domain().box(),
@@ -378,8 +382,6 @@ void TestMultiTransactionWrite(
   }
 }
 
-}  // namespace
-
 void RegisterTensorStoreDriverBasicFunctionalityTest(
     TensorStoreDriverBasicFunctionalityTestOptions options) {
   if (!options.compare_arrays) {
@@ -387,6 +389,9 @@ void RegisterTensorStoreDriverBasicFunctionalityTest(
       EXPECT_EQ(expected, actual);
     };
   }
+
+  // NOTE: The test seeds are a bit verbose; we should make them less so.
+
   const auto RegisterVariant = [&](TransactionMode mode,
                                    size_t num_iterations) {
     internal::RegisterGoogleTestCaseDynamically(
@@ -394,7 +399,12 @@ void RegisterTensorStoreDriverBasicFunctionalityTest(
         tensorstore::StrCat(options.test_name, "/basic_functionality",
                             "/transaction_mode=", mode,
                             "/num_iterations=", num_iterations),
-        [=] { TestBasicFunctionality(options, mode, num_iterations); },
+        [=] {
+          std::minstd_rand gen{internal::GetRandomSeedForTest(
+              "TENSORSTORE_INTERNAL_DRIVER_BASIC_FUNCTIONALITY")};
+          DriverRandomOperationTester tester(gen, std::move(options));
+          tester.TestBasicFunctionality(mode, num_iterations);
+        },
         TENSORSTORE_LOC);
   };
   RegisterVariant(no_transaction, 20);
@@ -411,9 +421,11 @@ void RegisterTensorStoreDriverBasicFunctionalityTest(
                               "/num_iterations=", num_iterations,
                               "/use_random_values=", use_random_values),
           [=] {
-            TestMultiTransactionWrite(options, transaction_mode,
-                                      num_transactions, num_iterations,
-                                      use_random_values);
+            std::minstd_rand gen{internal::GetRandomSeedForTest(
+                "TENSORSTORE_INTERNAL_DRIVER_MULTI_TRANSACTION")};
+            DriverRandomOperationTester tester(gen, std::move(options));
+            tester.TestMultiTransactionWrite(transaction_mode, num_transactions,
+                                             num_iterations, use_random_values);
           },
           TENSORSTORE_LOC);
     };

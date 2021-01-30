@@ -191,6 +191,7 @@ tensorstore_cc_test(
         "//tensorstore/internal:test_util",
         "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/random",
+        "@com_google_absl//absl/random:bit_gen_ref",
         "@com_google_googletest//:gtest_main",
     ],
 )
