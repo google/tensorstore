@@ -46,6 +46,14 @@ inline ::testing::Matcher<StorageGeneration> MatchesStorageGeneration(
   return ::testing::Field("value", &StorageGeneration::value, value_matcher);
 }
 
+/// GMock matcher for `StorageGeneration` values that correspond to a
+/// successfully-written value.
+MATCHER(IsRegularStorageGeneration, "") {
+  return StorageGeneration::IsClean(arg) &&
+         arg != StorageGeneration::Invalid() &&
+         !StorageGeneration::IsNoValue(arg);
+}
+
 /// Returns a GMock matcher for `TimestampedStorageGeneration`.
 template <typename GenerationMatcher>
 ::testing::Matcher<Result<TimestampedStorageGeneration>>
@@ -74,9 +82,7 @@ inline ::testing::Matcher<Result<TimestampedStorageGeneration>>
 MatchesRegularTimestampedStorageGeneration(
     ::testing::Matcher<absl::Time> time = ::testing::_) {
   return MatchesTimestampedStorageGeneration(
-      ::testing::AllOf(::testing::Not(StorageGeneration::Unknown()),
-                       ::testing::Not(StorageGeneration::NoValue()),
-                       ::testing::Not(StorageGeneration::Invalid())),
+      ::testing::Matcher<StorageGeneration>(IsRegularStorageGeneration()),
       time);
 }
 

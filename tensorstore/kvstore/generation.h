@@ -18,9 +18,9 @@
 #include <cstring>
 #include <iosfwd>
 #include <string>
+#include <string_view>
 #include <utility>
 
-#include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 
 namespace tensorstore {
@@ -177,14 +177,34 @@ struct StorageGeneration {
 
   /// Returns a base generation that encodes one or more trivial values via
   /// memcpy.
+  ///
+  /// \param value Value to encode.  If the type is `std::string_view` or
+  ///     `std::string`, the contents will be encoded directly (without any
+  ///     length indicator).  Otherwise, the value is assume to be a trivial
+  ///     type and will be encoded via `std::memcpy`.
   template <typename... T>
   static StorageGeneration FromValues(const T&... value) {
-    const size_t n = (sizeof(T) + ...);
+    constexpr auto as_string_view = [](const auto& value) -> std::string_view {
+      using value_type = std::decay_t<decltype(value)>;
+      if constexpr (std::is_same_v<std::string_view, value_type> ||
+                    std::is_same_v<std::string, value_type>) {
+        return value;
+      } else {
+        static_assert(std::is_trivial_v<value_type>);
+        return std::string_view(reinterpret_cast<const char*>(&value),
+                                sizeof(value));
+      }
+    };
+    const size_t n = (as_string_view(value).size() + ...);
     StorageGeneration gen;
     gen.value.resize(n + 1);
     size_t offset = 0;
-    ((std::memcpy(&gen.value[offset], &value, sizeof(T)), offset += sizeof(T)),
-     ...);
+    const auto copy_value = [&](const auto& value) {
+      auto s = as_string_view(value);
+      std::memcpy(&gen.value[offset], s.data(), s.size());
+      offset += s.size();
+    };
+    (copy_value(value), ...);
     gen.value[n] = kBaseGeneration;
     return gen;
   }
@@ -236,12 +256,12 @@ struct StorageGeneration {
                                 const StorageGeneration& b) {
     return Equivalent(a.value, b.value);
   }
-  friend inline bool operator==(absl::string_view a,
+  friend inline bool operator==(std::string_view a,
                                 const StorageGeneration& b) {
     return Equivalent(a, b.value);
   }
   friend inline bool operator==(const StorageGeneration& a,
-                                absl::string_view b) {
+                                std::string_view b) {
     return Equivalent(a.value, b);
   }
 
@@ -250,10 +270,10 @@ struct StorageGeneration {
     return !(a == b);
   }
   friend inline bool operator!=(const StorageGeneration& a,
-                                absl::string_view b) {
+                                std::string_view b) {
     return !(a == b);
   }
-  friend inline bool operator!=(absl::string_view a,
+  friend inline bool operator!=(std::string_view a,
                                 const StorageGeneration& b) {
     return !(a == b);
   }

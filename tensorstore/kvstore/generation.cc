@@ -15,6 +15,7 @@
 #include "tensorstore/kvstore/generation.h"
 
 #include <ostream>
+#include <string_view>
 
 #include "absl/time/time.h"
 #include "tensorstore/util/quote_string.h"
