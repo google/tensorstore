@@ -50,7 +50,8 @@ namespace detail {
 
 template <>
 struct type_caster<tensorstore::WriteFutures> {
-  PYBIND11_TYPE_CASTER(tensorstore::WriteFutures, _("WriteFutures"));
+  PYBIND11_TYPE_CASTER(tensorstore::WriteFutures,
+                       _("tensorstore.WriteFutures"));
 
   static handle cast(const tensorstore::WriteFutures& write_futures,
                      return_value_policy policy, handle parent) {

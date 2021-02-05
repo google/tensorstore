@@ -26,7 +26,6 @@ py_library(
     name = "tensorstore_autosummary",
     srcs = ["tensorstore_autosummary.py"],
     deps = [
-        "//third_party/py/astor",
         "@pypa_docutils//:docutils",
         "@pypa_sphinx//:sphinx",
     ],

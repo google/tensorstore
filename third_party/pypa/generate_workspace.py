@@ -179,7 +179,6 @@ def generate(args):
         "jsonpointer",
         "jsonschema",
         "pyyaml",
-        "astor",
         "docutils",
         # Examples
         "apache-beam",

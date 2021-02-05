@@ -11,7 +11,6 @@ def repo():
     repo_pypa_alabaster()
     repo_pypa_apache_beam()
     repo_pypa_appnope()
-    repo_pypa_astor()
     repo_pypa_atomicwrites()
     repo_pypa_attrs()
     repo_pypa_avro_python3()
@@ -161,14 +160,6 @@ def repo_pypa_appnope():
         name = "pypa_appnope",
         target = "appnope",
         requirement = "appnope==0.1.2",
-    )
-
-def repo_pypa_astor():
-    maybe(
-        third_party_python_package,
-        name = "pypa_astor",
-        target = "astor",
-        requirement = "astor==0.8.1",
     )
 
 def repo_pypa_atomicwrites():

@@ -321,7 +321,8 @@ struct type_caster<tensorstore::Future<T>> {
   using FutureType = tensorstore::Future<T>;
   using value_conv = make_caster<typename FutureType::result_type>;
 
-  PYBIND11_TYPE_CASTER(FutureType, _("Future[") + value_conv::name + _("]"));
+  PYBIND11_TYPE_CASTER(FutureType,
+                       _("tensorstore.Future[") + value_conv::name + _("]"));
 
   static handle cast(const FutureType& future, return_value_policy policy,
                      handle parent) {

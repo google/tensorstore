@@ -127,7 +127,7 @@ struct type_caster<tensorstore::internal_python::PythonDimensionIndex> {
 template <>
 struct type_caster<tensorstore::internal_python::OptionallyImplicitIndex> {
   PYBIND11_TYPE_CASTER(tensorstore::internal_python::OptionallyImplicitIndex,
-                       _("Index"));
+                       _("tensorstore.Index"));
   static handle cast(tensorstore::internal_python::OptionallyImplicitIndex x,
                      return_value_policy /* policy */, handle /* parent */) {
     if (x.value == tensorstore::kImplicit) return none().release();

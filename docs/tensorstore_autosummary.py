@@ -21,14 +21,13 @@ Additionally, this modifies autosummary and autodoc to handle pybind11
 overloaded functions.
 """
 
-import ast
 import re
 from typing import List, Tuple
 
-import astor
 import docutils.nodes
 import sphinx.addnodes
 import sphinx.domains.python
+import sphinx.environment
 import sphinx.ext.autodoc
 from sphinx.ext.autosummary import Autosummary
 from sphinx.ext.autosummary import extract_summary
@@ -181,136 +180,54 @@ def get_autodoc_signature(app, what, name, obj, options, signature,
   return signature, return_annotation
 
 
-def _make_python_type_ref(target):
-  reftarget = target
+# Modified version of `sphinx.domains.python.type_to_xref` to handle
+# TensorStore-specific aliases.
+#
+# This is monkey-patched in below.
+def type_to_xref(
+    text: str,
+    env: sphinx.environment.BuildEnvironment) -> sphinx.addnodes.pending_xref:
+  reftarget = text
   refdomain = 'py'
   reftype = 'obj'
-  if target == 'Optional' or target == 'List' or target == 'Union' or target == 'Dict':
-    reftarget = 'typing.' + target
-  elif target in ('Future', 'Index', 'WriteFutures'):
-    reftarget = 'tensorstore.' + target
-  elif target == 'array':
+  if text in ('Optional', 'List', 'Union', 'Dict'):
+    reftarget = 'typing.' + text
+  elif text == 'array':
     reftarget = 'numpy.ndarray'
-  elif target == 'dtype':
+  elif text == 'dtype':
     reftarget = 'numpy.dtype'
-  elif target == 'array_like':
+  elif text == 'array_like':
     reftarget = 'numpy:array_like'
     refdomain = 'std'
     reftype = 'any'
-  elif target == 'DownsampleMethod':
+  elif text == 'DownsampleMethod':
     reftarget = 'json-schema-https://github.com/google/tensorstore/json-schema/driver/downsample#method'
     refdomain = 'std'
     reftype = 'ref'
   prefix = 'tensorstore.'
-  if target.startswith(prefix):
-    target = target[len(prefix):]
-  tnode = sphinx.addnodes.desc_type(target, target)
-  pnode = sphinx.addnodes.pending_xref(
+  if text.startswith(prefix):
+    text = text[len(prefix):]
+  if env:
+    kwargs = {
+        'py:module': env.ref_context.get('py:module'),
+        'py:class': env.ref_context.get('py:class')
+    }
+  else:
+    kwargs = {}
+
+  return sphinx.addnodes.pending_xref(
       '',
+      docutils.nodes.Text(text),
       refdomain=refdomain,
       reftype=reftype,
       reftarget=reftarget,
       refwarn=True,
       refexplicit=True,
-  )
-  pnode += tnode
-  return pnode
+      **kwargs)
 
 
-def _make_python_type_ref_from_annotation(a: ast.AST):
-  if isinstance(a, ast.Subscript):
-    combined_node = sphinx.addnodes.desc_type()
-    combined_node += _make_python_type_ref_from_annotation(a.value)
-    combined_node += docutils.nodes.emphasis('[', '[')
-    slice_value = a.slice
-    if isinstance(slice_value, ast.Expr):
-      slice_value = slice_value.value
-    if isinstance(slice_value, ast.Tuple):
-      slice_elts = slice_value.elts
-    else:
-      slice_elts = [slice_value]
-    for i, elt in enumerate(slice_elts):
-      if i != 0:
-        combined_node += docutils.nodes.emphasis(',', ',')
-      combined_node += _make_python_type_ref_from_annotation(elt)
-    combined_node += docutils.nodes.emphasis(']', ']')
-    return combined_node
-  return _make_python_type_ref(astor.to_source(a).strip())
-
-
-# Must have compatible argument list with `sphinx.domains.python._parse_arglist`
-# that we are monkey patching.
-#
-# Newer versions of sphinx call that function before calling
-# `_parse_pseudo_arglist` as a fallback.
-def _render_python_arglist(arglist: str,
-                           env=None) -> sphinx.addnodes.desc_parameterlist:
-  del env
-  paramlist = sphinx.addnodes.desc_parameterlist()
-  args_ast = ast.parse('def f(' + arglist + '): pass').body[0].args
-
-  def do_arg(arg, prefix=''):
-    nonlocal paramlist
-    param = sphinx.addnodes.desc_parameter('', '', noemph=True)
-    arg_name_plain = prefix + arg.arg
-    arg_name_output = prefix + arg.arg
-    if arg.annotation:
-      arg_name_plain += ': '
-      arg_name_output += ':\xa0'
-    param += sphinx.addnodes.literal_emphasis(arg_name_plain, arg_name_output)
-    if arg.annotation:
-      param += _make_python_type_ref_from_annotation(arg.annotation)
-    paramlist += param
-
-  for arg in args_ast.args:
-    do_arg(arg)
-  if args_ast.vararg:
-    do_arg(args_ast.vararg, '*')
-  if args_ast.kwonlyargs:
-    paramlist += sphinx.addnodes.literal_emphasis('*', '*')
-    for arg in args_ast.kwonlyargs:
-      do_arg(arg)
-  if args_ast.kwarg:
-    do_arg(args_ast.kwarg, '**')
-  return paramlist
-
-
-# Must have compatible argument list with
-# `sphinx.domains.python._pseudo_parse_arglist` that we are monkey patching.
-#
-# This is only used on older versions of sphinx that don't call
-# `_parse_arglist`.
-def _render_python_pseudo_arglist(signode: sphinx.addnodes.desc_signature,
-                                  arglist: str):
-  signode += _render_python_arglist(arglist)
-
-
-sphinx.domains.python._parse_arglist = _render_python_arglist  # pylint: disable=protected-access
-sphinx.domains.python._pseudo_parse_arglist = _render_python_pseudo_arglist  # pylint: disable=protected-access
-
-old_desc_returns = sphinx.addnodes.desc_returns
-
-
-def _python_desc_returns(part, *unused):
-  del unused
-  rnode = old_desc_returns()
-  rnode += _make_python_type_ref_from_annotation(ast.parse(part).body[0].value)
-  return rnode
-
-
-_old_handle_signature = sphinx.domains.python.PyObject.handle_signature
-
-
-def _handle_python_signature(self, sig: str,
-                             signode: sphinx.addnodes.desc_signature):
-  cur_old_desc_returns = sphinx.addnodes.desc_returns
-  sphinx.addnodes.desc_returns = _python_desc_returns
-  result = _old_handle_signature(self, sig, signode)
-  sphinx.addnodes.desc_returns = cur_old_desc_returns
-  return result
-
-
-sphinx.domains.python.PyObject.handle_signature = _handle_python_signature
+# Monkey-patch in modified `type_to_xref` implementation.
+sphinx.domains.python.type_to_xref = type_to_xref
 
 
 def setup(app):
