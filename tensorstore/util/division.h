@@ -114,6 +114,15 @@ constexpr IntegralType CeilOrFloorOfRatio(IntegralType numerator,
   }
 }
 
+/// Computes the non-negative remainder of `numerator / denominator`.
+template <typename IntegralType>
+constexpr IntegralType NonnegativeMod(IntegralType numerator,
+                                      IntegralType denominator) {
+  assert(denominator > 0);
+  IntegralType modulus = numerator % denominator;
+  return modulus + (modulus < 0) * denominator;
+}
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_UTIL_DIVISION_H_

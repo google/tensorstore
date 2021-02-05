@@ -16,13 +16,16 @@
 
 namespace {
 
-static_assert(3 == tensorstore::FloorOfRatio(10, 3), "");
-static_assert(-4 == tensorstore::FloorOfRatio(-10, 3), "");
+static_assert(3 == tensorstore::FloorOfRatio(10, 3));
+static_assert(-4 == tensorstore::FloorOfRatio(-10, 3));
 
-static_assert(4 == tensorstore::CeilOfRatio(10, 3), "");
-static_assert(-3 == tensorstore::CeilOfRatio(-10, 3), "");
+static_assert(4 == tensorstore::CeilOfRatio(10, 3));
+static_assert(-3 == tensorstore::CeilOfRatio(-10, 3));
 
-static_assert(10 == tensorstore::RoundUpTo(7, 5), "");
-static_assert(10 == tensorstore::RoundUpTo(10, 5), "");
+static_assert(10 == tensorstore::RoundUpTo(7, 5));
+static_assert(10 == tensorstore::RoundUpTo(10, 5));
+
+static_assert(3 == tensorstore::NonnegativeMod(10, 7));
+static_assert(4 == tensorstore::NonnegativeMod(-10, 7));
 
 }  // namespace
