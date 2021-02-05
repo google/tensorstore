@@ -174,6 +174,15 @@ Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj) {
 }
 
 template <>
+std::optional<std::nullptr_t> JsonValueAs<std::nullptr_t>(
+    const ::nlohmann::json& j, bool strict) {
+  if (j.is_null()) {
+    return nullptr;
+  }
+  return std::nullopt;
+}
+
+template <>
 absl::optional<bool> JsonValueAs<bool>(const ::nlohmann::json& j, bool strict) {
   if (j.is_boolean()) {
     return j.get<bool>();

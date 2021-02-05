@@ -970,6 +970,16 @@ TEST(JsonBindingTest, DynamicRankBox) {
       binder);
 }
 
+TEST(JsonBindingTest, Null) {
+  tensorstore::TestJsonBinderRoundTrip<std::nullptr_t>({
+      {nullptr, nullptr},
+  });
+  tensorstore::TestJsonBinderFromJson<std::nullptr_t>({
+      {42, MatchesStatus(absl::StatusCode::kInvalidArgument,
+                         "Expected null, but received: 42")},
+  });
+}
+
 TEST(JsonSame, Basic) {
   EXPECT_TRUE(tensorstore::internal_json::JsonSame(1.0, 1));
   EXPECT_FALSE(tensorstore::internal_json::JsonSame(

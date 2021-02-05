@@ -40,37 +40,25 @@ std::string ToStringUsingOstream(const T& x) {
 
 namespace internal {
 
-/// Handle string conversion for types supported by absl::AlphaNum, except for
-/// enum types that define their own ostream `operator<<` overload.
+/// Converts arbitrary input values to a type supported by `absl::StrCat`.
 template <typename T>
-absl::enable_if_t<std::is_convertible<T, absl::AlphaNum>::value &&
-                      (!std::is_enum<T>::value || !IsOstreamable<T>::value),
-                  absl::AlphaNum>
-ToAlphaNumOrString(const T& x) {
-  return x;
-}
-
-/// Handle string conversion for types that support std::ostream `operator<<`.
-template <typename T>
-absl::enable_if_t<(IsOstreamable<T>::value &&
-                   (std::is_enum<T>::value ||
-                    !std::is_convertible<T, absl::AlphaNum>::value)),
-                  std::string>
-ToAlphaNumOrString(const T& x) {
-  return ToStringUsingOstream(x);
-}
-
-/// Default output for all other types.
-template <typename T>
-inline absl::enable_if_t<!std::is_convertible<T, absl::AlphaNum>::value &&
-                             !IsOstreamable<T>::value,
-                         absl::string_view>
-ToAlphaNumOrString(const T&) {
-  return "<unprintable>";
+auto ToAlphaNumOrString(const T& x) {
+  if constexpr (std::is_same_v<T, std::nullptr_t>) {
+    return "null";
+  } else if constexpr (std::is_convertible_v<T, absl::AlphaNum> &&
+                       (!std::is_enum_v<T> || !IsOstreamable<T>::value)) {
+    return absl::AlphaNum(x);
+  } else if constexpr (IsOstreamable<T>::value) {
+    // Note: Return type is `std::string` in this case.  If it were
+    // `absl::AlphaNum`, the `AlphaNum` would hold an invalid reference to a
+    // temporary string.
+    return tensorstore::ToStringUsingOstream(x);
+  } else {
+    return "<unprintable>";
+  }
 }
 
 }  // namespace internal
-
 
 /// Prints a string representation of a span.
 template <typename Element, std::ptrdiff_t N>

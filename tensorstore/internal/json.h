@@ -71,6 +71,10 @@ inline constexpr const char* GetTypeName(internal::type_identity<std::string>) {
 inline constexpr const char* GetTypeName(internal::type_identity<bool>) {
   return "boolean";
 }
+inline constexpr const char* GetTypeName(
+    internal::type_identity<std::nullptr_t>) {
+  return "null";
+}
 
 /// Retuns an error message for a json value with the expected type.
 Status ExpectedError(const ::nlohmann::json& j, absl::string_view type_name);
@@ -119,6 +123,10 @@ template <typename T>
 absl::optional<T> JsonValueAs(const ::nlohmann::json& j, bool strict = false) {
   static_assert(!std::is_same<T, T>::value, "Target type not supported.");
 }
+
+template <>
+absl::optional<std::nullptr_t> JsonValueAs<std::nullptr_t>(
+    const ::nlohmann::json& j, bool strict);
 
 template <>
 absl::optional<bool> JsonValueAs<bool>(const ::nlohmann::json& j, bool strict);
@@ -415,6 +423,8 @@ template <>
 constexpr inline auto DefaultBinder<std::uint64_t> = JsonRequireValueAsBinder;
 template <>
 constexpr inline auto DefaultBinder<double> = JsonRequireValueAsBinder;
+template <>
+constexpr inline auto DefaultBinder<std::nullptr_t> = JsonRequireValueAsBinder;
 
 // Defined in separate namespace to work around clang-cl bug
 // https://bugs.llvm.org/show_bug.cgi?id=45213

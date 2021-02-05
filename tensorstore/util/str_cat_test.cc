@@ -56,6 +56,8 @@ TEST(StrCat, Enum) {
   EXPECT_EQ("0", tensorstore::StrCat(PlainEnum::value));
 }
 
+TEST(StrCat, Null) { EXPECT_EQ("null", tensorstore::StrCat(nullptr)); }
+
 TEST(StrCat, Unprintable) {
   EXPECT_EQ("<unprintable>", tensorstore::StrCat(X{5}));
 }
