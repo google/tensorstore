@@ -35,21 +35,13 @@ using tensorstore::internal_n5::DecodeChunk;
 using tensorstore::internal_n5::N5Metadata;
 
 TEST(Bzip2CompressionTest, Parse) {
-  // Parse without any options.
-  {
-    auto c = Compressor::FromJson({{"type", "bzip2"}});
-    EXPECT_EQ(absl::OkStatus(), GetStatus(c));
-    EXPECT_EQ(::nlohmann::json({{"type", "bzip2"}, {"blockSize", 9}}),
-              ::nlohmann::json(*c));
-  }
-
-  // Parse with blockSize option.
-  {
-    auto c = Compressor::FromJson({{"type", "bzip2"}, {"blockSize", 3}});
-    EXPECT_EQ(absl::OkStatus(), GetStatus(c));
-    EXPECT_EQ(::nlohmann::json({{"type", "bzip2"}, {"blockSize", 3}}),
-              ::nlohmann::json(*c));
-  }
+  tensorstore::TestJsonBinderRoundTripJsonOnlyInexact<Compressor>({
+      // Parse without any options.
+      {{{"type", "bzip2"}}, {{"type", "bzip2"}, {"blockSize", 9}}},
+      // Parse with blockSize option.
+      {{{"type", "bzip2"}, {"blockSize", 3}},
+       {{"type", "bzip2"}, {"blockSize", 3}}},
+  });
 
   // Invalid blockSize option type
   EXPECT_THAT(Compressor::FromJson({{"type", "bzip2"}, {"blockSize", "x"}}),
@@ -89,11 +81,12 @@ TEST(Bzip2CompressionTest, Golden) {
   };
 
   std::string encoded_data(std::begin(kData), std::end(kData));
-  auto metadata = N5Metadata::Parse({{"dimensions", {10, 11, 12}},
-                                     {"blockSize", {1, 2, 3}},
-                                     {"dataType", "uint16"},
-                                     {"compression", {{"type", "bzip2"}}}})
-                      .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto metadata,
+      N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
+                            {"blockSize", {1, 2, 3}},
+                            {"dataType", "uint16"},
+                            {"compression", {{"type", "bzip2"}}}}));
   auto array = MakeArray<std::uint16_t>({{{1, 3, 5}, {2, 4, 6}}});
   EXPECT_EQ(array, DecodeChunk(metadata, absl::Cord(encoded_data)));
 

@@ -37,8 +37,8 @@ namespace json_binding {
 /// The special `DefaultBinder<>` (i.e. `DefaultBinder<void>`) value forwards to
 /// `DefaultBinder<T>` when called with an object of type `T`.
 template <typename T = void, typename SFINAE = void>
-constexpr inline auto DefaultBinder =
-    [](auto is_loading, const auto& options, auto* obj, auto* j) -> Status {
+constexpr inline auto DefaultBinder = [](auto is_loading, const auto& options,
+                                         auto* obj, auto* j) -> absl::Status {
   return T::default_json_binder(is_loading, options, obj, j);
 };
 
@@ -46,7 +46,7 @@ constexpr inline auto DefaultBinder =
 template <>
 constexpr inline auto DefaultBinder<void> = [](auto is_loading,
                                                const auto& options, auto* obj,
-                                               ::nlohmann::json* j) -> Status {
+                                               auto* j) -> absl::Status {
   using T = std::remove_cv_t<std::remove_pointer_t<decltype(obj)>>;
   return DefaultBinder<T>(is_loading, options, obj, j);
 };

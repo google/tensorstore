@@ -35,42 +35,22 @@ using tensorstore::internal_n5::DecodeChunk;
 using tensorstore::internal_n5::N5Metadata;
 
 TEST(GzipCompressionTest, Parse) {
-  // Parse without any options.
-  {
-    auto c = Compressor::FromJson({{"type", "gzip"}});
-    EXPECT_EQ(absl::OkStatus(), GetStatus(c));
-    EXPECT_EQ(
-        ::nlohmann::json({{"type", "gzip"}, {"level", -1}, {"useZlib", false}}),
-        ::nlohmann::json(*c));
-  }
-
-  // Parse with level option.
-  {
-    auto c = Compressor::FromJson({{"type", "gzip"}, {"level", 3}});
-    EXPECT_EQ(absl::OkStatus(), GetStatus(c));
-    EXPECT_EQ(
-        ::nlohmann::json({{"type", "gzip"}, {"level", 3}, {"useZlib", false}}),
-        ::nlohmann::json(*c));
-  }
-
-  // Parse with useZlib=true option.
-  {
-    auto c = Compressor::FromJson({{"type", "gzip"}, {"useZlib", true}});
-    EXPECT_EQ(absl::OkStatus(), GetStatus(c));
-    EXPECT_EQ(
-        ::nlohmann::json({{"type", "gzip"}, {"level", -1}, {"useZlib", true}}),
-        ::nlohmann::json(*c));
-  }
-
-  // Parse with level and useZlib options.
-  {
-    auto c = Compressor::FromJson(
-        {{"type", "gzip"}, {"level", 3}, {"useZlib", false}});
-    EXPECT_EQ(absl::OkStatus(), GetStatus(c));
-    EXPECT_EQ(
-        ::nlohmann::json({{"type", "gzip"}, {"level", 3}, {"useZlib", false}}),
-        ::nlohmann::json(*c));
-  }
+  tensorstore::TestJsonBinderRoundTripJsonOnlyInexact<Compressor>({
+      // Parse without any options.
+      {{{"type", "gzip"}},
+       {{"type", "gzip"}, {"level", -1}, {"useZlib", false}}},
+      // Parse with level option.
+      {{{"type", "gzip"}, {"level", 3}},
+       {{"type", "gzip"}, {"level", 3}, {"useZlib", false}}},
+      // Parse with useZlib=true option.
+      {{{"type", "gzip"}, {"useZlib", true}},
+       {{"type", "gzip"}, {"level", -1}, {"useZlib", true}}},
+      // Parse with level and useZlib options.
+      {
+          {{"type", "gzip"}, {"level", 3}, {"useZlib", false}},
+          {{"type", "gzip"}, {"level", 3}, {"useZlib", false}},
+      },
+  });
 
   // Invalid level option type
   EXPECT_THAT(Compressor::FromJson({{"type", "gzip"}, {"level", "x"}}),
@@ -111,11 +91,12 @@ TEST(GzipCompressionTest, Golden) {
   };
 
   std::string encoded_data(std::begin(kData), std::end(kData));
-  auto metadata = N5Metadata::Parse({{"dimensions", {10, 11, 12}},
-                                     {"blockSize", {1, 2, 3}},
-                                     {"dataType", "uint16"},
-                                     {"compression", {{"type", "gzip"}}}})
-                      .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto metadata,
+      N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
+                            {"blockSize", {1, 2, 3}},
+                            {"dataType", "uint16"},
+                            {"compression", {{"type", "gzip"}}}}));
   auto array = MakeArray<std::uint16_t>({{{1, 3, 5}, {2, 4, 6}}});
   EXPECT_EQ(array, DecodeChunk(metadata, absl::Cord(encoded_data)));
 

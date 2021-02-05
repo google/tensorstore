@@ -57,7 +57,12 @@ namespace internal_n5 {
 ///        * preset (integer, default 6).
 class N5Metadata {
  public:
-  DimensionIndex rank() const { return chunk_layout.rank(); }
+  // The following members are common to `N5Metadata` and
+  // `N5MetadataConstraints`, except that in `N5MetadataConstraints` some are
+  // `std::optional`-wrapped.
+
+  /// Length of `shape`, `axes` and `chunk_shape`.
+  DimensionIndex rank = dynamic_rank;
 
   /// Specifies the current shape of the full volume.
   std::vector<Index> shape;
@@ -67,30 +72,22 @@ class N5Metadata {
 
   /// Specifies the chunk size (corresponding to the `"blockSize"` attribute)
   /// and the in-memory layout of a full chunk (always C order).
-  StridedLayout<> chunk_layout;
-
-  DataType data_type;
+  std::vector<Index> chunk_shape;
 
   Compressor compressor;
+  DataType data_type;
 
-  /// Contains all attributes, including the `"dimensions"`, `"blockSize"`,
-  /// `"dataType"`, and `"compression"` attributes corresponding to the other
-  /// data members of this class.
-  ::nlohmann::json::object_t attributes;
+  /// Contains all additional attributes, excluding attributes parsed into the
+  /// data members above.
+  ::nlohmann::json::object_t extra_attributes;
 
-  /// Parses an N5 metadata JSON specification, i.e. the contents of the
-  /// `"attributes.json"` file for an N5 dataset.
-  ///
-  /// \param metadata[out] Non-null pointer set to the parsed metadata on
-  ///     success.
-  /// \error `absl::StatusCode::kInvalidArgument` if `j` is not valid.
-  static Result<N5Metadata> Parse(::nlohmann::json j);
+  // Derived members computed from `chunk_shape` and `data_type`:
 
-  friend void to_json(::nlohmann::json& out,  // NOLINT
-                      const N5Metadata& metadata) {
-    out = metadata.attributes;
-  }
+  StridedLayout<> chunk_layout;
 
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(N5Metadata,
+                                          internal::json_binding::NoOptions,
+                                          tensorstore::IncludeDefaults)
   std::string GetCompatibilityKey() const;
 };
 
@@ -98,19 +95,30 @@ class N5Metadata {
 /// "metadata" member in the DriverSpec.
 class N5MetadataConstraints {
  public:
+  // The following members are common to `N5Metadata` and
+  // `N5MetadataConstraints`, except that in `N5MetadataConstraints` some are
+  // `std::optional`-wrapped.
+
+  /// Length of `shape`, `axes` and `chunk_shape` if any are specified.  If none
+  /// are specified, equal to `dynamic_rank`.
+  DimensionIndex rank = dynamic_rank;
+
+  /// Specifies the current shape of the full volume.
   std::optional<std::vector<Index>> shape;
+
+  /// Specifies the dimension labels.
   std::optional<std::vector<std::string>> axes;
+
+  /// Specifies the chunk size (corresponding to the `"blockSize"` attribute)
+  /// and the in-memory layout of a full chunk (always C order).
   std::optional<std::vector<Index>> chunk_shape;
+
   std::optional<Compressor> compressor;
-  /// Specifies the data type, or may be invalid to indicate an unspecified data
-  /// type.
-  DataType data_type;
+  std::optional<DataType> data_type;
 
-  ::nlohmann::json::object_t attributes;
-
-  /// Parses a partial N5 metadata specification from a TensorStore open
-  /// specification.
-  static Result<N5MetadataConstraints> Parse(::nlohmann::json j);
+  /// Contains all additional attributes, excluding attributes parsed into the
+  /// data members above.
+  ::nlohmann::json::object_t extra_attributes;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(N5MetadataConstraints,
                                           internal::json_binding::NoOptions,

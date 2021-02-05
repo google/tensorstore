@@ -35,21 +35,12 @@ using tensorstore::internal_n5::DecodeChunk;
 using tensorstore::internal_n5::N5Metadata;
 
 TEST(XzCompressionTest, Parse) {
-  // Parse without any options.
-  {
-    auto c = Compressor::FromJson({{"type", "xz"}});
-    EXPECT_EQ(absl::OkStatus(), GetStatus(c));
-    EXPECT_EQ(::nlohmann::json({{"type", "xz"}, {"preset", 6}}),
-              ::nlohmann::json(*c));
-  }
-
-  // Parse with preset option.
-  {
-    auto c = Compressor::FromJson({{"type", "xz"}, {"preset", 3}});
-    EXPECT_EQ(absl::OkStatus(), GetStatus(c));
-    EXPECT_EQ(::nlohmann::json({{"type", "xz"}, {"preset", 3}}),
-              ::nlohmann::json(*c));
-  }
+  tensorstore::TestJsonBinderRoundTripJsonOnlyInexact<Compressor>({
+      // Parse without any options.
+      {{{"type", "xz"}}, {{"type", "xz"}, {"preset", 6}}},
+      // Parse with preset option.
+      {{{"type", "xz"}, {"preset", 3}}, {{"type", "xz"}, {"preset", 3}}},
+  });
 
   // Invalid preset option type
   EXPECT_THAT(Compressor::FromJson({{"type", "xz"}, {"preset", "x"}}),
@@ -95,11 +86,11 @@ TEST(XzCompressionTest, Golden) {
   };
 
   std::string encoded_data(std::begin(kData), std::end(kData));
-  auto metadata = N5Metadata::Parse({{"dimensions", {10, 11, 12}},
-                                     {"blockSize", {1, 2, 3}},
-                                     {"dataType", "uint16"},
-                                     {"compression", {{"type", "xz"}}}})
-                      .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto metadata, N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
+                                           {"blockSize", {1, 2, 3}},
+                                           {"dataType", "uint16"},
+                                           {"compression", {{"type", "xz"}}}}));
   auto array = MakeArray<std::uint16_t>({{{1, 3, 5}, {2, 4, 6}}});
   EXPECT_EQ(array, DecodeChunk(metadata, absl::Cord(encoded_data)));
 

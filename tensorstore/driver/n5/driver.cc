@@ -59,7 +59,8 @@ Result<std::shared_ptr<const N5Metadata>> ParseEncodedMetadata(
   if (raw_data.is_discarded()) {
     return absl::FailedPreconditionError("Invalid JSON");
   }
-  TENSORSTORE_ASSIGN_OR_RETURN(auto metadata, N5Metadata::Parse(raw_data));
+  TENSORSTORE_ASSIGN_OR_RETURN(auto metadata,
+                               N5Metadata::FromJson(std::move(raw_data)));
   return std::make_shared<N5Metadata>(std::move(metadata));
 }
 
@@ -139,7 +140,6 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
       if (new_size == kImplicit) continue;
       new_metadata->shape[i] = new_size;
     }
-    new_metadata->attributes["dimensions"] = new_metadata->shape;
     return new_metadata;
   }
 
@@ -149,14 +149,14 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
         internal::AllocateAndConstructSharedElements(1, value_init,
                                                      metadata.data_type),
         StridedLayout<>(metadata.chunk_layout.shape(),
-                        GetConstantVector<Index, 0>(metadata.rank())));
+                        GetConstantVector<Index, 0>(metadata.rank)));
     return internal::ChunkGridSpecification(
         {internal::ChunkGridSpecification::Component(std::move(fill_value),
                                                      // Since all dimensions are
                                                      // resizable, just specify
                                                      // unbounded
                                                      // `component_bounds`.
-                                                     Box<>(metadata.rank()))});
+                                                     Box<>(metadata.rank))});
   }
 
   Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
@@ -217,7 +217,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     constraints.axes = metadata.axes;
     constraints.data_type = metadata.data_type;
     constraints.compressor = metadata.compressor;
-    constraints.attributes = metadata.attributes;
+    constraints.extra_attributes = metadata.extra_attributes;
     constraints.chunk_shape =
         std::vector<Index>(metadata.chunk_layout.shape().begin(),
                            metadata.chunk_layout.shape().end());
@@ -257,17 +257,16 @@ class N5Driver
           jb::Validate(
               [](const auto& options, auto* obj) {
                 if (obj->data_type.valid()) {
-                  if (!tensorstore::IsPossiblySameDataType(
+                  if (obj->metadata_constraints.data_type &&
+                      !tensorstore::IsPossiblySameDataType(
                           obj->data_type,
-                          obj->metadata_constraints.data_type)) {
+                          *obj->metadata_constraints.data_type)) {
                     return absl::InvalidArgumentError(StrCat(
                         "Mismatch between data type in TensorStore Spec (",
                         obj->data_type, ") and \"metadata\" (",
-                        obj->metadata_constraints.data_type, ")"));
+                        *obj->metadata_constraints.data_type, ")"));
                   }
                   obj->metadata_constraints.data_type = obj->data_type;
-                  obj->metadata_constraints.attributes.emplace(
-                      "dataType", obj->data_type.name());
                 }
                 return absl::OkStatus();
               },

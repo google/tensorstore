@@ -2214,3 +2214,14 @@ tensorstore_cc_library(
         "//tensorstore:open_mode",
     ],
 )
+
+tensorstore_cc_library(
+    name = "dimension_indexed_json_binder",
+    hdrs = ["dimension_indexed_json_binder.h"],
+    deps = [
+        ":json",
+        "//tensorstore:rank",
+        "//tensorstore/index_space:index_transform",
+        "//tensorstore/util:status",
+    ],
+)

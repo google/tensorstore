@@ -22,12 +22,17 @@
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/container_to_shared.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
+#include "tensorstore/internal/data_type_json_binder.h"
+#include "tensorstore/internal/dimension_indexed_json_binder.h"
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/json.h"
+#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
 namespace internal_n5 {
+
+namespace jb = tensorstore::internal::json_binding;
 
 namespace {
 
@@ -38,66 +43,6 @@ constexpr std::array kSupportedDataTypes{
     DataTypeId::float64_t,
 };
 
-Status ParseIndexVector(const ::nlohmann::json& value,
-                        std::optional<DimensionIndex>* rank,
-                        std::vector<Index>* vec, Index min_value,
-                        Index max_value) {
-  return internal::JsonParseArray(
-      value,
-      [&](std::ptrdiff_t size) {
-        if (*rank) {
-          TENSORSTORE_RETURN_IF_ERROR(
-              internal::JsonValidateArrayLength(size, **rank));
-        } else {
-          TENSORSTORE_RETURN_IF_ERROR(ValidateRank(size));
-          *rank = size;
-        }
-        vec->resize(size);
-        return absl::OkStatus();
-      },
-      [&](const ::nlohmann::json& v, std::ptrdiff_t i) {
-        return internal::JsonRequireInteger<Index>(
-            v, &(*vec)[i], /*strict=*/true, min_value, max_value);
-      });
-}
-}  // namespace
-
-Status ParseChunkShape(const ::nlohmann::json& value,
-                       std::optional<DimensionIndex>* rank,
-                       std::vector<Index>* shape) {
-  return ParseIndexVector(
-      value, rank, shape, /*min_value=*/1,
-      /*max_value=*/std::numeric_limits<std::uint32_t>::max());
-}
-
-Status ParseShape(const ::nlohmann::json& value,
-                  std::optional<DimensionIndex>* rank,
-                  std::vector<Index>* shape) {
-  return ParseIndexVector(value, rank, shape, /*min_value=*/0, kInfIndex);
-}
-
-Status ParseAxes(const ::nlohmann::json& value,
-                 std::optional<DimensionIndex>* rank,
-                 std::vector<std::string>* axes) {
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonParseArray(
-      value,
-      [&](std::ptrdiff_t size) {
-        if (*rank) {
-          TENSORSTORE_RETURN_IF_ERROR(
-              internal::JsonValidateArrayLength(size, **rank));
-        } else {
-          TENSORSTORE_RETURN_IF_ERROR(ValidateRank(size));
-          *rank = size;
-        }
-        axes->resize(size);
-        return absl::OkStatus();
-      },
-      [&](const ::nlohmann::json& v, std::ptrdiff_t i) {
-        return internal::JsonRequireValueAs(v, &(*axes)[i], /*strict=*/true);
-      }));
-  return internal_index_space::ValidateLabelsAreUnique(*axes);
-}
-
 std::string GetSupportedDataTypes() {
   return absl::StrJoin(
       kSupportedDataTypes, ", ", [](std::string* out, DataTypeId id) {
@@ -105,51 +50,7 @@ std::string GetSupportedDataTypes() {
       });
 }
 
-Status ParseDataType(const ::nlohmann::json& value, DataType* data_type) {
-  std::string s;
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireValueAs(value, &s));
-  auto x = GetDataType(s);
-  if (!x.valid() || !absl::c_linear_search(kSupportedDataTypes, x.id())) {
-    return absl::InvalidArgumentError(StrCat(
-        QuoteString(s),
-        " is not one of the supported data types: ", GetSupportedDataTypes()));
-  }
-  *data_type = x;
-  return absl::OkStatus();
-}
-
-Result<N5Metadata> N5Metadata::Parse(::nlohmann::json j) {
-  std::optional<DimensionIndex> rank;
-  N5Metadata metadata;
-  if (auto* obj = j.get_ptr<::nlohmann::json::object_t*>()) {
-    metadata.attributes = std::move(*obj);
-  } else {
-    return internal_json::ExpectedError(j, "object");
-  }
-  std::vector<Index> chunk_shape;
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireObjectMember(
-      metadata.attributes, "dimensions", [&](const ::nlohmann::json& value) {
-        return ParseShape(value, &rank, &metadata.shape);
-      }));
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireObjectMember(
-      metadata.attributes, "blockSize", [&](const ::nlohmann::json& value) {
-        return ParseChunkShape(value, &rank, &chunk_shape);
-      }));
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireObjectMember(
-      metadata.attributes, "dataType", [&](const ::nlohmann::json& value) {
-        return ParseDataType(value, &metadata.data_type);
-      }));
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireObjectMember(
-      metadata.attributes, "compression", [&](const ::nlohmann::json& value) {
-        TENSORSTORE_ASSIGN_OR_RETURN(metadata.compressor,
-                                     Compressor::FromJson(value));
-        return absl::OkStatus();
-      }));
-  metadata.axes.resize(*rank);
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
-      metadata.attributes, "axes", [&](const ::nlohmann::json& value) {
-        return ParseAxes(value, &rank, &metadata.axes);
-      }));
+absl::Status ValidateMetadata(N5Metadata& metadata) {
   // Per the specification:
   // https://github.com/saalfeldlab/n5#file-system-specification-version-203-snapshot
   //
@@ -159,15 +60,49 @@ Result<N5Metadata> N5Metadata::Parse(::nlohmann::json j) {
   // to the uncompressed data.
   const Index max_num_elements =
       (static_cast<std::size_t>(1) << 31) / metadata.data_type.size();
-  if (ProductOfExtents(span(chunk_shape)) > max_num_elements) {
-    return absl::InvalidArgumentError(
-        StrCat("\"blockSize\" of ", span(chunk_shape), " with data type of ",
-               metadata.data_type, " exceeds maximum chunk size of 2GB"));
+  if (ProductOfExtents(span(metadata.chunk_shape)) > max_num_elements) {
+    return absl::InvalidArgumentError(StrCat(
+        "\"blockSize\" of ", span(metadata.chunk_shape), " with data type of ",
+        metadata.data_type, " exceeds maximum chunk size of 2GB"));
   }
   InitializeContiguousLayout(fortran_order, metadata.data_type.size(),
-                             chunk_shape, &metadata.chunk_layout);
-  return metadata;
+                             metadata.chunk_shape, &metadata.chunk_layout);
+  return absl::OkStatus();
 }
+
+constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
+  return [=](auto is_loading, const auto& options, auto* obj, auto* j) {
+    using T = internal::remove_cvref_t<decltype(*obj)>;
+    DimensionIndex* rank = nullptr;
+    if constexpr (is_loading) {
+      rank = &obj->rank;
+    }
+    return jb::Object(
+        jb::Member(
+            "dimensions",
+            jb::Projection(&T::shape, maybe_optional(jb::ShapeVector(rank)))),
+        jb::Member("blockSize",
+                   jb::Projection(&T::chunk_shape,
+                                  maybe_optional(jb::ChunkShapeVector(rank)))),
+        jb::Member("dataType",
+                   jb::Projection(&T::data_type,
+                                  maybe_optional(jb::Validate(
+                                      [](const auto& options, auto* obj) {
+                                        if (!obj->valid()) {
+                                          return absl::OkStatus();
+                                        }
+                                        return ValidateDataType(*obj);
+                                      },
+                                      jb::DataTypeJsonBinder)))),
+        jb::Member("compression", jb::Projection(&T::compressor)),
+        jb::Member("axes", jb::Projection(
+                               &T::axes,
+                               maybe_optional(jb::DimensionLabelVector(rank)))),
+        jb::Projection(&T::extra_attributes))(is_loading, options, obj, j);
+  };
+};
+
+}  // namespace
 
 std::string N5Metadata::GetCompatibilityKey() const {
   ::nlohmann::json::object_t obj;
@@ -179,53 +114,15 @@ std::string N5Metadata::GetCompatibilityKey() const {
   return ::nlohmann::json(obj).dump();
 }
 
-Result<N5MetadataConstraints> N5MetadataConstraints::Parse(::nlohmann::json j) {
-  std::optional<DimensionIndex> rank;
-  N5MetadataConstraints metadata;
-  if (auto* obj = j.get_ptr<::nlohmann::json::object_t*>()) {
-    metadata.attributes = std::move(*obj);
-  } else {
-    return internal_json::ExpectedError(j, "object");
-  }
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
-      metadata.attributes, "dimensions", [&](const ::nlohmann::json& value) {
-        return ParseShape(value, &rank, &metadata.shape.emplace());
-      }));
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
-      metadata.attributes, "blockSize", [&](const ::nlohmann::json& value) {
-        return ParseChunkShape(value, &rank, &metadata.chunk_shape.emplace());
-      }));
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
-      metadata.attributes, "dataType", [&](const ::nlohmann::json& value) {
-        return ParseDataType(value, &metadata.data_type);
-      }));
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
-      metadata.attributes, "compression", [&](const ::nlohmann::json& value) {
-        TENSORSTORE_ASSIGN_OR_RETURN(metadata.compressor,
-                                     Compressor::FromJson(value));
-        return absl::OkStatus();
-      }));
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
-      metadata.attributes, "axes", [&](const ::nlohmann::json& value) {
-        return ParseAxes(value, &rank, &metadata.axes.emplace());
-      }));
-  return metadata;
-}
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
+    N5Metadata, jb::Validate([](const auto& options,
+                                auto* obj) { return ValidateMetadata(*obj); },
+                             MetadataJsonBinder(internal::identity{})))
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(N5MetadataConstraints,
-                                       [](auto is_loading, const auto& options,
-                                          auto* obj, auto* j) {
-                                         if constexpr (is_loading) {
-                                           // TODO(jbms): Convert this to use
-                                           // JSON binding framework for
-                                           // parsing.
-                                           TENSORSTORE_ASSIGN_OR_RETURN(
-                                               *obj, Parse(*j));
-                                         } else {
-                                           *j = obj->attributes;
-                                         }
-                                         return absl::OkStatus();
-                                       })
+                                       MetadataJsonBinder([](auto binder) {
+                                         return jb::Optional(binder);
+                                       }))
 
 std::size_t GetChunkHeaderSize(const N5Metadata& metadata) {
   // Per the specification:
@@ -242,10 +139,10 @@ std::size_t GetChunkHeaderSize(const N5Metadata& metadata) {
   //    * [ mode == varlength ? number of elements (uint32 big endian) ]
   //
   //    * compressed data (big endian)
-  return                                        //
-      2 +                                       // mode
-      2 +                                       // number of dimensions
-      sizeof(std::uint32_t) * metadata.rank();  // dimensions
+  return                                      //
+      2 +                                     // mode
+      2 +                                     // number of dimensions
+      sizeof(std::uint32_t) * metadata.rank;  // dimensions
 }
 
 Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
@@ -275,13 +172,13 @@ Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
           StrCat("Unexpected N5 chunk mode: ", mode));
   }
   std::uint16_t num_dims = absl::big_endian::Load16(header.data() + 2);
-  if (num_dims != metadata.rank()) {
+  if (num_dims != metadata.rank) {
     return absl::InvalidArgumentError(StrCat("Received chunk with ", num_dims,
                                              " dimensions but expected ",
-                                             metadata.rank()));
+                                             metadata.rank));
   }
   Array<const void, dynamic_rank(internal::kNumInlinedDims)> encoded_array;
-  encoded_array.layout().set_rank(metadata.rank());
+  encoded_array.layout().set_rank(metadata.rank);
   for (DimensionIndex i = 0; i < num_dims; ++i) {
     encoded_array.shape()[i] =
         absl::big_endian::Load32(header.data() + 4 + i * 4);
@@ -363,7 +260,7 @@ Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
   internal::FlatCordBuilder header(GetChunkHeaderSize(metadata));
   // Write header
   absl::big_endian::Store16(header.data(), 0);  // mode: 0x0 = default
-  const DimensionIndex rank = metadata.rank();
+  const DimensionIndex rank = metadata.rank;
   absl::big_endian::Store16(header.data() + 2, rank);
   for (DimensionIndex i = 0; i < rank; ++i) {
     absl::big_endian::Store32(header.data() + 4 + i * 4,
@@ -394,11 +291,10 @@ Status ValidateMetadata(const N5Metadata& metadata,
   if (constraints.chunk_shape &&
       !absl::c_equal(metadata.chunk_layout.shape(), *constraints.chunk_shape)) {
     return MetadataMismatchError("blockSize", *constraints.chunk_shape,
-                                 metadata.attributes.at("blockSize"));
+                                 metadata.chunk_shape);
   }
-  if (constraints.data_type.valid() &&
-      constraints.data_type != metadata.data_type) {
-    return MetadataMismatchError("dataType", constraints.data_type.name(),
+  if (constraints.data_type && *constraints.data_type != metadata.data_type) {
+    return MetadataMismatchError("dataType", constraints.data_type->name(),
                                  metadata.data_type.name());
   }
   if (constraints.compressor && ::nlohmann::json(*constraints.compressor) !=
@@ -417,26 +313,25 @@ Result<std::shared_ptr<const N5Metadata>> GetNewMetadata(
   if (!metadata_constraints.chunk_shape) {
     return absl::InvalidArgumentError("\"blockSize\" must be specified");
   }
-  if (!metadata_constraints.data_type.valid()) {
+  if (!metadata_constraints.data_type) {
     return absl::InvalidArgumentError("\"dataType\" must be specified");
   }
   if (!metadata_constraints.compressor) {
     return absl::InvalidArgumentError("\"compression\" must be specified");
   }
   auto metadata = std::make_shared<N5Metadata>();
-  metadata->attributes = metadata_constraints.attributes;
+  metadata->rank = metadata_constraints.rank;
+  metadata->extra_attributes = metadata_constraints.extra_attributes;
   metadata->shape = *metadata_constraints.shape;
+  metadata->chunk_shape = *metadata_constraints.chunk_shape;
+  metadata->data_type = *metadata_constraints.data_type;
+  metadata->compressor = *metadata_constraints.compressor;
   if (metadata_constraints.axes) {
     metadata->axes = *metadata_constraints.axes;
   } else {
     metadata->axes.resize(metadata->shape.size());
   }
-
-  InitializeContiguousLayout(
-      fortran_order, metadata_constraints.data_type.size(),
-      *metadata_constraints.chunk_shape, &metadata->chunk_layout);
-  metadata->data_type = metadata_constraints.data_type;
-  metadata->compressor = *metadata_constraints.compressor;
+  TENSORSTORE_RETURN_IF_ERROR(ValidateMetadata(*metadata));
   return metadata;
 }
 

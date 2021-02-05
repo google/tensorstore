@@ -745,7 +745,8 @@ TEST(N5DriverTest, OpenInvalidMetadata) {
         MatchesStatus(absl::StatusCode::kFailedPrecondition,
                       "Error opening \"n5\" driver: "
                       "Error reading \"prefix/attributes.json\": "
-                      "Missing object member \"dimensions\""));
+                      "Error parsing object member \"dimensions\": "
+                      "Expected array, but member is missing"));
   }
 }
 

@@ -44,9 +44,7 @@ TEST(BloscCompressionTest, Parse) {
                              {"shuffle", shuffle},
                              {"clevel", level},
                              {"blocksize", blocksize}};
-          auto c = Compressor::FromJson(j);
-          EXPECT_EQ(absl::OkStatus(), GetStatus(c));
-          EXPECT_EQ(j, ::nlohmann::json(*c));
+          tensorstore::TestJsonBinderRoundTripJsonOnly<Compressor>({j});
         }
       }
     }
@@ -113,15 +111,15 @@ TEST(BloscCompressionTest, Parse) {
 }
 
 TEST(BloscCompressionTest, RoundTrip) {
-  auto metadata = N5Metadata::Parse({{"dimensions", {10, 11, 12}},
-                                     {"blockSize", {1, 2, 3}},
-                                     {"dataType", "uint16"},
-                                     {"compression",
-                                      {{"type", "blosc"},
-                                       {"cname", "lz4"},
-                                       {"clevel", 5},
-                                       {"shuffle", 0}}}})
-                      .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto metadata, N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
+                                           {"blockSize", {1, 2, 3}},
+                                           {"dataType", "uint16"},
+                                           {"compression",
+                                            {{"type", "blosc"},
+                                             {"cname", "lz4"},
+                                             {"clevel", 5},
+                                             {"shuffle", 0}}}}));
   auto array = MakeArray<std::uint16_t>({{{1, 2, 3}, {4, 5, 6}}});
 
   // Verify round trip.
@@ -147,20 +145,20 @@ TEST(BloscCompressionTest, Golden) {
   };
 
   std::string encoded_data(std::begin(kData), std::end(kData));
-  auto metadata = N5Metadata::Parse({
-                                        {"dimensions", {10, 11, 12}},
-                                        {"blockSize", {1, 2, 3}},
-                                        {"dataType", "uint16"},
-                                        {"compression",
-                                         {
-                                             {"type", "blosc"},
-                                             {"clevel", 3},
-                                             {"blocksize", 0},
-                                             {"cname", "zstd"},
-                                             {"shuffle", 2},
-                                         }},
-                                    })
-                      .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   N5Metadata::FromJson({
+                                       {"dimensions", {10, 11, 12}},
+                                       {"blockSize", {1, 2, 3}},
+                                       {"dataType", "uint16"},
+                                       {"compression",
+                                        {
+                                            {"type", "blosc"},
+                                            {"clevel", 3},
+                                            {"blocksize", 0},
+                                            {"cname", "zstd"},
+                                            {"shuffle", 2},
+                                        }},
+                                   }));
   auto array = MakeArray<std::uint16_t>({{{1, 3, 5}, {2, 4, 6}}});
   EXPECT_EQ(array, DecodeChunk(metadata, absl::Cord(encoded_data)));
 

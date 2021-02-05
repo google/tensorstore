@@ -30,6 +30,7 @@ using tensorstore::ArrayView;
 using tensorstore::fortran_order;
 using tensorstore::Index;
 using tensorstore::MakeArray;
+using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
 using tensorstore::span;
 using tensorstore::StridedLayout;
@@ -42,14 +43,15 @@ TEST(MetadataTest, ParseValid) {
       {"blockSize", {1, 2, 3}},           {"dataType", "uint16"},
       {"compression", {{"type", "raw"}}}, {"extra", "value"},
   };
-  auto metadata = N5Metadata::Parse(attributes);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(metadata));
-  EXPECT_THAT(metadata->shape, ::testing::ElementsAre(10, 11, 12));
-  EXPECT_THAT(metadata->data_type, tensorstore::DataTypeOf<std::uint16_t>());
-  EXPECT_THAT(metadata->axes, ::testing::ElementsAre("a", "", ""));
-  EXPECT_EQ(attributes, metadata->attributes);
-  EXPECT_EQ(attributes["compression"], ::nlohmann::json(metadata->compressor));
-  EXPECT_EQ(StridedLayout(fortran_order, 2, {1, 2, 3}), metadata->chunk_layout);
+  tensorstore::TestJsonBinderRoundTripJsonOnly<N5Metadata>({attributes});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   N5Metadata::FromJson(attributes));
+  EXPECT_THAT(metadata.shape, ::testing::ElementsAre(10, 11, 12));
+  EXPECT_THAT(metadata.data_type, tensorstore::DataTypeOf<std::uint16_t>());
+  EXPECT_THAT(metadata.axes, ::testing::ElementsAre("a", "", ""));
+  EXPECT_THAT(metadata.extra_attributes, MatchesJson({{"extra", "value"}}));
+  EXPECT_THAT(metadata.chunk_layout,
+              StridedLayout(fortran_order, 2, {1, 2, 3}));
 }
 
 TEST(MetadataTest, ParseValidNoAxes) {
@@ -59,115 +61,117 @@ TEST(MetadataTest, ParseValidNoAxes) {
       {"dataType", "uint16"},
       {"compression", {{"type", "raw"}}},
   };
-  auto metadata = N5Metadata::Parse(attributes);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(metadata));
-  EXPECT_THAT(metadata->shape, ::testing::ElementsAre(10, 11, 12));
-  EXPECT_THAT(metadata->data_type, tensorstore::DataTypeOf<std::uint16_t>());
-  EXPECT_THAT(metadata->axes, ::testing::ElementsAre("", "", ""));
-  EXPECT_EQ(attributes, metadata->attributes);
-  EXPECT_EQ(attributes["compression"], ::nlohmann::json(metadata->compressor));
-  EXPECT_EQ(StridedLayout(fortran_order, 2, {1, 2, 3}), metadata->chunk_layout);
+  tensorstore::TestJsonBinderRoundTripJsonOnly<N5Metadata>({attributes});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   N5Metadata::FromJson(attributes));
+  EXPECT_THAT(metadata.shape, ::testing::ElementsAre(10, 11, 12));
+  EXPECT_THAT(metadata.data_type, tensorstore::DataTypeOf<std::uint16_t>());
+  EXPECT_THAT(metadata.axes, ::testing::ElementsAre("", "", ""));
+  EXPECT_THAT(metadata.extra_attributes,
+              MatchesJson(::nlohmann::json::object_t()));
+  EXPECT_THAT(metadata.chunk_layout,
+              StridedLayout(fortran_order, 2, {1, 2, 3}));
 }
 
 TEST(MetadataTest, ParseMissingDimensions) {
-  EXPECT_THAT(N5Metadata::Parse({{"blockSize", {1, 2, 3}},
-                                 {"dataType", "uint16"},
-                                 {"compression", {{"type", "raw"}}}}),
+  EXPECT_THAT(N5Metadata::FromJson({{"blockSize", {1, 2, 3}},
+                                    {"dataType", "uint16"},
+                                    {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MetadataTest, ParseMissingBlockSize) {
-  EXPECT_THAT(N5Metadata::Parse({{"dimensions", {10, 11, 12}},
-                                 {"dataType", "uint16"},
-                                 {"compression", {{"type", "raw"}}}}),
+  EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
+                                    {"dataType", "uint16"},
+                                    {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MetadataTest, ParseMissingDataType) {
-  EXPECT_THAT(N5Metadata::Parse({{"dimensions", {10, 11, 12}},
-                                 {"blockSize", {1, 2, 3}},
-                                 {"compression", {{"type", "raw"}}}}),
+  EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
+                                    {"blockSize", {1, 2, 3}},
+                                    {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MetadataTest, ParseInvalidDataType) {
-  EXPECT_THAT(N5Metadata::Parse({{"dimensions", {10, 11, 12}},
-                                 {"blockSize", {1, 2, 3}},
-                                 {"dataType", 10},
-                                 {"compression", {{"type", "raw"}}}}),
+  EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
+                                    {"blockSize", {1, 2, 3}},
+                                    {"dataType", 10},
+                                    {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(N5Metadata::Parse({{"dimensions", {10, 11, 12}},
-                                 {"blockSize", {1, 2, 3}},
-                                 {"dataType", "string"},
-                                 {"compression", {{"type", "raw"}}}}),
+  EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
+                                    {"blockSize", {1, 2, 3}},
+                                    {"dataType", "string"},
+                                    {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MetadataTest, ParseMissingCompression) {
-  EXPECT_THAT(N5Metadata::Parse({{"dimensions", {10, 11, 12}},
-                                 {"blockSize", {1, 2, 3}},
-                                 {"dataType", "uint16"}}),
+  EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
+                                    {"blockSize", {1, 2, 3}},
+                                    {"dataType", "uint16"}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MetadataTest, ParseInvalidCompression) {
-  EXPECT_THAT(N5Metadata::Parse({{"dimensions", {10, 11, 12}},
-                                 {"blockSize", {1, 2, 3}},
-                                 {"dataType", "uint16"},
-                                 {"compression", 3}}),
+  EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
+                                    {"blockSize", {1, 2, 3}},
+                                    {"dataType", "uint16"},
+                                    {"compression", 3}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MetadataTest, ParseInvalidDimensions) {
   // Exceeds rank.
   EXPECT_THAT(
-      N5Metadata::Parse({{"dimensions", ::nlohmann::json::array_t(33, 10)},
-                         {"blockSize", ::nlohmann::json::array_t(33, 1)},
-                         {"dataType", "uint16"},
-                         {"compression", {{"type", "raw"}}}}),
+      N5Metadata::FromJson({{"dimensions", ::nlohmann::json::array_t(33, 10)},
+                            {"blockSize", ::nlohmann::json::array_t(33, 1)},
+                            {"dataType", "uint16"},
+                            {"compression", {{"type", "raw"}}}}),
       MatchesStatus(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(N5Metadata::Parse({{"dimensions", "x"},
-                                 {"blockSize", {1, 2, 3}},
-                                 {"dataType", "uint16"},
-                                 {"compression", {{"type", "raw"}}}}),
+  EXPECT_THAT(N5Metadata::FromJson({{"dimensions", "x"},
+                                    {"blockSize", {1, 2, 3}},
+                                    {"dataType", "uint16"},
+                                    {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(N5Metadata::Parse({{"dimensions", {"x"}},
-                                 {"blockSize", {1, 2, 3}},
-                                 {"dataType", "uint16"},
-                                 {"compression", {{"type", "raw"}}}}),
+  EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {"x"}},
+                                    {"blockSize", {1, 2, 3}},
+                                    {"dataType", "uint16"},
+                                    {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(N5Metadata::Parse({{"dimensions", {-1, 10, 11}},
-                                 {"blockSize", {1, 2, 3}},
-                                 {"dataType", "uint16"},
-                                 {"compression", {{"type", "raw"}}}}),
+  EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {-1, 10, 11}},
+                                    {"blockSize", {1, 2, 3}},
+                                    {"dataType", "uint16"},
+                                    {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MetadataTest, ParseInvalidBlockSize) {
-  EXPECT_THAT(N5Metadata::Parse({{"dimensions", {10, 11, 12}},
-                                 {"blockSize", "x"},
-                                 {"dataType", "uint16"},
-                                 {"compression", {{"type", "raw"}}}}),
+  EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
+                                    {"blockSize", "x"},
+                                    {"dataType", "uint16"},
+                                    {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(N5Metadata::Parse({{"dimensions", {10, 11, 12}},
-                                 {"blockSize", {"x"}},
-                                 {"dataType", "uint16"},
-                                 {"compression", {{"type", "raw"}}}}),
+  EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
+                                    {"blockSize", {"x"}},
+                                    {"dataType", "uint16"},
+                                    {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(N5Metadata::Parse({{"dimensions", {10, 11, 12}},
-                                 {"blockSize", {1, 0, 3}},
-                                 {"dataType", "uint16"},
-                                 {"compression", {{"type", "raw"}}}}),
+  EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
+                                    {"blockSize", {1, 0, 3}},
+                                    {"dataType", "uint16"},
+                                    {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(N5Metadata::Parse({{"dimensions", {10, 11, 12}},
-                                 {"blockSize", {1, 2, 0xFFFFFFFF}},
-                                 {"dataType", "uint16"},
-                                 {"compression", {{"type", "raw"}}}}),
+  EXPECT_THAT(N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
+                                    {"blockSize", {1, 2, 0xFFFFFFFF}},
+                                    {"dataType", "uint16"},
+                                    {"compression", {{"type", "raw"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MetadataTest, ParseInvalidAxes) {
-  EXPECT_THAT(N5Metadata::Parse({
+  EXPECT_THAT(N5Metadata::FromJson({
                   {"dimensions", {10, 11, 12}},
                   {"axes", {"a", "b", "c", "d"}},
                   {"blockSize", {1, 2, 3}},
@@ -179,7 +183,7 @@ TEST(MetadataTest, ParseInvalidAxes) {
                   ".* \"axes\": Array has length 4 but should have length 3"));
 
   EXPECT_THAT(
-      N5Metadata::Parse({
+      N5Metadata::FromJson({
           {"dimensions", {10, 11, 12}},
           {"axes", {"a", "a", ""}},
           {"blockSize", {1, 2, 3}},
@@ -202,9 +206,9 @@ TEST(MetadataTest, DataTypes) {
                                 {"blockSize", {1, 2, 3}},
                                 {"dataType", data_type_name},
                                 {"compression", {{"type", "raw"}}}};
-    auto metadata = N5Metadata::Parse(attributes);
-    ASSERT_EQ(absl::OkStatus(), GetStatus(metadata));
-    EXPECT_EQ(tensorstore::GetDataType(data_type_name), metadata->data_type);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                     N5Metadata::FromJson(attributes));
+    EXPECT_EQ(tensorstore::GetDataType(data_type_name), metadata.data_type);
   }
 }
 
@@ -225,11 +229,12 @@ TEST(RawCompressionTest, Golden) {
       0x00, 0x06,              //
   };
   std::string encoded_data(std::begin(kData), std::end(kData));
-  auto metadata = N5Metadata::Parse({{"dimensions", {10, 11, 12}},
-                                     {"blockSize", {1, 2, 3}},
-                                     {"dataType", "uint16"},
-                                     {"compression", {{"type", "raw"}}}})
-                      .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto metadata,
+      N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
+                            {"blockSize", {1, 2, 3}},
+                            {"dataType", "uint16"},
+                            {"compression", {{"type", "raw"}}}}));
   auto array = MakeArray<std::uint16_t>({{{1, 3, 5}, {2, 4, 6}}});
   EXPECT_EQ(array, DecodeChunk(metadata, absl::Cord(encoded_data)));
   {
@@ -280,11 +285,12 @@ TEST(RawCompressionTest, PartialChunk) {
       0x00, 0x04,              //
   };
   std::string encoded_data(std::begin(kData), std::end(kData));
-  auto metadata = N5Metadata::Parse({{"dimensions", {10, 11, 12}},
-                                     {"blockSize", {1, 2, 3}},
-                                     {"dataType", "uint16"},
-                                     {"compression", {{"type", "raw"}}}})
-                      .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto metadata,
+      N5Metadata::FromJson({{"dimensions", {10, 11, 12}},
+                            {"blockSize", {1, 2, 3}},
+                            {"dataType", "uint16"},
+                            {"compression", {{"type", "raw"}}}}));
   auto array = MakeArray<std::uint16_t>({{{1, 3, 0}, {2, 4, 0}}});
   EXPECT_EQ(array, DecodeChunk(metadata, absl::Cord(encoded_data)));
 }
