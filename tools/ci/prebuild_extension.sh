@@ -29,3 +29,7 @@ root_dir="${script_dir}/../.."
 prebuilt_dir="$TENSORSTORE_PREBUILT_DIR"
 
 TENSORSTORE_PREBUILT_DIR="" python -u setup.py build_ext -b "${prebuilt_dir}"
+
+# Remove bazel symlinks.  Otherwise, on Windows `pip wheel` wastes a
+# lot of time copying the fully bazel output trees.
+rm bazel-*
