@@ -25,8 +25,8 @@
 
 namespace tensorstore {
 namespace internal {
-Result<Driver::ReadWriteHandle> MakeCastDriver(
-    Driver::ReadWriteHandle base, DataType target_data_type,
+Result<Driver::Handle> MakeCastDriver(
+    Driver::Handle base, DataType target_data_type,
     ReadWriteMode read_write_mode = ReadWriteMode::dynamic);
 
 /// Determines the compile-time read/write mode that results from a cast

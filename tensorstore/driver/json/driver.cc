@@ -214,7 +214,7 @@ class JsonDriver
     return absl::OkStatus();
   }
 
-  static Future<internal::Driver::ReadWriteHandle> Open(
+  static Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
       internal::RegisteredDriverOpener<BoundSpecData> spec,
       ReadWriteMode read_write_mode);
@@ -242,7 +242,7 @@ class JsonDriver
   std::string json_pointer_;
 };
 
-Future<internal::Driver::ReadWriteHandle> JsonDriver::Open(
+Future<internal::Driver::Handle> JsonDriver::Open(
     internal::OpenTransactionPtr transaction,
     internal::RegisteredDriverOpener<BoundSpecData> spec,
     ReadWriteMode read_write_mode) {
@@ -270,16 +270,14 @@ Future<internal::Driver::ReadWriteHandle> JsonDriver::Open(
             },
             initialize_promise, spec->store->Open());
       });
-  internal::Driver::PtrT<JsonDriver> driver(new JsonDriver);
+  internal::Driver::PtrT<JsonDriver> driver(new JsonDriver, read_write_mode);
   driver->cache_entry_ = GetCacheEntry(cache, spec->path);
   driver->json_pointer_ = spec->json_pointer;
   driver->data_staleness_ = spec->data_staleness.BoundAtOpen(request_time);
-  return PromiseFuturePair<internal::Driver::ReadWriteHandle>::LinkError(
-             internal::Driver::ReadWriteHandle{
-                 {std::move(driver), IdentityTransform(0),
-                  internal::TransactionState::ToTransaction(
-                      std::move(transaction))},
-                 read_write_mode},
+  return PromiseFuturePair<internal::Driver::Handle>::LinkError(
+             internal::Driver::Handle{std::move(driver), IdentityTransform(0),
+                                      internal::TransactionState::ToTransaction(
+                                          std::move(transaction))},
              cache->initialized_)
       .future;
 }

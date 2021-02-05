@@ -235,7 +235,8 @@ std::vector<Index> ParseKey(absl::string_view key) {
 Driver::Ptr MakeDriver(CachePtr<ChunkCache> cache, size_t component_index = 0,
                        StalenessBound data_staleness = {}) {
   return Driver::Ptr(
-      new ChunkCacheDriver(cache, component_index, data_staleness));
+      new ChunkCacheDriver(cache, component_index, data_staleness),
+      tensorstore::ReadWriteMode::read_write);
 }
 
 class ChunkCacheTest : public ::testing::Test {
@@ -291,12 +292,11 @@ class ChunkCacheTest : public ::testing::Test {
                                Transaction transaction = no_transaction) {
     if (!cache) cache = MakeChunkCache();
     return tensorstore::internal::TensorStoreAccess::Construct<TensorStore<>>(
-        tensorstore::internal::DriverReadWriteHandle{
-            {MakeDriver(cache, component_index, data_staleness),
-             tensorstore::IdentityTransform(
-                 grid->components[component_index].rank()),
-             transaction},
-            tensorstore::ReadWriteMode::read_write});
+        tensorstore::internal::Driver::Handle{
+            MakeDriver(cache, component_index, data_staleness),
+            tensorstore::IdentityTransform(
+                grid->components[component_index].rank()),
+            transaction});
   }
 };
 

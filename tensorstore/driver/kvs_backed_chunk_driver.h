@@ -658,7 +658,7 @@ class OpenState : public internal::AtomicReferenceCount<OpenState>,
 ///    newly created `DataCache`.
 ///
 /// \param open_state Non-null pointer to open state.
-Future<internal::Driver::ReadWriteHandle> OpenDriver(OpenState::Ptr open_state);
+Future<internal::Driver::Handle> OpenDriver(OpenState::Ptr open_state);
 
 /// CRTP base class for KeyValueStore-backed driver implementations.
 ///
@@ -752,7 +752,7 @@ class RegisteredKvsDriver
   /// Implements the `Open` method required by `internal::RegisteredDriver` in
   /// terms of `internal_kvs_backed_chunk_driver::OpenDriver`.
   template <typename Spec>
-  static Future<internal::Driver::ReadWriteHandle> Open(
+  static Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
       internal::RegisteredDriverOpener<Spec> spec,
       ReadWriteMode read_write_mode) {

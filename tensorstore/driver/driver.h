@@ -61,6 +61,7 @@
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/progress.h"
+#include "tensorstore/read_write_options.h"
 #include "tensorstore/resize_options.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
@@ -71,16 +72,49 @@
 namespace tensorstore {
 namespace internal {
 
+struct ReadWritePtrTraits
+    : public tensorstore::internal::DefaultIntrusivePtrTraits {
+  template <typename U>
+  using pointer = TaggedPtr<U, 2>;
+};
+
+template <typename T>
+class ReadWritePtr : public IntrusivePtr<T, ReadWritePtrTraits> {
+  using Base = IntrusivePtr<T, ReadWritePtrTraits>;
+
+ public:
+  using Base::Base;
+  explicit ReadWritePtr(T* ptr, ReadWriteMode read_write_mode,
+                        acquire_object_ref_t = acquire_object_ref) noexcept
+      : Base({ptr, static_cast<uintptr_t>(read_write_mode)},
+             acquire_object_ref) {}
+  explicit ReadWritePtr(T* ptr, ReadWriteMode read_write_mode,
+                        adopt_object_ref_t) noexcept
+      : Base({ptr, static_cast<uintptr_t>(read_write_mode)}, adopt_object_ref) {
+  }
+  ReadWriteMode read_write_mode() const {
+    return static_cast<ReadWriteMode>(this->get().tag());
+  }
+  void set_read_write_mode(ReadWriteMode read_write_mode) {
+    *this = ReadWritePtr(this->release(), read_write_mode, adopt_object_ref);
+  }
+};
+
+template <typename T, typename U>
+inline ReadWritePtr<T> static_pointer_cast(ReadWritePtr<U> p) {
+  return ReadWritePtr<T>(static_pointer_cast<T>(p.release()), adopt_object_ref);
+}
+
 class Driver;
-using DriverPtr = IntrusivePtr<Driver>;
+
+using DriverPtr = ReadWritePtr<Driver>;
 
 class DriverSpec;
 using DriverSpecPtr = IntrusivePtr<DriverSpec>;
 
-/// Pairs a `Driver::Ptr` with an `IndexTransform<>` to apply to the driver and
-/// a transaction to use.
-struct TransformedDriver {
-  DriverPtr driver;
+template <typename Driver>
+struct HandleBase {
+  ReadWritePtr<Driver> driver;
 
   /// Transform to apply to `driver`.  Note that read and write operations do
   /// not use this transform directly, but rather use the transform obtained by
@@ -91,12 +125,9 @@ struct TransformedDriver {
   Transaction transaction{no_transaction};
 };
 
-/// Combines a TensorStore `Driver` with an `IndexTransform`, a `Transaction`,
-/// and `ReadWriteMode`.
-struct DriverReadWriteHandle : public TransformedDriver {
-  /// Specifies `ReadWriteMode::read`, `ReadWriteMode::write`, or both.
-  ReadWriteMode read_write_mode;
-};
+/// Pairs a `Driver::Ptr` with an `IndexTransform<>` to apply to the driver and
+/// a transaction to use.
+using DriverHandle = HandleBase<Driver>;
 
 /// Specifies rank and data type information.
 using DriverConstraints = ArrayConstraints;
@@ -166,17 +197,19 @@ class DriverSpec::Bound : public AtomicReferenceCount<DriverSpec::Bound> {
 
   /// Opens the driver.
   ///
-  /// In the resultant `DriverReadWriteHandle`, the `transform` specifies any
-  /// "intrinsic" transform implicit in the specification.  It will be composed
-  /// with the `IndexTransformSpec` specified in the `TransformedDriverSpec`.
+  /// In the resultant `DriverHandle`, the `transform` specifies any "intrinsic"
+  /// transform implicit in the specification.  It will be composed with the
+  /// `IndexTransformSpec` specified in the `TransformedDriverSpec`.
+  ///
+  /// If this is a multiscale spec, this opens the base resolution.
   ///
   /// \param transaction The transaction to use for opening, or `nullptr` to not
   ///     use a transaction.  If specified, the same transaction should be
-  ///     returned in the `DriverReadWriteHandle`.
+  ///     returned in the `DriverHandle`.
   /// \param read_write_mode Required mode, or `ReadWriteMode::dynamic` to
   ///     determine the allowed modes.
-  virtual Future<DriverReadWriteHandle> Open(
-      OpenTransactionPtr transaction, ReadWriteMode read_write_mode) const = 0;
+  virtual Future<DriverHandle> Open(OpenTransactionPtr transaction,
+                                    ReadWriteMode read_write_mode) const = 0;
 
   /// Returns a corresponding `DriverSpec`.
   ///
@@ -270,14 +303,12 @@ inline constexpr auto DefaultBinder<internal::TransformedDriverSpec<>> =
 class Driver : public AtomicReferenceCount<Driver> {
  public:
   template <typename T>
-  using PtrT = IntrusivePtr<T>;
-
+  using PtrT = ReadWritePtr<T>;
   using Ptr = PtrT<Driver>;
+  using Handle = DriverHandle;
 
   using Spec = DriverSpec;
   using BoundSpec = DriverSpec::Bound;
-
-  using ReadWriteHandle = DriverReadWriteHandle;
 
   /// Returns the element representation.
   virtual DataType data_type() = 0;
@@ -289,7 +320,7 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// TensorStore defined by this `Driver` and the specified `transform`.
   ///
   /// This is equivalent to chaining `Driver::GetBoundSpec`,
-  /// `DriverSpec::Bound::Unbind`, and `DriverSpec::Convert`.
+  /// `DriverSpec::Bound::Unbind`, and `TransformAndApplyOptions`.
   ///
   /// \param transaction The transaction to use.
   /// \param transform Transform from the domain exposed to the user to the
@@ -301,7 +332,7 @@ class Driver : public AtomicReferenceCount<Driver> {
   ///     recorded in the specified builder.  If not specified, required shared
   ///     context resources are recorded in the `Context::Spec` owned by the
   ///     returned `DriverSpec`.
-  virtual Result<TransformedDriverSpec<>> GetSpec(
+  Result<TransformedDriverSpec<>> GetSpec(
       internal::OpenTransactionPtr transaction, IndexTransformView<> transform,
       SpecOptions&& options, const ContextSpecBuilder& context_builder);
 
@@ -410,23 +441,22 @@ class Driver : public AtomicReferenceCount<Driver> {
 ///
 /// This simply chains `DriverSpec::Convert`, `DriverSpec::Bind`, and the
 /// `OpenDriver` overload defined below.
-Future<Driver::ReadWriteHandle> OpenDriver(OpenTransactionPtr transaction,
-                                           TransformedDriverSpec<> spec,
-                                           OpenOptions&& options);
+Future<DriverHandle> OpenDriver(OpenTransactionPtr transaction,
+                                TransformedDriverSpec<> spec,
+                                OpenOptions&& options);
 
-Future<Driver::ReadWriteHandle> OpenDriver(TransformedDriverSpec<> spec,
-                                           TransactionalOpenOptions&& options);
+Future<DriverHandle> OpenDriver(TransformedDriverSpec<> spec,
+                                TransactionalOpenOptions&& options);
 
 /// Opens a `TransformedDriverSpec<ContextBound>` using the specified
 /// `read_write_mode`.
 ///
 /// This simply calls `DriverSpec::Bound::Open` and then composes the
-/// `transform` of the returned `Driver::ReadWriteHandle` with
+/// `transform` of the returned `Driver::Handle` with
 /// `bound_spec.transform_spec`.
-Future<Driver::ReadWriteHandle> OpenDriver(
-    OpenTransactionPtr transaction,
-    TransformedDriverSpec<ContextBound> bound_spec,
-    ReadWriteMode read_write_mode);
+Future<DriverHandle> OpenDriver(OpenTransactionPtr transaction,
+                                TransformedDriverSpec<ContextBound> bound_spec,
+                                ReadWriteMode read_write_mode);
 
 /// Options for DriverRead.
 struct DriverReadOptions {
@@ -439,6 +469,9 @@ struct DriverReadOptions {
   ReadProgressFunction progress_function;
 
   DomainAlignmentOptions alignment_options = DomainAlignmentOptions::all;
+
+  DataTypeConversionFlags data_type_conversion_flags =
+      DataTypeConversionFlags::kSafeAndImplicit;
 };
 
 struct DriverReadIntoNewOptions {
@@ -462,6 +495,9 @@ struct DriverWriteOptions {
   WriteProgressFunction progress_function;
 
   DomainAlignmentOptions alignment_options = DomainAlignmentOptions::all;
+
+  DataTypeConversionFlags data_type_conversion_flags =
+      DataTypeConversionFlags::kSafeAndImplicit;
 };
 
 /// Options for DriverCopy.
@@ -475,6 +511,9 @@ struct DriverCopyOptions {
   CopyProgressFunction progress_function;
 
   DomainAlignmentOptions alignment_options = DomainAlignmentOptions::all;
+
+  DataTypeConversionFlags data_type_conversion_flags =
+      DataTypeConversionFlags::kSafeAndImplicit;
 };
 
 /// Copies data from a TensorStore driver to an array.
@@ -494,9 +533,13 @@ struct DriverCopyOptions {
 ///     `AlignDomainTo`.
 /// \error `absl::StatusCode::kInvalidArgument` if `source.driver->data_type()`
 ///     cannot be converted to `target.data_type()`.
-Future<void> DriverRead(Executor executor, TransformedDriver source,
+Future<void> DriverRead(Executor executor, DriverHandle source,
                         TransformedSharedArrayView<void> target,
                         DriverReadOptions options);
+
+Future<void> DriverRead(DriverHandle source,
+                        TransformedSharedArrayView<void> target,
+                        ReadOptions options);
 
 /// Copies data from a TensorStore driver to a newly-allocated array.
 ///
@@ -511,9 +554,12 @@ Future<void> DriverRead(Executor executor, TransformedDriver source,
 /// \error `absl::StatusCode::kInvalidArgument` if `source.driver->data_type()`
 ///     cannot be converted to `target_data_type`.
 Future<SharedOffsetArray<void>> DriverRead(
-    Executor executor, TransformedDriver source, DataType target_data_type,
+    Executor executor, DriverHandle source, DataType target_data_type,
     ContiguousLayoutOrder target_layout_order,
     DriverReadIntoNewOptions options);
+
+Future<SharedOffsetArray<void>> DriverRead(DriverHandle source,
+                                           ReadIntoNewArrayOptions options);
 
 /// Copies data from an array to a TensorStore driver.
 ///
@@ -532,7 +578,10 @@ Future<SharedOffsetArray<void>> DriverRead(
 ///     be converted to `target.driver->data_type()`.
 WriteFutures DriverWrite(Executor executor,
                          TransformedSharedArrayView<const void> source,
-                         TransformedDriver target, DriverWriteOptions options);
+                         DriverHandle target, DriverWriteOptions options);
+
+WriteFutures DriverWrite(TransformedSharedArrayView<const void> source,
+                         DriverHandle target, WriteOptions options);
 
 /// Copies data between two TensorStore drivers.
 ///
@@ -549,8 +598,11 @@ WriteFutures DriverWrite(Executor executor,
 ///     `target.transform` via `AlignDomainTo`.
 /// \error `absl::StatusCode::kInvalidArgument` if `source.driver->data_type()`
 ///     cannot be converted to `target.driver->data_type()`.
-WriteFutures DriverCopy(Executor executor, TransformedDriver source,
-                        TransformedDriver target, DriverCopyOptions options);
+WriteFutures DriverCopy(Executor executor, DriverHandle source,
+                        DriverHandle target, DriverCopyOptions options);
+
+WriteFutures DriverCopy(DriverHandle source, DriverHandle target,
+                        CopyOptions options);
 
 /// Copies `chunk` transformed by `chunk_transform` to `target`.
 absl::Status CopyReadChunk(

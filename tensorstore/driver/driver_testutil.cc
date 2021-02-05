@@ -661,11 +661,10 @@ void MockDriver::Write(internal::OpenTransactionPtr transaction,
 
 TensorStore<> MockDriver::Wrap(IndexTransform<> transform) {
   if (!transform.valid()) transform = IdentityTransform(rank_);
-  tensorstore::internal::DriverReadWriteHandle handle;
-  handle.driver.reset(this);
-  handle.transform = std::move(transform);
-  handle.read_write_mode = ReadWriteMode::read_write;
-  return TensorStoreAccess::Construct<TensorStore<>>(std::move(handle));
+  return TensorStoreAccess::Construct<TensorStore<>>(
+      tensorstore::internal::Driver::Handle{
+          tensorstore::internal::Driver::Ptr(this, ReadWriteMode::read_write),
+          std::move(transform)});
 }
 
 ReadChunk MakeArrayBackedReadChunk(

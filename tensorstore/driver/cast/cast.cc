@@ -82,14 +82,14 @@ class CastDriver
     return internal::ApplyOptions(spec.base.driver_spec, std::move(options));
   }
 
-  static Future<internal::Driver::ReadWriteHandle> Open(
+  static Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
       internal::RegisteredDriverOpener<BoundSpecData> spec,
       ReadWriteMode read_write_mode) {
     return MapFutureValue(
         InlineExecutor{},
-        [target_data_type = spec->data_type, read_write_mode](
-            Driver::ReadWriteHandle handle) -> Result<Driver::ReadWriteHandle> {
+        [target_data_type = spec->data_type,
+         read_write_mode](Driver::Handle handle) -> Result<Driver::Handle> {
           return MakeCastDriver(std::move(handle), target_data_type,
                                 read_write_mode);
         },
@@ -293,17 +293,17 @@ Result<CastDataTypeConversions> GetCastDataTypeConversions(
   return result;
 }
 
-Result<Driver::ReadWriteHandle> MakeCastDriver(Driver::ReadWriteHandle base,
-                                               DataType target_data_type,
-                                               ReadWriteMode read_write_mode) {
+Result<Driver::Handle> MakeCastDriver(Driver::Handle base,
+                                      DataType target_data_type,
+                                      ReadWriteMode read_write_mode) {
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto conversions,
-      GetCastDataTypeConversions(base.driver->data_type(), target_data_type,
-                                 base.read_write_mode, read_write_mode));
+      auto conversions, GetCastDataTypeConversions(
+                            base.driver->data_type(), target_data_type,
+                            base.driver.read_write_mode(), read_write_mode));
   base.driver =
       Driver::Ptr(new CastDriver(std::move(base.driver), target_data_type,
-                                 conversions.input, conversions.output));
-  base.read_write_mode = conversions.mode;
+                                 conversions.input, conversions.output),
+                  conversions.mode);
   return base;
 }
 

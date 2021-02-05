@@ -53,6 +53,7 @@ tensorstore_cc_library(
         "//tensorstore:data_type",
         "//tensorstore:open_mode",
         "//tensorstore:progress",
+        "//tensorstore:read_write_options",
         "//tensorstore:resize_options",
         "//tensorstore:transaction",
         "//tensorstore/index_space:alignment",

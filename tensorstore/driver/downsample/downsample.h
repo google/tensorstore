@@ -23,8 +23,8 @@
 namespace tensorstore {
 namespace internal {
 
-Result<Driver::ReadWriteHandle> MakeDownsampleDriver(
-    Driver::ReadWriteHandle base, span<const Index> downsample_factors,
+Result<Driver::Handle> MakeDownsampleDriver(
+    Driver::Handle base, span<const Index> downsample_factors,
     DownsampleMethod downsample_method);
 
 }  // namespace internal

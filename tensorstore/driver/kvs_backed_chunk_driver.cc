@@ -616,7 +616,7 @@ Result<std::size_t> ValidateOpenRequest(OpenState* state,
 /// \pre `component_index` is the result of a previous call to
 ///     `state->GetComponentIndex` with the same `metadata`.
 /// \pre `metadata != nullptr`
-Result<internal::Driver::ReadWriteHandle> CreateTensorStoreFromMetadata(
+Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
     OpenState::Ptr state, std::shared_ptr<const void> metadata,
     std::size_t component_index) {
   TENSORSTORE_KVS_DRIVER_DEBUG_LOG("CreateTensorStoreFromMetadata: state=",
@@ -684,19 +684,20 @@ Result<internal::Driver::ReadWriteHandle> CreateTensorStoreFromMetadata(
         .IgnoreFuture();
   }
 
-  internal::Driver::Ptr driver(state->AllocateDriver(
-      {std::move(chunk_cache), component_index,
-       base.spec_->staleness.BoundAtOpen(base.request_time_)}));
-  return internal::Driver::ReadWriteHandle{
-      {std::move(driver), std::move(new_transform),
-       internal::TransactionState::ToTransaction(std::move(base.transaction_))},
-      read_write_mode};
+  internal::Driver::Ptr driver(
+      state->AllocateDriver(
+          {std::move(chunk_cache), component_index,
+           base.spec_->staleness.BoundAtOpen(base.request_time_)}),
+      read_write_mode);
+  return internal::Driver::Handle{
+      std::move(driver), std::move(new_transform),
+      internal::TransactionState::ToTransaction(std::move(base.transaction_))};
 }
 
 /// Called when the metadata has been written (successfully or unsuccessfully).
 struct HandleWroteMetadata {
   OpenState::Ptr state;
-  void operator()(Promise<internal::Driver::ReadWriteHandle> promise,
+  void operator()(Promise<internal::Driver::Handle> promise,
                   ReadyFuture<const void> future) {
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
     auto& result = future.result();
@@ -712,7 +713,7 @@ struct HandleWroteMetadata {
       // Creation of the array failed due to it already existing.  Attempt to
       // open the existing array.
     }
-    promise.SetResult([&]() -> Result<internal::Driver::ReadWriteHandle> {
+    promise.SetResult([&]() -> Result<internal::Driver::Handle> {
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto metadata,
           base.metadata_cache_entry_->GetMetadata(base.transaction_));
@@ -727,7 +728,7 @@ struct HandleWroteMetadata {
 
 /// Attempts to create new array.
 void CreateMetadata(OpenState::Ptr state,
-                    Promise<internal::Driver::ReadWriteHandle> promise) {
+                    Promise<internal::Driver::Handle> promise) {
   TENSORSTORE_KVS_DRIVER_DEBUG_LOG("CreateMetadata: state=", state.get());
   auto state_ptr = state.get();
   auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
@@ -749,7 +750,7 @@ void CreateMetadata(OpenState::Ptr state,
 /// Called when the metadata has been read (successfully or not found).
 struct HandleReadMetadata {
   OpenState::Ptr state;
-  void operator()(Promise<internal::Driver::ReadWriteHandle> promise,
+  void operator()(Promise<internal::Driver::Handle> promise,
                   ReadyFuture<const void> metadata_future) {
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
     std::shared_ptr<const void> metadata;
@@ -781,7 +782,7 @@ struct HandleReadMetadata {
 /// Called when the metadata should be requested or created.
 struct GetMetadataForOpen {
   OpenState::Ptr state;
-  void operator()(Promise<internal::Driver::ReadWriteHandle> promise) {
+  void operator()(Promise<internal::Driver::Handle> promise) {
     TENSORSTORE_KVS_DRIVER_DEBUG_LOG("GetMetadataForOpen: state=", state.get());
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
     auto state_ptr = state.get();
@@ -804,7 +805,7 @@ struct GetMetadataForOpen {
 /// Called when the KeyValueStore has been successfully opened.
 struct HandleKeyValueStoreReady {
   OpenState::Ptr state;
-  void operator()(Promise<internal::Driver::ReadWriteHandle> promise,
+  void operator()(Promise<internal::Driver::Handle> promise,
                   ReadyFuture<const void> store) {
     TENSORSTORE_KVS_DRIVER_DEBUG_LOG("Metadata KeyValueStore ready: state=",
                                      state.get());
@@ -1103,7 +1104,7 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(OpenState* state) {
 }
 }  // namespace
 
-Future<internal::Driver::ReadWriteHandle> OpenDriver(OpenState::Ptr state) {
+Future<internal::Driver::Handle> OpenDriver(OpenState::Ptr state) {
   TENSORSTORE_KVS_DRIVER_DEBUG_LOG("OpenDriver: open_state=", state.get());
   // TODO(jbms): possibly determine these options from the open options.
   auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
@@ -1114,7 +1115,7 @@ Future<internal::Driver::ReadWriteHandle> OpenDriver(OpenState::Ptr state) {
   auto metadata_cache = GetOrCreateMetadataCache(state_ptr);
   base.metadata_cache_entry_ =
       GetCacheEntry(metadata_cache, state->GetMetadataCacheEntryKey());
-  return PromiseFuturePair<internal::Driver::ReadWriteHandle>::LinkValue(
+  return PromiseFuturePair<internal::Driver::Handle>::LinkValue(
              HandleKeyValueStoreReady{std::move(state)},
              metadata_cache->initialized_)
       .future;

@@ -150,7 +150,7 @@ class ArrayDriver
       internal::OpenTransactionPtr transaction, BoundSpecData* spec,
       IndexTransformView<> transform);
 
-  static Future<internal::Driver::ReadWriteHandle> Open(
+  static Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
       internal::RegisteredDriverOpener<BoundSpecData> spec,
       ReadWriteMode read_write_mode);
@@ -284,21 +284,19 @@ Result<IndexTransform<>> ArrayDriver::GetBoundSpecData(
   return transform_builder.Finalize();
 }
 
-Future<internal::Driver::ReadWriteHandle> ArrayDriver::Open(
+Future<internal::Driver::Handle> ArrayDriver::Open(
     internal::OpenTransactionPtr transaction,
     internal::RegisteredDriverOpener<BoundSpecData> spec,
     ReadWriteMode read_write_mode) {
   if (transaction) return TransactionError();
-  Ptr driver(new ArrayDriver(spec->data_copy_concurrency,
-                             tensorstore::MakeCopy(spec->array)));
   if (read_write_mode == ReadWriteMode::dynamic) {
     read_write_mode = ReadWriteMode::read_write;
   }
-  internal::Driver::ReadWriteHandle handle;
-  handle.driver = std::move(driver);
-  handle.transform = tensorstore::IdentityTransform(spec->array.shape());
-  handle.read_write_mode = read_write_mode;
-  return handle;
+  return internal::Driver::Handle{
+      Ptr(new ArrayDriver(spec->data_copy_concurrency,
+                          tensorstore::MakeCopy(spec->array)),
+          read_write_mode),
+      tensorstore::IdentityTransform(spec->array.shape())};
 }
 
 const internal::DriverRegistration<ArrayDriver> driver_registration;
@@ -306,37 +304,38 @@ const internal::DriverRegistration<ArrayDriver> driver_registration;
 }  // namespace
 
 template <>
-Result<internal::TransformedDriver> MakeArrayDriver<zero_origin>(
+Result<internal::Driver::Handle> MakeArrayDriver<zero_origin>(
     Context context, SharedArray<void, dynamic_rank, zero_origin> array) {
   auto transform = tensorstore::IdentityTransform(array.shape());
-  return internal::TransformedDriver{
+  return internal::Driver::Handle{
       Driver::Ptr(new ArrayDriver(
-          context
-              .GetResource(
-                  Context::ResourceSpec<DataCopyConcurrencyResource>::Default())
-              .value(),
-          std::move(array))),
+                      context
+                          .GetResource(Context::ResourceSpec<
+                                       DataCopyConcurrencyResource>::Default())
+                          .value(),
+                      std::move(array)),
+                  ReadWriteMode::read_write),
       std::move(transform)};
 }
 
 template <>
-Result<internal::TransformedDriver> MakeArrayDriver<offset_origin>(
+Result<internal::Driver::Handle> MakeArrayDriver<offset_origin>(
     Context context, SharedArray<void, dynamic_rank, offset_origin> array) {
   auto transform = tensorstore::IdentityTransform(array.shape());
   TENSORSTORE_ASSIGN_OR_RETURN(
-      transform,
-      tensorstore::ChainResult(
-          transform, tensorstore::AllDims().TranslateTo(array.origin())));
+      transform, std::move(transform) |
+                     tensorstore::AllDims().TranslateTo(array.origin()));
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto zero_origin_array,
       (tensorstore::ArrayOriginCast<zero_origin, container>(std::move(array))));
-  return internal::TransformedDriver{
+  return internal::Driver::Handle{
       Driver::Ptr(new ArrayDriver(
-          context
-              .GetResource(
-                  Context::ResourceSpec<DataCopyConcurrencyResource>::Default())
-              .value(),
-          std::move(zero_origin_array))),
+                      context
+                          .GetResource(Context::ResourceSpec<
+                                       DataCopyConcurrencyResource>::Default())
+                          .value(),
+                      std::move(zero_origin_array)),
+                  ReadWriteMode::read_write),
       std::move(transform)};
 }
 

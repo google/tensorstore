@@ -27,7 +27,7 @@ namespace tensorstore {
 
 namespace internal {
 template <ArrayOriginKind OriginKind>
-Result<internal::TransformedDriver> MakeArrayDriver(
+Result<internal::Driver::Handle> MakeArrayDriver(
     Context context, SharedArray<void, dynamic_rank, OriginKind> array);
 }  // namespace internal
 
@@ -53,14 +53,10 @@ std::enable_if_t<(IsArray<Array>::value &&
 FromArray(Context context, const Array& array) {
   using Store = TensorStoreFromArrayType<Array>;
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto transformed_driver,
-      internal::MakeArrayDriver<Array::array_origin_kind>(
-          std::move(context),
-          ConstDataTypeCast<typename Store::Element>(array)));
-  return internal::TensorStoreAccess::Construct<Store>(
-      internal::DriverReadWriteHandle{
-          std::move(transformed_driver),
-          ReadWriteMode::read_write /* masked based on Store type */});
+      auto handle, internal::MakeArrayDriver<Array::array_origin_kind>(
+                       std::move(context),
+                       ConstDataTypeCast<typename Store::Element>(array)));
+  return internal::TensorStoreAccess::Construct<Store>(std::move(handle));
 }
 
 /// Returns a `Spec` for an array driver that holds the given `array`.

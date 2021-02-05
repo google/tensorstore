@@ -107,7 +107,7 @@ class RegisteredDriverOpener;
 ///   `Derived` driver type, and serves as a reference-counted smart pointer to
 ///   the `SpecT<ContextBound>`.
 ///
-///     static Future<internal::Driver::ReadWriteHandle> Open(
+///     static Future<internal::Driver::Handle> Open(
 ///         internal::OpenTransactionPtr transaction,
 ///         internal::RegisteredDriverOpener<Derived> spec,
 ///         ReadWriteMode read_write_mode) {
@@ -140,39 +140,6 @@ class RegisteredDriver : public Parent {
 
  public:
   using Parent::Parent;
-
-  Result<TransformedDriverSpec<>> GetSpec(
-      internal::OpenTransactionPtr transaction, IndexTransformView<> transform,
-      SpecOptions&& options,
-      const ContextSpecBuilder& context_builder) override {
-    using SpecData = typename Derived::template SpecT<ContextUnbound>;
-    using BoundSpecData = typename Derived::template SpecT<ContextBound>;
-    // 1. Obtain the `BoundSpecData` representation of the `Driver`.
-    BoundSpecData bound_spec_data;
-    TransformedDriverSpec<> transformed_spec;
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        transformed_spec.transform_spec,
-        static_cast<Derived*>(this)->GetBoundSpecData(
-            std::move(transaction), &bound_spec_data, transform));
-    // 2. "Unbind" to convert the `BoundSpecData` representation to the
-    // `SpecData` representation.
-    IntrusivePtr<DriverSpecImpl> spec(new DriverSpecImpl);
-    // Since `DriverSpec` can also specify context resource spec overrides,
-    // construct a child `ContextSpecBuilder`.  Currently, if a parent
-    // `context_builder` is specified, all shared context resources will be
-    // specified in the parent `Context::Spec`.  Otherwise, all shared context
-    // resources are specified in the `Context::Spec` embedded in the
-    // `DriverSpec`.
-    auto child_builder = internal::ContextSpecBuilder::Make(context_builder);
-    spec->context_spec_ = child_builder.spec();
-    ContextBindingTraits<SpecData>::Unbind(&spec->data_, &bound_spec_data,
-                                           child_builder);
-    // 3. Convert the `SpecData` using `options`.
-    TENSORSTORE_RETURN_IF_ERROR(
-        Derived::ApplyOptions(spec->data_, std::move(options)));
-    transformed_spec.driver_spec = std::move(spec);
-    return transformed_spec;
-  }
 
   Result<TransformedDriverSpec<ContextBound>> GetBoundSpec(
       internal::OpenTransactionPtr transaction,
@@ -253,7 +220,7 @@ class RegisteredDriver : public Parent {
 
     class Bound : public internal::DriverSpec::Bound {
      public:
-      Future<Driver::ReadWriteHandle> Open(
+      Future<Driver::Handle> Open(
           OpenTransactionPtr transaction,
           ReadWriteMode read_write_mode) const override {
         RegisteredDriverOpener<BoundSpecData> data_ptr;

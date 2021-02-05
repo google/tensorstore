@@ -33,10 +33,10 @@ Status ValidateDataTypeAndRank(internal::DriverConstraints expected,
                                internal::DriverConstraints actual);
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
 Future<TensorStore<Element, Rank, Mode>> ConvertTensorStoreFuture(
-    Future<internal::Driver::ReadWriteHandle> future) {
+    Future<internal::Driver::Handle> future) {
   return MapFutureValue(
       InlineExecutor{},
-      [](internal::DriverReadWriteHandle& handle)
+      [](internal::Driver::Handle& handle)
           -> Result<TensorStore<Element, Rank, Mode>> {
         TENSORSTORE_RETURN_IF_ERROR(internal_open::ValidateDataTypeAndRank(
             {StaticOrDynamicDataTypeOf<Element>(), Rank},

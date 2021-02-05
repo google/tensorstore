@@ -49,9 +49,8 @@ namespace tensorstore {
 /// example:
 ///
 ///     TensorStore<std::int32_t, 3> store = ...;
-///     Result<TensorStore<std::int32_t, 2>> sub_store = ChainResult(
-///         store,
-///         Dims(0).IndexSlice(5));
+///     Result<TensorStore<std::int32_t, 2>> sub_store =
+///         store | Dims(0).IndexSlice(5);
 ///
 /// Typically a `TensorStore` object is obtained by calling `tensorstore::Open`
 /// defined in `tensorstore/open.h`.
@@ -126,7 +125,9 @@ class TensorStore {
     return *this;
   }
 
-  ReadWriteMode read_write_mode() const { return handle_.read_write_mode; }
+  ReadWriteMode read_write_mode() const {
+    return handle_.driver.read_write_mode();
+  }
 
   /// Returns `true` if this is a valid handle to a TensorStore.
   bool valid() const noexcept { return static_cast<bool>(handle_.driver); }
@@ -274,12 +275,13 @@ class TensorStore {
     return store;
   }
 
-  explicit TensorStore(internal::Driver::ReadWriteHandle handle)
+  explicit TensorStore(internal::Driver::Handle handle)
       : handle_(std::move(handle)) {
-    handle_.read_write_mode &= internal::StaticReadWriteMask(Mode);
+    handle_.driver.set_read_write_mode(handle_.driver.read_write_mode() &
+                                       internal::StaticReadWriteMask(Mode));
   }
 
-  internal::Driver::ReadWriteHandle handle_;
+  internal::Driver::Handle handle_;
 };
 
 /// Specialization of `StaticCastTraits` for the `TensorStore` class template,
@@ -360,25 +362,20 @@ ResolveBounds(StoreResult store_result, ResolveBoundsOptions options = {}) {
   using Store = UnwrapResultType<StoreResult>;
   return MapResult(
       [&](auto&& store) -> Future<Store> {
-        using internal::TensorStoreAccess;
-        auto* driver = TensorStoreAccess::handle(store).driver.get();
+        auto& handle = internal::TensorStoreAccess::handle(store);
+        auto driver = handle.driver.get();
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto open_transaction,
-            internal::AcquireOpenTransactionPtrOrError(
-                TensorStoreAccess::handle(store).transaction));
+            internal::AcquireOpenTransactionPtrOrError(handle.transaction));
         return MapFutureValue(
             InlineExecutor{},
             internal_tensorstore::IndexTransformFutureCallback<
                 typename Store::Element, Store::static_rank,
-                Store::static_mode>{
-                std::move(TensorStoreAccess::handle(store).driver),
-                std::move(TensorStoreAccess::handle(store).transaction),
-                store.read_write_mode()},
-            driver->ResolveBounds(
-                std::move(open_transaction),
-                IndexTransform<>(
-                    std::move(TensorStoreAccess::handle(store).transform)),
-                options));
+                Store::static_mode>{std::move(handle.driver),
+                                    std::move(handle.transaction)},
+            driver->ResolveBounds(std::move(open_transaction),
+                                  IndexTransform<>(std::move(handle.transform)),
+                                  options));
       },
       std::move(store_result));
 }
@@ -433,14 +430,13 @@ Resize(
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto open_transaction,
             internal::AcquireOpenTransactionPtrOrError(handle.transaction));
-        auto* driver = handle.driver.get();
+        auto driver = handle.driver.get();
         return MapFutureValue(
             InlineExecutor{},
             internal_tensorstore::IndexTransformFutureCallback<
                 typename Store::Element, Store::static_rank,
                 Store::static_mode>{std::move(handle.driver),
-                                    std::move(handle.transaction),
-                                    store.read_write_mode()},
+                                    std::move(handle.transaction)},
             driver->Resize(std::move(open_transaction),
                            IndexTransform<>(std::move(handle.transform)),
                            inclusive_min, exclusive_max, options));
@@ -460,8 +456,8 @@ Resize(
 ///
 ///     TensorReader<std::int32_t, 3> store = ...;
 ///     auto array = AllocateArray<std::int32_t>({25, 30});
-///     Read(ChainResult(store, AllDims().TranslateSizedInterval({100, 200},
-///                                                              {25, 30})),
+///     Read(store | AllDims().TranslateSizedInterval({100, 200},
+///                                                   {25, 30})),
 ///          array).value();
 ///
 /// \param source Source TensorStore object that supports reading.  May be
@@ -476,15 +472,17 @@ template <typename Source, typename TargetArray>
 internal::EnableIfCanCopyTensorStoreToArray<
     UnwrapResultType<internal::remove_cvref_t<Source>>,
     UnwrapResultType<internal::remove_cvref_t<TargetArray>>, Future<void>>
-Read(Source&& source, const TargetArray& target, ReadOptions options = {}) {
+Read(Source&& source, TargetArray&& target, ReadOptions options = {}) {
   return MapResult(
       [&](UnwrapQualifiedResultType<Source&&> unwrapped_source,
-          UnwrapQualifiedResultType<const TargetArray&> unwrapped_target) {
-        return internal_tensorstore::ReadImpl(
-            std::forward<decltype(unwrapped_source)>(unwrapped_source),
-            unwrapped_target, std::move(options));
+          UnwrapQualifiedResultType<TargetArray&&> unwrapped_target) {
+        return internal::DriverRead(
+            internal::TensorStoreAccess::handle(
+                std::forward<decltype(unwrapped_source)>(unwrapped_source)),
+            std::forward<decltype(unwrapped_target)>(unwrapped_target),
+            std::move(options));
       },
-      std::forward<Source>(source), target);
+      std::forward<Source>(source), std::forward<TargetArray>(target));
 }
 
 /// Copies from `source` TensorStore to a newly-allocated target array.
@@ -493,7 +491,7 @@ Read(Source&& source, const TargetArray& target, ReadOptions options = {}) {
 ///
 ///     TensorReader<std::int32_t, 3> store = ...;
 ///     auto array = Read(
-///         ChainResult(store, AllDims().SizedInterval({100, 200}, {25, 30})))
+///         store | AllDims().SizedInterval({100, 200}, {25, 30}))
 ///         .value();
 ///
 /// \tparam OriginKind If equal to `offset_origin` (the default), the returned
@@ -510,9 +508,13 @@ internal::ReadTensorStoreIntoNewArrayResult<
 Read(Source&& source, ReadIntoNewArrayOptions options = {}) {
   return MapResult(
       [&](UnwrapQualifiedResultType<Source&&> unwrapped_source) {
-        return internal_tensorstore::ReadIntoNewArrayImpl<OriginKind>(
-            std::forward<decltype(unwrapped_source)>(unwrapped_source),
-            std::move(options));
+        using Store = UnwrapResultType<internal::remove_cvref_t<Source>>;
+        return internal_tensorstore::MapArrayFuture<
+            typename Store::Element, Store::static_rank, OriginKind>(
+            internal::DriverRead(
+                internal::TensorStoreAccess::handle(
+                    std::forward<decltype(unwrapped_source)>(unwrapped_source)),
+                std::move(options)));
       },
       std::forward<Source>(source));
 }
@@ -527,8 +529,8 @@ Read(Source&& source, ReadIntoNewArrayOptions options = {}) {
 ///
 ///     TensorWriter<std::int32_t, 3> store = ...;
 ///     SharedArray<std::int32_t, 3> array = ...;
-///     Write(ChainResult(store, AllDims().TranslateSizedInterval({100, 200},
-///                                                               {25, 30})),
+///     Write(store | AllDims().TranslateSizedInterval({100, 200},
+///                                                    {25, 30}),
 ///          array).commit_future.value();
 ///
 /// \param source The source `Array` or `TransformedArray`.  May be
@@ -540,14 +542,17 @@ template <typename SourceArray, typename Target>
 internal::EnableIfCanCopyArrayToTensorStore<
     UnwrapResultType<internal::remove_cvref_t<SourceArray>>,
     UnwrapResultType<internal::remove_cvref_t<Target>>, WriteFutures>
-Write(const SourceArray& source, Target&& target, WriteOptions options = {}) {
+Write(SourceArray&& source, Target&& target, WriteOptions options = {}) {
   return MapResult(
-      [&](UnwrapQualifiedResultType<Target&&> unwrapped_target,
-          UnwrapQualifiedResultType<const SourceArray&> unwrapped_source) {
-        return internal_tensorstore::WriteImpl(
-            unwrapped_source, unwrapped_target, std::move(options));
+      [&](UnwrapQualifiedResultType<SourceArray&&> unwrapped_source,
+          UnwrapQualifiedResultType<Target&&> unwrapped_target) {
+        return internal::DriverWrite(
+            std::forward<decltype(unwrapped_source)>(unwrapped_source),
+            internal::TensorStoreAccess::handle(
+                std::forward<decltype(unwrapped_target)>(unwrapped_target)),
+            std::move(options));
       },
-      std::forward<Target>(target), source);
+      std::forward<SourceArray>(source), std::forward<Target>(target));
 }
 
 /// Copies from `source` TensorStore to `target` TensorStore.
@@ -562,8 +567,8 @@ Write(const SourceArray& source, Target&& target, WriteOptions options = {}) {
 ///     TensorReader<std::int32_t, 3> source = ...;
 ///     TensorWriter<std::int32_t, 3> target = ...;
 ///     Copy(
-///         ChainResult(store, AllDims().SizedInterval({100, 200}, {25, 30})),
-///         ChainResult(store, AllDims().SizedInterval({400, 500}, {25, 30})))
+///         store | AllDims().SizedInterval({100, 200}, {25, 30}),
+///         store | AllDims().SizedInterval({400, 500}, {25, 30}))
 ///         commit_future.value();
 ///
 /// \param source The source `TensorStore` that supports reading.  May be
@@ -580,8 +585,12 @@ Copy(Source&& source, Target&& target, CopyOptions options = {}) {
   return MapResult(
       [&](UnwrapQualifiedResultType<Source&&> unwrapped_source,
           UnwrapQualifiedResultType<Target&&> unwrapped_target) {
-        return internal_tensorstore::CopyImpl(
-            unwrapped_source, unwrapped_target, std::move(options));
+        return internal::DriverCopy(
+            internal::TensorStoreAccess::handle(
+                std::forward<decltype(unwrapped_source)>(unwrapped_source)),
+            internal::TensorStoreAccess::handle(
+                std::forward<decltype(unwrapped_target)>(unwrapped_target)),
+            std::move(options));
       },
       std::forward<Source>(source), std::forward<Target>(target));
 }

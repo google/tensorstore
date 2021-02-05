@@ -333,12 +333,11 @@ TEST(FromArrayTest, Read) {
                 "");
   std::vector<ReadProgress> read_progress;
   auto dest_array = tensorstore::AllocateArray<int>(array.domain());
-  auto future =
+  TENSORSTORE_ASSERT_OK(
       Read(store, dest_array,
            ReadProgressFunction{[&read_progress](ReadProgress progress) {
              read_progress.push_back(progress);
-           }});
-  EXPECT_EQ(absl::OkStatus(), GetStatus(future.result()));
+           }}));
   EXPECT_EQ(array, dest_array);
   EXPECT_THAT(read_progress, ::testing::ElementsAre(ReadProgress{6, 6}));
 }

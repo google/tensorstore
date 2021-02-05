@@ -122,7 +122,7 @@ class DownsampleDriver
     return internal::TransformAndApplyOptions(spec.base, std::move(options));
   }
 
-  static Future<internal::Driver::ReadWriteHandle> Open(
+  static Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
       internal::RegisteredDriverOpener<BoundSpecData> spec,
       ReadWriteMode read_write_mode) {
@@ -131,8 +131,8 @@ class DownsampleDriver
     }
     return MapFutureValue(
         InlineExecutor{},
-        [spec = std::move(spec)](
-            Driver::ReadWriteHandle handle) -> Result<Driver::ReadWriteHandle> {
+        [spec =
+             std::move(spec)](Driver::Handle handle) -> Result<Driver::Handle> {
           return MakeDownsampleDriver(std::move(handle),
                                       spec->downsample_factors,
                                       spec->downsample_method);
@@ -741,8 +741,8 @@ const internal::DriverRegistration<DownsampleDriver> driver_registration;
 
 }  // namespace
 
-Result<Driver::ReadWriteHandle> MakeDownsampleDriver(
-    Driver::ReadWriteHandle base, span<const Index> downsample_factors,
+Result<Driver::Handle> MakeDownsampleDriver(
+    Driver::Handle base, span<const Index> downsample_factors,
     DownsampleMethod downsample_method) {
   if (downsample_factors.size() != base.transform.input_rank()) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
@@ -750,7 +750,7 @@ Result<Driver::ReadWriteHandle> MakeDownsampleDriver(
         ") does not match TensorStore rank (", base.transform.input_rank(),
         ")"));
   }
-  if (!(base.read_write_mode & ReadWriteMode::read)) {
+  if (!(base.driver.read_write_mode() & ReadWriteMode::read)) {
     return absl::InvalidArgumentError(
         "Cannot downsample write-only TensorStore");
   }
@@ -766,9 +766,9 @@ Result<Driver::ReadWriteHandle> MakeDownsampleDriver(
           base.transform.domain(), downsample_factors, downsample_method);
   base.driver = Driver::Ptr(
       new DownsampleDriver(std::move(base.driver), std::move(base.transform),
-                           downsample_factors, downsample_method));
+                           downsample_factors, downsample_method),
+      ReadWriteMode::read);
   base.transform = std::move(downsampled_domain);
-  base.read_write_mode = ReadWriteMode::read;
   return base;
 }
 

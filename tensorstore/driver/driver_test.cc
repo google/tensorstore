@@ -58,7 +58,8 @@ class ChunkErrorDriver : public tensorstore::internal::Driver {
 };
 
 TEST(WriteTest, ChunkError) {
-  tensorstore::internal::Driver::Ptr driver(new ChunkErrorDriver);
+  tensorstore::internal::Driver::Ptr driver(
+      new ChunkErrorDriver, tensorstore::ReadWriteMode::read_write);
   std::vector<WriteProgress> write_progress;
   auto write_result = tensorstore::internal::DriverWrite(
       /*executor=*/tensorstore::InlineExecutor{},

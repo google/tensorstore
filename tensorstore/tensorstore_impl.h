@@ -165,63 +165,15 @@ using ReadTensorStoreIntoNewArrayResult = absl::enable_if_t<
     Future<
         SharedArray<typename Store::Element, Store::static_rank, OriginKind>>>;
 
-/// Verifies that `mode` includes `ReadWriteMode::read`.
-/// \error `absl::StatusCode::kInvalidArgument` if condition is not satisfied.
-Status ValidateSupportsRead(ReadWriteMode mode);
-
-/// Verifies that `mode` includes `ReadWriteMode::write`.
-/// \error `absl::StatusCode::kInvalidArgument` if condition is not satisfied.
-Status ValidateSupportsWrite(ReadWriteMode mode);
-
-Status ValidateSupportsModes(ReadWriteMode mode, ReadWriteMode required_modes);
-
 }  // namespace internal
 
 namespace internal_tensorstore {
+
 using TensorStoreAccess = internal::TensorStoreAccess;
-template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
-Result<internal::TransformedDriver> GetReadSource(
-    TensorStore<Element, Rank, Mode> source) {
-  TENSORSTORE_RETURN_IF_ERROR(
-      internal::ValidateSupportsRead(source.read_write_mode()));
-  return std::move(source.handle_);
-}
 
-template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
-Result<internal::TransformedDriver> GetWriteTarget(
-    TensorStore<Element, Rank, Mode> target) {
-  TENSORSTORE_RETURN_IF_ERROR(
-      internal::ValidateSupportsWrite(target.read_write_mode()));
-  return std::move(target.handle_);
-}
-
-template <typename Element, DimensionIndex Rank, ReadWriteMode Mode,
-          typename DestArray>
-Future<void> ReadImpl(TensorStore<Element, Rank, Mode> source,
-                      const DestArray& dest, ReadOptions options) {
-  auto data_type = source.data_type();
-  TENSORSTORE_RETURN_IF_ERROR(internal::GetDataTypeConverterOrError(
-      data_type, dest.data_type(), DataTypeConversionFlags::kSafeAndImplicit));
-  TENSORSTORE_RETURN_IF_ERROR(
-      internal::ValidateSupportsRead(source.read_write_mode()));
-  auto executor =
-      TensorStoreAccess::handle(source).driver->data_copy_executor();
-  return internal::DriverRead(
-      std::move(executor), std::move(TensorStoreAccess::handle(source)), dest,
-      /*options=*/
-      {/*.progress_function=*/std::move(options).progress_function,
-       /*.alignment_options=*/options.alignment_options});
-}
-
-template <ArrayOriginKind OriginKind, typename Element, DimensionIndex Rank,
-          ReadWriteMode Mode>
-Future<SharedArray<Element, Rank, OriginKind>> ReadIntoNewArrayImpl(
-    TensorStore<Element, Rank, Mode> source, ReadIntoNewArrayOptions options) {
-  auto data_type = source.data_type();
-  TENSORSTORE_RETURN_IF_ERROR(
-      internal::ValidateSupportsRead(source.read_write_mode()));
-  auto executor =
-      TensorStoreAccess::handle(source).driver->data_copy_executor();
+template <typename Element, DimensionIndex Rank, ArrayOriginKind OriginKind>
+Future<SharedArray<Element, Rank, OriginKind>> MapArrayFuture(
+    Future<SharedOffsetArray<void>> future) {
   return MapFutureValue(
       InlineExecutor{},
       [](SharedOffsetArray<void>& array)
@@ -232,69 +184,19 @@ Future<SharedArray<Element, Rank, OriginKind>> ReadIntoNewArrayImpl(
             StaticCast<SharedOffsetArray<Element, Rank>, unchecked>(
                 std::move(array)));
       },
-      internal::DriverRead(
-          std::move(executor), std::move(TensorStoreAccess::handle(source)),
-          data_type, options.layout_order,
-          /*options=*/
-          {/*.progress_function=*/std::move(options).progress_function}));
-}
-
-template <typename SourceArray, typename Element, DimensionIndex Rank,
-          ReadWriteMode Mode>
-WriteFutures WriteImpl(const SourceArray& source,
-                       TensorStore<Element, Rank, Mode> target,
-                       WriteOptions options) {
-  auto data_type = target.data_type();
-  TENSORSTORE_RETURN_IF_ERROR(internal::GetDataTypeConverterOrError(
-      source.data_type(), data_type,
-      DataTypeConversionFlags::kSafeAndImplicit));
-  TENSORSTORE_RETURN_IF_ERROR(
-      internal::ValidateSupportsWrite(target.read_write_mode()));
-  auto executor =
-      TensorStoreAccess::handle(target).driver->data_copy_executor();
-  return internal::DriverWrite(
-      std::move(executor), source, std::move(TensorStoreAccess::handle(target)),
-      /*options=*/
-      {/*.progress_function=*/std::move(options).progress_function,
-       /*.alignment_options=*/options.alignment_options});
-}
-
-template <typename SourceElement, DimensionIndex SourceRank,
-          ReadWriteMode SourceMode, typename TargetElement,
-          DimensionIndex TargetRank, ReadWriteMode TargetMode>
-WriteFutures CopyImpl(TensorStore<SourceElement, SourceRank, SourceMode> source,
-                      TensorStore<TargetElement, TargetRank, TargetMode> target,
-                      CopyOptions options) {
-  auto data_type = source.data_type();
-  TENSORSTORE_RETURN_IF_ERROR(internal::GetDataTypeConverterOrError(
-      data_type, target.data_type(),
-      DataTypeConversionFlags::kSafeAndImplicit));
-  TENSORSTORE_RETURN_IF_ERROR(
-      internal::ValidateSupportsRead(source.read_write_mode()));
-  TENSORSTORE_RETURN_IF_ERROR(
-      internal::ValidateSupportsWrite(target.read_write_mode()));
-  auto executor =
-      TensorStoreAccess::handle(source).driver->data_copy_executor();
-  return internal::DriverCopy(
-      std::move(executor), std::move(TensorStoreAccess::handle(source)),
-      std::move(TensorStoreAccess::handle(target)),
-      /*options=*/
-      {/*.progress_function=*/std::move(options).progress_function,
-       /*.alignment_options=*/options.alignment_options});
+      std::move(future));
 }
 
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
 struct IndexTransformFutureCallback {
   internal::Driver::Ptr driver;
   Transaction transaction;
-  ReadWriteMode read_write_mode;
   TensorStore<Element, Rank, Mode> operator()(IndexTransform<>& transform) {
     return TensorStoreAccess::Construct<TensorStore<Element, Rank, Mode>>(
-        internal::DriverReadWriteHandle{
-            {std::move(driver),
-             StaticRankCast<Rank, unchecked>(std::move(transform)),
-             std::move(transaction)},
-            read_write_mode});
+        internal::Driver::Handle{
+            std::move(driver),
+            StaticRankCast<Rank, unchecked>(std::move(transform)),
+            std::move(transaction)});
   }
 };
 

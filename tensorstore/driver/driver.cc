@@ -55,7 +55,7 @@ DriverRegistry& GetDriverRegistry() {
   return *registry;
 }
 
-Future<Driver::ReadWriteHandle> DriverSpec::Bound::Open(
+Future<Driver::Handle> DriverSpec::Bound::Open(
     OpenTransactionPtr transaction, ReadWriteMode read_write_mode) const {
   return absl::UnimplementedError("JSON representation not supported");
 }
@@ -75,8 +75,8 @@ absl::Status TransformAndApplyOptions(TransformedDriverSpec<>& spec,
   return ApplyOptions(spec.driver_spec, std::move(options));
 }
 
-Future<Driver::ReadWriteHandle> OpenDriver(TransformedDriverSpec<> spec,
-                                           TransactionalOpenOptions&& options) {
+Future<Driver::Handle> OpenDriver(TransformedDriverSpec<> spec,
+                                  TransactionalOpenOptions&& options) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto open_transaction,
       internal::AcquireOpenTransactionPtrOrError(options.transaction));
@@ -84,9 +84,9 @@ Future<Driver::ReadWriteHandle> OpenDriver(TransformedDriverSpec<> spec,
                               std::move(options));
 }
 
-Future<Driver::ReadWriteHandle> OpenDriver(OpenTransactionPtr transaction,
-                                           TransformedDriverSpec<> spec,
-                                           OpenOptions&& options) {
+Future<Driver::Handle> OpenDriver(OpenTransactionPtr transaction,
+                                  TransformedDriverSpec<> spec,
+                                  OpenOptions&& options) {
   TENSORSTORE_RETURN_IF_ERROR(internal::TransformAndApplyOptions(
       spec,
       // Moves out just the `SpecOptions` base.  The members of the derived
@@ -104,15 +104,14 @@ Future<Driver::ReadWriteHandle> OpenDriver(OpenTransactionPtr transaction,
       options.read_write_mode);
 }
 
-Future<Driver::ReadWriteHandle> OpenDriver(
+Future<Driver::Handle> OpenDriver(
     OpenTransactionPtr transaction,
     TransformedDriverSpec<ContextBound> bound_spec,
     ReadWriteMode read_write_mode) {
   return MapFutureValue(
       InlineExecutor{},
       [transform_spec = std::move(bound_spec.transform_spec)](
-          Driver::ReadWriteHandle handle) mutable
-      -> Result<Driver::ReadWriteHandle> {
+          Driver::Handle handle) mutable -> Result<Driver::Handle> {
         TENSORSTORE_ASSIGN_OR_RETURN(
             transform_spec, tensorstore::ComposeIndexTransformSpecs(
                                 IndexTransformSpec{std::move(handle.transform)},
@@ -129,7 +128,16 @@ Driver::~Driver() = default;
 Result<TransformedDriverSpec<>> Driver::GetSpec(
     internal::OpenTransactionPtr transaction, IndexTransformView<> transform,
     SpecOptions&& options, const ContextSpecBuilder& context_builder) {
-  return absl::UnimplementedError("JSON representation not supported");
+  TENSORSTORE_ASSIGN_OR_RETURN(auto transformed_bound_spec,
+                               GetBoundSpec(std::move(transaction), transform));
+  TransformedDriverSpec<> transformed_spec;
+  transformed_spec.driver_spec =
+      transformed_bound_spec.driver_spec->Unbind(context_builder);
+  transformed_spec.transform_spec =
+      std::move(transformed_bound_spec).transform_spec;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::TransformAndApplyOptions(transformed_spec, std::move(options)));
+  return transformed_spec;
 }
 
 Result<TransformedDriverSpec<ContextBound>> Driver::GetBoundSpec(
@@ -382,9 +390,11 @@ struct DriverReadIntoNewInitiateOp {
 
 }  // namespace
 
-Future<void> DriverRead(Executor executor, TransformedDriver source,
+Future<void> DriverRead(Executor executor, DriverHandle source,
                         TransformedSharedArrayView<void> target,
                         DriverReadOptions options) {
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::ValidateSupportsRead(source.driver.read_write_mode()));
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto normalized_target,
       MakeNormalizedTransformedArray(std::move(target)));
@@ -394,7 +404,8 @@ Future<void> DriverRead(Executor executor, TransformedDriver source,
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->data_type_conversion,
       GetDataTypeConverterOrError(source.driver->data_type(),
-                                  normalized_target.data_type()));
+                                  normalized_target.data_type(),
+                                  options.data_type_conversion_flags));
   state->source_driver = std::move(source.driver);
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->source_transaction,
@@ -416,10 +427,22 @@ Future<void> DriverRead(Executor executor, TransformedDriver source,
   return std::move(pair.future);
 }
 
+Future<void> DriverRead(DriverHandle source,
+                        TransformedSharedArrayView<void> target,
+                        ReadOptions options) {
+  auto executor = source.driver->data_copy_executor();
+  return internal::DriverRead(
+      std::move(executor), std::move(source), std::move(target), /*options=*/
+      {/*.progress_function=*/std::move(options.progress_function),
+       /*.alignment_options=*/options.alignment_options});
+}
+
 Future<SharedOffsetArray<void>> DriverRead(
-    Executor executor, TransformedDriver source, DataType target_data_type,
+    Executor executor, DriverHandle source, DataType target_data_type,
     ContiguousLayoutOrder target_layout_order,
     DriverReadIntoNewOptions options) {
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::ValidateSupportsRead(source.driver.read_write_mode()));
   using State = ReadState<SharedOffsetArray<void>>;
   IntrusivePtr<State> state(new State);
   TENSORSTORE_ASSIGN_OR_RETURN(
@@ -446,6 +469,16 @@ Future<SharedOffsetArray<void>> DriverRead(
                                             target_layout_order}),
             std::move(pair.promise), std::move(transform_future));
   return std::move(pair.future);
+}
+
+Future<SharedOffsetArray<void>> DriverRead(DriverHandle source,
+                                           ReadIntoNewArrayOptions options) {
+  auto data_type = source.driver->data_type();
+  auto executor = source.driver->data_copy_executor();
+  return internal::DriverRead(
+      std::move(executor), std::move(source), data_type, options.layout_order,
+      /*options=*/
+      {/*.progress_function=*/std::move(options.progress_function)});
 }
 
 namespace {
@@ -655,7 +688,9 @@ struct DriverWriteInitiateOp {
 
 WriteFutures DriverWrite(Executor executor,
                          TransformedSharedArrayView<const void> source,
-                         TransformedDriver target, DriverWriteOptions options) {
+                         DriverHandle target, DriverWriteOptions options) {
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::ValidateSupportsWrite(target.driver.read_write_mode()));
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto normalized_source,
       MakeNormalizedTransformedArray(std::move(source)));
@@ -664,7 +699,8 @@ WriteFutures DriverWrite(Executor executor,
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->data_type_conversion,
       GetDataTypeConverterOrError(normalized_source.data_type(),
-                                  target.driver->data_type()));
+                                  target.driver->data_type(),
+                                  options.data_type_conversion_flags));
   state->target_driver = std::move(target.driver);
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->target_transaction,
@@ -693,6 +729,16 @@ WriteFutures DriverWrite(Executor executor,
                          DriverWriteInitiateOp{std::move(state)}),
             std::move(copy_pair.promise), std::move(transform_future));
   return {std::move(copy_pair.future), std::move(commit_pair.future)};
+}
+
+WriteFutures DriverWrite(TransformedSharedArrayView<const void> source,
+                         DriverHandle target, WriteOptions options) {
+  auto executor = target.driver->data_copy_executor();
+  return internal::DriverWrite(
+      std::move(executor), std::move(source), std::move(target),
+      /*options=*/
+      {/*.progress_function=*/std::move(options.progress_function),
+       /*.alignment_options=*/options.alignment_options});
 }
 
 namespace {
@@ -980,14 +1026,19 @@ struct DriverCopyInitiateOp {
 
 }  // namespace
 
-WriteFutures DriverCopy(Executor executor, TransformedDriver source,
-                        TransformedDriver target, DriverCopyOptions options) {
+WriteFutures DriverCopy(Executor executor, DriverHandle source,
+                        DriverHandle target, DriverCopyOptions options) {
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::ValidateSupportsRead(source.driver.read_write_mode()));
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::ValidateSupportsWrite(target.driver.read_write_mode()));
   IntrusivePtr<CopyState> state(new CopyState);
   state->executor = executor;
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->data_type_conversion,
       GetDataTypeConverterOrError(source.driver->data_type(),
-                                  target.driver->data_type()));
+                                  target.driver->data_type(),
+                                  options.data_type_conversion_flags));
   state->source_driver = std::move(source.driver);
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->source_transaction,
@@ -1022,6 +1073,16 @@ WriteFutures DriverCopy(Executor executor, TransformedDriver source,
       std::move(copy_pair.promise), std::move(source_transform_future),
       std::move(target_transform_future));
   return {std::move(copy_pair.future), std::move(commit_pair.future)};
+}
+
+WriteFutures DriverCopy(DriverHandle source, DriverHandle target,
+                        CopyOptions options) {
+  auto executor = source.driver->data_copy_executor();
+  return internal::DriverCopy(
+      std::move(executor), std::move(source), std::move(target),
+      /*options=*/
+      {/*.progress_function=*/std::move(options.progress_function),
+       /*.alignment_options=*/options.alignment_options});
 }
 
 absl::Status CopyReadChunk(
