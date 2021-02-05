@@ -197,4 +197,50 @@ void PrintToOstream(
 }
 }  // namespace internal_array
 
+absl::Status ValidateShapeBroadcast(span<const Index> source_shape,
+                                    span<const Index> target_shape) {
+  for (DimensionIndex source_dim = 0; source_dim < source_shape.size();
+       ++source_dim) {
+    const Index source_size = source_shape[source_dim];
+    if (source_size == 1) continue;
+    const DimensionIndex target_dim =
+        target_shape.size() - source_shape.size() + source_dim;
+    if (target_dim < 0 || target_shape[target_dim] != source_size) {
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat("Cannot broadcast array of shape ", source_shape,
+                              " to target shape ", target_shape));
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status BroadcastStridedLayout(StridedLayoutView<> source,
+                                    span<const Index> target_shape,
+                                    Index* target_byte_strides) {
+  TENSORSTORE_RETURN_IF_ERROR(
+      ValidateShapeBroadcast(source.shape(), target_shape));
+  SharedArray<const void> target;
+  for (DimensionIndex target_dim = 0; target_dim < target_shape.size();
+       ++target_dim) {
+    const DimensionIndex source_dim =
+        target_dim + source.rank() - target_shape.size();
+    target_byte_strides[target_dim] =
+        (source_dim < 0 || source.shape()[source_dim] == 1)
+            ? 0
+            : source.byte_strides()[source_dim];
+  }
+  return absl::OkStatus();
+}
+
+Result<SharedArray<const void>> BroadcastArray(
+    SharedArrayView<const void> source, span<const Index> target_shape) {
+  SharedArray<const void> target;
+  target.layout().set_rank(target_shape.size());
+  TENSORSTORE_RETURN_IF_ERROR(BroadcastStridedLayout(
+      source.layout(), target_shape, target.byte_strides().data()));
+  target.element_pointer() = std::move(source.element_pointer());
+  std::copy(target_shape.begin(), target_shape.end(), target.shape().begin());
+  return target;
+}
+
 }  // namespace tensorstore

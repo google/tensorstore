@@ -44,6 +44,7 @@ using tensorstore::ArrayIterateResult;
 using tensorstore::ArrayOriginKind;
 using tensorstore::ArrayView;
 using tensorstore::BoxView;
+using tensorstore::BroadcastArray;
 using tensorstore::c_order;
 using tensorstore::container;
 using tensorstore::ContainerKind;
@@ -75,6 +76,7 @@ using tensorstore::StridedLayout;
 using tensorstore::SubArray;
 using tensorstore::SubArrayStaticRank;
 using tensorstore::unchecked;
+using tensorstore::ValidateShapeBroadcast;
 using tensorstore::view;
 using tensorstore::zero_origin;
 using testing::ElementsAre;
@@ -1780,6 +1782,74 @@ TEST(ArrayTest, DeductionGuides) {
     static_assert(std::is_same_v<decltype(a), Array<int, 2>>);
     EXPECT_EQ(existing_array, a);
   }
+}
+TEST(ValidateShapeBroadcastTest, Examples) {
+  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({5}),
+                                               span<const Index>({4, 5})));
+  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({4, 1}),
+                                               span<const Index>({4, 5})));
+  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({1, 1, 5}),
+                                               span<const Index>({4, 5})));
+  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({1, 1, 5}),
+                                               span<const Index>({4, 5})));
+  EXPECT_THAT(ValidateShapeBroadcast(span<const Index>({2, 5}),
+                                     span<const Index>({4, 5})),
+              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(ValidateShapeBroadcast(span<const Index>({2, 5}),
+                                     span<const Index>({5, 5})),
+              MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(ValidateShapeBroadcastTest, Basic) {
+  TENSORSTORE_EXPECT_OK(
+      ValidateShapeBroadcast(span<const Index>(), span<const Index>()));
+  TENSORSTORE_EXPECT_OK(
+      ValidateShapeBroadcast(span<const Index>(), span<const Index>({3, 4})));
+  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({3, 4}),
+                                               span<const Index>({3, 4})));
+  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({1, 3, 4}),
+                                               span<const Index>({3, 4})));
+  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({1, 1, 3, 4}),
+                                               span<const Index>({3, 4})));
+  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({1, 1, 1, 4}),
+                                               span<const Index>({3, 4})));
+  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({1, 1, 3, 1}),
+                                               span<const Index>({3, 4})));
+  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({3, 1}),
+                                               span<const Index>({3, 4})));
+  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({4}),
+                                               span<const Index>({3, 4})));
+  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({1}),
+                                               span<const Index>({3, 4})));
+  EXPECT_THAT(
+      ValidateShapeBroadcast(span<const Index>({5}), span<const Index>({3, 4})),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Cannot broadcast array of shape \\{5\\} to target shape "
+                    "\\{3, 4\\}"));
+}
+
+TEST(BroadcastStridedLayoutTest, Basic) {
+  StridedLayout<1> source_layout({3}, {5});
+  StridedLayout<2> target_layout({4, 3}, {42, 42});
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::BroadcastStridedLayout(source_layout, target_layout.shape(),
+                                          target_layout.byte_strides().data()));
+  EXPECT_THAT(target_layout.byte_strides(), ::testing::ElementsAre(0, 5));
+}
+
+TEST(BroadcastArrayTest, Basic) {
+  EXPECT_THAT(
+      BroadcastArray(MakeArray<int>({1, 2, 3}), span<const Index>({2, 3})),
+      MakeArray<int>({{1, 2, 3}, {1, 2, 3}}));
+  EXPECT_THAT(BroadcastArray(MakeArray<int>({{1}, {2}, {3}}),
+                             span<const Index>({3, 2})),
+              MakeArray<int>({{1, 1}, {2, 2}, {3, 3}}));
+  EXPECT_THAT(BroadcastArray(MakeArray<int>({{1}, {2}, {3}}),
+                             span<const Index>({4, 2})),
+              MatchesStatus(
+                  absl::StatusCode::kInvalidArgument,
+                  "Cannot broadcast array of shape \\{3, 1\\} to target shape "
+                  "\\{4, 2\\}"));
 }
 
 }  // namespace

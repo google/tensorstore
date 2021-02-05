@@ -1693,6 +1693,74 @@ std::string ToString(
     const ArrayView<const void, dynamic_rank, offset_origin>& array,
     const ArrayFormatOptions& options = ArrayFormatOptions::Default());
 
+/// Validates that `source_shape` can be broadcast to `target_shape`.
+///
+/// A `source_shape` can be broadcast to a `target_shape` if, starting from the
+/// trailing (highest index) dimensions, the size in `source_shape` is either
+/// `1` or equal to the size in `target_shape`.  Any additional leading
+/// dimensions of `source_shape` that don't correspond to a dimension of
+/// `target_shape` must be `1`.  There are no restrictions on additional leading
+/// dimensions of `target_shape` that don't correspond to a dimension of
+/// `source_shape`.
+///
+/// For example:
+///
+///     [VALID]
+///     source_shape:    5
+///     target_shape: 4, 5
+///
+///     [VALID]
+///     source_shape: 4, 1
+///     target_shape: 4, 5
+///
+///     [VALID]
+///     source_shape: 1, 1, 5
+///     target_shape:    4, 5
+///
+///     [INVALID]
+///     source_shape: 2, 5
+///     target_shape: 4, 5
+///
+///     [INVALID]
+///     source_shape: 2, 5
+///     target_shape:    5
+///
+/// \returns `absl::OkStatus()` if the shapes are compatible.
+/// \error `absl::StatusCode::kInvalidArgument` if the shapes are not
+///     compatible.
+absl::Status ValidateShapeBroadcast(span<const Index> source_shape,
+                                    span<const Index> target_shape);
+
+/// Broadcasts `source` to `target_shape`.
+///
+/// \param source Source layout to broadcast.
+/// \param target_shape Target shape to which `source` will be broadcast.
+/// \param target_byte_strides Pointer to array of length `target_shape.size()`.
+/// \error `absl::StatusCode::kInvalidArgument` if the shapes are not
+///     compatible.
+absl::Status BroadcastStridedLayout(StridedLayoutView<> source,
+                                    span<const Index> target_shape,
+                                    Index* target_byte_strides);
+
+/// Broadcasts `source` to `target_shape`.
+///
+/// For example:
+///
+///     EXPECT_THAT(
+///         BroadcastArray(MakeArray<int>({1, 2, 3}),
+///                        span<const Index>({2, 3})),
+///         MakeArray<int>({{1, 2, 3}, {1, 2, 3}}));
+///
+///     EXPECT_THAT(BroadcastArray(MakeArray<int>({{1}, {2}, {3}}),
+///                                span<const Index>({3, 2})),
+///                 MakeArray<int>({{1, 1}, {2, 2}, {3, 3}}));
+///
+/// \returns The broadcast array if successful.
+/// \error `absl::StatusCode::kInvalidArgument` if the shapes are not
+///     compatible.
+Result<SharedArray<const void>> BroadcastArray(
+    SharedArrayView<const void> source, span<const Index> target_shape);
+
 }  // namespace tensorstore
 
 #endif  //  TENSORSTORE_ARRAY_H_
