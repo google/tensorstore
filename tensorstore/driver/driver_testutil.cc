@@ -533,9 +533,7 @@ void TestMetadataOnlyResize(const TestTensorStoreDriverResizeOptions& options,
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
           auto reopened_store,
           tensorstore::Open(options.get_create_spec(bounds), context,
-                            transaction,
-                            tensorstore::OpenMode::open |
-                                tensorstore::OpenMode::allow_option_mismatch)
+                            transaction, tensorstore::OpenMode::open)
               .result());
       EXPECT_EQ(expected_domain, reopened_store.domain());
 

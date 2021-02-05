@@ -98,8 +98,6 @@ TEST(OpenTest, PrintToOstream) {
   EXPECT_EQ("open|create", StrCat(OpenMode::open | OpenMode::create));
   EXPECT_EQ("create|delete_existing",
             StrCat(OpenMode::create | OpenMode::delete_existing));
-  EXPECT_EQ("open|allow_option_mismatch",
-            StrCat(OpenMode::open | OpenMode::allow_option_mismatch));
 }
 
 }  // namespace

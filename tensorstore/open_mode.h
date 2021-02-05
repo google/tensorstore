@@ -38,11 +38,6 @@ enum class OpenMode {
   /// conjunction with `create`.
   delete_existing = 4,
 
-  /// Open succeeds even if the specified creation properties do not match those
-  /// of the existing TensorStore.  This is only valid in conjunction with
-  /// `open`.
-  allow_option_mismatch = 8,
-
   /// Open an existing TensorStore or create a new TensorStore if it does not
   /// exist.
   open_or_create = open + create,

@@ -387,8 +387,7 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
   Result<std::size_t> GetComponentIndex(const void* metadata_ptr,
                                         OpenMode open_mode) override {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
-    if (!(open_mode & OpenMode::allow_option_mismatch) &&
-        spec().partial_metadata) {
+    if (spec().partial_metadata) {
       TENSORSTORE_RETURN_IF_ERROR(
           ValidateMetadata(metadata, *spec().partial_metadata));
     }

@@ -36,7 +36,6 @@ using tensorstore::GetStatus;
 using tensorstore::Index;
 using tensorstore::kDataTypes;
 using tensorstore::MatchesStatus;
-using tensorstore::OpenMode;
 using tensorstore::span;
 using tensorstore::StrCat;
 using tensorstore::internal::ParseJson;
@@ -1596,53 +1595,46 @@ TEST_F(OpenScaleTest, Success) {
   EXPECT_EQ(0u, OpenScale(metadata,
                           OpenConstraints::Parse(::nlohmann::json::object_t{},
                                                  /*data_type_constraint=*/{})
-                              .value(),
-                          OpenMode::open));
+                              .value()));
 
   // Open by `scale_index` only
   EXPECT_EQ(0u, OpenScale(metadata,
                           OpenConstraints::Parse({{"scale_index", 0}},
                                                  /*data_type_constraint=*/{})
-                              .value(),
-                          OpenMode::open));
+                              .value()));
 
   // Open with invalid `scale_index`
-  EXPECT_THAT(OpenScale(metadata,
-                        OpenConstraints::Parse({{"scale_index", 2}},
-                                               /*data_type_constraint=*/{})
-                            .value(),
-                        OpenMode::open),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Scale 2 does not exist, number of scales is 2"));
+  EXPECT_THAT(
+      OpenScale(metadata, OpenConstraints::Parse({{"scale_index", 2}},
+                                                 /*data_type_constraint=*/{})
+                              .value()),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                    "Scale 2 does not exist, number of scales is 2"));
 
   // Open by `key` only
-  EXPECT_EQ(0u, OpenScale(metadata,
-                          OpenConstraints::Parse(
-                              {{"scale_metadata", {{"key", "8_8_8"}}}},
-                              /*data_type_constraint=*/{})
-                              .value(),
-                          OpenMode::open));
-  EXPECT_EQ(1u, OpenScale(metadata,
-                          OpenConstraints::Parse(
-                              {{"scale_metadata", {{"key", "16_16_16"}}}},
-                              /*data_type_constraint=*/{})
-                              .value(),
-                          OpenMode::open));
+  EXPECT_EQ(0u,
+            OpenScale(metadata, OpenConstraints::Parse(
+                                    {{"scale_metadata", {{"key", "8_8_8"}}}},
+                                    /*data_type_constraint=*/{})
+                                    .value()));
+  EXPECT_EQ(1u,
+            OpenScale(metadata, OpenConstraints::Parse(
+                                    {{"scale_metadata", {{"key", "16_16_16"}}}},
+                                    /*data_type_constraint=*/{})
+                                    .value()));
 
   // Open by `resolution` only
   EXPECT_EQ(0u, OpenScale(metadata,
                           OpenConstraints::Parse(
                               {{"scale_metadata", {{"resolution", {5, 6, 7}}}}},
                               /*data_type_constraint=*/{})
-                              .value(),
-                          OpenMode::open));
+                              .value()));
   EXPECT_EQ(1u,
             OpenScale(metadata,
                       OpenConstraints::Parse(
                           {{"scale_metadata", {{"resolution", {10, 11, 12}}}}},
                           /*data_type_constraint=*/{})
-                          .value(),
-                      OpenMode::open));
+                          .value()));
 
   // Open by `key` and `resolution`
   EXPECT_EQ(0u, OpenScale(metadata,
@@ -1650,19 +1642,16 @@ TEST_F(OpenScaleTest, Success) {
                               {{"scale_metadata",
                                 {{"key", "8_8_8"}, {"resolution", {5, 6, 7}}}}},
                               /*data_type_constraint=*/{})
-                              .value(),
-                          OpenMode::open));
+                              .value()));
 }
 
 TEST_F(OpenScaleTest, Invalid) {
   // Open with invalid `key`
   EXPECT_THAT(
-      OpenScale(
-          metadata,
-          OpenConstraints::Parse({{"scale_metadata", {{"key", "invalidkey"}}}},
-                                 /*data_type_constraint=*/{})
-              .value(),
-          OpenMode::open),
+      OpenScale(metadata, OpenConstraints::Parse(
+                              {{"scale_metadata", {{"key", "invalidkey"}}}},
+                              /*data_type_constraint=*/{})
+                              .value()),
       MatchesStatus(absl::StatusCode::kNotFound,
                     "No scale found matching \\{\"key\":\"invalidkey\"\\}"));
 
@@ -1672,8 +1661,7 @@ TEST_F(OpenScaleTest, Invalid) {
                 OpenConstraints::Parse(
                     {{"scale_metadata", {{"resolution", {41, 42, 43}}}}},
                     /*data_type_constraint=*/{})
-                    .value(),
-                OpenMode::open),
+                    .value()),
       MatchesStatus(absl::StatusCode::kNotFound,
                     "No scale found matching "
                     "\\{\"resolution\":\\[41\\.0,42\\.0,43\\.0\\]\\}"));
@@ -1685,43 +1673,29 @@ TEST_F(OpenScaleTest, Invalid) {
                     {{"scale_metadata",
                       {{"key", "16_16_16"}, {"resolution", {5, 6, 7}}}}},
                     /*data_type_constraint=*/{})
-                    .value(),
-                OpenMode::open),
+                    .value()),
       MatchesStatus(
           absl::StatusCode::kNotFound,
           "No scale found matching "
           "\\{\"key\":\"16_16_16\",\"resolution\":\\[5\\.0,6\\.0,7\\.0\\]\\}"));
 
-  // Ignored open constraints
-  EXPECT_EQ(0u, OpenScale(metadata,
-                          OpenConstraints::Parse(
-                              {{"scale_index", 0},
-                               {"multiscale_metadata", {{"num_channels", 7}}},
-                               {"scale_metadata", {{"size", {1, 2, 3}}}}},
-                              /*data_type_constraint=*/{})
-                              .value(),
-                          OpenMode::open | OpenMode::allow_option_mismatch));
-
   // Invalid multiscale metadata open constraints
-  EXPECT_THAT(OpenScale(metadata,
-                        OpenConstraints::Parse(
-                            {{"scale_index", 0},
-                             {"multiscale_metadata", {{"num_channels", 7}}}},
-                            /*data_type_constraint=*/{})
-                            .value(),
-                        OpenMode::open),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*\"num_channels\".*"));
+  EXPECT_THAT(
+      OpenScale(metadata, OpenConstraints::Parse(
+                              {{"scale_index", 0},
+                               {"multiscale_metadata", {{"num_channels", 7}}}},
+                              /*data_type_constraint=*/{})
+                              .value()),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                    ".*\"num_channels\".*"));
 
   // Invalid scale metadata open constraints
   EXPECT_THAT(
-      OpenScale(
-          metadata,
-          OpenConstraints::Parse(
-              {{"scale_index", 0}, {"scale_metadata", {{"size", {1, 2, 3}}}}},
-              /*data_type_constraint=*/{})
-              .value(),
-          OpenMode::open),
+      OpenScale(metadata, OpenConstraints::Parse(
+                              {{"scale_index", 0},
+                               {"scale_metadata", {{"size", {1, 2, 3}}}}},
+                              /*data_type_constraint=*/{})
+                              .value()),
       MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"size\".*"));
 }
 
@@ -1757,8 +1731,7 @@ TEST_F(OpenScaleTest, MetadataMismatch) {
   EXPECT_EQ(0u, OpenScale(metadata,
                           OpenConstraints::Parse(constraints_json,
                                                  /*data_type_constraint=*/{})
-                              .value(),
-                          OpenMode::open));
+                              .value()));
 
   // Tests that any of the following changes in the `scale_metadata` leads
   // to an error.
@@ -1777,13 +1750,12 @@ TEST_F(OpenScaleTest, MetadataMismatch) {
     if (k == "encoding") {
       j["scale_metadata"].erase("compressed_segmentation_block_size");
     }
-    EXPECT_THAT(OpenScale(metadata,
-                          OpenConstraints::Parse(j,
-                                                 /*data_type_constraint=*/{})
-                              .value(),
-                          OpenMode::open),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              StrCat(".*\"", k, "\".*")));
+    EXPECT_THAT(
+        OpenScale(metadata, OpenConstraints::Parse(j,
+                                                   /*data_type_constraint=*/{})
+                                .value()),
+        MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                      StrCat(".*\"", k, "\".*")));
   }
 }
 

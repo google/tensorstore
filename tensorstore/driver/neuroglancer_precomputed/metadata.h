@@ -219,16 +219,12 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
 ///
 /// \param The existing metadata.
 /// \param constraints Constraints specifying the scale to open.
-/// \param open_mode If `open_mode` contains `allow_option_mismatch`, don't
-///     check all of the constraints, just use `scale_index`, `key`, and
-///     `resolution` to find the matching scale.
 /// \returns The scale index that is compatible with `constraints`.
 /// \error `absl::StatusCode::kNotFound` if no such scale is found.
 /// \error `absl::StatusCode::kFailedPrecondition` if constraints are not
 ///     satisfied.
 Result<std::size_t> OpenScale(const MultiscaleMetadata& metadata,
-                              const OpenConstraints& constraints,
-                              OpenMode open_mode);
+                              const OpenConstraints& constraints);
 
 /// Resolves `scale_key` relative to `key_prefix`.
 ///

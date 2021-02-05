@@ -276,7 +276,6 @@ The returned view may be used to perform transactional read/write operations.
       [](const SpecLike& spec, std::optional<bool> read,
          std::optional<bool> write, std::optional<bool> open,
          std::optional<bool> create, std::optional<bool> delete_existing,
-         std::optional<bool> allow_option_mismatch,
          internal_context::ContextImplPtr context,
          internal::TransactionState::CommitPtr transaction) {
         if (!context) {
@@ -299,7 +298,7 @@ The returned view may be used to perform transactional read/write operations.
                 options.read_write_mode | ReadWriteMode::write;
           }
         }
-        if (open || create || delete_existing || allow_option_mismatch) {
+        if (open || create || delete_existing) {
           OpenMode open_mode = OpenMode{};
           if (open && *open == true) {
             open_mode = open_mode | OpenMode::open;
@@ -310,9 +309,6 @@ The returned view may be used to perform transactional read/write operations.
           if (delete_existing && *delete_existing == true) {
             open_mode = open_mode | OpenMode::delete_existing;
           }
-          if (allow_option_mismatch && *allow_option_mismatch == true) {
-            open_mode = open_mode | OpenMode::allow_option_mismatch;
-          }
           options.open_mode = open_mode;
         }
         return tensorstore::Open(std::move(spec.value), std::move(options));
@@ -321,7 +317,6 @@ The returned view may be used to perform transactional read/write operations.
       py::arg("read") = std::nullopt, py::arg("write") = std::nullopt,
       py::arg("open") = std::nullopt, py::arg("create") = std::nullopt,
       py::arg("delete_existing") = std::nullopt,
-      py::arg("allow_option_mismatch") = std::nullopt,
       py::arg("context") = nullptr, py::arg("transaction") = nullptr);
 }
 

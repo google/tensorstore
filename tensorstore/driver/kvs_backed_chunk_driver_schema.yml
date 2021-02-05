@@ -39,13 +39,6 @@ allOf:
         a new TensorStore.  Requires that :json-member:`create` is
         :json:`true`, and that :json-member:`open` is :json:`false`.
       default: false
-    allow_metadata_mismatch:
-      type: boolean
-      description: >-
-        Allow a mismatch between the existing metadata and the
-        metadata specified for creating a new TensorStore.  Requires
-        that :json-member:`create` is :json:`true`.
-      default: false
     cache_pool:
       $ref: https://github.com/google/tensorstore/json-schema/context-resource
       description: >-

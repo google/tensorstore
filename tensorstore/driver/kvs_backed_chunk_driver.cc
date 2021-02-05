@@ -560,7 +560,6 @@ Result<IndexTransformSpec> DriverBase::GetBoundSpecData(
   spec->delete_existing = false;
   spec->open = true;
   spec->create = false;
-  spec->allow_metadata_mismatch = false;
   spec->staleness.metadata = this->metadata_staleness_bound();
   spec->staleness.data = this->data_staleness_bound();
   spec->rank = this->rank();

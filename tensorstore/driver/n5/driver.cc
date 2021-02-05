@@ -342,10 +342,8 @@ class N5Driver::OpenState : public N5Driver::OpenStateBase {
           StrCat("Expected data type of ", spec().data_type,
                  " but received: ", metadata.data_type));
     }
-    if (!(open_mode & OpenMode::allow_option_mismatch)) {
-      TENSORSTORE_RETURN_IF_ERROR(
-          ValidateMetadata(metadata, spec().metadata_constraints));
-    }
+    TENSORSTORE_RETURN_IF_ERROR(
+        ValidateMetadata(metadata, spec().metadata_constraints));
     return 0;
   }
 };

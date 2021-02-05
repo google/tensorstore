@@ -417,19 +417,6 @@ TEST(DriverTest, ConvertSpec) {
         tensorstore::OpenMode::create | tensorstore::OpenMode::delete_existing);
   }
 
-  // Convert to open+create+allow_metadata_mismatch spec
-  {
-    ::nlohmann::json converted_spec = spec;
-    converted_spec["create"] = true;
-    converted_spec["open"] = true;
-    converted_spec["allow_metadata_mismatch"] = true;
-    tensorstore::internal::TestTensorStoreDriverSpecConvert(
-        /*orig_spec=*/spec,
-        /*expected_converted_spec=*/converted_spec,
-        tensorstore::OpenMode::create | tensorstore::OpenMode::open |
-            tensorstore::OpenMode::allow_option_mismatch);
-  }
-
   // Convert `recheck_cached_data` and `recheck_cached_metadata`.
   {
     ::nlohmann::json converted_spec = spec;
@@ -471,8 +458,6 @@ TEST(DriverTest, UnsupportedDataTypeInSpec) {
           "string data type is not one of the supported data types: .*"));
 }
 
-// Tests that constraints are allowed not to match only if
-// `allow_option_mismatch` is specified.
 TEST(DriverTest, OptionMismatch) {
   ::nlohmann::json json_spec = GetJsonSpec();
   auto context = Context::Default();
@@ -482,26 +467,7 @@ TEST(DriverTest, OptionMismatch) {
       tensorstore::Open(json_spec, context, tensorstore::OpenMode::create)
           .result());
 
-  {
-    // Specify `IncludeContext{false}` since we need to re-open with the same
-    // `memory_key_value_store` context resource from the parent `context`.
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto modified_spec,
-        store.spec().value().ToJson(tensorstore::IncludeContext{false}));
-    modified_spec["multiscale_metadata"]["num_channels"] = 10;
-    EXPECT_THAT(
-        tensorstore::Open(modified_spec, context, tensorstore::OpenMode::open)
-            .result(),
-        MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                      ".*\"num_channels\".*"));
-    TENSORSTORE_ASSERT_OK(
-        tensorstore::Open(modified_spec, context,
-                          tensorstore::OpenMode::open |
-                              tensorstore::OpenMode::allow_option_mismatch)
-            .result());
-  }
-
-  // Rank constraint must hold regardless of whether `allow_option_mismatch`.
+  // Rank constraint must hold.
   {
     auto modified_spec = json_spec;
     modified_spec["rank"] = 5;
@@ -509,17 +475,10 @@ TEST(DriverTest, OptionMismatch) {
         tensorstore::Open(modified_spec, context, tensorstore::OpenMode::open)
             .result(),
         MatchesStatus(absl::StatusCode::kInvalidArgument, ".*rank 5.*"));
-    EXPECT_THAT(
-        tensorstore::Open(modified_spec, context,
-                          tensorstore::OpenMode::open |
-                              tensorstore::OpenMode::allow_option_mismatch)
-            .result(),
-        MatchesStatus(absl::StatusCode::kInvalidArgument, ".*rank 5.*"));
   }
 }
 
-// Tests that the data type constraint still applies even with
-// `allow_option_mismatch` specified.
+// Tests that the data type constraint applies.
 TEST(DriverTest, DataTypeMismatch) {
   ::nlohmann::json json_spec = GetJsonSpec();
   auto context = Context::Default();
@@ -535,9 +494,7 @@ TEST(DriverTest, DataTypeMismatch) {
       store.spec().value().ToJson(tensorstore::IncludeContext{false}));
   modified_spec["dtype"] = "uint32";
   EXPECT_THAT(
-      tensorstore::Open(modified_spec, context,
-                        tensorstore::OpenMode::open |
-                            tensorstore::OpenMode::allow_option_mismatch)
+      tensorstore::Open(modified_spec, context, tensorstore::OpenMode::open)
           .result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
                     ".*: Expected data type of uint32 but received: uint16"));

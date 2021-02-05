@@ -31,19 +31,16 @@ struct OpenModeSpec {
   bool open = false;
   bool create = false;
   bool delete_existing = false;
-  bool allow_metadata_mismatch = false;
 
   OpenMode open_mode() const {
     return (open ? OpenMode::open : OpenMode{}) |
            (create ? OpenMode::create : OpenMode{}) |
-           (delete_existing ? OpenMode::delete_existing : OpenMode{}) |
-           (allow_metadata_mismatch ? OpenMode::allow_option_mismatch
-                                    : OpenMode{});
+           (delete_existing ? OpenMode::delete_existing : OpenMode{});
   }
 
   // For compatibility with `ContextBindingTraits`.
   static constexpr auto ApplyMembers = [](auto& x, auto f) {
-    return f(x.open, x.create, x.delete_existing, x.allow_metadata_mismatch);
+    return f(x.open, x.create, x.delete_existing);
   };
 
   /// Applies the specified options.

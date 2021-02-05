@@ -829,15 +829,9 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
 }
 
 Result<std::size_t> OpenScale(const MultiscaleMetadata& metadata,
-                              const OpenConstraints& constraints,
-                              OpenMode open_mode) {
-  if (!(open_mode & OpenMode::allow_option_mismatch)) {
-    if (auto status = ValidateMultiscaleConstraintsForOpen(
-            constraints.multiscale, metadata);
-        !status.ok()) {
-      return status;
-    }
-  }
+                              const OpenConstraints& constraints) {
+  TENSORSTORE_RETURN_IF_ERROR(
+      ValidateMultiscaleConstraintsForOpen(constraints.multiscale, metadata));
   std::size_t scale_index;
   if (constraints.scale_index) {
     scale_index = *constraints.scale_index;
@@ -869,13 +863,8 @@ Result<std::size_t> OpenScale(const MultiscaleMetadata& metadata,
       return absl::NotFoundError(StrCat("No scale found matching ", c.dump()));
     }
   }
-  if (!(open_mode & OpenMode::allow_option_mismatch)) {
-    if (auto status = ValidateScaleConstraintsForOpen(
-            constraints.scale, metadata.scales[scale_index]);
-        !status.ok()) {
-      return status;
-    }
-  }
+  TENSORSTORE_RETURN_IF_ERROR(ValidateScaleConstraintsForOpen(
+      constraints.scale, metadata.scales[scale_index]));
   return scale_index;
 }
 

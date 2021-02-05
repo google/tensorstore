@@ -52,10 +52,6 @@ std::ostream& operator<<(std::ostream& os, OpenMode mode) {
     os << sep << "delete_existing";
     sep = kSep;
   }
-  if (!!(mode & OpenMode::allow_option_mismatch)) {
-    os << sep << "allow_option_mismatch";
-    sep = kSep;
-  }
   return os;
 }
 

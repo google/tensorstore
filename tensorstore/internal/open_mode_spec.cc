@@ -55,19 +55,25 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                                   jb::DefaultValue([](bool* v) {
                                     *v = false;
                                   }))),
-        jb::Member("allow_metadata_mismatch",
-                   jb::Projection(&OpenModeSpec::allow_metadata_mismatch,
-                                  jb::DefaultValue([](bool* v) {
-                                    *v = false;
-                                  })))));
+        // For backward compatibility, accept `allow_metadata_mismatch` even
+        // though it is no longer supported.
+        jb::Member("allow_metadata_mismatch", [](auto is_loading,
+                                                 const auto& options, auto* obj,
+                                                 auto* j) {
+          if constexpr (is_loading) {
+            if (!j->is_discarded() && (!j->is_boolean() || *j != false)) {
+              return absl::InvalidArgumentError(
+                  "\"allow_metadata_mismatch\" no longer supported");
+            }
+          }
+          return absl::OkStatus();
+        })));
 
 absl::Status OpenModeSpec::ApplyOptions(const SpecOptions& options) {
   if (options.open_mode != OpenMode{}) {
     const OpenMode open_mode = options.open_mode;
     open = (open_mode & OpenMode::open) == OpenMode::open;
     create = (open_mode & OpenMode::create) == OpenMode::create;
-    allow_metadata_mismatch = (open_mode & OpenMode::allow_option_mismatch) ==
-                              OpenMode::allow_option_mismatch;
     delete_existing =
         (open_mode & OpenMode::delete_existing) == OpenMode::delete_existing;
   }

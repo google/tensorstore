@@ -546,7 +546,7 @@ class NeuroglancerPrecomputedDriver::OpenState
         open_constraints.scale_index = *scale_index_;
       }
     }
-    if (auto result = OpenScale(metadata, open_constraints, open_mode)) {
+    if (auto result = OpenScale(metadata, open_constraints)) {
       scale_index_ = *result;
       const auto& scale = metadata.scales[*result];
       if (spec().open_constraints.scale.chunk_size &&
@@ -555,11 +555,8 @@ class NeuroglancerPrecomputedDriver::OpenState
         // Use the specified chunk size.
         chunk_size_xyz_ = *spec().open_constraints.scale.chunk_size;
       } else {
-        // Chunk size was unspecified or not found.  It is only possible for a
-        // specified chunk size not to be found if `open_mode` specifies
-        // `allow_option_mismatch`.
-        assert(!spec().open_constraints.scale.chunk_size ||
-               !!(open_mode & OpenMode::allow_option_mismatch));
+        // Chunk size was unspecified.
+        assert(!spec().open_constraints.scale.chunk_size);
         chunk_size_xyz_ = scale.chunk_sizes[0];
       }
       // Component index is always 0.
