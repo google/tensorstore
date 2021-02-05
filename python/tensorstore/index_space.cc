@@ -624,7 +624,8 @@ Examples:
                  label.value_or(""));
            }),
            "Constructs an unbounded interval.", py::arg("label") = std::nullopt,
-           py::arg("implicit_lower") = true, py::arg("implicit_upper") = true)
+           py::kw_only(), py::arg("implicit_lower") = true,
+           py::arg("implicit_upper") = true)
       .def(py::init([](OptionallyImplicitIndex size,
                        std::optional<std::string> label, bool implicit_lower,
                        std::optional<bool> implicit_upper) {
@@ -638,7 +639,8 @@ Examples:
            }),
            "Constructs the interval [0, size).",
            py::arg_v("size", OptionallyImplicitIndex(), "+inf"),
-           py::arg("label") = std::nullopt, py::arg("implicit_lower") = false,
+           py::arg("label") = std::nullopt, py::kw_only(),
+           py::arg("implicit_lower") = false,
            py::arg("implicit_upper") = std::nullopt)
       .def(py::init([](OptionallyImplicitIndex inclusive_min,
                        OptionallyImplicitIndex exclusive_max,
@@ -654,7 +656,7 @@ Examples:
                      implicit_upper.value_or(exclusive_max.value == kImplicit)},
                  label.value_or(""));
            }),
-           "Constructs a half-open interval.",
+           "Constructs a half-open interval.", py::kw_only(),
            py::arg_v("inclusive_min", OptionallyImplicitIndex(), "-inf"),
            py::arg_v("exclusive_max", OptionallyImplicitIndex(), "+inf"),
            py::arg("label") = std::nullopt,
@@ -674,7 +676,7 @@ Examples:
                      implicit_upper.value_or(inclusive_max.value == kImplicit)},
                  label.value_or(""));
            }),
-           "Constructs a closed interval.",
+           "Constructs a closed interval.", py::kw_only(),
            py::arg_v("inclusive_min", OptionallyImplicitIndex(), "-inf"),
            py::arg_v("inclusive_max", OptionallyImplicitIndex(), "+inf"),
            py::arg("label") = std::nullopt,
@@ -698,7 +700,7 @@ Examples:
                      implicit_upper.value_or(size.value == kImplicit)},
                  label.value_or(""));
            }),
-           "Constructs a sized interval.",
+           "Constructs a sized interval.", py::kw_only(),
            py::arg_v("inclusive_min", OptionallyImplicitIndex(), "0"),
            py::arg_v("size", OptionallyImplicitIndex(), "+inf"),
            py::arg("label") = std::nullopt,
@@ -768,7 +770,7 @@ Logically, an IndexDomain is the cartesian product of a sequence of Dim objects.
                      /*output_rank=*/0);
                  return IndexDomain<>(ValueOrThrow(builder.Finalize()));
                }),
-           py::arg("rank") = std::nullopt,
+           py::arg("rank") = std::nullopt, py::kw_only(),
            py::arg("inclusive_min") = std::nullopt,
            py::arg("implicit_lower_bounds") = std::nullopt,
            py::arg("exclusive_max") = std::nullopt,
@@ -930,7 +932,7 @@ This is simply the product of the extents in :py:obj:`.shape`.)")
              SetOutputIndexMaps(output, &builder);
              return ValueOrThrow(builder.Finalize());
            }),
-           py::arg("input_rank") = std::nullopt,
+           py::arg("input_rank") = std::nullopt, py::kw_only(),
            py::arg("input_inclusive_min") = std::nullopt,
            py::arg("implicit_lower_bounds") = std::nullopt,
            py::arg("input_exclusive_max") = std::nullopt,

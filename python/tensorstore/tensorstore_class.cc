@@ -316,9 +316,9 @@ The returned view may be used to perform transactional read/write operations.
             internal::TransactionState::ToTransaction(std::move(transaction)),
             spec, std::move(options));
       },
-      "Opens a TensorStore", py::arg("spec"), py::arg("read") = std::nullopt,
-      py::arg("write") = std::nullopt, py::arg("open") = std::nullopt,
-      py::arg("create") = std::nullopt,
+      "Opens a TensorStore", py::arg("spec"), py::kw_only(),
+      py::arg("read") = std::nullopt, py::arg("write") = std::nullopt,
+      py::arg("open") = std::nullopt, py::arg("create") = std::nullopt,
       py::arg("delete_existing") = std::nullopt,
       py::arg("allow_option_mismatch") = std::nullopt,
       py::arg("context") = nullptr, py::arg("transaction") = nullptr);
