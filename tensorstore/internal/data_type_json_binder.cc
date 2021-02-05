@@ -24,33 +24,34 @@ namespace tensorstore {
 namespace internal {
 namespace json_binding {
 
-TENSORSTORE_DEFINE_JSON_BINDER(
-    DataTypeJsonBinder,
-    [](auto is_loading, const auto& options, auto* obj, ::nlohmann::json* j) {
-      if constexpr (is_loading) {
-        return json_binding::Compose<std::string>(
-            [](auto is_loading, const auto& options, DataType* obj, auto* id) {
-              *obj = tensorstore::GetDataType(*id);
-              if (!obj->valid()) {
-                return absl::Status(
-                    absl::StatusCode::kInvalidArgument,
-                    tensorstore::StrCat("Unsupported data type: ",
-                                        tensorstore::QuoteString(*id)));
-              }
-              return absl::OkStatus();
-            })(is_loading, options, obj, j);
-      } else {
-        if (!obj->valid()) {
-          *j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
-        } else if (obj->id() == DataTypeId::custom) {
-          return absl::Status(absl::StatusCode::kInvalidArgument,
-                              "Data type has no canonical identifier");
-        } else {
-          *j = obj->name();
-        }
-        return absl::OkStatus();
-      }
-    });
+TENSORSTORE_DEFINE_JSON_BINDER(DataTypeJsonBinder, [](auto is_loading,
+                                                      const auto& options,
+                                                      auto* obj,
+                                                      ::nlohmann::json* j) {
+  if constexpr (is_loading) {
+    return json_binding::Compose<std::string>(
+        [](auto is_loading, const auto& options, DataType* obj, auto* id) {
+          *obj = tensorstore::GetDataType(*id);
+          if (!obj->valid()) {
+            return absl::Status(
+                absl::StatusCode::kInvalidArgument,
+                tensorstore::StrCat("Unsupported data type: ",
+                                    tensorstore::QuoteString(*id)));
+          }
+          return absl::OkStatus();
+        })(is_loading, options, obj, j);
+  } else {
+    if (!obj->valid()) {
+      *j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
+    } else if (obj->id() == DataTypeId::custom) {
+      return absl::Status(absl::StatusCode::kInvalidArgument,
+                          "Data type has no canonical identifier");
+    } else {
+      *j = obj->name();
+    }
+    return absl::OkStatus();
+  }
+})
 
 TENSORSTORE_DEFINE_JSON_BINDER(OptionalDataTypeJsonBinder,
                                [](auto is_loading, const auto& options,
@@ -63,7 +64,25 @@ TENSORSTORE_DEFINE_JSON_BINDER(OptionalDataTypeJsonBinder,
                                  }
                                  return DataTypeJsonBinder(is_loading, options,
                                                            obj, j);
-                               });
+                               })
+
+TENSORSTORE_DEFINE_JSON_BINDER(
+    ConstrainedDataTypeJsonBinder,
+    [](auto is_loading, const auto& options, auto* obj, ::nlohmann::json* j) {
+      return Validate(
+          [](const auto& options, DataType* d) {
+            if (options.data_type.valid() && d->valid() &&
+                options.data_type != *d) {
+              return absl::InvalidArgumentError(tensorstore::StrCat(
+                  "Expected data type of ", options.data_type,
+                  " but received: ", *d));
+            }
+            return absl::OkStatus();
+          },
+          DefaultValue([data_type = options.data_type](DataType* d) {
+            *d = data_type;
+          }))(is_loading, options, obj, j);
+    })
 
 }  // namespace json_binding
 }  // namespace internal

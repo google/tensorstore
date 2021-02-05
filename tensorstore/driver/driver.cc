@@ -145,27 +145,6 @@ Future<IndexTransform<>> Driver::Resize(OpenTransactionPtr transaction,
   return absl::UnimplementedError("Resize not supported");
 }
 
-namespace {
-/// DataType JSON Binder where `options.data_type` specifies both a constraint
-/// and a default value.
-inline constexpr auto ConstrainedDataTypeBinder =
-    [](auto is_loading, const auto& options, auto* obj, ::nlohmann::json* j) {
-      return jb::Validate(
-          [](const auto& options, DataType* d) {
-            if (options.data_type.valid() && d->valid() &&
-                options.data_type != *d) {
-              return absl::InvalidArgumentError(tensorstore::StrCat(
-                  "Expected data type of ", options.data_type,
-                  " but received: ", *d));
-            }
-            return absl::OkStatus();
-          },
-          jb::DefaultValue([data_type = options.data_type](DataType* d) {
-            *d = data_type;
-          }))(is_loading, options, obj, j);
-    };
-}  // namespace
-
 TENSORSTORE_DEFINE_JSON_BINDER(
     TransformedDriverSpecJsonBinder,
     [](auto is_loading, const auto& options, auto* obj,
@@ -198,7 +177,7 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                                           [](auto& x) -> decltype(auto) {
                                             return (x.constraints().data_type);
                                           },
-                                          ConstrainedDataTypeBinder)))),
+                                          jb::ConstrainedDataTypeJsonBinder)))),
           jb::Projection(&TransformedDriverSpec<>::driver_spec,
                          registry.RegisteredObjectBinder()),
           jb::Initialize([](auto* obj) {

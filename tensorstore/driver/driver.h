@@ -55,6 +55,7 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_spec.h"
 #include "tensorstore/index_space/transformed_array.h"
+#include "tensorstore/internal/array_constraints.h"
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_bindable.h"
@@ -98,13 +99,7 @@ struct DriverReadWriteHandle : public TransformedDriver {
 };
 
 /// Specifies rank and data type information.
-struct DriverConstraints {
-  /// Specifies the data type, or equal to `DataType()` if unknown.
-  DataType data_type;
-
-  /// Specifies the rank, or equal to `dynamic_rank` if unknown.
-  DimensionIndex rank = dynamic_rank;
-};
+using DriverConstraints = ArrayConstraints;
 
 /// Abstract base class representing a TensorStore driver specification, for
 /// creating a `Driver` from a JSON representation.
@@ -231,12 +226,7 @@ struct TransformedDriverSpec {
 /// TensorStore specification within another TensorStore specification (e.g. for
 /// the `"cast"` driver), in order to avoid redundantly specifying the `"rank"`
 /// or `"dtype"` in the nested JSON object.
-struct DriverSpecFromJsonOptions : public Context::FromJsonOptions,
-                                   public DriverConstraints {
-  DriverSpecFromJsonOptions(const Context::FromJsonOptions& options,
-                            const DriverConstraints& constraints = {})
-      : Context::FromJsonOptions(options), DriverConstraints(constraints) {}
-};
+using DriverSpecFromJsonOptions = ArrayFromJsonOptions;
 
 /// Options for converting a `TransformedDriverSpec<>` to JSON.
 ///
@@ -245,12 +235,7 @@ struct DriverSpecFromJsonOptions : public Context::FromJsonOptions,
 /// specifications within another TensorStore specification (e.g. for the "cast"
 /// driver), in order to permit propagation of rank/data type information from
 /// the outer specification.
-struct DriverSpecToJsonOptions : public Context::ToJsonOptions,
-                                 public DriverConstraints {
-  DriverSpecToJsonOptions(const Context::ToJsonOptions& options,
-                          const DriverConstraints& constraints = {})
-      : Context::ToJsonOptions(options), DriverConstraints(constraints) {}
-};
+using DriverSpecToJsonOptions = ArrayToJsonOptions;
 
 /// JSON binder for TensorStore specification.
 TENSORSTORE_DECLARE_JSON_BINDER(TransformedDriverSpecJsonBinder,

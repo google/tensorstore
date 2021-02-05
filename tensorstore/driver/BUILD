@@ -62,6 +62,7 @@ tensorstore_cc_library(
         "//tensorstore/index_space:json",
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/internal:arena",
+        "//tensorstore/internal:array_constraints",
         "//tensorstore/internal:context_binding",
         "//tensorstore/internal:data_type_json_binder",
         "//tensorstore/internal:intrusive_ptr",

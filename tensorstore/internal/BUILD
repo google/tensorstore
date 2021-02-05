@@ -28,6 +28,16 @@ tensorstore_cc_test(
     ],
 )
 
+tensorstore_cc_library(
+    name = "array_constraints",
+    hdrs = ["array_constraints.h"],
+    deps = [
+        "//tensorstore:data_type",
+        "//tensorstore:json_serialization_options",
+        "//tensorstore:rank",
+    ],
+)
+
 bool_flag(
     name = "async_cache_debug",
     build_setting_default = False,
@@ -612,6 +622,7 @@ tensorstore_cc_library(
     srcs = ["data_type_json_binder.cc"],
     hdrs = ["data_type_json_binder.h"],
     deps = [
+        ":array_constraints",
         ":json",
         "//tensorstore:data_type",
         "//tensorstore/util:quote_string",
