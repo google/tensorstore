@@ -36,5 +36,12 @@ bool AreEqual(const BoxView<>& box_a, const BoxView<>& box_b) {
                     box_b.origin().begin());
 }
 
+bool IsFinite(BoxView<> box) {
+  for (DimensionIndex i = 0; i < box.rank(); ++i) {
+    if (!IsFinite(box[i])) return false;
+  }
+  return true;
+}
+
 }  // namespace internal_box
 }  // namespace tensorstore

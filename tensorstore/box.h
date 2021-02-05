@@ -721,6 +721,7 @@ GetBoxDomainOf(const BoxType& box) {
 }
 
 namespace internal_box {
+bool IsFinite(BoxView<> box);
 template <DimensionIndex BoxRank, DimensionIndex VectorRank, typename IndexType>
 bool Contains(const BoxView<BoxRank>& box,
               span<const IndexType, VectorRank> indices) {
@@ -751,6 +752,15 @@ bool ContainsPartial(const BoxView<BoxRank>& box,
   return true;
 }
 }  // namespace internal_box
+
+/// Returns `true` if all dimensions of `box` have finite bounds.
+///
+/// \param box A Box-like type or a type with a Box domain.
+template <typename BoxType>
+std::enable_if_t<HasBoxDomain<BoxType>::value, bool> IsFinite(
+    const BoxType& box) {
+  return internal_box::IsFinite(GetBoxDomainOf(box));
+}
 
 /// Returns `true` if the index vector `indices` is contained within the box,
 /// i.e. its length is equal to the rank of the box and each component

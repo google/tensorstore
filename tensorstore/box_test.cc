@@ -757,4 +757,21 @@ TEST(BoxTest, DeductionGuides) {
   static_assert(std::is_same_v<decltype(box_view), MutableBoxView<2>>);
 }
 
+TEST(BoxTest, IsFinite) {
+  EXPECT_TRUE(IsFinite(Box<>()));
+  EXPECT_TRUE(IsFinite(BoxView<>()));
+  EXPECT_FALSE(IsFinite(Box<>(1)));
+  EXPECT_FALSE(IsFinite(Box<1>()));
+  EXPECT_FALSE(IsFinite(BoxView<>(1)));
+  EXPECT_FALSE(IsFinite(BoxView<>(2)));
+  EXPECT_FALSE(IsFinite(BoxView<2>()));
+  EXPECT_TRUE(IsFinite(Box<3>({1, 2, 3}, {4, 5, 6})));
+  EXPECT_TRUE(IsFinite(BoxView<3>({1, 2, 3}, {4, 5, 6})));
+  EXPECT_TRUE(IsFinite(Box<>({1, 2, 3}, {4, 5, 6})));
+  EXPECT_TRUE(IsFinite(BoxView<>({1, 2, 3}, {4, 5, 6})));
+  EXPECT_TRUE(IsFinite(Box<1>({1}, {4})));
+  EXPECT_FALSE(IsFinite(Box<3>({1, -kInfIndex, 3}, {4, 5, 6})));
+  EXPECT_FALSE(IsFinite(Box<3>({1, kInfIndex - 5, 3}, {4, 6, 6})));
+}
+
 }  // namespace
