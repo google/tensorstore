@@ -159,6 +159,13 @@ DataType GetDataTypeOrThrow(pybind11::dtype dt);
 /// Defines the Python types and constants.
 void RegisterDataTypeBindings(pybind11::module m);
 
+/// Wrapper type used to indicate parameters that may be specified either as
+/// `tensorstore.dtype` objects or any compatible type (such as a numpy data
+/// type).
+struct DataTypeLike {
+  DataType value;
+};
+
 }  // namespace internal_python
 }  // namespace tensorstore
 
@@ -166,7 +173,8 @@ namespace pybind11 {
 namespace detail {
 
 /// Defines automatic conversion from compatible Python objects to
-/// `tensorstore::DataType` parameters of pybind11-exposed functions.
+/// `tensorstore::internal_python::DataTypeLike` parameters of pybind11-exposed
+/// functions.
 ///
 /// The `str` and `bytes` Python type constructors map to the `ustring` and
 /// `string` types, respectively.
@@ -176,13 +184,12 @@ namespace detail {
 /// (https://docs.scipy.org/doc/numpy-1.13.0/reference/arrays.dtypes.html#specifying-and-constructing-data-types)
 /// and then convert to a TensorStore data type.
 template <>
-struct type_caster<tensorstore::DataType>
-    : public type_caster_base<tensorstore::DataType> {
-  using Base = type_caster_base<tensorstore::DataType>;
+struct type_caster<tensorstore::internal_python::DataTypeLike> {
+  PYBIND11_TYPE_CASTER(tensorstore::internal_python::DataTypeLike,
+                       _("tensorstore.dtype"));
   bool load(handle src, bool convert);
-
-  // Holds the converted value if a conversion is used.
-  tensorstore::DataType converted_value_;
+  static handle cast(tensorstore::internal_python::DataTypeLike value,
+                     return_value_policy policy, handle parent);
 };
 
 }  // namespace detail

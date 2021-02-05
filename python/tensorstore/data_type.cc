@@ -107,10 +107,9 @@ Represents a TensorStore data type.
   cls_data_type
       .def(py::init([](std::string name) { return GetDataTypeOrThrow(name); }),
            "Construct by name.", py::arg("name"))
-      .def(py::init([](py::dtype dt) { return GetDataTypeOrThrow(dt); }),
-           "Construct from a NumPy dtype.", py::arg("dtype"))
-      .def(py::init([](DataType data_type) { return data_type; }),
-           "Construct from anything.", py::arg("name"))
+      .def(py::init([](DataTypeLike data_type) { return data_type.value; }),
+           "Construct from an existing TensorStore or NumPy data type.",
+           py::arg("dtype"))
       .def_property_readonly(
           "name", [](DataType self) { return std::string(self.name()); })
       .def("__repr__",
@@ -159,22 +158,24 @@ Represents a TensorStore data type.
 namespace pybind11 {
 namespace detail {
 
-bool type_caster<tensorstore::DataType>::load(handle src, bool convert) {
+bool type_caster<tensorstore::internal_python::DataTypeLike>::load(
+    handle src, bool convert) {
   using tensorstore::DataType;
   using tensorstore::DataTypeOf;
-  if (Base::load(src, convert)) {
+  // Handle the case that `src` is already a Python-wrapped
+  // `tensorstore::DataType`.
+  if (pybind11::isinstance<tensorstore::DataType>(src)) {
+    value.value = pybind11::cast<tensorstore::DataType>(src);
     return true;
   }
   if (src.is_none()) return false;
   if (!convert) return false;
   if (src.ptr() == reinterpret_cast<PyObject*>(&PyUnicode_Type)) {
-    converted_value_ = DataTypeOf<tensorstore::ustring_t>();
-    value = &converted_value_;
+    value.value = DataTypeOf<tensorstore::ustring_t>();
     return true;
   }
   if (src.ptr() == reinterpret_cast<PyObject*>(&PyBytes_Type)) {
-    converted_value_ = DataTypeOf<tensorstore::string_t>();
-    value = &converted_value_;
+    value.value = DataTypeOf<tensorstore::string_t>();
     return true;
   }
   PyObject* ptr = nullptr;
@@ -185,10 +186,15 @@ bool type_caster<tensorstore::DataType>::load(handle src, bool convert) {
     PyErr_Clear();
     return false;
   }
-  converted_value_ = tensorstore::internal_python::GetDataTypeOrThrow(
+  value.value = tensorstore::internal_python::GetDataTypeOrThrow(
       pybind11::reinterpret_steal<pybind11::dtype>(ptr));
-  value = &converted_value_;
   return true;
+}
+
+handle type_caster<tensorstore::internal_python::DataTypeLike>::cast(
+    tensorstore::internal_python::DataTypeLike value,
+    return_value_policy policy, handle parent) {
+  return pybind11::cast(std::move(value.value));
 }
 
 }  // namespace detail

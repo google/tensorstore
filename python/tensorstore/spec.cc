@@ -133,21 +133,27 @@ Specification for opening or creating a TensorStore.
 namespace pybind11 {
 namespace detail {
 
-bool type_caster<tensorstore::Spec>::load(handle src, bool convert) {
+bool type_caster<tensorstore::internal_python::SpecLike>::load(handle src,
+                                                               bool convert) {
   // Handle the case that `src` is already a Python-wrapped
   // `tensorstore::Spec`.
-  if (Base::load(src, convert)) {
+  if (pybind11::isinstance<tensorstore::Spec>(src)) {
+    value.value = pybind11::cast<tensorstore::Spec>(src);
     return true;
   }
   if (!convert) return false;
   // Attempt to convert argument to `::nlohmann::json`, then to
   // `tensorstore::Spec`.
-  auto converted =
+  value.value =
       tensorstore::internal_python::ValueOrThrow(tensorstore::Spec::FromJson(
           tensorstore::internal_python::PyObjectToJson(src)));
-  converted_value_ = std::move(converted);
-  value = &converted_value_;
   return true;
+}
+
+handle type_caster<tensorstore::internal_python::SpecLike>::cast(
+    tensorstore::internal_python::SpecLike value, return_value_policy policy,
+    handle parent) {
+  return pybind11::cast(std::move(value.value));
 }
 
 }  // namespace detail

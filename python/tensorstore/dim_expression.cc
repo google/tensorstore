@@ -361,7 +361,7 @@ dimensions to which an indexing operation applies.
            })
       .def_static(
           "__class_getitem__",
-          [](const DimensionSelection& selection) { return selection; },
+          [](DimensionSelectionLike selection) { return selection.value; },
           py::arg("selection"));
 
   DefineIndexingMethods<IndexingSpec::Usage::kDimSelectionInitial>(
@@ -433,10 +433,10 @@ dimensions to which an indexing operation applies.
       .def(
           "__getitem__",
           +[](std::shared_ptr<PythonDimExpressionBase> self,
-              DimensionSelection dim_specs)
+              DimensionSelectionLike dim_specs)
               -> std::shared_ptr<PythonDimExpression> {
             return std::make_shared<PythonTransposeOp>(
-                std::move(self), ToTargetDimSpecs(dim_specs.dims));
+                std::move(self), ToTargetDimSpecs(dim_specs.value.dims));
           },
           py::arg("target"));
 
@@ -472,17 +472,16 @@ dimensions to which an indexing operation applies.
   dim_expression_base.attr("__iter__") = py::none();
 }
 
-bool CastToDimensionSelection(py::handle src, DimensionSelection* out) {
+bool CastToDimensionSelection(py::handle src, DimensionSelection& out) {
   if (PyUnicode_Check(src.ptr())) {
-    out->dims.emplace_back(py::cast<std::string>(src));
+    out.dims.emplace_back(py::cast<std::string>(src));
   } else if (PyIndex_Check(src.ptr())) {
-    out->dims.emplace_back(DimensionIndex(py::cast<PythonDimensionIndex>(src)));
+    out.dims.emplace_back(DimensionIndex(py::cast<PythonDimensionIndex>(src)));
   } else if (PySlice_Check(src.ptr())) {
-    out->dims.emplace_back(py::cast<DimRangeSpec>(src));
+    out.dims.emplace_back(py::cast<DimRangeSpec>(src));
   } else if (py::isinstance<DimensionSelection>(src)) {
     auto existing = py::cast<DimensionSelection>(src);
-    out->dims.insert(out->dims.end(), existing.dims.begin(),
-                     existing.dims.end());
+    out.dims.insert(out.dims.end(), existing.dims.begin(), existing.dims.end());
   } else {
     py::object seq =
         py::reinterpret_steal<py::object>(PySequence_Fast(src.ptr(), ""));
@@ -512,18 +511,26 @@ bool CastToDimensionSelection(py::handle src, DimensionSelection* out) {
 namespace pybind11 {
 namespace detail {
 
-bool type_caster<tensorstore::internal_python::DimensionSelection>::load(
+bool type_caster<tensorstore::internal_python::DimensionSelectionLike>::load(
     handle src, bool convert) {
-  if (Base::load(src, convert)) {
+  if (pybind11::isinstance<tensorstore::internal_python::DimensionSelection>(
+          src)) {
+    value.value =
+        pybind11::cast<tensorstore::internal_python::DimensionSelection>(src);
     return true;
   }
   if (!convert) return false;
-  if (tensorstore::internal_python::CastToDimensionSelection(
-          src, &converted_value_)) {
-    value = &converted_value_;
+  if (tensorstore::internal_python::CastToDimensionSelection(src,
+                                                             value.value)) {
     return true;
   }
   return false;
+}
+
+handle type_caster<tensorstore::internal_python::DimensionSelectionLike>::cast(
+    tensorstore::internal_python::DimensionSelectionLike value,
+    return_value_policy policy, handle parent) {
+  return pybind11::cast(std::move(value.value));
 }
 
 bool type_caster<tensorstore::DimRangeSpec>::load(handle src, bool convert) {

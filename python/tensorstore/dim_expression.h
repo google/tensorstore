@@ -118,9 +118,16 @@ class PythonDimExpression : public PythonDimExpressionBase {};
 /// Supports Python objects that support the `__index__` protocol, unicode
 /// strings, `slice` objects, existing `DimensionSelection` objects, and
 /// sequences thereof.
-bool CastToDimensionSelection(pybind11::handle src, DimensionSelection* out);
+bool CastToDimensionSelection(pybind11::handle src, DimensionSelection& out);
 
 void RegisterDimExpressionBindings(pybind11::module m);
+
+/// Wrapper type used to indicate parameters to pybind11-wrapped functions that
+/// may be specified either as `tensorstore.d` objects, or anything supported by
+/// `CastToDimensionSelection`.
+struct DimensionSelectionLike {
+  DimensionSelection value;
+};
 
 }  // namespace internal_python
 }  // namespace tensorstore
@@ -128,19 +135,16 @@ void RegisterDimExpressionBindings(pybind11::module m);
 namespace pybind11 {
 namespace detail {
 
-/// Defines automatic conversion from Python objects to `DimensionSelection`
+/// Defines automatic conversion from Python objects to `DimensionSelectionLike`
 /// parameters.
 template <>
-struct type_caster<tensorstore::internal_python::DimensionSelection>
-    : public type_caster_base<
-          tensorstore::internal_python::DimensionSelection> {
-  using Base =
-      type_caster_base<tensorstore::internal_python::DimensionSelection>;
+struct type_caster<tensorstore::internal_python::DimensionSelectionLike> {
+  PYBIND11_TYPE_CASTER(tensorstore::internal_python::DimensionSelectionLike,
+                       _("tensorstore.d"));
 
   bool load(handle src, bool convert);
-
-  // Holds the converted value if a conversion is used.
-  tensorstore::internal_python::DimensionSelection converted_value_;
+  static handle cast(tensorstore::internal_python::DimensionSelectionLike value,
+                     return_value_policy policy, handle parent);
 };
 
 /// Defines automatic conversion between `DimRangeSpec` and Python slice

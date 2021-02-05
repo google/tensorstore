@@ -152,8 +152,9 @@ This is equivalent to :python:`self.domain.rank`.
           py::arg("fix_resizable_bounds") = false)
       .def(
           "astype",
-          [](const TensorStore<>& self, DataType target_data_type) {
-            return ValueOrThrow(tensorstore::Cast(self, target_data_type));
+          [](const TensorStore<>& self, DataTypeLike target_data_type) {
+            return ValueOrThrow(
+                tensorstore::Cast(self, target_data_type.value));
           },
           "Returns a read/write view as the specified data type.",
           py::arg("dtype"))
@@ -235,8 +236,8 @@ The returned view may be used to perform transactional read/write operations.
 
   m.def(
       "cast",
-      [](const TensorStore<>& store, DataType target_data_type) {
-        return ValueOrThrow(tensorstore::Cast(store, target_data_type));
+      [](const TensorStore<>& store, DataTypeLike target_data_type) {
+        return ValueOrThrow(tensorstore::Cast(store, target_data_type.value));
       },
       "Returns a read/write TensorStore view as the specified data type.",
       py::arg("store"), py::arg("dtype"));
@@ -255,7 +256,7 @@ The returned view may be used to perform transactional read/write operations.
 
   m.def(
       "array",
-      [](ArrayArgumentPlaceholder array, DataType dtype,
+      [](ArrayArgumentPlaceholder array, DataTypeLike dtype,
          internal_context::ContextImplPtr context) -> TensorStore<> {
         if (!context) {
           context = internal_context::Access::impl(Context::Default());
@@ -263,7 +264,7 @@ The returned view may be used to perform transactional read/write operations.
         SharedArray<void> converted_array;
         ConvertToArray</*Element=*/void, /*Rank=*/dynamic_rank,
                        /*NoThrow=*/false, /*AllowCopy=*/true>(
-            array.obj, &converted_array, dtype);
+            array.obj, &converted_array, dtype.value);
         return ValueOrThrow(FromArray(WrapImpl(std::move(context)),
                                       std::move(converted_array)));
       },
@@ -272,9 +273,9 @@ The returned view may be used to perform transactional read/write operations.
 
   m.def(
       "open",
-      [](const Spec& spec, std::optional<bool> read, std::optional<bool> write,
-         std::optional<bool> open, std::optional<bool> create,
-         std::optional<bool> delete_existing,
+      [](const SpecLike& spec, std::optional<bool> read,
+         std::optional<bool> write, std::optional<bool> open,
+         std::optional<bool> create, std::optional<bool> delete_existing,
          std::optional<bool> allow_option_mismatch,
          internal_context::ContextImplPtr context,
          internal::TransactionState::CommitPtr transaction) {
@@ -314,7 +315,7 @@ The returned view may be used to perform transactional read/write operations.
         return tensorstore::Open(
             WrapImpl(std::move(context)),
             internal::TransactionState::ToTransaction(std::move(transaction)),
-            spec, std::move(options));
+            std::move(spec.value), std::move(options));
       },
       "Opens a TensorStore", py::arg("spec"), py::kw_only(),
       py::arg("read") = std::nullopt, py::arg("write") = std::nullopt,

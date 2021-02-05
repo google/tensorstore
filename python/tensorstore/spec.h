@@ -29,6 +29,12 @@ namespace internal_python {
 
 void RegisterSpecBindings(pybind11::module m);
 
+/// Wrapper type used to indicate parameters that may be specified either as
+/// `tensorstore.Spec` objects or json values.
+struct SpecLike {
+  Spec value;
+};
+
 }  // namespace internal_python
 }  // namespace tensorstore
 
@@ -39,13 +45,12 @@ namespace detail {
 /// `tensorstore::Spec` parameters of pybind11-exposed functions, via JSON
 /// conversion.
 template <>
-struct type_caster<tensorstore::Spec>
-    : public type_caster_base<tensorstore::Spec> {
-  using Base = type_caster_base<tensorstore::Spec>;
+struct type_caster<tensorstore::internal_python::SpecLike> {
+  PYBIND11_TYPE_CASTER(tensorstore::internal_python::SpecLike,
+                       _("tensorstore.Spec"));
   bool load(handle src, bool convert);
-
-  // Holds the converted value if a conversion is used.
-  tensorstore::Spec converted_value_;
+  static handle cast(tensorstore::internal_python::SpecLike value,
+                     return_value_policy policy, handle parent);
 };
 
 }  // namespace detail

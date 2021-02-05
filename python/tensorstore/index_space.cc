@@ -353,6 +353,10 @@ IndexDomainDimension<> UnpickleIndexDomainDimension(py::tuple t) {
 }  // namespace
 
 void RegisterIndexSpaceBindings(pybind11::module m) {
+  // Register dim expression bindings first, so that function argument type
+  // annotations below use the correct Python type names rather than the C++
+  // type names.
+  RegisterDimExpressionBindings(m);
   m.attr("inf") = kInfIndex;
   py::class_<OptionallyImplicitIndex>(m, "Index", "Array index")
       .def("__int__", [](OptionallyImplicitIndex x) { return x.value; })
@@ -823,10 +827,10 @@ Logically, an IndexDomain is the cartesian product of a sequence of Dim objects.
            })
       .def("__getitem__",
            [](const IndexDomain<>& self,
-              const DimensionSelection& s) -> IndexDomain<> {
+              DimensionSelectionLike s) -> IndexDomain<> {
              DimensionIndexBuffer dims;
              ThrowStatusException(internal_index_space::GetDimensions(
-                 self.labels(), s.dims, &dims));
+                 self.labels(), s.value.dims, &dims));
              return self[span<const DimensionIndex>(dims)];
            })
       .def(
@@ -1079,8 +1083,6 @@ This is simply the product of the extents in :py:obj:`.shape`.)")
       [](IndexTransform<> self, IndexTransform<> new_transform) {
         return new_transform;
       });
-
-  RegisterDimExpressionBindings(m);
 }
 
 }  // namespace internal_python
