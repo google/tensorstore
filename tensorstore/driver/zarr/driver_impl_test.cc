@@ -97,19 +97,16 @@ TEST(EncodeChunkIndicesTest, SlashSeparated) {
 }
 
 TEST(ResolveBoundsFromMetadataTest, Basic) {
-  ZarrMetadata metadata;
-  TENSORSTORE_ASSERT_OK(ParseMetadata(
-      {
-          {"zarr_format", 2},
-          {"order", "C"},
-          {"filters", nullptr},
-          {"fill_value", nullptr},
-          {"compressor", nullptr},
-          {"dtype", "<i2"},
-          {"shape", {100, 100}},
-          {"chunks", {3, 2}},
-      },
-      &metadata));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson({
+                                                      {"zarr_format", 2},
+                                                      {"order", "C"},
+                                                      {"filters", nullptr},
+                                                      {"fill_value", nullptr},
+                                                      {"compressor", nullptr},
+                                                      {"dtype", "<i2"},
+                                                      {"shape", {100, 100}},
+                                                      {"chunks", {3, 2}},
+                                                  }));
   EXPECT_THAT(ResolveBoundsFromMetadata(
                   /*metadata=*/metadata, /*field=*/"",
                   /*transform=*/tensorstore::IdentityTransform(2),
@@ -126,19 +123,16 @@ TEST(ResolveBoundsFromMetadataTest, Basic) {
 // Tests that specifying fix_resizable_bounds with a valid transform results in
 // all bounds being explicit.
 TEST(ResolveBoundsFromMetadataTest, FixResizableBoundsSuccess) {
-  ZarrMetadata metadata;
-  TENSORSTORE_ASSERT_OK(ParseMetadata(
-      {
-          {"zarr_format", 2},
-          {"order", "C"},
-          {"filters", nullptr},
-          {"fill_value", nullptr},
-          {"compressor", nullptr},
-          {"dtype", "<i2"},
-          {"shape", {100, 100}},
-          {"chunks", {3, 2}},
-      },
-      &metadata));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson({
+                                                      {"zarr_format", 2},
+                                                      {"order", "C"},
+                                                      {"filters", nullptr},
+                                                      {"fill_value", nullptr},
+                                                      {"compressor", nullptr},
+                                                      {"dtype", "<i2"},
+                                                      {"shape", {100, 100}},
+                                                      {"chunks", {3, 2}},
+                                                  }));
   EXPECT_THAT(ResolveBoundsFromMetadata(
                   /*metadata=*/metadata, /*field=*/"",
                   /*transform=*/tensorstore::IdentityTransform(2),
@@ -154,19 +148,16 @@ TEST(ResolveBoundsFromMetadataTest, FixResizableBoundsSuccess) {
 // Tests that specifying fix_resizable_bounds with a transform that maps to
 // out-of-bounds positions results in an error.
 TEST(ResolveBoundsFromMetadataTest, FixResizableBoundsFailure) {
-  ZarrMetadata metadata;
-  TENSORSTORE_ASSERT_OK(ParseMetadata(
-      {
-          {"zarr_format", 2},
-          {"order", "C"},
-          {"filters", nullptr},
-          {"fill_value", nullptr},
-          {"compressor", nullptr},
-          {"dtype", "<i2"},
-          {"shape", {100, 100}},
-          {"chunks", {3, 2}},
-      },
-      &metadata));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson({
+                                                      {"zarr_format", 2},
+                                                      {"order", "C"},
+                                                      {"filters", nullptr},
+                                                      {"fill_value", nullptr},
+                                                      {"compressor", nullptr},
+                                                      {"dtype", "<i2"},
+                                                      {"shape", {100, 100}},
+                                                      {"chunks", {3, 2}},
+                                                  }));
   EXPECT_THAT(ResolveBoundsFromMetadata(
                   /*metadata=*/metadata, /*field=*/"",
                   /*transform=*/
@@ -179,23 +170,20 @@ TEST(ResolveBoundsFromMetadataTest, FixResizableBoundsFailure) {
 // results in explicit upper bounds for corresponding input transform
 // dimensions.
 TEST(ResolveBoundsFromMetadataTest, MultipleFieldsWithFieldShape) {
-  ZarrMetadata metadata;
-  TENSORSTORE_ASSERT_OK(ParseMetadata(
-      {
-          {"zarr_format", 2},
-          {"order", "C"},
-          {"filters", nullptr},
-          {"fill_value", nullptr},
-          {"compressor", nullptr},
-          {"dtype",
-           {
-               {"x", "<i2", {2, 3}},
-               {"y", "<i4", {4}},
-           }},
-          {"shape", {100, 100}},
-          {"chunks", {3, 2}},
-      },
-      &metadata));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson({
+                                                      {"zarr_format", 2},
+                                                      {"order", "C"},
+                                                      {"filters", nullptr},
+                                                      {"fill_value", nullptr},
+                                                      {"compressor", nullptr},
+                                                      {"dtype",
+                                                       {
+                                                           {"x", "<i2", {2, 3}},
+                                                           {"y", "<i4", {4}},
+                                                       }},
+                                                      {"shape", {100, 100}},
+                                                      {"chunks", {3, 2}},
+                                                  }));
   EXPECT_THAT(
       ResolveBoundsFromMetadata(
           /*metadata=*/metadata, /*field=*/"x",
@@ -221,19 +209,16 @@ TEST(ResolveBoundsFromMetadataTest, MultipleFieldsWithFieldShape) {
 }
 
 TEST(GetResizeParametersTest, Basic) {
-  ZarrMetadata metadata;
-  TENSORSTORE_ASSERT_OK(ParseMetadata(
-      {
-          {"zarr_format", 2},
-          {"order", "C"},
-          {"filters", nullptr},
-          {"fill_value", nullptr},
-          {"compressor", nullptr},
-          {"dtype", "<i2"},
-          {"shape", {100, 100}},
-          {"chunks", {3, 2}},
-      },
-      &metadata));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson({
+                                                      {"zarr_format", 2},
+                                                      {"order", "C"},
+                                                      {"filters", nullptr},
+                                                      {"fill_value", nullptr},
+                                                      {"compressor", nullptr},
+                                                      {"dtype", "<i2"},
+                                                      {"shape", {100, 100}},
+                                                      {"chunks", {3, 2}},
+                                                  }));
   const auto transform = tensorstore::IndexTransformBuilder<>(2, 2)
                              .input_origin({0, 0})
                              .input_shape({100, 100})
@@ -335,23 +320,20 @@ TEST(GetResizeParametersTest, Basic) {
 }
 
 TEST(GetResizeParametersTest, MultipleFields) {
-  ZarrMetadata metadata;
-  TENSORSTORE_ASSERT_OK(ParseMetadata(
-      {
-          {"zarr_format", 2},
-          {"order", "C"},
-          {"filters", nullptr},
-          {"fill_value", nullptr},
-          {"compressor", nullptr},
-          {"dtype",
-           {
-               {"x", "<i2", {2, 3}},
-               {"y", "<i4", {4}},
-           }},
-          {"shape", {100, 100}},
-          {"chunks", {3, 2}},
-      },
-      &metadata));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson({
+                                                      {"zarr_format", 2},
+                                                      {"order", "C"},
+                                                      {"filters", nullptr},
+                                                      {"fill_value", nullptr},
+                                                      {"compressor", nullptr},
+                                                      {"dtype",
+                                                       {
+                                                           {"x", "<i2", {2, 3}},
+                                                           {"y", "<i4", {4}},
+                                                       }},
+                                                      {"shape", {100, 100}},
+                                                      {"chunks", {3, 2}},
+                                                  }));
   const auto transform = tensorstore::IndexTransformBuilder<>(4, 4)
                              .input_origin({0, 0, 0, 0})
                              .input_shape({100, 100, 2, 3})

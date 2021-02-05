@@ -23,38 +23,20 @@
 #include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/internal/container_to_shared.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
+#include "tensorstore/internal/dimension_indexed_json_binder.h"
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/json.h"
 
 namespace tensorstore {
 namespace internal_zarr {
 
-Result<ContiguousLayoutOrder> ParseOrder(const nlohmann::json& j) {
-  if (j.is_string()) {
-    std::string value = j.get<std::string>();
-    if (value == "C") return ContiguousLayoutOrder::c;
-    if (value == "F") return ContiguousLayoutOrder::fortran;
-  }
-  return absl::InvalidArgumentError(
-      StrCat("Expected \"C\" or \"F\", but received: ", j.dump()));
-}
+namespace jb = internal::json_binding;
+TENSORSTORE_DEFINE_JSON_BINDER(
+    OrderJsonBinder,
+    jb::Enum<ContiguousLayoutOrder, std::string_view>({{c_order, "C"},
+                                                       {fortran_order, "F"}}))
 
-::nlohmann::json EncodeOrder(ContiguousLayoutOrder order) {
-  return order == c_order ? "C" : "F";
-}
-
-template <typename T>
-inline T ConvertFromScalarArray(ElementPointer<const void> x) {
-  TENSORSTORE_UNREACHABLE;
-}
-
-template <typename T, typename U0, typename... U>
-inline T ConvertFromScalarArray(ElementPointer<const void> x) {
-  if (x.data_type() == DataTypeOf<U0>()) {
-    return static_cast<T>(*static_cast<const U0*>(x.data()));
-  }
-  return ConvertFromScalarArray<T, U...>(x);
-}
+namespace {
 
 Result<double> DecodeFloat(const nlohmann::json& j) {
   double value;
@@ -72,6 +54,15 @@ Result<double> DecodeFloat(const nlohmann::json& j) {
   }
   return value;
 }
+
+::nlohmann::json EncodeFloat(double value) {
+  if (std::isnan(value)) return "NaN";
+  if (value == std::numeric_limits<double>::infinity()) return "Infinity";
+  if (value == -std::numeric_limits<double>::infinity()) return "-Infinity";
+  return value;
+}
+
+}  // namespace
 
 Result<std::vector<SharedArray<const void>>> ParseFillValue(
     const nlohmann::json& j, const ZarrDType& dtype) {
@@ -171,13 +162,6 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
   return fill_values;
 }
 
-::nlohmann::json EncodeFloat(double value) {
-  if (std::isnan(value)) return "NaN";
-  if (value == std::numeric_limits<double>::infinity()) return "Infinity";
-  if (value == -std::numeric_limits<double>::infinity()) return "-Infinity";
-  return value;
-}
-
 ::nlohmann::json EncodeFillValue(
     const ZarrDType& dtype, span<const SharedArray<const void>> fill_values) {
   assert(dtype.fields.size() == static_cast<size_t>(fill_values.size()));
@@ -253,6 +237,7 @@ Result<ZarrChunkLayout> ComputeChunkLayout(const ZarrDType& dtype,
     auto& field_layout = layout.fields[field_i];
     const DimensionIndex inner_rank = field.field_shape.size();
     const DimensionIndex total_rank = chunk_shape.size() + inner_rank;
+    TENSORSTORE_RETURN_IF_ERROR(ValidateRank(total_rank));
     const auto initialize_layout = [&](StridedLayout<>* strided_layout,
                                        Index outer_element_stride) {
       strided_layout->set_rank(total_rank);
@@ -274,136 +259,69 @@ Result<ZarrChunkLayout> ComputeChunkLayout(const ZarrDType& dtype,
   return layout;
 }
 
-namespace {
-Status ParseIndexVector(const ::nlohmann::json& value,
-                        absl::optional<DimensionIndex>* rank,
-                        std::vector<Index>* vec, Index min_value,
-                        Index max_value) {
-  return internal::JsonParseArray(
-      value,
-      [&](std::ptrdiff_t size) {
-        if (*rank) {
-          TENSORSTORE_RETURN_IF_ERROR(
-              internal::JsonValidateArrayLength(size, **rank));
-        } else {
-          TENSORSTORE_RETURN_IF_ERROR(ValidateRank(size));
-          *rank = size;
+constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
+  return [=](auto is_loading, const auto& options, auto* obj, auto* j) {
+    using T = internal::remove_cvref_t<decltype(*obj)>;
+    DimensionIndex* rank = nullptr;
+    if constexpr (is_loading) {
+      rank = &obj->rank;
+    }
+    auto ensure_dtype = [&]() -> Result<const ZarrDType*> {
+      if constexpr (std::is_same_v<T, ZarrPartialMetadata>) {
+        if (!obj->dtype) {
+          return absl::InvalidArgumentError(
+              "must be specified in conjunction with \"dtype\"");
         }
-        vec->resize(size);
-        return absl::OkStatus();
-      },
-      [&](const ::nlohmann::json& v, std::ptrdiff_t i) {
-        return internal::JsonRequireInteger<Index>(
-            v, &(*vec)[i], /*strict=*/true, min_value, max_value);
-      });
-}
-}  // namespace
-
-Status ParseChunkShape(const ::nlohmann::json& value,
-                       absl::optional<DimensionIndex>* rank,
-                       std::vector<Index>* shape) {
-  return ParseIndexVector(value, rank, shape, /*min_value=*/1,
-                          /*max_value=*/kInfIndex);
-}
-
-Status ParseShape(const ::nlohmann::json& value,
-                  absl::optional<DimensionIndex>* rank,
-                  std::vector<Index>* shape) {
-  return ParseIndexVector(value, rank, shape, /*min_value=*/0,
-                          /*max_value=*/kInfIndex);
-}
-
-Status ParseFilters(const nlohmann::json& value) {
-  if (!value.is_null()) {
-    return absl::InvalidArgumentError("Filters not supported");
-  }
-  return absl::OkStatus();
-}
-
-Result<std::uint64_t> ParseZarrFormat(const nlohmann::json& value) {
-  int result;
-  if (auto status = internal::JsonRequireInteger(value, &result,
-                                                 /*strict=*/true, 2, 2);
-      status.ok()) {
-    return result;
-  } else {
-    return status;
-  }
-}
-
-Status ParseMetadata(const nlohmann::json& j, ZarrMetadata* metadata) {
-  absl::optional<DimensionIndex> rank;
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonValidateObjectMembers(
-      j, {"zarr_format", "shape", "chunks", "dtype", "compressor", "fill_value",
-          "order", "filters"}));
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireObjectMember(
-      j, "zarr_format", [&](const ::nlohmann::json& value) {
-        TENSORSTORE_ASSIGN_OR_RETURN(metadata->zarr_format,
-                                     internal_zarr::ParseZarrFormat(value));
-        return absl::OkStatus();
-      }));
-
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireObjectMember(
-      j, "shape", [&](const ::nlohmann::json& value) {
-        return ParseShape(value, &rank, &metadata->shape);
-      }));
-
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireObjectMember(
-      j, "chunks", [&](const ::nlohmann::json& value) {
-        return ParseChunkShape(value, &rank, &metadata->chunks);
-      }));
-
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireObjectMember(
-      j, "dtype", [&](const ::nlohmann::json& value) {
-        TENSORSTORE_ASSIGN_OR_RETURN(metadata->dtype, ParseDType(value));
-        return absl::OkStatus();
-      }));
-
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireObjectMember(
-      j, "compressor", [&](const ::nlohmann::json& value) {
-        TENSORSTORE_ASSIGN_OR_RETURN(metadata->compressor,
-                                     Compressor::FromJson(value));
-        return absl::OkStatus();
-      }));
-
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireObjectMember(
-      j, "fill_value", [&](const ::nlohmann::json& value) {
-        TENSORSTORE_ASSIGN_OR_RETURN(metadata->fill_values,
-                                     ParseFillValue(value, metadata->dtype));
-        return absl::OkStatus();
-      }));
-
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireObjectMember(
-      j, "order", [&](const ::nlohmann::json& value) {
-        TENSORSTORE_ASSIGN_OR_RETURN(metadata->order, ParseOrder(value));
-        return absl::OkStatus();
-      }));
-
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireObjectMember(
-      j, "filters", [&](const ::nlohmann::json& value) {
-        return internal_zarr::ParseFilters(value);
-      }));
-
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      metadata->chunk_layout,
-      ComputeChunkLayout(metadata->dtype, metadata->order, metadata->chunks));
-
-  return absl::OkStatus();
-}
-
-void to_json(::nlohmann::json& out,  // NOLINT,
-             const ZarrMetadata& metadata) {
-  out = ::nlohmann::json::object_t{
-      {"zarr_format", metadata.zarr_format},
-      {"shape", metadata.shape},
-      {"chunks", metadata.chunks},
-      {"dtype", metadata.dtype},
-      {"compressor", ::nlohmann::json(metadata.compressor)},
-      {"fill_value", EncodeFillValue(metadata.dtype, metadata.fill_values)},
-      {"order", EncodeOrder(metadata.order)},
-      {"filters", nullptr},
+        return &*obj->dtype;
+      } else {
+        return &obj->dtype;
+      }
+    };
+    return jb::Object(
+        jb::Member("zarr_format",
+                   jb::Projection(&T::zarr_format,
+                                  maybe_optional(jb::Integer<int>(2, 2)))),
+        jb::Member(
+            "shape",
+            jb::Projection(&T::shape, maybe_optional(jb::ShapeVector(rank)))),
+        jb::Member("chunks",
+                   jb::Projection(&T::chunks,
+                                  maybe_optional(jb::ChunkShapeVector(rank)))),
+        jb::Member("dtype", jb::Projection(&T::dtype)),
+        jb::Member("compressor", jb::Projection(&T::compressor)),
+        jb::Member("fill_value",
+                   jb::Projection(
+                       &T::fill_value,
+                       maybe_optional([&](auto is_loading, const auto& options,
+                                          auto* obj, auto* j) {
+                         TENSORSTORE_ASSIGN_OR_RETURN(auto* dtype,
+                                                      ensure_dtype());
+                         return FillValueJsonBinder(*dtype)(is_loading, options,
+                                                            obj, j);
+                       }))),
+        jb::Member("order",
+                   jb::Projection(&T::order, maybe_optional(OrderJsonBinder))),
+        jb::Member("filters", jb::Projection(&T::filters)))(is_loading, options,
+                                                            obj, j);
   };
+};
+
+absl::Status ValidateMetadata(ZarrMetadata& metadata) {
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      metadata.chunk_layout,
+      ComputeChunkLayout(metadata.dtype, metadata.order, metadata.chunks));
+  return absl::OkStatus();
 }
+
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
+    ZarrMetadata, jb::Validate([](const auto& options,
+                                  auto* obj) { return ValidateMetadata(*obj); },
+                               MetadataJsonBinder(internal::identity{})))
+
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ZarrPartialMetadata,
+                                       MetadataJsonBinder([](auto binder) {
+                                         return jb::Optional(binder);
+                                       }))
 
 // Two decoding strategies:  raw decoder and custom decoder.  Initially we will
 // only support raw decoder.

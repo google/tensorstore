@@ -34,25 +34,28 @@ using tensorstore::MakeArray;
 using tensorstore::MakeScalarArray;
 using tensorstore::MatchesStatus;
 using tensorstore::internal_zarr::EncodeFillValue;
+using tensorstore::internal_zarr::OrderJsonBinder;
 using tensorstore::internal_zarr::ParseDType;
 using tensorstore::internal_zarr::ParseFillValue;
-using tensorstore::internal_zarr::ParseMetadata;
-using tensorstore::internal_zarr::ParseOrder;
 using tensorstore::internal_zarr::ZarrMetadata;
 using testing::ElementsAre;
 
-TEST(ParseOrderTest, Success) {
-  EXPECT_EQ(ContiguousLayoutOrder::c, ParseOrder("C"));
-  EXPECT_EQ(ContiguousLayoutOrder::fortran, ParseOrder("F"));
+TEST(OrderJsonBinderTest, Success) {
+  tensorstore::TestJsonBinderRoundTrip<ContiguousLayoutOrder>(
+      {
+          {ContiguousLayoutOrder::c, "C"},
+          {ContiguousLayoutOrder::fortran, "F"},
+      },
+      OrderJsonBinder);
 }
 
 TEST(ParseOrderTest, Failure) {
-  EXPECT_THAT(ParseOrder("x"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected \"C\" or \"F\", but received: \"x\""));
-  EXPECT_THAT(ParseOrder(3),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected \"C\" or \"F\", but received: 3"));
+  tensorstore::TestJsonBinderFromJson<ContiguousLayoutOrder>(
+      {
+          {"x", MatchesStatus(absl::StatusCode::kInvalidArgument)},
+          {3, MatchesStatus(absl::StatusCode::kInvalidArgument)},
+      },
+      OrderJsonBinder);
 }
 
 void TestFillValueRoundTrip(
@@ -275,16 +278,14 @@ TEST(EncodeDecodeMetadataTest, Array1) {
   nlohmann::json j = nlohmann::json::parse(metadata_text, nullptr,
                                            /*allow_exceptions=*/false);
   ASSERT_FALSE(j.is_discarded());
-  ZarrMetadata metadata;
-  EXPECT_EQ(absl::OkStatus(), ParseMetadata(j, &metadata));
-  EXPECT_EQ(2, metadata.zarr_format);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(j));
   EXPECT_THAT(metadata.shape, ElementsAre(100));
   EXPECT_THAT(metadata.chunks, ElementsAre(10));
 
   EXPECT_FALSE(metadata.dtype.has_fields);
   EXPECT_EQ(1, metadata.dtype.fields.size());
   EXPECT_EQ(DataTypeOf<double>(), metadata.dtype.fields[0].data_type);
-  EXPECT_FALSE(metadata.fill_values[0].valid());
+  EXPECT_FALSE(metadata.fill_value[0].valid());
   EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[0].endian);
   EXPECT_THAT(metadata.dtype.fields[0].field_shape, ElementsAre());
   EXPECT_EQ(0, metadata.dtype.fields[0].byte_offset);
@@ -327,16 +328,14 @@ TEST(EncodeDecodeMetadataTest, Array2) {
   nlohmann::json j = nlohmann::json::parse(metadata_text, nullptr,
                                            /*allow_exceptions=*/false);
   ASSERT_FALSE(j.is_discarded());
-  ZarrMetadata metadata;
-  EXPECT_EQ(absl::OkStatus(), ParseMetadata(j, &metadata));
-  EXPECT_EQ(2, metadata.zarr_format);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(j));
   EXPECT_THAT(metadata.shape, ElementsAre(100, 100));
   EXPECT_THAT(metadata.chunks, ElementsAre(10, 10));
   EXPECT_TRUE(metadata.dtype.has_fields);
   EXPECT_EQ(2, metadata.dtype.fields.size());
   EXPECT_EQ(DataTypeOf<std::int32_t>(), metadata.dtype.fields[0].data_type);
-  EXPECT_TRUE(metadata.fill_values[0].valid());
-  EXPECT_EQ(metadata.fill_values[0], MakeScalarArray<std::int32_t>(0));
+  EXPECT_TRUE(metadata.fill_value[0].valid());
+  EXPECT_EQ(metadata.fill_value[0], MakeScalarArray<std::int32_t>(0));
   EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[0].endian);
   EXPECT_THAT(metadata.dtype.fields[0].field_shape, ElementsAre());
   EXPECT_EQ(0, metadata.dtype.fields[0].byte_offset);
@@ -348,8 +347,8 @@ TEST(EncodeDecodeMetadataTest, Array2) {
             metadata.chunk_layout.fields[0].decoded_chunk_layout);
 
   EXPECT_EQ(DataTypeOf<char>(), metadata.dtype.fields[1].data_type);
-  EXPECT_TRUE(metadata.fill_values[1].valid());
-  EXPECT_EQ(metadata.fill_values[1],
+  EXPECT_TRUE(metadata.fill_value[1].valid());
+  EXPECT_EQ(metadata.fill_value[1],
             tensorstore::MakeArray<char>({0, 0, 0, 0, 0, 0, 0, 0, 0, 0}));
   EXPECT_EQ(tensorstore::endian::native, metadata.dtype.fields[1].endian);
   EXPECT_THAT(metadata.dtype.fields[1].field_shape, ElementsAre(10));
@@ -393,16 +392,14 @@ TEST(EncodeDecodeMetadataTest, Array2Modified) {
   nlohmann::json j = nlohmann::json::parse(metadata_text, nullptr,
                                            /*allow_exceptions=*/false);
   ASSERT_FALSE(j.is_discarded());
-  ZarrMetadata metadata;
-  EXPECT_EQ(absl::OkStatus(), ParseMetadata(j, &metadata));
-  EXPECT_EQ(2, metadata.zarr_format);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(j));
   EXPECT_THAT(metadata.shape, ElementsAre(100, 100));
   EXPECT_THAT(metadata.chunks, ElementsAre(10, 10));
   EXPECT_TRUE(metadata.dtype.has_fields);
   EXPECT_EQ(2, metadata.dtype.fields.size());
   EXPECT_EQ(DataTypeOf<std::int32_t>(), metadata.dtype.fields[0].data_type);
-  EXPECT_TRUE(metadata.fill_values[0].valid());
-  EXPECT_EQ(metadata.fill_values[0], MakeScalarArray<std::int32_t>(123456789));
+  EXPECT_TRUE(metadata.fill_value[0].valid());
+  EXPECT_EQ(metadata.fill_value[0], MakeScalarArray<std::int32_t>(123456789));
   EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[0].endian);
   EXPECT_THAT(metadata.dtype.fields[0].field_shape, ElementsAre());
   EXPECT_EQ(0, metadata.dtype.fields[0].byte_offset);
@@ -414,8 +411,8 @@ TEST(EncodeDecodeMetadataTest, Array2Modified) {
             metadata.chunk_layout.fields[0].decoded_chunk_layout);
 
   EXPECT_EQ(DataTypeOf<char>(), metadata.dtype.fields[1].data_type);
-  EXPECT_TRUE(metadata.fill_values[1].valid());
-  EXPECT_EQ(metadata.fill_values[1],
+  EXPECT_TRUE(metadata.fill_value[1].valid());
+  EXPECT_EQ(metadata.fill_value[1],
             tensorstore::MakeArray<char>(
                 {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'}));
   EXPECT_EQ(tensorstore::endian::native, metadata.dtype.fields[1].endian);
@@ -453,15 +450,13 @@ TEST(EncodeDecodeMetadataTest, ArrayStructured) {
   nlohmann::json j = nlohmann::json::parse(metadata_text, nullptr,
                                            /*allow_exceptions=*/false);
   ASSERT_FALSE(j.is_discarded());
-  ZarrMetadata metadata;
-  EXPECT_EQ(absl::OkStatus(), ParseMetadata(j, &metadata));
-  EXPECT_EQ(2, metadata.zarr_format);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(j));
   EXPECT_THAT(metadata.shape, ElementsAre(100));
   EXPECT_THAT(metadata.chunks, ElementsAre(10));
   EXPECT_TRUE(metadata.dtype.has_fields);
   EXPECT_EQ(3, metadata.dtype.fields.size());
   EXPECT_EQ(DataTypeOf<std::int64_t>(), metadata.dtype.fields[0].data_type);
-  EXPECT_FALSE(metadata.fill_values[0].valid());
+  EXPECT_FALSE(metadata.fill_value[0].valid());
   EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[0].endian);
   EXPECT_THAT(metadata.dtype.fields[0].field_shape, ElementsAre());
   EXPECT_EQ(0, metadata.dtype.fields[0].byte_offset);
@@ -473,7 +468,7 @@ TEST(EncodeDecodeMetadataTest, ArrayStructured) {
             metadata.chunk_layout.fields[0].decoded_chunk_layout);
 
   EXPECT_EQ(DataTypeOf<double>(), metadata.dtype.fields[1].data_type);
-  EXPECT_FALSE(metadata.fill_values[1].valid());
+  EXPECT_FALSE(metadata.fill_value[1].valid());
   EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[1].endian);
   EXPECT_THAT(metadata.dtype.fields[1].field_shape, ElementsAre(10, 10));
   EXPECT_EQ(8, metadata.dtype.fields[1].byte_offset);
@@ -485,7 +480,7 @@ TEST(EncodeDecodeMetadataTest, ArrayStructured) {
             metadata.chunk_layout.fields[1].decoded_chunk_layout);
 
   EXPECT_EQ(DataTypeOf<std::uint8_t>(), metadata.dtype.fields[2].data_type);
-  EXPECT_FALSE(metadata.fill_values[2].valid());
+  EXPECT_FALSE(metadata.fill_value[2].valid());
   EXPECT_EQ(tensorstore::endian::native, metadata.dtype.fields[2].endian);
   EXPECT_THAT(metadata.dtype.fields[2].field_shape, ElementsAre(5, 10, 15));
   EXPECT_EQ(808, metadata.dtype.fields[2].byte_offset);
@@ -529,22 +524,20 @@ TEST(EncodeDecodeMetadataTest, FillValuesNan) {
     nlohmann::json j = nlohmann::json::parse(metadata_text, nullptr,
                                              /*allow_exceptions=*/false);
     ASSERT_FALSE(j.is_discarded());
-    ZarrMetadata metadata;
-    EXPECT_EQ(absl::OkStatus(), ParseMetadata(j, &metadata));
-    EXPECT_EQ(2, metadata.zarr_format);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(j));
     EXPECT_THAT(metadata.shape, ElementsAre(100));
     EXPECT_THAT(metadata.chunks, ElementsAre(10));
 
     EXPECT_FALSE(metadata.dtype.has_fields);
     EXPECT_EQ(1, metadata.dtype.fields.size());
     EXPECT_EQ(DataTypeOf<double>(), metadata.dtype.fields[0].data_type);
-    EXPECT_TRUE(metadata.fill_values[0].valid());
-    EXPECT_THAT(metadata.fill_values[0].shape(), ElementsAre());
+    EXPECT_TRUE(metadata.fill_value[0].valid());
+    EXPECT_THAT(metadata.fill_value[0].shape(), ElementsAre());
     if (std::isnan(pair.first)) {
       EXPECT_TRUE(std::isnan(
-          *static_cast<const double*>(metadata.fill_values[0].data())));
+          *static_cast<const double*>(metadata.fill_value[0].data())));
     } else {
-      EXPECT_EQ(MakeScalarArray<double>(pair.first), metadata.fill_values[0]);
+      EXPECT_EQ(MakeScalarArray<double>(pair.first), metadata.fill_value[0]);
     }
     EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[0].endian);
     EXPECT_THAT(metadata.dtype.fields[0].field_shape, ElementsAre());
@@ -580,21 +573,19 @@ void EncodeDecodeMetadataTestArrayComplex(std::string zarr_dtype) {
                    {"order", "F"},
                    {"shape", {100, 100}},
                    {"zarr_format", 2}};
-  ZarrMetadata metadata;
-  EXPECT_EQ(absl::OkStatus(), ParseMetadata(j, &metadata));
-  EXPECT_EQ(2, metadata.zarr_format);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(j));
   EXPECT_THAT(metadata.shape, ElementsAre(100, 100));
   EXPECT_THAT(metadata.chunks, ElementsAre(10, 10));
 
   EXPECT_FALSE(metadata.dtype.has_fields);
   EXPECT_EQ(1, metadata.dtype.fields.size());
   ASSERT_EQ(DataTypeOf<T>(), metadata.dtype.fields[0].data_type);
-  EXPECT_TRUE(metadata.fill_values[0].valid());
-  EXPECT_THAT(metadata.fill_values[0].shape(), ElementsAre());
-  EXPECT_TRUE(std::isnan(
-      static_cast<const T*>(metadata.fill_values[0].data())->real()));
+  EXPECT_TRUE(metadata.fill_value[0].valid());
+  EXPECT_THAT(metadata.fill_value[0].shape(), ElementsAre());
+  EXPECT_TRUE(
+      std::isnan(static_cast<const T*>(metadata.fill_value[0].data())->real()));
   EXPECT_EQ(-1.0f,
-            static_cast<const T*>(metadata.fill_values[0].data())->imag());
+            static_cast<const T*>(metadata.fill_value[0].data())->imag());
   EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[0].endian);
   EXPECT_THAT(metadata.dtype.fields[0].field_shape, ElementsAre());
   EXPECT_EQ(0, metadata.dtype.fields[0].byte_offset);
@@ -643,9 +634,7 @@ TEST(ParseMetadataTest, Simple) {
   nlohmann::json j = nlohmann::json::parse(metadata_text, nullptr,
                                            /*allow_exceptions=*/false);
   ASSERT_FALSE(j.is_discarded());
-  ZarrMetadata metadata;
-  EXPECT_EQ(absl::OkStatus(), ParseMetadata(j, &metadata));
-  EXPECT_EQ(2, metadata.zarr_format);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(j));
   EXPECT_THAT(metadata.shape, ElementsAre(1111));
   EXPECT_THAT(metadata.chunks, ElementsAre(100));
   EXPECT_EQ(1, metadata.dtype.fields.size());
@@ -662,35 +651,34 @@ TEST(ParseMetadataTest, Simple) {
 }
 
 TEST(ParseMetadataTest, InvalidChunks) {
-  ZarrMetadata metadata;
-  // Chunk dimensions must be > 0.
-  EXPECT_THAT(
-      ParseMetadata(::nlohmann::json{{"chunks", {0}},
-                                     {"compressor", nullptr},
-                                     {"dtype", "|i1"},
-                                     {"fill_value", 0},
-                                     {"filters", nullptr},
-                                     {"order", "F"},
-                                     {"shape", {10}},
-                                     {"zarr_format", 2}},
-                    &metadata),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"chunks\".*"));
+  tensorstore::TestJsonBinderFromJson<ZarrMetadata>({
+      // Chunk dimensions must be > 0.
+      {{{"chunks", {0}},
+        {"compressor", nullptr},
+        {"dtype", "|i1"},
+        {"fill_value", 0},
+        {"filters", nullptr},
+        {"order", "F"},
+        {"shape", {10}},
+        {"zarr_format", 2}},
+
+       MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"chunks\".*")},
+  });
 }
 
 TEST(ParseMetadataTest, InvalidRank) {
-  ZarrMetadata metadata;
-  EXPECT_THAT(ParseMetadata(
-                  ::nlohmann::json{{"chunks", ::nlohmann::json::array_t(33, 1)},
-                                   {"compressor", nullptr},
-                                   {"dtype", "|i1"},
-                                   {"fill_value", 0},
-                                   {"filters", nullptr},
-                                   {"order", "F"},
-                                   {"shape", ::nlohmann::json::array_t(33, 10)},
-                                   {"zarr_format", 2}},
-                  &metadata),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Rank 33 is outside valid range \\[0, 32\\]"));
+  tensorstore::TestJsonBinderFromJson<ZarrMetadata>({
+      {{{"chunks", ::nlohmann::json::array_t(33, 1)},
+        {"compressor", nullptr},
+        {"dtype", "|i1"},
+        {"fill_value", 0},
+        {"filters", nullptr},
+        {"order", "F"},
+        {"shape", ::nlohmann::json::array_t(33, 10)},
+        {"zarr_format", 2}},
+       MatchesStatus(absl::StatusCode::kInvalidArgument,
+                     ".*: Rank 33 is outside valid range \\[0, 32\\]")},
+  });
 }
 
 }  // namespace

@@ -50,7 +50,8 @@ Result<ZarrMetadataPtr> ParseEncodedMetadata(absl::string_view encoded_value) {
     return absl::FailedPreconditionError("Invalid JSON");
   }
   auto metadata = std::make_shared<ZarrMetadata>();
-  TENSORSTORE_RETURN_IF_ERROR(ParseMetadata(raw_data, metadata.get()));
+  TENSORSTORE_ASSIGN_OR_RETURN(*metadata,
+                               ZarrMetadata::FromJson(std::move(raw_data)));
   return metadata;
 }
 
@@ -76,46 +77,6 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
 };
 
 namespace jb = tensorstore::internal::json_binding;
-
-constexpr auto PartialMetadataBinder = [](auto is_loading, const auto& options,
-                                          auto* obj, auto* j) -> Status {
-  // TODO(jbms): Convert `ParsePartialMetadata` to use JSON binding framework.
-  // For now this is a bit redundant.
-  if constexpr (is_loading) {
-    TENSORSTORE_ASSIGN_OR_RETURN(*obj, ParsePartialMetadata(*j));
-    return absl::OkStatus();
-  } else {
-    return jb::Object(
-        jb::Member("zarr_format",
-                   jb::Projection(&ZarrPartialMetadata::zarr_format)),
-        jb::Member("shape", jb::Projection(&ZarrPartialMetadata::shape)),
-        jb::Member("chunks", jb::Projection(&ZarrPartialMetadata::chunks)),
-        jb::Member("compressor",
-                   jb::Projection(&ZarrPartialMetadata::compressor)),
-        jb::Member("order", jb::Projection(&ZarrPartialMetadata::order,
-                                           jb::Optional([](auto is_loading,
-                                                           const auto& options,
-                                                           auto* obj, auto* j) {
-                                             if constexpr (!is_loading) {
-                                               *j = EncodeOrder(*obj);
-                                             }
-                                             return absl::OkStatus();
-                                           }))),
-        jb::Member("dtype", jb::Projection(&ZarrPartialMetadata::dtype,
-                                           jb::Optional([](auto is_loading,
-                                                           const auto& options,
-                                                           auto* obj, auto* j) {
-                                             if constexpr (!is_loading) {
-                                               *j = ::nlohmann::json(*obj);
-                                             }
-                                             return absl::OkStatus();
-                                           }))),
-        jb::Member("filters", jb::Constant([] { return nullptr; })),
-        jb::Member("fill_value",
-                   jb::Projection(&ZarrPartialMetadata::fill_value)))(
-        is_loading, options, obj, j);
-  }
-};
 
 class ZarrDriver
     : public internal_kvs_backed_chunk_driver::RegisteredKvsDriver<ZarrDriver> {
@@ -147,26 +108,12 @@ class ZarrDriver
   static inline const auto json_binder = jb::Sequence(
       internal_kvs_backed_chunk_driver::SpecJsonBinder,
       jb::Member("path", jb::Projection(&SpecT<>::key_prefix,
-                                        jb::DefaultValue([](auto* obj) {
-                                          *obj = std::string{};
-                                        }))),
-      jb::Member(
-          "key_encoding",
-          jb::Projection(
-              &SpecT<>::key_encoding,
-              jb::DefaultValue(
-                  [](auto* obj) { *obj = ChunkKeyEncoding::kDotSeparated; },
-                  [](auto is_loading, const auto& options, auto* obj, auto* j) {
-                    if constexpr (is_loading) {
-                      TENSORSTORE_ASSIGN_OR_RETURN(*obj, ParseKeyEncoding(*j));
-                    } else {
-                      *j = ::nlohmann::json(*obj);
-                    }
-                    return absl::OkStatus();
-                  }))),
-      jb::Member("metadata",
-                 jb::Projection(&SpecT<>::partial_metadata,
-                                jb::Optional(PartialMetadataBinder))),
+                                        jb::DefaultInitializedValue())),
+      jb::Member("key_encoding",
+                 jb::Projection(
+                     &SpecT<>::key_encoding,
+                     jb::DefaultInitializedValue(ChunkKeyEncodingJsonBinder))),
+      jb::Member("metadata", jb::Projection(&SpecT<>::partial_metadata)),
       jb::Member("field", jb::Projection(
                               &SpecT<>::selected_field,
                               jb::DefaultValue</*DisallowIncludeDefault=*/true>(
@@ -254,7 +201,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
          ++field_i) {
       const auto& field = metadata.dtype.fields[field_i];
       const auto& field_layout = metadata.chunk_layout.fields[field_i];
-      auto fill_value = metadata.fill_values[field_i];
+      auto fill_value = metadata.fill_value[field_i];
       if (!fill_value.valid()) {
         // Use value-initialized rank-0 fill value.
         fill_value = AllocateArray(span<const Index, 0>{}, c_order, value_init,
@@ -321,13 +268,15 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     spec.selected_field = EncodeSelectedField(component_index, metadata.dtype);
     spec.key_encoding = key_encoding_;
     auto& pm = spec.partial_metadata.emplace();
+    pm.rank = metadata.rank;
     pm.zarr_format = metadata.zarr_format;
     pm.shape = metadata.shape;
     pm.chunks = metadata.chunks;
     pm.compressor = metadata.compressor;
+    pm.filters = metadata.filters;
     pm.order = metadata.order;
     pm.dtype = metadata.dtype;
-    pm.fill_value = EncodeFillValue(metadata.dtype, metadata.fill_values);
+    pm.fill_value = metadata.fill_value;
     return absl::OkStatus();
   }
 

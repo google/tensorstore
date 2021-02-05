@@ -20,58 +20,7 @@
 namespace tensorstore {
 namespace internal_zarr {
 
-Result<ZarrPartialMetadata> ParsePartialMetadata(const ::nlohmann::json& j) {
-  ZarrPartialMetadata metadata;
-  absl::optional<DimensionIndex> rank;
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonValidateObjectMembers(
-      j, {"zarr_format", "chunks", "shape", "compressor", "order", "dtype",
-          "filters", "fill_value"}));
-
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
-      j, "zarr_format", [&](const ::nlohmann::json& value) {
-        TENSORSTORE_ASSIGN_OR_RETURN(metadata.zarr_format,
-                                     internal_zarr::ParseZarrFormat(value));
-        return absl::OkStatus();
-      }));
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
-      j, "chunks", [&](const ::nlohmann::json& value) {
-        return internal_zarr::ParseChunkShape(value, &rank,
-                                              &metadata.chunks.emplace());
-      }));
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
-      j, "shape", [&](const ::nlohmann::json& value) {
-        return internal_zarr::ParseShape(value, &rank,
-                                         &metadata.shape.emplace());
-      }));
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
-      j, "compressor", [&](const ::nlohmann::json& value) {
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            metadata.compressor, internal_zarr::Compressor::FromJson(value));
-        return absl::OkStatus();
-      }));
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
-      j, "order", [&](const ::nlohmann::json& value) {
-        TENSORSTORE_ASSIGN_OR_RETURN(metadata.order,
-                                     internal_zarr::ParseOrder(value));
-        return absl::OkStatus();
-      }));
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
-      j, "dtype", [&](const ::nlohmann::json& value) {
-        TENSORSTORE_ASSIGN_OR_RETURN(metadata.dtype,
-                                     internal_zarr::ParseDType(value));
-        return absl::OkStatus();
-      }));
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
-      j, "filters", [&](const ::nlohmann::json& value) {
-        return internal_zarr::ParseFilters(value);
-      }));
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
-      j, "fill_value", [&](const ::nlohmann::json& value) {
-        metadata.fill_value = value;
-        return absl::OkStatus();
-      }));
-  return metadata;
-}
+namespace jb = tensorstore::internal::json_binding;
 
 namespace {
 template <typename T>
@@ -85,11 +34,6 @@ Status MetadataMismatchError(const char* name, const T& expected,
 
 Status ValidateMetadata(const ZarrMetadata& metadata,
                         const ZarrPartialMetadata& constraints) {
-  if (constraints.zarr_format &&
-      *constraints.zarr_format != metadata.zarr_format) {
-    return MetadataMismatchError("zarr_format", *constraints.zarr_format,
-                                 metadata.zarr_format);
-  }
   if (constraints.shape && *constraints.shape != metadata.shape) {
     return MetadataMismatchError("shape", *constraints.shape, metadata.shape);
   }
@@ -103,19 +47,19 @@ Status ValidateMetadata(const ZarrMetadata& metadata,
                                  metadata.compressor);
   }
   if (constraints.order && *constraints.order != metadata.order) {
-    return MetadataMismatchError("order", EncodeOrder(*constraints.order),
-                                 EncodeOrder(metadata.order));
+    return MetadataMismatchError("order",
+                                 tensorstore::StrCat(*constraints.order),
+                                 tensorstore::StrCat(metadata.order));
   }
   if (constraints.dtype && ::nlohmann::json(*constraints.dtype) !=
                                ::nlohmann::json(metadata.dtype)) {
     return MetadataMismatchError("dtype", *constraints.dtype, metadata.dtype);
   }
   if (constraints.fill_value) {
-    auto encoded_fill_value =
-        EncodeFillValue(metadata.dtype, metadata.fill_values);
-    if (*constraints.fill_value != encoded_fill_value) {
-      return MetadataMismatchError("fill_value", *constraints.fill_value,
-                                   encoded_fill_value);
+    auto a = EncodeFillValue(metadata.dtype, *constraints.fill_value);
+    auto b = EncodeFillValue(metadata.dtype, metadata.fill_value);
+    if (a != b) {
+      return MetadataMismatchError("fill_value", a, b);
     }
   }
   return absl::OkStatus();
@@ -149,15 +93,12 @@ Result<ZarrMetadataPtr> GetNewMetadata(
   }
   metadata->compressor = *partial_metadata.compressor;
   metadata->order = partial_metadata.order.value_or(c_order);
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      metadata->fill_values,
-      ParseFillValue(partial_metadata.fill_value.value_or(nullptr),
-                     metadata->dtype),
-      tensorstore::MaybeAnnotateStatus(
-          _, "Error parsing object member \"fill_value\""));
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      metadata->chunk_layout,
-      ComputeChunkLayout(metadata->dtype, metadata->order, metadata->chunks));
+  if (partial_metadata.fill_value) {
+    metadata->fill_value = *partial_metadata.fill_value;
+  } else {
+    metadata->fill_value.resize(metadata->dtype.fields.size());
+  }
+  TENSORSTORE_RETURN_IF_ERROR(ValidateMetadata(*metadata));
   return metadata;
 }
 
@@ -208,20 +149,6 @@ Result<std::size_t> GetCompatibleField(const ZarrDType& dtype,
   return field_index;
 }
 
-Result<ChunkKeyEncoding> ParseKeyEncoding(const ::nlohmann::json& value) {
-  if (const auto* s = value.get_ptr<const std::string*>()) {
-    if (*s == "/") return ChunkKeyEncoding::kSlashSeparated;
-    if (*s == ".") return ChunkKeyEncoding::kDotSeparated;
-  }
-  return absl::InvalidArgumentError(
-      StrCat("Expected \".\" or \"/\", but received: ", value.dump()));
-}
-
-void to_json(::nlohmann::json& j,  // NOLINT
-             ChunkKeyEncoding key_encoding) {
-  j = (key_encoding == ChunkKeyEncoding::kSlashSeparated) ? "/" : ".";
-}
-
 Result<SelectedField> ParseSelectedField(const ::nlohmann::json& value) {
   if (value.is_null()) return std::string{};
   if (const auto* s = value.get_ptr<const std::string*>()) {
@@ -238,6 +165,11 @@ SelectedField EncodeSelectedField(std::size_t field_index,
   const auto& field = dtype.fields[field_index];
   return field.name;
 }
+
+TENSORSTORE_DEFINE_JSON_BINDER(ChunkKeyEncodingJsonBinder,
+                               jb::Enum<ChunkKeyEncoding, std::string_view>(
+                                   {{ChunkKeyEncoding::kDotSeparated, "."},
+                                    {ChunkKeyEncoding::kSlashSeparated, "/"}}))
 
 }  // namespace internal_zarr
 }  // namespace tensorstore

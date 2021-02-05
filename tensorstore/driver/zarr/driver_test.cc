@@ -1425,8 +1425,7 @@ TEST(ZarrDriverTest, InvalidSpec) {
                           tensorstore::ReadWriteMode::read_write)
             .result(),
         MatchesStatus(absl::StatusCode::kInvalidArgument,
-                      "Error parsing object member \"key_encoding\": "
-                      "Expected \"\\.\" or \"/\", but received: \"-\""));
+                      "Error parsing object member \"key_encoding\": .*"));
   }
 
   {
@@ -1481,7 +1480,8 @@ TEST(ZarrDriverTest, OpenInvalidMetadata) {
         MatchesStatus(absl::StatusCode::kFailedPrecondition,
                       "Error opening \"zarr\" driver: "
                       "Error reading \"prefix/.zarray\": "
-                      "Missing object member \"zarr_format\""));
+                      "Error parsing object member \"zarr_format\": "
+                      ".*"));
   }
 }
 

@@ -26,73 +26,89 @@ namespace {
 
 using tensorstore::MatchesStatus;
 using tensorstore::internal_zarr::ChunkKeyEncoding;
+using tensorstore::internal_zarr::ChunkKeyEncodingJsonBinder;
 using tensorstore::internal_zarr::GetCompatibleField;
 using tensorstore::internal_zarr::ParseDType;
-using tensorstore::internal_zarr::ParseKeyEncoding;
-using tensorstore::internal_zarr::ParseMetadata;
-using tensorstore::internal_zarr::ParsePartialMetadata;
 using tensorstore::internal_zarr::ParseSelectedField;
 using tensorstore::internal_zarr::SelectedField;
 using tensorstore::internal_zarr::ZarrMetadata;
+using tensorstore::internal_zarr::ZarrPartialMetadata;
 
 TEST(ParsePartialMetadataTest, ExtraMember) {
-  EXPECT_THAT(ParsePartialMetadata({{"foo", "x"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Object includes extra members: \"foo\""));
+  tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({
+      {{{"foo", "x"}},
+       MatchesStatus(absl::StatusCode::kInvalidArgument,
+                     "Object includes extra members: \"foo\"")},
+  });
 }
 
 TEST(ParsePartialMetadataTest, InvalidZarrFormat) {
-  EXPECT_THAT(ParsePartialMetadata({{"zarr_format", "2"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"zarr_format\": .*"));
+  tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({
+      {{{"zarr_format", "2"}},
+       MatchesStatus(absl::StatusCode::kInvalidArgument,
+                     "Error parsing object member \"zarr_format\": .*")},
+  });
 }
 
 TEST(ParsePartialMetadataTest, InvalidChunks) {
-  EXPECT_THAT(ParsePartialMetadata({{"chunks", "2"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"chunks\": .*"));
+  tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({
+      {{{"chunks", "2"}},
+       MatchesStatus(absl::StatusCode::kInvalidArgument,
+                     "Error parsing object member \"chunks\": .*")},
+  });
 }
 
 TEST(ParsePartialMetadataTest, InvalidShape) {
-  EXPECT_THAT(ParsePartialMetadata({{"shape", "2"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"shape\": .*"));
+  tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({
+      {{{"shape", "2"}},
+       MatchesStatus(absl::StatusCode::kInvalidArgument,
+                     "Error parsing object member \"shape\": .*")},
+  });
 }
 
 TEST(ParsePartialMetadataTest, InvalidCompressor) {
-  EXPECT_THAT(ParsePartialMetadata({{"compressor", "2"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"compressor\": .*"));
+  tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({
+      {{{"compressor", "2"}},
+       MatchesStatus(absl::StatusCode::kInvalidArgument,
+                     "Error parsing object member \"compressor\": .*")},
+  });
 }
 
 TEST(ParsePartialMetadataTest, InvalidOrder) {
-  EXPECT_THAT(ParsePartialMetadata({{"order", "2"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"order\": .*"));
+  tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({
+      {{{"order", "2"}},
+       MatchesStatus(absl::StatusCode::kInvalidArgument,
+                     "Error parsing object member \"order\": .*")},
+  });
 }
 
 TEST(ParsePartialMetadataTest, InvalidDType) {
-  EXPECT_THAT(ParsePartialMetadata({{"dtype", "2"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"dtype\": .*"));
+  tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({
+      {{{"dtype", "2"}},
+       MatchesStatus(absl::StatusCode::kInvalidArgument,
+                     "Error parsing object member \"dtype\": .*")},
+  });
 }
 
 TEST(ParsePartialMetadataTest, InvalidFilters) {
-  EXPECT_THAT(ParsePartialMetadata({{"filters", "x"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"filters\": .*"));
+  tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({
+      {{{"filters", "x"}},
+       MatchesStatus(absl::StatusCode::kInvalidArgument,
+                     "Error parsing object member \"filters\": .*")},
+  });
 }
 
 TEST(ParsePartialMetadataTest, Empty) {
-  auto result = ParsePartialMetadata(::nlohmann::json::object_t{});
-  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
-  EXPECT_EQ(absl::nullopt, result->zarr_format);
-  EXPECT_EQ(absl::nullopt, result->order);
-  EXPECT_EQ(absl::nullopt, result->compressor);
-  EXPECT_EQ(absl::nullopt, result->dtype);
-  EXPECT_EQ(absl::nullopt, result->fill_value);
-  EXPECT_EQ(absl::nullopt, result->shape);
-  EXPECT_EQ(absl::nullopt, result->chunks);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto result, ZarrPartialMetadata::FromJson(::nlohmann::json::object_t{}));
+  EXPECT_EQ(std::nullopt, result.zarr_format);
+  EXPECT_EQ(std::nullopt, result.order);
+  EXPECT_EQ(std::nullopt, result.compressor);
+  EXPECT_EQ(std::nullopt, result.filters);
+  EXPECT_EQ(std::nullopt, result.dtype);
+  EXPECT_EQ(std::nullopt, result.fill_value);
+  EXPECT_EQ(std::nullopt, result.shape);
+  EXPECT_EQ(std::nullopt, result.chunks);
 }
 
 ::nlohmann::json GetMetadataSpec() {
@@ -112,45 +128,45 @@ TEST(ParsePartialMetadataTest, Empty) {
 }
 
 TEST(ParsePartialMetadataTest, Complete) {
-  auto result = ParsePartialMetadata(GetMetadataSpec());
-  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
-  EXPECT_EQ(2, result->zarr_format);
-  EXPECT_EQ(tensorstore::c_order, result->order);
-  ASSERT_TRUE(result->compressor);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto result, ZarrPartialMetadata::FromJson(GetMetadataSpec()));
+  EXPECT_EQ(2, result.zarr_format);
+  EXPECT_EQ(tensorstore::c_order, result.order);
+  ASSERT_TRUE(result.compressor);
   EXPECT_EQ((::nlohmann::json{{"id", "blosc"},
                               {"blocksize", 0},
                               {"clevel", 5},
                               {"cname", "lz4"},
                               {"shuffle", -1}}),
-            ::nlohmann::json(*result->compressor));
+            ::nlohmann::json(*result.compressor));
 
-  ASSERT_TRUE(result->dtype);
-  EXPECT_EQ("<i2", ::nlohmann::json(*result->dtype));
-  EXPECT_EQ(nullptr, result->fill_value);
-
-  ASSERT_TRUE(result->shape);
-  EXPECT_THAT(*result->shape, ::testing::ElementsAre(100, 100));
-  ASSERT_TRUE(result->chunks);
-  EXPECT_THAT(*result->chunks, ::testing::ElementsAre(3, 2));
+  ASSERT_TRUE(result.dtype);
+  EXPECT_EQ("<i2", ::nlohmann::json(*result.dtype));
+  ASSERT_TRUE(result.fill_value);
+  ASSERT_EQ(1, result.fill_value->size());
+  EXPECT_FALSE((*result.fill_value)[0].valid());
+  ASSERT_TRUE(result.shape);
+  EXPECT_THAT(*result.shape, ::testing::ElementsAre(100, 100));
+  ASSERT_TRUE(result.chunks);
+  EXPECT_THAT(*result.chunks, ::testing::ElementsAre(3, 2));
 }
 
-TEST(ParseKeyEncodingTest, Basic) {
-  EXPECT_EQ(ChunkKeyEncoding::kDotSeparated, ParseKeyEncoding("."));
-  EXPECT_EQ(ChunkKeyEncoding::kSlashSeparated, ParseKeyEncoding("/"));
+TEST(ChunkKeyEncodingTest, JsonBinderTest) {
+  tensorstore::TestJsonBinderRoundTrip<ChunkKeyEncoding>(
+      {
+          {ChunkKeyEncoding::kDotSeparated, "."},
+          {ChunkKeyEncoding::kSlashSeparated, "/"},
+      },
+      ChunkKeyEncodingJsonBinder);
 }
 
-TEST(KeyEncodingToJsonTest, Basic) {
-  EXPECT_EQ(".", ::nlohmann::json(ChunkKeyEncoding::kDotSeparated));
-  EXPECT_EQ("/", ::nlohmann::json(ChunkKeyEncoding::kSlashSeparated));
-}
-
-TEST(ParseKeyEncodingTest, Invalid) {
-  EXPECT_THAT(ParseKeyEncoding("x"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected \"\\.\" or \"/\", but received: \"x\""));
-  EXPECT_THAT(ParseKeyEncoding(3),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected \"\\.\" or \"/\", but received: 3"));
+TEST(ChunkKeyEncodingTest, JsonBinderTestInvalid) {
+  tensorstore::TestJsonBinderFromJson<ChunkKeyEncoding>(
+      {
+          {"x", MatchesStatus(absl::StatusCode::kInvalidArgument)},
+          {3, MatchesStatus(absl::StatusCode::kInvalidArgument)},
+      },
+      ChunkKeyEncodingJsonBinder);
 }
 
 TEST(ParseSelectedFieldTest, Null) {
@@ -246,38 +262,41 @@ TEST(EncodeSelectedFieldTest, Empty) {
 }
 
 TEST(GetNewMetadataTest, NoShape) {
-  EXPECT_THAT(GetNewMetadata(ParsePartialMetadata({{"chunks", {2, 3}},
-                                                   {"dtype", "<i4"},
-                                                   {"compressor", nullptr}})
-                                 .value(),
-                             /*data_type_constraint=*/{}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "\"shape\" must be specified"));
+  EXPECT_THAT(
+      GetNewMetadata(
+          ZarrPartialMetadata::FromJson(
+              {{"chunks", {2, 3}}, {"dtype", "<i4"}, {"compressor", nullptr}})
+              .value(),
+          /*data_type_constraint=*/{}),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "\"shape\" must be specified"));
 }
 
 TEST(GetNewMetadataTest, NoChunks) {
-  EXPECT_THAT(GetNewMetadata(ParsePartialMetadata({{"shape", {2, 3}},
-                                                   {"dtype", "<i4"},
-                                                   {"compressor", nullptr}})
-                                 .value(),
-                             /*data_type_constraint=*/{}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "\"chunks\" must be specified"));
+  EXPECT_THAT(
+      GetNewMetadata(
+          ZarrPartialMetadata::FromJson(
+              {{"shape", {2, 3}}, {"dtype", "<i4"}, {"compressor", nullptr}})
+              .value(),
+          /*data_type_constraint=*/{}),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "\"chunks\" must be specified"));
 }
 
 TEST(GetNewMetadataTest, NoDtype) {
-  EXPECT_THAT(GetNewMetadata(ParsePartialMetadata({{"shape", {2, 3}},
-                                                   {"chunks", {2, 3}},
-                                                   {"compressor", nullptr}})
-                                 .value(),
-                             /*data_type_constraint=*/{}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "\"dtype\" must be specified"));
+  EXPECT_THAT(
+      GetNewMetadata(
+          ZarrPartialMetadata::FromJson(
+              {{"shape", {2, 3}}, {"chunks", {2, 3}}, {"compressor", nullptr}})
+              .value(),
+          /*data_type_constraint=*/{}),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "\"dtype\" must be specified"));
 }
 
 TEST(GetNewMetadataTest, NoCompressor) {
   EXPECT_THAT(GetNewMetadata(
-                  ParsePartialMetadata(
+                  ZarrPartialMetadata::FromJson(
                       {{"shape", {2, 3}}, {"chunks", {2, 3}}, {"dtype", "<i4"}})
                       .value(),
                   /*data_type_constraint=*/{}),
@@ -285,23 +304,10 @@ TEST(GetNewMetadataTest, NoCompressor) {
                             "\"compressor\" must be specified"));
 }
 
-TEST(GetNewMetadataTest, InvalidFillValue) {
-  EXPECT_THAT(GetNewMetadata(ParsePartialMetadata({{"shape", {2, 3}},
-                                                   {"chunks", {2, 3}},
-                                                   {"dtype", "<i4"},
-                                                   {"compressor", nullptr},
-                                                   {"fill_value", "x"}})
-                                 .value(),
-                             /*data_type_constraint=*/{}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing object member \"fill_value\": "
-                            ".*"));
-}
-
 TEST(GetNewMetadataTest, IntegerOverflow) {
   EXPECT_THAT(
       GetNewMetadata(
-          ParsePartialMetadata(
+          ZarrPartialMetadata::FromJson(
               {{"shape", {4611686018427387903, 4611686018427387903}},
                {"chunks", {4611686018427387903, 4611686018427387903}},
                {"dtype", "<i4"},
@@ -315,73 +321,69 @@ TEST(GetNewMetadataTest, IntegerOverflow) {
 }
 
 TEST(ValidateMetadataTest, Success) {
-  ZarrMetadata metadata;
-  ASSERT_TRUE(ParseMetadata(GetMetadataSpec(), &metadata).ok());
-  EXPECT_EQ(absl::OkStatus(),
-            ValidateMetadata(metadata,
-                             ParsePartialMetadata(GetMetadataSpec()).value()));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   ZarrMetadata::FromJson(GetMetadataSpec()));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto partial_metadata, ZarrPartialMetadata::FromJson(GetMetadataSpec()));
+  TENSORSTORE_EXPECT_OK(ValidateMetadata(metadata, partial_metadata));
 }
 
 TEST(ValidateMetadataTest, Unconstrained) {
-  ZarrMetadata metadata;
-  ASSERT_TRUE(ParseMetadata(GetMetadataSpec(), &metadata).ok());
-  EXPECT_EQ(absl::OkStatus(),
-            ValidateMetadata(
-                metadata,
-                ParsePartialMetadata(::nlohmann::json::object_t{}).value()));
-}
-
-TEST(ValidateMetadataTest, ZarrFormatMismatch) {
-  ZarrMetadata metadata;
-  ASSERT_TRUE(ParseMetadata(GetMetadataSpec(), &metadata).ok());
-  // Currently only a `zarr_format` of 2 is supported, so we have to artifically
-  // change it here to test the validation.
-  metadata.zarr_format = 3;
-  EXPECT_THAT(ValidateMetadata(metadata,
-                               ParsePartialMetadata(GetMetadataSpec()).value()),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Expected \"zarr_format\" of 2 but received: 3"));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   ZarrMetadata::FromJson(GetMetadataSpec()));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto partial_metadata,
+      ZarrPartialMetadata::FromJson(::nlohmann::json::object_t{}));
+  TENSORSTORE_EXPECT_OK(ValidateMetadata(metadata, partial_metadata));
 }
 
 TEST(ValidateMetadataTest, ShapeMismatch) {
-  ZarrMetadata metadata;
-  ASSERT_TRUE(ParseMetadata(GetMetadataSpec(), &metadata).ok());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   ZarrMetadata::FromJson(GetMetadataSpec()));
   ::nlohmann::json spec = GetMetadataSpec();
   spec["shape"] = {7, 8};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto partial_metadata,
+                                   ZarrPartialMetadata::FromJson(spec));
   EXPECT_THAT(
-      ValidateMetadata(metadata, ParsePartialMetadata(spec).value()),
+      ValidateMetadata(metadata, partial_metadata),
       MatchesStatus(
           absl::StatusCode::kFailedPrecondition,
           "Expected \"shape\" of \\[7,8\\] but received: \\[100,100\\]"));
 }
 
 TEST(ValidateMetadataTest, ChunksMismatch) {
-  ZarrMetadata metadata;
-  ASSERT_TRUE(ParseMetadata(GetMetadataSpec(), &metadata).ok());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   ZarrMetadata::FromJson(GetMetadataSpec()));
   ::nlohmann::json spec = GetMetadataSpec();
   spec["chunks"] = {1, 1};
-  EXPECT_THAT(ValidateMetadata(metadata, ParsePartialMetadata(spec).value()),
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto partial_metadata,
+                                   ZarrPartialMetadata::FromJson(spec));
+  EXPECT_THAT(ValidateMetadata(metadata, partial_metadata),
               MatchesStatus(
                   absl::StatusCode::kFailedPrecondition,
                   "Expected \"chunks\" of \\[1,1\\] but received: \\[3,2\\]"));
 }
 
 TEST(ValidateMetadataTest, OrderMismatch) {
-  ZarrMetadata metadata;
-  ASSERT_TRUE(ParseMetadata(GetMetadataSpec(), &metadata).ok());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   ZarrMetadata::FromJson(GetMetadataSpec()));
   ::nlohmann::json spec = GetMetadataSpec();
   spec["order"] = "F";
-  EXPECT_THAT(ValidateMetadata(metadata, ParsePartialMetadata(spec).value()),
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto partial_metadata,
+                                   ZarrPartialMetadata::FromJson(spec));
+  EXPECT_THAT(ValidateMetadata(metadata, partial_metadata),
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
                             "Expected \"order\" of \"F\" but received: \"C\""));
 }
 
 TEST(ValidateMetadataTest, CompressorMismatch) {
-  ZarrMetadata metadata;
-  ASSERT_TRUE(ParseMetadata(GetMetadataSpec(), &metadata).ok());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   ZarrMetadata::FromJson(GetMetadataSpec()));
   ::nlohmann::json spec = GetMetadataSpec();
   spec["compressor"] = nullptr;
-  EXPECT_THAT(ValidateMetadata(metadata, ParsePartialMetadata(spec).value()),
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto partial_metadata,
+                                   ZarrPartialMetadata::FromJson(spec));
+  EXPECT_THAT(ValidateMetadata(metadata, partial_metadata),
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
                             "Expected \"compressor\" of null but received: "
                             "\\{\"blocksize\":0,\"clevel\":5,\"cname\":\"lz4\","
@@ -389,22 +391,26 @@ TEST(ValidateMetadataTest, CompressorMismatch) {
 }
 
 TEST(ValidateMetadataTest, DTypeMismatch) {
-  ZarrMetadata metadata;
-  ASSERT_TRUE(ParseMetadata(GetMetadataSpec(), &metadata).ok());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   ZarrMetadata::FromJson(GetMetadataSpec()));
   ::nlohmann::json spec = GetMetadataSpec();
   spec["dtype"] = ">i4";
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto partial_metadata,
+                                   ZarrPartialMetadata::FromJson(spec));
   EXPECT_THAT(
-      ValidateMetadata(metadata, ParsePartialMetadata(spec).value()),
+      ValidateMetadata(metadata, partial_metadata),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
                     "Expected \"dtype\" of \">i4\" but received: \"<i2\""));
 }
 
 TEST(ValidateMetadataTest, FillValueMismatch) {
-  ZarrMetadata metadata;
-  ASSERT_TRUE(ParseMetadata(GetMetadataSpec(), &metadata).ok());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   ZarrMetadata::FromJson(GetMetadataSpec()));
   ::nlohmann::json spec = GetMetadataSpec();
   spec["fill_value"] = 1;
-  EXPECT_THAT(ValidateMetadata(metadata, ParsePartialMetadata(spec).value()),
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto partial_metadata,
+                                   ZarrPartialMetadata::FromJson(spec));
+  EXPECT_THAT(ValidateMetadata(metadata, partial_metadata),
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
                             "Expected \"fill_value\" of 1 but received: null"));
 }

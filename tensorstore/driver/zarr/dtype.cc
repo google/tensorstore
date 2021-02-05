@@ -290,5 +290,16 @@ void to_json(::nlohmann::json& out,  // NOLINT
   }
 }
 
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ZarrDType, [](auto is_loading,
+                                                     const auto& options,
+                                                     auto* obj, auto* j) {
+  if constexpr (is_loading) {
+    TENSORSTORE_ASSIGN_OR_RETURN(*obj, ParseDType(*j));
+  } else {
+    to_json(*j, *obj);
+  }
+  return absl::OkStatus();
+})
+
 }  // namespace internal_zarr
 }  // namespace tensorstore

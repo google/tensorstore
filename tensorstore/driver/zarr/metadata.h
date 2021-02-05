@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -73,9 +74,19 @@ struct ZarrChunkLayout {
   std::vector<Field> fields;
 };
 
+TENSORSTORE_DECLARE_JSON_BINDER(OrderJsonBinder, ContiguousLayoutOrder,
+                                internal::json_binding::NoOptions,
+                                internal::json_binding::NoOptions)
+
+/// Parsed representation of a zarr `.zarray` metadata JSON file.
 struct ZarrMetadata {
- public:
-  std::uint64_t zarr_format;
+  // The following members are common to both `ZarrMetadata` and
+  // `ZarrPartialMetadata`, except that in `ZarrPartialMetadata` they are
+  // `std::optional`-wrapped.
+
+  DimensionIndex rank = dynamic_rank;
+
+  int zarr_format;
 
   /// Overall shape of array.
   std::vector<Index> shape;
@@ -88,30 +99,62 @@ struct ZarrMetadata {
 
   /// Encoded layout of chunk.
   ContiguousLayoutOrder order;
-  // std::vector<ZarrFilter> filters;
+  std::nullptr_t filters;
 
   /// Fill values for each of the fields.  Must have same length as
   /// `dtype.fields`.
-  std::vector<SharedArray<const void>> fill_values;
+  std::vector<SharedArray<const void>> fill_value;
 
-  /// Derived information computed from `dtype`, `order`, and `chunks`.
+  // Derived information computed from `dtype`, `order`, and `chunks`.
+
   ZarrChunkLayout chunk_layout;
 
-  friend void to_json(::nlohmann::json& out,  // NOLINT
-                      const ZarrMetadata& metadata);
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrMetadata,
+                                          internal::json_binding::NoOptions,
+                                          tensorstore::IncludeDefaults)
 
   /// Appends to `*out` a string that corresponds to the equivalence
   /// relationship defined by `IsMetadataCompatible`.
   friend void EncodeCacheKeyAdl(std::string* out, const ZarrMetadata& metadata);
 };
 
+/// Validates chunk layout and computes `metadata.chunk_layout`.
+absl::Status ValidateMetadata(ZarrMetadata& metadata);
+
 using ZarrMetadataPtr = std::shared_ptr<ZarrMetadata>;
 
-/// Parses a zarr metadata JSON specification.
-///
-/// \param metadata[out] Non-null pointer set to the parsed metadata on success.
-/// \error `absl::StatusCode::kInvalidArgument` if `j` is not valid.
-Status ParseMetadata(const nlohmann::json& j, ZarrMetadata* metadata);
+/// Partially-specified zarr metadata used either to validate existing metadata
+/// or to create a new array.
+struct ZarrPartialMetadata {
+  // The following members are common to both `ZarrMetadata` and
+  // `ZarrPartialMetadata`, except that in `ZarrPartialMetadata` they are
+  // `std::optional`-wrapped.
+
+  DimensionIndex rank = dynamic_rank;
+
+  std::optional<int> zarr_format;
+
+  /// Overall shape of array.
+  std::optional<std::vector<Index>> shape;
+
+  /// Chunk shape.  Must have same length as `shape`.
+  std::optional<std::vector<Index>> chunks;
+
+  std::optional<ZarrDType> dtype;
+  std::optional<Compressor> compressor;
+
+  /// Encoded layout of chunk.
+  std::optional<ContiguousLayoutOrder> order;
+  std::optional<std::nullptr_t> filters;
+
+  /// Fill values for each of the fields.  Must have same length as
+  /// `dtype.fields`.
+  std::optional<std::vector<SharedArray<const void>>> fill_value;
+
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrPartialMetadata,
+                                          internal::json_binding::NoOptions,
+                                          tensorstore::IncludeDefaults)
+};
 
 /// Computes the derived `ZarrChunkLayout` from the specified `dtype`, `order`,
 /// and `chunk_shape` values.
@@ -144,57 +187,16 @@ Result<ZarrChunkLayout> ComputeChunkLayout(const ZarrDType& dtype,
 Result<std::vector<SharedArray<const void>>> ParseFillValue(
     const nlohmann::json& j, const ZarrDType& dtype);
 
-/// Parses a zarr metadata "zarr_format" JSON specification.
-///
-/// Currently the only valid value is `2`.
-///
-/// \param value The "zarr_format" JSON specification.
-/// \error `absl::StatusCode::kInvalidArgument` if `value` is not valid.
-Result<std::uint64_t> ParseZarrFormat(const nlohmann::json& value);
-
-/// Parses a zarr metadata "filters" JSON specification.
-///
-/// Currently the only supported value is `null`.
-///
-/// \param value The "filters" JSON specification.
-/// \error `absl::StatusCode::kInvalidArgument` if `value` is not valid.
-Status ParseFilters(const nlohmann::json& value);
-
-/// Encodes a layout order as a zarr metadata "order" JSON specification.
-///
-/// \returns `"C"` or `"F"`.
-::nlohmann::json EncodeOrder(ContiguousLayoutOrder order);
-
-/// Parses a zarr metadata "order" JSON specification.
-///
-/// \error `absl::StatusCode::kInvalidArgument` if `j` is not valid.
-Result<ContiguousLayoutOrder> ParseOrder(const nlohmann::json& j);
-
-/// Parses a zarr metadata "chunks" JSON specification.
-///
-/// \param value The "chunks" JSON specification.
-/// \param rank[in,out] Must be non-null.  On input, if
-///     `*rank != absl::nullopt`, `**rank` specifies the expected number of
-///     dimensions.  On successful return, `**rank` is set to `shape->size()`.
-/// \param shape[out] Must be non-null.  Pointer to shape vector to be filled
-///     with the parsed chunk shape.
-/// \error `absl::StatusCode::kInvalidArgument` if `value` is not valid.
-Status ParseChunkShape(const ::nlohmann::json& value,
-                       absl::optional<DimensionIndex>* rank,
-                       std::vector<Index>* shape);
-
-/// Parses a zarr metadata "shape" JSON specification.
-///
-/// \param value The "chunks" JSON specification.
-/// \param rank[in,out] Must be non-null.  On input, if
-///     `*rank != absl::nullopt`, `**rank` specifies the expected number of
-///     dimensions.  On successful return, `**rank` is set to `shape->size()`.
-/// \param shape[out] Must be non-null.  Pointer to shape vector to be filled
-///     with the parsed chunk shape.
-/// \error `absl::StatusCode::kInvalidArgument` if `value` is not valid.
-Status ParseShape(const ::nlohmann::json& value,
-                  absl::optional<DimensionIndex>* rank,
-                  std::vector<Index>* shape);
+inline auto FillValueJsonBinder(const ZarrDType& dtype) {
+  return [&](auto is_loading, const auto& options, auto* obj, auto* j) {
+    if constexpr (is_loading) {
+      TENSORSTORE_ASSIGN_OR_RETURN(*obj, ParseFillValue(*j, dtype));
+    } else {
+      *j = EncodeFillValue(dtype, *obj);
+    }
+    return absl::OkStatus();
+  };
+}
 
 /// Encodes per-field arrays into an encoded zarr chunk.
 ///

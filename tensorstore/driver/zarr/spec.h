@@ -19,8 +19,8 @@
 /// Facilities related to parsing a zarr array DriverSpec.
 
 #include <cstdint>
+#include <optional>
 
-#include "absl/types/optional.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/driver/zarr/metadata.h"
@@ -29,29 +29,6 @@
 
 namespace tensorstore {
 namespace internal_zarr {
-
-/// Partially-specified zarr metadata used either to validate existing metadata
-/// or to create a new array.
-struct ZarrPartialMetadata {
-  absl::optional<std::uint64_t> zarr_format;
-  absl::optional<std::vector<Index>> shape;
-  absl::optional<std::vector<Index>> chunks;
-  absl::optional<Compressor> compressor;
-  absl::optional<ContiguousLayoutOrder> order;
-  absl::optional<ZarrDType> dtype;
-
-  // Defer parsing fill_value until we know dtype (dtype may have been left
-  // unspecified).
-  absl::optional<::nlohmann::json> fill_value;
-};
-
-/// Parses a partial metadata JSON specification.
-//
-/// \param j The JSON metadata specification, in the normal zarr metadata format
-///     but with all members optional.
-/// \returns The parsed metadata specification.
-/// \error `absl::StatusCode::kInvalidArgument` if `j` is invalid.
-Result<ZarrPartialMetadata> ParsePartialMetadata(const ::nlohmann::json& j);
 
 /// Validates that `metadata` is consistent with `constraints`.
 ///
@@ -76,23 +53,9 @@ enum class ChunkKeyEncoding {
   kSlashSeparated = 1,
 };
 
-/// Parses a chunk key encoding specification.
-///
-/// \param value The JSON specification.  Valid values are `"."` and `"/"`.
-/// \returns The parsed key encoding.
-/// \error `absl::StatusCode::kInvalidArgument` if `value` is invalid.
-Result<ChunkKeyEncoding> ParseKeyEncoding(const ::nlohmann::json& value);
-
-/// Encodes a chunk key encoding specification as JSON.
-///
-/// This is the inverse of `ParseKeyEncoding`, and enables conversion from
-/// `ChunkKeyEncoding` to `::nlohmann::json`, using the syntax
-/// `::nlohmann::json(key_encoding)`.
-///
-/// \param j[out] JSON encoding.
-/// \param key_encoding The key encoding specification.
-void to_json(::nlohmann::json& j,  // NOLINT
-             ChunkKeyEncoding key_encoding);
+TENSORSTORE_DECLARE_JSON_BINDER(ChunkKeyEncodingJsonBinder, ChunkKeyEncoding,
+                                internal::json_binding::NoOptions,
+                                internal::json_binding::NoOptions)
 
 /// An empty string indicates the singleton field if the dtype does not have
 /// fields.

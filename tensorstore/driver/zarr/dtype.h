@@ -21,6 +21,7 @@
 
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type.h"
+#include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/result.h"
 
@@ -112,6 +113,9 @@ struct ZarrDType {
 
   /// Bytes per "outer" element.
   Index bytes_per_outer_element;
+
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrDType,
+                                          internal::json_binding::NoOptions)
 
   friend void to_json(::nlohmann::json& out,  // NOLINT
                       const ZarrDType& dtype);

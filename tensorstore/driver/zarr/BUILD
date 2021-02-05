@@ -190,6 +190,7 @@ tensorstore_cc_library(
         "//tensorstore:data_type",
         "//tensorstore/internal:container_to_shared",
         "//tensorstore/internal:data_type_endian_conversion",
+        "//tensorstore/internal:dimension_indexed_json_binder",
         "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal:json",
         "//tensorstore/util:endian",
@@ -242,7 +243,6 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/types:optional",
     ],
 )
 
