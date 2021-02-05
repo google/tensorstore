@@ -39,11 +39,11 @@ inline void PrintTo(json const& j, std::ostream* os) { *os << j.dump(); }
 
 namespace tensorstore {
 
-MATCHER_P(MatchesJson, j, "") {
-  *result_listener << "where the difference is:\n"
-                   << ::nlohmann::json::diff(j, arg).dump(2);
-  return tensorstore::internal_json::JsonSame(arg, j);
-}
+/// GMock matcher that compares values using internal_json::JsonSame and prints
+/// the differences in the case of a mismatch.
+///
+/// Note that unlike `operator==`, `JsonSame` correctly handles `discarded`.
+::testing::Matcher<::nlohmann::json> MatchesJson(::nlohmann::json j);
 
 /// Tests that a sequence of examples for json binding of `T` values round
 /// trips.

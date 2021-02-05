@@ -1068,6 +1068,7 @@ tensorstore_cc_library(
 tensorstore_cc_library(
     name = "json_gtest",
     testonly = 1,
+    srcs = ["json_gtest.cc"],
     hdrs = ["json_gtest.h"],
     deps = [
         ":json",
