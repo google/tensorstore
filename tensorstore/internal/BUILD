@@ -1083,6 +1083,7 @@ tensorstore_cc_library(
     hdrs = ["json_gtest.h"],
     deps = [
         ":json",
+        "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_googletest//:gtest",
     ],

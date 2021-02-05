@@ -21,6 +21,7 @@
 #include <gmock/gmock.h>
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json.h"
+#include "tensorstore/util/status_testutil.h"
 
 namespace nlohmann {
 //
@@ -69,6 +70,75 @@ void TestJsonBinderRoundTrip(
     EXPECT_THAT(tensorstore::internal::json_binding::FromJson<T>(
                     j, binder, from_json_options),
                 ::testing::Optional(value));
+  }
+}
+
+/// Tests that a sequence of json values can be parsed as `T` values then
+/// converted back to identical json values.
+///
+/// This may be used in place of `TestJsonBinderRoundTrip` for types `T` for
+/// which `operator==` is not defined.
+///
+/// \param round_trips Sequence of JSON values to test.
+/// \param binder Optional.  The JSON binder to use.
+/// \param to_json_options Optional.  Options for converting to JSON.
+/// \param from_json_options Optional.  Options for converting from JSON.
+template <typename T,
+          typename Binder = decltype(internal::json_binding::DefaultBinder<>),
+          typename ToJsonOptions = IncludeDefaults,
+          typename FromJsonOptions = internal::json_binding::NoOptions>
+void TestJsonBinderRoundTripJsonOnly(
+    std::vector<::nlohmann::json> round_trips,
+    Binder binder = internal::json_binding::DefaultBinder<>,
+    ToJsonOptions to_json_options = IncludeDefaults{true},
+    FromJsonOptions from_json_options = {}) {
+  for (const auto& j : round_trips) {
+    SCOPED_TRACE(tensorstore::StrCat("j=", j));
+    auto result = tensorstore::internal::json_binding::FromJson<T>(
+        j, binder, from_json_options);
+    TENSORSTORE_EXPECT_OK(result) << "FromJson";
+    if (result.ok()) {
+      EXPECT_THAT(tensorstore::internal::json_binding::ToJson(*result, binder,
+                                                              to_json_options),
+                  ::testing::Optional(MatchesJson(j)));
+    }
+  }
+}
+
+/// Tests that for a sequence of pairs `(a, b)` of json values, both `a` and `b`
+/// can be parsed as `T` values which convert back to `b`.
+///
+/// \param round_trips Sequence of JSON values to test.
+/// \param binder Optional.  The JSON binder to use.
+/// \param to_json_options Optional.  Options for converting to JSON.
+/// \param from_json_options Optional.  Options for converting from JSON.
+template <typename T,
+          typename Binder = decltype(internal::json_binding::DefaultBinder<>),
+          typename ToJsonOptions = IncludeDefaults,
+          typename FromJsonOptions = internal::json_binding::NoOptions>
+void TestJsonBinderRoundTripJsonOnlyInexact(
+    std::vector<std::pair<::nlohmann::json, ::nlohmann::json>> round_trips,
+    Binder binder = internal::json_binding::DefaultBinder<>,
+    ToJsonOptions to_json_options = IncludeDefaults{true},
+    FromJsonOptions from_json_options = {}) {
+  for (const auto& [a, b] : round_trips) {
+    SCOPED_TRACE(tensorstore::StrCat("a=", a, ", b=", b));
+    auto a_result = tensorstore::internal::json_binding::FromJson<T>(
+        a, binder, from_json_options);
+    TENSORSTORE_EXPECT_OK(a_result) << "FromJson: a=" << a;
+    auto b_result = tensorstore::internal::json_binding::FromJson<T>(
+        b, binder, from_json_options);
+    TENSORSTORE_EXPECT_OK(b_result) << "FromJson: b=" << b;
+    if (a_result.ok()) {
+      EXPECT_THAT(tensorstore::internal::json_binding::ToJson(*a_result, binder,
+                                                              to_json_options),
+                  ::testing::Optional(MatchesJson(b)));
+    }
+    if (b_result.ok()) {
+      EXPECT_THAT(tensorstore::internal::json_binding::ToJson(*b_result, binder,
+                                                              to_json_options),
+                  ::testing::Optional(MatchesJson(b)));
+    }
   }
 }
 
