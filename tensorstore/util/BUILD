@@ -179,9 +179,6 @@ tensorstore_cc_library(
     hdrs = [
         "division.h",
     ],
-    deps = [
-        "@com_google_absl//absl/base:core_headers",
-    ],
 )
 
 tensorstore_cc_test(

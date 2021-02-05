@@ -1,9 +1,22 @@
+// Copyright 2020 The TensorStore Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef TENSORSTORE_UTIL_DIVISION_H_
 #define TENSORSTORE_UTIL_DIVISION_H_
 
-/// \file
-/// These division functions were copied from TensorFlow:
-/// https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/lib/math/math_util.h
+// Some of the code below is derived from TensorFlow:
+// https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/lib/math/math_util.h
 //
 // Copyright 2015 The TensorFlow Authors. All Rights Reserved.
 //
@@ -19,9 +32,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cassert>
+#include <limits>
 #include <type_traits>
-
-#include "absl/base/macros.h"
 
 namespace tensorstore {
 
@@ -30,8 +43,8 @@ constexpr IntegralType RoundUpTo(IntegralType input,
                                  IntegralType rounding_value) {
   static_assert(std::is_integral<IntegralType>::value,
                 "IntegralType must be an integral type.");
-  return ABSL_ASSERT(input >= 0), ABSL_ASSERT(rounding_value > 0),
-         ((input + rounding_value - 1) / rounding_value) * rounding_value;
+  assert(input >= 0 && rounding_value > 0);
+  return ((input + rounding_value - 1) / rounding_value) * rounding_value;
 }
 
 template <typename IntegralType, bool ceil>
@@ -121,6 +134,37 @@ constexpr IntegralType NonnegativeMod(IntegralType numerator,
   assert(denominator > 0);
   IntegralType modulus = numerator % denominator;
   return modulus + (modulus < 0) * denominator;
+}
+
+/// Computes the non-negative greater common divisor of `x` and `y` using
+/// Euclid's Algorithm.
+///
+/// GreatestCommonDivisor(0, 0) is undefined.
+/// GreatestCommonDivisor(x, 0) == x
+/// GreatestCommonDivisor(0, x) == x
+template <typename IntegralType>
+constexpr IntegralType GreatestCommonDivisor(IntegralType x, IntegralType y) {
+  assert(x != 0 || y != 0);
+  if (std::is_signed_v<IntegralType> &&
+      x == std::numeric_limits<IntegralType>::min()) {
+    // If `y == 0`, the mathematical result is `-x`, which overflows.  Instead,
+    // this traps due to division by 0.
+    x = x % y;
+  }
+  if (std::is_signed_v<IntegralType> &&
+      y == std::numeric_limits<IntegralType>::min()) {
+    // If `x == 0`, the mathematical result is `-y`, which overflows.  Instead,
+    // this traps due to division by 0.
+    y = y % x;
+  }
+  if (std::is_signed_v<IntegralType> && x < 0) x = -x;
+  if (std::is_signed_v<IntegralType> && y < 0) y = -y;
+  while (y != 0) {
+    IntegralType r = x % y;
+    x = y;
+    y = r;
+  }
+  return x;
 }
 
 }  // namespace tensorstore
