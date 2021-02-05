@@ -28,56 +28,46 @@ namespace {
 
 using tensorstore::MatchesJson;
 using tensorstore::StalenessBound;
-using tensorstore::internal::json_binding::FromJson;
-using tensorstore::internal::json_binding::ToJson;
+using ::testing::Optional;
 
-TEST(StalenessBoundJsonBinderTest, ToJson) {
-  EXPECT_THAT(ToJson(StalenessBound{absl::InfinitePast()}),
-              ::testing::Optional(MatchesJson(false)));
-  EXPECT_THAT(ToJson(StalenessBound{absl::InfiniteFuture()}),
-              ::testing::Optional(MatchesJson(true)));
-  EXPECT_THAT(ToJson(StalenessBound::BoundedByOpen()),
-              ::testing::Optional(MatchesJson("open")));
-  EXPECT_THAT(ToJson(StalenessBound{absl::UnixEpoch()}),
-              ::testing::Optional(MatchesJson(0)));
-  EXPECT_THAT(ToJson(StalenessBound{absl::UnixEpoch() + absl::Seconds(1)}),
-              ::testing::Optional(MatchesJson(1)));
+TEST(StalenessBoundJsonBinderTest, RoundTrip) {
+  tensorstore::TestJsonBinderToJson<StalenessBound>({
+      {StalenessBound{absl::InfinitePast()}, Optional(MatchesJson(false))},
+      {StalenessBound{absl::InfiniteFuture()}, Optional(MatchesJson(true))},
+      {StalenessBound::BoundedByOpen(), Optional(MatchesJson("open"))},
+      {StalenessBound{absl::UnixEpoch()}, Optional(MatchesJson(0))},
+      {StalenessBound{absl::UnixEpoch() + absl::Seconds(1)},
+       Optional(MatchesJson(1))},
+  });
 }
 
 TEST(StalenessBoundJsonBinderTest, FromJson) {
-  EXPECT_THAT(
-      FromJson<StalenessBound>(false),
-      ::testing::Optional(::testing::AllOf(
-          StalenessBound{absl::InfinitePast()},
-          ::testing::Field(&StalenessBound::bounded_by_open_time, false))));
-  EXPECT_THAT(
-      FromJson<StalenessBound>(true),
-      ::testing::Optional(::testing::AllOf(
-          StalenessBound{absl::InfiniteFuture()},
-          ::testing::Field(&StalenessBound::bounded_by_open_time, false))));
-  EXPECT_THAT(FromJson<StalenessBound>("open"),
-              ::testing::Optional(::testing::Field(
-                  &StalenessBound::bounded_by_open_time, true)));
-  EXPECT_THAT(
-      FromJson<StalenessBound>(0),
-      ::testing::Optional(::testing::AllOf(
-          StalenessBound{absl::UnixEpoch()},
-          ::testing::Field(&StalenessBound::bounded_by_open_time, false))));
-  EXPECT_THAT(
-      FromJson<StalenessBound>(1),
-      ::testing::Optional(::testing::AllOf(
-          StalenessBound{absl::UnixEpoch() + absl::Seconds(1)},
-          ::testing::Field(&StalenessBound::bounded_by_open_time, false))));
-  EXPECT_THAT(
-      FromJson<StalenessBound>(1u),
-      ::testing::Optional(::testing::AllOf(
-          StalenessBound{absl::UnixEpoch() + absl::Seconds(1)},
-          ::testing::Field(&StalenessBound::bounded_by_open_time, false))));
-  EXPECT_THAT(
-      FromJson<StalenessBound>(1.5),
-      ::testing::Optional(::testing::AllOf(
-          StalenessBound{absl::UnixEpoch() + absl::Milliseconds(1500)},
-          ::testing::Field(&StalenessBound::bounded_by_open_time, false))));
+  tensorstore::TestJsonBinderFromJson<StalenessBound>({
+      {false,
+       ::testing::Optional(::testing::AllOf(
+           StalenessBound{absl::InfinitePast()},
+           ::testing::Field(&StalenessBound::bounded_by_open_time, false)))},
+      {true,
+       ::testing::Optional(::testing::AllOf(
+           StalenessBound{absl::InfiniteFuture()},
+           ::testing::Field(&StalenessBound::bounded_by_open_time, false)))},
+      {"open", ::testing::Optional(::testing::Field(
+                   &StalenessBound::bounded_by_open_time, true))},
+      {0, ::testing::Optional(::testing::AllOf(
+              StalenessBound{absl::UnixEpoch()},
+              ::testing::Field(&StalenessBound::bounded_by_open_time, false)))},
+      {1, ::testing::Optional(::testing::AllOf(
+              StalenessBound{absl::UnixEpoch() + absl::Seconds(1)},
+              ::testing::Field(&StalenessBound::bounded_by_open_time, false)))},
+      {1u,
+       ::testing::Optional(::testing::AllOf(
+           StalenessBound{absl::UnixEpoch() + absl::Seconds(1)},
+           ::testing::Field(&StalenessBound::bounded_by_open_time, false)))},
+      {1.5,
+       ::testing::Optional(::testing::AllOf(
+           StalenessBound{absl::UnixEpoch() + absl::Milliseconds(1500)},
+           ::testing::Field(&StalenessBound::bounded_by_open_time, false)))},
+  });
 }
 
 }  // namespace

@@ -30,6 +30,18 @@
 
 namespace tensorstore {
 
+namespace internal {
+namespace json_binding {
+
+struct NoOptions {
+  constexpr NoOptions() = default;
+  template <typename T>
+  constexpr NoOptions(const T&) {}
+};
+
+}  // namespace json_binding
+}  // namespace internal
+
 /// Specifies whether to defer errors due to unregistered drivers/context
 /// resources until such driver/resource is actually used.  This may be useful
 /// to allow working with JSON specifications with a mixture of binaries, where
@@ -88,6 +100,8 @@ class ContextFromJsonOptions : public AllowUnregistered {
   constexpr ContextFromJsonOptions(
       AllowUnregistered allow_unregistered = AllowUnregistered{false})
       : AllowUnregistered(allow_unregistered) {}
+  constexpr ContextFromJsonOptions(internal::json_binding::NoOptions)
+      : ContextFromJsonOptions() {}
 };
 
 struct RankConstraint {

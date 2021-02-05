@@ -27,12 +27,6 @@ namespace tensorstore {
 namespace internal {
 namespace json_binding {
 
-struct NoOptions {
-  constexpr NoOptions() = default;
-  template <typename T>
-  constexpr NoOptions(const T&) {}
-};
-
 /// Specifies the default `Binder` for a given unqualified object type.
 ///
 /// To define the default binder for a given type `T`, this variable template
@@ -58,20 +52,27 @@ constexpr inline auto DefaultBinder<void> = [](auto is_loading,
 };
 
 /// Converts an object to JSON using the specified binder.
-template <typename T, typename Binder = decltype(DefaultBinder<>),
+template <typename JsonValue = ::nlohmann::json, typename T,
+          typename Binder = decltype(DefaultBinder<>),
           typename Options = IncludeDefaults>
-Result<::nlohmann::json> ToJson(const T& obj, Binder binder = DefaultBinder<>,
-                                const Options& options = IncludeDefaults{
-                                    true}) {
-  ::nlohmann::json value(::nlohmann::json::value_t::discarded);
+Result<JsonValue> ToJson(const T& obj, Binder binder = DefaultBinder<>,
+                         const Options& options = Options{}) {
+  JsonValue value([] {
+    if constexpr (std::is_same_v<JsonValue, ::nlohmann::json>) {
+      return ::nlohmann::json::value_t::discarded;
+    } else {
+      return JsonValue();
+    }
+  }());
   TENSORSTORE_RETURN_IF_ERROR(binder(std::false_type{}, options, &obj, &value));
   return value;
 }
 
 /// Converts an object from its JSON representation using the specified binder.
-template <typename T, typename Binder = decltype(DefaultBinder<>),
+template <typename T, typename JsonValue = ::nlohmann::json,
+          typename Binder = decltype(DefaultBinder<>),
           typename Options = NoOptions>
-Result<T> FromJson(::nlohmann::json j, Binder binder = DefaultBinder<>,
+Result<T> FromJson(JsonValue j, Binder binder = DefaultBinder<>,
                    const Options& options = NoOptions{}) {
   T obj;
   if (auto status = binder(std::true_type{}, options, &obj, &j); !status.ok()) {
@@ -178,26 +179,26 @@ class StaticBinder {
 ///     namespace jb = tensorstore::internal::json_binding;
 ///     TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(X, jb::Object(...));
 ///
-#define TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(name, ...)            \
-  TENSORSTORE_INTERNAL_DECLARE_JSON_BINDER_IMPL(JsonBinderImpl, name, \
-                                                __VA_ARGS__)          \
-  static inline constexpr JsonBinderImpl default_json_binder = {};    \
-  tensorstore::Result<::nlohmann::json> ToJson(                       \
-      const JsonBinderImpl::JsonBinderToJsonOptions& options =        \
-          JsonBinderImpl::JsonBinderToJsonOptions{}) const {          \
-    return tensorstore::internal::json_binding::ToJson(               \
-        *this, default_json_binder, options);                         \
-  }                                                                   \
-  static tensorstore::Result<name> FromJson(                          \
-      ::nlohmann::json j,                                             \
-      const JsonBinderImpl::JsonBinderFromJsonOptions& options =      \
-          JsonBinderImpl::JsonBinderFromJsonOptions{}) {              \
-    return tensorstore::internal::json_binding::FromJson<name>(       \
-        std::move(j), default_json_binder, options);                  \
-  }                                                                   \
-  explicit operator ::nlohmann::json() const {                        \
-    return this->ToJson().value();                                    \
-  }                                                                   \
+#define TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(name, ...)               \
+  TENSORSTORE_INTERNAL_DECLARE_JSON_BINDER_IMPL(JsonBinderImpl, name,    \
+                                                __VA_ARGS__)             \
+  static inline constexpr JsonBinderImpl default_json_binder = {};       \
+  tensorstore::Result<JsonBinderImpl::JsonValue> ToJson(                 \
+      const JsonBinderImpl::JsonBinderToJsonOptions& options =           \
+          JsonBinderImpl::JsonBinderToJsonOptions{}) const {             \
+    return tensorstore::internal::json_binding::ToJson<                  \
+        JsonBinderImpl::JsonValue>(*this, default_json_binder, options); \
+  }                                                                      \
+  static tensorstore::Result<name> FromJson(                             \
+      JsonBinderImpl::JsonValue j,                                       \
+      const JsonBinderImpl::JsonBinderFromJsonOptions& options =         \
+          JsonBinderImpl::JsonBinderFromJsonOptions{}) {                 \
+    return tensorstore::internal::json_binding::FromJson<name>(          \
+        std::move(j), default_json_binder, options);                     \
+  }                                                                      \
+  explicit operator ::nlohmann::json() const {                           \
+    return this->ToJson().value();                                       \
+  }                                                                      \
   /**/
 
 #define TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(name, ...)            \
@@ -215,9 +216,9 @@ class StaticBinder {
     using StaticBinderType =                                                  \
         ::tensorstore::internal::json_binding::StaticBinder<__VA_ARGS__>;     \
     using Value = typename StaticBinderType::Value;                           \
-    using JsonValue = typename StaticBinderType::JsonValue;                   \
                                                                               \
    public:                                                                    \
+    using JsonValue = typename StaticBinderType::JsonValue;                   \
     using JsonBinderFromJsonOptions =                                         \
         typename StaticBinderType::FromJsonOptions;                           \
     using JsonBinderToJsonOptions = typename StaticBinderType::ToJsonOptions; \
