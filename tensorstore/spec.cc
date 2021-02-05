@@ -20,17 +20,6 @@
 
 namespace tensorstore {
 
-Result<Spec> Spec::Convert(const SpecRequestOptions& options) const {
-  if (!impl_.driver_spec) {
-    return *this;
-  }
-  Spec new_spec;
-  new_spec.impl_.transform_spec = impl_.transform_spec;
-  TENSORSTORE_ASSIGN_OR_RETURN(new_spec.impl_.driver_spec,
-                               impl_.driver_spec->Convert(options));
-  return new_spec;
-}
-
 std::ostream& operator<<(std::ostream& os, const Spec& spec) {
   return os << ::nlohmann::json(spec).dump();
 }

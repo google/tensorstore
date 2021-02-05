@@ -278,11 +278,11 @@ class N5Driver
 
   class OpenState;
 
-  static Status ConvertSpec(SpecT<>* spec, const SpecRequestOptions& options) {
-    if (options.minimal_spec()) {
-      spec->metadata_constraints = N5MetadataConstraints{};
+  static absl::Status ApplyOptions(SpecT<>& spec, SpecOptions&& options) {
+    if (options.minimal_spec) {
+      spec.metadata_constraints = N5MetadataConstraints{};
     }
-    return Base::ConvertSpec(spec, options);
+    return Base::ApplyOptions(spec, std::move(options));
   }
 };
 

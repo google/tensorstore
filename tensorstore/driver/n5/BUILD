@@ -136,6 +136,7 @@ tensorstore_cc_test(
         "//tensorstore/internal:path",
         "//tensorstore/kvstore/file",
         "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/flags:flag",
         "@com_google_googletest//:gtest_main",
     ],

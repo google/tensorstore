@@ -35,8 +35,13 @@ namespace jb = tensorstore::internal::json_binding;
 class UnregisteredDriverSpec : public internal::DriverSpec {
  public:
   DriverConstraints& constraints() override { return data_; }
-  Result<Ptr> Convert(const SpecRequestOptions& options) override {
-    return Ptr(this);
+  Ptr Clone() const override {
+    IntrusivePtr<UnregisteredDriverSpec> new_spec(new UnregisteredDriverSpec);
+    new_spec->data_ = data_;
+    return new_spec;
+  }
+  absl::Status ApplyOptions(SpecOptions&& options) override {
+    return absl::InvalidArgumentError("Driver is not registered");
   }
   Result<internal::Driver::BoundSpec::Ptr> Bind(
       Context context) const override {
@@ -59,26 +64,40 @@ DriverSpec::~DriverSpec() = default;
 
 DriverSpec::Bound::~Bound() = default;
 
-Future<Driver::ReadWriteHandle> OpenDriver(Context context,
-                                           Transaction transaction,
-                                           TransformedDriverSpec<> spec,
-                                           OpenOptions options) {
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto open_transaction,
-      internal::AcquireOpenTransactionPtrOrError(transaction));
-  return internal::OpenDriver(std::move(context), std::move(open_transaction),
-                              std::move(spec), std::move(options));
+absl::Status ApplyOptions(DriverSpec::Ptr& spec, SpecOptions&& options) {
+  if (spec->use_count() != 1) spec = spec->Clone();
+  return spec->ApplyOptions(std::move(options));
 }
 
-Future<Driver::ReadWriteHandle> OpenDriver(Context context,
-                                           OpenTransactionPtr transaction,
-                                           TransformedDriverSpec<> spec,
-                                           OpenOptions options) {
+absl::Status TransformAndApplyOptions(TransformedDriverSpec<>& spec,
+                                      SpecOptions&& options) {
+  // Currently a no op, because no options are affected by a transform.
+  return ApplyOptions(spec.driver_spec, std::move(options));
+}
+
+Future<Driver::ReadWriteHandle> OpenDriver(TransformedDriverSpec<> spec,
+                                           TransactionalOpenOptions&& options) {
   TENSORSTORE_ASSIGN_OR_RETURN(
-      spec.driver_spec,
-      spec.driver_spec->Convert({options.open_mode, options.staleness}));
-  TENSORSTORE_ASSIGN_OR_RETURN(auto bound_spec,
-                               spec.driver_spec->Bind(std::move(context)));
+      auto open_transaction,
+      internal::AcquireOpenTransactionPtrOrError(options.transaction));
+  return internal::OpenDriver(std::move(open_transaction), std::move(spec),
+                              std::move(options));
+}
+
+Future<Driver::ReadWriteHandle> OpenDriver(OpenTransactionPtr transaction,
+                                           TransformedDriverSpec<> spec,
+                                           OpenOptions&& options) {
+  TENSORSTORE_RETURN_IF_ERROR(internal::TransformAndApplyOptions(
+      spec,
+      // Moves out just the `SpecOptions` base.  The members of the derived
+      // class `OpenOptions`, like `context` and `read_write_mode`, are
+      // retained.
+      static_cast<SpecOptions&&>(options)));
+  if (!options.context) {
+    options.context = Context::Default();
+  }
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto bound_spec, spec.driver_spec->Bind(std::move(options.context)));
   return internal::OpenDriver(
       std::move(transaction),
       {std::move(bound_spec), std::move(spec.transform_spec)},
@@ -109,8 +128,7 @@ Driver::~Driver() = default;
 
 Result<TransformedDriverSpec<>> Driver::GetSpec(
     internal::OpenTransactionPtr transaction, IndexTransformView<> transform,
-    const SpecRequestOptions& options,
-    const ContextSpecBuilder& context_builder) {
+    SpecOptions&& options, const ContextSpecBuilder& context_builder) {
   return absl::UnimplementedError("JSON representation not supported");
 }
 

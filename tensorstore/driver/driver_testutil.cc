@@ -47,7 +47,7 @@ void TestMinimalSpecRoundTrips(
     Transaction transaction) {
   // Test that the minimal spec round trips for opening existing TensorStore.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store2, tensorstore::Open(context, transaction, options.minimal_spec,
+      auto store2, tensorstore::Open(options.minimal_spec, context, transaction,
                                      tensorstore::OpenMode::open)
                        .result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto full_spec_obj2, store2.spec());
@@ -66,7 +66,7 @@ void TestTensorStoreDriverSpecRoundtrip(
   Transaction transaction(mode);
   auto context = Context::Default();
   if (options.check_not_found_before_create) {
-    EXPECT_THAT(tensorstore::Open(context, options.minimal_spec,
+    EXPECT_THAT(tensorstore::Open(options.minimal_spec, context,
                                   tensorstore::OpenMode::open)
                     .result(),
                 MatchesStatus(absl::StatusCode::kNotFound));
@@ -76,7 +76,7 @@ void TestTensorStoreDriverSpecRoundtrip(
   // `context`.
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto store, tensorstore::Open(context, transaction, options.full_spec,
+        auto store, tensorstore::Open(options.full_spec, context, transaction,
                                       tensorstore::OpenMode::create)
                         .result());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto full_spec_obj, store.spec());
@@ -107,7 +107,7 @@ void TestTensorStoreDriverSpecRoundtrip(
     if (options.check_not_found_before_commit) {
       // Test that the minimal spec cannot be opened outside the transaction
       // before the transaction is committed.
-      EXPECT_THAT(tensorstore::Open(context, options.minimal_spec,
+      EXPECT_THAT(tensorstore::Open(options.minimal_spec, context,
                                     tensorstore::OpenMode::open)
                       .result(),
                   MatchesStatus(absl::StatusCode::kNotFound));
@@ -137,13 +137,13 @@ void RegisterTensorStoreDriverSpecRoundtripTest(
   }
 }
 
-void TestTensorStoreDriverSpecConvert(
-    ::nlohmann::json orig_spec, const SpecRequestOptions& options,
-    ::nlohmann::json expected_converted_spec) {
+void TestTensorStoreDriverSpecConvertImpl(
+    ::nlohmann::json orig_spec, ::nlohmann::json expected_converted_spec,
+    SpecConvertOptions&& options) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_obj,
                                    tensorstore::Spec::FromJson(orig_spec));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto converted_spec_obj,
-                                   spec_obj.Convert(options));
+                                   spec_obj.With(std::move(options)));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto converted_spec,
       converted_spec_obj.ToJson(tensorstore::IncludeDefaults{false}));
@@ -205,7 +205,7 @@ void DriverRandomOperationTester::TestBasicFunctionality(
   Transaction transaction(transaction_mode);
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::Open(context, transaction, options.create_spec,
+      auto store, tensorstore::Open(options.create_spec, context, transaction,
                                     tensorstore::OpenMode::create)
                       .result());
   ASSERT_EQ(options.expected_domain, store.domain());
@@ -273,7 +273,7 @@ void DriverRandomOperationTester::TestBasicFunctionality(
 
   if (transaction != no_transaction) {
     if (options.check_not_found_before_commit) {
-      EXPECT_THAT(tensorstore::Open(context, options.create_spec,
+      EXPECT_THAT(tensorstore::Open(options.create_spec, context,
                                     tensorstore::OpenMode::open)
                       .result(),
                   MatchesStatus(absl::StatusCode::kNotFound));
@@ -289,7 +289,7 @@ void DriverRandomOperationTester::TestBasicFunctionality(
                               "Transaction not open"));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto non_transactional_store,
-        tensorstore::Open(context, options.create_spec,
+        tensorstore::Open(options.create_spec, context,
                           tensorstore::OpenMode::open)
             .result());
 
@@ -326,9 +326,9 @@ void DriverRandomOperationTester::TestMultiTransactionWrite(
     bool use_random_values) {
   SCOPED_TRACE(StrCat("create_spec=", options.create_spec));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::Open(Context::Default(), options.create_spec,
-                                    tensorstore::OpenMode::create)
-                      .result());
+      auto store,
+      tensorstore::Open(options.create_spec, tensorstore::OpenMode::create)
+          .result());
   // transactions[0] is a null transaction.
   std::vector<Transaction> transactions(num_transactions, no_transaction);
   for (size_t i = 1; i < num_transactions; ++i) {
@@ -443,7 +443,7 @@ void TestMetadataOnlyResize(const TestTensorStoreDriverResizeOptions& options,
   Box<> bounds(options.initial_bounds);
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::Open(context, options.get_create_spec(bounds),
+      auto store, tensorstore::Open(options.get_create_spec(bounds), context,
                                     tensorstore::OpenMode::create)
                       .result());
   const auto initial_domain = store.domain();
@@ -532,8 +532,8 @@ void TestMetadataOnlyResize(const TestTensorStoreDriverResizeOptions& options,
       // Verify that re-opening gives the new size.
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
           auto reopened_store,
-          tensorstore::Open(context, transaction,
-                            options.get_create_spec(bounds),
+          tensorstore::Open(options.get_create_spec(bounds), context,
+                            transaction,
                             tensorstore::OpenMode::open |
                                 tensorstore::OpenMode::allow_option_mismatch)
               .result());

@@ -590,12 +590,15 @@ Result<IndexTransformSpec> DriverBase::GetBoundSpecData(
   return IndexTransformSpec{transform};
 }
 
-Status DriverBase::ConvertSpec(SpecT<internal::ContextUnbound>* spec,
-                               const SpecRequestOptions& options) {
-  if (options.staleness) {
-    spec->staleness = *options.staleness;
+Status DriverBase::ApplyOptions(SpecT<internal::ContextUnbound>& spec,
+                                SpecOptions&& options) {
+  if (options.recheck_cached_data.specified()) {
+    spec.staleness.data = StalenessBound(options.recheck_cached_data);
   }
-  return spec->OpenModeSpec::ConvertSpec(options);
+  if (options.recheck_cached_metadata.specified()) {
+    spec.staleness.metadata = StalenessBound(options.recheck_cached_metadata);
+  }
+  return spec.OpenModeSpec::ApplyOptions(options);
 }
 
 namespace {

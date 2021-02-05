@@ -30,6 +30,7 @@
 #include "tensorstore/internal/path.h"
 #include "tensorstore/open.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_testutil.h"
 
 ABSL_FLAG(std::string, tensorstore_test_data_dir, ".",
           "Path to directory containing N5 test data.");
@@ -40,21 +41,21 @@ using tensorstore::Index;
 
 void TestRead(std::string path, std::vector<Index> shape) {
   auto context = tensorstore::Context::Default();
-  auto store =
-      tensorstore::Open<std::uint16_t>(
-          context,
-          ::nlohmann::json({
-              {"driver", "n5"},
-              {
-                  "kvstore",
-                  {
-                      {"driver", "file"},
-                      {"path", path},
-                  },
-              },
-          }),
-          {tensorstore::OpenMode::open, tensorstore::ReadWriteMode::read})
-          .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   tensorstore::Open<std::uint16_t>(
+                                       {
+                                           {"driver", "n5"},
+                                           {
+                                               "kvstore",
+                                               {
+                                                   {"driver", "file"},
+                                                   {"path", path},
+                                               },
+                                           },
+                                       },
+                                       context, tensorstore::OpenMode::open,
+                                       tensorstore::ReadWriteMode::read)
+                                       .result());
   auto data = tensorstore::Read(store).value();
   auto expected = tensorstore::AllocateArray<std::uint16_t>(shape);
   const Index num_elements = expected.num_elements();

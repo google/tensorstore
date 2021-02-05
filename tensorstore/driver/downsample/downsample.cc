@@ -114,10 +114,12 @@ class DownsampleDriver
 
   using Ptr = Driver::PtrT<DownsampleDriver>;
 
-  static Status ConvertSpec(SpecData* spec, const SpecRequestOptions& options) {
-    TENSORSTORE_ASSIGN_OR_RETURN(spec->base.driver_spec,
-                                 spec->base.driver_spec->Convert(options));
-    return absl::OkStatus();
+  static absl::Status ApplyOptions(SpecData& spec, SpecOptions&& options) {
+    // Note: Once `options` actually contains options that should be affected by
+    // `spec.downsample_factors`, we will need to transform the options
+    // appropriately.  Currently that is unnecessary since there are no such
+    // options.
+    return internal::TransformAndApplyOptions(spec.base, std::move(options));
   }
 
   static Future<internal::Driver::ReadWriteHandle> Open(

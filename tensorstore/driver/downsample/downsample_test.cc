@@ -115,18 +115,17 @@ TEST(DownsampleTest, Rank1MeanChunked) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto base_store,
-      tensorstore::Open(context, base_spec, tensorstore::OpenMode::create)
+      tensorstore::Open(base_spec, context, tensorstore::OpenMode::create)
           .result());
   TENSORSTORE_ASSERT_OK(tensorstore::Write(
       MakeArray<uint8_t>({0, 2, 3, 9, 1, 5, 7, 3, 4, 0, 5}), base_store));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto downsampled_store,
-      tensorstore::Open(context,
-                        ::nlohmann::json{{"driver", "downsample"},
-                                         {"base", base_spec},
-                                         {"downsample_factors", {2}},
-                                         {"downsample_method", "mean"}})
-          .result());
+      auto downsampled_store, tensorstore::Open({{"driver", "downsample"},
+                                                 {"base", base_spec},
+                                                 {"downsample_factors", {2}},
+                                                 {"downsample_method", "mean"}},
+                                                context)
+                                  .result());
   EXPECT_THAT(tensorstore::Read(downsampled_store).result(),
               Optional(MakeArray<uint8_t>({1, 6, 3, 5, 2, 5})));
 }
@@ -151,18 +150,17 @@ TEST(DownsampleTest, Rank1MeanChunkedTranslated) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto base_store,
-      tensorstore::Open(context, base_spec, tensorstore::OpenMode::create)
+      tensorstore::Open(base_spec, context, tensorstore::OpenMode::create)
           .result());
   TENSORSTORE_ASSERT_OK(tensorstore::Write(
       MakeArray<uint8_t>({0, 2, 3, 9, 1, 5, 7, 3, 4, 0, 5}), base_store));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto downsampled_store,
-      tensorstore::Open(context,
-                        ::nlohmann::json{{"driver", "downsample"},
-                                         {"base", base_spec},
-                                         {"downsample_factors", {2}},
-                                         {"downsample_method", "mean"}})
-          .result());
+      auto downsampled_store, tensorstore::Open({{"driver", "downsample"},
+                                                 {"base", base_spec},
+                                                 {"downsample_factors", {2}},
+                                                 {"downsample_method", "mean"}},
+                                                context)
+                                  .result());
   EXPECT_THAT(ReadAsIndividualChunks(downsampled_store).result(),
               Optional(::testing::UnorderedElementsAre(
                   Pair(MakeOffsetArray<uint8_t>({0}, {0, 2}),
@@ -186,18 +184,17 @@ TEST(DownsampleTest, Rank1MeanChunkedIndexArray) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto base_store,
-      tensorstore::Open(context, base_spec, tensorstore::OpenMode::create)
+      tensorstore::Open(base_spec, context, tensorstore::OpenMode::create)
           .result());
   TENSORSTORE_ASSERT_OK(tensorstore::Write(
       MakeArray<uint8_t>({0, 2, 3, 9, 1, 5, 7, 3, 4, 0, 5}), base_store));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto downsampled_store,
-      tensorstore::Open(context,
-                        ::nlohmann::json{{"driver", "downsample"},
-                                         {"base", base_spec},
-                                         {"downsample_factors", {2}},
-                                         {"downsample_method", "mean"}})
-          .result());
+      auto downsampled_store, tensorstore::Open({{"driver", "downsample"},
+                                                 {"base", base_spec},
+                                                 {"downsample_factors", {2}},
+                                                 {"downsample_method", "mean"}},
+                                                context)
+                                  .result());
   EXPECT_THAT(tensorstore::Read(downsampled_store |
                                 tensorstore::Dims(0).IndexArraySlice(
                                     MakeArray<Index>({0, 3, 2})))
@@ -212,13 +209,11 @@ TEST(DownsampleTest, JsonSpecArray) {
       {"array", {1, 2, 3, 4}},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      tensorstore::Open(Context::Default(),
-                        ::nlohmann::json{{"driver", "downsample"},
-                                         {"base", base_spec},
-                                         {"downsample_factors", {2}},
-                                         {"downsample_method", "mean"}})
-          .result());
+      auto store, tensorstore::Open({{"driver", "downsample"},
+                                     {"base", base_spec},
+                                     {"downsample_factors", {2}},
+                                     {"downsample_method", "mean"}})
+                      .result());
   EXPECT_THAT(tensorstore::Read(store).result(),
               Optional(MakeArray<float>({1.5, 3.5})));
 }
@@ -231,12 +226,10 @@ TEST(DownsampleTest, JsonSpecArrayRank0) {
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      tensorstore::Open(
-          Context::Default(),
-          ::nlohmann::json{{"driver", "downsample"},
-                           {"base", base_spec},
-                           {"downsample_factors", ::nlohmann::json::array_t{}},
-                           {"downsample_method", "mean"}})
+      tensorstore::Open({{"driver", "downsample"},
+                         {"base", base_spec},
+                         {"downsample_factors", ::nlohmann::json::array_t{}},
+                         {"downsample_method", "mean"}})
           .result());
   EXPECT_THAT(tensorstore::Read(store).result(),
               Optional(tensorstore::MakeScalarArray<float>(42)));
@@ -244,8 +237,7 @@ TEST(DownsampleTest, JsonSpecArrayRank0) {
 
 TEST(DownsampleTest, JsonSpecErrorMissingBase) {
   EXPECT_THAT(
-      tensorstore::Open(Context::Default(),
-                        ::nlohmann::json{
+      tensorstore::Open({
                             {"driver", "downsample"},
                             {"downsample_factors", {2}},
                             {"downsample_method", "mean"},
@@ -260,8 +252,7 @@ TEST(DownsampleTest, JsonSpecErrorMissingDownsampleFactors) {
       {"dtype", "float32"},
       {"array", {1, 2, 3, 4}},
   };
-  EXPECT_THAT(tensorstore::Open(Context::Default(),
-                                ::nlohmann::json{
+  EXPECT_THAT(tensorstore::Open({
                                     {"driver", "downsample"},
                                     {"base", base_spec},
                                     {"downsample_method", "mean"},
@@ -278,8 +269,7 @@ TEST(DownsampleTest, JsonSpecErrorDownsampleFactorsInvalidRank) {
       {"array", {1, 2, 3, 4}},
   };
   EXPECT_THAT(
-      tensorstore::Open(Context::Default(),
-                        ::nlohmann::json{
+      tensorstore::Open({
                             {"driver", "downsample"},
                             {"base", base_spec},
                             {"downsample_method", "mean"},
@@ -299,8 +289,7 @@ TEST(DownsampleTest, JsonSpecErrorDownsampleFactorsZero) {
       {"array", {1, 2, 3, 4}},
   };
   EXPECT_THAT(
-      tensorstore::Open(Context::Default(),
-                        ::nlohmann::json{
+      tensorstore::Open({
                             {"driver", "downsample"},
                             {"base", base_spec},
                             {"downsample_method", "mean"},
@@ -317,8 +306,7 @@ TEST(DownsampleTest, JsonSpecErrorDownsampleFactorsNegative) {
       {"dtype", "float32"},
       {"array", {1, 2, 3, 4}},
   };
-  EXPECT_THAT(tensorstore::Open(Context::Default(),
-                                ::nlohmann::json{
+  EXPECT_THAT(tensorstore::Open({
                                     {"driver", "downsample"},
                                     {"base", base_spec},
                                     {"downsample_method", "mean"},
@@ -336,8 +324,7 @@ TEST(DownsampleTest, JsonSpecErrorMissingDownsampleMethod) {
       {"dtype", "float32"},
       {"array", {1, 2, 3, 4}},
   };
-  EXPECT_THAT(tensorstore::Open(Context::Default(),
-                                ::nlohmann::json{
+  EXPECT_THAT(tensorstore::Open({
                                     {"driver", "downsample"},
                                     {"base", base_spec},
                                     {"downsample_factors", {2}},
@@ -353,8 +340,7 @@ TEST(DownsampleTest, JsonSpecErrorInvalidDownsampleMethod) {
       {"dtype", "float32"},
       {"array", {1, 2, 3, 4}},
   };
-  EXPECT_THAT(tensorstore::Open(Context::Default(),
-                                ::nlohmann::json{
+  EXPECT_THAT(tensorstore::Open({
                                     {"driver", "downsample"},
                                     {"base", base_spec},
                                     {"downsample_factors", {2}},
@@ -373,14 +359,14 @@ TEST(DownsampleTest, ErrorOpenWriteOnly) {
   };
   for (auto mode : {ReadWriteMode::write, ReadWriteMode::read_write}) {
     SCOPED_TRACE(tensorstore::StrCat("mode=", mode));
-    EXPECT_THAT(tensorstore::Open(Context::Default(),
-                                  ::nlohmann::json{
-                                      {"driver", "downsample"},
-                                      {"base", base_spec},
-                                      {"downsample_factors", {2}},
-                                      {"downsample_method", "mean"},
-                                  },
-                                  mode)
+    EXPECT_THAT(tensorstore::Open(
+                    {
+                        {"driver", "downsample"},
+                        {"base", base_spec},
+                        {"downsample_factors", {2}},
+                        {"downsample_method", "mean"},
+                    },
+                    mode)
                     .result(),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*: only reading is supported"));
@@ -599,8 +585,7 @@ TEST(DownsampleTest, ReadChunkWithIndexTransform) {
 TEST(DownsampleTest, ConvertError) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto downsampled_store,
-      tensorstore::Open(Context::Default(),
-                        ::nlohmann::json{
+      tensorstore::Open({
                             {"driver", "downsample"},
                             {"base",
                              {
@@ -676,8 +661,7 @@ TEST(DownsampleTest, Spec) {
       tensorstore::Downsample(spec, {2}, DownsampleMethod::kMean));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto downsampled_store,
-      tensorstore::Open(Context::Default(), downsampled_spec).result());
+      auto downsampled_store, tensorstore::Open(downsampled_spec).result());
 
   EXPECT_THAT(tensorstore::Read(downsampled_store).result(),
               Optional(MakeArray<float>({1.5, 3.5})));

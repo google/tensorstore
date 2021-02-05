@@ -49,8 +49,7 @@ Result<tensorstore::IndexTransform<>> ResolveBoundsFromMetadata(
     tensorstore::ResolveBoundsOptions options) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto store,
-      tensorstore::Open(tensorstore::Context::Default(),
-                        ::nlohmann::json{
+      tensorstore::Open({
                             {"driver", "zarr"},
                             {"kvstore", {{"driver", "memory"}}},
                             {"metadata", ::nlohmann::json(metadata)},
@@ -71,8 +70,7 @@ Result<ResizeParameters> GetResizeParameters(
     TransactionMode transaction_mode = TransactionMode::no_transaction_mode) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto store,
-      tensorstore::Open(tensorstore::Context::Default(),
-                        ::nlohmann::json{
+      tensorstore::Open({
                             {"driver", "zarr"},
                             {"kvstore", {{"driver", "memory"}}},
                             {"metadata", ::nlohmann::json(metadata)},
@@ -100,18 +98,18 @@ TEST(EncodeChunkIndicesTest, SlashSeparated) {
 
 TEST(ResolveBoundsFromMetadataTest, Basic) {
   ZarrMetadata metadata;
-  ASSERT_EQ(absl::OkStatus(), ParseMetadata(
-                                  {
-                                      {"zarr_format", 2},
-                                      {"order", "C"},
-                                      {"filters", nullptr},
-                                      {"fill_value", nullptr},
-                                      {"compressor", nullptr},
-                                      {"dtype", "<i2"},
-                                      {"shape", {100, 100}},
-                                      {"chunks", {3, 2}},
-                                  },
-                                  &metadata));
+  TENSORSTORE_ASSERT_OK(ParseMetadata(
+      {
+          {"zarr_format", 2},
+          {"order", "C"},
+          {"filters", nullptr},
+          {"fill_value", nullptr},
+          {"compressor", nullptr},
+          {"dtype", "<i2"},
+          {"shape", {100, 100}},
+          {"chunks", {3, 2}},
+      },
+      &metadata));
   EXPECT_THAT(ResolveBoundsFromMetadata(
                   /*metadata=*/metadata, /*field=*/"",
                   /*transform=*/tensorstore::IdentityTransform(2),
@@ -129,18 +127,18 @@ TEST(ResolveBoundsFromMetadataTest, Basic) {
 // all bounds being explicit.
 TEST(ResolveBoundsFromMetadataTest, FixResizableBoundsSuccess) {
   ZarrMetadata metadata;
-  ASSERT_EQ(absl::OkStatus(), ParseMetadata(
-                                  {
-                                      {"zarr_format", 2},
-                                      {"order", "C"},
-                                      {"filters", nullptr},
-                                      {"fill_value", nullptr},
-                                      {"compressor", nullptr},
-                                      {"dtype", "<i2"},
-                                      {"shape", {100, 100}},
-                                      {"chunks", {3, 2}},
-                                  },
-                                  &metadata));
+  TENSORSTORE_ASSERT_OK(ParseMetadata(
+      {
+          {"zarr_format", 2},
+          {"order", "C"},
+          {"filters", nullptr},
+          {"fill_value", nullptr},
+          {"compressor", nullptr},
+          {"dtype", "<i2"},
+          {"shape", {100, 100}},
+          {"chunks", {3, 2}},
+      },
+      &metadata));
   EXPECT_THAT(ResolveBoundsFromMetadata(
                   /*metadata=*/metadata, /*field=*/"",
                   /*transform=*/tensorstore::IdentityTransform(2),
@@ -157,18 +155,18 @@ TEST(ResolveBoundsFromMetadataTest, FixResizableBoundsSuccess) {
 // out-of-bounds positions results in an error.
 TEST(ResolveBoundsFromMetadataTest, FixResizableBoundsFailure) {
   ZarrMetadata metadata;
-  ASSERT_EQ(absl::OkStatus(), ParseMetadata(
-                                  {
-                                      {"zarr_format", 2},
-                                      {"order", "C"},
-                                      {"filters", nullptr},
-                                      {"fill_value", nullptr},
-                                      {"compressor", nullptr},
-                                      {"dtype", "<i2"},
-                                      {"shape", {100, 100}},
-                                      {"chunks", {3, 2}},
-                                  },
-                                  &metadata));
+  TENSORSTORE_ASSERT_OK(ParseMetadata(
+      {
+          {"zarr_format", 2},
+          {"order", "C"},
+          {"filters", nullptr},
+          {"fill_value", nullptr},
+          {"compressor", nullptr},
+          {"dtype", "<i2"},
+          {"shape", {100, 100}},
+          {"chunks", {3, 2}},
+      },
+      &metadata));
   EXPECT_THAT(ResolveBoundsFromMetadata(
                   /*metadata=*/metadata, /*field=*/"",
                   /*transform=*/
@@ -182,22 +180,22 @@ TEST(ResolveBoundsFromMetadataTest, FixResizableBoundsFailure) {
 // dimensions.
 TEST(ResolveBoundsFromMetadataTest, MultipleFieldsWithFieldShape) {
   ZarrMetadata metadata;
-  ASSERT_EQ(absl::OkStatus(), ParseMetadata(
-                                  {
-                                      {"zarr_format", 2},
-                                      {"order", "C"},
-                                      {"filters", nullptr},
-                                      {"fill_value", nullptr},
-                                      {"compressor", nullptr},
-                                      {"dtype",
-                                       {
-                                           {"x", "<i2", {2, 3}},
-                                           {"y", "<i4", {4}},
-                                       }},
-                                      {"shape", {100, 100}},
-                                      {"chunks", {3, 2}},
-                                  },
-                                  &metadata));
+  TENSORSTORE_ASSERT_OK(ParseMetadata(
+      {
+          {"zarr_format", 2},
+          {"order", "C"},
+          {"filters", nullptr},
+          {"fill_value", nullptr},
+          {"compressor", nullptr},
+          {"dtype",
+           {
+               {"x", "<i2", {2, 3}},
+               {"y", "<i4", {4}},
+           }},
+          {"shape", {100, 100}},
+          {"chunks", {3, 2}},
+      },
+      &metadata));
   EXPECT_THAT(
       ResolveBoundsFromMetadata(
           /*metadata=*/metadata, /*field=*/"x",
@@ -224,18 +222,18 @@ TEST(ResolveBoundsFromMetadataTest, MultipleFieldsWithFieldShape) {
 
 TEST(GetResizeParametersTest, Basic) {
   ZarrMetadata metadata;
-  ASSERT_EQ(absl::OkStatus(), ParseMetadata(
-                                  {
-                                      {"zarr_format", 2},
-                                      {"order", "C"},
-                                      {"filters", nullptr},
-                                      {"fill_value", nullptr},
-                                      {"compressor", nullptr},
-                                      {"dtype", "<i2"},
-                                      {"shape", {100, 100}},
-                                      {"chunks", {3, 2}},
-                                  },
-                                  &metadata));
+  TENSORSTORE_ASSERT_OK(ParseMetadata(
+      {
+          {"zarr_format", 2},
+          {"order", "C"},
+          {"filters", nullptr},
+          {"fill_value", nullptr},
+          {"compressor", nullptr},
+          {"dtype", "<i2"},
+          {"shape", {100, 100}},
+          {"chunks", {3, 2}},
+      },
+      &metadata));
   const auto transform = tensorstore::IndexTransformBuilder<>(2, 2)
                              .input_origin({0, 0})
                              .input_shape({100, 100})
@@ -338,22 +336,22 @@ TEST(GetResizeParametersTest, Basic) {
 
 TEST(GetResizeParametersTest, MultipleFields) {
   ZarrMetadata metadata;
-  ASSERT_EQ(absl::OkStatus(), ParseMetadata(
-                                  {
-                                      {"zarr_format", 2},
-                                      {"order", "C"},
-                                      {"filters", nullptr},
-                                      {"fill_value", nullptr},
-                                      {"compressor", nullptr},
-                                      {"dtype",
-                                       {
-                                           {"x", "<i2", {2, 3}},
-                                           {"y", "<i4", {4}},
-                                       }},
-                                      {"shape", {100, 100}},
-                                      {"chunks", {3, 2}},
-                                  },
-                                  &metadata));
+  TENSORSTORE_ASSERT_OK(ParseMetadata(
+      {
+          {"zarr_format", 2},
+          {"order", "C"},
+          {"filters", nullptr},
+          {"fill_value", nullptr},
+          {"compressor", nullptr},
+          {"dtype",
+           {
+               {"x", "<i2", {2, 3}},
+               {"y", "<i4", {4}},
+           }},
+          {"shape", {100, 100}},
+          {"chunks", {3, 2}},
+      },
+      &metadata));
   const auto transform = tensorstore::IndexTransformBuilder<>(4, 4)
                              .input_origin({0, 0, 0, 0})
                              .input_shape({100, 100, 2, 3})
@@ -372,18 +370,19 @@ TEST(GetResizeParametersTest, MultipleFields) {
                     "Resize operation would affect other fields but "
                     "`resize_tied_bounds` was not specified"));
 
-  auto p = GetResizeParameters(
-      metadata,
-      /*field=*/"x", transform,
-      span<const Index>({kImplicit, kImplicit, kImplicit, kImplicit}),
-      span<const Index>({kImplicit, 150, kImplicit, kImplicit}),
-      tensorstore::ResizeMode::resize_tied_bounds);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(p));
-  EXPECT_THAT(p->new_exclusive_max, ::testing::ElementsAre(kImplicit, 150));
-  EXPECT_THAT(p->exclusive_max_constraint,
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto p,
+      GetResizeParameters(
+          metadata,
+          /*field=*/"x", transform,
+          span<const Index>({kImplicit, kImplicit, kImplicit, kImplicit}),
+          span<const Index>({kImplicit, 150, kImplicit, kImplicit}),
+          tensorstore::ResizeMode::resize_tied_bounds));
+  EXPECT_THAT(p.new_exclusive_max, ::testing::ElementsAre(kImplicit, 150));
+  EXPECT_THAT(p.exclusive_max_constraint,
               ::testing::ElementsAre(kImplicit, kImplicit));
-  EXPECT_FALSE(p->expand_only);
-  EXPECT_FALSE(p->shrink_only);
+  EXPECT_FALSE(p.expand_only);
+  EXPECT_FALSE(p.shrink_only);
 }
 
 }  // namespace

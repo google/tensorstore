@@ -61,16 +61,16 @@ TEST(JsonDriverTest, Basic) {
       tensorstore::KeyValueStore::Open(context, GetKvstoreSpec()).result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::Open(context, GetSpec("")).result());
+      auto store, tensorstore::Open(GetSpec(""), context).result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store_a, tensorstore::Open(context, GetSpec("/a")).result());
+      auto store_a, tensorstore::Open(GetSpec("/a"), context).result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store_b, tensorstore::Open(context, GetSpec("/b")).result());
+      auto store_b, tensorstore::Open(GetSpec("/b"), context).result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store_c_x, tensorstore::Open(context, GetSpec("/c/x")).result());
+      auto store_c_x, tensorstore::Open(GetSpec("/c/x"), context).result());
 
   EXPECT_THAT(tensorstore::Read(store_a).result(),
               MatchesStatus(absl::StatusCode::kNotFound,
@@ -136,7 +136,7 @@ TEST(JsonDriverTest, Basic) {
 
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto store_new, tensorstore::Open(context, GetSpec("")).result());
+        auto store_new, tensorstore::Open(GetSpec(""), context).result());
     EXPECT_THAT(tensorstore::Read(store_new).result(),
                 Optional(MakeScalarArray<::nlohmann::json>({{"x", 42}})));
   }
@@ -145,10 +145,10 @@ TEST(JsonDriverTest, Basic) {
 TEST(JsonDriverTest, WriteIncompatibleWithExisting) {
   auto context = tensorstore::Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::Open(context, GetSpec("")).result());
+      auto store, tensorstore::Open(GetSpec(""), context).result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store_a, tensorstore::Open(context, GetSpec("/a")).result());
+      auto store_a, tensorstore::Open(GetSpec("/a"), context).result());
 
   TENSORSTORE_EXPECT_OK(
       tensorstore::Write(MakeScalarArray<::nlohmann::json>(42), store));
@@ -166,7 +166,7 @@ TEST(JsonDriverTest, WriteDiscarded) {
       auto kvstore,
       tensorstore::KeyValueStore::Open(context, GetKvstoreSpec()).result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::Open(context, GetSpec("")).result());
+      auto store, tensorstore::Open(GetSpec(""), context).result());
   // Write initial value (42)
   TENSORSTORE_EXPECT_OK(
       tensorstore::Write(MakeScalarArray<::nlohmann::json>(42), store));
@@ -185,9 +185,9 @@ TEST(JsonDriverTest, IncompatibleWrites) {
   auto context = tensorstore::Context::Default();
   tensorstore::Transaction transaction(tensorstore::isolated);
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::Open(context, GetSpec("")).result());
+      auto store, tensorstore::Open(GetSpec(""), context).result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store_a, tensorstore::Open(context, GetSpec("/a")).result());
+      auto store_a, tensorstore::Open(GetSpec("/a"), context).result());
   // Write initial value (42) to root
   TENSORSTORE_EXPECT_OK(tensorstore::Write(
       MakeScalarArray<::nlohmann::json>(42), store | transaction));
@@ -208,7 +208,7 @@ TEST(JsonDriverTest, InvalidJson) {
       tensorstore::KeyValueStore::Open(context, GetKvstoreSpec()).result());
   TENSORSTORE_EXPECT_OK(kvstore->Write(GetPath(), absl::Cord("invalid")));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::Open(context, GetSpec("")).result());
+      auto store, tensorstore::Open(GetSpec(""), context).result());
   EXPECT_THAT(tensorstore::Read(store).result(),
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
                             "Error reading \"path\\.json\": Invalid JSON"));
@@ -233,7 +233,7 @@ TEST(JsonDriverTest, ReadError) {
   auto spec = GetSpec("/a");
   spec["kvstore"] = {{"driver", "mock_key_value_store"}};
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
-                                   tensorstore::Open(context, spec).result());
+                                   tensorstore::Open(spec, context).result());
 
   // Test error handling during read request
   {
@@ -270,7 +270,7 @@ TEST(JsonDriverTest, ConditionalWriteback) {
   auto spec = GetSpec("/a");
   spec["kvstore"] = {{"driver", "mock_key_value_store"}};
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
-                                   tensorstore::Open(context, spec).result());
+                                   tensorstore::Open(spec, context).result());
 
   // Write initial value.  Write is conditional since only sub-value is written.
   {
@@ -305,7 +305,7 @@ TEST(JsonDriverTest, UnconditionalWriteback) {
   auto spec = GetSpec("");
   spec["kvstore"] = {{"driver", "mock_key_value_store"}};
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
-                                   tensorstore::Open(context, spec).result());
+                                   tensorstore::Open(spec, context).result());
   auto write_future =
       tensorstore::Write(MakeScalarArray<::nlohmann::json>(42), store);
   {
@@ -320,9 +320,8 @@ TEST(JsonDriverTest, UnconditionalWriteback) {
 TEST(JsonDriverTest, ZeroElementWrite) {
   auto json_spec = GetSpec("");
   json_spec["cache_pool"] = {{"total_bytes_limit", 10000000}};
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      tensorstore::Open(tensorstore::Context::Default(), json_spec).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   tensorstore::Open(json_spec).result());
   // Confirm that a one-element write is not immediately committed due to cache.
   {
     auto write_future =

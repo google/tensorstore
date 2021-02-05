@@ -96,10 +96,10 @@ class RegisteredDriverOpener;
 ///         jb::Member("mem2", jb::Projection(&SpecT<ContextUnbound>::mem2)));
 ///
 /// - The static `ConvertSpec` method should apply any modifications requested
-///   in `options` in place to `*spec`.
+///   in `options` in place to `spec`.
 ///
 ///     static absl::Status ConvertSpec(
-///         SpecT<ContextUnbound>* spec, const SpecRequestOptions& options);
+///         SpecT<ContextUnbound>& spec, SpecOptions&& options);
 ///
 /// - The static `Open` method is called to initiate opening the driver.  This
 ///   is called by `DriverSpec::Bound::Open`.  Note that
@@ -143,7 +143,7 @@ class RegisteredDriver : public Parent {
 
   Result<TransformedDriverSpec<>> GetSpec(
       internal::OpenTransactionPtr transaction, IndexTransformView<> transform,
-      const SpecRequestOptions& options,
+      SpecOptions&& options,
       const ContextSpecBuilder& context_builder) override {
     using SpecData = typename Derived::template SpecT<ContextUnbound>;
     using BoundSpecData = typename Derived::template SpecT<ContextBound>;
@@ -168,7 +168,8 @@ class RegisteredDriver : public Parent {
     ContextBindingTraits<SpecData>::Unbind(&spec->data_, &bound_spec_data,
                                            child_builder);
     // 3. Convert the `SpecData` using `options`.
-    TENSORSTORE_RETURN_IF_ERROR(Derived::ConvertSpec(&spec->data_, options));
+    TENSORSTORE_RETURN_IF_ERROR(
+        Derived::ApplyOptions(spec->data_, std::move(options)));
     transformed_spec.driver_spec = std::move(spec);
     return transformed_spec;
   }
@@ -228,14 +229,16 @@ class RegisteredDriver : public Parent {
         std::is_base_of_v<internal::DriverConstraints, BoundSpecData>);
 
    public:
-    Result<DriverSpec::Ptr> Convert(
-        const SpecRequestOptions& options) override {
+    DriverSpec::Ptr Clone() const override {
       IntrusivePtr<DriverSpecImpl> new_spec(new DriverSpecImpl);
       new_spec->data_ = data_;
       new_spec->context_spec_ = context_spec_;
-      TENSORSTORE_RETURN_IF_ERROR(
-          Derived::ConvertSpec(&new_spec->data_, options));
       return new_spec;
+    }
+
+    absl::Status ApplyOptions(SpecOptions&& options) override {
+      assert(use_count() == 1);
+      return Derived::ApplyOptions(data_, std::move(options));
     }
 
     Result<Driver::BoundSpec::Ptr> Bind(Context context) const override {

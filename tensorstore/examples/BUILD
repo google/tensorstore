@@ -21,7 +21,6 @@ tensorstore_cc_test(
         "//tensorstore:progress",
         "//tensorstore:rank",
         "//tensorstore:spec",
-        "//tensorstore:spec_request_options",
         "//tensorstore/driver/n5",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",

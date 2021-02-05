@@ -25,7 +25,6 @@
 #include "tensorstore/rank.h"
 
 namespace tensorstore {
-
 namespace internal_spec {
 
 class SpecAccess {
@@ -36,9 +35,7 @@ class SpecAccess {
   }
 };
 
-std::string DescribeForCast(DataType data_type, DimensionIndex rank);
 }  // namespace internal_spec
-
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_SPEC_IMPL_H_

@@ -153,9 +153,10 @@ class TensorStore {
   const Transaction& transaction() const { return handle_.transaction; }
 
   /// Returns a Spec that may be used to open/recreate this TensorStore.
+  ///
   /// \pre `valid()`
   Result<Spec> spec(
-      SpecRequestOptions options = {},
+      SpecOptions&& options,
       const internal::ContextSpecBuilder& context_builder = {}) const {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto open_transaction,
@@ -163,10 +164,53 @@ class TensorStore {
     TENSORSTORE_ASSIGN_OR_RETURN(
         internal::TransformedDriverSpec<> transformed_driver_spec,
         handle_.driver->GetSpec(std::move(open_transaction), handle_.transform,
-                                options, context_builder));
+                                std::move(options), context_builder));
     Spec spec;
     internal_spec::SpecAccess::impl(spec) = std::move(transformed_driver_spec);
     return spec;
+  }
+
+  /// Returns a Spec that may be used to open/recreate this TensorStore.
+  ///
+  /// Options that modify the returned `Spec` may be specified in any order.
+  /// The meaning of the option is determined by its type.
+  ///
+  /// Supported options include:
+  ///
+  /// - MinimalSpec: indicates whether to include in the returned `Spec` the
+  ///   metadata necessary to re-create this `TensorStore`.  By default, the
+  ///   returned `Spec` includes the full metadata, but it is skipped if
+  ///   `MinimalSpec{true}` is specified as an option.
+  ///
+  /// - OpenMode: specifies the open mode, overriding the default of
+  ///   `OpenMode::open`.  Specifying multiple modes as separate options is
+  ///   equivalent to ORing them together.
+  ///
+  /// - RecheckCached, RecheckCachedData, RecheckCachedMetadata: specifies cache
+  ///   staleness bounds, overriding the current bounds (if applicable).
+  ///
+  /// \param option Any option compatible with `SpecRequestOptions`.
+  /// \pre `valid()`
+  template <typename... Option>
+  std::enable_if_t<IsCompatibleOptionSequence<SpecRequestOptions, Option...>,
+                   Result<Spec>>
+  spec(Option&&... option) const {
+    TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(SpecRequestOptions, options,
+                                                  option)
+    return spec(std::move(options));
+  }
+
+  /// Same as above, but allows specifying a `context_builder`.
+  ///
+  /// \pre `valid()`
+  template <typename... Option>
+  std::enable_if_t<IsCompatibleOptionSequence<SpecRequestOptions, Option...>,
+                   Result<Spec>>
+  spec(const internal::ContextSpecBuilder& context_builder,
+       Option&&... option) const {
+    TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(SpecRequestOptions, options,
+                                                  option)
+    return spec(std::move(options), context_builder);
   }
 
   /// "Pipeline" operator.

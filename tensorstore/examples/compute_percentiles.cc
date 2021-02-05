@@ -33,7 +33,6 @@
 #include "tensorstore/progress.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/spec.h"
-#include "tensorstore/spec_request_options.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/iterate_over_index_range.h"
@@ -275,17 +274,17 @@ absl::Status Run(::nlohmann::json input_spec, ::nlohmann::json output_spec,
 
   // Open input tensorstore and resolve the bounds.
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto input, tensorstore::Open(context, input_spec,
-                                    {tensorstore::OpenMode::open_or_create,
-                                     tensorstore::ReadWriteMode::read_write})
+      auto input, tensorstore::Open(input_spec, context,
+                                    tensorstore::OpenMode::open_or_create,
+                                    tensorstore::ReadWriteMode::read_write)
                       .result());
 
   // Open output tensorstore and resolve the bounds.
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto output, tensorstore::Open(context, output_spec,
-                                     {tensorstore::OpenMode::create,
-                                      tensorstore::ReadWriteMode::read_write})
-                       .result());
+      auto output,
+      tensorstore::Open(output_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
 
   // Resolve is unnecessary as the tensorstore volumes are unlikely to change
   // bounds, however it causes the spec to include the actual bounds when
@@ -318,15 +317,11 @@ absl::Status Run(::nlohmann::json input_spec, ::nlohmann::json output_spec,
           Dims(0, 1, 2, 3)
               .HalfOpenInterval(0, {shape[0], shape[1], shape[2], shape[3]}));
 
-  std::cout << "input spec: "
-            << input.spec(tensorstore::SpecRequestOptions{}).value()
-            << std::endl;
+  std::cout << "input spec: " << input.spec().value() << std::endl;
 
   if (is_constrained) {
-    std::cout
-        << "constrained input: "
-        << constrained_input.spec(tensorstore::SpecRequestOptions{}).value()
-        << std::endl;
+    std::cout << "constrained input: " << constrained_input.spec().value()
+              << std::endl;
   }
 
   std::cout << "output spec: " << output.spec().value() << std::endl;

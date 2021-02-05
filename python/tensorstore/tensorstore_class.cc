@@ -161,7 +161,7 @@ This is equivalent to :python:`self.domain.rank`.
       .def(py::pickle(
           [](const TensorStore<>& self) -> py::tuple {
             auto builder = internal::ContextSpecBuilder::Make();
-            auto spec = ValueOrThrow(self.spec({}, builder));
+            auto spec = ValueOrThrow(self.spec(builder));
             auto pickled_context =
                 internal_python::PickleContextSpecBuilder(std::move(builder));
             auto json_spec = ValueOrThrow(spec.ToJson());
@@ -181,9 +181,9 @@ This is equivalent to :python:`self.domain.rank`.
                   "Invalid ReadWriteMode encountered unpickling TensorStore");
             }
             py::gil_scoped_release gil_release;
-            return ValueOrThrow(tensorstore::Open(std::move(context),
-                                                  std::move(json_spec),
-                                                  {read_write_mode})
+            return ValueOrThrow(tensorstore::Open(std::move(json_spec),
+                                                  std::move(context),
+                                                  read_write_mode)
                                     .result());
           }));
 
@@ -282,7 +282,10 @@ The returned view may be used to perform transactional read/write operations.
         if (!context) {
           context = internal_context::Access::impl(Context::Default());
         }
-        OpenOptions options;
+        TransactionalOpenOptions options;
+        options.context = WrapImpl(std::move(context));
+        options.transaction =
+            internal::TransactionState::ToTransaction(std::move(transaction));
         if (!read && !write) {
           options.read_write_mode = ReadWriteMode::dynamic;
         } else {
@@ -312,10 +315,7 @@ The returned view may be used to perform transactional read/write operations.
           }
           options.open_mode = open_mode;
         }
-        return tensorstore::Open(
-            WrapImpl(std::move(context)),
-            internal::TransactionState::ToTransaction(std::move(transaction)),
-            std::move(spec.value), std::move(options));
+        return tensorstore::Open(std::move(spec.value), std::move(options));
       },
       "Opens a TensorStore", py::arg("spec"), py::kw_only(),
       py::arg("read") = std::nullopt, py::arg("write") = std::nullopt,

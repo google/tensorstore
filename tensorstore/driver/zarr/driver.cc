@@ -172,11 +172,11 @@ class ZarrDriver
                               jb::DefaultValue</*DisallowIncludeDefault=*/true>(
                                   [](auto* obj) { *obj = std::string{}; }))));
 
-  static Status ConvertSpec(SpecT<>* spec, const SpecRequestOptions& options) {
-    if (options.minimal_spec()) {
-      spec->partial_metadata = std::nullopt;
+  static Status ApplyOptions(SpecT<>& spec, SpecOptions&& options) {
+    if (options.minimal_spec) {
+      spec.partial_metadata = std::nullopt;
     }
-    return Base::ConvertSpec(spec, options);
+    return Base::ApplyOptions(spec, std::move(options));
   }
 };
 

@@ -142,7 +142,7 @@ class ArrayDriver
     return data_copy_concurrency_->executor;
   }
 
-  static Status ConvertSpec(SpecData* spec, const SpecRequestOptions& options) {
+  static Status ApplyOptions(SpecData& spec, SpecOptions&& options) {
     return absl::OkStatus();
   }
 

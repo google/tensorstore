@@ -266,11 +266,11 @@ TEST(GetCastDataTypeConversions, Basic) {
 }
 
 TEST(CastTest, Int32ToStringDynamic) {
-  auto store = tensorstore::Open(Context::Default(),
-                                 ::nlohmann::json{{"driver", "array"},
-                                                  {"array", {1, 2, 3}},
-                                                  {"dtype", "int32"}})
-                   .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(
+          {{"driver", "array"}, {"array", {1, 2, 3}}, {"dtype", "int32"}})
+          .result());
   EXPECT_EQ(store.read_write_mode(), ReadWriteMode::read_write);
   ASSERT_EQ(tensorstore::Box<1>({3}), store.domain().box());
   auto cast_store = Cast(store, DataTypeOf<std::string>()).value();
@@ -294,11 +294,11 @@ TEST(CastTest, Int32ToStringDynamic) {
 }
 
 TEST(CastTest, StringToInt32Dynamic) {
-  auto store = tensorstore::Open(Context::Default(),
-                                 ::nlohmann::json{{"driver", "array"},
-                                                  {"array", {"a", "b", "c"}},
-                                                  {"dtype", "string"}})
-                   .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open({{"driver", "array"},
+                                     {"array", {"a", "b", "c"}},
+                                     {"dtype", "string"}})
+                      .result());
   EXPECT_EQ(store.read_write_mode(), ReadWriteMode::read_write);
   auto cast_store = Cast(store, DataTypeOf<std::int32_t>()).value();
   EXPECT_EQ(cast_store.read_write_mode(), ReadWriteMode::write);
@@ -311,14 +311,14 @@ TEST(CastTest, StringToInt32Dynamic) {
 }
 
 TEST(CastTest, OpenInt32ToInt64) {
-  auto store = tensorstore::Open(Context::Default(),
-                                 ::nlohmann::json{{"driver", "cast"},
-                                                  {"dtype", "int64"},
-                                                  {"base",
-                                                   {{"driver", "array"},
-                                                    {"array", {1, 2, 3}},
-                                                    {"dtype", "int32"}}}})
-                   .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(
+          {{"driver", "cast"},
+           {"dtype", "int64"},
+           {"base",
+            {{"driver", "array"}, {"array", {1, 2, 3}}, {"dtype", "int32"}}}})
+          .result());
   EXPECT_EQ(store.read_write_mode(), ReadWriteMode::read_write);
   EXPECT_EQ(tensorstore::Read<zero_origin>(store).result(),
             MakeArray<std::int64_t>({1, 2, 3}));
@@ -331,31 +331,28 @@ TEST(CastTest, OpenInt32ToInt64) {
 }
 
 TEST(CastTest, OpenInputConversionError) {
-  EXPECT_THAT(tensorstore::Open(Context::Default(),
-                                ::nlohmann::json{{"driver", "cast"},
-                                                 {"dtype", "byte"},
-                                                 {"base",
-                                                  {{"driver", "array"},
-                                                   {"array", {1, 2, 3}},
-                                                   {"dtype", "int32"}}}},
-                                tensorstore::ReadWriteMode::read)
-                  .result(),
-              MatchesStatus(
-                  absl::StatusCode::kInvalidArgument,
-                  "Error opening \"cast\" driver: "
-                  "Read access requires unsupported int32 -> byte conversion"));
+  EXPECT_THAT(
+      tensorstore::Open(
+          {{"driver", "cast"},
+           {"dtype", "byte"},
+           {"base",
+            {{"driver", "array"}, {"array", {1, 2, 3}}, {"dtype", "int32"}}}},
+          tensorstore::ReadWriteMode::read)
+          .result(),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "Error opening \"cast\" driver: "
+          "Read access requires unsupported int32 -> byte conversion"));
 }
 
 TEST(CastTest, OpenOutputConversionError) {
   EXPECT_THAT(
-      tensorstore::Open(Context::Default(),
-                        ::nlohmann::json{{"driver", "cast"},
-                                         {"dtype", "byte"},
-                                         {"base",
-                                          {{"driver", "array"},
-                                           {"array", {1, 2, 3}},
-                                           {"dtype", "int32"}}}},
-                        tensorstore::ReadWriteMode::write)
+      tensorstore::Open(
+          {{"driver", "cast"},
+           {"dtype", "byte"},
+           {"base",
+            {{"driver", "array"}, {"array", {1, 2, 3}}, {"dtype", "int32"}}}},
+          tensorstore::ReadWriteMode::write)
           .result(),
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,
@@ -364,51 +361,48 @@ TEST(CastTest, OpenOutputConversionError) {
 }
 
 TEST(CastTest, OpenAnyConversionError) {
-  EXPECT_THAT(tensorstore::Open(Context::Default(),
-                                ::nlohmann::json{{"driver", "cast"},
-                                                 {"dtype", "byte"},
-                                                 {"base",
-                                                  {{"driver", "array"},
-                                                   {"array", {1, 2, 3}},
-                                                   {"dtype", "int32"}}}})
-                  .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error opening \"cast\" driver: "
-                            "Cannot convert int32 <-> byte"));
+  EXPECT_THAT(
+      tensorstore::Open(
+          {{"driver", "cast"},
+           {"dtype", "byte"},
+           {"base",
+            {{"driver", "array"}, {"array", {1, 2, 3}}, {"dtype", "int32"}}}})
+          .result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Error opening \"cast\" driver: "
+                    "Cannot convert int32 <-> byte"));
 }
 
 TEST(CastTest, OpenMissingDataType) {
-  EXPECT_THAT(tensorstore::Open(Context::Default(),
-                                ::nlohmann::json{{"driver", "cast"},
-                                                 {"base",
-                                                  {{"driver", "array"},
-                                                   {"array", {1, 2, 3}},
-                                                   {"dtype", "int32"}}}})
-                  .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Data type must be specified"));
+  EXPECT_THAT(
+      tensorstore::Open(
+          {{"driver", "cast"},
+           {"base",
+            {{"driver", "array"}, {"array", {1, 2, 3}}, {"dtype", "int32"}}}})
+          .result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Data type must be specified"));
 }
 
 TEST(CastTest, ComposeTransforms) {
-  auto store =
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
       tensorstore::Open(
-          Context::Default(),
-          ::nlohmann::json{
-              {"driver", "cast"},
-              {"transform",
-               {{"input_inclusive_min", {10}},
-                {"input_shape", {3}},
-                {"output", {{{"input_dimension", 0}, {"offset", -8}}}}}},
-              {"dtype", "int64"},
-              {"base",
-               {{"driver", "array"},
-                {"array", {1, 2, 3}},
-                {"transform",
-                 {{"input_inclusive_min", {2}},
-                  {"input_shape", {3}},
-                  {"output", {{{"input_dimension", 0}, {"offset", -2}}}}}},
-                {"dtype", "int32"}}}})
-          .value();
+          {{"driver", "cast"},
+           {"transform",
+            {{"input_inclusive_min", {10}},
+             {"input_shape", {3}},
+             {"output", {{{"input_dimension", 0}, {"offset", -8}}}}}},
+           {"dtype", "int64"},
+           {"base",
+            {{"driver", "array"},
+             {"array", {1, 2, 3}},
+             {"transform",
+              {{"input_inclusive_min", {2}},
+               {"input_shape", {3}},
+               {"output", {{{"input_dimension", 0}, {"offset", -2}}}}}},
+             {"dtype", "int32"}}}})
+          .result());
   EXPECT_EQ(
       store.spec().value().ToJson({tensorstore::IncludeDefaults{false},
                                    tensorstore::IncludeContext{false}}),
@@ -431,15 +425,14 @@ TEST(CastTest, ComposeTransforms) {
 }
 
 TEST(CastTest, ComposeTransformsError) {
-  EXPECT_THAT(tensorstore::Open(Context::Default(),
-                                ::nlohmann::json{{"driver", "cast"},
-                                                 {"rank", 2},
-                                                 {"dtype", "int64"},
-                                                 {"base",
-                                                  {{"driver", "array"},
-                                                   {"array", {1, 2, 3}},
-                                                   {"rank", 1},
-                                                   {"dtype", "int32"}}}})
+  EXPECT_THAT(tensorstore::Open({{"driver", "cast"},
+                                 {"rank", 2},
+                                 {"dtype", "int64"},
+                                 {"base",
+                                  {{"driver", "array"},
+                                   {"array", {1, 2, 3}},
+                                   {"rank", 1},
+                                   {"dtype", "int32"}}}})
                   .result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Error parsing object member \"base\": "

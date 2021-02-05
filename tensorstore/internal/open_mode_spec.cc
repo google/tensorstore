@@ -61,9 +61,9 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                                     *v = false;
                                   })))));
 
-absl::Status OpenModeSpec::ConvertSpec(const SpecRequestOptions& options) {
-  if (options.open_mode) {
-    const OpenMode open_mode = *options.open_mode;
+absl::Status OpenModeSpec::ApplyOptions(const SpecOptions& options) {
+  if (options.open_mode != OpenMode{}) {
+    const OpenMode open_mode = options.open_mode;
     open = (open_mode & OpenMode::open) == OpenMode::open;
     create = (open_mode & OpenMode::create) == OpenMode::create;
     allow_metadata_mismatch = (open_mode & OpenMode::allow_option_mismatch) ==

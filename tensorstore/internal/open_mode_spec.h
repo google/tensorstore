@@ -22,7 +22,6 @@
 
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/open_mode.h"
-#include "tensorstore/spec_request_options.h"
 
 namespace tensorstore {
 namespace internal {
@@ -48,7 +47,7 @@ struct OpenModeSpec {
   };
 
   /// Applies the specified options.
-  absl::Status ConvertSpec(const SpecRequestOptions& options);
+  absl::Status ApplyOptions(const SpecOptions& options);
 
   /// Returns an error if `read_write_mode` is invalid with `*this`.
   absl::Status Validate(ReadWriteMode read_write_mode) const;

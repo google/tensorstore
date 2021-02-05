@@ -60,8 +60,40 @@ class Spec {
     return impl_.transform_spec.transform();
   }
 
-  /// Returns a new `Spec` with the specified `options` applied.
-  Result<Spec> Convert(const SpecRequestOptions& options) const;
+  /// Returns a modified Spec with the specified options applied.
+  ///
+  /// Supported options include:
+  ///
+  ///   - OpenMode
+  ///   - RecheckCachedData
+  ///   - RecheckCachedMetadata
+  template <typename... Option>
+  std::enable_if_t<IsCompatibleOptionSequence<SpecConvertOptions, Option...>,
+                   Result<Spec>>
+  With(Option&&... option) && {
+    TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(SpecConvertOptions, options,
+                                                  option)
+    TENSORSTORE_RETURN_IF_ERROR(
+        internal::TransformAndApplyOptions(impl_, std::move(options)));
+    return std::move(*this);
+  }
+
+  template <typename... Option>
+  std::enable_if_t<IsCompatibleOptionSequence<SpecConvertOptions, Option...>,
+                   Result<Spec>>
+  With(Option&&... option) const& {
+    return Spec(*this).With(std::forward<Option>(option)...);
+  }
+
+  Result<Spec> With(SpecOptions&& options) && {
+    auto status = internal::TransformAndApplyOptions(impl_, std::move(options));
+    if (!status.ok()) return status;
+    return std::move(*this);
+  }
+
+  Result<Spec> With(SpecOptions&& options) const& {
+    return Spec(*this).With(std::move(options));
+  }
 
   /// Returns the rank of the TensorStore, or `dynamic_rank` if unknown.
   DimensionIndex rank() const { return impl_.transform_spec.input_rank(); }

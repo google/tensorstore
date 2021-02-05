@@ -2212,6 +2212,5 @@ tensorstore_cc_library(
     deps = [
         ":json",
         "//tensorstore:open_mode",
-        "//tensorstore:spec_request_options",
     ],
 )

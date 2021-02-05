@@ -75,36 +75,25 @@ absl::Cord Bytes(std::vector<unsigned char> values) {
 
 // Tests that `create` can be specified in the JSON spec.
 TEST(DriverTest, CreateSpecifiedInJson) {
-  auto context = Context::Default();
-
   ::nlohmann::json spec = GetJsonSpec();
   spec["create"] = true;
   TENSORSTORE_ASSERT_OK(
-      tensorstore::Open(context, spec, {tensorstore::ReadWriteMode::read_write})
-          .result());
+      tensorstore::Open(spec, tensorstore::ReadWriteMode::read_write).result());
 }
 
 TEST(DriverTest, OpenNonExisting) {
-  auto context = Context::Default();
-
-  EXPECT_THAT(tensorstore::Open(context, GetJsonSpec(),
-                                {tensorstore::OpenMode::open,
-                                 tensorstore::ReadWriteMode::read_write})
+  EXPECT_THAT(tensorstore::Open(GetJsonSpec(), tensorstore::OpenMode::open,
+                                tensorstore::ReadWriteMode::read_write)
                   .result(),
               MatchesStatus(absl::StatusCode::kNotFound,
                             ".*Metadata at \"prefix/info\" does not exist"));
 }
 
 TEST(DriverTest, OpenOrCreate) {
-  auto context = Context::Default();
-
-  EXPECT_EQ(
-      absl::OkStatus(),
-      GetStatus(tensorstore::Open(context, GetJsonSpec(),
-                                  {tensorstore::OpenMode::open |
-                                       tensorstore::OpenMode::create,
-                                   tensorstore::ReadWriteMode::read_write})
-                    .result()));
+  TENSORSTORE_EXPECT_OK(tensorstore::Open(
+      GetJsonSpec(),
+      tensorstore::OpenMode::open | tensorstore::OpenMode::create,
+      tensorstore::ReadWriteMode::read_write));
 }
 
 TEST(DriverTest, Create) {
@@ -113,10 +102,11 @@ TEST(DriverTest, Create) {
   auto context = Context::Default();
   // Create the store.
   {
-    auto store = tensorstore::Open(context, json_spec,
-                                   {tensorstore::OpenMode::create,
-                                    tensorstore::ReadWriteMode::read_write})
-                     .value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write)
+            .result());
     EXPECT_THAT(store.domain().origin(), ::testing::ElementsAre(1, 2, 3, 0));
     EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(10, 99, 98, 4));
     EXPECT_THAT(store.domain().labels(),
@@ -303,30 +293,26 @@ TEST(DriverTest, Create) {
 
   // Check that attempting to create the store again fails.
   {
-    EXPECT_THAT(tensorstore::Open(context, json_spec,
-                                  {tensorstore::OpenMode::create,
-                                   tensorstore::ReadWriteMode::read_write})
-                    .result(),
-                MatchesStatus(absl::StatusCode::kAlreadyExists));
+    EXPECT_THAT(
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write)
+            .result(),
+        MatchesStatus(absl::StatusCode::kAlreadyExists));
   }
 
   // Check that create or open succeeds.
-  {
-    EXPECT_EQ(
-        absl::OkStatus(),
-        GetStatus(tensorstore::Open(context, json_spec,
-                                    {tensorstore::OpenMode::create |
-                                         tensorstore::OpenMode::open,
-                                     tensorstore::ReadWriteMode::read_write})
-                      .result()));
-  }
+  TENSORSTORE_EXPECT_OK(tensorstore::Open(
+      json_spec, context,
+      tensorstore::OpenMode::create | tensorstore::OpenMode::open,
+      tensorstore::ReadWriteMode::read_write));
 
   // Check that open succeeds.
   {
-    auto store = tensorstore::Open(context, json_spec,
-                                   {tensorstore::OpenMode::open,
-                                    tensorstore::ReadWriteMode::read_write})
-                     .value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
+                          tensorstore::ReadWriteMode::read_write)
+            .result());
     EXPECT_EQ(tensorstore::MakeArray<std::uint16_t>(
                   {{{{0x0000, 0x0000, 0x0000}, {0x0000, 0x0000, 0x0000}},
                     {{0x0000, 0x9871, 0x9872}, {0x0000, 0x9881, 0x9882}},
@@ -356,11 +342,13 @@ TEST(DriverTest, Create) {
 
   // Check that delete_existing works.
   {
-    auto store = tensorstore::Open(context, json_spec,
-                                   {tensorstore::OpenMode::create |
-                                        tensorstore::OpenMode::delete_existing,
-                                    tensorstore::ReadWriteMode::read_write})
-                     .value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context,
+                          tensorstore::OpenMode::create |
+                              tensorstore::OpenMode::delete_existing,
+                          tensorstore::ReadWriteMode::read_write)
+            .result());
 
     EXPECT_EQ(tensorstore::AllocateArray<std::uint16_t>(
                   {2, 4, 2, 3}, tensorstore::c_order, tensorstore::value_init),
@@ -405,7 +393,6 @@ TEST(DriverTest, ConvertSpec) {
   // No-op conversion.  Verifies that `context` is retained.
   tensorstore::internal::TestTensorStoreDriverSpecConvert(
       /*orig_spec=*/spec,
-      /*options=*/tensorstore::SpecRequestOptions{},
       /*expected_converted_spec=*/spec);
 
   // Convert to minimal spec.
@@ -415,8 +402,8 @@ TEST(DriverTest, ConvertSpec) {
     converted_spec.erase("scale_metadata");
     tensorstore::internal::TestTensorStoreDriverSpecConvert(
         /*orig_spec=*/spec,
-        /*options=*/tensorstore::MinimalSpec{true},
-        /*expected_converted_spec=*/converted_spec);
+        /*expected_converted_spec=*/converted_spec,
+        tensorstore::MinimalSpec{true});
   }
 
   // Convert to create+delete_existing spec
@@ -426,9 +413,8 @@ TEST(DriverTest, ConvertSpec) {
     converted_spec["delete_existing"] = true;
     tensorstore::internal::TestTensorStoreDriverSpecConvert(
         /*orig_spec=*/spec,
-        /*options=*/tensorstore::OpenMode::create |
-            tensorstore::OpenMode::delete_existing,
-        /*expected_converted_spec=*/converted_spec);
+        /*expected_converted_spec=*/converted_spec,
+        tensorstore::OpenMode::create | tensorstore::OpenMode::delete_existing);
   }
 
   // Convert to open+create+allow_metadata_mismatch spec
@@ -439,10 +425,9 @@ TEST(DriverTest, ConvertSpec) {
     converted_spec["allow_metadata_mismatch"] = true;
     tensorstore::internal::TestTensorStoreDriverSpecConvert(
         /*orig_spec=*/spec,
-        /*options=*/tensorstore::OpenMode::create |
-            tensorstore::OpenMode::open |
-            tensorstore::OpenMode::allow_option_mismatch,
-        /*expected_converted_spec=*/converted_spec);
+        /*expected_converted_spec=*/converted_spec,
+        tensorstore::OpenMode::create | tensorstore::OpenMode::open |
+            tensorstore::OpenMode::allow_option_mismatch);
   }
 
   // Convert `recheck_cached_data` and `recheck_cached_metadata`.
@@ -452,37 +437,34 @@ TEST(DriverTest, ConvertSpec) {
     converted_spec["recheck_cached_metadata"] = false;
     tensorstore::internal::TestTensorStoreDriverSpecConvert(
         /*orig_spec=*/spec,
-        /*options=*/
-        tensorstore::SpecRequestOptions{tensorstore::StalenessBounds{
-            absl::InfinitePast(), absl::InfinitePast()}},
-        /*expected_converted_spec=*/converted_spec);
+        /*expected_converted_spec=*/converted_spec,
+        tensorstore::RecheckCachedData{false},
+        tensorstore::RecheckCachedMetadata{false});
   }
 }
 
 TEST(DriverTest, UnsupportedDataTypeInSpec) {
-  auto context = Context::Default();
   EXPECT_THAT(
-      tensorstore::Open(context,
-                        ::nlohmann::json{
-                            {"dtype", "string"},
-                            {"driver", "neuroglancer_precomputed"},
-                            {"kvstore", {{"driver", "memory"}}},
-                            {"path", "prefix"},
-                            {"multiscale_metadata",
-                             {
-                                 {"num_channels", 1},
-                                 {"type", "image"},
-                             }},
-                            {"scale_metadata",
-                             {
-                                 {"size", {100, 100, 100}},
-                                 {"encoding", "raw"},
-                                 {"resolution", {1, 1, 1}},
-                                 {"chunk_size", {2, 3, 4}},
-                             }},
-                        },
-                        {tensorstore::OpenMode::create,
-                         tensorstore::ReadWriteMode::read_write})
+      tensorstore::Open(
+          {
+              {"dtype", "string"},
+              {"driver", "neuroglancer_precomputed"},
+              {"kvstore", {{"driver", "memory"}}},
+              {"path", "prefix"},
+              {"multiscale_metadata",
+               {
+                   {"num_channels", 1},
+                   {"type", "image"},
+               }},
+              {"scale_metadata",
+               {
+                   {"size", {100, 100, 100}},
+                   {"encoding", "raw"},
+                   {"resolution", {1, 1, 1}},
+                   {"chunk_size", {2, 3, 4}},
+               }},
+          },
+          tensorstore::OpenMode::create, tensorstore::ReadWriteMode::read_write)
           .result(),
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,
@@ -497,7 +479,7 @@ TEST(DriverTest, OptionMismatch) {
   // Create the store.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      tensorstore::Open(context, json_spec, tensorstore::OpenMode::create)
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create)
           .result());
 
   {
@@ -508,12 +490,12 @@ TEST(DriverTest, OptionMismatch) {
         store.spec().value().ToJson(tensorstore::IncludeContext{false}));
     modified_spec["multiscale_metadata"]["num_channels"] = 10;
     EXPECT_THAT(
-        tensorstore::Open(context, modified_spec, tensorstore::OpenMode::open)
+        tensorstore::Open(modified_spec, context, tensorstore::OpenMode::open)
             .result(),
         MatchesStatus(absl::StatusCode::kFailedPrecondition,
                       ".*\"num_channels\".*"));
     TENSORSTORE_ASSERT_OK(
-        tensorstore::Open(context, modified_spec,
+        tensorstore::Open(modified_spec, context,
                           tensorstore::OpenMode::open |
                               tensorstore::OpenMode::allow_option_mismatch)
             .result());
@@ -524,11 +506,11 @@ TEST(DriverTest, OptionMismatch) {
     auto modified_spec = json_spec;
     modified_spec["rank"] = 5;
     EXPECT_THAT(
-        tensorstore::Open(context, modified_spec, tensorstore::OpenMode::open)
+        tensorstore::Open(modified_spec, context, tensorstore::OpenMode::open)
             .result(),
         MatchesStatus(absl::StatusCode::kInvalidArgument, ".*rank 5.*"));
     EXPECT_THAT(
-        tensorstore::Open(context, modified_spec,
+        tensorstore::Open(modified_spec, context,
                           tensorstore::OpenMode::open |
                               tensorstore::OpenMode::allow_option_mismatch)
             .result(),
@@ -544,7 +526,7 @@ TEST(DriverTest, DataTypeMismatch) {
   // Create the store.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      tensorstore::Open(context, json_spec, tensorstore::OpenMode::create)
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create)
           .result());
   // Specify `IncludeContext{false}` since we need to re-open with the same
   // `memory_key_value_store` context resource from the parent `context`.
@@ -553,7 +535,7 @@ TEST(DriverTest, DataTypeMismatch) {
       store.spec().value().ToJson(tensorstore::IncludeContext{false}));
   modified_spec["dtype"] = "uint32";
   EXPECT_THAT(
-      tensorstore::Open(context, modified_spec,
+      tensorstore::Open(modified_spec, context,
                         tensorstore::OpenMode::open |
                             tensorstore::OpenMode::allow_option_mismatch)
           .result(),
@@ -568,9 +550,8 @@ TEST(DriverTest, InvalidSpec) {
     auto spec = GetJsonSpec();
     spec["extra_member"] = 5;
     EXPECT_THAT(
-        tensorstore::Open(context, spec,
-                          {tensorstore::OpenMode::create,
-                           tensorstore::ReadWriteMode::read_write})
+        tensorstore::Open(spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write)
             .result(),
         MatchesStatus(absl::StatusCode::kInvalidArgument,
                       "Object includes extra members: \"extra_member\""));
@@ -580,9 +561,8 @@ TEST(DriverTest, InvalidSpec) {
   {
     auto spec = GetJsonSpec();
     spec.erase("kvstore");
-    EXPECT_THAT(tensorstore::Open(context, spec,
-                                  {tensorstore::OpenMode::create,
-                                   tensorstore::ReadWriteMode::read_write})
+    EXPECT_THAT(tensorstore::Open(spec, context, tensorstore::OpenMode::create,
+                                  tensorstore::ReadWriteMode::read_write)
                     .result(),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               "Error parsing object member \"kvstore\": "
@@ -595,9 +575,8 @@ TEST(DriverTest, InvalidSpec) {
     auto spec = GetJsonSpec();
     spec[member_name] = nullptr;
     EXPECT_THAT(
-        tensorstore::Open(context, spec,
-                          {tensorstore::OpenMode::create,
-                           tensorstore::ReadWriteMode::read_write})
+        tensorstore::Open(spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write)
             .result(),
         MatchesStatus(absl::StatusCode::kInvalidArgument,
                       StrCat("Error parsing object member \"", member_name,
@@ -609,9 +588,8 @@ TEST(DriverTest, InvalidSpec) {
     auto spec = GetJsonSpec();
     spec["scale_metadata"].erase("size");
     EXPECT_THAT(
-        tensorstore::Open(context, spec,
-                          {tensorstore::OpenMode::create,
-                           tensorstore::ReadWriteMode::read_write})
+        tensorstore::Open(spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write)
             .result(),
         MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"size\".*"));
   }
@@ -641,9 +619,10 @@ TEST(DriverTest, CompressedSegmentationEncodingUint32) {
   };
 
   {
-    auto store =
-        tensorstore::Open(context, json_spec, tensorstore::OpenMode::create)
-            .value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::create)
+            .result());
     tensorstore::Write(
         tensorstore::MakeArray<std::uint32_t>({
             // Each compressed segmentation block has a single distinct value.
@@ -710,10 +689,11 @@ TEST(DriverTest, CompressedSegmentationEncodingUint32) {
 
   // Verify that reading back has the expected result.
   {
-    auto store = tensorstore::Open(context, json_spec,
-                                   {tensorstore::OpenMode::open,
-                                    tensorstore::ReadWriteMode::read})
-                     .value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
+                          tensorstore::ReadWriteMode::read)
+            .result());
     EXPECT_EQ(
         tensorstore::MakeArray<std::uint32_t>({
             // Each compressed segmentation block has a single distinct value.
@@ -754,9 +734,10 @@ TEST(DriverTest, CompressedSegmentationEncodingUint64) {
   };
 
   {
-    auto store =
-        tensorstore::Open(context, json_spec, tensorstore::OpenMode::create)
-            .value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::create)
+            .result());
     tensorstore::Write(
         tensorstore::MakeArray<std::uint64_t>({
             // Each compressed segmentation block has a single distinct value.
@@ -828,10 +809,11 @@ TEST(DriverTest, CompressedSegmentationEncodingUint64) {
       })));
 
   {
-    auto store = tensorstore::Open(context, json_spec,
-                                   {tensorstore::OpenMode::open,
-                                    tensorstore::ReadWriteMode::read})
-                     .value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
+                          tensorstore::ReadWriteMode::read)
+            .result());
     // Verify that reading back has the expected result.
     EXPECT_EQ(
         tensorstore::MakeArray<std::uint64_t>({
@@ -909,9 +891,10 @@ TEST(DriverTest, Jpeg1Channel) {
   }
 
   {
-    auto store =
-        tensorstore::Open(context, json_spec, tensorstore::OpenMode::create)
-            .value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::create)
+            .result());
     tensorstore::Write(array,
                        ChainResult(store, tensorstore::AllDims().SizedInterval(
                                               0, array.shape())))
@@ -952,10 +935,11 @@ TEST(DriverTest, Jpeg1Channel) {
       })));
 
   {
-    auto store = tensorstore::Open(context, json_spec,
-                                   {tensorstore::OpenMode::open,
-                                    tensorstore::ReadWriteMode::read})
-                     .value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
+                          tensorstore::ReadWriteMode::read)
+            .result());
     // Verify that reading back has the expected result.
     auto read_array =
         tensorstore::Read<tensorstore::zero_origin>(
@@ -1054,15 +1038,17 @@ TEST(DriverTest, JpegQuality) {
     }
   }
 
-  const auto get_size = [&](::nlohmann::json json_spec) -> size_t {
+  const auto get_size =
+      [&](::nlohmann::json json_spec) -> tensorstore::Result<size_t> {
     auto context = Context::Default();
-    auto store =
-        tensorstore::Open(context, json_spec, tensorstore::OpenMode::create)
-            .value();
-    tensorstore::Write(array,
-                       ChainResult(store, tensorstore::AllDims().SizedInterval(
-                                              0, array.shape())))
-        .commit_future.value();
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::create)
+            .result());
+    TENSORSTORE_RETURN_IF_ERROR(
+        tensorstore::Write(array, store | tensorstore::AllDims().SizedInterval(
+                                              0, array.shape()))
+            .result());
     size_t size = 0;
     for (const auto& [key, value] :
          GetMap(
@@ -1073,11 +1059,11 @@ TEST(DriverTest, JpegQuality) {
     return size;
   };
 
-  size_t default_size = get_size(json_spec);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(size_t default_size, get_size(json_spec));
   for (int quality : jpeg_quality_values) {
     auto spec = json_spec;
     spec["scale_metadata"]["jpeg_quality"] = quality;
-    size_t size = get_size(spec);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(size_t size, get_size(spec));
     if (!sizes.empty()) {
       EXPECT_LT(sizes.back(), size) << "quality=" << quality;
     }
@@ -1122,9 +1108,10 @@ TEST(DriverTest, Jpeg3Channel) {
   }
 
   {
-    auto store =
-        tensorstore::Open(context, json_spec, tensorstore::OpenMode::create)
-            .value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::create)
+            .result());
     tensorstore::Write(array,
                        ChainResult(store, tensorstore::AllDims().SizedInterval(
                                               0, array.shape())))
@@ -1166,10 +1153,11 @@ TEST(DriverTest, Jpeg3Channel) {
 
   // Verify that reading back has the expected result.
   {
-    auto store = tensorstore::Open(context, json_spec,
-                                   {tensorstore::OpenMode::open,
-                                    tensorstore::ReadWriteMode::read})
-                     .value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
+                          tensorstore::ReadWriteMode::read)
+            .result());
     auto read_array =
         tensorstore::Read<tensorstore::zero_origin>(
             ChainResult(store,
@@ -1194,9 +1182,8 @@ TEST(DriverTest, CorruptMetadataTest) {
   TENSORSTORE_EXPECT_OK(kv_store->Write("prefix/info", absl::Cord("invalid")));
 
   auto json_spec = GetJsonSpec();
-  EXPECT_THAT(tensorstore::Open(context, json_spec,
-                                {tensorstore::OpenMode::open,
-                                 tensorstore::ReadWriteMode::read_write})
+  EXPECT_THAT(tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
+                                tensorstore::ReadWriteMode::read_write)
                   .result(),
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
                             ".*: Error reading \"prefix/info\": Invalid JSON"));
@@ -1204,9 +1191,8 @@ TEST(DriverTest, CorruptMetadataTest) {
   // Write valid JSON that is invalid metadata.
   TENSORSTORE_EXPECT_OK(kv_store->Write("prefix/info", absl::Cord("[1]")));
 
-  EXPECT_THAT(tensorstore::Open(context, json_spec,
-                                {tensorstore::OpenMode::open,
-                                 tensorstore::ReadWriteMode::read_write})
+  EXPECT_THAT(tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
+                                tensorstore::ReadWriteMode::read_write)
                   .result(),
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
                             ".*: Error reading \"prefix/info\": "
@@ -1463,8 +1449,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
 TEST(ShardedWriteTest, Basic) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      tensorstore::Open(tensorstore::Context::Default(),
-                        ::nlohmann::json{
+      tensorstore::Open({
                             {"driver", "neuroglancer_precomputed"},
                             {"kvstore", {{"driver", "memory"}}},
                             {"path", "prefix"},
@@ -1557,7 +1542,7 @@ TEST(FullShardWriteTest, Basic) {
   // Repeat the test to try to detect errors due to possible timing-dependent
   // behavior differences.
   for (int i = 0; i < 100; ++i) {
-    auto store_future = tensorstore::Open(context, json_spec);
+    auto store_future = tensorstore::Open(json_spec, context);
     store_future.Force();
 
     {
@@ -1627,10 +1612,10 @@ TEST(DriverTest, NoPrefix) {
        }},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::Open(context, json_spec,
-                                    {tensorstore::OpenMode::create,
-                                     tensorstore::ReadWriteMode::read_write})
-                      .result());
+      auto store,
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
   TENSORSTORE_EXPECT_OK(tensorstore::Write(
       tensorstore::MakeArray<std::uint8_t>({{1, 2, 3}, {4, 5, 6}}),
       store | tensorstore::Dims("z", "channel").IndexSlice({0, 0})));

@@ -74,13 +74,11 @@ absl::Cord Bytes(std::vector<unsigned char> values) {
 }
 
 TEST(OpenTest, DeleteExistingWithoutCreate) {
-  auto context = Context::Default();
-
   EXPECT_THAT(
       tensorstore::Open(
-          context, GetJsonSpec(),
-          {tensorstore::OpenMode::delete_existing | tensorstore::OpenMode::open,
-           tensorstore::ReadWriteMode::read_write})
+          GetJsonSpec(),
+          tensorstore::OpenMode::delete_existing | tensorstore::OpenMode::open,
+          tensorstore::ReadWriteMode::read_write)
           .result(),
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,
@@ -89,14 +87,12 @@ TEST(OpenTest, DeleteExistingWithoutCreate) {
 }
 
 TEST(OpenTest, DeleteExistingWithOpen) {
-  auto context = Context::Default();
-
   EXPECT_THAT(
-      tensorstore::Open(
-          context, GetJsonSpec(),
-          {tensorstore::OpenMode::delete_existing |
-               tensorstore::OpenMode::open | tensorstore::OpenMode::create,
-           tensorstore::ReadWriteMode::read_write})
+      tensorstore::Open(GetJsonSpec(),
+                        tensorstore::OpenMode::delete_existing |
+                            tensorstore::OpenMode::open |
+                            tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
           .result(),
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,
@@ -105,12 +101,9 @@ TEST(OpenTest, DeleteExistingWithOpen) {
 }
 
 TEST(OpenTest, CreateWithoutWrite) {
-  auto context = Context::Default();
-
   EXPECT_THAT(
-      tensorstore::Open(
-          context, GetJsonSpec(),
-          {tensorstore::OpenMode::create, tensorstore::ReadWriteMode::read})
+      tensorstore::Open(GetJsonSpec(), tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read)
           .result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Error opening \"zarr\" driver: "
@@ -118,11 +111,8 @@ TEST(OpenTest, CreateWithoutWrite) {
 }
 
 TEST(ZarrDriverTest, OpenNonExisting) {
-  auto context = Context::Default();
-
-  EXPECT_THAT(tensorstore::Open(context, GetJsonSpec(),
-                                {tensorstore::OpenMode::open,
-                                 tensorstore::ReadWriteMode::read_write})
+  EXPECT_THAT(tensorstore::Open(GetJsonSpec(), tensorstore::OpenMode::open,
+                                tensorstore::ReadWriteMode::read_write)
                   .result(),
               MatchesStatus(absl::StatusCode::kNotFound,
                             "Error opening \"zarr\" driver: "
@@ -130,29 +120,23 @@ TEST(ZarrDriverTest, OpenNonExisting) {
 }
 
 TEST(ZarrDriverTest, OpenOrCreate) {
-  auto context = Context::Default();
-
-  EXPECT_EQ(
-      absl::OkStatus(),
-      GetStatus(tensorstore::Open(context, GetJsonSpec(),
-                                  {tensorstore::OpenMode::open |
-                                       tensorstore::OpenMode::create,
-                                   tensorstore::ReadWriteMode::read_write})
-                    .result()));
+  TENSORSTORE_EXPECT_OK(tensorstore::Open(
+      GetJsonSpec(),
+      tensorstore::OpenMode::open | tensorstore::OpenMode::create,
+      tensorstore::ReadWriteMode::read_write));
 }
 
 TEST(ZarrDriverTest, OpenInvalidRank) {
-  auto context = Context::Default();
   auto spec = GetJsonSpec();
   spec["rank"] = 3;
-  EXPECT_THAT(tensorstore::Open(
-                  context, spec,
-                  {tensorstore::OpenMode::open | tensorstore::OpenMode::create,
-                   tensorstore::ReadWriteMode::read_write})
-                  .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot compose transform of rank 2 -> 2 with "
-                            "transform of rank 3 -> 3"));
+  EXPECT_THAT(
+      tensorstore::Open(
+          spec, tensorstore::OpenMode::open | tensorstore::OpenMode::create,
+          tensorstore::ReadWriteMode::read_write)
+          .result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Cannot compose transform of rank 2 -> 2 with "
+                    "transform of rank 3 -> 3"));
 }
 
 TEST(ZarrDriverTest, Create) {
@@ -161,10 +145,11 @@ TEST(ZarrDriverTest, Create) {
   auto context = Context::Default();
   // Create the store.
   {
-    auto store = tensorstore::Open(context, json_spec,
-                                   {tensorstore::OpenMode::create,
-                                    tensorstore::ReadWriteMode::read_write})
-                     .value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write)
+            .result());
     EXPECT_THAT(store.domain().origin(), ::testing::ElementsAre(0, 0));
     EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(100, 100));
     EXPECT_THAT(store.domain().labels(), ::testing::ElementsAre("", ""));
@@ -178,56 +163,48 @@ TEST(ZarrDriverTest, Create) {
     EXPECT_EQ(store.domain(), resolved.domain());
 
     // Test ResolveBounds with a transform that swaps upper and lower bounds.
-    auto reversed_dim0 = ChainResult(store, tensorstore::Dims(0).ClosedInterval(
-                                                kImplicit, kImplicit, -1))
-                             .value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto reversed_dim0,
+        store | tensorstore::Dims(0).ClosedInterval(kImplicit, kImplicit, -1));
     auto resolved_reversed_dim0 = ResolveBounds(reversed_dim0).value();
     EXPECT_EQ(reversed_dim0.domain(), resolved_reversed_dim0.domain());
 
     // Issue a read to be filled with the fill value.
-    EXPECT_EQ(
-        tensorstore::MakeArray<std::int16_t>({{0}}),
-        tensorstore::Read<tensorstore::zero_origin>(
-            ChainResult(store, tensorstore::AllDims().TranslateSizedInterval(
-                                   {9, 7}, {1, 1})))
-            .value());
-
-    // Issue an out-of-bounds read.
     EXPECT_THAT(
         tensorstore::Read<tensorstore::zero_origin>(
-            ChainResult(store, tensorstore::AllDims().TranslateSizedInterval(
-                                   {100, 7}, {1, 1})))
+            store |
+            tensorstore::AllDims().TranslateSizedInterval({9, 7}, {1, 1}))
             .result(),
-        MatchesStatus(absl::StatusCode::kOutOfRange));
+        ::testing::Optional(tensorstore::MakeArray<std::int16_t>({{0}})));
+
+    // Issue an out-of-bounds read.
+    EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
+                    store | tensorstore::AllDims().TranslateSizedInterval(
+                                {100, 7}, {1, 1}))
+                    .result(),
+                MatchesStatus(absl::StatusCode::kOutOfRange));
 
     // Issue a valid write.
-    EXPECT_EQ(
-        absl::OkStatus(),
-        GetStatus(
-            tensorstore::Write(
-                tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
-                ChainResult(store,
-                            tensorstore::AllDims().TranslateSizedInterval(
-                                {9, 8}, {2, 3})))
-                .commit_future.result()));
+    TENSORSTORE_EXPECT_OK(tensorstore::Write(
+        tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
+        store | tensorstore::AllDims().TranslateSizedInterval({9, 8}, {2, 3})));
 
     // Issue an out-of-bounds write.
     EXPECT_THAT(
         tensorstore::Write(
             tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
-            ChainResult(store, tensorstore::AllDims().TranslateSizedInterval(
-                                   {100, 8}, {2, 3})))
-            .commit_future.result(),
+            store |
+                tensorstore::AllDims().TranslateSizedInterval({100, 8}, {2, 3}))
+            .result(),
         MatchesStatus(absl::StatusCode::kOutOfRange));
 
     // Re-read and validate result.
-    EXPECT_EQ(
-        tensorstore::MakeArray<std::int16_t>(
-            {{0, 1, 2, 3, 0}, {0, 4, 5, 6, 0}, {0, 0, 0, 0, 0}}),
-        tensorstore::Read<tensorstore::zero_origin>(
-            ChainResult(store, tensorstore::AllDims().TranslateSizedInterval(
-                                   {9, 7}, {3, 5})))
-            .value());
+    EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
+                    store | tensorstore::AllDims().TranslateSizedInterval(
+                                {9, 7}, {3, 5}))
+                    .result(),
+                ::testing::Optional(tensorstore::MakeArray<std::int16_t>(
+                    {{0, 1, 2, 3, 0}, {0, 4, 5, 6, 0}, {0, 0, 0, 0, 0}})));
   }
 
   // Check that key value store has expected contents.
@@ -262,40 +239,33 @@ TEST(ZarrDriverTest, Create) {
       }));
 
   // Check that attempting to create the store again fails.
-  {
-    EXPECT_THAT(tensorstore::Open(context, json_spec,
-                                  {tensorstore::OpenMode::create,
-                                   tensorstore::ReadWriteMode::read_write})
-                    .result(),
-                MatchesStatus(absl::StatusCode::kAlreadyExists,
-                              "Error opening \"zarr\" driver: "
-                              "Error writing \"prefix/\\.zarray\""));
-  }
+  EXPECT_THAT(
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result(),
+      MatchesStatus(absl::StatusCode::kAlreadyExists,
+                    "Error opening \"zarr\" driver: "
+                    "Error writing \"prefix/\\.zarray\""));
 
   // Check that create or open succeeds.
-  {
-    EXPECT_EQ(
-        absl::OkStatus(),
-        GetStatus(tensorstore::Open(context, json_spec,
-                                    {tensorstore::OpenMode::create |
-                                         tensorstore::OpenMode::open,
-                                     tensorstore::ReadWriteMode::read_write})
-                      .result()));
-  }
+  TENSORSTORE_EXPECT_OK(tensorstore::Open(
+      json_spec, context,
+      tensorstore::OpenMode::create | tensorstore::OpenMode::open,
+      tensorstore::ReadWriteMode::read_write));
 
   // Check that open succeeds.
   {
-    auto store = tensorstore::Open(context, json_spec,
-                                   {tensorstore::OpenMode::open,
-                                    tensorstore::ReadWriteMode::read_write})
-                     .value();
-    EXPECT_EQ(
-        tensorstore::MakeArray<std::int16_t>(
-            {{0, 1, 2, 3, 0}, {0, 4, 5, 6, 0}, {0, 0, 0, 0, 0}}),
-        tensorstore::Read<tensorstore::zero_origin>(
-            ChainResult(store, tensorstore::AllDims().TranslateSizedInterval(
-                                   {9, 7}, {3, 5})))
-            .value());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
+                          tensorstore::ReadWriteMode::read_write)
+            .result());
+    EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
+                    store | tensorstore::AllDims().TranslateSizedInterval(
+                                {9, 7}, {3, 5}))
+                    .result(),
+                ::testing::Optional(tensorstore::MakeArray<std::int16_t>(
+                    {{0, 1, 2, 3, 0}, {0, 4, 5, 6, 0}, {0, 0, 0, 0, 0}})));
   }
 
   // Check that delete_existing works.
@@ -304,22 +274,24 @@ TEST(ZarrDriverTest, Create) {
         tensorstore::TransactionMode::isolated,
         tensorstore::TransactionMode::atomic_isolated}) {
     tensorstore::Transaction transaction(transaction_mode);
-    auto store = tensorstore::Open(context, transaction, json_spec,
-                                   {tensorstore::OpenMode::create |
-                                        tensorstore::OpenMode::delete_existing,
-                                    tensorstore::ReadWriteMode::read_write})
-                     .value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, transaction,
+                          tensorstore::OpenMode::create |
+                              tensorstore::OpenMode::delete_existing,
+                          tensorstore::ReadWriteMode::read_write)
+            .result());
 
-    EXPECT_EQ(
-        tensorstore::MakeArray<std::int16_t>(
-            {{0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}}),
-        tensorstore::Read<tensorstore::zero_origin>(
-            ChainResult(store, tensorstore::AllDims().TranslateSizedInterval(
-                                   {9, 7}, {3, 5})))
-            .value());
+    EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
+                    store | tensorstore::AllDims().TranslateSizedInterval(
+                                {9, 7}, {3, 5}))
+                    .result(),
+                ::testing::Optional(tensorstore::MakeArray<std::int16_t>(
+                    {{0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}})));
     TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
-    auto kv_store =
-        KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto kv_store,
+        KeyValueStore::Open(context, {{"driver", "memory"}}, {}).result());
     EXPECT_THAT(ListFuture(kv_store.get()).value(),
                 ::testing::UnorderedElementsAre("prefix/.zarray"));
   }
@@ -351,13 +323,13 @@ TEST(ZarrDriverTest, MetadataCache) {
       {"create", true},
       {"open", true},
   };
-  auto store_future = tensorstore::Open(context, json_spec);
+  auto store_future = tensorstore::Open(json_spec, context);
   mock_key_value_store->read_requests.pop()(memory_store);
   mock_key_value_store->write_requests.pop()(memory_store);
-  TENSORSTORE_EXPECT_OK(store_future.result());
+  TENSORSTORE_EXPECT_OK(store_future);
 
   // Reopening should not result in any requests.
-  TENSORSTORE_EXPECT_OK(tensorstore::Open(context, json_spec).result());
+  TENSORSTORE_EXPECT_OK(tensorstore::Open(json_spec, context));
 }
 
 class MockKeyValueStoreTest : public ::testing::Test {
@@ -376,21 +348,22 @@ class MockKeyValueStoreTest : public ::testing::Test {
 
 // Tests that an error when creating the metadata is handled correctly.
 TEST_F(MockKeyValueStoreTest, CreateMetadataError) {
-  ::nlohmann::json json_spec{
-      {"driver", "zarr"},
-      {"kvstore", {{"driver", "mock_key_value_store"}}},
-      {"path", "prefix"},
-      {"metadata",
-       {
-           {"compressor", {{"id", "blosc"}}},
-           {"dtype", "<i2"},
-           {"shape", {100, 100}},
-           {"chunks", {3, 2}},
-       }},
-      {"create", true},
-      {"open", true},
-  };
-  auto store_future = tensorstore::Open(context, json_spec);
+  auto store_future = tensorstore::Open(
+      {
+          {"driver", "zarr"},
+          {"kvstore", {{"driver", "mock_key_value_store"}}},
+          {"path", "prefix"},
+          {"metadata",
+           {
+               {"compressor", {{"id", "blosc"}}},
+               {"dtype", "<i2"},
+               {"shape", {100, 100}},
+               {"chunks", {3, 2}},
+           }},
+          {"create", true},
+          {"open", true},
+      },
+      context);
   store_future.Force();
   mock_key_value_store->read_requests.pop()(memory_store);
   mock_key_value_store->write_requests.pop().promise.SetResult(
@@ -421,8 +394,8 @@ TEST_F(MockKeyValueStoreTest,
       // Ensure independent cache pools are used.
       {"cache_pool", {{"total_bytes_limit", 0}}},
   };
-  auto store_future1 = tensorstore::Open(context, json_spec);
-  auto store_future2 = tensorstore::Open(context, json_spec);
+  auto store_future1 = tensorstore::Open(json_spec, context);
+  auto store_future2 = tensorstore::Open(json_spec, context);
   store_future1.Force();
   store_future2.Force();
   // Handling both read requests before the write requests ensures the create
@@ -459,8 +432,8 @@ TEST(ZarrDriverTest, CreateMetadataConcurrentErrorSharedCachePool) {
        }},
       {"create", true},
   };
-  auto store_future1 = tensorstore::Open(context, json_spec);
-  auto store_future2 = tensorstore::Open(context, json_spec);
+  auto store_future1 = tensorstore::Open(json_spec, context);
+  auto store_future2 = tensorstore::Open(json_spec, context);
   store_future1.Force();
   store_future2.Force();
   // Exactly one of the create requests succeeds.
@@ -492,8 +465,8 @@ TEST_F(MockKeyValueStoreTest,
       {"open", true},
       {"cache_pool", {{"total_bytes_limit", 0}}},
   };
-  auto store_future1 = tensorstore::Open(context, json_spec);
-  auto store_future2 = tensorstore::Open(context, json_spec);
+  auto store_future1 = tensorstore::Open(json_spec, context);
+  auto store_future2 = tensorstore::Open(json_spec, context);
   store_future1.Force();
   store_future2.Force();
   // Handling both read requests before the write requests ensures the create
@@ -525,8 +498,8 @@ TEST(ZarrDriverTest, CreateMetadataConcurrentSuccessSharedCachePool) {
       {"create", true},
       {"open", true},
   };
-  auto store_future1 = tensorstore::Open(context, json_spec);
-  auto store_future2 = tensorstore::Open(context, json_spec);
+  auto store_future1 = tensorstore::Open(json_spec, context);
+  auto store_future2 = tensorstore::Open(json_spec, context);
   TENSORSTORE_EXPECT_OK(store_future1.result());
   TENSORSTORE_EXPECT_OK(store_future2.result());
 }
@@ -546,7 +519,7 @@ TEST_F(MockKeyValueStoreTest, CreateWithTransactionWriteError) {
       {"create", true},
   };
   auto transaction = tensorstore::Transaction(tensorstore::isolated);
-  auto store_future = tensorstore::Open(context, transaction, json_spec);
+  auto store_future = tensorstore::Open(json_spec, context, transaction);
   TENSORSTORE_EXPECT_OK(store_future.result());
   transaction.CommitAsync().IgnoreFuture();
   mock_key_value_store->read_requests.pop()(memory_store);
@@ -575,13 +548,13 @@ TEST_F(MockKeyValueStoreTest, CreateWithTransactionAlreadyExists) {
       {"cache_pool", {{"total_bytes_limit", 0}}},
   };
   auto transaction = tensorstore::Transaction(tensorstore::isolated);
-  auto store_future = tensorstore::Open(context, transaction, json_spec);
+  auto store_future = tensorstore::Open(json_spec, context, transaction);
   TENSORSTORE_EXPECT_OK(store_future.result());
   EXPECT_TRUE(mock_key_value_store->read_requests.empty());
   EXPECT_TRUE(mock_key_value_store->write_requests.empty());
 
   // Create the array before the transaction commit completes.
-  auto store2_future = tensorstore::Open(context, json_spec);
+  auto store2_future = tensorstore::Open(json_spec, context);
   store2_future.Force();
   mock_key_value_store->read_requests.pop()(memory_store);
   mock_key_value_store->write_requests.pop()(memory_store);
@@ -598,34 +571,29 @@ TEST_F(MockKeyValueStoreTest, CreateWithTransactionAlreadyExists) {
 void TestCreateWriteRead(Context context, ::nlohmann::json json_spec) {
   // Create the store.
   {
-    auto store = tensorstore::Open(context, json_spec,
-                                   {tensorstore::OpenMode::create,
-                                    tensorstore::ReadWriteMode::read_write})
-                     .value();
-    EXPECT_EQ(
-        absl::OkStatus(),
-        GetStatus(
-            tensorstore::Write(
-                tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
-                ChainResult(store,
-                            tensorstore::AllDims().TranslateSizedInterval(
-                                {9, 8}, {2, 3})))
-                .commit_future.result()));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write)
+            .result());
+    TENSORSTORE_EXPECT_OK(tensorstore::Write(
+        tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
+        store | tensorstore::AllDims().TranslateSizedInterval({9, 8}, {2, 3})));
   }
 
   // Reopen the store.
   {
-    auto store = tensorstore::Open(context, json_spec,
-                                   {tensorstore::OpenMode::open,
-                                    tensorstore::ReadWriteMode::read})
-                     .value();
-    EXPECT_EQ(
-        tensorstore::MakeArray<std::int16_t>(
-            {{0, 1, 2, 3, 0}, {0, 4, 5, 6, 0}, {0, 0, 0, 0, 0}}),
-        tensorstore::Read<tensorstore::zero_origin>(
-            ChainResult(store, tensorstore::AllDims().TranslateSizedInterval(
-                                   {9, 7}, {3, 5})))
-            .value());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
+                          tensorstore::ReadWriteMode::read)
+            .result());
+    EXPECT_EQ(tensorstore::MakeArray<std::int16_t>(
+                  {{0, 1, 2, 3, 0}, {0, 4, 5, 6, 0}, {0, 0, 0, 0, 0}}),
+              tensorstore::Read<tensorstore::zero_origin>(
+                  store |
+                  tensorstore::AllDims().TranslateSizedInterval({9, 7}, {3, 5}))
+                  .value());
   }
 }
 
@@ -746,10 +714,11 @@ TEST(ZarrDriverTest, CreateLittleEndianUnaligned) {
   TestCreateWriteRead(context, json_spec);
 
   {
-    auto store = tensorstore::Open(context, json_spec,
-                                   {tensorstore::OpenMode::open,
-                                    tensorstore::ReadWriteMode::read})
-                     .value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
+                          tensorstore::ReadWriteMode::read)
+            .result());
     EXPECT_EQ(::nlohmann::json({{"dtype", "int16"},
                                 {"driver", "zarr"},
                                 {"field", "y"},
@@ -813,15 +782,15 @@ TEST(ZarrDriverTest, CreateComplexWithFillValue) {
        }},
   };
   auto context = Context::Default();
-  auto store = tensorstore::Open(context, json_spec,
-                                 {tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write})
-                   .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
 
-  EXPECT_EQ(tensorstore::MakeScalarArray<complex64_t>(complex64_t{1, 2}),
-            tensorstore::Read(
-                ChainResult(store, tensorstore::Dims(0, 1).IndexSlice(4)))
-                .value());
+  EXPECT_EQ(
+      tensorstore::MakeScalarArray<complex64_t>(complex64_t{1, 2}),
+      tensorstore::Read(store | tensorstore::Dims(0, 1).IndexSlice(4)).value());
 }
 
 ::nlohmann::json GetBasicResizeMetadata() {
@@ -844,18 +813,14 @@ TEST(ZarrDriverTest, KeyEncodingWithSlash) {
       {"key_encoding", "/"},
       {"metadata", zarr_metadata_json},
   };
-  auto store = tensorstore::Open(context, json_spec,
-                                 {tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write})
-                   .value();
-  EXPECT_EQ(
-      absl::OkStatus(),
-      GetStatus(
-          tensorstore::Write(
-              tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
-              ChainResult(store, tensorstore::AllDims().TranslateSizedInterval(
-                                     {2, 1}, {2, 3})))
-              .commit_future.result()));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(
+      tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
+      store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
   auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
   EXPECT_THAT(  //
@@ -888,16 +853,15 @@ TEST(ZarrDriverTest, Resize) {
           {"path", "prefix"},
           {"metadata", zarr_metadata_json},
       };
-      auto store = tensorstore::Open(context, json_spec,
-                                     {tensorstore::OpenMode::create,
-                                      tensorstore::ReadWriteMode::read_write})
-                       .value();
-      TENSORSTORE_EXPECT_OK(
-          tensorstore::Write(
-              tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
-              ChainResult(store, tensorstore::AllDims().TranslateSizedInterval(
-                                     {2, 1}, {2, 3})))
-              .commit_future.result());
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store,
+          tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                            tensorstore::ReadWriteMode::read_write)
+              .result());
+      TENSORSTORE_EXPECT_OK(tensorstore::Write(
+          tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
+          store |
+              tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
       // Check that key value store has expected contents.
       auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
       EXPECT_THAT(  //
@@ -946,34 +910,33 @@ void TestResizeToZeroAndBack(Op... op) {
       {"path", "prefix"},
       {"metadata", zarr_metadata_json},
   };
-  auto store = tensorstore::Open(context, json_spec,
-                                 {tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write})
-                   .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
   // Resize to shape of {0, 0}
   auto resize_future = Resize(store, span<const Index>({kImplicit, kImplicit}),
                               span<const Index>({0, 0}));
-  ASSERT_EQ(absl::OkStatus(), GetStatus(resize_future.result()));
+  TENSORSTORE_ASSERT_OK(resize_future);
   EXPECT_EQ(tensorstore::BoxView({0, 0}), resize_future.value().domain().box());
 
   // Resize back to non-zero shape of {10, 20}.
   auto resize_future2 = Resize(store, span<const Index>({kImplicit, kImplicit}),
                                span<const Index>({10, 20}));
-  ASSERT_EQ(absl::OkStatus(), GetStatus(resize_future2.result()));
+  TENSORSTORE_ASSERT_OK(resize_future2);
   EXPECT_EQ(tensorstore::BoxView({10, 20}),
             resize_future2.value().domain().box());
 
   auto transformed_store = ChainResult(resize_future.value(), op...);
-  EXPECT_EQ(absl::OkStatus(), GetStatus(transformed_store));
+  TENSORSTORE_EXPECT_OK(transformed_store);
 
   // Should be able to write using `resize_future.value()`.  Use
   // `IndexArraySlice` to ensure that edge cases of `ComposeTransforms` are
   // tested.
-  EXPECT_EQ(absl::OkStatus(),
-            GetStatus(tensorstore::Write(tensorstore::MakeArray<std::int8_t>(
-                                             {{1, 2, 3}, {4, 5, 6}}),
-                                         transformed_store)
-                          .commit_future.result()));
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(
+      tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
+      transformed_store));
 
   // Test that reading back yields the correct result.
   EXPECT_THAT(tensorstore::Read(transformed_store).result(),
@@ -1036,18 +999,14 @@ TEST(ZarrDriverTest, ResizeMetadataOnly) {
       {"path", "prefix"},
       {"metadata", zarr_metadata_json},
   };
-  auto store = tensorstore::Open(context, json_spec,
-                                 {tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write})
-                   .value();
-  EXPECT_EQ(
-      absl::OkStatus(),
-      GetStatus(
-          tensorstore::Write(
-              tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
-              ChainResult(store, tensorstore::AllDims().TranslateSizedInterval(
-                                     {2, 1}, {2, 3})))
-              .commit_future.result()));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(
+      tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
+      store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
   auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
   EXPECT_THAT(  //
@@ -1063,7 +1022,7 @@ TEST(ZarrDriverTest, ResizeMetadataOnly) {
   auto resize_future =
       Resize(store, span<const Index>({kImplicit, kImplicit}),
              span<const Index>({3, 2}), tensorstore::resize_metadata_only);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(resize_future.result()));
+  TENSORSTORE_ASSERT_OK(resize_future);
   EXPECT_EQ(tensorstore::BoxView({3, 2}), resize_future.value().domain().box());
 
   ::nlohmann::json resized_zarr_metadata_json = zarr_metadata_json;
@@ -1091,18 +1050,14 @@ TEST(ZarrDriverTest, ResizeExpandOnly) {
       {"path", "prefix"},
       {"metadata", zarr_metadata_json},
   };
-  auto store = tensorstore::Open(context, json_spec,
-                                 {tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write})
-                   .value();
-  EXPECT_EQ(
-      absl::OkStatus(),
-      GetStatus(
-          tensorstore::Write(
-              tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
-              ChainResult(store, tensorstore::AllDims().TranslateSizedInterval(
-                                     {2, 1}, {2, 3})))
-              .commit_future.result()));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(
+      tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
+      store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
   auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
   EXPECT_THAT(  //
@@ -1118,7 +1073,7 @@ TEST(ZarrDriverTest, ResizeExpandOnly) {
   auto resize_future =
       Resize(store, span<const Index>({kImplicit, kImplicit}),
              span<const Index>({150, 200}), tensorstore::expand_only);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(resize_future.result()));
+  TENSORSTORE_ASSERT_OK(resize_future);
   EXPECT_EQ(tensorstore::BoxView({150, 200}),
             resize_future.value().domain().box());
 
@@ -1137,7 +1092,6 @@ TEST(ZarrDriverTest, ResizeExpandOnly) {
 }
 
 TEST(ZarrDriverTest, InvalidResize) {
-  auto context = Context::Default();
   // Create the store.
   ::nlohmann::json storage_spec{{"driver", "memory"}};
   ::nlohmann::json zarr_metadata_json = GetBasicResizeMetadata();
@@ -1147,15 +1101,14 @@ TEST(ZarrDriverTest, InvalidResize) {
       {"path", "prefix"},
       {"metadata", zarr_metadata_json},
   };
-  auto store = tensorstore::Open(context, json_spec,
-                                 {tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write})
-                   .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(json_spec, tensorstore::OpenMode::create,
+                                    tensorstore::ReadWriteMode::read_write)
+                      .result());
   EXPECT_THAT(
-      Resize(
-          ChainResult(store, tensorstore::Dims(0).SizedInterval(0, 10)).value(),
-          span<const Index>({kImplicit, kImplicit}),
-          span<const Index>({kImplicit, 2}))
+      Resize(store | tensorstore::Dims(0).SizedInterval(0, 10),
+             span<const Index>({kImplicit, kImplicit}),
+             span<const Index>({kImplicit, 2}))
           .result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
                     "Resize operation would also affect output dimension 0 "
@@ -1163,8 +1116,7 @@ TEST(ZarrDriverTest, InvalidResize) {
                     "was not specified"));
 
   EXPECT_THAT(
-      Resize(ChainResult(store, tensorstore::Dims(0).HalfOpenInterval(5, 100))
-                 .value(),
+      Resize(store | tensorstore::Dims(0).HalfOpenInterval(5, 100),
              span<const Index>({kImplicit, kImplicit}),
              span<const Index>({kImplicit, 2}))
           .result(),
@@ -1194,7 +1146,6 @@ TEST(ZarrDriverTest, InvalidResize) {
 }
 
 TEST(ZarrDriverTest, InvalidResizeConcurrentModification) {
-  auto context = Context::Default();
   // Create the store.
   ::nlohmann::json storage_spec{{"driver", "memory"}};
   ::nlohmann::json zarr_metadata_json = GetBasicResizeMetadata();
@@ -1204,22 +1155,18 @@ TEST(ZarrDriverTest, InvalidResizeConcurrentModification) {
       {"path", "prefix"},
       {"metadata", zarr_metadata_json},
   };
-  auto store = tensorstore::Open(context, json_spec,
-                                 {tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write})
-                   .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(json_spec, tensorstore::OpenMode::create,
+                                    tensorstore::ReadWriteMode::read_write)
+                      .result());
+
+  TENSORSTORE_EXPECT_OK(Resize(store, span<const Index>({kImplicit, kImplicit}),
+                               span<const Index>({50, kImplicit})));
 
   // Make bounds of dimension 0 explicit.
-  auto store_slice =
-      ChainResult(store, tensorstore::Dims(0).HalfOpenInterval(0, 100)).value();
-
-  EXPECT_EQ(absl::OkStatus(),
-            GetStatus(Resize(store, span<const Index>({kImplicit, kImplicit}),
-                             span<const Index>({50, kImplicit}))
-                          .result()));
-
   EXPECT_THAT(
-      Resize(store_slice, span<const Index>({kImplicit, kImplicit}),
+      Resize(store | tensorstore::Dims(0).HalfOpenInterval(0, 100),
+             span<const Index>({kImplicit, kImplicit}),
              span<const Index>({kImplicit, 50}))
           .result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
@@ -1228,7 +1175,6 @@ TEST(ZarrDriverTest, InvalidResizeConcurrentModification) {
 }
 
 TEST(ZarrDriverTest, InvalidResizeLowerBound) {
-  auto context = Context::Default();
   // Create the store.
   ::nlohmann::json storage_spec{{"driver", "memory"}};
   ::nlohmann::json zarr_metadata_json = GetBasicResizeMetadata();
@@ -1238,25 +1184,22 @@ TEST(ZarrDriverTest, InvalidResizeLowerBound) {
       {"path", "prefix"},
       {"metadata", zarr_metadata_json},
   };
-  auto store = tensorstore::Open(context, json_spec,
-                                 {tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write})
-                   .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(json_spec, tensorstore::OpenMode::create,
+                                    tensorstore::ReadWriteMode::read_write)
+                      .result());
 
-  EXPECT_THAT(
-      Resize(ChainResult(store, tensorstore::Dims(0).UnsafeMarkBoundsImplicit())
-                 .value(),
-             span<const Index>({10, kImplicit}),
-             span<const Index>({kImplicit, kImplicit}))
-          .result(),
-      MatchesStatus(
-          absl::StatusCode::kFailedPrecondition,
-          "Cannot change inclusive lower bound of output dimension 0, "
-          "which is fixed at 0, to 10"));
+  EXPECT_THAT(Resize(store | tensorstore::Dims(0).UnsafeMarkBoundsImplicit(),
+                     span<const Index>({10, kImplicit}),
+                     span<const Index>({kImplicit, kImplicit}))
+                  .result(),
+              MatchesStatus(
+                  absl::StatusCode::kFailedPrecondition,
+                  "Cannot change inclusive lower bound of output dimension 0, "
+                  "which is fixed at 0, to 10"));
 }
 
 TEST(ZarrDriverTest, InvalidResizeDueToOtherFields) {
-  auto context = Context::Default();
   // Create the store.
   ::nlohmann::json storage_spec{{"driver", "memory"}};
   ::nlohmann::json zarr_metadata_json = GetBasicResizeMetadata();
@@ -1266,10 +1209,10 @@ TEST(ZarrDriverTest, InvalidResizeDueToOtherFields) {
       {"driver", "zarr"}, {"kvstore", storage_spec},        {"path", "prefix"},
       {"field", "x"},     {"metadata", zarr_metadata_json},
   };
-  auto store = tensorstore::Open(context, json_spec,
-                                 {tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write})
-                   .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(json_spec, tensorstore::OpenMode::create,
+                                    tensorstore::ReadWriteMode::read_write)
+                      .result());
   EXPECT_THAT(Resize(store, span<const Index>({kImplicit, kImplicit}),
                      span<const Index>({kImplicit, 2}))
                   .result(),
@@ -1279,7 +1222,6 @@ TEST(ZarrDriverTest, InvalidResizeDueToOtherFields) {
 }
 
 TEST(ZarrDriverTest, InvalidResizeDueToFieldShapeConstraints) {
-  auto context = Context::Default();
   // Create the store.
   ::nlohmann::json storage_spec{{"driver", "memory"}};
   ::nlohmann::json zarr_metadata_json = GetBasicResizeMetadata();
@@ -1290,26 +1232,23 @@ TEST(ZarrDriverTest, InvalidResizeDueToFieldShapeConstraints) {
       {"path", "prefix"},
       {"metadata", zarr_metadata_json},
   };
-  auto store = tensorstore::Open(context, json_spec,
-                                 {tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write})
-                   .value();
-  EXPECT_THAT(
-      Resize(ChainResult(store, tensorstore::Dims(3).UnsafeMarkBoundsImplicit())
-                 .value(),
-             span<const Index>({kImplicit, kImplicit, kImplicit, 0}),
-             span<const Index>({kImplicit, kImplicit, kImplicit, 2}))
-          .result(),
-      MatchesStatus(
-          absl::StatusCode::kFailedPrecondition,
-          "Cannot change exclusive upper bound of output dimension 3, "
-          "which is fixed at 3, to 2"));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(json_spec, tensorstore::OpenMode::create,
+                                    tensorstore::ReadWriteMode::read_write)
+                      .result());
+  EXPECT_THAT(Resize(store | tensorstore::Dims(3).UnsafeMarkBoundsImplicit(),
+                     span<const Index>({kImplicit, kImplicit, kImplicit, 0}),
+                     span<const Index>({kImplicit, kImplicit, kImplicit, 2}))
+                  .result(),
+              MatchesStatus(
+                  absl::StatusCode::kFailedPrecondition,
+                  "Cannot change exclusive upper bound of output dimension 3, "
+                  "which is fixed at 3, to 2"));
 
   EXPECT_THAT(
-      Resize(
-          ChainResult(store, tensorstore::Dims(3).SizedInterval(0, 2)).value(),
-          span<const Index>({kImplicit, kImplicit, kImplicit, kImplicit}),
-          span<const Index>({kImplicit, 2, kImplicit, kImplicit}))
+      Resize(store | tensorstore::Dims(3).SizedInterval(0, 2),
+             span<const Index>({kImplicit, kImplicit, kImplicit, kImplicit}),
+             span<const Index>({kImplicit, 2, kImplicit, kImplicit}))
           .result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
                     "Resize operation would also affect output dimension 3 "
@@ -1329,18 +1268,17 @@ TEST(ZarrDriverTest, InvalidResizeIncompatibleMetadata) {
       {"metadata", zarr_metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::Open(context, json_spec,
-                                    {tensorstore::OpenMode::create,
-                                     tensorstore::ReadWriteMode::read_write})
-                      .result());
+      auto store,
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
   json_spec["metadata"]["chunks"] = {5, 5};
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store2,
-      tensorstore::Open(context, json_spec,
-                        {tensorstore::OpenMode::create |
-                             tensorstore::OpenMode::delete_existing,
-                         tensorstore::ReadWriteMode::read_write})
-          .result());
+      auto store2, tensorstore::Open(json_spec, context,
+                                     tensorstore::OpenMode::create |
+                                         tensorstore::OpenMode::delete_existing,
+                                     tensorstore::ReadWriteMode::read_write)
+                       .result());
   EXPECT_THAT(
       Resize(store, span<const Index>({kImplicit, kImplicit}),
              span<const Index>({5, 5}), tensorstore::resize_metadata_only)
@@ -1362,16 +1300,18 @@ TEST(ZarrDriverTest, InvalidResizeConstraintsViolated) {
       {"path", "prefix"},
       {"metadata", zarr_metadata_json},
   };
-  auto store = tensorstore::Open(context, json_spec,
-                                 {tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write})
-                   .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
   json_spec["metadata"]["shape"] = {150, 100};
-  auto store2 = tensorstore::Open(context, json_spec,
-                                  {tensorstore::OpenMode::create |
-                                       tensorstore::OpenMode::delete_existing,
-                                   tensorstore::ReadWriteMode::read_write})
-                    .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store2, tensorstore::Open(json_spec, context,
+                                     tensorstore::OpenMode::create |
+                                         tensorstore::OpenMode::delete_existing,
+                                     tensorstore::ReadWriteMode::read_write)
+                       .result());
   EXPECT_THAT(
       Resize(store | tensorstore::Dims(0).SizedInterval(0, 100),
              span<const Index>({kImplicit, kImplicit}),
@@ -1398,10 +1338,11 @@ TEST(ZarrDriverTest, ResolveBoundsDeletedMetadata) {
       {"metadata", zarr_metadata_json},
       {"recheck_cached_metadata", true},
   };
-  auto store = tensorstore::Open(context, json_spec,
-                                 {tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write})
-                   .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
   auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
   kv_store->Delete("prefix/.zarray").value();
   EXPECT_THAT(ResolveBounds(store).result(),
@@ -1420,10 +1361,11 @@ TEST(ZarrDriverTest, InvalidResizeDeletedMetadata) {
       {"path", "prefix"},
       {"metadata", zarr_metadata_json},
   };
-  auto store = tensorstore::Open(context, json_spec,
-                                 {tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write})
-                   .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
   auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
   kv_store->Delete("prefix/.zarray").value();
   EXPECT_THAT(
@@ -1442,9 +1384,8 @@ TEST(ZarrDriverTest, InvalidSpec) {
     auto spec = GetJsonSpec();
     spec["extra_member"] = 5;
     EXPECT_THAT(
-        tensorstore::Open(context, spec,
-                          {tensorstore::OpenMode::create,
-                           tensorstore::ReadWriteMode::read_write})
+        tensorstore::Open(spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write)
             .result(),
         MatchesStatus(absl::StatusCode::kInvalidArgument,
                       "Object includes extra members: \"extra_member\""));
@@ -1454,9 +1395,8 @@ TEST(ZarrDriverTest, InvalidSpec) {
   {
     auto spec = GetJsonSpec();
     spec.erase("kvstore");
-    EXPECT_THAT(tensorstore::Open(context, spec,
-                                  {tensorstore::OpenMode::create,
-                                   tensorstore::ReadWriteMode::read_write})
+    EXPECT_THAT(tensorstore::Open(spec, context, tensorstore::OpenMode::create,
+                                  tensorstore::ReadWriteMode::read_write)
                     .result(),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               "Error parsing object member \"kvstore\": "
@@ -1468,9 +1408,8 @@ TEST(ZarrDriverTest, InvalidSpec) {
     auto spec = GetJsonSpec();
     spec[member_name] = 5;
     EXPECT_THAT(
-        tensorstore::Open(context, spec,
-                          {tensorstore::OpenMode::create,
-                           tensorstore::ReadWriteMode::read_write})
+        tensorstore::Open(spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write)
             .result(),
         MatchesStatus(absl::StatusCode::kInvalidArgument,
                       StrCat("Error parsing object member \"", member_name,
@@ -1482,9 +1421,8 @@ TEST(ZarrDriverTest, InvalidSpec) {
     auto spec = GetJsonSpec();
     spec["key_encoding"] = "-";
     EXPECT_THAT(
-        tensorstore::Open(context, spec,
-                          {tensorstore::OpenMode::create,
-                           tensorstore::ReadWriteMode::read_write})
+        tensorstore::Open(spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write)
             .result(),
         MatchesStatus(absl::StatusCode::kInvalidArgument,
                       "Error parsing object member \"key_encoding\": "
@@ -1495,9 +1433,8 @@ TEST(ZarrDriverTest, InvalidSpec) {
     auto spec = GetJsonSpec();
     spec["metadata"].erase("shape");
     EXPECT_THAT(
-        tensorstore::Open(context, spec,
-                          {tensorstore::OpenMode::create,
-                           tensorstore::ReadWriteMode::read_write})
+        tensorstore::Open(spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write)
             .result(),
         MatchesStatus(absl::StatusCode::kInvalidArgument,
                       ".*: "
@@ -1518,20 +1455,16 @@ TEST(ZarrDriverTest, OpenInvalidMetadata) {
   };
   auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
 
-  {
-    // Write invalid JSON
-    TENSORSTORE_EXPECT_OK(
-        kv_store->Write("prefix/.zarray", absl::Cord("invalid")));
+  // Write invalid JSON
+  TENSORSTORE_EXPECT_OK(
+      kv_store->Write("prefix/.zarray", absl::Cord("invalid")));
 
-    EXPECT_THAT(
-        tensorstore::Open(context, json_spec,
-                          {tensorstore::OpenMode::open,
-                           tensorstore::ReadWriteMode::read_write})
-            .result(),
-        MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                      "Error opening \"zarr\" driver: "
-                      "Error reading \"prefix/.zarray\": Invalid JSON"));
-  }
+  EXPECT_THAT(tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
+                                tensorstore::ReadWriteMode::read_write)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            "Error opening \"zarr\" driver: "
+                            "Error reading \"prefix/.zarray\": Invalid JSON"));
 
   {
     auto invalid_json = zarr_metadata_json;
@@ -1541,14 +1474,14 @@ TEST(ZarrDriverTest, OpenInvalidMetadata) {
     TENSORSTORE_EXPECT_OK(
         kv_store->Write("prefix/.zarray", absl::Cord(invalid_json.dump())));
 
-    EXPECT_THAT(tensorstore::Open(context, json_spec,
-                                  {tensorstore::OpenMode::open,
-                                   tensorstore::ReadWriteMode::read_write})
-                    .result(),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              "Error opening \"zarr\" driver: "
-                              "Error reading \"prefix/.zarray\": "
-                              "Missing object member \"zarr_format\""));
+    EXPECT_THAT(
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
+                          tensorstore::ReadWriteMode::read_write)
+            .result(),
+        MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                      "Error opening \"zarr\" driver: "
+                      "Error reading \"prefix/.zarray\": "
+                      "Missing object member \"zarr_format\""));
   }
 }
 
@@ -1564,10 +1497,11 @@ TEST(ZarrDriverTest, ResolveBoundsIncompatibleMetadata) {
   };
   auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
 
-  auto store = tensorstore::Open(context, json_spec,
-                                 {tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write})
-                   .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
 
   // Overwrite metadata
   zarr_metadata_json["chunks"] = {3, 3};
@@ -1578,12 +1512,13 @@ TEST(ZarrDriverTest, ResolveBoundsIncompatibleMetadata) {
       {"metadata", zarr_metadata_json},
   };
 
-  auto store_new =
-      tensorstore::Open(context, json_spec,
-                        {tensorstore::OpenMode::create |
-                             tensorstore::OpenMode::delete_existing,
-                         tensorstore::ReadWriteMode::read_write})
-          .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store_new,
+      tensorstore::Open(json_spec, context,
+                        tensorstore::OpenMode::create |
+                            tensorstore::OpenMode::delete_existing,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
 
   EXPECT_THAT(ResolveBounds(store).result(),
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
@@ -1690,7 +1625,7 @@ void TestDataCaching(RecheckOption recheck_option, bool modify_before_reopen,
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto initial_store,
-      tensorstore::Open(base_context, base_spec, tensorstore::OpenMode::create)
+      tensorstore::Open(base_spec, base_context, tensorstore::OpenMode::create)
           .result());
 
   auto before_modify_time = absl::Now();
@@ -1704,7 +1639,7 @@ void TestDataCaching(RecheckOption recheck_option, bool modify_before_reopen,
     auto new_cache_context = Context(context_spec, base_context);
 
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto new_arr, tensorstore::Open(new_cache_context, base_spec).result());
+        auto new_arr, tensorstore::Open(base_spec, new_cache_context).result());
 
     // Fill with `new_value`.
     TENSORSTORE_ASSERT_OK(
@@ -1722,7 +1657,7 @@ void TestDataCaching(RecheckOption recheck_option, bool modify_before_reopen,
       GetRecheckBound(before_modify_time, recheck_option);
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto new_store, tensorstore::Open(base_context, new_json_spec).result());
+      auto new_store, tensorstore::Open(new_json_spec, base_context).result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto value1,
                                    tensorstore::Read(new_store).result());
@@ -1841,7 +1776,7 @@ void TestMetadataCaching(RecheckOption recheck_option,
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto initial_store,
-      tensorstore::Open(base_context, base_spec, tensorstore::OpenMode::create)
+      tensorstore::Open(base_spec, base_context, tensorstore::OpenMode::create)
           .result());
 
   base_spec.erase("metadata");
@@ -1856,12 +1791,11 @@ void TestMetadataCaching(RecheckOption recheck_option,
     auto new_cache_context = Context(context_spec, base_context);
 
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto new_arr, tensorstore::Open(new_cache_context, base_spec).result());
+        auto new_arr, tensorstore::Open(base_spec, new_cache_context).result());
 
-    TENSORSTORE_ASSERT_OK(tensorstore::Resize(new_arr, new_inclusive_min,
-                                              new_exclusive_max,
-                                              tensorstore::resize_metadata_only)
-                              .result());
+    TENSORSTORE_ASSERT_OK(
+        tensorstore::Resize(new_arr, new_inclusive_min, new_exclusive_max,
+                            tensorstore::resize_metadata_only));
   };
 
   if (modify_before_reopen) {
@@ -1873,7 +1807,7 @@ void TestMetadataCaching(RecheckOption recheck_option,
       GetRecheckBound(before_modify_time, recheck_option);
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto new_store, tensorstore::Open(base_context, new_json_spec).result());
+      auto new_store, tensorstore::Open(new_json_spec, base_context).result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       new_store, tensorstore::ResolveBounds(new_store).result());
@@ -1949,9 +1883,8 @@ TEST(ZarrDriverTest, ReadAfterUncommittedWrite) {
   };
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::Open(Context::Default(), json_spec,
-                                    tensorstore::OpenMode::create)
-                      .result());
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
 
   auto write_future =
       tensorstore::Write(tensorstore::MakeScalarArray<std::int16_t>(42), store);
@@ -2107,10 +2040,10 @@ TEST(DriverTest, NoPrefix) {
       {"metadata", zarr_metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::Open(context, json_spec,
-                                    {tensorstore::OpenMode::create,
-                                     tensorstore::ReadWriteMode::read_write})
-                      .result());
+      auto store,
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
   TENSORSTORE_EXPECT_OK(tensorstore::Write(
       tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
       store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));

@@ -204,8 +204,13 @@ class JsonDriver
                              },
                              jb::DefaultInitializedValue()))));
 
-  static absl::Status ConvertSpec(SpecT<ContextUnbound>* spec,
-                                  const SpecRequestOptions& options) {
+  static absl::Status ApplyOptions(SpecT<ContextUnbound>& spec,
+                                   SpecOptions&& options) {
+    if (options.recheck_cached_data.specified()) {
+      spec.data_staleness = StalenessBound(options.recheck_cached_data);
+    } else if (options.recheck_cached_data.specified()) {
+      spec.data_staleness = StalenessBound(options.recheck_cached_metadata);
+    }
     return absl::OkStatus();
   }
 

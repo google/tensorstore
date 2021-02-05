@@ -686,8 +686,8 @@ TYPED_TEST(OpenNumericTest, Roundtrip) {
             },
         }}},
   };
-  auto context = Context::Default();
-  auto store = tensorstore::Open(context, json_spec).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   tensorstore::Open(json_spec).result());
   EXPECT_THAT(store.spec().value().ToJson(tensorstore::IncludeDefaults{false}),
               ::testing::Optional(json_spec));
   EXPECT_EQ(
@@ -703,23 +703,22 @@ TEST(OpenTest, RoundtripString) {
       {"transform",
        {{"input_exclusive_max", {2, 3}}, {"input_inclusive_min", {0, 0}}}},
   };
-  auto context = Context::Default();
-  auto store = tensorstore::Open(context, json_spec).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   tensorstore::Open(json_spec).result());
   EXPECT_THAT(store.spec().value().ToJson(tensorstore::IncludeDefaults{false}),
               ::testing::Optional(json_spec));
-  EXPECT_EQ(
-      tensorstore::MakeArray<std::string>({{"a", "b", "c"}, {"d", "e", "f"}}),
-      tensorstore::Read(store).value());
+  EXPECT_THAT(tensorstore::Read(store).result(),
+              ::testing::Optional(tensorstore::MakeArray<std::string>(
+                  {{"a", "b", "c"}, {"d", "e", "f"}})));
 }
 
 TEST(OpenTest, InvalidConversion) {
-  ::nlohmann::json json_spec{
-      {"driver", "array"},
-      {"array", {"a"}},
-      {"dtype", "int32"},
-  };
-  auto context = Context::Default();
-  EXPECT_THAT(tensorstore::Open(context, json_spec).result(),
+  EXPECT_THAT(tensorstore::Open({
+                                    {"driver", "array"},
+                                    {"array", {"a"}},
+                                    {"dtype", "int32"},
+                                })
+                  .result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*: Expected integer .*, but received: \"a\""));
 }
@@ -756,9 +755,7 @@ TEST(FromArrayTest, Spec) {
 }
 
 TEST(OpenTest, MissingDataType) {
-  auto context = Context::Default();
-  EXPECT_THAT(tensorstore::Open(context,
-                                ::nlohmann::json{
+  EXPECT_THAT(tensorstore::Open({
                                     {"driver", "array"},
                                     {"array", {{1, 2, 3}, {4, 5, 6}}},
                                 })
@@ -768,9 +765,7 @@ TEST(OpenTest, MissingDataType) {
 }
 
 TEST(OpenTest, InvalidTransformRank) {
-  auto context = Context::Default();
-  EXPECT_THAT(tensorstore::Open(context,
-                                ::nlohmann::json{
+  EXPECT_THAT(tensorstore::Open({
                                     {"driver", "array"},
                                     {"array", {{1, 2, 3}, {4, 5, 6}}},
                                     {"dtype", "int32"},
@@ -788,10 +783,8 @@ TEST(OpenTest, InvalidTransformRank) {
 }
 
 TEST(OpenTest, InvalidRank) {
-  auto context = Context::Default();
   EXPECT_THAT(
-      tensorstore::Open(context,
-                        ::nlohmann::json{
+      tensorstore::Open({
                             {"driver", "array"},
                             {"array", {{1, 2, 3}, {4, 5, 6}}},
                             {"dtype", "int32"},
@@ -810,10 +803,8 @@ TEST(CopyTest, SelfCopy) {
       tensorstore::FromArray(Context::Default(),
                              tensorstore::MakeArray<int>({1, 2, 3, 4})));
   TENSORSTORE_EXPECT_OK(
-      tensorstore::Copy(
-          ChainResult(store, tensorstore::Dims(0).SizedInterval(0, 2)),
-          ChainResult(store, tensorstore::Dims(0).SizedInterval(2, 2)))
-          .result());
+      tensorstore::Copy(store | tensorstore::Dims(0).SizedInterval(0, 2),
+                        store | tensorstore::Dims(0).SizedInterval(2, 2)));
   EXPECT_EQ(tensorstore::Read(store).result(),
             tensorstore::MakeArray<int>({1, 2, 1, 2}));
 }
@@ -846,8 +837,8 @@ TEST(ArrayTest, SpecFromArray) {
                    }},
               })));
 
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::Open(Context::Default(), spec).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   tensorstore::Open(spec).result());
   EXPECT_THAT(tensorstore::Read(store).result(),
               ::testing::Optional(orig_array));
 }

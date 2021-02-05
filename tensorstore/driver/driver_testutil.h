@@ -28,9 +28,9 @@
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/json_serialization_options.h"
-#include "tensorstore/spec_request_options.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/status_testutil.h"
 
 namespace tensorstore {
 namespace internal {
@@ -59,9 +59,25 @@ void RegisterTensorStoreDriverSpecRoundtripTest(
 
 /// Tests that applying `options` to `orig_spec` (via `Spec::Convert`) results
 /// in `expected_converted_spec`.
-void TestTensorStoreDriverSpecConvert(::nlohmann::json orig_spec,
-                                      const SpecRequestOptions& options,
-                                      ::nlohmann::json expected_converted_spec);
+void TestTensorStoreDriverSpecConvertImpl(
+    ::nlohmann::json orig_spec, ::nlohmann::json expected_converted_spec,
+    SpecConvertOptions&& options);
+
+template <typename... Option>
+std::enable_if_t<IsCompatibleOptionSequence<SpecConvertOptions, Option...>,
+                 void>
+TestTensorStoreDriverSpecConvert(::nlohmann::json orig_spec,
+                                 ::nlohmann::json expected_converted_spec,
+                                 Option&&... option) {
+  SpecConvertOptions options;
+  if (absl::Status status;
+      !((status = options.Set(std::forward<Option>(option))).ok() && ...)) {
+    TENSORSTORE_ASSERT_OK(status);
+  }
+  TestTensorStoreDriverSpecConvertImpl(std::move(orig_spec),
+                                       std::move(expected_converted_spec),
+                                       std::move(options));
+}
 
 struct TensorStoreDriverBasicFunctionalityTestOptions {
   std::string test_name;

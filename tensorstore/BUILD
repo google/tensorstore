@@ -345,7 +345,12 @@ tensorstore_cc_library(
     name = "open_mode",
     srcs = ["open_mode.cc"],
     hdrs = ["open_mode.h"],
-    deps = [":staleness_bound"],
+    deps = [
+        ":context",
+        ":staleness_bound",
+        ":transaction",
+        "@com_google_absl//absl/status",
+    ],
 )
 
 tensorstore_cc_test(
@@ -454,15 +459,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:type_traits",
         "//tensorstore/util:result",
         "@com_github_nlohmann_json//:nlohmann_json",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "spec_request_options",
-    hdrs = ["spec_request_options.h"],
-    deps = [
-        ":open_mode",
-        ":staleness_bound",
     ],
 )
 

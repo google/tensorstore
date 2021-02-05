@@ -59,9 +59,9 @@
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/open_mode.h"
 #include "tensorstore/progress.h"
 #include "tensorstore/resize_options.h"
-#include "tensorstore/spec_request_options.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -131,8 +131,13 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
 
   virtual ~DriverSpec();
 
-  /// Returns a new `DriverSpec` which may be modified according to `options`.
-  virtual Result<Ptr> Convert(const SpecRequestOptions& options) = 0;
+  /// Returns a copy.  This is used prior to calling `ApplyOptions` for
+  /// copy-on-write behavior.
+  virtual Ptr Clone() const = 0;
+
+  /// Modifies this `DriverSpec` according to `options`.  This must only be
+  /// called if `use_count() == 1`.
+  virtual absl::Status ApplyOptions(SpecOptions&& options) = 0;
 
   /// Resolves any `Context` resources and returns a `DriverSpec::Bound`.
   virtual Result<BoundPtr> Bind(Context context) const = 0;
@@ -218,6 +223,10 @@ struct TransformedDriverSpec {
   };
 };
 
+absl::Status ApplyOptions(DriverSpec::Ptr& spec, SpecOptions&& options);
+absl::Status TransformAndApplyOptions(TransformedDriverSpec<>& spec,
+                                      SpecOptions&& options);
+
 /// Options for loading a `TransformedDriverSpec<>` from JSON.
 ///
 /// The `DriverConstraints` constrain/provide defaults for the `"dtype"` and
@@ -294,8 +303,7 @@ class Driver : public AtomicReferenceCount<Driver> {
   ///     returned `DriverSpec`.
   virtual Result<TransformedDriverSpec<>> GetSpec(
       internal::OpenTransactionPtr transaction, IndexTransformView<> transform,
-      const SpecRequestOptions& options,
-      const ContextSpecBuilder& context_builder);
+      SpecOptions&& options, const ContextSpecBuilder& context_builder);
 
   /// Returns a `TransformedDriverSpec<ContextBound>` that can be used to
   /// re-open the TensorStore defined by this `Driver` and the specified
@@ -398,19 +406,16 @@ class Driver : public AtomicReferenceCount<Driver> {
   virtual ~Driver();
 };
 
-/// Opens a `TransformedDriverSpec<>` using the specified context.
+/// Opens a `TransformedDriverSpec<>` using the specified options.
 ///
 /// This simply chains `DriverSpec::Convert`, `DriverSpec::Bind`, and the
 /// `OpenDriver` overload defined below.
-Future<Driver::ReadWriteHandle> OpenDriver(Context context,
-                                           OpenTransactionPtr transaction,
+Future<Driver::ReadWriteHandle> OpenDriver(OpenTransactionPtr transaction,
                                            TransformedDriverSpec<> spec,
-                                           OpenOptions options);
+                                           OpenOptions&& options);
 
-Future<Driver::ReadWriteHandle> OpenDriver(Context context,
-                                           Transaction transaction,
-                                           TransformedDriverSpec<> spec,
-                                           OpenOptions options);
+Future<Driver::ReadWriteHandle> OpenDriver(TransformedDriverSpec<> spec,
+                                           TransactionalOpenOptions&& options);
 
 /// Opens a `TransformedDriverSpec<ContextBound>` using the specified
 /// `read_write_mode`.

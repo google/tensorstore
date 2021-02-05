@@ -18,7 +18,10 @@
 #include <iosfwd>
 #include <optional>
 
+#include "absl/status/status.h"
+#include "tensorstore/context.h"
 #include "tensorstore/staleness_bound.h"
+#include "tensorstore/transaction.h"
 
 namespace tensorstore {
 
@@ -102,35 +105,179 @@ constexpr inline bool IsModeExplicitlyConvertible(ReadWriteMode source,
 absl::string_view to_string(ReadWriteMode mode);
 std::ostream& operator<<(std::ostream& os, ReadWriteMode mode);
 
-/// Specifies options for opening a TensorStore.
-struct OpenOptions {
-  OpenOptions() = default;
+/// Indicates a minimal spec, i.e. missing information necessary to recreate.
+///
+/// This is an option for use with interfaces that accept `SpecRequestOptions`.
+class MinimalSpec {
+ public:
+  constexpr explicit MinimalSpec(bool minimal_spec = true)
+      : minimal_spec_(minimal_spec) {}
+  bool minimal_spec() const { return minimal_spec_; }
 
-  OpenOptions(std::optional<OpenMode> open_mode,
-              ReadWriteMode read_write_mode = ReadWriteMode::dynamic,
-              std::optional<StalenessBounds> staleness = {})
-      : open_mode(open_mode),
-        read_write_mode(read_write_mode),
-        staleness(staleness) {}
-
-  OpenOptions(OpenMode open_mode,
-              ReadWriteMode read_write_mode = ReadWriteMode::dynamic,
-              std::optional<StalenessBounds> staleness = {})
-      : open_mode(open_mode),
-        read_write_mode(read_write_mode),
-        staleness(staleness) {}
-
-  OpenOptions(ReadWriteMode read_write_mode,
-              std::optional<StalenessBounds> staleness = {})
-      : read_write_mode(read_write_mode), staleness(staleness) {}
-
-  OpenOptions(std::optional<StalenessBounds> staleness)
-      : staleness(staleness) {}
-
-  std::optional<OpenMode> open_mode;
-  ReadWriteMode read_write_mode = ReadWriteMode::dynamic;
-  std::optional<StalenessBounds> staleness;
+ private:
+  bool minimal_spec_;
 };
+
+/// Options for mutating `Spec` objects.
+struct SpecOptions {
+  OpenMode open_mode = {};
+  RecheckCachedData recheck_cached_data;
+  RecheckCachedMetadata recheck_cached_metadata;
+  bool minimal_spec = false;
+
+  /// Excludes `MinimalSpec`.
+  template <typename T>
+  constexpr static inline bool IsCommonOption = false;
+
+  absl::Status Set(OpenMode mode) {
+    open_mode = open_mode | mode;
+    return absl::OkStatus();
+  }
+
+  absl::Status Set(RecheckCachedData value) {
+    if (value.specified()) {
+      recheck_cached_data = value;
+    }
+    return absl::OkStatus();
+  }
+
+  absl::Status Set(RecheckCachedMetadata value) {
+    if (value.specified()) {
+      recheck_cached_metadata = value;
+    }
+    return absl::OkStatus();
+  }
+
+  absl::Status Set(RecheckCached value) {
+    if (value.specified()) {
+      static_cast<RecheckCacheOption&>(recheck_cached_data) = value;
+      static_cast<RecheckCacheOption&>(recheck_cached_metadata) = value;
+    }
+    return absl::OkStatus();
+  }
+};
+
+// While C++17 allows these explicit specialization to be defined at class
+// scope, GCC does not support that:
+// https://gcc.gnu.org/bugzilla/show_bug.cgi?id=85282
+template <>
+constexpr inline bool SpecOptions::IsCommonOption<OpenMode> = true;
+
+template <>
+constexpr inline bool SpecOptions::IsCommonOption<RecheckCachedData> = true;
+
+template <>
+constexpr inline bool SpecOptions::IsCommonOption<RecheckCachedMetadata> = true;
+
+template <>
+constexpr inline bool SpecOptions::IsCommonOption<RecheckCached> = true;
+
+/// Options for requesting a `Spec` from an open `TensorStore`.
+struct SpecRequestOptions : public SpecOptions {
+  template <typename T>
+  constexpr static inline bool IsOption = SpecOptions::IsCommonOption<T>;
+
+  using SpecOptions::Set;
+
+  absl::Status Set(MinimalSpec value) {
+    minimal_spec = value.minimal_spec();
+    return absl::OkStatus();
+  }
+};
+
+template <>
+constexpr inline bool SpecRequestOptions::IsOption<MinimalSpec> = true;
+
+/// Options for converting an existing `Spec`.
+struct SpecConvertOptions : public SpecRequestOptions {
+  template <typename T>
+  constexpr static inline bool IsOption = SpecRequestOptions::IsOption<T>;
+
+  using SpecRequestOptions::Set;
+};
+
+/// Options for opening a `Spec`.
+struct OpenOptions : public SpecOptions {
+  Context context;
+  ReadWriteMode read_write_mode = ReadWriteMode::dynamic;
+
+  // Supports all common options of `SpecOptions`.
+  template <typename T>
+  constexpr static inline bool IsOption = SpecOptions::IsCommonOption<T>;
+  using SpecOptions::Set;
+
+  // Additionally supports `ReadWriteMode`.
+
+  absl::Status Set(ReadWriteMode value) {
+    read_write_mode = read_write_mode | value;
+    return absl::OkStatus();
+  }
+
+  // Additionally supports `Context`.
+
+  absl::Status Set(Context value) {
+    context = std::move(value);
+    return absl::OkStatus();
+  }
+};
+
+template <>
+constexpr inline bool OpenOptions::IsOption<ReadWriteMode> = true;
+
+template <>
+constexpr inline bool OpenOptions::IsOption<Context> = true;
+
+/// Options for opening a `Spec` with optional transaction.
+struct TransactionalOpenOptions : public OpenOptions {
+  Transaction transaction{no_transaction};
+
+  // Supports all options of `OpenOptions`.
+  template <typename T>
+  constexpr static inline bool IsOption = OpenOptions::IsOption<T>;
+  using OpenOptions::Set;
+
+  // Additionally supports `Transaction`.
+  absl::Status Set(Transaction value) {
+    transaction = std::move(value);
+    return absl::OkStatus();
+  }
+};
+
+template <>
+constexpr inline bool TransactionalOpenOptions::IsOption<Transaction> = true;
+
+template <typename Options, typename... Option>
+constexpr inline bool IsCompatibleOptionSequence =
+    (Options::template IsOption<internal::remove_cvref_t<Option>> && ...);
+
+/// Collects a parameter pack of options into an options type.
+///
+/// Intended to be used in a function scope.  Defines a local variable named
+/// `OPTIONS_NAME` of type `OPTIONS_TYPE`, and attempts to set each of the
+/// options specified by `OPTIONS_PACK`.  If setting an option fails with an
+/// error status, it is returned.
+///
+/// Example usage:
+///
+///     template <typename... Option>
+///     std::enable_if_t<IsCompatibleOptionSequence<OpenOptions, Option...>,
+///                      Result<Whatever>>
+///     MyFunction(Option&&... option) {
+///       TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(
+///           OpenOptions, options, option);
+///       // use `options`
+///     }
+#define TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(          \
+    OPTIONS_TYPE, OPTIONS_NAME, OPTION_PACK)                    \
+  OPTIONS_TYPE OPTIONS_NAME;                                    \
+  if (absl::Status status;                                      \
+      !((status = OPTIONS_NAME.Set(                             \
+             std::forward<decltype(OPTION_PACK)>(OPTION_PACK))) \
+            .ok() &&                                            \
+        ...)) {                                                 \
+    return status;                                              \
+  }                                                             \
+  /**/
 
 namespace internal {
 

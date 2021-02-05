@@ -471,8 +471,8 @@ class DriverBase : public internal::ChunkCacheDriver {
       internal::OpenTransactionPtr transaction,
       SpecT<internal::ContextBound>* spec, IndexTransformView<> transform);
 
-  static Status ConvertSpec(SpecT<internal::ContextUnbound>* spec,
-                            const SpecRequestOptions& options);
+  static absl::Status ApplyOptions(SpecT<internal::ContextUnbound>& spec,
+                                   SpecOptions&& options);
 
  private:
   StalenessBound metadata_staleness_bound_;

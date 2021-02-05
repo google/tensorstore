@@ -20,11 +20,101 @@
 
 namespace tensorstore {
 
+/// Specifies time bound on cached data that may be used without revalidation.
+struct RecheckCacheOption {
+  constexpr explicit RecheckCacheOption() {}
+  constexpr explicit RecheckCacheOption(bool value)
+      : RecheckCacheOption(value ? absl::InfiniteFuture()
+                                 : absl::InfinitePast()) {}
+  constexpr explicit RecheckCacheOption(absl::Time time)
+      : time(time), flags(kSpecified) {}
+  static constexpr RecheckCacheOption AtOpen() {
+    RecheckCacheOption option;
+    option.flags = kAtOpen;
+    return option;
+  }
+  enum Flags {
+    /// No bound has been specified.
+    kUnspecified,
+    /// Data must not be older than the specified `time`.
+    kSpecified,
+    /// Data must not be older than the time at which the Spec is opened.
+    kAtOpen,
+  };
+  /// If `flags == kSpecified`, data must not be older than `time`.
+  absl::Time time = absl::InfiniteFuture();
+  Flags flags = kUnspecified;
+  constexpr bool specified() const { return flags != kUnspecified; }
+};
+
+/// Specifies time bound on cached array data (as opposed to metadata).
+///
+/// This is for use with `SpecOptions` and is applicable to drivers that perform
+/// caching.
+///
+/// `RecheckCachedData{time}` indicates that cached data older than `time` will
+/// be rechecked before it is returned; data not older than `time` is assumed to
+/// be valid (no requests are made to validate it).
+///
+/// `RecheckCachedData{true}` indicates that cached data is always rechecked
+/// before it is returned, and is equivalent to
+/// `RecheckCachedData{absl::InfiniteFuture()}`.
+///
+/// `RecheckCachedData{false}` indicates that cached data is always returned
+/// without rechecking, and is equivalent to
+/// `RecheckCachedData{absl::InfiniteFuture()}`.
+///
+/// `RecheckCacheData::AtOpen()` indicates that cached older than the time at
+/// which the TensorStore was opened will be rechecked before it is returned;
+/// data not older than the open time is assumed to be valid.
+struct RecheckCachedData : public RecheckCacheOption {
+  constexpr explicit RecheckCachedData(RecheckCacheOption option)
+      : RecheckCacheOption(option) {}
+  using RecheckCacheOption::RecheckCacheOption;
+  static constexpr RecheckCachedData AtOpen() {
+    return RecheckCachedData(RecheckCacheOption::AtOpen());
+  }
+};
+
+/// Specifies time bound on cached metadata (as opposed to actual array data).
+///
+/// This is for use with `SpecOptions` and is applicable to drivers that perform
+/// caching, and distinguish between data and metadata.
+///
+/// The usage is the same as for `RecheckCachedData`.
+struct RecheckCachedMetadata : public RecheckCacheOption {
+  constexpr explicit RecheckCachedMetadata(RecheckCacheOption option)
+      : RecheckCacheOption(option) {}
+  using RecheckCacheOption::RecheckCacheOption;
+  static constexpr RecheckCachedMetadata AtOpen() {
+    return RecheckCachedMetadata(RecheckCacheOption::AtOpen());
+  }
+};
+
+/// Specifies the same time bound for both cached array data and metadata.
+///
+/// This is for use with `SpecOptions` and is applicable to drivers that perform
+/// caching.
+///
+/// The usage is the same as for `RecheckCachedData`.
+struct RecheckCached : public RecheckCacheOption {
+  constexpr explicit RecheckCached(RecheckCacheOption option)
+      : RecheckCacheOption(option) {}
+  using RecheckCacheOption::RecheckCacheOption;
+  static constexpr RecheckCached AtOpen() {
+    return RecheckCached(RecheckCacheOption::AtOpen());
+  }
+};
+
 class StalenessBound : public absl::Time {
  public:
   /// The default StalenessBound of `absl::InfiniteFuture()` ensures data is
   /// never stale.
   StalenessBound() : absl::Time(absl::InfiniteFuture()) {}
+
+  StalenessBound(RecheckCacheOption option)
+      : absl::Time(option.time),
+        bounded_by_open_time(option.flags == RecheckCacheOption::kAtOpen) {}
 
   StalenessBound(absl::Time newer_than_time) : absl::Time(newer_than_time) {}
 
