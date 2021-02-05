@@ -30,6 +30,11 @@ source_encoding = 'utf-8'
 # Don't include "View page source" links, since they aren't very helpful,
 # especially for generated pages.
 html_show_sourcelink = False
+html_copy_source = False
+
+# Skip unnecessary footer text.
+html_show_sphinx = False
+html_show_copyright = False
 
 extensions = [
     'sphinx_rtd_theme',

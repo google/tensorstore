@@ -92,7 +92,7 @@ The build is affected by the following environment variables:
 .. envvar:: TENSORSTORE_BAZEL_COMPILATION_MODE
 
    Bazel `compilation mode
-   <https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode>`
+   <https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode>`_
    to use.  Defaults to ``opt`` (optimized build).
 
 .. envvar:: TENSORSTORE_BAZEL_STARTUP_OPTIONS
