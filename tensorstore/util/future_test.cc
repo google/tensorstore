@@ -1730,4 +1730,14 @@ TEST(FutureTest, SetDeferredResultAfterReady) {
   EXPECT_THAT(future.result(), ::testing::Optional(1));
 }
 
+// Tests that `RETURN_IF_ERROR` saves the status before the expression lifetime
+// ends.
+TEST(FutureTest, ReturnIfError) {
+  auto do_test = [] {
+    TENSORSTORE_RETURN_IF_ERROR(MakeReadyFuture<int>(42).result(), false);
+    return true;
+  };
+  EXPECT_EQ(true, do_test());
+}
+
 }  // namespace

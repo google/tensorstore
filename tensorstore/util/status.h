@@ -131,13 +131,9 @@ namespace internal {
 // preprocessor limitations.
 
 #define TENSORSTORE_INTERNAL_RETURN_IF_ERROR_IMPL(expr, error_expr, ...) \
-  for (auto&& tensorstore_return_if_error_value = (expr);                \
-       ABSL_PREDICT_FALSE(!tensorstore_return_if_error_value.ok());)     \
-    for (auto _ = ::tensorstore::GetStatus(                              \
-             static_cast<decltype(tensorstore_return_if_error_value)&&>( \
-                 tensorstore_return_if_error_value));                    \
-         ;)                                                              \
-  return error_expr
+  for (absl::Status _ = ::tensorstore::GetStatus(expr);                  \
+       ABSL_PREDICT_FALSE(!_.ok());)                                     \
+  return error_expr /**/
 
 /// This macro should be called with a single C++ expression.  We use a variadic
 /// macro to allow calls like TENSORSTORE_CHECK_OK(foo<1,2>()).
