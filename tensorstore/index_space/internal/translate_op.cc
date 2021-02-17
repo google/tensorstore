@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "tensorstore/index_space/internal/translate_op.h"
+
 #include "absl/container/fixed_array.h"
 #include "tensorstore/internal/integer_overflow.h"
 
@@ -68,7 +69,7 @@ Status TranslateOutputOffsetsUsingInputOffsets(TransformRep* transform,
 
 Result<IndexTransform<>> ApplyTranslate(IndexTransform<> transform,
                                         DimensionIndexBuffer* dimensions,
-                                        IndexVectorOrScalar offsets,
+                                        IndexVectorOrScalarView offsets,
                                         bool translate_to) {
   const DimensionIndex num_dims = dimensions->size();
   const DimensionIndex input_rank = transform.input_rank();

@@ -27,7 +27,7 @@
 
 #include "python/tensorstore/dim_expression.h"
 #include "python/tensorstore/index.h"
-#include "python/tensorstore/indexing_spec.h"
+#include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/subscript_method.h"
@@ -207,33 +207,37 @@ void DefineIndexTransformOperations(pybind11::class_<T, ClassOptions...>* cls,
                                                     apply_transform](
                                                        auto assign) {
     return [get_transform, apply_transform, assign](
-               Self self, IndexingSpec spec,
+               Self self, NumpyIndexingSpec spec,
                typename FunctionArgType<
                    1, py::detail::function_signature_t<decltype(assign)>>::type
                    source) {
       IndexTransform<> transform = get_transform(self);
       transform = ValueOrThrow(
-          [&] {
+          [&]() -> Result<IndexTransform<>> {
             py::gil_scoped_release gil_release;
-            return ComposeTransforms(
-                std::move(transform),
+            TENSORSTORE_ASSIGN_OR_RETURN(
+                auto spec_transform,
                 ToIndexTransform(spec, transform.domain()));
+            return ComposeTransforms(std::move(transform),
+                                     std::move(spec_transform));
           }(),
           StatusExceptionPolicy::kIndexError);
       return assign(apply_transform(std::move(self), std::move(transform)),
                     source);
     };
   };
-  DefineIndexingMethods<IndexingSpec::Usage::kDirect>(
+  DefineIndexingMethods<NumpyIndexingSpec::Usage::kDirect>(
       cls,
-      [get_transform, apply_transform](Self self, IndexingSpec spec) {
+      [get_transform, apply_transform](Self self, NumpyIndexingSpec spec) {
         IndexTransform<> transform = get_transform(self);
         transform = ValueOrThrow(
-            [&] {
+            [&]() -> Result<IndexTransform<>> {
               py::gil_scoped_release gil_release;
-              return ComposeTransforms(
-                  std::move(transform),
+              TENSORSTORE_ASSIGN_OR_RETURN(
+                  auto spec_transform,
                   ToIndexTransform(spec, transform.domain()));
+              return ComposeTransforms(std::move(transform),
+                                       std::move(spec_transform));
             }(),
             StatusExceptionPolicy::kIndexError);
         return apply_transform(std::move(self), std::move(transform));

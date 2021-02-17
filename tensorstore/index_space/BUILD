@@ -703,6 +703,28 @@ tensorstore_cc_test(
     ],
 )
 
+tensorstore_cc_library(
+    name = "numpy_indexing_spec",
+    srcs = ["internal/numpy_indexing_spec.cc"],
+    hdrs = ["internal/numpy_indexing_spec.h"],
+    deps = [
+        ":dimension_identifier",
+        ":dimension_index_buffer",
+        ":dimension_selection",
+        ":index_transform",
+        ":index_transform_builder",
+        ":index_vector_or_scalar",
+        "//tensorstore:array",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore/internal:container_to_shared",
+        "//tensorstore/util:constant_vector",
+        "//tensorstore/util:iterate",
+        "//tensorstore/util:span",
+        "//tensorstore/util:str_cat",
+    ],
+)
+
 tensorstore_cc_test(
     name = "output_index_map_test",
     size = "small",

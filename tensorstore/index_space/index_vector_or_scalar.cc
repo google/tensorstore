@@ -22,7 +22,8 @@
 namespace tensorstore {
 namespace internal_index_space {
 
-Status CheckIndexVectorSize(IndexVectorOrScalar indices, DimensionIndex size) {
+Status CheckIndexVectorSize(IndexVectorOrScalarView indices,
+                            DimensionIndex size) {
   if (indices.pointer && indices.size_or_scalar != size)
     return absl::InvalidArgumentError(StrCat(
         "Number of dimensions (", size, ") does not match number of indices (",

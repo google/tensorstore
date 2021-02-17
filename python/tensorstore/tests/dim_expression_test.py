@@ -172,7 +172,7 @@ def test_add_new():
 def test_add_new_invalid_rank():
   x = ts.IndexTransform(input_shape=[2, 3], input_labels=["x", "y"])
   expr = ts.d[0:32][ts.newaxis]
-  with pytest.raises(ValueError):
+  with pytest.raises(IndexError):
     x[expr]
 
 

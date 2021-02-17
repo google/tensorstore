@@ -26,6 +26,7 @@
 #include "pybind11/stl.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/internal/numpy_indexing_spec.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -42,10 +43,6 @@ struct OptionallyImplicitIndex {
   constexpr operator Index() const { return value; }
 };
 
-/// Converts `kImplicit` -> `"None"`, other values to decimal integer
-/// representation.
-std::string OptionallyImplicitIndexRepr(Index value);
-
 /// Wrapper type used for `DimensionIndex` parameters to pybind11-exposed
 /// functions.
 struct PythonDimensionIndex {
@@ -55,22 +52,20 @@ struct PythonDimensionIndex {
   operator DimensionIndex() const { return value; }
 };
 
-/// Represents either an integer index or vector of integer indices.
-///
-/// We can't use `tensorstore::internal_index_space::IndexVectorOrScalar`, since
-/// that merely references a vector, but does not own it.
-using IndexVectorOrScalarContainer = std::variant<std::vector<Index>, Index>;
+using internal_index_space::IndexVectorOrScalarContainer;
 
 /// Represents either a single integer index or vector of integer indices, where
 /// `kImplicit` (represented by `None` in Python) is permitted.
 using OptionallyImplicitIndexVectorOrScalarContainer =
     std::variant<std::vector<OptionallyImplicitIndex>, OptionallyImplicitIndex>;
 
-/// Converts `x` to an `IndexVectorOrScalar`, mapping `kImplicit` to
+/// Converts `x` to an `IndexVectorOrScalarView`, mapping `kImplicit` to
 /// `implicit_value`.
 IndexVectorOrScalarContainer ToIndexVectorOrScalarContainer(
     const OptionallyImplicitIndexVectorOrScalarContainer& x,
     Index implicit_value = kImplicit);
+
+using internal::OptionallyImplicitIndexRepr;
 
 /// Returns a Python expression representation of an
 /// `IndexVectorOrScalarContainer`.
@@ -81,10 +76,6 @@ IndexVectorOrScalarContainer ToIndexVectorOrScalarContainer(
 /// \param subscript If `false`, format vectors as a Python array.
 std::string IndexVectorRepr(const IndexVectorOrScalarContainer& x,
                             bool implicit = false, bool subscript = false);
-
-/// Returns an `IndexVectorOrScalar` that references `x`.
-internal_index_space::IndexVectorOrScalar ToIndexVectorOrScalar(
-    const IndexVectorOrScalarContainer& x);
 
 }  // namespace internal_python
 }  // namespace tensorstore

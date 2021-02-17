@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "absl/strings/escaping.h"
-#include "python/tensorstore/indexing_spec.h"
+#include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/subscript_method.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
@@ -89,8 +89,7 @@ class PythonTranslateOp : public PythonDimExpression {
     TENSORSTORE_ASSIGN_OR_RETURN(transform,
                                  parent_->Apply(std::move(transform), buffer));
     return internal_index_space::ApplyTranslate(std::move(transform), buffer,
-                                                ToIndexVectorOrScalar(indices_),
-                                                translate_to_);
+                                                indices_, translate_to_);
   }
 
  private:
@@ -117,7 +116,7 @@ class PythonStrideOp : public PythonDimExpression {
     TENSORSTORE_ASSIGN_OR_RETURN(transform,
                                  parent_->Apply(std::move(transform), buffer));
     return internal_index_space::ApplyStrideOp(std::move(transform), buffer,
-                                               ToIndexVectorOrScalar(strides_));
+                                               strides_);
   }
 
  private:
@@ -260,24 +259,26 @@ class PythonTransposeOp : public PythonDimExpression {
 class PythonIndexOp : public PythonDimExpression {
  public:
   explicit PythonIndexOp(std::shared_ptr<const PythonDimExpressionBase> parent,
-                         IndexingSpec spec)
+                         NumpyIndexingSpec spec)
       : parent_(std::move(parent)), spec_(std::move(spec)) {}
   std::string repr() const override {
     return StrCat(parent_->repr(), GetIndexingModePrefix(spec_.mode), "[",
-                  spec_.repr(), "]");
+                  IndexingSpecRepr(spec_), "]");
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
                                  DimensionIndexBuffer* buffer) const override {
     TENSORSTORE_ASSIGN_OR_RETURN(transform,
                                  parent_->Apply(std::move(transform), buffer));
-    auto new_transform = ToIndexTransform(spec_, transform.domain(), buffer);
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto new_transform,
+        ToIndexTransform(spec_, transform.domain(), buffer));
     return ComposeTransforms(transform, std::move(new_transform));
   }
 
  private:
   std::shared_ptr<const PythonDimExpressionBase> parent_;
-  IndexingSpec spec_;
+  NumpyIndexingSpec spec_;
 };
 
 /// Represents a NumPy-style indexing operation that is applied as the first
@@ -286,23 +287,24 @@ class PythonIndexOp : public PythonDimExpression {
 class PythonInitialIndexOp : public PythonDimExpression {
  public:
   explicit PythonInitialIndexOp(
-      std::shared_ptr<const DimensionSelection> parent, IndexingSpec spec)
+      std::shared_ptr<const DimensionSelection> parent, NumpyIndexingSpec spec)
       : parent_(std::move(parent)), spec_(std::move(spec)) {}
   std::string repr() const override {
     return StrCat(parent_->repr(), GetIndexingModePrefix(spec_.mode), "[",
-                  spec_.repr(), "]");
+                  IndexingSpecRepr(spec_), "]");
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
                                  DimensionIndexBuffer* buffer) const override {
-    auto new_transform =
-        ToIndexTransform(spec_, transform.domain(), parent_->dims, buffer);
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto new_transform,
+        ToIndexTransform(spec_, transform.domain(), parent_->dims, buffer));
     return ComposeTransforms(transform, std::move(new_transform));
   }
 
  private:
   std::shared_ptr<const DimensionSelection> parent_;
-  IndexingSpec spec_;
+  NumpyIndexingSpec spec_;
 };
 
 namespace {
@@ -364,10 +366,10 @@ dimensions to which an indexing operation applies.
           [](DimensionSelectionLike selection) { return selection.value; },
           py::arg("selection"));
 
-  DefineIndexingMethods<IndexingSpec::Usage::kDimSelectionInitial>(
+  DefineIndexingMethods<NumpyIndexingSpec::Usage::kDimSelectionInitial>(
       &dimension_selection_class,
       [](std::shared_ptr<DimensionSelection> self,
-         IndexingSpec spec) -> std::shared_ptr<PythonDimExpression> {
+         NumpyIndexingSpec spec) -> std::shared_ptr<PythonDimExpression> {
         return std::make_shared<PythonInitialIndexOp>(std::move(self),
                                                       std::move(spec));
       });
@@ -378,10 +380,10 @@ dimensions to which an indexing operation applies.
              std::shared_ptr<PythonDimExpression>>
       dim_expression_class(m, "DimExpression");
 
-  DefineIndexingMethods<IndexingSpec::Usage::kDimSelectionChained>(
+  DefineIndexingMethods<NumpyIndexingSpec::Usage::kDimSelectionChained>(
       &dim_expression_class,
       [](std::shared_ptr<PythonDimExpression> self,
-         IndexingSpec spec) -> std::shared_ptr<PythonDimExpression> {
+         NumpyIndexingSpec spec) -> std::shared_ptr<PythonDimExpression> {
         return std::make_shared<PythonIndexOp>(std::move(self),
                                                std::move(spec));
       });

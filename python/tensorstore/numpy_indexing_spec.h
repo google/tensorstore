@@ -75,7 +75,8 @@ class CastableNumpyIndexingSpec : public NumpyIndexingSpec {};
 /// \tparam Mode The mode of the `NumpyIndexingSpec`.
 /// \param cls Pointer to object that supports a pybind11 `def` method.
 /// \param func Function that takes `(Self self, NumpyIndexingSpec spec)`
-///     parameters to be exposed as `__getitem__`.
+/// parameters
+///     to be exposed as `__getitem__`.
 /// \param assign Zero or more functions that take
 ///     `(Self self, NumpyIndexingSpec spec, Source source)` parameters to be
 ///     exposed as `__setitem__` overloads.
@@ -116,7 +117,8 @@ void DefineIndexingMethodsForMode(Cls* cls, Func func, Assign... assign) {
 /// \tparam Usage The usage mode corresponding to `cls`.
 /// \param cls The pybind11 class for which to define the operations.
 /// \param func Function that takes `(Self self, NumpyIndexingSpec spec)`
-///     parameters to be exposed as `__getitem__`.
+/// parameters
+///     to be exposed as `__getitem__`.
 /// \param assign Zero or more functions that take
 ///     `(Self self, NumpyIndexingSpec spec, Source source)` to be exposed as
 ///     `__setitem__`.

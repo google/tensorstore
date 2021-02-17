@@ -27,8 +27,8 @@
 #include <nlohmann/json.hpp>
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/dim_expression.h"
-#include "python/tensorstore/indexing_spec.h"
 #include "python/tensorstore/json_type_caster.h"
+#include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
 #include "pybind11/numpy.h"
@@ -909,10 +909,10 @@ This is simply the product of the extents in :py:obj:`.shape`.)")
   py::implicitly_convertible<std::vector<IndexDomainDimension<>>,
                              IndexDomain<>>();
 
-  py::class_<IndexTransform<>> index_transform_class(
+  py::class_<IndexTransform<>> cls_index_transform(
       m, "IndexTransform", "Represents a transform between two index spaces.");
 
-  index_transform_class
+  cls_index_transform
       .def(py::init([](std::optional<DimensionIndex> input_rank,
                        std::optional<std::vector<Index>> input_inclusive_min,
                        std::optional<std::vector<bool>> implicit_lower_bounds,
@@ -1077,9 +1077,9 @@ This is simply the product of the extents in :py:obj:`.shape`.)")
             SetOutputIndexMaps(output, &builder);
             return ValueOrThrow(builder.Finalize());
           }));
-  index_transform_class.attr("__iter__") = py::none();
+  cls_index_transform.attr("__iter__") = py::none();
   DefineIndexTransformOperations(
-      &index_transform_class, [](IndexTransform<> self) { return self; },
+      &cls_index_transform, [](IndexTransform<> self) { return self; },
       [](IndexTransform<> self, IndexTransform<> new_transform) {
         return new_transform;
       });

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "python/tensorstore/indexing_spec.h"
+#include "tensorstore/index_space/internal/numpy_indexing_spec.h"
 
 #include <algorithm>
 #include <cassert>
@@ -24,82 +24,36 @@
 #include <variant>
 #include <vector>
 
-#include "absl/container/fixed_array.h"
-#include "absl/container/inlined_vector.h"
-#include "absl/status/status.h"
-#include "absl/strings/string_view.h"
-#include "python/tensorstore/array_type_caster.h"
-#include "python/tensorstore/data_type.h"
-#include "python/tensorstore/index.h"
-#include "python/tensorstore/result_type_caster.h"
-#include "python/tensorstore/status.h"
-#include "pybind11/numpy.h"
-#include "pybind11/pybind11.h"
 #include "tensorstore/array.h"
-#include "tensorstore/container_kind.h"
-#include "tensorstore/contiguous_layout.h"
-#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/index_space/internal/dimension_selection.h"
 #include "tensorstore/internal/container_to_shared.h"
-#include "tensorstore/rank.h"
-#include "tensorstore/static_cast.h"
-#include "tensorstore/strided_layout.h"
-#include "tensorstore/util/assert_macros.h"
-#include "tensorstore/util/bit_span.h"
-#include "tensorstore/util/byte_strided_pointer.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/iterate.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
-namespace internal_python {
+namespace internal {
 
-namespace py = ::pybind11;
-
-namespace {
-
-using pybind11::detail::npy_api;
-
-/// Increments `indices` in C order relative to `shape`.
-///
-/// \dchecks `shape.size() == indices.size()`
-void IncrementIndices(span<const Index> shape, span<Index> indices) {
-  assert(shape.size() == indices.size());
-  for (DimensionIndex i = indices.size() - 1; i >= 0; --i) {
-    if (indices[i] + 1 < shape[i]) {
-      ++indices[i];
-      break;
-    }
-    indices[i] = 0;
-  }
-}
-
-/// Returns an array of shape `{mask.rank(), N}` specifying the indices of the
-/// true values in `mask`.
-///
-/// This is used to convert bool arrays in a NumPy-style indexing spec to the
-/// index array representation used by `IndexTransform`.
 SharedArray<Index> GetBoolTrueIndices(ArrayView<const bool> mask) {
   // TODO(jbms): Make this more efficient, possibly using some of the same
   // tricks as in NumPy (see array_boolean_subscript in
   // numpy/core/src/multiarray/mapping.c).
   std::vector<Index> indices;
-  absl::FixedArray<Index, internal::kNumInlinedDims> cur_indices(mask.rank(),
-                                                                 0);
+  Index cur_indices[kMaxRank] = {0};
   IterateOverArrays(
       [&](const bool* x) {
         if (*x) {
-          indices.insert(indices.end(), cur_indices.begin(), cur_indices.end());
+          indices.insert(indices.end(), &cur_indices[0],
+                         cur_indices + mask.rank());
         }
-        IncrementIndices(mask.shape(), cur_indices);
+        internal::AdvanceIndices(mask.rank(), cur_indices, mask.shape().data());
       },
       c_order, mask);
   const Index num_elements = indices.size() / mask.rank();
@@ -113,28 +67,29 @@ SharedArray<Index> GetBoolTrueIndices(ArrayView<const bool> mask) {
 /// \param spec The indexing spec.
 /// \param selection_rank The number of dimensions to which `spec` will be
 ///     applied.
-/// \throws `py::index_error` if the result would be negative.
-DimensionIndex GetNumEllipsisDims(const IndexingSpec& spec,
-                                  DimensionIndex selection_rank) {
+/// \error `absl::StatusCode::kInvalidArgument` if the result would be negative.
+Result<DimensionIndex> GetNumEllipsisDims(const NumpyIndexingSpec& spec,
+                                          DimensionIndex selection_rank) {
   const DimensionIndex num_ellipsis_dims =
       selection_rank - spec.num_output_dims - spec.num_new_dims;
   if (num_ellipsis_dims < 0 || (!spec.has_ellipsis && num_ellipsis_dims != 0)) {
-    throw py::index_error(StrCat("Indexing expression requires ",
-                                 spec.num_output_dims + spec.num_new_dims,
-                                 " dimensions but selection has ",
-                                 selection_rank, " dimensions"));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Indexing expression requires ",
+        spec.num_output_dims + spec.num_new_dims,
+        " dimensions but selection has ", selection_rank, " dimensions"));
   }
   return num_ellipsis_dims;
 }
 
 /// Computes the mapping between the "intermediate" domain and the new "input"
-/// domain that results from applying an `IndexingSpec` to an existing "output"
-/// domain.
+/// domain that results from applying an `NumpyIndexingSpec` to an existing
+/// "output" domain.
 ///
 /// This is used by the overloads of `ToIndexTransform` for the cases where a
-/// dimension selection is used, i.e. `usage != IndexingSpec::Usage::kDirect`.
+/// dimension selection is used,
+/// i.e. `usage != NumpyIndexingSpec::Usage::kDirect`.
 ///
-/// When we apply an `IndexingSpec` which may contain `NewAxis` terms to an
+/// When we apply an `NumpyIndexingSpec` which may contain `NewAxis` terms to an
 /// existing "output" domain, there is an implicit "intermediate" domain that is
 /// obtained from the "output" domain by inserting any new singleton dimensions
 /// due to `NewAxis` terms but leaving all other dimensions as is.  (We refer to
@@ -142,7 +97,7 @@ DimensionIndex GetNumEllipsisDims(const IndexingSpec& spec,
 /// `IndexTransform` that maps from a new "input" domain to this existing
 /// "output" domain.)
 ///
-/// If `IndexingSpec` does not contain `NewAxis` terms, the "intermediate"
+/// If `NumpyIndexingSpec` does not contain `NewAxis` terms, the "intermediate"
 /// domain is equal to the "output" domain.
 ///
 /// Any dimension indices specified in the input dimension selection are
@@ -151,7 +106,7 @@ DimensionIndex GetNumEllipsisDims(const IndexingSpec& spec,
 /// of the new singleton dimensions.
 ///
 /// \param spec The indexing spec, must have
-///     `spec.usage != IndexingSpec::Usage::kDirect`.
+///     `spec.usage != NumpyIndexingSpec::Usage::kDirect`.
 /// \param intermediate_rank The rank of the "intermediate" domain.
 /// \param selected_dims The resolved dimension selection to which `spec`
 ///     applies.  Each element must be in `[0, intermediate_rank)`.
@@ -161,15 +116,15 @@ DimensionIndex GetNumEllipsisDims(const IndexingSpec& spec,
 ///     generated by the terms of `spec`, ordered by the order of the terms in
 ///     `spec`, not the numerical order in the "input" domain.  We call these
 ///     "indexed" input dimensions because they correspond to terms in the
-///     `IndexingSpec`.
+///     `NumpyIndexingSpec`.
 /// \param unindexed_input_dims[out] Array of length `input_rank` that maps each
 ///     dimension `input_dim` of the new "input" domain that is not in
 ///     `indexed_input_dims` to the corresponding "intermediate" dimension index
 ///     (these dimensions simply "pass through" unmodified).  We call these
 ///     "unindexed" input dimensions because they do not correspond to terms in
-///     the `IndexingSpec`.  If `input_dim` is in `indexed_input_dims`, it maps
-///     to `-1` instead.
-void GetIndexedInputDims(const IndexingSpec& spec,
+///     the `NumpyIndexingSpec`.  If `input_dim` is in `indexed_input_dims`, it
+///     maps to `-1` instead.
+void GetIndexedInputDims(const NumpyIndexingSpec& spec,
                          DimensionIndex intermediate_rank,
                          span<const DimensionIndex> selected_dims,
                          span<DimensionIndex> indexed_input_dims,
@@ -192,8 +147,8 @@ void GetIndexedInputDims(const IndexingSpec& spec,
   // reordering implied by the dimension selection in `selected_dims`).  This
   // array has size `intermediate_rank + 1`, in order to have sufficient space
   // for the final sum when we convert it to a cumulative sum array below.
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
-      input_dims_per_intermediate_dim(intermediate_rank + 1, -1);
+  DimensionIndex input_dims_per_intermediate_dim[kMaxRank + 1];
+  std::fill_n(input_dims_per_intermediate_dim, intermediate_rank + 1, -1);
 
   // Index into `selected_dims` of the next intermediate dimension not yet
   // consumed by prior terms of `spec`.
@@ -206,31 +161,31 @@ void GetIndexedInputDims(const IndexingSpec& spec,
       input_dims_per_intermediate_dim[selected_dims[selected_dim_i++]] = 0;
       continue;
     }
-    if (std::holds_alternative<IndexingSpec::NewAxis>(term)) {
+    if (std::holds_alternative<NumpyIndexingSpec::NewAxis>(term)) {
       // NewAxis terms leave intermediate dimensions alone.
       input_dims_per_intermediate_dim[selected_dims[selected_dim_i++]] = 1;
       continue;
     }
-    if (std::holds_alternative<IndexingSpec::Slice>(term)) {
+    if (std::holds_alternative<NumpyIndexingSpec::Slice>(term)) {
       // Slice terms adjust but do not consume intermediate dimensions.
       input_dims_per_intermediate_dim[selected_dims[selected_dim_i++]] = 1;
       continue;
     }
-    if (std::holds_alternative<IndexingSpec::Ellipsis>(term)) {
+    if (std::holds_alternative<NumpyIndexingSpec::Ellipsis>(term)) {
       // The Ellipsis term is equivalent to `num_ellipsis_dims` slice terms.
       for (DimensionIndex i = 0; i < num_ellipsis_dims; ++i) {
         input_dims_per_intermediate_dim[selected_dims[selected_dim_i++]] = 1;
       }
       continue;
     }
-    if (auto* index_array = std::get_if<IndexingSpec::IndexArray>(&term)) {
+    if (auto* index_array = std::get_if<NumpyIndexingSpec::IndexArray>(&term)) {
       if (index_array->outer) {
         // Each array outer-indexed intermediate dimension correspond to
         // `index_array.rank()` input dimensions.
         input_dims_per_intermediate_dim[selected_dims[selected_dim_i++]] =
             index_array->index_array.rank();
       } else {
-        // In `IndexingSpec::Mode::kDefault` mode, if
+        // In `NumpyIndexingSpec::Mode::kDefault` mode, if
         // `spec.joint_index_arrays_consecutive == true`, the intermediate
         // dimension corresponding to the first index array term corresponds to
         // the `joint_index_array_shape` dimensions in the input domain.  Note
@@ -246,12 +201,12 @@ void GetIndexedInputDims(const IndexingSpec& spec,
       }
       continue;
     }
-    if (auto* bool_array = std::get_if<IndexingSpec::BoolArray>(&term)) {
+    if (auto* bool_array = std::get_if<NumpyIndexingSpec::BoolArray>(&term)) {
       const DimensionIndex rank = bool_array->index_arrays.shape()[0];
       // This function is only used when
-      // `usage != IndexingSpec::Usage::kDirect`, and in that case, zero-rank
-      // boolean arrays are not supported in outer indexing mode and the
-      // presence of a zero-rank boolean array disables the
+      // `usage != NumpyIndexingSpec::Usage::kDirect`, and in that case,
+      // zero-rank boolean arrays are not supported in outer indexing mode and
+      // the presence of a zero-rank boolean array disables the
       // `joint_index_arrays_consecutive` behavior.
       assert(rank != 0 ||
              (!bool_array->outer && !spec.joint_index_arrays_consecutive));
@@ -261,17 +216,18 @@ void GetIndexedInputDims(const IndexingSpec& spec,
       // with the lowest dimension index) to correspond to the index array
       // dimension or dimensions.
       if (rank == 0) continue;
+      // (a) In outer indexing mode, the first intermediate dimension
+      // corresponds to the single index array dimension corresponding to
+      // the boolean array of the new "input" domain.
+      //
+      // (b) In vectorized indexing mode, the same behavior as
+      // for integer index arrays applies.
       input_dims_per_intermediate_dim[selected_dims[selected_dim_i++]] =
-          // In outer indexing mode, the first intermediate dimension
-          // corresponds to the single index array dimension corresponding to
-          // the boolean array of the new "input" domain.
-          bool_array->outer ? 1
-                            // In vectorized indexing mode, the same behavior as
-                            // for integer index arrays applies.
-                            : joint_index_array_dims_remaining
-                                  ? spec.joint_index_array_shape.size()
-                                  : 0;
-      if (!bool_array->outer) joint_index_array_dims_remaining = false;
+          bool_array->outer ? 1               // (a)
+          : joint_index_array_dims_remaining  // (b)
+              ? spec.joint_index_array_shape.size()
+              : 0;
+      if (!bool_array->outer) joint_index_array_dims_remaining = false;  // (a)
       // Subsequent intermediate dimensions don't correspond to any dimension of
       // the new "input" domain.
       for (DimensionIndex i = 1; i < rank; ++i) {
@@ -331,8 +287,8 @@ void GetIndexedInputDims(const IndexingSpec& spec,
 ///
 /// This handles the case where a single "scalar" term is specified to apply to
 /// all dimensions in the dimension selection.
-IndexingSpec GetNormalizedSpec(IndexingSpec spec,
-                               DimensionIndex selection_rank) {
+NumpyIndexingSpec GetNormalizedSpec(NumpyIndexingSpec spec,
+                                    DimensionIndex selection_rank) {
   if (spec.scalar) {
     auto term = spec.terms.front();
     spec.terms.resize(selection_rank, term);
@@ -344,7 +300,7 @@ IndexingSpec GetNormalizedSpec(IndexingSpec spec,
 }
 
 /// Resolve the dimension selection `dim_selection` for the case of an
-/// `IndexingSpec` that may contain `NewAxis` terms (for use as the first
+/// `NumpyIndexingSpec` that may contain `NewAxis` terms (for use as the first
 /// operation of a dimension expression).
 ///
 /// Dimensions specified by index or by `DimRangeSpec` are fully normalized to
@@ -384,7 +340,7 @@ absl::Status GetPartiallyNormalizedIntermediateDims(
   return absl::OkStatus();
 }
 
-/// Converts an `IndexingSpec` to an `IndexTransform`.
+/// Converts an `NumpyIndexingSpec` to an `IndexTransform`.
 ///
 /// This is the common implementation used by the public overloads of
 /// `ToIndexTransform`.
@@ -402,17 +358,17 @@ absl::Status GetPartiallyNormalizedIntermediateDims(
 ///     `indexed_input_dims` to the corresponding "intermediate" dimension index
 ///     (these dimensions simply "pass through" unmodified).  We call these
 ///     "unindexed" input dimensions because they do not correspond to terms in
-///     the `IndexingSpec`.  If `input_dim` is in `indexed_input_dims`, it maps
-///     to `-1` instead.
-IndexTransform<> ToIndexTransform(
-    const IndexingSpec& spec, IndexDomainView<> output_space,
+///     the `NumpyIndexingSpec`.  If `input_dim` is in `indexed_input_dims`, it
+///     maps to `-1` instead.
+Result<IndexTransform<>> ToIndexTransform(
+    const NumpyIndexingSpec& spec, IndexDomainView<> output_space,
     span<const DimensionIndex> indexed_output_dims,
     span<const DimensionIndex> indexed_input_dims,
     span<const DimensionIndex> unindexed_input_dims) {
   const DimensionIndex num_ellipsis_dims =
       indexed_output_dims.size() - spec.num_output_dims;
   const DimensionIndex input_rank = unindexed_input_dims.size();
-  ThrowStatusException(ValidateRank(input_rank));
+  TENSORSTORE_RETURN_IF_ERROR(ValidateRank(input_rank));
   IndexTransformBuilder<> builder(input_rank, output_space.rank());
   DimensionIndex selected_input_dim_i = 0;
   DimensionIndex index_array_input_start_dim_i = -1;
@@ -508,11 +464,11 @@ IndexTransform<> ToIndexTransform(
   }
 
   for (const auto& term : spec.terms) {
-    if (std::holds_alternative<IndexingSpec::Ellipsis>(term)) {
+    if (std::holds_alternative<NumpyIndexingSpec::Ellipsis>(term)) {
       add_remaining_identity_maps();
       continue;
     }
-    if (std::holds_alternative<IndexingSpec::NewAxis>(term)) {
+    if (std::holds_alternative<NumpyIndexingSpec::NewAxis>(term)) {
       const DimensionIndex input_dim =
           indexed_input_dims[selected_input_dim_i++];
       input_origin[input_dim] = 0;
@@ -522,7 +478,7 @@ IndexTransform<> ToIndexTransform(
       continue;
     }
 
-    if (auto* s = std::get_if<IndexingSpec::Slice>(&term)) {
+    if (auto* s = std::get_if<NumpyIndexingSpec::Slice>(&term)) {
       const DimensionIndex input_dim =
           indexed_input_dims[selected_input_dim_i++];
       const DimensionIndex output_dim =
@@ -530,14 +486,14 @@ IndexTransform<> ToIndexTransform(
       const auto d = output_space[output_dim];
       OptionallyImplicitIndexInterval new_domain;
       Index offset;
-      auto status = ComputeStridedSliceMap(
-          d.optionally_implicit_interval(), IntervalForm::half_open,
-          /*translate_origin_to=*/kImplicit, s->start, s->stop, s->step,
-          &new_domain, &offset);
-      if (!status.ok()) {
-        throw py::index_error(StrCat("Computing interval slice for dimension ",
-                                     output_dim, ": ", status.message()));
-      }
+      TENSORSTORE_RETURN_IF_ERROR(
+          ComputeStridedSliceMap(d.optionally_implicit_interval(),
+                                 IntervalForm::half_open,
+                                 /*translate_origin_to=*/kImplicit, s->start,
+                                 s->stop, s->step, &new_domain, &offset),
+          tensorstore::MaybeAnnotateStatus(
+              _, tensorstore::StrCat("Computing interval slice for dimension ",
+                                     output_dim)));
       implicit_lower_bounds[input_dim] = new_domain.implicit_lower();
       implicit_upper_bounds[input_dim] = new_domain.implicit_upper();
       input_origin[input_dim] = new_domain.inclusive_min();
@@ -555,7 +511,7 @@ IndexTransform<> ToIndexTransform(
       continue;
     }
 
-    if (auto* bool_array = std::get_if<IndexingSpec::BoolArray>(&term)) {
+    if (auto* bool_array = std::get_if<NumpyIndexingSpec::BoolArray>(&term)) {
       const DimensionIndex rank = bool_array->index_arrays.shape()[0];
       const DimensionIndex cur_input_start_dim_i = add_index_array_domain(
           bool_array->index_arrays.shape().subspan(1), bool_array->outer);
@@ -567,8 +523,8 @@ IndexTransform<> ToIndexTransform(
       continue;
     }
 
-    // Remaining case is `IndexingSpec::IndexArray`.
-    const auto& index_array = std::get<IndexingSpec::IndexArray>(term);
+    // Remaining case is `NumpyIndexingSpec::IndexArray`.
+    const auto& index_array = std::get<NumpyIndexingSpec::IndexArray>(term);
     const DimensionIndex cur_input_start_dim_i = add_index_array_domain(
         index_array.index_array.shape(), index_array.outer);
     add_index_array(index_array.index_array, cur_input_start_dim_i);
@@ -577,344 +533,22 @@ IndexTransform<> ToIndexTransform(
   if (!spec.has_ellipsis) {
     add_remaining_identity_maps();
   }
-  return ValueOrThrow(builder.Finalize(), StatusExceptionPolicy::kIndexError);
+  return builder.Finalize();
 }
 
-/// Returns `py::cast<T>(handle)`, but throws an exception that maps to a Python
-/// `TypeError` exception with a message of `msg` (as is typical for Python
-/// APIs), rather than the pybind11-specific `py::cast_error`.
-template <typename T>
-T CastOrTypeError(py::handle handle, const char* msg) {
-  try {
-    return py::cast<T>(handle);
-  } catch (py::cast_error&) {
-    throw py::type_error(msg);
-  }
-}
-
-}  // namespace
-
-absl::string_view GetIndexingModePrefix(IndexingSpec::Mode mode) {
-  switch (mode) {
-    case IndexingSpec::Mode::kDefault:
-      return "";
-    case IndexingSpec::Mode::kOindex:
-      return ".oindex";
-    case IndexingSpec::Mode::kVindex:
-      return ".vindex";
-  }
-  TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
-}
-
-IndexingSpec IndexingSpec::Parse(pybind11::handle obj, IndexingSpec::Mode mode,
-                                 IndexingSpec::Usage usage) {
-  IndexingSpec spec;
-  spec.mode = mode;
-  spec.usage = usage;
-  spec.scalar = true;
-  spec.has_ellipsis = false;
-  spec.num_output_dims = 0;
-  spec.num_input_dims = 0;
-  spec.num_new_dims = 0;
-  spec.joint_index_arrays_consecutive = mode == IndexingSpec::Mode::kDefault;
-  auto& api = npy_api::get();
-
-  bool has_index_array = false;
-  bool has_index_array_break = false;
-
-  const auto add_index_array_shape = [&](span<const Index> shape) {
-    if (mode == IndexingSpec::Mode::kOindex) {
-      spec.num_input_dims += shape.size();
-      return;
-    }
-    if (static_cast<DimensionIndex>(spec.joint_index_array_shape.size()) <
-        shape.size()) {
-      spec.joint_index_array_shape.insert(
-          spec.joint_index_array_shape.begin(),
-          shape.size() - spec.joint_index_array_shape.size(), 1);
-    }
-    for (DimensionIndex i = 0; i < shape.size(); ++i) {
-      const Index size = shape[i];
-      Index& broadcast_size =
-          spec.joint_index_array_shape[spec.joint_index_array_shape.size() -
-                                       (shape.size() - i)];
-      if (size != 1) {
-        if (broadcast_size != 1 && broadcast_size != size) {
-          throw py::index_error(
-              StrCat("Incompatible index array shapes: ", shape, " vs ",
-                     span(spec.joint_index_array_shape)));
-        }
-        broadcast_size = size;
-      }
-    }
-    has_index_array = true;
-    if (has_index_array_break) {
-      spec.joint_index_arrays_consecutive = false;
-    }
-  };
-
-  const auto add_index_array = [&](SharedArray<const Index> index_array) {
-    add_index_array_shape(index_array.shape());
-    ++spec.num_output_dims;
-    spec.terms.emplace_back(IndexingSpec::IndexArray{
-        std::move(index_array), mode == IndexingSpec::Mode::kOindex});
-  };
-
-  // Process a Python object representing a single indexing term.  This
-  // conversion mostly follows the logic in numpy/core/src/multiarray/mapping.c
-  // for compatibility with NumPy.
-  const auto add_term = [&](py::handle term) {
-    if (term.ptr() == Py_Ellipsis) {
-      if (spec.has_ellipsis) {
-        throw py::index_error(
-            "An index can only have a single ellipsis (`...`)");
-      }
-      spec.scalar = false;
-      spec.terms.emplace_back(IndexingSpec::Ellipsis{});
-      spec.has_ellipsis = true;
-      has_index_array_break = has_index_array;
-      return;
-    }
-    if (term.ptr() == Py_None) {
-      if (usage == IndexingSpec::Usage::kDimSelectionChained) {
-        throw py::index_error(
-            "tensorstore.newaxis (`None`) not valid in chained indexing "
-            "operations");
-      }
-      ++spec.num_input_dims;
-      ++spec.num_new_dims;
-      spec.terms.emplace_back(IndexingSpec::NewAxis{});
-      has_index_array_break = has_index_array;
-      return;
-    }
-    if (PySlice_Check(term.ptr())) {
-      auto* slice_obj = reinterpret_cast<PySliceObject*>(term.ptr());
-      const auto get_slice_index = [](py::handle handle) {
-        return ToIndexVectorOrScalarContainer(
-            CastOrTypeError<OptionallyImplicitIndexVectorOrScalarContainer>(
-                handle,
-                "slice indices must be integers or None or have an __index__ "
-                "method"));
-      };
-      auto start = get_slice_index(slice_obj->start);
-      auto stop = get_slice_index(slice_obj->stop);
-      auto step = get_slice_index(slice_obj->step);
-      DimensionIndex rank = dynamic_rank;
-      {
-        const IndexVectorOrScalarContainer* existing_value = nullptr;
-        const char* existing_field_name = nullptr;
-        const auto check_rank = [&](const IndexVectorOrScalarContainer& x,
-                                    const char* field_name) {
-          if (auto* v = std::get_if<std::vector<Index>>(&x)) {
-            if (rank != dynamic_rank &&
-                rank != static_cast<DimensionIndex>(v->size())) {
-              throw py::index_error(
-                  StrCat(field_name, "=", IndexVectorRepr(x, /*implicit=*/true),
-                         " (rank ", v->size(), ") is incompatible with ",
-                         existing_field_name, "=",
-                         IndexVectorRepr(*existing_value, /*implicit=*/true),
-                         " (rank ", rank, ")"));
-            }
-            existing_field_name = field_name;
-            rank = v->size();
-            existing_value = &x;
-          }
-        };
-        check_rank(start, "start");
-        check_rank(stop, "stop");
-        check_rank(step, "step");
-      }
-      if (rank != dynamic_rank) {
-        spec.scalar = false;
-      } else {
-        rank = 1;
-      }
-      for (DimensionIndex i = 0; i < rank; ++i) {
-        Index step_value = ToIndexVectorOrScalar(step)[i];
-        if (step_value == kImplicit) step_value = 1;
-        spec.terms.emplace_back(
-            IndexingSpec::Slice{ToIndexVectorOrScalar(start)[i],
-                                ToIndexVectorOrScalar(stop)[i], step_value});
-      }
-      spec.num_input_dims += rank;
-      spec.num_output_dims += rank;
-      has_index_array_break = has_index_array;
-      return;
-    }
-    // Check for an integer index.  Bool scalars are not treated as integer
-    // indices; instead, they are treated as rank-0 boolean arrays.
-    if (PyLong_CheckExact(term.ptr()) ||
-        (!PyBool_Check(term.ptr()) && !api.PyArray_Check_(term.ptr()))) {
-      ssize_t x = PyNumber_AsSsize_t(term.ptr(), PyExc_IndexError);
-      if (x != -1 || !PyErr_Occurred()) {
-        spec.terms.emplace_back(static_cast<Index>(x));
-        ++spec.num_output_dims;
-        return;
-      }
-      PyErr_Clear();
-    }
-
-    py::array array_obj;
-
-    // Only remaining cases are index arrays, bool arrays, or invalid values.
-    spec.scalar = false;
-
-    if (!api.PyArray_Check_(term.ptr())) {
-      array_obj = py::reinterpret_steal<py::array>(api.PyArray_FromAny_(
-          term.ptr(), nullptr, 0, 0, npy_api::NPY_ARRAY_ALIGNED_, nullptr));
-      if (!array_obj) throw py::error_already_set();
-      if (array_obj.size() == 0) {
-        array_obj = py::reinterpret_steal<py::array>(api.PyArray_FromAny_(
-            array_obj.ptr(), GetNumpyDtype<Index>().release().ptr(), 0, 0,
-            npy_api::NPY_ARRAY_FORCECAST_ | npy_api::NPY_ARRAY_ALIGNED_,
-            nullptr));
-        if (!array_obj) throw py::error_already_set();
-      }
-    } else {
-      array_obj = py::reinterpret_borrow<py::array>(term.ptr());
-    }
-
-    auto* array_proxy = py::detail::array_proxy(array_obj.ptr());
-    const int type_num =
-        py::detail::array_descriptor_proxy(array_proxy->descr)->type_num;
-    if (type_num == npy_api::NPY_BOOL_) {
-      // Bool array.
-      auto array = UncheckedArrayFromNumpy<bool>(std::move(array_obj));
-      SharedArray<const Index> index_arrays;
-      if (array.rank() == 0) {
-        if (usage != IndexingSpec::Usage::kDirect) {
-          if (mode == IndexingSpec::Mode::kOindex) {
-            throw py::index_error(
-                "Zero-rank bool array incompatible with outer indexing of a "
-                "dimension selection");
-          } else {
-            spec.joint_index_arrays_consecutive = false;
-          }
-        }
-        // Rank 0: corresponds to a dummy dimension of length 0 or 1
-        index_arrays.layout() = StridedLayout<2>({0, array() ? 1 : 0}, {0, 0});
-      } else {
-        index_arrays = GetBoolTrueIndices(array);
-      }
-      spec.num_output_dims += array.rank();
-      add_index_array_shape(index_arrays.shape().subspan(1));
-      spec.terms.emplace_back(IndexingSpec::BoolArray{
-          std::move(index_arrays), mode == IndexingSpec::Mode::kOindex});
-      return;
-    }
-    if (type_num >= npy_api::NPY_BYTE_ && type_num <= npy_api::NPY_ULONGLONG_) {
-      // Integer array.
-      array_obj = py::reinterpret_steal<py::array>(api.PyArray_FromAny_(
-          array_obj.ptr(), GetNumpyDtype<Index>().release().ptr(), 0, 0,
-          npy_api::NPY_ARRAY_ALIGNED_, nullptr));
-      if (!array_obj) {
-        throw py::error_already_set();
-      }
-      // TODO(jbms): Add mechanism for users to explicitly indicate that an
-      // index array can safely be stored by reference rather than copied.  User
-      // must ensure that array is not modified.
-      add_index_array(MakeCopy(UncheckedArrayFromNumpy<Index>(array_obj),
-                               skip_repeated_elements));
-      return;
-    }
-    // Invalid array data type.
-    if (array_obj.ptr() == term.ptr()) {
-      // The input was already an array.
-      throw py::index_error(
-          "Arrays used as indices must be of integer (or boolean) type");
-    }
-    throw py::index_error(
-        "Only integers, slices (`:`), ellipsis (`...`), tensorstore.newaxis "
-        "(`None`) and integer or boolean arrays are valid indices");
-  };
-
-  if (!PyTuple_Check(obj.ptr())) {
-    add_term(obj);
-  } else {
-    spec.scalar = false;
-    py::tuple t = py::reinterpret_borrow<py::tuple>(obj);
-    for (size_t i = 0, size = t.size(); i < size; ++i) {
-      add_term(t[i]);
-    }
-  }
-  spec.num_input_dims += spec.joint_index_array_shape.size();
-  return spec;
-}
-
-SharedArray<bool> GetBoolArrayFromIndices(
-    ArrayView<const Index, 2> index_arrays) {
-  const DimensionIndex rank = index_arrays.shape()[0];
-  absl::FixedArray<Index, internal::kNumInlinedDims> shape(rank);
-  const Index num_indices = index_arrays.shape()[1];
-  for (DimensionIndex j = 0; j < rank; ++j) {
-    Index x = 0;
-    for (Index i = 0; i < num_indices; ++i) {
-      x = std::max(x, index_arrays(j, i));
-    }
-    shape[j] = x + 1;
-  }
-  auto bool_array = AllocateArray<bool>(shape, c_order, value_init);
-  for (Index i = 0; i < num_indices; ++i) {
-    Index offset = 0;
-    for (DimensionIndex j = 0; j < rank; ++j) {
-      offset += bool_array.byte_strides()[j] * index_arrays(j, i);
-    }
-    bool_array.byte_strided_pointer()[offset] = true;
-  }
-  return bool_array;
-}
-
-std::string IndexingSpec::repr() const {
-  std::string r;
-  for (size_t i = 0; i < terms.size(); ++i) {
-    if (i != 0) r += ",";
-    const auto& term = terms[i];
-    if (auto* index = std::get_if<Index>(&term)) {
-      StrAppend(&r, *index);
-      continue;
-    }
-    if (auto* s = std::get_if<IndexingSpec::Slice>(&term)) {
-      if (s->start != kImplicit) StrAppend(&r, s->start);
-      r += ':';
-      if (s->stop != kImplicit) StrAppend(&r, s->stop);
-      if (s->step != 1) StrAppend(&r, ":", s->step);
-      continue;
-    }
-    if (std::holds_alternative<IndexingSpec::NewAxis>(term)) {
-      r += "None";
-      continue;
-    }
-    if (std::holds_alternative<IndexingSpec::Ellipsis>(term)) {
-      r += "...";
-      continue;
-    }
-    if (auto* index_array = std::get_if<IndexingSpec::IndexArray>(&term)) {
-      r += py::repr(py::cast(index_array->index_array));
-      continue;
-    }
-    if (auto* bool_array = std::get_if<IndexingSpec::BoolArray>(&term)) {
-      r += py::repr(py::cast(GetBoolArrayFromIndices(
-          StaticRankCast<2, unchecked>(bool_array->index_arrays))));
-    }
-  }
-  if (!scalar && terms.size() == 1) {
-    r += ',';
-  }
-  return r;
-}
-
-IndexTransform<> ToIndexTransform(const IndexingSpec& spec,
-                                  IndexDomainView<> output_space) {
+Result<IndexTransform<>> ToIndexTransform(const NumpyIndexingSpec& spec,
+                                          IndexDomainView<> output_space) {
   const DimensionIndex output_rank = output_space.rank();
-  assert(spec.usage == IndexingSpec::Usage::kDirect);
+  assert(spec.usage == NumpyIndexingSpec::Usage::kDirect);
   if (spec.num_output_dims > output_rank) {
-    throw py::index_error(
-        StrCat("Indexing expression requires ", spec.num_output_dims,
-               " dimensions, and cannot be applied to a domain of rank ",
-               output_rank));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Indexing expression requires ", spec.num_output_dims,
+        " dimensions, and cannot be applied to a domain of rank ",
+        output_rank));
   }
   const DimensionIndex num_ellipsis_dims = output_rank - spec.num_output_dims;
   const DimensionIndex input_rank = spec.num_input_dims + num_ellipsis_dims;
+  TENSORSTORE_RETURN_IF_ERROR(ValidateRank(input_rank));
   DimensionIndexBuffer indexed_input_dims, indexed_output_dims;
   indexed_input_dims.resize(input_rank);
   std::iota(indexed_input_dims.begin(), indexed_input_dims.end(),
@@ -927,69 +561,73 @@ IndexTransform<> ToIndexTransform(const IndexingSpec& spec,
                           GetConstantVector<DimensionIndex, -1>(input_rank));
 }
 
-IndexTransform<> ToIndexTransform(IndexingSpec spec,
-                                  IndexDomainView<> output_space,
-                                  DimensionIndexBuffer* dimensions) {
+Result<IndexTransform<>> ToIndexTransform(NumpyIndexingSpec spec,
+                                          IndexDomainView<> output_space,
+                                          DimensionIndexBuffer* dimensions) {
   assert(spec.num_new_dims == 0);
-  assert(spec.usage == IndexingSpec::Usage::kDimSelectionChained);
+  assert(spec.usage == NumpyIndexingSpec::Usage::kDimSelectionChained);
   spec = GetNormalizedSpec(std::move(spec), dimensions->size());
-  const DimensionIndex num_ellipsis_dims =
-      GetNumEllipsisDims(spec, dimensions->size());
+  TENSORSTORE_ASSIGN_OR_RETURN(const DimensionIndex num_ellipsis_dims,
+                               GetNumEllipsisDims(spec, dimensions->size()));
   DimensionIndexBuffer indexed_input_dims(spec.num_input_dims +
                                           num_ellipsis_dims);
+  TENSORSTORE_RETURN_IF_ERROR(
+      ValidateRank(spec.num_input_dims + num_ellipsis_dims));
   const DimensionIndex output_rank = output_space.rank();
   const DimensionIndex input_rank =
       spec.num_input_dims + output_rank - dimensions->size();
+  TENSORSTORE_RETURN_IF_ERROR(ValidateRank(input_rank));
   DimensionIndexBuffer unindexed_input_dims(input_rank);
   GetIndexedInputDims(spec, output_rank, *dimensions, indexed_input_dims,
                       unindexed_input_dims);
-  auto transform = ToIndexTransform(spec, output_space, *dimensions,
-                                    indexed_input_dims, unindexed_input_dims);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto transform,
+      ToIndexTransform(spec, output_space, *dimensions, indexed_input_dims,
+                       unindexed_input_dims));
   *dimensions = std::move(indexed_input_dims);
   return transform;
 }
 
-IndexTransform<> ToIndexTransform(IndexingSpec spec,
-                                  IndexDomainView<> output_space,
-                                  span<const DynamicDimSpec> dim_selection,
-                                  DimensionIndexBuffer* dimensions) {
-  assert(spec.usage == IndexingSpec::Usage::kDimSelectionInitial);
+Result<IndexTransform<>> ToIndexTransform(
+    NumpyIndexingSpec spec, IndexDomainView<> output_space,
+    span<const DynamicDimSpec> dim_selection,
+    DimensionIndexBuffer* dimensions) {
+  assert(spec.usage == NumpyIndexingSpec::Usage::kDimSelectionInitial);
   DimensionIndex intermediate_rank;
   if (spec.scalar && spec.num_new_dims == 1) {
-    ThrowStatusException(internal_index_space::GetNewDimensions(
-                             output_space.rank(), dim_selection, dimensions),
-                         StatusExceptionPolicy::kIndexError);
+    TENSORSTORE_RETURN_IF_ERROR(internal_index_space::GetNewDimensions(
+        output_space.rank(), dim_selection, dimensions));
     intermediate_rank = output_space.rank() + dimensions->size();
+    TENSORSTORE_RETURN_IF_ERROR(ValidateRank(intermediate_rank));
   } else {
     intermediate_rank = output_space.rank() + spec.num_new_dims;
-    ThrowStatusException(GetPartiallyNormalizedIntermediateDims(
-                             dim_selection, intermediate_rank,
-                             output_space.labels(), dimensions),
-                         StatusExceptionPolicy::kIndexError);
+    TENSORSTORE_RETURN_IF_ERROR(ValidateRank(intermediate_rank));
+    TENSORSTORE_RETURN_IF_ERROR(GetPartiallyNormalizedIntermediateDims(
+        dim_selection, intermediate_rank, output_space.labels(), dimensions));
   }
 
-  absl::FixedArray<bool, internal::kNumInlinedDims>
-      selected_intermediate_dim_mask(intermediate_rank, false);
+  uint32_t selected_intermediate_dim_mask = 0;
 
-  const auto check_for_duplicate_intermediate_dim = [&](DimensionIndex x) {
-    auto& m = selected_intermediate_dim_mask[x];
-    if (m == true) {
-      throw py::index_error(
-          StrCat("Dimension ", x, " specified more than once"));
+  const auto check_for_duplicate_intermediate_dim =
+      [&](DimensionIndex x) -> absl::Status {
+    if ((selected_intermediate_dim_mask >> x) & 1) {
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat("Dimension ", x, " specified more than once"));
     }
-    m = true;
+    selected_intermediate_dim_mask |= uint32_t(1) << x;
+    return absl::OkStatus();
   };
 
   for (auto x : *dimensions) {
     if (x < 0) continue;
-    check_for_duplicate_intermediate_dim(x);
+    TENSORSTORE_RETURN_IF_ERROR(check_for_duplicate_intermediate_dim(x));
   }
 
   spec = GetNormalizedSpec(std::move(spec), dimensions->size());
-  const DimensionIndex num_ellipsis_dims =
-      GetNumEllipsisDims(spec, dimensions->size());
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
-      intermediate_to_output(intermediate_rank, 0);
+  TENSORSTORE_ASSIGN_OR_RETURN(const DimensionIndex num_ellipsis_dims,
+                               GetNumEllipsisDims(spec, dimensions->size()));
+  DimensionIndex intermediate_to_output[kMaxRank] = {};
+  std::fill_n(intermediate_to_output, intermediate_rank, 0);
   {
     DimensionIndex selected_dim_i = 0;
     for (const auto& term : spec.terms) {
@@ -997,29 +635,29 @@ IndexTransform<> ToIndexTransform(IndexingSpec spec,
         ++selected_dim_i;
         continue;
       }
-      if (std::holds_alternative<IndexingSpec::Slice>(term)) {
+      if (std::holds_alternative<NumpyIndexingSpec::Slice>(term)) {
         ++selected_dim_i;
         continue;
       }
-      if (std::holds_alternative<IndexingSpec::Ellipsis>(term)) {
+      if (std::holds_alternative<NumpyIndexingSpec::Ellipsis>(term)) {
         selected_dim_i += num_ellipsis_dims;
         continue;
       }
-      if (std::holds_alternative<IndexingSpec::NewAxis>(term)) {
+      if (std::holds_alternative<NumpyIndexingSpec::NewAxis>(term)) {
         const DimensionIndex intermediate_dim = (*dimensions)[selected_dim_i];
         if (intermediate_dim < 0) {
-          throw py::index_error(
+          return absl::InvalidArgumentError(
               "Dimensions specified by label cannot be used with newaxis");
         }
         intermediate_to_output[intermediate_dim] = -1;
         ++selected_dim_i;
         continue;
       }
-      if (std::holds_alternative<IndexingSpec::IndexArray>(term)) {
+      if (std::holds_alternative<NumpyIndexingSpec::IndexArray>(term)) {
         ++selected_dim_i;
         continue;
       }
-      if (auto* bool_array = std::get_if<IndexingSpec::BoolArray>(&term)) {
+      if (auto* bool_array = std::get_if<NumpyIndexingSpec::BoolArray>(&term)) {
         selected_dim_i += bool_array->index_arrays.shape()[0];
         continue;
       }
@@ -1027,8 +665,7 @@ IndexTransform<> ToIndexTransform(IndexingSpec spec,
     assert(selected_dim_i == static_cast<DimensionIndex>(dimensions->size()));
   }
 
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
-      output_to_intermediate(output_space.rank());
+  DimensionIndex output_to_intermediate[kMaxRank];
   {
     DimensionIndex output_dim = 0;
     for (DimensionIndex intermediate_dim = 0;
@@ -1044,7 +681,7 @@ IndexTransform<> ToIndexTransform(IndexingSpec spec,
   for (auto& x : *dimensions) {
     if (x >= 0) continue;
     x = output_to_intermediate[-(x + 1)];
-    check_for_duplicate_intermediate_dim(x);
+    TENSORSTORE_RETURN_IF_ERROR(check_for_duplicate_intermediate_dim(x));
   }
 
   DimensionIndexBuffer indexed_input_dims(spec.num_input_dims +
@@ -1072,5 +709,209 @@ IndexTransform<> ToIndexTransform(IndexingSpec spec,
   return transform;
 }
 
-}  // namespace internal_python
+NumpyIndexingSpec::Builder::Builder(NumpyIndexingSpec& spec, Mode mode,
+                                    Usage usage)
+    : spec(spec) {
+  spec.mode = mode;
+  spec.usage = usage;
+  spec.scalar = true;
+  spec.has_ellipsis = false;
+  spec.num_output_dims = 0;
+  spec.num_input_dims = 0;
+  spec.num_new_dims = 0;
+  spec.joint_index_arrays_consecutive =
+      mode == NumpyIndexingSpec::Mode::kDefault;
+}
+
+absl::Status NumpyIndexingSpec::Builder::AddIndexArrayShape(
+    span<const Index> shape) {
+  if (spec.mode == NumpyIndexingSpec::Mode::kOindex) {
+    spec.num_input_dims += shape.size();
+    return absl::OkStatus();
+  }
+  if (static_cast<DimensionIndex>(spec.joint_index_array_shape.size()) <
+      shape.size()) {
+    spec.joint_index_array_shape.insert(
+        spec.joint_index_array_shape.begin(),
+        shape.size() - spec.joint_index_array_shape.size(), 1);
+  }
+  for (DimensionIndex i = 0; i < shape.size(); ++i) {
+    const Index size = shape[i];
+    Index& broadcast_size =
+        spec.joint_index_array_shape[spec.joint_index_array_shape.size() -
+                                     (shape.size() - i)];
+    if (size != 1) {
+      if (broadcast_size != 1 && broadcast_size != size) {
+        return absl::InvalidArgumentError(
+            tensorstore::StrCat("Incompatible index array shapes: ", shape,
+                                " vs ", span(spec.joint_index_array_shape)));
+      }
+      broadcast_size = size;
+    }
+  }
+  has_index_array = true;
+  if (has_index_array_break) {
+    spec.joint_index_arrays_consecutive = false;
+  }
+  return absl::OkStatus();
+}
+
+absl::Status NumpyIndexingSpec::Builder::AddIndexArray(
+    SharedArray<const Index> index_array) {
+  TENSORSTORE_RETURN_IF_ERROR(AddIndexArrayShape(index_array.shape()));
+  ++spec.num_output_dims;
+  if (index_array.rank() != 0) {
+    spec.scalar = false;
+  }
+  spec.terms.emplace_back(NumpyIndexingSpec::IndexArray{
+      std::move(index_array), spec.mode == NumpyIndexingSpec::Mode::kOindex});
+  return absl::OkStatus();
+}
+
+absl::Status NumpyIndexingSpec::Builder::AddEllipsis() {
+  if (spec.has_ellipsis) {
+    return absl::InvalidArgumentError(
+        "An index can only have a single ellipsis (`...`)");
+  }
+  spec.scalar = false;
+  spec.terms.emplace_back(NumpyIndexingSpec::Ellipsis{});
+  spec.has_ellipsis = true;
+  has_index_array_break = has_index_array;
+  return absl::OkStatus();
+}
+
+absl::Status NumpyIndexingSpec::Builder::AddNewAxis() {
+  if (spec.usage == NumpyIndexingSpec::Usage::kDimSelectionChained) {
+    return absl::InvalidArgumentError(
+        "tensorstore.newaxis (`None`) not valid in chained indexing "
+        "operations");
+  }
+  ++spec.num_input_dims;
+  ++spec.num_new_dims;
+  spec.terms.emplace_back(NumpyIndexingSpec::NewAxis{});
+  has_index_array_break = has_index_array;
+  return absl::OkStatus();
+}
+
+absl::Status NumpyIndexingSpec::Builder::AddSlice(
+    internal_index_space::IndexVectorOrScalarView start,
+    internal_index_space::IndexVectorOrScalarView stop,
+    internal_index_space::IndexVectorOrScalarView step) {
+  DimensionIndex rank = dynamic_rank;
+  {
+    const internal_index_space::IndexVectorOrScalarView* existing_value =
+        nullptr;
+    const char* existing_field_name = nullptr;
+    const auto check_rank =
+        [&](const internal_index_space::IndexVectorOrScalarView& x,
+            const char* field_name) -> absl::Status {
+      if (auto* v = x.pointer) {
+        if (rank != dynamic_rank &&
+            rank != static_cast<DimensionIndex>(x.size_or_scalar)) {
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              field_name, "=", IndexVectorRepr(x, /*implicit=*/true), " (rank ",
+              x.size_or_scalar, ") is incompatible with ", existing_field_name,
+              "=", IndexVectorRepr(*existing_value, /*implicit=*/true),
+              " (rank ", rank, ")"));
+        }
+        existing_field_name = field_name;
+        rank = x.size_or_scalar;
+        existing_value = &x;
+      }
+      return absl::OkStatus();
+    };
+    TENSORSTORE_RETURN_IF_ERROR(check_rank(start, "start"));
+    TENSORSTORE_RETURN_IF_ERROR(check_rank(stop, "stop"));
+    TENSORSTORE_RETURN_IF_ERROR(check_rank(step, "step"));
+  }
+  if (rank != dynamic_rank) {
+    spec.scalar = false;
+  } else {
+    rank = 1;
+  }
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    Index step_value = step[i];
+    if (step_value == kImplicit) step_value = 1;
+    spec.terms.emplace_back(
+        NumpyIndexingSpec::Slice{start[i], stop[i], step_value});
+  }
+  spec.num_input_dims += rank;
+  spec.num_output_dims += rank;
+  has_index_array_break = has_index_array;
+  return absl::OkStatus();
+}
+
+absl::Status NumpyIndexingSpec::Builder::AddIndex(Index x) {
+  spec.terms.emplace_back(static_cast<Index>(x));
+  ++spec.num_output_dims;
+  return absl::OkStatus();
+}
+
+absl::Status NumpyIndexingSpec::Builder::AddBoolArray(
+    SharedArray<const bool> array) {
+  SharedArray<const Index> index_arrays;
+  if (array.rank() == 0) {
+    if (spec.usage != NumpyIndexingSpec::Usage::kDirect) {
+      if (spec.mode == NumpyIndexingSpec::Mode::kOindex) {
+        return absl::InvalidArgumentError(
+            "Zero-rank bool array incompatible with outer indexing of a "
+            "dimension selection");
+      } else {
+        spec.joint_index_arrays_consecutive = false;
+      }
+    }
+    // Rank 0: corresponds to a dummy dimension of length 0 or 1
+    index_arrays.layout() = StridedLayout<2>({0, array() ? 1 : 0}, {0, 0});
+  } else {
+    index_arrays = internal::GetBoolTrueIndices(array);
+  }
+  spec.num_output_dims += array.rank();
+  TENSORSTORE_RETURN_IF_ERROR(
+      AddIndexArrayShape(index_arrays.shape().subspan(1)));
+  spec.terms.emplace_back(NumpyIndexingSpec::BoolArray{
+      std::move(index_arrays), spec.mode == NumpyIndexingSpec::Mode::kOindex});
+  spec.scalar = false;
+  return absl::OkStatus();
+}
+
+void NumpyIndexingSpec::Builder::Finalize() {
+  spec.num_input_dims += spec.joint_index_array_shape.size();
+}
+
+std::string OptionallyImplicitIndexRepr(Index value) {
+  if (value == kImplicit) return "None";
+  return StrCat(value);
+}
+
+std::string IndexVectorRepr(internal_index_space::IndexVectorOrScalarView x,
+                            bool implicit, bool subscript) {
+  if (!x.pointer) {
+    if (implicit) return OptionallyImplicitIndexRepr(x.size_or_scalar);
+    return StrCat(x.size_or_scalar);
+  }
+  if (x.size_or_scalar == 0) {
+    return subscript ? "()" : "[]";
+  }
+
+  std::string out;
+  if (!subscript) out = "[";
+  for (size_t i = 0; i < x.size_or_scalar; ++i) {
+    if (implicit) {
+      StrAppend(&out, (i == 0 ? "" : ","),
+                OptionallyImplicitIndexRepr(x.pointer[i]));
+    } else {
+      StrAppend(&out, (i == 0 ? "" : ","), x.pointer[i]);
+    }
+  }
+  if (subscript) {
+    if (x.size_or_scalar == 1) {
+      StrAppend(&out, ",");
+    }
+  } else {
+    StrAppend(&out, "]");
+  }
+  return out;
+}
+
+}  // namespace internal
 }  // namespace tensorstore

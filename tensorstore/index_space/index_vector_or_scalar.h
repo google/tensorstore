@@ -16,6 +16,7 @@
 #define TENSORSTORE_INDEX_SPACE_INDEX_VECTOR_OR_SCALAR_H_
 
 #include <type_traits>
+#include <variant>
 
 #include "tensorstore/index.h"
 #include "tensorstore/internal/type_traits.h"
@@ -65,21 +66,35 @@ struct IsIndexVectorOrScalar<
 
 namespace internal_index_space {
 
+/// Represents either an index vector or scalar, for use when
+/// `IndexVectorOrScalarView` is not suitable.
+using IndexVectorOrScalarContainer = std::variant<std::vector<Index>, Index>;
+
 /// Type-erased storage of an Index scalar or a `span<const Index>`.
-class IndexVectorOrScalar {
+class IndexVectorOrScalarView {
  public:
-  IndexVectorOrScalar(span<const Index> s)
+  IndexVectorOrScalarView(const IndexVectorOrScalarContainer& c) {
+    if (auto* v = std::get_if<std::vector<Index>>(&c)) {
+      pointer = v->data();
+      size_or_scalar = v->size();
+    } else {
+      pointer = nullptr;
+      size_or_scalar = *std::get_if<Index>(&c);
+    }
+  }
+  IndexVectorOrScalarView(span<const Index> s)
       : pointer(s.data()), size_or_scalar(s.size()) {}
-  IndexVectorOrScalar(const Index scalar)
+  IndexVectorOrScalarView(const Index scalar)
       : pointer(nullptr), size_or_scalar(scalar) {}
-  const Index* pointer;
-  Index size_or_scalar;
   Index operator[](DimensionIndex i) const {
     return pointer ? pointer[i] : size_or_scalar;
   }
+  const Index* pointer;
+  Index size_or_scalar;
 };
 
-Status CheckIndexVectorSize(IndexVectorOrScalar indices, DimensionIndex size);
+Status CheckIndexVectorSize(IndexVectorOrScalarView indices,
+                            DimensionIndex size);
 
 }  // namespace internal_index_space
 }  // namespace tensorstore

@@ -73,17 +73,18 @@ namespace internal_index_space {
 Result<IndexTransform<>> ApplyIntervalSliceOp(
     IndexTransform<> transform, DimensionIndexBuffer* dimensions,
     IntervalForm interval_form, bool translate,
-    IndexVectorOrScalar start_vector, IndexVectorOrScalar stop_or_size_vector,
-    IndexVectorOrScalar stride_vector);
+    IndexVectorOrScalarView start_vector,
+    IndexVectorOrScalarView stop_or_size_vector,
+    IndexVectorOrScalarView stride_vector);
 
 /// Type representing the {Translate,}{Closed,HalfOpen,Sized}Interval
 /// operations.
 /// \tparam StartVector The container type of start vector, must be explicitly
-///     convertible to `IndexVectorOrScalar`.
+///     convertible to `IndexVectorOrScalarView`.
 /// \tparam StopOrSizeVector The container type of stop or size vector, must be
-///     explicitly convertible to `IndexVectorOrScalar`.
+///     explicitly convertible to `IndexVectorOrScalarView`.
 /// \tparam StrideVector The container type of stride vector, must be explicitly
-///     convertible to `IndexVectorOrScalar`.
+///     convertible to `IndexVectorOrScalarView`.
 template <typename StartVector, typename StopOrSizeVector,
           typename StrideVector>
 struct IntervalSliceOp {
@@ -114,9 +115,10 @@ struct IntervalSliceOp {
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
                                  DimensionIndexBuffer* dimensions) const {
     return ApplyIntervalSliceOp(std::move(transform), dimensions, interval_form,
-                                translate, IndexVectorOrScalar(start_vector),
-                                IndexVectorOrScalar(stop_or_size_vector),
-                                IndexVectorOrScalar(stride_vector));
+                                translate,
+                                IndexVectorOrScalarView(start_vector),
+                                IndexVectorOrScalarView(stop_or_size_vector),
+                                IndexVectorOrScalarView(stride_vector));
   }
 
   /// The form of the interval (sized, closed, or half-open), which specifies
@@ -152,7 +154,7 @@ struct IntervalSliceOp {
 /// \error `absl::StatusCode::kInvalidArgument` if a stride value is `0`.
 Result<IndexTransform<>> ApplyStrideOp(IndexTransform<> transform,
                                        DimensionIndexBuffer* dimensions,
-                                       IndexVectorOrScalar strides);
+                                       IndexVectorOrScalarView strides);
 
 /// Type representing the DimExpression::Stride operation.
 /// \tparam StrideVector The container type for the strides vector.  Must
@@ -184,7 +186,7 @@ struct StrideOp {
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
                                  DimensionIndexBuffer* dimensions) const {
     return ApplyStrideOp(std::move(transform), dimensions,
-                         IndexVectorOrScalar(stride_vector));
+                         IndexVectorOrScalarView(stride_vector));
   }
 
   StrideVector stride_vector;
@@ -216,9 +218,10 @@ struct BoxSliceOp {
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
                                  DimensionIndexBuffer* dimensions) const {
-    return ApplyIntervalSliceOp(
-        std::move(transform), dimensions, IntervalForm::sized, translate,
-        IndexVectorOrScalar(box.origin()), IndexVectorOrScalar(box.shape()), 1);
+    return ApplyIntervalSliceOp(std::move(transform), dimensions,
+                                IntervalForm::sized, translate,
+                                IndexVectorOrScalarView(box.origin()),
+                                IndexVectorOrScalarView(box.shape()), 1);
   }
 
   BoxView<Rank> box;

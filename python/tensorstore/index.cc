@@ -39,45 +39,25 @@ IndexVectorOrScalarContainer ToIndexVectorOrScalarContainer(
   return out_v;
 }
 
-std::string OptionallyImplicitIndexRepr(Index value) {
-  if (value == kImplicit) return "None";
-  return StrCat(value);
+internal_index_space::IndexVectorOrScalarView ToIndexVectorOrScalar(
+    const IndexVectorOrScalarContainer& x) {
+  constexpr static Index temp = 0;
+  if (auto* index = std::get_if<Index>(&x)) {
+    return *index;
+  } else {
+    const auto& v = std::get<std::vector<Index>>(x);
+    if (v.empty()) {
+      // Ensure we don't have a null pointer.
+      return span(&temp, 0);
+    }
+    return span(v);
+  }
 }
 
 std::string IndexVectorRepr(const IndexVectorOrScalarContainer& x,
                             bool implicit, bool subscript) {
-  if (auto* index = std::get_if<Index>(&x)) {
-    if (implicit) return OptionallyImplicitIndexRepr(*index);
-    return StrCat(*index);
-  }
-  const auto& v = std::get<std::vector<Index>>(x);
-  if (v.empty()) {
-    return subscript ? "()" : "[]";
-  }
-
-  std::string out;
-  if (!subscript) out = "[";
-  for (size_t i = 0; i < v.size(); ++i) {
-    if (implicit) {
-      StrAppend(&out, (i == 0 ? "" : ","), OptionallyImplicitIndexRepr(v[i]));
-    } else {
-      StrAppend(&out, (i == 0 ? "" : ","), v[i]);
-    }
-  }
-  if (subscript) {
-    if (v.size() == 1) {
-      StrAppend(&out, ",");
-    }
-  } else {
-    StrAppend(&out, "]");
-  }
-  return out;
-}
-
-internal_index_space::IndexVectorOrScalar ToIndexVectorOrScalar(
-    const IndexVectorOrScalarContainer& x) {
-  if (auto* index = std::get_if<Index>(&x)) return *index;
-  return span(std::get<std::vector<Index>>(x));
+  return internal::IndexVectorRepr(ToIndexVectorOrScalar(x), implicit,
+                                   subscript);
 }
 
 }  // namespace internal_python

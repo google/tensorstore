@@ -33,7 +33,7 @@ using tensorstore::IsIndexVectorOrScalar;
 using tensorstore::MatchesStatus;
 using tensorstore::span;
 using tensorstore::internal_index_space::CheckIndexVectorSize;
-using tensorstore::internal_index_space::IndexVectorOrScalar;
+using tensorstore::internal_index_space::IndexVectorOrScalarView;
 
 static_assert(IsIndexVectorOrScalar<Index>::value == true, "");
 
@@ -78,7 +78,7 @@ static_assert(
 static_assert(IsIndexVectorOrScalar<span<Index, 5>>::extent == 5, "");
 
 TEST(IndexVectorOrScalarTest, Scalar) {
-  IndexVectorOrScalar v(5);
+  IndexVectorOrScalarView v(5);
   EXPECT_EQ(5, v.size_or_scalar);
   EXPECT_EQ(nullptr, v.pointer);
   EXPECT_EQ(5, v[0]);
@@ -88,7 +88,7 @@ TEST(IndexVectorOrScalarTest, Scalar) {
 
 TEST(IndexVectorOrScalarTest, Vector) {
   const Index arr[] = {1, 2, 3};
-  IndexVectorOrScalar v{span(arr)};
+  IndexVectorOrScalarView v{span(arr)};
   EXPECT_EQ(3, v.size_or_scalar);
   EXPECT_EQ(&arr[0], v.pointer);
   EXPECT_EQ(1, v[0]);

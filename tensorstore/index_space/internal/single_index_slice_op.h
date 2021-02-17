@@ -50,7 +50,7 @@ namespace internal_index_space {
 ///     computing the new transform.
 Result<IndexTransform<>> ApplySingleIndexSlice(IndexTransform<> transform,
                                                DimensionIndexBuffer* dimensions,
-                                               IndexVectorOrScalar indices);
+                                               IndexVectorOrScalarView indices);
 
 /// Type representing the IndexSlice operation.
 /// \tparam Indices Container type for the indices vector.  Must satisfy
@@ -82,7 +82,7 @@ struct SingleIndexSliceOp {
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
                                  DimensionIndexBuffer* dimensions) const {
     return ApplySingleIndexSlice(std::move(transform), dimensions,
-                                 IndexVectorOrScalar(indices));
+                                 IndexVectorOrScalarView(indices));
   }
 
   Indices indices;

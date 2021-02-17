@@ -27,13 +27,12 @@ pybind11::handle GetExceptionType(absl::StatusCode error_code,
                                   StatusExceptionPolicy policy) {
   switch (error_code) {
     case absl::StatusCode::kInvalidArgument:
+    case absl::StatusCode::kOutOfRange:
       if (policy == StatusExceptionPolicy::kIndexError) {
         return PyExc_IndexError;
       } else {
         return PyExc_ValueError;
       }
-    case absl::StatusCode::kOutOfRange:
-      return PyExc_ValueError;
     default:
       break;
   }

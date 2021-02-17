@@ -58,7 +58,7 @@ struct SingletonSlicingInfo {
 /// \returns The slicing information.
 Result<SingletonSlicingInfo> GetSingletonSlicingInfo(
     TransformRep* original, DimensionIndexBuffer* dimensions_buffer,
-    IndexVectorOrScalar indices) {
+    IndexVectorOrScalarView indices) {
   const span<const DimensionIndex> dimensions(*dimensions_buffer);
   const DimensionIndex num_dims = dimensions.size();
   const DimensionIndex original_input_rank = original->input_rank;
@@ -255,9 +255,9 @@ Status PerformSingleIndexSlice(TransformRep* original_transform,
 }
 }  // namespace
 
-Result<IndexTransform<>> ApplySingleIndexSlice(IndexTransform<> transform,
-                                               DimensionIndexBuffer* dimensions,
-                                               IndexVectorOrScalar indices) {
+Result<IndexTransform<>> ApplySingleIndexSlice(
+    IndexTransform<> transform, DimensionIndexBuffer* dimensions,
+    IndexVectorOrScalarView indices) {
   TransformRep* rep = TransformAccess::rep(transform);
   auto slicing_info = GetSingletonSlicingInfo(rep, dimensions, indices);
   if (!slicing_info) return slicing_info.status();

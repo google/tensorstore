@@ -68,8 +68,9 @@ Status GetIntervalSliceInfo(
     span<InputDimensionIntervalSliceInfo> dimension_info,
     TransformRep* transform, span<const DimensionIndex> dimensions,
     IntervalForm interval_form, bool translate,
-    IndexVectorOrScalar start_vector, IndexVectorOrScalar stop_or_size_vector,
-    IndexVectorOrScalar stride_vector) {
+    IndexVectorOrScalarView start_vector,
+    IndexVectorOrScalarView stop_or_size_vector,
+    IndexVectorOrScalarView stride_vector) {
   const DimensionIndex input_rank = dimension_info.size();
   ABSL_ASSERT(input_rank == transform->input_rank);
   for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {
@@ -160,8 +161,9 @@ absl::Status ApplyOffsetsAndStridesToOutputIndexMaps(
 Result<IndexTransform<>> ApplyIntervalSliceOp(
     IndexTransform<> transform, DimensionIndexBuffer* dimensions,
     IntervalForm interval_form, bool translate,
-    IndexVectorOrScalar start_vector, IndexVectorOrScalar stop_or_size_vector,
-    IndexVectorOrScalar stride_vector) {
+    IndexVectorOrScalarView start_vector,
+    IndexVectorOrScalarView stop_or_size_vector,
+    IndexVectorOrScalarView stride_vector) {
   const DimensionIndex num_dims = dimensions->size();
   const DimensionIndex input_rank = transform.input_rank();
   TENSORSTORE_RETURN_IF_ERROR(CheckIndexVectorSize(start_vector, num_dims));
@@ -183,7 +185,7 @@ Result<IndexTransform<>> ApplyIntervalSliceOp(
 
 Result<IndexTransform<>> ApplyStrideOp(IndexTransform<> transform,
                                        DimensionIndexBuffer* dimensions,
-                                       IndexVectorOrScalar strides) {
+                                       IndexVectorOrScalarView strides) {
   const DimensionIndex num_dims = dimensions->size();
   const DimensionIndex input_rank = transform.input_rank();
   TENSORSTORE_RETURN_IF_ERROR(CheckIndexVectorSize(strides, num_dims));

@@ -61,7 +61,7 @@ namespace internal_index_space {
 ///     computing the new transform.
 Result<IndexTransform<>> ApplyTranslate(IndexTransform<> transform,
                                         DimensionIndexBuffer* dimensions,
-                                        IndexVectorOrScalar offsets,
+                                        IndexVectorOrScalarView offsets,
                                         bool translate_to);
 
 /// Type representing the DimExpression::TranslateBy and
@@ -96,7 +96,7 @@ struct TranslateOp {
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
                                  DimensionIndexBuffer* dimensions) const {
     return ApplyTranslate(std::move(transform), dimensions,
-                          IndexVectorOrScalar(offset_or_origin_vector), To);
+                          IndexVectorOrScalarView(offset_or_origin_vector), To);
   }
 
   OffsetOrOriginVector offset_or_origin_vector;
