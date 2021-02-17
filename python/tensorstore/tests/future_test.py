@@ -63,7 +63,7 @@ def test_promise_wait_interrupt():
 
   def do_interrupt():
     time.sleep(0.01)
-    sig = signal.CTRL_C_EVENT if os.name == 'nt' else signal.SIGINT
+    sig = signal.CTRL_C_EVENT if os.name == 'nt' else signal.SIGINT  # type: ignore
     os.kill(os.getpid(), sig)
 
   with pytest.raises(KeyboardInterrupt):
