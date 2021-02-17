@@ -32,6 +32,7 @@ namespace {
 using tensorstore::AllowUnregistered;
 using tensorstore::Context;
 using tensorstore::IncludeDefaults;
+using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
 using tensorstore::Result;
 using tensorstore::internal::ContextResourceCreationContext;
@@ -92,9 +93,31 @@ struct StrongRefResource : public ContextResourceTraits<StrongRefResource> {
   }
 };
 
+struct OptionalResource : public ContextResourceTraits<OptionalResource> {
+  using Spec = std::optional<size_t>;
+  using Resource = Spec;
+  static constexpr char id[] = "optional_resource";
+  static Spec Default() { return {}; }
+  static constexpr auto JsonBinder() {
+    namespace jb = tensorstore::internal::json_binding;
+    return jb::DefaultInitializedValue(jb::Object(jb::Member(
+        "limit", jb::DefaultInitializedValue(jb::Optional(
+                     jb::Integer<size_t>(1), [] { return "shared"; })))));
+  }
+  static Result<Resource> Create(Spec v,
+                                 ContextResourceCreationContext context) {
+    return v;
+  }
+  static Spec GetSpec(Resource v, const ContextSpecBuilder& builder) {
+    return v;
+  }
+};
+
 const ContextResourceRegistration<IntResource> int_resource_registration;
 const ContextResourceRegistration<StrongRefResource>
     strong_ref_resource_registration;
+const ContextResourceRegistration<OptionalResource>
+    optional_resource_registration;
 
 TEST(IntResourceTest, InvalidDirectSpec) {
   EXPECT_THAT(Context::ResourceSpec<IntResource>::FromJson(nullptr),
@@ -476,6 +499,38 @@ TEST(ContextSpecBuilderTest, InlineShared) {
             new_spec.ToJson());
   EXPECT_EQ("int_resource#0", new_resource_spec1.ToJson());
   EXPECT_EQ("int_resource#0", new_resource_spec2.ToJson());
+}
+
+// Tests that the JSON never includes `discarded` values.
+TEST(ContextSpecBuilderTest, ExcludeDefaultsJson) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto context, Context::FromJson({
+                        {"optional_resource", {{"limit", "shared"}}},
+                        {"optional_resource#a", {{"limit", 5}}},
+                    }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource1,
+                                   context.GetResource<OptionalResource>());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto resource2,
+      context.GetResource<OptionalResource>("optional_resource#a"));
+  Context::Spec new_spec;
+  Context::ResourceSpec<OptionalResource> new_resource_spec1;
+  Context::ResourceSpec<OptionalResource> new_resource_spec2;
+  {
+    auto builder = ContextSpecBuilder::Make();
+    new_spec = builder.spec();
+    new_resource_spec1 = builder.AddResource(resource1);
+    new_resource_spec2 = builder.AddResource(resource2);
+  }
+  EXPECT_THAT(new_spec.ToJson(tensorstore::IncludeDefaults{false}),
+              ::testing::Optional(MatchesJson({
+                  {"optional_resource#a", {{"limit", 5}}},
+              })));
+  EXPECT_THAT(new_spec.ToJson(tensorstore::IncludeDefaults{true}),
+              ::testing::Optional(MatchesJson({
+                  {"optional_resource#a", {{"limit", 5}}},
+                  {"optional_resource", {{"limit", "shared"}}},
+              })));
 }
 
 TEST(ContextTest, WeakCreator) {

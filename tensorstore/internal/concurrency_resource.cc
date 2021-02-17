@@ -37,13 +37,9 @@ namespace internal {
 AnyContextResourceJsonBinder<ConcurrencyResource::Spec>
 ConcurrencyResourceTraits::JsonBinder() {
   namespace jb = tensorstore::internal::json_binding;
-  constexpr auto get_default = [](auto* obj) { *obj = std::nullopt; };
-  return jb::DefaultValue(
-      get_default,
-      jb::Object(jb::Member(
-          "limit", jb::DefaultValue(get_default,
-                                    jb::Optional(jb::Integer<size_t>(1),
-                                                 [] { return "shared"; })))));
+  return jb::DefaultInitializedValue(jb::Object(jb::Member(
+      "limit", jb::DefaultInitializedValue(jb::Optional(
+                   jb::Integer<size_t>(1), [] { return "shared"; })))));
 }
 
 Result<ConcurrencyResource::Resource> ConcurrencyResourceTraits::Create(

@@ -549,7 +549,10 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Context::Spec, [](auto is_loading,
             }
             TENSORSTORE_ASSIGN_OR_RETURN(auto resource_spec_json,
                                          resource_spec->ToJson(options));
-            j_obj->emplace(resource_spec->key_, std::move(resource_spec_json));
+            if (!resource_spec_json.is_discarded()) {
+              j_obj->emplace(resource_spec->key_,
+                             std::move(resource_spec_json));
+            }
           }
         }
         return absl::OkStatus();
