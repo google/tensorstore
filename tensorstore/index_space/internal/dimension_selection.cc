@@ -155,7 +155,7 @@ Status GetNewDimensions(DimensionIndex input_rank,
   // First compute the new rank.
   DimensionIndex new_rank = input_rank;
   for (const auto& spec : dimensions) {
-    if (auto* r = absl::get_if<DimRangeSpec>(&spec)) {
+    if (auto* r = std::get_if<DimRangeSpec>(&spec)) {
       TENSORSTORE_ASSIGN_OR_RETURN(DimensionIndex x, GetNumNewDimensions(*r));
       new_rank += x;
     } else {
@@ -188,7 +188,7 @@ Status GetNewDimensions(DimensionIndex input_rank,
   };
 
   for (const auto& spec : dimensions) {
-    TENSORSTORE_RETURN_IF_ERROR(absl::visit(Visitor{new_rank, result}, spec));
+    TENSORSTORE_RETURN_IF_ERROR(std::visit(Visitor{new_rank, result}, spec));
   }
   return CheckAndNormalizeDimensions(new_rank, *result);
 }

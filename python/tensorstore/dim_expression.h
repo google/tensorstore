@@ -64,6 +64,10 @@ inline DynamicDimSpec ToDynamicDimSpec(
   return std::get<std::string>(identifier);
 }
 
+/// Appends to `*out` a Python repr of `dims`.
+void AppendDimensionSelectionRepr(std::string* out,
+                                  span<const DynamicDimSpec> dims);
+
 /// Base class for Python representation of a "dimension expression".
 ///
 /// A dimension expression consists of a `DimensionSelection` followed by a

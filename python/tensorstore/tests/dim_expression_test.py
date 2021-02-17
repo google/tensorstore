@@ -254,9 +254,9 @@ def test_transpose_empty():
 
 def test_transpose_label_target():
   x = ts.IndexTransform(input_labels=["x", "y", "z"])
-  with pytest.raises(
-      TypeError, match="Target dimensions cannot be specified by label"):
-    ts.d["x", "y"].transpose["x"]
+  with pytest.raises(IndexError,
+                     match="Target dimensions cannot be specified by label"):
+    x[ts.d["x", "y"].transpose["x"]]
 
 
 def test_transpose_move_to_back():

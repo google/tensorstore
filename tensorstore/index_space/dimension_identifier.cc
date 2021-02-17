@@ -156,7 +156,7 @@ Status NormalizeDynamicDimSpec(const DynamicDimSpec& spec,
       return NormalizeDimRangeSpec(s, labels.size(), result);
     }
   };
-  return absl::visit(Visitor{labels, result}, spec);
+  return std::visit(Visitor{labels, result}, spec);
 }
 
 Status NormalizeDynamicDimSpecs(span<const DynamicDimSpec> specs,

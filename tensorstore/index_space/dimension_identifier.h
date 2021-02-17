@@ -16,11 +16,11 @@
 #define TENSORSTORE_INDEX_SPACE_DIMENSION_IDENTIFIER_H_
 
 #include <cstddef>
+#include <optional>
 #include <string>
+#include <string_view>
+#include <variant>
 
-#include "absl/base/macros.h"
-#include "absl/strings/string_view.h"
-#include "absl/types/variant.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/util/result.h"
@@ -29,7 +29,7 @@ namespace tensorstore {
 
 /// Specifies a dimension of an index space by index or by label.
 ///
-/// Conceptually similar to `variant<DimensionIndex, absl::string_view>`.
+/// Conceptually similar to `variant<DimensionIndex, std::string_view>`.
 class DimensionIdentifier {
  public:
   /// Constructs an invalid dimension identifier.
@@ -46,14 +46,15 @@ class DimensionIdentifier {
   ///
   /// Copies the `string_view`, not the string data.
   /// \dchecks label.data() != nullptr
-  constexpr DimensionIdentifier(absl::string_view label)
-      : label_((ABSL_ASSERT(label.data() != nullptr), label)) {}
+  constexpr DimensionIdentifier(std::string_view label) : label_(label) {
+    assert(label.data() != nullptr);
+  }
 
   /// Constructs from a label.
   ///
   /// Stores a reference to the `std::string` data, does not copy it.
   /// \remark This seemingly redundant constructor is needed in addition to the
-  ///     `absl::string_view` constructor in order to support implicit
+  ///     `std::string_view` constructor in order to support implicit
   ///     construction from `std::string`.
   DimensionIdentifier(const std::string& label) : label_(label) {}
 
@@ -62,10 +63,11 @@ class DimensionIdentifier {
   /// Stores a reference to the string, does not copy it.
   /// \dchecks label != nullptr
   /// \remark This seemingly redundant constructor is needed in addition to the
-  ///     `absl::string_view` constructor in order to support implicit
+  ///     `std::string_view` constructor in order to support implicit
   ///     construction from `const char*`.
-  constexpr DimensionIdentifier(const char* label)
-      : label_((ABSL_ASSERT(label != nullptr), label)) {}
+  constexpr DimensionIdentifier(const char* label) : label_(label) {
+    assert(label != nullptr);
+  }
 
   // Prevent construction from `nullptr`, which would otherwise resolve to the
   // `const char*` constructor.
@@ -78,7 +80,7 @@ class DimensionIdentifier {
 
   /// Returns the dimension label, or a label with `data() == nullptr` if a
   /// dimension index was specified.
-  constexpr absl::string_view label() const { return label_; }
+  constexpr std::string_view label() const { return label_; }
 
   friend bool operator==(const DimensionIdentifier& a,
                          const DimensionIdentifier& b) {
@@ -94,7 +96,7 @@ class DimensionIdentifier {
 
  private:
   DimensionIndex index_ = std::numeric_limits<DimensionIndex>::max();
-  absl::string_view label_;
+  std::string_view label_;
 };
 
 /// Normalizes a dimension index in the range `(-rank, rank)` to the range
@@ -118,7 +120,7 @@ Result<DimensionIndex> NormalizeDimensionIndex(DimensionIndex index,
 /// \returns The unique dimension index `i` for which `labels[i] == label`.
 /// \error `absl::StatusCode::kInvalidArgument` if there is not a unique index
 ///     `i` such that `labels[i] == label`.
-Result<DimensionIndex> NormalizeDimensionLabel(absl::string_view label,
+Result<DimensionIndex> NormalizeDimensionLabel(std::string_view label,
                                                span<const std::string> labels);
 
 /// Normalizes a dimension identifier to a dimension index in the range
@@ -143,10 +145,10 @@ Result<DimensionIndex> NormalizeDimensionIdentifier(
 /// certain forms of `DimRangeSpec` are disallowed because they do not permit
 /// the final rank to be inferred.  For example:
 ///
-///   `DimRangeSpec{-3, absl::nullopt, 1}` unambiguously specifies the last 3
+///   `DimRangeSpec{-3, std::nullopt, 1}` unambiguously specifies the last 3
 ///   dimensions, and can be used to add 3 new trailing dimensions.
 ///
-///   `DimRangeSpec{absl::nullopt, 4, 1}` unambiguously specifies the first 3
+///   `DimRangeSpec{std::nullopt, 4, 1}` unambiguously specifies the first 3
 ///   dimensions, and can be used to add 3 new leading dimensions.
 ///
 ///   `DimRangeSpec{1, -2, 1}` specifies dimensions 1 up to but not including
@@ -156,13 +158,13 @@ struct DimRangeSpec {
   /// Inclusive start index.  If not specified, defaults to `0` if `step > 0`
   /// and `rank - 1` if `step < 0`.  A negative value `-n` is equivalent to
   /// `rank - n`.
-  absl::optional<DimensionIndex> inclusive_start;
+  std::optional<DimensionIndex> inclusive_start;
 
   /// Exclusive stop index.  If not specified, defaults to `rank` if `step > 0`
   /// and `-1` if `step < 0`.  A negative value `-n` is equivalent to `rank - n`
   /// (the default value of `-1` if `step < 0` is not subject to this
   /// normalization).
-  absl::optional<DimensionIndex> exclusive_stop;
+  std::optional<DimensionIndex> exclusive_stop;
 
   /// Step size, must not equal 0.
   DimensionIndex step = 1;
@@ -208,7 +210,7 @@ Status NormalizeDimRangeSpec(const DimRangeSpec& spec, DimensionIndex rank,
 ///
 /// The Python bindings always use a sequence of `DynamicDimSpec` to specify a
 /// dimension selection.
-using DynamicDimSpec = absl::variant<DimensionIndex, std::string, DimRangeSpec>;
+using DynamicDimSpec = std::variant<DimensionIndex, std::string, DimRangeSpec>;
 
 /// Appends to `*result` the dimensions corresponding to `spec`.
 ///

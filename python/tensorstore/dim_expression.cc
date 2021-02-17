@@ -41,22 +41,27 @@ namespace internal_python {
 
 namespace py = ::pybind11;
 
-std::string DimensionSelection::repr() const {
+void AppendDimensionSelectionRepr(std::string* out,
+                                  span<const DynamicDimSpec> dims) {
   if (dims.empty()) {
-    return "d[()]";
+    StrAppend(out, "()");
   }
-  std::string out = "d[";
   for (size_t i = 0; i < dims.size(); ++i) {
     const auto& d = dims[i];
     if (auto* index = std::get_if<DimensionIndex>(&d)) {
-      StrAppend(&out, (i == 0 ? "" : ","), *index);
+      StrAppend(out, (i == 0 ? "" : ","), *index);
     } else if (auto* label = std::get_if<std::string>(&d)) {
-      StrAppend(&out, (i == 0 ? "" : ","), "'", absl::CHexEscape(*label), "'");
+      StrAppend(out, (i == 0 ? "" : ","), "'", absl::CHexEscape(*label), "'");
     } else {
       const auto& slice = std::get<DimRangeSpec>(d);
-      StrAppend(&out, (i == 0 ? "" : ","), slice);
+      StrAppend(out, (i == 0 ? "" : ","), slice);
     }
   }
+}
+
+std::string DimensionSelection::repr() const {
+  std::string out = "d[";
+  AppendDimensionSelectionRepr(&out, dims);
   StrAppend(&out, "]");
   return out;
 }
@@ -175,51 +180,19 @@ class PythonDiagonalOp : public PythonDimExpression {
   std::shared_ptr<const PythonDimExpressionBase> parent_;
 };
 
-/// Specifies the target dimensions for a transpose operation.
-using TargetDimSpecs = std::vector<std::variant<DimensionIndex, DimRangeSpec>>;
-
-/// Converts a `DimensionSelection` to a `TargetDimSpecs` object.  Only a subset
-/// of `DimensionSelection` values are valid `TargetDimSpecs`, but this allows
-/// us to make use of the flexible conversion from Python types to
-/// `DimensionSelection`.
-TargetDimSpecs ToTargetDimSpecs(span<const DynamicDimSpec> dim_specs) {
-  TargetDimSpecs result;
-  for (const auto& spec : dim_specs) {
-    if (auto* index = std::get_if<DimensionIndex>(&spec)) {
-      result.push_back(*index);
-    } else if (auto* s = std::get_if<DimRangeSpec>(&spec)) {
-      result.push_back(*s);
-    } else {
-      throw py::type_error("Target dimensions cannot be specified by label");
-    }
-  }
-  return result;
-}
-
 /// Python equivalent of `tensorstore::internal_index_space::TransposeOp`.
 class PythonTransposeOp : public PythonDimExpression {
  public:
   explicit PythonTransposeOp(
       std::shared_ptr<const PythonDimExpressionBase> parent,
-      TargetDimSpecs target_dim_specs)
+      std::vector<DynamicDimSpec> target_dim_specs)
       : parent_(std::move(parent)),
         target_dim_specs_(std::move(target_dim_specs)) {}
 
   std::string repr() const override {
     std::string out = StrCat(parent_->repr(), ".transpose[");
-    for (size_t i = 0; i < target_dim_specs_.size(); ++i) {
-      if (i != 0) out += ',';
-      const auto& s = target_dim_specs_[i];
-      if (auto* index = std::get_if<DimensionIndex>(&s)) {
-        StrAppend(&out, *index);
-      } else {
-        StrAppend(&out, std::get<DimRangeSpec>(s));
-      }
-    }
-    if (target_dim_specs_.empty()) {
-      out += "()";
-    }
-    out += "]";
+    AppendDimensionSelectionRepr(&out, target_dim_specs_);
+    StrAppend(&out, "]");
     return out;
   }
 
@@ -227,30 +200,13 @@ class PythonTransposeOp : public PythonDimExpression {
                                  DimensionIndexBuffer* buffer) const override {
     TENSORSTORE_ASSIGN_OR_RETURN(transform,
                                  parent_->Apply(std::move(transform), buffer));
-    if (target_dim_specs_.size() == 1) {
-      if (auto* target =
-              std::get_if<DimensionIndex>(&target_dim_specs_.front())) {
-        return internal_index_space::ApplyMoveDimsTo(std::move(transform),
-                                                     buffer, *target);
-      }
-    }
-    DimensionIndexBuffer target_dimensions;
-    const DimensionIndex input_rank = transform.input_rank();
-    for (const auto& s : target_dim_specs_) {
-      if (auto* index = std::get_if<DimensionIndex>(&s)) {
-        target_dimensions.push_back(*index);
-      } else {
-        TENSORSTORE_RETURN_IF_ERROR(NormalizeDimRangeSpec(
-            std::get<DimRangeSpec>(s), input_rank, &target_dimensions));
-      }
-    }
-    return internal_index_space::ApplyTransposeTo(std::move(transform), buffer,
-                                                  target_dimensions);
+    return internal_index_space::ApplyTransposeToDynamic(
+        std::move(transform), buffer, target_dim_specs_);
   }
 
  private:
   std::shared_ptr<const PythonDimExpressionBase> parent_;
-  TargetDimSpecs target_dim_specs_;
+  std::vector<DynamicDimSpec> target_dim_specs_;
 };
 
 /// Represents a NumPy-style indexing operation that is applied after at least
@@ -438,7 +394,7 @@ dimensions to which an indexing operation applies.
               DimensionSelectionLike dim_specs)
               -> std::shared_ptr<PythonDimExpression> {
             return std::make_shared<PythonTransposeOp>(
-                std::move(self), ToTargetDimSpecs(dim_specs.value.dims));
+                std::move(self), std::move(dim_specs.value.dims));
           },
           py::arg("target"));
 

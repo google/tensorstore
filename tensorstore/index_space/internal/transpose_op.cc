@@ -290,5 +290,29 @@ Result<IndexTransform<>> ApplyTransposeTo(
       TransformAccess::rep_ptr<container>(std::move(transform)), permutation));
 }
 
+Result<IndexTransform<>> ApplyTransposeToDynamic(
+    IndexTransform<> transform, DimensionIndexBuffer* dimensions,
+    span<const DynamicDimSpec> target_dim_specs) {
+  if (target_dim_specs.size() == 1) {
+    if (auto* target = std::get_if<DimensionIndex>(&target_dim_specs.front())) {
+      return ApplyMoveDimsTo(std::move(transform), dimensions, *target);
+    }
+  }
+  DimensionIndexBuffer target_dimensions;
+  const DimensionIndex input_rank = transform.input_rank();
+  for (const auto& s : target_dim_specs) {
+    if (auto* index = std::get_if<DimensionIndex>(&s)) {
+      target_dimensions.push_back(*index);
+    } else if (auto* r = std::get_if<DimRangeSpec>(&s)) {
+      TENSORSTORE_RETURN_IF_ERROR(
+          NormalizeDimRangeSpec(*r, input_rank, &target_dimensions));
+    } else {
+      return absl::InvalidArgumentError(
+          "Target dimensions cannot be specified by label");
+    }
+  }
+  return ApplyTransposeTo(std::move(transform), dimensions, target_dimensions);
+}
+
 }  // namespace internal_index_space
 }  // namespace tensorstore

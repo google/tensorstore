@@ -21,6 +21,7 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/index_space/dim_expression.h"
 
+#include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/meta.h"
@@ -52,6 +53,29 @@ namespace internal_index_space {
 Result<IndexTransform<>> ApplyTransposeTo(
     IndexTransform<> transform, DimensionIndexBuffer* dimensions,
     span<const DimensionIndex> target_dimensions);
+
+/// Returns a new index transform with the dimensions permuted according to a
+/// dynamic target specification.
+///
+/// If `target_dimensions` contains a single dimension index (not specified as a
+/// `DimRangeSpec`), this calls `ApplyMoveDimsTo`.
+///
+/// Otherwise, this expands the target dimension list and calls
+/// `ApplyTransposeTo`.
+///
+/// \param transform Existing transform.
+/// \param dimensions[in,out] Must be non-null.  In input, specifies the
+///     dimension indices corresponding to the input dimensions of `transform`
+///     to be shifted.  On return, set to the corresponding indices of those
+///     dimensions in the new transform.
+/// \param target_dim_specs The target dimension specifiers.  Must not specify
+///     any dimensions by label.
+/// \pre `transform.valid()`
+/// \error `absl::StatusCode::kInvalidArgument` if `target_dimensions` specifies
+///     any dimensions by label.
+Result<IndexTransform<>> ApplyTransposeToDynamic(
+    IndexTransform<> transform, DimensionIndexBuffer* dimensions,
+    span<const DynamicDimSpec> target_dim_specs);
 
 /// Type representing the `DimExpression::Transpose(target_dimensions)`
 /// operation.
