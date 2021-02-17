@@ -290,7 +290,7 @@ class IndexTransform {
   /// Returns a range representing the output index maps.
   /// \pre valid()
   OutputIndexMapRange<InputRank, OutputRank> output_index_maps() const {
-    return OutputIndexMapRange<InputRank, OutputRank>(Access::rep(*this));
+    return OutputIndexMapRange<InputRank, OutputRank>(*this);
   }
 
   /// Returns the output index map for a given `output_dim`.

@@ -129,7 +129,7 @@ class OutputIndexMapRef {
   }
 
  private:
-  template <DimensionIndex, DimensionIndex>
+  template <DimensionIndex, DimensionIndex, ContainerKind>
   friend class OutputIndexMapRange;
   template <DimensionIndex>
   friend class OutputIndexMapIterator;
@@ -230,7 +230,7 @@ class OutputIndexMapIterator {
 
  private:
   internal_index_space::OutputIndexMap* map() const { return ref_.map_; }
-  template <DimensionIndex, DimensionIndex>
+  template <DimensionIndex, DimensionIndex, ContainerKind>
   friend class OutputIndexMapRange;
   OutputIndexMapRef<InputRank> ref_;
   explicit OutputIndexMapIterator(internal_index_space::OutputIndexMap* map,
@@ -238,12 +238,12 @@ class OutputIndexMapIterator {
       : ref_(map, rep) {}
 };
 
-/// Represents a const unowned range view of the output index maps for an index
+/// Represents a const range view of the output index maps for an index
 /// transform.
 ///
 /// This range is valid only as long as the underlying index transform.
 template <DimensionIndex InputRank = dynamic_rank,
-          DimensionIndex OutputRank = dynamic_rank>
+          DimensionIndex OutputRank = dynamic_rank, ContainerKind CKind = view>
 class OutputIndexMapRange {
  public:
   using value_type = OutputIndexMapRef<InputRank>;
@@ -255,45 +255,59 @@ class OutputIndexMapRange {
   /// transform.
   constexpr static DimensionIndex extent = OutputRank;
 
-  // Constructs an invalid output index map range.
+  /// Constructs an invalid output index map range.
   OutputIndexMapRange() = default;
+
+  /// Constructs from an index transform.
+  explicit OutputIndexMapRange(
+      IndexTransform<InputRank, OutputRank, CKind> transform)
+      : transform_(std::move(transform)) {}
+
+  /// Constructs from an index transform.
+  template <DimensionIndex OtherInputRank, DimensionIndex OtherOutputRank,
+            ContainerKind OtherCKind,
+            typename = std::enable_if_t<
+                (IsRankImplicitlyConvertible(OtherInputRank, InputRank) &&
+                 IsRankImplicitlyConvertible(OtherOutputRank, OutputRank))>>
+  OutputIndexMapRange(
+      OutputIndexMapRange<OtherInputRank, OtherOutputRank, OtherCKind> other)
+      : transform_(std::move(other.transform_)) {}
 
   /// Returns the output rank of the transform.
   StaticOrDynamicRank<OutputRank> size() const {
-    return StaticRankCast<OutputRank, unchecked>(
-        static_cast<DimensionIndex>(rep_->output_rank));
+    return transform_.output_rank();
   }
 
   bool empty() const { return size() == 0; }
 
   iterator begin() const {
-    return iterator(rep_->output_index_maps().data(), rep_);
+    return iterator(rep()->output_index_maps().data(), rep());
   }
 
   iterator end() const {
-    return iterator(rep_->output_index_maps().data() + size(), rep_);
+    return iterator(rep()->output_index_maps().data() + size(), rep());
   }
 
   /// Returns the output index map for dimension `output_dim`.
   /// \dchecks `0 <= output_dim && output_dim < size()`.
   OutputIndexMapRef<InputRank> operator[](DimensionIndex output_dim) const {
-    ABSL_ASSERT(output_dim >= 0 && output_dim < size());
+    assert(output_dim >= 0 && output_dim < size());
     return OutputIndexMapRef<InputRank>(
-        rep_->output_index_maps().data() + output_dim, rep_);
+        rep()->output_index_maps().data() + output_dim, rep());
   }
 
   /// Returns the input rank of the index transform.
   StaticOrDynamicRank<InputRank> input_rank() const {
-    return StaticRankCast<InputRank, unchecked>(
-        static_cast<DimensionIndex>(rep_->input_rank));
+    return transform_.input_rank();
   }
 
  private:
-  template <DimensionIndex, DimensionIndex, ContainerKind CKind>
-  friend class IndexTransform;
-  explicit OutputIndexMapRange(internal_index_space::TransformRep* rep)
-      : rep_(rep) {}
-  internal_index_space::TransformRep* rep_ = nullptr;
+  template <DimensionIndex, DimensionIndex, ContainerKind>
+  friend class OutputIndexMapRange;
+  internal_index_space::TransformRep* rep() const {
+    return internal_index_space::TransformAccess::rep(transform_);
+  }
+  IndexTransform<InputRank, OutputRank, CKind> transform_;
 };
 
 }  // namespace tensorstore

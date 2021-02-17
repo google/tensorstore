@@ -527,14 +527,18 @@ void RegisterIndexSpaceBindings(pybind11::module m) {
                                }
                                return self.index_array;
                              })
-      .def_property_readonly(
-          "index_range",
-          [](const OutputIndexMap& self) -> std::optional<IndexInterval> {
-            if (self.method != OutputIndexMethod::array) {
-              return std::nullopt;
-            }
-            return self.index_range;
-          })
+      .def_property_readonly("index_range",
+                             [](const OutputIndexMap& self)
+                                 -> std::optional<IndexDomainDimension<>> {
+                               if (self.method != OutputIndexMethod::array) {
+                                 return std::nullopt;
+                               }
+                               IndexDomainDimension<> d;
+                               d.interval() = self.index_range;
+                               d.implicit_lower() = false;
+                               d.implicit_upper() = false;
+                               return d;
+                             })
       .def("__repr__", &OutputIndexMapToString)
       .def("__eq__", [](const OutputIndexMap& self,
                         const OutputIndexMap& other) { return self == other; })
@@ -579,19 +583,23 @@ void RegisterIndexSpaceBindings(pybind11::module m) {
             }
             return map;
           }));
-  py::class_<OutputIndexMapRange<>>(
+
+  using OutputIndexMapRangeContainer =
+      OutputIndexMapRange<dynamic_rank, dynamic_rank, container>;
+  py::class_<OutputIndexMapRangeContainer>(
       m, "OutputIndexMaps",
       R"(View of the output index maps for an index transform.)")
-      .def_property_readonly("rank", &OutputIndexMapRange<>::size,
+      .def_property_readonly("rank", &OutputIndexMapRangeContainer::size,
                              "Returns the output rank.")
-      .def("__len__", &OutputIndexMapRange<>::size, "Returns the output rank.")
+      .def("__len__", &OutputIndexMapRangeContainer::size,
+           "Returns the output rank.")
       .def("__getitem__",
-           [](OutputIndexMapRange<> r,
+           [](const OutputIndexMapRangeContainer& r,
               PythonDimensionIndex i) -> OutputIndexMap {
              return r[NormalizePythonDimensionIndex(i, r.size())];
            })
       .def("__repr__",
-           [](OutputIndexMapRange<> r) {
+           [](const OutputIndexMapRangeContainer& r) {
              std::string out = "[";
              for (DimensionIndex i = 0; i < r.size(); ++i) {
                if (i != 0) out += ", ";
@@ -600,7 +608,7 @@ void RegisterIndexSpaceBindings(pybind11::module m) {
              out += "]";
              return out;
            })
-      .def("__eq__", [](OutputIndexMapRange<> r,
+      .def("__eq__", [](const OutputIndexMapRangeContainer& r,
                         const std::vector<OutputIndexMap>& other) {
         if (r.size() != static_cast<DimensionIndex>(other.size())) return false;
         for (DimensionIndex i = 0; i < r.size(); ++i) {
@@ -1024,10 +1032,12 @@ This is simply the product of the extents in :py:obj:`.shape`.)")
             return MakeArrayReadonly(GetBitVector(t.implicit_upper_bounds()));
           },
           "Implicit upper bounds", py::return_value_policy::move)
-      .def_property_readonly("output", &IndexTransform<>::output_index_maps,
-                             "Returns the output index maps.",
-                             py::return_value_policy::move,
-                             py::keep_alive<0, 1>())
+      .def_property_readonly(
+          "output",
+          [](const IndexTransform<>& t) -> OutputIndexMapRangeContainer {
+            return t.output_index_maps();
+          },
+          "Returns the output index maps.")
       .def(
           "to_json",
           [](const IndexTransform<>& t) { return ::nlohmann::json(t); },
@@ -1067,7 +1077,8 @@ This is simply the product of the extents in :py:obj:`.shape`.)")
           [](const IndexTransform<>& self) -> py::tuple {
             return py::make_tuple(
                 py::tuple(py::cast(IndexDomain<>(self.domain()))),
-                py::tuple(py::cast(self.output_index_maps())));
+                py::tuple(py::cast(
+                    OutputIndexMapRangeContainer(self.output_index_maps()))));
           },
           [](py::tuple t) -> IndexTransform<> {
             const auto domain = py::cast<IndexDomain<>>(t[0]);

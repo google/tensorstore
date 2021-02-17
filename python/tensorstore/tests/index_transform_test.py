@@ -62,12 +62,18 @@ def test_init_output():
           ts.OutputIndexMap(offset=7, input_dimension=1),
           ts.OutputIndexMap([[1, 2]], offset=2, stride=-1),
           ts.OutputIndexMap(8),
+          ts.OutputIndexMap([[1, 2]], offset=2, stride=-1,
+                            index_range=ts.Dim(inclusive_min=0,
+                                               exclusive_max=8)),
       ],
   )
+  assert x.output[3].index_range == ts.Dim(inclusive_min=0, exclusive_max=8)
   assert x.output == [
       ts.OutputIndexMap(offset=7, input_dimension=1),
       ts.OutputIndexMap([[1, 2]], offset=2, stride=-1),
       ts.OutputIndexMap(8),
+      ts.OutputIndexMap([[1, 2]], offset=2, stride=-1,
+                        index_range=ts.Dim(inclusive_min=0, exclusive_max=8)),
   ]
 
 
@@ -81,6 +87,15 @@ def test_init_output_index_maps():
   )
   y = ts.IndexTransform(x.domain, x.output)
   assert x == y
+
+
+def test_output_index_maps_lifetime():
+  output = ts.IndexTransform(3).output
+  assert output == [
+      ts.OutputIndexMap(input_dimension=0),
+      ts.OutputIndexMap(input_dimension=1),
+      ts.OutputIndexMap(input_dimension=2),
+  ]
 
 
 def test_identity_error():
