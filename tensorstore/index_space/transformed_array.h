@@ -1153,8 +1153,12 @@ CopyTransformedArray(const SourceResult& source, const DestResult& dest) {
       "Arrays must have compatible ranks.");
   static_assert(!std::is_const<typename Dest::Element>::value,
                 "Dest array must have a non-const element type.");
-  TENSORSTORE_RETURN_IF_ERROR(
-      GetFirstErrorStatus(GetStatus(source), GetStatus(dest)));
+  if constexpr (IsResult<SourceResult>::value) {
+    if (!source.ok()) return source.status();
+  }
+  if constexpr (IsResult<DestResult>::value) {
+    if (!dest.ok()) return dest.status();
+  }
   return internal_index_space::CopyTransformedArrayImpl(UnwrapResult(source),
                                                         UnwrapResult(dest));
 }
@@ -1298,15 +1302,18 @@ IterateOverTransformedArrays(Func&& func, Status* status,
   static_assert(
       AreStaticRanksCompatible(UnwrapResultType<Array>::static_rank...),
       "Arrays must have compatible static ranks.");
-  TENSORSTORE_RETURN_IF_ERROR(GetFirstErrorStatus(GetStatus(array)...));
-  return internal::IterateOverTransformedArrays<sizeof...(Array)>(
-      internal::SimpleElementwiseFunction<
-          std::remove_reference_t<Func>(
-              typename UnwrapResultType<Array>::Element...),
-          Status*>::Closure(&func),
-      status, constraints,
-      span<const TransformedArrayView<const void>, sizeof...(Array)>(
-          {TransformedArray(UnwrapResult(array))...}));
+  return tensorstore::MapResult(
+      [&](auto&&... unwrapped_array) {
+        return internal::IterateOverTransformedArrays<sizeof...(Array)>(
+            internal::SimpleElementwiseFunction<
+                std::remove_reference_t<Func>(
+                    typename UnwrapResultType<Array>::Element...),
+                Status*>::Closure(&func),
+            status, constraints,
+            span<const TransformedArrayView<const void>, sizeof...(Array)>(
+                {TransformedArray(unwrapped_array)...}));
+      },
+      array...);
 }
 
 /// Same as above, except that `func` is called without an extra `Status`
@@ -1323,18 +1330,21 @@ IterateOverTransformedArrays(Func&& func, IterationConstraints constraints,
   static_assert(
       AreStaticRanksCompatible(UnwrapResultType<Array>::static_rank...),
       "Arrays must have compatible static ranks.");
-  TENSORSTORE_RETURN_IF_ERROR(GetFirstErrorStatus(GetStatus(array)...));
-  const auto func_wrapper =
-      [&func](typename UnwrapResultType<Array>::Element*... ptr, Status*) {
-        return func(ptr...);
-      };
-  return internal::IterateOverTransformedArrays<sizeof...(Array)>(
-      internal::SimpleElementwiseFunction<
-          decltype(func_wrapper)(typename UnwrapResultType<Array>::Element...),
-          Status*>::Closure(&func_wrapper),
-      /*status=*/nullptr, constraints,
-      span<const TransformedArrayView<const void>, sizeof...(Array)>(
-          {TransformedArrayView<const void>(UnwrapResult(array))...}));
+  return tensorstore::MapResult(
+      [&](auto&&... unwrapped_array) {
+        const auto func_wrapper =
+            [&func](typename UnwrapResultType<Array>::Element*... ptr,
+                    Status*) { return func(ptr...); };
+        return internal::IterateOverTransformedArrays<sizeof...(Array)>(
+            internal::SimpleElementwiseFunction<
+                decltype(func_wrapper)(
+                    typename UnwrapResultType<Array>::Element...),
+                Status*>::Closure(&func_wrapper),
+            /*status=*/nullptr, constraints,
+            span<const TransformedArrayView<const void>, sizeof...(Array)>(
+                {TransformedArrayView<const void>(unwrapped_array)...}));
+      },
+      array...);
 }
 
 }  // namespace tensorstore

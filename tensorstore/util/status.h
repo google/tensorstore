@@ -40,26 +40,6 @@ using Status = absl::Status;
 // If status is not `ok()`, then annotate the status message.
 Status MaybeAnnotateStatus(const Status& status, absl::string_view message);
 
-/// Returns the first error Status among all of the arguments.
-template <typename... T>
-Status GetFirstErrorStatus(Status&& a, T&&... other);
-
-inline Status GetFirstErrorStatus() { return {}; }
-inline Status GetFirstErrorStatus(const Status& status) { return status; }
-inline Status GetFirstErrorStatus(Status&& status) { return std::move(status); }
-
-template <typename... T>
-inline Status GetFirstErrorStatus(const Status& a, T&&... other) {
-  if (!a.ok()) return a;
-  return GetFirstErrorStatus(std::forward<T>(other)...);
-}
-
-template <typename... T>
-inline Status GetFirstErrorStatus(Status&& a, T&&... other) {
-  if (!a.ok()) return std::move(a);
-  return GetFirstErrorStatus(std::forward<T>(other)...);
-}
-
 /// Overload for the case of a bare Status argument.
 /// \returns `status`
 inline const Status& GetStatus(const Status& status) { return status; }

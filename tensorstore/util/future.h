@@ -1184,6 +1184,11 @@ inline absl::Status GetStatus(const Future<T>& future) {
   return tensorstore::GetStatus(future.result());
 }
 
+template <typename T>
+inline absl::Status GetStatus(const ReadyFuture<T>& future) {
+  return tensorstore::GetStatus(future.result());
+}
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_FUTURE_H_

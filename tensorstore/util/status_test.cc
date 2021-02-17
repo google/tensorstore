@@ -22,7 +22,6 @@
 namespace {
 
 using absl::Status;
-using tensorstore::GetFirstErrorStatus;
 using tensorstore::InvokeForStatus;
 using tensorstore::MaybeAnnotateStatus;
 
@@ -30,14 +29,6 @@ TEST(StatusTest, StrCat) {
   const Status s = absl::UnknownError("Message");
   EXPECT_EQ("UNKNOWN: Message", s.ToString());
   EXPECT_EQ("UNKNOWN: Message", tensorstore::StrCat(s));
-}
-
-TEST(StatusTest, GetFirstErrorStatus) {
-  EXPECT_EQ(absl::UnknownError("A"),
-            GetFirstErrorStatus(absl::OkStatus(), absl::UnknownError("A"),
-                                absl::UnknownError("B")));
-  EXPECT_EQ(absl::OkStatus(),
-            GetFirstErrorStatus(absl::OkStatus(), absl::OkStatus()));
 }
 
 TEST(StatusTest, MaybeAnnotateStatus) {

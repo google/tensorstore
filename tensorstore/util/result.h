@@ -720,19 +720,8 @@ inline Result<U> MakeResult(absl::Status status) {
 /// and GetStatus were the same. I think that I'd prefer UnwrapStatus()
 /// to return a Status type() and UnwrapResult() to return a value type.
 
-/// Returns the associated Status value, or the success value `Status()` if
-/// there is no associated Status value.
-///
-/// FIXME: GetStatus should return a const Status&
-///
-/// This overload handles the case of a non-Status, non-Result type.
-/// \returns `Status()`
-template <typename T>
-inline absl::Status GetStatus(const T& other) {
-  return absl::OkStatus();
-}
-
-/// Overload for the case of an argument that is an instance of `Result`.
+/// Returns the error status of `Result`, or `absl::OkStatus()` if `Result` has
+/// a value.
 /// \returns `result.status()`
 template <typename T>
 inline absl::Status GetStatus(const Result<T>& result) {
@@ -777,8 +766,19 @@ inline T&& UnwrapResult(Result<T>&& t) {
 template <typename Func, typename... T>
 FlatResult<std::invoke_result_t<Func&&, UnwrapQualifiedResultType<T>...>>
 MapResult(Func&& func, T&&... arg) {
-  TENSORSTORE_RETURN_IF_ERROR(
-      GetFirstErrorStatus(GetStatus(std::forward<T>(arg))...));
+  absl::Status status;
+  if (!([&] {
+        if constexpr (IsResult<internal::remove_cvref_t<T>>::value) {
+          if (!arg.ok()) {
+            status = arg.status();
+            return false;
+          }
+        }
+        return true;
+      }() &&
+        ...)) {
+    return status;
+  }
   return std::forward<Func>(func)(UnwrapResult(std::forward<T>(arg))...);
 }
 
