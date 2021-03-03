@@ -220,92 +220,83 @@ struct ResultStorage : public ResultStorageBase<T> {
 // variants through inheritance and template specialization.
 // ----------------------------------------------------------------
 
-// Ordered by level of restriction, from low to high.
-// Copyable implies movable.
-enum class MixinTraits { kCopyable = 0, kMovable = 1, kNonMovable = 2 };
-
-// Base class for enabling/disabling copy/move constructor.
-template <MixinTraits>
-class ResultConstructorMixinBase;
-
-template <>
-class ResultConstructorMixinBase<MixinTraits::kCopyable> {
- public:
-  constexpr ResultConstructorMixinBase() = default;
-  ResultConstructorMixinBase(const ResultConstructorMixinBase&) = default;
-  ResultConstructorMixinBase(ResultConstructorMixinBase&&) = default;
-  ResultConstructorMixinBase& operator=(const ResultConstructorMixinBase&) =
-      default;
-  ResultConstructorMixinBase& operator=(ResultConstructorMixinBase&&) = default;
+template <typename T,
+          bool = std::is_void<T>::value || std::is_copy_constructible<T>::value>
+struct CopyCtorBase {
+  CopyCtorBase() = default;
+  CopyCtorBase(const CopyCtorBase&) = default;
+  CopyCtorBase(CopyCtorBase&&) = default;
+  CopyCtorBase& operator=(const CopyCtorBase&) = default;
+  CopyCtorBase& operator=(CopyCtorBase&&) = default;
 };
 
-template <>
-class ResultConstructorMixinBase<MixinTraits::kMovable> {
- public:
-  constexpr ResultConstructorMixinBase() = default;
-  ResultConstructorMixinBase(const ResultConstructorMixinBase&) = delete;
-  ResultConstructorMixinBase(ResultConstructorMixinBase&&) = default;
-  ResultConstructorMixinBase& operator=(const ResultConstructorMixinBase&) =
-      default;
-  ResultConstructorMixinBase& operator=(ResultConstructorMixinBase&&) = default;
-};
-
-template <>
-class ResultConstructorMixinBase<MixinTraits::kNonMovable> {
- public:
-  constexpr ResultConstructorMixinBase() = default;
-  ResultConstructorMixinBase(const ResultConstructorMixinBase&) = delete;
-  ResultConstructorMixinBase(ResultConstructorMixinBase&&) = delete;
-  ResultConstructorMixinBase& operator=(const ResultConstructorMixinBase&) =
-      default;
-  ResultConstructorMixinBase& operator=(ResultConstructorMixinBase&&) = default;
-};
-
-// Base class for enabling/disabling copy/move assignment.
-template <MixinTraits>
-class ResultAssignMixinBase;
-
-template <>
-class ResultAssignMixinBase<MixinTraits::kCopyable> {
- public:
-  constexpr ResultAssignMixinBase() = default;
-  ResultAssignMixinBase(const ResultAssignMixinBase&) = default;
-  ResultAssignMixinBase(ResultAssignMixinBase&&) = default;
-  ResultAssignMixinBase& operator=(const ResultAssignMixinBase&) = default;
-  ResultAssignMixinBase& operator=(ResultAssignMixinBase&&) = default;
-};
-
-template <>
-class ResultAssignMixinBase<MixinTraits::kMovable> {
- public:
-  constexpr ResultAssignMixinBase() = default;
-  ResultAssignMixinBase(const ResultAssignMixinBase&) = default;
-  ResultAssignMixinBase(ResultAssignMixinBase&&) = default;
-  ResultAssignMixinBase& operator=(const ResultAssignMixinBase&) = delete;
-  ResultAssignMixinBase& operator=(ResultAssignMixinBase&&) = default;
-};
-
-template <>
-class ResultAssignMixinBase<MixinTraits::kNonMovable> {
- public:
-  constexpr ResultAssignMixinBase() = default;
-  ResultAssignMixinBase(const ResultAssignMixinBase&) = default;
-  ResultAssignMixinBase(ResultAssignMixinBase&&) = default;
-  ResultAssignMixinBase& operator=(const ResultAssignMixinBase&) = delete;
-  ResultAssignMixinBase& operator=(ResultAssignMixinBase&&) = delete;
-};
-
-// NOTE: This is used for both default-construction and default-assignment.
 template <typename T>
-constexpr MixinTraits GetConstructorMixinTraits() {
-  return std::is_void<T>::value  // void<T> has all constructors.
-             ? MixinTraits::kCopyable
-             : std::is_copy_constructible<T>::value
-                   ? MixinTraits::kCopyable
-                   : std::is_move_constructible<T>::value
-                         ? MixinTraits::kMovable
-                         : MixinTraits::kNonMovable;
-}
+struct CopyCtorBase<T, false> {
+  CopyCtorBase() = default;
+  CopyCtorBase(const CopyCtorBase&) = delete;
+  CopyCtorBase(CopyCtorBase&&) = default;
+  CopyCtorBase& operator=(const CopyCtorBase&) = default;
+  CopyCtorBase& operator=(CopyCtorBase&&) = default;
+};
+
+template <typename T,
+          bool = std::is_void<T>::value || std::is_move_constructible<T>::value>
+struct MoveCtorBase {
+  MoveCtorBase() = default;
+  MoveCtorBase(const MoveCtorBase&) = default;
+  MoveCtorBase(MoveCtorBase&&) = default;
+  MoveCtorBase& operator=(const MoveCtorBase&) = default;
+  MoveCtorBase& operator=(MoveCtorBase&&) = default;
+};
+
+template <typename T>
+struct MoveCtorBase<T, false> {
+  MoveCtorBase() = default;
+  MoveCtorBase(const MoveCtorBase&) = default;
+  MoveCtorBase(MoveCtorBase&&) = delete;
+  MoveCtorBase& operator=(const MoveCtorBase&) = default;
+  MoveCtorBase& operator=(MoveCtorBase&&) = default;
+};
+
+template <typename T, bool = std::is_void<T>::value ||
+                             (std::is_copy_constructible<T>::value &&
+                              std::is_copy_assignable<T>::value)>
+struct CopyAssignBase {
+  CopyAssignBase() = default;
+  CopyAssignBase(const CopyAssignBase&) = default;
+  CopyAssignBase(CopyAssignBase&&) = default;
+  CopyAssignBase& operator=(const CopyAssignBase&) = default;
+  CopyAssignBase& operator=(CopyAssignBase&&) = default;
+};
+
+template <typename T>
+struct CopyAssignBase<T, false> {
+  CopyAssignBase() = default;
+  CopyAssignBase(const CopyAssignBase&) = default;
+  CopyAssignBase(CopyAssignBase&&) = default;
+  CopyAssignBase& operator=(const CopyAssignBase&) = delete;
+  CopyAssignBase& operator=(CopyAssignBase&&) = default;
+};
+
+template <typename T, bool = std::is_void<T>::value ||
+                             (std::is_move_constructible<T>::value &&
+                              std::is_move_assignable<T>::value)>
+struct MoveAssignBase {
+  MoveAssignBase() = default;
+  MoveAssignBase(const MoveAssignBase&) = default;
+  MoveAssignBase(MoveAssignBase&&) = default;
+  MoveAssignBase& operator=(const MoveAssignBase&) = default;
+  MoveAssignBase& operator=(MoveAssignBase&&) = default;
+};
+
+template <typename T>
+struct MoveAssignBase<T, false> {
+  MoveAssignBase() = default;
+  MoveAssignBase(const MoveAssignBase&) = default;
+  MoveAssignBase(MoveAssignBase&&) = default;
+  MoveAssignBase& operator=(const MoveAssignBase&) = default;
+  MoveAssignBase& operator=(MoveAssignBase&&) = delete;
+};
 
 // Whether T is constructible from Result<U>.
 template <typename T, typename U>

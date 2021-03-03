@@ -137,10 +137,10 @@ using std::in_place_t;
 ///
 template <typename T>
 class Result : private internal_result::ResultStorage<T>,
-               private internal_result::ResultConstructorMixinBase<
-                   internal_result::GetConstructorMixinTraits<T>()>,
-               private internal_result::ResultAssignMixinBase<
-                   internal_result::GetConstructorMixinTraits<T>()> {
+               private internal_result::CopyCtorBase<T>,
+               private internal_result::MoveCtorBase<T>,
+               private internal_result::CopyAssignBase<T>,
+               private internal_result::MoveAssignBase<T> {
   static_assert(!std::is_reference<T>::value, "T must not be a reference");
   static_assert(!std::is_same<T, absl::Status>::value,
                 "T must not be a Status");
@@ -152,13 +152,13 @@ class Result : private internal_result::ResultStorage<T>,
   static_assert(!std::is_const<T>::value && !std::is_volatile<T>::value,
                 "T must not be cv-qualified");
 
-  using storage = internal_result::ResultStorage<T>;
+  using Base = internal_result::ResultStorage<T>;
 
  public:
   /// The type of the contained success value.
-  using value_type = typename storage::value_type;
-  using reference_type = typename storage::reference_type;
-  using const_reference_type = typename storage::const_reference_type;
+  using value_type = typename Base::value_type;
+  using reference_type = typename Base::reference_type;
+  using const_reference_type = typename Base::const_reference_type;
 
   using error_type = absl::Status;
 
@@ -173,7 +173,7 @@ class Result : private internal_result::ResultStorage<T>,
 
   /// \brief Construct a Result<T> with a Status.
   /// \requires `!status` unless T is void.
-  Result(const absl::Status& status) : storage(internal_result::noinit_t{}) {
+  Result(const absl::Status& status) : Base(internal_result::noinit_t{}) {
     if constexpr (std::is_void_v<value_type>) {
       if (status.ok()) {
         this->construct_value();
@@ -185,7 +185,7 @@ class Result : private internal_result::ResultStorage<T>,
       TENSORSTORE_CHECK(!status.ok());
     }
   }
-  Result(absl::Status&& status) : storage(internal_result::noinit_t{}) {
+  Result(absl::Status&& status) : Base(internal_result::noinit_t{}) {
     if constexpr (std::is_void_v<value_type>) {
       if (status.ok()) {
         this->construct_value();
@@ -202,13 +202,13 @@ class Result : private internal_result::ResultStorage<T>,
   /// `T` from the arguments `std::forward<Args>(args)...`  within the `Result`.
   template <typename... Args>
   Result(in_place_t, Args&&... args)
-      : storage(internal_result::value_t(), std::forward<Args>(args)...) {}
+      : Base(internal_result::value_t(), std::forward<Args>(args)...) {}
 
   /// Constructs a non-empty `Result` direct-initialized value of type `T` from
   /// the arguments of an initializer_list and `std::forward<Args>(args)...`.
   template <typename U, typename... Args>
   Result(in_place_t, std::initializer_list<U> il, Args&&... args)
-      : storage(internal_result::value_t(), il, std::forward<Args>(args)...) {}
+      : Base(internal_result::value_t(), il, std::forward<Args>(args)...) {}
 
   /// \brief Value constructor (implicit)
   template <
@@ -218,7 +218,7 @@ class Result : private internal_result::ResultStorage<T>,
            !std::is_same<absl::Status, internal::remove_cvref_t<U>>::value &&
            std::is_convertible<U&&, T>::value  //
            )>* = nullptr>
-  Result(U&& v) : storage(internal_result::value_t(), std::forward<U>(v)) {}
+  Result(U&& v) : Base(internal_result::value_t(), std::forward<U>(v)) {}
 
   /// \brief Value constructor (explicit)
   template <
@@ -230,7 +230,7 @@ class Result : private internal_result::ResultStorage<T>,
            std::is_constructible<T, U&&>::value    //
            )>* = nullptr>
   explicit Result(U&& v)
-      : storage(internal_result::value_t(), std::forward<U>(v)) {}
+      : Base(internal_result::value_t(), std::forward<U>(v)) {}
 
   /// FIXME: Allow explicit cast Result<T> -> Result<void>.
 
@@ -241,7 +241,7 @@ class Result : private internal_result::ResultStorage<T>,
                      value_type, U>::value &&
                  std::is_convertible<const U&, value_type>::value  //
                  )>* = nullptr>
-  Result(const Result<U>& rhs) : storage(internal_result::noinit_t{}) {
+  Result(const Result<U>& rhs) : Base(internal_result::noinit_t{}) {
     construct_from(rhs);
   }
 
@@ -253,7 +253,7 @@ class Result : private internal_result::ResultStorage<T>,
                  !std::is_convertible<const U&, value_type>::value &&  //
                  std::is_constructible<T, const U&>::value             //
                  )>* = nullptr>
-  explicit Result(const Result<U>& rhs) : storage(internal_result::noinit_t{}) {
+  explicit Result(const Result<U>& rhs) : Base(internal_result::noinit_t{}) {
     construct_from(rhs);
   }
 
@@ -264,7 +264,7 @@ class Result : private internal_result::ResultStorage<T>,
                      value_type, U>::value &&
                  std::is_convertible<U&&, value_type>::value  //
                  )>* = nullptr>
-  Result(Result<U>&& rhs) : storage(internal_result::noinit_t{}) {
+  Result(Result<U>&& rhs) : Base(internal_result::noinit_t{}) {
     construct_from(std::move(rhs));
   }
 
@@ -276,7 +276,7 @@ class Result : private internal_result::ResultStorage<T>,
                  !std::is_convertible<U&&, value_type>::value &&  //
                  std::is_constructible<value_type, U&&>::value    //
                  )>* = nullptr>
-  explicit Result(Result<U>&& rhs) : storage(internal_result::noinit_t{}) {
+  explicit Result(Result<U>&& rhs) : Base(internal_result::noinit_t{}) {
     construct_from(std::move(rhs));
   }
 
