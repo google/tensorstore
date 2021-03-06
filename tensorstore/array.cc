@@ -243,4 +243,52 @@ Result<SharedArray<const void>> BroadcastArray(
   return target;
 }
 
+Result<SharedOffsetArray<const void>> BroadcastArray(
+    SharedOffsetArrayView<const void> source, BoxView<> target_domain) {
+  SharedOffsetArray<const void> target;
+  target.layout().set_rank(target_domain.rank());
+  TENSORSTORE_RETURN_IF_ERROR(BroadcastStridedLayout(
+      StridedLayoutView<>(source.shape(), source.byte_strides()),
+      target_domain.shape(), target.byte_strides().data()));
+  std::copy_n(target_domain.origin().begin(), target_domain.rank(),
+              target.origin().begin());
+  std::copy_n(target_domain.shape().begin(), target_domain.rank(),
+              target.shape().begin());
+  target.element_pointer() =
+      AddByteOffset(std::move(source.element_pointer()),
+                    internal::wrap_on_overflow::Subtract(
+                        source.layout().origin_byte_offset(),
+                        target.layout().origin_byte_offset()));
+  return target;
+}
+
+SharedArray<const void> UnbroadcastArray(
+    SharedOffsetArrayView<const void> source) {
+  DimensionIndex new_rank = 0;
+  for (DimensionIndex orig_dim = source.rank() - 1; orig_dim >= 0; --orig_dim) {
+    if (source.shape()[orig_dim] != 1 && source.byte_strides()[orig_dim] != 0) {
+      new_rank = source.rank() - orig_dim;
+    }
+  }
+
+  SharedArray<const void> new_array;
+  new_array.layout().set_rank(new_rank);
+  for (DimensionIndex new_dim = 0; new_dim < new_rank; ++new_dim) {
+    const DimensionIndex orig_dim = source.rank() + new_dim - new_rank;
+    Index byte_stride = source.byte_strides()[orig_dim];
+    Index size = source.shape()[orig_dim];
+    if (byte_stride == 0) {
+      size = 1;
+    } else if (size == 1) {
+      byte_stride = 0;
+    }
+    new_array.shape()[new_dim] = size;
+    new_array.byte_strides()[new_dim] = byte_stride;
+  }
+  new_array.element_pointer() =
+      AddByteOffset(std::move(source.element_pointer()),
+                    source.layout().origin_byte_offset());
+  return new_array;
+}
+
 }  // namespace tensorstore

@@ -1837,7 +1837,7 @@ TEST(BroadcastStridedLayoutTest, Basic) {
   EXPECT_THAT(target_layout.byte_strides(), ::testing::ElementsAre(0, 5));
 }
 
-TEST(BroadcastArrayTest, Basic) {
+TEST(BroadcastArrayTest, ZeroOrigin) {
   EXPECT_THAT(
       BroadcastArray(MakeArray<int>({1, 2, 3}), span<const Index>({2, 3})),
       MakeArray<int>({{1, 2, 3}, {1, 2, 3}}));
@@ -1850,6 +1850,36 @@ TEST(BroadcastArrayTest, Basic) {
                   absl::StatusCode::kInvalidArgument,
                   "Cannot broadcast array of shape \\{3, 1\\} to target shape "
                   "\\{4, 2\\}"));
+}
+
+TEST(BroadcastArrayTest, OffsetOrigin) {
+  EXPECT_THAT(BroadcastArray(MakeOffsetArray<int>({3}, {1, 2, 3}),
+                             BoxView<>({1, 2}, {2, 3})),
+              MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {1, 2, 3}}));
+  EXPECT_THAT(BroadcastArray(MakeOffsetArray<int>({3, 4}, {{1}, {2}, {3}}),
+                             BoxView<>({1, 2}, {3, 2})),
+              MakeOffsetArray<int>({1, 2}, {{1, 1}, {2, 2}, {3, 3}}));
+  EXPECT_THAT(BroadcastArray(MakeOffsetArray<int>({3, 4}, {{1}, {2}, {3}}),
+                             BoxView<>({1, 2}, {4, 2})),
+              MatchesStatus(
+                  absl::StatusCode::kInvalidArgument,
+                  "Cannot broadcast array of shape \\{3, 1\\} to target shape "
+                  "\\{4, 2\\}"));
+}
+
+TEST(UnbroadcastArrayTest, Basic) {
+  auto orig_array = MakeArray<int>({{{1, 2}}, {{3, 4}}, {{5, 6}}});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto broadcast_array,
+      BroadcastArray(orig_array, BoxView<>({1, 2, 3, 4}, {2, 3, 2, 2})));
+  auto unbroadcast_array = UnbroadcastArray(broadcast_array);
+  auto unbroadcast_array2 = UnbroadcastArray(unbroadcast_array);
+  EXPECT_EQ(orig_array, unbroadcast_array);
+  EXPECT_EQ(orig_array.pointer(), unbroadcast_array.pointer());
+  EXPECT_EQ(orig_array.layout(), unbroadcast_array.layout());
+  EXPECT_EQ(orig_array, unbroadcast_array2);
+  EXPECT_EQ(orig_array.pointer(), unbroadcast_array2.pointer());
+  EXPECT_EQ(orig_array.layout(), unbroadcast_array2.layout());
 }
 
 }  // namespace

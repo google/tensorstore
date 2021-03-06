@@ -1761,6 +1761,22 @@ absl::Status BroadcastStridedLayout(StridedLayoutView<> source,
 Result<SharedArray<const void>> BroadcastArray(
     SharedArrayView<const void> source, span<const Index> target_shape);
 
+/// Same as above, but translates the origin to `target_domain.origin()`.
+Result<SharedOffsetArray<const void>> BroadcastArray(
+    SharedOffsetArrayView<const void> source, BoxView<> target_domain);
+
+/// Converts zero-stride dimensions (with non-zero size) to have an extent of 1,
+/// removes leading singleton dimensions, and translates the origin to 0.
+///
+/// The returned array shares a reference to the data of `source`.
+///
+/// If there are no such dimensions, and the origin is already 0, the returned
+/// array is equivalent to `source` (i.e. it has the same layout in addition to
+/// the same data pointer).  In particular, applying this function again to its
+/// return value has no effect.
+SharedArray<const void> UnbroadcastArray(
+    SharedOffsetArrayView<const void> source);
+
 }  // namespace tensorstore
 
 #endif  //  TENSORSTORE_ARRAY_H_
