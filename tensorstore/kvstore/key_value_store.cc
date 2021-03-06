@@ -169,6 +169,14 @@ Future<KeyValueStore::Ptr> KeyValueStoreSpec::Bound::Open() const {
         auto& open_cache = GetOpenKeyValueStoreCache();
         absl::MutexLock lock(&open_cache.mutex);
         auto p = open_cache.map.emplace(cache_key, store.get());
+#ifdef TENSORSTORE_KVSTORE_OPEN_CACHE_DEBUG
+        if (p.second) {
+          TENSORSTORE_LOG("Inserted kvstore into cache: ",
+                          QuoteString(cache_key));
+        } else {
+          TENSORSTORE_LOG("Reusing cached kvstore: ", QuoteString(cache_key));
+        }
+#endif
         return KeyValueStore::Ptr(p.first->second);
       },
       this->DoOpen());
@@ -187,6 +195,10 @@ void KeyValueStore::DestroyLastReference() {
     auto it = open_cache.map.find(cache_key);
     if (it != open_cache.map.end() && it->second == this) {
       open_cache.map.erase(it);
+#ifdef TENSORSTORE_KVSTORE_OPEN_CACHE_DEBUG
+      TENSORSTORE_LOG("Removed kvstore from open cache: ",
+                      QuoteString(cache_key));
+#endif
     }
   }
   delete this;
