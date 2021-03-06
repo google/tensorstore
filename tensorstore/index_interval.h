@@ -834,6 +834,33 @@ Result<IndexInterval> GetAffineTransformRange(IndexInterval interval,
 Result<OptionallyImplicitIndexInterval> GetAffineTransformRange(
     OptionallyImplicitIndexInterval interval, Index offset, Index multiplier);
 
+/// Computes the interval containing all indices `x` for which
+/// `(x - offset) / divisor` is in `interval`, where `/` rounds towards 0.
+///
+/// The result is the same as `GetAffineTransformRange`, except that for
+/// non-empty `interval`:
+///
+///   if `divisor > 0`: the upper bound is expanded by `divisor - 1`;
+///
+///   if `divisor < 0`: the lower bound is expanded by `-divisor - 1`.
+///
+/// For example:
+///
+///     GetAffineTransformRange([2, 4], 1, 3)          -> [  7, 13]
+///     GetAffineTransformInverseDomain([2, 4], 1, 3)  -> [  7, 15]
+///     GetAffineTransformRange([2, 4], 1, -3)         -> [-11, -5]
+///     GetAffineTransformInverseDomain([2, 4], 1, -3) -> [-13, -5]
+///
+/// \param interval The domain of the affine transform.
+/// \param offset The offset of the affine transform.
+/// \param divisor The multiplier of the affine transform.
+/// \returns The range of the affine transform.
+/// \error `absl::StatusCode::kInvalidArgument` if the result interval cannot be
+///     represented.
+Result<IndexInterval> GetAffineTransformInverseDomain(IndexInterval interval,
+                                                      Index offset,
+                                                      Index divisor);
+
 /// Returns `index` if `index != kImplicit`, or `default_value` otherwise.
 constexpr inline Index ExplicitIndexOr(Index index, Index default_value) {
   return index == kImplicit ? default_value : index;

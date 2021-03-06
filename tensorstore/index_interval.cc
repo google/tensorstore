@@ -445,6 +445,15 @@ Result<OptionallyImplicitIndexInterval> GetAffineTransformDomain(
   return interval;
 }
 
+namespace {
+absl::Status GetAffineTransformError(IndexInterval interval, Index offset,
+                                     Index multiplier) {
+  return absl::InvalidArgumentError(tensorstore::StrCat(
+      "Integer overflow computing affine transform of domain ", interval,
+      " with offset ", offset, " and multiplier ", multiplier));
+}
+}  // namespace
+
 Result<IndexInterval> GetAffineTransformRange(IndexInterval interval,
                                               Index offset, Index multiplier) {
   const auto transform_bound_overflow = [&](Index* bound) {
@@ -459,11 +468,7 @@ Result<IndexInterval> GetAffineTransformRange(IndexInterval interval,
 
   Index lower = interval.inclusive_min(), upper = interval.inclusive_max();
   if (transform_bound_overflow(&lower) || transform_bound_overflow(&upper)) {
-    return Status(
-        absl::StatusCode::kInvalidArgument,
-        StrCat("Integer overflow computing affine transform of domain ",
-               interval, " with offset ", offset, " and multiplier ",
-               multiplier));
+    return GetAffineTransformError(interval, offset, multiplier);
   }
   if (interval.empty()) {
     return IndexInterval::UncheckedSized(lower, 0);
@@ -473,6 +478,35 @@ Result<IndexInterval> GetAffineTransformRange(IndexInterval interval,
   }
   if (multiplier < 0) std::swap(lower, upper);
   return IndexInterval::UncheckedClosed(lower, upper);
+}
+
+Result<IndexInterval> GetAffineTransformInverseDomain(IndexInterval interval,
+                                                      Index offset,
+                                                      Index divisor) {
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto new_interval, GetAffineTransformRange(interval, offset, divisor));
+  if (new_interval.empty()) return new_interval;
+  if (divisor > 0 && new_interval.inclusive_max() != kInfIndex) {
+    Index new_inclusive_max;
+    if (internal::AddOverflow(new_interval.inclusive_max(), divisor - 1,
+                              &new_inclusive_max) ||
+        !IsFiniteIndex(new_inclusive_max)) {
+      return GetAffineTransformError(interval, offset, divisor);
+    }
+    return IndexInterval::UncheckedClosed(new_interval.inclusive_min(),
+                                          new_inclusive_max);
+  }
+  if (divisor < 0 && new_interval.inclusive_min() != -kInfIndex) {
+    Index new_inclusive_min;
+    if (internal::AddOverflow(new_interval.inclusive_min(), divisor + 1,
+                              &new_inclusive_min) ||
+        !IsFiniteIndex(new_inclusive_min)) {
+      return GetAffineTransformError(interval, offset, divisor);
+    }
+    return IndexInterval::UncheckedClosed(new_inclusive_min,
+                                          new_interval.inclusive_max());
+  }
+  return new_interval;
 }
 
 Result<OptionallyImplicitIndexInterval> GetAffineTransformRange(

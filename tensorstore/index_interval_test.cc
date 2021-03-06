@@ -31,6 +31,7 @@ using tensorstore::ExplicitIndexOr;
 using tensorstore::ExtractClosedStridedSlice;
 using tensorstore::ExtractHalfOpenStridedSlice;
 using tensorstore::ExtractSizedStridedSlice;
+using tensorstore::GetAffineTransformInverseDomain;
 using tensorstore::ImplicitOrEqual;
 using tensorstore::Index;
 using tensorstore::IndexDomainDimension;
@@ -985,12 +986,23 @@ TEST(GetAffineTransformDomainTest, OffsetInvalid) {
 void TestGetAffineTransformRangeRoundTrip(IndexInterval domain, Index offset,
                                           Index multiplier,
                                           IndexInterval range) {
-  EXPECT_EQ(GetAffineTransformRange(domain, offset, multiplier).value(), range)
+  EXPECT_THAT(GetAffineTransformRange(domain, offset, multiplier),
+              ::testing::Optional(range))
       << "domain=" << domain << ", offset=" << offset
       << ", multiplier=" << multiplier << ", range=" << range;
-  EXPECT_EQ(GetAffineTransformDomain(range, offset, multiplier).value(), domain)
+  EXPECT_THAT(GetAffineTransformDomain(range, offset, multiplier),
+              ::testing::Optional(domain))
       << "domain=" << domain << ", offset=" << offset
       << ", multiplier=" << multiplier << ", range=" << range;
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto inv_domain,
+      GetAffineTransformInverseDomain(domain, offset, multiplier));
+  EXPECT_THAT(GetAffineTransformDomain(inv_domain, offset, multiplier),
+              ::testing::Optional(domain))
+      << "domain=" << domain << ", offset=" << offset
+      << ", multiplier=" << multiplier << ", range=" << range
+      << ", inv_domain=" << inv_domain;
 }
 
 // Tests that GetAffineTransformDomain inverts GetAffineTransformRange when the
@@ -1058,6 +1070,21 @@ TEST(GetAffineTransformRangeTest, ErrorCases) {
                   IndexInterval::UncheckedClosed(-1, 1),
                   std::numeric_limits<Index>::max() - kInfIndex + 1, kInfIndex),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(GetAffineTransformInverseDomainTest, Examples) {
+  EXPECT_THAT(
+      GetAffineTransformRange(IndexInterval::UncheckedClosed(2, 4), 1, 3),
+      ::testing::Optional(IndexInterval::UncheckedClosed(7, 13)));
+  EXPECT_THAT(GetAffineTransformInverseDomain(
+                  IndexInterval::UncheckedClosed(2, 4), 1, 3),
+              ::testing::Optional(IndexInterval::UncheckedClosed(7, 15)));
+  EXPECT_THAT(
+      GetAffineTransformRange(IndexInterval::UncheckedClosed(2, 4), 1, -3),
+      ::testing::Optional(IndexInterval::UncheckedClosed(-11, -5)));
+  EXPECT_THAT(GetAffineTransformInverseDomain(
+                  IndexInterval::UncheckedClosed(2, 4), 1, -3),
+              ::testing::Optional(IndexInterval::UncheckedClosed(-13, -5)));
 }
 
 void TestGetAffineTransformRangeOptionallyImplicitRoundTrip(

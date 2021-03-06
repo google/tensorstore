@@ -228,17 +228,8 @@ absl::Status PropagateUnitStrideSingleInputDimensionMapDownsampling(
   new_output_map.SetSingleInputDimension(new_input_dim);
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto new_interval,
-      GetAffineTransformRange(input_interval, 0,
-                              original_stride * output_downsample_factor));
-  if (!new_interval.empty()) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        new_interval,
-        ShiftInterval(
-            new_interval,
-            original_stride == -1 ? -(output_downsample_factor - 1) : 0,
-
-            original_stride == 1 ? output_downsample_factor - 1 : 0));
-  }
+      GetAffineTransformInverseDomain(
+          input_interval, 0, original_stride * output_downsample_factor));
   new_interval = Intersect(new_interval, bounds_interval);
   new_output_map.stride() = original_stride;
   new_input_domain[new_input_dim] = new_interval;
