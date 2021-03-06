@@ -12,15 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <random>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/index_space/index_transform_testutil.h"
+#include "tensorstore/internal/test_util.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 namespace {
 
 using tensorstore::Index;
+using tensorstore::IndexDomainBuilder;
 using tensorstore::IndexTransform;
 using tensorstore::IndexTransformBuilder;
 using tensorstore::InverseTransform;
@@ -338,6 +344,44 @@ TEST(InverseTransformTest, OffsetOverflow) {
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Integer overflow occurred while inverting map from input "
                     "dimension 0 -> output dimension 0"));
+}
+
+TEST(InverseTransformTest, RandomFromOutputSpace) {
+  constexpr size_t kNumIterations = 100;
+  for (size_t i = 0; i < kNumIterations; ++i) {
+    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+        "TENSORSTORE_INTERNAL_INVERSE_TRANSFORM_TEST_SEED")};
+    auto box = tensorstore::internal::MakeRandomBox(gen);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto domain, IndexDomainBuilder(box.rank()).bounds(box).Finalize());
+    auto transform =
+        tensorstore::internal::MakeRandomStridedIndexTransformForOutputSpace(
+            gen, domain);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto inv_transform,
+                                     InverseTransform(transform));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto inv_inv_transform,
+                                     InverseTransform(inv_transform));
+    EXPECT_EQ(transform, inv_inv_transform);
+  }
+}
+
+TEST(InverseTransformTest, RandomFromInputSpace) {
+  constexpr size_t kNumIterations = 100;
+  for (size_t i = 0; i < kNumIterations; ++i) {
+    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+        "TENSORSTORE_INTERNAL_INVERSE_TRANSFORM_TEST_SEED")};
+    auto box = tensorstore::internal::MakeRandomBox(gen);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto domain, IndexDomainBuilder(box.rank()).bounds(box).Finalize());
+    auto transform =
+        tensorstore::internal::MakeRandomStridedIndexTransformForInputSpace(
+            gen, domain);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto inv_transform,
+                                     InverseTransform(transform));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto inv_inv_transform,
+                                     InverseTransform(inv_transform));
+    EXPECT_EQ(transform, inv_inv_transform);
+  }
 }
 
 }  // namespace

@@ -465,6 +465,7 @@ tensorstore_cc_library(
     deps = [
         ":dim_expression",
         ":index_transform",
+        ":index_transform_builder",
         "//tensorstore/internal:logging",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/random",
@@ -547,6 +548,8 @@ tensorstore_cc_test(
     deps = [
         ":index_transform",
         ":index_transform_builder",
+        ":index_transform_testutil",
+        "//tensorstore/internal:test_util",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",

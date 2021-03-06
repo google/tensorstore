@@ -22,6 +22,7 @@
 #include "absl/random/random.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/logging.h"
 
 namespace tensorstore {
@@ -162,6 +163,101 @@ IndexTransform<> MakeRandomIndexTransform(absl::BitGenRef gen,
     transform = ApplyRandomDimExpression(gen, transform);
   }
   return transform;
+}
+
+IndexTransform<> MakeRandomStridedIndexTransformForOutputSpace(
+    absl::BitGenRef gen, IndexDomainView<> output_domain,
+    const MakeStridedIndexTransformForOutputSpaceParameters& p) {
+  DimensionIndex num_new_dims = 0;
+  assert(p.max_new_dims >= 0);
+  const DimensionIndex output_rank = output_domain.rank();
+  DimensionIndex max_new_dims =
+      std::min(p.max_new_dims, kMaxRank - output_rank);
+  num_new_dims = absl::Uniform<DimensionIndex>(absl::IntervalClosedClosed, gen,
+                                               0, max_new_dims);
+  DimensionIndex perm[kMaxRank];
+  const DimensionIndex input_rank = output_rank + num_new_dims;
+  MakeRandomDimensionOrder(gen, span(perm, input_rank));
+  IndexTransformBuilder builder(input_rank, output_rank);
+  for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
+    const Index offset = absl::Uniform<Index>(
+        absl::IntervalClosedClosed, gen, p.offset_interval.inclusive_min(),
+        p.offset_interval.inclusive_max());
+    Index stride = 1;
+    if (p.max_stride > 1) {
+      stride = absl::Uniform<Index>(absl::IntervalClosedClosed, gen, 1,
+                                    p.max_stride);
+    }
+    if (absl::Bernoulli(gen, 0.5)) stride = -stride;
+    const DimensionIndex input_dim = perm[output_dim];
+    builder.output_single_input_dimension(output_dim, offset, stride,
+                                          input_dim);
+    builder.input_labels()[input_dim] = output_domain.labels()[output_dim];
+  }
+  if (p.new_dims_are_singleton) {
+    auto input_origin = builder.input_origin();
+    auto input_shape = builder.input_shape();
+    auto implicit_lower_bounds = builder.implicit_lower_bounds();
+    auto implicit_upper_bounds = builder.implicit_upper_bounds();
+    for (DimensionIndex perm_i = 0; perm_i < input_rank; ++perm_i) {
+      const DimensionIndex input_dim = perm[perm_i];
+      if (perm_i < output_rank) {
+        input_origin[input_dim] = -kInfIndex;
+        input_shape[input_dim] = kInfSize;
+        implicit_lower_bounds[input_dim] = true;
+        implicit_upper_bounds[input_dim] = true;
+      } else {
+        input_origin[input_dim] = 0;
+        input_shape[input_dim] = 1;
+        implicit_lower_bounds[input_dim] = false;
+        implicit_upper_bounds[input_dim] = false;
+      }
+    }
+  }
+  auto transform = builder.Finalize().value();
+  return PropagateBoundsToTransform(output_domain, std::move(transform))
+      .value();
+}
+
+IndexTransform<> MakeRandomStridedIndexTransformForInputSpace(
+    absl::BitGenRef gen, IndexDomainView<> input_domain,
+    const MakeStridedIndexTransformForInputSpaceParameters& p) {
+  DimensionIndex num_new_dims = 0;
+  assert(p.max_new_dims >= 0);
+  const DimensionIndex input_rank = input_domain.rank();
+  DimensionIndex max_new_dims = std::min(p.max_new_dims, kMaxRank - input_rank);
+  num_new_dims = absl::Uniform<DimensionIndex>(absl::IntervalClosedClosed, gen,
+                                               0, max_new_dims);
+  DimensionIndex perm[kMaxRank];
+  const DimensionIndex output_rank = input_rank + num_new_dims;
+  MakeRandomDimensionOrder(gen, span(perm, output_rank));
+  IndexTransformBuilder builder(input_rank, output_rank);
+  builder.input_domain(input_domain);
+  for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
+    const Index offset = absl::Uniform<Index>(
+        absl::IntervalClosedClosed, gen, p.offset_interval.inclusive_min(),
+        p.offset_interval.inclusive_max());
+    const DimensionIndex input_dim = perm[output_dim];
+    if (input_dim >= input_rank) {
+      builder.output_constant(output_dim, offset);
+      continue;
+    }
+    Index stride = 1;
+    if (p.max_stride > 1) {
+      stride = absl::Uniform<Index>(absl::IntervalClosedClosed, gen, 1,
+                                    p.max_stride);
+    }
+    if (absl::Bernoulli(gen, 0.5)) stride = -stride;
+    builder.output_single_input_dimension(output_dim, offset, stride,
+                                          input_dim);
+  }
+  return builder.Finalize().value();
+}
+
+void MakeRandomDimensionOrder(absl::BitGenRef gen,
+                              span<DimensionIndex> permutation) {
+  std::iota(permutation.begin(), permutation.end(), DimensionIndex(0));
+  std::shuffle(permutation.begin(), permutation.end(), gen);
 }
 
 Box<> MakeRandomBox(absl::BitGenRef gen, const MakeRandomBoxParameters& p) {
