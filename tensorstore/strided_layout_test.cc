@@ -645,8 +645,6 @@ TEST(StridedLayoutViewTest, DynamicConsructAndAssign) {
   {
     StridedLayoutView<> r;
     EXPECT_EQ(0, r.rank());
-    EXPECT_EQ(nullptr, r.shape().data());
-    EXPECT_EQ(nullptr, r.byte_strides().data());
     EXPECT_TRUE(r.shape().empty());
     EXPECT_TRUE(r.byte_strides().empty());
   }

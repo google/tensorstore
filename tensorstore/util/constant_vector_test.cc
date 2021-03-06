@@ -40,26 +40,6 @@ TEST(GetConstantVectorTest, ZeroRunTimeLengthInt) {
   auto x = GetConstantVector<int, 3>(0);
   static_assert(std::is_same<decltype(x), span<const int>>::value, "");
   EXPECT_EQ(0, x.size());
-  EXPECT_EQ(nullptr, x.data());
-}
-
-// Tests with a run time-specified length of 33, that requires a
-// dynamically-allocated buffer.
-TEST(GetConstantVectorTest, RunTimeLengthInt33) {
-  auto x = GetConstantVector<int, 3>(33);
-  static_assert(std::is_same<decltype(x), span<const int>>::value, "");
-  EXPECT_THAT(x, ::testing::ElementsAreArray(std::vector<int>(33, 3)));
-}
-
-// Tests with a run time-specified length of 33 and then 65.  This should result
-// in two separate dynamic allocations, and verifies that the heap leak checking
-// mitigation works.
-TEST(GetConstantVectorTest, RunTimeLengthInt65) {
-  auto y = GetConstantVector<int, 7>(33);
-  EXPECT_THAT(y, ::testing::ElementsAreArray(std::vector<int>(33, 7)));
-  auto x = GetConstantVector<int, 7>(65);
-  static_assert(std::is_same<decltype(x), span<const int>>::value, "");
-  EXPECT_THAT(x, ::testing::ElementsAreArray(std::vector<int>(65, 7)));
 }
 
 // Tests with a static length.

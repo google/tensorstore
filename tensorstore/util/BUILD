@@ -138,11 +138,7 @@ tensorstore_cc_library(
     hdrs = ["constant_vector.h"],
     deps = [
         ":span",
-        "//tensorstore:index",
         "//tensorstore:rank",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/debugging:leak_check",
-        "@com_google_absl//absl/utility",
     ],
 )
 
