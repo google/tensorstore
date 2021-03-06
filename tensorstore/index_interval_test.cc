@@ -46,6 +46,7 @@ using tensorstore::kMinFiniteIndex;
 using tensorstore::MatchesStatus;
 using tensorstore::OptionallyImplicitIndexInterval;
 using tensorstore::ShiftInterval;
+using tensorstore::ShiftIntervalBackward;
 using tensorstore::ShiftIntervalTo;
 using tensorstore::StrCat;
 using tensorstore::view;
@@ -371,6 +372,46 @@ TEST(IndexIntervalTest, ShiftInterval) {
                             "-5 \\+ -[0-9]+ is outside valid range .*"));
 }
 
+TEST(IndexIntervalTest, ShiftIntervalBackward) {
+  EXPECT_THAT(
+      ShiftIntervalBackward(IndexInterval(), std::numeric_limits<Index>::min()),
+      Optional(IndexInterval()));
+  EXPECT_THAT(ShiftIntervalBackward(IndexInterval::UncheckedClosed(1, 8), -2),
+              Optional(IndexInterval::UncheckedClosed(3, 10)));
+  EXPECT_THAT(
+      ShiftIntervalBackward(IndexInterval::UncheckedClosed(-kInfIndex, 8), -2),
+      Optional(IndexInterval::UncheckedClosed(-kInfIndex, 10)));
+  EXPECT_THAT(
+      ShiftIntervalBackward(IndexInterval::UncheckedClosed(1, kInfIndex), -2),
+      Optional(IndexInterval::UncheckedClosed(3, kInfIndex)));
+  EXPECT_THAT(ShiftIntervalBackward(
+                  IndexInterval::UncheckedClosed(kMinFiniteIndex + 1, 101), 1),
+              Optional(IndexInterval::Closed(kMinFiniteIndex, 100)));
+  EXPECT_THAT(
+      ShiftIntervalBackward(IndexInterval::UncheckedClosed(5, 10), kInfIndex),
+      Optional(
+          IndexInterval::UncheckedClosed(-kInfIndex + 5, -kInfIndex + 10)));
+  EXPECT_THAT(
+      ShiftIntervalBackward(IndexInterval::UncheckedClosed(5, 10), -kInfIndex),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "5 \\+ [0-9]+ is outside valid range .*"));
+  EXPECT_THAT(ShiftIntervalBackward(IndexInterval::UncheckedClosed(5, 10),
+                                    kMinFiniteIndex),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "5 \\+ [0-9]+ is outside valid range .*"));
+
+  EXPECT_THAT(ShiftIntervalBackward(IndexInterval::UncheckedClosed(-1, 10),
+                                    kMaxFiniteIndex),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "-1 \\+ -[0-9]+ is outside valid range .*"));
+
+  EXPECT_THAT(
+      ShiftIntervalBackward(IndexInterval::UncheckedClosed(-kInfIndex, -5),
+                            kMaxFiniteIndex),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "-5 \\+ -[0-9]+ is outside valid range .*"));
+}
+
 TEST(IndexIntervalTest, ShiftIntervalSeparateOffsets) {
   EXPECT_THAT(ShiftInterval(IndexInterval::UncheckedClosed(1, 8), 2, 5),
               Optional(IndexInterval::UncheckedClosed(3, 13)));
@@ -414,6 +455,55 @@ TEST(IndexIntervalTest, ShiftIntervalSeparateOffsets) {
   EXPECT_THAT(ShiftInterval(
                   IndexInterval::UncheckedClosed(-kInfIndex, +kInfIndex), 2, 5),
               Optional(IndexInterval::UncheckedClosed(-kInfIndex, +kInfIndex)));
+}
+
+TEST(IndexIntervalTest, ShiftIntervalBackwardSeparateOffsets) {
+  EXPECT_THAT(
+      ShiftIntervalBackward(IndexInterval::UncheckedClosed(1, 8), -2, -5),
+      Optional(IndexInterval::UncheckedClosed(3, 13)));
+  EXPECT_THAT(ShiftIntervalBackward(
+                  IndexInterval::UncheckedClosed(-kMaxFiniteIndex, 8), 0, -5),
+              Optional(IndexInterval::UncheckedClosed(-kMaxFiniteIndex, 13)));
+  EXPECT_THAT(
+      ShiftIntervalBackward(IndexInterval::UncheckedClosed(-kMaxFiniteIndex, 8),
+                            -1, -5),
+      Optional(IndexInterval::UncheckedClosed(-kMaxFiniteIndex + 1, 13)));
+  EXPECT_THAT(ShiftIntervalBackward(
+                  IndexInterval::UncheckedClosed(-kMaxFiniteIndex, 8), 1, -5),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "-[0-9]+ \\+ -1 is outside valid range .*"));
+  EXPECT_THAT(ShiftIntervalBackward(IndexInterval::UncheckedClosed(-1, 8),
+                                    std::numeric_limits<Index>::max(), -5),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "-1 \\+ -[0-9]+ is outside valid range .*"));
+  EXPECT_THAT(ShiftIntervalBackward(
+                  IndexInterval::UncheckedClosed(2, kMaxFiniteIndex), 1, 0),
+              Optional(IndexInterval::UncheckedClosed(1, kMaxFiniteIndex)));
+  EXPECT_THAT(ShiftIntervalBackward(
+                  IndexInterval::UncheckedClosed(2, kMaxFiniteIndex), 1, -1),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "[0-9]+ \\+ 1 is outside valid range .*"));
+  EXPECT_THAT(ShiftIntervalBackward(IndexInterval::UncheckedClosed(2, 1), 1,
+                                    std::numeric_limits<Index>::min()),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "1 \\+ -[0-9]+ is outside valid range .*"));
+  EXPECT_THAT(ShiftIntervalBackward(IndexInterval::UncheckedClosed(0, 8),
+                                    std::numeric_limits<Index>::max(), -5),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "0 \\+ -[0-9]+ is outside valid range .*"));
+  EXPECT_THAT(
+      ShiftIntervalBackward(IndexInterval::UncheckedClosed(1, 8), -2, -5),
+      Optional(IndexInterval::UncheckedClosed(3, 13)));
+  EXPECT_THAT(ShiftIntervalBackward(
+                  IndexInterval::UncheckedClosed(-kInfIndex, 8), -2, -5),
+              Optional(IndexInterval::UncheckedClosed(-kInfIndex, 13)));
+  EXPECT_THAT(ShiftIntervalBackward(
+                  IndexInterval::UncheckedClosed(1, +kInfIndex), -2, -5),
+              Optional(IndexInterval::UncheckedClosed(3, +kInfIndex)));
+  EXPECT_THAT(
+      ShiftIntervalBackward(
+          IndexInterval::UncheckedClosed(-kInfIndex, +kInfIndex), -2, -5),
+      Optional(IndexInterval::UncheckedClosed(-kInfIndex, +kInfIndex)));
 }
 
 TEST(IndexIntervalTest, ShiftIntervalTo) {

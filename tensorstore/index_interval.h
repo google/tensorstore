@@ -349,6 +349,20 @@ Result<IndexInterval> ShiftInterval(IndexInterval interval, Index min_offset,
 /// Equivalent to `ShiftInterval(interval, offset, offset)`.
 Result<IndexInterval> ShiftInterval(IndexInterval interval, Index offset);
 
+/// Subtracts an offset from the min and max bounds of an interval.
+///
+/// Equivalent to `ShiftInterval(interval, -min_offset, -max_offset)`, except
+/// that this function avoids overflow in the case that `min_offset` or
+/// `max_offset` is equal to `std::numeric_limits<Index>::min()`.
+Result<IndexInterval> ShiftIntervalBackward(IndexInterval interval,
+                                            Index min_offset, Index max_offset);
+
+/// Subtracts an offset from both the min and max bounds of an interval.
+///
+/// Equivalent to `ShiftIntervalBackward(interval, offset, offset)`.
+Result<IndexInterval> ShiftIntervalBackward(IndexInterval interval,
+                                            Index offset);
+
 /// Shifts the `inclusive_min` value of `interval` to `origin`.
 ///
 /// The size is preserved, unless `interval.inclusive_min() == kInfIndex`.

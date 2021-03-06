@@ -195,8 +195,29 @@ Result<IndexInterval> ShiftInterval(IndexInterval interval, Index min_offset,
   return IndexInterval::UncheckedClosed(inclusive_min, inclusive_max);
 }
 
+Result<IndexInterval> ShiftIntervalBackward(IndexInterval interval,
+                                            Index min_offset,
+                                            Index max_offset) {
+  // If `min_offset` or `max_offset` equals `std::numeric_limits<Index>::min()`,
+  // then wrapping negation is a no-op (normal `operator-` in that case is
+  // undefined behavior due to signed integer overflow).  However, it turns out
+  // `ShiftInterval` still gives the correct result in the case that the offset
+  // is incorrectly wrapped, because the offset is either ignored due to the
+  // corresponding bound being infinite, or it leads to overflow.  In the case
+  // of overflow, the error message will include the incorrectly-wrapped value,
+  // but that is not terribly important.
+  return ShiftInterval(
+      interval, internal::wrap_on_overflow::Multiply(min_offset, Index(-1)),
+      internal::wrap_on_overflow::Multiply(max_offset, Index(-1)));
+}
+
 Result<IndexInterval> ShiftInterval(IndexInterval interval, Index offset) {
   return ShiftInterval(interval, offset, offset);
+}
+
+Result<IndexInterval> ShiftIntervalBackward(IndexInterval interval,
+                                            Index offset) {
+  return ShiftIntervalBackward(interval, offset, offset);
 }
 
 Result<IndexInterval> ShiftIntervalTo(IndexInterval interval, Index origin) {
