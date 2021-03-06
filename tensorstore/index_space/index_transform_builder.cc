@@ -110,10 +110,9 @@ Status SetOutputIndexMapsAndValidateTransformRep(
       span<const Index> shape = initializer.index_array.shape();
       const Index* byte_strides = initializer.index_array.byte_strides().data();
       if (shape.size() != input_rank) {
-        return Status(
-            absl::StatusCode::kInvalidArgument,
-            StrCat("Index array for dimension ", output_dim, " has rank ",
-                   shape.size(), " but must have rank ", input_rank, "."));
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Index array for dimension ", output_dim, " has rank ",
+            shape.size(), " but must have rank ", input_rank));
       }
       auto& index_array_data = map.SetArrayIndexing(shape.size());
       // Check that the index array shape is broadcast-compatible with
@@ -122,16 +121,16 @@ Status SetOutputIndexMapsAndValidateTransformRep(
         if (shape[input_dim] == 1) {
           index_array_data.byte_strides[input_dim] = 0;
         } else if (shape[input_dim] != input_shape[input_dim]) {
-          return Status(
-              absl::StatusCode::kInvalidArgument,
-              StrCat("Index array for dimension ", output_dim, " has shape ",
-                     shape, " which does not match input_shape ", input_shape,
-                     "."));
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              "Index array for dimension ", output_dim, " has shape ", shape,
+              " which does not match input_shape ", input_shape));
+        } else if (byte_strides[input_dim] == 0) {
+          index_array_data.byte_strides[input_dim] = 0;
         } else if (implicit_lower_bounds[input_dim] ||
                    implicit_upper_bounds[input_dim]) {
           return absl::InvalidArgumentError(
-              StrCat("Index array depends on input dimension ", input_dim,
-                     " with implicit bounds."));
+              tensorstore::StrCat("Index array depends on input dimension ",
+                                  input_dim, " with implicit bounds"));
         } else {
           index_array_data.byte_strides[input_dim] = byte_strides[input_dim];
         }
@@ -146,9 +145,9 @@ Status SetOutputIndexMapsAndValidateTransformRep(
     } else if (initializer.input_dimension) {
       const DimensionIndex input_dim = *initializer.input_dimension;
       if (input_dim < 0 || input_dim >= input_rank) {
-        return absl::InvalidArgumentError(StrCat(
+        return absl::InvalidArgumentError(tensorstore::StrCat(
             "Input dimension ", input_dim, " specified for output dimension ",
-            output_dim, " is outside valid range [0, ", input_rank, ")."));
+            output_dim, " is outside valid range [0, ", input_rank, ")"));
       }
       if (map.stride() == 0) {
         map.SetConstant();

@@ -112,9 +112,10 @@ struct IsStaticExtentCompatibleWithRange<
 /// To use this class, call (a subset of) the setter methods `input_origin`,
 /// `input_shape`, `input_exclusive_max`, `input_inclusive_max`
 /// `implicit_lower_bounds`, `implicit_upper_bounds`, `input_labels`,
-/// `output_constant`, `output_single_input_dimension`, `output_index_array` to
-/// specify the input space and the output index maps.  For convenience, all of
-/// these setter methods return a reference to `*this` and can be chained.
+/// `output_map`, `output_constant`, `output_single_input_dimension`,
+/// `output_index_array` to specify the input space and the output index maps.
+/// For convenience, all of these setter methods return a reference to `*this`
+/// and can be chained.
 ///
 /// The `input_origin`, `input_shape`, `input_inclusive_max`,
 /// `input_exclusive_max`, and `input_labels` methods can be called with vectors
@@ -125,7 +126,7 @@ struct IsStaticExtentCompatibleWithRange<
 /// be called at most once, and only one of `input_shape`,
 /// `input_inclusive_max`, and `input_exclusive_max` should be called.
 ///
-/// The `output_constant`, `output_single_input_dimension`, and
+/// The `output_map`, `output_constant`, `output_single_input_dimension`, and
 /// `output_index_array` methods specify the output index map for just the
 /// single output dimension specified by the first argument, `output_dim` (and
 /// override the output index map specified by any prior call to a `output_*`
@@ -592,6 +593,42 @@ class IndexTransformBuilder {
     return implicit_upper_bounds(span(x));
   }
 
+  /// Sets the output index map for output dimension `output_dim` to a copy of
+  /// `map` from an existing index transform.
+  ///
+  /// \param output_dim The output dimension for which to set the output index
+  ///     map.
+  /// \param map The output index map to copy.
+  /// \pre `valid() == true`
+  /// \checks `0 <= output_dim && output_dim < output_rank()`.
+  /// \remarks This method overrides any output index map for `output_dim`
+  ///     specified by a previous `output_*(output_dim, ...)` call.
+  template <DimensionIndex OtherInputRank>
+  IndexTransformBuilder& output_map(DimensionIndex output_dim,
+                                    OutputIndexMapRef<OtherInputRank> map) {
+    switch (map.method()) {
+      case OutputIndexMethod::constant:
+        AssignOutput(output_dim, map.offset(), 0,
+                     internal_index_space::OutputIndexMapInitializer());
+        break;
+      case OutputIndexMethod::single_input_dimension:
+        AssignOutput(output_dim, map.offset(), map.stride(),
+                     internal_index_space::OutputIndexMapInitializer(
+                         map.input_dimension()));
+        break;
+      case OutputIndexMethod::array: {
+        auto index_array = map.index_array();
+        AssignOutput(
+            output_dim, map.offset(), map.stride(),
+            internal_index_space::OutputIndexMapInitializer(
+                index_array.shared_array_ref(), index_array.index_range()));
+
+        break;
+      }
+    }
+    return *this;
+  }
+
   /// Sets the output index map for output dimension `output_dim` to a
   /// `constant` map with the specified `offset`.
   ///
@@ -608,7 +645,7 @@ class IndexTransformBuilder {
   /// \pre `valid() == true`
   /// \checks `0 <= output_dim && output_dim < output_rank()`.
   /// \remarks This method overrides any output index map for `output_dim`
-  ///     specified by a previous `output(output_dim, ...)` call.
+  ///     specified by a previous `output_*(output_dim, ...)` call.
   IndexTransformBuilder& output_constant(DimensionIndex output_dim,
                                          Index offset) {
     AssignOutput(output_dim, offset, 0,
@@ -635,7 +672,7 @@ class IndexTransformBuilder {
   /// \pre `valid() == true`
   /// \checks `0 <= output_dim && output_dim < output_rank()`.
   /// \remarks This method overrides any output index map for `output_dim`
-  ///     specified by a previous `output(output_dim, ...)` call.
+  ///     specified by a previous `output_*(output_dim, ...)` call.
   IndexTransformBuilder& output_single_input_dimension(
       DimensionIndex output_dim, Index offset, Index stride,
       DimensionIndex input_dim) {
@@ -687,6 +724,8 @@ class IndexTransformBuilder {
   ///     specified, this output index map is considered invalid (resulting in
   ///     `Finalize` returning an error).
   /// \pre `valid() == true`
+  /// \remarks This method overrides any output index map for `output_dim`
+  ///     specified by a previous `output_*(output_dim, ...)` call.
   IndexTransformBuilder& output_index_array(
       DimensionIndex output_dim, Index offset, Index stride,
       const SharedArrayView<const Index, dynamic_rank, offset_origin>&
@@ -707,6 +746,22 @@ class IndexTransformBuilder {
                                                DimensionIndex(output_rank()));
          i < rank; ++i) {
       this->output_single_input_dimension(i, i);
+    }
+    return *this;
+  }
+
+  /// Copies the first `min(output_rank(), output_maps.size())` output maps from
+  /// `output_maps`.
+  ///
+  /// \pre `valid() == true`
+  template <DimensionIndex OtherInputRank, DimensionIndex OtherOutputRank>
+  IndexTransformBuilder& output_maps(
+      OutputIndexMapRange<OtherInputRank, OtherOutputRank> output_maps) {
+    for (DimensionIndex i = 0,
+                        rank = std::min(DimensionIndex(output_rank()),
+                                        DimensionIndex(output_maps.size()));
+         i < rank; ++i) {
+      this->output_map(i, output_maps[i]);
     }
     return *this;
   }

@@ -493,6 +493,36 @@ TEST(IndexTransformBuilderTest, OutputIdentityTransform) {
                 .value());
 }
 
+TEST(IndexTransformBuilderTest, CopyOutputMap) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto t,
+      IndexTransformBuilder(3, 4)
+          .input_origin({1, 2, 3})
+          .input_shape({2, 2, 4})
+          .implicit_lower_bounds({0, 1, 0})
+          .implicit_upper_bounds({1, 0, 0})
+          .input_labels({"x", "y", "z"})
+          .output_constant(0, 4)
+          .output_single_input_dimension(1, 5, 7, 2)
+          .output_constant(2, 6)
+          .output_index_array(3, 7, 9, MakeArray<Index>({{{1, 0, 2, 2}}}),
+                              IndexInterval::Closed(0, 3))
+          .Finalize());
+  EXPECT_THAT(IndexTransformBuilder(3, 4)
+                  .input_domain(t.domain())
+                  .output_maps(t.output_index_maps())
+                  .Finalize(),
+              ::testing::Optional(t));
+  EXPECT_THAT(IndexTransformBuilder(3, 4)
+                  .input_domain(t.domain())
+                  .output_constant(0, 4)
+                  .output_map(1, t.output_index_maps()[1])
+                  .output_map(2, t.output_index_maps()[2])
+                  .output_map(3, t.output_index_maps()[3])
+                  .Finalize(),
+              ::testing::Optional(t));
+}
+
 TEST(InitializeTransformRepForBuilder, Basic) {
   auto source = tensorstore::internal_index_space::TransformRep::Allocate(1, 2);
   source->output_rank = 2;
