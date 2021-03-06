@@ -175,6 +175,35 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "small_bit_set",
+    hdrs = ["small_bit_set.h"],
+    deps = [
+        ":bit_span",
+        "//tensorstore/internal:integer_types",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "small_bit_set_test",
+    size = "small",
+    srcs = ["small_bit_set_test.cc"],
+    deps = [
+        ":small_bit_set",
+        ":str_cat",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "dimension_set",
+    hdrs = ["dimension_set.h"],
+    deps = [
+        ":small_bit_set",
+        "//tensorstore:rank",
+    ],
+)
+
+tensorstore_cc_library(
     name = "division",
     hdrs = [
         "division.h",
