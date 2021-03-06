@@ -16,6 +16,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
@@ -30,6 +31,7 @@ using tensorstore::Box;
 using tensorstore::BoxView;
 using tensorstore::DimensionIndex;
 using tensorstore::Index;
+using tensorstore::IndexDomainBuilder;
 using tensorstore::IndexInterval;
 using tensorstore::IndexTransform;
 using tensorstore::IndexTransformBuilder;
@@ -596,28 +598,39 @@ TEST(PropagateBoundsToTransformTest, PropagateToIndexRange) {
 }
 
 TEST(PropagateBoundsToTransformTest, PropagateToInputDomain) {
-  Box<1> output_domain({1}, {10});
+  Box<1> output_bounds({1}, {10});
   auto t = IndexTransformBuilder<1, 1>()
                .implicit_lower_bounds({1})
                .implicit_upper_bounds({1})
                .output_single_input_dimension(0, -32, 3, 0)
                .Finalize()
                .value();
-  auto t_result =
-      PropagateBoundsToTransform(output_domain, BitVec({1}), BitVec({0}), t);
-  ASSERT_TRUE(t_result);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto propagated_transform,
+      PropagateBoundsToTransform(output_bounds, BitVec({1}), BitVec({0}), t));
   // Since `t` has an implicit input domain, the new input domain is computed
-  // from the `output_domain` using GetAffineTransformDomain:
-  //   {x : 1 <= (x * 3 - 32) <= 10} = {11, 12, 13, 14}
-  auto t_expected = IndexTransformBuilder<1, 1>()
-                        .input_origin({11})
-                        .input_shape({4})
-                        .implicit_lower_bounds({1})
-                        .implicit_upper_bounds({0})
-                        .output_single_input_dimension(0, -32, 3, 0)
-                        .Finalize()
-                        .value();
-  EXPECT_EQ(t_expected, *t_result);
+  // from the `output_bounds` using GetAffineTransformDomain:
+  // `{x : 1 <= (x * 3 - 32) <= 10} = {11, 12, 13, 14}`
+  auto expected_transform = IndexTransformBuilder<1, 1>()
+                                .input_origin({11})
+                                .input_shape({4})
+                                .implicit_lower_bounds({1})
+                                .implicit_upper_bounds({0})
+                                .output_single_input_dimension(0, -32, 3, 0)
+                                .Finalize()
+                                .value();
+  EXPECT_EQ(expected_transform, propagated_transform);
+
+  // Same as above, but using `IndexDomain` overload.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto output_domain,
+                                   IndexDomainBuilder<1>()
+                                       .bounds(output_bounds)
+                                       .implicit_lower_bounds({1})
+                                       .implicit_upper_bounds({0})
+                                       .Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto propagated_transform2, PropagateBoundsToTransform(output_domain, t));
+  EXPECT_EQ(expected_transform, propagated_transform2);
 }
 
 TEST(PropagateExplicitBoundsToTransformTest, OutOfBounds) {

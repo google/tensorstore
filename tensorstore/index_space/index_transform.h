@@ -1116,9 +1116,20 @@ Result<IndexTransform<InputRank, OutputRank>> PropagateBoundsToTransform(
       std::move(rep));
 }
 
-/// Same as above, except that `b_implicit_lower_bounds` and
-/// `b_implicit_upper_bounds` assumed to be all `false`, with the effect that
-/// `implicit_lower_bounds` and `implicit_upper_bounds` of the returned
+/// Same as above, but with the domain of "b" specified as an `IndexDomain`.
+template <DimensionIndex InputRank, DimensionIndex OutputRank,
+          ContainerKind CKind>
+Result<IndexTransform<InputRank, OutputRank>> PropagateBoundsToTransform(
+    internal::type_identity_t<IndexDomainView<OutputRank>> b_domain,
+    IndexTransform<InputRank, OutputRank, CKind> a_to_b) {
+  return PropagateBoundsToTransform(
+      b_domain.box(), b_domain.implicit_lower_bounds(),
+      b_domain.implicit_upper_bounds(), std::move(a_to_b));
+}
+
+/// Same as `PropagateBoundsToTransform`, except that `b_implicit_lower_bounds`
+/// and `b_implicit_upper_bounds` assumed to be all `false`, with the effect
+/// that `implicit_lower_bounds` and `implicit_upper_bounds` of the returned
 /// transform are all `false`.
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
