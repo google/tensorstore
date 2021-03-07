@@ -37,7 +37,7 @@ extern const std::array<ElementwiseFunction<1, absl::BitGenRef>,
 
 /// Returns an array of the specified data type filled with random values.
 SharedOffsetArray<const void> MakeRandomArray(
-    absl::BitGenRef gen, BoxView<> domain, DataType data_type,
+    absl::BitGenRef gen, BoxView<> domain, DataType dtype,
     ContiguousLayoutOrder order = c_order);
 
 }  // namespace internal

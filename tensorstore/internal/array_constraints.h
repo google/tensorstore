@@ -25,7 +25,7 @@ namespace internal {
 /// Specifies rank and data type information.
 struct ArrayConstraints {
   /// Specifies the data type, or equal to `DataType()` if unknown.
-  DataType data_type;
+  DataType dtype;
 
   /// Specifies the rank, or equal to `dynamic_rank` if unknown.
   DimensionIndex rank = dynamic_rank;

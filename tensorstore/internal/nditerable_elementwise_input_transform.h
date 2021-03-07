@@ -41,12 +41,12 @@ namespace internal {
 /// \tparam Arity The arity of the elementwise closure, equal to one plus the
 ///     number of inputs.
 /// \param inputs The input iterables.
-/// \param output_data_type The output data type expected by `closure`.
+/// \param output_dtype The output data type expected by `closure`.
 /// \param closure The elementwise function.
 /// \param arena Arena that may be used for memory allocation.
 template <std::size_t Arity>
 NDIterable::Ptr GetElementwiseInputTransformNDIterable(
-    std::array<NDIterable::Ptr, Arity - 1> inputs, DataType output_data_type,
+    std::array<NDIterable::Ptr, Arity - 1> inputs, DataType output_dtype,
     ElementwiseClosure<Arity, Status*> closure, Arena* arena);
 
 }  // namespace internal

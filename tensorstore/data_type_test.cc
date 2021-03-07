@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// Tests for data_type.h
+/// Tests for dtype.h
 
 #include "tensorstore/data_type.h"
 

@@ -40,7 +40,7 @@ AsyncWriteArray::Spec::Spec(SharedArray<const void> fill_value,
       component_bounds(std::move(component_bounds)) {
   assert(this->fill_value.rank() == this->component_bounds.rank());
   c_order_byte_strides.resize(this->rank());
-  tensorstore::ComputeStrides(c_order, this->data_type()->size, this->shape(),
+  tensorstore::ComputeStrides(c_order, this->dtype()->size, this->shape(),
                               c_order_byte_strides);
 }
 
@@ -60,7 +60,7 @@ Index AsyncWriteArray::Spec::chunk_num_elements(
 std::shared_ptr<void> AsyncWriteArray::Spec::AllocateAndConstructBuffer()
     const {
   return AllocateAndConstructSharedElements(this->num_elements(), default_init,
-                                            this->data_type())
+                                            this->dtype())
       .pointer();
 }
 
@@ -115,8 +115,7 @@ AsyncWriteArray::MaskedArray::GetArrayForWriteback(
       }
     }
   } else {
-    SharedElementPointer<void> writeback_element_pointer(data,
-                                                         spec.data_type());
+    SharedElementPointer<void> writeback_element_pointer(data, spec.dtype());
     writeback.array =
         SharedArrayView<void>(writeback_element_pointer, spec.write_layout());
     if (!read_state_already_integrated &&
@@ -150,7 +149,7 @@ std::size_t AsyncWriteArray::MaskedArray::EstimateSizeInBytes(
   std::size_t total = 0;
   const Index num_elements = ProductOfExtents(spec.shape());
   if (data) {
-    total += num_elements * spec.fill_value.data_type()->size;
+    total += num_elements * spec.fill_value.dtype()->size;
   }
   if (mask.mask_array) {
     total += num_elements * sizeof(bool);
@@ -166,7 +165,7 @@ Result<NDIterable::Ptr> AsyncWriteArray::MaskedArray::BeginWrite(
     data = spec.AllocateAndConstructBuffer();
     allocated_data = true;
   }
-  ArrayView<void> write_array(ElementPointer<void>(data, spec.data_type()),
+  ArrayView<void> write_array(ElementPointer<void>(data, spec.dtype()),
                               spec.write_layout());
   if (allocated_data) {
     if (IsFullyOverwritten(spec, origin)) {
@@ -214,14 +213,14 @@ void AsyncWriteArray::MaskedArray::RebaseOnto(
     if (prior_masked_array.data) {
       RebaseMaskedArray(
           BoxView(origin, spec.shape()),
-          ArrayView<const void>(ElementPointer<const void>(
-                                    prior_masked_array.data, spec.data_type()),
-                                spec.write_layout()),
-          ElementPointer<void>(data, spec.data_type()), mask);
+          ArrayView<const void>(
+              ElementPointer<const void>(prior_masked_array.data, spec.dtype()),
+              spec.write_layout()),
+          ElementPointer<void>(data, spec.dtype()), mask);
     } else if (prior_masked_array.IsFullyOverwritten(spec, origin)) {
       // `prior_masked_array` implicitly contains the fill value.
       RebaseMaskedArray(BoxView(origin, spec.shape()), spec.fill_value,
-                        ElementPointer<void>(data, spec.data_type()), mask);
+                        ElementPointer<void>(data, spec.dtype()), mask);
     } else {
       assert(prior_masked_array.IsUnmodified());
     }
@@ -262,15 +261,14 @@ Result<NDIterable::Ptr> AsyncWriteArray::GetReadNDIterable(
       }
     } else if (this->read_generation != read_generation) {
       assert(write_state.data);
-      RebaseMaskedArray(
-          BoxView<>(origin, spec.shape()), read_array,
-          ElementPointer<void>(write_state.data, spec.data_type()),
-          write_state.mask);
+      RebaseMaskedArray(BoxView<>(origin, spec.shape()), read_array,
+                        ElementPointer<void>(write_state.data, spec.dtype()),
+                        write_state.mask);
       this->read_generation = read_generation;
     }
     if (write_state.data) {
       read_array = SharedArrayView<const void>(
-          SharedElementPointer<const void>(write_state.data, spec.data_type()),
+          SharedElementPointer<const void>(write_state.data, spec.dtype()),
           spec.write_layout());
     }
   }

@@ -250,7 +250,7 @@ Status ComputeDerivedDTypeValues(ZarrDType* dtype) {
           "Product of dimensions ", span(field.field_shape), " is too large"));
     }
     if (internal::MulOverflow(field.num_inner_elements,
-                              static_cast<Index>(field.data_type->size),
+                              static_cast<Index>(field.dtype->size),
                               &field.num_bytes)) {
       return absl::InvalidArgumentError("Field size in bytes is too large");
     }

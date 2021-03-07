@@ -32,11 +32,10 @@ Status ValidateDataTypeAndRank(internal::DriverConstraints expected,
     return absl::FailedPreconditionError(tensorstore::StrCat(
         "Expected rank of ", expected.rank, " but received: ", actual.rank));
   }
-  if (!tensorstore::IsPossiblySameDataType(expected.data_type,
-                                           actual.data_type)) {
+  if (!tensorstore::IsPossiblySameDataType(expected.dtype, actual.dtype)) {
     return absl::FailedPreconditionError(
-        tensorstore::StrCat("Expected data type of ", expected.data_type,
-                            " but received: ", actual.data_type));
+        tensorstore::StrCat("Expected data type of ", expected.dtype,
+                            " but received: ", actual.dtype));
   }
   return absl::OkStatus();
 }

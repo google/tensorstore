@@ -56,7 +56,7 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
       return SharedElementPointer<void>(
           std::shared_ptr<void>(array.pointer(),
                                 single_array_states[0]->base_pointer),
-          array.element_pointer().data_type());
+          array.element_pointer().dtype());
     }
     const StridedLayoutView<> source_layout(
         input_rank, result_shape,
@@ -64,11 +64,11 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
     const StridedLayoutView<> new_layout(input_rank, result_shape,
                                          result_byte_strides);
     auto element_pointer = internal::AllocateArrayLike(
-        array.element_pointer().data_type(), source_layout, result_byte_strides,
+        array.element_pointer().dtype(), source_layout, result_byte_strides,
         constraints.iteration_constraints(), default_init);
     CopyArray(ArrayView<const void>(
                   ElementPointer<void>(single_array_states[0]->base_pointer,
-                                       array.element_pointer().data_type()),
+                                       array.element_pointer().dtype()),
                   source_layout),
               ArrayView<void>(element_pointer, new_layout));
     return element_pointer;
@@ -88,9 +88,8 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
                                  ? 1
                                  : result_shape[input_dim];
     }
-    ComputeStrides(constraints.order_constraint().order(),
-                   array.data_type()->size, new_shape,
-                   span(result_byte_strides, input_rank));
+    ComputeStrides(constraints.order_constraint().order(), array.dtype()->size,
+                   new_shape, span(result_byte_strides, input_rank));
     for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {
       if (new_shape[input_dim] <= 1) result_byte_strides[input_dim] = 0;
     }
@@ -99,7 +98,7 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
         IndexInnerProduct(input_rank, result_byte_strides, result_origin);
 
     new_element_pointer = internal::AllocateAndConstructSharedElements(
-        ProductOfExtents(span(new_shape)), default_init, array.data_type());
+        ProductOfExtents(span(new_shape)), default_init, array.dtype());
     const Status init_status =
         internal_index_space::InitializeSingleArrayIterationState(
             ArrayView<void, dynamic_rank, offset_origin>(
@@ -132,14 +131,14 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
       new_shape[i] = result_shape[input_dim];
     }
     std::fill_n(result_byte_strides, input_rank, 0);
-    ComputeStrides(ContiguousLayoutOrder::c, array.data_type()->size, new_shape,
+    ComputeStrides(ContiguousLayoutOrder::c, array.dtype()->size, new_shape,
                    new_byte_strides);
     for (DimensionIndex i = 0; i < base_layout.pure_strided_end_dim; ++i) {
       const DimensionIndex input_dim = base_layout.input_dimension_order[i];
       result_byte_strides[input_dim] = new_byte_strides[i];
     }
     new_element_pointer = internal::AllocateAndConstructSharedElements(
-        ProductOfExtents(span(new_shape)), default_init, array.data_type());
+        ProductOfExtents(span(new_shape)), default_init, array.dtype());
     const Index new_origin_offset =
         IndexInnerProduct(input_rank, result_byte_strides, result_origin);
     const Status init_status =
@@ -160,14 +159,14 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
   SimplifiedDimensionIterationOrder layout = SimplifyDimensionIterationOrder<2>(
       base_layout, span(result_shape, input_rank), single_array_states);
 
-  const std::array<std::ptrdiff_t, 2> element_sizes{array.data_type()->size,
-                                                    array.data_type()->size};
+  const std::array<std::ptrdiff_t, 2> element_sizes{array.dtype()->size,
+                                                    array.dtype()->size};
 
   const bool success =
-      IterateUsingSimplifiedLayout<2>(
-          layout, span(result_shape, input_rank),
-          {&array.data_type()->copy_assign, nullptr},
-          /*status=*/nullptr, single_array_states, element_sizes)
+      IterateUsingSimplifiedLayout<2>(layout, span(result_shape, input_rank),
+                                      {&array.dtype()->copy_assign, nullptr},
+                                      /*status=*/nullptr, single_array_states,
+                                      element_sizes)
           .success;
   ABSL_ASSERT(success);
 

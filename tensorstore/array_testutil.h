@@ -39,9 +39,9 @@ class ArrayMatcherImpl
       OffsetArrayView<const void> value_untyped,
       ::testing::MatchResultListener* listener) const override {
     const bool listener_interested = listener->IsInterested();
-    if (value_untyped.data_type() != DataTypeOf<Element>()) {
+    if (value_untyped.dtype() != DataTypeOf<Element>()) {
       if (listener_interested) {
-        *listener << "which has a data type of " << value_untyped.data_type();
+        *listener << "which has a data type of " << value_untyped.dtype();
       }
       return false;
     }

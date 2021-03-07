@@ -51,8 +51,8 @@ struct SwapEndianSizes<std::complex<T>> {
 }  // namespace
 
 const std::array<UnalignedDataTypeFunctions, kNumDataTypeIds>
-    kUnalignedDataTypeFunctions = MapCanonicalDataTypes([](auto data_type) {
-      using T = typename decltype(data_type)::Element;
+    kUnalignedDataTypeFunctions = MapCanonicalDataTypes([](auto dtype) {
+      using T = typename decltype(dtype)::Element;
       UnalignedDataTypeFunctions functions;
       if constexpr (std::is_trivial_v<T> || std::is_same_v<T, float16_t>) {
         using Sizes = SwapEndianSizes<T>;
@@ -77,9 +77,9 @@ const std::array<UnalignedDataTypeFunctions, kNumDataTypeIds>
 
 void EncodeArray(ArrayView<const void> source, ArrayView<void> target,
                  endian target_endian) {
-  const DataType dtype = source.data_type();
+  const DataType dtype = source.dtype();
   assert(absl::c_equal(source.shape(), target.shape()));
-  assert(dtype == target.data_type());
+  assert(dtype == target.dtype());
   const auto& functions =
       kUnalignedDataTypeFunctions[static_cast<size_t>(dtype.id())];
   assert(functions.copy != nullptr);  // fail on non-trivial types
@@ -110,9 +110,9 @@ struct DecodeBoolArrayInplace {
 
 void DecodeArray(ArrayView<const void> source, endian source_endian,
                  ArrayView<void> target) {
-  const DataType dtype = source.data_type();
+  const DataType dtype = source.dtype();
   assert(absl::c_equal(source.shape(), target.shape()));
-  assert(dtype == target.data_type());
+  assert(dtype == target.dtype());
   if (dtype.id() != DataTypeId::bool_t) {
     EncodeArray(source, target, source_endian);
     return;
@@ -133,7 +133,7 @@ void DecodeArray(SharedArrayView<void>* source, endian source_endian,
                  StridedLayoutView<> decoded_layout) {
   assert(source != nullptr);
   assert(absl::c_equal(source->shape(), decoded_layout.shape()));
-  const DataType dtype = source->data_type();
+  const DataType dtype = source->dtype();
   const auto& functions =
       kUnalignedDataTypeFunctions[static_cast<size_t>(dtype.id())];
   assert(functions.copy != nullptr);  // fail on non-trivial types
@@ -175,7 +175,7 @@ SharedArrayView<void> CopyAndDecodeArray(ArrayView<const void> source,
                                          StridedLayoutView<> decoded_layout) {
   SharedArrayView<void> target(
       internal::AllocateAndConstructSharedElements(
-          decoded_layout.num_elements(), default_init, source.data_type()),
+          decoded_layout.num_elements(), default_init, source.dtype()),
       decoded_layout);
   DecodeArray(source, source_endian, target);
   return target;

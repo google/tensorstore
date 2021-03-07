@@ -137,11 +137,9 @@ class MockDriver : public Driver {
  public:
   using Ptr = PtrT<MockDriver>;
 
-  explicit MockDriver(DataType data_type, DimensionIndex rank,
+  explicit MockDriver(DataType dtype, DimensionIndex rank,
                       Executor data_copy_executor = InlineExecutor{})
-      : data_type_(data_type),
-        rank_(rank),
-        executor_(std::move(data_copy_executor)) {}
+      : dtype_(dtype), rank_(rank), executor_(std::move(data_copy_executor)) {}
 
   struct ReadRequest {
     internal::OpenTransactionPtr transaction;
@@ -155,7 +153,7 @@ class MockDriver : public Driver {
     WriteChunkReceiver receiver;
   };
 
-  DataType data_type() override { return data_type_; }
+  DataType dtype() override { return dtype_; }
   DimensionIndex rank() override { return rank_; }
 
   void Read(internal::OpenTransactionPtr transaction,
@@ -168,7 +166,7 @@ class MockDriver : public Driver {
 
   TensorStore<> Wrap(IndexTransform<> transform = {});
 
-  DataType data_type_;
+  DataType dtype_;
   DimensionIndex rank_;
   Executor executor_;
 

@@ -76,7 +76,7 @@ This is equivalent to :python:`self.domain.rank`.
                                return self.domain();
                              })
       .def_property_readonly(
-          "dtype", [](const TensorStore<>& self) { return self.data_type(); })
+          "dtype", [](const TensorStore<>& self) { return self.dtype(); })
       .def("spec", [](const TensorStore<>& self) { return self.spec(); })
       .def_property_readonly(
           "mode",
@@ -134,7 +134,7 @@ This is equivalent to :python:`self.domain.rank`.
           [](const TensorStore<>& self, ArrayArgumentPlaceholder source) {
             SharedArray<const void> source_array;
             ConvertToArray<const void, dynamic_rank, /*nothrow=*/false>(
-                source.obj, &source_array, self.data_type(), 0, self.rank());
+                source.obj, &source_array, self.dtype(), 0, self.rank());
             py::gil_scoped_release gil_release;
             return tensorstore::Write(source_array, self);
           },
@@ -152,9 +152,8 @@ This is equivalent to :python:`self.domain.rank`.
           py::arg("fix_resizable_bounds") = false)
       .def(
           "astype",
-          [](const TensorStore<>& self, DataTypeLike target_data_type) {
-            return ValueOrThrow(
-                tensorstore::Cast(self, target_data_type.value));
+          [](const TensorStore<>& self, DataTypeLike target_dtype) {
+            return ValueOrThrow(tensorstore::Cast(self, target_dtype.value));
           },
           "Returns a read/write view as the specified data type.",
           py::arg("dtype"))
@@ -226,7 +225,7 @@ The returned view may be used to perform transactional read/write operations.
       [](TensorStore<> self, ArrayArgumentPlaceholder source) {
         SharedArray<const void> source_array;
         ConvertToArray<const void, dynamic_rank, /*nothrow=*/false>(
-            source.obj, &source_array, self.data_type(), 0, self.rank());
+            source.obj, &source_array, self.dtype(), 0, self.rank());
         {
           py::gil_scoped_release gil;
           return tensorstore::Write(std::move(source_array), self)
@@ -236,8 +235,8 @@ The returned view may be used to perform transactional read/write operations.
 
   m.def(
       "cast",
-      [](const TensorStore<>& store, DataTypeLike target_data_type) {
-        return ValueOrThrow(tensorstore::Cast(store, target_data_type.value));
+      [](const TensorStore<>& store, DataTypeLike target_dtype) {
+        return ValueOrThrow(tensorstore::Cast(store, target_dtype.value));
       },
       "Returns a read/write TensorStore view as the specified data type.",
       py::arg("store"), py::arg("dtype"));
@@ -316,8 +315,8 @@ The returned view may be used to perform transactional read/write operations.
       "Opens a TensorStore", py::arg("spec"), py::kw_only(),
       py::arg("read") = std::nullopt, py::arg("write") = std::nullopt,
       py::arg("open") = std::nullopt, py::arg("create") = std::nullopt,
-      py::arg("delete_existing") = std::nullopt,
-      py::arg("context") = nullptr, py::arg("transaction") = nullptr);
+      py::arg("delete_existing") = std::nullopt, py::arg("context") = nullptr,
+      py::arg("transaction") = nullptr);
 }
 
 }  // namespace internal_python

@@ -77,13 +77,12 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
       case 'f': {
         TENSORSTORE_ASSIGN_OR_RETURN(double value, DecodeFloat(j));
         fill_values[0] =
-            MakeCopy(MakeScalarArrayView(value), c_order, field.data_type)
-                .value();
+            MakeCopy(MakeScalarArrayView(value), c_order, field.dtype).value();
         return fill_values;
       }
       case 'i': {
         std::int64_t value;
-        const std::size_t num_bits = 8 * field.data_type->size - 1;
+        const std::size_t num_bits = 8 * field.dtype->size - 1;
         const std::uint64_t max_value = static_cast<std::int64_t>(
             (static_cast<std::uint64_t>(1) << num_bits) - 1);
         const std::int64_t min_value = static_cast<std::int64_t>(-1)
@@ -91,20 +90,18 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
         TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireInteger(
             j, &value, /*strict=*/true, min_value, max_value));
         fill_values[0] =
-            MakeCopy(MakeScalarArrayView(value), c_order, field.data_type)
-                .value();
+            MakeCopy(MakeScalarArrayView(value), c_order, field.dtype).value();
         return fill_values;
       }
       case 'u': {
         std::uint64_t value;
-        const std::size_t num_bits = 8 * field.data_type->size;
+        const std::size_t num_bits = 8 * field.dtype->size;
         const std::uint64_t max_value =
             (static_cast<std::uint64_t>(2) << (num_bits - 1)) - 1;
         TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireInteger(
             j, &value, /*strict=*/true, 0, max_value));
         fill_values[0] =
-            MakeCopy(MakeScalarArrayView(value), c_order, field.data_type)
-                .value();
+            MakeCopy(MakeScalarArrayView(value), c_order, field.dtype).value();
         return fill_values;
       }
       case 'b': {
@@ -131,7 +128,7 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
             }));
         fill_values[0] =
             MakeCopy(MakeScalarArrayView(complex128_t(values[0], values[1])),
-                     c_order, field.data_type)
+                     c_order, field.dtype)
                 .value();
         return fill_values;
       }
@@ -148,7 +145,7 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
   }
   for (size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
     auto& field = dtype.fields[field_i];
-    DataType r = field.data_type;
+    DataType r = field.dtype;
     auto fill_value = AllocateArray(field.field_shape, ContiguousLayoutOrder::c,
                                     default_init, r);
     internal::DecodeArray(
@@ -201,7 +198,7 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
     const auto& field = dtype.fields[field_i];
     const auto& fill_value = fill_values[field_i];
     if (!fill_value.valid()) return nullptr;
-    DataType r = field.data_type;
+    DataType r = field.dtype;
     Array<void> encoded_fill_value(
         {static_cast<void*>(buffer.data() + field.byte_offset), r},
         field.field_shape);
@@ -245,7 +242,7 @@ Result<ZarrChunkLayout> ComputeChunkLayout(const ZarrDType& dtype,
                 std::copy(chunk_shape.begin(), chunk_shape.end(),
                           strided_layout->shape().begin()));
       // Compute strides for inner field dimensions.
-      ComputeStrides(ContiguousLayoutOrder::c, field.data_type->size,
+      ComputeStrides(ContiguousLayoutOrder::c, field.dtype->size,
                      strided_layout->shape().last(inner_rank),
                      strided_layout->byte_strides().last(inner_rank));
       // Compute strides for outer dimensions.
@@ -349,7 +346,7 @@ Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
     const auto& field = metadata.dtype.fields[field_i];
     const auto& field_layout = metadata.chunk_layout.fields[field_i];
     field_arrays[field_i] = internal::TryViewCordAsArray(
-        buffer, field.byte_offset, field.data_type, field.endian,
+        buffer, field.byte_offset, field.dtype, field.endian,
         field_layout.encoded_chunk_layout);
     if (!field_arrays[field_i].valid()) {
       must_copy = true;
@@ -364,7 +361,7 @@ Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
       ArrayView<const void> source_array{
           ElementPointer<const void>(
               static_cast<const void*>(flat_buffer.data() + field.byte_offset),
-              field.data_type),
+              field.dtype),
           field_layout.encoded_chunk_layout};
       field_arrays[field_i] = internal::CopyAndDecodeArray(
           source_array, field.endian, field_layout.decoded_chunk_layout);
@@ -382,9 +379,8 @@ Result<absl::Cord> EncodeChunk(const ZarrMetadata& metadata,
   for (size_t field_i = 0; field_i < num_fields; ++field_i) {
     const auto& field = metadata.dtype.fields[field_i];
     const auto& field_layout = metadata.chunk_layout.fields[field_i];
-    ArrayView<void> encoded_array{
-        {data_ptr + field.byte_offset, field.data_type},
-        field_layout.encoded_chunk_layout};
+    ArrayView<void> encoded_array{{data_ptr + field.byte_offset, field.dtype},
+                                  field_layout.encoded_chunk_layout};
     internal::EncodeArray(components[field_i], encoded_array, field.endian);
   }
   auto output = std::move(output_builder).Build();

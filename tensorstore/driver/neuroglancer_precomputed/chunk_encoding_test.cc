@@ -37,8 +37,8 @@ using tensorstore::internal_neuroglancer_precomputed::MultiscaleMetadata;
 
 template <typename T>
 void TestRoundtrip(::nlohmann::json metadata_json, bool compare) {
-  const auto data_type = tensorstore::DataTypeOf<T>();
-  metadata_json["data_type"] = data_type.name();
+  const auto dtype = tensorstore::DataTypeOf<T>();
+  metadata_json["data_type"] = dtype.name();
   auto metadata = MultiscaleMetadata::Parse(metadata_json).value();
   auto array = tensorstore::AllocateArray<T>({metadata.num_channels, 5, 4, 3});
   for (Index i = 0, n = array.num_elements(); i < n; ++i) {
@@ -48,8 +48,8 @@ void TestRoundtrip(::nlohmann::json metadata_json, bool compare) {
   const size_t scale_index = 0;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       absl::Cord out, EncodeChunk(chunk_indices, metadata, scale_index, array));
-  tensorstore::StridedLayout chunk_layout(
-      tensorstore::c_order, data_type.size(), {metadata.num_channels, 5, 4, 3});
+  tensorstore::StridedLayout chunk_layout(tensorstore::c_order, dtype.size(),
+                                          {metadata.num_channels, 5, 4, 3});
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto decode_result,
       DecodeChunk(chunk_indices, metadata, scale_index, chunk_layout, out));

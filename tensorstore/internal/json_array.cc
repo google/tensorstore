@@ -120,10 +120,10 @@ namespace internal {
 
 Result<::nlohmann::json> JsonEncodeNestedArray(ArrayView<const void> array) {
   auto convert =
-      internal::GetDataTypeConverter(array.data_type(), DataTypeOf<json_t>());
+      internal::GetDataTypeConverter(array.dtype(), DataTypeOf<json_t>());
   if (!(convert.flags & DataTypeConversionFlags::kSupported)) {
-    return absl::InvalidArgumentError(StrCat(
-        "Conversion from ", array.data_type(), " to JSON is not implemented"));
+    return absl::InvalidArgumentError(StrCat("Conversion from ", array.dtype(),
+                                             " to JSON is not implemented"));
   }
   bool error = false;
   Status status;
@@ -148,10 +148,10 @@ Result<::nlohmann::json> JsonEncodeNestedArray(ArrayView<const void> array) {
 }
 
 Result<SharedArray<void>> JsonParseNestedArray(
-    const ::nlohmann::json& j_root, DataType data_type,
+    const ::nlohmann::json& j_root, DataType dtype,
     const std::function<absl::Status(const ::nlohmann::json& v, void* out)>&
         decode_element) {
-  ABSL_ASSERT(data_type.valid());
+  ABSL_ASSERT(dtype.valid());
   // To avoid the possibility of stack overflow, this implementation is
   // non-recursive.
   using array_t = ::nlohmann::json::array_t;
@@ -161,7 +161,7 @@ Result<SharedArray<void>> JsonParseNestedArray(
 
   // Pointer to the next element in the result array to assign.
   ByteStridedPointer<void> pointer;
-  const Index byte_stride = data_type->size;
+  const Index byte_stride = dtype->size;
 
   // Prior to `array` being allocated, stores the shape up to the current
   // nesting level of `path.size()`.  After `array` is allocated,
@@ -178,7 +178,7 @@ Result<SharedArray<void>> JsonParseNestedArray(
   const ::nlohmann::json* j = &j_root;
 
   const auto allocate_array = [&] {
-    array = AllocateArray(shape_or_position, c_order, default_init, data_type);
+    array = AllocateArray(shape_or_position, c_order, default_init, dtype);
     pointer = array.byte_strided_origin_pointer();
     // Convert shape vector to position vector.
     std::fill(shape_or_position.begin(), shape_or_position.end(), 0);
@@ -262,19 +262,17 @@ Result<SharedArray<void>> JsonParseNestedArray(
 }
 
 Result<SharedArray<void>> JsonParseNestedArray(const ::nlohmann::json& j,
-                                               DataType data_type,
+                                               DataType dtype,
                                                DimensionIndex rank_constraint) {
-  auto convert =
-      internal::GetDataTypeConverter(DataTypeOf<json_t>(), data_type);
+  auto convert = internal::GetDataTypeConverter(DataTypeOf<json_t>(), dtype);
   if (!(convert.flags & DataTypeConversionFlags::kSupported)) {
     return absl::InvalidArgumentError(
-        StrCat("Conversion from JSON to ", data_type, " is not implemented"));
+        StrCat("Conversion from JSON to ", dtype, " is not implemented"));
   }
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto array,
       JsonParseNestedArray(
-          j, data_type,
-          [&](const ::nlohmann::json& v, void* out) -> absl::Status {
+          j, dtype, [&](const ::nlohmann::json& v, void* out) -> absl::Status {
             if ((convert.flags &
                  DataTypeConversionFlags::kCanReinterpretCast) ==
                 DataTypeConversionFlags::kCanReinterpretCast) {

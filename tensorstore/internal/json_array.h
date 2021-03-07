@@ -64,18 +64,18 @@ Result<::nlohmann::json> JsonEncodeNestedArray(ArrayView<const void> array);
 
 /// Parses a multi-dimensional array from a nested JSON array.
 /// \param j The JSON value to parse.
-/// \param data_type Specifies the element type of the array.  Must be valid.
+/// \param dtype Specifies the element type of the array.  Must be valid.
 /// \param decode_element Function that decodes a single JSON.  On success, it
 ///     should decode the JSON value `v` and stores the result in `out`, which
 ///     is a non-null output pointer to a value of the type corresponding to
-///     `data_type`.  On failure, it should return an error `Status` value.
+///     `dtype`.  On failure, it should return an error `Status` value.
 /// \returns The parsed array on success, or the first error returned by
 ///     `decode_element`.
-/// \dchecks `data_type.valid()`
+/// \dchecks `dtype.valid()`
 /// \error `absl::StatusCode::kInvalidArgument` if `j` is not a nested list with
 ///     uniform shape.
 Result<SharedArray<void>> JsonParseNestedArray(
-    const ::nlohmann::json& j_root, DataType data_type,
+    const ::nlohmann::json& j_root, DataType dtype,
     // TODO(jbms): replace with FunctionView type
     const std::function<Status(const ::nlohmann::json& v, void* out)>&
         decode_element);
@@ -112,19 +112,19 @@ JsonParseNestedArray(const ::nlohmann::json& j, DecodeElement decode_element) {
 /// Same as `JsonParseNestedArray` above, but uses `DataType`-defined conversion
 /// from json.
 Result<SharedArray<void>> JsonParseNestedArray(
-    const ::nlohmann::json& j, DataType data_type,
+    const ::nlohmann::json& j, DataType dtype,
     DimensionIndex rank_constraint = dynamic_rank);
 
 namespace json_binding {
 
 /// Returns a binder for a nested JSON array.
-constexpr auto NestedArray(DataType data_type,
+constexpr auto NestedArray(DataType dtype,
                            DimensionIndex rank_constraint = dynamic_rank) {
   return [=](auto is_loading, const auto& options, auto* obj,
              ::nlohmann::json* j) -> Status {
     if constexpr (is_loading) {
       TENSORSTORE_ASSIGN_OR_RETURN(
-          *obj, internal::JsonParseNestedArray(*j, data_type, rank_constraint));
+          *obj, internal::JsonParseNestedArray(*j, dtype, rank_constraint));
     } else {
       TENSORSTORE_ASSIGN_OR_RETURN(*j, internal::JsonEncodeNestedArray(*obj));
     }

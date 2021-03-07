@@ -39,7 +39,7 @@ namespace tensorstore {
 ///     domain.
 /// \error `absl::StatusCode::kInvalidArgument` if `downsample_factors` is
 ///     invalid, or `downsample_method` is not supported for
-///     `store.data_type()`.
+///     `store.dtype()`.
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
 Result<TensorStore<Element, Rank, ReadWriteMode::read>> Downsample(
     TensorStore<Element, Rank, Mode> store,

@@ -52,7 +52,7 @@ namespace internal {
 /// While not explicitly exposed as part of the interface, the following
 /// additional attributes are implicitly associated with an `NDIterator`:
 ///
-///   - `DataType data_type`: the type of the data yielded by this iterator.
+///   - `DataType dtype`: the type of the data yielded by this iterator.
 ///
 ///   - `IterationBufferKind buffer_kind`: the type of buffer supported by this
 ///     iterator.
@@ -94,11 +94,11 @@ class NDIterator {
   ///     `<= max_block_size`.
   /// \param pointer[in,out] If the implicit attribute `external == true`,
   ///     `*pointer` must be an already-constructed buffer of kind
-  ///     `buffer_kind`, data type `data_type`, and length `block_size` to fill
+  ///     `buffer_kind`, data type `dtype`, and length `block_size` to fill
   ///     with the data starting at the specified position.  If
   ///     `external == false`, the existing value of `*pointer` is ignored and
   ///     `*pointer` must be assigned to a buffer of kind `buffer_kind`, length
-  ///     `block_size`, and data type `data_type` containing the data starting
+  ///     `block_size`, and data type `dtype` containing the data starting
   ///     at `indices`.  The returned buffer is invalidated upon the next call
   ///     to `GetBlock`, `UpdateBlock`, or if the `NDIterator` is destroyed.
   /// \param status[out] Non-null pointer to location in which an error may be
@@ -350,7 +350,7 @@ class NDIterable : public NDIterableBufferConstraint {
   virtual ArenaAllocator<> get_allocator() const = 0;
 
   /// Returns the data type.
-  virtual DataType data_type() const = 0;
+  virtual DataType dtype() const = 0;
 
   /// Combines an `IterationLayoutView` with a block size value.
   struct IterationBufferLayoutView : public IterationLayoutView {
@@ -373,8 +373,8 @@ class NDIterable : public NDIterableBufferConstraint {
   /// \pre `iteration_dimensions.size() == iteration_directions.size()`.
   /// \returns A non-null `NDIterator` with an associated `iteration_shape`
   ///     equal to the implicitly associated `shape`, indexed by
-  ///     `layout.iteration_dimensions`, and associated `data_type` equal to
-  ///     `this->data_type()`, an associated `buffer_kind` of
+  ///     `layout.iteration_dimensions`, and associated `dtype` equal to
+  ///     `this->dtype()`, an associated `buffer_kind` of
   ///     `layout.buffer_kind`, and an associated `max_block_size` of
   ///     `layout.block_size`.
   virtual NDIterator::Ptr GetIterator(

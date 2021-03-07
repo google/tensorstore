@@ -79,7 +79,7 @@ struct NDIterableCopyManager
   ///
   /// \param input Non-null pointer to input iterable.
   /// \param output Non-null pointer to output iterable.
-  /// \dchecks `input.data_type() == output.data_type()`.
+  /// \dchecks `input.dtype() == output.dtype()`.
   /// \pre `input` and `output` have the same implicit `shape`.
   NDIterableCopyManager(const NDIterable* input, const NDIterable* output);
 
@@ -155,7 +155,7 @@ struct NDIterableCopier {
   /// \param shape The implicitly-associated shape of both `input` and `output`.
   /// \param constraints Constraints on the iteration order.
   /// \param arena Arena to use for memory allocation.  Must be non-null.
-  /// \dchecks `input.data_type() == output.data_type()`.
+  /// \dchecks `input.dtype() == output.dtype()`.
   NDIterableCopier(const NDIterable& input, const NDIterable& output,
                    span<const Index> shape, IterationConstraints constraints,
                    Arena* arena);

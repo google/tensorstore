@@ -115,12 +115,12 @@ namespace internal {
 /// `GridChunkSpecification` could be used:
 ///
 ///     components[0]:
-///       data_type: uint16
+///       dtype: uint16
 ///       shape: [25, 50, 30, 2]
 ///       chunked_to_cell_dimensions: [0, 1, 2]
 ///
 ///     components[1]:
-///       data_type: float32
+///       dtype: float32
 ///       shape: [3, 30, 50, 25, 4]
 ///       chunked_to_cell_dimensions: [3, 2, 1]
 ///
@@ -371,8 +371,8 @@ class ChunkCacheDriver : public Driver {
                             std::size_t component_index,
                             StalenessBound data_staleness_bound = {});
 
-  /// Returns `cache->grid().components[component_index()].data_type()`.
-  DataType data_type() override;
+  /// Returns `cache->grid().components[component_index()].dtype()`.
+  DataType dtype() override;
 
   /// Returns the rank of the component.
   DimensionIndex rank() override;

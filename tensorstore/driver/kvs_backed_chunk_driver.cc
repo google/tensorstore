@@ -563,7 +563,7 @@ Result<IndexTransformSpec> DriverBase::GetBoundSpecData(
   spec->staleness.metadata = this->metadata_staleness_bound();
   spec->staleness.data = this->data_staleness_bound();
   spec->rank = this->rank();
-  spec->data_type = this->data_type();
+  spec->dtype = this->dtype();
 
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto validated_metadata,

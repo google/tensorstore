@@ -223,7 +223,7 @@ class JsonDriver
       internal::OpenTransactionPtr transaction, SpecT<ContextBound>* spec,
       IndexTransformView<> transform) const;
 
-  DataType data_type() override { return DataTypeOf<json_t>(); }
+  DataType dtype() override { return DataTypeOf<json_t>(); }
   DimensionIndex rank() override { return 0; }  // COV_NF_LINE
 
   Executor data_copy_executor() override {
@@ -293,7 +293,7 @@ Result<IndexTransformSpec> JsonDriver::GetBoundSpecData(
   spec->data_staleness = data_staleness_;
   spec->json_pointer = json_pointer_;
   spec->rank = 0;
-  spec->data_type = DataTypeOf<json_t>();
+  spec->dtype = DataTypeOf<json_t>();
   return IndexTransformSpec(transform);
 }
 

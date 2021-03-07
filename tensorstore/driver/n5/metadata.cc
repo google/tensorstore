@@ -59,13 +59,13 @@ absl::Status ValidateMetadata(N5Metadata& metadata) {
   // While this limit may apply to compressed data, we will also apply it
   // to the uncompressed data.
   const Index max_num_elements =
-      (static_cast<std::size_t>(1) << 31) / metadata.data_type.size();
+      (static_cast<std::size_t>(1) << 31) / metadata.dtype.size();
   if (ProductOfExtents(span(metadata.chunk_shape)) > max_num_elements) {
     return absl::InvalidArgumentError(StrCat(
         "\"blockSize\" of ", span(metadata.chunk_shape), " with data type of ",
-        metadata.data_type, " exceeds maximum chunk size of 2GB"));
+        metadata.dtype, " exceeds maximum chunk size of 2GB"));
   }
-  InitializeContiguousLayout(fortran_order, metadata.data_type.size(),
+  InitializeContiguousLayout(fortran_order, metadata.dtype.size(),
                              metadata.chunk_shape, &metadata.chunk_layout);
   return absl::OkStatus();
 }
@@ -84,16 +84,16 @@ constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
         jb::Member("blockSize",
                    jb::Projection(&T::chunk_shape,
                                   maybe_optional(jb::ChunkShapeVector(rank)))),
-        jb::Member("dataType",
-                   jb::Projection(&T::data_type,
-                                  maybe_optional(jb::Validate(
-                                      [](const auto& options, auto* obj) {
-                                        if (!obj->valid()) {
-                                          return absl::OkStatus();
-                                        }
-                                        return ValidateDataType(*obj);
-                                      },
-                                      jb::DataTypeJsonBinder)))),
+        jb::Member(
+            "dataType",
+            jb::Projection(&T::dtype, maybe_optional(jb::Validate(
+                                          [](const auto& options, auto* obj) {
+                                            if (!obj->valid()) {
+                                              return absl::OkStatus();
+                                            }
+                                            return ValidateDataType(*obj);
+                                          },
+                                          jb::DataTypeJsonBinder)))),
         jb::Member("compression", jb::Projection(&T::compressor)),
         jb::Member("axes", jb::Projection(
                                &T::axes,
@@ -109,7 +109,7 @@ std::string N5Metadata::GetCompatibilityKey() const {
   span<const Index> chunk_shape = chunk_layout.shape();
   obj.emplace("blockSize", ::nlohmann::json::array_t(chunk_shape.begin(),
                                                      chunk_shape.end()));
-  obj.emplace("dataType", data_type.name());
+  obj.emplace("dataType", dtype.name());
   obj.emplace("compression", compressor);
   return ::nlohmann::json(obj).dump();
 }
@@ -197,12 +197,12 @@ Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
     absl::Cord decoded;
     TENSORSTORE_RETURN_IF_ERROR(metadata.compressor->Decode(
         buffer.Subcord(header_size, buffer.size() - header_size), &decoded,
-        metadata.data_type.size()));
+        metadata.dtype.size()));
     buffer = std::move(decoded);
     decoded_offset = 0;
   }
   const std::size_t expected_data_size =
-      encoded_array.num_elements() * metadata.data_type.size();
+      encoded_array.num_elements() * metadata.dtype.size();
   if (buffer.size() - decoded_offset != expected_data_size) {
     return absl::InvalidArgumentError(StrCat(
         "Uncompressed chunk data has length ", buffer.size() - decoded_offset,
@@ -214,20 +214,20 @@ Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
     // Chunk is full size.  Attempt to decode in place.  Transfer ownership of
     // the existing `buffer` string into `decoded_array`.
     auto decoded_array =
-        internal::TryViewCordAsArray(buffer, decoded_offset, metadata.data_type,
+        internal::TryViewCordAsArray(buffer, decoded_offset, metadata.dtype,
                                      endian::big, metadata.chunk_layout);
     if (decoded_array.valid()) return decoded_array;
   }
   // Partial chunk, must copy.
   auto flat_buffer = buffer.Flatten();
-  ComputeStrides(fortran_order, metadata.data_type.size(),
-                 encoded_array.shape(), encoded_array.byte_strides());
+  ComputeStrides(fortran_order, metadata.dtype.size(), encoded_array.shape(),
+                 encoded_array.byte_strides());
   encoded_array.element_pointer() = ElementPointer<const void>(
       static_cast<const void*>(flat_buffer.data() + decoded_offset),
-      metadata.data_type);
+      metadata.dtype);
   SharedArrayView<void> full_decoded_array(
       internal::AllocateAndConstructSharedElements(
-          metadata.chunk_layout.num_elements(), value_init, metadata.data_type),
+          metadata.chunk_layout.num_elements(), value_init, metadata.dtype),
       metadata.chunk_layout);
   ArrayView<void> partial_decoded_array(
       full_decoded_array.element_pointer(),
@@ -245,16 +245,16 @@ Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
   // Always write chunks as full size, to avoid race conditions or data loss
   // in the event of a concurrent resize.
   internal::FlatCordBuilder encoded(array.num_elements() *
-                                    metadata.data_type.size());
+                                    metadata.dtype.size());
   Array<void, dynamic_rank(internal::kNumInlinedDims)> encoded_array(
-      {static_cast<void*>(encoded.data()), metadata.data_type}, array.shape(),
+      {static_cast<void*>(encoded.data()), metadata.dtype}, array.shape(),
       fortran_order);
   internal::EncodeArray(array, encoded_array, endian::big);
   auto encoded_cord = std::move(encoded).Build();
   if (metadata.compressor) {
     absl::Cord compressed;
     TENSORSTORE_RETURN_IF_ERROR(metadata.compressor->Encode(
-        std::move(encoded_cord), &compressed, metadata.data_type.size()));
+        std::move(encoded_cord), &compressed, metadata.dtype.size()));
     encoded_cord = std::move(compressed);
   }
   internal::FlatCordBuilder header(GetChunkHeaderSize(metadata));
@@ -293,9 +293,9 @@ Status ValidateMetadata(const N5Metadata& metadata,
     return MetadataMismatchError("blockSize", *constraints.chunk_shape,
                                  metadata.chunk_shape);
   }
-  if (constraints.data_type && *constraints.data_type != metadata.data_type) {
-    return MetadataMismatchError("dataType", constraints.data_type->name(),
-                                 metadata.data_type.name());
+  if (constraints.dtype && *constraints.dtype != metadata.dtype) {
+    return MetadataMismatchError("dataType", constraints.dtype->name(),
+                                 metadata.dtype.name());
   }
   if (constraints.compressor && ::nlohmann::json(*constraints.compressor) !=
                                     ::nlohmann::json(metadata.compressor)) {
@@ -313,7 +313,7 @@ Result<std::shared_ptr<const N5Metadata>> GetNewMetadata(
   if (!metadata_constraints.chunk_shape) {
     return absl::InvalidArgumentError("\"blockSize\" must be specified");
   }
-  if (!metadata_constraints.data_type) {
+  if (!metadata_constraints.dtype) {
     return absl::InvalidArgumentError("\"dataType\" must be specified");
   }
   if (!metadata_constraints.compressor) {
@@ -324,7 +324,7 @@ Result<std::shared_ptr<const N5Metadata>> GetNewMetadata(
   metadata->extra_attributes = metadata_constraints.extra_attributes;
   metadata->shape = *metadata_constraints.shape;
   metadata->chunk_shape = *metadata_constraints.chunk_shape;
-  metadata->data_type = *metadata_constraints.data_type;
+  metadata->dtype = *metadata_constraints.dtype;
   metadata->compressor = *metadata_constraints.compressor;
   if (metadata_constraints.axes) {
     metadata->axes = *metadata_constraints.axes;
@@ -335,10 +335,10 @@ Result<std::shared_ptr<const N5Metadata>> GetNewMetadata(
   return metadata;
 }
 
-Status ValidateDataType(DataType data_type) {
-  if (!absl::c_linear_search(kSupportedDataTypes, data_type.id())) {
+Status ValidateDataType(DataType dtype) {
+  if (!absl::c_linear_search(kSupportedDataTypes, dtype.id())) {
     return absl::InvalidArgumentError(
-        StrCat(data_type, " data type is not one of the supported data types: ",
+        StrCat(dtype, " data type is not one of the supported data types: ",
                GetSupportedDataTypes()));
   }
   return absl::OkStatus();

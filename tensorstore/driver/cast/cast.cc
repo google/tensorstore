@@ -48,7 +48,7 @@ class CastDriver
 
   constexpr static auto json_binder = jb::Object(
       jb::Initialize([](auto* obj) -> Status {
-        if (!obj->data_type.valid()) {
+        if (!obj->dtype.valid()) {
           return Status(absl::StatusCode::kInvalidArgument,
                         "Data type must be specified");
         }
@@ -88,9 +88,9 @@ class CastDriver
       ReadWriteMode read_write_mode) {
     return MapFutureValue(
         InlineExecutor{},
-        [target_data_type = spec->data_type,
+        [target_dtype = spec->dtype,
          read_write_mode](Driver::Handle handle) -> Result<Driver::Handle> {
-          return MakeCastDriver(std::move(handle), target_data_type,
+          return MakeCastDriver(std::move(handle), target_dtype,
                                 read_write_mode);
         },
         internal::OpenDriver(std::move(transaction), spec->base,
@@ -104,21 +104,21 @@ class CastDriver
         spec->base,
         base_driver_->GetBoundSpec(std::move(transaction), transform));
     spec->rank = base_driver_->rank();
-    spec->data_type = target_data_type_;
+    spec->dtype = target_dtype_;
     auto transform_spec = std::move(spec->base.transform_spec);
     spec->base.transform_spec = IndexTransformSpec(spec->rank);
     return transform_spec;
   }
 
-  explicit CastDriver(Driver::Ptr base, DataType target_data_type,
+  explicit CastDriver(Driver::Ptr base, DataType target_dtype,
                       DataTypeConversionLookupResult input_conversion,
                       DataTypeConversionLookupResult output_conversion)
       : base_driver_(std::move(base)),
-        target_data_type_(target_data_type),
+        target_dtype_(target_dtype),
         input_conversion_(input_conversion),
         output_conversion_(output_conversion) {}
 
-  DataType data_type() override { return target_data_type_; }
+  DataType dtype() override { return target_dtype_; }
   DimensionIndex rank() override { return base_driver_->rank(); }
 
   Executor data_copy_executor() override {
@@ -151,7 +151,7 @@ class CastDriver
   }
 
   Driver::Ptr base_driver_;
-  DataType target_data_type_;
+  DataType target_dtype_;
   DataTypeConversionLookupResult input_conversion_;
   DataTypeConversionLookupResult output_conversion_;
 };
@@ -171,8 +171,8 @@ struct ReadChunkImpl {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto iterable,
         base(ReadChunk::BeginRead{}, std::move(chunk_transform), arena));
-    return GetConvertedInputNDIterable(
-        std::move(iterable), self->target_data_type_, self->input_conversion_);
+    return GetConvertedInputNDIterable(std::move(iterable), self->target_dtype_,
+                                       self->input_conversion_);
   }
 };
 
@@ -192,7 +192,7 @@ struct WriteChunkImpl {
         auto iterable,
         base(WriteChunk::BeginWrite{}, std::move(chunk_transform), arena));
     return GetConvertedOutputNDIterable(
-        std::move(iterable), self->target_data_type_, self->output_conversion_);
+        std::move(iterable), self->target_dtype_, self->output_conversion_);
   }
 
   WriteChunk::EndWriteResult operator()(WriteChunk::EndWrite,
@@ -252,8 +252,8 @@ const internal::DriverRegistration<CastDriver> driver_registration;
 }  // namespace
 
 Result<CastDataTypeConversions> GetCastDataTypeConversions(
-    DataType source_data_type, DataType target_data_type,
-    ReadWriteMode existing_mode, ReadWriteMode required_mode) {
+    DataType source_dtype, DataType target_dtype, ReadWriteMode existing_mode,
+    ReadWriteMode required_mode) {
   // `required_mode` must be a subset of `existing_mode`
   assert((existing_mode & required_mode) == required_mode);
   CastDataTypeConversions result = {};
@@ -265,43 +265,43 @@ Result<CastDataTypeConversions> GetCastDataTypeConversions(
       required_mode == ReadWriteMode::dynamic ? existing_mode : required_mode;
   result.mode = requested_mode;
   if ((requested_mode & ReadWriteMode::read) == ReadWriteMode::read) {
-    result.input = GetDataTypeConverter(source_data_type, target_data_type);
+    result.input = GetDataTypeConverter(source_dtype, target_dtype);
     if (!(result.input.flags & DataTypeConversionFlags::kSupported)) {
       if ((required_mode & ReadWriteMode::read) == ReadWriteMode::read) {
         return absl::InvalidArgumentError(
-            StrCat("Read access requires unsupported ", source_data_type,
-                   " -> ", target_data_type, " conversion"));
+            StrCat("Read access requires unsupported ", source_dtype, " -> ",
+                   target_dtype, " conversion"));
       }
       result.mode &= ~ReadWriteMode::read;
     }
   }
   if ((requested_mode & ReadWriteMode::write) == ReadWriteMode::write) {
-    result.output = GetDataTypeConverter(target_data_type, source_data_type);
+    result.output = GetDataTypeConverter(target_dtype, source_dtype);
     if (!(result.output.flags & DataTypeConversionFlags::kSupported)) {
       if ((required_mode & ReadWriteMode::write) == ReadWriteMode::write) {
         return absl::InvalidArgumentError(
-            StrCat("Write access requires unsupported ", target_data_type,
-                   " -> ", source_data_type, " conversion"));
+            StrCat("Write access requires unsupported ", target_dtype, " -> ",
+                   source_dtype, " conversion"));
       }
       result.mode &= ~ReadWriteMode::write;
     }
   }
   if (result.mode == ReadWriteMode{}) {
     return absl::InvalidArgumentError(
-        StrCat("Cannot convert ", source_data_type, " <-> ", target_data_type));
+        StrCat("Cannot convert ", source_dtype, " <-> ", target_dtype));
   }
   return result;
 }
 
 Result<Driver::Handle> MakeCastDriver(Driver::Handle base,
-                                      DataType target_data_type,
+                                      DataType target_dtype,
                                       ReadWriteMode read_write_mode) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto conversions, GetCastDataTypeConversions(
-                            base.driver->data_type(), target_data_type,
+                            base.driver->dtype(), target_dtype,
                             base.driver.read_write_mode(), read_write_mode));
   base.driver =
-      Driver::Ptr(new CastDriver(std::move(base.driver), target_data_type,
+      Driver::Ptr(new CastDriver(std::move(base.driver), target_dtype,
                                  conversions.input, conversions.output),
                   conversions.mode);
   return base;

@@ -28,9 +28,9 @@ namespace internal_array {
 bool CompareArraysEqual(
     const ArrayView<const void, dynamic_rank, zero_origin>& a,
     const ArrayView<const void, dynamic_rank, zero_origin>& b) {
-  if (a.data_type() != b.data_type()) return false;
+  if (a.dtype() != b.dtype()) return false;
   if (!internal::RangesEqual(a.shape(), b.shape())) return false;
-  return internal::IterateOverArrays({&a.data_type()->compare_equal, nullptr},
+  return internal::IterateOverArrays({&a.dtype()->compare_equal, nullptr},
                                      /*status=*/nullptr,
                                      /*constraints=*/skip_repeated_elements, a,
                                      b)
@@ -40,8 +40,8 @@ bool CompareArraysEqual(
 void CopyArrayImplementation(
     const ArrayView<const void, dynamic_rank, offset_origin>& source,
     const ArrayView<void, dynamic_rank, offset_origin>& dest) {
-  TENSORSTORE_CHECK(source.data_type() == dest.data_type());
-  internal::IterateOverArrays({&source.data_type()->copy_assign, nullptr},
+  TENSORSTORE_CHECK(source.dtype() == dest.dtype());
+  internal::IterateOverArrays({&source.dtype()->copy_assign, nullptr},
                               /*status=*/nullptr,
                               /*constraints=*/skip_repeated_elements, source,
                               dest);
@@ -50,9 +50,8 @@ void CopyArrayImplementation(
 Status CopyConvertedArrayImplementation(
     const ArrayView<const void, dynamic_rank, offset_origin>& source,
     const ArrayView<void, dynamic_rank, offset_origin>& dest) {
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto r, internal::GetDataTypeConverterOrError(source.data_type(),
-                                                    dest.data_type()));
+  TENSORSTORE_ASSIGN_OR_RETURN(auto r, internal::GetDataTypeConverterOrError(
+                                           source.dtype(), dest.dtype()));
   Status status;
   if (!internal::IterateOverArrays(r.closure,
                                    /*status=*/&status,
@@ -67,9 +66,9 @@ Status CopyConvertedArrayImplementation(
 bool CompareArraysEqual(
     const ArrayView<const void, dynamic_rank, offset_origin>& a,
     const ArrayView<const void, dynamic_rank, offset_origin>& b) {
-  if (a.data_type() != b.data_type()) return false;
+  if (a.dtype() != b.dtype()) return false;
   if (a.domain() != b.domain()) return false;
-  return internal::IterateOverArrays({&a.data_type()->compare_equal, nullptr},
+  return internal::IterateOverArrays({&a.dtype()->compare_equal, nullptr},
                                      /*status=*/nullptr,
                                      /*constraints=*/skip_repeated_elements, a,
                                      b)
@@ -81,7 +80,7 @@ void PrintArrayDimension(
     ArrayView<const void, dynamic_rank, offset_origin> array,
     const ArrayFormatOptions& options, bool summarize) {
   if (array.rank() == 0) {
-    array.data_type()->append_to_string(result, array.data());
+    array.dtype()->append_to_string(result, array.data());
     return;
   }
   *result += options.prefix;
@@ -109,8 +108,8 @@ void PrintArrayDimension(
   *result += options.suffix;
 }
 
-std::string DescribeForCast(DataType data_type, DimensionIndex rank) {
-  return StrCat("array with ", StaticCastTraits<DataType>::Describe(data_type),
+std::string DescribeForCast(DataType dtype, DimensionIndex rank) {
+  return StrCat("array with ", StaticCastTraits<DataType>::Describe(dtype),
                 " and ", StaticCastTraits<DimensionIndex>::Describe(rank));
 }
 
@@ -152,7 +151,7 @@ SharedElementPointer<void> AllocateArrayLike(
 
 void InitializeArray(
     const ArrayView<void, dynamic_rank, offset_origin>& array) {
-  internal::IterateOverArrays({&array.data_type()->initialize, nullptr},
+  internal::IterateOverArrays({&array.dtype()->initialize, nullptr},
                               /*status=*/nullptr,
                               /*constraints=*/skip_repeated_elements, array);
 }

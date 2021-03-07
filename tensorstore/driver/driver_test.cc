@@ -35,7 +35,7 @@ using tensorstore::internal::WriteChunk;
 
 class ChunkErrorDriver : public tensorstore::internal::Driver {
  public:
-  tensorstore::DataType data_type() override {
+  tensorstore::DataType dtype() override {
     return tensorstore::DataTypeOf<int>();
   }
   tensorstore::DimensionIndex rank() override { return 0; }

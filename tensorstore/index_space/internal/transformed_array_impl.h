@@ -749,7 +749,7 @@ using EnableIfTransformedArrayMapTransformResultType =
     typename ConditionalTransformedArrayMapTransformResultType<
         Condition>::template type<A, Func>;
 
-std::string DescribeTransformedArrayForCast(DataType data_type,
+std::string DescribeTransformedArrayForCast(DataType dtype,
                                             DimensionIndex rank);
 
 /// Base class providing common implementation of the `StaticCastTraits`
@@ -776,7 +776,7 @@ struct TransformedArrayCastTraits
   template <typename Other>
   static bool IsCompatible(const Other& other) {
     return IsRankExplicitlyConvertible(other.rank(), Rank) &&
-           IsPossiblySameDataType(other.data_type(), typename type::DataType());
+           IsPossiblySameDataType(other.dtype(), typename type::DataType());
   }
 
   static std::string Describe() {
@@ -785,8 +785,8 @@ struct TransformedArrayCastTraits
   }
 
   static std::string Describe(const type& value) {
-    return internal_index_space::DescribeTransformedArrayForCast(
-        value.data_type(), value.rank());
+    return internal_index_space::DescribeTransformedArrayForCast(value.dtype(),
+                                                                 value.rank());
   }
 };
 

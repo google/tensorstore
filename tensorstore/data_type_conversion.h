@@ -144,12 +144,12 @@ template <typename From>
 constexpr internal::DataTypeOperations::CanonicalConversionOperations
 GetConvertToCanonicalOperations() {
   return {
-      /*.convert=*/MapCanonicalDataTypes([](auto data_type) {
-        using X = typename decltype(data_type)::Element;
+      /*.convert=*/MapCanonicalDataTypes([](auto dtype) {
+        using X = typename decltype(dtype)::Element;
         return GetConvertFunction<From, X>();
       }),
-      /*.flags=*/MapCanonicalDataTypes([](auto data_type) {
-        using X = typename decltype(data_type)::Element;
+      /*.flags=*/MapCanonicalDataTypes([](auto dtype) {
+        using X = typename decltype(dtype)::Element;
         return DataTypeConversionTraits<From, X>::flags;
       }),
   };

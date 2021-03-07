@@ -715,8 +715,8 @@ ChunkCacheDriver::ChunkCacheDriver(CachePtr<ChunkCache> cache,
   assert(component_index < cache_->grid().components.size());
 }
 
-DataType ChunkCacheDriver::data_type() {
-  return cache_->grid().components[component_index_].data_type();
+DataType ChunkCacheDriver::dtype() {
+  return cache_->grid().components[component_index_].dtype();
 }
 
 DimensionIndex ChunkCacheDriver::rank() {

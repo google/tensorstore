@@ -99,7 +99,7 @@ bool WriteToMask(MaskData* mask, BoxView<> output_box,
 ///     of shape `source.shape()`.
 /// \param mask[in] The mask specifying the positions of the destination array
 ///     not to modify.
-/// \dchecks `source.data_type() == dest_ptr.data_type()`.
+/// \dchecks `source.dtype() == dest_ptr.dtype()`.
 /// \dchecks `source.shape() == box.shape()`.
 void RebaseMaskedArray(BoxView<> box, ArrayView<const void> source,
                        ElementPointer<void> dest_ptr, const MaskData& mask);

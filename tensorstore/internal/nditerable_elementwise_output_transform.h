@@ -37,14 +37,14 @@ namespace internal {
 /// is called once per block to fill the externally-supplied buffer.
 ///
 /// \param output Writable output iterable to adapt.
-/// \param input_data_type The input data type.
+/// \param input_dtype The input data type.
 /// \param closure Closure that takes an input array of data type
-///     `input_data_type`, an output array of data type `output.data_type()`,
+///     `input_dtype`, an output array of data type `output.dtype()`,
 ///     fills the output array based on the input, and returns the number of
 ///     elements successfully written to the output array.
 /// \param arena Arena that may be used for memory allocation.
 NDIterable::Ptr GetElementwiseOutputTransformNDIterable(
-    NDIterable::Ptr output, DataType input_data_type,
+    NDIterable::Ptr output, DataType input_dtype,
     ElementwiseClosure<2, Status*> closure, Arena* arena);
 
 }  // namespace internal

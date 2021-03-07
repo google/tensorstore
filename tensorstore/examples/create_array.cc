@@ -58,7 +58,7 @@ void PrintCSVArray(Array&& data) {
   //  }
   //
   const auto max = data.shape()[data.rank() - 1] - 1;
-  auto element_rep = data.data_type();
+  auto element_rep = data.dtype();
 
   // FIXME: We can't use operator() to get a value reference since that doesn't
   // work for tensorstore::ArrayView<const void, N>. However in the case of

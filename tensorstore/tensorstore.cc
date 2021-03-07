@@ -23,12 +23,11 @@ Status ResizeRankError(DimensionIndex rank) {
   return absl::InvalidArgumentError(
       StrCat("inclusive_min and exclusive_max must have rank ", rank));
 }
-std::string DescribeForCast(DataType data_type, DimensionIndex rank,
+std::string DescribeForCast(DataType dtype, DimensionIndex rank,
                             ReadWriteMode mode) {
-  return StrCat("TensorStore with ",
-                StaticCastTraits<DataType>::Describe(data_type), ", ",
-                StaticCastTraits<DimensionIndex>::Describe(rank),
-                " and mode of ", mode);
+  return StrCat(
+      "TensorStore with ", StaticCastTraits<DataType>::Describe(dtype), ", ",
+      StaticCastTraits<DimensionIndex>::Describe(rank), " and mode of ", mode);
 }
 
 }  // namespace internal_tensorstore

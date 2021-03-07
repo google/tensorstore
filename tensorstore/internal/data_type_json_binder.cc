@@ -71,17 +71,15 @@ TENSORSTORE_DEFINE_JSON_BINDER(
     [](auto is_loading, const auto& options, auto* obj, ::nlohmann::json* j) {
       return Validate(
           [](const auto& options, DataType* d) {
-            if (options.data_type.valid() && d->valid() &&
-                options.data_type != *d) {
-              return absl::InvalidArgumentError(tensorstore::StrCat(
-                  "Expected data type of ", options.data_type,
-                  " but received: ", *d));
+            if (options.dtype.valid() && d->valid() && options.dtype != *d) {
+              return absl::InvalidArgumentError(
+                  tensorstore::StrCat("Expected data type of ", options.dtype,
+                                      " but received: ", *d));
             }
             return absl::OkStatus();
           },
-          DefaultValue([data_type = options.data_type](DataType* d) {
-            *d = data_type;
-          }))(is_loading, options, obj, j);
+          DefaultValue([dtype = options.dtype](DataType* d) { *d = dtype; }))(
+          is_loading, options, obj, j);
     })
 
 }  // namespace json_binding

@@ -92,9 +92,9 @@ std::shared_ptr<void> AllocateAndConstructShared<void>(
   return nullptr;
 }
 
-std::string StaticCastTraits<DataType>::Describe(DataType data_type) {
-  if (!data_type.valid()) return "dynamic data type";
-  return StrCat("data type of ", data_type);
+std::string StaticCastTraits<DataType>::Describe(DataType dtype) {
+  if (!dtype.valid()) return "dynamic data type";
+  return StrCat("data type of ", dtype);
 }
 
 namespace internal_data_type {

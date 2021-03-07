@@ -78,7 +78,7 @@ using tensorstore::internal::GetOwningCache;
 /// Benchmark configuration for read/write benchmark.
 struct BenchmarkConfig {
   /// Source and target data type.
-  tensorstore::DataType data_type;
+  tensorstore::DataType dtype;
 
   /// Shape of the contiguous source/target array to be copied each iteration.
   std::vector<Index> copy_shape;
@@ -221,13 +221,13 @@ class CopyBenchmarkRunner {
     }
     ChunkGridSpecification grid({ChunkGridSpecification::Component{
         AllocateArray(config.cell_shape, tensorstore::c_order,
-                      tensorstore::value_init, config.data_type),
+                      tensorstore::value_init, config.dtype),
         Box<>(rank), chunked_dims}});
     cache = pool->GetCache<BenchmarkCache>(
         "", [&] { return absl::make_unique<BenchmarkCache>(grid, executor); });
     driver.reset(new TestDriver(cache, 0));
     array = AllocateArray(config.copy_shape, tensorstore::c_order,
-                          tensorstore::value_init, config.data_type);
+                          tensorstore::value_init, config.dtype);
     transform = ChainResult(tensorstore::IdentityTransform(rank),
                             tensorstore::AllDims().SizedInterval(
                                 0, config.copy_shape, config.stride))
@@ -286,7 +286,7 @@ void BenchmarkCopy(const BenchmarkConfig& config, ::benchmark::State& state) {
   CopyBenchmarkRunner runner(config);
 
   const Index num_bytes =
-      runner.array.num_elements() * runner.config.data_type->size;
+      runner.array.num_elements() * runner.config.dtype->size;
   Index total_bytes = 0;
   while (state.KeepRunningBatch(num_bytes)) {
     runner.RunOnce();
@@ -308,7 +308,7 @@ struct RegisterBenchmarks {
         for (const int threads : {0, 1, 2, 4}) {
           for (const Index copy_size : {16, 32, 64, 128, 256}) {
             Register({
-                /*data_type=*/tensorstore::DataTypeOf<int>(),
+                /*dtype=*/tensorstore::DataTypeOf<int>(),
                 /*copy_shape=*/{copy_size, copy_size, copy_size},
                 /*stride=*/{1, 1, 1},
                 /*indexed=*/{false, false, false},
@@ -319,7 +319,7 @@ struct RegisterBenchmarks {
                 /*read=*/read,
             });
             Register({
-                /*data_type=*/tensorstore::DataTypeOf<int>(),
+                /*dtype=*/tensorstore::DataTypeOf<int>(),
                 /*copy_shape=*/{copy_size, copy_size, copy_size},
                 /*stride=*/{2, 1, 1},
                 /*indexed=*/{false, false, false},
@@ -330,7 +330,7 @@ struct RegisterBenchmarks {
                 /*read=*/read,
             });
             Register({
-                /*data_type=*/tensorstore::DataTypeOf<int>(),
+                /*dtype=*/tensorstore::DataTypeOf<int>(),
                 /*copy_shape=*/{copy_size, copy_size, copy_size},
                 /*stride=*/{2, 2, 2},
                 /*indexed=*/{false, false, false},
@@ -341,7 +341,7 @@ struct RegisterBenchmarks {
                 /*read=*/read,
             });
             Register({
-                /*data_type=*/tensorstore::DataTypeOf<int>(),
+                /*dtype=*/tensorstore::DataTypeOf<int>(),
                 /*copy_shape=*/{copy_size, copy_size, copy_size},
                 /*stride=*/{1, 1, 1},
                 /*indexed=*/{false, true, false},

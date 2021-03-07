@@ -130,7 +130,7 @@ class ArrayIterableImpl : public NDIterable::Base<ArrayIterableImpl> {
  public:
   ArrayIterableImpl(SharedOffsetArrayView<const void> array,
                     ArenaAllocator<> allocator)
-      : data_type_(array.data_type()),
+      : dtype_(array.dtype()),
         byte_strides_(array.byte_strides().begin(), array.byte_strides().end(),
                       allocator) {
     void* origin_pointer =
@@ -158,14 +158,14 @@ class ArrayIterableImpl : public NDIterable::Base<ArrayIterableImpl> {
         byte_strides_[dim_i], dir_i, byte_strides_[dim_j], dir_j, size_j);
   }
 
-  DataType data_type() const override { return data_type_; }
+  DataType dtype() const override { return dtype_; }
 
   IterationBufferConstraint GetIterationBufferConstraint(
       IterationLayoutView layout) const override {
     const DimensionIndex last_dim = layout.iteration_dimensions.back();
     return {(last_dim == -1 ||
              (byte_strides_[last_dim] * layout.directions[last_dim] ==
-              data_type_->size))
+              dtype_->size))
                 ? IterationBufferKind::kContiguous
                 : IterationBufferKind::kStrided,
             /*.external=*/false};
@@ -189,7 +189,7 @@ class ArrayIterableImpl : public NDIterable::Base<ArrayIterableImpl> {
 
  private:
   std::shared_ptr<void> data_;
-  DataType data_type_;
+  DataType dtype_;
   std::vector<Index, ArenaAllocator<Index>> byte_strides_;
 };
 

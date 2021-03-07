@@ -148,7 +148,7 @@ TEST(ParseDType, SimpleStringBool) {
                         {
                             {{
                                  /*.encoded_dtype=*/"|b1",
-                                 /*.data_type=*/DataTypeOf<bool>(),
+                                 /*.dtype=*/DataTypeOf<bool>(),
                                  /*.endian=*/endian::native,
                                  /*.flexible_shape=*/{},
                              },
@@ -171,7 +171,7 @@ TEST(ParseDType, SingleNamedFieldChar) {
                  {
                      {{
                           /*.encoded_dtype=*/"|S10",
-                          /*.data_type=*/DataTypeOf<char>(),
+                          /*.dtype=*/DataTypeOf<char>(),
                           /*.endian=*/endian::native,
                           /*.flexible_shape=*/{10},
                       },
@@ -195,7 +195,7 @@ TEST(ParseDType, TwoNamedFieldsCharAndInt) {
           {
               {{
                    /*.encoded_dtype=*/"|S10",
-                   /*.data_type=*/DataTypeOf<char>(),
+                   /*.dtype=*/DataTypeOf<char>(),
                    /*.endian=*/endian::native,
                    /*.flexible_shape=*/{10},
                },
@@ -207,7 +207,7 @@ TEST(ParseDType, TwoNamedFieldsCharAndInt) {
                /*.num_bytes=*/10 * 2 * 3},
               {{
                    /*.encoded_dtype=*/"<i2",
-                   /*.data_type=*/
+                   /*.dtype=*/
                    DataTypeOf<std::int16_t>(),
                    /*.endian=*/endian::little,
                    /*.flexible_shape=*/{},

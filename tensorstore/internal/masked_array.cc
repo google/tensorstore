@@ -217,11 +217,11 @@ void UnionMasks(BoxView<> box, MaskData* mask_a, MaskData* mask_b) {
 
 void RebaseMaskedArray(BoxView<> box, ArrayView<const void> source,
                        ElementPointer<void> dest_ptr, const MaskData& mask) {
-  ABSL_ASSERT(source.data_type() == dest_ptr.data_type());
+  ABSL_ASSERT(source.dtype() == dest_ptr.dtype());
   ABSL_ASSERT(internal::RangesEqual(box.shape(), source.shape()));
   const Index num_elements = box.num_elements();
   if (mask.num_masked_elements == num_elements) return;
-  DataType r = source.data_type();
+  DataType r = source.dtype();
   absl::FixedArray<Index, kNumInlinedDims> dest_byte_strides(box.rank());
   ComputeStrides(ContiguousLayoutOrder::c, r->size, box.shape(),
                  dest_byte_strides);

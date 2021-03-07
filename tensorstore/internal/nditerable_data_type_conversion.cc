@@ -73,7 +73,7 @@ class NDIterableAdapter : public NDIterable::Base<Derived> {
     return base_->GetWorkingMemoryBytesPerElement(layout, buffer_kind);
   }
 
-  DataType data_type() const override { return base_->data_type(); }
+  DataType dtype() const override { return base_->dtype(); }
 
   ArenaAllocator<> get_allocator() const override {
     return base_->get_allocator();
@@ -91,15 +91,15 @@ class NDIterableAdapter : public NDIterable::Base<Derived> {
 class ReinterpretCastNDIterable
     : public NDIterableAdapter<ReinterpretCastNDIterable> {
  public:
-  ReinterpretCastNDIterable(NDIterable::Ptr base, DataType new_data_type,
+  ReinterpretCastNDIterable(NDIterable::Ptr base, DataType new_dtype,
                             ArenaAllocator<> allocator)
       : NDIterableAdapter<ReinterpretCastNDIterable>(std::move(base)),
-        data_type_(new_data_type) {}
+        dtype_(new_dtype) {}
 
-  DataType data_type() const override { return data_type_; }
+  DataType dtype() const override { return dtype_; }
 
  private:
-  DataType data_type_;
+  DataType dtype_;
 };
 
 }  // namespace

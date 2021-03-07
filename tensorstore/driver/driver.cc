@@ -201,7 +201,7 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                                          /*DisallowIncludeDefaults=*/true>())),
                   jb::Member("dtype", jb::Projection(
                                           [](auto& x) -> decltype(auto) {
-                                            return (x.constraints().data_type);
+                                            return (x.constraints().dtype);
                                           },
                                           jb::ConstrainedDataTypeJsonBinder)))),
           jb::Projection(&TransformedDriverSpec<>::driver_spec,
@@ -365,15 +365,14 @@ struct DriverReadIntoExistingInitiateOp {
 struct DriverReadIntoNewInitiateOp {
   using State = ReadState<SharedOffsetArray<void>>;
   IntrusivePtr<State> state;
-  DataType target_data_type;
+  DataType target_dtype;
   ContiguousLayoutOrder target_layout_order;
   void operator()(Promise<SharedOffsetArray<void>> promise,
                   ReadyFuture<IndexTransform<>> source_transform_future) {
     IndexTransform<> source_transform =
         std::move(source_transform_future.value());
-    auto array =
-        AllocateArray(source_transform.domain().box(), target_layout_order,
-                      default_init, target_data_type);
+    auto array = AllocateArray(source_transform.domain().box(),
+                               target_layout_order, default_init, target_dtype);
     auto& r = promise.raw_result() = array;
     state->target = MakeNormalizedTransformedArray(*r);
     state->promise = std::move(promise);
@@ -403,8 +402,8 @@ Future<void> DriverRead(Executor executor, DriverHandle source,
   state->executor = executor;
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->data_type_conversion,
-      GetDataTypeConverterOrError(source.driver->data_type(),
-                                  normalized_target.data_type(),
+      GetDataTypeConverterOrError(source.driver->dtype(),
+                                  normalized_target.dtype(),
                                   options.data_type_conversion_flags));
   state->source_driver = std::move(source.driver);
   TENSORSTORE_ASSIGN_OR_RETURN(
@@ -438,7 +437,7 @@ Future<void> DriverRead(DriverHandle source,
 }
 
 Future<SharedOffsetArray<void>> DriverRead(
-    Executor executor, DriverHandle source, DataType target_data_type,
+    Executor executor, DriverHandle source, DataType target_dtype,
     ContiguousLayoutOrder target_layout_order,
     DriverReadIntoNewOptions options) {
   TENSORSTORE_RETURN_IF_ERROR(
@@ -447,8 +446,7 @@ Future<SharedOffsetArray<void>> DriverRead(
   IntrusivePtr<State> state(new State);
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->data_type_conversion,
-      GetDataTypeConverterOrError(source.driver->data_type(),
-                                  target_data_type));
+      GetDataTypeConverterOrError(source.driver->dtype(), target_dtype));
   state->executor = executor;
   state->source_driver = std::move(source.driver);
   TENSORSTORE_ASSIGN_OR_RETURN(
@@ -463,20 +461,20 @@ Future<SharedOffsetArray<void>> DriverRead(
       fix_resizable_bounds);
 
   // Initiate the read once the bounds have been resolved.
-  LinkValue(WithExecutor(
-                std::move(executor),
-                DriverReadIntoNewInitiateOp{std::move(state), target_data_type,
-                                            target_layout_order}),
-            std::move(pair.promise), std::move(transform_future));
+  LinkValue(
+      WithExecutor(std::move(executor),
+                   DriverReadIntoNewInitiateOp{std::move(state), target_dtype,
+                                               target_layout_order}),
+      std::move(pair.promise), std::move(transform_future));
   return std::move(pair.future);
 }
 
 Future<SharedOffsetArray<void>> DriverRead(DriverHandle source,
                                            ReadIntoNewArrayOptions options) {
-  auto data_type = source.driver->data_type();
+  auto dtype = source.driver->dtype();
   auto executor = source.driver->data_copy_executor();
   return internal::DriverRead(
-      std::move(executor), std::move(source), data_type, options.layout_order,
+      std::move(executor), std::move(source), dtype, options.layout_order,
       /*options=*/
       {/*.progress_function=*/std::move(options.progress_function)});
 }
@@ -596,7 +594,7 @@ struct WriteChunkOp {
           state->SetError(_));
 
       source_iterable = GetConvertedInputNDIterable(
-          std::move(source_iterable), target_iterable->data_type(),
+          std::move(source_iterable), target_iterable->dtype(),
           state->data_type_conversion);
 
       NDIterableCopier copier(*source_iterable, *target_iterable,
@@ -698,8 +696,8 @@ WriteFutures DriverWrite(Executor executor,
   state->executor = executor;
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->data_type_conversion,
-      GetDataTypeConverterOrError(normalized_source.data_type(),
-                                  target.driver->data_type(),
+      GetDataTypeConverterOrError(normalized_source.dtype(),
+                                  target.driver->dtype(),
                                   options.data_type_conversion_flags));
   state->target_driver = std::move(target.driver);
   TENSORSTORE_ASSIGN_OR_RETURN(
@@ -871,7 +869,7 @@ struct CopyChunkOp {
           state->SetError(_));
 
       source_iterable = GetConvertedInputNDIterable(
-          std::move(source_iterable), target_iterable->data_type(),
+          std::move(source_iterable), target_iterable->dtype(),
           state->data_type_conversion);
 
       NDIterableCopier copier(*source_iterable, *target_iterable,
@@ -1036,8 +1034,8 @@ WriteFutures DriverCopy(Executor executor, DriverHandle source,
   state->executor = executor;
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->data_type_conversion,
-      GetDataTypeConverterOrError(source.driver->data_type(),
-                                  target.driver->data_type(),
+      GetDataTypeConverterOrError(source.driver->dtype(),
+                                  target.driver->dtype(),
                                   options.data_type_conversion_flags));
   state->source_driver = std::move(source.driver);
   TENSORSTORE_ASSIGN_OR_RETURN(
@@ -1102,9 +1100,8 @@ absl::Status CopyReadChunk(
       auto source_iterable,
       chunk(ReadChunk::BeginRead{}, std::move(chunk_transform), arena));
 
-  source_iterable = GetConvertedInputNDIterable(std::move(source_iterable),
-                                                target_iterable->data_type(),
-                                                chunk_conversion);
+  source_iterable = GetConvertedInputNDIterable(
+      std::move(source_iterable), target_iterable->dtype(), chunk_conversion);
 
   // Copy the chunk to the relevant portion of the target array.
   NDIterableCopier copier(*source_iterable, *target_iterable, target.shape(),
@@ -1116,7 +1113,7 @@ absl::Status CopyReadChunk(
     ReadChunk::Impl& chunk, IndexTransform<> chunk_transform,
     NormalizedTransformedArray<void, dynamic_rank, view> target) {
   auto converter =
-      internal::GetDataTypeConverter(target.data_type(), target.data_type());
+      internal::GetDataTypeConverter(target.dtype(), target.dtype());
   return CopyReadChunk(chunk, std::move(chunk_transform), converter,
                        std::move(target));
 }

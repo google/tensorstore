@@ -313,7 +313,7 @@ TEST(ArrayViewTest, ConstructDefault) {
     ArrayView<void> p;
     EXPECT_EQ(0, p.rank());
     EXPECT_EQ(nullptr, p.data());
-    EXPECT_FALSE(p.data_type().valid());
+    EXPECT_FALSE(p.dtype().valid());
   }
 }
 
@@ -347,7 +347,7 @@ TEST(ArrayViewTest, ConstructAndAssign) {
   ArrayView<void> a2 = a1;
   EXPECT_EQ(a.data(), a2.data());
   EXPECT_EQ(a.layout(), a2.layout());
-  EXPECT_EQ(DataTypeOf<float>(), a2.data_type());
+  EXPECT_EQ(DataTypeOf<float>(), a2.dtype());
 
   {
     auto a3 = StaticDataTypeCast<float>(a2).value();
@@ -365,7 +365,7 @@ TEST(ArrayViewTest, ConstructAndAssign) {
     ArrayView<void, 2> a5(a.element_pointer(), a.layout());
     EXPECT_EQ(a.data(), a5.data());
     EXPECT_EQ(a.layout(), a5.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a5.data_type());
+    EXPECT_EQ(DataTypeOf<float>(), a5.dtype());
   }
 
   {
@@ -373,7 +373,7 @@ TEST(ArrayViewTest, ConstructAndAssign) {
     a6 = a;
     EXPECT_EQ(a.data(), a6.data());
     EXPECT_EQ(a.layout(), a6.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a6.data_type());
+    EXPECT_EQ(DataTypeOf<float>(), a6.dtype());
   }
   static_assert(!std::is_assignable<ArrayView<float, 2>, ArrayView<float>>(),
                 "");
@@ -384,14 +384,14 @@ TEST(ArrayViewTest, ConstructAndAssign) {
     a6 = a;
     EXPECT_EQ(a.data(), a6.data());
     EXPECT_EQ(a.layout(), a6.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a6.data_type());
+    EXPECT_EQ(DataTypeOf<float>(), a6.dtype());
   }
   {
     ArrayView<float> a6;
     a6 = a1;
     EXPECT_EQ(a.data(), a6.data());
     EXPECT_EQ(a.layout(), a6.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a6.data_type());
+    EXPECT_EQ(DataTypeOf<float>(), a6.dtype());
   }
   static_assert(!std::is_assignable<ArrayView<float>, ArrayView<void>>(), "");
   {
@@ -399,7 +399,7 @@ TEST(ArrayViewTest, ConstructAndAssign) {
     a6 = a;
     EXPECT_EQ(a.data(), a6.data());
     EXPECT_EQ(a.layout(), a6.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a6.data_type());
+    EXPECT_EQ(DataTypeOf<float>(), a6.dtype());
   }
   static_assert(
       !std::is_assignable<ArrayView<const void, 2>, ArrayView<float>>(), "");
@@ -505,7 +505,7 @@ TEST(SharedArrayTest, ConstructAndAssign) {
   SharedArray<void> a2 = a1;
   EXPECT_EQ(a.data(), a2.data());
   EXPECT_EQ(a.layout(), a2.layout());
-  EXPECT_EQ(DataTypeOf<float>(), a2.data_type());
+  EXPECT_EQ(DataTypeOf<float>(), a2.dtype());
 
   {
     SharedArray<float> a3 = StaticDataTypeCast<float>(a2).value();
@@ -522,7 +522,7 @@ TEST(SharedArrayTest, ConstructAndAssign) {
     SharedArray<void, 2> a5(a.element_pointer(), a.layout());
     EXPECT_EQ(a.data(), a5.data());
     EXPECT_EQ(a.layout(), a5.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a5.data_type());
+    EXPECT_EQ(DataTypeOf<float>(), a5.dtype());
   }
 
   {
@@ -530,7 +530,7 @@ TEST(SharedArrayTest, ConstructAndAssign) {
     a6 = a;
     EXPECT_EQ(a.data(), a6.data());
     EXPECT_EQ(a.layout(), a6.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a6.data_type());
+    EXPECT_EQ(DataTypeOf<float>(), a6.dtype());
   }
 
   static_assert(
@@ -542,14 +542,14 @@ TEST(SharedArrayTest, ConstructAndAssign) {
     a6 = a;
     EXPECT_EQ(a.data(), a6.data());
     EXPECT_EQ(a.layout(), a6.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a6.data_type());
+    EXPECT_EQ(DataTypeOf<float>(), a6.dtype());
   }
   {
     SharedArray<float> a6;
     a6 = a1;
     EXPECT_EQ(a.data(), a6.data());
     EXPECT_EQ(a.layout(), a6.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a6.data_type());
+    EXPECT_EQ(DataTypeOf<float>(), a6.dtype());
   }
   static_assert(!std::is_assignable<SharedArray<float>, SharedArray<void>>(),
                 "");
@@ -558,7 +558,7 @@ TEST(SharedArrayTest, ConstructAndAssign) {
     a6 = a;
     EXPECT_EQ(a.data(), a6.data());
     EXPECT_EQ(a.layout(), a6.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a6.data_type());
+    EXPECT_EQ(DataTypeOf<float>(), a6.dtype());
   }
   static_assert(
       !std::is_assignable<SharedArray<const void, 2>, SharedArray<void>>(), "");
@@ -986,7 +986,7 @@ TEST(AllocateAndConstructSharedElementsTest, DynamicType) {
                              tensorstore::SharedElementPointer<void>>::value,
                 "");
 
-  EXPECT_EQ(DataTypeOf<float>(), result.data_type());
+  EXPECT_EQ(DataTypeOf<float>(), result.dtype());
   EXPECT_NE(nullptr, result.data());
 }
 }  // namespace allocate_and_construct_shared_elements_test

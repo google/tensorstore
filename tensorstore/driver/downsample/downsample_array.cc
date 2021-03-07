@@ -71,14 +71,13 @@ absl::Status DownsampleArray(OffsetArrayView<const void> source,
                              OffsetArrayView<void> target,
                              span<const Index> downsample_factors,
                              DownsampleMethod method) {
-  if (source.data_type() != target.data_type()) {
+  if (source.dtype() != target.dtype()) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Source data type (", source.data_type(),
-        ") does not match target data type (", target.data_type(), ")"));
+        "Source data type (", source.dtype(),
+        ") does not match target data type (", target.dtype(), ")"));
   }
 
-  TENSORSTORE_RETURN_IF_ERROR(
-      ValidateDownsampleMethod(source.data_type(), method));
+  TENSORSTORE_RETURN_IF_ERROR(ValidateDownsampleMethod(source.dtype(), method));
   TENSORSTORE_RETURN_IF_ERROR(ValidateDownsampleDomain(
       source.domain(), target.domain(), downsample_factors, method));
 
@@ -112,7 +111,7 @@ Result<SharedOffsetArray<void>> DownsampleArray(
           target.rank(), target.origin().data(), target.shape().data(),
           source.byte_strides().data()),
       target.byte_strides().data(), skip_repeated_elements, default_init,
-      source.data_type());
+      source.dtype());
   TENSORSTORE_RETURN_IF_ERROR(
       DownsampleArray(source, target, downsample_factors, method));
   return target;
@@ -126,16 +125,16 @@ absl::Status DownsampleTransformedArray(TransformedArrayView<const void> source,
                                MakeNormalizedTransformedArray(source));
   TENSORSTORE_ASSIGN_OR_RETURN(auto normalized_target,
                                MakeNormalizedTransformedArray(target));
-  if (normalized_source.data_type() != normalized_target.data_type()) {
+  if (normalized_source.dtype() != normalized_target.dtype()) {
     return absl::InvalidArgumentError(
 
-        tensorstore::StrCat("Source data type (", normalized_source.data_type(),
+        tensorstore::StrCat("Source data type (", normalized_source.dtype(),
                             ") does not match target data type (",
-                            normalized_target.data_type(), ")"));
+                            normalized_target.dtype(), ")"));
   }
 
   TENSORSTORE_RETURN_IF_ERROR(
-      ValidateDownsampleMethod(normalized_source.data_type(), method));
+      ValidateDownsampleMethod(normalized_source.dtype(), method));
   TENSORSTORE_RETURN_IF_ERROR(ValidateDownsampleDomain(
       normalized_source.domain().box(), normalized_target.domain().box(),
       downsample_factors, method));
@@ -174,7 +173,7 @@ Result<SharedOffsetArray<void>> DownsampleTransformedArray(
                    MutableBoxView<>(target.origin(), target.shape()),
                    downsample_factors, method);
   target = AllocateArray(target.domain(), c_order, default_init,
-                         normalized_source.data_type());
+                         normalized_source.dtype());
   TENSORSTORE_RETURN_IF_ERROR(DownsampleTransformedArray(
       normalized_source, MakeNormalizedTransformedArray(target),
       downsample_factors, method));

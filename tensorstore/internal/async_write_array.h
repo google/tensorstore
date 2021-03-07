@@ -93,7 +93,7 @@ struct AsyncWriteArray {
     DimensionIndex rank() const { return fill_value.rank(); }
 
     /// Returns the data type of this array.
-    DataType data_type() const { return fill_value.data_type(); }
+    DataType dtype() const { return fill_value.dtype(); }
 
     /// C-order byte strides for `fill_value.shape()`.
     std::vector<Index> c_order_byte_strides;
@@ -105,7 +105,7 @@ struct AsyncWriteArray {
     }
 
     /// Allocates and constructs an array of `num_elements()` elements of type
-    /// `data_type()`.
+    /// `dtype()`.
     std::shared_ptr<void> AllocateAndConstructBuffer() const;
 
     /// Returns an `NDIterable` for that may be used for reading the specified
@@ -122,7 +122,7 @@ struct AsyncWriteArray {
 
     std::size_t EstimateReadStateSizeInBytes(bool valid) const {
       if (!valid) return 0;
-      return num_elements() * data_type()->size;
+      return num_elements() * dtype()->size;
     }
   };
 
@@ -151,7 +151,7 @@ struct AsyncWriteArray {
     std::size_t EstimateSizeInBytes(const Spec& spec) const;
 
     /// Optional pointer to C-order multi-dimensional array of data type and
-    /// shape given by the `data_type` and `shape`, respectively, of the `Spec`.
+    /// shape given by the `dtype` and `shape`, respectively, of the `Spec`.
     /// If equal to `nullptr`, no data has been written yet, or the current
     /// value is equal to the fill value.
     std::shared_ptr<void> data;
@@ -163,7 +163,7 @@ struct AsyncWriteArray {
 
     SharedArrayView<const void> shared_array_view(const Spec& spec) {
       return SharedArrayView<const void>(
-          SharedElementPointer<const void>(data, spec.data_type()),
+          SharedElementPointer<const void>(data, spec.dtype()),
           spec.write_layout());
     }
 
@@ -252,7 +252,7 @@ struct AsyncWriteArray {
   /// \param origin The associated origin of the array.
   /// \param read_array The last read state.  If `read_array.data() == nullptr`,
   ///     implies `spec.fill_value()`.  Must match `spec.shape()` and
-  ///     `spec.data_type()`, but the layout does not necessarily have to match
+  ///     `spec.dtype()`, but the layout does not necessarily have to match
   ///     `spec.write_layout()`.
   /// \param read_generation The read generation corresponding to `read_array`.
   ///     This is compared to `this->read_generation` to determine if the read

@@ -25,10 +25,10 @@
 namespace tensorstore {
 namespace internal_index_space {
 
-std::string DescribeTransformedArrayForCast(DataType data_type,
+std::string DescribeTransformedArrayForCast(DataType dtype,
                                             DimensionIndex rank) {
   return StrCat("transformed array with ",
-                StaticCastTraits<DataType>::Describe(data_type), " and ",
+                StaticCastTraits<DataType>::Describe(dtype), " and ",
                 StaticCastTraits<DimensionIndex>::Describe(rank));
 }
 
@@ -55,9 +55,8 @@ void MultiplyByteStridesIntoOutputIndexMaps(TransformRep* transform,
 
 Status CopyTransformedArrayImpl(TransformedArrayView<const void> source,
                                 TransformedArrayView<void> dest) {
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto r, internal::GetDataTypeConverterOrError(source.data_type(),
-                                                    dest.data_type()));
+  TENSORSTORE_ASSIGN_OR_RETURN(auto r, internal::GetDataTypeConverterOrError(
+                                           source.dtype(), dest.dtype()));
   Status status;
   using TA = TransformedArrayView<const void>;
   TENSORSTORE_ASSIGN_OR_RETURN(auto iterate_result,
@@ -175,7 +174,7 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
 
   std::array<std::ptrdiff_t, Arity> element_sizes;
   for (std::size_t i = 0; i < Arity; ++i) {
-    element_sizes[i] = transformed_arrays[i].data_type()->size;
+    element_sizes[i] = transformed_arrays[i].dtype()->size;
   }
   if (!has_array_indexed_output_dimensions) {
     // This reduces to just a regular strided layout iteration.

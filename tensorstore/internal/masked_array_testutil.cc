@@ -53,7 +53,7 @@ MaskedArrayWriteResult WriteToMaskedArray(ElementPointer<void> output_ptr,
                                           Arena* arena) {
   const DimensionIndex output_rank = output_box.rank();
   absl::FixedArray<Index, kNumInlinedDims> data_byte_strides(output_rank);
-  ComputeStrides(ContiguousLayoutOrder::c, output_ptr.data_type()->size,
+  ComputeStrides(ContiguousLayoutOrder::c, output_ptr.dtype()->size,
                  output_box.shape(), data_byte_strides);
   TransformedArrayView<Shared<void>> dest(
       ArrayView<Shared<void>, dynamic_rank, offset_origin>(
@@ -95,7 +95,7 @@ MaskedArrayWriteResult WriteToMaskedArray(
       GetTransformedArrayNDIterable(UnownedToShared(source), &arena),
       (MaskedArrayWriteResult{_, false}));
   auto transformed_source_iterable = GetElementwiseInputTransformNDIterable(
-      {{std::move(source_iterable)}}, output_ptr.data_type(), copy_function,
+      {{std::move(source_iterable)}}, output_ptr.dtype(), copy_function,
       &arena);
   return WriteToMaskedArray(output_ptr, mask, output_box, input_to_output,
                             *transformed_source_iterable, &arena);

@@ -47,7 +47,7 @@ tensorstore::SharedArray<void> CopyNDIterable(
     span<const Index> shape, Arena* arena) {
   auto dest_array = tensorstore::AllocateArray(shape, tensorstore::c_order,
                                                tensorstore::default_init,
-                                               source_iterable->data_type());
+                                               source_iterable->dtype());
   auto dest_iterable =
       tensorstore::internal::GetArrayNDIterable(dest_array, arena);
   tensorstore::internal::NDIterableCopier copier(*source_iterable,
@@ -91,7 +91,7 @@ TEST(SpecTest, Basic) {
   EXPECT_EQ(3, spec.chunk_num_elements(span<const Index>({-2, 0})));
 
   EXPECT_EQ(2, spec.rank());
-  EXPECT_EQ(tensorstore::DataTypeOf<int32_t>(), spec.data_type());
+  EXPECT_EQ(tensorstore::DataTypeOf<int32_t>(), spec.dtype());
   EXPECT_THAT(spec.c_order_byte_strides,
               ::testing::ElementsAre(3 * sizeof(int32_t), sizeof(int32_t)));
 

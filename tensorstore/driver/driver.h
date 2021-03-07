@@ -311,7 +311,7 @@ class Driver : public AtomicReferenceCount<Driver> {
   using BoundSpec = DriverSpec::Bound;
 
   /// Returns the element representation.
-  virtual DataType data_type() = 0;
+  virtual DataType dtype() = 0;
 
   /// Returns the rank.
   virtual DimensionIndex rank() = 0;
@@ -531,8 +531,8 @@ struct DriverCopyOptions {
 /// \error `absl::StatusCode::kInvalidArgument` if the resolved domain of
 ///     `source.transform` cannot be aligned to the domain of `target` via
 ///     `AlignDomainTo`.
-/// \error `absl::StatusCode::kInvalidArgument` if `source.driver->data_type()`
-///     cannot be converted to `target.data_type()`.
+/// \error `absl::StatusCode::kInvalidArgument` if `source.driver->dtype()`
+///     cannot be converted to `target.dtype()`.
 Future<void> DriverRead(Executor executor, DriverHandle source,
                         TransformedSharedArrayView<void> target,
                         DriverReadOptions options);
@@ -545,16 +545,16 @@ Future<void> DriverRead(DriverHandle source,
 ///
 /// \param executor Executor to use for copying data.
 /// \param source Read source.
-/// \param target_data_type Data type of newly-allocated destination array.
+/// \param target_dtype Data type of newly-allocated destination array.
 /// \param target_layout_order Layout order of newly-allocated destination
 ///     array.
 /// \param options Specifies optional progress function.
 /// \returns A future that becomes ready when the data has been copied or an
 ///     error occurs.
-/// \error `absl::StatusCode::kInvalidArgument` if `source.driver->data_type()`
-///     cannot be converted to `target_data_type`.
+/// \error `absl::StatusCode::kInvalidArgument` if `source.driver->dtype()`
+///     cannot be converted to `target_dtype`.
 Future<SharedOffsetArray<void>> DriverRead(
-    Executor executor, DriverHandle source, DataType target_data_type,
+    Executor executor, DriverHandle source, DataType target_dtype,
     ContiguousLayoutOrder target_layout_order,
     DriverReadIntoNewOptions options);
 
@@ -574,8 +574,8 @@ Future<SharedOffsetArray<void>> DriverRead(DriverHandle source,
 /// \error `absl::StatusCode::kInvalidArgument` if the domain of `source` cannot
 ///     be aligned to the resolved domain of `target.transform` via
 ///     `AlignDomainTo`.
-/// \error `absl::StatusCode::kInvalidArgument` if `source.data_type()` cannot
-///     be converted to `target.driver->data_type()`.
+/// \error `absl::StatusCode::kInvalidArgument` if `source.dtype()` cannot
+///     be converted to `target.driver->dtype()`.
 WriteFutures DriverWrite(Executor executor,
                          TransformedSharedArrayView<const void> source,
                          DriverHandle target, DriverWriteOptions options);
@@ -596,8 +596,8 @@ WriteFutures DriverWrite(TransformedSharedArrayView<const void> source,
 /// \error `absl::StatusCode::kInvalidArgument` if the resolved domain of
 ///     `source.transform` cannot be aligned to the resolved domain of
 ///     `target.transform` via `AlignDomainTo`.
-/// \error `absl::StatusCode::kInvalidArgument` if `source.driver->data_type()`
-///     cannot be converted to `target.driver->data_type()`.
+/// \error `absl::StatusCode::kInvalidArgument` if `source.driver->dtype()`
+///     cannot be converted to `target.driver->dtype()`.
 WriteFutures DriverCopy(Executor executor, DriverHandle source,
                         DriverHandle target, DriverCopyOptions options);
 

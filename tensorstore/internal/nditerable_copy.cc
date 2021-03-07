@@ -46,7 +46,7 @@ namespace internal {
 NDIterableCopyManager::NDIterableCopyManager(const NDIterable* input,
                                              const NDIterable* output)
     : Base{{{input, output}}} {
-  assert(input->data_type() == output->data_type());
+  assert(input->dtype() == output->dtype());
 }
 
 NDIterableCopyManager::BufferParameters
@@ -82,7 +82,7 @@ std::ptrdiff_t NDIterableCopyManager::GetWorkingMemoryBytesPerElement(
       layout, buffer_parameters.output_buffer_kind);
 
   if (buffer_parameters.buffer_source == BufferSource::kExternal) {
-    num_bytes += input()->data_type()->size;
+    num_bytes += input()->dtype()->size;
     if (std::max(buffer_parameters.input_buffer_kind,
                  buffer_parameters.output_buffer_kind) ==
         IterationBufferKind::kIndexed) {
@@ -105,12 +105,12 @@ NDIteratorCopyManager::NDIteratorCopyManager(
     case NDIterableCopyManager::BufferSource::kBoth:
       copy_elements_function_ =
           iterable.input()
-              ->data_type()
+              ->dtype()
               ->copy_assign[buffer_parameters.input_buffer_kind];
       break;
     case NDIterableCopyManager::BufferSource::kExternal:
       buffer_manager_.Initialize(layout.block_size,
-                                 {{iterable.input()->data_type()}},
+                                 {{iterable.input()->dtype()}},
                                  {{{{buffer_parameters.input_buffer_kind,
                                      buffer_parameters.output_buffer_kind}}}});
       break;

@@ -173,7 +173,7 @@ Result<ZarrChunkLayout> ComputeChunkLayout(const ZarrDType& dtype,
 /// valid to specify the fill values for some, but not all fields.
 ///
 /// \dchecks `fill_values.size() == dtype.fields.size()`.
-/// \pre `fill_values[i].data_type() == dtype.fields[i].data_type` for
+/// \pre `fill_values[i].dtype() == dtype.fields[i].dtype` for
 ///     `0 <= i < dtype.fields.size()`.
 ::nlohmann::json EncodeFillValue(
     const ZarrDType& dtype, span<const SharedArray<const void>> fill_values);

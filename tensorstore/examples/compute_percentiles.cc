@@ -55,19 +55,19 @@ using ::tensorstore::WriteFutures;
 
 // Calls F with comparable data types.
 template <typename Fn>
-absl::Status TryInvokeWithType(::tensorstore::DataType data_type, Fn fn) {
+absl::Status TryInvokeWithType(::tensorstore::DataType dtype, Fn fn) {
 #define INVOKE_WITH_TYPE(T, ...)     \
   case tensorstore::DataTypeId::T: { \
     return fn(::tensorstore::T{});   \
   }
 
-  switch (data_type.id()) {
+  switch (dtype.id()) {
     TENSORSTORE_FOR_EACH_DATA_TYPE(INVOKE_WITH_TYPE)
     default:
       break;
   }
   return absl::InvalidArgumentError(
-      StrCat("Could not invoke with data type:", data_type.name()));
+      StrCat("Could not invoke with data type:", dtype.name()));
 
 #undef INVOKE_WITH_TYPE
 }
@@ -155,14 +155,14 @@ absl::Status ComputeQuantiles(InputArray& input,
   // each x into t, and sort them.
   auto values =
       tensorstore::AllocateArray({shape[1]}, tensorstore::c_order,
-                                 tensorstore::default_init, input.data_type());
+                                 tensorstore::default_init, input.dtype());
 
   // sort_values is a lambda which takes an unused value, then, if the type
   // of the unused value is comparable, coerces values to a 1-dimensional
   // array of that same type, and sorts those values.
   //
   // sort_values is invoked via TryInvokeWithDataTypeCast which manages
-  // the data_type() based dispatch.
+  // the dtype() based dispatch.
   auto sort_values = [&values](auto t) {
     using T = decltype(t);
     if constexpr (SupportsLess<T>()) {
@@ -183,7 +183,7 @@ absl::Status ComputeQuantiles(InputArray& input,
 
     // Sort the data.
     TENSORSTORE_RETURN_IF_ERROR(
-        TryInvokeWithType(values.data_type(), sort_values),
+        TryInvokeWithType(values.dtype(), sort_values),
         MaybeAnnotateStatus(_, "ComputeQuantiles sorting values"));
 
     // Materialize the indices data into the output.
@@ -214,10 +214,10 @@ absl::Status ValidateRun(const InputArray& input, const OutputArray& output,
   }
 
   // Validate data types
-  if (input.data_type() != output.data_type()) {
+  if (input.dtype() != output.dtype()) {
     errors.push_back("input and output have mismatching datatypes");
   }
-  auto status = TryInvokeWithType(input.data_type(), [](auto t) {
+  auto status = TryInvokeWithType(input.dtype(), [](auto t) {
     using T = decltype(t);
     if constexpr (SupportsLess<T>()) {
       return absl::OkStatus();
@@ -329,7 +329,7 @@ absl::Status Run(::nlohmann::json input_spec, ::nlohmann::json output_spec,
   // staging_xt = [].shape(x, t, q)
   auto staging_xtq = tensorstore::AllocateArray(
       {shape[0], shape[3], static_cast<Index>(quantiles.size())},
-      tensorstore::c_order, tensorstore::default_init, input.data_type());
+      tensorstore::c_order, tensorstore::default_init, input.dtype());
 
   size_t write_failed_count = 0;
   std::list<tensorstore::WriteFutures> pending_writes;

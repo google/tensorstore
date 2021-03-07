@@ -69,17 +69,17 @@ struct ElementwiseOutputTransformNDIterable
       std::array<NDIterable::Ptr, 1>,
       NDIterable::Base<ElementwiseOutputTransformNDIterable>>;
   ElementwiseOutputTransformNDIterable(NDIterable::Ptr output,
-                                       DataType input_data_type,
+                                       DataType input_dtype,
                                        ElementwiseClosure<2, Status*> closure,
                                        ArenaAllocator<> allocator)
       : Base{{{std::move(output)}}},
-        input_data_type_(input_data_type),
+        input_dtype_(input_dtype),
         closure_(closure),
         allocator_(allocator) {}
 
   ArenaAllocator<> get_allocator() const override { return allocator_; }
 
-  DataType data_type() const override { return input_data_type_; }
+  DataType dtype() const override { return input_dtype_; }
 
   NDIterator::Ptr GetIterator(
       NDIterable::IterationBufferKindLayoutView layout) const override {
@@ -88,18 +88,18 @@ struct ElementwiseOutputTransformNDIterable
         allocator_, this->iterables[0].get(), closure_, layout);
   }
 
-  DataType input_data_type_;
+  DataType input_dtype_;
   ElementwiseClosure<2, Status*> closure_;
   ArenaAllocator<> allocator_;
 };
 }  // namespace
 
 NDIterable::Ptr GetElementwiseOutputTransformNDIterable(
-    NDIterable::Ptr output, DataType input_data_type,
+    NDIterable::Ptr output, DataType input_dtype,
     ElementwiseClosure<2, Status*> closure, Arena* arena) {
   return MakeUniqueWithVirtualIntrusiveAllocator<
       ElementwiseOutputTransformNDIterable>(
-      ArenaAllocator<>(arena), std::move(output), input_data_type, closure);
+      ArenaAllocator<>(arena), std::move(output), input_dtype, closure);
 }
 
 }  // namespace internal

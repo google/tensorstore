@@ -45,8 +45,8 @@ class Spec {
   /// Returns the data type.
   ///
   /// If the data type is unknown, returns the invalid data type.
-  DataType data_type() const {
-    return impl_.driver_spec ? impl_.driver_spec->constraints().data_type
+  DataType dtype() const {
+    return impl_.driver_spec ? impl_.driver_spec->constraints().dtype
                              : DataType();
   }
 

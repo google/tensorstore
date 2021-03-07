@@ -25,24 +25,24 @@
 namespace tensorstore {
 namespace internal {
 
-/// Returns a read-only NDIterable with a `data_type` of `target_type` using
+/// Returns a read-only NDIterable with a `dtype` of `target_type` using
 /// `conversion`.
 ///
 /// \param iterable Readable source iterable.
 /// \param target_type Target data type.
 /// \param conversion Must equal
-///     `GetDataTypeConverter(iterable.data_type(), target_type)`.
+///     `GetDataTypeConverter(iterable.dtype(), target_type)`.
 NDIterable::Ptr GetConvertedInputNDIterable(
     NDIterable::Ptr iterable, DataType target_type,
     const DataTypeConversionLookupResult& conversion);
 
-/// Returns a write-only NDIterable with a `data_type` of `target_type` using
+/// Returns a write-only NDIterable with a `dtype` of `target_type` using
 /// `conversion`.
 ///
 /// \param iterable Writable target iterable.
 /// \param source_type Source data type.
 /// \param conversion Must equal
-///     `GetDataTypeConverter(source_type, iterable.data_type())`.
+///     `GetDataTypeConverter(source_type, iterable.dtype())`.
 NDIterable::Ptr GetConvertedOutputNDIterable(
     NDIterable::Ptr iterable, DataType source_type,
     const DataTypeConversionLookupResult& conversion);

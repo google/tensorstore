@@ -22,9 +22,8 @@
 namespace tensorstore {
 namespace internal_element_pointer {
 
-std::string DescribeForCast(DataType data_type) {
-  return StrCat("pointer with ",
-                StaticCastTraits<DataType>::Describe(data_type));
+std::string DescribeForCast(DataType dtype) {
+  return StrCat("pointer with ", StaticCastTraits<DataType>::Describe(dtype));
 }
 
 }  // namespace internal_element_pointer

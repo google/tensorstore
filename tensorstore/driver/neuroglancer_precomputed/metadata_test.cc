@@ -105,7 +105,7 @@ TEST(MetadataTest, ParseUnsharded) {
   ASSERT_EQ(absl::OkStatus(), GetStatus(metadata_result));
   auto& m = *metadata_result;
   EXPECT_EQ("image", m.type);
-  EXPECT_EQ(DataTypeOf<std::uint8_t>(), m.data_type);
+  EXPECT_EQ(DataTypeOf<std::uint8_t>(), m.dtype);
   EXPECT_EQ(1, m.num_channels);
   EXPECT_EQ(metadata_json, m.attributes);
   ASSERT_EQ(2, m.scales.size());
@@ -165,7 +165,7 @@ TEST(MetadataTest, ParseSharded) {
   ASSERT_EQ(absl::OkStatus(), GetStatus(metadata_result));
   auto& m = *metadata_result;
   EXPECT_EQ("segmentation", m.type);
-  EXPECT_EQ(DataTypeOf<std::uint64_t>(), m.data_type);
+  EXPECT_EQ(DataTypeOf<std::uint64_t>(), m.dtype);
   EXPECT_EQ(2, m.num_channels);
   EXPECT_EQ(metadata_json, m.attributes);
   ASSERT_EQ(1, m.scales.size());
@@ -267,8 +267,8 @@ TEST(MetadataTest, ParseDefaultVoxelOffset) {
 }
 
 TEST(MetadataTest, ParseEncodingsAndDataTypes) {
-  const auto GetMetadata = [](::nlohmann::json data_type,
-                              ::nlohmann::json encoding, int num_channels = 1,
+  const auto GetMetadata = [](::nlohmann::json dtype, ::nlohmann::json encoding,
+                              int num_channels = 1,
                               ::nlohmann::json jpeg_quality =
                                   ::nlohmann::json::value_t::discarded) {
     ::nlohmann::json metadata_json{{"num_channels", num_channels},
@@ -280,7 +280,7 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
                                       {"size", {6446, 6643, 8090}},
                                       {"voxel_offset", {2, 4, 6}}}}},
                                    {"type", "segmentation"},
-                                   {"data_type", data_type}};
+                                   {"data_type", dtype}};
     if (encoding == "compressed_segmentation") {
       metadata_json["scales"][0]["compressed_segmentation_block_size"] =  //
           {8, 8, 8};
@@ -315,13 +315,13 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
   for (auto data_type_id :
        {DataTypeId::uint8_t, DataTypeId::uint16_t, DataTypeId::uint32_t,
         DataTypeId::uint64_t, DataTypeId::float32_t}) {
-    const auto data_type = kDataTypes[static_cast<int>(data_type_id)];
+    const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
     auto metadata_result = MultiscaleMetadata::Parse(
-        GetMetadata(data_type.name(), ScaleMetadata::Encoding::raw));
+        GetMetadata(dtype.name(), ScaleMetadata::Encoding::raw));
     ASSERT_EQ(absl::OkStatus(), GetStatus(metadata_result));
     auto& m = *metadata_result;
     ASSERT_EQ(1, m.scales.size());
-    EXPECT_EQ(data_type, m.data_type);
+    EXPECT_EQ(dtype, m.dtype);
     EXPECT_EQ(ScaleMetadata::Encoding::raw, m.scales[0].encoding);
   }
 
@@ -341,22 +341,22 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
   // Test invalid data types for `raw` encoding.
   for (auto data_type_id : {DataTypeId::string_t, DataTypeId::json_t,
                             DataTypeId::ustring_t, DataTypeId::bool_t}) {
-    const auto data_type = kDataTypes[static_cast<int>(data_type_id)];
-    EXPECT_THAT(MultiscaleMetadata::Parse(GetMetadata(
-                    data_type.name(), ScaleMetadata::Encoding::raw)),
+    const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
+    EXPECT_THAT(MultiscaleMetadata::Parse(
+                    GetMetadata(dtype.name(), ScaleMetadata::Encoding::raw)),
                 MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 
   // Test valid data types and number of channels for `jpeg` encoding.
   for (auto data_type_id : {DataTypeId::uint8_t}) {
     for (int num_channels : {1, 3}) {
-      const auto data_type = kDataTypes[static_cast<int>(data_type_id)];
+      const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
           auto m,
           MultiscaleMetadata::Parse(GetMetadata(
-              data_type.name(), ScaleMetadata::Encoding::jpeg, num_channels)));
+              dtype.name(), ScaleMetadata::Encoding::jpeg, num_channels)));
       ASSERT_EQ(1, m.scales.size());
-      EXPECT_EQ(data_type, m.data_type);
+      EXPECT_EQ(dtype, m.dtype);
       EXPECT_EQ(num_channels, m.num_channels);
       EXPECT_EQ(75, m.scales[0].jpeg_quality);
       EXPECT_EQ(ScaleMetadata::Encoding::jpeg, m.scales[0].encoding);
@@ -394,21 +394,21 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
         DataTypeId::int64_t, DataTypeId::float16_t, DataTypeId::float32_t,
         DataTypeId::float64_t, DataTypeId::complex64_t,
         DataTypeId::complex128_t}) {
-    const auto data_type = kDataTypes[static_cast<int>(data_type_id)];
-    EXPECT_THAT(MultiscaleMetadata::Parse(GetMetadata(
-                    data_type.name(), ScaleMetadata::Encoding::jpeg)),
+    const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
+    EXPECT_THAT(MultiscaleMetadata::Parse(
+                    GetMetadata(dtype.name(), ScaleMetadata::Encoding::jpeg)),
                 MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 
   // Test valid data types for `compressed_segmentation` encoding.
   for (auto data_type_id : {DataTypeId::uint32_t, DataTypeId::uint64_t}) {
-    const auto data_type = kDataTypes[static_cast<int>(data_type_id)];
+    const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
     auto metadata_result = MultiscaleMetadata::Parse(GetMetadata(
-        data_type.name(), ScaleMetadata::Encoding::compressed_segmentation));
+        dtype.name(), ScaleMetadata::Encoding::compressed_segmentation));
     ASSERT_EQ(absl::OkStatus(), GetStatus(metadata_result));
     auto& m = *metadata_result;
     ASSERT_EQ(1, m.scales.size());
-    EXPECT_EQ(data_type, m.data_type);
+    EXPECT_EQ(dtype, m.dtype);
     EXPECT_EQ(ScaleMetadata::Encoding::compressed_segmentation,
               m.scales[0].encoding);
   }
@@ -419,11 +419,11 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
         DataTypeId::int16_t, DataTypeId::int32_t, DataTypeId::int64_t,
         DataTypeId::float16_t, DataTypeId::float32_t, DataTypeId::float64_t,
         DataTypeId::complex64_t, DataTypeId::complex128_t}) {
-    const auto data_type = kDataTypes[static_cast<int>(data_type_id)];
-    EXPECT_THAT(MultiscaleMetadata::Parse(GetMetadata(
-                    data_type.name(),
-                    ScaleMetadata::Encoding::compressed_segmentation)),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+    const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
+    EXPECT_THAT(
+        MultiscaleMetadata::Parse(GetMetadata(
+            dtype.name(), ScaleMetadata::Encoding::compressed_segmentation)),
+        MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 }
 
@@ -512,7 +512,7 @@ TEST(MultiscaleMetadataConstraintsTest, ParseEmptyObject) {
   auto m = MultiscaleMetadataConstraints::Parse(::nlohmann::json::object_t{});
   ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   EXPECT_FALSE(m->type);
-  EXPECT_FALSE(m->data_type.valid());
+  EXPECT_FALSE(m->dtype.valid());
   EXPECT_FALSE(m->num_channels);
 }
 
@@ -521,7 +521,7 @@ TEST(MultiscaleMetadataConstraintsTest, ParseValid) {
       {{"data_type", "uint8"}, {"num_channels", 3}, {"type", "image"}});
   ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   EXPECT_EQ("image", m->type.value());
-  EXPECT_EQ(DataTypeOf<std::uint8_t>(), m->data_type);
+  EXPECT_EQ(DataTypeOf<std::uint8_t>(), m->dtype);
   EXPECT_EQ(3, m->num_channels.value());
 }
 
@@ -541,8 +541,8 @@ TEST(MultiscaleMetadataConstraintsTest, ParseInvalid) {
 }
 
 TEST(ScaleMetadataConstraintsTest, ParseEmptyObject) {
-  auto m = ScaleMetadataConstraints::Parse(
-      ::nlohmann::json::object_t{}, /*data_type=*/{}, /*num_channels=*/{});
+  auto m = ScaleMetadataConstraints::Parse(::nlohmann::json::object_t{},
+                                           /*dtype=*/{}, /*num_channels=*/{});
   ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   EXPECT_FALSE(m->key);
   EXPECT_FALSE(m->box);
@@ -569,7 +569,7 @@ TEST(ScaleMetadataConstraintsTest, ParseValid) {
          {"minishard_bits", 2},
          {"shard_bits", 3},
          {"hash", "identity"}}}},
-      /*data_type=*/{}, /*num_channels=*/{});
+      /*dtype=*/{}, /*num_channels=*/{});
   ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   EXPECT_EQ("k", m->key.value());
   EXPECT_EQ(Box({4, 5, 6}, {1, 2, 3}), m->box.value());
@@ -601,7 +601,7 @@ TEST(ScaleMetadataConstraintsTest, ParseValidNullSharding) {
        {"encoding", "compressed_segmentation"},
        {"compressed_segmentation_block_size", {4, 5, 6}},
        {"sharding", nullptr}},
-      /*data_type=*/{}, /*num_channels=*/{});
+      /*dtype=*/{}, /*num_channels=*/{});
   ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   ASSERT_TRUE(m->sharding);
   EXPECT_TRUE(std::holds_alternative<NoShardingSpec>(*m->sharding));
@@ -631,27 +631,27 @@ TEST(SscaleMetadataConstraintsTest, ParseInvalid) {
     auto with_quality = metadata_json_jpeg;
     with_quality["jpeg_quality"] = 70;
     TENSORSTORE_EXPECT_OK(ScaleMetadataConstraints::Parse(with_quality,
-                                                          /*data_type=*/{},
+                                                          /*dtype=*/{},
                                                           /*num_channels=*/{}));
   }
 
   TENSORSTORE_EXPECT_OK(ScaleMetadataConstraints::Parse(metadata_json_jpeg,
-                                                        /*data_type=*/{},
+                                                        /*dtype=*/{},
                                                         /*num_channels=*/{}));
   TENSORSTORE_EXPECT_OK(ScaleMetadataConstraints::Parse(metadata_json_cseg,
-                                                        /*data_type=*/{},
+                                                        /*dtype=*/{},
                                                         /*num_channels=*/{}));
 
   // Tests that an incompatible encoding triggers an error.
   EXPECT_THAT(ScaleMetadataConstraints::Parse(
-                  metadata_json_cseg, /*data_type=*/DataTypeOf<std::uint8_t>(),
+                  metadata_json_cseg, /*dtype=*/DataTypeOf<std::uint8_t>(),
                   /*num_channels=*/{}),
               MatchesStatus(absl::StatusCode::kInvalidArgument, ".*uint8.*"));
 
   // Tests that an incompatible number of channels triggers an error.
   {
     EXPECT_THAT(
-        ScaleMetadataConstraints::Parse(metadata_json_jpeg, /*data_type=*/{},
+        ScaleMetadataConstraints::Parse(metadata_json_jpeg, /*dtype=*/{},
                                         /*num_channels=*/12345),
         MatchesStatus(absl::StatusCode::kInvalidArgument, ".*12345.*"));
   }
@@ -661,12 +661,12 @@ TEST(SscaleMetadataConstraintsTest, ParseInvalid) {
   {
     auto j = metadata_json_cseg;
     j["encoding"] = "raw";
-    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*data_type=*/{},
+    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
                                                 /*num_channels=*/{}),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"compressed_segmentation_block_size\".*"));
     j.erase("encoding");
-    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*data_type=*/{},
+    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
                                                 /*num_channels=*/{}),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"compressed_segmentation_block_size\".*"));
@@ -678,12 +678,12 @@ TEST(SscaleMetadataConstraintsTest, ParseInvalid) {
     auto j = metadata_json_jpeg;
     j["encoding"] = "raw";
     j["jpeg_quality"] = 70;
-    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*data_type=*/{},
+    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
                                                 /*num_channels=*/{}),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"jpeg_quality\".*"));
     j.erase("encoding");
-    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*data_type=*/{},
+    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
                                                 /*num_channels=*/{}),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"jpeg_quality\".*"));
@@ -695,7 +695,7 @@ TEST(SscaleMetadataConstraintsTest, ParseInvalid) {
         "compressed_segmentation_block_size"}) {
     auto j = metadata_json_cseg;
     j[k] = nullptr;
-    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*data_type=*/{},
+    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
                                                 /*num_channels=*/{}),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               StrCat(".*\"", k, "\".*")));
@@ -703,14 +703,14 @@ TEST(SscaleMetadataConstraintsTest, ParseInvalid) {
   // Tests that an extra member triggers an error.
   EXPECT_THAT(
       ScaleMetadataConstraints::Parse({{"extra", "member"}, {"key", "k"}},
-                                      /*data_type=*/{}, /*num_channels=*/{}),
+                                      /*dtype=*/{}, /*num_channels=*/{}),
       MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"extra\".*"));
 
   // Tests that `voxel_offset` must not be specified without `size`.
   {
     auto j = metadata_json_jpeg;
     j.erase("size");
-    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*data_type=*/{},
+    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
                                                 /*num_channels=*/{}),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"voxel_offset\".*"));
@@ -720,7 +720,7 @@ TEST(SscaleMetadataConstraintsTest, ParseInvalid) {
   {
     auto j = metadata_json_jpeg;
     j["voxel_offset"] = {2, tensorstore::kMaxFiniteIndex, 3};
-    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*data_type=*/{},
+    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
                                                 /*num_channels=*/{}),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"voxel_offset\".*"));
@@ -731,7 +731,7 @@ TEST(SscaleMetadataConstraintsTest, ParseInvalid) {
     auto j = metadata_json_jpeg;
     j["sharding"] = "invalid";
     EXPECT_THAT(
-        ScaleMetadataConstraints::Parse(j, /*data_type=*/{},
+        ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
                                         /*num_channels=*/{}),
         MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"sharding\".*"));
   }
@@ -743,7 +743,7 @@ TEST(SscaleMetadataConstraintsTest, ParseInvalid) {
     j["size"] = {0xffffffff, 0xffffffff, 0xffffffff};
     j["chunk_size"] = {1, 1, 1};
     EXPECT_THAT(
-        ScaleMetadataConstraints::Parse(j, /*data_type=*/{},
+        ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
                                         /*num_channels=*/{}),
         MatchesStatus(
             absl::StatusCode::kInvalidArgument,
@@ -753,7 +753,7 @@ TEST(SscaleMetadataConstraintsTest, ParseInvalid) {
     // Verify that error does not occur when `"sharding"` is not specified.
     j["sharding"] = nullptr;
     EXPECT_EQ(absl::OkStatus(),
-              GetStatus(ScaleMetadataConstraints::Parse(j, /*data_type=*/{},
+              GetStatus(ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
                                                         /*num_channels=*/{})));
   }
 }
@@ -771,7 +771,7 @@ TEST(OpenConstraintsTest, ParseEmptyObjectDataTypeConstraint) {
       /*data_type_constraint=*/DataTypeOf<std::uint8_t>());
   ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   EXPECT_FALSE(m->scale_index);
-  EXPECT_EQ(DataTypeOf<std::uint8_t>(), m->multiscale.data_type);
+  EXPECT_EQ(DataTypeOf<std::uint8_t>(), m->multiscale.dtype);
 }
 
 TEST(OpenConstraintsTest, ParseEmptyObjectInvalidDataTypeConstraint) {
@@ -791,7 +791,7 @@ TEST(OpenConstraintsTest, ParseValid) {
                              /*data_type_constraint=*/{});
   ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   EXPECT_THAT(m->scale_index, ::testing::Optional(2));
-  EXPECT_EQ(DataTypeOf<std::uint8_t>(), m->multiscale.data_type);
+  EXPECT_EQ(DataTypeOf<std::uint8_t>(), m->multiscale.dtype);
   EXPECT_EQ(ScaleMetadata::Encoding::jpeg, m->scale.encoding);
 }
 
@@ -800,7 +800,7 @@ TEST(OpenConstraintsTest, ParseDataTypeConstraint) {
       {{"multiscale_metadata", {{"data_type", "uint8"}}}},
       /*data_type_constraint=*/DataTypeOf<std::uint8_t>());
   ASSERT_EQ(absl::OkStatus(), GetStatus(m));
-  EXPECT_EQ(DataTypeOf<std::uint8_t>(), m->multiscale.data_type);
+  EXPECT_EQ(DataTypeOf<std::uint8_t>(), m->multiscale.dtype);
 }
 
 TEST(OpenConstraintsTest, ParseDataTypeConstraintMismatch) {
@@ -944,7 +944,7 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
   {
     SCOPED_TRACE("`data_type` cannot change");
     auto b = a;
-    b.data_type = DataTypeOf<std::int16_t>();
+    b.dtype = DataTypeOf<std::int16_t>();
     EXPECT_THAT(Validate(a, b, 0, {{64, 65, 66}}),
                 MatchesStatus(absl::StatusCode::kFailedPrecondition,
                               ".*\"data_type\".*"));
@@ -1086,7 +1086,7 @@ TEST(CreateScaleTest, NoExistingMetadata) {
                               {"num_channels", 2},
                               {"scales", {scale_attributes}}}),
             metadata->attributes);
-  EXPECT_EQ(DataTypeOf<std::uint8_t>(), metadata->data_type);
+  EXPECT_EQ(DataTypeOf<std::uint8_t>(), metadata->dtype);
   EXPECT_EQ(2, metadata->num_channels);
   EXPECT_EQ("image", metadata->type);
   ASSERT_EQ(1, metadata->scales.size());
@@ -1179,7 +1179,7 @@ TEST(CreateScaleTest, NoExistingMetadataCompressedSegmentation) {
                               {"num_channels", 2},
                               {"scales", {scale_attributes}}}),
             metadata->attributes);
-  EXPECT_EQ(DataTypeOf<std::uint32_t>(), metadata->data_type);
+  EXPECT_EQ(DataTypeOf<std::uint32_t>(), metadata->dtype);
   EXPECT_EQ(2, metadata->num_channels);
   EXPECT_EQ("image", metadata->type);
   ASSERT_EQ(1, metadata->scales.size());
@@ -1368,7 +1368,7 @@ TEST(CreateScaleTest, ExistingMetadata) {
     ASSERT_TRUE(metadata);
     EXPECT_EQ(2, scale_index);
     EXPECT_EQ(expected_metadata, metadata->attributes);
-    EXPECT_EQ(DataTypeOf<std::uint64_t>(), metadata->data_type);
+    EXPECT_EQ(DataTypeOf<std::uint64_t>(), metadata->dtype);
     EXPECT_EQ(1, metadata->num_channels);
     EXPECT_EQ("segmentation", metadata->type);
     ASSERT_EQ(3, metadata->scales.size());
@@ -1448,7 +1448,7 @@ TEST(CreateScaleTest, ExistingMetadata) {
   }
 
   // Tests that a mismatch between the `encoding` specified in `constraints` and
-  // the existing `data_type` leads to an error.
+  // the existing `dtype` leads to an error.
   {
     auto j = constraints_json;
     j["multiscale_metadata"].erase("data_type");
@@ -1771,19 +1771,19 @@ TEST(ValidateDataTypeTest, Basic) {
   for (auto data_type_id :
        {DataTypeId::uint8_t, DataTypeId::uint16_t, DataTypeId::uint32_t,
         DataTypeId::uint64_t, DataTypeId::float32_t}) {
-    const auto data_type = kDataTypes[static_cast<int>(data_type_id)];
-    EXPECT_EQ(absl::OkStatus(), ValidateDataType(data_type));
+    const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
+    EXPECT_EQ(absl::OkStatus(), ValidateDataType(dtype));
   }
   for (auto data_type_id :
        {DataTypeId::string_t, DataTypeId::json_t, DataTypeId::ustring_t,
         DataTypeId::bool_t, DataTypeId::int8_t, DataTypeId::float64_t,
         DataTypeId::complex64_t}) {
-    const auto data_type = kDataTypes[static_cast<int>(data_type_id)];
+    const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
     EXPECT_THAT(
-        ValidateDataType(data_type),
+        ValidateDataType(dtype),
         MatchesStatus(
             absl::StatusCode::kInvalidArgument,
-            StrCat(data_type.name(),
+            StrCat(dtype.name(),
                    " data type is not one of the supported data types: .*")));
   }
 }

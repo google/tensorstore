@@ -284,7 +284,7 @@ TEST(EncodeDecodeMetadataTest, Array1) {
 
   EXPECT_FALSE(metadata.dtype.has_fields);
   EXPECT_EQ(1, metadata.dtype.fields.size());
-  EXPECT_EQ(DataTypeOf<double>(), metadata.dtype.fields[0].data_type);
+  EXPECT_EQ(DataTypeOf<double>(), metadata.dtype.fields[0].dtype);
   EXPECT_FALSE(metadata.fill_value[0].valid());
   EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[0].endian);
   EXPECT_THAT(metadata.dtype.fields[0].field_shape, ElementsAre());
@@ -333,7 +333,7 @@ TEST(EncodeDecodeMetadataTest, Array2) {
   EXPECT_THAT(metadata.chunks, ElementsAre(10, 10));
   EXPECT_TRUE(metadata.dtype.has_fields);
   EXPECT_EQ(2, metadata.dtype.fields.size());
-  EXPECT_EQ(DataTypeOf<std::int32_t>(), metadata.dtype.fields[0].data_type);
+  EXPECT_EQ(DataTypeOf<std::int32_t>(), metadata.dtype.fields[0].dtype);
   EXPECT_TRUE(metadata.fill_value[0].valid());
   EXPECT_EQ(metadata.fill_value[0], MakeScalarArray<std::int32_t>(0));
   EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[0].endian);
@@ -346,7 +346,7 @@ TEST(EncodeDecodeMetadataTest, Array2) {
   EXPECT_EQ(tensorstore::StridedLayoutView<>({10, 10}, {4, 40}),
             metadata.chunk_layout.fields[0].decoded_chunk_layout);
 
-  EXPECT_EQ(DataTypeOf<char>(), metadata.dtype.fields[1].data_type);
+  EXPECT_EQ(DataTypeOf<char>(), metadata.dtype.fields[1].dtype);
   EXPECT_TRUE(metadata.fill_value[1].valid());
   EXPECT_EQ(metadata.fill_value[1],
             tensorstore::MakeArray<char>({0, 0, 0, 0, 0, 0, 0, 0, 0, 0}));
@@ -397,7 +397,7 @@ TEST(EncodeDecodeMetadataTest, Array2Modified) {
   EXPECT_THAT(metadata.chunks, ElementsAre(10, 10));
   EXPECT_TRUE(metadata.dtype.has_fields);
   EXPECT_EQ(2, metadata.dtype.fields.size());
-  EXPECT_EQ(DataTypeOf<std::int32_t>(), metadata.dtype.fields[0].data_type);
+  EXPECT_EQ(DataTypeOf<std::int32_t>(), metadata.dtype.fields[0].dtype);
   EXPECT_TRUE(metadata.fill_value[0].valid());
   EXPECT_EQ(metadata.fill_value[0], MakeScalarArray<std::int32_t>(123456789));
   EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[0].endian);
@@ -410,7 +410,7 @@ TEST(EncodeDecodeMetadataTest, Array2Modified) {
   EXPECT_EQ(tensorstore::StridedLayoutView<>({10, 10}, {4, 40}),
             metadata.chunk_layout.fields[0].decoded_chunk_layout);
 
-  EXPECT_EQ(DataTypeOf<char>(), metadata.dtype.fields[1].data_type);
+  EXPECT_EQ(DataTypeOf<char>(), metadata.dtype.fields[1].dtype);
   EXPECT_TRUE(metadata.fill_value[1].valid());
   EXPECT_EQ(metadata.fill_value[1],
             tensorstore::MakeArray<char>(
@@ -455,7 +455,7 @@ TEST(EncodeDecodeMetadataTest, ArrayStructured) {
   EXPECT_THAT(metadata.chunks, ElementsAre(10));
   EXPECT_TRUE(metadata.dtype.has_fields);
   EXPECT_EQ(3, metadata.dtype.fields.size());
-  EXPECT_EQ(DataTypeOf<std::int64_t>(), metadata.dtype.fields[0].data_type);
+  EXPECT_EQ(DataTypeOf<std::int64_t>(), metadata.dtype.fields[0].dtype);
   EXPECT_FALSE(metadata.fill_value[0].valid());
   EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[0].endian);
   EXPECT_THAT(metadata.dtype.fields[0].field_shape, ElementsAre());
@@ -467,7 +467,7 @@ TEST(EncodeDecodeMetadataTest, ArrayStructured) {
   EXPECT_EQ(tensorstore::StridedLayoutView<>({10}, {8}),
             metadata.chunk_layout.fields[0].decoded_chunk_layout);
 
-  EXPECT_EQ(DataTypeOf<double>(), metadata.dtype.fields[1].data_type);
+  EXPECT_EQ(DataTypeOf<double>(), metadata.dtype.fields[1].dtype);
   EXPECT_FALSE(metadata.fill_value[1].valid());
   EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[1].endian);
   EXPECT_THAT(metadata.dtype.fields[1].field_shape, ElementsAre(10, 10));
@@ -479,7 +479,7 @@ TEST(EncodeDecodeMetadataTest, ArrayStructured) {
   EXPECT_EQ(tensorstore::StridedLayoutView<>({10, 10, 10}, {800, 80, 8}),
             metadata.chunk_layout.fields[1].decoded_chunk_layout);
 
-  EXPECT_EQ(DataTypeOf<std::uint8_t>(), metadata.dtype.fields[2].data_type);
+  EXPECT_EQ(DataTypeOf<std::uint8_t>(), metadata.dtype.fields[2].dtype);
   EXPECT_FALSE(metadata.fill_value[2].valid());
   EXPECT_EQ(tensorstore::endian::native, metadata.dtype.fields[2].endian);
   EXPECT_THAT(metadata.dtype.fields[2].field_shape, ElementsAre(5, 10, 15));
@@ -530,7 +530,7 @@ TEST(EncodeDecodeMetadataTest, FillValuesNan) {
 
     EXPECT_FALSE(metadata.dtype.has_fields);
     EXPECT_EQ(1, metadata.dtype.fields.size());
-    EXPECT_EQ(DataTypeOf<double>(), metadata.dtype.fields[0].data_type);
+    EXPECT_EQ(DataTypeOf<double>(), metadata.dtype.fields[0].dtype);
     EXPECT_TRUE(metadata.fill_value[0].valid());
     EXPECT_THAT(metadata.fill_value[0].shape(), ElementsAre());
     if (std::isnan(pair.first)) {
@@ -579,7 +579,7 @@ void EncodeDecodeMetadataTestArrayComplex(std::string zarr_dtype) {
 
   EXPECT_FALSE(metadata.dtype.has_fields);
   EXPECT_EQ(1, metadata.dtype.fields.size());
-  ASSERT_EQ(DataTypeOf<T>(), metadata.dtype.fields[0].data_type);
+  ASSERT_EQ(DataTypeOf<T>(), metadata.dtype.fields[0].dtype);
   EXPECT_TRUE(metadata.fill_value[0].valid());
   EXPECT_THAT(metadata.fill_value[0].shape(), ElementsAre());
   EXPECT_TRUE(
@@ -638,7 +638,7 @@ TEST(ParseMetadataTest, Simple) {
   EXPECT_THAT(metadata.shape, ElementsAre(1111));
   EXPECT_THAT(metadata.chunks, ElementsAre(100));
   EXPECT_EQ(1, metadata.dtype.fields.size());
-  EXPECT_EQ(DataTypeOf<std::int8_t>(), metadata.dtype.fields[0].data_type);
+  EXPECT_EQ(DataTypeOf<std::int8_t>(), metadata.dtype.fields[0].dtype);
   EXPECT_EQ(tensorstore::endian::native, metadata.dtype.fields[0].endian);
   EXPECT_THAT(metadata.dtype.fields[0].field_shape, ElementsAre());
   EXPECT_EQ(0, metadata.dtype.fields[0].byte_offset);

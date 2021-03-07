@@ -53,7 +53,7 @@ namespace tensorstore {
 ///
 /// \tparam TargetElementType The target element type, must be unqualified.
 /// \param store The TensorStore to convert.
-/// \param data_type May be specified in order to allow `TargetElementType` to
+/// \param dtype May be specified in order to allow `TargetElementType` to
 ///     be inferred.
 /// \error `absl::StatusCode::kInvalidArgument` if neither reading nor writing
 ///     would be supported by the returned `TensorStore`.
@@ -63,11 +63,10 @@ Result<TensorStore<
     TargetElementType, Rank,
     tensorstore::internal::GetCastMode<ElementType, TargetElementType>(Mode)>>
 Cast(TensorStore<ElementType, Rank, Mode> store,
-     StaticDataType<TargetElementType> target_data_type = {}) {
+     StaticDataType<TargetElementType> target_dtype = {}) {
   return tensorstore::ChainResult(
       internal::MakeCastDriver(
-          std::move(internal::TensorStoreAccess::handle(store)),
-          target_data_type),
+          std::move(internal::TensorStoreAccess::handle(store)), target_dtype),
       internal::TensorStoreAccess::Construct<TensorStore<
           TargetElementType, Rank,
           tensorstore::internal::GetCastMode<ElementType, TargetElementType>(
@@ -80,11 +79,10 @@ template <int&... ExplicitArgumentBarrier, typename ElementType,
 Result<TensorStore<void, Rank,
                    (Mode == ReadWriteMode::read_write ? ReadWriteMode::dynamic
                                                       : Mode)>>
-Cast(TensorStore<ElementType, Rank, Mode> store, DataType target_data_type) {
+Cast(TensorStore<ElementType, Rank, Mode> store, DataType target_dtype) {
   return tensorstore::ChainResult(
       internal::MakeCastDriver(
-          std::move(internal::TensorStoreAccess::handle(store)),
-          target_data_type),
+          std::move(internal::TensorStoreAccess::handle(store)), target_dtype),
       internal::TensorStoreAccess::Construct<TensorStore<
           void, Rank,
           (Mode == ReadWriteMode::read_write ? ReadWriteMode::dynamic

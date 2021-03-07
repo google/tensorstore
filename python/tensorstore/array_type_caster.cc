@@ -155,7 +155,7 @@ pybind11::object GetNumpyObjectArrayImpl(SharedArrayView<const void> source) {
   std::copy_n(array_obj.strides(), source.rank(), target_strides);
   auto iterate_result = internal::IterateOverStridedLayouts<2>(
       /*closure=*/{kConvertDataTypeToNumpyObjectArray[static_cast<size_t>(
-                       source.data_type().id())],
+                       source.dtype().id())],
                    nullptr},
       /*status=*/nullptr,
       /*shape=*/source.shape(),
@@ -163,7 +163,7 @@ pybind11::object GetNumpyObjectArrayImpl(SharedArrayView<const void> source) {
         static_cast<void*>(py::detail::array_proxy(array_obj.ptr())->data)}},
       {{source.byte_strides().data(), target_strides}},
       /*constraints=*/skip_repeated_elements,
-      {{source.data_type().size(), sizeof(PyObject*)}});
+      {{source.dtype().size(), sizeof(PyObject*)}});
   if (!iterate_result.success) throw py::error_already_set();
   return std::move(array_obj);
 }
@@ -172,14 +172,14 @@ pybind11::object GetNumpyObjectArrayImpl(SharedArrayView<const void> source) {
 ///
 /// \param array_obj The NumPy object array, must have a data type number of
 ///     `NPY_OBJECT_`.
-/// \param data_type The TensorStore data type of the returned array.  If the
+/// \param dtype The TensorStore data type of the returned array.  If the
 ///     invalid `DataType()` is specified, uses json.
 /// \returns The new array.
 /// \throws If the conversion fails.
 SharedArray<void, dynamic_rank> ArrayFromNumpyObjectArray(
-    pybind11::array array_obj, DataType data_type) {
-  if (!data_type.valid()) {
-    data_type = DataTypeOf<tensorstore::json_t>();
+    pybind11::array array_obj, DataType dtype) {
+  if (!dtype.valid()) {
+    dtype = DataTypeOf<tensorstore::json_t>();
   }
   const DimensionIndex rank = array_obj.ndim();
   StridedLayout<dynamic_rank(kMaxNumpyRank)> array_obj_layout;
@@ -187,12 +187,12 @@ SharedArray<void, dynamic_rank> ArrayFromNumpyObjectArray(
   AssignArrayLayout(array_obj, rank, array_obj_layout.shape().data(),
                     array_obj_layout.byte_strides().data());
   auto array = tensorstore::AllocateArrayLike<void>(
-      array_obj_layout, skip_repeated_elements, default_init, data_type);
+      array_obj_layout, skip_repeated_elements, default_init, dtype);
 
   ConvertFromObject converter;
   auto iterate_result = internal::IterateOverStridedLayouts<2>(
       /*closure=*/{kConvertDataTypeFromNumpyObjectArray[static_cast<size_t>(
-                       data_type.id())],
+                       dtype.id())],
                    &converter},
       /*status=*/nullptr,
       /*shape=*/array.shape(),
@@ -200,7 +200,7 @@ SharedArray<void, dynamic_rank> ArrayFromNumpyObjectArray(
         const_cast<void*>(array.data())}},
       {{array_obj_layout.byte_strides().data(), array.byte_strides().data()}},
       /*constraints=*/skip_repeated_elements,
-      {{sizeof(PyObject*), data_type.size()}});
+      {{sizeof(PyObject*), dtype.size()}});
   if (!iterate_result.success) std::rethrow_exception(std::move(converter.ex));
   return array;
 }
@@ -230,7 +230,7 @@ pybind11::object GetNumpyArrayImpl(SharedArrayView<const void> value,
                                    " (which is greater than ", kMaxNumpyRank,
                                    ") cannot be converted to NumPy array"));
   }
-  if (const DataTypeId id = value.data_type().id();
+  if (const DataTypeId id = value.dtype().id();
       id != DataTypeId::custom &&
       kConvertDataTypeToNumpyObjectArray[static_cast<size_t>(id)]) {
     return GetNumpyObjectArrayImpl(value);
@@ -245,8 +245,7 @@ pybind11::object GetNumpyArrayImpl(SharedArrayView<const void> value,
     flags |= NPY_ARRAY_WRITEABLE_;
   }
   auto obj = py::reinterpret_steal<py::array>(api.PyArray_NewFromDescr_(
-      api.PyArray_Type_,
-      GetNumpyDtypeOrThrow(value.data_type()).release().ptr(),
+      api.PyArray_Type_, GetNumpyDtypeOrThrow(value.dtype()).release().ptr(),
       static_cast<int>(value.rank()), shape, strides,
       const_cast<void*>(value.data()), flags, nullptr));
   if (!obj) throw py::error_already_set();

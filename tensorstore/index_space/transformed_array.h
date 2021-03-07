@@ -221,7 +221,7 @@ class TransformedArray {
   ///
   /// \requires `A` is an instance of `Array` with a `StaticCast`-compatible
   ///     `ElementPointer` and `static_rank`.
-  /// \pre `array.data_type()` is compatible with `Element`.
+  /// \pre `array.dtype()` is compatible with `Element`.
   /// \pre `array.rank()` is compatible with `Rank`.
   template <
       typename A,
@@ -353,7 +353,7 @@ class TransformedArray {
   /// \requires `Other` is an instance of `TransformedArray` or
   ///     `NormalizedTransformedArray` with `StaticCast`-compatible
   ///     `ElementPointer` and `static_rank`.
-  /// \pre `other.data_type()` is compatible with `Element`.
+  /// \pre `other.dtype()` is compatible with `Element`.
   /// \pre `other.rank()` is compatible with `Rank`.
   template <
       typename Other,
@@ -406,7 +406,7 @@ class TransformedArray {
   }
 
   /// Returns the element representation.
-  DataType data_type() const { return element_pointer_.data_type(); }
+  DataType dtype() const { return element_pointer_.dtype(); }
 
   /// Returns the base element pointer.
   const ElementPointer& element_pointer() const& { return element_pointer_; }
@@ -788,7 +788,7 @@ class NormalizedTransformedArray {
   }
 
   /// Returns the element representation.
-  DataType data_type() const { return element_pointer_.data_type(); }
+  DataType dtype() const { return element_pointer_.dtype(); }
 
   /// Returns the base element pointer.
   const ElementPointer& element_pointer() const& { return element_pointer_; }
@@ -1137,9 +1137,9 @@ Status CopyTransformedArrayImpl(TransformedArrayView<const void> source,
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs
 /// computing output
 ///     indices.
-/// \error `absl::StatusCode::kInvalidArgument` if `source.data_type()` is not
+/// \error `absl::StatusCode::kInvalidArgument` if `source.dtype()` is not
 /// equal to, or
-///     cannot be converted to, `dest.data_type()`
+///     cannot be converted to, `dest.dtype()`
 template <typename SourceResult, typename DestResult>
 std::enable_if_t<
     (IsTransformedArrayLike<UnwrapResultType<SourceResult>>::value &&

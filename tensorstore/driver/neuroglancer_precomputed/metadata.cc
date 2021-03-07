@@ -60,7 +60,7 @@ std::string GetSupportedDataTypes() {
       });
 }
 
-Status ParseDataType(const ::nlohmann::json& value, DataType* data_type) {
+Status ParseDataType(const ::nlohmann::json& value, DataType* dtype) {
   std::string s;
   TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireValueAs(value, &s));
   absl::AsciiStrToLower(&s);
@@ -70,7 +70,7 @@ Status ParseDataType(const ::nlohmann::json& value, DataType* data_type) {
         QuoteString(s),
         " is not one of the supported data types: ", GetSupportedDataTypes()));
   }
-  *data_type = x;
+  *dtype = x;
   return absl::OkStatus();
 }
 
@@ -167,25 +167,25 @@ Status ParseResolution(const ::nlohmann::json& value,
 }
 
 Status ValidateEncodingDataType(ScaleMetadata::Encoding encoding,
-                                DataType data_type,
+                                DataType dtype,
                                 std::optional<Index> num_channels) {
   switch (encoding) {
     case ScaleMetadata::Encoding::raw:
       break;
     case ScaleMetadata::Encoding::compressed_segmentation:
-      if (!data_type.valid()) break;
-      if (data_type.id() != DataTypeId::uint32_t &&
-          data_type.id() != DataTypeId::uint64_t) {
+      if (!dtype.valid()) break;
+      if (dtype.id() != DataTypeId::uint32_t &&
+          dtype.id() != DataTypeId::uint64_t) {
         return absl::InvalidArgumentError(
             StrCat("compressed_segmentation encoding only supported for "
                    "uint32 and uint64, not for ",
-                   data_type));
+                   dtype));
       }
       break;
     case ScaleMetadata::Encoding::jpeg:
-      if (data_type.valid() && data_type.id() != DataTypeId::uint8_t) {
+      if (dtype.valid() && dtype.id() != DataTypeId::uint8_t) {
         return absl::InvalidArgumentError(StrCat(
-            "\"jpeg\" encoding only supported for uint8, not for ", data_type));
+            "\"jpeg\" encoding only supported for uint8, not for ", dtype));
       }
       if (num_channels && *num_channels != 1 && *num_channels != 3) {
         return absl::InvalidArgumentError(
@@ -229,8 +229,7 @@ Status ValidateChunkSize(
 }
 
 Result<ScaleMetadata> ParseScaleMetadata(const ::nlohmann::json& j,
-                                         DataType data_type,
-                                         Index num_channels) {
+                                         DataType dtype, Index num_channels) {
   ScaleMetadata metadata;
   TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireObjectMember(
       j, kKeyId, [&](const ::nlohmann::json& value) {
@@ -316,7 +315,7 @@ Result<ScaleMetadata> ParseScaleMetadata(const ::nlohmann::json& j,
         }));
   }
   TENSORSTORE_RETURN_IF_ERROR(
-      ValidateEncodingDataType(metadata.encoding, data_type, num_channels));
+      ValidateEncodingDataType(metadata.encoding, dtype, num_channels));
   return metadata;
 }
 
@@ -396,7 +395,7 @@ Status ValidateMultiscaleConstraintsForCreate(
         StrCat(QuoteString(property),
                " must be specified in \"multiscale_metadata\""));
   };
-  if (!m.data_type.valid()) return Error(kDataTypeId);
+  if (!m.dtype.valid()) return Error(kDataTypeId);
   if (!m.num_channels) return Error(kNumChannelsId);
   if (!m.type) return Error(kTypeId);
   return absl::OkStatus();
@@ -412,10 +411,8 @@ Status ValidateMultiscaleConstraintsForOpen(
                ::nlohmann::json(expected).dump(),
                " but received: ", ::nlohmann::json(actual).dump()));
   };
-  if (constraints.data_type.valid() &&
-      constraints.data_type != metadata.data_type) {
-    return Error(kDataTypeId, constraints.data_type.name(),
-                 metadata.data_type.name());
+  if (constraints.dtype.valid() && constraints.dtype != metadata.dtype) {
+    return Error(kDataTypeId, constraints.dtype.name(), metadata.dtype.name());
   }
   if (constraints.num_channels &&
       *constraints.num_channels != metadata.num_channels) {
@@ -440,10 +437,10 @@ Result<std::shared_ptr<MultiscaleMetadata>> InitializeNewMultiscaleMetadata(
   auto new_metadata = std::make_shared<MultiscaleMetadata>();
   new_metadata->type = *m.type;
   new_metadata->num_channels = *m.num_channels;
-  new_metadata->data_type = m.data_type;
+  new_metadata->dtype = m.dtype;
   new_metadata->attributes = {{kTypeId, new_metadata->type},
                               {kNumChannelsId, new_metadata->num_channels},
-                              {kDataTypeId, new_metadata->data_type.name()},
+                              {kDataTypeId, new_metadata->dtype.name()},
                               {kAtSignTypeId, kMultiscaleVolumeTypeId},
                               {kScalesId, ::nlohmann::json::array_t{}}};
   return new_metadata;
@@ -474,7 +471,7 @@ Result<MultiscaleMetadata> MultiscaleMetadata::Parse(::nlohmann::json j) {
       }));
   TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireObjectMember(
       metadata.attributes, kDataTypeId, [&](const ::nlohmann::json& value) {
-        return ParseDataType(value, &metadata.data_type);
+        return ParseDataType(value, &metadata.dtype);
       }));
   TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireObjectMember(
       metadata.attributes, kNumChannelsId, [&](const ::nlohmann::json& value) {
@@ -491,8 +488,7 @@ Result<MultiscaleMetadata> MultiscaleMetadata::Parse(::nlohmann::json j) {
             [&](const ::nlohmann::json& v, std::ptrdiff_t i) {
               TENSORSTORE_ASSIGN_OR_RETURN(
                   metadata.scales[i],
-                  ParseScaleMetadata(v, metadata.data_type,
-                                     metadata.num_channels));
+                  ParseScaleMetadata(v, metadata.dtype, metadata.num_channels));
               return absl::OkStatus();
             });
       }));
@@ -511,7 +507,7 @@ Result<MultiscaleMetadataConstraints> MultiscaleMetadataConstraints::Parse(
       }));
   TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
       j, kDataTypeId, [&](const ::nlohmann::json& value) {
-        return ParseDataType(value, &metadata.data_type);
+        return ParseDataType(value, &metadata.dtype);
       }));
   TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
       j, kNumChannelsId, [&](const ::nlohmann::json& value) {
@@ -521,7 +517,7 @@ Result<MultiscaleMetadataConstraints> MultiscaleMetadataConstraints::Parse(
 }
 
 Result<ScaleMetadataConstraints> ScaleMetadataConstraints::Parse(
-    const ::nlohmann::json& j, DataType data_type,
+    const ::nlohmann::json& j, DataType dtype,
     std::optional<Index> num_channels) {
   ScaleMetadataConstraints metadata;
   TENSORSTORE_RETURN_IF_ERROR(internal::JsonValidateObjectMembers(
@@ -592,7 +588,7 @@ Result<ScaleMetadataConstraints> ScaleMetadataConstraints::Parse(
       }));
   if (metadata.encoding) {
     TENSORSTORE_RETURN_IF_ERROR(
-        ValidateEncodingDataType(*metadata.encoding, data_type, num_channels));
+        ValidateEncodingDataType(*metadata.encoding, dtype, num_channels));
   }
   if (metadata.box && metadata.chunk_size && metadata.sharding) {
     TENSORSTORE_RETURN_IF_ERROR(ValidateChunkSize(
@@ -619,21 +615,21 @@ Result<OpenConstraints> OpenConstraints::Parse(const ::nlohmann::json& j,
       }));
   if (data_type_constraint.valid()) {
     TENSORSTORE_RETURN_IF_ERROR(ValidateDataType(data_type_constraint));
-    if (constraints.multiscale.data_type.valid() &&
-        constraints.multiscale.data_type != data_type_constraint) {
+    if (constraints.multiscale.dtype.valid() &&
+        constraints.multiscale.dtype != data_type_constraint) {
       return absl::InvalidArgumentError(
           StrCat("Mismatch between data type in TensorStore Spec (",
                  data_type_constraint, ") and in \"multiscale_metadata\" (",
-                 constraints.multiscale.data_type, ")"));
+                 constraints.multiscale.dtype, ")"));
     }
-    constraints.multiscale.data_type = data_type_constraint;
+    constraints.multiscale.dtype = data_type_constraint;
   }
   TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
       j, "scale_metadata", [&](const ::nlohmann::json& value) {
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            constraints.scale, ScaleMetadataConstraints::Parse(
-                                   value, constraints.multiscale.data_type,
-                                   constraints.multiscale.num_channels));
+        TENSORSTORE_ASSIGN_OR_RETURN(constraints.scale,
+                                     ScaleMetadataConstraints::Parse(
+                                         value, constraints.multiscale.dtype,
+                                         constraints.multiscale.num_channels));
         return absl::OkStatus();
       }));
   return constraints;
@@ -655,9 +651,9 @@ Status ValidateMetadataCompatibility(
     return MismatchError(kNumChannelsId, existing_metadata.num_channels,
                          new_metadata.num_channels);
   }
-  if (new_metadata.data_type != existing_metadata.data_type) {
-    return MismatchError(kDataTypeId, existing_metadata.data_type.name(),
-                         new_metadata.data_type.name());
+  if (new_metadata.dtype != existing_metadata.dtype) {
+    return MismatchError(kDataTypeId, existing_metadata.dtype.name(),
+                         new_metadata.dtype.name());
   }
   if (new_metadata.scales.size() <= scale_index) {
     return absl::FailedPreconditionError(
@@ -706,7 +702,7 @@ std::string GetMetadataCompatibilityKey(
     const std::array<Index, 3>& chunk_size) {
   const auto& scale_metadata = metadata.scales[scale_index];
   ::nlohmann::json obj;
-  obj.emplace(kDataTypeId, metadata.data_type.name());
+  obj.emplace(kDataTypeId, metadata.dtype.name());
   obj.emplace(kNumChannelsId, metadata.num_channels);
   obj.emplace(kScaleIndexId, scale_index);
   obj.emplace(kKeyId, scale_metadata.key);
@@ -785,7 +781,7 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
     new_metadata = std::make_shared<MultiscaleMetadata>(*existing_metadata);
   }
   if (auto status = ValidateEncodingDataType(*constraints.scale.encoding,
-                                             new_metadata->data_type,
+                                             new_metadata->dtype,
                                              new_metadata->num_channels);
       !status.ok()) {
     return absl::FailedPreconditionError(status.message());
@@ -882,11 +878,11 @@ std::string ResolveScaleKey(absl::string_view key_prefix,
   return absl::StrJoin(output_parts, "/");
 }
 
-Status ValidateDataType(DataType data_type) {
-  assert(data_type.valid());
-  if (!absl::c_linear_search(kSupportedDataTypes, data_type.id())) {
+Status ValidateDataType(DataType dtype) {
+  assert(dtype.valid());
+  if (!absl::c_linear_search(kSupportedDataTypes, dtype.id())) {
     return absl::InvalidArgumentError(
-        StrCat(data_type, " data type is not one of the supported data types: ",
+        StrCat(dtype, " data type is not one of the supported data types: ",
                GetSupportedDataTypes()));
   }
   return absl::OkStatus();

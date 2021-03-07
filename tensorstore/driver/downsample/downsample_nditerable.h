@@ -43,26 +43,26 @@ namespace internal_downsample {
 /// \param arena Arena to use for memory allocation.
 /// \returns The downsampled view.
 /// \dchecks `downsample_method` must not be `kStride` and must be supported for
-///     `base->data_type()`.
+///     `base->dtype()`.
 internal::NDIterable::Ptr DownsampleNDIterable(
     internal::NDIterable::Ptr base, BoxView<> base_domain,
     span<const Index> downsample_factors, DownsampleMethod downsample_method,
     DimensionIndex target_rank, internal::Arena* arena);
 
 /// Returns `true` if the specified downsampling `method` is supported for the
-/// given `data_type`.
+/// given `dtype`.
 ///
 /// Refer to the `DownsampleMethod` documentation for details of which data
 /// types are supported.
-bool IsDownsampleMethodSupported(DataType data_type, DownsampleMethod method);
+bool IsDownsampleMethodSupported(DataType dtype, DownsampleMethod method);
 
-/// Validates that `IsDownsampleMethodSupported(data_type, downsample_method)`
+/// Validates that `IsDownsampleMethodSupported(dtype, downsample_method)`
 /// returns `true`.
 ///
 /// \returns `absl::OkStatus()` if
-///     `IsDownsampleMethodSupported(data_type, downsample_method) == true`.
+///     `IsDownsampleMethodSupported(dtype, downsample_method) == true`.
 /// \error `absl::StatusCode::kInvalidArgument` otherwise.
-absl::Status ValidateDownsampleMethod(DataType data_type,
+absl::Status ValidateDownsampleMethod(DataType dtype,
                                       DownsampleMethod downsample_method);
 
 }  // namespace internal_downsample

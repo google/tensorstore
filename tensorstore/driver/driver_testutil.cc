@@ -92,7 +92,7 @@ void TestTensorStoreDriverSpecRoundtrip(
       TENSORSTORE_ASSERT_OK(
           tensorstore::Write(tensorstore::AllocateArray(
                                  span<const Index>(), tensorstore::c_order,
-                                 tensorstore::value_init, store.data_type()),
+                                 tensorstore::value_init, store.dtype()),
                              store | tensorstore::AllDims().IndexSlice(
                                          store.domain().origin()))
               .result());
@@ -209,7 +209,7 @@ void DriverRandomOperationTester::TestBasicFunctionality(
                                     tensorstore::OpenMode::create)
                       .result());
   ASSERT_EQ(options.expected_domain, store.domain());
-  ASSERT_EQ(options.initial_value.data_type(), store.data_type());
+  ASSERT_EQ(options.initial_value.dtype(), store.dtype());
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resolved_store,
                                      ResolveBounds(store).result());
@@ -238,7 +238,7 @@ void DriverRandomOperationTester::TestBasicFunctionality(
   for (std::size_t i = 0; i < num_iterations; ++i) {
     auto transform = GetRandomTransform(gen, options.expected_domain);
     auto random_array = MakeRandomArray(gen, transform.domain().box(),
-                                        options.initial_value.data_type());
+                                        options.initial_value.dtype());
     if (log) TENSORSTORE_LOG("i = ", i);
     SCOPED_TRACE(StrCat("i=", i));
     SCOPED_TRACE(StrCat("transform=", transform));
@@ -345,7 +345,7 @@ void DriverRandomOperationTester::TestMultiTransactionWrite(
     SharedOffsetArray<const void> array;
     if (use_random_values) {
       array = MakeRandomArray(gen, transform.domain().box(),
-                              options.initial_value.data_type());
+                              options.initial_value.dtype());
     } else {
       array =
           MakeCopy(
@@ -354,7 +354,7 @@ void DriverRandomOperationTester::TestMultiTransactionWrite(
                   StridedLayout<dynamic_rank, offset_origin>(
                       transform.domain().box(),
                       GetConstantVector<Index, 0>(transform.domain().rank()))),
-              skip_repeated_elements, options.initial_value.data_type())
+              skip_repeated_elements, options.initial_value.dtype())
               .value();
     }
     size_t transaction_i = i % num_transactions;
@@ -577,14 +577,14 @@ ReadAsIndividualChunks(TensorStore<> store) {
   using ChunkVec = std::vector<ChunkPair>;
   struct ReceiverImpl {
     Promise<ChunkVec> promise_;
-    DataType data_type_;
+    DataType dtype_;
     FutureCallbackRegistration cancel_registration_;
     void set_starting(AnyCancelReceiver cancel) {
       cancel_registration_ = promise_.ExecuteWhenNotNeeded(std::move(cancel));
     }
     void set_value(ReadChunk chunk, IndexTransform<> request_transform) {
       auto array = AllocateArray(chunk.transform.domain().box(), c_order,
-                                 default_init, data_type_);
+                                 default_init, dtype_);
       auto& r = promise_.raw_result();
       if (!r.ok()) return;
       r->emplace_back(array, request_transform);
@@ -608,7 +608,7 @@ ReadAsIndividualChunks(TensorStore<> store) {
   transformed_driver.driver->Read(
       transaction, transformed_driver.transform,
       SyncFlowReceiver<tensorstore::Mutex, ReceiverImpl>{ReceiverImpl{
-          std::move(promise), transformed_driver.driver->data_type()}});
+          std::move(promise), transformed_driver.driver->dtype()}});
   return future;
 }
 

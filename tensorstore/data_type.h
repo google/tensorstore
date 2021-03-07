@@ -452,7 +452,7 @@ class DataType {
   /// Returns `true` if this represents a valid data type.
   constexpr bool valid() const { return operations_ != nullptr; }
 
-  constexpr DataType data_type() const { return *this; }
+  constexpr DataType dtype() const { return *this; }
 
   constexpr DataTypeId id() const { return operations_->id; }
 
@@ -686,7 +686,7 @@ const internal::DataTypeOperations MakeDataTypeOperations<T>::operations =
   /**/
 
 // Declare explicit instantiations of MakeDataTypeOperations, which are defined
-// in data_type.cc, in order to reduce compilation time and object file bloat.
+// in dtype.cc, in order to reduce compilation time and object file bloat.
 TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_DATA_TYPE_EXPLICIT_INSTANTIATION,
                                extern)
 
@@ -720,7 +720,7 @@ class StaticDataType {
 
   static constexpr bool valid() { return true; }
 
-  constexpr static StaticDataType data_type() { return {}; }
+  constexpr static StaticDataType dtype() { return {}; }
 
   constexpr static DataTypeId id() { return DataTypeIdOf<T>; }
 
@@ -1025,7 +1025,7 @@ ConstDataTypeCast(SourceRef&& source) {
 template <>
 struct StaticCastTraits<DataType> : public DefaultStaticCastTraits<DataType> {
   static std::string Describe() { return Describe(DataType{}); }
-  static std::string Describe(DataType data_type);
+  static std::string Describe(DataType dtype);
   static constexpr bool IsCompatible(DataType other) { return true; }
   template <typename TargetElement>
   using RebindDataType = StaticOrDynamicDataTypeOf<TargetElement>;

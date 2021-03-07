@@ -202,7 +202,7 @@ struct IndexTransformFutureCallback {
 
 Status ResizeRankError(DimensionIndex rank);
 
-std::string DescribeForCast(DataType data_type, DimensionIndex rank,
+std::string DescribeForCast(DataType dtype, DimensionIndex rank,
                             ReadWriteMode mode);
 
 }  // namespace internal_tensorstore

@@ -189,20 +189,20 @@ TEST(DecodeArrayTest, Uint16InPlaceLittleEndianUnaligned) {
                 {{0x3412, 0x7856, 0x1290}, {0x5634, 0x9078, 0x4433}}));
 }
 
-void TestConvertCordInplace(DataType data_type, endian endian_value,
+void TestConvertCordInplace(DataType dtype, endian endian_value,
                             ContiguousLayoutOrder order,
                             bool expected_inplace) {
-  SCOPED_TRACE(tensorstore::StrCat("data_type=", data_type, ", order=", order,
+  SCOPED_TRACE(tensorstore::StrCat("dtype=", dtype, ", order=", order,
                                    ", endian=", endian_value));
   auto orig_array = tensorstore::AllocateArray(
-      {4, 5, 6}, order, tensorstore::default_init, data_type);
+      {4, 5, 6}, order, tensorstore::default_init, dtype);
   EXPECT_EQ(1, orig_array.pointer().use_count());
   auto cord = absl::MakeCordFromExternal(
       std::string_view(reinterpret_cast<const char*>(orig_array.data()),
-                       data_type.size() * orig_array.num_elements()),
+                       dtype.size() * orig_array.num_elements()),
       [owner = orig_array.pointer()](std::string_view s) {});
-  auto cord_array = TryViewCordAsArray(cord, /*offset=*/0, data_type,
-                                       endian_value, orig_array.layout());
+  auto cord_array = TryViewCordAsArray(cord, /*offset=*/0, dtype, endian_value,
+                                       orig_array.layout());
   if (expected_inplace) {
     EXPECT_EQ(orig_array.data(), cord_array.data());
     EXPECT_EQ(2, orig_array.pointer().use_count());
@@ -217,9 +217,9 @@ TEST(TryViewCordAsArrayTest, Inplace) {
   const DataType data_types[] = {DataTypeOf<uint8_t>(), DataTypeOf<uint16_t>(),
                                  DataTypeOf<uint32_t>(),
                                  DataTypeOf<uint64_t>()};
-  for (auto data_type : data_types) {
+  for (auto dtype : data_types) {
     for (auto order : {tensorstore::c_order, tensorstore::fortran_order}) {
-      TestConvertCordInplace(data_type, endian::native, order,
+      TestConvertCordInplace(dtype, endian::native, order,
                              /*expected_inplace=*/true);
     }
   }

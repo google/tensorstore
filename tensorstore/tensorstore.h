@@ -101,7 +101,7 @@ class TensorStore {
   /// \requires `SourceElement` is potentially convertible to `Element`
   /// \requires `SourceRank` is potentially convertible to `Rank`
   /// \requires `SourceMode` is potentially convertible to `Mode`
-  /// \pre `other.data_type()` is compatible with `Element`
+  /// \pre `other.dtype()` is compatible with `Element`
   /// \pre `other.rank()` is compatible with `static_rank`
   /// \pre `other.read_write_mode()` is compatible with `static_mode`
   template <typename SourceElement, DimensionIndex SourceRank,
@@ -134,9 +134,8 @@ class TensorStore {
 
   /// Returns the data type.
   /// \pre `valid()`
-  DataType data_type() const {
-    return StaticDataTypeCast<ElementType, unchecked>(
-        handle_.driver->data_type());
+  DataType dtype() const {
+    return StaticDataTypeCast<ElementType, unchecked>(handle_.driver->dtype());
   }
 
   /// Returns the rank.
@@ -303,8 +302,7 @@ struct StaticCastTraits<TensorStore<Element, Rank, Mode>>
 
   template <typename Other>
   static bool IsCompatible(const Other& other) {
-    return IsPossiblySameDataType(other.data_type(),
-                                  typename type::DataType()) &&
+    return IsPossiblySameDataType(other.dtype(), typename type::DataType()) &&
            IsRankExplicitlyConvertible(other.rank(), Rank) &&
            IsModeExplicitlyConvertible(other.read_write_mode(), Mode);
   }
@@ -314,8 +312,8 @@ struct StaticCastTraits<TensorStore<Element, Rank, Mode>>
                                                  Rank, Mode);
   }
   static std::string Describe(const type& value) {
-    return internal_tensorstore::DescribeForCast(
-        value.data_type(), value.rank(), value.read_write_mode());
+    return internal_tensorstore::DescribeForCast(value.dtype(), value.rank(),
+                                                 value.read_write_mode());
   }
 };
 

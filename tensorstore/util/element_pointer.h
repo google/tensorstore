@@ -208,7 +208,7 @@ ConvertPointer(Source&& x) {
       typename std::pointer_traits<Target>::element_type>(x.get());
 }
 
-std::string DescribeForCast(DataType data_type);
+std::string DescribeForCast(DataType dtype);
 }  // namespace internal_element_pointer
 
 template <typename ElementTagType>
@@ -263,7 +263,7 @@ class ElementPointer {
   /// Constructs from a compatible ElementPointer type.
   ///
   /// \post this->pointer() == source.pointer()
-  /// \post this->data_type() == source.data_type()
+  /// \post this->dtype() == source.dtype()
   template <typename Source,
             absl::enable_if_t<
                 (IsElementPointer<internal::remove_cvref_t<Source>>::value &&
@@ -271,7 +271,7 @@ class ElementPointer {
                      typename internal::remove_cvref_t<Source>::Pointer,
                      Pointer>::value)>* = nullptr>
   ElementPointer(Source&& source)
-      : storage_(source.data_type(),
+      : storage_(source.dtype(),
                  internal_element_pointer::ConvertPointer<Pointer>(
                      std::forward<Source>(source).pointer())) {}
 
@@ -281,7 +281,7 @@ class ElementPointer {
       absl::enable_if_t<IsElementPointerCastConvertible<
           internal::remove_cvref_t<Source>, ElementPointer>::value>* = nullptr>
   explicit ElementPointer(unchecked_t, Source&& source)
-      : storage_(DataType(unchecked, source.data_type()),
+      : storage_(DataType(unchecked, source.dtype()),
                  internal_element_pointer::ConvertPointer<Pointer>(
                      std::forward<Source>(source).pointer())) {}
 
@@ -289,7 +289,7 @@ class ElementPointer {
   ///
   /// \param pointer The element pointer.
   /// \post `this->pointer() == pointer`
-  /// \post `this->data_type() == DataTypeOf<SourcePointer::element_type>()`
+  /// \post `this->dtype() == DataTypeOf<SourcePointer::element_type>()`
   template <
       typename SourcePointer,
       absl::enable_if_t<
@@ -307,9 +307,9 @@ class ElementPointer {
   /// Constructs from another compatible pointer paired with an `DataType`.
   ///
   /// \param pointer The element pointer.
-  /// \param data_type The element representation type.
+  /// \param dtype The element representation type.
   /// \post this->pointer() == pointer
-  /// \post this->data_type() == data_type
+  /// \post this->dtype() == dtype
   template <
       typename SourcePointer,
       absl::enable_if_t<IsArrayBasePointerConvertible<
@@ -317,11 +317,10 @@ class ElementPointer {
   ElementPointer(SourcePointer&& pointer,
                  StaticOrDynamicDataTypeOf<typename std::pointer_traits<
                      internal::remove_cvref_t<SourcePointer>>::element_type>
-                     data_type)
-      : storage_(data_type,
-                 internal::static_pointer_cast<Element>(
-                     internal_element_pointer::ConvertPointer<Pointer>(
-                         std::forward<SourcePointer>(pointer)))) {}
+                     dtype)
+      : storage_(dtype, internal::static_pointer_cast<Element>(
+                            internal_element_pointer::ConvertPointer<Pointer>(
+                                std::forward<SourcePointer>(pointer)))) {}
 
   /// Assigns from a `nullptr`, pointer type, or ElementPointer type.
   template <typename Source>
@@ -331,7 +330,7 @@ class ElementPointer {
     return *this = ElementPointer(static_cast<Source&&>(source));
   }
 
-  constexpr DataType data_type() const { return storage_.first(); }
+  constexpr DataType dtype() const { return storage_.first(); }
 
   /// Returns the raw pointer value.
   Element* data() const { return internal::to_address(pointer()); }
@@ -386,10 +385,10 @@ class ElementPointer {
 
 /// Compares two element pointers for equality.
 ///
-/// \returns `a.data() == b.data() && a.data_type() == b.data_type()`
+/// \returns `a.data() == b.data() && a.dtype() == b.dtype()`
 template <typename A, typename B>
 bool operator==(const ElementPointer<A>& a, const ElementPointer<B>& b) {
-  return a.data() == b.data() && a.data_type() == b.data_type();
+  return a.data() == b.data() && a.dtype() == b.dtype();
 }
 
 /// Compares two element pointers for inequality.
@@ -416,14 +415,14 @@ struct StaticCastTraits<ElementPointer<ElementTag>>
 
   template <typename OtherElementTag>
   static bool IsCompatible(const ElementPointer<OtherElementTag>& other) {
-    return IsPossiblySameDataType(typename type::DataType(), other.data_type());
+    return IsPossiblySameDataType(typename type::DataType(), other.dtype());
   }
 
   static std::string Describe() {
     return internal_element_pointer::DescribeForCast(typename type::DataType());
   }
   static std::string Describe(const type& x) {
-    return internal_element_pointer::DescribeForCast(x.data_type());
+    return internal_element_pointer::DescribeForCast(x.dtype());
   }
 };
 
@@ -441,7 +440,7 @@ template <typename Element>
 absl::enable_if_t<!IsShared<Element>::value, ElementPointer<Shared<Element>>>
 UnownedToShared(ElementPointer<Element> element_pointer) {
   return {internal::UnownedToShared(element_pointer.pointer()),
-          element_pointer.data_type()};
+          element_pointer.dtype()};
 }
 
 /// Converts a non-`Shared` `ElementPointer` to a `SharedElementPointer` that
@@ -456,7 +455,7 @@ absl::enable_if_t<!IsShared<Element>::value, ElementPointer<Shared<Element>>>
 UnownedToShared(const std::shared_ptr<T>& owned,
                 ElementPointer<Element> element_pointer) {
   return {std::shared_ptr<Element>(owned, element_pointer.pointer()),
-          element_pointer.data_type()};
+          element_pointer.dtype()};
 }
 
 /// Adds a byte offset to a raw pointer.
@@ -481,13 +480,13 @@ inline std::shared_ptr<T> AddByteOffset(const std::shared_ptr<T>& x,
 template <typename ElementTag>
 inline ElementPointer<ElementTag> AddByteOffset(
     const ElementPointer<ElementTag>& x, Index byte_offset) {
-  return {AddByteOffset(x.pointer(), byte_offset), x.data_type()};
+  return {AddByteOffset(x.pointer(), byte_offset), x.dtype()};
 }
 
 template <typename ElementTag>
 inline ElementPointer<ElementTag> AddByteOffset(ElementPointer<ElementTag>&& x,
                                                 Index byte_offset) {
-  return {AddByteOffset(std::move(x.pointer()), byte_offset), x.data_type()};
+  return {AddByteOffset(std::move(x.pointer()), byte_offset), x.dtype()};
 }
 
 namespace internal_element_pointer {
@@ -515,7 +514,7 @@ using DeducedElementTag =
         internal::remove_cvref_t<T>>::type;
 
 template <typename Pointer>
-ElementPointer(Pointer pointer)->ElementPointer<DeducedElementTag<Pointer>>;
+ElementPointer(Pointer pointer) -> ElementPointer<DeducedElementTag<Pointer>>;
 
 }  // namespace tensorstore
 

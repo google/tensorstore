@@ -147,7 +147,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
       const N5Metadata& metadata) {
     SharedArray<const void> fill_value(
         internal::AllocateAndConstructSharedElements(1, value_init,
-                                                     metadata.data_type),
+                                                     metadata.dtype),
         StridedLayout<>(metadata.chunk_layout.shape(),
                         GetConstantVector<Index, 0>(metadata.rank)));
     return internal::ChunkGridSpecification(
@@ -215,7 +215,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     auto& constraints = spec.metadata_constraints;
     constraints.shape = metadata.shape;
     constraints.axes = metadata.axes;
-    constraints.data_type = metadata.data_type;
+    constraints.dtype = metadata.dtype;
     constraints.compressor = metadata.compressor;
     constraints.extra_attributes = metadata.extra_attributes;
     constraints.chunk_shape =
@@ -242,8 +242,8 @@ class N5Driver
   static inline const auto json_binder = jb::Sequence(
       jb::Validate(
           [](const auto& options, auto* obj) {
-            if (obj->data_type.valid()) {
-              return ValidateDataType(obj->data_type);
+            if (obj->dtype.valid()) {
+              return ValidateDataType(obj->dtype);
             }
             return absl::OkStatus();
           },
@@ -256,17 +256,16 @@ class N5Driver
           "metadata",
           jb::Validate(
               [](const auto& options, auto* obj) {
-                if (obj->data_type.valid()) {
-                  if (obj->metadata_constraints.data_type &&
+                if (obj->dtype.valid()) {
+                  if (obj->metadata_constraints.dtype &&
                       !tensorstore::IsPossiblySameDataType(
-                          obj->data_type,
-                          *obj->metadata_constraints.data_type)) {
+                          obj->dtype, *obj->metadata_constraints.dtype)) {
                     return absl::InvalidArgumentError(StrCat(
                         "Mismatch between data type in TensorStore Spec (",
-                        obj->data_type, ") and \"metadata\" (",
-                        *obj->metadata_constraints.data_type, ")"));
+                        obj->dtype, ") and \"metadata\" (",
+                        *obj->metadata_constraints.dtype, ")"));
                   }
-                  obj->metadata_constraints.data_type = obj->data_type;
+                  obj->metadata_constraints.dtype = obj->dtype;
                 }
                 return absl::OkStatus();
               },
@@ -336,10 +335,10 @@ class N5Driver::OpenState : public N5Driver::OpenStateBase {
                                         OpenMode open_mode) override {
     const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
     // Check for compatibility
-    if (spec().data_type.valid() && spec().data_type != metadata.data_type) {
+    if (spec().dtype.valid() && spec().dtype != metadata.dtype) {
       return absl::InvalidArgumentError(
-          StrCat("Expected data type of ", spec().data_type,
-                 " but received: ", metadata.data_type));
+          StrCat("Expected data type of ", spec().dtype,
+                 " but received: ", metadata.dtype));
     }
     TENSORSTORE_RETURN_IF_ERROR(
         ValidateMetadata(metadata, spec().metadata_constraints));

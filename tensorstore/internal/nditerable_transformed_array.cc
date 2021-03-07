@@ -153,7 +153,7 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
         state_.input_byte_strides[dim_j], dir_j, size_j);
   }
 
-  DataType data_type() const override { return data_type_; }
+  DataType dtype() const override { return dtype_; }
 
   IterationBufferConstraint GetIterationBufferConstraint(
       IterationLayoutView layout) const override {
@@ -162,7 +162,7 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
                            input_dim_iter_flags::array_indexed) == 0) {
       return {(last_dim == -1 || state_.input_byte_strides[last_dim] *
                                          layout.directions[last_dim] ==
-                                     this->data_type_->size)
+                                     this->dtype_->size)
                   ? IterationBufferKind::kContiguous
                   : IterationBufferKind::kStrided,
               /*.external=*/false};
@@ -403,7 +403,7 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
   IndexTransform<> transform_;
   // TODO(jbms): Use arena allocator for SingleArrayIterationState as well.
   internal_index_space::SingleArrayIterationState state_;
-  DataType data_type_;
+  DataType dtype_;
   std::vector<input_dim_iter_flags::Bitmask,
               ArenaAllocator<input_dim_iter_flags::Bitmask>>
       input_dimension_flags_;
@@ -417,7 +417,7 @@ Result<NDIterable::Ptr> MaybeConvertToArrayNDIterable(
             SharedElementPointer<const void>(
                 std::shared_ptr<const void>(std::move(impl->data_owner_),
                                             impl->state_.base_pointer),
-                impl->data_type_),
+                impl->dtype_),
             StridedLayoutView<>(impl->transform_.input_rank(),
                                 impl->transform_.input_shape().data(),
                                 impl->state_.input_byte_strides.data())),
@@ -444,7 +444,7 @@ Result<NDIterable::Ptr> GetTransformedArrayNDIterable(
       impl->transform_.input_origin().data(),
       impl->transform_.input_shape().data(), &impl->state_,
       impl->input_dimension_flags_.data()));
-  impl->data_type_ = array.data_type();
+  impl->dtype_ = array.dtype();
   impl->data_owner_ = std::move(array.element_pointer().pointer());
   return MaybeConvertToArrayNDIterable(std::move(impl), arena);
 }
@@ -459,7 +459,7 @@ Result<NDIterable::Ptr> GetNormalizedTransformedArrayNDIterable(
       impl->transform_.input_origin().data(),
       impl->transform_.input_shape().data(), &impl->state_,
       impl->input_dimension_flags_.data()));
-  impl->data_type_ = array.data_type();
+  impl->dtype_ = array.dtype();
   impl->data_owner_ = std::move(array.element_pointer().pointer());
   return MaybeConvertToArrayNDIterable(std::move(impl), arena);
 }

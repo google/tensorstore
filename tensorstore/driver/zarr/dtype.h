@@ -67,7 +67,7 @@ struct ZarrDType {
     std::string encoded_dtype;
 
     /// Corresponding DataType used for in-memory representation.
-    DataType data_type;
+    DataType dtype;
 
     /// Endianness.
     tensorstore::endian endian;

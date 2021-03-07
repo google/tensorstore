@@ -77,8 +77,8 @@ class NDIterablesWithManagedBuffers
       const auto& iterable = this->iterables[i];
       const auto constraint = iterable->GetIterationBufferConstraint(layout);
       if (constraint.external) {
-        const auto data_type = iterable->data_type();
-        num_bytes += data_type->size;
+        const auto dtype = iterable->dtype();
+        num_bytes += dtype->size;
         if (constraint.min_buffer_kind == IterationBufferKind::kIndexed ||
             buffer_kind == IterationBufferKind::kIndexed) {
           num_bytes += sizeof(Index);
@@ -142,12 +142,11 @@ class NDIteratorExternalBufferManager {
     ptrdiff_t num_offset_arrays = 0;
     ptrdiff_t alignment = 0;
     for (size_t i = 0; i < Arity; ++i) {
-      const auto data_type = data_types_[i];
-      if (!data_type.valid()) continue;
-      buffer_bytes_needed =
-          RoundUpTo(buffer_bytes_needed, data_type->alignment);
-      buffer_bytes_needed += block_size * data_type->size;
-      alignment = std::max(alignment, data_type->alignment);
+      const auto dtype = data_types_[i];
+      if (!dtype.valid()) continue;
+      buffer_bytes_needed = RoundUpTo(buffer_bytes_needed, dtype->alignment);
+      buffer_bytes_needed += block_size * dtype->size;
+      alignment = std::max(alignment, dtype->alignment);
       for (const auto buffer_kind : buffer_kinds[i]) {
         if (buffer_kind == IterationBufferKind::kIndexed) {
           ++num_offset_arrays;
@@ -173,26 +172,26 @@ class NDIteratorExternalBufferManager {
     ptrdiff_t buffer_offset = 0;
 
     for (size_t i = 0; i < Arity; ++i) {
-      const auto data_type = data_types_[i];
-      if (!data_type.valid()) continue;
-      buffer_offset = RoundUpTo(buffer_offset, data_type->alignment);
+      const auto dtype = data_types_[i];
+      if (!dtype.valid()) continue;
+      buffer_offset = RoundUpTo(buffer_offset, dtype->alignment);
       void* buffer_ptr = buffer_ + buffer_offset;
-      data_type->construct(block_size, buffer_ptr);
-      buffer_offset += block_size * data_type->size;
+      dtype->construct(block_size, buffer_ptr);
+      buffer_offset += block_size * dtype->size;
       Index* byte_offsets = nullptr;
       for (const auto buffer_kind : buffer_kinds[i]) {
         if (buffer_kind == IterationBufferKind::kIndexed) {
           byte_offsets =
               reinterpret_cast<Index*>(buffer_ + next_offset_array_offset);
           next_offset_array_offset += block_size * sizeof(Index);
-          FillOffsetsArrayFromStride(data_type->size,
+          FillOffsetsArrayFromStride(dtype->size,
                                      span(byte_offsets, block_size));
           break;
         }
       }
       for (size_t j = 0; j < NumBufferKinds; ++j) {
         buffer_pointers_[j][i] = GetIterationBufferPointer(
-            buffer_kinds[i][j], buffer_ptr, data_type->size, byte_offsets);
+            buffer_kinds[i][j], buffer_ptr, dtype->size, byte_offsets);
       }
     }
   }
@@ -278,7 +277,7 @@ struct NDIteratorsWithManagedBuffers {
       buffer_constraints[i] =
           iterables[i]->GetIterationBufferConstraint(layout);
       if (buffer_constraints[i].external) {
-        data_types[i] = iterables[i]->data_type();
+        data_types[i] = iterables[i]->dtype();
         buffer_kinds[i][0] = buffer_constraints[i].min_buffer_kind;
         buffer_kinds[i][1] = layout.buffer_kind;
       }

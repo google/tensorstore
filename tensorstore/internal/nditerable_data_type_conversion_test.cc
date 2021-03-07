@@ -63,12 +63,11 @@ class NDIterableDataTypeConversionTest : public ::testing::TestWithParam<bool> {
   tensorstore::internal::Arena arena;
 
   std::pair<Status, SharedArray<const void>> Convert(
-      TransformedArrayView<Shared<const void>> source,
-      DataType target_data_type) {
+      TransformedArrayView<Shared<const void>> source, DataType target_dtype) {
     tensorstore::internal::Arena arena;
     auto target =
         tensorstore::AllocateArray(source.shape(), tensorstore::c_order,
-                                   tensorstore::value_init, target_data_type);
+                                   tensorstore::value_init, target_dtype);
     auto source_iterable =
         tensorstore::internal::GetTransformedArrayNDIterable(source, &arena)
             .value();
@@ -76,12 +75,12 @@ class NDIterableDataTypeConversionTest : public ::testing::TestWithParam<bool> {
         tensorstore::internal::GetArrayNDIterable(target, &arena);
     if (GetParam()) {
       source_iterable = GetConvertedInputNDIterable(
-          std::move(source_iterable), target_data_type,
-          GetDataTypeConverter(source.data_type(), target_data_type));
+          std::move(source_iterable), target_dtype,
+          GetDataTypeConverter(source.dtype(), target_dtype));
     } else {
       target_iterable = GetConvertedOutputNDIterable(
-          std::move(target_iterable), source.data_type(),
-          GetDataTypeConverter(source.data_type(), target_data_type));
+          std::move(target_iterable), source.dtype(),
+          GetDataTypeConverter(source.dtype(), target_dtype));
     }
     tensorstore::internal::NDIterableCopier copier(
         *source_iterable, *target_iterable, target.shape(),

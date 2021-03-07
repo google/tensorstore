@@ -37,7 +37,7 @@ namespace internal_downsample {
 /// \error `absl::StatusCode::kInvalidArgument` if the bounds of `target` do not
 ///     equal the downsampled bounds of `source`.
 /// \error `absl::StatusCode::kInvalidArgument` if
-///     `source.data_type() != target.data_type()`.
+///     `source.dtype() != target.dtype()`.
 /// \error `absl::StatusCode::kInvalidArgument` if
 ///     `source.rank() != downsample_factors.size()`.
 absl::Status DownsampleArray(OffsetArrayView<const void> source,

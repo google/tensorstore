@@ -272,8 +272,7 @@ SubArray(const Array<ElementTag, Rank, OriginKind, SourceCKind>& array,
                SubArrayStaticRank<NormalizeRankSpec(Rank), Indices>::value,
                OriginKind, LayoutCKind>(
       ElementPointer<typename ElementTagTraits<ElementTag>::Element>(
-          (array.byte_strided_pointer() + byte_offset).get(),
-          array.data_type()),
+          (array.byte_strided_pointer() + byte_offset).get(), array.dtype()),
       GetSubLayoutView<IndicesSpan::extent>(array.layout(),
                                             indices_span.size()));
 }
@@ -334,7 +333,7 @@ namespace internal_array {
 void PrintToOstream(
     std::ostream& os,
     const ArrayView<const void, dynamic_rank, offset_origin>& array);
-std::string DescribeForCast(DataType data_type, DimensionIndex rank);
+std::string DescribeForCast(DataType dtype, DimensionIndex rank);
 Status ArrayOriginCastError(span<const Index> shape);
 }  // namespace internal_array
 
@@ -484,7 +483,7 @@ class Array {
   Array(SourcePointer element_pointer, const Shape& shape,
         ContiguousLayoutOrder order = c_order) {
     this->element_pointer() = std::move(element_pointer);
-    InitializeContiguousLayout(order, this->data_type().size(), shape,
+    InitializeContiguousLayout(order, this->dtype().size(), shape,
                                &this->layout());
   }
 
@@ -502,7 +501,7 @@ class Array {
   Array(SourcePointer element_pointer, const Index (&shape)[ShapeRank],
         ContiguousLayoutOrder order = c_order) {
     this->element_pointer() = std::move(element_pointer);
-    InitializeContiguousLayout(order, this->data_type().size(), span(shape),
+    InitializeContiguousLayout(order, this->dtype().size(), span(shape),
                                &this->layout());
   }
 
@@ -537,7 +536,7 @@ class Array {
   Array(SourcePointer element_pointer, BoxView<static_rank> domain,
         ContiguousLayoutOrder order = c_order) {
     this->element_pointer() = std::move(element_pointer);
-    InitializeContiguousLayout(order, this->data_type().size(), domain,
+    InitializeContiguousLayout(order, this->dtype().size(), domain,
                                &this->layout());
     this->element_pointer() =
         AddByteOffset(std::move(this->element_pointer()),
@@ -630,7 +629,7 @@ class Array {
   Pointer& pointer() { return storage_.pointer(); }
 
   /// Returns the element representation type.
-  DataType data_type() const { return storage_.data_type(); }
+  DataType dtype() const { return storage_.dtype(); }
 
   /// Returns a const reference to the element pointer.
   const ElementPointer& element_pointer() const& { return storage_; }
@@ -907,7 +906,7 @@ struct StaticCastTraits<
   template <typename Other>
   static bool IsCompatible(const Other& other) {
     return IsRankExplicitlyConvertible(other.rank(), NormalizeRankSpec(Rank)) &&
-           IsPossiblySameDataType(other.data_type(), typename type::DataType());
+           IsPossiblySameDataType(other.dtype(), typename type::DataType());
   }
 
   static std::string Describe() {
@@ -916,7 +915,7 @@ struct StaticCastTraits<
   }
 
   static std::string Describe(const type& value) {
-    return internal_array::DescribeForCast(value.data_type(), value.rank());
+    return internal_array::DescribeForCast(value.dtype(), value.rank());
   }
 };
 
@@ -1000,7 +999,7 @@ std::enable_if_t<!IsShared<Element>::value,
                  SharedArray<Element, Rank, OriginKind, LayoutCKind>>
 UnownedToShared(const std::shared_ptr<T>& owned,
                 Array<Element, Rank, OriginKind, LayoutCKind> array) {
-  return {{std::shared_ptr<Element>(owned, array.data()), array.data_type()},
+  return {{std::shared_ptr<Element>(owned, array.data()), array.dtype()},
           std::move(array.layout())};
 }
 
@@ -1016,13 +1015,13 @@ SharedArray<Element, Rank, OriginKind, LayoutCKind> UnownedToShared(
 
 namespace internal_array {
 
-/// Returns `true` if `a` and `b` have the same data_type(), shape(), and
+/// Returns `true` if `a` and `b` have the same dtype(), shape(), and
 /// contents, but not necessarily the same strides.
 bool CompareArraysEqual(
     const ArrayView<const void, dynamic_rank, zero_origin>& a,
     const ArrayView<const void, dynamic_rank, zero_origin>& b);
 
-/// Returns `true` if `a` and `b` have the same data_type(), shape(), and
+/// Returns `true` if `a` and `b` have the same dtype(), shape(), and
 /// contents, but not necessarily the same strides.
 bool CompareArraysEqual(
     const ArrayView<const void, dynamic_rank, offset_origin>& a,
@@ -1030,7 +1029,7 @@ bool CompareArraysEqual(
 
 /// Copies `source` to `dest`.
 ///
-/// \checks source.data_type().type == dest.data_type().type
+/// \checks source.dtype().type == dest.dtype().type
 void CopyArrayImplementation(
     const ArrayView<const void, dynamic_rank, offset_origin>& source,
     const ArrayView<void, dynamic_rank, offset_origin>& dest);
@@ -1273,21 +1272,21 @@ void InitializeArray(const ArrayView<void, dynamic_rank, offset_origin>& array);
 ///     Defaults to ContiguousLayoutOrder::c.
 /// \param initialization Optional.  Specifies the form of initialization to
 ///     use.
-/// \param data_type Optional.  Specifies the element type at run time.  Must be
+/// \param dtype Optional.  Specifies the element type at run time.  Must be
 ///     specified if `Element` is `void`.
 template <typename Element = void, typename Extents>
 SharedArray<Element, internal::ConstSpanType<Extents>::extent> AllocateArray(
     const Extents& extents,
     ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c,
     ElementInitialization initialization = default_init,
-    StaticOrDynamicDataTypeOf<Element> data_type = DataTypeOf<Element>()) {
+    StaticOrDynamicDataTypeOf<Element> dtype = DataTypeOf<Element>()) {
   static_assert(
       internal::IsIndexPack<
           typename internal::ConstSpanType<Extents>::value_type>::value,
       "Extent type must be convertible without narrowing to Index.");
-  auto layout = StridedLayout(layout_order, data_type.size(), extents);
+  auto layout = StridedLayout(layout_order, dtype.size(), extents);
   return {internal::AllocateAndConstructSharedElements<Element>(
-              layout.num_elements(), initialization, data_type),
+              layout.num_elements(), initialization, dtype),
           std::move(layout)};
 }
 
@@ -1316,7 +1315,7 @@ SharedArray<Element, Rank> AllocateArray(
 ///     Defaults to ContiguousLayoutOrder::c.
 /// \param initialization Optional.  Specifies the form of initialization to
 ///     use.
-/// \param data_type Optional.  Specifies the element type at run time.  Must be
+/// \param dtype Optional.  Specifies the element type at run time.  Must be
 ///     specified if `Element` is `void`.
 template <typename Element = void, typename BoxType>
 std::enable_if_t<IsBoxLike<BoxType>::value,
@@ -1325,12 +1324,12 @@ AllocateArray(
     const BoxType& domain,
     ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c,
     ElementInitialization initialization = default_init,
-    StaticOrDynamicDataTypeOf<Element> data_type = DataTypeOf<Element>()) {
+    StaticOrDynamicDataTypeOf<Element> dtype = DataTypeOf<Element>()) {
   StridedLayout<BoxType::static_rank, offset_origin> layout(
-      layout_order, data_type.size(), domain);
+      layout_order, dtype.size(), domain);
   return {
       AddByteOffset(internal::AllocateAndConstructSharedElements<Element>(
-                        layout.num_elements(), initialization, data_type),
+                        layout.num_elements(), initialization, dtype),
                     -layout.origin_byte_offset()),
       std::move(layout),
   };
@@ -1362,10 +1361,10 @@ SharedElementPointer<Element> AllocateArrayElementsLike(
     const StridedLayout<Rank, OriginKind, CKind>& layout, Index* byte_strides,
     IterationConstraints constraints,
     ElementInitialization initialization = default_init,
-    StaticOrDynamicDataTypeOf<Element> data_type = DataTypeOf<Element>()) {
+    StaticOrDynamicDataTypeOf<Element> dtype = DataTypeOf<Element>()) {
   auto element_pointer =
       StaticDataTypeCast<Element, unchecked>(internal::AllocateArrayLike(
-          data_type,
+          dtype,
           StridedLayoutView<>(layout.rank(), layout.shape().data(),
                               layout.byte_strides().data()),
           byte_strides, constraints, initialization));
@@ -1398,7 +1397,7 @@ SharedArray<Element, Rank, OriginKind> AllocateArrayLike(
     const StridedLayout<Rank, OriginKind, CKind>& layout,
     IterationConstraints constraints = c_order,
     ElementInitialization initialization = default_init,
-    StaticOrDynamicDataTypeOf<Element> data_type = DataTypeOf<Element>()) {
+    StaticOrDynamicDataTypeOf<Element> dtype = DataTypeOf<Element>()) {
   SharedArray<Element, Rank, OriginKind> array;
   array.layout().set_rank(layout.rank());
   std::copy_n(layout.shape().data(), layout.rank(), array.shape().data());
@@ -1408,7 +1407,7 @@ SharedArray<Element, Rank, OriginKind> AllocateArrayLike(
   array.element_pointer() =
       tensorstore::AllocateArrayElementsLike<Element, Rank, OriginKind>(
           layout, array.byte_strides().data(), constraints, initialization,
-          data_type);
+          dtype);
   return array;
 }
 
@@ -1427,7 +1426,7 @@ ArrayIterateResult IterateOverArrays(
     IterationConstraints constraints, const Array&... array) {
   TENSORSTORE_CHECK(ArraysHaveSameShapes(array...));
   const std::array<std::ptrdiff_t, sizeof...(Array)> element_sizes{
-      {array.data_type().size()...}};
+      {array.dtype().size()...}};
   return IterateOverStridedLayouts(
       closure, status, internal::GetFirstArgument(array...).shape(),
       {{const_cast<void*>(static_cast<const void*>(
@@ -1554,7 +1553,7 @@ MakeCopy(const Source& source, IterationConstraints constraints = {
                                    c_order, include_repeated_elements}) {
   using Element = std::remove_cv_t<typename Source::Element>;
   auto dest = AllocateArrayLike<Element>(source.layout(), constraints,
-                                         default_init, source.data_type());
+                                         default_init, source.dtype());
   CopyArray(source, dest);
   return dest;
 }
@@ -1566,7 +1565,7 @@ MakeCopy(const Source& source, IterationConstraints constraints = {
 /// \param source The source array to copy.
 /// \param constraints Constrains the layout of the newly allocated array.  See
 ///     the documentation of the `MakeCopy` overload above.
-/// \param target_data_type Specifies the target data type at run time.
+/// \param target_dtype Specifies the target data type at run time.
 ///     Required if `TargetElement=void`.
 /// \returns The newly allocated array containing the converted copy.
 /// \error `absl::StatusCode::kInvalidArgument` if the conversion is not
@@ -1578,10 +1577,10 @@ Result<SharedArray<TargetElement, Rank, OriginKind>> MakeCopy(
     const Array<SourceElementTag, Rank, OriginKind, LayoutContainerKind>&
         source,
     IterationConstraints constraints = {c_order, include_repeated_elements},
-    StaticOrDynamicDataTypeOf<TargetElement> target_data_type =
+    StaticOrDynamicDataTypeOf<TargetElement> target_dtype =
         DataTypeOf<TargetElement>()) {
   auto dest = AllocateArrayLike<TargetElement>(source.layout(), constraints,
-                                               default_init, target_data_type);
+                                               default_init, target_dtype);
   TENSORSTORE_RETURN_IF_ERROR(CopyConvertedArray(source, dest));
   return dest;
 }
@@ -1593,9 +1592,9 @@ template <int&... ExplicitArgumentBarrier, typename SourceElementTag,
 Result<SharedArray<void, Rank, OriginKind>> MakeCopy(
     const Array<SourceElementTag, Rank, OriginKind, LayoutContainerKind>&
         source,
-    IterationConstraints constraints, DataType target_data_type) {
+    IterationConstraints constraints, DataType target_dtype) {
   auto dest = AllocateArrayLike<void>(source.layout(), constraints,
-                                      default_init, target_data_type);
+                                      default_init, target_dtype);
   TENSORSTORE_RETURN_IF_ERROR(CopyConvertedArray(source, dest));
   return dest;
 }

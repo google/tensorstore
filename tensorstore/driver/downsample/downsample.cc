@@ -55,8 +55,8 @@ class DownsampleDriver
       if (this->rank == dynamic_rank) {
         this->rank = this->base.transform_spec.input_rank();
       }
-      if (!this->data_type.valid()) {
-        this->data_type = this->base.driver_spec->constraints().data_type;
+      if (!this->dtype.valid()) {
+        this->dtype = this->base.driver_spec->constraints().dtype;
       }
     }
 
@@ -72,10 +72,10 @@ class DownsampleDriver
     }
 
     absl::Status ValidateDownsampleMethod() {
-      if (this->data_type.valid()) {
+      if (this->dtype.valid()) {
         TENSORSTORE_RETURN_IF_ERROR(
             internal_downsample::ValidateDownsampleMethod(
-                this->data_type, this->downsample_method));
+                this->dtype, this->downsample_method));
       }
       return absl::OkStatus();
     }
@@ -150,7 +150,7 @@ class DownsampleDriver
     spec->downsample_factors = downsample_factors_;
     spec->downsample_method = downsample_method_;
     spec->rank = base_transform_.input_rank();
-    spec->data_type = base_driver_->data_type();
+    spec->dtype = base_driver_->dtype();
     return IndexTransformSpec(transform);
   }
 
@@ -163,7 +163,7 @@ class DownsampleDriver
                             downsample_factors.end()),
         downsample_method_(downsample_method) {}
 
-  DataType data_type() override { return base_driver_->data_type(); }
+  DataType dtype() override { return base_driver_->dtype(); }
   DimensionIndex rank() override { return base_transform_.input_rank(); }
 
   Executor data_copy_executor() override {
@@ -266,7 +266,7 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
   absl::Mutex mutex_;
 
   /// Array with domain `base_transform_domain_.box()` with data type
-  /// `self_->base_driver_->data_type()`.  The layout and data pointer must not
+  /// `self_->base_driver_->dtype()`.  The layout and data pointer must not
   /// be changed except while holding `mutex_`.  However, disjoint portions of
   /// the array itself, once allocated, may be written concurrently by multiple
   /// threads.  This is only allocated once the first chunk that cannot be
@@ -637,7 +637,7 @@ struct ReadReceiverImpl {
             if (state->data_buffer_.byte_strided_origin_pointer() == nullptr) {
               state->data_buffer_ = AllocateArray(
                   state->base_transform_domain_.box(), c_order, default_init,
-                  state->self_->base_driver_->data_type());
+                  state->self_->base_driver_->dtype());
             }
           }
           TENSORSTORE_ASSIGN_OR_RETURN(
@@ -760,7 +760,7 @@ Result<Driver::Handle> MakeDownsampleDriver(
         "Downsample factors ", downsample_factors, " are not all positive"));
   }
   TENSORSTORE_RETURN_IF_ERROR(internal_downsample::ValidateDownsampleMethod(
-      base.driver->data_type(), downsample_method));
+      base.driver->dtype(), downsample_method));
   auto downsampled_domain =
       internal_downsample::GetDownsampledDomainIdentityTransform(
           base.transform.domain(), downsample_factors, downsample_method);

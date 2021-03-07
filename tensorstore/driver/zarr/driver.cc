@@ -205,7 +205,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
       if (!fill_value.valid()) {
         // Use value-initialized rank-0 fill value.
         fill_value = AllocateArray(span<const Index, 0>{}, c_order, value_init,
-                                   field.data_type);
+                                   field.dtype);
       }
       assert(fill_value.rank() <=
              static_cast<DimensionIndex>(field.field_shape.size()));
@@ -311,7 +311,7 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
                     "Cannot create array without specifying \"metadata\"");
     }
     if (auto result = internal_zarr::GetNewMetadata(*spec().partial_metadata,
-                                                    spec().data_type)) {
+                                                    spec().dtype)) {
       return result;
     } else {
       return tensorstore::MaybeAnnotateStatus(
@@ -340,7 +340,7 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
       TENSORSTORE_RETURN_IF_ERROR(
           ValidateMetadata(metadata, *spec().partial_metadata));
     }
-    return GetCompatibleField(metadata.dtype, spec().data_type,
+    return GetCompatibleField(metadata.dtype, spec().dtype,
                               spec().selected_field);
   }
 };

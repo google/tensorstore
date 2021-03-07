@@ -24,7 +24,7 @@ namespace internal_zarr {
 
 namespace {
 const auto GetBaseTuple = [](const ZarrDType::BaseDType& a) {
-  return std::tie(a.encoded_dtype, a.data_type, a.endian);
+  return std::tie(a.encoded_dtype, a.dtype, a.endian);
 };
 
 const auto GetFieldTuple = [](const ZarrDType::Field& a) {

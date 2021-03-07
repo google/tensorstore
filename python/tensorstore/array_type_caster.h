@@ -95,9 +95,9 @@ GetSharedElementPointerFromNumpyArray(pybind11::array array_obj) {
 template <typename Element>
 absl::enable_if_t<std::is_void<Element>::value, SharedElementPointer<Element>>
 GetSharedElementPointerFromNumpyArray(pybind11::array array_obj) {
-  auto data_type = GetDataTypeOrThrow(array_obj.dtype());
+  auto dtype = GetDataTypeOrThrow(array_obj.dtype());
   return SharedElementPointer<Element>(
-      GetSharedPtrFromNumpyArray<Element>(std::move(array_obj)), data_type);
+      GetSharedPtrFromNumpyArray<Element>(std::move(array_obj)), dtype);
 }
 
 /// Returns a `SharedArray` that refers to a NumPy array and keeps the NumPy

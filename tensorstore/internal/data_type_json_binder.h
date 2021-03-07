@@ -30,7 +30,7 @@ TENSORSTORE_DECLARE_JSON_BINDER(DataTypeJsonBinder, DataType)
 /// `::nlohmann::json::value_discarded_t`).
 TENSORSTORE_DECLARE_JSON_BINDER(OptionalDataTypeJsonBinder, DataType)
 
-/// DataType JSON Binder where `options.data_type` specifies both a constraint
+/// DataType JSON Binder where `options.dtype` specifies both a constraint
 /// and a default value.
 TENSORSTORE_DECLARE_JSON_BINDER(ConstrainedDataTypeJsonBinder, DataType,
                                 ArrayFromJsonOptions, ArrayToJsonOptions)

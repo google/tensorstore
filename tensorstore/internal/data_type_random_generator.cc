@@ -149,16 +149,14 @@ const std::array<ElementwiseFunction<1, absl::BitGenRef>, kNumDataTypeIds>
         });
 
 SharedOffsetArray<const void> MakeRandomArray(absl::BitGenRef gen,
-                                              BoxView<> domain,
-                                              DataType data_type,
+                                              BoxView<> domain, DataType dtype,
                                               ContiguousLayoutOrder order) {
-  assert(data_type.id() != DataTypeId::custom);
-  auto array = AllocateArray(domain, order, default_init, data_type);
+  assert(dtype.id() != DataTypeId::custom);
+  auto array = AllocateArray(domain, order, default_init, dtype);
   kDataTypeRandomGenerationFunctions[static_cast<std::size_t>(
-      data_type.id())][IterationBufferKind::kContiguous](
+      dtype.id())][IterationBufferKind::kContiguous](
       nullptr, array.num_elements(),
-      IterationBufferPointer{array.byte_strided_origin_pointer(),
-                             data_type.size()},
+      IterationBufferPointer{array.byte_strided_origin_pointer(), dtype.size()},
       gen);
   return array;
 }

@@ -125,10 +125,10 @@ Result<std::shared_ptr<const ChunkCache::ReadData>> DecodeRaw(
       const auto& spec = component_specs[component_i];
       tensorstore::SharedArrayView<void> array(
           tensorstore::SharedElementPointer<void>(
-              spec.AllocateAndConstructBuffer(), spec.data_type()),
+              spec.AllocateAndConstructBuffer(), spec.dtype()),
           spec.write_layout());
       read_data.get()[component_i] = array;
-      const size_t num_bytes = spec.num_elements() * spec.data_type().size();
+      const size_t num_bytes = spec.num_elements() * spec.dtype().size();
       if (num_bytes + offset < value->size()) {
         return absl::UnknownError("Decode error");
       }
@@ -151,8 +151,8 @@ absl::Cord EncodeRaw(const ChunkGridSpecification& grid,
     auto array = MakeCopy(component_arrays[component_i]);
     TENSORSTORE_CHECK(
         tensorstore::internal::RangesEqual(array.shape(), spec.shape()));
-    TENSORSTORE_CHECK(array.data_type() == spec.data_type());
-    const size_t num_bytes = spec.num_elements() * spec.data_type().size();
+    TENSORSTORE_CHECK(array.dtype() == spec.dtype());
+    const size_t num_bytes = spec.num_elements() * spec.dtype().size();
     value.append(reinterpret_cast<const char*>(array.data()), num_bytes);
   }
   return absl::Cord(value);
@@ -441,7 +441,7 @@ TEST_F(ChunkCacheTest, CancelWrite) {
   EXPECT_TRUE(receiver.set_value_called);
 }
 
-// Tests that the implementation of `ChunkCacheDriver::data_type` returns the
+// Tests that the implementation of `ChunkCacheDriver::dtype` returns the
 // data type of the associated component array.
 TEST_F(ChunkCacheTest, DriverDataType) {
   grid = ChunkGridSpecification({
@@ -455,10 +455,9 @@ TEST_F(ChunkCacheTest, DriverDataType) {
 
   auto cache = MakeChunkCache();
 
-  EXPECT_EQ(tensorstore::DataTypeOf<int>(), MakeDriver(cache, 0)->data_type());
+  EXPECT_EQ(tensorstore::DataTypeOf<int>(), MakeDriver(cache, 0)->dtype());
 
-  EXPECT_EQ(tensorstore::DataTypeOf<float>(),
-            MakeDriver(cache, 1)->data_type());
+  EXPECT_EQ(tensorstore::DataTypeOf<float>(), MakeDriver(cache, 1)->dtype());
 }
 
 // Tests reading of existing data.

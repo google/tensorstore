@@ -26,7 +26,7 @@
 namespace tensorstore {
 namespace internal {
 Result<Driver::Handle> MakeCastDriver(
-    Driver::Handle base, DataType target_data_type,
+    Driver::Handle base, DataType target_dtype,
     ReadWriteMode read_write_mode = ReadWriteMode::dynamic);
 
 /// Determines the compile-time read/write mode that results from a cast
@@ -89,11 +89,11 @@ struct CastDataTypeConversions {
   ReadWriteMode mode;
 };
 
-/// Determines the supported conversions between `source_data_type` and
-/// `target_data_type` that are compatible with `existing_mode`.
+/// Determines the supported conversions between `source_dtype` and
+/// `target_dtype` that are compatible with `existing_mode`.
 ///
-/// \param source_data_type The source data type.
-/// \param target_data_type The target data type.
+/// \param source_dtype The source data type.
+/// \param target_dtype The target data type.
 /// \param existing_mode The run-time mode of the existing TensorStore.
 /// \param required_mode The mask of required modes.
 /// \returns The supported conversions if at least one conversion compatible
@@ -101,8 +101,8 @@ struct CastDataTypeConversions {
 /// \error `absl::StatusCode::kInvalidArgument` if neither read nor write is
 ///     supported and compatible with `existing_mode` and `required_mode`.
 Result<CastDataTypeConversions> GetCastDataTypeConversions(
-    DataType source_data_type, DataType target_data_type,
-    ReadWriteMode existing_mode, ReadWriteMode required_mode);
+    DataType source_dtype, DataType target_dtype, ReadWriteMode existing_mode,
+    ReadWriteMode required_mode);
 
 }  // namespace internal
 }  // namespace tensorstore

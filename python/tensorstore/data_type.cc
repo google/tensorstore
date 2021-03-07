@@ -52,20 +52,20 @@ DataType GetDataTypeOrThrow(absl::string_view name) {
   return d;
 }
 
-int GetNumpyTypeNum(DataType data_type) {
-  const DataTypeId id = data_type.id();
+int GetNumpyTypeNum(DataType dtype) {
+  const DataTypeId id = dtype.id();
   if (id == DataTypeId::custom) return -1;
   return kNumpyTypeNumForDataTypeId[static_cast<size_t>(id)];
 }
 
-py::dtype GetNumpyDtypeOrThrow(DataType data_type) {
-  int type_num = GetNumpyTypeNum(data_type);
+py::dtype GetNumpyDtypeOrThrow(DataType dtype) {
+  int type_num = GetNumpyTypeNum(dtype);
   if (type_num != -1) {
     return GetNumpyDtype(type_num);
   }
   throw py::value_error(
       StrCat("No NumPy dtype corresponding to TensorStore data type: ",
-             QuoteString(data_type.name())));
+             QuoteString(dtype.name())));
 }
 
 DataType GetDataType(pybind11::dtype dt) {
@@ -77,15 +77,15 @@ DataType GetDataType(pybind11::dtype dt) {
 }
 
 DataType GetDataTypeOrThrow(py::dtype dt) {
-  auto data_type = GetDataType(dt);
-  if (data_type.valid()) return data_type;
+  auto dtype = GetDataType(dt);
+  if (dtype.valid()) return dtype;
   throw py::value_error(
       StrCat("No TensorStore data type corresponding to NumPy dtype: ",
              py::cast<std::string>(py::repr(dt))));
 }
 
-py::object GetTypeObjectOrThrow(DataType data_type) {
-  switch (data_type.id()) {
+py::object GetTypeObjectOrThrow(DataType dtype) {
+  switch (dtype.id()) {
     case DataTypeId::ustring_t:
       return py::reinterpret_borrow<py::object>(
           reinterpret_cast<PyObject*>(&PyUnicode_Type));
@@ -95,7 +95,7 @@ py::object GetTypeObjectOrThrow(DataType data_type) {
     default:
       break;
   }
-  auto numpy_dtype = GetNumpyDtypeOrThrow(data_type);
+  auto numpy_dtype = GetNumpyDtypeOrThrow(dtype);
   return py::reinterpret_borrow<py::object>(
       py::detail::array_descriptor_proxy(numpy_dtype.ptr())->typeobj);
 }
@@ -107,7 +107,7 @@ Represents a TensorStore data type.
   cls_data_type
       .def(py::init([](std::string name) { return GetDataTypeOrThrow(name); }),
            "Construct by name.", py::arg("name"))
-      .def(py::init([](DataTypeLike data_type) { return data_type.value; }),
+      .def(py::init([](DataTypeLike dtype) { return dtype.value; }),
            "Construct from an existing TensorStore or NumPy data type.",
            py::arg("dtype"))
       .def_property_readonly(
@@ -147,8 +147,8 @@ Represents a TensorStore data type.
 
   // Like NumPy and Tensorflow, define `tensorstore.<dtype>` constants for each
   // supported data type.
-  for (const DataType data_type : kDataTypes) {
-    m.attr(std::string(data_type.name()).c_str()) = data_type;
+  for (const DataType dtype : kDataTypes) {
+    m.attr(std::string(dtype.name()).c_str()) = dtype;
   }
 }
 

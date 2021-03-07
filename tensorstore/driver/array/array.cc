@@ -103,7 +103,7 @@ class ArrayDriver
   /// JSON binder for `SpecT<ContextUnbound>`, required by `RegisteredDriver`.
   constexpr static auto json_binder = jb::Object(
       jb::Initialize([](auto* obj) -> Status {
-        if (!obj->data_type.valid()) {
+        if (!obj->dtype.valid()) {
           return Status(absl::StatusCode::kInvalidArgument,
                         "Data type must be specified");
         }
@@ -115,7 +115,7 @@ class ArrayDriver
                                            auto* obj, auto* j) {
                    return jb::Projection(
                        &SpecData::array,
-                       jb::NestedArray(obj->data_type, obj->rank));
+                       jb::NestedArray(obj->dtype, obj->rank));
                  })),
       jb::Initialize([](SpecData* obj) {
         // `jb::NestedArray` ensures that the array rank is compatible with
@@ -134,7 +134,7 @@ class ArrayDriver
       OpenTransactionPtr transaction, IndexTransform<> transform,
       AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) override;
 
-  DataType data_type() override { return data_.data_type(); }
+  DataType dtype() override { return data_.dtype(); }
 
   DimensionIndex rank() override { return data_.rank(); }
 
@@ -279,7 +279,7 @@ Result<IndexTransform<>> ArrayDriver::GetBoundSpecData(
   }
   spec->array = std::move(new_array);
   spec->data_copy_concurrency = data_copy_concurrency_;
-  spec->data_type = spec->array.data_type();
+  spec->dtype = spec->array.dtype();
   spec->rank = spec->array.rank();
   return transform_builder.Finalize();
 }
@@ -349,7 +349,7 @@ Result<tensorstore::Spec> SpecFromArray(
   auto& impl = SpecAccess::impl(spec);
   auto driver_spec = ArrayDriver::DriverSpecBuilder::Make();
   driver_spec->rank = array.rank();
-  driver_spec->data_type = array.data_type();
+  driver_spec->dtype = array.dtype();
   driver_spec->data_copy_concurrency =
       Context::ResourceSpec<internal::DataCopyConcurrencyResource>::Default();
   TENSORSTORE_ASSIGN_OR_RETURN(

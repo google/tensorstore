@@ -55,8 +55,7 @@ Specification for opening or creating a TensorStore.
            py::arg("allow_unregistered") = false)
       .def_property_readonly("dtype",
                              [](const Spec& self) -> std::optional<DataType> {
-                               if (self.data_type().valid())
-                                 return self.data_type();
+                               if (self.dtype().valid()) return self.dtype();
                                return std::nullopt;
                              })
       .def_property_readonly(

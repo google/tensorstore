@@ -75,13 +75,13 @@ class N5Metadata {
   std::vector<Index> chunk_shape;
 
   Compressor compressor;
-  DataType data_type;
+  DataType dtype;
 
   /// Contains all additional attributes, excluding attributes parsed into the
   /// data members above.
   ::nlohmann::json::object_t extra_attributes;
 
-  // Derived members computed from `chunk_shape` and `data_type`:
+  // Derived members computed from `chunk_shape` and `dtype`:
 
   StridedLayout<> chunk_layout;
 
@@ -114,7 +114,7 @@ class N5MetadataConstraints {
   std::optional<std::vector<Index>> chunk_shape;
 
   std::optional<Compressor> compressor;
-  std::optional<DataType> data_type;
+  std::optional<DataType> dtype;
 
   /// Contains all additional attributes, excluding attributes parsed into the
   /// data members above.
@@ -147,10 +147,10 @@ Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
                                const N5Metadata& metadata,
                                ArrayView<const void> array);
 
-/// Validates that `data_type` is supported by N5.
+/// Validates that `dtype` is supported by N5.
 ///
-/// \dchecks `data_type.valid()`
-Status ValidateDataType(DataType data_type);
+/// \dchecks `dtype.valid()`
+Status ValidateDataType(DataType dtype);
 
 }  // namespace internal_n5
 }  // namespace tensorstore

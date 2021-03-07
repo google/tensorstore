@@ -634,7 +634,7 @@ TEST(N5DriverTest, DataTypeMismatch) {
                       context, tensorstore::OpenMode::create,
                       tensorstore::ReadWriteMode::read_write)
                       .result());
-  EXPECT_EQ(tensorstore::DataTypeOf<std::int8_t>(), store.data_type());
+  EXPECT_EQ(tensorstore::DataTypeOf<std::int8_t>(), store.dtype());
   EXPECT_THAT(tensorstore::Open(
                   {
                       {"dtype", "uint8"},

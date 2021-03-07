@@ -47,7 +47,7 @@ TEST(MetadataTest, ParseValid) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
                                    N5Metadata::FromJson(attributes));
   EXPECT_THAT(metadata.shape, ::testing::ElementsAre(10, 11, 12));
-  EXPECT_THAT(metadata.data_type, tensorstore::DataTypeOf<std::uint16_t>());
+  EXPECT_THAT(metadata.dtype, tensorstore::DataTypeOf<std::uint16_t>());
   EXPECT_THAT(metadata.axes, ::testing::ElementsAre("a", "", ""));
   EXPECT_THAT(metadata.extra_attributes, MatchesJson({{"extra", "value"}}));
   EXPECT_THAT(metadata.chunk_layout,
@@ -65,7 +65,7 @@ TEST(MetadataTest, ParseValidNoAxes) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
                                    N5Metadata::FromJson(attributes));
   EXPECT_THAT(metadata.shape, ::testing::ElementsAre(10, 11, 12));
-  EXPECT_THAT(metadata.data_type, tensorstore::DataTypeOf<std::uint16_t>());
+  EXPECT_THAT(metadata.dtype, tensorstore::DataTypeOf<std::uint16_t>());
   EXPECT_THAT(metadata.axes, ::testing::ElementsAre("", "", ""));
   EXPECT_THAT(metadata.extra_attributes,
               MatchesJson(::nlohmann::json::object_t()));
@@ -208,7 +208,7 @@ TEST(MetadataTest, DataTypes) {
                                 {"compression", {{"type", "raw"}}}};
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
                                      N5Metadata::FromJson(attributes));
-    EXPECT_EQ(tensorstore::GetDataType(data_type_name), metadata.data_type);
+    EXPECT_EQ(tensorstore::GetDataType(data_type_name), metadata.dtype);
   }
 }
 

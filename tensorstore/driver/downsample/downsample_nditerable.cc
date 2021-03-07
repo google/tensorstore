@@ -630,8 +630,8 @@ struct AccumulateBufferImpl {
 constexpr std::array<std::array<DownsampleFunctions, kNumDataTypeIds>,
                      kNumDownsampleMethods>
     kDownsampleFunctions = MapDownsampleMethods([](auto method) {
-      return MapCanonicalDataTypes([](auto data_type) -> DownsampleFunctions {
-        using Element = typename decltype(data_type)::Element;
+      return MapCanonicalDataTypes([](auto dtype) -> DownsampleFunctions {
+        using Element = typename decltype(dtype)::Element;
         constexpr DownsampleMethod downsample_method = decltype(method)::value;
         using Traits = ReductionTraits<downsample_method, Element>;
         using AccumulateElement = typename Traits::AccumulateElement;
@@ -655,11 +655,11 @@ constexpr std::array<std::array<DownsampleFunctions, kNumDataTypeIds>,
     });
 
 inline const DownsampleFunctions& GetDownsampleFunctions(
-    DownsampleMethod downsample_method, DataType data_type) {
-  assert(data_type.id() != DataTypeId::custom);
+    DownsampleMethod downsample_method, DataType dtype) {
+  assert(dtype.id() != DataTypeId::custom);
   assert(downsample_method != DownsampleMethod::kStride);
   return kDownsampleFunctions[DownsampleMethodIndex(downsample_method)]
-                             [static_cast<int>(data_type.id())];
+                             [static_cast<int>(dtype.id())];
 }
 
 /// `NDIterator` implementation returned by `DownsampledNDIterable`.
@@ -964,7 +964,7 @@ class DownsampledNDIterable : public NDIterable::Base<DownsampledNDIterable> {
                                  DimensionIndex target_rank,
                                  ArenaAllocator<> allocator)
       : downsample_functions_(
-            GetDownsampleFunctions(downsample_method, base->data_type())),
+            GetDownsampleFunctions(downsample_method, base->dtype())),
         base_(std::array{std::move(base)}),
         base_rank_(downsample_factors.size()),
         target_rank_(target_rank),
@@ -1126,9 +1126,7 @@ class DownsampledNDIterable : public NDIterable::Base<DownsampledNDIterable> {
     return indices_buffer_.get_allocator();
   }
 
-  DataType data_type() const override {
-    return base_.iterables[0]->data_type();
-  }
+  DataType dtype() const override { return base_.iterables[0]->dtype(); }
 
   NDIterator::Ptr GetIterator(
       NDIterable::IterationBufferKindLayoutView layout) const override {
@@ -1168,7 +1166,7 @@ NDIterable::Ptr DownsampleNDIterable(NDIterable::Ptr base,
                                      internal::Arena* arena) {
   assert(base_domain.rank() == downsample_factors.size());
   assert(downsample_method != DownsampleMethod::kStride &&
-         IsDownsampleMethodSupported(base->data_type(), downsample_method));
+         IsDownsampleMethodSupported(base->dtype(), downsample_method));
   bool has_downsample_dim = false;
   for (DimensionIndex i = 0; i < base_domain.rank(); ++i) {
     if (downsample_factors[i] != 1 && base_domain.shape()[i] > 1) {
@@ -1186,20 +1184,20 @@ NDIterable::Ptr DownsampleNDIterable(NDIterable::Ptr base,
                              target_rank);
 }
 
-bool IsDownsampleMethodSupported(DataType data_type, DownsampleMethod method) {
+bool IsDownsampleMethodSupported(DataType dtype, DownsampleMethod method) {
   if (method == DownsampleMethod::kStride) return true;
-  if (!data_type.valid() || data_type.id() == DataTypeId::custom) return false;
-  return GetDownsampleFunctions(method, data_type).accumulate_data_type.valid();
+  if (!dtype.valid() || dtype.id() == DataTypeId::custom) return false;
+  return GetDownsampleFunctions(method, dtype).accumulate_data_type.valid();
 }
 
-absl::Status ValidateDownsampleMethod(DataType data_type,
+absl::Status ValidateDownsampleMethod(DataType dtype,
                                       DownsampleMethod downsample_method) {
-  if (IsDownsampleMethodSupported(data_type, downsample_method)) {
+  if (IsDownsampleMethodSupported(dtype, downsample_method)) {
     return absl::OkStatus();
   }
   return absl::InvalidArgumentError(
       tensorstore::StrCat("Downsample method \"", downsample_method,
-                          "\" does not support data type \"", data_type, "\""));
+                          "\" does not support data type \"", dtype, "\""));
 }
 
 }  // namespace internal_downsample

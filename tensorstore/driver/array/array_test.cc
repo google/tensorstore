@@ -84,7 +84,7 @@ TEST(ArrayDriverTest, ReadIntoNewArray) {
   auto future = tensorstore::internal::DriverRead(
       /*executor=*/tensorstore::InlineExecutor{},
       /*source=*/transformed_driver,
-      /*target_type=*/array.data_type(),
+      /*target_dtype=*/array.dtype(),
       /*target_layout_order=*/tensorstore::c_order,
       {/*.progress_function=*/[&read_progress](ReadProgress progress) {
         read_progress.push_back(progress);
@@ -319,7 +319,7 @@ TEST(FromArrayTest, ResolveBounds) {
 
   auto store2 = ResolveBounds(store).value();
   EXPECT_EQ(array.domain(), store2.domain().box());
-  EXPECT_EQ(tensorstore::DataTypeOf<int>(), store2.data_type());
+  EXPECT_EQ(tensorstore::DataTypeOf<int>(), store2.dtype());
   EXPECT_THAT(store2.domain().labels(), ::testing::ElementsAre("", ""));
 }
 
@@ -822,7 +822,7 @@ TEST(ArrayTest, SpecFromArray) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
                                    tensorstore::SpecFromArray(orig_array));
   EXPECT_EQ(1, spec.rank());
-  EXPECT_EQ(tensorstore::DataTypeOf<float>(), spec.data_type());
+  EXPECT_EQ(tensorstore::DataTypeOf<float>(), spec.dtype());
   EXPECT_THAT(spec.ToJson(tensorstore::IncludeContext{false}),
               ::testing::Optional(tensorstore::MatchesJson(::nlohmann::json{
                   {"driver", "array"},

@@ -62,8 +62,8 @@ extern const std::array<UnalignedDataTypeFunctions, kNumDataTypeIds>
 /// \param target Target array, does not have to be suitably aligned for its
 ///     data type.
 /// \param target_endian The target array endianness.
-/// \pre `source.data_type()` is a trivial data type.
-/// \dchecks `source.data_type() == target.data_type()`
+/// \pre `source.dtype()` is a trivial data type.
+/// \dchecks `source.dtype() == target.dtype()`
 /// \dchecks `source.shape() == target.shape()`
 void EncodeArray(ArrayView<const void> source, ArrayView<void> target,
                  endian target_endian);
@@ -78,8 +78,8 @@ void EncodeArray(ArrayView<const void> source, ArrayView<void> target,
 ///     have to be suitably aligned for its data type.
 /// \param source_endian The source array endianness.
 /// \param target Target array, assumed to be in the native endianness.
-/// \pre `source.data_type()` is a trivial data type.
-/// \dchecks `source.data_type() == target.data_type()`
+/// \pre `source.dtype()` is a trivial data type.
+/// \dchecks `source.dtype() == target.dtype()`
 /// \dchecks `source.shape() == target.shape()`
 void DecodeArray(ArrayView<const void> source, endian source_endian,
                  ArrayView<void> target);
@@ -117,7 +117,7 @@ SharedArrayView<void> CopyAndDecodeArray(ArrayView<const void> source,
                                          StridedLayoutView<> decoded_layout);
 
 /// Attempts to view the substring of `source` starting at `offset` as an array
-/// of the specified `data_type` and `layout`.
+/// of the specified `dtype` and `layout`.
 ///
 /// If `source` is already flattened, suitably aligned, and requires no
 /// conversion, then an array view that shares ownership with `source` is

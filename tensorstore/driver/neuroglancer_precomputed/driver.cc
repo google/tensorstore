@@ -115,8 +115,7 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
     for (int i = 0; i < 3; ++i) {
       chunk_layout_czyx_.shape()[1 + i] = chunk_size_xyz[2 - i];
     }
-    ComputeStrides(c_order, metadata.data_type.size(),
-                   chunk_layout_czyx_.shape(),
+    ComputeStrides(c_order, metadata.dtype.size(), chunk_layout_czyx_.shape(),
                    chunk_layout_czyx_.byte_strides());
   }
 
@@ -173,7 +172,7 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
     // Component dimension order is `[channel, z, y, x]`.
     SharedArray<const void> fill_value(
         internal::AllocateAndConstructSharedElements(1, value_init,
-                                                     metadata.data_type),
+                                                     metadata.dtype),
         StridedLayout<>(chunk_shape_czyx, GetConstantVector<Index, 0, 4>()));
     // Resizing is not supported.  Specifying the `component_bounds` permits
     // partial chunks at the upper bounds to be written unconditionally (which
@@ -355,9 +354,8 @@ class NeuroglancerPrecomputedDriver
         if constexpr (is_loading) {
           // TODO(jbms): Convert to use JSON binding framework for loading as
           // well.
-          TENSORSTORE_ASSIGN_OR_RETURN(
-              obj->open_constraints,
-              OpenConstraints::Parse(*j, obj->data_type));
+          TENSORSTORE_ASSIGN_OR_RETURN(obj->open_constraints,
+                                       OpenConstraints::Parse(*j, obj->dtype));
           // Erase members that were parsed to prevent error about extra
           // members.
           j->erase("scale_metadata");
@@ -532,10 +530,10 @@ class NeuroglancerPrecomputedDriver::OpenState
     const auto& metadata =
         *static_cast<const MultiscaleMetadata*>(metadata_ptr);
     // Check for compatibility
-    if (spec().data_type.valid() && spec().data_type != metadata.data_type) {
+    if (spec().dtype.valid() && spec().dtype != metadata.dtype) {
       return absl::FailedPreconditionError(
-          StrCat("Expected data type of ", spec().data_type,
-                 " but received: ", metadata.data_type));
+          StrCat("Expected data type of ", spec().dtype,
+                 " but received: ", metadata.dtype));
     }
     // FIXME: avoid copy by changing OpenScale to take separate arguments
     auto open_constraints = spec().open_constraints;

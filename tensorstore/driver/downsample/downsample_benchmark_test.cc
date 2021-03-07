@@ -38,7 +38,7 @@ using tensorstore::Index;
 using tensorstore::internal_downsample::DownsampleArray;
 using tensorstore::internal_downsample::DownsampleBounds;
 
-void BenchmarkDownsample(::benchmark::State& state, DataType data_type,
+void BenchmarkDownsample(::benchmark::State& state, DataType dtype,
                          DownsampleMethod downsample_method,
                          DimensionIndex rank, Index downsample_factor,
                          Index block_size) {
@@ -47,13 +47,13 @@ void BenchmarkDownsample(::benchmark::State& state, DataType data_type,
   absl::BitGen gen;
   BoxView<> base_domain(block_shape);
   auto base_array =
-      tensorstore::internal::MakeRandomArray(gen, base_domain, data_type);
+      tensorstore::internal::MakeRandomArray(gen, base_domain, dtype);
   Box<> downsampled_domain(rank);
   DownsampleBounds(base_domain, downsampled_domain, downsample_factors,
                    downsample_method);
   auto downsampled_array =
       tensorstore::AllocateArray(downsampled_domain, tensorstore::c_order,
-                                 tensorstore::default_init, data_type);
+                                 tensorstore::default_init, dtype);
   const Index num_elements = base_domain.num_elements();
   Index total_elements = 0;
   while (state.KeepRunningBatch(num_elements)) {
@@ -66,7 +66,7 @@ void BenchmarkDownsample(::benchmark::State& state, DataType data_type,
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {
-  for (const DataType data_type : tensorstore::kDataTypes) {
+  for (const DataType dtype : tensorstore::kDataTypes) {
     for (const DownsampleMethod downsample_method :
          {DownsampleMethod::kStride, DownsampleMethod::kMean,
           DownsampleMethod::kMedian, DownsampleMethod::kMode,
@@ -74,19 +74,19 @@ TENSORSTORE_GLOBAL_INITIALIZER {
           // Skip `kMax` because it is redundant with `kMin`.
           /*DownsampleMethod::kMax*/}) {
       if (!tensorstore::internal_downsample::IsDownsampleMethodSupported(
-              data_type, downsample_method)) {
+              dtype, downsample_method)) {
         continue;
       }
       for (const DimensionIndex rank : {1, 2, 3}) {
         for (const Index downsample_factor : {2, 3}) {
           for (const Index block_size : {16, 32, 64, 128, 256}) {
             ::benchmark::RegisterBenchmark(
-                tensorstore::StrCat("DownsampleArray_", data_type, "_",
+                tensorstore::StrCat("DownsampleArray_", dtype, "_",
                                     downsample_method, "_Rank", rank, "_Factor",
                                     downsample_factor, "_BlockSize", block_size)
                     .c_str(),
                 [=](auto& state) {
-                  BenchmarkDownsample(state, data_type, downsample_method, rank,
+                  BenchmarkDownsample(state, dtype, downsample_method, rank,
                                       downsample_factor, block_size);
                 });
           }

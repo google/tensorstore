@@ -132,7 +132,7 @@ struct ScaleMetadata {
 struct MultiscaleMetadata {
  public:
   std::string type;
-  DataType data_type;
+  DataType dtype;
   Index num_channels;
   std::vector<ScaleMetadata> scales;
   /// The full JSON representation, including (redundantly) the JSON
@@ -152,7 +152,7 @@ struct MultiscaleMetadata {
 /// opening/creating a multiscale volume.
 struct MultiscaleMetadataConstraints {
   std::optional<std::string> type;
-  DataType data_type;
+  DataType dtype;
   std::optional<Index> num_channels;
   static Result<MultiscaleMetadataConstraints> Parse(const ::nlohmann::json& j);
 };
@@ -169,7 +169,7 @@ struct ScaleMetadataConstraints {
   std::optional<std::array<Index, 3>> compressed_segmentation_block_size;
   std::optional<std::variant<NoShardingSpec, ShardingSpec>> sharding;
   static Result<ScaleMetadataConstraints> Parse(
-      const ::nlohmann::json& j, DataType data_type,
+      const ::nlohmann::json& j, DataType dtype,
       std::optional<Index> num_channels);
 };
 
@@ -237,11 +237,11 @@ Result<std::size_t> OpenScale(const MultiscaleMetadata& metadata,
 std::string ResolveScaleKey(absl::string_view key_prefix,
                             absl::string_view scale_key);
 
-/// Validates that `data_type` is supported by the Neuroglancer precomputed
+/// Validates that `dtype` is supported by the Neuroglancer precomputed
 /// format.
 ///
-/// \dchecks `data_type.valid()`
-Status ValidateDataType(DataType data_type);
+/// \dchecks `dtype.valid()`
+Status ValidateDataType(DataType dtype);
 
 /// Returns the number of bits used for each index in the compressed Z index
 /// representation of chunk indices.

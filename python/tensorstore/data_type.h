@@ -126,11 +126,11 @@ DataType GetDataTypeOrThrow(absl::string_view name);
 /// Returns the corresponding NumPy dtype.
 ///
 /// \throws `pybind11::value_error` if there is no corresponding NumPy dtype.
-pybind11::dtype GetNumpyDtypeOrThrow(DataType data_type);
+pybind11::dtype GetNumpyDtypeOrThrow(DataType dtype);
 
 /// Returns the corresponding NumPy type number, or `-1` if there is no
 /// corresponding type number.
-int GetNumpyTypeNum(DataType data_type);
+int GetNumpyTypeNum(DataType dtype);
 
 /// Returns the NumPy dtype for the specified type number.
 ///

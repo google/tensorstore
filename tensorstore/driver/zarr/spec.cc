@@ -141,10 +141,10 @@ Result<std::size_t> GetCompatibleField(const ZarrDType& dtype,
   TENSORSTORE_ASSIGN_OR_RETURN(std::size_t field_index,
                                GetFieldIndex(dtype, selected_field));
   auto& field = dtype.fields[field_index];
-  if (data_type_constraint.valid() && data_type_constraint != field.data_type) {
+  if (data_type_constraint.valid() && data_type_constraint != field.dtype) {
     return absl::FailedPreconditionError(StrCat(
         "Expected field to have data type of ", data_type_constraint.name(),
-        " but the actual data type is: ", field.data_type.name()));
+        " but the actual data type is: ", field.dtype.name()));
   }
   return field_index;
 }
