@@ -162,7 +162,7 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
   const std::array<std::ptrdiff_t, 2> element_sizes{array.dtype()->size,
                                                     array.dtype()->size};
 
-  const bool success =
+  [[maybe_unused]] const bool success =
       IterateUsingSimplifiedLayout<2>(layout, span(result_shape, input_rank),
                                       {&array.dtype()->copy_assign, nullptr},
                                       /*status=*/nullptr, single_array_states,

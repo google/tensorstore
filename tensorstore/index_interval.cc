@@ -232,7 +232,7 @@ Result<IndexInterval> ShiftIntervalTo(IndexInterval interval, Index origin) {
   }
   // Guaranteed not to overflow because `IsFiniteIndex(origin) == true`.
   Index offset;
-  const bool overflow =
+  [[maybe_unused]] const bool overflow =
       internal::SubOverflow(origin, interval.inclusive_min(), &offset);
   assert(!overflow);
   return ShiftInterval(interval, offset);

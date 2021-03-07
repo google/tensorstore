@@ -475,7 +475,7 @@ Status ReplaceZeroRankIndexArrayIndexMap(Index index, IndexInterval bounds,
 TransformRep::Ptr<> GetSubDomain(TransformRep* rep,
                                  span<const DimensionIndex> dims) {
   assert(rep);
-  const DimensionIndex old_rank = rep->input_rank;
+  [[maybe_unused]] const DimensionIndex old_rank = rep->input_rank;
   const DimensionIndex new_rank = dims.size();
   auto new_rep = TransformRep::Allocate(new_rank, 0);
   new_rep->output_rank = 0;
