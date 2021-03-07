@@ -89,6 +89,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -96,7 +97,6 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
-#include "absl/strings/string_view.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
@@ -170,7 +170,7 @@ using internal_file_util::UniqueFileDescriptor;
 
 namespace jb = tensorstore::internal::json_binding;
 
-Status ValidateKey(absl::string_view key) {
+Status ValidateKey(std::string_view key) {
   if (!IsKeyValid(key, kLockSuffix)) {
     return absl::InvalidArgumentError(
         absl::StrCat("Invalid key: ", tensorstore::QuoteString(key)));
@@ -193,8 +193,8 @@ StorageGeneration GetFileGeneration(const FileInfo& info) {
 
 /// Returns a Status for the current errno value. The message is composed
 /// by catenation of the provided string parts.
-Status StatusFromErrno(absl::string_view a = {}, absl::string_view b = {},
-                       absl::string_view c = {}, absl::string_view d = {}) {
+Status StatusFromErrno(std::string_view a = {}, std::string_view b = {},
+                       std::string_view c = {}, std::string_view d = {}) {
   return StatusFromOsError(GetLastErrorCode(), a, b, c, d);
 }
 
@@ -575,7 +575,7 @@ struct PathRangeVisitor {
       }
       bool fully_contained = pending_dirs.back().fully_contained;
       if (auto& iterator = *pending_dirs.back().iterator; iterator.Next()) {
-        const absl::string_view name_view = iterator.path_component();
+        const std::string_view name_view = iterator.path_component();
         if (name_view != "." && name_view != "..") {
           if (iterator.is_directory()) {
             if (fully_contained ||
@@ -828,7 +828,7 @@ class FileKeyValueStore
   const Executor& executor() { return spec_.file_io_concurrency->executor; }
   const std::string& root() { return spec_.path; }
 
-  std::string DescribeKey(absl::string_view key) override {
+  std::string DescribeKey(std::string_view key) override {
     return tensorstore::StrCat(
         "local file ",
         tensorstore::QuoteString(internal::JoinPath(root(), key)));

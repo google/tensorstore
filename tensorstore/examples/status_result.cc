@@ -92,7 +92,7 @@ Result<std::unique_ptr<CopyOnly>> MakeCopyFactory(int x) {
     return Result<std::unique_ptr<CopyOnly>>{new CopyOnly(x)};
   }
   if (x % 5 == 1) {
-    return absl::make_unique<CopyOnly>(x);
+    return std::make_unique<CopyOnly>(x);
   }
   return absl::UnknownError("no factory");
 }

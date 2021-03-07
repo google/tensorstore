@@ -129,7 +129,7 @@ Result<ZarrDType> ParseDType(const ::nlohmann::json& value);
 /// Parses a NumPy typestr, which is used in the zarr "dtype" specification.
 ///
 /// \error `absl::StatusCode::kInvalidArgument` if `dtype` is not valid.
-Result<ZarrDType::BaseDType> ParseBaseDType(absl::string_view dtype);
+Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype);
 
 }  // namespace internal_zarr
 }  // namespace tensorstore

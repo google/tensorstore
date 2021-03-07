@@ -18,8 +18,8 @@
 
 namespace tensorstore {
 namespace internal_cast {
-Status CastError(absl::string_view source_description,
-                 absl::string_view target_description) {
+Status CastError(std::string_view source_description,
+                 std::string_view target_description) {
   return absl::InvalidArgumentError(
       StrCat("Cannot cast ", source_description, " to ", target_description));
 }

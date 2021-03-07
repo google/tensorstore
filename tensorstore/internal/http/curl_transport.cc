@@ -19,11 +19,11 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 
 #include "absl/status/status.h"
-#include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include <curl/curl.h>
@@ -185,7 +185,7 @@ struct CurlRequestState {
     CurlEasySetopt(handle_.get(), CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
   }
 
-  size_t WriteCallback(absl::string_view data) {
+  size_t WriteCallback(std::string_view data) {
     response_.payload.Append(data);
     return data.size();
   }
@@ -214,7 +214,7 @@ struct CurlRequestState {
     return CURL_SEEKFUNC_OK;
   }
 
-  size_t HeaderCallback(absl::string_view data) {
+  size_t HeaderCallback(std::string_view data) {
     return AppendHeaderData(response_.headers, data);
   }
 
@@ -235,7 +235,7 @@ struct CurlRequestState {
   static std::size_t CurlWriteCallback(void* contents, std::size_t size,
                                        std::size_t nmemb, void* userdata) {
     return static_cast<CurlRequestState*>(userdata)->WriteCallback(
-        absl::string_view(static_cast<char const*>(contents), size * nmemb));
+        std::string_view(static_cast<char const*>(contents), size * nmemb));
   }
 
   static std::size_t CurlReadCallback(void* contents, std::size_t size,
@@ -252,7 +252,7 @@ struct CurlRequestState {
   static std::size_t CurlHeaderCallback(void* contents, std::size_t size,
                                         std::size_t nmemb, void* userdata) {
     return static_cast<CurlRequestState*>(userdata)->HeaderCallback(
-        absl::string_view(static_cast<char const*>(contents), size * nmemb));
+        std::string_view(static_cast<char const*>(contents), size * nmemb));
   }
 };
 
@@ -296,7 +296,7 @@ class MultiTransportImpl {
 Future<HttpResponse> MultiTransportImpl::StartRequest(
     const HttpRequest& request, absl::Cord payload,
     absl::Duration request_timeout, absl::Duration connect_timeout) {
-  auto state = absl::make_unique<CurlRequestState>(factory_.get());
+  auto state = std::make_unique<CurlRequestState>(factory_.get());
   state->Setup(request, std::move(payload), request_timeout, connect_timeout);
   state->SetHTTP2();
 
@@ -424,7 +424,7 @@ class CurlTransport::Impl : public MultiTransportImpl {
 };
 
 CurlTransport::CurlTransport(std::shared_ptr<CurlHandleFactory> factory)
-    : impl_(absl::make_unique<Impl>(std::move(factory))) {}
+    : impl_(std::make_unique<Impl>(std::move(factory))) {}
 
 CurlTransport::~CurlTransport() = default;
 

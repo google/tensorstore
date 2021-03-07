@@ -23,8 +23,8 @@
 
 #include <map>
 #include <string>
+#include <string_view>
 
-#include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/kvstore/key_value_store.h"
@@ -73,7 +73,7 @@ struct ObjectMetadata {
   //   owner, acl, customer_encryption, metadata.
 };
 
-Result<ObjectMetadata> ParseObjectMetadata(absl::string_view source);
+Result<ObjectMetadata> ParseObjectMetadata(std::string_view source);
 
 void SetObjectMetadata(const ::nlohmann::json& json, ObjectMetadata* result);
 

@@ -17,9 +17,9 @@
 
 #include <functional>
 #include <string>
+#include <string_view>
 
 #include <gtest/gtest.h>
-#include "absl/strings/string_view.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {

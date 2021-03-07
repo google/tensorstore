@@ -18,12 +18,11 @@
 #include <cassert>
 #include <memory>
 #include <new>
+#include <type_traits>
 #include <utility>
 
 #include "absl/base/attributes.h"
-#include "absl/base/macros.h"
 #include "absl/container/fixed_array.h"
-#include "absl/meta/type_traits.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
@@ -72,7 +71,7 @@ struct SetMaskAndCountChanged {
 };
 
 bool IsHullEqualToUnion(BoxView<> a, BoxView<> b) {
-  ABSL_ASSERT(a.rank() == b.rank());
+  assert(a.rank() == b.rank());
 
   Index hull_num_elements = 1, a_num_elements = 1, b_num_elements = 1,
         intersection_num_elements = 1;
@@ -95,7 +94,7 @@ bool IsHullEqualToUnion(BoxView<> a, BoxView<> b) {
 
 void Hull(BoxView<> a, BoxView<> b, MutableBoxView<> out) {
   const DimensionIndex rank = out.rank();
-  ABSL_ASSERT(a.rank() == rank && b.rank() == rank);
+  assert(a.rank() == rank && b.rank() == rank);
   for (DimensionIndex i = 0; i < rank; ++i) {
     out[i] = Hull(a[i], b[i]);
   }
@@ -103,7 +102,7 @@ void Hull(BoxView<> a, BoxView<> b, MutableBoxView<> out) {
 
 void Intersect(BoxView<> a, BoxView<> b, MutableBoxView<> out) {
   const DimensionIndex rank = out.rank();
-  ABSL_ASSERT(a.rank() == rank && b.rank() == rank);
+  assert(a.rank() == rank && b.rank() == rank);
   for (DimensionIndex i = 0; i < rank; ++i) {
     out[i] = Intersect(a[i], b[i]);
   }
@@ -112,8 +111,8 @@ void Intersect(BoxView<> a, BoxView<> b, MutableBoxView<> out) {
 Index GetRelativeOffset(span<const Index> base, span<const Index> position,
                         span<const Index> strides) {
   const DimensionIndex rank = base.size();
-  ABSL_ASSERT(rank == position.size());
-  ABSL_ASSERT(rank == strides.size());
+  assert(rank == position.size());
+  assert(rank == strides.size());
   Index result = 0;
   for (DimensionIndex i = 0; i < rank; ++i) {
     result = internal::wrap_on_overflow::Add(
@@ -152,12 +151,12 @@ std::unique_ptr<bool[], FreeDeleter> CreateMaskArray(
 
 void CreateMaskArrayFromRegion(BoxView<> box, MaskData* mask,
                                span<const Index> byte_strides) {
-  ABSL_ASSERT(mask->num_masked_elements == mask->region.num_elements());
+  assert(mask->num_masked_elements == mask->region.num_elements());
   mask->mask_array = CreateMaskArray(box, mask->region, byte_strides);
 }
 
 void UnionMasks(BoxView<> box, MaskData* mask_a, MaskData* mask_b) {
-  ABSL_ASSERT(mask_a != mask_b);  // May work but not supported.
+  assert(mask_a != mask_b);  // May work but not supported.
   if (mask_a->num_masked_elements == 0) {
     std::swap(*mask_a, *mask_b);
     return;
@@ -165,8 +164,8 @@ void UnionMasks(BoxView<> box, MaskData* mask_a, MaskData* mask_b) {
     return;
   }
   const DimensionIndex rank = box.rank();
-  ABSL_ASSERT(mask_a->region.rank() == rank);
-  ABSL_ASSERT(mask_b->region.rank() == rank);
+  assert(mask_a->region.rank() == rank);
+  assert(mask_b->region.rank() == rank);
 
   if (mask_a->mask_array && mask_b->mask_array) {
     const Index size = box.num_elements();
@@ -217,8 +216,8 @@ void UnionMasks(BoxView<> box, MaskData* mask_a, MaskData* mask_b) {
 
 void RebaseMaskedArray(BoxView<> box, ArrayView<const void> source,
                        ElementPointer<void> dest_ptr, const MaskData& mask) {
-  ABSL_ASSERT(source.dtype() == dest_ptr.dtype());
-  ABSL_ASSERT(internal::RangesEqual(box.shape(), source.shape()));
+  assert(source.dtype() == dest_ptr.dtype());
+  assert(internal::RangesEqual(box.shape(), source.shape()));
   const Index num_elements = box.num_elements();
   if (mask.num_masked_elements == num_elements) return;
   DataType r = source.dtype();
@@ -228,12 +227,11 @@ void RebaseMaskedArray(BoxView<> box, ArrayView<const void> source,
   ArrayView<void> dest_array(
       dest_ptr, StridedLayoutView<>(box.shape(), dest_byte_strides));
   if (mask.num_masked_elements == 0) {
-    const auto iterate_result ABSL_ATTRIBUTE_UNUSED =
-        internal::IterateOverArrays({&r->copy_assign,
-                                     /*context=*/nullptr},
-                                    /*status=*/nullptr, skip_repeated_elements,
-                                    source, dest_array);
-    ABSL_ASSERT(iterate_result.success);
+    [[maybe_unused]] const auto iterate_result = internal::IterateOverArrays(
+        {&r->copy_assign,
+         /*context=*/nullptr},
+        /*status=*/nullptr, skip_repeated_elements, source, dest_array);
+    assert(iterate_result.success);
     return;
   }
   absl::FixedArray<Index, kNumInlinedDims> mask_byte_strides(box.rank());
@@ -249,10 +247,10 @@ void RebaseMaskedArray(BoxView<> box, ArrayView<const void> source,
   }
   ArrayView<const bool> mask_array(
       mask_array_ptr, StridedLayoutView<>(box.shape(), mask_byte_strides));
-  const auto iterate_result ABSL_ATTRIBUTE_UNUSED = internal::IterateOverArrays(
+  [[maybe_unused]] const auto iterate_result = internal::IterateOverArrays(
       {&r->copy_assign_unmasked, /*context=*/nullptr}, /*status=*/nullptr,
       skip_repeated_elements, source, dest_array, mask_array);
-  ABSL_ASSERT(iterate_result.success);
+  assert(iterate_result.success);
 }
 
 bool WriteToMask(MaskData* mask, BoxView<> output_box,

@@ -21,13 +21,13 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <typeindex>
 #include <utility>
 
 #include "absl/base/call_once.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/internal/cache_pool_limits.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
@@ -76,14 +76,14 @@ class CacheImpl {
   virtual ~CacheImpl();
   using Entry = CacheEntryImpl;
   /// Helper type to support heterogeneous lookup using either a
-  /// `CacheEntryImpl*` or an `absl::string_view`.
-  class EntryKey : public absl::string_view {
-    using Base = absl::string_view;
+  /// `CacheEntryImpl*` or an `std::string_view`.
+  class EntryKey : public std::string_view {
+    using Base = std::string_view;
 
    public:
     using Base::Base;
     EntryKey(CacheEntryImpl* entry) : Base(entry->key_) {}
-    EntryKey(absl::string_view key) : Base(key) {}
+    EntryKey(std::string_view key) : Base(key) {}
   };
 
   struct EntryKeyHash : public absl::Hash<EntryKey> {
@@ -128,8 +128,8 @@ class CachePoolImpl {
   explicit CachePoolImpl(const CachePoolLimits& limits);
 
   /// Key type used for looking up a Cache within a CachePool.
-  class CacheKey : public std::pair<std::type_index, absl::string_view> {
-    using Base = std::pair<std::type_index, absl::string_view>;
+  class CacheKey : public std::pair<std::type_index, std::string_view> {
+    using Base = std::pair<std::type_index, std::string_view>;
 
    public:
     using Base::Base;
@@ -228,11 +228,11 @@ using CachePoolWeakPtr =
 
 CachePtr<Cache> GetCacheInternal(
     CachePoolImpl* pool, const std::type_info& cache_type,
-    absl::string_view cache_key,
+    std::string_view cache_key,
     FunctionView<std::unique_ptr<Cache>()> make_cache);
 
 CacheEntryStrongPtr<CacheEntry> GetCacheEntryInternal(internal::Cache* cache,
-                                                      absl::string_view key);
+                                                      std::string_view key);
 
 }  // namespace internal_cache
 }  // namespace tensorstore

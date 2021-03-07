@@ -15,12 +15,12 @@
 #include "tensorstore/util/future.h"
 
 #include <atomic>
+#include <cassert>
 #include <new>
 #include <thread>  // NOLINT
 
 #include "absl/base/attributes.h"
 #include "absl/base/const_init.h"
-#include "absl/base/macros.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_linked_list.h"
@@ -59,7 +59,7 @@ namespace {
 /// \dchecks `callback->reference_count_.load() >= 2`.
 /// \returns A reference to `callback`.
 CallbackPointer MakeUnregisteredCallbackPointer(CallbackBase* callback) {
-  ABSL_ASSERT(callback->reference_count_.load(std::memory_order_relaxed) >= 2);
+  assert(callback->reference_count_.load(std::memory_order_relaxed) >= 2);
   callback->next = callback->prev = callback;
   callback->reference_count_.fetch_sub(1, std::memory_order_relaxed);
   return CallbackPointer(callback, internal::adopt_object_ref);
@@ -69,7 +69,7 @@ CallbackPointer MakeUnregisteredCallbackPointer(CallbackBase* callback) {
 
 CallbackPointer FutureStateBase::RegisterReadyCallback(
     ReadyCallbackBase* callback) {
-  ABSL_ASSERT(callback->reference_count_.load(std::memory_order_relaxed) >= 2);
+  assert(callback->reference_count_.load(std::memory_order_relaxed) >= 2);
   {
     absl::MutexLock lock(GetMutex(this));
     if (!this->ready()) {
@@ -83,7 +83,7 @@ CallbackPointer FutureStateBase::RegisterReadyCallback(
 
 CallbackPointer FutureStateBase::RegisterNotNeededCallback(
     ResultNotNeededCallbackBase* callback) {
-  ABSL_ASSERT(callback->reference_count_.load(std::memory_order_relaxed) >= 2);
+  assert(callback->reference_count_.load(std::memory_order_relaxed) >= 2);
   {
     absl::MutexLock lock(GetMutex(this));
     if (result_needed()) {
@@ -97,7 +97,7 @@ CallbackPointer FutureStateBase::RegisterNotNeededCallback(
 
 CallbackPointer FutureStateBase::RegisterForceCallback(
     ForceCallbackBase* callback) {
-  ABSL_ASSERT(callback->reference_count_.load(std::memory_order_relaxed) >= 2);
+  assert(callback->reference_count_.load(std::memory_order_relaxed) >= 2);
   auto* mutex = GetMutex(this);
   {
     absl::MutexLock lock(mutex);
@@ -305,8 +305,7 @@ void RunForceCallbacks(FutureStateBase* shared_state) {
             InsertBefore(CallbackListAccessor{}, head, prev_node.release());
           }
         } else {
-          ABSL_ASSERT(prev_node->callback_type() ==
-                      CallbackBase::kForceCallback);
+          assert(prev_node->callback_type() == CallbackBase::kForceCallback);
           // A `kForceCallback` is always unregistered immediately after calling
           // `OnForced`.
           prev_node->next = prev_node.get();
@@ -420,7 +419,7 @@ bool FutureStateBase::LockResult() noexcept {
 
 bool FutureStateBase::CommitResult() noexcept {
   const StateValue prior_state = state_.fetch_or(kReady);
-  ABSL_ASSERT(prior_state & kResultLocked);
+  assert(prior_state & kResultLocked);
   if (prior_state & kReady) return false;
   RunReadyCallbacks(this);
   return true;
@@ -455,8 +454,8 @@ void FutureStateBase::Wait() noexcept {
 }
 
 FutureStateBase::~FutureStateBase() {
-  ABSL_ASSERT(promise_callbacks_.next == &promise_callbacks_);
-  ABSL_ASSERT(ready_callbacks_.next == &ready_callbacks_);
+  assert(promise_callbacks_.next == &promise_callbacks_);
+  assert(ready_callbacks_.next == &ready_callbacks_);
 }
 
 }  // namespace internal_future

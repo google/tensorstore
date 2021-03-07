@@ -48,7 +48,7 @@ class TestAuthProvider : public OAuth2AuthProvider {
         time(absl::Now()),
         idx(0) {}
 
-  virtual Result<HttpResponse> IssueRequest(absl::string_view uri,
+  virtual Result<HttpResponse> IssueRequest(std::string_view uri,
                                             absl::Cord body) {
     request.push_back(std::make_pair(std::string(uri), std::string(body)));
     if (responses.count(idx) != 0) {

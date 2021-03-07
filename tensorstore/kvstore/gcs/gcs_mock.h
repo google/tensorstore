@@ -20,10 +20,10 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <variant>
 
-#include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
-#include "absl/types/variant.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -45,7 +45,7 @@ class GCSMockStorageBucket {
     int64_t generation;
   };
 
-  using ParamMap = std::map<absl::string_view, std::string>;
+  using ParamMap = std::map<std::string_view, std::string>;
 
   virtual ~GCSMockStorageBucket();
 
@@ -58,7 +58,7 @@ class GCSMockStorageBucket {
   ///     for an exact project id is a mock version of the actual check done by
   ///     GCS that the specified project ID has billing enabled.
   GCSMockStorageBucket(
-      absl::string_view bucket,
+      std::string_view bucket,
       std::optional<std::string> requestor_pays_project_id = std::nullopt);
 
   // Implement the HttpTransport::IssueRequest interface.
@@ -68,25 +68,25 @@ class GCSMockStorageBucket {
       absl::Duration request_timeout, absl::Duration connect_timeout);
 
   // Main entry-point for matching requests.
-  absl::variant<absl::monostate, internal_http::HttpResponse, Status> Match(
+  std::variant<std::monostate, internal_http::HttpResponse, Status> Match(
       const internal_http::HttpRequest& request, absl::Cord payload);
 
   // List objects in the bucket.
-  absl::variant<absl::monostate, internal_http::HttpResponse, Status>
-  HandleListRequest(absl::string_view path, const ParamMap& params);
+  std::variant<std::monostate, internal_http::HttpResponse, Status>
+  HandleListRequest(std::string_view path, const ParamMap& params);
 
   // Insert an object into the bucket.
-  absl::variant<absl::monostate, internal_http::HttpResponse, Status>
-  HandleInsertRequest(absl::string_view path, const ParamMap& params,
+  std::variant<std::monostate, internal_http::HttpResponse, Status>
+  HandleInsertRequest(std::string_view path, const ParamMap& params,
                       absl::Cord payload);
 
   // Get an object, which might be the data or the metadata.
-  absl::variant<absl::monostate, internal_http::HttpResponse, Status>
-  HandleGetRequest(absl::string_view path, const ParamMap& params);
+  std::variant<std::monostate, internal_http::HttpResponse, Status>
+  HandleGetRequest(std::string_view path, const ParamMap& params);
 
   // Delete an object.
-  absl::variant<absl::monostate, internal_http::HttpResponse, Status>
-  HandleDeleteRequest(absl::string_view path, const ParamMap& params);
+  std::variant<std::monostate, internal_http::HttpResponse, Status>
+  HandleDeleteRequest(std::string_view path, const ParamMap& params);
 
   // Construct an ojbect metadata response.
   internal_http::HttpResponse ObjectMetadataResponse(const Object& object);

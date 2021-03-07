@@ -15,12 +15,12 @@
 #ifndef TENSORSTORE_INTERNAL_STRING_LIKE_H_
 #define TENSORSTORE_INTERNAL_STRING_LIKE_H_
 
+#include <cassert>
 #include <cstddef>
 #include <string>
+#include <string_view>
 #include <type_traits>
 
-#include "absl/base/macros.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/span.h"
 
@@ -28,12 +28,12 @@ namespace tensorstore {
 namespace internal {
 
 /// Bool-valued metafunction equal to `true` iff `T` is `std::string`,
-/// `absl::string_view`, or `const char *`.
+/// `std::string_view`, or `const char *`.
 template <typename T>
 struct IsStringLike : public std::false_type {};
 
 template <>
-struct IsStringLike<absl::string_view> : public std::true_type {};
+struct IsStringLike<std::string_view> : public std::true_type {};
 
 template <>
 struct IsStringLike<std::string> : public std::true_type {};
@@ -41,7 +41,7 @@ struct IsStringLike<std::string> : public std::true_type {};
 template <>
 struct IsStringLike<const char*> : public std::true_type {};
 
-/// Holds a span of `std::string`, `absl::string_view`, or `const char *`.
+/// Holds a span of `std::string`, `std::string_view`, or `const char *`.
 class StringLikeSpan {
  public:
   StringLikeSpan() = default;
@@ -52,12 +52,12 @@ class StringLikeSpan {
   StringLikeSpan(span<const std::string> strings)
       : strings_(strings.data()), size_and_tag_((strings.size() << 2) | 1) {}
 
-  StringLikeSpan(span<const absl::string_view> string_views)
+  StringLikeSpan(span<const std::string_view> string_views)
       : string_views_(string_views.data()),
         size_and_tag_((string_views.size() << 2) | 2) {}
 
-  absl::string_view operator[](std::ptrdiff_t i) const {
-    ABSL_ASSERT(i >= 0 && i < size());
+  std::string_view operator[](std::ptrdiff_t i) const {
+    assert(i >= 0 && i < size());
     switch (size_and_tag_ & 3) {
       case 0:
         return c_strings_[i];
@@ -77,7 +77,7 @@ class StringLikeSpan {
   union {
     const char* const* c_strings_;
     const std::string* strings_;
-    const absl::string_view* string_views_;
+    const std::string_view* string_views_;
   };
   std::ptrdiff_t size_and_tag_ = 0;
 };

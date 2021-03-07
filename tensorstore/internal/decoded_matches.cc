@@ -17,10 +17,10 @@
 #include <functional>
 #include <ostream>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include <gtest/gtest.h>
-#include "absl/strings/string_view.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {

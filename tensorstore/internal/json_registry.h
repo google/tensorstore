@@ -27,12 +27,12 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <typeindex>
 #include <typeinfo>
 
 #include "absl/status/status.h"
-#include "absl/strings/string_view.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json.h"
@@ -141,7 +141,7 @@ class JsonRegistry {
   /// \param binder JSON object binder for `T` compatible with `LoadOptions` and
   ///     `SaveOptions`.
   template <typename T, typename Binder>
-  void Register(absl::string_view id, Binder binder) {
+  void Register(std::string_view id, Binder binder) {
     static_assert(std::is_base_of_v<Base, T>);
     auto entry =
         std::make_unique<internal_json_registry::JsonRegistryImpl::Entry>();

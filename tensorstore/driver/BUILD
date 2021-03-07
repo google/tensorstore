@@ -78,7 +78,6 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:sender",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -198,7 +197,6 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/container:inlined_vector",
-        "@com_google_absl//absl/strings",
     ],
 )
 

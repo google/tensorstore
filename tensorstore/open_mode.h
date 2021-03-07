@@ -97,7 +97,7 @@ constexpr inline bool IsModeExplicitlyConvertible(ReadWriteMode source,
           source == ReadWriteMode::dynamic || (target & source) == target);
 }
 
-absl::string_view to_string(ReadWriteMode mode);
+std::string_view to_string(ReadWriteMode mode);
 std::ostream& operator<<(std::ostream& os, ReadWriteMode mode);
 
 /// Indicates a minimal spec, i.e. missing information necessary to recreate.

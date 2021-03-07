@@ -119,7 +119,7 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
   absl::FixedArray<flags::Bitmask, kNumInlinedDims> input_dimension_flags(
       input_rank,
       flags::GetDefaultBitmask(constraints.repeated_elements_constraint()));
-  std::array<absl::optional<internal_index_space::SingleArrayIterationState>,
+  std::array<std::optional<internal_index_space::SingleArrayIterationState>,
              Arity>
       single_array_states;
 

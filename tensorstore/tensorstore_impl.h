@@ -129,7 +129,7 @@ struct AreElementTypesCompatible<
 ///
 /// Used to specify the return type of `tensorstore::Read`.
 template <typename Source, typename Dest, typename X>
-using EnableIfCanCopyTensorStoreToArray = absl::enable_if_t<
+using EnableIfCanCopyTensorStoreToArray = std::enable_if_t<
     (IsTensorStoreThatSupportsMode<Source, ReadWriteMode::read>::value &&
      IsTransformedArrayLike<Dest>::value && IsNonConstArrayLike<Dest>::value &&
      AreElementTypesCompatible<Source, Dest>::value),
@@ -140,7 +140,7 @@ using EnableIfCanCopyTensorStoreToArray = absl::enable_if_t<
 ///
 /// Used to specify the return type of `tensorstore::Write`.
 template <typename Source, typename Dest, typename X>
-using EnableIfCanCopyArrayToTensorStore = absl::enable_if_t<
+using EnableIfCanCopyArrayToTensorStore = std::enable_if_t<
     (IsTensorStoreThatSupportsMode<Dest, ReadWriteMode::write>::value &&
      IsTransformedArrayLike<Source>::value &&
      AreElementTypesCompatible<Source, Dest>::value),
@@ -151,7 +151,7 @@ using EnableIfCanCopyArrayToTensorStore = absl::enable_if_t<
 ///
 /// Used to specify the return type of `tensorstore::Copy`.
 template <typename Source, typename Dest, typename X>
-using EnableIfCanCopyTensorStoreToTensorStore = absl::enable_if_t<
+using EnableIfCanCopyTensorStoreToTensorStore = std::enable_if_t<
     (IsTensorStoreThatSupportsMode<Source, ReadWriteMode::read>::value &&
      IsTensorStoreThatSupportsMode<Dest, ReadWriteMode::write>::value &&
      AreElementTypesCompatible<Source, Dest>::value),
@@ -160,7 +160,7 @@ using EnableIfCanCopyTensorStoreToTensorStore = absl::enable_if_t<
 /// Evaluates to the return type of `Read` (for a new target array) if the
 /// constrains are satisfied.
 template <ArrayOriginKind OriginKind, typename Store>
-using ReadTensorStoreIntoNewArrayResult = absl::enable_if_t<
+using ReadTensorStoreIntoNewArrayResult = std::enable_if_t<
     internal::IsTensorStoreThatSupportsMode<Store, ReadWriteMode::read>::value,
     Future<
         SharedArray<typename Store::Element, Store::static_rank, OriginKind>>>;

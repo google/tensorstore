@@ -43,7 +43,7 @@ void ExtractDiagonal(TransformRep* original, TransformRep* result,
   const DimensionIndex output_rank = original->output_rank;
   const DimensionIndex new_input_rank =
       orig_input_rank - dimensions->size() + 1;
-  ABSL_ASSERT(result->input_rank_capacity >= new_input_rank);
+  assert(result->input_rank_capacity >= new_input_rank);
   // Input dimension of the new transform corresponding to the diagonal.
   const DimensionIndex diag_input_dim = 0;
   // Maps input dimensions of the existing transform to input dimensions of the
@@ -93,7 +93,7 @@ void ExtractDiagonal(TransformRep* original, TransformRep* result,
         break;
       case OutputIndexMethod::single_input_dimension: {
         const DimensionIndex orig_input_dim = orig_map.input_dimension();
-        ABSL_ASSERT(orig_input_dim >= 0 && orig_input_dim < orig_input_rank);
+        assert(orig_input_dim >= 0 && orig_input_dim < orig_input_rank);
         const DimensionIndex new_input_dim =
             orig_to_new_input_dim[orig_input_dim];
         result_map.SetSingleInputDimension(new_input_dim);
@@ -104,7 +104,7 @@ void ExtractDiagonal(TransformRep* original, TransformRep* result,
         // This is safe even if result_map aliases orig_map because
         // SetArrayIndexing is guaranteed not to reduce the capacity.
         const auto& orig_index_array = orig_map.index_array_data();
-        ABSL_ASSERT(orig_index_array.rank_capacity >= orig_input_rank);
+        assert(orig_index_array.rank_capacity >= orig_input_rank);
         Index diag_byte_stride = 0;
         for (DimensionIndex orig_input_dim : *dimensions) {
           diag_byte_stride += orig_index_array.byte_strides[orig_input_dim];
@@ -122,7 +122,7 @@ void ExtractDiagonal(TransformRep* original, TransformRep* result,
           const DimensionIndex new_input_dim =
               orig_to_new_input_dim[orig_input_dim];
           if (new_input_dim == diag_input_dim) continue;
-          ABSL_ASSERT(new_input_dim - 1 <= orig_input_dim);
+          assert(new_input_dim - 1 <= orig_input_dim);
           result_index_array.byte_strides[new_input_dim - 1] =
               orig_index_array.byte_strides[orig_input_dim];
         }
@@ -145,7 +145,7 @@ void ExtractDiagonal(TransformRep* original, TransformRep* result,
        ++orig_input_dim) {
     const DimensionIndex new_input_dim = orig_to_new_input_dim[orig_input_dim];
     if (new_input_dim == diag_input_dim) continue;
-    ABSL_ASSERT(new_input_dim - 1 <= orig_input_dim);
+    assert(new_input_dim - 1 <= orig_input_dim);
     result->input_dimension(new_input_dim - 1) =
         original->input_dimension(orig_input_dim);
   }

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "tensorstore/index_space/internal/add_new_dims_op.h"
+
 #include "absl/container/fixed_array.h"
 
 namespace tensorstore {
@@ -35,9 +36,9 @@ void AddNewDims(TransformRep* original, TransformRep* result,
                 DimensionIndexBuffer* dimensions) {
   const DimensionIndex orig_input_rank = original->input_rank;
   const DimensionIndex new_input_rank = orig_input_rank + dimensions->size();
-  ABSL_ASSERT(result->input_rank_capacity >= new_input_rank);
+  assert(result->input_rank_capacity >= new_input_rank);
   const DimensionIndex output_rank = original->output_rank;
-  ABSL_ASSERT(result->output_rank_capacity >= output_rank);
+  assert(result->output_rank_capacity >= output_rank);
   // Maps an input dimension of the new transform to the corresponding input
   // dimension of the existing transform; `-1` indicates a new, dummy dimension
   // with no corresponding existing input dimension.
@@ -77,7 +78,7 @@ void AddNewDims(TransformRep* original, TransformRep* result,
         break;
       case OutputIndexMethod::single_input_dimension: {
         const DimensionIndex orig_input_dim = orig_map.input_dimension();
-        ABSL_ASSERT(orig_input_dim >= 0 && orig_input_dim < orig_input_rank);
+        assert(orig_input_dim >= 0 && orig_input_dim < orig_input_rank);
         const DimensionIndex new_input_dim =
             orig_to_new_input_dim[orig_input_dim];
         result_map.SetSingleInputDimension(new_input_dim);
@@ -93,7 +94,7 @@ void AddNewDims(TransformRep* original, TransformRep* result,
              orig_input_dim >= 0; --orig_input_dim) {
           const DimensionIndex new_input_dim =
               orig_to_new_input_dim[orig_input_dim];
-          ABSL_ASSERT(new_input_dim >= orig_input_dim);
+          assert(new_input_dim >= orig_input_dim);
           result_index_array.byte_strides[new_input_dim] =
               orig_index_array.byte_strides[orig_input_dim];
         }

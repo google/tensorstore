@@ -258,7 +258,7 @@ bool DecodeBlock(size_t encoded_bits, const char* encoded_input,
 }
 
 template <typename Label>
-bool DecodeChannel(absl::string_view input, const std::ptrdiff_t block_shape[3],
+bool DecodeChannel(std::string_view input, const std::ptrdiff_t block_shape[3],
                    const std::ptrdiff_t output_shape[3],
                    const std::ptrdiff_t output_byte_strides[3], Label* output) {
   if ((input.size() % 4) != 0) return false;
@@ -326,8 +326,7 @@ bool DecodeChannel(absl::string_view input, const std::ptrdiff_t block_shape[3],
 }
 
 template <typename Label>
-bool DecodeChannels(absl::string_view input,
-                    const std::ptrdiff_t block_shape[3],
+bool DecodeChannels(std::string_view input, const std::ptrdiff_t block_shape[3],
                     const std::ptrdiff_t output_shape[3 + 1],
                     const std::ptrdiff_t output_byte_strides[3 + 1],
                     Label* output) {
@@ -376,11 +375,11 @@ bool DecodeChannels(absl::string_view input,
       const std::ptrdiff_t output_shape[3],                                    \
       const std::ptrdiff_t output_byte_strides[3], Label* output);             \
   template bool DecodeChannel<Label>(                                          \
-      absl::string_view input, const std::ptrdiff_t block_shape[3],            \
+      std::string_view input, const std::ptrdiff_t block_shape[3],             \
       const std::ptrdiff_t output_shape[3],                                    \
       const std::ptrdiff_t output_byte_strides[3], Label* output);             \
   template bool DecodeChannels(                                                \
-      absl::string_view input, const std::ptrdiff_t block_shape[3],            \
+      std::string_view input, const std::ptrdiff_t block_shape[3],             \
       const std::ptrdiff_t output_shape[3 + 1],                                \
       const std::ptrdiff_t output_byte_strides[3 + 1], Label* output);         \
   /**/

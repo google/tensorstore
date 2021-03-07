@@ -15,9 +15,9 @@
 #include "tensorstore/internal/path.h"
 
 #include <string>
+#include <string_view>
 
 #include <gtest/gtest.h>
-#include "absl/strings/string_view.h"
 
 using tensorstore::internal::CreateURI;
 using tensorstore::internal::JoinPath;
@@ -48,7 +48,7 @@ TEST(PathTest, JoinPath) {
 
 TEST(PathTest, JoinPath_MixedArgs) {
   constexpr const char kFoo[] = "/foo";
-  absl::string_view foo_view("/foo");
+  std::string_view foo_view("/foo");
   std::string foo("/foo");
 
   EXPECT_EQ("/foo/bar", JoinPath(foo_view, "bar"));
@@ -79,8 +79,8 @@ TEST(PathTest, PathDirnameBasename) {
 #define EXPECT_PARSE_URI(uri, scheme, host, path)                  \
   do {                                                             \
     EXPECT_EQ(uri, CreateURI(scheme, host, path));                 \
-    absl::string_view s, h, p;                                     \
-    absl::string_view u(uri);                                      \
+    std::string_view s, h, p;                                      \
+    std::string_view u(uri);                                       \
     ParseURI(u, &s, &h, &p);                                       \
     EXPECT_EQ(scheme, s) << "s=" << s << " h=" << h << " p=" << p; \
     EXPECT_EQ(host, h) << "s=" << s << " h=" << h << " p=" << p;   \
@@ -121,7 +121,7 @@ TEST(PathTest, ParseURI) {
 }
 
 TEST(PathTest, ParseURIMissingParams) {
-  absl::string_view s, h, p;
+  std::string_view s, h, p;
   ParseURI("http://foo/bar", &s, nullptr, nullptr);
   EXPECT_EQ("http", s);
 

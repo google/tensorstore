@@ -55,7 +55,7 @@ Status AlignDimensionsTo(IndexDomainView<> source, IndexDomainView<> target,
     // Attempt to match source dimensions in reverse order, to simplify
     // unlabeled dimension matching.
     for (DimensionIndex i = source_rank - 1; i >= 0; --i) {
-      absl::string_view source_label = source_labels[i];
+      std::string_view source_label = source_labels[i];
       DimensionIndex j;
       if (source_label.empty()) {
         // Find the next (from the end) unlabeled target dimension, or -1 if

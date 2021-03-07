@@ -143,6 +143,8 @@ struct MissingStruct {
 };
 
 struct HasBarStruct {
+  // Note: there doesn't appear to be a way to use `[[maybe_unused]]` in place
+  // of `ABSL_ATTRIBUTE_UNUSED` here.
   friend int* Bar(HasBarStruct) ABSL_ATTRIBUTE_UNUSED;
   friend float* Bar(HasBarStruct, int, int) ABSL_ATTRIBUTE_UNUSED;
 };

@@ -18,12 +18,12 @@
 #include <cstdio>
 #include <iterator>
 #include <string>
+#include <string_view>
 
 #include <gtest/gtest.h>
 #include "absl/random/random.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/numbers.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/os_error_code.h"
@@ -113,7 +113,7 @@ absl::Status EnumeratePathsImpl(
   };
 
   while ((entry = ::readdir(dir)) != NULL) {
-    absl::string_view entry_dname(entry->d_name);
+    std::string_view entry_dname(entry->d_name);
     if (entry_dname == "." || entry_dname == "..") {
       continue;
     }
@@ -189,7 +189,7 @@ ScopedTemporaryDirectory::ScopedTemporaryDirectory() {
   }
 
   path_ = StrCat(TemporaryDirectoryPath(), "/tmp_tensorstore_test",
-                 absl::string_view(data, std::size(data)));
+                 std::string_view(data, std::size(data)));
 
   TENSORSTORE_CHECK(MakeDirectory(path_));
 }

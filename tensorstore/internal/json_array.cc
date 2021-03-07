@@ -15,11 +15,11 @@
 #include "tensorstore/internal/json_array.h"
 
 #include <algorithm>
+#include <cassert>
 #include <functional>
 #include <utility>
 #include <vector>
 
-#include "absl/base/macros.h"
 #include "absl/container/fixed_array.h"
 #include "absl/container/inlined_vector.h"
 #include "tensorstore/array.h"
@@ -151,7 +151,7 @@ Result<SharedArray<void>> JsonParseNestedArray(
     const ::nlohmann::json& j_root, DataType dtype,
     const std::function<absl::Status(const ::nlohmann::json& v, void* out)>&
         decode_element) {
-  ABSL_ASSERT(dtype.valid());
+  assert(dtype.valid());
   // To avoid the possibility of stack overflow, this implementation is
   // non-recursive.
   using array_t = ::nlohmann::json::array_t;

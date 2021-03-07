@@ -20,9 +20,10 @@
 /// a tensorstore array. The tests are minimal because they are redundant
 /// with the individual *_op_test.cc files.
 
+#include <string_view>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/strings/string_view.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index.h"

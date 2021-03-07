@@ -16,13 +16,12 @@
 #define TENSORSTORE_UTIL_BIT_VEC_H_
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstring>
 #include <type_traits>
 
 #include "absl/base/attributes.h"
-#include "absl/base/macros.h"
-#include "absl/meta/type_traits.h"
 #include "tensorstore/util/bit_span.h"
 #include "tensorstore/util/bit_vec_impl.h"
 #include "tensorstore/util/span.h"
@@ -183,13 +182,13 @@ class BitVec {
   /// \dchecks `0 <= i && i < size()`
   ABSL_ATTRIBUTE_ALWAYS_INLINE BitRef<const Block> operator[](
       std::ptrdiff_t i) const {
-    return ABSL_ASSERT(i >= 0 && i <= size()), *(begin() + i);
+    return assert(i >= 0 && i <= size()), *(begin() + i);
   }
 
   /// Returns a proxy reference to bit `i`.
   /// \dchecks `0 <= i && i < size()`
   ABSL_ATTRIBUTE_ALWAYS_INLINE BitRef<Block> operator[](std::ptrdiff_t i) {
-    return ABSL_ASSERT(i >= 0 && i <= size()), *(begin() + i);
+    return assert(i >= 0 && i <= size()), *(begin() + i);
   }
 
   /// Compares two bit vectors for equality.
@@ -215,10 +214,10 @@ class BitVec {
 };
 
 template <std::ptrdiff_t Extent>
-BitVec(const bool (&arr)[Extent])->BitVec<Extent>;
+BitVec(const bool (&arr)[Extent]) -> BitVec<Extent>;
 
 template <typename Block, std::ptrdiff_t Extent>
-BitVec(BitSpan<Block, Extent>)->BitVec<Extent>;
+BitVec(BitSpan<Block, Extent>) -> BitVec<Extent>;
 
 }  // namespace tensorstore
 

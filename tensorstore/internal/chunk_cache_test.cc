@@ -18,6 +18,7 @@
 #include <memory>
 #include <new>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -29,7 +30,6 @@
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
-#include "absl/strings/string_view.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
@@ -209,7 +209,7 @@ class TestCache : public TestCacheBase {
 
 template <typename T>
 ElementCopyFunction GetCopyFunction() {
-  const auto copy_func ABSL_ATTRIBUTE_UNUSED =
+  [[maybe_unused]] const auto copy_func =
       [](const T* source, T* dest, absl::Status* status) { *dest = *source; };
   return SimpleElementwiseFunction<decltype(copy_func), const T, T>();
 }
@@ -222,7 +222,7 @@ TEST(ChunkGridSpecificationTest, Basic) {
   EXPECT_EQ(1, grid.chunk_shape.size());
 }
 
-std::vector<Index> ParseKey(absl::string_view key) {
+std::vector<Index> ParseKey(std::string_view key) {
   std::vector<Index> result;
   for (auto s : absl::StrSplit(key, ',')) {
     Index i = 0;
@@ -282,7 +282,7 @@ class ChunkCacheTest : public ::testing::Test {
       pool = CachePool::Make(CachePool::Limits{10000000, 5000000});
     }
     return pool->GetCache<TestCache>(cache_identifier, [&] {
-      return absl::make_unique<TestCache>(mock_store, *grid, thread_pool);
+      return std::make_unique<TestCache>(mock_store, *grid, thread_pool);
     });
   }
 

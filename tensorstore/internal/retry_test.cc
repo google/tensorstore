@@ -17,10 +17,10 @@
 #include <deque>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include <gtest/gtest.h>
-#include "absl/strings/string_view.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/util/status.h"

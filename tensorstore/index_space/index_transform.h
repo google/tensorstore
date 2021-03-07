@@ -135,7 +135,7 @@ class IndexTransform {
   /// \requires `SourceOutputRank` is implicitly convertible to `OutputRank`
   template <DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
             ContainerKind SourceCKind,
-            absl::enable_if_t<
+            std::enable_if_t<
                 (IsRankImplicitlyConvertible(SourceInputRank, InputRank) &&
                  IsRankImplicitlyConvertible(SourceOutputRank, OutputRank))>* =
                 nullptr>
@@ -146,7 +146,7 @@ class IndexTransform {
   /// Rvalue reference overload.
   template <DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
             ContainerKind SourceCKind,
-            absl::enable_if_t<
+            std::enable_if_t<
                 (IsRankImplicitlyConvertible(SourceInputRank, InputRank) &&
                  IsRankImplicitlyConvertible(SourceOutputRank, OutputRank))>* =
                 nullptr>
@@ -165,7 +165,7 @@ class IndexTransform {
   ///     `OutputRank`
   template <DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
             ContainerKind SourceCKind,
-            absl::enable_if_t<
+            std::enable_if_t<
                 (IsRankExplicitlyConvertible(SourceInputRank, InputRank) &&
                  IsRankExplicitlyConvertible(SourceOutputRank, OutputRank))>* =
                 nullptr>
@@ -178,7 +178,7 @@ class IndexTransform {
   /// Rvalue reference overload.
   template <DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
             ContainerKind SourceCKind,
-            absl::enable_if_t<
+            std::enable_if_t<
                 (IsRankExplicitlyConvertible(SourceInputRank, InputRank) &&
                  IsRankExplicitlyConvertible(SourceOutputRank, OutputRank))>* =
                 nullptr>
@@ -193,9 +193,9 @@ class IndexTransform {
   /// \requires `SourceOutputRank` is implicitly convertible to `OutputRank`
   template <DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
             ContainerKind SourceCKind>
-  absl::enable_if_t<(IsRankImplicitlyConvertible(SourceInputRank, InputRank) &&
-                     IsRankImplicitlyConvertible(SourceOutputRank, OutputRank)),
-                    IndexTransform&>
+  std::enable_if_t<(IsRankImplicitlyConvertible(SourceInputRank, InputRank) &&
+                    IsRankImplicitlyConvertible(SourceOutputRank, OutputRank)),
+                   IndexTransform&>
   operator=(const IndexTransform<SourceInputRank, SourceOutputRank,
                                  SourceCKind>& other) noexcept {
     rep_ = Ptr(Access::rep(other));
@@ -205,9 +205,9 @@ class IndexTransform {
   /// Rvalue reference overload.
   template <DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
             ContainerKind SourceCKind>
-  absl::enable_if_t<(IsRankImplicitlyConvertible(SourceInputRank, InputRank) &&
-                     IsRankImplicitlyConvertible(SourceOutputRank, OutputRank)),
-                    IndexTransform&>
+  std::enable_if_t<(IsRankImplicitlyConvertible(SourceInputRank, InputRank) &&
+                    IsRankImplicitlyConvertible(SourceOutputRank, OutputRank)),
+                   IndexTransform&>
   operator=(IndexTransform<SourceInputRank, SourceOutputRank, SourceCKind>&&
                 other) noexcept {
     rep_ = Access::rep_ptr<CKind>(std::move(other));
@@ -438,28 +438,28 @@ class IndexDomain {
   /// Constructs an invalid index domain.
   IndexDomain() = default;
 
-  template <DimensionIndex OtherRank, ContainerKind OtherCKind,
-            absl::enable_if_t<IsRankImplicitlyConvertible(OtherRank, Rank)>* =
-                nullptr>
+  template <
+      DimensionIndex OtherRank, ContainerKind OtherCKind,
+      std::enable_if_t<IsRankImplicitlyConvertible(OtherRank, Rank)>* = nullptr>
   IndexDomain(const IndexDomain<OtherRank, OtherCKind>& other)
       : transform_(Access::transform(other)) {}
 
-  template <DimensionIndex OtherRank, ContainerKind OtherCKind,
-            absl::enable_if_t<IsRankImplicitlyConvertible(OtherRank, Rank)>* =
-                nullptr>
+  template <
+      DimensionIndex OtherRank, ContainerKind OtherCKind,
+      std::enable_if_t<IsRankImplicitlyConvertible(OtherRank, Rank)>* = nullptr>
   IndexDomain(IndexDomain<OtherRank, OtherCKind>&& other)
       : transform_(Access::transform(std::move(other))) {}
 
-  template <DimensionIndex OtherRank, ContainerKind OtherCKind,
-            absl::enable_if_t<IsRankExplicitlyConvertible(OtherRank, Rank)>* =
-                nullptr>
+  template <
+      DimensionIndex OtherRank, ContainerKind OtherCKind,
+      std::enable_if_t<IsRankExplicitlyConvertible(OtherRank, Rank)>* = nullptr>
   explicit IndexDomain(unchecked_t,
                        const IndexDomain<OtherRank, OtherCKind>& other)
       : transform_(unchecked, Access::transform(other)) {}
 
-  template <DimensionIndex OtherRank, ContainerKind OtherCKind,
-            absl::enable_if_t<IsRankExplicitlyConvertible(OtherRank, Rank)>* =
-                nullptr>
+  template <
+      DimensionIndex OtherRank, ContainerKind OtherCKind,
+      std::enable_if_t<IsRankExplicitlyConvertible(OtherRank, Rank)>* = nullptr>
   explicit IndexDomain(unchecked_t, IndexDomain<OtherRank, OtherCKind>&& other)
       : transform_(unchecked, Access::transform(std::move(other))) {}
 
@@ -512,7 +512,7 @@ class IndexDomain {
   /// \dchecks `0 <= i && i < rank()`
   /// \pre `valid()`
   IndexDomainDimension<view> operator[](DimensionIndex i) const {
-    ABSL_ASSERT(0 <= i && i < rank());
+    assert(0 <= i && i < rank());
     return {OptionallyImplicitIndexInterval{
                 IndexInterval::UncheckedSized(origin()[i], shape()[i]),
                 implicit_lower_bounds()[i], implicit_upper_bounds()[i]},
@@ -786,7 +786,7 @@ inline IndexTransform<> IdentityTransform(DimensionIndex rank) {
 ///
 /// The lower and upper bounds of the returned transform are explicit.
 template <typename BoxType>
-inline absl::enable_if_t<
+inline std::enable_if_t<
     IsBoxLike<BoxType>::value,
     IndexTransform<BoxType::static_rank, BoxType::static_rank>>
 IdentityTransform(const BoxType& domain) {
@@ -801,7 +801,7 @@ IdentityTransform(const BoxType& domain) {
 /// and upper bounds and explicit labels.
 template <DimensionIndex Rank>
 inline IndexTransform<Rank, Rank> IdentityTransform(
-    const absl::string_view (&labels)[Rank]) {
+    const std::string_view (&labels)[Rank]) {
   return internal_index_space::TransformAccess::Make<
       IndexTransform<Rank, Rank>>(internal_index_space::MakeIdentityTransform(
       internal::StringLikeSpan(span(labels))));
@@ -809,7 +809,7 @@ inline IndexTransform<Rank, Rank> IdentityTransform(
 
 template <typename Labels,
           typename LabelsSpan = internal::ConstSpanType<Labels>>
-using IdentityTransformFromLabelsType = absl::enable_if_t<
+using IdentityTransformFromLabelsType = std::enable_if_t<
     internal::IsStringLike<typename LabelsSpan::value_type>::value,
     IndexTransform<LabelsSpan::extent, LabelsSpan::extent>>;
 
@@ -819,7 +819,7 @@ using IdentityTransformFromLabelsType = absl::enable_if_t<
 /// and upper bounds and explicit labels.
 ///
 /// \requires `Labels` is `span`-compatible with a `value_type` of
-///     `std::string`, `absl::string_view`, or `const char *`.
+///     `std::string`, `std::string_view`, or `const char *`.
 template <typename Labels>
 inline IdentityTransformFromLabelsType<Labels> IdentityTransform(
     const Labels& labels) {
@@ -857,17 +857,17 @@ inline IndexTransform<Rank, Rank> IdentityTransform(
 ///
 /// The lower and upper bounds of the returned transform are explicit.
 template <typename Array>
-inline absl::enable_if_t<IsArray<Array>::value,
-                         IndexTransform<Array::static_rank, Array::static_rank>>
+inline std::enable_if_t<IsArray<Array>::value,
+                        IndexTransform<Array::static_rank, Array::static_rank>>
 IdentityTransformLike(const Array& array) {
   return IdentityTransform(array.domain());
 }
 
 template <typename Shape, typename ShapeSpan = internal::ConstSpanType<Shape>,
           DimensionIndex Rank = ShapeSpan::extent>
-using IdentityTransformTypeFromShape = absl::enable_if_t<
-    std::is_same<typename ShapeSpan::value_type, Index>::value,
-    IndexTransform<Rank, Rank>>;
+using IdentityTransformTypeFromShape =
+    std::enable_if_t<std::is_same<typename ShapeSpan::value_type, Index>::value,
+                     IndexTransform<Rank, Rank>>;
 
 /// Returns an identity transform with an input_origin of `0` and the specified
 /// `input_shape`.
@@ -1167,10 +1167,10 @@ PropagateExplicitBoundsToTransform(
 ///     `skip_repeated_elements`.
 template <ArrayOriginKind OriginKind = offset_origin, DimensionIndex InputRank,
           DimensionIndex OutputRank, ContainerKind CKind, typename Array>
-absl::enable_if_t<(IsArray<Array>::value && OutputRank == Array::static_rank &&
-                   OriginKind == offset_origin),
-                  Result<SharedArray<const typename Array::Element, InputRank,
-                                     offset_origin>>>
+std::enable_if_t<(IsArray<Array>::value && OutputRank == Array::static_rank &&
+                  OriginKind == offset_origin),
+                 Result<SharedArray<const typename Array::Element, InputRank,
+                                    offset_origin>>>
 TransformArray(const Array& array,
                const IndexTransform<InputRank, OutputRank, CKind>& transform,
                TransformArrayConstraints constraints = skip_repeated_elements) {
@@ -1192,7 +1192,7 @@ TransformArray(const Array& array,
 /// Overload to handle the case of `OriginKind == zero_origin`.
 template <ArrayOriginKind OriginKind, DimensionIndex InputRank,
           DimensionIndex OutputRank, ContainerKind CKind, typename Array>
-absl::enable_if_t<
+std::enable_if_t<
     (IsArray<Array>::value && OutputRank == Array::static_rank &&
      OriginKind == zero_origin),
     Result<SharedArray<const typename Array::Element, InputRank, zero_origin>>>
@@ -1218,16 +1218,16 @@ TransformArray(const Array& array,
 /// with a non-`const` element type.
 template <ArrayOriginKind OriginKind = offset_origin, DimensionIndex InputRank,
           DimensionIndex OutputRank, ContainerKind CKind, typename Array>
-absl::enable_if_t<
+std::enable_if_t<
     (IsArray<Array>::value && OutputRank == Array::static_rank),
-    Result<SharedArray<absl::remove_const_t<typename Array::Element>, InputRank,
+    Result<SharedArray<std::remove_const_t<typename Array::Element>, InputRank,
                        OriginKind>>>
 MakeCopy(const Array& array,
          const IndexTransform<InputRank, OutputRank, CKind>& transform,
          IterationConstraints constraints = skip_repeated_elements) {
   if (auto result = TransformArray<OriginKind>(array, transform,
                                                {constraints, must_allocate})) {
-    return ConstDataTypeCast<absl::remove_const_t<typename Array::Element>>(
+    return ConstDataTypeCast<std::remove_const_t<typename Array::Element>>(
         std::move(*result));
   } else {
     return std::move(result).status();

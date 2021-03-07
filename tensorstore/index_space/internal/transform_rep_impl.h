@@ -47,7 +47,7 @@ void CopyInputLabels(TransformRep* source, TransformRep* dest, bool can_move);
 template <typename Predicate>
 Status ValidateAndIntersectBounds(BoxView<> inner, MutableBoxView<> combined,
                                   Predicate predicate) {
-  ABSL_ASSERT(inner.rank() == combined.rank());
+  assert(inner.rank() == combined.rank());
   std::string error;
   for (DimensionIndex dim = 0; dim < inner.rank(); ++dim) {
     IndexIntervalRef outer_bounds = combined[dim];

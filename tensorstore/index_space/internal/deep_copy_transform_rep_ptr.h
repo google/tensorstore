@@ -33,10 +33,9 @@ class DeepCopyTransformRepPtr {
   explicit DeepCopyTransformRepPtr(TransformRep* ptr,
                                    internal::adopt_object_ref_t)
       : ptr_(ptr) {
-    ABSL_ASSERT(
-        ptr == nullptr ||
-        (ptr->input_rank_capacity == 0 && ptr->output_rank_capacity == 0) ||
-        ptr->reference_count == 1);
+    assert(ptr == nullptr ||
+           (ptr->input_rank_capacity == 0 && ptr->output_rank_capacity == 0) ||
+           ptr->reference_count == 1);
   }
 
   /// Initializes from a copy of an existing TransformRep.
@@ -54,14 +53,14 @@ class DeepCopyTransformRepPtr {
   }
 
   DeepCopyTransformRepPtr(DeepCopyTransformRepPtr&& other)
-      : ptr_(absl::exchange(other.ptr_, nullptr)) {}
+      : ptr_(std::exchange(other.ptr_, nullptr)) {}
 
   DeepCopyTransformRepPtr(const DeepCopyTransformRepPtr& other)
       : DeepCopyTransformRepPtr(other.ptr_, internal::acquire_object_ref) {}
 
   DeepCopyTransformRepPtr& operator=(DeepCopyTransformRepPtr&& other) {
     if (ptr_) Free();
-    ptr_ = absl::exchange(other.ptr_, nullptr);
+    ptr_ = std::exchange(other.ptr_, nullptr);
     return *this;
   }
 
@@ -84,7 +83,7 @@ class DeepCopyTransformRepPtr {
   TransformRep* get() const { return ptr_; }
   TransformRep* operator->() const { return ptr_; }
   TransformRep& operator*() const { return *ptr_; }
-  TransformRep* release() { return absl::exchange(ptr_, nullptr); }
+  TransformRep* release() { return std::exchange(ptr_, nullptr); }
 
  private:
   void Free() {

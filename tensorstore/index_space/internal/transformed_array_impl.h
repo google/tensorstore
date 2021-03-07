@@ -524,7 +524,7 @@ class TransformedArrayAccess {
     explicit LayoutStorage(construct_base_array_transform_tag, L&& layout,
                            T&& transform) noexcept
         : transform_(
-              (ABSL_ASSERT(transform.output_rank() == layout.rank()),
+              (assert(transform.output_rank() == layout.rank()),
                TransformAccess::rep_ptr<LayoutCKind>(
                    std::forward<T>(transform))),
               GetTransformTag(

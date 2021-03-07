@@ -20,11 +20,10 @@
 
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 
-#include "absl/meta/type_traits.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/span.h"
 
@@ -62,7 +61,7 @@ auto ToAlphaNumOrString(const T& x) {
 
 /// Prints a string representation of a span.
 template <typename Element, std::ptrdiff_t N>
-absl::enable_if_t<internal::IsOstreamable<Element>::value, std::ostream&>
+std::enable_if_t<internal::IsOstreamable<Element>::value, std::ostream&>
 operator<<(std::ostream& os, span<Element, N> s) {
   os << "{";
   std::ptrdiff_t size = s.size();

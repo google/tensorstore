@@ -19,16 +19,16 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <string_view>
 #include <system_error>  // NOLINT
 #include <utility>
 
 #include "absl/strings/str_cat.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/internal/source_location.h"
 
 namespace tensorstore {
 
-Status MaybeAnnotateStatus(const Status& status, absl::string_view message) {
+Status MaybeAnnotateStatus(const Status& status, std::string_view message) {
   if (status.ok()) return status;
   if (status.message().empty()) {
     return Status(status.code(), message);

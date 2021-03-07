@@ -81,7 +81,6 @@ tensorstore_cc_library(
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:open_mode",
-        "//tensorstore:spec",
         "//tensorstore/internal:bit_operations",
         "//tensorstore/internal:json",
         "//tensorstore/kvstore:key_value_store",
@@ -188,7 +187,6 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "@com_google_absl//absl/algorithm:container",
-        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -246,7 +244,6 @@ tensorstore_cc_library(
         ":uint64_sharded",
         ":uint64_sharded_decoder",
         ":uint64_sharded_encoder",
-        "//tensorstore/internal:aggregate_writeback_cache",
         "//tensorstore/internal:async_cache",
         "//tensorstore/internal:cache",
         "//tensorstore/internal:estimate_heap_usage",

@@ -19,12 +19,12 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/container/flat_hash_set.h"
-#include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/concurrent_testutil.h"
 #include "tensorstore/internal/intrusive_ptr.h"
@@ -229,7 +229,7 @@ CachePtr<CacheType> GetTestCache(
       absl::MutexLock lock(&log->mutex);
       log->cache_allocate_log.emplace_back(cache_identifier);
     }
-    return absl::make_unique<CacheType>(log);
+    return std::make_unique<CacheType>(log);
   });
 }
 
@@ -709,9 +709,9 @@ TEST(CacheTest, CacheDependsOnOtherCache) {
 
   auto pool = CachePool::Make(kSmallCacheLimits);
   auto cache_a =
-      pool->GetCache<CacheA>("x", [&] { return absl::make_unique<CacheA>(); });
+      pool->GetCache<CacheA>("x", [&] { return std::make_unique<CacheA>(); });
   auto cache_b =
-      pool->GetCache<CacheB>("x", [&] { return absl::make_unique<CacheB>(); });
+      pool->GetCache<CacheB>("x", [&] { return std::make_unique<CacheB>(); });
   GetCacheEntry(cache_b, "key");
   cache_b->cache_a = cache_a;
   TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool,

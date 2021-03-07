@@ -23,10 +23,10 @@
 #ifdef _WIN32
 
 #include <string>
+#include <string_view>
 
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/kvstore/file/unique_handle.h"
 #include "tensorstore/util/result.h"
 
@@ -36,8 +36,7 @@
 namespace tensorstore {
 namespace internal_file_util {
 
-inline constexpr absl::string_view kLockSuffix = ".__lock";
-
+inline constexpr std::string_view kLockSuffix = ".__lock";
 
 using FileDescriptor = HANDLE;
 struct FileDescriptorTraits {
@@ -85,8 +84,8 @@ struct FileLockTraits {
   static bool Acquire(HANDLE handle);
 };
 
-UniqueFileDescriptor OpenExistingFileForReading(absl::string_view path);
-UniqueFileDescriptor OpenFileForWriting(absl::string_view path);
+UniqueFileDescriptor OpenExistingFileForReading(std::string_view path);
+UniqueFileDescriptor OpenFileForWriting(std::string_view path);
 
 std::ptrdiff_t ReadFromFile(FileDescriptor fd, void* buf, std::size_t count,
                             std::int64_t offset);
@@ -97,11 +96,11 @@ inline bool TruncateFile(FileDescriptor fd) {
   return static_cast<bool>(::SetEndOfFile(fd));
 }
 
-bool RenameOpenFile(FileDescriptor fd, absl::string_view old_name,
-                    absl::string_view new_name);
+bool RenameOpenFile(FileDescriptor fd, std::string_view old_name,
+                    std::string_view new_name);
 
-bool DeleteOpenFile(FileDescriptor fd, absl::string_view path);
-bool DeleteFile(absl::string_view path);
+bool DeleteOpenFile(FileDescriptor fd, std::string_view path);
+bool DeleteFile(std::string_view path);
 
 FileDescriptor OpenDirectoryDescriptor(const char* path);
 bool MakeDirectory(const char* path);
@@ -127,8 +126,8 @@ struct DirectoryIterator {
 
   void Update(const ::WIN32_FIND_DATAW& find_data);
   bool Next();
-  absl::string_view path_component() const {
-    return absl::string_view(path_component_utf8, path_component_size);
+  std::string_view path_component() const {
+    return std::string_view(path_component_utf8, path_component_size);
   }
   bool is_directory() const { return is_directory_; }
 

@@ -15,12 +15,11 @@
 #ifndef TENSORSTORE_INTERNAL_TAGGED_PTR_H_
 #define TENSORSTORE_INTERNAL_TAGGED_PTR_H_
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
-
-#include "absl/base/macros.h"
-#include "absl/meta/type_traits.h"
+#include <utility>
 
 namespace tensorstore {
 namespace internal {
@@ -69,7 +68,9 @@ class TaggedPtr {
   /// \post `this->get() == nullptr`.
   /// \post `this->tag() == tag`.
   constexpr TaggedPtr(std::nullptr_t, std::uintptr_t tag = 0) noexcept
-      : value_((ABSL_ASSERT((tag & kPointerMask) == 0), tag)) {}
+      : value_(tag) {
+    assert((tag & kPointerMask) == 0);
+  }
 
   /// Constructs from a raw pointer and tag.
   /// \requires `U*` is convertible to `T*`.
@@ -77,11 +78,11 @@ class TaggedPtr {
   /// \post `this->get() == ptr`.
   /// \post `this->tag() == tag`.
   template <typename U,
-            absl::enable_if_t<std::is_convertible<U*, T*>::value>* = nullptr>
+            std::enable_if_t<std::is_convertible<U*, T*>::value>* = nullptr>
   TaggedPtr(U* ptr, std::uintptr_t tag = 0) noexcept {
-    ABSL_ASSERT((reinterpret_cast<std::uintptr_t>(static_cast<T*>(ptr)) &
-                 kTagMask) == 0 &&
-                (tag & kPointerMask) == 0);
+    assert((reinterpret_cast<std::uintptr_t>(static_cast<T*>(ptr)) &
+            kTagMask) == 0 &&
+           (tag & kPointerMask) == 0);
     value_ = reinterpret_cast<std::uintptr_t>(static_cast<T*>(ptr)) | tag;
   }
 
@@ -90,7 +91,7 @@ class TaggedPtr {
   /// \post `this->get() == other.get()`.
   /// \post `this->tag() == other.tag()`.
   template <typename U,
-            absl::enable_if_t<std::is_convertible<U*, T*>::value>* = nullptr>
+            std::enable_if_t<std::is_convertible<U*, T*>::value>* = nullptr>
   TaggedPtr(TaggedPtr<U, TagBits> other) noexcept
       : TaggedPtr(other.get(), other.tag()) {}
 
@@ -110,7 +111,7 @@ class TaggedPtr {
   /// \post `this->get() == ptr`.
   /// \post `this->tag() == 0`.
   template <typename U>
-  absl::enable_if_t<std::is_convertible<U*, T*>::value, TaggedPtr&> operator=(
+  std::enable_if_t<std::is_convertible<U*, T*>::value, TaggedPtr&> operator=(
       U* ptr) noexcept {
     *this = TaggedPtr(ptr);
     return *this;
@@ -136,13 +137,13 @@ class TaggedPtr {
 
   /// Returns the specified bit of the tag value.
   template <int Bit>
-  absl::enable_if_t<(Bit >= 0 && Bit < TagBits), bool> tag() const noexcept {
+  std::enable_if_t<(Bit >= 0 && Bit < TagBits), bool> tag() const noexcept {
     return static_cast<bool>((value_ >> Bit) & 1);
   }
 
   /// Sets the specified bit of the tag value.
   template <int Bit>
-  absl::enable_if_t<(Bit >= 0 && Bit < TagBits), void> set_tag(
+  std::enable_if_t<(Bit >= 0 && Bit < TagBits), void> set_tag(
       bool value) noexcept {
     constexpr std::uintptr_t mask = (static_cast<std::uintptr_t>(1) << Bit);
     value_ = (value_ & ~mask) | (static_cast<std::uintptr_t>(value) << Bit);
@@ -150,19 +151,19 @@ class TaggedPtr {
 
   /// Sets the tag value to the specified value.
   void set_tag(std::uintptr_t tag) noexcept {
-    ABSL_ASSERT((tag & kPointerMask) == 0);
+    assert((tag & kPointerMask) == 0);
     value_ = (value_ & kPointerMask) | tag;
   }
 
   T* operator->() const noexcept {
     T* ptr = get();
-    ABSL_ASSERT(ptr != nullptr);
+    assert(ptr != nullptr);
     return ptr;
   }
 
   T& operator*() const noexcept {
     T* ptr = get();
-    ABSL_ASSERT(ptr != nullptr);
+    assert(ptr != nullptr);
     return *ptr;
   }
 

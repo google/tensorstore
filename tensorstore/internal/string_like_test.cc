@@ -15,10 +15,10 @@
 #include "tensorstore/internal/string_like.h"
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <gtest/gtest.h>
-#include "absl/strings/string_view.h"
 
 namespace {
 
@@ -48,7 +48,7 @@ TEST(StringLikeSpan, StdStrings) {
 }
 
 TEST(StringLikeSpan, StringViews) {
-  std::vector<absl::string_view> string_views{"a", "b", "c"};
+  std::vector<std::string_view> string_views{"a", "b", "c"};
   StringLikeSpan x(string_views);
   EXPECT_EQ(3, x.size());
   EXPECT_EQ("a", x[0]);

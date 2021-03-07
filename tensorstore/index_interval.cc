@@ -234,7 +234,7 @@ Result<IndexInterval> ShiftIntervalTo(IndexInterval interval, Index origin) {
   Index offset;
   const bool overflow =
       internal::SubOverflow(origin, interval.inclusive_min(), &offset);
-  ABSL_ASSERT(!overflow);
+  assert(!overflow);
   return ShiftInterval(interval, offset);
 }
 
@@ -297,7 +297,7 @@ Result<std::pair<OptionallyImplicitIndexInterval, Index>> ExtractStridedSlice(
           !IsFiniteIndex(stop_or_size)) {
         inclusive_stop = stop_or_size;
       } else {
-        ABSL_ASSERT(interval_form == IntervalForm::half_open);
+        assert(interval_form == IntervalForm::half_open);
         // Can't overflow since `IsFiniteIndex(stop_or_size) == true`.
         inclusive_stop = stop_or_size + (stride > 0 ? -1 : 1);
       }
@@ -332,7 +332,7 @@ Result<std::pair<OptionallyImplicitIndexInterval, Index>> ExtractStridedSlice(
           ? kInfIndex + 1 - new_start
           : CeilOfRatio(adjusted_interval.size(), std::abs(stride));
   orig.interval() = IndexInterval::UncheckedSized(new_start, new_size);
-  return {absl::in_place, orig, start};
+  return {std::in_place, orig, start};
 }
 
 Result<std::pair<OptionallyImplicitIndexInterval, Index>>

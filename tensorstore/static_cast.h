@@ -45,11 +45,10 @@
 /// `StaticDataTypeCast` (defined in data_type.h), that also support both
 /// checked and unchecked casts.
 
+#include <cassert>
+#include <string_view>
 #include <type_traits>
 
-#include "absl/base/macros.h"
-#include "absl/meta/type_traits.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -116,7 +115,7 @@ struct DefaultStaticCastTraits {
   /// The `DefaultStaticCastTraits` implementation returns
   /// `T(unchecked, std::forward<SourceRef>(source))`.
   template <typename SourceRef>
-  static absl::enable_if_t<
+  static std::enable_if_t<
       std::is_constructible<T, unchecked_t, SourceRef>::value, T>
   Construct(SourceRef&& source) {
     return T(unchecked, std::forward<SourceRef>(source));
@@ -133,12 +132,12 @@ struct DefaultStaticCastTraits {
   template <typename SourceRef>
   static bool IsCompatible(SourceRef&& source) = delete;
 
-  /// Returns a type convertible to `absl::string_view` that describes the type
+  /// Returns a type convertible to `std::string_view` that describes the type
   /// `T` and any compile-time constraints it imposes for use in cast error
   /// messages.
   static std::string Describe() = delete;
 
-  /// Returns a type convertible to `absl::string_view` that describes the
+  /// Returns a type convertible to `std::string_view` that describes the
   /// compile-time and run-time constraints specified by `value` for use in cast
   /// error messages.
   static std::string Describe(const T& value) = delete;
@@ -164,8 +163,8 @@ struct CastImpl;
 
 /// Returns an `absl::StatusCode::kInvalidArgument` error that includes the
 /// source and target descriptions.
-Status CastError(absl::string_view source_description,
-                 absl::string_view target_description);
+Status CastError(std::string_view source_description,
+                 std::string_view target_description);
 
 /// Specialization for `Checking == checked`.
 template <>
@@ -191,8 +190,8 @@ struct CastImpl<CastChecking::unchecked, false> {
 
   template <typename Target, typename SourceRef>
   static Target StaticCast(SourceRef&& source) {
-    ABSL_ASSERT(StaticCastTraits<Target>::IsCompatible(source) &&
-                "StaticCast is not valid");
+    assert(StaticCastTraits<Target>::IsCompatible(source) &&
+           "StaticCast is not valid");
     return StaticCastTraits<Target>::Construct(std::forward<SourceRef>(source));
   }
 };
@@ -242,7 +241,7 @@ using IsCastConstructible =
 /// \requires `IsCastConstructible<Target, SourceRef>`.
 template <typename Target, typename SourceRef,
           CastChecking Checking = CastChecking::unchecked>
-using SupportedCastResultType = absl::enable_if_t<
+using SupportedCastResultType = std::enable_if_t<
     IsCastConstructible<Target, SourceRef>::value,
     typename internal_cast::CastImplType<
         Target, SourceRef, Checking>::template ResultType<SourceRef, Target>>;

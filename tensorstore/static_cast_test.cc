@@ -38,9 +38,9 @@ struct X {
   X(span<int, Extent> data) : data(data) {}
 
   template <std::ptrdiff_t OtherExtent,
-            absl::enable_if_t<(OtherExtent == Extent ||
-                               OtherExtent == dynamic_extent ||
-                               Extent == dynamic_extent)>* = nullptr>
+            std::enable_if_t<(OtherExtent == Extent ||
+                              OtherExtent == dynamic_extent ||
+                              Extent == dynamic_extent)>* = nullptr>
   explicit X(unchecked_t, X<OtherExtent> other)
       : data(other.data.data(), other.data.size()) {}
   span<int, Extent> data;
@@ -78,9 +78,9 @@ template <std::ptrdiff_t Extent>
 struct StaticCastTraits<Y<Extent>> {
   /// Define custom `Construct` function.
   template <std::ptrdiff_t OtherExtent,
-            absl::enable_if_t<(OtherExtent == Extent ||
-                               OtherExtent == dynamic_extent ||
-                               Extent == dynamic_extent)>* = nullptr>
+            std::enable_if_t<(OtherExtent == Extent ||
+                              OtherExtent == dynamic_extent ||
+                              Extent == dynamic_extent)>* = nullptr>
   static Y<Extent> Construct(Y<OtherExtent> other) {
     return Y<Extent>(span<int, Extent>(other.data.data(), other.data.size()));
   }

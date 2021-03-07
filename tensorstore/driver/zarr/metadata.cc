@@ -206,8 +206,8 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
   }
   std::string b64_encoded;
   absl::Base64Escape(
-      absl::string_view(reinterpret_cast<const char*>(buffer.data()),
-                        buffer.size()),
+      std::string_view(reinterpret_cast<const char*>(buffer.data()),
+                       buffer.size()),
       &b64_encoded);
   return b64_encoded;
 }

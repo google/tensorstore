@@ -43,7 +43,7 @@ inline char GetChunkKeyEncodingSeparator(ChunkKeyEncoding key_encoding) {
   return key_encoding == ChunkKeyEncoding::kDotSeparated ? '.' : '/';
 }
 
-Result<ZarrMetadataPtr> ParseEncodedMetadata(absl::string_view encoded_value) {
+Result<ZarrMetadataPtr> ParseEncodedMetadata(std::string_view encoded_value) {
   nlohmann::json raw_data = nlohmann::json::parse(encoded_value, nullptr,
                                                   /*allow_exceptions=*/false);
   if (raw_data.is_discarded()) {
@@ -60,7 +60,7 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
 
  public:
   using Base::Base;
-  std::string GetMetadataStorageKey(absl::string_view entry_key) override {
+  std::string GetMetadataStorageKey(std::string_view entry_key) override {
     return internal::JoinPath(entry_key, kZarrMetadataKey);
   }
 
@@ -69,7 +69,7 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
     return ParseEncodedMetadata(encoded_metadata.Flatten());
   }
 
-  Result<absl::Cord> EncodeMetadata(absl::string_view entry_key,
+  Result<absl::Cord> EncodeMetadata(std::string_view entry_key,
                                     const void* metadata) override {
     return absl::Cord(
         ::nlohmann::json(*static_cast<const ZarrMetadata*>(metadata)).dump());

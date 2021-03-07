@@ -48,15 +48,15 @@ void BasicNonCompile() {
   EXPECT_NON_COMPILE("no viable conversion", Result<X> y = int_result);
 
   // Result<void> lacks comparison operators.
-  Result<void> r{absl::in_place};
-  EXPECT_NON_COMPILE("", r == Result<void>(absl::in_place));
+  Result<void> r{std::in_place};
+  EXPECT_NON_COMPILE("", r == Result<void>(std::in_place));
 
   /// FIXME: The semantics of Result<const X> need additional thought.
-  EXPECT_NON_COMPILE("", Result<const int>{absl::in_place});
+  EXPECT_NON_COMPILE("", Result<const int>{std::in_place});
 
   /// FIXME: Properly specialize on <const void> vs. <void>.
   /// This is in addition to enabling const, above.
-  EXPECT_NON_COMPILE("", Result<const void>{absl::in_place});
+  EXPECT_NON_COMPILE("", Result<const void>{std::in_place});
 }
 
 }  // namespace

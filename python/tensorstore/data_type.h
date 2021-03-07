@@ -21,8 +21,8 @@
 
 #include <array>
 #include <complex>
+#include <string_view>
 
-#include "absl/strings/string_view.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
 #include "tensorstore/data_type.h"
@@ -121,7 +121,7 @@ using tensorstore::GetDataType;
 /// Returns the DataType if valid.
 ///
 /// \throws `pybind11::value_error` if `name` is not a valid DataType name.
-DataType GetDataTypeOrThrow(absl::string_view name);
+DataType GetDataTypeOrThrow(std::string_view name);
 
 /// Returns the corresponding NumPy dtype.
 ///

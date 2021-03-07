@@ -15,16 +15,16 @@
 #include "tensorstore/kvstore/gcs/object_metadata.h"
 
 #include <map>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "absl/status/status.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
-#include "absl/strings/string_view.h"
 #include "absl/time/time.h"
-#include "absl/types/optional.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json.h"
 #include "tensorstore/util/result.h"
@@ -37,17 +37,17 @@ namespace internal {
 
 // TODO: Move to internal/json
 template <>
-absl::optional<absl::Time> JsonValueAs(const ::nlohmann::json& json,
-                                       bool strict) {
+std::optional<absl::Time> JsonValueAs(const ::nlohmann::json& json,
+                                      bool strict) {
   if (!json.is_string()) {
-    return absl::nullopt;
+    return std::nullopt;
   }
   absl::Time time;
   if (absl::ParseTime(absl::RFC3339_full, json.get_ref<std::string const&>(),
                       &time, nullptr)) {
     return time;
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 }  // namespace internal
@@ -154,8 +154,8 @@ void SetObjectMetadataFromHeaders(
   // goog hash is encoded as a list of k=v,k=v pairs.
   auto it = headers.find("x-goog-hash");
   if (it != headers.end()) {
-    for (absl::string_view kv : absl::StrSplit(it->second, absl::ByChar(','))) {
-      std::pair<absl::string_view, absl::string_view> split =
+    for (std::string_view kv : absl::StrSplit(it->second, absl::ByChar(','))) {
+      std::pair<std::string_view, std::string_view> split =
           absl::StrSplit(kv, absl::MaxSplits('=', 1));
 
       if (split.first == "crc32c") {
@@ -167,7 +167,7 @@ void SetObjectMetadataFromHeaders(
   }
 }
 
-Result<ObjectMetadata> ParseObjectMetadata(absl::string_view source) {
+Result<ObjectMetadata> ParseObjectMetadata(std::string_view source) {
   auto json = internal::ParseJson(source);
   if (json.is_discarded()) {
     return absl::InvalidArgumentError(

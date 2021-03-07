@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cassert>
 #include <cstddef>
 #include <memory>
 #include <new>
@@ -19,7 +20,6 @@
 #include <utility>
 #include <vector>
 
-#include "absl/base/macros.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -224,7 +224,7 @@ class CopyBenchmarkRunner {
                       tensorstore::value_init, config.dtype),
         Box<>(rank), chunked_dims}});
     cache = pool->GetCache<BenchmarkCache>(
-        "", [&] { return absl::make_unique<BenchmarkCache>(grid, executor); });
+        "", [&] { return std::make_unique<BenchmarkCache>(grid, executor); });
     driver.reset(new TestDriver(cache, 0));
     array = AllocateArray(config.copy_shape, tensorstore::c_order,
                           tensorstore::value_init, config.dtype);

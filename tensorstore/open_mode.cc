@@ -18,7 +18,7 @@
 
 namespace tensorstore {
 
-absl::string_view to_string(ReadWriteMode mode) {
+std::string_view to_string(ReadWriteMode mode) {
   switch (mode) {
     case ReadWriteMode::dynamic:
       return "dynamic";

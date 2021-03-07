@@ -66,7 +66,7 @@
 ///   auto pool = CachePool::Make(CachePool::Limits{2000000, 1000000});
 ///
 ///   auto cache = pool.GetCache<MyCache>("cache_key", [&] {
-///     return absl::make_unique<MyCache>();
+///     return std::make_unique<MyCache>();
 ///   });
 ///
 ///   auto entry = GetCacheEntry(cache, "entry_a");
@@ -79,10 +79,10 @@
 #include <iosfwd>
 #include <memory>
 #include <optional>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
-#include "absl/strings/string_view.h"
 #include "tensorstore/internal/cache_impl.h"
 #include "tensorstore/internal/cache_pool_limits.h"
 #include "tensorstore/internal/intrusive_ptr.h"
@@ -135,7 +135,7 @@ class CachePool : private internal_cache::CachePoolImpl {
   ///     communicated via some separate out-of-band channel).
   template <typename CacheType>
   CachePtr<CacheType> GetCache(
-      absl::string_view cache_key,
+      std::string_view cache_key,
       FunctionView<std::unique_ptr<Cache>()> make_cache) {
     static_assert(std::is_base_of<Cache, CacheType>::value,
                   "CacheType must inherit from Cache.");
@@ -222,7 +222,7 @@ class CacheEntry : private internal_cache::CacheEntryImpl {
   using Cache = internal::Cache;
 
   /// Returns the key for this entry.
-  absl::string_view key() { return key_; }
+  std::string_view key() { return key_; }
 
   /// Returns the number of references to this cache entry.
   ///
@@ -260,19 +260,19 @@ class CacheEntry : private internal_cache::CacheEntryImpl {
     /// effect is the same order in which modifications to "S" occur.
     Lock lock;
 
-    /// If not `absl::nullopt`, the entry size will be changed to the specified
+    /// If not `std::nullopt`, the entry size will be changed to the specified
     /// value.
-    absl::optional<std::size_t> new_size;
+    std::optional<std::size_t> new_size;
   };
 
   /// Extends `SizeUpdate` with an optional state update.
   struct StateUpdate : public SizeUpdate {
-    /// If not `absl::nullopt`, the queue state will be changed to the specified
+    /// If not `std::nullopt`, the queue state will be changed to the specified
     /// value.  If `new_state` is `clean_and_not_in_use` or `dirty`, the entry
     /// will be moved to the back (most recently used) position of the eviction
     /// or writeback queue, respectively, even if `queue_state` is the same as
     /// the existing queue state.
-    absl::optional<CacheEntryQueueState> new_state;
+    std::optional<CacheEntryQueueState> new_state;
   };
 
   /// Optionally modifies the entry queue state and/or the entry size.
@@ -327,7 +327,7 @@ class Cache : private internal_cache::CacheImpl {
   /// If non-empty, requesting a cache of the same type with the same identifier
   /// from the same cache pool while this cache is still alive will return a
   /// pointer to this same cache.
-  absl::string_view cache_identifier() const { return cache_identifier_; }
+  std::string_view cache_identifier() const { return cache_identifier_; }
 
   /// Allocates a new `entry` to be stored in this cache.
   ///
@@ -451,7 +451,7 @@ GetOwningCache(const internal_cache::CacheEntryStrongPtr<Entry>& entry) {
 template <typename CacheType>
 std::enable_if_t<std::is_base_of<Cache, CacheType>::value,
                  PinnedCacheEntry<CacheType>>
-GetCacheEntry(CacheType* cache, absl::string_view key) {
+GetCacheEntry(CacheType* cache, std::string_view key) {
   return static_pointer_cast<typename CacheType::Entry>(
       internal_cache::GetCacheEntryInternal(cache, key));
 }
@@ -460,7 +460,7 @@ GetCacheEntry(CacheType* cache, absl::string_view key) {
 template <typename CacheType>
 std::enable_if_t<std::is_base_of<Cache, CacheType>::value,
                  PinnedCacheEntry<CacheType>>
-GetCacheEntry(const CachePtr<CacheType>& cache, absl::string_view key) {
+GetCacheEntry(const CachePtr<CacheType>& cache, std::string_view key) {
   return GetCacheEntry(cache.get(), key);
 }
 

@@ -26,19 +26,19 @@ Status PropagateBounds(BoxView<> b,
                        BitSpan<const std::uint64_t> b_implicit_lower_bounds,
                        BitSpan<const std::uint64_t> b_implicit_upper_bounds,
                        TransformRep* a_to_b, MutableBoxView<> a) {
-  ABSL_ASSERT(b_implicit_lower_bounds.size() == b.rank());
-  ABSL_ASSERT(b_implicit_upper_bounds.size() == b.rank());
+  assert(b_implicit_lower_bounds.size() == b.rank());
+  assert(b_implicit_upper_bounds.size() == b.rank());
   if (!a_to_b) {
     // A null `a_to_b` pointer indicates an identity transform, which we must
     // handle specially: the propagated bounds for `a` are simply equal to the
     // specified bounds for `b`.
-    ABSL_ASSERT(a.rank() == b.rank());
+    assert(a.rank() == b.rank());
     a.DeepAssign(b);
     return absl::OkStatus();
   }
 
-  ABSL_ASSERT(a_to_b->input_rank == a.rank());
-  ABSL_ASSERT(a_to_b->output_rank == b.rank());
+  assert(a_to_b->input_rank == a.rank());
+  assert(a_to_b->output_rank == b.rank());
 
   // Initialize the propagated bounds for `a` to the unbounded interval.  We
   // will iteratively reduce the bounds for input dimensions by intersecting
@@ -185,10 +185,10 @@ void PropagateImplicitBoundState(
     BitSpan<const std::uint64_t> b_implicit_upper_bounds, TransformRep* a_to_b,
     DimensionIndex a_rank, BitSpan<std::uint64_t> a_implicit_lower_bounds,
     BitSpan<std::uint64_t> a_implicit_upper_bounds) {
-  ABSL_ASSERT(b_implicit_lower_bounds.size() == b_rank);
-  ABSL_ASSERT(b_implicit_upper_bounds.size() == b_rank);
-  ABSL_ASSERT(a_implicit_lower_bounds.size() == a_rank);
-  ABSL_ASSERT(a_implicit_upper_bounds.size() == a_rank);
+  assert(b_implicit_lower_bounds.size() == b_rank);
+  assert(b_implicit_upper_bounds.size() == b_rank);
+  assert(a_implicit_lower_bounds.size() == a_rank);
+  assert(a_implicit_upper_bounds.size() == a_rank);
   if (!a_to_b) {
     a_implicit_lower_bounds.DeepAssign(b_implicit_lower_bounds);
     a_implicit_upper_bounds.DeepAssign(b_implicit_upper_bounds);
@@ -206,7 +206,7 @@ void PropagateImplicitBoundState(
       continue;
     }
     const DimensionIndex a_dim = map.input_dimension();
-    ABSL_ASSERT(a_dim >= 0 && a_dim < a_rank);
+    assert(a_dim >= 0 && a_dim < a_rank);
     bool implicit_lower = b_implicit_lower_bounds[b_dim];
     bool implicit_upper = b_implicit_upper_bounds[b_dim];
     if (map.stride() < 0) {
@@ -236,8 +236,8 @@ Result<TransformRep::Ptr<>> PropagateBoundsToTransform(
     BitSpan<const std::uint64_t> b_implicit_upper_bounds,
     TransformRep::Ptr<> a_to_b) {
   const DimensionIndex b_rank = b_domain.rank();
-  ABSL_ASSERT(b_rank == b_implicit_lower_bounds.size());
-  ABSL_ASSERT(b_rank == b_implicit_upper_bounds.size());
+  assert(b_rank == b_implicit_lower_bounds.size());
+  assert(b_rank == b_implicit_upper_bounds.size());
   if (!a_to_b) {
     a_to_b = TransformRep::Allocate(b_rank, b_rank);
     a_to_b->input_rank = a_to_b->output_rank = b_rank;

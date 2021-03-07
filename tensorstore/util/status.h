@@ -18,15 +18,14 @@
 #include <iosfwd>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <system_error>  // NOLINT
+#include <type_traits>
 #include <utility>
 
 #include "absl/base/attributes.h"
 #include "absl/base/optimization.h"
-#include "absl/memory/memory.h"
-#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/internal/preprocessor.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/type_traits.h"
@@ -38,13 +37,12 @@ namespace tensorstore {
 using Status = absl::Status;
 
 // If status is not `ok()`, then annotate the status message.
-Status MaybeAnnotateStatus(const Status& status, absl::string_view message);
+Status MaybeAnnotateStatus(const Status& status, std::string_view message);
 
 /// Overload for the case of a bare Status argument.
 /// \returns `status`
 inline const Status& GetStatus(const Status& status) { return status; }
 inline Status GetStatus(Status&& status) { return std::move(status); }
-
 
 /// Returns `f(args...)`, converting a `void` return to `Status`.
 template <typename F, typename... Args>

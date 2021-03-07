@@ -16,12 +16,12 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
 
 #include <gtest/gtest.h>
-#include "absl/types/optional.h"
 #include "tensorstore/util/function_view.h"
 #include "tensorstore/util/result.h"
 
@@ -135,7 +135,7 @@ TEST(PolyTest, ConstructInplace) {
   auto amount = std::make_shared<int>(1);
   {
     Poly<sizeof(Add), true, int(int)&, double(double)&> poly(
-        absl::in_place_type_t<Add>{}, amount);
+        std::in_place_type_t<Add>{}, amount);
     EXPECT_EQ(2, amount.use_count());
     EXPECT_TRUE(poly);
     EXPECT_EQ(3, poly(2));
@@ -477,7 +477,7 @@ void TestAvoidsSfinaeLoop() {
 TEST(PolyTest, AvoidsSfinaeLoop) {
   TestAvoidsSfinaeLoop<tensorstore::Result, tensorstore::FunctionView>();
   TestAvoidsSfinaeLoop<tensorstore::Result, std::function>();
-  TestAvoidsSfinaeLoop<absl::optional, SinglePoly>();
+  TestAvoidsSfinaeLoop<std::optional, SinglePoly>();
   TestAvoidsSfinaeLoop<tensorstore::Result, SinglePoly>();
 }
 

@@ -113,11 +113,11 @@
 ///
 
 #include <atomic>
+#include <cassert>
 #include <cstddef>
 #include <type_traits>
 #include <utility>
 
-#include "absl/base/macros.h"
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/type_traits.h"
 
@@ -378,13 +378,13 @@ class IntrusivePtr {
 
   pointer operator->() const {
     pointer ptr = get();
-    ABSL_ASSERT(static_cast<bool>(ptr));
+    assert(static_cast<bool>(ptr));
     return ptr;
   }
 
   element_type& operator*() const {
     pointer ptr = get();
-    ABSL_ASSERT(static_cast<bool>(ptr));
+    assert(static_cast<bool>(ptr));
     return *ptr;
   }
 

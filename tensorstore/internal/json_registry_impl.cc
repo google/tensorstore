@@ -33,7 +33,7 @@
 namespace tensorstore {
 namespace internal_json_registry {
 
-absl::Status GetJsonUnregisteredError(absl::string_view id) {
+absl::Status GetJsonUnregisteredError(std::string_view id) {
   return absl::InvalidArgumentError(
       tensorstore::StrCat(QuoteString(id), " is not registered"));
 }

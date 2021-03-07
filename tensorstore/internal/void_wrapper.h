@@ -18,8 +18,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "absl/meta/type_traits.h"
-
 namespace tensorstore {
 namespace internal {
 
@@ -53,12 +51,12 @@ struct Void {
 
   /// Type alias that maps `void` -> `Void`, and otherwise `T` -> `T`.
   template <typename T>
-  using WrappedType = absl::conditional_t<std::is_void<T>::value, Void, T>;
+  using WrappedType = std::conditional_t<std::is_void<T>::value, Void, T>;
 
   /// Type alias that maps `Void` -> `void`, and otherwise `T` -> `T`.
   template <typename T>
   using UnwrappedType =
-      absl::conditional_t<std::is_same<T, Void>::value, void, T>;
+      std::conditional_t<std::is_same<T, Void>::value, void, T>;
 
   /// Invokes `func` with `args` (using perfect forwarding), and returns the
   /// result if it is not `void`, or otherwise returns `Void{}`.
@@ -66,9 +64,9 @@ struct Void {
   /// This overload is used in the case that the return type of `func` is
   /// `void`.
   template <typename Func, typename... Args>
-  static absl::enable_if_t<std::is_void<decltype(std::declval<Func>()(
-                               std::declval<Args>()...))>::value,
-                           Void>
+  static std::enable_if_t<std::is_void<decltype(std::declval<Func>()(
+                              std::declval<Args>()...))>::value,
+                          Void>
   CallAndWrap(Func&& func, Args&&... args) {
     std::forward<Func>(func)(std::forward<Args>(args)...);
     return {};
@@ -76,7 +74,7 @@ struct Void {
 
   /// Overload for the case that the return type of `func` is not `void`.
   template <typename Func, typename... Args>
-  static absl::enable_if_t<
+  static std::enable_if_t<
       !std::is_void<
           decltype(std::declval<Func>()(std::declval<Args>()...))>::value,
       decltype(std::declval<Func>()(std::declval<Args>()...))>

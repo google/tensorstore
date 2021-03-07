@@ -26,10 +26,10 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <string_view>
 #include <variant>
 #include <vector>
 
-#include "absl/strings/string_view.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/box.h"
 #include "tensorstore/data_type.h"
@@ -97,7 +97,7 @@ struct ScaleMetadata {
     compressed_segmentation,
   };
 
-  friend absl::string_view to_string(Encoding e);
+  friend std::string_view to_string(Encoding e);
   friend std::ostream& operator<<(std::ostream& os, Encoding e) {
     return os << std::string(to_string(e));
   }
@@ -234,8 +234,8 @@ Result<std::size_t> OpenScale(const MultiscaleMetadata& metadata,
 ///     assumed to have a path of `key_prefix + "/info"`.
 /// \param scale_key The scale `key` from the `info` file to resolve.
 /// \returns The resolved path.
-std::string ResolveScaleKey(absl::string_view key_prefix,
-                            absl::string_view scale_key);
+std::string ResolveScaleKey(std::string_view key_prefix,
+                            std::string_view scale_key);
 
 /// Validates that `dtype` is supported by the Neuroglancer precomputed
 /// format.

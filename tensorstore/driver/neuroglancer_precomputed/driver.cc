@@ -54,7 +54,7 @@ struct SpecT : public internal_kvs_backed_chunk_driver::SpecT<MaybeBound> {
 };
 
 Result<std::shared_ptr<const MultiscaleMetadata>> ParseEncodedMetadata(
-    absl::string_view encoded_value) {
+    std::string_view encoded_value) {
   nlohmann::json raw_data = nlohmann::json::parse(encoded_value, nullptr,
                                                   /*allow_exceptions=*/false);
   if (raw_data.is_discarded()) {
@@ -71,16 +71,16 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
  public:
   using Base::Base;
 
-  std::string GetMetadataStorageKey(absl::string_view entry_key) override {
+  std::string GetMetadataStorageKey(std::string_view entry_key) override {
     return internal::JoinPath(entry_key, kMetadataKey);
   }
 
-  Result<MetadataPtr> DecodeMetadata(absl::string_view entry_key,
+  Result<MetadataPtr> DecodeMetadata(std::string_view entry_key,
                                      absl::Cord encoded_metadata) override {
     return ParseEncodedMetadata(encoded_metadata.Flatten());
   }
 
-  Result<absl::Cord> EncodeMetadata(absl::string_view entry_key,
+  Result<absl::Cord> EncodeMetadata(std::string_view entry_key,
                                     const void* metadata) override {
     return absl::Cord(
         ::nlohmann::json(*static_cast<const MultiscaleMetadata*>(metadata))
@@ -103,7 +103,7 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
   using Base = internal_kvs_backed_chunk_driver::DataCache;
 
  public:
-  explicit DataCacheBase(Initializer initializer, absl::string_view key_prefix,
+  explicit DataCacheBase(Initializer initializer, std::string_view key_prefix,
                          const MultiscaleMetadata& metadata,
                          std::size_t scale_index,
                          std::array<Index, 3> chunk_size_xyz)
@@ -274,7 +274,7 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
 class UnshardedDataCache : public DataCacheBase {
  public:
   explicit UnshardedDataCache(Initializer initializer,
-                              absl::string_view key_prefix,
+                              std::string_view key_prefix,
                               const MultiscaleMetadata& metadata,
                               std::size_t scale_index,
                               std::array<Index, 3> chunk_size_xyz)
@@ -310,7 +310,7 @@ class UnshardedDataCache : public DataCacheBase {
 class ShardedDataCache : public DataCacheBase {
  public:
   explicit ShardedDataCache(Initializer initializer,
-                            absl::string_view key_prefix,
+                            std::string_view key_prefix,
                             const MultiscaleMetadata& metadata,
                             std::size_t scale_index,
                             std::array<Index, 3> chunk_size_xyz)

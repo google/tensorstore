@@ -20,11 +20,11 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/internal/grid_partition.h"
 
+#include <optional>
 #include <vector>
 
 #include "absl/container/fixed_array.h"
 #include "absl/container/inlined_vector.h"
-#include "absl/types/optional.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -174,7 +174,7 @@ Status PrePartitionIndexTransformOverRegularGrid(
     IndexTransformView<> index_transform,
     span<const DimensionIndex> grid_output_dimensions,
     span<const Index> grid_cell_shape,
-    absl::optional<IndexTransformGridPartition>* result);
+    std::optional<IndexTransformGridPartition>* result);
 
 }  // namespace internal_grid_partition
 }  // namespace tensorstore

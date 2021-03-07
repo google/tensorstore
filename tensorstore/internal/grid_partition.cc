@@ -15,12 +15,12 @@
 #include "tensorstore/internal/grid_partition.h"
 
 #include <algorithm>
+#include <cassert>
 #include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
 
-#include "absl/base/macros.h"
 #include "absl/container/fixed_array.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
@@ -314,7 +314,7 @@ class ConnectedSetIterateHelper {
                 .value();
         restricted_domain = Intersect(restricted_domain, cell_domain);
       }
-      ABSL_ASSERT(restricted_domain.size() > 0);
+      assert(restricted_domain.size() > 0);
       // Set the input domain for `cell_input_dim` for the duration of the
       // subsequent recursive call to IterateOverStridedSets.
       cell_transform_->input_origin()[cell_input_dim] =
@@ -365,7 +365,7 @@ Status PartitionIndexTransformOverRegularGrid(
     FunctionView<Status(span<const Index> grid_cell_indices,
                         IndexTransformView<> cell_transform)>
         func) {
-  absl::optional<internal_grid_partition::IndexTransformGridPartition>
+  std::optional<internal_grid_partition::IndexTransformGridPartition>
       partition_info;
   auto status =
       internal_grid_partition::PrePartitionIndexTransformOverRegularGrid(

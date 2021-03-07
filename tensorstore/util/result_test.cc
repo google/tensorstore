@@ -43,7 +43,7 @@ static_assert(!std::is_convertible<Result<int>, Result<std::string>>::value,
 static_assert(std::is_same<int, Result<int>::value_type>::value, "");
 
 TEST(ResultTest, ConstructDefault) {
-  Result<int> result{absl::in_place};
+  Result<int> result{std::in_place};
   EXPECT_TRUE(result.has_value());
   EXPECT_TRUE(result.ok());
   EXPECT_TRUE(result);
@@ -66,12 +66,12 @@ TEST(ResultDeathTest, ConstructSuccess) {
 TEST(ResultDeathTest, AssignSuccess) {
   // Cannot get blood from a stone.
   absl::Status status;
-  Result<int> result{absl::in_place};
+  Result<int> result{std::in_place};
   ASSERT_DEATH(result = status, "status");
 }
 
 TEST(ResultDeathTest, ConstructDefaultHasNoStatus) {
-  Result<int> result{absl::in_place};
+  Result<int> result{std::in_place};
   ASSERT_DEATH(result.status(), "has_value");
 }
 
@@ -195,9 +195,9 @@ TEST(ResultTest, Comparison) {
   EXPECT_EQ(false, r != Result<float>(1));
   EXPECT_EQ(false, Result<int>(2) == Result<float>(1));
   EXPECT_EQ(true, Result<int>(2) != Result<float>(1));
-  EXPECT_EQ(true, Result<int>{absl::in_place} == Result<int>{absl::in_place});
-  EXPECT_EQ(false, Result<int>{absl::in_place} == r);
-  EXPECT_EQ(false, Result<int>{absl::in_place} == r);
+  EXPECT_EQ(true, Result<int>{std::in_place} == Result<int>{std::in_place});
+  EXPECT_EQ(false, Result<int>{std::in_place} == r);
+  EXPECT_EQ(false, Result<int>{std::in_place} == r);
 
   Result<int> err{absl::UnknownError("Message")};
   Result<int> err2 = err;
@@ -207,8 +207,8 @@ TEST(ResultTest, Comparison) {
   EXPECT_EQ(false, err != err2);
   EXPECT_EQ(false, err == Result<int>(1));
   EXPECT_EQ(true, err != Result<int>(1));
-  EXPECT_EQ(false, err == Result<int>(absl::in_place));
-  EXPECT_EQ(true, err != Result<int>(absl::in_place));
+  EXPECT_EQ(false, err == Result<int>(std::in_place));
+  EXPECT_EQ(true, err != Result<int>(std::in_place));
 
   // Compare with values.
   EXPECT_EQ(true, r == 1);
@@ -232,12 +232,12 @@ TEST(ResultTest, Comparison) {
 TEST(ResultTest, AssignMoveFailure) {
   Result<int> result(absl::UnknownError("Hello"));
   auto message = result.status().message();
-  Result<int> result2{absl::in_place};
+  Result<int> result2{std::in_place};
   result2 = std::move(result);
   EXPECT_FALSE(result2);
   EXPECT_EQ(message.data(), result2.status().message().data());
 
-  Result<int> other(absl::in_place);
+  Result<int> other(std::in_place);
   result2 = std::move(other);
   EXPECT_TRUE(result2.has_value());
   EXPECT_EQ(0, *result2);
@@ -254,20 +254,20 @@ TEST(ResultTest, AssignMoveSuccess) {
 
 TEST(ResultTest, AssignCopyFailure) {
   Result<int> result(absl::UnknownError("Hello"));
-  Result<int> result2{absl::in_place};
+  Result<int> result2{std::in_place};
   result2 = result;
   EXPECT_EQ(result2, result);
   EXPECT_FALSE(result2);
   EXPECT_EQ(result2.status(), result.status());
 
-  result2 = Result<int>(absl::in_place);
+  result2 = Result<int>(std::in_place);
   EXPECT_TRUE(result2.has_value());
   EXPECT_EQ(0, *result2);
 }
 
 TEST(ResultTest, AssignCopySuccess) {
   Result<int> result(3);
-  Result<int> result2{absl::in_place};
+  Result<int> result2{std::in_place};
   result2 = result;
   EXPECT_EQ(result2, result);
   EXPECT_TRUE(result2);
@@ -621,8 +621,8 @@ TEST(ResultVoidTest, CopyConstructFromStatus) {
 
 TEST(ResultVoidTest, CopyAssignFromStatus) {
   absl::Status s = absl::UnknownError("C");
-  Result<void> t(absl::in_place);
-  Result<void> r{absl::in_place};
+  Result<void> t(std::in_place);
+  Result<void> r{std::in_place};
   r = s;
   EXPECT_EQ(absl::UnknownError("C"), r.status());
   r = t;
@@ -632,12 +632,12 @@ TEST(ResultVoidTest, CopyAssignFromStatus) {
 }
 
 TEST(ResultVoidTest, MoveAssignFromStatus) {
-  Result<void> r{absl::in_place};
+  Result<void> r{std::in_place};
   r = absl::UnknownError("C");
   EXPECT_EQ(absl::UnknownError("C"), r.status());
-  r = Result<void>(absl::in_place);
+  r = Result<void>(std::in_place);
   EXPECT_TRUE(r.has_value());
-  r = Result<void>(absl::in_place);
+  r = Result<void>(std::in_place);
   EXPECT_TRUE(r.has_value());
 }
 
@@ -656,7 +656,7 @@ TEST(ResultVoidTest, MakeResultVoid) {
 }
 
 TEST(ResultVoidTest, ReturnVoid) {
-  auto fn = []() -> Result<void> { return {absl::in_place}; };
+  auto fn = []() -> Result<void> { return {std::in_place}; };
 
   Result<void> r = fn();
   EXPECT_TRUE(r.has_value());
@@ -691,7 +691,7 @@ TEST(ResultTest, MoveOnlyConstruct) {
     EXPECT_EQ(3, x.value().value);
   }
   {
-    Result<MoveOnly> x(absl::in_place, 3);
+    Result<MoveOnly> x(std::in_place, 3);
     EXPECT_EQ(3, x.value().value);
   }
   {
@@ -706,7 +706,7 @@ TEST(ResultTest, MoveOnlyConstruct) {
   }
   {
     MoveOnly w(3);
-    Result<MoveOnly> y(absl::in_place, 4);
+    Result<MoveOnly> y(std::in_place, 4);
     y = std::move(w);
     EXPECT_EQ(3, y.value().value);
   }
@@ -732,7 +732,7 @@ TEST(ResultTest, MoveOnlyConstruct) {
     EXPECT_EQ(3, y.value().value);
   }
   {
-    Result<MoveOnly> y{absl::in_place, 4};
+    Result<MoveOnly> y{std::in_place, 4};
     y = absl::UnknownError("D");
     EXPECT_FALSE(y);
   }
@@ -785,7 +785,7 @@ TEST(ResultTest, CopyOnlyConstruct) {
     EXPECT_EQ(3, x.value().value);
   }
   {
-    Result<CopyOnly> x(absl::in_place, 3);
+    Result<CopyOnly> x(std::in_place, 3);
     EXPECT_EQ(3, x.value().value);
   }
   {
@@ -800,7 +800,7 @@ TEST(ResultTest, CopyOnlyConstruct) {
   }
   {
     CopyOnly w(3);
-    Result<CopyOnly> y(absl::in_place, 4);
+    Result<CopyOnly> y(std::in_place, 4);
     y = w;
     EXPECT_EQ(3, y.value().value);
   }
@@ -817,7 +817,7 @@ TEST(ResultTest, CopyOnlyConstruct) {
   }
   // No overload for y = CopyOnly(3)
   {
-    Result<CopyOnly> y{absl::in_place, 4};
+    Result<CopyOnly> y{std::in_place, 4};
     y = absl::UnknownError("D");
     EXPECT_FALSE(y);
   }
@@ -855,7 +855,7 @@ TEST(ResultTest, ExplicitConstruct) {
     EXPECT_EQ(3, x.value().value);
   }
   {
-    Result<Explicit> x(absl::in_place, 3);
+    Result<Explicit> x(std::in_place, 3);
     EXPECT_EQ(3, x.value().value);
   }
   {
@@ -870,7 +870,7 @@ TEST(ResultTest, ExplicitConstruct) {
   }
   {
     Explicit w(3);
-    Result<Explicit> y(absl::in_place, 4);
+    Result<Explicit> y(std::in_place, 4);
     y = w;
     EXPECT_EQ(3, y.value().value);
   }
@@ -887,7 +887,7 @@ TEST(ResultTest, ExplicitConstruct) {
   }
   {
     Explicit w(3);
-    Result<Explicit> y(absl::in_place, 4);
+    Result<Explicit> y(std::in_place, 4);
     y = std::move(w);
     EXPECT_EQ(3, y.value().value);
   }
@@ -912,7 +912,7 @@ TEST(ResultTest, ExplicitConstruct) {
     EXPECT_EQ(3, y.value().value);
   }
   {
-    Result<Explicit> y{absl::in_place, 4};
+    Result<Explicit> y{std::in_place, 4};
     y = absl::UnknownError("D");
     EXPECT_FALSE(y);
   }
@@ -920,13 +920,13 @@ TEST(ResultTest, ExplicitConstruct) {
 
 TEST(ResultTest, ExplicitConvertingConstructor) {
   {
-    Result<CopyOnly> w{absl::in_place, 4};
+    Result<CopyOnly> w{std::in_place, 4};
     Result<Explicit> y{w};
     EXPECT_TRUE(y);
     EXPECT_EQ(4, y.value().value);
   }
   {
-    Result<MoveOnly> w{absl::in_place, 4};
+    Result<MoveOnly> w{std::in_place, 4};
     Result<Explicit> y{std::move(w)};
     EXPECT_TRUE(y);
     EXPECT_EQ(4, y.value().value);
@@ -940,7 +940,7 @@ struct X {
 TEST(ResultTest, AdvancedConversion) {
   // See result_nc_test.cc as well.
   Result<int> int_result(3);
-  Result<X> x_result(absl::in_place, int_result);
+  Result<X> x_result(std::in_place, int_result);
 }
 
 TEST(ResultTest, MakeResult) {
@@ -1077,7 +1077,7 @@ TEST(ChainResultTest, Example) {
   auto func2 = [](float x) -> Result<std::string> {
     return absl::StrCat("fn.", x);
   };
-  auto func3 = [](absl::string_view x) -> bool { return x.length() > 4; };
+  auto func3 = [](std::string_view x) -> bool { return x.length() > 4; };
 
   Result<bool> y1 = ChainResult(Result<int>(3), func1, func2, func3);
   Result<bool> y2 = ChainResult(3, func1, func2, func3);
@@ -1127,7 +1127,7 @@ TEST(PipelineOperator, Basic) {
   auto func2 = [](float x) -> Result<std::string> {
     return absl::StrCat("fn.", x);
   };
-  auto func3 = [](absl::string_view x) -> bool { return x.length() > 4; };
+  auto func3 = [](std::string_view x) -> bool { return x.length() > 4; };
 
   auto y1 = Result<int>(3) | func1 | func2 | func3;
   static_assert(std::is_same_v<decltype(y1), Result<bool>>);

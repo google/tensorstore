@@ -111,9 +111,9 @@ absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
 }
 #endif
 
-absl::Status StatusFromOsError(OsErrorCode error_code, absl::string_view a,
-                               absl::string_view b, absl::string_view c,
-                               absl::string_view d) {
+absl::Status StatusFromOsError(OsErrorCode error_code, std::string_view a,
+                               std::string_view b, std::string_view c,
+                               std::string_view d) {
   return absl::Status(GetOsErrorStatusCode(error_code),
                       absl::StrCat(a, b, c, d, " [OS error: ",
                                    GetOsErrorMessage(error_code), "]"));

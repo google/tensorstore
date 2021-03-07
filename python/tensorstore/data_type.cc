@@ -17,10 +17,10 @@
 #include <array>
 #include <new>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "absl/hash/hash.h"
-#include "absl/strings/string_view.h"
 #include <nlohmann/json.hpp>
 #include "python/tensorstore/json_type_caster.h"
 #include "pybind11/numpy.h"
@@ -43,7 +43,7 @@ pybind11::dtype GetNumpyDtype(int type_num) {
   throw py::error_already_set();
 }
 
-DataType GetDataTypeOrThrow(absl::string_view name) {
+DataType GetDataTypeOrThrow(std::string_view name) {
   auto d = GetDataType(name);
   if (!d.valid()) {
     throw py::value_error(

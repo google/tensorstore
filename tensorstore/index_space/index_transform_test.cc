@@ -238,7 +238,7 @@ TEST(IndexTransformTest, Assign) {
   };
   auto make_identity = [] { return IdentityTransform(2); };
   auto make_labeled_identity = [] {
-    return IdentityTransform(span<const absl::string_view>({"x", "y"}));
+    return IdentityTransform(span<const std::string_view>({"x", "y"}));
   };
 
   auto unlabeled_t = make_identity();

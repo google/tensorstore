@@ -97,9 +97,9 @@ class IndexDomainBuilder {
   /// \remarks Calling this method after it has already been called simply
   ///     overrides the previous value.
   template <typename Indices>
-  absl::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                        Rank, Indices>::value,
-                    IndexDomainBuilder&>
+  std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
+                       Rank, Indices>::value,
+                   IndexDomainBuilder&>
   origin(const Indices& indices) {
     builder_.input_origin(indices);
     return *this;
@@ -131,9 +131,9 @@ class IndexDomainBuilder {
   /// \remarks Calling this method after the upper bound has already been
   ///     specified simply overrides the previous value.
   template <typename Indices>
-  absl::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                        Rank, Indices>::value,
-                    IndexDomainBuilder&>
+  std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
+                       Rank, Indices>::value,
+                   IndexDomainBuilder&>
   shape(const Indices& indices) {
     builder_.input_shape(indices);
     return *this;
@@ -164,9 +164,9 @@ class IndexDomainBuilder {
   /// \remarks Calling this method after the upper bound has already been
   ///     specified simply overrides the previous value.
   template <typename Indices>
-  absl::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                        Rank, Indices>::value,
-                    IndexDomainBuilder&>
+  std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
+                       Rank, Indices>::value,
+                   IndexDomainBuilder&>
   exclusive_max(const Indices& indices) {
     builder_.input_exclusive_max(indices);
     return *this;
@@ -199,9 +199,9 @@ class IndexDomainBuilder {
   /// \remarks Calling this method after the upper bound of the input domain has
   ///     already been specified simply overrides the previous value.
   template <typename Indices>
-  absl::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                        Rank, Indices>::value,
-                    IndexDomainBuilder&>
+  std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
+                       Rank, Indices>::value,
+                   IndexDomainBuilder&>
   inclusive_max(const Indices& indices) {
     builder_.input_inclusive_max(indices);
     return *this;
@@ -230,8 +230,8 @@ class IndexDomainBuilder {
   /// \remarks Calling this method after the lower and/or upper bounds of the
   ///     have already been specified simply overrides the previous values.
   template <typename BoxLike>
-  absl::enable_if_t<IsBoxLikeImplicitlyConvertibleToRank<BoxLike, Rank>::value,
-                    IndexDomainBuilder&>
+  std::enable_if_t<IsBoxLikeImplicitlyConvertibleToRank<BoxLike, Rank>::value,
+                   IndexDomainBuilder&>
   bounds(const BoxLike& box) {
     builder_.input_bounds(box);
     return *this;
@@ -263,15 +263,15 @@ class IndexDomainBuilder {
   /// Sets the `labels` vector the specified value.
   ///
   /// \param labels A sequence with `value_type` convertible to
-  ///     `absl::string_view` specifying the label for each dimension.
+  ///     `std::string_view` specifying the label for each dimension.
   /// \pre `valid() == true`
   /// \checks The size of the `labels` vector must equal `rank()`.
   /// \remarks Calling this method after it has already been called simply
   ///     overrides the previous value.
   template <typename Labels>
-  absl::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                        Rank, Labels>::value,
-                    IndexDomainBuilder&>
+  std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
+                       Rank, Labels>::value,
+                   IndexDomainBuilder&>
   labels(const Labels& labels) {
     builder_.input_labels(labels);
     return *this;
@@ -282,7 +282,7 @@ class IndexDomainBuilder {
   ///
   /// \pre `valid() == true`
   template <std::size_t N>
-  IndexDomainBuilder& labels(const absl::string_view (&labels)[N]) {
+  IndexDomainBuilder& labels(const std::string_view (&labels)[N]) {
     builder_.input_labels(labels);
     return *this;
   }

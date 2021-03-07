@@ -17,9 +17,9 @@
 #include <stddef.h>
 
 #include <string>
+#include <string_view>
 
 #include "absl/strings/match.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/kvstore/key_range.h"
 
 namespace tensorstore {
@@ -28,14 +28,14 @@ namespace internal_file_util {
 /// A key is valid if its consists of one or more '/'-separated non-empty valid
 /// path components, where each valid path component does not contain '\0', and
 /// is not equal to "." or "..", and does not end in lock_suffix.
-bool IsKeyValid(absl::string_view key, absl::string_view lock_suffix) {
-  if (key.find('\0') != absl::string_view::npos) return false;
+bool IsKeyValid(std::string_view key, std::string_view lock_suffix) {
+  if (key.find('\0') != std::string_view::npos) return false;
   if (key.empty()) return false;
   while (true) {
     std::size_t next_delimiter = key.find('/');
-    absl::string_view component = next_delimiter == absl::string_view::npos
-                                      ? key
-                                      : key.substr(0, next_delimiter);
+    std::string_view component = next_delimiter == std::string_view::npos
+                                     ? key
+                                     : key.substr(0, next_delimiter);
     if (component.empty()) return false;
     if (component == ".") return false;
     if (component == "..") return false;
@@ -43,15 +43,15 @@ bool IsKeyValid(absl::string_view key, absl::string_view lock_suffix) {
         absl::EndsWith(component, lock_suffix)) {
       return false;
     }
-    if (next_delimiter == absl::string_view::npos) return true;
+    if (next_delimiter == std::string_view::npos) return true;
     key.remove_prefix(next_delimiter + 1);
   }
 }
 
-absl::string_view LongestDirectoryPrefix(const KeyRange& range) {
-  absl::string_view prefix = tensorstore::LongestPrefix(range);
+std::string_view LongestDirectoryPrefix(const KeyRange& range) {
+  std::string_view prefix = tensorstore::LongestPrefix(range);
   const size_t i = prefix.rfind('/');
-  if (i == absl::string_view::npos) return {};
+  if (i == std::string_view::npos) return {};
   return prefix.substr(0, i);
 }
 

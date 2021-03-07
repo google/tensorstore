@@ -79,10 +79,10 @@
 ///     // Assigns `d` to the intersection of `(a_origin,a_shape)` and `b`.
 ///     Box d(2);
 ///     Intersect(BoxView(a_origin, a_shape), b, d);
+#include <cassert>
 #include <iosfwd>
+#include <type_traits>
 
-#include "absl/base/macros.h"
-#include "absl/meta/type_traits.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/internal/gdb_scripting.h"
@@ -581,7 +581,7 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   std::enable_if_t<(Mutable &&
                     IsBoxLikeImplicitlyConvertibleToRank<BoxType, Rank>::value)>
   DeepAssign(const BoxType& other) const {
-    ABSL_ASSERT(other.rank() == rank());
+    assert(other.rank() == rank());
     std::copy_n(other.origin().begin(), rank(), origin().begin());
     std::copy_n(other.shape().begin(), rank(), shape().begin());
   }

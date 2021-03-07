@@ -828,7 +828,7 @@ using ChainResultType = typename ChainResultTypeHelper<T, Func...>::type;
 ///
 ///     float func1(int x);
 ///     Result<std::string> func2(float x);
-///     bool func3(absl::string_view x);
+///     bool func3(std::string_view x);
 ///
 ///     Result<bool> y1 = ChainResult(Result<int>(3), func1, func2, func3);
 ///     Result<bool> y2 = ChainResult(3, func1, func2, func3);

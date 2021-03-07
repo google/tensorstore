@@ -15,11 +15,11 @@
 #ifndef TENSORSTORE_INDEX_INTERVAL_H_
 #define TENSORSTORE_INDEX_INTERVAL_H_
 
+#include <cassert>
 #include <iosfwd>
+#include <string_view>
 #include <utility>
 
-#include "absl/base/macros.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
 #include "tensorstore/util/division.h"
@@ -464,8 +464,8 @@ OptionallyImplicitIndexInterval Intersect(OptionallyImplicitIndexInterval a,
 template <ContainerKind LabelCKind = container>
 class IndexDomainDimension : public OptionallyImplicitIndexInterval {
  public:
-  using Label = absl::conditional_t<LabelCKind == container, std::string,
-                                    absl::string_view>;
+  using Label = std::conditional_t<LabelCKind == container, std::string,
+                                   std::string_view>;
   IndexDomainDimension() = default;
 
   IndexDomainDimension(const OptionallyImplicitIndexInterval& interval)
@@ -495,7 +495,7 @@ class IndexDomainDimension : public OptionallyImplicitIndexInterval {
     return *this;
   }
 
-  absl::string_view label() const { return label_; }
+  std::string_view label() const { return label_; }
   Label& label() { return label_; }
 
 #if defined(__GNUC__) && !defined(__clang__)

@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <string_view>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/strings/string_view.h"
 #include "tensorstore/array.h"
 #include "tensorstore/driver/n5/compressor.h"
 #include "tensorstore/driver/n5/metadata.h"

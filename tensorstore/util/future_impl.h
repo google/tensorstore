@@ -19,14 +19,13 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cassert>
 #include <cstddef>
 #include <thread>  // NOLINT
 #include <type_traits>
 #include <utility>
 
 #include "absl/base/attributes.h"
-#include "absl/base/macros.h"
-#include "absl/meta/type_traits.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "absl/utility/utility.h"
@@ -655,10 +654,10 @@ class FutureState : public FutureStateBase {
 };
 
 template <typename T>
-using FutureStateType = FutureState<absl::remove_const_t<T>>;
+using FutureStateType = FutureState<std::remove_const_t<T>>;
 
 template <typename T>
-using ResultType = internal::CopyQualifiers<T, Result<absl::remove_const_t<T>>>;
+using ResultType = internal::CopyQualifiers<T, Result<std::remove_const_t<T>>>;
 
 /// A FutureLinkReadyCallback is created for each future associated with a
 /// FutureLink, and is contained (as a base class) within the FutureLink.  It is
@@ -793,8 +792,8 @@ class FutureLinkBase {
     if ((new_count & kLiveCallbackMask) == 0) {
       // The FutureLink must either have completed successfully, or been
       // cancelled.
-      ABSL_ASSERT((new_count & kNotReadyFutureMask) == 0 ||
-                  (new_count & kCancelled));
+      assert((new_count & kNotReadyFutureMask) == 0 ||
+             (new_count & kCancelled));
       return true;
     }
     return false;
@@ -884,8 +883,8 @@ class NonEmptyCallbackHolder {
 
 template <typename T>
 using CallbackHolder =
-    absl::conditional_t<std::is_empty<T>::value, EmptyCallbackHolder<T>,
-                        NonEmptyCallbackHolder<T>>;
+    std::conditional_t<std::is_empty<T>::value, EmptyCallbackHolder<T>,
+                       NonEmptyCallbackHolder<T>>;
 
 /// Alias that supplies the absl::index_sequence corresponding to the
 /// `FutureValue...` pack.
@@ -893,6 +892,9 @@ template <typename Policy, typename Deleter, typename Callback,
           typename PromiseValue, typename... FutureValue>
 using FutureLinkType =
     FutureLink<Policy, Deleter, Callback, PromiseValue,
+               // Note: We use `absl::index_sequence` rather than
+               // `std::index_sequence` to work around Clang bug
+               // https://bugs.llvm.org/show_bug.cgi?id=42757.
                absl::make_index_sequence<sizeof...(FutureValue)>,
                FutureValue...>;
 
@@ -1120,8 +1122,7 @@ class FutureLink<Policy, Deleter, Callback, PromiseValue,
   /// Invokes `func` with a pointer to each of the ready callbacks.
   template <typename Func>
   ABSL_ATTRIBUTE_ALWAYS_INLINE void ForEachReadyCallback(Func func) {
-    const auto unused ABSL_ATTRIBUTE_UNUSED = {
-        (static_cast<void>(func(ReadyCallback<FutureValue, Is>())), 0)...};
+    (func(ReadyCallback<FutureValue, Is>()), ...);
   }
 
   /// Called by the FutureLinkForceCallback::OnForced method when the linked

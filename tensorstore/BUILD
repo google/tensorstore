@@ -95,8 +95,6 @@ tensorstore_cc_library(
         "//tensorstore/util:constant_vector",
         "//tensorstore/util:extents",
         "//tensorstore/util:span",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/meta:type_traits",
     ],
 )
 
@@ -184,7 +182,6 @@ tensorstore_cc_library(
     deps = [
         ":index",
         "//tensorstore/util:span",
-        "@com_google_absl//absl/base:core_headers",
     ],
 )
 
@@ -284,8 +281,6 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -491,9 +486,6 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/meta:type_traits",
-        "@com_google_absl//absl/strings",
     ],
 )
 

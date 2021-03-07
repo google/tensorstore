@@ -16,10 +16,10 @@
 #define TENSORSTORE_UTIL_ITERATE_H_
 
 #include <array>
+#include <cassert>
 #include <iosfwd>
+#include <optional>
 
-#include "absl/base/macros.h"
-#include "absl/types/optional.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
@@ -68,8 +68,8 @@ class LayoutOrderConstraint {
 
   /// Returns the order.
   constexpr ContiguousLayoutOrder order() const {
-    return ABSL_ASSERT(static_cast<bool>(*this)),
-           static_cast<ContiguousLayoutOrder>(value_ & 1);
+    assert(static_cast<bool>(*this));
+    return static_cast<ContiguousLayoutOrder>(value_ & 1);
   }
   constexpr int value() const { return value_; }
   constexpr static int kNumBits = 2;

@@ -76,7 +76,7 @@ GoogleServiceAccountAuthProvider::GetToken() {
 }
 
 Result<HttpResponse> GoogleServiceAccountAuthProvider::IssueRequest(
-    absl::string_view uri, absl::Cord payload) {
+    std::string_view uri, absl::Cord payload) {
   HttpRequestBuilder request_builder(std::string{uri});
   request_builder.AddHeader("Content-Type: application/x-www-form-urlencoded");
   return transport_

@@ -26,7 +26,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "absl/meta/type_traits.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/compressed_pair.h"
@@ -169,9 +168,9 @@ struct IsElementPointerCastConvertible<ElementPointer<SourceTag>,
     : public std::integral_constant<
           bool, ((IsShared<SourceTag>::value >= IsShared<TargetTag>::value) &&
                  IsElementTypeExplicitlyConvertible<
-                     absl::remove_const_t<
+                     std::remove_const_t<
                          typename ElementTagTraits<SourceTag>::Element>,
-                     absl::remove_const_t<typename ElementTagTraits<
+                     std::remove_const_t<typename ElementTagTraits<
                          TargetTag>::Element>>::value)> {};
 
 /// `bool`-valued metafunction that evaluates to `true` if `T` is `Element*` or
@@ -189,7 +188,7 @@ struct IsNonVoidArrayBasePointer<std::shared_ptr<T>>
 
 namespace internal_element_pointer {
 template <typename Target, typename Source>
-inline absl::enable_if_t<
+inline std::enable_if_t<
     (std::is_pointer<Target>::value ==
      std::is_pointer<internal::remove_cvref_t<Source>>::value),
     Target>
@@ -199,7 +198,7 @@ ConvertPointer(Source&& x) {
       static_cast<Source&&>(x));
 }
 template <typename Target, typename Source>
-inline absl::enable_if_t<
+inline std::enable_if_t<
     (std::is_pointer<Target>::value >
      std::is_pointer<internal::remove_cvref_t<Source>>::value),
     Target>
@@ -265,7 +264,7 @@ class ElementPointer {
   /// \post this->pointer() == source.pointer()
   /// \post this->dtype() == source.dtype()
   template <typename Source,
-            absl::enable_if_t<
+            std::enable_if_t<
                 (IsElementPointer<internal::remove_cvref_t<Source>>::value &&
                  IsArrayBasePointerConvertible<
                      typename internal::remove_cvref_t<Source>::Pointer,
@@ -278,7 +277,7 @@ class ElementPointer {
   /// Unchecked conversion.
   template <
       typename Source,
-      absl::enable_if_t<IsElementPointerCastConvertible<
+      std::enable_if_t<IsElementPointerCastConvertible<
           internal::remove_cvref_t<Source>, ElementPointer>::value>* = nullptr>
   explicit ElementPointer(unchecked_t, Source&& source)
       : storage_(DataType(unchecked, source.dtype()),
@@ -292,7 +291,7 @@ class ElementPointer {
   /// \post `this->dtype() == DataTypeOf<SourcePointer::element_type>()`
   template <
       typename SourcePointer,
-      absl::enable_if_t<
+      std::enable_if_t<
           IsNonVoidArrayBasePointer<
               internal::remove_cvref_t<SourcePointer>>::value &&
           IsArrayBasePointerConvertible<internal::remove_cvref_t<SourcePointer>,
@@ -312,7 +311,7 @@ class ElementPointer {
   /// \post this->dtype() == dtype
   template <
       typename SourcePointer,
-      absl::enable_if_t<IsArrayBasePointerConvertible<
+      std::enable_if_t<IsArrayBasePointerConvertible<
           internal::remove_cvref_t<SourcePointer>, Pointer>::value>* = nullptr>
   ElementPointer(SourcePointer&& pointer,
                  StaticOrDynamicDataTypeOf<typename std::pointer_traits<
@@ -324,8 +323,8 @@ class ElementPointer {
 
   /// Assigns from a `nullptr`, pointer type, or ElementPointer type.
   template <typename Source>
-  absl::enable_if_t<std::is_constructible<ElementPointer, Source&&>::value,
-                    ElementPointer&>
+  std::enable_if_t<std::is_constructible<ElementPointer, Source&&>::value,
+                   ElementPointer&>
   operator=(Source&& source) {
     return *this = ElementPointer(static_cast<Source&&>(source));
   }
@@ -437,7 +436,7 @@ struct StaticCastTraits<ElementPointer<ElementTag>>
 /// SharedElementPointer that does manage ownership, because it does not perform
 /// any atomic reference count operations.
 template <typename Element>
-absl::enable_if_t<!IsShared<Element>::value, ElementPointer<Shared<Element>>>
+std::enable_if_t<!IsShared<Element>::value, ElementPointer<Shared<Element>>>
 UnownedToShared(ElementPointer<Element> element_pointer) {
   return {internal::UnownedToShared(element_pointer.pointer()),
           element_pointer.dtype()};
@@ -451,7 +450,7 @@ UnownedToShared(ElementPointer<Element> element_pointer) {
 /// `SharedElementPointer` is not used after the element data to which it points
 /// becomes invalid.
 template <typename T, typename Element>
-absl::enable_if_t<!IsShared<Element>::value, ElementPointer<Shared<Element>>>
+std::enable_if_t<!IsShared<Element>::value, ElementPointer<Shared<Element>>>
 UnownedToShared(const std::shared_ptr<T>& owned,
                 ElementPointer<Element> element_pointer) {
   return {std::shared_ptr<Element>(owned, element_pointer.pointer()),

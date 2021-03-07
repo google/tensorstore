@@ -143,7 +143,7 @@ TEST(JsonTest, JsonParseBool) {
   auto JsonParseBool = [&keys](const ::nlohmann::json& json,
                                const char* member) {
     keys.erase(member);
-    absl::optional<bool> result;
+    std::optional<bool> result;
     JsonHandleObjectMember(json, member, [&](const ::nlohmann::json& j) {
       result = JsonValueAs<bool>(j);
       return absl::OkStatus();
@@ -170,21 +170,20 @@ TEST(JsonTest, JsonParseBool) {
     EXPECT_FALSE(JsonParseBool(result, x.c_str())) << x;
   }
 
-  EXPECT_EQ(absl::nullopt, JsonValueAs<bool>(::nlohmann::json("a")));
+  EXPECT_EQ(std::nullopt, JsonValueAs<bool>(::nlohmann::json("a")));
   EXPECT_EQ(false, JsonValueAs<bool>(::nlohmann::json("false")));
   EXPECT_EQ(true, JsonValueAs<bool>(::nlohmann::json("true")));
 
   const bool kStrict = true;
-  EXPECT_EQ(absl::nullopt,
-            JsonValueAs<bool>(::nlohmann::json("true"), kStrict));
+  EXPECT_EQ(std::nullopt, JsonValueAs<bool>(::nlohmann::json("true"), kStrict));
   EXPECT_EQ(true, JsonValueAs<bool>(::nlohmann::json(true), kStrict));
   EXPECT_EQ(false, JsonValueAs<bool>(::nlohmann::json(false), kStrict));
 }
 
 TEST(JsonValueAsTest, Int64FromUint64) {
-  EXPECT_EQ(absl::nullopt,
+  EXPECT_EQ(std::nullopt,
             JsonValueAs<int64_t>(::nlohmann::json(0x8fffffffffffffffu)));
-  EXPECT_EQ(absl::nullopt,
+  EXPECT_EQ(std::nullopt,
             JsonValueAs<int64_t>(::nlohmann::json(0xffffffffffffffffu)));
   EXPECT_EQ(0x7fffffffffffffff,
             JsonValueAs<int64_t>(::nlohmann::json(0x7fffffffffffffffu)));
@@ -196,18 +195,18 @@ TEST(JsonValueAsTest, Int64FromUint64) {
 }
 
 TEST(JsonValueAsTest, Int64FromDouble) {
-  EXPECT_EQ(absl::nullopt, JsonValueAs<int64_t>(::nlohmann::json(0.5)));
+  EXPECT_EQ(std::nullopt, JsonValueAs<int64_t>(::nlohmann::json(0.5)));
   EXPECT_EQ(1, JsonValueAs<int64_t>(::nlohmann::json(1.0)));
 
   // Test smallest positive integer that can be exactly represented as a double
   // but not as an int64.
   EXPECT_EQ(
-      absl::nullopt,
+      std::nullopt,
       JsonValueAs<int64_t>(::nlohmann::json(9223372036854775808.0 /*=2^63*/)));
 
   // Test largest negative integer that can be exactly represented as a double
   // but not as an int64.
-  EXPECT_EQ(absl::nullopt,
+  EXPECT_EQ(std::nullopt,
             JsonValueAs<int64_t>(::nlohmann::json(-9223372036854777856.0)));
 
   // Test largest integer that can be exactly represented as both a double and
@@ -221,8 +220,7 @@ TEST(JsonValueAsTest, Int64FromDouble) {
       JsonValueAs<int64_t>(::nlohmann::json(-9223372036854775808.0 /*=2^63*/)));
 
   const bool kStrict = true;
-  EXPECT_EQ(absl::nullopt,
-            JsonValueAs<int64_t>(::nlohmann::json(1.0), kStrict));
+  EXPECT_EQ(std::nullopt, JsonValueAs<int64_t>(::nlohmann::json(1.0), kStrict));
 }
 
 TEST(JsonValueAsTest, Int64FromString) {
@@ -243,20 +241,20 @@ TEST(JsonValueAsTest, Int64FromString) {
   EXPECT_FALSE(JsonValueAs<int64_t>(::nlohmann::json("-9223372036854775809")));
 
   const bool kStrict = true;
-  EXPECT_EQ(absl::nullopt,
+  EXPECT_EQ(std::nullopt,
             JsonValueAs<int64_t>(::nlohmann::json("-1"), kStrict));
 }
 
 TEST(JsonValueAsTest, Uint64FromDouble) {
-  EXPECT_EQ(absl::nullopt, JsonValueAs<uint64_t>(::nlohmann::json(0.5)));
+  EXPECT_EQ(std::nullopt, JsonValueAs<uint64_t>(::nlohmann::json(0.5)));
   EXPECT_EQ(1, JsonValueAs<uint64_t>(::nlohmann::json(1.0)));
 
   // Test smallest integer that can be exactly represented as a double but not
   // as a uint64.
-  EXPECT_EQ(absl::nullopt, JsonValueAs<uint64_t>(::nlohmann::json(
-                               18446744073709551616.0 /*=2^64*/)));
+  EXPECT_EQ(std::nullopt, JsonValueAs<uint64_t>(::nlohmann::json(
+                              18446744073709551616.0 /*=2^64*/)));
 
-  EXPECT_EQ(absl::nullopt, JsonValueAs<uint64_t>(::nlohmann::json(-1.0)));
+  EXPECT_EQ(std::nullopt, JsonValueAs<uint64_t>(::nlohmann::json(-1.0)));
 
   // Test largest integer that can be exactly represented as a double and a
   // uint64.
@@ -264,7 +262,7 @@ TEST(JsonValueAsTest, Uint64FromDouble) {
             JsonValueAs<uint64_t>(::nlohmann::json(18446744073709549568.0)));
 
   const bool kStrict = true;
-  EXPECT_EQ(absl::nullopt,
+  EXPECT_EQ(std::nullopt,
             JsonValueAs<uint64_t>(::nlohmann::json(1.0), kStrict));
 }
 
@@ -280,7 +278,7 @@ TEST(JsonValueAsTest, Uint64FromString) {
   EXPECT_FALSE(JsonValueAs<uint64_t>(::nlohmann::json("-1")));
 
   const bool kStrict = true;
-  EXPECT_EQ(absl::nullopt,
+  EXPECT_EQ(std::nullopt,
             JsonValueAs<uint64_t>(::nlohmann::json("1"), kStrict));
 }
 
@@ -289,7 +287,7 @@ TEST(JsonTest, JsonParseInt) {
   auto JsonParseInt = [&keys](const ::nlohmann::json& json,
                               const char* member) {
     keys.erase(member);
-    absl::optional<int64_t> result;
+    std::optional<int64_t> result;
     JsonHandleObjectMember(json, member, [&](const ::nlohmann::json& j) {
       result = JsonValueAs<int64_t>(j);
       return absl::OkStatus();
@@ -328,7 +326,7 @@ TEST(JsonTest, JsonParseUnsigned) {
   auto JsonParseUnsigned = [&keys](const ::nlohmann::json& json,
                                    const char* member) {
     keys.erase(member);
-    absl::optional<uint64_t> result;
+    std::optional<uint64_t> result;
     JsonHandleObjectMember(json, member, [&](const ::nlohmann::json& j) {
       result = JsonValueAs<uint64_t>(j);
       return absl::OkStatus();
@@ -364,7 +362,7 @@ TEST(JsonTest, JsonParseDouble) {
   auto JsonParseDouble = [&keys](const ::nlohmann::json& json,
                                  const char* member) {
     keys.erase(member);
-    absl::optional<double> result;
+    std::optional<double> result;
     JsonHandleObjectMember(json, member, [&](const ::nlohmann::json& j) {
       result = JsonValueAs<double>(j);
       return absl::OkStatus();
@@ -412,7 +410,7 @@ TEST(JsonTest, JsonParseString) {
   auto JsonParseString = [&keys](const ::nlohmann::json& json,
                                  const char* member) {
     keys.erase(member);
-    absl::optional<std::string> result;
+    std::optional<std::string> result;
     JsonHandleObjectMember(json, member, [&](const ::nlohmann::json& j) {
       result = JsonValueAs<std::string>(j);
       return absl::OkStatus();

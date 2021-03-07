@@ -14,9 +14,9 @@
 
 #include "tensorstore/internal/box_difference.h"
 
+#include <cassert>
 #include <limits>
 
-#include "absl/base/macros.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
@@ -143,7 +143,7 @@ void BoxDifference::GetSubBox(Index sub_box_index, MutableBoxView<> out) const {
               outer_interval.inclusive_min(), inner_interval.inclusive_min());
           break;
         }
-        ABSL_FALLTHROUGH_INTENDED;
+        [[fallthrough]];
       case 2:
         out[i] = IndexInterval::UncheckedHalfOpen(
             inner_interval.exclusive_max(), outer_interval.exclusive_max());

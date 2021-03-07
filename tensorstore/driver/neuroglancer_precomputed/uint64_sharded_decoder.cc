@@ -87,7 +87,7 @@ Result<absl::Cord> DecodeData(const absl::Cord& input,
   return uncompressed;
 }
 
-Result<ByteRange> DecodeShardIndexEntry(absl::string_view input) {
+Result<ByteRange> DecodeShardIndexEntry(std::string_view input) {
   if (input.size() != 16) {
     return absl::FailedPreconditionError(
         StrCat("Expected 16 bytes, but received: ", input.size(), " bytes"));

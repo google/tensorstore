@@ -314,7 +314,7 @@ ArrayIterateResult IterateUsingSimplifiedLayout(
     const SimplifiedDimensionIterationOrder& layout,
     span<const Index> input_shape,
     internal::ElementwiseClosure<Arity, Status*> closure, Status* status,
-    span<absl::optional<SingleArrayIterationState>, Arity> single_array_states,
+    span<std::optional<SingleArrayIterationState>, Arity> single_array_states,
     std::array<std::ptrdiff_t, Arity> element_sizes) {
   const Index final_indexed_dim_size =
       layout.simplified_shape[layout.pure_strided_start_dim - 1];
@@ -410,7 +410,7 @@ ArrayIterateResult IterateUsingSimplifiedLayout(
       const SimplifiedDimensionIterationOrder& layout,                       \
       span<const Index> input_shape,                                         \
       internal::ElementwiseClosure<Arity, Status*> closure, Status* status,  \
-      span<absl::optional<SingleArrayIterationState>, Arity>                 \
+      span<std::optional<SingleArrayIterationState>, Arity>                  \
           single_array_states,                                               \
       std::array<std::ptrdiff_t, Arity> element_sizes);
 TENSORSTORE_INTERNAL_FOR_EACH_ARITY(

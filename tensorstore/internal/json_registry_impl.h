@@ -35,7 +35,7 @@ namespace internal_json_registry {
 
 /// Returns an `absl::StatusCode::kInvalidArgument` error specifying that `id`
 /// is not registered.
-absl::Status GetJsonUnregisteredError(absl::string_view id);
+absl::Status GetJsonUnregisteredError(std::string_view id);
 
 struct JsonUnregisteredData {
   /// Unregistered identifier.
@@ -163,10 +163,10 @@ class JsonRegistryImpl {
                                     ::nlohmann::json::object_t* j_obj) const;
 
  private:
-  struct EntryIdKey : public absl::string_view {
-    EntryIdKey(const std::string& key) : absl::string_view(key) {}
-    EntryIdKey(absl::string_view key) : absl::string_view(key) {}
-    EntryIdKey(const std::unique_ptr<Entry>& p) : absl::string_view(p->id) {}
+  struct EntryIdKey : public std::string_view {
+    EntryIdKey(const std::string& key) : std::string_view(key) {}
+    EntryIdKey(std::string_view key) : std::string_view(key) {}
+    EntryIdKey(const std::unique_ptr<Entry>& p) : std::string_view(p->id) {}
   };
   struct EntryIdHash : public absl::Hash<EntryIdKey> {
     using is_transparent = void;

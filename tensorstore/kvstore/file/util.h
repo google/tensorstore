@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_FILE_UTIL_H_
 #define TENSORSTORE_KVSTORE_FILE_UTIL_H_
 
-#include "absl/strings/string_view.h"
+#include <string_view>
+
 #include "tensorstore/kvstore/key_range.h"
 
 namespace tensorstore {
@@ -24,10 +25,10 @@ namespace internal_file_util {
 /// A key is valid if its consists of one or more '/'-separated non-empty valid
 /// path components, where each valid path component does not contain '\0', and
 /// is not equal to "." or "..".
-bool IsKeyValid(absl::string_view key, absl::string_view lock_suffix);
+bool IsKeyValid(std::string_view key, std::string_view lock_suffix);
 
 /// Returns the longest directory prefix of a key range.
-absl::string_view LongestDirectoryPrefix(const KeyRange& range);
+std::string_view LongestDirectoryPrefix(const KeyRange& range);
 
 }  // namespace internal_file_util
 }  // namespace tensorstore

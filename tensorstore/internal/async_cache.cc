@@ -19,7 +19,6 @@
 #include <mutex>  // NOLINT
 #include <utility>
 
-#include "absl/base/macros.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"

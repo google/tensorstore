@@ -16,11 +16,11 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "absl/strings/str_cat.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/internal/http/curl_handle.h"  // for CurlEscapeString
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -37,7 +37,7 @@ HttpRequestBuilder::HttpRequestBuilder(std::string base_url)
 HttpRequest HttpRequestBuilder::BuildRequest() { return std::move(request_); }
 
 HttpRequestBuilder& HttpRequestBuilder::AddUserAgentPrefix(
-    absl::string_view prefix) {
+    std::string_view prefix) {
   request_.user_agent_ = absl::StrCat(prefix, request_.user_agent_);
   return *this;
 }
@@ -48,7 +48,7 @@ HttpRequestBuilder& HttpRequestBuilder::AddHeader(std::string header) {
 }
 
 HttpRequestBuilder& HttpRequestBuilder::AddQueryParameter(
-    absl::string_view key, absl::string_view value) {
+    std::string_view key, std::string_view value) {
   std::string parameter =
       absl::StrCat(query_parameter_separator_, CurlEscapeString(key), "=",
                    CurlEscapeString(value));
@@ -57,7 +57,7 @@ HttpRequestBuilder& HttpRequestBuilder::AddQueryParameter(
   return *this;
 }
 
-HttpRequestBuilder& HttpRequestBuilder::SetMethod(absl::string_view method) {
+HttpRequestBuilder& HttpRequestBuilder::SetMethod(std::string_view method) {
   request_.method_.assign(method.data(), method.size());
   return *this;
 }

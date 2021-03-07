@@ -32,7 +32,6 @@
 #include <tuple>
 #endif
 
-#include "absl/meta/type_traits.h"
 #include "tensorstore/index.h"
 
 namespace tensorstore {
@@ -41,7 +40,7 @@ namespace internal {
 /// Type alias that evaluates to `A` if `A` is not `void`, otherwise to `B` if
 /// `B` is not `void`, otherwise results in a substitution failure.
 template <typename A, typename B>
-using FirstNonVoidType = typename absl::conditional_t<
+using FirstNonVoidType = typename std::conditional_t<
     !std::is_void<A>::value, std::common_type<A>,
     std::enable_if<!std::is_void<B>::value, B>>::type;
 
@@ -52,7 +51,7 @@ struct IsEqualityComparable : public std::false_type {};
 template <typename T, typename U>
 struct IsEqualityComparable<
     T, U,
-    absl::enable_if_t<std::is_convertible<
+    std::enable_if_t<std::is_convertible<
         decltype(std::declval<T>() == std::declval<U>()), bool>::value>>
     : public std::true_type {};
 
@@ -62,7 +61,7 @@ struct IsPackConvertibleWithoutNarrowingHelper : public std::false_type {};
 template <typename To, typename... From>
 struct IsPackConvertibleWithoutNarrowingHelper<
     To,
-    absl::void_t<decltype(std::initializer_list<To>{std::declval<From>()...})>,
+    std::void_t<decltype(std::initializer_list<To>{std::declval<From>()...})>,
     From...> : public std::true_type {};
 
 /// `bool`-valued metafunction that evaluates to `true` if, and only if,
@@ -136,15 +135,15 @@ template <typename T, typename = void>
 struct IsOstreamable : public std::false_type {};
 
 template <typename T>
-struct IsOstreamable<T, absl::void_t<decltype(std::declval<std::ostream&>()
-                                              << std ::declval<const T&>())>>
+struct IsOstreamable<T, std::void_t<decltype(std::declval<std::ostream&>()
+                                             << std ::declval<const T&>())>>
     : public std::true_type {};
 
 /// Type alias that removes both reference and const/volatile qualification.
 ///
 /// Equivalent to C++20 `std::remove_cvref_t`.
 template <typename T>
-using remove_cvref_t = absl::remove_cv_t<absl::remove_reference_t<T>>;
+using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
 
 template <typename Qualified, typename T>
 struct CopyQualifiersHelper {
@@ -326,8 +325,8 @@ class NonEmptyObjectGetter {
 /// to be specified if the type is in fact empty.
 template <typename T>
 using PossiblyEmptyObjectGetter =
-    absl::conditional_t<std::is_empty<T>::value, EmptyObject<T>,
-                        NonEmptyObjectGetter>;
+    std::conditional_t<std::is_empty<T>::value, EmptyObject<T>,
+                       NonEmptyObjectGetter>;
 
 template <typename T>
 struct DefaultConstructibleFunction {

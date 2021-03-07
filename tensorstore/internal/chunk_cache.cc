@@ -20,14 +20,13 @@
 #include <memory>
 #include <mutex>  // NOLINT
 #include <numeric>
+#include <string_view>
 #include <utility>
 #include <vector>
 
-#include "absl/base/macros.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/fixed_array.h"
 #include "absl/container/inlined_vector.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
@@ -513,8 +512,7 @@ void ChunkCache::Write(
     OpenTransactionPtr transaction, std::size_t component_index,
     IndexTransform<> transform,
     AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) {
-  ABSL_ASSERT(component_index >= 0 &&
-              component_index < grid().components.size());
+  assert(component_index >= 0 && component_index < grid().components.size());
   // In this implementation, chunks are always available for writing
   // immediately.  The entire stream of chunks is sent to the receiver before
   // this function returns.
@@ -551,7 +549,7 @@ PinnedCacheEntry<ChunkCache> ChunkCache::GetEntryForCell(
     span<const Index> grid_cell_indices) {
   assert(static_cast<size_t>(grid_cell_indices.size()) ==
          grid().chunk_shape.size());
-  const absl::string_view key(
+  const std::string_view key(
       reinterpret_cast<const char*>(grid_cell_indices.data()),
       grid_cell_indices.size() * sizeof(Index));
   return GetCacheEntry(this, key);

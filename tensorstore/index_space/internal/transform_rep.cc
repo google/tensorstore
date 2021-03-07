@@ -37,8 +37,8 @@ void FreeIndexArrayData(IndexArrayData* data) {
 }
 
 void CopyTrivialFields(TransformRep* source, TransformRep* dest) {
-  ABSL_ASSERT(dest->input_rank_capacity >= source->input_rank &&
-              dest->output_rank_capacity >= source->output_rank);
+  assert(dest->input_rank_capacity >= source->input_rank &&
+         dest->output_rank_capacity >= source->output_rank);
   const DimensionIndex input_rank = dest->input_rank = source->input_rank;
   dest->output_rank = source->output_rank;
   std::copy_n(source->input_origin().begin(), input_rank,
@@ -54,7 +54,7 @@ void CopyTrivialFields(TransformRep* source, TransformRep* dest) {
 }  // namespace
 
 void CopyInputLabels(TransformRep* source, TransformRep* dest, bool can_move) {
-  ABSL_ASSERT(dest->input_rank_capacity >= source->input_rank);
+  assert(dest->input_rank_capacity >= source->input_rank);
   const DimensionIndex input_rank = source->input_rank;
   if (can_move) {
     std::copy_n(std::make_move_iterator(source->input_labels().begin()),
@@ -117,7 +117,7 @@ IndexArrayData& OutputIndexMap::SetArrayIndexing(DimensionIndex rank) {
 
 IndexArrayData& OutputIndexMap::SetArrayIndexing(DimensionIndex rank,
                                                  const IndexArrayData& other) {
-  ABSL_ASSERT(other.rank_capacity >= rank);
+  assert(other.rank_capacity >= rank);
   auto& data = SetArrayIndexing(rank);
   data.element_pointer = other.element_pointer;
   data.index_range = other.index_range;
@@ -177,7 +177,7 @@ void DestroyLabelFields(TransformRep* ptr) {
 }
 
 void TransformRep::Free(TransformRep* ptr) {
-  ABSL_ASSERT(ptr->reference_count == 0);
+  assert(ptr->reference_count == 0);
   DestroyLabelFields(ptr);
   std::destroy_n(ptr->output_index_maps().begin(), ptr->output_rank_capacity);
   ::operator delete(static_cast<void*>(ptr->output_index_maps().data()));
@@ -234,7 +234,7 @@ TransformRep::Ptr<> MutableRep(TransformRep::Ptr<> ptr) {
 TransformRep::Ptr<> NewOrMutableRep(TransformRep* ptr,
                                     DimensionIndex input_rank_capacity,
                                     DimensionIndex output_rank_capacity) {
-  ABSL_ASSERT(ptr);
+  assert(ptr);
   if (ptr->input_rank_capacity >= input_rank_capacity &&
       ptr->output_rank_capacity >= output_rank_capacity && ptr->is_unique()) {
     return TransformRep::Ptr<>(ptr);
@@ -411,14 +411,14 @@ Result<Index> OutputIndexMap::operator()(
       break;
     case OutputIndexMethod::single_input_dimension: {
       const DimensionIndex input_dim = input_dimension();
-      ABSL_ASSERT(input_dim >= 0 && input_dim < input_indices.size());
+      assert(input_dim >= 0 && input_dim < input_indices.size());
       base_output_index = input_indices[input_dim];
       break;
     }
     case OutputIndexMethod::array: {
       const IndexArrayData& data = index_array_data();
-      ABSL_ASSERT(data.element_pointer &&
-                  input_indices.size() <= data.rank_capacity);
+      assert(data.element_pointer &&
+             input_indices.size() <= data.rank_capacity);
       base_output_index =
           data.element_pointer.byte_strided_pointer()[IndexInnerProduct(
               input_indices.size(), input_indices.data(), data.byte_strides)];
@@ -434,8 +434,8 @@ Result<Index> OutputIndexMap::operator()(
 
 Status TransformIndices(TransformRep* data, span<const Index> input_indices,
                         span<Index> output_indices) {
-  ABSL_ASSERT(data && data->input_rank == input_indices.size() &&
-              data->output_rank == output_indices.size());
+  assert(data && data->input_rank == input_indices.size() &&
+         data->output_rank == output_indices.size());
   const DimensionIndex output_rank = data->output_rank;
   const DimensionIndex input_rank = data->input_rank;
   span<const OutputIndexMap> output_index_maps =
@@ -485,7 +485,7 @@ TransformRep::Ptr<> GetSubDomain(TransformRep* rep,
 #endif
   for (DimensionIndex new_dim = 0; new_dim < dims.size(); ++new_dim) {
     const DimensionIndex old_dim = dims[new_dim];
-    ABSL_ASSERT(old_dim >= 0 && old_dim < old_rank);
+    assert(old_dim >= 0 && old_dim < old_rank);
 #ifndef NDEBUG
     assert(!seen_dims[old_dim]);
     seen_dims[old_dim] = true;
@@ -497,7 +497,7 @@ TransformRep::Ptr<> GetSubDomain(TransformRep* rep,
 
 Status ValidateLabelsAreUnique(span<const std::string> labels) {
   // TODO(jbms): Consider using a hash set instead.
-  absl::FixedArray<absl::string_view, internal::kNumInlinedDims> sorted_labels(
+  absl::FixedArray<std::string_view, internal::kNumInlinedDims> sorted_labels(
       labels.begin(), labels.end());
   std::sort(sorted_labels.begin(), sorted_labels.end());
   size_t i;
@@ -505,7 +505,7 @@ Status ValidateLabelsAreUnique(span<const std::string> labels) {
     continue;
   std::string error;
   for (; i < sorted_labels.size(); ++i) {
-    absl::string_view label = sorted_labels[i];
+    std::string_view label = sorted_labels[i];
     if (label == sorted_labels[i - 1]) {
       StrAppend(&error, error.empty() ? "" : ", ", QuoteString(label));
     }
@@ -520,7 +520,7 @@ Status ValidateLabelsAreUnique(span<const std::string> labels) {
 
 bool IsUnlabeled(span<const std::string> labels) {
   return std::all_of(labels.begin(), labels.end(),
-                     [](absl::string_view s) { return s.empty(); });
+                     [](std::string_view s) { return s.empty(); });
 }
 
 }  // namespace internal_index_space

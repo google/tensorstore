@@ -105,7 +105,7 @@ TransformRep::Ptr<> PermuteDimsOutOfPlace(
   for (DimensionIndex new_input_dim = 0; new_input_dim < input_rank;
        ++new_input_dim) {
     const DimensionIndex orig_input_dim = permutation[new_input_dim];
-    ABSL_ASSERT(orig_input_dim >= 0 && orig_input_dim < input_rank);
+    assert(orig_input_dim >= 0 && orig_input_dim < input_rank);
     result->input_dimension(new_input_dim) =
         original->input_dimension(orig_input_dim);
     inverse_dimension_map[orig_input_dim] = new_input_dim;
@@ -127,10 +127,10 @@ TransformRep::Ptr<> PermuteDimsOutOfPlace(
         break;
       case OutputIndexMethod::single_input_dimension: {
         const DimensionIndex orig_input_dim = orig_map.input_dimension();
-        ABSL_ASSERT(orig_input_dim >= 0 && orig_input_dim < input_rank);
+        assert(orig_input_dim >= 0 && orig_input_dim < input_rank);
         const DimensionIndex new_input_dim =
             inverse_dimension_map[orig_input_dim];
-        ABSL_ASSERT(new_input_dim >= 0 && new_input_dim < input_rank);
+        assert(new_input_dim >= 0 && new_input_dim < input_rank);
         result_map.SetSingleInputDimension(new_input_dim);
         break;
       }

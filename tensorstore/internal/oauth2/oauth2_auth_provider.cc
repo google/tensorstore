@@ -76,7 +76,7 @@ Result<AuthProvider::BearerTokenWithExpiration> OAuth2AuthProvider::GetToken() {
   return BearerTokenWithExpiration{access_token_, expiration_};
 }
 
-Result<HttpResponse> OAuth2AuthProvider::IssueRequest(absl::string_view uri,
+Result<HttpResponse> OAuth2AuthProvider::IssueRequest(std::string_view uri,
                                                       absl::Cord payload) {
   HttpRequestBuilder request_builder(std::string{uri});
   return transport_

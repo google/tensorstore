@@ -1225,10 +1225,10 @@ TEST(CreateScaleTest, InvalidScaleConstraints) {
                         "size", "resolution", "chunk_size"}) {
     auto j = constraints_json;
     j["scale_metadata"].erase(k);
-    if (k == absl::string_view("encoding")) {
+    if (k == std::string_view("encoding")) {
       j["scale_metadata"].erase("compressed_segmentation_block_size");
     }
-    if (k == absl::string_view("size")) {
+    if (k == std::string_view("size")) {
       j["scale_metadata"].erase("voxel_offset");
     }
     EXPECT_THAT(CreateScale(/*existing_metadata=*/nullptr,

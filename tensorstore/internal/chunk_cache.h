@@ -47,10 +47,10 @@
 
 #include <atomic>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 #include "absl/container/inlined_vector.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"

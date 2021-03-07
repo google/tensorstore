@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_INDEX_SPACE_OUTPUT_INDEX_MAP_H_
 #define TENSORSTORE_INDEX_SPACE_OUTPUT_INDEX_MAP_H_
 
-#include "absl/base/macros.h"
+#include <cassert>
+
 #include "tensorstore/array.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/output_index_method.h"

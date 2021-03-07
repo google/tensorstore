@@ -109,7 +109,7 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, NoGridDimensions) {
                        .value();
   span<const DimensionIndex> grid_output_dimensions;
   span<const Index> grid_cell_shape;
-  absl::optional<IndexTransformGridPartition> partitioned;
+  std::optional<IndexTransformGridPartition> partitioned;
   TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
       transform, grid_output_dimensions, grid_cell_shape, &partitioned));
   EXPECT_THAT(partitioned->strided_sets(), ElementsAre());
@@ -127,7 +127,7 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, NoConnectedSets) {
                        .value();
   const DimensionIndex grid_output_dimensions[] = {0};
   const Index grid_cell_shape[] = {2};
-  absl::optional<IndexTransformGridPartition> partitioned;
+  std::optional<IndexTransformGridPartition> partitioned;
   TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
       transform, grid_output_dimensions, grid_cell_shape, &partitioned));
   EXPECT_THAT(partitioned->strided_sets(), ElementsAre());
@@ -146,7 +146,7 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, StridedSingleSet) {
                        .value();
   const DimensionIndex grid_output_dimensions[] = {0};
   const Index grid_cell_shape[] = {2};
-  absl::optional<IndexTransformGridPartition> partitioned;
+  std::optional<IndexTransformGridPartition> partitioned;
   TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
       transform, grid_output_dimensions, grid_cell_shape, &partitioned));
   EXPECT_THAT(partitioned->strided_sets(),
@@ -175,7 +175,7 @@ TEST(PrePartitionIndexTransformOverRegularGridTest,
                        .value();
   const DimensionIndex grid_output_dimensions[] = {2, 0};
   const Index grid_cell_shape[] = {5, 10};
-  absl::optional<IndexTransformGridPartition> partitioned;
+  std::optional<IndexTransformGridPartition> partitioned;
   TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
       transform, grid_output_dimensions, grid_cell_shape, &partitioned));
   EXPECT_THAT(
@@ -203,7 +203,7 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, DiagonalStridedSet) {
                        .value();
   const DimensionIndex grid_output_dimensions[] = {0, 1};
   const Index grid_cell_shape[] = {5, 10};
-  absl::optional<IndexTransformGridPartition> partitioned;
+  std::optional<IndexTransformGridPartition> partitioned;
   TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
       transform, grid_output_dimensions, grid_cell_shape, &partitioned));
   EXPECT_THAT(partitioned->strided_sets(),
@@ -227,7 +227,7 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, DiagonalStridedSets) {
                        .value();
   const DimensionIndex grid_output_dimensions[] = {2, 0, 1};
   const Index grid_cell_shape[] = {5, 10, 15};
-  absl::optional<IndexTransformGridPartition> partitioned;
+  std::optional<IndexTransformGridPartition> partitioned;
   TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
       transform, grid_output_dimensions, grid_cell_shape, &partitioned));
   EXPECT_THAT(
@@ -254,7 +254,7 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, SingleIndexArrayDimension) {
           .value();
   const DimensionIndex grid_output_dimensions[] = {0};
   const Index grid_cell_shape[] = {4};
-  absl::optional<IndexTransformGridPartition> partitioned;
+  std::optional<IndexTransformGridPartition> partitioned;
   TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
       transform, grid_output_dimensions, grid_cell_shape, &partitioned));
   EXPECT_THAT(
@@ -285,7 +285,7 @@ TEST(PrePartitionIndexTransformOverRegularGridTest,
           .value();
   const DimensionIndex grid_output_dimensions[] = {1, 0};
   const Index grid_cell_shape[] = {10, 4};
-  absl::optional<IndexTransformGridPartition> partitioned;
+  std::optional<IndexTransformGridPartition> partitioned;
   TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
       transform, grid_output_dimensions, grid_cell_shape, &partitioned));
   // Input indices are:                         {0,  1,  2,  3}
@@ -327,7 +327,7 @@ TEST(PrePartitionIndexTransformOverRegularGridTest,
           .value();
   const DimensionIndex grid_output_dimensions[] = {0, 1};
   const Index grid_cell_shape[] = {3, 1};
-  absl::optional<IndexTransformGridPartition> partitioned;
+  std::optional<IndexTransformGridPartition> partitioned;
   TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
       transform, grid_output_dimensions, grid_cell_shape, &partitioned));
   // Input indices for input dimension 1 are:   {0,  1,  2}
@@ -369,7 +369,7 @@ TEST(PrePartitionIndexTransformOverRegularGridTest,
           .value();
   const DimensionIndex grid_output_dimensions[] = {1, 0};
   const Index grid_cell_shape[] = {3, 5};
-  absl::optional<IndexTransformGridPartition> partitioned;
+  std::optional<IndexTransformGridPartition> partitioned;
   TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
       transform, grid_output_dimensions, grid_cell_shape, &partitioned));
   EXPECT_THAT(
@@ -394,7 +394,7 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, UnboundedDomain) {
                        .value();
   const DimensionIndex grid_output_dimensions[] = {0};
   const Index grid_cell_shape[] = {5};
-  absl::optional<IndexTransformGridPartition> partitioned;
+  std::optional<IndexTransformGridPartition> partitioned;
   auto status = PrePartitionIndexTransformOverRegularGrid(
       transform, grid_output_dimensions, grid_cell_shape, &partitioned);
   EXPECT_THAT(status,
@@ -413,7 +413,7 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, IndexArrayOutOfBounds) {
                        .value();
   const DimensionIndex grid_output_dimensions[] = {0};
   const Index grid_cell_shape[] = {5};
-  absl::optional<IndexTransformGridPartition> partitioned;
+  std::optional<IndexTransformGridPartition> partitioned;
   auto status = PrePartitionIndexTransformOverRegularGrid(
       transform, grid_output_dimensions, grid_cell_shape, &partitioned);
   EXPECT_THAT(status,
@@ -434,7 +434,7 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, StridedDimensionOverflow) {
           .value();
   const DimensionIndex grid_output_dimensions[] = {1, 0};
   const Index grid_cell_shape[] = {10, 4};
-  absl::optional<IndexTransformGridPartition> partitioned;
+  std::optional<IndexTransformGridPartition> partitioned;
   auto status = PrePartitionIndexTransformOverRegularGrid(
       transform, grid_output_dimensions, grid_cell_shape, &partitioned);
   EXPECT_THAT(status, MatchesStatus(absl::StatusCode::kInvalidArgument));

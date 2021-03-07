@@ -19,7 +19,6 @@
 
 #include <type_traits>
 #include <utility>
-#include "absl/meta/type_traits.h"
 
 namespace tensorstore {
 namespace internal {
@@ -86,11 +85,11 @@ class CompressedFirstSecondPair {
 /// if `First` is empty, else `CompressedSecondEmptyPair<First, Second>` if
 /// `Second` is empty, else `std::pair<First, Second>`.
 template <typename First, typename Second>
-using CompressedPair = absl::conditional_t<
+using CompressedPair = std::conditional_t<
     std::is_empty<First>::value, CompressedFirstEmptyPair<First, Second>,
-    absl::conditional_t<std::is_empty<Second>::value,
-                        CompressedSecondEmptyPair<First, Second>,
-                        CompressedFirstSecondPair<First, Second>>>;
+    std::conditional_t<std::is_empty<Second>::value,
+                       CompressedSecondEmptyPair<First, Second>,
+                       CompressedFirstSecondPair<First, Second>>>;
 
 }  // namespace internal
 }  // namespace tensorstore

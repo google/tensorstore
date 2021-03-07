@@ -146,12 +146,11 @@
 ///     }
 
 #include <atomic>
+#include <cassert>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 
-#include "absl/base/macros.h"
-#include "absl/meta/type_traits.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/meta.h"
@@ -486,7 +485,7 @@ class Promise {
       : rep_(std::move(rep)) {}
   friend class internal_future::FutureAccess;
   constexpr SharedState& rep() const {
-    ABSL_ASSERT(rep_);
+    assert(rep_);
     return static_cast<SharedState&>(*rep_);
   }
   internal_future::PromiseStatePointer rep_;
@@ -691,7 +690,7 @@ class Future {
       : rep_(std::move(rep)) {}
   friend class internal_future::FutureAccess;
   constexpr SharedState& rep() const {
-    ABSL_ASSERT(rep_);
+    assert(rep_);
     return static_cast<SharedState&>(*rep_);
   }
   internal_future::FutureStatePointer rep_;
@@ -746,7 +745,7 @@ class ReadyFuture : public Future<T> {
   /// \dchecks `!future.valid() || future.ready()`.
   explicit ReadyFuture(Future<T> future) : Future<T>(std::move(future)) {
     if (this->valid()) {
-      ABSL_ASSERT(this->Future<T>::ready());
+      assert(this->Future<T>::ready());
     }
   }
 

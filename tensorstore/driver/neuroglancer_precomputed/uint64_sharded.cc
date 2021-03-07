@@ -112,7 +112,7 @@ bool operator==(const ShardingSpec& a, const ShardingSpec& b) {
 }
 
 std::string GetShardKey(const ShardingSpec& sharding_spec,
-                        absl::string_view prefix, std::uint64_t shard_number) {
+                        std::string_view prefix, std::uint64_t shard_number) {
   return internal::JoinPath(
       prefix,
       absl::StrFormat("%0*x.shard", CeilOfRatio(sharding_spec.shard_bits, 4),

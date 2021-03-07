@@ -114,23 +114,23 @@ class OutputIndexMap {
   }
 
   OutputIndexMethod method() const {
-    return value_ == 0 ? OutputIndexMethod::constant
-                       : value_ & 1 ? OutputIndexMethod::single_input_dimension
-                                    : OutputIndexMethod::array;
+    return value_ == 0  ? OutputIndexMethod::constant
+           : value_ & 1 ? OutputIndexMethod::single_input_dimension
+                        : OutputIndexMethod::array;
   }
 
   DimensionIndex input_dimension() const {
-    ABSL_ASSERT(method() == OutputIndexMethod::single_input_dimension);
+    assert(method() == OutputIndexMethod::single_input_dimension);
     return static_cast<DimensionIndex>(value_ >> 1);
   }
 
   const IndexArrayData& index_array_data() const {
-    ABSL_ASSERT(method() == OutputIndexMethod::array);
+    assert(method() == OutputIndexMethod::array);
     return *reinterpret_cast<IndexArrayData*>(value_);
   }
 
   IndexArrayData& index_array_data() {
-    ABSL_ASSERT(method() == OutputIndexMethod::array);
+    assert(method() == OutputIndexMethod::array);
     return *reinterpret_cast<IndexArrayData*>(value_);
   }
 
@@ -268,7 +268,7 @@ struct TransformRep {
   ///
   /// \dchecks `0 <= rank && rank <= input_rank_capacity`.
   MutableBoxView<> input_domain(DimensionIndex rank) {
-    ABSL_ASSERT(0 <= rank && rank <= input_rank_capacity);
+    assert(0 <= rank && rank <= input_rank_capacity);
     return MutableBoxView<>(rank, input_origin().data(), input_shape().data());
   }
 
@@ -332,7 +332,7 @@ struct TransformRep {
   };
 
   template <ContainerKind CKind = container>
-  using Ptr = absl::conditional_t<
+  using Ptr = std::conditional_t<
       CKind == view, TransformRep*,
       internal::IntrusivePtr<TransformRep, IntrusivePtrTraits<>>>;
 
@@ -415,7 +415,7 @@ class InputDimensionRef {
     domain() = other.interval();
     implicit_lower_bound() = other.implicit_lower();
     implicit_upper_bound() = other.implicit_upper();
-    // TODO(jbms): simplify this once absl::string_view has been replaced by
+    // TODO(jbms): simplify this once std::string_view has been replaced by
     // std::string_view.
     label().assign(other.label().begin(), other.label().end());
     return *this;
@@ -443,7 +443,7 @@ class InputDimensionsView {
   DimensionIndex size() const { return size_; }
 
   InputDimensionRef operator[](DimensionIndex i) const {
-    ABSL_ASSERT(i >= 0 && i <= size_);
+    assert(i >= 0 && i <= size_);
     return InputDimensionRef(rep_, i);
   }
 
@@ -454,13 +454,13 @@ class InputDimensionsView {
 
 inline ABSL_ATTRIBUTE_ALWAYS_INLINE InputDimensionsView
 TransformRep::all_input_dimensions(DimensionIndex rank) {
-  ABSL_ASSERT(rank >= 0 && rank <= input_rank_capacity);
+  assert(rank >= 0 && rank <= input_rank_capacity);
   return InputDimensionsView(this, rank);
 }
 
 inline ABSL_ATTRIBUTE_ALWAYS_INLINE InputDimensionRef
 TransformRep::input_dimension(DimensionIndex i) {
-  ABSL_ASSERT(i >= 0 && i <= input_rank_capacity);
+  assert(i >= 0 && i <= input_rank_capacity);
   return InputDimensionRef(this, i);
 }
 
@@ -591,14 +591,14 @@ class TransformAccess {
   }
 
   template <ContainerKind TargetCKind, typename T>
-  static absl::enable_if_t<TargetCKind == view, TransformRep::Ptr<TargetCKind>>
+  static std::enable_if_t<TargetCKind == view, TransformRep::Ptr<TargetCKind>>
   rep_ptr(const T& x) {
     return rep(x);
   }
 
   template <ContainerKind TargetCKind, typename T>
-  static absl::enable_if_t<TargetCKind == container,
-                           TransformRep::Ptr<TargetCKind>>
+  static std::enable_if_t<TargetCKind == container,
+                          TransformRep::Ptr<TargetCKind>>
   rep_ptr(T&& x) {
     return TransformRep::Ptr<>(std::forward<T>(x).rep_);
   }

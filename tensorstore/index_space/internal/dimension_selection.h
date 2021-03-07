@@ -123,20 +123,20 @@ struct IsDimensionIdentifier<DimensionIdentifier> : public std::true_type {};
 
 template <typename Dimensions,
           typename DimensionsSpan = internal::ConstSpanType<Dimensions>>
-using DimensionListFromSpanType = absl::enable_if_t<
+using DimensionListFromSpanType = std::enable_if_t<
     IsDimensionIdentifier<typename DimensionsSpan::value_type>::value,
     DimensionList<DimensionsSpan>>;
 
 template <typename... DimensionId>
-using DimensionsFromPackType = absl::conditional_t<
+using DimensionsFromPackType = std::conditional_t<
     internal::IsPackConvertibleWithoutNarrowing<DimensionIndex,
                                                 DimensionId...>::value,
     DimensionList<std::array<DimensionIndex, sizeof...(DimensionId)>>,
-    absl::conditional_t<
+    std::conditional_t<
         internal::IsPackConvertibleWithoutNarrowing<DimensionIdentifier,
                                                     DimensionId...>::value,
         DimensionList<std::array<DimensionIdentifier, sizeof...(DimensionId)>>,
-        absl::enable_if_t<
+        std::enable_if_t<
             internal::IsPackConvertibleWithoutNarrowing<DynamicDimSpec,
                                                         DimensionId...>::value,
             DynamicDims<std::array<DynamicDimSpec, sizeof...(DimensionId)>>>>>;

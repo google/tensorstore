@@ -283,7 +283,7 @@ Status ParseImplicit(const ::nlohmann::json& j, bool* implicit,
 
 template <typename T, typename SubParser>
 Status ParseInputDimsData(const ::nlohmann::json& j_bounds,
-                          absl::optional<DimensionIndex>* input_rank,
+                          std::optional<DimensionIndex>* input_rank,
                           InlinedVector<T>* values,
                           InlinedVector<bool>* implicit, SubParser sub_parser) {
   return internal::JsonParseArray(
@@ -310,7 +310,7 @@ Status ParseInputDimsData(const ::nlohmann::json& j_bounds,
 }
 
 Status ParseInputBounds(const ::nlohmann::json& j_bounds,
-                        absl::optional<DimensionIndex>* input_rank,
+                        std::optional<DimensionIndex>* input_rank,
                         InlinedVector<Index>* bounds,
                         InlinedVector<bool>* implicit, Index neg_infinity,
                         Index pos_infinity) {
@@ -321,7 +321,7 @@ Status ParseInputBounds(const ::nlohmann::json& j_bounds,
 }
 
 Status ParseInputLabels(const ::nlohmann::json& j_bounds,
-                        absl::optional<DimensionIndex>* input_rank,
+                        std::optional<DimensionIndex>* input_rank,
                         InlinedVector<std::string>* labels) {
   return internal::JsonParseArray(
       j_bounds,
@@ -421,7 +421,7 @@ Status ParseOutput(const ::nlohmann::json& j,
 
 Status ParseOutputs(
     const ::nlohmann::json& j_outputs,
-    absl::optional<DimensionIndex>* output_rank,
+    std::optional<DimensionIndex>* output_rank,
     InlinedVector<OutputOffsetAndStride>* output_offsets_and_strides,
     InlinedVector<OutputIndexMapInitializer>* output_maps) {
   return internal::JsonParseArray(
@@ -439,7 +439,7 @@ Status ParseOutputs(
 }
 
 struct TransformParser {
-  absl::optional<DimensionIndex> input_rank, output_rank;
+  std::optional<DimensionIndex> input_rank, output_rank;
   IntervalForm interval_form = IntervalForm::half_open;
   InlinedVector<Index> input_lower, input_upper;
   InlinedVector<std::string> input_labels;

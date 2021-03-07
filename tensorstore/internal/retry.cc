@@ -15,12 +15,12 @@
 #include "tensorstore/internal/retry.h"
 
 #include <algorithm>
+#include <cassert>
 #include <functional>
 #include <optional>
 #include <string>
 #include <system_error>  // NOLINT
 
-#include "absl/base/macros.h"
 #include "absl/random/random.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
@@ -41,9 +41,9 @@ absl::Status RetryWithBackoff(
     std::function<absl::Status()> function, int max_retries,
     absl::Duration initial_delay_time, absl::Duration max_delay_time,
     std::function<bool(const absl::Status&)> is_retriable) {
-  ABSL_ASSERT(initial_delay_time >= absl::ZeroDuration());
-  ABSL_ASSERT(max_delay_time >= initial_delay_time);
-  ABSL_ASSERT(max_retries >= 0);
+  assert(initial_delay_time >= absl::ZeroDuration());
+  assert(max_delay_time >= initial_delay_time);
+  assert(max_retries >= 0);
 
   std::optional<absl::BitGen> rng;
   absl::Status status;

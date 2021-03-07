@@ -72,7 +72,7 @@ Status GetIntervalSliceInfo(
     IndexVectorOrScalarView stop_or_size_vector,
     IndexVectorOrScalarView stride_vector) {
   const DimensionIndex input_rank = dimension_info.size();
-  ABSL_ASSERT(input_rank == transform->input_rank);
+  assert(input_rank == transform->input_rank);
   for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {
     dimension_info[input_dim] = InputDimensionIntervalSliceInfo{0, 1};
   }

@@ -16,9 +16,10 @@
 #define TENSORSTORE_INTERNAL_OAUTH2_OAUTH_UTILS_H_
 
 #include <stdint.h>
-#include <string>
 
-#include "absl/strings/string_view.h"
+#include <string>
+#include <string_view>
+
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/util/result.h"
@@ -27,21 +28,21 @@ namespace tensorstore {
 namespace internal_oauth2 {
 
 /// Given a private key and a payload
-Result<std::string> SignWithRSA256(absl::string_view private_key,
-                                   absl::string_view to_sign);
+Result<std::string> SignWithRSA256(std::string_view private_key,
+                                   std::string_view to_sign);
 
 /// Encodes a claim for a JSON web token (JWT) to make an OAuth request.
-std::string BuildJWTHeader(absl::string_view key_id);
+std::string BuildJWTHeader(std::string_view key_id);
 
-std::string BuildJWTClaimBody(absl::string_view client_email,
-                              absl::string_view scope,  //
-                              absl::string_view audience, absl::Time now,
+std::string BuildJWTClaimBody(std::string_view client_email,
+                              std::string_view scope,  //
+                              std::string_view audience, absl::Time now,
                               int64_t lifetime = 3600);
 
 /// Builds a request body for a JWT Claim.
-Result<std::string> BuildSignedJWTRequest(absl::string_view private_key,
-                                          absl::string_view header,
-                                          absl::string_view body);
+Result<std::string> BuildSignedJWTRequest(std::string_view private_key,
+                                          std::string_view header,
+                                          std::string_view body);
 
 /// A parsed GoogleServiceAccountCredentials object.
 struct GoogleServiceAccountCredentials {
@@ -55,11 +56,11 @@ Result<GoogleServiceAccountCredentials>
 ParseGoogleServiceAccountCredentialsImpl(const ::nlohmann::json& credentials);
 
 Result<GoogleServiceAccountCredentials> ParseGoogleServiceAccountCredentials(
-    absl::string_view source);
+    std::string_view source);
 
 template <typename T>
-absl::enable_if_t<std::is_same<T, ::nlohmann::json>::value,
-                  Result<GoogleServiceAccountCredentials>>
+std::enable_if_t<std::is_same<T, ::nlohmann::json>::value,
+                 Result<GoogleServiceAccountCredentials>>
 ParseGoogleServiceAccountCredentials(const T& json) {
   return ParseGoogleServiceAccountCredentialsImpl(json);
 }
@@ -72,11 +73,10 @@ struct RefreshToken {
 };
 Result<RefreshToken> ParseRefreshTokenImpl(const ::nlohmann::json& credentials);
 
-Result<RefreshToken> ParseRefreshToken(absl::string_view source);
+Result<RefreshToken> ParseRefreshToken(std::string_view source);
 
 template <typename T>
-absl::enable_if_t<std::is_same<T, ::nlohmann::json>::value,
-                  Result<RefreshToken>>
+std::enable_if_t<std::is_same<T, ::nlohmann::json>::value, Result<RefreshToken>>
 ParseRefreshToken(const T& json) {
   return ParseRefreshTokenImpl(json);
 }
@@ -90,11 +90,11 @@ struct OAuthResponse {
 Result<OAuthResponse> ParseOAuthResponseImpl(
     const ::nlohmann::json& credentials);
 
-Result<OAuthResponse> ParseOAuthResponse(absl::string_view source);
+Result<OAuthResponse> ParseOAuthResponse(std::string_view source);
 
 template <typename T>
-absl::enable_if_t<std::is_same<T, ::nlohmann::json>::value,
-                  Result<OAuthResponse>>
+std::enable_if_t<std::is_same<T, ::nlohmann::json>::value,
+                 Result<OAuthResponse>>
 ParseOAuthResponse(const T& json) {
   return ParseOAuthResponseImpl(json);
 }

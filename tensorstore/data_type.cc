@@ -105,11 +105,11 @@ TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_INSTANTIATION)
 #undef TENSORSTORE_INTERNAL_DEFINE_ELEMENT_REPRESENTATION_INSTANTIATION
 }  // namespace internal_data_type
 
-DataType GetDataType(absl::string_view id) {
-#define TENSORSTORE_INTERNAL_MATCH_TYPE(X, ...)      \
-  if (id == absl::string_view(#X, sizeof(#X) - 3)) { \
-    return DataTypeOf<X>();                          \
-  }                                                  \
+DataType GetDataType(std::string_view id) {
+#define TENSORSTORE_INTERNAL_MATCH_TYPE(X, ...)     \
+  if (id == std::string_view(#X, sizeof(#X) - 3)) { \
+    return DataTypeOf<X>();                         \
+  }                                                 \
   /**/
   TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_MATCH_TYPE)
 #undef TENSORSTORE_INTERNAL_MATCH_TYPE

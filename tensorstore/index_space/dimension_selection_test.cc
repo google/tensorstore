@@ -177,7 +177,7 @@ TEST(DynamicDimsTest, InvalidDimRangeSpecNewUnbounded) {
           .input_labels({"a", "b", "c", "d"})
           .Finalize()
           .value(),
-      Dims(DimRangeSpec{absl::nullopt, absl::nullopt, 1}).AddNew(),
+      Dims(DimRangeSpec{std::nullopt, std::nullopt, 1}).AddNew(),
       absl::StatusCode::kInvalidArgument,
       "`:` is not a valid specification for new dimensions");
 }
@@ -188,7 +188,7 @@ TEST(DynamicDimsTest, InvalidDimRangeSpecNewMissingStop) {
           .input_labels({"a", "b", "c", "d"})
           .Finalize()
           .value(),
-      Dims(DimRangeSpec{5, absl::nullopt, 1}).AddNew(),
+      Dims(DimRangeSpec{5, std::nullopt, 1}).AddNew(),
       absl::StatusCode::kInvalidArgument,
       "`5:` is not a valid specification for new dimensions");
 }
@@ -199,7 +199,7 @@ TEST(DynamicDimsTest, InvalidDimRangeSpecNewNegativeStop) {
           .input_labels({"a", "b", "c", "d"})
           .Finalize()
           .value(),
-      Dims(DimRangeSpec{absl::nullopt, -3, 1}).AddNew(),
+      Dims(DimRangeSpec{std::nullopt, -3, 1}).AddNew(),
       absl::StatusCode::kInvalidArgument,
       "`:-3` is not a valid specification for new dimensions");
 }
@@ -210,7 +210,7 @@ TEST(DynamicDimsTest, InvalidDimRangeSpecNewNegativeStartNegativeStep) {
           .input_labels({"a", "b", "c", "d"})
           .Finalize()
           .value(),
-      Dims(DimRangeSpec{-5, absl::nullopt, -1}).AddNew(),
+      Dims(DimRangeSpec{-5, std::nullopt, -1}).AddNew(),
       absl::StatusCode::kInvalidArgument,
       "`-5::-1` is not a valid specification for new dimensions");
 }
@@ -221,7 +221,7 @@ TEST(DynamicDimsTest, InvalidDimRangeSpecNewMissingStart) {
           .input_labels({"a", "b", "c", "d"})
           .Finalize()
           .value(),
-      Dims(DimRangeSpec{absl::nullopt, 5, -1}).AddNew(),
+      Dims(DimRangeSpec{std::nullopt, 5, -1}).AddNew(),
       absl::StatusCode::kInvalidArgument,
       "`:5:-1` is not a valid specification for new dimensions");
 }
@@ -327,7 +327,7 @@ TEST(DimsTest, DimRangeSpecImplicitStopNew) {
           .Finalize()
           .value(),
       /*expression=*/
-      Dims(DimRangeSpec{-3, absl::nullopt, 2}).AddNew().Label("e", "f"),
+      Dims(DimRangeSpec{-3, std::nullopt, 2}).AddNew().Label("e", "f"),
       /*expected_new_dimension_selection=*/{3, 5},
       /*expected_identity_new_transform=*/
       IndexTransformBuilder<dynamic_rank, 4>(6)
@@ -354,7 +354,7 @@ TEST(DimsTest, DimRangeSpecImplicitStopNegativeStepNew) {
           .Finalize()
           .value(),
       /*expression=*/
-      Dims(DimRangeSpec{1, absl::nullopt, -1}).AddNew().Label("e", "f"),
+      Dims(DimRangeSpec{1, std::nullopt, -1}).AddNew().Label("e", "f"),
       /*expected_new_dimension_selection=*/{1, 0},
       /*expected_identity_new_transform=*/
       IndexTransformBuilder<dynamic_rank, 4>(6)
@@ -381,7 +381,7 @@ TEST(DimsTest, DimRangeSpecImplicitStartNegativeStepNew) {
           .Finalize()
           .value(),
       /*expression=*/
-      Dims(DimRangeSpec{absl::nullopt, -4, -2}).AddNew().Label("e", "f"),
+      Dims(DimRangeSpec{std::nullopt, -4, -2}).AddNew().Label("e", "f"),
       /*expected_new_dimension_selection=*/{5, 3},
       /*expected_identity_new_transform=*/
       IndexTransformBuilder<dynamic_rank, 4>(6)
@@ -408,7 +408,7 @@ TEST(DimsTest, DimRangeSpecImplicitStartNew) {
           .Finalize()
           .value(),
       /*expression=*/
-      Dims(DimRangeSpec{absl::nullopt, 3, 2}).AddNew().Label("e", "f"),
+      Dims(DimRangeSpec{std::nullopt, 3, 2}).AddNew().Label("e", "f"),
       /*expected_new_dimension_selection=*/{0, 2},
       /*expected_identity_new_transform=*/
       IndexTransformBuilder<dynamic_rank, 4>(6)

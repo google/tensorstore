@@ -16,10 +16,10 @@
 
 #include <initializer_list>
 #include <string>
+#include <string_view>
 
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/string_view.h"
 
 namespace {
 inline bool IsValidSchemeChar(char ch) {
@@ -37,15 +37,15 @@ constexpr inline bool IsDirSeparator(char c) { return c == '/'; }
 namespace tensorstore {
 namespace internal_path {
 
-std::string JoinPathImpl(std::initializer_list<absl::string_view> paths) {
+std::string JoinPathImpl(std::initializer_list<std::string_view> paths) {
   size_t s = 0;
-  for (absl::string_view path : paths) {
+  for (std::string_view path : paths) {
     s += path.size() + 1;
   }
 
   std::string result;
   result.reserve(s);
-  for (absl::string_view path : paths) {
+  for (std::string_view path : paths) {
     if (path.empty()) continue;
 
     if (result.empty()) {
@@ -75,15 +75,15 @@ std::string JoinPathImpl(std::initializer_list<absl::string_view> paths) {
 namespace internal {
 
 // Splits a path into the pair {dirname, basename}
-std::pair<absl::string_view, absl::string_view> PathDirnameBasename(
-    absl::string_view path) {
+std::pair<std::string_view, std::string_view> PathDirnameBasename(
+    std::string_view path) {
   size_t pos = path.size();
   while (pos != 0 && !IsDirSeparator(path[pos - 1])) {
     --pos;
   }
   size_t basename = pos;
   --pos;
-  if (pos == absl::string_view::npos) {
+  if (pos == std::string_view::npos) {
     return {"", path};
   }
   while (pos != 0 && IsDirSeparator(path[pos - 1])) {
@@ -95,12 +95,12 @@ std::pair<absl::string_view, absl::string_view> PathDirnameBasename(
   return {path.substr(0, pos), path.substr(basename)};
 }
 
-void ParseURI(absl::string_view uri, absl::string_view* scheme,
-              absl::string_view* host, absl::string_view* path) {
-  static const absl::string_view kSep("://");
+void ParseURI(std::string_view uri, std::string_view* scheme,
+              std::string_view* host, std::string_view* path) {
+  static const std::string_view kSep("://");
 
-  if (scheme) *scheme = absl::string_view(uri.data(), 0);
-  if (host) *host = absl::string_view(uri.data(), 0);
+  if (scheme) *scheme = std::string_view(uri.data(), 0);
+  if (host) *host = std::string_view(uri.data(), 0);
   if (path) *path = uri;  // By default, everything is a path.
   if (uri.empty()) {
     return;
@@ -110,8 +110,8 @@ void ParseURI(absl::string_view uri, absl::string_view* scheme,
   if (!absl::ascii_isalpha(uri[0])) {
     return;
   }
-  absl::string_view::size_type scheme_loc = 1;
-  absl::string_view remaining;
+  std::string_view::size_type scheme_loc = 1;
+  std::string_view remaining;
   for (;;) {
     if (scheme_loc + kSep.size() > uri.size()) {
       // No scheme. Everything is a path.
@@ -131,10 +131,10 @@ void ParseURI(absl::string_view uri, absl::string_view* scheme,
 
   // 1. Parse host
   auto path_loc = remaining.find('/');
-  if (path_loc == absl::string_view::npos) {
+  if (path_loc == std::string_view::npos) {
     // No path, everything is the host.
     if (host) *host = remaining;
-    if (path) *path = absl::string_view(remaining.data() + remaining.size(), 0);
+    if (path) *path = std::string_view(remaining.data() + remaining.size(), 0);
     return;
   }
   // 2. There is a host and a path.
@@ -142,8 +142,8 @@ void ParseURI(absl::string_view uri, absl::string_view* scheme,
   if (path) *path = remaining.substr(path_loc);
 }
 
-std::string CreateURI(absl::string_view scheme, absl::string_view host,
-                      absl::string_view path) {
+std::string CreateURI(std::string_view scheme, std::string_view host,
+                      std::string_view path) {
   if (scheme.empty()) {
     return std::string(path);
   }

@@ -14,8 +14,9 @@
 
 #include "tensorstore/internal/utf8.h"
 
+#include <string_view>
+
 #include <gtest/gtest.h>
-#include "absl/strings/string_view.h"
 
 namespace {
 
@@ -50,7 +51,7 @@ TEST(IsValidUtf8Test, Empty) {
 TEST(IsValidUtf8Test, Ascii) {
   EXPECT_TRUE(IsValidUtf8("ascii"));
   // Singe NUL byte
-  EXPECT_TRUE(IsValidUtf8(absl::string_view("\0", 1)));
+  EXPECT_TRUE(IsValidUtf8(std::string_view("\0", 1)));
 }
 
 TEST(IsValidUtf8Test, TwoByte) {

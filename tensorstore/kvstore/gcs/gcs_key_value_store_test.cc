@@ -16,21 +16,21 @@
 
 #include <algorithm>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
-#include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/synchronization/notification.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include "absl/types/variant.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/http/curl_handle.h"
@@ -73,7 +73,7 @@ class MetadataMockTransport : public HttpTransport {
                                     absl::Cord payload,
                                     absl::Duration request_timeout,
                                     absl::Duration connect_timeout) override {
-    absl::string_view scheme, host, path;
+    std::string_view scheme, host, path;
     tensorstore::internal::ParseURI(request.url(), &scheme, &host, &path);
 
     if (host != "metadata.google.internal") {
@@ -81,8 +81,8 @@ class MetadataMockTransport : public HttpTransport {
     }
 
     // Respond with the GCE OAuth2 token
-    if (path == absl::string_view("/computeMetadata/v1/instance/"
-                                  "service-accounts/user@nowhere.com/token")) {
+    if (path == std::string_view("/computeMetadata/v1/instance/"
+                                 "service-accounts/user@nowhere.com/token")) {
       return HttpResponse{
           200,
           absl::Cord(
@@ -482,7 +482,7 @@ class MyConcurrentMockTransport : public MyMockTransport {
                                     absl::Cord payload,
                                     absl::Duration request_timeout,
                                     absl::Duration connect_timeout) override {
-    absl::string_view scheme, host, path;
+    std::string_view scheme, host, path;
     tensorstore::internal::ParseURI(request.url(), &scheme, &host, &path);
 
     // Don't do concurrency test on auth requests, as those don't happen

@@ -27,8 +27,8 @@ void SetToIdentityTransform(span<OutputIndexMap> maps) {
 }
 
 void SetToIdentityTransform(TransformRep* data, DimensionIndex rank) {
-  ABSL_ASSERT(data->input_rank_capacity >= rank &&
-              data->output_rank_capacity >= rank);
+  assert(data->input_rank_capacity >= rank &&
+         data->output_rank_capacity >= rank);
   data->input_rank = data->output_rank = rank;
   std::fill_n(data->input_origin().begin(), rank, -kInfIndex);
   std::fill_n(data->input_shape().begin(), rank, kInfSize);
@@ -49,14 +49,14 @@ TransformRep::Ptr<> MakeIdentityTransform(internal::StringLikeSpan labels) {
   SetToIdentityTransform(data.get(), rank);
   span<std::string> input_labels = data->input_labels().first(rank);
   for (DimensionIndex i = 0; i < rank; ++i) {
-    absl::string_view label = labels[i];
+    std::string_view label = labels[i];
     input_labels[i].assign(label.data(), label.size());
   }
   return data;
 }
 
 TransformRep::Ptr<> MakeIdentityTransformLike(TransformRep* data) {
-  ABSL_ASSERT(data != nullptr);
+  assert(data != nullptr);
   const DimensionIndex rank = data->input_rank;
   auto result = TransformRep::Allocate(rank, rank);
   result->output_rank = rank;

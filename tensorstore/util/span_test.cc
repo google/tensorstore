@@ -474,9 +474,9 @@ TEST(SpanTest, NoexceptTests) {
 template <int i>
 struct ConstexprTester {};
 
-#define TENSORSTORE_TEST_CONSTEXPR(expr)                \
-  do {                                                  \
-    ABSL_ATTRIBUTE_UNUSED ConstexprTester<(expr, 1)> t; \
+#define TENSORSTORE_TEST_CONSTEXPR(expr)           \
+  do {                                             \
+    [[maybe_unused]] ConstexprTester<(expr, 1)> t; \
   } while (0)
 
 TEST(SpanTest, ConstexprTest) {

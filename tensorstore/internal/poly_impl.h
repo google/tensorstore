@@ -63,6 +63,7 @@
 #include <cassert>
 #include <cstddef>
 #include <type_traits>
+#include <typeinfo>
 #include <utility>
 
 #include "tensorstore/internal/type_traits.h"

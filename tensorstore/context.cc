@@ -100,11 +100,11 @@ ContextImpl::~ContextImpl() {
 
 namespace {
 struct ContextProviderRegistry {
-  struct ProviderKey : public absl::string_view {
-    using Base = absl::string_view;
+  struct ProviderKey : public std::string_view {
+    using Base = std::string_view;
     ProviderKey(const std::unique_ptr<const ContextResourceProviderImplBase>& p)
         : Base(p->id_) {}
-    ProviderKey(absl::string_view s) : Base(s) {}
+    ProviderKey(std::string_view s) : Base(s) {}
   };
 
   struct ProviderHash : public absl::Hash<ProviderKey> {
@@ -244,7 +244,7 @@ Result<ContextResourceImplWeakPtr> GetResource(
     TENSORSTORE_LOG_FATAL("Context resource provider not registered for: ",
                           QuoteString(spec->key_));
   }
-  const absl::string_view key = spec->key_;
+  const std::string_view key = spec->key_;
   return ChainResult(
       [&] {
         if (key.empty()) {
@@ -296,7 +296,7 @@ class ContextResourceReference : public ContextResourceSpecImplBase {
       const internal::ContextResourceCreationContext& creation_context)
       override {
     // Look up referent.
-    absl::string_view referent = referent_;
+    std::string_view referent = referent_;
     auto* mutex = &creation_context.context_->root_->mutex_;
     absl::MutexLock lock(mutex);
     ContextImpl* c = creation_context.context_;
@@ -389,7 +389,7 @@ std::string_view ParseResourceProvider(std::string_view key) {
   return key.substr(0, key.find('#'));
 }
 
-Status ProviderNotRegisteredError(absl::string_view key) {
+Status ProviderNotRegisteredError(std::string_view key) {
   return absl::InvalidArgumentError(
       StrCat("Invalid context resource identifier: ", QuoteString(key)));
 }
@@ -442,7 +442,7 @@ class UnknownContextResource : public ContextResourceSpecImplBase {
 }  // namespace
 
 Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJsonWithKey(
-    absl::string_view key, const ::nlohmann::json& j,
+    std::string_view key, const ::nlohmann::json& j,
     Context::FromJsonOptions options) {
   auto* provider = GetProvider(ParseResourceProvider(key));
   ContextResourceSpecImplPtr impl;
@@ -458,7 +458,7 @@ Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJsonWithKey(
 }
 
 Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJson(
-    absl::string_view provider_id, const ::nlohmann::json& j,
+    std::string_view provider_id, const ::nlohmann::json& j,
     Context::FromJsonOptions options) {
   auto& provider = GetProviderOrDie(provider_id);
   if (j.is_null()) {
@@ -468,7 +468,7 @@ Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJson(
 }
 
 ContextResourceSpecImplPtr DefaultContextResourceSpec(
-    absl::string_view provider_id) {
+    std::string_view provider_id) {
   return ContextResourceSpecFromJson(provider_id, std::string(provider_id), {})
       .value();
 }
@@ -577,7 +577,7 @@ BuilderImpl::~BuilderImpl() {
   using SharedEntry = std::pair<ContextResourceImplBase*, ResourceEntry*>;
   std::vector<SharedEntry> shared_entries;
   for (auto& p : resources_) {
-    absl::string_view key = p.first->spec_->key_;
+    std::string_view key = p.first->spec_->key_;
     if (!key.empty()) {
       ids[key]++;
     }

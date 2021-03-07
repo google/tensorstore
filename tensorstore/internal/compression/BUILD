@@ -13,8 +13,6 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:cord",
         "@org_blosc_cblosc//:blosc",
     ],
 )
@@ -27,7 +25,6 @@ tensorstore_cc_library(
         ":json_specified_compressor",
         "//tensorstore/internal:json",
         "//tensorstore/util:quote_string",
-        "@com_google_absl//absl/strings",
         "@org_blosc_cblosc//:blosc",
     ],
 )
@@ -66,7 +63,6 @@ tensorstore_cc_library(
     deps = [
         ":bzip2",
         ":json_specified_compressor",
-        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
     ],
 )
@@ -143,7 +139,6 @@ tensorstore_cc_library(
         ":cord_stream_manager",
         "//tensorstore/util:assert_macros",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@org_tukaani_xz//:liblzma",
     ],
@@ -190,7 +185,6 @@ tensorstore_cc_library(
     deps = [
         ":json_specified_compressor",
         ":lzma",
-        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
     ],
 )
@@ -203,7 +197,6 @@ tensorstore_cc_library(
         ":cord_stream_manager",
         "//tensorstore/util:assert_macros",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@net_zlib//:zlib",
     ],
@@ -215,7 +208,6 @@ tensorstore_cc_library(
     deps = [
         ":json_specified_compressor",
         ":zlib",
-        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
     ],
 )

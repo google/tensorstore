@@ -33,7 +33,7 @@ Result<IndexTransform<>> ApplyLabel(IndexTransform<> transform,
   for (DimensionIndex i = 0;
        i < static_cast<DimensionIndex>(dimensions->size()); ++i) {
     const DimensionIndex input_dim = (*dimensions)[i];
-    absl::string_view label = labels[i];
+    std::string_view label = labels[i];
     input_labels[input_dim].assign(label.begin(), label.end());
   }
   TENSORSTORE_RETURN_IF_ERROR(ValidateLabelsAreUnique(input_labels));

@@ -15,13 +15,12 @@
 #ifndef TENSORSTORE_UTIL_EXTENTS_H_
 #define TENSORSTORE_UTIL_EXTENTS_H_
 
+#include <cassert>
 #include <cstddef>
 #include <limits>
 #include <type_traits>
 
-#include "absl/base/macros.h"
 #include "absl/base/optimization.h"
-#include "absl/meta/type_traits.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/meta.h"
@@ -41,10 +40,10 @@ namespace tensorstore {
 ///     overflow occurred in computing an intermediate product.
 template <typename T, std::ptrdiff_t Extent>
 T ProductOfExtents(span<T, Extent> s) {
-  using value_type = absl::remove_const_t<T>;
+  using value_type = std::remove_const_t<T>;
   value_type result = 1;
   for (const auto& x : s) {
-    ABSL_ASSERT(x >= 0);
+    assert(x >= 0);
     if (ABSL_PREDICT_FALSE(internal::MulOverflow(result, x, &result))) {
       // Overflow occurred.  We set the current product to
       // `std::numeric_limits<value_type>::max()`, but we don't return
@@ -63,7 +62,7 @@ struct IsCompatibleFullIndexVector : public std::false_type {};
 
 template <DimensionIndex Rank, typename Indices>
 struct IsCompatibleFullIndexVector<
-    Rank, Indices, absl::void_t<internal::ConstSpanType<Indices>>>
+    Rank, Indices, std::void_t<internal::ConstSpanType<Indices>>>
     : public std::integral_constant<
           bool, AreStaticRanksCompatible(
                     Rank, internal::ConstSpanType<Indices>::extent) &&
@@ -78,7 +77,7 @@ struct IsImplicitlyCompatibleFullIndexVector : public std::false_type {};
 
 template <DimensionIndex Rank, typename Indices>
 struct IsImplicitlyCompatibleFullIndexVector<
-    Rank, Indices, absl::void_t<internal::ConstSpanType<Indices>>>
+    Rank, Indices, std::void_t<internal::ConstSpanType<Indices>>>
     : public std::integral_constant<
           bool, IsRankImplicitlyConvertible(
                     internal::ConstSpanType<Indices>::extent, Rank) &&
@@ -93,7 +92,7 @@ struct IsCompatiblePartialIndexVector : public std::false_type {};
 
 template <DimensionIndex Rank, typename Indices>
 struct IsCompatiblePartialIndexVector<
-    Rank, Indices, absl::void_t<internal::ConstSpanType<Indices>>>
+    Rank, Indices, std::void_t<internal::ConstSpanType<Indices>>>
     : public std::integral_constant<
           bool, IsStaticRankGreaterEqual(
                     Rank, internal::ConstSpanType<Indices>::extent) &&
@@ -117,7 +116,7 @@ struct IsIndexConvertibleVector : public std::false_type {};
 
 template <typename Indices>
 struct IsIndexConvertibleVector<Indices,
-                                absl::void_t<internal::ConstSpanType<Indices>>>
+                                std::void_t<internal::ConstSpanType<Indices>>>
     : public internal::IsIndexPack<
           typename internal::ConstSpanType<Indices>::value_type> {};
 

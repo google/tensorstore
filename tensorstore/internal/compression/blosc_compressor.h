@@ -19,8 +19,8 @@
 
 #include <cstddef>
 #include <string>
+#include <string_view>
 
-#include "absl/strings/string_view.h"
 #include <blosc.h>
 #include "tensorstore/internal/compression/blosc.h"
 #include "tensorstore/internal/compression/json_specified_compressor.h"

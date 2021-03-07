@@ -863,7 +863,7 @@ TEST(FutureTest, ConvertVoid2) {
   auto pair = PromiseFuturePair<void>::Make();
   Future<const void> f = pair.future;
   Promise<const void> p = pair.promise;
-  pair.promise.SetResult(absl::in_place);
+  pair.promise.SetResult(std::in_place);
   f.value();
 }
 

@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_DRIVER_ZARR_COMPRESSOR_REGISTRY_H_
 #define TENSORSTORE_DRIVER_ZARR_COMPRESSOR_REGISTRY_H_
 
-#include "absl/strings/string_view.h"
+#include <string_view>
+
 #include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/internal/json_registry.h"
 
@@ -25,7 +26,7 @@ namespace internal_zarr {
 internal::JsonSpecifiedCompressor::Registry& GetCompressorRegistry();
 
 template <typename T, typename Binder>
-void RegisterCompressor(absl::string_view id, Binder binder) {
+void RegisterCompressor(std::string_view id, Binder binder) {
   GetCompressorRegistry().Register<T>(id, binder);
 }
 

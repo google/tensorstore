@@ -21,13 +21,13 @@
 namespace tensorstore {
 namespace internal_zarr {
 
-Result<ZarrDType::BaseDType> ParseBaseDType(absl::string_view dtype) {
+Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
   using D = ZarrDType::BaseDType;
   if (dtype.size() < 3) goto error;
   {
     const char endian_indicator = dtype[0];
     const char type_indicator = dtype[1];
-    const absl::string_view suffix = dtype.substr(2);
+    const std::string_view suffix = dtype.substr(2);
     endian endian_value;
     switch (type_indicator) {
       case 'b':

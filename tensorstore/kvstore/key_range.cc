@@ -14,6 +14,7 @@
 
 #include "tensorstore/kvstore/key_range.h"
 
+#include <algorithm>
 #include <ostream>
 #include <string>
 #include <string_view>

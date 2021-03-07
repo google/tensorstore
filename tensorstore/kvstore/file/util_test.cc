@@ -39,7 +39,7 @@ TEST(IsKeyValid, Basic) {
   EXPECT_FALSE(IsKeyValid("tmp/.lock/a", ".lock"));
   EXPECT_FALSE(IsKeyValid("tmp/foo.lock/a", ".lock"));
 
-  EXPECT_FALSE(IsKeyValid(absl::string_view("tmp/\0bar", 8), ""));
+  EXPECT_FALSE(IsKeyValid(std::string_view("tmp/\0bar", 8), ""));
 }
 
 TEST(LongestDirectoryPrefix, Basic) {

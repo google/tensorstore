@@ -37,7 +37,7 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
           input_rank,
           flags::GetDefaultBitmask(constraints.repeated_elements_constraint()));
 
-  std::array<absl::optional<SingleArrayIterationState>, 2> single_array_states;
+  std::array<std::optional<SingleArrayIterationState>, 2> single_array_states;
   single_array_states[0].emplace(input_rank, output_rank);
   TENSORSTORE_RETURN_IF_ERROR(
       internal_index_space::InitializeSingleArrayIterationState(
@@ -111,7 +111,7 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
             /*iteration_origin=*/result_origin,
             /*iteration_shape=*/result_shape, &*single_array_states[1],
             input_dimension_flags.data());
-    ABSL_ASSERT(init_status.ok());
+    assert(init_status.ok());
   }
   DimensionIterationOrder base_layout =
       constraints.order_constraint()
@@ -153,7 +153,7 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
             /*iteration_origin=*/result_origin,
             /*iteration_shape=*/result_shape, &*single_array_states[1],
             input_dimension_flags.data());
-    ABSL_ASSERT(init_status.ok());
+    assert(init_status.ok());
   }
 
   SimplifiedDimensionIterationOrder layout = SimplifyDimensionIterationOrder<2>(
@@ -168,7 +168,7 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
                                       /*status=*/nullptr, single_array_states,
                                       element_sizes)
           .success;
-  ABSL_ASSERT(success);
+  assert(success);
 
   return new_element_pointer;
 }

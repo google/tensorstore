@@ -15,10 +15,9 @@
 #ifndef TENSORSTORE_INTERNAL_MULTI_VECTOR_VIEW_H_
 #define TENSORSTORE_INTERNAL_MULTI_VECTOR_VIEW_H_
 
+#include <cassert>
 #include <type_traits>
 
-#include "absl/base/attributes.h"
-#include "absl/base/macros.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/gdb_scripting.h"
 #include "tensorstore/internal/meta.h"
@@ -180,8 +179,7 @@ class MultiVectorAccess<MultiVectorViewStorage<Extent, Ts...>> {
   static void Assign(StorageType* array, ExtentType extent, Ts*... pointers) {
     array->InternalSetExtent(extent);
     std::size_t i = 0;
-    const auto unused ABSL_ATTRIBUTE_UNUSED = {
-        (array->InternalSetDataPointer(i++, pointers), 0)...};
+    (array->InternalSetDataPointer(i++, pointers), ...);
   }
 
   /// Assigns a MultiVectorViewStorage to refer to the arrays indicated by
@@ -191,8 +189,8 @@ class MultiVectorAccess<MultiVectorViewStorage<Extent, Ts...>> {
   static void Assign(StorageType* array, span<Ts, Extent>... spans) {
     const ExtentType extent =
         GetFirstArgument(GetStaticOrDynamicExtent(spans)...);
-    Assign(array, extent,
-           (ABSL_ASSERT(spans.size() == extent), spans.data())...);
+    assert(((spans.size() == extent) && ...));
+    Assign(array, extent, spans.data()...);
   }
 };
 

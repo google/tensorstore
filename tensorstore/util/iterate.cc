@@ -17,9 +17,9 @@
 #include <algorithm>
 #include <array>
 #include <ostream>
+#include <type_traits>
 
 #include "absl/container/inlined_vector.h"
-#include "absl/meta/type_traits.h"
 #include "absl/utility/utility.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
@@ -150,25 +150,25 @@ template <std::size_t Arity>
 struct StridedLayoutFunctionApplyer<Arity>::WrappedFunction {
   template <typename... Pointer>
   bool operator()(Pointer... pointer) const {
-    return CallHelper(absl::index_sequence_for<Pointer...>(), pointer...);
+    return CallHelper(std::index_sequence_for<Pointer...>(), pointer...);
   }
 
   template <std::size_t... Is>
   static ArrayIterateResult OuterCallHelper(
-      const StridedLayoutFunctionApplyer& data, absl::index_sequence<Is...>,
+      const StridedLayoutFunctionApplyer& data, std::index_sequence<Is...>,
       std::array<ByteStridedPointer<void>, Arity> pointers, Status* status) {
     ArrayIterateResult result;
     result.count = 0;
     result.success = internal_iterate::IterateHelper<
         WrappedFunction,
-        absl::enable_if_t<true || Is, ByteStridedPointer<void>>...>::
+        std::enable_if_t<true || Is, ByteStridedPointer<void>>...>::
         Start(WrappedFunction{data, status, &result.count},
               data.iteration_layout_, pointers[Is]...);
     return result;
   }
 
   template <std::size_t... Is, typename... Pointer>
-  bool CallHelper(absl::index_sequence<Is...>, Pointer... pointer) const {
+  bool CallHelper(std::index_sequence<Is...>, Pointer... pointer) const {
     const Index inner_count = data_.inner_layout_.shape[0];
     const Index current_count = data_.callback_(
         data_.context_, data_.inner_layout_.shape[0],
@@ -188,7 +188,7 @@ ArrayIterateResult StridedLayoutFunctionApplyer<Arity>::operator()(
     std::array<ByteStridedPointer<void>, Arity> pointers,
     Status* status) const {
   return WrappedFunction::OuterCallHelper(
-      *this, absl::make_index_sequence<Arity>(), pointers, status);
+      *this, std::make_index_sequence<Arity>(), pointers, status);
 }
 
 template <std::size_t Arity>

@@ -16,9 +16,9 @@
 #define TENSORSTORE_INTERNAL_OS_ERROR_CODE_H_
 
 #include <string>
+#include <string_view>
 
 #include "absl/status/status.h"
-#include "absl/strings/string_view.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -55,10 +55,9 @@ absl::StatusCode GetOsErrorStatusCode(OsErrorCode error);
 
 /// Returns a Status from an OS error. The message is composed by catenation of
 /// the provided string parts.
-absl::Status StatusFromOsError(OsErrorCode error_code, absl::string_view a = {},
-                               absl::string_view b = {},
-                               absl::string_view c = {},
-                               absl::string_view d = {});
+absl::Status StatusFromOsError(OsErrorCode error_code, std::string_view a = {},
+                               std::string_view b = {}, std::string_view c = {},
+                               std::string_view d = {});
 
 }  // namespace internal
 }  // namespace tensorstore

@@ -15,9 +15,9 @@
 #include "python/tensorstore/status.h"
 
 #include <string>
+#include <string_view>
 
 #include "absl/status/status.h"
-#include "absl/strings/string_view.h"
 #include "pybind11/pybind11.h"
 
 namespace tensorstore {

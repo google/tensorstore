@@ -53,7 +53,7 @@ struct SpecT : public internal_kvs_backed_chunk_driver::SpecT<MaybeBound> {
 };
 
 Result<std::shared_ptr<const N5Metadata>> ParseEncodedMetadata(
-    absl::string_view encoded_value) {
+    std::string_view encoded_value) {
   nlohmann::json raw_data = nlohmann::json::parse(encoded_value, nullptr,
                                                   /*allow_exceptions=*/false);
   if (raw_data.is_discarded()) {
@@ -71,16 +71,16 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
   using Base::Base;
 
   // Metadata is stored as JSON under the `attributes.json` key.
-  std::string GetMetadataStorageKey(absl::string_view entry_key) override {
+  std::string GetMetadataStorageKey(std::string_view entry_key) override {
     return internal::JoinPath(entry_key, kMetadataKey);
   }
 
-  Result<MetadataPtr> DecodeMetadata(absl::string_view entry_key,
+  Result<MetadataPtr> DecodeMetadata(std::string_view entry_key,
                                      absl::Cord encoded_metadata) override {
     return ParseEncodedMetadata(encoded_metadata.Flatten());
   }
 
-  Result<absl::Cord> EncodeMetadata(absl::string_view entry_key,
+  Result<absl::Cord> EncodeMetadata(std::string_view entry_key,
                                     const void* metadata) override {
     return absl::Cord(
         ::nlohmann::json(*static_cast<const N5Metadata*>(metadata)).dump());

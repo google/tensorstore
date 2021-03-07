@@ -17,13 +17,12 @@
 
 #include <initializer_list>
 #include <string>
-
-#include "absl/strings/string_view.h"
+#include <string_view>
 
 namespace tensorstore {
 namespace internal_path {
 // Implementation of JoinPath
-std::string JoinPathImpl(std::initializer_list<absl::string_view> paths);
+std::string JoinPathImpl(std::initializer_list<std::string_view> paths);
 }  // namespace internal_path
 
 namespace internal {
@@ -50,21 +49,21 @@ std::string JoinPath(const T&... args) {
 
 // Splits a path into the pair {dirname, basename} using platform-specific
 // path separator ([/\] on Windows, otherwise [/]).
-std::pair<absl::string_view, absl::string_view> PathDirnameBasename(
-    absl::string_view path);
+std::pair<std::string_view, std::string_view> PathDirnameBasename(
+    std::string_view path);
 
 // Create a URI from a `scheme`, `host`, and `path`. If the scheme
 // is empty, then the result is the path.
-std::string CreateURI(absl::string_view scheme, absl::string_view host,
-                      absl::string_view path);
+std::string CreateURI(std::string_view scheme, std::string_view host,
+                      std::string_view path);
 
 // Parse a `uri`, populating the `scheme`, `host`, and `path`.
 // If the `uri` is invalid, then the scheme and host are set as empty strings,
 // and the entire `uri` is returned as a path.
 //
 // If the `uri` has no path, then the scheme and host are set, but no path.
-void ParseURI(absl::string_view uri, absl::string_view* scheme,
-              absl::string_view* host, absl::string_view* path);
+void ParseURI(std::string_view uri, std::string_view* scheme,
+              std::string_view* host, std::string_view* path);
 
 }  // namespace internal
 }  // namespace tensorstore

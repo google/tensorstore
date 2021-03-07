@@ -23,7 +23,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "absl/meta/type_traits.h"
 #include "tensorstore/internal/exception_macros.h"
 
 namespace tensorstore {
@@ -105,24 +104,23 @@ inline T* dynamic_pointer_cast(U* other) {
 /// This is useful when implementing unchecked conversion for `ElementPointer`.
 template <typename T, typename U>
 inline T* StaticConstPointerCast(U* other) {
-  return static_cast<T*>(const_cast<absl::remove_const_t<U>*>(other));
+  return static_cast<T*>(const_cast<std::remove_const_t<U>*>(other));
 }
 
 template <typename T, typename U>
-inline absl::enable_if_t<std::is_convertible<U*, T*>::value, std::shared_ptr<T>>
+inline std::enable_if_t<std::is_convertible<U*, T*>::value, std::shared_ptr<T>>
 StaticConstPointerCast(const std::shared_ptr<U>& other) {
   return other;
 }
 
 template <typename T, typename U>
-inline absl::enable_if_t<std::is_convertible<U*, T*>::value, std::shared_ptr<T>>
+inline std::enable_if_t<std::is_convertible<U*, T*>::value, std::shared_ptr<T>>
 StaticConstPointerCast(std::shared_ptr<U>&& other) {
   return std::move(other);
 }
 
 template <typename T, typename U>
-inline absl::enable_if_t<!std::is_convertible<U*, T*>::value,
-                         std::shared_ptr<T>>
+inline std::enable_if_t<!std::is_convertible<U*, T*>::value, std::shared_ptr<T>>
 StaticConstPointerCast(const std::shared_ptr<U>& other) {
   return std::shared_ptr<T>(other, StaticConstPointerCast<T>(other.get()));
 }

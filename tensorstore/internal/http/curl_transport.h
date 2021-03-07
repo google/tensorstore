@@ -16,8 +16,8 @@
 #define TENSORSTORE_INTERNAL_HTTP_CURL_TRANSPORT_H_
 
 #include <memory>
+#include <string_view>
 
-#include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/http_request.h"

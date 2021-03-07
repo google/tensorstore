@@ -15,20 +15,20 @@
 #include "tensorstore/internal/cache.h"
 
 #include <atomic>
+#include <cassert>
 #include <memory>
 #include <mutex>  // NOLINT
 #include <optional>
 #include <ostream>
 #include <string>
+#include <string_view>
 #include <typeindex>
 #include <utility>
 #include <vector>
 
 #include "absl/base/call_once.h"
-#include "absl/base/macros.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/cache_pool_limits.h"
 #include "tensorstore/internal/integer_overflow.h"
@@ -195,7 +195,7 @@ void MaybeWritebackEntries(CachePoolImpl* pool) {
   while (pool->queued_for_writeback_bytes_ >
          pool->limits_.queued_for_writeback_bytes_limit) {
     auto* queue = &pool->writeback_queue_;
-    ABSL_ASSERT(queue->next != queue);
+    assert(queue->next != queue);
     auto* entry = static_cast<CacheEntryImpl*>(queue->next);
     RequestWriteback(pool, entry);
   }
@@ -297,7 +297,7 @@ void StrongPtrTraitsCacheEntry::decrement(CacheEntry* p) noexcept {
 
 CachePtr<Cache> GetCacheInternal(
     CachePoolImpl* pool, const std::type_info& cache_type,
-    absl::string_view cache_key,
+    std::string_view cache_key,
     FunctionView<std::unique_ptr<Cache>()> make_cache) {
   CachePoolImpl::CacheKey key(cache_type, cache_key);
   if (!cache_key.empty()) {
@@ -330,7 +330,7 @@ CachePtr<Cache> GetCacheInternal(
 }
 
 PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
-                                              absl::string_view key) {
+                                              std::string_view key) {
   auto* cache_impl = Access::StaticCast<CacheImpl>(cache);
   PinnedCacheEntry<Cache> returned_entry;
   {

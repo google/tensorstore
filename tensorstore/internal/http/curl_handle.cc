@@ -18,10 +18,10 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/string_view.h"
 #include <curl/curl.h>
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/util/assert_macros.h"
@@ -82,7 +82,7 @@ std::string GetCurlUserAgentSuffix() {
 }
 
 /// Returns a Status object for a corresponding CURLcode.
-Status CurlCodeToStatus(CURLcode code, absl::string_view detail) {
+Status CurlCodeToStatus(CURLcode code, std::string_view detail) {
   // Constant errors:
 
   auto error_code = absl::StatusCode::kUnknown;
@@ -127,7 +127,7 @@ Status CurlCodeToStatus(CURLcode code, absl::string_view detail) {
 }
 
 /// Returns a Status object for a corresponding CURLcode.
-Status CurlMCodeToStatus(CURLMcode code, absl::string_view detail) {
+Status CurlMCodeToStatus(CURLMcode code, std::string_view detail) {
   if (code == CURLM_OK) {
     return absl::OkStatus();
   }
@@ -136,7 +136,7 @@ Status CurlMCodeToStatus(CURLMcode code, absl::string_view detail) {
                                           detail.empty() ? "" : ": ", detail));
 }
 
-std::string CurlEscapeString(absl::string_view s) {
+std::string CurlEscapeString(std::string_view s) {
   // FIXME: curl_easy_escape returns a nullptr on failure.
   // https://curl.haxx.se/libcurl/c/curl_easy_escape.html
   char* ptr = curl_easy_escape(nullptr, s.data(), static_cast<int>(s.length()));
@@ -146,7 +146,7 @@ std::string CurlEscapeString(absl::string_view s) {
 }
 
 /// URL-unescapes a string.
-std::string CurlUnescapeString(absl::string_view s) {
+std::string CurlUnescapeString(std::string_view s) {
   // FIXME: curl_easy_unescape can only handle up to INT_MAX length,
   // and it returns a nullptr on failures.
   // https://curl.haxx.se/libcurl/c/curl_easy_unescape.html

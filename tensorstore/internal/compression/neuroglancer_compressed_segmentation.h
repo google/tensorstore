@@ -171,7 +171,7 @@ bool DecodeBlock(size_t encoded_bits, const char* encoded_input,
 /// \param output[out] Pointer to output array.
 /// \returns `true` on success, or `false` if the input is corrupt.
 template <typename Label>
-bool DecodeChannel(absl::string_view input, const std::ptrdiff_t block_shape[3],
+bool DecodeChannel(std::string_view input, const std::ptrdiff_t block_shape[3],
                    const std::ptrdiff_t output_shape[3],
                    const std::ptrdiff_t output_byte_strides[3], Label* output);
 
@@ -188,8 +188,7 @@ bool DecodeChannel(absl::string_view input, const std::ptrdiff_t block_shape[3],
 /// \param output[out] Pointer to output array.
 /// \returns `true` on success, or `false` if the input is corrupt.
 template <typename Label>
-bool DecodeChannels(absl::string_view input,
-                    const std::ptrdiff_t block_shape[3],
+bool DecodeChannels(std::string_view input, const std::ptrdiff_t block_shape[3],
                     const std::ptrdiff_t output_shape[3 + 1],
                     const std::ptrdiff_t output_byte_strides[3 + 1],
                     Label* output);

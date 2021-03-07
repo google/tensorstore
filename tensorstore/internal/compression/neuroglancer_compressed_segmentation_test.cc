@@ -28,7 +28,7 @@ using tensorstore::neuroglancer_compressed_segmentation::EncodeChannel;
 using tensorstore::neuroglancer_compressed_segmentation::EncodeChannels;
 using tensorstore::neuroglancer_compressed_segmentation::EncodedValueCache;
 
-std::vector<std::uint32_t> AsVec(absl::string_view s) {
+std::vector<std::uint32_t> AsVec(std::string_view s) {
   EXPECT_EQ(0, s.size() % 4);
   std::vector<std::uint32_t> out(s.size() / 4);
   for (size_t i = 0; i < out.size(); ++i) {
@@ -104,7 +104,7 @@ void TestSingleChannelRoundTrip(std::vector<T> input,
 }
 
 template <typename T>
-void TestDecodeChannelError(absl::string_view input,
+void TestDecodeChannelError(std::string_view input,
                             const std::ptrdiff_t (&block_shape)[3],
                             const std::ptrdiff_t (&input_shape)[3]) {
   constexpr std::ptrdiff_t s = sizeof(T);

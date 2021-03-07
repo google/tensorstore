@@ -17,8 +17,8 @@
 
 #include <cstddef>
 #include <string>
+#include <string_view>
 
-#include "absl/strings/string_view.h"
 #include "tensorstore/util/status.h"
 
 /// Convenience interface to the blosc library.

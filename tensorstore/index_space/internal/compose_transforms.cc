@@ -52,13 +52,13 @@ ArrayUniqueElementZeroOneManyCount GetArrayUniqueElementZeroOneManyCount(
 Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
                          TransformRep* a_to_b, bool can_move_from_a_to_b,
                          TransformRep* a_to_c) {
-  ABSL_ASSERT(b_to_c != nullptr && a_to_b != nullptr && a_to_c != nullptr &&
-              b_to_c->output_rank <= a_to_c->output_rank_capacity &&
-              a_to_b->output_rank == b_to_c->input_rank &&
-              a_to_b->input_rank <= a_to_c->input_rank_capacity);
+  assert(b_to_c != nullptr && a_to_b != nullptr && a_to_c != nullptr &&
+         b_to_c->output_rank <= a_to_c->output_rank_capacity &&
+         a_to_b->output_rank == b_to_c->input_rank &&
+         a_to_b->input_rank <= a_to_c->input_rank_capacity);
   // Aliasing of `a_to_c` is not allowed unless it has maximum input/output
   // ranks of 0.
-  ABSL_ASSERT(
+  assert(
       (a_to_c->input_rank_capacity == 0 && b_to_c->input_rank_capacity == 0) ||
       (a_to_c != b_to_c && a_to_c != a_to_b));
 
@@ -106,7 +106,7 @@ Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
       }
       case OutputIndexMethod::single_input_dimension: {
         const DimensionIndex b_dim = b_to_c_map.input_dimension();
-        ABSL_ASSERT(b_dim >= 0 && b_dim < b_rank);
+        assert(b_dim >= 0 && b_dim < b_rank);
         auto& a_to_b_map = a_to_b_output_index_maps[b_dim];
         const OutputIndexMethod a_to_b_method =
             a_to_b_map.stride() == 0 ? OutputIndexMethod::constant
@@ -140,12 +140,12 @@ Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
           // Handle the single_input_dimension -> single_input_dimension case.
           // Bounds were already checked by PropagateBounds.
           const DimensionIndex a_dim = a_to_b_map.input_dimension();
-          ABSL_ASSERT(a_dim >= 0 && a_dim < a_rank);
+          assert(a_dim >= 0 && a_dim < a_rank);
           a_to_c_map.SetSingleInputDimension(a_dim);
           break;
         }
         // Handle the single_input_dimension -> array case.
-        ABSL_ASSERT(a_to_b_method == OutputIndexMethod::array);
+        assert(a_to_b_method == OutputIndexMethod::array);
         const auto& a_to_b_index_array_data = a_to_b_map.index_array_data();
         // Compute the updated index_range bounds for this index array.
         IndexInterval index_range;
@@ -242,8 +242,8 @@ Result<TransformRep::Ptr<>> ComposeTransforms(TransformRep* b_to_c,
                                               bool can_move_from_b_to_c,
                                               TransformRep* a_to_b,
                                               bool can_move_from_a_to_b) {
-  ABSL_ASSERT(b_to_c);
-  ABSL_ASSERT(a_to_b);
+  assert(b_to_c);
+  assert(a_to_b);
   const DimensionIndex a_rank = a_to_b->input_rank;
   const DimensionIndex b_rank = a_to_b->output_rank;
   const DimensionIndex c_rank = b_to_c->output_rank;

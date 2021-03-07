@@ -182,7 +182,7 @@ struct SimplifiedDimensionIterationOrder : public DimensionIterationOrder {
 
 template <std::size_t Arity>
 struct OrderTransformedArrayDimensionsByStrides {
-  span<const absl::optional<SingleArrayIterationState>, Arity>
+  span<const std::optional<SingleArrayIterationState>, Arity>
       single_array_states;
 
   bool operator()(DimensionIndex input_dim_a,
@@ -295,7 +295,7 @@ DimensionIterationOrder ComputeDimensionIterationOrder(
 
 template <std::size_t Arity>
 DimensionIterationOrder ComputeDimensionIterationOrder(
-    span<const absl::optional<SingleArrayIterationState>, Arity>
+    span<const std::optional<SingleArrayIterationState>, Arity>
         single_array_states,
     span<const input_dimension_iteration_flags::Bitmask> input_dimension_flags,
     LayoutOrderConstraint order_constraint) {
@@ -309,7 +309,7 @@ SimplifiedDimensionIterationOrder SimplifyDimensionIterationOrder(
     const DimensionIterationOrder& original_layout,
     span<const Index> input_shape,
     CanCombineDimensions can_combine_dimensions) {
-  ABSL_ASSERT(original_layout.pure_strided_start_dim > 0);
+  assert(original_layout.pure_strided_start_dim > 0);
 
   SimplifiedDimensionIterationOrder result(
       original_layout.pure_strided_end_dim);
@@ -348,7 +348,7 @@ SimplifiedDimensionIterationOrder SimplifyDimensionIterationOrder(
 /// Predicate for use with SimplifyDimensionIterationOrder.
 template <std::size_t Arity>
 struct CanCombineTransformedArrayDimensions {
-  span<const absl::optional<SingleArrayIterationState>, Arity>
+  span<const std::optional<SingleArrayIterationState>, Arity>
       single_array_states;
 
   bool operator()(DimensionIndex prev_input_dim, DimensionIndex input_dim,
@@ -379,7 +379,7 @@ template <std::size_t Arity>
 SimplifiedDimensionIterationOrder SimplifyDimensionIterationOrder(
     const DimensionIterationOrder& original_layout,
     span<const Index> input_shape,
-    span<const absl::optional<SingleArrayIterationState>, Arity>
+    span<const std::optional<SingleArrayIterationState>, Arity>
         single_array_states) {
   return SimplifyDimensionIterationOrder(
       original_layout, input_shape,
@@ -391,7 +391,7 @@ ArrayIterateResult IterateUsingSimplifiedLayout(
     const SimplifiedDimensionIterationOrder& layout,
     span<const Index> input_shape,
     internal::ElementwiseClosure<Arity, Status*> closure, Status* status,
-    span<absl::optional<SingleArrayIterationState>, Arity> single_array_states,
+    span<std::optional<SingleArrayIterationState>, Arity> single_array_states,
     std::array<std::ptrdiff_t, Arity> element_sizes);
 
 }  // namespace internal_index_space

@@ -16,9 +16,11 @@
 
 #include <limits>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
@@ -26,8 +28,6 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
 #include "absl/synchronization/mutex.h"
-#include "absl/types/optional.h"
-#include "absl/types/variant.h"
 #include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -50,12 +50,12 @@ const char kInvalidLongBody[] =
 // QueryParameters are common between various GCS calls.
 // https://cloud.google.com/storage/docs/json_api/v1/objects
 struct QueryParameters {
-  absl::optional<std::int64_t> ifGenerationMatch;
-  absl::optional<std::int64_t> ifGenerationNotMatch;
+  std::optional<std::int64_t> ifGenerationMatch;
+  std::optional<std::int64_t> ifGenerationNotMatch;
 };
 
 // Parse QueryParameters or return an error HttpResponse
-absl::optional<internal_http::HttpResponse> ParseQueryParameters(
+std::optional<internal_http::HttpResponse> ParseQueryParameters(
     const GCSMockStorageBucket::ParamMap& params,
     QueryParameters* query_params) {
   // The generation must be numeric.
@@ -77,7 +77,7 @@ absl::optional<internal_http::HttpResponse> ParseQueryParameters(
     query_params->ifGenerationNotMatch = v;
     break;
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 }  // namespace
@@ -85,7 +85,7 @@ absl::optional<internal_http::HttpResponse> ParseQueryParameters(
 GCSMockStorageBucket::~GCSMockStorageBucket() = default;
 
 GCSMockStorageBucket::GCSMockStorageBucket(
-    absl::string_view bucket,
+    std::string_view bucket,
     std::optional<std::string> requestor_pays_project_id)
     : bucket_(bucket),
       bucket_path_(absl::StrCat("/storage/v1/b/", bucket)),
@@ -100,17 +100,17 @@ Future<HttpResponse> GCSMockStorageBucket::IssueRequest(
   // thread safe and not uninstalled when it might introduce
   // race conditions.
   auto match_result = Match(request, payload);
-  if (absl::holds_alternative<absl::Status>(match_result)) {
-    return std::move(absl::get<absl::Status>(match_result));
-  } else if (absl::holds_alternative<HttpResponse>(match_result)) {
-    return std::move(absl::get<HttpResponse>(match_result));
+  if (std::holds_alternative<absl::Status>(match_result)) {
+    return std::move(std::get<absl::Status>(match_result));
+  } else if (std::holds_alternative<HttpResponse>(match_result)) {
+    return std::move(std::get<HttpResponse>(match_result));
   }
   return absl::UnimplementedError("Mock cannot satisfy the request.");
 }
 
-absl::variant<absl::monostate, HttpResponse, absl::Status>
+std::variant<std::monostate, HttpResponse, absl::Status>
 GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
-  absl::string_view scheme, host, path;
+  std::string_view scheme, host, path;
   tensorstore::internal::ParseURI(request.url(), &scheme, &host, &path);
 
   if (host != "www.googleapis.com") {
@@ -146,18 +146,18 @@ GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
   }
 
   // Remove the query parameter substring.
-  absl::string_view query;
-  for (auto idx = path.find('?'); idx != absl::string_view::npos;) {
+  std::string_view query;
+  for (auto idx = path.find('?'); idx != std::string_view::npos;) {
     query = path.substr(idx + 1);
     path.remove_suffix(1 + query.size());
     break;
   }
 
   // Parse the query params.
-  std::map<absl::string_view, std::string> params;
+  std::map<std::string_view, std::string> params;
   if (!query.empty()) {
-    for (absl::string_view kv : absl::StrSplit(query, absl::ByChar('&'))) {
-      std::pair<absl::string_view, absl::string_view> split =
+    for (std::string_view kv : absl::StrSplit(query, absl::ByChar('&'))) {
+      std::pair<std::string_view, std::string_view> split =
           absl::StrSplit(kv, absl::MaxSplits('=', 1));
       params[split.first] = CurlUnescapeString(split.second);
     }
@@ -206,8 +206,8 @@ GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
   return HttpResponse{404, absl::Cord()};
 }
 
-absl::variant<absl::monostate, HttpResponse, absl::Status>
-GCSMockStorageBucket::HandleListRequest(absl::string_view path,
+std::variant<std::monostate, HttpResponse, absl::Status>
+GCSMockStorageBucket::HandleListRequest(std::string_view path,
                                         const ParamMap& params) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/list
   const char kPrefix[] = R"(
@@ -235,7 +235,7 @@ GCSMockStorageBucket::HandleListRequest(absl::string_view path,
     break;
   }
 
-  absl::string_view start_offset;
+  std::string_view start_offset;
   Map::const_iterator object_it;
   if (auto it = params.find("pageToken"); it != params.end()) {
     start_offset = it->second;
@@ -249,7 +249,7 @@ GCSMockStorageBucket::HandleListRequest(absl::string_view path,
 
   Map::const_iterator object_end_it;
   if (auto it = params.find("endOffset"); it != params.end()) {
-    absl::string_view end_offset = it->second;
+    std::string_view end_offset = it->second;
     if (end_offset <= start_offset) {
       object_end_it = object_it;
     } else {
@@ -279,8 +279,8 @@ GCSMockStorageBucket::HandleListRequest(absl::string_view path,
   return HttpResponse{200, absl::Cord(std::move(result))};
 }
 
-absl::variant<absl::monostate, HttpResponse, absl::Status>
-GCSMockStorageBucket::HandleInsertRequest(absl::string_view path,
+std::variant<std::monostate, HttpResponse, absl::Status>
+GCSMockStorageBucket::HandleInsertRequest(std::string_view path,
                                           const ParamMap& params,
                                           absl::Cord payload) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/insert
@@ -339,8 +339,8 @@ GCSMockStorageBucket::HandleInsertRequest(absl::string_view path,
   return HttpResponse{404, absl::Cord()};
 }
 
-absl::variant<absl::monostate, HttpResponse, absl::Status>
-GCSMockStorageBucket::HandleGetRequest(absl::string_view path,
+std::variant<std::monostate, HttpResponse, absl::Status>
+GCSMockStorageBucket::HandleGetRequest(std::string_view path,
                                        const ParamMap& params) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/get
   path.remove_prefix(3);  // remove /o/
@@ -392,8 +392,8 @@ GCSMockStorageBucket::HandleGetRequest(absl::string_view path,
   return HttpResponse{404, absl::Cord()};
 }
 
-absl::variant<absl::monostate, HttpResponse, absl::Status>
-GCSMockStorageBucket::HandleDeleteRequest(absl::string_view path,
+std::variant<std::monostate, HttpResponse, absl::Status>
+GCSMockStorageBucket::HandleDeleteRequest(std::string_view path,
                                           const ParamMap& params) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/delete
   path.remove_prefix(3);  // remove /o/

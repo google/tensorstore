@@ -18,7 +18,6 @@
 #include <type_traits>
 
 #include "absl/container/inlined_vector.h"
-#include "absl/meta/type_traits.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/deep_copy_transform_rep_ptr.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
@@ -68,7 +67,7 @@ class OutputIndexMapInitializer {
                                                   offset_origin>& index_array,
                             Result<IndexInterval> bounds)
       : index_array(index_array), index_array_bounds(bounds) {}
-  absl::optional<DimensionIndex> input_dimension;
+  std::optional<DimensionIndex> input_dimension;
   SharedArray<const Index, dynamic_rank, offset_origin> index_array;
   /// We store a `Result<IndexInterval>` rather than just a plain
   /// `IndexInterval` in order to allow an expression like
@@ -92,7 +91,7 @@ struct IsStaticExtentCompatibleWithRange : public std::true_type {};
 
 template <std::ptrdiff_t StaticExtent, typename Range>
 struct IsStaticExtentCompatibleWithRange<
-    StaticExtent, Range, absl::void_t<internal::ConstSpanType<Range>>>
+    StaticExtent, Range, std::void_t<internal::ConstSpanType<Range>>>
     : public std::integral_constant<
           bool, IsRankExplicitlyConvertible(
                     StaticExtent, internal::ConstSpanType<Range>::extent)> {};
@@ -305,9 +304,9 @@ class IndexTransformBuilder {
   /// \remarks Calling this method after it has already been called simply
   ///     overrides the previous value.
   template <typename Indices>
-  absl::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                        InputRank, Indices>::value,
-                    IndexTransformBuilder&>
+  std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
+                       InputRank, Indices>::value,
+                   IndexTransformBuilder&>
   input_origin(const Indices& indices) {
     internal_index_space::AssignRange(indices, span<Index>(input_origin()));
     return *this;
@@ -344,9 +343,9 @@ class IndexTransformBuilder {
   /// \remarks Calling this method after the upper bound of the input domain has
   ///     already been specified simply overrides the previous value.
   template <typename Indices>
-  absl::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                        InputRank, Indices>::value,
-                    IndexTransformBuilder&>
+  std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
+                       InputRank, Indices>::value,
+                   IndexTransformBuilder&>
   input_shape(const Indices& indices) {
     internal_index_space::AssignRange(indices, span<Index>(input_shape()));
     return *this;
@@ -382,9 +381,9 @@ class IndexTransformBuilder {
   /// \remarks Calling this method after the upper bound of the input domain has
   ///     already been specified simply overrides the previous value.
   template <typename Indices>
-  absl::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                        InputRank, Indices>::value,
-                    IndexTransformBuilder&>
+  std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
+                       InputRank, Indices>::value,
+                   IndexTransformBuilder&>
   input_exclusive_max(const Indices& indices) {
     internal_index_space::AssignRange(indices,
                                       span<Index>(input_exclusive_max()));
@@ -422,9 +421,9 @@ class IndexTransformBuilder {
   /// \remarks Calling this method after the upper bound of the input domain has
   ///     already been specified simply overrides the previous value.
   template <typename Indices>
-  absl::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                        InputRank, Indices>::value,
-                    IndexTransformBuilder&>
+  std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
+                       InputRank, Indices>::value,
+                   IndexTransformBuilder&>
   input_inclusive_max(const Indices& indices) {
     internal_index_space::AssignRange(indices,
                                       span<Index>(input_inclusive_max()));
@@ -455,7 +454,7 @@ class IndexTransformBuilder {
   ///     input domain have already been specified simply overrides the previous
   ///     values.
   template <typename BoxLike>
-  absl::enable_if_t<
+  std::enable_if_t<
       IsBoxLikeImplicitlyConvertibleToRank<BoxLike, InputRank>::value,
       IndexTransformBuilder&>
   input_bounds(const BoxLike& box) {
@@ -500,15 +499,15 @@ class IndexTransformBuilder {
   /// Sets the `input_labels` vector the specified value.
   ///
   /// \param labels A sequence with `value_type` convertible to
-  ///     `absl::string_view` specifying the label for each input dimension.
+  ///     `std::string_view` specifying the label for each input dimension.
   /// \pre `valid() == true`
   /// \checks The size of the `labels` vector must equal `input_rank()`.
   /// \remarks Calling this method after it has already been called simply
   ///     overrides the previous value.
   template <typename Labels>
-  absl::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                        InputRank, Labels>::value,
-                    IndexTransformBuilder&>
+  std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
+                       InputRank, Labels>::value,
+                   IndexTransformBuilder&>
   input_labels(const Labels& labels) {
     internal_index_space::AssignRange(labels,
                                       span<std::string>(input_labels()));
@@ -520,7 +519,7 @@ class IndexTransformBuilder {
   ///
   /// \pre `valid() == true`
   template <std::size_t N>
-  IndexTransformBuilder& input_labels(const absl::string_view (&labels)[N]) {
+  IndexTransformBuilder& input_labels(const std::string_view (&labels)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N, "");
     return input_labels(span(labels));
   }

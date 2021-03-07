@@ -35,10 +35,10 @@ class ContextSpecImpl : public internal::AtomicReferenceCount<ContextSpecImpl> {
  public:
   /// Helper type to support heterogeneous lookup by
   /// `ContextResourceSpecImplBase` pointer or by key.
-  struct ResourceSpecKey : public absl::string_view {
-    using Base = absl::string_view;
+  struct ResourceSpecKey : public std::string_view {
+    using Base = std::string_view;
     ResourceSpecKey(const ContextResourceSpecImplPtr& p) : Base(p->key_) {}
-    ResourceSpecKey(absl::string_view s) : Base(s) {}
+    ResourceSpecKey(std::string_view s) : Base(s) {}
   };
 
   struct ResourceSpecKeyHash : public absl::Hash<ResourceSpecKey> {
@@ -93,12 +93,12 @@ class ContextImpl : public internal::AtomicReferenceCount<ContextImpl> {
   /// `ContextResourceContainer` pointers to remain valid despite other
   /// modifications to the hash table).  The `spec_->key_` member of the
   /// `ContextResourceContainer` object serves as the key.
-  struct ResourceKey : public absl::string_view {
-    using Base = absl::string_view;
+  struct ResourceKey : public std::string_view {
+    using Base = std::string_view;
     ResourceKey(const std::unique_ptr<ContextResourceContainer>& p)
         : Base(p->spec_->key_) {}
     ResourceKey(const ContextResourceContainer* p) : Base(p->spec_->key_) {}
-    ResourceKey(absl::string_view s) : Base(s) {}
+    ResourceKey(std::string_view s) : Base(s) {}
   };
 
   struct ResourceKeyHash : public absl::Hash<ResourceKey> {
@@ -177,7 +177,7 @@ Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJson(
 /// Converts a JSON spec to a keyed context resource spec.  The provider is
 /// determined from the `key`.
 Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJsonWithKey(
-    absl::string_view key, const ::nlohmann::json& j,
+    std::string_view key, const ::nlohmann::json& j,
     Context::FromJsonOptions options);
 
 /// Returns the `ContextImpl` that created `resource`, or `nullptr` if that

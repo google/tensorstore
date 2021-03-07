@@ -17,6 +17,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -24,7 +25,6 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_split.h"
-#include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -147,7 +147,7 @@ const internal::ContextResourceRegistration<GcsRequestRetries>
 
 // Returns whether the bucket name is valid.
 // https://cloud.google.com/storage/docs/naming#requirements
-bool IsValidBucketName(absl::string_view bucket) {
+bool IsValidBucketName(std::string_view bucket) {
   // Buckets containing dots can contain up to 222 characters.
   if (bucket.size() < 3 || bucket.size() > 222) return false;
 
@@ -161,13 +161,13 @@ bool IsValidBucketName(absl::string_view bucket) {
     return false;
   }
 
-  for (absl::string_view v : absl::StrSplit(bucket, absl::ByChar('.'))) {
+  for (std::string_view v : absl::StrSplit(bucket, absl::ByChar('.'))) {
     if (v.empty()) return false;
     if (v.size() > 63) return false;
     if (*v.begin() == '-') return false;
     if (*v.rbegin() == '-') return false;
 
-    for (absl::string_view::size_type i = 0; i < v.size(); i++) {
+    for (std::string_view::size_type i = 0; i < v.size(); i++) {
       // Bucket names must contain only lowercase letters, numbers,
       // dashes (-), underscores (_), and dots (.).
       // Names containing dots require verification.
@@ -188,18 +188,18 @@ bool IsValidBucketName(absl::string_view bucket) {
 }
 
 // Returns whether the object name is a valid GCS object name.
-bool IsValidObjectName(absl::string_view name) {
+bool IsValidObjectName(std::string_view name) {
   if (name == "." || name == "..") return false;
   if (absl::StartsWith(name, ".well-known/acme-challenge")) return false;
-  if (name.find('\r') != absl::string_view::npos) return false;
-  if (name.find('\n') != absl::string_view::npos) return false;
+  if (name.find('\r') != std::string_view::npos) return false;
+  if (name.find('\n') != std::string_view::npos) return false;
   // TODO: Validate that object is a correct utf-8 string.
   return true;
 }
 
 /// Returns an error Status when either the object name or the StorageGeneration
 /// are not legal values for the GCS storage backend.
-absl::Status ValidateObjectAndStorageGeneration(absl::string_view object,
+absl::Status ValidateObjectAndStorageGeneration(std::string_view object,
                                                 const StorageGeneration& gen) {
   if (!IsValidObjectName(object)) {
     return absl::InvalidArgumentError("Invalid GCS object name");
@@ -213,7 +213,7 @@ absl::Status ValidateObjectAndStorageGeneration(absl::string_view object,
 
 /// Adds the generation query parameter to the provided url.
 bool AddGenerationParam(std::string* url, const bool has_query,
-                        absl::string_view param_name,
+                        std::string_view param_name,
                         const StorageGeneration& gen) {
   if (StorageGeneration::IsUnknown(gen)) {
     // Unconditional.
@@ -238,7 +238,7 @@ bool AddGenerationParam(std::string* url, const bool has_query,
 
 /// Adds the userProject query parameter to the provided url.
 bool AddUserProjectParam(std::string* url, const bool has_query,
-                         absl::string_view encoded_user_project) {
+                         std::string_view encoded_user_project) {
   if (!encoded_user_project.empty()) {
     absl::StrAppend(url, (has_query ? "&" : "?"),
                     "userProject=", encoded_user_project);
@@ -249,7 +249,7 @@ bool AddUserProjectParam(std::string* url, const bool has_query,
 
 /// Composes the resource root uri for the GCS API using the bucket
 /// and constants for the host, api-version, etc.
-std::string BucketResourceRoot(absl::string_view bucket) {
+std::string BucketResourceRoot(std::string_view bucket) {
   const char kHostname[] = "www.googleapis.com";
   const char kVersion[] = "v1";
   return tensorstore::internal::JoinPath("https://", kHostname, "/storage/",
@@ -258,7 +258,7 @@ std::string BucketResourceRoot(absl::string_view bucket) {
 
 /// Composes the resource upload root uri for the GCS API using the bucket
 /// and constants for the host, api-version, etc.
-std::string BucketUploadRoot(absl::string_view bucket) {
+std::string BucketUploadRoot(std::string_view bucket) {
   const char kHostname[] = "www.googleapis.com";
   const char kVersion[] = "v1";
   return tensorstore::internal::JoinPath(
@@ -385,7 +385,7 @@ class GcsKeyValueStore
     return absl::OkStatus();
   }
 
-  std::string DescribeKey(absl::string_view key) override {
+  std::string DescribeKey(std::string_view key) override {
     return tensorstore::QuoteString(
         tensorstore::StrCat("gs://", spec_.bucket, "/", key));
   }
@@ -698,7 +698,7 @@ Future<TimestampedStorageGeneration> GcsKeyValueStore::Write(
 }
 
 std::string BuildListQueryParameters(const KeyRange& range,
-                                     absl::optional<int> max_results) {
+                                     std::optional<int> max_results) {
   std::string result;
   if (!range.inclusive_min.empty()) {
     result = StrCat(
@@ -878,7 +878,7 @@ void GcsKeyValueStore::ListImpl(const ListOptions& options,
   state->executor = executor();
   state->resource = tensorstore::internal::JoinPath(resource_root_, "/o");
   state->query_parameters =
-      BuildListQueryParameters(options.range, absl::nullopt);
+      BuildListQueryParameters(options.range, std::nullopt);
   state->receiver.receiver = std::move(receiver);
 
   executor()(ListOp<ListReceiver>{state});

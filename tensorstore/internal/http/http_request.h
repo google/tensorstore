@@ -16,10 +16,10 @@
 #define TENSORSTORE_INTERNAL_HTTP_HTTP_REQUEST_H_
 
 #include <string>
+#include <string_view>
+#include <variant>
 #include <vector>
 
-#include "absl/strings/string_view.h"
-#include "absl/types/variant.h"
 #include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -63,17 +63,17 @@ class HttpRequestBuilder {
   HttpRequest BuildRequest();
 
   /// Adds a prefix to the user-agent string.
-  HttpRequestBuilder& AddUserAgentPrefix(absl::string_view prefix);
+  HttpRequestBuilder& AddUserAgentPrefix(std::string_view prefix);
 
   /// Adds request headers.
   HttpRequestBuilder& AddHeader(std::string header);
 
   /// Adds a parameter for a request.
-  HttpRequestBuilder& AddQueryParameter(absl::string_view key,
-                                        absl::string_view value);
+  HttpRequestBuilder& AddQueryParameter(std::string_view key,
+                                        std::string_view value);
 
   /// Changes the http method used for this request.
-  HttpRequestBuilder& SetMethod(absl::string_view method);
+  HttpRequestBuilder& SetMethod(std::string_view method);
 
   /// Enables sending Accept-Encoding header and transparently decoding the
   /// response.

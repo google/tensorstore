@@ -16,13 +16,13 @@
 
 #include <stdint.h>
 
+#include <optional>
 #include <set>
+#include <string_view>
 #include <utility>
 
 #include "absl/strings/str_cat.h"
-#include "absl/strings/string_view.h"
 #include "absl/time/clock.h"
-#include "absl/types/optional.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_handle.h"
@@ -60,7 +60,7 @@ struct ServiceAccountInfo {
   std::set<std::string> scopes;
 };
 
-Result<ServiceAccountInfo> ParseServiceAccountInfo(absl::string_view source) {
+Result<ServiceAccountInfo> ParseServiceAccountInfo(std::string_view source) {
   auto info_response = internal::ParseJson(source);
   if (info_response.is_discarded()) {
     return absl::InvalidArgumentError(

@@ -137,7 +137,6 @@ pybind11_cc_library(
     deps = [
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -220,7 +219,6 @@ pybind11_cc_library(
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/hash",
-        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -256,7 +254,6 @@ pybind11_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/meta:type_traits",
     ],
 )
 
@@ -297,7 +294,6 @@ pybind11_cc_library(
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/hash",
-        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -414,7 +410,6 @@ pybind11_cc_library(
         "//tensorstore/util:str_cat",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
     ],
 )
 

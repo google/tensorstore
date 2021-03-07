@@ -17,10 +17,9 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <typeinfo>
-
-#include "absl/strings/string_view.h"
 
 namespace tensorstore {
 namespace internal {
@@ -34,7 +33,7 @@ EncodeCacheKeyAdl(std::string* out, T value) {
   out->append(reinterpret_cast<const char*>(&value), sizeof(value));
 }
 
-inline void EncodeCacheKeyAdl(std::string* out, absl::string_view k) {
+inline void EncodeCacheKeyAdl(std::string* out, std::string_view k) {
   EncodeCacheKey(out, k.size());
   out->append(k.data(), k.size());
 }

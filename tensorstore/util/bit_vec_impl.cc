@@ -15,9 +15,8 @@
 #include "tensorstore/util/bit_vec_impl.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstring>
-
-#include "absl/base/macros.h"
 
 namespace tensorstore {
 
@@ -25,7 +24,7 @@ namespace internal_bitvec {
 
 void BitVecStorage<dynamic_extent>::resize(std::ptrdiff_t new_size,
                                            bool value) {
-  ABSL_ASSERT(new_size >= 0);
+  assert(new_size >= 0);
   const std::ptrdiff_t existing_size = size_;
   const std::ptrdiff_t existing_num_blocks = num_blocks();
   const std::ptrdiff_t new_num_blocks = BitVectorSizeInBlocks<Block>(new_size);

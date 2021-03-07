@@ -57,7 +57,6 @@ tensorstore_cc_library(
         ":bit_span",
         ":span",
         "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/meta:type_traits",
     ],
 )
 
@@ -233,7 +232,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:memory",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal:unowned_to_shared",
-        "@com_google_absl//absl/meta:type_traits",
     ],
 )
 
@@ -316,7 +314,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:meta",
         "//tensorstore/internal:type_traits",
         "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/meta:type_traits",
     ],
 )
 
@@ -373,7 +370,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal:void_wrapper",
         "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/utility",
@@ -431,10 +427,7 @@ tensorstore_cc_library(
         "//tensorstore:contiguous_layout",
         "//tensorstore:index",
         "//tensorstore/internal:elementwise_function",
-        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:inlined_vector",
-        "@com_google_absl//absl/meta:type_traits",
-        "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/utility",
     ],
 )
@@ -515,7 +508,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:type_traits",
         "@com_google_absl//absl/base:config",
         "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/utility",
     ],
 )
@@ -659,8 +651,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:source_location",
         "//tensorstore/internal:type_traits",
         "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/memory",
-        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
@@ -715,7 +705,6 @@ tensorstore_cc_library(
     deps = [
         ":span",
         "//tensorstore/internal:type_traits",
-        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/strings",
     ],
 )

@@ -17,8 +17,8 @@
 
 #include <functional>
 #include <string>
+#include <string_view>
 
-#include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -59,7 +59,7 @@ class GoogleServiceAccountAuthProvider : public AuthProvider {
   bool IsValid() { return !access_token_.empty() && !IsExpired(); }
 
  protected:
-  virtual Result<internal_http::HttpResponse> IssueRequest(absl::string_view,
+  virtual Result<internal_http::HttpResponse> IssueRequest(std::string_view,
                                                            absl::Cord);
 
  private:

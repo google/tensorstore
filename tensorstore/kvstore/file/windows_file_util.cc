@@ -26,7 +26,6 @@
 namespace tensorstore {
 namespace internal_file_util {
 
-
 inline ::OVERLAPPED GetOverlappedWithOffset(std::uint64_t offset) {
   ::OVERLAPPED overlapped = {};
   overlapped.Offset = static_cast<DWORD>(offset & 0xffffffff);
@@ -63,7 +62,7 @@ namespace {
 constexpr size_t kMaxWindowsPathSize = 32768;
 class WindowsPathConverter {
  public:
-  explicit WindowsPathConverter(absl::string_view path) {
+  explicit WindowsPathConverter(std::string_view path) {
     if (path.size() > std::numeric_limits<int>::max()) {
       ::SetLastError(ERROR_BUFFER_OVERFLOW);
       failed_ = true;
@@ -120,7 +119,7 @@ bool MakeDirectory(const char* path) {
 bool FsyncFile(FileDescriptor fd) {
   return static_cast<bool>(::FlushFileBuffers(fd));
 }
-bool RenameFile(FileDescriptor fd, absl::string_view new_name) {
+bool RenameFile(FileDescriptor fd, std::string_view new_name) {
   WindowsPathConverter converter(new_name);
   if (converter.failed()) return false;
   alignas(::FILE_RENAME_INFO) char
@@ -137,18 +136,18 @@ bool RenameFile(FileDescriptor fd, absl::string_view new_name) {
       fd, FileRenameInfoEx, rename_info, std::size(file_rename_info_buffer)));
 }
 
-bool RenameOpenFile(FileDescriptor fd, absl::string_view old_name,
-                    absl::string_view new_name) {
+bool RenameOpenFile(FileDescriptor fd, std::string_view old_name,
+                    std::string_view new_name) {
   return internal_file_util::RenameFile(fd, new_name);
 }
 
-absl::string_view GetDirName(absl::string_view path) {
+std::string_view GetDirName(std::string_view path) {
   size_t i = path.size();
   while (i > 0 && !internal_file_util::IsDirSeparator(path[i - 1])) --i;
   return path.substr(0, i);
 }
 
-bool DeleteOpenFile(FileDescriptor fd, absl::string_view path) {
+bool DeleteOpenFile(FileDescriptor fd, std::string_view path) {
   // This relies on the "POSIX Semantics" flag supported by Windows 10 in order
   // to remove the file from its containing directory as soon as the handle is
   // closed.  However, after the call to `SetFileInformationByHandle` but before
@@ -169,7 +168,7 @@ bool DeleteOpenFile(FileDescriptor fd, absl::string_view path) {
       static_cast<int>(kLockSuffix.size()), kLockSuffix.data());
   if (!internal_file_util::RenameFile(
           fd, absl::StrCat(GetDirName(path),
-                           absl::string_view(temp_name, temp_name_size)))) {
+                           std::string_view(temp_name, temp_name_size)))) {
     return false;
   }
 
@@ -187,7 +186,7 @@ bool DeleteOpenFile(FileDescriptor fd, absl::string_view path) {
       fd, FileDispositionInfoEx, &disposition_info, sizeof(disposition_info)));
 }
 
-bool DeleteFile(absl::string_view path) {
+bool DeleteFile(std::string_view path) {
   WindowsPathConverter converter(path);
   if (converter.failed()) return false;
   UniqueFileDescriptor delete_fd(::CreateFileW(
@@ -205,7 +204,7 @@ bool DeleteFile(absl::string_view path) {
   return DeleteOpenFile(delete_fd.get(), path);
 }
 
-UniqueFileDescriptor OpenExistingFileForReading(absl::string_view path) {
+UniqueFileDescriptor OpenExistingFileForReading(std::string_view path) {
   UniqueFileDescriptor fd;
   WindowsPathConverter converter(path);
   if (!converter.failed()) {
@@ -220,7 +219,7 @@ UniqueFileDescriptor OpenExistingFileForReading(absl::string_view path) {
   return fd;
 }
 
-UniqueFileDescriptor OpenFileForWriting(absl::string_view path) {
+UniqueFileDescriptor OpenFileForWriting(std::string_view path) {
   WindowsPathConverter converter(path);
   if (converter.failed()) return {};
   return UniqueFileDescriptor(::CreateFileW(

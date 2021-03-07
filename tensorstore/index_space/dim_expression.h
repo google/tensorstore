@@ -25,7 +25,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "absl/meta/type_traits.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -48,8 +47,8 @@ namespace tensorstore {
 /// convertible to `SharedArrayView<const Index>`.
 template <typename T>
 using IsIndexArray =
-    absl::conjunction<IsArray<T>,
-                      std::is_convertible<T, SharedArrayView<const Index>>>;
+    std::conjunction<IsArray<T>,
+                     std::is_convertible<T, SharedArrayView<const Index>>>;
 
 template <typename... Op>
 class DimExpression;
@@ -165,7 +164,7 @@ class DimExpression<LastOp, PriorOp...> {
   /// Defines the return type for IndexArraySlice with a parameter pack of index
   /// arrays.
   template <typename... IndexArray>
-  using IndexArraySliceOpExpr = absl::enable_if_t<
+  using IndexArraySliceOpExpr = std::enable_if_t<
       sizeof...(IndexArray) >= 1 &&
           IsRankExplicitlyConvertible(sizeof...(IndexArray),
                                       static_selection_rank::value) &&
@@ -184,7 +183,7 @@ class DimExpression<LastOp, PriorOp...> {
   /// Defines the return type for OuterIndexArraySlice with a parameter pack of
   /// index arrays.
   template <typename... IndexArray>
-  using IndexArrayOuterSliceOpExpr = absl::enable_if_t<
+  using IndexArrayOuterSliceOpExpr = std::enable_if_t<
       IsRankExplicitlyConvertible(sizeof...(IndexArray),
                                   static_selection_rank::value) &&
           (IsIndexArray<IndexArray>::value && ...),
@@ -203,25 +202,25 @@ class DimExpression<LastOp, PriorOp...> {
   /// with the specified static `Rank`.
   template <typename Labels, DimensionIndex Rank>
   using LabelOpExpr =
-      absl::enable_if_t<IsRankExplicitlyConvertible(
-                            Rank, static_selection_rank::value),
-                        NewExpr<internal_index_space::LabelOp<Labels>>>;
+      std::enable_if_t<IsRankExplicitlyConvertible(
+                           Rank, static_selection_rank::value),
+                       NewExpr<internal_index_space::LabelOp<Labels>>>;
 
   /// Defines the return type for Label, where the `Labels` container is
   /// converted to a `span`.
   template <typename Labels,
             typename LabelsSpan = internal::ConstSpanType<Labels>>
-  using LabelSpanOpExpr = absl::enable_if_t<
+  using LabelSpanOpExpr = std::enable_if_t<
       internal::IsStringLike<typename LabelsSpan::value_type>::value,
       LabelOpExpr<LabelsSpan, LabelsSpan::extent>>;
 
   /// Defines the return type for Label, where the labels are specified as an
   /// argument pack.
   template <typename... Label>
-  using LabelPackOpExpr = absl::enable_if_t<
-      internal::IsPackConvertibleWithoutNarrowing<absl::string_view,
+  using LabelPackOpExpr = std::enable_if_t<
+      internal::IsPackConvertibleWithoutNarrowing<std::string_view,
                                                   Label...>::value,
-      LabelOpExpr<std::array<absl::string_view, sizeof...(Label)>,
+      LabelOpExpr<std::array<std::string_view, sizeof...(Label)>,
                   sizeof...(Label)>>;
 
   /// Defines the return type for MoveTo, MoveToFront, and MoveToBack.
@@ -239,7 +238,7 @@ class DimExpression<LastOp, PriorOp...> {
   /// Defines the return type for `Transpose(target_dimensions)`.
   template <typename TargetDims,
             typename TargetDimsSpan = internal::ConstSpanType<TargetDims>>
-  using TransposeToOpExpr = absl::enable_if_t<
+  using TransposeToOpExpr = std::enable_if_t<
       (IsRankExplicitlyConvertible(TargetDimsSpan::extent,
                                    static_selection_rank::value) &&
        std::is_same<typename TargetDimsSpan::value_type,
@@ -253,11 +252,11 @@ class DimExpression<LastOp, PriorOp...> {
   /// Defines the return type for IndexVectorArraySlice.
   template <typename IndexVectorArray>
   using IndexVectorArraySliceOpExpr =
-      absl::enable_if_t<IsIndexArray<IndexVectorArray>::value &&
-                            IsStaticRankGreater(IndexVectorArray::static_rank,
-                                                0),
-                        NewExpr<internal_index_space::IndexVectorArraySliceOp<
-                            IndexVectorArray::static_rank>>>;
+      std::enable_if_t<IsIndexArray<IndexVectorArray>::value &&
+                           IsStaticRankGreater(IndexVectorArray::static_rank,
+                                               0),
+                       NewExpr<internal_index_space::IndexVectorArraySliceOp<
+                           IndexVectorArray::static_rank>>>;
 
  public:
   /// Translates (shifts) the domains of the selected input dimensions by the
@@ -1306,7 +1305,7 @@ class DimExpression<LastOp, PriorOp...> {
   /// Labels              | {"x", "y", "z"}        | {"a", "y", "b"}
   ///
   /// \requires `Labels` is `span`-compatible with a `value_type` of
-  ///     `std::string`, `absl::string_view`, or `const char *`, and a static
+  ///     `std::string`, `std::string_view`, or `const char *`, and a static
   ///     extent compatible with the static rank of the dimension selection.
   /// \param labels The new labels for each of the selected dimensions.  May be
   ///     a braced list, e.g. `Label({"a", "b"})`.
@@ -1319,15 +1318,15 @@ class DimExpression<LastOp, PriorOp...> {
 
   /// Overload that permits the labels to specified as a braced list.
   template <DimensionIndex Rank>
-  LabelOpExpr<span<const absl::string_view, Rank>, Rank> Label(
-      const absl::string_view (&labels)[Rank]) const {
+  LabelOpExpr<span<const std::string_view, Rank>, Rank> Label(
+      const std::string_view (&labels)[Rank]) const {
     return {{labels}, *this};
   }
 
   /// Overload that permits the labels to be specified as a argument pack,
   /// e.g. `Label("a", "b", "c")`.
   ///
-  /// \requires Each `L` type must be convertible to `absl::string_view`.
+  /// \requires Each `L` type must be convertible to `std::string_view`.
   template <typename... L>
   LabelPackOpExpr<L...> Label(const L&... label) const {
     return {{{{label...}}}, *this};
@@ -1436,7 +1435,7 @@ class DimExpression<LastOp, PriorOp...> {
   ///     `AllDims()` selection.
   template <int&... ExplicitArgumentBarrier,
             bool IsFirst = sizeof...(PriorOp) == 0>
-  absl::enable_if_t<IsFirst, AddNewOpExpr> AddNew() const {
+  std::enable_if_t<IsFirst, AddNewOpExpr> AddNew() const {
     return {{}, *this};
   }
 

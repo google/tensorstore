@@ -19,12 +19,12 @@
 #include <algorithm>
 #include <iterator>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/status.h"
 
@@ -69,7 +69,7 @@ inline bool IsOWS(char ch) { return ch == ' ' || ch == '\t'; }
 }  // namespace
 
 std::size_t AppendHeaderData(std::multimap<std::string, std::string>& headers,
-                             absl::string_view data) {
+                             std::string_view data) {
   std::size_t size = data.size();
   if (size <= 2) {
     // Invalid header (too short), ignore.
@@ -95,7 +95,7 @@ std::size_t AppendHeaderData(std::multimap<std::string, std::string>& headers,
     return size;
   }
   std::string field_name(
-      absl::string_view(data.data(), std::distance(data.begin(), it)));
+      std::string_view(data.data(), std::distance(data.begin(), it)));
   std::transform(field_name.begin(), field_name.end(), field_name.begin(),
                  [](char x) { return std::tolower(x); });
 

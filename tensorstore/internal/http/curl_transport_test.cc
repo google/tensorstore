@@ -45,6 +45,7 @@
 #include <stdlib.h>
 
 #include <cstring>
+#include <string_view>
 #include <thread>
 
 #include <gmock/gmock.h>
@@ -53,7 +54,6 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/mutex.h"
@@ -247,7 +247,7 @@ std::string ReceiveAvailable(socket_t client_fd) {
   return data;
 }
 
-int AssertSend(socket_t client_fd, absl::string_view data) {
+int AssertSend(socket_t client_fd, std::string_view data) {
   TENSORSTORE_LOG("send ", data.size(), ":", data);
   int err = send(client_fd, data.data(), data.size(), 0);
   if (err < 0) {
@@ -493,7 +493,7 @@ class Http2Session {
   static ssize_t Send(nghttp2_session* session, const uint8_t* data,
                       size_t length, int flags, void* user_data) {
     TENSORSTORE_LOG("http2 send ", length, ":",
-                    absl::BytesToHexString(absl::string_view(
+                    absl::BytesToHexString(std::string_view(
                         reinterpret_cast<const char*>(data), length)));
     return static_cast<Http2Session*>(user_data)->Send(
         reinterpret_cast<const char*>(data), length);
@@ -560,7 +560,7 @@ class Http2Session {
   }
 
   struct StringViewDataSource {
-    absl::string_view view;
+    std::string_view view;
   };
 
   static ssize_t StringViewRead(nghttp2_session* session, int32_t stream_id,
@@ -580,7 +580,7 @@ class Http2Session {
     return length;
   }
 
-  Http2Session(socket_t client, absl::string_view settings)
+  Http2Session(socket_t client, std::string_view settings)
       : client_fd_(client) {
     nghttp2_session_callbacks* callbacks;
     TENSORSTORE_CHECK(0 == nghttp2_session_callbacks_new(&callbacks));
@@ -648,7 +648,7 @@ class Http2Session {
 
   void SendResponse(int32_t stream_id,
                     std::vector<std::pair<std::string, std::string>> headers,
-                    absl::string_view data) {
+                    std::string_view data) {
     TENSORSTORE_CHECK(stream_id >= 0);
     TENSORSTORE_LOG("http2 respond <", stream_id,
                     ">: ", absl::BytesToHexString(data));
@@ -706,7 +706,7 @@ TEST_F(CurlTransportTest, Http2) {
     // Manually upgrade the h2c to HTTP/2
     AssertSend(client_fd, kSwitchProtocols);
 
-    Http2Session session(client_fd, absl::string_view(kSettings, 18));
+    Http2Session session(client_fd, std::string_view(kSettings, 18));
     session.SendResponse(
         1, {{":status", "200"}, {"content-type", "text/html"}},
         "<html>\n<body>\n<h1>Hello, World!</h1>\n</body>\n</html>\n");

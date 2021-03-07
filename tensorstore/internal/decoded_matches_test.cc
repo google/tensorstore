@@ -16,10 +16,10 @@
 
 #include <sstream>
 #include <string>
+#include <string_view>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/strings/string_view.h"
 #include "tensorstore/util/status.h"
 
 namespace {

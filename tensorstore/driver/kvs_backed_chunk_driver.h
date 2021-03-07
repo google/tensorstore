@@ -23,9 +23,9 @@
 /// per chunk.
 
 #include <memory>
+#include <string_view>
 
 #include "absl/container/inlined_vector.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/box.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
@@ -140,7 +140,7 @@ class MetadataCache : public MetadataCacheBase,
   /// for a given metadata cache entry.
   ///
   /// Typically, this appends a suffix like "/.zarr".
-  virtual std::string GetMetadataStorageKey(absl::string_view entry_key) = 0;
+  virtual std::string GetMetadataStorageKey(std::string_view entry_key) = 0;
 
   /// Decodes metadata read from `KeyValueStore`.
   ///
@@ -149,7 +149,7 @@ class MetadataCache : public MetadataCacheBase,
   /// \param encoded_metadata The encoded metadata read from the
   ///     `KeyValueStore`.
   /// \returns On success, non-null pointer to `Metadata` object.
-  virtual Result<MetadataPtr> DecodeMetadata(absl::string_view entry_key,
+  virtual Result<MetadataPtr> DecodeMetadata(std::string_view entry_key,
                                              absl::Cord encoded_metadata) = 0;
 
   /// Encodes metadata for storage in the `KeyValueStore`.
@@ -158,7 +158,7 @@ class MetadataCache : public MetadataCacheBase,
   ///     with which this metadata is associated.
   /// \param metadata Non-null pointer to the metadata to encode, of type
   ///     `Metadata`.
-  virtual Result<absl::Cord> EncodeMetadata(absl::string_view entry_key,
+  virtual Result<absl::Cord> EncodeMetadata(std::string_view entry_key,
                                             const void* metadata) = 0;
 
   // The members below are implementation details not relevant to derived class

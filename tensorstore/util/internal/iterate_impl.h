@@ -235,7 +235,7 @@ class IterateHelper {
     if (layouts.size() == 0) {
       return func(pointers...);
     }
-    return Loop(func, layouts, absl::index_sequence_for<Pointer...>(),
+    return Loop(func, layouts, std::index_sequence_for<Pointer...>(),
                 pointers...);
   }
 
@@ -246,12 +246,11 @@ class IterateHelper {
   template <std::size_t... Is>
   static Result Loop(Func func,
                      span<const DimensionSizeAndStrides<arity>> layouts,
-                     absl::index_sequence<Is...> index_sequence,
+                     std::index_sequence<Is...> index_sequence,
                      Pointer... pointers) {
     const DimensionSizeAndStrides<arity> size_and_strides = layouts[0];
     auto increment_pointers = [&]() ABSL_ATTRIBUTE_ALWAYS_INLINE {
-      auto unused ABSL_ATTRIBUTE_UNUSED = {
-          (static_cast<void>(pointers += size_and_strides.strides[Is]), 0)...};
+      ((pointers += size_and_strides.strides[Is]), ...);
     };
     Result result = DefaultIterationResult<Result>::value();
     if (layouts.size() == 1) {

@@ -34,7 +34,7 @@ std::ostream& operator<<(std::ostream& os, const DimensionIdentifier& x) {
 
 Result<DimensionIndex> NormalizeDimensionIndex(DimensionIndex index,
                                                DimensionIndex rank) {
-  ABSL_ASSERT(rank >= 0);
+  assert(rank >= 0);
   if (index < -rank || index >= rank) {
     return absl::InvalidArgumentError(StrCat("Dimension index ", index,
                                              " is outside valid range [-", rank,
@@ -45,7 +45,7 @@ Result<DimensionIndex> NormalizeDimensionIndex(DimensionIndex index,
 
 Result<DimensionIndex> NormalizeDimensionExclusiveStopIndex(
     DimensionIndex index, DimensionIndex rank) {
-  ABSL_ASSERT(rank >= 0);
+  assert(rank >= 0);
   if (index < -rank - 1 || index > rank) {
     return absl::InvalidArgumentError(
         StrCat("Dimension exclusive stop index ", index,
@@ -54,7 +54,7 @@ Result<DimensionIndex> NormalizeDimensionExclusiveStopIndex(
   return index >= 0 ? index : index + rank;
 }
 
-Result<DimensionIndex> NormalizeDimensionLabel(absl::string_view label,
+Result<DimensionIndex> NormalizeDimensionLabel(std::string_view label,
                                                span<const std::string> labels) {
   if (label.empty()) {
     return absl::InvalidArgumentError(
@@ -66,7 +66,7 @@ Result<DimensionIndex> NormalizeDimensionLabel(absl::string_view label,
     return absl::InvalidArgumentError(
         StrCat("Label ", QuoteString(label), " does not match one of {",
                absl::StrJoin(labels, ", ",
-                             [](std::string* out, absl::string_view x) {
+                             [](std::string* out, std::string_view x) {
                                *out += QuoteString(x);
                              }),
                "}"));

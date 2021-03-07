@@ -114,7 +114,7 @@ using ContextResourceImplStrongPtr =
 /// derived class that implements this interface.
 class ContextResourceProviderImplBase {
  public:
-  absl::string_view id_;
+  std::string_view id_;
   virtual ContextResourceSpecImplPtr Default() const = 0;
   virtual Result<ContextResourceSpecImplPtr> FromJson(
       const ::nlohmann::json& j, ContextFromJsonOptions options) const = 0;
@@ -281,11 +281,11 @@ void RegisterContextResourceProvider(
     std::unique_ptr<const ContextResourceProviderImplBase> provider);
 
 Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJson(
-    absl::string_view provider_id, const ::nlohmann::json& j,
+    std::string_view provider_id, const ::nlohmann::json& j,
     ContextFromJsonOptions options);
 
 ContextResourceSpecImplPtr DefaultContextResourceSpec(
-    absl::string_view provider_id);
+    std::string_view provider_id);
 
 Result<ContextResourceImplWeakPtr> GetResource(
     ContextImpl* context, ContextResourceSpecImplBase* spec,

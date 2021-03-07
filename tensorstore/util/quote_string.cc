@@ -15,13 +15,13 @@
 #include "tensorstore/util/quote_string.h"
 
 #include <string>
+#include <string_view>
 
 #include "absl/strings/escaping.h"
-#include "absl/strings/string_view.h"
 
 namespace tensorstore {
 
-std::string QuoteString(absl::string_view s) {
+std::string QuoteString(std::string_view s) {
   return '"' + absl::CHexEscape(s) + '"';
 }
 

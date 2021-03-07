@@ -16,11 +16,11 @@
 
 #include <memory>
 #include <new>
+#include <type_traits>
 #include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/meta/type_traits.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
@@ -119,8 +119,9 @@ class MaskedArrayWriteTester : public MaskedArrayTester {
   absl::Status Write(IndexTransformView<> dest_transform,
                      TransformedArrayView<const T> source,
                      CopyFunc&& copy_func) {
-    ElementCopyFunction copy_function = SimpleElementwiseFunction<
-        absl::remove_reference_t<CopyFunc>(const T, T), absl::Status*>();
+    ElementCopyFunction copy_function =
+        SimpleElementwiseFunction<std::remove_reference_t<CopyFunc>(const T, T),
+                                  absl::Status*>();
     auto result = WriteToMaskedArray(dest_.byte_strided_origin_pointer().get(),
                                      &mask_, dest_.domain(), dest_transform,
                                      source, {&copy_function, &copy_func});

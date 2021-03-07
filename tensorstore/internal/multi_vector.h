@@ -22,7 +22,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "absl/base/macros.h"
 #include "tensorstore/internal/gdb_scripting.h"
 #include "tensorstore/internal/meta.h"
 #include "tensorstore/internal/multi_vector_impl.h"

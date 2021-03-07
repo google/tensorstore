@@ -18,13 +18,13 @@
 #include <optional>
 #include <ostream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
-#include "absl/strings/string_view.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/intrusive_ptr.h"
@@ -238,7 +238,7 @@ AnyFlowSender<Status, KeyValueStore::Key> KeyValueStore::List(
   return ListSender{Ptr(this), std::move(options)};
 }
 
-std::string KeyValueStore::DescribeKey(absl::string_view key) {
+std::string KeyValueStore::DescribeKey(std::string_view key) {
   return tensorstore::QuoteString(key);
 }
 

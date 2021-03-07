@@ -15,8 +15,7 @@
 #include "tensorstore/internal/utf8.h"
 
 #include <cstdint>
-
-#include "absl/strings/string_view.h"
+#include <string_view>
 
 namespace tensorstore {
 namespace internal {
@@ -91,7 +90,7 @@ inline State Decode(State* state, char32_t* codep, std::uint8_t byte) {
 }  // namespace
 /// END third-party code block
 
-bool IsValidUtf8(absl::string_view code_units) {
+bool IsValidUtf8(std::string_view code_units) {
   using utf8_decode::kAccept;
   utf8_decode::State state = utf8_decode::kAccept;
   char32_t codep;

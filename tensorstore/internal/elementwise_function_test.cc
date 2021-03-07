@@ -130,7 +130,7 @@ TEST(SimpleElementwiseFunctionTest, ArityOne) {
 }
 
 TEST(SimpleElementwiseFunctionTest, ArityOneCaptureLessLambda) {
-  const auto add_one ABSL_ATTRIBUTE_UNUSED = [](int* x) {
+  [[maybe_unused]] const auto add_one = [](int* x) {
     if (*x > 0) return false;
     *x += 1;
     return true;

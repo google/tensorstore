@@ -6,6 +6,7 @@
 #include <iostream>
 #include <list>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -16,7 +17,6 @@
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
-#include "absl/strings/string_view.h"
 #include <half.hpp>
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
@@ -451,13 +451,13 @@ struct Quantiles {
 std::string AbslUnparseFlag(Quantiles out) {
   return absl::StrJoin(out.quantiles, ",");
 }
-bool AbslParseFlag(absl::string_view in, Quantiles* out, std::string* error) {
+bool AbslParseFlag(std::string_view in, Quantiles* out, std::string* error) {
   out->quantiles.clear();
   if (in.empty()) {
     *error = "quantiles must not be empty";
     return false;
   }
-  for (absl::string_view x : absl::StrSplit(in, ',', absl::AllowEmpty())) {
+  for (std::string_view x : absl::StrSplit(in, ',', absl::AllowEmpty())) {
     double v;
     if (!absl::SimpleAtod(x, &v)) {
       *error = "failed to parse double: ";

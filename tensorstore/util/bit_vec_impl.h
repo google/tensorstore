@@ -20,12 +20,12 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/util/bit_vec.h"
 
+#include <cassert>
 #include <cstddef>
 #include <cstring>
 #include <type_traits>
 #include <utility>
 
-#include "absl/base/macros.h"
 #include "tensorstore/util/bit_span.h"
 
 namespace tensorstore {
@@ -62,7 +62,8 @@ class BitVecStorage<dynamic_extent> {
   using BlockExtentType = std::ptrdiff_t;
   using ExtentType = std::ptrdiff_t;
 
-  BitVecStorage(ExtentType size) : size_((ABSL_ASSERT(size >= 0), size)) {
+  BitVecStorage(ExtentType size) : size_(size) {
+    assert(size >= 0);
     if (size > kMaxInlineSize) {
       data_.ptr = new Block[num_blocks()];
     }

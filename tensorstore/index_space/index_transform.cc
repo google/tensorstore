@@ -68,7 +68,7 @@ Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
   } else {
     DimensionIndex next_potentially_unlabeled_dim = 0;
     for (DimensionIndex i = 0; i < slice_rank; ++i) {
-      absl::string_view label = domain_labels[i];
+      std::string_view label = domain_labels[i];
       DimensionIndex j;
       if (!label.empty()) {
         TENSORSTORE_ASSIGN_OR_RETURN(
@@ -152,7 +152,7 @@ Result<IndexTransform<>> SliceByBox(IndexTransform<> transform,
 
 Result<bool> GetOutputRange(IndexTransformView<> transform,
                             MutableBoxView<> output_range) {
-  ABSL_ASSERT(output_range.rank() == transform.output_rank());
+  assert(output_range.rank() == transform.output_rank());
   absl::FixedArray<bool, internal::kNumInlinedDims> input_dim_used(
       transform.input_rank(), false);
   bool exact = true;
@@ -176,7 +176,7 @@ Result<bool> GetOutputRange(IndexTransformView<> transform,
         // If more than one output dimension depends on a given input dimension
         // (i.e. the input dimension corresponds to the diagonal of two or more
         // output dimensions), then the output range is not exact.
-        if (absl::exchange(input_dim_used[input_dim], true)) exact = false;
+        if (std::exchange(input_dim_used[input_dim], true)) exact = false;
         TENSORSTORE_ASSIGN_OR_RETURN(
             output_range[output_dim],
             GetAffineTransformRange(transform.input_domain()[input_dim],
@@ -244,17 +244,15 @@ Status PropagateInputDomainResizeToOutput(
     span<Index> output_exclusive_max_constraint,
     span<Index> new_output_inclusive_min, span<Index> new_output_exclusive_max,
     bool* is_noop) {
-  ABSL_ASSERT(transform.valid());
+  assert(transform.valid());
   const DimensionIndex input_rank = transform.input_rank();
   const DimensionIndex output_rank = transform.output_rank();
-  ABSL_ASSERT(requested_input_inclusive_min.size() == transform.input_rank());
-  ABSL_ASSERT(requested_input_exclusive_max.size() == transform.input_rank());
-  ABSL_ASSERT(output_inclusive_min_constraint.size() ==
-              transform.output_rank());
-  ABSL_ASSERT(output_exclusive_max_constraint.size() ==
-              transform.output_rank());
-  ABSL_ASSERT(new_output_inclusive_min.size() == transform.output_rank());
-  ABSL_ASSERT(new_output_exclusive_max.size() == transform.output_rank());
+  assert(requested_input_inclusive_min.size() == transform.input_rank());
+  assert(requested_input_exclusive_max.size() == transform.input_rank());
+  assert(output_inclusive_min_constraint.size() == transform.output_rank());
+  assert(output_exclusive_max_constraint.size() == transform.output_rank());
+  assert(new_output_inclusive_min.size() == transform.output_rank());
+  assert(new_output_exclusive_max.size() == transform.output_rank());
 
   for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {
     TENSORSTORE_RETURN_IF_ERROR(

@@ -17,9 +17,9 @@
 
 #include <functional>
 #include <string>
+#include <string_view>
 
 #include "absl/status/status.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/internal/source_location.h"
 
 namespace tensorstore {

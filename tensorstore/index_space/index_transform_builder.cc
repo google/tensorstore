@@ -20,7 +20,7 @@ namespace tensorstore {
 namespace internal_index_space {
 
 void InitializeTransformRepForBuilder(TransformRep* data) {
-  ABSL_ASSERT(data != nullptr);
+  assert(data != nullptr);
   const DimensionIndex output_rank = data->output_rank;
   span<OutputIndexMap> maps = data->output_index_maps().first(output_rank);
   for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
@@ -35,7 +35,7 @@ Status SetOutputIndexMapsAndValidateTransformRep(
     IntervalForm interval_form, BuilderFlags flags) {
   const DimensionIndex input_rank = data->input_rank;
   const DimensionIndex output_rank = data->output_rank;
-  ABSL_ASSERT(output_index_maps.size() == output_rank);
+  assert(output_index_maps.size() == output_rank);
 
   span<Index> input_origin = data->input_origin().first(input_rank);
   span<Index> input_shape = data->input_shape().first(input_rank);

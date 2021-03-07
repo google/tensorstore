@@ -22,9 +22,9 @@
 /// https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#sharded-format
 
 #include <optional>
+#include <string_view>
 #include <vector>
 
-#include "absl/strings/string_view.h"
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/result.h"
@@ -62,7 +62,7 @@ Result<absl::Cord> DecodeData(const absl::Cord& input,
 ///
 /// \param `absl::StatusCode::kFailedPrecondition` if `input` is corrupt.
 /// \returns The byte range of the minishard index.
-Result<ByteRange> DecodeShardIndexEntry(absl::string_view input);
+Result<ByteRange> DecodeShardIndexEntry(std::string_view input);
 
 /// Decodes a minishard and adjusts the byte ranges to account for the implicit
 /// offset of the end of the shard index.

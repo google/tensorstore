@@ -43,7 +43,7 @@ tensorstore::SharedArray<R, N> Map(const tensorstore::ArrayView<T, N> input,
 
 // Apply the function to each element of the Array.
 template <typename A, typename Fn>
-absl::enable_if_t<tensorstore::IsArray<A>::value> Apply(const A& input, Fn fn) {
+std::enable_if_t<tensorstore::IsArray<A>::value> Apply(const A& input, Fn fn) {
   // FIXME: Array has no C++ iterator support.
   // for (const auto& x : input) { fn(x); }
   using X = typename A::Element;
@@ -58,8 +58,8 @@ absl::enable_if_t<tensorstore::IsArray<A>::value> Apply(const A& input, Fn fn) {
 // This would also work for a regular Array if we deleted the above overload and
 // changed the IsTransformedArray constraint to IsTransformedArrayLike.
 template <typename A, typename Fn>
-absl::enable_if_t<(tensorstore::IsTransformedArray<A>::value ||
-                   tensorstore::IsNormalizedTransformedArray<A>::value)>
+std::enable_if_t<(tensorstore::IsTransformedArray<A>::value ||
+                  tensorstore::IsNormalizedTransformedArray<A>::value)>
 Apply(const A& input, Fn fn) {
   // FIXME: TransformedArray has no C++ iterator support.
   // for (const auto& x : input) { fn(x); }

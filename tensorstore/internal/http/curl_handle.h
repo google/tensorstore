@@ -20,8 +20,8 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <string_view>
 
-#include "absl/strings/string_view.h"
 #include <curl/curl.h>  // IWYU pragma: export
 #include "tensorstore/internal/attributes.h"
 #include "tensorstore/util/assert_macros.h"
@@ -75,16 +75,16 @@ std::shared_ptr<CurlHandleFactory> GetDefaultCurlHandleFactory();
 std::string GetCurlUserAgentSuffix();
 
 /// Returns a Status object for a corresponding CURLcode.
-Status CurlCodeToStatus(CURLcode code, absl::string_view);
+Status CurlCodeToStatus(CURLcode code, std::string_view);
 
 /// Returns a Status object for a corresponding CURLcode.
-Status CurlMCodeToStatus(CURLMcode code, absl::string_view);
+Status CurlMCodeToStatus(CURLMcode code, std::string_view);
 
 /// URL-escapes a string.
-std::string CurlEscapeString(absl::string_view s);
+std::string CurlEscapeString(std::string_view s);
 
 /// URL-unescapes a string.
-std::string CurlUnescapeString(absl::string_view s);
+std::string CurlUnescapeString(std::string_view s);
 
 template <typename T>
 inline void CurlEasySetopt(CURL* handle, CURLoption option, T value) {

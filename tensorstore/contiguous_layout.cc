@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "tensorstore/contiguous_layout.h"
+
+#include <cassert>
 #include <cstddef>
 #include <ostream>
 
-#include "absl/base/macros.h"
-#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
@@ -24,7 +25,7 @@ namespace tensorstore {
 void ComputeStrides(ContiguousLayoutOrder order, std::ptrdiff_t element_stride,
                     span<const Index> shape, span<Index> strides) {
   const DimensionIndex rank = shape.size();
-  ABSL_ASSERT(strides.size() == rank);
+  assert(strides.size() == rank);
   if (order == ContiguousLayoutOrder::right) {
     for (DimensionIndex i = rank - 1; i >= 0; --i) {
       strides[i] = element_stride;

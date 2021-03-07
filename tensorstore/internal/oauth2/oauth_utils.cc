@@ -17,12 +17,12 @@
 #include <stddef.h>
 
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
-#include "absl/types/optional.h"
 #include <openssl/bio.h>     // IWYU pragma: keep
 #include <openssl/digest.h>  // IWYU pragma: keep
 #include <openssl/evp.h>     // IWYU pragma: keep
@@ -61,18 +61,18 @@ struct JsonStringOp {
 }  // namespace
 namespace internal_oauth2 {
 
-Result<std::string> SignWithRSA256(absl::string_view private_key,
-                                   absl::string_view to_sign) {
+Result<std::string> SignWithRSA256(std::string_view private_key,
+                                   std::string_view to_sign) {
   if (private_key.empty()) {
     return absl::InternalError("No private key provided.");
   }
 
   const auto md = EVP_sha256();
-  ABSL_ASSERT(md != nullptr);
+  assert(md != nullptr);
 
   auto md_ctx = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>(
       EVP_MD_CTX_create(), &EVP_MD_CTX_free);
-  ABSL_ASSERT(md_ctx != nullptr);
+  assert(md_ctx != nullptr);
 
   auto pem_buffer = std::unique_ptr<BIO, decltype(&BIO_free)>(
       BIO_new_mem_buf(static_cast<const char*>(private_key.data()),
@@ -115,14 +115,14 @@ Result<std::string> SignWithRSA256(absl::string_view private_key,
 
   std::string signature;
   absl::WebSafeBase64Escape(
-      absl::string_view(reinterpret_cast<char*>(sig.get()), sig_len),
+      std::string_view(reinterpret_cast<char*>(sig.get()), sig_len),
       &signature);
 
   return std::move(signature);
 }
 
 /// Encodes a claim for a JSON web token (JWT) to make an OAuth request.
-std::string BuildJWTHeader(absl::string_view key_id) {
+std::string BuildJWTHeader(std::string_view key_id) {
   // 1. Create the assertion header.
   ::nlohmann::json assertion_header = {
       {"alg", kCryptoAlgorithm},
@@ -135,9 +135,9 @@ std::string BuildJWTHeader(absl::string_view key_id) {
   return encoded_header;
 }
 
-std::string BuildJWTClaimBody(absl::string_view client_email,
-                              absl::string_view scope,  //
-                              absl::string_view audience, absl::Time now,
+std::string BuildJWTClaimBody(std::string_view client_email,
+                              std::string_view scope,  //
+                              std::string_view audience, absl::Time now,
                               std::int64_t lifetime) {
   const std::int64_t request_timestamp_sec = absl::ToUnixSeconds(now);
   const std::int64_t expiration_timestamp_sec =
@@ -155,9 +155,9 @@ std::string BuildJWTClaimBody(absl::string_view client_email,
   return encoded_payload;
 }
 
-Result<std::string> BuildSignedJWTRequest(absl::string_view private_key,
-                                          absl::string_view header,
-                                          absl::string_view body) {
+Result<std::string> BuildSignedJWTRequest(std::string_view private_key,
+                                          std::string_view header,
+                                          std::string_view body) {
   auto claim = absl::StrCat(header, ".", body);
   auto result = SignWithRSA256(private_key, claim);
   if (!result) {
@@ -195,7 +195,7 @@ ParseGoogleServiceAccountCredentialsImpl(const ::nlohmann::json& credentials) {
 }
 
 Result<GoogleServiceAccountCredentials> ParseGoogleServiceAccountCredentials(
-    absl::string_view source) {
+    std::string_view source) {
   auto credentials = internal::ParseJson(source);
   if (credentials.is_discarded()) {
     return absl::InvalidArgumentError(
@@ -224,7 +224,7 @@ Result<RefreshToken> ParseRefreshTokenImpl(
   return std::move(result);
 }
 
-Result<RefreshToken> ParseRefreshToken(absl::string_view source) {
+Result<RefreshToken> ParseRefreshToken(std::string_view source) {
   auto credentials = internal::ParseJson(source);
   if (credentials.is_discarded()) {
     return absl::InvalidArgumentError(
@@ -256,7 +256,7 @@ Result<OAuthResponse> ParseOAuthResponseImpl(
   return std::move(result);
 }
 
-Result<OAuthResponse> ParseOAuthResponse(absl::string_view source) {
+Result<OAuthResponse> ParseOAuthResponse(std::string_view source) {
   auto credentials = internal::ParseJson(source);
   if (credentials.is_discarded()) {
     return absl::InvalidArgumentError(

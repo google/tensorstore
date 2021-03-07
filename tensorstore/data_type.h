@@ -341,7 +341,7 @@ constexpr TypeInfo GetTypeInfo() {
 struct DataTypeOperations {
   DataTypeId id;
 
-  absl::string_view name;
+  std::string_view name;
 
   /// The type_info structure for this type.
   TypeInfo type;
@@ -456,7 +456,7 @@ class DataType {
 
   constexpr DataTypeId id() const { return operations_->id; }
 
-  constexpr absl::string_view name() const { return operations_->name; }
+  constexpr std::string_view name() const { return operations_->name; }
 
   constexpr std::ptrdiff_t size() const { return operations_->size; }
 
@@ -544,7 +544,7 @@ namespace internal_data_type {
 /// For all of the standard data types, a specialization is defined below.  This
 /// definition is only used for custom data types.
 template <typename T>
-constexpr absl::string_view GetTypeName() {
+constexpr std::string_view GetTypeName() {
   // While it would be nice to return a meaningful name, `typeid(T).name()` is
   // not constexpr (and includes mangling).
   return "unknown";
@@ -552,8 +552,8 @@ constexpr absl::string_view GetTypeName() {
 
 #define TENSORSTORE_INTERNAL_DO_DATA_TYPE_NAME(T, ...) \
   template <>                                          \
-  constexpr absl::string_view GetTypeName<T>() {       \
-    return absl::string_view(#T, sizeof(#T) - 3);      \
+  constexpr std::string_view GetTypeName<T>() {        \
+    return std::string_view(#T, sizeof(#T) - 3);       \
   }                                                    \
   /**/
 TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE_NAME)
@@ -724,7 +724,7 @@ class StaticDataType {
 
   constexpr static DataTypeId id() { return DataTypeIdOf<T>; }
 
-  constexpr absl::string_view name() const {
+  constexpr std::string_view name() const {
     return internal_data_type::GetTypeName<T>();
   }
 
@@ -1057,7 +1057,7 @@ struct StaticCastTraits<StaticDataType<T>>
 ///
 ///     EXPECT_EQ(DataTypeOf<std::int32_t>(), GetDataType("int32"));
 ///     EXPECT_EQ(DataTypeOf<float>(), GetDataType("float32"));
-DataType GetDataType(absl::string_view id);
+DataType GetDataType(std::string_view id);
 
 constexpr DataType kDataTypes[] = {
 #define TENSORSTORE_INTERNAL_DO_DATA_TYPE(T, ...) DataTypeOf<T>(),

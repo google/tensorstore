@@ -15,7 +15,7 @@
 #ifndef TENSORSTORE_INTERNAL_UTF8_H_
 #define TENSORSTORE_INTERNAL_UTF8_H_
 
-#include "absl/strings/string_view.h"
+#include <string_view>
 
 /// UTF-8 validation utilities.
 
@@ -29,7 +29,7 @@ namespace internal {
 ///
 /// \param code_units The sequence to validate.
 /// \returns `true` if the sequence is valid, `false` otherwise.
-bool IsValidUtf8(absl::string_view code_units);
+bool IsValidUtf8(std::string_view code_units);
 
 }  // namespace internal
 }  // namespace tensorstore

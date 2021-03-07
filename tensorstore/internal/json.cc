@@ -20,6 +20,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -27,7 +28,6 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_join.h"
-#include "absl/strings/string_view.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/index.h"
 #include "tensorstore/util/function_view.h"
@@ -114,7 +114,7 @@ bool JsonSame(const ::nlohmann::json& a, const ::nlohmann::json& b) {
   return true;
 }
 
-Status ExpectedError(const ::nlohmann::json& j, absl::string_view type_name) {
+Status ExpectedError(const ::nlohmann::json& j, std::string_view type_name) {
   if (j.is_discarded()) {
     return absl::InvalidArgumentError(
         StrCat("Expected ", type_name, ", but member is missing"));
@@ -123,20 +123,20 @@ Status ExpectedError(const ::nlohmann::json& j, absl::string_view type_name) {
       StrCat("Expected ", type_name, ", but received: ", j.dump()));
 }
 
-Status ValidationError(const ::nlohmann::json& j, absl::string_view type_name) {
+Status ValidationError(const ::nlohmann::json& j, std::string_view type_name) {
   return absl::InvalidArgumentError(
       StrCat("Validation of ", type_name, " failed, received: ", j.dump()));
 }
 
 Status MaybeAnnotateMemberError(const Status& status,
-                                absl::string_view member_name) {
+                                std::string_view member_name) {
   if (status.ok()) return status;
   return MaybeAnnotateStatus(
       status, StrCat("Error parsing object member ", QuoteString(member_name)));
 }
 
 Status MaybeAnnotateMemberConvertError(const Status& status,
-                                       absl::string_view member_name) {
+                                       std::string_view member_name) {
   if (status.ok()) return status;
   return MaybeAnnotateStatus(status, StrCat("Error converting object member ",
                                             QuoteString(member_name)));
@@ -154,7 +154,7 @@ Status MaybeAnnotateArrayElementError(const Status& status, std::size_t i,
 namespace internal {
 
 ::nlohmann::json JsonExtractMember(::nlohmann::json::object_t* j_obj,
-                                   absl::string_view name) {
+                                   std::string_view name) {
   if (auto it = j_obj->find(name); it != j_obj->end()) {
     auto node = j_obj->extract(it);
     return std::move(node.mapped());
@@ -183,7 +183,7 @@ std::optional<std::nullptr_t> JsonValueAs<std::nullptr_t>(
 }
 
 template <>
-absl::optional<bool> JsonValueAs<bool>(const ::nlohmann::json& j, bool strict) {
+std::optional<bool> JsonValueAs<bool>(const ::nlohmann::json& j, bool strict) {
   if (j.is_boolean()) {
     return j.get<bool>();
   }
@@ -192,12 +192,12 @@ absl::optional<bool> JsonValueAs<bool>(const ::nlohmann::json& j, bool strict) {
     if (str == "true") return true;
     if (str == "false") return false;
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 template <>
-absl::optional<int64_t> JsonValueAs<int64_t>(const ::nlohmann::json& j,
-                                             bool strict) {
+std::optional<int64_t> JsonValueAs<int64_t>(const ::nlohmann::json& j,
+                                            bool strict) {
   if (j.is_number_unsigned()) {
     auto x = j.get<std::uint64_t>();
     if (x <= static_cast<std::uint64_t>(std::numeric_limits<int64_t>::max())) {
@@ -219,12 +219,12 @@ absl::optional<int64_t> JsonValueAs<int64_t>(const ::nlohmann::json& j,
       }
     }
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 template <>
-absl::optional<uint64_t> JsonValueAs<uint64_t>(const ::nlohmann::json& j,
-                                               bool strict) {
+std::optional<uint64_t> JsonValueAs<uint64_t>(const ::nlohmann::json& j,
+                                              bool strict) {
   if (j.is_number_unsigned()) {
     return j.get<uint64_t>();
   } else if (j.is_number_integer()) {
@@ -248,12 +248,12 @@ absl::optional<uint64_t> JsonValueAs<uint64_t>(const ::nlohmann::json& j,
       }
     }
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 template <>
-absl::optional<double> JsonValueAs<double>(const ::nlohmann::json& j,
-                                           bool strict) {
+std::optional<double> JsonValueAs<double>(const ::nlohmann::json& j,
+                                          bool strict) {
   if (j.is_number()) {
     return j.get<double>();
   }
@@ -263,16 +263,16 @@ absl::optional<double> JsonValueAs<double>(const ::nlohmann::json& j,
       return result;
     }
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 template <>
-absl::optional<std::string> JsonValueAs<std::string>(const ::nlohmann::json& j,
-                                                     bool strict) {
+std::optional<std::string> JsonValueAs<std::string>(const ::nlohmann::json& j,
+                                                    bool strict) {
   if (j.is_string()) {
     return j.get<std::string>();
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 Status JsonParseArray(
@@ -306,13 +306,12 @@ Status JsonValidateArrayLength(std::ptrdiff_t parsed_size,
   return absl::OkStatus();
 }
 
-Status JsonValidateObjectMembers(
-    const ::nlohmann::json::object_t& j,
-    span<const absl::string_view> allowed_members) {
+Status JsonValidateObjectMembers(const ::nlohmann::json::object_t& j,
+                                 span<const std::string_view> allowed_members) {
   std::vector<std::string> extra_members;
   const auto find_member =
       [&](const ::nlohmann::json::object_t::value_type& p) {
-        for (absl::string_view member : allowed_members) {
+        for (std::string_view member : allowed_members) {
           if (member == p.first) return;
         }
         extra_members.push_back(QuoteString(p.first));
@@ -327,8 +326,8 @@ Status JsonValidateObjectMembers(
   return absl::OkStatus();
 }
 
-Status JsonValidateObjectMembers(
-    const ::nlohmann::json& j, span<const absl::string_view> allowed_members) {
+Status JsonValidateObjectMembers(const ::nlohmann::json& j,
+                                 span<const std::string_view> allowed_members) {
   if (const auto* obj = j.get_ptr<const ::nlohmann::json::object_t*>()) {
     return JsonValidateObjectMembers(*obj, allowed_members);
   }

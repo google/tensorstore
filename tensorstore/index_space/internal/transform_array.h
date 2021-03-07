@@ -43,7 +43,7 @@ namespace internal_index_space {
 ///     `transform->input_rank()`.  Filled with the byte strides for the new
 ///     array.
 /// \param constraints_opt Specifies constraints on the strided array that is
-///     returned.  If `absl::nullopt`, there are no constraints and the returned
+///     returned.  If `std::nullopt`, there are no constraints and the returned
 ///     array may point to the existing array.  Otherwise, a new array is
 ///     allocated with its layout constrained by `*constraints`.
 /// \returns An pointer to the element at the index vector `result_origin`.
@@ -73,7 +73,7 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
 ///     `transform->input_rank()`.  Filled with the byte strides of the new
 ///     array.
 /// \param constraints Specifies constraints on the strided array that is
-///     returned.  If `absl::nullopt`, there are no constraints and the returned
+///     returned.  If `std::nullopt`, there are no constraints and the returned
 ///     array may point to the existing array.  Otherwise, a new array is
 ///     allocated with its layout constrained by `*constraints`.
 /// \returns An pointer to the element at the zero vector.  The layout of the
@@ -102,7 +102,7 @@ Result<SharedElementPointer<const void>> TransformArrayPreservingOrigin(
 ///     `transform->input_rank()`.  Filled with the byte strides of the new
 ///     array.
 /// \param constraints Specifies constraints on the strided array that is
-///     returned.  If `absl::nullopt`, there are no constraints and the returned
+///     returned.  If `std::nullopt`, there are no constraints and the returned
 ///     array may point to the existing array.  Otherwise, a new array is
 ///     allocated with its layout constrained by `*constraints`.
 /// \returns An pointer to the element at the origin of the result array.

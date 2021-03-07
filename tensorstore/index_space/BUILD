@@ -137,7 +137,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/meta:type_traits",
     ],
 )
 
@@ -167,7 +166,6 @@ tensorstore_cc_test(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -259,7 +257,6 @@ tensorstore_cc_test(
         ":index_transform",
         ":index_transform_builder",
         "//tensorstore:array",
-        "//tensorstore/util:bit_vec",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
@@ -365,7 +362,6 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:fixed_array",
     ],
 )
@@ -387,7 +383,6 @@ tensorstore_cc_library(
         "//tensorstore/util:bit_span",
         "//tensorstore/util:span",
         "@com_google_absl//absl/container:inlined_vector",
-        "@com_google_absl//absl/meta:type_traits",
     ],
 )
 
@@ -450,7 +445,6 @@ tensorstore_cc_test(
         ":index_transform",
         ":index_transform_builder",
         "//tensorstore:array",
-        "//tensorstore/util:bit_vec",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
@@ -767,7 +761,6 @@ tensorstore_cc_test(
         ":index_transform",
         ":index_transform_builder",
         "//tensorstore:array",
-        "//tensorstore/util:bit_vec",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",

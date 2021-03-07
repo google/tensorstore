@@ -46,7 +46,7 @@ TEST(DimensionIdentifierTest, ConstructDimensionIndex) {
 }
 
 TEST(DimensionIdentifierTest, ConstructStringView) {
-  DimensionIdentifier d(absl::string_view("hello"));
+  DimensionIdentifier d(std::string_view("hello"));
   EXPECT_EQ(std::numeric_limits<Index>::max(), d.index());
   EXPECT_EQ("hello", d.label());
 }
@@ -167,10 +167,10 @@ TEST(DimRangeSpecTest, Comparison) {
 TEST(DimRangeSpecTest, PrintToOstream) {
   EXPECT_EQ("1:5", StrCat(DimRangeSpec{1, 5, 1}));
   EXPECT_EQ("1:5:2", StrCat(DimRangeSpec{1, 5, 2}));
-  EXPECT_EQ(":5", StrCat(DimRangeSpec{absl::nullopt, 5, 1}));
-  EXPECT_EQ("1:", StrCat(DimRangeSpec{1, absl::nullopt, 1}));
-  EXPECT_EQ(":", StrCat(DimRangeSpec{absl::nullopt, absl::nullopt, 1}));
-  EXPECT_EQ("::-1", StrCat(DimRangeSpec{absl::nullopt, absl::nullopt, -1}));
+  EXPECT_EQ(":5", StrCat(DimRangeSpec{std::nullopt, 5, 1}));
+  EXPECT_EQ("1:", StrCat(DimRangeSpec{1, std::nullopt, 1}));
+  EXPECT_EQ(":", StrCat(DimRangeSpec{std::nullopt, std::nullopt, 1}));
+  EXPECT_EQ("::-1", StrCat(DimRangeSpec{std::nullopt, std::nullopt, -1}));
 }
 
 TEST(NormalizeDimRangeSpecTest, ValidFullySpecifiedStep1) {
@@ -212,7 +212,7 @@ TEST(NormalizeDimRangeSpecTest, ValidStartOnlyStep1) {
   DimensionIndexBuffer buffer;
   EXPECT_EQ(
       absl::OkStatus(),
-      NormalizeDimRangeSpec(DimRangeSpec{15, absl::nullopt, 1}, 20, &buffer));
+      NormalizeDimRangeSpec(DimRangeSpec{15, std::nullopt, 1}, 20, &buffer));
   EXPECT_THAT(buffer, ::testing::ElementsAre(15, 16, 17, 18, 19));
 }
 
@@ -220,7 +220,7 @@ TEST(NormalizeDimRangeSpecTest, ValidStartOnlyStepNegative1) {
   DimensionIndexBuffer buffer;
   EXPECT_EQ(
       absl::OkStatus(),
-      NormalizeDimRangeSpec(DimRangeSpec{5, absl::nullopt, -1}, 20, &buffer));
+      NormalizeDimRangeSpec(DimRangeSpec{5, std::nullopt, -1}, 20, &buffer));
   EXPECT_THAT(buffer, ::testing::ElementsAre(5, 4, 3, 2, 1, 0));
 }
 
@@ -228,7 +228,7 @@ TEST(NormalizeDimRangeSpecTest, ValidNegativeStartOnlyStep1) {
   DimensionIndexBuffer buffer;
   EXPECT_EQ(
       absl::OkStatus(),
-      NormalizeDimRangeSpec(DimRangeSpec{-5, absl::nullopt, 1}, 20, &buffer));
+      NormalizeDimRangeSpec(DimRangeSpec{-5, std::nullopt, 1}, 20, &buffer));
   EXPECT_THAT(buffer, ::testing::ElementsAre(15, 16, 17, 18, 19));
 }
 
@@ -236,7 +236,7 @@ TEST(NormalizeDimRangeSpecTest, ValidStopOnlyStep1) {
   DimensionIndexBuffer buffer;
   EXPECT_EQ(
       absl::OkStatus(),
-      NormalizeDimRangeSpec(DimRangeSpec{absl::nullopt, 5, 1}, 20, &buffer));
+      NormalizeDimRangeSpec(DimRangeSpec{std::nullopt, 5, 1}, 20, &buffer));
   EXPECT_THAT(buffer, ::testing::ElementsAre(0, 1, 2, 3, 4));
 }
 
@@ -244,7 +244,7 @@ TEST(NormalizeDimRangeSpecTest, ValidNegativeStopOnlyStep1) {
   DimensionIndexBuffer buffer;
   EXPECT_EQ(
       absl::OkStatus(),
-      NormalizeDimRangeSpec(DimRangeSpec{absl::nullopt, -15, 1}, 20, &buffer));
+      NormalizeDimRangeSpec(DimRangeSpec{std::nullopt, -15, 1}, 20, &buffer));
   EXPECT_THAT(buffer, ::testing::ElementsAre(0, 1, 2, 3, 4));
 }
 
@@ -252,14 +252,14 @@ TEST(NormalizeDimRangeSpecTest, ValidStopOnlyStepNeg1) {
   DimensionIndexBuffer buffer;
   EXPECT_EQ(
       absl::OkStatus(),
-      NormalizeDimRangeSpec(DimRangeSpec{absl::nullopt, 15, -1}, 20, &buffer));
+      NormalizeDimRangeSpec(DimRangeSpec{std::nullopt, 15, -1}, 20, &buffer));
   EXPECT_THAT(buffer, ::testing::ElementsAre(19, 18, 17, 16));
 }
 
 TEST(NormalizeDimRangeSpecTest, ValidNoBoundsStep1) {
   DimensionIndexBuffer buffer;
   EXPECT_EQ(absl::OkStatus(),
-            NormalizeDimRangeSpec(DimRangeSpec{absl::nullopt, absl::nullopt, 1},
+            NormalizeDimRangeSpec(DimRangeSpec{std::nullopt, std::nullopt, 1},
                                   5, &buffer));
   EXPECT_THAT(buffer, ::testing::ElementsAre(0, 1, 2, 3, 4));
 }
@@ -267,7 +267,7 @@ TEST(NormalizeDimRangeSpecTest, ValidNoBoundsStep1) {
 TEST(NormalizeDimRangeSpecTest, ValidNoBoundsStep2) {
   DimensionIndexBuffer buffer;
   EXPECT_EQ(absl::OkStatus(),
-            NormalizeDimRangeSpec(DimRangeSpec{absl::nullopt, absl::nullopt, 2},
+            NormalizeDimRangeSpec(DimRangeSpec{std::nullopt, std::nullopt, 2},
                                   5, &buffer));
   EXPECT_THAT(buffer, ::testing::ElementsAre(0, 2, 4));
 }
@@ -282,7 +282,7 @@ TEST(NormalizeDimRangeSpecTest, ValidMaxStop) {
 TEST(NormalizeDimRangeSpecTest, InvalidStep0) {
   DimensionIndexBuffer buffer;
   EXPECT_THAT(
-      NormalizeDimRangeSpec(DimRangeSpec{absl::nullopt, absl::nullopt, 0}, 5,
+      NormalizeDimRangeSpec(DimRangeSpec{std::nullopt, std::nullopt, 0}, 5,
                             &buffer),
       MatchesStatus(absl::StatusCode::kInvalidArgument, "step must not be 0"));
 }

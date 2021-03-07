@@ -14,9 +14,10 @@
 
 #include "tensorstore/driver/n5/metadata.h"
 
+#include <string_view>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/strings/string_view.h"
 #include "tensorstore/array.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/util/result.h"

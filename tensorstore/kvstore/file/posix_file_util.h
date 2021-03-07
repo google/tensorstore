@@ -23,8 +23,9 @@
 
 #ifndef _WIN32
 
+#include <string_view>
+
 #include "absl/status/status.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/kvstore/file/unique_handle.h"
 #include "tensorstore/util/result.h"
 
@@ -44,7 +45,7 @@ namespace tensorstore {
 namespace internal_file_util {
 
 /// Suffix used for lock files.
-inline constexpr absl::string_view kLockSuffix = ".__lock";
+inline constexpr std::string_view kLockSuffix = ".__lock";
 
 /// Representation of open file/directory.
 using FileDescriptor = int;
@@ -279,7 +280,7 @@ class DirectoryIterator {
   /// Returns the final path component of the current directory entry.
   ///
   /// \pre Prior call to `Next()` returned `true`.
-  absl::string_view path_component() const { return e ? e->d_name : ""; }
+  std::string_view path_component() const { return e ? e->d_name : ""; }
 
   /// Returns `true` if the current entry is a directory.
   ///

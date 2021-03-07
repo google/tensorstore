@@ -15,13 +15,13 @@
 #include "tensorstore/internal/grid_partition_impl.h"
 
 #include <algorithm>
+#include <cassert>
 #include <memory>
 #include <numeric>
 #include <optional>
 #include <utility>
 #include <vector>
 
-#include "absl/base/macros.h"
 #include "absl/container/fixed_array.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/inlined_vector.h"
@@ -52,15 +52,15 @@ IndexTransformGridPartition::IndexTransformGridPartition(
 SharedArray<const Index, 2>
 IndexTransformGridPartition::IndexArraySet::partition_input_indices(
     Index partition_i) const {
-  ABSL_ASSERT(partition_i >= 0 && partition_i < num_partitions());
+  assert(partition_i >= 0 && partition_i < num_partitions());
   SharedArray<const Index, 2> result;
   const Index start = grid_cell_partition_offsets[partition_i];
   const Index end =
       static_cast<size_t>(partition_i + 1) == grid_cell_partition_offsets.size()
           ? partitioned_input_indices.shape()[0]
           : grid_cell_partition_offsets[partition_i + 1];
-  ABSL_ASSERT(start >= 0 && start < partitioned_input_indices.shape()[0]);
-  ABSL_ASSERT(end > start && end <= partitioned_input_indices.shape()[0]);
+  assert(start >= 0 && start < partitioned_input_indices.shape()[0]);
+  assert(end > start && end <= partitioned_input_indices.shape()[0]);
   result.pointer() =
       std::shared_ptr<const Index>(partitioned_input_indices.pointer(),
                                    &partitioned_input_indices(start, 0));
@@ -104,7 +104,7 @@ Status ForEachConnectedSet(span<const DimensionIndex> grid_output_dimensions,
                            span<DimensionIndex> temp_buffer,
                            SetCallbackFn set_callback) {
   const DimensionIndex input_rank = output_index_maps.input_rank();
-  ABSL_ASSERT(temp_buffer.size() >= input_rank + grid_output_dimensions.size());
+  assert(temp_buffer.size() >= input_rank + grid_output_dimensions.size());
   const span<DimensionIndex> input_dims = temp_buffer.first(input_rank);
   const span<DimensionIndex> grid_dims =
       temp_buffer.subspan(input_rank, grid_output_dimensions.size());
@@ -144,9 +144,9 @@ Status ForEachConnectedSet(span<const DimensionIndex> grid_output_dimensions,
   /// \returns `true` if, and only if, any additional input dimensions were
   ///     added to the current set.
   const auto add_grid_dim_to_current_set = [&](DimensionIndex grid_i) -> bool {
-    ABSL_ASSERT(grid_i >= 0 && grid_i < num_dependent_grid_dims);
+    assert(grid_i >= 0 && grid_i < num_dependent_grid_dims);
     const DimensionIndex grid_dim = grid_dims[grid_i];
-    ABSL_ASSERT(grid_dim >= 0 && grid_dim < grid_output_dimensions.size());
+    assert(grid_dim >= 0 && grid_dim < grid_output_dimensions.size());
     const DimensionIndex output_dim = grid_output_dimensions[grid_dim];
     const OutputIndexMapRef<> map = output_index_maps[output_dim];
     switch (map.method()) {
@@ -188,9 +188,9 @@ Status ForEachConnectedSet(span<const DimensionIndex> grid_output_dimensions,
   /// If the dependency is due to an `array` output index map, also sets
   /// `current_set_has_array` to `true`.
   const auto is_grid_dim_in_set = [&](DimensionIndex grid_i) -> DimensionIndex {
-    ABSL_ASSERT(grid_i >= 0 && grid_i < num_dependent_grid_dims);
+    assert(grid_i >= 0 && grid_i < num_dependent_grid_dims);
     const DimensionIndex grid_dim = grid_dims[grid_i];
-    ABSL_ASSERT(grid_dim >= 0 && grid_dim < grid_output_dimensions.size());
+    assert(grid_dim >= 0 && grid_dim < grid_output_dimensions.size());
     const DimensionIndex output_dim = grid_output_dimensions[grid_dim];
     const OutputIndexMapRef<> map = output_index_maps[output_dim];
     switch (map.method()) {
@@ -316,7 +316,7 @@ Status GenerateSingleInputDimensionOutputIndices(
     OutputIndexMapRef<> map, span<const DimensionIndex> input_dims,
     IndexTransformView<> index_transform, Index* output_indices,
     Index output_stride) {
-  ABSL_ASSERT(map.method() == OutputIndexMethod::single_input_dimension);
+  assert(map.method() == OutputIndexMethod::single_input_dimension);
   const DimensionIndex single_input_dim = map.input_dimension();
   const IndexInterval domain = index_transform.input_domain()[single_input_dim];
   const Index stride = map.stride();
@@ -374,7 +374,7 @@ Status GenerateIndexArrayOutputIndices(OutputIndexMapRef<> map,
                                        IndexTransformView<> index_transform,
                                        Index* output_indices,
                                        Index output_stride) {
-  ABSL_ASSERT(map.method() == OutputIndexMethod::array);
+  assert(map.method() == OutputIndexMethod::array);
   absl::FixedArray<Index, internal::kNumInlinedDims> output_byte_strides(
       index_transform.input_rank(), 0);
   DimensionIndex byte_stride = sizeof(Index) * output_stride;
@@ -484,7 +484,7 @@ Result<std::vector<Index>> GenerateIndexArraySetGridCellIndices(
           map, input_dims, index_transform, cur_cell_indices,
           grid_dims.size()));
     } else {
-      ABSL_ASSERT(map.method() == OutputIndexMethod::array);
+      assert(map.method() == OutputIndexMethod::array);
       TENSORSTORE_RETURN_IF_ERROR(
           GenerateIndexArrayOutputIndices(map, input_dims, index_transform,
                                           cur_cell_indices, grid_dims.size()));
@@ -649,7 +649,7 @@ IndirectVectorMap PartitionIndexArraySetGridCellIndexVectors(
     for (Index& position_i_or_offset : *grid_cell_partition_offsets) {
       const Index position_i = position_i_or_offset;
       auto it = cells.find(position_i);
-      ABSL_ASSERT(it != cells.end());
+      assert(it != cells.end());
       auto& count_or_offset = it->second;
       const Index count = count_or_offset;
       position_i_or_offset = count_or_offset = offset;
@@ -692,7 +692,7 @@ SharedArray<Index, 2> GenerateIndexArraySetPartitionedInputIndices(
   Index position_i = 0;
   IterateOverIndexRange(partial_input_domain, [&](span<const Index> indices) {
     auto it = cells.find(position_i);
-    ABSL_ASSERT(it != cells.end());
+    assert(it != cells.end());
     auto& offset = it->second;
     std::copy(indices.begin(), indices.end(),
               partitioned_input_indices.data() + offset * input_dims.size());
@@ -807,7 +807,7 @@ Status GenerateIndexTransformGridPartitionData(
         if (!has_array) {
           // The connected set contains only `single_input_dimension`
           // dependencies.
-          ABSL_ASSERT(input_dims.size() == 1);
+          assert(input_dims.size() == 1);
           output->strided_sets_.push_back({grid_dims, input_dims[0]});
           return absl::OkStatus();
         }
@@ -826,9 +826,9 @@ Status PrePartitionIndexTransformOverRegularGrid(
     IndexTransformView<> index_transform,
     span<const DimensionIndex> grid_output_dimensions,
     span<const Index> grid_cell_shape,
-    absl::optional<IndexTransformGridPartition>* result) {
-  ABSL_ASSERT(result != nullptr);
-  ABSL_ASSERT(grid_output_dimensions.size() == grid_cell_shape.size());
+    std::optional<IndexTransformGridPartition>* result) {
+  assert(result != nullptr);
+  assert(grid_output_dimensions.size() == grid_cell_shape.size());
   const DimensionIndex input_rank = index_transform.input_rank();
 
   // Check that the input domains are all bounded.

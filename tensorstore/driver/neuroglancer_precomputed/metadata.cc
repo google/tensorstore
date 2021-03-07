@@ -31,7 +31,7 @@ void to_json(::nlohmann::json& out,  // NOLINT
   std::visit([&](const auto& x) { out = ::nlohmann::json(x); }, s);
 }
 
-absl::string_view to_string(ScaleMetadata::Encoding e) {
+std::string_view to_string(ScaleMetadata::Encoding e) {
   using E = ScaleMetadata::Encoding;
   switch (e) {
     case E::raw:
@@ -864,11 +864,11 @@ Result<std::size_t> OpenScale(const MultiscaleMetadata& metadata,
   return scale_index;
 }
 
-std::string ResolveScaleKey(absl::string_view key_prefix,
-                            absl::string_view scale_key) {
+std::string ResolveScaleKey(std::string_view key_prefix,
+                            std::string_view scale_key) {
   if (key_prefix.empty()) return std::string(scale_key);
-  std::vector<absl::string_view> output_parts = absl::StrSplit(key_prefix, '/');
-  for (absl::string_view part : absl::StrSplit(scale_key, '/')) {
+  std::vector<std::string_view> output_parts = absl::StrSplit(key_prefix, '/');
+  for (std::string_view part : absl::StrSplit(scale_key, '/')) {
     if (part == ".." && !output_parts.empty()) {
       output_parts.resize(output_parts.size() - 1);
     } else {

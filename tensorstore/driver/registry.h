@@ -24,9 +24,9 @@
 ///
 
 #include <string>
+#include <string_view>
 #include <type_traits>
 
-#include "absl/strings/string_view.h"
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/internal/context_binding.h"

@@ -263,7 +263,7 @@ TEST(ParseFillValueTest, Base64Failure) {
 
 // Corresponds to the zarr test_encode_decode_array_1 test case.
 TEST(EncodeDecodeMetadataTest, Array1) {
-  absl::string_view metadata_text = R"(
+  std::string_view metadata_text = R"(
 {
         "chunks": [10],
         "compressor": {"id": "zlib", "level": 1},
@@ -307,7 +307,7 @@ TEST(EncodeDecodeMetadataTest, Array1) {
 // Corresponds to the zarr test_encode_decode_array_2 test case, except that
 // "filters" are `null`.
 TEST(EncodeDecodeMetadataTest, Array2) {
-  absl::string_view metadata_text = R"(
+  std::string_view metadata_text = R"(
 {
         "chunks": [10, 10],
         "compressor": {
@@ -371,7 +371,7 @@ TEST(EncodeDecodeMetadataTest, Array2) {
 // Corresponds to the zarr test_encode_decode_array_2 test case, except that
 // "filters" are `null` and the "fill_value" is changed to not be all zero.
 TEST(EncodeDecodeMetadataTest, Array2Modified) {
-  absl::string_view metadata_text = R"(
+  std::string_view metadata_text = R"(
 {
         "chunks": [10, 10],
         "compressor": {
@@ -435,7 +435,7 @@ TEST(EncodeDecodeMetadataTest, Array2Modified) {
 
 // Corresponds to the zarr test_encode_decode_array_structured test case.
 TEST(EncodeDecodeMetadataTest, ArrayStructured) {
-  absl::string_view metadata_text = R"(
+  std::string_view metadata_text = R"(
 {
         "chunks": [10],
         "compressor": {"id": "zlib", "level": 1},
@@ -615,7 +615,7 @@ TEST(EncodeDecodeMetadataTest, ArrayComplex16) {
 }
 
 TEST(ParseMetadataTest, Simple) {
-  absl::string_view metadata_text = R"(
+  std::string_view metadata_text = R"(
 {
     "chunks": [
         100

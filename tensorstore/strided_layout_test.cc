@@ -441,7 +441,7 @@ TEST(StridedLayoutTest, StaticRank0) {
   StridedLayout<0> layout3(span<const Index, 0>{}, span<const Index, 0>{});
 
   // Test copy construction from StridedLayout<0>.
-  StridedLayout<0> layout2 ABSL_ATTRIBUTE_UNUSED = layout;
+  [[maybe_unused]] StridedLayout<0> layout2 = layout;
 
   // Test copy assignment from StridedLayout<0>.
   layout3 = layout;
@@ -748,7 +748,7 @@ TEST(StridedLayoutViewTest, Static0) {
   // Construct from another StridedLayoutView<0>.
   {
     StridedLayoutView<0> r;
-    StridedLayoutView<0> r2 ABSL_ATTRIBUTE_UNUSED = r;
+    [[maybe_unused]] StridedLayoutView<0> r2 = r;
   }
 
   // Construct from zero-length shape and byte_strides.

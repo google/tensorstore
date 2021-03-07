@@ -20,11 +20,11 @@
 
 #include <algorithm>
 #include <cassert>
+#include <type_traits>
 #include <utility>
 
 #include "absl/container/fixed_array.h"
 #include "absl/container/inlined_vector.h"
-#include "absl/meta/type_traits.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/elementwise_function.h"
@@ -44,8 +44,8 @@ struct NDIterationSimplifiedLayoutInfo;
 /// or `NDIterationFullLayoutInfo` depending on the value of `Full`.
 template <bool Full = false>
 using NDIterationLayoutInfo =
-    absl::conditional_t<Full, NDIterationFullLayoutInfo,
-                        NDIterationSimplifiedLayoutInfo>;
+    std::conditional_t<Full, NDIterationFullLayoutInfo,
+                       NDIterationSimplifiedLayoutInfo>;
 
 /// Computes the simplified iteration layout for a given `iterable` and `shape`.
 ///

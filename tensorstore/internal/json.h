@@ -19,14 +19,13 @@
 #include <functional>
 #include <initializer_list>
 #include <limits>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
-#include "absl/meta/type_traits.h"
 #include "absl/strings/str_join.h"
-#include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/internal/poly.h"
@@ -77,20 +76,20 @@ inline constexpr const char* GetTypeName(
 }
 
 /// Retuns an error message for a json value with the expected type.
-Status ExpectedError(const ::nlohmann::json& j, absl::string_view type_name);
+Status ExpectedError(const ::nlohmann::json& j, std::string_view type_name);
 
 /// Returns an error message indicating that json field validation failed.
-Status ValidationError(const ::nlohmann::json& j, absl::string_view type_name);
+Status ValidationError(const ::nlohmann::json& j, std::string_view type_name);
 
 /// When passed an error status for parsing JSON, returns a status annotated
 /// with the member name.
 Status MaybeAnnotateMemberError(const Status& status,
-                                absl::string_view member_name);
+                                std::string_view member_name);
 
 /// When passed an error status for converting to JSON, returns a status
 /// annotated with the member name.
 Status MaybeAnnotateMemberConvertError(const Status& status,
-                                       absl::string_view member_name);
+                                       std::string_view member_name);
 
 Status MaybeAnnotateArrayElementError(const Status& status, std::size_t i,
                                       bool is_loading);
@@ -120,32 +119,32 @@ namespace internal {
 /// \param strict If `true`, string conversions and double -> integer
 ///     conversions are not permitted.
 template <typename T>
-absl::optional<T> JsonValueAs(const ::nlohmann::json& j, bool strict = false) {
+std::optional<T> JsonValueAs(const ::nlohmann::json& j, bool strict = false) {
   static_assert(!std::is_same<T, T>::value, "Target type not supported.");
 }
 
 template <>
-absl::optional<std::nullptr_t> JsonValueAs<std::nullptr_t>(
+std::optional<std::nullptr_t> JsonValueAs<std::nullptr_t>(
     const ::nlohmann::json& j, bool strict);
 
 template <>
-absl::optional<bool> JsonValueAs<bool>(const ::nlohmann::json& j, bool strict);
+std::optional<bool> JsonValueAs<bool>(const ::nlohmann::json& j, bool strict);
 
 template <>
-absl::optional<int64_t> JsonValueAs<int64_t>(const ::nlohmann::json& j,
-                                             bool strict);
+std::optional<int64_t> JsonValueAs<int64_t>(const ::nlohmann::json& j,
+                                            bool strict);
 
 template <>
-absl::optional<uint64_t> JsonValueAs<uint64_t>(const ::nlohmann::json& j,
-                                               bool strict);
+std::optional<uint64_t> JsonValueAs<uint64_t>(const ::nlohmann::json& j,
+                                              bool strict);
 
 template <>
-absl::optional<double> JsonValueAs<double>(const ::nlohmann::json& j,
-                                           bool strict);
+std::optional<double> JsonValueAs<double>(const ::nlohmann::json& j,
+                                          bool strict);
 
 template <>
-absl::optional<std::string> JsonValueAs<std::string>(const ::nlohmann::json& j,
-                                                     bool strict);
+std::optional<std::string> JsonValueAs<std::string>(const ::nlohmann::json& j,
+                                                    bool strict);
 
 /// JsonRequireValueAs attempts to convert and assign the json object to the
 /// result value.
@@ -220,8 +219,8 @@ Status JsonRequireInteger(
     type_identity_t<T> max_value = std::numeric_limits<T>::max()) {
   static_assert(std::is_signed<T>::value || std::is_unsigned<T>::value,
                 "T must be an integer type.");
-  using U = absl::conditional_t<std::is_signed<T>::value, std::int64_t,
-                                std::uint64_t>;
+  using U =
+      std::conditional_t<std::is_signed<T>::value, std::int64_t, std::uint64_t>;
   U temp;
   auto status = internal_json::JsonRequireIntegerImpl<U>::Execute(
       json, &temp, strict, min_value, max_value);
@@ -266,21 +265,21 @@ Status JsonValidateArrayLength(std::ptrdiff_t parsed_size,
 /// If other member fields exist, returns an error Status,
 /// otherwise returns an ok status.
 Status JsonValidateObjectMembers(const ::nlohmann::json& j,
-                                 span<const absl::string_view> allowed_members);
+                                 span<const std::string_view> allowed_members);
 
 Status JsonValidateObjectMembers(const ::nlohmann::json::object_t& j,
-                                 span<const absl::string_view> allowed_members);
+                                 span<const std::string_view> allowed_members);
 
 inline Status JsonValidateObjectMembers(
     const ::nlohmann::json& j,
-    std::initializer_list<absl::string_view> allowed_members) {
+    std::initializer_list<std::string_view> allowed_members) {
   return JsonValidateObjectMembers(
       j, span(std::begin(allowed_members), std::end(allowed_members)));
 }
 
 inline Status JsonValidateObjectMembers(
     const ::nlohmann::json::object_t& j,
-    std::initializer_list<absl::string_view> allowed_members) {
+    std::initializer_list<std::string_view> allowed_members) {
   return JsonValidateObjectMembers(
       j, span(std::begin(allowed_members), std::end(allowed_members)));
 }
@@ -321,7 +320,7 @@ Status JsonHandleObjectMember(
 /// \returns The extracted member if present, or
 ///     `::nlohmann::json::value_t::discarded` if not present.
 ::nlohmann::json JsonExtractMember(::nlohmann::json::object_t* j_obj,
-                                   absl::string_view name);
+                                   std::string_view name);
 
 /// Returns an error indicating that all members of `j_obj` are unexpected.
 Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj);
@@ -601,8 +600,8 @@ constexpr auto Sequence(Binder... binder) {
           +[](const void* binder_ptr, decltype(is_loading) is_loading,
               decltype(options) options, decltype(obj) obj,
               decltype(j) j) -> Status {
-            return (*static_cast<const decltype(binder)*>(binder_ptr))(
-                is_loading, options, obj, j);
+            return (*static_cast<const decltype(binder)*>(
+                binder_ptr))(is_loading, options, obj, j);
           }...};
       const void* const binder_ptrs[N] = {&binder...};
       for (std::size_t i = 0; i < N; ++i) {
@@ -691,7 +690,7 @@ constexpr auto Object(MemberBinder... member_binder) {
 ///     `std::string`.  The name is captured by value in the returned binder
 ///     using the same `MemberName` type in which it is passed (not converted to
 ///     `std::string`); therefore, be careful when passing a `const char*` or
-///     `absl::string_view` that the referenced string outlives the returned
+///     `std::string_view` that the referenced string outlives the returned
 ///     binder.
 /// \param binder Optional.  Binder to use for the member.  If not specified,
 ///     the default binder for object is used.

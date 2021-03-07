@@ -53,7 +53,6 @@ tensorstore_cc_test(
         "//tensorstore/util:executor",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/meta:type_traits",
         "@com_google_googletest//:gtest_main",
     ],
 )

@@ -48,7 +48,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:no_destructor",
         "//tensorstore/util:future",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
         "@se_curl//:curl",
@@ -78,7 +77,6 @@ tensorstore_cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
-        "@com_google_absl//absl/types:variant",
     ],
 )
 

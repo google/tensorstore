@@ -16,8 +16,7 @@
 #define TENSORSTORE_UTIL_QUOTE_STRING_H_
 
 #include <string>
-
-#include "absl/strings/string_view.h"
+#include <string_view>
 
 namespace tensorstore {
 
@@ -27,7 +26,7 @@ namespace tensorstore {
 /// Example:
 ///
 ///     EXPECT_EQ("\"hello\\nworld\"", QuoteString("hello\nworld"));
-std::string QuoteString(absl::string_view s);
+std::string QuoteString(std::string_view s);
 
 }  // namespace tensorstore
 

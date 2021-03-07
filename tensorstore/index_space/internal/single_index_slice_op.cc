@@ -165,8 +165,8 @@ Status PerformSingleIndexSlice(TransformRep* original_transform,
       case OutputIndexMethod::single_input_dimension: {
         const DimensionIndex original_input_dim =
             original_map.input_dimension();
-        ABSL_ASSERT(original_input_dim >= 0 &&
-                    original_input_dim < original_input_rank);
+        assert(original_input_dim >= 0 &&
+               original_input_dim < original_input_rank);
         const auto slice_info =
             original_input_dimension_info[original_input_dim];
         const Index output_stride = original_map.stride();

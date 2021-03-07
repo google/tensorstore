@@ -18,11 +18,11 @@
 /// \file Implements NumPy-compatible indexing with some extensions.
 
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
 
-#include "absl/strings/string_view.h"
 #include "python/tensorstore/subscript_method.h"
 #include "pybind11/pybind11.h"
 #include "tensorstore/array.h"
@@ -56,7 +56,7 @@ NumpyIndexingSpec ParseIndexingSpec(pybind11::handle obj,
 /// Returns "", ".oindex", or ".vindex".
 ///
 /// This is used to generate the `__repr__` of dim expressions.
-absl::string_view GetIndexingModePrefix(NumpyIndexingSpec::Mode mode);
+std::string_view GetIndexingModePrefix(NumpyIndexingSpec::Mode mode);
 
 /// Wrapper around NumpyIndexingSpec that supports implicit conversion from
 /// Python types with behavior determined by the template arguments.

@@ -18,7 +18,6 @@
 #include <type_traits>
 
 #include "absl/base/attributes.h"
-#include "absl/meta/type_traits.h"
 
 namespace tensorstore {
 namespace internal {
@@ -48,9 +47,9 @@ namespace wrap_on_overflow {
 #define TENSORSTORE_INTERNAL_DEFINE_WRAP_ON_OVERFLOW_OP(OP, NAME) \
   template <typename T>                                           \
   TENSORSTORE_ATTRIBUTE_NO_SANITIZE_UNSIGNED_INTEGER_OVERFLOW     \
-      absl::enable_if_t<std::is_integral<T>::value, T>            \
+      std::enable_if_t<std::is_integral<T>::value, T>             \
       NAME(T a, T b) {                                            \
-    using UnsignedT = absl::make_unsigned_t<T>;                   \
+    using UnsignedT = std::make_unsigned_t<T>;                    \
     return static_cast<T>(static_cast<UnsignedT>(                 \
         static_cast<UnsignedT>(a) OP static_cast<UnsignedT>(b))); \
   }                                                               \

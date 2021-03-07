@@ -77,7 +77,7 @@ class MinishardIndexKeyValueStore : public KeyValueStore {
     return future;
   }
 
-  std::string DescribeKey(absl::string_view key) override {
+  std::string DescribeKey(std::string_view key) override {
     ChunkCombinedShardInfo combined_info;
     if (key.size() != sizeof(combined_info)) {
       return tensorstore::StrCat("invalid key ", tensorstore::QuoteString(key));
@@ -925,8 +925,8 @@ class ShardedKeyValueStore : public KeyValueStore {
 
     auto minishard_index_cache_entry = GetCacheEntry(
         minishard_index_cache(),
-        absl::string_view(reinterpret_cast<const char*>(&shard_info),
-                          sizeof(shard_info)));
+        std::string_view(reinterpret_cast<const char*>(&shard_info),
+                         sizeof(shard_info)));
 
     auto minishard_index_read_future =
         minishard_index_cache_entry->Read(options.staleness_bound);

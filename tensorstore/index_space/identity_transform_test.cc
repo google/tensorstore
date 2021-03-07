@@ -90,7 +90,7 @@ TEST(IdentityTransformTest, LabeledStdString) {
 }
 
 TEST(IndexTransformTest, LabeledStringView) {
-  auto t = IdentityTransform({absl::string_view("x"), absl::string_view("y")});
+  auto t = IdentityTransform({std::string_view("x"), std::string_view("y")});
   static_assert(std::is_same<decltype(t), IndexTransform<2, 2>>::value, "");
   EXPECT_EQ(IndexTransformBuilder<>(2, 2)
                 .implicit_lower_bounds({1, 1})
