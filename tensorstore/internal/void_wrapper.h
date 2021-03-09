@@ -64,9 +64,8 @@ struct Void {
   /// This overload is used in the case that the return type of `func` is
   /// `void`.
   template <typename Func, typename... Args>
-  static std::enable_if_t<std::is_void<decltype(std::declval<Func>()(
-                              std::declval<Args>()...))>::value,
-                          Void>
+  static std::enable_if_t<
+      std::is_void<std::invoke_result_t<Func, Args...>>::value, Void>
   CallAndWrap(Func&& func, Args&&... args) {
     std::forward<Func>(func)(std::forward<Args>(args)...);
     return {};
@@ -75,9 +74,8 @@ struct Void {
   /// Overload for the case that the return type of `func` is not `void`.
   template <typename Func, typename... Args>
   static std::enable_if_t<
-      !std::is_void<
-          decltype(std::declval<Func>()(std::declval<Args>()...))>::value,
-      decltype(std::declval<Func>()(std::declval<Args>()...))>
+      !std::is_void<std::invoke_result_t<Func, Args...>>::value,
+      std::invoke_result_t<Func, Args...>>
   CallAndWrap(Func&& func, Args&&... args) {
     return std::forward<Func>(func)(std::forward<Args>(args)...);
   }
