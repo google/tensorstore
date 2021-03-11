@@ -28,7 +28,6 @@ namespace {
 
 using tensorstore::KeyValueStore;
 using tensorstore::MatchesStatus;
-using tensorstore::StrCat;
 
 TEST(KeyValueStoreTest, OpenInvalid) {
   auto context = tensorstore::Context::Default();

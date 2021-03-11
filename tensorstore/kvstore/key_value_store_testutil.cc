@@ -80,18 +80,11 @@ StorageGeneration GetStorageGeneration(KeyValueStore::Ptr store,
   return gen;
 }
 
-StorageGeneration GetMismatchStorageGeneration(KeyValueStore::Ptr store,
-                                               std::string name) {
-  absl::Cord value("1234567890123456789012345678901234567890123456789012345");
-  auto last = store->Write(name, value).result();
-  EXPECT_THAT(last, MatchesRegularTimestampedStorageGeneration());
-  EXPECT_THAT(store->Delete(name).result(),
-              MatchesKnownTimestampedStorageGeneration());
-  StorageGeneration gen;
-  if (last) {
-    gen = last->generation;
-  }
-  return gen;
+// Return a highly-improbable storage generation
+StorageGeneration GetMismatchStorageGeneration(KeyValueStore::Ptr store) {
+  // Use a single uint64_t storage generation here for GCS compatibility.
+  // Also, the generation looks like a nanosecond timestamp.
+  return StorageGeneration::FromValues(uint64_t{/*3.*/ 1415926535897932});
 }
 
 }  // namespace
@@ -101,6 +94,7 @@ void TestKeyValueStoreUnconditionalOps(
     FunctionView<std::string(std::string key)> get_key) {
   const auto key = get_key("test");
   Cleanup cleanup(store, {key});
+  const absl::Cord value("1234");
 
   // Test unconditional read of missing key.
   TENSORSTORE_LOG("Test unconditional read of missing key");
@@ -108,7 +102,6 @@ void TestKeyValueStoreUnconditionalOps(
 
   // Test unconditional write.
   TENSORSTORE_LOG("Test unconditional write");
-  absl::Cord value("1234");
   auto write_result = store->Write(key, value).result();
   ASSERT_THAT(write_result, MatchesRegularTimestampedStorageGeneration());
 
@@ -159,18 +152,14 @@ void TestKeyValueStoreUnconditionalOps(
 void TestKeyValueStoreConditionalReadOps(
     KeyValueStore::Ptr store,
     FunctionView<std::string(std::string key)> get_key) {
-  // Conditional read use an if-not-exists condition.
-  const auto key = get_key("test1");
-  Cleanup cleanup(store, {key});
-
-  // Generate a mismatched storage generation by writing and deleting.
-  const StorageGeneration mismatch = GetMismatchStorageGeneration(store, key);
+  const auto missing_key = get_key("test1a");
+  const StorageGeneration mismatch = GetMismatchStorageGeneration(store);
 
   TENSORSTORE_LOG("Test conditional read, missing");
   {
     KeyValueStore::ReadOptions options;
     options.if_not_equal = mismatch;
-    EXPECT_THAT(store->Read(key, options).result(),
+    EXPECT_THAT(store->Read(missing_key, options).result(),
                 MatchesKvsReadResultNotFound());
   }
 
@@ -179,7 +168,7 @@ void TestKeyValueStoreConditionalReadOps(
   {
     KeyValueStore::ReadOptions options;
     options.if_equal = StorageGeneration::NoValue();
-    EXPECT_THAT(store->Read(key, options).result(),
+    EXPECT_THAT(store->Read(missing_key, options).result(),
                 MatchesKvsReadResultNotFound());
   }
 
@@ -191,15 +180,17 @@ void TestKeyValueStoreConditionalReadOps(
   {
     KeyValueStore::ReadOptions options;
     options.if_not_equal = StorageGeneration::NoValue();
-    EXPECT_THAT(store->Read(key, options).result(),
+    EXPECT_THAT(store->Read(missing_key, options).result(),
                 MatchesKvsReadResultNotFound());
   }
 
   // Write a value.
-  absl::Cord value("five by five");
-  auto write_result = store->Write(key, value).result();
+  const absl::Cord value("five by five");
+  const auto key = get_key("test1b");
+  Cleanup cleanup(store, {key});
 
   // Preconditions for the rest of the function.
+  auto write_result = store->Write(key, value).result();
   ASSERT_THAT(write_result,
               ::testing::AllOf(MatchesRegularTimestampedStorageGeneration(),
                                MatchesTimestampedStorageGeneration(
@@ -284,10 +275,7 @@ void TestKeyValueStoreConditionalWriteOps(
   Cleanup cleanup(store, {key1, key2, key3});
 
   // Mismatch should not match any other generation.
-  const StorageGeneration mismatch2a =
-      GetMismatchStorageGeneration(store, key1);
-  const StorageGeneration mismatch2b =
-      GetMismatchStorageGeneration(store, key2);
+  const StorageGeneration mismatch = GetMismatchStorageGeneration(store);
   const absl::Cord value("007");
 
   // Create an existing key.
@@ -295,16 +283,16 @@ void TestKeyValueStoreConditionalWriteOps(
   ASSERT_THAT(write_result,
               ::testing::AllOf(MatchesRegularTimestampedStorageGeneration(),
                                MatchesTimestampedStorageGeneration(
-                                   ::testing::Not(mismatch2b))));
+                                   ::testing::Not(mismatch))));
 
   TENSORSTORE_LOG("Test conditional write, non-existent key");
   EXPECT_THAT(
-      store->Write(key1, value, {mismatch2a}).result(),
+      store->Write(key1, value, {mismatch}).result(),
       MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
 
   TENSORSTORE_LOG("Test conditional write, mismatched generation");
   EXPECT_THAT(
-      store->Write(key2, value, {mismatch2b}).result(),
+      store->Write(key2, value, {mismatch}).result(),
       MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
 
   TENSORSTORE_LOG("Test conditional write, matching generation");
@@ -350,10 +338,7 @@ void TestKeyValueStoreConditionalDeleteOps(
   Cleanup cleanup(store, {key1, key2, key3, key4});
 
   // Mismatch should not match any other generation.
-  const StorageGeneration mismatch3a =
-      GetMismatchStorageGeneration(store, key1);
-  const StorageGeneration mismatch3b =
-      GetMismatchStorageGeneration(store, key1);
+  const StorageGeneration mismatch = GetMismatchStorageGeneration(store);
 
   // Create an existing key.
   StorageGeneration last_generation;
@@ -363,20 +348,20 @@ void TestKeyValueStoreConditionalDeleteOps(
     ASSERT_THAT(write_result, MatchesRegularTimestampedStorageGeneration());
     last_generation = std::move(write_result->generation);
   }
-  ASSERT_NE(last_generation, mismatch3b);
+  ASSERT_NE(last_generation, mismatch);
   EXPECT_THAT(store->Read(key2).result(), MatchesKvsReadResult(existing_value));
   EXPECT_THAT(store->Read(key4).result(), MatchesKvsReadResult(existing_value));
 
   TENSORSTORE_LOG("Test conditional delete, non-existent key");
   EXPECT_THAT(
-      store->Delete(key1, {mismatch3a}).result(),
+      store->Delete(key1, {mismatch}).result(),
       MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
   EXPECT_THAT(store->Read(key2).result(), MatchesKvsReadResult(existing_value));
   EXPECT_THAT(store->Read(key4).result(), MatchesKvsReadResult(existing_value));
 
   TENSORSTORE_LOG("Test conditional delete, mismatched generation");
   EXPECT_THAT(
-      store->Delete(key2, {mismatch3b}).result(),
+      store->Delete(key2, {mismatch}).result(),
       MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
   EXPECT_THAT(store->Read(key2).result(), MatchesKvsReadResult(existing_value));
   EXPECT_THAT(store->Read(key4).result(), MatchesKvsReadResult(existing_value));
@@ -425,29 +410,30 @@ void TestKeyValueStoreBasicFunctionality(
 void TestKeyValueStoreSpecRoundtrip(::nlohmann::json json_spec) {
   auto context = Context::Default();
 
+  const std::string key = "mykey";
+  const absl::Cord value("myvalue");
+  ::nlohmann::json derived_spec;
+
   // Open and populate `"mykey"`.
   {
-    auto store_result = KeyValueStore::Open(context, json_spec, {}).result();
-    ASSERT_EQ(Status(), GetStatus(store_result));
-    auto store = *store_result;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store, KeyValueStore::Open(context, json_spec, {}).result());
     auto spec_result = store->spec();
-    ASSERT_EQ(Status(), GetStatus(spec_result));
-    EXPECT_THAT(spec_result->ToJson(tensorstore::IncludeDefaults{false}),
-                json_spec);
-    ASSERT_THAT(store->Write("mykey", absl::Cord("myvalue")).result(),
+    TENSORSTORE_ASSERT_OK(spec_result);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        derived_spec, spec_result->ToJson(tensorstore::IncludeDefaults{false}));
+    EXPECT_THAT(derived_spec, json_spec);
+    ASSERT_THAT(store->Write(key, value).result(),
                 MatchesRegularTimestampedStorageGeneration());
-    EXPECT_THAT(store->Read("mykey").result(),
-                MatchesKvsReadResult(absl::Cord("myvalue")));
+    EXPECT_THAT(store->Read(key).result(), MatchesKvsReadResult(value));
   }
 
   // Reopen and verify contents.
   {
-    auto store_result = KeyValueStore::Open(context, json_spec, {}).result();
-    ASSERT_EQ(Status(), GetStatus(store_result));
-    auto store = *store_result;
-    auto spec_result = store->spec();
-    EXPECT_THAT(store->Read("mykey").result(),
-                MatchesKvsReadResult(absl::Cord("myvalue")));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store, KeyValueStore::Open(context, derived_spec, {}).result());
+    TENSORSTORE_ASSERT_OK(store->spec());
+    EXPECT_THAT(store->Read(key).result(), MatchesKvsReadResult(value));
   }
 }
 
