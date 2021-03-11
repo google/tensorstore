@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "absl/base/optimization.h"
+#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/preprocessor.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/assert_macros.h"
@@ -440,14 +441,14 @@ class Result : private internal_result::ResultStorage<T>,
   /// \brief Checked value accessor.
   /// Terminates the process if *this represents a failure state.
   /// \pre has_value() == true
-  const_reference_type value() const& noexcept {
+  const_reference_type value() const& noexcept TENSORSTORE_LIFETIME_BOUND {
     if (!has_value()) TENSORSTORE_CHECK_OK(status());
     if constexpr (!std::is_void_v<value_type>) {
       return this->value_;
     }
   }
 
-  reference_type value() & noexcept {
+  reference_type value() & noexcept TENSORSTORE_LIFETIME_BOUND {
     if (!has_value()) TENSORSTORE_CHECK_OK(status());
     if constexpr (!std::is_void_v<value_type>) {
       return this->value_;
@@ -461,7 +462,7 @@ class Result : private internal_result::ResultStorage<T>,
     }
   }
 
-  const absl::Status& status() const& noexcept {
+  const absl::Status& status() const& noexcept TENSORSTORE_LIFETIME_BOUND {
     TENSORSTORE_CHECK(!has_value());
     return this->status_;
   }

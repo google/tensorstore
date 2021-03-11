@@ -89,6 +89,7 @@ tensorstore_cc_library(
         ":index",
         ":index_interval",
         ":rank",
+        "//tensorstore/internal:attributes",
         "//tensorstore/internal:gdb_scripting",
         "//tensorstore/internal:multi_vector",
         "//tensorstore/internal:multi_vector_view",

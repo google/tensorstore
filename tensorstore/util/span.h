@@ -25,6 +25,7 @@
 #include <type_traits>
 
 #include "absl/base/optimization.h"
+#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/gdb_scripting.h"
 #include "tensorstore/internal/log_message.h"
 #include "tensorstore/internal/source_location.h"
@@ -185,7 +186,9 @@ class span : private internal_span::SpanBase<T, Extent> {
   static constexpr std::ptrdiff_t extent = Extent;
 
   constexpr span() noexcept = default;
-  constexpr span(pointer ptr, index_type count) noexcept : Base(ptr, count) {}
+  constexpr span(pointer ptr TENSORSTORE_LIFETIME_BOUND,
+                 index_type count) noexcept
+      : Base(ptr, count) {}
 
   // Add an extra dummy template parameter to ensure this overload ranks lower
   // than the (pointer, index_type) overload in the case of a call of the form
@@ -193,33 +196,39 @@ class span : private internal_span::SpanBase<T, Extent> {
   //
   // See https://github.com/Microsoft/GSL/issues/541.
   template <typename U = void>
-  constexpr span(pointer begin, pointer end) noexcept
+  constexpr span(pointer begin TENSORSTORE_LIFETIME_BOUND,
+                 pointer end TENSORSTORE_LIFETIME_BOUND) noexcept
       : Base(begin, end - begin) {}
 
   template <std::size_t N, typename = std::enable_if_t<
                                (Extent == dynamic_extent || Extent == N)>>
-  constexpr span(T (&arr)[N]) noexcept : Base(arr, N) {}
+  constexpr span(T (&arr TENSORSTORE_LIFETIME_BOUND)[N]) noexcept
+      : Base(arr, N) {}
 
   template <std::size_t N, typename = std::enable_if_t<
                                Extent == dynamic_extent || Extent == N>>
-  constexpr span(std::array<value_type, N>& arr) noexcept
+  constexpr span(
+      std::array<value_type, N>& arr TENSORSTORE_LIFETIME_BOUND) noexcept
       : Base(arr.data(), N) {}
 
   template <
       std::size_t N, typename U = T,
       typename = std::enable_if_t<std::is_const_v<U> &&
                                   (Extent == dynamic_extent || Extent == N)>>
-  constexpr span(const std::array<value_type, N>& arr) noexcept
+  constexpr span(
+      const std::array<value_type, N>& arr TENSORSTORE_LIFETIME_BOUND) noexcept
       : Base(arr.data(), N) {}
 
   template <typename Container,
             typename = internal_span::EnableIfCompatibleContainer<T, Container>>
-  constexpr span(Container& cont) : Base(cont.data(), cont.size()) {}
+  constexpr span(Container& cont TENSORSTORE_LIFETIME_BOUND)
+      : Base(cont.data(), cont.size()) {}
 
   template <
       typename Container,
       typename = internal_span::EnableIfCompatibleContainer<T, const Container>>
-  constexpr span(const Container& cont) : Base(cont.data(), cont.size()) {}
+  constexpr span(const Container& cont TENSORSTORE_LIFETIME_BOUND)
+      : Base(cont.data(), cont.size()) {}
 
   template <
       typename U, std::ptrdiff_t N,
@@ -281,7 +290,8 @@ class span : private internal_span::SpanBase<T, Extent> {
   constexpr span<element_type,
                  (Count == dynamic_extent && Extent == dynamic_extent
                       ? dynamic_extent
-                      : Count == dynamic_extent ? Extent - Offset : Count)>
+                  : Count == dynamic_extent ? Extent - Offset
+                                            : Count)>
   subspan() const {
     static_assert(Offset >= 0, "Offset must be non-negative.");
     static_assert(Count == dynamic_extent || Count >= 0,
@@ -330,29 +340,29 @@ class span : private internal_span::SpanBase<T, Extent> {
 };
 
 template <typename T>
-span(T* ptr, std::ptrdiff_t count)->span<T>;
+span(T* ptr, std::ptrdiff_t count) -> span<T>;
 
 template <typename T>
-span(T* begin, T* end)->span<T>;
+span(T* begin, T* end) -> span<T>;
 
 template <typename T, std::size_t N>
-span(T (&arr)[N])->span<T, N>;
+span(T (&arr)[N]) -> span<T, N>;
 
 template <typename T, std::size_t N>
-span(const T (&arr)[N])->span<const T, N>;
+span(const T (&arr)[N]) -> span<const T, N>;
 
 template <typename T, std::size_t N>
-span(std::array<T, N>& arr)->span<T, N>;
+span(std::array<T, N>& arr) -> span<T, N>;
 
 template <typename T, std::size_t N>
-span(const std::array<T, N>& arr)->span<const T, N>;
+span(const std::array<T, N>& arr) -> span<const T, N>;
 
 template <typename Container>
-span(Container& cont)->span<internal_span::ContainerElementType<Container>>;
+span(Container& cont) -> span<internal_span::ContainerElementType<Container>>;
 
 template <typename Container>
 span(const Container& cont)
-    ->span<internal_span::ContainerElementType<const Container>>;
+    -> span<internal_span::ContainerElementType<const Container>>;
 
 /// Support for the standard tuple access protocol, as proposed in:
 /// http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1024r0.pdf

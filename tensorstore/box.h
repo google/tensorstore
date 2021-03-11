@@ -85,6 +85,7 @@
 
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
+#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/gdb_scripting.h"
 #include "tensorstore/internal/multi_vector.h"
 #include "tensorstore/internal/multi_vector_view.h"
@@ -455,9 +456,10 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   ///
   /// \requires `Mutable == false`.
   template <bool M = Mutable, typename = std::enable_if_t<M == false>>
-  explicit BoxView(RankType rank)
-      : BoxView(GetConstantVector<Index, -kInfIndex>(rank),
-                GetConstantVector<Index, kInfSize>(rank)) {}
+  explicit BoxView(RankType rank) {
+    Access::Assign(this, GetConstantVector<Index, -kInfIndex>(rank),
+                   GetConstantVector<Index, kInfSize>(rank));
+  }
 
   /// Constructs from a shape array.
   ///
@@ -465,19 +467,25 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   template <std::size_t N, typename = std::enable_if_t<
                                (IsRankImplicitlyConvertible(N, static_rank) &&
                                 Mutable == false)>>
-  explicit BoxView(IndexType (&shape)[N]) : BoxView(span(shape)) {}
+  explicit BoxView(IndexType (&shape TENSORSTORE_LIFETIME_BOUND)[N]) {
+    const auto rank = std::integral_constant<std::ptrdiff_t, N>{};
+    Access::Assign(this, rank, GetConstantVector<Index, 0>(rank).data(), shape);
+  }
 
   /// Constructs from an origin and shape array.
   template <std::size_t N, typename = std::enable_if_t<
                                IsRankImplicitlyConvertible(N, static_rank)>>
-  explicit BoxView(IndexType (&origin)[N], IndexType (&shape)[N])
-      : BoxView(span(origin), span(shape)) {}
+  explicit BoxView(IndexType (&origin TENSORSTORE_LIFETIME_BOUND)[N],
+                   IndexType (&shape TENSORSTORE_LIFETIME_BOUND)[N]) {
+    const auto rank = std::integral_constant<std::ptrdiff_t, N>{};
+    Access::Assign(this, rank, origin, shape);
+  }
 
   /// Constructs a BoxView from a shape array and an all-zero origin vector.
   ///
   /// \requires `Mutable == false`.
   template <bool M = Mutable, typename = std::enable_if_t<M == false>>
-  explicit BoxView(span<const Index, Rank> shape) {
+  explicit BoxView(span<const Index, Rank> shape TENSORSTORE_LIFETIME_BOUND) {
     const auto rank = GetStaticOrDynamicExtent(shape);
     Access::Assign(this, rank, GetConstantVector<Index, 0>(rank).data(),
                    shape.data());

@@ -152,6 +152,7 @@
 #include <utility>
 
 #include "absl/time/time.h"
+#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/meta.h"
 #include "tensorstore/internal/type_traits.h"
@@ -655,13 +656,16 @@ class Future {
   /// to the result.
   ///
   /// \dchecks `valid()`
-  std::add_lvalue_reference_t<result_type> result() const {
+  std::add_lvalue_reference_t<result_type> result() const
+      TENSORSTORE_LIFETIME_BOUND {
     this->Wait();
     return rep().result;
   }
 
   /// Equivalent to `result().value()`.
-  std::add_lvalue_reference_t<T> value() const { return result().value(); }
+  std::add_lvalue_reference_t<T> value() const TENSORSTORE_LIFETIME_BOUND {
+    return result().value();
+  }
 
   /// Makes `Future<T>` model the `Sender<Status, T>` concept.
   ///

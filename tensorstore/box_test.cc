@@ -745,11 +745,7 @@ TEST(BoxTest, DeductionGuides) {
   auto box = Box({1, 2}, {3, 4});
   static_assert(std::is_same_v<decltype(box), Box<2>>);
 
-  auto box_view1 = BoxView({1, 2}, {3, 4});
-  static_assert(std::is_same_v<decltype(box_view1), BoxView<2>>);
-
-  auto box_view2 = BoxView(box_view1);
-  static_assert(std::is_same_v<decltype(box_view2), BoxView<2>>);
+  static_assert(std::is_same_v<decltype(BoxView({1, 2}, {3, 4})), BoxView<2>>);
 
   static_assert(decltype(box)::static_rank == 2);
 

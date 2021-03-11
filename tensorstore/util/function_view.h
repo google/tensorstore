@@ -51,6 +51,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/type_traits.h"
 
 namespace tensorstore {
@@ -75,7 +76,7 @@ class FunctionView<R(Arg...)> {
                 (!std::is_same_v<internal::remove_cvref_t<F>, FunctionView> &&
                  internal::IsConvertibleOrVoid<std::invoke_result_t<F&, Arg...>,
                                                R>::value)>* = nullptr>
-  constexpr FunctionView(F&& f) noexcept
+  constexpr FunctionView(F&& f TENSORSTORE_LIFETIME_BOUND) noexcept
       : erased_fn_(&Wrapper<std::remove_reference_t<F>>), erased_obj_(&f) {}
 
   /// Calls the referenced function.

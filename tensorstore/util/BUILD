@@ -333,7 +333,10 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "function_view",
     hdrs = ["function_view.h"],
-    deps = ["//tensorstore/internal:type_traits"],
+    deps = [
+        "//tensorstore/internal:attributes",
+        "//tensorstore/internal:type_traits",
+    ],
 )
 
 tensorstore_cc_test(
@@ -362,6 +365,7 @@ tensorstore_cc_library(
         ":executor",
         ":result",
         ":status",
+        "//tensorstore/internal:attributes",
         "//tensorstore/internal:intrusive_linked_list",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:meta",
@@ -504,6 +508,7 @@ tensorstore_cc_library(
         ":assert_macros",
         ":execution",
         ":status",
+        "//tensorstore/internal:attributes",
         "//tensorstore/internal:preprocessor",
         "//tensorstore/internal:type_traits",
         "@com_google_absl//absl/base:config",
@@ -594,6 +599,7 @@ tensorstore_cc_library(
     name = "span",
     hdrs = ["span.h"],
     deps = [
+        "//tensorstore/internal:attributes",
         "//tensorstore/internal:gdb_scripting",
         "//tensorstore/internal:log_message",
         "//tensorstore/internal:source_location",

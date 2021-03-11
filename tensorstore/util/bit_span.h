@@ -53,7 +53,7 @@ class BitRef {
   constexpr static std::ptrdiff_t kBitsPerBlock = sizeof(T) * 8;
 
   /// Binds to bit `offset % kBitsPerBlock` of `*block`.
-  constexpr BitRef(T* block, std::ptrdiff_t offset)
+  constexpr BitRef(T* block TENSORSTORE_LIFETIME_BOUND, std::ptrdiff_t offset)
       : block_(block), mask_(static_cast<T>(1) << (offset % kBitsPerBlock)) {
     assert(offset >= 0);
   }
@@ -129,12 +129,13 @@ class BitRef<const T> {
   constexpr static std::ptrdiff_t kBitsPerBlock = sizeof(T) * 8;
 
   /// Binds to bit `offset % kBitsPerBlock` of `*base`.
-  constexpr BitRef(const T* block, std::ptrdiff_t offset)
+  constexpr BitRef(const T* block TENSORSTORE_LIFETIME_BOUND,
+                   std::ptrdiff_t offset)
       : block_(block), mask_(static_cast<T>(1) << (offset % kBitsPerBlock)) {
     assert(offset >= 0);
   }
 
-  constexpr BitRef(BitRef<T> other)
+  constexpr BitRef(BitRef<T> other TENSORSTORE_LIFETIME_BOUND)
       : block_(other.block_), mask_(other.mask_) {}
 
   constexpr operator bool() const { return *block_ & mask_; }
@@ -177,12 +178,13 @@ class BitIterator {
   /// Constructs an invalid iterator.
   constexpr BitIterator() : base_(nullptr), offset_(0) {}
 
+  constexpr BitIterator(T* base TENSORSTORE_LIFETIME_BOUND,
+                        std::ptrdiff_t offset)
+      : base_(base), offset_(offset) {}
+
   template <typename U, std::enable_if_t<std::is_same_v<const U, T>>* = nullptr>
   constexpr BitIterator(BitIterator<U> other)
       : base_(other.base()), offset_(other.offset()) {}
-
-  constexpr BitIterator(T* base, std::ptrdiff_t offset)
-      : base_(base), offset_(offset) {}
 
   constexpr T* base() const { return base_; }
   constexpr std::ptrdiff_t offset() const { return offset_; }
@@ -371,7 +373,8 @@ class BitSpan {
   /// \dchecks `offset >= 0`.
   /// \dchecks `size >= 0`.
   /// \dchecks `Extent == dynamic_extent || Extent == size`.
-  constexpr BitSpan(T* base, std::ptrdiff_t offset, std::ptrdiff_t size)
+  constexpr BitSpan(T* base TENSORSTORE_LIFETIME_BOUND, std::ptrdiff_t offset,
+                    std::ptrdiff_t size)
       : BitSpan(BitIterator<T>(base, offset), size) {}
 
   /// Constructs from an iterator and size.
@@ -396,7 +399,7 @@ class BitSpan {
       typename U, std::ptrdiff_t E,
       std::enable_if_t<((std::is_same_v<T, U> || std::is_same_v<T, const U>)&&(
           E == Extent || Extent == dynamic_extent))>* = nullptr>
-  constexpr BitSpan(BitSpan<U, E> other)
+  constexpr BitSpan(BitSpan<U, E> other TENSORSTORE_LIFETIME_BOUND)
       : begin_(other.begin()), size_(other.size()) {}
 
   /// Returns the base pointer to the packed bit representation.
@@ -408,8 +411,10 @@ class BitSpan {
   /// Returns the size in bits.
   constexpr ExtentType size() const { return size_; }
 
-  BitIterator<T> begin() const { return begin_; }
-  BitIterator<T> end() const { return begin_ + size_; }
+  BitIterator<T> begin() const TENSORSTORE_LIFETIME_BOUND { return begin_; }
+  BitIterator<T> end() const TENSORSTORE_LIFETIME_BOUND {
+    return begin_ + size_;
+  }
 
   /// Returns a `BitRef` to bit `i`.
   ///

@@ -470,7 +470,8 @@ void TestAvoidsSfinaeLoop() {
     OptionalLike<Poly1> operator()() const { return X{}; }
   };
 
-  [[maybe_unused]] Poly2 p = Poly2{Y{}};
+  auto use_poly2 = [](Poly2) { /*noop*/ };
+  use_poly2(Poly2{Y{}});
 }
 
 // Tests that a nested Poly/Result type avoids a SFINAE loop.
