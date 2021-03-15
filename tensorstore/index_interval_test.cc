@@ -1443,4 +1443,19 @@ static_assert(DividePositiveRoundOut(IndexInterval::UncheckedHalfOpen(-3, 10),
                                      2) ==
               IndexInterval::UncheckedHalfOpen(-2, 5));
 
+TEST(IndexIntervalTest, Negate) {
+  EXPECT_EQ(IndexInterval::UncheckedSized(0, 0),
+            -IndexInterval::UncheckedSized(0, 0));
+  EXPECT_EQ(IndexInterval::UncheckedSized(5, 0),
+            -IndexInterval::UncheckedSized(-5, 0));
+  EXPECT_EQ(
+      IndexInterval::UncheckedClosed(kMaxFiniteIndex, kMaxFiniteIndex),
+      -IndexInterval::UncheckedClosed(-kMaxFiniteIndex, -kMaxFiniteIndex));
+  EXPECT_EQ(IndexInterval(), -IndexInterval());
+  EXPECT_EQ(IndexInterval::UncheckedClosed(-5, 6),
+            -IndexInterval::UncheckedClosed(-6, 5));
+  EXPECT_EQ(IndexInterval::UncheckedClosed(5, 30),
+            -IndexInterval::UncheckedClosed(-30, -5));
+}
+
 }  // namespace

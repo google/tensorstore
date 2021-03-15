@@ -42,9 +42,15 @@ inline constexpr bool IsValidIndex(Index index) {
 /// Represents an interval of index values, with support for +/-inf bounds.
 class IndexInterval {
  public:
-  /// Constructs an interval corresponding to [-inf, +inf].
+  /// Constructs an interval corresponding to `(-inf, +inf)`.
   constexpr IndexInterval() noexcept
       : inclusive_min_(-kInfIndex), size_(kInfSize) {}
+
+  /// Returns an interval corresponding to `(-inf, +inf)`.
+  ///
+  /// This is equivalent to the default constructor, but may be preferred for
+  /// greater clarity.
+  constexpr static IndexInterval Infinite() noexcept { return {}; }
 
   /// Returns `true` if `inclusive_min` and `inclusive_max` specify a valid
   /// interval.
@@ -197,6 +203,15 @@ class IndexInterval {
 
   friend constexpr bool operator!=(IndexInterval a, IndexInterval b) {
     return !(a == b);
+  }
+
+  /// Returns the negated interval.
+  ///
+  /// Note that due to the constraints on `IndexInterval`, this operation cannot
+  /// overflow.
+  constexpr IndexInterval operator-() const {
+    if (size_ == 0) return IndexInterval(-inclusive_min_, 0);
+    return IndexInterval(-inclusive_max(), size());
   }
 
   template <typename H>
