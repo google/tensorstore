@@ -46,6 +46,34 @@ template <typename ElementTagType, DimensionIndex Rank,
           ArrayOriginKind OriginKind, ContainerKind LayoutContainerKind>
 class Array;
 
+namespace internal_array {
+
+/// Returns `true` if `a` and `b` have the same dtype(), shape(), and
+/// contents, but not necessarily the same strides.
+bool CompareArraysEqual(
+    const Array<const void, dynamic_rank, zero_origin, view>& a,
+    const Array<const void, dynamic_rank, zero_origin, view>& b);
+
+/// Returns `true` if `a` and `b` have the same dtype(), shape(), and
+/// contents, but not necessarily the same strides.
+bool CompareArraysEqual(
+    const Array<const void, dynamic_rank, offset_origin, view>& a,
+    const Array<const void, dynamic_rank, offset_origin, view>& b);
+
+/// Copies `source` to `dest`.
+///
+/// \checks source.dtype().type == dest.dtype().type
+void CopyArrayImplementation(
+    const Array<const void, dynamic_rank, offset_origin, view>& source,
+    const Array<void, dynamic_rank, offset_origin, view>& dest);
+
+/// Copies `source` to `dest` with optional data type conversion.
+Status CopyConvertedArrayImplementation(
+    const Array<const void, dynamic_rank, offset_origin, view>& source,
+    const Array<void, dynamic_rank, offset_origin, view>& dest);
+
+}  // namespace internal_array
+
 /// Convenience alias for an in-memory multi-dimensional array with an arbitrary
 /// strided layout with optional shared ownership semantics.
 ///
@@ -840,6 +868,37 @@ class Array {
     return os;
   }
 
+  /// Compares the contents of two arrays for equality.
+  ///
+  /// This overload checks at compile time that the static ranks and element
+  /// types of `a` and `b` are compatible.
+  ///
+  /// \returns true if `a` and `b` have the same shape, data type, and contents.
+  template <typename ElementTagB, DimensionIndex RankB,
+            ArrayOriginKind OriginKindB, ContainerKind CKindB>
+  friend bool operator==(
+      const Array& a, const Array<ElementTagB, RankB, OriginKindB, CKindB>& b) {
+    static_assert(IsRankExplicitlyConvertible(NormalizeRankSpec(Rank),
+                                              NormalizeRankSpec(RankB)),
+                  "tensorstore::Array ranks must be compatible.");
+    static_assert(
+        AreElementTypesCompatible<
+            Element, typename ElementTagTraits<ElementTagB>::Element>::value,
+        "tensorstore::Array element types must be compatible.");
+    using ArrayType =
+        ArrayView<const void, dynamic_rank,
+                  ((OriginKind == OriginKindB) ? OriginKind : offset_origin)>;
+    return internal_array::CompareArraysEqual(ArrayType(a), ArrayType(b));
+  }
+
+  /// Returns `!(a == b)`.
+  template <typename ElementTagB, DimensionIndex RankB,
+            ArrayOriginKind OriginKindB, ContainerKind CKindB>
+  friend bool operator!=(
+      const Array& a, const Array<ElementTagB, RankB, OriginKindB, CKindB>& b) {
+    return !(a == b);
+  }
+
  private:
   struct Storage : public ElementPointer, public Layout {
     Storage() = default;
@@ -1012,34 +1071,6 @@ SharedArray<Element, Rank, OriginKind, LayoutCKind> UnownedToShared(
     SharedArray<Element, Rank, OriginKind, LayoutCKind> array) {
   return {array.element_pointer(), std::move(array.layout())};
 }
-
-namespace internal_array {
-
-/// Returns `true` if `a` and `b` have the same dtype(), shape(), and
-/// contents, but not necessarily the same strides.
-bool CompareArraysEqual(
-    const ArrayView<const void, dynamic_rank, zero_origin>& a,
-    const ArrayView<const void, dynamic_rank, zero_origin>& b);
-
-/// Returns `true` if `a` and `b` have the same dtype(), shape(), and
-/// contents, but not necessarily the same strides.
-bool CompareArraysEqual(
-    const ArrayView<const void, dynamic_rank, offset_origin>& a,
-    const ArrayView<const void, dynamic_rank, offset_origin>& b);
-
-/// Copies `source` to `dest`.
-///
-/// \checks source.dtype().type == dest.dtype().type
-void CopyArrayImplementation(
-    const ArrayView<const void, dynamic_rank, offset_origin>& source,
-    const ArrayView<void, dynamic_rank, offset_origin>& dest);
-
-/// Copies `source` to `dest` with optional data type conversion.
-Status CopyConvertedArrayImplementation(
-    const ArrayView<const void, dynamic_rank, offset_origin>& source,
-    const ArrayView<void, dynamic_rank, offset_origin>& dest);
-
-}  // namespace internal_array
 
 namespace internal {
 SharedElementPointer<void> AllocateArrayLike(
@@ -1595,34 +1626,6 @@ Result<SharedArray<void, Rank, OriginKind>> MakeCopy(
                                       default_init, target_dtype);
   TENSORSTORE_RETURN_IF_ERROR(CopyConvertedArray(source, dest));
   return dest;
-}
-
-/// Compares the contents of two arrays for equality.
-///
-/// This overload checks at compile time that the static ranks and element types
-/// of `a` and `b` are compatible.
-///
-/// \returns true if `a` and `b` have the same shape, data type, and contents.
-template <typename A, typename B>
-std::enable_if_t<IsArray<A>::value && IsArray<B>::value, bool> operator==(
-    const A& a, const B& b) {
-  static_assert(IsRankExplicitlyConvertible(A::static_rank, B::static_rank),
-                "Ranks must be compatible.");
-  static_assert(AreElementTypesCompatible<typename A::Element,
-                                          typename B::Element>::value,
-                "Element types must be compatible.");
-  using ArrayType = ArrayView<const void, dynamic_rank,
-                              (A::array_origin_kind == B::array_origin_kind)
-                                  ? A::array_origin_kind
-                                  : offset_origin>;
-  return internal_array::CompareArraysEqual(ArrayType(a), ArrayType(b));
-}
-
-/// Returns `!(a == b)`.
-template <typename A, typename B>
-std::enable_if_t<IsArray<A>::value && IsArray<B>::value, bool> operator!=(
-    const A& a, const B& b) {
-  return !(a == b);
 }
 
 /// Specializes the HasBoxDomain metafunction for Array.
