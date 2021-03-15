@@ -26,7 +26,7 @@ namespace internal_downsample {
 
 constexpr inline auto DownsampleMethodJsonBinder =
     [](auto is_loading, const auto& options, auto* obj, auto* j) {
-      namespace jb = internal::json_binding;
+      namespace jb = internal_json_binding;
       return jb::Enum<DownsampleMethod, std::string_view>({
           {DownsampleMethod::kStride, "stride"},
           {DownsampleMethod::kMean, "mean"},
@@ -38,16 +38,13 @@ constexpr inline auto DownsampleMethodJsonBinder =
     };
 
 }  // namespace internal_downsample
-
-namespace internal {
-namespace json_binding {
+namespace internal_json_binding {
 
 template <>
 constexpr inline auto DefaultBinder<DownsampleMethod> =
     internal_downsample::DownsampleMethodJsonBinder;
 
-}  // namespace json_binding
-}  // namespace internal
+}  // namespace internal_json_binding
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_DRIVER_DOWNSAMPLE_DOWNSAMPLE_METHOD_JSON_BINDER_H_

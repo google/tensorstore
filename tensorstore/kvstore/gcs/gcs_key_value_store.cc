@@ -75,7 +75,7 @@ using tensorstore::internal_storage_gcs::ParseObjectMetadata;
 
 namespace tensorstore {
 namespace {
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 
 struct GcsRequestConcurrencyResource : public internal::ConcurrencyResource {
   static constexpr char id[] = "gcs_request_concurrency";

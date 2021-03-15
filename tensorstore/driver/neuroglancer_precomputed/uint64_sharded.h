@@ -44,7 +44,7 @@ namespace neuroglancer_uint64_sharded {
 class ShardingSpec {
  public:
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ShardingSpec,
-                                          internal::json_binding::NoOptions,
+                                          internal_json_binding::NoOptions,
                                           tensorstore::IncludeDefaults)
 
   /// Specifies the hash function used to compute the minishard and shard

@@ -20,8 +20,7 @@
 #include "tensorstore/internal/json_bindable.h"
 
 namespace tensorstore {
-namespace internal {
-namespace json_binding {
+namespace internal_json_binding {
 
 /// DataType JSON Binder that requires a valid data type.
 TENSORSTORE_DECLARE_JSON_BINDER(DataTypeJsonBinder, DataType)
@@ -33,13 +32,13 @@ TENSORSTORE_DECLARE_JSON_BINDER(OptionalDataTypeJsonBinder, DataType)
 /// DataType JSON Binder where `options.dtype` specifies both a constraint
 /// and a default value.
 TENSORSTORE_DECLARE_JSON_BINDER(ConstrainedDataTypeJsonBinder, DataType,
-                                ArrayFromJsonOptions, ArrayToJsonOptions)
+                                internal::ArrayFromJsonOptions,
+                                internal::ArrayToJsonOptions)
 
 template <>
 inline constexpr auto DefaultBinder<DataType> = OptionalDataTypeJsonBinder;
 
-}  // namespace json_binding
-}  // namespace internal
+}  // namespace internal_json_binding
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_INTERNAL_DATA_TYPE_JSON_BINDER_H_

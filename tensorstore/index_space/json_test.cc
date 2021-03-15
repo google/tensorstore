@@ -698,7 +698,7 @@ TEST(ParseIndexTransformTest, DuplicateLabels) {
 }
 
 TEST(IndexTransformSpecTest, JsonBinding) {
-  const auto binder = tensorstore::internal::json_binding::Object(
+  const auto binder = tensorstore::internal_json_binding::Object(
       tensorstore::IndexTransformSpecBinder);
   tensorstore::TestJsonBinderRoundTrip<IndexTransformSpec>(
       {
@@ -794,7 +794,7 @@ TEST(IndexBinderTest, Basic) {
           {5, 5},
           {+kMaxFiniteIndex, +kMaxFiniteIndex},
       },
-      tensorstore::internal::json_binding::IndexBinder);
+      tensorstore::internal_json_binding::IndexBinder);
   tensorstore::TestJsonBinderFromJson<Index>(
       {
           {"abc", MatchesStatus(absl::StatusCode::kInvalidArgument)},
@@ -803,7 +803,7 @@ TEST(IndexBinderTest, Basic) {
           {-kInfIndex - 1, MatchesStatus(absl::StatusCode::kInvalidArgument)},
           {kInfIndex + 1, MatchesStatus(absl::StatusCode::kInvalidArgument)},
       },
-      tensorstore::internal::json_binding::IndexBinder);
+      tensorstore::internal_json_binding::IndexBinder);
 }
 
 TEST(IndexIntervalBinderTest, Basic) {

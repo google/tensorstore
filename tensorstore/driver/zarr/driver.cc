@@ -76,7 +76,7 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
   }
 };
 
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 
 class ZarrDriver
     : public internal_kvs_backed_chunk_driver::RegisteredKvsDriver<ZarrDriver> {

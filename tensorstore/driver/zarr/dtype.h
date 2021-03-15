@@ -115,7 +115,7 @@ struct ZarrDType {
   Index bytes_per_outer_element;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrDType,
-                                          internal::json_binding::NoOptions)
+                                          internal_json_binding::NoOptions)
 
   friend void to_json(::nlohmann::json& out,  // NOLINT
                       const ZarrDType& dtype);

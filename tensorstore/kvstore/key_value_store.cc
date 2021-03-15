@@ -77,7 +77,7 @@ Result<KeyValueStoreSpec::Ptr> KeyValueStoreSpec::Convert(
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     KeyValueStoreSpec::Ptr,
     [](auto is_loading, const auto& options, auto* obj, auto* j) {
-      namespace jb = tensorstore::internal::json_binding;
+      namespace jb = tensorstore::internal_json_binding;
       auto& registry = internal::GetKeyValueStoreDriverRegistry();
       return jb::Object(
           jb::Member("driver", registry.KeyBinder()),

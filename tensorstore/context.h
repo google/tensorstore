@@ -92,6 +92,7 @@ class Context {
  public:
   using ToJsonOptions = ContextToJsonOptions;
   using FromJsonOptions = ContextFromJsonOptions;
+
   class Spec {
    public:
     /// Constructs an empty context spec.
@@ -112,10 +113,11 @@ class Context {
   /// This may be used to obtain a `Resource` from a `Context` object.  Named
   /// references are not resolved until the `Resource` is created.
   template <typename Provider>
-  class ResourceSpec
-      : public internal::json_binding::JsonBindable<
-            ResourceSpec<Provider>, FromJsonOptions, ToJsonOptions> {
+  class ResourceSpec {
    public:
+    using ToJsonOptions = ContextToJsonOptions;
+    using FromJsonOptions = ContextFromJsonOptions;
+
     /// Constructs an invalid resource spec.
     ResourceSpec() = default;
 
@@ -132,8 +134,9 @@ class Context {
       return r;
     }
 
+    /// Support for json binding via internal_json_binding::DefaultBinder<>.
     static constexpr auto default_json_binder =
-        internal::json_binding::DefaultValue(
+        internal_json_binding::DefaultValue(
             [](auto* obj) {
               // Use dependent syntax `obj->Default()` rather than `Default()`
               // because `ResourceSpec` is still incomplete.
@@ -155,6 +158,24 @@ class Context {
               }
               return absl::OkStatus();
             });
+
+    Result<::nlohmann::json> ToJson(
+        const ToJsonOptions& options = ToJsonOptions{}) const {
+      return internal_json_binding::ToJson(
+          static_cast<const ResourceSpec&>(*this),
+          internal_json_binding::DefaultBinder<>, options);
+    }
+
+    static Result<ResourceSpec<Provider>> FromJson(
+        ::nlohmann::json j,
+        const FromJsonOptions& options = FromJsonOptions{}) {
+      return internal_json_binding::FromJson<ResourceSpec<Provider>>(
+          std::move(j), internal_json_binding::DefaultBinder<>, options);
+    }
+
+    explicit operator ::nlohmann::json() const {
+      return this->ToJson().value();
+    }
 
    private:
     friend class Context;

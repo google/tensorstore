@@ -36,7 +36,7 @@
 
 namespace {
 
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 using ::nlohmann::json;
 using tensorstore::MatchesStatus;
 using tensorstore::internal::JsonHandleObjectMember;

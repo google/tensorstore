@@ -75,8 +75,8 @@ struct ZarrChunkLayout {
 };
 
 TENSORSTORE_DECLARE_JSON_BINDER(OrderJsonBinder, ContiguousLayoutOrder,
-                                internal::json_binding::NoOptions,
-                                internal::json_binding::NoOptions)
+                                internal_json_binding::NoOptions,
+                                internal_json_binding::NoOptions)
 
 /// Parsed representation of a zarr `.zarray` metadata JSON file.
 struct ZarrMetadata {
@@ -110,7 +110,7 @@ struct ZarrMetadata {
   ZarrChunkLayout chunk_layout;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrMetadata,
-                                          internal::json_binding::NoOptions,
+                                          internal_json_binding::NoOptions,
                                           tensorstore::IncludeDefaults)
 
   /// Appends to `*out` a string that corresponds to the equivalence
@@ -152,7 +152,7 @@ struct ZarrPartialMetadata {
   std::optional<std::vector<SharedArray<const void>>> fill_value;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrPartialMetadata,
-                                          internal::json_binding::NoOptions,
+                                          internal_json_binding::NoOptions,
                                           tensorstore::IncludeDefaults)
 };
 

@@ -61,7 +61,7 @@ Registry& GetRegistry() {
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     MyInterfacePtr,
     [](auto is_loading, const auto& options, auto* obj, ::nlohmann::json* j) {
-      namespace jb = tensorstore::internal::json_binding;
+      namespace jb = tensorstore::internal_json_binding;
       return jb::Object(GetRegistry().MemberBinder("id"))(is_loading, options,
                                                           obj, j);
     })
@@ -80,7 +80,7 @@ class BarImpl : public MyInterface {
 
 struct FooRegistration {
   FooRegistration() {
-    namespace jb = tensorstore::internal::json_binding;
+    namespace jb = tensorstore::internal_json_binding;
     GetRegistry().Register<FooImpl>(
         "foo", jb::Object(jb::Member("x", jb::Projection(&FooImpl::x))));
   }
@@ -88,7 +88,7 @@ struct FooRegistration {
 
 struct BarRegistration {
   BarRegistration() {
-    namespace jb = tensorstore::internal::json_binding;
+    namespace jb = tensorstore::internal_json_binding;
     GetRegistry().Register<BarImpl>(
         "bar", jb::Object(jb::Member("y", jb::Projection(&BarImpl::y))));
   }

@@ -45,7 +45,7 @@ namespace internal {
 namespace {
 
 using tensorstore::MatchesStatus;
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 
 class Cleanup {
  public:

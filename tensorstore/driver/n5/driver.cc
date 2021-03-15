@@ -35,7 +35,7 @@ namespace internal_n5 {
 
 namespace {
 
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 
 constexpr const char kMetadataKey[] = "attributes.json";
 

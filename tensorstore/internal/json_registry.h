@@ -99,11 +99,11 @@ class JsonRegistry {
   /// then this merely copies the JSON object representation as is without any
   /// further parsing.
   ///
-  /// Normally the type-specific object binders using `json_binding::Object`,
-  /// and therefore this should be the last binder specified within an outer
-  /// `json_binding::Object`.  That ensures that all other members are already
-  /// handled when parsing from JSON, and that no existing members will be
-  /// cleared when converting to JSON.
+  /// Normally the type-specific object binders using
+  /// `internal_json_binding::Object`, and therefore this should be the last
+  /// binder specified within an outer `internal_json_binding::Object`.  That
+  /// ensures that all other members are already handled when parsing from JSON,
+  /// and that no existing members will be cleared when converting to JSON.
   constexpr auto RegisteredObjectBinder() {
     return RegisteredObjectBinderImpl{impl_};
   }
@@ -127,7 +127,7 @@ class JsonRegistry {
   /// when loading.
   template <typename MemberName>
   auto MemberBinder(MemberName member_name) {
-    namespace jb = tensorstore::internal::json_binding;
+    namespace jb = tensorstore::internal_json_binding;
     return jb::Sequence(jb::Member(member_name, this->KeyBinder()),
                         RegisteredObjectBinder());
   }

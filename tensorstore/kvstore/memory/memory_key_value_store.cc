@@ -46,7 +46,7 @@
 namespace tensorstore {
 namespace {
 
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 
 TimestampedStorageGeneration GenerationNow(StorageGeneration generation) {
   return TimestampedStorageGeneration{std::move(generation), absl::Now()};

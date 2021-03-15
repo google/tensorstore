@@ -335,7 +335,7 @@ Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj);
 ///       std::optional<int> z;
 ///     };
 ///
-///     namespace jb = tensorstore::internal::json_binding;
+///     namespace jb = tensorstore::internal_json_binding;
 ///
 ///     constexpr auto FooBinder() {
 ///       return jb::Object(
@@ -395,7 +395,9 @@ Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj);
 ///         // Handle saving...
 ///       }
 ///     };
-namespace json_binding {
+
+}  // namespace internal
+namespace internal_json_binding {
 // Defined in separate namespace to work around clang-cl bug
 // https://bugs.llvm.org/show_bug.cgi?id=45213
 namespace require_value_as_binder {
@@ -403,7 +405,7 @@ constexpr inline auto JsonRequireValueAsBinder =
     [](auto is_loading, const auto& options, auto* obj,
        ::nlohmann::json* j) -> Status {
   if constexpr (is_loading) {
-    return JsonRequireValueAs(*j, obj, /*strict=*/true);
+    return internal::JsonRequireValueAs(*j, obj, /*strict=*/true);
   } else {
     *j = *obj;
     return absl::OkStatus();
@@ -433,7 +435,7 @@ constexpr inline auto FloatBinder = [](auto is_loading, const auto& options,
                                        ::nlohmann::json* j) -> Status {
   if constexpr (is_loading) {
     double x;
-    auto status = JsonRequireValueAs(*j, &x, /*strict=*/true);
+    auto status = internal::JsonRequireValueAs(*j, &x, /*strict=*/true);
     if (status.ok()) *obj = x;
     return status;
   } else {
@@ -625,7 +627,7 @@ constexpr auto Sequence(Binder... binder) {
 ///
 /// Example:
 ///
-///     namespace jb = tensorstore::internal::json_binding;
+///     namespace jb = tensorstore::internal_json_binding;
 ///     auto binder = jb::Object(jb::Member("x", jb::Projection(&Foo::x)),
 ///                              jb::Member("y", jb::Projection(&Foo::y)));
 ///
@@ -656,11 +658,11 @@ constexpr auto Object(MemberBinder... member_binder) {
             j_obj->clear();
           }
         }
-        TENSORSTORE_RETURN_IF_ERROR(json_binding::Sequence(member_binder...)(
-            is_loading, options, obj, j_obj));
+        TENSORSTORE_RETURN_IF_ERROR(internal_json_binding::Sequence(
+            member_binder...)(is_loading, options, obj, j_obj));
         if constexpr (is_loading) {
           if (!j_obj->empty()) {
-            return JsonExtraMembersError(*j_obj);
+            return internal::JsonExtraMembersError(*j_obj);
           }
         }
         return absl::OkStatus();
@@ -699,7 +701,7 @@ constexpr auto Member(MemberName name, Binder binder = DefaultBinder<>) {
   return [=](auto is_loading, const auto& options, auto* obj,
              ::nlohmann::json::object_t* j_obj) -> Status {
     if constexpr (is_loading) {
-      ::nlohmann::json j_member = JsonExtractMember(j_obj, name);
+      ::nlohmann::json j_member = internal::JsonExtractMember(j_obj, name);
       return internal_json::MaybeAnnotateMemberError(
           binder(is_loading, options, obj, &j_member), name);
     } else {
@@ -724,7 +726,7 @@ constexpr auto Member(MemberName name, Binder binder = DefaultBinder<>) {
 ///
 /// Example:
 ///
-///     namespace jb = tensorstore::internal::json_binding;
+///     namespace jb = tensorstore::internal_json_binding;
 ///     auto binder = jb::Object(jb::Member("x", &Foo::x),
 ///                              jb::Member("y", &Foo::y),
 ///                              jb::IgnoreExtraMembers);
@@ -749,7 +751,7 @@ constexpr auto IgnoreExtraMembers =
 ///
 /// Example:
 ///
-///     namespace jb = tensorstore::internal::json_binding;
+///     namespace jb = tensorstore::internal_json_binding;
 ///     auto binder = jb::Object(
 ///         jb::Member("x", &Foo::x, DefaultValue([](auto *x) { *x = 10; },
 ///                                               jb::DefaultBinder<int>));
@@ -811,8 +813,8 @@ constexpr auto DefaultValue(GetDefault get_default,
 template <bool DisallowIncludeDefaults = false,
           typename Binder = decltype(DefaultBinder<>)>
 constexpr auto DefaultInitializedValue(Binder binder = DefaultBinder<>) {
-  return json_binding::DefaultValue<DisallowIncludeDefaults>(
-      [](auto* obj) { *obj = remove_cvref_t<decltype(*obj)>{}; },
+  return internal_json_binding::DefaultValue<DisallowIncludeDefaults>(
+      [](auto* obj) { *obj = internal::remove_cvref_t<decltype(*obj)>{}; },
       std::move(binder));
 }
 
@@ -952,7 +954,7 @@ constexpr auto Integer(T min = std::numeric_limits<T>::min(),
   return [=](auto is_loading, const auto& options, auto* obj,
              ::nlohmann::json* j) -> Status {
     if constexpr (is_loading) {
-      return JsonRequireInteger(*j, obj, /*strict=*/true, min, max);
+      return internal::JsonRequireInteger(*j, obj, /*strict=*/true, min, max);
     } else {
       *j = *obj;
       return absl::OkStatus();
@@ -1095,7 +1097,7 @@ constexpr auto Array(GetSize get_size, SetSize set_size, GetElement get_element,
 /// supports `size`, `resize`, and `operator[]`.
 template <typename ElementBinder = decltype(DefaultBinder<>)>
 constexpr auto Array(ElementBinder element_binder = DefaultBinder<>) {
-  return json_binding::Array(
+  return internal_json_binding::Array(
       [](auto& c) { return c.size(); },
       [](auto& c, std::size_t size) { c.resize(size); },
       [](auto& c, std::size_t i) -> decltype(auto) { return c[i]; },
@@ -1106,7 +1108,7 @@ constexpr auto Array(ElementBinder element_binder = DefaultBinder<>) {
 /// supports `std::size` and `operator[]`.
 template <typename ElementBinder = decltype(DefaultBinder<>)>
 constexpr auto FixedSizeArray(ElementBinder element_binder = DefaultBinder<>) {
-  return json_binding::Array(
+  return internal_json_binding::Array(
       [](auto& c) { return std::size(c); },
       [](auto& c, std::size_t new_size) {
         return internal::JsonValidateArrayLength(new_size, std::size(c));
@@ -1120,7 +1122,7 @@ constexpr auto FixedSizeArray(ElementBinder element_binder = DefaultBinder<>) {
 namespace array_binder {
 inline constexpr auto ArrayBinder = [](auto is_loading, const auto& options,
                                        auto* obj, auto* j) -> Status {
-  return json_binding::Array()(is_loading, options, obj, j);
+  return internal_json_binding::Array()(is_loading, options, obj, j);
 };
 }  // namespace array_binder
 
@@ -1129,7 +1131,7 @@ inline constexpr auto ArrayBinder = [](auto is_loading, const auto& options,
 namespace fixed_size_array_binder {
 inline constexpr auto FixedSizeArrayBinder =
     [](auto is_loading, const auto& options, auto* obj, auto* j) -> Status {
-  return json_binding::FixedSizeArray()(is_loading, options, obj, j);
+  return internal_json_binding::FixedSizeArray()(is_loading, options, obj, j);
 };
 }  // namespace fixed_size_array_binder
 using array_binder::ArrayBinder;
@@ -1151,14 +1153,14 @@ constexpr inline auto DefaultBinder<tensorstore::span<T, Extent>> =
 /// Type-erased `Binder` type.
 template <typename T, typename LoadOptions, typename SaveOptions,
           typename JsonValue = ::nlohmann::json, typename... ExtraValue>
-using AnyBinder = Poly<0, /*Copyable=*/true,  //
-                       Status(std::true_type, const LoadOptions&, T* obj,
-                              JsonValue* j, ExtraValue*...) const,
-                       Status(std::false_type, const SaveOptions&, const T* obj,
-                              JsonValue* j, ExtraValue*...) const>;
+using AnyBinder =
+    internal::Poly<0, /*Copyable=*/true,  //
+                   Status(std::true_type, const LoadOptions&, T* obj,
+                          JsonValue* j, ExtraValue*...) const,
+                   Status(std::false_type, const SaveOptions&, const T* obj,
+                          JsonValue* j, ExtraValue*...) const>;
 
-}  // namespace json_binding
-}  // namespace internal
+}  // namespace internal_json_binding
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_INTERNAL_JSON_H_

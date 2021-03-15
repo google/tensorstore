@@ -29,7 +29,7 @@ namespace {
 struct Registration {
   Registration() {
     using internal::BloscCompressor;
-    namespace jb = tensorstore::internal::json_binding;
+    namespace jb = tensorstore::internal_json_binding;
     RegisterCompressor<BloscCompressor>(
         "blosc",
         jb::Object(

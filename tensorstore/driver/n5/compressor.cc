@@ -31,7 +31,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Compressor, [](auto is_loading,
                                                       const auto& options,
                                                       auto* obj,
                                                       ::nlohmann::json* j) {
-  namespace jb = tensorstore::internal::json_binding;
+  namespace jb = tensorstore::internal_json_binding;
   auto& registry = GetCompressorRegistry();
   return jb::Object(
       jb::Member("type", jb::MapValue(

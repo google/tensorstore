@@ -636,7 +636,7 @@ Result<TransformRep::Ptr<>> ParseIndexDomainFromJson(
 
 }  // namespace internal_index_space
 
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 
 TENSORSTORE_DEFINE_JSON_BINDER(
     IndexTransformSpecBinder,

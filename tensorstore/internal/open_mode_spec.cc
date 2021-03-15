@@ -22,7 +22,7 @@
 namespace tensorstore {
 namespace internal {
 
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 namespace {
 struct MaybeOpenCreate {
   std::optional<bool> open;

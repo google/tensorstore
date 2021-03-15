@@ -45,7 +45,7 @@ class BloscCompressor : public internal::JsonSpecifiedCompressor {
   }
 
   static constexpr auto CodecBinder() {
-    namespace jb = tensorstore::internal::json_binding;
+    namespace jb = tensorstore::internal_json_binding;
     return jb::Validate([](const auto& options, std::string* cname) {
       if (cname->find('\0') != std::string::npos ||
           blosc_compname_to_compcode(cname->c_str()) == -1) {

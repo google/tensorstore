@@ -23,8 +23,7 @@
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
-namespace internal {
-namespace json_binding {
+namespace internal_json_binding {
 
 /// JSON binder for arrays indexed by dimensions (length limited by `kMaxRank`).
 ///
@@ -51,7 +50,7 @@ namespace json_binding {
 template <typename ElementBinder = decltype(DefaultBinder<>)>
 constexpr auto DimensionIndexedVector(
     DimensionIndex* rank, ElementBinder element_binder = DefaultBinder<>) {
-  return json_binding::Array(
+  return internal_json_binding::Array(
       [](auto& c) { return c.size(); },
       [rank](auto& c, size_t size) {
         TENSORSTORE_RETURN_IF_ERROR(ValidateRank(size));
@@ -76,8 +75,8 @@ constexpr auto DimensionIndexedVector(
 /// `rank` parameter.
 constexpr auto ShapeVector(DimensionIndex* rank,
                            Index max_size = kInfSize - 1) {
-  return DimensionIndexedVector(rank,
-                                json_binding::Integer<Index>(0, max_size));
+  return DimensionIndexedVector(
+      rank, internal_json_binding::Integer<Index>(0, max_size));
 }
 
 /// JSON binder for dimension-indexed shape arrays, where each element must be
@@ -87,8 +86,8 @@ constexpr auto ShapeVector(DimensionIndex* rank,
 /// `rank` parameter.
 constexpr auto ChunkShapeVector(DimensionIndex* rank,
                                 Index max_size = kInfSize - 1) {
-  return DimensionIndexedVector(rank,
-                                json_binding::Integer<Index>(1, max_size));
+  return DimensionIndexedVector(
+      rank, internal_json_binding::Integer<Index>(1, max_size));
 }
 
 /// JSON binder for dimension-indexed label arrays, where each element is an
@@ -126,8 +125,7 @@ constexpr auto DimensionLabelVector(DimensionIndex* rank) {
   };
 }
 
-}  // namespace json_binding
-}  // namespace internal
+}  // namespace internal_json_binding
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_INTERNAL_DIMENSION_INDEXED_JSON_BINDER_H_

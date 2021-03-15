@@ -115,7 +115,8 @@ Result<SharedArray<void>> JsonParseNestedArray(
     const ::nlohmann::json& j, DataType dtype,
     DimensionIndex rank_constraint = dynamic_rank);
 
-namespace json_binding {
+}  // namespace internal
+namespace internal_json_binding {
 
 /// Returns a binder for a nested JSON array.
 constexpr auto NestedArray(DataType dtype,
@@ -132,9 +133,7 @@ constexpr auto NestedArray(DataType dtype,
   };
 }
 
-}  // namespace json_binding
-
-}  // namespace internal
+}  // namespace internal_json_binding
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_INTERNAL_JSON_ARRAY_H_

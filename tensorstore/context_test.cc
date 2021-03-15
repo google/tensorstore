@@ -48,7 +48,7 @@ struct IntResource : public ContextResourceTraits<IntResource> {
   static constexpr char id[] = "int_resource";
   static Spec Default() { return {42}; }
   static constexpr auto JsonBinder() {
-    namespace jb = tensorstore::internal::json_binding;
+    namespace jb = tensorstore::internal_json_binding;
     return jb::Object(jb::Member(
         "value", jb::Projection(&Spec::value,
                                 jb::DefaultValue([](auto* v) { *v = 42; }))));
@@ -72,7 +72,7 @@ struct StrongRefResource : public ContextResourceTraits<StrongRefResource> {
   static constexpr char id[] = "strongref";
   static Spec Default() { return Spec{42}; }
   static constexpr auto JsonBinder() {
-    namespace jb = tensorstore::internal::json_binding;
+    namespace jb = tensorstore::internal_json_binding;
     return jb::Object(jb::Member(
         "value", jb::Projection(&Spec::value, jb::DefaultValue([](auto* obj) {
           *obj = 7;
@@ -99,7 +99,7 @@ struct OptionalResource : public ContextResourceTraits<OptionalResource> {
   static constexpr char id[] = "optional_resource";
   static Spec Default() { return {}; }
   static constexpr auto JsonBinder() {
-    namespace jb = tensorstore::internal::json_binding;
+    namespace jb = tensorstore::internal_json_binding;
     return jb::DefaultInitializedValue(jb::Object(jb::Member(
         "limit", jb::DefaultInitializedValue(jb::Optional(
                      jb::Integer<size_t>(1), [] { return "shared"; })))));

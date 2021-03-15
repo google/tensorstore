@@ -33,7 +33,7 @@ struct CachePoolResourceTraits
   using Resource = typename CachePoolResource::Resource;
   static constexpr Spec Default() { return {}; }
   static constexpr auto JsonBinder() {
-    namespace jb = tensorstore::internal::json_binding;
+    namespace jb = tensorstore::internal_json_binding;
     return jb::Object(
         jb::Member("total_bytes_limit",
                    jb::Projection(&Spec::total_bytes_limit,

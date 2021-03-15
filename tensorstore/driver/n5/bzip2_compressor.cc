@@ -29,7 +29,7 @@ namespace {
 struct Registration {
   Registration() {
     using internal::Bzip2Compressor;
-    namespace jb = tensorstore::internal::json_binding;
+    namespace jb = tensorstore::internal_json_binding;
     RegisterCompressor<Bzip2Compressor>(
         "bzip2",
         jb::Object(jb::Member(

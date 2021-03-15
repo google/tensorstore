@@ -57,7 +57,7 @@ void JsonRegistryImpl::Register(std::unique_ptr<Entry> entry) {
 absl::Status JsonRegistryImpl::LoadKey(bool allow_unregistered, void* obj,
                                        ::nlohmann::json* j) const {
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto id, internal::json_binding::FromJson<std::string>(std::move(*j)));
+      auto id, internal_json_binding::FromJson<std::string>(std::move(*j)));
   const Entry* entry = nullptr;
   {
     absl::ReaderMutexLock lock(&mutex_);

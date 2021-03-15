@@ -31,12 +31,13 @@ namespace internal {
 /// :json-schema:`https://github.com/google/tensorstore/json-schema/cache-revalidation-bound`.
 TENSORSTORE_DECLARE_JSON_BINDER(StalenessBoundJsonBinder, StalenessBound);
 
-namespace json_binding {
-template <>
-inline constexpr auto DefaultBinder<StalenessBound> = StalenessBoundJsonBinder;
-}  // namespace json_binding
-
 }  // namespace internal
+namespace internal_json_binding {
+template <>
+inline constexpr auto DefaultBinder<StalenessBound> =
+    internal::StalenessBoundJsonBinder;
+
+}  // namespace internal_json_binding
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_INTERNAL_STALENESS_BOUND_JSON_BINDER_H_

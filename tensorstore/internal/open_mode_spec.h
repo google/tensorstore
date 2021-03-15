@@ -51,7 +51,7 @@ struct OpenModeSpec {
 };
 
 TENSORSTORE_DECLARE_JSON_BINDER(OpenModeSpecJsonBinder, OpenModeSpec,
-                                internal::json_binding::NoOptions,
+                                internal_json_binding::NoOptions,
                                 IncludeDefaults, ::nlohmann::json::object_t);
 
 }  // namespace internal

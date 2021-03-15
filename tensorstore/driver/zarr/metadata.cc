@@ -30,7 +30,7 @@
 namespace tensorstore {
 namespace internal_zarr {
 
-namespace jb = internal::json_binding;
+namespace jb = internal_json_binding;
 TENSORSTORE_DEFINE_JSON_BINDER(
     OrderJsonBinder,
     jb::Enum<ContiguousLayoutOrder, std::string_view>({{c_order, "C"},

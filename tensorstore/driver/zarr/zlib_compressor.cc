@@ -32,7 +32,7 @@ struct GzipCompressor : public internal::ZlibCompressor {};
 struct Registration {
   Registration() {
     constexpr auto GetBinder = [](bool use_gzip_header) {
-      namespace jb = tensorstore::internal::json_binding;
+      namespace jb = tensorstore::internal_json_binding;
       return jb::Object(
           jb::Initialize(
               [=](auto* obj) { obj->use_gzip_header = use_gzip_header; }),

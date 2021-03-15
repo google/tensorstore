@@ -21,15 +21,14 @@
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
-namespace internal {
-namespace json_binding {
+namespace internal_json_binding {
 
 TENSORSTORE_DEFINE_JSON_BINDER(DataTypeJsonBinder, [](auto is_loading,
                                                       const auto& options,
                                                       auto* obj,
                                                       ::nlohmann::json* j) {
   if constexpr (is_loading) {
-    return json_binding::Compose<std::string>(
+    return internal_json_binding::Compose<std::string>(
         [](auto is_loading, const auto& options, DataType* obj, auto* id) {
           *obj = tensorstore::GetDataType(*id);
           if (!obj->valid()) {
@@ -82,6 +81,5 @@ TENSORSTORE_DEFINE_JSON_BINDER(
           is_loading, options, obj, j);
     })
 
-}  // namespace json_binding
-}  // namespace internal
+}  // namespace internal_json_binding
 }  // namespace tensorstore

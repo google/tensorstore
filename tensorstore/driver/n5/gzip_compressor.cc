@@ -28,7 +28,7 @@ namespace {
 struct Registration {
   Registration() {
     using internal::ZlibCompressor;
-    namespace jb = tensorstore::internal::json_binding;
+    namespace jb = tensorstore::internal_json_binding;
     RegisterCompressor<ZlibCompressor>(
         "gzip",
         jb::Object(

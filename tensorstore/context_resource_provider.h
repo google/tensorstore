@@ -60,8 +60,8 @@ class ContextResourceCreationContext {
 
 template <typename Spec>
 using AnyContextResourceJsonBinder =
-    json_binding::AnyBinder<Spec, Context::FromJsonOptions,
-                            Context::ToJsonOptions>;
+    internal_json_binding::AnyBinder<Spec, Context::FromJsonOptions,
+                                     Context::ToJsonOptions>;
 
 /// Base class for defining context resources.
 ///

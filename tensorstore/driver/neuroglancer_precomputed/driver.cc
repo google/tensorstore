@@ -38,7 +38,7 @@ namespace internal_neuroglancer_precomputed {
 
 namespace {
 
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 
 template <template <typename> class MaybeBound = internal::ContextUnbound>
 struct SpecT : public internal_kvs_backed_chunk_driver::SpecT<MaybeBound> {

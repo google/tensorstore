@@ -27,7 +27,7 @@ namespace tensorstore {
 namespace internal {
 namespace {
 
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 
 class CastDriver
     : public RegisteredDriver<CastDriver, /*Parent=*/internal::Driver> {

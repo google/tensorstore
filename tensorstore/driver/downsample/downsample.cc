@@ -33,7 +33,7 @@ namespace tensorstore {
 namespace internal {
 namespace {
 
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 
 class DownsampleDriver
     : public RegisteredDriver<DownsampleDriver, /*Parent=*/internal::Driver> {

@@ -86,7 +86,7 @@ class N5Metadata {
   StridedLayout<> chunk_layout;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(N5Metadata,
-                                          internal::json_binding::NoOptions,
+                                          internal_json_binding::NoOptions,
                                           tensorstore::IncludeDefaults)
   std::string GetCompatibilityKey() const;
 };
@@ -121,7 +121,7 @@ class N5MetadataConstraints {
   ::nlohmann::json::object_t extra_attributes;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(N5MetadataConstraints,
-                                          internal::json_binding::NoOptions,
+                                          internal_json_binding::NoOptions,
                                           tensorstore::IncludeDefaults)
 };
 

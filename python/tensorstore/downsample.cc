@@ -67,7 +67,7 @@ bool type_caster<tensorstore::DownsampleMethod>::load(handle src,
   s = std::string_view(data, size);
   tensorstore::internal_python::ThrowStatusException(
       tensorstore::internal_downsample::DownsampleMethodJsonBinder(
-          std::true_type{}, tensorstore::internal::json_binding::NoOptions{},
+          std::true_type{}, tensorstore::internal_json_binding::NoOptions{},
           &value, &s));
   return true;
 }
@@ -78,7 +78,7 @@ handle type_caster<tensorstore::DownsampleMethod>::cast(
   std::string_view s;
   tensorstore::internal_python::ThrowStatusException(
       tensorstore::internal_downsample::DownsampleMethodJsonBinder(
-          std::false_type{}, tensorstore::internal::json_binding::NoOptions{},
+          std::false_type{}, tensorstore::internal_json_binding::NoOptions{},
           &value, &s));
   return pybind11::cast(s).release();
 }

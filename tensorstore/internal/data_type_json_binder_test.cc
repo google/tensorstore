@@ -28,7 +28,7 @@ using tensorstore::DataType;
 using tensorstore::DataTypeOf;
 using tensorstore::MatchesStatus;
 
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 
 struct X {};
 
@@ -58,7 +58,7 @@ TEST(DataTypeJsonBinderTest, FromJson) {
               ::testing::Optional(DataType{}));
   EXPECT_THAT(jb::FromJson<DataType>(
                   ::nlohmann::json(::nlohmann::json::value_t::discarded),
-                  tensorstore::internal::json_binding::DataTypeJsonBinder),
+                  tensorstore::internal_json_binding::DataTypeJsonBinder),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 

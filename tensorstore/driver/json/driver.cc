@@ -29,7 +29,7 @@ namespace tensorstore {
 namespace internal {
 namespace {
 
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 
 Result<::nlohmann::json> DecodeJson(const std::optional<absl::Cord>& data) {
   if (!data) {

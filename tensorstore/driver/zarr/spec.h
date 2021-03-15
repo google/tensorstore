@@ -54,8 +54,8 @@ enum class ChunkKeyEncoding {
 };
 
 TENSORSTORE_DECLARE_JSON_BINDER(ChunkKeyEncodingJsonBinder, ChunkKeyEncoding,
-                                internal::json_binding::NoOptions,
-                                internal::json_binding::NoOptions)
+                                internal_json_binding::NoOptions,
+                                internal_json_binding::NoOptions)
 
 /// An empty string indicates the singleton field if the dtype does not have
 /// fields.

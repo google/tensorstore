@@ -32,7 +32,7 @@
 namespace tensorstore {
 namespace internal_n5 {
 
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 
 namespace {
 

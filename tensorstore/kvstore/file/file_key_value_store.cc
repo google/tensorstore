@@ -168,7 +168,7 @@ using internal_file_util::kLockSuffix;
 using internal_file_util::LongestDirectoryPrefix;
 using internal_file_util::UniqueFileDescriptor;
 
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 
 Status ValidateKey(std::string_view key) {
   if (!IsKeyValid(key, kLockSuffix)) {

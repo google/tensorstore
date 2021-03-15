@@ -41,7 +41,7 @@ Status ValidateSpecRankConstraint(DimensionIndex actual_rank,
              " but received TensorStore of rank ", actual_rank));
 }
 
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     Spec,
     jb::Projection(&Spec::impl_, internal::TransformedDriverSpecJsonBinder))

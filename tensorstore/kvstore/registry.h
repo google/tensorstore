@@ -326,7 +326,7 @@ class KeyValueStoreDriverRegistration {
   KeyValueStoreDriverRegistration() {
     GetKeyValueStoreDriverRegistry()
         .Register<RegisteredKeyValueStoreSpec<Derived>>(
-            Derived::id, json_binding::Projection(
+            Derived::id, internal_json_binding::Projection(
                              &RegisteredKeyValueStoreSpec<Derived>::data_,
                              Derived::json_binder));
   }

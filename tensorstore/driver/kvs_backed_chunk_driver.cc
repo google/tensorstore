@@ -1277,7 +1277,7 @@ DataCache* DriverBase::cache() const {
   return static_cast<DataCache*>(internal::ChunkCacheDriver::cache());
 }
 
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 TENSORSTORE_DEFINE_JSON_BINDER(
     SpecJsonBinder,
     jb::Sequence(

@@ -171,7 +171,7 @@ struct IndexTransformSpecToJsonOptions : public IncludeDefaults,
 /// See documentation of `IndexTransformSpecBinder` below.
 struct IndexTransformSpecFromJsonOptions : public RankConstraint {
   IndexTransformSpecFromJsonOptions(
-      internal::json_binding::NoOptions no_options = {},
+      internal_json_binding::NoOptions no_options = {},
       RankConstraint rank_constraint = {})
       : RankConstraint(rank_constraint) {}
 };
@@ -269,7 +269,7 @@ void to_json(::nlohmann::json& j,  // NOLINT
 Result<IndexInterval> ParseIndexInterval(const ::nlohmann::json& j);
 
 /// JSON object binder for `IndexTransformSpec` (for use with
-/// `tensorstore::internal::json_binding::Object`).
+/// `tensorstore::internal_json_binding::Object`).
 ///
 /// A known rank but unknown transform is represented as: `{"rank": 3}`.
 ///
@@ -297,8 +297,7 @@ TENSORSTORE_DECLARE_JSON_BINDER(
     internal_index_space::IndexTransformSpecToJsonOptions,
     ::nlohmann::json::object_t)
 
-namespace internal {
-namespace json_binding {
+namespace internal_json_binding {
 
 // Defined in separate namespace to work around clang-cl bug
 // https://bugs.llvm.org/show_bug.cgi?id=45213
@@ -378,9 +377,7 @@ template <>
 constexpr inline auto DefaultBinder<IndexInterval> =
     index_interval_binder::IndexIntervalBinder;
 
-}  // namespace json_binding
-}  // namespace internal
-
+}  // namespace internal_json_binding
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_INDEX_SPACE_JSON_H_

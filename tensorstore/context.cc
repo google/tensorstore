@@ -523,7 +523,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Context::Spec, [](auto is_loading,
       return absl::OkStatus();
     }
   }
-  namespace jb = tensorstore::internal::json_binding;
+  namespace jb = tensorstore::internal_json_binding;
   return jb::DefaultValue(
       [](auto* obj) { *obj = Context::Spec(); },
       jb::Compose<::nlohmann::json::object_t>([](auto is_loading,

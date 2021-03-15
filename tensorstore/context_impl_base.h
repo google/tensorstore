@@ -229,7 +229,7 @@ class ContextResourceProviderImpl : public ContextResourceProviderImplBase {
     }
 
     Result<::nlohmann::json> ToJson(ContextToJsonOptions options) override {
-      return internal::json_binding::ToJson(
+      return internal_json_binding::ToJson(
           value_,
           static_cast<const ContextResourceProviderImpl*>(provider_)
               ->traits_.JsonBinder(),
@@ -246,8 +246,8 @@ class ContextResourceProviderImpl : public ContextResourceProviderImplBase {
   Result<ContextResourceSpecImplPtr> FromJson(
       const ::nlohmann::json& j,
       ContextFromJsonOptions options) const override {
-    auto result = internal::json_binding::FromJson<Spec>(
-        j, traits_.JsonBinder(), options);
+    auto result =
+        internal_json_binding::FromJson<Spec>(j, traits_.JsonBinder(), options);
     if (!result) return std::move(result).status();
     return ContextResourceSpecImplPtr(new SpecImpl(std::move(*result)));
   }

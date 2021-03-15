@@ -29,9 +29,7 @@
 ///     auto j = x.ToJson({IncludeDefaults{false}, IncludeContext{true}});
 
 namespace tensorstore {
-
-namespace internal {
-namespace json_binding {
+namespace internal_json_binding {
 
 struct NoOptions {
   constexpr NoOptions() = default;
@@ -39,8 +37,7 @@ struct NoOptions {
   constexpr NoOptions(const T&) {}
 };
 
-}  // namespace json_binding
-}  // namespace internal
+}  // namespace internal_json_binding
 
 /// Specifies whether to defer errors due to unregistered drivers/context
 /// resources until such driver/resource is actually used.  This may be useful
@@ -100,7 +97,7 @@ class ContextFromJsonOptions : public AllowUnregistered {
   constexpr ContextFromJsonOptions(
       AllowUnregistered allow_unregistered = AllowUnregistered{false})
       : AllowUnregistered(allow_unregistered) {}
-  constexpr ContextFromJsonOptions(internal::json_binding::NoOptions)
+  constexpr ContextFromJsonOptions(internal_json_binding::NoOptions)
       : ContextFromJsonOptions() {}
 };
 

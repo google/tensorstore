@@ -311,7 +311,7 @@ class DriverRegistration {
     using Spec = typename Derived::DriverSpecImpl;
     GetDriverRegistry().Register<Spec>(
         Derived::id,
-        json_binding::Projection(&Spec::data_, Derived::json_binder));
+        internal_json_binding::Projection(&Spec::data_, Derived::json_binder));
   }
 };
 

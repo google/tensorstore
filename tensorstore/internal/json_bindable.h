@@ -24,8 +24,7 @@
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
-namespace internal {
-namespace json_binding {
+namespace internal_json_binding {
 
 /// Specifies the default `Binder` for a given unqualified object type.
 ///
@@ -137,7 +136,7 @@ class StaticBinder {
 ///     TENSORSTORE_DEFINE_JSON_BINDER(foo, jb::Object(...));
 ///
 /// To intrusively make a class support JSON binding via
-/// `json_binding::DefaultBinder<>`, use
+/// `internal_json_binding::DefaultBinder<>`, use
 /// `TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER` instead of this macro.
 ///
 #define TENSORSTORE_DECLARE_JSON_BINDER(name, ...)                     \
@@ -152,8 +151,8 @@ class StaticBinder {
 /**/
 
 /// Declares that a class `X` supports JSON binding via
-/// `json_binding::DefaultBinder<>` but requires the binder to be defined in a
-/// separate source file.
+/// `internal_json_binding::DefaultBinder<>` but requires the binder to be
+/// defined in a separate source file.
 ///
 /// Specifically, this macro declares a `default_json_binder` member and also
 /// defines the following convenience methods, just like the `JsonBindable`
@@ -176,7 +175,7 @@ class StaticBinder {
 /// In the implementation source file, define the JSON binder for `X` as follows
 /// (at namespace scope):
 ///
-///     namespace jb = tensorstore::internal::json_binding;
+///     namespace jb = tensorstore::internal_json_binding;
 ///     TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(X, jb::Object(...));
 ///
 #define TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(name, ...)               \
@@ -186,14 +185,14 @@ class StaticBinder {
   tensorstore::Result<JsonBinderImpl::JsonValue> ToJson(                 \
       const JsonBinderImpl::JsonBinderToJsonOptions& options =           \
           JsonBinderImpl::JsonBinderToJsonOptions{}) const {             \
-    return tensorstore::internal::json_binding::ToJson<                  \
+    return tensorstore::internal_json_binding::ToJson<                   \
         JsonBinderImpl::JsonValue>(*this, default_json_binder, options); \
   }                                                                      \
   static tensorstore::Result<name> FromJson(                             \
       JsonBinderImpl::JsonValue j,                                       \
       const JsonBinderImpl::JsonBinderFromJsonOptions& options =         \
           JsonBinderImpl::JsonBinderFromJsonOptions{}) {                 \
-    return tensorstore::internal::json_binding::FromJson<name>(          \
+    return tensorstore::internal_json_binding::FromJson<name>(           \
         std::move(j), default_json_binder, options);                     \
   }                                                                      \
   explicit operator ::nlohmann::json() const {                           \
@@ -214,7 +213,7 @@ class StaticBinder {
 #define TENSORSTORE_INTERNAL_DECLARE_JSON_BINDER_IMPL(name, ...)              \
   class name {                                                                \
     using StaticBinderType =                                                  \
-        ::tensorstore::internal::json_binding::StaticBinder<__VA_ARGS__>;     \
+        ::tensorstore::internal_json_binding::StaticBinder<__VA_ARGS__>;      \
     using Value = typename StaticBinderType::Value;                           \
                                                                               \
    public:                                                                    \
@@ -256,72 +255,7 @@ class StaticBinder {
   }                                                               \
   /**/
 
-/// CRTP base class for defining JSON-bindable types.
-///
-/// It is not necessary to inherit from this type for compatibility with the
-/// JSON binding mechanism and `DefaultBinder`, but doing so provides the
-/// benefit of the `ToJson` and `FromJson` methods as well as explicit
-/// conversion to `::nlohmann::json`.
-///
-/// \tparam Derived Derived class type that inherits from this class and is
-///     compatible with `DefaultBinder`, either by defining a
-///     `default_json_binder` static member or by specializing `DefaultBinder`
-///     directly.  Defining `default_json_binder` is likely to be most
-///     convenient.
-/// \tparam FromJsonOptionsType The options type for converting from JSON.
-/// \tparam ToJsonOptionsType The options type for converting to JSON.
-template <typename Derived, typename FromJsonOptionsType = NoOptions,
-          typename ToJsonOptionsType = IncludeDefaults>
-class JsonBindable {
- public:
-  using ToJsonOptions = ToJsonOptionsType;
-  using FromJsonOptions = FromJsonOptionsType;
-
-  /// Type of `json_binding::StaticBinder` which may optionally be used to
-  /// define JSON bindings for this class in a separately-compiled source file
-  /// rather than in the header.
-  ///
-  /// To use, add a static member to the derived class definition:
-  ///
-  ///     static const StaticBinder default_json_binder;
-  ///
-  /// Then, in the source file, define the `default_json_binder` member as:
-  ///
-  ///     const Derived::StaticBinder Derived::default_json_binder(
-  ///         [](auto is_loading, const auto& options, auto *obj, auto *j) {
-  ///           // ...
-  ///         });
-  ///
-  /// \remark Even if the binder is just composed from an existing binder like
-  ///     `Object`, for compatibility with `StaticBinder` it is still necessary
-  ///     to write it as a capture-less lambda.
-  ///
-  /// \remark If separate compilation is not needed, `default_json_binder` can
-  ///     be defined as a static constexpr member directly in the class
-  ///     definition without the use of `StaticBinder`.  For example:
-  ///
-  ///         static constexpr auto default_json_binder =
-  ///             json_binding::Object(/*...*/);
-  using StaticBinder =
-      json_binding::StaticBinder<Derived, FromJsonOptions, ToJsonOptions>;
-
-  Result<::nlohmann::json> ToJson(
-      const ToJsonOptions& options = ToJsonOptions{}) const {
-    return json_binding::ToJson(static_cast<const Derived&>(*this),
-                                DefaultBinder<>, options);
-  }
-
-  static Result<Derived> FromJson(
-      ::nlohmann::json j, const FromJsonOptions& options = FromJsonOptions{}) {
-    return json_binding::FromJson<Derived>(std::move(j), DefaultBinder<>,
-                                           options);
-  }
-
-  explicit operator ::nlohmann::json() const { return this->ToJson().value(); }
-};
-
-}  // namespace json_binding
-}  // namespace internal
+}  // namespace internal_json_binding
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_INTERNAL_JSON_BINDABLE_H_

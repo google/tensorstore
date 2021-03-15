@@ -68,7 +68,7 @@ namespace tensorstore {
 namespace internal {
 namespace {
 
-namespace jb = tensorstore::internal::json_binding;
+namespace jb = tensorstore::internal_json_binding;
 
 /// Defines the "array" TensorStore driver.
 class ArrayDriver

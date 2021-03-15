@@ -285,12 +285,6 @@ TENSORSTORE_DECLARE_JSON_BINDER(TransformedDriverSpecJsonBinder,
                                 DriverSpecFromJsonOptions,
                                 DriverSpecToJsonOptions, ::nlohmann::json);
 
-namespace json_binding {
-template <>
-inline constexpr auto DefaultBinder<internal::TransformedDriverSpec<>> =
-    internal::TransformedDriverSpecJsonBinder;
-}  // namespace json_binding
-
 /// Abstract base class for defining a TensorStore driver, which serves as the
 /// glue between the public TensorStore API and an arbitrary data
 /// representation.
@@ -615,6 +609,11 @@ absl::Status CopyReadChunk(
     NormalizedTransformedArray<void, dynamic_rank, view> target);
 
 }  // namespace internal
+namespace internal_json_binding {
+template <>
+inline constexpr auto DefaultBinder<internal::TransformedDriverSpec<>> =
+    internal::TransformedDriverSpecJsonBinder;
+}  // namespace internal_json_binding
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_DRIVER_DRIVER_H_
