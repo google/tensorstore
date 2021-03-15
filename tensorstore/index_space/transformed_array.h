@@ -154,7 +154,7 @@ class TransformedArray {
   using Pointer = typename ElementPointer::Pointer;
   using Transform = typename LayoutStorage::Transform;
   using Element = typename ElementPointer::Element;
-  using DataType = StaticOrDynamicDataTypeOf<Element>;
+  using DataType = dtype_t<Element>;
   constexpr static DimensionIndex static_rank = Transform::static_input_rank;
   constexpr static ContainerKind layout_container_kind = LayoutCKind;
   using RankType = StaticOrDynamicRank<static_rank>;
@@ -678,7 +678,7 @@ class NormalizedTransformedArray {
   using Pointer = typename ElementPointer::Pointer;
   using Transform = IndexTransform<Rank, dynamic_rank, LayoutCKind>;
   using Element = typename ElementPointer::Element;
-  using DataType = StaticOrDynamicDataTypeOf<Element>;
+  using DataType = dtype_t<Element>;
   constexpr static DimensionIndex static_rank = Transform::static_input_rank;
   constexpr static ContainerKind layout_container_kind = LayoutCKind;
   using RankType = StaticOrDynamicRank<static_rank>;

@@ -18,7 +18,7 @@
 /// \file
 /// Defines the `ElementPointer` and `SharedElementPointer` classes that combine
 /// a raw pointer or shared_ptr to an `Element` with a
-/// `StaticOrDynamicDataTypeOf<Element>` value.
+/// `dtype_t<Element>` value.
 
 #include <cstddef>
 #include <memory>
@@ -245,7 +245,7 @@ class ElementPointer {
   using Pointer = typename Traits::Pointer;
   using element_type = typename std::pointer_traits<Pointer>::element_type;
   using Element = element_type;
-  using DataType = StaticOrDynamicDataTypeOf<Element>;
+  using DataType = dtype_t<Element>;
 
   /// For compatibility with `std::pointer_traits`.
   template <typename OtherElement>
@@ -288,7 +288,7 @@ class ElementPointer {
   ///
   /// \param pointer The element pointer.
   /// \post `this->pointer() == pointer`
-  /// \post `this->dtype() == DataTypeOf<SourcePointer::element_type>()`
+  /// \post `this->dtype() == dtype_v<SourcePointer::element_type>`
   template <
       typename SourcePointer,
       std::enable_if_t<
@@ -297,8 +297,8 @@ class ElementPointer {
           IsArrayBasePointerConvertible<internal::remove_cvref_t<SourcePointer>,
                                         Pointer>::value>* = nullptr>
   ElementPointer(SourcePointer&& pointer)
-      : storage_(DataTypeOf<typename std::pointer_traits<
-                     internal::remove_cvref_t<SourcePointer>>::element_type>(),
+      : storage_(dtype_v<typename std::pointer_traits<
+                     internal::remove_cvref_t<SourcePointer>>::element_type>,
                  internal::static_pointer_cast<Element>(
                      internal_element_pointer::ConvertPointer<Pointer>(
                          std::forward<SourcePointer>(pointer)))) {}
@@ -314,7 +314,7 @@ class ElementPointer {
       std::enable_if_t<IsArrayBasePointerConvertible<
           internal::remove_cvref_t<SourcePointer>, Pointer>::value>* = nullptr>
   ElementPointer(SourcePointer&& pointer,
-                 StaticOrDynamicDataTypeOf<typename std::pointer_traits<
+                 dtype_t<typename std::pointer_traits<
                      internal::remove_cvref_t<SourcePointer>>::element_type>
                      dtype)
       : storage_(dtype, internal::static_pointer_cast<Element>(

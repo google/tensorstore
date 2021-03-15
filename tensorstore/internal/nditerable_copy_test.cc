@@ -46,7 +46,7 @@
 
 namespace {
 
-using tensorstore::DataTypeOf;
+using tensorstore::dtype_v;
 using tensorstore::Index;
 using tensorstore::MakeArray;
 using tensorstore::Shared;
@@ -76,8 +76,8 @@ TEST(NDIterableCopyTest, Example) {
   auto source_iterable =
       GetTransformedArrayNDIterable(source_array, &arena).value();
   auto dest_iterable = GetElementwiseOutputTransformNDIterable(
-      GetTransformedArrayNDIterable(dest_array, &arena).value(),
-      DataTypeOf<int>(), dest_closure, &arena);
+      GetTransformedArrayNDIterable(dest_array, &arena).value(), dtype_v<int>,
+      dest_closure, &arena);
   tensorstore::internal::NDIterableCopier copier(
       *source_iterable, *dest_iterable, dest_array.shape(),
       tensorstore::c_order, &arena);
@@ -109,10 +109,10 @@ absl::Status TestCopy(tensorstore::IterationConstraints constraints,
           absl::Status*>::Closure(&dest_element_transform);
   auto source_iterable = GetElementwiseInputTransformNDIterable(
       {{GetTransformedArrayNDIterable(source_array, &arena).value()}},
-      DataTypeOf<IntermediateElement>(), source_closure, &arena);
+      dtype_v<IntermediateElement>, source_closure, &arena);
   auto dest_iterable = GetElementwiseOutputTransformNDIterable(
       GetTransformedArrayNDIterable(dest_array, &arena).value(),
-      DataTypeOf<IntermediateElement>(), dest_closure, &arena);
+      dtype_v<IntermediateElement>, dest_closure, &arena);
   return tensorstore::internal::NDIterableCopier(
              *source_iterable, *dest_iterable, dest_array.shape(), constraints,
              &arena)

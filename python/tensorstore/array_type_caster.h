@@ -87,7 +87,7 @@ std::shared_ptr<Element> GetSharedPtrFromNumpyArray(pybind11::array array_obj) {
 template <typename Element>
 std::enable_if_t<!std::is_void<Element>::value, SharedElementPointer<Element>>
 GetSharedElementPointerFromNumpyArray(pybind11::array array_obj) {
-  assert(GetDataTypeOrThrow(array_obj.dtype()) == DataTypeOf<Element>());
+  assert(GetDataTypeOrThrow(array_obj.dtype()) == dtype_v<Element>);
   return GetSharedPtrFromNumpyArray<Element>(std::move(array_obj));
 }
 
@@ -154,7 +154,7 @@ template <typename Element, DimensionIndex Rank = dynamic_rank,
           bool NoThrow = false, bool AllowCopy = std::is_const_v<Element>>
 std::conditional_t<NoThrow, bool, void> ConvertToArray(
     pybind11::handle src, SharedArray<Element, Rank>* out,
-    StaticOrDynamicDataTypeOf<Element> data_type_constraint = {},
+    dtype_t<Element> data_type_constraint = {},
     StaticOrDynamicRank<Rank> min_rank = GetDefaultRank<Rank>(),
     StaticOrDynamicRank<Rank> max_rank = GetDefaultRank<Rank>()) {
   SharedArray<void, dynamic_rank> dynamic_out;

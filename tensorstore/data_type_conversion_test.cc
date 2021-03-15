@@ -33,7 +33,7 @@ namespace {
 using namespace tensorstore::data_types;  // NOLINT
 using tensorstore::DataTypeConversionFlags;
 using tensorstore::DataTypeConversionTraits;
-using tensorstore::DataTypeOf;
+using tensorstore::dtype_v;
 using tensorstore::Index;
 using tensorstore::IsDataTypeConversionSupported;
 using tensorstore::MatchesStatus;
@@ -59,16 +59,16 @@ void TestUnsupported() {
   static_assert(DataTypeConversionTraits<From, To>::flags ==
                 DataTypeConversionFlags{});
   static_assert(!IsDataTypeConversionSupported<From, To>::value);
-  auto r = GetDataTypeConverter(DataTypeOf<From>(), DataTypeOf<To>());
+  auto r = GetDataTypeConverter(dtype_v<From>, dtype_v<To>);
   EXPECT_EQ(DataTypeConversionFlags{}, r.flags);
 }
 
 template <typename To, typename From>
 Result<To> TestConversion(
     From from, DataTypeConversionFlags flags = DataTypeConversionFlags{}) {
-  SCOPED_TRACE(StrCat("TestConversion<To=", DataTypeOf<To>(),
-                      ", From=", DataTypeOf<From>(), ">")
-                   .c_str());
+  SCOPED_TRACE(
+      StrCat("TestConversion<To=", dtype_v<To>, ", From=", dtype_v<From>, ">")
+          .c_str());
   flags = flags | kSupported;
   if (!std::is_same<To, From>::value) {
     EXPECT_EQ(flags, (DataTypeConversionTraits<From, To>::flags));
@@ -76,7 +76,7 @@ Result<To> TestConversion(
   EXPECT_EQ(!!(flags & kSafeAndImplicit),
             (IsDataTypeConversionSupported<From, To, kSafeAndImplicit>::value));
   EXPECT_TRUE((IsDataTypeConversionSupported<From, To>::value));
-  auto r = GetDataTypeConverter(DataTypeOf<From>(), DataTypeOf<To>());
+  auto r = GetDataTypeConverter(dtype_v<From>, dtype_v<To>);
   EXPECT_EQ(flags, r.flags);
   To value;
   absl::Status status;
@@ -694,23 +694,23 @@ TEST(DataTypeConversionTest, Json) {
 
 TEST(GetDataTypeConverterOrErrorTest, Basic) {
   EXPECT_EQ(absl::OkStatus(),
-            GetStatus(GetDataTypeConverterOrError(DataTypeOf<std::int32_t>(),
-                                                  DataTypeOf<std::int32_t>())));
+            GetStatus(GetDataTypeConverterOrError(dtype_v<std::int32_t>,
+                                                  dtype_v<std::int32_t>)));
   EXPECT_EQ(absl::OkStatus(),
             GetStatus(GetDataTypeConverterOrError(
-                DataTypeOf<int32_t>(), DataTypeOf<int32_t>(), kIdentity)));
-  EXPECT_EQ(absl::OkStatus(), GetStatus(GetDataTypeConverterOrError(
-                                  DataTypeOf<int32_t>(), DataTypeOf<int64_t>(),
-                                  kSafeAndImplicit)));
-  EXPECT_EQ(absl::OkStatus(), GetStatus(GetDataTypeConverterOrError(
-                                  DataTypeOf<int32_t>(), DataTypeOf<uint32_t>(),
-                                  kCanReinterpretCast)));
-  EXPECT_THAT(GetDataTypeConverterOrError(DataTypeOf<json_t>(),
-                                          DataTypeOf<complex64_t>()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Cannot convert json -> complex64"));
+                dtype_v<int32_t>, dtype_v<int32_t>, kIdentity)));
+  EXPECT_EQ(absl::OkStatus(),
+            GetStatus(GetDataTypeConverterOrError(
+                dtype_v<int32_t>, dtype_v<int64_t>, kSafeAndImplicit)));
+  EXPECT_EQ(absl::OkStatus(),
+            GetStatus(GetDataTypeConverterOrError(
+                dtype_v<int32_t>, dtype_v<uint32_t>, kCanReinterpretCast)));
   EXPECT_THAT(
-      GetDataTypeConverterOrError(DataTypeOf<uint32_t>(), DataTypeOf<int32_t>(),
+      GetDataTypeConverterOrError(dtype_v<json_t>, dtype_v<complex64_t>),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Cannot convert json -> complex64"));
+  EXPECT_THAT(
+      GetDataTypeConverterOrError(dtype_v<uint32_t>, dtype_v<int32_t>,
                                   kSafeAndImplicit),
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,

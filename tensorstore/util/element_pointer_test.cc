@@ -28,7 +28,7 @@
 namespace {
 
 using tensorstore::DataType;
-using tensorstore::DataTypeOf;
+using tensorstore::dtype_v;
 using tensorstore::ElementPointer;
 using tensorstore::ElementTagTraits;
 using tensorstore::IsElementTag;
@@ -183,14 +183,14 @@ TEST(ElementPointerTest, StaticType) {
   ElementPointer<float> p = &value;
   EXPECT_EQ(&value, p.data());
   EXPECT_EQ(&value, p.pointer());
-  EXPECT_EQ(DataTypeOf<float>(), p.dtype());
+  EXPECT_EQ(dtype_v<float>, p.dtype());
 
   // Test implicit construction of `ElementPointer<const float>` from
   // `ElementPointer<float>`.
   {
     ElementPointer<const float> p_const = p;
     EXPECT_EQ(&value, p_const.data());
-    EXPECT_EQ(DataTypeOf<float>(), p_const.dtype());
+    EXPECT_EQ(dtype_v<float>, p_const.dtype());
     p_const.pointer() = nullptr;
     EXPECT_EQ(nullptr, p_const.data());
   }
@@ -261,12 +261,12 @@ TEST(ElementPointerTest, DynamicType) {
   {
     ElementPointer<void> p = &value;
     EXPECT_EQ(&value, p.data());
-    EXPECT_EQ(DataTypeOf<float>(), p.dtype());
+    EXPECT_EQ(dtype_v<float>, p.dtype());
   }
   {
-    ElementPointer<void> p = {static_cast<void*>(&value), DataTypeOf<float>()};
+    ElementPointer<void> p = {static_cast<void*>(&value), dtype_v<float>};
     EXPECT_EQ(&value, p.data());
-    EXPECT_EQ(DataTypeOf<float>(), p.dtype());
+    EXPECT_EQ(dtype_v<float>, p.dtype());
   }
 
   static_assert(!std::is_assignable<ElementPointer<void>,
@@ -293,7 +293,7 @@ TEST(ElementPointerTest, DynamicType) {
 
     ElementPointer<void> p_copy = p;
     EXPECT_EQ(&value, p_copy.data());
-    EXPECT_EQ(DataTypeOf<float>(), p_copy.dtype());
+    EXPECT_EQ(dtype_v<float>, p_copy.dtype());
   }
 
   // Copy assignment from `ElementPointer<void>`.
@@ -304,7 +304,7 @@ TEST(ElementPointerTest, DynamicType) {
     ElementPointer<void> p_copy;
     p_copy = p;
     EXPECT_EQ(&value, p.data());
-    EXPECT_EQ(DataTypeOf<float>(), p.dtype());
+    EXPECT_EQ(dtype_v<float>, p.dtype());
   }
 
   // Assignment from ElementPointer<float>.
@@ -312,7 +312,7 @@ TEST(ElementPointerTest, DynamicType) {
     ElementPointer<void> p;
     p = ElementPointer<float>(&value);
     EXPECT_EQ(&value, p.data());
-    EXPECT_EQ(DataTypeOf<float>(), p.dtype());
+    EXPECT_EQ(dtype_v<float>, p.dtype());
   }
 
   // Assignment from float*.
@@ -320,7 +320,7 @@ TEST(ElementPointerTest, DynamicType) {
     ElementPointer<void> p;
     p = &value;
     EXPECT_EQ(&value, p.data());
-    EXPECT_EQ(DataTypeOf<float>(), p.dtype());
+    EXPECT_EQ(dtype_v<float>, p.dtype());
   }
 
   // Assignment from SharedElementPointer<float>.
@@ -329,7 +329,7 @@ TEST(ElementPointerTest, DynamicType) {
     std::shared_ptr<float> shared_value = std::make_shared<float>();
     p = SharedElementPointer<float>(shared_value);
     EXPECT_EQ(shared_value.get(), p.data());
-    EXPECT_EQ(DataTypeOf<float>(), p.dtype());
+    EXPECT_EQ(dtype_v<float>, p.dtype());
   }
 
   // Assignment from SharedElementPointer<float>.
@@ -338,7 +338,7 @@ TEST(ElementPointerTest, DynamicType) {
     std::shared_ptr<float> shared_value = std::make_shared<float>();
     p = SharedElementPointer<void>(shared_value);
     EXPECT_EQ(shared_value.get(), p.data());
-    EXPECT_EQ(DataTypeOf<float>(), p.dtype());
+    EXPECT_EQ(dtype_v<float>, p.dtype());
   }
 }
 
@@ -360,7 +360,7 @@ TEST(SharedElementPointerTest, StaticType) {
   std::shared_ptr<float> value = std::make_shared<float>();
   SharedElementPointer<float> p = value;
   EXPECT_EQ(value.get(), p.data());
-  EXPECT_EQ(DataTypeOf<float>(), p.dtype());
+  EXPECT_EQ(dtype_v<float>, p.dtype());
 
   {
     // Test copy construction of `SharedElementPointer<float>` from
@@ -479,7 +479,7 @@ TEST(SharedElementPointerTest, DynamicType) {
   std::shared_ptr<float> value = std::make_shared<float>();
   SharedElementPointer<void> p = value;
   EXPECT_EQ(value.get(), p.data());
-  EXPECT_EQ(DataTypeOf<float>(), p.dtype());
+  EXPECT_EQ(dtype_v<float>, p.dtype());
 }
 
 TEST(ElementPointerTest, Deduction) {

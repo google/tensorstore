@@ -31,7 +31,7 @@ namespace {
 using tensorstore::Cast;
 using tensorstore::Context;
 using tensorstore::DataTypeConversionFlags;
-using tensorstore::DataTypeOf;
+using tensorstore::dtype_v;
 using tensorstore::Index;
 using tensorstore::MakeArray;
 using tensorstore::MatchesStatus;
@@ -167,8 +167,8 @@ TEST(GetCastDataTypeConversions, Basic) {
 
   for (const auto existing_mode : {read, write, read_write}) {
     for (const auto required_mode : {existing_mode, dynamic}) {
-      EXPECT_THAT(GetCastDataTypeConversions(DataTypeOf<std::int32_t>(),
-                                             DataTypeOf<std::int32_t>(),
+      EXPECT_THAT(GetCastDataTypeConversions(dtype_v<std::int32_t>,
+                                             dtype_v<std::int32_t>,
                                              existing_mode, required_mode),
                   MatchesCastDataTypeConversions(
                       /*input_flags=*/IfMode(existing_mode, read, kAll),
@@ -179,33 +179,33 @@ TEST(GetCastDataTypeConversions, Basic) {
 
   for (const auto existing_mode : {read, write, read_write}) {
     for (const auto required_mode : {existing_mode, dynamic}) {
-      EXPECT_THAT(GetCastDataTypeConversions(DataTypeOf<std::int32_t>(),
-                                             DataTypeOf<float>(), existing_mode,
-                                             required_mode),
-                  MatchesCastDataTypeConversions(
-                      /*input_flags=*/IfMode(existing_mode, read, kSupported),
-                      /*output_flags=*/IfMode(existing_mode, write, kSupported),
-                      /*mode=*/existing_mode));
+      EXPECT_THAT(
+          GetCastDataTypeConversions(dtype_v<std::int32_t>, dtype_v<float>,
+                                     existing_mode, required_mode),
+          MatchesCastDataTypeConversions(
+              /*input_flags=*/IfMode(existing_mode, read, kSupported),
+              /*output_flags=*/IfMode(existing_mode, write, kSupported),
+              /*mode=*/existing_mode));
     }
   }
 
   for (const auto existing_mode : {read, write, read_write}) {
     for (const auto required_mode : {existing_mode, dynamic}) {
-      EXPECT_THAT(GetCastDataTypeConversions(DataTypeOf<std::int16_t>(),
-                                             DataTypeOf<float>(), existing_mode,
-                                             required_mode),
-                  MatchesCastDataTypeConversions(
-                      /*input_flags=*/IfMode(existing_mode, read,
-                                             kSupported | kSafeAndImplicit),
-                      /*output_flags=*/IfMode(existing_mode, write, kSupported),
-                      /*mode=*/existing_mode));
+      EXPECT_THAT(
+          GetCastDataTypeConversions(dtype_v<std::int16_t>, dtype_v<float>,
+                                     existing_mode, required_mode),
+          MatchesCastDataTypeConversions(
+              /*input_flags=*/IfMode(existing_mode, read,
+                                     kSupported | kSafeAndImplicit),
+              /*output_flags=*/IfMode(existing_mode, write, kSupported),
+              /*mode=*/existing_mode));
     }
   }
 
   for (const auto existing_mode : {read, read_write}) {
     for (const auto required_mode : {read, dynamic}) {
-      EXPECT_THAT(GetCastDataTypeConversions(DataTypeOf<std::int32_t>(),
-                                             DataTypeOf<std::string>(),
+      EXPECT_THAT(GetCastDataTypeConversions(dtype_v<std::int32_t>,
+                                             dtype_v<std::string>,
                                              existing_mode, required_mode),
                   MatchesCastDataTypeConversions(
                       /*input_flags=*/kSupported,
@@ -215,23 +215,23 @@ TEST(GetCastDataTypeConversions, Basic) {
   }
 
   for (const auto required_mode : {write, read_write}) {
-    EXPECT_THAT(GetCastDataTypeConversions(DataTypeOf<std::int32_t>(),
-                                           DataTypeOf<std::string>(),
-                                           read_write, required_mode),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+    EXPECT_THAT(
+        GetCastDataTypeConversions(dtype_v<std::int32_t>, dtype_v<std::string>,
+                                   read_write, required_mode),
+        MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 
   for (const auto required_mode : {write, dynamic}) {
-    EXPECT_THAT(GetCastDataTypeConversions(DataTypeOf<std::int32_t>(),
-                                           DataTypeOf<std::string>(), write,
-                                           required_mode),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+    EXPECT_THAT(
+        GetCastDataTypeConversions(dtype_v<std::int32_t>, dtype_v<std::string>,
+                                   write, required_mode),
+        MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 
   for (const auto existing_mode : {write, read_write}) {
     for (const auto required_mode : {write, dynamic}) {
-      EXPECT_THAT(GetCastDataTypeConversions(DataTypeOf<std::string>(),
-                                             DataTypeOf<std::int32_t>(),
+      EXPECT_THAT(GetCastDataTypeConversions(dtype_v<std::string>,
+                                             dtype_v<std::int32_t>,
                                              existing_mode, required_mode),
                   MatchesCastDataTypeConversions(
                       /*input_flags=*/kNone,
@@ -241,25 +241,25 @@ TEST(GetCastDataTypeConversions, Basic) {
   }
 
   for (const auto required_mode : {read, dynamic}) {
-    EXPECT_THAT(GetCastDataTypeConversions(DataTypeOf<std::string>(),
-                                           DataTypeOf<std::int32_t>(), read,
-                                           required_mode),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+    EXPECT_THAT(
+        GetCastDataTypeConversions(dtype_v<std::string>, dtype_v<std::int32_t>,
+                                   read, required_mode),
+        MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 
   for (const auto required_mode : {read, read_write}) {
-    EXPECT_THAT(GetCastDataTypeConversions(DataTypeOf<std::string>(),
-                                           DataTypeOf<std::int32_t>(),
-                                           read_write, required_mode),
-                MatchesStatus(absl::StatusCode::kInvalidArgument));
+    EXPECT_THAT(
+        GetCastDataTypeConversions(dtype_v<std::string>, dtype_v<std::int32_t>,
+                                   read_write, required_mode),
+        MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 
   for (const auto existing_mode : {read, write, read_write}) {
     for (const auto required_mode : {read, write, read_write, dynamic}) {
       if ((existing_mode & required_mode) != required_mode) continue;
       EXPECT_THAT(GetCastDataTypeConversions(
-                      DataTypeOf<std::byte>(), DataTypeOf<std::string>(),
-                      existing_mode, required_mode & existing_mode),
+                      dtype_v<std::byte>, dtype_v<std::string>, existing_mode,
+                      required_mode & existing_mode),
                   MatchesStatus(absl::StatusCode::kInvalidArgument));
     }
   }
@@ -273,7 +273,7 @@ TEST(CastTest, Int32ToStringDynamic) {
           .result());
   EXPECT_EQ(store.read_write_mode(), ReadWriteMode::read_write);
   ASSERT_EQ(tensorstore::Box<1>({3}), store.domain().box());
-  auto cast_store = Cast(store, DataTypeOf<std::string>()).value();
+  auto cast_store = Cast(store, dtype_v<std::string>).value();
   EXPECT_EQ(cast_store.read_write_mode(), ReadWriteMode::read);
   EXPECT_EQ(tensorstore::Read<zero_origin>(cast_store).result(),
             MakeArray<std::string>({"1", "2", "3"}));
@@ -300,7 +300,7 @@ TEST(CastTest, StringToInt32Dynamic) {
                                      {"dtype", "string"}})
                       .result());
   EXPECT_EQ(store.read_write_mode(), ReadWriteMode::read_write);
-  auto cast_store = Cast(store, DataTypeOf<std::int32_t>()).value();
+  auto cast_store = Cast(store, dtype_v<std::int32_t>).value();
   EXPECT_EQ(cast_store.read_write_mode(), ReadWriteMode::write);
   EXPECT_EQ(absl::OkStatus(),
             GetStatus(tensorstore::Write(MakeArray<std::int32_t>({1, 2, 3}),

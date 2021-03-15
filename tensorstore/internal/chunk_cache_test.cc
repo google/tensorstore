@@ -455,9 +455,9 @@ TEST_F(ChunkCacheTest, DriverDataType) {
 
   auto cache = MakeChunkCache();
 
-  EXPECT_EQ(tensorstore::DataTypeOf<int>(), MakeDriver(cache, 0)->dtype());
+  EXPECT_EQ(tensorstore::dtype_v<int>, MakeDriver(cache, 0)->dtype());
 
-  EXPECT_EQ(tensorstore::DataTypeOf<float>(), MakeDriver(cache, 1)->dtype());
+  EXPECT_EQ(tensorstore::dtype_v<float>, MakeDriver(cache, 1)->dtype());
 }
 
 // Tests reading of existing data.

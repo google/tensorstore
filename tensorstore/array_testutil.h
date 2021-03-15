@@ -39,7 +39,7 @@ class ArrayMatcherImpl
       OffsetArrayView<const void> value_untyped,
       ::testing::MatchResultListener* listener) const override {
     const bool listener_interested = listener->IsInterested();
-    if (value_untyped.dtype() != DataTypeOf<Element>()) {
+    if (value_untyped.dtype() != dtype_v<Element>) {
       if (listener_interested) {
         *listener << "which has a data type of " << value_untyped.dtype();
       }
@@ -99,7 +99,7 @@ class ArrayMatcherImpl
   }
 
   void DescribeTo(std::ostream* os) const override {
-    *os << "has a data type of " << DataTypeOf<Element>() << " and a domain of "
+    *os << "has a data type of " << dtype_v<Element> << " and a domain of "
         << element_matchers_.domain();
     if (!element_matchers_.domain().is_empty()) {
       *os << " where\n";
@@ -117,8 +117,9 @@ class ArrayMatcherImpl
   }
 
   void DescribeNegationTo(std::ostream* os) const override {
-    *os << "doesn't have a data type of " << DataTypeOf<Element>()
-        << ", or\ndoesn't have a domain of " << element_matchers_.domain();
+    *os << "doesn't have a data type of "
+        << dtype_v<Element> << ", or\ndoesn't have a domain of "
+        << element_matchers_.domain();
     IterateOverIndexRange(element_matchers_.domain(),
                           [&](span<const Index> indices) {
                             *os << ", or\nelement at " << indices << " ";

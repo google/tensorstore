@@ -27,7 +27,7 @@ namespace {
 using tensorstore::complex128_t;
 using tensorstore::complex64_t;
 using tensorstore::DataType;
-using tensorstore::DataTypeOf;
+using tensorstore::dtype_v;
 using tensorstore::endian;
 using tensorstore::float16_t;
 using tensorstore::float32_t;
@@ -47,38 +47,38 @@ void CheckBaseDType(std::string dtype, DataType r, endian e,
 }
 
 TEST(ParseBaseDType, Success) {
-  CheckBaseDType("|b1", DataTypeOf<bool>(), endian::native, {});
-  CheckBaseDType("|S150", DataTypeOf<char>(), endian::native, {150});
-  CheckBaseDType("|S9223372036854775807", DataTypeOf<char>(), endian::native,
+  CheckBaseDType("|b1", dtype_v<bool>, endian::native, {});
+  CheckBaseDType("|S150", dtype_v<char>, endian::native, {150});
+  CheckBaseDType("|S9223372036854775807", dtype_v<char>, endian::native,
                  {9223372036854775807});
-  CheckBaseDType("|V150", DataTypeOf<std::byte>(), endian::native, {150});
-  CheckBaseDType("|i1", DataTypeOf<std::int8_t>(), endian::native, {});
-  CheckBaseDType("|u1", DataTypeOf<std::uint8_t>(), endian::native, {});
-  CheckBaseDType("<i2", DataTypeOf<std::int16_t>(), endian::little, {});
-  CheckBaseDType("<i4", DataTypeOf<std::int32_t>(), endian::little, {});
-  CheckBaseDType("<i8", DataTypeOf<std::int64_t>(), endian::little, {});
-  CheckBaseDType("<u2", DataTypeOf<std::uint16_t>(), endian::little, {});
-  CheckBaseDType("<u4", DataTypeOf<std::uint32_t>(), endian::little, {});
-  CheckBaseDType("<u8", DataTypeOf<std::uint64_t>(), endian::little, {});
+  CheckBaseDType("|V150", dtype_v<std::byte>, endian::native, {150});
+  CheckBaseDType("|i1", dtype_v<std::int8_t>, endian::native, {});
+  CheckBaseDType("|u1", dtype_v<std::uint8_t>, endian::native, {});
+  CheckBaseDType("<i2", dtype_v<std::int16_t>, endian::little, {});
+  CheckBaseDType("<i4", dtype_v<std::int32_t>, endian::little, {});
+  CheckBaseDType("<i8", dtype_v<std::int64_t>, endian::little, {});
+  CheckBaseDType("<u2", dtype_v<std::uint16_t>, endian::little, {});
+  CheckBaseDType("<u4", dtype_v<std::uint32_t>, endian::little, {});
+  CheckBaseDType("<u8", dtype_v<std::uint64_t>, endian::little, {});
 
-  CheckBaseDType(">i2", DataTypeOf<std::int16_t>(), endian::big, {});
-  CheckBaseDType(">i4", DataTypeOf<std::int32_t>(), endian::big, {});
-  CheckBaseDType(">i8", DataTypeOf<std::int64_t>(), endian::big, {});
-  CheckBaseDType(">u2", DataTypeOf<std::uint16_t>(), endian::big, {});
-  CheckBaseDType(">u4", DataTypeOf<std::uint32_t>(), endian::big, {});
-  CheckBaseDType(">u8", DataTypeOf<std::uint64_t>(), endian::big, {});
+  CheckBaseDType(">i2", dtype_v<std::int16_t>, endian::big, {});
+  CheckBaseDType(">i4", dtype_v<std::int32_t>, endian::big, {});
+  CheckBaseDType(">i8", dtype_v<std::int64_t>, endian::big, {});
+  CheckBaseDType(">u2", dtype_v<std::uint16_t>, endian::big, {});
+  CheckBaseDType(">u4", dtype_v<std::uint32_t>, endian::big, {});
+  CheckBaseDType(">u8", dtype_v<std::uint64_t>, endian::big, {});
 
-  CheckBaseDType("<f2", DataTypeOf<float16_t>(), endian::little, {});
-  CheckBaseDType("<f4", DataTypeOf<float32_t>(), endian::little, {});
-  CheckBaseDType("<f8", DataTypeOf<float64_t>(), endian::little, {});
-  CheckBaseDType(">f2", DataTypeOf<float16_t>(), endian::big, {});
-  CheckBaseDType(">f4", DataTypeOf<float32_t>(), endian::big, {});
-  CheckBaseDType(">f8", DataTypeOf<float64_t>(), endian::big, {});
+  CheckBaseDType("<f2", dtype_v<float16_t>, endian::little, {});
+  CheckBaseDType("<f4", dtype_v<float32_t>, endian::little, {});
+  CheckBaseDType("<f8", dtype_v<float64_t>, endian::little, {});
+  CheckBaseDType(">f2", dtype_v<float16_t>, endian::big, {});
+  CheckBaseDType(">f4", dtype_v<float32_t>, endian::big, {});
+  CheckBaseDType(">f8", dtype_v<float64_t>, endian::big, {});
 
-  CheckBaseDType("<c8", DataTypeOf<complex64_t>(), endian::little, {});
-  CheckBaseDType("<c16", DataTypeOf<complex128_t>(), endian::little, {});
-  CheckBaseDType(">c8", DataTypeOf<complex64_t>(), endian::big, {});
-  CheckBaseDType(">c16", DataTypeOf<complex128_t>(), endian::big, {});
+  CheckBaseDType("<c8", dtype_v<complex64_t>, endian::little, {});
+  CheckBaseDType("<c16", dtype_v<complex128_t>, endian::little, {});
+  CheckBaseDType(">c8", dtype_v<complex64_t>, endian::big, {});
+  CheckBaseDType(">c16", dtype_v<complex128_t>, endian::big, {});
 }
 
 TEST(ParseBaseDType, Failure) {
@@ -148,7 +148,7 @@ TEST(ParseDType, SimpleStringBool) {
                         {
                             {{
                                  /*.encoded_dtype=*/"|b1",
-                                 /*.dtype=*/DataTypeOf<bool>(),
+                                 /*.dtype=*/dtype_v<bool>,
                                  /*.endian=*/endian::native,
                                  /*.flexible_shape=*/{},
                              },
@@ -171,7 +171,7 @@ TEST(ParseDType, SingleNamedFieldChar) {
                  {
                      {{
                           /*.encoded_dtype=*/"|S10",
-                          /*.dtype=*/DataTypeOf<char>(),
+                          /*.dtype=*/dtype_v<char>,
                           /*.endian=*/endian::native,
                           /*.flexible_shape=*/{10},
                       },
@@ -195,7 +195,7 @@ TEST(ParseDType, TwoNamedFieldsCharAndInt) {
           {
               {{
                    /*.encoded_dtype=*/"|S10",
-                   /*.dtype=*/DataTypeOf<char>(),
+                   /*.dtype=*/dtype_v<char>,
                    /*.endian=*/endian::native,
                    /*.flexible_shape=*/{10},
                },
@@ -208,7 +208,7 @@ TEST(ParseDType, TwoNamedFieldsCharAndInt) {
               {{
                    /*.encoded_dtype=*/"<i2",
                    /*.dtype=*/
-                   DataTypeOf<std::int16_t>(),
+                   dtype_v<std::int16_t>,
                    /*.endian=*/endian::little,
                    /*.flexible_shape=*/{},
                },

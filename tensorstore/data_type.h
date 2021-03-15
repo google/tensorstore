@@ -825,19 +825,40 @@ class StaticDataType {
 template <>
 class StaticDataType<void>;
 
-template <typename T>
-using DataTypeOf =
+/// Alias for the `StaticDataType` representing `T` if `T` is not `void`, or
+/// `DataType` if `T` is `void`.
+///
+/// Qualifiers of `T` are ignored, and additionally `T` is "canonicalized"
+/// according to `CanonicalElementType`.
+///
+/// \param T C++ element type for which to obtain the corresponding data type.
+///     Any const/volatile qualifiers are ignored.
+template <typename T = void>
+using dtype_t = std::conditional_t<
+    std::is_void_v<T>, DataType,
     StaticDataType<typename internal_data_type::CanonicalElementType<
-        std::remove_cv_t<T>>::type>;
+        std::remove_cv_t<T>>::type>>;
 
-/// Returns `{ func(DataTypeOf<T>())... }` where `T` ranges over the canonical
+/// Data type object representing the data type for `T`, convertible to
+/// `DataType`.
+///
+/// If `T` is `void`, equal to `DataType()` (representing an unknown data type).
+///
+/// Otherwise, equal to `StaticDataType<U>()`, where `U` is obtained from `T` by
+/// striping cv-qualifiers and applying `CanonicalElementType`.
+///
+/// \param T C++ element type for which to obtain the corresponding data type.
+///     Any const/volatile qualifiers are ignored.
+template <typename T>
+inline constexpr auto dtype_v = dtype_t<T>();
+
+/// Returns `{ func(dtype_v<T>)... }` where `T` ranges over the canonical
 /// data types.
 template <typename Func>
-constexpr std::array<std::invoke_result_t<Func, DataTypeOf<bool>>,
-                     kNumDataTypeIds>
+constexpr std::array<std::invoke_result_t<Func, dtype_t<bool>>, kNumDataTypeIds>
 MapCanonicalDataTypes(Func func) {
   return {{
-#define TENSORSTORE_INTERNAL_DO_DATA_TYPE(T, ...) func(DataTypeOf<T>()),
+#define TENSORSTORE_INTERNAL_DO_DATA_TYPE(T, ...) func(dtype_v<T>),
       TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE)
 #undef TENSORSTORE_INTERNAL_DO_DATA_TYPE
   }};
@@ -887,15 +908,6 @@ void* AllocateAndConstruct(std::ptrdiff_t n,
 /// \params ptr Pointer to the allocated array of `n` elements.
 void DestroyAndFree(std::ptrdiff_t n, DataType r, void* ptr);
 
-/// Metafunction that maps a given element type `T` to `DataType` if `T` is
-/// `void`, and to `DataTypeOf<T>` otherwise.
-///
-/// \tparam T The element type, const and/or volatile qualification is permitted
-///     and ignored.
-template <typename T>
-using StaticOrDynamicDataTypeOf =
-    std::conditional_t<std::is_void<T>::value, DataType, DataTypeOf<T>>;
-
 /// Returns a shared_ptr that manages the memory returned by
 /// `AllocateAndConstruct`.
 ///
@@ -907,7 +919,7 @@ using StaticOrDynamicDataTypeOf =
 template <typename T = void>
 std::shared_ptr<T> AllocateAndConstructShared(
     std::ptrdiff_t n, ElementInitialization initialization = default_init,
-    StaticOrDynamicDataTypeOf<T> r = DataTypeOf<T>()) {
+    dtype_t<T> r = dtype_v<T>) {
   static_assert(std::is_same<std::remove_cv_t<T>, T>::value,
                 "Element type T must not have cv qualifiers.");
   return std::static_pointer_cast<T>(
@@ -968,9 +980,9 @@ using RebindDataType =
 ///         StaticDataTypeCast<const int, unchecked>(array);
 ///
 ///     DataType d = ...;
-///     Result<DataTypeOf<int>> d_static = StaticDataTypeCast<int>(d);
+///     Result<dtype_t<int>> d_static = StaticDataTypeCast<int>(d);
 ///
-///     DataTypeOf<int> d_int;
+///     dtype_t<int> d_int;
 ///     DataType d_dynamic = StaticDataTypeCast<void>(d_int);
 ///
 /// \tparam TargetElement Target element type.  Depending on the source type,
@@ -1028,7 +1040,7 @@ struct StaticCastTraits<DataType> : public DefaultStaticCastTraits<DataType> {
   static std::string Describe(DataType dtype);
   static constexpr bool IsCompatible(DataType other) { return true; }
   template <typename TargetElement>
-  using RebindDataType = StaticOrDynamicDataTypeOf<TargetElement>;
+  using RebindDataType = dtype_t<TargetElement>;
 };
 
 /// `StaticCastTraits` specialization for `StaticDataType<T>`.
@@ -1036,7 +1048,7 @@ template <typename T>
 struct StaticCastTraits<StaticDataType<T>>
     : public DefaultStaticCastTraits<StaticDataType<T>> {
   static std::string Describe() {
-    return StaticCastTraits<DataType>::Describe(DataTypeOf<T>());
+    return StaticCastTraits<DataType>::Describe(dtype_v<T>);
   }
   static std::string Describe(StaticDataType<T>) { return Describe(); }
 
@@ -1045,7 +1057,7 @@ struct StaticCastTraits<StaticDataType<T>>
     return !other.valid() || other == StaticDataType<T>();
   }
   template <typename TargetElement>
-  using RebindDataType = StaticOrDynamicDataTypeOf<TargetElement>;
+  using RebindDataType = dtype_t<TargetElement>;
 };
 
 /// Returns the `DataType` with `name` equal to `id`.
@@ -1055,12 +1067,12 @@ struct StaticCastTraits<StaticDataType<T>>
 ///
 /// Example:
 ///
-///     EXPECT_EQ(DataTypeOf<std::int32_t>(), GetDataType("int32"));
-///     EXPECT_EQ(DataTypeOf<float>(), GetDataType("float32"));
+///     EXPECT_EQ(dtype_v<std::int32_t>, GetDataType("int32"));
+///     EXPECT_EQ(dtype_v<float>, GetDataType("float32"));
 DataType GetDataType(std::string_view id);
 
 constexpr DataType kDataTypes[] = {
-#define TENSORSTORE_INTERNAL_DO_DATA_TYPE(T, ...) DataTypeOf<T>(),
+#define TENSORSTORE_INTERNAL_DO_DATA_TYPE(T, ...) dtype_v<T>,
     TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE)
 #undef TENSORSTORE_INTERNAL_DO_DATA_TYPE
 };

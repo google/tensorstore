@@ -397,7 +397,7 @@ class Array {
   using MaybeConstOriginIndex = typename Layout::MaybeConstOriginIndex;
   using ElementPointer = tensorstore::ElementPointer<ElementTagType>;
   using Element = typename ElementPointer::Element;
-  using DataType = StaticOrDynamicDataTypeOf<Element>;
+  using DataType = dtype_t<Element>;
   using Pointer = typename ElementPointer::Pointer;
   using RawPointer = Element*;
   using value_type = std::remove_cv_t<Element>;
@@ -1245,7 +1245,7 @@ namespace internal {
 template <typename Element = void>
 SharedElementPointer<Element> AllocateAndConstructSharedElements(
     std::ptrdiff_t n, ElementInitialization initialization = default_init,
-    StaticOrDynamicDataTypeOf<Element> representation = DataTypeOf<Element>()) {
+    dtype_t<Element> representation = dtype_v<Element>) {
   return {
       AllocateAndConstructShared<Element>(n, initialization, representation),
       representation};
@@ -1279,7 +1279,7 @@ SharedArray<Element, internal::ConstSpanType<Extents>::extent> AllocateArray(
     const Extents& extents,
     ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c,
     ElementInitialization initialization = default_init,
-    StaticOrDynamicDataTypeOf<Element> dtype = DataTypeOf<Element>()) {
+    dtype_t<Element> dtype = dtype_v<Element>) {
   static_assert(
       internal::IsIndexPack<
           typename internal::ConstSpanType<Extents>::value_type>::value,
@@ -1297,7 +1297,7 @@ SharedArray<Element, Rank> AllocateArray(
     const Index (&extents)[Rank],
     ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c,
     ElementInitialization initialization = default_init,
-    StaticOrDynamicDataTypeOf<Element> representation = DataTypeOf<Element>()) {
+    dtype_t<Element> representation = dtype_v<Element>) {
   return AllocateArray<Element, span<const Index, Rank>>(
       extents, layout_order, initialization, representation);
 }
@@ -1320,11 +1320,10 @@ SharedArray<Element, Rank> AllocateArray(
 template <typename Element = void, typename BoxType>
 std::enable_if_t<IsBoxLike<BoxType>::value,
                  SharedArray<Element, BoxType::static_rank, offset_origin>>
-AllocateArray(
-    const BoxType& domain,
-    ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c,
-    ElementInitialization initialization = default_init,
-    StaticOrDynamicDataTypeOf<Element> dtype = DataTypeOf<Element>()) {
+AllocateArray(const BoxType& domain,
+              ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c,
+              ElementInitialization initialization = default_init,
+              dtype_t<Element> dtype = dtype_v<Element>) {
   StridedLayout<BoxType::static_rank, offset_origin> layout(
       layout_order, dtype.size(), domain);
   return {
@@ -1361,7 +1360,7 @@ SharedElementPointer<Element> AllocateArrayElementsLike(
     const StridedLayout<Rank, OriginKind, CKind>& layout, Index* byte_strides,
     IterationConstraints constraints,
     ElementInitialization initialization = default_init,
-    StaticOrDynamicDataTypeOf<Element> dtype = DataTypeOf<Element>()) {
+    dtype_t<Element> dtype = dtype_v<Element>) {
   auto element_pointer =
       StaticDataTypeCast<Element, unchecked>(internal::AllocateArrayLike(
           dtype,
@@ -1397,7 +1396,7 @@ SharedArray<Element, Rank, OriginKind> AllocateArrayLike(
     const StridedLayout<Rank, OriginKind, CKind>& layout,
     IterationConstraints constraints = c_order,
     ElementInitialization initialization = default_init,
-    StaticOrDynamicDataTypeOf<Element> dtype = DataTypeOf<Element>()) {
+    dtype_t<Element> dtype = dtype_v<Element>) {
   SharedArray<Element, Rank, OriginKind> array;
   array.layout().set_rank(layout.rank());
   std::copy_n(layout.shape().data(), layout.rank(), array.shape().data());
@@ -1577,8 +1576,7 @@ Result<SharedArray<TargetElement, Rank, OriginKind>> MakeCopy(
     const Array<SourceElementTag, Rank, OriginKind, LayoutContainerKind>&
         source,
     IterationConstraints constraints = {c_order, include_repeated_elements},
-    StaticOrDynamicDataTypeOf<TargetElement> target_dtype =
-        DataTypeOf<TargetElement>()) {
+    dtype_t<TargetElement> target_dtype = dtype_v<TargetElement>) {
   auto dest = AllocateArrayLike<TargetElement>(source.layout(), constraints,
                                                default_init, target_dtype);
   TENSORSTORE_RETURN_IF_ERROR(CopyConvertedArray(source, dest));

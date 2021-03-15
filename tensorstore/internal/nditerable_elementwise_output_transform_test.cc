@@ -57,8 +57,7 @@ std::pair<absl::Status, std::vector<Index>> TestCopy(
           tensorstore::internal::GetTransformedArrayNDIterable(dest_array,
                                                                &arena)
               .value(),
-          tensorstore::DataTypeOf<typename SourceArray::Element>(), closure,
-          &arena);
+          tensorstore::dtype_v<typename SourceArray::Element>, closure, &arena);
   tensorstore::internal::NDIterableCopier copier(
       *tensorstore::internal::GetTransformedArrayNDIterable(source_array,
                                                             &arena)

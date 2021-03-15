@@ -31,7 +31,7 @@
 namespace {
 
 using ::nlohmann::json;
-using tensorstore::DataTypeOf;
+using tensorstore::dtype_v;
 using tensorstore::MatchesStatus;
 using tensorstore::Result;
 using tensorstore::internal::JsonEncodeNestedArray;
@@ -213,14 +213,14 @@ TEST(JsonParseNestedArrayTest, ZeroSize) {
 TEST(JsonParseNestedArrayTest, DataTypeConversionInt) {
   EXPECT_THAT(
       JsonParseNestedArray(::nlohmann::json{{1, 2, 3}, {4, 5, 6}},
-                           DataTypeOf<std::int32_t>(), 2),
+                           dtype_v<std::int32_t>, 2),
       ::testing::Optional(tensorstore::MakeArray({{1, 2, 3}, {4, 5, 6}})));
 }
 
 TEST(JsonParseNestedArrayTest, DataTypeConversionIntRankError) {
   EXPECT_THAT(
       JsonParseNestedArray(::nlohmann::json{{1, 2, 3}, {4, 5, 6}},
-                           DataTypeOf<std::int32_t>(), 3),
+                           dtype_v<std::int32_t>, 3),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Array rank \\(2\\) does not match expected rank \\(3\\)"));
 }
@@ -228,7 +228,7 @@ TEST(JsonParseNestedArrayTest, DataTypeConversionIntRankError) {
 TEST(JsonParseNestedArrayTest, DataTypeConversionString) {
   EXPECT_THAT(
       JsonParseNestedArray(::nlohmann::json{{"a", "b", "c"}, {"d", "e", "f"}},
-                           DataTypeOf<std::string>(), 2),
+                           dtype_v<std::string>, 2),
       ::testing::Optional(tensorstore::MakeArray<std::string>(
           {{"a", "b", "c"}, {"d", "e", "f"}})));
 }
@@ -236,7 +236,7 @@ TEST(JsonParseNestedArrayTest, DataTypeConversionString) {
 TEST(JsonParseNestedArray, DataTypeConversionStringError) {
   EXPECT_THAT(
       JsonParseNestedArray(::nlohmann::json{{"a", "b", 3}, {"d", "e", "f"}},
-                           DataTypeOf<std::string>(), 2),
+                           dtype_v<std::string>, 2),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Error parsing array element at position \\{0, 2\\}: "
                     "Expected string, but received: 3"));
@@ -245,7 +245,7 @@ TEST(JsonParseNestedArray, DataTypeConversionStringError) {
 TEST(JsonParseNestedArray, DataTypeConversionByteError) {
   EXPECT_THAT(
       JsonParseNestedArray(::nlohmann::json{{"a", "b", 3}, {"d", "e", "f"}},
-                           DataTypeOf<std::byte>(), 2),
+                           dtype_v<std::byte>, 2),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Conversion from JSON to byte is not implemented"));
 }

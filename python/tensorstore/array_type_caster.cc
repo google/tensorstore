@@ -179,7 +179,7 @@ pybind11::object GetNumpyObjectArrayImpl(SharedArrayView<const void> source) {
 SharedArray<void, dynamic_rank> ArrayFromNumpyObjectArray(
     pybind11::array array_obj, DataType dtype) {
   if (!dtype.valid()) {
-    dtype = DataTypeOf<tensorstore::json_t>();
+    dtype = dtype_v<tensorstore::json_t>;
   }
   const DimensionIndex rank = array_obj.ndim();
   StridedLayout<dynamic_rank(kMaxNumpyRank)> array_obj_layout;
@@ -325,7 +325,7 @@ bool ConvertToArrayImpl(pybind11::handle src,
     // PyArray_FromAny does not handle rank constraints of 0, so we need to
     // check them separately.
     if (max_rank == 0 && obj.ndim() != 0) {
-      if (data_type_constraint != DataTypeOf<tensorstore::json_t>()) {
+      if (data_type_constraint != dtype_v<tensorstore::json_t>) {
         if (no_throw) return false;
         throw pybind11::value_error(
             StrCat("Expected array of rank 0, but received array of rank ",

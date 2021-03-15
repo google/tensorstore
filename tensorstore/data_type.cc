@@ -108,7 +108,7 @@ TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_INSTANTIATION)
 DataType GetDataType(std::string_view id) {
 #define TENSORSTORE_INTERNAL_MATCH_TYPE(X, ...)     \
   if (id == std::string_view(#X, sizeof(#X) - 3)) { \
-    return DataTypeOf<X>();                         \
+    return dtype_v<X>;                              \
   }                                                 \
   /**/
   TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_MATCH_TYPE)

@@ -161,7 +161,7 @@ namespace detail {
 bool type_caster<tensorstore::internal_python::DataTypeLike>::load(
     handle src, bool convert) {
   using tensorstore::DataType;
-  using tensorstore::DataTypeOf;
+  using tensorstore::dtype_v;
   // Handle the case that `src` is already a Python-wrapped
   // `tensorstore::DataType`.
   if (pybind11::isinstance<tensorstore::DataType>(src)) {
@@ -171,11 +171,11 @@ bool type_caster<tensorstore::internal_python::DataTypeLike>::load(
   if (src.is_none()) return false;
   if (!convert) return false;
   if (src.ptr() == reinterpret_cast<PyObject*>(&PyUnicode_Type)) {
-    value.value = DataTypeOf<tensorstore::ustring_t>();
+    value.value = dtype_v<tensorstore::ustring_t>;
     return true;
   }
   if (src.ptr() == reinterpret_cast<PyObject*>(&PyBytes_Type)) {
-    value.value = DataTypeOf<tensorstore::string_t>();
+    value.value = dtype_v<tensorstore::string_t>;
     return true;
   }
   PyObject* ptr = nullptr;

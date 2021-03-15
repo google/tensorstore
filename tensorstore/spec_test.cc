@@ -30,8 +30,8 @@ namespace {
 using ::nlohmann::json;
 using tensorstore::BoxView;
 using tensorstore::DataType;
-using tensorstore::DataTypeOf;
 using tensorstore::DimensionIndex;
+using tensorstore::dtype_v;
 using tensorstore::dynamic_rank;
 using tensorstore::IndexTransform;
 using tensorstore::IndexTransformSpec;

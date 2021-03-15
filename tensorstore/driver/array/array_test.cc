@@ -318,7 +318,7 @@ TEST(FromArrayTest, ResolveBounds) {
 
   auto store2 = ResolveBounds(store).value();
   EXPECT_EQ(array.domain(), store2.domain().box());
-  EXPECT_EQ(tensorstore::DataTypeOf<int>(), store2.dtype());
+  EXPECT_EQ(tensorstore::dtype_v<int>, store2.dtype());
   EXPECT_THAT(store2.domain().labels(), ::testing::ElementsAre("", ""));
 }
 
@@ -672,7 +672,7 @@ TYPED_TEST(OpenNumericTest, Roundtrip) {
       {"array",
        {{static_cast<T>(1), static_cast<T>(2), static_cast<T>(3)},
         {static_cast<T>(4), static_cast<T>(5), static_cast<T>(6)}}},
-      {"dtype", std::string(tensorstore::DataTypeOf<T>().name())},
+      {"dtype", std::string(tensorstore::dtype_v<T>.name())},
       {"transform",
        {{"input_inclusive_min", {1, 2}},
         {"input_exclusive_max", {3, 5}},
@@ -821,7 +821,7 @@ TEST(ArrayTest, SpecFromArray) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
                                    tensorstore::SpecFromArray(orig_array));
   EXPECT_EQ(1, spec.rank());
-  EXPECT_EQ(tensorstore::DataTypeOf<float>(), spec.dtype());
+  EXPECT_EQ(tensorstore::dtype_v<float>, spec.dtype());
   EXPECT_THAT(spec.ToJson(tensorstore::IncludeContext{false}),
               ::testing::Optional(tensorstore::MatchesJson(::nlohmann::json{
                   {"driver", "array"},

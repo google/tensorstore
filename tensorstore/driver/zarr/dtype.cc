@@ -66,53 +66,52 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
     }
     switch (type_indicator) {
       case 'b':
-        return D{std::string(dtype), DataTypeOf<bool>(), endian::native};
+        return D{std::string(dtype), dtype_v<bool>, endian::native};
       case 'i':
         if (suffix == "1") {
-          return D{std::string(dtype), DataTypeOf<int8_t>(), endian_value};
+          return D{std::string(dtype), dtype_v<int8_t>, endian_value};
         }
         if (suffix == "2") {
-          return D{std::string(dtype), DataTypeOf<int16_t>(), endian_value};
+          return D{std::string(dtype), dtype_v<int16_t>, endian_value};
         }
         if (suffix == "4") {
-          return D{std::string(dtype), DataTypeOf<int32_t>(), endian_value};
+          return D{std::string(dtype), dtype_v<int32_t>, endian_value};
         }
         if (suffix == "8") {
-          return D{std::string(dtype), DataTypeOf<int64_t>(), endian_value};
+          return D{std::string(dtype), dtype_v<int64_t>, endian_value};
         }
         goto error;
       case 'u':
         if (suffix == "1") {
-          return D{std::string(dtype), DataTypeOf<uint8_t>(), endian_value};
+          return D{std::string(dtype), dtype_v<uint8_t>, endian_value};
         }
         if (suffix == "2") {
-          return D{std::string(dtype), DataTypeOf<uint16_t>(), endian_value};
+          return D{std::string(dtype), dtype_v<uint16_t>, endian_value};
         }
         if (suffix == "4") {
-          return D{std::string(dtype), DataTypeOf<uint32_t>(), endian_value};
+          return D{std::string(dtype), dtype_v<uint32_t>, endian_value};
         }
         if (suffix == "8") {
-          return D{std::string(dtype), DataTypeOf<uint64_t>(), endian_value};
+          return D{std::string(dtype), dtype_v<uint64_t>, endian_value};
         }
         goto error;
       case 'f':
         if (suffix == "2") {
-          return D{std::string(dtype), DataTypeOf<float16_t>(), endian_value};
+          return D{std::string(dtype), dtype_v<float16_t>, endian_value};
         }
         if (suffix == "4") {
-          return D{std::string(dtype), DataTypeOf<float32_t>(), endian_value};
+          return D{std::string(dtype), dtype_v<float32_t>, endian_value};
         }
         if (suffix == "8") {
-          return D{std::string(dtype), DataTypeOf<float64_t>(), endian_value};
+          return D{std::string(dtype), dtype_v<float64_t>, endian_value};
         }
         goto error;
       case 'c':
         if (suffix == "8") {
-          return D{std::string(dtype), DataTypeOf<complex64_t>(), endian_value};
+          return D{std::string(dtype), dtype_v<complex64_t>, endian_value};
         }
         if (suffix == "16") {
-          return D{std::string(dtype), DataTypeOf<complex128_t>(),
-                   endian_value};
+          return D{std::string(dtype), dtype_v<complex128_t>, endian_value};
         }
         goto error;
       case 'S':
@@ -129,8 +128,8 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
             goto error;
         }
         return D{std::string(dtype),
-                 (type_indicator == 'S') ? DataType(DataTypeOf<char_t>())
-                                         : DataType(DataTypeOf<byte_t>()),
+                 (type_indicator == 'S') ? DataType(dtype_v<char_t>)
+                                         : DataType(dtype_v<byte_t>),
                  endian::native,
                  {num_elements}};
       }

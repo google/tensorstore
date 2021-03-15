@@ -431,8 +431,7 @@ TEST(DownsampleTest, AdapterErrorWriteOnly) {
 
 // Tests that a read error from the base TensorStore is handled correctly.
 TEST(DownsampleTest, ReadError) {
-  MockDriver::Ptr mock_driver(
-      new MockDriver(tensorstore::DataTypeOf<float>(), 1));
+  MockDriver::Ptr mock_driver(new MockDriver(tensorstore::dtype_v<float>, 1));
   auto mock_store = mock_driver->Wrap(tensorstore::IdentityTransform<1>({10}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto downsampled_store,
@@ -450,8 +449,7 @@ TEST(DownsampleTest, ReadError) {
 }
 
 TEST(DownsampleTest, CancelRead) {
-  MockDriver::Ptr mock_driver(
-      new MockDriver(tensorstore::DataTypeOf<float>(), 1));
+  MockDriver::Ptr mock_driver(new MockDriver(tensorstore::dtype_v<float>, 1));
   auto mock_store = mock_driver->Wrap(tensorstore::IdentityTransform<1>({10}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto downsampled_store,
@@ -473,8 +471,7 @@ TEST(DownsampleTest, CancelRead) {
 // `data_buffer_` was previously allocated, and causes buffered chunks to be
 // emitted.
 TEST(DownsampleTest, IndependentChunkCompletesBufferedChunk) {
-  MockDriver::Ptr mock_driver(
-      new MockDriver(tensorstore::DataTypeOf<float>(), 1));
+  MockDriver::Ptr mock_driver(new MockDriver(tensorstore::dtype_v<float>, 1));
   auto mock_store = mock_driver->Wrap(tensorstore::IdentityTransform<1>({4}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto downsampled_store,
@@ -503,8 +500,7 @@ TEST(DownsampleTest, IndependentChunkCompletesBufferedChunk) {
 
 // Tests that a read error from the base TensorStore is handled correctly.
 TEST(DownsampleTest, EmptyChunk) {
-  MockDriver::Ptr mock_driver(
-      new MockDriver(tensorstore::DataTypeOf<float>(), 1));
+  MockDriver::Ptr mock_driver(new MockDriver(tensorstore::dtype_v<float>, 1));
   auto mock_store = mock_driver->Wrap(tensorstore::IdentityTransform<1>({10}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto downsampled_store,

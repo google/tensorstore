@@ -197,12 +197,12 @@ TEST(GetCompatibleFieldTest, Null) {
                                    /*selected_field=*/SelectedField()));
   EXPECT_EQ(0u, GetCompatibleField(ParseDType("<i4").value(),
                                    /*data_type_constraint=*/
-                                   tensorstore::DataTypeOf<std::int32_t>(),
+                                   tensorstore::dtype_v<std::int32_t>,
                                    /*selected_field=*/SelectedField()));
   EXPECT_THAT(
       GetCompatibleField(ParseDType("<i4").value(),
                          /*data_type_constraint=*/
-                         tensorstore::DataTypeOf<std::uint32_t>(),
+                         tensorstore::dtype_v<std::uint32_t>,
                          /*selected_field=*/SelectedField()),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
                     "Expected field to have data type of uint32 but the actual "

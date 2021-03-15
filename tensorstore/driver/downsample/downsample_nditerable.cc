@@ -645,7 +645,7 @@ constexpr std::array<std::array<DownsampleFunctions, kNumDataTypeIds>,
               DownsampleFunctions::ProcessInput(typename Impl::ProcessInput{}),
               DownsampleFunctions::ComputeOutput(
                   typename Impl::ComputeOutput{}),
-              DataTypeOf<AccumulateElement>(),
+              dtype_v<AccumulateElement>,
               Traits::kStoreAllElements,
           };
         } else {

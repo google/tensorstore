@@ -43,7 +43,7 @@ namespace {
 
 using absl::Status;
 using tensorstore::DataType;
-using tensorstore::DataTypeOf;
+using tensorstore::dtype_v;
 using tensorstore::int32_t;
 using tensorstore::json_t;
 using tensorstore::MakeArray;
@@ -98,23 +98,23 @@ INSTANTIATE_TEST_SUITE_P(GetConvertedOutputNDIterable,
                          ::testing::Values(false));
 
 TEST_P(NDIterableDataTypeConversionTest, Int32ToInt32) {
-  EXPECT_THAT(Convert(MakeArray<int32_t>({1, 2, 3}), DataTypeOf<int32_t>()),
+  EXPECT_THAT(Convert(MakeArray<int32_t>({1, 2, 3}), dtype_v<int32_t>),
               Pair(absl::OkStatus(), MakeArray<int32_t>({1, 2, 3})));
 }
 
 TEST_P(NDIterableDataTypeConversionTest, Int32ToUint32) {
-  EXPECT_THAT(Convert(MakeArray<int32_t>({1, 2, 3}), DataTypeOf<uint32_t>()),
+  EXPECT_THAT(Convert(MakeArray<int32_t>({1, 2, 3}), dtype_v<uint32_t>),
               Pair(absl::OkStatus(), MakeArray<uint32_t>({1, 2, 3})));
 }
 
 TEST_P(NDIterableDataTypeConversionTest, Int32ToString) {
-  EXPECT_THAT(Convert(MakeArray<int32_t>({1, 2, 3}), DataTypeOf<string_t>()),
+  EXPECT_THAT(Convert(MakeArray<int32_t>({1, 2, 3}), dtype_v<string_t>),
               Pair(absl::OkStatus(), MakeArray<string_t>({"1", "2", "3"})));
 }
 
 TEST_P(NDIterableDataTypeConversionTest, JsonToString) {
   EXPECT_THAT(
-      Convert(MakeArray<json_t>({"hello", "world", 3}), DataTypeOf<string_t>()),
+      Convert(MakeArray<json_t>({"hello", "world", 3}), dtype_v<string_t>),
       Pair(MatchesStatus(absl::StatusCode::kInvalidArgument,
                          "Expected string, but received: 3"),
            MakeArray<string_t>({"hello", "world", ""})));

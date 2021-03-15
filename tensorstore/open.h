@@ -39,7 +39,7 @@ Future<TensorStore<Element, Rank, Mode>> ConvertTensorStoreFuture(
       [](internal::Driver::Handle& handle)
           -> Result<TensorStore<Element, Rank, Mode>> {
         TENSORSTORE_RETURN_IF_ERROR(internal_open::ValidateDataTypeAndRank(
-            {StaticOrDynamicDataTypeOf<Element>(), Rank},
+            {dtype_v<Element>, Rank},
             {handle.driver->dtype(), handle.transform.input_rank()}));
         return internal::TensorStoreAccess::Construct<
             TensorStore<Element, Rank, Mode>>(std::move(handle));

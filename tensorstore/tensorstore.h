@@ -74,7 +74,7 @@ class TensorStore {
 
  public:
   using Element = ElementType;
-  using DataType = StaticOrDynamicDataTypeOf<Element>;
+  using DataType = dtype_t<Element>;
   using RankType = StaticOrDynamicRank<Rank>;
 
   constexpr static DimensionIndex static_rank = Rank;

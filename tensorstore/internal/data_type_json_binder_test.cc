@@ -25,7 +25,7 @@
 
 namespace {
 using tensorstore::DataType;
-using tensorstore::DataTypeOf;
+using tensorstore::dtype_v;
 using tensorstore::MatchesStatus;
 
 namespace jb = tensorstore::internal_json_binding;
@@ -33,11 +33,11 @@ namespace jb = tensorstore::internal_json_binding;
 struct X {};
 
 TEST(DataTypeJsonBinderTest, ToJson) {
-  EXPECT_THAT(jb::ToJson(DataType(DataTypeOf<tensorstore::int32_t>())),
+  EXPECT_THAT(jb::ToJson(DataType(dtype_v<tensorstore::int32_t>)),
               ::testing::Optional(::nlohmann::json("int32")));
-  EXPECT_THAT(jb::ToJson(DataType(DataTypeOf<bool>())),
+  EXPECT_THAT(jb::ToJson(DataType(dtype_v<bool>)),
               ::testing::Optional(::nlohmann::json("bool")));
-  EXPECT_THAT(jb::ToJson(DataType(DataTypeOf<X>())),
+  EXPECT_THAT(jb::ToJson(DataType(dtype_v<X>)),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Data type has no canonical identifier"));
   EXPECT_THAT(jb::ToJson(DataType{}),
@@ -47,9 +47,9 @@ TEST(DataTypeJsonBinderTest, ToJson) {
 
 TEST(DataTypeJsonBinderTest, FromJson) {
   EXPECT_THAT(jb::FromJson<DataType>(::nlohmann::json("int32")),
-              ::testing::Optional(DataTypeOf<std::int32_t>()));
+              ::testing::Optional(dtype_v<std::int32_t>));
   EXPECT_THAT(jb::FromJson<DataType>(::nlohmann::json("bool")),
-              ::testing::Optional(DataTypeOf<bool>()));
+              ::testing::Optional(dtype_v<bool>));
   EXPECT_THAT(jb::FromJson<DataType>(::nlohmann::json("invalid")),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Unsupported data type: \"invalid\""));

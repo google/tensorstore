@@ -119,8 +119,7 @@ namespace internal_json {
 namespace internal {
 
 Result<::nlohmann::json> JsonEncodeNestedArray(ArrayView<const void> array) {
-  auto convert =
-      internal::GetDataTypeConverter(array.dtype(), DataTypeOf<json_t>());
+  auto convert = internal::GetDataTypeConverter(array.dtype(), dtype_v<json_t>);
   if (!(convert.flags & DataTypeConversionFlags::kSupported)) {
     return absl::InvalidArgumentError(StrCat("Conversion from ", array.dtype(),
                                              " to JSON is not implemented"));
@@ -264,7 +263,7 @@ Result<SharedArray<void>> JsonParseNestedArray(
 Result<SharedArray<void>> JsonParseNestedArray(const ::nlohmann::json& j,
                                                DataType dtype,
                                                DimensionIndex rank_constraint) {
-  auto convert = internal::GetDataTypeConverter(DataTypeOf<json_t>(), dtype);
+  auto convert = internal::GetDataTypeConverter(dtype_v<json_t>, dtype);
   if (!(convert.flags & DataTypeConversionFlags::kSupported)) {
     return absl::InvalidArgumentError(
         StrCat("Conversion from JSON to ", dtype, " is not implemented"));

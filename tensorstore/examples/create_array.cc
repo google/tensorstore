@@ -211,11 +211,11 @@ int main(int argc, char** argv) {
     std::cout << std::endl << "Dynamic Array" << std::endl;
 
     // NOTE: To get the untyped result from AllocateArray, we have to cast off
-    // the type from DataTypeOf, otherwise the templates will deduce the result
+    // the type from dtype_v, otherwise the templates will deduce the result
     // type to be Array<int, 2>.
     auto untyped = tensorstore::AllocateArray(
         {5, 5}, tensorstore::c_order, tensorstore::default_init,
-        static_cast<tensorstore::DataType>(tensorstore::DataTypeOf<int>()));
+        static_cast<tensorstore::DataType>(tensorstore::dtype_v<int>));
 
     if (tensorstore::ArraysHaveSameShapes(tensorstore::MakeArrayView(two_dim),
                                           untyped)) {

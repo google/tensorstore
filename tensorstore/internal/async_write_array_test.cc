@@ -91,7 +91,7 @@ TEST(SpecTest, Basic) {
   EXPECT_EQ(3, spec.chunk_num_elements(span<const Index>({-2, 0})));
 
   EXPECT_EQ(2, spec.rank());
-  EXPECT_EQ(tensorstore::DataTypeOf<int32_t>(), spec.dtype());
+  EXPECT_EQ(tensorstore::dtype_v<int32_t>, spec.dtype());
   EXPECT_THAT(spec.c_order_byte_strides,
               ::testing::ElementsAre(3 * sizeof(int32_t), sizeof(int32_t)));
 

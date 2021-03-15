@@ -100,7 +100,7 @@ JsonParseNestedArray(const ::nlohmann::json& j, DecodeElement decode_element) {
       std::invoke_result_t<DecodeElement, const ::nlohmann::json&>>;
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto array, JsonParseNestedArray(
-                      j, DataTypeOf<Element>(),
+                      j, dtype_v<Element>,
                       [decode_element](const ::nlohmann::json& v, void* out) {
                         TENSORSTORE_ASSIGN_OR_RETURN(
                             *static_cast<Element*>(out), decode_element(v));

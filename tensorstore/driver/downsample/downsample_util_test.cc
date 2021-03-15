@@ -462,7 +462,7 @@ void TestPropagateIndexTransformDownsamplingInvariance(absl::BitGenRef gen,
   auto base_bounds = tensorstore::internal::MakeRandomBox(gen, box_p);
   SCOPED_TRACE(tensorstore::StrCat("base_bounds=", base_bounds));
   auto base_data = tensorstore::internal::MakeRandomArray(
-      gen, base_bounds, tensorstore::DataTypeOf<uint8_t>());
+      gen, base_bounds, tensorstore::dtype_v<uint8_t>);
   SCOPED_TRACE(tensorstore::StrCat("base_data=", base_data));
   std::vector<Index> downsample_factors(rank);
   for (DimensionIndex i = 0; i < rank; ++i) {

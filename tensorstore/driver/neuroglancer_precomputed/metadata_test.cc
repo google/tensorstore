@@ -31,7 +31,7 @@ namespace {
 using tensorstore::Box;
 using tensorstore::DataType;
 using tensorstore::DataTypeId;
-using tensorstore::DataTypeOf;
+using tensorstore::dtype_v;
 using tensorstore::GetStatus;
 using tensorstore::Index;
 using tensorstore::kDataTypes;
@@ -105,7 +105,7 @@ TEST(MetadataTest, ParseUnsharded) {
   ASSERT_EQ(absl::OkStatus(), GetStatus(metadata_result));
   auto& m = *metadata_result;
   EXPECT_EQ("image", m.type);
-  EXPECT_EQ(DataTypeOf<std::uint8_t>(), m.dtype);
+  EXPECT_EQ(dtype_v<std::uint8_t>, m.dtype);
   EXPECT_EQ(1, m.num_channels);
   EXPECT_EQ(metadata_json, m.attributes);
   ASSERT_EQ(2, m.scales.size());
@@ -165,7 +165,7 @@ TEST(MetadataTest, ParseSharded) {
   ASSERT_EQ(absl::OkStatus(), GetStatus(metadata_result));
   auto& m = *metadata_result;
   EXPECT_EQ("segmentation", m.type);
-  EXPECT_EQ(DataTypeOf<std::uint64_t>(), m.dtype);
+  EXPECT_EQ(dtype_v<std::uint64_t>, m.dtype);
   EXPECT_EQ(2, m.num_channels);
   EXPECT_EQ(metadata_json, m.attributes);
   ASSERT_EQ(1, m.scales.size());
@@ -521,7 +521,7 @@ TEST(MultiscaleMetadataConstraintsTest, ParseValid) {
       {{"data_type", "uint8"}, {"num_channels", 3}, {"type", "image"}});
   ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   EXPECT_EQ("image", m->type.value());
-  EXPECT_EQ(DataTypeOf<std::uint8_t>(), m->dtype);
+  EXPECT_EQ(dtype_v<std::uint8_t>, m->dtype);
   EXPECT_EQ(3, m->num_channels.value());
 }
 
@@ -643,9 +643,9 @@ TEST(SscaleMetadataConstraintsTest, ParseInvalid) {
                                                         /*num_channels=*/{}));
 
   // Tests that an incompatible encoding triggers an error.
-  EXPECT_THAT(ScaleMetadataConstraints::Parse(
-                  metadata_json_cseg, /*dtype=*/DataTypeOf<std::uint8_t>(),
-                  /*num_channels=*/{}),
+  EXPECT_THAT(ScaleMetadataConstraints::Parse(metadata_json_cseg,
+                                              /*dtype=*/dtype_v<std::uint8_t>,
+                                              /*num_channels=*/{}),
               MatchesStatus(absl::StatusCode::kInvalidArgument, ".*uint8.*"));
 
   // Tests that an incompatible number of channels triggers an error.
@@ -766,21 +766,20 @@ TEST(OpenConstraintsTest, ParseEmptyObject) {
 }
 
 TEST(OpenConstraintsTest, ParseEmptyObjectDataTypeConstraint) {
-  auto m = OpenConstraints::Parse(
-      ::nlohmann::json::object_t{},
-      /*data_type_constraint=*/DataTypeOf<std::uint8_t>());
+  auto m =
+      OpenConstraints::Parse(::nlohmann::json::object_t{},
+                             /*data_type_constraint=*/dtype_v<std::uint8_t>);
   ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   EXPECT_FALSE(m->scale_index);
-  EXPECT_EQ(DataTypeOf<std::uint8_t>(), m->multiscale.dtype);
+  EXPECT_EQ(dtype_v<std::uint8_t>, m->multiscale.dtype);
 }
 
 TEST(OpenConstraintsTest, ParseEmptyObjectInvalidDataTypeConstraint) {
-  EXPECT_THAT(
-      OpenConstraints::Parse(::nlohmann::json::object_t{},
-                             /*data_type_constraint=*/DataTypeOf<bool>()),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "bool data type is not one of the supported data types: .*"));
+  EXPECT_THAT(OpenConstraints::Parse(::nlohmann::json::object_t{},
+                                     /*data_type_constraint=*/dtype_v<bool>),
+              MatchesStatus(
+                  absl::StatusCode::kInvalidArgument,
+                  "bool data type is not one of the supported data types: .*"));
 }
 
 TEST(OpenConstraintsTest, ParseValid) {
@@ -791,23 +790,23 @@ TEST(OpenConstraintsTest, ParseValid) {
                              /*data_type_constraint=*/{});
   ASSERT_EQ(absl::OkStatus(), GetStatus(m));
   EXPECT_THAT(m->scale_index, ::testing::Optional(2));
-  EXPECT_EQ(DataTypeOf<std::uint8_t>(), m->multiscale.dtype);
+  EXPECT_EQ(dtype_v<std::uint8_t>, m->multiscale.dtype);
   EXPECT_EQ(ScaleMetadata::Encoding::jpeg, m->scale.encoding);
 }
 
 TEST(OpenConstraintsTest, ParseDataTypeConstraint) {
   auto m = OpenConstraints::Parse(
       {{"multiscale_metadata", {{"data_type", "uint8"}}}},
-      /*data_type_constraint=*/DataTypeOf<std::uint8_t>());
+      /*data_type_constraint=*/dtype_v<std::uint8_t>);
   ASSERT_EQ(absl::OkStatus(), GetStatus(m));
-  EXPECT_EQ(DataTypeOf<std::uint8_t>(), m->multiscale.dtype);
+  EXPECT_EQ(dtype_v<std::uint8_t>, m->multiscale.dtype);
 }
 
 TEST(OpenConstraintsTest, ParseDataTypeConstraintMismatch) {
   EXPECT_THAT(
       OpenConstraints::Parse(
           {{"multiscale_metadata", {{"data_type", "uint8"}}}},
-          /*data_type_constraint=*/DataTypeOf<std::uint16_t>()),
+          /*data_type_constraint=*/dtype_v<std::uint16_t>),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Mismatch between data type in TensorStore Spec "
                     "\\(uint16\\) and in \"multiscale_metadata\" \\(uint8\\)"));
@@ -944,7 +943,7 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
   {
     SCOPED_TRACE("`data_type` cannot change");
     auto b = a;
-    b.dtype = DataTypeOf<std::int16_t>();
+    b.dtype = dtype_v<std::int16_t>;
     EXPECT_THAT(Validate(a, b, 0, {{64, 65, 66}}),
                 MatchesStatus(absl::StatusCode::kFailedPrecondition,
                               ".*\"data_type\".*"));
@@ -1086,7 +1085,7 @@ TEST(CreateScaleTest, NoExistingMetadata) {
                               {"num_channels", 2},
                               {"scales", {scale_attributes}}}),
             metadata->attributes);
-  EXPECT_EQ(DataTypeOf<std::uint8_t>(), metadata->dtype);
+  EXPECT_EQ(dtype_v<std::uint8_t>, metadata->dtype);
   EXPECT_EQ(2, metadata->num_channels);
   EXPECT_EQ("image", metadata->type);
   ASSERT_EQ(1, metadata->scales.size());
@@ -1179,7 +1178,7 @@ TEST(CreateScaleTest, NoExistingMetadataCompressedSegmentation) {
                               {"num_channels", 2},
                               {"scales", {scale_attributes}}}),
             metadata->attributes);
-  EXPECT_EQ(DataTypeOf<std::uint32_t>(), metadata->dtype);
+  EXPECT_EQ(dtype_v<std::uint32_t>, metadata->dtype);
   EXPECT_EQ(2, metadata->num_channels);
   EXPECT_EQ("image", metadata->type);
   ASSERT_EQ(1, metadata->scales.size());
@@ -1368,7 +1367,7 @@ TEST(CreateScaleTest, ExistingMetadata) {
     ASSERT_TRUE(metadata);
     EXPECT_EQ(2, scale_index);
     EXPECT_EQ(expected_metadata, metadata->attributes);
-    EXPECT_EQ(DataTypeOf<std::uint64_t>(), metadata->dtype);
+    EXPECT_EQ(dtype_v<std::uint64_t>, metadata->dtype);
     EXPECT_EQ(1, metadata->num_channels);
     EXPECT_EQ("segmentation", metadata->type);
     ASSERT_EQ(3, metadata->scales.size());

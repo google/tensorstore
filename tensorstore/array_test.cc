@@ -49,8 +49,8 @@ using tensorstore::c_order;
 using tensorstore::container;
 using tensorstore::ContainerKind;
 using tensorstore::ContiguousLayoutOrder;
-using tensorstore::DataTypeOf;
 using tensorstore::DimensionIndex;
+using tensorstore::dtype_v;
 using tensorstore::dynamic_rank;
 using tensorstore::ElementPointer;
 using tensorstore::fortran_order;
@@ -347,7 +347,7 @@ TEST(ArrayViewTest, ConstructAndAssign) {
   ArrayView<void> a2 = a1;
   EXPECT_EQ(a.data(), a2.data());
   EXPECT_EQ(a.layout(), a2.layout());
-  EXPECT_EQ(DataTypeOf<float>(), a2.dtype());
+  EXPECT_EQ(dtype_v<float>, a2.dtype());
 
   {
     auto a3 = StaticDataTypeCast<float>(a2).value();
@@ -365,7 +365,7 @@ TEST(ArrayViewTest, ConstructAndAssign) {
     ArrayView<void, 2> a5(a.element_pointer(), a.layout());
     EXPECT_EQ(a.data(), a5.data());
     EXPECT_EQ(a.layout(), a5.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a5.dtype());
+    EXPECT_EQ(dtype_v<float>, a5.dtype());
   }
 
   {
@@ -373,7 +373,7 @@ TEST(ArrayViewTest, ConstructAndAssign) {
     a6 = a;
     EXPECT_EQ(a.data(), a6.data());
     EXPECT_EQ(a.layout(), a6.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a6.dtype());
+    EXPECT_EQ(dtype_v<float>, a6.dtype());
   }
   static_assert(!std::is_assignable<ArrayView<float, 2>, ArrayView<float>>(),
                 "");
@@ -384,14 +384,14 @@ TEST(ArrayViewTest, ConstructAndAssign) {
     a6 = a;
     EXPECT_EQ(a.data(), a6.data());
     EXPECT_EQ(a.layout(), a6.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a6.dtype());
+    EXPECT_EQ(dtype_v<float>, a6.dtype());
   }
   {
     ArrayView<float> a6;
     a6 = a1;
     EXPECT_EQ(a.data(), a6.data());
     EXPECT_EQ(a.layout(), a6.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a6.dtype());
+    EXPECT_EQ(dtype_v<float>, a6.dtype());
   }
   static_assert(!std::is_assignable<ArrayView<float>, ArrayView<void>>(), "");
   {
@@ -399,7 +399,7 @@ TEST(ArrayViewTest, ConstructAndAssign) {
     a6 = a;
     EXPECT_EQ(a.data(), a6.data());
     EXPECT_EQ(a.layout(), a6.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a6.dtype());
+    EXPECT_EQ(dtype_v<float>, a6.dtype());
   }
   static_assert(
       !std::is_assignable<ArrayView<const void, 2>, ArrayView<float>>(), "");
@@ -505,7 +505,7 @@ TEST(SharedArrayTest, ConstructAndAssign) {
   SharedArray<void> a2 = a1;
   EXPECT_EQ(a.data(), a2.data());
   EXPECT_EQ(a.layout(), a2.layout());
-  EXPECT_EQ(DataTypeOf<float>(), a2.dtype());
+  EXPECT_EQ(dtype_v<float>, a2.dtype());
 
   {
     SharedArray<float> a3 = StaticDataTypeCast<float>(a2).value();
@@ -522,7 +522,7 @@ TEST(SharedArrayTest, ConstructAndAssign) {
     SharedArray<void, 2> a5(a.element_pointer(), a.layout());
     EXPECT_EQ(a.data(), a5.data());
     EXPECT_EQ(a.layout(), a5.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a5.dtype());
+    EXPECT_EQ(dtype_v<float>, a5.dtype());
   }
 
   {
@@ -530,7 +530,7 @@ TEST(SharedArrayTest, ConstructAndAssign) {
     a6 = a;
     EXPECT_EQ(a.data(), a6.data());
     EXPECT_EQ(a.layout(), a6.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a6.dtype());
+    EXPECT_EQ(dtype_v<float>, a6.dtype());
   }
 
   static_assert(
@@ -542,14 +542,14 @@ TEST(SharedArrayTest, ConstructAndAssign) {
     a6 = a;
     EXPECT_EQ(a.data(), a6.data());
     EXPECT_EQ(a.layout(), a6.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a6.dtype());
+    EXPECT_EQ(dtype_v<float>, a6.dtype());
   }
   {
     SharedArray<float> a6;
     a6 = a1;
     EXPECT_EQ(a.data(), a6.data());
     EXPECT_EQ(a.layout(), a6.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a6.dtype());
+    EXPECT_EQ(dtype_v<float>, a6.dtype());
   }
   static_assert(!std::is_assignable<SharedArray<float>, SharedArray<void>>(),
                 "");
@@ -558,7 +558,7 @@ TEST(SharedArrayTest, ConstructAndAssign) {
     a6 = a;
     EXPECT_EQ(a.data(), a6.data());
     EXPECT_EQ(a.layout(), a6.layout());
-    EXPECT_EQ(DataTypeOf<float>(), a6.dtype());
+    EXPECT_EQ(dtype_v<float>, a6.dtype());
   }
   static_assert(
       !std::is_assignable<SharedArray<const void, 2>, SharedArray<void>>(), "");
@@ -810,7 +810,7 @@ TEST(ArrayTest, ImplicitElementPointerConstruction) {
   // ElementPointer.
   {
     tensorstore::Array<void, 0> a = {
-        {static_cast<void*>(&value), DataTypeOf<int>()}};
+        {static_cast<void*>(&value), dtype_v<int>}};
     EXPECT_EQ(&value, a.data());
     EXPECT_EQ(0, a.rank());
   }
@@ -818,9 +818,8 @@ TEST(ArrayTest, ImplicitElementPointerConstruction) {
   // Test construction of a rank-0 array from implicitly constructed
   // ElementPointer and explicit layout.
   {
-    tensorstore::Array<void, 0> a = {
-        {static_cast<void*>(&value), DataTypeOf<int>()},
-        tensorstore::StridedLayout<0>()};
+    tensorstore::Array<void, 0> a = {{static_cast<void*>(&value), dtype_v<int>},
+                                     tensorstore::StridedLayout<0>()};
     EXPECT_EQ(&value, a.data());
     EXPECT_EQ(0, a.rank());
   }
@@ -847,7 +846,7 @@ TEST(ArrayTest, ImplicitElementPointerConstruction) {
   // ElementPointer and explicit layout.
   {
     tensorstore::Array<void, 0> a;
-    a = {{static_cast<void*>(&value), DataTypeOf<int>()},
+    a = {{static_cast<void*>(&value), dtype_v<int>},
          tensorstore::StridedLayout<0>()};
     EXPECT_EQ(&value, a.data());
     EXPECT_EQ(0, a.rank());
@@ -981,12 +980,12 @@ TEST(AllocateAndConstructSharedElementsTest, StaticType) {
 
 TEST(AllocateAndConstructSharedElementsTest, DynamicType) {
   auto result = tensorstore::internal::AllocateAndConstructSharedElements(
-      3, tensorstore::default_init, DataTypeOf<float>());
+      3, tensorstore::default_init, dtype_v<float>);
   static_assert(std::is_same<decltype(result),
                              tensorstore::SharedElementPointer<void>>::value,
                 "");
 
-  EXPECT_EQ(DataTypeOf<float>(), result.dtype());
+  EXPECT_EQ(dtype_v<float>, result.dtype());
   EXPECT_NE(nullptr, result.data());
 }
 }  // namespace allocate_and_construct_shared_elements_test
@@ -1187,7 +1186,7 @@ TEST(MakeCopyTest, Conversion) {
 
   {
     auto copy = MakeCopy(array, {tensorstore::skip_repeated_elements},
-                         tensorstore::DataType(DataTypeOf<float>()))
+                         tensorstore::DataType(dtype_v<float>))
                     .value();
     EXPECT_EQ(expected, copy);
     EXPECT_THAT(copy.byte_strides(), ::testing::ElementsAre(0, 12, 4));

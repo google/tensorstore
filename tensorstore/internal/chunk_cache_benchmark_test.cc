@@ -308,7 +308,7 @@ struct RegisterBenchmarks {
         for (const int threads : {0, 1, 2, 4}) {
           for (const Index copy_size : {16, 32, 64, 128, 256}) {
             Register({
-                /*dtype=*/tensorstore::DataTypeOf<int>(),
+                /*dtype=*/tensorstore::dtype_v<int>,
                 /*copy_shape=*/{copy_size, copy_size, copy_size},
                 /*stride=*/{1, 1, 1},
                 /*indexed=*/{false, false, false},
@@ -319,7 +319,7 @@ struct RegisterBenchmarks {
                 /*read=*/read,
             });
             Register({
-                /*dtype=*/tensorstore::DataTypeOf<int>(),
+                /*dtype=*/tensorstore::dtype_v<int>,
                 /*copy_shape=*/{copy_size, copy_size, copy_size},
                 /*stride=*/{2, 1, 1},
                 /*indexed=*/{false, false, false},
@@ -330,7 +330,7 @@ struct RegisterBenchmarks {
                 /*read=*/read,
             });
             Register({
-                /*dtype=*/tensorstore::DataTypeOf<int>(),
+                /*dtype=*/tensorstore::dtype_v<int>,
                 /*copy_shape=*/{copy_size, copy_size, copy_size},
                 /*stride=*/{2, 2, 2},
                 /*indexed=*/{false, false, false},
@@ -341,7 +341,7 @@ struct RegisterBenchmarks {
                 /*read=*/read,
             });
             Register({
-                /*dtype=*/tensorstore::DataTypeOf<int>(),
+                /*dtype=*/tensorstore::dtype_v<int>,
                 /*copy_shape=*/{copy_size, copy_size, copy_size},
                 /*stride=*/{1, 1, 1},
                 /*indexed=*/{false, true, false},
