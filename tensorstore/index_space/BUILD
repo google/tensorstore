@@ -729,12 +729,14 @@ tensorstore_cc_test(
         ":index_transform_builder",
         "//tensorstore:array",
         "//tensorstore:strided_layout",
+        "//tensorstore/util:str_cat",
         "@com_google_googletest//:gtest_main",
     ],
 )
 
 tensorstore_cc_library(
     name = "output_index_method",
+    srcs = ["output_index_method.cc"],
     hdrs = ["output_index_method.h"],
     visibility = ["//visibility:public"],
 )

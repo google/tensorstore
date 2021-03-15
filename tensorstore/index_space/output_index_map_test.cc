@@ -22,6 +22,7 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/strided_layout.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -38,6 +39,15 @@ using tensorstore::OutputIndexMethod;
 using tensorstore::span;
 using tensorstore::StaticRank;
 using tensorstore::StridedLayout;
+
+TEST(OutputIndexMethodTest, Ostream) {
+  EXPECT_EQ("constant", tensorstore::StrCat(OutputIndexMethod::constant));
+  EXPECT_EQ("single_input_dimension",
+            tensorstore::StrCat(OutputIndexMethod::single_input_dimension));
+  EXPECT_EQ("array", tensorstore::StrCat(OutputIndexMethod::array));
+  EXPECT_EQ("<unknown>",
+            tensorstore::StrCat(static_cast<OutputIndexMethod>(-1)));
+}
 
 TEST(OutputIndexMapTest, StaticRanks) {
   auto index_array = MakeOffsetArray<Index>({1, 2, 3}, {{{5}, {6}, {7}, {8}}});

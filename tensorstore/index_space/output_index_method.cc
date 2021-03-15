@@ -12,21 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INDEX_SPACE_OUTPUT_INDEX_METHOD_H_
-#define TENSORSTORE_INDEX_SPACE_OUTPUT_INDEX_METHOD_H_
+#include "tensorstore/index_space/output_index_method.h"
 
-#include <iosfwd>
+#include <ostream>
 
 namespace tensorstore {
 
-/// Specifies the method by which the index into a given output dimension of an
-/// index transform is computed from the input indices.
-///
-/// \see OutputIndexMapRef
-enum class OutputIndexMethod { constant, single_input_dimension, array };
-
-std::ostream& operator<<(std::ostream& os, OutputIndexMethod method);
+std::ostream& operator<<(std::ostream& os, OutputIndexMethod method) {
+  switch (method) {
+    case OutputIndexMethod::constant:
+      return os << "constant";
+    case OutputIndexMethod::single_input_dimension:
+      return os << "single_input_dimension";
+    case OutputIndexMethod::array:
+      return os << "array";
+    default:
+      return os << "<unknown>";
+  }
+}
 
 }  // namespace tensorstore
-
-#endif  // TENSORSTORE_INDEX_SPACE_OUTPUT_INDEX_METHOD_H_
