@@ -29,12 +29,11 @@
 #include <openssl/pem.h>     // IWYU pragma: keep
 #include <openssl/rsa.h>     // IWYU pragma: keep
 #include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::internal::JsonHandleObjectMember;
-using tensorstore::internal::JsonRequireObjectMember;
-using tensorstore::internal::JsonRequireValueAs;
+namespace jb = tensorstore::internal_json_binding;
 
 namespace tensorstore {
 namespace {
@@ -49,14 +48,15 @@ constexpr char kJwtType[] = "JWT";
 constexpr char kGrantType[] =
     "urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer";
 
-// Parsing helper for strings.
-struct JsonStringOp {
-  std::string* result;
-  Status operator()(const ::nlohmann::json& j) {
-    return JsonRequireValueAs(j, result,
-                              [](const std::string& x) { return !x.empty(); });
-  }
-};
+// StringBinder which returns an error on empty fields.
+constexpr static auto NonEmptyStringBinder = jb::Validate(
+    [](const auto& options, const std::string* x) {
+      if (x->empty()) {
+        return absl::InvalidArgumentError("Empty field");
+      }
+      return absl::OkStatus();
+    },
+    jb::ValueAsBinder);
 
 }  // namespace
 namespace internal_oauth2 {
@@ -167,6 +167,21 @@ Result<std::string> BuildSignedJWTRequest(std::string_view private_key,
                       *result);
 }
 
+constexpr static auto GoogleServiceAccountCredentialsBinder = jb::Object(
+    jb::Member("private_key",
+               jb::Projection(&GoogleServiceAccountCredentials::private_key,
+                              NonEmptyStringBinder)),
+    jb::Member("private_key_id",
+               jb::Projection(&GoogleServiceAccountCredentials::private_key_id,
+                              NonEmptyStringBinder)),
+    jb::Member("client_email",
+               jb::Projection(&GoogleServiceAccountCredentials::client_email,
+                              NonEmptyStringBinder)),
+    jb::Member("token_uri",
+               jb::Projection(&GoogleServiceAccountCredentials::token_uri,
+                              jb::DefaultInitializedValue())),
+    jb::IgnoreExtraMembers);
+
 Result<GoogleServiceAccountCredentials>
 ParseGoogleServiceAccountCredentialsImpl(const ::nlohmann::json& credentials) {
   if (credentials.is_discarded()) {
@@ -177,21 +192,8 @@ ParseGoogleServiceAccountCredentialsImpl(const ::nlohmann::json& credentials) {
   // Google ServiceAccountCredentials files contain numerous fields that we
   // don't care to parse, such as { "type", "project_id", "client_id",
   // "auth_uri", "auth_provider_x509_cert_url", "client_x509_cert_url"}.
-  GoogleServiceAccountCredentials result;
-
-  TENSORSTORE_RETURN_IF_ERROR(JsonRequireObjectMember(  //
-      credentials, "private_key", JsonStringOp{&result.private_key}));
-
-  TENSORSTORE_RETURN_IF_ERROR(JsonRequireObjectMember(  //
-      credentials, "private_key_id", JsonStringOp{&result.private_key_id}));
-
-  TENSORSTORE_RETURN_IF_ERROR(JsonRequireObjectMember(  //
-      credentials, "client_email", JsonStringOp{&result.client_email}));
-
-  TENSORSTORE_RETURN_IF_ERROR(JsonHandleObjectMember(  //
-      credentials, "token_uri", JsonStringOp{&result.token_uri}));
-
-  return std::move(result);
+  return jb::FromJson<GoogleServiceAccountCredentials>(
+      credentials, GoogleServiceAccountCredentialsBinder);
 }
 
 Result<GoogleServiceAccountCredentials> ParseGoogleServiceAccountCredentials(
@@ -204,24 +206,21 @@ Result<GoogleServiceAccountCredentials> ParseGoogleServiceAccountCredentials(
   return ParseGoogleServiceAccountCredentialsImpl(credentials);
 }
 
+constexpr static auto RefreshTokenBinder = jb::Object(
+    jb::Member("client_id",
+               jb::Projection(&RefreshToken::client_id, NonEmptyStringBinder)),
+    jb::Member("client_secret", jb::Projection(&RefreshToken::client_secret,
+                                               NonEmptyStringBinder)),
+    jb::Member("refresh_token", jb::Projection(&RefreshToken::refresh_token,
+                                               NonEmptyStringBinder)),
+    jb::IgnoreExtraMembers);
+
 Result<RefreshToken> ParseRefreshTokenImpl(
     const ::nlohmann::json& credentials) {
   if (credentials.is_discarded()) {
     return absl::InvalidArgumentError("Invalid RefreshToken token");
   }
-
-  RefreshToken result;
-
-  TENSORSTORE_RETURN_IF_ERROR(JsonRequireObjectMember(  //
-      credentials, "client_id", JsonStringOp{&result.client_id}));
-
-  TENSORSTORE_RETURN_IF_ERROR(JsonRequireObjectMember(  //
-      credentials, "client_secret", JsonStringOp{&result.client_secret}));
-
-  TENSORSTORE_RETURN_IF_ERROR(JsonRequireObjectMember(  //
-      credentials, "refresh_token", JsonStringOp{&result.refresh_token}));
-
-  return std::move(result);
+  return jb::FromJson<RefreshToken>(credentials, RefreshTokenBinder);
 }
 
 Result<RefreshToken> ParseRefreshToken(std::string_view source) {
@@ -233,27 +232,21 @@ Result<RefreshToken> ParseRefreshToken(std::string_view source) {
   return ParseRefreshTokenImpl(credentials);
 }
 
+constexpr static auto OAuthResponseBinder = jb::Object(
+    jb::Member("token_type", jb::Projection(&OAuthResponse::token_type,
+                                            NonEmptyStringBinder)),
+    jb::Member("access_token", jb::Projection(&OAuthResponse::access_token,
+                                              NonEmptyStringBinder)),
+    jb::Member("expires_in", jb::Projection(&OAuthResponse::expires_in,
+                                            jb::LooseInteger<int64_t>(1))),
+    jb::IgnoreExtraMembers);
+
 Result<OAuthResponse> ParseOAuthResponseImpl(
     const ::nlohmann::json& credentials) {
   if (credentials.is_discarded()) {
     return absl::InvalidArgumentError("Invalid OAuthResponse token");
   }
-
-  OAuthResponse result;
-
-  TENSORSTORE_RETURN_IF_ERROR(JsonRequireObjectMember(  //
-      credentials, "token_type", JsonStringOp{&result.token_type}));
-
-  TENSORSTORE_RETURN_IF_ERROR(JsonRequireObjectMember(  //
-      credentials, "access_token", JsonStringOp{&result.access_token}));
-
-  TENSORSTORE_RETURN_IF_ERROR(JsonRequireObjectMember(  //
-      credentials, "expires_in", [&](const ::nlohmann::json& j) -> Status {
-        return JsonRequireValueAs(j, &result.expires_in,
-                                  [](std::int64_t x) { return x > 0; });
-      }));
-
-  return std::move(result);
+  return jb::FromJson<OAuthResponse>(credentials, OAuthResponseBinder);
 }
 
 Result<OAuthResponse> ParseOAuthResponse(std::string_view source) {

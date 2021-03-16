@@ -398,12 +398,29 @@ Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj);
 
 }  // namespace internal
 namespace internal_json_binding {
+
 // Defined in separate namespace to work around clang-cl bug
 // https://bugs.llvm.org/show_bug.cgi?id=45213
-namespace require_value_as_binder {
-constexpr inline auto JsonRequireValueAsBinder =
-    [](auto is_loading, const auto& options, auto* obj,
-       ::nlohmann::json* j) -> Status {
+namespace loose_value_as_binder {
+constexpr inline auto LooseValueAsBinder = [](auto is_loading,
+                                              const auto& options, auto* obj,
+                                              ::nlohmann::json* j) -> Status {
+  if constexpr (is_loading) {
+    return internal::JsonRequireValueAs(*j, obj, /*strict=*/false);
+  } else {
+    *j = *obj;
+    return absl::OkStatus();
+  }
+};
+}  // namespace loose_value_as_binder
+using loose_value_as_binder::LooseValueAsBinder;
+
+// Defined in separate namespace to work around clang-cl bug
+// https://bugs.llvm.org/show_bug.cgi?id=45213
+namespace value_as_binder {
+constexpr inline auto ValueAsBinder = [](auto is_loading, const auto& options,
+                                         auto* obj,
+                                         ::nlohmann::json* j) -> Status {
   if constexpr (is_loading) {
     return internal::JsonRequireValueAs(*j, obj, /*strict=*/true);
   } else {
@@ -411,21 +428,40 @@ constexpr inline auto JsonRequireValueAsBinder =
     return absl::OkStatus();
   }
 };
-}  // namespace require_value_as_binder
-using require_value_as_binder::JsonRequireValueAsBinder;
+}  // namespace value_as_binder
+using value_as_binder::ValueAsBinder;
 
 template <>
-constexpr inline auto DefaultBinder<bool> = JsonRequireValueAsBinder;
+constexpr inline auto DefaultBinder<bool> = ValueAsBinder;
 template <>
-constexpr inline auto DefaultBinder<std::int64_t> = JsonRequireValueAsBinder;
+constexpr inline auto DefaultBinder<std::int64_t> = ValueAsBinder;
 template <>
-constexpr inline auto DefaultBinder<std::string> = JsonRequireValueAsBinder;
+constexpr inline auto DefaultBinder<std::string> = ValueAsBinder;
 template <>
-constexpr inline auto DefaultBinder<std::uint64_t> = JsonRequireValueAsBinder;
+constexpr inline auto DefaultBinder<std::uint64_t> = ValueAsBinder;
 template <>
-constexpr inline auto DefaultBinder<double> = JsonRequireValueAsBinder;
+constexpr inline auto DefaultBinder<double> = ValueAsBinder;
 template <>
-constexpr inline auto DefaultBinder<std::nullptr_t> = JsonRequireValueAsBinder;
+constexpr inline auto DefaultBinder<std::nullptr_t> = ValueAsBinder;
+
+// Defined in separate namespace to work around clang-cl bug
+// https://bugs.llvm.org/show_bug.cgi?id=45213
+namespace loose_float_binder {
+constexpr inline auto LooseFloatBinder = [](auto is_loading,
+                                            const auto& options, auto* obj,
+                                            ::nlohmann::json* j) -> Status {
+  if constexpr (is_loading) {
+    double x;
+    auto status = internal::JsonRequireValueAs(*j, &x, /*strict=*/false);
+    if (status.ok()) *obj = x;
+    return status;
+  } else {
+    *j = static_cast<double>(*obj);
+    return absl::OkStatus();
+  }
+};
+}  // namespace loose_float_binder
+using loose_float_binder::LooseFloatBinder;
 
 // Defined in separate namespace to work around clang-cl bug
 // https://bugs.llvm.org/show_bug.cgi?id=45213
@@ -946,6 +982,21 @@ using optional_binder::OptionalBinder;
 /// Registers `Optional` as the default binder for `std::optional`.
 template <typename T>
 inline constexpr auto& DefaultBinder<std::optional<T>> = OptionalBinder;
+
+/// Returns a Binder for integers.
+template <typename T>
+constexpr auto LooseInteger(T min = std::numeric_limits<T>::min(),
+                            T max = std::numeric_limits<T>::max()) {
+  return [=](auto is_loading, const auto& options, auto* obj,
+             ::nlohmann::json* j) -> Status {
+    if constexpr (is_loading) {
+      return internal::JsonRequireInteger(*j, obj, /*strict=*/false, min, max);
+    } else {
+      *j = *obj;
+      return absl::OkStatus();
+    }
+  };
+}
 
 /// Returns a Binder for integers.
 template <typename T>

@@ -118,43 +118,16 @@ TEST(ParseObjectMetadata, Basic) {
   auto result = ParseObjectMetadata(kObjectMetadata);
   ASSERT_TRUE(result.ok()) << result.status();
 
-  EXPECT_EQ("foo-bar", result->bucket);
-  EXPECT_EQ("no-cache", result->cache_control);
-  EXPECT_EQ("a-disposition", result->content_disposition);
-  EXPECT_EQ("an-encoding", result->content_encoding);
-  EXPECT_EQ("a-language", result->content_language);
-  EXPECT_EQ("application/octet-stream", result->content_type);
-  EXPECT_EQ("deadbeef", result->crc32c);
-  EXPECT_EQ("XYZ=", result->etag);
-  EXPECT_EQ("foo-bar/baz/12345", result->id);
-  EXPECT_EQ("storage#object", result->kind);
-  EXPECT_EQ("/foo/bar/baz/key", result->kms_key_name);
-  EXPECT_EQ("deaderBeef=", result->md5_hash);
-  EXPECT_EQ(
-      "https://www.googleapis.com/kvstore/v1/b/foo-bar/o/"
-      "baz?generation=12345&alt=media",
-      result->media_link);
   EXPECT_EQ("baz", result->name);
-  EXPECT_EQ("https://www.googleapis.com/kvstore/v1/b/foo-bar/o/baz",
-            result->self_link);
-  EXPECT_EQ("STANDARD", result->storage_class);
+  EXPECT_EQ("deaderBeef=", result->md5_hash);
 
   EXPECT_EQ(102400u, result->size);
-  EXPECT_EQ(7, result->component_count);
   EXPECT_EQ(12345, result->generation);
   EXPECT_EQ(4, result->metageneration);
-
-  EXPECT_TRUE(result->event_based_hold);
-  EXPECT_TRUE(result->temporary_hold);
-
-  EXPECT_EQ(AsTime("2018-12-31T16:00:00-08:00"),
-            result->retention_expiration_time);
 
   EXPECT_EQ(AsTime("2018-05-19T12:31:14-07:00"), result->time_created);
   EXPECT_EQ(AsTime("2018-05-19T12:31:24-07:00"), result->updated);
   EXPECT_EQ(AsTime("2018-05-19T12:32:24-07:00"), result->time_deleted);
-  EXPECT_EQ(AsTime("2018-05-19T12:31:34-07:00"),
-            result->time_storage_class_updated);
 }
 
 const char kObjectMetadata2[] = R"""({
@@ -178,26 +151,14 @@ TEST(ParseObjectMetadata, Example2) {
 
   EXPECT_EQ("fafb_v14/fafb_v14_clahe/128_128_160/0-64_1408-1472_896-960",
             result->name);
-  EXPECT_EQ("storage#object", result->kind);
-  EXPECT_EQ(
-      "neuroglancer-fafb-data/fafb_v14/fafb_v14_clahe/128_128_160/"
-      "0-64_1408-1472_896-960/1540426531840872",
-      result->id);
-  EXPECT_EQ("neuroglancer-fafb-data", result->bucket);
-  EXPECT_EQ("image/jpeg", result->content_type);
 
   EXPECT_EQ(3404u, result->size);
   EXPECT_EQ(1540426531840872, result->generation);
 
   EXPECT_EQ(AsTime("2018-10-24T17:15:31.84-07:00"), result->time_created);
   EXPECT_EQ(AsTime("2018-10-24T17:15:31.84-07:00"), result->updated);
-  EXPECT_EQ(AsTime("2018-10-24T17:15:31.84-07:00"),
-            result->time_storage_class_updated);
 
   EXPECT_EQ(0, result->metageneration);
-  EXPECT_FALSE(result->event_based_hold);
-  EXPECT_FALSE(result->temporary_hold);
-  EXPECT_EQ(absl::InfinitePast(), result->retention_expiration_time);
 }
 
 }  // namespace

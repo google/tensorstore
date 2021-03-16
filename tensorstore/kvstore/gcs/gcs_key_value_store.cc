@@ -738,6 +738,20 @@ struct ListState : public internal::AtomicReferenceCount<ListState<Receiver>> {
   }
 };
 
+// List responds with a Json payload that includes these fields.
+struct GcsListResponsePayload {
+  std::string next_page_token;        // used to page through list results.
+  std::vector<ObjectMetadata> items;  // individual result metadata.
+};
+
+constexpr static auto GcsListResponsePayloadBinder = jb::Object(
+    jb::Member("nextPageToken",
+               jb::Projection(&GcsListResponsePayload::next_page_token,
+                              jb::DefaultInitializedValue())),
+    jb::Member("items", jb::Projection(&GcsListResponsePayload::items,
+                                       jb::DefaultInitializedValue())),
+    jb::IgnoreExtraMembers);
+
 template <typename Receiver>
 struct ListOp {
   using State = ListState<Receiver>;
@@ -775,16 +789,14 @@ struct ListOp {
       url_has_query = true;
     }
 
-    // The nextPageToken is used to page through the list results.
-    std::string nextPageToken;
-
+    GcsListResponsePayload last_payload;
     while (true) {
       TENSORSTORE_RETURN_IF_ERROR(maybe_cancelled());
 
       std::string list_url = base_list_url;
-      if (!nextPageToken.empty()) {
+      if (!last_payload.next_page_token.empty()) {
         absl::StrAppend(&list_url, (url_has_query ? "&" : "?"),
-                        "pageToken=", nextPageToken);
+                        "pageToken=", last_payload.next_page_token);
       }
 
       HttpResponse httpresponse;
@@ -810,33 +822,14 @@ struct ListOp {
                                           httpresponse.payload.Flatten()));
       }
 
-      nextPageToken.clear();
-      TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
-          j, "nextPageToken", [&nextPageToken](const ::nlohmann::json& value) {
-            return internal::JsonRequireValueAs(value, &nextPageToken);
-          }));
+      TENSORSTORE_ASSIGN_OR_RETURN(last_payload,
+                                   jb::FromJson<GcsListResponsePayload>(
+                                       j, GcsListResponsePayloadBinder));
 
-      std::vector<ObjectMetadata> items;
-      TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(
-          j, "items", [&items](const ::nlohmann::json& value) {
-            return internal::JsonParseArray(
-                value,  //
-                [&items](std::ptrdiff_t i) {
-                  items.reserve(i);
-                  return absl::OkStatus();
-                },
-                [&items](const ::nlohmann::json& item, std::ptrdiff_t) {
-                  ObjectMetadata metadata;
-                  SetObjectMetadata(item, &metadata);
-                  items.emplace_back(std::move(metadata));
-                  return absl::OkStatus();
-                });
-          }));
-
-      execution::set_value(state->receiver, std::move(items));
+      execution::set_value(state->receiver, std::move(last_payload.items));
 
       // Are we done yet?
-      if (nextPageToken.empty()) {
+      if (last_payload.next_page_token.empty()) {
         return absl::OkStatus();
       }
     }
@@ -847,10 +840,17 @@ struct ListReceiver {
   AnyFlowReceiver<absl::Status, KeyValueStore::Key> receiver;
 
   // set_value extracts the name from the object metadata.
-  friend void set_value(ListReceiver& self, std::vector<ObjectMetadata> v) {
+  [[maybe_unused]] friend void set_value(ListReceiver& self,
+                                         std::vector<ObjectMetadata> v) {
     for (auto& metadata : v) {
       execution::set_value(self.receiver, std::move(metadata.name));
     }
+  }
+  [[maybe_unused]] friend void set_done(ListReceiver& self) {
+    execution::set_done(self.receiver);
+  }
+  [[maybe_unused]] friend void set_stopping(ListReceiver& self) {
+    execution::set_stopping(self.receiver);
   }
 
   // Other methods just forward to the underlying receiver.
@@ -861,12 +861,6 @@ struct ListReceiver {
   template <typename E>
   friend void set_error(ListReceiver& self, E e) {
     execution::set_error(self.receiver, std::move(e));
-  }
-  friend void set_done(ListReceiver& self) {
-    execution::set_done(self.receiver);
-  }
-  friend void set_stopping(ListReceiver& self) {
-    execution::set_stopping(self.receiver);
   }
 };
 

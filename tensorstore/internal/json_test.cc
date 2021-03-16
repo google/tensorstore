@@ -817,6 +817,106 @@ TEST(JsonBindingTest, Example) {
   EXPECT_EQ(10, value.z);
 }
 
+TEST(JsonBindingTest, ValueAsBinder) {
+  tensorstore::TestJsonBinderRoundTrip<bool>(
+      {
+          {true, ::nlohmann::json(true)},
+      },
+      jb::ValueAsBinder);
+  tensorstore::TestJsonBinderRoundTrip<std::int64_t>(
+      {
+          {3, ::nlohmann::json(3)},
+      },
+      jb::ValueAsBinder);
+  tensorstore::TestJsonBinderRoundTrip<std::uint64_t>(
+      {
+          {4, ::nlohmann::json(4)},
+      },
+      jb::ValueAsBinder);
+  tensorstore::TestJsonBinderRoundTrip<double>(
+      {
+          {5, ::nlohmann::json(5)},
+          {5.0, ::nlohmann::json(5.0)},
+      },
+      jb::ValueAsBinder);
+  tensorstore::TestJsonBinderRoundTrip<std::string>(
+      {
+          {"a", ::nlohmann::json("a")},
+      },
+      jb::ValueAsBinder);
+}
+
+TEST(JsonBindingTest, LooseValueAsBinder) {
+  using testing::Eq;
+
+  tensorstore::TestJsonBinderFromJson<bool>(
+      {
+          {::nlohmann::json(true), Eq(true)},
+          {::nlohmann::json("true"), Eq(true)},
+      },
+      jb::LooseValueAsBinder);
+  tensorstore::TestJsonBinderFromJson<std::int64_t>(
+      {
+          {::nlohmann::json(3), Eq(3)},
+          {::nlohmann::json(3.0), Eq(3)},
+          {::nlohmann::json("3"), Eq(3)},
+      },
+      jb::LooseValueAsBinder);
+  tensorstore::TestJsonBinderFromJson<std::uint64_t>(
+      {
+          {::nlohmann::json(4), Eq(4)},
+          {::nlohmann::json(4.0), Eq(4)},
+          {::nlohmann::json("4"), Eq(4)},
+      },
+      jb::LooseValueAsBinder);
+  tensorstore::TestJsonBinderFromJson<double>(
+      {
+          {::nlohmann::json(5.0), Eq(5.0)},
+          {::nlohmann::json(5), Eq(5.0)},
+          {::nlohmann::json("5"), Eq(5.0)},
+      },
+      jb::LooseValueAsBinder);
+
+  // LooseValueAsBinder<string> is the same as ValueAsBinder<string>
+  tensorstore::TestJsonBinderRoundTrip<std::string>(
+      {
+          {"a", ::nlohmann::json("a")},
+      },
+      jb::LooseValueAsBinder);
+}
+
+TEST(JsonBindingTest, FloatBinders) {
+  using testing::Eq;
+
+  tensorstore::TestJsonBinderFromJson<float>(
+      {
+          {::nlohmann::json(5.0), Eq(5.0f)},
+          {::nlohmann::json(5), Eq(5.0f)},
+      },
+      jb::FloatBinder);
+  tensorstore::TestJsonBinderFromJson<double>(
+      {
+          {::nlohmann::json(5.0), Eq(5.0)},
+          {::nlohmann::json(5), Eq(5.0)},
+      },
+      jb::FloatBinder);
+
+  tensorstore::TestJsonBinderFromJson<float>(
+      {
+          {::nlohmann::json(5.0), Eq(5.0f)},
+          {::nlohmann::json(5), Eq(5.0f)},
+          {::nlohmann::json("5"), Eq(5.0f)},
+      },
+      jb::LooseFloatBinder);
+  tensorstore::TestJsonBinderFromJson<double>(
+      {
+          {::nlohmann::json(5.0), Eq(5.0)},
+          {::nlohmann::json(5), Eq(5.0)},
+          {::nlohmann::json("5"), Eq(5.0)},
+      },
+      jb::LooseFloatBinder);
+}
+
 TEST(JsonBindingTest, GetterSetter) {
   struct Foo {
     int x;

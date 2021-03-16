@@ -8,6 +8,30 @@ package(
 licenses(["notice"])
 
 tensorstore_cc_library(
+    name = "absl_time_json_binder",
+    hdrs = ["absl_time_json_binder.h"],
+    deps = [
+        ":json",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "absl_time_json_binder_test",
+    size = "small",
+    srcs = ["absl_time_json_binder_test.cc"],
+    deps = [
+        ":absl_time_json_binder",
+        ":json",
+        ":json_gtest",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "arena",
     hdrs = ["arena.h"],
     deps = [

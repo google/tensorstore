@@ -26,93 +26,55 @@
 #include "absl/strings/str_split.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/internal/absl_time_json_binder.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::internal_storage_gcs::ObjectMetadata;
-
 namespace tensorstore {
-namespace internal {
-
-// TODO: Move to internal/json
-template <>
-std::optional<absl::Time> JsonValueAs(const ::nlohmann::json& json,
-                                      bool strict) {
-  if (!json.is_string()) {
-    return std::nullopt;
-  }
-  absl::Time time;
-  if (absl::ParseTime(absl::RFC3339_full, json.get_ref<std::string const&>(),
-                      &time, nullptr)) {
-    return time;
-  }
-  return std::nullopt;
-}
-
-}  // namespace internal
-namespace {
-
-template <typename T>
-void JsonSetIfExists(T& value, const ::nlohmann::json& j,
-                     const char* field_name) {
-  using tensorstore::internal::JsonValueAs;
-
-  auto it = j.find(field_name);
-  if (it != j.end()) {
-    auto field = JsonValueAs<T>(it.value());
-    if (field) {
-      value = field.value();
-    }
-  }
-}
-}  // namespace
-
 namespace internal_storage_gcs {
 
-void SetObjectMetadata(const ::nlohmann::json& json, ObjectMetadata* result) {
-  JsonSetIfExists(result->bucket, json, "bucket");
-  JsonSetIfExists(result->cache_control, json, "cacheControl");
-  JsonSetIfExists(result->content_disposition, json, "contentDisposition");
-  JsonSetIfExists(result->content_encoding, json, "contentEncoding");
-  JsonSetIfExists(result->content_language, json, "contentLanguage");
-  JsonSetIfExists(result->content_type, json, "contentType");
-  JsonSetIfExists(result->crc32c, json, "crc32c");
-  JsonSetIfExists(result->etag, json, "etag");
-  JsonSetIfExists(result->id, json, "id");
-  JsonSetIfExists(result->kind, json, "kind");
-  JsonSetIfExists(result->kms_key_name, json, "kmsKeyName");
-  JsonSetIfExists(result->md5_hash, json, "md5Hash");
-  JsonSetIfExists(result->media_link, json, "mediaLink");
-  JsonSetIfExists(result->name, json, "name");
-  JsonSetIfExists(result->self_link, json, "selfLink");
-  JsonSetIfExists(result->storage_class, json, "storageClass");
+using tensorstore::internal_json_binding::DefaultInitializedValue;
 
-  JsonSetIfExists(result->size, json, "size");
-  JsonSetIfExists(result->component_count, json, "componentCount");
-  JsonSetIfExists(result->generation, json, "generation");
-  JsonSetIfExists(result->metageneration, json, "metageneration");
+namespace jb = tensorstore::internal_json_binding;
 
-  JsonSetIfExists(result->temporary_hold, json, "temporaryHold");
-  JsonSetIfExists(result->event_based_hold, json, "eventBasedHold");
+inline constexpr auto ObjectMetadataBinder = jb::Object(
+    jb::Member("name", jb::Projection(&ObjectMetadata::name)),
+    jb::Member("md5Hash", jb::Projection(&ObjectMetadata::md5_hash,
+                                         DefaultInitializedValue())),
+    jb::Member("crc32c", jb::Projection(&ObjectMetadata::crc32c,
+                                        DefaultInitializedValue())),
+    jb::Member("size", jb::Projection(&ObjectMetadata::size,
+                                      jb::DefaultInitializedValue(
+                                          jb::LooseValueAsBinder))),
+    jb::Member("generation", jb::Projection(&ObjectMetadata::generation,
+                                            jb::DefaultInitializedValue(
+                                                jb::LooseValueAsBinder))),
+    jb::Member("metageneration", jb::Projection(&ObjectMetadata::metageneration,
+                                                jb::DefaultInitializedValue(
+                                                    jb::LooseValueAsBinder))),
 
-  JsonSetIfExists(result->retention_expiration_time, json,
-                  "retentionExpirationTime");
+    // RFC3339 format.
+    jb::Member("timeCreated", jb::Projection(&ObjectMetadata::time_created,
+                                             jb::DefaultValue([](auto* x) {
+                                               *x = absl::InfinitePast();
+                                             }))),
+    jb::Member("updated", jb::Projection(&ObjectMetadata::updated,
+                                         jb::DefaultValue([](auto* x) {
+                                           *x = absl::InfinitePast();
+                                         }))),
+    jb::Member("timeDeleted", jb::Projection(&ObjectMetadata::time_deleted,
+                                             jb::DefaultValue([](auto* x) {
+                                               *x = absl::InfinitePast();
+                                             }))),
+    jb::IgnoreExtraMembers);
 
-  JsonSetIfExists(result->time_created, json, "timeCreated");
-
-  JsonSetIfExists(result->updated, json, "updated");
-
-  JsonSetIfExists(result->time_deleted, json, "timeDeleted");
-
-  JsonSetIfExists(result->time_storage_class_updated, json,
-                  "timeStorageClassUpdated");
-
-  // Ignore "owner": { "entity", "entityId" }
-  // Ignore "acl": { ... }
-  // Ignore "customerEncryption": { ... }
-  // Ignore "metadata": { ...}
-}
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ObjectMetadata,
+                                       [](auto is_loading, const auto& options,
+                                          auto* obj, ::nlohmann::json* j) {
+                                         return ObjectMetadataBinder(
+                                             is_loading, options, obj, j);
+                                       })
 
 void SetObjectMetadataFromHeaders(
     const std::multimap<std::string, std::string>& headers,
@@ -137,19 +99,11 @@ void SetObjectMetadataFromHeaders(
     }
   };
 
-  auto set_string_value = [&](const char* header, std::string& output) {
-    auto it = headers.find(header);
-    if (it != headers.end()) {
-      output = it->second;
-    }
-  };
-
   set_uint64_value("content-length", result->size);
   set_int64_value("x-goog-generation", result->generation);
   set_int64_value("x-goog-metageneration", result->metageneration);
 
-  set_string_value("content-type", result->content_type);
-  set_string_value("x-goog-storage-class", result->storage_class);
+  // Ignore: content-type, x-goog-storage-class
 
   // goog hash is encoded as a list of k=v,k=v pairs.
   auto it = headers.find("x-goog-hash");
@@ -174,14 +128,7 @@ Result<ObjectMetadata> ParseObjectMetadata(std::string_view source) {
         absl::StrCat("Failed to parse object metadata: ", source));
   }
 
-  ObjectMetadata result{};
-  // Initialize time to InfinitePast
-  result.retention_expiration_time = result.time_created = result.updated =
-      result.time_deleted = result.time_storage_class_updated =
-          absl::InfinitePast();
-
-  SetObjectMetadata(json, &result);
-  return std::move(result);
+  return jb::FromJson<ObjectMetadata>(std::move(json));
 }
 
 }  // namespace internal_storage_gcs

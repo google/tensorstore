@@ -23,6 +23,7 @@ tensorstore_cc_library(
     hdrs = ["object_metadata.h"],
     deps = [
         "//tensorstore:context",
+        "//tensorstore/internal:absl_time_json_binder",
         "//tensorstore/internal:concurrency_resource",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json",

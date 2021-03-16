@@ -34,48 +34,39 @@
 namespace tensorstore {
 namespace internal_storage_gcs {
 
-/// Metadata for a GCS object
+/// Partial metadata for a GCS object
 /// https://cloud.google.com/kvstore/docs/json_api/v1/objects#resource
 struct ObjectMetadata {
-  std::string bucket;
-  std::string cache_control;
-  std::string content_disposition;
-  std::string content_encoding;
-  std::string content_language;
-  std::string content_type;
-  std::string crc32c;
-  std::string etag;
-  std::string id;
-  std::string kind;
-  std::string kms_key_name;
-  std::string md5_hash;
-  std::string media_link;
   std::string name;
-  std::string self_link;
-  std::string storage_class;
+  std::string md5_hash;
+  std::string crc32c;
 
   uint64_t size = 0;
-  int64_t component_count = 0;
   int64_t generation = 0;
   int64_t metageneration = 0;
 
-  bool event_based_hold = false;
-  bool temporary_hold = false;
-
   // RFC3339 format.
-  absl::Time retention_expiration_time = absl::InfinitePast();
   absl::Time time_created = absl::InfinitePast();
   absl::Time updated = absl::InfinitePast();
   absl::Time time_deleted = absl::InfinitePast();
-  absl::Time time_storage_class_updated = absl::InfinitePast();
 
   // Additional metadata.
-  //   owner, acl, customer_encryption, metadata.
+  // string: bucket, cache_control, content_disposition, content_encoding,
+  //   content_language, content_type,  etag,  id,  kind,  kms_key_name,
+  //   media_link,  self_link,  storage_class, crc32,
+  // object: owner, acl, customer_encryption, metadata.
+  // boolean: event_based_hold, temporary_hold,
+  // time: retention_expiration_time, time_storage_class_updated.
+
+  using ToJsonOptions = IncludeDefaults;
+  using FromJsonOptions = internal_json_binding::NoOptions;
+
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(
+      ObjectMetadata, internal_storage_gcs::ObjectMetadata::FromJsonOptions,
+      internal_storage_gcs::ObjectMetadata::ToJsonOptions)
 };
 
 Result<ObjectMetadata> ParseObjectMetadata(std::string_view source);
-
-void SetObjectMetadata(const ::nlohmann::json& json, ObjectMetadata* result);
 
 void SetObjectMetadataFromHeaders(
     const std::multimap<std::string, std::string>& headers,
