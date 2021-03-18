@@ -442,6 +442,7 @@ TEST(MetadataTest, ParseInvalid) {
                                     {"voxel_offset", {2, 4, 6}}}}},
                                  {"type", "segmentation"},
                                  {"data_type", "uint8"}};
+
   // Tests that setting any of the following members to null triggers an error.
   for (const char* k :
        {"@type", "num_channels", "type", "scales", "data_type"}) {
@@ -471,12 +472,13 @@ TEST(MetadataTest, ParseInvalid) {
   // Tests that setting any of the following scale members to null triggers an
   // error.
   for (const char* k : {"chunk_sizes", "encoding", "key", "resolution", "size",
-                        "voxel_offset", "sharding"}) {
+                        "voxel_offset"}) {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0][k] = nullptr;
     EXPECT_THAT(MultiscaleMetadata::Parse(invalid_json),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              StrCat(".*\"", k, "\".*")));
+                              StrCat(".*\"", k, "\".*")))
+        << k;
   }
   // Tests that setting any of the following to an array of length 2 triggers an
   // error.
@@ -571,8 +573,8 @@ TEST(ScaleMetadataConstraintsTest, ParseValid) {
          {"hash", "identity"}}}},
       /*dtype=*/{}, /*num_channels=*/{});
   ASSERT_EQ(absl::OkStatus(), GetStatus(m));
-  EXPECT_EQ("k", m->key.value());
-  EXPECT_EQ(Box({4, 5, 6}, {1, 2, 3}), m->box.value());
+  EXPECT_THAT(m->key, ::testing::Optional(::testing::Eq("k")));
+  EXPECT_THAT(m->box, ::testing::Optional(Box({4, 5, 6}, {1, 2, 3})));
   EXPECT_THAT(m->resolution, ::testing::Optional(ElementsAre(5, 6, 7)));
   EXPECT_THAT(m->chunk_size, ::testing::Optional(ElementsAre(2, 3, 4)));
   EXPECT_THAT(
@@ -607,7 +609,7 @@ TEST(ScaleMetadataConstraintsTest, ParseValidNullSharding) {
   EXPECT_TRUE(std::holds_alternative<NoShardingSpec>(*m->sharding));
 }
 
-TEST(SscaleMetadataConstraintsTest, ParseInvalid) {
+TEST(ScaleMetadataConstraintsTest, ParseInvalid) {
   ::nlohmann::json metadata_json_jpeg{
       {"key", "k"},
       {"size", {1, 2, 3}},

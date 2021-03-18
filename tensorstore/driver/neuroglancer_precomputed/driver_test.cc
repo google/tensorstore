@@ -42,7 +42,6 @@ using tensorstore::StrCat;
 using tensorstore::TimestampedStorageGeneration;
 using tensorstore::internal::GetMap;
 using tensorstore::internal::ParseJsonMatches;
-using ::testing::ElementsAreArray;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;
 
@@ -1152,8 +1151,7 @@ TEST(DriverTest, CorruptMetadataTest) {
                                 tensorstore::ReadWriteMode::read_write)
                   .result(),
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*: Error reading \"prefix/info\": "
-                            "Expected object, but received: \\[1\\]"));
+                            ".*: Error reading \"prefix/info\":.*"));
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {

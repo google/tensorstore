@@ -120,7 +120,7 @@ struct ScaleMetadata {
   /// The full JSON representation, including (redundantly) the JSON
   /// representation of the above members as well as any additional unknown
   /// members, which are preserved when re-writing the metadata.
-  ::nlohmann::json attributes;
+  ::nlohmann::json::object_t attributes;
 
   friend void to_json(::nlohmann::json& out,  // NOLINT
                       const ScaleMetadata& metadata) {
@@ -130,7 +130,6 @@ struct ScaleMetadata {
 
 /// Parsed representation of the multiscale volume `info` metadata file.
 struct MultiscaleMetadata {
- public:
   std::string type;
   DataType dtype;
   Index num_channels;
@@ -138,7 +137,7 @@ struct MultiscaleMetadata {
   /// The full JSON representation, including (redundantly) the JSON
   /// representation of the above members as well as any additional unknown
   /// members, which are preserved when re-writing the metadata.
-  ::nlohmann::json attributes;
+  ::nlohmann::json::object_t attributes;
 
   static Result<MultiscaleMetadata> Parse(::nlohmann::json j);
 
@@ -154,6 +153,7 @@ struct MultiscaleMetadataConstraints {
   std::optional<std::string> type;
   DataType dtype;
   std::optional<Index> num_channels;
+
   static Result<MultiscaleMetadataConstraints> Parse(const ::nlohmann::json& j);
 };
 
@@ -178,6 +178,7 @@ struct OpenConstraints {
   MultiscaleMetadataConstraints multiscale;
   ScaleMetadataConstraints scale;
   std::optional<std::size_t> scale_index;
+
   static Result<OpenConstraints> Parse(const ::nlohmann::json& j,
                                        DataType data_type_constraint);
 };

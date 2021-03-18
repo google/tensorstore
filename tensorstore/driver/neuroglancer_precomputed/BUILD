@@ -82,7 +82,9 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore:open_mode",
         "//tensorstore/internal:bit_operations",
+        "//tensorstore/internal:data_type_json_binder",
         "//tensorstore/internal:json",
+        "//tensorstore/internal:logging",
         "//tensorstore/kvstore:key_value_store",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
@@ -90,6 +92,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )
