@@ -750,7 +750,7 @@ constexpr static auto GcsListResponsePayloadBinder = jb::Object(
                               jb::DefaultInitializedValue())),
     jb::Member("items", jb::Projection(&GcsListResponsePayload::items,
                                        jb::DefaultInitializedValue())),
-    jb::IgnoreExtraMembers);
+    jb::DiscardExtraMembers);
 
 template <typename Receiver>
 struct ListOp {

@@ -25,10 +25,10 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json_bindable.h"
-#include "tensorstore/internal/poly.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/util/assert_macros.h"
@@ -399,140 +399,6 @@ Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj);
 }  // namespace internal
 namespace internal_json_binding {
 
-// Defined in separate namespace to work around clang-cl bug
-// https://bugs.llvm.org/show_bug.cgi?id=45213
-namespace loose_value_as_binder {
-constexpr inline auto LooseValueAsBinder = [](auto is_loading,
-                                              const auto& options, auto* obj,
-                                              ::nlohmann::json* j) -> Status {
-  if constexpr (is_loading) {
-    return internal::JsonRequireValueAs(*j, obj, /*strict=*/false);
-  } else {
-    *j = *obj;
-    return absl::OkStatus();
-  }
-};
-}  // namespace loose_value_as_binder
-using loose_value_as_binder::LooseValueAsBinder;
-
-// Defined in separate namespace to work around clang-cl bug
-// https://bugs.llvm.org/show_bug.cgi?id=45213
-namespace value_as_binder {
-constexpr inline auto ValueAsBinder = [](auto is_loading, const auto& options,
-                                         auto* obj,
-                                         ::nlohmann::json* j) -> Status {
-  if constexpr (is_loading) {
-    return internal::JsonRequireValueAs(*j, obj, /*strict=*/true);
-  } else {
-    *j = *obj;
-    return absl::OkStatus();
-  }
-};
-}  // namespace value_as_binder
-using value_as_binder::ValueAsBinder;
-
-template <>
-constexpr inline auto DefaultBinder<bool> = ValueAsBinder;
-template <>
-constexpr inline auto DefaultBinder<std::int64_t> = ValueAsBinder;
-template <>
-constexpr inline auto DefaultBinder<std::string> = ValueAsBinder;
-template <>
-constexpr inline auto DefaultBinder<std::uint64_t> = ValueAsBinder;
-template <>
-constexpr inline auto DefaultBinder<double> = ValueAsBinder;
-template <>
-constexpr inline auto DefaultBinder<std::nullptr_t> = ValueAsBinder;
-
-// Defined in separate namespace to work around clang-cl bug
-// https://bugs.llvm.org/show_bug.cgi?id=45213
-namespace loose_float_binder {
-constexpr inline auto LooseFloatBinder = [](auto is_loading,
-                                            const auto& options, auto* obj,
-                                            ::nlohmann::json* j) -> Status {
-  if constexpr (is_loading) {
-    double x;
-    auto status = internal::JsonRequireValueAs(*j, &x, /*strict=*/false);
-    if (status.ok()) *obj = x;
-    return status;
-  } else {
-    *j = static_cast<double>(*obj);
-    return absl::OkStatus();
-  }
-};
-}  // namespace loose_float_binder
-using loose_float_binder::LooseFloatBinder;
-
-// Defined in separate namespace to work around clang-cl bug
-// https://bugs.llvm.org/show_bug.cgi?id=45213
-namespace float_binder {
-constexpr inline auto FloatBinder = [](auto is_loading, const auto& options,
-                                       auto* obj,
-                                       ::nlohmann::json* j) -> Status {
-  if constexpr (is_loading) {
-    double x;
-    auto status = internal::JsonRequireValueAs(*j, &x, /*strict=*/true);
-    if (status.ok()) *obj = x;
-    return status;
-  } else {
-    *j = static_cast<double>(*obj);
-    return absl::OkStatus();
-  }
-};
-}  // namespace float_binder
-using float_binder::FloatBinder;
-
-template <typename T>
-constexpr inline auto
-    DefaultBinder<T, std::enable_if_t<std::is_floating_point_v<T>>> =
-        FloatBinder;
-
-// Defined in separate namespace to work around clang-cl bug
-// https://bugs.llvm.org/show_bug.cgi?id=45213
-namespace copy_binder {
-constexpr inline auto CopyJsonBinder = [](auto is_loading, const auto& options,
-                                          auto* obj,
-                                          ::nlohmann::json* j) -> Status {
-  if constexpr (is_loading) {
-    *obj = std::move(*j);
-  } else {
-    *j = *obj;
-  }
-  return absl::OkStatus();
-};
-}  // namespace copy_binder
-using copy_binder::CopyJsonBinder;
-
-template <>
-constexpr inline auto DefaultBinder<::nlohmann::json> = CopyJsonBinder;
-
-// Defined in separate namespace to work around clang-cl bug
-// https://bugs.llvm.org/show_bug.cgi?id=45213
-namespace object_binder {
-constexpr inline auto CopyJsonObjectBinder =
-    [](auto is_loading, const auto& options, auto* obj, auto* j) -> Status {
-  if constexpr (is_loading) {
-    if constexpr (std::is_same_v<decltype(j), ::nlohmann::json::object_t*>) {
-      *obj = std::move(*j);
-    } else {
-      if (auto* j_obj = internal_json::GetObject(j)) {
-        *obj = std::move(*j_obj);
-      } else {
-        return internal_json::ExpectedError(*j, "object");
-      }
-    }
-  } else {
-    *j = *obj;
-  }
-  return absl::OkStatus();
-};
-}  // namespace object_binder
-using object_binder::CopyJsonObjectBinder;
-
-template <>
-constexpr inline auto DefaultBinder<::nlohmann::json::object_t> =
-    CopyJsonObjectBinder;
-
 /// Binder adapter that projects the parsed representation.
 ///
 /// Commonly this is used with `Member`, in order to bind a data member of the
@@ -697,6 +563,7 @@ constexpr auto Object(MemberBinder... member_binder) {
         TENSORSTORE_RETURN_IF_ERROR(internal_json_binding::Sequence(
             member_binder...)(is_loading, options, obj, j_obj));
         if constexpr (is_loading) {
+          // If any members remain in j_obj after this, error.
           if (!j_obj->empty()) {
             return internal::JsonExtraMembersError(*j_obj);
           }
@@ -753,7 +620,7 @@ constexpr auto Member(MemberName name, Binder binder = DefaultBinder<>) {
   };
 }
 
-/// Returns an object binder (for use with `Object`) that ignores any extra
+/// Returns an object binder (for use with `Object`) that clears any extra
 /// members.
 ///
 /// When loading, this removes all remaining members.
@@ -765,8 +632,11 @@ constexpr auto Member(MemberName name, Binder binder = DefaultBinder<>) {
 ///     namespace jb = tensorstore::internal_json_binding;
 ///     auto binder = jb::Object(jb::Member("x", &Foo::x),
 ///                              jb::Member("y", &Foo::y),
-///                              jb::IgnoreExtraMembers);
-constexpr auto IgnoreExtraMembers =
+///                              jb::DiscardExtraMembers);
+namespace discard_extra_members_binder {
+// Defined in separate namespace to work around clang-cl bug
+// https://bugs.llvm.org/show_bug.cgi?id=45213
+constexpr inline auto DiscardExtraMembers =
     [](auto is_loading, const auto& options, auto* obj,
        ::nlohmann::json::object_t* j_obj) -> Status {
   if constexpr (is_loading) {
@@ -774,6 +644,8 @@ constexpr auto IgnoreExtraMembers =
   }
   return absl::OkStatus();
 };
+}  // namespace discard_extra_members_binder
+using discard_extra_members_binder::DiscardExtraMembers;
 
 /// Returns a `Binder` for use with `Member` that performs default value
 /// handling.
@@ -854,72 +726,188 @@ constexpr auto DefaultInitializedValue(Binder binder = DefaultBinder<>) {
       std::move(binder));
 }
 
-/// Returns a `Binder` for `std::optional<T>`.
+/// Binders for natively supported types. These binders come in
+/// loose and strict flavors. The Loose... binders are permissive and
+/// will accept json types that can be parsed as the target type
+/// (e.g. "3" as int), where the default binders are less permissive.
 ///
-/// When loading, if the JSON value is equal to `nullopt_to_json()`, sets the
-/// optional object to `std::nullopt`.  Otherwise, constructs the object and
-/// calls `value_binder`.
+/// The strict binders are installed as DefaultBinder<> specializations.
 ///
-/// When saving, if the optional object is equal to `std::nullopt`, sets the
-/// JSON value to `nullopt_to_json()`.  Otherwise, calls `value_binder`.
+/// Example:
+///     namespace jb = tensorstore::internal_json_binding;
 ///
-/// \param value_binder `Binder` for `T` to use in the case the value is
-///     present.
-/// \param nullopt_to_json Function with signature `::nlohmann::json ()` that
-///     returns the JSON representation for `std::nullopt`.
-template <typename ValueBinder, typename NulloptToJson>
-constexpr auto Optional(ValueBinder value_binder,
-                        NulloptToJson nullopt_to_json) {
+///     ::nlohmann::json j("3")
+///     int x;
+///     LooseValueAsBinder(is_loading, options, &x, j)
+///     ValueAsBinder(is_loading, options, &x, j)
+///
+namespace loose_value_as_binder {
+// Defined in separate namespace to work around clang-cl bug
+// https://bugs.llvm.org/show_bug.cgi?id=45213
+constexpr inline auto LooseValueAsBinder = [](auto is_loading,
+                                              const auto& options, auto* obj,
+                                              ::nlohmann::json* j) -> Status {
+  if constexpr (is_loading) {
+    return internal::JsonRequireValueAs(*j, obj, /*strict=*/false);
+  } else {
+    *j = *obj;
+    return absl::OkStatus();
+  }
+};
+}  // namespace loose_value_as_binder
+using loose_value_as_binder::LooseValueAsBinder;
+
+// Defined in separate namespace to work around clang-cl bug
+// https://bugs.llvm.org/show_bug.cgi?id=45213
+namespace value_as_binder {
+constexpr inline auto ValueAsBinder = [](auto is_loading, const auto& options,
+                                         auto* obj,
+                                         ::nlohmann::json* j) -> Status {
+  if constexpr (is_loading) {
+    return internal::JsonRequireValueAs(*j, obj, /*strict=*/true);
+  } else {
+    *j = *obj;
+    return absl::OkStatus();
+  }
+};
+}  // namespace value_as_binder
+using value_as_binder::ValueAsBinder;
+
+template <>
+constexpr inline auto DefaultBinder<bool> = ValueAsBinder;
+template <>
+constexpr inline auto DefaultBinder<std::int64_t> = ValueAsBinder;
+template <>
+constexpr inline auto DefaultBinder<std::string> = ValueAsBinder;
+template <>
+constexpr inline auto DefaultBinder<std::uint64_t> = ValueAsBinder;
+template <>
+constexpr inline auto DefaultBinder<double> = ValueAsBinder;
+template <>
+constexpr inline auto DefaultBinder<std::nullptr_t> = ValueAsBinder;
+
+// Defined in separate namespace to work around clang-cl bug
+// https://bugs.llvm.org/show_bug.cgi?id=45213
+namespace loose_float_binder {
+constexpr inline auto LooseFloatBinder = [](auto is_loading,
+                                            const auto& options, auto* obj,
+                                            ::nlohmann::json* j) -> Status {
+  if constexpr (is_loading) {
+    double x;
+    auto status = internal::JsonRequireValueAs(*j, &x, /*strict=*/false);
+    if (status.ok()) *obj = x;
+    return status;
+  } else {
+    *j = static_cast<double>(*obj);
+    return absl::OkStatus();
+  }
+};
+}  // namespace loose_float_binder
+using loose_float_binder::LooseFloatBinder;
+
+// Defined in separate namespace to work around clang-cl bug
+// https://bugs.llvm.org/show_bug.cgi?id=45213
+namespace float_binder {
+constexpr inline auto FloatBinder = [](auto is_loading, const auto& options,
+                                       auto* obj,
+                                       ::nlohmann::json* j) -> Status {
+  if constexpr (is_loading) {
+    double x;
+    auto status = internal::JsonRequireValueAs(*j, &x, /*strict=*/true);
+    if (status.ok()) *obj = x;
+    return status;
+  } else {
+    *j = static_cast<double>(*obj);
+    return absl::OkStatus();
+  }
+};
+}  // namespace float_binder
+using float_binder::FloatBinder;
+
+template <typename T>
+constexpr inline auto
+    DefaultBinder<T, std::enable_if_t<std::is_floating_point_v<T>>> =
+        FloatBinder;
+
+/// Returns a Binder for integers.
+template <typename T>
+constexpr auto LooseInteger(T min = std::numeric_limits<T>::min(),
+                            T max = std::numeric_limits<T>::max()) {
   return [=](auto is_loading, const auto& options, auto* obj,
              ::nlohmann::json* j) -> Status {
     if constexpr (is_loading) {
-      ::nlohmann::json nullopt_json = nullopt_to_json();
-      if (internal_json::JsonSame(*j, nullopt_json)) {
-        *obj = std::nullopt;
-        return absl::OkStatus();
-      } else {
-        return value_binder(is_loading, options, &obj->emplace(), j);
-      }
+      return internal::JsonRequireInteger(*j, obj, /*strict=*/false, min, max);
     } else {
-      if (obj->has_value()) {
-        return value_binder(is_loading, options, &**obj, j);
-      } else {
-        *j = nullopt_to_json();
-        return absl::OkStatus();
-      }
+      *j = *obj;
+      return absl::OkStatus();
     }
   };
 }
 
-/// Same as above, but converts `std::optional` to
-/// ::nlohmann::json::value_t::discarded` (for use with `Member`).
-template <typename ValueBinder = decltype(DefaultBinder<>)>
-constexpr auto Optional(ValueBinder value_binder = DefaultBinder<>) {
-  return Optional(value_binder, [] {
-    return ::nlohmann::json(::nlohmann::json::value_t::discarded);
-  });
+/// Returns a Binder for integers.
+template <typename T>
+constexpr auto Integer(T min = std::numeric_limits<T>::min(),
+                       T max = std::numeric_limits<T>::max()) {
+  return [=](auto is_loading, const auto& options, auto* obj,
+             ::nlohmann::json* j) -> Status {
+    if constexpr (is_loading) {
+      return internal::JsonRequireInteger(*j, obj, /*strict=*/true, min, max);
+    } else {
+      *j = *obj;
+      return absl::OkStatus();
+    }
+  };
 }
 
-template <typename Value, typename JsonValue,
-          typename Binder = decltype(DefaultBinder<>)>
-constexpr auto MapValue(Value value, JsonValue json_value,
-                        Binder binder = DefaultBinder<>) {
-  return
-      [=](auto is_loading, const auto& options, auto* obj, auto* j) -> Status {
-        if constexpr (is_loading) {
-          if (internal_json::JsonSame(*j, json_value)) {
-            *obj = value;
-            return absl::OkStatus();
-          }
-        } else {
-          if (*obj == value) {
-            *j = json_value;
-            return absl::OkStatus();
-          }
-        }
-        return binder(is_loading, options, obj, j);
-      };
-}
+template <typename T>
+constexpr inline auto
+    DefaultBinder<T, std::enable_if_t<std::is_integral_v<T>>> = Integer<T>();
+
+// Defined in separate namespace to work around clang-cl bug
+// https://bugs.llvm.org/show_bug.cgi?id=45213
+namespace copy_binder {
+constexpr inline auto CopyJsonBinder = [](auto is_loading, const auto& options,
+                                          auto* obj,
+                                          ::nlohmann::json* j) -> Status {
+  if constexpr (is_loading) {
+    *obj = std::move(*j);
+  } else {
+    *j = *obj;
+  }
+  return absl::OkStatus();
+};
+}  // namespace copy_binder
+using copy_binder::CopyJsonBinder;
+
+template <>
+constexpr inline auto DefaultBinder<::nlohmann::json> = CopyJsonBinder;
+
+// Defined in separate namespace to work around clang-cl bug
+// https://bugs.llvm.org/show_bug.cgi?id=45213
+namespace object_binder {
+constexpr inline auto CopyJsonObjectBinder =
+    [](auto is_loading, const auto& options, auto* obj, auto* j) -> Status {
+  if constexpr (is_loading) {
+    if constexpr (std::is_same_v<decltype(j), ::nlohmann::json::object_t*>) {
+      *obj = std::move(*j);
+    } else {
+      if (auto* j_obj = internal_json::GetObject(j)) {
+        *obj = std::move(*j_obj);
+      } else {
+        return internal_json::ExpectedError(*j, "object");
+      }
+    }
+  } else {
+    *j = *obj;
+  }
+  return absl::OkStatus();
+};
+}  // namespace object_binder
+using object_binder::CopyJsonObjectBinder;
+
+template <>
+constexpr inline auto DefaultBinder<::nlohmann::json::object_t> =
+    CopyJsonObjectBinder;
 
 /// Returns a `Binder` for enum-like types.
 ///
@@ -969,106 +957,40 @@ constexpr auto Enum(const std::pair<EnumValue, JsonValue> (&values)[N]) {
       };
 }
 
-// Defined in separate namespace to work around clang-cl bug
-// https://bugs.llvm.org/show_bug.cgi?id=45213
-namespace optional_binder {
-constexpr inline auto OptionalBinder = [](auto is_loading, const auto& options,
-                                          auto* obj, ::nlohmann::json* j) {
-  return Optional()(is_loading, options, obj, j);
-};
-}  // namespace optional_binder
-using optional_binder::OptionalBinder;
-
-/// Registers `Optional` as the default binder for `std::optional`.
-template <typename T>
-inline constexpr auto& DefaultBinder<std::optional<T>> = OptionalBinder;
-
-/// Returns a Binder for integers.
-template <typename T>
-constexpr auto LooseInteger(T min = std::numeric_limits<T>::min(),
-                            T max = std::numeric_limits<T>::max()) {
-  return [=](auto is_loading, const auto& options, auto* obj,
-             ::nlohmann::json* j) -> Status {
-    if constexpr (is_loading) {
-      return internal::JsonRequireInteger(*j, obj, /*strict=*/false, min, max);
-    } else {
-      *j = *obj;
-      return absl::OkStatus();
-    }
-  };
-}
-
-/// Returns a Binder for integers.
-template <typename T>
-constexpr auto Integer(T min = std::numeric_limits<T>::min(),
-                       T max = std::numeric_limits<T>::max()) {
-  return [=](auto is_loading, const auto& options, auto* obj,
-             ::nlohmann::json* j) -> Status {
-    if constexpr (is_loading) {
-      return internal::JsonRequireInteger(*j, obj, /*strict=*/true, min, max);
-    } else {
-      *j = *obj;
-      return absl::OkStatus();
-    }
-  };
-}
-
-template <typename T>
-constexpr inline auto
-    DefaultBinder<T, std::enable_if_t<std::is_integral_v<T>>> = Integer<T>();
-
-template <typename T, typename TransformedValueBinder,
-          typename OriginalValueBinder = decltype(DefaultBinder<>)>
-constexpr auto Compose(
-    TransformedValueBinder transformed_value_binder,
-    OriginalValueBinder original_value_binder = DefaultBinder<>) {
-  return
-      [=](auto is_loading, const auto& options, auto* obj, auto* j) -> Status {
-        T value;
-        if constexpr (is_loading) {
-          TENSORSTORE_RETURN_IF_ERROR(
-              original_value_binder(is_loading, options, &value, j));
-          return transformed_value_binder(is_loading, options, obj, &value);
-        } else {
-          TENSORSTORE_RETURN_IF_ERROR(
-              transformed_value_binder(is_loading, options, obj, &value));
-          return original_value_binder(is_loading, options, &value, j);
-        }
-      };
-}
-
-template <typename GetBinder>
-constexpr auto Dependent(GetBinder get_binder) {
-  return [=](auto is_loading, const auto& options, auto* obj,
-             auto*... j) -> Status {
-    return get_binder(is_loading, options, obj, j...)(is_loading, options, obj,
-                                                      j...);
-  };
-}
-
-template <typename Validator, typename Binder = decltype(DefaultBinder<>)>
-constexpr auto Validate(Validator validator, Binder binder = DefaultBinder<>) {
+/// Provides a `Binder` which maps a single json value to a single c++ value.
+/// This may be useful for std::variant types.
+///
+/// Example usage:
+///
+///     const auto binder = jb::MapValue(Dog{}, nullptr, PetBinder);
+///
+/// When converting to JSON, equality comparison is used for the `EnumValue`
+/// values.  When converting from JSON, `JsonSame` is used for comparison.
+///
+/// \tparam EnumValue The C++ enum-like type to bind.  May be any regular type
+///     that supports equality comparison.
+/// \tparam JsonValue The JSON value representation, may be `std::string_view`,
+///     `int`, or another type convertible to `::nlohmann::json`.
+/// \param values Array of `EnumValue`/`JsonValue` pairs.
+template <typename Value, typename JsonValue,
+          typename Binder = decltype(DefaultBinder<>)>
+constexpr auto MapValue(Value value, JsonValue json_value,
+                        Binder binder = DefaultBinder<>) {
   return
       [=](auto is_loading, const auto& options, auto* obj, auto* j) -> Status {
         if constexpr (is_loading) {
-          TENSORSTORE_RETURN_IF_ERROR(binder(is_loading, options, obj, j));
-          return validator(options, obj);
+          if (internal_json::JsonSame(*j, json_value)) {
+            *obj = value;
+            return absl::OkStatus();
+          }
         } else {
-          return binder(is_loading, options, obj, j);
+          if (*obj == value) {
+            *j = json_value;
+            return absl::OkStatus();
+          }
         }
+        return binder(is_loading, options, obj, j);
       };
-}
-
-template <typename Initializer>
-constexpr auto Initialize(Initializer initializer) {
-  return [=](auto is_loading, const auto& options, [[maybe_unused]] auto* obj,
-             auto* j) -> Status {
-    if constexpr (is_loading) {
-      return tensorstore::InvokeForStatus(initializer, obj);
-    } else {
-      return absl::OkStatus();
-    }
-  };
 }
 
 /// Matches a constant JSON value (doesn't parse anything).
@@ -1187,6 +1109,7 @@ inline constexpr auto FixedSizeArrayBinder =
 }  // namespace fixed_size_array_binder
 using array_binder::ArrayBinder;
 using fixed_size_array_binder::FixedSizeArrayBinder;
+
 template <typename T, typename Allocator>
 constexpr inline auto DefaultBinder<std::vector<T, Allocator>> = ArrayBinder;
 
@@ -1201,15 +1124,142 @@ template <typename T, std::ptrdiff_t Extent>
 constexpr inline auto DefaultBinder<tensorstore::span<T, Extent>> =
     FixedSizeArrayBinder;
 
-/// Type-erased `Binder` type.
-template <typename T, typename LoadOptions, typename SaveOptions,
-          typename JsonValue = ::nlohmann::json, typename... ExtraValue>
-using AnyBinder =
-    internal::Poly<0, /*Copyable=*/true,  //
-                   Status(std::true_type, const LoadOptions&, T* obj,
-                          JsonValue* j, ExtraValue*...) const,
-                   Status(std::false_type, const SaveOptions&, const T* obj,
-                          JsonValue* j, ExtraValue*...) const>;
+/// Returns a `Binder` for `std::optional<T>`.
+///
+/// When loading, if the JSON value is equal to `nullopt_to_json()`, sets the
+/// optional object to `std::nullopt`.  Otherwise, constructs the object and
+/// calls `value_binder`.
+///
+/// When saving, if the optional object is equal to `std::nullopt`, sets the
+/// JSON value to `nullopt_to_json()`.  Otherwise, calls `value_binder`.
+///
+/// \param value_binder `Binder` for `T` to use in the case the value is
+///     present.
+/// \param nullopt_to_json Function with signature `::nlohmann::json ()` that
+///     returns the JSON representation for `std::nullopt`.
+template <typename ValueBinder, typename NulloptToJson>
+constexpr auto Optional(ValueBinder value_binder,
+                        NulloptToJson nullopt_to_json) {
+  return [=](auto is_loading, const auto& options, auto* obj,
+             ::nlohmann::json* j) -> Status {
+    if constexpr (is_loading) {
+      ::nlohmann::json nullopt_json = nullopt_to_json();
+      if (internal_json::JsonSame(*j, nullopt_json)) {
+        *obj = std::nullopt;
+        return absl::OkStatus();
+      } else {
+        return value_binder(is_loading, options, &obj->emplace(), j);
+      }
+    } else {
+      if (obj->has_value()) {
+        return value_binder(is_loading, options, &**obj, j);
+      } else {
+        *j = nullopt_to_json();
+        return absl::OkStatus();
+      }
+    }
+  };
+}
+
+/// Same as above, but converts `std::optional` to
+/// ::nlohmann::json::value_t::discarded` (for use with `Member`).
+template <typename ValueBinder = decltype(DefaultBinder<>)>
+constexpr auto Optional(ValueBinder value_binder = DefaultBinder<>) {
+  return Optional(value_binder, [] {
+    return ::nlohmann::json(::nlohmann::json::value_t::discarded);
+  });
+}
+
+// Defined in separate namespace to work around clang-cl bug
+// https://bugs.llvm.org/show_bug.cgi?id=45213
+namespace optional_binder {
+constexpr inline auto OptionalBinder = [](auto is_loading, const auto& options,
+                                          auto* obj, ::nlohmann::json* j) {
+  return Optional()(is_loading, options, obj, j);
+};
+}  // namespace optional_binder
+using optional_binder::OptionalBinder;
+
+/// Registers `Optional` as the default binder for `std::optional`.
+template <typename T>
+inline constexpr auto& DefaultBinder<std::optional<T>> = OptionalBinder;
+
+/// When loading, invokes the provided lambda the current object after the
+/// subsequent binder has been invoked.
+///
+/// This is useful for checking single-value constraints.
+///
+/// Example:
+///     namespace jb = tensorstore::internal_json_binding;
+///     auto binder = jb::Object(
+///                       jb::Member("x",
+///                           jb::Projection(&Foo::x,
+///                           jb::Validate([](auto& x) { assert(is_prime(x));
+///                           }))));
+///
+template <typename Validator, typename Binder = decltype(DefaultBinder<>)>
+constexpr auto Validate(Validator validator, Binder binder = DefaultBinder<>) {
+  return
+      [=](auto is_loading, const auto& options, auto* obj, auto* j) -> Status {
+        if constexpr (is_loading) {
+          TENSORSTORE_RETURN_IF_ERROR(binder(is_loading, options, obj, j));
+          return validator(options, obj);
+        } else {
+          return binder(is_loading, options, obj, j);
+        }
+      };
+}
+
+/// When loading, invokes the provided lambda with the current object.
+/// This is useful for checking constraints that depend on multiple members.
+///
+/// Example:
+///     namespace jb = tensorstore::internal_json_binding;
+///     auto binder = jb::Object(
+///                       jb::Member("x", jb::Projection(&Foo::x)),
+///                       jb::Member("y", jb::Projection(&Foo::y)),
+///                       jb::Initialize([](Foo* f) { assert(f->x > f->y); }));
+///
+template <typename Initializer>
+constexpr auto Initialize(Initializer initializer) {
+  return [=](auto is_loading, const auto& options, [[maybe_unused]] auto* obj,
+             auto* j) -> Status {
+    if constexpr (is_loading) {
+      return tensorstore::InvokeForStatus(initializer, obj);
+    } else {
+      return absl::OkStatus();
+    }
+  };
+}
+
+template <typename T, typename TransformedValueBinder,
+          typename OriginalValueBinder = decltype(DefaultBinder<>)>
+constexpr auto Compose(
+    TransformedValueBinder transformed_value_binder,
+    OriginalValueBinder original_value_binder = DefaultBinder<>) {
+  return
+      [=](auto is_loading, const auto& options, auto* obj, auto* j) -> Status {
+        T value;
+        if constexpr (is_loading) {
+          TENSORSTORE_RETURN_IF_ERROR(
+              original_value_binder(is_loading, options, &value, j));
+          return transformed_value_binder(is_loading, options, obj, &value);
+        } else {
+          TENSORSTORE_RETURN_IF_ERROR(
+              transformed_value_binder(is_loading, options, obj, &value));
+          return original_value_binder(is_loading, options, &value, j);
+        }
+      };
+}
+
+template <typename GetBinder>
+constexpr auto Dependent(GetBinder get_binder) {
+  return [=](auto is_loading, const auto& options, auto* obj,
+             auto*... j) -> Status {
+    return get_binder(is_loading, options, obj, j...)(is_loading, options, obj,
+                                                      j...);
+  };
+}
 
 }  // namespace internal_json_binding
 }  // namespace tensorstore

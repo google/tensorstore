@@ -33,6 +33,7 @@
 
 #include "tensorstore/context.h"
 #include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_bindable.h"
 
 namespace tensorstore {
 namespace internal {

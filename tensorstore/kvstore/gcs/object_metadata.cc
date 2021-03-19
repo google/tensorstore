@@ -67,7 +67,7 @@ inline constexpr auto ObjectMetadataBinder = jb::Object(
                                              jb::DefaultValue([](auto* x) {
                                                *x = absl::InfinitePast();
                                              }))),
-    jb::IgnoreExtraMembers);
+    jb::DiscardExtraMembers);
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ObjectMetadata,
                                        [](auto is_loading, const auto& options,

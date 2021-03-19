@@ -180,7 +180,7 @@ constexpr static auto GoogleServiceAccountCredentialsBinder = jb::Object(
     jb::Member("token_uri",
                jb::Projection(&GoogleServiceAccountCredentials::token_uri,
                               jb::DefaultInitializedValue())),
-    jb::IgnoreExtraMembers);
+    jb::DiscardExtraMembers);
 
 Result<GoogleServiceAccountCredentials>
 ParseGoogleServiceAccountCredentialsImpl(const ::nlohmann::json& credentials) {
@@ -213,7 +213,7 @@ constexpr static auto RefreshTokenBinder = jb::Object(
                                                NonEmptyStringBinder)),
     jb::Member("refresh_token", jb::Projection(&RefreshToken::refresh_token,
                                                NonEmptyStringBinder)),
-    jb::IgnoreExtraMembers);
+    jb::DiscardExtraMembers);
 
 Result<RefreshToken> ParseRefreshTokenImpl(
     const ::nlohmann::json& credentials) {
@@ -239,7 +239,7 @@ constexpr static auto OAuthResponseBinder = jb::Object(
                                               NonEmptyStringBinder)),
     jb::Member("expires_in", jb::Projection(&OAuthResponse::expires_in,
                                             jb::LooseInteger<int64_t>(1))),
-    jb::IgnoreExtraMembers);
+    jb::DiscardExtraMembers);
 
 Result<OAuthResponse> ParseOAuthResponseImpl(
     const ::nlohmann::json& credentials) {

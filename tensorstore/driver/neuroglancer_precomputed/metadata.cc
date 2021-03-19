@@ -267,7 +267,7 @@ constexpr static auto ScaleMetadataBinder = jb::Object(
                jb::Projection(&ScaleMetadata::chunk_sizes,
                               jb::Array(jb::FixedSizeArray(
                                   jb::Integer<Index>(1, kInfSize - 1))))),
-    jb::IgnoreExtraMembers, jb::Initialize([](ScaleMetadata* obj) {
+    jb::DiscardExtraMembers, jb::Initialize([](ScaleMetadata* obj) {
       if (obj->chunk_sizes.empty()) {
         return absl::InvalidArgumentError(
             "At least one chunk size must be specified");
@@ -338,7 +338,7 @@ constexpr static auto MultiscaleMetadataBinder = jb::Object(
                                               jb::Integer(1))),
     jb::Member("scales", jb::Projection(&MultiscaleMetadata::scales,
                                         jb::Array(ScaleMetadataBinder))),
-    jb::IgnoreExtraMembers, jb::Initialize([](MultiscaleMetadata* obj) {
+    jb::DiscardExtraMembers, jb::Initialize([](MultiscaleMetadata* obj) {
       for (const auto& s : obj->scales) {
         TENSORSTORE_RETURN_IF_ERROR(ValidateEncodingDataType(
             s.encoding, obj->dtype, obj->num_channels));
