@@ -36,11 +36,10 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::Result;
-using tensorstore::internal::JsonRequireObjectMember;
-using tensorstore::internal::JsonRequireValueAs;
 using tensorstore::internal_http::HttpRequestBuilder;
 using tensorstore::internal_http::HttpResponse;
+
+namespace jb = tensorstore::internal_json_binding;
 
 namespace tensorstore {
 namespace internal_oauth2 {
@@ -57,42 +56,26 @@ namespace {
 // "metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/",
 struct ServiceAccountInfo {
   std::string email;
-  std::set<std::string> scopes;
+  std::vector<std::string> scopes;
 };
 
-Result<ServiceAccountInfo> ParseServiceAccountInfo(std::string_view source) {
-  auto info_response = internal::ParseJson(source);
-  if (info_response.is_discarded()) {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Failed to parse service account response: ", source));
-  }
+constexpr static auto ServiceAccountInfoBinder = jb::Object(
+    jb::Member("email",
+               jb::Projection(
+                   &ServiceAccountInfo::email,
+                   jb::Validate([](const auto& options, const std::string* x) {
+                     if (x->empty()) {
+                       return absl::InvalidArgumentError("Empty field");
+                     }
+                     return absl::OkStatus();
+                   }))),
 
-  ServiceAccountInfo info;
-
-  TENSORSTORE_RETURN_IF_ERROR(JsonRequireObjectMember(  //
-      info_response, "email", [&](const ::nlohmann::json& j) -> Status {
-        return JsonRequireValueAs(
-            j, &info.email, [](const std::string& x) { return !x.empty(); });
-      }));
-
-  // Note that the "scopes" attribute will always be present and contain a
-  // JSON array. At minimum, for the request to succeed, the instance must
-  // have been granted the scope that allows it to retrieve info from the
-  // metadata server.
-  TENSORSTORE_RETURN_IF_ERROR(JsonRequireObjectMember(  //
-      info_response, "scopes", [&](const ::nlohmann::json& j) -> Status {
-        if (j.is_array()) {
-          info.scopes = std::set<std::string>(j.begin(), j.end());
-        }
-        if (info.scopes.empty()) {
-          return absl::InvalidArgumentError(
-              "Google Service Account response scopes are empty.");
-        }
-        return absl::OkStatus();
-      }));
-
-  return std::move(info);
-}
+    // Note that the "scopes" attribute will always be present and contain a
+    // JSON array. At minimum, for the request to succeed, the instance must
+    // have been granted the scope that allows it to retrieve info from the
+    // metadata server.
+    jb::Member("scopes", jb::Projection(&ServiceAccountInfo::scopes)),
+    jb::DiscardExtraMembers);
 
 }  // namespace
 
@@ -143,10 +126,21 @@ Status GceAuthProvider::RetrieveServiceAccountInfo() {
                        service_account_email_, "/"),
           true));
   TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(response));
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto service_info, ParseServiceAccountInfo(response.payload.Flatten()));
+
+  auto info_response = internal::ParseJson(response.payload.Flatten());
+  if (info_response.is_discarded()) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Failed to parse service account response: ",
+                     response.payload.Flatten()));
+  }
+
+  TENSORSTORE_ASSIGN_OR_RETURN(auto service_info,
+                               jb::FromJson<ServiceAccountInfo>(
+                                   info_response, ServiceAccountInfoBinder));
+
   service_account_email_ = std::move(service_info.email);
-  scopes_ = std::move(service_info.scopes);
+  scopes_ = std::set<std::string>(service_info.scopes.begin(),
+                                  service_info.scopes.end());
   return absl::OkStatus();
 }
 
