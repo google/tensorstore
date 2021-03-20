@@ -46,13 +46,23 @@ namespace internal_json_binding {
 ///     `*rank != dynamic_rank`, the length of the array must equal `*rank`;
 ///     otherwise, `*rank` is set to the length, and may serve as a constraint
 ///     for subsequent uses of other `DimensionIndexedVector` binders.
+/// \param get_size Function with signature `size_t (const T& obj)` called when
+///     saving *to* JSON to obtain the array length.
+/// \param set_size Function with signature `absl::Status (T& obj, size_t size)`
+///     called when loading *from* JSON to validate and set the array length.
+/// \param get_element Function with overloaded signatures
+///     `const Element& (const T& obj, size_t i)` and
+///     `Element& (T& obj, size_t i)` called when saving and loading,
+///     respectively, to obtain the element of the array at a given index.
 /// \param element_binder Binder used for elements of the array.
-template <typename ElementBinder = decltype(DefaultBinder<>)>
+template <typename GetSize, typename SetSize, typename GetElement,
+          typename ElementBinder = decltype(DefaultBinder<>)>
 constexpr auto DimensionIndexedVector(
-    DimensionIndex* rank, ElementBinder element_binder = DefaultBinder<>) {
+    DimensionIndex* rank, GetSize get_size, SetSize set_size,
+    GetElement get_element, ElementBinder element_binder = DefaultBinder<>) {
   return internal_json_binding::Array(
-      [](auto& c) { return c.size(); },
-      [rank](auto& c, size_t size) {
+      std::move(get_size),
+      [rank, set_size = std::move(set_size)](auto& c, size_t size) {
         TENSORSTORE_RETURN_IF_ERROR(ValidateRank(size));
         if (rank) {
           if (*rank == dynamic_rank) {
@@ -61,6 +71,19 @@ constexpr auto DimensionIndexedVector(
             return internal::JsonValidateArrayLength(size, *rank);
           }
         }
+        return set_size(c, size);
+      },
+      std::move(get_element), std::move(element_binder));
+}
+
+/// Convenience interface to the above `DimensionIndexedVector` overload that is
+/// compatible with `std::vector` and similar container types.
+template <typename ElementBinder = decltype(DefaultBinder<>)>
+constexpr auto DimensionIndexedVector(
+    DimensionIndex* rank, ElementBinder element_binder = DefaultBinder<>) {
+  return DimensionIndexedVector(
+      rank, [](auto& c) { return c.size(); },
+      [](auto& c, size_t size) {
         c.resize(size);
         return absl::OkStatus();
       },
