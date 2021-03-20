@@ -18,6 +18,8 @@
 /// \file Defines common bit-wise operations.
 
 #include <cstdint>
+#include <cstring>
+#include <type_traits>
 
 // The implementation of `CountLeadingZeros64` was copied from
 // absl/base/internal/bits.h
@@ -116,6 +118,23 @@ TENSORSTORE_INTERNAL_CONSTEXPR_UNLESS_MSVC inline int bit_width(
 }
 
 #undef TENSORSTORE_INTERNAL_CONSTEXPR_UNLESS_MSVC
+
+/// C++17 implementation of C++20 `std::bit_cast`.
+///
+/// Unlike the C++20 standard version, this cannot be made constexpr (but in
+/// practice the compiler may still constant fold it).
+template <typename To, typename From>
+inline std::enable_if_t<(sizeof(To) == sizeof(From) &&
+                         std::is_trivially_copyable_v<From> &&
+                         std::is_trivially_copyable_v<To>),
+                        To>
+bit_cast(const From& src) noexcept {
+  To dst;
+  // reinterpret_cast silences -Wclass-memaccess warning from GCC
+  std::memcpy(reinterpret_cast<char*>(&dst),
+              reinterpret_cast<const char*>(&src), sizeof(To));
+  return dst;
+}
 
 }  // namespace internal
 }  // namespace tensorstore

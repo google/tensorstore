@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_UTIL_TO_STRING_H_
-#define TENSORSTORE_UTIL_TO_STRING_H_
+#ifndef TENSORSTORE_UTIL_STR_CAT_H_
+#define TENSORSTORE_UTIL_STR_CAT_H_
 
 /// \file
 /// Provides generic conversion to string representation.
@@ -91,4 +91,4 @@ void StrAppend(std::string* result, const Arg&... arg) {
 
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_UTIL_TO_STRING_H_
+#endif  // TENSORSTORE_UTIL_STR_CAT_H_

@@ -73,6 +73,28 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "bfloat16",
+    hdrs = ["bfloat16.h"],
+    deps = [
+        "//tensorstore/internal:bit_operations",
+        "//tensorstore/internal:json_fwd",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "bfloat16_test",
+    size = "small",
+    srcs = ["bfloat16_test.cc"],
+    deps = [
+        ":bfloat16",
+        "//tensorstore:data_type",
+        "//tensorstore/internal:bit_operations",
+        "//tensorstore/internal:json_gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "byte_strided_pointer",
     hdrs = ["byte_strided_pointer.h"],
     deps = [
