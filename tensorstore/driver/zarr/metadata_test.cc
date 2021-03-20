@@ -28,8 +28,10 @@
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
+using tensorstore::bfloat16_t;
 using tensorstore::ContiguousLayoutOrder;
 using tensorstore::dtype_v;
+using tensorstore::float16_t;
 using tensorstore::MakeArray;
 using tensorstore::MakeScalarArray;
 using tensorstore::MatchesStatus;
@@ -88,15 +90,24 @@ void TestFillValueRoundTrip(
 
 template <typename FloatType>
 void TestFillValueRoundTripFloat(const ::nlohmann::json& dtype) {
-  TestFillValueRoundTrip(dtype, 3.5, {MakeScalarArray<FloatType>(3.5)});
-  TestFillValueRoundTrip(dtype, "Infinity",
-                         {MakeScalarArray<FloatType>(INFINITY)});
-  TestFillValueRoundTrip(dtype, "-Infinity",
-                         {MakeScalarArray<FloatType>(-INFINITY)});
-  TestFillValueRoundTrip(dtype, "NaN", {MakeScalarArray<FloatType>(NAN)},
-                         {tensorstore::MatchesScalarArray<FloatType>(
-                             ::testing::internal::FloatingEqMatcher<FloatType>(
-                                 NAN, /*nan_eq_nan=*/true))});
+  TestFillValueRoundTrip(
+      dtype, 3.5, {MakeScalarArray<FloatType>(static_cast<FloatType>(3.5))});
+  TestFillValueRoundTrip(
+      dtype, "Infinity",
+      {MakeScalarArray<FloatType>(static_cast<FloatType>(INFINITY))});
+  TestFillValueRoundTrip(
+      dtype, "-Infinity",
+      {MakeScalarArray<FloatType>(static_cast<FloatType>(-INFINITY))});
+  if constexpr (std::is_same_v<FloatType, float> ||
+                std::is_same_v<FloatType, double>) {
+    // `testing::internal::FloatingEqMatcher` only supports the builtin floating
+    // point types.
+    TestFillValueRoundTrip(
+        dtype, "NaN", {MakeScalarArray<FloatType>(static_cast<FloatType>(NAN))},
+        {tensorstore::MatchesScalarArray<FloatType>(
+            ::testing::internal::FloatingEqMatcher<FloatType>(
+                static_cast<FloatType>(NAN), /*nan_eq_nan=*/true))});
+  }
 }
 
 template <typename FloatType>
@@ -109,6 +120,9 @@ void TestFillValueRoundTripComplex(const ::nlohmann::json& dtype) {
 }
 
 TEST(ParseFillValueTest, FloatingPointSuccess) {
+  TestFillValueRoundTripFloat<float16_t>("<f2");
+  TestFillValueRoundTripFloat<float16_t>(">f2");
+  TestFillValueRoundTripFloat<bfloat16_t>("bfloat16");
   TestFillValueRoundTripFloat<float>("<f4");
   TestFillValueRoundTripFloat<float>(">f4");
   TestFillValueRoundTripFloat<double>("<f8");

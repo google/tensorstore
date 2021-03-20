@@ -24,6 +24,7 @@
 
 namespace {
 
+using tensorstore::bfloat16_t;
 using tensorstore::complex128_t;
 using tensorstore::complex64_t;
 using tensorstore::DataType;
@@ -69,6 +70,7 @@ TEST(ParseBaseDType, Success) {
   CheckBaseDType(">u8", dtype_v<std::uint64_t>, endian::big, {});
 
   CheckBaseDType("<f2", dtype_v<float16_t>, endian::little, {});
+  CheckBaseDType("bfloat16", dtype_v<bfloat16_t>, endian::little, {});
   CheckBaseDType("<f4", dtype_v<float32_t>, endian::little, {});
   CheckBaseDType("<f8", dtype_v<float64_t>, endian::little, {});
   CheckBaseDType(">f2", dtype_v<float16_t>, endian::big, {});
@@ -111,6 +113,8 @@ TEST(ParseBaseDType, Failure) {
   EXPECT_THAT(ParseBaseDType("<u9"),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<S"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(ParseBaseDType("<V3"),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|S999999999999999999999999999"),
               MatchesStatus(absl::StatusCode::kInvalidArgument));

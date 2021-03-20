@@ -65,6 +65,10 @@ allOf:
           description: |
             Refer to the `Zarr data type encoding specification
             <https://zarr.readthedocs.io/en/stable/spec/v2.html#data-type-encoding>`_.
+            As an extension, TensorStore also supports :json:`"bfloat16"` for
+            specifying the `bfloat16
+            <https://en.wikipedia.org/wiki/Bfloat16_floating-point_format>`_
+            data type with little endian byte order.
         compressor:
           oneOf:
           - $ref: '#compressor'

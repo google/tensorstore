@@ -23,6 +23,14 @@ namespace internal_zarr {
 
 Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
   using D = ZarrDType::BaseDType;
+  if (dtype == "bfloat16") {
+    // Support `bfloat16` as an extension.  This is inconsistent with the normal
+    // NumPy typestr syntax and does not provide a way to indicate the byte
+    // order, but has the advantage of working with the official Zarr Python
+    // library provided that a `"bfloat16"` data type is registered in
+    // `numpy.typeDict`, since zarr invokes `numpy.dtype` to parse data types.
+    return D{std::string(dtype), dtype_v<bfloat16_t>, endian::little};
+  }
   if (dtype.size() < 3) goto error;
   {
     const char endian_indicator = dtype[0];

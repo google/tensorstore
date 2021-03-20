@@ -39,3 +39,11 @@ Limitations
 Filters are not supported.
 
 Datetime/timedelta data types are not supported.
+
+TensorStore supports the non-standard `bfloat16
+<https://en.wikipedia.org/wiki/Bfloat16_floating-point_format>`_ data type as an
+extension.  On little endian platforms, the official `Zarr Python library
+<https://github.com/zarr-developers/zarr-python>`_ is capable of reading arrays
+created with the ``bfloat16`` data type provided that a bfloat16 numpy data type
+has been registered.  The TensorStore Python library registers such a data type,
+as does TensorFlow and JAX.

@@ -644,6 +644,70 @@ TEST(ZarrDriverTest, CreateBigEndian) {
       }));
 }
 
+TEST(ZarrDriverTest, CreateBfloat16) {
+  using tensorstore::bfloat16_t;
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"path", "prefix"},
+      {"dtype", "bfloat16"},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", "bfloat16"},
+           {"shape", {100, 100}},
+           {"chunks", {3, 2}},
+       }},
+      {"create", true},
+  };
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(json_spec, context).result());
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(
+      tensorstore::MakeArray<bfloat16_t>({
+          {bfloat16_t(1), bfloat16_t(2)},
+          {bfloat16_t(3), bfloat16_t(4)},
+          {bfloat16_t(5), bfloat16_t(6)},
+      }),
+      store | tensorstore::Dims(0, 1).SizedInterval({3, 2}, {3, 2})));
+  // Check that key value store has expected contents.
+  auto map =
+      GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
+          .value();
+  auto v = map.at("prefix/1.1");
+  std::cout << "Value = {";
+  for (auto x : std::string(v)) {
+    std::cout << std::hex << static_cast<int>(x) << ", ";
+  }
+  std::cout << "}" << std::endl;
+  EXPECT_THAT(
+      GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
+          .value(),
+      UnorderedElementsAreArray({
+          Pair("prefix/.zarray",  //
+               ::testing::MatcherCast<absl::Cord>(ParseJsonMatches({
+                   {"zarr_format", 2},
+                   {"order", "C"},
+                   {"filters", nullptr},
+                   {"fill_value", nullptr},
+                   {"compressor", nullptr},
+                   {"dtype", "bfloat16"},
+                   {"shape", {100, 100}},
+                   {"chunks", {3, 2}},
+               }))),
+          Pair("prefix/1.1",  //
+               ::testing::MatcherCast<absl::Cord>(
+                   ::testing::Matcher<std::string>(::testing::ElementsAreArray({
+                       0x80, 0x3f,  //
+                       0x00, 0x40,  //
+                       0x40, 0x40,  //
+                       0x80, 0x40,  //
+                       0xa0, 0x40,  //
+                       0xc0, 0x40,  //
+                   })))),
+      }));
+}
+
 TEST(ZarrDriverTest, CreateBigEndianUnaligned) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
