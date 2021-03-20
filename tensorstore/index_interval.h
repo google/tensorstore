@@ -580,6 +580,35 @@ template <ContainerKind LabelCKind>
 bool operator!=(const IndexInterval& a,
                 const IndexDomainDimension<LabelCKind>& b) = delete;
 
+/// Merges two dimension labels.
+///
+/// The two labels are compatible if they are equal, or at most one is
+/// non-empty.
+///
+/// The non-empty label takes precedence.
+///
+/// \param a Label to merge.
+/// \param b Other label to merge.
+/// \error `absl::StatusCode::kInvalidArgument` if `a` and `b` are not
+///     compatible.
+Result<std::string_view> MergeDimensionLabels(std::string_view a,
+                                              std::string_view b);
+
+/// Merges two index intervals.
+///
+/// For both the lower and upper bounds, the bound of `a` and `b` must either be
+/// equal (excluding the implicit indicator), or the bound in at least one of
+/// `a` or `b` must be implicit and infinite.
+///
+/// The explicit/finite bounds take precedence over implicit/infinite bounds.
+///
+/// \param a Interval to merge.
+/// \param b Other interval to merge.
+/// \error `absl::StatusCode::kInvalidArgument` if `a` and `b` are not
+///     compatible.
+Result<OptionallyImplicitIndexInterval> MergeOptionallyImplicitIndexIntervals(
+    OptionallyImplicitIndexInterval a, OptionallyImplicitIndexInterval b);
+
 /// Extracts a strided half-open interval from a containing interval.
 ///
 /// This function is primarily for use by `DimExpression::HalfOpenInterval`.

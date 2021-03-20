@@ -45,6 +45,8 @@ using tensorstore::kInfSize;
 using tensorstore::kMaxFiniteIndex;
 using tensorstore::kMinFiniteIndex;
 using tensorstore::MatchesStatus;
+using tensorstore::MergeDimensionLabels;
+using tensorstore::MergeOptionallyImplicitIndexIntervals;
 using tensorstore::OptionallyImplicitIndexInterval;
 using tensorstore::ShiftInterval;
 using tensorstore::ShiftIntervalBackward;
@@ -1456,6 +1458,168 @@ TEST(IndexIntervalTest, Negate) {
             -IndexInterval::UncheckedClosed(-6, 5));
   EXPECT_EQ(IndexInterval::UncheckedClosed(5, 30),
             -IndexInterval::UncheckedClosed(-30, -5));
+}
+
+TEST(MergeDimensionLabelsTest, Basic) {
+  EXPECT_THAT(MergeDimensionLabels("a", ""),
+              ::testing::Optional(std::string("a")));
+  EXPECT_THAT(MergeDimensionLabels("a", "a"),
+              ::testing::Optional(std::string("a")));
+  EXPECT_THAT(MergeDimensionLabels("", "a"),
+              ::testing::Optional(std::string("a")));
+  EXPECT_THAT(MergeDimensionLabels("", ""),
+              ::testing::Optional(std::string("")));
+  EXPECT_THAT(MergeDimensionLabels("a", "b"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Dimension labels do not match"));
+}
+
+TEST(MergeOptionallyImplicitIndexIntervalsTest, EqualExplicit) {
+  EXPECT_THAT(MergeOptionallyImplicitIndexIntervals(
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(1, 5), false, false},
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(1, 5), false, false}),
+              ::testing::Optional(OptionallyImplicitIndexInterval{
+                  IndexInterval::UncheckedClosed(1, 5), false, false}));
+}
+
+TEST(MergeOptionallyImplicitIndexIntervalsTest, EqualImplicit) {
+  EXPECT_THAT(MergeOptionallyImplicitIndexIntervals(
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(1, 5), true, false},
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(1, 5), true, false}),
+              ::testing::Optional(OptionallyImplicitIndexInterval{
+                  IndexInterval::UncheckedClosed(1, 5), true, false}));
+  EXPECT_THAT(MergeOptionallyImplicitIndexIntervals(
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(1, 5), false, true},
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(1, 5), false, true}),
+              ::testing::Optional(OptionallyImplicitIndexInterval{
+                  IndexInterval::UncheckedClosed(1, 5), false, true}));
+}
+TEST(MergeOptionallyImplicitIndexIntervalsTest, UpperUnspecified) {
+  EXPECT_THAT(
+      MergeOptionallyImplicitIndexIntervals(
+          OptionallyImplicitIndexInterval{
+              IndexInterval::UncheckedClosed(1, kInfIndex), false, true},
+          OptionallyImplicitIndexInterval{IndexInterval::UncheckedClosed(1, 5),
+                                          false, false}),
+      ::testing::Optional(OptionallyImplicitIndexInterval{
+          IndexInterval::UncheckedClosed(1, 5), false, false}));
+  EXPECT_THAT(
+      MergeOptionallyImplicitIndexIntervals(
+          OptionallyImplicitIndexInterval{IndexInterval::UncheckedClosed(1, 5),
+                                          false, false},
+          OptionallyImplicitIndexInterval{
+              IndexInterval::UncheckedClosed(1, kInfIndex), false, true}),
+      ::testing::Optional(OptionallyImplicitIndexInterval{
+          IndexInterval::UncheckedClosed(1, 5), false, false}));
+}
+
+TEST(MergeOptionallyImplicitIndexIntervalsTest, LowerUnspecified) {
+  EXPECT_THAT(
+      MergeOptionallyImplicitIndexIntervals(
+          OptionallyImplicitIndexInterval{
+              IndexInterval::UncheckedClosed(-kInfIndex, 5), true, false},
+          OptionallyImplicitIndexInterval{IndexInterval::UncheckedClosed(1, 5),
+                                          false, false}),
+      ::testing::Optional(OptionallyImplicitIndexInterval{
+          IndexInterval::UncheckedClosed(1, 5), false, false}));
+  EXPECT_THAT(
+      MergeOptionallyImplicitIndexIntervals(
+          OptionallyImplicitIndexInterval{IndexInterval::UncheckedClosed(1, 5),
+                                          false, false},
+          OptionallyImplicitIndexInterval{
+              IndexInterval::UncheckedClosed(-kInfIndex, 5), true, false}),
+      ::testing::Optional(OptionallyImplicitIndexInterval{
+          IndexInterval::UncheckedClosed(1, 5), false, false}));
+}
+
+TEST(MergeOptionallyImplicitIndexIntervalsTest, MismatchLower) {
+  EXPECT_THAT(MergeOptionallyImplicitIndexIntervals(
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(1, 5), false, false},
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(2, 5), false, false}),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Lower bounds do not match"));
+}
+
+TEST(MergeOptionallyImplicitIndexIntervalsTest, MismatchLowerInfinite) {
+  EXPECT_THAT(
+      MergeOptionallyImplicitIndexIntervals(
+          OptionallyImplicitIndexInterval{IndexInterval::UncheckedClosed(1, 5),
+                                          false, false},
+          OptionallyImplicitIndexInterval{
+              IndexInterval::UncheckedClosed(-kInfIndex, 5), false, false}),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Lower bounds do not match"));
+}
+
+TEST(MergeOptionallyImplicitIndexIntervalsTest, LowerImplicitMerge) {
+  EXPECT_THAT(MergeOptionallyImplicitIndexIntervals(
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(1, 5), false, false},
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(1, 5), true, false}),
+              ::testing::Optional(OptionallyImplicitIndexInterval{
+                  IndexInterval::UncheckedClosed(1, 5), false, false}));
+}
+
+TEST(MergeOptionallyImplicitIndexIntervalsTest, UpperImplicitMerge) {
+  EXPECT_THAT(MergeOptionallyImplicitIndexIntervals(
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(1, 5), false, true},
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(1, 5), false, false}),
+              ::testing::Optional(OptionallyImplicitIndexInterval{
+                  IndexInterval::UncheckedClosed(1, 5), false, false}));
+}
+
+TEST(MergeOptionallyImplicitIndexIntervalsTest, MismatchUpper) {
+  EXPECT_THAT(MergeOptionallyImplicitIndexIntervals(
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(1, 5), false, false},
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(1, 6), false, false}),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Upper bounds do not match"));
+}
+
+TEST(MergeOptionallyImplicitIndexIntervalsTest, MismatchUpperInfinite) {
+  EXPECT_THAT(
+      MergeOptionallyImplicitIndexIntervals(
+          OptionallyImplicitIndexInterval{IndexInterval::UncheckedClosed(1, 5),
+                                          false, false},
+          OptionallyImplicitIndexInterval{
+              IndexInterval::UncheckedClosed(1, kInfIndex), false, false}),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Upper bounds do not match"));
+}
+
+TEST(MergeOptionallyImplicitIndexIntervalsTest, MismatchUpperImplicit) {
+  EXPECT_THAT(MergeOptionallyImplicitIndexIntervals(
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(1, 5), false, false},
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(1, 6), false, true}),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Upper bounds do not match"));
+}
+
+TEST(MergeOptionallyImplicitIndexIntervalsTest, InvalidInterval) {
+  EXPECT_THAT(
+      MergeOptionallyImplicitIndexIntervals(
+          OptionallyImplicitIndexInterval{
+              IndexInterval::UncheckedClosed(-kInfIndex, -5), true, false},
+          OptionallyImplicitIndexInterval{
+              IndexInterval::UncheckedClosed(5, kInfIndex), false, true}),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "\\(5, -5\\) do not specify a valid closed index interval"));
 }
 
 }  // namespace

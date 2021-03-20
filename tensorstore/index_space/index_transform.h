@@ -706,6 +706,34 @@ BoxView<InputRank> GetBoxDomainOf(
   return transform.domain().box();
 }
 
+/// Merges two index domains.
+///
+/// If both `a` and `b` are null, returns a null index domain.
+///
+/// If exactly one of `a` and `b` is non-null, returns the non-null domain.
+///
+/// Otherwise, `a` and `b` must be compatible:
+///
+/// - `a.rank() == b.rank()`
+///
+/// - For all dimension `i` for which
+///   `!a.labels()[i].empty() && !b.labels()[i].empty()`,
+///   `a.labels[i] == b.labels[i]`.
+///
+/// - For each lower/upper bound of each dimension `i`, either `a` and `b` have
+///   the same bound (including implicit bit), or at least one of the bounds is
+///   implicit and infinite.
+///
+/// In the merged domain, non-empty labels take precedence, and explicit/finite
+/// bounds take precedence over implicit/infinite bounds.
+///
+/// \param a Domain to merge.  May be null.
+/// \param b Other domain to merge.  May be null.
+/// \returns The merged domain, or a null domain if `a` and `b` are both null.
+/// \error `absl::StatusCode::kInvalidArgument` if `a` and `b` are not
+///     compatible.
+Result<IndexDomain<>> MergeIndexDomains(IndexDomain<> a, IndexDomain<> b);
+
 namespace internal_index_space {
 std::string DescribeTransformForCast(DimensionIndex input_rank,
                                      DimensionIndex output_rank);

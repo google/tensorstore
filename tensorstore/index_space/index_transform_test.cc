@@ -49,6 +49,7 @@ using tensorstore::kMinFiniteIndex;
 using tensorstore::MakeArray;
 using tensorstore::MakeOffsetArray;
 using tensorstore::MatchesStatus;
+using tensorstore::MergeIndexDomains;
 using tensorstore::Result;
 using tensorstore::span;
 using tensorstore::StaticCast;
@@ -722,6 +723,100 @@ TEST(CastTest, IndexTransformView) {
           "Cannot cast "
           "index transform with input rank of 2 and output rank of 2 to "
           "index transform with input rank of 3 and output dynamic rank"));
+}
+
+TEST(MergeIndexDomainsTest, Basic) {
+  EXPECT_THAT(MergeIndexDomains(IndexDomain<>(), IndexDomain<>()),
+              ::testing::Optional(IndexDomain<>()));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain1,
+                                   IndexDomainBuilder(3)
+                                       .implicit_lower_bounds({0, 1, 0})
+                                       .implicit_upper_bounds({0, 0, 1})
+                                       .origin({0, -kInfIndex, 2})
+                                       .inclusive_max({10, 11, kInfIndex})
+                                       .labels({"x", "", ""})
+                                       .Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain2,
+                                   IndexDomainBuilder(4).Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain3,
+                                   IndexDomainBuilder(3)
+                                       .implicit_lower_bounds({0, 1, 0})
+                                       .implicit_upper_bounds({0, 0, 1})
+                                       .origin({0, 5, 2})
+                                       .inclusive_max({10, 11, kInfIndex})
+                                       .labels({"x", "y", ""})
+                                       .Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain4,
+                                   IndexDomainBuilder(3)
+                                       .implicit_lower_bounds({0, 1, 0})
+                                       .implicit_upper_bounds({0, 0, 0})
+                                       .origin({0, -kInfIndex, 2})
+                                       .inclusive_max({10, 11, 12})
+                                       .labels({"", "y", ""})
+                                       .Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain4_merged,
+                                   IndexDomainBuilder(3)
+                                       .implicit_lower_bounds({0, 1, 0})
+                                       .implicit_upper_bounds({0, 0, 0})
+                                       .origin({0, -kInfIndex, 2})
+                                       .inclusive_max({10, 11, 12})
+                                       .labels({"x", "y", ""})
+                                       .Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain5,
+                                   IndexDomainBuilder(3)
+                                       .implicit_lower_bounds({0, 1, 0})
+                                       .implicit_upper_bounds({0, 0, 1})
+                                       .origin({0, -kInfIndex, 2})
+                                       .inclusive_max({10, 11, kInfIndex})
+                                       .labels({"z", "", ""})
+                                       .Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain6,
+                                   IndexDomainBuilder(3)
+                                       .implicit_lower_bounds({0, 1, 0})
+                                       .implicit_upper_bounds({0, 0, 1})
+                                       .origin({2, -kInfIndex, 2})
+                                       .inclusive_max({10, 11, kInfIndex})
+                                       .labels({"x", "", ""})
+                                       .Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain7,
+                                   IndexDomainBuilder(3)
+                                       .implicit_lower_bounds({0, 1, 0})
+                                       .implicit_upper_bounds({0, 0, 1})
+                                       .origin({0, -kInfIndex, 2})
+                                       .inclusive_max({10, 12, kInfIndex})
+                                       .labels({"x", "", ""})
+                                       .Finalize());
+  EXPECT_THAT(MergeIndexDomains(IndexDomain<>(), domain1),
+              ::testing::Optional(domain1));
+  EXPECT_THAT(MergeIndexDomains(domain1, IndexDomain<>()),
+              ::testing::Optional(domain1));
+  EXPECT_THAT(MergeIndexDomains(domain1, domain1),
+              ::testing::Optional(domain1));
+  EXPECT_THAT(
+      MergeIndexDomains(domain1, domain2),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "Cannot merge index domain \\{ .* \\} with index domain \\{ .* \\}: "
+          "Ranks do not match"));
+  EXPECT_THAT(MergeIndexDomains(domain1, domain3),
+              ::testing::Optional(domain3));
+  EXPECT_THAT(MergeIndexDomains(domain1, domain4),
+              ::testing::Optional(domain4_merged));
+  EXPECT_THAT(MergeIndexDomains(domain1, domain5),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Cannot merge .*: "
+                            "Mismatch in dimension 0: "
+                            "Dimension labels do not match"));
+  EXPECT_THAT(MergeIndexDomains(domain1, domain6),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Cannot merge .*: "
+                            "Mismatch in dimension 0: "
+                            "Lower bounds do not match"));
+  EXPECT_THAT(MergeIndexDomains(domain1, domain7),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Cannot merge .*: "
+                            "Mismatch in dimension 1: "
+                            "Upper bounds do not match"));
 }
 
 }  // namespace

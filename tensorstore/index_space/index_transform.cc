@@ -390,4 +390,44 @@ Status PropagateInputDomainResizeToOutput(
   return absl::OkStatus();
 }
 
+Result<IndexDomain<>> MergeIndexDomains(IndexDomain<> a, IndexDomain<> b) {
+  if (!a.valid()) return b;
+  if (!b.valid()) return a;
+  auto result = [&]() -> Result<IndexDomain<>> {
+    if (a.rank() != b.rank()) {
+      return absl::InvalidArgumentError("Ranks do not match");
+    }
+    const DimensionIndex rank = a.rank();
+    auto new_rep = internal_index_space::TransformRep::Allocate(rank, 0);
+    new_rep->input_rank = rank;
+    new_rep->output_rank = 0;
+    const auto a_labels = a.labels();
+    const auto b_labels = b.labels();
+    for (DimensionIndex i = 0; i < rank; ++i) {
+      auto status = [&] {
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto new_label, MergeDimensionLabels(a_labels[i], b_labels[i]));
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto new_bounds, MergeOptionallyImplicitIndexIntervals(a[i], b[i]));
+        new_rep->input_dimension(i) =
+            IndexDomainDimension<view>(new_bounds, new_label);
+        return absl::OkStatus();
+      }();
+      if (!status.ok()) {
+        return tensorstore::MaybeAnnotateStatus(
+            status, tensorstore::StrCat("Mismatch in dimension ", i));
+      }
+    }
+    return IndexDomain<>(
+        internal_index_space::TransformAccess::Make<IndexTransform<>>(
+            std::move(new_rep)));
+  }();
+  if (!result.ok()) {
+    return tensorstore::MaybeAnnotateStatus(
+        result.status(), tensorstore::StrCat("Cannot merge index domain ", a,
+                                             " with index domain ", b));
+  }
+  return result;
+}
+
 }  // namespace tensorstore

@@ -520,4 +520,47 @@ Result<OptionallyImplicitIndexInterval> GetAffineTransformRange(
   return interval;
 }
 
+Result<std::string_view> MergeDimensionLabels(std::string_view a,
+                                              std::string_view b) {
+  if (a.empty()) return b;
+  if (b.empty()) return a;
+  if (a == b) return a;
+  return absl::InvalidArgumentError("Dimension labels do not match");
+}
+
+Result<OptionallyImplicitIndexInterval> MergeOptionallyImplicitIndexIntervals(
+    OptionallyImplicitIndexInterval a, OptionallyImplicitIndexInterval b) {
+  if (a == b) return a;
+  Index inclusive_min, inclusive_max;
+  bool implicit_lower, implicit_upper;
+  if (a.inclusive_min() == -kInfIndex && a.implicit_lower() == true) {
+    inclusive_min = b.inclusive_min();
+    implicit_lower = b.implicit_lower();
+  } else if (b.inclusive_min() == -kInfIndex && b.implicit_lower() == true) {
+    inclusive_min = a.inclusive_min();
+    implicit_lower = a.implicit_lower();
+  } else if (a.inclusive_min() != b.inclusive_min()) {
+    return absl::InvalidArgumentError("Lower bounds do not match");
+  } else {
+    inclusive_min = a.inclusive_min();
+    implicit_lower = a.implicit_lower() && b.implicit_lower();
+  }
+  if (a.inclusive_max() == kInfIndex && a.implicit_upper() == true) {
+    inclusive_max = b.inclusive_max();
+    implicit_upper = b.implicit_upper();
+  } else if (b.inclusive_max() == kInfIndex && b.implicit_upper() == true) {
+    inclusive_max = a.inclusive_max();
+    implicit_upper = a.implicit_upper();
+  } else if (a.inclusive_max() != b.inclusive_max()) {
+    return absl::InvalidArgumentError("Upper bounds do not match");
+  } else {
+    inclusive_max = a.inclusive_max();
+    implicit_upper = a.implicit_upper() && b.implicit_upper();
+  }
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto interval, IndexInterval::Closed(inclusive_min, inclusive_max));
+  return OptionallyImplicitIndexInterval{interval, implicit_lower,
+                                         implicit_upper};
+}
+
 }  // namespace tensorstore
