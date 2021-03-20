@@ -42,6 +42,7 @@ definitions:
       - const: "int64"
       - const: "uint64"
       - const: "float16"
+      - const: "bfloat16"
       - const: "float32"
       - const: "float64"
       - const: "complex64"

@@ -297,12 +297,19 @@ pybind11_cc_library(
 
 pybind11_cc_library(
     name = "data_type",
-    srcs = ["data_type.cc"],
-    hdrs = ["data_type.h"],
+    srcs = [
+        "bfloat16.cc",
+        "data_type.cc",
+    ],
+    hdrs = [
+        "bfloat16.h",
+        "data_type.h",
+    ],
     deps = [
         ":json_type_caster",
         ":numpy",
         "//tensorstore:data_type",
+        "//tensorstore/util:bfloat16",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
@@ -493,6 +500,16 @@ pybind11_cc_test(
         ":index",
         "//tensorstore:index",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_pytest_test(
+    name = "bfloat16_test",
+    size = "small",
+    srcs = ["tests/bfloat16_test.py"],
+    deps = [
+        ":tensorstore",
+        "@pypa_numpy//:numpy",
     ],
 )
 

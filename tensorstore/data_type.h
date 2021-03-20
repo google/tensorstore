@@ -34,6 +34,7 @@
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/assert_macros.h"
+#include "tensorstore/util/bfloat16.h"
 #include "tensorstore/util/byte_strided_pointer.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -75,6 +76,7 @@ using uint64_t = std::uint64_t;
 // TODO(jbms): consider adding 128-bit integer types
 /// Floating-point types.
 using float16_t = half_float::half;
+using bfloat16_t = tensorstore::bfloat16_t;
 using float32_t = float;
 using float64_t = double;
 /// Complex types.
@@ -107,6 +109,7 @@ using namespace data_types;  // NOLINT
 
 #define TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(X, ...) \
   X(float16_t, ##__VA_ARGS__)                        \
+  X(bfloat16_t, ##__VA_ARGS__)                       \
   X(float32_t, ##__VA_ARGS__)                        \
   X(float64_t, ##__VA_ARGS__)                        \
   /**/

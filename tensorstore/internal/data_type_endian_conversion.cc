@@ -48,13 +48,22 @@ struct SwapEndianSizes<std::complex<T>> {
   constexpr static size_t num_elements = 2;
 };
 
+template <typename T>
+constexpr bool CanSwapEndian = std::is_trivial_v<T>;
+
+template <>
+constexpr bool CanSwapEndian<float16_t> = true;
+
+template <>
+constexpr bool CanSwapEndian<bfloat16_t> = true;
+
 }  // namespace
 
 const std::array<UnalignedDataTypeFunctions, kNumDataTypeIds>
     kUnalignedDataTypeFunctions = MapCanonicalDataTypes([](auto dtype) {
       using T = typename decltype(dtype)::Element;
       UnalignedDataTypeFunctions functions;
-      if constexpr (std::is_trivial_v<T> || std::is_same_v<T, float16_t>) {
+      if constexpr (CanSwapEndian<T>) {
         using Sizes = SwapEndianSizes<T>;
         functions.copy = GetElementwiseFunction<CopyUnalignedLoopTemplate<
             Sizes::element_size * Sizes::num_elements>>();

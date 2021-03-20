@@ -111,6 +111,8 @@ TEST(DataTypeConversionTest, Bool) {
   EXPECT_EQ(1u, TestConversion<uint64_t>(true, kSafeAndImplicit));
   EXPECT_EQ(0, TestConversion<float16_t>(false, kSafeAndImplicit));
   EXPECT_EQ(1, TestConversion<float16_t>(true, kSafeAndImplicit));
+  EXPECT_EQ(0, TestConversion<bfloat16_t>(false, kSafeAndImplicit));
+  EXPECT_EQ(1, TestConversion<bfloat16_t>(true, kSafeAndImplicit));
   EXPECT_EQ(0, TestConversion<float32_t>(false, kSafeAndImplicit));
   EXPECT_EQ(1, TestConversion<float32_t>(true, kSafeAndImplicit));
   EXPECT_EQ(0, TestConversion<float64_t>(false, kSafeAndImplicit));
@@ -154,6 +156,7 @@ TEST(DataTypeConversionTest, Int8) {
   EXPECT_EQ(uint64_t(neg), TestConversion<uint64_t>(neg));
   EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos));
   EXPECT_EQ(float16_t(neg), TestConversion<float16_t>(neg, kSafeAndImplicit));
+  EXPECT_EQ(bfloat16_t(neg), TestConversion<bfloat16_t>(neg, kSafeAndImplicit));
   EXPECT_EQ(float32_t(neg), TestConversion<float32_t>(neg, kSafeAndImplicit));
   EXPECT_EQ(float64_t(neg), TestConversion<float64_t>(neg, kSafeAndImplicit));
   EXPECT_EQ(complex64_t(float32_t(neg)),
@@ -190,6 +193,7 @@ TEST(DataTypeConversionTest, Uint8) {
   EXPECT_EQ(uint64_t(neg), TestConversion<uint64_t>(neg, kSafeAndImplicit));
   EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos, kSafeAndImplicit));
   EXPECT_EQ(float16_t(neg), TestConversion<float16_t>(neg, kSafeAndImplicit));
+  EXPECT_EQ(bfloat16_t(neg), TestConversion<bfloat16_t>(neg, kSafeAndImplicit));
   EXPECT_EQ(float32_t(neg), TestConversion<float32_t>(neg, kSafeAndImplicit));
   EXPECT_EQ(float64_t(neg), TestConversion<float64_t>(neg, kSafeAndImplicit));
   EXPECT_EQ(complex64_t(float32_t(neg)),
@@ -224,6 +228,7 @@ TEST(DataTypeConversionTest, Int16) {
   EXPECT_EQ(uint64_t(neg), TestConversion<uint64_t>(neg));
   EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos));
   EXPECT_EQ(float16_t(neg), TestConversion<float16_t>(neg));
+  EXPECT_EQ(bfloat16_t(neg), TestConversion<bfloat16_t>(neg));
   EXPECT_EQ(float32_t(neg), TestConversion<float32_t>(neg, kSafeAndImplicit));
   EXPECT_EQ(float64_t(neg), TestConversion<float64_t>(neg, kSafeAndImplicit));
   EXPECT_EQ(complex64_t(float32_t(neg)),
@@ -260,6 +265,7 @@ TEST(DataTypeConversionTest, Uint16) {
   EXPECT_EQ(uint64_t(neg), TestConversion<uint64_t>(neg, kSafeAndImplicit));
   EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos, kSafeAndImplicit));
   EXPECT_EQ(float16_t(neg), TestConversion<float16_t>(neg));
+  EXPECT_EQ(bfloat16_t(neg), TestConversion<bfloat16_t>(neg));
   EXPECT_EQ(float32_t(neg), TestConversion<float32_t>(neg, kSafeAndImplicit));
   EXPECT_EQ(float64_t(neg), TestConversion<float64_t>(neg, kSafeAndImplicit));
   EXPECT_EQ(complex64_t(float32_t(neg)),
@@ -295,6 +301,8 @@ TEST(DataTypeConversionTest, Int32) {
   EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos));
   EXPECT_EQ(float16_t(static_cast<float>(neg)),
             TestConversion<float16_t>(neg));  // inexact
+  EXPECT_EQ(bfloat16_t(static_cast<float>(neg)),
+            TestConversion<bfloat16_t>(neg));  // inexact
   EXPECT_EQ(float32_t(neg), TestConversion<float32_t>(neg));
   EXPECT_EQ(float64_t(neg), TestConversion<float64_t>(neg, kSafeAndImplicit));
   EXPECT_EQ(complex64_t(float32_t(neg)), TestConversion<complex64_t>(neg));
@@ -331,6 +339,8 @@ TEST(DataTypeConversionTest, Uint32) {
   EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos, kSafeAndImplicit));
   EXPECT_EQ(float16_t(static_cast<float>(neg)),
             TestConversion<float16_t>(neg));  // inexact
+  EXPECT_EQ(bfloat16_t(static_cast<float>(neg)),
+            TestConversion<bfloat16_t>(neg));  // inexact
   EXPECT_EQ(float32_t(neg), TestConversion<float32_t>(neg));
   EXPECT_EQ(float64_t(neg), TestConversion<float64_t>(neg, kSafeAndImplicit));
   EXPECT_EQ(complex64_t(float32_t(neg)), TestConversion<complex64_t>(neg));
@@ -365,6 +375,8 @@ TEST(DataTypeConversionTest, Int64) {
   EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos, kCanReinterpretCast));
   EXPECT_EQ(float16_t(static_cast<float>(neg)),
             TestConversion<float16_t>(neg));  // inexact
+  EXPECT_EQ(bfloat16_t(static_cast<float>(neg)),
+            TestConversion<bfloat16_t>(neg));  // inexact
   EXPECT_EQ(float32_t(neg), TestConversion<float32_t>(neg));
   EXPECT_EQ(float64_t(neg), TestConversion<float64_t>(neg));
   EXPECT_EQ(complex64_t(float32_t(neg)), TestConversion<complex64_t>(neg));
@@ -400,6 +412,8 @@ TEST(DataTypeConversionTest, Uint64) {
                 pos, kCanReinterpretCast | kSafeAndImplicit | kIdentity));
   EXPECT_EQ(float16_t(static_cast<float>(neg)),
             TestConversion<float16_t>(neg));  // inexact
+  EXPECT_EQ(bfloat16_t(static_cast<float>(neg)),
+            TestConversion<bfloat16_t>(neg));  // inexact
   EXPECT_EQ(float32_t(neg), TestConversion<float32_t>(neg));
   EXPECT_EQ(float64_t(neg), TestConversion<float64_t>(neg));
   EXPECT_EQ(complex64_t(float32_t(neg)), TestConversion<complex64_t>(neg));
@@ -428,6 +442,39 @@ TEST(DataTypeConversionTest, Float16) {
   EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos));
   EXPECT_EQ(float16_t(pos),
             TestConversion<float16_t>(
+                pos, kSafeAndImplicit | kIdentity | kCanReinterpretCast));
+  EXPECT_EQ(bfloat16_t(pos), TestConversion<bfloat16_t>(pos));
+  EXPECT_EQ(float32_t(pos), TestConversion<float32_t>(pos, kSafeAndImplicit));
+  EXPECT_EQ(float64_t(pos), TestConversion<float64_t>(pos, kSafeAndImplicit));
+  EXPECT_EQ(complex64_t(float32_t(pos)),
+            TestConversion<complex64_t>(pos, kSafeAndImplicit));
+  EXPECT_EQ(complex128_t(float64_t(pos)),
+            TestConversion<complex128_t>(pos, kSafeAndImplicit));
+  EXPECT_EQ("42.5", TestConversion<string_t>(pos));
+  EXPECT_EQ(ustring_t{"42.5"}, TestConversion<ustring_t>(pos));
+  EXPECT_EQ(json_t(42.5), TestConversion<json_t>(pos, kSafeAndImplicit));
+}
+
+TEST(DataTypeConversionTest, Bfloat16) {
+  using T = bfloat16_t;
+  const T pos(42.5);
+  EXPECT_EQ(false, TestConversion<bool_t>(T(0)));
+  EXPECT_EQ(true, TestConversion<bool_t>(pos));
+  EXPECT_EQ(int8_t(pos), TestConversion<int8_t>(pos));
+  EXPECT_EQ(int16_t(pos), TestConversion<int16_t>(pos));
+  EXPECT_EQ(int32_t(pos), TestConversion<int32_t>(pos));
+  EXPECT_EQ(int64_t(pos), TestConversion<int64_t>(pos));
+  EXPECT_EQ(uint8_t(pos), TestConversion<uint8_t>(pos));
+  EXPECT_EQ(uint8_t(pos), TestConversion<uint8_t>(pos));
+  EXPECT_EQ(uint16_t(pos), TestConversion<uint16_t>(pos));
+  EXPECT_EQ(uint16_t(pos), TestConversion<uint16_t>(pos));
+  EXPECT_EQ(uint32_t(pos), TestConversion<uint32_t>(pos));
+  EXPECT_EQ(uint32_t(pos), TestConversion<uint32_t>(pos));
+  EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos));
+  EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos));
+  EXPECT_EQ(float16_t(pos), TestConversion<float16_t>(pos));
+  EXPECT_EQ(bfloat16_t(pos),
+            TestConversion<bfloat16_t>(
                 pos, kSafeAndImplicit | kIdentity | kCanReinterpretCast));
   EXPECT_EQ(float32_t(pos), TestConversion<float32_t>(pos, kSafeAndImplicit));
   EXPECT_EQ(float64_t(pos), TestConversion<float64_t>(pos, kSafeAndImplicit));
@@ -463,6 +510,7 @@ TEST(DataTypeConversionTest, Float32) {
   EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos));
   EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos));
   EXPECT_EQ(float16_t(pos), TestConversion<float16_t>(pos));
+  EXPECT_EQ(bfloat16_t(pos), TestConversion<bfloat16_t>(pos));
   EXPECT_EQ(float32_t(pos),
             TestConversion<float32_t>(
                 pos, kSafeAndImplicit | kIdentity | kCanReinterpretCast));
@@ -494,6 +542,7 @@ TEST(DataTypeConversionTest, Float64) {
   EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos));
   EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos));
   EXPECT_EQ(float16_t(pos), TestConversion<float16_t>(pos));
+  EXPECT_EQ(bfloat16_t(pos), TestConversion<bfloat16_t>(pos));
   EXPECT_EQ(float32_t(pos), TestConversion<float32_t>(pos));
   EXPECT_EQ(float64_t(pos),
             TestConversion<float64_t>(
@@ -522,6 +571,7 @@ TEST(DataTypeConversionTest, Complex64) {
   EXPECT_EQ(uint64_t(value.real()), TestConversion<uint64_t>(value));
   EXPECT_EQ(uint64_t(value.real()), TestConversion<uint64_t>(value));
   EXPECT_EQ(float16_t(value.real()), TestConversion<float16_t>(value));
+  EXPECT_EQ(bfloat16_t(value.real()), TestConversion<bfloat16_t>(value));
   EXPECT_EQ(float32_t(value.real()), TestConversion<float32_t>(value));
   EXPECT_EQ(float64_t(value.real()), TestConversion<float64_t>(value));
   EXPECT_EQ(complex64_t(value),
@@ -552,6 +602,7 @@ TEST(DataTypeConversionTest, Complex128) {
   EXPECT_EQ(uint64_t(value.real()), TestConversion<uint64_t>(value));
   EXPECT_EQ(uint64_t(value.real()), TestConversion<uint64_t>(value));
   EXPECT_EQ(float16_t(value.real()), TestConversion<float16_t>(value));
+  EXPECT_EQ(bfloat16_t(value.real()), TestConversion<bfloat16_t>(value));
   EXPECT_EQ(float32_t(value.real()), TestConversion<float32_t>(value));
   EXPECT_EQ(float64_t(value.real()), TestConversion<float64_t>(value));
   EXPECT_EQ(complex64_t(value), TestConversion<complex64_t>(value));
@@ -579,6 +630,7 @@ TEST(DataTypeConversionTest, String) {
   TestUnsupported<T, int64_t>();
   TestUnsupported<T, uint64_t>();
   TestUnsupported<T, float16_t>();
+  TestUnsupported<T, bfloat16_t>();
   TestUnsupported<T, float32_t>();
   TestUnsupported<T, float64_t>();
   TestUnsupported<T, complex64_t>();
@@ -609,6 +661,7 @@ TEST(DataTypeConversionTest, Ustring) {
   TestUnsupported<T, int64_t>();
   TestUnsupported<T, uint64_t>();
   TestUnsupported<T, float16_t>();
+  TestUnsupported<T, bfloat16_t>();
   TestUnsupported<T, float32_t>();
   TestUnsupported<T, float64_t>();
   TestUnsupported<T, complex64_t>();
@@ -644,6 +697,8 @@ TEST(DataTypeConversionTest, Json) {
               MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<float16_t>(json_t(nullptr)),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(TestConversion<bfloat16_t>(json_t(nullptr)),
+              MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<float32_t>(json_t(nullptr)),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestConversion<float64_t>(json_t(nullptr)),
@@ -672,6 +727,8 @@ TEST(DataTypeConversionTest, Json) {
             TestConversion<uint64_t>(json_t(40123567891234)));
   EXPECT_EQ(float16_t(42.5), TestConversion<float16_t>(json_t(42.5)));
   EXPECT_EQ(float16_t(42.5), TestConversion<float16_t>(json_t("42.5")));
+  EXPECT_EQ(bfloat16_t(42.5), TestConversion<bfloat16_t>(json_t(42.5)));
+  EXPECT_EQ(bfloat16_t(42.5), TestConversion<bfloat16_t>(json_t("42.5")));
   EXPECT_EQ(float32_t(42.5), TestConversion<float32_t>(json_t(42.5)));
   EXPECT_EQ(float64_t(42.5), TestConversion<float64_t>(json_t(42.5)));
   EXPECT_EQ(float64_t(42.5), TestConversion<float64_t>(json_t("42.5")));

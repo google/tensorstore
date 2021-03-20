@@ -33,6 +33,7 @@ import numpy as np
         "int64",
         "uint64",
         "float16",
+        "bfloat16",
         "float32",
         "float64",
         "complex64",
@@ -64,6 +65,7 @@ def test_dtype_init_name(name):
         "int64",
         "uint64",
         "float16",
+        "bfloat16",
         "float32",
         "float64",
         "complex64",
@@ -111,6 +113,15 @@ def test_dtype_init_bool():
   assert type(ts.bool(True)) is np.bool_
   assert ts.bool(True) == True
   assert ts.bool(False) == False
+
+
+def test_dtype_init_bfloat16():
+  v = ts.bfloat16(1)
+  t = type(v)
+  assert ts.dtype(t) == ts.bfloat16
+  assert ts.bfloat16.type is t
+  assert ts.bfloat16(1) == 1
+  assert ts.bfloat16(1.5) == 1.5
 
 
 def test_dtype_init_str():

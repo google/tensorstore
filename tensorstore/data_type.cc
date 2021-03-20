@@ -131,6 +131,11 @@ struct NumberToStringCanonicalType<float16_t> {
 };
 
 template <>
+struct NumberToStringCanonicalType<bfloat16_t> {
+  using type = float;
+};
+
+template <>
 struct NumberToStringCanonicalType<int8_t> {
   using type = int16_t;
 };

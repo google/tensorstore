@@ -124,6 +124,42 @@ TEST(EncodeDecodeArrayTest, Float16) {
                      }));
 }
 
+// Test encoding a bfloat16 array.
+TEST(EncodeDecodeArrayTest, Bfloat16) {
+  using tensorstore::bfloat16_t;
+  bfloat16_t source[6] = {bfloat16_t(1.0), bfloat16_t(2.0), bfloat16_t(3.0),
+                          bfloat16_t(4.0), bfloat16_t(5.0), bfloat16_t(6.0)};
+  alignas(2) unsigned char dest1[13] = {};
+  alignas(2) unsigned char dest2[13] = {};
+  EncodeArray(
+      Array(source, {2, 3}, c_order),
+      Array(reinterpret_cast<bfloat16_t*>(dest1 + 1), {2, 3}, fortran_order),
+      endian::little);
+  EXPECT_THAT(dest1, ::testing::ElementsAreArray({
+                         0x0,         //
+                         0x80, 0x3f,  //
+                         0x80, 0x40,  //
+                         0x00, 0x40,  //
+                         0xa0, 0x40,  //
+                         0x40, 0x40,  //
+                         0xc0, 0x40,  //
+                     }));
+
+  EncodeArray(
+      Array(source, {2, 3}, c_order),
+      Array(reinterpret_cast<bfloat16_t*>(dest2 + 1), {2, 3}, fortran_order),
+      endian::big);
+  EXPECT_THAT(dest2, ::testing::ElementsAreArray({
+                         0x0,         //
+                         0x3f, 0x80,  //
+                         0x40, 0x80,  //
+                         0x40, 0x00,  //
+                         0x40, 0xa0,  //
+                         0x40, 0x40,  //
+                         0x40, 0xc0,  //
+                     }));
+}
+
 // Test decoding a bool array.
 TEST(DecodeArrayTest, Bool) {
   unsigned char source[6] = {0x12, 0x00, 0x34, 0x1, 0x78, 0x00};

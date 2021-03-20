@@ -27,6 +27,7 @@
 #include <complex>
 #include <string_view>
 
+#include "python/tensorstore/bfloat16.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
 #include "tensorstore/data_type.h"
@@ -113,13 +114,23 @@ int GetNumpyTypeNum(DataType dtype);
 pybind11::dtype GetNumpyDtype(int type_num);
 
 template <typename T>
-inline pybind11::dtype GetNumpyDtype() {
+constexpr int GetNumpyTypeNum() {
   constexpr DataTypeId id = DataTypeIdOf<T>;
   static_assert(id != DataTypeId::custom,
                 "Cannot get numpy dtype for non-canonical types");
   constexpr int type_num = kNumpyTypeNumForDataTypeId[static_cast<size_t>(id)];
   static_assert(type_num != -1, "No corresponding numpy type");
-  return GetNumpyDtype(type_num);
+  return type_num;
+}
+
+template <>
+inline int GetNumpyTypeNum<bfloat16_t>() {
+  return Bfloat16NumpyTypeNum();
+}
+
+template <typename T>
+inline pybind11::dtype GetNumpyDtype() {
+  return GetNumpyDtype(GetNumpyTypeNum<T>());
 }
 
 /// Returns the corresponding DataType, or an invalid DataType if there is no

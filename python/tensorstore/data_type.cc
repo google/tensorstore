@@ -55,8 +55,14 @@ DataType GetDataTypeOrThrow(std::string_view name) {
 
 int GetNumpyTypeNum(DataType dtype) {
   const DataTypeId id = dtype.id();
-  if (id == DataTypeId::custom) return -1;
-  return kNumpyTypeNumForDataTypeId[static_cast<size_t>(id)];
+  switch (id) {
+    case DataTypeId::custom:
+      return -1;
+    case DataTypeId::bfloat16_t:
+      return Bfloat16NumpyTypeNum();
+    default:
+      return kNumpyTypeNumForDataTypeId[static_cast<size_t>(id)];
+  }
 }
 
 py::dtype GetNumpyDtypeOrThrow(DataType dtype) {
@@ -71,7 +77,12 @@ py::dtype GetNumpyDtypeOrThrow(DataType dtype) {
 
 DataType GetDataType(pybind11::dtype dt) {
   const int type_num = py::detail::array_descriptor_proxy(dt.ptr())->type_num;
-  if (type_num < 0 || type_num > NPY_NTYPES) return DataType();
+  if (type_num == Bfloat16NumpyTypeNum()) {
+    return dtype_v<bfloat16_t>;
+  }
+  if (type_num < 0 || type_num > NPY_NTYPES) {
+    return DataType();
+  }
   const DataTypeId id = kDataTypeIdForNumpyTypeNum[type_num];
   if (id == DataTypeId::custom) return DataType();
   return kDataTypes[static_cast<size_t>(id)];
@@ -102,6 +113,9 @@ py::object GetTypeObjectOrThrow(DataType dtype) {
 }
 
 void RegisterDataTypeBindings(pybind11::module m) {
+  if (!internal_python::RegisterNumpyBfloat16()) {
+    throw py::error_already_set();
+  }
   py::class_<DataType> cls_data_type(m, "dtype", R"(
 Represents a TensorStore data type.
 )");

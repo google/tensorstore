@@ -217,6 +217,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal:utf8",
         "//tensorstore/util:assert_macros",
+        "//tensorstore/util:bfloat16",
         "//tensorstore/util:byte_strided_pointer",
         "//tensorstore/util:division",
         "//tensorstore/util:result",

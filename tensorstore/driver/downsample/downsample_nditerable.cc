@@ -164,6 +164,11 @@ struct MeanAccumulateElement<float16_t> {
 };
 
 template <>
+struct MeanAccumulateElement<bfloat16_t> {
+  using type = float32_t;
+};
+
+template <>
 struct MeanAccumulateElement<float32_t> {
   using type = float32_t;
 };
