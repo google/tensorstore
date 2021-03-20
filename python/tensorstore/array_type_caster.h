@@ -38,14 +38,6 @@
 namespace tensorstore {
 namespace internal_python {
 
-constexpr DimensionIndex kMaxNumpyRank = 32;
-
-using pybind11::detail::npy_api;
-constexpr auto NPY_ARRAY_ALIGNED_ = npy_api::NPY_ARRAY_ALIGNED_;
-constexpr auto NPY_ARRAY_WRITEABLE_ = npy_api::NPY_ARRAY_WRITEABLE_;
-constexpr auto NPY_ARRAY_C_CONTIGUOUS_ = npy_api::NPY_ARRAY_C_CONTIGUOUS_;
-constexpr auto NPY_ARRAY_F_CONTIGUOUS_ = npy_api::NPY_ARRAY_F_CONTIGUOUS_;
-
 /// Copies the shape and byte_strides from `array_obj` to `shape` and
 /// `byte_strides`.
 ///

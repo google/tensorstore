@@ -29,13 +29,17 @@ load(
 )
 load(
     "@com_github_google_tensorstore//third_party:python/python_configure.bzl",
+    "get_numpy_include_rule",
     "get_python_bin",
     "python_env_vars",
 )
 
+SYSTEM_LIBS_ENVVAR = "TENSORSTORE_SYSTEM_LIBS"
+SYSTEM_PYTHON_LIBS_ENVVAR = "TENSORSTORE_SYSTEM_PYTHON_LIBS"
+
 # Checks if we should use the system lib instead of the bundled one
-def use_system_lib(ctx, name):
-    syslibenv = ctx.os.environ.get("TENSORSTORE_SYSTEM_LIBS", "")
+def use_system_lib(ctx, name, env_var = SYSTEM_LIBS_ENVVAR):
+    syslibenv = ctx.os.environ.get(env_var, "")
     for n in syslibenv.strip().split(","):
         if n.strip() == name:
             return True
@@ -45,9 +49,12 @@ def _third_party_http_archive_impl(ctx):
     use_syslib = use_system_lib(ctx, ctx.attr.name)
     if use_syslib:
         if ctx.attr.system_build_file == None:
-            fail(("{name} was specified in TENSORSTORE_SYSTEM_LIBS, but no " +
+            fail(("{name} was specified in {envvar}, but no " +
                   "system_build_file was specified in the repository " +
-                  "rule for {name}.").format(name = ctx.attr.name))
+                  "rule for {name}.").format(
+                name = ctx.attr.name,
+                envvar = SYSTEM_LIBS_ENVVAR,
+            ))
         ctx.template(
             path = "BUILD.bazel",
             template = ctx.attr.system_build_file,
@@ -110,23 +117,37 @@ third_party_http_archive = repository_rule(
     implementation = _third_party_http_archive_impl,
     attrs = _third_party_http_archive_attrs,
     environ = [
-        "TENSORSTORE_SYSTEM_LIBS",
+        SYSTEM_LIBS_ENVVAR,
     ],
 )
 
 def _third_party_python_package_impl(ctx):
-    use_syslib = use_system_lib(ctx, ctx.attr.name)
+    use_syslib = use_system_lib(ctx, ctx.attr.target, SYSTEM_PYTHON_LIBS_ENVVAR)
+    is_numpy = ctx.attr.target == "numpy"
+    build_file_content = ""
+    if is_numpy:
+        build_file_content = """
+load("@com_github_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
+
+"""
     if use_syslib:
-        ctx.file(
-            "BUILD.bazel",
-            executable = False,
-            content = """
+        build_file_content += """
 py_library(
   name = """ + repr(ctx.attr.target) + """,
   visibility = ["//visibility:public"],
 )
-""",
-        )
+"""
+        if is_numpy:
+            build_file_content += """
+cc_library_with_strip_include_prefix(
+  name = "headers",
+  hdrs = [":numpy_include"],
+  strip_include_prefix = "numpy_include",
+  visibility = ["//visibility:public"],
+)
+
+""" + get_numpy_include_rule(ctx, get_python_bin(ctx))
+
     else:
         result = ctx.execute([
             get_python_bin(ctx),
@@ -144,11 +165,7 @@ py_library(
                 result.stderr,
                 result.stdout,
             ))
-
-        ctx.file(
-            "BUILD.bazel",
-            executable = False,
-            content = """
+        build_file_content += """
 py_library(
   name = """ + repr(ctx.attr.target) + """,
   srcs = glob(["**/*.py"]),
@@ -157,8 +174,23 @@ py_library(
   deps = """ + repr(ctx.attr.deps) + """,
   visibility = ["//visibility:public"],
 )
-""",
-        )
+"""
+        if is_numpy:
+            build_file_content += """
+
+cc_library_with_strip_include_prefix(
+  name = "headers",
+  hdrs = glob(["numpy/core/include/**/*.h"]),
+  strip_include_prefix = "numpy/core/include",
+  visibility = ["//visibility:public"],
+)
+"""
+
+    ctx.file(
+        "BUILD.bazel",
+        executable = False,
+        content = build_file_content,
+    )
 
 _third_party_python_package_attrs = {
     "requirement": attr.string(),
@@ -170,6 +202,6 @@ third_party_python_package = repository_rule(
     implementation = _third_party_python_package_impl,
     attrs = _third_party_python_package_attrs,
     environ = [
-        "TENSORSTORE_SYSTEM_LIBS",
+        SYSTEM_PYTHON_LIBS_ENVVAR,
     ] + python_env_vars,
 )

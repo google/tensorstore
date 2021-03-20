@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "python/tensorstore/numpy_indexing_spec.h"
+#include "python/tensorstore/numpy.h"
+
+// numpy.h must be included first.
 
 #include <algorithm>
 #include <cassert>
@@ -29,6 +31,7 @@
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/index.h"
+#include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
 #include "pybind11/numpy.h"
@@ -62,8 +65,6 @@ namespace py = ::pybind11;
 
 namespace {
 
-using pybind11::detail::npy_api;
-
 /// Returns `py::cast<T>(handle)`, but throws an exception that maps to a Python
 /// `TypeError` exception with a message of `msg` (as is typical for Python
 /// APIs), rather than the pybind11-specific `py::cast_error`.
@@ -95,7 +96,6 @@ NumpyIndexingSpec ParseIndexingSpec(pybind11::handle obj,
                                     NumpyIndexingSpec::Usage usage) {
   NumpyIndexingSpec spec;
   NumpyIndexingSpec::Builder builder(spec, mode, usage);
-  auto& api = npy_api::get();
 
   // Process a Python object representing a single indexing term.  This
   // conversion mostly follows the logic in numpy/core/src/multiarray/mapping.c
@@ -124,7 +124,7 @@ NumpyIndexingSpec ParseIndexingSpec(pybind11::handle obj,
     // Check for an integer index.  Bool scalars are not treated as integer
     // indices; instead, they are treated as rank-0 boolean arrays.
     if (PyLong_CheckExact(term.ptr()) ||
-        (!PyBool_Check(term.ptr()) && !api.PyArray_Check_(term.ptr()))) {
+        (!PyBool_Check(term.ptr()) && !PyArray_Check(term.ptr()))) {
       ssize_t x = PyNumber_AsSsize_t(term.ptr(), PyExc_IndexError);
       if (x != -1 || !PyErr_Occurred()) {
         return builder.AddIndex(static_cast<Index>(x));
@@ -136,15 +136,16 @@ NumpyIndexingSpec ParseIndexingSpec(pybind11::handle obj,
 
     // Only remaining cases are index arrays, bool arrays, or invalid values.
 
-    if (!api.PyArray_Check_(term.ptr())) {
-      array_obj = py::reinterpret_steal<py::array>(api.PyArray_FromAny_(
-          term.ptr(), nullptr, 0, 0, npy_api::NPY_ARRAY_ALIGNED_, nullptr));
+    if (!PyArray_Check(term.ptr())) {
+      array_obj = py::reinterpret_steal<py::array>(PyArray_FromAny(
+          term.ptr(), nullptr, 0, 0, NPY_ARRAY_ALIGNED, nullptr));
       if (!array_obj) throw py::error_already_set();
       if (array_obj.size() == 0) {
-        array_obj = py::reinterpret_steal<py::array>(api.PyArray_FromAny_(
-            array_obj.ptr(), GetNumpyDtype<Index>().release().ptr(), 0, 0,
-            npy_api::NPY_ARRAY_FORCECAST_ | npy_api::NPY_ARRAY_ALIGNED_,
-            nullptr));
+        array_obj = py::reinterpret_steal<py::array>(PyArray_FromAny(
+            array_obj.ptr(),
+            reinterpret_cast<PyArray_Descr*>(
+                GetNumpyDtype<Index>().release().ptr()),
+            0, 0, NPY_ARRAY_FORCECAST | NPY_ARRAY_ALIGNED, nullptr));
         if (!array_obj) throw py::error_already_set();
       }
     } else {
@@ -154,16 +155,18 @@ NumpyIndexingSpec ParseIndexingSpec(pybind11::handle obj,
     auto* array_proxy = py::detail::array_proxy(array_obj.ptr());
     const int type_num =
         py::detail::array_descriptor_proxy(array_proxy->descr)->type_num;
-    if (type_num == npy_api::NPY_BOOL_) {
+    if (type_num == NPY_BOOL) {
       // Bool array.
       return builder.AddBoolArray(
           UncheckedArrayFromNumpy<bool>(std::move(array_obj)));
     }
-    if (type_num >= npy_api::NPY_BYTE_ && type_num <= npy_api::NPY_ULONGLONG_) {
+    if (type_num >= NPY_BYTE && type_num <= NPY_ULONGLONG) {
       // Integer array.
-      array_obj = py::reinterpret_steal<py::array>(api.PyArray_FromAny_(
-          array_obj.ptr(), GetNumpyDtype<Index>().release().ptr(), 0, 0,
-          npy_api::NPY_ARRAY_ALIGNED_, nullptr));
+      array_obj = py::reinterpret_steal<py::array>(
+          PyArray_FromAny(array_obj.ptr(),
+                          reinterpret_cast<PyArray_Descr*>(
+                              GetNumpyDtype<Index>().release().ptr()),
+                          0, 0, NPY_ARRAY_ALIGNED, nullptr));
       if (!array_obj) {
         throw py::error_already_set();
       }

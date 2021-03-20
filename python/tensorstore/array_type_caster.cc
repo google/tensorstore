@@ -12,13 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "python/tensorstore/array_type_caster.h"
+#include "python/tensorstore/numpy.h"
+
+// numpy.h must be included first
 
 #include <algorithm>
 #include <memory>
 #include <string>
 #include <utility>
 
+#include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "pybind11/numpy.h"
@@ -140,18 +143,17 @@ constexpr const internal::ElementwiseFunction<2, Status*>*
 };
 
 pybind11::object GetNumpyObjectArrayImpl(SharedArrayView<const void> source) {
-  auto& api = npy_api::get();
-  ssize_t target_shape_ssize_t[kMaxNumpyRank];
+  ssize_t target_shape_ssize_t[NPY_MAXDIMS];
   std::copy(source.shape().begin(), source.shape().end(), target_shape_ssize_t);
-  auto array_obj = py::reinterpret_steal<py::array>(api.PyArray_NewFromDescr_(
-      api.PyArray_Type_, api.PyArray_DescrFromType_(NPY_OBJECT_),
+  auto array_obj = py::reinterpret_steal<py::array>(PyArray_NewFromDescr(
+      &PyArray_Type, PyArray_DescrFromType(NPY_OBJECT),
       static_cast<int>(source.rank()), target_shape_ssize_t,
       /*strides=*/nullptr,
       /*data=*/nullptr,
-      /*flags=*/NPY_ARRAY_C_CONTIGUOUS_ | NPY_ARRAY_WRITEABLE_,
+      /*flags=*/NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE,
       /*obj=*/nullptr));
   if (!array_obj) throw py::error_already_set();
-  Index target_strides[kMaxNumpyRank];
+  Index target_strides[NPY_MAXDIMS];
   std::copy_n(array_obj.strides(), source.rank(), target_strides);
   auto iterate_result = internal::IterateOverStridedLayouts<2>(
       /*closure=*/{kConvertDataTypeToNumpyObjectArray[static_cast<size_t>(
@@ -171,7 +173,7 @@ pybind11::object GetNumpyObjectArrayImpl(SharedArrayView<const void> source) {
 /// Creates an array by copying from a NumPy object array.
 ///
 /// \param array_obj The NumPy object array, must have a data type number of
-///     `NPY_OBJECT_`.
+///     `NPY_OBJECT`.
 /// \param dtype The TensorStore data type of the returned array.  If the
 ///     invalid `DataType()` is specified, uses json.
 /// \returns The new array.
@@ -182,7 +184,7 @@ SharedArray<void, dynamic_rank> ArrayFromNumpyObjectArray(
     dtype = dtype_v<tensorstore::json_t>;
   }
   const DimensionIndex rank = array_obj.ndim();
-  StridedLayout<dynamic_rank(kMaxNumpyRank)> array_obj_layout;
+  StridedLayout<dynamic_rank(NPY_MAXDIMS)> array_obj_layout;
   array_obj_layout.set_rank(rank);
   AssignArrayLayout(array_obj, rank, array_obj_layout.shape().data(),
                     array_obj_layout.byte_strides().data());
@@ -212,7 +214,7 @@ void AssignArrayLayout(pybind11::array array_obj, DimensionIndex rank,
   [[maybe_unused]] const int flags =
       py::detail::array_proxy(array_obj.ptr())->flags;
   assert(array_obj.ndim() == rank);
-  assert(flags & NPY_ARRAY_ALIGNED_);
+  assert(flags & NPY_ARRAY_ALIGNED);
   std::copy_n(array_obj.shape(), rank, shape);
   for (DimensionIndex i = 0; i < rank; ++i) {
     if (shape[i] < 0 || shape[i] > kMaxFiniteIndex) {
@@ -225,9 +227,9 @@ void AssignArrayLayout(pybind11::array array_obj, DimensionIndex rank,
 
 pybind11::object GetNumpyArrayImpl(SharedArrayView<const void> value,
                                    bool is_const) {
-  if (value.rank() > kMaxNumpyRank) {
+  if (value.rank() > NPY_MAXDIMS) {
     throw std::out_of_range(StrCat("Array of rank ", value.rank(),
-                                   " (which is greater than ", kMaxNumpyRank,
+                                   " (which is greater than ", NPY_MAXDIMS,
                                    ") cannot be converted to NumPy array"));
   }
   if (const DataTypeId id = value.dtype().id();
@@ -235,26 +237,28 @@ pybind11::object GetNumpyArrayImpl(SharedArrayView<const void> value,
       kConvertDataTypeToNumpyObjectArray[static_cast<size_t>(id)]) {
     return GetNumpyObjectArrayImpl(value);
   }
-  auto& api = npy_api::get();
-  ssize_t shape[kMaxNumpyRank];
-  ssize_t strides[kMaxNumpyRank];
+  ssize_t shape[NPY_MAXDIMS];
+  ssize_t strides[NPY_MAXDIMS];
   std::copy_n(value.shape().data(), value.rank(), shape);
   std::copy_n(value.byte_strides().data(), value.rank(), strides);
   int flags = 0;
   if (!is_const) {
-    flags |= NPY_ARRAY_WRITEABLE_;
+    flags |= NPY_ARRAY_WRITEABLE;
   }
-  auto obj = py::reinterpret_steal<py::array>(api.PyArray_NewFromDescr_(
-      api.PyArray_Type_, GetNumpyDtypeOrThrow(value.dtype()).release().ptr(),
+  auto obj = py::reinterpret_steal<py::array>(PyArray_NewFromDescr(
+      &PyArray_Type,
+      reinterpret_cast<PyArray_Descr*>(
+          GetNumpyDtypeOrThrow(value.dtype()).release().ptr()),
       static_cast<int>(value.rank()), shape, strides,
       const_cast<void*>(value.data()), flags, nullptr));
   if (!obj) throw py::error_already_set();
   using Pointer = std::shared_ptr<const void>;
-  api.PyArray_SetBaseObject_(
-      obj.ptr(), py::capsule(new Pointer(std::move(value.pointer())),
-                             [](void* p) { delete static_cast<Pointer*>(p); })
-                     .release()
-                     .ptr());
+  PyArray_SetBaseObject(
+      reinterpret_cast<PyArrayObject*>(obj.ptr()),
+      py::capsule(new Pointer(std::move(value.pointer())),
+                  [](void* p) { delete static_cast<Pointer*>(p); })
+          .release()
+          .ptr());
   return std::move(obj);
 }
 
@@ -294,16 +298,15 @@ bool ConvertToArrayImpl(pybind11::handle src,
       data_type_constraint.valid()
           ? GetNumpyDtypeOrThrow(data_type_constraint)
           : pybind11::reinterpret_steal<pybind11::dtype>(pybind11::handle());
-  int flags = NPY_ARRAY_ALIGNED_;
+  int flags = NPY_ARRAY_ALIGNED;
   if (writable) {
-    flags |= NPY_ARRAY_WRITEABLE_;
+    flags |= NPY_ARRAY_WRITEABLE;
   }
   // Convert `src` to a NumPy array.
-  auto obj = pybind11::reinterpret_steal<pybind11::array>(
-      npy_api::get().PyArray_FromAny_(src.ptr(), dtype_handle.release().ptr(),
-                                      min_rank == dynamic_rank ? 0 : min_rank,
-                                      max_rank == dynamic_rank ? 0 : max_rank,
-                                      flags, nullptr));
+  auto obj = pybind11::reinterpret_steal<pybind11::array>(PyArray_FromAny(
+      src.ptr(), reinterpret_cast<PyArray_Descr*>(dtype_handle.release().ptr()),
+      min_rank == dynamic_rank ? 0 : min_rank,
+      max_rank == dynamic_rank ? 0 : max_rank, flags, nullptr));
   const auto try_convert = [&] {
     if (!obj) {
       if (no_throw) {
@@ -314,7 +317,7 @@ bool ConvertToArrayImpl(pybind11::handle src,
     }
     const int type_num =
         pybind11::detail::array_descriptor_proxy(obj.dtype().ptr())->type_num;
-    if (!allow_copy && (obj.ptr() != src.ptr() || type_num == NPY_OBJECT_)) {
+    if (!allow_copy && (obj.ptr() != src.ptr() || type_num == NPY_OBJECT)) {
       // The caller has specified that copying is not allowed, and either
       // PyArray_FromAny created a copy, or the caller passed in a NumPy
       // "object" array which always requires a copy.
@@ -338,7 +341,7 @@ bool ConvertToArrayImpl(pybind11::handle src,
       *out = MakeScalarArray(PyObjectToJson(src));
       return true;
     }
-    if (type_num == NPY_OBJECT_) {
+    if (type_num == NPY_OBJECT) {
       // Arrays of Python objects require copying.
       *out = ArrayFromNumpyObjectArray(std::move(obj), data_type_constraint);
       return true;

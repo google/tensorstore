@@ -24,15 +24,6 @@
 _PYTHON_BIN_PATH = "PYTHON_BIN_PATH"
 _TENSORSTORE_PYTHON_CONFIG_REPO = "TENSORSTORE_PYTHON_CONFIG_REPO"
 
-def _tpl(repository_ctx, tpl, substitutions = {}, out = None):
-    if not out:
-        out = tpl
-    repository_ctx.template(
-        out,
-        Label("//third_party:python/%s.tpl" % tpl),
-        substitutions,
-    )
-
 def _fail(msg):
     """Output failure message when auto configuration fails."""
     red = "\033[0;31m"
@@ -100,7 +91,7 @@ def _read_dir(repository_ctx, src_dir):
         result = find_result.stdout
     return result
 
-def _genrule(src_dir, genrule_name, command, outs):
+def _genrule(genrule_name, command, outs):
     """Returns a string with a genrule.
 
     Genrule executes the given command and produces the given outputs.
@@ -125,14 +116,14 @@ def _norm_path(path):
         path = path[:-1]
     return path
 
-def _symlink_genrule_for_dir(
+def _get_copy_directory_rule(
         repository_ctx,
         src_dir,
         dest_dir,
         genrule_name,
         src_files = [],
         dest_files = []):
-    """Returns a genrule to symlink(or copy if on Windows) a set of files.
+    """Returns a genrule to copy a set of files.
 
     If src_dir is passed, files will be read from the given directory; otherwise
     we assume files are in src_files and dest_files
@@ -158,7 +149,6 @@ def _symlink_genrule_for_dir(
             command.append(cmd + ' "%s" "%s"' % (src_files[i], dest))
             outs.append('        "' + dest_dir + dest_files[i] + '",')
     genrule = _genrule(
-        src_dir,
         genrule_name,
         " && ".join(command),
         "\n".join(outs),
@@ -229,11 +219,40 @@ def _get_python_import_lib_name(repository_ctx, python_bin):
     )
     return result.stdout.splitlines()[0]
 
+def _get_numpy_include(repository_ctx, python_bin):
+    """Gets the numpy include path."""
+    return _execute(
+        repository_ctx,
+        [
+            python_bin,
+            "-c",
+            "import numpy;" +
+            "print(numpy.get_include());",
+        ],
+        error_msg = "Problem getting numpy include path.",
+        error_details = "Is numpy installed?",
+    ).stdout.splitlines()[0]
+
+def get_numpy_include_rule(repository_ctx, python_bin, target_name = "numpy_include"):
+    numpy_include = _get_numpy_include(repository_ctx, python_bin) + "/numpy"
+    return _get_copy_directory_rule(
+        repository_ctx,
+        numpy_include,
+        "numpy_include/numpy",
+        target_name,
+    )
+
 def _create_local_python_repository(repository_ctx):
     """Creates the repository containing files set up to build with Python."""
+
+    # Resolve all labels before doing any real work. Resolving causes the
+    # function to be restarted with all previous state being lost. This
+    # can easily lead to a O(n^2) runtime in the number of labels.
+    build_tpl = repository_ctx.path(Label("//third_party:python/BUILD.tpl"))
+
     python_bin = get_python_bin(repository_ctx)
     python_include = _get_python_include(repository_ctx, python_bin)
-    python_include_rule = _symlink_genrule_for_dir(
+    python_include_rule = _get_copy_directory_rule(
         repository_ctx,
         python_include,
         "python_include",
@@ -247,7 +266,7 @@ def _create_local_python_repository(repository_ctx):
         python_include = _norm_path(python_include)
         python_import_lib_name = _get_python_import_lib_name(repository_ctx, python_bin)
         python_import_lib_src = python_include.rsplit("/", 1)[0] + "/libs/" + python_import_lib_name
-        python_import_lib_genrule = _symlink_genrule_for_dir(
+        python_import_lib_genrule = _get_copy_directory_rule(
             repository_ctx,
             None,
             "",
@@ -255,7 +274,8 @@ def _create_local_python_repository(repository_ctx):
             [python_import_lib_src],
             [python_import_lib_name],
         )
-    _tpl(repository_ctx, "BUILD", {
+
+    repository_ctx.template("BUILD", build_tpl, {
         "%{PYTHON_INCLUDE_GENRULE}": python_include_rule,
         "%{PYTHON_IMPORT_LIB_GENRULE}": python_import_lib_genrule,
         "%{PYTHON_BIN}": python_bin.replace("\\", "\\\\"),

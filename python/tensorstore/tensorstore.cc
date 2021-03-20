@@ -16,6 +16,10 @@
 ///
 /// Defines the `tensorstore._tensorstore` module.
 
+#include "python/tensorstore/numpy.h"
+
+// Must include `numpy.h` before any other headers.
+
 #include "python/tensorstore/context.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/downsample.h"
@@ -52,6 +56,8 @@ class ScopedModuleNameOverride {
 };
 
 PYBIND11_MODULE(_tensorstore, m) {
+  internal_python::InitializeNumpy();
+
   // Ensure that members of this module display as `tensorstore.X` rather than
   // `tensorstore._tensorstore.X`.
   ScopedModuleNameOverride name_override(m, "tensorstore");

@@ -139,6 +139,8 @@ def _configure_macos_deployment_target():
 if 'darwin' in sys.platform:
   _macos_deployment_target = _configure_macos_deployment_target()
 
+SYSTEM_PYTHON_LIBS_ENVVAR = 'TENSORSTORE_SYSTEM_PYTHON_LIBS'
+
 
 class BuildExtCommand(setuptools.command.build_ext.build_ext):
   """Overrides default build_ext command to invoke bazel."""
@@ -152,6 +154,19 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
       if not prebuilt_path:
         # Ensure python_configure.bzl finds the correct Python verison.
         os.environ['PYTHON_BIN_PATH'] = sys.executable
+
+        # Ensure it is built against the version of `numpy` in the current
+        # environment (which should be as old as possible for best
+        # compatibility).
+        system_python_libs = [
+            x.strip()
+            for x in os.getenv(SYSTEM_PYTHON_LIBS_ENVVAR, '').split(',')
+            if x.strip()
+        ]
+        if 'numpy' not in system_python_libs:
+          system_python_libs.append('numpy')
+        os.environ[SYSTEM_PYTHON_LIBS_ENVVAR] = ','.join(system_python_libs)
+
         bazelisk = os.getenv('TENSORSTORE_BAZELISK', 'bazelisk.py')
         # Controlled via `setup.py build_ext --debug` flag.
         default_compilation_mode = 'dbg' if self.debug else 'opt'

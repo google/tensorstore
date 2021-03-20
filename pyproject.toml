@@ -3,4 +3,5 @@ requires = [
     "setuptools>=30.3.0",
     "wheel",
     "setuptools_scm",
+    "oldest-supported-numpy",
 ]

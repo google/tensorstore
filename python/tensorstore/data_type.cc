@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "python/tensorstore/data_type.h"
+#include "python/tensorstore/numpy.h"
+
+// numpy.h must be included first.
 
 #include <array>
 #include <new>
@@ -22,6 +24,7 @@
 
 #include "absl/hash/hash.h"
 #include <nlohmann/json.hpp>
+#include "python/tensorstore/data_type.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
@@ -35,10 +38,8 @@ namespace internal_python {
 namespace py = ::pybind11;
 
 pybind11::dtype GetNumpyDtype(int type_num) {
-  using py::detail::npy_api;
-  auto& api = npy_api::get();
-  if (auto* obj = api.PyArray_DescrFromType_(type_num)) {
-    return py::reinterpret_borrow<py::dtype>(obj);
+  if (auto* obj = PyArray_DescrFromType(type_num)) {
+    return py::reinterpret_borrow<py::dtype>(reinterpret_cast<PyObject*>(obj));
   }
   throw py::error_already_set();
 }
@@ -70,7 +71,7 @@ py::dtype GetNumpyDtypeOrThrow(DataType dtype) {
 
 DataType GetDataType(pybind11::dtype dt) {
   const int type_num = py::detail::array_descriptor_proxy(dt.ptr())->type_num;
-  if (type_num < 0 || type_num > NPY_NTYPES_) return DataType();
+  if (type_num < 0 || type_num > NPY_NTYPES) return DataType();
   const DataTypeId id = kDataTypeIdForNumpyTypeNum[type_num];
   if (id == DataTypeId::custom) return DataType();
   return kDataTypes[static_cast<size_t>(id)];
@@ -178,8 +179,8 @@ bool type_caster<tensorstore::internal_python::DataTypeLike>::load(
     value.value = dtype_v<tensorstore::string_t>;
     return true;
   }
-  PyObject* ptr = nullptr;
-  if (!pybind11::detail::npy_api::get().PyArray_DescrConverter_(
+  PyArray_Descr* ptr = nullptr;
+  if (!PyArray_DescrConverter(
           pybind11::reinterpret_borrow<pybind11::object>(src).release().ptr(),
           &ptr) ||
       !ptr) {
@@ -187,7 +188,8 @@ bool type_caster<tensorstore::internal_python::DataTypeLike>::load(
     return false;
   }
   value.value = tensorstore::internal_python::GetDataTypeOrThrow(
-      pybind11::reinterpret_steal<pybind11::dtype>(ptr));
+      pybind11::reinterpret_steal<pybind11::dtype>(
+          reinterpret_cast<PyObject*>(ptr)));
   return true;
 }
 

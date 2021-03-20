@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "python/tensorstore/index_space.h"
+#include "python/tensorstore/numpy.h"
+
+// numpy.h must be included first.
 
 #include <algorithm>
 #include <memory>
@@ -27,6 +29,7 @@
 #include <nlohmann/json.hpp>
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/dim_expression.h"
+#include "python/tensorstore/index_space.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/result_type_caster.h"
@@ -75,8 +78,7 @@ bool operator==(const OutputIndexMap& a, const OutputIndexMap& b) {
 }
 
 py::array MakeArrayReadonly(py::array array) {
-  py::detail::array_proxy(array.ptr())->flags &=
-      ~py::detail::npy_api::NPY_ARRAY_WRITEABLE_;
+  py::detail::array_proxy(array.ptr())->flags &= ~NPY_ARRAY_WRITEABLE;
   return array;
 }
 

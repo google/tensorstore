@@ -19,6 +19,10 @@
 /// `tensorstore::DataType`), the `tensorstore.<dtype>` constants, and automatic
 /// conversion from compatible Python objects to `tensorstore::DataType`.
 
+#include "python/tensorstore/numpy.h"
+// numpy.h must be included first to ensure the header inclusion order
+// constraints are satisfied.
+
 #include <array>
 #include <complex>
 #include <string_view>
@@ -30,91 +34,62 @@
 namespace tensorstore {
 namespace internal_python {
 
-/// Consistent with how pybind11 works, we don't depend on NumPy headers (which
-/// also simplifies the build process).  Therefore, we have to redefine all of
-/// the data type constants used by NumPy.
-enum NumpyTypeNum {
-  NPY_BOOL_ = 0,
-  NPY_BYTE_ = 1,
-  NPY_UBYTE_ = 2,
-  NPY_SHORT_ = 3,
-  NPY_USHORT_ = 4,
-  NPY_INT_ = 5,
-  NPY_UINT_ = 6,
-  NPY_LONG_ = 7,
-  NPY_ULONG_ = 8,
-  NPY_LONGLONG_ = 9,
-  NPY_ULONGLONG_ = 10,
-  NPY_FLOAT_ = 11,
-  NPY_DOUBLE_ = 12,
-  NPY_LONGDOUBLE_ = 13,
-  NPY_CFLOAT_ = 14,
-  NPY_CDOUBLE_ = 15,
-  NPY_CLONGDOUBLE_ = 16,
-  NPY_OBJECT_ = 17,
-  NPY_STRING_ = 18,
-  NPY_UNICODE_ = 19,
-  NPY_VOID_ = 20,
-  NPY_DATETIME_ = 21,
-  NPY_TIMEDELTA_ = 22,
-  NPY_HALF_ = 23,
-  NPY_NTYPES_ = 24,
-};
+inline constexpr std::array<DataTypeId, NPY_NTYPES> kDataTypeIdForNumpyTypeNum =
+    [] {
+      std::array<DataTypeId, NPY_NTYPES> result = {};
+      for (size_t i = 0; i < NPY_NTYPES; ++i) {
+        result[i] = DataTypeId::custom;
+      }
+      result[NPY_BOOL] = DataTypeId::bool_t;
+      result[NPY_BYTE] = DataTypeIdOf<signed char>;
+      result[NPY_UBYTE] = DataTypeIdOf<unsigned char>;
+      result[NPY_SHORT] = DataTypeIdOf<short>;
+      result[NPY_USHORT] = DataTypeIdOf<unsigned short>;
+      result[NPY_INT] = DataTypeIdOf<int>;
+      result[NPY_UINT] = DataTypeIdOf<unsigned int>;
+      result[NPY_LONG] = DataTypeIdOf<long>;
+      result[NPY_ULONG] = DataTypeIdOf<unsigned long>;
+      result[NPY_LONGLONG] = DataTypeIdOf<long long>;
+      result[NPY_ULONGLONG] = DataTypeIdOf<unsigned long long>;
+      result[NPY_FLOAT] = DataTypeIdOf<float>;
+      result[NPY_DOUBLE] = DataTypeIdOf<double>;
+      result[NPY_LONGDOUBLE] = DataTypeIdOf<long double>;
+      result[NPY_CFLOAT] = DataTypeIdOf<std::complex<float>>;
+      result[NPY_CDOUBLE] = DataTypeIdOf<std::complex<double>>;
+      result[NPY_CLONGDOUBLE] = DataTypeIdOf<std::complex<long double>>;
+      // result[NPY_OBJECT] = DataTypeId::custom;
+      result[NPY_STRING] = DataTypeId::char_t;
+      // result[NPY_UNICODE] = DataTypeId::custom;
+      result[NPY_VOID] = DataTypeId::byte_t;
+      // result[NPY_DATETIME] = DataTypeId::custom;
+      // result[NPY_TIMEDELTA] = DataTypeId::custom;
+      result[NPY_HALF] = DataTypeId::float16_t;
+      return result;
+    }();
 
-inline constexpr std::array<DataTypeId, NPY_NTYPES_>
-    kDataTypeIdForNumpyTypeNum = {{
-        DataTypeId::bool_t,                       // NPY_BOOL = 0
-        DataTypeIdOf<signed char>,                // NPY_BYTE = 1
-        DataTypeIdOf<unsigned char>,              // NPY_UBYTE = 2
-        DataTypeIdOf<short>,                      // NPY_SHORT = 3
-        DataTypeIdOf<unsigned short>,             // NPY_USHORT = 4
-        DataTypeIdOf<int>,                        // NPY_INT = 5
-        DataTypeIdOf<unsigned int>,               // NPY_UINT = 6
-        DataTypeIdOf<long>,                       // NPY_LONG = 7
-        DataTypeIdOf<unsigned long>,              // NPY_ULONG = 8
-        DataTypeIdOf<long long>,                  // NPY_LONGLONG = 9
-        DataTypeIdOf<unsigned long long>,         // NPY_ULONGLONG = 10
-        DataTypeIdOf<float>,                      // NPY_FLOAT = 11,
-        DataTypeIdOf<double>,                     // NPY_DOUBLE = 12,
-        DataTypeIdOf<long double>,                // NPY_LONGDOUBLE = 13,
-        DataTypeIdOf<std::complex<float>>,        // NPY_CFLOAT = 14,
-        DataTypeIdOf<std::complex<double>>,       // NPY_CDOUBLE = 15,
-        DataTypeIdOf<std::complex<long double>>,  // NPY_CLONGDOUBLE = 16,
-        DataTypeId::custom,                       // NPY_OBJECT = 17
-        DataTypeId::char_t,                       // NPY_STRING = 18
-        DataTypeId::custom,                       // NPY_UNICODE = 19
-        DataTypeId::byte_t,                       // NPY_VOID = 20
-        DataTypeId::custom,                       // NPY_DATETIME = 21
-        DataTypeId::custom,                       // NPY_TIMEDELTA = 22
-        DataTypeId::float16_t,                    // NPY_HALF = 23
-    }};
-
-constexpr std::array<int, kNumDataTypeIds> GetNumpyTypeNumForDataTypeId() {
+constexpr std::array<int, kNumDataTypeIds> kNumpyTypeNumForDataTypeId = [] {
   std::array<int, kNumDataTypeIds> array = {};
   for (size_t i = 0; i < kNumDataTypeIds; ++i) {
     array[i] = -1;
   }
-  const auto AssignMapping = [&array](NumpyTypeNum i) {
+  const auto AssignMapping = [&array](size_t i) {
     DataTypeId id = kDataTypeIdForNumpyTypeNum[i];
     if (id == DataTypeId::custom) return;
     array[static_cast<size_t>(id)] = i;
   };
-  for (size_t i = 0; i < static_cast<size_t>(NPY_NTYPES_); ++i) {
-    AssignMapping(static_cast<NumpyTypeNum>(i));
+  for (size_t i = 0; i < NPY_NTYPES; ++i) {
+    AssignMapping(i);
   }
   // Add mapping for `NPY_{U,}LONG` last so that they take precedence over
   // `NPY_{U,}INT` and `NPY_{U,}LONGLONG` for consistency with how Numpy defines
   // the sized integer types.
-  AssignMapping(NPY_LONG_);
-  AssignMapping(NPY_ULONG_);
-  array[static_cast<size_t>(DataTypeId::string_t)] = NPY_OBJECT_;
-  array[static_cast<size_t>(DataTypeId::ustring_t)] = NPY_OBJECT_;
-  array[static_cast<size_t>(DataTypeId::json_t)] = NPY_OBJECT_;
+  AssignMapping(NPY_LONG);
+  AssignMapping(NPY_ULONG);
+  array[static_cast<size_t>(DataTypeId::string_t)] = NPY_OBJECT;
+  array[static_cast<size_t>(DataTypeId::ustring_t)] = NPY_OBJECT;
+  array[static_cast<size_t>(DataTypeId::json_t)] = NPY_OBJECT;
   return array;
-}
-
-constexpr std::array<int, kNumDataTypeIds> kNumpyTypeNumForDataTypeId =
-    GetNumpyTypeNumForDataTypeId();
+}();
 
 using tensorstore::GetDataType;
 

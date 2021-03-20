@@ -19,12 +19,23 @@ pybind11_py_extension(
         ":downsample",
         ":future",
         ":index_space",
+        ":numpy",
         ":spec",
         ":tensorstore_class",
         ":transaction",
         ":write_futures",
         "//tensorstore:all_drivers",
         "@com_github_pybind_pybind11//:pybind11",
+    ],
+)
+
+pybind11_cc_library(
+    name = "numpy",
+    srcs = ["numpy.cc"],
+    textual_hdrs = ["numpy.h"],
+    deps = [
+        "@local_config_python//:python_headers",  # buildcleaner: keep
+        "@pypa_numpy//:headers",
     ],
 )
 
@@ -193,6 +204,7 @@ pybind11_cc_library(
         ":dim_expression",
         ":index",
         ":json_type_caster",
+        ":numpy",
         ":numpy_indexing_spec",
         ":result_type_caster",
         ":status",
@@ -239,6 +251,7 @@ pybind11_cc_library(
     deps = [
         ":data_type",
         ":json_type_caster",
+        ":numpy",
         "//tensorstore:array",
         "//tensorstore:container_kind",
         "//tensorstore:contiguous_layout",
@@ -288,12 +301,14 @@ pybind11_cc_library(
     hdrs = ["data_type.h"],
     deps = [
         ":json_type_caster",
+        ":numpy",
         "//tensorstore:data_type",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/hash",
+        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -384,6 +399,7 @@ pybind11_cc_library(
         ":array_type_caster",
         ":data_type",
         ":index",
+        ":numpy",
         ":result_type_caster",
         ":status",
         ":subscript_method",
