@@ -42,11 +42,28 @@ using tensorstore::MatchesStatus;
 using tensorstore::internal::JsonHandleObjectMember;
 using tensorstore::internal::JsonParseArray;
 using tensorstore::internal::JsonRequireInteger;
-using tensorstore::internal::JsonRequireObjectMember;
 using tensorstore::internal::JsonRequireValueAs;
 using tensorstore::internal::JsonValidateArrayLength;
 using tensorstore::internal::JsonValidateObjectMembers;
 using tensorstore::internal::JsonValueAs;
+
+template <typename T, bool kStrict = true>
+std::optional<T> JsonMemberT(const ::nlohmann::json::object_t& j,
+                             const char* member) {
+  auto it = j.find(member);
+  if (it == j.end()) {
+    return std::nullopt;
+  }
+  return JsonValueAs<T>(it->second, kStrict);
+}
+
+template <typename T, bool kStrict = true>
+std::optional<T> JsonMemberT(const ::nlohmann::json& j, const char* member) {
+  if (const auto* obj = j.get_ptr<const ::nlohmann::json::object_t*>()) {
+    return JsonMemberT<T, kStrict>(*obj, member);
+  }
+  return std::nullopt;
+}
 
 TEST(JsonTest, SimpleParse) {
   using tensorstore::internal::ParseJson;
@@ -65,23 +82,14 @@ TEST(JsonTest, SimpleParse) {
 
 TEST(JsonTest, Meta) {
   auto JsonRequireString = [](const ::nlohmann::json& json,
-                              const char* member) {
-    return JsonRequireObjectMember(json, member,
-                                   [](const ::nlohmann::json& j) {
-                                     return JsonRequireValueAs<std::string>(
-                                         j, nullptr, [](const std::string& x) {
-                                           return !x.empty();
-                                         });
-                                   })
-        .ok();
+                              const char* member) -> bool {
+    auto v = JsonMemberT<std::string>(json, member);
+    return v.has_value() && !v->empty();
   };
-  auto JsonRequireInt = [](const ::nlohmann::json& json, const char* member) {
-    int64_t result;
-    return JsonRequireObjectMember(json, member,
-                                   [&result](const ::nlohmann::json& j) {
-                                     return JsonRequireValueAs(j, &result);
-                                   })
-        .ok();
+  auto JsonRequireInt = [](const ::nlohmann::json& json,
+                           const char* member) -> bool {
+    auto v = JsonMemberT<int64_t, false>(json, member);
+    return v.has_value();
   };
 
   auto meta = ::nlohmann::json::meta();
@@ -92,11 +100,7 @@ TEST(JsonTest, Meta) {
   EXPECT_TRUE(JsonRequireString(meta, "platform"));
   EXPECT_TRUE(JsonRequireString(meta, "copyright"));
 
-  EXPECT_TRUE(
-      JsonRequireObjectMember(meta, "compiler", [&](const ::nlohmann::json& j) {
-        EXPECT_TRUE(JsonRequireString(j, "c++"));
-        return absl::OkStatus();
-      }).ok());
+  EXPECT_TRUE(meta.find("compiler") != meta.end());
 
   auto compiler = meta["compiler"];
   EXPECT_TRUE(JsonRequireString(compiler, "c++"));
@@ -140,15 +144,11 @@ absl::node_hash_set<std::string> GetKeys() {
 
 TEST(JsonTest, JsonParseBool) {
   auto keys = GetKeys();
+
   auto JsonParseBool = [&keys](const ::nlohmann::json& json,
                                const char* member) {
     keys.erase(member);
-    std::optional<bool> result;
-    JsonHandleObjectMember(json, member, [&](const ::nlohmann::json& j) {
-      result = JsonValueAs<bool>(j);
-      return absl::OkStatus();
-    }).IgnoreError();
-    return result;
+    return JsonMemberT<bool, false>(json, member);
   };
 
   auto result = GetDefaultJSON();
@@ -287,12 +287,7 @@ TEST(JsonTest, JsonParseInt) {
   auto JsonParseInt = [&keys](const ::nlohmann::json& json,
                               const char* member) {
     keys.erase(member);
-    std::optional<int64_t> result;
-    JsonHandleObjectMember(json, member, [&](const ::nlohmann::json& j) {
-      result = JsonValueAs<int64_t>(j);
-      return absl::OkStatus();
-    }).IgnoreError();
-    return result;
+    return JsonMemberT<int64_t, false>(json, member);
   };
 
   auto result = GetDefaultJSON();
@@ -326,12 +321,7 @@ TEST(JsonTest, JsonParseUnsigned) {
   auto JsonParseUnsigned = [&keys](const ::nlohmann::json& json,
                                    const char* member) {
     keys.erase(member);
-    std::optional<uint64_t> result;
-    JsonHandleObjectMember(json, member, [&](const ::nlohmann::json& j) {
-      result = JsonValueAs<uint64_t>(j);
-      return absl::OkStatus();
-    }).IgnoreError();
-    return result;
+    return JsonMemberT<uint64_t, false>(json, member);
   };
 
   auto result = GetDefaultJSON();
@@ -362,12 +352,7 @@ TEST(JsonTest, JsonParseDouble) {
   auto JsonParseDouble = [&keys](const ::nlohmann::json& json,
                                  const char* member) {
     keys.erase(member);
-    std::optional<double> result;
-    JsonHandleObjectMember(json, member, [&](const ::nlohmann::json& j) {
-      result = JsonValueAs<double>(j);
-      return absl::OkStatus();
-    }).IgnoreError();
-    return result;
+    return JsonMemberT<double, false>(json, member);
   };
 
   auto result = GetDefaultJSON();
@@ -410,12 +395,7 @@ TEST(JsonTest, JsonParseString) {
   auto JsonParseString = [&keys](const ::nlohmann::json& json,
                                  const char* member) {
     keys.erase(member);
-    std::optional<std::string> result;
-    JsonHandleObjectMember(json, member, [&](const ::nlohmann::json& j) {
-      result = JsonValueAs<std::string>(j);
-      return absl::OkStatus();
-    }).IgnoreError();
-    return result;
+    return JsonMemberT<std::string>(json, member);
   };
 
   auto result = GetDefaultJSON();
@@ -730,33 +710,6 @@ TEST(JsonValidateObjectMembers, Failure) {
                   ::nlohmann::json{{"name", 3}, {"birthday", 4}}, {"name"}),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Object includes extra members: .*"));
-}
-
-TEST(JsonRequireObjectMember, Success) {
-  auto ok = [](const ::nlohmann::json& value) { return absl::OkStatus(); };
-
-  EXPECT_TRUE(
-      JsonRequireObjectMember(::nlohmann::json{{"name", 3}}, "name", ok).ok());
-}
-
-TEST(JsonRequireObjectMember, Failure) {
-  auto ok = [](const ::nlohmann::json& value) { return absl::OkStatus(); };
-  auto fail = [](const ::nlohmann::json& value) {
-    return absl::InvalidArgumentError("failure");
-  };
-
-  EXPECT_THAT(JsonRequireObjectMember(::nlohmann::json("true"), "bar", ok),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected object, but received: \"true\""));
-
-  EXPECT_THAT(JsonRequireObjectMember(::nlohmann::json{{"name", 3}}, "bar", ok),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Missing object member \"bar\""));
-
-  EXPECT_THAT(
-      JsonRequireObjectMember(::nlohmann::json{{"name", 3}}, "name", fail),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Error parsing object member \"name\": failure"));
 }
 
 TEST(JsonHandleObjectMember, Success) {

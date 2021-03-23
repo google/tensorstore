@@ -334,27 +334,6 @@ Status JsonValidateObjectMembers(const ::nlohmann::json& j,
   return internal_json::ExpectedError(j, "object");
 }
 
-Status JsonRequireObjectMember(
-    const ::nlohmann::json::object_t& j, const char* member_name,
-    FunctionView<Status(const ::nlohmann::json&)> handle) {
-  auto it = j.find(member_name);
-  if (it == j.end()) {
-    return absl::InvalidArgumentError(
-        StrCat("Missing object member ", QuoteString(member_name)));
-  }
-  return internal_json::MaybeAnnotateMemberError(handle(it->second),
-                                                 member_name);
-}
-
-Status JsonRequireObjectMember(
-    const ::nlohmann::json& j, const char* member_name,
-    FunctionView<Status(const ::nlohmann::json&)> handle) {
-  if (const auto* obj = j.get_ptr<const ::nlohmann::json::object_t*>()) {
-    return JsonRequireObjectMember(*obj, member_name, handle);
-  }
-  return internal_json::ExpectedError(j, "object");
-}
-
 Status JsonHandleObjectMember(
     const ::nlohmann::json::object_t& j, const char* member_name,
     FunctionView<Status(const ::nlohmann::json&)> handle) {

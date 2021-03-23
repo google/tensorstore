@@ -298,7 +298,7 @@ inline Status JsonValidateObjectMembers(
 ///
 /// Example:
 ///
-/// JsonRequireObjectMember(j, "member_name", [](const ::nlohmann::json& j) {
+/// JsonHandleObjectMember(j, "member_name", [](const ::nlohmann::json& j) {
 ///    return JsonRequireValueAs(j, &field);
 /// });
 ///
@@ -308,14 +308,6 @@ inline Status JsonValidateObjectMembers(
 /// \error 'absl::StatusCode::kInvalidArgument' if `j` is not an object.
 /// \error 'absl::StatusCode::kInvalidArgument' if `member_name` is not found
 ///     (only `JsonRequireObjectMember`).
-Status JsonRequireObjectMember(
-    const ::nlohmann::json& j, const char* member_name,
-    FunctionView<Status(const ::nlohmann::json&)> handler);
-
-Status JsonRequireObjectMember(
-    const ::nlohmann::json::object_t& j, const char* member_name,
-    FunctionView<Status(const ::nlohmann::json&)> handler);
-
 Status JsonHandleObjectMember(
     const ::nlohmann::json& j, const char* member_name,
     FunctionView<Status(const ::nlohmann::json&)> handler);
