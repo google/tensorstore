@@ -61,6 +61,14 @@ inline constexpr const char* GetTypeName(
     internal::type_identity<std::uint64_t>) {
   return "64-bit unsigned integer";
 }
+inline constexpr const char* GetTypeName(
+    internal::type_identity<std::int32_t>) {
+  return "32-bit signed integer";
+}
+inline constexpr const char* GetTypeName(
+    internal::type_identity<std::uint32_t>) {
+  return "32-bit unsigned integer";
+}
 inline constexpr const char* GetTypeName(internal::type_identity<double>) {
   return "64-bit floating-point number";
 }
@@ -74,6 +82,7 @@ inline constexpr const char* GetTypeName(
     internal::type_identity<std::nullptr_t>) {
   return "null";
 }
+inline constexpr const char* GetTypeName(...) { return nullptr; }
 
 /// Retuns an error message for a json value with the expected type.
 Status ExpectedError(const ::nlohmann::json& j, std::string_view type_name);
@@ -485,44 +494,63 @@ constexpr auto GetterSetter(Get get, Set set, Binder binder = DefaultBinder<>) {
   };
 }
 
+namespace sequence_impl {
+
+template <typename Loading, typename Options, typename Obj, typename J,
+          typename... Binder>
+inline absl::Status invoke_reverse(Loading is_loading, Options& options,
+                                   Obj* obj, J* j, Binder... binder) {
+  // Use operator=, which folds from right-to-left to invoke in reverse order.
+  absl::Status s;
+  std::true_type right_to_left;
+  right_to_left =
+      (((s.ok() ? (void)(s = binder(is_loading, options, obj, j)) : (void)0),
+        right_to_left) = ... = right_to_left);
+  return s;
+}
+
+template <typename Loading, typename Options, typename Obj, typename J,
+          typename... Binder>
+inline absl::Status invoke_forward(Loading is_loading, Options& options,
+                                   Obj* obj, J* j, Binder... binder) {
+  // Use operator&& which folds from left-to-right to invoke in forward order.
+  absl::Status s;
+  [[maybe_unused]] bool ok =
+      (((s = binder(is_loading, options, obj, j)).ok()) && ...);
+  return s;
+}
+
+}  // namespace sequence_impl
+
 /// Composes multiple binders into a single binder.
 ///
 /// This returns a binder that simply invokes each specified binder in forward
 /// order when loading, and reverse order when saving.
+///
+/// Example:
+///   jb::Sequence(jb::Initialize([](auto* obj) { obj->x = 1; },
+///                jb::Projection(&T::y));
+///
 template <typename... Binder>
 constexpr auto Sequence(Binder... binder) {
   return [=](auto is_loading, const auto& options, auto* obj, auto* j) {
-    Status status;
-    if constexpr (sizeof...(Binder) != 0) {
-      constexpr std::size_t N = sizeof...(binder);
-      // Type-erase `binder` types in order to permit reverse iteration without
-      // more complicated metaprogramming.
-      using BinderInvoker =
-          Status (*)(const void* binder, decltype(is_loading),
-                     decltype(options), decltype(obj), decltype(j));
-      const BinderInvoker binder_invokers[N] = {
-          +[](const void* binder_ptr, decltype(is_loading) is_loading,
-              decltype(options) options, decltype(obj) obj,
-              decltype(j) j) -> Status {
-            return (*static_cast<const decltype(binder)*>(
-                binder_ptr))(is_loading, options, obj, j);
-          }...};
-      const void* const binder_ptrs[N] = {&binder...};
-      for (std::size_t i = 0; i < N; ++i) {
-        const std::size_t binder_i = is_loading ? i : N - 1 - i;
-        status = binder_invokers[binder_i](binder_ptrs[binder_i], is_loading,
-                                           options, obj, j);
-        if (!status.ok()) break;
-      }
+    if constexpr (is_loading) {
+      return sequence_impl::invoke_forward(is_loading, options, obj, j,
+                                           binder...);
+    } else {
+      /// Like the forward fold expression, however it grabs the reverse
+      /// binder from the tuple using the reverse index sequence.
+      return sequence_impl::invoke_reverse(is_loading, options, obj, j,
+                                           binder...);
     }
-    return status;
   };
 }
 
 /// Returns a `Binder` for JSON objects.
 ///
 /// When loading, verifies that the input JSON value is an object, calls each
-/// `member_binder` in order, then verifies that there are no remaining members.
+/// `member_binder` in order, then verifies that there are no remaining
+/// members.
 ///
 /// When saving, constructs an empty JSON object, then calls each
 /// `member_binder` in reverse order with a pointer to the JSON object.
@@ -535,8 +563,8 @@ constexpr auto Sequence(Binder... binder) {
 ///
 /// \param member_binder An object binder, which is the same as a `Binder`
 ///     except that it is called with a second argument of
-///     `::nlohmann::json::object_t*` instead of `::nlohmann::json*`.  Typically
-///     these are obtained by calling `Member`.
+///     `::nlohmann::json::object_t*` instead of `::nlohmann::json*`.
+///     Typically these are obtained by calling `Member`.
 template <typename... MemberBinder>
 constexpr auto Object(MemberBinder... member_binder) {
   return
@@ -551,6 +579,13 @@ constexpr auto Object(MemberBinder... member_binder) {
           } else {
             j_obj = j;
           }
+          TENSORSTORE_RETURN_IF_ERROR(sequence_impl::invoke_forward(
+              is_loading, options, obj, j_obj, member_binder...));
+          // If any members remain in j_obj after this, error.
+          if (!j_obj->empty()) {
+            return internal::JsonExtraMembersError(*j_obj);
+          }
+          return absl::OkStatus();
         } else {
           if constexpr (std::is_same_v<::nlohmann::json*, decltype(j)>) {
             *j = ::nlohmann::json::object_t();
@@ -559,28 +594,22 @@ constexpr auto Object(MemberBinder... member_binder) {
             j_obj = j;
             j_obj->clear();
           }
+          return sequence_impl::invoke_reverse(is_loading, options, obj, j_obj,
+                                               member_binder...);
         }
-        TENSORSTORE_RETURN_IF_ERROR(internal_json_binding::Sequence(
-            member_binder...)(is_loading, options, obj, j_obj));
-        if constexpr (is_loading) {
-          // If any members remain in j_obj after this, error.
-          if (!j_obj->empty()) {
-            return internal::JsonExtraMembersError(*j_obj);
-          }
-        }
-        return absl::OkStatus();
       };
 }
 
-/// Returns an object binder (for use with `Object`) that saves/loads a specific
-/// named member.
+/// Returns an object binder (for use with `Object`) that saves/loads a
+/// specific named member.
 ///
-/// When loading, this removes the member from the JSON object if it is present.
-/// If the member is not present, `binder` is called with a JSON value of type
+/// When loading, this removes the member from the JSON object if it is
+/// present. If the member is not present, `binder` is called with a JSON
+/// value of type
 /// `::nlohmann::json::value_t::discarded`.
 ///
-/// When saving, the member is added unless `binder` generates a discarded JSON
-/// value.
+/// When saving, the member is added unless `binder` generates a discarded
+/// JSON value.
 ///
 /// Typically `Member` is composed with `Projection`, in order to bind a JSON
 /// object member to a C++ object data member:
@@ -593,9 +622,9 @@ constexpr auto Object(MemberBinder... member_binder) {
 ///
 /// \param name The member name, must be explicitly convertible to
 ///     `std::string`.  The name is captured by value in the returned binder
-///     using the same `MemberName` type in which it is passed (not converted to
-///     `std::string`); therefore, be careful when passing a `const char*` or
-///     `std::string_view` that the referenced string outlives the returned
+///     using the same `MemberName` type in which it is passed (not converted
+///     to `std::string`); therefore, be careful when passing a `const char*`
+///     or `std::string_view` that the referenced string outlives the returned
 ///     binder.
 /// \param binder Optional.  Binder to use for the member.  If not specified,
 ///     the default binder for object is used.
@@ -651,11 +680,12 @@ using discard_extra_members_binder::DiscardExtraMembers;
 /// handling.
 ///
 /// When loading, in case of a discarded JSON value (i.e. missing JSON object
-/// member), the `get_default` function is called to obtain the converted value.
+/// member), the `get_default` function is called to obtain the converted
+/// value.
 ///
 /// When saving, if `IncludeDefaults` is set to `false` and the resultant JSON
-/// representation is equal to the JSON representation of the default value, the
-/// JSON value is set to discarded.
+/// representation is equal to the JSON representation of the default value,
+/// the JSON value is set to discarded.
 ///
 /// Example:
 ///
@@ -678,9 +708,9 @@ using discard_extra_members_binder::DiscardExtraMembers;
 /// \tparam DisallowIncludeDefaults If `true`, the `IncludeDefaults` option is
 ///     ignored.
 /// \param get_default Function with signature `void (T *obj)` or
-///     `Status (T *obj)` called with a pointer to the object.  Must assign the
-///     default value to `*obj` and return `Status()` or `void`, or return an
-///     error `Status`.
+///     `Status (T *obj)` called with a pointer to the object.  Must assign
+///     the default value to `*obj` and return `Status()` or `void`, or return
+///     an error `Status`.
 /// \param binder The `Binder` to use if the JSON value is not discarded.
 template <bool DisallowIncludeDefaults = false, typename GetDefault,
           typename Binder = decltype(DefaultBinder<>)>
@@ -716,8 +746,9 @@ constexpr auto DefaultValue(GetDefault get_default,
   };
 }
 
-/// Same as `DefaultValue` above, except that the default value is obtained via
-/// value initialization rather than via a specified `get_default` function.
+/// Same as `DefaultValue` above, except that the default value is obtained
+/// via value initialization rather than via a specified `get_default`
+/// function.
 template <bool DisallowIncludeDefaults = false,
           typename Binder = decltype(DefaultBinder<>)>
 constexpr auto DefaultInitializedValue(Binder binder = DefaultBinder<>) {
@@ -865,6 +896,24 @@ constexpr inline auto
 
 // Defined in separate namespace to work around clang-cl bug
 // https://bugs.llvm.org/show_bug.cgi?id=45213
+namespace non_empty_string_binder {
+constexpr inline auto NonEmptyStringBinder = [](auto is_loading,
+                                                const auto& options, auto* obj,
+                                                ::nlohmann::json* j) -> Status {
+  if constexpr (is_loading) {
+    return internal::JsonRequireValueAs(
+        *j, obj, [](const std::string& value) { return !value.empty(); },
+        /*strict=*/true);
+  } else {
+    *j = *obj;
+    return absl::OkStatus();
+  }
+};
+}  // namespace non_empty_string_binder
+using non_empty_string_binder::NonEmptyStringBinder;
+
+// Defined in separate namespace to work around clang-cl bug
+// https://bugs.llvm.org/show_bug.cgi?id=45213
 namespace copy_binder {
 constexpr inline auto CopyJsonBinder = [](auto is_loading, const auto& options,
                                           auto* obj,
@@ -924,7 +973,8 @@ constexpr inline auto DefaultBinder<::nlohmann::json::object_t> =
 ///
 /// \tparam EnumValue The C++ enum-like type to bind.  May be any regular type
 ///     that supports equality comparison.
-/// \tparam JsonValue The JSON value representation, may be `std::string_view`,
+/// \tparam JsonValue The JSON value representation, may be
+/// `std::string_view`,
 ///     `int`, or another type convertible to `::nlohmann::json`.
 /// \param values Array of `EnumValue`/`JsonValue` pairs.
 template <typename EnumValue, typename JsonValue, std::size_t N>
@@ -957,37 +1007,47 @@ constexpr auto Enum(const std::pair<EnumValue, JsonValue> (&values)[N]) {
       };
 }
 
-/// Provides a `Binder` which maps a single json value to a single c++ value.
+/// Provides a `Binder` which maps pairs of {c++ object, json value}.
 /// This may be useful for std::variant types.
+///
+/// The provided values are copied, and not converted to json when called, so
+/// reference-like types should be avoided.
 ///
 /// Example usage:
 ///
-///     const auto binder = jb::MapValue(Dog{}, nullptr, PetBinder);
+///     const auto binder = jb::MapValue(DefaultBinder<>,
+///                                      std::make_pair(Dog{}, "dog"),
+///                                      std::make_pair(Cat{}, "cat));
 ///
-/// When converting to JSON, equality comparison is used for the `EnumValue`
+/// When converting to JSON, equality comparison is used for the `Value`
 /// values.  When converting from JSON, `JsonSame` is used for comparison.
 ///
-/// \tparam EnumValue The C++ enum-like type to bind.  May be any regular type
-///     that supports equality comparison.
-/// \tparam JsonValue The JSON value representation, may be `std::string_view`,
-///     `int`, or another type convertible to `::nlohmann::json`.
-/// \param values Array of `EnumValue`/`JsonValue` pairs.
-template <typename Value, typename JsonValue,
-          typename Binder = decltype(DefaultBinder<>)>
-constexpr auto MapValue(Value value, JsonValue json_value,
-                        Binder binder = DefaultBinder<>) {
+/// \tparam Binder  Default binder type.
+/// \param binder   The default binder value. Required.
+///     May be `jb::DefaultBinder<>`
+///
+/// \tparam Value  A C++ value representation.  May be any regular type that
+///     supports equality comparison and assignment.
+/// \tparam JsonValue  A JSON value representation, may be `char *`, `int`, or
+///     another type convertible to `::nlohmann::json`.
+/// \param pairs   Array of std::pair<Value, JsonValue> for each mapping.
+template <typename Binder, typename... Value, typename... JsonValue>
+constexpr auto MapValue(Binder binder, std::pair<Value, JsonValue>... pairs) {
+  constexpr size_t N = sizeof...(pairs);
+  static_assert(N > 0);
+
   return
       [=](auto is_loading, const auto& options, auto* obj, auto* j) -> Status {
         if constexpr (is_loading) {
-          if (internal_json::JsonSame(*j, json_value)) {
-            *obj = value;
+          if (((internal_json::JsonSame(*j, pairs.second) &&
+                (static_cast<void>(*obj = pairs.first), true)) ||
+               ...))
             return absl::OkStatus();
-          }
         } else {
-          if (*obj == value) {
-            *j = json_value;
+          if ((((*obj == pairs.first) &&
+                (static_cast<void>(*j = pairs.second), true)) ||
+               ...))
             return absl::OkStatus();
-          }
         }
         return binder(is_loading, options, obj, j);
       };
@@ -1028,12 +1088,12 @@ constexpr auto Constant(GetValue get_value) {
 /// \param get_size Function with signature `std::size_t (const Container&)`
 ///     that returns the size of the container.
 /// \param set_size Function with signature
-///     `absl::Status (Container&, std::size_t size)` that resizes the container
-///     to the specified size, or returns an error.
+///     `absl::Status (Container&, std::size_t size)` that resizes the
+///     container to the specified size, or returns an error.
 /// \param get_element Function with overloaded signatures
 ///     `T& (Container&, std::size_t i)` and
-///     `const T& (const Container&, std::size_t i)` that returns a reference to
-///     the `i`th element of the container.
+///     `const T& (const Container&, std::size_t i)` that returns a reference
+///     to the `i`th element of the container.
 /// \param element_binder JSON binder for `T` to use for each element of the
 ///     array.
 template <typename GetSize, typename SetSize, typename GetElement,
@@ -1077,8 +1137,8 @@ constexpr auto Array(ElementBinder element_binder = DefaultBinder<>) {
       element_binder);
 }
 
-/// Binds a JSON array to a fixed-size array-like type (e.g. `std::array`) that
-/// supports `std::size` and `operator[]`.
+/// Binds a JSON array to a fixed-size array-like type (e.g. `std::array`)
+/// that supports `std::size` and `operator[]`.
 template <typename ElementBinder = decltype(DefaultBinder<>)>
 constexpr auto FixedSizeArray(ElementBinder element_binder = DefaultBinder<>) {
   return internal_json_binding::Array(
@@ -1218,7 +1278,8 @@ constexpr auto Validate(Validator validator, Binder binder = DefaultBinder<>) {
 ///     auto binder = jb::Object(
 ///                       jb::Member("x", jb::Projection(&Foo::x)),
 ///                       jb::Member("y", jb::Projection(&Foo::y)),
-///                       jb::Initialize([](Foo* f) { assert(f->x > f->y); }));
+///                       jb::Initialize([](Foo* f) { assert(f->x > f->y);
+///                       }));
 ///
 template <typename Initializer>
 constexpr auto Initialize(Initializer initializer) {

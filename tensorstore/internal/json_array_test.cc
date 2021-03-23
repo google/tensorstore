@@ -250,4 +250,22 @@ TEST(JsonParseNestedArray, DataTypeConversionByteError) {
                     "Conversion from JSON to byte is not implemented"));
 }
 
+TEST(JsonParseNestedArray, NestedArrayBinder) {
+  namespace jb = tensorstore::internal_json_binding;
+
+  tensorstore::TestJsonBinderRoundTrip<tensorstore::SharedArray<void>>(
+      {
+          {tensorstore::MakeArray<std::int64_t>({{1, 2, 3}, {4, 5, 6}}),
+           ::nlohmann::json{{1, 2, 3}, {4, 5, 6}}},
+      },
+      jb::NestedVoidArray(tensorstore::dtype_v<std::int64_t>));
+
+  tensorstore::TestJsonBinderRoundTrip<tensorstore::SharedArray<std::int64_t>>(
+      {
+          {tensorstore::MakeArray<std::int64_t>({{1, 2, 3}, {4, 5, 6}}),
+           ::nlohmann::json{{1, 2, 3}, {4, 5, 6}}},
+      },
+      jb::NestedArray());
+}
+
 }  // namespace

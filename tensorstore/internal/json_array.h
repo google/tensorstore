@@ -119,13 +119,37 @@ Result<SharedArray<void>> JsonParseNestedArray(
 namespace internal_json_binding {
 
 /// Returns a binder for a nested JSON array.
-constexpr auto NestedArray(DataType dtype,
-                           DimensionIndex rank_constraint = dynamic_rank) {
+constexpr auto NestedVoidArray(DataType dtype,
+                               DimensionIndex rank_constraint = dynamic_rank) {
   return [=](auto is_loading, const auto& options, auto* obj,
              ::nlohmann::json* j) -> Status {
+    using Element = typename internal::remove_cvref_t<
+        std::remove_pointer_t<decltype(obj)>>::Element;
+    static_assert(std::is_void_v<Element>,
+                  "Use NestedArray for tensorstore::Array<T> arrays");
     if constexpr (is_loading) {
       TENSORSTORE_ASSIGN_OR_RETURN(
           *obj, internal::JsonParseNestedArray(*j, dtype, rank_constraint));
+    } else {
+      TENSORSTORE_ASSIGN_OR_RETURN(*j, internal::JsonEncodeNestedArray(*obj));
+    }
+    return absl::OkStatus();
+  };
+}
+
+/// Returns a binder for a nested JSON array.
+constexpr auto NestedArray(DimensionIndex rank_constraint = dynamic_rank) {
+  return [=](auto is_loading, const auto& options, auto* obj,
+             ::nlohmann::json* j) -> Status {
+    using Element = typename internal::remove_cvref_t<
+        std::remove_pointer_t<decltype(obj)>>::Element;
+    static_assert(!std::is_void_v<Element>,
+                  "Use NestedVoidArray for tensorstore::Array<void> arrays");
+    if constexpr (is_loading) {
+      TENSORSTORE_ASSIGN_OR_RETURN(SharedArray<void> array,
+                                   internal::JsonParseNestedArray(
+                                       *j, dtype_v<Element>, rank_constraint));
+      *obj = StaticDataTypeCast<Element, unchecked>(array);
     } else {
       TENSORSTORE_ASSIGN_OR_RETURN(*j, internal::JsonEncodeNestedArray(*obj));
     }

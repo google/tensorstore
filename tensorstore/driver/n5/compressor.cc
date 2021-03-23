@@ -34,10 +34,11 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Compressor, [](auto is_loading,
   namespace jb = tensorstore::internal_json_binding;
   auto& registry = GetCompressorRegistry();
   return jb::Object(
-      jb::Member("type", jb::MapValue(
-                             // "type" of "raw" maps to a default-initialized
-                             // `Compressor` (i.e. nullptr).
-                             Compressor{}, "raw", registry.KeyBinder())),
+      jb::Member("type",
+                 jb::MapValue(registry.KeyBinder(),
+                              // "type" of "raw" maps to a default-initialized
+                              // `Compressor` (i.e. nullptr).
+                              std::make_pair(Compressor{}, "raw"))),
       registry.RegisteredObjectBinder())(is_loading, options, obj, j);
 })
 

@@ -115,7 +115,7 @@ class ArrayDriver
                                            auto* obj, auto* j) {
                    return jb::Projection(
                        &SpecData::array,
-                       jb::NestedArray(obj->dtype, obj->rank));
+                       jb::NestedVoidArray(obj->dtype, obj->rank));
                  })),
       jb::Initialize([](SpecData* obj) {
         // `jb::NestedArray` ensures that the array rank is compatible with

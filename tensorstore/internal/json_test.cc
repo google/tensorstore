@@ -817,6 +817,29 @@ TEST(JsonBindingTest, Example) {
   EXPECT_EQ(10, value.z);
 }
 
+TEST(JsonBindingTest, SequenceOrder) {
+  auto binder = jb::Sequence(
+      [](auto is_loading, const auto& options, int* obj, auto* j) {
+        *obj = 1;
+        return absl::OkStatus();
+      },
+      [](auto is_loading, const auto& options, int* obj, auto* j) {
+        *obj = 3;
+        return absl::OkStatus();
+      });
+
+  int x = 0;
+  ::nlohmann::json j({{"x", 3}});
+
+  // Loading, forward order.
+  EXPECT_TRUE(binder(std::true_type{}, jb::NoOptions{}, &x, &j).ok());
+  EXPECT_EQ(3, x);
+
+  // Saving, reverse order.
+  EXPECT_TRUE(binder(std::false_type{}, jb::NoOptions{}, &x, &j).ok());
+  EXPECT_EQ(1, x);
+}
+
 TEST(JsonBindingTest, ValueAsBinder) {
   tensorstore::TestJsonBinderRoundTrip<bool>(
       {
@@ -842,6 +865,7 @@ TEST(JsonBindingTest, ValueAsBinder) {
   tensorstore::TestJsonBinderRoundTrip<std::string>(
       {
           {"a", ::nlohmann::json("a")},
+          {"", ::nlohmann::json("")},
       },
       jb::ValueAsBinder);
 }
@@ -881,8 +905,26 @@ TEST(JsonBindingTest, LooseValueAsBinder) {
   tensorstore::TestJsonBinderRoundTrip<std::string>(
       {
           {"a", ::nlohmann::json("a")},
+          {"", ::nlohmann::json("")},
       },
       jb::LooseValueAsBinder);
+}
+
+TEST(JsonBindingTest, NonEmptyStringBinder) {
+  using testing::Eq;
+
+  tensorstore::TestJsonBinderRoundTrip<std::string>(
+      {
+          {"a", ::nlohmann::json("a")},
+      },
+      jb::NonEmptyStringBinder);
+
+  tensorstore::TestJsonBinderFromJson<std::string>(
+      {
+          {"", MatchesStatus(absl::StatusCode::kInvalidArgument,
+                             "Validation of string failed, received: \"\"")},
+      },
+      jb::NonEmptyStringBinder);
 }
 
 TEST(JsonBindingTest, FloatBinders) {
@@ -1030,6 +1072,71 @@ TEST(JsonBindingTest, Enum) {
           {"c",
            MatchesStatus(absl::StatusCode::kInvalidArgument,
                          "Expected one of \"a\", \"b\", but received: \"c\"")},
+      },
+      binder);
+}
+
+TEST(JsonBindingTest, MapValue) {
+  enum class TestMap { a, b };
+
+  const auto binder = jb::MapValue(
+      [](auto...) { return absl::InvalidArgumentError("missing"); },
+      std::make_pair(TestMap::a, "a"),  //
+      std::make_pair(TestMap::b, "b"),  //
+      std::make_pair(TestMap::a, 1),    //
+      std::make_pair(TestMap::b, 2));
+
+  tensorstore::TestJsonBinderRoundTrip<TestMap>(
+      {
+          {TestMap::a, "a"},
+          {TestMap::b, "b"},
+      },
+      binder);
+
+  tensorstore::TestJsonBinderFromJson<TestMap>(
+      {
+          {"a", ::testing::Eq(TestMap::a)},
+          {"b", ::testing::Eq(TestMap::b)},
+          {"c",
+           MatchesStatus(absl::StatusCode::kInvalidArgument, ".*missing.*")},
+          {1, ::testing::Eq(TestMap::a)},
+          {2, ::testing::Eq(TestMap::b)},
+          {3, MatchesStatus(absl::StatusCode::kInvalidArgument, ".*missing.*")},
+      },
+      binder);
+}
+
+namespace map_variant_test {
+struct A {
+  [[maybe_unused]] friend bool operator==(const A&, const A&) { return true; }
+};
+struct B {
+  [[maybe_unused]] friend bool operator==(const B&, const B&) { return true; }
+};
+struct C {
+  [[maybe_unused]] friend bool operator==(const C&, const C&) { return true; }
+};
+}  // namespace map_variant_test
+
+TEST(JsonBindingTest, MapValueVariant) {
+  // MapValue can be used to map simple variant types, but more complex types
+  // still require custom binding.
+  using map_variant_test::A;
+  using map_variant_test::B;
+  using map_variant_test::C;
+
+  using T = std::variant<A, B, C>;
+  const auto binder = jb::MapValue(
+      [](auto...) { return absl::InvalidArgumentError("missing"); },
+      std::make_pair(T{A{}}, "a"),  //
+      std::make_pair(T{B{}}, "b"),  //
+      std::make_pair(T{C{}}, 3));
+
+  tensorstore::TestJsonBinderRoundTrip<T>(
+      {
+          {A{}, "a"},
+          {B{}, "b"},
+          {C{}, 3},
       },
       binder);
 }

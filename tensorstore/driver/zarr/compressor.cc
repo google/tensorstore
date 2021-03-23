@@ -32,12 +32,11 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Compressor, [](auto is_loading,
                                                       auto* obj,
                                                       ::nlohmann::json* j) {
   namespace jb = tensorstore::internal_json_binding;
-  return jb::MapValue(
-      // JSON value of `null` maps to default-initialized `Compressor`
-      // (i.e. nullptr).
-      Compressor{}, nullptr,
-      jb::Object(GetCompressorRegistry().MemberBinder("id")))(is_loading,
-                                                              options, obj, j);
+  return jb::MapValue(jb::Object(GetCompressorRegistry().MemberBinder("id")),
+                      // JSON value of `null` maps to default-initialized
+                      // `Compressor` (i.e. nullptr).
+                      std::make_pair(Compressor{}, nullptr))(is_loading,
+                                                             options, obj, j);
 })
 
 }  // namespace internal_zarr

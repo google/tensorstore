@@ -388,6 +388,13 @@ Status JsonRequireIntegerImpl<T>::Execute(const ::nlohmann::json& json,
       return absl::OkStatus();
     }
   }
+  if constexpr (GetTypeName(internal::type_identity_t<T>{}) != nullptr) {
+    if (min_value == std::numeric_limits<T>::min() &&
+        max_value == std::numeric_limits<T>::max()) {
+      return internal_json::ValidationError(
+          json, internal_json::GetTypeName(internal::type_identity_t<T>{}));
+    }
+  }
   return absl::InvalidArgumentError(StrCat("Expected integer in the range [",
                                            min_value, ", ", max_value,
                                            "], but received: ", json.dump()));
