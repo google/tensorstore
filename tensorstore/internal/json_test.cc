@@ -25,6 +25,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/container/node_hash_set.h"
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/box.h"
 #include "tensorstore/internal/json_bindable.h"
@@ -954,6 +955,36 @@ TEST(JsonBindingTest, OptionalExplicitNullopt) {
           {std::nullopt, "nullopt"},
       },
       binder);
+}
+
+TEST(JsonBindingTest, OptionalResult) {
+  // Result doesn't default-initialize, so verify manually.
+
+  ::nlohmann::json j;
+  tensorstore::Result<int> x(absl::UnknownError("x"));
+
+  // saving error -> discarded
+  j = 3;
+  EXPECT_TRUE(jb::Optional()(std::false_type{}, jb::NoOptions{}, &x, &j).ok());
+  EXPECT_TRUE(j.is_discarded());
+
+  // loading value -> value
+  j = 4;
+  EXPECT_TRUE(jb::Optional()(std::true_type{}, jb::NoOptions{}, &x, &j).ok());
+  EXPECT_TRUE(x.has_value());
+  EXPECT_EQ(4, x.value());
+
+  // saving value -> value
+  j = ::nlohmann::json::value_t::discarded;
+  EXPECT_TRUE(jb::Optional()(std::false_type{}, jb::NoOptions{}, &x, &j).ok());
+  EXPECT_FALSE(j.is_discarded());
+  EXPECT_EQ(4, j);
+
+  // loading discarded -> no change.
+  j = ::nlohmann::json::value_t::discarded;
+  EXPECT_TRUE(jb::Optional()(std::true_type{}, jb::NoOptions{}, &x, &j).ok());
+  EXPECT_TRUE(x.has_value());
+  EXPECT_EQ(4, x.value());
 }
 
 TEST(JsonBindingTest, DefaultValueDiscarded) {

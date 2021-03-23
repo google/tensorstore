@@ -1197,7 +1197,8 @@ constexpr auto Optional(ValueBinder value_binder,
     if constexpr (is_loading) {
       ::nlohmann::json nullopt_json = nullopt_to_json();
       if (internal_json::JsonSame(*j, nullopt_json)) {
-        *obj = std::nullopt;
+        // std::optional is default-initialized as std::nullopt;
+        // Assume other types are likewise default-initialized.
         return absl::OkStatus();
       } else {
         return value_binder(is_loading, options, &obj->emplace(), j);
