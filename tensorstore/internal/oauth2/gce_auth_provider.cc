@@ -60,15 +60,8 @@ struct ServiceAccountInfo {
 };
 
 constexpr static auto ServiceAccountInfoBinder = jb::Object(
-    jb::Member("email",
-               jb::Projection(
-                   &ServiceAccountInfo::email,
-                   jb::Validate([](const auto& options, const std::string* x) {
-                     if (x->empty()) {
-                       return absl::InvalidArgumentError("Empty field");
-                     }
-                     return absl::OkStatus();
-                   }))),
+    jb::Member("email", jb::Projection(&ServiceAccountInfo::email,
+                                       jb::NonEmptyStringBinder)),
 
     // Note that the "scopes" attribute will always be present and contain a
     // JSON array. At minimum, for the request to succeed, the instance must

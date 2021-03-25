@@ -486,6 +486,7 @@ constexpr auto GetterSetter(Get get, Set set, Binder binder = DefaultBinder<>) {
   };
 }
 
+/// Implementation details for jb::Sequence.
 namespace sequence_impl {
 
 template <typename Loading, typename Options, typename Obj, typename J,
@@ -592,6 +593,35 @@ constexpr auto Object(MemberBinder... member_binder) {
       };
 }
 
+/// Implementation details for jb::Member and jb::OptionalMember.
+template <bool kDropDiscarded, typename MemberName, typename Binder>
+struct MemberBinderImpl {
+  MemberName name;
+  Binder binder;
+  template <typename Options, typename Obj>
+  absl::Status operator()(std::true_type is_loading, const Options& options,
+                          Obj* obj, ::nlohmann::json::object_t* j_obj) {
+    ::nlohmann::json j_member = internal::JsonExtractMember(j_obj, name);
+    if constexpr (kDropDiscarded) {
+      if (j_member.is_discarded()) return absl::OkStatus();
+    }
+    return internal_json::MaybeAnnotateMemberError(
+        binder(is_loading, options, obj, &j_member), name);
+  }
+  template <typename Options, typename Obj>
+  absl::Status operator()(std::false_type is_loading, const Options& options,
+                          Obj* obj, ::nlohmann::json::object_t* j_obj) {
+    ::nlohmann::json j_member(::nlohmann::json::value_t::discarded);
+    TENSORSTORE_RETURN_IF_ERROR(
+        binder(is_loading, options, obj, &j_member),
+        internal_json::MaybeAnnotateMemberConvertError(_, name));
+    if (!j_member.is_discarded()) {
+      j_obj->emplace(name, std::move(j_member));
+    }
+    return absl::OkStatus();
+  }
+};
+
 /// Returns an object binder (for use with `Object`) that saves/loads a
 /// specific named member.
 ///
@@ -622,23 +652,32 @@ constexpr auto Object(MemberBinder... member_binder) {
 ///     the default binder for object is used.
 template <typename MemberName, typename Binder = decltype(DefaultBinder<>)>
 constexpr auto Member(MemberName name, Binder binder = DefaultBinder<>) {
-  return [=](auto is_loading, const auto& options, auto* obj,
-             ::nlohmann::json::object_t* j_obj) -> Status {
-    if constexpr (is_loading) {
-      ::nlohmann::json j_member = internal::JsonExtractMember(j_obj, name);
-      return internal_json::MaybeAnnotateMemberError(
-          binder(is_loading, options, obj, &j_member), name);
-    } else {
-      ::nlohmann::json j_member(::nlohmann::json::value_t::discarded);
-      TENSORSTORE_RETURN_IF_ERROR(
-          binder(is_loading, options, obj, &j_member),
-          internal_json::MaybeAnnotateMemberConvertError(_, name));
-      if (!j_member.is_discarded()) {
-        j_obj->emplace(name, std::move(j_member));
-      }
-      return absl::OkStatus();
-    }
-  };
+  return MemberBinderImpl<false, MemberName, Binder>{std::move(name),
+                                                     std::move(binder)};
+}
+
+/// As above, however when loading, if the member is not present, then `binder`
+/// is not called. This is used, for example, when loading an optional json
+/// member into a c++ type which is not wrapped in std::optional<>.
+///
+///     jb::OptionalMember("name", jb::Projection(&Obj::name))
+///
+/// The above is similar to this:
+///     jb::Member("name", jb::Projection(&Obj::name,
+///     DefaultInitializedValue()))
+///
+/// However it allows chaining dependent logic which is only invoked when
+/// the member actually exists:
+///
+///     jb::OptionalMember("name", jb::Sequence(
+///                                jb::Initialize([](auto* obj) {...},
+///                                jb::Projection(&Obj::name)))
+///
+template <typename MemberName, typename Binder = decltype(DefaultBinder<>)>
+constexpr auto OptionalMember(MemberName name,
+                              Binder binder = DefaultBinder<>) {
+  return MemberBinderImpl<true, MemberName, Binder>{std::move(name),
+                                                    std::move(binder)};
 }
 
 /// Returns an object binder (for use with `Object`) that clears any extra

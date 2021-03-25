@@ -913,6 +913,36 @@ TEST(JsonBindingTest, FloatBinders) {
       jb::LooseFloatBinder);
 }
 
+TEST(JsonBindingTest, ObjectMember) {
+  tensorstore::TestJsonBinderRoundTrip<int>(
+      {
+          {3, ::nlohmann::json({{"x", 3}})},
+      },
+      jb::Object(jb::Member("x")));
+}
+
+TEST(JsonBindingTest, ObjectOptionalMember) {
+  struct Foo {
+    int x = 1;
+  };
+
+  const auto FooBinder =
+      jb::Object(jb::OptionalMember("x", jb::Projection(&Foo::x)),
+                 jb::DiscardExtraMembers);
+
+  EXPECT_EQ(::nlohmann::json({{"x", 3}}), jb::ToJson(Foo{3}, FooBinder));
+
+  {
+    auto value = jb::FromJson<Foo>({{"x", 3}}, FooBinder).value();
+    EXPECT_EQ(3, value.x);
+  }
+
+  {
+    auto value = jb::FromJson<Foo>({{"y", 3}}, FooBinder).value();
+    EXPECT_EQ(1, value.x);
+  }
+}
+
 TEST(JsonBindingTest, GetterSetter) {
   struct Foo {
     int x;

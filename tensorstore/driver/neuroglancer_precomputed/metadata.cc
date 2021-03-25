@@ -129,21 +129,6 @@ Status ValidateChunkSize(
   return absl::OkStatus();
 }
 
-/// Ignore discarded values when loading. This is similar to jb::Optional,
-/// except all the fields that we want to apply this to are not
-/// std::optional wrapped.
-template <typename Binder = decltype(jb::DefaultBinder<>)>
-constexpr auto IgnoreDiscarded(Binder binder = jb::DefaultBinder<>) {
-  return
-      [=](auto is_loading, const auto& options, auto* obj, auto* j) -> Status {
-        if constexpr (is_loading) {
-          if (j->is_discarded()) {
-            return absl::OkStatus();
-          }
-        }
-        return binder(is_loading, options, obj, j);
-      };
-}
 
 /// The default json object copy moves the attributes; instead copy before
 /// anything else is done.
@@ -260,9 +245,8 @@ constexpr static auto ScaleMetadataBinder = jb::Object(
       x->box.Fill(IndexInterval::UncheckedSized(0, 0));
     }),
     jb::Member("size", jb::Projection([](auto& x) { return x.box.shape(); })),
-    jb::Member("voxel_offset",
-               jb::Projection([](auto& x) { return x.box.origin(); },
-                              IgnoreDiscarded())),
+    jb::OptionalMember("voxel_offset",
+                       jb::Projection([](auto& x) { return x.box.origin(); })),
     jb::Member("chunk_sizes",
                jb::Projection(&ScaleMetadata::chunk_sizes,
                               jb::Array(jb::FixedSizeArray(
@@ -286,26 +270,26 @@ constexpr static auto ScaleMetadataBinder = jb::Object(
 
 constexpr static auto ScaleMetadataConstraintsBinder = jb::Object(
     ScaleMetadataCommon([](auto binder) { return jb::Optional(binder); }),
-    jb::Member("size", IgnoreDiscarded(jb::Sequence(
-                           jb::Initialize([](ScaleMetadataConstraints* x) {
-                             x->box.emplace().Fill(
-                                 IndexInterval::UncheckedSized(0, 0));
-                           }),
-                           jb::Projection([](ScaleMetadataConstraints& x) {
-                             return x.box->shape();
-                           })))),
-    jb::Member("voxel_offset",
-               IgnoreDiscarded(
-                   jb::Sequence(jb::Initialize([](ScaleMetadataConstraints* x) {
-                                  if (!x->box) {
-                                    return absl::InvalidArgumentError(
-                                        "cannot be specified without \"size\"");
-                                  }
-                                  return absl::OkStatus();
-                                }),
-                                jb::Projection([](ScaleMetadataConstraints& x) {
-                                  return x.box->origin();
-                                })))),
+    jb::OptionalMember(
+        "size", jb::Sequence(jb::Initialize([](ScaleMetadataConstraints* x) {
+                               x->box.emplace().Fill(
+                                   IndexInterval::UncheckedSized(0, 0));
+                             }),
+                             jb::Projection([](ScaleMetadataConstraints& x) {
+                               return x.box->shape();
+                             }))),
+    jb::OptionalMember(
+        "voxel_offset",
+        jb::Sequence(jb::Initialize([](ScaleMetadataConstraints* x) {
+                       if (!x->box) {
+                         return absl::InvalidArgumentError(
+                             "cannot be specified without \"size\"");
+                       }
+                       return absl::OkStatus();
+                     }),
+                     jb::Projection([](ScaleMetadataConstraints& x) {
+                       return x.box->origin();
+                     }))),
     jb::Member("chunk_size",
                jb::Projection(&ScaleMetadataConstraints::chunk_size,
                               jb::Optional(jb::FixedSizeArray(
@@ -323,9 +307,9 @@ constexpr static auto ScaleMetadataConstraintsBinder = jb::Object(
     }));
 
 constexpr static auto MultiscaleMetadataBinder = jb::Object(
-    CopyAttributesBinder, jb::Member("@type", IgnoreDiscarded(jb::Constant([] {
-                                       return kMultiscaleVolumeTypeId;
-                                     }))),
+    CopyAttributesBinder, jb::OptionalMember("@type", jb::Constant([] {
+                                               return kMultiscaleVolumeTypeId;
+                                             })),
     jb::Member("type", jb::Projection(&MultiscaleMetadata::type)),
     jb::Member("data_type",
                jb::Projection(&MultiscaleMetadata::dtype,
@@ -367,22 +351,22 @@ constexpr static auto MultiscaleMetadataConstraintsBinder = jb::Object(
 
 constexpr static auto OpenConstraintsBinder = jb::Object(
     jb::Member("scale_index", jb::Projection(&OpenConstraints::scale_index)),
-    jb::Member(
-        "multiscale_metadata",
-        jb::Projection(&OpenConstraints::multiscale,
-                       IgnoreDiscarded(MultiscaleMetadataConstraintsBinder))),
-    jb::Member("scale_metadata",
-               IgnoreDiscarded(jb::Sequence(
-                   jb::Projection(&OpenConstraints::scale,
-                                  ScaleMetadataConstraintsBinder),
-                   jb::Initialize([](OpenConstraints* obj) {
-                     if (obj->scale.encoding && obj->multiscale.num_channels) {
-                       return ValidateEncodingDataType(
-                           obj->scale.encoding.value(), obj->multiscale.dtype,
-                           obj->multiscale.num_channels);
-                     }
-                     return absl::OkStatus();
-                   })))));
+    jb::OptionalMember("multiscale_metadata",
+                       jb::Projection(&OpenConstraints::multiscale,
+                                      MultiscaleMetadataConstraintsBinder)),
+    jb::OptionalMember(
+        "scale_metadata",
+        jb::Sequence(jb::Projection(&OpenConstraints::scale,
+                                    ScaleMetadataConstraintsBinder),
+                     jb::Initialize([](OpenConstraints* obj) {
+                       if (obj->scale.encoding &&
+                           obj->multiscale.num_channels) {
+                         return ValidateEncodingDataType(
+                             obj->scale.encoding.value(), obj->multiscale.dtype,
+                             obj->multiscale.num_channels);
+                       }
+                       return absl::OkStatus();
+                     }))));
 
 Status ValidateScaleConstraintsForCreate(const ScaleMetadataConstraints& m) {
   const auto Error = [](const char* property) {

@@ -48,16 +48,6 @@ constexpr char kJwtType[] = "JWT";
 constexpr char kGrantType[] =
     "urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer";
 
-// StringBinder which returns an error on empty fields.
-constexpr static auto NonEmptyStringBinder = jb::Validate(
-    [](const auto& options, const std::string* x) {
-      if (x->empty()) {
-        return absl::InvalidArgumentError("Empty field");
-      }
-      return absl::OkStatus();
-    },
-    jb::ValueAsBinder);
-
 }  // namespace
 namespace internal_oauth2 {
 
@@ -170,13 +160,13 @@ Result<std::string> BuildSignedJWTRequest(std::string_view private_key,
 constexpr static auto GoogleServiceAccountCredentialsBinder = jb::Object(
     jb::Member("private_key",
                jb::Projection(&GoogleServiceAccountCredentials::private_key,
-                              NonEmptyStringBinder)),
+                              jb::NonEmptyStringBinder)),
     jb::Member("private_key_id",
                jb::Projection(&GoogleServiceAccountCredentials::private_key_id,
-                              NonEmptyStringBinder)),
+                              jb::NonEmptyStringBinder)),
     jb::Member("client_email",
                jb::Projection(&GoogleServiceAccountCredentials::client_email,
-                              NonEmptyStringBinder)),
+                              jb::NonEmptyStringBinder)),
     jb::Member("token_uri",
                jb::Projection(&GoogleServiceAccountCredentials::token_uri,
                               jb::DefaultInitializedValue())),
@@ -207,12 +197,12 @@ Result<GoogleServiceAccountCredentials> ParseGoogleServiceAccountCredentials(
 }
 
 constexpr static auto RefreshTokenBinder = jb::Object(
-    jb::Member("client_id",
-               jb::Projection(&RefreshToken::client_id, NonEmptyStringBinder)),
+    jb::Member("client_id", jb::Projection(&RefreshToken::client_id,
+                                           jb::NonEmptyStringBinder)),
     jb::Member("client_secret", jb::Projection(&RefreshToken::client_secret,
-                                               NonEmptyStringBinder)),
+                                               jb::NonEmptyStringBinder)),
     jb::Member("refresh_token", jb::Projection(&RefreshToken::refresh_token,
-                                               NonEmptyStringBinder)),
+                                               jb::NonEmptyStringBinder)),
     jb::DiscardExtraMembers);
 
 Result<RefreshToken> ParseRefreshTokenImpl(
@@ -234,9 +224,9 @@ Result<RefreshToken> ParseRefreshToken(std::string_view source) {
 
 constexpr static auto OAuthResponseBinder = jb::Object(
     jb::Member("token_type", jb::Projection(&OAuthResponse::token_type,
-                                            NonEmptyStringBinder)),
+                                            jb::NonEmptyStringBinder)),
     jb::Member("access_token", jb::Projection(&OAuthResponse::access_token,
-                                              NonEmptyStringBinder)),
+                                              jb::NonEmptyStringBinder)),
     jb::Member("expires_in", jb::Projection(&OAuthResponse::expires_in,
                                             jb::LooseInteger<int64_t>(1))),
     jb::DiscardExtraMembers);
