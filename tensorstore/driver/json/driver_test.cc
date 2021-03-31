@@ -359,9 +359,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
       {"driver", "json"},
       {"kvstore", {{"driver", "memory"}}},
       {"path", GetPath()},
-      {"transform",
-       {{"input_exclusive_max", ::nlohmann::json::array_t{}},
-        {"input_inclusive_min", ::nlohmann::json::array_t{}}}},
+      {"transform", {{"input_rank", 0}}},
   };
   options.minimal_spec = options.full_spec;
   options.check_not_found_before_create = false;

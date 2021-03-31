@@ -38,8 +38,7 @@ def test_spec_init_json():
       "array": [[1, 2], [3, 4]],
       "dtype": "int32",
       "transform": {
-          "input_inclusive_min": [["-inf"], ["-inf"]],
-          "input_exclusive_max": [["+inf"], ["+inf"]],
+          "input_rank": 2
       },
   }
   assert s.T == ts.Spec({

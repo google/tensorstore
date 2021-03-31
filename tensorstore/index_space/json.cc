@@ -15,20 +15,30 @@
 #include "tensorstore/index_space/json.h"
 
 #include "absl/container/fixed_array.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/internal/dimension_indexed_json_binder.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_array.h"
+#include "tensorstore/internal/logging.h"
+#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/json_serialization_options.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/str_cat.h"
+
+namespace jb = tensorstore::internal_json_binding;
+
+using tensorstore::internal_index_space::BuilderFlags;
+using tensorstore::internal_index_space::OutputIndexMapInitializer;
+using tensorstore::internal_index_space::TransformRep;
 
 namespace tensorstore {
 namespace {
-::nlohmann::json EncodeImplicit(::nlohmann::json v, bool implicit) {
-  if (!implicit) return v;
-  ::nlohmann::json::array_t j;
-  j.push_back(std::move(v));
-  return j;
-}
 
 struct DomainJsonKeys {
   const char* rank;
@@ -49,52 +59,452 @@ constexpr DomainJsonKeys kIndexTransformJsonKeys = {
     "input_shape", "input_exclusive_max", "input_labels",
 };
 
-void EncodeDomain(::nlohmann::json::object_t& obj, IndexDomainView<> domain,
-                  const DomainJsonKeys& keys) {
-  // Compute the `inclusive_min` and `exclusive_max` members.
-  DimensionIndex rank = domain.rank();
-  {
-    auto implicit_lower_bounds = domain.implicit_lower_bounds();
-    auto implicit_upper_bounds = domain.implicit_upper_bounds();
-    ::nlohmann::json::array_t j_inclusive_min, j_exclusive_max;
-    j_inclusive_min.reserve(rank);
-    j_exclusive_max.reserve(rank);
-    for (DimensionIndex i = 0; i < rank; ++i) {
-      const auto d = domain[i];
-      const bool implicit_lower = implicit_lower_bounds[i];
-      const bool implicit_upper = implicit_upper_bounds[i];
-      j_inclusive_min.push_back(
-          d.inclusive_min() == -kInfIndex
-              ? EncodeImplicit("-inf", implicit_lower)
-              : EncodeImplicit(d.inclusive_min(), implicit_lower));
-      j_exclusive_max.push_back(
-          d.inclusive_max() == kInfIndex
-              ? EncodeImplicit("+inf", implicit_upper)
-              : EncodeImplicit(d.exclusive_max(), implicit_upper));
+// ImplicitPairBinder expects Obj to be a std::pair<value, bool-like>*,
+// and expresses the implicit value as being wrapped in an array of length 1.
+template <typename ElementBinder>
+struct ImplicitPairBinder {
+  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS ElementBinder element_binder;
+
+  template <typename Options, typename Obj>
+  absl::Status operator()(std::true_type is_loading, const Options& options,
+                          Obj* obj, ::nlohmann::json* j) const {
+    auto&& [element, is_implicit] = *obj;
+    if (const auto* k = j->get_ptr<const ::nlohmann::json::array_t*>()) {
+      if (k->size() != 1) {
+        return internal_json::ExpectedError(
+            *k, "array of size 1 indicating an implicit value");
+      }
+      is_implicit = true;
+      return element_binder(is_loading, options, &element, &(*k)[0]);
+    } else {
+      is_implicit = false;
+      return element_binder(is_loading, options, &element, j);
     }
-    obj.emplace(keys.inclusive_min, std::move(j_inclusive_min));
-    obj.emplace(keys.exclusive_max, std::move(j_exclusive_max));
   }
 
-  // Compute the `labels` member.
-  {
-    ::nlohmann::json::array_t j_labels;
-    j_labels.reserve(rank);
-    auto labels = domain.labels();
-    bool encode_labels = false;
-    for (DimensionIndex i = 0; i < rank; ++i) {
-      auto const& label = labels[i];
-      if (!label.empty()) {
-        encode_labels = true;
-      }
-      j_labels.push_back(label);
+  template <typename Options, typename Obj>
+  absl::Status operator()(std::false_type is_loading, const Options& options,
+                          const Obj* obj, ::nlohmann::json* j) const {
+    auto&& [element, is_implicit] = *obj;
+    if (is_implicit) {
+      ::nlohmann::json::array_t k(1);
+      TENSORSTORE_RETURN_IF_ERROR(
+          element_binder(is_loading, options, &element, &k[0]));
+      *j = std::move(k);
+    } else {
+      return element_binder(is_loading, options, &element, j);
     }
-    // If all labels are empty, skip the `"input_labels"` member to produce a
-    // shorter representation.
-    if (encode_labels) {
-      obj.emplace(keys.labels, std::move(j_labels));
+    return absl::OkStatus();
+  }
+};
+
+/// Similar to `DimensionIndexedVector`, adapted to load implicit
+/// values described by ImplicitVector, above.
+template <typename RankProjection, typename ValuesProjection,
+          typename ImplicitProjection, typename ElementBinder>
+struct ImplicitArrayBinderImpl {
+  RankProjection rank_ptr;
+  ValuesProjection values_ptr;
+  ImplicitProjection implicit_ptr;
+  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS ElementBinder element_binder;
+
+  template <typename Loading, typename Options, typename Obj>
+  absl::Status operator()(Loading is_loading, const Options& options, Obj* obj,
+                          ::nlohmann::json* j) const {
+    return jb::OptionalArray(
+        [this](const auto& obj) { return std::invoke(values_ptr, obj).size(); },
+        [this](auto& obj, size_t size) {
+          TENSORSTORE_RETURN_IF_ERROR(ValidateRank(size));
+          auto&& rank = std::invoke(rank_ptr, obj);
+          if (rank == dynamic_rank) {
+            rank = size;
+          } else if (rank != static_cast<DimensionIndex>(size)) {
+            return internal::JsonValidateArrayLength(size, rank);
+          }
+          std::invoke(values_ptr, obj).resize(size);
+          std::invoke(implicit_ptr, obj).resize(size);
+          return absl::OkStatus();
+        },
+        [this](auto& obj, size_t i) {
+          return std::tie(std::invoke(values_ptr, obj)[i],
+                          std::invoke(implicit_ptr, obj)[i]);
+        },
+        element_binder)(is_loading, options, obj, j);
+  }
+};
+
+template <typename T>
+using InlinedVector = absl::InlinedVector<T, internal::kNumInlinedDims>;
+
+struct TransformParserOutput {
+  Index offset = 0;
+  Index stride = 1;
+  std::optional<DimensionIndex> input_dimension;
+  IndexInterval index_array_bounds;
+  SharedArray<const Index, dynamic_rank, zero_origin> index_array;
+
+  InlinedVector<Index> index_array_shape;
+  ArrayView<const Index, dynamic_rank, zero_origin> index_array_view;
+};
+
+struct TransformParserData {
+  IntervalForm interval_form = IntervalForm::half_open;
+  BuilderFlags flags{0};
+  DimensionIndex rank = dynamic_rank;
+  InlinedVector<Index> lower_bounds;
+  InlinedVector<Index> upper_bounds;
+  InlinedVector<bool> implicit_lower_bounds;
+  InlinedVector<bool> implicit_upper_bounds;
+  InlinedVector<std::string> labels;
+
+  // outputs
+  std::optional<InlinedVector<TransformParserOutput>> output;
+
+  // Convert to a transform.
+  Result<TransformRep::Ptr<>> Finalize();
+};
+
+constexpr auto TransformParserOutputBinder = jb::Object(
+    jb::Member("offset",
+               jb::Projection(&TransformParserOutput::offset,
+                              jb::DefaultValue([](Index* o) { *o = 0; }))),
+    jb::AtMostOne("input_dimension", "index_array"),
+    jb::Member("input_dimension",
+               jb::Projection(&TransformParserOutput::input_dimension,
+                              jb::Optional())),
+    jb::OptionalMember(
+        "index_array",
+        jb::LoadSave(jb::Projection(&TransformParserOutput::index_array,
+                                    jb::NestedArray()),
+                     jb::Projection(&TransformParserOutput::index_array_view,
+                                    jb::NestedArray()))),
+    jb::OptionalMember(
+        "index_array_bounds",
+        jb::Sequence(jb::Initialize([](auto* obj) {
+                       if (!obj->index_array.data()) {
+                         return absl::InvalidArgumentError(
+                             "\"index_array_bounds\" is only valid with "
+                             "\"index_array\"");
+                       }
+                       return absl::OkStatus();
+                     }),
+                     jb::Projection(&TransformParserOutput::index_array_bounds,
+                                    jb::DefaultValue(
+                                        [](auto* obj) {
+                                          *obj = IndexInterval::Infinite();
+                                        },
+                                        jb::IndexIntervalBinder)))),
+    jb::OptionalMember(
+        "stride",
+        jb::Sequence(
+            jb::Initialize([](auto* obj) {
+              if (!obj->input_dimension && !obj->index_array.data()) {
+                return absl::InvalidArgumentError(
+                    "Either \"input_dimension\" or \"index_array\" must be "
+                    "specified in "
+                    "conjunction with \"stride\"");
+              }
+              return absl::OkStatus();
+            }),
+
+            jb::Projection(&TransformParserOutput::stride,
+                           jb::DefaultValue([](Index* s) { *s = 1; }))))
+    /**/);
+
+template <typename T, typename ElementBinder>
+constexpr auto LowerBoundsBinder(ElementBinder element_binder) {
+  using Binder = ImplicitPairBinder<internal::remove_cvref_t<ElementBinder>>;
+  auto rank_ptr = &T::rank;
+  auto value_ptr = &T::lower_bounds;
+  auto implicit_ptr = &T::implicit_lower_bounds;
+  return ImplicitArrayBinderImpl<decltype(rank_ptr), decltype(value_ptr),
+                                 decltype(implicit_ptr), Binder>{
+      std::move(rank_ptr), std::move(value_ptr), std::move(implicit_ptr),
+      Binder{std::move(element_binder)}};
+}
+
+template <typename T, typename ElementBinder>
+constexpr auto UpperBoundsBinder(ElementBinder element_binder) {
+  using Binder = ImplicitPairBinder<internal::remove_cvref_t<ElementBinder>>;
+  auto rank_ptr = &T::rank;
+  auto value_ptr = &T::upper_bounds;
+  auto implicit_ptr = &T::implicit_upper_bounds;
+  return ImplicitArrayBinderImpl<decltype(rank_ptr), decltype(value_ptr),
+                                 decltype(implicit_ptr), Binder>{
+      std::move(rank_ptr), std::move(value_ptr), std::move(implicit_ptr),
+      Binder{std::move(element_binder)}};
+}
+
+constexpr auto IndexTransformParser(
+    bool is_transform, DimensionIndex input_rank_constraint = dynamic_rank) {
+  return [=](auto is_loading, const auto& options, auto* obj,
+             ::nlohmann::json::object_t* j) -> Status {
+    using T = TransformParserData;
+
+    auto* keys =
+        is_transform ? &kIndexTransformJsonKeys : &kIndexDomainJsonKeys;
+    DimensionIndex* rank = is_loading ? &obj->rank : nullptr;
+
+    return jb::Sequence(
+        jb::AtLeastOne(keys->rank, keys->inclusive_min, keys->shape,
+                       keys->inclusive_max, keys->exclusive_max, keys->labels),
+        // "rank" / "input_rank" are only emitted when none of the implicit
+        // fields are in the json object.
+        [=](auto is_loading, const auto& options, auto* obj,
+            ::nlohmann::json::object_t* j) -> absl::Status {
+          if constexpr (!is_loading) {
+            if (j->count(keys->inclusive_min) ||
+                j->count(keys->exclusive_max) || j->count(keys->labels)) {
+              return absl::OkStatus();
+            }
+          }
+          return jb::Member(
+              keys->rank,
+              jb::Projection(&T::rank,
+                             jb::DefaultValue(
+                                 [](DimensionIndex* o) { *o = dynamic_rank; },
+                                 jb::Integer<DimensionIndex>(0, kMaxRank))) /**/
+              )(is_loading, options, obj, j);
+        },
+        jb::OptionalMember(keys->inclusive_min,
+                           jb::Sequence(LowerBoundsBinder<T>(
+                                            jb::BoundsBinder<-kInfIndex, 0>()),
+                                        jb::Initialize([](auto* obj) {
+                                          obj->flags |=
+                                              (BuilderFlags::kSetLower |
+                                               BuilderFlags::kSetImplicitLower);
+                                        }))),
+        /// Upper bounds can be specified in several ways.
+        jb::AtMostOne(keys->shape, keys->inclusive_max, keys->exclusive_max),
+        jb::OptionalMember(
+            keys->shape,
+            jb::LoadSave(jb::Sequence(
+                UpperBoundsBinder<T>(jb::BoundsBinder<0, +kInfSize>()),
+                jb::Initialize([](auto* obj) {
+                  obj->interval_form = IntervalForm::sized;
+                  obj->flags |= (BuilderFlags::kSetUpper |
+                                 BuilderFlags::kSetImplicitUpper);
+                })))),
+        jb::OptionalMember(
+            keys->inclusive_max,
+            jb::LoadSave(jb::Sequence(
+                UpperBoundsBinder<T>(jb::BoundsBinder<0, +kInfIndex>()),
+                jb::Initialize([](auto* obj) {
+                  obj->interval_form = IntervalForm::closed;
+                  obj->flags |= (BuilderFlags::kSetUpper |
+                                 BuilderFlags::kSetImplicitUpper);
+                })))),
+        jb::OptionalMember(
+            keys->exclusive_max,
+            jb::Sequence(
+                UpperBoundsBinder<T>(jb::BoundsBinder<0, +kInfIndex + 1>()),
+                jb::Initialize([](auto* obj) {
+                  obj->interval_form = IntervalForm::half_open;
+                  obj->flags |= (BuilderFlags::kSetUpper |
+                                 BuilderFlags::kSetImplicitUpper);
+                }))),
+        jb::OptionalMember(
+            keys->labels,
+            jb::Projection(&T::labels, jb::DimensionLabelVector(rank))),
+        jb::Initialize([=](auto* obj) {
+          if (!IsRankExplicitlyConvertible(input_rank_constraint, obj->rank)) {
+            return absl::InvalidArgumentError(tensorstore::StrCat(
+                "Expected ", keys->rank, " to be ", input_rank_constraint,
+                ", but is: ", obj->rank));
+          }
+          return absl::OkStatus();
+        })
+        /**/)(is_loading, options, obj, j);
+  };
+}
+
+constexpr auto IndexTransformOutputParser(
+    DimensionIndex output_rank_constraint = dynamic_rank) {
+  return [=](auto is_loading, const auto& options, auto* obj,
+             ::nlohmann::json::object_t* j) -> Status {
+    return jb::Sequence(
+        jb::Member("output", jb::Projection(&TransformParserData::output,
+                                            jb::Optional(jb::Array(
+                                                TransformParserOutputBinder)))),
+        jb::Initialize([=](auto* obj) {
+          // output rank was constrained,
+          if (obj->output) {
+            if (output_rank_constraint != dynamic_rank &&
+                obj->output->size() != output_rank_constraint) {
+              return absl::InvalidArgumentError(
+                  StrCat("Expected output rank to be ", output_rank_constraint,
+                         ", but is: ", obj->output->size()));
+            }
+            return absl::OkStatus();
+          }
+          const DimensionIndex rank = obj->rank;
+          if (output_rank_constraint != dynamic_rank &&
+              output_rank_constraint != rank) {
+            // The constraint is something other than the input rank.
+            return absl::InvalidArgumentError("Missing \"output\" member");
+          }
+          return absl::OkStatus();
+        }) /**/)(is_loading, options, obj, j);
+  };
+}
+
+Result<TransformRep::Ptr<>> TransformParserData::Finalize() {
+  if (!output) {
+    // No outputs specified, so initialize them from the input rank.
+    output.emplace(rank);
+    for (DimensionIndex i = 0; i < rank; ++i) {
+      (*output)[i].input_dimension = i;
     }
   }
+
+  const DimensionIndex output_rank = output->size();
+
+  auto transform = TransformRep::Allocate(rank, output_rank);
+  transform->input_rank = rank;
+  transform->output_rank = output_rank;
+  if ((flags & BuilderFlags::kSetLower) != BuilderFlags::kDefault) {
+    std::copy(lower_bounds.begin(), lower_bounds.end(),
+              transform->input_origin().begin());
+    std::copy(implicit_lower_bounds.begin(), implicit_lower_bounds.end(),
+              transform->implicit_lower_bounds(rank).begin());
+  }
+  if ((flags & BuilderFlags::kSetUpper) != BuilderFlags::kDefault) {
+    std::copy(upper_bounds.begin(), upper_bounds.end(),
+              transform->input_shape().begin());
+    std::copy(implicit_upper_bounds.begin(), implicit_upper_bounds.end(),
+              transform->implicit_upper_bounds(rank).begin());
+  }
+  if (!labels.empty()) {
+    std::copy(labels.begin(), labels.end(), transform->input_labels().begin());
+  }
+  InlinedVector<OutputIndexMapInitializer> output_maps;
+  output_maps.reserve(output_rank);
+  auto maps = transform->output_index_maps();
+  for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
+    auto& out = (*output)[output_dim];
+    auto& map = maps[output_dim];
+    map.offset() = out.offset;
+    map.stride() = out.stride;
+    output_maps.emplace_back(
+        out.input_dimension
+            ? OutputIndexMapInitializer(out.input_dimension.value())
+            : OutputIndexMapInitializer(out.index_array,
+                                        out.index_array_bounds));
+  }
+  TENSORSTORE_RETURN_IF_ERROR(SetOutputIndexMapsAndValidateTransformRep(
+      transform.get(), output_maps, interval_form, flags));
+  return transform;
+}
+
+TransformParserData MakeIndexDomainViewDataForSaving(IndexDomainView<> domain) {
+  const DimensionIndex rank = domain.rank();
+
+  TransformParserData tmp;
+  tmp.rank = rank;
+  tmp.lower_bounds.resize(rank);
+  tmp.implicit_lower_bounds.resize(rank);
+  tmp.upper_bounds.resize(rank);
+  tmp.implicit_upper_bounds.resize(rank);
+  tmp.labels.assign(domain.labels().begin(), domain.labels().end());
+
+  // Compute the `inclusive_min` and `exclusive_max` members.
+  bool all_implicit_lower = true;
+  bool all_implicit_upper = true;
+  auto implicit_lower_bounds = domain.implicit_lower_bounds();
+  auto implicit_upper_bounds = domain.implicit_upper_bounds();
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    tmp.implicit_lower_bounds[i] = implicit_lower_bounds[i];
+    tmp.implicit_upper_bounds[i] = implicit_upper_bounds[i];
+    tmp.lower_bounds[i] = domain[i].inclusive_min();
+    tmp.upper_bounds[i] = domain[i].exclusive_max();
+    all_implicit_lower = all_implicit_lower && tmp.implicit_lower_bounds[i] &&
+                         (tmp.lower_bounds[i] == -kInfIndex);
+    all_implicit_upper = all_implicit_upper && tmp.implicit_upper_bounds[i] &&
+                         (tmp.upper_bounds[i] == (+kInfIndex + 1));
+  }
+
+  // Avoid outputting implicit bounds.
+  // NOTE: Move this logic to the binder.
+  if (all_implicit_lower) {
+    tmp.lower_bounds.resize(0);
+    tmp.implicit_lower_bounds.resize(0);
+  }
+  if (all_implicit_upper) {
+    tmp.upper_bounds.resize(0);
+    tmp.implicit_upper_bounds.resize(0);
+  }
+  return tmp;
+}
+
+TransformParserData MakeIndexTransformViewDataForSaving(
+    IndexTransformView<> transform) {
+  auto input_domain = transform.input_domain();
+
+  TransformParserData tmp = MakeIndexDomainViewDataForSaving(input_domain);
+  const DimensionIndex input_rank = transform.input_rank();
+  const DimensionIndex output_rank = transform.output_rank();
+  bool all_identity = (output_rank == input_rank);
+  tmp.output.emplace(output_rank);
+
+  auto maps = transform.output_index_maps();
+  absl::FixedArray<Index, internal::kNumInlinedDims> index_array_data(
+      input_rank);
+  for (DimensionIndex i = 0; i < output_rank; ++i) {
+    auto& output = (*tmp.output)[i];
+    const auto map = maps[i];
+    if (map.offset() != 0) {
+      output.offset = map.offset();
+      all_identity = false;
+    }
+    if (map.method() != OutputIndexMethod::constant && map.stride() != 1) {
+      output.stride = map.stride();
+      all_identity = false;
+    }
+    switch (map.method()) {
+      case OutputIndexMethod::constant:
+        all_identity = false;
+        break;
+      case OutputIndexMethod::single_input_dimension: {
+        const DimensionIndex input_dim = map.input_dimension();
+        output.input_dimension = input_dim;
+        if (input_dim != i) all_identity = false;
+        break;
+      }
+      case OutputIndexMethod::array: {
+        all_identity = false;
+        output.index_array_shape.resize(input_rank);
+        const auto index_array_data = map.index_array();
+        for (DimensionIndex input_dim = 0; input_dim < input_rank;
+             ++input_dim) {
+          output.index_array_shape[input_dim] =
+              index_array_data.byte_strides()[input_dim] == 0
+                  ? 1
+                  : input_domain.shape()[input_dim];
+        }
+        output.index_array_view = ArrayView<const Index, dynamic_rank>(
+            AddByteOffset(
+                ElementPointer<const Index>(index_array_data.element_pointer()),
+                IndexInnerProduct(input_rank, input_domain.origin().data(),
+                                  index_array_data.byte_strides().data())),
+            StridedLayoutView<>(input_rank, output.index_array_shape.data(),
+                                index_array_data.byte_strides().data()));
+        // If `index_array` contains values outside `index_range`, encode
+        // `index_range` as well to avoid expanding the range.
+        IndexInterval index_range = index_array_data.index_range();
+        if (index_range != IndexInterval::Infinite() &&
+            !ValidateIndexArrayBounds(index_range, output.index_array_view)
+                 .ok()) {
+          output.index_array_bounds = index_range;
+        }
+        break;
+      }
+    }
+  }
+  if (all_identity) {
+    tmp.output = std::nullopt;
+  }
+
+  return tmp;
 }
 
 }  // namespace
@@ -105,81 +515,16 @@ void to_json(::nlohmann::json& j,  // NOLINT
     j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
     return;
   }
-  ::nlohmann::json::object_t obj;
-  EncodeDomain(obj, transform.input_domain(), kIndexTransformJsonKeys);
-  const DimensionIndex input_rank = transform.input_rank();
-  auto input_domain = transform.input_domain();
+  auto binder = jb::Object(IndexTransformParser(/*is_transform=*/true),
+                           IndexTransformOutputParser());
 
-  // Compute the `"output"` member, which encodes the output index maps in
-  // output dimension index order.
-  {
-    const DimensionIndex output_rank = transform.output_rank();
-    ::nlohmann::json::array_t j_outputs;
-    j_outputs.reserve(output_rank);
-    auto maps = transform.output_index_maps();
-    bool all_identity = output_rank == input_rank;
-    absl::FixedArray<Index, internal::kNumInlinedDims> index_array_shape(
-        input_rank);
-    for (DimensionIndex i = 0; i < output_rank; ++i) {
-      ::nlohmann::json::object_t j_output;
-      const auto map = maps[i];
-      if (map.offset() != 0) {
-        j_output.emplace("offset", map.offset());
-        all_identity = false;
-      }
-      if (map.method() != OutputIndexMethod::constant && map.stride() != 1) {
-        j_output.emplace("stride", map.stride());
-        all_identity = false;
-      }
-      switch (map.method()) {
-        case OutputIndexMethod::constant:
-          all_identity = false;
-          break;
-        case OutputIndexMethod::single_input_dimension: {
-          const DimensionIndex input_dim = map.input_dimension();
-          j_output.emplace("input_dimension", input_dim);
-          if (input_dim != i) all_identity = false;
-          break;
-        }
-        case OutputIndexMethod::array: {
-          all_identity = false;
-          const auto index_array_data = map.index_array();
-          for (DimensionIndex input_dim = 0; input_dim < input_rank;
-               ++input_dim) {
-            index_array_shape[input_dim] =
-                index_array_data.byte_strides()[input_dim] == 0
-                    ? 1
-                    : input_domain.shape()[input_dim];
-          }
-          ArrayView<const Index, dynamic_rank> index_array(
-              AddByteOffset(
-                  ElementPointer<const Index>(
-                      index_array_data.element_pointer()),
-                  IndexInnerProduct(input_rank, input_domain.origin().data(),
-                                    index_array_data.byte_strides().data())),
-              StridedLayoutView<>(input_rank, index_array_shape.data(),
-                                  index_array_data.byte_strides().data()));
-          j_output.emplace("index_array",
-                           internal::JsonEncodeNestedArray(
-                               index_array, [](const Index* x) { return *x; }));
-          IndexInterval index_range = index_array_data.index_range();
-          // If `index_array` contains values outside `index_range`, encode
-          // `index_range` as well to avoid expanding the range.
-          if (index_range != IndexInterval() &&  // NOLINT
-              !ValidateIndexArrayBounds(index_range, index_array).ok()) {
-            j_output.emplace("index_array_bounds", index_range);
-          }
-          break;
-        }
-      }
-      j_outputs.emplace_back(std::move(j_output));
-    }
-    // If the transform is actually an identity transform, skip the `"output"`
-    // member to produce a shorter representation.
-    if (!all_identity) {
-      obj.emplace("output", std::move(j_outputs));
-    }
-  }
+  auto tmp = MakeIndexTransformViewDataForSaving(transform);
+
+  ::nlohmann::json::object_t obj;
+  auto status = binder(std::false_type{}, IncludeDefaults{false}, &tmp, &obj);
+  status.IgnoreError();
+  assert(status.ok());
+
   j = std::move(obj);
 }
 
@@ -189,425 +534,39 @@ void to_json(::nlohmann::json& j,  // NOLINT
     j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
     return;
   }
+  auto binder = jb::Object(IndexTransformParser(/*is_transform=*/false));
+
+  auto tmp = MakeIndexDomainViewDataForSaving(domain);
+
   ::nlohmann::json::object_t obj;
-  EncodeDomain(obj, domain, kIndexDomainJsonKeys);
+  auto status = binder(std::false_type{}, IncludeDefaults{false}, &tmp, &obj);
+  status.IgnoreError();
+  assert(status.ok());
+
   j = std::move(obj);
-}
-
-::nlohmann::json IndexToJson(Index index) {
-  switch (index) {
-    case -kInfIndex:
-      return "-inf";
-    case +kInfIndex:
-      return "+inf";
-    default:
-      return index;
-  }
-}
-
-Result<Index> ParseIndex(const ::nlohmann::json& j) {
-  if (const std::string* s = j.get_ptr<const std::string*>()) {
-    if (*s == "-inf") return -kInfIndex;
-    if (*s == "+inf") return +kInfIndex;
-  }
-  Index value;
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireValueAs(
-      j, &value, [](Index i) { return tensorstore::IsValidIndex(i); }));
-  return value;
 }
 
 void to_json(::nlohmann::json& j,  // NOLINT
              IndexInterval interval) {
-  ::nlohmann::json::array_t bounds(2);
-  bounds[0] = IndexToJson(interval.inclusive_min());
-  bounds[1] = IndexToJson(interval.inclusive_max());
-  j = std::move(bounds);
-}
-
-Result<IndexInterval> ParseIndexInterval(const ::nlohmann::json& j) {
-  Index bounds[2];
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonParseArray(
-      j,
-      [](ptrdiff_t size) { return internal::JsonValidateArrayLength(size, 2); },
-      [&](const ::nlohmann::json& j_value, ptrdiff_t index) {
-        TENSORSTORE_ASSIGN_OR_RETURN(bounds[index], ParseIndex(j_value));
-        return absl::OkStatus();
-      }));
-  return IndexInterval::Closed(bounds[0], bounds[1]);
+  auto status = jb::IndexIntervalBinder(std::false_type{},
+                                        IncludeDefaults{false}, &interval, &j);
+  status.IgnoreError();
+  assert(status.ok());
 }
 
 namespace internal_index_space {
-namespace {
-
-template <typename T>
-using InlinedVector = absl::InlinedVector<T, internal::kNumInlinedDims>;
-
-/// Parses `j` as a 64-bit signed integer, except that `"-inf"` is optionally
-/// converted to `neg_infinity` and `"+inf"` is optionally converted to
-/// `pos_infinity`.  The number may be specified as a JSON number or as a string
-/// containing a base 10 representation.
-///
-/// \param j The JSON value to parse.
-/// \param neg_infinity If non-zero, `"-inf"` is accepted and converted to the
-///     specified value.
-/// \param pos_infinity If non-zero, `"+inf"` is accepted and converted to the
-///     specified value.
-/// \error `absl::StatusCode::kInvalidArgument` if `j` is invalid.
-Result<Index> ParseBound(const ::nlohmann::json& j, Index neg_infinity,
-                         Index pos_infinity) {
-  if (const auto* j_string = j.get_ptr<const ::nlohmann::json::string_t*>()) {
-    if (neg_infinity != 0 && *j_string == "-inf") return neg_infinity;
-    if (pos_infinity != 0 && *j_string == "+inf") return pos_infinity;
-  }
-  if (auto value = internal::JsonValueAs<Index>(j)) return *value;
-  // Uses the same format as internal_json::ExpectedError
-  return absl::InvalidArgumentError(StrCat(
-      "Expected 64-bit signed integer", neg_infinity != 0 ? " or \"-inf\"" : "",
-      pos_infinity != 0 ? " or \"+inf\"" : "", ", but received: ", j.dump()));
-}
-
-template <typename SubParser>
-Status ParseImplicit(const ::nlohmann::json& j, bool* implicit,
-                     SubParser sub_parser) {
-  if (const auto* j_array = j.get_ptr<const ::nlohmann::json::array_t*>()) {
-    if (j_array->size() != 1) {
-      return internal_json::ExpectedError(
-          j, "array of size 1 indicating an implicit value");
-    }
-    *implicit = true;
-    return sub_parser((*j_array)[0]);
-  }
-  *implicit = false;
-  return sub_parser(j);
-}
-
-template <typename T, typename SubParser>
-Status ParseInputDimsData(const ::nlohmann::json& j_bounds,
-                          std::optional<DimensionIndex>* input_rank,
-                          InlinedVector<T>* values,
-                          InlinedVector<bool>* implicit, SubParser sub_parser) {
-  return internal::JsonParseArray(
-      j_bounds,
-      [&](DimensionIndex rank) {
-        if (*input_rank) {
-          TENSORSTORE_RETURN_IF_ERROR(
-              internal::JsonValidateArrayLength(rank, **input_rank));
-        } else {
-          TENSORSTORE_RETURN_IF_ERROR(ValidateRank(rank));
-          *input_rank = rank;
-        }
-        values->resize(rank);
-        implicit->resize(rank);
-        return absl::OkStatus();
-      },
-      [&](const ::nlohmann::json& j_bound, DimensionIndex i) {
-        return ParseImplicit(
-            j_bound, &(*implicit)[i], [&](const ::nlohmann::json& v) {
-              TENSORSTORE_ASSIGN_OR_RETURN((*values)[i], sub_parser(v));
-              return absl::OkStatus();
-            });
-      });
-}
-
-Status ParseInputBounds(const ::nlohmann::json& j_bounds,
-                        std::optional<DimensionIndex>* input_rank,
-                        InlinedVector<Index>* bounds,
-                        InlinedVector<bool>* implicit, Index neg_infinity,
-                        Index pos_infinity) {
-  return ParseInputDimsData(j_bounds, input_rank, bounds, implicit,
-                            [&](const ::nlohmann::json& v) {
-                              return ParseBound(v, neg_infinity, pos_infinity);
-                            });
-}
-
-Status ParseInputLabels(const ::nlohmann::json& j_bounds,
-                        std::optional<DimensionIndex>* input_rank,
-                        InlinedVector<std::string>* labels) {
-  return internal::JsonParseArray(
-      j_bounds,
-      [&](DimensionIndex rank) {
-        if (*input_rank) {
-          TENSORSTORE_RETURN_IF_ERROR(
-              internal::JsonValidateArrayLength(rank, **input_rank));
-        } else {
-          TENSORSTORE_RETURN_IF_ERROR(ValidateRank(rank));
-          *input_rank = rank;
-        }
-        labels->resize(rank);
-        return absl::OkStatus();
-      },
-      [&](const ::nlohmann::json& v, DimensionIndex i) {
-        if (!v.is_string()) {
-          return internal_json::ExpectedError(v, "string");
-        }
-        (*labels)[i] = v.get<std::string>();
-        return absl::OkStatus();
-      });
-}
-
-struct OutputOffsetAndStride {
-  Index offset = 0;
-  Index stride = 1;
-};
-
-Result<std::int64_t> ParseInt64(const ::nlohmann::json& j) {
-  if (auto x = internal::JsonValueAs<std::int64_t>(j)) {
-    return *x;
-  }
-  return internal_json::ExpectedError(j, "64-bit signed integer");
-}
-
-Status ParseOutput(const ::nlohmann::json& j,
-                   OutputOffsetAndStride* offset_and_stride,
-                   OutputIndexMapInitializer* output_map) {
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonValidateObjectMembers(
-      j, {"offset", "input_dimension", "index_array", "stride",
-          "index_array_bounds"}));
-
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-      j, "offset", [&](const ::nlohmann::json& value) {
-        return internal::JsonRequireValueAs(value, &offset_and_stride->offset);
-      }));
-
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-      j, "input_dimension", [&](const ::nlohmann::json& value) {
-        int64_t input_dimension;
-        auto status = internal::JsonRequireValueAs(value, &input_dimension);
-        if (status.ok()) {
-          output_map->input_dimension = input_dimension;
-        }
-        return status;
-      }));
-
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-      j, "index_array", [&](const ::nlohmann::json& value) {
-        if (output_map->input_dimension) {
-          return absl::InvalidArgumentError(
-              "At most one of \"input_dimension\" and "
-              "\"index_array\" must be specified");
-        }
-        // There's a bit of a mismatch between JsonParseNestedarray and
-        // JsonRequire...
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            output_map->index_array,
-            internal::JsonParseNestedArray(value, &ParseInt64));
-        return absl::OkStatus();
-      }));
-
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-      j, "index_array_bounds", [&](const ::nlohmann::json& value) {
-        if (!output_map->index_array.data()) {
-          return absl::InvalidArgumentError(
-              "\"index_array_bounds\" is only valid with \"index_array\"");
-        }
-        TENSORSTORE_ASSIGN_OR_RETURN(output_map->index_array_bounds,
-                                     tensorstore::ParseIndexInterval(value));
-        return absl::OkStatus();
-      }));
-
-  TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-      j, "stride", [&](const ::nlohmann::json& value) {
-        if (!output_map->input_dimension && !output_map->index_array.data()) {
-          return absl::InvalidArgumentError(
-              "Either \"input_dimension\" or \"index_array\" must be "
-              "specified in "
-              "conjunction with \"stride\"");
-        }
-        return internal::JsonRequireValueAs(value, &offset_and_stride->stride);
-      }));
-
-  return absl::OkStatus();
-}
-
-Status ParseOutputs(
-    const ::nlohmann::json& j_outputs,
-    std::optional<DimensionIndex>* output_rank,
-    InlinedVector<OutputOffsetAndStride>* output_offsets_and_strides,
-    InlinedVector<OutputIndexMapInitializer>* output_maps) {
-  return internal::JsonParseArray(
-      j_outputs,
-      [&](DimensionIndex rank) {
-        *output_rank = rank;
-        output_offsets_and_strides->resize(rank);
-        output_maps->resize(rank);
-        return absl::OkStatus();
-      },
-      [&](const ::nlohmann::json& j_output, DimensionIndex i) {
-        return ParseOutput(j_output, &(*output_offsets_and_strides)[i],
-                           &(*output_maps)[i]);
-      });
-}
-
-struct TransformParser {
-  std::optional<DimensionIndex> input_rank, output_rank;
-  IntervalForm interval_form = IntervalForm::half_open;
-  InlinedVector<Index> input_lower, input_upper;
-  InlinedVector<std::string> input_labels;
-  InlinedVector<OutputOffsetAndStride> output_offsets_and_strides;
-  InlinedVector<OutputIndexMapInitializer> output_maps;
-  InlinedVector<bool> implicit_lower_bounds, implicit_upper_bounds;
-  BuilderFlags flags = 0;
-
-  absl::Status ParseDomain(const ::nlohmann::json& j,
-                           const DomainJsonKeys& keys,
-                           DimensionIndex input_rank_constraint) {
-    const auto upper_bound_error = [&] {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "At most one of \"", keys.shape, "\", \"", keys.inclusive_max,
-          "\", and ", "\"", keys.exclusive_max,
-          "\" members must be specified"));
-    };
-
-    TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-        j, keys.rank, [&](const ::nlohmann::json& value) {
-          DimensionIndex rank;
-          TENSORSTORE_RETURN_IF_ERROR(
-              internal::JsonRequireInteger(value, &rank,
-                                           /*strict=*/true,
-                                           /*min_value=*/0,
-                                           /*max_value=*/kMaxRank));
-          input_rank = rank;
-          return absl::OkStatus();
-        }));
-
-    TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-        j, keys.inclusive_min, [&](const ::nlohmann::json& value) {
-          flags |= (kSetLower | kSetImplicitLower);
-          return ParseInputBounds(value, &input_rank, &input_lower,
-                                  &implicit_lower_bounds, -kInfIndex, 0);
-        }));
-
-    TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-        j, keys.shape, [&](const ::nlohmann::json& value) {
-          interval_form = IntervalForm::sized;
-          flags |= (kSetUpper | kSetImplicitUpper);
-          return ParseInputBounds(value, &input_rank, &input_upper,
-                                  &implicit_upper_bounds, 0, +kInfSize);
-        }));
-
-    TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-        j, keys.inclusive_max, [&](const ::nlohmann::json& value) {
-          if (flags & kSetUpper) return upper_bound_error();
-          flags |= (kSetUpper | kSetImplicitUpper);
-          interval_form = IntervalForm::closed;
-          return ParseInputBounds(value, &input_rank, &input_upper,
-                                  &implicit_upper_bounds, 0, +kInfIndex);
-        }));
-
-    TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-        j, keys.exclusive_max, [&](const ::nlohmann::json& value) {
-          if (flags & kSetUpper) return upper_bound_error();
-          flags |= (kSetUpper | kSetImplicitUpper);
-          interval_form = IntervalForm::half_open;
-          return ParseInputBounds(value, &input_rank, &input_upper,
-                                  &implicit_upper_bounds, 0, +kInfIndex + 1);
-        }));
-
-    TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-        j, keys.labels, [&](const ::nlohmann::json& value) {
-          return ParseInputLabels(value, &input_rank, &input_labels);
-        }));
-
-    if (!input_rank) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "At least one of \"", keys.rank, "\", \"", keys.inclusive_min, "\", ",
-          "\"", keys.shape, "\", \"", keys.inclusive_max, "\", \"",
-          keys.exclusive_max, "\", ", "or \"", keys.labels,
-          "\" must be specified"));
-    }
-
-    if (input_rank_constraint != dynamic_rank &&
-        *input_rank != input_rank_constraint) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Expected ", keys.rank, " to be ", input_rank_constraint,
-          ", but is: ", *input_rank));
-    }
-    return absl::OkStatus();
-  }
-
-  absl::Status ParseOutput(const ::nlohmann::json& j,
-                           DimensionIndex output_rank_constraint) {
-    bool has_output = false;
-    TENSORSTORE_RETURN_IF_ERROR(internal::JsonHandleObjectMember(  //
-        j, "output", [&](const ::nlohmann::json& value) {
-          has_output = true;
-          return ParseOutputs(value, &output_rank, &output_offsets_and_strides,
-                              &output_maps);
-        }));
-
-    if (output_rank_constraint != dynamic_rank) {
-      if (!output_rank) {
-        output_rank = output_rank_constraint;
-      } else if (*output_rank != output_rank_constraint) {
-        return absl::InvalidArgumentError(StrCat("Expected output rank to be ",
-                                                 output_rank_constraint,
-                                                 ", but is: ", *output_rank));
-      }
-    }
-
-    if (!has_output) {
-      if (output_rank && *output_rank != *input_rank) {
-        return absl::InvalidArgumentError("Missing \"output\" member");
-      }
-      output_rank = *input_rank;
-      output_maps.resize(*input_rank);
-      output_offsets_and_strides.resize(*input_rank);
-      for (DimensionIndex i = 0; i < *input_rank; ++i) {
-        output_maps[i].input_dimension = i;
-      }
-    }
-    return absl::OkStatus();
-  }
-
-  Result<TransformRep::Ptr<>> Finalize() {
-    auto transform = TransformRep::Allocate(*input_rank, *output_rank);
-    transform->input_rank = *input_rank;
-    transform->output_rank = *output_rank;
-    if (flags & kSetLower) {
-      std::copy(input_lower.begin(), input_lower.end(),
-                transform->input_origin().begin());
-      std::copy(implicit_lower_bounds.begin(), implicit_lower_bounds.end(),
-                transform->implicit_lower_bounds(*input_rank).begin());
-    }
-    if (flags & kSetUpper) {
-      std::copy(input_upper.begin(), input_upper.end(),
-                transform->input_shape().begin());
-      std::copy(implicit_upper_bounds.begin(), implicit_upper_bounds.end(),
-                transform->implicit_upper_bounds(*input_rank).begin());
-    }
-    if (!input_labels.empty()) {
-      std::copy(input_labels.begin(), input_labels.end(),
-                transform->input_labels().begin());
-    }
-    auto maps = transform->output_index_maps();
-    for (DimensionIndex output_dim = 0; output_dim < *output_rank;
-         ++output_dim) {
-      auto& map = maps[output_dim];
-      map.offset() = output_offsets_and_strides[output_dim].offset;
-      map.stride() = output_offsets_and_strides[output_dim].stride;
-    }
-    TENSORSTORE_RETURN_IF_ERROR(SetOutputIndexMapsAndValidateTransformRep(
-        transform.get(), output_maps, interval_form, flags));
-    return transform;
-  }
-};
-
-}  // namespace
 
 Result<TransformRep::Ptr<>> ParseIndexTransformFromJson(
     const ::nlohmann::json& j, DimensionIndex input_rank_constraint,
     DimensionIndex output_rank_constraint) {
   if (j.is_discarded()) return TransformRep::Ptr<>(nullptr);
   auto result = [&]() -> Result<TransformRep::Ptr<>> {
-    TransformParser parser;
-    TENSORSTORE_RETURN_IF_ERROR(internal::JsonValidateObjectMembers(
-        j, {"input_rank", "input_inclusive_min", "input_shape",
-            "input_inclusive_max", "input_exclusive_max", "input_labels",
-            "output"}));
-    TENSORSTORE_RETURN_IF_ERROR(
-        parser.ParseDomain(j, kIndexTransformJsonKeys, input_rank_constraint));
-    TENSORSTORE_RETURN_IF_ERROR(parser.ParseOutput(j, output_rank_constraint));
-    return parser.Finalize();
+    auto binder = jb::Object(IndexTransformParser(true, input_rank_constraint),
+                             IndexTransformOutputParser(output_rank_constraint)
+                             /**/);
+    TENSORSTORE_ASSIGN_OR_RETURN(auto parser_data,
+                                 jb::FromJson<TransformParserData>(j, binder));
+    return parser_data.Finalize();
   }();
 
   if (result) return result;
@@ -619,14 +578,10 @@ Result<TransformRep::Ptr<>> ParseIndexDomainFromJson(
     const ::nlohmann::json& j, DimensionIndex rank_constraint) {
   if (j.is_discarded()) return TransformRep::Ptr<>(nullptr);
   auto result = [&]() -> Result<TransformRep::Ptr<>> {
-    TransformParser parser;
-    TENSORSTORE_RETURN_IF_ERROR(internal::JsonValidateObjectMembers(
-        j, {"rank", "inclusive_min", "shape", "inclusive_max", "exclusive_max",
-            "labels"}));
-    parser.output_rank = 0;
-    TENSORSTORE_RETURN_IF_ERROR(
-        parser.ParseDomain(j, kIndexDomainJsonKeys, rank_constraint));
-    return parser.Finalize();
+    auto binder = jb::Object(IndexTransformParser(false, rank_constraint));
+    TENSORSTORE_ASSIGN_OR_RETURN(auto parser_data,
+                                 jb::FromJson<TransformParserData>(j, binder))
+    return parser_data.Finalize();
   }();
 
   if (result) return result;

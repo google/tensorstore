@@ -238,11 +238,42 @@ TEST(RoundTripJsonTest, Labels) {
   TestRoundTripJson({
       {"input_inclusive_min", {1}},
       {"input_exclusive_max", {3}},
-      {"input_labels", {"x"}},
   });
   TestRoundTripJson({
       {"input_inclusive_min", {1}},
       {"input_exclusive_max", {3}},
+      {"input_labels", {"x"}},
+  });
+}
+
+TEST(RoundTripJsonTest, Rank0) {
+  TestRoundTripJson({
+      {"input_rank", 0},
+  });
+}
+
+TEST(RoundTripJsonTest, Input1Output0) {
+  TestRoundTripJson({
+      {"input_rank", 1},
+      {"output", ::nlohmann::json::array_t()},
+  });
+}
+
+TEST(RoundTripJsonTest, LabelsOnly) {
+  TestRoundTripJson({
+      {"input_labels", {"x", "y", "z"}},
+  });
+}
+
+TEST(RoundTripJsonTest, MinOnlyNotImplicit) {
+  TestRoundTripJson({
+      {"input_inclusive_min", {"-inf"}},
+  });
+}
+
+TEST(RoundTripJsonTest, MaxOnlyNotImplicit) {
+  TestRoundTripJson({
+      {"input_exclusive_max", {"+inf"}},
   });
 }
 
@@ -360,7 +391,7 @@ TEST(ParseIndexTransformTest, MissingInputRank) {
           "Error parsing index transform from JSON: "  //
           "At least one of \"input_rank\", \"input_inclusive_min\", "
           "\"input_shape\", \"input_inclusive_max\", \"input_exclusive_max\", "
-          "or \"input_labels\" must be specified"));
+          "\"input_labels\" members must be specified"));
 }
 
 TEST(ParseIndexTransformTest, InvalidInputRank) {
@@ -399,10 +430,8 @@ TEST(ParseIndexTransformTest, ExclusiveMaxAndInclusiveMax) {
 )")),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Error parsing index transform from JSON: "  //
-                    "Error parsing object member "
-                    "\"input_(exclusive_max|inclusive_max)\": "  //
                     "At most one of \"input_shape\", \"input_inclusive_max\", "
-                    "and \"input_exclusive_max\" members must be specified"));
+                    "\"input_exclusive_max\" members is allowed"));
 }
 
 TEST(ParseIndexTransformTest, ExclusiveMaxAndShape) {
@@ -414,12 +443,10 @@ TEST(ParseIndexTransformTest, ExclusiveMaxAndShape) {
     "input_shape": [5, 10]
 }
 )")),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Error parsing index transform from JSON: "                      //
-          "Error parsing object member \"input_(exclusive_max|shape)\": "  //
-          "At most one of \"input_shape\", \"input_inclusive_max\", and "
-          "\"input_exclusive_max\" members must be specified"));
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Error parsing index transform from JSON: "  //
+                    "At most one of \"input_shape\", \"input_inclusive_max\", "
+                    "\"input_exclusive_max\" members is allowed"));
 }
 
 TEST(ParseIndexTransformTest, InclusiveMaxAndShape) {
@@ -431,12 +458,10 @@ TEST(ParseIndexTransformTest, InclusiveMaxAndShape) {
     "input_shape": [5, 10]
 }
 )")),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Error parsing index transform from JSON: "                      //
-          "Error parsing object member \"input_(inclusive_max|shape)\": "  //
-          "At most one of \"input_shape\", \"input_inclusive_max\", and "
-          "\"input_exclusive_max\" members must be specified"));
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Error parsing index transform from JSON: "  //
+                    "At most one of \"input_shape\", \"input_inclusive_max\", "
+                    "\"input_exclusive_max\" members is allowed"));
 }
 
 // Tests that omitting the `"output"` member when `output_rank` is specified
@@ -662,7 +687,7 @@ TEST(ParseIndexTransformTest, InvalidOutputArray) {
                     "Error parsing value at position 0: "               //
                     "Error parsing object member \"index_array\": "     //
                     "Error parsing array element at position \\{\\}: "  //
-                    "Expected 64-bit signed integer, but received: \"a\""));
+                    ".* received: \"a\""));
 }
 
 TEST(ParseIndexTransformTest, InvalidOutputInputAndArray) {
@@ -676,14 +701,12 @@ TEST(ParseIndexTransformTest, InvalidOutputInputAndArray) {
     ]
 }
 )")),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Error parsing index transform from JSON: "                        //
-          "Error parsing object member \"output\": "                         //
-          "Error parsing value at position 0: "                              //
-          "Error parsing object member \"(index_array|input_dimension)\": "  //
-          "At most one of \"input_dimension\" and \"index_array\" "
-          "must be specified"));
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Error parsing index transform from JSON: "             //
+                    "Error parsing object member \"output\": "              //
+                    "Error parsing value at position 0: "                   //
+                    "At most one of \"input_dimension\", \"index_array\" "  //
+                    "members is allowed"));
 }
 
 TEST(ParseIndexTransformTest, DuplicateLabels) {
@@ -693,7 +716,8 @@ TEST(ParseIndexTransformTest, DuplicateLabels) {
 }
 )")),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Error parsing index transform from JSON: "  //
+                            "Error parsing index transform from JSON: "       //
+                            "Error parsing object member \"input_labels\": "  //
                             "Dimension label.*"));
 }
 

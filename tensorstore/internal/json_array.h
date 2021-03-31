@@ -30,6 +30,7 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/strided_layout.h"
+#include "tensorstore/util/function_view.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -37,8 +38,8 @@ namespace tensorstore {
 namespace internal_json {
 ::nlohmann::json JsonEncodeNestedArray(
     ArrayView<const void, dynamic_rank, offset_origin> array,
-    // TODO(jbms): replace with FunctionView type
-    const std::function<::nlohmann::json(const void*)>& encode_element);
+    FunctionView<::nlohmann::json(const void*)> encode_element);
+
 }  // namespace internal_json
 
 namespace internal {
@@ -151,7 +152,13 @@ constexpr auto NestedArray(DimensionIndex rank_constraint = dynamic_rank) {
                                        *j, dtype_v<Element>, rank_constraint));
       *obj = StaticDataTypeCast<Element, unchecked>(array);
     } else {
-      TENSORSTORE_ASSIGN_OR_RETURN(*j, internal::JsonEncodeNestedArray(*obj));
+      if (obj->data() != nullptr) {
+        *j = internal_json::JsonEncodeNestedArray(
+            *obj, [](const void* value) -> ::nlohmann::json {
+              assert(value);
+              return *reinterpret_cast<const Element*>(value);
+            });
+      }
     }
     return absl::OkStatus();
   };

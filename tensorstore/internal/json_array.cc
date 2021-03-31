@@ -43,7 +43,7 @@ namespace internal_json {
 
 ::nlohmann::json JsonEncodeNestedArray(
     ArrayView<const void, dynamic_rank, offset_origin> array,
-    const std::function<::nlohmann::json(const void*)>& encode_element) {
+    FunctionView<::nlohmann::json(const void*)> encode_element) {
   // To avoid the possibility of stack overflow, this implementation is
   // non-recursive.
 

@@ -136,8 +136,10 @@
 
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_spec.h"
+#include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/util/result.h"
@@ -203,6 +205,14 @@ void to_json(::nlohmann::json& j,  // NOLINT
 void to_json(::nlohmann::json& j,  // NOLINT
              IndexDomainView<> t);
 
+/// Encodes an interval interval as JSON.
+///
+/// The interval is encoded as a two-element array, `[a, b]`, where `a` is
+/// `interval.inclusive_min()` and `b` is `interval.inclusive_max()`.  Infinite
+/// lower and upper bounds are indicated by `"-inf"` and `"+inf"`, respectively.
+void to_json(::nlohmann::json& j,  // NOLINT
+             IndexInterval interval);
+
 /// Decodes an index transform from JSON.
 ///
 /// If `j` is `discarded`, returns an invalid index transform.
@@ -245,29 +255,6 @@ Result<IndexDomain<Rank>> ParseIndexDomain(
           std::move(transform)));
 }
 
-/// Encodes an index as JSON.
-///
-/// The special values -/+kInfIndex are encoded as `"-inf"` and `"+inf"`.
-::nlohmann::json IndexToJson(Index index);
-
-/// Parses an index from JSON.
-Result<Index> ParseIndex(const ::nlohmann::json& j);
-
-/// Encodes an interval interval as JSON.
-///
-/// The interval is encoded as a two-element array, `[a, b]`, where `a` is
-/// `interval.inclusive_min()` and `b` is `interval.inclusive_max()`.  Infinite
-/// lower and upper bounds are indicated by `"-inf"` and `"+inf"`, respectively.
-void to_json(::nlohmann::json& j,  // NOLINT
-             IndexInterval interval);
-
-/// Parses an index interval from JSON.
-///
-/// \param j The JSON representation.
-/// \error `absl::StatusCode::kInvalidArgument` if `j` is not a valid index
-///     interval encoding.
-Result<IndexInterval> ParseIndexInterval(const ::nlohmann::json& j);
-
 /// JSON object binder for `IndexTransformSpec` (for use with
 /// `tensorstore::internal_json_binding::Object`).
 ///
@@ -299,9 +286,67 @@ TENSORSTORE_DECLARE_JSON_BINDER(
 
 namespace internal_json_binding {
 
+/// Parses `j` as a 64-bit signed integer, except that `"-inf"` is optionally
+/// converted to `neg_infinity` and `"+inf"` is optionally converted to
+/// `pos_infinity`.  The number may be specified as a JSON number or as a string
+/// containing a base 10 representation.
+///
+/// \param j The JSON value to parse.
+/// \tparam kNegInfinity If non-zero, `"-inf"` is accepted and converted to the
+///     specified value.
+/// \tparam kPosInfinity If non-zero, `"+inf"` is accepted and converted to the
+///     specified value.
+/// \error `absl::StatusCode::kInvalidArgument` if `j` is invalid.
+template <Index kNegInfinity, Index kPosInfinity>
+constexpr auto BoundsBinder() {
+  return [](auto is_loading, const auto& options, auto* obj, auto* j) {
+    if constexpr (is_loading) {
+      if (const auto* j_string =
+              j->template get_ptr<const ::nlohmann::json::string_t*>()) {
+        if (kNegInfinity != 0 && *j_string == "-inf") {
+          *obj = kNegInfinity;
+          return absl::OkStatus();
+        }
+        if (kPosInfinity != 0 && *j_string == "+inf") {
+          *obj = kPosInfinity;
+          return absl::OkStatus();
+        }
+      }
+      auto value = internal::JsonValueAs<Index>(*j);
+      if (value && (kNegInfinity == 0 || *value >= kNegInfinity) &&
+          (kPosInfinity == 0 || *value <= kPosInfinity)) {
+        *obj = *value;
+        return absl::OkStatus();
+      }
+      // Uses the same format as internal_json::ExpectedError
+      return absl::InvalidArgumentError(
+          StrCat("Expected 64-bit signed integer",
+                 kNegInfinity != 0 ? " or \"-inf\"" : "",
+                 kPosInfinity != 0 ? " or \"+inf\"" : "",
+                 ", but received: ", j->dump()));
+    } else {
+      if (kNegInfinity != 0 && *obj == kNegInfinity) {
+        *j = "-inf";
+        return absl::OkStatus();
+      }
+      if (kPosInfinity != 0 && *obj == kPosInfinity) {
+        *j = "+inf";
+        return absl::OkStatus();
+      }
+      *j = *obj;
+    }
+    return absl::OkStatus();
+  };
+}
+
+/// JSON object binder for `Index`.
+/// Encodes "+inf" as +kInfIndex and "-inf" as -kInfIndex
+constexpr auto IndexBinder = BoundsBinder<-kInfIndex, +kInfIndex>();
+
 // Defined in separate namespace to work around clang-cl bug
 // https://bugs.llvm.org/show_bug.cgi?id=45213
 namespace index_transform_binder {
+/// JSON Object binder for IndexTransform.
 inline constexpr auto IndexTransformBinder = [](auto is_loading,
                                                 const auto& options, auto* obj,
                                                 auto* j) {
@@ -320,6 +365,7 @@ inline constexpr auto IndexTransformBinder = [](auto is_loading,
 // Defined in separate namespace to work around clang-cl bug
 // https://bugs.llvm.org/show_bug.cgi?id=45213
 namespace index_domain_binder {
+/// JSON object binder for `IndexDomain`.
 inline constexpr auto IndexDomainBinder =
     [](auto is_loading, const auto& options, auto* obj, auto* j) {
       if constexpr (is_loading) {
@@ -338,30 +384,27 @@ inline constexpr auto IndexDomainBinder =
 namespace index_interval_binder {
 inline constexpr auto IndexIntervalBinder =
     [](auto is_loading, const auto& options, auto* obj, auto* j) {
+      Index bounds[2];
+      if constexpr (!is_loading) {
+        bounds[0] = obj->inclusive_min();
+        bounds[1] = obj->inclusive_max();
+      }
+      TENSORSTORE_RETURN_IF_ERROR(
+          FixedSizeArray(IndexBinder)(is_loading, options, &bounds, j));
       if constexpr (is_loading) {
-        TENSORSTORE_ASSIGN_OR_RETURN(*obj, tensorstore::ParseIndexInterval(*j));
-      } else {
-        tensorstore::to_json(*j, *obj);
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            *obj, IndexInterval::Closed(bounds[0], bounds[1]));
       }
       return absl::OkStatus();
     };
 }  // namespace index_interval_binder
-
-// Defined in separate namespace to work around clang-cl bug
-// https://bugs.llvm.org/show_bug.cgi?id=45213
-namespace index_binder {
-inline constexpr auto IndexBinder = [](auto is_loading, const auto& options,
-                                       auto* obj, auto* j) {
-  if constexpr (is_loading) {
-    TENSORSTORE_ASSIGN_OR_RETURN(*obj, tensorstore::ParseIndex(*j));
-  } else {
-    *j = tensorstore::IndexToJson(*obj);
-  }
-  return absl::OkStatus();
-};
-}  // namespace index_binder
-
-using index_binder::IndexBinder;
+/// JSON object binder for `IndexInterval`.
+///
+/// The interval is encoded as a two-element array, `[a, b]`, where `a` is
+/// `interval.inclusive_min()` and `b` is `interval.inclusive_max()`.  Infinite
+/// lower and upper bounds are indicated by `"-inf"` and `"+inf"`, respectively.
+///
+using index_interval_binder::IndexIntervalBinder;
 
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>

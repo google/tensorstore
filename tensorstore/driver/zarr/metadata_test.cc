@@ -223,17 +223,14 @@ TEST(ParseFillValueTest, IntegerFailure) {
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Expected integer in the range \\[0, 4294967295\\], "
                     "but received: \"x\""));
-  EXPECT_THAT(ParseFillValue("x", ParseDType("<i8").value()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected integer in the range "
-                            "\\[-9223372036854775808, 9223372036854775807\\], "
-                            "but received: \"x\""));
+  EXPECT_THAT(
+      ParseFillValue("x", ParseDType("<i8").value()),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Expected 64-bit signed integer, but received: \"x\""));
   EXPECT_THAT(
       ParseFillValue("x", ParseDType("<u8").value()),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Expected integer in the range \\[0, 18446744073709551615\\], "
-          "but received: \"x\""));
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Expected 64-bit unsigned integer, but received: \"x\""));
 }
 
 TEST(ParseFillValueTest, Base64Success) {

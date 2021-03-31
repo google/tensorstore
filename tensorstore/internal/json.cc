@@ -21,6 +21,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -367,11 +368,25 @@ Status JsonRequireIntegerImpl<T>::Execute(const ::nlohmann::json& json,
       return absl::OkStatus();
     }
   }
-  if constexpr (GetTypeName(internal::type_identity_t<T>{}) != nullptr) {
+
+  /// NOTE: Eliminate GetTypeName use for integers since it's unreliable
+  /// for all the input/output types we want to support.
+  constexpr const char* kTypeName = []() {
+    if constexpr (sizeof(T) == 4 && std::is_signed_v<T>)
+      return "32-bit signed integer";
+    if constexpr (sizeof(T) == 4 && std::is_unsigned_v<T>)
+      return "32-bit unsigned integer";
+    if constexpr (sizeof(T) == 8 && std::is_signed_v<T>)
+      return "64-bit signed integer";
+    if constexpr (sizeof(T) == 8 && std::is_unsigned_v<T>)
+      return "64-bit unsigned integer";
+    return GetTypeName(internal::type_identity_t<T>{});
+  }();
+
+  if constexpr (kTypeName != nullptr) {
     if (min_value == std::numeric_limits<T>::min() &&
         max_value == std::numeric_limits<T>::max()) {
-      return internal_json::ValidationError(
-          json, internal_json::GetTypeName(internal::type_identity_t<T>{}));
+      return internal_json::ExpectedError(json, kTypeName);
     }
   }
   return absl::InvalidArgumentError(StrCat("Expected integer in the range [",

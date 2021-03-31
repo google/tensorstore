@@ -14,6 +14,7 @@
 
 #include "tensorstore/index_space/index_transform_builder.h"
 
+#include "tensorstore/index.h"
 #include "tensorstore/internal/integer_overflow.h"
 
 namespace tensorstore {
@@ -42,25 +43,29 @@ Status SetOutputIndexMapsAndValidateTransformRep(
   const auto implicit_lower_bounds = data->implicit_lower_bounds(input_rank);
   const auto implicit_upper_bounds = data->implicit_upper_bounds(input_rank);
 
-  if (!(flags & kSetLower)) {
-    std::fill(input_origin.begin(), input_origin.end(),
-              ((flags & kSetUpper) && interval_form == IntervalForm::sized)
-                  ? 0
-                  : -kInfIndex);
+  if ((flags & BuilderFlags::kSetLower) == BuilderFlags::kDefault) {
+    Index val =
+        (interval_form == IntervalForm::sized) &&
+                ((flags & BuilderFlags::kSetUpper) == BuilderFlags::kSetUpper)
+            ? 0
+            : -kInfIndex;
+    std::fill(input_origin.begin(), input_origin.end(), val);
   }
 
-  if (!(flags & kSetUpper)) {
+  if ((flags & BuilderFlags::kSetUpper) == BuilderFlags::kDefault) {
     interval_form = IntervalForm::half_open;
     std::fill(input_shape.begin(), input_shape.end(), kInfIndex + 1);
   }
 
-  if (!(flags & kSetImplicitLower)) {
-    implicit_lower_bounds.fill(!(flags & kSetLower) &&
-                               interval_form != IntervalForm::sized);
+  if ((flags & BuilderFlags::kSetImplicitLower) == BuilderFlags::kDefault) {
+    implicit_lower_bounds.fill(
+        ((flags & BuilderFlags::kSetLower) == BuilderFlags::kDefault) &&
+        interval_form != IntervalForm::sized);
   }
 
-  if (!(flags & kSetImplicitUpper)) {
-    implicit_upper_bounds.fill(!(flags & kSetUpper));
+  if ((flags & BuilderFlags::kSetImplicitUpper) == BuilderFlags::kDefault) {
+    implicit_upper_bounds.fill((flags & BuilderFlags::kSetUpper) ==
+                               BuilderFlags::kDefault);
   }
 
   TENSORSTORE_RETURN_IF_ERROR(

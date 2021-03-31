@@ -33,6 +33,7 @@
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/function_view.h"
+#include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -540,6 +541,30 @@ constexpr auto Sequence(Binder... binder) {
   };
 }
 
+/// Binder that always returns absl::OkStatus.
+namespace empty_binder {
+constexpr inline auto EmptyBinder = [](auto is_loading, const auto& options,
+                                       auto* obj, auto* j) -> Status {
+  return absl::OkStatus();
+};
+}
+using empty_binder::EmptyBinder;
+
+// Invokes LoadBinder when loading and SaveBinder when saving.
+template <typename LoadBinder = decltype(EmptyBinder),
+          typename SaveBinder = decltype(EmptyBinder)>
+constexpr auto LoadSave(LoadBinder load_binder = EmptyBinder,
+                        SaveBinder save_binder = EmptyBinder) {
+  return
+      [=](auto is_loading, const auto& options, auto* obj, auto* j) -> Status {
+        if constexpr (is_loading) {
+          return load_binder(is_loading, options, obj, j);
+        } else {
+          return save_binder(is_loading, options, obj, j);
+        }
+      };
+}
+
 /// Returns a `Binder` for JSON objects.
 ///
 /// When loading, verifies that the input JSON value is an object, calls each
@@ -679,6 +704,66 @@ constexpr auto OptionalMember(MemberName name,
                               Binder binder = DefaultBinder<>) {
   return MemberBinderImpl<true, MemberName, Binder>{std::move(name),
                                                     std::move(binder)};
+}
+
+/// Used in conjunction with jb::Object, returns an error when more than one of
+/// the indicated names is present in the object when loading.
+///
+/// When saving, this does nothing.
+///
+/// Example:
+///
+///     namespace jb = tensorstore::internal_json_binding;
+///     auto binder = jb::Object(jb::AtMostOne("a", "b", "c"));
+///
+template <typename... MemberName>
+constexpr auto AtMostOne(MemberName... names) {
+  return [=](auto is_loading, const auto& options, auto* obj,
+             ::nlohmann::json::object_t* j) -> Status {
+    if constexpr (is_loading) {
+      const auto has_member = [&](auto name) {
+        return j->find(name) == j->end() ? 0 : 1;
+      };
+      if ((has_member(names) + ...) > 1) {
+        return absl::InvalidArgumentError(StrCat(
+            "At most one of ",
+            absl::StrJoin(
+                std::make_tuple(QuoteString(std::string_view(names))...), ", "),
+            " members is allowed"));
+      }
+    }
+    return absl::OkStatus();
+  };
+}
+
+/// Used in conjunction with jb::Object, returns an error when fewer than one of
+/// the indicated names is present in the object when loading.
+///
+/// When saving, this does nothing.
+///
+/// Example:
+///
+///     namespace jb = tensorstore::internal_json_binding;
+///     auto binder = jb::Object(jb::AtLeastOne("a", "b", "c"));
+///
+template <typename... MemberName>
+constexpr auto AtLeastOne(MemberName... names) {
+  return [=](auto is_loading, const auto& options, auto* obj,
+             ::nlohmann::json::object_t* j) -> Status {
+    if constexpr (is_loading) {
+      const auto has_member = [&](auto name) {
+        return j->find(name) == j->end() ? 0 : 1;
+      };
+      if ((has_member(names) + ...) == 0) {
+        return absl::InvalidArgumentError(StrCat(
+            "At least one of ",
+            absl::StrJoin(
+                std::make_tuple(QuoteString(std::string_view(names))...), ", "),
+            " members must be specified"));
+      }
+    }
+    return absl::OkStatus();
+  };
 }
 
 /// Returns an object binder (for use with `Object`) that clears any extra
@@ -1183,6 +1268,51 @@ constexpr auto Constant(GetValue get_value) {
   };
 }
 
+/// Implementation details for jb::Array and similar.
+template <bool kDiscardEmpty, typename GetSize, typename SetSize,
+          typename GetElement, typename ElementBinder>
+struct ArrayBinderImpl {
+  GetSize get_size;
+  SetSize set_size;
+  GetElement get_element;
+  ElementBinder element_binder;
+
+  template <typename Loading, typename Options, typename Obj>
+  absl::Status operator()(Loading is_loading, const Options& options, Obj* obj,
+                          ::nlohmann::json* j) const {
+    ::nlohmann::json::array_t* j_arr;
+    if constexpr (is_loading) {
+      if constexpr (kDiscardEmpty) {
+        if (j->is_discarded()) return absl::OkStatus();
+      }
+      j_arr = j->get_ptr<::nlohmann::json::array_t*>();
+      if (!j_arr) {
+        return internal_json::ExpectedError(*j, "array");
+      }
+      const size_t size = j_arr->size();
+      TENSORSTORE_RETURN_IF_ERROR(
+          tensorstore::InvokeForStatus(set_size, *obj, size));
+    } else {
+      const auto size = get_size(*obj);
+      if constexpr (kDiscardEmpty) {
+        if (size == 0) {
+          *j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
+          return absl::OkStatus();
+        }
+      }
+      *j = ::nlohmann::json::array_t(size);
+      j_arr = j->get_ptr<::nlohmann::json::array_t*>();
+    }
+    for (size_t i = 0, size = j_arr->size(); i < size; ++i) {
+      auto&& element = get_element(*obj, i);
+      TENSORSTORE_RETURN_IF_ERROR(
+          element_binder(is_loading, options, &element, &(*j_arr)[i]),
+          internal_json::MaybeAnnotateArrayElementError(_, i, is_loading));
+    }
+    return absl::OkStatus();
+  }
+};
+
 /// Bind a JSON array to a homogeneous array-like type `Container` with type
 /// `T`.
 ///
@@ -1201,30 +1331,21 @@ template <typename GetSize, typename SetSize, typename GetElement,
           typename ElementBinder = decltype(DefaultBinder<>)>
 constexpr auto Array(GetSize get_size, SetSize set_size, GetElement get_element,
                      ElementBinder element_binder = DefaultBinder<>) {
-  return [=](auto is_loading, const auto& options, auto* obj,
-             ::nlohmann::json* j) -> Status {
-    ::nlohmann::json::array_t* j_arr;
-    if constexpr (is_loading) {
-      j_arr = j->get_ptr<::nlohmann::json::array_t*>();
-      if (!j_arr) {
-        return internal_json::ExpectedError(*j, "array");
-      }
-      const size_t size = j_arr->size();
-      TENSORSTORE_RETURN_IF_ERROR(
-          tensorstore::InvokeForStatus(set_size, *obj, size));
-    } else {
-      *j = ::nlohmann::json::array_t();
-      j_arr = j->get_ptr<::nlohmann::json::array_t*>();
-      j_arr->resize(get_size(*obj));
-    }
-    for (size_t i = 0, size = j_arr->size(); i < size; ++i) {
-      auto&& element = get_element(*obj, i);
-      TENSORSTORE_RETURN_IF_ERROR(
-          element_binder(is_loading, options, &element, &(*j_arr)[i]),
-          internal_json::MaybeAnnotateArrayElementError(_, i, is_loading));
-    }
-    return absl::OkStatus();
-  };
+  return ArrayBinderImpl<false, GetSize, SetSize, GetElement, ElementBinder>{
+      std::move(get_size), std::move(set_size), std::move(get_element),
+      std::move(element_binder)};
+}
+
+/// Binds a JSON array like jb::Array, but when the array is size is zero,
+/// then the value is discarded.
+template <typename GetSize, typename SetSize, typename GetElement,
+          typename ElementBinder = decltype(DefaultBinder<>)>
+constexpr auto OptionalArray(GetSize get_size, SetSize set_size,
+                             GetElement get_element,
+                             ElementBinder element_binder = DefaultBinder<>) {
+  return ArrayBinderImpl<true, GetSize, SetSize, GetElement, ElementBinder>{
+      std::move(get_size), std::move(set_size), std::move(get_element),
+      std::move(element_binder)};
 }
 
 /// Binds a JSON array to a container-like type (e.g. `std::vector`) that
@@ -1232,6 +1353,17 @@ constexpr auto Array(GetSize get_size, SetSize set_size, GetElement get_element,
 template <typename ElementBinder = decltype(DefaultBinder<>)>
 constexpr auto Array(ElementBinder element_binder = DefaultBinder<>) {
   return internal_json_binding::Array(
+      [](auto& c) { return c.size(); },
+      [](auto& c, std::size_t size) { c.resize(size); },
+      [](auto& c, std::size_t i) -> decltype(auto) { return c[i]; },
+      element_binder);
+}
+
+/// Binds a JSON array like jb::Array, but when the array is size is zero,
+/// then the value is discarded.
+template <typename ElementBinder = decltype(DefaultBinder<>)>
+constexpr auto OptionalArray(ElementBinder element_binder = DefaultBinder<>) {
+  return internal_json_binding::OptionalArray(
       [](auto& c) { return c.size(); },
       [](auto& c, std::size_t size) { c.resize(size); },
       [](auto& c, std::size_t i) -> decltype(auto) { return c[i]; },
@@ -1365,7 +1497,7 @@ constexpr auto Validate(Validator validator, Binder binder = DefaultBinder<>) {
       [=](auto is_loading, const auto& options, auto* obj, auto* j) -> Status {
         if constexpr (is_loading) {
           TENSORSTORE_RETURN_IF_ERROR(binder(is_loading, options, obj, j));
-          return validator(options, obj);
+          return tensorstore::InvokeForStatus(validator, options, obj);
         } else {
           return binder(is_loading, options, obj, j);
         }
@@ -1386,7 +1518,7 @@ constexpr auto Validate(Validator validator, Binder binder = DefaultBinder<>) {
 template <typename Initializer>
 constexpr auto Initialize(Initializer initializer) {
   return [=](auto is_loading, const auto& options, [[maybe_unused]] auto* obj,
-             auto* j) -> Status {
+             auto*) -> Status {
     if constexpr (is_loading) {
       return tensorstore::InvokeForStatus(initializer, obj);
     } else {

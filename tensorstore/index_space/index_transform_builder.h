@@ -29,20 +29,35 @@ namespace tensorstore {
 
 namespace internal_index_space {
 
-using BuilderFlags = unsigned int;
+enum class BuilderFlags : unsigned int {
+  kDefault = 0,
 
-/// Indicates that `input_origin` was called.
-constexpr BuilderFlags kSetLower = 1;
+  /// Indicates that `input_origin` was called.
+  kSetLower = 1,
 
-/// Indicates that `implicit_lower_bounds` was called.
-constexpr BuilderFlags kSetImplicitLower = 2;
+  /// Indicates that `implicit_lower_bounds` was called.
+  kSetImplicitLower = 2,
 
-/// Indicates that `input_shape`, `input_inclusive_max` or `input_exclusive_max`
-/// was called.
-constexpr BuilderFlags kSetUpper = 4;
+  /// Indicates that `input_shape`, `input_inclusive_max` or
+  /// `input_exclusive_max` was called.
+  kSetUpper = 4,
 
-/// Indicates that `implicit_upper_bounds` was called.
-constexpr BuilderFlags kSetImplicitUpper = 8;
+  /// Indicates that `implicit_upper_bounds` was called.
+  kSetImplicitUpper = 8
+};
+
+inline BuilderFlags operator|(BuilderFlags a, BuilderFlags b) {
+  return static_cast<BuilderFlags>(static_cast<unsigned int>(a) |
+                                   static_cast<unsigned int>(b));
+}
+inline BuilderFlags& operator|=(BuilderFlags& a, BuilderFlags b) {
+  return a = a | b;
+}
+
+inline BuilderFlags operator&(BuilderFlags a, BuilderFlags b) {
+  return static_cast<BuilderFlags>(static_cast<unsigned int>(a) &
+                                   static_cast<unsigned int>(b));
+}
 
 /// Specifies how to initialize an OutputIndexMap (without the offset or stride
 /// values).
@@ -291,7 +306,7 @@ class IndexTransformBuilder {
   ///
   /// \pre `valid() == true`
   span<Index, InputRank> input_origin() {
-    flags_ |= internal_index_space::kSetLower;
+    flags_ |= internal_index_space::BuilderFlags::kSetLower;
     return {rep_->input_origin().data(), input_rank()};
   }
 
@@ -328,7 +343,7 @@ class IndexTransformBuilder {
   ///
   /// \pre `valid() == true`
   span<Index, InputRank> input_shape() {
-    flags_ |= internal_index_space::kSetUpper;
+    flags_ |= internal_index_space::BuilderFlags::kSetUpper;
     interval_form_ = IntervalForm::sized;
     return {rep_->input_shape().data(), input_rank()};
   }
@@ -366,7 +381,7 @@ class IndexTransformBuilder {
   ///
   /// \pre `valid() == true`
   span<Index, InputRank> input_exclusive_max() {
-    flags_ |= internal_index_space::kSetUpper;
+    flags_ |= internal_index_space::BuilderFlags::kSetUpper;
     interval_form_ = IntervalForm::half_open;
     return {rep_->input_shape().data(), input_rank()};
   }
@@ -406,7 +421,7 @@ class IndexTransformBuilder {
   ///
   /// \pre `valid() == true`
   span<Index, InputRank> input_inclusive_max() {
-    flags_ |= internal_index_space::kSetUpper;
+    flags_ |= internal_index_space::BuilderFlags::kSetUpper;
     interval_form_ = IntervalForm::closed;
     return {rep_->input_shape().data(), input_rank()};
   }
@@ -467,8 +482,8 @@ class IndexTransformBuilder {
   ///
   /// \pre `valid() == true`
   MutableBoxView<InputRank> input_bounds() {
-    flags_ |=
-        (internal_index_space::kSetLower | internal_index_space::kSetUpper);
+    flags_ |= (internal_index_space::BuilderFlags::kSetLower |
+               internal_index_space::BuilderFlags::kSetUpper);
     interval_form_ = IntervalForm::sized;
     return MutableBoxView<InputRank>(input_rank(), rep_->input_origin().data(),
                                      rep_->input_shape().data());
@@ -529,7 +544,7 @@ class IndexTransformBuilder {
   ///
   /// \pre `valid() == true`
   BitSpan<std::uint64_t, InputRank> implicit_lower_bounds() {
-    flags_ |= internal_index_space::kSetImplicitLower;
+    flags_ |= internal_index_space::BuilderFlags::kSetImplicitLower;
     return {rep_->implicit_lower_bounds(input_rank()).begin(), input_rank()};
   }
 
@@ -563,7 +578,7 @@ class IndexTransformBuilder {
   ///
   /// \pre `valid() == true`
   BitSpan<std::uint64_t, InputRank> implicit_upper_bounds() {
-    flags_ |= internal_index_space::kSetImplicitUpper;
+    flags_ |= internal_index_space::BuilderFlags::kSetImplicitUpper;
     return {rep_->implicit_upper_bounds(input_rank()).begin(), input_rank()};
   }
 
@@ -785,7 +800,8 @@ class IndexTransformBuilder {
                           : (OutputRank == 0 ? 1 : OutputRank)>
       output_index_maps_;
   IntervalForm interval_form_;
-  internal_index_space::BuilderFlags flags_;
+  internal_index_space::BuilderFlags flags_ =
+      internal_index_space::BuilderFlags::kDefault;
 
   void AssignOutput(
       DimensionIndex output_dim, Index offset, Index stride,
@@ -861,7 +877,7 @@ IndexTransformBuilder<InputRank, OutputRank>::IndexTransformBuilder(
                .release(),
            internal::adopt_object_ref),
       output_index_maps_(output_rank),
-      flags_(0) {
+      flags_(internal_index_space::BuilderFlags::kDefault) {
   rep_->input_rank = input_rank;
   rep_->output_rank = output_rank;
   internal_index_space::InitializeTransformRepForBuilder(rep_.get());

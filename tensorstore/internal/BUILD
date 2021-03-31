@@ -1045,6 +1045,7 @@ tensorstore_cc_library(
         "//tensorstore:static_cast",
         "//tensorstore:strided_layout",
         "//tensorstore/util:byte_strided_pointer",
+        "//tensorstore/util:function_view",
         "//tensorstore/util:iterate",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
