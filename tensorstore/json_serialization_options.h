@@ -57,7 +57,7 @@ class AllowUnregistered {
 /// converting to JSON.
 class IncludeDefaults {
  public:
-  constexpr explicit IncludeDefaults(bool include_defaults = true)
+  constexpr explicit IncludeDefaults(bool include_defaults = false)
       : value_(include_defaults) {}
   bool include_defaults() const { return value_; }
 

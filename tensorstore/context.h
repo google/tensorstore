@@ -371,6 +371,9 @@ class ContextSpecBuilder {
   internal_context::ContextSpecImplPtr spec_impl_;
 };
 
+TENSORSTORE_DECLARE_JSON_BINDER(ContextSpecDefaultableJsonBinder, Context::Spec,
+                                ContextFromJsonOptions, ContextToJsonOptions)
+
 }  // namespace internal
 }  // namespace tensorstore
 

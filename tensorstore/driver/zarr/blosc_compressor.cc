@@ -37,22 +37,27 @@ struct Registration {
             jb::Member("cname",
                        jb::Projection(
                            &BloscCompressor::codec,
-                           jb::DefaultValue(
+                           jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
                                [](std::string* v) { *v = BLOSC_LZ4_COMPNAME; },
                                BloscCompressor::CodecBinder()))),
-            jb::Member("clevel", jb::Projection(
-                                     &BloscCompressor::level,
-                                     jb::DefaultValue([](int* v) { *v = 5; },
-                                                      jb::Integer<int>(0, 9)))),
-            jb::Member("shuffle", jb::Projection(&BloscCompressor::shuffle,
-                                                 jb::DefaultValue(
-                                                     [](int* v) { *v = -1; },
-                                                     jb::Integer<int>(-1, 2)))),
+            jb::Member(
+                "clevel",
+                jb::Projection(
+                    &BloscCompressor::level,
+                    jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
+                        [](int* v) { *v = 5; }, jb::Integer<int>(0, 9)))),
+            jb::Member(
+                "shuffle",
+                jb::Projection(
+                    &BloscCompressor::shuffle,
+                    jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
+                        [](int* v) { *v = -1; }, jb::Integer<int>(-1, 2)))),
             jb::Member(
                 "blocksize",
                 jb::Projection(&BloscCompressor::blocksize,
-                               jb::DefaultValue([](std::size_t* v) { *v = 0; },
-                                                jb::Integer<std::size_t>())))));
+                               jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
+                                   [](std::size_t* v) { *v = 0; },
+                                   jb::Integer<std::size_t>())))));
   }
 } registration;
 

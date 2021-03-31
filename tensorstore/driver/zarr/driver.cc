@@ -114,10 +114,10 @@ class ZarrDriver
                      &SpecT<>::key_encoding,
                      jb::DefaultInitializedValue(ChunkKeyEncodingJsonBinder))),
       jb::Member("metadata", jb::Projection(&SpecT<>::partial_metadata)),
-      jb::Member("field", jb::Projection(
-                              &SpecT<>::selected_field,
-                              jb::DefaultValue</*DisallowIncludeDefault=*/true>(
-                                  [](auto* obj) { *obj = std::string{}; }))));
+      jb::Member("field",
+                 jb::Projection(&SpecT<>::selected_field,
+                                jb::DefaultValue<jb::kNeverIncludeDefaults>(
+                                    [](auto* obj) { *obj = std::string{}; }))));
 
   static Status ApplyOptions(SpecT<>& spec, SpecOptions&& options) {
     if (options.minimal_spec) {

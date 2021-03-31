@@ -373,7 +373,7 @@ class NeuroglancerPrecomputedDriver
                       jb::Projection(
                           &OpenConstraints::scale,
                           jb::DefaultInitializedValue<
-                              /*DisallowIncludeDefaults=*/true>(jb::Object(
+                              jb::kNeverIncludeDefaults>(jb::Object(
                               jb::Member("key",
                                          jb::Projection(
                                              &ScaleMetadataConstraints::key)),
@@ -432,7 +432,7 @@ class NeuroglancerPrecomputedDriver
                       jb::Projection(
                           &OpenConstraints::multiscale,
                           jb::DefaultInitializedValue<
-                              /*DisallowIncludeDefaults=*/true>(jb::Object(
+                              jb::kNeverIncludeDefaults>(jb::Object(
                               jb::Member("num_channels",
                                          jb::Projection(
                                              &MultiscaleMetadataConstraints::

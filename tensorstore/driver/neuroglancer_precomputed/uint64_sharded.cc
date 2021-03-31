@@ -42,11 +42,12 @@ constexpr auto DataEncodingBinder = [](auto is_loading, const auto& options,
                                        auto* obj, auto* j) {
   using DataEncoding = ShardingSpec::DataEncoding;
   namespace jb = tensorstore::internal_json_binding;
-  return jb::DefaultValue([](auto* v) { *v = DataEncoding::raw; },
-                          jb::Enum<DataEncoding, const char*>({
-                              {DataEncoding::raw, "raw"},
-                              {DataEncoding::gzip, "gzip"},
-                          }))(is_loading, options, obj, j);
+  return jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
+      [](auto* v) { *v = DataEncoding::raw; },
+      jb::Enum<DataEncoding, const char*>({
+          {DataEncoding::raw, "raw"},
+          {DataEncoding::gzip, "gzip"},
+      }))(is_loading, options, obj, j);
 };
 }  // namespace
 

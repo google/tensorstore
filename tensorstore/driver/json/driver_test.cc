@@ -357,9 +357,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.full_spec = {
       {"dtype", "json"},
       {"driver", "json"},
-      {"kvstore", {{"driver", "memory"}, {"atomic", true}}},
-      {"recheck_cached_data", "open"},
-      {"json_pointer", ""},
+      {"kvstore", {{"driver", "memory"}}},
       {"path", GetPath()},
       {"transform",
        {{"input_exclusive_max", ::nlohmann::json::array_t{}},

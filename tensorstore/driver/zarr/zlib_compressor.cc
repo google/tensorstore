@@ -36,10 +36,11 @@ struct Registration {
       return jb::Object(
           jb::Initialize(
               [=](auto* obj) { obj->use_gzip_header = use_gzip_header; }),
-          jb::Member("level",
-                     jb::Projection(&ZlibCompressor::level,
-                                    jb::DefaultValue([](auto* v) { *v = 1; },
-                                                     jb::Integer<int>(0, 9)))));
+          jb::Member("level", jb::Projection(
+                                  &ZlibCompressor::level,
+                                  jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
+                                      [](auto* v) { *v = 1; },
+                                      jb::Integer<int>(0, 9)))));
     };
     RegisterCompressor<ZlibCompressor>("zlib",
                                        GetBinder(/*use_gzip_header=*/false));

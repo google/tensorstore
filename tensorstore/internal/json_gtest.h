@@ -60,7 +60,7 @@ template <typename T,
 void TestJsonBinderRoundTrip(
     std::vector<std::pair<T, ::nlohmann::json>> round_trips,
     Binder binder = internal_json_binding::DefaultBinder<>,
-    ToJsonOptions to_json_options = IncludeDefaults{true},
+    ToJsonOptions to_json_options = IncludeDefaults{false},
     FromJsonOptions from_json_options = {}) {
   for (const auto& [value, j] : round_trips) {
     SCOPED_TRACE(tensorstore::StrCat("value=", value, ", j=", j));
@@ -90,7 +90,7 @@ template <typename T,
 void TestJsonBinderRoundTripJsonOnly(
     std::vector<::nlohmann::json> round_trips,
     Binder binder = internal_json_binding::DefaultBinder<>,
-    ToJsonOptions to_json_options = IncludeDefaults{true},
+    ToJsonOptions to_json_options = IncludeDefaults{false},
     FromJsonOptions from_json_options = {}) {
   for (const auto& j : round_trips) {
     SCOPED_TRACE(tensorstore::StrCat("j=", j));
@@ -119,7 +119,7 @@ template <typename T,
 void TestJsonBinderRoundTripJsonOnlyInexact(
     std::vector<std::pair<::nlohmann::json, ::nlohmann::json>> round_trips,
     Binder binder = internal_json_binding::DefaultBinder<>,
-    ToJsonOptions to_json_options = IncludeDefaults{true},
+    ToJsonOptions to_json_options = IncludeDefaults{false},
     FromJsonOptions from_json_options = {}) {
   for (const auto& [a, b] : round_trips) {
     SCOPED_TRACE(tensorstore::StrCat("a=", a, ", b=", b));
@@ -155,7 +155,7 @@ void TestJsonBinderToJson(
     std::vector<std::pair<T, ::testing::Matcher<Result<::nlohmann::json>>>>
         to_json_cases,
     Binder binder = internal_json_binding::DefaultBinder<>,
-    ToJsonOptions to_json_options = IncludeDefaults{true}) {
+    ToJsonOptions to_json_options = IncludeDefaults{false}) {
   for (const auto& [value, matcher] : to_json_cases) {
     SCOPED_TRACE(tensorstore::StrCat("value=", value));
     EXPECT_THAT(tensorstore::internal_json_binding::ToJson(value, binder,

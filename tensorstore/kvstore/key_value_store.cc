@@ -86,8 +86,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
                          [](const KeyValueStoreSpec::Ptr& p) -> decltype(auto) {
                            return (p->context_spec_);
                          },
-                         jb::DefaultInitializedValue<
-                             /*DisallowIncludeDefaults=*/true>())),
+                         internal::ContextSpecDefaultableJsonBinder)),
           registry.RegisteredObjectBinder())(is_loading, options, obj, j);
     })
 

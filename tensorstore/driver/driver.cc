@@ -194,11 +194,10 @@ TENSORSTORE_DEFINE_JSON_BINDER(
           jb::Projection(
               [](auto& obj) -> decltype(auto) { return (*obj.driver_spec); },
               jb::Sequence(
-                  jb::Member(
-                      "context",
-                      jb::Projection(&internal::DriverSpec::context_spec_,
-                                     jb::DefaultInitializedValue<
-                                         /*DisallowIncludeDefaults=*/true>())),
+                  jb::Member("context",
+                             jb::Projection(
+                                 &internal::DriverSpec::context_spec_,
+                                 internal::ContextSpecDefaultableJsonBinder)),
                   jb::Member("dtype", jb::Projection(
                                           [](auto& x) -> decltype(auto) {
                                             return (x.constraints().dtype);

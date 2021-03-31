@@ -42,8 +42,9 @@ struct Registration {
             jb::Member(
                 "blocksize",
                 jb::Projection(&BloscCompressor::blocksize,
-                               jb::DefaultValue([](std::size_t* v) { *v = 0; },
-                                                jb::Integer<std::size_t>())))));
+                               jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
+                                   [](std::size_t* v) { *v = 0; },
+                                   jb::Integer<std::size_t>())))));
   }
 } registration;
 

@@ -160,7 +160,7 @@ constexpr auto PickleContext = [](ContextImplPtr self) -> py::tuple {
       if (resources.count(resource->key_)) continue;
       // Store the key as a Python `str`.
       t[i++] = py::cast(resource->key_);
-      auto json_spec = ValueOrThrow(resource->ToJson({}));
+      auto json_spec = ValueOrThrow(resource->ToJson(IncludeDefaults{true}));
       // Store the spec as a Python JSON object.
       t[i++] = py::cast(json_spec);
     }
@@ -202,10 +202,11 @@ constexpr auto PickleContextResource =
   py::object pickled_context = PickleContextSpecBuilder(std::move(builder));
   // Pickle the resource spec itself, along with any resources it
   // depends on.
-  return py::make_tuple(py::cast(spec->provider_->id_), py::cast(spec->key_),
-                        py::cast(spec->is_default_),
-                        py::cast(ValueOrThrow(spec->ToJson({}))),
-                        pickled_context);
+  return py::make_tuple(
+      py::cast(spec->provider_->id_), py::cast(spec->key_),
+      py::cast(spec->is_default_),
+      py::cast(ValueOrThrow(spec->ToJson(IncludeDefaults{true}))),
+      pickled_context);
 };
 
 constexpr auto UnpickleContextResource =
@@ -228,6 +229,9 @@ constexpr auto UnpickleContextResource =
         internal_context::ProviderNotRegisteredError(provider_id));
   }
   // Unpickle the resource spec itself.
+  if (json_spec.is_null()) {
+    ThrowCorruptContextPickle();
+  }
   auto resource_spec =
       ValueOrThrow(internal_context::ContextResourceSpecFromJson(
           *provider, std::move(json_spec), {}));

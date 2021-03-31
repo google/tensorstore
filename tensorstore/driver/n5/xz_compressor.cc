@@ -31,12 +31,12 @@ struct Registration {
     using internal::XzCompressor;
     namespace jb = tensorstore::internal_json_binding;
     RegisterCompressor<XzCompressor>(
-        "xz",
-        jb::Object(jb::Member(
-            "preset", jb::Projection(&XzCompressor::preset,
-                                     jb::DefaultValue(
-                                         [](auto* v) { *v = 6; },
-                                         jb::Integer<std::uint32_t>(0, 9))))));
+        "xz", jb::Object(jb::Member(
+                  "preset",
+                  jb::Projection(&XzCompressor::preset,
+                                 jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
+                                     [](auto* v) { *v = 6; },
+                                     jb::Integer<std::uint32_t>(0, 9))))));
   }
 } registration;
 

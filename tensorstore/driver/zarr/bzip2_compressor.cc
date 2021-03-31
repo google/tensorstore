@@ -33,9 +33,10 @@ struct Registration {
     RegisterCompressor<Bzip2Compressor>(
         "bz2", jb::Object(jb::Member(
                    "level",
-                   jb::Projection(&Bzip2Compressor::block_size_100k,
-                                  jb::DefaultValue([](auto* v) { *v = 1; },
-                                                   jb::Integer<int>(1, 9))))));
+                   jb::Projection(
+                       &Bzip2Compressor::block_size_100k,
+                       jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
+                           [](auto* v) { *v = 1; }, jb::Integer<int>(1, 9))))));
   }
 } registration;
 

@@ -661,7 +661,7 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                                [options](DimensionIndex* r) {
                                  *r = options.rank;
                                },
-                               jb::DefaultValue</*NeverIncludeDefaults=*/true>(
+                               jb::DefaultValue<jb::kNeverIncludeDefaults>(
                                    [](DimensionIndex* r) { *r = dynamic_rank; },
                                    jb::Integer<DimensionIndex>(0, kMaxRank))))),
             jb::Member(

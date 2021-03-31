@@ -514,50 +514,56 @@ Context Context::parent() const {
   return parent_context;
 }
 
-TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Context::Spec, [](auto is_loading,
-                                                         const auto& options,
-                                                         auto* obj, auto* j) {
-  if constexpr (!is_loading) {
-    if (!options.include_context()) {
-      *j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
-      return absl::OkStatus();
-    }
-  }
-  namespace jb = tensorstore::internal_json_binding;
-  return jb::DefaultValue(
-      [](auto* obj) { *obj = Context::Spec(); },
-      jb::Compose<::nlohmann::json::object_t>([](auto is_loading,
-                                                 const auto& options, auto* obj,
-                                                 auto* j_obj) -> Status {
-        if constexpr (is_loading) {
-          obj->impl_.reset(new internal_context::ContextSpecImpl);
-          obj->impl_->resources_.reserve(j_obj->size());
+namespace jb = tensorstore::internal_json_binding;
 
-          for (const auto& [key, value] : *j_obj) {
-            TENSORSTORE_ASSIGN_OR_RETURN(
-                auto resource,
-                internal_context::ContextResourceSpecFromJsonWithKey(key, value,
-                                                                     options));
-            obj->impl_->resources_.insert(std::move(resource));
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
+    Context::Spec,
+    jb::Compose<::nlohmann::json::object_t>([](auto is_loading,
+                                               const auto& options, auto* obj,
+                                               auto* j_obj) -> Status {
+      if constexpr (is_loading) {
+        obj->impl_.reset(new internal_context::ContextSpecImpl);
+        obj->impl_->resources_.reserve(j_obj->size());
+
+        for (const auto& [key, value] : *j_obj) {
+          TENSORSTORE_ASSIGN_OR_RETURN(
+              auto resource,
+              internal_context::ContextResourceSpecFromJsonWithKey(key, value,
+                                                                   options));
+          obj->impl_->resources_.insert(std::move(resource));
+        }
+      } else {
+        if (!obj->impl_) return absl::OkStatus();
+        for (const auto& resource_spec : obj->impl_->resources_) {
+          if (!options.include_defaults() && resource_spec->is_default_ &&
+              resource_spec->key_ == resource_spec->provider_->id_) {
+            continue;
           }
-        } else {
-          if (!obj->impl_) return absl::OkStatus();
-          for (const auto& resource_spec : obj->impl_->resources_) {
-            if (!options.include_defaults() && resource_spec->is_default_ &&
-                resource_spec->key_ == resource_spec->provider_->id_) {
-              continue;
-            }
-            TENSORSTORE_ASSIGN_OR_RETURN(auto resource_spec_json,
-                                         resource_spec->ToJson(options));
-            if (!resource_spec_json.is_discarded()) {
-              j_obj->emplace(resource_spec->key_,
-                             std::move(resource_spec_json));
-            }
+          TENSORSTORE_ASSIGN_OR_RETURN(auto resource_spec_json,
+                                       resource_spec->ToJson(options));
+          if (!resource_spec_json.is_discarded()) {
+            j_obj->emplace(resource_spec->key_, std::move(resource_spec_json));
           }
         }
-        return absl::OkStatus();
-      }))(is_loading, options, obj, j);
-})
+      }
+      return absl::OkStatus();
+    }))
+
+namespace internal {
+
+TENSORSTORE_DEFINE_JSON_BINDER(
+    ContextSpecDefaultableJsonBinder,
+    [](auto is_loading, const auto& options, auto* obj, auto* j) {
+      if constexpr (!is_loading) {
+        if (!options.include_context()) {
+          *j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
+          return absl::OkStatus();
+        }
+      }
+      return jb::DefaultInitializedValue()(is_loading, options, obj, j);
+    })
+
+}  // namespace internal
 
 namespace internal_context {
 

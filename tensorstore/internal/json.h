@@ -707,6 +707,17 @@ constexpr inline auto DiscardExtraMembers =
 }  // namespace discard_extra_members_binder
 using discard_extra_members_binder::DiscardExtraMembers;
 
+/// Policy for `DefaultValue` and related binders that determines when default
+/// values are included in the JSON.
+enum IncludeDefaultsPolicy {
+  /// Include defaults according to the `IncludeDefaults` option.
+  kMaybeIncludeDefaults,
+  /// Never include defaults (ignores `IncludeDefaults` option).
+  kNeverIncludeDefaults,
+  /// Always include defaults (ignores `IncludeDefaults` option).
+  kAlwaysIncludeDefaults,
+};
+
 /// Returns a `Binder` for use with `Member` that performs default value
 /// handling.
 ///
@@ -714,9 +725,9 @@ using discard_extra_members_binder::DiscardExtraMembers;
 /// member), the `get_default` function is called to obtain the converted
 /// value.
 ///
-/// When saving, if `IncludeDefaults` is set to `false` and the resultant JSON
-/// representation is equal to the JSON representation of the default value,
-/// the JSON value is set to discarded.
+/// When saving, according to the `Policy` and the `IncludeDefaults` option, if
+/// the resultant JSON representation is equal to the JSON representation of the
+/// default value, the JSON value is set to discarded.
 ///
 /// Example:
 ///
@@ -736,15 +747,15 @@ using discard_extra_members_binder::DiscardExtraMembers;
 ///           (is_loading, options, obj, j);
 ///    };
 ///
-/// \tparam DisallowIncludeDefaults If `true`, the `IncludeDefaults` option is
-///     ignored.
+/// \tparam Policy Specifies the conditions under which default values are
+///     included in the JSON.
 /// \param get_default Function with signature `void (T *obj)` or
 ///     `Status (T *obj)` called with a pointer to the object.  Must assign
 ///     the default value to `*obj` and return `Status()` or `void`, or return
 ///     an error `Status`.
 /// \param binder The `Binder` to use if the JSON value is not discarded.
-template <bool DisallowIncludeDefaults = false, typename GetDefault,
-          typename Binder = decltype(DefaultBinder<>)>
+template <IncludeDefaultsPolicy Policy = kMaybeIncludeDefaults,
+          typename GetDefault, typename Binder = decltype(DefaultBinder<>)>
 constexpr auto DefaultValue(GetDefault get_default,
                             Binder binder = DefaultBinder<>) {
   return [=](auto is_loading, const auto& options, auto* obj,
@@ -757,7 +768,10 @@ constexpr auto DefaultValue(GetDefault get_default,
       return binder(is_loading, options, obj, j);
     } else {
       TENSORSTORE_RETURN_IF_ERROR(binder(is_loading, options, obj, j));
-      if constexpr (!DisallowIncludeDefaults) {
+      if constexpr (Policy == kAlwaysIncludeDefaults) {
+        return absl::OkStatus();
+      }
+      if constexpr (Policy == kMaybeIncludeDefaults) {
         IncludeDefaults include_defaults(options);
         if (include_defaults.include_defaults()) {
           return absl::OkStatus();
@@ -777,13 +791,12 @@ constexpr auto DefaultValue(GetDefault get_default,
   };
 }
 
-/// Same as `DefaultValue` above, except that the default value is obtained
-/// via value initialization rather than via a specified `get_default`
-/// function.
-template <bool DisallowIncludeDefaults = false,
+/// Same as `DefaultValue` above, except that the default value is obtained via
+/// value initialization rather than via a specified `get_default` function.
+template <IncludeDefaultsPolicy DefaultsPolicy = kMaybeIncludeDefaults,
           typename Binder = decltype(DefaultBinder<>)>
 constexpr auto DefaultInitializedValue(Binder binder = DefaultBinder<>) {
-  return internal_json_binding::DefaultValue<DisallowIncludeDefaults>(
+  return internal_json_binding::DefaultValue<DefaultsPolicy>(
       [](auto* obj) { *obj = internal::remove_cvref_t<decltype(*obj)>{}; },
       std::move(binder));
 }

@@ -626,7 +626,6 @@ TENSORSTORE_GLOBAL_INITIALIZER {
       {"base",
        {
            {"driver", "array"},
-           {"dtype", "float32"},
            {"array", {{1, 2, 3}, {4, 5, 6}}},
            {"transform",
             {{"input_inclusive_min", {0, 0}}, {"input_exclusive_max", {2, 3}}}},
@@ -669,9 +668,7 @@ TEST(DownsampleTest, Spec) {
                   {"base",
                    {
                        {"driver", "array"},
-                       {"dtype", "float32"},
                        {"array", {1, 2, 3, 4}},
-                       {"rank", 1},
                    }},
                   {"downsample_factors", {2}},
                   {"downsample_method", "mean"},
