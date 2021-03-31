@@ -473,9 +473,10 @@ constexpr auto GetterSetter(Get get, Set set, Binder binder = DefaultBinder<>) {
           binder = std::move(binder)](auto is_loading, const auto& options,
                                       auto* obj, auto* j) -> Status {
     if constexpr (is_loading) {
-      using Projected =
-          std::conditional_t<std::is_void_v<T>,
-                             std::invoke_result_t<Get, decltype(*obj)>, T>;
+      using Projected = std::conditional_t<
+          std::is_void_v<T>,
+          internal::remove_cvref_t<std::invoke_result_t<Get, decltype(*obj)>>,
+          T>;
       Projected projected;
       TENSORSTORE_RETURN_IF_ERROR(binder(is_loading, options, &projected, j));
       return tensorstore::InvokeForStatus(set, *obj, std::move(projected));
@@ -787,6 +788,62 @@ constexpr auto DefaultValue(GetDefault get_default,
         *j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
       }
       return absl::OkStatus();
+    }
+  };
+}
+
+/// Returns a `Binder` for use with `Member` that performs default value
+/// handling based on a predicate.
+///
+/// When loading, in case of a discarded JSON value (i.e. missing JSON object
+/// member), the `get_default` function is called to obtain the converted value.
+///
+/// When saving, according to the `Policy`, the `IncludeDefaults` option, and
+/// the result of the `is_default` predicate, the JSON value is set to
+/// discarded.
+///
+/// Example:
+///
+///     namespace jb = tensorstore::internal_json_binding;
+///     auto binder = jb::Object(
+///         jb::Member("x", &Foo::x, DefaultPredicate(
+///                                     [](auto *x) { *x = 10; },
+///                                     [](auto *x) { return *x == 10; },
+///                                     jb::DefaultBinder<int>));
+///
+/// \tparam Policy Specifies the conditions under which default values are
+///     included in the JSON.
+/// \param get_default Function with signature `void (T* obj)` or
+///     `Status (T *obj)` called with a pointer to the object.  Must assign the
+///     default value to `*obj` and return `Status()` or `void`, or return an
+///     error `Status`.
+/// \param is_default Function with signature `bool (const T* obj)` called with
+///     a pointer to the object to determine whether the object is equal to the
+///     default value.
+/// \param binder The `Binder` to use if the JSON value is not discarded.
+template <IncludeDefaultsPolicy Policy = kMaybeIncludeDefaults,
+          typename GetDefault, typename IsDefault,
+          typename Binder = decltype(DefaultBinder<>)>
+constexpr auto DefaultPredicate(GetDefault get_default, IsDefault is_default,
+                                Binder binder = DefaultBinder<>) {
+  return [=](auto is_loading, const auto& options, auto* obj,
+             ::nlohmann::json* j) -> Status {
+    if constexpr (is_loading) {
+      if (j->is_discarded()) {
+        return tensorstore::InvokeForStatus(get_default, obj);
+      }
+      return binder(is_loading, options, obj, j);
+    } else {
+      bool include_defaults_value = Policy == kAlwaysIncludeDefaults;
+      if constexpr (Policy == kMaybeIncludeDefaults) {
+        IncludeDefaults include_defaults(options);
+        include_defaults_value = include_defaults.include_defaults();
+      }
+      if (!include_defaults_value && is_default(obj)) {
+        *j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
+        return absl::OkStatus();
+      }
+      return binder(is_loading, options, obj, j);
     }
   };
 }
