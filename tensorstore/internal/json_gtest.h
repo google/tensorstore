@@ -186,6 +186,30 @@ void TestJsonBinderFromJson(
   }
 }
 
+/// Verifies that each `T` value is equal to itself and not equal to any of the
+/// other values.
+///
+/// Also verifies that every JSON value round trips.
+template <typename T,
+          typename Binder = decltype(internal_json_binding::DefaultBinder<>)>
+void TestCompareDistinctFromJson(
+    std::vector<::nlohmann::json> specs,
+    Binder binder = internal_json_binding::DefaultBinder<>) {
+  tensorstore::TestJsonBinderRoundTripJsonOnly<T>(specs, binder);
+  std::vector<T> values(specs.size());
+  for (size_t i = 0; i < specs.size(); ++i) {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        values[i], internal_json_binding::FromJson<T>(specs[i], binder));
+  }
+  for (size_t i = 0; i < specs.size(); ++i) {
+    EXPECT_EQ(values[i], values[i]) << "specs[" << i << "]=" << specs[i];
+    for (size_t j = i + 1; j < specs.size(); ++j) {
+      EXPECT_NE(values[i], values[j]) << "specs[" << i << "]=" << specs[i]
+                                      << ", specs[" << j << "]=" << specs[j];
+    }
+  }
+}
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_INTERNAL_JSON_GTEST_H_
