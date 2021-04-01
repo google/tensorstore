@@ -45,6 +45,7 @@ using tensorstore::DimensionIndex;
 using tensorstore::Index;
 using tensorstore::KeyValueStore;
 using tensorstore::kImplicit;
+using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
 using tensorstore::span;
 using tensorstore::StrCat;
@@ -2173,6 +2174,35 @@ TEST(DriverTest, ChunkLayout) {
                                      }));
     EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
   }
+}
+
+TEST(DriverTest, Codec) {
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"path", "prefix"},
+      {"metadata",
+       {
+           {"compressor", {{"id", "blosc"}}},
+           {"dtype", "<i2"},
+           {"shape", {100, 100}},
+           {"chunks", {3, 2}},
+           {"order", "C"},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec, store.codec());
+  EXPECT_THAT(codec.ToJson(),
+              ::testing::Optional(MatchesJson({{"driver", "zarr"},
+                                               {"compressor",
+                                                {{"id", "blosc"},
+                                                 {"cname", "lz4"},
+                                                 {"clevel", 5},
+                                                 {"shuffle", -1},
+                                                 {"blocksize", 0}}},
+                                               {"filters", nullptr}})));
 }
 
 }  // namespace

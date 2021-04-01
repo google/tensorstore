@@ -22,13 +22,25 @@
 #include <optional>
 
 #include <nlohmann/json.hpp>
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/driver/zarr/metadata.h"
 #include "tensorstore/index.h"
+#include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_zarr {
+
+class ZarrCodecSpec : public CodecSpec {
+ public:
+  constexpr static char id[] = "zarr";
+  std::optional<Compressor> compressor;
+  std::optional<std::nullptr_t> filters;
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrCodecSpec, FromJsonOptions,
+                                          ToJsonOptions,
+                                          ::nlohmann::json::object_t)
+};
 
 /// Validates that `metadata` is consistent with `constraints`.
 ///

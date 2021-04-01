@@ -33,6 +33,14 @@ The following compressors are supported:
 .. json:schema:: driver/zarr/Compressor/blosc
 .. json:schema:: driver/zarr/Compressor/bz2
 
+Codec
+-----
+
+Within a :ref:`schema`, the compression parameters may also be specified
+separately as a :json:schema:`Codec`:
+
+.. json:schema:: driver/zarr/Codec
+
 Limitations
 -----------
 

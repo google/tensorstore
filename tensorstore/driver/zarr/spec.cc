@@ -14,6 +14,7 @@
 
 #include "tensorstore/driver/zarr/spec.h"
 
+#include "tensorstore/codec_spec_registry.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/util/quote_string.h"
 
@@ -22,7 +23,15 @@ namespace internal_zarr {
 
 namespace jb = tensorstore::internal_json_binding;
 
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
+    ZarrCodecSpec,
+    jb::Sequence(
+        jb::Member("compressor", jb::Projection(&ZarrCodecSpec::compressor)),
+        jb::Member("filters", jb::Projection(&ZarrCodecSpec::filters))))
+
 namespace {
+const internal::CodecSpecRegistration<ZarrCodecSpec> encoding_registration;
+
 template <typename T>
 Status MetadataMismatchError(const char* name, const T& expected,
                              const T& actual) {

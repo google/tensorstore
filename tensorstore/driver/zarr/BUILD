@@ -237,12 +237,14 @@ tensorstore_cc_library(
     deps = [
         ":compressor",
         ":metadata",
+        "//tensorstore:codec_spec",
         "//tensorstore:index",
         "//tensorstore/internal:json",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "@com_github_nlohmann_json//:nlohmann_json",
     ],
+    alwayslink = True,
 )
 
 tensorstore_cc_test(
@@ -252,6 +254,7 @@ tensorstore_cc_test(
     deps = [
         ":metadata",
         ":spec",
+        "//tensorstore:codec_spec",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",

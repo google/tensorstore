@@ -292,6 +292,15 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     return builder.Finalize();
   }
 
+  Result<CodecSpec::Ptr> GetCodec(const void* metadata,
+                                  std::size_t component_index) override {
+    const auto& typed_metadata = *static_cast<const ZarrMetadata*>(metadata);
+    internal::IntrusivePtr<ZarrCodecSpec> codec(new ZarrCodecSpec);
+    codec->compressor = typed_metadata.compressor;
+    codec->filters = nullptr;
+    return codec;
+  }
+
  private:
   std::string key_prefix_;
   ChunkKeyEncoding key_encoding_;

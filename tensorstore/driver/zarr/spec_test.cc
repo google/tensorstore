@@ -17,6 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/driver/zarr/metadata.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/util/status.h"
@@ -413,6 +414,27 @@ TEST(ValidateMetadataTest, FillValueMismatch) {
   EXPECT_THAT(ValidateMetadata(metadata, partial_metadata),
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
                             "Expected \"fill_value\" of 1 but received: null"));
+}
+
+TEST(ZarrEncodingSpecTest, RoundTrip) {
+  tensorstore::TestJsonBinderRoundTripJsonOnly<tensorstore::CodecSpec::Ptr>({
+      ::nlohmann::json::value_t::discarded,
+      {
+          {"driver", "zarr"},
+          {"compressor", nullptr},
+          {"filters", nullptr},
+      },
+      {
+          {"driver", "zarr"},
+          {"compressor",
+           {{"id", "blosc"},
+            {"cname", "lz4"},
+            {"clevel", 5},
+            {"blocksize", 0},
+            {"shuffle", -1}}},
+          {"filters", nullptr},
+      },
+  });
 }
 
 }  // namespace

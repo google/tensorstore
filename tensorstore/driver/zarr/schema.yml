@@ -108,8 +108,6 @@ definitions:
     $id: '#codec-properties'
     type: object
     properties:
-      driver:
-        const: "n5"
       compressor:
         oneOf:
         - $ref: 'driver/zarr/Compressor'
@@ -124,6 +122,15 @@ definitions:
         description: |
           When encoding chunk, filters are applied before the compressor.
           Currently, filters are not supported.
+  codec:
+    $id: 'driver/zarr/Codec'
+    allOf:
+      - $ref: Codec
+      - type: object
+        properties:
+          driver:
+            const: "zarr"
+      - $ref: "#codec-properties"
   compressor:
     $id: 'driver/zarr/Compressor'
     title: Compressor
