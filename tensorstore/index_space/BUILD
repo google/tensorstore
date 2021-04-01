@@ -986,3 +986,38 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "transform_broadcastable_array",
+    srcs = ["transform_broadcastable_array.cc"],
+    hdrs = ["transform_broadcastable_array.h"],
+    deps = [
+        ":index_transform",
+        ":transformed_array",
+        "//tensorstore:array",
+        "//tensorstore:box",
+        "//tensorstore:index_interval",
+        "//tensorstore/util:dimension_set",
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "transform_broadcastable_array_test",
+    size = "small",
+    srcs = ["transform_broadcastable_array_test.cc"],
+    deps = [
+        ":index_transform",
+        ":index_transform_builder",
+        ":index_transform_testutil",
+        ":transform_broadcastable_array",
+        "//tensorstore:array",
+        "//tensorstore:index",
+        "//tensorstore/internal:test_util",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status_testutil",
+        "//tensorstore/util:str_cat",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
