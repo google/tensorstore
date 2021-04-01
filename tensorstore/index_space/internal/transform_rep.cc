@@ -207,10 +207,7 @@ void CopyTransformRepDomain(TransformRep* source, TransformRep* dest) {
               dest->input_origin().begin());
   std::copy_n(source->input_shape().begin(), input_rank,
               dest->input_shape().begin());
-  dest->implicit_lower_bounds(input_rank)
-      .DeepAssign(source->implicit_lower_bounds(input_rank));
-  dest->implicit_upper_bounds(input_rank)
-      .DeepAssign(source->implicit_upper_bounds(input_rank));
+  dest->implicit_bitvector = source->implicit_bitvector;
   std::copy_n(source->input_labels().begin(), input_rank,
               dest->input_labels().begin());
 }

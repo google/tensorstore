@@ -26,27 +26,46 @@ void SetToIdentityTransform(span<OutputIndexMap> maps) {
   }
 }
 
-void SetToIdentityTransform(TransformRep* data, DimensionIndex rank) {
-  assert(data->input_rank_capacity >= rank &&
-         data->output_rank_capacity >= rank);
-  data->input_rank = data->output_rank = rank;
+namespace {
+void SetUnboundedDomain(TransformRep* data, DimensionIndex rank) {
+  assert(data->input_rank_capacity >= rank);
+  data->input_rank = rank;
   std::fill_n(data->input_origin().begin(), rank, -kInfIndex);
   std::fill_n(data->input_shape().begin(), rank, kInfSize);
-  data->implicit_lower_bounds(rank).fill(true);
-  data->implicit_upper_bounds(rank).fill(true);
-  SetToIdentityTransform(data->output_index_maps().first(rank));
+  data->implicit_bitvector = ~uint64_t(0);
 }
 
-TransformRep::Ptr<> MakeIdentityTransform(DimensionIndex rank) {
-  auto data = TransformRep::Allocate(rank, rank);
-  SetToIdentityTransform(data.get(), rank);
+void SetIdentityOutputOrDomainOnly(TransformRep* data, DimensionIndex rank,
+                                   bool domain_only) {
+  if (domain_only) {
+    data->output_rank = 0;
+  } else {
+    assert(data->output_rank_capacity >= rank);
+    data->output_rank = rank;
+    SetToIdentityTransform(data->output_index_maps().first(rank));
+  }
+}
+
+void SetToIdentityTransform(TransformRep* data, DimensionIndex rank,
+                            bool domain_only) {
+  SetUnboundedDomain(data, rank);
+  SetIdentityOutputOrDomainOnly(data, rank, domain_only);
+}
+
+}  // namespace
+
+TransformRep::Ptr<> MakeIdentityTransform(DimensionIndex rank,
+                                          bool domain_only) {
+  auto data = TransformRep::Allocate(rank, domain_only ? 0 : rank);
+  SetToIdentityTransform(data.get(), rank, domain_only);
   return data;
 }
 
-TransformRep::Ptr<> MakeIdentityTransform(internal::StringLikeSpan labels) {
+TransformRep::Ptr<> MakeIdentityTransform(internal::StringLikeSpan labels,
+                                          bool domain_only) {
   const DimensionIndex rank = labels.size();
-  auto data = TransformRep::Allocate(rank, rank);
-  SetToIdentityTransform(data.get(), rank);
+  auto data = TransformRep::Allocate(rank, domain_only ? 0 : rank);
+  SetToIdentityTransform(data.get(), rank, domain_only);
   span<std::string> input_labels = data->input_labels().first(rank);
   for (DimensionIndex i = 0; i < rank; ++i) {
     std::string_view label = labels[i];
@@ -55,36 +74,35 @@ TransformRep::Ptr<> MakeIdentityTransform(internal::StringLikeSpan labels) {
   return data;
 }
 
-TransformRep::Ptr<> MakeIdentityTransformLike(TransformRep* data) {
+TransformRep::Ptr<> MakeIdentityTransformLike(TransformRep* data,
+                                              bool domain_only) {
   assert(data != nullptr);
   const DimensionIndex rank = data->input_rank;
-  auto result = TransformRep::Allocate(rank, rank);
-  result->output_rank = rank;
+  auto result = TransformRep::Allocate(rank, domain_only ? 0 : rank);
   CopyTransformRepDomain(data, result.get());
-  SetToIdentityTransform(result->output_index_maps().first(rank));
+  SetIdentityOutputOrDomainOnly(result.get(), rank, domain_only);
   return result;
 }
 
-TransformRep::Ptr<> MakeIdentityTransform(span<const Index> shape) {
+TransformRep::Ptr<> MakeIdentityTransform(span<const Index> shape,
+                                          bool domain_only) {
   const DimensionIndex rank = shape.size();
-  auto result = TransformRep::Allocate(rank, rank);
-  result->input_rank = result->output_rank = rank;
+  auto result = TransformRep::Allocate(rank, domain_only ? 0 : rank);
+  result->input_rank = rank;
   std::fill_n(result->input_origin().begin(), rank, 0);
   std::copy_n(shape.begin(), rank, result->input_shape().begin());
-  result->implicit_lower_bounds(rank).fill(false);
-  result->implicit_upper_bounds(rank).fill(false);
-  SetToIdentityTransform(result->output_index_maps().first(rank));
+  result->implicit_bitvector = 0;
+  SetIdentityOutputOrDomainOnly(result.get(), rank, domain_only);
   return result;
 }
 
-TransformRep::Ptr<> MakeIdentityTransform(BoxView<> domain) {
+TransformRep::Ptr<> MakeIdentityTransform(BoxView<> domain, bool domain_only) {
   const DimensionIndex rank = domain.rank();
-  auto result = TransformRep::Allocate(rank, rank);
-  result->input_rank = result->output_rank = rank;
+  auto result = TransformRep::Allocate(rank, domain_only ? 0 : rank);
+  result->input_rank = rank;
   result->input_domain(rank).DeepAssign(domain);
-  result->implicit_lower_bounds(rank).fill(false);
-  result->implicit_upper_bounds(rank).fill(false);
-  SetToIdentityTransform(result->output_index_maps().first(rank));
+  result->implicit_bitvector = 0;
+  SetIdentityOutputOrDomainOnly(result.get(), rank, domain_only);
   return result;
 }
 

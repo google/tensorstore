@@ -438,6 +438,71 @@ class IndexDomain {
   /// Constructs an invalid index domain.
   IndexDomain() = default;
 
+  /// Constructs an unbounded domain with the specified rank.
+  ///
+  /// \checks `IsValidRank(rank)`
+  explicit IndexDomain(RankType rank)
+      : transform_(internal_index_space::TransformAccess::Make<Transform>(
+            internal_index_space::MakeIdentityTransform(
+                rank,
+                /*domain_only=*/true))) {}
+
+  /// Constructs a domain with the specified shape.
+  explicit IndexDomain(span<const Index, Rank> shape)
+      : transform_(internal_index_space::TransformAccess::Make<Transform>(
+            internal_index_space::MakeIdentityTransform(
+                shape,
+                /*domain_only=*/true))) {}
+
+  /// Constructs a domain with the specified shape.
+  ///
+  /// Can be called with a braced list, e.g. `IndexDomain({2, 3, 4})`.
+  template <DimensionIndex N,
+            typename = std::enable_if_t<IsRankImplicitlyConvertible(N, Rank)>>
+  explicit IndexDomain(const Index (&shape)[N])
+      : IndexDomain(span<const Index, Rank>(shape)) {
+    static_assert(IsValidRank(N));
+  }
+
+  /// Constructs a domain with the specified box.
+  explicit IndexDomain(BoxView<Rank> box)
+      : transform_(internal_index_space::TransformAccess::Make<Transform>(
+            internal_index_space::MakeIdentityTransform(
+                box,
+                /*domain_only=*/true))) {}
+
+  /// Constructs an unbounded domain with the specified labels.
+  template <DimensionIndex N,
+            typename = std::enable_if_t<IsRankImplicitlyConvertible(N, Rank)>>
+  explicit IndexDomain(const std::string_view (&labels)[N])
+      : transform_(internal_index_space::TransformAccess::Make<Transform>(
+            internal_index_space::MakeIdentityTransform(
+                internal::StringLikeSpan(labels),
+                /*domain_only=*/true))) {
+    static_assert(IsValidRank(N));
+  }
+
+  /// Constructs an unbounded domain with the specified labels.
+  explicit IndexDomain(span<const std::string_view, Rank> labels)
+      : transform_(internal_index_space::TransformAccess::Make<Transform>(
+            internal_index_space::MakeIdentityTransform(
+                internal::StringLikeSpan(labels),
+                /*domain_only=*/true))) {}
+
+  /// Constructs an unbounded domain with the specified labels.
+  explicit IndexDomain(span<const std::string, Rank> labels)
+      : transform_(internal_index_space::TransformAccess::Make<Transform>(
+            internal_index_space::MakeIdentityTransform(
+                internal::StringLikeSpan(labels),
+                /*domain_only=*/true))) {}
+
+  /// Constructs an unbounded domain with the specified labels.
+  explicit IndexDomain(span<const char*, Rank> labels)
+      : transform_(internal_index_space::TransformAccess::Make<Transform>(
+            internal_index_space::MakeIdentityTransform(
+                internal::StringLikeSpan(labels),
+                /*domain_only=*/true))) {}
+
   template <
       DimensionIndex OtherRank, ContainerKind OtherCKind,
       std::enable_if_t<IsRankImplicitlyConvertible(OtherRank, Rank)>* = nullptr>
@@ -893,7 +958,7 @@ IdentityTransformLike(const Array& array) {
 
 template <typename Shape, typename ShapeSpan = internal::ConstSpanType<Shape>,
           DimensionIndex Rank = ShapeSpan::extent>
-using IdentityTransformTypeFromShape =
+using IdentityTransformFromShapeType =
     std::enable_if_t<std::is_same<typename ShapeSpan::value_type, Index>::value,
                      IndexTransform<Rank, Rank>>;
 
@@ -902,10 +967,10 @@ using IdentityTransformTypeFromShape =
 ///
 /// The lower and upper bounds of the returned transform are explicit.
 template <typename Shape>
-inline IdentityTransformTypeFromShape<Shape> IdentityTransform(
+inline IdentityTransformFromShapeType<Shape> IdentityTransform(
     const Shape& input_shape) {
   return internal_index_space::TransformAccess::Make<
-      IdentityTransformTypeFromShape<Shape>>(
+      IdentityTransformFromShapeType<Shape>>(
       internal_index_space::MakeIdentityTransform(input_shape));
 }
 
@@ -916,6 +981,33 @@ inline IndexTransform<Rank, Rank> IdentityTransform(
     const Index (&shape)[Rank]) {
   return IdentityTransform(span(shape));
 }
+
+explicit IndexDomain(DimensionIndex)->IndexDomain<>;
+
+template <DimensionIndex Rank>
+explicit IndexDomain(std::integral_constant<DimensionIndex, Rank>)
+    -> IndexDomain<Rank>;
+
+template <DimensionIndex Rank>
+explicit IndexDomain(const Index (&shape)[Rank]) -> IndexDomain<Rank>;
+
+template <DimensionIndex Rank>
+explicit IndexDomain(const std::string_view (&labels)[Rank])
+    -> IndexDomain<Rank>;
+
+template <typename Shape>
+explicit IndexDomain(const Shape& shape)
+    -> IndexDomain<IdentityTransformFromShapeType<Shape>::static_input_rank>;
+
+template <typename Labels>
+explicit IndexDomain(const Labels& labels)
+    -> IndexDomain<IdentityTransformFromLabelsType<Labels>::static_input_rank>;
+
+template <typename BoxType>
+explicit IndexDomain(const BoxType& box) -> IndexDomain<
+    std::enable_if_t<IsBoxLike<BoxType>::value, BoxType>::static_rank>;
+
+explicit IndexDomain()->IndexDomain<>;
 
 /// Returns the inverse transform if one exists.
 ///

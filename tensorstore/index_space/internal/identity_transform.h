@@ -27,30 +27,50 @@ void SetToIdentityTransform(span<OutputIndexMap> maps);
 /// Returns a newly allocated identity transform representation of the specified
 /// rank that may be modified.
 ///
+/// \param rank Input rank of the transform.
+/// \param domain_only If `false`, return an identity transform.  If `true`,
+///     return a domain-only transform with `output_rank = 0`.
 /// \dchecks rank >= 0
 /// \remark The returned transform may be safely modified because
 ///     `reference_count == 1` except if `rank == 0`, in which case it is not
 ///     possible to modify anyway.
-TransformRep::Ptr<> MakeIdentityTransform(DimensionIndex rank);
+TransformRep::Ptr<> MakeIdentityTransform(DimensionIndex rank,
+                                          bool domain_only = false);
 
 /// Returns a newly allocated identity transform representation with the
 /// specified labels that may be modified.
-TransformRep::Ptr<> MakeIdentityTransform(internal::StringLikeSpan labels);
+///
+/// \param domain_only If `false`, return an identity transform.  If `true`,
+///     return a domain-only transform with `output_rank = 0`.
+TransformRep::Ptr<> MakeIdentityTransform(internal::StringLikeSpan labels,
+                                          bool domain_only = false);
 
 /// Returns a newly allocated identity transform representation over the
 /// specified input domain.
-TransformRep::Ptr<> MakeIdentityTransform(BoxView<> domain);
+///
+/// \param domain_only If `false`, return an identity transform.  If `true`,
+///     return a domain-only transform with `output_rank = 0`.
+TransformRep::Ptr<> MakeIdentityTransform(BoxView<> domain,
+                                          bool domain_only = false);
 
 /// Returns a newly allocated identity transform over the input domain of the
 /// specified transform that may be modified.
 ///
 /// \param data Non-null pointer to the existing transform representation.
+/// \param domain_only If `false`, return an identity transform.  If `true`,
+///     return a domain-only transform with `output_rank = 0`.
 /// \dchecks `data != nullptr`
-TransformRep::Ptr<> MakeIdentityTransformLike(TransformRep* data);
+TransformRep::Ptr<> MakeIdentityTransformLike(TransformRep* data,
+                                              bool domain_only = false);
 
 /// Returns a newly allocated identity transform with an input_origin vector of
 /// `0` and the specified `input_shape`.
-TransformRep::Ptr<> MakeIdentityTransform(span<const Index> shape);
+///
+/// \param shape Input domain shape.
+/// \param domain_only If `false`, return an identity transform.  If `true`,
+///     return a domain-only transform with `output_rank = 0`.
+TransformRep::Ptr<> MakeIdentityTransform(span<const Index> shape,
+                                          bool domain_only = false);
 
 }  // namespace internal_index_space
 }  // namespace tensorstore
