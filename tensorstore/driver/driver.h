@@ -48,6 +48,7 @@
 
 #include <iosfwd>
 
+#include "tensorstore/chunk_layout.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
@@ -349,6 +350,16 @@ class Driver : public AtomicReferenceCount<Driver> {
   virtual Result<TransformedDriverSpec<ContextBound>> GetBoundSpec(
       internal::OpenTransactionPtr transaction, IndexTransformView<> transform);
 
+  /// Returns the chunk layout.
+  ///
+  /// The default implementation simply returns an unchunked layout.
+  ///
+  /// \param transform Transform from the domain exposed to the user to the
+  ///     domain expected by the driver.
+  /// \returns The chunk layout, which must have rank equal to
+  ///     `transform.input_rank()`.
+  virtual Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform);
+
   /// Returns the Executor to use for data copying to/from this Driver (e.g. for
   /// Read and Write operations).
   virtual Executor data_copy_executor() = 0;
@@ -540,7 +551,7 @@ Future<void> DriverRead(DriverHandle source,
 /// \param executor Executor to use for copying data.
 /// \param source Read source.
 /// \param target_dtype Data type of newly-allocated destination array.
-/// \param target_layout_order Layout order of newly-allocated destination
+/// \param target_layout_order ChunkLayout order of newly-allocated destination
 ///     array.
 /// \param options Specifies optional progress function.
 /// \returns A future that becomes ready when the data has been copied or an
@@ -607,6 +618,8 @@ absl::Status CopyReadChunk(
 absl::Status CopyReadChunk(
     ReadChunk::Impl& chunk, IndexTransform<> chunk_transform,
     NormalizedTransformedArray<void, dynamic_rank, view> target);
+
+Result<ChunkLayout> GetChunkLayout(const Driver::Handle& handle);
 
 }  // namespace internal
 namespace internal_json_binding {

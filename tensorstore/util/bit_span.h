@@ -135,7 +135,7 @@ class BitRef<const T> {
     assert(offset >= 0);
   }
 
-  constexpr BitRef(BitRef<T> other TENSORSTORE_LIFETIME_BOUND)
+  constexpr BitRef(BitRef<T> other)
       : block_(other.block_), mask_(other.mask_) {}
 
   constexpr operator bool() const { return *block_ & mask_; }
@@ -411,10 +411,8 @@ class BitSpan {
   /// Returns the size in bits.
   constexpr ExtentType size() const { return size_; }
 
-  BitIterator<T> begin() const TENSORSTORE_LIFETIME_BOUND { return begin_; }
-  BitIterator<T> end() const TENSORSTORE_LIFETIME_BOUND {
-    return begin_ + size_;
-  }
+  BitIterator<T> begin() const { return begin_; }
+  BitIterator<T> end() const { return begin_ + size_; }
 
   /// Returns a `BitRef` to bit `i`.
   ///

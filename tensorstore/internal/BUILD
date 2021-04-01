@@ -2202,3 +2202,8 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
     ],
 )
+
+tensorstore_cc_library(
+    name = "integer_range",
+    hdrs = ["integer_range.h"],
+)

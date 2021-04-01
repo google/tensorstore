@@ -102,7 +102,12 @@ class ContextFromJsonOptions : public AllowUnregistered {
 };
 
 struct RankConstraint {
+  explicit RankConstraint(DimensionIndex rank = dynamic_rank) : rank(rank) {}
+
+  /// Specifies the rank, or equal to `dynamic_rank` if unknown.
   DimensionIndex rank = dynamic_rank;
+
+  constexpr operator DimensionIndex() const { return rank; }
 };
 
 }  // namespace tensorstore

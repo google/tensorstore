@@ -1,0 +1,63 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: ChunkLayout
+description: |
+  Chunk layouts may be serialized to/from JSON using the following schema.
+type: object
+properties:
+  grid_origin:
+    type: array
+    title: Origin of the chunk grid.
+    description: |
+      The length must equal the rank of the index space.  If not specified,
+      defaults to a zero vector.
+  inner_order:
+    type: array
+    items:
+      type: integer
+    title: |
+      Permutation specifying the element storage order within the innermost
+      chunks.
+    description: |
+      This must be a permuation of ``[0, 1, ..., rank-1]``.  Lexicographic
+      order (i.e. C order/row-major order) is specified as ``[0, 1, ...,
+      rank-1]``, while colexicographic order (i.e. Fortran order/column-major
+      order) is specified as ``[rank-1, ..., 1, 0]``.
+
+      May be left unspecified if the element storage order is unknown.
+  write_chunk:
+    $ref: "ChunkLayout/Grid"
+    title: |
+      Chunk grid over which writes may be efficiently partitioned.
+  read_chunk:
+    $ref: "ChunkLayout/Grid"
+    title: |
+      Chunk grid over which reads may be efficiently partitioned.
+  codec_chunk:
+    $ref: "ChunkLayout/Grid"
+    title: |
+      Chunk grid used by the codec, if applicable.
+definitions:
+  grid:
+    $id: 'ChunkLayout/Grid'
+    title: Read/write/codec chunk layout grid.
+    description: |
+      Specifies the chunk shape within a grid.  Chunk ``i`` along dimension
+      ``j`` corresponds to the interval ``[grid_origin[j] + shape[j] * i, grid_origin[j] +
+      shape[j] * (i + 1))``.
+    type: object
+    properties:
+      shape:
+        type: array
+        items:
+          oneOf:
+          - type: integer
+            minimum: 0
+          - type: 'null'
+        title: Chunk size along each dimension.
+        description: |
+          The length must equal the rank of the index space.  Each element of
+          the array must be a non-negative integer.  A value of :json:`0` (or
+          :json:`null`) for a given dimension indicates that the chunk size for
+          that dimension is unknown.
+    required:
+    - shape

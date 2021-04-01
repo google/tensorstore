@@ -110,6 +110,10 @@ class CastDriver
     return transform_spec;
   }
 
+  Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override {
+    return base_driver_->GetChunkLayout(transform);
+  }
+
   explicit CastDriver(Driver::Ptr base, DataType target_dtype,
                       DataTypeConversionLookupResult input_conversion,
                       DataTypeConversionLookupResult output_conversion)

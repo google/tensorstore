@@ -150,6 +150,8 @@ class ArrayDriver
       internal::OpenTransactionPtr transaction, BoundSpecData* spec,
       IndexTransformView<> transform);
 
+  Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override;
+
   static Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
       internal::RegisteredDriverOpener<BoundSpecData> spec,
@@ -282,6 +284,13 @@ Result<IndexTransform<>> ArrayDriver::GetBoundSpecData(
   spec->dtype = spec->array.dtype();
   spec->rank = spec->array.rank();
   return transform_builder.Finalize();
+}
+
+Result<ChunkLayout> ArrayDriver::GetChunkLayout(
+    IndexTransformView<> transform) {
+  ChunkLayout::Builder builder(data_.rank());
+  SetPermutationFromStridedLayout(data_.layout(), builder.inner_order());
+  return builder.Finalize() | transform;
 }
 
 Future<internal::Driver::Handle> ArrayDriver::Open(

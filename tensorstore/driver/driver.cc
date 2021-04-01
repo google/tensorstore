@@ -145,6 +145,10 @@ Result<TransformedDriverSpec<ContextBound>> Driver::GetBoundSpec(
   return absl::UnimplementedError("JSON representation not supported");
 }
 
+Result<ChunkLayout> Driver::GetChunkLayout(IndexTransformView<> transform) {
+  return {std::in_place};
+}
+
 Future<IndexTransform<>> Driver::ResolveBounds(OpenTransactionPtr transaction,
                                                IndexTransform<> transform,
                                                ResolveBoundsOptions options) {
@@ -1115,6 +1119,11 @@ absl::Status CopyReadChunk(
       internal::GetDataTypeConverter(target.dtype(), target.dtype());
   return CopyReadChunk(chunk, std::move(chunk_transform), converter,
                        std::move(target));
+}
+
+Result<ChunkLayout> GetChunkLayout(const Driver::Handle& handle) {
+  assert(handle.driver);
+  return handle.driver->GetChunkLayout(handle.transform);
 }
 
 }  // namespace internal

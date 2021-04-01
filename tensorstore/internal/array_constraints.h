@@ -23,12 +23,12 @@ namespace tensorstore {
 namespace internal {
 
 /// Specifies rank and data type information.
-struct ArrayConstraints {
+struct ArrayConstraints : public RankConstraint {
+  ArrayConstraints(DataType dtype = {}, DimensionIndex rank = dynamic_rank)
+      : RankConstraint{rank}, dtype(dtype) {}
+
   /// Specifies the data type, or equal to `DataType()` if unknown.
   DataType dtype;
-
-  /// Specifies the rank, or equal to `dynamic_rank` if unknown.
-  DimensionIndex rank = dynamic_rank;
 };
 
 /// Options for loading array-like types from JSON.

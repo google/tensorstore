@@ -337,6 +337,12 @@ class ChunkCache : public AsyncCache {
   PinnedCacheEntry<ChunkCache> GetEntryForCell(
       span<const Index> grid_cell_indices);
 
+  /// Returns the chunk layout for the specified component.
+  ///
+  /// The default implementation returns a single-level layout based on the
+  /// `ChunkGridSpecification`, but derived classes may override.
+  virtual Result<ChunkLayout> GetChunkLayout(size_t component_index);
+
   const Executor& executor() const { return executor_; }
 
  private:
@@ -394,6 +400,9 @@ class ChunkCacheDriver : public Driver {
   const StalenessBound& data_staleness_bound() const {
     return data_staleness_bound_;
   }
+
+  /// Returns a chunk layout derived from the `ChunkGridSpecification`.
+  Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override;
 
   Executor data_copy_executor() override;
 

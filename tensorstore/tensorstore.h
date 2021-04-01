@@ -17,6 +17,7 @@
 
 #include <string>
 
+#include "tensorstore/chunk_layout.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -211,6 +212,17 @@ class TensorStore {
     TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(SpecRequestOptions, options,
                                                   option)
     return spec(std::move(options), context_builder);
+  }
+
+  /// Returns the storage layout of this TensorStore, which can be used to
+  /// determine efficient read/write access patterns.
+  ///
+  /// If the layout of the TensorStore cannot be described by a hierarchical
+  /// regular grid, the returned chunk layout may be incomplete.
+  ///
+  /// \pre `valid()`
+  Result<ChunkLayout> chunk_layout() const {
+    return internal::GetChunkLayout(handle_);
   }
 
   /// "Pipeline" operator.

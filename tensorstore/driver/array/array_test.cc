@@ -32,10 +32,13 @@
 
 namespace {
 
+using tensorstore::ChunkLayout;
 using tensorstore::Context;
 using tensorstore::CopyProgress;
 using tensorstore::CopyProgressFunction;
+using tensorstore::DimensionIndex;
 using tensorstore::Index;
+using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
 using tensorstore::offset_origin;
 using tensorstore::ReadProgress;
@@ -648,6 +651,30 @@ TEST(FromArrayTest, CopyInvalidDataTypeConversion) {
           "Explicit data type conversion required to convert int32 -> int16"));
 }
 
+TEST(FromArrayTest, ChunkLayoutCOrder) {
+  auto array =
+      tensorstore::AllocateArray<float>({2, 3, 4}, tensorstore::c_order);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::FromArray(Context::Default(), array));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout,
+                                   ChunkLayout::FromJson({
+                                       {"inner_order", {0, 1, 2}},
+                                   }));
+  EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
+}
+
+TEST(FromArrayTest, ChunkLayoutFortranOrder) {
+  auto array =
+      tensorstore::AllocateArray<float>({2, 3, 4}, tensorstore::fortran_order);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::FromArray(Context::Default(), array));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout,
+                                   ChunkLayout::FromJson({
+                                       {"inner_order", {2, 1, 0}},
+                                   }));
+  EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
+}
+
 }  // namespace frontend_tests
 
 namespace open_tests {
@@ -823,7 +850,7 @@ TEST(ArrayTest, SpecFromArray) {
   EXPECT_EQ(1, spec.rank());
   EXPECT_EQ(tensorstore::dtype_v<float>, spec.dtype());
   EXPECT_THAT(spec.ToJson(tensorstore::IncludeContext{false}),
-              ::testing::Optional(tensorstore::MatchesJson(::nlohmann::json{
+              ::testing::Optional(MatchesJson(::nlohmann::json{
                   {"driver", "array"},
                   {"array", {1, 2, 3}},
                   {"dtype", "float32"},

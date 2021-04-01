@@ -124,6 +124,52 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "chunk_layout",
+    srcs = ["chunk_layout.cc"],
+    hdrs = ["chunk_layout.h"],
+    deps = [
+        ":box",
+        ":contiguous_layout",
+        ":index",
+        ":index_interval",
+        ":json_serialization_options",
+        "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:dimension_indexed_json_binder",
+        "//tensorstore/internal:integer_range",
+        "//tensorstore/internal:json",
+        "//tensorstore/util:constant_vector",
+        "//tensorstore/util:dimension_set",
+        "//tensorstore/util:division",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "chunk_layout_test",
+    size = "small",
+    srcs = ["chunk_layout_test.cc"],
+    deps = [
+        ":array",
+        ":chunk_layout",
+        ":index_interval",
+        "//tensorstore/index_space:dim_expression",
+        "//tensorstore/index_space:index_transform",
+        "//tensorstore/index_space:index_transform_testutil",
+        "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal:test_util",
+        "//tensorstore/util:division",
+        "//tensorstore/util:iterate_over_index_range",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/random:bit_gen_ref",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "container_kind",
     hdrs = ["container_kind.h"],
 )
@@ -551,6 +597,7 @@ tensorstore_cc_library(
     ],
     hdrs = ["tensorstore.h"],
     deps = [
+        ":chunk_layout",
         ":data_type",
         ":index",
         ":open_mode",
@@ -635,7 +682,7 @@ tensorstore_cc_library(
     hdrs = ["downsample_method.h"],
 )
 
-cc_library(
+tensorstore_cc_library(
     name = "downsample",
     hdrs = ["downsample.h"],
     deps = [

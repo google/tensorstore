@@ -737,6 +737,19 @@ void ChunkCacheDriver::Write(
 
 ChunkCacheDriver::~ChunkCacheDriver() = default;
 
+Result<ChunkLayout> ChunkCacheDriver::GetChunkLayout(
+    IndexTransformView<> transform) {
+  return cache_->GetChunkLayout(component_index()) | transform;
+}
+
+Result<ChunkLayout> ChunkCache::GetChunkLayout(size_t component_index) {
+  const auto& component_spec = grid().components[component_index];
+  ChunkLayout::Builder builder(component_spec.rank());
+  tensorstore::SetPermutation(c_order, builder.inner_order());
+  builder.write_chunk().shape(component_spec.shape());
+  return builder.Finalize();
+}
+
 Executor ChunkCacheDriver::data_copy_executor() { return cache_->executor(); }
 
 }  // namespace internal

@@ -18,6 +18,8 @@ Single file drivers
 
    json/index
 
+.. _chunked-drivers:
+
 Chunked storage drivers
 -----------------------
 

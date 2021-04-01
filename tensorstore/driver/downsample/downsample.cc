@@ -154,6 +154,13 @@ class DownsampleDriver
     return IndexTransformSpec(transform);
   }
 
+  Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto strided_base_transform,
+        base_transform_ | AllDims().Stride(downsample_factors_));
+    return base_driver_->GetChunkLayout(strided_base_transform) | transform;
+  }
+
   explicit DownsampleDriver(Driver::Ptr base, IndexTransform<> base_transform,
                             span<const Index> downsample_factors,
                             DownsampleMethod downsample_method)

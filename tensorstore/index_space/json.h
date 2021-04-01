@@ -139,6 +139,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_spec.h"
+#include "tensorstore/internal/array_constraints.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/json_serialization_options.h"
@@ -164,18 +165,27 @@ struct IndexTransformSpecToJsonOptions : public IncludeDefaults,
                                          public RankConstraint {
   IndexTransformSpecToJsonOptions(
       IncludeDefaults include_defaults = IncludeDefaults{true},
-      RankConstraint rank_constraint = {})
+      RankConstraint rank_constraint = RankConstraint{})
       : IncludeDefaults(include_defaults), RankConstraint(rank_constraint) {}
+  IndexTransformSpecToJsonOptions(RankConstraint rank_constraint)
+      : IncludeDefaults(true), RankConstraint(rank_constraint) {}
+  IndexTransformSpecToJsonOptions(const internal::ArrayToJsonOptions& options)
+      : IncludeDefaults(options), RankConstraint(options) {}
 };
 
 /// Options for parsing an `IndexTransformSpec` from JSON.
 ///
 /// See documentation of `IndexTransformSpecBinder` below.
 struct IndexTransformSpecFromJsonOptions : public RankConstraint {
+  IndexTransformSpecFromJsonOptions(RankConstraint rank_constraint)
+      : RankConstraint(rank_constraint) {}
   IndexTransformSpecFromJsonOptions(
       internal_json_binding::NoOptions no_options = {},
-      RankConstraint rank_constraint = {})
+      RankConstraint rank_constraint = RankConstraint{})
       : RankConstraint(rank_constraint) {}
+  IndexTransformSpecFromJsonOptions(
+      const internal::ArrayFromJsonOptions& options)
+      : RankConstraint(options) {}
 };
 
 }  // namespace internal_index_space

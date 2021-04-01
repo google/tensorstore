@@ -49,6 +49,7 @@ tensorstore_cc_library(
     ],
     deps = [
         ":chunk",
+        "//tensorstore:chunk_layout",
         "//tensorstore:context",
         "//tensorstore:data_type",
         "//tensorstore:open_mode",

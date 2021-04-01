@@ -29,8 +29,10 @@
 namespace {
 
 using tensorstore::Cast;
+using tensorstore::ChunkLayout;
 using tensorstore::Context;
 using tensorstore::DataTypeConversionFlags;
+using tensorstore::DimensionIndex;
 using tensorstore::dtype_v;
 using tensorstore::Index;
 using tensorstore::MakeArray;
@@ -452,6 +454,25 @@ TEST(CastTest, SpecRankPropagation) {
                                                   {"dtype", "int64"},
                                               }));
   EXPECT_EQ(1, spec.rank());
+}
+
+// Tests that the cast driver passes through the chunk layout.
+TEST(CastTest, ChunkLayout) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open({
+                                        {"driver", "cast"},
+                                        {"dtype", "int32"},
+                                        {"base",
+                                         {{"driver", "array"},
+                                          {"dtype", "int64"},
+                                          {"array", {{1, 2, 3}, {4, 5, 6}}}}},
+                                    })
+                      .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout,
+                                   ChunkLayout::FromJson({
+                                       {"inner_order", {0, 1}},
+                                   }));
+  EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
 }
 
 }  // namespace
