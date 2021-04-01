@@ -19,6 +19,7 @@
 #include "absl/algorithm/container.h"
 #include "absl/base/internal/endian.h"
 #include "absl/strings/str_join.h"
+#include "tensorstore/codec_spec_registry.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/container_to_shared.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
@@ -34,7 +35,14 @@ namespace internal_n5 {
 
 namespace jb = tensorstore::internal_json_binding;
 
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
+    N5CodecSpec,
+    jb::Sequence(jb::Member("compression",
+                            jb::Projection(&N5CodecSpec::compressor))))
+
 namespace {
+
+const internal::CodecSpecRegistration<N5CodecSpec> encoding_registration;
 
 constexpr std::array kSupportedDataTypes{
     DataTypeId::uint8_t,   DataTypeId::uint16_t, DataTypeId::uint32_t,

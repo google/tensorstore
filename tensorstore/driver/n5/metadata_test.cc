@@ -296,4 +296,13 @@ TEST(RawCompressionTest, PartialChunk) {
   EXPECT_EQ(array, DecodeChunk(metadata, absl::Cord(encoded_data)));
 }
 
+TEST(N5EncodingSpecTest, RoundTrip) {
+  tensorstore::TestJsonBinderRoundTripJsonOnly<tensorstore::CodecSpec::Ptr>({
+      {
+          {"driver", "n5"},
+          {"compression", {{"type", "raw"}}},
+      },
+  });
+}
+
 }  // namespace

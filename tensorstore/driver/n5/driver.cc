@@ -235,6 +235,15 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     return builder.Finalize();
   }
 
+  Result<CodecSpec::Ptr> GetCodec(const void* metadata,
+                                  std::size_t component_index) override {
+    assert(component_index == 0);
+    const auto& typed_metadata = *static_cast<const N5Metadata*>(metadata);
+    internal::IntrusivePtr<N5CodecSpec> codec(new N5CodecSpec);
+    codec->compressor = typed_metadata.compressor;
+    return codec;
+  }
+
   std::string key_prefix_;
 };
 

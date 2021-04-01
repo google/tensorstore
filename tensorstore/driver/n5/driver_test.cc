@@ -966,4 +966,28 @@ TEST(DriverTest, ChunkLayout) {
   EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
 }
 
+TEST(DriverTest, Codec) {
+  ::nlohmann::json json_spec{
+      {"driver", "n5"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"path", "prefix"},
+      {"metadata",
+       {
+           {"compression", {{"type", "raw"}}},
+           {"dataType", "int16"},
+           {"dimensions", {10, 11}},
+           {"blockSize", {3, 2}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_codec,
+                                   tensorstore::CodecSpec::Ptr::FromJson({
+                                       {"driver", "n5"},
+                                       {"compression", {{"type", "raw"}}},
+                                   }));
+  EXPECT_THAT(store.codec(), ::testing::Optional(expected_codec));
+}
+
 }  // namespace

@@ -19,6 +19,7 @@
 
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/n5/compressor.h"
 #include "tensorstore/internal/json_bindable.h"
@@ -123,6 +124,16 @@ class N5MetadataConstraints {
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(N5MetadataConstraints,
                                           internal_json_binding::NoOptions,
                                           tensorstore::IncludeDefaults)
+};
+
+class N5CodecSpec : public CodecSpec {
+ public:
+  constexpr static char id[] = "n5";
+  Compressor compressor;
+
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(N5CodecSpec, FromJsonOptions,
+                                          ToJsonOptions,
+                                          ::nlohmann::json::object_t)
 };
 
 /// Validates that `metadata` is consistent with `constraints`.

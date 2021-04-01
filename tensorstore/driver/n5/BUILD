@@ -175,6 +175,7 @@ tensorstore_cc_library(
     deps = [
         ":compressor",
         "//tensorstore:array",
+        "//tensorstore:codec_spec",
         "//tensorstore:data_type",
         "//tensorstore:strided_layout",
         "//tensorstore/index_space:index_transform_builder",
@@ -193,6 +194,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/base:endian",
         "@com_google_absl//absl/strings",
     ],
+    alwayslink = 1,
 )
 
 tensorstore_cc_test(

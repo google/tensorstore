@@ -77,6 +77,15 @@ definitions:
       compression:
         $ref: 'driver/n5/Compression'
         title: Specifies the chunk compression method.
+  codec:
+    $id: 'driver/n5/Codec'
+    allOf:
+      - $ref: Codec
+      - type: object
+        properties:
+          driver:
+            const: "n5"
+      - $ref: "#codec-properties"
   compression:
     $id: 'driver/n5/Compression'
     type: object

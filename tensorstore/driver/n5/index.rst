@@ -20,6 +20,14 @@ The following compression methods are supported:
 .. json:schema:: driver/n5/Compression/xz
 .. json:schema:: driver/n5/Compression/blosc
 
+Codec
+-----
+
+Within a :ref:`schema`, the compression parameters may also be specified
+separately as a :json:schema:`Codec`:
+
+.. json:schema:: driver/n5/Codec
+
 Limitations
 -----------
 
