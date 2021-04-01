@@ -33,7 +33,9 @@
 
 namespace {
 
+using tensorstore::ChunkLayout;
 using tensorstore::Context;
+using tensorstore::DimensionIndex;
 using tensorstore::Index;
 using tensorstore::KeyValueStore;
 using tensorstore::MatchesStatus;
@@ -1582,6 +1584,277 @@ TEST(DriverTest, NoPrefix) {
       ::testing::UnorderedElementsAre(
           Pair("info", ::testing::_),
           Pair("1_1_1/0-2_0-3_0-1", Bytes({1, 4, 2, 5, 3, 6}))));
+}
+
+TEST(DriverTest, ChunkLayoutUnshardedRaw) {
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint16"},
+           {"num_channels", 4},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"resolution", {1, 1, 1}},
+           {"encoding", "raw"},
+           {"chunk_size", {5, 6, 7}},
+           {"size", {10, 99, 98}},
+           {"voxel_offset", {1, 2, 3}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto expected_layout, ChunkLayout::FromJson({
+                                {"grid_origin", {1, 2, 3, 0}},
+                                {"write_chunk", {{"shape", {5, 6, 7, 4}}}},
+                                {"inner_order", {3, 2, 1, 0}},
+                            }));
+  EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
+}
+
+TEST(DriverTest, ChunkLayoutShardedRaw) {
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint16"},
+           {"num_channels", 4},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"resolution", {1, 1, 1}},
+           {"encoding", "raw"},
+           {"chunk_size", {64, 64, 64}},
+           {"size", {34432, 39552, 51508}},
+           {"voxel_offset", {1, 2, 3}},
+           {"sharding",
+            {{"@type", "neuroglancer_uint64_sharded_v1"},
+             {"preshift_bits", 9},
+             {"minishard_bits", 6},
+             {"shard_bits", 15},
+             {"data_encoding", "gzip"},
+             {"minishard_index_encoding", "gzip"},
+             {"hash", "identity"}}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto expected_layout,
+      ChunkLayout::FromJson({
+          {"grid_origin", {1, 2, 3, 0}},
+          {"write_chunk", {{"shape", {2048, 2048, 2048, 4}}}},
+          {"read_chunk", {{"shape", {64, 64, 64, 4}}}},
+          {"inner_order", {3, 2, 1, 0}},
+      }));
+  EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
+}
+
+TEST(DriverTest, ChunkLayoutShardedRawNonUniform) {
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint16"},
+           {"num_channels", 4},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"resolution", {1, 1, 1}},
+           {"encoding", "raw"},
+           {"chunk_size", {64, 65, 66}},
+           {"size", {34432, 39552, 51508}},
+           {"voxel_offset", {1, 2, 3}},
+           {"sharding",
+            {{"@type", "neuroglancer_uint64_sharded_v1"},
+             {"preshift_bits", 9},
+             {"minishard_bits", 6},
+             {"shard_bits", 15},
+             {"data_encoding", "gzip"},
+             {"minishard_index_encoding", "gzip"},
+             {"hash", "identity"}}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto expected_layout,
+      ChunkLayout::FromJson({
+          {"grid_origin", {1, 2, 3, 0}},
+          {"write_chunk", {{"shape", {2048, 2080, 2112, 4}}}},
+          {"read_chunk", {{"shape", {64, 65, 66, 4}}}},
+          {"inner_order", {3, 2, 1, 0}},
+      }));
+  EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
+}
+
+// Tests obtaining the chunk layout in the case that each shard does not
+// correspond to a single rectangular region.
+TEST(DriverTest, ChunkLayoutShardedRawNonRectangular) {
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint16"},
+           {"num_channels", 4},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"resolution", {1, 1, 1}},
+           {"encoding", "raw"},
+           {"chunk_size", {64, 64, 64}},
+           {"size", {34432, 39552, 51508}},
+           {"voxel_offset", {1, 2, 3}},
+           {"sharding",
+            {{"@type", "neuroglancer_uint64_sharded_v1"},
+             {"preshift_bits", 9},
+             {"minishard_bits", 6},
+             {"shard_bits", 5},
+             {"data_encoding", "gzip"},
+             {"minishard_index_encoding", "gzip"},
+             {"hash", "identity"}}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto expected_layout, ChunkLayout::FromJson({
+                                {"grid_origin", {1, 2, 3, 0}},
+                                {"read_chunk", {{"shape", {64, 64, 64, 4}}}},
+                                {"inner_order", {3, 2, 1, 0}},
+                            }));
+  EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
+}
+
+// Tests obtaining the chunk layout in the case that a non-identity hash
+// function is specified.
+TEST(DriverTest, ChunkLayoutShardedRawNonIdentity) {
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint16"},
+           {"num_channels", 4},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"resolution", {1, 1, 1}},
+           {"encoding", "raw"},
+           {"chunk_size", {64, 64, 64}},
+           {"size", {34432, 39552, 51508}},
+           {"voxel_offset", {1, 2, 3}},
+           {"sharding",
+            {{"@type", "neuroglancer_uint64_sharded_v1"},
+             {"preshift_bits", 9},
+             {"minishard_bits", 6},
+             {"shard_bits", 15},
+             {"data_encoding", "gzip"},
+             {"minishard_index_encoding", "gzip"},
+             {"hash", "murmurhash3_x86_128"}}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto expected_layout, ChunkLayout::FromJson({
+                                {"grid_origin", {1, 2, 3, 0}},
+                                {"read_chunk", {{"shape", {64, 64, 64, 4}}}},
+                                {"inner_order", {3, 2, 1, 0}},
+                            }));
+  EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
+}
+
+TEST(DriverTest, ChunkLayoutUnshardedCompressedSegmentation) {
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint64"},
+           {"num_channels", 4},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"resolution", {1, 1, 1}},
+           {"encoding", "compressed_segmentation"},
+           {"compressed_segmentation_block_size", {8, 9, 10}},
+           {"chunk_size", {5, 6, 7}},
+           {"size", {10, 99, 98}},
+           {"voxel_offset", {1, 2, 3}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto expected_layout, ChunkLayout::FromJson({
+                                {"grid_origin", {1, 2, 3, 0}},
+                                {"write_chunk", {{"shape", {5, 6, 7, 4}}}},
+                                {"codec_chunk", {{"shape", {8, 9, 10, 4}}}},
+                                {"inner_order", {3, 2, 1, 0}},
+                            }));
+  EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
+}
+
+TEST(DriverTest, ChunkLayoutShardedCompressedSegmentation) {
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint64"},
+           {"num_channels", 4},
+           {"type", "segmentation"},
+       }},
+      {"scale_metadata",
+       {
+           {"resolution", {1, 1, 1}},
+           {"encoding", "compressed_segmentation"},
+           {"compressed_segmentation_block_size", {8, 9, 10}},
+           {"chunk_size", {64, 64, 64}},
+           {"size", {34432, 39552, 51508}},
+           {"voxel_offset", {1, 2, 3}},
+           {"sharding",
+            {{"@type", "neuroglancer_uint64_sharded_v1"},
+             {"preshift_bits", 9},
+             {"minishard_bits", 6},
+             {"shard_bits", 15},
+             {"data_encoding", "gzip"},
+             {"minishard_index_encoding", "gzip"},
+             {"hash", "identity"}}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto expected_layout,
+      ChunkLayout::FromJson({
+          {"grid_origin", {1, 2, 3, 0}},
+          {"write_chunk", {{"shape", {2048, 2048, 2048, 4}}}},
+          {"read_chunk", {{"shape", {64, 64, 64, 4}}}},
+          {"codec_chunk", {{"shape", {8, 9, 10, 4}}}},
+          {"inner_order", {3, 2, 1, 0}},
+      }));
+  EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
 }
 
 }  // namespace

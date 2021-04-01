@@ -31,7 +31,9 @@
 
 namespace {
 
+using tensorstore::ChunkLayout;
 using tensorstore::Context;
+using tensorstore::DimensionIndex;
 using tensorstore::Index;
 using tensorstore::KeyValueStore;
 using tensorstore::kImplicit;
@@ -938,6 +940,30 @@ TEST(DriverTest, NoPrefix) {
                                       ParseJsonMatches(metadata_json))),
           Pair("0/0", ::testing::_), Pair("0/1", ::testing::_),
           Pair("1/0", ::testing::_), Pair("1/1", ::testing::_)));
+}
+
+TEST(DriverTest, ChunkLayout) {
+  ::nlohmann::json json_spec{
+      {"driver", "n5"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"path", "prefix"},
+      {"metadata",
+       {
+           {"compression", {{"type", "raw"}}},
+           {"dataType", "int16"},
+           {"dimensions", {10, 11}},
+           {"blockSize", {3, 2}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout,
+                                   ChunkLayout::FromJson({
+                                       {"write_chunk", {{"shape", {3, 2}}}},
+                                       {"inner_order", {1, 0}},
+                                   }));
+  EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
 }
 
 }  // namespace

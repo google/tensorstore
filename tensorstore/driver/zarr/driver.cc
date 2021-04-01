@@ -280,6 +280,18 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     return absl::OkStatus();
   }
 
+  Result<ChunkLayout> GetChunkLayout(const void* metadata_ptr,
+                                     std::size_t component_index) override {
+    const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
+    auto& encoded_strided_layout =
+        metadata.chunk_layout.fields[component_index].encoded_chunk_layout;
+    ChunkLayout::Builder builder(encoded_strided_layout.rank());
+    builder.write_chunk().shape(encoded_strided_layout.shape());
+    SetPermutationFromStridedLayout(encoded_strided_layout,
+                                    builder.inner_order());
+    return builder.Finalize();
+  }
+
  private:
   std::string key_prefix_;
   ChunkKeyEncoding key_encoding_;

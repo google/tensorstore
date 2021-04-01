@@ -30,7 +30,9 @@
 namespace {
 
 using tensorstore::BoxView;
+using tensorstore::ChunkLayout;
 using tensorstore::Context;
+using tensorstore::DimensionIndex;
 using tensorstore::DownsampleMethod;
 using tensorstore::Index;
 using tensorstore::MakeArray;
@@ -674,6 +676,36 @@ TEST(DownsampleTest, Spec) {
                   {"downsample_method", "mean"},
                   {"rank", 1},
               }))));
+}
+
+TEST(DownsampleTest, ChunkLayout) {
+  ::nlohmann::json base_spec{
+      {"driver", "n5"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"metadata",
+       {{"dataType", "uint8"},
+        {"dimensions", {100, 200}},
+        {"blockSize", {10, 21}},
+        {"compression", {{"type", "raw"}}}}},
+  };
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store,
+      tensorstore::Open(base_spec, context, tensorstore::OpenMode::create)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open({{"driver", "downsample"},
+                                     {"base", base_spec},
+                                     {"downsample_factors", {2, 3}},
+                                     {"downsample_method", "mean"}},
+                                    context)
+                      .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout,
+                                   ChunkLayout::FromJson({
+                                       {"write_chunk", {{"shape", {5, 7}}}},
+                                       {"inner_order", {1, 0}},
+                                   }));
+  EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
 }
 
 }  // namespace

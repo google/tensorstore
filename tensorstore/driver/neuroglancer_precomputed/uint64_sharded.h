@@ -20,7 +20,7 @@
 /// format.
 ///
 /// Refer to the specification here:
-/// https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#sharded-format
+/// https://github.com/google/neuroglancer/blob/master/src/neuroglancer/datasource/precomputed/sharded.md
 
 #include <ostream>
 #include <string>
@@ -40,7 +40,7 @@ namespace neuroglancer_uint64_sharded {
 /// Specifies sharded storage parameters.
 ///
 /// Refer to the specification here:
-/// https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#sharding-specification
+/// https://github.com/google/neuroglancer/blob/master/src/neuroglancer/datasource/precomputed/sharded.md#sharding-specification
 class ShardingSpec {
  public:
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ShardingSpec,

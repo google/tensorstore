@@ -86,6 +86,11 @@ DataCache::DataCache(Initializer initializer,
       metadata_cache_entry_(std::move(initializer.metadata_cache_entry)),
       initial_metadata_(std::move(initializer.metadata)) {}
 
+Result<ChunkLayout> DataCache::GetChunkLayout(const void* metadata_ptr,
+                                              std::size_t component_index) {
+  return ChunkCache::GetChunkLayout(component_index);
+}
+
 namespace {
 
 // Address of this variable is used to signal an invalid metadata value.
@@ -297,6 +302,10 @@ void GetComponentBounds(DataCache* data_cache, const void* metadata,
 }
 
 }  // namespace
+
+Result<ChunkLayout> DataCache::GetChunkLayout(size_t component_index) {
+  return GetChunkLayout(initial_metadata_.get(), component_index);
+}
 
 Future<IndexTransform<>> DriverBase::ResolveBounds(
     internal::OpenTransactionPtr transaction, IndexTransform<> transform,

@@ -265,6 +265,21 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
     return absl::OkStatus();
   }
 
+  void SetBaseChunkGrid(const MultiscaleMetadata& metadata,
+                        ChunkLayout::Builder& builder,
+                        ChunkLayout::Usage base_usage) {
+    const auto& scale = metadata.scales[scale_index_];
+    SetPermutation(c_order, builder.inner_order());
+    builder[base_usage].shape(chunk_layout_czyx_.shape());
+    if (scale.encoding == ScaleMetadata::Encoding::compressed_segmentation) {
+      builder.codec_chunk().shape(
+          {metadata.num_channels, scale.compressed_segmentation_block_size[2],
+           scale.compressed_segmentation_block_size[1],
+           scale.compressed_segmentation_block_size[0]});
+    }
+    // Leave origin set at zero; origin is accounted for by the index transform.
+  }
+
   std::string key_prefix_;
   std::size_t scale_index_;
   // channel, z, y, x
@@ -302,6 +317,15 @@ class UnshardedDataCache : public DataCacheBase {
     return key;
   }
 
+  Result<ChunkLayout> GetChunkLayout(const void* metadata_ptr,
+                                     std::size_t component_index) override {
+    const auto& metadata =
+        *static_cast<const MultiscaleMetadata*>(metadata_ptr);
+    ChunkLayout::Builder builder(4);
+    SetBaseChunkGrid(metadata, builder, ChunkLayout::kWrite);
+    return builder.Finalize();
+  }
+
  private:
   /// Resolved key prefix for the scale.
   std::string scale_key_prefix_;
@@ -327,6 +351,27 @@ class ShardedDataCache : public DataCacheBase {
     const std::uint64_t chunk_key = EncodeCompressedZIndex(
         {cell_indices.data(), 3}, compressed_z_index_bits_);
     return neuroglancer_uint64_sharded::ChunkIdToKey({chunk_key});
+  }
+
+  Result<ChunkLayout> GetChunkLayout(const void* metadata_ptr,
+                                     std::size_t component_index) override {
+    const auto& metadata =
+        *static_cast<const MultiscaleMetadata*>(metadata_ptr);
+    const auto& scale = metadata.scales[scale_index_];
+    const auto& sharding = *std::get_if<ShardingSpec>(&scale.sharding);
+    ChunkLayout::Builder builder(4);
+    SetBaseChunkGrid(metadata, builder, ChunkLayout::kRead);
+    if (ShardChunkHierarchy hierarchy; GetShardChunkHierarchy(
+            sharding, scale.box.shape(), scale.chunk_sizes[0], hierarchy)) {
+      builder.write_chunk().shape()[0] = metadata.num_channels;
+      for (int dim = 0; dim < 3; ++dim) {
+        const Index chunk_size = scale.chunk_sizes[0][dim];
+        const Index volume_size = scale.box.shape()[dim];
+        builder.write_chunk().shape()[3 - dim] = std::min(
+            hierarchy.shard_shape_in_chunks[dim] * chunk_size, volume_size);
+      }
+    }
+    return builder.Finalize();
   }
 
   std::array<int, 3> compressed_z_index_bits_;

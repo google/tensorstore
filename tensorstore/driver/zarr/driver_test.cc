@@ -38,8 +38,10 @@
 
 namespace {
 
+using tensorstore::ChunkLayout;
 using tensorstore::complex64_t;
 using tensorstore::Context;
+using tensorstore::DimensionIndex;
 using tensorstore::Index;
 using tensorstore::KeyValueStore;
 using tensorstore::kImplicit;
@@ -2113,6 +2115,64 @@ TEST(DriverTest, NoPrefix) {
           Pair("0/1", Bytes({0, 0, 0, 0, 2, 3})),
           Pair("1/0", Bytes({0, 4, 0, 0, 0, 0})),
           Pair("1/1", Bytes({5, 6, 0, 0, 0, 0}))));
+}
+
+TEST(DriverTest, ChunkLayout) {
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"path", "prefix"},
+      {"metadata",
+       {
+           {"compressor", {{"id", "blosc"}}},
+           {"dtype", "<i2"},
+           {"shape", {100, 100}},
+           {"chunks", {3, 2}},
+       }},
+  };
+  // Open with C order.
+  {
+    json_spec["metadata"]["order"] = "C";
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout,
+                                     ChunkLayout::FromJson({
+                                         {"write_chunk", {{"shape", {3, 2}}}},
+                                         {"inner_order", {0, 1}},
+                                     }));
+    EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
+
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto transformed_store,
+        store |
+            tensorstore::Dims(1, 0).TranslateBy({5, 4}).Stride(2).Transpose());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto expected_transformed_layout,
+        ChunkLayout::FromJson({
+            {"write_chunk", {{"shape", {1, 3}}}},
+            // Chunk grid is aligned to an origin of `{3, 2}` rather than
+            // `{0, 0}` due to the translation above.
+            {"grid_origin", {3, 2}},
+            {"inner_order", {1, 0}},
+        }));
+    EXPECT_THAT(transformed_store.chunk_layout(),
+                ::testing::Optional(expected_transformed_layout));
+  }
+
+  // Open with Fortran order.
+  {
+    json_spec["metadata"]["order"] = "F";
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout,
+                                     ChunkLayout::FromJson({
+                                         {"write_chunk", {{"shape", {3, 2}}}},
+                                         {"inner_order", {1, 0}},
+                                     }));
+    EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
+  }
 }
 
 }  // namespace

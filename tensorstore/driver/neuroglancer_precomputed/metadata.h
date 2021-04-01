@@ -256,6 +256,33 @@ std::array<int, 3> GetCompressedZIndexBits(span<const Index, 3> shape,
 std::uint64_t EncodeCompressedZIndex(span<const Index, 3> indices,
                                      std::array<int, 3> bits);
 
+struct ShardChunkHierarchy {
+  /// Number of bits for each dimension in compressed Morton code.
+  std::array<int, 3> z_index_bits;
+  /// Shape of entire volume in base chunks, in xyz order.
+  std::array<Index, 3> grid_shape_in_chunks;
+  /// Shape of a minishard in base chunks, in xyz order.
+  std::array<Index, 3> minishard_shape_in_chunks;
+  /// Shape of a shard in base chunks, in xyz order.
+  std::array<Index, 3> shard_shape_in_chunks;
+  /// Number of initial bits that do not contribute to the shard number.
+  int non_shard_bits;
+  /// Number of bits after `non_shard_bits` that contribute to shard number.
+  int shard_bits;
+};
+
+/// Computes the minishard and shard grids.
+///
+/// \param sharding_spec The sharding spec.
+/// \param volume_shape The volume shape, xyz.
+/// \param chunk_shape The chunk shape, xyz.
+/// \returns `true` if the minishards and shards correspond to rectangular
+///     regions, or `false` otherwise.
+bool GetShardChunkHierarchy(const ShardingSpec& sharding_spec,
+                            span<const Index, 3> volume_shape,
+                            span<const Index, 3> chunk_shape,
+                            ShardChunkHierarchy& hierarchy);
+
 /// Returns a function that computes the number of chunks in a given shard of a
 /// sharded volume.
 ///
@@ -266,8 +293,8 @@ std::uint64_t EncodeCompressedZIndex(span<const Index, 3> indices,
 /// of the volume.
 ///
 /// \param sharding_spec The sharding spec.
-/// \param volume_shape The volume shape.
-/// \param chunk_shape The chunk shape.
+/// \param volume_shape The volume shape, xyz.
+/// \param chunk_shape The chunk shape, xyz.
 std::function<std::uint64_t(std::uint64_t shard)>
 GetChunksPerVolumeShardFunction(const ShardingSpec& sharding_spec,
                                 span<const Index, 3> volume_shape,

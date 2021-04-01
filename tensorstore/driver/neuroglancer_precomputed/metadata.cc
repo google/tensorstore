@@ -825,18 +825,58 @@ std::uint64_t EncodeCompressedZIndex(span<const Index, 3> indices,
   return x;
 }
 
-std::function<std::uint64_t(std::uint64_t shard)>
-GetChunksPerVolumeShardFunction(const ShardingSpec& sharding_spec,
-                                span<const Index, 3> volume_shape,
-                                span<const Index, 3> chunk_shape) {
-  if (sharding_spec.hash_function != ShardingSpec::HashFunction::identity) {
-    // For non-identity hash functions, the number of chunks per shard is
-    // not predicable and the shard doesn't correspond to a rectangular
-    // region anyway.
-    return {};
+namespace {
+struct CompressedMortonBitIterator {
+  explicit CompressedMortonBitIterator(span<const int, 3> z_index_bits)
+      : z_index_bits(z_index_bits) {
+    cur_bit_for_dim.fill(0);
   }
 
-  const std::array<int, 3> z_index_bits =
+  int GetNextDim() {
+    while (cur_bit_for_dim[dim_i] == z_index_bits[dim_i]) {
+      dim_i = (dim_i + 1) % 3;
+    }
+    return dim_i;
+  }
+
+  void Next() {
+    ++cur_bit_for_dim[dim_i];
+    dim_i = (dim_i + 1) % 3;
+  }
+  void Next(int n) {
+    for (int i = 0; i < n; ++i) {
+      GetNextDim();
+      Next();
+    }
+  }
+  std::array<Index, 3> GetCurrentCellShape(
+      span<const Index, 3> grid_shape_in_chunks) const {
+    std::array<Index, 3> shape;
+    for (int i = 0; i < 3; ++i) {
+      shape[i] =
+          std::min(grid_shape_in_chunks[i], Index(1) << cur_bit_for_dim[i]);
+    }
+    return shape;
+  }
+
+  int dim_i = 0;
+  std::array<Index, 3> cur_bit_for_dim;
+  span<const int, 3> z_index_bits;
+};
+}  // namespace
+
+bool GetShardChunkHierarchy(const ShardingSpec& sharding_spec,
+                            span<const Index, 3> volume_shape,
+                            span<const Index, 3> chunk_shape,
+                            ShardChunkHierarchy& hierarchy) {
+  if (sharding_spec.hash_function != ShardingSpec::HashFunction::identity) {
+    // For non-identity hash functions, the number of chunks per shard is not
+    // predicable and the shard doesn't correspond to a rectangular region
+    // anyway.
+    return false;
+  }
+
+  const auto& z_index_bits = hierarchy.z_index_bits =
       GetCompressedZIndexBits(volume_shape, chunk_shape);
   const int total_z_index_bits =
       z_index_bits[0] + z_index_bits[1] + z_index_bits[2];
@@ -844,71 +884,80 @@ GetChunksPerVolumeShardFunction(const ShardingSpec& sharding_spec,
       (sharding_spec.preshift_bits + sharding_spec.minishard_bits +
        sharding_spec.shard_bits)) {
     // A shard doesn't correspond to a rectangular region.
-    return {};
+    return false;
   }
 
-  std::array<Index, 3> grid_shape;
   for (int i = 0; i < 3; ++i) {
-    grid_shape[i] = CeilOfRatio(volume_shape[i], chunk_shape[i]);
+    hierarchy.grid_shape_in_chunks[i] =
+        CeilOfRatio(volume_shape[i], chunk_shape[i]);
   }
 
-  // Any additional non-shard bits beyond `total_z_index_bits` are
-  // irrelevant because they will always be 0.  Constraining
-  // `non_shard_bits` here allows us to avoid checking later.
-  const int non_shard_bits =
+  const int within_minishard_bits =
+      std::min(sharding_spec.preshift_bits, total_z_index_bits);
+
+  // Any additional non-shard bits beyond `total_z_index_bits` are irrelevant
+  // because they will always be 0.  Constraining `non_shard_bits` here allows
+  // us to avoid checking later.
+  const int non_shard_bits = hierarchy.non_shard_bits =
       std::min(sharding_spec.minishard_bits + sharding_spec.preshift_bits,
                total_z_index_bits);
 
-  // Any additional shard bits beyond `total_z_index_bits - non_shard_bits`
-  // are irrelevant because they will always be 0.
-  const int shard_bits =
+  // Any additional shard bits beyond `total_z_index_bits - non_shard_bits` are
+  // irrelevant because they will always be 0.
+  hierarchy.shard_bits =
       std::min(sharding_spec.shard_bits, total_z_index_bits - non_shard_bits);
 
-  return [grid_shape, shard_bits, non_shard_bits,
-          z_index_bits](std::uint64_t shard) -> std::uint64_t {
-    if ((shard >> shard_bits) != 0) {
+  CompressedMortonBitIterator bit_it(z_index_bits);
+  // Determine minishard shape.
+  bit_it.Next(within_minishard_bits);
+  hierarchy.minishard_shape_in_chunks =
+      bit_it.GetCurrentCellShape(hierarchy.grid_shape_in_chunks);
+
+  // Determine shard shape.
+  bit_it.Next(non_shard_bits - within_minishard_bits);
+  hierarchy.shard_shape_in_chunks =
+      bit_it.GetCurrentCellShape(hierarchy.grid_shape_in_chunks);
+  return true;
+}
+
+std::function<std::uint64_t(std::uint64_t shard)>
+GetChunksPerVolumeShardFunction(const ShardingSpec& sharding_spec,
+                                span<const Index, 3> volume_shape,
+                                span<const Index, 3> chunk_shape) {
+  ShardChunkHierarchy hierarchy;
+  if (!GetShardChunkHierarchy(sharding_spec, volume_shape, chunk_shape,
+                              hierarchy)) {
+    return {};
+  }
+  return [hierarchy](std::uint64_t shard) -> std::uint64_t {
+    if ((shard >> hierarchy.shard_bits) != 0) {
       // Invalid shard number.
       return 0;
     }
 
-    std::array<Index, 3> cell_shape;
-    cell_shape.fill(1);
-    std::array<Index, 3> cur_bit_for_dim;
-    cur_bit_for_dim.fill(0);
-
-    const auto ForEachBit = [&](int num_bits, auto func) {
-      int dim_i = 0;
-      for (int bit_i = 0; bit_i < num_bits; ++bit_i) {
-        while (cur_bit_for_dim[dim_i] == z_index_bits[dim_i]) {
-          dim_i = (dim_i + 1) % 3;
-        }
-        func(bit_i, dim_i);
-        ++cur_bit_for_dim[dim_i];
-        dim_i = (dim_i + 1) % 3;
-      }
-    };
-
-    ForEachBit(non_shard_bits, [](int bit_i, int dim_i) {});
-
-    for (int dim_i = 0; dim_i < 3; ++dim_i) {
-      cell_shape[dim_i] = Index(1) << cur_bit_for_dim[dim_i];
-    }
-
+    CompressedMortonBitIterator bit_it(hierarchy.z_index_bits);
+    bit_it.Next(hierarchy.non_shard_bits);
+    auto cell_shape =
+        bit_it.GetCurrentCellShape(hierarchy.grid_shape_in_chunks);
     std::array<Index, 3> cell_origin;
     cell_origin.fill(0);
-    ForEachBit(shard_bits, [&](int bit_i, int dim_i) {
+    for (int bit_i = 0; bit_i < hierarchy.shard_bits; ++bit_i) {
+      int dim_i = bit_it.GetNextDim();
       if ((shard >> bit_i) & 1) {
-        cell_origin[dim_i] |= Index(1) << cur_bit_for_dim[dim_i];
+        cell_origin[dim_i] |= Index(1) << bit_it.cur_bit_for_dim[dim_i];
       }
-    });
+      bit_it.Next();
+    }
 
     std::uint64_t num_chunks = 1;
     for (int dim_i = 0; dim_i < 3; ++dim_i) {
       num_chunks *= static_cast<std::uint64_t>(
-          std::min(grid_shape[dim_i] - cell_origin[dim_i], cell_shape[dim_i]));
+          std::min(hierarchy.grid_shape_in_chunks[dim_i] - cell_origin[dim_i],
+                   cell_shape[dim_i]));
     }
-    assert(((non_shard_bits == 0) ? num_chunks
-                                  : (num_chunks >> non_shard_bits)) <= 1);
+    assert(((hierarchy.non_shard_bits == 0)
+                ? num_chunks
+                : (num_chunks >> hierarchy.non_shard_bits)) <= 1);
     return num_chunks;
   };
 }

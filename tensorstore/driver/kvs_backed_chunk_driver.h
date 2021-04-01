@@ -307,10 +307,21 @@ class DataCache : public DataCacheBase {
   ///     driver.  The implementation must `static_cast` this pointer to the
   ///     appropriate derived type.
   /// \param metadata Non-null pointer to metadata of type `Metadata`.
-  /// \param component_index The component index.
+  /// \param component_index The ChunkCache component index.
   virtual Status GetBoundSpecData(SpecT<internal::ContextBound>* spec,
                                   const void* metadata,
                                   std::size_t component_index) = 0;
+
+  /// Returns the chunk layout for the specified component.
+  ///
+  /// By default, returns a chunk layout computed from `this->grid()`.
+  ///
+  /// \param metadata Non-null pointer to the metadata of type `Metadata`.
+  /// \param component_index The ChunkCache component index.
+  virtual Result<ChunkLayout> GetChunkLayout(const void* metadata_ptr,
+                                             std::size_t component_index);
+
+  Result<ChunkLayout> GetChunkLayout(std::size_t component_index) override;
 
   /// Returns a non-null pointer to a copy of `existing_metadata` with the
   /// specified bounds resized.
@@ -364,7 +375,7 @@ class DataCache : public DataCacheBase {
   /// from the `ChunkGridSpecification`.
   ///
   /// \param metadata The metadata.
-  /// \param component_index The component index.
+  /// \param component_index The ChunkCache component index.
   /// \returns The index transform, or a null transform.
   /// \pre `component_index` is less than
   ///     `GetChunkGridSpecification(metadata).component.size()`.

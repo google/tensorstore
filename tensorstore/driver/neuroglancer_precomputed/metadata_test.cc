@@ -45,6 +45,7 @@ using tensorstore::internal_neuroglancer_precomputed::
 using tensorstore::internal_neuroglancer_precomputed::GetCompressedZIndexBits;
 using tensorstore::internal_neuroglancer_precomputed::
     GetMetadataCompatibilityKey;
+using tensorstore::internal_neuroglancer_precomputed::GetShardChunkHierarchy;
 using tensorstore::internal_neuroglancer_precomputed::MultiscaleMetadata;
 using tensorstore::internal_neuroglancer_precomputed::
     MultiscaleMetadataConstraints;
@@ -53,6 +54,7 @@ using tensorstore::internal_neuroglancer_precomputed::OpenConstraints;
 using tensorstore::internal_neuroglancer_precomputed::ResolveScaleKey;
 using tensorstore::internal_neuroglancer_precomputed::ScaleMetadata;
 using tensorstore::internal_neuroglancer_precomputed::ScaleMetadataConstraints;
+using tensorstore::internal_neuroglancer_precomputed::ShardChunkHierarchy;
 using tensorstore::internal_neuroglancer_precomputed::ShardingSpec;
 using tensorstore::internal_neuroglancer_precomputed::ValidateDataType;
 using tensorstore::internal_neuroglancer_precomputed::
@@ -1828,6 +1830,17 @@ TEST(GetChunksPerVolumeShardFunctionTest, AllShardsFull) {
   const Index chunk_shape[3] = {50, 25, 13};
   // Grid shape: {2, 4, 8}
 
+  ShardChunkHierarchy hierarchy;
+  ASSERT_TRUE(GetShardChunkHierarchy(sharding_spec, volume_shape, chunk_shape,
+                                     hierarchy));
+  EXPECT_THAT(hierarchy.z_index_bits, ::testing::ElementsAre(1, 2, 3));
+  EXPECT_THAT(hierarchy.grid_shape_in_chunks, ::testing::ElementsAre(2, 4, 8));
+  EXPECT_THAT(hierarchy.minishard_shape_in_chunks,
+              ::testing::ElementsAre(2, 1, 1));
+  EXPECT_THAT(hierarchy.shard_shape_in_chunks, ::testing::ElementsAre(2, 2, 2));
+  EXPECT_EQ(3, hierarchy.non_shard_bits);
+  EXPECT_EQ(3, hierarchy.shard_bits);
+
   auto f =
       GetChunksPerVolumeShardFunction(sharding_spec, volume_shape, chunk_shape);
 
@@ -1855,6 +1868,17 @@ TEST(GetChunksPerVolumeShardFunctionTest, PartialShards1Dim) {
   const Index chunk_shape[3] = {50, 25, 13};
   // Grid shape: {2, 4, 7}
   // Full shard shape is {2, 2, 2}.
+
+  ShardChunkHierarchy hierarchy;
+  ASSERT_TRUE(GetShardChunkHierarchy(sharding_spec, volume_shape, chunk_shape,
+                                     hierarchy));
+  EXPECT_THAT(hierarchy.z_index_bits, ::testing::ElementsAre(1, 2, 3));
+  EXPECT_THAT(hierarchy.grid_shape_in_chunks, ::testing::ElementsAre(2, 4, 7));
+  EXPECT_THAT(hierarchy.minishard_shape_in_chunks,
+              ::testing::ElementsAre(2, 1, 1));
+  EXPECT_THAT(hierarchy.shard_shape_in_chunks, ::testing::ElementsAre(2, 2, 2));
+  EXPECT_EQ(3, hierarchy.non_shard_bits);
+  EXPECT_EQ(3, hierarchy.shard_bits);
 
   auto f =
       GetChunksPerVolumeShardFunction(sharding_spec, volume_shape, chunk_shape);
@@ -1900,6 +1924,17 @@ TEST(GetChunksPerVolumeShardFunctionTest, PartialShards2Dims) {
   // Grid shape: {2, 3, 7}
   // Full shard shape is {2, 2, 2}.
 
+  ShardChunkHierarchy hierarchy;
+  ASSERT_TRUE(GetShardChunkHierarchy(sharding_spec, volume_shape, chunk_shape,
+                                     hierarchy));
+  EXPECT_THAT(hierarchy.z_index_bits, ::testing::ElementsAre(1, 2, 3));
+  EXPECT_THAT(hierarchy.grid_shape_in_chunks, ::testing::ElementsAre(2, 3, 7));
+  EXPECT_THAT(hierarchy.minishard_shape_in_chunks,
+              ::testing::ElementsAre(2, 1, 1));
+  EXPECT_THAT(hierarchy.shard_shape_in_chunks, ::testing::ElementsAre(2, 2, 2));
+  EXPECT_EQ(3, hierarchy.non_shard_bits);
+  EXPECT_EQ(3, hierarchy.shard_bits);
+
   auto f =
       GetChunksPerVolumeShardFunction(sharding_spec, volume_shape, chunk_shape);
 
@@ -1941,6 +1976,10 @@ TEST(GetChunksPerVolumeShardFunctionTest, NotIdentity) {
   const Index volume_shape[3] = {99, 98, 90};
   const Index chunk_shape[3] = {50, 25, 13};
 
+  ShardChunkHierarchy hierarchy;
+  EXPECT_FALSE(GetShardChunkHierarchy(sharding_spec, volume_shape, chunk_shape,
+                                      hierarchy));
+
   EXPECT_FALSE(GetChunksPerVolumeShardFunction(sharding_spec, volume_shape,
                                                chunk_shape));
 }
@@ -1957,6 +1996,10 @@ TEST(GetChunksPerVolumeShardFunctionTest, NotEnoughBits) {
 
   const Index volume_shape[3] = {99, 98, 90};
   const Index chunk_shape[3] = {50, 25, 13};
+
+  ShardChunkHierarchy hierarchy;
+  EXPECT_FALSE(GetShardChunkHierarchy(sharding_spec, volume_shape, chunk_shape,
+                                      hierarchy));
 
   EXPECT_FALSE(GetChunksPerVolumeShardFunction(sharding_spec, volume_shape,
                                                chunk_shape));
