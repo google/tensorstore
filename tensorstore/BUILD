@@ -694,3 +694,19 @@ tensorstore_cc_library(
         "//tensorstore/internal:type_traits",
     ],
 )
+
+tensorstore_cc_library(
+    name = "codec_spec",
+    srcs = ["codec_spec.cc"],
+    hdrs = [
+        "codec_spec.h",
+        "codec_spec_registry.h",
+    ],
+    deps = [
+        ":json_serialization_options",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:json",
+        "//tensorstore/internal:json_registry",
+        "//tensorstore/internal:no_destructor",
+    ],
+)

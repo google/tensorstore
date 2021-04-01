@@ -114,6 +114,10 @@ class CastDriver
     return base_driver_->GetChunkLayout(transform);
   }
 
+  Result<CodecSpec::Ptr> GetCodec() override {
+    return base_driver_->GetCodec();
+  }
+
   explicit CastDriver(Driver::Ptr base, DataType target_dtype,
                       DataTypeConversionLookupResult input_conversion,
                       DataTypeConversionLookupResult output_conversion)

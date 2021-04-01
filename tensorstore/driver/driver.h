@@ -49,6 +49,7 @@
 #include <iosfwd>
 
 #include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
@@ -360,6 +361,11 @@ class Driver : public AtomicReferenceCount<Driver> {
   ///     `transform.input_rank()`.
   virtual Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform);
 
+  /// Returns the data codec spec.
+  ///
+  /// \returns The encoding.
+  virtual Result<CodecSpec::Ptr> GetCodec();
+
   /// Returns the Executor to use for data copying to/from this Driver (e.g. for
   /// Read and Write operations).
   virtual Executor data_copy_executor() = 0;
@@ -620,6 +626,8 @@ absl::Status CopyReadChunk(
     NormalizedTransformedArray<void, dynamic_rank, view> target);
 
 Result<ChunkLayout> GetChunkLayout(const Driver::Handle& handle);
+
+Result<CodecSpec::Ptr> GetCodec(const Driver::Handle& handle);
 
 }  // namespace internal
 namespace internal_json_binding {

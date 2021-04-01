@@ -323,6 +323,15 @@ class DataCache : public DataCacheBase {
 
   Result<ChunkLayout> GetChunkLayout(std::size_t component_index) override;
 
+  /// Returns the encoding for the specified component.
+  ///
+  /// By default, just returns a null pointer to indicate an unknown encoding.
+  ///
+  /// \param metadata Non-null pointer to the metadata of type `Metadata`.
+  /// \param component_index The ChunkCache component index.
+  virtual Result<CodecSpec::Ptr> GetCodec(const void* metadata,
+                                          std::size_t component_index);
+
   /// Returns a non-null pointer to a copy of `existing_metadata` with the
   /// specified bounds resized.
   ///
@@ -484,6 +493,8 @@ class DriverBase : public internal::ChunkCacheDriver {
 
   static absl::Status ApplyOptions(SpecT<internal::ContextUnbound>& spec,
                                    SpecOptions&& options);
+
+  Result<CodecSpec::Ptr> GetCodec() override;
 
  private:
   StalenessBound metadata_staleness_bound_;

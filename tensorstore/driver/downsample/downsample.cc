@@ -161,6 +161,10 @@ class DownsampleDriver
     return base_driver_->GetChunkLayout(strided_base_transform) | transform;
   }
 
+  Result<CodecSpec::Ptr> GetCodec() override {
+    return base_driver_->GetCodec();
+  }
+
   explicit DownsampleDriver(Driver::Ptr base, IndexTransform<> base_transform,
                             span<const Index> downsample_factors,
                             DownsampleMethod downsample_method)

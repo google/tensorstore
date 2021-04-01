@@ -55,10 +55,11 @@ namespace internal {
 ///     invalid.  Must inherit from `Base`.  By default, `Base` is used, in
 ///     which case any virtual methods of that type should have a default
 ///     implementation that accounts for this case.
+/// \tparam BasePtr Reference counted smart pointer type.  Must be
+///     `IntrusivePtr<Base>` or `IntrusivePtr<const Base>`.
 template <typename Base, typename LoadOptions, typename SaveOptions,
-          typename UnregisteredBase>
+          typename UnregisteredBase, typename BasePtr>
 class JsonRegistry {
-  using BasePtr = IntrusivePtr<Base>;
   static_assert(std::has_virtual_destructor_v<Base>);
 
  public:
@@ -156,7 +157,8 @@ class JsonRegistry {
                                          LoadOptions, SaveOptions>;
       using Obj = std::conditional_t<decltype(is_loading)::value, T, const T>;
       return binder(is_loading, *static_cast<const Options*>(options),
-                    static_cast<Obj*>(static_cast<const BasePtr*>(obj)->get()),
+                    const_cast<Obj*>(static_cast<const Obj*>(
+                        static_cast<const BasePtr*>(obj)->get())),
                     j_obj);
     };
     impl_.Register(std::move(entry));

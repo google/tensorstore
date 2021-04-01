@@ -225,6 +225,11 @@ class TensorStore {
     return internal::GetChunkLayout(handle_);
   }
 
+  /// Returns the codec spec.
+  ///
+  /// \pre `valid()`
+  Result<CodecSpec::Ptr> codec() const { return internal::GetCodec(handle_); }
+
   /// "Pipeline" operator.
   ///
   /// In the expression  `x | y`, if

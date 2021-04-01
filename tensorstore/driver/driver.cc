@@ -149,6 +149,8 @@ Result<ChunkLayout> Driver::GetChunkLayout(IndexTransformView<> transform) {
   return {std::in_place};
 }
 
+Result<CodecSpec::Ptr> Driver::GetCodec() { return CodecSpec::Ptr{}; }
+
 Future<IndexTransform<>> Driver::ResolveBounds(OpenTransactionPtr transaction,
                                                IndexTransform<> transform,
                                                ResolveBoundsOptions options) {
@@ -1124,6 +1126,11 @@ absl::Status CopyReadChunk(
 Result<ChunkLayout> GetChunkLayout(const Driver::Handle& handle) {
   assert(handle.driver);
   return handle.driver->GetChunkLayout(handle.transform);
+}
+
+Result<CodecSpec::Ptr> GetCodec(const Driver::Handle& handle) {
+  assert(handle.driver);
+  return handle.driver->GetCodec();
 }
 
 }  // namespace internal

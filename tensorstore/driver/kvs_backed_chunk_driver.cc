@@ -91,6 +91,11 @@ Result<ChunkLayout> DataCache::GetChunkLayout(const void* metadata_ptr,
   return ChunkCache::GetChunkLayout(component_index);
 }
 
+Result<CodecSpec::Ptr> DataCache::GetCodec(const void* metadata,
+                                           std::size_t component_index) {
+  return CodecSpec::Ptr{};
+}
+
 namespace {
 
 // Address of this variable is used to signal an invalid metadata value.
@@ -607,6 +612,11 @@ Status DriverBase::ApplyOptions(SpecT<internal::ContextUnbound>& spec,
     spec.staleness.metadata = StalenessBound(options.recheck_cached_metadata);
   }
   return spec.OpenModeSpec::ApplyOptions(options);
+}
+
+Result<CodecSpec::Ptr> DriverBase::GetCodec() {
+  auto* cache = this->cache();
+  return cache->GetCodec(cache->initial_metadata_.get(), component_index());
 }
 
 namespace {

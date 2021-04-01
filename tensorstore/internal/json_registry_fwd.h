@@ -15,11 +15,14 @@
 #ifndef TENSORSTORE_INTERNAL_JSON_REGISTRY_FWD_H_
 #define TENSORSTORE_INTERNAL_JSON_REGISTRY_FWD_H_
 
+#include "tensorstore/internal/intrusive_ptr.h"
+
 namespace tensorstore {
 namespace internal {
 
 template <typename Base, typename LoadOptions, typename SaveOptions,
-          typename UnregisteredBase = Base>
+          typename UnregisteredBase = Base,
+          typename BasePtr = IntrusivePtr<Base>>
 class JsonRegistry;
 
 }  // namespace internal
