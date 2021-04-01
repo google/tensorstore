@@ -20,6 +20,7 @@
 
 // Must include `numpy.h` before any other headers.
 
+#include "python/tensorstore/chunk_layout.h"
 #include "python/tensorstore/context.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/downsample.h"
@@ -62,6 +63,7 @@ PYBIND11_MODULE(_tensorstore, m) {
   // `tensorstore._tensorstore.X`.
   ScopedModuleNameOverride name_override(m, "tensorstore");
   RegisterIndexSpaceBindings(m);
+  RegisterChunkLayoutBindings(m);
   RegisterDataTypeBindings(m);
   RegisterSpecBindings(m);
   RegisterContextBindings(m);

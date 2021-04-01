@@ -157,6 +157,10 @@ This is equivalent to :python:`self.domain.rank`.
           },
           "Returns a read/write view as the specified data type.",
           py::arg("dtype"))
+      .def_property_readonly(
+          "chunk_layout",
+          [](const TensorStore<>& self) { return self.chunk_layout(); },
+          "Chunk layout of the TensorStore")
       .def(py::pickle(
           [](const TensorStore<>& self) -> py::tuple {
             auto builder = internal::ContextSpecBuilder::Make();

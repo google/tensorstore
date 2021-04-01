@@ -15,6 +15,7 @@ pybind11_py_extension(
     srcs = ["tensorstore.cc"],
     imports = [".."],
     deps = [
+        ":chunk_layout",
         ":context",
         ":data_type",
         ":downsample",
@@ -493,6 +494,16 @@ tensorstore_pytest_test(
     deps = [":tensorstore"],
 )
 
+tensorstore_pytest_test(
+    name = "chunk_layout_test",
+    size = "small",
+    srcs = ["tests/chunk_layout_test.py"],
+    deps = [
+        ":tensorstore",
+        "@pypa_numpy//:numpy",
+    ],
+)
+
 pybind11_cc_test(
     name = "index_test",
     size = "small",
@@ -538,6 +549,21 @@ pybind11_cc_library(
         "//tensorstore:downsample_method",
         "//tensorstore:spec",
         "//tensorstore/driver/downsample:downsample_method_json_binder",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+)
+
+pybind11_cc_library(
+    name = "chunk_layout",
+    srcs = ["chunk_layout.cc"],
+    hdrs = ["chunk_layout.h"],
+    deps = [
+        ":array_type_caster",
+        ":index_space",
+        ":json_type_caster",
+        "//tensorstore:chunk_layout",
+        "//tensorstore/index_space:index_transform_builder",
+        "//tensorstore/internal:json_pprint_python",
         "@com_github_pybind_pybind11//:pybind11",
     ],
 )
