@@ -1,0 +1,22 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: Schema
+type: object
+properties:
+  dtype:
+    $ref: dtype
+  domain:
+    $ref: IndexDomain
+    title: Domain of the TensorStore, including optional dimension labels.
+  chunk_layout:
+    $ref: ChunkLayout
+    description: Data storage layout.
+  codec:
+    $ref: Codec
+    description: |
+      Driver-specific compression and other parameters for encoding/decoding
+      data.
+  fill_value:
+    title: Fill value to use for missing data.
+    description: |
+      Must be :ref:`broadcast-compatible<index-domain-alignment>` with the
+      `.domain`.

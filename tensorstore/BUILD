@@ -710,3 +710,52 @@ tensorstore_cc_library(
         "//tensorstore/internal:no_destructor",
     ],
 )
+
+tensorstore_cc_library(
+    name = "schema",
+    srcs = ["schema.cc"],
+    hdrs = ["schema.h"],
+    deps = [
+        ":array",
+        ":chunk_layout",
+        ":codec_spec",
+        ":index",
+        ":json_serialization_options",
+        ":rank",
+        "//tensorstore/index_space:index_transform",
+        "//tensorstore/index_space:index_transform_spec",
+        "//tensorstore/index_space:json",
+        "//tensorstore/index_space:transform_broadcastable_array",
+        "//tensorstore/internal:array_constraints",
+        "//tensorstore/internal:data_type_json_binder",
+        "//tensorstore/internal:dimension_indexed_json_binder",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:json",
+        "//tensorstore/internal:json_array",
+        "//tensorstore/internal:type_traits",
+        "//tensorstore/util:dimension_set",
+        "//tensorstore/util:division",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "schema_test",
+    size = "small",
+    srcs = ["schema_test.cc"],
+    deps = [
+        ":schema",
+        "//tensorstore/driver/zarr:spec",
+        "//tensorstore/index_space:dim_expression",
+        "//tensorstore/index_space:index_transform_builder",
+        "//tensorstore/index_space:index_transform_testutil",
+        "//tensorstore/index_space:json",
+        "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal:test_util",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/random:bit_gen_ref",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
