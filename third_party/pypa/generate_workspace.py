@@ -176,7 +176,6 @@ def generate(args):
         # Docs
         "sphinx",
         "sphinx-rtd-theme",
-        "jsonpointer",
         "jsonschema",
         "pyyaml",
         "docutils",

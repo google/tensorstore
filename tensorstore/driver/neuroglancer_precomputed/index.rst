@@ -7,10 +7,9 @@ The ``neuroglancer_precomputed`` driver provides access to `Neuroglancer Precomp
 
 Multiscale volumes are supported, but each scale must be opened individually.
 
-.. json-schema:: schema.yml
-   :title: JSON Schema
+.. json:schema:: driver/neuroglancer_precomputed
 
-.. json-schema:: schema.yml#/definitions/sharding-spec
+.. json:schema:: driver/neuroglancer_precomputed/ShardingSpec
 
 Example JSON specifications
 ---------------------------
@@ -109,9 +108,8 @@ Resizing is not supported.
    
    1. It is most efficient to group writes by shard.
 
-   2. The temporary memory required to write a shard is 2 to 3 times
-      the size of the shard.  It is therefore advised that the shards
-      be kept as small as possible (while still avoiding an excess
-      number of objects in the underlying
-      :json-schema:`https://github.com/google/tensorstore/json-schema/key-value-store`).
+   2. The temporary memory required to write a shard is 2 to 3 times the size of
+      the shard.  It is therefore advised that the shards be kept as small as
+      possible (while still avoiding an excess number of objects in the
+      underlying :json-schema:`KeyValueStore`).
 

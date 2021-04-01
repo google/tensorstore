@@ -20,6 +20,7 @@ import pathlib
 import re
 import sys
 import tempfile
+from typing import List
 import urllib.parse
 
 DOCS_ROOT = 'docs'
@@ -51,17 +52,26 @@ def _write_third_party_libraries_summary(runfiles_dir: str, output_path: str):
         continue
       workspace_bzl_content = workspace_bzl_file.read_text()
       m = re.search('https://[^"]*', workspace_bzl_content)
+      if m is None:
+        raise ValueError(f'Failed to find URL in {workspace_bzl_file}')
       url = m.group(0)
       parsed_url = urllib.parse.urlparse(url)
       if parsed_url.netloc in ('github.com', 'sourceware.org'):
         m = re.match('https://[^/]*/[^/]*/[^/]*/', url)
+        if m is None:
+          raise ValueError(f'Failed to determine homepage from {url}')
         homepage = m.group(0)
       elif parsed_url.netloc == 'tukaani.org':
         m = re.match('https://[^/]*/[^/]*/', url)
+        if m is None:
+          raise ValueError(f'Failed to determine homepage from {url}')
         homepage = m.group(0)
       else:
         homepage = parsed_url.scheme + '://' + parsed_url.netloc
       m = re.search('strip_prefix = "([^"]*)-([^-"]*)"', workspace_bzl_content)
+      if m is None:
+        raise ValueError(
+            f'Failed to determine name and version from {workspace_bzl_file}')
       name = m.group(1)
       version = m.group(2)[:12]
       third_party_libs.append((identifier, name, homepage, version))
@@ -99,45 +109,45 @@ def _prepare_source_tree(runfiles_dir: str):
     temp_cpp_root = os.path.join(temp_src_dir, 'tensorstore')
     os.makedirs(temp_cpp_root)
     for name in ['driver', 'kvstore']:
-      os.symlink(
-          os.path.join(source_cpp_root, name),
-          os.path.join(temp_cpp_root, name))
+      os.symlink(os.path.join(source_cpp_root, name),
+                 os.path.join(temp_cpp_root, name))
     yield temp_src_dir
 
 
-def run(args, unknown):
+def run(args: argparse.Namespace, unknown: List[str]):
   # Ensure tensorstore sphinx extensions can be imported as absolute modules.
   sys.path.insert(0, os.path.abspath(DOCS_ROOT))
   # For some reason, the way bazel sets up import paths causes `import
   # sphinxcontrib.serializinghtml` not to work unless we first import
   # `sphinxcontrib.applehelp`.
   import sphinxcontrib.applehelp
+  sphinx_args = ['-a']
   if args.sphinx_help:
-    unknown = unknown + ['--help']
+    sphinx_args.append('--help')
+  if args.pdb_on_error:
+    sphinx_args.append('-P')
+  else:
+    sphinx_args += ['-j', 'auto']
   runfiles_dir = os.getcwd()
   output_dir = os.path.join(os.getenv('BUILD_WORKING_DIRECTORY', os.getcwd()),
                             args.output)
   os.makedirs(output_dir, exist_ok=True)
   with _prepare_source_tree(runfiles_dir) as temp_src_dir:
+    sphinx_args += [temp_src_dir, output_dir]
+    sphinx_args += unknown
     import sphinx.cmd.build
-    sys.exit(
-        sphinx.cmd.build.main(['-j', 'auto', '-a', temp_src_dir, output_dir] +
-                              unknown))
+    sys.exit(sphinx.cmd.build.main(sphinx_args))
 
 
 def main():
   ap = argparse.ArgumentParser()
   default_output = os.environ.get('TEST_UNDECLARED_OUTPUTS_DIR', None)
-  ap.add_argument(
-      '--output',
-      '-o',
-      help='Output directory',
-      default=default_output,
-      required=default_output is None)
-  ap.add_argument(
-      '--sphinx-help',
-      action='store_true',
-      help='Show sphinx build command-line help')
+  ap.add_argument('--output', '-o', help='Output directory',
+                  default=default_output, required=default_output is None)
+  ap.add_argument('-P', dest='pdb_on_error', action='store_true',
+                  help='Run pdb on exception')
+  ap.add_argument('--sphinx-help', action='store_true',
+                  help='Show sphinx build command-line help')
   ap.add_argument('--pdb', action='store_true', help='Run under pdb')
   args, unknown = ap.parse_known_args()
   if args.pdb:

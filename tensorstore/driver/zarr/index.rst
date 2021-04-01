@@ -17,21 +17,21 @@ specifying multiple named fields that are packed together.
 TensorStore fully supports such arrays, but each field must be opened
 separately.
 
-.. json-schema:: schema.yml
-   :title: JSON Schema
+.. json:schema:: driver/zarr
 
 Compressors
 -----------
 
-Chunk data is encoded according to the :json-member:`compressor` specified in the metadata.
+Chunk data is encoded according to the
+:json:schema:`driver/zarr.metadata.compressor` specified in the metadata.
 
-.. json-schema:: schema.yml#/definitions/compressor
+.. json:schema:: driver/zarr/Compressor
 
 The following compressors are supported:
 
-.. json-schema:: schema.yml#/definitions/compressor-zlib
-.. json-schema:: schema.yml#/definitions/compressor-blosc
-.. json-schema:: schema.yml#/definitions/compressor-bz2
+.. json:schema:: driver/zarr/Compressor/zlib
+.. json:schema:: driver/zarr/Compressor/blosc
+.. json:schema:: driver/zarr/Compressor/bz2
 
 Limitations
 -----------

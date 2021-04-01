@@ -12,7 +12,7 @@ from multiple processes.  (The locking protocol used does not block readers.)
 Provided that shared locking is supported, concurrent access from multiple
 machines to a network filesystem is also safe.
 
-.. json-schema:: schema.yml
+.. json:schema:: kvstore/file
 
 Limitations
 -----------

@@ -1,24 +1,23 @@
 $schema: http://json-schema.org/draft-07/schema#
-$id: https://github.com/google/tensorstore/json-schema/index-transform
-title: 'Index transform'
+$id: IndexTransform
 description: |
   :ref:`Index transforms<index-transform>` may be serialized to/from JSON using
   the following schema.
 
-  The input domain is specified by :json-member:`input_rank`,
-  :json-member:`input_inclusive_min`, :json-member:`input_exclusive_max`,
-  :json-member:`input_inclusive_max`, :json-member:`input_shape`, and
-  :json-member:`input_labels`, while the output index maps are specified by
-  :json-member:`output`.
+  The input domain is specified by `.input_rank`,
+  `.input_inclusive_min`, `.input_exclusive_max`,
+  `.input_inclusive_max`, `.input_shape`, and
+  `.input_labels`, while the output index maps are specified by
+  `.output`.
 
-  If neither :json-member:`input_inclusive_min` nor :json-member:`input_shape`
+  If neither `.input_inclusive_min` nor `.input_shape`
   is specified, all dimensions receive an implicit lower bound of
-  :math:`-\infty`.  If :json-member:`input_shape` is specified but
-  :json-member:`input_inclusive_min` is not specified, all dimensions receive an
+  :math:`-\infty`.  If `.input_shape` is specified but
+  `.input_inclusive_min` is not specified, all dimensions receive an
   explicit lower bound of 0.
 
-  At most one of :json-member:`input_exclusive_max`,
-  :json-member:`input_inclusive_max`, and :json-member:`input_shape` may be
+  At most one of `.input_exclusive_max`,
+  `.input_inclusive_max`, and `.input_shape` may be
   specified.  If none are specified, all dimensions receive an implicit upper
   bound of :math:`+\infty`.
 
@@ -31,9 +30,9 @@ properties:
     title: Number of input dimensions.
     description: |
       The input rank must be specified either directly, or implicitly by the
-      number of dimensions specified for :json-member:`input_inclusive_min`,
-      :json-member:`input_inclusive_max`, :json-member:`input_exclusive_max`,
-      :json-member:`input_shape`, or :json-member:`input_labels`.
+      number of dimensions specified for `.input_inclusive_min`,
+      `.input_inclusive_max`, `.input_exclusive_max`,
+      `.input_shape`, or `.input_labels`.
   input_inclusive_min:
     type: array
     items:
@@ -45,9 +44,9 @@ properties:
     title: |
       Inclusive lower bounds of the input domain.
     description: |
-      Length must equal the :json-member:`input_rank`.  Bounds specified as
+      Length must equal the `.input_rank`.  Bounds specified as
       :samp:`{n}` indicate normal, explicit bounds, while bounds specified as
-      :samp:`[{n}]` indicate `implicit bounds<implicit-bounds>`.  For example,
+      :samp:`[{n}]` indicate :ref:`implicit bounds<implicit-bounds>`.  For example,
       :json:`[1, [2]]` specifies an explicit bound of :math:`1 \leq x` for the
       first dimension and an implicit bound of :math:`2 \leq x` for the second
       dimension.
@@ -62,10 +61,10 @@ properties:
     title: |
       Exclusive upper bounds of the input domain.
     description: |
-      Length must equal the :json-member:`input_rank`.  As for
-      :json-member:`input_inclusive_min`, bounds specified as :samp:`{n}`
+      Length must equal the `.input_rank`.  As for
+      `.input_inclusive_min`, bounds specified as :samp:`{n}`
       indicate normal, explicit bounds, while bounds specified as :samp:`[{n}]`
-      indicate `implicit bounds<implicit-bounds>`.  For example, :json:`[5,
+      indicate :ref:`implicit bounds<implicit-bounds>`.  For example, :json:`[5,
       [7]]` specifies an explicit bound of :math:`x < 5` for the first dimension
       and an implicit bound of :math:`x < 7` for the second dimension.
   input_inclusive_max:
@@ -79,10 +78,10 @@ properties:
     title: |
       Inclusive upper bounds of the input domain.
     description: |
-      Length must equal the :json-member:`input_rank`.  As for
-      :json-member:`input_inclusive_min`, bounds specified as :samp:`{n}`
+      Length must equal the `.input_rank`.  As for
+      `.input_inclusive_min`, bounds specified as :samp:`{n}`
       indicate normal, explicit bounds, while bounds specified as :samp:`[{n}]`
-      indicate `implicit bounds<implicit-bounds>`.  For example, :json:`[5,
+      indicate :ref:`implicit bounds<implicit-bounds>`.  For example, :json:`[5,
       [7]]` specifies an explicit bound of :math:`x \leq 5` for the first
       dimension and an implicit bound of :math:`x \leq 7` for the second
       dimension.
@@ -97,12 +96,12 @@ properties:
     title: |
       Extent of each dimension of the input domain.
     description: |
-      Length must equal the :json-member:`input_rank`.  As for
-      :json-member:`input_inclusive_min`, bounds specified as :samp:`{n}`
+      Length must equal the `.input_rank`.  As for
+      `.input_inclusive_min`, bounds specified as :samp:`{n}`
       indicate normal, explicit bounds, while bounds specified as :samp:`[{n}]`
-      indicate `implicit bounds<implicit-bounds>`.  For example, assuming an
-      :json-member:`input_inclusive_min` of :json:`[1, 2]`, an
-      :json-member:`input_shape` of :json:`[5, [7]]` specifies an explicit bound
+      indicate :ref:`implicit bounds<implicit-bounds>`.  For example, assuming an
+      `.input_inclusive_min` of :json:`[1, 2]`, an
+      `.input_shape` of :json:`[5, [7]]` specifies an explicit bound
       of :math:`x < 6` for the first dimension and an implicit bound of :math:`x
       < 9` for the second dimension.
   input_labels:
@@ -110,9 +109,9 @@ properties:
     items:
       type: string
     title: |
-      `Dimension labels<dimension-labels>` for each input domain dimension.
+      :ref:`Dimension labels<dimension-labels>` for each input domain dimension.
     description: |
-      Length must equal the :json-member:`input_rank`.  An empty string
+      Length must equal the `.input_rank`.  An empty string
       indicates an unlabeled dimension.  Non-empty strings must not occur more
       than once.  By default, all dimensions are unlabeled.
   output:
@@ -129,25 +128,25 @@ properties:
           type: integer
           title: |
             Specifies an offset for this output dimension.  If neither
-            :json-member:`input_dimension` nor :json-member:`index_array` is
+            `.input_dimension` nor `.index_array` is
             specified, this specifies the **constant** value to which this output
             dimension maps.
         stride:
           type: integer
           title: |
             Multiplier for the input index specified by
-            :json-member:`input_dimension` or the index array value specified by
-            :json-member:`index_array`.
+            `.input_dimension` or the index array value specified by
+            `.index_array`.
           description: |
             Only valid to specify in conjunction with
-            :json-member:`input_dimension` or :json-member:`index_array`.
+            `.input_dimension` or `.index_array`.
         input_dimension:
           type: integer
           minimum: 0
           title: |
             If present, indicates that this output dimension uses a **single
             input dimension** map with the specified input dimension.  Must not
-            be specified in conjunction with :json-member:`index_array`.
+            be specified in conjunction with `.index_array`.
         index_array:
           oneOf:
             - type: array
@@ -155,18 +154,18 @@ properties:
           title: |
             If present, indicates that this output dimension uses an **index
             array** map, with the index array specified as a nested list of rank
-            equal to :json-member:`input_rank`.
+            equal to `.input_rank`.
           description: |
-            If the input rank is 0, must be a numeric value.
+            If the `.input_rank` is 0, must be a numeric value.
         index_array_bounds:
-          $ref: https://github.com/google/tensorstore/json-schema/index-interval
+          $ref: IndexInterval
           description: |
             If present, specifies constraints on the values within
-            :json-member:`index_array` (which must also be specified).  If
-            :json-member:`index_array` contains an out-of-bounds index, an error
+            `.index_array` (which must also be specified).  If
+            `.index_array` contains an out-of-bounds index, an error
             may not be returned immediately but will be returned if the
             corresponding position within the domain is accessed.  If the
-            indices in :json-member:`index_array` have already been validated,
+            indices in `.index_array` have already been validated,
             this need not be specified.  This allows transforms containing
             out-of-bounds index array indices to correctly round trip through
             JSON, but normally need not be specified manually.
@@ -177,7 +176,7 @@ properties:
             - [-20, "+inf"]
 definitions:
   index-interval:
-    $id: https://github.com/google/tensorstore/json-schema/index-interval
+    $id: IndexInterval
     title: Index interval
     description: >-
       Specifies a closed interval of integer index values.

@@ -17,5 +17,4 @@ operations to individual JSON Pointers.  If two processes concurrently write to
 non-overlapping pointers within the same JSON file, it is guaranteed that
 neither write will be lost.
 
-.. json-schema:: schema.yml
-   :title: JSON Schema
+.. json:schema:: driver/json

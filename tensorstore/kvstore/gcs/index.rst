@@ -10,13 +10,13 @@ correspond to paths within a Google Cloud Storage bucket.
 <https://cloud.google.com/kvstore/docs/generations-preconditions>`_ are used to
 safely allow concurrent access from multiple machines.
 
-.. json-schema:: schema.yml
+.. json:schema:: kvstore/gcs
 
-.. json-schema:: schema.yml#/definitions/gcs_user_project
+.. json:schema:: Context.gcs_user_project
                  
-.. json-schema:: schema.yml#/definitions/gcs_request_concurrency
+.. json:schema:: Context.gcs_request_concurrency
 
-.. json-schema:: schema.yml#/definitions/gcs_request_retries
+.. json:schema:: Context.gcs_request_retries
 
 .. _gcs-authentication:
 

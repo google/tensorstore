@@ -1,17 +1,16 @@
 $schema: http://json-schema.org/draft-07/schema#
-$id: https://github.com/google/tensorstore/json-schema/index-domain
-title: 'Index domain'
+$id: IndexDomain
 description: |
   :ref:`Index domains<index-domain>` may be serialized to/from JSON using
   the following schema.
 
-  If neither :json-member:`inclusive_min` nor :json-member:`shape` is specified,
+  If neither `.inclusive_min` nor `.shape` is specified,
   all dimensions receive an implicit lower bound of :math:`-\infty`.  If
-  :json-member:`shape` is specified but :json-member:`inclusive_min` is not
+  `.shape` is specified but `.inclusive_min` is not
   specified, all dimensions receive an explicit lower bound of 0.
 
-  At most one of :json-member:`exclusive_max`, :json-member:`inclusive_max`, and
-  :json-member:`shape` may be specified.  If none are specified, all dimensions
+  At most one of `.exclusive_max`, `.inclusive_max`, and
+  `.shape` may be specified.  If none are specified, all dimensions
   receive an implicit upper bound of :math:`+\infty`.
 
 type: object
@@ -23,9 +22,9 @@ properties:
     title: Number of dimensions.
     description: |
       The rank must be specified either directly, or implicitly by the number of
-      dimensions specified for :json-member:`inclusive_min`,
-      :json-member:`inclusive_max`, :json-member:`exclusive_max`,
-      :json-member:`shape`, or :json-member:`labels`.
+      dimensions specified for `.inclusive_min`,
+      `.inclusive_max`, `.exclusive_max`,
+      `.shape`, or `.labels`.
   inclusive_min:
     type: array
     items:
@@ -37,9 +36,9 @@ properties:
     title: |
       Inclusive lower bounds of the domain.
     description: |
-      Length must equal the :json-member:`rank`.  Bounds specified as
+      Length must equal the `.rank`.  Bounds specified as
       :samp:`{n}` indicate normal, explicit bounds, while bounds specified as
-      :samp:`[{n}]` indicate `implicit bounds<implicit-bounds>`.  For example,
+      :samp:`[{n}]` indicate :ref:`implicit bounds<implicit-bounds>`.  For example,
       :json:`[1, [2]]` specifies an explicit bound of :math:`1 \leq x` for the
       first dimension and an implicit bound of :math:`2 \leq x` for the second
       dimension.
@@ -54,10 +53,10 @@ properties:
     title: |
       Exclusive upper bounds of the domain.
     description: |
-      Length must equal the :json-member:`rank`.  As for
-      :json-member:`inclusive_min`, bounds specified as :samp:`{n}`
+      Length must equal the `.rank`.  As for
+      `.inclusive_min`, bounds specified as :samp:`{n}`
       indicate normal, explicit bounds, while bounds specified as :samp:`[{n}]`
-      indicate `implicit bounds<implicit-bounds>`.  For example, :json:`[5,
+      indicate :ref:`implicit bounds<implicit-bounds>`.  For example, :json:`[5,
       [7]]` specifies an explicit bound of :math:`x < 5` for the first dimension
       and an implicit bound of :math:`x < 7` for the second dimension.
   inclusive_max:
@@ -71,10 +70,10 @@ properties:
     title: |
       Inclusive upper bounds of the domain.
     description: |
-      Length must equal the :json-member:`rank`.  As for
-      :json-member:`inclusive_min`, bounds specified as :samp:`{n}`
+      Length must equal the `.rank`.  As for
+      `.inclusive_min`, bounds specified as :samp:`{n}`
       indicate normal, explicit bounds, while bounds specified as :samp:`[{n}]`
-      indicate `implicit bounds<implicit-bounds>`.  For example, :json:`[5,
+      indicate :ref:`implicit bounds<implicit-bounds>`.  For example, :json:`[5,
       [7]]` specifies an explicit bound of :math:`x \leq 5` for the first
       dimension and an implicit bound of :math:`x \leq 7` for the second
       dimension.
@@ -89,12 +88,12 @@ properties:
     title: |
       Extent of each dimension of the domain.
     description: |
-      Length must equal the :json-member:`rank`.  As for
-      :json-member:`inclusive_min`, bounds specified as :samp:`{n}`
+      Length must equal the `.rank`.  As for
+      `.inclusive_min`, bounds specified as :samp:`{n}`
       indicate normal, explicit bounds, while bounds specified as :samp:`[{n}]`
-      indicate `implicit bounds<implicit-bounds>`.  For example, assuming an
-      :json-member:`inclusive_min` of :json:`[1, 2]`, an
-      :json-member:`shape` of :json:`[5, [7]]` specifies an explicit bound
+      indicate :ref:`implicit bounds<implicit-bounds>`.  For example, assuming an
+      `.inclusive_min` of :json:`[1, 2]`, an
+      `.shape` of :json:`[5, [7]]` specifies an explicit bound
       of :math:`x < 6` for the first dimension and an implicit bound of :math:`x
       < 9` for the second dimension.
   labels:
@@ -102,8 +101,8 @@ properties:
     items:
       type: string
     title: |
-      `Dimension labels<dimension-labels>` for each dimension.
+      :ref:`Dimension labels<dimension-labels>` for each dimension.
     description: |
-      Length must equal the :json-member:`rank`.  An empty string
+      Length must equal the `.rank`.  An empty string
       indicates an unlabeled dimension.  Non-empty strings must not occur more
       than once.  By default, all dimensions are unlabeled.

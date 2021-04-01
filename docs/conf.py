@@ -13,8 +13,6 @@
 # limitations under the License.
 """Sphinx configuration for TensorStore."""
 
-import os
-
 project = 'TensorStore'
 copyright = '2020 The TensorStore Authors'  # pylint: disable=redefined-builtin
 
@@ -38,16 +36,17 @@ html_show_copyright = False
 
 extensions = [
     'sphinx_rtd_theme',
-    'tensorstore_jsonschema_sphinx',
+    'tensorstore_sphinx_ext.jsonschema_sphinx',
     'sphinx.ext.intersphinx',
     'sphinx.ext.autodoc',
     'sphinx.ext.doctest',
-    'sphinx.ext.autosummary',
-    'tensorstore_autosummary',
+    'tensorstore_sphinx_ext.autosummary',
     'sphinx.ext.mathjax',
 ]
 
 exclude_patterns = [
+    # Included by installation.rst
+    'third_party_libraries.rst',
     # This is included directly by `python/api/index.rst`, so we don't want to
     # generate a separate page for it.
     'python/api/tensorstore.rst',
@@ -62,6 +61,10 @@ language = None
 pygments_style = 'sphinx'
 
 html_theme = 'sphinx_rtd_theme'
+
+html_theme_options = {
+    'navigation_depth': -1,
+}
 
 html_static_path = ['_static']
 templates_path = ['_templates']
@@ -102,17 +105,8 @@ mathjax_config = {
     'displayAlign': 'left',
 }
 
-tensorstore_jsonschema_id_map = {
-    'https://github.com/google/tensorstore/json-schema/tensorstore':
-        os.path.abspath('tensorstore_schema.yml'),
-    'https://github.com/google/tensorstore/json-schema/dtype':
-        os.path.abspath('tensorstore_schema.yml#/definitions/dtype'),
-    'https://github.com/google/tensorstore/json-schema/driver/key-value-store-backed-chunk-driver':
-        os.path.abspath('tensorstore/driver/kvs_backed_chunk_driver_schema.yml'
-                       ),
-    'https://github.com/google/tensorstore/json-schema/key-value-store':
-        os.path.abspath('tensorstore/kvstore/schema.yml'),
-}
+# Use MathJax 3.
+mathjax_path = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js'
 
 always_document_param_types = True
 

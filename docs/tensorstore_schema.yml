@@ -1,52 +1,99 @@
 $schema: http://json-schema.org/draft-07/schema#
-$id: https://github.com/google/tensorstore/json-schema/tensorstore
+$id: TensorStore
 type: object
-title: TensorStore
+title: Specifies a TensorStore to open/create.
 description: |
-  Common properties supported by all TensorStore drivers.  Refer to the `driver
-  documentation<tensorstore-drivers>` for the supported :json-member:`driver`
-  identifiers and driver-specific properties.
+  The following properties are supported by all TensorStore drivers.  Refer to
+  the :ref:`driver documentation<tensorstore-drivers>` for the supported
+  `.driver` identifiers and driver-specific properties.
 properties:
   driver:
     type: string
     title: Driver identifier
-    description: Specifies the `TensorStore driver<tensorstore-drivers>`.
+    description: Specifies the :ref:`TensorStore driver<tensorstore-drivers>`.
   context:
-    $ref: https://github.com/google/tensorstore/json-schema/context
-    description: Specifies context resources that augment/override the parent context.
+    $ref: Context
+    title: Specifies context resources that augment/override the parent context.
   dtype:
-    $ref: https://github.com/google/tensorstore/json-schema/dtype
-    description: Specifies the data type.
+    $ref: dtype
+    title: Specifies the data type.
   rank:
     type: integer
     minimum: 0
+    maximum: 32
+    description: |
+      Specifies the rank of the TensorStore.  If `.transform` is also specified,
+      the input rank must match.  Otherwise, the rank constraint applies to the
+      driver directly.
   transform:
-    $ref: https://github.com/google/tensorstore/json-schema/index-transform
-    description: Specifies a transform.
+    $ref: IndexTransform
+    title: Specifies a transform.
 required:
 - driver
 definitions:
   dtype:
-    $id: https://github.com/google/tensorstore/json-schema/dtype
-    title: Data type
+    $id: dtype
+    title: Specifies a TensorStore data type.
+    description: |
+      TensorStore data types correspond to the logical data representation, not
+      the precise encoding.  There are not separate data types for little endian
+      and big endian byte order.
     oneOf:
       - const: "bool"
+        title: Boolean value (0 or 1).
+        description: |
+          Each value occupies an entire byte in memory, but depending on the
+          format may be encoded more efficiently.
       - const: "char"
+        title: Single byte, interpreted as an ASCII character.
       - const: "byte"
+        title: Single byte.
       - const: "int8"
+        title: 8-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`_ integer.
       - const: "uint8"
+        title: 8-bit unsigned integer.
       - const: "int16"
+        title: 16-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`_ integer.
       - const: "uint16"
+        title: 16-bit unsigned integer.
       - const: "int32"
+        title: 32-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`_ integer.
       - const: "uint32"
+        title: 32-bit unsigned integer.
       - const: "int64"
+        title: 64-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`_ integer.
       - const: "uint64"
+        title: 64-bit unsigned integer.
       - const: "float16"
+        title: |
+           `IEEE 754 binary16
+           <https://en.wikipedia.org/wiki/Half-precision_floating-point_format>`_
+           half-precision floating-point number.
       - const: "bfloat16"
+        title: |
+          `bfloat16 floating-point format <https://en.wikipedia.org/wiki/Bfloat16_floating-point_format>`_ number.
       - const: "float32"
+        title: |
+           `IEEE 754 binary32
+           <https://en.wikipedia.org/wiki/Single-precision_floating-point_format>`_
+           single-precision floating-point number.
       - const: "float64"
+        title: |
+           `IEEE 754 binary64
+           <https://en.wikipedia.org/wiki/Double-precision_floating-point_format>`_
+           double-precision floating-point number.
       - const: "complex64"
+        title: |
+          Complex number, where the real and imaginary components are each
+          represented by a `.float32`.
       - const: "complex128"
+        title: |
+          Complex number, where the real and imaginary components are each
+          represented by a `.float64`.
       - const: "string"
+        title: Byte string.
       - const: "ustring"
+        title: Unicode string (represented in memory as UTF-8).
       - const: "json"
+        title: |
+          `JSON <https://en.wikipedia.org/wiki/JSON>`_ value.

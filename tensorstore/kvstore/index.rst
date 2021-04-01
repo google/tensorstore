@@ -20,4 +20,4 @@ Drivers
    file/index
    gcs/index
 
-.. json-schema:: schema.yml
+.. json:schema:: KeyValueStore

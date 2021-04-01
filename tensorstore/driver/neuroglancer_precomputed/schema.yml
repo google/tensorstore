@@ -1,8 +1,7 @@
 $schema: http://json-schema.org/draft-07/schema#
-$id: https://github.com/google/tensorstore/json-schema/driver/neuroglancer_precomputed
-title: '``neuroglancer_precomputed`` Driver'
+$id: driver/neuroglancer_precomputed
 allOf:
-- $ref: https://github.com/google/tensorstore/json-schema/driver/key-value-store-backed-chunk-driver
+- $ref: KeyValueStoreBackedChunkDriver
 - type: object
   properties:
     driver:
@@ -13,9 +12,8 @@ allOf:
       examples:
       - path/to/array
       description: >-
-        Path within the
-        :json-schema:`https://github.com/google/tensorstore/json-schema/key-value-store`
-        specified by :json-member:`storage` to the multiscale volume.
+        Path within the `KeyValueStore` specified by `.kvstore` to
+        the multiscale volume.
     scale_index:
       type: integer
       minimum: 0
@@ -23,11 +21,11 @@ allOf:
       description: >-
         When opening an existing volume, this member may be specified to
         explicitly indicate the scale to open.  Otherwise, the first scale
-        matching the :json-member:`resolution` constraint, if any, specified by
-        the :json-member:`scale_metadata` member, is chosen.  To create a new
-        scale, this must either be left unspecified or equal the number of
-        existing scales (which is also the index that will be assigned to the
-        new scale).
+        matching the
+        `~driver/neuroglancer_precomputed.scale_metadata.resolution`
+        constraint, is chosen.  To create a new scale, this must either be left
+        unspecified or equal the number of existing scales (which is also the
+        index that will be assigned to the new scale).
     multiscale_metadata:
       type: object
       title: Scale-independent metadata.
@@ -65,137 +63,144 @@ allOf:
           description: >-
             Required when creating a new volume.
     scale_metadata:
-      type: object
       title: Per-scale metadata.
       description: >-
         Specifies the per-scale metadata of a new volume as in the `info file
         <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#info-json-file-specification>`_,
-        except that not all members are required, and the
-        :json-member:`chunk_size` member for specifying a single chunk size
-        takes the place of the :json-member:`chunk_sizes` member in the ``info``
-        file.  Required when creating a new scale.  When opening an existing
-        scale, serves to select the scale to open and constrains the existing
-        metadata.
-      properties:
-        key:
-          type: string
-          title: >-
-            Specifies the scale key (relative to :json-member:`path`).
-          description: >-
-            When opening an existing scale, may be specified to select the scale
-            by :json-member:`key`.  When creating a new scale, if not specified,
-            defaults to :json:`"<xres>_<yres>_<zres>"`, where ``[xres, yres,
-            zres]`` is the :json-member:`resolution`.
-        size:
-          type: array
-          minItems: 3
-          maxItems: 3
-          items:
-            type: integer
-            minimum: 0
-          title: >-
-            Voxel dimensions of the volume (XYZ order).
-          description: >-
-            Required when creating a new scale.
-          examples:
-          - - 500
-            - 500
-            - 500
-        voxel_offset:
-          type: array
-          minItems: 3
-          maxItems: 3
-          items:
-            type: integer
-          title: >-
-            Voxel origin of the volume (XYZ order).
-          description: >-
-            If specified, :json-member:`size` must also be specified.
-          default:
-          - 0
-          - 0
-          - 0
-        chunk_size:
-          type: array
-          minItems: 3
-          maxItems: 3
-          items:
-            type: integer
-            minimum: 1
-          title: >-
-            Chunk dimensions (XYZ order).
-          description: >-
-            Required when creating a new scale.  When opening an existing scale
-            with multiple supported :json-member:`chunk_sizes`, may be specified
-            to select the chunk size to use.  Otherwise, the first supported
-            chunk size is used.
-          examples:
-          - - 500
-            - 500
-            - 500
-        resolution:
-          type: array
-          minItems: 3
-          maxItems: 3
-          items:
-            type: number
-          title: >-
-            Voxel size in nanometers (XYZ order).
-          description: >-
-            When opening an existing scale, may be specified to select the scale
-            by :json-member:`resolution`.  Required when creating a new scale.
-        encoding:
-          enum:
-          - raw
-          - jpeg
-          - compressed_segmentation
-          title: >-
-            Specifies the chunk encoding.
-          description: >-
-            Required when creating a new scale.
-        jpeg_quality:
-          type: integer
-          minimum: 0
-          maximum: 100
-          default: 75
-          title: >-
-            JPEG encoding quality.
-          description: >-
-            Only applies if :json-member:`encoding` is :json:`"jpeg"`.  The
-            quality is specified using the IJG (Independent JPEG Group) [0, 100]
-            recommended scale, with 0 being the worst quality (smallest file
-            size) and 100 the best quality (largest file size).
-        compressed_segmentation_block_size:
-          type: array
-          minItems: 3
-          maxItems: 3
-          items:
-            type: number
-          title: >-
-            Block size for compressed segmentation encoding.
-          description: >-
-            If :json-member:`encoding` is :json:`"compressed_segmentation"`,
-            required when creating a new scale, and serves as a constraint when
-            opening an existing scale.  Otherwise, must not be specified.
-        sharding:
-          oneOf:
-          - $ref: '#sharding-spec'
-          - type: 'null'
-          description: >-
-            Specifies to use the `unsharded
-            <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#unsharded-chunk-storage>`_
-            (indicated by :json:`null`) or `sharded
-            <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#sharded-chunk-storage>`_
-            format.  When creating a new scale, if not specified, the unsharded
-            format is used.
+        except that not all members are required, and the `.chunk_size` member
+        for specifying a single chunk size takes the place of the
+        ``chunk_sizes`` member in the ``info`` file.  Required when creating a
+        new scale.  When opening an existing scale, serves to select the scale
+        to open and constrains the existing metadata.
+      allOf:
+      - type: object
+        properties:
+          key:
+            type: string
+            title: >-
+              Specifies the scale key (relative to `.path`).
+            description: >-
+              When opening an existing scale, may be specified to select the
+              scale by `.key`.  When creating a new scale, if not specified,
+              defaults to :json:`"<xres>_<yres>_<zres>"`, where ``[xres, yres,
+              zres]`` is the `.resolution`.
+          size:
+            type: array
+            minItems: 3
+            maxItems: 3
+            items:
+              type: integer
+              minimum: 0
+            title: >-
+              Voxel dimensions of the volume (XYZ order).
+            description: >-
+              Required when creating a new scale.
+            examples:
+            - - 500
+              - 500
+              - 500
+          voxel_offset:
+            type: array
+            minItems: 3
+            maxItems: 3
+            items:
+              type: integer
+            title: >-
+              Voxel origin of the volume (XYZ order).
+            description: >-
+              If specified, `.size` must also be specified.
+            default:
+            - 0
+            - 0
+            - 0
+          chunk_size:
+            type: array
+            minItems: 3
+            maxItems: 3
+            items:
+              type: integer
+              minimum: 1
+            title: >-
+              Chunk dimensions (XYZ order).
+            description: >-
+              Required when creating a new scale.  When opening an existing scale
+              with multiple supported ``chunk_sizes``, may be specified
+              to select the chunk size to use.  Otherwise, the first supported
+              chunk size is used.
+            examples:
+            - - 500
+              - 500
+              - 500
+          resolution:
+            type: array
+            minItems: 3
+            maxItems: 3
+            items:
+              type: number
+            title: >-
+              Voxel size in nanometers (XYZ order).
+            description: >-
+              When opening an existing scale, may be specified to select the
+              scale by `.resolution`.  Required when creating a new scale.
+      - $ref: "#codec-properties"
+      - type: object
+        properties:
+          compressed_segmentation_block_size:
+            type: array
+            minItems: 3
+            maxItems: 3
+            items:
+              type: number
+            title: >-
+              Block size for compressed segmentation encoding.
+            description: >-
+              If `.encoding` is :json:`"compressed_segmentation"`,
+              required when creating a new scale, and serves as a constraint when
+              opening an existing scale.  Otherwise, must not be specified.
+          sharding:
+            oneOf:
+            - $ref: 'driver/neuroglancer_precomputed/ShardingSpec'
+            - type: 'null'
+            description: >-
+              Specifies to use the `unsharded
+              <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#unsharded-chunk-storage>`_
+              (indicated by :json:`null`) or `sharded
+              <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#sharded-chunk-storage>`_
+              format.  When creating a new scale, if not specified, the unsharded
+              format is used.
 definitions:
+  codec-properties:
+    $id: "#codec-properties"
+    type: object
+    properties:
+      encoding:
+        enum:
+        - raw
+        - jpeg
+        - compressed_segmentation
+        title: >-
+          Specifies the chunk encoding.
+        description: >-
+          Required when creating a new scale.
+      jpeg_quality:
+        type: integer
+        minimum: 0
+        maximum: 100
+        default: 75
+        title: >-
+          JPEG encoding quality.
+        description: >-
+          Only applies if `.encoding` is :json:`"jpeg"`.  The
+          quality is specified using the IJG (Independent JPEG Group) [0, 100]
+          recommended scale, with 0 being the worst quality (smallest file
+          size) and 100 the best quality (largest file size).
   sharding-spec:
-    $id: '#sharding-spec'
+    $id: 'driver/neuroglancer_precomputed/ShardingSpec'
     title: Sharding
     type: object
     description: >-
-      Specifies the sharded format within the :json-member:`scale_metadata`
-      property.
+      Specifies the sharded format within the
+      `driver/neuroglancer_precomputed.scale_metadata` property.
     properties:
       '@type':
         const: neuroglancer_uint64_sharded_v1
@@ -247,7 +252,8 @@ definitions:
           Specifies the encoding of the data chunks.
         description: >-
           Normally :json:`"gzip"` is a good choice, unless the volume uses
-          :json:`"jpeg"` :json-member:`encoding`.
+          :json:`"jpeg"`
+          `~driver/neuroglancer_precomputed.scale_metadata.encoding`.
         enum:
         - raw
         - gzip

@@ -1,8 +1,7 @@
 $schema: http://json-schema.org/draft-07/schema#
-$id: https://github.com/google/tensorstore/json-schema/key-value-store/driver/gcs
-title: '``gcs`` Key-Value Store'
+$id: kvstore/gcs
 allOf:
-- $ref: https://github.com/google/tensorstore/json-schema/key-value-store
+- $ref: KeyValueStore
 - type: object
   properties:
     driver:
@@ -15,29 +14,27 @@ allOf:
         on the bucket.  If the bucket has `Requestor Pays
         <https://cloud.google.com/kvstore/docs/requester-pays>`_ enabled, either
         additional permissions are required or a separate billing project must
-        be specified using
-        :json-schema:`https://github.com/google/tensorstore/json-schema/context/gcs_user_project`.
+        be specified using `Context.gcs_user_project`.
     gcs_request_concurrency:
-      $ref: https://github.com/google/tensorstore/json-schema/context-resource
+      $ref: ContextResource
       description: >-
         Specifies or references a previously defined
-        :json-schema:`https://github.com/google/tensorstore/json-schema/context/gcs_request_concurrency`.
+        `Context.gcs_request_concurrency`.
     gcs_user_project:
-      $ref: https://github.com/google/tensorstore/json-schema/context-resource
+      $ref: ContextResource
       description: >-
         Specifies or references a previously defined
-        :json-schema:`https://github.com/google/tensorstore/json-schema/context/gcs_user_project`.
+        `Context.gcs_user_project`.
     gcs_request_retries:
-      $ref: https://github.com/google/tensorstore/json-schema/context-resource
+      $ref: ContextResource
       description: >-
         Specifies or references a previously defined
-        :json-schema:`https://github.com/google/tensorstore/json-schema/context/gcs_request_retries`.
+        `Context.gcs_request_retries`.
   required:
   - bucket
 definitions:
   gcs_request_concurrency:
-    $id: https://github.com/google/tensorstore/json-schema/context/gcs_request_concurrency
-    title: '``gcs_request_concurrency`` context resource'
+    $id: Context.gcs_request_concurrency
     description: >-
       Specifies a limit on the number of concurrent requests to Google Cloud
       Storage.
@@ -53,14 +50,13 @@ definitions:
           :json:`"shared"` is specified, a shared global limit of 32 applies.
         default: "shared"
   gcs_user_project:
-    $id: https://github.com/google/tensorstore/json-schema/context/gcs_user_project
-    title: '``gcs_user_project`` context resource'
+    $id: Context.gcs_user_project
     description: |
       Specifies a Google Cloud project to bill for Google Cloud Storage
-      requests.  If a :json-member:`project_id` is not specified, requests are
+      requests.  If a `project_id` is not specified, requests are
       billed to the project that owns the bucket by default.  For `Requestor
       Pays <https://cloud.google.com/kvstore/docs/requester-pays>`_ buckets,
-      however, requests without a :json-member:`project_id` specified will fail
+      however, requests without a `.project_id` specified will fail
       unless the Google Cloud account has additional permissions.
     type: object
     properties:
@@ -71,8 +67,7 @@ definitions:
           account that is used must have appropriate permissions to bill to the
           specified project.
   gcs_request_retries:
-    $id: https://github.com/google/tensorstore/json-schema/context/gcs_request_retries
-    title: '``gcs_request_retries`` context resource'
+    $id: Context.gcs_request_retries
     description: |
       Specifies retry parameters for handling transient network errors.
     type: object

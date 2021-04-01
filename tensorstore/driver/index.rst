@@ -28,7 +28,6 @@ Chunked storage drivers
    n5/index
    neuroglancer_precomputed/index
 
-.. json-schema:: kvs_backed_chunk_driver_schema.yml
+.. json:schema:: KeyValueStoreBackedChunkDriver
 
-.. json-schema:: kvs_backed_chunk_driver_schema.yml#/definitions/cache-revalidation-bound
-                 
+.. json:schema:: CacheRevalidationBound

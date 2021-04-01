@@ -1,21 +1,14 @@
 $schema: http://json-schema.org/draft-07/schema#
-$id: https://github.com/google/tensorstore/json-schema/driver/array
-title: '``array`` Driver'
+$id: driver/array
 allOf:
-- $ref: https://github.com/google/tensorstore/json-schema/tensorstore
+- $ref: TensorStore
 - type: object
   properties:
     driver:
       const: array
     array:
       title: |
-        Nested array of rank equal to :json-member:`rank` specifying the initial
-        value.
-    dtype:
-      $ref: https://github.com/google/tensorstore/json-schema/dtype
-      title: |
-        Specifies the data type under which to view the :json-member:`base`
-        TensorStore.
+        Nested array of rank equal to `.rank` specifying the initial value.
   required:
     - array
     - dtype

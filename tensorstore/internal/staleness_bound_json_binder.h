@@ -27,8 +27,7 @@ namespace internal {
 
 /// JSON binder for `StalenessBound`.
 ///
-/// See
-/// :json-schema:`https://github.com/google/tensorstore/json-schema/cache-revalidation-bound`.
+/// See :json-schema:`CacheRevalidationBound`.
 TENSORSTORE_DECLARE_JSON_BINDER(StalenessBoundJsonBinder, StalenessBound);
 
 }  // namespace internal

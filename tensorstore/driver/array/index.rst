@@ -10,5 +10,4 @@ arrays.
 When used from the C++ or Python API, this driver adapts an existing in-memory
 array for use as a TensorStore.
 
-.. json-schema:: schema.yml
-   :title: JSON Schema
+.. json:schema:: driver/array

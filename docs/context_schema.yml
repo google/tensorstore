@@ -1,56 +1,50 @@
 $schema: http://json-schema.org/draft-07/schema#
-$id: https://github.com/google/tensorstore/json-schema/context
-title: Context
+$id: Context
 description: >-
   A context JSON object is a mapping of resource identifiers to
-  :json-schema:`https://github.com/google/tensorstore/json-schema/context-resource`
-  specifications.
+  `ContextResource` specifications.
 type: object
 properties:
   <resource-type>:
-    $ref: https://github.com/google/tensorstore/json-schema/context-resource
+    $ref: ContextResource
     description: >-
       Overrides the default resource for the given
-      :json-member:`<resource-type>`, which must be a supported resource type.
+      ``<resource-type>``, which must be a supported resource type.
   <resource-type>#<id>:
-    $ref: https://github.com/google/tensorstore/json-schema/context-resource
+    $ref: ContextResource
     description: >-
-      Defines a resource with identifier :json-member:`<id>` of the given
-      :json-member:`<resource-type>`.  The resource specification must be
-      compatible with :json-member:`<resource-type>`.
+      Defines a resource with identifier ``<id>`` of the given
+      ``<resource-type>``.  The resource specification must be compatible with
+      ``<resource-type>``.
 examples:
-- cache_pool:
+- "cache_pool":
     total_bytes_limit: 10000000
-  cache_pool#remote:
+  "cache_pool#remote":
     total_bytes_limit: 100000000
-  data_copy_concurrency:
+  "data_copy_concurrency":
     limit: 8
 definitions:
   resource:
-    $id: https://github.com/google/tensorstore/json-schema/context-resource
-    title: Context resource
+    $id: ContextResource
     description: >-
-      Specifies a context resource of a particular :json-member:`<resource-type>`.
+      Specifies a context resource of a particular ``<resource-type>``.
     oneOf:
     - type: object
       description: >-
         Specifies the resource directly.  All members are specific to the
-        particular :json-member:`<resource-type>`.
+        particular ``<resource-type>``.
     - type: string
       description: >-
         References another resource of the same type in the current or parent
         context using the syntax :json:`"<resource-type>"` or
-        :json:`"<resource-type>#<id>"`, where :json-member:`<resource-type>`
+        :json:`"<resource-type>#<id>"`, where ``<resource-type>``
         matches the type of this resource.
     - type: 'null'
       description: >-
         Specifies a new instance of the default resource of the given
-        :json-member:`<resource-type>`.  Only valid within a
-        :json-schema:`https://github.com/google/tensorstore/json-schema/context`
-        specification.
+        ``<resource-type>``.  Only valid within a `Context` specification.
   cache_pool:
-    $id: https://github.com/google/tensorstore/json-schema/context/cache_pool
-    title: '``cache_pool`` context resource'
+    $id: Context.cache_pool
     description: >-
       Specifies the size of an in-memory Least Recently Used (LRU) cache.  Each
       ``cache_pool`` resource specifies a separate memory pool.
@@ -71,10 +65,9 @@ definitions:
           Soft limit on the total number of bytes of data pending writeback.
           Writeback is initated on the least-recently used data that is pending
           writeback when this limit is reached.  Defaults to half of
-          :json-member:`total_bytes_limit`.
+          `.total_bytes_limit`.
   data_copy_concurrency:
-    $id: https://github.com/google/tensorstore/json-schema/context/data_copy_concurrency
-    title: '``data_copy_concurrency`` context resource'
+    $id: Context.data_copy_concurrency
     description: >-
       Specifies a limit on the number of CPU cores used concurrently for data
       copying/encoding/decoding.
@@ -91,8 +84,7 @@ definitions:
           the number of CPU cores/threads available applies.
         default: "shared"
   file_io_concurrency:
-    $id: https://github.com/google/tensorstore/json-schema/context/file_io_concurrency
-    title: '``file_io_concurrency`` context resource'
+    $id: Context.file_io_concurrency
     description: >-
       Specifies a limit on the number of concurrently local filesystem I/O
       operations.

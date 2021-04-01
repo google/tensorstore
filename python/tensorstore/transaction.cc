@@ -15,8 +15,8 @@ void RegisterTransactionBindings(pybind11::module m) {
       m, "Transaction", R"(
 
 Transactions are used to stage a group of modifications (e.g. writes to
-`TensorStore` objects) in memory, and then either commit the group all at once
-or abort it.
+:py:obj:`tensorstore.TensorStore` objects) in memory, and then either commit the
+group all at once or abort it.
 
 Two transaction modes are currently supported:
 

@@ -6,12 +6,12 @@ framework, which allows resources such as cache pools, concurrent execution
 pools, and authentication credentials to be specified using JSON in a way that
 allows sharing of resources by multiple TensorStore drivers.
 
-.. json-schema:: context_schema.yml
-          
-.. json-schema:: context_schema.yml#/definitions/resource
+.. json:schema:: Context
 
-.. json-schema:: context_schema.yml#/definitions/cache_pool
+.. json:schema:: ContextResource
 
-.. json-schema:: context_schema.yml#/definitions/data_copy_concurrency
+.. json:schema:: Context.cache_pool
 
-.. json-schema:: context_schema.yml#/definitions/file_io_concurrency
+.. json:schema:: Context.data_copy_concurrency
+
+.. json:schema:: Context.file_io_concurrency

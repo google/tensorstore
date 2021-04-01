@@ -1,5 +1,6 @@
 load(":pybind11.bzl", "pybind11_cc_library", "pybind11_cc_test", "pybind11_py_extension")
 load(":pytest.bzl", "tensorstore_pytest_test")
+load(":pytype.bzl", "pytype_strict_binary")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -49,7 +50,7 @@ py_library(
     ],
 )
 
-py_binary(
+pytype_strict_binary(
     name = "shell",
     srcs = ["shell.py"],
     python_version = "PY3",

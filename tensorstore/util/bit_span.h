@@ -399,7 +399,7 @@ class BitSpan {
       typename U, std::ptrdiff_t E,
       std::enable_if_t<((std::is_same_v<T, U> || std::is_same_v<T, const U>)&&(
           E == Extent || Extent == dynamic_extent))>* = nullptr>
-  constexpr BitSpan(BitSpan<U, E> other TENSORSTORE_LIFETIME_BOUND)
+  constexpr BitSpan(BitSpan<U, E> other)
       : begin_(other.begin()), size_(other.size()) {}
 
   /// Returns the base pointer to the packed bit representation.

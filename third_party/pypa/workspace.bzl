@@ -37,7 +37,6 @@ def repo():
     repo_pypa_ipython_genutils()
     repo_pypa_jedi()
     repo_pypa_jinja2()
-    repo_pypa_jsonpointer()
     repo_pypa_jsonschema()
     repo_pypa_markupsafe()
     repo_pypa_mock()
@@ -414,14 +413,6 @@ def repo_pypa_jinja2():
         deps = [
             "@pypa_markupsafe//:markupsafe",
         ],
-    )
-
-def repo_pypa_jsonpointer():
-    maybe(
-        third_party_python_package,
-        name = "pypa_jsonpointer",
-        target = "jsonpointer",
-        requirement = "jsonpointer==2.0",
     )
 
 def repo_pypa_jsonschema():
