@@ -23,8 +23,10 @@ safely allow concurrent access from multiple machines.
 Authentication
 --------------
 
-To use the ``gcs`` driver, you must specify service account credentials, which
-can be done through one of the following methods:
+To use the ``gcs`` driver, you can access buckets that allow public access
+(i.e. access by ``allUsers``) without credentials.  In order to access
+non-public buckets, you must specify service account credentials, which can be
+done through one of the following methods:
 
 1. Set the :envvar:`GOOGLE_APPLICATION_CREDENTIALS` environment variable to the
    local path to a `Google Cloud JSON credentials file

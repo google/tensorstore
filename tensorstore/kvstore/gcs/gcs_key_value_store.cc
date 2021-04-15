@@ -353,15 +353,20 @@ class GcsKeyValueStore
                 AnyFlowReceiver<absl::Status, Key> receiver) override;
 
   /// Returns the Auth header for a GCS request.
-  Result<std::string> GetAuthHeader() {
+  Result<std::optional<std::string>> GetAuthHeader() {
     absl::MutexLock lock(&auth_provider_mutex_);
     if (!auth_provider_) {
       auto result =
           tensorstore::internal_oauth2::GetGoogleAuthProvider(transport_);
-      TENSORSTORE_RETURN_IF_ERROR(result);
-      auth_provider_ = std::move(*result);
+      if (!result.ok() && absl::IsNotFound(result.status())) {
+        auth_provider_ = nullptr;
+      } else {
+        TENSORSTORE_RETURN_IF_ERROR(result);
+        auth_provider_ = std::move(*result);
+      }
     }
-    return auth_provider_->GetAuthHeader();
+    if (!*auth_provider_) return std::nullopt;
+    return (*auth_provider_)->GetAuthHeader();
   }
 
   const Executor& executor() const {
@@ -421,7 +426,9 @@ class GcsKeyValueStore
   std::shared_ptr<HttpTransport> transport_;
 
   absl::Mutex auth_provider_mutex_;
-  std::unique_ptr<internal_oauth2::AuthProvider> auth_provider_;
+  // Optional state indicates whether the provider has been obtained.  A nullptr
+  // provider is valid and indicates to use anonymous access.
+  std::optional<std::unique_ptr<internal_oauth2::AuthProvider>> auth_provider_;
 };
 
 /// A ReadTask is a function object used to satisfy a
@@ -450,14 +457,13 @@ struct ReadTask {
     auto retry_status = owner->RetryRequestWithBackoff([&] {
       TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
       HttpRequestBuilder request_builder(media_url);
+      if (auth_header) request_builder.AddHeader(*auth_header);
       if (options.byte_range.inclusive_min != 0 ||
           options.byte_range.exclusive_max) {
         request_builder.AddHeader(
             internal_http::GetRangeHeader(options.byte_range));
       }
-      auto request = request_builder.EnableAcceptEncoding()
-                         .AddHeader(auth_header)
-                         .BuildRequest();
+      auto request = request_builder.EnableAcceptEncoding().BuildRequest();
       read_result.stamp.time = absl::Now();
       auto response = owner->IssueRequest("ReadTask", request, {});
       if (!response.ok()) return GetStatus(response);
@@ -553,8 +559,9 @@ struct WriteTask {
     HttpResponse httpresponse;
     auto retry_status = owner->RetryRequestWithBackoff([&] {
       TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
-      auto request = HttpRequestBuilder(upload_url)
-                         .AddHeader(auth_header)
+      HttpRequestBuilder request_builder(upload_url);
+      if (auth_header) request_builder.AddHeader(*auth_header);
+      auto request = request_builder  //
                          .AddHeader("Content-Type: application/octet-stream")
                          .AddHeader(StrCat("Content-Length: ", value.size()))
                          .BuildRequest();
@@ -633,8 +640,9 @@ struct DeleteTask {
     HttpResponse httpresponse;
     auto retry_status = owner->RetryRequestWithBackoff([&] {
       TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
-      auto request = HttpRequestBuilder(delete_url)
-                         .AddHeader(auth_header)
+      HttpRequestBuilder request_builder(delete_url);
+      if (auth_header) request_builder.AddHeader(*auth_header);
+      auto request = request_builder  //
                          .SetMethod("DELETE")
                          .BuildRequest();
       r.time = absl::Now();
@@ -802,11 +810,12 @@ struct ListOp {
       HttpResponse httpresponse;
       auto retry_status = state->owner->RetryRequestWithBackoff([&] {
         TENSORSTORE_RETURN_IF_ERROR(maybe_cancelled());
-        TENSORSTORE_ASSIGN_OR_RETURN(auto header,
+        TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header,
                                      state->owner->GetAuthHeader());
         TENSORSTORE_RETURN_IF_ERROR(maybe_cancelled());
-        auto request =
-            HttpRequestBuilder(list_url).AddHeader(header).BuildRequest();
+        HttpRequestBuilder request_builder(list_url);
+        if (auth_header) request_builder.AddHeader(*auth_header);
+        auto request = request_builder.BuildRequest();
         auto response = state->owner->IssueRequest("List", request, {});
         if (!response.ok()) return GetStatus(response);
         httpresponse = std::move(*response);
