@@ -1,4 +1,5 @@
-load("//python/tensorstore:pytype.bzl", "pytype_strict_test")
+load("//python/tensorstore:pytype.bzl", "pytype_strict_binary", "pytype_strict_test")
+load("//python/tensorstore:pytest.bzl", "tensorstore_pytest_test")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -24,6 +25,14 @@ filegroup(
     ],
 )
 
+filegroup(
+    name = "doctest_sources",
+    testonly = True,
+    srcs = glob(["python/**/*.rst"]) + [
+        "//python/tensorstore:doctest_sources",
+    ],
+)
+
 pytype_strict_test(
     name = "build_docs",
     srcs = ["build_docs.py"],
@@ -33,21 +42,50 @@ pytype_strict_test(
     python_version = "PY3",
     tags = ["manual"],
     deps = [
+        "//docs/tensorstore_sphinx_ext:autosummary",
+        "//docs/tensorstore_sphinx_ext:jsonschema_sphinx",
         "//python/tensorstore",
-        "//tensorstore/docs/tensorstore_sphinx_ext:autosummary",
-        "//tensorstore/docs/tensorstore_sphinx_ext:jsonschema_sphinx",
         "@pypa_sphinx//:sphinx",
         "@pypa_sphinx_rtd_theme//:sphinx_rtd_theme",
     ],
 )
 
-py_binary(
+pytype_strict_binary(
     name = "update_doctests",
-    srcs = ["update_doctests.py"],
+    testonly = True,
+    srcs = ["doctest_test.py"],
+    main = "doctest_test.py",
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
         "//python/tensorstore",
         "@pypa_numpy//:numpy",
+        "@pypa_yapf//:yapf",
+    ],
+)
+
+tensorstore_pytest_test(
+    name = "doctest_test",
+    size = "medium",
+    srcs = [
+        "conftest.py",
+        "doctest_test.py",
+    ],
+    args = [
+        "--doctests",
+        "$(locations :doctest_sources)",
+    ],
+    data = [
+        ":doctest_sources",
+    ],
+    env = {
+        # Ensure that even if the test is running on GCE, no attempt is made to
+        # use GCE credentials.
+        "GCE_METADATA_ROOT": "metadata.google.internal.invalid",
+    },
+    deps = [
+        "//python/tensorstore",
+        "@pypa_numpy//:numpy",
+        "@pypa_yapf//:yapf",
     ],
 )

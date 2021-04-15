@@ -79,7 +79,7 @@ Indexing with an integer selects a single position within the corresponding dime
      'array': 5,
      'driver': 'array',
      'dtype': 'int32',
-     'transform': {'input_exclusive_max': [], 'input_inclusive_min': []},
+     'transform': {'input_rank': 0},
    })
 
 Each integer index consumes a single dimension from the original
@@ -109,7 +109,7 @@ negative positions:
      'array': 1,
      'driver': 'array',
      'dtype': 'int32',
-     'transform': {'input_exclusive_max': [], 'input_inclusive_min': []},
+     'transform': {'input_rank': 0},
    })
 
 .. warning::
@@ -126,7 +126,7 @@ Specifying an index outside the explicit bounds of a dimension is results in an 
    >>> x[4]
    Traceback (most recent call last):
        ...
-   ValueError: Checking bounds of constant output index map for dimension 0: Index 4 is outside valid range [0, 4).
+   IndexError: Checking bounds of constant output index map for dimension 0: Index 4 is outside valid range [0, 4)
 
 Specifying an index outside the `implicit bounds<implicit-bounds>` of
 a dimension is permitted:
@@ -142,7 +142,7 @@ a dimension is permitted:
    >>> y[4]
    Traceback (most recent call last):
        ...
-   ValueError: Checking bounds of constant output index map for dimension 0: Index 4 is outside valid range (-inf, 4).
+   IndexError: Checking bounds of constant output index map for dimension 0: Index 4 is outside valid range (-inf, 4)
 
 While implicit bounds do not constrain indexing operations, the bounds
 will still be checked by any subsequent read or write operation, which
@@ -200,7 +200,7 @@ instead, it has an origin equal to the start position of the interval
      'array': 2,
      'driver': 'array',
      'dtype': 'int32',
-     'transform': {'input_exclusive_max': [], 'input_inclusive_min': []},
+     'transform': {'input_rank': 0},
    })
 
 If the :python:`step` is not :python:`1`, the origin of the resulting
@@ -240,7 +240,7 @@ dimension:
    >>> x[3:12]
    Traceback (most recent call last):
        ...
-   IndexError: Computing interval slice for dimension 0: Slice interval [3, 12) is not contained within domain [0, 10).
+   IndexError: Computing interval slice for dimension 0: Slice interval [3, 12) is not contained within domain [0, 10)
 
 .. warning::
 

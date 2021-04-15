@@ -83,6 +83,7 @@ def repo():
     repo_pypa_urllib3()
     repo_pypa_wcwidth()
     repo_pypa_wheel()
+    repo_pypa_yapf()
     repo_pypa_zipp()
 
 def repo_pypa_absl_py():
@@ -923,6 +924,14 @@ def repo_pypa_wheel():
         name = "pypa_wheel",
         target = "wheel",
         requirement = "wheel==0.36.2",
+    )
+
+def repo_pypa_yapf():
+    maybe(
+        third_party_python_package,
+        name = "pypa_yapf",
+        target = "yapf",
+        requirement = "yapf==0.31.0",
     )
 
 def repo_pypa_zipp():

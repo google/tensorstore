@@ -171,6 +171,7 @@ def generate(args):
         # Test
         "pytest",
         "pytest-asyncio",
+        "yapf",
         # Build
         "wheel",
         # Docs

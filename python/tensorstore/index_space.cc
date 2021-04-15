@@ -624,11 +624,10 @@ void RegisterIndexSpaceBindings(pybind11::module m) {
 Index interval with optionally-implicit bounds and dimension label.
 
 Examples:
----------
 
->>> ts.Dim('x')
+    >>> ts.Dim('x')
+    >>> ts.Dim(inclusive_min=3, exclusive_max=10, label='x')
 
->>> ts.Dim(inclusive_min=3, exclusive_max=10, label='x')
 )")
       .def(py::init([](std::optional<std::string> label, bool implicit_lower,
                        bool implicit_upper) {

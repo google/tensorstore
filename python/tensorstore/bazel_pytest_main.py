@@ -19,7 +19,7 @@ import sys
 import pytest
 
 
-def main(argv):
+def invoke_tests(argv):
   # Remove directory containing this script from the search path to avoid import
   # problems.
   del sys.path[0]
@@ -34,5 +34,12 @@ def main(argv):
   return pytest.main(args=args)
 
 
+def main():
+  if 'TENSORSTORE_PYTEST_USE_ABSL' in os.environ:
+    import absl.app
+    absl.app.run(invoke_tests)
+  else:
+    sys.exit(invoke_tests(sys.argv))
+
 if __name__ == '__main__':
-  sys.exit(main(sys.argv))
+  main()

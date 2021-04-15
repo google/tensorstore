@@ -8,7 +8,17 @@ licenses(["notice"])
 
 exports_files([
     "LICENSE",
+    "bazel_pytest_main.py",
 ])
+
+filegroup(
+    name = "doctest_sources",
+    srcs = glob([
+        "*.py",
+        "*.cc",
+    ]),
+    visibility = ["//docs:__subpackages__"],
+)
 
 pybind11_py_extension(
     name = "_tensorstore",
