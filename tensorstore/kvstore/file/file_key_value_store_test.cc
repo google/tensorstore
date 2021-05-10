@@ -63,6 +63,7 @@ using tensorstore::MatchesStatus;
 using tensorstore::StorageGeneration;
 using tensorstore::internal::MatchesKvsReadResultNotFound;
 using tensorstore::internal::MatchesTimestampedStorageGeneration;
+using ::testing::HasSubstr;
 
 KeyValueStore::Ptr GetStore(std::string root) {
   return KeyValueStore::Open(Context::Default(),
@@ -395,10 +396,11 @@ TEST(FileKeyValueStoreTest, ListErrors) {
         CompletionNotifyingReceiver{&notification,
                                     tensorstore::LoggingReceiver{&log}});
     notification.WaitForNotification();
-    EXPECT_THAT(log, ::testing::ElementsAre(
-                         "set_starting",
-                         "set_error: INVALID_ARGUMENT: Invalid key: \"a/\"",
-                         "set_stopping"));
+    EXPECT_THAT(
+        log, ::testing::ElementsAre(
+                 "set_starting",
+                 HasSubstr("set_error: INVALID_ARGUMENT: Invalid key: \"a/\""),
+                 "set_stopping"));
   }
 }
 
