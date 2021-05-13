@@ -16,6 +16,7 @@
 
 #include <system_error>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/util/str_cat.h"
 
@@ -27,8 +28,8 @@ using tensorstore::MaybeAnnotateStatus;
 
 TEST(StatusTest, StrCat) {
   const Status s = absl::UnknownError("Message");
-  EXPECT_EQ("UNKNOWN: Message", s.ToString());
-  EXPECT_EQ("UNKNOWN: Message", tensorstore::StrCat(s));
+  EXPECT_THAT(s.ToString(), testing::HasSubstr("UNKNOWN: Message"));
+  EXPECT_THAT(tensorstore::StrCat(s), testing::HasSubstr("UNKNOWN: Message"));
 }
 
 TEST(StatusTest, MaybeAnnotateStatus) {
