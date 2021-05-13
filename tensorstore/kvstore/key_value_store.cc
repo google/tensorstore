@@ -187,7 +187,7 @@ void KeyValueStore::DestroyLastReference() {
   this->EncodeCacheKey(&cache_key);
   {
     absl::MutexLock lock(&open_cache.mutex);
-    if (reference_count_.load(std::memory_order_relaxed) != 0) {
+    if (reference_count_.fetch_sub(1, std::memory_order_acq_rel) != 1) {
       // Another reference was added concurrently.  Don't destroy.
       return;
     }

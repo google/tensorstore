@@ -182,6 +182,27 @@ inline bool IncrementReferenceCountIfNonZero(
   return true;
 }
 
+/// Decrements `reference_count` if the result will be non-zero.
+///
+/// This is useful for caches where a simple decrement can be used to decrement
+/// the count down to any value > 0, but a mutex must be held to decrement the
+/// count to 0 in order to remove the object from the cache.
+///
+/// \pre `reference_count.load() > 0`
+/// \returns `true` if the count was successfully decremented.
+template <typename T>
+bool DecrementReferenceCountIfGreaterThanOne(std::atomic<T>& reference_count) {
+  auto count = reference_count.load(std::memory_order_relaxed);
+  while (true) {
+    if (count == 1) return false;
+    if (reference_count.compare_exchange_weak(count, count - 1,
+                                              std::memory_order_acq_rel)) {
+      // Decremented without the count reaching zero.
+      return true;
+    }
+  }
+}
+
 /// Specifies the default behavior of `IntrusivePtr<T>`.
 struct DefaultIntrusivePtrTraits {
   template <typename U>

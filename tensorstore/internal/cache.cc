@@ -255,14 +255,8 @@ inline UniqueWriterLock<absl::Mutex> DecrementReferenceCountWithLock(
   // However, if the reference count will possibly become 0, we must lock the
   // mutex before decrementing it to ensure that another thread doesn't
   // concurrently obtain another reference.
-  auto count = reference_count->load(std::memory_order_relaxed);
-  while (true) {
-    if (count == 1) break;
-    if (reference_count->compare_exchange_weak(count, count - 1,
-                                               std::memory_order_acq_rel)) {
-      // Decremented without the count reaching zero.
-      return {};
-    }
+  if (internal::DecrementReferenceCountIfGreaterThanOne(*reference_count)) {
+    return {};
   }
 
   // Handle the case of the reference_count possibly becoming 0.

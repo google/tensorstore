@@ -751,7 +751,8 @@ class KeyValueStore {
   }
 
   friend void intrusive_ptr_decrement(KeyValueStore* store) {
-    if (store->reference_count_.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+    if (!internal::DecrementReferenceCountIfGreaterThanOne(
+            store->reference_count_)) {
       store->DestroyLastReference();
     }
   }
