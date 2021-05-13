@@ -624,4 +624,125 @@ TEST(TransactionTest, MultiPhaseNode) {
   TENSORSTORE_EXPECT_OK(txn.future());
 }
 
+struct SynchronousTestNode : public TestNode {
+  using TestNode::TestNode;
+  void Commit() override {
+    TestNode::Commit();
+    // Call CommitDone synchronously, which destroys `this` and releases the
+    // weak reference to the transaction state that is held by `this`.
+    CommitDone();
+  }
+  void Abort() override {
+    TestNode::Abort();
+    AbortDone();
+  }
+};
+
+// Tests that the transaction state is not destroyed too early when the last
+// external reference to the transaction state is released while commit is in
+// progress.
+TEST(TransactionTest, ReleaseTransactionReferenceDuringCommit) {
+  NodeLog log;
+  auto txn = Transaction(tensorstore::isolated);
+  auto future = txn.future();
+  SynchronousTestNode* node;
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto open_ptr,
+                                     AcquireOpenTransactionPtrOrError(txn));
+    WeakTransactionNodePtr<SynchronousTestNode> weak_node(
+        new SynchronousTestNode(&log, 1));
+    weak_node->SetTransaction(*open_ptr);
+    TENSORSTORE_EXPECT_OK(weak_node->Register());
+    node = weak_node.get();
+  }
+  txn.CommitAsync().IgnoreFuture();
+
+  // Release transaction reference.
+  txn = Transaction(no_transaction);
+
+  // The only remaining references to the transaction state are held by the
+  // transaction nodes themselves, which are destroyed as part of the commit
+  // operation.  This tests that the transaction commit logic correctly retains
+  // a reference to the transaction state to avoid a use-after-free bug.
+
+  EXPECT_FALSE(future.ready());
+
+  EXPECT_THAT(log, ::testing::ElementsAre("prepare:1"));
+  EXPECT_FALSE(future.ready());
+
+  node->PrepareDone();
+  EXPECT_THAT(log, ::testing::ElementsAre("prepare:1"));
+  EXPECT_FALSE(future.ready());
+
+  node->ReadyForCommit();
+  EXPECT_THAT(log, ::testing::ElementsAre("prepare:1", "commit:1"));
+
+  ASSERT_TRUE(future.ready());
+  TENSORSTORE_EXPECT_OK(future);
+}
+
+// Tests that the transaction state is not destroyed too early when the last
+// external reference to the transaction state is released while abort is in
+// progress.
+TEST(TransactionTest, ReleaseTransactionReferenceDuringAbort) {
+  NodeLog log;
+  auto txn = Transaction(tensorstore::isolated);
+  auto future = txn.future();
+  TestNode* node1;
+  SynchronousTestNode* node2;
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto open_ptr,
+                                     AcquireOpenTransactionPtrOrError(txn));
+    {
+      WeakTransactionNodePtr<TestNode> weak_node(new TestNode(&log, 1));
+      weak_node->SetTransaction(*open_ptr);
+      TENSORSTORE_EXPECT_OK(weak_node->Register());
+      node1 = weak_node.get();
+    }
+    open_ptr->Barrier();
+    {
+      WeakTransactionNodePtr<SynchronousTestNode> weak_node(
+          new SynchronousTestNode(&log, 2));
+      weak_node->SetTransaction(*open_ptr);
+      TENSORSTORE_EXPECT_OK(weak_node->Register());
+      node2 = weak_node.get();
+    }
+  }
+  txn.CommitAsync().IgnoreFuture();
+
+  // Release transaction reference.
+  txn = Transaction(no_transaction);
+
+  // The only remaining references to the transaction state are held by the
+  // transaction nodes themselves, which are destroyed as part of the
+  // commit/abort operation.  This tests that the transaction commit/abort logic
+  // correctly retains a reference to the transaction state to avoid a
+  // use-after-free bug.  This problem cannot occur from calling Abort directly
+  // (or indirectly by destroying the Transaction object), because in that case
+  // the caller retains a reference to the transaction state.  Here we test that
+  // when the abort is triggered by the commit implementation itself, that a
+  // reference to the transaction state is properly retained while calling
+  // `ExecuteAbort`.
+
+  EXPECT_FALSE(future.ready());
+
+  EXPECT_THAT(log, ::testing::ElementsAre("prepare:1"));
+  EXPECT_FALSE(future.ready());
+
+  node1->PrepareDone();
+  EXPECT_THAT(log, ::testing::ElementsAre("prepare:1"));
+  EXPECT_FALSE(future.ready());
+
+  node1->ReadyForCommit();
+  EXPECT_THAT(log, ::testing::ElementsAre("prepare:1", "commit:1"));
+
+  node1->SetError(absl::UnknownError("failed"));
+  node1->CommitDone();
+
+  EXPECT_THAT(log, ::testing::ElementsAre("prepare:1", "commit:1", "abort:2"));
+  ASSERT_TRUE(future.ready());
+  EXPECT_THAT(future.result(),
+              MatchesStatus(absl::StatusCode::kUnknown, "failed"));
+}
+
 }  // namespace

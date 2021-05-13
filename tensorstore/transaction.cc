@@ -180,6 +180,10 @@ void TransactionState::ExecuteAbort() {
   // Transaction nodes are allowed to abort asynchronously.  When they are
   // finished aborting, they call `AbortDone`, which invokes
   // `DecrementNodesPendingAbort`.
+  //
+  // Unlike in `DecrementNodesPendingReadyForCommit`, we do not need to hold an
+  // additional weak reference to `this` while calling `node->Abort()`, because
+  // the caller of `ExecuteAbort` must be holding a weak reference to `this`.
   nodes_pending_abort_.store(0, std::memory_order_relaxed);
   size_t count = 0;
   for (Node *next, *node = nodes_.ExtremeNode(Tree::kLeft); node; node = next) {
@@ -267,6 +271,11 @@ void TransactionState::DecrementNodesPendingReadyForCommit() {
     return;
   }
   // Current phase ready to be committed.
+
+  // Ensure the transaction state is not freed until this method completes.  The
+  // call the `node->Commit()` below may cause `node` to be freed, which might
+  // otherwise hold the last reference to `this`.
+  WeakPtrTraits::increment(this);
   Node* node = nodes_.ExtremeNode(Tree::kLeft);
   const size_t current_phase = node->phase();
   // Reuse the `nodes_pending_commit_` counter (which is guaranteed to be 0) to
@@ -289,6 +298,7 @@ void TransactionState::DecrementNodesPendingReadyForCommit() {
     node = next;
   }
   DecrementNodesPendingCommit(-count);
+  WeakPtrTraits::decrement(this);
 }
 
 void TransactionState::DecrementNodesPendingCommit(size_t count) {
