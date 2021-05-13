@@ -235,6 +235,8 @@ void DriverRandomOperationTester::TestBasicFunctionality(
 
   auto expected_value = MakeCopy(options.initial_value);
 
+  constexpr auto kMaxWaitDuration = absl::Seconds(20);
+
   for (std::size_t i = 0; i < num_iterations; ++i) {
     auto transform = GetRandomTransform(gen, options.expected_domain);
     auto random_array = MakeRandomArray(gen, transform.domain().box(),
@@ -246,10 +248,10 @@ void DriverRandomOperationTester::TestBasicFunctionality(
     auto write_future =
         tensorstore::Write(random_array, store | transform).commit_future;
     TENSORSTORE_ASSERT_OK(write_future.result());
-    ASSERT_TRUE(write_future.WaitFor(absl::Seconds(5)));
+    ASSERT_TRUE(write_future.WaitFor(kMaxWaitDuration));
     TENSORSTORE_ASSERT_OK(write_future.result());
     auto read_part_future = Read(store | transform);
-    ASSERT_TRUE(read_part_future.WaitFor(absl::Seconds(5)));
+    ASSERT_TRUE(read_part_future.WaitFor(kMaxWaitDuration));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read_part_result,
                                      read_part_future.result());
     {
@@ -261,7 +263,7 @@ void DriverRandomOperationTester::TestBasicFunctionality(
         random_array, (expected_value | transform).value()));
 
     auto read_full_future = Read(store);
-    ASSERT_TRUE(read_full_future.WaitFor(absl::Seconds(5)));
+    ASSERT_TRUE(read_full_future.WaitFor(kMaxWaitDuration));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read_full_result,
                                      read_full_future.result());
 
