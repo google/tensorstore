@@ -201,7 +201,7 @@ class ChunkCache : public AsyncCache {
   /// component arrays corresponding to a single grid cell.
   class Entry : public AsyncCache::Entry {
    public:
-    using Cache = ChunkCache;
+    using OwningCache = ChunkCache;
 
     /// Returns the grid cell index vector corresponding to this cache entry.
     span<const Index> cell_indices() {
@@ -220,7 +220,7 @@ class ChunkCache : public AsyncCache {
 
   class TransactionNode : public AsyncCache::TransactionNode {
    public:
-    using Cache = ChunkCache;
+    using OwningCache = ChunkCache;
 
     explicit TransactionNode(Entry& entry);
 

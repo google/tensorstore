@@ -65,8 +65,12 @@ class TestCache : public Cache {
  public:
   class Entry : public Cache::Entry {
    public:
+    using OwningCache = TestCache;
+
     std::string data;
     std::size_t size = 1;
+
+    ~Entry() override { GetOwningCache(this)->OnDelete(this); }
 
     /// Overrides `Cache::Entry::UpdateState` in order to track `size`.
     void UpdateState(StateUpdate update) {
@@ -109,13 +113,12 @@ class TestCache : public Cache {
     return new Entry;
   }
 
-  void DoDeleteEntry(Cache::Entry* entry) override {
+  void OnDelete(Entry* entry) {
     if (log_) {
       absl::MutexLock lock(&log_->mutex);
       log_->entry_destroy_log.emplace_back(std::string(cache_identifier()),
                                            std::string(entry->key()));
     }
-    delete static_cast<Entry*>(entry);
   }
 
   std::size_t DoGetSizeInBytes(Cache::Entry* base_entry) override {
@@ -688,21 +691,29 @@ TEST(CacheTest, DestroyWhileDirty) {
 // lead to a circular reference and memory leak (the actual test is done by the
 // heap leak checker or sanitizer).
 TEST(CacheTest, CacheDependsOnOtherCache) {
-  class CacheA : public tensorstore::internal::CacheBase<CacheA, Cache> {
-    using Base = tensorstore::internal::CacheBase<CacheA, Cache>;
+  class CacheA : public tensorstore::internal::Cache {
+    using Base = tensorstore::internal::Cache;
 
    public:
     class Entry : public Cache::Entry {};
     using Base::Base;
+
+    Entry* DoAllocateEntry() final { return new Entry; }
+    std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+
     void DoRequestWriteback(PinnedCacheEntry<Cache> base_entry) override {}
   };
 
-  class CacheB : public tensorstore::internal::CacheBase<CacheB, Cache> {
-    using Base = tensorstore::internal::CacheBase<CacheB, Cache>;
+  class CacheB : public tensorstore::internal::Cache {
+    using Base = tensorstore::internal::Cache;
 
    public:
     class Entry : public Cache::Entry {};
     using Base::Base;
+
+    Entry* DoAllocateEntry() final { return new Entry; }
+    std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+
     void DoRequestWriteback(PinnedCacheEntry<Cache> base_entry) override {}
     CachePtr<CacheA> cache_a;
   };

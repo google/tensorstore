@@ -94,15 +94,14 @@ struct RequestLog {
   tensorstore::internal::ConcurrentQueue<WritebackRequest> writebacks;
 };
 
-class TestCache
-    : public tensorstore::internal::AsyncCacheBase<TestCache, AsyncCache> {
-  using Base = tensorstore::internal::AsyncCacheBase<TestCache, AsyncCache>;
+class TestCache : public tensorstore::internal::AsyncCache {
+  using Base = tensorstore::internal::AsyncCache;
 
  public:
   using ReadData = size_t;
   class Entry : public AsyncCache::Entry {
    public:
-    using Cache = TestCache;
+    using OwningCache = TestCache;
 
     auto CreateWriteTransaction(OpenTransactionPtr transaction = {}) {
       return GetTransactionNode(*this, transaction).value();
@@ -133,7 +132,7 @@ class TestCache
 
   class TransactionNode : public Base::TransactionNode {
    public:
-    using Cache = TestCache;
+    using OwningCache = TestCache;
     using Base::TransactionNode::TransactionNode;
 
     absl::Status DoInitialize(OpenTransactionPtr& transaction) override {
@@ -162,6 +161,12 @@ class TestCache
   };
 
   TestCache(RequestLog* log) : log_(log) {}
+
+  Entry* DoAllocateEntry() final { return new Entry; }
+  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
+    return new TransactionNode(static_cast<Entry&>(entry));
+  }
 
  private:
   RequestLog* log_;

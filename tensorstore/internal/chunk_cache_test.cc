@@ -163,8 +163,8 @@ std::string EncodeKey(span<const Index> indices) {
 }
 
 class TestCache;
-using TestCacheBase = tensorstore::internal::AsyncCacheBase<
-    TestCache, tensorstore::internal::KvsBackedCache<TestCache, ChunkCache>>;
+using TestCacheBase =
+    tensorstore::internal::KvsBackedCache<TestCache, ChunkCache>;
 class TestCache : public TestCacheBase {
   using Base = TestCacheBase;
 
@@ -173,7 +173,7 @@ class TestCache : public TestCacheBase {
 
   class Entry : public Base::Entry {
    public:
-    using Cache = TestCache;
+    using OwningCache = TestCache;
     // DoDecode implementation required by `KvsBackedCache`.
     void DoDecode(std::optional<absl::Cord> value,
                   DecodeReceiver receiver) override {
@@ -205,6 +205,12 @@ class TestCache : public TestCacheBase {
       return EncodeKey(this->cell_indices());
     }
   };
+
+  Entry* DoAllocateEntry() final { return new Entry; }
+  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
+    return new TransactionNode(static_cast<Entry&>(entry));
+  }
 };
 
 template <typename T>

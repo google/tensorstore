@@ -689,7 +689,7 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
               release_commit_block = true;
             }
             implicit_transaction_node_ =
-                &GetOwningCache(*this).DoAllocateTransactionNode(*this);
+                GetOwningCache(*this).DoAllocateTransactionNode(*this);
           }
           node.reset(implicit_transaction_node_.get());
         }
@@ -698,7 +698,7 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
         }
         stale_node.reset();
       } else {
-        node.reset(&GetOwningCache(*this).DoAllocateTransactionNode(*this));
+        node.reset(GetOwningCache(*this).DoAllocateTransactionNode(*this));
       }
       bool initialized = EnsureTransactionNodeInitialized(*node, transaction);
       TENSORSTORE_RETURN_IF_ERROR(node->initialized_status_);
@@ -727,9 +727,9 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
     while (true) {
       UniqueWriterLock lock(*this);
       const auto MakeNode = [&] {
-        auto& node = GetOwningCache(*this).DoAllocateTransactionNode(*this);
-        node.SetTransaction(*transaction);
-        return &node;
+        auto* node = GetOwningCache(*this).DoAllocateTransactionNode(*this);
+        node->SetTransaction(*transaction);
+        return node;
       };
       auto* candidate_node =
           transactions_
@@ -768,13 +768,6 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
   return OpenTransactionNodePtr<TransactionNode>(node.release(),
                                                  internal::adopt_object_ref);
 }
-
-// COV_NF_START
-AsyncCache::TransactionNode& AsyncCache::DoAllocateTransactionNode(
-    Entry& entry) {
-  TENSORSTORE_UNREACHABLE;
-}
-// COV_NF_END
 
 void AsyncCache::TransactionNode::Commit() { intrusive_ptr_decrement(this); }
 

@@ -72,10 +72,8 @@ namespace internal {
 ///
 /// A final, concrete `Derived` cache class should be defined as follows:
 ///
-///     class Derived;
-///     using DerivedBase = AsyncCacheBase<Derived, AsyncCache>;
-///     class Derived : public DerivedBase {
-///       using Base = DerivedBase;
+///     class Derived : public AsyncCache {
+///       using Base = AsyncCache;
 ///      public:
 ///       // Specifies the type representing the current committed data
 ///       // corresponding to an entry.
@@ -83,7 +81,7 @@ namespace internal {
 ///
 ///       class Entry : public Base::Entry {
 ///        public:
-///         using Cache = Derived;
+///         using OwningCache = Derived;
 ///
 ///         void DoRead(absl::Time staleness_bound) override;
 ///         size_t ComputeReadDataSizeInBytes(const void *read_data) override;
@@ -91,7 +89,7 @@ namespace internal {
 ///
 ///       class TransactionNode : public Base::TransactionNode {
 ///        public:
-///         using Cache = Derived;
+///         using OwningCache = Derived;
 ///         using Base::TransactionNode::TransactionNode;
 ///
 ///         void DoRead(absl::Time staleness_bound);
@@ -102,6 +100,16 @@ namespace internal {
 ///
 ///         // Additional data members representing the modification state...
 ///       };
+///
+///     // Implement required virtual interfaces:
+///
+///     Entry* DoAllocateEntry() final { return new Entry; }
+///     std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+///     TransactionNode* DoAllocateTransactionNode(
+///            AsyncCache::Entry& entry) final {
+///       return new TransactionNode(static_cast<Entry&>(entry));
+///     }
+///   };
 ///
 /// If writes are not supported, the nested `Derived::TransactionNode` class
 /// need not be defined.
@@ -254,7 +262,7 @@ class AsyncCache : public Cache {
         : ReadView<ReadData>(entry_or_node.LockReadState()),
           lock_(GetOwningEntry(entry_or_node).mutex_, std::adopt_lock) {
       static_assert(std::is_convertible_v<
-                    const typename DerivedEntryOrNode::Cache::ReadData*,
+                    const typename DerivedEntryOrNode::OwningCache::ReadData*,
                     const ReadData*>);
     }
 
@@ -271,7 +279,7 @@ class AsyncCache : public Cache {
                 std::is_base_of_v<Entry, DerivedEntryOrNode> ||
                 std::is_base_of_v<TransactionNode, DerivedEntryOrNode>>>
   explicit ReadLock(DerivedEntryOrNode& entry_or_node)
-      -> ReadLock<typename DerivedEntryOrNode::Cache::ReadData>;
+      -> ReadLock<typename DerivedEntryOrNode::OwningCache::ReadData>;
 #endif
 
   /// RAII lock class that provides write access to a `TransactionNode`.
@@ -325,10 +333,10 @@ class AsyncCache : public Cache {
   /// mixin types like `KvsBackedCache` do rely on those members.
   class ABSL_LOCKABLE Entry : public Cache::Entry {
    public:
-    /// For convenience, a `Derived::Entry` type should define a nested `Cache`
-    /// alias to the `Derived` cache type, in order for `GetOwningCache` to
-    /// return a pointer cast to the derived cache type.
-    using Cache = AsyncCache;
+    /// For convenience, a `Derived::Entry` type should define a nested
+    /// `OwningCache` alias to the `Derived` cache type, in order for
+    /// `GetOwningCache` to return a pointer cast to the derived cache type.
+    using OwningCache = AsyncCache;
 
     Entry() = default;
 
@@ -366,25 +374,26 @@ class AsyncCache : public Cache {
     ///     return, `transaction` will hold an open transaction reference to the
     ///     associated implicit transaction.
     template <typename DerivedEntry>
-    friend std::enable_if_t<std::is_base_of_v<Entry, DerivedEntry>,
-                            Result<OpenTransactionNodePtr<
-                                typename DerivedEntry::Cache::TransactionNode>>>
+    friend std::enable_if_t<
+        std::is_base_of_v<Entry, DerivedEntry>,
+        Result<OpenTransactionNodePtr<
+            typename DerivedEntry::OwningCache::TransactionNode>>>
     GetTransactionNode(DerivedEntry& entry,
                        internal::OpenTransactionPtr& transaction) {
       TENSORSTORE_ASSIGN_OR_RETURN(auto node,
                                    entry.GetTransactionNodeImpl(transaction));
       return internal::static_pointer_cast<
-          typename DerivedEntry::Cache::TransactionNode>(std::move(node));
+          typename DerivedEntry::OwningCache::TransactionNode>(std::move(node));
     }
 
     template <typename DerivedEntry>
     friend std::enable_if_t<
         std::is_base_of_v<Entry, DerivedEntry>,
-        Result<WriteLock<typename DerivedEntry::Cache::TransactionNode>>>
+        Result<WriteLock<typename DerivedEntry::OwningCache::TransactionNode>>>
     GetWriteLockedTransactionNode(
         DerivedEntry& entry, const internal::OpenTransactionPtr& transaction)
         ABSL_NO_THREAD_SAFETY_ANALYSIS {
-      using DerivedNode = typename DerivedEntry::Cache::TransactionNode;
+      using DerivedNode = typename DerivedEntry::OwningCache::TransactionNode;
       while (true) {
         auto transaction_copy = transaction;
         TENSORSTORE_ASSIGN_OR_RETURN(
@@ -509,17 +518,16 @@ class AsyncCache : public Cache {
         public internal::intrusive_red_black_tree::NodeBase<TransactionNode> {
    public:
     /// For convenience, a `Derived::TransactionNode` type should define a
-    /// nested `Cache` alias to the `Derived` cache type, in order for
+    /// nested `OwningCache` alias to the `Derived` cache type, in order for
     /// `GetOwningEntry` and `GetOwningCache` to return a pointer cast to the
     /// derived cache type.
-    using Cache = AsyncCache;
+    using OwningCache = AsyncCache;
 
     /// A `Derived::TransactionNode` class should define either directly, or via
     /// inheritance, a constructor that takes a single `Derived::Entry&`
     /// argument specifying the associated cache entry.  This constructor will
-    /// by invoked by the implementation of `DoAllocateTransactionNode` provided
-    /// by `AsyncCacheBase`, from which concrete derived classes
-    /// should inherit.
+    /// typically be invoked by the implementation of
+    /// `DoAllocateTransactionNode`.
     explicit TransactionNode(Entry& entry);
 
     ~TransactionNode();
@@ -555,9 +563,9 @@ class AsyncCache : public Cache {
     /// entry type to be returned.
     template <typename DerivedNode>
     friend std::enable_if_t<std::is_base_of_v<TransactionNode, DerivedNode>,
-                            typename DerivedNode::Cache::Entry&>
+                            typename DerivedNode::OwningCache::Entry&>
     GetOwningEntry(DerivedNode& node) {
-      return static_cast<typename DerivedNode::Cache::Entry&>(
+      return static_cast<typename DerivedNode::OwningCache::Entry&>(
           *static_cast<Cache::Entry*>(node.associated_data()));
     }
 
@@ -567,7 +575,7 @@ class AsyncCache : public Cache {
     /// cache type to be returned.
     template <typename DerivedNode>
     friend std::enable_if_t<std::is_base_of_v<TransactionNode, DerivedNode>,
-                            typename DerivedNode::Cache&>
+                            typename DerivedNode::OwningCache&>
     GetOwningCache(DerivedNode& node) {
       return GetOwningCache(GetOwningEntry(node));
     }
@@ -888,25 +896,15 @@ class AsyncCache : public Cache {
   /// `CachePool`.
   void DoRequestWriteback(PinnedEntry base_entry) final;
 
-  virtual TransactionNode& DoAllocateTransactionNode(Entry& entry);
-};
-
-/// CRTP base class for concrete derived classes of `AsyncCache`.
-///
-/// \tparam Derived Derived class type.
-/// \tparam Parent The base class from which to inherit, must inherit from (or
-///     equal) `AsyncCache`.
-template <typename Derived, typename Parent>
-class AsyncCacheBase : public CacheBase<Derived, Parent> {
-  static_assert(std::is_base_of_v<AsyncCache, Parent>);
-
- public:
-  using CacheBase<Derived, Parent>::CacheBase;
-  typename AsyncCache::TransactionNode& DoAllocateTransactionNode(
-      AsyncCache::Entry& entry) override {
-    return *new typename Derived::TransactionNode(
-        static_cast<typename Derived::Entry&>(entry));
-  }
+  /// Allocates a new `TransactionNode`.
+  ///
+  /// Usually this method can be defined as:
+  ///
+  /// TransactionNode* DoAllocateTransactionNode(
+  ///       AsyncCache::Entry& entry) final {
+  ///   return new TransactionNode(static_cast<Entry&>(entry));
+  /// }
+  virtual TransactionNode* DoAllocateTransactionNode(Entry& entry) = 0;
 };
 
 #ifdef TENSORSTORE_ASYNC_CACHE_DEBUG

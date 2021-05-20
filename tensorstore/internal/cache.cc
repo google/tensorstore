@@ -123,8 +123,7 @@ void EvictEntry(CacheEntryImpl* entry) noexcept ABSL_NO_THREAD_SAFETY_ANALYSIS {
     // is not destroyed.
     CachePtr<Cache> cache = AcquireCacheStrongPtr(entry->cache_);
     internal::ScopedWriterUnlock unlock(pool->mutex_);
-    Access::StaticCast<Cache>(entry->cache_)
-        ->DoDeleteEntry(Access::StaticCast<CacheEntry>(entry));
+    delete Access::StaticCast<CacheEntry>(entry);
     // Remove reference to cache while mutex is unlocked.  This may cause the
     // cache to be destroyed.
     cache.reset();
@@ -237,8 +236,7 @@ void SetStateAndSize(CacheEntryImpl* entry, CacheEntryQueueState state,
 
 void DestroyCache(CacheImpl* cache) noexcept {
   for (CacheEntryImpl* entry : cache->entries_) {
-    Access::StaticCast<Cache>(cache)->DoDeleteEntry(
-        Access::StaticCast<Cache::Entry>(entry));
+    delete Access::StaticCast<Cache::Entry>(entry);
   }
   delete Access::StaticCast<Cache>(cache);
 }

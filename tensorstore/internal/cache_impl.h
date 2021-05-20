@@ -59,7 +59,6 @@ struct LruListNode {
 
 class CacheEntryImpl : public internal_cache::LruListNode {
  public:
-  using Cache = CacheImpl;
   CacheImpl* cache_;
   std::string key_;
   size_t num_bytes_;

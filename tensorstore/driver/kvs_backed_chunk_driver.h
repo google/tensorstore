@@ -99,11 +99,9 @@ enum AtomicUpdateConstraint {
 };
 
 class MetadataCache;
-using MetadataCacheBase = internal::AsyncCacheBase<
+using MetadataCacheBase = internal::AggregateWritebackCache<
     MetadataCache,
-    internal::AggregateWritebackCache<
-        MetadataCache,
-        internal::KvsBackedCache<MetadataCache, internal::AsyncCache>>>;
+    internal::KvsBackedCache<MetadataCache, internal::AsyncCache>>;
 
 /// Caches metadata associated with a KeyValueStore-backed chunk driver.  Driver
 /// implementations must define a derived type that inherits from this class to
@@ -187,7 +185,7 @@ class MetadataCache : public MetadataCacheBase,
 
   class Entry : public Base::Entry {
    public:
-    using Cache = MetadataCache;
+    using OwningCache = MetadataCache;
 
     MetadataPtr GetMetadata() { return ReadLock<void>(*this).shared_data(); }
 
@@ -218,7 +216,7 @@ class MetadataCache : public MetadataCacheBase,
 
   class TransactionNode : public Base::TransactionNode {
    public:
-    using Cache = MetadataCache;
+    using OwningCache = MetadataCache;
     using MetadataCache::Base::TransactionNode::TransactionNode;
     /// Returns the metadata after applying all requested updates.
     ///
@@ -240,6 +238,12 @@ class MetadataCache : public MetadataCacheBase,
     Result<MetadataPtr> updated_metadata_ = nullptr;
   };
 
+  Entry* DoAllocateEntry() final { return new Entry; }
+  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
+    return new TransactionNode(static_cast<Entry&>(entry));
+  }
+
   KeyValueStore* base_store() { return base_store_.get(); }
 
   const Executor& executor() { return data_copy_concurrency_->executor; }
@@ -256,8 +260,7 @@ class MetadataCache : public MetadataCacheBase,
 };
 
 class DataCache;
-using DataCacheBase = internal::AsyncCacheBase<
-    DataCache, internal::KvsBackedCache<DataCache, internal::ChunkCache>>;
+using DataCacheBase = internal::KvsBackedCache<DataCache, internal::ChunkCache>;
 
 /// Inherits from `ChunkCache` and represents one or more chunked arrays that
 /// are stored within the same set of chunks.
@@ -422,7 +425,7 @@ class DataCache : public DataCacheBase {
 
   class Entry : public Base::Entry {
    public:
-    using Cache = DataCache;
+    using OwningCache = DataCache;
     void DoDecode(std::optional<absl::Cord> value,
                   DecodeReceiver receiver) override;
     void DoEncode(std::shared_ptr<const ReadData> data,
@@ -430,6 +433,12 @@ class DataCache : public DataCacheBase {
                   EncodeReceiver receiver) override;
     std::string GetKeyValueStoreKey() override;
   };
+
+  Entry* DoAllocateEntry() final { return new Entry; }
+  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
+    return new TransactionNode(static_cast<Entry&>(entry));
+  }
 
   MetadataCache* metadata_cache() {
     return GetOwningCache(metadata_cache_entry_);

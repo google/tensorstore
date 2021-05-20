@@ -83,7 +83,7 @@ class KvsBackedCache : public Parent {
 
   class Entry : public Parent::Entry {
    public:
-    using Cache = KvsBackedCache;
+    using OwningCache = KvsBackedCache;
 
     /// Defines the mapping from a cache entry to a `KeyValueStore` key.
     ///
@@ -191,7 +191,7 @@ class KvsBackedCache : public Parent {
   class TransactionNode : public Parent::TransactionNode,
                           public KeyValueStore::ReadModifyWriteSource {
    public:
-    using Cache = KvsBackedCache;
+    using OwningCache = KvsBackedCache;
     using Parent::TransactionNode::TransactionNode;
 
     absl::Status DoInitialize(

@@ -123,17 +123,15 @@ std::ostream& operator<<(std::ostream& os, const BenchmarkConfig& config) {
          << ", cached=" << config.cached << ", threads=" << config.threads;
 }
 
-class BenchmarkCache
-    : public tensorstore::internal::AsyncCacheBase<BenchmarkCache, ChunkCache> {
-  using Base =
-      tensorstore::internal::AsyncCacheBase<BenchmarkCache, ChunkCache>;
+class BenchmarkCache : public tensorstore::internal::ChunkCache {
+  using Base = tensorstore::internal::ChunkCache;
 
  public:
   using Base::Base;
 
   class Entry : public Base::Entry {
    public:
-    using Cache = BenchmarkCache;
+    using OwningCache = BenchmarkCache;
     void DoRead(absl::Time staleness_bound) override {
       GetOwningCache(*this).executor()([this] {
         const auto component_specs = this->component_specs();
@@ -155,7 +153,7 @@ class BenchmarkCache
 
   class TransactionNode : public Base::TransactionNode {
    public:
-    using Cache = BenchmarkCache;
+    using OwningCache = BenchmarkCache;
     using Base::TransactionNode::TransactionNode;
     absl::Status DoInitialize(
         tensorstore::internal::OpenTransactionPtr& transaction) override {
@@ -192,6 +190,12 @@ class BenchmarkCache
       this->DoApply(std::move(apply_options), ApplyReceiver{this});
     }
   };
+
+  Entry* DoAllocateEntry() final { return new Entry; }
+  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
+    return new TransactionNode(static_cast<Entry&>(entry));
+  }
 };
 
 class TestDriver : public ChunkCacheDriver {

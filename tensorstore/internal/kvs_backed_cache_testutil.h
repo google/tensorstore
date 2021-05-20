@@ -50,9 +50,7 @@ namespace internal {
 
 class KvsBackedTestCache;
 
-using KvsBackedTestCacheBase =
-    AsyncCacheBase<KvsBackedTestCache,
-                   KvsBackedCache<KvsBackedTestCache, AsyncCache>>;
+using KvsBackedTestCacheBase = KvsBackedCache<KvsBackedTestCache, AsyncCache>;
 
 /// Cache that may be used for testing `KvsBackedCache` and transactional
 /// `KeyValueStore` operations.
@@ -76,7 +74,7 @@ class KvsBackedTestCache : public KvsBackedTestCacheBase {
 
   class Entry : public Base::Entry {
    public:
-    using Cache = KvsBackedTestCache;
+    using OwningCache = KvsBackedTestCache;
 
     /// Applies a modification within a transaction.
     ///
@@ -120,7 +118,7 @@ class KvsBackedTestCache : public KvsBackedTestCacheBase {
   class TransactionNode : public Base::TransactionNode {
    public:
     using Base::TransactionNode::TransactionNode;
-    using Cache = KvsBackedTestCache;
+    using OwningCache = KvsBackedTestCache;
     void DoApply(ApplyOptions options, ApplyReceiver receiver) override;
     std::vector<Validator> validators;
     bool cleared = false;
@@ -128,6 +126,12 @@ class KvsBackedTestCache : public KvsBackedTestCacheBase {
 
     bool IsUnconditional() { return validators.empty() && cleared; }
   };
+
+  Entry* DoAllocateEntry() final { return new Entry; }
+  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
+    return new TransactionNode(static_cast<Entry&>(entry));
+  }
 
   static CachePtr<KvsBackedTestCache> Make(
       KeyValueStore::Ptr kvstore, CachePool::StrongPtr pool = {},

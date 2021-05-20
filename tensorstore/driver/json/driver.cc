@@ -45,8 +45,7 @@ Result<::nlohmann::json> DecodeJson(const std::optional<absl::Cord>& data) {
 }
 
 class JsonCache;
-using JsonCacheBase = internal::AsyncCacheBase<
-    JsonCache, internal::KvsBackedCache<JsonCache, internal::AsyncCache>>;
+using JsonCacheBase = internal::KvsBackedCache<JsonCache, internal::AsyncCache>;
 class JsonCache : public JsonCacheBase, public AsyncInitializedCacheMixin {
   using Base = JsonCacheBase;
 
@@ -57,7 +56,7 @@ class JsonCache : public JsonCacheBase, public AsyncInitializedCacheMixin {
 
   class Entry : public Base::Entry {
    public:
-    using Cache = JsonCache;
+    using OwningCache = JsonCache;
     void DoDecode(std::optional<absl::Cord> value,
                   DecodeReceiver receiver) override {
       GetOwningCache(*this).executor()(
@@ -86,7 +85,7 @@ class JsonCache : public JsonCacheBase, public AsyncInitializedCacheMixin {
 
   class TransactionNode : public Base::TransactionNode {
    public:
-    using Cache = JsonCache;
+    using OwningCache = JsonCache;
     using Base::TransactionNode::TransactionNode;
     void DoApply(ApplyOptions options, ApplyReceiver receiver) override {
       // Determine whether a read is required to compute the updated state
@@ -150,6 +149,12 @@ class JsonCache : public JsonCacheBase, public AsyncInitializedCacheMixin {
     }
     internal_json_driver::JsonChangeMap changes_;
   };
+
+  Entry* DoAllocateEntry() final { return new Entry; }
+  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
+    return new TransactionNode(static_cast<Entry&>(entry));
+  }
 
   const Executor& executor() { return data_copy_concurrency_->executor; }
 

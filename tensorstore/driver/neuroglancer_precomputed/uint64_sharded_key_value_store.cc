@@ -236,9 +236,8 @@ class MinishardIndexKeyValueStore : public KeyValueStore {
 };
 
 class MinishardIndexCache;
-using MinishardIndexCacheBase = internal::AsyncCacheBase<
-    MinishardIndexCache,
-    internal::KvsBackedCache<MinishardIndexCache, internal::AsyncCache>>;
+using MinishardIndexCacheBase =
+    internal::KvsBackedCache<MinishardIndexCache, internal::AsyncCache>;
 
 /// Caches minishard indexes.
 ///
@@ -255,7 +254,7 @@ class MinishardIndexCache : public MinishardIndexCacheBase {
 
   class Entry : public Base::Entry {
    public:
-    using Cache = MinishardIndexCache;
+    using OwningCache = MinishardIndexCache;
 
     ChunkSplitShardInfo shard_info() {
       ChunkCombinedShardInfo combined_info;
@@ -293,6 +292,12 @@ class MinishardIndexCache : public MinishardIndexCacheBase {
     }
   };
 
+  Entry* DoAllocateEntry() final { return new Entry; }
+  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
+    return new TransactionNode(static_cast<Entry&>(entry));
+  }
+
   explicit MinishardIndexCache(KeyValueStore::Ptr base_kvstore,
                                Executor executor, std::string key_prefix,
                                const ShardingSpec& sharding_spec)
@@ -318,10 +323,9 @@ MinishardAndChunkId GetMinishardAndChunkId(std::string_view key) {
 }
 
 class ShardedKeyValueStoreWriteCache;
-using ShardedKeyValueStoreWriteCacheBase = internal::AsyncCacheBase<
-    ShardedKeyValueStoreWriteCache,
+using ShardedKeyValueStoreWriteCacheBase =
     internal::KvsBackedCache<ShardedKeyValueStoreWriteCache,
-                             internal::AsyncCache>>;
+                             internal::AsyncCache>;
 
 /// Cache used to buffer writes to the KeyValueStore.
 ///
@@ -353,7 +357,7 @@ class ShardedKeyValueStoreWriteCache
 
   class Entry : public Base::Entry {
    public:
-    using Cache = ShardedKeyValueStoreWriteCache;
+    using OwningCache = ShardedKeyValueStoreWriteCache;
 
     std::uint64_t shard() { return KeyToShard(key()); }
 
@@ -405,7 +409,7 @@ class ShardedKeyValueStoreWriteCache
   class TransactionNode : public Base::TransactionNode,
                           public internal_kvs::AtomicMultiPhaseMutation {
    public:
-    using Cache = ShardedKeyValueStoreWriteCache;
+    using OwningCache = ShardedKeyValueStoreWriteCache;
     using Base::TransactionNode::TransactionNode;
 
     absl::Mutex& mutex() override { return this->mutex_; }
@@ -540,6 +544,12 @@ class ShardedKeyValueStoreWriteCache
     ApplyReceiver apply_receiver_;
     absl::Status apply_status_;
   };
+
+  Entry* DoAllocateEntry() final { return new Entry; }
+  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
+    return new TransactionNode(static_cast<Entry&>(entry));
+  }
 
   explicit ShardedKeyValueStoreWriteCache(
       internal::CachePtr<MinishardIndexCache> minishard_index_cache,

@@ -23,7 +23,7 @@
 ///   class MyCache : public CacheBase<MyCache, Cache> {
 ///    public:
 ///     class Entry : public Cache::Entry {
-///       using Cache = MyCache;
+///       using OwningCache = MyCache;
 ///       Mutex data_mutex;
 ///       std::string data;
 ///       std::stsring Read() {
@@ -60,6 +60,9 @@
 ///                          DoGetSizeInBytes(entry.get()));
 ///     }
 ///
+///     // Implement required virtual interfaces:
+///     Entry* DoAllocateEntry() final { return new Entry; }
+///     std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
 ///   };
 ///
 ///   // Create a pool with a 2MiB size limit, 1MiB limit for pending writes.
@@ -218,8 +221,8 @@ std::ostream& operator<<(std::ostream& os, CacheEntryQueueState state);
 class CacheEntry : private internal_cache::CacheEntryImpl {
  public:
   /// Alias required by the `GetOwningCache` function.  Derived `Entry` classes
-  /// must redefine `Cache` to be the derived cache type.
-  using Cache = internal::Cache;
+  /// must redefine `OwningCache` to be the derived cache type.
+  using OwningCache = internal::Cache;
 
   /// Returns the key for this entry.
   std::string_view key() { return key_; }
@@ -306,8 +309,8 @@ using PinnedCacheEntry =
 ///
 /// Derived classes must define a nested `Entry` type that inherits from
 /// `CacheEntry`, and override all of the virtual methods.  The nested `Entry`
-/// type must define a `Cache` type alias that is equal to the derived class
-/// type.
+/// type must define a `OwningCache` type alias that is equal to the derived
+/// class type.
 class Cache : private internal_cache::CacheImpl {
  public:
   /// Alias required by the `GetCacheEntry` function.  Derived classes must
@@ -331,15 +334,10 @@ class Cache : private internal_cache::CacheImpl {
 
   /// Allocates a new `entry` to be stored in this cache.
   ///
-  /// Derived classes must define this method.
+  /// Usually this method can be defined as:
+  ///
+  /// Entry* DoAllocateEntry() final { return new Entry; }
   virtual Entry* DoAllocateEntry() = 0;
-
-  /// Destroys `entry`.
-  ///
-  /// Derived classes must define this method.
-  ///
-  /// \param entry Non-null pointer to the entry to destroy.
-  virtual void DoDeleteEntry(Entry* entry) = 0;
 
   /// Returns the size in bytes used by `entry`.
   ///
@@ -364,8 +362,9 @@ class Cache : private internal_cache::CacheImpl {
   /// Returns `sizeof Entry`, where `Entry` is the derived class `Entry` type
   /// allocated by `DoAllocateEntry`.
   ///
-  /// Normally it is not necessary to manually define this method, because
-  /// `CacheBase` provides a suitable definition automatically.
+  /// Usually this method can be defined as:
+  ///
+  /// std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
   virtual std::size_t DoGetSizeofEntry() = 0;
 
   /// Initiates writeback of `entry`.
@@ -388,50 +387,24 @@ class Cache : private internal_cache::CacheImpl {
   friend class internal_cache::Access;
 };
 
-/// CRTP base class for defining derived `Cache` types.
-///
-/// This type should be the base class of the most-derived `Cache` class.
-///
-/// This ensures that `DoAllocateEntry`, `DoDeleteEntry`, and `DoGetSizeofEntry`
-/// are defined appropriately for the `Derived::Entry` type.
-template <typename Derived, typename Parent>
-class CacheBase : public Parent {
-  static_assert(std::is_base_of_v<Cache, Parent>);
-
- public:
-  using Parent::Parent;
-  Cache::Entry* DoAllocateEntry() override {
-    static_assert(std::is_base_of_v<Cache::Entry, typename Derived::Entry>);
-    static_assert(
-        std::is_base_of_v<typename Parent::Entry, typename Derived::Entry>);
-    return new typename Derived::Entry;
-  }
-  void DoDeleteEntry(Cache::Entry* entry) override {
-    delete static_cast<typename Derived::Entry*>(entry);
-  }
-  std::size_t DoGetSizeofEntry() override {
-    return sizeof(typename Derived::Entry);
-  }
-};
-
 /// Returns a pointer to the cache that contains `entry`.  By default, the
 /// returned pointer is only valid at least as long as `entry` is valid, but the
 /// lifetime of the cache may be extended by creating a CachePtr from the
 /// returned pointer.
 template <typename Entry>
 inline std::enable_if_t<std::is_base_of<Cache::Entry, Entry>::value,
-                        typename Entry::Cache*>
+                        typename Entry::OwningCache*>
 GetOwningCache(Entry* entry) {
-  return internal_cache::Access::StaticCast<typename Entry::Cache>(
+  return internal_cache::Access::StaticCast<typename Entry::OwningCache>(
       internal_cache::Access::StaticCast<internal_cache::CacheEntryImpl>(entry)
           ->cache_);
 }
 
 template <typename Entry>
 inline std::enable_if_t<std::is_base_of_v<Cache::Entry, Entry>,
-                        typename Entry::Cache&>
+                        typename Entry::OwningCache&>
 GetOwningCache(Entry& entry) {
-  return *internal_cache::Access::StaticCast<typename Entry::Cache>(
+  return *internal_cache::Access::StaticCast<typename Entry::OwningCache>(
       internal_cache::Access::StaticCast<internal_cache::CacheEntryImpl>(&entry)
           ->cache_);
 }
@@ -439,7 +412,7 @@ GetOwningCache(Entry& entry) {
 /// Overload for a `PinnedCacheEntry`.
 template <typename Entry>
 inline std::enable_if_t<std::is_base_of<Cache::Entry, Entry>::value,
-                        typename Entry::Cache*>
+                        typename Entry::OwningCache*>
 GetOwningCache(const internal_cache::CacheEntryStrongPtr<Entry>& entry) {
   return GetOwningCache(entry.get());
 }
