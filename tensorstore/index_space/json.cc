@@ -591,6 +591,35 @@ Result<TransformRep::Ptr<>> ParseIndexDomainFromJson(
 
 }  // namespace internal_index_space
 
+namespace internal_json_binding {
+
+TENSORSTORE_DEFINE_JSON_BINDER(
+    ConstrainedRankJsonBinder,
+    [](auto is_loading, const auto& options, auto* obj, auto* j) {
+      if constexpr (is_loading) {
+        if (j->is_discarded()) {
+          *obj = options.rank;
+          return absl::OkStatus();
+        }
+        TENSORSTORE_RETURN_IF_ERROR(
+            Integer<DimensionIndex>(0, kMaxRank)(is_loading, options, obj, j));
+      } else {
+        if ((!options.include_defaults() && options.rank != dynamic_rank) ||
+            *obj == dynamic_rank) {
+          *j = ::nlohmann::json::value_t::discarded;
+        } else {
+          *j = *obj;
+        }
+      }
+      if (!IsRankExplicitlyConvertible(options.rank, *obj)) {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Expected ", options.rank, ", but received: ", *obj));
+      }
+      return absl::OkStatus();
+    })
+
+}  // namespace internal_json_binding
+
 namespace jb = tensorstore::internal_json_binding;
 
 TENSORSTORE_DEFINE_JSON_BINDER(
@@ -612,13 +641,7 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                            [](IndexTransformSpec& s, DimensionIndex rank) {
                              s = rank;
                            },
-                           jb::DefaultValue(
-                               [options](DimensionIndex* r) {
-                                 *r = options.rank;
-                               },
-                               jb::DefaultValue<jb::kNeverIncludeDefaults>(
-                                   [](DimensionIndex* r) { *r = dynamic_rank; },
-                                   jb::Integer<DimensionIndex>(0, kMaxRank))))),
+                           jb::ConstrainedRankJsonBinder)),
             jb::Member(
                 "transform",
                 jb::GetterSetter<IndexTransform<>>(

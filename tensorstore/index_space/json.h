@@ -147,17 +147,6 @@
 
 namespace tensorstore {
 
-namespace internal_index_space {
-
-/// Parses an IndexTransform from JSON.
-Result<TransformRep::Ptr<>> ParseIndexTransformFromJson(
-    const ::nlohmann::json& j, DimensionIndex input_rank_constraint,
-    DimensionIndex output_rank_constraint);
-
-/// Parses an IndexDomain from JSON.
-Result<TransformRep::Ptr<>> ParseIndexDomainFromJson(
-    const ::nlohmann::json& j, DimensionIndex rank_constraint);
-
 /// Options for converting `IndexTransformSpec` to JSON.
 ///
 /// See documentation of `IndexTransformSpecBinder` below.
@@ -187,6 +176,17 @@ struct IndexTransformSpecFromJsonOptions : public RankConstraint {
       const internal::ArrayFromJsonOptions& options)
       : RankConstraint(options) {}
 };
+
+namespace internal_index_space {
+
+/// Parses an IndexTransform from JSON.
+Result<TransformRep::Ptr<>> ParseIndexTransformFromJson(
+    const ::nlohmann::json& j, DimensionIndex input_rank_constraint,
+    DimensionIndex output_rank_constraint);
+
+/// Parses an IndexDomain from JSON.
+Result<TransformRep::Ptr<>> ParseIndexDomainFromJson(
+    const ::nlohmann::json& j, DimensionIndex rank_constraint);
 
 }  // namespace internal_index_space
 
@@ -288,11 +288,10 @@ Result<IndexDomain<Rank>> ParseIndexDomain(
 /// in the options and the object is equal to
 /// `IndexTransformSpec(rank_constraint)`, no members are generated regardless
 /// of the value of `include_defaults`.
-TENSORSTORE_DECLARE_JSON_BINDER(
-    IndexTransformSpecBinder, IndexTransformSpec,
-    internal_index_space::IndexTransformSpecFromJsonOptions,
-    internal_index_space::IndexTransformSpecToJsonOptions,
-    ::nlohmann::json::object_t)
+TENSORSTORE_DECLARE_JSON_BINDER(IndexTransformSpecBinder, IndexTransformSpec,
+                                IndexTransformSpecFromJsonOptions,
+                                IndexTransformSpecToJsonOptions,
+                                ::nlohmann::json::object_t)
 
 namespace internal_json_binding {
 
@@ -415,6 +414,16 @@ inline constexpr auto IndexIntervalBinder =
 /// lower and upper bounds are indicated by `"-inf"` and `"+inf"`, respectively.
 ///
 using index_interval_binder::IndexIntervalBinder;
+
+/// JSON binder that matches an integer rank where the `RankConstraint` in the
+/// options specifies both an optional hard constraint and an default value.
+///
+/// When loading from a `discarded` JSON value, the constraint value specified
+/// by the options is used.  When saving, if the value matches the constraint
+/// value, `discarded` is returned.
+TENSORSTORE_DECLARE_JSON_BINDER(ConstrainedRankJsonBinder, DimensionIndex,
+                                IndexTransformSpecFromJsonOptions,
+                                IndexTransformSpecToJsonOptions)
 
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>

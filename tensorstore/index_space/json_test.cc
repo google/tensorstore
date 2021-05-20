@@ -846,4 +846,73 @@ TEST(IndexIntervalBinderTest, Basic) {
   });
 }
 
+TEST(ConstrainedRankJsonBinderTest, RoundTripNoConstraintIncludeDefaults) {
+  tensorstore::TestJsonBinderRoundTrip<DimensionIndex>(
+      {
+          {5, 5},
+          {dynamic_rank, ::nlohmann::json::value_t::discarded},
+      },
+      tensorstore::internal_json_binding::ConstrainedRankJsonBinder);
+}
+
+TEST(ConstrainedRankJsonBinderTest, RoundTripNoConstraintExcludeDefaults) {
+  tensorstore::TestJsonBinderRoundTrip<DimensionIndex>(
+      {
+          {5, 5},
+          {dynamic_rank, ::nlohmann::json::value_t::discarded},
+      },
+      tensorstore::internal_json_binding::ConstrainedRankJsonBinder,
+      tensorstore::IncludeDefaults{false});
+}
+
+TEST(ConstrainedRankJsonBinderTest, RoundTripRankConstraintIncludeDefaults) {
+  tensorstore::TestJsonBinderRoundTrip<DimensionIndex>(
+      {
+          {30, 30},
+      },
+      tensorstore::internal_json_binding::ConstrainedRankJsonBinder,
+      tensorstore::RankConstraint{30}, tensorstore::RankConstraint{30});
+}
+
+TEST(ConstrainedRankJsonBinderTest, FromJsonRankConstraint) {
+  tensorstore::TestJsonBinderFromJson<DimensionIndex>(
+      {
+          {30, ::testing::Optional(30)},
+          {::nlohmann::json::value_t::discarded, ::testing::Optional(30)},
+          {5, MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Expected 30, but received: 5")},
+      },
+      tensorstore::internal_json_binding::ConstrainedRankJsonBinder,
+      tensorstore::RankConstraint{30});
+}
+
+TEST(ConstrainedRankJsonBinderTest, ToJsonRankConstraintIncludeDefaults) {
+  tensorstore::TestJsonBinderToJson<DimensionIndex>(
+      {
+          {30, ::testing::Optional(MatchesJson(30))},
+          {dynamic_rank, ::testing::Optional(MatchesJson(
+                             ::nlohmann::json::value_t::discarded))},
+          {5, MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Expected 30, but received: 5")},
+      },
+      tensorstore::internal_json_binding::ConstrainedRankJsonBinder,
+      tensorstore::RankConstraint{30});
+}
+
+TEST(ConstrainedRankJsonBinderTest, ToJsonRankConstraintExcludeDefaults) {
+  tensorstore::TestJsonBinderToJson<DimensionIndex>(
+      {
+          {30, ::testing::Optional(
+                   MatchesJson(::nlohmann::json::value_t::discarded))},
+          {dynamic_rank, ::testing::Optional(MatchesJson(
+                             ::nlohmann::json::value_t::discarded))},
+          {5, MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Expected 30, but received: 5")},
+      },
+      tensorstore::internal_json_binding::ConstrainedRankJsonBinder,
+      tensorstore::IndexTransformSpecToJsonOptions{
+          tensorstore::IncludeDefaults{false},
+          tensorstore::RankConstraint{30}});
+}
+
 }  // namespace

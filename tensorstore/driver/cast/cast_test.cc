@@ -438,8 +438,8 @@ TEST(CastTest, ComposeTransformsError) {
                   .result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Error parsing object member \"base\": "
-                            "Cannot compose transform of rank 1 -> 1 "
-                            "with transform of rank 2 -> 2"));
+                            "Error parsing object member \"rank\": "
+                            "Expected 2, but received: 1"));
 }
 
 TEST(CastTest, SpecRankPropagation) {
