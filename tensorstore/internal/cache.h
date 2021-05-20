@@ -65,7 +65,7 @@
 ///   // Create a pool with a 2MiB size limit, 1MiB limit for pending writes.
 ///   auto pool = CachePool::Make(CachePool::Limits{2000000, 1000000});
 ///
-///   auto cache = pool.GetCache<MyCache>("cache_key", [&] {
+///   auto cache = pool->GetCache<MyCache>("cache_key", [&] {
 ///     return std::make_unique<MyCache>();
 ///   });
 ///
