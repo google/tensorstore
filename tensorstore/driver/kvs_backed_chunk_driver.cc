@@ -934,9 +934,9 @@ void MetadataCache::Entry::DoDecode(std::optional<absl::Cord> value,
   GetOwningCache(*this).executor()([this, value = std::move(value),
                                     receiver = std::move(receiver)]() mutable {
     MetadataPtr new_metadata;
-    auto& cache = GetOwningCache(*this);
     if (value) {
-      if (auto result = cache.DecodeMetadata(this->key(), *value);
+      if (auto result =
+              GetOwningCache(*this).DecodeMetadata(this->key(), *value);
           result.ok()) {
         new_metadata = std::move(*result);
       } else {

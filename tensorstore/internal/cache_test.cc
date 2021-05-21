@@ -70,7 +70,7 @@ class TestCache : public Cache {
     std::string data;
     std::size_t size = 1;
 
-    ~Entry() override { GetOwningCache(this)->OnDelete(this); }
+    ~Entry() override { GetOwningCache(*this).OnDelete(this); }
 
     /// Overrides `Cache::Entry::UpdateState` in order to track `size`.
     void UpdateState(StateUpdate update) {
@@ -353,7 +353,7 @@ TEST_P(NamedOrAnonymousCacheTest, CacheEntryKeepsCacheAlive) {
       EXPECT_THAT(log->entry_allocate_log,
                   ElementsAre(cache_key));  // No change
     }
-    EXPECT_EQ(1, GetOwningCache(entry)->use_count());
+    EXPECT_EQ(1, GetOwningCache(*entry).use_count());
     EXPECT_THAT(log->entry_destroy_log, ElementsAre());
     EXPECT_THAT(log->cache_destroy_log, ElementsAre());
   }

@@ -340,6 +340,10 @@ class AsyncCache : public Cache {
 
     Entry() = default;
 
+    /// Returns the `entry`.
+    ///
+    /// This is defined to simplify access in generic methods which work on
+    /// either an Entry or a TransactionNode.
     template <typename DerivedEntry>
     friend std::enable_if_t<std::is_base_of_v<Entry, DerivedEntry>,
                             DerivedEntry&>

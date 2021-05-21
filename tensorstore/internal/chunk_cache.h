@@ -210,7 +210,7 @@ class ChunkCache : public AsyncCache {
     }
 
     span<const ChunkGridSpecification::Component> component_specs() {
-      return GetOwningCache(this)->grid().components;
+      return GetOwningCache(*this).grid().components;
     }
 
     Future<const void> Delete(internal::OpenTransactionPtr transaction);

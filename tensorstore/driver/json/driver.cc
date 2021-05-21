@@ -232,7 +232,7 @@ class JsonDriver
   DimensionIndex rank() override { return 0; }  // COV_NF_LINE
 
   Executor data_copy_executor() override {
-    return GetOwningCache(cache_entry_)->executor();
+    return GetOwningCache(*cache_entry_).executor();
   }
 
   void Read(
@@ -290,11 +290,11 @@ Future<internal::Driver::Handle> JsonDriver::Open(
 Result<IndexTransformSpec> JsonDriver::GetBoundSpecData(
     internal::OpenTransactionPtr transaction, SpecT<ContextBound>* spec,
     IndexTransformView<> transform) const {
-  auto* cache = GetOwningCache(cache_entry_);
-  TENSORSTORE_ASSIGN_OR_RETURN(spec->store, cache->kvstore()->GetBoundSpec());
+  auto& cache = GetOwningCache(*cache_entry_);
+  TENSORSTORE_ASSIGN_OR_RETURN(spec->store, cache.kvstore()->GetBoundSpec());
   spec->path = std::string(cache_entry_->key());
-  spec->data_copy_concurrency = cache->data_copy_concurrency_;
-  spec->cache_pool = cache->cache_pool_;
+  spec->data_copy_concurrency = cache.data_copy_concurrency_;
+  spec->cache_pool = cache.cache_pool_;
   spec->data_staleness = data_staleness_;
   spec->json_pointer = json_pointer_;
   spec->rank = 0;

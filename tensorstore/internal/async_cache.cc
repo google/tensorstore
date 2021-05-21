@@ -362,11 +362,10 @@ void EntryOrNodeReadError(EntryOrNode& entry_or_node, absl::Status error) {
 }
 
 void RemoveTransactionFromMap(TransactionNode& node) {
-  auto& entry = GetOwningEntry(node);
   if (TransactionTree::IsDisconnected(&node)) {
     return;
   }
-  entry.transactions_.Remove(&node);
+  GetOwningEntry(node).transactions_.Remove(&node);
 }
 
 class TransactionNodeDestroyer {

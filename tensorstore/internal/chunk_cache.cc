@@ -80,7 +80,7 @@ ChunkGridSpecification::Component::Component(
 
 ChunkGridSpecification::ChunkGridSpecification(Components components_arg)
     : components(std::move(components_arg)) {
-  assert(components.size() > 0);
+  assert(!components.empty());
   // Extract the chunk shape from the cell shape of the first component.
   chunk_shape.resize(components[0].chunked_to_cell_dimensions.size());
   for (DimensionIndex i = 0;
@@ -212,9 +212,9 @@ struct ReadChunkImpl {
                                      IndexTransform<> chunk_transform,
                                      Arena* arena) const {
     const auto& component_spec =
-        GetOwningCache(entry)->grid().components[component_index];
+        GetOwningCache(*entry).grid().components[component_index];
     absl::FixedArray<Index, kNumInlinedDims> origin(component_spec.rank());
-    GetComponentOrigin(GetOwningCache(entry)->grid(), component_spec,
+    GetComponentOrigin(GetOwningCache(*entry).grid(), component_spec,
                        entry->cell_indices(), origin);
     auto read_array = ChunkCache::GetReadComponent(
         AsyncCache::ReadLock<ChunkCache::ReadData>(*entry).data(),

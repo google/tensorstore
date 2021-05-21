@@ -41,7 +41,6 @@ using tensorstore::StorageGeneration;
 using tensorstore::Transaction;
 using tensorstore::UniqueWriterLock;
 using tensorstore::internal::AsyncCache;
-using tensorstore::internal::Cache;
 using tensorstore::internal::CacheEntryQueueState;
 using tensorstore::internal::CachePool;
 using tensorstore::internal::OpenTransactionPtr;
@@ -115,7 +114,7 @@ class TestCache : public tensorstore::internal::AsyncCache {
     }
 
     void DoRead(absl::Time staleness_bound) override {
-      GetOwningCache(this)->log_->reads.push(RequestLog::ReadRequest{this});
+      GetOwningCache(*this).log_->reads.push(RequestLog::ReadRequest{this});
     }
 
     bool ShareImplicitTransactionNodes() override {

@@ -101,7 +101,6 @@ using tensorstore::internal::CachePtr;
 using tensorstore::internal::ChunkCache;
 using tensorstore::internal::ChunkCacheDriver;
 using tensorstore::internal::ChunkGridSpecification;
-using tensorstore::internal::ConcurrentQueue;
 using tensorstore::internal::Driver;
 using tensorstore::internal::ElementCopyFunction;
 using tensorstore::internal::MockKeyValueStore;
@@ -182,7 +181,7 @@ class TestCache : public TestCacheBase {
                                             std::move(receiver)]() mutable {
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto read_data,
-            DecodeRaw(GetOwningCache(this)->grid(), value ? &*value : nullptr),
+            DecodeRaw(GetOwningCache(*this).grid(), value ? &*value : nullptr),
             tensorstore::execution::set_error(receiver, _));
         tensorstore::execution::set_value(receiver, std::move(read_data));
       });

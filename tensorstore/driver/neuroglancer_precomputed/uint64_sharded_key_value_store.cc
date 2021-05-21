@@ -400,8 +400,8 @@ class ShardedKeyValueStoreWriteCache
     }
 
     std::string GetKeyValueStoreKey() override {
-      auto* cache = GetOwningCache(this);
-      return GetShardKey(cache->sharding_spec(), cache->key_prefix(),
+      auto& cache = GetOwningCache(*this);
+      return GetShardKey(cache.sharding_spec(), cache.key_prefix(),
                          this->shard());
     }
   };
@@ -836,13 +836,13 @@ struct MinishardIndexCacheEntryReadyCallback {
       return;
     }
     assert(!StorageGeneration::IsUnknown(stamp.generation));
-    auto* cache = GetOwningCache(entry_);
+    auto& cache = GetOwningCache(*entry_);
     ReadOptions kvs_read_options;
     kvs_read_options.if_equal = stamp.generation;
     kvs_read_options.staleness_bound = options_.staleness_bound;
     assert(options_.byte_range.SatisfiesInvariants());
     OptionalByteRangeRequest post_decode_byte_range;
-    const auto data_encoding = cache->sharding_spec().data_encoding;
+    const auto data_encoding = cache.sharding_spec().data_encoding;
     if (data_encoding == ShardingSpec::DataEncoding::raw) {
       // Can apply requested byte range request directly.
       if (auto result = options_.byte_range.Validate(byte_range->size())) {
@@ -866,11 +866,11 @@ struct MinishardIndexCacheEntryReadyCallback {
           auto& r = future.result();
           if (r->aborted()) {
             // Concurrent modification.  Retry.
-            auto* cache = GetOwningCache(entry);
+            auto& cache = GetOwningCache(*entry);
             auto minishard_index_read_future =
                 entry->Read(/*staleness_bound=*/absl::InfiniteFuture());
             LinkValue(WithExecutor(
-                          cache->executor(),
+                          cache.executor(),
                           MinishardIndexCacheEntryReadyCallback{
                               std::move(entry), chunk_id, std::move(options)}),
                       std::move(promise),
@@ -903,8 +903,8 @@ struct MinishardIndexCacheEntryReadyCallback {
           promise.SetResult(std::move(r));
         },
         std::move(promise),
-        cache->base_kvstore()->Read(
-            GetShardKey(cache->sharding_spec(), cache->key_prefix(), shard),
+        cache.base_kvstore()->Read(
+            GetShardKey(cache.sharding_spec(), cache.key_prefix(), shard),
             std::move(kvs_read_options)));
   }
 };

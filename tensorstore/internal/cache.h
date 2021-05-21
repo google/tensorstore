@@ -387,19 +387,9 @@ class Cache : private internal_cache::CacheImpl {
   friend class internal_cache::Access;
 };
 
-/// Returns a pointer to the cache that contains `entry`.  By default, the
-/// returned pointer is only valid at least as long as `entry` is valid, but the
-/// lifetime of the cache may be extended by creating a CachePtr from the
-/// returned pointer.
-template <typename Entry>
-inline std::enable_if_t<std::is_base_of<Cache::Entry, Entry>::value,
-                        typename Entry::OwningCache*>
-GetOwningCache(Entry* entry) {
-  return internal_cache::Access::StaticCast<typename Entry::OwningCache>(
-      internal_cache::Access::StaticCast<internal_cache::CacheEntryImpl>(entry)
-          ->cache_);
-}
-
+/// Returns a reference to the cache that contains `entry`.  The reference
+/// lifetime is tied to the lifetime of `entry`, but the lifetime of the cache
+/// may be extended by creating a CachePtr.
 template <typename Entry>
 inline std::enable_if_t<std::is_base_of_v<Cache::Entry, Entry>,
                         typename Entry::OwningCache&>
@@ -407,14 +397,6 @@ GetOwningCache(Entry& entry) {
   return *internal_cache::Access::StaticCast<typename Entry::OwningCache>(
       internal_cache::Access::StaticCast<internal_cache::CacheEntryImpl>(&entry)
           ->cache_);
-}
-
-/// Overload for a `PinnedCacheEntry`.
-template <typename Entry>
-inline std::enable_if_t<std::is_base_of<Cache::Entry, Entry>::value,
-                        typename Entry::OwningCache*>
-GetOwningCache(const internal_cache::CacheEntryStrongPtr<Entry>& entry) {
-  return GetOwningCache(entry.get());
 }
 
 /// Returns the entry of `cache` for the specified `key`.

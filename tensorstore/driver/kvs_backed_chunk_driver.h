@@ -441,7 +441,7 @@ class DataCache : public DataCacheBase {
   }
 
   MetadataCache* metadata_cache() {
-    return GetOwningCache(metadata_cache_entry_);
+    return &GetOwningCache(*metadata_cache_entry_);
   }
 
   const internal::PinnedCacheEntry<MetadataCache> metadata_cache_entry_;
