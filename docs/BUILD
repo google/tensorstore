@@ -11,6 +11,7 @@ filegroup(
     name = "doc_sources",
     srcs = [
         "conf.py",
+        "_templates/logo.svg",
     ] + glob([
         "_templates/**",
         "_static/**",
@@ -30,6 +31,24 @@ filegroup(
     testonly = True,
     srcs = glob(["python/**/*.rst"]) + [
         "//python/tensorstore:doctest_sources",
+    ],
+)
+
+pytype_strict_binary(
+    name = "generate_logo",
+    srcs = ["generate_logo.py"],
+    python_version = "PY3",
+    deps = [
+        "@pypa_numpy//:numpy",
+    ],
+)
+
+genrule(
+    name = "generate_logo_rule",
+    outs = ["_templates/logo.svg"],
+    cmd = "./$(location :generate_logo) $@",
+    exec_tools = [
+        ":generate_logo",
     ],
 )
 

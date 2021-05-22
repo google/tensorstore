@@ -62,6 +62,8 @@ pygments_style = 'sphinx'
 
 html_theme = 'sphinx_rtd_theme'
 
+html_favicon = '_templates/logo.svg'
+
 html_theme_options = {
     'navigation_depth': -1,
 }
