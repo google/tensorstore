@@ -133,8 +133,8 @@ class PythonStrideOp : public PythonDimExpression {
 class PythonLabelOp : public PythonDimExpression {
  public:
   explicit PythonLabelOp(std::shared_ptr<const PythonDimExpressionBase> parent,
-                         std::vector<std::string> labels)
-      : parent_(std::move(parent)), labels_(std::move(labels)) {}
+                         SequenceParameter<std::string> labels)
+      : parent_(std::move(parent)), labels_(std::move(labels).value) {}
 
   std::string repr() const override {
     std::string r = StrCat(parent_->repr(), ".label[");
@@ -185,9 +185,9 @@ class PythonTransposeOp : public PythonDimExpression {
  public:
   explicit PythonTransposeOp(
       std::shared_ptr<const PythonDimExpressionBase> parent,
-      std::vector<DynamicDimSpec> target_dim_specs)
+      SequenceParameter<DynamicDimSpec> target_dim_specs)
       : parent_(std::move(parent)),
-        target_dim_specs_(std::move(target_dim_specs)) {}
+        target_dim_specs_(std::move(target_dim_specs).value) {}
 
   std::string repr() const override {
     std::string out = StrCat(parent_->repr(), ".transpose[");
@@ -404,14 +404,15 @@ dimensions to which an indexing operation applies.
       .def(
           "__getitem__",
           +[](std::shared_ptr<PythonDimExpressionBase> self,
-              std::variant<std::string, std::vector<std::string>>
+              std::variant<std::string, SequenceParameter<std::string>>
                   labels_variant) -> std::shared_ptr<PythonDimExpression> {
             std::vector<std::string> labels;
             if (auto* label = std::get_if<std::string>(&labels_variant)) {
               labels.push_back(std::move(*label));
             } else {
-              labels =
-                  std::move(std::get<std::vector<std::string>>(labels_variant));
+              labels = std::move(std::get<SequenceParameter<std::string>>(
+                                     labels_variant))
+                           .value;
             }
             return std::make_shared<PythonLabelOp>(std::move(self),
                                                    std::move(labels));

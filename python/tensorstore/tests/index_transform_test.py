@@ -26,14 +26,14 @@ def test_identity():
   assert x.ndim == 3
   assert x.input_rank == 3
   assert x.output_rank == 3
-  np.testing.assert_equal(x.input_inclusive_min, [-ts.inf] * 3)
-  np.testing.assert_equal(x.input_inclusive_max, [+ts.inf] * 3)
-  np.testing.assert_equal(x.input_exclusive_max, [+ts.inf + 1] * 3)
-  np.testing.assert_equal(x.input_shape, [2 * ts.inf + 1] * 3)
+  assert x.input_inclusive_min == (-ts.inf,) * 3
+  assert x.input_inclusive_max == (+ts.inf,) * 3
+  assert x.input_exclusive_max == (+ts.inf + 1,) * 3
+  assert x.input_shape == (2 * ts.inf + 1,) * 3
   assert x.output == [ts.OutputIndexMap(input_dimension=i) for i in range(3)]
   assert list(
       x.output) == [ts.OutputIndexMap(input_dimension=i) for i in range(3)]
-  np.testing.assert_equal(x([1, 2, 3]), [1, 2, 3])
+  assert x([1, 2, 3]) == (1, 2, 3)
   with pytest.raises(ValueError):
     x([1])
   with pytest.raises(ValueError):
@@ -162,8 +162,8 @@ def test_eq():
 
 def test_domain_access():
   x = ts.IndexTransform(input_inclusive_min=[1, 2, 3], input_shape=[5, 6, 7])
-  np.testing.assert_equal(x.origin, [1, 2, 3])
-  np.testing.assert_equal(x.shape, [5, 6, 7])
+  assert x.origin == (1, 2, 3)
+  assert x.shape == (5, 6, 7)
   assert x.size == 5 * 6 * 7
   assert x.T == ts.IndexTransform(
       input_inclusive_min=[3, 2, 1],

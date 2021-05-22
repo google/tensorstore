@@ -77,51 +77,30 @@ bool operator==(const OutputIndexMap& a, const OutputIndexMap& b) {
   TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
 }
 
-py::array MakeArrayReadonly(py::array array) {
-  py::detail::array_proxy(array.ptr())->flags &= ~NPY_ARRAY_WRITEABLE;
-  return array;
-}
-
-py::tuple GetLabelsTuple(span<const std::string> labels) {
-  auto labels_tuple = py::tuple(labels.size());
-  for (DimensionIndex i = 0; i < labels.size(); ++i) {
-    labels_tuple[i] = py::str(labels[i]);
-  }
-  return labels_tuple;
-}
-
-py::array GetExclusiveMax(IndexDomainView<> domain) {
+HomogeneousTuple<Index> GetExclusiveMax(IndexDomainView<> domain) {
   const DimensionIndex rank = domain.rank();
-  std::unique_ptr<Index[]> arr(new Index[rank]);
+  Index temp[kMaxRank];
   for (DimensionIndex i = 0; i < rank; ++i) {
-    arr[i] = domain[i].exclusive_max();
+    temp[i] = domain[i].exclusive_max();
   }
-  auto* ptr = arr.get();
-  return MakeArrayReadonly(
-      py::array_t<Index>(rank, ptr, py::capsule(arr.release(), [](void* p) {
-                           delete[] static_cast<Index*>(p);
-                         })));
+  return SpanToHomogeneousTuple<Index>({temp, rank});
 }
 
-py::array GetInclusiveMax(IndexDomainView<> domain) {
+HomogeneousTuple<Index> GetInclusiveMax(IndexDomainView<> domain) {
   const DimensionIndex rank = domain.rank();
-  std::unique_ptr<Index[]> arr(new Index[rank]);
+  Index temp[kMaxRank];
   for (DimensionIndex i = 0; i < rank; ++i) {
-    arr[i] = domain[i].inclusive_max();
+    temp[i] = domain[i].inclusive_max();
   }
-  auto* ptr = arr.get();
-  return MakeArrayReadonly(
-      py::array_t<Index>(rank, ptr, py::capsule(arr.release(), [](void* p) {
-                           delete[] static_cast<Index*>(p);
-                         })));
+  return SpanToHomogeneousTuple<Index>({temp, rank});
 }
 
-py::array GetBitVector(BitSpan<const std::uint64_t> v) {
-  bool* arr = new bool[v.size()];
-  std::copy(v.begin(), v.end(), arr);
-  return py::array_t<bool>(v.size(), arr, py::capsule(arr, [](void* p) {
-                             delete[] static_cast<bool*>(p);
-                           }));
+HomogeneousTuple<bool> GetBitVector(BitSpan<const std::uint64_t> v) {
+  py::tuple t(v.size());
+  for (DimensionIndex i = 0; i < v.size(); ++i) {
+    t[i] = py::reinterpret_borrow<py::object>(v[i] ? Py_True : Py_False);
+  }
+  return HomogeneousTuple<bool>{std::move(t)};
 }
 
 OutputIndexMap::OutputIndexMap(OutputIndexMapRef<> r)
@@ -176,17 +155,18 @@ DimensionIndex NormalizePythonDimensionIndex(PythonDimensionIndex i,
 /// rank.
 IndexTransformBuilder<> InitializeIndexTransformBuilder(
     std::optional<DimensionIndex> input_rank, const char* input_rank_field_name,
-    const std::optional<std::vector<Index>>& input_inclusive_min,
+    const std::optional<SequenceParameter<Index>>& input_inclusive_min,
     const char* input_inclusive_min_field_name,
-    const std::optional<std::vector<bool>>& implicit_lower_bounds,
-    const std::optional<std::vector<Index>>& input_exclusive_max,
+    const std::optional<SequenceParameter<bool>>& implicit_lower_bounds,
+    const std::optional<SequenceParameter<Index>>& input_exclusive_max,
     const char* input_exclusive_max_field_name,
-    const std::optional<std::vector<Index>>& input_inclusive_max,
+    const std::optional<SequenceParameter<Index>>& input_inclusive_max,
     const char* input_inclusive_max_field_name,
-    const std::optional<std::vector<Index>>& input_shape,
+    const std::optional<SequenceParameter<Index>>& input_shape,
     const char* input_shape_field_name,
-    const std::optional<std::vector<bool>>& implicit_upper_bounds,
-    const std::optional<std::vector<std::optional<std::string>>>& input_labels,
+    const std::optional<SequenceParameter<bool>>& implicit_upper_bounds,
+    const std::optional<SequenceParameter<std::optional<std::string>>>&
+        input_labels,
     const char* input_labels_field_name,
     std::optional<DimensionIndex> output_rank) {
   const char* input_rank_field = nullptr;
@@ -286,7 +266,7 @@ IndexTransformBuilder<> InitializeIndexTransformBuilder(
 }
 
 void SetOutputIndexMaps(
-    const std::optional<std::vector<OutputIndexMap>>& output,
+    const std::optional<SequenceParameter<OutputIndexMap>>& output,
     IndexTransformBuilder<>* builder) {
   const DimensionIndex output_rank = builder->output_rank();
   if (!output) {
@@ -611,7 +591,7 @@ void RegisterIndexSpaceBindings(pybind11::module m) {
              return out;
            })
       .def("__eq__", [](const OutputIndexMapRangeContainer& r,
-                        const std::vector<OutputIndexMap>& other) {
+                        const SequenceParameter<OutputIndexMap>& other) {
         if (r.size() != static_cast<DimensionIndex>(other.size())) return false;
         for (DimensionIndex i = 0; i < r.size(); ++i) {
           if (OutputIndexMap(r[i]) != other[i]) return false;
@@ -767,14 +747,14 @@ Logically, an IndexDomain is the cartesian product of a sequence of Dim objects.
   cls_index_domain
       .def(py::init(
                [](std::optional<DimensionIndex> rank,
-                  std::optional<std::vector<Index>> inclusive_min,
-                  std::optional<std::vector<bool>> implicit_lower_bounds,
-                  std::optional<std::vector<Index>> exclusive_max,
-                  std::optional<std::vector<Index>> inclusive_max,
-                  std::optional<std::vector<Index>> shape,
-                  std::optional<std::vector<bool>> implicit_upper_bounds,
-                  std::optional<std::vector<std::optional<std::string>>> labels)
-                   -> IndexDomain<> {
+                  std::optional<SequenceParameter<Index>> inclusive_min,
+                  std::optional<SequenceParameter<bool>> implicit_lower_bounds,
+                  std::optional<SequenceParameter<Index>> exclusive_max,
+                  std::optional<SequenceParameter<Index>> inclusive_max,
+                  std::optional<SequenceParameter<Index>> shape,
+                  std::optional<SequenceParameter<bool>> implicit_upper_bounds,
+                  std::optional<SequenceParameter<std::optional<std::string>>>
+                      labels) -> IndexDomain<> {
                  auto builder = InitializeIndexTransformBuilder(
                      rank, "rank", inclusive_min, "inclusive_min",
                      implicit_lower_bounds, exclusive_max, "exclusive_max",
@@ -791,24 +771,25 @@ Logically, an IndexDomain is the cartesian product of a sequence of Dim objects.
            py::arg("shape") = std::nullopt,
            py::arg("implicit_upper_bounds") = std::nullopt,
            py::arg("labels") = std::nullopt)
-      .def(py::init([](const std::vector<IndexDomainDimension<>>& dimensions) {
-             const DimensionIndex rank = dimensions.size();
-             auto builder = IndexTransformBuilder<>(rank, 0);
-             auto origin = builder.input_origin();
-             auto shape = builder.input_shape();
-             auto labels = builder.input_labels();
-             auto implicit_lower_bounds = builder.implicit_lower_bounds();
-             auto implicit_upper_bounds = builder.implicit_upper_bounds();
-             for (DimensionIndex i = 0; i < rank; ++i) {
-               const auto& d = dimensions[i];
-               origin[i] = d.inclusive_min();
-               shape[i] = d.size();
-               labels[i] = std::string(d.label());
-               implicit_lower_bounds[i] = d.implicit_lower();
-               implicit_upper_bounds[i] = d.implicit_upper();
-             }
-             return IndexDomain<>(ValueOrThrow(builder.Finalize()));
-           }),
+      .def(py::init(
+               [](const SequenceParameter<IndexDomainDimension<>>& dimensions) {
+                 const DimensionIndex rank = dimensions.size();
+                 auto builder = IndexTransformBuilder<>(rank, 0);
+                 auto origin = builder.input_origin();
+                 auto shape = builder.input_shape();
+                 auto labels = builder.input_labels();
+                 auto implicit_lower_bounds = builder.implicit_lower_bounds();
+                 auto implicit_upper_bounds = builder.implicit_upper_bounds();
+                 for (DimensionIndex i = 0; i < rank; ++i) {
+                   const auto& d = dimensions[i];
+                   origin[i] = d.inclusive_min();
+                   shape[i] = d.size();
+                   labels[i] = std::string(d.label());
+                   implicit_lower_bounds[i] = d.implicit_lower();
+                   implicit_upper_bounds[i] = d.implicit_upper();
+                 }
+                 return IndexDomain<>(ValueOrThrow(builder.Finalize()));
+               }),
            py::arg("dimensions"));
   cls_index_domain
       .def_property_readonly("rank", &IndexDomain<>::rank,
@@ -857,24 +838,21 @@ Logically, an IndexDomain is the cartesian product of a sequence of Dim objects.
       .def_property_readonly(
           "origin",
           [](const IndexDomain<>& self) {
-            return MakeArrayReadonly(
-                py::array_t<Index>(self.rank(), self.origin().data()));
+            return SpanToHomogeneousTuple<Index>(self.origin());
           },
-          "Inclusive lower bound of the domain.", py::keep_alive<0, 1>())
+          "Inclusive lower bound of the domain.")
       .def_property_readonly(
           "inclusive_min",
-          [](const IndexDomain<>& d) {
-            return MakeArrayReadonly(
-                py::array_t<Index>(d.rank(), d.origin().data()));
+          [](const IndexDomain<>& self) {
+            return SpanToHomogeneousTuple<Index>(self.origin());
           },
-          "Inclusive lower bound of the domain.", py::keep_alive<0, 1>())
+          "Inclusive lower bound of the domain.")
       .def_property_readonly(
           "shape",
-          [](const IndexDomain<>& d) {
-            return MakeArrayReadonly(
-                py::array_t<Index>(d.rank(), d.shape().data()));
+          [](const IndexDomain<>& self) {
+            return SpanToHomogeneousTuple<Index>(self.shape());
           },
-          "Shape of the domain.", py::keep_alive<0, 1>())
+          "Shape of the domain.")
       .def_property_readonly(
           "exclusive_max",
           [](const IndexDomain<>& self) { return GetExclusiveMax(self); },
@@ -885,19 +863,21 @@ Logically, an IndexDomain is the cartesian product of a sequence of Dim objects.
           "Inclusive upper bound of the domain.")
       .def_property_readonly(
           "labels",
-          [](const IndexDomain<>& d) { return GetLabelsTuple(d.labels()); },
+          [](const IndexDomain<>& d) {
+            return SpanToHomogeneousTuple(d.labels());
+          },
           "Dimension labels")
       .def_property_readonly(
           "implicit_lower_bounds",
           [](const IndexDomain<>& d) {
-            return MakeArrayReadonly(GetBitVector(d.implicit_lower_bounds()));
+            return GetBitVector(d.implicit_lower_bounds());
           },
           "Implicit lower bounds");
   cls_index_domain
       .def_property_readonly(
           "implicit_upper_bounds",
           [](const IndexDomain<>& d) {
-            return MakeArrayReadonly(GetBitVector(d.implicit_upper_bounds()));
+            return GetBitVector(d.implicit_upper_bounds());
           },
           "Implicit upper bounds")
       .def_property_readonly(
@@ -922,29 +902,30 @@ This is simply the product of the extents in :py:obj:`.shape`.)")
       m, "IndexTransform", "Represents a transform between two index spaces.");
 
   cls_index_transform
-      .def(py::init([](std::optional<DimensionIndex> input_rank,
-                       std::optional<std::vector<Index>> input_inclusive_min,
-                       std::optional<std::vector<bool>> implicit_lower_bounds,
-                       std::optional<std::vector<Index>> input_exclusive_max,
-                       std::optional<std::vector<Index>> input_inclusive_max,
-                       std::optional<std::vector<Index>> input_shape,
-                       std::optional<std::vector<bool>> implicit_upper_bounds,
-                       std::optional<std::vector<std::optional<std::string>>>
-                           input_labels,
-                       std::optional<std::vector<OutputIndexMap>> output)
-                        -> IndexTransform<> {
-             std::optional<DimensionIndex> output_rank_opt;
-             if (output) output_rank_opt = output->size();
-             auto builder = InitializeIndexTransformBuilder(
-                 input_rank, "input_rank", input_inclusive_min,
-                 "input_inclusive_min", implicit_lower_bounds,
-                 input_exclusive_max, "input_exclusive_max",
-                 input_inclusive_max, "input_inclusive_max", input_shape,
-                 "input_shape", implicit_upper_bounds, input_labels,
-                 "input_labels", output_rank_opt);
-             SetOutputIndexMaps(output, &builder);
-             return ValueOrThrow(builder.Finalize());
-           }),
+      .def(py::init(
+               [](std::optional<DimensionIndex> input_rank,
+                  std::optional<SequenceParameter<Index>> input_inclusive_min,
+                  std::optional<SequenceParameter<bool>> implicit_lower_bounds,
+                  std::optional<SequenceParameter<Index>> input_exclusive_max,
+                  std::optional<SequenceParameter<Index>> input_inclusive_max,
+                  std::optional<SequenceParameter<Index>> input_shape,
+                  std::optional<SequenceParameter<bool>> implicit_upper_bounds,
+                  std::optional<SequenceParameter<std::optional<std::string>>>
+                      input_labels,
+                  std::optional<SequenceParameter<OutputIndexMap>> output)
+                   -> IndexTransform<> {
+                 std::optional<DimensionIndex> output_rank_opt;
+                 if (output) output_rank_opt = output->size();
+                 auto builder = InitializeIndexTransformBuilder(
+                     input_rank, "input_rank", input_inclusive_min,
+                     "input_inclusive_min", implicit_lower_bounds,
+                     input_exclusive_max, "input_exclusive_max",
+                     input_inclusive_max, "input_inclusive_max", input_shape,
+                     "input_shape", implicit_upper_bounds, input_labels,
+                     "input_labels", output_rank_opt);
+                 SetOutputIndexMaps(output, &builder);
+                 return ValueOrThrow(builder.Finalize());
+               }),
            py::arg("input_rank") = std::nullopt, py::kw_only(),
            py::arg("input_inclusive_min") = std::nullopt,
            py::arg("implicit_lower_bounds") = std::nullopt,
@@ -954,16 +935,17 @@ This is simply the product of the extents in :py:obj:`.shape`.)")
            py::arg("implicit_upper_bounds") = std::nullopt,
            py::arg("input_labels") = std::nullopt,
            py::arg("output") = std::nullopt)
-      .def(py::init([](IndexDomain<> domain,
-                       std::optional<std::vector<OutputIndexMap>> output) {
-             const DimensionIndex output_rank =
-                 output ? output->size() : domain.rank();
-             IndexTransformBuilder<> builder(domain.rank(), output_rank);
-             builder.input_domain(domain);
-             SetOutputIndexMaps(output, &builder);
-             return ValueOrThrow(builder.Finalize());
-           }),
-           py::arg("domain"), py::arg("output") = std::nullopt)
+      .def(
+          py::init([](IndexDomain<> domain,
+                      std::optional<SequenceParameter<OutputIndexMap>> output) {
+            const DimensionIndex output_rank =
+                output ? output->size() : domain.rank();
+            IndexTransformBuilder<> builder(domain.rank(), output_rank);
+            builder.input_domain(domain);
+            SetOutputIndexMaps(output, &builder);
+            return ValueOrThrow(builder.Finalize());
+          }),
+          py::arg("domain"), py::arg("output") = std::nullopt)
       .def(py::init([](const ::nlohmann::json& json) {
              return ValueOrThrow(ParseIndexTransform(json));
            }),
@@ -980,34 +962,27 @@ This is simply the product of the extents in :py:obj:`.shape`.)")
       .def_property_readonly(
           "input_origin",
           [](const IndexTransform<>& t) {
-            return MakeArrayReadonly(
-                py::array_t<Index>(t.input_rank(), t.input_origin().data()));
+            return SpanToHomogeneousTuple(t.input_origin());
           },
-          "Inclusive lower bound of the input domain.",
-          py::return_value_policy::move, py::keep_alive<0, 1>())
+          "Inclusive lower bound of the input domain.")
       .def_property_readonly(
           "input_inclusive_min",
           [](const IndexTransform<>& t) {
-            return MakeArrayReadonly(
-                py::array_t<Index>(t.input_rank(), t.input_origin().data()));
+            return SpanToHomogeneousTuple(t.input_origin());
           },
-          "Inclusive lower bound of the input domain.",
-          py::return_value_policy::move, py::keep_alive<0, 1>())
+          "Inclusive lower bound of the input domain.")
       .def_property_readonly(
           "input_shape",
           [](const IndexTransform<>& t) {
-            return MakeArrayReadonly(
-                py::array_t<Index>(t.input_rank(), t.input_shape().data()));
+            return SpanToHomogeneousTuple(t.input_shape());
           },
-          "Shape of the input domain.", py::return_value_policy::move,
-          py::keep_alive<0, 1>())
+          "Shape of the input domain.")
       .def_property_readonly(
           "input_exclusive_max",
           [](const IndexTransform<>& self) {
             return GetExclusiveMax(self.domain());
           },
-          "Exclusive upper bound of the input domain.",
-          py::return_value_policy::move)
+          "Exclusive upper bound of the input domain.")
       .def_property_readonly(
           "input_inclusive_max",
           [](const IndexTransform<>& self) {
@@ -1018,21 +993,21 @@ This is simply the product of the extents in :py:obj:`.shape`.)")
       .def_property_readonly(
           "input_labels",
           [](const IndexTransform<>& t) {
-            return GetLabelsTuple(t.input_labels());
+            return SpanToHomogeneousTuple(t.input_labels());
           },
-          "Input dimension labels", py::return_value_policy::move)
+          "Input dimension labels")
       .def_property_readonly(
           "implicit_lower_bounds",
           [](const IndexTransform<>& t) {
-            return MakeArrayReadonly(GetBitVector(t.implicit_lower_bounds()));
+            return GetBitVector(t.implicit_lower_bounds());
           },
-          "Implicit lower bounds", py::return_value_policy::move)
+          "Implicit lower bounds")
       .def_property_readonly(
           "implicit_upper_bounds",
           [](const IndexTransform<>& t) {
-            return MakeArrayReadonly(GetBitVector(t.implicit_upper_bounds()));
+            return GetBitVector(t.implicit_upper_bounds());
           },
-          "Implicit upper bounds", py::return_value_policy::move)
+          "Implicit upper bounds")
       .def_property_readonly(
           "output",
           [](const IndexTransform<>& t) -> OutputIndexMapRangeContainer {
@@ -1046,7 +1021,7 @@ This is simply the product of the extents in :py:obj:`.shape`.)")
           py::return_value_policy::move)
       .def(
           "__call__",
-          [](const IndexTransform<>& self, std::vector<Index> indices) {
+          [](const IndexTransform<>& self, SequenceParameter<Index> indices) {
             if (static_cast<DimensionIndex>(indices.size()) !=
                 self.input_rank()) {
               throw std::invalid_argument(StrCat(
@@ -1054,11 +1029,11 @@ This is simply the product of the extents in :py:obj:`.shape`.)")
                   " cannot be used with index transform with input rank ",
                   self.input_rank()));
             }
-            py::array_t<Index> output_indices(self.output_rank());
+            Index output_indices[kMaxRank];
             ThrowStatusException(self.TransformIndices(
-                indices, span<Index>(output_indices.mutable_data(),
-                                     self.output_rank())));
-            return output_indices;
+                indices, span<Index>(output_indices, self.output_rank())));
+            return SpanToHomogeneousTuple<Index>(
+                span(output_indices, self.output_rank()));
           },
           "Maps an input index vector to an output index vector.",
           py::arg("indices"))
@@ -1083,10 +1058,10 @@ This is simply the product of the extents in :py:obj:`.shape`.)")
           },
           [](py::tuple t) -> IndexTransform<> {
             const auto domain = py::cast<IndexDomain<>>(t[0]);
-            const auto output = py::cast<std::vector<OutputIndexMap>>(t[1]);
+            auto output = py::cast<std::vector<OutputIndexMap>>(t[1]);
             IndexTransformBuilder<> builder(domain.rank(), output.size());
             builder.input_domain(domain);
-            SetOutputIndexMaps(output, &builder);
+            SetOutputIndexMaps(std::move(output), &builder);
             return ValueOrThrow(builder.Finalize());
           }));
   cls_index_transform.attr("__iter__") = py::none();

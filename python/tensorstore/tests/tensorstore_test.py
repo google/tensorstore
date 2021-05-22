@@ -33,8 +33,8 @@ async def test_open_array_driver():
   assert t.domain == ts.IndexDomain(shape=[2, 3])
   assert t.rank == 2
   assert t.ndim == 2
-  np.testing.assert_equal(t.origin, [0, 0])
-  np.testing.assert_equal(t.shape, [2, 3])
+  assert t.origin == (0, 0)
+  assert t.shape == (2, 3)
   assert t.dtype == ts.int32
   assert t.readable == True
   assert t.writable == True

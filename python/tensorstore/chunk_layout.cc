@@ -61,14 +61,10 @@ void RegisterChunkLayoutBindings(pybind11::module m) {
       "Constructs a chunk grid.", py::arg("shape"));
   grid_cls.def_property_readonly(
       "shape",
-      [](const ChunkLayout::Grid& self) -> py::array {
-        auto shape = self.shape();
-        return MakeArrayReadonly(
-            py::array_t<Index>(shape.size(), shape.data()));
+      [](const ChunkLayout::Grid& self) -> HomogeneousTuple<Index> {
+        return SpanToHomogeneousTuple<Index>(self.shape());
       },
-      "Chunk shape",
-      // Ensure the returned object (0) keeps self (1) alive.
-      py::keep_alive<0, 1>());
+      "Chunk shape");
   grid_cls.def("__eq__",
                [](const ChunkLayout::Grid& self,
                   const ChunkLayout::Grid& other) { return self == other; });
@@ -151,23 +147,18 @@ void RegisterChunkLayoutBindings(pybind11::module m) {
       "Alias for :py:obj:`.rank`.");
   chunk_layout_cls.def_property_readonly(
       "inner_order",
-      [](const ChunkLayout& self) -> std::optional<py::array> {
+      [](const ChunkLayout& self)
+          -> std::optional<HomogeneousTuple<DimensionIndex>> {
         auto inner_order = self.inner_order();
         if (inner_order.empty()) return std::nullopt;
-        return MakeArrayReadonly(py::array_t<DimensionIndex>(
-            inner_order.size(), inner_order.data()));
-      },
-      py::keep_alive<0, 1>());
+        return SpanToHomogeneousTuple<DimensionIndex>(inner_order);
+      });
   chunk_layout_cls.def_property_readonly(
       "grid_origin",
-      [](const ChunkLayout& self) -> py::array {
-        auto origin = self.grid_origin();
-        return MakeArrayReadonly(
-            py::array_t<Index>(origin.size(), origin.data()));
+      [](const ChunkLayout& self) -> HomogeneousTuple<Index> {
+        return SpanToHomogeneousTuple<Index>(self.grid_origin());
       },
-      "Grid origin",
-      // Ensure the returned object (0) keeps self (1) alive.
-      py::keep_alive<0, 1>());
+      "Grid origin");
   chunk_layout_cls.def_property_readonly(
       "write_chunk",
       [](const ChunkLayout& self) -> ChunkLayout::Grid {

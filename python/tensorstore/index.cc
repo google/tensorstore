@@ -30,7 +30,7 @@ IndexVectorOrScalarContainer ToIndexVectorOrScalarContainer(
   if (auto* index = std::get_if<OptionallyImplicitIndex>(&x)) {
     return index->value_or(implicit_value);
   }
-  const auto& v = std::get<std::vector<OptionallyImplicitIndex>>(x);
+  const auto& v = std::get<SequenceParameter<OptionallyImplicitIndex>>(x);
   std::vector<Index> out_v;
   out_v.reserve(v.size());
   for (size_t i = 0; i < v.size(); ++i) {

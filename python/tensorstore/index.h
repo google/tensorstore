@@ -43,6 +43,29 @@ struct OptionallyImplicitIndex {
   constexpr operator Index() const { return value; }
 };
 
+/// Wrapper around `std::vector<T>` that displays as `Sequence[T]`.
+///
+/// This is intended as a pybind11 function parameter type, in order to
+/// accurately indicate in the signature that any sequence type is supported.
+/// In contrast, using `std::vector<T>` directly leads to an annotation of
+/// `List[T]` which is correct for return types (conversions to Python), but not
+/// correct for parameter types.
+template <typename T>
+struct SequenceParameter {
+  SequenceParameter() = default;
+  SequenceParameter(const std::vector<T>& other) : value(other) {}
+  SequenceParameter(std::vector<T>&& other) : value(std::move(other)) {}
+
+  auto begin() const { return value.begin(); }
+  auto end() const { return value.end(); }
+
+  size_t size() const { return value.size(); }
+  const T* data() const { return value.data(); }
+  const T& operator[](size_t i) const { return value[i]; }
+
+  std::vector<T> value;
+};
+
 /// Wrapper type used for `DimensionIndex` parameters to pybind11-exposed
 /// functions.
 struct PythonDimensionIndex {
@@ -57,7 +80,8 @@ using internal_index_space::IndexVectorOrScalarContainer;
 /// Represents either a single integer index or vector of integer indices, where
 /// `kImplicit` (represented by `None` in Python) is permitted.
 using OptionallyImplicitIndexVectorOrScalarContainer =
-    std::variant<std::vector<OptionallyImplicitIndex>, OptionallyImplicitIndex>;
+    std::variant<SequenceParameter<OptionallyImplicitIndex>,
+                 OptionallyImplicitIndex>;
 
 /// Converts `x` to an `IndexVectorOrScalarView`, mapping `kImplicit` to
 /// `implicit_value`.
@@ -76,6 +100,30 @@ using internal::OptionallyImplicitIndexRepr;
 /// \param subscript If `false`, format vectors as a Python array.
 std::string IndexVectorRepr(const IndexVectorOrScalarContainer& x,
                             bool implicit = false, bool subscript = false);
+
+/// Wrapper around a Python tuple that displays as `Tuple[T, ...]`.
+///
+/// This is intended as a pybind11 function return type, in order to indicate
+/// that the return type is a homogeneous tuple.  For example, this is used as
+/// the return type for `IndexDomain.shape`.
+template <typename T>
+struct HomogeneousTuple {
+  pybind11::tuple obj;
+};
+
+template <typename T>
+HomogeneousTuple<T> SpanToHomogeneousTuple(span<const T> vec) {
+  pybind11::tuple t(vec.size());
+  for (size_t i = 0; i < vec.size(); ++i) {
+    t[i] = pybind11::cast(vec[i]);
+  }
+  return HomogeneousTuple<T>{std::move(t)};
+}
+
+inline std::optional<DimensionIndex> RankOrNone(DimensionIndex rank) {
+  if (rank == dynamic_rank) return std::nullopt;
+  return rank;
+}
 
 }  // namespace internal_python
 }  // namespace tensorstore
@@ -136,6 +184,40 @@ struct type_caster<tensorstore::internal_python::OptionallyImplicitIndex> {
       return false;
     }
     return true;
+  }
+};
+
+/// Defines automatic conversion of Python objects to `SequenceParmaeter`.
+///
+/// Since `SequenceParameter` is only intended as a function parameter type, we
+/// do not define the reverse conversion back to a Python object.
+template <typename T>
+struct type_caster<tensorstore::internal_python::SequenceParameter<T>> {
+  using base_value_conv = make_caster<T>;
+  PYBIND11_TYPE_CASTER(tensorstore::internal_python::SequenceParameter<T>,
+                       _("Sequence[") + base_value_conv::name + _("]"));
+  using value_conv = make_caster<std::vector<T>>;
+
+  bool load(handle src, bool convert) {
+    value_conv inner_caster;
+    if (!inner_caster.load(src, convert)) return false;
+    value.value = cast_op<std::vector<T>&&>(std::move(inner_caster));
+    return true;
+  }
+};
+
+/// Defines automatic conversion of `HomogeneousTuple<T>` to a Python object.
+///
+/// Since `HomogeneousTuple` is only intended as a function return type, we do
+/// not define the reverse conversion from a Python object.
+template <typename T>
+struct type_caster<tensorstore::internal_python::HomogeneousTuple<T>> {
+  using Value = tensorstore::internal_python::HomogeneousTuple<T>;
+  using base_value_conv = make_caster<T>;
+  PYBIND11_TYPE_CASTER(Value,
+                       _("Tuple[") + base_value_conv::name + _(", ...]"));
+  static handle cast(Value value, return_value_policy policy, handle parent) {
+    return value.obj.release();
   }
 };
 

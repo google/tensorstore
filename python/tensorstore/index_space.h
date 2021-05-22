@@ -48,14 +48,8 @@
 namespace tensorstore {
 namespace internal_python {
 
-/// Marks `array` readonly.
-pybind11::array MakeArrayReadonly(pybind11::array array);
-
-/// Converts `labels` to a Python tuple object of strings.
-pybind11::tuple GetLabelsTuple(span<const std::string> labels);
-
-/// Converts `v` to a NumPy bool array.
-pybind11::array GetBitVector(BitSpan<const std::uint64_t> v);
+/// Converts `v` to a homogeneous tuple of bool.
+HomogeneousTuple<bool> GetBitVector(BitSpan<const std::uint64_t> v);
 
 /// Represents a standalone `OutputIndexMap`, for use in initializing an
 /// `IndexTransform`.
@@ -264,38 +258,31 @@ This is equivalent to: :python:`self[ts.d[::-1].transpose[:]]`.
   cls->def_property_readonly(
       "origin",
       [get_transform](const Self& self) {
-        auto transform = get_transform(self);
-        return MakeArrayReadonly(py::array_t<Index>(
-            transform.input_rank(), transform.domain().origin().data()));
+        return SpanToHomogeneousTuple<Index>(
+            get_transform(self).input_origin());
       },
       R"(Inclusive lower bound of the domain.
 
 This is equivalent to :python:`self.domain.origin`.
-)",
-      py::keep_alive<0, 1>());
+)");
   cls->def_property_readonly(
       "shape",
       [get_transform](const Self& self) {
-        auto transform = get_transform(self);
-        return MakeArrayReadonly(py::array_t<Index>(
-            transform.input_rank(), transform.domain().shape().data()));
+        return SpanToHomogeneousTuple<Index>(get_transform(self).input_shape());
       },
       R"(Shape of the domain.
 
 This is equivalent to :python:`self.domain.shape`.
-)",
-      py::keep_alive<0, 1>());
+)");
   cls->def_property_readonly(
       "size",
       [get_transform](const Self& self) {
-        auto transform = get_transform(self);
-        return transform.domain().num_elements();
+        return get_transform(self).domain().num_elements();
       },
       R"(Total number of elements in the domain.
 
 This is equivalent to :python:`self.domain.size`.
-)",
-      py::keep_alive<0, 1>());
+)");
 }
 
 }  // namespace internal_python

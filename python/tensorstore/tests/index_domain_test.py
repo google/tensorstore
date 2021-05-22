@@ -25,13 +25,13 @@ def test_init_rank():
   x = ts.IndexDomain(rank=2)
   assert x.rank == 2
   assert x.ndim == 2
-  np.testing.assert_equal(x.inclusive_min, [-ts.inf] * 2)
-  np.testing.assert_equal(x.inclusive_max, [+ts.inf] * 2)
-  np.testing.assert_equal(x.exclusive_max, [+ts.inf + 1] * 2)
-  np.testing.assert_equal(x.shape, [2 * ts.inf + 1] * 2)
+  assert x.inclusive_min == (-ts.inf,) * 2
+  assert x.inclusive_max == (+ts.inf,) * 2
+  assert x.exclusive_max == (+ts.inf + 1,) * 2
+  assert x.shape == (2 * ts.inf + 1,) * 2
   assert x.labels == ("", "")
-  np.testing.assert_equal(x.implicit_lower_bounds, [1, 1])
-  np.testing.assert_equal(x.implicit_upper_bounds, [1, 1])
+  assert x.implicit_lower_bounds == (True, True)
+  assert x.implicit_upper_bounds == (True, True)
 
   with pytest.raises(ValueError):
     ts.IndexDomain(rank=33)
@@ -40,12 +40,12 @@ def test_init_rank():
 def test_init_inclusive_min():
   x = ts.IndexDomain(inclusive_min=[1, 2])
   assert x.rank == 2
-  np.testing.assert_equal(x.inclusive_min, [1, 2])
-  np.testing.assert_equal(x.inclusive_max, [+ts.inf] * 2)
-  np.testing.assert_equal(x.exclusive_max, [+ts.inf + 1] * 2)
+  assert x.inclusive_min ==  (1, 2)
+  assert x.inclusive_max == (+ts.inf,) * 2
+  assert x.exclusive_max == (+ts.inf + 1,) * 2
   assert x.labels == ("", "")
-  np.testing.assert_equal(x.implicit_lower_bounds, [0, 0])
-  np.testing.assert_equal(x.implicit_upper_bounds, [1, 1])
+  assert x.implicit_lower_bounds == (0, 0)
+  assert x.implicit_upper_bounds == (1, 1)
 
   with pytest.raises(ValueError):
     ts.IndexDomain(inclusive_min=[1] * 33)
@@ -54,53 +54,53 @@ def test_init_inclusive_min():
 def test_init_exclusive_max():
   x = ts.IndexDomain(exclusive_max=[1, 2])
   assert x.rank == 2
-  np.testing.assert_equal(x.inclusive_min, [-ts.inf] * 2)
-  np.testing.assert_equal(x.exclusive_max, [1, 2])
+  assert x.inclusive_min == (-ts.inf,) * 2
+  assert x.exclusive_max == (1, 2)
   assert x.labels == ("", "")
-  np.testing.assert_equal(x.implicit_lower_bounds, [1, 1])
-  np.testing.assert_equal(x.implicit_upper_bounds, [0, 0])
+  assert x.implicit_lower_bounds == (1, 1)
+  assert x.implicit_upper_bounds == (0, 0)
 
 
 def test_init_inclusive_max():
   x = ts.IndexDomain(inclusive_max=[1, 2])
   assert x.rank == 2
-  np.testing.assert_equal(x.inclusive_min, [-ts.inf] * 2)
-  np.testing.assert_equal(x.inclusive_max, [1, 2])
+  assert x.inclusive_min == (-ts.inf,) * 2
+  assert x.inclusive_max == (1, 2)
   assert x.labels == ("", "")
-  np.testing.assert_equal(x.implicit_lower_bounds, [1, 1])
-  np.testing.assert_equal(x.implicit_upper_bounds, [0, 0])
+  assert x.implicit_lower_bounds == (1, 1)
+  assert x.implicit_upper_bounds == (0, 0)
 
 
 def test_init_shape():
   x = ts.IndexDomain(shape=[1, 2])
   assert x.rank == 2
-  np.testing.assert_equal(x.inclusive_min, [0] * 2)
-  np.testing.assert_equal(x.exclusive_max, [1, 2])
-  np.testing.assert_equal(x.shape, [1, 2])
+  assert x.inclusive_min == (0,) * 2
+  assert x.exclusive_max == (1, 2)
+  assert x.shape == (1, 2)
   assert x.labels == ("", "")
-  np.testing.assert_equal(x.implicit_lower_bounds, [0, 0])
-  np.testing.assert_equal(x.implicit_upper_bounds, [0, 0])
+  assert x.implicit_lower_bounds == (False, False)
+  assert x.implicit_upper_bounds == (False, False)
 
 
 def test_init_labels():
   x = ts.IndexDomain(labels=["x", "y"])
   assert x.rank == 2
-  np.testing.assert_equal(x.inclusive_min, [-ts.inf] * 2)
-  np.testing.assert_equal(x.inclusive_max, [+ts.inf] * 2)
+  assert x.inclusive_min == (-ts.inf,) * 2
+  assert x.inclusive_max == (+ts.inf,) * 2
   assert x.labels == ("x", "y")
-  np.testing.assert_equal(x.implicit_lower_bounds, [1, 1])
-  np.testing.assert_equal(x.implicit_upper_bounds, [1, 1])
+  assert x.implicit_lower_bounds == (True, True)
+  assert x.implicit_upper_bounds == (True, True)
 
 
 def test_init_implicit_lower_bounds():
   x = ts.IndexDomain(implicit_lower_bounds=[0, 1])
   assert x.rank == 2
-  np.testing.assert_equal(x.inclusive_min, [-ts.inf] * 2)
-  np.testing.assert_equal(x.inclusive_max, [+ts.inf] * 2)
-  np.testing.assert_equal(x.exclusive_max, [+ts.inf + 1] * 2)
+  assert x.inclusive_min == (-ts.inf,) * 2
+  assert x.inclusive_max == (+ts.inf,) * 2
+  assert x.exclusive_max == (+ts.inf + 1,) * 2
   assert x.labels == ("", "")
-  np.testing.assert_equal(x.implicit_lower_bounds, [0, 1])
-  np.testing.assert_equal(x.implicit_upper_bounds, [1, 1])
+  assert x.implicit_lower_bounds == (0, 1)
+  assert x.implicit_upper_bounds == (1, 1)
 
 
 def test_init_rank_mismatch():
@@ -127,12 +127,12 @@ def test_init_missing_rank():
 def test_init_implicit_upper_bounds():
   x = ts.IndexDomain(implicit_upper_bounds=[0, 1])
   assert x.rank == 2
-  np.testing.assert_equal(x.inclusive_min, [-ts.inf] * 2)
-  np.testing.assert_equal(x.inclusive_max, [+ts.inf] * 2)
-  np.testing.assert_equal(x.exclusive_max, [+ts.inf + 1] * 2)
+  assert x.inclusive_min == (-ts.inf,) * 2
+  assert x.inclusive_max == (+ts.inf,) * 2
+  assert x.exclusive_max == (+ts.inf + 1,) * 2
   assert x.labels == ("", "")
-  np.testing.assert_equal(x.implicit_lower_bounds, [1, 1])
-  np.testing.assert_equal(x.implicit_upper_bounds, [0, 1])
+  assert x.implicit_lower_bounds == (True, True)
+  assert x.implicit_upper_bounds == (False, True)
 
 
 def test_getitem_index():
