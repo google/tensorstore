@@ -16,25 +16,209 @@
 import abc as _abc
 
 from ._tensorstore import *
-from ._tensorstore import _ContextResource
 
 newaxis = None
-"""Alias for `None` used in `indexing expressions<python-indexing>` to specify a new singleton dimension."""
+"""Alias for `None` used in `indexing expressions<python-indexing>` to specify a new singleton dimension.
+
+Example:
+
+    >>> transform = ts.IndexTransform(input_rank=3)
+    >>> transform[ts.newaxis, 5]
+    Rank 3 -> 3 index space transform:
+      Input domain:
+        0: [0*, 1*)
+        1: (-inf*, +inf*)
+        2: (-inf*, +inf*)
+      Output index maps:
+        out[0] = 5
+        out[1] = 0 + 1 * in[1]
+        out[2] = 0 + 1 * in[2]
+
+Group:
+  Indexing
+"""
+
+inf: int
+"""Special constant equal to :math:`2^{62}-1` that indicates an unbounded `index domain<index-domain>`.
+
+Example:
+
+    >>> d = ts.Dim()
+    >>> d.inclusive_min
+    -4611686018427387903
+    >>> d.inclusive_max
+    4611686018427387903
+    >>> assert d.inclusive_min == -ts.inf
+    >>> assert d.inclusive_max == +ts.inf
+
+Group:
+  Indexing
+"""
 
 
 class Indexable(metaclass=_abc.ABCMeta):
-  """Abstract base class for types that
-
-  support :ref:`TensorStore indexing operations<python-indexing>`.
+  """Abstract base class for types that support :ref:`TensorStore indexing operations<python-indexing>`.
 
   Supported types are:
 
   - :py:class:`tensorstore.TensorStore`
   - :py:class:`tensorstore.Spec`
   - :py:class:`tensorstore.IndexTransform`
+
+  Group:
+    Indexing
   """
 
 
 Indexable.register(TensorStore)
 Indexable.register(Spec)
 Indexable.register(IndexTransform)
+
+bool: dtype
+"""Boolean data type (0 or 1).  Corresponds to the :py:obj:`python:bool` type and ``numpy.bool_``.
+
+Group:
+  Data types
+"""
+
+int8: dtype
+"""8-bit signed :wikipedia:`two's-complement <Two%27s_complement>` integer data type.  Corresponds to ``numpy.int8``.
+
+Group:
+  Data types
+"""
+
+uint8: dtype
+"""8-bit unsigned integer.  Corresponds to ``numpy.uint8``.
+
+Group:
+  Data types
+"""
+
+int16: dtype
+"""16-bit signed :wikipedia:`two's-complement <Two%27s_complement>` integer data type.  Corresponds to ``numpy.int16``.
+
+Group:
+  Data types
+"""
+
+uint16: dtype
+"""16-bit unsigned integer.  Corresponds to ``numpy.uint16``.
+
+Group:
+  Data types
+"""
+
+int32: dtype
+"""32-bit signed :wikipedia:`two's-complement <Two%27s_complement>` integer data type.  Corresponds to ``numpy.int32``.
+
+Group:
+  Data types
+"""
+
+uint32: dtype
+"""32-bit unsigned integer.  Corresponds to ``numpy.uint32``.
+
+Group:
+  Data types
+"""
+
+int64: dtype
+"""32-bit signed :wikipedia:`two's-complement <Two%27s_complement>` integer data type.  Corresponds to ``numpy.int64``.
+
+Group:
+  Data types
+"""
+
+uint64: dtype
+"""64-bit unsigned integer data type.  Corresponds to ``numpy.uint64``.
+
+Group:
+  Data types
+"""
+
+float16: dtype
+""":wikipedia:`IEEE 754 binary16 <Half-precision_floating-point_format>` half-precision floating-point data type.  Correspond to ``numpy.float16``.
+
+Group:
+  Data types
+"""
+
+bfloat16: dtype
+""":wikipedia:`bfloat16 floating-point <Bfloat16_floating-point_format>` data type.
+
+NumPy does not have built-in support for bfloat16.  As an extension, TensorStore
+defines the :python:`tensorstore.bfloat16.dtype` NumPy data type (also available
+as :python:`numpy.dtype("bfloat16")`, as well as the corresponding
+:python:`tensorstore.bfloat16.type` :ref:`array scalar
+type<numpy:arrays.scalars>`, and these types are guaranteed to interoperate with
+`TensorFlow <tensorflow.org>`_ and `JAX <https://github.com/google/jax>`_.
+
+Group:
+  Data types
+"""
+
+float32: dtype
+""":wikipedia:`IEEE 754 binary32 <Single-precision_floating-point_format>` single-precision floating-point data type.  Corresponds to ``numpy.float32``.
+
+Group:
+  Data types
+"""
+
+float64: dtype
+""":wikipedia:`IEEE 754 binary64 <Double-precision_floating-point_format>` double-precision floating-point data type.  Corresponds to ``numpy.float64``.
+
+Group:
+  Data types
+"""
+
+complex64: dtype
+"""Complex number based on :py:obj:`.float32`.  Corresponds to ``numpy.complex64``.
+
+Group:
+  Data types
+"""
+
+complex128: dtype
+"""Complex number based on :py:obj:`.float64`.  Corresponds to ``numpy.complex128``.
+
+Group:
+  Data types
+"""
+
+string: dtype
+"""Variable-length byte string data type.  Corresponds to the Python :py:obj:`python:bytes` type.
+
+There is no precisely corresponding NumPy data type, but ``numpy.object_`` is used.
+
+.. note::
+
+   The :ref:`NumPy string types<numpy:string-dtype-note>`, while related, differ
+   in that they are fixed-length and null-terminated.
+
+Group:
+  Data types
+"""
+
+ustring: dtype
+"""Variable-length Unicode string data type.  Corresponds to the Python :py:obj:`python:str` type.
+
+There is no precisely corresponding NumPy data type, but ``numpy.object_`` is used.
+
+.. note::
+
+   The :ref:`NumPy string types<numpy:string-dtype-note>`, while related, differ
+   in that they are fixed-length and null-terminated.
+
+Group:
+  Data types
+"""
+
+json: dtype
+"""JSON data type.  Corresponds to an arbitrary Python JSON value.
+
+There is no precisely corresponding NumPy data type, but ``numpy.object_`` is used.
+
+Group:
+  Data types
+"""

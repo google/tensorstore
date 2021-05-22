@@ -1470,7 +1470,7 @@ TEST(ZarrDriverTest, InvalidSpec) {
                               "Expected object, but member is missing"));
   }
 
-  for (const std::string& member_name :
+  for (auto member_name :
        {"kvstore", "path", "field", "key_encoding", "metadata"}) {
     auto spec = GetJsonSpec();
     spec[member_name] = 5;

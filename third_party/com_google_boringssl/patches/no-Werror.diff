@@ -1,0 +1,12 @@
+diff --git a/BUILD b/BUILD
+index 65e0cdc2e..9d42caded 100644
+--- a/BUILD
++++ b/BUILD
+@@ -94,7 +94,6 @@ posix_copts = [
+ 
+     # This list of warnings should match those in the top-level CMakeLists.txt.
+     "-Wall",
+-    "-Werror",
+     "-Wformat=2",
+     "-Wsign-compare",
+     "-Wmissing-field-initializers",

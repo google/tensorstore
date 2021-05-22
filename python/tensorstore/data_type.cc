@@ -117,13 +117,27 @@ void RegisterDataTypeBindings(pybind11::module m) {
     throw py::error_already_set();
   }
   py::class_<DataType> cls_data_type(m, "dtype", R"(
-Represents a TensorStore data type.
+TensorStore data type representation.
+
+Group:
+  Data types
 )");
   cls_data_type
       .def(py::init([](std::string name) { return GetDataTypeOrThrow(name); }),
-           "Construct by name.", py::arg("name"))
+           R"(
+Construct by name.
+
+Overload:
+  name
+)",
+           py::arg("name"))
       .def(py::init([](DataTypeLike dtype) { return dtype.value; }),
-           "Construct from an existing TensorStore or NumPy data type.",
+           R"(
+Construct from an existing TensorStore or NumPy data type.
+
+Overload:
+  dtype
+)",
            py::arg("dtype"))
       .def_property_readonly(
           "name", [](DataType self) { return std::string(self.name()); })

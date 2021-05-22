@@ -26,11 +26,11 @@ def test_context_spec():
       'memory_key_value_store#b': {},
   }
 
-  spec = ts.ContextSpec(json_spec)
+  spec = ts.Context.Spec(json_spec)
 
   assert spec.to_json() == json_spec
 
-  assert repr(spec) == '''ContextSpec({
+  assert repr(spec) == '''Context.Spec({
   'memory_key_value_store': {},
   'memory_key_value_store#a': 'memory_key_value_store',
   'memory_key_value_store#b': {},
@@ -51,7 +51,7 @@ def test_pickle():
       'memory_key_value_store#a': 'memory_key_value_store',
       'memory_key_value_store#b': {},
   }
-  child_spec = ts.ContextSpec(json_spec)
+  child_spec = ts.Context.Spec(json_spec)
 
   context = ts.Context(child_spec, parent_context)
 
@@ -63,7 +63,7 @@ def test_pickle():
   assert context.parent is parent_context
   assert parent_context.parent is None
   assert context['memory_key_value_store'].to_json() == {}
-  assert repr(context['memory_key_value_store']) == '_ContextResource({})'
+  assert repr(context['memory_key_value_store']) == 'Context.Resource({})'
   assert context['memory_key_value_store#b'].to_json() == {}
   assert context['memory_key_value_store#c'].to_json() == {}
   assert context['memory_key_value_store'] is context['memory_key_value_store#a']

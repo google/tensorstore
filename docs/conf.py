@@ -35,44 +35,89 @@ html_show_sphinx = False
 html_show_copyright = False
 
 extensions = [
-    'sphinx_rtd_theme',
+    'sphinx.ext.extlinks',
+    'tensorstore_sphinx_material.sphinx_material',
     'tensorstore_sphinx_ext.jsonschema_sphinx',
     'sphinx.ext.intersphinx',
     'sphinx.ext.autodoc',
     'sphinx.ext.doctest',
+    'tensorstore_sphinx_ext.autodoc',
     'tensorstore_sphinx_ext.autosummary',
+    'tensorstore_sphinx_ext.mathjax',
     'sphinx.ext.mathjax',
 ]
 
 exclude_patterns = [
     # Included by installation.rst
     'third_party_libraries.rst',
-    # This is included directly by `python/api/index.rst`, so we don't want to
-    # generate a separate page for it.
-    'python/api/tensorstore.rst',
     '_templates/**',
 ]
 
 source_suffix = '.rst'
 master_doc = 'index'
-language = None
+language = 'en'
 
-# The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+html_theme = 'sphinx_material'
 
-html_theme = 'sphinx_rtd_theme'
+html_title = 'TensorStore'
+
+# html_logo = 'logo.svg'
+
+html_use_index = False
 
 html_favicon = '_templates/logo.svg'
 
 html_theme_options = {
-    'navigation_depth': -1,
+    'logo_svg':
+        'logo.svg',
+    'site_url':
+        'https://google.github.io/tensorstore/',
+    'repo_url':
+        'https://github.com/google/tensorstore/',
+    'repo_name':
+        'google/tensorstore',
+    'repo_type':
+        'github',
+    'globaltoc_depth':
+        -1,
+    'globaltoc_collapse':
+        True,
+    'globaltoc_includehidden':
+        True,
+    'features': [
+        'navigation.expand',
+        # 'navigation.tabs',
+        # 'toc.integrate',
+        'navigation.sections',
+        # 'navigation.instant',
+        # 'header.autohide',
+        'navigation.top',
+    ],
+    'palette': [
+        {
+            'media': '(prefers-color-scheme: dark)',
+            'scheme': 'slate',
+            'primary': 'green',
+            'accent': 'light blue',
+            'toggle': {
+                'icon': 'material/lightbulb',
+                'name': 'Switch to light mode',
+            },
+        },
+        {
+            'media': '(prefers-color-scheme: light)',
+            'scheme': 'default',
+            'primary': 'green',
+            'accent': 'light blue',
+            'toggle': {
+                'icon': 'material/lightbulb-outline',
+                'name': 'Switch to dark mode',
+            },
+        },
+    ],
 }
 
-html_static_path = ['_static']
 templates_path = ['_templates']
-html_context = {
-    'css_files': ['_static/sphinx_rtd_theme_table_word_wrap_fix.css',],
-}
 
 intersphinx_mapping = {
     'python':
@@ -103,18 +148,20 @@ default_role = 'any'
 # Extension options
 # -----------------
 
-mathjax_config = {
-    'displayAlign': 'left',
-}
-
 # Use MathJax 3.
 mathjax_path = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js'
 
 always_document_param_types = True
 
-autosummary_generate = True
-
 doctest_global_setup = """
 import tensorstore as ts
 import numpy as np
 """
+
+extlinks = {
+    'wikipedia': ('https://en.wikipedia.org/wiki/%s', None),
+}
+
+napoleon_numpy_docstring = False
+napoleon_use_admonition_for_examples = True
+napoleon_use_admonition_for_notes = True

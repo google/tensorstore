@@ -87,3 +87,23 @@ def parse_rst(state: docutils.parsers.rst.states.RSTState, text: str,
     node.document = state.document
     state.nested_parse(content, 0, node)
   return node.children
+
+
+def summarize_element_text(node: docutils.nodes.Element) -> str:
+  """Extracts a short text synopsis, e.g. for use as a tooltip."""
+
+  # Recurisvely extract first paragraph
+  while True:
+    for p in node.traverse(condition=docutils.nodes.paragraph):
+      if p is node:
+        continue
+      node = p
+      break
+    else:
+      break
+
+  text = node.astext()
+  sentence_end = text.find('. ')
+  if sentence_end != -1:
+    text = text[:sentence_end + 1]
+  return text

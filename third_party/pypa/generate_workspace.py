@@ -28,9 +28,12 @@ import json
 import os
 
 import packaging.requirements
+import packaging.specifiers
 import packaging.version
 import requests
 
+
+SUPPORTED_PYTHON_VERSIONS = ("3.6", "3.7", "3.8", "3.9")
 
 def get_package_json(name: str):
   r = requests.get(f'https://pypi.python.org/pypi/{name}/json')
@@ -71,23 +74,53 @@ def _evaluate_marker(marker):
           "sys_platform": _AnyValue(),
           "python_version": python_version,
           "extra": None
-      }) for python_version in ("3.6", "3.7", "3.8", "3.9"))
+      }) for python_version in SUPPORTED_PYTHON_VERSIONS)
 
 
-def get_package_metadata(name: str):
+def _is_suitable_release(release):
+  remaining_python_versions = set(SUPPORTED_PYTHON_VERSIONS)
+  for release_pkg in release:
+    requires_python = release_pkg.get('requires_python')
+    if requires_python is None:
+      return True
+    spec = packaging.specifiers.SpecifierSet(requires_python)
+    for v in list(remaining_python_versions):
+      if v in spec:
+        remaining_python_versions.remove(v)
+    if not remaining_python_versions:
+      return True
+  return False
+
+
+def _find_suitable_version(name, j, spec):
+  releases = j["releases"]
+  versions = [(packaging.version.parse(v), v) for v in releases.keys()]
+  versions = [v for v in versions if not v[0].is_prerelease]
+  versions.sort()
+  versions.reverse()
+  for (_, v_str) in versions:
+    if v_str not in spec: continue
+    if _is_suitable_release(releases[v_str]):
+      return v_str
+  return None
+
+def get_package_metadata(req_str: str):
+  req = packaging.requirements.Requirement(req_str)
+  name = req.name
   j = get_package_json(name)
+  version_str = _find_suitable_version(name, j, req.specifier)
+  if version_str is None:
+    raise ValueError(f'Could not find suitable version for {name}')
+  j = get_package_json(f'{name}/{version_str}')
   requires_dist = j["info"].get("requires_dist", [])
   if requires_dist is None:
     requires_dist = []
   deps = []
-  for req_text in requires_dist:
-    req = packaging.requirements.Requirement(req_text)
-    if _evaluate_marker(req.marker):
-      deps.append(req.name.lower())
-  versions = [packaging.version.parse(v) for v in j["releases"].keys()]
-  versions = [v for v in versions if not v.is_prerelease]
-  versions.sort()
-  return {"Requires": sorted(deps), "Name": name, "Version": str(versions[-1])}
+  for dep_req_text in requires_dist:
+    dep_req = packaging.requirements.Requirement(dep_req_text)
+    if _evaluate_marker(dep_req.marker):
+      deps.append(dep_req.name.lower())
+  return {"Requires": sorted(deps), "Name": name, "Version": version_str}
 
 
 def get_target_name(package_name):
@@ -175,11 +208,11 @@ def generate(args):
         # Build
         "wheel",
         # Docs
-        "sphinx",
-        "sphinx-rtd-theme",
+        "sphinx<4",
         "jsonschema",
         "pyyaml",
-        "docutils",
+        "docutils<0.17",
+        "jinja2",
         # Examples
         "apache-beam",
         "gin-config",
@@ -190,12 +223,14 @@ def generate(args):
     cur_packages = all_packages
     all_metadata.update(get_package_info(cur_packages))
     all_packages = set()
-    for package_name in cur_packages:
-      if package_name in seen_packages:
+    for req_text in cur_packages:
+      req = packaging.requirements.Requirement(req_text)
+      if req.name in seen_packages:
         continue
-      seen_packages.add(package_name)
-      metadata = all_metadata[package_name]
-      all_packages.update(metadata["Requires"])
+      seen_packages.add(req.name)
+      metadata = all_metadata[req.name]
+      all_packages.update(x for x in metadata["Requires"])
+    all_packages = all_packages - seen_packages
   write_workspace(
       all_metadata=all_metadata.values(),
       tools_workspace=args.tools_workspace,

@@ -328,14 +328,39 @@ ContextImplPtr UnpickleContextSpecBuilder(py::tuple t,
 }
 
 void RegisterContextBindings(pybind11::module m) {
-  py::class_<ContextSpecImpl, ContextSpecImplPtr> cls_context_spec(
-      m, "ContextSpec");
+  py::class_<ContextImpl, ContextImplPtr> cls_context(m, "Context",
+                                                      R"(
+Manages shared TensorStore :ref:`context resources<context>`, such as caches and credentials.
+
+Group:
+  Core
+
+See also:
+  :ref:`context`
+
+)");
+
+  py::class_<ContextSpecImpl, ContextSpecImplPtr> cls_context_spec(cls_context,
+                                                                   "Spec", R"(
+Parsed representation of a :json:schema:`JSON Context<Context>` specification.
+)");
+
+  // `ContextResourceImplBase` represents a context resource.  It is exposed
+  // primarily for pickling and testing.  There isn't a whole lot that can be
+  // done with objects of this type, though their identity can be compared.
+  py::class_<ContextResourceImplBase, ContextResourceImplWeakPtr>
+    cls_context_resource(cls_context, "Resource", R"(
+Handle to a context resource.
+)");
+
   cls_context_spec
       .def(py::init([](const ::nlohmann::json& json, bool allow_unregistered) {
              return Access::impl(ValueOrThrow(Context::Spec::FromJson(
                  json, AllowUnregistered{allow_unregistered})));
            }),
-           "Creates a ContextSpec from a JSON object.", py::arg("json"),
+           R"(
+Creates a context specification from its :json:schema:`JSON representation<Context>`.
+)", py::arg("json"),
            py::arg("allow_unregistered") = false)
       .def(
           "to_json",
@@ -343,12 +368,21 @@ void RegisterContextBindings(pybind11::module m) {
             return WrapImpl(std::move(self))
                 .ToJson(IncludeDefaults{include_defaults});
           },
+          R"(
+Returns the :json:schema:`JSON representation<Context>`.
+
+Args:
+  include_defaults: Indicates whether to include members even if they are equal to the default value.
+
+Group:
+  Accessors
+)",
           py::arg("include_defaults") = false)
       .def("__repr__",
            [](internal_context::ContextSpecImplPtr self) {
              return internal_python::PrettyPrintJsonAsPythonRepr(
                  WrapImpl(std::move(self)).ToJson(IncludeDefaults{false}),
-                 "ContextSpec(", ")");
+                 "Context.Spec(", ")");
            })
       .def(py::pickle(
           [](ContextSpecImplPtr self) {
@@ -361,19 +395,42 @@ void RegisterContextBindings(pybind11::module m) {
                 Context::Spec::FromJson(py::cast<::nlohmann::json>(t[0]))));
           }));
 
-  py::class_<ContextImpl, ContextImplPtr> cls_context(m, "Context",
-                                                      R"(
-Manages shared TensorStore resources, such as caches and credentials.
-)");
   cls_context
       .def(py::init([] { return Access::impl(Context::Default()); }),
-           "Returns a default context")
+           R"(
+Constructs a default context.
+
+Example:
+
+    >>> context = ts.Context()
+    >>> context.spec is None
+    True
+
+.. note::
+
+   Each call to this constructor returns a unique default context instance, that
+   does *not* share resources with other default context instances.  To share
+   resources, you must use the same :py:obj:`Context` instance.
+
+Overload:
+  default
+)")
       .def(py::init([](ContextSpecImplPtr spec, ContextImplPtr parent) {
              return Access::impl(Context(WrapImpl(std::move(spec)),
                                          WrapImpl(std::move(parent))));
            }),
-           "Constructs a context.", py::arg("spec"),
-           py::arg("parent") = nullptr)
+           R"(
+Constructs a context from a parsed spec.
+
+Args:
+  spec: Parsed context spec.
+  parent: Parent context from which to inherit.  Defaults to a new default
+    context as returned by :python:`tensorstore.Context()`.
+
+Overload:
+  spec
+)",
+           py::arg("spec"), py::arg("parent") = nullptr)
       .def(py::init([](::nlohmann::json json, ContextImplPtr parent,
                        bool allow_unregistered) {
              return Access::impl(
@@ -381,12 +438,85 @@ Manages shared TensorStore resources, such as caches and credentials.
                              json, AllowUnregistered{allow_unregistered})),
                          WrapImpl(std::move(parent))));
            }),
-           "Constructs a context from a JSON spec.", py::arg("json"),
-           py::arg("parent") = nullptr, py::arg("allow_unregistered") = false)
+           R"(
+Constructs a context from its :json:schema:`JSON representation<Context>`.
+
+Example:
+
+    >>> context = ts.Context({'cache_pool': {'total_bytes_limit': 5000000}})
+    >>> context.spec
+    Context.Spec({'cache_pool': {'total_bytes_limit': 5000000}})
+
+Args:
+  json: :json:schema:`JSON representation<Context>` of the context.
+  parent: Parent context from which to inherit.  Defaults to a new default
+    context as returned by :python:`tensorstore.Context()`.
+
+Overload:
+  json
+)",
+           py::arg("json"), py::arg("parent") = nullptr,
+           py::arg("allow_unregistered") = false)
       .def_property_readonly(
-          "parent", [](const ContextImpl& self) { return self.parent_; })
-      .def_property_readonly("spec",
-                             [](const ContextImpl& self) { return self.spec_; })
+          "parent", [](const ContextImpl& self) { return self.parent_; },
+          R"(
+Parent context from which this context inherits.
+
+Example:
+
+    >>> parent = ts.Context({
+    ...     'cache_pool': {
+    ...         'total_bytes_limit': 5000000
+    ...     },
+    ...     'file_io_concurrency': {
+    ...         'limit': 10
+    ...     }
+    ... })
+    >>> child = ts.Context({'cache_pool': {
+    ...     'total_bytes_limit': 10000000
+    ... }},
+    ...                    parent=parent)
+    >>> assert child.parent is parent
+    >>> parent['cache_pool'].to_json()
+    {'total_bytes_limit': 5000000}
+    >>> child['cache_pool'].to_json()
+    {'total_bytes_limit': 10000000}
+    >>> child['file_io_concurrency'].to_json()
+    {'limit': 10}
+
+Group:
+  Accessors
+)")
+      .def_property_readonly(
+          "spec", [](const ContextImpl& self) { return self.spec_; },
+          R"(
+Spec from which this context was constructed.
+
+Example:
+
+    >>> parent = ts.Context({
+    ...     'cache_pool': {
+    ...         'total_bytes_limit': 5000000
+    ...     },
+    ...     'file_io_concurrency': {
+    ...         'limit': 10
+    ...     }
+    ... })
+    >>> child = ts.Context({'cache_pool': {
+    ...     'total_bytes_limit': 10000000
+    ... }},
+    ...                    parent=parent)
+    >>> child.spec
+    Context.Spec({'cache_pool': {'total_bytes_limit': 10000000}})
+    >>> child.parent.spec
+    Context.Spec({
+      'cache_pool': {'total_bytes_limit': 5000000},
+      'file_io_concurrency': {'limit': 10},
+    })
+
+Group:
+  Accessors
+)")
       .def(
           "__getitem__",
           [](ContextImplPtr self, std::string key) {
@@ -402,15 +532,35 @@ Manages shared TensorStore resources, such as caches and credentials.
             return ValueOrThrow(
                 internal_context::GetResource(self.get(), spec.get(), nullptr));
           },
+          R"(
+Creates or retrieves the context resource for the given key.
+
+This is primarily useful for introspection of a context.
+
+Example:
+
+    >>> context = ts.Context(
+    ...     {'cache_pool#a': {
+    ...         'total_bytes_limit': 10000000
+    ...     }})
+    >>> context['cache_pool#a']
+    Context.Resource({'total_bytes_limit': 10000000})
+    >>> context['cache_pool']
+    Context.Resource({})
+
+Args:
+  key: Resource key, of the form :python:`'<resource-type>'` or
+    :python:`<resource-type>#<id>`.
+
+Returns:
+  The resource handle.
+
+Group:
+  Accessors
+)",
           py::arg("key"))
       .def(py::pickle(PickleContext, UnpickleContext));
 
-  // `ContextResourceImplBase` represents a context resource.  It is not part of
-  // the public API, and is exposed only for pickling and testing.  There isn't
-  // a whole lot that can be done with objects of this type, though their
-  // identity can be compared.
-  py::class_<ContextResourceImplBase, ContextResourceImplWeakPtr>
-      cls_context_resource(m, "_ContextResource");
   cls_context_resource
       .def(
           "to_json",
@@ -419,12 +569,26 @@ Manages shared TensorStore resources, such as caches and credentials.
                 self->spec_->ToJson(IncludeDefaults{include_defaults}));
           },
           py::arg("include_defaults") = false,
-          "Returns the JSON representation of the context resource.")
+          R"(
+Returns the :json:schema:`JSON representation<ContextResource>` of the context resource.
+
+Example:
+
+    >>> context = ts.Context(
+    ...     {'cache_pool#a': {
+    ...         'total_bytes_limit': 10000000
+    ...     }})
+    >>> context['cache_pool#a'].to_json()
+    {'total_bytes_limit': 10000000}
+
+Group:
+  Accessors
+)")
       .def("__repr__",
            [](ContextResourceImplWeakPtr self) {
              return internal_python::PrettyPrintJsonAsPythonRepr(
                  self->spec_->ToJson(IncludeDefaults{false}),
-                 "_ContextResource(", ")");
+                 "Context.Resource(", ")");
            })
       .def(py::pickle(PickleContextResource, UnpickleContextResource));
 }

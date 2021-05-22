@@ -234,7 +234,7 @@ struct type_caster<tensorstore::SharedArray<Element, Rank>> {
 template <>
 struct type_caster<tensorstore::ContiguousLayoutOrder> {
   using T = tensorstore::ContiguousLayoutOrder;
-  PYBIND11_TYPE_CASTER(T, _("ContiguousLayoutOrder"));
+  PYBIND11_TYPE_CASTER(T, _("Literal['C','F']"));
   bool load(handle src, bool convert) {
     value = tensorstore::internal_python::GetContiguousLayoutOrderOrThrow(src);
     return true;

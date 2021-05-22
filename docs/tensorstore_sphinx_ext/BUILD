@@ -1,7 +1,7 @@
 load("//python/tensorstore:pytype.bzl", "pytype_strict_library")
 
 package(
-    default_visibility = ["//visibility:public"],
+    default_visibility = ["//docs:__subpackages__"],
 )
 
 licenses(["notice"])
@@ -37,7 +37,25 @@ pytype_strict_library(
     name = "autosummary",
     srcs = ["autosummary.py"],
     deps = [
+        ":sphinx_utils",
         "@pypa_docutils//:docutils",
+        "@pypa_sphinx//:sphinx",
+    ],
+)
+
+pytype_strict_library(
+    name = "autodoc",
+    srcs = ["autodoc.py"],
+    deps = [
+        "@pypa_docutils//:docutils",
+        "@pypa_sphinx//:sphinx",
+    ],
+)
+
+pytype_strict_library(
+    name = "mathjax",
+    srcs = ["mathjax.py"],
+    deps = [
         "@pypa_sphinx//:sphinx",
     ],
 )

@@ -27,5 +27,11 @@ def repo():
         ],
         sha256 = "ce183cb587c0a0f5982e441dff91cb5456d4c85cfa3fb12816e7a93f20645e51",
         strip_prefix = "boringssl-bdbe37905216bea8dd4d0fdee93f6ee415d3aa15",
-        system_build_file = Label("//third_party/com_google_boringssl:system.BUILD.bazel"),
+        system_build_file = Label("//third_party:com_google_boringssl/system.BUILD.bazel"),
+        patches = [
+            # boringssl sets -Werror by default.  That makes the build fragile
+            # and likely to break with new compiler versions.
+            "//third_party:com_google_boringssl/patches/no-Werror.diff",
+        ],
+        patch_args = ["-p1"],
     )

@@ -15,9 +15,11 @@
 
 import argparse
 import contextlib
+import glob
 import os
 import pathlib
 import re
+import subprocess
 import sys
 import tempfile
 from typing import List
@@ -91,9 +93,20 @@ def _prepare_source_tree(runfiles_dir: str):
         runfiles_dir=runfiles_dir,
         output_path=os.path.join(temp_src_dir, 'third_party_libraries.rst'))
 
+    abs_docs_root = os.path.join(runfiles_dir, DOCS_ROOT)
+
+    # Exclude theme and extension directories from temporary directory since
+    # they are not needed and slow down file globbing.
+    excluded_paths = frozenset([
+        os.path.join(abs_docs_root, 'tensorstore_sphinx_material'),
+        os.path.join(abs_docs_root, 'tensorstore_sphinx_ext'),
+    ])
+
     def create_symlinks(source_dir, target_dir):
       for name in os.listdir(source_dir):
         source_path = os.path.join(source_dir, name)
+        if source_path in excluded_paths:
+          continue
         target_path = os.path.join(target_dir, name)
         if os.path.isdir(source_path):
           os.makedirs(target_path, exist_ok=True)
@@ -106,12 +119,16 @@ def _prepare_source_tree(runfiles_dir: str):
 
     create_symlinks(os.path.join(runfiles_dir, DOCS_ROOT), temp_src_dir)
     source_cpp_root = os.path.abspath(os.path.join(runfiles_dir, CPP_ROOT))
-    temp_cpp_root = os.path.join(temp_src_dir, 'tensorstore')
-    os.makedirs(temp_cpp_root)
     for name in ['driver', 'kvstore']:
       os.symlink(os.path.join(source_cpp_root, name),
-                 os.path.join(temp_cpp_root, name))
+                 os.path.join(temp_src_dir, name))
     yield temp_src_dir
+
+
+def _minify_html(runfiles_dir: str, minify_tool: str, paths: List[str]) -> None:
+  print('Minifying %d html output files' % (len(paths),))
+  minify_tool = os.path.join(runfiles_dir, minify_tool)
+  subprocess.run([minify_tool] + paths + paths, check=True)
 
 
 def run(args: argparse.Namespace, unknown: List[str]):
@@ -121,7 +138,15 @@ def run(args: argparse.Namespace, unknown: List[str]):
   # sphinxcontrib.serializinghtml` not to work unless we first import
   # `sphinxcontrib.applehelp`.
   import sphinxcontrib.applehelp
-  sphinx_args = ['-a']
+  sphinx_args = [
+      # Always write all files (incremental mode not used)
+      '-a',
+      # Don't look for saved environment (since we just use a temporary directory
+      # anyway).
+      '-E',
+      # Show full tracebacks for errors.
+      '-T',
+  ]
   if args.sphinx_help:
     sphinx_args.append('--help')
   if args.pdb_on_error:
@@ -133,10 +158,30 @@ def run(args: argparse.Namespace, unknown: List[str]):
                             args.output)
   os.makedirs(output_dir, exist_ok=True)
   with _prepare_source_tree(runfiles_dir) as temp_src_dir:
-    sphinx_args += [temp_src_dir, output_dir]
-    sphinx_args += unknown
-    import sphinx.cmd.build
-    sys.exit(sphinx.cmd.build.main(sphinx_args))
+    # Use a separate temporary directory for the doctrees, since we don't want
+    # them mixed into the output directory.
+    with tempfile.TemporaryDirectory() as doctree_dir:
+      sphinx_args += ['-d', doctree_dir]
+      sphinx_args += [temp_src_dir, output_dir]
+      sphinx_args += unknown
+      import sphinx.cmd.build
+      result = sphinx.cmd.build.main(sphinx_args)
+      if result != 0:
+        sys.exit(result)
+
+      # Delete buildinfo file.
+      buildinfo_path = os.path.join(output_dir, '.buildinfo')
+      if os.path.exists(buildinfo_path):
+        os.remove(buildinfo_path)
+
+      if args.minify:
+        # Minify HTML
+        html_output = glob.glob(os.path.join(output_dir, "**/*.html"),
+                                recursive=True)
+        _minify_html(runfiles_dir=runfiles_dir, minify_tool=args.minify_tool,
+                     paths=html_output)
+      print('Output written to: %s' % (os.path.abspath(output_dir),))
+      sys.exit(result)
 
 
 def main():
@@ -144,8 +189,11 @@ def main():
   default_output = os.environ.get('TEST_UNDECLARED_OUTPUTS_DIR', None)
   ap.add_argument('--output', '-o', help='Output directory',
                   default=default_output, required=default_output is None)
+  ap.add_argument('--minify-tool', type=str,
+                  help='Path to HTML minify tool', required=True)
   ap.add_argument('-P', dest='pdb_on_error', action='store_true',
                   help='Run pdb on exception')
+  ap.add_argument('--no-minify', dest='minify', action='store_false')
   ap.add_argument('--sphinx-help', action='store_true',
                   help='Show sphinx build command-line help')
   ap.add_argument('--pdb', action='store_true', help='Run under pdb')

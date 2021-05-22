@@ -342,7 +342,94 @@ absl::Time GetWaitDeadline(std::optional<double> timeout,
 
 void RegisterFutureBindings(pybind11::module m) {
   py::class_<PythonFutureBase, std::shared_ptr<PythonFutureBase>> cls_future(
-      m, "Future");
+                                                                             m, "Future", R"(
+Handle for *consuming* the result of an asynchronous operation.
+
+This type supports several different patterns for consuming results:
+
+- Asynchronously with :py:mod:`asyncio`, using the `await<python:await>` keyword:
+
+      >>> future = ts.open({
+      ...     'driver': 'array',
+      ...     'array': [1, 2, 3],
+      ...     'dtype': 'uint32'
+      ... })
+      >>> await future
+      TensorStore({
+        'array': [1, 2, 3],
+        'driver': 'array',
+        'dtype': 'uint32',
+        'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
+      })
+
+- Synchronously blocking the current thread, by calling :py:meth:`.result()`.
+
+      >>> future = ts.open({
+      ...     'driver': 'array',
+      ...     'array': [1, 2, 3],
+      ...     'dtype': 'uint32'
+      ... })
+      >>> future.result()
+      TensorStore({
+        'array': [1, 2, 3],
+        'driver': 'array',
+        'dtype': 'uint32',
+        'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
+      })
+
+- Asynchronously, by registering a callback using :py:meth:`.add_done_callback`:
+
+      >>> future = ts.open({
+      ...     'driver': 'array',
+      ...     'array': [1, 2, 3],
+      ...     'dtype': 'uint32'
+      ... })
+      >>> future.add_done_callback(
+      ...     lambda f: print(f'Callback: {f.result().domain}'))
+      ... future.force()  # ensure the operation is started
+      ... # wait for completion (for testing only)
+      ... result = future.result()
+      Callback: { [0, 3) }
+
+If an error occurs, instead of returning a value, :py:obj:`.result()` or
+`python:await<await>` will raise an exception.
+
+This type supports a subset of the interfaces of
+:py:class:`python:concurrent.futures.Future` and
+:py:class:`python:asyncio.Future`.  Unlike those types, however,
+:py:class:`Future` provides only the *consumer* interface.  The corresponding
+*producer* interface is provided by :py:class:`Promise`.
+
+See also:
+  - :py:class:`WriteFutures`
+
+Group:
+  Asynchronous support
+)");
+
+  py::class_<Promise<PythonValueOrException>> cls_promise(m, "Promise", R"(
+Handle for *producing* the result of an asynchronous operation.
+
+A promise represents the producer interface corresponding to a
+:py:class:`Future`, and may be used to signal the completion of an asynchronous
+operation.
+
+    >>> promise, future = ts.Promise.new()
+    >>> future.done()
+    False
+    >>> promise.set_result(5)
+    >>> future.done()
+    True
+    >>> future.result()
+    5
+
+See also:
+  - :py:class:`Future`
+
+Group:
+  Asynchronous support
+)");
+
 
   cls_future.def("__await__", &PythonFutureBase::get_await_result);
   cls_future.def("add_done_callback", &PythonFutureBase::add_done_callback,
@@ -368,7 +455,6 @@ void RegisterFutureBindings(pybind11::module m) {
   cls_future.def("cancelled", &PythonFutureBase::cancelled);
   cls_future.def("cancel", &PythonFutureBase::cancel);
 
-  py::class_<Promise<PythonValueOrException>> cls_promise(m, "Promise");
   cls_promise.def("set_result", [](const Promise<PythonValueOrException>& self,
                                    py::object result) {
     self.SetResult(PythonValueOrException{std::move(result)});

@@ -1,0 +1,82 @@
+// Additional styles expected by sphinx.
+
+.md-typeset {
+
+  // alignment of text and inline objects inside block objects
+  .align-left {
+    text-align: left;
+  }
+
+  .align-right {
+    text-align: right;
+  }
+
+  .align-center {
+    clear: both;
+    text-align: center;
+  }
+
+  .align-top {
+    vertical-align: top;
+  }
+
+  .align-middle {
+    vertical-align: middle;
+  }
+
+  .align-bottom {
+    vertical-align: bottom;
+  }
+
+  // Figures, Images, and Tables
+  .figure.align-left,
+  figure.align-left,
+  img.align-left,
+  object.align-left,
+  table.align-left {
+    margin-right: auto;
+  }
+
+  .figure.align-center,
+  figure.align-center,
+  img.align-center,
+  object.align-center,
+  table.align-center {
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .figure.align-right,
+  figure.align-right,
+  img.align-right,
+  object.align-right,
+  table.align-right {
+    margin-left: auto;
+  }
+
+  .figure.align-center,
+  .figure.align-right,
+  figure.align-center,
+  figure.align-right,
+  img.align-center,
+  img.align-right,
+  object.align-center,
+  object.align-right {
+    display: block;
+  }
+
+  // reset inner alignment in figures and tables
+  .figure.align-left,
+  .figure.align-right,
+  figure.align-left,
+  figure.align-right,
+  table.align-left,
+  table.align-center,
+  table.align-right {
+    text-align: inherit;
+  }
+
+  .rubric {
+    font-weight: bold;
+  }
+}

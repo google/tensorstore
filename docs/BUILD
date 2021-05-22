@@ -1,5 +1,6 @@
 load("//python/tensorstore:pytype.bzl", "pytype_strict_binary", "pytype_strict_test")
 load("//python/tensorstore:pytest.bzl", "tensorstore_pytest_test")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -13,8 +14,6 @@ filegroup(
         "conf.py",
         "_templates/logo.svg",
     ] + glob([
-        "_templates/**",
-        "_static/**",
         "**/*.rst",
         "**/*.yml",
         "intersphinx_inv/**",
@@ -52,20 +51,42 @@ genrule(
     ],
 )
 
+bool_flag(
+    name = "no_minify",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "no_minify_setting",
+    flag_values = {
+        ":no_minify": "True",
+    },
+    visibility = ["//docs:__subpackages__"],
+)
+
 pytype_strict_test(
     name = "build_docs",
     srcs = ["build_docs.py"],
+    args = [
+        "--minify-tool=$(location //docs/tensorstore_sphinx_material:minify_html)",
+    ] + select({
+        ":no_minify_setting": ["--no-minify"],
+        "//conditions:default": [],
+    }),
     data = [
         ":doc_sources",
+        "//docs/tensorstore_sphinx_material:minify_html",
     ],
     python_version = "PY3",
     tags = ["manual"],
     deps = [
+        "//docs/tensorstore_sphinx_ext:autodoc",
         "//docs/tensorstore_sphinx_ext:autosummary",
         "//docs/tensorstore_sphinx_ext:jsonschema_sphinx",
+        "//docs/tensorstore_sphinx_ext:mathjax",
+        "//docs/tensorstore_sphinx_material",
         "//python/tensorstore",
         "@pypa_sphinx//:sphinx",
-        "@pypa_sphinx_rtd_theme//:sphinx_rtd_theme",
     ],
 )
 

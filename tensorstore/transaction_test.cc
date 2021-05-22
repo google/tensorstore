@@ -689,7 +689,6 @@ TEST(TransactionTest, ReleaseTransactionReferenceDuringAbort) {
   auto txn = Transaction(tensorstore::isolated);
   auto future = txn.future();
   TestNode* node1;
-  SynchronousTestNode* node2;
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto open_ptr,
                                      AcquireOpenTransactionPtrOrError(txn));
@@ -705,7 +704,6 @@ TEST(TransactionTest, ReleaseTransactionReferenceDuringAbort) {
           new SynchronousTestNode(&log, 2));
       weak_node->SetTransaction(*open_ptr);
       TENSORSTORE_EXPECT_OK(weak_node->Register());
-      node2 = weak_node.get();
     }
   }
   txn.CommitAsync().IgnoreFuture();

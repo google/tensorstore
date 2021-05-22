@@ -1289,8 +1289,7 @@ class DimExpression<LastOp, PriorOp...> {
     return {{index_arrays}, *this};
   }
 
-  /// Sets (or changes) the labels of the selected dimensions, and marks those
-  /// labels as explicit.
+  /// Sets (or changes) the labels of the selected dimensions.
   ///
   /// The new dimension selection is the same as the prior dimension selection,
   /// with a static rank equal to the merged static rank of the prior dimension

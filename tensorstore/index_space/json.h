@@ -85,7 +85,7 @@
 ///
 ///     {
 ///         "input_inclusive_min": ["-inf", 7, ["-inf"], [8]],
-///         "input_exclusive_max": ["+inf", 10, ["+inf"], [17]],
+///         "input_exclusive_max": ["+inf", 11, ["+inf"], [17]],
 ///         "input_labels": ["x", "y", "z", ""],
 ///         "output": [
 ///             {"offset": 3},

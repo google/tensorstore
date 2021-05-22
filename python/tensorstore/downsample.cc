@@ -38,6 +38,15 @@ void RegisterDownsampleBindings(pybind11::module m) {
         return ValueOrThrow(tensorstore::Downsample(
             std::move(base), downsample_factors, method));
       },
+      R"(
+Returns a virtual :ref:`downsampled view<driver/downsample>` of a :py:obj:`TensorStore`.
+
+Group:
+  Views
+
+Overload:
+  store
+)",
       py::arg("base"), py::arg("downsample_factors"), py::arg("method"));
 
   m.def(
@@ -47,6 +56,15 @@ void RegisterDownsampleBindings(pybind11::module m) {
         return ValueOrThrow(
             tensorstore::Downsample(base, downsample_factors, method));
       },
+      R"(
+Returns a virtual :ref:`downsampled view<driver/downsample>` view of a :py:obj:`Spec`.
+
+Group:
+  Views
+
+Overload:
+  spec
+)",
       py::arg("base"), py::arg("downsample_factors"), py::arg("method"));
 }
 

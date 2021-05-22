@@ -13,48 +13,148 @@
 # limitations under the License.
 """TensorStore-specific Python documentation generation.
 
-This extension overrides the built-in autosummary directive to automatically
-include module members, as described here:
-https://stackoverflow.com/questions/20569011/python-sphinx-autosummary-automated-listing-of-member-functions
+This extension generates the Python API reference documentation.  A separate
+page is generated for each class/function/member/constant to be documented.
 
-Additionally, this modifies autosummary and autodoc to handle pybind11
-overloaded functions.
+As with sphinx.ext.autosummary, we have to physically write a separate rST file
+to the source tree for each object to document, as an initial preprocesing step,
+since that provides the simplest way to get Sphinx to process those pages.
+Since the build is always run with the source tree copied to a temporary
+directory, this does not modify the real source tree.
+
+Unlike the sphinx.ext.autosummary extension, we use Sphinx Python domain
+directives for the "summaries" as well, rather than a plain table, in order to
+display the signatures nicely.
 """
 
+import copy
+import inspect
+import os
+import pathlib
 import re
-from typing import List, Tuple, Any, Optional, Type, Union
+from typing import List, Tuple, Any, Optional, Type, cast, Dict, NamedTuple, Iterator, Set
+
+from . import sphinx_utils  # pylint: disable=relative-beyond-top-level
 
 import docutils.nodes
+import docutils.parsers.rst.states
+import docutils.statemachine
 import sphinx.addnodes
 import sphinx.application
 import sphinx.domains.python
 import sphinx.environment
 import sphinx.ext.autodoc
-import sphinx.ext.autosummary
+import sphinx.ext.napoleon.docstring
+import sphinx.pycode
 import sphinx.util.docstrings
 import sphinx.util.docutils
 import sphinx.util.inspect
+import sphinx.util.logging
 import sphinx.util.typing
 
+logger = sphinx.util.logging.getLogger(__name__)
 
-def _parse_overloaded_function_docstring(doc: str):
-  m = re.match('^([^(]+)\\(', doc)
+SIGNATURE_SUMMARY_LENGTH = 70
+"""Target maximum length in characters for a signature summary.
+
+Parameters will be elided (replaced with an ellipsis) to reduce the length to
+this limit.
+"""
+
+OBJECT_SYNOPSES_KEY = 'object_synopses'
+"""Key within the Python domain `data` dict used to store object synopses."""
+
+
+class ParsedOverload(NamedTuple):
+  """Parsed representation of a single overload.
+
+  For non-function types and non-overloaded functions, this just represents the
+  object itself.
+
+  Sphinx does not really support pybind11-style overloaded functions directly.
+  It has minimal support functions with multiple signatures, with a single
+  docstring.  However, pybind11 produces overloaded functions each with their
+  own docstring.  This module adds support for documenting each overload as an
+  independent function.
+
+  Additionally, we need a way to identify each overload, for the purpose of
+  generating a page name, listing in the table of contents sidebar, and
+  cross-referencing.  Sphinx does not have a native solution to this problem
+  because it is not designed to support overloads.  Doxygen uses some sort of
+  hash as the identifier, but that means links break with even minor changes to
+  the signature.
+
+  Instead, we require that a unique id be manually assigned to each overload,
+  and specified as:
+
+      Overload:
+        XXX
+
+  in the docstring.  Then the overload will be identified as
+  `module.Class.function(overload)`, and will be documented using the page name
+  `module.Class.function-overload`.  Typically the overload id should be chosen
+  to be a parameter name that is unique to the overload.
+  """
+
+  doc: Optional[str]
+  """Docstring for individual overload.  First line is the signature."""
+
+  overload_id: Optional[str] = None
+  """Overload id specified in the docstring.
+
+  If there is just a single overload, will be `None`.  Otherwise, if no overload
+  id is specified, a warning is produced and the index of the overload,
+  i.e. "1", "2", etc., is used as the id.
+  """
+
+
+def _extract_field(doc: str, field: str) -> Tuple[str, Optional[str]]:
+  pattern = f'\n\\s*\n{field}:\\s*\n\\s+([^\n]+)\n'
+  m = re.search(pattern, doc)
   if m is None:
-    raise ValueError(
-        f'Failed to determine display name from docstring: {repr(doc)}')
+    return doc, None
+  start, end = m.span()
+  return f'{doc[:start]}\n\n{doc[end:]}', m.group(1).strip()
+
+
+_OVERLOADED_FUNCTION_RE = '^([^(]+)\\([^\n]*\nOverloaded function.\n'
+
+
+def _parse_overloaded_function_docstring(
+    doc: Optional[str]) -> List[ParsedOverload]:
+  """Parses a pybind11 overloaded function docstring.
+
+  If the docstring is not for an overloaded function, just returns the full
+  docstring as a single "overload".
+
+  Args:
+    doc: Original docstring.
+  Returns:
+    List of parsed overloads.
+  Raises:
+    ValueError: If docstring has unexpected format.
+  """
+
+  if doc is None:
+    return [ParsedOverload(doc=doc, overload_id=None)]
+  m = re.match(_OVERLOADED_FUNCTION_RE, doc)
+  if m is None:
+    # Non-overloaded function
+    doc, overload_id = _extract_field(doc, 'Overload')
+    return [ParsedOverload(doc=doc, overload_id=overload_id)]
+
   display_name = m.group(1)
-  overloaded_prefix = '\nOverloaded function.\n'
-  doc = doc[doc.index(overloaded_prefix) + len(overloaded_prefix):]
+  doc = doc[m.end():]
   i = 1
 
   def get_prefix(i: int):
     return '\n%d. %s(' % (i, display_name)
 
   prefix = get_prefix(i)
-  parts: List[Tuple[str, str]] = []
+  parts: List[ParsedOverload] = []
   while doc:
     if not doc.startswith(prefix):
-      raise RuntimeError('Docstring does not contain %r as expected: %r' % (
+      raise ValueError('Docstring does not contain %r as expected: %r' % (
           prefix,
           doc,
       ))
@@ -71,254 +171,1245 @@ def _parse_overloaded_function_docstring(doc: str):
     else:
       part = doc[:end_index]
       doc = doc[end_index:]
-    parts.append((part_sig, part))
+
+    part, overload_id = _extract_field(part, 'Overload')
+    if overload_id is None:
+      overload_id = str(i - 1)
+
+    part_doc_with_sig = f'{display_name}{part_sig}\n{part}'
+    parts.append(ParsedOverload(
+        doc=part_doc_with_sig,
+        overload_id=overload_id,
+    ))
   return parts
 
 
-def _get_attribute_type(obj: property):
-  if obj.fget is not None:
-    doc = obj.fget.__doc__
-    if doc is not None:
-      lines = doc.splitlines()
-      match = re.fullmatch('^(\\(.*)\\)\\s*->\\s*(.*)$', lines[0])
-      if match:
-        args, retann = match.groups()
-        del args
-        return retann
-  return None
+def _get_overloads_from_documenter(
+    documenter: sphinx.ext.autodoc.Documenter) -> List[ParsedOverload]:
+  docstring = sphinx.util.inspect.getdoc(
+      documenter.object, documenter.get_attr,
+      documenter.env.config.autodoc_inherit_docstrings, documenter.parent,
+      documenter.object_name)
+  return _parse_overloaded_function_docstring(docstring)
 
 
-class TensorstoreAutosummary(sphinx.ext.autosummary.Autosummary):
-
-  def get_items(self, names: List[str]) -> List[Tuple[str, str, str, str]]:
-    items: List[Tuple[str, str, str, str]] = []
-    for display_name, sig, summary, real_name in super().get_items(names):
-      if summary == 'Initialize self.':
-        continue
-      real_name, obj, parent, modname = sphinx.ext.autosummary.import_by_name(
-          real_name)
-      del parent
-      del modname
-      if summary == 'Overloaded function.':
-        for part_sig, part in _parse_overloaded_function_docstring(obj.__doc__):
-          max_item_chars = 50
-          max_chars = max(10, max_item_chars - len(display_name))
-          mangled_sig = sphinx.ext.autosummary.mangle_signature(
-              part_sig, max_chars=max_chars)
-          part_summary = sphinx.ext.autosummary.extract_summary(
-              part.splitlines(), self.state.document)
-          items.append((display_name, mangled_sig, part_summary, real_name))
-      else:
-        if isinstance(obj, property):
-          retann = _get_attribute_type(obj)
-          if retann is not None:
-            sig = ': ' + retann
-
-        items.append((display_name, sig, summary, real_name))
-    return items
-
-  def run(self):
-    result = super().run()
-
-    # Strip out duplicate toc entries due to overloaded functions
-    if result:
-      toc_node = result[-1].children[0]
-      seen_docnames = set()
-      new_entries = []
-      if 'entries' in toc_node:
-        for _, docn in toc_node['entries']:
-          if docn in seen_docnames:
-            continue
-          seen_docnames.add(docn)
-          new_entries.append((None, docn))
-        toc_node['entries'] = new_entries
-
-    return result
+def _get_python_object_synopses(
+    domain: sphinx.domains.python.Domain) -> Dict[str, str]:
+  data = domain.data.get(OBJECT_SYNOPSES_KEY)
+  if data is not None:
+    return data
+  return domain.data.setdefault(OBJECT_SYNOPSES_KEY, {})
 
 
-def _monkey_patch_autodoc_function_documenter(
-    documenter_cls: Union[Type[sphinx.ext.autodoc.FunctionDocumenter],
-                          Type[sphinx.ext.autodoc.MethodDocumenter]]):
+def _has_default_value(node: sphinx.addnodes.desc_parameter):
+  for sub_node in node.traverse(condition=docutils.nodes.literal):
+    if 'default_value' in sub_node.get('classes'):
+      return True
+  return False
 
-  orig_generate = documenter_cls.generate
 
-  def generate(self, *args, **kwargs):
-    if not self.parse_name():
-      return
-    if not self.import_object():
+def _summarize_signature(node: sphinx.addnodes.desc_signature):
+  """Shortens a signature line to fit within SIGNATURE_SUMMARY_LENGTH."""
+
+  def _must_shorten():
+    return len(node.astext()) > SIGNATURE_SUMMARY_LENGTH
+
+  parameterlist: Optional[sphinx.addnodes.desc_parameterlist] = None
+  for parameterlist in node.traverse(
+      condition=sphinx.addnodes.desc_parameterlist):
+    break
+
+  if parameterlist is None:
+    # Can't shorten a signature without a parameterlist
+    return
+
+  # Remove initial `self` parameter
+  if parameterlist.children and parameterlist.children[0].astext() == 'self':
+    del parameterlist.children[0]
+
+  added_ellipsis = False
+  for next_parameter_index in range(len(parameterlist.children) - 1, -1, -1):
+    if not _must_shorten():
       return
 
+    # First remove type annotation of last parameter, but only if it doesn't
+    # have a default value.
+    last_parameter = parameterlist.children[next_parameter_index]
+    if not _has_default_value(last_parameter):
+      del last_parameter.children[1:]
+      if not _must_shorten():
+        return
+
+    # Elide last parameter entirely
+    del parameterlist.children[next_parameter_index]
+    if not added_ellipsis:
+      added_ellipsis = True
+      ellipsis_node = sphinx.addnodes.desc_sig_punctuation('', '...')
+      param = sphinx.addnodes.desc_parameter()
+      param += ellipsis_node
+      parameterlist += param
+
+
+class _MemberDocumenterEntry(NamedTuple):
+  """Represents a member of some outer scope (module/class) to document."""
+
+  documenter: sphinx.ext.autodoc.Documenter
+  is_attr: bool
+  name: str
+  """Member name within parent, e.g. class member name."""
+
+  full_name: str
+  """Full name under which to document the member.
+
+  For example, "modname.ClassName.method".
+  """
+
+  import_name: str
+  """Name to import to access the member."""
+
+  overload: Optional[ParsedOverload] = None
+
+  is_inherited: bool = False
+  """Indicates whether this is an inherited member."""
+
+  subscript: bool = False
+  """Whether this is a "subscript" method to be shown with [] instead of ()."""
+
+  @property
+  def page_name(self):
+    page = self.full_name
+    if self.overload and self.overload.overload_id:
+      page += f'-{self.overload.overload_id}'
+    return page
+
+  @property
+  def object_name(self):
+    name = self.full_name
+    if self.overload and self.overload.overload_id:
+      name += f'({self.overload.overload_id})'
+    return name
+
+  @property
+  def toc_title(self):
+    name = self.name
+    if self.overload and self.overload.overload_id:
+      name += f'({self.overload.overload_id})'
+    return name
+
+
+_INIT_SUFFIX = '.__init__'
+
+_CLASS_GETITEM_SUFFIX = '.__class_getitem__'
+
+
+def _get_python_object_name_for_signature(entry: _MemberDocumenterEntry) -> str:
+  """Returns the name of a Python object to use in a :py: domain directive.
+
+  This modifies __init__ and __class_getitem__ objects so that they are shown
+  with the invocation syntax.
+
+  Args:
+    entry: Entry to document.
+  """
+  full_name = entry.full_name
+
+  if full_name.endswith(_INIT_SUFFIX):
+    full_name = full_name[:-len(_INIT_SUFFIX)]
+
+  elif full_name.endswith(_CLASS_GETITEM_SUFFIX):
+    full_name = full_name[:-len(_CLASS_GETITEM_SUFFIX)]
+
+  documenter = entry.documenter
+  if documenter.modname and full_name.startswith(documenter.modname + '.'):
+    return full_name[len(documenter.modname) + 1:]
+  return full_name
+
+
+def _ensure_module_name_in_signature(
+    signode: sphinx.addnodes.desc_signature) -> None:
+  """Ensures non-summary objects are documented with the module name.
+
+  Sphinx by default excludes the module name from class members, and does not
+  provide an option to override that.  Since we display all objects on separate
+  pages, we want to include the module name for clarity.
+
+  Args:
+    signode: Signature to modify in place.
+  """
+  for node in signode.traverse(condition=sphinx.addnodes.desc_addname):
+    modname = signode.get('module')
+    if modname and not node.astext().startswith(modname + '.'):
+      node.insert(0, docutils.nodes.Text(modname + '.'))
+    break
+
+
+MEMBER_NAME_TO_GROUP_NAME_MAP = {
+    '__init__': 'Constructors',
+    '__class_getitem__': 'Constructors',
+    '__eq__': 'Special members',
+}
+
+
+def _get_group_name(entry: _MemberDocumenterEntry) -> str:
+  """Returns a default group name for an entry.
+
+  This is used if the group name is not explicitly specified via "Group:" in the
+  docstring.
+
+  Args:
+    entry: Entry to document.
+
+  Returns:
+    The group name.
+  """
+  group_name = MEMBER_NAME_TO_GROUP_NAME_MAP.get(entry.name)
+  if group_name is None:
+    if entry.documenter.objtype == 'class':
+      group_name = 'Classes'
+    else:
+      group_name = 'Public members'
+  return group_name
+
+
+def _mark_subscript_parameterlist(node: sphinx.addnodes.desc) -> None:
+  """Modifies an object description to display as a "subscript method".
+
+  A "subscript method" is a property that defines __getitem__ and is intended to
+  be treated as a method invoked using [] rather than (), in order to allow
+  subscript syntax like ':'.
+
+  Args:
+    node: Object description to modify in place.
+  """
+  signode = cast(sphinx.addnodes.desc_signature, node.children[0])
+  for sub_node in signode.traverse(
+      condition=sphinx.addnodes.desc_parameterlist):
+    sub_node['parens'] = ('[', ']')
+
+
+def _clean_init_signature(node: sphinx.addnodes.desc) -> None:
+  """Modifies an object description of an __init__ method.
+
+  Removes the return type (always None) and the self paramter (since these
+  methods are displayed as the class name, without showing __init__).
+
+  Args:
+    node: Object description to modify in place.
+  """
+  signode = cast(sphinx.addnodes.desc_signature, node.children[0])
+  # Remove first parameter.
+  for param in signode.traverse(condition=sphinx.addnodes.desc_parameter):
+    if param.children[0].astext() == 'self':
+      param.parent.remove(param)
+    break
+
+  # Remove return type.
+  for node in signode.traverse(condition=sphinx.addnodes.desc_returns):
+    node.parent.remove(node)
+
+
+def _clean_class_getitem_signature(node: sphinx.addnodes.desc) -> None:
+  """Modifies an object description of a __class_getitem__ method.
+
+  Removes the `static` prefix since these methods are shown using the class
+  name (i.e. as "subscript" constructors).
+
+  Args:
+    node: Object description to modify in place.
+
+  """
+  signode = cast(sphinx.addnodes.desc_signature, node.children[0])
+
+  # Remove `static` prefix
+  for prefix in signode.traverse(condition=sphinx.addnodes.desc_annotation):
+    prefix.parent.remove(prefix)
+    break
+
+
+def _postprocess_autodoc_rst_output(
+    rst_strings: docutils.statemachine.StringList,
+    summary: bool) -> Optional[str]:
+  """Postprocesses generated RST from autodoc before parsing into nodes.
+
+  Args:
+    rst_strings: Generated RST content, modified in place.
+    summary: Whether to produce a summary rather than a full description.
+
+  Returns:
+    Group name if it was specified in `rst_strings`.
+  """
+  # Extract :group: field if present.
+  group_name = None
+  group_field_prefix = '   :group: '
+  for i, line in enumerate(rst_strings):
+    if line.startswith(group_field_prefix):
+      group_name = line[len(group_field_prefix):].strip()
+      del rst_strings[i]
+      break
+
+  if summary:
+    # Remove all but the first paragraph of the description
+
+    # First skip over any directive fields
+    i = 2
+    while i < len(rst_strings) and rst_strings[i].startswith('   :'):
+      i += 1
+    # Skip over blank lines before start of directive content
+    while i < len(rst_strings) and not rst_strings[i].strip():
+      i += 1
+    # Skip over first paragraph
+    while i < len(rst_strings) and rst_strings[i].strip():
+      i += 1
+
+    # Delete remaining content
+    del rst_strings[i:]
+
+  return group_name
+
+
+class TensorstorePythonApidoc(sphinx.util.docutils.SphinxDirective):
+  """Adds a summary of the members of an object.
+
+  This is used to generate both the top-level module summary as well as the
+  summary of individual classes and functions.
+
+  Except for the top-level module summary, the `objectdescription` option is
+  specified, which results in an `auto{objtype}` directive also being added,
+  with the member summary added as its content.
+  """
+
+  has_content = True
+  required_arguments = 0
+  optional_arguments = 0
+
+  option_spec = {
+      'fullname': str,
+      'importname': str,
+      'objtype': str,
+      'objectdescription': lambda arg: True,
+      'subscript': lambda arg: True,
+      'overload': str,
+  }
+
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+
+    self._objtype = self.options['objtype']
+    self._fullname = self.options['fullname']
+    self._importname = self.options.get('importname') or self._fullname
+    self._is_subscript = self.options.get('subscript')
+    documenter_cls = self.env.app.registry.documenters[self._objtype]
+    self._documenter = _create_documenter(env=self.env,
+                                          documenter_cls=documenter_cls,
+                                          name=self._importname)
+    overloads = _get_overloads_from_documenter(self._documenter)
+    overload_id = self.options.get('overload')
+    for overload in overloads:
+      if overload.overload_id == overload_id:
+        break
+    else:
+      raise ValueError('Could not find overload %s(%s)' %
+                       (self._fullname, overload_id))
+    self._entry = _MemberDocumenterEntry(
+        documenter=self._documenter,
+        subscript=self._is_subscript,
+        full_name=self._fullname,
+        import_name=self._importname,
+        overload=overload,
+        is_attr=False,
+        name='',
+    )
+
+  def _generate_autodoc(
+      self, entry: _MemberDocumenterEntry,
+      summary=False) -> Tuple[sphinx.addnodes.desc, Optional[str]]:
+    """Generates an object description for the given entry.
+
+    Args:
+      entry: Entry to document.
+      summary: Whether to generate a summary rather than full description.
+    Returns:
+      Tuple of object description and group name.  Note that the returned object
+      description still needs additional postprocessing performed by
+      `_add_member_summary` for (`summary=True`) or `_make_object_description`
+      (for `summary=False`).
+    """
+
+    rst_strings = docutils.statemachine.StringList()
+    entry.documenter.directive.result = rst_strings
+
+    if entry.overload and entry.overload.overload_id is not None:
+      # Force autodoc to use the overload-specific signature.  autodoc already
+      # has an internal mechanism for overriding the docstrings based on the
+      # `_new_docstrings` member.
+      entry.documenter._new_docstrings = [  # pylint: disable=protected-access
+          sphinx.util.docstrings.prepare_docstring(
+              entry.overload.doc or '', 1,
+              self.state.document.settings.tab_width)
+      ]
+    else:
+      # Force autodoc to obtain the docstring through its normal mechanism,
+      # which includes the "ModuleAnalyzer" for reading docstrings of
+      # variables/attributes that are only contained in the source code.
+      entry.documenter._new_docstrings = None  # pylint: disable=protected-access
+
+    if summary and entry.is_inherited:
+      overridename = entry.name
+    else:
+      overridename = _get_python_object_name_for_signature(entry)
+    entry.documenter.format_name = lambda: overridename
+
+    # Record the documenter for use by _process_docstring in `autodoc.py`.
     current_documenter_map = self.env.temp_data.setdefault(
         'tensorstore_autodoc_current_documenter', {})
-    current_documenter_map[self.fullname] = self
+    current_documenter_map[entry.documenter.fullname] = entry.documenter
+    entry.documenter.generate()
+    del current_documenter_map[entry.documenter.fullname]
 
-    doc = self.object.__doc__
-    if doc is None or '\nOverloaded function.\n\n' not in doc:
-      orig_generate(self, *args, **kwargs)
-      return
-    old_indent = self.indent
+    group_name = _postprocess_autodoc_rst_output(rst_strings, summary=summary)
 
-    for part_sig, part_doc in _parse_overloaded_function_docstring(doc):
-      tab_width = self.directive.state.document.settings.tab_width
-      full_part_doc = '%s%s\n%s' % (self.object.__name__, part_sig, part_doc)
-      self._new_docstrings = [
-          sphinx.util.docstrings.prepare_docstring(full_part_doc, 1, tab_width)
-      ]  # pylint: disable=protected-access
+    entry.documenter.titles_allowed = True
+    nodes = [
+        x for x in sphinx.ext.autodoc.directive.parse_generated_content(
+            self.state, entry.documenter.directive.result, entry.documenter)
+        if isinstance(x, sphinx.addnodes.desc)
+    ]
+    assert len(nodes) == 1
+    node = nodes[0]
 
-      self.indent = old_indent
-      orig_generate(self, *args, **kwargs)
-      self.options.noindex = True
+    if entry.subscript:
+      _mark_subscript_parameterlist(node)
+    if entry.full_name.endswith(_INIT_SUFFIX):
+      _clean_init_signature(node)
+    if entry.full_name.endswith(_CLASS_GETITEM_SUFFIX):
+      _clean_class_getitem_signature(node)
 
-  documenter_cls.generate = generate
+    return node, group_name
+
+  def _add_member_summary(
+      self, entry: _MemberDocumenterEntry) -> Tuple[str, sphinx.addnodes.desc]:
+    objdesc, group_name = self._generate_autodoc(entry, summary=True)
+    objdesc['classes'].append('summary')
+    sig_node = cast(sphinx.addnodes.desc_signature, objdesc.children[0])
+    _summarize_signature(sig_node)
+    # Insert a link around the `desc_name` field
+    for sub_node in sig_node.traverse(condition=sphinx.addnodes.desc_name):
+      xref_node = sphinx.addnodes.pending_xref(
+          '',
+          sub_node.deepcopy(),
+          refdomain='py',
+          reftype='obj',
+          reftarget=entry.object_name,
+          refwarn=True,
+          refexplicit=True,
+      )
+      sub_node.replace_self(xref_node)
+      break
+
+    contentnode = cast(sphinx.addnodes.desc_content, objdesc.children[1])
+    # Store synopsis in environment.
+    domain = cast(sphinx.domains.python.PythonDomain, self.env.get_domain('py'))
+    _get_python_object_synopses(domain)[
+        entry.object_name] = contentnode.astext()
+
+    if group_name is None:
+      group_name = _get_group_name(entry)
+
+    return group_name, objdesc
+
+  def _add_group_summary(
+      self, contentnode: docutils.nodes.Element,
+      sections: Dict[str, docutils.nodes.section], group_name: str,
+      group_members: List[Tuple[_MemberDocumenterEntry, sphinx.addnodes.desc]]
+  ) -> None:
+    toc_lines = ''
+
+    group_id = docutils.nodes.make_id(group_name)
+    section = sections.get(group_id)
+    if section is None:
+      section = docutils.nodes.section()
+      section['ids'].append(group_id)
+      title = docutils.nodes.title('', group_name)
+      section += title
+      contentnode += section
+      sections[group_id] = section
+
+    for entry, entry_node in group_members:
+      # FIXME(jbms): Currently sphinx does not have particularly good support
+      # for a page occurring in multiple places in the TOC, which occurs with
+      # inherited members.  Nonetheless it mostly works.  The next/prev ordering
+      # of documents is based on first occurrence of a document within pre-order
+      # traversal, which gives the correct result as long as the base class
+      # occurs before the derived class.  The parent relationship for TOC
+      # collapsing, however, appears to be based on the last occurrence.
+      # Ideally we would be able to explicitly control the parent relationship
+      # for TOC collapsing, so that a member is listed under its "real" classs.
+      toc_lines += f'{entry.toc_title} <{entry.page_name}>\n'
+      section += entry_node
+
+    section.extend(
+        sphinx_utils.parse_rst(
+            state=self.state,
+            text=sphinx_utils.format_directive('toctree',
+                                               options={'hidden': True},
+                                               content=toc_lines),
+            source_path='tensorstore-apidoc', source_line=0))
+
+  def _merge_summary_nodes_into(self,
+                                contentnode: docutils.nodes.Element) -> None:
+    """Merges the member summary into `contentnode`.
+
+    Members are organized into groups.  The group is either specified explicitly
+    by a `Group:` field in the docstring, or determined automatically by
+    `_get_group_name`.  If there is an existing section, the member summary is
+    appended to it.  Otherwise, a new section is created.
+
+    Args:
+      contentnode: The existing container to which the member summaries will be
+        added.  If `contentnode` contains sections, those sections correspond to
+        group names.
+    """
+
+    sections: Dict[str, docutils.nodes.section] = {}
+    for section in contentnode.traverse(condition=docutils.nodes.section):
+      if section['ids']:
+        sections[section['ids'][0]] = section
+
+    # Maps group name to the list of members and corresponding summary object
+    # description.
+    groups: Dict[str, List[Tuple[_MemberDocumenterEntry,
+                                 sphinx.addnodes.desc]]] = {}
+
+    for entry in _get_documenter_members(self._documenter):
+      group_name, node = self._add_member_summary(entry)
+      groups.setdefault(group_name, []).append((entry, node))
+
+    for group_name, group_members in groups.items():
+      self._add_group_summary(contentnode=contentnode, sections=sections,
+                              group_name=group_name,
+                              group_members=group_members)
+
+  def _make_object_description(self):
+    assert not self.content
+    # In order to allow the actual summary entries to be inserted while the
+    # appropriate "py:class" and "py:module" context is set in
+    # ``self.env.ref_context``, instead of inserting them directly, we insert
+    # them from the _insert_autosummary function, which is registered with the
+    # object-description-transform signal.  The global
+    # `_cur_autosummary_directive` variable is used to pass a reference to
+    # `self` to `_insert_autosummary`.
+    global _cur_autosummary_directive
+    _cur_autosummary_directive = self
+
+    objtype = self._objtype
+
+    try:
+      if objtype == 'function' or objtype.endswith('method'):
+        # Store the full function name in the ref_context in order to allow
+        # py:param references to be resolved relative to the current
+        # function/method.
+        self.env.ref_context['py:func'] = self._entry.object_name
+      objdesc, _ = self._generate_autodoc(self._entry)
+    finally:
+      self.env.ref_context.pop('py:func', None)
+
+    # If not set to None, it indicates that the _insert_autosummary was never
+    # called.
+    assert _cur_autosummary_directive is None
+
+    domain = cast(sphinx.domains.python.PythonDomain, self.env.get_domain('py'))
+
+    signode = cast(sphinx.addnodes.desc_signature, objdesc.children[0])
+    _ensure_module_name_in_signature(signode)
+
+    # Register this object with the Python domain.  We have to do this
+    # manually since we specified :noindex:.
+    domain.note_object(name=self._entry.object_name, objtype=objtype,
+                       node_id='', location=signode)
+
+    # Find parameter nodes in signature
+    sig_param_nodes: Dict[str, sphinx.addnodes.desc_parameter] = {}
+    for sig_param_node in signode.traverse(
+        condition=sphinx.addnodes.desc_parameter):
+      name = sig_param_node[0].astext()
+      sig_param_nodes[name] = sig_param_node
+
+    # Add parameter links
+    for param_node in objdesc.traverse(condition=docutils.nodes.term):
+      paramname = param_node.get('paramname')
+      if not paramname:
+        continue
+      param_refid = f'p-{paramname}'
+      param_node['ids'].append(param_refid)
+      param_refname = f'{self._entry.object_name}.{paramname}'
+
+      # Generate and store synopsis
+      _get_python_object_synopses(
+          domain)[param_refname] = sphinx_utils.summarize_element_text(
+              param_node.parent[-1])
+
+      domain.note_object(name=param_refname, objtype='parameter',
+                         node_id=param_refid, location=param_node)
+      sig_param_node = sig_param_nodes.get(paramname)
+      if sig_param_node is not None:
+        first_child = sig_param_node[0]
+        del sig_param_node[0]
+        sig_param_ref = sphinx.addnodes.pending_xref('', first_child,
+                                                     refdomain='py',
+                                                     reftype='parameter',
+                                                     reftarget=param_refname,
+                                                     refwarn=True)
+        sig_param_node.insert(0, sig_param_ref)
+
+    # Add ids to field_name nodes to include them in toc
+    for field_name in objdesc.traverse(condition=docutils.nodes.field_name):
+      field_name['ids'].append(docutils.nodes.make_id(field_name.astext()))
+
+    # Wrap in a section
+    section = docutils.nodes.section()
+    section['ids'].append('')
+    # Sphinx treates the first child of a `section` node as the title,
+    # regardless of its type.  We use a comment node to avoid adding a title
+    # that would be redundant with the object description.
+    section += docutils.nodes.comment('', self._entry.object_name)
+    section += objdesc
+    return [section]
+
+  def run(self) -> List[docutils.nodes.Node]:
+    if 'objectdescription' in self.options:
+      return self._make_object_description()
+
+    contentnode = docutils.nodes.section()
+    sphinx.util.nodes.nested_parse_with_titles(self.state, self.content,
+                                               contentnode)
+    self._merge_summary_nodes_into(contentnode)
+    return contentnode.children
 
 
-def _monkey_patch_py_xref_mixin():
-  PyXrefMixin = sphinx.domains.python.PyXrefMixin
-
-  def make_xrefs(
-      self, rolename: str, domain: str, target: str,
-      innernode: Type[docutils.nodes.TextElement] = docutils.nodes.emphasis,
-      contnode: docutils.nodes.Node = None,
-      env: sphinx.environment.BuildEnvironment = None
-  ) -> List[docutils.nodes.Node]:
-    return sphinx.domains.python._parse_annotation(target, env)
-
-  PyXrefMixin.make_xrefs = make_xrefs
+# Outer autosummary directive that is currently processing an `auto{objtype}`
+# directive.  This is used by the `_insert_autosummary` function which is called
+# from the `object-description-transform` signal to insert the autosummary
+# members.  By inserting the members within the context of the `auto{objtype}`
+# directive, the appropriate "py:class" and "py:module" context in
+# `env.ref_context` will be set.
+_cur_autosummary_directive = None
 
 
-def _process_docstring(app: sphinx.application.Sphinx, what: str, name: str,
-                       obj: Any, options: Any, lines: List[str]) -> None:
-  """Adds `:type <param>: <type>` fields to docstrings based on annotations.
+def _insert_autosummary(
+    app: sphinx.application.Sphinx, domain: str, objtype: str,
+    content: docutils.nodes.Element) -> None:  # pylint: disable=g-doc-args
+  """object-description-transform handler that inserts member summaries.
 
-  This function is intended to be registered for the 'autodoc-process-docstring'
-  signal, and must be registered *after* sphinx.ext.napoleon if Google-style
-  docstrings are to be supported.
-
-  Sphinx allows the type of a parameter to be indicated by a `:type <param>:`
-  field.  However, in the TensorStore documentation all parameter types are
-  instead indicated by annotations in the signature.
-
-  Sphinx provides the `autodoc_typehints='description'` option which adds `:type
-  <param>` fields based on the annotations.  However, it has a number of
-  problematic limitations:
-
-  - It only supports real annotations, stored in the `__annotations__` attribute
-    of a function.  It isn't compatible with the `autodoc_docstring_signature`
-    option, which we rely on for pybind11-defined functions and to support
-    overloaded functions.
-
-  - If you specify `autodoc_typehints='description'`, autodoc strips out
-    annotations from the signature.  We would like to include them in both
-    places.
-
-  - It adds a `:type` field for all parameters, even ones that are not
-    documented.
-
-  This function providse the same functionality as the
-  `autodoc_typehints='description'` option but without those limitations.
+  This is a noop except when called indirectly from
+  `TensorstorePythonApidoc._make_object_description`.  It allows the member
+  summaries to be generated with the appropriate `app.env.ref_context` set.
+  That way we don't have to attempt to replicate the logic from the sphinx
+  Python domain of setting the app.env.ref_context.
   """
-  current_documenter_map = app.env.temp_data.get(
-      'tensorstore_autodoc_current_documenter')
-  if not current_documenter_map:
+  del app
+  del domain
+  del objtype
+  global _cur_autosummary_directive
+  if _cur_autosummary_directive is None:
     return
-  documenter = current_documenter_map.get(name)
-  if not documenter:
-    return
+  directive = _cur_autosummary_directive
+  # Unset global variable to ensure it does not affect the summary entries
+  # themselves (which also use `auto{objtype}` directives).
+  _cur_autosummary_directive = None
+  directive._merge_summary_nodes_into(content)  # pylint: disable=protected-access
 
-  def _get_field_pattern(field_names: List[str], param: str) -> str:
-    return '^:(?:' + '|'.join(
-        re.escape(name)
-        for name in field_names) + r')\s+' + re.escape(param) + ':'
 
-  def insert_type(param: str, typ: str) -> None:
-    type_pattern = _get_field_pattern(['paramtype', 'type'], param)
-    pattern = _get_field_pattern([
-        'param', 'parameter', 'arg', 'argument', 'keyword', 'kwarg', 'kwparam'
-    ], param)
-    # First check if there is already a type field
-    for line in lines:
-      if re.match(type_pattern, line):
-        # :type: field already present for `param`, don't add another one.
-        return
+class _FakeBridge(sphinx.ext.autodoc.directive.DocumenterBridge):
 
-    # Only add :type: field if `param` is documented.
-    for i, line in enumerate(lines):
-      if re.match(pattern, line):
-        lines.insert(i, f':type {param}: {typ}')
-        return
+  def __init__(self, env: sphinx.environment.BuildEnvironment) -> None:
+    settings = docutils.parsers.rst.states.Struct(tab_width=8)
+    document = docutils.parsers.rst.states.Struct(settings=settings)
+    state = docutils.parsers.rst.states.Struct(document=document)
+    options = sphinx.ext.autodoc.Options()
+    options['undoc-members'] = True
+    options['noindex'] = True
+    super().__init__(
+        env=env,
+        reporter=sphinx.util.docutils.NullReporter(),
+        options=options,
+        lineno=0,
+        state=state,
+    )
 
-  if not documenter.args:
-    return
 
+_EXCLUDED_SPECIAL_MEMBERS = frozenset([
+    '__module__',
+    '__abstractmethods__',
+    '__dict__',
+    '__weakref__',
+    '__class__',
+    '__base__',
+    # Exclude pickling members since they are never documented.
+    '__getstate__',
+    '__setstate__',
+    # Exclude __repr__ since it is not interesting
+    '__repr__',
+])
+
+
+def _create_documenter(env: sphinx.environment.BuildEnvironment,
+                       documenter_cls: Type[sphinx.ext.autodoc.Documenter],
+                       name: str) -> sphinx.ext.autodoc.Documenter:
+  """Creates a documenter for the given full object name.
+
+  Since we are using the documenter independent of any autodoc directive, we use
+  a `_FakeBridge` as the documenter bridge, similar to the strategy used by
+  `sphinx.ext.autosummary`.
+
+  Args:
+    env: Sphinx build environment.
+    documenter_cls: Documenter class to use.
+    name: Full object name, e.g. `tensorstore.TensorStore.read`.
+  Returns:
+    The documenter object.
+
+  """
+  bridge = _FakeBridge(env)
+  documenter = documenter_cls(bridge, name)
+  assert documenter.parse_name()
+  assert documenter.import_object()
+  if documenter_cls.objtype == 'class':
+    bridge.genopt['special-members'] = [
+        '__eq__',
+        '__getitem__',
+        '__setitem__',
+        # '__hash__',
+        '__init__',
+        '__class_getitem__',
+        '__call__',
+        '__array__',
+    ]
   try:
-    sig = sphinx.util.inspect.signature_from_str(
-        f'func({documenter.args}) -> None')
-  except:
-    # ignore errors
+    documenter.analyzer = sphinx.pycode.ModuleAnalyzer.for_module(
+        documenter.get_real_modname())
+    # parse right now, to get PycodeErrors on parsing (results will
+    # be cached anyway)
+    documenter.analyzer.find_attr_docs()
+  except sphinx.pycode.PycodeError:
+    # no source file -- e.g. for builtin and C modules
+    documenter.analyzer = None
+  return documenter
+
+
+def _get_member_documenter(
+    parent: sphinx.ext.autodoc.Documenter, member_name: str, member_value: Any,
+    is_attr: bool) -> Optional[sphinx.ext.autodoc.Documenter]:
+  """Creates a documenter for the given member.
+
+  Args:
+    parent: Parent documenter.
+    member_name: Name of the member.
+    member_value: Value of the member.
+    is_attr: Whether the member is an attribute.
+  Returns:
+    The documenter object.
+  """
+  classes = [
+      cls for cls in parent.documenters.values()
+      if cls.can_document_member(member_value, member_name, is_attr, parent)
+  ]
+  if not classes:
+    return None
+  # prefer the documenter with the highest priority
+  classes.sort(key=lambda cls: cls.priority)
+  full_mname = parent.modname + '::' + '.'.join(parent.objpath + [member_name])
+  documenter = _create_documenter(env=parent.env, documenter_cls=classes[-1],
+                                  name=full_mname)
+  return documenter
+
+
+def _include_member(member_name: str, member_value: Any, is_attr: bool) -> bool:
+  """Determines whether a member should be documented.
+
+  Args:
+    member_name: Name of the member.
+    member_value: Value of the member.
+    is_attr: Whether the member is an attribute.
+  Returns:
+    True if the member should be documented.
+  """
+  del is_attr
+  if member_name == '__init__':
+    doc = getattr(member_value, '__doc__', None)
+    if isinstance(doc, str) and doc.startswith('Initialize self. '):
+      return False
+  elif member_name in ('__hash__', '__iter__'):
+    if member_value is None:
+      return False
+  return True
+
+
+PRIVATE_TENSORSTORE_TYPE_RE = re.compile(r'(tensorstore\.(?:.*\.))?(_[^\.]+)')
+
+
+def _get_subscript_method(parent_documenter: sphinx.ext.autodoc.Documenter,
+                          entry: _MemberDocumenterEntry) -> Any:
+  """Checks for a property that defines a subscript method.
+
+  A subscript method is a property like `Class.vindex` where `fget` has a return
+  type of `Class._Vindex`, which is a class type.
+
+  Args:
+    parent_documenter: Parent documenter for `entry`.
+    entry: Entry to check.
+
+  Returns:
+    The type object (e.g. `Class._Vindex`) representing the subscript method, or
+    None if `entry` does not define a subscript method.
+  """
+  if not isinstance(entry.documenter, sphinx.ext.autodoc.PropertyDocumenter):
+    return None
+  retann = entry.documenter.retann
+  if not retann:
+    return None
+  match = PRIVATE_TENSORSTORE_TYPE_RE.fullmatch(retann)
+  if not match:
+    return None
+
+  # Attempt to import value
+  mem = getattr(parent_documenter.object, match[2], None)
+  if not mem:
+    return None
+  getitem = getattr(mem, '__getitem__', None)
+  if getitem is None:
+    return None
+
+  return mem
+
+
+def _transform_member(
+    parent_documenter: sphinx.ext.autodoc.Documenter,
+    entry: _MemberDocumenterEntry) -> Iterator[_MemberDocumenterEntry]:
+  """Converts an individual member into a sequence of members to document.
+
+  Args:
+    parent_documenter: The parent documenter.
+    entry: The original entry to document.  For most entries we simply yield the
+      entry unmodified.  For entries that correspond to subscript methods,
+      though, we yield the __getitem__ member (and __setitem__, if applicable)
+      separately.
+
+  Yields:
+    Modified entries to document.
+  """
+  if entry.name == '__class_getitem__':
+    entry = entry._replace(subscript=True)
+
+  mem = _get_subscript_method(parent_documenter, entry)
+  if mem is None:
+    yield entry
+    return
+  retann = entry.documenter.retann
+
+  for suffix in ('__getitem__', '__setitem__'):
+    method = getattr(mem, suffix, None)
+    if method is None:
+      continue
+    import_name = f'{retann}.{suffix}'
+    if import_name.startswith(entry.documenter.modname + '.'):
+      import_name = (entry.documenter.modname + '::' +
+                     import_name[len(entry.documenter.modname) + 1:])
+    new_documenter = _create_documenter(
+        env=parent_documenter.env,
+        documenter_cls=sphinx.ext.autodoc.MethodDocumenter, name=import_name)
+    if suffix != '__getitem__':
+      new_member_name = f'{entry.name}.{suffix}'
+      full_name = f'{entry.full_name}.{suffix}'
+      subscript = False
+    else:
+      new_member_name = f'{entry.name}'
+      full_name = entry.full_name
+      subscript = True
+
+    yield _MemberDocumenterEntry(
+        documenter=new_documenter,
+        name=new_member_name,
+        is_attr=False,
+        import_name=import_name,
+        full_name=full_name,
+        subscript=subscript,
+    )
+
+
+def _get_member_overloads(
+    entry: _MemberDocumenterEntry) -> Iterator[_MemberDocumenterEntry]:
+  """Returns the list of overloads for a given entry."""
+  overloads = _get_overloads_from_documenter(entry.documenter)
+  for overload in overloads:
+    # Shallow copy the documenter.  Certain methods on the documenter mutate it,
+    # and we don't want those mutations to affect other overloads.
+    yield entry._replace(overload=overload,
+                         documenter=copy.copy(entry.documenter))
+
+
+def _get_documenter_direct_members(
+    documenter: sphinx.ext.autodoc.Documenter
+) -> Iterator[_MemberDocumenterEntry]:
+  """Yields the sequence of direct members to document.
+
+  The order is mostly determined by the definition order.
+
+  This excludes inherited members.
+
+  Args:
+    documenter: Documenter for which to obtain members.
+  Yields:
+    Members to document.
+  """
+  members_check_module, members = documenter.get_object_members(want_all=True)
+  del members_check_module
+  if members:
+    try:
+      # get_object_members does not preserve definition order, but __dict__ does
+      # in Python 3.6 and later.
+      member_dict = sphinx.util.inspect.safe_getattr(documenter.object,
+                                                     '__dict__')
+      member_order = {k: i for i, k in enumerate(member_dict.keys())}
+      members.sort(key=lambda entry: member_order.get(entry[0], float('inf')))
+    except AttributeError:
+      pass
+  filtered_members = [
+      x for x in documenter.filter_members(members, want_all=True)
+      if _include_member(*x)
+  ]
+  for member_name, member_value, is_attr in filtered_members:
+    member_documenter = _get_member_documenter(parent=documenter,
+                                               member_name=member_name,
+                                               member_value=member_value,
+                                               is_attr=is_attr)
+    if member_documenter is None:
+      continue
+    full_name = f'{documenter.fullname}.{member_name}'
+    entry = _MemberDocumenterEntry(
+        cast(sphinx.ext.autodoc.Documenter, member_documenter),
+        is_attr,
+        member_name,
+        full_name=full_name,
+        import_name=full_name,
+    )
+    for transformed_entry in _transform_member(documenter, entry):
+      yield from _get_member_overloads(transformed_entry)
+
+
+def _get_documenter_members(
+    documenter: sphinx.ext.autodoc.Documenter
+) -> Iterator[_MemberDocumenterEntry]:
+  """Yields the sequence of members to document, including inherited members.
+
+  Args:
+    documenter: Parent documenter for which to find members.
+  Yields:
+    Members to document.
+  """
+  seen_members: Set[str] = set()
+
+  def _get_unseen_members(
+      members: Iterator[_MemberDocumenterEntry],
+      is_inherited: bool) -> Iterator[_MemberDocumenterEntry]:
+    for member in members:
+      overload_name = member.toc_title
+      if overload_name in seen_members:
+        continue
+      seen_members.add(overload_name)
+      yield member._replace(is_inherited=is_inherited)
+
+  yield from _get_unseen_members(_get_documenter_direct_members(documenter),
+                                 is_inherited=False)
+
+  if documenter.objtype != 'class':
     return
 
-  for param in sig.parameters.values():
-    if param.annotation is not param.empty:
-      insert_type(param.name, sphinx.util.typing.stringify(param.annotation))
+  for cls in inspect.getmro(documenter.object):
+    if cls is documenter.object:
+      continue
+    if cls.__module__ in ('builtins', 'pybind11_builtins'):
+      continue
+    class_name = f'{cls.__module__}::{cls.__qualname__}'
+    try:
+      superclass_documenter = _create_documenter(
+          env=documenter.env, documenter_cls=sphinx.ext.autodoc.ClassDocumenter,
+          name=class_name)
+      yield from _get_unseen_members(
+          _get_documenter_direct_members(superclass_documenter),
+          is_inherited=True)
+    except Exception as e:
+      logger.warning('Cannot obtain documenter for base class %r of %r: %r',
+                     cls, documenter.fullname, e)
 
 
-def _monkey_patch_python_type_to_xref():
-  # Modified version of `sphinx.domains.python.type_to_xref` to handle
-  # TensorStore-specific aliases.
-  #
-  # This is monkey-patched in below.
-  def type_to_xref(
-      text: str,
-      env: sphinx.environment.BuildEnvironment) -> sphinx.addnodes.pending_xref:
-    reftarget = text
-    refdomain = 'py'
-    reftype = 'obj'
-    if text in ('Optional', 'List', 'Union', 'Dict'):
-      reftarget = 'typing.' + text
-    elif text == 'array':
-      reftarget = 'numpy.ndarray'
-    elif text == 'dtype':
-      reftarget = 'numpy.dtype'
-    elif text == 'array_like':
-      reftarget = 'numpy:array_like'
-      refdomain = 'std'
-      reftype = 'any'
-    elif text == 'DownsampleMethod':
-      reftarget = 'DownsampleMethod'
-      refdomain = 'json'
-      reftype = 'schema'
-    prefix = 'tensorstore.'
-    if text.startswith(prefix):
-      text = text[len(prefix):]
-    if env:
-      kwargs = {
-          'py:module': env.ref_context.get('py:module'),
-          'py:class': env.ref_context.get('py:class')
-      }
-    else:
-      kwargs = {}
+def _write_member_documentation_pages(
+    documenter: sphinx.ext.autodoc.Documenter):
+  """Writes the RST files that document each member of `documenter`.
 
-    return sphinx.addnodes.pending_xref('', docutils.nodes.Text(text),
-                                        refdomain=refdomain, reftype=reftype,
-                                        reftarget=reftarget, refwarn=True,
-                                        refexplicit=True, **kwargs)
+  This runs recursively and excludes inherited members, since they will be
+  handled by their own parent.
 
-  # Monkey-patch in modified `type_to_xref` implementation.
-  sphinx.domains.python.type_to_xref = type_to_xref
+  This simply writes a `tensorstore-python-apidoc` directive to each generated
+  file.  The actual documentation is generated by that directive.
+
+  Args:
+    documenter: Parent documenter.
+
+  """
+  for entry in _get_documenter_members(documenter):
+    if entry.is_inherited:
+      continue
+    if (entry.overload and entry.overload.overload_id and
+        re.fullmatch('[0-9]+', entry.overload.overload_id)):
+      logger.warning('Unspecified overload id: %s', entry.object_name)
+    member_rst_path = os.path.join(documenter.env.app.srcdir, 'python', 'api',
+                                   entry.page_name + '.rst')
+    objtype = entry.documenter.objtype
+    member_content = ''
+    if objtype == 'class':
+      member_content += ':duplicate-local-toc:\n\n'
+    member_content += sphinx_utils.format_directive(
+        'tensorstore-python-apidoc',
+        options=dict(
+            fullname=entry.full_name,
+            objtype=objtype,
+            importname=entry.import_name,
+            objectdescription=True,
+            subscript=entry.subscript,
+            overload=cast(ParsedOverload, entry.overload).overload_id,
+        ),
+    )
+    pathlib.Path(member_rst_path).write_text(member_content)
+    _write_member_documentation_pages(entry.documenter)
+
+
+def _builder_inited(app: sphinx.application.Sphinx) -> None:
+  """Generates the rST files for API members."""
+  _write_member_documentation_pages(
+      _create_documenter(env=app.env,
+                         documenter_cls=sphinx.ext.autodoc.ModuleDocumenter,
+                         name='tensorstore'))
+
+
+def _monkey_patch_napoleon_to_add_group_field():
+  """Adds support to sphinx.ext.napoleon for the "Group" field.
+
+  This field is used by this module to organize members into groups.
+  """
+  GoogleDocstring = sphinx.ext.napoleon.docstring.GoogleDocstring  # pylint: disable=invalid-name
+  orig_load_custom_sections = GoogleDocstring._load_custom_sections  # pylint: disable=protected-access
+
+  def parse_group_section(self: GoogleDocstring, section: str) -> List[str]:
+    del section
+    lines = self._strip_empty(self._consume_to_next_section())  # pylint: disable=protected-access
+    lines = self._dedent(lines)  # pylint: disable=protected-access
+    if len(lines) != 1:
+      raise ValueError('Expected exactly one group in group section')
+    return [':group: ' + lines[0], '']
+
+  def load_custom_sections(self: GoogleDocstring) -> None:
+    orig_load_custom_sections(self)
+    self._sections['group'] = lambda section: parse_group_section(self, section)  # pylint: disable=protected-access
+
+  GoogleDocstring._load_custom_sections = load_custom_sections  # pylint: disable=protected-access
+
+
+def _monkey_patch_python_domain_to_support_titles():
+  """Enables support for titles in all Python directive types.
+
+  Normally sphinx only supports titles in `automodule`.  We use titles to group
+  member summaries.
+  """
+
+  PyObject = sphinx.domains.python.PyObject  # pylint: disable=invalid-name
+  orig_before_content = PyObject.before_content
+
+  def before_content(self: PyObject) -> None:
+    orig_before_content(self)
+    self._saved_content = self.content  # pylint: disable=protected-access
+    self.content = docutils.statemachine.StringList()
+
+  orig_transform_content = PyObject.transform_content
+
+  def transform_content(self: PyObject,
+                        contentnode: docutils.nodes.Node) -> None:
+    sphinx.util.nodes.nested_parse_with_titles(
+        self.state,
+        self._saved_content,  # pylint: disable=protected-access
+        contentnode)
+    orig_transform_content(self, contentnode)
+
+  sphinx.domains.python.PyObject.before_content = before_content
+  sphinx.domains.python.PyObject.transform_content = transform_content
+
+
+def _monkey_patch_python_domain_to_merge_object_synopses():
+  """Modifies Python domain to properly merge synopses.
+
+  The Python domain does not natively support synopses, but we add them in this
+  module, and need to take care to merge them when using Sphinx's parallel build
+  mode.
+  """
+  PythonDomain = sphinx.domains.python.PythonDomain  # pylint: disable=invalid-name
+  orig_merge_domaindata = PythonDomain.merge_domaindata
+
+  def merge_domaindata(
+      self: PythonDomain, docnames: List[str], otherdata: dict) -> None:  # pylint: disable=g-bare-generic
+    orig_merge_domaindata(self, docnames, otherdata)
+    _get_python_object_synopses(self).update(
+        otherdata.get(OBJECT_SYNOPSES_KEY, {}))
+
+  PythonDomain.merge_domaindata = merge_domaindata
+
+
+class PyParamXRefRole(sphinx.domains.python.PyXRefRole):
+
+  def process_link(self, env: sphinx.environment.BuildEnvironment,
+                   refnode: docutils.nodes.Element, has_explicit_title: bool,
+                   title: str, target: str) -> Tuple[str, str]:
+    refnode['py:func'] = env.ref_context.get('py:func')
+    return super().process_link(env, refnode, has_explicit_title, title, target)
+
+
+def _monkey_patch_python_domain_to_resolve_params():
+  """Adds support to the Python domain for resolving parameter references."""
+
+  PythonDomain = sphinx.domains.python.PythonDomain  # pylint: disable=invalid-name
+  orig_resolve_xref = PythonDomain.resolve_xref
+
+  def resolve_xref(
+      self: PythonDomain, env: sphinx.environment.BuildEnvironment,
+      fromdocname: str, builder: sphinx.builders.Builder, typ: str, target: str,
+      node: sphinx.addnodes.pending_xref,
+      contnode: docutils.nodes.Element) -> Optional[docutils.nodes.Element]:
+    if typ == 'param':
+      func_name = node.get('py:func')
+      if func_name and '.' not in target:
+        return orig_resolve_xref(self, env, fromdocname, builder, typ,
+                                 '%s.%s' % (func_name, target), node, contnode)
+
+    return orig_resolve_xref(self, env, fromdocname, builder, typ, target, node,
+                             contnode)
+
+  PythonDomain.resolve_xref = resolve_xref
+
+  orig_resolve_any_xref = PythonDomain.resolve_any_xref
+
+  def resolve_any_xref(
+      self: PythonDomain, env: sphinx.environment.BuildEnvironment,
+      fromdocname: str, builder: sphinx.builders.Builder, target: str,
+      node: sphinx.addnodes.pending_xref, contnode: docutils.nodes.Element
+  ) -> List[Tuple[str, docutils.nodes.Element]]:
+    results = orig_resolve_any_xref(self, env, fromdocname, builder, target,
+                                    node, contnode)
+    # Don't resolve parameters as any refs, as they introduce too many
+    # ambiguities.
+    return [r for r in results if r[0] != 'py:param']
+
+  PythonDomain.resolve_any_xref = resolve_any_xref
+
+
+def _monkey_patch_python_domain_to_add_object_synopses_to_references():
+  """Adds support to the Python domain for "object synopses".
+
+  A synopsis is a brief description associated with an object that is displayed
+  as a tooltip (i.e. "title" attribute) on cross-references and is shown in
+  search results.
+
+  The synopsis is taken from the first paragraph of the description, which is
+  also used for the "summary".
+  """
+  PythonDomain = sphinx.domains.python.PythonDomain  # pylint: disable=invalid-name
+
+  def get_object_synopsis(self: PythonDomain, objtype: str,
+                          name: str) -> Optional[str]:
+    del objtype
+    return _get_python_object_synopses(self).get(name)
+
+  PythonDomain.get_object_synopsis = get_object_synopsis
+
+  def _add_synopsis(self: PythonDomain,
+                    refnode: docutils.nodes.Element) -> None:
+    name = refnode.get('reftitle')
+    entry = self.objects.get(name)
+    if entry is None:
+      return
+    label = self.get_type_name(self.object_types[entry.objtype])
+    reftitle = f'{name} ({label})'
+    synopsis = _get_python_object_synopses(self).get(name)
+    if synopsis is not None:
+      synopsis = synopsis.strip()
+      if synopsis:
+        reftitle = f'{reftitle} — {synopsis}'
+    refnode['reftitle'] = reftitle
+
+  orig_resolve_xref = PythonDomain.resolve_xref
+
+  def resolve_xref(
+      self: PythonDomain, env: sphinx.environment.BuildEnvironment,
+      fromdocname: str, builder: sphinx.builders.Builder, typ: str, target: str,
+      node: sphinx.addnodes.pending_xref,
+      contnode: docutils.nodes.Element) -> Optional[docutils.nodes.Element]:
+    refnode = orig_resolve_xref(self, env, fromdocname, builder, typ, target,
+                                node, contnode)
+    if refnode is not None:
+      _add_synopsis(self, refnode)
+    return refnode
+
+  PythonDomain.resolve_xref = resolve_xref
+
+  orig_resolve_any_xref = PythonDomain.resolve_any_xref
+
+  def resolve_any_xref(
+      self: PythonDomain, env: sphinx.environment.BuildEnvironment,
+      fromdocname: str, builder: sphinx.builders.Builder, target: str,
+      node: sphinx.addnodes.pending_xref, contnode: docutils.nodes.Element
+  ) -> List[Tuple[str, docutils.nodes.Element]]:
+    results = orig_resolve_any_xref(self, env, fromdocname, builder, target,
+                                    node, contnode)
+    for _, refnode in results:
+      _add_synopsis(self, refnode)
+    return results
+
+  PythonDomain.resolve_any_xref = resolve_any_xref
+
+
+OBJECT_PRIORITY_DEFAULT = 1
+OBJECT_PRIORITY_IMPORTANT = 0
+OBJECT_PRIORITY_UNIMPORTANT = 2
+OBJECT_PRIORITY_EXCLUDE_FROM_SEARCH = -1
+
+
+def _monkey_patch_python_domain_to_deprioritize_params_in_search():
+  """Ensures parameters have OBJECT_PRIORITY_UNIMPORTANT."""
+  PythonDomain = sphinx.domains.python.PythonDomain  # pylint: disable=invalid-name
+  orig_get_objects = PythonDomain.get_objects
+
+  def get_objects(
+      self: PythonDomain) -> Iterator[Tuple[str, str, str, str, str, int]]:
+    for obj in orig_get_objects(self):
+      if obj[2] != 'parameter':
+        yield obj
+      else:
+        yield (obj[0], obj[1], obj[2], obj[3], obj[4],
+               OBJECT_PRIORITY_UNIMPORTANT)
+
+  PythonDomain.get_objects = get_objects
+
+
+sphinx.domains.python.PythonDomain.object_types[
+    "parameter"] = sphinx.domains.ObjType("parameter", "param")
 
 
 def setup(app):
-  _monkey_patch_autodoc_function_documenter(
-      sphinx.ext.autodoc.FunctionDocumenter)
-  _monkey_patch_autodoc_function_documenter(sphinx.ext.autodoc.MethodDocumenter)
-  _monkey_patch_py_xref_mixin()
-  _monkey_patch_python_type_to_xref()
-
-  app.setup_extension('sphinx.ext.autosummary')
-  # Must register `sphinx.ext.napoleon` first, since the `_process_docstring`
-  # handler for the `autodoc-process-docstring` event needs to run after the
-  # handler registered by `sphinx.ext.napoleon`.
-  app.setup_extension('sphinx.ext.napoleon')
-  app.add_directive('autosummary', TensorstoreAutosummary, override=True)
-  app.connect('autodoc-process-docstring', _process_docstring)
+  _monkey_patch_napoleon_to_add_group_field()
+  _monkey_patch_python_domain_to_support_titles()
+  _monkey_patch_python_domain_to_merge_object_synopses()
+  _monkey_patch_python_domain_to_resolve_params()
+  _monkey_patch_python_domain_to_add_object_synopses_to_references()
+  _monkey_patch_python_domain_to_deprioritize_params_in_search()
+  app.connect('builder-inited', _builder_inited)
+  app.connect('object-description-transform', _insert_autosummary)
+  app.add_directive('tensorstore-python-apidoc', TensorstorePythonApidoc)
+  app.add_role_to_domain('py', 'param', PyParamXRefRole())
   return {'parallel_read_safe': True, 'parallel_write_safe': True}

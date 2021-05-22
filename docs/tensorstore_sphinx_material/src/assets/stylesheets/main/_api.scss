@@ -1,0 +1,216 @@
+@import "material-color";
+
+$api-color-header-bg: var(--md-code-bg-color);
+$api-color-keyword: var(--md-code-hl-keyword-color);
+$api-color-name: var(--md-code-hl-name-color);
+$api-color-pre-name: var(--md-code-hl-name-color);
+$api-color-type: var(--md-code-hl-special-color);
+$api-color-punctuation: var(--md-code-hl-punctuation-color);
+$api-color-param-name: var(--md-default-fg-color--light);
+
+// Wrap in .md-typeset to ensure rules below have higher selectivity
+// than those in _typeset.scss.
+.md-typeset {
+  dl.objdesc,
+  dl.api-field {
+    > dt {
+      font-family: var(--md-code-font-family);
+      background: $api-color-header-bg;
+
+      .desctype {
+        &,
+        > a.reference {
+          color: $api-color-type;
+          // font-weight: 700;
+        }
+
+        > a.reference:hover {
+          color: var(--md-accent-fg-color);
+        }
+      }
+
+      // Punctuation
+      .p {
+        color: $api-color-punctuation;
+      }
+
+      // Eliminate the normal padding for inline code blocks
+      code {
+        padding: 0;
+        border-radius: 0;
+      }
+
+      .sig-name {
+        padding: 0;
+        color: $api-color-name;
+        font-weight: 700;
+      }
+
+      a.reference > .sig-name {
+        color: var(--md-typeset-a-color);
+
+        &:hover {
+          color: var(--md-accent-fg-color);
+        }
+      }
+
+
+      .sig-param {
+        font-style: normal;
+      }
+
+      .sig-param .n:not(.desctype) {
+        color: $api-color-param-name;
+      }
+
+      .sig-param a.reference .n:not(.desctype):hover {
+        color: var(--md-accent-fg-color);
+      }
+
+      &.sig-wrap {
+        .sig-param {
+          // Ensure each parameter starts on a new line and is indented.
+          &::before {
+            white-space: pre;
+            // 5 spaces below result in 4 spaces of indent.
+            // For some reason one space is lost.
+            content: "\A     ";
+          }
+        }
+
+        .sig-param + .sig-paren {
+          // Ensure the final paren starts on a new line
+          &::before {
+            white-space: pre;
+            content: "\A";
+          }
+        }
+      }
+    }
+  }
+
+  dl.objdesc {
+    > dt {
+      padding: 0.5em;
+      font-family: var(--md-code-font-family);
+      background: $api-color-header-bg;
+
+      &,
+      code {
+        font-size: 0.75rem;
+      }
+
+      // Prefix like "class", "staticmethod".
+      .property {
+        color: $api-color-keyword;
+        font-weight: 700;
+        font-style: normal;
+      }
+
+      .sig-prename {
+        padding: 0;
+        color: $api-color-pre-name;
+      }
+
+      .viewcode-link,
+      .viewcode-back {
+        float: right;
+        text-align: right;
+      }
+    }
+
+    > dd {
+      // Heading like "Parameters" or "Returns"
+      dl.field-list {
+        > dt {
+          margin-bottom: 1em;
+          font-weight: 700;
+          font-size: 1em;
+        }
+      }
+    }
+  }
+
+  dl.api-field {
+    > dt {
+
+      // Display as table so that background is just the width of the
+      // content.
+      display: table;
+
+      &,
+      code {
+        font-size: 0.65rem;
+      }
+    }
+  }
+
+  // Make object summaries more compact
+  dl.objdesc.summary > dd {
+      &, > p:first-child {
+          margin-top: 0px;
+      }
+  }
+}
+
+.md-nav__link {
+  white-space: nowrap;
+}
+
+$objinfo-icon-size: 16px;
+
+:root {
+  > * {
+    --objinfo-icon-fg-alias: #{$clr-orange-900};
+    --objinfo-icon-fg-default: #{$clr-grey-800};
+    --objinfo-icon-fg-data: #{$clr-blue-800};
+    --objinfo-icon-fg-procedure: #{$clr-purple-800};
+    --objinfo-icon-fg-sub-data: #{$clr-green-800};
+    --objinfo-icon-bg-default: var(--md-default-bg-color);
+  }
+}
+
+// Only use dark mode on screens
+@media screen {
+
+  // Slate theme, i.e. dark mode
+  [data-md-color-scheme="slate"] {
+    --objinfo-icon-fg-alias: #{$clr-orange-300};
+    --objinfo-icon-fg-default: #{$clr-grey-300};
+    --objinfo-icon-fg-data: #{$clr-blue-300};
+    --objinfo-icon-fg-procedure: #{$clr-purple-200};
+    --objinfo-icon-fg-sub-data: #{$clr-green-300};
+  }
+}
+
+.objinfo-icon {
+  border-radius: 2px;
+  display: inline-block;
+  font-family: var(--md-text-font-family);
+  font-weight: 500;
+  height: $objinfo-icon-size;
+  line-height: $objinfo-icon-size;
+  margin-right: 8px;
+  text-align: center;
+  vertical-align: middle;
+  width: $objinfo-icon-size;
+
+  border: 1px solid var(--objinfo-icon-fg-default);
+  color: var(--objinfo-icon-fg-default);
+  background-color: var(--objinfo-icon-bg-default);
+
+  @each $objclass in (data, alias, procedure, data, sub-data) {
+    &__#{$objclass} {
+      border: 1px solid var(--objinfo-icon-fg-#{$objclass});
+      background-color: var(--objinfo-icon-fg-#{$objclass});
+      color: var(--objinfo-icon-bg-default);
+    }
+  }
+}
+
+.search-result-objlabel {
+  border-radius: 2px;
+  border: 1px solid var(--md-default-fg-color--light);
+  padding: 2px;
+  float: right;
+}

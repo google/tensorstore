@@ -118,7 +118,7 @@ negative positions:
    `numpy.ndarray`, where a negative index specifies a position
    relative to the end (upper bound).
 
-Specifying an index outside the explicit bounds of a dimension is results in an immediate error:
+Specifying an index outside the explicit bounds of a dimension results in an immediate error:
 
 .. doctest::
 
@@ -334,9 +334,9 @@ lengths, but a sequence may be combined with a scalar value:
 Adding singleton dimensions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Specifying a value of `tensorstore.newaxis` (equal to `None`) adds a
-new dummy/singleton dimension with `implicit bounds<implicit-bounds>`
-:math:`[0, 1)`:
+Specifying a value of :py:obj:`tensorstore.newaxis` (equal to `None`) adds a new
+dummy/singleton dimension with `implicit bounds<implicit-bounds>` :math:`[0,
+1)`:
 
 .. doctest::
 

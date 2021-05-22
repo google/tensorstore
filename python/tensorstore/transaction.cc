@@ -108,6 +108,18 @@ asynchronous context manager:
 If the block exits normally, the transaction is committed automatically.  If the
 block raises an exception, the transaction is aborted.
 
+Group:
+  Core
+
+Constructors
+============
+
+Accessors
+=========
+
+Operations
+==========
+
 )");
 
   cls_transaction.def(
@@ -115,20 +127,31 @@ block raises an exception, the transaction is aborted.
         return TransactionState::ToCommitPtr(Transaction(
             atomic ? tensorstore::atomic_isolated : tensorstore::isolated));
       }),
-      py::arg("atomic") = false, R"(Creates a new transaction.)");
+      py::arg("atomic") = false, R"(
+Creates a new transaction.
+)");
   cls_transaction.def(
       "commit_async",
       [](const TransactionState::CommitPtr& self) {
         self->RequestCommit();
         return self->future();
       },
-      R"(Asynchronously commits the transaction.
+      R"(
+Asynchronously commits the transaction.
 
 Has no effect if :py:meth:`.commit_async` or :py:meth:`.abort` has already been
 called.
 
 Returns the associated :py:obj:`.future`, which may be used to check if the
 commit was successful.
+
+See also:
+
+  - :py:obj:`.commit_sync`
+  - :py:obj:`.abort`
+
+Group:
+  Operations
 )");
   cls_transaction.def(
       "commit_sync",
@@ -136,58 +159,96 @@ commit was successful.
         self->RequestCommit();
         ValueOrThrow(InterruptibleWait(self->future()));
       },
-      R"(Synchronously commits the transaction.
+      R"(
+Synchronously commits the transaction.
 
-Equivalent to:
+Equivalent to :python:`self.commit_async().result()`.
 
-    self.commit_async().result()
+Returns:
 
-Returns `None` if the commit is successful, and raises an error otherwise.
+   :py:obj:`None` if the commit is successful, and raises an error otherwise.
+
+See also:
+
+  - :py:obj:`.commit_async`
+  - :py:obj:`.abort`
+
+Group:
+  Operations
 )");
   cls_transaction.def(
       "abort",
       [](const TransactionState::CommitPtr& self) { self->RequestAbort(); },
-      R"(Aborts the transaction.
+      R"(
+Aborts the transaction.
 
 Has no effect if :py:meth:`.commit_async` or :py:meth:`.abort` has already been
 called.
+
+  - :py:obj:`.commit_async`
+
+Group:
+  Operations
 )");
   cls_transaction.def_property_readonly(
       "future",
       [](const TransactionState::CommitPtr& self) { return self->future(); },
-      R"(Commit result future.
+      R"(
+Commit result future.
 
 Becomes ready when the transaction has either been committed successfully or
 aborted.
+
+Group:
+  Accessors
 )");
   cls_transaction.def_property_readonly(
       "aborted",
       [](const TransactionState::CommitPtr& self) { return self->aborted(); },
-      "Indicates whether the transaction has been aborted.");
+      R"(
+Indicates whether the transaction has been aborted.
+
+Group:
+  Accessors
+)");
   cls_transaction.def_property_readonly(
       "commit_started",
       [](const TransactionState::CommitPtr& self) {
         return self->commit_started();
       },
-      "Indicates whether the commit of the transaction has already started.");
+      R"(
+Indicates whether the commit of the transaction has already started.
+
+Group:
+  Accessors
+)");
 
   cls_transaction.def_property_readonly(
       "atomic",
       [](const TransactionState::CommitPtr& self) {
         return self->mode() == tensorstore::atomic_isolated;
       },
-      "Indicates whether the transaction is atomic.");
+      R"(
+Indicates whether the transaction is atomic.
+
+Group:
+  Accessors
+)");
 
   cls_transaction.def_property_readonly(
       "open",
       [](const TransactionState::CommitPtr& self) {
         return !self->commit_started() && !self->aborted();
       },
-      R"(Indicates whether the transaction is still open.
+      R"(
+Indicates whether the transaction is still open.
 
 The transaction remains open until commit starts or it is aborted.  Once commit
 starts or it has been aborted, it may not be used for any additional
 transactional operations.
+
+Group:
+  Accessors
 )");
 
   cls_transaction.def("__enter__", [](const TransactionState::CommitPtr& self) {

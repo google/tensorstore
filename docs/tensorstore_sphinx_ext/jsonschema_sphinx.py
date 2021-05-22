@@ -874,7 +874,7 @@ class JsonSchemaDirective(sphinx.directives.ObjectDescription):
           docname=self.env.docname,
           node_id=self._node_id,
           schema_id=self._schema_entry.id,
-          title=self._rendered_title,
+          synopsis=''.join(x.astext() for x in self._rendered_title),
           objtype='schema' if not self._nested else 'subschema',
       )
     return super().run()
@@ -915,8 +915,8 @@ class DomainSchemaEntry(NamedTuple):
   schema_id: str
   """Canonical schema id"""
 
-  title: Optional[List[docutils.nodes.Node]]
-  """Rendered text content of title"""
+  synopsis: Optional[str]
+  """Rendered text content of synopsis (title property)"""
 
   objtype: str
   """Object type, either 'schema' or 'subschema'"""
@@ -1019,13 +1019,10 @@ class JsonSchemaDomain(sphinx.domains.Domain):
       contnode: docutils.nodes.Element,
       match: Tuple[str, DomainSchemaEntry]) -> docutils.nodes.Node:
     full_name, domain_entry = match
-    full_title = f'{full_name} (json)'
-    if domain_entry.title:
-      # FIXME: this won't work correctly if there are unresolved references in
-      # the title.
-      title = ''.join(x.astext() for x in domain_entry.title).strip()
-      if title:
-        full_title += f' — {title}'
+    label = self.get_type_name(self.object_types[domain_entry.objtype])
+    full_title = f'{full_name} ({label})'
+    if domain_entry.synopsis:
+      full_title += f' — {domain_entry.synopsis}'
 
     return sphinx.util.nodes.make_refnode(
         builder=builder,
@@ -1051,6 +1048,12 @@ class JsonSchemaDomain(sphinx.domains.Domain):
            self._make_refnode(builder=builder, fromdocname=fromdocname,
                               contnode=contnode, match=match)))
     return results
+
+  def get_object_synopsis(self, objtype: str, name: str) -> Optional[str]:
+    entry = self.schemas.get(name)
+    if entry is None:
+      return None
+    return entry.synopsis
 
 
 def setup(app: sphinx.application.Sphinx):

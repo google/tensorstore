@@ -25,7 +25,6 @@ tensorstore_pytest_test(
     tags = ["manual"],
     deps = [
         ":pipelines_lib",
-        "//net/proto2/python/public:use_pure_python",  # Automatically added go/proto_python_default
         "//python/tensorstore",
         "@pypa_apache_beam//:apache_beam",
         "@pypa_numpy//:numpy",

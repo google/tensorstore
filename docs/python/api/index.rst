@@ -1,11 +1,28 @@
+:duplicate-local-toc:
+
+.. _python-api:
+
 API reference
 =============
 
-.. HACK
-   .. autosummary::
-      :toctree: .
-      :template: autosummary_root_module.rst
+.. tensorstore-python-apidoc::
+   :fullname: tensorstore
+   :objtype: module
 
-      tensorstore
+   Core
+   ====
 
-.. include:: tensorstore.rst
+   Indexing
+   ========
+
+   Spec
+   ====
+
+   Views
+   =====
+
+   Data types
+   ==========
+
+   Asynchronous support
+   ====================

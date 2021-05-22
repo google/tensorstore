@@ -27,7 +27,33 @@ namespace internal_python {
 void RegisterWriteFuturesBindings(pybind11::module m) {
   namespace py = ::pybind11;
 
-  py::class_<PythonWriteFutures> cls_write_futures(m, "WriteFutures");
+  py::class_<PythonWriteFutures> cls_write_futures(m, "WriteFutures", R"(
+Handle for consuming the result of an asynchronous write operation.
+
+This holds two futures:
+
+- The :py:obj:`.copy` future indicates when reading has completed, after which
+  the source is no longer accessed.
+
+- The :py:obj:`.commit` future indicates when the write is guaranteed to be
+  reflected in subsequent reads.  For non-transactional writes, the
+  :py:obj:`.commit` future completes successfully only once durability of the
+  write is guaranteed (subject to the limitations of the underlying storage
+  mechanism).  For transactional writes, the :py:obj:`.commit` future merely
+  indicates when the write is reflected in subsequent reads using the same
+  transaction.  Durability is *not* guaranteed until the transaction itself is
+  committed successfully.
+
+In addition, this class also provides the same interface as :py:class:`Future`,
+which simply forwards to the corresponding operation on the :py:obj:`.commit`
+future.
+
+See also:
+  - :py:meth:`TensorStore.write`
+
+Group:
+  Asynchronous support
+)");
   cls_write_futures
       .def("__await__",
            [](const PythonWriteFutures& self) {

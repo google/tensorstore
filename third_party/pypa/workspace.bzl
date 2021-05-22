@@ -20,8 +20,10 @@ def repo():
     repo_pypa_chardet()
     repo_pypa_colorama()
     repo_pypa_crcmod()
+    repo_pypa_dataclasses()
     repo_pypa_decorator()
     repo_pypa_dill()
+    repo_pypa_docopt()
     repo_pypa_docutils()
     repo_pypa_fastavro()
     repo_pypa_future()
@@ -39,7 +41,6 @@ def repo():
     repo_pypa_jinja2()
     repo_pypa_jsonschema()
     repo_pypa_markupsafe()
-    repo_pypa_mock()
     repo_pypa_numpy()
     repo_pypa_oauth2client()
     repo_pypa_packaging()
@@ -70,7 +71,6 @@ def repo():
     repo_pypa_six()
     repo_pypa_snowballstemmer()
     repo_pypa_sphinx()
-    repo_pypa_sphinx_rtd_theme()
     repo_pypa_sphinxcontrib_applehelp()
     repo_pypa_sphinxcontrib_devhelp()
     repo_pypa_sphinxcontrib_htmlhelp()
@@ -92,7 +92,7 @@ def repo_pypa_absl_py():
         third_party_python_package,
         name = "pypa_absl_py",
         target = "absl_py",
-        requirement = "absl-py==0.11.0",
+        requirement = "absl-py==0.12.0",
         deps = [
             "@pypa_six//:six",
         ],
@@ -109,13 +109,13 @@ def repo_pypa_alabaster():
 def repo_pypa_apache_beam():
     repo_pypa_avro_python3()
     repo_pypa_crcmod()
+    repo_pypa_dataclasses()
     repo_pypa_dill()
     repo_pypa_fastavro()
     repo_pypa_future()
     repo_pypa_grpcio()
     repo_pypa_hdfs()
     repo_pypa_httplib2()
-    repo_pypa_mock()
     repo_pypa_numpy()
     repo_pypa_oauth2client()
     repo_pypa_protobuf()
@@ -130,17 +130,17 @@ def repo_pypa_apache_beam():
         third_party_python_package,
         name = "pypa_apache_beam",
         target = "apache_beam",
-        requirement = "apache-beam==2.27.0",
+        requirement = "apache-beam==2.29.0",
         deps = [
             "@pypa_avro_python3//:avro_python3",
             "@pypa_crcmod//:crcmod",
+            "@pypa_dataclasses//:dataclasses",
             "@pypa_dill//:dill",
             "@pypa_fastavro//:fastavro",
             "@pypa_future//:future",
             "@pypa_grpcio//:grpcio",
             "@pypa_hdfs//:hdfs",
             "@pypa_httplib2//:httplib2",
-            "@pypa_mock//:mock",
             "@pypa_numpy//:numpy",
             "@pypa_oauth2client//:oauth2client",
             "@pypa_protobuf//:protobuf",
@@ -175,7 +175,7 @@ def repo_pypa_attrs():
         third_party_python_package,
         name = "pypa_attrs",
         target = "attrs",
-        requirement = "attrs==20.3.0",
+        requirement = "attrs==21.2.0",
     )
 
 def repo_pypa_avro_python3():
@@ -183,7 +183,7 @@ def repo_pypa_avro_python3():
         third_party_python_package,
         name = "pypa_avro_python3",
         target = "avro_python3",
-        requirement = "avro-python3==1.10.1",
+        requirement = "avro-python3==1.10.2",
     )
 
 def repo_pypa_babel():
@@ -192,7 +192,7 @@ def repo_pypa_babel():
         third_party_python_package,
         name = "pypa_babel",
         target = "babel",
-        requirement = "babel==2.9.0",
+        requirement = "babel==2.9.1",
         deps = [
             "@pypa_pytz//:pytz",
         ],
@@ -238,12 +238,20 @@ def repo_pypa_crcmod():
         requirement = "crcmod==1.7",
     )
 
+def repo_pypa_dataclasses():
+    maybe(
+        third_party_python_package,
+        name = "pypa_dataclasses",
+        target = "dataclasses",
+        requirement = "dataclasses==0.6",
+    )
+
 def repo_pypa_decorator():
     maybe(
         third_party_python_package,
         name = "pypa_decorator",
         target = "decorator",
-        requirement = "decorator==4.4.2",
+        requirement = "decorator==5.0.9",
     )
 
 def repo_pypa_dill():
@@ -252,6 +260,14 @@ def repo_pypa_dill():
         name = "pypa_dill",
         target = "dill",
         requirement = "dill==0.3.3",
+    )
+
+def repo_pypa_docopt():
+    maybe(
+        third_party_python_package,
+        name = "pypa_docopt",
+        target = "docopt",
+        requirement = "docopt==0.6.2",
     )
 
 def repo_pypa_docutils():
@@ -267,7 +283,7 @@ def repo_pypa_fastavro():
         third_party_python_package,
         name = "pypa_fastavro",
         target = "fastavro",
-        requirement = "fastavro==1.2.3",
+        requirement = "fastavro==1.4.1",
     )
 
 def repo_pypa_future():
@@ -292,26 +308,38 @@ def repo_pypa_grpcio():
         third_party_python_package,
         name = "pypa_grpcio",
         target = "grpcio",
-        requirement = "grpcio==1.34.0",
+        requirement = "grpcio==1.38.0",
         deps = [
             "@pypa_six//:six",
         ],
     )
 
 def repo_pypa_hdfs():
+    repo_pypa_docopt()
+    repo_pypa_requests()
+    repo_pypa_six()
     maybe(
         third_party_python_package,
         name = "pypa_hdfs",
         target = "hdfs",
-        requirement = "hdfs==2.5.8",
+        requirement = "hdfs==2.6.0",
+        deps = [
+            "@pypa_docopt//:docopt",
+            "@pypa_requests//:requests",
+            "@pypa_six//:six",
+        ],
     )
 
 def repo_pypa_httplib2():
+    repo_pypa_pyparsing()
     maybe(
         third_party_python_package,
         name = "pypa_httplib2",
         target = "httplib2",
-        requirement = "httplib2==0.18.1",
+        requirement = "httplib2==0.19.1",
+        deps = [
+            "@pypa_pyparsing//:pyparsing",
+        ],
     )
 
 def repo_pypa_idna():
@@ -337,7 +365,7 @@ def repo_pypa_importlib_metadata():
         third_party_python_package,
         name = "pypa_importlib_metadata",
         target = "importlib_metadata",
-        requirement = "importlib-metadata==3.3.0",
+        requirement = "importlib-metadata==4.0.1",
         deps = [
             "@pypa_typing_extensions//:typing_extensions",
             "@pypa_zipp//:zipp",
@@ -368,7 +396,7 @@ def repo_pypa_ipython():
         third_party_python_package,
         name = "pypa_ipython",
         target = "ipython",
-        requirement = "ipython==7.19.0",
+        requirement = "ipython==7.16.1",
         deps = [
             "@pypa_appnope//:appnope",
             "@pypa_backcall//:backcall",
@@ -410,7 +438,7 @@ def repo_pypa_jinja2():
         third_party_python_package,
         name = "pypa_jinja2",
         target = "jinja2",
-        requirement = "jinja2==2.11.2",
+        requirement = "jinja2==3.0.1",
         deps = [
             "@pypa_markupsafe//:markupsafe",
         ],
@@ -441,15 +469,7 @@ def repo_pypa_markupsafe():
         third_party_python_package,
         name = "pypa_markupsafe",
         target = "markupsafe",
-        requirement = "markupsafe==1.1.1",
-    )
-
-def repo_pypa_mock():
-    maybe(
-        third_party_python_package,
-        name = "pypa_mock",
-        target = "mock",
-        requirement = "mock==4.0.3",
+        requirement = "markupsafe==2.0.1",
     )
 
 def repo_pypa_numpy():
@@ -486,7 +506,7 @@ def repo_pypa_packaging():
         third_party_python_package,
         name = "pypa_packaging",
         target = "packaging",
-        requirement = "packaging==20.8",
+        requirement = "packaging==20.9",
         deps = [
             "@pypa_pyparsing//:pyparsing",
         ],
@@ -497,7 +517,7 @@ def repo_pypa_parso():
         third_party_python_package,
         name = "pypa_parso",
         target = "parso",
-        requirement = "parso==0.8.1",
+        requirement = "parso==0.8.2",
     )
 
 def repo_pypa_pexpect():
@@ -538,7 +558,7 @@ def repo_pypa_prompt_toolkit():
         third_party_python_package,
         name = "pypa_prompt_toolkit",
         target = "prompt_toolkit",
-        requirement = "prompt-toolkit==3.0.10",
+        requirement = "prompt-toolkit==3.0.3",
         deps = [
             "@pypa_wcwidth//:wcwidth",
         ],
@@ -550,7 +570,7 @@ def repo_pypa_protobuf():
         third_party_python_package,
         name = "pypa_protobuf",
         target = "protobuf",
-        requirement = "protobuf==3.14.0",
+        requirement = "protobuf==3.17.0",
         deps = [
             "@pypa_six//:six",
         ],
@@ -578,7 +598,7 @@ def repo_pypa_pyarrow():
         third_party_python_package,
         name = "pypa_pyarrow",
         target = "pyarrow",
-        requirement = "pyarrow==2.0.0",
+        requirement = "pyarrow==4.0.0",
         deps = [
             "@pypa_numpy//:numpy",
         ],
@@ -610,7 +630,7 @@ def repo_pypa_pydot():
         third_party_python_package,
         name = "pypa_pydot",
         target = "pydot",
-        requirement = "pydot==1.4.1",
+        requirement = "pydot==1.4.2",
         deps = [
             "@pypa_pyparsing//:pyparsing",
         ],
@@ -621,7 +641,7 @@ def repo_pypa_pygments():
         third_party_python_package,
         name = "pypa_pygments",
         target = "pygments",
-        requirement = "pygments==2.7.3",
+        requirement = "pygments==2.9.0",
     )
 
 def repo_pypa_pymongo():
@@ -629,7 +649,7 @@ def repo_pypa_pymongo():
         third_party_python_package,
         name = "pypa_pymongo",
         target = "pymongo",
-        requirement = "pymongo==3.11.2",
+        requirement = "pymongo==3.11.4",
     )
 
 def repo_pypa_pyparsing():
@@ -662,7 +682,7 @@ def repo_pypa_pytest():
         third_party_python_package,
         name = "pypa_pytest",
         target = "pytest",
-        requirement = "pytest==6.2.1",
+        requirement = "pytest==6.2.4",
         deps = [
             "@pypa_atomicwrites//:atomicwrites",
             "@pypa_attrs//:attrs",
@@ -682,7 +702,7 @@ def repo_pypa_pytest_asyncio():
         third_party_python_package,
         name = "pypa_pytest_asyncio",
         target = "pytest_asyncio",
-        requirement = "pytest-asyncio==0.14.0",
+        requirement = "pytest-asyncio==0.15.1",
         deps = [
             "@pypa_pytest//:pytest",
         ],
@@ -705,7 +725,7 @@ def repo_pypa_pytz():
         third_party_python_package,
         name = "pypa_pytz",
         target = "pytz",
-        requirement = "pytz==2020.5",
+        requirement = "pytz==2021.1",
     )
 
 def repo_pypa_pyyaml():
@@ -713,7 +733,7 @@ def repo_pypa_pyyaml():
         third_party_python_package,
         name = "pypa_pyyaml",
         target = "pyyaml",
-        requirement = "pyyaml==5.3.1",
+        requirement = "pyyaml==5.4.1",
     )
 
 def repo_pypa_requests():
@@ -740,7 +760,7 @@ def repo_pypa_rsa():
         third_party_python_package,
         name = "pypa_rsa",
         target = "rsa",
-        requirement = "rsa==4.6",
+        requirement = "rsa==4.7.2",
         deps = [
             "@pypa_pyasn1//:pyasn1",
         ],
@@ -751,7 +771,7 @@ def repo_pypa_setuptools():
         third_party_python_package,
         name = "pypa_setuptools",
         target = "setuptools",
-        requirement = "setuptools==51.1.1",
+        requirement = "setuptools==56.2.0",
     )
 
 def repo_pypa_six():
@@ -759,7 +779,7 @@ def repo_pypa_six():
         third_party_python_package,
         name = "pypa_six",
         target = "six",
-        requirement = "six==1.15.0",
+        requirement = "six==1.16.0",
     )
 
 def repo_pypa_snowballstemmer():
@@ -767,7 +787,7 @@ def repo_pypa_snowballstemmer():
         third_party_python_package,
         name = "pypa_snowballstemmer",
         target = "snowballstemmer",
-        requirement = "snowballstemmer==2.0.0",
+        requirement = "snowballstemmer==2.1.0",
     )
 
 def repo_pypa_sphinx():
@@ -792,7 +812,7 @@ def repo_pypa_sphinx():
         third_party_python_package,
         name = "pypa_sphinx",
         target = "sphinx",
-        requirement = "sphinx==3.4.3",
+        requirement = "sphinx==3.5.4",
         deps = [
             "@pypa_alabaster//:alabaster",
             "@pypa_babel//:babel",
@@ -811,18 +831,6 @@ def repo_pypa_sphinx():
             "@pypa_sphinxcontrib_jsmath//:sphinxcontrib_jsmath",
             "@pypa_sphinxcontrib_qthelp//:sphinxcontrib_qthelp",
             "@pypa_sphinxcontrib_serializinghtml//:sphinxcontrib_serializinghtml",
-        ],
-    )
-
-def repo_pypa_sphinx_rtd_theme():
-    repo_pypa_sphinx()
-    maybe(
-        third_party_python_package,
-        name = "pypa_sphinx_rtd_theme",
-        target = "sphinx_rtd_theme",
-        requirement = "sphinx-rtd-theme==0.5.1",
-        deps = [
-            "@pypa_sphinx//:sphinx",
         ],
     )
 
@@ -883,14 +891,18 @@ def repo_pypa_toml():
     )
 
 def repo_pypa_traitlets():
+    repo_pypa_decorator()
     repo_pypa_ipython_genutils()
+    repo_pypa_six()
     maybe(
         third_party_python_package,
         name = "pypa_traitlets",
         target = "traitlets",
-        requirement = "traitlets==5.0.5",
+        requirement = "traitlets==4.3.3",
         deps = [
+            "@pypa_decorator//:decorator",
             "@pypa_ipython_genutils//:ipython_genutils",
+            "@pypa_six//:six",
         ],
     )
 
@@ -899,7 +911,7 @@ def repo_pypa_typing_extensions():
         third_party_python_package,
         name = "pypa_typing_extensions",
         target = "typing_extensions",
-        requirement = "typing-extensions==3.7.4.3",
+        requirement = "typing-extensions==3.10.0.0",
     )
 
 def repo_pypa_urllib3():
@@ -907,7 +919,7 @@ def repo_pypa_urllib3():
         third_party_python_package,
         name = "pypa_urllib3",
         target = "urllib3",
-        requirement = "urllib3==1.26.2",
+        requirement = "urllib3==1.26.4",
     )
 
 def repo_pypa_wcwidth():
@@ -939,5 +951,5 @@ def repo_pypa_zipp():
         third_party_python_package,
         name = "pypa_zipp",
         target = "zipp",
-        requirement = "zipp==3.4.0",
+        requirement = "zipp==3.4.1",
     )

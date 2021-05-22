@@ -1,3 +1,5 @@
+.. _driver/downsample:
+
 ``downsample`` Driver
 =====================
 

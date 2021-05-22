@@ -21,10 +21,11 @@ properties:
     type: integer
     minimum: 0
     maximum: 32
+    title: |
+      Specifies the rank of the TensorStore.
     description: |
-      Specifies the rank of the TensorStore.  If `.transform` is also specified,
-      the input rank must match.  Otherwise, the rank constraint applies to the
-      driver directly.
+      If `.transform` is also specified, the input rank must match.  Otherwise,
+      the rank constraint applies to the driver directly.
   transform:
     $ref: IndexTransform
     title: Specifies a transform.

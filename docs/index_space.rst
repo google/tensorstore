@@ -1,3 +1,5 @@
+.. _index-space:
+
 Index space
 ===========
 
@@ -74,35 +76,44 @@ It is defined by its input index domain and :math:`n` *output index
 maps*, one for each dimension :math:`j` of the output space, each of
 one of the following three forms:
 
-.. list-table::
-   :widths: auto
+.. table:: Output index methods
+   :name: output-index-methods
 
-   * - constant
-     - .. math::
+   .. list-table::
+      :widths: auto
 
-          \mathtt{output}[j] = \mathtt{offset},
+      * - .. _index-transform-constant-map:
 
-       where :math:`\mathtt{offset}` is an arbitrary 64-bit integer.
-   * - single input dimension
-     - .. math::
+          constant
+        - .. math::
 
-          \mathtt{output}[j] = \mathtt{offset} + \mathtt{stride} \cdot \mathtt{input}[\mathtt{input\_dimension}],
+             \mathtt{output}[j] = \mathtt{offset},
 
-       where :math:`\mathtt{offset}` and :math:`\mathtt{stride}` are arbitrary
-       64-bit integers and :math:`\mathtt{input\_dimension}` is in the range
-       :math:`[0, m)`.
-   * - index array
-     - .. math::
+          where :math:`\mathtt{offset}` is an arbitrary 64-bit integer.
+      * - .. _index-transform-single-input-dimension-map:
 
-          \mathtt{output}[j] = \mathtt{offset} + \mathtt{stride} \cdot \mathtt{index\_array}[\mathtt{input}],
+          single input dimension
+        - .. math::
 
-       where :math:`\mathtt{offset}` and :math:`\mathtt{stride}` are
-       arbitrary 64-bit integers and :math:`\mathtt{index\_array}` is
-       an :math:`n`-dimensional array of 64-bit integers indexed by a
-       subset of the dimensions of the input index domain with
-       explicit lower and upper bounds, stored as a strided array in
-       memory.  (The dimensions by which it is indexed are indicated
-       by non-zero strides.)
+             \mathtt{output}[j] = \mathtt{offset} + \mathtt{stride} \cdot \mathtt{input}[\mathtt{input\_dimension}],
+
+          where :math:`\mathtt{offset}` and :math:`\mathtt{stride}` are arbitrary
+          64-bit integers and :math:`\mathtt{input\_dimension}` is in the range
+          :math:`[0, m)`.
+      * - .. _index-transform-array-map:
+
+          index array
+        - .. math::
+
+             \mathtt{output}[j] = \mathtt{offset} + \mathtt{stride} \cdot \mathtt{index\_array}[\mathtt{input}],
+
+          where :math:`\mathtt{offset}` and :math:`\mathtt{stride}` are
+          arbitrary 64-bit integers and :math:`\mathtt{index\_array}` is
+          an :math:`n`-dimensional array of 64-bit integers indexed by a
+          subset of the dimensions of the input index domain with
+          explicit lower and upper bounds, stored as a strided array in
+          memory.  (The dimensions by which it is indexed are indicated
+          by non-zero strides.)
 
 TensorStore uses this normalized index transform representation to
 represent any composition of indexing operations.  This representation
@@ -276,5 +287,5 @@ Examples:
 .. note::
 
    The alignment behavior supported by TensorStore is fully compatible with
-   `NumPy broadcasting<numpy:numpy.doc.broadcasting>` but additionally is
-   extended to support non-zero origins and labeled dimensions.
+   :py:obj:`NumPy broadcasting<numpy:numpy.doc.broadcasting>` but additionally
+   is extended to support non-zero origins and labeled dimensions.

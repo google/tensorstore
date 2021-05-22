@@ -46,7 +46,7 @@ namespace detail {
 /// Defines automatic conversion between Python objects and `::nlohmann::json`.
 template <>
 struct type_caster< ::nlohmann::json> {
-  PYBIND11_TYPE_CASTER(::nlohmann::json, _("json"));
+  PYBIND11_TYPE_CASTER(::nlohmann::json, _("Any"));
 
   static handle cast(const ::nlohmann::json& value,
                      return_value_policy /* policy */, handle /* parent */) {
