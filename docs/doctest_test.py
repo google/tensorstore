@@ -272,7 +272,7 @@ def _compile_async_block(code: str):
   return context.pop('async-def-wrapper').__code__  # type: ignore
 
 
-def main():
+def main(argv):
   bazel_working_dir = os.getenv('BUILD_WORKING_DIRECTORY')
   if bazel_working_dir:
     os.chdir(bazel_working_dir)
@@ -284,7 +284,7 @@ def main():
                   help='Print examples as they are executed')
   ap.add_argument('--stdout', action='store_true',
                   help='Print expected content to stdout.')
-  args = ap.parse_args()
+  args = ap.parse_args(argv[1:])
   for path in args.path:
     update_doctests(
         path,
@@ -295,4 +295,5 @@ def main():
 
 
 if __name__ == '__main__':
-  main()
+  import absl.app
+  absl.app.run(main)

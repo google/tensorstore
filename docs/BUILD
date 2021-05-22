@@ -94,11 +94,13 @@ pytype_strict_binary(
     name = "update_doctests",
     testonly = True,
     srcs = ["doctest_test.py"],
+    args = ["--"],
     main = "doctest_test.py",
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
         "//python/tensorstore",
+        "@pypa_absl_py//:absl_py",
         "@pypa_numpy//:numpy",
         "@pypa_yapf//:yapf",
     ],
