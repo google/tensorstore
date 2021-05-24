@@ -14,6 +14,7 @@
 
 #include "tensorstore/transaction.h"
 
+#include "absl/functional/function_ref.h"
 #include "tensorstore/transaction_impl.h"
 
 namespace tensorstore {
@@ -408,8 +409,8 @@ absl::Status TransactionState::Node::Register() {
 }
 
 Result<OpenTransactionNodePtr<TransactionState::Node>>
-TransactionState::GetOrCreateMultiPhaseNode(void* associated_data,
-                                            FunctionView<Node*()> make_node) {
+TransactionState::GetOrCreateMultiPhaseNode(
+    void* associated_data, absl::FunctionRef<Node*()> make_node) {
   UniqueWriterLock lock(mutex_);
   switch (commit_state_) {
     case kOpen:

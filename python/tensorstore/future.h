@@ -30,12 +30,12 @@
 #include <utility>
 #include <vector>
 
+#include "absl/functional/function_ref.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
 #include "pybind11/pybind11.h"
 #include "tensorstore/internal/intrusive_linked_list.h"
 #include "tensorstore/internal/logging.h"
-#include "tensorstore/util/function_view.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 
@@ -122,7 +122,7 @@ class PythonFutureBase : public std::enable_shared_from_this<PythonFutureBase> {
     using Accessor =
         internal::intrusive_linked_list::MemberAccessor<CancelCallbackBase>;
     explicit CancelCallback(PythonFutureBase* base,
-                            FunctionView<void()> callback)
+                            absl::FunctionRef<void()> callback)
         : callback(callback) {
       internal::intrusive_linked_list::InsertBefore(
           Accessor{}, &base->cancel_callbacks_, this);
@@ -130,7 +130,7 @@ class PythonFutureBase : public std::enable_shared_from_this<PythonFutureBase> {
     ~CancelCallback() {
       internal::intrusive_linked_list::Remove(Accessor{}, this);
     }
-    FunctionView<void()> callback;
+    absl::FunctionRef<void()> callback;
   };
 
  protected:
@@ -178,10 +178,11 @@ class PythonFutureBase : public std::enable_shared_from_this<PythonFutureBase> {
 ///
 /// This function factors out the type-independent, platform-dependent logic
 /// from the `PythonFuture<T>::WaitForResult` method defined below.
-void InterruptibleWaitImpl(
-    FunctionView<FutureCallbackRegistration(FunctionView<void()> notify_done)>
-        register_listener,
-    absl::Time deadline, PythonFutureBase* python_future);
+void InterruptibleWaitImpl(absl::FunctionRef<FutureCallbackRegistration(
+                               absl::FunctionRef<void()> notify_done)>
+                               register_listener,
+                           absl::Time deadline,
+                           PythonFutureBase* python_future);
 
 /// Waits for the Future to be ready, but supports interruption by operating
 /// system signals.

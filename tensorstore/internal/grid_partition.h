@@ -95,10 +95,10 @@
 /// irregular grids will be added in order to support virtual concatenated views
 /// of multiple tensorstores.
 
+#include "absl/functional/function_ref.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/util/function_view.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -131,8 +131,8 @@ namespace internal {
 Status PartitionIndexTransformOverRegularGrid(
     span<const DimensionIndex> grid_output_dimensions,
     span<const Index> grid_cell_shape, IndexTransformView<> transform,
-    FunctionView<Status(span<const Index> grid_cell_indices,
-                        IndexTransformView<> cell_transform)>
+    absl::FunctionRef<Status(span<const Index> grid_cell_indices,
+                             IndexTransformView<> cell_transform)>
         func);
 
 }  // namespace internal

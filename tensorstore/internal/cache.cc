@@ -29,6 +29,7 @@
 #include "absl/base/call_once.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/functional/function_ref.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/cache_pool_limits.h"
 #include "tensorstore/internal/integer_overflow.h"
@@ -36,7 +37,6 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/util/assert_macros.h"
-#include "tensorstore/util/function_view.h"
 
 // A CacheEntry owns a strong reference to the Cache that contains it only if
 // its reference count is > 0.
@@ -290,7 +290,7 @@ void StrongPtrTraitsCacheEntry::decrement(CacheEntry* p) noexcept {
 CachePtr<Cache> GetCacheInternal(
     CachePoolImpl* pool, const std::type_info& cache_type,
     std::string_view cache_key,
-    FunctionView<std::unique_ptr<Cache>()> make_cache) {
+    absl::FunctionRef<std::unique_ptr<Cache>()> make_cache) {
   CachePoolImpl::CacheKey key(cache_type, cache_key);
   if (!cache_key.empty()) {
     // An non-empty key indicates to look for an existing cache.

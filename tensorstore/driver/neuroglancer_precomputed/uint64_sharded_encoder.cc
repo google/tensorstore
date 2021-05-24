@@ -14,10 +14,10 @@
 
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded_encoder.h"
 
+#include "absl/functional/function_ref.h"
 #include "tensorstore/internal/compression/zlib.h"
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/util/endian.h"
-#include "tensorstore/util/function_view.h"
 
 namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
@@ -70,7 +70,7 @@ ShardEncoder::ShardEncoder(const ShardingSpec& sharding_spec, absl::Cord& out)
 namespace {
 Result<std::uint64_t> EncodeData(
     const absl::Cord& input, ShardingSpec::DataEncoding encoding,
-    FunctionView<Status(const absl::Cord& buffer)> write_function) {
+    absl::FunctionRef<Status(const absl::Cord& buffer)> write_function) {
   auto encoded = EncodeData(input, encoding);
   if (auto status = write_function(encoded); status.ok()) {
     return encoded.size();

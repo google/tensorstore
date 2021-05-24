@@ -15,8 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_COMPRESSION_JPEG_H_
 #define TENSORSTORE_INTERNAL_COMPRESSION_JPEG_H_
 
+#include "absl/functional/function_ref.h"
 #include "absl/strings/cord.h"
-#include "tensorstore/util/function_view.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -42,8 +42,8 @@ struct EncodeOptions {
 /// \returns `Status()` on success, or the error returned by `validate_size`.
 /// \error `absl::StatusCode::kInvalidArgument` if the source data is corrupt.
 Status Decode(const absl::Cord& input,
-              FunctionView<Result<unsigned char*>(size_t width, size_t height,
-                                                  size_t num_components)>
+              absl::FunctionRef<Result<unsigned char*>(
+                  size_t width, size_t height, size_t num_components)>
                   validate_size);
 
 /// Encodes a source array in JPEG format.

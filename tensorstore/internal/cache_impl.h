@@ -27,11 +27,11 @@
 
 #include "absl/base/call_once.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/functional/function_ref.h"
 #include "absl/hash/hash.h"
 #include "tensorstore/internal/cache_pool_limits.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
-#include "tensorstore/util/function_view.h"
 
 namespace tensorstore {
 namespace internal {
@@ -228,7 +228,7 @@ using CachePoolWeakPtr =
 CachePtr<Cache> GetCacheInternal(
     CachePoolImpl* pool, const std::type_info& cache_type,
     std::string_view cache_key,
-    FunctionView<std::unique_ptr<Cache>()> make_cache);
+    absl::FunctionRef<std::unique_ptr<Cache>()> make_cache);
 
 CacheEntryStrongPtr<CacheEntry> GetCacheEntryInternal(internal::Cache* cache,
                                                       std::string_view key);

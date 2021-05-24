@@ -95,9 +95,9 @@ tensorstore_cc_library(
     srcs = ["jpeg.cc"],
     hdrs = ["jpeg.h"],
     deps = [
-        "//tensorstore/util:function_view",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
+        "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/strings:cord",
         "@jpeg",
     ],

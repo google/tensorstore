@@ -16,6 +16,7 @@
 
 #include <csetjmp>
 
+#include "absl/functional/function_ref.h"
 #include "absl/strings/cord.h"
 #include <jerror.h>
 #include <jpeglib.h>
@@ -199,8 +200,8 @@ struct CordDestManager {
 }  // namespace
 
 Status Decode(const absl::Cord& input,
-              FunctionView<Result<unsigned char*>(size_t width, size_t height,
-                                                  size_t num_components)>
+              absl::FunctionRef<Result<unsigned char*>(
+                  size_t width, size_t height, size_t num_components)>
                   validate_size) {
   JpegStateWrapper<::jpeg_decompress_struct> state;
   CordSourceManager source_manager(input);

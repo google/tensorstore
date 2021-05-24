@@ -94,6 +94,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
@@ -120,7 +121,6 @@
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/util/execution.h"
 #include "tensorstore/util/executor.h"
-#include "tensorstore/util/function_view.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
@@ -366,9 +366,9 @@ struct ReadTask {
 ///     can't be acquired.
 Result<StorageGeneration> WithWriteLock(
     const std::string& full_path, const StorageGeneration& if_equal,
-    tensorstore::FunctionView<Result<StorageGeneration>(
-        FileDescriptor lock_fd, const std::string& lock_path,
-        bool* delete_lock_file)>
+    absl::FunctionRef<Result<StorageGeneration>(FileDescriptor lock_fd,
+                                                const std::string& lock_path,
+                                                bool* delete_lock_file)>
         func) {
   std::string lock_path = StrCat(full_path, kLockSuffix);
 
@@ -549,10 +549,9 @@ struct PathRangeVisitor {
 
   std::vector<PendingDir> pending_dirs;
 
-  Status Visit(
-      tensorstore::FunctionView<bool()> is_cancelled,
-      tensorstore::FunctionView<Status()> handle_file_at,
-      tensorstore::FunctionView<Status(bool fully_contained)> handle_dir_at) {
+  Status Visit(absl::FunctionRef<bool()> is_cancelled,
+               absl::FunctionRef<Status()> handle_file_at,
+               absl::FunctionRef<Status(bool fully_contained)> handle_dir_at) {
     auto status = VisitImpl(is_cancelled, handle_file_at, handle_dir_at);
     if (!status.ok()) {
       return MaybeAnnotateStatus(status,
@@ -562,9 +561,9 @@ struct PathRangeVisitor {
   }
 
   Status VisitImpl(
-      tensorstore::FunctionView<bool()> is_cancelled,
-      tensorstore::FunctionView<Status()> handle_file_at,
-      tensorstore::FunctionView<Status(bool fully_contained)> handle_dir_at) {
+      absl::FunctionRef<bool()> is_cancelled,
+      absl::FunctionRef<Status()> handle_file_at,
+      absl::FunctionRef<Status(bool fully_contained)> handle_dir_at) {
     // First, try and open the prefix as a directory.
     TENSORSTORE_RETURN_IF_ERROR(EnqueueDirectory());
 

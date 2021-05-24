@@ -219,10 +219,11 @@ pybind11::object GetCancelledError() {
   return py::module::import("asyncio").attr("CancelledError")(py::none());
 }
 
-void InterruptibleWaitImpl(
-    FunctionView<FutureCallbackRegistration(FunctionView<void()> notify_done)>
-        register_listener,
-    absl::Time deadline, PythonFutureBase* python_future) {
+void InterruptibleWaitImpl(absl::FunctionRef<FutureCallbackRegistration(
+                               absl::FunctionRef<void()> notify_done)>
+                               register_listener,
+                           absl::Time deadline,
+                           PythonFutureBase* python_future) {
   ScopedEvent event;
   const auto notify_done = [&event] { event.Set(); };
   std::optional<PythonFutureBase::CancelCallback> cancel_callback;

@@ -264,16 +264,19 @@ constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
       rank = &obj->rank;
     }
     auto ensure_dtype = [&]() -> Result<const ZarrDType*> {
-      if constexpr (std::is_same_v<T, ZarrPartialMetadata>) {
+      if constexpr (std::is_same_v<T, ZarrMetadata>) {
+        return &obj->dtype;
+      } else if constexpr (std::is_same_v<T, ZarrPartialMetadata>) {
+        /// dtype is wrapped std::optional<>
         if (!obj->dtype) {
           return absl::InvalidArgumentError(
               "must be specified in conjunction with \"dtype\"");
         }
         return &*obj->dtype;
-      } else {
-        return &obj->dtype;
       }
+      TENSORSTORE_UNREACHABLE;
     };
+
     return jb::Object(
         jb::Member("zarr_format",
                    jb::Projection(&T::zarr_format,

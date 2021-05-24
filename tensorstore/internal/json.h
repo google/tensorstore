@@ -25,6 +25,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
@@ -32,7 +33,6 @@
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/util/assert_macros.h"
-#include "tensorstore/util/function_view.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -250,8 +250,9 @@ Status JsonRequireInteger(
 /// \error `absl::StatusCode::kInvalidArgument` if `j` is not an array.
 Status JsonParseArray(
     const ::nlohmann::json& j,
-    FunctionView<Status(std::ptrdiff_t size)> size_callback,
-    FunctionView<Status(const ::nlohmann::json& value, std::ptrdiff_t index)>
+    absl::FunctionRef<Status(std::ptrdiff_t size)> size_callback,
+    absl::FunctionRef<Status(const ::nlohmann::json& value,
+                             std::ptrdiff_t index)>
         element_callback);
 
 /// Validates that `parsed_size` matches `expected_size`.
@@ -311,11 +312,11 @@ inline Status JsonValidateObjectMembers(
 ///     (only `JsonRequireObjectMember`).
 Status JsonHandleObjectMember(
     const ::nlohmann::json& j, const char* member_name,
-    FunctionView<Status(const ::nlohmann::json&)> handler);
+    absl::FunctionRef<Status(const ::nlohmann::json&)> handler);
 
 Status JsonHandleObjectMember(
     const ::nlohmann::json::object_t& j, const char* member_name,
-    FunctionView<Status(const ::nlohmann::json&)> handler);
+    absl::FunctionRef<Status(const ::nlohmann::json&)> handler);
 
 /// Removes the specified member from `*j_obj` if it is present.
 ///

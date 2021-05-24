@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "absl/container/fixed_array.h"
+#include "absl/functional/function_ref.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
@@ -32,7 +33,6 @@
 #include "tensorstore/util/byte_strided_pointer.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/element_pointer.h"
-#include "tensorstore/util/function_view.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -54,8 +54,8 @@ struct ConnectedSetIterateParameters {
   span<const DimensionIndex> grid_output_dimensions;
   span<const Index> grid_cell_shape;
   IndexTransformView<> transform;
-  FunctionView<Status(span<const Index> grid_cell_indices,
-                      IndexTransformView<> cell_transform)>
+  absl::FunctionRef<Status(span<const Index> grid_cell_indices,
+                           IndexTransformView<> cell_transform)>
       func;
 };
 
@@ -362,8 +362,8 @@ namespace internal {
 Status PartitionIndexTransformOverRegularGrid(
     span<const DimensionIndex> grid_output_dimensions,
     span<const Index> grid_cell_shape, IndexTransformView<> transform,
-    FunctionView<Status(span<const Index> grid_cell_indices,
-                        IndexTransformView<> cell_transform)>
+    absl::FunctionRef<Status(span<const Index> grid_cell_indices,
+                             IndexTransformView<> cell_transform)>
         func) {
   std::optional<internal_grid_partition::IndexTransformGridPartition>
       partition_info;

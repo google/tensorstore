@@ -307,10 +307,10 @@ tensorstore_cc_library(
         ":mutex",
         ":poly",
         "//tensorstore/util:assert_macros",
-        "//tensorstore/util:function_view",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/hash",
         "@com_google_absl//absl/synchronization",
     ],
@@ -832,12 +832,12 @@ tensorstore_cc_library(
         "//tensorstore/util:byte_strided_pointer",
         "//tensorstore/util:division",
         "//tensorstore/util:element_pointer",
-        "//tensorstore/util:function_view",
         "//tensorstore/util:iterate",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "@com_google_absl//absl/container:fixed_array",
+        "@com_google_absl//absl/functional:function_ref",
     ],
 )
 
@@ -1016,7 +1016,6 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore:json_serialization_options",
         "//tensorstore/util:assert_macros",
-        "//tensorstore/util:function_view",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
@@ -1024,6 +1023,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
@@ -1045,7 +1045,6 @@ tensorstore_cc_library(
         "//tensorstore:static_cast",
         "//tensorstore:strided_layout",
         "//tensorstore/util:byte_strided_pointer",
-        "//tensorstore/util:function_view",
         "//tensorstore/util:iterate",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
@@ -1054,6 +1053,7 @@ tensorstore_cc_library(
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/functional:function_ref",
     ],
 )
 
@@ -1939,8 +1939,8 @@ tensorstore_cc_test(
     srcs = ["poly_test.cc"],
     deps = [
         ":poly",
-        "//tensorstore/util:function_view",
         "//tensorstore/util:result",
+        "@com_google_absl//absl/functional:function_ref",
         "@com_google_googletest//:gtest_main",
     ],
 )

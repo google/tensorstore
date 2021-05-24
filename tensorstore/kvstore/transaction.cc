@@ -1,5 +1,6 @@
 #include "tensorstore/kvstore/transaction.h"
 
+#include "absl/functional/function_ref.h"
 #include "tensorstore/internal/logging.h"
 
 namespace tensorstore {
@@ -776,9 +777,9 @@ void InvalidateReadStateGoingForward(ReadModifyWriteEntry* entry) {
            (&entry->single_phase_mutation() == &single_phase_mutation));
 }
 
-void WritebackPhase(SinglePhaseMutation& single_phase_mutation,
-                    absl::Time staleness_bound,
-                    FunctionView<bool(ReadModifyWriteEntry& entry)> predicate) {
+void WritebackPhase(
+    SinglePhaseMutation& single_phase_mutation, absl::Time staleness_bound,
+    absl::FunctionRef<bool(ReadModifyWriteEntry& entry)> predicate) {
   assert(single_phase_mutation.remaining_entries_.IsDone());
   size_t entry_count = 0;
   for (auto& entry : single_phase_mutation.entries_) {

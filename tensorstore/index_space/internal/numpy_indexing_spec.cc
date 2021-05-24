@@ -805,7 +805,7 @@ absl::Status NumpyIndexingSpec::Builder::AddSlice(
     const auto check_rank =
         [&](const internal_index_space::IndexVectorOrScalarView& x,
             const char* field_name) -> absl::Status {
-      if (auto* v = x.pointer) {
+      if (x.pointer) {
         if (rank != dynamic_rank &&
             rank != static_cast<DimensionIndex>(x.size_or_scalar)) {
           return absl::InvalidArgumentError(tensorstore::StrCat(

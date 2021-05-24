@@ -72,7 +72,9 @@ class GetUint64Key {
  public:
   GetUint64Key(bool sequential) : sequential_(sequential) {}
 
-  std::string operator()(std::string key) {
+  // NOTE: absl::FunctionRef currently takes objects by const&, so we have to
+  // mark operator() const and the members mutable.
+  std::string operator()(std::string key) const {
     auto it = key_to_uint64_.find(key);
     if (it == key_to_uint64_.end()) {
       while (true) {
@@ -89,10 +91,10 @@ class GetUint64Key {
 
  private:
   bool sequential_;
-  std::uint64_t next_chunk_id_ = 0;
-  absl::BitGen gen_;
-  absl::flat_hash_map<std::string, std::uint64_t> key_to_uint64_;
-  absl::flat_hash_map<std::uint64_t, std::string> uint64_to_key_;
+  mutable std::uint64_t next_chunk_id_ = 0;
+  mutable absl::BitGen gen_;
+  mutable absl::flat_hash_map<std::string, std::uint64_t> key_to_uint64_;
+  mutable absl::flat_hash_map<std::uint64_t, std::string> uint64_to_key_;
 };
 
 TEST(Uint64ShardedKeyValueStoreTest, BasicFunctionality) {
@@ -130,8 +132,9 @@ TEST(Uint64ShardedKeyValueStoreTest, BasicFunctionality) {
               auto store = GetShardedKeyValueStore(
                   base_kv_store, executor, "prefix", sharding_spec,
                   CachePool::WeakPtr(cache_pool));
+              GetUint64Key get_key_fn(sequential_ids);
               tensorstore::internal::TestKeyValueStoreBasicFunctionality(
-                  store, GetUint64Key(sequential_ids));
+                  store, get_key_fn);
             }
           }
         }

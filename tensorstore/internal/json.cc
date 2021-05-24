@@ -27,11 +27,11 @@
 #include <vector>
 
 #include "absl/container/inlined_vector.h"
+#include "absl/functional/function_ref.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/index.h"
-#include "tensorstore/util/function_view.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -278,8 +278,9 @@ std::optional<std::string> JsonValueAs<std::string>(const ::nlohmann::json& j,
 
 Status JsonParseArray(
     const ::nlohmann::json& j,
-    FunctionView<Status(std::ptrdiff_t size)> size_callback,
-    FunctionView<Status(const ::nlohmann::json& value, std::ptrdiff_t index)>
+    absl::FunctionRef<Status(std::ptrdiff_t size)> size_callback,
+    absl::FunctionRef<Status(const ::nlohmann::json& value,
+                             std::ptrdiff_t index)>
         element_callback) {
   const auto* j_array = j.get_ptr<const ::nlohmann::json::array_t*>();
   if (!j_array) {
@@ -337,7 +338,7 @@ Status JsonValidateObjectMembers(const ::nlohmann::json& j,
 
 Status JsonHandleObjectMember(
     const ::nlohmann::json::object_t& j, const char* member_name,
-    FunctionView<Status(const ::nlohmann::json&)> handle) {
+    absl::FunctionRef<Status(const ::nlohmann::json&)> handle) {
   auto it = j.find(member_name);
   if (it == j.end()) {
     return absl::OkStatus();
@@ -348,7 +349,7 @@ Status JsonHandleObjectMember(
 
 Status JsonHandleObjectMember(
     const ::nlohmann::json& j, const char* member_name,
-    FunctionView<Status(const ::nlohmann::json&)> handle) {
+    absl::FunctionRef<Status(const ::nlohmann::json&)> handle) {
   if (const auto* obj = j.get_ptr<const ::nlohmann::json::object_t*>()) {
     return JsonHandleObjectMember(*obj, member_name, handle);
   }

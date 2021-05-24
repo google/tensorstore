@@ -392,10 +392,10 @@ pybind11_cc_library(
         ":status",
         "//tensorstore/internal:intrusive_linked_list",
         "//tensorstore/internal:logging",
-        "//tensorstore/util:function_view",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "@com_github_pybind_pybind11//:pybind11",
+        "@com_google_absl//absl/functional:function_ref",
     ],
 )
 

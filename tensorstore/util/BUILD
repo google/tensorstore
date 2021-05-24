@@ -353,26 +353,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "function_view",
-    hdrs = ["function_view.h"],
-    deps = [
-        "//tensorstore/internal:attributes",
-        "//tensorstore/internal:type_traits",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "function_view_test",
-    size = "small",
-    srcs = ["function_view_test.cc"],
-    deps = [
-        ":assert_macros",
-        ":function_view",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "future",
     srcs = [
         "future.cc",

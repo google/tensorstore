@@ -527,9 +527,8 @@ TEST(DriverTest, InvalidSpec) {
                               "Expected object, but member is missing"));
   }
 
-  for (const std::string& member_name :
-       {"kvstore", "path", "scale_metadata", "multiscale_metadata",
-        "scale_index"}) {
+  for (auto member_name : {"kvstore", "path", "scale_metadata",
+                           "multiscale_metadata", "scale_index"}) {
     auto spec = GetJsonSpec();
     spec[member_name] = nullptr;
     EXPECT_THAT(

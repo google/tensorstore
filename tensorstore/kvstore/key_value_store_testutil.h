@@ -22,13 +22,13 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/functional/function_ref.h"
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/key_value_store.h"
-#include "tensorstore/util/function_view.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -46,9 +46,12 @@ namespace internal {
 ///     output keys.
 void TestKeyValueStoreBasicFunctionality(
     KeyValueStore::Ptr store,
-    FunctionView<std::string(std::string key)> get_key = [](std::string key) {
-      return key;
-    });
+    absl::FunctionRef<std::string(std::string key)> get_key);
+
+inline void TestKeyValueStoreBasicFunctionality(KeyValueStore::Ptr store) {
+  return TestKeyValueStoreBasicFunctionality(
+      std::move(store), [](std::string key) { return key; });
+}
 
 /// Tests that calling `KeyValueStore::Open` with `spec` returns a
 /// `KeyValueStore::Ptr` whose `spec()` method returns `spec`, and that data

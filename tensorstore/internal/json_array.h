@@ -22,6 +22,7 @@
 #include <functional>
 #include <type_traits>
 
+#include "absl/functional/function_ref.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
@@ -30,7 +31,6 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/strided_layout.h"
-#include "tensorstore/util/function_view.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -38,7 +38,7 @@ namespace tensorstore {
 namespace internal_json {
 ::nlohmann::json JsonEncodeNestedArray(
     ArrayView<const void, dynamic_rank, offset_origin> array,
-    FunctionView<::nlohmann::json(const void*)> encode_element);
+    absl::FunctionRef<::nlohmann::json(const void*)> encode_element);
 
 }  // namespace internal_json
 
@@ -77,8 +77,7 @@ Result<::nlohmann::json> JsonEncodeNestedArray(ArrayView<const void> array);
 ///     uniform shape.
 Result<SharedArray<void>> JsonParseNestedArray(
     const ::nlohmann::json& j_root, DataType dtype,
-    // TODO(jbms): replace with FunctionView type
-    const std::function<Status(const ::nlohmann::json& v, void* out)>&
+    absl::FunctionRef<Status(const ::nlohmann::json& v, void* out)>
         decode_element);
 
 /// Parses a multi-dimensional array from a nested JSON array.

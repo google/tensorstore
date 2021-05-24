@@ -218,10 +218,10 @@ tensorstore_cc_library(
         "//tensorstore/internal/compression:zlib",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/util:endian",
-        "//tensorstore/util:function_view",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
+        "@com_google_absl//absl/functional:function_ref",
     ],
 )
 

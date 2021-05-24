@@ -22,7 +22,7 @@
 #include <utility>
 
 #include <gtest/gtest.h>
-#include "tensorstore/util/function_view.h"
+#include "absl/functional/function_ref.h"
 #include "tensorstore/util/result.h"
 
 namespace {
@@ -476,7 +476,7 @@ void TestAvoidsSfinaeLoop() {
 
 // Tests that a nested Poly/Result type avoids a SFINAE loop.
 TEST(PolyTest, AvoidsSfinaeLoop) {
-  TestAvoidsSfinaeLoop<tensorstore::Result, tensorstore::FunctionView>();
+  TestAvoidsSfinaeLoop<tensorstore::Result, absl::FunctionRef>();
   TestAvoidsSfinaeLoop<tensorstore::Result, std::function>();
   TestAvoidsSfinaeLoop<std::optional, SinglePoly>();
   TestAvoidsSfinaeLoop<tensorstore::Result, SinglePoly>();

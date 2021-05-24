@@ -86,12 +86,12 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/functional/function_ref.h"
 #include "tensorstore/internal/cache_impl.h"
 #include "tensorstore/internal/cache_pool_limits.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/poly.h"
-#include "tensorstore/util/function_view.h"
 
 namespace tensorstore {
 namespace internal {
@@ -139,7 +139,7 @@ class CachePool : private internal_cache::CachePoolImpl {
   template <typename CacheType>
   CachePtr<CacheType> GetCache(
       std::string_view cache_key,
-      FunctionView<std::unique_ptr<Cache>()> make_cache) {
+      absl::FunctionRef<std::unique_ptr<Cache>()> make_cache) {
     static_assert(std::is_base_of<Cache, CacheType>::value,
                   "CacheType must inherit from Cache.");
     return static_pointer_cast<CacheType>(internal_cache::GetCacheInternal(

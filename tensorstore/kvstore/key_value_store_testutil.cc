@@ -23,6 +23,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
@@ -34,7 +35,6 @@
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/kvstore/registry.h"
-#include "tensorstore/util/function_view.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -91,7 +91,7 @@ StorageGeneration GetMismatchStorageGeneration(KeyValueStore::Ptr store) {
 
 void TestKeyValueStoreUnconditionalOps(
     KeyValueStore::Ptr store,
-    FunctionView<std::string(std::string key)> get_key) {
+    absl::FunctionRef<std::string(std::string key)> get_key) {
   const auto key = get_key("test");
   Cleanup cleanup(store, {key});
   const absl::Cord value("1234");
@@ -151,7 +151,7 @@ void TestKeyValueStoreUnconditionalOps(
 
 void TestKeyValueStoreConditionalReadOps(
     KeyValueStore::Ptr store,
-    FunctionView<std::string(std::string key)> get_key) {
+    absl::FunctionRef<std::string(std::string key)> get_key) {
   const auto missing_key = get_key("test1a");
   const StorageGeneration mismatch = GetMismatchStorageGeneration(store);
 
@@ -268,7 +268,7 @@ void TestKeyValueStoreConditionalReadOps(
 
 void TestKeyValueStoreConditionalWriteOps(
     KeyValueStore::Ptr store,
-    FunctionView<std::string(std::string key)> get_key) {
+    absl::FunctionRef<std::string(std::string key)> get_key) {
   const auto key1 = get_key("test2a");
   const auto key2 = get_key("test2b");
   const auto key3 = get_key("test2c");
@@ -330,7 +330,7 @@ void TestKeyValueStoreConditionalWriteOps(
 
 void TestKeyValueStoreConditionalDeleteOps(
     KeyValueStore::Ptr store,
-    FunctionView<std::string(std::string key)> get_key) {
+    absl::FunctionRef<std::string(std::string key)> get_key) {
   const auto key1 = get_key("test3a");
   const auto key2 = get_key("test3b");
   const auto key3 = get_key("test3c");
@@ -400,7 +400,7 @@ void TestKeyValueStoreConditionalDeleteOps(
 
 void TestKeyValueStoreBasicFunctionality(
     KeyValueStore::Ptr store,
-    FunctionView<std::string(std::string key)> get_key) {
+    absl::FunctionRef<std::string(std::string key)> get_key) {
   TestKeyValueStoreUnconditionalOps(store, get_key);
   TestKeyValueStoreConditionalReadOps(store, get_key);
   TestKeyValueStoreConditionalWriteOps(store, get_key);

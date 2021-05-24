@@ -27,12 +27,12 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/intrusive_red_black_tree.h"
 #include "tensorstore/internal/mutex.h"
-#include "tensorstore/util/function_view.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 
@@ -651,7 +651,7 @@ class TransactionState {
   /// Returns the existing node for `associated_data`.  If there is no existing
   /// node, creates a new one by calling `make_node`.
   Result<OpenNodePtrT<Node>> GetOrCreateMultiPhaseNode(
-      void* associated_data, FunctionView<Node*()> make_node);
+      void* associated_data, absl::FunctionRef<Node*()> make_node);
 
  private:
   friend class tensorstore::Transaction;

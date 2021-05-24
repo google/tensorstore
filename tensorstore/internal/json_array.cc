@@ -22,6 +22,7 @@
 
 #include "absl/container/fixed_array.h"
 #include "absl/container/inlined_vector.h"
+#include "absl/functional/function_ref.h"
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
@@ -43,7 +44,7 @@ namespace internal_json {
 
 ::nlohmann::json JsonEncodeNestedArray(
     ArrayView<const void, dynamic_rank, offset_origin> array,
-    FunctionView<::nlohmann::json(const void*)> encode_element) {
+    absl::FunctionRef<::nlohmann::json(const void*)> encode_element) {
   // To avoid the possibility of stack overflow, this implementation is
   // non-recursive.
 
@@ -148,7 +149,7 @@ Result<::nlohmann::json> JsonEncodeNestedArray(ArrayView<const void> array) {
 
 Result<SharedArray<void>> JsonParseNestedArray(
     const ::nlohmann::json& j_root, DataType dtype,
-    const std::function<absl::Status(const ::nlohmann::json& v, void* out)>&
+    absl::FunctionRef<absl::Status(const ::nlohmann::json& v, void* out)>
         decode_element) {
   assert(dtype.valid());
   // To avoid the possibility of stack overflow, this implementation is
