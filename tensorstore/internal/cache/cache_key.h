@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_CACHE_KEY_H_
-#define TENSORSTORE_INTERNAL_CACHE_KEY_H_
+#ifndef TENSORSTORE_INTERNAL_CACHE_CACHE_KEY_H_
+#define TENSORSTORE_INTERNAL_CACHE_CACHE_KEY_H_
 
 #include <optional>
 #include <string>
@@ -56,4 +56,4 @@ void EncodeCacheKey(std::string* out, const U&... u) {
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_CACHE_KEY_H_
+#endif  // TENSORSTORE_INTERNAL_CACHE_CACHE_KEY_H_

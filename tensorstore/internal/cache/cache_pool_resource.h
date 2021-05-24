@@ -12,21 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_CACHE_POOL_LIMITS_H_
-#define TENSORSTORE_INTERNAL_CACHE_POOL_LIMITS_H_
+#ifndef TENSORSTORE_INTERNAL_CACHE_CACHE_POOL_RESOURCE_H_
+#define TENSORSTORE_INTERNAL_CACHE_CACHE_POOL_RESOURCE_H_
 
-#include <cstddef>
+#include "tensorstore/internal/cache/cache.h"
 
 namespace tensorstore {
 namespace internal {
 
-/// Memory limit parameters for a cache pool.
-struct CachePoolLimits {
-  std::size_t total_bytes_limit = 0;
-  std::size_t queued_for_writeback_bytes_limit = 0;
+/// Context resource corresponding to a CachePool.
+struct CachePoolResource {
+  static constexpr char id[] = "cache_pool";
+  using Resource = CachePool::WeakPtr;
 };
 
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_CACHE_POOL_LIMITS_H_
+#endif  // TENSORSTORE_INTERNAL_CACHE_CACHE_POOL_RESOURCE_H_

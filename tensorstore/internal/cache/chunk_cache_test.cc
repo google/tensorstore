@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/chunk_cache.h"
+#include "tensorstore/internal/cache/chunk_cache.h"
 
 #include <functional>
 #include <memory>
@@ -42,12 +42,12 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/transformed_array.h"
-#include "tensorstore/internal/async_cache.h"
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/async_cache.h"
+#include "tensorstore/internal/cache/cache.h"
+#include "tensorstore/internal/cache/kvs_backed_cache.h"
 #include "tensorstore/internal/element_copy_function.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/kvs_backed_cache.h"
 #include "tensorstore/internal/masked_array.h"
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/meta.h"

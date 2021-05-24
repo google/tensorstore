@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/cache.h"
 
 #include <atomic>
 #include <deque>

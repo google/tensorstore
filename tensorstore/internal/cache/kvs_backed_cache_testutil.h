@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_KVS_BACKED_CACHE_TESTUTIL_H_
-#define TENSORSTORE_INTERNAL_KVS_BACKED_CACHE_TESTUTIL_H_
+#ifndef TENSORSTORE_INTERNAL_CACHE_KVS_BACKED_CACHE_TESTUTIL_H_
+#define TENSORSTORE_INTERNAL_CACHE_KVS_BACKED_CACHE_TESTUTIL_H_
 
 /// \file
 ///
@@ -33,10 +33,10 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/async_cache.h"
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/async_cache.h"
+#include "tensorstore/internal/cache/cache.h"
+#include "tensorstore/internal/cache/kvs_backed_cache.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/kvs_backed_cache.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/key_value_store.h"
@@ -231,4 +231,4 @@ class KvsRandomOperationTester {
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_KVS_BACKED_CACHE_TESTUTIL_H_
+#endif  // TENSORSTORE_INTERNAL_CACHE_KVS_BACKED_CACHE_TESTUTIL_H_

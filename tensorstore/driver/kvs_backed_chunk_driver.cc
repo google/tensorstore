@@ -16,10 +16,10 @@
 
 #include "absl/container/fixed_array.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver_impl.h"
-#include "tensorstore/internal/async_initialized_cache_mixin.h"
 #include "tensorstore/internal/box_difference.h"
-#include "tensorstore/internal/cache_key.h"
-#include "tensorstore/internal/cache_pool_resource.h"
+#include "tensorstore/internal/cache/async_initialized_cache_mixin.h"
+#include "tensorstore/internal/cache/cache_key.h"
+#include "tensorstore/internal/cache/cache_pool_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/staleness_bound_json_binder.h"

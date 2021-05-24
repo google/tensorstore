@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_AGGREGATE_WRITEBACK_CACHE_H_
-#define TENSORSTORE_INTERNAL_AGGREGATE_WRITEBACK_CACHE_H_
+#ifndef TENSORSTORE_INTERNAL_CACHE_AGGREGATE_WRITEBACK_CACHE_H_
+#define TENSORSTORE_INTERNAL_CACHE_AGGREGATE_WRITEBACK_CACHE_H_
 
 /// \file
 ///
@@ -22,8 +22,8 @@
 
 #include <vector>
 
-#include "tensorstore/internal/async_cache.h"
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/async_cache.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/estimate_heap_usage.h"
 
 namespace tensorstore {
@@ -96,4 +96,4 @@ class AggregateWritebackCache : public Parent {
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_AGGREGATE_WRITEBACK_CACHE_H_
+#endif  // TENSORSTORE_INTERNAL_CACHE_AGGREGATE_WRITEBACK_CACHE_H_

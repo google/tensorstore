@@ -16,7 +16,7 @@
 ///
 /// Tests for `kvs_backed_cache` and for `internal_kvs::MultiPhaseMutation`.
 
-#include "tensorstore/internal/kvs_backed_cache.h"
+#include "tensorstore/internal/cache/kvs_backed_cache.h"
 
 #include <optional>
 #include <string>
@@ -24,10 +24,10 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/internal/async_cache.h"
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/async_cache.h"
+#include "tensorstore/internal/cache/cache.h"
+#include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/internal/kvs_backed_cache_testutil.h"
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/kvstore/key_value_store_testutil.h"

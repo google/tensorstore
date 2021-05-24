@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_CACHE_IMPL_H_
-#define TENSORSTORE_INTERNAL_CACHE_IMPL_H_
+#ifndef TENSORSTORE_INTERNAL_CACHE_CACHE_IMPL_H_
+#define TENSORSTORE_INTERNAL_CACHE_CACHE_IMPL_H_
 
-// IWYU pragma: private, include "third_party/tensorstore/internal/cache.h"
+// IWYU pragma: private, include "third_party/tensorstore/internal/cache/cache.h"
 
 #include <atomic>
 #include <functional>
@@ -29,7 +29,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/functional/function_ref.h"
 #include "absl/hash/hash.h"
-#include "tensorstore/internal/cache_pool_limits.h"
+#include "tensorstore/internal/cache/cache_pool_limits.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
 
@@ -236,4 +236,4 @@ CacheEntryStrongPtr<CacheEntry> GetCacheEntryInternal(internal::Cache* cache,
 }  // namespace internal_cache
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_CACHE_IMPL_H_
+#endif  // TENSORSTORE_INTERNAL_CACHE_CACHE_IMPL_H_

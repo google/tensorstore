@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/cache_pool_resource.h"
+#include "tensorstore/internal/cache/cache_pool_resource.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"

@@ -23,7 +23,7 @@
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
-#include "tensorstore/internal/cache_key.h"
+#include "tensorstore/internal/cache/cache_key.h"
 #include "tensorstore/kvstore/key_value_store_testutil.h"
 #include "tensorstore/util/execution.h"
 #include "tensorstore/util/future.h"

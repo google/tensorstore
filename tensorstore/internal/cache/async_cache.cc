@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/async_cache.h"
+#include "tensorstore/internal/cache/async_cache.h"
 
 #include <algorithm>
 #include <cassert>
@@ -23,7 +23,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "absl/utility/utility.h"
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/intrusive_linked_list.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/logging.h"

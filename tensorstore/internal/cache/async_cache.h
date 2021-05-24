@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_ASYNC_CACHE_H_
-#define TENSORSTORE_INTERNAL_ASYNC_CACHE_H_
+#ifndef TENSORSTORE_INTERNAL_CACHE_ASYNC_CACHE_H_
+#define TENSORSTORE_INTERNAL_CACHE_ASYNC_CACHE_H_
 
 /// \file Defines the abstract `AsyncCache` base class that extends the basic
 /// `Cache` class with asynchronous read and read-modify-write functionality.
@@ -23,7 +23,7 @@
 
 #include "absl/base/thread_annotations.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/intrusive_red_black_tree.h"
 #include "tensorstore/internal/logging.h"
@@ -952,4 +952,4 @@ void AsyncCacheDebugLog(tensorstore::SourceLocation loc,
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_ASYNC_CACHE_H_
+#endif  // TENSORSTORE_INTERNAL_CACHE_ASYNC_CACHE_H_

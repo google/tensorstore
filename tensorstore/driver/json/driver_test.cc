@@ -20,7 +20,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index_space/dim_expression.h"
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/parse_json_matches.h"

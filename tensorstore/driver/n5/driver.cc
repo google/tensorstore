@@ -22,7 +22,7 @@
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/internal/chunk_cache.h"
+#include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/key_value_store.h"

@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/cache_pool_resource.h"
+#include "tensorstore/internal/cache/cache_pool_resource.h"
 
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_bindable.h"

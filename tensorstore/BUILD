@@ -188,12 +188,12 @@ tensorstore_cc_library(
     deps = [
         ":json_serialization_options",
         "//tensorstore/internal:attributes",
-        "//tensorstore/internal:cache_key",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json",
         "//tensorstore/internal:logging",
         "//tensorstore/internal:mutex",
         "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal/cache:cache_key",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "@com_github_nlohmann_json//:nlohmann_json",

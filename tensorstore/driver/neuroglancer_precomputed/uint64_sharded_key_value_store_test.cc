@@ -21,10 +21,10 @@
 #include <gtest/gtest.h>
 #include "absl/container/flat_hash_map.h"
 #include "absl/random/random.h"
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/cache.h"
+#include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/compression/zlib.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/internal/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/thread_pool.h"
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/key_value_store.h"

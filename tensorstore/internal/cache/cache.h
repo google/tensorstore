@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_CACHE_H_
-#define TENSORSTORE_INTERNAL_CACHE_H_
+#ifndef TENSORSTORE_INTERNAL_CACHE_CACHE_H_
+#define TENSORSTORE_INTERNAL_CACHE_CACHE_H_
 
 /// \file
 /// Defines a writeback cache framework.
@@ -87,8 +87,8 @@
 #include <utility>
 
 #include "absl/functional/function_ref.h"
-#include "tensorstore/internal/cache_impl.h"
-#include "tensorstore/internal/cache_pool_limits.h"
+#include "tensorstore/internal/cache/cache_impl.h"
+#include "tensorstore/internal/cache/cache_pool_limits.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/poly.h"
@@ -422,4 +422,4 @@ GetCacheEntry(const CachePtr<CacheType>& cache, std::string_view key) {
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  //  TENSORSTORE_INTERNAL_CACHE_H_
+#endif  //  TENSORSTORE_INTERNAL_CACHE_CACHE_H_

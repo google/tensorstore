@@ -21,7 +21,7 @@
 #include <string>
 
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded.h"
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/util/executor.h"
 

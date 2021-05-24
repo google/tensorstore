@@ -21,7 +21,7 @@
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/compression/blosc.h"
 #include "tensorstore/internal/decoded_matches.h"
 #include "tensorstore/internal/global_initializer.h"

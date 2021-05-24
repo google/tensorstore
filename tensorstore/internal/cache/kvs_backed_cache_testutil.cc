@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/kvs_backed_cache_testutil.h"
+#include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
 
 #include <stddef.h>
 
@@ -34,10 +34,10 @@
 #include "absl/strings/match.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/async_cache.h"
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/async_cache.h"
+#include "tensorstore/internal/cache/cache.h"
+#include "tensorstore/internal/cache/kvs_backed_cache.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/kvs_backed_cache.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/source_location.h"

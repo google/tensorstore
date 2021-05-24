@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_CHUNK_CACHE_H_
-#define TENSORSTORE_INTERNAL_CHUNK_CACHE_H_
+#ifndef TENSORSTORE_INTERNAL_CACHE_CHUNK_CACHE_H_
+#define TENSORSTORE_INTERNAL_CACHE_CHUNK_CACHE_H_
 
 /// \file
 /// Defines the abstract base class `ChunkCache`, which extends
@@ -59,9 +59,9 @@
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
-#include "tensorstore/internal/async_cache.h"
 #include "tensorstore/internal/async_write_array.h"
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/async_cache.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/staleness_bound.h"
@@ -417,4 +417,4 @@ class ChunkCacheDriver : public Driver {
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_CHUNK_CACHE_H_
+#endif  // TENSORSTORE_INTERNAL_CACHE_CHUNK_CACHE_H_

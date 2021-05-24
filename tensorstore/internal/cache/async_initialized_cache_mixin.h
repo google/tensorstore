@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_ASYNC_INITIALIZED_CACHE_MIXIN_H_
-#define TENSORSTORE_INTERNAL_ASYNC_INITIALIZED_CACHE_MIXIN_H_
+#ifndef TENSORSTORE_INTERNAL_CACHE_ASYNC_INITIALIZED_CACHE_MIXIN_H_
+#define TENSORSTORE_INTERNAL_CACHE_ASYNC_INITIALIZED_CACHE_MIXIN_H_
 
 #include <string_view>
 #include <type_traits>
 
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
@@ -79,4 +79,4 @@ CachePtr<CacheType> GetOrCreateAsyncInitializedCache(
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  //  TENSORSTORE_INTERNAL_ASYNC_INITIALIZED_CACHE_MIXIN_H_
+#endif  //  TENSORSTORE_INTERNAL_CACHE_ASYNC_INITIALIZED_CACHE_MIXIN_H_

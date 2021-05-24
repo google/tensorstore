@@ -20,7 +20,7 @@
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/compression/jpeg.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/parse_json_matches.h"

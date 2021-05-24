@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/cache.h"
+#include "tensorstore/internal/cache/cache.h"
 
 #include <atomic>
 #include <cassert>
@@ -31,7 +31,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/functional/function_ref.h"
 #include "absl/synchronization/mutex.h"
-#include "tensorstore/internal/cache_pool_limits.h"
+#include "tensorstore/internal/cache/cache_pool_limits.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/intrusive_linked_list.h"
 #include "tensorstore/internal/intrusive_ptr.h"

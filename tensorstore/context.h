@@ -19,7 +19,7 @@
 
 #include <nlohmann/json.hpp>
 #include "tensorstore/context_impl_base.h"
-#include "tensorstore/internal/cache_key.h"
+#include "tensorstore/internal/cache/cache_key.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/json_serialization_options.h"
