@@ -30,11 +30,13 @@ void FullIndexing() {
   static_cast<void>(x({0, 1}));
   static_cast<void>(x(span<const Index, 2>({0, 1})));
 
+  EXPECT_NON_COMPILE("double", x({1.1, 2.2}));
+  EXPECT_NON_COMPILE("no matching function", x());
   EXPECT_NON_COMPILE("IsCompatibleFullIndexPack", x(1, 2, 3));
-  EXPECT_NON_COMPILE("IsCompatibleFullIndexPack", x(1.0, 2, 3));
+  EXPECT_NON_COMPILE("IsCompatibleFullIndexPack", x(1.1, 2, 3));
   EXPECT_NON_COMPILE("IsCompatibleFullIndexPack", x());
-  EXPECT_NON_COMPILE("IsCompatibleFullIndexVector", x({1, 2, 3}));
-  EXPECT_NON_COMPILE("IsCompatibleFullIndexVector", x({1.0, 2.0, 3.0}));
+  EXPECT_NON_COMPILE("template argument", x({}));
+  EXPECT_NON_COMPILE("AreStaticRanksCompatible", x({1, 2, 3}));
   EXPECT_NON_COMPILE("IsCompatibleFullIndexVector",
                      x(span<const Index, 3>({1, 2, 3})));
 }

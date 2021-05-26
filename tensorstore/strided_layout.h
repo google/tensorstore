@@ -721,12 +721,10 @@ class StridedLayout
 
   /// Same as more general `operator()` overload defined above, but can be
   /// called with a braced list, e.g. `layout({1,2,3})`.
-  template <typename IndexType, std::size_t N>
-  std::enable_if_t<
-      IsCompatibleFullIndexVector<static_rank, const IndexType (&)[N]>::value,
-      Index>
-  operator()(const IndexType (&indices)[N]) const {
-    return (*this)(span<const IndexType, N>(indices));
+  template <std::size_t N>
+  std::enable_if_t<AreStaticRanksCompatible(static_rank, N), Index> operator()(
+      const Index (&indices)[N]) const {
+    return (*this)(span<const Index, N>(indices));
   }
 
   /// Returns `(*this)({index...})`.

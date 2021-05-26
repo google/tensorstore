@@ -740,7 +740,8 @@ class Array {
   /// \pre 0 <= span(indices)[i] < shape()[i]
   /// \returns byte_strided_pointer()[layout()(indices)]
   template <typename Indices>
-  std::enable_if_t<IsCompatibleFullIndexVector<static_rank, Indices>::value,
+  std::enable_if_t<(!std::is_void_v<Element> &&
+                    IsCompatibleFullIndexVector<static_rank, Indices>::value),
                    Element>&
   operator()(const Indices& indices) const {
     return byte_strided_pointer()[this->layout()(indices)];
@@ -749,17 +750,15 @@ class Array {
   /// Same as more general overload of `operator()` defined above, but can be
   /// called with a braced list.
   ///
-  /// \tparam IndexType The type of the indices, must be convertible to
-  ///     `Index`.
   /// \param indices An array of `N` indices.
   /// \pre CHECKs that N == rank()
   /// \pre 0 <= indices[i] < shape()[i]
   /// \returns byte_strided_pointer()[layout()(indices)]
-  template <typename U = Element, typename IndexType, std::size_t N>
-  std::enable_if_t<
-      IsCompatibleFullIndexVector<static_rank, const IndexType (&)[N]>::value,
-      Element>&
-  operator()(const IndexType (&indices)[N]) const {
+  template <std::size_t N>
+  std::enable_if_t<(!std::is_void_v<Element> &&
+                    AreStaticRanksCompatible(static_rank, N)),
+                   Element>&
+  operator()(const Index (&indices)[N]) const {
     return byte_strided_pointer()[this->layout()(indices)];
   }
 
@@ -772,10 +771,24 @@ class Array {
   /// \dchecks 0 <= span({index...})[i] < shape()[i]
   /// \returns byte_strided_pointer()[layout()({index...})]
   template <typename... IndexType>
-  std::enable_if_t<IsCompatibleFullIndexPack<static_rank, IndexType...>::value,
-                   Element>&
+  std::enable_if_t<
+      (!std::is_void_v<Element> &&
+       IsCompatibleFullIndexPack<static_rank, IndexType...>::value),
+      Element>&
   operator()(IndexType... index) const {
-    return byte_strided_pointer()[this->layout()(index...)];
+    constexpr std::size_t N = sizeof...(IndexType);
+    const Index indices[N] = {index...};
+    return byte_strided_pointer()[this->layout()(indices)];
+  }
+
+  /// Returns a reference to the element at the specified indices.
+  ///
+  /// \dcheck CHECKs that `rank() == 0`.
+  template <int&... ExplicitArgumentBarrier, DimensionIndex R = static_rank>
+  std::enable_if_t<(!std::is_void_v<Element> && AreStaticRanksCompatible(R, 0)),
+                   Element>&
+  operator()() const {
+    return byte_strided_pointer()[this->layout()()];
   }
 
   /// Returns a reference to the sub-array obtained by subscripting the first
@@ -793,7 +806,7 @@ class Array {
   /// \post `result.data() == `
   ///       `this->byte_strided_pointer() + this->layout()[index]`
   /// \post `result.layout() == GetSubLayoutView(this->layout(), 1)`
-  template <DimensionIndex R = static_rank>
+  template <int&... ExplicitArgumentBarrier, DimensionIndex R = static_rank>
   ArrayView<Element, (R == -1) ? -1 : R - 1, array_origin_kind> operator[](
       Index index) const {
     static_assert(R == dynamic_rank || R > 0, "Rank must be > 0.");
@@ -822,11 +835,10 @@ class Array {
 
   /// Same as more general overload defined above, but can be called with a
   /// braced list.
-  template <typename IndexType, std::size_t N>
-  ArrayView<Element,
-            SubArrayStaticRank<static_rank, const IndexType (&)[N]>::value,
+  template <std::size_t N>
+  ArrayView<Element, SubArrayStaticRank<static_rank, const Index (&)[N]>::value,
             array_origin_kind>
-  operator[](const IndexType (&indices)[N]) const {
+  operator[](const Index (&indices)[N]) const {
     return SubArray(*this, indices);
   }
 

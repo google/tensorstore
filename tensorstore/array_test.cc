@@ -872,10 +872,12 @@ TEST(ArrayTest, UnownedToSharedAliasing) {
 namespace array_indexing_tests {
 
 TEST(ArrayTest, Indexing) {
+  const Index two = 2;
   int data[2][3] = {{1, 2, 3}, {4, 5, 6}};
   ArrayView<int, 2> a = MakeArrayView(data);
   EXPECT_EQ(1, a(0, 0));
   EXPECT_EQ(6, a(1, 2));
+  EXPECT_EQ(6, a(1, two));
   EXPECT_EQ(6, a({1, 2}));
   EXPECT_EQ(6, a(span({1, 2})));
   EXPECT_EQ(MakeScalarArrayView<int>(6), a[1][2]);
