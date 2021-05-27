@@ -69,7 +69,7 @@
 ///         bound->value = spec->value;
 ///         TENSORSTORE_ASSIGN_OR_RETURN(bound->baz,
 ///                                      context.GetResource(spec->baz));
-///         return Status();
+///         return absl::OkStatus();
 ///       }
 ///
 ///       static void Unbind(Spec* spec, const Bound* bound,
@@ -85,7 +85,7 @@
 ///       using Bound = SpecT<ContextBound>;
 ///       static Status Bind(const Spec* spec, Bound* bound,
 ///                          const Context& context) {
-///         spec->value = bound->value;
+///         bound->value = spec->value;
 ///         TENSORSTORE_ASSIGN_OR_RETURN(bound->foo,
 ///                                      context.GetResource(spec->foo));
 ///         TENSORSTORE_ASSIGN_OR_RETURN(bound->bar,
@@ -93,7 +93,7 @@
 ///         TENSORSTORE_RETURN_IF_ERROR(
 ///             ContextBindingTraits<NestedT<ContextUnbound>>::Bind(
 ///                 &spec->nested, &bound->nested, context));
-///         return Status();
+///         return absl::OkStatus();
 ///       }
 ///
 ///       static void Unbind(Spec* spec, const Bound* bound,
@@ -132,7 +132,7 @@ struct ContextBindingTraits {
   /// Assigns `*bound` to the "bound" representation of `*spec` using `context.
   static Status Bind(const Spec* spec, Bound* bound, const Context& context) {
     *bound = *spec;
-    return Status();
+    return absl::OkStatus();
   }
 
   /// Assigns `*spec` to the "unbound" representation of `*bound` using
@@ -150,7 +150,7 @@ struct ContextBindingTraits<Context::ResourceSpec<Provider>> {
   using Bound = Context::Resource<Provider>;
   static Status Bind(const Spec* spec, Bound* bound, const Context& context) {
     TENSORSTORE_ASSIGN_OR_RETURN(*bound, context.GetResource(*spec));
-    return Status();
+    return absl::OkStatus();
   }
   static void Unbind(Spec* spec, const Bound* bound,
                      const ContextSpecBuilder& builder) {
