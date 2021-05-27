@@ -142,9 +142,6 @@ struct TransformParserOutput {
   std::optional<DimensionIndex> input_dimension;
   IndexInterval index_array_bounds;
   SharedArray<const Index, dynamic_rank, zero_origin> index_array;
-
-  InlinedVector<Index> index_array_shape;
-  ArrayView<const Index, dynamic_rank, zero_origin> index_array_view;
 };
 
 struct TransformParserData {
@@ -174,10 +171,7 @@ constexpr auto TransformParserOutputBinder = jb::Object(
                               jb::Optional())),
     jb::OptionalMember(
         "index_array",
-        jb::LoadSave(jb::Projection(&TransformParserOutput::index_array,
-                                    jb::NestedArray()),
-                     jb::Projection(&TransformParserOutput::index_array_view,
-                                    jb::NestedArray()))),
+        jb::Projection(&TransformParserOutput::index_array, jb::NestedArray())),
     jb::OptionalMember(
         "index_array_bounds",
         jb::Sequence(jb::Initialize([](auto* obj) {
@@ -447,8 +441,6 @@ TransformParserData MakeIndexTransformViewDataForSaving(
   tmp.output.emplace(output_rank);
 
   auto maps = transform.output_index_maps();
-  absl::FixedArray<Index, internal::kNumInlinedDims> index_array_data(
-      input_rank);
   for (DimensionIndex i = 0; i < output_rank; ++i) {
     auto& output = (*tmp.output)[i];
     const auto map = maps[i];
@@ -472,28 +464,26 @@ TransformParserData MakeIndexTransformViewDataForSaving(
       }
       case OutputIndexMethod::array: {
         all_identity = false;
-        output.index_array_shape.resize(input_rank);
+        output.index_array.layout().set_rank(input_rank);
         const auto index_array_data = map.index_array();
         for (DimensionIndex input_dim = 0; input_dim < input_rank;
              ++input_dim) {
-          output.index_array_shape[input_dim] =
+          output.index_array.shape()[input_dim] =
               index_array_data.byte_strides()[input_dim] == 0
                   ? 1
                   : input_domain.shape()[input_dim];
+          output.index_array.byte_strides()[input_dim] =
+              index_array_data.byte_strides()[input_dim];
         }
-        output.index_array_view = ArrayView<const Index, dynamic_rank>(
-            AddByteOffset(
-                ElementPointer<const Index>(index_array_data.element_pointer()),
-                IndexInnerProduct(input_rank, input_domain.origin().data(),
-                                  index_array_data.byte_strides().data())),
-            StridedLayoutView<>(input_rank, output.index_array_shape.data(),
-                                index_array_data.byte_strides().data()));
+        output.index_array.element_pointer() = AddByteOffset(
+            index_array_data.element_pointer(),
+            IndexInnerProduct(input_rank, input_domain.origin().data(),
+                              index_array_data.byte_strides().data()));
         // If `index_array` contains values outside `index_range`, encode
         // `index_range` as well to avoid expanding the range.
         IndexInterval index_range = index_array_data.index_range();
         if (index_range != IndexInterval::Infinite() &&
-            !ValidateIndexArrayBounds(index_range, output.index_array_view)
-                 .ok()) {
+            !ValidateIndexArrayBounds(index_range, output.index_array).ok()) {
           output.index_array_bounds = index_range;
         }
         break;
