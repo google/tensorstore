@@ -1,6 +1,0 @@
-tensorstore.IndexDomain.implicit\_upper\_bounds
-===============================================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: IndexDomain.implicit_upper_bounds

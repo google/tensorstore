@@ -1,6 +1,0 @@
-tensorstore.downsample
-======================
-
-.. currentmodule:: tensorstore
-
-.. autofunction:: downsample

@@ -1,6 +1,0 @@
-tensorstore.Future.\_\_init\_\_
-===============================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: Future.__init__

@@ -1,6 +1,0 @@
-tensorstore.OutputIndexMaps.\_\_init\_\_
-========================================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: OutputIndexMaps.__init__

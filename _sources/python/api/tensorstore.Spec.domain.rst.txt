@@ -1,6 +1,0 @@
-tensorstore.Spec.domain
-=======================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: Spec.domain

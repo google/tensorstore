@@ -1,6 +1,0 @@
-tensorstore.WriteFutures.result
-===============================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: WriteFutures.result

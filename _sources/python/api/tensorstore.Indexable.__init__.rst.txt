@@ -1,6 +1,0 @@
-tensorstore.Indexable.\_\_init\_\_
-==================================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: Indexable.__init__

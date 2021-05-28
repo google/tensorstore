@@ -1,6 +1,0 @@
-tensorstore.IndexTransform.input\_rank
-======================================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: IndexTransform.input_rank

@@ -1,6 +1,0 @@
-tensorstore.IndexTransform.input\_origin
-========================================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: IndexTransform.input_origin

@@ -1,6 +1,0 @@
-tensorstore.OutputIndexMap.input\_dimension
-===========================================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: OutputIndexMap.input_dimension

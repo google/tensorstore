@@ -1,6 +1,0 @@
-tensorstore.Spec.oindex
-=======================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: Spec.oindex

@@ -1,6 +1,0 @@
-tensorstore.Transaction.atomic
-==============================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: Transaction.atomic

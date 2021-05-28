@@ -1,6 +1,0 @@
-tensorstore.Dim.finite
-======================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: Dim.finite

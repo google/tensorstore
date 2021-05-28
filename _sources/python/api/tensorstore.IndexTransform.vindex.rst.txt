@@ -1,6 +1,0 @@
-tensorstore.IndexTransform.vindex
-=================================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: IndexTransform.vindex

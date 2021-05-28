@@ -1,6 +1,0 @@
-tensorstore.IndexTransform.implicit\_lower\_bounds
-==================================================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: IndexTransform.implicit_lower_bounds

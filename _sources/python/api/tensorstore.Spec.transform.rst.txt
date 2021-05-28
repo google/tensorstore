@@ -1,6 +1,0 @@
-tensorstore.Spec.transform
-==========================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: Spec.transform

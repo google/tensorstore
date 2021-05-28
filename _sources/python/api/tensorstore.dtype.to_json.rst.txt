@@ -1,6 +1,0 @@
-tensorstore.dtype.to\_json
-==========================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: dtype.to_json

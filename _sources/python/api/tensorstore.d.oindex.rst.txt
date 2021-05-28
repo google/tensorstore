@@ -1,6 +1,0 @@
-tensorstore.d.oindex
-====================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: d.oindex

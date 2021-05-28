@@ -1,6 +1,0 @@
-tensorstore.OutputIndexMethod.name
-==================================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: OutputIndexMethod.name

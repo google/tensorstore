@@ -1,6 +1,0 @@
-tensorstore.TensorStore.origin
-==============================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: TensorStore.origin

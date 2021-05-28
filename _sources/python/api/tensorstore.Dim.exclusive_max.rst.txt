@@ -1,6 +1,0 @@
-tensorstore.Dim.exclusive\_max
-==============================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: Dim.exclusive_max

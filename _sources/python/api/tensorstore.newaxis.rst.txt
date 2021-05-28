@@ -1,6 +1,0 @@
-tensorstore.newaxis
-===================
-
-.. currentmodule:: tensorstore
-
-.. autodata:: newaxis

@@ -1,6 +1,0 @@
-tensorstore.IndexDomain.origin
-==============================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: IndexDomain.origin

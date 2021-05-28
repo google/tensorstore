@@ -1,6 +1,0 @@
-tensorstore.Dim.size
-====================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: Dim.size

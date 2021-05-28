@@ -1,6 +1,0 @@
-tensorstore.TensorStore.size
-============================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: TensorStore.size

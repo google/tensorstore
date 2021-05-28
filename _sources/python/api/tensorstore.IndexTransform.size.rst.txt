@@ -1,6 +1,0 @@
-tensorstore.IndexTransform.size
-===============================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: IndexTransform.size

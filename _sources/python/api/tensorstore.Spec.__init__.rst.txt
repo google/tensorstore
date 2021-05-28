@@ -1,6 +1,0 @@
-tensorstore.Spec.\_\_init\_\_
-=============================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: Spec.__init__

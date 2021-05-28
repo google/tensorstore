@@ -1,6 +1,0 @@
-tensorstore.TensorStore.with\_transaction
-=========================================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: TensorStore.with_transaction

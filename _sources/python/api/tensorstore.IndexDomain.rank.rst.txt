@@ -1,6 +1,0 @@
-tensorstore.IndexDomain.rank
-============================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: IndexDomain.rank

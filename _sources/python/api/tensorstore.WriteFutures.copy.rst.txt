@@ -1,6 +1,0 @@
-tensorstore.WriteFutures.copy
-=============================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: WriteFutures.copy

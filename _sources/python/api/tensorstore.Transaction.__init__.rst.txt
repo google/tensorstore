@@ -1,6 +1,0 @@
-tensorstore.Transaction.\_\_init\_\_
-====================================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: Transaction.__init__

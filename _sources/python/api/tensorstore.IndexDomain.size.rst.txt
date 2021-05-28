@@ -1,6 +1,0 @@
-tensorstore.IndexDomain.size
-============================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: IndexDomain.size

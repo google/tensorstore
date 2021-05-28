@@ -1,6 +1,0 @@
-tensorstore.TensorStore.spec
-============================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: TensorStore.spec

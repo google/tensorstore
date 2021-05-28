@@ -1,6 +1,0 @@
-tensorstore.Spec.size
-=====================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: Spec.size

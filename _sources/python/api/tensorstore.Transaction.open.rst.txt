@@ -1,6 +1,0 @@
-tensorstore.Transaction.open
-============================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: Transaction.open

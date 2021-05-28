@@ -1,6 +1,0 @@
-tensorstore.OutputIndexMaps.rank
-================================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: OutputIndexMaps.rank

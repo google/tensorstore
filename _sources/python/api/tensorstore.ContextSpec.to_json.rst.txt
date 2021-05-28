@@ -1,6 +1,0 @@
-tensorstore.ContextSpec.to\_json
-================================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: ContextSpec.to_json

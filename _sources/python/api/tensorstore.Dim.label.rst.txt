@@ -1,6 +1,0 @@
-tensorstore.Dim.label
-=====================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: Dim.label

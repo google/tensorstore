@@ -1,6 +1,0 @@
-tensorstore.TensorStore.astype
-==============================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: TensorStore.astype

@@ -1,6 +1,0 @@
-tensorstore.TensorStore.rank
-============================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: TensorStore.rank

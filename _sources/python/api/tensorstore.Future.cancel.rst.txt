@@ -1,6 +1,0 @@
-tensorstore.Future.cancel
-=========================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: Future.cancel

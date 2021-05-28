@@ -1,6 +1,0 @@
-tensorstore.IndexInterval.empty
-===============================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: IndexInterval.empty

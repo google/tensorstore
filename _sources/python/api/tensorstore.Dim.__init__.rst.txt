@@ -1,6 +1,0 @@
-tensorstore.Dim.\_\_init\_\_
-============================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: Dim.__init__

@@ -1,6 +1,0 @@
-tensorstore.OutputIndexMap.index\_range
-=======================================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: OutputIndexMap.index_range

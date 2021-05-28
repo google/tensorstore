@@ -1,6 +1,0 @@
-tensorstore.Transaction.future
-==============================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: Transaction.future

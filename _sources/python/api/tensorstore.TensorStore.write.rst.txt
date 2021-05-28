@@ -1,6 +1,0 @@
-tensorstore.TensorStore.write
-=============================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: TensorStore.write

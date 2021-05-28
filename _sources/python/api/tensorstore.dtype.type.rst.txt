@@ -1,6 +1,0 @@
-tensorstore.dtype.type
-======================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: dtype.type

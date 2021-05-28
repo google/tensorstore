@@ -1,6 +1,0 @@
-tensorstore.d.translate\_to
-===========================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: d.translate_to

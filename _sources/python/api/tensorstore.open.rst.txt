@@ -1,6 +1,0 @@
-tensorstore.open
-================
-
-.. currentmodule:: tensorstore
-
-.. autofunction:: open

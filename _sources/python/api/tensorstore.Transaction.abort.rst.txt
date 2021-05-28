@@ -1,6 +1,0 @@
-tensorstore.Transaction.abort
-=============================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: Transaction.abort

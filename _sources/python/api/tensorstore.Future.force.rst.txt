@@ -1,6 +1,0 @@
-tensorstore.Future.force
-========================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: Future.force

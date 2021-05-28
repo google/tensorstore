@@ -1,6 +1,0 @@
-tensorstore.OutputIndexMethod.single\_input\_dimension
-======================================================
-
-.. currentmodule:: tensorstore
-
-.. autoattribute:: OutputIndexMethod.single_input_dimension

@@ -1,6 +1,0 @@
-tensorstore.Transaction.commit\_started
-=======================================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: Transaction.commit_started

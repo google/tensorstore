@@ -1,6 +1,0 @@
-tensorstore.IndexTransform.output\_rank
-=======================================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: IndexTransform.output_rank

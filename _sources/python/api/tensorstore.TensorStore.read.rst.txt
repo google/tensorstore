@@ -1,6 +1,0 @@
-tensorstore.TensorStore.read
-============================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: TensorStore.read

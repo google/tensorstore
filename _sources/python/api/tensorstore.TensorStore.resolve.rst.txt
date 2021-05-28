@@ -1,6 +1,0 @@
-tensorstore.TensorStore.resolve
-===============================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: TensorStore.resolve

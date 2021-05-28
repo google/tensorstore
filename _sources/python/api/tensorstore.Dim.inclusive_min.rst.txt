@@ -1,6 +1,0 @@
-tensorstore.Dim.inclusive\_min
-==============================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: Dim.inclusive_min

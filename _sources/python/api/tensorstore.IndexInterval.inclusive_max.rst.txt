@@ -1,6 +1,0 @@
-tensorstore.IndexInterval.inclusive\_max
-========================================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: IndexInterval.inclusive_max

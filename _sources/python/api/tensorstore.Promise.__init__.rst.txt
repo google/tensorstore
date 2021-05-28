@@ -1,6 +1,0 @@
-tensorstore.Promise.\_\_init\_\_
-================================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: Promise.__init__

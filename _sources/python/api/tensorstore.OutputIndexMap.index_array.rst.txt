@@ -1,6 +1,0 @@
-tensorstore.OutputIndexMap.index\_array
-=======================================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: OutputIndexMap.index_array

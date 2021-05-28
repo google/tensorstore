@@ -1,6 +1,0 @@
-tensorstore.d.stride
-====================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: d.stride

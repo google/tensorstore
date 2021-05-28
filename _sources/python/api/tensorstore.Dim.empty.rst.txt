@@ -1,6 +1,0 @@
-tensorstore.Dim.empty
-=====================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: Dim.empty

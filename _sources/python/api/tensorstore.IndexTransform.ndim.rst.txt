@@ -1,6 +1,0 @@
-tensorstore.IndexTransform.ndim
-===============================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: IndexTransform.ndim

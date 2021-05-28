@@ -1,6 +1,0 @@
-tensorstore.WriteFutures.remove\_done\_callback
-===============================================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: WriteFutures.remove_done_callback

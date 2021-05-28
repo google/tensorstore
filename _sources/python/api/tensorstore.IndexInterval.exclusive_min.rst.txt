@@ -1,6 +1,0 @@
-tensorstore.IndexInterval.exclusive\_min
-========================================
-
-.. currentmodule:: tensorstore
-
-.. autoproperty:: IndexInterval.exclusive_min

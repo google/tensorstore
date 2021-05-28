@@ -1,6 +1,0 @@
-tensorstore.IndexTransform.\_\_init\_\_
-=======================================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: IndexTransform.__init__

@@ -1,6 +1,0 @@
-tensorstore.dtype.\_\_init\_\_
-==============================
-
-.. currentmodule:: tensorstore
-
-.. automethod:: dtype.__init__
