@@ -27,8 +27,8 @@ namespace tensorstore {
 namespace internal {
 
 using CodecSpecRegistry =
-    JsonRegistry<CodecSpec, ContextFromJsonOptions, ContextToJsonOptions,
-                 CodecSpec, IntrusivePtr<const CodecSpec>>;
+    JsonRegistry<CodecSpec, JsonSerializationOptions, JsonSerializationOptions,
+                 IntrusivePtr<const CodecSpec>>;
 
 /// Returns the global encoding registry.
 CodecSpecRegistry& GetCodecSpecRegistry();

@@ -98,8 +98,8 @@ class Spec {
   /// Returns the rank of the TensorStore, or `dynamic_rank` if unknown.
   DimensionIndex rank() const { return impl_.transform_spec.input_rank(); }
 
-  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(Spec, Context::FromJsonOptions,
-                                          Context::ToJsonOptions)
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(Spec, JsonSerializationOptions,
+                                          JsonSerializationOptions)
 
   /// Applies a function that operates on an IndexTransform to a Spec.
   ///

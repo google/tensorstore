@@ -287,14 +287,8 @@ class ChunkLayout {
   friend Result<ChunkLayout> ApplyInverseIndexTransform(
       IndexTransformView<> transform, ChunkLayout layout);
 
-  using ToJsonOptions = IncludeDefaults;
-  struct FromJsonOptions : public RankConstraint {
-    FromJsonOptions(RankConstraint rank_constraint)
-        : RankConstraint(rank_constraint) {}
-    FromJsonOptions(internal_json_binding::NoOptions = {},
-                    RankConstraint rank_constraint = RankConstraint{})
-        : RankConstraint(rank_constraint) {}
-  };
+  using ToJsonOptions = JsonSerializationOptions;
+  using FromJsonOptions = JsonSerializationOptions;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ChunkLayout, FromJsonOptions,
                                           ToJsonOptions)

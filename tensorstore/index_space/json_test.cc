@@ -871,7 +871,9 @@ TEST(ConstrainedRankJsonBinderTest, RoundTripRankConstraintIncludeDefaults) {
           {30, 30},
       },
       tensorstore::internal_json_binding::ConstrainedRankJsonBinder,
-      tensorstore::RankConstraint{30}, tensorstore::RankConstraint{30});
+      tensorstore::JsonSerializationOptions{tensorstore::RankConstraint{30},
+                                            tensorstore::IncludeDefaults{true}},
+      tensorstore::RankConstraint{30});
 }
 
 TEST(ConstrainedRankJsonBinderTest, FromJsonRankConstraint) {
@@ -896,7 +898,8 @@ TEST(ConstrainedRankJsonBinderTest, ToJsonRankConstraintIncludeDefaults) {
                             "Expected 30, but received: 5")},
       },
       tensorstore::internal_json_binding::ConstrainedRankJsonBinder,
-      tensorstore::RankConstraint{30});
+      tensorstore::JsonSerializationOptions{
+          tensorstore::RankConstraint{30}, tensorstore::IncludeDefaults{true}});
 }
 
 TEST(ConstrainedRankJsonBinderTest, ToJsonRankConstraintExcludeDefaults) {
@@ -910,9 +913,8 @@ TEST(ConstrainedRankJsonBinderTest, ToJsonRankConstraintExcludeDefaults) {
                             "Expected 30, but received: 5")},
       },
       tensorstore::internal_json_binding::ConstrainedRankJsonBinder,
-      tensorstore::IndexTransformSpecToJsonOptions{
-          tensorstore::IncludeDefaults{false},
-          tensorstore::RankConstraint{30}});
+      tensorstore::JsonSerializationOptions{tensorstore::IncludeDefaults{false},
+                                            tensorstore::RankConstraint{30}});
 }
 
 }  // namespace

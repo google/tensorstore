@@ -262,30 +262,11 @@ absl::Status ApplyOptions(DriverSpec::Ptr& spec, SpecOptions&& options);
 absl::Status TransformAndApplyOptions(TransformedDriverSpec<>& spec,
                                       SpecOptions&& options);
 
-/// Options for loading a `TransformedDriverSpec<>` from JSON.
-///
-/// The `DriverConstraints` constrain/provide defaults for the `"dtype"` and
-/// `"rank"`/`"transform"` members.  These constraints are left unspecified when
-/// loading a `tensorstore::Spec` directly, but are used when loading a nested
-/// TensorStore specification within another TensorStore specification (e.g. for
-/// the `"cast"` driver), in order to avoid redundantly specifying the `"rank"`
-/// or `"dtype"` in the nested JSON object.
-using DriverSpecFromJsonOptions = ArrayFromJsonOptions;
-
-/// Options for converting a `TransformedDriverSpec<>` to JSON.
-///
-/// The `DriverConstraints` limit what is included when `IncludeDefaults{false}`
-/// is specified.  These constraints are used for nested TensorStore
-/// specifications within another TensorStore specification (e.g. for the "cast"
-/// driver), in order to permit propagation of rank/data type information from
-/// the outer specification.
-using DriverSpecToJsonOptions = ArrayToJsonOptions;
-
 /// JSON binder for TensorStore specification.
 TENSORSTORE_DECLARE_JSON_BINDER(TransformedDriverSpecJsonBinder,
                                 TransformedDriverSpec<>,
-                                DriverSpecFromJsonOptions,
-                                DriverSpecToJsonOptions, ::nlohmann::json);
+                                JsonSerializationOptions,
+                                JsonSerializationOptions, ::nlohmann::json);
 
 /// Abstract base class for defining a TensorStore driver, which serves as the
 /// glue between the public TensorStore API and an arbitrary data

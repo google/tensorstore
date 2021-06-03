@@ -172,7 +172,7 @@ Status ProviderNotRegisteredError(std::string_view key);
 /// Converts a JSON spec to an anonymous context resource spec.
 Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJson(
     const ContextResourceProviderImplBase& provider, const ::nlohmann::json& j,
-    ContextFromJsonOptions options);
+    JsonSerializationOptions options);
 
 /// Converts a JSON spec to a keyed context resource spec.  The provider is
 /// determined from the `key`.

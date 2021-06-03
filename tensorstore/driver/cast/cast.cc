@@ -56,18 +56,11 @@ class CastDriver
       }),
       jb::Member("base",
                  [](auto is_loading, const auto& options, auto* obj, auto* j) {
-                   constexpr auto binder = jb::Projection(&SpecData::base);
-                   if constexpr (is_loading) {
-                     return binder(is_loading,
-                                   DriverSpecFromJsonOptions{
-                                       options, {DataType(), obj->rank}},
-                                   obj, j);
-                   } else {
-                     return binder(is_loading,
-                                   DriverSpecToJsonOptions{
-                                       options, {DataType(), obj->rank}},
-                                   obj, j);
-                   }
+                   return jb::Projection(&SpecData::base)(
+                       is_loading,
+                       JsonSerializationOptions(options, DataType(),
+                                                RankConstraint{obj->rank}),
+                       obj, j);
                  }),
       jb::Initialize([](auto* obj) -> absl::Status {
         if (obj->rank == dynamic_rank) {

@@ -608,7 +608,6 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore:json_serialization_options",
         "//tensorstore:rank",
-        "//tensorstore/internal:array_constraints",
         "//tensorstore/internal:dimension_indexed_json_binder",
         "//tensorstore/internal:json",
         "//tensorstore/internal:json_array",

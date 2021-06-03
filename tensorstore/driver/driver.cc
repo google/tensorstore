@@ -187,8 +187,7 @@ TENSORSTORE_DEFINE_JSON_BINDER(
               &TransformedDriverSpec<>::transform_spec,
               [](auto is_loading, const auto& options, auto* obj, auto* j_obj) {
                 return tensorstore::IndexTransformSpecBinder(
-                    is_loading, {options, RankConstraint{options.rank}}, obj,
-                    j_obj);
+                    is_loading, options, obj, j_obj);
               }),
           jb::Member("driver",
                      jb::Projection(&TransformedDriverSpec<>::driver_spec,

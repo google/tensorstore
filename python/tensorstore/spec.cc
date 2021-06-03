@@ -48,12 +48,10 @@ void RegisterSpecBindings(pybind11::module m) {
 Specification for opening or creating a TensorStore.
 )");
   cls_spec
-      .def(py::init([](const ::nlohmann::json& json, bool allow_unregistered) {
-             return ValueOrThrow(Spec::FromJson(
-                 json, tensorstore::AllowUnregistered{allow_unregistered}));
+      .def(py::init([](const ::nlohmann::json& json) {
+             return ValueOrThrow(Spec::FromJson(json));
            }),
-           "Construct from JSON representation.", py::arg("json"),
-           py::arg("allow_unregistered") = false)
+           "Construct from JSON representation.", py::arg("json"))
       .def_property_readonly("dtype",
                              [](const Spec& self) -> std::optional<DataType> {
                                if (self.dtype().valid()) return self.dtype();
@@ -105,8 +103,7 @@ Specification for opening or creating a TensorStore.
       .def(py::pickle(
           [](const Spec& self) { return ValueOrThrow(self.ToJson()); },
           [](::nlohmann::json json) {
-            return ValueOrThrow(Spec::FromJson(
-                std::move(json), tensorstore::AllowUnregistered{true}));
+            return ValueOrThrow(Spec::FromJson(std::move(json)));
           }));
   cls_spec.attr("__iter__") = py::none();
 

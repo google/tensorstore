@@ -85,18 +85,14 @@ class DownsampleDriver
   using BoundSpecData = SpecT<internal::ContextBound>;
 
   constexpr static auto json_binder = jb::Object(
-      jb::Member(
-          "base",
-          [](auto is_loading, const auto& options, auto* obj, auto* j) {
-            constexpr auto binder = jb::Projection(&SpecData::base);
-            if constexpr (is_loading) {
-              return binder(is_loading,
-                            DriverSpecFromJsonOptions{options, *obj}, obj, j);
-            } else {
-              return binder(is_loading, DriverSpecToJsonOptions{options, *obj},
-                            obj, j);
-            }
-          }),
+      jb::Member("base",
+                 [](auto is_loading, const auto& options, auto* obj, auto* j) {
+                   return jb::Projection(&SpecData::base)(
+                       is_loading,
+                       JsonSerializationOptions(options, obj->dtype,
+                                                RankConstraint{obj->rank}),
+                       obj, j);
+                 }),
       jb::Initialize([](SpecData* obj) { obj->InitializeFromBase(); }),
       jb::Member("downsample_factors",
                  jb::Validate(

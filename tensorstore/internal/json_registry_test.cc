@@ -27,7 +27,6 @@
 
 namespace {
 
-using tensorstore::AllowUnregistered;
 using tensorstore::MatchesStatus;
 using tensorstore::internal::IntrusivePtr;
 using tensorstore::internal::JsonRegistry;
@@ -35,36 +34,34 @@ using tensorstore::internal::JsonRegistry;
 class MyInterface
     : public tensorstore::internal::AtomicReferenceCount<MyInterface> {
  public:
-  virtual int Whatever() const {
-    // Base implementation used in unregistered case, must not be
-    // called.
-    return 0;
-  }
+  virtual int Whatever() const = 0;
   virtual ~MyInterface() = default;
 };
 
 class MyInterfacePtr : public IntrusivePtr<MyInterface> {
  public:
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(MyInterfacePtr,
-                                          tensorstore::ContextFromJsonOptions,
-                                          tensorstore::IncludeDefaults)
+                                          tensorstore::JsonSerializationOptions,
+                                          tensorstore::JsonSerializationOptions)
 };
 
-using Registry = JsonRegistry<MyInterface, tensorstore::ContextFromJsonOptions,
-                              tensorstore::IncludeDefaults>;
+using Registry =
+    JsonRegistry<MyInterface, tensorstore::JsonSerializationOptions,
+                 tensorstore::JsonSerializationOptions>;
 
 Registry& GetRegistry() {
   static tensorstore::internal::NoDestructor<Registry> registry;
   return *registry;
 }
 
-TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
-    MyInterfacePtr,
-    [](auto is_loading, const auto& options, auto* obj, ::nlohmann::json* j) {
-      namespace jb = tensorstore::internal_json_binding;
-      return jb::Object(GetRegistry().MemberBinder("id"))(is_loading, options,
-                                                          obj, j);
-    })
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(MyInterfacePtr, [](auto is_loading,
+                                                          const auto& options,
+                                                          auto* obj,
+                                                          ::nlohmann::json* j) {
+  namespace jb = tensorstore::internal_json_binding;
+  return jb::Object(GetRegistry().MemberBinder("id"))(is_loading, options, obj,
+                                                      j);
+})
 
 class FooImpl : public MyInterface {
  public:
@@ -111,15 +108,10 @@ TEST(RegistryTest, Bar) {
 }
 
 TEST(RegistryTest, Unknown) {
-  const ::nlohmann::json j{{"id", "baz"}, {"y", 42.5}};
-  auto obj = MyInterfacePtr::FromJson(j);
-  EXPECT_THAT(obj, MatchesStatus(absl::StatusCode::kInvalidArgument,
-                                 "Error parsing object member \"id\": "
-                                 "\"baz\" is not registered"));
-  obj = MyInterfacePtr::FromJson(j, AllowUnregistered{true});
-  EXPECT_EQ(absl::OkStatus(), GetStatus(obj));
-  EXPECT_EQ(0, (*obj)->Whatever());
-  EXPECT_EQ(j, (*obj).ToJson());
+  EXPECT_THAT(MyInterfacePtr::FromJson({{"id", "baz"}, {"y", 42.5}}),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Error parsing object member \"id\": "
+                            "\"baz\" is not registered"));
 }
 
 }  // namespace

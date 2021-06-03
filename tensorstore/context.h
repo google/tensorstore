@@ -90,8 +90,8 @@ namespace tensorstore {
 /// \threadsafety Thread compatible.
 class Context {
  public:
-  using ToJsonOptions = ContextToJsonOptions;
-  using FromJsonOptions = ContextFromJsonOptions;
+  using ToJsonOptions = JsonSerializationOptions;
+  using FromJsonOptions = JsonSerializationOptions;
 
   class Spec {
    public:
@@ -115,8 +115,8 @@ class Context {
   template <typename Provider>
   class ResourceSpec {
    public:
-    using ToJsonOptions = ContextToJsonOptions;
-    using FromJsonOptions = ContextFromJsonOptions;
+    using ToJsonOptions = JsonSerializationOptions;
+    using FromJsonOptions = JsonSerializationOptions;
 
     /// Constructs an invalid resource spec.
     ResourceSpec() = default;
@@ -150,7 +150,7 @@ class Context {
                     obj->impl_, internal_context::ContextResourceSpecFromJson(
                                     Provider::id, std::move(*j), options));
               } else {
-                if (!options.include_context() || !obj->impl_) {
+                if (!IncludeContext(options).include_context() || !obj->impl_) {
                   *j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
                   return absl::OkStatus();
                 }
@@ -372,7 +372,8 @@ class ContextSpecBuilder {
 };
 
 TENSORSTORE_DECLARE_JSON_BINDER(ContextSpecDefaultableJsonBinder, Context::Spec,
-                                ContextFromJsonOptions, ContextToJsonOptions)
+                                JsonSerializationOptions,
+                                JsonSerializationOptions)
 
 }  // namespace internal
 }  // namespace tensorstore

@@ -21,21 +21,5 @@ namespace internal {
 
 JsonSpecifiedCompressor::~JsonSpecifiedCompressor() = default;
 
-bool JsonSpecifiedCompressor::valid() const { return true; }
-
-absl::Status JsonSpecifiedCompressor::Encode(const absl::Cord& input,
-                                             absl::Cord* output,
-                                             std::size_t element_bytes) const {
-  return absl::UnimplementedError("");
-}
-
-absl::Status JsonSpecifiedCompressor::Decode(const absl::Cord& input,
-                                             absl::Cord* output,
-                                             std::size_t element_bytes) const {
-  return absl::UnimplementedError("");
-}
-
-bool JsonSpecifiedCompressor::Unregistered::valid() const { return false; }
-
 }  // namespace internal
 }  // namespace tensorstore

@@ -54,8 +54,7 @@ void JsonRegistryImpl::Register(std::unique_ptr<Entry> entry) {
   }
 }
 
-absl::Status JsonRegistryImpl::LoadKey(bool allow_unregistered, void* obj,
-                                       ::nlohmann::json* j) const {
+absl::Status JsonRegistryImpl::LoadKey(void* obj, ::nlohmann::json* j) const {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto id, internal_json_binding::FromJson<std::string>(std::move(*j)));
   const Entry* entry = nullptr;
@@ -68,10 +67,7 @@ absl::Status JsonRegistryImpl::LoadKey(bool allow_unregistered, void* obj,
   if (entry) {
     entry->allocate(obj);
   } else {
-    if (!allow_unregistered) {
-      return internal_json_registry::GetJsonUnregisteredError(id);
-    }
-    allocate_unregistered_(obj)->id = std::move(id);
+    return internal_json_registry::GetJsonUnregisteredError(id);
   }
   return absl::OkStatus();
 }
@@ -88,10 +84,7 @@ absl::Status JsonRegistryImpl::SaveKey(std::type_index type, const void* obj,
   if (entry) {
     *j = entry->id;
   } else {
-    if (type != *unregistered_type_) {
-      return absl::UnimplementedError("JSON representation not supported");
-    }
-    *j = get_unregistered_(obj)->id;
+    return absl::UnimplementedError("JSON representation not supported");
   }
   return absl::OkStatus();
 }
@@ -109,9 +102,6 @@ absl::Status JsonRegistryImpl::LoadRegisteredObject(
   if (entry) {
     return entry->binder(std::true_type{}, options, obj, j_obj);
   }
-  if (type == *unregistered_type_) {
-    get_unregistered_(obj)->obj = std::move(*j_obj);
-  }
   return absl::OkStatus();
 }
 
@@ -127,9 +117,6 @@ absl::Status JsonRegistryImpl::SaveRegisteredObject(
   }
   if (entry) {
     return entry->binder(std::false_type{}, options, obj, j_obj);
-  }
-  if (type == *unregistered_type_) {
-    *j_obj = get_unregistered_(obj)->obj;
   }
   return absl::OkStatus();
 }

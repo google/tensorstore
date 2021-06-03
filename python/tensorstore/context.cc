@@ -354,14 +354,13 @@ Handle to a context resource.
 )");
 
   cls_context_spec
-      .def(py::init([](const ::nlohmann::json& json, bool allow_unregistered) {
-             return Access::impl(ValueOrThrow(Context::Spec::FromJson(
-                 json, AllowUnregistered{allow_unregistered})));
+      .def(py::init([](const ::nlohmann::json& json) {
+             return Access::impl(ValueOrThrow(Context::Spec::FromJson(json)));
            }),
            R"(
 Creates a context specification from its :json:schema:`JSON representation<Context>`.
-)", py::arg("json"),
-           py::arg("allow_unregistered") = false)
+)",
+           py::arg("json"))
       .def(
           "to_json",
           [](internal_context::ContextSpecImplPtr self, bool include_defaults) {
@@ -415,9 +414,11 @@ Example:
 Overload:
   default
 )")
-      .def(py::init([](ContextSpecImplPtr spec, ContextImplPtr parent) {
+      .def(py::init([](ContextSpecImplPtr spec,
+                       std::optional<ContextImplPtr> parent) {
+             if (!parent) parent.emplace();
              return Access::impl(Context(WrapImpl(std::move(spec)),
-                                         WrapImpl(std::move(parent))));
+                                         WrapImpl(std::move(*parent))));
            }),
            R"(
 Constructs a context from a parsed spec.
@@ -430,14 +431,14 @@ Args:
 Overload:
   spec
 )",
-           py::arg("spec"), py::arg("parent") = nullptr)
-      .def(py::init([](::nlohmann::json json, ContextImplPtr parent,
-                       bool allow_unregistered) {
-             return Access::impl(
-                 Context(ValueOrThrow(Context::Spec::FromJson(
-                             json, AllowUnregistered{allow_unregistered})),
-                         WrapImpl(std::move(parent))));
-           }),
+           py::arg("spec"), py::arg("parent") = std::nullopt)
+      .def(py::init(
+               [](::nlohmann::json json, std::optional<ContextImplPtr> parent) {
+                 if (!parent) parent.emplace();
+                 return Access::impl(
+                     Context(ValueOrThrow(Context::Spec::FromJson(json)),
+                             WrapImpl(std::move(*parent))));
+               }),
            R"(
 Constructs a context from its :json:schema:`JSON representation<Context>`.
 
@@ -455,8 +456,7 @@ Args:
 Overload:
   json
 )",
-           py::arg("json"), py::arg("parent") = nullptr,
-           py::arg("allow_unregistered") = false)
+           py::arg("json"), py::arg("parent") = std::nullopt)
       .def_property_readonly(
           "parent", [](const ContextImpl& self) { return self.parent_; },
           R"(

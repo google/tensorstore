@@ -37,22 +37,6 @@ namespace internal_json_registry {
 /// is not registered.
 absl::Status GetJsonUnregisteredError(std::string_view id);
 
-struct JsonUnregisteredData {
-  /// Unregistered identifier.
-  std::string id;
-
-  /// JSON representation of unregistered object.
-  ::nlohmann::json::object_t obj;
-};
-
-/// Derived class that represents an object with an unregistered identifier,
-/// obtained from a `JsonRegistry` using `AllowUnregistered{true}`.
-template <typename Base>
-class JsonUnregistered : public Base {
- public:
-  JsonUnregisteredData unregistered_data_;
-};
-
 /// Type-erased implementation details of `JsonRegistry`.
 ///
 /// The following types are implicitly associated with each instance of this
@@ -66,9 +50,6 @@ class JsonUnregistered : public Base {
 ///   - `LoadOptions`: Options used when parsing from JSON.
 ///
 ///   - `SaveOptions`: Options used when converting to JSON.
-///
-///   - `UnregisteredBase`: Class type that inherits from `Base` (possibly equal
-///     to `Base`) used to represent an unregistered object type.
 class JsonRegistryImpl {
  public:
   /// Represents a registered object type, `T`, which must inherit from `Base`.
@@ -97,26 +78,6 @@ class JsonRegistryImpl {
         binder;
   };
 
-  /// Must be called immediately after construction to initialize this object.
-  template <typename Base, typename UnregisteredBase>
-  void Initialize() {
-    using BasePtr = internal::IntrusivePtr<Base>;
-    using Unregistered =
-        internal_json_registry::JsonUnregistered<UnregisteredBase>;
-    static_assert(std::is_base_of_v<Base, UnregisteredBase>);
-    unregistered_type_ = &typeid(Unregistered);
-    allocate_unregistered_ = +[](void* obj) -> JsonUnregisteredData* {
-      auto* x = new Unregistered;
-      static_cast<BasePtr*>(obj)->reset(x);
-      return &x->unregistered_data_;
-    };
-    get_unregistered_ = +[](const void* obj) -> JsonUnregisteredData* {
-      return &(
-          static_cast<Unregistered*>(static_cast<const BasePtr*>(obj)->get())
-              ->unregistered_data_);
-    };
-  }
-
   /// Registers an object type.
   ///
   /// Logs a fatal error if the type or id is already registered.
@@ -125,13 +86,10 @@ class JsonRegistryImpl {
   /// Initializes a `BasePtr` from a JSON representation of the object
   /// identifier.
   ///
-  /// \param allow_unregistered Specifies whether to allow unregistered object
-  ///     types.
   /// \param obj Non-null pointer to `BasePtr`.
   /// \param j Non-null JSON object assumed to specify the string object
   ///     identifier.
-  absl::Status LoadKey(bool allow_unregistered, void* obj,
-                       ::nlohmann::json* j) const;
+  absl::Status LoadKey(void* obj, ::nlohmann::json* j) const;
 
   /// Converts a `BasePtr` to a JSON representation of the object identifier.
   ///
@@ -197,21 +155,6 @@ class JsonRegistryImpl {
   // Allows lookup of entries by `std::type_index` rather than pointer identity.
   absl::flat_hash_set<Entry*, EntryTypeHash, EntryTypeEqualTo> entries_by_type_
       ABSL_GUARDED_BY(mutex_);
-  using AllocateUnregistered = JsonUnregisteredData* (*)(void* obj);
-
-  /// Function that resets `obj`, which must be a non-null pointer to `BasePtr`,
-  /// to a newly allocated object of a type `JsonUnregistered<Base>`.
-  AllocateUnregistered allocate_unregistered_;
-
-  /// Set to `&typeid(JsonUnregistered<Base>)`.
-  const std::type_info* unregistered_type_;
-
-  using GetUnregistered = JsonUnregisteredData* (*)(const void* obj);
-
-  /// Function that returns the non-null stored `JsonUnregisteredData` from
-  /// `obj`, which must be a non-null pointer to `BasePtr` that holds a non-null
-  /// pointer to `JsonUnregistered<Base>`.
-  GetUnregistered get_unregistered_;
 };
 
 }  // namespace internal_json_registry

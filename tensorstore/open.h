@@ -29,8 +29,10 @@ namespace tensorstore {
 
 namespace internal_open {
 Status InvalidModeError(ReadWriteMode mode, ReadWriteMode static_mode);
-Status ValidateDataTypeAndRank(internal::DriverConstraints expected,
-                               internal::DriverConstraints actual);
+Status ValidateDataTypeAndRank(DataType expected_dtype,
+                               DimensionIndex expected_rank,
+                               DataType actual_dtype,
+                               DimensionIndex actual_rank);
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
 Future<TensorStore<Element, Rank, Mode>> ConvertTensorStoreFuture(
     Future<internal::Driver::Handle> future) {
@@ -39,8 +41,8 @@ Future<TensorStore<Element, Rank, Mode>> ConvertTensorStoreFuture(
       [](internal::Driver::Handle& handle)
           -> Result<TensorStore<Element, Rank, Mode>> {
         TENSORSTORE_RETURN_IF_ERROR(internal_open::ValidateDataTypeAndRank(
-            {dtype_v<Element>, Rank},
-            {handle.driver->dtype(), handle.transform.input_rank()}));
+            dtype_v<Element>, Rank, handle.driver->dtype(),
+            handle.transform.input_rank()));
         return internal::TensorStoreAccess::Construct<
             TensorStore<Element, Rank, Mode>>(std::move(handle));
       },

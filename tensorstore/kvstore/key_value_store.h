@@ -159,8 +159,8 @@ class KeyValueStoreSpec
   /// Returns the associated context resource specification.
   const Context::Spec& context() const { return context_spec_; }
 
-  using ToJsonOptions = Context::ToJsonOptions;
-  using FromJsonOptions = Context::FromJsonOptions;
+  using ToJsonOptions = JsonSerializationOptions;
+  using FromJsonOptions = JsonSerializationOptions;
 
   /// KeyValueStoreSpec objects are always managed using a reference-counted
   /// `Ptr`.

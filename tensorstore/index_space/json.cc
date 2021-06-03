@@ -588,22 +588,23 @@ TENSORSTORE_DEFINE_JSON_BINDER(
     [](auto is_loading, const auto& options, auto* obj, auto* j) {
       if constexpr (is_loading) {
         if (j->is_discarded()) {
-          *obj = options.rank;
+          *obj = options.rank().rank;
           return absl::OkStatus();
         }
         TENSORSTORE_RETURN_IF_ERROR(
             Integer<DimensionIndex>(0, kMaxRank)(is_loading, options, obj, j));
       } else {
-        if ((!options.include_defaults() && options.rank != dynamic_rank) ||
+        if ((!IncludeDefaults(options).include_defaults() &&
+             options.rank().rank != dynamic_rank) ||
             *obj == dynamic_rank) {
           *j = ::nlohmann::json::value_t::discarded;
         } else {
           *j = *obj;
         }
       }
-      if (!IsRankExplicitlyConvertible(options.rank, *obj)) {
+      if (!IsRankExplicitlyConvertible(options.rank().rank, *obj)) {
         return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Expected ", options.rank, ", but received: ", *obj));
+            "Expected ", options.rank().rank, ", but received: ", *obj));
       }
       return absl::OkStatus();
     })
@@ -617,8 +618,9 @@ TENSORSTORE_DEFINE_JSON_BINDER(
     jb::Validate(
         [](const auto& options, auto* obj) {
           TENSORSTORE_ASSIGN_OR_RETURN(
-              *obj, tensorstore::ComposeIndexTransformSpecs(
-                        std::move(*obj), IndexTransformSpec{options.rank}));
+              *obj,
+              tensorstore::ComposeIndexTransformSpecs(
+                  std::move(*obj), IndexTransformSpec{options.rank().rank}));
           return absl::OkStatus();
         },
         jb::Sequence(

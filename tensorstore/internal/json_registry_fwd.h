@@ -21,7 +21,6 @@ namespace tensorstore {
 namespace internal {
 
 template <typename Base, typename LoadOptions, typename SaveOptions,
-          typename UnregisteredBase = Base,
           typename BasePtr = IntrusivePtr<Base>>
 class JsonRegistry;
 

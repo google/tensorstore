@@ -20,7 +20,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type_conversion.h"
 #include "tensorstore/internal/exception_macros.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_value_as.h"
 #include "tensorstore/internal/preprocessor.h"
 #include "tensorstore/internal/utf8.h"
 #include "tensorstore/util/division.h"

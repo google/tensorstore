@@ -29,7 +29,6 @@
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
-using tensorstore::AllowUnregistered;
 using tensorstore::Context;
 using tensorstore::IncludeDefaults;
 using tensorstore::MatchesJson;
@@ -319,23 +318,12 @@ TEST(IntResourceTest, Inherit) {
   EXPECT_EQ(42, *resource4);
 }
 
-TEST(IntResourceTest, UnknownAllowUnregisteredFalse) {
+TEST(IntResourceTest, Unknown) {
   EXPECT_THAT(Context::Spec::FromJson({
                   {"foo", {{"value", 7}}},
               }),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Invalid context resource identifier: \"foo\""));
-}
-
-TEST(IntResourceTest, UnknownAllowUnregisteredTrue) {
-  const ::nlohmann::json json_spec = {
-      {"foo", {{"value", 7}}},
-  };
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto spec, Context::Spec::FromJson(json_spec, AllowUnregistered{true}));
-  EXPECT_THAT(spec.ToJson(), ::testing::Optional(MatchesJson(json_spec)));
-  EXPECT_THAT(spec.ToJson(IncludeDefaults{true}),
-              ::testing::Optional(MatchesJson(json_spec)));
 }
 
 TEST(StrongRefResourceTest, DirectSpec) {

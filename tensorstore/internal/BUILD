@@ -254,9 +254,9 @@ tensorstore_cc_library(
     srcs = ["data_type_json_binder.cc"],
     hdrs = ["data_type_json_binder.h"],
     deps = [
-        ":array_constraints",
         ":json",
         "//tensorstore:data_type",
+        "//tensorstore:json_serialization_options",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
@@ -620,6 +620,57 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "json_value_as",
+    srcs = ["json_value_as.cc"],
+    hdrs = ["json_value_as.h"],
+    deps = [
+        ":type_traits",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "json_value_as_test",
+    size = "small",
+    srcs = ["json_value_as_test.cc"],
+    deps = [
+        ":json_gtest",
+        ":json_value_as",
+        "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "json_same",
+    srcs = ["json_same.cc"],
+    hdrs = ["json_same.h"],
+    deps = [
+        ":json_fwd",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/container:inlined_vector",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "json_same_test",
+    size = "small",
+    srcs = ["json_same_test.cc"],
+    deps = [
+        ":json_gtest",
+        ":json_same",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "json",
     srcs = ["json.cc"],
     hdrs = [
@@ -627,10 +678,12 @@ tensorstore_cc_library(
         "json_bindable.h",
     ],
     deps = [
+        ":json_same",
+        ":json_value_as",
         ":poly",
         ":type_traits",
         "//tensorstore:index",
-        "//tensorstore:json_serialization_options",
+        "//tensorstore:json_serialization_options_base",
         "//tensorstore/util:assert_macros",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",

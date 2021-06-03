@@ -37,8 +37,8 @@ namespace tensorstore {
 /// `codec_spec_registry.h`.
 class CodecSpec : public internal::AtomicReferenceCount<CodecSpec> {
  public:
-  using ToJsonOptions = ContextToJsonOptions;
-  using FromJsonOptions = ContextFromJsonOptions;
+  using ToJsonOptions = JsonSerializationOptions;
+  using FromJsonOptions = JsonSerializationOptions;
 
   virtual ~CodecSpec();
 
@@ -50,8 +50,8 @@ class CodecSpec : public internal::AtomicReferenceCount<CodecSpec> {
     using Base = PtrT<const CodecSpec>;
 
    public:
-    using ToJsonOptions = ContextToJsonOptions;
-    using FromJsonOptions = ContextFromJsonOptions;
+    using ToJsonOptions = JsonSerializationOptions;
+    using FromJsonOptions = JsonSerializationOptions;
     using Base::Base;
     Ptr(Base ptr) : Base(std::move(ptr)) {}
     bool valid() const { return static_cast<bool>(*this); }

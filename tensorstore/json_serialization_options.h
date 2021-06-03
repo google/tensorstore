@@ -15,7 +15,11 @@
 #ifndef TENSORSTORE_JSON_SERIALIZATION_OPTIONS_H_
 #define TENSORSTORE_JSON_SERIALIZATION_OPTIONS_H_
 
+#include <type_traits>
+
+#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/rank.h"
 
 /// \file
@@ -24,91 +28,76 @@
 /// Each individual option is defined by a separate class in order to support a
 /// form of named parameters.  For example:
 ///
-///     auto x = KeyValaueStore::Spec::FromJson(AllowUnregistered{true});
 ///     auto j = x.ToJson(IncludeDefaults{false});
 ///     auto j = x.ToJson({IncludeDefaults{false}, IncludeContext{true}});
 
 namespace tensorstore {
-namespace internal_json_binding {
 
-struct NoOptions {
-  constexpr NoOptions() = default;
+class JsonSerializationOptions {
+ public:
   template <typename T>
-  constexpr NoOptions(const T&) {}
-};
+  constexpr static bool IsOption = false;
 
-}  // namespace internal_json_binding
+  template <typename... T, typename = std::enable_if_t<(IsOption<T> && ...)>>
+  constexpr JsonSerializationOptions(T... option) {
+    (Set(option), ...);
+  }
 
-/// Specifies whether to defer errors due to unregistered drivers/context
-/// resources until such driver/resource is actually used.  This may be useful
-/// to allow working with JSON specifications with a mixture of binaries, where
-/// some binaries do not have all of the resources/drivers linked in.
-class AllowUnregistered {
- public:
-  constexpr explicit AllowUnregistered(bool allow_unregistered = true)
-      : value_(allow_unregistered) {}
-  bool allow_unregistered() const { return value_; }
+  constexpr void Set(JsonSerializationOptions value) { *this = value; }
+
+  constexpr void Set(RankConstraint value) {
+    assert(value.rank >= -1 && value.rank <= kMaxRank);
+    rank_ = value.rank;
+  }
+
+  constexpr void Set(IncludeDefaults value) {
+    include_defaults_ = value.include_defaults();
+  }
+
+  constexpr void Set(IncludeContext value) {
+    include_context_ = value.include_context();
+  }
+
+  constexpr void Set(DataType value) { data_type_ = value; }
+  constexpr void Set(internal_json_binding::NoOptions) {}
+
+  constexpr operator RankConstraint() const { return RankConstraint(rank_); }
+  constexpr RankConstraint rank() const { return RankConstraint(rank_); }
+
+  constexpr operator DataType() const { return data_type_; }
+  constexpr DataType dtype() const { return data_type_; }
+
+  constexpr operator IncludeDefaults() const {
+    return IncludeDefaults(include_defaults_);
+  }
+
+  constexpr operator IncludeContext() const {
+    return IncludeContext(include_context_);
+  }
 
  private:
-  bool value_;
+  DataType data_type_;
+  bool include_defaults_ = false;
+  bool include_context_ = true;
+  int8_t rank_ = dynamic_rank;
 };
 
-/// Specifies whether members equal to their default values are included when
-/// converting to JSON.
-class IncludeDefaults {
- public:
-  constexpr explicit IncludeDefaults(bool include_defaults = false)
-      : value_(include_defaults) {}
-  bool include_defaults() const { return value_; }
-
- private:
-  bool value_;
-};
-
-/// Specifies whether context and context resource specifications are included
-/// when converting to JSON.
-class IncludeContext {
- public:
-  constexpr explicit IncludeContext(bool include_context = true)
-      : value_(include_context) {}
-  bool include_context() const { return value_; }
-
- private:
-  bool value_;
-};
-
-/// Options for converting `Context::Spec` and other types that embed context
-/// resources to JSON.
-class ContextToJsonOptions : public IncludeDefaults, public IncludeContext {
- public:
-  constexpr ContextToJsonOptions(
-      IncludeDefaults include_defaults,
-      IncludeContext include_context = IncludeContext{true})
-      : IncludeDefaults(include_defaults), IncludeContext(include_context) {}
-  constexpr ContextToJsonOptions(
-      IncludeContext include_context = IncludeContext{true})
-      : IncludeContext(include_context) {}
-};
-
-/// Options for converting JSON to `Context::Spec` and other types that embed
-/// context context resources.
-class ContextFromJsonOptions : public AllowUnregistered {
- public:
-  constexpr ContextFromJsonOptions(
-      AllowUnregistered allow_unregistered = AllowUnregistered{false})
-      : AllowUnregistered(allow_unregistered) {}
-  constexpr ContextFromJsonOptions(internal_json_binding::NoOptions)
-      : ContextFromJsonOptions() {}
-};
-
-struct RankConstraint {
-  explicit RankConstraint(DimensionIndex rank = dynamic_rank) : rank(rank) {}
-
-  /// Specifies the rank, or equal to `dynamic_rank` if unknown.
-  DimensionIndex rank = dynamic_rank;
-
-  constexpr operator DimensionIndex() const { return rank; }
-};
+template <>
+constexpr bool JsonSerializationOptions::IsOption<JsonSerializationOptions> =
+    true;
+template <>
+constexpr bool JsonSerializationOptions::IsOption<RankConstraint> = true;
+template <>
+constexpr bool JsonSerializationOptions::IsOption<IncludeDefaults> = true;
+template <>
+constexpr bool JsonSerializationOptions::IsOption<IncludeContext> = true;
+template <>
+constexpr bool JsonSerializationOptions::IsOption<DataType> = true;
+template <typename T>
+constexpr bool JsonSerializationOptions::IsOption<StaticDataType<T>> = true;
+template <>
+constexpr bool
+    JsonSerializationOptions::IsOption<internal_json_binding::NoOptions> = true;
 
 }  // namespace tensorstore
 

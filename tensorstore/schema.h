@@ -26,7 +26,6 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_spec.h"
-#include "tensorstore/internal/array_constraints.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/json_serialization_options.h"
@@ -88,8 +87,8 @@ class Schema {
   friend Result<Schema> ApplyIndexTransform(IndexTransform<> transform,
                                             Schema schema);
 
-  using ToJsonOptions = internal::ArrayToJsonOptions;
-  using FromJsonOptions = internal::ArrayFromJsonOptions;
+  using ToJsonOptions = JsonSerializationOptions;
+  using FromJsonOptions = JsonSerializationOptions;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(Schema, FromJsonOptions,
                                           ToJsonOptions)

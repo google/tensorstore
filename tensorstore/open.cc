@@ -26,16 +26,18 @@ Status InvalidModeError(ReadWriteMode mode, ReadWriteMode static_mode) {
                                            static_mode));
 }
 
-Status ValidateDataTypeAndRank(internal::DriverConstraints expected,
-                               internal::DriverConstraints actual) {
-  if (!tensorstore::IsRankExplicitlyConvertible(expected.rank, actual.rank)) {
+Status ValidateDataTypeAndRank(DataType expected_dtype,
+                               DimensionIndex expected_rank,
+                               DataType actual_dtype,
+                               DimensionIndex actual_rank) {
+  if (!tensorstore::IsRankExplicitlyConvertible(expected_rank, actual_rank)) {
     return absl::FailedPreconditionError(tensorstore::StrCat(
-        "Expected rank of ", expected.rank, " but received: ", actual.rank));
+        "Expected rank of ", expected_rank, " but received: ", actual_rank));
   }
-  if (!tensorstore::IsPossiblySameDataType(expected.dtype, actual.dtype)) {
+  if (!tensorstore::IsPossiblySameDataType(expected_dtype, actual_dtype)) {
     return absl::FailedPreconditionError(
-        tensorstore::StrCat("Expected data type of ", expected.dtype,
-                            " but received: ", actual.dtype));
+        tensorstore::StrCat("Expected data type of ", expected_dtype,
+                            " but received: ", actual_dtype));
   }
   return absl::OkStatus();
 }

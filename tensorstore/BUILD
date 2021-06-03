@@ -256,8 +256,8 @@ tensorstore_cc_library(
         "//tensorstore/internal:elementwise_function",
         "//tensorstore/internal:exception_macros",
         "//tensorstore/internal:integer_types",
-        "//tensorstore/internal:json",
         "//tensorstore/internal:json_fwd",
+        "//tensorstore/internal:json_value_as",
         "//tensorstore/internal:memory",
         "//tensorstore/internal:preprocessor",
         "//tensorstore/internal:type_traits",
@@ -361,6 +361,17 @@ tensorstore_cc_library(
 tensorstore_cc_library(
     name = "json_serialization_options",
     hdrs = ["json_serialization_options.h"],
+    deps = [
+        ":data_type",
+        ":index",
+        ":json_serialization_options_base",
+        ":rank",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "json_serialization_options_base",
+    hdrs = ["json_serialization_options_base.h"],
     deps = [
         ":index",
         ":rank",
@@ -511,8 +522,11 @@ tensorstore_cc_test(
     srcs = ["spec_test.cc"],
     deps = [
         ":spec",
+        "//tensorstore/driver/array",
+        "//tensorstore/driver/zarr",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/internal:json_gtest",
+        "//tensorstore/kvstore/memory",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
@@ -726,7 +740,6 @@ tensorstore_cc_library(
         "//tensorstore/index_space:index_transform_spec",
         "//tensorstore/index_space:json",
         "//tensorstore/index_space:transform_broadcastable_array",
-        "//tensorstore/internal:array_constraints",
         "//tensorstore/internal:data_type_json_binder",
         "//tensorstore/internal:dimension_indexed_json_binder",
         "//tensorstore/internal:intrusive_ptr",

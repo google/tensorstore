@@ -30,8 +30,10 @@
 #include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_same.h"
+#include "tensorstore/internal/json_value_as.h"
 #include "tensorstore/internal/type_traits.h"
-#include "tensorstore/json_serialization_options.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
@@ -41,55 +43,6 @@
 
 namespace tensorstore {
 namespace internal_json {
-
-/// Returns `true` if `a` and `b` are equal.
-///
-/// Unlike `operator==`, the comparison is non-recursive, and is therefore safe
-/// from stack overflow even for deeply nested structures.
-///
-/// Like `operator==`, two int64_t/uint64_t/double values representing exactly
-/// the same number are all considered equal even if their types differ.
-///
-/// Unlike `operator==`, two `discarded` values are considered equal.
-bool JsonSame(const ::nlohmann::json& a, const ::nlohmann::json& b);
-
-/// GetTypeName returns the expected json field type name for error messages.
-inline constexpr const char* GetTypeName(
-    internal::type_identity<std::int64_t>) {
-  return "64-bit signed integer";
-}
-inline constexpr const char* GetTypeName(
-    internal::type_identity<std::uint64_t>) {
-  return "64-bit unsigned integer";
-}
-inline constexpr const char* GetTypeName(
-    internal::type_identity<std::int32_t>) {
-  return "32-bit signed integer";
-}
-inline constexpr const char* GetTypeName(
-    internal::type_identity<std::uint32_t>) {
-  return "32-bit unsigned integer";
-}
-inline constexpr const char* GetTypeName(internal::type_identity<double>) {
-  return "64-bit floating-point number";
-}
-inline constexpr const char* GetTypeName(internal::type_identity<std::string>) {
-  return "string";
-}
-inline constexpr const char* GetTypeName(internal::type_identity<bool>) {
-  return "boolean";
-}
-inline constexpr const char* GetTypeName(
-    internal::type_identity<std::nullptr_t>) {
-  return "null";
-}
-inline constexpr const char* GetTypeName(...) { return nullptr; }
-
-/// Retuns an error message for a json value with the expected type.
-Status ExpectedError(const ::nlohmann::json& j, std::string_view type_name);
-
-/// Returns an error message indicating that json field validation failed.
-Status ValidationError(const ::nlohmann::json& j, std::string_view type_name);
 
 /// When passed an error status for parsing JSON, returns a status annotated
 /// with the member name.
@@ -114,129 +67,6 @@ namespace internal {
 // ParseJson wraps the ::nlohmann::json::parse calls to avoid throwing
 // exceptions.
 ::nlohmann::json ParseJson(std::string_view str);
-
-/// Return a json object as the C++ type, if conversion is possible.
-/// Will attempt to parse strings and perform exact-numeric conversions
-/// between the json data value and the c++ type.
-///
-/// For <bool>, accepted string formats are:  "true", "false"
-/// For <double>, accepted string formats are those supported by std::strtod.
-/// For <int64_t, uint64_t>, accepted string formats are base-10 numbers,
-///   e.g. (-+)?[0-9]+, with the restriction that the value must fit into a
-///   64-bit integer and uint64_t cannot include a negative prefix.
-///
-/// \param json The value to parse.
-/// \param strict If `true`, string conversions and double -> integer
-///     conversions are not permitted.
-template <typename T>
-std::optional<T> JsonValueAs(const ::nlohmann::json& j, bool strict = false) {
-  static_assert(!std::is_same<T, T>::value, "Target type not supported.");
-}
-
-template <>
-std::optional<std::nullptr_t> JsonValueAs<std::nullptr_t>(
-    const ::nlohmann::json& j, bool strict);
-
-template <>
-std::optional<bool> JsonValueAs<bool>(const ::nlohmann::json& j, bool strict);
-
-template <>
-std::optional<int64_t> JsonValueAs<int64_t>(const ::nlohmann::json& j,
-                                            bool strict);
-
-template <>
-std::optional<uint64_t> JsonValueAs<uint64_t>(const ::nlohmann::json& j,
-                                              bool strict);
-
-template <>
-std::optional<double> JsonValueAs<double>(const ::nlohmann::json& j,
-                                          bool strict);
-
-template <>
-std::optional<std::string> JsonValueAs<std::string>(const ::nlohmann::json& j,
-                                                    bool strict);
-
-/// JsonRequireValueAs attempts to convert and assign the json object to the
-/// result value.
-///
-/// \param j The JSON value to parse
-/// \param result A pointer to an assigned value (may be nullptr)
-/// \param is_valid A function or lambda taking T, returning true when
-///     valid.
-/// \param strict If `true`, string conversions and double -> integer
-///     conversions are not permitted.
-template <typename T, typename ValidateFn>
-std::enable_if_t<!std::is_same<ValidateFn, bool>::value, Status>
-JsonRequireValueAs(const ::nlohmann::json& j, T* result, ValidateFn is_valid,
-                   bool strict = false) {
-  auto value = internal::JsonValueAs<T>(j, strict);
-  if (!value) {
-    return internal_json::ExpectedError(
-        j, internal_json::GetTypeName(type_identity<T>{}));
-  }
-  // NOTE: improve is_valid; allow bool or status returns.
-  if (!is_valid(*value)) {
-    return internal_json::ValidationError(
-        j, internal_json::GetTypeName(type_identity<T>{}));
-  }
-  if (result != nullptr) {
-    *result = std::move(*value);
-  }
-  return absl::OkStatus();
-}
-
-/// As above, omitting the validation function.
-template <typename T>
-Status JsonRequireValueAs(const ::nlohmann::json& j, T* result,
-                          bool strict = false) {
-  return JsonRequireValueAs(
-      j, result, [](const T&) { return true; }, strict);
-}
-}  // namespace internal
-
-namespace internal_json {
-/// Implementation of `JsonRequireInteger` defined below.
-///
-/// Only defined for `T` equal to `std::int64_t` or `std::uint64_t`.
-///
-/// Defined as a class to simplify explicit instantiation.
-template <typename T>
-struct JsonRequireIntegerImpl {
-  static Status Execute(const ::nlohmann::json& json, T* result, bool strict,
-                        T min_value, T max_value);
-};
-}  // namespace internal_json
-
-namespace internal {
-
-/// Attempts to convert `json` to an integer in the range
-/// `[min_value, max_value]`.
-///
-/// \tparam T A built-in signed or unsigned integer type.
-/// \param json The JSON value.
-/// \param result[out] Non-null pointer to location where result is stored on
-///     success.
-/// \param strict If `true`, conversions from string and double are not
-///     permitted.
-/// \param min_value The minimum allowed value (inclusive).
-/// \param max_value The maximum allowed value (inclusive).
-/// \returns `Status()` if successful.
-/// \error `absl::StatusCode::kInvalidArgument` on failure.
-template <typename T>
-Status JsonRequireInteger(
-    const ::nlohmann::json& json, T* result, bool strict = false,
-    type_identity_t<T> min_value = std::numeric_limits<T>::min(),
-    type_identity_t<T> max_value = std::numeric_limits<T>::max()) {
-  static_assert(std::is_signed<T>::value || std::is_unsigned<T>::value,
-                "T must be an integer type.");
-  using U =
-      std::conditional_t<std::is_signed<T>::value, std::int64_t, std::uint64_t>;
-  U temp;
-  auto status = internal_json::JsonRequireIntegerImpl<U>::Execute(
-      json, &temp, strict, min_value, max_value);
-  if (status.ok()) *result = temp;
-  return status;
-}
 
 /// Parses a JSON array.
 ///
@@ -270,53 +100,6 @@ Status JsonParseArray(
 ///     expected_size`.
 Status JsonValidateArrayLength(std::ptrdiff_t parsed_size,
                                std::ptrdiff_t expected_size);
-
-/// Validates that `j` only contains the `allowed_members`.
-///
-/// If other member fields exist, returns an error Status,
-/// otherwise returns an ok status.
-Status JsonValidateObjectMembers(const ::nlohmann::json& j,
-                                 span<const std::string_view> allowed_members);
-
-Status JsonValidateObjectMembers(const ::nlohmann::json::object_t& j,
-                                 span<const std::string_view> allowed_members);
-
-inline Status JsonValidateObjectMembers(
-    const ::nlohmann::json& j,
-    std::initializer_list<std::string_view> allowed_members) {
-  return JsonValidateObjectMembers(
-      j, span(std::begin(allowed_members), std::end(allowed_members)));
-}
-
-inline Status JsonValidateObjectMembers(
-    const ::nlohmann::json::object_t& j,
-    std::initializer_list<std::string_view> allowed_members) {
-  return JsonValidateObjectMembers(
-      j, span(std::begin(allowed_members), std::end(allowed_members)));
-}
-
-/// Json object field type conversion helpers.
-/// Invokes the `handler` function for the specified field object.
-///
-/// Example:
-///
-/// JsonHandleObjectMember(j, "member_name", [](const ::nlohmann::json& j) {
-///    return JsonRequireValueAs(j, &field);
-/// });
-///
-/// \param j The JSON object
-/// \param member_name The name of the JSON field.
-/// \param handler The handler function
-/// \error 'absl::StatusCode::kInvalidArgument' if `j` is not an object.
-/// \error 'absl::StatusCode::kInvalidArgument' if `member_name` is not found
-///     (only `JsonRequireObjectMember`).
-Status JsonHandleObjectMember(
-    const ::nlohmann::json& j, const char* member_name,
-    absl::FunctionRef<Status(const ::nlohmann::json&)> handler);
-
-Status JsonHandleObjectMember(
-    const ::nlohmann::json::object_t& j, const char* member_name,
-    absl::FunctionRef<Status(const ::nlohmann::json&)> handler);
 
 /// Removes the specified member from `*j_obj` if it is present.
 ///

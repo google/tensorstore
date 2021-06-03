@@ -117,7 +117,7 @@ class ContextResourceProviderImplBase {
   std::string_view id_;
   virtual ContextResourceSpecImplPtr Default() const = 0;
   virtual Result<ContextResourceSpecImplPtr> FromJson(
-      const ::nlohmann::json& j, ContextFromJsonOptions options) const = 0;
+      const ::nlohmann::json& j, JsonSerializationOptions options) const = 0;
   virtual ContextResourceSpecImplPtr GetSpec(
       const ContextResourceImplBase* resource,
       const internal::ContextSpecBuilder& spec_builder) const = 0;
@@ -141,7 +141,7 @@ class ContextResourceSpecImplBase
   virtual Result<ContextResourceImplStrongPtr> CreateResource(
       const internal::ContextResourceCreationContext& creation_context) = 0;
 
-  virtual Result<::nlohmann::json> ToJson(ContextToJsonOptions options) = 0;
+  virtual Result<::nlohmann::json> ToJson(JsonSerializationOptions options) = 0;
 
   virtual ~ContextResourceSpecImplBase();
 
@@ -228,7 +228,7 @@ class ContextResourceProviderImpl : public ContextResourceProviderImplBase {
           ContextResourceSpecImplPtr(this), std::move(*result)));
     }
 
-    Result<::nlohmann::json> ToJson(ContextToJsonOptions options) override {
+    Result<::nlohmann::json> ToJson(JsonSerializationOptions options) override {
       return internal_json_binding::ToJson(
           value_,
           static_cast<const ContextResourceProviderImpl*>(provider_)
@@ -245,7 +245,7 @@ class ContextResourceProviderImpl : public ContextResourceProviderImplBase {
 
   Result<ContextResourceSpecImplPtr> FromJson(
       const ::nlohmann::json& j,
-      ContextFromJsonOptions options) const override {
+      JsonSerializationOptions options) const override {
     auto result =
         internal_json_binding::FromJson<Spec>(j, traits_.JsonBinder(), options);
     if (!result) return std::move(result).status();
@@ -282,7 +282,7 @@ void RegisterContextResourceProvider(
 
 Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJson(
     std::string_view provider_id, const ::nlohmann::json& j,
-    ContextFromJsonOptions options);
+    JsonSerializationOptions options);
 
 ContextResourceSpecImplPtr DefaultContextResourceSpec(
     std::string_view provider_id);

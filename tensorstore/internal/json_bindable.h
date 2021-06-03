@@ -20,7 +20,7 @@
 
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/poly.h"
-#include "tensorstore/json_serialization_options.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 

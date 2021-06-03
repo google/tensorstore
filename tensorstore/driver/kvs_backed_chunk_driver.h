@@ -75,8 +75,8 @@ struct SpecT : public internal::DriverConstraints,
 /// JSON binder for the base `SpecT<>` type, must be called by the
 /// driver-specific JSON binders.
 TENSORSTORE_DECLARE_JSON_BINDER(SpecJsonBinder, SpecT<>,
-                                Context::FromJsonOptions,
-                                Context::ToJsonOptions,
+                                JsonSerializationOptions,
+                                JsonSerializationOptions,
                                 ::nlohmann::json::object_t);
 
 /// Specifies constraints for atomic metadata updates.

@@ -396,7 +396,7 @@ Status ProviderNotRegisteredError(std::string_view key) {
 
 Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJson(
     const ContextResourceProviderImplBase& provider, const ::nlohmann::json& j,
-    ContextFromJsonOptions options) {
+    JsonSerializationOptions options) {
   ContextResourceSpecImplPtr impl;
   if (j.is_null()) {
     // Refers to default value in parent.
@@ -419,36 +419,13 @@ Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJson(
   return impl;
 }
 
-namespace {
-
-class UnknownContextResource : public ContextResourceSpecImplBase {
- public:
-  UnknownContextResource(const ::nlohmann::json& j) : json_spec_(j) {}
-
-  Result<ContextResourceImplStrongPtr> CreateResource(
-      const internal::ContextResourceCreationContext& creation_context)
-      override {
-    // This should be unreachable.
-    TENSORSTORE_LOG_FATAL("Provider not registered: ", QuoteString(key_));
-  }
-
-  Result<::nlohmann::json> ToJson(Context::ToJsonOptions options) override {
-    return json_spec_;
-  }
-
-  ::nlohmann::json json_spec_;
-};
-
-}  // namespace
-
 Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJsonWithKey(
     std::string_view key, const ::nlohmann::json& j,
     Context::FromJsonOptions options) {
   auto* provider = GetProvider(ParseResourceProvider(key));
   ContextResourceSpecImplPtr impl;
   if (!provider) {
-    if (!options.allow_unregistered()) return ProviderNotRegisteredError(key);
-    impl.reset(new UnknownContextResource(j));
+    return ProviderNotRegisteredError(key);
   } else {
     TENSORSTORE_ASSIGN_OR_RETURN(
         impl, ContextResourceSpecFromJson(*provider, j, options));
@@ -535,7 +512,8 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
       } else {
         if (!obj->impl_) return absl::OkStatus();
         for (const auto& resource_spec : obj->impl_->resources_) {
-          if (!options.include_defaults() && resource_spec->is_default_ &&
+          if (!IncludeDefaults(options).include_defaults() &&
+              resource_spec->is_default_ &&
               resource_spec->key_ == resource_spec->provider_->id_) {
             continue;
           }
@@ -555,7 +533,7 @@ TENSORSTORE_DEFINE_JSON_BINDER(
     ContextSpecDefaultableJsonBinder,
     [](auto is_loading, const auto& options, auto* obj, auto* j) {
       if constexpr (!is_loading) {
-        if (!options.include_context()) {
+        if (!IncludeContext(options).include_context()) {
           *j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
           return absl::OkStatus();
         }

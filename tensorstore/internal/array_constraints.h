@@ -31,28 +31,6 @@ struct ArrayConstraints : public RankConstraint {
   DataType dtype;
 };
 
-/// Options for loading array-like types from JSON.
-///
-/// These are used for `internal::DriverSpec` and `CreateSpec`.
-struct ArrayFromJsonOptions : public ContextFromJsonOptions,
-                              public ArrayConstraints {
-  using ContextFromJsonOptions::ContextFromJsonOptions;
-  constexpr ArrayFromJsonOptions(const ContextFromJsonOptions& options,
-                                 const ArrayConstraints& constraints = {})
-      : ContextFromJsonOptions(options), ArrayConstraints(constraints) {}
-};
-
-/// Options for converting an array-like type to JSON.
-///
-/// These are used for `internal::DriverSpec` and `CreateSpec`.
-struct ArrayToJsonOptions : public ContextToJsonOptions,
-                            public ArrayConstraints {
-  using ContextToJsonOptions::ContextToJsonOptions;
-  constexpr ArrayToJsonOptions(const ContextToJsonOptions& options,
-                               const ArrayConstraints& constraints = {})
-      : ContextToJsonOptions(options), ArrayConstraints(constraints) {}
-};
-
 }  // namespace internal
 }  // namespace tensorstore
 

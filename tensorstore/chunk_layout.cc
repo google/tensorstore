@@ -621,7 +621,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
           *obj = ChunkLayout();
           return absl::OkStatus();
         }
-        DimensionIndex rank = options.rank;
+        DimensionIndex rank = options.rank();
         ChunkLayout::Builder builder;
         TENSORSTORE_RETURN_IF_ERROR(
             LayoutBinder(rank)(is_loading, options, &builder, j));

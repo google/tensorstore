@@ -36,10 +36,6 @@ class JsonSpecifiedCompressor
 
   virtual ~JsonSpecifiedCompressor();
 
-  /// Returns `true` if this is a valid compressor that may be used for encoding
-  /// and/or decoding.
-  virtual bool valid() const;
-
   /// Encodes `input`.
   ///
   /// \param input The input data.
@@ -50,7 +46,7 @@ class JsonSpecifiedCompressor
   ///     values.  Must be `> 0`.
   /// \returns `Status()` on success, or an error if encoding fails.
   virtual absl::Status Encode(const absl::Cord& input, absl::Cord* output,
-                              std::size_t element_bytes) const;
+                              std::size_t element_bytes) const = 0;
 
   /// Decodes `input`.
   ///
@@ -63,19 +59,13 @@ class JsonSpecifiedCompressor
   /// \returns `Status()` on success, or an error if decoding fails.
   /// \error `absl::StatusCode::kInvalidArgument` if `input` is invalid.
   virtual absl::Status Decode(const absl::Cord& input, absl::Cord* output,
-                              std::size_t element_bytes) const;
+                              std::size_t element_bytes) const = 0;
 
-  using ToJsonOptions = IncludeDefaults;
-  using FromJsonOptions = ContextFromJsonOptions;
-  class Unregistered;
+  using ToJsonOptions = JsonSerializationOptions;
+  using FromJsonOptions = JsonSerializationOptions;
 
-  using Registry = JsonRegistry<JsonSpecifiedCompressor, FromJsonOptions,
-                                ToJsonOptions, Unregistered>;
-};
-
-class JsonSpecifiedCompressor::Unregistered : public JsonSpecifiedCompressor {
- public:
-  bool valid() const override;
+  using Registry =
+      JsonRegistry<JsonSpecifiedCompressor, FromJsonOptions, ToJsonOptions>;
 };
 
 }  // namespace internal

@@ -37,11 +37,8 @@
 namespace tensorstore {
 namespace internal {
 
-class UnregisteredDriverSpec;
-
-using DriverRegistry =
-    JsonRegistry<DriverSpec, Context::FromJsonOptions, Context::ToJsonOptions,
-                 UnregisteredDriverSpec>;
+using DriverRegistry = JsonRegistry<DriverSpec, JsonSerializationOptions,
+                                    JsonSerializationOptions>;
 
 /// Returns the global driver registry.
 DriverRegistry& GetDriverRegistry();

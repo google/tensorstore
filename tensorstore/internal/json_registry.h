@@ -48,31 +48,21 @@ namespace internal {
 /// \tparam Base Base class type for the object types to be registered.  Must be
 ///     compatible with `IntrusivePtr`.
 /// \tparam LoadOptions Load options supported by the registered JSON binders.
-///     Must inherit from `AllowUnregistered`.
 /// \tparam SaveOptions Save options supported by the registered JSON binders.
-/// \tparam Unregistered The type used in the case that
-///     `AllowUnregistered{true}` is specified and the string identifier is
-///     invalid.  Must inherit from `Base`.  By default, `Base` is used, in
-///     which case any virtual methods of that type should have a default
-///     implementation that accounts for this case.
 /// \tparam BasePtr Reference counted smart pointer type.  Must be
 ///     `IntrusivePtr<Base>` or `IntrusivePtr<const Base>`.
 template <typename Base, typename LoadOptions, typename SaveOptions,
-          typename UnregisteredBase, typename BasePtr>
+          typename BasePtr>
 class JsonRegistry {
   static_assert(std::has_virtual_destructor_v<Base>);
 
  public:
-  JsonRegistry() { impl_.Initialize<Base, UnregisteredBase>(); }
-
   /// Returns an `IntrusivePtr<Base>` binder for a JSON string specifying a
   /// registered id.
   ///
   /// When parsing JSON, this resets the `IntrusivePtr<Base>` to a newly
-  /// allocated object of the derived type registered for id, or to
-  /// `UnregisteredBase` if the id is not registered and
-  /// `AllowUnregistered{true}`.  If `AllowUnregistered{false}` is specified
-  /// (the default), an unregistered id results in a error.
+  /// allocated object of the derived type registered for id, or returns an
+  /// error if the id is not registered.
   ///
   /// When converting from JSON, this simply sets the JSON value to the string
   /// identifier; this binder must not be used with a null pointer.
@@ -94,11 +84,6 @@ class JsonRegistry {
   /// Forwards to the registered type-specific object binder.
   ///
   /// If the target `IntrusivePtr<Base>` is `nullptr`, this binder is a no-op.
-  ///
-  /// If the object representation correspond to an unregistered id (e.g. due to
-  /// a prior call to `KeyBinder` with `AllowUnregistered{true}` specified),
-  /// then this merely copies the JSON object representation as is without any
-  /// further parsing.
   ///
   /// Normally the type-specific object binders using
   /// `internal_json_binding::Object`, and therefore this should be the last
@@ -172,7 +157,7 @@ class JsonRegistry {
     absl::Status operator()(std::true_type is_loading,
                             const LoadOptions& options, BasePtr* obj,
                             ::nlohmann::json* j) const {
-      return impl.LoadKey(options.allow_unregistered(), obj, j);
+      return impl.LoadKey(obj, j);
     }
     absl::Status operator()(std::false_type is_loading,
                             const SaveOptions& options, const BasePtr* obj,
