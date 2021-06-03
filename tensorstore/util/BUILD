@@ -511,6 +511,7 @@ tensorstore_cc_library(
         ":execution",
         ":status",
         "//tensorstore/internal:attributes",
+        "//tensorstore/internal:logging",
         "//tensorstore/internal:preprocessor",
         "//tensorstore/internal:type_traits",
         "@com_google_absl//absl/base:config",

@@ -21,6 +21,7 @@
 
 #include "absl/base/optimization.h"
 #include "tensorstore/internal/attributes.h"
+#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/preprocessor.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/assert_macros.h"
@@ -476,28 +477,28 @@ class Result : private internal_result::ResultStorage<T>,
   /// \pre has_value() == true
   template <typename U = T>
   constexpr const U* operator->() const noexcept {
-    assert(has_value());
+    assert_has_value();
     return &this->value_;
   }
   template <typename U = T>
   constexpr U* operator->() noexcept {
-    assert(has_value());
+    assert_has_value();
     return &this->value_;
   }
 
   template <typename U = T>
   constexpr const U& operator*() const& noexcept {
-    assert(has_value());
+    assert_has_value();
     return this->value_;
   }
   template <typename U = T>
   constexpr U& operator*() & noexcept {
-    assert(has_value());
+    assert_has_value();
     return this->value_;
   }
   template <typename U = T>
   constexpr U&& operator*() && noexcept {
-    assert(has_value());
+    assert_has_value();
     return std::move(this->value_);
   }
 
@@ -618,6 +619,16 @@ class Result : private internal_result::ResultStorage<T>,
     } else {
       this->assign_status(std::forward<Other>(other).status());
     }
+  }
+
+  // Functionally equivalent to assert(has_value()), except that it dumps the
+  // internal status when the assert fails.
+  inline void assert_has_value() const {
+#if !defined(NDEBUG)
+    if (!has_value()) {
+      TENSORSTORE_LOG_FATAL("assert_has_value: ", this->status_);
+    }
+#endif
   }
 };
 
