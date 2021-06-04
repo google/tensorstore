@@ -779,7 +779,7 @@ struct ContextBindingTraits<KeyValueStoreSpec::Ptr> {
     } else {
       TENSORSTORE_ASSIGN_OR_RETURN(*bound, (*spec)->Bind(context));
     }
-    return Status();
+    return absl::OkStatus();
   }
   static void Unbind(Spec* spec, const Bound* bound,
                      const ContextSpecBuilder& builder) {

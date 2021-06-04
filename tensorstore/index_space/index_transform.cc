@@ -55,8 +55,7 @@ Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
       internal_index_space::IsUnlabeled(domain_labels);
   if (domain_unlabeled || internal_index_space::IsUnlabeled(transform_labels)) {
     if (slice_rank != input_rank) {
-      return Status(
-          absl::StatusCode::kInvalidArgument,
+      return absl::InvalidArgumentError(
           StrCat("Rank of index domain (", slice_rank,
                  ") must match rank of slice target (", input_rank,
                  ") when the index domain or slice target is unlabeled"));
@@ -78,8 +77,7 @@ Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
       } else {
         while (true) {
           if (next_potentially_unlabeled_dim == input_rank) {
-            return Status(
-                absl::StatusCode::kInvalidArgument,
+            return absl::InvalidArgumentError(
                 "Number of unlabeled dimensions in index domain exceeds number "
                 "of unlabeled dimensions in slice target");
           }
@@ -93,8 +91,7 @@ Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
       transform_dims[i] = j;
     }
     if (next_potentially_unlabeled_dim != 0 && input_rank != slice_rank) {
-      return Status(
-          absl::StatusCode::kInvalidArgument,
+      return absl::InvalidArgumentError(
           StrCat("Rank (", slice_rank,
                  ") of index domain containing unlabeled dimensions must "
                  "equal slice target rank (",
@@ -325,8 +322,7 @@ Status PropagateInputDomainResizeToOutput(
     switch (map.method()) {
       case OutputIndexMethod::constant:
         if (!IsFiniteIndex(map.offset())) {
-          return Status(
-              absl::StatusCode::kInvalidArgument,
+          return absl::InvalidArgumentError(
               StrCat("Output dimension ", output_dim,
                      " has constant map with invalid offset ", map.offset()));
         }
@@ -345,12 +341,10 @@ Status PropagateInputDomainResizeToOutput(
                        "`resize_tied_bounds` was not specified"));
           }
           if (std::abs(map.stride()) != 1) {
-            return Status(
-                absl::StatusCode::kInvalidArgument,
-                StrCat("Output dimension ", output_dim,
-                       " depends on input dimension ", input_dim,
-                       " with non-unit stride of ", map.stride(),
-                       " but `resize_tied_bounds` was not specified"));
+            return absl::InvalidArgumentError(StrCat(
+                "Output dimension ", output_dim, " depends on input dimension ",
+                input_dim, " with non-unit stride of ", map.stride(),
+                " but `resize_tied_bounds` was not specified"));
           }
 
           Result<OptionallyImplicitIndexInterval> output_bounds =
@@ -378,8 +372,7 @@ Status PropagateInputDomainResizeToOutput(
         // TODO(jbms): Consider treating rank-0 index array as constant map, and
         // maybe also handle other special cases (such as diagonal of size 1).
         if (!can_resize_tied_bounds) {
-          return Status(
-              absl::StatusCode::kInvalidArgument,
+          return absl::InvalidArgumentError(
               StrCat("Output dimension ", output_dim,
                      " has index array map but `resize_tied_bounds` was "
                      "not specified"));

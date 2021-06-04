@@ -65,8 +65,7 @@ Result<TransformRep::Ptr<>> InverseTransform(TransformRep* transform) {
         const DimensionIndex input_dim = map.input_dimension();
         auto& new_map = new_maps[input_dim];
         if (new_map.method() == OutputIndexMethod::single_input_dimension) {
-          return Status(
-              absl::StatusCode::kInvalidArgument,
+          return absl::InvalidArgumentError(
               StrCat("Transform is not invertible because input dimension ",
                      input_dim, " maps to output dimensions ",
                      new_map.input_dimension(), " and ", output_dim));

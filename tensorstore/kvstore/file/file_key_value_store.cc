@@ -761,7 +761,7 @@ class FileKeyValueStore
 
   static Status ConvertSpec(SpecData* spec,
                             KeyValueStore::SpecRequestOptions options) {
-    return Status();
+    return absl::OkStatus();
   }
 
   Future<ReadResult> Read(Key key, ReadOptions options) override {
@@ -839,7 +839,7 @@ class FileKeyValueStore
 
   Status GetBoundSpecData(BoundSpecData* spec) const {
     *spec = spec_;
-    return Status();
+    return absl::OkStatus();
   }
 
   BoundSpecData spec_;

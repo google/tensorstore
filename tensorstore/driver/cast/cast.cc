@@ -49,8 +49,7 @@ class CastDriver
   constexpr static auto json_binder = jb::Object(
       jb::Initialize([](auto* obj) -> Status {
         if (!obj->dtype.valid()) {
-          return Status(absl::StatusCode::kInvalidArgument,
-                        "Data type must be specified");
+          return absl::InvalidArgumentError("Data type must be specified");
         }
         return absl::OkStatus();
       }),

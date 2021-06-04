@@ -21,8 +21,7 @@ Result<IndexTransform<>> ApplyLabel(IndexTransform<> transform,
                                     DimensionIndexBuffer* dimensions,
                                     internal::StringLikeSpan labels) {
   if (dimensions->size() != static_cast<std::size_t>(labels.size())) {
-    return Status(
-        absl::StatusCode::kInvalidArgument,
+    return absl::InvalidArgumentError(
         StrCat("Number of dimensions (", dimensions->size(),
                ") does not match number of labels (", labels.size(), ")."));
   }

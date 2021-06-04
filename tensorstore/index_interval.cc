@@ -271,8 +271,7 @@ Result<std::pair<OptionallyImplicitIndexInterval, Index>> ExtractStridedSlice(
       inclusive_stop = stride > 0 ? orig.inclusive_max() : orig.inclusive_min();
     } else {
       if (size < 0) {
-        return Status(
-            absl::StatusCode::kInvalidArgument,
+        return absl::InvalidArgumentError(
             StrCat("Negative size ", size, " specified for sized interval"));
       }
       orig.implicit_upper() = false;

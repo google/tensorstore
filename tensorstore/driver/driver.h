@@ -234,7 +234,7 @@ struct ContextBindingTraits<DriverSpecPtr> {
   using Bound = DriverSpec::Bound::Ptr;
   static Status Bind(const Spec* spec, Bound* bound, const Context& context) {
     TENSORSTORE_ASSIGN_OR_RETURN(*bound, (*spec)->Bind(context));
-    return Status();
+    return absl::OkStatus();
   }
   static void Unbind(Spec* spec, const Bound* bound,
                      const ContextSpecBuilder& builder) {

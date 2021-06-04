@@ -43,8 +43,7 @@ std::ostream& operator<<(std::ostream& os, const IndexTransformSpec& s) {
 Result<IndexTransformSpec> ComposeIndexTransformSpecs(
     IndexTransformSpec b_to_c, IndexTransformSpec a_to_b) {
   if (!IsRankExplicitlyConvertible(b_to_c.input_rank(), a_to_b.output_rank())) {
-    return Status(
-        absl::StatusCode::kInvalidArgument,
+    return absl::InvalidArgumentError(
         StrCat("Cannot compose transform of rank ", b_to_c.input_rank(), " -> ",
                b_to_c.output_rank(), " with transform of rank ",
                a_to_b.input_rank(), " -> ", a_to_b.output_rank()));
