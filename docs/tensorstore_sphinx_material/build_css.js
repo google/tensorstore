@@ -64,7 +64,7 @@ async function transformStyle(
       outputPath,
       css1.replace(
           /(sourceMappingURL=)(.*)/, `$1${path.basename(outputPath)}.map\n`));
-  await fs.writeFile(outputMapPath, map1);
+  await fs.writeFile(outputMapPath, map1.toString());
 }
 
 async function main() {
