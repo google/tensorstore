@@ -36,13 +36,15 @@
 
 namespace {
 
-using tensorstore::AllDims;
-using tensorstore::BoxView;
-using tensorstore::Dims;
-using tensorstore::Index;
-using tensorstore::MakeArray;
-using tensorstore::MakeOffsetArrayView;
-using tensorstore::Materialize;  // TransformedArray to OffsetArray conversion.
+using ::tensorstore::AllDims;
+using ::tensorstore::BoxView;
+using ::tensorstore::DimRange;
+using ::tensorstore::Dims;
+using ::tensorstore::Index;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MakeOffsetArrayView;
+using ::tensorstore::Materialize;  // TransformedArray to OffsetArray
+                                   // conversion.
 
 static const Index default_origin[3] = {0, 0, 0};
 
@@ -518,6 +520,21 @@ TEST(DimExpressionTest, Stride) {
   auto view = TestArray() | Dims(0, 2).Stride({-2, 3}) | Materialize();
   TENSORSTORE_EXPECT_OK(view);
   EXPECT_EQ(344, ((*view)({-1, 3, 1})));
+}
+
+TEST(DimExpressionTest, AllDims) {
+  /// AllDims.IndexSlice(x) resolves to a 0-rank array with the first value.
+  auto view = TestArray() | AllDims().IndexSlice(1) | Materialize();
+  TENSORSTORE_EXPECT_OK(view);
+  EXPECT_EQ(222, ((*view)()));
+}
+
+TEST(DimExpressionTest, DimRange) {
+  /// DimRange(1).IndexSlice(x) resolves to a 1-rank array.
+  auto view =
+      TestArray() | tensorstore::DimRange(1).IndexSlice(1) | Materialize();
+  TENSORSTORE_EXPECT_OK(view);
+  EXPECT_EQ(322, ((*view)(2)));
 }
 
 }  // namespace

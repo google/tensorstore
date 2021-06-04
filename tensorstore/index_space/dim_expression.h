@@ -1747,7 +1747,35 @@ Dims(const DimensionIdentifier (&dimensions)[Rank]) {
   return {{span(dimensions)}};
 }
 
-/// Overload that permits dynamic dimension specifications to be specified using
+/// Starts a DimExpression with a range of dimensions.
+/// See `DimRangeSpec` for more detailed documentation.
+///
+///   `DimRange(3)` specifies all dimensions greater than 3.
+///
+///   `DimRange(3, 6)` specifies dimensions  {3, 4, 5}.
+///
+///   `DimRange(3, std::nullopt, 2)` specifies odd dimensions greater than 3.
+///
+///   `DimRange(-3)` specifies the last 3 dimensions, and can be used
+///   to add 3 new trailing dimensions.
+///
+///   `DimRange(1, -2)` specifies dimensions 1 up to but not including
+///   the second from the last.  It cannot be used to infer the final rank when
+///   adding new dimensions.
+///
+/// Since DimRange() resolves to a variable number of dimensions, the resulting
+/// DimExpression always has a compile-time rank of `dynamic_rank`.
+inline DimExpression<
+    internal_index_space::DynamicDims<std::array<DynamicDimSpec, 1>>>
+DimRange(DimensionIndex inclusive_start,
+         std::optional<DimensionIndex> exclusive_stop = std::nullopt,
+         const DimensionIndex step = 1) {
+  return {{DimRangeSpec{inclusive_start, exclusive_stop, step}}};
+}
+
+/// Starts a DimExpression with a variable number of dimensions.
+///
+/// This permits dynamic dimension specifications to be specified using
 /// a braced list, e.g. `DynamicDims({DimRangeSpec(1, 5, 2), 5, 7, "x"})`.
 ///
 /// Since a `DynamicDimSpec` containing a `DimRangeSpec` resolves to a variable
