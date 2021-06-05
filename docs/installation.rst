@@ -208,7 +208,7 @@ compilers:
 
 - GCC 9 or later (Linux)
 - Clang 8 or later (Linux)
-- Microsoft Visual Studio 2019 version 16.5 (MSVC 19.25) or later
+- Microsoft Visual Studio 2019 version 16.10 (MSVC 14.29.30037) or later
 - Clang-cl 9 or later (Windows)
 - Apple Xcode 11.3.1 or later (earlier versions of XCode 11 have a code
   generation bug related to stack alignment)
