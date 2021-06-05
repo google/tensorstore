@@ -609,7 +609,7 @@ ReadAsIndividualChunks(TensorStore<> store) {
                                    transformed_driver.transaction));
   transformed_driver.driver->Read(
       transaction, transformed_driver.transform,
-      SyncFlowReceiver<tensorstore::Mutex, ReceiverImpl>{ReceiverImpl{
+      SyncFlowReceiver<ReceiverImpl>{ReceiverImpl{
           std::move(promise), transformed_driver.driver->dtype()}});
   return future;
 }
@@ -643,8 +643,7 @@ Future<std::vector<std::pair<ReadChunk, IndexTransform<>>>> CollectReadChunks(
                                    transformed_driver.transaction));
   transformed_driver.driver->Read(
       transaction, transformed_driver.transform,
-      SyncFlowReceiver<tensorstore::Mutex, ReceiverImpl>{
-          ReceiverImpl{std::move(promise)}});
+      SyncFlowReceiver<ReceiverImpl>{ReceiverImpl{std::move(promise)}});
   return future;
 }
 

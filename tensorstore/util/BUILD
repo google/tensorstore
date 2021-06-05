@@ -693,7 +693,10 @@ tensorstore_cc_library(
 tensorstore_cc_library(
     name = "sync_flow_sender",
     hdrs = ["sync_flow_sender.h"],
-    deps = [":execution"],
+    deps = [
+        ":execution",
+        "//tensorstore/internal:mutex",
+    ],
 )
 
 tensorstore_cc_test(

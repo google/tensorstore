@@ -56,11 +56,13 @@ struct LoggingReceiver {
 
 template <typename Receiver>
 struct CompletionNotifyingReceiver
-    : public tensorstore::SyncFlowReceiver<tensorstore::Mutex, Receiver> {
-  using Base = tensorstore::SyncFlowReceiver<tensorstore::Mutex, Receiver>;
+    : public tensorstore::SyncFlowReceiver<Receiver> {
+  using Base = tensorstore::SyncFlowReceiver<Receiver>;
+
   CompletionNotifyingReceiver(absl::Notification* notification,
                               Receiver receiver_arg)
       : Base(std::move(receiver_arg)), notification_(notification) {}
+
   friend void set_stopping(CompletionNotifyingReceiver& self) {
     tensorstore::execution::set_stopping(static_cast<Base&>(self));
     self.notification_->Notify();
