@@ -128,7 +128,29 @@ copying any index arrays.  Only when composing two index array maps is
 it necessary to write a new index array, and in some cases this can
 result in index array with a larger representation size.
 
+The following table describes the relationship between the input and output
+spaces of a transform, and the source and target arrays/TensorStores for read
+and write operations:
+
+.. list-table::
+   :header-rows: 1
+   :widths: auto
+
+   * - Operation
+     - Input domain
+     - Output range
+   * - Read
+     - Corresponds to the target array.
+     - Indicates the positions of the underlying source TensorStore that are
+       accessed.
+   * - Write
+     - Corresponds to the source array.
+     - Indicates the positions of the underlying target TensorStore that are
+       modified.
+
 .. json:schema:: IndexTransform
+
+.. json:schema:: OutputIndexMap
 
 .. json:schema:: IndexInterval
 

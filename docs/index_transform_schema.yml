@@ -122,64 +122,72 @@ properties:
       If not specified, defaults to an identity transform over the input domain.
       Otherwise, the length determines the output rank of the transform.
     items:
-      type: object
-      properties:
-        offset:
-          type: integer
-          title: |
-            Specifies an offset for this output dimension.  If neither
-            `.input_dimension` nor `.index_array` is
-            specified, this specifies the **constant** value to which this output
-            dimension maps.
-        stride:
-          type: integer
-          title: |
-            Multiplier for the input index specified by
-            `.input_dimension` or the index array value specified by
-            `.index_array`.
-          description: |
-            Only valid to specify in conjunction with
-            `.input_dimension` or `.index_array`.
-        input_dimension:
-          type: integer
-          minimum: 0
-          title: |
-            If present, indicates that this output dimension uses a **single
-            input dimension** map with the specified input dimension.  Must not
-            be specified in conjunction with `.index_array`.
-        index_array:
-          oneOf:
-            - type: array
-            - type: integer
-          title: |
-            If present, indicates that this output dimension uses an **index
-            array** map, with the index array specified as a nested list of rank
-            equal to `.input_rank`.
-          description: |
-            If the `.input_rank` is 0, must be a numeric value.
-        index_array_bounds:
-          $ref: IndexInterval
-          description: |
-            If present, specifies constraints on the values within
-            `.index_array` (which must also be specified).  If
-            `.index_array` contains an out-of-bounds index, an error
-            may not be returned immediately but will be returned if the
-            corresponding position within the domain is accessed.  If the
-            indices in `.index_array` have already been validated,
-            this need not be specified.  This allows transforms containing
-            out-of-bounds index array indices to correctly round trip through
-            JSON, but normally need not be specified manually.
-          default: ["-inf", "+inf"]
-          examples:
-            - [5, 100]
-            - ["-inf", 10]
-            - [-20, "+inf"]
+      $ref: OutputIndexMap
 definitions:
+  output-index-map:
+    $id: OutputIndexMap
+    title: Specifies a transform from an input space to a single output index.
+    description: |
+      Logically, an output index map is a function that maps ``n``-dimensional
+      input index vectors to a single output index, using one of the supported
+      :ref:`output index methods<output-index-methods>`.  This is used to
+      represent the :json:schema:`IndexTransform.output` mapping for each output
+      dimension of an `IndexTransform`.
+    type: object
+    properties:
+      offset:
+        type: integer
+        title: |
+          Specifies an offset for this output dimension.  If neither
+          `.input_dimension` nor `.index_array` is
+          specified, this specifies the **constant** value to which this output
+          dimension maps.
+      stride:
+        type: integer
+        title: |
+          Multiplier for the input index specified by
+          `.input_dimension` or the index array value specified by
+          `.index_array`.
+        description: |
+          Only valid to specify in conjunction with
+          `.input_dimension` or `.index_array`.
+      input_dimension:
+        type: integer
+        minimum: 0
+        title: |
+          If present, indicates that this output dimension uses a **single
+          input dimension** map with the specified input dimension.  Must not
+          be specified in conjunction with `.index_array`.
+      index_array:
+        oneOf:
+          - type: array
+          - type: integer
+        title: |
+          If present, indicates that this output dimension uses an **index
+          array** map, with the index array specified as a nested list of rank
+          equal to the `~IndexTransform.input_rank`.
+        description: |
+          If the `~IndexTransform.input_rank` is 0, must be a numeric value.
+      index_array_bounds:
+        $ref: IndexInterval
+        description: |
+          If present, specifies constraints on the values within
+          `.index_array` (which must also be specified).  If
+          `.index_array` contains an out-of-bounds index, an error
+          may not be returned immediately but will be returned if the
+          corresponding position within the domain is accessed.  If the
+          indices in `.index_array` have already been validated,
+          this need not be specified.  This allows transforms containing
+          out-of-bounds index array indices to correctly round trip through
+          JSON, but normally need not be specified manually.
+        default: ["-inf", "+inf"]
+        examples:
+          - [5, 100]
+          - ["-inf", 10]
+          - [-20, "+inf"]
   index-interval:
     $id: IndexInterval
-    title: Index interval
-    description: >-
-      Specifies a closed interval of integer index values.
+    title: Specifies a closed interval of integer index values.
     type: array
     items:
       - oneOf:

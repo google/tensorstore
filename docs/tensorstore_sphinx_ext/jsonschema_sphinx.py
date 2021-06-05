@@ -312,11 +312,14 @@ def _is_object_with_properties(schema_node: JsonSchema) -> bool:
                                      schema_node.get('properties', {})))
 
 
-def _is_object_or_object_array_with_properties(schema_node: JsonSchema):
-  if _is_object_with_properties(schema_node):
-    return True
+def _is_object_array_with_properties(schema_node: JsonSchema):
   return (schema_node.get('type') == 'array' and
           _is_object_with_properties(schema_node.get('items')))
+
+
+def _is_object_or_object_array_with_properties(schema_node: JsonSchema):
+  return (_is_object_with_properties(schema_node) or
+          _is_object_array_with_properties(schema_node))
 
 
 def _normalize_jsonschema_id(id_str: str, top_level_id: Optional[str]) -> str:
@@ -655,6 +658,9 @@ class JsonSchemaDirective(sphinx.directives.ObjectDescription):
     if schema_node.get('type') == 'object':
       properties.update(schema_node.get('properties', {}))
       required.update(schema_node.get('required', []))
+    elif _is_object_array_with_properties(schema_node):
+      self._collect_object_properties(schema_node['items'], properties,
+                                      required)
     else:
       for sub_node in schema_node.get('allOf', []):
         self._collect_object_properties(sub_node, properties, required)
