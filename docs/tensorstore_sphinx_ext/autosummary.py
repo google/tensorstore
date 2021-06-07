@@ -32,6 +32,7 @@ import inspect
 import os
 import pathlib
 import re
+import sys
 from typing import List, Tuple, Any, Optional, Type, cast, Dict, NamedTuple, Iterator, Set
 
 from . import sphinx_utils  # pylint: disable=relative-beyond-top-level
@@ -280,6 +281,12 @@ class _MemberDocumenterEntry(NamedTuple):
     page = self.full_name
     if self.overload and self.overload.overload_id:
       page += f'-{self.overload.overload_id}'
+    if (self.documenter.objtype == 'class' and
+        not sys.platform.startswith('linux')):
+      # On macOS and Windows, the filesystem is case-insensitive.  To avoid name
+      # conflicts between e.g. the class `tensorstore.Context.Spec` and the
+      # method `tensorstore.Context.spec`, add a `-class` suffix to classes.
+      page = f'{page}-class'
     return page
 
   @property

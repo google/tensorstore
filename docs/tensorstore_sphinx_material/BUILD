@@ -1,6 +1,5 @@
 load("//docs/tensorstore_sphinx_material:nodejs_rules.bzl", "nodejs_binary")
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-load("@bazel_skylib//lib:shell.bzl", "shell")
 load(":icons.bzl", "icon_symlinks")
 
 package(
@@ -48,7 +47,9 @@ genrule(
         "sphinx_material/static/stylesheets/palette.css.map",
     ],
     cmd = "$(location :build_css) " +
-          shell.quote(json.encode(ICON_ALIASES)) + " " +
+          # Use custom encoding of ICON_ALIASES rather than JSON encoding to
+          # work around https://github.com/bazelbuild/rules_nodejs/issues/2744
+          ":".join(["%s=%s" % (k, v) for (k, v) in ICON_ALIASES.items()]) + " " +
           "$(location src/assets/stylesheets/main.scss) " +
           "$(location src/assets/stylesheets/palette.scss) " +
           "$(OUTS)" +

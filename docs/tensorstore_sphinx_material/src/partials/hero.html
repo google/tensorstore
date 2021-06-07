@@ -1,4 +1,4 @@
-{% if 'hero' in meta %}
+{% if meta and 'hero' in meta %}
 {% set hero = meta['hero'] | e %}
 <div class="md-hero{% if nav_bar_tabs %} md-hero--expand{% endif %}" data-md-component="hero">
   <div class="md-hero__inner md-grid">

@@ -127,8 +127,10 @@ def _prepare_source_tree(runfiles_dir: str):
 
 def _minify_html(runfiles_dir: str, minify_tool: str, paths: List[str]) -> None:
   print('Minifying %d html output files' % (len(paths),))
-  minify_tool = os.path.join(runfiles_dir, minify_tool)
-  subprocess.run([minify_tool] + paths + paths, check=True)
+  # Note: The list of filenames are passed via stdin rather than the command
+  # line to avoid limits on the length of the command line.
+  subprocess.run([os.path.join(runfiles_dir, minify_tool)], check=True,
+                 input='\n'.join(paths + paths).encode('utf-8'))
 
 
 def run(args: argparse.Namespace, unknown: List[str]):

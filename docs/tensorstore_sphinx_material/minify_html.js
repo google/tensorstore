@@ -7,8 +7,15 @@ if (!process.env.HOME) {
   process.env.HOME = process.cwd();
 }
 
+async function readStream(stream) {
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  return Buffer.concat(chunks).toString('utf8');
+}
+
 async function main() {
-  const sourcesAndOutputs = process.argv.slice(2);
+  const sourcesAndOutputs =
+      (await readStream(process.stdin)).split(/\n/).filter(x => x.length > 0);
   if (sourcesAndOutputs.length % 2 !== 0) {
     console.log('Expected an even number of arguments');
     process.exit(1);

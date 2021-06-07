@@ -68,9 +68,10 @@ async function transformStyle(
 }
 
 async function main() {
-  const [, , iconAliasesJson, inputPath1, inputPath2, outputPath1, outputMapPath1, outputPath2, outputMapPath2] =
+  const [, , iconAliasesStr, inputPath1, inputPath2, outputPath1, outputMapPath1, outputPath2, outputMapPath2] =
       process.argv;
-  const iconAliases = JSON.parse(iconAliasesJson);
+  const iconAliases =
+      Object.fromEntries(iconAliasesStr.split(':').map(x => x.split('=')));
   await transformStyle(iconAliases, inputPath1, outputPath1, outputMapPath1);
   await transformStyle(iconAliases, inputPath2, outputPath2, outputMapPath2);
 }
