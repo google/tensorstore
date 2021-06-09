@@ -171,7 +171,8 @@ Overload:
           },
           "Construct a scalar instance of this data type")
       .def(
-          "__eq__", [](DataType self, DataType other) { return self == other; },
+          "__eq__",
+          [](DataType self, DataTypeLike other) { return self == other.value; },
           py::arg("other"));
 
   // Like NumPy and Tensorflow, define `tensorstore.<dtype>` constants for each

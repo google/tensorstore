@@ -171,3 +171,11 @@ def test_dtype_json():
       },
   ]:
     assert_exact(ts.json(v), v)
+
+
+def test_compare():
+  assert ts.uint8 == np.uint8
+  assert ts.bool == bool
+  assert bool == ts.bool
+  assert ts.bool != np.uint8
+  assert np.uint8 != ts.bool
