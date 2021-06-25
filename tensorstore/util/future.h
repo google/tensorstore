@@ -1055,6 +1055,7 @@ MapFuture(Executor&& executor, Callback&& callback,
     internal::remove_cvref_t<Callback> callback;
     void operator()(Promise<PromiseValue> promise,
                     Future<FutureValue>... future) {
+      if (!promise.result_needed()) return;
       if constexpr (IsFuture<R>) {
         Link(std::move(promise), callback(future.result()...));
       } else {
@@ -1105,6 +1106,7 @@ MapFutureValue(Executor&& executor, Callback&& callback,
     internal::remove_cvref_t<Callback> callback;
     void operator()(Promise<PromiseValue> promise,
                     Future<FutureValue>... future) {
+      if (!promise.result_needed()) return;
       if constexpr (IsFuture<R>) {
         Link(std::move(promise), callback(future.result().value()...));
       } else {

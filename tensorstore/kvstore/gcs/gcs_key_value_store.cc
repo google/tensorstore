@@ -357,6 +357,8 @@ class GcsKeyValueStore
   void ListImpl(const ListOptions& options,
                 AnyFlowReceiver<absl::Status, Key> receiver) override;
 
+  Future<void> DeleteRange(KeyRange range) override;
+
   /// Returns the Auth header for a GCS request.
   Result<std::optional<std::string>> GetAuthHeader() {
     absl::MutexLock lock(&auth_provider_mutex_);
@@ -896,6 +898,46 @@ void GcsKeyValueStore::ListImpl(const ListOptions& options,
   state->receiver.receiver = std::move(receiver);
 
   executor()(ListOp<ListReceiver>{state});
+}
+
+// Receiver used by `DeleteRange` for processing the results from `List`.
+struct DeleteRangeListReceiver {
+  Promise<void> promise_;
+  KeyValueStore::PtrT<GcsKeyValueStore> owner_;
+  FutureCallbackRegistration cancel_registration_;
+
+  void set_starting(AnyCancelReceiver cancel) {
+    cancel_registration_ = promise_.ExecuteWhenNotNeeded(std::move(cancel));
+  }
+
+  void set_value(std::string key) {
+    LinkError(promise_, owner_->Delete(std::move(key)));
+  }
+
+  void set_error(absl::Status error) {
+    if (internal_future::FutureAccess::rep(promise_).LockResult()) {
+      promise_.raw_result() = std::move(error);
+    }
+    promise_ = Promise<void>();
+  }
+
+  void set_done() { promise_ = Promise<void>(); }
+
+  void set_stopping() { cancel_registration_.Unregister(); }
+};
+
+Future<void> GcsKeyValueStore::DeleteRange(KeyRange range) {
+  // TODO(jbms): It could make sense to rate limit the list operation, so that
+  // we don't get way ahead of the delete operations.  Currently our
+  // sender/receiver abstraction does not support back pressure, though.
+  auto [promise, future] =
+      PromiseFuturePair<void>::Make(tensorstore::MakeResult());
+  ListOptions list_options;
+  list_options.range = std::move(range);
+  ListImpl(list_options, DeleteRangeListReceiver{
+                             std::move(promise),
+                             KeyValueStore::PtrT<GcsKeyValueStore>(this)});
+  return future;
 }
 
 const internal::KeyValueStoreDriverRegistration<GcsKeyValueStore> registration;

@@ -327,60 +327,28 @@ TEST(FileKeyValueStoreTest, DeletePrefix) {
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
-  TENSORSTORE_EXPECT_OK(store->Write("a/b", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/d", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", absl::Cord("xyz")));
-
-  TENSORSTORE_EXPECT_OK(store->DeleteRange(KeyRange::Prefix("a/c/")));
-
-  EXPECT_EQ("xyz", store->Read("a/b").value().value);
-  EXPECT_EQ("xyz", store->Read("a/d").value().value);
-
-  EXPECT_THAT(store->Read("a/c/x").result(), MatchesKvsReadResultNotFound());
-  EXPECT_THAT(store->Read("a/c/y").result(), MatchesKvsReadResultNotFound());
-  EXPECT_THAT(store->Read("a/c/z/e").result(), MatchesKvsReadResultNotFound());
-  EXPECT_THAT(store->Read("a/c/z/f").result(), MatchesKvsReadResultNotFound());
+  tensorstore::internal::TestKeyValueStoreDeletePrefix(store);
 }
 
 TEST(FileKeyValueStoreTest, DeleteRange) {
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
-  for (auto key : {"a/a", "a/b", "a/c/a", "a/c/b", "b/a", "b/b"}) {
-    TENSORSTORE_EXPECT_OK(store->Write(key, absl::Cord()).result());
-  }
-  TENSORSTORE_EXPECT_OK(store->DeleteRange(KeyRange("a/b", "b/aa")));
-  EXPECT_THAT(
-      ListFuture(store.get()).result(),
-      ::testing::Optional(::testing::UnorderedElementsAre("a/a", "b/b")));
+  tensorstore::internal::TestKeyValueStoreDeleteRange(store);
 }
 
 TEST(FileKeyValueStoreTest, DeleteRangeToEnd) {
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
-  for (auto key : {"a/a", "a/b", "a/c/a", "a/c/b", "b/a", "b/b"}) {
-    TENSORSTORE_EXPECT_OK(store->Write(key, absl::Cord()).result());
-  }
-  TENSORSTORE_EXPECT_OK(store->DeleteRange(KeyRange("a/b", "")));
-  EXPECT_THAT(ListFuture(store.get()).result(),
-              ::testing::Optional(::testing::UnorderedElementsAre("a/a")));
+  tensorstore::internal::TestKeyValueStoreDeleteRangeToEnd(store);
 }
 
 TEST(FileKeyValueStoreTest, DeleteRangeFromBeginning) {
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
-  for (auto key : {"a/a", "a/b", "a/c/a", "a/c/b", "b/a", "b/b"}) {
-    TENSORSTORE_EXPECT_OK(store->Write(key, absl::Cord()).result());
-  }
-  TENSORSTORE_EXPECT_OK(store->DeleteRange(KeyRange("", "a/c/aa")));
-  EXPECT_THAT(ListFuture(store.get()).result(),
-              ::testing::Optional(
-                  ::testing::UnorderedElementsAre("a/c/b", "b/a", "b/b")));
+  tensorstore::internal::TestKeyValueStoreDeleteRangeFromBeginning(store);
 }
 
 TEST(FileKeyValueStoreTest, ListErrors) {

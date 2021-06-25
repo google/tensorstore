@@ -53,6 +53,18 @@ inline void TestKeyValueStoreBasicFunctionality(KeyValueStore::Ptr store) {
       std::move(store), [](std::string key) { return key; });
 }
 
+/// Tests DeleteRange on `store`, which should be empty.
+void TestKeyValueStoreDeleteRange(KeyValueStore::Ptr store);
+
+/// Tests DeleteRange on `store`, which should be empty.
+void TestKeyValueStoreDeletePrefix(KeyValueStore::Ptr store);
+
+/// Tests DeleteRange on `store`, which should be empty.
+void TestKeyValueStoreDeleteRangeToEnd(KeyValueStore::Ptr store);
+
+/// Tests DeleteRange on `store`, which should be empty.
+void TestKeyValueStoreDeleteRangeFromBeginning(KeyValueStore::Ptr store);
+
 /// Tests that calling `KeyValueStore::Open` with `spec` returns a
 /// `KeyValueStore::Ptr` whose `spec()` method returns `spec`, and that data
 /// persists when re-opening using the same `spec` after closing.
