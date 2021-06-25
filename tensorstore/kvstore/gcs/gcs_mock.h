@@ -94,7 +94,7 @@ class GCSMockStorageBucket {
   // Construct an object media response.
   internal_http::HttpResponse ObjectMediaResponse(const Object& object);
 
-  std::string ObjectMetadataString(const Object& object);
+  ::nlohmann::json ObjectMetadata(const Object& object);
 
   // Triggers a guaranteed error for the next `count` requests.
   void TriggerErrors(int64_t count) {

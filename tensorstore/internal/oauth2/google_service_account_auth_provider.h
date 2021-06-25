@@ -59,8 +59,8 @@ class GoogleServiceAccountAuthProvider : public AuthProvider {
   bool IsValid() { return !access_token_.empty() && !IsExpired(); }
 
  protected:
-  virtual Result<internal_http::HttpResponse> IssueRequest(std::string_view,
-                                                           absl::Cord);
+  virtual Result<internal_http::HttpResponse> IssueRequest(
+      std::string_view method, std::string_view uri, absl::Cord payload);
 
  private:
   const AccountCredentials creds_;

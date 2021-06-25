@@ -100,13 +100,25 @@ void TestKeyValueStoreUnconditionalOps(
   TENSORSTORE_LOG("Test unconditional read of missing key");
   EXPECT_THAT(store->Read(key).result(), MatchesKvsReadResultNotFound());
 
+  // Test unconditional write of empty value.
+  {
+    TENSORSTORE_LOG("Test unconditional write of empty value");
+    auto write_result = store->Write(key, absl::Cord()).result();
+    ASSERT_THAT(write_result, MatchesRegularTimestampedStorageGeneration());
+
+    // Test unconditional read.
+    TENSORSTORE_LOG("Test unconditional read of empty value");
+    EXPECT_THAT(store->Read(key).result(),
+                MatchesKvsReadResult(absl::Cord(), write_result->generation));
+  }
+
   // Test unconditional write.
-  TENSORSTORE_LOG("Test unconditional write");
+  TENSORSTORE_LOG("Test unconditional write of non-empty value");
   auto write_result = store->Write(key, value).result();
   ASSERT_THAT(write_result, MatchesRegularTimestampedStorageGeneration());
 
   // Test unconditional read.
-  TENSORSTORE_LOG("Test unconditional read");
+  TENSORSTORE_LOG("Test unconditional read of non-empty value");
   EXPECT_THAT(store->Read(key).result(),
               MatchesKvsReadResult(value, write_result->generation));
 

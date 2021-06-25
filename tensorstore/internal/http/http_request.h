@@ -34,9 +34,7 @@ class HttpRequest {
   const std::string& url() const { return url_; }
   const std::string& user_agent() const { return user_agent_; }
 
-  /// method() returns the value set via CURLOPT_CUSTOMREQUEST,
-  /// NOTE that GET / POST is determined by whether the request has a body,
-  /// and CURLOPT_CUSTOMREQUEST should not be used to set HEAD requests.
+  // HTTP method, i.e. GET, POST, PUT, HEAD, etc.
   const std::string& method() const { return method_; }
   const std::vector<std::string>& headers() const { return headers_; }
   const bool accept_encoding() const { return accept_encoding_; }
@@ -54,7 +52,11 @@ class HttpRequest {
 /// Implements the builder pattern for HttpRequest.
 class HttpRequestBuilder {
  public:
-  explicit HttpRequestBuilder(std::string base_url);
+  /// Creates a request builder, using the specified method and url.
+  ///
+  /// The method should be an HTTP method, like "GET", "POST", "PUT", "HEAD",
+  /// etc.
+  explicit HttpRequestBuilder(std::string_view method, std::string base_url);
 
   /// Creates an http request with the given payload.
   ///
@@ -71,9 +73,6 @@ class HttpRequestBuilder {
   /// Adds a parameter for a request.
   HttpRequestBuilder& AddQueryParameter(std::string_view key,
                                         std::string_view value);
-
-  /// Changes the http method used for this request.
-  HttpRequestBuilder& SetMethod(std::string_view method);
 
   /// Enables sending Accept-Encoding header and transparently decoding the
   /// response.

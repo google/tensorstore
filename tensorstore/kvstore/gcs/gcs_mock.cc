@@ -175,11 +175,10 @@ GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
   }
 
   // Dispatch based on path, method, etc.
-  if (path == "/o" && request.method().empty() && payload.empty()) {
+  if (path == "/o" && request.method() == "GET") {
     // GET request for the bucket.
     return HandleListRequest(path, params);
-  } else if (path == "/o" && request.method().empty() && !payload.empty()) {
-    // POST
+  } else if (path == "/o" && request.method() == "POST") {
     if (!is_upload) {
       return HttpResponse{
           400,
@@ -187,7 +186,7 @@ GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
               R"({ "error": { "code": 400, "message": "Uploads must be sent to the upload URL." } })")};
     }
     return HandleInsertRequest(path, params, payload);
-  } else if (absl::StartsWith(path, "/o/") && request.method().empty()) {
+  } else if (absl::StartsWith(path, "/o/") && request.method() == "GET") {
     // GET request on an object.
     return HandleGetRequest(path, params);
   } else if (absl::StartsWith(path, "/o/") && request.method() == "DELETE") {
@@ -210,21 +209,6 @@ std::variant<std::monostate, HttpResponse, absl::Status>
 GCSMockStorageBucket::HandleListRequest(std::string_view path,
                                         const ParamMap& params) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/list
-  const char kPrefix[] = R"(
-{
- "kind": "storage#objects",
- "items": [)";
-
-  const char kSuffix[] = R"(
-  ],
-  "nextPageToken": "$0"
-}
-)";
-
-  const char kShortSuffix[] = R"(
-  ]
-})";
-
   // TODO: handle Delimiter
   std::int64_t maxResults = std::numeric_limits<std::int64_t>::max();
   for (auto it = params.find("maxResults"); it != params.end();) {
@@ -260,23 +244,17 @@ GCSMockStorageBucket::HandleListRequest(std::string_view path,
   }
 
   // NOTE: Use ::nlohmann::json to construct json objects & dump the response.
-  std::string result(kPrefix);
-  bool add_comma = false;
+  ::nlohmann::json result{{"kind", "storage#objects"}};
+  ::nlohmann::json::array_t items;
   for (; object_it != object_end_it; ++object_it) {
-    if (add_comma) {
-      absl::StrAppend(&result, ",\n");
-    }
-    absl::StrAppend(&result, ObjectMetadataString(object_it->second));
-    add_comma = true;
+    items.push_back(ObjectMetadata(object_it->second));
     if (maxResults-- <= 0) break;
   }
-  if (object_it == object_end_it) {
-    absl::StrAppend(&result, kShortSuffix);
-  } else {
-    absl::StrAppend(&result, absl::Substitute(kSuffix, object_it->first));
+  result["items"] = std::move(items);
+  if (object_it != object_end_it) {
+    result["nextPageToken"] = object_it->first;
   }
-
-  return HttpResponse{200, absl::Cord(std::move(result))};
+  return HttpResponse{200, absl::Cord(result.dump())};
 }
 
 std::variant<std::monostate, HttpResponse, absl::Status>
@@ -344,7 +322,7 @@ GCSMockStorageBucket::HandleGetRequest(std::string_view path,
                                        const ParamMap& params) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/get
   path.remove_prefix(3);  // remove /o/
-  std::string name(path.data(), path.length());
+  std::string name = internal_http::CurlUnescapeString(path);
 
   QueryParameters parsed_parameters;
   {
@@ -397,7 +375,7 @@ GCSMockStorageBucket::HandleDeleteRequest(std::string_view path,
                                           const ParamMap& params) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/delete
   path.remove_prefix(3);  // remove /o/
-  std::string name(path.data(), path.length());
+  std::string name = internal_http::CurlUnescapeString(path);
 
   QueryParameters parsed_parameters;
   {
@@ -422,7 +400,7 @@ GCSMockStorageBucket::HandleDeleteRequest(std::string_view path,
       }
     }
 
-    TENSORSTORE_LOG("Deleted: ", path, " ", it->second.generation);
+    TENSORSTORE_LOG("Deleted: ", name, " ", it->second.generation);
 
     data_.erase(it);
     return HttpResponse{204, absl::Cord()};
@@ -433,7 +411,7 @@ GCSMockStorageBucket::HandleDeleteRequest(std::string_view path,
 
 HttpResponse GCSMockStorageBucket::ObjectMetadataResponse(
     const Object& object) {
-  std::string data = ObjectMetadataString(object);
+  std::string data = ObjectMetadata(object).dump();
   HttpResponse response{200, absl::Cord(std::move(data))};
   response.headers.insert(
       {"content-length", absl::StrCat(response.payload.size())});
@@ -441,26 +419,29 @@ HttpResponse GCSMockStorageBucket::ObjectMetadataResponse(
   return response;
 }
 
-std::string GCSMockStorageBucket::ObjectMetadataString(const Object& object) {
-  // NOTE:  Use ::nlohmann::json to construct json objects & dump the response.
-  return absl::Substitute(
-      R"({
-  "kind": "storage#object",
-  "id": "$0/$1/$2",
-  "selfLink": "https://www.googleapis.com/storage/v1/b/$0/o/$1",
-  "name": "$1",
-  "bucket": "$0",
-  "generation": "$2",
-  "metageneration": "1",
-  "contentType": "application/octet-stream",
-  "timeCreated": "2018-10-24T00:41:38.264Z",
-  "updated": "2018-10-24T00:41:38.264Z",
-  "storageClass": "MULTI_REGIONAL",
-  "timeStorageClassUpdated": "2018-10-24T00:41:38.264Z",
-  "size": "$3",
-  "mediaLink": "https://www.googleapis.com/download/storage/v1/b/$0/o/$1?generation=$2&alt=media"
- })",
-      bucket_, object.name, object.generation, object.data.size());
+::nlohmann::json GCSMockStorageBucket::ObjectMetadata(const Object& object) {
+  return {
+      {"kind", "storage#object"},
+      {"id", absl::StrCat(bucket_, "/", object.name, "/", object.generation)},
+      {"selfLink",
+       absl::StrCat("https://www.googleapis.com/storage/v1/b/", bucket_, "/o/",
+                    internal_http::CurlEscapeString(object.name))},
+      {"name", object.name},
+      {"bucket", bucket_},
+      {"generation", absl::StrCat(object.generation)},
+      {"metageneration", "1"},
+      {"contentType", "application/octet-stream"},
+      {"timeCreated", "2018-10-24T00:41:38.264Z"},
+      {"updated", "2018-10-24T00:41:38.264Z"},
+      {"storageClass", "MULTI_REGIONAL"},
+      {"timeStorageClassUpdated", "2018-10-24T00:41:38.264Z"},
+      {"size", absl::StrCat(object.data.size())},
+      {"mediaLink",
+       absl::StrCat("https://www.googleapis.com/download/storage/v1/b/",
+                    bucket_, "/o/",
+                    internal_http::CurlEscapeString(object.name),
+                    "?generation=", object.generation, "&alt=media")},
+  };
 }
 
 HttpResponse GCSMockStorageBucket::ObjectMediaResponse(const Object& object) {

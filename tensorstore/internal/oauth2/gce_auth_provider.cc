@@ -103,7 +103,7 @@ Result<GceAuthProvider::BearerTokenWithExpiration> GceAuthProvider::GetToken() {
 Result<HttpResponse> GceAuthProvider::IssueRequest(std::string path,
                                                    bool recursive) {
   HttpRequestBuilder request_builder(
-      internal::JoinPath("http://", GceMetadataHostname(), path));
+      "GET", internal::JoinPath("http://", GceMetadataHostname(), path));
   request_builder.AddHeader("Metadata-Flavor: Google");
   if (recursive) {
     request_builder.AddQueryParameter("recursive", "true");

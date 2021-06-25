@@ -73,6 +73,11 @@ using tensorstore::internal_http::HttpTransport;
 using tensorstore::internal_storage_gcs::ObjectMetadata;
 using tensorstore::internal_storage_gcs::ParseObjectMetadata;
 
+// Uncomment to log all http requests.
+// #define TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS
+// Uncomment to log all http responses
+// #define TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES
+
 namespace tensorstore {
 namespace {
 namespace jb = tensorstore::internal_json_binding;
@@ -400,14 +405,21 @@ class GcsKeyValueStore
                                     const HttpRequest& request,
                                     const absl::Cord& payload) {
     auto result = transport_->IssueRequest(request, payload).result();
-#if 0
-  // If we want to log the URL & the response code, uncomment this.
-  TENSORSTORE_LOG(description, " ", response.status_code, " ", request.url());
+#ifdef TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS
+    if (result.ok()) {
+      TENSORSTORE_LOG(description, " ", result->status_code, " ",
+                      request.url());
+    } else {
+      TENSORSTORE_LOG(description, " ", result.status(), " ", request.url());
+    }
 #endif
-#if 0
-  // If we want to log the entire request, uncomment this.
-  TENSORSTORE_LOG(description, " ",
-                  DumpRequestResponse(request, {}, response, {}));
+#ifdef TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES
+    if (result.ok()) {
+      for (auto& [key, value] : result->headers) {
+        TENSORSTORE_LOG(description, ": ", key, ": ", value);
+      }
+      TENSORSTORE_LOG(description, ": Response: ", result->payload);
+    }
 #endif
     return result;
   }
@@ -456,7 +468,7 @@ struct ReadTask {
     HttpResponse httpresponse;
     auto retry_status = owner->RetryRequestWithBackoff([&] {
       TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
-      HttpRequestBuilder request_builder(media_url);
+      HttpRequestBuilder request_builder("GET", media_url);
       if (auth_header) request_builder.AddHeader(*auth_header);
       if (options.byte_range.inclusive_min != 0 ||
           options.byte_range.exclusive_max) {
@@ -559,7 +571,7 @@ struct WriteTask {
     HttpResponse httpresponse;
     auto retry_status = owner->RetryRequestWithBackoff([&] {
       TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
-      HttpRequestBuilder request_builder(upload_url);
+      HttpRequestBuilder request_builder("POST", upload_url);
       if (auth_header) request_builder.AddHeader(*auth_header);
       auto request = request_builder  //
                          .AddHeader("Content-Type: application/octet-stream")
@@ -640,10 +652,9 @@ struct DeleteTask {
     HttpResponse httpresponse;
     auto retry_status = owner->RetryRequestWithBackoff([&] {
       TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
-      HttpRequestBuilder request_builder(delete_url);
+      HttpRequestBuilder request_builder("DELETE", delete_url);
       if (auth_header) request_builder.AddHeader(*auth_header);
       auto request = request_builder  //
-                         .SetMethod("DELETE")
                          .BuildRequest();
       r.time = absl::Now();
       auto response = owner->IssueRequest("DeleteTask", request, {});
@@ -813,7 +824,7 @@ struct ListOp {
         TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header,
                                      state->owner->GetAuthHeader());
         TENSORSTORE_RETURN_IF_ERROR(maybe_cancelled());
-        HttpRequestBuilder request_builder(list_url);
+        HttpRequestBuilder request_builder("GET", list_url);
         if (auth_header) request_builder.AddHeader(*auth_header);
         auto request = request_builder.BuildRequest();
         auto response = state->owner->IssueRequest("List", request, {});

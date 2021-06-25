@@ -148,22 +148,20 @@ struct CurlRequestState {
       auto ms = absl::ToInt64Milliseconds(connect_timeout);
       CurlEasySetopt(handle_.get(), CURLOPT_CONNECTTIMEOUT_MS, ms > 0 ? ms : 1);
     }
-    if (!request.method().empty()) {
-      CurlEasySetopt(handle_.get(), CURLOPT_CUSTOMREQUEST,
-                     request.method().c_str());
-    }
 
     if (!payload.empty()) {
       payload_ = std::move(payload);
       payload_it_ = payload_.char_begin();
       payload_remaining_ = payload_.size();
-      if (!request.method().empty()) {
-        TENSORSTORE_LOG("Changing custom http method [", request.method(),
-                        "] to POST");
+      if (request.method() == "POST") {
+        CurlEasySetopt(handle_.get(), CURLOPT_POST, 1L);
+        CurlEasySetopt(handle_.get(), CURLOPT_POSTFIELDSIZE_LARGE,
+                       payload_.size());
+      } else {
+        CurlEasySetopt(handle_.get(), CURLOPT_UPLOAD, 1L);
+        CurlEasySetopt(handle_.get(), CURLOPT_INFILESIZE_LARGE,
+                       payload_.size());
       }
-      CurlEasySetopt(handle_.get(), CURLOPT_POST, 1L);
-      CurlEasySetopt(handle_.get(), CURLOPT_POSTFIELDSIZE_LARGE,
-                     payload_.size());
       CurlEasySetopt(handle_.get(), CURLOPT_READDATA, this);
       CurlEasySetopt(handle_.get(), CURLOPT_READFUNCTION,
                      &CurlRequestState::CurlReadCallback);
@@ -176,8 +174,19 @@ struct CurlRequestState {
       CurlEasySetopt(handle_.get(), CURLOPT_SEEKFUNCTION,
                      &CurlRequestState::CurlSeekCallback);
       CurlEasySetopt(handle_.get(), CURLOPT_SEEKDATA, this);
-    } else if (request.method().empty()) {
+    }
+
+    if (request.method() == "GET") {
       CurlEasySetopt(handle_.get(), CURLOPT_HTTPGET, 1L);
+    } else if (request.method() == "POST") {
+      CurlEasySetopt(handle_.get(), CURLOPT_POST, 1L);
+    } else if (request.method() == "PUT") {
+      CurlEasySetopt(handle_.get(), CURLOPT_UPLOAD, 1L);
+    } else if (request.method() == "HEAD") {
+      CurlEasySetopt(handle_.get(), CURLOPT_NOBODY, 1L);
+    } else {
+      CurlEasySetopt(handle_.get(), CURLOPT_CUSTOMREQUEST,
+                     request.method().c_str());
     }
   }
 

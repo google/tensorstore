@@ -29,8 +29,10 @@
 namespace tensorstore {
 namespace internal_http {
 
-HttpRequestBuilder::HttpRequestBuilder(std::string base_url)
+HttpRequestBuilder::HttpRequestBuilder(std::string_view method,
+                                       std::string base_url)
     : query_parameter_separator_("?") {
+  request_.method_ = method;
   request_.url_ = std::move(base_url);
 }
 
@@ -54,11 +56,6 @@ HttpRequestBuilder& HttpRequestBuilder::AddQueryParameter(
                    CurlEscapeString(value));
   query_parameter_separator_ = "&";
   request_.url_.append(parameter);
-  return *this;
-}
-
-HttpRequestBuilder& HttpRequestBuilder::SetMethod(std::string_view method) {
-  request_.method_.assign(method.data(), method.size());
   return *this;
 }
 

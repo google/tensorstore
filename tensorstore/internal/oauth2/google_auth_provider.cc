@@ -81,7 +81,7 @@ bool IsFile(const std::string& filename) {
 /// Returns whether this is running on GCE.
 bool IsRunningOnGce(internal_http::HttpTransport* transport) {
   HttpRequestBuilder request_builder(
-      JoinPath("http://", GceMetadataHostname()));
+      "GET", JoinPath("http://", GceMetadataHostname()));
 
   request_builder.AddHeader("Metadata-Flavor: Google");
   auto request = request_builder.BuildRequest();

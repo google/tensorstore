@@ -127,7 +127,7 @@ class MyMockTransport : public HttpTransport {
   std::vector<GCSMockStorageBucket*> buckets_;
 };
 
-TEST(GCSKeyValueStoreTest, BadBucketNames) {
+TEST(GcsKeyValueStoreTest, BadBucketNames) {
   auto context = Context::Default();
   for (auto bucket :
        {"a", "_abc", "abc_", "ABC", "a..b", "a.-.b",
@@ -148,7 +148,7 @@ TEST(GCSKeyValueStoreTest, BadBucketNames) {
   }
 }
 
-TEST(GCSKeyValueStoreTest, BadObjectNames) {
+TEST(GcsKeyValueStoreTest, BadObjectNames) {
   using tensorstore::StorageGeneration;
 
   auto mock_transport = std::make_shared<MyMockTransport>();
@@ -189,7 +189,7 @@ TEST(GCSKeyValueStoreTest, BadObjectNames) {
   SetDefaultHttpTransport(nullptr);
 }
 
-TEST(GCSKeyValueStoreTest, Basic) {
+TEST(GcsKeyValueStoreTest, Basic) {
   // Setup mocks for:
   // https://www.googleapis.com/kvstore/v1/b/my-bucket/o/test
   auto mock_transport = std::make_shared<MyMockTransport>();
@@ -212,7 +212,7 @@ TEST(GCSKeyValueStoreTest, Basic) {
   SetDefaultHttpTransport(nullptr);
 }
 
-TEST(GCSKeyValueStoreTest, Retry) {
+TEST(GcsKeyValueStoreTest, Retry) {
   for (int max_retries : {2, 3, 4}) {
     for (bool fail : {false, true}) {
       // Setup mocks for:
@@ -247,7 +247,7 @@ TEST(GCSKeyValueStoreTest, Retry) {
   }
 }
 
-TEST(GCSKeyValueStoreTest, List) {
+TEST(GcsKeyValueStoreTest, List) {
   // Setup mocks for:
   // https://www.googleapis.com/kvstore/v1/b/my-bucket/o/test
   auto mock_transport = std::make_shared<MyMockTransport>();
@@ -390,7 +390,7 @@ TEST(GCSKeyValueStoreTest, List) {
   SetDefaultHttpTransport(nullptr);
 }
 
-TEST(GCSKeyValueStoreTest, SpecRoundtrip) {
+TEST(GcsKeyValueStoreTest, SpecRoundtrip) {
   auto mock_transport = std::make_shared<MyMockTransport>();
   SetDefaultHttpTransport(mock_transport);
 
@@ -403,7 +403,7 @@ TEST(GCSKeyValueStoreTest, SpecRoundtrip) {
   SetDefaultHttpTransport(nullptr);
 }
 
-TEST(GCSKeyValueStoreTest, InvalidSpec) {
+TEST(GcsKeyValueStoreTest, InvalidSpec) {
   auto mock_transport = std::make_shared<MyMockTransport>();
   SetDefaultHttpTransport(mock_transport);
 
@@ -430,7 +430,7 @@ TEST(GCSKeyValueStoreTest, InvalidSpec) {
   SetDefaultHttpTransport(nullptr);
 }
 
-TEST(GCSKeyValueStoreTest, RequestorPays) {
+TEST(GcsKeyValueStoreTest, RequestorPays) {
   auto mock_transport = std::make_shared<MyMockTransport>();
   SetDefaultHttpTransport(mock_transport);
 
@@ -519,7 +519,7 @@ class MyConcurrentMockTransport : public MyMockTransport {
   absl::Mutex concurrent_request_mutex_;
 };
 
-TEST(GCSKeyValueStoreTest, Concurrency) {
+TEST(GcsKeyValueStoreTest, Concurrency) {
   auto mock_transport = std::make_shared<MyConcurrentMockTransport>();
   SetDefaultHttpTransport(mock_transport);
 

@@ -76,9 +76,10 @@ Result<AuthProvider::BearerTokenWithExpiration> OAuth2AuthProvider::GetToken() {
   return BearerTokenWithExpiration{access_token_, expiration_};
 }
 
-Result<HttpResponse> OAuth2AuthProvider::IssueRequest(std::string_view uri,
+Result<HttpResponse> OAuth2AuthProvider::IssueRequest(std::string_view method,
+                                                      std::string_view uri,
                                                       absl::Cord payload) {
-  HttpRequestBuilder request_builder(std::string{uri});
+  HttpRequestBuilder request_builder(method, std::string{uri});
   return transport_
       ->IssueRequest(request_builder.BuildRequest(), std::move(payload))
       .result();
@@ -87,7 +88,7 @@ Result<HttpResponse> OAuth2AuthProvider::IssueRequest(std::string_view uri,
 Status OAuth2AuthProvider::Refresh() {
   const auto now = clock_();
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto response, IssueRequest(uri_, absl::Cord(refresh_payload_)));
+      auto response, IssueRequest("POST", uri_, absl::Cord(refresh_payload_)));
   TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(response));
 
   TENSORSTORE_ASSIGN_OR_RETURN(auto result, internal_oauth2::ParseOAuthResponse(

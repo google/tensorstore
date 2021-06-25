@@ -76,8 +76,8 @@ GoogleServiceAccountAuthProvider::GetToken() {
 }
 
 Result<HttpResponse> GoogleServiceAccountAuthProvider::IssueRequest(
-    std::string_view uri, absl::Cord payload) {
-  HttpRequestBuilder request_builder(std::string{uri});
+    std::string_view method, std::string_view uri, absl::Cord payload) {
+  HttpRequestBuilder request_builder(method, std::string{uri});
   request_builder.AddHeader("Content-Type: application/x-www-form-urlencoded");
   return transport_
       ->IssueRequest(request_builder.BuildRequest(), std::move(payload))
@@ -95,8 +95,8 @@ Status GoogleServiceAccountAuthProvider::Refresh() {
           internal_oauth2::BuildJWTHeader(creds_.private_key_id),
           internal_oauth2::BuildJWTClaimBody(creds_.client_email, scope_, uri_,
                                              now, 3600 /*1 hour*/)));
-  TENSORSTORE_ASSIGN_OR_RETURN(auto response,
-                               IssueRequest(uri_, absl::Cord(std::move(body))));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto response, IssueRequest("POST", uri_, absl::Cord(std::move(body))));
   TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(response));
 
   TENSORSTORE_ASSIGN_OR_RETURN(auto result, internal_oauth2::ParseOAuthResponse(

@@ -302,7 +302,7 @@ TEST_F(CurlTransportTest, Http1) {
 
   // Issue a request.
   auto response = transport->IssueRequest(
-      HttpRequestBuilder(absl::StrCat("http://", hostport, "/"))
+      HttpRequestBuilder("POST", absl::StrCat("http://", hostport, "/"))
           .AddUserAgentPrefix("test")
           .AddHeader("X-foo: bar")
           .AddQueryParameter("name", "dragon")
@@ -315,7 +315,7 @@ TEST_F(CurlTransportTest, Http1) {
   std::cout << GetStatus(response);
 
   using ::testing::HasSubstr;
-  EXPECT_THAT(initial_request, HasSubstr("/?name=dragon&age=1234"));
+  EXPECT_THAT(initial_request, HasSubstr("POST /?name=dragon&age=1234"));
   EXPECT_THAT(initial_request,
               HasSubstr(absl::StrCat("Host: ", hostport, "\r\n")));
 
@@ -395,7 +395,7 @@ TEST_F(CurlTransportTest, Http1Resend) {
   // Issue 2 requests.
   for (int i = 0; i < 2; ++i) {
     auto response = transport->IssueRequest(
-        HttpRequestBuilder(absl::StrCat("http://", hostport, "/"))
+        HttpRequestBuilder("POST", absl::StrCat("http://", hostport, "/"))
             .AddUserAgentPrefix("test")
             .AddHeader("X-foo: bar")
             .AddQueryParameter("name", "dragon")
@@ -414,7 +414,7 @@ TEST_F(CurlTransportTest, Http1Resend) {
 
   for (auto& request : seen_requests) {
     using ::testing::HasSubstr;
-    EXPECT_THAT(request, HasSubstr("/?name=dragon&age=1234"));
+    EXPECT_THAT(request, HasSubstr("POST /?name=dragon&age=1234"));
     EXPECT_THAT(request, HasSubstr(absl::StrCat("Host: ", hostport, "\r\n")));
 
     // User-Agent versions change based on zlib, nghttp2, and curl versions.
@@ -744,7 +744,7 @@ TEST_F(CurlTransportTest, Http2) {
   // Issue request 1.
   {
     auto response = transport->IssueRequest(
-        HttpRequestBuilder(absl::StrCat("http://", hostport, "/"))
+        HttpRequestBuilder("POST", absl::StrCat("http://", hostport, "/"))
             .AddUserAgentPrefix("test")
             .AddHeader("X-foo: bar")
             .AddQueryParameter("name", "dragon")
@@ -781,7 +781,7 @@ TEST_F(CurlTransportTest, Http2) {
 
   {
     auto response = transport->IssueRequest(
-        HttpRequestBuilder(absl::StrCat("http://", hostport, "/boo"))
+        HttpRequestBuilder("GET", absl::StrCat("http://", hostport, "/boo"))
             .BuildRequest(),
         absl::Cord());
 

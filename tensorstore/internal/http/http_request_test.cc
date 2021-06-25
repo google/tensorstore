@@ -22,19 +22,18 @@ using tensorstore::internal_http::HttpRequestBuilder;
 namespace {
 
 TEST(HttpRequestBuilder, BuildRequest) {
-  auto request = HttpRequestBuilder("http://127.0.0.1:0/")
+  auto request = HttpRequestBuilder("GET", "http://127.0.0.1:0/")
                      .AddUserAgentPrefix("test")
                      .AddHeader("X-foo: bar")
                      .AddQueryParameter("name", "dragon")
                      .AddQueryParameter("age", "1234")
-                     .SetMethod("CUSTOM")
                      .EnableAcceptEncoding()
                      .BuildRequest();
 
   EXPECT_EQ("http://127.0.0.1:0/?name=dragon&age=1234", request.url());
   EXPECT_TRUE(request.accept_encoding());
   EXPECT_EQ("test", request.user_agent());
-  EXPECT_EQ("CUSTOM", request.method());
+  EXPECT_EQ("GET", request.method());
   EXPECT_THAT(request.headers(), testing::ElementsAre("X-foo: bar"));
 }
 
