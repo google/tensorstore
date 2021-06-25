@@ -323,7 +323,6 @@ TEST_F(CurlTransportTest, Http1) {
   EXPECT_THAT(initial_request, HasSubstr("User-Agent: testtensorstore/0.1 "));
 
   EXPECT_THAT(initial_request, HasSubstr("Accept: */*\r\n"));
-  EXPECT_THAT(initial_request, HasSubstr("Accept-Encoding: deflate, gzip\r\n"));
   EXPECT_THAT(initial_request, HasSubstr("X-foo: bar\r\n"));
   EXPECT_THAT(initial_request, HasSubstr("Content-Length: 5"));
   EXPECT_THAT(initial_request,
@@ -421,7 +420,6 @@ TEST_F(CurlTransportTest, Http1Resend) {
     EXPECT_THAT(request, HasSubstr("User-Agent: testtensorstore/0.1 "));
 
     EXPECT_THAT(request, HasSubstr("Accept: */*\r\n"));
-    EXPECT_THAT(request, HasSubstr("Accept-Encoding: deflate, gzip\r\n"));
     EXPECT_THAT(request, HasSubstr("X-foo: bar\r\n"));
     EXPECT_THAT(request, HasSubstr("Content-Length: 5"));
     EXPECT_THAT(
@@ -765,8 +763,6 @@ TEST_F(CurlTransportTest, Http2) {
     EXPECT_THAT(initial_request, HasSubstr("User-Agent: testtensorstore/0.1 "));
 
     EXPECT_THAT(initial_request, HasSubstr("Accept: */*\r\n"));
-    EXPECT_THAT(initial_request,
-                HasSubstr("Accept-Encoding: deflate, gzip\r\n"));
     EXPECT_THAT(initial_request, HasSubstr("X-foo: bar\r\n"));
     EXPECT_THAT(initial_request, HasSubstr("Content-Length: 5"));
     EXPECT_THAT(

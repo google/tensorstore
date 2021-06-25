@@ -88,6 +88,7 @@ cc_library_with_strip_include_prefix(
         "CURL_DISABLE_PROXY",
         "HAVE_LIBZ",
         "HAVE_ZLIB_H",
+        "HAVE_BROTLI",
     ] + select({
         ":windows": [
             "CURL_DISABLE_PROXY",
@@ -112,6 +113,7 @@ cc_library_with_strip_include_prefix(
     visibility = ["//visibility:public"],
     deps = [
         "@net_zlib//:zlib",
+        "@com_google_brotli//:brotlidec",
         "@org_nghttp2//:nghttp2",
     ] + select({
         ":ios": [],
