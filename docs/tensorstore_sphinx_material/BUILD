@@ -30,7 +30,6 @@ nodejs_binary(
         "@npm//material-design-color",
         "@npm//material-shadows",
         "@npm//postcss",
-        "@npm//postcss-inline-svg",
         "@npm//sass",
     ] + ICON_PACKAGES,
 )
@@ -72,14 +71,10 @@ nodejs_binary(
     ]),
     entry_point = ":build_js.js",
     deps = [
-        "@npm//@types/clipboard",
-        "@npm//@types/escape-html",
-        "@npm//@types/resize-observer-browser",
         "@npm//clipboard",
         "@npm//esbuild",
         "@npm//escape-html",
         "@npm//focus-visible",
-        "@npm//github-types",
         "@npm//preact",
         "@npm//rxjs",
     ],
@@ -118,15 +113,6 @@ HTML_TEMPLATES_MINIFIED = [
     "sphinx_material/" + x[len(HTML_TEMPLATE_SRC_PREFIX):]
     for x in HTML_TEMPLATE_SRCS
 ]
-
-nodejs_binary(
-    name = "minify_html",
-    srcs = ["minify_html.js"],
-    entry_point = ":minify_html.js",
-    deps = [
-        "@npm//html-minifier",
-    ],
-)
 
 filegroup(
     name = "html_templates",

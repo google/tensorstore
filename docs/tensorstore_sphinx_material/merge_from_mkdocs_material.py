@@ -45,6 +45,9 @@ MKDOCS_EXCLUDE_PATTERNS = [
     'src/assets/javascripts/browser/worker',
     'src/assets/javascripts/integrations/search/worker',
 
+    # Files for mkdocs-material's build system
+    'tools',
+
     # Files specific to mkdocs' own documentation
     'src/overrides',
     'src/assets/images/favicon.png',
@@ -98,8 +101,17 @@ def _fix_package_json(path: pathlib.Path) -> None:
     content = json.loads(path.read_text(encoding='utf-8'))
     content.pop('version', None)
     content['dependencies'].pop('lunr')
+    content['dependencies'].pop('fuzzaldrin-plus')
     content['dependencies'].pop('lunr-languages')
     content['devDependencies'].pop('@types/lunr')
+    content['devDependencies'].pop('@types/fuzzaldrin-plus')
+    content['devDependencies'].pop('@types/html-minifier')
+    content['devDependencies'].pop('html-minifier')
+    content['devDependencies'].pop('svgo')
+    content['devDependencies'].pop('chokidar')
+    content['devDependencies'].pop('postcss-inline-svg')
+    content['devDependencies'].pop('tiny-glob')
+    content['devDependencies'].pop('ts-node')
     path.write_text(json.dumps(content, indent=2) + '\n', encoding='utf-8')
 
 

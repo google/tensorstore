@@ -67,16 +67,11 @@ config_setting(
 pytype_strict_test(
     name = "build_docs",
     srcs = ["build_docs.py"],
-    args = [
-        "--minify-tool=$(location //docs/tensorstore_sphinx_material:minify_html)",
-    ] + select({
+    args = select({
         ":no_minify_setting": ["--no-minify"],
         "//conditions:default": [],
     }),
-    data = [
-        ":doc_sources",
-        "//docs/tensorstore_sphinx_material:minify_html",
-    ],
+    data = [":doc_sources"],
     python_version = "PY3",
     tags = ["manual"],
     deps = [
@@ -86,6 +81,7 @@ pytype_strict_test(
         "//docs/tensorstore_sphinx_ext:mathjax",
         "//docs/tensorstore_sphinx_material",
         "//python/tensorstore",
+        "@pypa_htmlmin//:htmlmin",
         "@pypa_sphinx//:sphinx",
     ],
 )

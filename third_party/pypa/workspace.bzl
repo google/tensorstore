@@ -30,6 +30,7 @@ def repo():
     repo_pypa_gin_config()
     repo_pypa_grpcio()
     repo_pypa_hdfs()
+    repo_pypa_htmlmin()
     repo_pypa_httplib2()
     repo_pypa_idna()
     repo_pypa_imagesize()
@@ -92,7 +93,7 @@ def repo_pypa_absl_py():
         third_party_python_package,
         name = "pypa_absl_py",
         target = "absl_py",
-        requirement = "absl-py==0.12.0",
+        requirement = "absl-py==0.13.0",
         deps = [
             "@pypa_six//:six",
         ],
@@ -130,7 +131,7 @@ def repo_pypa_apache_beam():
         third_party_python_package,
         name = "pypa_apache_beam",
         target = "apache_beam",
-        requirement = "apache-beam==2.29.0",
+        requirement = "apache-beam==2.30.0",
         deps = [
             "@pypa_avro_python3//:avro_python3",
             "@pypa_crcmod//:crcmod",
@@ -211,7 +212,7 @@ def repo_pypa_certifi():
         third_party_python_package,
         name = "pypa_certifi",
         target = "certifi",
-        requirement = "certifi==2020.12.5",
+        requirement = "certifi==2021.5.30",
     )
 
 def repo_pypa_chardet():
@@ -259,7 +260,7 @@ def repo_pypa_dill():
         third_party_python_package,
         name = "pypa_dill",
         target = "dill",
-        requirement = "dill==0.3.3",
+        requirement = "dill==0.3.4",
     )
 
 def repo_pypa_docopt():
@@ -330,6 +331,14 @@ def repo_pypa_hdfs():
         ],
     )
 
+def repo_pypa_htmlmin():
+    maybe(
+        third_party_python_package,
+        name = "pypa_htmlmin",
+        target = "htmlmin",
+        requirement = "htmlmin==0.1.12",
+    )
+
 def repo_pypa_httplib2():
     repo_pypa_pyparsing()
     maybe(
@@ -347,7 +356,7 @@ def repo_pypa_idna():
         third_party_python_package,
         name = "pypa_idna",
         target = "idna",
-        requirement = "idna==3.1",
+        requirement = "idna==3.2",
     )
 
 def repo_pypa_imagesize():
@@ -365,7 +374,7 @@ def repo_pypa_importlib_metadata():
         third_party_python_package,
         name = "pypa_importlib_metadata",
         target = "importlib_metadata",
-        requirement = "importlib-metadata==4.0.1",
+        requirement = "importlib-metadata==4.5.0",
         deps = [
             "@pypa_typing_extensions//:typing_extensions",
             "@pypa_zipp//:zipp",
@@ -570,7 +579,7 @@ def repo_pypa_protobuf():
         third_party_python_package,
         name = "pypa_protobuf",
         target = "protobuf",
-        requirement = "protobuf==3.17.0",
+        requirement = "protobuf==3.17.3",
         deps = [
             "@pypa_six//:six",
         ],
@@ -598,7 +607,7 @@ def repo_pypa_pyarrow():
         third_party_python_package,
         name = "pypa_pyarrow",
         target = "pyarrow",
-        requirement = "pyarrow==4.0.0",
+        requirement = "pyarrow==4.0.1",
         deps = [
             "@pypa_numpy//:numpy",
         ],
@@ -771,7 +780,7 @@ def repo_pypa_setuptools():
         third_party_python_package,
         name = "pypa_setuptools",
         target = "setuptools",
-        requirement = "setuptools==56.2.0",
+        requirement = "setuptools==57.0.0",
     )
 
 def repo_pypa_six():
@@ -855,7 +864,7 @@ def repo_pypa_sphinxcontrib_htmlhelp():
         third_party_python_package,
         name = "pypa_sphinxcontrib_htmlhelp",
         target = "sphinxcontrib_htmlhelp",
-        requirement = "sphinxcontrib-htmlhelp==1.0.3",
+        requirement = "sphinxcontrib-htmlhelp==2.0.0",
     )
 
 def repo_pypa_sphinxcontrib_jsmath():
@@ -879,7 +888,7 @@ def repo_pypa_sphinxcontrib_serializinghtml():
         third_party_python_package,
         name = "pypa_sphinxcontrib_serializinghtml",
         target = "sphinxcontrib_serializinghtml",
-        requirement = "sphinxcontrib-serializinghtml==1.1.4",
+        requirement = "sphinxcontrib-serializinghtml==1.1.5",
     )
 
 def repo_pypa_toml():
@@ -919,7 +928,7 @@ def repo_pypa_urllib3():
         third_party_python_package,
         name = "pypa_urllib3",
         target = "urllib3",
-        requirement = "urllib3==1.26.4",
+        requirement = "urllib3==1.26.5",
     )
 
 def repo_pypa_wcwidth():

@@ -15,13 +15,35 @@ function resolvePackageDir(package) {
   return path.dirname(require.resolve(package + '/package.json'));
 }
 
-function convertIconPaths(cssContent, iconAliases) {
+function normalizeSvg(code) {
+  return code.replace(/<\?xml[^>]*>/, '')
+      .replace(/<!DOCTYPE[^>]*>/, '')
+      .replace(/'/g, '%22')
+      .replace(/"/g, '\'')
+      .replace(/\s+/g, ' ')
+      .trim();
+}
+
+async function convertIconPaths(cssContent, iconAliases) {
   const pattern = new RegExp(
-      '([\'"])(' + Object.keys(iconAliases).join('|') +
-          ')/([/a-z0-9\\-_]+\\.svg)\\1',
+      'svg-load\\s*\\(\\s*([\'"])(' + Object.keys(iconAliases).join('|') +
+          ')/([/a-z0-9\\-_]+\\.svg)\\1\\s*\\)',
       'g');
-  return cssContent.toString().replace(pattern, (match, quote, alias, name) => {
-    return require.resolve(iconAliases[alias] + name);
+  const requiredPaths = new Map();
+  const cssContentString = cssContent.toString();
+  cssContentString.replace(pattern, (match, quote, alias, name) => {
+    requiredPaths.set(require.resolve(iconAliases[alias] + name), null);
+  });
+  await Promise.all(Array.from(requiredPaths.keys(), async (p) => {
+    requiredPaths.set(p, await fs.readFile(p, 'utf-8'));
+  }));
+  return cssContentString.replace(pattern, (match, quote, alias, name) => {
+    return 'url(' +
+        JSON.stringify(
+            'data:image/svg+xml;charset=utf-8,' +
+            normalizeSvg(requiredPaths.get(
+                require.resolve(iconAliases[alias] + name)))) +
+        ')';
   });
 }
 
@@ -38,13 +60,13 @@ async function transformStyle(
     sourceMapContents: true
   });
   let {css: css0, map: map0} = result;
-  css0 = convertIconPaths(css0, iconAliases);
+  css0 = await convertIconPaths(css0, iconAliases);
   const {css: css1, map: map1} =
       await postcss([
-        require('autoprefixer'), require('postcss-inline-svg')({
-          encode: false,
-        }),
-        ...process.argv.includes('--optimize') ? [require('cssnano')] : []
+        require('autoprefixer'),
+        ...process.argv.includes('--optimize') ?
+            [require('cssnano')({preset: 'default'})] :
+            []
       ]).process(css0, {
         from: inputPath,
         map: {

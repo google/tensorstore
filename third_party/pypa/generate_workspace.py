@@ -213,6 +213,7 @@ def generate(args):
         "pyyaml",
         "docutils<0.17",
         "jinja2",
+        "htmlmin",
         # Examples
         "apache-beam",
         "gin-config",

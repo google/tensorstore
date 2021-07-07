@@ -19,7 +19,6 @@ import glob
 import os
 import pathlib
 import re
-import subprocess
 import sys
 import tempfile
 from typing import List
@@ -52,7 +51,7 @@ def _write_third_party_libraries_summary(runfiles_dir: str, output_path: str):
       system_lib_supported = (dep / 'system.BUILD.bazel').exists()
       if not system_lib_supported:
         continue
-      workspace_bzl_content = workspace_bzl_file.read_text()
+      workspace_bzl_content = workspace_bzl_file.read_text(encoding='utf-8')
       m = re.search('https://[^"]*', workspace_bzl_content)
       if m is None:
         raise ValueError(f'Failed to find URL in {workspace_bzl_file}')
@@ -125,12 +124,13 @@ def _prepare_source_tree(runfiles_dir: str):
     yield temp_src_dir
 
 
-def _minify_html(runfiles_dir: str, minify_tool: str, paths: List[str]) -> None:
+def _minify_html(paths: List[str]) -> None:
   print('Minifying %d html output files' % (len(paths),))
-  # Note: The list of filenames are passed via stdin rather than the command
-  # line to avoid limits on the length of the command line.
-  subprocess.run([os.path.join(runfiles_dir, minify_tool)], check=True,
-                 input='\n'.join(paths + paths).encode('utf-8'))
+  import htmlmin
+  for p in paths:
+    content = pathlib.Path(p).read_text(encoding='utf-8')
+    content = htmlmin.minify(content, remove_comments=True)
+    pathlib.Path(p).write_text(content, encoding='utf-8')
 
 
 def run(args: argparse.Namespace, unknown: List[str]):
@@ -180,8 +180,7 @@ def run(args: argparse.Namespace, unknown: List[str]):
         # Minify HTML
         html_output = glob.glob(os.path.join(output_dir, "**/*.html"),
                                 recursive=True)
-        _minify_html(runfiles_dir=runfiles_dir, minify_tool=args.minify_tool,
-                     paths=html_output)
+        _minify_html(paths=html_output)
       print('Output written to: %s' % (os.path.abspath(output_dir),))
       sys.exit(result)
 
@@ -191,8 +190,6 @@ def main():
   default_output = os.environ.get('TEST_UNDECLARED_OUTPUTS_DIR', None)
   ap.add_argument('--output', '-o', help='Output directory',
                   default=default_output, required=default_output is None)
-  ap.add_argument('--minify-tool', type=str,
-                  help='Path to HTML minify tool', required=True)
   ap.add_argument('-P', dest='pdb_on_error', action='store_true',
                   help='Run pdb on exception')
   ap.add_argument('--no-minify', dest='minify', action='store_false')

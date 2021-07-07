@@ -141,9 +141,7 @@
 
     <!-- Analytics -->
     {% block analytics %}
-      {% if config.google_analytics %}
-        {% include "partials/integrations/analytics.html" %}
-      {% endif %}
+      {% include "partials/integrations/analytics.html" %}
     {% endblock %}
 
     <!-- Custom front matter -->
@@ -376,7 +374,8 @@
         "search.result.other",
         "search.result.more.one",
         "search.result.more.other",
-        "search.result.term.missing"
+        "search.result.term.missing",
+        "select.version.title"
       ] -%}
         {%- set _ = translations.update({ key: lang.t(key) }) -%}
       {%- endfor -%}

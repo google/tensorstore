@@ -42,7 +42,7 @@ import {
   getElementOrThrow
 } from "~/browser"
 import {
-  SearchResult as SearchResultData
+  SearchResult as SearchResultData,
 } from "~/integrations"
 import { SearchResultStream, getResults } from "~/sphinx_search"
 import { renderSearchResult } from "~/templates"
@@ -90,10 +90,8 @@ interface MountOptions {
 export function mountSearchResult(
   el: HTMLElement, { query$ }: MountOptions
 ): Observable<Component<SearchResult>> {
-  /* Update search result metadata */
+  /* Retrieve nested components */
   const meta = getElementOrThrow(":scope > :first-child", el)
-
-  /* Update search result list */
   const list = getElementOrThrow(":scope > :last-child", el)
 
   let lastResults: SearchResultStream|undefined
@@ -121,7 +119,7 @@ export function mountSearchResult(
       if (i === limit) {
         if (!atScrollLimit()) {
           await new Promise(resolve => {
-            blocked = resolve
+            blocked = () => resolve(undefined)
           })
         }
         limit += blockSize
