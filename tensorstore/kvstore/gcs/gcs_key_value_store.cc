@@ -33,6 +33,7 @@
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/concurrency_resource_provider.h"
+#include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
@@ -81,6 +82,15 @@ using tensorstore::internal_storage_gcs::ParseObjectMetadata;
 namespace tensorstore {
 namespace {
 namespace jb = tensorstore::internal_json_binding;
+
+std::string_view GetGcsBaseUrl() {
+  static std::string url = []() -> std::string {
+    auto maybe_url = internal::GetEnv("TENSORSTORE_GCS_HTTP_URL");
+    if (maybe_url) return std::move(*maybe_url);
+    return "https://storage.googleapis.com";
+  }();
+  return url;
+}
 
 struct GcsRequestConcurrencyResource : public internal::ConcurrencyResource {
   static constexpr char id[] = "gcs_request_concurrency";
@@ -255,19 +265,17 @@ bool AddUserProjectParam(std::string* url, const bool has_query,
 /// Composes the resource root uri for the GCS API using the bucket
 /// and constants for the host, api-version, etc.
 std::string BucketResourceRoot(std::string_view bucket) {
-  const char kHostname[] = "www.googleapis.com";
   const char kVersion[] = "v1";
-  return tensorstore::internal::JoinPath("https://", kHostname, "/storage/",
-                                         kVersion, "/b/", bucket);
+  return tensorstore::StrCat(GetGcsBaseUrl(), "/storage/", kVersion, "/b/",
+                             bucket);
 }
 
 /// Composes the resource upload root uri for the GCS API using the bucket
 /// and constants for the host, api-version, etc.
 std::string BucketUploadRoot(std::string_view bucket) {
-  const char kHostname[] = "www.googleapis.com";
   const char kVersion[] = "v1";
-  return tensorstore::internal::JoinPath(
-      "https://", kHostname, "/upload/storage/", kVersion, "/b/", bucket);
+  return tensorstore::StrCat(GetGcsBaseUrl(), "/upload/storage/", kVersion,
+                             "/b/", bucket);
 }
 
 /// Returns whether the Status is a retriable request.
@@ -591,7 +599,8 @@ struct WriteTask {
           // Failed precondition implies the generation did not match.
           return absl::OkStatus();
         case 404:
-          if (!StorageGeneration::IsUnknown(options.if_equal)) {
+          if (!StorageGeneration::IsUnknown(options.if_equal) &&
+              !StorageGeneration::IsNoValue(options.if_equal)) {
             return absl::OkStatus();
           }
           break;

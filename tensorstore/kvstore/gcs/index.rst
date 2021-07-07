@@ -68,3 +68,11 @@ receive an error like:
 refer to the :ref:`HTTP request-related environment
 variables<http_environment_variables>` section for information on how to specify
 the path to the system certificate store at runtime.
+
+Testing
+-------
+
+To test the ``gcs`` driver with a fake Google Cloud Storage server, such as
+`https://github.com/fsouza/fake-gcs-server`_, you can set the
+:envvar:`TENSORSTORE_GCS_HTTP_URL` environment variable to
+e.g. ``http://localhost:4443``.

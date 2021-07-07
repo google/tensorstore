@@ -25,6 +25,7 @@ tensorstore_cc_library(
         "//tensorstore:context",
         "//tensorstore/internal:absl_time_json_binder",
         "//tensorstore/internal:concurrency_resource",
+        "//tensorstore/internal:env",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json",
         "//tensorstore/internal:path",

@@ -113,3 +113,13 @@ Google Cloud Credentials
    <https://cloud.google.com/docs/authentication/getting-started>`_.  Refer to
    the :ref:`Google Cloud Storage Authentication<gcs-authentication>` section
    for details.
+
+Google Cloud Storage
+--------------------
+
+.. envvar:: TENSORSTORE_GCS_HTTP_URL
+
+   Specifies to connect to an alternative server in place of
+   ``https://storage.googleapis.com``.  Note that the normal Google oauth2
+   credentials *are* included in requests, and therefore only trusted servers
+   should be used.

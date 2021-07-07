@@ -113,7 +113,7 @@ GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
   std::string_view scheme, host, path;
   tensorstore::internal::ParseURI(request.url(), &scheme, &host, &path);
 
-  if (host != "www.googleapis.com") {
+  if (host != "storage.googleapis.com") {
     return {};
   }
   bool is_upload = false;
