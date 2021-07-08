@@ -227,6 +227,30 @@ TEST(ChunkGridSpecificationTest, Basic) {
   EXPECT_EQ(1, grid.chunk_shape.size());
 }
 
+TEST(ChunkGridSpecificationTest, MoreComplicated) {
+  std::array<Index, 4> shape = {1, 2, 3, 4};
+
+  // The fill value is an array of int{0} where the byte-strides
+  // is 0, so it always references the same element.
+  SharedArray<const void> fill_value(
+      tensorstore::internal::AllocateAndConstructSharedElements(
+          1, tensorstore::value_init, tensorstore::dtype_v<int>),
+      tensorstore::StridedLayout<>(
+          shape, tensorstore::GetConstantVector<Index, 0, 4>()));
+
+  // The grid has a single component, with fill value as above.
+  ChunkGridSpecification grid(
+      {ChunkGridSpecification::Component{fill_value, Box<>(shape), {3, 2, 1}}});
+
+  EXPECT_EQ(3, grid.chunk_shape.size());
+  EXPECT_THAT(grid.chunk_shape, testing::ElementsAre(4, 3, 2));
+
+  EXPECT_EQ(4, grid.components[0].fill_value.rank());
+  EXPECT_EQ(3, grid.components[0].chunked_to_cell_dimensions.size());
+  EXPECT_THAT(grid.components[0].chunked_to_cell_dimensions,
+              testing::ElementsAre(3, 2, 1));
+}
+
 std::vector<Index> ParseKey(std::string_view key) {
   std::vector<Index> result;
   for (auto s : absl::StrSplit(key, ',')) {
