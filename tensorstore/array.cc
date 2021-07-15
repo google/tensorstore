@@ -290,4 +290,15 @@ SharedArray<const void> UnbroadcastArray(
   return new_array;
 }
 
+bool AreArraysSameValueEqual(const OffsetArrayView<const void>& a,
+                             const OffsetArrayView<const void>& b) {
+  if (a.dtype() != b.dtype()) return false;
+  if (a.domain() != b.domain()) return false;
+  return internal::IterateOverArrays({&a.dtype()->compare_same_value, nullptr},
+                                     /*status=*/nullptr,
+                                     /*constraints=*/skip_repeated_elements, a,
+                                     b)
+      .success;
+}
+
 }  // namespace tensorstore

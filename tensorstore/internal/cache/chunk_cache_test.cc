@@ -814,6 +814,48 @@ TEST_F(ChunkCacheTest, OverwriteExistingWithFillValue) {
   }
 }
 
+// Tests that fill value comparison is based on "same value" equality.
+TEST_F(ChunkCacheTest, FillValueSameValueEqual) {
+  // Dimension 0 is chunked with a size of 2.
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<float>({NAN, -0.0})), Box<>(1)}});
+  auto cache = MakeChunkCache();
+  auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
+  // Write initial value to chunk 1: [0]=NAN, [1]=+0.0
+  {
+    auto write_future = tensorstore::Write(
+        MakeArray<float>({NAN, +0.0}),
+        GetTensorStore(cache) |
+            tensorstore::Dims(0).TranslateSizedInterval(2, 2));
+    write_future.Force();
+    {
+      auto r = mock_store->write_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      r(memory_store);
+    }
+    TENSORSTORE_EXPECT_OK(write_future);
+    EXPECT_TRUE(HasChunk({1}));
+  }
+
+  // Overwrite chunk 1 with fill value: [0]=NAN, [1]=-0.0
+  {
+    auto write_future = tensorstore::Write(
+        MakeArray<float>({NAN, -0.0}),
+        GetTensorStore(cache) |
+            tensorstore::Dims(0).TranslateSizedInterval(2, 2));
+    write_future.Force();
+    {
+      auto r = mock_store->write_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
+      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      r(memory_store);
+    }
+    EXPECT_FALSE(HasChunk({1}));
+    TENSORSTORE_EXPECT_OK(write_future);
+  }
+}
+
 // Tests that deleting a chunk that was previously written results in the chunk
 // being deleted.
 TEST_F(ChunkCacheTest, DeleteAfterNormalWriteback) {

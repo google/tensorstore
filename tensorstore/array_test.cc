@@ -1041,6 +1041,20 @@ TEST(ArrayTest, Compare) {
   EXPECT_TRUE(MakeArrayView({1}) != MakeArrayView({1, 2}));
 }
 
+TEST(ArrayTest, SameValue) {
+  EXPECT_TRUE(
+      AreArraysSameValueEqual(MakeArrayView<float>({{1, 2, 3}, {4, 5, 6}}),
+                              MakeArrayView<float>({{1, 2, 3}, {4, 5, 6}})));
+
+  EXPECT_TRUE(
+      AreArraysSameValueEqual(MakeArrayView<float>({{NAN, 2, 3}, {4, 5, 6}}),
+                              MakeArrayView<float>({{NAN, 2, 3}, {4, 5, 6}})));
+
+  EXPECT_FALSE(AreArraysSameValueEqual(
+      MakeArrayView<float>({{NAN, 2, +0.0}, {4, 5, 6}}),
+      MakeArrayView<float>({{NAN, 2, -0.0}, {4, 5, 6}})));
+}
+
 TEST(CopyArrayTest, ZeroOrigin) {
   int arr[2][3] = {{1, 2, 3}, {4, 5, 6}};
   auto arr_ref = MakeArrayView(arr);

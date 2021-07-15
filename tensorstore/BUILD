@@ -256,6 +256,7 @@ tensorstore_cc_library(
     ],
     deps = [
         ":static_cast",
+        "//tensorstore/internal:bit_operations",
         "//tensorstore/internal:elementwise_function",
         "//tensorstore/internal:exception_macros",
         "//tensorstore/internal:integer_types",

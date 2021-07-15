@@ -27,6 +27,7 @@
 #include <typeinfo>
 
 #include <half.hpp>
+#include "tensorstore/internal/bit_operations.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/integer_types.h"
 #include "tensorstore/internal/json_fwd.h"
@@ -393,6 +394,15 @@ struct DataTypeOperations {
   using CompareEqualFunction = ElementwiseFunction<2, Status*>;
   CompareEqualFunction compare_equal;
 
+  /// Compares two strided arrays for equality, taking into account negative
+  /// zero and NaN for floating point types (negative zero is not equal to
+  /// positive zero, and NaN is equal to NaN).
+  ///
+  /// Note that this not the same as bit equality, because there are multiple
+  /// possible bit representations of NaN, and this function considers all of
+  /// them to be equal.
+  CompareEqualFunction compare_same_value;
+
   struct CanonicalConversionOperations {
     // Function for converting to/from canonical data type.
     using ConvertFunction = ElementwiseFunction<2, Status*>;
@@ -485,6 +495,11 @@ class DataType {
     return operations_->compare_equal;
   }
 
+  constexpr const Ops::CompareEqualFunction& compare_same_value_function()
+      const {
+    return operations_->compare_same_value;
+  }
+
   constexpr const Ops::CopyAssignFunction& copy_assign_function() const {
     return operations_->copy_assign;
   }
@@ -562,21 +577,54 @@ constexpr std::string_view GetTypeName() {
 TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE_NAME)
 #undef TENSORSTORE_INTERNAL_DO_DATA_TYPE_NAME
 
-/// Compares two strided arrays for equality.  Handles the case where `T`
-/// supports equality comparison.
+/// Compares two values arrays for equality.
 template <typename T>
-std::enable_if_t<internal::IsEqualityComparable<T>::value, bool> CompareEqual(
-    const T* a, const T* b) {
-  return *a == *b;
-}
-
-/// Handles the case where `T` does not support equality comparison.
-/// \returns false
-template <typename T>
-std::enable_if_t<!internal::IsEqualityComparable<T>::value, bool> CompareEqual(
-    const T*, const T*) {
+bool CompareEqual(const T& a, const T& b) {
+  if constexpr (internal::IsEqualityComparable<T>::value) {
+    return a == b;
+  }
   return false;
 }
+
+/// Compares two values for "same value" equality.
+///
+/// For non-floating point types, this behaves the same as normal `operator==`.
+/// For floating point types, this differs from normal `operator==` in that
+/// negative zero is not equal to positive zero, and NaN is equal to NaN.
+///
+/// Note that this differs from bit equality, because there are multiple bit
+/// representations of NaN, and this functions treats all of them as equal.
+template <typename T>
+bool CompareSameValue(const T& a, const T& b) {
+  if constexpr (internal::IsEqualityComparable<T>::value) {
+    return a == b;
+  }
+  return false;
+}
+
+#define TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_SAME_VALUE_FLOAT(T, ...) \
+  template <>                                                           \
+  inline bool CompareSameValue<T>(const T& a, const T& b) {             \
+    using std::isnan;                                                   \
+    if (isnan(a)) return isnan(b);                                      \
+    using Int = internal::uint_t<sizeof(T) * 8>;                        \
+    return internal::bit_cast<Int>(a) == internal::bit_cast<Int>(b);    \
+  }                                                                     \
+  /**/
+TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
+    TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_SAME_VALUE_FLOAT)
+#undef TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_SAME_VALUE_FLOAT
+
+#define TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_SAME_VALUE_COMPLEX(T, ...) \
+  template <>                                                             \
+  inline bool CompareSameValue<T>(const T& a, const T& b) {               \
+    return CompareSameValue(a.real(), b.real()) &&                        \
+           CompareSameValue(a.imag(), b.imag());                          \
+  }                                                                       \
+  /**/
+TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
+    TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_SAME_VALUE_COMPLEX)
+#undef TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_SAME_VALUE_COMPLEX
 
 /// Non-template functions referenced by `DataTypeOperations`.
 ///
@@ -624,7 +672,13 @@ struct DataTypeElementwiseOperationsImpl {
 
   struct CompareEqualImpl {
     bool operator()(const T* source, const T* dest, Status*) const {
-      return internal_data_type::CompareEqual<T>(source, dest);
+      return internal_data_type::CompareEqual<T>(*source, *dest);
+    }
+  };
+
+  struct CompareSameValueImpl {
+    bool operator()(const T* source, const T* dest, Status*) const {
+      return internal_data_type::CompareSameValue<T>(*source, *dest);
     }
   };
 
@@ -641,6 +695,8 @@ struct DataTypeElementwiseOperationsImpl {
   using CompareEqual =
       internal::SimpleElementwiseFunction<CompareEqualImpl(const T, const T),
                                           Status*>;
+  using CompareSameValue = internal::SimpleElementwiseFunction<
+      CompareSameValueImpl(const T, const T), Status*>;
 };
 
 template <typename T>
@@ -663,6 +719,8 @@ constexpr internal::DataTypeOperations DataTypeOperationsImpl = {
     /*.append_to_string=*/&DataTypeSimpleOperationsImpl<T>::AppendToString,
     /*.compare_equal=*/
     typename DataTypeElementwiseOperationsImpl<T>::CompareEqual(),
+    /*.compare_equal=*/
+    typename DataTypeElementwiseOperationsImpl<T>::CompareSameValue(),
     /*.canonical_conversion=*/nullptr,
 };
 

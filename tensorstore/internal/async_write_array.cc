@@ -136,7 +136,8 @@ AsyncWriteArray::MaskedArray::GetArrayForWriteback(
                         writeback_element_pointer, mask);
     }
   }
-  writeback.equals_fill_value = (writeback.array == spec.fill_value);
+  writeback.equals_fill_value =
+      AreArraysSameValueEqual(writeback.array, spec.fill_value);
   if (writeback.equals_fill_value) {
     data = nullptr;
     writeback.array = spec.fill_value;

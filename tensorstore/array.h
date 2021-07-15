@@ -1705,6 +1705,19 @@ std::string ToString(
     const ArrayView<const void, dynamic_rank, offset_origin>& array,
     const ArrayFormatOptions& options = ArrayFormatOptions::Default());
 
+/// Compares two arrays for "same value" equality.
+///
+/// For non-floating point types, this behaves the same as normal `operator==`.
+/// For floating point types, this differs from normal `operator==` in that
+/// negative zero is not equal to positive zero, and NaN is equal to NaN.
+///
+/// Note that this differs from bit equality, because there are multiple bit
+/// representations of NaN, and this functions treats all of them as equal.
+///
+/// Checks that the data types, domains, and content are equal.
+bool AreArraysSameValueEqual(const OffsetArrayView<const void>& a,
+                             const OffsetArrayView<const void>& b);
+
 /// Validates that `source_shape` can be broadcast to `target_shape`.
 ///
 /// A `source_shape` can be broadcast to a `target_shape` if, starting from the
