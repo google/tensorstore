@@ -77,6 +77,7 @@ pytype_strict_test(
     deps = [
         "//docs/tensorstore_sphinx_ext:autodoc",
         "//docs/tensorstore_sphinx_ext:autosummary",
+        "//docs/tensorstore_sphinx_ext:doctest",
         "//docs/tensorstore_sphinx_ext:jsonschema_sphinx",
         "//docs/tensorstore_sphinx_ext:mathjax",
         "//docs/tensorstore_sphinx_material",
@@ -95,6 +96,7 @@ pytype_strict_binary(
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
+        "//docs/tensorstore_sphinx_ext:json_pprint",
         "//python/tensorstore",
         "@pypa_absl_py//:absl_py",
         "@pypa_numpy//:numpy",
@@ -122,6 +124,7 @@ tensorstore_pytest_test(
         "GCE_METADATA_ROOT": "metadata.google.internal.invalid",
     },
     deps = [
+        "//docs/tensorstore_sphinx_ext:json_pprint",
         "//python/tensorstore",
         "@pypa_numpy//:numpy",
         "@pypa_yapf//:yapf",

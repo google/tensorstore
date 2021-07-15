@@ -256,23 +256,37 @@ TEST(RawCompressionTest, Golden) {
   EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data.substr(0, 6))),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 
-  // Test with invalid mode
-  std::string encoded_data_invalid_mode = encoded_data;
-  encoded_data_invalid_mode[1] = 0x01;
-  EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data_invalid_mode)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  // Test with invalid mode (varlength)
+  {
+    std::string encoded_data_invalid_mode = encoded_data;
+    encoded_data_invalid_mode[1] = 0x01;
+    EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data_invalid_mode)),
+                MatchesStatus(absl::StatusCode::kInvalidArgument));
+  }
+
+  // Test with invalid mode (unknown)
+  {
+    std::string encoded_data_invalid_mode = encoded_data;
+    encoded_data_invalid_mode[1] = 0x02;
+    EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data_invalid_mode)),
+                MatchesStatus(absl::StatusCode::kInvalidArgument));
+  }
 
   // Test with invalid number of dimensions
-  std::string encoded_data_invalid_rank = encoded_data;
-  encoded_data_invalid_rank[3] = 0x02;
-  EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data_invalid_rank)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  {
+    std::string encoded_data_invalid_rank = encoded_data;
+    encoded_data_invalid_rank[3] = 0x02;
+    EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data_invalid_rank)),
+                MatchesStatus(absl::StatusCode::kInvalidArgument));
+  }
 
   // Test with too large block shape
-  std::string encoded_data_invalid_shape = encoded_data;
-  encoded_data_invalid_shape[7] = 0x02;
-  EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data_invalid_shape)),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  {
+    std::string encoded_data_invalid_shape = encoded_data;
+    encoded_data_invalid_shape[7] = 0x02;
+    EXPECT_THAT(DecodeChunk(metadata, absl::Cord(encoded_data_invalid_shape)),
+                MatchesStatus(absl::StatusCode::kInvalidArgument));
+  }
 }
 
 TEST(RawCompressionTest, PartialChunk) {

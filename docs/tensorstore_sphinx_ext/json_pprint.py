@@ -68,8 +68,6 @@ class _PrettyPrinter:
   def _pprint_dict(self, obj, stream, indent, allowance):
     write = stream.write
     write("{")
-    if self._indent_per_level > 1:
-      write((self._indent_per_level - 1) * " ")
     length = len(obj)
     if length:
       self._format_dict_items(obj.items(), stream, indent, allowance + 1)

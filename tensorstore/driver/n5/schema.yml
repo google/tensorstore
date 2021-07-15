@@ -9,11 +9,19 @@ allOf:
     metadata:
       title: N5 array metadata.
       description: |
-        Specifies the metdata of a dataset exactly as in the `attributes.json
-        file
-        <https://github.com/saalfeldlab/n5#file-system-specification-version-203-snapshot>`_.
-        Required when creating a new dataset.  When opening an existing dataset,
-        specifies constraints on the existing metadata.
+        Specifies constraints on the metdata of a dataset exactly as in the
+        `attributes.json file
+        <https://github.com/saalfeldlab/n5#file-system-specification-version-203-snapshot>`_,
+        except that all members are optional.  When creating a new array, the
+        new metadata is obtained by combining these metadata constraints with
+        any `Schema` constraints.
+
+        Arbitrary additional members may also be specified in addition to the
+        ones listed here.  When creating a new array, they will be included in
+        the ``attributes.json`` file as additional N5 attributes, but will not
+        be validated in any way.  When opening an existing array, all additional
+        members that are specified must be present with identical values in the
+        existing ``attributes.json`` file, or the open operation will fail.
       allOf:
       - type: object
         properties:
@@ -23,7 +31,9 @@ allOf:
               type: integer
               minimum: 0
             title: Dimensions of the dataset.
-            description: Required when creating a new array.
+            description: |
+              Required when creating a new array if the `Schema.domain` is not
+              otherwise specified.
             examples:
             - [500, 500, 500]
           blockSize:
@@ -33,8 +43,10 @@ allOf:
               minimum: 1
             title: Chunk dimensions.
             description: |
-              Required when creating a new dataset.  Must have the same length
-              as `.dimensions`.
+              Specifies the chunk size for each dimension.  Must have the same
+              length as `.dimensions`.  If not specified when creating a new
+              array, the chunk dimensions are chosen automatically according to
+              the `Schema.chunk_layout`.
             examples:
             - [64, 64, 64]
           dataType:
@@ -51,20 +63,22 @@ allOf:
             - float32
             - float64
             title: Specifies the data type.
-            description: Required when creating a new dataset.
+            description: |
+              Required when creating a new array if `Schema.dtype` is not
+              otherwise specified.
           axes:
             type: array
             items:
               type: string
             title: Specifies a label for each dimension of the dataset.
             description: |
-              Optional.  If not specified when creating a new dataset, all
-              dimensions are unlabeled (equivalent to specifying an empty string
-              for each dimension).  Labels are specified in the same order as
-              the `.dimensions` and `.blockSize` properties.  Note that this
-              specifies the *stored* dimension labels.  As with any TensorStore
-              driver, dimension labels may also be overridden by specifying a
-              `.transform`.
+              Optional.  If not specified when creating a new array (and also
+              unspecified by the `Schema.domain`), all dimensions are unlabeled
+              (equivalent to specifying an empty string for each dimension).
+              Labels are specified in the same order as the `.dimensions` and
+              `.blockSize` properties.  Note that this specifies the *stored*
+              dimension labels.  As with any TensorStore driver, dimension
+              labels may also be overridden by specifying a `.transform`.
             examples:
             - ["x", "y", "z"]
       - $ref: "#codec-properties"

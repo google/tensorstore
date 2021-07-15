@@ -227,29 +227,17 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
   Result<ChunkLayout> GetChunkLayout(const void* metadata_ptr,
                                      std::size_t component_index) override {
     const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
-    auto& encoded_strided_layout = metadata.chunk_layout;
-    ChunkLayout layout;
-    const DimensionIndex rank = encoded_strided_layout.rank();
-    TENSORSTORE_RETURN_IF_ERROR(
-        layout.Set(ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(rank))));
-    DimensionIndex inner_order[kMaxRank];
-    SetPermutationFromStridedLayout(encoded_strided_layout,
-                                    span(inner_order, rank));
-    TENSORSTORE_RETURN_IF_ERROR(
-        layout.Set(ChunkLayout::InnerOrder(span(inner_order, rank))));
-    TENSORSTORE_RETURN_IF_ERROR(layout.Set(
-        ChunkLayout::WriteChunkShape(encoded_strided_layout.shape())));
-    TENSORSTORE_RETURN_IF_ERROR(layout.Finalize());
-    return layout;
+    ChunkLayout chunk_layout;
+    TENSORSTORE_RETURN_IF_ERROR(SetChunkLayoutFromMetadata(
+        metadata.rank, metadata.chunk_shape, chunk_layout));
+    TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Finalize());
+    return chunk_layout;
   }
 
   Result<CodecSpec::Ptr> GetCodec(const void* metadata,
                                   std::size_t component_index) override {
     assert(component_index == 0);
-    const auto& typed_metadata = *static_cast<const N5Metadata*>(metadata);
-    internal::IntrusivePtr<N5CodecSpec> codec(new N5CodecSpec);
-    codec->compressor = typed_metadata.compressor;
-    return codec;
+    return GetCodecFromMetadata(*static_cast<const N5Metadata*>(metadata));
   }
 
   std::string key_prefix_;
@@ -280,28 +268,18 @@ class N5Driver
                                         jb::DefaultValue([](auto* obj) {
                                           *obj = std::string{};
                                         }))),
-      jb::Member("metadata",
-                 jb::Validate(
-                     [](const auto& options, auto* obj) {
-                       if (!obj->schema.dtype().valid()) {
-                         return absl::OkStatus();
-                       }
-                       if (obj->metadata_constraints.dtype &&
-                           !tensorstore::IsPossiblySameDataType(
-                               obj->schema.dtype(),
-                               *obj->metadata_constraints.dtype)) {
-                         return absl::InvalidArgumentError(StrCat(
-                             "Mismatch between data type in TensorStore Spec (",
-                             obj->schema.dtype(), ") and \"metadata\" (",
-                             *obj->metadata_constraints.dtype, ")"));
-                       }
-                       obj->metadata_constraints.dtype = obj->schema.dtype();
-                       return absl::OkStatus();
-                     },
-                     jb::Projection(&SpecT<>::metadata_constraints,
-                                    jb::DefaultValue([](auto* obj) {
-                                      *obj = N5MetadataConstraints{};
-                                    })))));
+      jb::Member(
+          "metadata",
+          jb::Validate(
+              [](const auto& options, auto* obj) {
+                TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
+                    obj->metadata_constraints.dtype.value_or(DataType())));
+                TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
+                    RankConstraint{obj->metadata_constraints.rank}));
+                return absl::OkStatus();
+              },
+              jb::Projection(&SpecT<>::metadata_constraints,
+                             jb::DefaultInitializedValue()))));
 
   class OpenState;
 
@@ -310,6 +288,25 @@ class N5Driver
       spec.metadata_constraints = N5MetadataConstraints{};
     }
     return Base::ApplyOptions(spec, std::move(options));
+  }
+
+  static Result<IndexDomain<>> SpecGetDomain(const SpecT<>& spec) {
+    return GetEffectiveDomain(spec.metadata_constraints, spec.schema);
+  }
+
+  static Result<CodecSpec::Ptr> SpecGetCodec(const SpecT<>& spec) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto codec, GetEffectiveCodec(spec.metadata_constraints, spec.schema));
+    return CodecSpec::Ptr(std::move(codec));
+  }
+
+  static Result<ChunkLayout> SpecGetChunkLayout(const SpecT<>& spec) {
+    return GetEffectiveChunkLayout(spec.metadata_constraints, spec.schema);
+  }
+
+  static Result<SharedArray<const void>> SpecGetFillValue(
+      const SpecT<>& spec, IndexTransformView<> transform) {
+    return {std::in_place};
   }
 };
 
@@ -345,13 +342,12 @@ class N5Driver::OpenState : public N5Driver::OpenStateBase {
     if (existing_metadata) {
       return absl::AlreadyExistsError("");
     }
-    if (auto result =
-            internal_n5::GetNewMetadata(spec().metadata_constraints)) {
-      return result;
-    } else {
-      return tensorstore::MaybeAnnotateStatus(
-          result.status(), "Cannot create array from specified \"metadata\"");
-    }
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto metadata,
+        internal_n5::GetNewMetadata(spec().metadata_constraints, spec().schema),
+        tensorstore::MaybeAnnotateStatus(
+            _, "Cannot create using specified \"metadata\" and schema"));
+    return metadata;
   }
 
   std::unique_ptr<internal_kvs_backed_chunk_driver::DataCache> GetDataCache(
@@ -363,14 +359,10 @@ class N5Driver::OpenState : public N5Driver::OpenStateBase {
   Result<std::size_t> GetComponentIndex(const void* metadata_ptr,
                                         OpenMode open_mode) override {
     const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
-    // Check for compatibility
-    if (auto dtype = spec().schema.dtype();
-        !IsPossiblySameDataType(dtype, metadata.dtype)) {
-      return absl::InvalidArgumentError(StrCat(
-          "Expected data type of ", dtype, " but received: ", metadata.dtype));
-    }
     TENSORSTORE_RETURN_IF_ERROR(
         ValidateMetadata(metadata, spec().metadata_constraints));
+    TENSORSTORE_RETURN_IF_ERROR(
+        ValidateMetadataSchema(metadata, spec().schema));
     return 0;
   }
 };

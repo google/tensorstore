@@ -34,14 +34,18 @@ namespace {
 using tensorstore::ChunkLayout;
 using tensorstore::Context;
 using tensorstore::DimensionIndex;
+using tensorstore::dtype_v;
 using tensorstore::Index;
 using tensorstore::KeyValueStore;
 using tensorstore::kImplicit;
 using tensorstore::MatchesStatus;
+using tensorstore::Schema;
 using tensorstore::span;
 using tensorstore::StrCat;
 using tensorstore::internal::GetMap;
 using tensorstore::internal::ParseJsonMatches;
+using tensorstore::internal::TestSpecSchema;
+using tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;
 
@@ -647,9 +651,9 @@ TEST(N5DriverTest, DataTypeMismatch) {
                   context, tensorstore::OpenMode::open,
                   tensorstore::ReadWriteMode::read_write)
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
                             "Error opening \"n5\" driver: "
-                            "Expected data type of uint8 but received: int8"));
+                            ".*dtype.*"));
 }
 
 TEST(N5DriverTest, InvalidSpec) {
@@ -700,8 +704,8 @@ TEST(N5DriverTest, InvalidSpec) {
             .result(),
         MatchesStatus(absl::StatusCode::kInvalidArgument,
                       ".*: "
-                      "Cannot create array from specified \"metadata\": "
-                      "\"dimensions\" must be specified"));
+                      "Cannot create using specified \"metadata\" and schema: "
+                      "domain must be specified"));
   }
 }
 
@@ -990,6 +994,444 @@ TEST(DriverTest, Codec) {
                                        {"compression", {{"type", "raw"}}},
                                    }));
   EXPECT_THAT(store.codec(), ::testing::Optional(expected_codec));
+}
+
+template <typename... Option>
+void TestCreateMetadata(::nlohmann::json base_spec,
+                        ::nlohmann::json expected_metadata,
+                        Option&&... option) {
+  base_spec["driver"] = "n5";
+  base_spec["kvstore"] = {{"driver", "memory"}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(base_spec));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      spec, std::move(spec).With(std::forward<Option>(option)...,
+                                 tensorstore::OpenMode::create));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   tensorstore::Open(spec).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto new_spec, store.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto json_spec, new_spec.ToJson());
+  EXPECT_THAT(json_spec["metadata"],
+              tensorstore::MatchesJson(expected_metadata));
+}
+
+TEST(DriverTest, SchemaUniformChunkAspectRatioWithTargetElements) {
+  TestCreateMetadata({},
+                     {
+                         {"dimensions", {1000, 2000, 3000}},
+                         {"axes", {"x", "y", "z"}},
+                         {"blockSize", {64, 64, 64}},
+                         {"dataType", "uint32"},
+                         {"compression",
+                          {{"type", "blosc"},
+                           {"cname", "lz4"},
+                           {"clevel", 5},
+                           {"shuffle", 1},
+                           {"blocksize", 0}}},
+                     },
+                     tensorstore::dtype_v<uint32_t>,
+                     tensorstore::IndexDomainBuilder(3)
+                         .shape({1000, 2000, 3000})
+                         .labels({"x", "y", "z"})
+                         .Finalize()
+                         .value(),
+                     tensorstore::ChunkLayout::ChunkElements{64 * 64 * 64});
+}
+
+TEST(DriverTest, SchemaObjectUniformChunkAspectRatioWithTargetElements) {
+  Schema schema;
+  TENSORSTORE_ASSERT_OK(schema.Set(tensorstore::dtype_v<uint32_t>));
+  TENSORSTORE_ASSERT_OK(schema.Set(tensorstore::IndexDomainBuilder(3)
+                                       .shape({1000, 2000, 3000})
+                                       .labels({"x", "y", "z"})
+                                       .Finalize()
+                                       .value()));
+  TENSORSTORE_ASSERT_OK(
+      schema.Set(tensorstore::ChunkLayout::ChunkElements{64 * 64 * 64}));
+  TestCreateMetadata({},
+                     {
+                         {"dimensions", {1000, 2000, 3000}},
+                         {"axes", {"x", "y", "z"}},
+                         {"blockSize", {64, 64, 64}},
+                         {"dataType", "uint32"},
+                         {"compression",
+                          {{"type", "blosc"},
+                           {"cname", "lz4"},
+                           {"clevel", 5},
+                           {"shuffle", 1},
+                           {"blocksize", 0}}},
+                     },
+                     schema);
+}
+
+TEST(DriverTest, SchemaUniformChunkAspectRatio) {
+  TestCreateMetadata({},
+                     {
+                         {"dimensions", {1000, 2000, 3000}},
+                         {"axes", {"x", "y", "z"}},
+                         {"blockSize", {102, 102, 102}},
+                         {"dataType", "uint32"},
+                         {"compression",
+                          {{"type", "blosc"},
+                           {"cname", "lz4"},
+                           {"clevel", 5},
+                           {"shuffle", 1},
+                           {"blocksize", 0}}},
+                     },
+                     tensorstore::dtype_v<uint32_t>,
+                     tensorstore::IndexDomainBuilder(3)
+                         .shape({1000, 2000, 3000})
+                         .labels({"x", "y", "z"})
+                         .Finalize()
+                         .value());
+}
+
+TEST(DriverTest, SchemaNonUniformChunkAspectRatio) {
+  TestCreateMetadata({},
+                     {
+                         {"dimensions", {1000, 2000, 3000}},
+                         {"axes", {"x", "y", "z"}},
+                         {"blockSize", {64, 128, 128}},
+                         {"dataType", "uint32"},
+                         {"compression",
+                          {{"type", "blosc"},
+                           {"cname", "lz4"},
+                           {"clevel", 5},
+                           {"shuffle", 1},
+                           {"blocksize", 0}}},
+                     },
+                     tensorstore::dtype_v<uint32_t>,
+                     tensorstore::IndexDomainBuilder(3)
+                         .shape({1000, 2000, 3000})
+                         .labels({"x", "y", "z"})
+                         .Finalize()
+                         .value(),
+                     tensorstore::ChunkLayout::ChunkAspectRatio{{1, 2, 2}},
+                     tensorstore::ChunkLayout::ChunkElements{64 * 128 * 128});
+}
+
+TEST(DriverTest, InvalidCodec) {
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "n5"},
+                      {"kvstore", {{"driver", "memory"}}},
+                      {"schema",
+                       {
+                           {"dtype", "uint16"},
+                           {"domain", {{"shape", {100}}}},
+                           {"codec", {{"driver", "zarr"}}},
+                       }},
+                  },
+                  tensorstore::OpenMode::create)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: Cannot merge codec spec .*"));
+}
+
+TEST(DriverTest, MissingDtype) {
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "n5"},
+                      {"kvstore", {{"driver", "memory"}}},
+                      {"schema",
+                       {
+                           {"domain", {{"shape", {100}}}},
+                       }},
+                  },
+                  tensorstore::OpenMode::create)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: dtype must be specified"));
+}
+
+TEST(DriverTest, InvalidFillValue) {
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "n5"},
+                      {"kvstore", {{"driver", "memory"}}},
+                      {"schema",
+                       {
+                           {"dtype", "uint16"},
+                           {"domain", {{"shape", {100}}}},
+                           {"fill_value", 42},
+                       }},
+                  },
+                  tensorstore::OpenMode::create)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: fill_value not supported by N5 format"));
+}
+
+TEST(DriverTest, MetadataMismatch) {
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open({{"driver", "n5"},
+                                     {"kvstore", {{"driver", "memory"}}},
+                                     {"metadata",
+                                      {
+                                          {"dimensions", {100}},
+                                          {"dataType", "uint32"},
+                                          {"blockSize", {10}},
+                                          {"compression", {{"type", "raw"}}},
+                                      }}},
+                                    context, tensorstore::OpenMode::create)
+                      .result());
+  // Opening without metadata succeeds
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Open({{"driver", "n5"}, {"kvstore", {{"driver", "memory"}}}},
+                        context, tensorstore::OpenMode::open)
+          .result());
+
+  // Mismatched "dimensions"
+  EXPECT_THAT(tensorstore::Open({{"driver", "n5"},
+                                 {"kvstore", {{"driver", "memory"}}},
+                                 {"metadata",
+                                  {
+                                      {"dimensions", {200}},
+                                  }}},
+                                context, tensorstore::OpenMode::open)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*\"dimensions\".*"));
+
+  // Mismatched "axes"
+  EXPECT_THAT(
+      tensorstore::Open({{"driver", "n5"},
+                         {"kvstore", {{"driver", "memory"}}},
+                         {"metadata",
+                          {
+                              {"axes", {"x"}},
+                          }}},
+                        context, tensorstore::OpenMode::open)
+          .result(),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"axes\".*"));
+
+  // Mismatched "dataType"
+  EXPECT_THAT(
+      tensorstore::Open({{"driver", "n5"},
+                         {"kvstore", {{"driver", "memory"}}},
+                         {"metadata",
+                          {
+                              {"dataType", "int32"},
+                          }}},
+                        context, tensorstore::OpenMode::open)
+          .result(),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"dataType\".*"));
+
+  // Mismatched "blockSize"
+  EXPECT_THAT(tensorstore::Open({{"driver", "n5"},
+                                 {"kvstore", {{"driver", "memory"}}},
+                                 {"metadata",
+                                  {
+                                      {"blockSize", {20}},
+                                  }}},
+                                context, tensorstore::OpenMode::open)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*\"blockSize\".*"));
+
+  // Mismatched "compression"
+  EXPECT_THAT(tensorstore::Open({{"driver", "n5"},
+                                 {"kvstore", {{"driver", "memory"}}},
+                                 {"metadata",
+                                  {
+                                      {"compression",
+                                       {{"type", "blosc"},
+                                        {"cname", "lz4"},
+                                        {"clevel", 5},
+                                        {"shuffle", 1},
+                                        {"blocksize", 0}}},
+                                  }}},
+                                context, tensorstore::OpenMode::open)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*\"compression\".*"));
+
+  // Mismatched "rank"
+  EXPECT_THAT(
+      tensorstore::Open({{"driver", "n5"},
+                         {"kvstore", {{"driver", "memory"}}},
+                         {"schema", {{"rank", 2}}}},
+                        context, tensorstore::OpenMode::open)
+          .result(),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                    ".*Rank specified by schema \\(2\\) "
+                    "does not match rank specified by metadata \\(1\\)"));
+}
+
+TEST(DriverTest, SchemaMismatch) {
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open({{"driver", "n5"},
+                                     {"kvstore", {{"driver", "memory"}}},
+                                     {"metadata",
+                                      {
+                                          {"dimensions", {100}},
+                                          {"dataType", "uint32"},
+                                          {"blockSize", {10}},
+                                          {"compression", {{"type", "raw"}}},
+                                      }}},
+                                    context, tensorstore::OpenMode::create)
+                      .result());
+
+  // Mismatched rank
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "n5"},
+                      {"kvstore", {{"driver", "memory"}}},
+                      {"schema", {{"rank", 2}}},
+                  },
+                  context, tensorstore::OpenMode::open)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*Rank specified by schema \\(2\\) does not "
+                            "match rank specified by metadata \\(1\\)"));
+
+  // Mismatched dtype
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "n5"},
+                      {"kvstore", {{"driver", "memory"}}},
+                      {"schema", {{"dtype", "int32"}}},
+                  },
+                  context, tensorstore::OpenMode::open)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*dtype from metadata \\(uint32\\) does not "
+                            "match dtype in schema \\(int32\\)"));
+
+  // Mismatched codec
+  EXPECT_THAT(
+      tensorstore::Open(
+          {
+              {"driver", "n5"},
+              {"kvstore", {{"driver", "memory"}}},
+              {"schema",
+               {{"codec",
+                 {{"driver", "n5"},
+                  {"compression",
+                   {{"type", "blosc"},
+                    {"cname", "lz4"},
+                    {"clevel", 5},
+                    {"shuffle", 1},
+                    {"blocksize", 0}}}}}}},
+          },
+          context, tensorstore::OpenMode::open)
+          .result(),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                    ".*codec from metadata does not match codec in schema.*"));
+
+  // codec_chunk_shape specified (not allowed)
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "n5"},
+                      {"kvstore", {{"driver", "memory"}}},
+                      {"schema",
+                       {{"chunk_layout",
+                         {
+                             {"codec_chunk", {{"shape", {5}}}},
+                         }}}},
+                  },
+                  context, tensorstore::OpenMode::open)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*codec_chunk_shape not supported"));
+}
+
+TEST(SpecSchemaTest, Domain) {
+  TestSpecSchema({{"driver", "n5"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"metadata", {{"dimensions", {3, 4, 5}}}}},
+                 {{"chunk_layout",
+                   {
+                       {"grid_origin", {0, 0, 0}},
+                       {"inner_order", {2, 1, 0}},
+                   }},
+                  {"domain", {{"shape", {{3}, {4}, {5}}}}},
+                  {"codec", {{"driver", "n5"}}}});
+}
+
+TEST(SpecSchemaTest, SchemaDomain) {
+  TestSpecSchema({{"driver", "n5"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"schema", {{"domain", {{"shape", {3, 4, 5}}}}}}},
+                 {{"chunk_layout",
+                   {
+                       {"grid_origin", {0, 0, 0}},
+                       {"inner_order", {2, 1, 0}},
+                   }},
+                  {"domain", {{"shape", {{3}, {4}, {5}}}}},
+                  {"codec", {{"driver", "n5"}}}});
+}
+
+TEST(SpecSchemaTest, ChunkLayout) {
+  TestSpecSchema({{"driver", "n5"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"metadata", {{"blockSize", {3, 4, 5}}}}},
+                 {{"chunk_layout",
+                   {
+                       {"grid_origin", {0, 0, 0}},
+                       {"chunk", {{"shape", {3, 4, 5}}}},
+                       {"inner_order", {2, 1, 0}},
+                   }},
+                  {"codec", {{"driver", "n5"}}}});
+}
+
+TEST(SpecSchemaTest, Dtype) {
+  TestSpecSchema({{"driver", "n5"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"metadata", {{"dataType", "uint16"}}}},
+                 {
+                     {"dtype", "uint16"},
+                     {"codec", {{"driver", "n5"}}},
+                 });
+}
+
+TEST(SpecSchemaTest, Codec) {
+  TestSpecSchema(
+      {{"driver", "n5"},
+       {"kvstore", {{"driver", "memory"}}},
+       {"metadata", {{"compression", {{"type", "raw"}}}}}},
+      {
+          {"codec", {{"driver", "n5"}, {"compression", {{"type", "raw"}}}}},
+      });
+}
+
+TEST(DriverCreateCheckSchemaTest, Simple) {
+  TestTensorStoreCreateCheckSchema(
+      {
+          {"driver", "n5"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"metadata", {{"compression", {{"type", "raw"}}}}},
+          {"schema",
+           {
+               {"dtype", "uint32"},
+               {"domain",
+                {
+                    {"shape", {1000, 2000, 3000}},
+                    {"labels", {"x", "y", "z"}},
+                }},
+               {"chunk_layout",
+                {
+                    {"chunk", {{"shape", {30, 40, 50}}}},
+                }},
+           }},
+      },
+      {
+          {"dtype", "uint32"},
+          {"domain",
+           {
+               {"shape", {{1000}, {2000}, {3000}}},
+               {"labels", {"x", "y", "z"}},
+           }},
+          {"chunk_layout",
+           {
+               {"grid_origin", {0, 0, 0}},
+               {"inner_order", {2, 1, 0}},
+               {"chunk", {{"shape", {30, 40, 50}}}},
+           }},
+          {"codec", {{"driver", "n5"}, {"compression", {{"type", "raw"}}}}},
+      });
 }
 
 }  // namespace

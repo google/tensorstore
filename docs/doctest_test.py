@@ -30,8 +30,10 @@ import ast
 import asyncio
 import difflib
 import doctest
+import importlib
 import inspect
 import io
+import json
 import os
 import pathlib
 import pprint
@@ -45,6 +47,17 @@ import numpy as np
 import tensorstore as ts
 import yapf.yapflib.yapf_api
 
+# Import json_pprint module relative to the current source file.  We can't use a
+# relative import since the current source file is run as a script, not a
+# module.
+script_dir = os.path.dirname(__file__)
+if script_dir not in sys.path:
+  sys.path.append(script_dir)
+json_pprint = importlib.import_module('tensorstore_sphinx_ext.json_pprint')
+
+JSON_OUTPUT_FLAG = doctest.register_optionflag('JSON_OUTPUT')
+"""Flag that indicates output should be pretty-printed as JSON."""
+
 
 def execute_doctests(filename: str, verbose: bool) -> Tuple[str, str]:
   orig_text = pathlib.Path(filename).read_text()
@@ -53,7 +66,13 @@ def execute_doctests(filename: str, verbose: bool) -> Tuple[str, str]:
   new_text = ''
 
   # Namespace used for executing examples
-  context = dict(ts=ts, np=np, asyncio=asyncio)
+  context = dict(
+      ts=ts,
+      np=np,
+      asyncio=asyncio,
+      json=json,
+      json_pprint=json_pprint,
+  )
 
   orig_lines = orig_text.splitlines()
 
@@ -89,7 +108,7 @@ def execute_doctests(filename: str, verbose: bool) -> Tuple[str, str]:
       print(f'{filename}:{example.lineno}: {e}')
       sys.exit(1)
     del valid
-    formatted = textwrap.dedent(formatted[len(async_prefix):])
+    formatted = textwrap.dedent(formatted[len(async_prefix):]).strip()
 
     for i, line in enumerate(formatted.splitlines()):
       prompt = '>>> ' if i == 0 else '... '
@@ -111,7 +130,12 @@ def execute_doctests(filename: str, verbose: bool) -> Tuple[str, str]:
     # Execute the example
     try:
       sys.stdout = fakeout
-      execute(example.source, context)
+      context['OUTPUT'] = example.want
+      execute(
+          example.source,
+          context,
+          json_output=example.options.get(JSON_OUTPUT_FLAG, False),
+      )
       actual_output = fakeout.getvalue()
       if actual_output and not actual_output.endswith('\n'):
         actual_output += '\n'
@@ -179,7 +203,7 @@ def test_doctest(doctest_filename: str) -> None:
   assert orig_text == new_text
 
 
-def execute(code: str, context: dict) -> None:  # pylint: disable=g-bare-generic
+def execute(code: str, context: dict, json_output: bool) -> None:  # pylint: disable=g-bare-generic
   """Executes a doctest example in interactive mode.
 
   Top-level await is supported (even in Python < 3.8).  As in normal interactive
@@ -189,6 +213,7 @@ def execute(code: str, context: dict) -> None:  # pylint: disable=g-bare-generic
   Args:
     code: The Python code to execute.
     context: Context object.
+    json_output: Whether to pretty-print value of last expression as JSON.
 
   """
 
@@ -229,11 +254,14 @@ def execute(code: str, context: dict) -> None:  # pylint: disable=g-bare-generic
   result = asyncio.get_event_loop().run_until_complete(coroutine)
   # Print the value of the last expression, if any.
   if result is not None:
-    try:
-      pprint.pprint(result)
-    except:  # pylint: disable=bare-except
-      # pprint fails on some types.
-      print(repr(result))
+    if json_output:
+      print(json_pprint.pformat(result, indent=2))
+    else:
+      try:
+        pprint.pprint(result)
+      except:  # pylint: disable=bare-except
+        # pprint fails on some types.
+        print(repr(result))
 
 
 def _ast_asyncify(code: str, wrapper_name: str) -> ast.Module:

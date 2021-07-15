@@ -44,6 +44,7 @@ extensions = [
     'tensorstore_sphinx_ext.autodoc',
     'tensorstore_sphinx_ext.autosummary',
     'tensorstore_sphinx_ext.mathjax',
+    'tensorstore_sphinx_ext.doctest',
     'sphinx.ext.mathjax',
 ]
 

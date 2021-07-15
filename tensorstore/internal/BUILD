@@ -1876,3 +1876,16 @@ tensorstore_cc_library(
     name = "integer_range",
     hdrs = ["integer_range.h"],
 )
+
+tensorstore_cc_library(
+    name = "json_metadata_matching",
+    srcs = ["json_metadata_matching.cc"],
+    hdrs = ["json_metadata_matching.h"],
+    deps = [
+        ":json_same",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:str_cat",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/status",
+    ],
+)

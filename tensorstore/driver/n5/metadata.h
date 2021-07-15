@@ -23,6 +23,7 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/n5/compressor.h"
 #include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -149,7 +150,43 @@ Status ValidateMetadata(const N5Metadata& metadata,
 /// \error `absl::StatusCode::kInvalidArgument` if any required fields are
 ///     unspecified.
 Result<std::shared_ptr<const N5Metadata>> GetNewMetadata(
-    const N5MetadataConstraints& metadata_constraints);
+    const N5MetadataConstraints& metadata_constraints, const Schema& schema);
+
+/// Validates that `schema` is compatible with `metadata`.
+absl::Status ValidateMetadataSchema(const N5Metadata& metadata,
+                                    const Schema& schema);
+
+/// Sets chunk layout constraints implied by `rank` and `chunk_shape`.
+absl::Status SetChunkLayoutFromMetadata(
+    DimensionIndex rank, std::optional<span<const Index>> chunk_shape,
+    ChunkLayout& chunk_layout);
+
+/// Returns the combined domain from `metadata_constraints` and `schema`.
+///
+/// If the domain is unspecified, returns a null domain.
+///
+/// \error `absl::StatusCode::kInvalidArgument` if `metadata_constraints` is
+///     inconsistent with `schema`.
+Result<IndexDomain<>> GetEffectiveDomain(
+    const N5MetadataConstraints& metadata_constraints, const Schema& schema);
+
+/// Returns the combined chunk layout from `metadata_constraints` and `schema`.
+///
+/// \error `absl::StatusCode::kInvalidArgument` if `metadata_constraints` is
+///     inconsistent with `schema`.
+Result<ChunkLayout> GetEffectiveChunkLayout(
+    const N5MetadataConstraints& metadata_constraints, const Schema& schema);
+
+/// Returns the combined codec spec from `metadata_constraints` and `schema`.
+///
+/// \returns Non-null pointer.
+/// \error `absl::StatusCode::kInvalidArgument` if `metadata_constraints` is
+///     inconsistent with `schema`.
+Result<CodecSpec::PtrT<N5CodecSpec>> GetEffectiveCodec(
+    const N5MetadataConstraints& metadata_constraints, const Schema& schema);
+
+/// Returns the codec from the specified metadata.
+CodecSpec::Ptr GetCodecFromMetadata(const N5Metadata& metadata);
 
 /// Decodes a chunk.
 ///

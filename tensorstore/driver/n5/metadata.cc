@@ -20,6 +20,7 @@
 #include "absl/base/internal/endian.h"
 #include "absl/strings/str_join.h"
 #include "tensorstore/codec_spec_registry.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/container_to_shared.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
@@ -27,12 +28,14 @@
 #include "tensorstore/internal/dimension_indexed_json_binder.h"
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_metadata_matching.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
 namespace internal_n5 {
 
+using internal::MetadataMismatchError;
 namespace jb = tensorstore::internal_json_binding;
 
 CodecSpec::Ptr N5CodecSpec::Clone() const {
@@ -116,9 +119,6 @@ constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
             "dataType",
             jb::Projection(&T::dtype, maybe_optional(jb::Validate(
                                           [](const auto& options, auto* obj) {
-                                            if (!obj->valid()) {
-                                              return absl::OkStatus();
-                                            }
                                             return ValidateDataType(*obj);
                                           },
                                           jb::DataTypeJsonBinder)))),
@@ -301,14 +301,6 @@ Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
 
 Status ValidateMetadata(const N5Metadata& metadata,
                         const N5MetadataConstraints& constraints) {
-  const auto MetadataMismatchError = [](const char* name, const auto& expected,
-                                        const auto& actual) -> Status {
-    return absl::FailedPreconditionError(
-        StrCat("Expected ", QuoteString(name), " of ",
-               ::nlohmann::json(expected).dump(),
-               " but received: ", ::nlohmann::json(actual).dump()));
-  };
-
   if (constraints.shape && !absl::c_equal(metadata.shape, *constraints.shape)) {
     return MetadataMismatchError("dimensions", *constraints.shape,
                                  metadata.shape);
@@ -330,37 +322,202 @@ Status ValidateMetadata(const N5Metadata& metadata,
     return MetadataMismatchError("compression", *constraints.compressor,
                                  metadata.compressor);
   }
+  return internal::ValidateMetadataSubset(constraints.extra_attributes,
+                                          metadata.extra_attributes);
+}
+
+Result<IndexDomain<>> GetEffectiveDomain(
+    DimensionIndex rank, std::optional<span<const Index>> shape,
+    std::optional<span<const std::string>> axes, const Schema& schema) {
+  auto domain = schema.domain();
+  if (!shape && !axes && !domain.valid()) {
+    // No information about the domain available.
+    return {std::in_place};
+  }
+
+  // Rank is already validated by caller.
+  assert(IsRankExplicitlyConvertible(schema.rank(), rank));
+  IndexDomainBuilder builder(std::max(schema.rank().rank, rank));
+  if (shape) {
+    builder.shape(*shape);
+    builder.implicit_upper_bounds().fill(true);
+  } else {
+    builder.origin(GetConstantVector<Index, 0>(builder.rank()));
+  }
+  if (axes) {
+    builder.labels(*axes);
+  }
+
+  TENSORSTORE_ASSIGN_OR_RETURN(auto domain_from_metadata, builder.Finalize());
+  TENSORSTORE_ASSIGN_OR_RETURN(domain,
+                               MergeIndexDomains(domain, domain_from_metadata),
+                               tensorstore::MaybeAnnotateStatus(
+                                   _, "Mismatch between metadata and schema"));
+  return WithImplicitDimensions(domain, false, true);
+  return domain;
+}
+
+Result<IndexDomain<>> GetEffectiveDomain(
+    const N5MetadataConstraints& metadata_constraints, const Schema& schema) {
+  return GetEffectiveDomain(metadata_constraints.rank,
+                            metadata_constraints.shape,
+                            metadata_constraints.axes, schema);
+}
+
+absl::Status SetChunkLayoutFromMetadata(
+    DimensionIndex rank, std::optional<span<const Index>> chunk_shape,
+    ChunkLayout& chunk_layout) {
+  TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(RankConstraint{rank}));
+  rank = chunk_layout.rank();
+  if (rank == dynamic_rank) return absl::OkStatus();
+
+  // n5 always uses Fortran (colexicographic) inner order
+  {
+    DimensionIndex inner_order[kMaxRank];
+    for (DimensionIndex i = 0; i < rank; ++i) {
+      inner_order[i] = rank - i - 1;
+    }
+    TENSORSTORE_RETURN_IF_ERROR(
+        chunk_layout.Set(ChunkLayout::InnerOrder(span(inner_order, rank))));
+  }
+  if (chunk_shape) {
+    assert(chunk_shape->size() == rank);
+    TENSORSTORE_RETURN_IF_ERROR(
+        chunk_layout.Set(ChunkLayout::ChunkShape(*chunk_shape)));
+  }
+  TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(
+      ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(rank))));
   return absl::OkStatus();
 }
 
+Result<ChunkLayout> GetEffectiveChunkLayout(
+    DimensionIndex rank, std::optional<span<const Index>> chunk_shape,
+    const Schema& schema) {
+  auto chunk_layout = schema.chunk_layout();
+  TENSORSTORE_RETURN_IF_ERROR(
+      SetChunkLayoutFromMetadata(rank, chunk_shape, chunk_layout));
+  return chunk_layout;
+}
+
+Result<ChunkLayout> GetEffectiveChunkLayout(
+    const N5MetadataConstraints& metadata_constraints, const Schema& schema) {
+  assert(IsRankExplicitlyConvertible(metadata_constraints.rank, schema.rank()));
+  return GetEffectiveChunkLayout(
+      std::max(metadata_constraints.rank, schema.rank().rank),
+      metadata_constraints.chunk_shape, schema);
+}
+
+Result<CodecSpec::PtrT<N5CodecSpec>> GetEffectiveCodec(
+    const N5MetadataConstraints& metadata_constraints, const Schema& schema) {
+  auto codec_spec = CodecSpec::Make<N5CodecSpec>();
+  if (metadata_constraints.compressor) {
+    codec_spec->compressor = *metadata_constraints.compressor;
+  }
+  TENSORSTORE_RETURN_IF_ERROR(codec_spec->MergeFrom(schema.codec()));
+  return codec_spec;
+}
+
+CodecSpec::Ptr GetCodecFromMetadata(const N5Metadata& metadata) {
+  auto codec_spec = CodecSpec::Make<N5CodecSpec>();
+  codec_spec->compressor = metadata.compressor;
+  return CodecSpec::Ptr(std::move(codec_spec));
+}
+
 Result<std::shared_ptr<const N5Metadata>> GetNewMetadata(
-    const N5MetadataConstraints& metadata_constraints) {
-  if (!metadata_constraints.shape) {
-    return absl::InvalidArgumentError("\"dimensions\" must be specified");
-  }
-  if (!metadata_constraints.chunk_shape) {
-    return absl::InvalidArgumentError("\"blockSize\" must be specified");
-  }
-  if (!metadata_constraints.dtype) {
-    return absl::InvalidArgumentError("\"dataType\" must be specified");
-  }
-  if (!metadata_constraints.compressor) {
-    return absl::InvalidArgumentError("\"compression\" must be specified");
-  }
+    const N5MetadataConstraints& metadata_constraints, const Schema& schema) {
   auto metadata = std::make_shared<N5Metadata>();
-  metadata->rank = metadata_constraints.rank;
-  metadata->extra_attributes = metadata_constraints.extra_attributes;
-  metadata->shape = *metadata_constraints.shape;
-  metadata->chunk_shape = *metadata_constraints.chunk_shape;
-  metadata->dtype = *metadata_constraints.dtype;
-  metadata->compressor = *metadata_constraints.compressor;
-  if (metadata_constraints.axes) {
-    metadata->axes = *metadata_constraints.axes;
-  } else {
-    metadata->axes.resize(metadata->shape.size());
+
+  // Set domain
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto domain, GetEffectiveDomain(metadata_constraints, schema));
+  if (!domain.valid() || !IsFinite(domain.box())) {
+    return absl::InvalidArgumentError("domain must be specified");
   }
+  const DimensionIndex rank = metadata->rank = domain.rank();
+  metadata->shape.assign(domain.shape().begin(), domain.shape().end());
+  metadata->axes.assign(domain.labels().begin(), domain.labels().end());
+
+  // Set dtype
+  auto dtype = schema.dtype();
+  if (!dtype.valid()) {
+    return absl::InvalidArgumentError("dtype must be specified");
+  }
+  TENSORSTORE_RETURN_IF_ERROR(ValidateDataType(dtype));
+  metadata->dtype = dtype;
+
+  // Set chunk shape
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto chunk_layout, GetEffectiveChunkLayout(metadata_constraints, schema));
+  metadata->chunk_shape.resize(rank);
+  {
+    Index chunk_origin[kMaxRank];
+    TENSORSTORE_RETURN_IF_ERROR(tensorstore::internal::ChooseReadWriteChunkGrid(
+        chunk_layout, domain.box(),
+        MutableBoxView<>(rank, chunk_origin, metadata->chunk_shape.data())));
+  }
+
+  // Set compressor
+  TENSORSTORE_ASSIGN_OR_RETURN(auto codec_spec,
+                               GetEffectiveCodec(metadata_constraints, schema));
+  if (codec_spec->compressor) {
+    metadata->compressor = *codec_spec->compressor;
+  } else {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        metadata->compressor,
+        Compressor::FromJson({{"type", "blosc"},
+                              {"cname", "lz4"},
+                              {"clevel", 5},
+                              {"shuffle", dtype.size() == 1 ? 2 : 1}}));
+  }
+
+  metadata->extra_attributes = metadata_constraints.extra_attributes;
   TENSORSTORE_RETURN_IF_ERROR(ValidateMetadata(*metadata));
+  TENSORSTORE_RETURN_IF_ERROR(ValidateMetadataSchema(*metadata, schema));
   return metadata;
+}
+
+absl::Status ValidateMetadataSchema(const N5Metadata& metadata,
+                                    const Schema& schema) {
+  if (!IsRankExplicitlyConvertible(metadata.rank, schema.rank())) {
+    return absl::FailedPreconditionError(tensorstore::StrCat(
+        "Rank specified by schema (", schema.rank(),
+        ") does not match rank specified by metadata (", metadata.rank, ")"));
+  }
+
+  if (schema.domain().valid()) {
+    TENSORSTORE_RETURN_IF_ERROR(GetEffectiveDomain(
+        metadata.rank, metadata.shape, metadata.axes, schema));
+  }
+
+  if (auto dtype = schema.dtype();
+      !IsPossiblySameDataType(metadata.dtype, dtype)) {
+    return absl::FailedPreconditionError(
+        tensorstore::StrCat("dtype from metadata (", metadata.dtype,
+                            ") does not match dtype in schema (", dtype, ")"));
+  }
+
+  if (auto schema_codec = schema.codec(); schema_codec.valid()) {
+    auto codec = GetCodecFromMetadata(metadata);
+    TENSORSTORE_RETURN_IF_ERROR(
+        codec.MergeFrom(schema_codec),
+        ConvertInvalidArgumentToFailedPrecondition(
+            tensorstore::MaybeAnnotateStatus(
+                _, "codec from metadata does not match codec in schema")));
+  }
+
+  if (schema.chunk_layout().rank() != dynamic_rank) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto chunk_layout,
+        GetEffectiveChunkLayout(metadata.rank, metadata.chunk_shape, schema));
+    if (chunk_layout.codec_chunk_shape().hard_constraint) {
+      return absl::InvalidArgumentError("codec_chunk_shape not supported");
+    }
+  }
+
+  if (schema.fill_value().valid()) {
+    return absl::InvalidArgumentError("fill_value not supported by N5 format");
+  }
+  return absl::OkStatus();
 }
 
 Status ValidateDataType(DataType dtype) {
