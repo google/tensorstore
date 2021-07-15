@@ -661,6 +661,16 @@ constexpr auto DefaultValue(GetDefault get_default,
   };
 }
 
+/// Same as `DefaultValue` above, except that the default value is obtained via
+/// value initialization rather than via a specified `get_default` function.
+template <IncludeDefaultsPolicy DefaultsPolicy = kMaybeIncludeDefaults,
+          typename Binder = decltype(DefaultBinder<>)>
+constexpr auto DefaultInitializedValue(Binder binder = DefaultBinder<>) {
+  return internal_json_binding::DefaultValue<DefaultsPolicy>(
+      [](auto* obj) { *obj = internal::remove_cvref_t<decltype(*obj)>{}; },
+      std::move(binder));
+}
+
 /// Returns a `Binder` for use with `Member` that performs default value
 /// handling based on a predicate.
 ///
@@ -717,14 +727,15 @@ constexpr auto DefaultPredicate(GetDefault get_default, IsDefault is_default,
   };
 }
 
-/// Same as `DefaultValue` above, except that the default value is obtained via
-/// value initialization rather than via a specified `get_default` function.
-template <IncludeDefaultsPolicy DefaultsPolicy = kMaybeIncludeDefaults,
-          typename Binder = decltype(DefaultBinder<>)>
-constexpr auto DefaultInitializedValue(Binder binder = DefaultBinder<>) {
-  return internal_json_binding::DefaultValue<DefaultsPolicy>(
+/// Same as `DefaultPredicate` above, except that the default value is obtained
+/// via value initialization rather than via a specified `get_default` function.
+template <IncludeDefaultsPolicy Policy = kMaybeIncludeDefaults,
+          typename IsDefault, typename Binder = decltype(DefaultBinder<>)>
+constexpr auto DefaultInitializedPredicate(IsDefault is_default,
+                                           Binder binder = DefaultBinder<>) {
+  return internal_json_binding::DefaultPredicate<Policy>(
       [](auto* obj) { *obj = internal::remove_cvref_t<decltype(*obj)>{}; },
-      std::move(binder));
+      std::move(is_default), std::move(binder));
 }
 
 /// Binders for natively supported types. These binders come in

@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_SCHEMA_H_
 #define TENSORSTORE_SCHEMA_H_
 
+#include <iosfwd>
 #include <memory>
 #include <type_traits>
 #include <vector>
@@ -25,21 +26,104 @@
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/index_space/index_transform_spec.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
 
-/// Collection of properties that define the key characteristics of a
-/// TensorStore, independent of the specific driver or storage mechanism/format.
+/// Collection of constraints for a TensorStore schema.
+///
+/// When opening an existing TensorStore, specifies constraints that must be
+/// satisfied by the existing schema for the operation to succeed.
+///
+/// When creating a new TensorStore, the constraints are used in conjunction
+/// with any driver-dependent defaults and additional driver-specific
+/// constraints included in the spec to determine the new schema.
+///
+/// For interoperability with `tensorstore::Open` and other interfaces accepting
+/// a variable-length list of strongly-typed options, there is a unique wrapper
+/// type for each constraint.
+///
+/// Constraints are set by calling `Schema::Set`.  Constraints are
+/// retrieved using either the named accessor methods, like
+/// `Schema::dtype()`, or in generic code using the explicit
+/// conversion operators, `static_cast<DataType>(constraints)`.
 class Schema {
  public:
-  struct Builder;
+  Schema() = default;
 
+  /// Specifies the rank (`dynamic_rank` indicates unspecified).
+  ///
+  /// The rank, if specified, is always a hard constraint.
+  using RankConstraint = tensorstore::RankConstraint;
+  RankConstraint rank() const { return RankConstraint{rank_}; }
+  explicit operator RankConstraint() const { return rank(); }
+  absl::Status Set(RankConstraint rank);
+
+  /// Specifies the data type.
+  ///
+  /// The data type, if specified, is always a hard constraint.
+  DataType dtype() const { return dtype_; }
+  explicit operator DataType() const { return dtype(); }
+  absl::Status Set(DataType value);
+
+  /// Overrides the data type.
+  ///
+  /// \post `dtype() == value`
+  absl::Status Override(DataType value);
+
+  /// Specifies the domain.
+  ///
+  /// The domain, if specified, is always a hard constraint.  If an additional
+  /// domain is specified when an existing domain has been set, the two domains
+  /// are merged according to `MergeIndexDomains` (and it is an error if they
+  /// are incompatible).
+  IndexDomain<> domain() const;
+  explicit operator IndexDomain<>() const { return domain(); }
+  absl::Status Set(IndexDomain<> value);
+
+  /// Overrides the domain.
+  ///
+  /// \post `domain() == value`
+  absl::Status Override(IndexDomain<> value);
+
+  /// Specifies the zero-origin bounds for the domain.
+  ///
+  /// This is equivalent to specifying a domain constraint of
+  /// `IndexDomain(shape)`.
+  struct Shape : public span<const Index> {
+   public:
+    explicit Shape(span<const Index> s) : span<const Index>(s) {}
+    template <size_t N>
+    explicit Shape(const Index (&s)[N]) : span<const Index>(s) {}
+  };
+  absl::Status Set(Shape value);
+
+  /// Specifies the data storage layout.
+  ///
+  /// If additional chunk layout constraints are specified when existing chunk
+  /// layout constraints are set, they are merged.
+  ChunkLayout chunk_layout() const;
+  explicit operator ChunkLayout() const { return chunk_layout(); }
+  template <typename Option>
+  std::enable_if_t<ChunkLayout::IsOption<Option>, absl::Status> Set(
+      Option value) {
+    TENSORSTORE_RETURN_IF_ERROR(MutableLayoutInternal().Set(std::move(value)));
+    return ValidateLayoutInternal();
+  }
+
+  /// Specifies the fill value.
+  ///
+  /// The fill value data type must be convertible to the actual data type, and
+  /// the shape must be broadcast-compatible with the domain.
+  ///
+  /// If an existing fill value has already been set as a constraint, it is an
+  /// error to specify a different fill value (where the comparison is done
+  /// after normalization by `UnbroadcastArray`).
   struct FillValue : public SharedArrayView<const void> {
     FillValue() = default;
     explicit FillValue(SharedArrayView<const void> value)
@@ -50,32 +134,57 @@ class Schema {
     }
   };
 
-  static Result<Schema> Make(Builder builder);
-
-  DataType dtype() const;
-  DimensionIndex rank() const;
-  IndexDomain<> domain() const;
-  ChunkLayout chunk_layout() const;
-  CodecSpec::Ptr codec() const;
   FillValue fill_value() const;
+  explicit operator FillValue() const { return fill_value(); }
+  absl::Status Set(FillValue value);
 
-  struct Builder {
-    DataType dtype;
-    IndexDomain<> domain;
-    ChunkLayout chunk_layout;
-    CodecSpec::Ptr codec;
-    SharedArray<const void> fill_value;
-  };
+  /// Specifies the data codec.
+  CodecSpec::Ptr codec() const;
+  explicit operator CodecSpec::Ptr() const { return codec(); }
+  absl::Status Set(CodecSpec::Ptr value);
 
+  /// Merges in constraints from an existing schema.
+  absl::Status Set(Schema value);
+
+  /// Evaluates to `true` for option types compatible with `Set`.  Supported
+  /// types are:
+  ///
+  /// - `Schema`
+  /// - `RankConstraint`
+  /// - `DataType`, and `StaticDataType<T>`
+  /// - `IndexDomain<Rank, CKind>`
+  /// - `Schema::Shape`
+  /// - `Schema::FillValue`
+  /// - `CodecSpec::Ptr`
+  ///
+  /// Additionally, all `ChunkLayout` options are also supported:
+  ///
+  /// - `ChunkLayout`
+  /// - `ChunkLayout::GridOrigin`
+  /// - `ChunkLayout::InnerOrder`
+  /// - `ChunkLayout::GridConstraintsFor<U>`
+  /// - `ChunkLayout::ChunkElementsFor<U>`
+  /// - `ChunkLayout::ChunkShapeFor<U>`
+  /// - `ChunkLayout::ChunkAspectRatioFor<U>`
+  template <typename T>
+  static inline constexpr bool IsOption = ChunkLayout::IsOption<T>;
+
+  /// Transforms a `Schema` by an index transform.
+  ///
+  /// Upon invocation, the input domain of `transform` corresponds to `schema`.
+  /// The returned `Schema` corresponds to the output space of
+  /// `transform`.
+  absl::Status TransformInputSpaceSchema(IndexTransformView<> transform);
+
+  /// Transforms a `Schema` object by a `DimExpression`.
   template <typename Expr>
   friend std::enable_if_t<
       !IsIndexTransform<internal::remove_cvref_t<Expr>>::value, Result<Schema>>
   ApplyIndexTransform(Expr&& expr, Schema schema) {
-    if (!schema.impl_) return schema;
     TENSORSTORE_ASSIGN_OR_RETURN(auto identity_transform,
-                                 schema.identity_transform());
+                                 schema.GetTransformForIndexingOperation());
     if (!identity_transform.valid()) {
-      // Only `dtype`, `codec`, or scalar `fill_value` set.
+      // No constraints that would be affected by an index transform.
       return schema;
     }
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -112,8 +221,12 @@ class Schema {
   friend std::ostream& operator<<(std::ostream& os, const Schema& schema);
 
  private:
-  /// Returns an identity index transform over the domain/rank to which
-  /// dimension expressions can be applied in order to transform this schema.
+  ChunkLayout& MutableLayoutInternal();
+
+ public:
+  // Treat as private:
+
+  /// Returns an identity index transform over the domain/rank.
   ///
   /// If `domain().valid() == true`, returns `IdentityTransform(domain())`.
   ///
@@ -121,21 +234,66 @@ class Schema {
   /// `IdentityTransform(rank())`.
   ///
   /// Otherwise, returns a default-constructed (invalid) transform.
-  ///
-  /// \error `absl::StatusCode::kInvalidArgument` if `rank() == dynamic_rank`
-  ///     but `fill_value` is specified and non-scalar, since in that case the
-  ///     result depends on the rank, which is unknown.
-  Result<IndexTransform<>> identity_transform() const;
+  Result<IndexTransform<>> GetTransformForIndexingOperation() const;
 
- public:
-  // Treat as private:
+  absl::Status ValidateLayoutInternal();
 
-  class Impl;
+  /// Constraints other than `rank_` and `dtype_` are stored in a heap-allocated
+  /// `Impl` object.  It is expected that `rank` and `dtype` will be specified
+  /// in most cases, while other constraints may be less commonly used.  This
+  /// avoids bloating the size of `Schema` and allows efficient move
+  /// and copy-on-write, while also avoiding heap allocation in the common case
+  /// of specifying just `rank` and `dtype` constraints.
+  struct Impl;
   friend void intrusive_ptr_increment(Impl* p);
   friend void intrusive_ptr_decrement(Impl* p);
+
+  /// Ensures `impl_` is non-null with a reference count of 1, copying if
+  /// necessary.
+  ///
+  /// \returns `*impl_`
+  Impl& EnsureUniqueImpl();
   internal::IntrusivePtr<Impl> impl_;
+  DimensionIndex rank_ = dynamic_rank;
+  DataType dtype_;
 };
+
+// Specialize `Schema::IsOption<T>` for all supported option types
+// (corresponding to `Schema::Set` overloads).
+
+template <>
+constexpr inline bool Schema::IsOption<RankConstraint> = true;
+
+template <>
+constexpr inline bool Schema::IsOption<DataType> = true;
+
+template <typename T>
+constexpr bool Schema::IsOption<StaticDataType<T>> = true;
+
+template <DimensionIndex Rank, ContainerKind CKind>
+constexpr bool Schema::IsOption<IndexDomain<Rank, CKind>> = true;
+
+template <>
+constexpr inline bool Schema::IsOption<Schema::Shape> = true;
+
+template <>
+constexpr inline bool Schema::IsOption<Schema::FillValue> = true;
+
+template <>
+constexpr inline bool Schema::IsOption<CodecSpec::Ptr> = true;
+
+template <>
+constexpr inline bool Schema::IsOption<Schema> = true;
+
+namespace internal {
+
+/// Combines the read and write chunk constraints of `schema` to choose a single
+/// chunk grid for both reading and writing.
+absl::Status ChooseReadWriteChunkGrid(MutableBoxView<> chunk_template,
+                                      const Schema& schema);
+
+}  // namespace internal
 
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_CREATE_SPEC_H_
+#endif  // TENSORSTORE_SCHEMA_H_

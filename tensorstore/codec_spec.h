@@ -27,7 +27,7 @@ namespace tensorstore {
 /// TensorStore driver.
 ///
 /// This allows compression options to be specified as part of a `Schema` or
-/// `SchemaConstraints` object independent of other driver parameters and
+/// `Schema` object independent of other driver parameters and
 /// metadata.
 ///
 /// Since compression parameters are highly driver-specific, a `CodecSpec` is

@@ -2,19 +2,45 @@ $schema: http://json-schema.org/draft-07/schema#
 $id: Schema
 type: object
 properties:
+  rank:
+    type: integer
+    minimum: 0
+    maximum: 32
+    title: Number of dimensions.
+    description: |
+      The rank is always a hard constraint.
   dtype:
     $ref: dtype
+    title: Specifies the data type of the TensorStore.
+    description: |
+      The data type is always a hard constraint.
   domain:
     $ref: IndexDomain
-    title: Domain of the TensorStore, including optional dimension labels.
+    title: |
+      Domain of the TensorStore, including bounds and optional dimension labels.
+    description: |
+      The domain is always a hard constraint, except that a labeled dimension is
+      allowed to match an unlabeled dimension, and an implicit, infinite bound
+      is considered an unspecified bound and does not impose any constraints.
+      When merging two schema constraint objects that both specify domains, any
+      dimensions that are labeled in both domains must have the same label, and
+      any explicit or finite bounds specified in both domains must be equal.  If
+      a dimension is labeled in one domain and unlabeled in the other, the label
+      is retained.  If a bound is implicit and infinite in one domain, the bound
+      from the other domain is used.
   chunk_layout:
     $ref: ChunkLayout
-    description: Data storage layout.
+    title: Data storage layout constraints.
+    description: |
+      The rank of the chunk layout must match the `.rank` of the schema.  When
+      merging schema constraints objects, the chunk layout constraints are
+      merged recursively.
   codec:
     $ref: Codec
     description: |
       Driver-specific compression and other parameters for encoding/decoding
-      data.
+      data.  When merging schema constraints objects, the codec constraints are
+      merged recursively.
   fill_value:
     title: Fill value to use for missing data.
     description: |

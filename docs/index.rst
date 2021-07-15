@@ -24,6 +24,7 @@ TensorStore
 
    spec
    index_space
+   schema
    context
 
    driver/index

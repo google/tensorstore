@@ -740,6 +740,7 @@ tensorstore_cc_library(
         ":json_serialization_options",
         ":rank",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/index_space:index_transform_spec",
         "//tensorstore/index_space:json",
         "//tensorstore/index_space:transform_broadcastable_array",
@@ -753,5 +754,26 @@ tensorstore_cc_library(
         "//tensorstore/util:division",
         "//tensorstore/util:status",
         "@com_google_absl//absl/status",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "schema_test",
+    size = "small",
+    srcs = ["schema_test.cc"],
+    deps = [
+        ":schema",
+        "//tensorstore/driver/n5:metadata",
+        "//tensorstore/driver/zarr:spec",
+        "//tensorstore/index_space:dim_expression",
+        "//tensorstore/index_space:index_transform_builder",
+        "//tensorstore/index_space:index_transform_testutil",
+        "//tensorstore/index_space:json",
+        "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal:test_util",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/random:bit_gen_ref",
+        "@com_google_googletest//:gtest_main",
     ],
 )
