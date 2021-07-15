@@ -55,9 +55,7 @@
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/index_space/alignment.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/index_space/index_transform_spec.h"
 #include "tensorstore/index_space/transformed_array.h"
-#include "tensorstore/internal/array_constraints.h"
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_bindable.h"
@@ -65,6 +63,8 @@
 #include "tensorstore/progress.h"
 #include "tensorstore/read_write_options.h"
 #include "tensorstore/resize_options.h"
+#include "tensorstore/schema.h"
+#include "tensorstore/static_cast.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -131,8 +131,11 @@ struct HandleBase {
 /// a transaction to use.
 using DriverHandle = HandleBase<Driver>;
 
-/// Specifies rank and data type information.
-using DriverConstraints = ArrayConstraints;
+/// Members common to all driver spec and bound driver spec types.
+class DriverSpecCommonData {
+ public:
+  Schema schema;
+};
 
 /// Abstract base class representing a TensorStore driver specification, for
 /// creating a `Driver` from a JSON representation.
@@ -175,8 +178,30 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   /// Resolves any `Context` resources and returns a `DriverSpec::Bound`.
   virtual Result<BoundPtr> Bind(Context context) const = 0;
 
-  /// Returns the rank and data type of the driver, if known.
-  virtual DriverConstraints& constraints() = 0;
+  /// Returns the domain, or a null domain if unknown.
+  virtual Result<IndexDomain<>> GetDomain() const = 0;
+
+  /// Returns the chunk layout.
+  virtual Result<ChunkLayout> GetChunkLayout() const = 0;
+
+  /// Returns the codec spec.
+  virtual Result<CodecSpec::Ptr> GetCodec() const = 0;
+
+  /// Returns the fill value.
+  virtual Result<SharedArray<const void>> GetFillValue(
+      IndexTransformView<> transform) const = 0;
+
+  /// Returns the common spec data (stored as a member of the derived type).
+  virtual DriverSpecCommonData& data() = 0;
+
+  /// Returns the stored schema.
+  ///
+  /// Note that this may not include information represented by driver-specific
+  /// metadata or other options.
+  ///
+  /// To obtain the effective schema including any constraints implied by
+  /// driver-specific metadata, call `GetEffectiveSchema` instead.
+  Schema& schema() { return data().schema; }
 
   /// Specifies any context resource overrides.
   Context::Spec context_spec_;
@@ -197,11 +222,16 @@ class DriverSpec::Bound : public AtomicReferenceCount<DriverSpec::Bound> {
 
   virtual ~Bound();
 
+  /// Returns the common spec data (stored as a member of the derived type).
+  virtual const DriverSpecCommonData& data() const = 0;
+
+  const Schema& schema() const { return data().schema; }
+
   /// Opens the driver.
   ///
   /// In the resultant `DriverHandle`, the `transform` specifies any "intrinsic"
   /// transform implicit in the specification.  It will be composed with the
-  /// `IndexTransformSpec` specified in the `TransformedDriverSpec`.
+  /// `IndexTransform` specified in the `TransformedDriverSpec`.
   ///
   /// If this is a multiscale spec, this opens the base resolution.
   ///
@@ -242,25 +272,41 @@ struct ContextBindingTraits<DriverSpecPtr> {
   }
 };
 
-/// Pairs a `DriverSpec` with an `IndexTransformSpec`.
+/// Pairs a `DriverSpec` with an `IndexTransform`.
 ///
 /// This is the underlying representation of the public `tensorstore::Spec`
 /// class.
 ///
-/// `transform_spec.output_rank()` must equal `driver_spec->constraints().rank`.
+/// If `transform.valid()`, `transform.output_rank()` must equal
+/// `driver_spec->schema().rank()`.
 template <template <typename> class MaybeBound = ContextUnbound>
 struct TransformedDriverSpec {
   MaybeBound<DriverSpecPtr> driver_spec;
-  IndexTransformSpec transform_spec;
+  IndexTransform<> transform;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
-    return f(x.driver_spec, x.transform_spec);
+    return f(x.driver_spec, x.transform);
   };
 };
 
 absl::Status ApplyOptions(DriverSpec::Ptr& spec, SpecOptions&& options);
 absl::Status TransformAndApplyOptions(TransformedDriverSpec<>& spec,
                                       SpecOptions&& options);
+
+Result<IndexDomain<>> GetEffectiveDomain(const TransformedDriverSpec<>& spec);
+
+Result<ChunkLayout> GetEffectiveChunkLayout(
+    const TransformedDriverSpec<>& spec);
+
+Result<SharedArray<const void>> GetEffectiveFillValue(
+    const TransformedDriverSpec<>& spec);
+
+Result<CodecSpec::Ptr> GetEffectiveCodec(const TransformedDriverSpec<>& spec);
+
+Result<Schema> GetEffectiveSchema(const TransformedDriverSpec<>& spec);
+
+template <template <typename> class MaybeBound>
+DimensionIndex GetRank(const TransformedDriverSpec<MaybeBound>& spec);
 
 /// JSON binder for TensorStore specification.
 TENSORSTORE_DECLARE_JSON_BINDER(TransformedDriverSpecJsonBinder,
@@ -320,11 +366,11 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// Returns `absl::StatusCode::kUnimplemented` if a JSON representation is not
   /// supported.  (This behavior is provided by the default implementation.)
   ///
-  /// The returned `transform_spec` must have a domain equal to
-  /// `transform.domain()`, but may or may not equal `transform`.  For example,
-  /// the returned `transform` may be composed with another invertible
-  /// transform, or the returned `DriverSpec::Bound` may somehow incorporate
-  /// part or all of the transform.
+  /// The returned `transform` must have a domain equal to `transform.domain()`,
+  /// but may or may not equal `transform`.  For example, the returned
+  /// `transform` may be composed with another invertible transform, or the
+  /// returned `DriverSpec::Bound` may somehow incorporate part or all of the
+  /// transform.
   ///
   /// \param transaction The transaction to use.
   /// \param transform Transform from the domain exposed to the user to the
@@ -344,8 +390,19 @@ class Driver : public AtomicReferenceCount<Driver> {
 
   /// Returns the data codec spec.
   ///
-  /// \returns The encoding.
+  /// \returns The codec.
   virtual Result<CodecSpec::Ptr> GetCodec();
+
+  /// Returns the fill value.
+  ///
+  /// The returned array must be broadcastable to `transform.domain()`.
+  ///
+  /// The data type must equal `this->dtype()`.
+  ///
+  /// \returns The fill value, or a null array if there is no fill value or the
+  ///     fill value is unknown.
+  virtual Result<SharedArray<const void>> GetFillValue(
+      IndexTransformView<> transform);
 
   /// Returns the Executor to use for data copying to/from this Driver (e.g. for
   /// Read and Write operations).
@@ -444,8 +501,7 @@ Future<DriverHandle> OpenDriver(TransformedDriverSpec<> spec,
 /// `read_write_mode`.
 ///
 /// This simply calls `DriverSpec::Bound::Open` and then composes the
-/// `transform` of the returned `Driver::Handle` with
-/// `bound_spec.transform_spec`.
+/// `transform` of the returned `Driver::Handle` with `bound_spec.transform`.
 Future<DriverHandle> OpenDriver(OpenTransactionPtr transaction,
                                 TransformedDriverSpec<ContextBound> bound_spec,
                                 ReadWriteMode read_write_mode);
@@ -609,6 +665,15 @@ absl::Status CopyReadChunk(
 Result<ChunkLayout> GetChunkLayout(const Driver::Handle& handle);
 
 Result<CodecSpec::Ptr> GetCodec(const Driver::Handle& handle);
+
+template <typename Element = void>
+Result<SharedArray<const Element>> GetFillValue(const Driver::Handle& handle) {
+  TENSORSTORE_ASSIGN_OR_RETURN(auto fill_value,
+                               handle.driver->GetFillValue(handle.transform));
+  return tensorstore::StaticDataTypeCast<const Element>(std::move(fill_value));
+}
+
+Result<Schema> GetSchema(const Driver::Handle& handle);
 
 }  // namespace internal
 namespace internal_json_binding {

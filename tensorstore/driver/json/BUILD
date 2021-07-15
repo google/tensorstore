@@ -41,6 +41,7 @@ tensorstore_cc_test(
         "//tensorstore:context",
         "//tensorstore:open",
         "//tensorstore/driver:driver_testutil",
+        "//tensorstore/driver/n5",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:json",

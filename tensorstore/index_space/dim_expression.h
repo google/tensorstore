@@ -1647,6 +1647,14 @@ class DimExpression<LastOp, PriorOp...> {
                                std::forward<Transformable>(transformable));
   }
 
+  template <DimensionIndex InputRank, DimensionIndex OutputRank,
+            ContainerKind CKind>
+  friend Result<NewTransformType<InputRank, OutputRank>> ApplyIndexTransform(
+      const DimExpression& expr,
+      IndexTransform<InputRank, OutputRank, CKind> transform) {
+    return expr(std::move(transform));
+  }
+
   /// Resolves a dimension selection to dimension indices.
   ///
   /// For example:

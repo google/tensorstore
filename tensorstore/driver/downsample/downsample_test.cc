@@ -46,6 +46,8 @@ using tensorstore::internal::CollectReadChunks;
 using tensorstore::internal::MakeArrayBackedReadChunk;
 using tensorstore::internal::MockDriver;
 using tensorstore::internal::ReadAsIndividualChunks;
+using tensorstore::internal::TestSpecSchema;
+using tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using ::testing::Optional;
 using ::testing::Pair;
 
@@ -270,18 +272,15 @@ TEST(DownsampleTest, JsonSpecErrorDownsampleFactorsInvalidRank) {
       {"dtype", "float32"},
       {"array", {1, 2, 3, 4}},
   };
-  EXPECT_THAT(
-      tensorstore::Open({
-                            {"driver", "downsample"},
-                            {"base", base_spec},
-                            {"downsample_method", "mean"},
-                            {"downsample_factors", {2, 3}},
-                        })
-          .result(),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          ".*\"downsample_factors\": "
-          "Number of factors \\(2\\) does not match base rank \\(1\\)"));
+  EXPECT_THAT(tensorstore::Open({
+                                    {"driver", "downsample"},
+                                    {"base", base_spec},
+                                    {"downsample_method", "mean"},
+                                    {"downsample_factors", {2, 3}},
+                                })
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*\"downsample_factors\": .*rank.*"));
 }
 
 TEST(DownsampleTest, JsonSpecErrorDownsampleFactorsZero) {
@@ -663,19 +662,23 @@ TEST(DownsampleTest, Spec) {
   EXPECT_THAT(tensorstore::Read(downsampled_store).result(),
               Optional(MakeArray<float>({1.5, 3.5})));
 
-  EXPECT_THAT(downsampled_spec.ToJson(tensorstore::IncludeContext(false)),
-              Optional(MatchesJson(::nlohmann::json({
-                  {"driver", "downsample"},
-                  {"dtype", "float32"},
-                  {"base",
-                   {
-                       {"driver", "array"},
-                       {"array", {1, 2, 3, 4}},
-                   }},
-                  {"downsample_factors", {2}},
-                  {"downsample_method", "mean"},
-                  {"rank", 1},
-              }))));
+  EXPECT_THAT(
+      downsampled_spec.ToJson(tensorstore::IncludeContext(false)),
+      Optional(MatchesJson(::nlohmann::json({
+          {"driver", "downsample"},
+          {"dtype", "float32"},
+          {"base",
+           {
+               {"driver", "array"},
+               {"array", {1, 2, 3, 4}},
+               {"transform",
+                {{"input_inclusive_min", {0}}, {"input_exclusive_max", {4}}}},
+           }},
+          {"downsample_factors", {2}},
+          {"downsample_method", "mean"},
+          {"transform",
+           {{"input_inclusive_min", {0}}, {"input_exclusive_max", {2}}}},
+      }))));
 }
 
 TEST(DownsampleTest, ChunkLayout) {
@@ -708,6 +711,48 @@ TEST(DownsampleTest, ChunkLayout) {
                                        {"inner_order", {1, 0}},
                                    }));
   EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
+}
+
+TEST(SpecSchemaTest, Basic) {
+  TestSpecSchema(
+      {
+          {"driver", "downsample"},
+          {"downsample_method", "mean"},
+          {"downsample_factors", {1, 2}},
+          {"base",
+           {
+               {"driver", "array"},
+               {"array", {{1, 2, 3, 4}, {5, 6, 7, 8}}},
+               {"dtype", "float32"},
+           }},
+      },
+      {
+          {"rank", 2},
+          {"dtype", "float32"},
+          {"domain", {{"shape", {2, 2}}}},
+          {"chunk_layout", {{"grid_origin", {0, 0}}, {"inner_order", {0, 1}}}},
+      });
+}
+
+TEST(TensorStoreCreateCheckSchemaTest, Basic) {
+  TestTensorStoreCreateCheckSchema(
+      {
+          {"driver", "downsample"},
+          {"downsample_method", "mean"},
+          {"downsample_factors", {1, 2}},
+          {"base",
+           {
+               {"driver", "array"},
+               {"array", {{1, 2, 3, 4}, {5, 6, 7, 8}}},
+               {"dtype", "float32"},
+           }},
+      },
+      {
+          {"rank", 2},
+          {"dtype", "float32"},
+          {"domain", {{"shape", {2, 2}}}},
+          {"chunk_layout", {{"grid_origin", {0, 0}}, {"inner_order", {0, 1}}}},
+      });
 }
 
 }  // namespace

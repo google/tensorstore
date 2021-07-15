@@ -104,7 +104,11 @@ def test_spec_indexing_unknown_rank():
   })
   assert s.rank is None
   assert s.ndim is None
-  with pytest.raises(ValueError, match="IndexTransform is unspecified"):
+  with pytest.raises(
+      ValueError,
+      match="Cannot perform indexing operations on Spec with unspecified rank"):
     s[..., ts.newaxis]
-  with pytest.raises(ValueError, match="IndexTransform is unspecified"):
+  with pytest.raises(
+      ValueError,
+      match="Cannot perform indexing operations on Spec with unspecified rank"):
     s.T

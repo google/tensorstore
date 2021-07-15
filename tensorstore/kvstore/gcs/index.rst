@@ -73,6 +73,6 @@ Testing
 -------
 
 To test the ``gcs`` driver with a fake Google Cloud Storage server, such as
-`https://github.com/fsouza/fake-gcs-server`_, you can set the
+`fake-gcs-server <https://github.com/fsouza/fake-gcs-server>`_, you can set the
 :envvar:`TENSORSTORE_GCS_HTTP_URL` environment variable to
 e.g. ``http://localhost:4443``.

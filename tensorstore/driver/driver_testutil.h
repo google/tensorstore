@@ -200,6 +200,57 @@ class DriverRandomOperationTester {
   bool log = true;
 };
 
+void TestTensorStoreCreateWithSchemaImpl(::nlohmann::json json_spec,
+                                         const Schema& schema);
+
+/// Creates a TensorStore using `json_spec` and the specified schema options,
+/// and verifies that its schema matches the specified schema.
+template <typename... Option>
+std::enable_if_t<IsCompatibleOptionSequence<Schema, Option...>, void>
+TestTensorStoreCreateWithSchema(::nlohmann::json json_spec,
+                                Option&&... option) {
+  Schema schema;
+  if (absl::Status status; !((status = schema.Set(option)).ok() && ...)) {
+    TENSORSTORE_ASSERT_OK(status);
+  }
+  TestTensorStoreCreateWithSchemaImpl(std::move(json_spec), schema);
+}
+
+void TestTensorStoreCreateCheckSchemaImpl(::nlohmann::json json_spec,
+                                          const Schema& schema);
+
+/// Creates a TensorStore using `json_spec` and verifies that its schema matches
+/// the specified schema.
+template <typename... Option>
+std::enable_if_t<IsCompatibleOptionSequence<Schema, Option...>, void>
+TestTensorStoreCreateCheckSchema(::nlohmann::json json_spec,
+                                 Option&&... option) {
+  Schema schema;
+  if (absl::Status status; !((status = schema.Set(option)).ok() && ...)) {
+    TENSORSTORE_ASSERT_OK(status);
+  }
+  TestTensorStoreCreateCheckSchemaImpl(std::move(json_spec), schema);
+}
+
+void TestTensorStoreCreateCheckSchema(::nlohmann::json json_spec,
+                                      ::nlohmann::json json_schema);
+
+void TestSpecSchemaImpl(::nlohmann::json json_spec, const Schema& schema);
+
+/// Tests that the schema obtained from `json_spec` is equal to the specified
+/// schema.
+template <typename... Option>
+std::enable_if_t<IsCompatibleOptionSequence<Schema, Option...>, void>
+TestSpecSchema(::nlohmann::json json_spec, Option&&... option) {
+  Schema schema;
+  if (absl::Status status; !((status = schema.Set(option)).ok() && ...)) {
+    TENSORSTORE_ASSERT_OK(status);
+  }
+  TestSpecSchemaImpl(std::move(json_spec), schema);
+}
+
+void TestSpecSchema(::nlohmann::json json_spec, ::nlohmann::json json_schema);
+
 }  // namespace internal
 }  // namespace tensorstore
 

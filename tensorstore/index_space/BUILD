@@ -402,42 +402,6 @@ tensorstore_cc_test(
     ],
 )
 
-tensorstore_cc_library(
-    name = "index_transform_spec",
-    srcs = ["index_transform_spec.cc"],
-    hdrs = ["index_transform_spec.h"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":index_transform",
-        "//tensorstore:index",
-        "//tensorstore:rank",
-        "//tensorstore/internal:attributes",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "index_transform_spec_test",
-    size = "small",
-    srcs = ["index_transform_spec_test.cc"],
-    deps = [
-        ":dim_expression",
-        ":index_transform",
-        ":index_transform_builder",
-        ":index_transform_spec",
-        "//tensorstore:index",
-        "//tensorstore:rank",
-        "//tensorstore/internal:json_gtest",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "//tensorstore/util:status_testutil",
-        "//tensorstore/util:str_cat",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
 tensorstore_cc_test(
     name = "index_transform_test",
     size = "small",
@@ -605,7 +569,6 @@ tensorstore_cc_library(
     deps = [
         ":index_transform",
         ":index_transform_builder",
-        ":index_transform_spec",
         "//tensorstore:index",
         "//tensorstore:json_serialization_options",
         "//tensorstore:rank",

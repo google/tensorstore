@@ -34,7 +34,7 @@ using tensorstore::DimensionIndex;
 using tensorstore::dtype_v;
 using tensorstore::dynamic_rank;
 using tensorstore::IndexTransform;
-using tensorstore::IndexTransformSpec;
+using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
 using tensorstore::Result;
 using tensorstore::Spec;
@@ -48,12 +48,15 @@ TEST(SpecTest, Invalid) {
 }
 
 TEST(SpecTest, ToJson) {
-  ::nlohmann::json spec_json({{"driver", "array"},
-                              {"dtype", "int32"},
-                              {"array", {1, 2, 3}},
-                              {"rank", 1}});
+  ::nlohmann::json spec_json{
+      {"driver", "array"},
+      {"dtype", "int32"},
+      {"array", {1, 2, 3}},
+      {"transform",
+       {{"input_inclusive_min", {0}}, {"input_exclusive_max", {3}}}},
+  };
   Spec spec = Spec::FromJson(spec_json).value();
-  EXPECT_THAT(spec.ToJson(), ::testing::Optional(spec_json));
+  EXPECT_THAT(spec.ToJson(), ::testing::Optional(MatchesJson(spec_json)));
   EXPECT_TRUE(spec.valid());
 }
 
@@ -116,9 +119,11 @@ TEST(SpecTest, ApplyIndexTransform) {
                                        {"driver", "zarr"},
                                        {"kvstore", {{"driver", "memory"}}},
                                    }));
-  EXPECT_THAT(spec_without_transform | tensorstore::Dims(1).SizedInterval(1, 2),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Transform is unspecified"));
+  EXPECT_THAT(
+      spec_without_transform | tensorstore::Dims(1).SizedInterval(1, 2),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "Cannot perform indexing operations on Spec with unspecified rank"));
 }
 
 TEST(SpecTest, ApplyBox) {
@@ -161,12 +166,38 @@ TEST(SpecTest, ApplyBox) {
 }
 
 TEST(SpecTest, PrintToOstream) {
-  ::nlohmann::json spec_json({{"driver", "array"},
-                              {"dtype", "int32"},
-                              {"array", {1, 2, 3}},
-                              {"rank", 1}});
+  ::nlohmann::json spec_json{
+      {"driver", "array"},
+      {"dtype", "int32"},
+      {"array", {1, 2, 3}},
+      {"transform",
+       {{"input_inclusive_min", {0}}, {"input_exclusive_max", {3}}}},
+  };
   Spec spec = Spec::FromJson(spec_json).value();
   EXPECT_EQ(spec_json.dump(), tensorstore::StrCat(spec));
+}
+
+TEST(SpecTest, UnknownRankApplyIndexTransform) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec, Spec::FromJson({{"driver", "zarr"},
+                                 {"kvstore", {{"driver", "memory"}}}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(spec,
+                                   spec | tensorstore::IdentityTransform(3));
+  EXPECT_EQ(spec.transform(), tensorstore::IdentityTransform(3));
+}
+
+TEST(SpecTest, Schema) {
+  tensorstore::TestJsonBinderRoundTripJsonOnly<Spec>(
+      {
+          {{"driver", "array"},
+           {"dtype", "int32"},
+           {"array", {1, 2, 3}},
+           {"transform",
+            {{"input_inclusive_min", {0}}, {"input_exclusive_max", {3}}}},
+           {"schema", {{"fill_value", 42}}}},
+      },
+      tensorstore::internal_json_binding::DefaultBinder<>,
+      tensorstore::IncludeDefaults{false});
 }
 
 }  // namespace

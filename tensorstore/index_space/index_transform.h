@@ -93,6 +93,14 @@ Result<IndexTransform<RankA, RankC>> ComposeTransforms(
   return TransformAccess::Make<IndexTransform<RankA, RankC>>(std::move(rep));
 }
 
+/// Composes two index transforms, which may be null.
+///
+/// If `a_to_b` is null, returns `b_to_c`.
+/// If `b_to_c` is null, returns `a_to_b`.
+/// Otherwise, returns `ComposeTransforms(b_to_c, a_to_b)`.
+Result<IndexTransform<>> ComposeOptionalTransforms(IndexTransform<> b_to_c,
+                                                   IndexTransform<> a_to_b);
+
 namespace internal_index_space {
 Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
                                             IndexDomainView<> domain);

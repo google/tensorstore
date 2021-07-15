@@ -169,7 +169,7 @@ class JsonDriver
   constexpr static char id[] = "json";
 
   template <template <typename> class MaybeBound = internal::ContextUnbound>
-  struct SpecT : public internal::DriverConstraints {
+  struct SpecT : public internal::DriverSpecCommonData {
     MaybeBound<KeyValueStore::Spec::Ptr> store;
     std::string path;
     MaybeBound<Context::ResourceSpec<DataCopyConcurrencyResource>>
@@ -179,7 +179,7 @@ class JsonDriver
     std::string json_pointer;
 
     constexpr static auto ApplyMembers = [](auto& x, auto f) {
-      return f(internal::BaseCast<internal::DriverConstraints>(x), x.store,
+      return f(internal::BaseCast<internal::DriverSpecCommonData>(x), x.store,
                x.path, x.data_copy_concurrency, x.cache_pool, x.data_staleness,
                x.json_pointer);
     };
@@ -188,7 +188,23 @@ class JsonDriver
   using SpecData = SpecT<internal::ContextUnbound>;
   using BoundSpecData = SpecT<internal::ContextBound>;
 
+  static absl::Status ValidateSchema(Schema& schema) {
+    TENSORSTORE_RETURN_IF_ERROR(schema.Set(dtype_v<json_t>));
+    TENSORSTORE_RETURN_IF_ERROR(schema.Set(RankConstraint{0}));
+    if (schema.codec().valid()) {
+      return absl::InvalidArgumentError("codec not supported by json driver");
+    }
+    if (schema.fill_value().valid()) {
+      return absl::InvalidArgumentError(
+          "fill_value not supported by json driver");
+    }
+    return absl::OkStatus();
+  }
+
   constexpr static auto json_binder = jb::Sequence(
+      jb::Initialize([](auto* obj) -> absl::Status {
+        return ValidateSchema(obj->schema);
+      }),
       jb::Member(DataCopyConcurrencyResource::id,
                  jb::Projection(&SpecT<>::data_copy_concurrency)),
       jb::Member(internal::CachePoolResource::id,
@@ -216,7 +232,23 @@ class JsonDriver
     } else if (options.recheck_cached_data.specified()) {
       spec.data_staleness = StalenessBound(options.recheck_cached_metadata);
     }
-    return absl::OkStatus();
+    return ValidateSchema(options);
+  }
+
+  static Result<IndexDomain<>> SpecGetDomain(const SpecData& spec) {
+    return IndexDomain<>(0);
+  }
+
+  static Result<ChunkLayout> SpecGetChunkLayout(const SpecData& spec) {
+    ChunkLayout layout;
+    layout.Set(RankConstraint{0}).IgnoreError();
+    return layout;
+  }
+
+  Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override {
+    ChunkLayout layout;
+    layout.Set(RankConstraint{0}).IgnoreError();
+    return layout | transform;
   }
 
   static Future<internal::Driver::Handle> Open(
@@ -224,7 +256,7 @@ class JsonDriver
       internal::RegisteredDriverOpener<BoundSpecData> spec,
       ReadWriteMode read_write_mode);
 
-  Result<IndexTransformSpec> GetBoundSpecData(
+  Result<IndexTransform<>> GetBoundSpecData(
       internal::OpenTransactionPtr transaction, SpecT<ContextBound>* spec,
       IndexTransformView<> transform) const;
 
@@ -287,7 +319,7 @@ Future<internal::Driver::Handle> JsonDriver::Open(
       .future;
 }
 
-Result<IndexTransformSpec> JsonDriver::GetBoundSpecData(
+Result<IndexTransform<>> JsonDriver::GetBoundSpecData(
     internal::OpenTransactionPtr transaction, SpecT<ContextBound>* spec,
     IndexTransformView<> transform) const {
   auto& cache = GetOwningCache(*cache_entry_);
@@ -297,9 +329,9 @@ Result<IndexTransformSpec> JsonDriver::GetBoundSpecData(
   spec->cache_pool = cache.cache_pool_;
   spec->data_staleness = data_staleness_;
   spec->json_pointer = json_pointer_;
-  spec->rank = 0;
-  spec->dtype = dtype_v<json_t>;
-  return IndexTransformSpec(transform);
+  spec->schema.Set(RankConstraint{0}).IgnoreError();
+  spec->schema.Set(dtype_v<json_t>).IgnoreError();
+  return transform;
 }
 
 /// TensorStore Driver ReadChunk implementation for the case of a

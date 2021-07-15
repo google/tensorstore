@@ -230,6 +230,24 @@ class TensorStore {
   /// \pre `valid()`
   Result<CodecSpec::Ptr> codec() const { return internal::GetCodec(handle_); }
 
+  /// Returns the fill value.
+  ///
+  /// If the there is no fill value, or it is unknown, returns a null array
+  /// (i.e. with `data() == nullptr`) and unspecified bounds and data type.
+  ///
+  /// Otherwise, the returned array has a non-null data pointer, a shape
+  /// broadcastable to `this->domain()` and a data type equal to
+  /// `this->dtype()`.
+  Result<SharedArray<const Element>> fill_value() const {
+    return internal::GetFillValue<Element>(handle_);
+  }
+
+  /// Returns the schema for this TensorStore.
+  ///
+  /// Note that the schema reflects any index transforms that have been applied
+  /// to the base driver.
+  Result<Schema> schema() const { return internal::GetSchema(handle_); }
+
   /// "Pipeline" operator.
   ///
   /// In the expression  `x | y`, if

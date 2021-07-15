@@ -29,7 +29,6 @@
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/index_space/index_transform_spec.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_pprint_python.h"
 #include "tensorstore/json_serialization_options.h"
@@ -110,17 +109,12 @@ Specification for opening or creating a TensorStore.
   DefineIndexTransformOperations(
       &cls_spec,
       [](const Spec& self) {
-        IndexTransform<> transform = self.transform();
-        if (!transform.valid()) {
-          throw py::value_error("IndexTransform is unspecified");
-        }
-        return transform;
+        return ValueOrThrow(self.GetTransformForIndexingOperation());
       },
-      [](const Spec& self, IndexTransform<> new_transform) {
-        auto new_spec = self;
-        internal_spec::SpecAccess::impl(new_spec).transform_spec =
+      [](Spec self, IndexTransform<> new_transform) {
+        internal_spec::SpecAccess::impl(self).transform =
             std::move(new_transform);
-        return new_spec;
+        return self;
       });
 }
 

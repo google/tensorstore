@@ -35,52 +35,90 @@ class CastDriver
   constexpr static char id[] = "cast";
 
   template <template <typename> class MaybeBound>
-  struct SpecT : public DriverConstraints {
+  struct SpecT : public DriverSpecCommonData {
     MaybeBound<TransformedDriverSpec<>> base;
 
     constexpr static auto ApplyMembers = [](auto& x, auto f) {
-      return f(internal::BaseCast<internal::DriverConstraints>(x), x.base);
+      return f(internal::BaseCast<internal::DriverSpecCommonData>(x), x.base);
     };
   };
 
   using SpecData = SpecT<internal::ContextUnbound>;
   using BoundSpecData = SpecT<internal::ContextBound>;
 
+  using Ptr = Driver::PtrT<CastDriver>;
+
+  static Status ApplyOptions(SpecData& spec, SpecOptions&& options) {
+    TENSORSTORE_RETURN_IF_ERROR(spec.schema.Set(options.dtype()));
+    options.Override(DataType()).IgnoreError();
+    return internal::TransformAndApplyOptions(spec.base, std::move(options));
+  }
+
   constexpr static auto json_binder = jb::Object(
-      jb::Initialize([](auto* obj) -> Status {
-        if (!obj->dtype.valid()) {
-          return absl::InvalidArgumentError("Data type must be specified");
-        }
-        return absl::OkStatus();
-      }),
       jb::Member("base",
                  [](auto is_loading, const auto& options, auto* obj, auto* j) {
                    return jb::Projection(&SpecData::base)(
                        is_loading,
                        JsonSerializationOptions(options, DataType(),
-                                                RankConstraint{obj->rank}),
+                                                obj->schema.rank()),
                        obj, j);
                  }),
       jb::Initialize([](auto* obj) -> absl::Status {
-        if (obj->rank == dynamic_rank) {
-          obj->rank = obj->base.transform_spec.input_rank();
+        if (obj->base.transform.valid()) {
+          TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
+              RankConstraint{obj->base.transform.input_rank()}));
         }
-        return absl::OkStatus();
+        DataType dtype = obj->schema.dtype();
+        DimensionIndex rank = obj->schema.rank();
+        SpecOptions base_options;
+        static_cast<Schema&>(base_options) = std::exchange(obj->schema, {});
+        obj->schema.Set(dtype).IgnoreError();
+        obj->schema.Set(RankConstraint{rank}).IgnoreError();
+        return ApplyOptions(*obj, std::move(base_options));
       }));
 
-  using Ptr = Driver::PtrT<CastDriver>;
+  static Result<IndexDomain<>> SpecGetDomain(const SpecData& spec) {
+    return internal::GetEffectiveDomain(spec.base);
+  }
 
-  static Status ApplyOptions(SpecData& spec, SpecOptions&& options) {
-    return internal::ApplyOptions(spec.base.driver_spec, std::move(options));
+  static Result<ChunkLayout> SpecGetChunkLayout(const SpecData& spec) {
+    return internal::GetEffectiveChunkLayout(spec.base);
+  }
+
+  static Result<CodecSpec::Ptr> SpecGetCodec(const SpecData& spec) {
+    return internal::GetEffectiveCodec(spec.base);
+  }
+
+  static Result<SharedArray<const void>> SpecGetFillValue(
+      const SpecData& spec, IndexTransformView<> transform) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto adjusted_transform,
+        tensorstore::ComposeOptionalTransforms(spec.base.transform, transform));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto fill_value,
+        spec.base.driver_spec->GetFillValue(adjusted_transform));
+    if (!fill_value.valid()) return {std::in_place};
+    auto dtype = spec.schema.dtype();
+    if (dtype == fill_value.dtype()) return fill_value;
+    // Check if we can convert.
+    auto converter = GetDataTypeConverter(fill_value.dtype(), dtype);
+    if (!(converter.flags & DataTypeConversionFlags::kSupported)) {
+      return {std::in_place};
+    }
+    return MakeCopy(fill_value, skip_repeated_elements, dtype);
   }
 
   static Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
       internal::RegisteredDriverOpener<BoundSpecData> spec,
       ReadWriteMode read_write_mode) {
+    DataType target_dtype = spec->schema.dtype();
+    if (!target_dtype.valid()) {
+      return absl::InvalidArgumentError("dtype must be specified");
+    }
     return MapFutureValue(
         InlineExecutor{},
-        [target_dtype = spec->dtype,
+        [target_dtype,
          read_write_mode](Driver::Handle handle) -> Result<Driver::Handle> {
           return MakeCastDriver(std::move(handle), target_dtype,
                                 read_write_mode);
@@ -89,17 +127,16 @@ class CastDriver
                              read_write_mode));
   }
 
-  Result<IndexTransformSpec> GetBoundSpecData(
+  Result<IndexTransform<>> GetBoundSpecData(
       internal::OpenTransactionPtr transaction, BoundSpecData* spec,
       IndexTransformView<> transform) {
     TENSORSTORE_ASSIGN_OR_RETURN(
         spec->base,
         base_driver_->GetBoundSpec(std::move(transaction), transform));
-    spec->rank = base_driver_->rank();
-    spec->dtype = target_dtype_;
-    auto transform_spec = std::move(spec->base.transform_spec);
-    spec->base.transform_spec = IndexTransformSpec(spec->rank);
-    return transform_spec;
+    spec->schema.Set(target_dtype_).IgnoreError();
+    const DimensionIndex base_rank = base_driver_->rank();
+    spec->schema.Set(RankConstraint{base_rank}).IgnoreError();
+    return std::exchange(spec->base.transform, {});
   }
 
   Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override {
@@ -108,6 +145,25 @@ class CastDriver
 
   Result<CodecSpec::Ptr> GetCodec() override {
     return base_driver_->GetCodec();
+  }
+
+  Result<SharedArray<const void>> GetFillValue(
+      IndexTransformView<> transform) override {
+    if (!(input_conversion_.flags & DataTypeConversionFlags::kSupported)) {
+      // The conversion from `base_driver_->dtype()` to `target_dtype_` is not
+      // supported (the driver is in write-only mode).  Therefore, just return
+      // an unknown fill value.
+      return {std::in_place};
+    }
+
+    TENSORSTORE_ASSIGN_OR_RETURN(auto base_fill_value,
+                                 base_driver_->GetFillValue(transform));
+    if (!base_fill_value.valid()) return {std::in_place};
+    if (base_fill_value.dtype() == target_dtype_) {
+      return base_fill_value;
+    }
+    return tensorstore::MakeCopy(base_fill_value, skip_repeated_elements,
+                                 target_dtype_);
   }
 
   explicit CastDriver(Driver::Ptr base, DataType target_dtype,

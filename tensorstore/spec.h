@@ -23,9 +23,9 @@
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/index_space/index_transform_spec.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/spec_impl.h"
 #include "tensorstore/util/result.h"
 
@@ -46,24 +46,39 @@ class Spec {
   ///
   /// If the data type is unknown, returns the invalid data type.
   DataType dtype() const {
-    return impl_.driver_spec ? impl_.driver_spec->constraints().dtype
-                             : DataType();
+    return impl_.driver_spec ? impl_.driver_spec->schema().dtype() : DataType();
   }
 
-  /// Returns the TransformSpec applied on top of the driver.
-  const IndexTransformSpec& transform_spec() const& {
-    return impl_.transform_spec;
-  }
+  /// Returns the rank of the TensorStore, or `dynamic_rank` if unknown.
+  DimensionIndex rank() const { return internal::GetRank(impl_); }
+
+  /// Returns the effective schema, which includes all known information,
+  /// propagated to the transformed space.
+  Result<Schema> schema() const;
+
+  /// Returns the effective domain, based on the schema constraints as well as
+  /// any driver-specific constraints.  If the domain cannot be determined,
+  /// returns a null index domain.
+  Result<IndexDomain<>> domain() const;
+
+  /// Returns the effective chunk layout, which includes all known information,
+  /// propagated to the transformed space.
+  Result<ChunkLayout> chunk_layout() const;
+
+  /// Returns the effective codec, propagated to the transformed space.
+  Result<CodecSpec::Ptr> codec() const;
+
+  /// Returns the effective fill value, propagated to the transformed space.
+  Result<SharedArray<const void>> fill_value() const;
 
   /// Returns the transform applied on top of the driver.
-  const IndexTransform<>& transform() const {
-    return impl_.transform_spec.transform();
-  }
+  const IndexTransform<>& transform() const { return impl_.transform; }
 
   /// Returns a modified Spec with the specified options applied.
   ///
   /// Supported options include:
   ///
+  ///   - Schema options
   ///   - OpenMode
   ///   - RecheckCachedData
   ///   - RecheckCachedMetadata
@@ -73,9 +88,7 @@ class Spec {
   With(Option&&... option) && {
     TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(SpecConvertOptions, options,
                                                   option)
-    TENSORSTORE_RETURN_IF_ERROR(
-        internal::TransformAndApplyOptions(impl_, std::move(options)));
-    return std::move(*this);
+    return std::move(*this).With(std::move(options));
   }
 
   template <typename... Option>
@@ -85,18 +98,20 @@ class Spec {
     return Spec(*this).With(std::forward<Option>(option)...);
   }
 
-  Result<Spec> With(SpecOptions&& options) && {
-    auto status = internal::TransformAndApplyOptions(impl_, std::move(options));
-    if (!status.ok()) return status;
-    return std::move(*this);
+  Result<Spec> With(SpecOptions&& options) &&;
+  Result<Spec> With(SpecOptions&& options) const&;
+
+  /// Applies the specified options in place.
+  template <typename... Option>
+  std::enable_if_t<IsCompatibleOptionSequence<SpecConvertOptions, Option...>,
+                   absl::Status>
+  Set(Option&&... option) {
+    TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(SpecConvertOptions, options,
+                                                  option)
+    return this->Set(std::move(options));
   }
 
-  Result<Spec> With(SpecOptions&& options) const& {
-    return Spec(*this).With(std::move(options));
-  }
-
-  /// Returns the rank of the TensorStore, or `dynamic_rank` if unknown.
-  DimensionIndex rank() const { return impl_.transform_spec.input_rank(); }
+  absl::Status Set(SpecOptions&& options);
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(Spec, JsonSerializationOptions,
                                           JsonSerializationOptions)
@@ -111,16 +126,29 @@ class Spec {
   ///     valid.
   template <typename Expr>
   friend internal::FirstType<
-      Result<Spec>,
+      std::enable_if_t<!IsIndexTransform<internal::remove_cvref_t<Expr>>::value,
+                       Result<Spec>>,
       decltype(ApplyIndexTransform(std::declval<Expr>(),
-                                   std::declval<IndexTransformSpec>()))>
+                                   std::declval<IndexTransform<>>()))>
   ApplyIndexTransform(Expr&& expr, Spec spec) {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto transform,
+                                 spec.GetTransformForIndexingOperation());
     TENSORSTORE_ASSIGN_OR_RETURN(
-        spec.impl_.transform_spec,
-        ApplyIndexTransform(std::forward<Expr>(expr),
-                            std::move(spec.impl_.transform_spec)));
+        spec.impl_.transform,
+        ApplyIndexTransform(std::forward<Expr>(expr), std::move(transform)));
     return spec;
   }
+
+  /// Applies an index transform to a Spec.
+  ///
+  /// \param transform Index transform to apply.  If
+  ///     `transform.valid() == false`, this is a no-op.  Otherwise,
+  ///     `transform.output_rank()` must be compatible with `spec.rank()`.
+  /// \param spec The spec to transform.
+  /// \returns New Spec, with rank equal to `transform.input_rank()` (or
+  ///     unchanged if `transform.valid() == false`.
+  friend Result<Spec> ApplyIndexTransform(IndexTransform<> transform,
+                                          Spec spec);
 
   friend std::ostream& operator<<(std::ostream& os, const Spec& spec);
 
@@ -134,17 +162,20 @@ class Spec {
     return std::forward<Func>(func)(std::move(spec));
   }
 
+  /// Returns a transform that may be used for apply a DimExpression.
+  ///
+  /// If `transform().valid()`, returns `transform()`.
+  ///
+  /// If `rank() != dynamic_rank`, returns `IdentityTransform(rank())`.
+  ///
+  /// Otherwise, returns an error.
+  Result<IndexTransform<>> GetTransformForIndexingOperation() const;
+
  private:
   friend class internal_spec::SpecAccess;
+
   internal::TransformedDriverSpec<> impl_;
 };
-
-/// Returns an error if `rank_constraint` is not compatible with `actual_rank`.
-///
-/// This is intended to be used by TensorStore driver implementations to check
-/// the `rank` constraint in a `Spec`.
-Status ValidateSpecRankConstraint(DimensionIndex actual_rank,
-                                  DimensionIndex rank_constraint);
 
 }  // namespace tensorstore
 

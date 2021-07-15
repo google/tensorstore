@@ -20,6 +20,7 @@
 
 #include "absl/status/status.h"
 #include "tensorstore/context.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/staleness_bound.h"
 #include "tensorstore/transaction.h"
 
@@ -114,13 +115,13 @@ class MinimalSpec {
 };
 
 /// Options for mutating `Spec` objects.
-struct SpecOptions {
+struct SpecOptions : public Schema {
   OpenMode open_mode = {};
   RecheckCachedData recheck_cached_data;
   RecheckCachedMetadata recheck_cached_metadata;
   bool minimal_spec = false;
 
-  /// Excludes `MinimalSpec`.
+  /// Excludes `Schema` and `MinimalSpec`.
   template <typename T>
   constexpr static inline bool IsCommonOption = false;
 
@@ -186,8 +187,10 @@ constexpr inline bool SpecRequestOptions::IsOption<MinimalSpec> = true;
 /// Options for converting an existing `Spec`.
 struct SpecConvertOptions : public SpecRequestOptions {
   template <typename T>
-  constexpr static inline bool IsOption = SpecRequestOptions::IsOption<T>;
+  constexpr static inline bool IsOption =
+      SpecRequestOptions::IsOption<T> || Schema::IsOption<T>;
 
+  using Schema::Set;
   using SpecRequestOptions::Set;
 };
 
@@ -196,9 +199,12 @@ struct OpenOptions : public SpecOptions {
   Context context;
   ReadWriteMode read_write_mode = ReadWriteMode::dynamic;
 
-  // Supports all common options of `SpecOptions`.
+  // Supports all common options of `SpecOptions`, and all options of
+  // `Schema`.
   template <typename T>
-  constexpr static inline bool IsOption = SpecOptions::IsCommonOption<T>;
+  constexpr static inline bool IsOption =
+      SpecOptions::IsCommonOption<T> || Schema::IsOption<T>;
+  using Schema::Set;
   using SpecOptions::Set;
 
   // Additionally supports `ReadWriteMode`.

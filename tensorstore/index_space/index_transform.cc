@@ -467,4 +467,11 @@ DimensionSet GetOneToOneInputDimensions(IndexTransformView<> transform) {
 
 }  // namespace internal
 
+Result<IndexTransform<>> ComposeOptionalTransforms(IndexTransform<> b_to_c,
+                                                   IndexTransform<> a_to_b) {
+  if (!b_to_c.valid()) return a_to_b;
+  if (!a_to_b.valid()) return b_to_c;
+  return ComposeTransforms(std::move(b_to_c), std::move(a_to_b));
+}
+
 }  // namespace tensorstore

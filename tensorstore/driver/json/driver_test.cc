@@ -38,6 +38,8 @@ using tensorstore::MakeScalarArray;
 using tensorstore::MatchesStatus;
 using tensorstore::internal::GetMap;
 using tensorstore::internal::ParseJsonMatches;
+using tensorstore::internal::TestSpecSchema;
+using tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using testing::Optional;
 using testing::Pair;
 
@@ -367,6 +369,59 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.to_json_options = tensorstore::IncludeContext{false};
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
+}
+
+TEST(SpecSchemaTest, Basic) {
+  TestSpecSchema(
+      {{"driver", "json"}, {"kvstore", {{"driver", "memory"}}}, {"path", "x"}},
+      {{"dtype", "json"},
+       {"rank", 0},
+       {"domain", {{"rank", 0}}},
+       {"chunk_layout", ::nlohmann::json::object_t{}}});
+}
+
+TEST(CreateCheckSchemaTest, Basic) {
+  TestTensorStoreCreateCheckSchema(
+      {{"driver", "json"}, {"kvstore", {{"driver", "memory"}}}, {"path", "x"}},
+      {{"dtype", "json"},
+       {"rank", 0},
+       {"domain", {{"rank", 0}}},
+       {"chunk_layout", ::nlohmann::json::object_t{}}});
+}
+
+TEST(DriverTest, InvalidFillValue) {
+  EXPECT_THAT(tensorstore::Open({{"driver", "json"},
+                                 {"kvstore", {{"driver", "memory"}}},
+                                 {"schema", {{"fill_value", 42}}}})
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "fill_value not supported by json driver"));
+}
+
+TEST(SpecTest, InvalidFillValue) {
+  EXPECT_THAT(tensorstore::Spec::FromJson({{"driver", "json"},
+                                           {"kvstore", {{"driver", "memory"}}},
+                                           {"schema", {{"fill_value", 42}}}}),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "fill_value not supported by json driver"));
+}
+
+TEST(DriverTest, InvalidCodec) {
+  EXPECT_THAT(tensorstore::Open({{"driver", "json"},
+                                 {"kvstore", {{"driver", "memory"}}},
+                                 {"schema", {{"codec", {{"driver", "n5"}}}}}})
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "codec not supported by json driver"));
+}
+
+TEST(SpecTest, InvalidCodec) {
+  EXPECT_THAT(tensorstore::Spec::FromJson(
+                  {{"driver", "json"},
+                   {"kvstore", {{"driver", "memory"}}},
+                   {"schema", {{"codec", {{"driver", "n5"}}}}}}),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "codec not supported by json driver"));
 }
 
 }  // namespace

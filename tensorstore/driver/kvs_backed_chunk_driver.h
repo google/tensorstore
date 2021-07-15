@@ -57,7 +57,7 @@ namespace internal_kvs_backed_chunk_driver {
 ///
 /// This inherits from `DriverConstraints` as required by the driver registry.
 template <template <typename> class MaybeBound = internal::ContextUnbound>
-struct SpecT : public internal::DriverConstraints,
+struct SpecT : public internal::DriverSpecCommonData,
                public internal::OpenModeSpec {
   MaybeBound<KeyValueStore::Spec::Ptr> store;
   MaybeBound<Context::ResourceSpec<internal::DataCopyConcurrencyResource>>
@@ -66,7 +66,7 @@ struct SpecT : public internal::DriverConstraints,
   StalenessBounds staleness;
 
   static constexpr auto ApplyMembers = [](auto& x, auto f) {
-    return f(internal::BaseCast<internal::DriverConstraints>(x),
+    return f(internal::BaseCast<internal::DriverSpecCommonData>(x),
              internal::BaseCast<internal::OpenModeSpec>(x), x.store,
              x.data_copy_concurrency, x.cache_pool, x.staleness);
   };
@@ -496,7 +496,7 @@ class DriverBase : public internal::ChunkCacheDriver {
     return metadata_staleness_bound_;
   }
 
-  Result<IndexTransformSpec> GetBoundSpecData(
+  Result<IndexTransform<>> GetBoundSpecData(
       internal::OpenTransactionPtr transaction,
       SpecT<internal::ContextBound>* spec, IndexTransformView<> transform);
 

@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include "tensorstore/context.h"
 #include "tensorstore/driver/cast/cast.h"
+#include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/json.h"
 #include "tensorstore/open.h"
@@ -44,6 +45,8 @@ using tensorstore::zero_origin;
 using tensorstore::internal::CastDataTypeConversions;
 using tensorstore::internal::GetCastDataTypeConversions;
 using tensorstore::internal::GetCastMode;
+using tensorstore::internal::TestSpecSchema;
+using tensorstore::internal::TestTensorStoreCreateCheckSchema;
 
 template <class T>
 constexpr void test_helper(T&& t) {}
@@ -383,7 +386,7 @@ TEST(CastTest, OpenMissingDataType) {
             {{"driver", "array"}, {"array", {1, 2, 3}}, {"dtype", "int32"}}}})
           .result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Data type must be specified"));
+                    ".*: dtype must be specified"));
 }
 
 TEST(CastTest, ComposeTransforms) {
@@ -474,6 +477,46 @@ TEST(CastTest, ChunkLayout) {
                                        {"inner_order", {0, 1}},
                                    }));
   EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
+}
+
+TEST(SpecSchemaTest, CastArray) {
+  TestSpecSchema(
+      {
+          {"driver", "cast"},
+          {"base",
+           {
+               {"driver", "array"},
+               {"array", {{1, 2, 3}, {4, 5, 6}}},
+               {"dtype", "float32"},
+           }},
+          {"dtype", "int32"},
+      },
+      {
+          {"rank", 2},
+          {"dtype", "int32"},
+          {"domain", {{"shape", {2, 3}}}},
+          {"chunk_layout", {{"grid_origin", {0, 0}}, {"inner_order", {0, 1}}}},
+      });
+}
+
+TEST(DriverCreateCheckSchemaTest, CastArray) {
+  TestTensorStoreCreateCheckSchema(
+      {
+          {"driver", "cast"},
+          {"base",
+           {
+               {"driver", "array"},
+               {"array", {{1, 2, 3}, {4, 5, 6}}},
+               {"dtype", "float32"},
+           }},
+          {"dtype", "int32"},
+      },
+      {
+          {"rank", 2},
+          {"dtype", "int32"},
+          {"domain", {{"shape", {2, 3}}}},
+          {"chunk_layout", {{"grid_origin", {0, 0}}, {"inner_order", {0, 1}}}},
+      });
 }
 
 }  // namespace

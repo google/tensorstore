@@ -610,42 +610,4 @@ TENSORSTORE_DEFINE_JSON_BINDER(
     })
 
 }  // namespace internal_json_binding
-
-namespace jb = tensorstore::internal_json_binding;
-
-TENSORSTORE_DEFINE_JSON_BINDER(
-    IndexTransformSpecBinder,
-    jb::Validate(
-        [](const auto& options, auto* obj) {
-          TENSORSTORE_ASSIGN_OR_RETURN(
-              *obj,
-              tensorstore::ComposeIndexTransformSpecs(
-                  std::move(*obj), IndexTransformSpec{options.rank().rank}));
-          return absl::OkStatus();
-        },
-        jb::Sequence(
-            jb::Member("rank",
-                       jb::GetterSetter(
-                           [](const IndexTransformSpec& s) -> DimensionIndex {
-                             return s.transform().valid() ? dynamic_rank
-                                                          : s.input_rank();
-                           },
-                           [](IndexTransformSpec& s, DimensionIndex rank) {
-                             s = rank;
-                           },
-                           jb::ConstrainedRankJsonBinder)),
-            jb::Member(
-                "transform",
-                jb::GetterSetter<IndexTransform<>>(
-                    [](const IndexTransformSpec& s) -> IndexTransformView<> {
-                      return s.transform();
-                    },
-                    [](IndexTransformSpec& s, IndexTransform<> transform) {
-                      TENSORSTORE_ASSIGN_OR_RETURN(
-                          s, tensorstore::ComposeIndexTransformSpecs(
-                                 IndexTransformSpec{std::move(transform)},
-                                 std::move(s)));
-                      return absl::OkStatus();
-                    })))))
-
 }  // namespace tensorstore

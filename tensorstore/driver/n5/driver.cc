@@ -270,8 +270,8 @@ class N5Driver
   static inline const auto json_binder = jb::Sequence(
       jb::Validate(
           [](const auto& options, auto* obj) {
-            if (obj->dtype.valid()) {
-              return ValidateDataType(obj->dtype);
+            if (obj->schema.dtype().valid()) {
+              return ValidateDataType(obj->schema.dtype());
             }
             return absl::OkStatus();
           },
@@ -280,27 +280,28 @@ class N5Driver
                                         jb::DefaultValue([](auto* obj) {
                                           *obj = std::string{};
                                         }))),
-      jb::Member(
-          "metadata",
-          jb::Validate(
-              [](const auto& options, auto* obj) {
-                if (obj->dtype.valid()) {
-                  if (obj->metadata_constraints.dtype &&
-                      !tensorstore::IsPossiblySameDataType(
-                          obj->dtype, *obj->metadata_constraints.dtype)) {
-                    return absl::InvalidArgumentError(StrCat(
-                        "Mismatch between data type in TensorStore Spec (",
-                        obj->dtype, ") and \"metadata\" (",
-                        *obj->metadata_constraints.dtype, ")"));
-                  }
-                  obj->metadata_constraints.dtype = obj->dtype;
-                }
-                return absl::OkStatus();
-              },
-              jb::Projection(&SpecT<>::metadata_constraints,
-                             jb::DefaultValue([](auto* obj) {
-                               *obj = N5MetadataConstraints{};
-                             })))));
+      jb::Member("metadata",
+                 jb::Validate(
+                     [](const auto& options, auto* obj) {
+                       if (!obj->schema.dtype().valid()) {
+                         return absl::OkStatus();
+                       }
+                       if (obj->metadata_constraints.dtype &&
+                           !tensorstore::IsPossiblySameDataType(
+                               obj->schema.dtype(),
+                               *obj->metadata_constraints.dtype)) {
+                         return absl::InvalidArgumentError(StrCat(
+                             "Mismatch between data type in TensorStore Spec (",
+                             obj->schema.dtype(), ") and \"metadata\" (",
+                             *obj->metadata_constraints.dtype, ")"));
+                       }
+                       obj->metadata_constraints.dtype = obj->schema.dtype();
+                       return absl::OkStatus();
+                     },
+                     jb::Projection(&SpecT<>::metadata_constraints,
+                                    jb::DefaultValue([](auto* obj) {
+                                      *obj = N5MetadataConstraints{};
+                                    })))));
 
   class OpenState;
 
@@ -363,10 +364,10 @@ class N5Driver::OpenState : public N5Driver::OpenStateBase {
                                         OpenMode open_mode) override {
     const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
     // Check for compatibility
-    if (spec().dtype.valid() && spec().dtype != metadata.dtype) {
-      return absl::InvalidArgumentError(
-          StrCat("Expected data type of ", spec().dtype,
-                 " but received: ", metadata.dtype));
+    if (auto dtype = spec().schema.dtype();
+        !IsPossiblySameDataType(dtype, metadata.dtype)) {
+      return absl::InvalidArgumentError(StrCat(
+          "Expected data type of ", dtype, " but received: ", metadata.dtype));
     }
     TENSORSTORE_RETURN_IF_ERROR(
         ValidateMetadata(metadata, spec().metadata_constraints));

@@ -33,7 +33,6 @@ using tensorstore::Index;
 using tensorstore::IndexInterval;
 using tensorstore::IndexTransform;
 using tensorstore::IndexTransformBuilder;
-using tensorstore::IndexTransformSpec;
 using tensorstore::kInfIndex;
 using tensorstore::kInfSize;
 using tensorstore::MatchesJson;
@@ -719,35 +718,6 @@ TEST(ParseIndexTransformTest, DuplicateLabels) {
                             "Error parsing index transform from JSON: "       //
                             "Error parsing object member \"input_labels\": "  //
                             "Dimension label.*"));
-}
-
-TEST(IndexTransformSpecTest, JsonBinding) {
-  const auto binder = tensorstore::internal_json_binding::Object(
-      tensorstore::IndexTransformSpecBinder);
-  tensorstore::TestJsonBinderRoundTrip<IndexTransformSpec>(
-      {
-          {IndexTransformSpec(), ::nlohmann::json::object()},
-          {IndexTransformSpec(3), {{"rank", 3}}},
-          {IndexTransformSpec(0), {{"rank", 0}}},
-          {IndexTransformSpec(32), {{"rank", 32}}},
-          {IndexTransformSpec(IndexTransformBuilder<>(2, 1)
-                                  .input_shape({2, 3})
-                                  .output_identity_transform()
-                                  .Finalize()
-                                  .value()),
-           {{"transform",
-             {
-                 {"input_exclusive_max", {2, 3}},
-                 {"input_inclusive_min", {0, 0}},
-                 {"output", {{{"input_dimension", 0}}}},
-             }}}},
-      },
-      binder);
-  tensorstore::TestJsonBinderFromJson<IndexTransformSpec>(
-      {
-          {{{"rank", 33}}, MatchesStatus(absl::StatusCode::kInvalidArgument)},
-      },
-      binder);
 }
 
 TEST(IndexDomainJsonBinderTest, Simple) {

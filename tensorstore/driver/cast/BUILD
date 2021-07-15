@@ -43,6 +43,7 @@ tensorstore_cc_test(
         "//tensorstore:context",
         "//tensorstore:open",
         "//tensorstore:spec",
+        "//tensorstore/driver:driver_testutil",
         "//tensorstore/driver/array",
         "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/index_space:json",

@@ -19,6 +19,7 @@
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index_space/alignment.h"
 #include "tensorstore/index_space/json.h"
+#include "tensorstore/index_space/transform_broadcastable_array.h"
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/data_type_json_binder.h"
 #include "tensorstore/internal/lock_collection.h"
@@ -32,24 +33,6 @@ namespace internal {
 
 namespace jb = tensorstore::internal_json_binding;
 
-class UnregisteredDriverSpec : public internal::DriverSpec {
- public:
-  DriverConstraints& constraints() override { return data_; }
-  Ptr Clone() const override {
-    IntrusivePtr<UnregisteredDriverSpec> new_spec(new UnregisteredDriverSpec);
-    new_spec->data_ = data_;
-    return new_spec;
-  }
-  absl::Status ApplyOptions(SpecOptions&& options) override {
-    return absl::InvalidArgumentError("Driver is not registered");
-  }
-  Result<internal::Driver::BoundSpec::Ptr> Bind(
-      Context context) const override {
-    return absl::InvalidArgumentError("Driver is not registered");
-  }
-  DriverConstraints data_;
-};
-
 DriverRegistry& GetDriverRegistry() {
   static internal::NoDestructor<DriverRegistry> registry;
   return *registry;
@@ -62,6 +45,33 @@ Future<Driver::Handle> DriverSpec::Bound::Open(
 
 DriverSpec::~DriverSpec() = default;
 
+Result<IndexDomain<>> RegisteredDriverBase::SpecGetDomain(
+    const DriverSpecCommonData& spec) {
+  return spec.schema.domain();
+}
+
+Result<ChunkLayout> RegisteredDriverBase::SpecGetChunkLayout(
+    const DriverSpecCommonData& spec) {
+  return spec.schema.chunk_layout();
+}
+
+Result<CodecSpec::Ptr> RegisteredDriverBase::SpecGetCodec(
+    const DriverSpecCommonData& spec) {
+  return spec.schema.codec();
+}
+
+Result<SharedArray<const void>> RegisteredDriverBase::SpecGetFillValue(
+    const DriverSpecCommonData& spec, IndexTransformView<> transform) {
+  auto& schema = spec.schema;
+  auto fill_value = schema.fill_value();
+  if (!fill_value.valid()) return {std::in_place};
+  if (!transform.valid()) {
+    return SharedArray<const void>(fill_value.shared_array_view());
+  }
+  return TransformOutputBroadcastableArray(transform, std::move(fill_value),
+                                           schema.domain());
+}
+
 DriverSpec::Bound::~Bound() = default;
 
 absl::Status ApplyOptions(DriverSpec::Ptr& spec, SpecOptions&& options) {
@@ -69,11 +79,102 @@ absl::Status ApplyOptions(DriverSpec::Ptr& spec, SpecOptions&& options) {
   return spec->ApplyOptions(std::move(options));
 }
 
+namespace {
+absl::Status MaybeDeriveTransform(TransformedDriverSpec<>& spec) {
+  TENSORSTORE_ASSIGN_OR_RETURN(auto domain, spec.driver_spec->GetDomain());
+  if (domain.valid()) {
+    spec.transform = IdentityTransform(domain);
+  }
+  return absl::OkStatus();
+}
+}  // namespace
+
 absl::Status TransformAndApplyOptions(TransformedDriverSpec<>& spec,
                                       SpecOptions&& options) {
-  // Currently a no op, because no options are affected by a transform.
-  return ApplyOptions(spec.driver_spec, std::move(options));
+  const bool should_get_transform =
+      !spec.transform.valid() && options.domain().valid();
+  TENSORSTORE_RETURN_IF_ERROR(
+      options.TransformInputSpaceSchema(spec.transform));
+  TENSORSTORE_RETURN_IF_ERROR(
+      ApplyOptions(spec.driver_spec, std::move(options)));
+  if (should_get_transform) {
+    TENSORSTORE_RETURN_IF_ERROR(MaybeDeriveTransform(spec));
+  }
+  return absl::OkStatus();
 }
+
+Result<IndexDomain<>> GetEffectiveDomain(const TransformedDriverSpec<>& spec) {
+  if (!spec.driver_spec) return {std::in_place};
+  if (!spec.transform.valid()) {
+    return spec.driver_spec->GetDomain();
+  } else {
+    return spec.transform.domain();
+  }
+}
+
+Result<ChunkLayout> GetEffectiveChunkLayout(
+    const TransformedDriverSpec<>& spec) {
+  if (!spec.driver_spec) return {std::in_place};
+  TENSORSTORE_ASSIGN_OR_RETURN(auto chunk_layout,
+                               spec.driver_spec->GetChunkLayout());
+  if (spec.transform.valid()) {
+    TENSORSTORE_ASSIGN_OR_RETURN(chunk_layout,
+                                 std::move(chunk_layout) | spec.transform);
+  }
+  return chunk_layout;
+}
+
+Result<SharedArray<const void>> GetEffectiveFillValue(
+    const TransformedDriverSpec<>& spec) {
+  if (!spec.driver_spec) return {std::in_place};
+  return spec.driver_spec->GetFillValue(spec.transform);
+}
+
+Result<CodecSpec::Ptr> GetEffectiveCodec(const TransformedDriverSpec<>& spec) {
+  if (!spec.driver_spec) return {std::in_place};
+  return spec.driver_spec->GetCodec();
+}
+
+Result<Schema> GetEffectiveSchema(const TransformedDriverSpec<>& spec) {
+  if (!spec.driver_spec) return {std::in_place};
+  Schema schema;
+  TENSORSTORE_RETURN_IF_ERROR(schema.Set(spec.driver_spec->schema().dtype()));
+  TENSORSTORE_RETURN_IF_ERROR(schema.Set(spec.driver_spec->schema().rank()));
+  {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto domain, GetEffectiveDomain(spec));
+    TENSORSTORE_RETURN_IF_ERROR(schema.Set(domain));
+  }
+  {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto chunk_layout,
+                                 GetEffectiveChunkLayout(spec));
+    TENSORSTORE_RETURN_IF_ERROR(schema.Set(std::move(chunk_layout)));
+  }
+  {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto codec, spec.driver_spec->GetCodec());
+    TENSORSTORE_RETURN_IF_ERROR(schema.Set(std::move(codec)));
+  }
+  {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto fill_value, GetEffectiveFillValue(spec));
+    TENSORSTORE_RETURN_IF_ERROR(
+        schema.Set(Schema::FillValue(std::move(fill_value))));
+  }
+  return schema;
+}
+
+template <template <typename> class MaybeBound>
+DimensionIndex GetRank(const TransformedDriverSpec<MaybeBound>& spec) {
+  if (spec.transform.valid()) return spec.transform.input_rank();
+  if (spec.driver_spec) return spec.driver_spec->schema().rank();
+  return dynamic_rank;
+}
+
+#define TENSORSTORE_INTERNAL_DO_INSTANTIATE(MaybeBound) \
+  template DimensionIndex GetRank<MaybeBound>(          \
+      const TransformedDriverSpec<MaybeBound>& spec);   \
+  /**/
+TENSORSTORE_INTERNAL_DO_INSTANTIATE(ContextBound)
+TENSORSTORE_INTERNAL_DO_INSTANTIATE(ContextUnbound)
+#undef TENSORSTORE_INTERNAL_DO_INSTANTIATE
 
 Future<Driver::Handle> OpenDriver(TransformedDriverSpec<> spec,
                                   TransactionalOpenOptions&& options) {
@@ -100,7 +201,7 @@ Future<Driver::Handle> OpenDriver(OpenTransactionPtr transaction,
       auto bound_spec, spec.driver_spec->Bind(std::move(options.context)));
   return internal::OpenDriver(
       std::move(transaction),
-      {std::move(bound_spec), std::move(spec.transform_spec)},
+      {std::move(bound_spec), std::move(spec.transform)},
       options.read_write_mode);
 }
 
@@ -110,14 +211,14 @@ Future<Driver::Handle> OpenDriver(
     ReadWriteMode read_write_mode) {
   return MapFutureValue(
       InlineExecutor{},
-      [transform_spec = std::move(bound_spec.transform_spec)](
+      [transform = std::move(bound_spec.transform)](
           Driver::Handle handle) mutable -> Result<Driver::Handle> {
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            transform_spec, tensorstore::ComposeIndexTransformSpecs(
-                                IndexTransformSpec{std::move(handle.transform)},
-                                std::move(transform_spec)));
-        handle.transform = std::move(transform_spec).transform();
-        assert(handle.transform.valid());
+        if (transform.valid()) {
+          TENSORSTORE_ASSIGN_OR_RETURN(
+              handle.transform,
+              tensorstore::ComposeTransforms(std::move(handle.transform),
+                                             std::move(transform)));
+        }
         return handle;
       },
       bound_spec.driver_spec->Open(std::move(transaction), read_write_mode));
@@ -133,8 +234,7 @@ Result<TransformedDriverSpec<>> Driver::GetSpec(
   TransformedDriverSpec<> transformed_spec;
   transformed_spec.driver_spec =
       transformed_bound_spec.driver_spec->Unbind(context_builder);
-  transformed_spec.transform_spec =
-      std::move(transformed_bound_spec).transform_spec;
+  transformed_spec.transform = std::move(transformed_bound_spec).transform;
   TENSORSTORE_RETURN_IF_ERROR(
       internal::TransformAndApplyOptions(transformed_spec, std::move(options)));
   return transformed_spec;
@@ -150,6 +250,11 @@ Result<ChunkLayout> Driver::GetChunkLayout(IndexTransformView<> transform) {
 }
 
 Result<CodecSpec::Ptr> Driver::GetCodec() { return CodecSpec::Ptr{}; }
+
+Result<SharedArray<const void>> Driver::GetFillValue(
+    IndexTransformView<> transform) {
+  return {std::in_place};
+}
 
 Future<IndexTransform<>> Driver::ResolveBounds(OpenTransactionPtr transaction,
                                                IndexTransform<> transform,
@@ -177,25 +282,31 @@ Future<IndexTransform<>> Driver::Resize(OpenTransactionPtr transaction,
   return absl::UnimplementedError("Resize not supported");
 }
 
+namespace {
+auto SchemaExcludingRankAndDtypeJsonBinder() {
+  return jb::DefaultInitializedValue(
+      [](auto is_loading, auto options, auto* obj, auto* j) {
+        if constexpr (!is_loading) {
+          // Set default dtype and rank to the actual dtype/rank to prevent them
+          // from being included in json, since they are already included in the
+          // separate `dtype` and `rank` members of the Spec.
+          options.Set(obj->dtype());
+          options.Set(obj->rank());
+        }
+        return jb::DefaultBinder<>(is_loading, options, obj, j);
+      });
+}
+}  // namespace
+
 TENSORSTORE_DEFINE_JSON_BINDER(
     TransformedDriverSpecJsonBinder,
     [](auto is_loading, const auto& options, auto* obj,
        ::nlohmann::json* j) -> Status {
       auto& registry = internal::GetDriverRegistry();
       return jb::Object(
-          jb::Projection(
-              &TransformedDriverSpec<>::transform_spec,
-              [](auto is_loading, const auto& options, auto* obj, auto* j_obj) {
-                return tensorstore::IndexTransformSpecBinder(
-                    is_loading, options, obj, j_obj);
-              }),
           jb::Member("driver",
                      jb::Projection(&TransformedDriverSpec<>::driver_spec,
                                     registry.KeyBinder())),
-          jb::Initialize([](auto* obj) {
-            obj->driver_spec->constraints().rank =
-                obj->transform_spec.output_rank();
-          }),
           jb::Projection(
               [](auto& obj) -> decltype(auto) { return (*obj.driver_spec); },
               jb::Sequence(
@@ -203,20 +314,58 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                              jb::Projection(
                                  &internal::DriverSpec::context_spec_,
                                  internal::ContextSpecDefaultableJsonBinder)),
-                  jb::Member("dtype", jb::Projection(
-                                          [](auto& x) -> decltype(auto) {
-                                            return (x.constraints().dtype);
-                                          },
-                                          jb::ConstrainedDataTypeJsonBinder)))),
+                  jb::Member("schema",
+                             jb::Projection(
+                                 [](auto& x) -> decltype(auto) {
+                                   return (x.schema());
+                                 },
+                                 SchemaExcludingRankAndDtypeJsonBinder())),
+                  jb::Member("dtype",
+                             jb::GetterSetter(
+                                 [](auto& x) { return x.schema().dtype(); },
+                                 [](auto& x, DataType value) {
+                                   return x.schema().Set(value);
+                                 },
+                                 jb::ConstrainedDataTypeJsonBinder)))),
+          jb::OptionalMember(
+              "transform", jb::Projection(&TransformedDriverSpec<>::transform)),
+          jb::OptionalMember(
+              "rank",
+              jb::GetterSetter(
+                  [](const auto& obj) {
+                    return obj.transform.valid()
+                               ? static_cast<DimensionIndex>(dynamic_rank)
+                               : static_cast<DimensionIndex>(
+                                     obj.driver_spec->schema().rank());
+                  },
+                  [](const auto& obj, DimensionIndex rank) {
+                    if (rank != dynamic_rank) {
+                      if (obj.transform.valid()) {
+                        if (obj.transform.input_rank() != rank) {
+                          return absl::InvalidArgumentError(tensorstore::StrCat(
+                              "Specified rank (", rank,
+                              ") does not match input rank of transform (",
+                              obj.transform.input_rank(), ")"));
+                        }
+                      } else {
+                        TENSORSTORE_RETURN_IF_ERROR(
+                            obj.driver_spec->schema().Set(
+                                RankConstraint{rank}));
+                      }
+                    }
+                    return absl::OkStatus();
+                  },
+                  jb::ConstrainedRankJsonBinder)),
+          jb::Initialize([](auto* obj) {
+            if (!obj->transform.valid()) return absl::OkStatus();
+            return obj->driver_spec->schema().Set(
+                RankConstraint{obj->transform.output_rank()});
+          }),
           jb::Projection(&TransformedDriverSpec<>::driver_spec,
                          registry.RegisteredObjectBinder()),
           jb::Initialize([](auto* obj) {
-            if (const DimensionIndex driver_rank =
-                    obj->driver_spec->constraints().rank;
-                driver_rank != dynamic_rank &&
-                obj->transform_spec.output_rank() == dynamic_rank) {
-              obj->transform_spec = IndexTransformSpec(driver_rank);
-            }
+            if (obj->transform.valid()) return absl::OkStatus();
+            return MaybeDeriveTransform(*obj);
           }))(is_loading, options, obj, j);
     })
 
@@ -1130,6 +1279,26 @@ Result<ChunkLayout> GetChunkLayout(const Driver::Handle& handle) {
 Result<CodecSpec::Ptr> GetCodec(const Driver::Handle& handle) {
   assert(handle.driver);
   return handle.driver->GetCodec();
+}
+
+Result<Schema> GetSchema(const Driver::Handle& handle) {
+  Schema schema;
+  TENSORSTORE_RETURN_IF_ERROR(schema.Set(handle.driver->dtype()));
+  TENSORSTORE_RETURN_IF_ERROR(schema.Set(handle.transform.domain()));
+  {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto chunk_layout, GetChunkLayout(handle));
+    TENSORSTORE_RETURN_IF_ERROR(schema.Set(std::move(chunk_layout)));
+  }
+  {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto codec, GetCodec(handle));
+    TENSORSTORE_RETURN_IF_ERROR(schema.Set(std::move(codec)));
+  }
+  {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto fill_value, GetFillValue(handle));
+    TENSORSTORE_RETURN_IF_ERROR(
+        schema.Set(Schema::FillValue(std::move(fill_value))));
+  }
+  return schema;
 }
 
 }  // namespace internal

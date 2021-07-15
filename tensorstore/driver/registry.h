@@ -49,6 +49,23 @@ class RegisteredDriver;
 template <typename T>
 class RegisteredDriverOpener;
 
+/// Methods of `RegisteredDriver` that don't depend on template parameters.
+///
+/// These serve as default implementations that may be overridden by derived
+/// classes.
+class RegisteredDriverBase {
+ public:
+  static Result<IndexDomain<>> SpecGetDomain(const DriverSpecCommonData& spec);
+
+  static Result<ChunkLayout> SpecGetChunkLayout(
+      const DriverSpecCommonData& spec);
+
+  static Result<CodecSpec::Ptr> SpecGetCodec(const DriverSpecCommonData& spec);
+
+  static Result<SharedArray<const void>> SpecGetFillValue(
+      const DriverSpecCommonData& spec, IndexTransformView<> transform);
+};
+
 /// CRTP base class for `Driver` implementations that support a JSON
 /// representation.
 ///
@@ -56,14 +73,15 @@ class RegisteredDriverOpener;
 /// except for `GetSpec` and `GetBoundSpec`, which are defined automatically.
 /// In addition it must define the following members:
 ///
-/// - The `SpecT` class template must inherit from `internal::DriverConstraints`
-///   and includes as members the parameters and resources necessary to
-///   create/open the driver.  Depending on the `MaybeBound` argument, which is
-///   either `ContextUnbound` or `ContextBound`, it specifies either the
-///   context-unbound or context-bound state of the parameters/resources.  The
-///   dependence on `MaybeBound` permits `Context::ResourceSpec` objects (as
-///   used for the JSON representation) to be converted automatically to/from
-///   `Context::Resource` objects (as used by the driver implementation).
+/// - The `SpecT` class template must inherit from
+///   `internal::DriverSpecCommonData` and includes as members the parameters
+///   and resources necessary to create/open the driver.  Depending on the
+///   `MaybeBound` argument, which is either `ContextUnbound` or `ContextBound`,
+///   it specifies either the context-unbound or context-bound state of the
+///   parameters/resources.  The dependence on `MaybeBound` permits
+///   `Context::ResourceSpec` objects (as used for the JSON representation) to
+///   be converted automatically to/from `Context::Resource` objects (as used by
+///   the driver implementation).
 ///
 ///   It must define an `ApplyMembers` method for compatibility with
 ///   `ContextBindingTraits` (refer to `tensorstore/internal/context_binding.h`
@@ -73,14 +91,15 @@ class RegisteredDriverOpener;
 ///   implementation, as noted below.
 ///
 ///     template <template <typename> class MaybeBound>
-///     struct SpecT : public internal::DriverConstraints {
+///     struct SpecT : public internal::DriverSpecCommonData {
 ///       // Example members:
 ///       int mem1;
 ///       MaybeBound<Context::ResourceSpec<SomeResource>> mem2;
 ///
 ///       // For compatibility with `ContextBindingTraits`.
 ///       constexpr static auto ApplyMembers = [](auto& x, auto f) {
-///         return f(x.mem1, f.mem2);
+///         return f(internal::BaseCast<internal::DriverSpecCommonData>(x),
+///                  x.mem1, f.mem2);
 ///       };
 ///     };
 ///
@@ -92,11 +111,16 @@ class RegisteredDriverOpener;
 ///         jb::Member("mem1", jb::Projection(&SpecT<ContextUnbound>::mem1)),
 ///         jb::Member("mem2", jb::Projection(&SpecT<ContextUnbound>::mem2)));
 ///
-/// - The static `ConvertSpec` method should apply any modifications requested
+/// - The static `ApplyOptions` method should apply any modifications requested
 ///   in `options` in place to `spec`.
 ///
-///     static absl::Status ConvertSpec(
+///     static absl::Status ApplyOptions(
 ///         SpecT<ContextUnbound>& spec, SpecOptions&& options);
+///
+/// - The static `GetEffectiveSchema` method should return the effective schema.
+///
+///     static Result<Schema> GetEffectiveSchema(
+///         const SpecT<ContextUnbound> &spec);
 ///
 /// - The static `Open` method is called to initiate opening the driver.  This
 ///   is called by `DriverSpec::Bound::Open`.  Note that
@@ -132,7 +156,7 @@ class RegisteredDriverOpener;
 /// \tparam Parent The super class, must equal or be derived from
 ///     `internal::Driver` (for example, may be `ChunkCacheDriver`).
 template <typename Derived, typename Parent>
-class RegisteredDriver : public Parent {
+class RegisteredDriver : public Parent, RegisteredDriverBase {
   class DriverSpecImpl;
 
  public:
@@ -145,7 +169,7 @@ class RegisteredDriver : public Parent {
         new typename DriverSpecImpl::Bound);
     TransformedDriverSpec<ContextBound> transformed_spec;
     TENSORSTORE_ASSIGN_OR_RETURN(
-        transformed_spec.transform_spec,
+        transformed_spec.transform,
         static_cast<Derived*>(this)->GetBoundSpecData(
             std::move(transaction), &bound_spec->data_, transform));
     transformed_spec.driver_spec = std::move(bound_spec);
@@ -188,9 +212,9 @@ class RegisteredDriver : public Parent {
   class DriverSpecImpl : public internal::DriverSpec {
     using SpecData = typename Derived::template SpecT<ContextUnbound>;
     using BoundSpecData = typename Derived::template SpecT<ContextBound>;
-    static_assert(std::is_base_of_v<internal::DriverConstraints, SpecData>);
+    static_assert(std::is_base_of_v<internal::DriverSpecCommonData, SpecData>);
     static_assert(
-        std::is_base_of_v<internal::DriverConstraints, BoundSpecData>);
+        std::is_base_of_v<internal::DriverSpecCommonData, BoundSpecData>);
 
    public:
     DriverSpec::Ptr Clone() const override {
@@ -205,6 +229,23 @@ class RegisteredDriver : public Parent {
       return Derived::ApplyOptions(data_, std::move(options));
     }
 
+    Result<IndexDomain<>> GetDomain() const override {
+      return Derived::SpecGetDomain(data_);
+    }
+
+    Result<ChunkLayout> GetChunkLayout() const override {
+      return Derived::SpecGetChunkLayout(data_);
+    }
+
+    Result<CodecSpec::Ptr> GetCodec() const override {
+      return Derived::SpecGetCodec(data_);
+    }
+
+    Result<SharedArray<const void>> GetFillValue(
+        IndexTransformView<> transform) const override {
+      return Derived::SpecGetFillValue(data_, transform);
+    }
+
     Result<Driver::BoundSpec::Ptr> Bind(Context context) const override {
       IntrusivePtr<Bound> bound_spec(new Bound);
       Context child_context(context_spec_, context);
@@ -213,7 +254,7 @@ class RegisteredDriver : public Parent {
       return bound_spec;
     }
 
-    DriverConstraints& constraints() override { return data_; }
+    DriverSpecCommonData& data() override { return data_; }
 
     class Bound : public internal::DriverSpec::Bound {
      public:
@@ -246,7 +287,7 @@ class RegisteredDriver : public Parent {
                                                child_builder);
         return spec;
       }
-      const BoundSpecData& data() const { return data_; }
+      const BoundSpecData& data() const override { return data_; }
 
       BoundSpecData data_;
     };

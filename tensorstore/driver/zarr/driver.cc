@@ -340,7 +340,7 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
                     "Cannot create array without specifying \"metadata\"");
     }
     if (auto result = internal_zarr::GetNewMetadata(*spec().partial_metadata,
-                                                    spec().dtype)) {
+                                                    spec().schema.dtype())) {
       return result;
     } else {
       return tensorstore::MaybeAnnotateStatus(
@@ -369,7 +369,7 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
       TENSORSTORE_RETURN_IF_ERROR(
           ValidateMetadata(metadata, *spec().partial_metadata));
     }
-    return GetCompatibleField(metadata.dtype, spec().dtype,
+    return GetCompatibleField(metadata.dtype, spec().schema.dtype(),
                               spec().selected_field);
   }
 };

@@ -137,9 +137,7 @@ TEST(ZarrDriverTest, OpenInvalidRank) {
           spec, tensorstore::OpenMode::open | tensorstore::OpenMode::create,
           tensorstore::ReadWriteMode::read_write)
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Cannot compose transform of rank 2 -> 2 with "
-                    "transform of rank 3 -> 3"));
+      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*rank.*"));
 }
 
 TEST(ZarrDriverTest, Create) {

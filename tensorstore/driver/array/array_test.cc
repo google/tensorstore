@@ -19,6 +19,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/context.h"
+#include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/json_gtest.h"
@@ -48,6 +49,8 @@ using tensorstore::TensorStore;
 using tensorstore::WriteProgress;
 using tensorstore::WriteProgressFunction;
 using tensorstore::zero_origin;
+using tensorstore::internal::TestSpecSchema;
+using tensorstore::internal::TestTensorStoreCreateCheckSchema;
 
 constexpr const char kMismatchRE[] = ".* mismatch with target dimension .*";
 constexpr const char kOutsideValidRangeRE[] = ".* is outside valid range .*";
@@ -716,7 +719,7 @@ TYPED_TEST(OpenNumericTest, Roundtrip) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
                                    tensorstore::Open(json_spec).result());
   EXPECT_THAT(store.spec().value().ToJson(tensorstore::IncludeDefaults{false}),
-              ::testing::Optional(json_spec));
+              ::testing::Optional(MatchesJson(json_spec)));
   EXPECT_EQ(
       tensorstore::MakeOffsetArray<TypeParam>({1, 2}, {{1, 2, 3}, {4, 5, 6}}),
       tensorstore::Read(store).value());
@@ -778,7 +781,7 @@ TEST(FromArrayTest, Spec) {
         }}},
   };
   EXPECT_THAT(store.spec().value().ToJson(tensorstore::IncludeContext{false}),
-              ::testing::Optional(json_spec));
+              ::testing::Optional(MatchesJson(json_spec)));
 }
 
 TEST(OpenTest, MissingDataType) {
@@ -788,7 +791,7 @@ TEST(OpenTest, MissingDataType) {
                                 })
                   .result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Data type must be specified"));
+                            "dtype must be specified"));
 }
 
 TEST(OpenTest, InvalidTransformRank) {
@@ -852,7 +855,7 @@ TEST(ArrayTest, SpecFromArray) {
   EXPECT_EQ(1, spec.rank());
   EXPECT_EQ(tensorstore::dtype_v<float>, spec.dtype());
   EXPECT_THAT(spec.ToJson(tensorstore::IncludeContext{false}),
-              ::testing::Optional(MatchesJson(::nlohmann::json{
+              ::testing::Optional(MatchesJson({
                   {"driver", "array"},
                   {"array", {1, 2, 3}},
                   {"dtype", "float32"},
@@ -868,6 +871,36 @@ TEST(ArrayTest, SpecFromArray) {
                                    tensorstore::Open(spec).result());
   EXPECT_THAT(tensorstore::Read(store).result(),
               ::testing::Optional(orig_array));
+}
+
+TEST(SpecSchemaTest, Basic) {
+  TestSpecSchema(
+      {
+          {"driver", "array"},
+          {"array", {{1, 2, 3}, {4, 5, 6}}},
+          {"dtype", "float32"},
+      },
+      {
+          {"rank", 2},
+          {"dtype", "float32"},
+          {"domain", {{"shape", {2, 3}}}},
+          {"chunk_layout", {{"grid_origin", {0, 0}}, {"inner_order", {0, 1}}}},
+      });
+}
+
+TEST(CreateCheckSchemaTest, Basic) {
+  TestTensorStoreCreateCheckSchema(
+      {
+          {"driver", "array"},
+          {"array", {{1, 2, 3}, {4, 5, 6}}},
+          {"dtype", "float32"},
+      },
+      {
+          {"rank", 2},
+          {"dtype", "float32"},
+          {"domain", {{"shape", {2, 3}}}},
+          {"chunk_layout", {{"grid_origin", {0, 0}}, {"inner_order", {0, 1}}}},
+      });
 }
 
 }  // namespace open_tests

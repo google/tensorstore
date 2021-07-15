@@ -413,8 +413,9 @@ class NeuroglancerPrecomputedDriver
         if constexpr (is_loading) {
           // TODO(jbms): Convert to use JSON binding framework for loading as
           // well.
-          TENSORSTORE_ASSIGN_OR_RETURN(obj->open_constraints,
-                                       OpenConstraints::Parse(*j, obj->dtype));
+          TENSORSTORE_ASSIGN_OR_RETURN(
+              obj->open_constraints,
+              OpenConstraints::Parse(*j, obj->schema.dtype()));
           // Erase members that were parsed to prevent error about extra
           // members.
           j->erase("scale_metadata");
@@ -589,10 +590,10 @@ class NeuroglancerPrecomputedDriver::OpenState
     const auto& metadata =
         *static_cast<const MultiscaleMetadata*>(metadata_ptr);
     // Check for compatibility
-    if (spec().dtype.valid() && spec().dtype != metadata.dtype) {
-      return absl::FailedPreconditionError(
-          StrCat("Expected data type of ", spec().dtype,
-                 " but received: ", metadata.dtype));
+    if (auto dtype = spec().schema.dtype();
+        !IsPossiblySameDataType(dtype, metadata.dtype)) {
+      return absl::FailedPreconditionError(StrCat(
+          "Expected data type of ", dtype, " but received: ", metadata.dtype));
     }
     // FIXME: avoid copy by changing OpenScale to take separate arguments
     auto open_constraints = spec().open_constraints;

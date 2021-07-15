@@ -695,5 +695,49 @@ ReadChunk MakeArrayBackedReadChunk(
   return MakeArrayBackedReadChunk(MakeNormalizedTransformedArray(data));
 }
 
+void TestTensorStoreCreateWithSchemaImpl(::nlohmann::json json_spec,
+                                         const Schema& schema) {
+  SCOPED_TRACE(tensorstore::StrCat("json=", json_spec));
+  SCOPED_TRACE(tensorstore::StrCat("schema=", schema));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, OpenMode::create, schema).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_schema, store.schema());
+  TENSORSTORE_ASSERT_OK(store_schema.Set(schema));
+}
+
+void TestTensorStoreCreateCheckSchemaImpl(::nlohmann::json json_spec,
+                                          const Schema& schema) {
+  SCOPED_TRACE(tensorstore::StrCat("json=", json_spec));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(json_spec, OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_schema, store.schema());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_schema_json,
+                                   store_schema.ToJson());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto schema_json, schema.ToJson());
+  EXPECT_THAT(store_schema_json, MatchesJson(schema_json));
+}
+
+void TestTensorStoreCreateCheckSchema(::nlohmann::json json_spec,
+                                      ::nlohmann::json json_schema) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto schema, Schema::FromJson(json_schema));
+  TestTensorStoreCreateCheckSchema(std::move(json_spec), schema);
+}
+
+void TestSpecSchemaImpl(::nlohmann::json json_spec, const Schema& schema) {
+  SCOPED_TRACE(tensorstore::StrCat("json=", json_spec));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(json_spec));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_schema, spec.schema());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_schema_json, spec_schema.ToJson());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto schema_json, schema.ToJson());
+  EXPECT_THAT(spec_schema_json, MatchesJson(schema_json));
+}
+
+void TestSpecSchema(::nlohmann::json json_spec, ::nlohmann::json json_schema) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto schema, Schema::FromJson(json_schema));
+  TestSpecSchemaImpl(std::move(json_spec), schema);
+}
+
 }  // namespace internal
 }  // namespace tensorstore

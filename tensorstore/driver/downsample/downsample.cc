@@ -17,6 +17,7 @@
 #include <mutex>
 
 #include "absl/base/thread_annotations.h"
+#include "tensorstore/driver/downsample/downsample_array.h"
 #include "tensorstore/driver/downsample/downsample_method_json_binder.h"
 #include "tensorstore/driver/downsample/downsample_nditerable.h"
 #include "tensorstore/driver/downsample/downsample_util.h"
@@ -24,6 +25,7 @@
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/spec.h"
@@ -35,65 +37,125 @@ namespace {
 
 namespace jb = tensorstore::internal_json_binding;
 
+/// Obtains constraints on the base domain from constraints on the downsampled
+/// domain.
+///
+/// - The labels are copied.
+///
+/// - For dimensions `i` where `downsampled_factors[i] == 1`, the bounds and
+///   implicit indicators are copied.
+///
+/// - For dimensions `i` where `downsampled_factors[i] != 1`, the bounds are
+///   infinite and implicit.
+///
+/// \dchecks `downsampled_domain.valid()`
+/// \dchecks `downsampled_domain.rank() == downsample_factors.size()`
+Result<IndexDomain<>> GetBaseDomainConstraintFromDownsampledDomain(
+    IndexDomain<> downsampled_domain, span<const Index> downsample_factors) {
+  assert(downsampled_domain.valid());
+  const DimensionIndex rank = downsampled_domain.rank();
+  assert(rank == downsample_factors.size());
+  IndexDomainBuilder builder(rank);
+  builder.labels(downsampled_domain.labels());
+  auto implicit_lower_bounds = builder.implicit_lower_bounds();
+  auto implicit_upper_bounds = builder.implicit_upper_bounds();
+  auto origin = builder.origin();
+  auto shape = builder.shape();
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    if (downsample_factors[i] != 1) {
+      implicit_lower_bounds[i] = true;
+      implicit_upper_bounds[i] = true;
+      origin[i] = -kInfIndex;
+      shape[i] = kInfSize;
+    } else {
+      implicit_lower_bounds[i] = downsampled_domain.implicit_lower_bounds()[i];
+      implicit_upper_bounds[i] = downsampled_domain.implicit_upper_bounds()[i];
+      origin[i] = downsampled_domain.origin()[i];
+      shape[i] = downsampled_domain.shape()[i];
+    }
+  }
+  return builder.Finalize();
+}
+
 class DownsampleDriver
     : public RegisteredDriver<DownsampleDriver, /*Parent=*/internal::Driver> {
  public:
   constexpr static char id[] = "downsample";
 
   template <template <typename> class MaybeBound>
-  struct SpecT : public DriverConstraints {
+  struct SpecT : public internal::DriverSpecCommonData {
     MaybeBound<TransformedDriverSpec<>> base;
     std::vector<Index> downsample_factors;
     DownsampleMethod downsample_method;
 
     constexpr static auto ApplyMembers = [](auto& x, auto f) {
-      return f(internal::BaseCast<internal::DriverConstraints>(x), x.base,
+      return f(internal::BaseCast<internal::DriverSpecCommonData>(x), x.base,
                x.downsample_factors, x.downsample_method);
     };
 
-    void InitializeFromBase() {
-      if (this->rank == dynamic_rank) {
-        this->rank = this->base.transform_spec.input_rank();
-      }
-      if (!this->dtype.valid()) {
-        this->dtype = this->base.driver_spec->constraints().dtype;
-      }
+    absl::Status InitializeFromBase() {
+      TENSORSTORE_RETURN_IF_ERROR(
+          this->schema.Set(RankConstraint{internal::GetRank(this->base)}));
+      TENSORSTORE_RETURN_IF_ERROR(
+          this->schema.Set(this->base.driver_spec->schema().dtype()));
+      return absl::OkStatus();
     }
 
     absl::Status ValidateDownsampleFactors() {
-      if (!AreStaticRanksCompatible(this->rank,
-                                    this->downsample_factors.size())) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Number of factors (", this->downsample_factors.size(),
-            ") does not match base rank (", this->rank, ")"));
-      }
-      this->rank = this->downsample_factors.size();
+      TENSORSTORE_RETURN_IF_ERROR(
+          this->schema.Set(RankConstraint(this->downsample_factors.size())));
       return absl::OkStatus();
     }
 
     absl::Status ValidateDownsampleMethod() {
-      if (this->dtype.valid()) {
-        TENSORSTORE_RETURN_IF_ERROR(
-            internal_downsample::ValidateDownsampleMethod(
-                this->dtype, this->downsample_method));
-      }
-      return absl::OkStatus();
+      auto dtype = this->schema.dtype();
+      if (!dtype.valid()) return absl::OkStatus();
+      return internal_downsample::ValidateDownsampleMethod(
+          dtype, this->downsample_method);
     }
   };
 
   using SpecData = SpecT<internal::ContextUnbound>;
   using BoundSpecData = SpecT<internal::ContextBound>;
 
+  using Ptr = Driver::PtrT<DownsampleDriver>;
+
+  static absl::Status ApplyOptions(SpecData& spec, SpecOptions&& options) {
+    TENSORSTORE_RETURN_IF_ERROR(spec.schema.Set(options.dtype()));
+    TENSORSTORE_RETURN_IF_ERROR(spec.schema.Set(options.rank()));
+    auto transform = spec.base.transform;
+    if (!transform.valid()) {
+      transform =
+          tensorstore::IdentityTransform(spec.downsample_factors.size());
+    }
+    if (options.domain().valid()) {
+      // The original domain serves as a constraint.  Additionally, the labels
+      // of all dimensions, and the bounds of non-downsampled dimensions, are
+      // propagated as constraints on `base`.  The bounds of downsampled
+      // dimensions cannot be propagated, since these precise bounds of `base`
+      // are under-constrained.
+      TENSORSTORE_RETURN_IF_ERROR(spec.schema.Set(options.domain()));
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto base_domain, GetBaseDomainConstraintFromDownsampledDomain(
+                                options.domain(), spec.downsample_factors));
+      TENSORSTORE_RETURN_IF_ERROR(options.Override(std::move(base_domain)));
+    }
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        transform, transform | AllDims().Stride(spec.downsample_factors));
+    TENSORSTORE_RETURN_IF_ERROR(options.TransformInputSpaceSchema(transform));
+    return internal::TransformAndApplyOptions(spec.base, std::move(options));
+  }
+
   constexpr static auto json_binder = jb::Object(
       jb::Member("base",
                  [](auto is_loading, const auto& options, auto* obj, auto* j) {
                    return jb::Projection(&SpecData::base)(
                        is_loading,
-                       JsonSerializationOptions(options, obj->dtype,
-                                                RankConstraint{obj->rank}),
+                       JsonSerializationOptions(options, obj->schema.dtype(),
+                                                obj->schema.rank()),
                        obj, j);
                  }),
-      jb::Initialize([](SpecData* obj) { obj->InitializeFromBase(); }),
+      jb::Initialize([](SpecData* obj) { return obj->InitializeFromBase(); }),
       jb::Member("downsample_factors",
                  jb::Validate(
                      [](const auto& options, auto* obj) {
@@ -106,16 +168,43 @@ class DownsampleDriver
                      [](const auto& options, auto* obj) {
                        return obj->ValidateDownsampleMethod();
                      },
-                     jb::Projection(&SpecData::downsample_method))));
+                     jb::Projection(&SpecData::downsample_method))),
+      jb::Initialize([](SpecData* obj) {
+        SpecOptions base_options;
+        static_cast<Schema&>(base_options) = std::exchange(obj->schema, {});
+        return ApplyOptions(*obj, std::move(base_options));
+      }));
 
-  using Ptr = Driver::PtrT<DownsampleDriver>;
+  static Result<IndexDomain<>> SpecGetDomain(const SpecData& spec) {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto domain,
+                                 internal::GetEffectiveDomain(spec.base));
+    if (!domain.valid()) {
+      return spec.schema.domain();
+    }
+    if (domain.rank() != spec.downsample_factors.size()) {
+      // Should have already been validated.
+      return absl::InternalError(tensorstore::StrCat(
+          "Domain of base TensorStore has rank (", domain.rank(),
+          ") but expected ", spec.downsample_factors.size()));
+    }
+    auto downsampled_domain = internal_downsample::DownsampleDomain(
+        domain, spec.downsample_factors, spec.downsample_method);
+    return MergeIndexDomains(std::move(downsampled_domain),
+                             spec.schema.domain());
+  }
 
-  static absl::Status ApplyOptions(SpecData& spec, SpecOptions&& options) {
-    // Note: Once `options` actually contains options that should be affected by
-    // `spec.downsample_factors`, we will need to transform the options
-    // appropriately.  Currently that is unnecessary since there are no such
-    // options.
-    return internal::TransformAndApplyOptions(spec.base, std::move(options));
+  static Result<ChunkLayout> SpecGetChunkLayout(const SpecData& spec) {
+    return internal::GetEffectiveChunkLayout(spec.base) |
+           AllDims().Stride(spec.downsample_factors);
+  }
+
+  static Result<CodecSpec::Ptr> SpecGetCodec(const SpecData& spec) {
+    return internal::GetEffectiveCodec(spec.base);
+  }
+
+  static Result<SharedArray<const void>> SpecGetFillValue(
+      const SpecData& spec, IndexTransformView<> transform) {
+    return {std::in_place};
   }
 
   static Future<internal::Driver::Handle> Open(
@@ -129,15 +218,27 @@ class DownsampleDriver
         InlineExecutor{},
         [spec =
              std::move(spec)](Driver::Handle handle) -> Result<Driver::Handle> {
-          return MakeDownsampleDriver(std::move(handle),
-                                      spec->downsample_factors,
-                                      spec->downsample_method);
+          TENSORSTORE_ASSIGN_OR_RETURN(
+              auto downsampled_handle,
+              MakeDownsampleDriver(std::move(handle), spec->downsample_factors,
+                                   spec->downsample_method));
+          // Validate the domain constraint specified by the schema, if any.
+          // All other schema constraints are propagated to the base driver, and
+          // therefore aren't checked here.
+          if (auto domain = spec->schema.domain(); domain.valid()) {
+            TENSORSTORE_RETURN_IF_ERROR(
+                MergeIndexDomains(domain,
+                                  downsampled_handle.transform.domain()),
+                tensorstore::MaybeAnnotateStatus(
+                    _, "downsampled domain does not match domain in schema"));
+          }
+          return downsampled_handle;
         },
         internal::OpenDriver(std::move(transaction), spec->base,
                              ReadWriteMode::read));
   }
 
-  Result<IndexTransformSpec> GetBoundSpecData(
+  Result<IndexTransform<>> GetBoundSpecData(
       internal::OpenTransactionPtr transaction, BoundSpecData* spec,
       IndexTransformView<> transform) {
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -145,9 +246,8 @@ class DownsampleDriver
         base_driver_->GetBoundSpec(std::move(transaction), base_transform_));
     spec->downsample_factors = downsample_factors_;
     spec->downsample_method = downsample_method_;
-    spec->rank = base_transform_.input_rank();
-    spec->dtype = base_driver_->dtype();
-    return IndexTransformSpec(transform);
+    TENSORSTORE_RETURN_IF_ERROR(spec->InitializeFromBase());
+    return transform;
   }
 
   Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override {
@@ -159,6 +259,39 @@ class DownsampleDriver
 
   Result<CodecSpec::Ptr> GetCodec() override {
     return base_driver_->GetCodec();
+  }
+
+  Result<SharedArray<const void>> GetFillValue(
+      IndexTransformView<> transform) override {
+    if (downsample_method_ == DownsampleMethod::kStride) {
+      // Stride-based downsampling just relies on the normal `IndexTransform`
+      // machinery.
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto strided_transform,
+          base_transform_ | tensorstore::AllDims().Stride(downsample_factors_) |
+              transform);
+      return base_driver_->GetFillValue(strided_transform);
+    }
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto propagated_transform,
+        internal_downsample::PropagateIndexTransformDownsampling(
+            transform, base_transform_.domain().box(), downsample_factors_));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto propagated_base_transform,
+        ComposeTransforms(base_transform_, propagated_transform.transform));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto fill_value, base_driver_->GetFillValue(propagated_base_transform));
+    if (!fill_value.valid()) return {std::in_place};
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto broadcast_fill_value,
+        BroadcastArray(std::move(fill_value),
+                       propagated_base_transform.domain().box()));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto downsampled_fill_value,
+        internal_downsample::DownsampleArray(
+            broadcast_fill_value, propagated_transform.input_downsample_factors,
+            downsample_method_));
+    return UnbroadcastArray(downsampled_fill_value);
   }
 
   explicit DownsampleDriver(Driver::Ptr base, IndexTransform<> base_transform,
@@ -790,7 +923,7 @@ Result<Spec> Downsample(const Spec& base_spec,
   auto& impl = SpecAccess::impl(downsampled_spec);
   auto driver_spec = DownsampleDriver::DriverSpecBuilder::Make();
   driver_spec->base = SpecAccess::impl(base_spec);
-  driver_spec->InitializeFromBase();
+  TENSORSTORE_RETURN_IF_ERROR(driver_spec->InitializeFromBase());
   driver_spec->downsample_factors.assign(downsample_factors.begin(),
                                          downsample_factors.end());
   driver_spec->downsample_method = downsample_method;
@@ -798,13 +931,8 @@ Result<Spec> Downsample(const Spec& base_spec,
   TENSORSTORE_RETURN_IF_ERROR(driver_spec->ValidateDownsampleMethod());
   impl.driver_spec = std::move(driver_spec).Build();
   if (base_spec.transform().valid()) {
-    impl.transform_spec =
-        internal_downsample::GetDownsampledDomainIdentityTransform(
-            base_spec.transform().domain(), downsample_factors,
-            downsample_method);
-  } else {
-    // Just copy rank.
-    impl.transform_spec = IndexTransformSpec(downsample_factors.size());
+    impl.transform = internal_downsample::GetDownsampledDomainIdentityTransform(
+        base_spec.transform().domain(), downsample_factors, downsample_method);
   }
   return downsampled_spec;
 }

@@ -299,7 +299,6 @@ pybind11_cc_library(
         "//tensorstore:spec",
         "//tensorstore/driver",
         "//tensorstore/index_space:index_transform",
-        "//tensorstore/index_space:index_transform_spec",
         "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:json_pprint_python",
         "//tensorstore/util:result",

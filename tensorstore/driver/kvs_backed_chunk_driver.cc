@@ -562,7 +562,7 @@ Future<IndexTransform<>> DriverBase::Resize(
   return std::move(pair.future);
 }
 
-Result<IndexTransformSpec> DriverBase::GetBoundSpecData(
+Result<IndexTransform<>> DriverBase::GetBoundSpecData(
     internal::OpenTransactionPtr transaction,
     SpecT<internal::ContextBound>* spec, IndexTransformView<> transform_view) {
   auto* cache = this->cache();
@@ -576,8 +576,8 @@ Result<IndexTransformSpec> DriverBase::GetBoundSpecData(
   spec->create = false;
   spec->staleness.metadata = this->metadata_staleness_bound();
   spec->staleness.data = this->data_staleness_bound();
-  spec->rank = this->rank();
-  spec->dtype = this->dtype();
+  spec->schema.Set(RankConstraint{this->rank()}).IgnoreError();
+  spec->schema.Set(this->dtype()).IgnoreError();
 
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto validated_metadata,
@@ -600,7 +600,7 @@ Result<IndexTransformSpec> DriverBase::GetBoundSpecData(
         ComposeTransforms(internal_to_external_transform, transform));
   }
 
-  return IndexTransformSpec{transform};
+  return transform;
 }
 
 Status DriverBase::ApplyOptions(SpecT<internal::ContextUnbound>& spec,
@@ -611,6 +611,7 @@ Status DriverBase::ApplyOptions(SpecT<internal::ContextUnbound>& spec,
   if (options.recheck_cached_metadata.specified()) {
     spec.staleness.metadata = StalenessBound(options.recheck_cached_metadata);
   }
+  TENSORSTORE_RETURN_IF_ERROR(spec.schema.Set(static_cast<Schema&&>(options)));
   return spec.OpenModeSpec::ApplyOptions(options);
 }
 

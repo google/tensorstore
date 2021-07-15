@@ -138,7 +138,6 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/index_space/index_transform_spec.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/json_serialization_options.h"
@@ -233,34 +232,6 @@ Result<IndexDomain<Rank>> ParseIndexDomain(
       internal_index_space::TransformAccess::Make<IndexTransform<Rank>>(
           std::move(transform)));
 }
-
-/// JSON object binder for `IndexTransformSpec` (for use with
-/// `tensorstore::internal_json_binding::Object`).
-///
-/// A known rank but unknown transform is represented as: `{"rank": 3}`.
-///
-/// A known transform is represented as: `{"transform": ...}`, where the
-/// transform is represented using the normal `IndexTransform` JSON
-/// representation.
-///
-/// An unknown rank is represented by an empty object.
-///
-/// When parsing a JSON object with both `"rank"` and `"transform"` specified,
-/// it is an error if `"rank"` does not match the input rank of the
-/// `"transform"`.
-///
-/// When parsing from JSON, if a `rank_constraint != dynamic_rank` is specified,
-/// composes the parsed `IndexTransformSpec` with
-/// `IndexTransformSpec(rank_constraint)`..
-///
-/// When converting to JSON, if a `rank_constraint != dynamic_rank` is specified
-/// in the options and the object is equal to
-/// `IndexTransformSpec(rank_constraint)`, no members are generated regardless
-/// of the value of `include_defaults`.
-TENSORSTORE_DECLARE_JSON_BINDER(IndexTransformSpecBinder, IndexTransformSpec,
-                                JsonSerializationOptions,
-                                JsonSerializationOptions,
-                                ::nlohmann::json::object_t)
 
 namespace internal_json_binding {
 

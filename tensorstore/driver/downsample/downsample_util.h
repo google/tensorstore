@@ -167,10 +167,9 @@ void DownsampleBounds(BoxView<> base_bounds,
                       span<const Index> downsample_factors,
                       DownsampleMethod method);
 
-/// Returns an identity transform over the domain obtained by downsampling
-/// `base_domain`.
+/// Downsamples `base_domain`.
 ///
-/// The returned transform copies `input_labels`, `implicit_lower_bounds` and
+/// The returned domain copies `labels`, `implicit_lower_bounds`, and
 /// `implicit_upper_bounds` from `base_domain`.  The bounds are obtained from
 /// calling `DownsampleBounds`.
 ///
@@ -179,7 +178,18 @@ void DownsampleBounds(BoxView<> base_bounds,
 ///     `base_domain`.  The size must match the rank of `base_domain`.  All
 ///     factors must be positive.
 /// \param downsample_method The downsampling method to use.
-/// \returns The new transform.
+/// \returns The downsampled domain.
+IndexDomain<> DownsampleDomain(IndexDomain<> base_domain,
+                               span<const Index> downsample_factors,
+                               DownsampleMethod method);
+
+/// Returns an identity transform over the domain obtained by downsampling
+/// `base_domain`.
+///
+/// Equivalent to:
+///
+///     IdentityTransform(DownsampleDomain(base_domain, downsample_factors,
+///                                        downsample_method))
 IndexTransform<> GetDownsampledDomainIdentityTransform(
     IndexDomainView<> base_domain, span<const Index> downsample_factors,
     DownsampleMethod downsample_method);

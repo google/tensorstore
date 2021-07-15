@@ -17,6 +17,7 @@ tensorstore_cc_library(
     srcs = ["downsample.cc"],
     hdrs = ["downsample.h"],
     deps = [
+        ":downsample_array",
         ":downsample_method_json_binder",
         ":downsample_nditerable",
         ":downsample_util",

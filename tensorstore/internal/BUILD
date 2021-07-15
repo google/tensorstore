@@ -52,16 +52,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "array_constraints",
-    hdrs = ["array_constraints.h"],
-    deps = [
-        "//tensorstore:data_type",
-        "//tensorstore:json_serialization_options",
-        "//tensorstore:rank",
-    ],
-)
-
-tensorstore_cc_library(
     name = "attributes",
     hdrs = ["attributes.h"],
     deps = ["@com_google_absl//absl/base:core_headers"],
