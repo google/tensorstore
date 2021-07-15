@@ -24,6 +24,8 @@
 #include "tensorstore/driver/zarr/metadata.h"
 #include "tensorstore/driver/zarr/spec.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain_builder.h"
+#include "tensorstore/index_space/transform_broadcastable_array.h"
 #include "tensorstore/internal/cache/cache_key.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/json.h"
@@ -94,7 +96,7 @@ class ZarrDriver
   struct SpecT : public internal_kvs_backed_chunk_driver::SpecT<MaybeBound> {
     std::string key_prefix;
     ChunkKeyEncoding key_encoding;
-    std::optional<ZarrPartialMetadata> partial_metadata;
+    ZarrPartialMetadata partial_metadata;
     SelectedField selected_field;
 
     constexpr static auto ApplyMembers = [](auto& x, auto f) {
@@ -105,6 +107,18 @@ class ZarrDriver
     };
   };
 
+  static Status ApplyOptions(SpecT<>& spec, SpecOptions&& options) {
+    if (options.minimal_spec) {
+      spec.partial_metadata = ZarrPartialMetadata{};
+    }
+    return Base::ApplyOptions(spec, std::move(options));
+  }
+
+  static Result<SpecRankAndFieldInfo> GetSpecInfo(const SpecT<>& spec) {
+    return GetSpecRankAndFieldInfo(spec.partial_metadata, spec.selected_field,
+                                   spec.schema);
+  }
+
   static inline const auto json_binder = jb::Sequence(
       internal_kvs_backed_chunk_driver::SpecJsonBinder,
       jb::Member("path", jb::Projection(&SpecT<>::key_prefix,
@@ -113,17 +127,95 @@ class ZarrDriver
                  jb::Projection(
                      &SpecT<>::key_encoding,
                      jb::DefaultInitializedValue(ChunkKeyEncodingJsonBinder))),
-      jb::Member("metadata", jb::Projection(&SpecT<>::partial_metadata)),
+      jb::Member("metadata", jb::Projection(&SpecT<>::partial_metadata,
+                                            jb::DefaultInitializedValue())),
       jb::Member("field",
                  jb::Projection(&SpecT<>::selected_field,
                                 jb::DefaultValue<jb::kNeverIncludeDefaults>(
-                                    [](auto* obj) { *obj = std::string{}; }))));
+                                    [](auto* obj) { *obj = std::string{}; }))),
+      jb::Initialize([](auto* obj) {
+        TENSORSTORE_ASSIGN_OR_RETURN(auto info, GetSpecInfo(*obj));
+        if (info.full_rank != dynamic_rank) {
+          TENSORSTORE_RETURN_IF_ERROR(
+              obj->schema.Set(RankConstraint(info.full_rank)));
+        }
+        if (info.field) {
+          TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(info.field->dtype));
+        }
+        return absl::OkStatus();
+      }));
 
-  static Status ApplyOptions(SpecT<>& spec, SpecOptions&& options) {
-    if (options.minimal_spec) {
-      spec.partial_metadata = std::nullopt;
+  static Result<IndexDomain<>> SpecGetDomain(const SpecT<>& spec) {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto info, GetSpecInfo(spec));
+    return GetDomainFromMetadata(info, spec.partial_metadata.shape,
+                                 spec.schema);
+  }
+
+  static Result<CodecSpec::Ptr> SpecGetCodec(const SpecT<>& spec) {
+    auto codec_spec = CodecSpec::Make<ZarrCodecSpec>();
+    codec_spec->compressor = spec.partial_metadata.compressor;
+    TENSORSTORE_RETURN_IF_ERROR(codec_spec->MergeFrom(spec.schema.codec()));
+    return codec_spec;
+  }
+
+  static Result<ChunkLayout> SpecGetChunkLayout(const SpecT<>& spec) {
+    auto chunk_layout = spec.schema.chunk_layout();
+    TENSORSTORE_ASSIGN_OR_RETURN(auto info, GetSpecInfo(spec));
+    TENSORSTORE_RETURN_IF_ERROR(
+        SetChunkLayoutFromMetadata(info, spec.partial_metadata.chunks,
+                                   spec.partial_metadata.order, chunk_layout));
+    return chunk_layout;
+  }
+
+  static Result<SharedArray<const void>> SpecGetFillValue(
+      const SpecT<>& spec, IndexTransformView<> transform) {
+    SharedArrayView<const void> fill_value = spec.schema.fill_value();
+
+    const auto& metadata = spec.partial_metadata;
+    if (metadata.dtype && metadata.fill_value) {
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          size_t field_index,
+          GetFieldIndex(*metadata.dtype, spec.selected_field));
+      fill_value = (*metadata.fill_value)[field_index];
     }
-    return Base::ApplyOptions(spec, std::move(options));
+
+    if (!fill_value.valid() || !transform.valid()) {
+      return SharedArray<const void>(fill_value);
+    }
+
+    const DimensionIndex output_rank = transform.output_rank();
+    if (output_rank < fill_value.rank()) {
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat("Transform with output rank ", output_rank,
+                              " is not compatible with metadata"));
+    }
+    Index pseudo_shape[kMaxRank];
+    std::fill_n(pseudo_shape, output_rank - fill_value.rank(), kInfIndex + 1);
+    for (DimensionIndex i = 0; i < fill_value.rank(); ++i) {
+      Index size = fill_value.shape()[i];
+      if (size == 1) size = kInfIndex + 1;
+      pseudo_shape[output_rank - fill_value.rank() + i] = size;
+    }
+    return TransformOutputBroadcastableArray(
+        transform, std::move(fill_value),
+        IndexDomain(span(pseudo_shape, output_rank)));
+  }
+
+  Result<SharedArray<const void>> GetFillValue(
+      IndexTransformView<> transform) override {
+    const auto& metadata = *static_cast<const ZarrMetadata*>(
+        this->cache()->initial_metadata_.get());
+    const auto& fill_value = metadata.fill_value[this->component_index()];
+    if (!fill_value.valid()) return {std::in_place};
+    const auto& field = metadata.dtype.fields[this->component_index()];
+    IndexDomainBuilder builder(field.field_shape.size() + metadata.rank);
+    span<Index> shape = builder.shape();
+    std::fill_n(shape.begin(), metadata.rank, kInfIndex + 1);
+    std::copy(field.field_shape.begin(), field.field_shape.end(),
+              shape.end() - field.field_shape.size());
+    TENSORSTORE_ASSIGN_OR_RETURN(auto output_domain, builder.Finalize());
+    return TransformOutputBroadcastableArray(transform, fill_value,
+                                             output_domain);
   }
 };
 
@@ -267,7 +359,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     spec.key_prefix = key_prefix_;
     spec.selected_field = EncodeSelectedField(component_index, metadata.dtype);
     spec.key_encoding = key_encoding_;
-    auto& pm = spec.partial_metadata.emplace();
+    auto& pm = spec.partial_metadata;
     pm.rank = metadata.rank;
     pm.zarr_format = metadata.zarr_format;
     pm.shape = metadata.shape;
@@ -283,30 +375,18 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
   Result<ChunkLayout> GetChunkLayout(const void* metadata_ptr,
                                      std::size_t component_index) override {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
-    auto& encoded_strided_layout =
-        metadata.chunk_layout.fields[component_index].encoded_chunk_layout;
-    ChunkLayout layout;
-    const DimensionIndex rank = encoded_strided_layout.rank();
-    TENSORSTORE_RETURN_IF_ERROR(
-        layout.Set(ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(rank))));
-    DimensionIndex inner_order[kMaxRank];
-    SetPermutationFromStridedLayout(encoded_strided_layout,
-                                    span(inner_order, rank));
-    TENSORSTORE_RETURN_IF_ERROR(
-        layout.Set(ChunkLayout::InnerOrder(span(inner_order, rank))));
-    TENSORSTORE_RETURN_IF_ERROR(layout.Set(
-        ChunkLayout::WriteChunkShape(encoded_strided_layout.shape())));
-    TENSORSTORE_RETURN_IF_ERROR(layout.Finalize());
-    return layout;
+    ChunkLayout chunk_layout;
+    TENSORSTORE_RETURN_IF_ERROR(internal_zarr::SetChunkLayoutFromMetadata(
+        GetSpecRankAndFieldInfo(metadata, component_index), metadata.chunks,
+        metadata.order, chunk_layout));
+    TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Finalize());
+    return chunk_layout;
   }
 
   Result<CodecSpec::Ptr> GetCodec(const void* metadata,
                                   std::size_t component_index) override {
-    const auto& typed_metadata = *static_cast<const ZarrMetadata*>(metadata);
-    internal::IntrusivePtr<ZarrCodecSpec> codec(new ZarrCodecSpec);
-    codec->compressor = typed_metadata.compressor;
-    codec->filters = nullptr;
-    return codec;
+    return internal_zarr::GetCodecSpecFromMetadata(
+        *static_cast<const ZarrMetadata*>(metadata));
   }
 
  private:
@@ -335,17 +415,13 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     if (existing_metadata) {
       return absl::AlreadyExistsError("");
     }
-    if (!spec().partial_metadata) {
-      return Status(absl::StatusCode::kInvalidArgument,
-                    "Cannot create array without specifying \"metadata\"");
-    }
-    if (auto result = internal_zarr::GetNewMetadata(*spec().partial_metadata,
-                                                    spec().schema.dtype())) {
-      return result;
-    } else {
-      return tensorstore::MaybeAnnotateStatus(
-          result.status(), "Cannot create array from specified \"metadata\"");
-    }
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto metadata,
+        internal_zarr::GetNewMetadata(spec().partial_metadata,
+                                      spec().selected_field, spec().schema),
+        tensorstore::MaybeAnnotateStatus(
+            _, "Cannot create using specified \"metadata\" and schema"));
+    return metadata;
   }
 
   std::string GetDataCacheKey(const void* metadata) override {
@@ -365,12 +441,13 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
   Result<std::size_t> GetComponentIndex(const void* metadata_ptr,
                                         OpenMode open_mode) override {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
-    if (spec().partial_metadata) {
-      TENSORSTORE_RETURN_IF_ERROR(
-          ValidateMetadata(metadata, *spec().partial_metadata));
-    }
-    return GetCompatibleField(metadata.dtype, spec().schema.dtype(),
-                              spec().selected_field);
+    TENSORSTORE_RETURN_IF_ERROR(
+        ValidateMetadata(metadata, spec().partial_metadata));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto field_index, GetFieldIndex(metadata.dtype, spec().selected_field));
+    TENSORSTORE_RETURN_IF_ERROR(
+        ValidateMetadataSchema(metadata, field_index, spec().schema));
+    return field_index;
   }
 };
 

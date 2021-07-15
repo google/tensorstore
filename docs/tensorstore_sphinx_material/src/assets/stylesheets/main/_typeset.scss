@@ -530,13 +530,15 @@ kbd {
     }
 
     // Table heading and cell
-    th:not([align]),
-    td:not([align]) {
-      text-align: left;
+    &:not(.align-center):not(.align-left):not(.align-right) {
+      th:not([align]),
+      td:not([align]) {
+        text-align: left;
 
-      // Adjust for right-to-left languages
-      [dir="rtl"] & {
-        text-align: right;
+        // Adjust for right-to-left languages
+        [dir="rtl"] & {
+          text-align: right;
+        }
       }
     }
 

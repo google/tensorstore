@@ -1283,8 +1283,10 @@ inline constexpr auto& DefaultBinder<std::optional<T>> = OptionalBinder;
 ///     auto binder = jb::Object(
 ///                       jb::Member("x",
 ///                           jb::Projection(&Foo::x,
-///                           jb::Validate([](auto& x) { assert(is_prime(x));
-///                           }))));
+///                             jb::Validate([](const auto &options,
+///                                             auto *obj) {
+///                               assert(is_prime(*obj));
+///                             }))));
 ///
 template <typename Validator, typename Binder = decltype(DefaultBinder<>)>
 constexpr auto Validate(Validator validator, Binder binder = DefaultBinder<>) {

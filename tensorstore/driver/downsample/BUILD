@@ -138,6 +138,7 @@ tensorstore_cc_test(
         "//tensorstore/driver/array",
         "//tensorstore/driver/cast",
         "//tensorstore/driver/n5",
+        "//tensorstore/driver/zarr",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:json_gtest",

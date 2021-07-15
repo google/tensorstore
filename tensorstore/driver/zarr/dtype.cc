@@ -57,7 +57,7 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
         } else if (suffix == "1") {
           goto error;
         }
-        ABSL_FALLTHROUGH_INTENDED;
+        [[fallthrough]];
       case 'f':
       case 'c':
       case 'm':
@@ -218,7 +218,7 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
                       });
                 }
                 default:
-                  TENSORSTORE_UNREACHABLE;
+                  TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
               }
             });
       });
@@ -226,21 +226,14 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
   return out;
 }
 
-/// Validates a parsed `ZarrDType` and computes the derived values.
-///
-/// This is called by `ParseDType`.
-///
-/// \error `absl::StatusCode::kInvalidArgument` if two fields have the same
-///     name.
-/// \error `absl::StatusCode::kInvalidArgument` if the field size is too
-///     large.
-Status ComputeDerivedDTypeValues(ZarrDType* dtype) {
-  // Compute field byte offsets and other derived data.
-  dtype->bytes_per_outer_element = 0;
-  for (std::size_t field_i = 0; field_i < dtype->fields.size(); ++field_i) {
-    auto& field = dtype->fields[field_i];
+}  // namespace
+
+absl::Status ValidateDType(ZarrDType& dtype) {
+  dtype.bytes_per_outer_element = 0;
+  for (std::size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
+    auto& field = dtype.fields[field_i];
     if (std::any_of(
-            dtype->fields.begin(), dtype->fields.begin() + field_i,
+            dtype.fields.begin(), dtype.fields.begin() + field_i,
             [&](const ZarrDType::Field& f) { return f.name == field.name; })) {
       return absl::InvalidArgumentError(StrCat(
           "Field name ", QuoteString(field.name), " occurs more than once"));
@@ -261,9 +254,9 @@ Status ComputeDerivedDTypeValues(ZarrDType* dtype) {
                               &field.num_bytes)) {
       return absl::InvalidArgumentError("Field size in bytes is too large");
     }
-    field.byte_offset = dtype->bytes_per_outer_element;
-    if (internal::AddOverflow(dtype->bytes_per_outer_element, field.num_bytes,
-                              &dtype->bytes_per_outer_element)) {
+    field.byte_offset = dtype.bytes_per_outer_element;
+    if (internal::AddOverflow(dtype.bytes_per_outer_element, field.num_bytes,
+                              &dtype.bytes_per_outer_element)) {
       return absl::InvalidArgumentError(
           "Total number of bytes per outer array element is too large");
     }
@@ -271,11 +264,9 @@ Status ComputeDerivedDTypeValues(ZarrDType* dtype) {
   return absl::OkStatus();
 }
 
-}  // namespace
-
 Result<ZarrDType> ParseDType(const nlohmann::json& value) {
   TENSORSTORE_ASSIGN_OR_RETURN(ZarrDType dtype, ParseDTypeNoDerived(value));
-  TENSORSTORE_RETURN_IF_ERROR(ComputeDerivedDTypeValues(&dtype));
+  TENSORSTORE_RETURN_IF_ERROR(ValidateDType(dtype));
   return dtype;
 }
 
@@ -307,6 +298,76 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ZarrDType, [](auto is_loading,
   }
   return absl::OkStatus();
 })
+
+char EndianIndicator(tensorstore::endian e) {
+  return e == tensorstore::endian::little ? '<' : '>';
+}
+
+Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype) {
+  ZarrDType::BaseDType base_dtype;
+  base_dtype.endian = endian::native;
+  base_dtype.dtype = dtype;
+  const auto set_typestr = [&](std::string_view typestr, int size) {
+    if (size > 1) {
+      base_dtype.encoded_dtype = tensorstore::StrCat(
+          EndianIndicator(base_dtype.endian), typestr, size);
+    } else {
+      base_dtype.encoded_dtype = tensorstore::StrCat("|", typestr, size);
+    }
+  };
+  switch (dtype.id()) {
+    case DataTypeId::bool_t:
+      set_typestr("b", 1);
+      break;
+    case DataTypeId::uint8_t:
+      set_typestr("u", 1);
+      break;
+    case DataTypeId::uint16_t:
+      set_typestr("u", 2);
+      break;
+    case DataTypeId::uint32_t:
+      set_typestr("u", 4);
+      break;
+    case DataTypeId::uint64_t:
+      set_typestr("u", 8);
+      break;
+    case DataTypeId::int8_t:
+      set_typestr("i", 1);
+      break;
+    case DataTypeId::int16_t:
+      set_typestr("i", 2);
+      break;
+    case DataTypeId::int32_t:
+      set_typestr("i", 4);
+      break;
+    case DataTypeId::int64_t:
+      set_typestr("i", 8);
+      break;
+    case DataTypeId::float16_t:
+      set_typestr("f", 2);
+      break;
+    case DataTypeId::bfloat16_t:
+      base_dtype.endian = endian::little;
+      base_dtype.encoded_dtype = "bfloat16";
+      break;
+    case DataTypeId::float32_t:
+      set_typestr("f", 4);
+      break;
+    case DataTypeId::float64_t:
+      set_typestr("f", 8);
+      break;
+    case DataTypeId::complex64_t:
+      set_typestr("c", 8);
+      break;
+    case DataTypeId::complex128_t:
+      set_typestr("c", 16);
+      break;
+    default:
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat("Data type not supported: ", dtype));
+  }
+  return base_dtype;
+}
 
 }  // namespace internal_zarr
 }  // namespace tensorstore

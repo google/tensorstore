@@ -519,4 +519,142 @@ TEST(DriverCreateCheckSchemaTest, CastArray) {
       });
 }
 
+TEST(CastTest, FillValueNotSpecified) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store,
+      tensorstore::Open(
+          {
+              {"driver", "zarr"},
+              {"kvstore", {{"driver", "memory"}}},
+          },
+          tensorstore::OpenMode::create, tensorstore::dtype_v<uint16_t>,
+          tensorstore::Schema::Shape({100, 4, 3}))
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Cast(base_store, tensorstore::dtype_v<int32_t>));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto fill_value, store.fill_value());
+  EXPECT_FALSE(fill_value.valid());
+}
+
+TEST(CastTest, FillValueSpecified) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store,
+      tensorstore::Open(
+          {
+              {"driver", "zarr"},
+              {"kvstore", {{"driver", "memory"}}},
+          },
+          tensorstore::OpenMode::create, tensorstore::dtype_v<uint16_t>,
+          tensorstore::Schema::Shape({100, 4, 3}),
+          tensorstore::Schema::FillValue(
+              tensorstore::MakeScalarArray<uint16_t>(42)))
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Cast(base_store, tensorstore::dtype_v<int32_t>));
+  EXPECT_THAT(store.fill_value(),
+              ::testing::Optional(tensorstore::MakeScalarArray<int32_t>(42)));
+}
+
+TEST(CastTest, Codec) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store,
+      tensorstore::Open(
+          {
+              {"driver", "zarr"},
+              {"kvstore", {{"driver", "memory"}}},
+              {"metadata", {{"compressor", nullptr}}},
+          },
+          tensorstore::OpenMode::create, tensorstore::dtype_v<uint16_t>,
+          tensorstore::Schema::Shape({100, 4, 3}))
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Cast(base_store, tensorstore::dtype_v<int32_t>));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_codec,
+                                   tensorstore::CodecSpec::Ptr::FromJson({
+                                       {"driver", "zarr"},
+                                       {"compressor", nullptr},
+                                       {"filters", nullptr},
+                                   }));
+  EXPECT_THAT(store.codec(), ::testing::Optional(expected_codec));
+}
+
+TEST(SpecSchemaTest, ChunkLayout) {
+  TestSpecSchema(
+      {
+          {"driver", "cast"},
+          {"dtype", "uint32"},
+          {"base",
+           {
+               {"driver", "zarr"},
+               {"kvstore", {{"driver", "memory"}}},
+               {"metadata", {{"dtype", "<u2"}, {"chunks", {3, 4, 5}}}},
+           }},
+      },
+      {
+          {"dtype", "uint32"},
+          {"chunk_layout",
+           {
+               {"grid_origin", {0, 0, 0}},
+               {"chunk", {{"shape", {3, 4, 5}}}},
+           }},
+          {"codec", {{"driver", "zarr"}}},
+      });
+}
+
+TEST(SpecSchemaTest, Codec) {
+  TestSpecSchema(
+      {
+          {"driver", "cast"},
+          {"dtype", "uint32"},
+          {"base",
+           {
+               {"driver", "zarr"},
+               {"kvstore", {{"driver", "memory"}}},
+               {"metadata", {{"dtype", "<u2"}, {"compressor", nullptr}}},
+           }},
+      },
+      {
+          {"dtype", "uint32"},
+          {"codec", {{"driver", "zarr"}, {"compressor", nullptr}}},
+      });
+}
+
+TEST(SpecSchemaTest, FillValue) {
+  TestSpecSchema(
+      {
+          {"driver", "cast"},
+          {"dtype", "uint32"},
+          {"base",
+           {
+               {"driver", "zarr"},
+               {"kvstore", {{"driver", "memory"}}},
+               {"metadata", {{"dtype", "<f4"}, {"fill_value", 3.5}}},
+           }},
+      },
+      {
+          {"dtype", "uint32"},
+          {"fill_value", 3},
+          {"codec", {{"driver", "zarr"}}},
+      });
+}
+
+TEST(SpecSchemaTest, FillValueSameDtype) {
+  TestSpecSchema(
+      {
+          {"driver", "cast"},
+          {"dtype", "uint32"},
+          {"base",
+           {
+               {"driver", "zarr"},
+               {"kvstore", {{"driver", "memory"}}},
+               {"metadata", {{"dtype", "<u4"}, {"fill_value", 3}}},
+           }},
+      },
+      {
+          {"dtype", "uint32"},
+          {"fill_value", 3},
+          {"codec", {{"driver", "zarr"}}},
+      });
+}
+
 }  // namespace

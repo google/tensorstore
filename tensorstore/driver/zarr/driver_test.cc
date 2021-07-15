@@ -26,6 +26,7 @@
 #include "tensorstore/internal/decoded_matches.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/parse_json_matches.h"
 #include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/kvstore/key_value_store_testutil.h"
@@ -42,16 +43,21 @@ using tensorstore::ChunkLayout;
 using tensorstore::complex64_t;
 using tensorstore::Context;
 using tensorstore::DimensionIndex;
+using tensorstore::dtype_v;
 using tensorstore::Index;
 using tensorstore::KeyValueStore;
 using tensorstore::kImplicit;
 using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
+using tensorstore::Schema;
 using tensorstore::span;
 using tensorstore::StrCat;
 using tensorstore::internal::DecodedMatches;
 using tensorstore::internal::GetMap;
 using tensorstore::internal::ParseJsonMatches;
+using tensorstore::internal::TestSpecSchema;
+using tensorstore::internal::TestTensorStoreCreateCheckSchema;
+using tensorstore::internal::TestTensorStoreCreateWithSchema;
 using ::testing::ElementsAreArray;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;
@@ -137,7 +143,7 @@ TEST(ZarrDriverTest, OpenInvalidRank) {
           spec, tensorstore::OpenMode::open | tensorstore::OpenMode::create,
           tensorstore::ReadWriteMode::read_write)
           .result(),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*rank.*"));
+      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*Rank.*"));
 }
 
 TEST(ZarrDriverTest, Create) {
@@ -1502,8 +1508,8 @@ TEST(ZarrDriverTest, InvalidSpec) {
             .result(),
         MatchesStatus(absl::StatusCode::kInvalidArgument,
                       ".*: "
-                      "Cannot create array from specified \"metadata\": "
-                      "\"shape\" must be specified"));
+                      "Cannot create using specified \"metadata\" and schema: "
+                      "domain must be specified"));
   }
 }
 
@@ -2206,6 +2212,290 @@ TEST(DriverTest, Codec) {
                                                  {"shuffle", -1},
                                                  {"blocksize", 0}}},
                                                {"filters", nullptr}})));
+}
+
+TEST(DriverTest, FillValueUnspecified) {
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", "<i2"},
+           {"shape", {10}},
+           {"chunks", {10}},
+           {"order", "C"},
+           {"fill_value", nullptr},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto fill_value, store.fill_value());
+  ASSERT_FALSE(fill_value.valid());
+}
+
+TEST(DriverTest, FillValueSpecified) {
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", "<i2"},
+           {"shape", {10}},
+           {"chunks", {10}},
+           {"order", "C"},
+           {"fill_value", 42},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  EXPECT_THAT(store.fill_value(),
+              ::testing::Optional(tensorstore::MakeScalarArray<int16_t>(42)));
+}
+
+TEST(DriverTest, FillValueFieldShape) {
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"field", "x"},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", {{"x", "<i2", {2, 3}}}},
+           {"shape", {10}},
+           {"chunks", {10}},
+           {"order", "C"},
+       }},
+  };
+  auto fill_value = tensorstore::MakeArray<int16_t>({{1, 2, 3}, {4, 5, 6}});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(json_spec, tensorstore::OpenMode::create,
+                                    tensorstore::Schema::FillValue(fill_value))
+                      .result());
+  EXPECT_THAT(store.fill_value(), ::testing::Optional(fill_value));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto transformed, store | tensorstore::Dims(2).OuterIndexArraySlice(
+                                    tensorstore::MakeArray<Index>({0, 2, 1})));
+  EXPECT_THAT(transformed.fill_value(),
+              ::testing::Optional(
+                  tensorstore::MakeArray<int16_t>({{1, 3, 2}, {4, 6, 5}})));
+}
+
+TEST(DriverTest, InvalidCodec) {
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "zarr"},
+                      {"kvstore", {{"driver", "memory"}}},
+                      {"schema",
+                       {
+                           {"dtype", "uint16"},
+                           {"domain", {{"shape", {100}}}},
+                           {"codec", {{"driver", "n5"}}},
+                       }},
+                  },
+                  tensorstore::OpenMode::create)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: Cannot merge codec spec .*"));
+}
+
+TEST(DriverCreateWithSchemaTest, Dtypes) {
+  constexpr tensorstore::DataType kSupportedDataTypes[] = {
+      dtype_v<bool>,
+      dtype_v<uint8_t>,
+      dtype_v<uint16_t>,
+      dtype_v<uint32_t>,
+      dtype_v<uint64_t>,
+      dtype_v<int8_t>,
+      dtype_v<int16_t>,
+      dtype_v<int32_t>,
+      dtype_v<int64_t>,
+      dtype_v<tensorstore::float16_t>,
+      dtype_v<tensorstore::bfloat16_t>,
+      dtype_v<tensorstore::float32_t>,
+      dtype_v<tensorstore::float64_t>,
+      dtype_v<tensorstore::complex64_t>,
+      dtype_v<tensorstore::complex128_t>,
+  };
+  for (auto dtype : kSupportedDataTypes) {
+    TestTensorStoreCreateWithSchema(
+        {{"driver", "zarr"}, {"kvstore", {{"driver", "memory"}}}}, dtype,
+        Schema::Shape({5, 6, 7}));
+  }
+}
+
+TEST(SpecSchemaTest, ChunkLayout) {
+  TestSpecSchema({{"driver", "zarr"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"metadata", {{"dtype", "<u2"}, {"chunks", {3, 4, 5}}}}},
+                 {{"dtype", "uint16"},
+                  {"chunk_layout",
+                   {
+                       {"grid_origin", {0, 0, 0}},
+                       {"chunk", {{"shape", {3, 4, 5}}}},
+                   }},
+                  {"codec", {{"driver", "zarr"}}}});
+}
+
+TEST(SpecSchemaTest, Codec) {
+  TestSpecSchema({{"driver", "zarr"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"metadata", {{"dtype", "<u2"}, {"compressor", nullptr}}}},
+                 {{"dtype", "uint16"},
+                  {"codec", {{"driver", "zarr"}, {"compressor", nullptr}}}});
+}
+
+TEST(SpecSchemaTest, FillValue) {
+  TestSpecSchema({{"driver", "zarr"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"metadata", {{"dtype", "<u2"}, {"fill_value", 42}}}},
+                 {{"dtype", "uint16"},
+                  {"fill_value", 42},
+                  {"codec", {{"driver", "zarr"}}}});
+}
+
+TEST(SpecSchemaTest, FillValueWithTransform) {
+  TestSpecSchema({{"driver", "zarr"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"metadata", {{"dtype", "<u2"}, {"fill_value", 42}}},
+                  {"transform", {{"input_rank", 3}}}},
+                 {{"dtype", "uint16"},
+                  {"fill_value", 42},
+                  {"chunk_layout", {{"grid_origin", {0, 0, 0}}}},
+                  {"rank", 3},
+                  {"domain", {{"rank", 3}}},
+                  {"codec", {{"driver", "zarr"}}}});
+}
+
+TEST(SpecSchemaTest, FieldShapeFillValueWithTransform) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open({{"driver", "zarr"},
+                         {"kvstore", {{"driver", "memory"}}},
+                         {"metadata",
+                          {
+                              {"dtype", {{"x", "<u2", {2, 3}}}},
+                              {"shape", {10}},
+                          }},
+                         {"schema", {{"fill_value", {{1, 2, 3}, {4, 5, 6}}}}}},
+                        tensorstore::OpenMode::create)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_json, spec.ToJson());
+  TestSpecSchema(
+      {
+          {"driver", "zarr"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"metadata",
+           {{"dtype", spec_json["metadata"]["dtype"]},
+            {"fill_value", spec_json["metadata"]["fill_value"]}}},
+          {"transform",
+           {{"input_shape", {3, 2, 100}},
+            {"output", ::nlohmann::json::array_t{{{"input_dimension", 2}},
+                                                 {{"input_dimension", 1}},
+                                                 {{"input_dimension", 0}}}}}},
+      },
+      {{"dtype", "uint16"},
+       {"fill_value", {{{1}, {4}}, {{2}, {5}}, {{3}, {6}}}},
+       {"chunk_layout",
+        {{"grid_origin", {0, 0, 0}}, {"chunk", {{"shape", {3, 2, 0}}}}}},
+       {"domain", {{"shape", {3, 2, 100}}}},
+       {"rank", 3},
+       {"codec", {{"driver", "zarr"}}}});
+}
+
+TEST(SpecSchemaTest, NoRank) {
+  TestSpecSchema({{"driver", "zarr"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"metadata", {{"dtype", "<u2"}}}},
+                 {
+                     {"dtype", "uint16"},
+                     {"codec", {{"driver", "zarr"}}},
+                 });
+}
+
+TEST(DriverTest, RankMismatch) {
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(
+                      {{"driver", "zarr"}, {"kvstore", {{"driver", "memory"}}}},
+                      context, Schema::Shape({100}), dtype_v<uint32_t>,
+                      tensorstore::OpenMode::create)
+                      .result());
+  EXPECT_THAT(tensorstore::Open(
+                  {{"driver", "zarr"}, {"kvstore", {{"driver", "memory"}}}},
+                  context, tensorstore::RankConstraint{2})
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*: Rank is 1, but schema specifies rank of 2"));
+}
+
+TEST(DriverTest, DtypeMismatch) {
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(
+                      {{"driver", "zarr"}, {"kvstore", {{"driver", "memory"}}}},
+                      context, Schema::Shape({100}), dtype_v<uint32_t>,
+                      tensorstore::OpenMode::create)
+                      .result());
+  EXPECT_THAT(
+      tensorstore::Open(
+          {{"driver", "zarr"}, {"kvstore", {{"driver", "memory"}}}}, context,
+          dtype_v<int32_t>)
+          .result(),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*dtype.*"));
+}
+
+TEST(DriverSpecSchemaTest, Basic) {
+  TestSpecSchema(
+      {
+          {"driver", "zarr"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"metadata", {{"compressor", nullptr}}},
+          {"schema",
+           {
+               {"domain", {{"shape", {20, 30, 40}}}},
+               {"dtype", "uint32"},
+           }},
+      },
+      {
+          {"domain", {{"shape", {{20}, {30}, {40}}}}},
+          {"dtype", "uint32"},
+          {"chunk_layout",
+           {
+               {"grid_origin", {0, 0, 0}},
+           }},
+          {"codec", {{"driver", "zarr"}, {"compressor", nullptr}}},
+      });
+}
+
+TEST(DriverCreateCheckSchemaTest, Basic) {
+  TestTensorStoreCreateCheckSchema(
+      {
+          {"driver", "zarr"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"metadata", {{"compressor", nullptr}}},
+          {"schema",
+           {
+               {"domain", {{"shape", {20, 30, 40}}}},
+               {"dtype", "uint32"},
+           }},
+      },
+      {
+          {"domain", {{"shape", {{20}, {30}, {40}}}}},
+          {"dtype", "uint32"},
+          {"chunk_layout",
+           {
+               {"grid_origin", {0, 0, 0}},
+               {"inner_order", {0, 1, 2}},
+               {"chunk", {{"shape", {20, 30, 40}}}},
+           }},
+          {"codec",
+           {{"driver", "zarr"}, {"compressor", nullptr}, {"filters", nullptr}}},
+      });
 }
 
 }  // namespace

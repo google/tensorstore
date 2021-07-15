@@ -27,6 +27,7 @@
 #include "tensorstore/driver/zarr/metadata.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -54,9 +55,6 @@ class ZarrCodecSpec : public CodecSpec {
 Status ValidateMetadata(const ZarrMetadata& metadata,
                         const ZarrPartialMetadata& constraints);
 
-Result<ZarrMetadataPtr> GetNewMetadata(
-    const ZarrPartialMetadata& partial_metadata, DataType data_type_constraint);
-
 /// Specifies how chunk index vectors are encoded as keys.
 ///
 /// Index vectors are encoded in order as their base-10 ASCII representation,
@@ -77,6 +75,59 @@ TENSORSTORE_DECLARE_JSON_BINDER(ChunkKeyEncodingJsonBinder, ChunkKeyEncoding,
 /// fields.
 using SelectedField = std::string;
 
+/// Creates zarr metadata from the given constraints.
+///
+/// \param partial_metadata Constraints in the form of partial zarr metadata.
+/// \param selected_field The field to which `schema` applies.
+/// \param schema Schema constraints for the `selected_field`.
+Result<ZarrMetadataPtr> GetNewMetadata(
+    const ZarrPartialMetadata& partial_metadata,
+    const SelectedField& selected_field, const Schema& schema);
+
+struct SpecRankAndFieldInfo {
+  /// Full rank of the TensorStore, if known.  Equal to the chunked rank plus
+  /// the field rank.
+  DimensionIndex full_rank = dynamic_rank;
+
+  /// Number of chunked dimensions.
+  DimensionIndex chunked_rank = dynamic_rank;
+
+  /// Number of field dimensions.
+  DimensionIndex field_rank = dynamic_rank;
+
+  /// Data type field, or `nullptr` if unknown.
+  const ZarrDType::Field* field = nullptr;
+};
+
+absl::Status ValidateSpecRankAndFieldInfo(SpecRankAndFieldInfo& info);
+
+Result<SpecRankAndFieldInfo> GetSpecRankAndFieldInfo(
+    const ZarrPartialMetadata& metadata, const SelectedField& selected_field,
+    const Schema& schema);
+
+SpecRankAndFieldInfo GetSpecRankAndFieldInfo(const ZarrMetadata& metadata,
+                                             size_t field_index);
+
+/// Returns the combined domain from `metadata_shape` and `schema`.
+///
+/// \param info Rank and field information from metadata/schema.
+/// \param metadata_shape The `shape` metadata field, if specified.
+/// \param schema Schema constraints.
+Result<IndexDomain<>> GetDomainFromMetadata(
+    const SpecRankAndFieldInfo& info,
+    std::optional<span<const Index>> metadata_shape, const Schema& schema);
+
+absl::Status SetChunkLayoutFromMetadata(
+    const SpecRankAndFieldInfo& info, std::optional<span<const Index>> chunks,
+    std::optional<ContiguousLayoutOrder> order, ChunkLayout& chunk_layout);
+
+CodecSpec::Ptr GetCodecSpecFromMetadata(const ZarrMetadata& metadata);
+
+/// Validates that `schema` is compatible with the specified field of
+/// `metadata`.
+absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
+                                    size_t field_index, const Schema& schema);
+
 /// Parses a selected field JSON specification.
 ///
 /// The selected field specification indicates the single field in a multi-field
@@ -88,21 +139,16 @@ using SelectedField = std::string;
 /// \returns The selected field label, or an empty string if `value` is null.
 Result<SelectedField> ParseSelectedField(const ::nlohmann::json& value);
 
-/// Returns the numeric index of the field, and validates its data type.
+/// Returns the numeric index of the field.
 ///
 /// \param dtype The parsed zarr "dtype" specification.
-/// \param data_type_constraint If `data_type_constraint.valid() == true`,
-///     constrains the data type of the selected field.
 /// \param selected_field The label of the field, or an empty string to indicate
 ///     that the zarr array must have only a single field.
 /// \returns The field index.
 /// \error `absl::StatusCode::kFailedPrecondition` if `selected_field` is not
-///     valid for `dtype`.
-/// \error `absl::StatusCode::kFailedPrecondition` if `data_type_constraint` is
-///     not satisfied.
-Result<std::size_t> GetCompatibleField(const ZarrDType& dtype,
-                                       DataType data_type_constraint,
-                                       const SelectedField& selected_field);
+///     valid.
+Result<std::size_t> GetFieldIndex(const ZarrDType& dtype,
+                                  const SelectedField& selected_field);
 
 /// Encodes a field index as a `SelectedField` JSON specification.
 ///
@@ -115,6 +161,18 @@ Result<std::size_t> GetCompatibleField(const ZarrDType& dtype,
 ///     otherwise.
 SelectedField EncodeSelectedField(std::size_t field_index,
                                   const ZarrDType& dtype);
+
+/// Determines the order permutation for the given contiguous layout order
+/// value.
+///
+/// \param chunked_rank Number of (outer) chunked dimensions, which use the
+///     layout specified `order`.  The inner array dimensions are always in C
+///     (lexicographic) order.
+/// \param order The contiguous layout order value.
+/// \param permutation[out] Set to the permutation, specifies the full rank.
+void GetChunkInnerOrder(DimensionIndex chunked_rank,
+                        ContiguousLayoutOrder order,
+                        span<DimensionIndex> permutation);
 
 }  // namespace internal_zarr
 }  // namespace tensorstore

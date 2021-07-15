@@ -36,6 +36,7 @@ using tensorstore::float64_t;
 using tensorstore::Index;
 using tensorstore::kInfIndex;
 using tensorstore::MatchesStatus;
+using tensorstore::internal_zarr::ChooseBaseDType;
 using tensorstore::internal_zarr::ParseBaseDType;
 using tensorstore::internal_zarr::ParseDType;
 using tensorstore::internal_zarr::ZarrDType;
@@ -301,6 +302,48 @@ TEST(ParseDType, BytesPerOuterElementOverflow) {
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,
           "Total number of bytes per outer array element is too large"));
+}
+
+TEST(ChooseBaseDTypeTest, RoundTrip) {
+  constexpr tensorstore::DataType kSupportedDataTypes[] = {
+      dtype_v<bool>,
+      dtype_v<uint8_t>,
+      dtype_v<uint16_t>,
+      dtype_v<uint32_t>,
+      dtype_v<uint64_t>,
+      dtype_v<int8_t>,
+      dtype_v<int16_t>,
+      dtype_v<int32_t>,
+      dtype_v<int64_t>,
+      dtype_v<tensorstore::float16_t>,
+      dtype_v<tensorstore::bfloat16_t>,
+      dtype_v<tensorstore::float32_t>,
+      dtype_v<tensorstore::float64_t>,
+      dtype_v<tensorstore::complex64_t>,
+      dtype_v<tensorstore::complex128_t>,
+  };
+  for (auto dtype : kSupportedDataTypes) {
+    SCOPED_TRACE(tensorstore::StrCat("dtype=", dtype));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_zarr_dtype,
+                                     ChooseBaseDType(dtype));
+    EXPECT_EQ(dtype, base_zarr_dtype.dtype);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto parsed, ParseBaseDType(base_zarr_dtype.encoded_dtype));
+    EXPECT_EQ(dtype, parsed.dtype);
+    EXPECT_EQ(base_zarr_dtype.endian, parsed.endian);
+    EXPECT_EQ(base_zarr_dtype.flexible_shape, parsed.flexible_shape);
+    EXPECT_EQ(base_zarr_dtype.encoded_dtype, parsed.encoded_dtype);
+  }
+}
+
+TEST(ChooseBaseDTypeTest, Invalid) {
+  struct X {};
+  EXPECT_THAT(ChooseBaseDType(dtype_v<X>),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Data type not supported: .*"));
+  EXPECT_THAT(ChooseBaseDType(dtype_v<tensorstore::string_t>),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Data type not supported: string"));
 }
 
 }  // namespace

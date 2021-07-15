@@ -89,7 +89,7 @@ struct ZarrDType {
     std::string name;
 
     /// The inner array dimensions of this field, equal to the concatenation of
-    ///  `outer_shape` and `flexible_shape`.
+    ///  `outer_shape` and `flexible_shape` (derived value).
     std::vector<Index> field_shape;
 
     /// Product of `field_shape` dimensions (derived value).
@@ -111,7 +111,7 @@ struct ZarrDType {
   /// Decoded representation of the fields.
   std::vector<Field> fields;
 
-  /// Bytes per "outer" element.
+  /// Bytes per "outer" element (derived value).
   Index bytes_per_outer_element;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrDType,
@@ -126,10 +126,22 @@ struct ZarrDType {
 /// \error `absl::StatusCode::kInvalidArgument` if `value` is not valid.
 Result<ZarrDType> ParseDType(const ::nlohmann::json& value);
 
+/// Validates `dtype and computes derived values.
+///
+/// \error `absl::StatusCode::kInvalidArgument` if two fields have the same
+///     name.
+/// \error `absl::StatusCode::kInvalidArgument` if the field size is too large.
+absl::Status ValidateDType(ZarrDType& dtype);
+
 /// Parses a NumPy typestr, which is used in the zarr "dtype" specification.
 ///
 /// \error `absl::StatusCode::kInvalidArgument` if `dtype` is not valid.
 Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype);
+
+/// Chooses a zarr data type corresponding to `dtype`.
+///
+/// Always chooses native endian.
+Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype);
 
 }  // namespace internal_zarr
 }  // namespace tensorstore

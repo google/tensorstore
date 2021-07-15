@@ -755,4 +755,98 @@ TEST(TensorStoreCreateCheckSchemaTest, Basic) {
       });
 }
 
+TEST(DownsampleTest, DomainSpecified) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_spec,
+                                   tensorstore::Spec::FromJson({
+                                       {"driver", "zarr"},
+                                       {"kvstore", {{"driver", "memory"}}},
+                                   }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto downsampled_spec,
+      tensorstore::Downsample(base_spec, {2, 1}, DownsampleMethod::kMean));
+  TENSORSTORE_ASSERT_OK(
+      downsampled_spec.Set(tensorstore::Schema::Shape({10, 10})));
+  EXPECT_THAT(downsampled_spec.ToJson(),
+              ::testing::Optional(MatchesJson({
+                  {"driver", "downsample"},
+                  {"base",
+                   {
+                       {"driver", "zarr"},
+                       {"kvstore", {{"driver", "memory"}}},
+                       {"schema",
+                        {
+                            {"domain",
+                             {{"inclusive_min", {{"-inf"}, 0}},
+                              {"exclusive_max", {{"+inf"}, 10}}}},
+                        }},
+                       {"transform",
+                        {
+                            {"input_exclusive_max", {{"+inf"}, {10}}},
+                            {"input_inclusive_min", {0, 0}},
+                        }},
+                   }},
+                  {"downsample_factors", {2, 1}},
+                  {"downsample_method", "mean"},
+                  {"schema",
+                   {
+                       {"domain",
+                        {
+                            {"inclusive_min", {0, 0}},
+                            {"exclusive_max", {10, 10}},
+                        }},
+                   }},
+                  {"transform",
+                   {{"input_exclusive_max", {10, 10}},
+                    {"input_inclusive_min", {0, 0}}}},
+              })));
+}
+
+TEST(DownsampleTest, FillValueNotSpecified) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store,
+      tensorstore::Open(
+          {
+              {"driver", "zarr"},
+              {"kvstore", {{"driver", "memory"}}},
+              {"metadata", {{"dtype", {{"x", "<u4", {4, 3}}}}}},
+          },
+          tensorstore::OpenMode::create,
+          tensorstore::Schema::Shape({100, 4, 3}))
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Downsample(base_store, {1, 2, 1},
+                              tensorstore::DownsampleMethod::kMean));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto fill_value, store.fill_value());
+  EXPECT_FALSE(fill_value.valid());
+}
+
+TEST(DownsampleTest, FillValueSpecified) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store,
+      tensorstore::Open(
+          {
+              {"driver", "zarr"},
+              {"kvstore", {{"driver", "memory"}}},
+              {"metadata", {{"dtype", {{"x", "<u4", {4, 3}}}}}},
+          },
+          tensorstore::OpenMode::create,
+          tensorstore::Schema::Shape({100, 4, 3}),
+          tensorstore::Schema::FillValue(tensorstore::MakeArray<uint32_t>(
+              {{1, 2, 3}, {40, 50, 60}, {7, 8, 9}, {100, 110, 120}})))
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Downsample(base_store, {1, 2, 1},
+                              tensorstore::DownsampleMethod::kMean));
+  EXPECT_THAT(store.fill_value(),
+              ::testing::Optional(tensorstore::MakeArray<uint32_t>(
+                  {{20, 26, 32}, {54, 59, 64}})));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto transformed, store | tensorstore::Dims(2).SizedInterval(1, 2));
+  EXPECT_THAT(transformed.fill_value(),
+              ::testing::Optional(
+                  tensorstore::MakeArray<uint32_t>({{26, 32}, {59, 64}})));
+}
+
 }  // namespace

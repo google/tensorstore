@@ -19,17 +19,22 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/driver/zarr/metadata.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
+using tensorstore::ChunkLayout;
 using tensorstore::CodecSpec;
+using tensorstore::dtype_v;
+using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
+using tensorstore::Schema;
 using tensorstore::internal_zarr::ChunkKeyEncoding;
 using tensorstore::internal_zarr::ChunkKeyEncodingJsonBinder;
-using tensorstore::internal_zarr::GetCompatibleField;
+using tensorstore::internal_zarr::GetFieldIndex;
 using tensorstore::internal_zarr::ParseDType;
 using tensorstore::internal_zarr::ParseSelectedField;
 using tensorstore::internal_zarr::SelectedField;
@@ -193,58 +198,38 @@ TEST(ParseSelectedFieldTest, InvalidType) {
                     "Expected null or non-empty string, but received: true"));
 }
 
-TEST(GetCompatibleFieldTest, Null) {
-  EXPECT_EQ(0u, GetCompatibleField(ParseDType("<i4").value(),
-                                   /*data_type_constraint=*/{},
-                                   /*selected_field=*/SelectedField()));
-  EXPECT_EQ(0u, GetCompatibleField(ParseDType("<i4").value(),
-                                   /*data_type_constraint=*/
-                                   tensorstore::dtype_v<std::int32_t>,
-                                   /*selected_field=*/SelectedField()));
+TEST(GetFieldIndexTest, Null) {
+  EXPECT_EQ(0u, GetFieldIndex(ParseDType("<i4").value(), SelectedField()));
   EXPECT_THAT(
-      GetCompatibleField(ParseDType("<i4").value(),
-                         /*data_type_constraint=*/
-                         tensorstore::dtype_v<std::uint32_t>,
-                         /*selected_field=*/SelectedField()),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Expected field to have data type of uint32 but the actual "
-                    "data type is: int32"));
-  EXPECT_THAT(
-      GetCompatibleField(
+      GetFieldIndex(
           ParseDType(::nlohmann::json::array_t{{"x", "<i4"}, {"y", "<u2"}})
               .value(),
-          /*data_type_constraint=*/{},
-          /*selected_field=*/SelectedField()),
+          SelectedField()),
       MatchesStatus(
           absl::StatusCode::kFailedPrecondition,
           "Must specify a \"field\" that is one of: \\[\"x\",\"y\"\\]"));
 }
 
-TEST(GetCompatibleFieldTest, String) {
+TEST(GetFieldIndexTest, String) {
   EXPECT_THAT(
-      GetCompatibleField(ParseDType("<i4").value(),
-                         /*data_type_constraint=*/{},
-                         /*selected_field=*/"x"),
+      GetFieldIndex(ParseDType("<i4").value(), "x"),
       MatchesStatus(
           absl::StatusCode::kFailedPrecondition,
           "Requested field \"x\" but dtype does not have named fields"));
-  EXPECT_EQ(0u, GetCompatibleField(ParseDType(::nlohmann::json::array_t{
-                                                  {"x", "<i4"}, {"y", "<u2"}})
-                                       .value(),
-                                   /*data_type_constraint=*/{},
-                                   /*selected_field=*/"x"));
-  EXPECT_EQ(1u, GetCompatibleField(ParseDType(::nlohmann::json::array_t{
-                                                  {"x", "<i4"}, {"y", "<u2"}})
-                                       .value(),
-                                   /*data_type_constraint=*/{},
-                                   /*selected_field=*/"y"));
+  EXPECT_EQ(0u, GetFieldIndex(ParseDType(::nlohmann::json::array_t{
+                                             {"x", "<i4"}, {"y", "<u2"}})
+                                  .value(),
+                              "x"));
+  EXPECT_EQ(1u, GetFieldIndex(ParseDType(::nlohmann::json::array_t{
+                                             {"x", "<i4"}, {"y", "<u2"}})
+                                  .value(),
+                              "y"));
 
   EXPECT_THAT(
-      GetCompatibleField(
+      GetFieldIndex(
           ParseDType(::nlohmann::json::array_t{{"x", "<i4"}, {"y", "<u2"}})
               .value(),
-          /*data_type_constraint=*/{},
-          /*selected_field=*/"z"),
+          "z"),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
                     "Requested field \"z\" is not one of: \\[\"x\",\"y\"\\]"));
 }
@@ -263,63 +248,443 @@ TEST(EncodeSelectedFieldTest, Empty) {
   EXPECT_EQ("", EncodeSelectedField(0, dtype));
 }
 
-TEST(GetNewMetadataTest, NoShape) {
-  EXPECT_THAT(
-      GetNewMetadata(
-          ZarrPartialMetadata::FromJson(
-              {{"chunks", {2, 3}}, {"dtype", "<i4"}, {"compressor", nullptr}})
-              .value(),
-          /*data_type_constraint=*/{}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "\"shape\" must be specified"));
+template <typename... Option>
+tensorstore::Result<::nlohmann::json> GetNewMetadataFromOptions(
+    ::nlohmann::json partial_metadata_json, std::string selected_field,
+    Option&&... option) {
+  Schema schema;
+  if (absl::Status status;
+      !((status = schema.Set(std::forward<Option>(option))).ok() && ...)) {
+    return status;
+  }
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto partial_metadata,
+      ZarrPartialMetadata::FromJson(partial_metadata_json));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto new_metadata,
+      GetNewMetadata(partial_metadata, selected_field, schema));
+  return new_metadata->ToJson();
 }
 
-TEST(GetNewMetadataTest, NoChunks) {
+TEST(GetNewMetadataTest, FullMetadata) {
+  EXPECT_THAT(GetNewMetadataFromOptions({{"chunks", {8, 10}},
+                                         {"dtype", "<i4"},
+                                         {"compressor", nullptr},
+                                         {"shape", {5, 6}}},
+                                        /*selected_field=*/{}),
+              ::testing::Optional(MatchesJson({
+                  {"chunks", {8, 10}},
+                  {"compressor", nullptr},
+                  {"dtype", "<i4"},
+                  {"fill_value", nullptr},
+                  {"filters", nullptr},
+                  {"order", "C"},
+                  {"shape", {5, 6}},
+                  {"zarr_format", 2},
+              })));
+}
+
+TEST(GetNewMetadataTest, NoShape) {
   EXPECT_THAT(
-      GetNewMetadata(
-          ZarrPartialMetadata::FromJson(
-              {{"shape", {2, 3}}, {"dtype", "<i4"}, {"compressor", nullptr}})
-              .value(),
-          /*data_type_constraint=*/{}),
+      GetNewMetadataFromOptions(
+          {{"chunks", {2, 3}}, {"dtype", "<i4"}, {"compressor", nullptr}},
+          /*selected_field=*/{}),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "\"chunks\" must be specified"));
+                    "domain must be specified"));
+}
+
+TEST(GetNewMetadataTest, AutomaticChunks) {
+  EXPECT_THAT(
+      GetNewMetadataFromOptions(
+          {{"shape", {2, 3}}, {"dtype", "<i4"}, {"compressor", nullptr}},
+          /*selected_field=*/{}),
+      ::testing::Optional(MatchesJson({
+          {"chunks", {2, 3}},
+          {"compressor", nullptr},
+          {"dtype", "<i4"},
+          {"fill_value", nullptr},
+          {"filters", nullptr},
+          {"order", "C"},
+          {"shape", {2, 3}},
+          {"zarr_format", 2},
+      })));
 }
 
 TEST(GetNewMetadataTest, NoDtype) {
   EXPECT_THAT(
-      GetNewMetadata(
-          ZarrPartialMetadata::FromJson(
-              {{"shape", {2, 3}}, {"chunks", {2, 3}}, {"compressor", nullptr}})
-              .value(),
-          /*data_type_constraint=*/{}),
+      GetNewMetadataFromOptions(
+          {{"shape", {2, 3}}, {"chunks", {2, 3}}, {"compressor", nullptr}},
+          /*selected_field=*/{}),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "\"dtype\" must be specified"));
 }
 
 TEST(GetNewMetadataTest, NoCompressor) {
-  EXPECT_THAT(GetNewMetadata(
-                  ZarrPartialMetadata::FromJson(
-                      {{"shape", {2, 3}}, {"chunks", {2, 3}}, {"dtype", "<i4"}})
-                      .value(),
-                  /*data_type_constraint=*/{}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "\"compressor\" must be specified"));
+  EXPECT_THAT(GetNewMetadataFromOptions(
+                  {{"shape", {2, 3}}, {"chunks", {2, 3}}, {"dtype", "<i4"}},
+                  /*selected_field=*/{}),
+              ::testing::Optional(MatchesJson({
+                  {"fill_value", nullptr},
+                  {"filters", nullptr},
+                  {"zarr_format", 2},
+                  {"order", "C"},
+                  {"shape", {2, 3}},
+                  {"chunks", {2, 3}},
+                  {"dtype", "<i4"},
+                  {"compressor",
+                   {
+                       {"id", "blosc"},
+                       {"cname", "lz4"},
+                       {"clevel", 5},
+                       {"blocksize", 0},
+                       {"shuffle", -1},
+                   }},
+              })));
 }
 
 TEST(GetNewMetadataTest, IntegerOverflow) {
   EXPECT_THAT(
-      GetNewMetadata(
-          ZarrPartialMetadata::FromJson(
-              {{"shape", {4611686018427387903, 4611686018427387903}},
-               {"chunks", {4611686018427387903, 4611686018427387903}},
-               {"dtype", "<i4"},
-               {"compressor", nullptr}})
-              .value(),
-          /*data_type_constraint=*/{}),
+      GetNewMetadataFromOptions(
+          {{"shape", {4611686018427387903, 4611686018427387903}},
+           {"chunks", {4611686018427387903, 4611686018427387903}},
+           {"dtype", "<i4"},
+           {"compressor", nullptr}},
+          /*selected_field=*/{}),
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,
           "Product of chunk dimensions "
           "\\{4611686018427387903, 4611686018427387903\\} is too large"));
+}
+
+TEST(GetNewMetadataTest, SchemaDomainDtype) {
+  EXPECT_THAT(GetNewMetadataFromOptions(::nlohmann::json::object_t(),
+                                        /*selected_field=*/{},
+                                        tensorstore::IndexDomainBuilder(3)
+                                            .shape({1000, 2000, 3000})
+                                            .Finalize()
+                                            .value(),
+                                        dtype_v<int32_t>),
+              ::testing::Optional(MatchesJson({
+                  {"fill_value", nullptr},
+                  {"filters", nullptr},
+                  {"zarr_format", 2},
+                  {"order", "C"},
+                  {"shape", {1000, 2000, 3000}},
+                  {"chunks", {102, 102, 102}},
+                  {"dtype", "<i4"},
+                  {"compressor",
+                   {
+                       {"id", "blosc"},
+                       {"cname", "lz4"},
+                       {"clevel", 5},
+                       {"blocksize", 0},
+                       {"shuffle", -1},
+                   }},
+              })));
+}
+
+TEST(GetNewMetadataTest, SchemaDomainDtypeFillValue) {
+  EXPECT_THAT(GetNewMetadataFromOptions(
+                  ::nlohmann::json::object_t(),
+                  /*selected_field=*/{},
+                  tensorstore::IndexDomainBuilder(3)
+                      .shape({1000, 2000, 3000})
+                      .Finalize()
+                      .value(),
+                  dtype_v<int32_t>,
+                  Schema::FillValue{tensorstore::MakeScalarArray<int32_t>(5)}),
+              ::testing::Optional(MatchesJson({
+                  {"fill_value", 5},
+                  {"filters", nullptr},
+                  {"zarr_format", 2},
+                  {"order", "C"},
+                  {"shape", {1000, 2000, 3000}},
+                  {"chunks", {102, 102, 102}},
+                  {"dtype", "<i4"},
+                  {"compressor",
+                   {
+                       {"id", "blosc"},
+                       {"cname", "lz4"},
+                       {"clevel", 5},
+                       {"blocksize", 0},
+                       {"shuffle", -1},
+                   }},
+              })));
+}
+
+TEST(GetNewMetadataTest, SchemaObjectWithDomainDtypeFillValue) {
+  Schema schema;
+  TENSORSTORE_ASSERT_OK(schema.Set(tensorstore::IndexDomainBuilder(3)
+                                       .shape({1000, 2000, 3000})
+                                       .Finalize()
+                                       .value()));
+  TENSORSTORE_ASSERT_OK(schema.Set(dtype_v<int32_t>));
+  TENSORSTORE_ASSERT_OK(
+      schema.Set(Schema::FillValue{tensorstore::MakeScalarArray<int32_t>(5)}));
+  EXPECT_THAT(GetNewMetadataFromOptions(::nlohmann::json::object_t(),
+                                        /*selected_field=*/{}, schema),
+              ::testing::Optional(MatchesJson({
+                  {"fill_value", 5},
+                  {"filters", nullptr},
+                  {"zarr_format", 2},
+                  {"order", "C"},
+                  {"shape", {1000, 2000, 3000}},
+                  {"chunks", {102, 102, 102}},
+                  {"dtype", "<i4"},
+                  {"compressor",
+                   {
+                       {"id", "blosc"},
+                       {"cname", "lz4"},
+                       {"clevel", 5},
+                       {"blocksize", 0},
+                       {"shuffle", -1},
+                   }},
+              })));
+}
+
+TEST(GetNewMetadataTest, SchemaDtypeShapeCodec) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec,
+      CodecSpec::Ptr::FromJson({{"driver", "zarr"}, {"compressor", nullptr}}));
+  EXPECT_THAT(GetNewMetadataFromOptions(::nlohmann::json::object_t(),
+                                        /*selected_field=*/{},
+                                        Schema::Shape({100, 200}),
+                                        dtype_v<int32_t>, codec),
+              ::testing::Optional(MatchesJson({
+                  {"fill_value", nullptr},
+                  {"filters", nullptr},
+                  {"zarr_format", 2},
+                  {"order", "C"},
+                  {"shape", {100, 200}},
+                  {"chunks", {100, 200}},
+                  {"dtype", "<i4"},
+                  {"compressor", nullptr},
+              })));
+}
+
+TEST(GetNewMetadataTest, SchemaDtypeInnerOrderC) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec,
+      CodecSpec::Ptr::FromJson({{"driver", "zarr"}, {"compressor", nullptr}}));
+  EXPECT_THAT(GetNewMetadataFromOptions(
+                  ::nlohmann::json::object_t(),
+                  /*selected_field=*/{}, Schema::Shape({100, 200}),
+                  ChunkLayout::InnerOrder({0, 1}), dtype_v<int32_t>, codec),
+              ::testing::Optional(MatchesJson({
+                  {"fill_value", nullptr},
+                  {"filters", nullptr},
+                  {"zarr_format", 2},
+                  {"order", "C"},
+                  {"shape", {100, 200}},
+                  {"chunks", {100, 200}},
+                  {"dtype", "<i4"},
+                  {"compressor", nullptr},
+              })));
+}
+
+TEST(GetNewMetadataTest, SchemaDtypeInnerOrderFortran) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec,
+      CodecSpec::Ptr::FromJson({{"driver", "zarr"}, {"compressor", nullptr}}));
+  EXPECT_THAT(GetNewMetadataFromOptions(
+                  ::nlohmann::json::object_t(),
+                  /*selected_field=*/{}, Schema::Shape({100, 200}),
+                  ChunkLayout::InnerOrder({1, 0}), dtype_v<int32_t>, codec),
+              ::testing::Optional(MatchesJson({
+                  {"fill_value", nullptr},
+                  {"filters", nullptr},
+                  {"zarr_format", 2},
+                  {"order", "F"},
+                  {"shape", {100, 200}},
+                  {"chunks", {100, 200}},
+                  {"dtype", "<i4"},
+                  {"compressor", nullptr},
+              })));
+}
+
+TEST(GetNewMetadataTest, SchemaDtypeInnerOrderFortranFieldShape) {
+  EXPECT_THAT(GetNewMetadataFromOptions(
+                  {
+                      {"compressor", nullptr},
+                      {"dtype", {{"x", "<u4", {2, 3}}}},
+                  },
+                  /*selected_field=*/"x", Schema::Shape({100, 200, 2, 3}),
+                  ChunkLayout::InnerOrder({1, 0, 2, 3})),
+              ::testing::Optional(MatchesJson({
+                  {"fill_value", nullptr},
+                  {"filters", nullptr},
+                  {"zarr_format", 2},
+                  {"order", "F"},
+                  {"shape", {100, 200}},
+                  {"chunks", {100, 200}},
+                  {"dtype", {{"x", "<u4", {2, 3}}}},
+                  {"compressor", nullptr},
+              })));
+}
+
+TEST(GetNewMetadataTest, SchemaDtypeInnerOrderInvalid) {
+  EXPECT_THAT(
+      GetNewMetadataFromOptions(
+          ::nlohmann::json::object_t(),
+          /*selected_field=*/{}, Schema::Shape({100, 200, 300}),
+          ChunkLayout::InnerOrder({2, 0, 1}), dtype_v<int32_t>),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Invalid \"inner_order\" constraint: \\{2, 0, 1\\}"));
+}
+
+TEST(GetNewMetadataTest, SchemaDtypeInnerOrderInvalidSoft) {
+  EXPECT_THAT(GetNewMetadataFromOptions(
+                  {{"compressor", nullptr}},
+                  /*selected_field=*/{}, Schema::Shape({100, 200, 300}),
+                  ChunkLayout::InnerOrder({2, 0, 1}, /*hard_constraint=*/false),
+                  dtype_v<int32_t>),
+              ::testing::Optional(MatchesJson({
+                  {"fill_value", nullptr},
+                  {"filters", nullptr},
+                  {"zarr_format", 2},
+                  {"order", "C"},
+                  {"shape", {100, 200, 300}},
+                  {"chunks", {100, 102, 102}},
+                  {"dtype", "<i4"},
+                  {"compressor", nullptr},
+              })));
+}
+
+TEST(GetNewMetadataTest, SchemaStructuredDtypeInvalidFillValue) {
+  EXPECT_THAT(
+      GetNewMetadataFromOptions(
+          {{"dtype", ::nlohmann::json::array_t{{"x", "<u4"}, {"y", "<i4"}}}},
+          /*selected_field=*/"x", Schema::Shape({100, 200}),
+          Schema::FillValue(tensorstore::MakeScalarArray<uint32_t>(42))),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "Invalid fill_value: Cannot specify fill_value through schema for "
+          "structured zarr data type \\[.*"));
+}
+
+TEST(GetNewMetadataTest, SchemaFillValueMismatch) {
+  EXPECT_THAT(
+      GetNewMetadataFromOptions(
+          {{"dtype", "<u4"}, {"fill_value", 42}},
+          /*selected_field=*/{}, Schema::Shape({100, 200}),
+          Schema::FillValue(tensorstore::MakeScalarArray<uint32_t>(43))),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Invalid fill_value: .*"));
+}
+
+TEST(GetNewMetadataTest, SchemaFillValueMismatchNull) {
+  EXPECT_THAT(
+      GetNewMetadataFromOptions(
+          {{"dtype", "<u4"}, {"fill_value", nullptr}},
+          /*selected_field=*/{}, Schema::Shape({100, 200}),
+          Schema::FillValue(tensorstore::MakeScalarArray<uint32_t>(42))),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Invalid fill_value: .*"));
+}
+
+TEST(GetNewMetadataTest, SchemaFillValueRedundant) {
+  EXPECT_THAT(
+      GetNewMetadataFromOptions(
+          {
+              {"dtype", "<u4"},
+              {"fill_value", 42},
+              {"compressor", nullptr},
+          },
+          /*selected_field=*/{}, Schema::Shape({100, 200}),
+          Schema::FillValue(tensorstore::MakeScalarArray<uint32_t>(42))),
+      ::testing::Optional(MatchesJson({
+          {"fill_value", 42},
+          {"filters", nullptr},
+          {"zarr_format", 2},
+          {"order", "C"},
+          {"shape", {100, 200}},
+          {"chunks", {100, 200}},
+          {"dtype", "<u4"},
+          {"compressor", nullptr},
+      })));
+}
+
+TEST(GetNewMetadataTest, SchemaCodecChunkShape) {
+  EXPECT_THAT(GetNewMetadataFromOptions(
+                  ::nlohmann::json::object_t{},
+                  /*selected_field=*/{}, Schema::Shape({100, 200}),
+                  dtype_v<uint32_t>, ChunkLayout::CodecChunkShape({5, 6})),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "codec_chunk_shape not supported"));
+}
+
+TEST(GetNewMetadataTest, CodecMismatch) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec,
+      CodecSpec::Ptr::FromJson({{"driver", "zarr"}, {"compressor", nullptr}}));
+  EXPECT_THAT(
+      GetNewMetadataFromOptions({{"compressor", {{"id", "blosc"}}}},
+                                /*selected_field=*/{},
+                                Schema::Shape({100, 200}), dtype_v<int32_t>,
+                                codec),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "Cannot merge codec spec .* with .*: \"compressor\" does not match"));
+}
+
+TEST(GetNewMetadataTest, SelectedFieldDtypeNotSpecified) {
+  EXPECT_THAT(
+      GetNewMetadataFromOptions(::nlohmann::json::object_t(),
+                                /*selected_field=*/"x",
+                                Schema::Shape({100, 200}), dtype_v<int32_t>),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "\"dtype\" must be specified in \"metadata\" if "
+                    "\"field\" is specified"));
+}
+
+TEST(GetNewMetadataTest, SelectedFieldInvalid) {
+  EXPECT_THAT(
+      GetNewMetadataFromOptions({{"dtype", {{"x", "<u4", {2}}, {"y", "<i4"}}}},
+                                /*selected_field=*/"z",
+                                Schema::Shape({100, 200})),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                    "Requested field \"z\" is not one of: \\[\"x\",\"y\"\\]"));
+}
+
+TEST(GetNewMetadataTest, InvalidDtype) {
+  EXPECT_THAT(GetNewMetadataFromOptions(::nlohmann::json::object_t(),
+                                        /*selected_field=*/{},
+                                        dtype_v<tensorstore::json_t>,
+                                        Schema::Shape({100, 200})),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Data type not supported: json"));
+}
+
+TEST(GetNewMetadataTest, InvalidDomain) {
+  EXPECT_THAT(
+      GetNewMetadataFromOptions(::nlohmann::json::object_t(),
+                                /*selected_field=*/{},
+                                dtype_v<tensorstore::int32_t>,
+                                tensorstore::IndexDomainBuilder(2)
+                                    .origin({1, 2})
+                                    .shape({100, 200})
+                                    .Finalize()
+                                    .value()),
+      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid domain: .*"));
+}
+
+TEST(GetNewMetadataTest, DomainIncompatibleWithFieldShape) {
+  EXPECT_THAT(
+      GetNewMetadataFromOptions({{"dtype", {{"x", "<u4", {2, 3}}}}},
+                                /*selected_field=*/"x",
+                                Schema::Shape({100, 200, 2, 4})),
+      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid domain: .*"));
+}
+
+TEST(GetNewMetadataTest, DomainIncompatibleWithMetadataRank) {
+  EXPECT_THAT(
+      GetNewMetadataFromOptions({{"chunks", {100, 100}}},
+                                /*selected_field=*/{},
+                                dtype_v<tensorstore::int32_t>,
+                                Schema::Shape({100, 200, 300})),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "Rank specified by schema \\(3\\) is not compatible with metadata"));
 }
 
 TEST(ValidateMetadataTest, Success) {

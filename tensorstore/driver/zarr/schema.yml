@@ -29,12 +29,12 @@ allOf:
     metadata:
       title: Zarr array metadata.
       description: |
-        Specifies the metadata of a new array exactly as in the `.zarray
+        Specifies constraints on the metadata, exactly as in the `.zarray
         metadata file
         <https://zarr.readthedocs.io/en/stable/spec/v2.html#metadata>`_, except
-        that not all members are required.  Required when creating a new array.
-        When opening an existing array, specifies constraints on the existing
-        metadata.
+        that all members are optional.  When creating a new array, the new
+        metadata is obtained by combining these metadata constraints with any
+        `Schema` constraints.
       allOf:
       - type: object
         properties:
@@ -45,9 +45,18 @@ allOf:
             items:
               type: integer
               minimum: 0
-            title: Dimensions of the array.
+            title: Chunked dimensions of the array.
             description: |
-              Required when creating a new array.
+              Required when creating a new array if the `Schema.domain` is not
+              otherwise specified.
+
+              .. note:
+
+                 This only specifies the *chunked* dimensions of the array;
+                 *subarray* dimensions specified by `structured data types
+                 <https://zarr.readthedocs.io/en/stable/spec/v2.html#data-type-encoding>`_
+                 are not included.  In contrast, the `Schema.domain` includes
+                 both chunked dimensions and subarray dimensions.
             examples:
             - [500, 500, 500]
           chunks:
@@ -57,12 +66,14 @@ allOf:
               minimum: 1
             title: Chunk dimensions.
             description: |
-              Required when creating a new array.  Must have the same length as
-              `.shape`.
+              Specifies the chunk size for each chunked dimension.  Must have
+              the same length as `.shape`.  If not specified when creating a new
+              array, the chunk dimensions are chosen automatically according to
+              the `Schema.chunk_layout`.
             examples:
             - [64, 64, 64]
           dtype:
-            title: Specifies the single-field or multiple-field data type.
+            title: Specifies the scalar or structured data type.
             description: |
               Refer to the `Zarr data type encoding specification
               <https://zarr.readthedocs.io/en/stable/spec/v2.html#data-type-encoding>`_.
@@ -114,7 +125,8 @@ definitions:
         - type: 'null'
         description: |
           Specifies the chunk compressor.  Specifying :json:`null` disables
-          compression.  Required when creating a new array.
+          compression.  When creating a new array, if not specified, the default
+          compressor of :json:`{"id": "blosc"}` is used.
         title: Specifies the chunk compression method.
       filters:
         type: 'null'
