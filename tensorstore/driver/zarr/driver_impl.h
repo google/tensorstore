@@ -36,7 +36,7 @@ namespace internal_zarr {
 
 /// Encodes a chunk grid index vector as a storage key suffix.
 std::string EncodeChunkIndices(span<const Index> indices,
-                               ChunkKeyEncoding key_encoding);
+                               DimensionSeparator dimension_separator);
 
 }  // namespace internal_zarr
 }  // namespace tensorstore

@@ -40,7 +40,7 @@ using tensorstore::Result;
 using tensorstore::span;
 using tensorstore::TransactionMode;
 using tensorstore::internal_kvs_backed_chunk_driver::ResizeParameters;
-using tensorstore::internal_zarr::ChunkKeyEncoding;
+using tensorstore::internal_zarr::DimensionSeparator;
 using tensorstore::internal_zarr::ZarrMetadata;
 
 Result<tensorstore::IndexTransform<>> ResolveBoundsFromMetadata(
@@ -88,12 +88,12 @@ Result<ResizeParameters> GetResizeParameters(
 
 TEST(EncodeChunkIndicesTest, DotSeparated) {
   EXPECT_EQ("1.2.3", EncodeChunkIndices(span<const Index>({1, 2, 3}),
-                                        ChunkKeyEncoding::kDotSeparated));
+                                        DimensionSeparator::kDotSeparated));
 }
 
 TEST(EncodeChunkIndicesTest, SlashSeparated) {
   EXPECT_EQ("1/2/3", EncodeChunkIndices(span<const Index>({1, 2, 3}),
-                                        ChunkKeyEncoding::kSlashSeparated));
+                                        DimensionSeparator::kSlashSeparated));
 }
 
 TEST(ResolveBoundsFromMetadataTest, Basic) {

@@ -15,17 +15,6 @@ allOf:
         Must be specified if the `.metadata.dtype` specified in the array
         metadata has more than one field.
       default: null
-    key_encoding:
-      enum:
-      - .
-      - /
-      type: string
-      default: .
-      title: Specifies the encoding of chunk indices into key-value store keys.
-      description: |
-        The default value of :json:`"."` corresponds to the default encoding
-        used by Zarr, while :json:`"/"` corresponds to the encoding used by
-        :py:obj:`zarr.storage.NestedDirectoryStore`.
     metadata:
       title: Zarr array metadata.
       description: |
@@ -93,6 +82,26 @@ allOf:
               :json:`"C"` for C order, :json:`"F"` for Fortran order.  When
               creating a new array, defaults to :json:`"C"`.
       - $ref: "#codec-properties"
+      - type: object
+        properties:
+          dimension_separator:
+            enum:
+              - "."
+              - "/"
+            title: Specifies the encoding of chunk indices into key-value store keys.
+            description: |
+              The default value of :json:`"."` corresponds to the default encoding
+              used by Zarr, while :json:`"/"` corresponds to the encoding used by
+              :py:obj:`zarr.storage.NestedDirectoryStore`.
+    key_encoding:
+      enum:
+      - .
+      - /
+      type: string
+      default: .
+      title: Specifies the encoding of chunk indices into key-value store keys.
+      description: |
+        Deprecated.  Equivalent to specifying `.metadata.dimension_separator`.
 examples:
 - driver: zarr
   "kvstore":

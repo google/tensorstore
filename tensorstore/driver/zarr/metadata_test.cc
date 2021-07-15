@@ -35,6 +35,8 @@ using tensorstore::float16_t;
 using tensorstore::MakeArray;
 using tensorstore::MakeScalarArray;
 using tensorstore::MatchesStatus;
+using tensorstore::internal_zarr::DimensionSeparator;
+using tensorstore::internal_zarr::DimensionSeparatorJsonBinder;
 using tensorstore::internal_zarr::EncodeFillValue;
 using tensorstore::internal_zarr::OrderJsonBinder;
 using tensorstore::internal_zarr::ParseDType;
@@ -690,6 +692,24 @@ TEST(ParseMetadataTest, InvalidRank) {
        MatchesStatus(absl::StatusCode::kInvalidArgument,
                      ".*: Rank 33 is outside valid range \\[0, 32\\]")},
   });
+}
+
+TEST(DimensionSeparatorTest, JsonBinderTest) {
+  tensorstore::TestJsonBinderRoundTrip<DimensionSeparator>(
+      {
+          {DimensionSeparator::kDotSeparated, "."},
+          {DimensionSeparator::kSlashSeparated, "/"},
+      },
+      DimensionSeparatorJsonBinder);
+}
+
+TEST(DimensionSeparatorTest, JsonBinderTestInvalid) {
+  tensorstore::TestJsonBinderFromJson<DimensionSeparator>(
+      {
+          {"x", MatchesStatus(absl::StatusCode::kInvalidArgument)},
+          {3, MatchesStatus(absl::StatusCode::kInvalidArgument)},
+      },
+      DimensionSeparatorJsonBinder);
 }
 
 }  // namespace

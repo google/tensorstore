@@ -36,6 +36,19 @@ TENSORSTORE_DEFINE_JSON_BINDER(
     jb::Enum<ContiguousLayoutOrder, std::string_view>({{c_order, "C"},
                                                        {fortran_order, "F"}}))
 
+TENSORSTORE_DEFINE_JSON_BINDER(DimensionSeparatorJsonBinder,
+                               jb::Enum<DimensionSeparator, std::string_view>(
+                                   {{DimensionSeparator::kDotSeparated, "."},
+                                    {DimensionSeparator::kSlashSeparated,
+                                     "/"}}))
+
+void to_json(::nlohmann::json& out, DimensionSeparator value) {
+  DimensionSeparatorJsonBinder(/*is_loading=*/std::false_type{},
+                               /*options=*/internal_json_binding::NoOptions{},
+                               &value, &out)
+      .IgnoreError();
+}
+
 namespace {
 
 Result<double> DecodeFloat(const nlohmann::json& j) {
@@ -301,8 +314,18 @@ constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
                        }))),
         jb::Member("order",
                    jb::Projection(&T::order, maybe_optional(OrderJsonBinder))),
-        jb::Member("filters", jb::Projection(&T::filters)))(is_loading, options,
-                                                            obj, j);
+        jb::Member("filters", jb::Projection(&T::filters)),
+        jb::Member("dimension_separator",
+                   jb::Projection(&T::dimension_separator,
+                                  jb::Optional(DimensionSeparatorJsonBinder))),
+        [](auto is_loading, const auto& options, auto* obj, auto* j) {
+          if constexpr (std::is_same_v<T, ZarrMetadata>) {
+            return jb::DefaultBinder<>(is_loading, options, &obj->extra_members,
+                                       j);
+          } else {
+            return absl::OkStatus();
+          }
+        })(is_loading, options, obj, j);
   };
 };
 
@@ -399,11 +422,22 @@ Result<absl::Cord> EncodeChunk(const ZarrMetadata& metadata,
 bool IsMetadataCompatible(const ZarrMetadata& a, const ZarrMetadata& b) {
   // Rank must be the same.
   if (a.shape.size() != b.shape.size()) return false;
+
   auto a_json = ::nlohmann::json(a);
   auto b_json = ::nlohmann::json(b);
+
   // Shape is allowed to differ.
   a_json.erase("shape");
   b_json.erase("shape");
+
+  // Extra members are allowed to differ.
+  for (const auto& [key, value] : a.extra_members) {
+    a_json.erase(key);
+  }
+  for (const auto& [key, value] : b.extra_members) {
+    b_json.erase(key);
+  }
+
   return a_json == b_json;
 }
 

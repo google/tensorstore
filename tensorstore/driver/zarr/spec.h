@@ -55,22 +55,6 @@ class ZarrCodecSpec : public CodecSpec {
 Status ValidateMetadata(const ZarrMetadata& metadata,
                         const ZarrPartialMetadata& constraints);
 
-/// Specifies how chunk index vectors are encoded as keys.
-///
-/// Index vectors are encoded in order as their base-10 ASCII representation,
-/// separated by either "." or "/".
-///
-/// The zarr metadata format does not specify the key encoding; therefore, it
-/// must be specified separately when opening the driver.
-enum class ChunkKeyEncoding {
-  kDotSeparated = 0,
-  kSlashSeparated = 1,
-};
-
-TENSORSTORE_DECLARE_JSON_BINDER(ChunkKeyEncodingJsonBinder, ChunkKeyEncoding,
-                                internal_json_binding::NoOptions,
-                                internal_json_binding::NoOptions)
-
 /// An empty string indicates the singleton field if the dtype does not have
 /// fields.
 using SelectedField = std::string;

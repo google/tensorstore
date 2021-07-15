@@ -234,6 +234,7 @@ TEST(ZarrDriverTest, Create) {
                    {"dtype", "<i2"},
                    {"shape", {100, 100}},
                    {"chunks", {3, 2}},
+                   {"dimension_separator", "."},
                }))),
           Pair("prefix/3.4",    //
                DecodedMatches(  //
@@ -639,6 +640,7 @@ TEST(ZarrDriverTest, CreateBigEndian) {
                    {"dtype", ">i2"},
                    {"shape", {100, 100}},
                    {"chunks", {3, 2}},
+                   {"dimension_separator", "."},
                }))),
           Pair("prefix/3.4",    //
                DecodedMatches(  //
@@ -701,6 +703,7 @@ TEST(ZarrDriverTest, CreateBfloat16) {
                    {"dtype", "bfloat16"},
                    {"shape", {100, 100}},
                    {"chunks", {3, 2}},
+                   {"dimension_separator", "."},
                }))),
           Pair("prefix/1.1",  //
                ::testing::MatcherCast<absl::Cord>(
@@ -753,6 +756,7 @@ TEST(ZarrDriverTest, CreateBigEndianUnaligned) {
                     ::nlohmann::json::array_t{{"x", "|b1"}, {"y", ">i2"}}},
                    {"shape", {100, 100}},
                    {"chunks", {3, 2}},
+                   {"dimension_separator", "."},
                }))),
           Pair(
               "prefix/3.4",    //
@@ -824,6 +828,7 @@ TEST(ZarrDriverTest, CreateLittleEndianUnaligned) {
                     ::nlohmann::json::array_t{{"x", "|b1"}, {"y", "<i2"}}},
                    {"shape", {100, 100}},
                    {"chunks", {3, 2}},
+                   {"dimension_separator", "."},
                }))),
           Pair(
               "prefix/3.4",    //
@@ -866,9 +871,11 @@ TEST(ZarrDriverTest, CreateComplexWithFillValue) {
 
 ::nlohmann::json GetBasicResizeMetadata() {
   return {
-      {"zarr_format", 2},      {"order", "C"},          {"filters", nullptr},
-      {"fill_value", nullptr}, {"compressor", nullptr}, {"dtype", "|i1"},
-      {"shape", {100, 100}},   {"chunks", {3, 2}},
+      {"zarr_format", 2},           {"order", "C"},
+      {"filters", nullptr},         {"fill_value", nullptr},
+      {"compressor", nullptr},      {"dtype", "|i1"},
+      {"shape", {100, 100}},        {"chunks", {3, 2}},
+      {"dimension_separator", "."},
   };
 }
 
@@ -877,6 +884,7 @@ TEST(ZarrDriverTest, KeyEncodingWithSlash) {
   // Create the store.
   ::nlohmann::json storage_spec{{"driver", "memory"}};
   ::nlohmann::json zarr_metadata_json = GetBasicResizeMetadata();
+  zarr_metadata_json.erase("dimension_separator");
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore", storage_spec},
@@ -884,6 +892,7 @@ TEST(ZarrDriverTest, KeyEncodingWithSlash) {
       {"key_encoding", "/"},
       {"metadata", zarr_metadata_json},
   };
+  zarr_metadata_json["dimension_separator"] = "/";
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
@@ -1996,19 +2005,22 @@ TENSORSTORE_GLOBAL_INITIALIZER {
       {"driver", "zarr"},
       {"path", "prefix"},
       {"metadata",
-       {{"chunks", {3, 2}},
-        {"compressor",
-         {{"blocksize", 0},
-          {"clevel", 5},
-          {"cname", "lz4"},
-          {"id", "blosc"},
-          {"shuffle", -1}}},
-        {"dtype", "<i2"},
-        {"fill_value", nullptr},
-        {"filters", nullptr},
-        {"order", "C"},
-        {"shape", {100, 100}},
-        {"zarr_format", 2}}},
+       {
+           {"chunks", {3, 2}},
+           {"compressor",
+            {{"blocksize", 0},
+             {"clevel", 5},
+             {"cname", "lz4"},
+             {"id", "blosc"},
+             {"shuffle", -1}}},
+           {"dtype", "<i2"},
+           {"fill_value", nullptr},
+           {"filters", nullptr},
+           {"order", "C"},
+           {"shape", {100, 100}},
+           {"zarr_format", 2},
+           {"dimension_separator", "."},
+       }},
       {"kvstore", {{"driver", "memory"}}},
       {"transform",
        {{"input_exclusive_max", {{100}, {100}}},
@@ -2074,6 +2086,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
              {"shape", bounds.shape()},
              {"chunks", {4, 5}},
              {"filters", nullptr},
+             {"dimension_separator", "."},
          }},
         {"transform",
          {
@@ -2094,12 +2107,14 @@ TEST(DriverTest, NoPrefix) {
   // Create the store.
   ::nlohmann::json storage_spec{{"driver", "memory"}};
   ::nlohmann::json zarr_metadata_json = GetBasicResizeMetadata();
+  zarr_metadata_json.erase("dimension_separator");
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore", storage_spec},
       {"key_encoding", "/"},
       {"metadata", zarr_metadata_json},
   };
+  zarr_metadata_json["dimension_separator"] = "/";
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
@@ -2120,6 +2135,37 @@ TEST(DriverTest, NoPrefix) {
           Pair("0/1", Bytes({0, 0, 0, 0, 2, 3})),
           Pair("1/0", Bytes({0, 4, 0, 0, 0, 0})),
           Pair("1/1", Bytes({5, 6, 0, 0, 0, 0}))));
+}
+
+TEST(DriverTest, DimensionSeparatorMatch) {
+  ::nlohmann::json storage_spec{{"driver", "memory"}};
+  ::nlohmann::json zarr_metadata_json = GetBasicResizeMetadata();
+  zarr_metadata_json["dimension_separator"] = "/";
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", storage_spec},
+      {"key_encoding", "/"},
+      {"metadata", zarr_metadata_json},
+  };
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create));
+}
+
+TEST(DriverTest, DimensionSeparatorMismatch) {
+  ::nlohmann::json storage_spec{{"driver", "memory"}};
+  ::nlohmann::json zarr_metadata_json = GetBasicResizeMetadata();
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore", storage_spec},
+      {"key_encoding", "/"},
+      {"metadata", zarr_metadata_json},
+  };
+  EXPECT_THAT(
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result(),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "Error parsing object member \"key_encoding\": "
+          "value \\(\"/\"\\) does not match value in metadata \\(\"\\.\"\\)"));
 }
 
 TEST(DriverTest, ChunkLayout) {
@@ -2496,6 +2542,87 @@ TEST(DriverCreateCheckSchemaTest, Basic) {
           {"codec",
            {{"driver", "zarr"}, {"compressor", nullptr}, {"filters", nullptr}}},
       });
+}
+
+void TestReadWriteWithDimensionSeparator(std::string dimension_separator) {
+  std::string other_dimension_separator =
+      dimension_separator == "." ? "/" : ".";
+  ::nlohmann::json storage_spec{{"driver", "memory"}};
+  auto context = tensorstore::Context::Default();
+
+  // Write array
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open({{"driver", "zarr"},
+                           {"kvstore", storage_spec},
+                           {
+                               "metadata",
+                               {{"dimension_separator", dimension_separator}},
+                           }},
+                          context, tensorstore::OpenMode::create,
+                          dtype_v<uint32_t>, Schema::Shape({1, 1}))
+            .result());
+    TENSORSTORE_EXPECT_OK(
+        tensorstore::Write(tensorstore::MakeScalarArray<uint32_t>(42), store));
+  }
+
+  const auto perform_read = [&](::nlohmann::json metadata)
+      -> tensorstore::Result<tensorstore::SharedArray<const void>> {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto store,
+                                 tensorstore::Open({{"driver", "zarr"},
+                                                    {"kvstore", storage_spec},
+                                                    {"metadata", metadata}},
+                                                   context)
+                                     .result());
+    return tensorstore::Read<tensorstore::zero_origin>(store).result();
+  };
+
+  const auto matches_write =
+      ::testing::Optional(tensorstore::MakeArray<uint32_t>({{42}}));
+
+  // Read array with explicit dimension_separator.
+  EXPECT_THAT(perform_read({{"dimension_separator", dimension_separator}}),
+              matches_write);
+
+  // Read array without explicit dimension_separator.  This relies on the
+  // dimension_separator in the `.zarray` file.
+  EXPECT_THAT(perform_read(::nlohmann::json::object_t()), matches_write);
+
+  // Read array with wrong dimension_separator.
+  EXPECT_THAT(
+      perform_read({{"dimension_separator", other_dimension_separator}}),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                    ".*: Expected \"dimension_separator\" of \"[./]\" but "
+                    "received: \"[./]\""));
+
+  // Remove dimension_separator field from metadata.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kv_store, KeyValueStore::Open(context, storage_spec, {}).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata_json_encoded,
+                                   kv_store->Read(".zarray").result());
+  auto metadata_json =
+      tensorstore::internal::ParseJson(metadata_json_encoded.value.Flatten());
+  metadata_json.erase("dimension_separator");
+  TENSORSTORE_ASSERT_OK(
+      kv_store->Write(".zarray", absl::Cord(metadata_json.dump())));
+
+  // Read array with explicit dimension_separator.
+  EXPECT_THAT(perform_read({{"dimension_separator", dimension_separator}}),
+              matches_write);
+
+  if (dimension_separator != ".") {
+    // Read array with wrong dimension_separator.  The fill value is returned
+    // since the wrong chunk key is used.
+    EXPECT_THAT(perform_read(::nlohmann::json::object_t()),
+                ::testing::Optional(tensorstore::MakeArray<uint32_t>({{0}})));
+  }
+}
+
+TEST(DimensionSeparatorTest, Dot) { TestReadWriteWithDimensionSeparator("."); }
+
+TEST(DimensionSeparatorTest, Slash) {
+  TestReadWriteWithDimensionSeparator("/");
 }
 
 }  // namespace

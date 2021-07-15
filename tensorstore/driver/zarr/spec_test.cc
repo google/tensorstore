@@ -32,22 +32,12 @@ using tensorstore::dtype_v;
 using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
 using tensorstore::Schema;
-using tensorstore::internal_zarr::ChunkKeyEncoding;
-using tensorstore::internal_zarr::ChunkKeyEncodingJsonBinder;
 using tensorstore::internal_zarr::GetFieldIndex;
 using tensorstore::internal_zarr::ParseDType;
 using tensorstore::internal_zarr::ParseSelectedField;
 using tensorstore::internal_zarr::SelectedField;
 using tensorstore::internal_zarr::ZarrMetadata;
 using tensorstore::internal_zarr::ZarrPartialMetadata;
-
-TEST(ParsePartialMetadataTest, ExtraMember) {
-  tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({
-      {{{"foo", "x"}},
-       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                     "Object includes extra members: \"foo\"")},
-  });
-}
 
 TEST(ParsePartialMetadataTest, InvalidZarrFormat) {
   tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({
@@ -158,24 +148,6 @@ TEST(ParsePartialMetadataTest, Complete) {
   EXPECT_THAT(*result.chunks, ::testing::ElementsAre(3, 2));
 }
 
-TEST(ChunkKeyEncodingTest, JsonBinderTest) {
-  tensorstore::TestJsonBinderRoundTrip<ChunkKeyEncoding>(
-      {
-          {ChunkKeyEncoding::kDotSeparated, "."},
-          {ChunkKeyEncoding::kSlashSeparated, "/"},
-      },
-      ChunkKeyEncodingJsonBinder);
-}
-
-TEST(ChunkKeyEncodingTest, JsonBinderTestInvalid) {
-  tensorstore::TestJsonBinderFromJson<ChunkKeyEncoding>(
-      {
-          {"x", MatchesStatus(absl::StatusCode::kInvalidArgument)},
-          {3, MatchesStatus(absl::StatusCode::kInvalidArgument)},
-      },
-      ChunkKeyEncodingJsonBinder);
-}
-
 TEST(ParseSelectedFieldTest, Null) {
   EXPECT_EQ(SelectedField(), ParseSelectedField(nullptr));
 }
@@ -281,6 +253,7 @@ TEST(GetNewMetadataTest, FullMetadata) {
                   {"order", "C"},
                   {"shape", {5, 6}},
                   {"zarr_format", 2},
+                  {"dimension_separator", "."},
               })));
 }
 
@@ -307,6 +280,7 @@ TEST(GetNewMetadataTest, AutomaticChunks) {
           {"order", "C"},
           {"shape", {2, 3}},
           {"zarr_format", 2},
+          {"dimension_separator", "."},
       })));
 }
 
@@ -339,6 +313,7 @@ TEST(GetNewMetadataTest, NoCompressor) {
                        {"blocksize", 0},
                        {"shuffle", -1},
                    }},
+                  {"dimension_separator", "."},
               })));
 }
 
@@ -380,6 +355,7 @@ TEST(GetNewMetadataTest, SchemaDomainDtype) {
                        {"blocksize", 0},
                        {"shuffle", -1},
                    }},
+                  {"dimension_separator", "."},
               })));
 }
 
@@ -409,6 +385,7 @@ TEST(GetNewMetadataTest, SchemaDomainDtypeFillValue) {
                        {"blocksize", 0},
                        {"shuffle", -1},
                    }},
+                  {"dimension_separator", "."},
               })));
 }
 
@@ -439,6 +416,7 @@ TEST(GetNewMetadataTest, SchemaObjectWithDomainDtypeFillValue) {
                        {"blocksize", 0},
                        {"shuffle", -1},
                    }},
+                  {"dimension_separator", "."},
               })));
 }
 
@@ -459,6 +437,7 @@ TEST(GetNewMetadataTest, SchemaDtypeShapeCodec) {
                   {"chunks", {100, 200}},
                   {"dtype", "<i4"},
                   {"compressor", nullptr},
+                  {"dimension_separator", "."},
               })));
 }
 
@@ -479,6 +458,7 @@ TEST(GetNewMetadataTest, SchemaDtypeInnerOrderC) {
                   {"chunks", {100, 200}},
                   {"dtype", "<i4"},
                   {"compressor", nullptr},
+                  {"dimension_separator", "."},
               })));
 }
 
@@ -499,6 +479,7 @@ TEST(GetNewMetadataTest, SchemaDtypeInnerOrderFortran) {
                   {"chunks", {100, 200}},
                   {"dtype", "<i4"},
                   {"compressor", nullptr},
+                  {"dimension_separator", "."},
               })));
 }
 
@@ -519,6 +500,7 @@ TEST(GetNewMetadataTest, SchemaDtypeInnerOrderFortranFieldShape) {
                   {"chunks", {100, 200}},
                   {"dtype", {{"x", "<u4", {2, 3}}}},
                   {"compressor", nullptr},
+                  {"dimension_separator", "."},
               })));
 }
 
@@ -547,6 +529,7 @@ TEST(GetNewMetadataTest, SchemaDtypeInnerOrderInvalidSoft) {
                   {"chunks", {100, 102, 102}},
                   {"dtype", "<i4"},
                   {"compressor", nullptr},
+                  {"dimension_separator", "."},
               })));
 }
 
@@ -601,6 +584,7 @@ TEST(GetNewMetadataTest, SchemaFillValueRedundant) {
           {"chunks", {100, 200}},
           {"dtype", "<u4"},
           {"compressor", nullptr},
+          {"dimension_separator", "."},
       })));
 }
 

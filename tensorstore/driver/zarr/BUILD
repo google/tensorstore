@@ -262,6 +262,7 @@ tensorstore_cc_library(
         "//tensorstore:schema",
         "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/internal:json",
+        "//tensorstore/internal:json_metadata_matching",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "@com_github_nlohmann_json//:nlohmann_json",

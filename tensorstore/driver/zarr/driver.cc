@@ -41,8 +41,18 @@ namespace internal_zarr {
 namespace {
 constexpr const char kZarrMetadataKey[] = ".zarray";
 
-inline char GetChunkKeyEncodingSeparator(ChunkKeyEncoding key_encoding) {
-  return key_encoding == ChunkKeyEncoding::kDotSeparated ? '.' : '/';
+inline char GetDimensionSeparatorChar(DimensionSeparator dimension_separator) {
+  return dimension_separator == DimensionSeparator::kDotSeparated ? '.' : '/';
+}
+
+DimensionSeparator GetDimensionSeparator(
+    const ZarrPartialMetadata& partial_metadata, const ZarrMetadata& metadata) {
+  if (metadata.dimension_separator) {
+    return *metadata.dimension_separator;
+  } else if (partial_metadata.dimension_separator) {
+    return *partial_metadata.dimension_separator;
+  }
+  return DimensionSeparator::kDotSeparated;
 }
 
 Result<ZarrMetadataPtr> ParseEncodedMetadata(std::string_view encoded_value) {
@@ -95,15 +105,13 @@ class ZarrDriver
   template <template <typename> class MaybeBound = internal::ContextUnbound>
   struct SpecT : public internal_kvs_backed_chunk_driver::SpecT<MaybeBound> {
     std::string key_prefix;
-    ChunkKeyEncoding key_encoding;
     ZarrPartialMetadata partial_metadata;
     SelectedField selected_field;
 
     constexpr static auto ApplyMembers = [](auto& x, auto f) {
       return f(internal::BaseCast<
                    internal_kvs_backed_chunk_driver::SpecT<MaybeBound>>(x),
-               x.key_prefix, x.key_encoding, x.partial_metadata,
-               x.selected_field);
+               x.key_prefix, x.partial_metadata, x.selected_field);
     };
   };
 
@@ -123,12 +131,25 @@ class ZarrDriver
       internal_kvs_backed_chunk_driver::SpecJsonBinder,
       jb::Member("path", jb::Projection(&SpecT<>::key_prefix,
                                         jb::DefaultInitializedValue())),
-      jb::Member("key_encoding",
-                 jb::Projection(
-                     &SpecT<>::key_encoding,
-                     jb::DefaultInitializedValue(ChunkKeyEncodingJsonBinder))),
       jb::Member("metadata", jb::Projection(&SpecT<>::partial_metadata,
                                             jb::DefaultInitializedValue())),
+      // Deprecated `key_encoding` property.
+      jb::LoadSave(jb::OptionalMember(
+          "key_encoding",
+          jb::Compose<DimensionSeparator>(
+              [](auto is_loading, const auto& options, auto* obj,
+                 DimensionSeparator* value) {
+                auto& sep = obj->partial_metadata.dimension_separator;
+                if (sep && *sep != *value) {
+                  return absl::InvalidArgumentError(tensorstore::StrCat(
+                      "value (", ::nlohmann::json(*value).dump(),
+                      ") does not match value in metadata (",
+                      ::nlohmann::json(*sep).dump(), ")"));
+                }
+                sep = *value;
+                return absl::OkStatus();
+              },
+              DimensionSeparatorJsonBinder))),
       jb::Member("field",
                  jb::Projection(&SpecT<>::selected_field,
                                 jb::DefaultValue<jb::kNeverIncludeDefaults>(
@@ -224,12 +245,12 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
  public:
   explicit DataCache(Initializer initializer, std::string key_prefix,
-                     ChunkKeyEncoding key_encoding)
+                     DimensionSeparator dimension_separator)
       : Base(initializer,
              GetChunkGridSpecification(*static_cast<const ZarrMetadata*>(
                  initializer.metadata.get()))),
         key_prefix_(std::move(key_prefix)),
-        key_encoding_(key_encoding) {}
+        dimension_separator_(dimension_separator) {}
 
   Status ValidateMetadataCompatibility(const void* existing_metadata_ptr,
                                        const void* new_metadata_ptr) override {
@@ -345,8 +366,8 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   std::string GetChunkStorageKey(const void* metadata,
                                  span<const Index> cell_indices) override {
-    return internal::JoinPath(key_prefix_,
-                              EncodeChunkIndices(cell_indices, key_encoding_));
+    return internal::JoinPath(
+        key_prefix_, EncodeChunkIndices(cell_indices, dimension_separator_));
   }
 
   Status GetBoundSpecData(
@@ -358,7 +379,6 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
     spec.key_prefix = key_prefix_;
     spec.selected_field = EncodeSelectedField(component_index, metadata.dtype);
-    spec.key_encoding = key_encoding_;
     auto& pm = spec.partial_metadata;
     pm.rank = metadata.rank;
     pm.zarr_format = metadata.zarr_format;
@@ -369,6 +389,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     pm.order = metadata.order;
     pm.dtype = metadata.dtype;
     pm.fill_value = metadata.fill_value;
+    pm.dimension_separator = dimension_separator_;
     return absl::OkStatus();
   }
 
@@ -391,7 +412,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
  private:
   std::string key_prefix_;
-  ChunkKeyEncoding key_encoding_;
+  DimensionSeparator dimension_separator_;
 };
 
 class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
@@ -427,15 +448,21 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
   std::string GetDataCacheKey(const void* metadata) override {
     std::string result;
     const auto& spec = this->spec();
-    internal::EncodeCacheKey(&result, spec.key_prefix, spec.key_encoding,
-                             *static_cast<const ZarrMetadata*>(metadata));
+    const auto& zarr_metadata = *static_cast<const ZarrMetadata*>(metadata);
+    internal::EncodeCacheKey(
+        &result, spec.key_prefix,
+        GetDimensionSeparator(spec.partial_metadata, zarr_metadata),
+        zarr_metadata);
     return result;
   }
 
   std::unique_ptr<internal_kvs_backed_chunk_driver::DataCache> GetDataCache(
       DataCache::Initializer initializer) override {
-    return std::make_unique<DataCache>(std::move(initializer),
-                                       spec().key_prefix, spec().key_encoding);
+    const auto& metadata =
+        *static_cast<const ZarrMetadata*>(initializer.metadata.get());
+    return std::make_unique<DataCache>(
+        std::move(initializer), spec().key_prefix,
+        GetDimensionSeparator(spec().partial_metadata, metadata));
   }
 
   Result<std::size_t> GetComponentIndex(const void* metadata_ptr,
@@ -456,8 +483,8 @@ const internal::DriverRegistration<ZarrDriver> registration;
 }  // namespace
 
 std::string EncodeChunkIndices(span<const Index> indices,
-                               ChunkKeyEncoding key_encoding) {
-  const char separator = GetChunkKeyEncodingSeparator(key_encoding);
+                               DimensionSeparator dimension_separator) {
+  const char separator = GetDimensionSeparatorChar(dimension_separator);
   std::string key;
   for (DimensionIndex i = 0; i < indices.size(); ++i) {
     if (i != 0) {

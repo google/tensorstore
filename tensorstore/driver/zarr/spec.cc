@@ -17,11 +17,13 @@
 #include "tensorstore/codec_spec_registry.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_metadata_matching.h"
 #include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
 namespace internal_zarr {
 
+using internal::MetadataMismatchError;
 namespace jb = tensorstore::internal_json_binding;
 
 CodecSpec::Ptr ZarrCodecSpec::Clone() const {
@@ -57,14 +59,6 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
 
 namespace {
 const internal::CodecSpecRegistration<ZarrCodecSpec> encoding_registration;
-
-template <typename T>
-Status MetadataMismatchError(const char* name, const T& expected,
-                             const T& actual) {
-  return absl::FailedPreconditionError(StrCat(
-      "Expected ", QuoteString(name), " of ", ::nlohmann::json(expected).dump(),
-      " but received: ", ::nlohmann::json(actual).dump()));
-}
 
 }  // namespace
 
@@ -109,6 +103,12 @@ Status ValidateMetadata(const ZarrMetadata& metadata,
       return MetadataMismatchError("fill_value", a, b);
     }
   }
+  if (constraints.dimension_separator && metadata.dimension_separator &&
+      *constraints.dimension_separator != *metadata.dimension_separator) {
+    return MetadataMismatchError("dimension_separator",
+                                 *constraints.dimension_separator,
+                                 *metadata.dimension_separator);
+  }
   return absl::OkStatus();
 }
 
@@ -117,6 +117,8 @@ Result<ZarrMetadataPtr> GetNewMetadata(
     const SelectedField& selected_field, const Schema& schema) {
   ZarrMetadataPtr metadata = std::make_shared<ZarrMetadata>();
   metadata->zarr_format = partial_metadata.zarr_format.value_or(2);
+  metadata->dimension_separator = partial_metadata.dimension_separator.value_or(
+      DimensionSeparator::kDotSeparated);
 
   // Determine the new zarr metadata based on `partial_metadata` and `schema`.
   // Note that zarr dtypes can be NumPy "structured data types"
@@ -511,11 +513,6 @@ SelectedField EncodeSelectedField(std::size_t field_index,
   const auto& field = dtype.fields[field_index];
   return field.name;
 }
-
-TENSORSTORE_DEFINE_JSON_BINDER(ChunkKeyEncodingJsonBinder,
-                               jb::Enum<ChunkKeyEncoding, std::string_view>(
-                                   {{ChunkKeyEncoding::kDotSeparated, "."},
-                                    {ChunkKeyEncoding::kSlashSeparated, "/"}}))
 
 }  // namespace internal_zarr
 }  // namespace tensorstore

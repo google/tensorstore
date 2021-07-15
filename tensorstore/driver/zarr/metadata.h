@@ -78,6 +78,22 @@ TENSORSTORE_DECLARE_JSON_BINDER(OrderJsonBinder, ContiguousLayoutOrder,
                                 internal_json_binding::NoOptions,
                                 internal_json_binding::NoOptions)
 
+/// Specifies how chunk index vectors are encoded as keys.
+///
+/// Index vectors are encoded in order as their base-10 ASCII representation,
+/// separated by either "." or "/".
+enum class DimensionSeparator {
+  kDotSeparated = 0,
+  kSlashSeparated = 1,
+};
+
+TENSORSTORE_DECLARE_JSON_BINDER(DimensionSeparatorJsonBinder,
+                                DimensionSeparator,
+                                internal_json_binding::NoOptions,
+                                internal_json_binding::NoOptions)
+
+void to_json(::nlohmann::json& out, DimensionSeparator value);
+
 /// Parsed representation of a zarr `.zarray` metadata JSON file.
 struct ZarrMetadata {
   // The following members are common to both `ZarrMetadata` and
@@ -104,6 +120,11 @@ struct ZarrMetadata {
   /// Fill values for each of the fields.  Must have same length as
   /// `dtype.fields`.
   std::vector<SharedArray<const void>> fill_value;
+
+  /// If not specified, the open-time option is used instead.
+  std::optional<DimensionSeparator> dimension_separator;
+
+  ::nlohmann::json::object_t extra_members;
 
   // Derived information computed from `dtype`, `order`, and `chunks`.
 
@@ -150,6 +171,8 @@ struct ZarrPartialMetadata {
   /// Fill values for each of the fields.  Must have same length as
   /// `dtype.fields`.
   std::optional<std::vector<SharedArray<const void>>> fill_value;
+
+  std::optional<DimensionSeparator> dimension_separator;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrPartialMetadata,
                                           internal_json_binding::NoOptions,
