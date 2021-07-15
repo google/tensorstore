@@ -101,6 +101,11 @@ class ShardingSpec {
   }
 };
 
+TENSORSTORE_DECLARE_JSON_BINDER(DataEncodingJsonBinder,
+                                ShardingSpec::DataEncoding,
+                                internal_json_binding::NoOptions,
+                                internal_json_binding::NoOptions)
+
 /// Returns the data path for the specified shard.
 std::string GetShardKey(const ShardingSpec& sharding_spec,
                         std::string_view prefix, std::uint64_t shard_number);

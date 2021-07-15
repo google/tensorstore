@@ -289,6 +289,23 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
     return layout;
   }
 
+  Result<CodecSpec::Ptr> GetCodec(const void* metadata_ptr,
+                                  std::size_t component_index) override {
+    const auto& metadata =
+        *static_cast<const MultiscaleMetadata*>(metadata_ptr);
+    const auto& scale = metadata.scales[scale_index_];
+    internal::IntrusivePtr<NeuroglancerPrecomputedCodecSpec> codec(
+        new NeuroglancerPrecomputedCodecSpec);
+    codec->encoding = scale.encoding;
+    if (scale.encoding == ScaleMetadata::Encoding::jpeg) {
+      codec->jpeg_quality = scale.jpeg_quality;
+    }
+    if (auto* sharding = std::get_if<ShardingSpec>(&scale.sharding)) {
+      codec->shard_data_encoding = sharding->data_encoding;
+    }
+    return codec;
+  }
+
   std::string key_prefix_;
   std::size_t scale_index_;
   // channel, z, y, x

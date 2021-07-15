@@ -23,6 +23,7 @@
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/compression/jpeg.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/parse_json_matches.h"
 #include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/kvstore/key_value_store_testutil.h"
@@ -38,6 +39,7 @@ using tensorstore::Context;
 using tensorstore::DimensionIndex;
 using tensorstore::Index;
 using tensorstore::KeyValueStore;
+using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
 using tensorstore::StorageGeneration;
 using tensorstore::StrCat;
@@ -1856,6 +1858,174 @@ TEST(DriverTest, ChunkLayoutShardedCompressedSegmentation) {
           {"inner_order", {3, 2, 1, 0}},
       }));
   EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
+}
+
+TEST(CodecSpecTest, CompressedSegmentationShardedGzip) {
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint64"},
+           {"num_channels", 4},
+           {"type", "segmentation"},
+       }},
+      {"scale_metadata",
+       {
+           {"resolution", {1, 1, 1}},
+           {"encoding", "compressed_segmentation"},
+           {"compressed_segmentation_block_size", {8, 9, 10}},
+           {"chunk_size", {64, 64, 64}},
+           {"size", {34432, 39552, 51508}},
+           {"voxel_offset", {1, 2, 3}},
+           {"sharding",
+            {{"@type", "neuroglancer_uint64_sharded_v1"},
+             {"preshift_bits", 9},
+             {"minishard_bits", 6},
+             {"shard_bits", 15},
+             {"data_encoding", "gzip"},
+             {"minishard_index_encoding", "gzip"},
+             {"hash", "identity"}}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec, store.codec());
+  EXPECT_THAT(codec.ToJson(), ::testing::Optional(MatchesJson({
+                                  {"driver", "neuroglancer_precomputed"},
+                                  {"encoding", "compressed_segmentation"},
+                                  {"shard_data_encoding", "gzip"},
+                              })));
+}
+
+TEST(CodecSpecTest, CompressedSegmentationShardedRaw) {
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint64"},
+           {"num_channels", 4},
+           {"type", "segmentation"},
+       }},
+      {"scale_metadata",
+       {
+           {"resolution", {1, 1, 1}},
+           {"encoding", "compressed_segmentation"},
+           {"compressed_segmentation_block_size", {8, 9, 10}},
+           {"chunk_size", {64, 64, 64}},
+           {"size", {34432, 39552, 51508}},
+           {"voxel_offset", {1, 2, 3}},
+           {"sharding",
+            {{"@type", "neuroglancer_uint64_sharded_v1"},
+             {"preshift_bits", 9},
+             {"minishard_bits", 6},
+             {"shard_bits", 15},
+             {"data_encoding", "raw"},
+             {"minishard_index_encoding", "gzip"},
+             {"hash", "identity"}}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec, store.codec());
+  EXPECT_THAT(codec.ToJson(), ::testing::Optional(MatchesJson({
+                                  {"driver", "neuroglancer_precomputed"},
+                                  {"encoding", "compressed_segmentation"},
+                                  {"shard_data_encoding", "raw"},
+                              })));
+}
+
+TEST(CodecSpecTest, CompressedSegmentationUnsharded) {
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint64"},
+           {"num_channels", 4},
+           {"type", "segmentation"},
+       }},
+      {"scale_metadata",
+       {
+           {"resolution", {1, 1, 1}},
+           {"encoding", "compressed_segmentation"},
+           {"compressed_segmentation_block_size", {8, 9, 10}},
+           {"chunk_size", {64, 64, 64}},
+           {"size", {34432, 39552, 51508}},
+           {"voxel_offset", {1, 2, 3}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec, store.codec());
+  EXPECT_THAT(codec.ToJson(), ::testing::Optional(MatchesJson({
+                                  {"driver", "neuroglancer_precomputed"},
+                                  {"encoding", "compressed_segmentation"},
+                              })));
+}
+
+TEST(CodecSpecTest, Jpeg) {
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint8"},
+           {"num_channels", 1},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"resolution", {1, 1, 1}},
+           {"encoding", "jpeg"},
+           {"jpeg_quality", 77},
+           {"chunk_size", {64, 64, 64}},
+           {"size", {34432, 39552, 51508}},
+           {"voxel_offset", {1, 2, 3}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec, store.codec());
+  EXPECT_THAT(codec.ToJson(), ::testing::Optional(MatchesJson({
+                                  {"driver", "neuroglancer_precomputed"},
+                                  {"encoding", "jpeg"},
+                                  {"jpeg_quality", 77},
+                              })));
+}
+
+TEST(CodecSpecTest, Raw) {
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint8"},
+           {"num_channels", 1},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"resolution", {1, 1, 1}},
+           {"encoding", "raw"},
+           {"chunk_size", {64, 64, 64}},
+           {"size", {34432, 39552, 51508}},
+           {"voxel_offset", {1, 2, 3}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec, store.codec());
+  EXPECT_THAT(codec.ToJson(), ::testing::Optional(MatchesJson({
+                                  {"driver", "neuroglancer_precomputed"},
+                                  {"encoding", "raw"},
+                              })));
 }
 
 }  // namespace

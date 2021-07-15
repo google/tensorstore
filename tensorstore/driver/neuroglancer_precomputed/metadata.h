@@ -32,6 +32,7 @@
 
 #include <nlohmann/json.hpp>
 #include "tensorstore/box.h"
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded.h"
 #include "tensorstore/index.h"
@@ -181,6 +182,21 @@ struct OpenConstraints {
 
   static Result<OpenConstraints> Parse(const ::nlohmann::json& j,
                                        DataType data_type_constraint);
+};
+
+struct NeuroglancerPrecomputedCodecSpec : public tensorstore::CodecSpec {
+ public:
+  constexpr static char id[] = "neuroglancer_precomputed";
+  std::optional<ScaleMetadata::Encoding> encoding;
+  std::optional<int> jpeg_quality;
+  std::optional<ShardingSpec::DataEncoding> shard_data_encoding;
+
+  Ptr Clone() const final;
+  absl::Status DoMergeFrom(const CodecSpec& other_base) final;
+
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(NeuroglancerPrecomputedCodecSpec,
+                                          FromJsonOptions, ToJsonOptions,
+                                          ::nlohmann::json::object_t)
 };
 
 /// Returns the compatibility key.

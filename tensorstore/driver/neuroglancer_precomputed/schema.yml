@@ -194,6 +194,29 @@ definitions:
           quality is specified using the IJG (Independent JPEG Group) [0, 100]
           recommended scale, with 0 being the worst quality (smallest file
           size) and 100 the best quality (largest file size).
+  codec:
+    $id: "driver/neuroglancer_precomputed/Codec"
+    title: Neuroglancer Precomputed Codec
+    allOf:
+      - $ref: Codec
+      - type: object
+        properties:
+          driver:
+            const: "neuroglancer_precomputed"
+      - $ref: "#codec-properties"
+      - type: object
+        properties:
+          shard_data_encoding:
+            title: Additional data compression when using the sharded format.
+            description: |
+              This specifies the value of
+              :json:schema:`driver/neuroglancer_precomputed/ShardingSpec.data_encoding`. If
+              not specified, defaults to :json:`"gzip"` if the `.encoding` is
+              equal to :json:`"raw"` or :json:`"compressed_segmentation"`, and
+              to :json:`"raw"` if `.encoding` is equal to :json:`"jpeg"`.
+            enum:
+            - raw
+            - gzip
   sharding-spec:
     $id: 'driver/neuroglancer_precomputed/ShardingSpec'
     title: Sharding
@@ -247,7 +270,7 @@ definitions:
         - raw
         - gzip
         default: raw
-      data_index_encoding:
+      data_encoding:
         title: >-
           Specifies the encoding of the data chunks.
         description: >-

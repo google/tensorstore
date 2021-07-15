@@ -97,6 +97,14 @@ Example JSON specifications
      }
    }
 
+Codec
+-----
+
+Within a :ref:`schema`, the encoding parameters may also be specified separately
+as a :json:schema:`Codec`:
+
+.. json:schema:: driver/neuroglancer_precomputed/Codec
+
 Limitations
 -----------
 
@@ -111,5 +119,5 @@ Resizing is not supported.
    2. The temporary memory required to write a shard is 2 to 3 times the size of
       the shard.  It is therefore advised that the shards be kept as small as
       possible (while still avoiding an excess number of objects in the
-      underlying :json-schema:`KeyValueStore`).
+      underlying :json:schema:`KeyValueStore`).
 

@@ -19,6 +19,7 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
+#include "tensorstore/codec_spec_registry.h"
 #include "tensorstore/internal/bit_operations.h"
 #include "tensorstore/internal/data_type_json_binder.h"
 #include "tensorstore/internal/json.h"
@@ -129,7 +130,6 @@ Status ValidateChunkSize(
   return absl::OkStatus();
 }
 
-
 /// The default json object copy moves the attributes; instead copy before
 /// anything else is done.
 constexpr static auto CopyAttributesBinder =
@@ -164,7 +164,6 @@ constexpr static auto ShardingBinder =
 };
 
 /// Binder for ScaleMetadata::Encoding
-
 constexpr static auto ScaleMetatadaEncodingBinder() {
   return jb::Enum<ScaleMetadata::Encoding, std::string_view>({
       {ScaleMetadata::Encoding::raw, "raw"},
@@ -174,20 +173,11 @@ constexpr static auto ScaleMetatadaEncodingBinder() {
   });
 }
 
-/// Common attributes for ScaleMetadata and ScaleMetadataConstraints.
-template <typename MaybeOptional>
-constexpr auto ScaleMetadataCommon(MaybeOptional maybe_optional) {
+constexpr static auto EncodingJsonBinder = [](auto maybe_optional) {
   return [=](auto is_loading, const auto& options, auto* obj,
              auto* j) -> absl::Status {
     using T = internal::remove_cvref_t<decltype(*obj)>;
     return jb::Sequence(
-        jb::Member("key", jb::Projection(&T::key)),
-        jb::Member(
-            "resolution",
-            jb::Projection(&T::resolution, maybe_optional(jb::FixedSizeArray(
-                                               jb::LooseFloatBinder)))),
-        jb::Member("sharding", jb::Projection(&T::sharding,
-                                              maybe_optional(ShardingBinder))),
         jb::Member(
             "encoding",
             jb::Projection(&T::encoding,
@@ -211,7 +201,30 @@ constexpr auto ScaleMetadataCommon(MaybeOptional maybe_optional) {
                      return jb::Projection(&T::jpeg_quality,
                                            maybe_optional(jb::Integer(0, 100)))(
                          is_loading, options, obj, j);
-                   }),
+                   }))(is_loading, options, obj, j);
+  };
+};
+
+constexpr static auto WrapInOptional = [](auto binder) {
+  return jb::Optional(binder);
+};
+
+/// Common attributes for NeuroglancerPrecomputedCodecSpec,
+/// ScaleMetadata and ScaleMetadataConstraints.
+template <typename MaybeOptional>
+constexpr auto ScaleMetadataCommon(MaybeOptional maybe_optional) {
+  return [=](auto is_loading, const auto& options, auto* obj,
+             auto* j) -> absl::Status {
+    using T = internal::remove_cvref_t<decltype(*obj)>;
+    return jb::Sequence(
+        jb::Member("key", jb::Projection(&T::key)),
+        jb::Member(
+            "resolution",
+            jb::Projection(&T::resolution, maybe_optional(jb::FixedSizeArray(
+                                               jb::LooseFloatBinder)))),
+        jb::Member("sharding", jb::Projection(&T::sharding,
+                                              maybe_optional(ShardingBinder))),
+        EncodingJsonBinder(maybe_optional),
         jb::Member(
             "compressed_segmentation_block_size",
             [maybe_optional](auto is_loading, const auto& options, auto* obj,
@@ -269,7 +282,7 @@ constexpr static auto ScaleMetadataBinder = jb::Object(
     }));
 
 constexpr static auto ScaleMetadataConstraintsBinder = jb::Object(
-    ScaleMetadataCommon([](auto binder) { return jb::Optional(binder); }),
+    ScaleMetadataCommon(WrapInOptional),
     jb::OptionalMember(
         "size", jb::Sequence(jb::Initialize([](ScaleMetadataConstraints* x) {
                                x->box.emplace().Fill(
@@ -961,6 +974,60 @@ GetChunksPerVolumeShardFunction(const ShardingSpec& sharding_spec,
     return num_chunks;
   };
 }
+
+CodecSpec::Ptr NeuroglancerPrecomputedCodecSpec::Clone() const {
+  return Ptr(new NeuroglancerPrecomputedCodecSpec(*this));
+}
+
+absl::Status NeuroglancerPrecomputedCodecSpec::DoMergeFrom(
+    const CodecSpec& other_base) {
+  if (typeid(other_base) != typeid(NeuroglancerPrecomputedCodecSpec)) {
+    return absl::InvalidArgumentError("");
+  }
+  auto& other =
+      static_cast<const NeuroglancerPrecomputedCodecSpec&>(other_base);
+  if (other.encoding) {
+    if (!encoding) {
+      encoding = other.encoding;
+    } else if (*encoding != *other.encoding) {
+      return absl::InvalidArgumentError("\"encoding\" mismatch");
+    }
+  }
+
+  if (other.jpeg_quality) {
+    if (!jpeg_quality) {
+      jpeg_quality = other.jpeg_quality;
+    } else if (*jpeg_quality != *other.jpeg_quality) {
+      return absl::InvalidArgumentError("\"jpeg_quality\" mismatch");
+    }
+  }
+
+  if (other.shard_data_encoding) {
+    if (!shard_data_encoding) {
+      shard_data_encoding = other.shard_data_encoding;
+    } else if (*shard_data_encoding != *other.shard_data_encoding) {
+      return absl::InvalidArgumentError("\"shard_data_encoding\" mismatch");
+    }
+  }
+
+  return absl::OkStatus();
+}
+
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
+    NeuroglancerPrecomputedCodecSpec,
+    jb::Sequence(
+        EncodingJsonBinder(WrapInOptional),
+        jb::Member(
+            "shard_data_encoding",
+            jb::Projection(
+                &NeuroglancerPrecomputedCodecSpec::shard_data_encoding,
+                jb::Optional(
+                    neuroglancer_uint64_sharded::DataEncodingJsonBinder)))))
+
+namespace {
+const internal::CodecSpecRegistration<NeuroglancerPrecomputedCodecSpec>
+    encoding_registration;
+}  // namespace
 
 }  // namespace internal_neuroglancer_precomputed
 }  // namespace tensorstore

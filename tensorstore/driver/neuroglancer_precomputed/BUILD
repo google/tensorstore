@@ -58,6 +58,7 @@ tensorstore_cc_test(
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/internal:global_initializer",
+        "//tensorstore/internal:json_gtest",
         "//tensorstore/internal:parse_json_matches",
         "//tensorstore/internal/cache",
         "//tensorstore/internal/compression:jpeg",
@@ -78,6 +79,7 @@ tensorstore_cc_library(
     deps = [
         ":uint64_sharded",
         "//tensorstore:box",
+        "//tensorstore:codec_spec",
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:open_mode",
@@ -104,6 +106,7 @@ tensorstore_cc_test(
     deps = [
         ":metadata",
         "//tensorstore:box",
+        "//tensorstore:codec_spec",
         "//tensorstore/internal:json",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/util:result",

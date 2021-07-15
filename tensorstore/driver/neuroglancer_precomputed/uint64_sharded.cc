@@ -28,50 +28,48 @@ namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
 
 namespace {
+namespace jb = tensorstore::internal_json_binding;
 constexpr auto HashFunctionBinder = [](auto is_loading, const auto& options,
                                        auto* obj, auto* j) {
   using HashFunction = ShardingSpec::HashFunction;
-  namespace jb = tensorstore::internal_json_binding;
   return jb::Enum<HashFunction, const char*>({
       {HashFunction::identity, "identity"},
       {HashFunction::murmurhash3_x86_128, "murmurhash3_x86_128"},
   })(is_loading, options, obj, j);
 };
 
-constexpr auto DataEncodingBinder = [](auto is_loading, const auto& options,
-                                       auto* obj, auto* j) {
-  using DataEncoding = ShardingSpec::DataEncoding;
-  namespace jb = tensorstore::internal_json_binding;
-  return jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
-      [](auto* v) { *v = DataEncoding::raw; },
-      jb::Enum<DataEncoding, const char*>({
-          {DataEncoding::raw, "raw"},
-          {DataEncoding::gzip, "gzip"},
-      }))(is_loading, options, obj, j);
-};
+constexpr auto DefaultableDataEncodingJsonBinder =
+    [](auto is_loading, const auto& options, auto* obj, auto* j) {
+      using DataEncoding = ShardingSpec::DataEncoding;
+      return jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
+          [](auto* v) { *v = DataEncoding::raw; }, DataEncodingJsonBinder)(
+          is_loading, options, obj, j);
+    };
 }  // namespace
 
+TENSORSTORE_DEFINE_JSON_BINDER(
+    DataEncodingJsonBinder, jb::Enum<ShardingSpec::DataEncoding, const char*>({
+                                {ShardingSpec::DataEncoding::raw, "raw"},
+                                {ShardingSpec::DataEncoding::gzip, "gzip"},
+                            }))
+
 std::ostream& operator<<(std::ostream& os, ShardingSpec::HashFunction x) {
-  namespace jb = tensorstore::internal_json_binding;
   // `ToJson` is guaranteed not to fail for this type.
   return os << jb::ToJson(x, HashFunctionBinder).value();
 }
 
 void to_json(::nlohmann::json& out,  // NOLINT
              ShardingSpec::HashFunction x) {
-  namespace jb = tensorstore::internal_json_binding;
   // `ToJson` is guaranteed not to fail for this type.
   out = jb::ToJson(x, HashFunctionBinder).value();
 }
 
 std::ostream& operator<<(std::ostream& os, ShardingSpec::DataEncoding x) {
-  namespace jb = tensorstore::internal_json_binding;
   // `ToJson` is guaranteed not to fail for this type.
-  return os << jb::ToJson(x, DataEncodingBinder).value();
+  return os << jb::ToJson(x, DataEncodingJsonBinder).value();
 }
 
 std::ostream& operator<<(std::ostream& os, const ShardingSpec& x) {
-  namespace jb = tensorstore::internal_json_binding;
   // `ToJson` is guaranteed not to fail for this type.
   return os << jb::ToJson(x).value();
 }
@@ -79,7 +77,6 @@ std::ostream& operator<<(std::ostream& os, const ShardingSpec& x) {
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ShardingSpec, [](auto is_loading,
                                                         const auto& options,
                                                         auto* obj, auto* j) {
-  namespace jb = tensorstore::internal_json_binding;
   return jb::Object(
       jb::Member("@type",
                  jb::Constant([] { return "neuroglancer_uint64_sharded_v1"; })),
@@ -96,12 +93,13 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ShardingSpec, [](auto is_loading,
                  })),
       jb::Member("hash", jb::Projection(&ShardingSpec::hash_function,
                                         HashFunctionBinder)),
-      jb::Member("data_encoding", jb::Projection(&ShardingSpec::data_encoding,
-                                                 DataEncodingBinder)),
+      jb::Member("data_encoding",
+                 jb::Projection(&ShardingSpec::data_encoding,
+                                DefaultableDataEncodingJsonBinder)),
       jb::Member("minishard_index_encoding",
                  jb::Projection(&ShardingSpec::minishard_index_encoding,
-                                DataEncodingBinder)))(is_loading, options, obj,
-                                                      j);
+                                DefaultableDataEncodingJsonBinder)))(
+      is_loading, options, obj, j);
 })
 
 bool operator==(const ShardingSpec& a, const ShardingSpec& b) {

@@ -19,6 +19,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/box.h"
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/util/result.h"
@@ -29,6 +30,7 @@
 
 namespace {
 using tensorstore::Box;
+using tensorstore::CodecSpec;
 using tensorstore::DataType;
 using tensorstore::DataTypeId;
 using tensorstore::dtype_v;
@@ -2003,6 +2005,100 @@ TEST(GetChunksPerVolumeShardFunctionTest, NotEnoughBits) {
 
   EXPECT_FALSE(GetChunksPerVolumeShardFunction(sharding_spec, volume_shape,
                                                chunk_shape));
+}
+
+TEST(NeuroglancerPrecomputedCodecSpecTest, Merge) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec1,
+      CodecSpec::Ptr::FromJson({{"driver", "neuroglancer_precomputed"}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec2,
+      CodecSpec::Ptr::FromJson(
+          {{"driver", "neuroglancer_precomputed"}, {"encoding", "raw"}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec3,
+      CodecSpec::Ptr::FromJson(
+          {{"driver", "neuroglancer_precomputed"}, {"encoding", "jpeg"}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec4,
+      CodecSpec::Ptr::FromJson({{"driver", "neuroglancer_precomputed"},
+                                {"encoding", "jpeg"},
+                                {"jpeg_quality", 50}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec4a,
+      CodecSpec::Ptr::FromJson({{"driver", "neuroglancer_precomputed"},
+                                {"encoding", "jpeg"},
+                                {"jpeg_quality", 55}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec5,
+      CodecSpec::Ptr::FromJson({{"driver", "neuroglancer_precomputed"},
+                                {"shard_data_encoding", "raw"}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec6,
+      CodecSpec::Ptr::FromJson({{"driver", "neuroglancer_precomputed"},
+                                {"shard_data_encoding", "gzip"}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec7,
+      CodecSpec::Ptr::FromJson({{"driver", "neuroglancer_precomputed"},
+                                {"encoding", "raw"},
+                                {"shard_data_encoding", "raw"}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec8,
+      CodecSpec::Ptr::FromJson({{"driver", "neuroglancer_precomputed"},
+                                {"encoding", "raw"},
+                                {"shard_data_encoding", "gzip"}}));
+  EXPECT_THAT(CodecSpec::Merge(codec1, codec1), ::testing::Optional(codec1));
+  EXPECT_THAT(CodecSpec::Merge(codec1, codec2), ::testing::Optional(codec2));
+  EXPECT_THAT(CodecSpec::Merge(codec1, codec3), ::testing::Optional(codec3));
+  EXPECT_THAT(CodecSpec::Merge(codec3, codec4), ::testing::Optional(codec4));
+  EXPECT_THAT(CodecSpec::Merge(codec2, codec5), ::testing::Optional(codec7));
+  EXPECT_THAT(CodecSpec::Merge(codec2, codec6), ::testing::Optional(codec8));
+  EXPECT_THAT(CodecSpec::Merge(codec2, codec3),
+              MatchesStatus(
+                  absl::StatusCode::kInvalidArgument,
+                  "Cannot merge codec spec .* with .*: \"encoding\" mismatch"));
+  EXPECT_THAT(CodecSpec::Merge(codec4, codec4a),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Cannot merge codec spec .* with .*: "
+                            "\"jpeg_quality\" mismatch"));
+  EXPECT_THAT(CodecSpec::Merge(codec5, codec6),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Cannot merge codec spec .* with .*: "
+                            "\"shard_data_encoding\" mismatch"));
+}
+
+TEST(NeuroglancerPrecomputedCodecSpecTest, RoundTrip) {
+  tensorstore::TestJsonBinderRoundTripJsonOnly<tensorstore::CodecSpec::Ptr>({
+      ::nlohmann::json::value_t::discarded,
+      {
+          {"driver", "neuroglancer_precomputed"},
+      },
+      {
+          {"driver", "neuroglancer_precomputed"},
+          {"encoding", "jpeg"},
+      },
+      {
+          {"driver", "neuroglancer_precomputed"},
+          {"encoding", "jpeg"},
+          {"jpeg_quality", 80},
+      },
+      {
+          {"driver", "neuroglancer_precomputed"},
+          {"encoding", "raw"},
+      },
+      {
+          {"driver", "neuroglancer_precomputed"},
+          {"encoding", "compressed_segmentation"},
+      },
+      {
+          {"driver", "neuroglancer_precomputed"},
+          {"shard_data_encoding", "gzip"},
+      },
+      {
+          {"driver", "neuroglancer_precomputed"},
+          {"shard_data_encoding", "raw"},
+      },
+  });
 }
 
 }  // namespace
