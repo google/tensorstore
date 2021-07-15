@@ -520,5 +520,15 @@ bool IsUnlabeled(span<const std::string> labels) {
                      [](std::string_view s) { return s.empty(); });
 }
 
+TransformRep::Ptr<> WithImplicitDimensions(TransformRep::Ptr<> transform,
+                                           DimensionSet implicit_lower_bounds,
+                                           DimensionSet implicit_upper_bounds) {
+  transform = MutableRep(std::move(transform));
+  transform->implicit_bitvector =
+      static_cast<uint64_t>(implicit_lower_bounds.bits()) |
+      (static_cast<uint64_t>(implicit_upper_bounds.bits()) << kMaxRank);
+  return transform;
+}
+
 }  // namespace internal_index_space
 }  // namespace tensorstore

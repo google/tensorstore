@@ -353,6 +353,7 @@ tensorstore_cc_library(
         "//tensorstore/util:bit_vec",
         "//tensorstore/util:constant_bit_vector",
         "//tensorstore/util:constant_vector",
+        "//tensorstore/util:dimension_set",
         "//tensorstore/util:division",
         "//tensorstore/util:element_pointer",
         "//tensorstore/util:iterate",

@@ -27,6 +27,7 @@
 #include "tensorstore/internal/string_like.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/constant_vector.h"
+#include "tensorstore/util/dimension_set.h"
 
 TENSORSTORE_GDB_AUTO_SCRIPT("index_space_gdb.py")
 
@@ -1479,6 +1480,32 @@ namespace internal {
 DimensionSet GetOneToOneInputDimensions(IndexTransformView<> transform);
 
 }  // namespace internal
+
+/// Returns a copy of `transform` with `implicit_lower_bounds` and
+/// `implicit_upper_bounds` set to the specified values.
+template <DimensionIndex InputRank, DimensionIndex OutputRank,
+          ContainerKind CKind>
+IndexTransform<InputRank, OutputRank> WithImplicitDimensions(
+    IndexTransform<InputRank, OutputRank, CKind> transform,
+    DimensionSet implicit_lower_bounds, DimensionSet implicit_upper_bounds) {
+  using internal_index_space::TransformAccess;
+  return TransformAccess::Make<IndexTransform<InputRank, OutputRank>>(
+      internal_index_space::WithImplicitDimensions(
+          TransformAccess::rep_ptr<container>(std::move(transform)),
+          implicit_lower_bounds, implicit_upper_bounds));
+}
+
+/// Returns a copy of `domain` with `implicit_lower_bounds` and
+/// `implicit_upper_bounds` set to the specified values.
+template <DimensionIndex Rank, ContainerKind CKind>
+IndexDomain<Rank> WithImplicitDimensions(IndexDomain<Rank, CKind> domain,
+                                         DimensionSet implicit_lower_bounds,
+                                         DimensionSet implicit_upper_bounds) {
+  using internal_index_space::TransformAccess;
+  return IndexDomain<Rank>(tensorstore::WithImplicitDimensions(
+      TransformAccess::transform(std::move(domain)), implicit_lower_bounds,
+      implicit_upper_bounds));
+}
 
 }  // namespace tensorstore
 

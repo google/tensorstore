@@ -31,6 +31,7 @@
 #include "tensorstore/internal/string_like.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/bit_span.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/span.h"
@@ -549,6 +550,12 @@ void PrintToOstream(std::ostream& os, TransformRep* transform);
 /// \param os The output stream.
 /// \param transform Pointer to the representation, may be `nullptr`.
 void PrintDomainToOstream(std::ostream& os, TransformRep* transform);
+
+/// Returns a copy of `transform` with `implicit_lower_bounds` and
+/// `implicit_upper_bounds` set to the specified values.
+TransformRep::Ptr<> WithImplicitDimensions(TransformRep::Ptr<> transform,
+                                           DimensionSet implicit_lower_bounds,
+                                           DimensionSet implicit_upper_bounds);
 
 /// Computes the `output_indices` corresponding to the given `input_indices`.
 ///

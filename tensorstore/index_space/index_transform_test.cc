@@ -31,6 +31,7 @@ namespace {
 using tensorstore::AllocateArray;
 using tensorstore::Box;
 using tensorstore::DimensionIndex;
+using tensorstore::DimensionSet;
 using tensorstore::IdentityTransform;
 using tensorstore::Index;
 using tensorstore::IndexDomain;
@@ -817,6 +818,55 @@ TEST(MergeIndexDomainsTest, Basic) {
                             "Cannot merge .*: "
                             "Mismatch in dimension 1: "
                             "Upper bounds do not match"));
+}
+
+TEST(IndexTransformTest, WithImplicitDimensions) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_transform,
+                                   IndexTransformBuilder(3, 3)
+                                       .implicit_lower_bounds({0, 1, 1})
+                                       .implicit_upper_bounds({1, 0, 1})
+                                       .output_identity_transform()
+                                       .Finalize());
+  EXPECT_EQ(
+      expected_transform,
+      WithImplicitDimensions(IdentityTransform(3), DimensionSet({0, 1, 1}),
+                             DimensionSet({1, 0, 1})));
+}
+
+TEST(IndexTransformTest, WithImplicitDimensionsStaticRank) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_transform,
+                                   (IndexTransformBuilder<3, 3>()
+                                        .implicit_lower_bounds({0, 1, 1})
+                                        .implicit_upper_bounds({1, 0, 1})
+                                        .output_identity_transform()
+                                        .Finalize()));
+  EXPECT_EQ(
+      expected_transform,
+      WithImplicitDimensions(IdentityTransform<3>(), DimensionSet({0, 1, 1}),
+                             DimensionSet({1, 0, 1})));
+}
+
+TEST(IndexDomainTest, WithImplicitDimensions) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_domain,
+                                   IndexDomainBuilder(3)
+                                       .implicit_lower_bounds({0, 1, 1})
+                                       .implicit_upper_bounds({1, 0, 1})
+                                       .Finalize());
+  EXPECT_EQ(expected_domain,
+            WithImplicitDimensions(IndexDomain(3), DimensionSet({0, 1, 1}),
+                                   DimensionSet({1, 0, 1})));
+}
+
+TEST(IndexDomainTest, WithImplicitDimensionsStaticRank) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_domain,
+                                   IndexDomainBuilder<3>()
+                                       .implicit_lower_bounds({0, 1, 1})
+                                       .implicit_upper_bounds({1, 0, 1})
+                                       .Finalize());
+  EXPECT_EQ(
+      expected_domain,
+      WithImplicitDimensions(IndexDomain<3>(tensorstore::StaticRank<3>{}),
+                             DimensionSet({0, 1, 1}), DimensionSet({1, 0, 1})));
 }
 
 }  // namespace
