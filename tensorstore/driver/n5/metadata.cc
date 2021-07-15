@@ -35,6 +35,26 @@ namespace internal_n5 {
 
 namespace jb = tensorstore::internal_json_binding;
 
+CodecSpec::Ptr N5CodecSpec::Clone() const {
+  return Ptr(new N5CodecSpec(*this));
+}
+
+absl::Status N5CodecSpec::DoMergeFrom(const CodecSpec& other_base) {
+  if (typeid(other_base) != typeid(N5CodecSpec)) {
+    return absl::InvalidArgumentError("");
+  }
+  auto& other = static_cast<const N5CodecSpec&>(other_base);
+  if (other.compressor) {
+    if (!compressor) {
+      compressor = other.compressor;
+    } else if (!internal_json::JsonSame(::nlohmann::json(*compressor),
+                                        ::nlohmann::json(*other.compressor))) {
+      return absl::InvalidArgumentError("\"compression\" does not match");
+    }
+  }
+  return absl::OkStatus();
+}
+
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     N5CodecSpec,
     jb::Sequence(jb::Member("compression",

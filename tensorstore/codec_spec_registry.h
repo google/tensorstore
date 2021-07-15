@@ -41,6 +41,11 @@ CodecSpecRegistry& GetCodecSpecRegistry();
 ///      public:
 ///       // ...
 ///       constexpr static char id[] = "my_driver";
+///       absl::Status MergeFrom(const CodecSpec &other) override;
+///       bool EqualTo(const CodecSpec &other);
+///       Ptr Clone() const override {
+///         return Ptr(new MyCodec(*this));
+///       }
 ///       TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(
 ///           MyCodec,
 ///           FromJsonOptions, ToJsonOptions,

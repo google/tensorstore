@@ -35,6 +35,10 @@ namespace internal_zarr {
 class ZarrCodecSpec : public CodecSpec {
  public:
   constexpr static char id[] = "zarr";
+
+  Ptr Clone() const final;
+  absl::Status DoMergeFrom(const CodecSpec& other_base) final;
+
   std::optional<Compressor> compressor;
   std::optional<std::nullptr_t> filters;
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrCodecSpec, FromJsonOptions,

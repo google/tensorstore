@@ -205,6 +205,7 @@ tensorstore_cc_test(
         ":blosc_compressor",
         ":metadata",
         "//tensorstore:array",
+        "//tensorstore:codec_spec",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/util:result",
         "//tensorstore/util:span",

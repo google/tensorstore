@@ -40,8 +40,6 @@ class CodecSpec : public internal::AtomicReferenceCount<CodecSpec> {
   using ToJsonOptions = JsonSerializationOptions;
   using FromJsonOptions = JsonSerializationOptions;
 
-  virtual ~CodecSpec();
-
   /// Pointer to derived `CodecSpec` type.
   template <typename T>
   using PtrT = internal::IntrusivePtr<T>;
@@ -57,12 +55,16 @@ class CodecSpec : public internal::AtomicReferenceCount<CodecSpec> {
     bool valid() const { return static_cast<bool>(*this); }
     TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(Ptr, FromJsonOptions, ToJsonOptions)
 
-    /// Compares two codec specs by value.
+    /// Merges this codec spec with another codec spec.
+    ///
+    /// Modifies `*this` to refer to the merged codec spec.  Merging two null
+    /// codec specs simply results in a null codec spec.  Merging a null and
+    /// non-null codec spec simply preserves the non-null codec spec.
+    absl::Status MergeFrom(Ptr other);
+
+    /// Compares two codec specs by value (not by pointer).
     ///
     /// Null values are supported.
-    ///
-    /// Currently comparison is done by JSON representation.  If JSON conversion
-    /// of either argument fails, the values are considered unequal.
     friend bool operator==(const Ptr& a, const Ptr& b);
     friend bool operator!=(const Ptr& a, const Ptr& b) { return !(a == b); }
 
@@ -72,6 +74,36 @@ class CodecSpec : public internal::AtomicReferenceCount<CodecSpec> {
     /// \param codec Codec to write, may be null.
     friend std::ostream& operator<<(std::ostream& os, const Ptr& codec);
   };
+
+  /// Checks this codec spec for equality with another codec spec.
+  ///
+  /// By default, compares the JSON representations and returns false if
+  /// conversion to JSON fails.
+  ///
+  /// \param other Another codec spec, not guaranteed to have the same dynamic
+  ///     type.  In most cases, an error should be returned if the dynamic type
+  ///     differs.
+  virtual bool EqualTo(const CodecSpec& other) const;
+
+  /// Merges another codec spec into this spec.
+  ///
+  /// If incompatible constraints are specified, an error should be returned.
+  ///
+  /// \param other_base Other codec spec, not guaranteed to have the same
+  ///     dynamic type.  In most cases, an error should be returned if the
+  ///     dynamic type differs.
+  virtual absl::Status DoMergeFrom(const CodecSpec& other_base) = 0;
+
+  /// Same as above, but handles null `other`.
+  absl::Status MergeFrom(const Ptr& other);
+
+  /// Merges two codec specs.
+  static Result<Ptr> Merge(Ptr a, Ptr b);
+
+  /// Returns a new copy of this codec spec.
+  virtual Ptr Clone() const = 0;
+
+  virtual ~CodecSpec();
 
   template <typename T>
   static PtrT<T> Make() {

@@ -19,6 +19,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/array.h"
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -28,6 +29,7 @@
 namespace {
 
 using tensorstore::ArrayView;
+using tensorstore::CodecSpec;
 using tensorstore::fortran_order;
 using tensorstore::Index;
 using tensorstore::MakeArray;
@@ -296,7 +298,31 @@ TEST(RawCompressionTest, PartialChunk) {
   EXPECT_EQ(array, DecodeChunk(metadata, absl::Cord(encoded_data)));
 }
 
-TEST(N5EncodingSpecTest, RoundTrip) {
+TEST(N5CodecSpecTest, Merge) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec1, CodecSpec::Ptr::FromJson({{"driver", "n5"}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec2, CodecSpec::Ptr::FromJson(
+                       {{"driver", "n5"}, {"compression", {{"type", "raw"}}}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec3, CodecSpec::Ptr::FromJson({{"driver", "n5"},
+                                             {"compression",
+                                              {{"type", "blosc"},
+                                               {"cname", "lz4"},
+                                               {"clevel", 5},
+                                               {"shuffle", 1}}}}));
+  EXPECT_THAT(CodecSpec::Merge(codec1, codec1), ::testing::Optional(codec1));
+  EXPECT_THAT(CodecSpec::Merge(codec2, codec2), ::testing::Optional(codec2));
+  EXPECT_THAT(CodecSpec::Merge(codec3, codec3), ::testing::Optional(codec3));
+  EXPECT_THAT(CodecSpec::Merge(codec1, codec2), ::testing::Optional(codec2));
+  EXPECT_THAT(CodecSpec::Merge(codec1, codec3), ::testing::Optional(codec3));
+  EXPECT_THAT(CodecSpec::Merge(codec2, codec3),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Cannot merge codec spec .* with .*: "
+                            "\"compression\" does not match"));
+}
+
+TEST(N5CodecSpecTest, RoundTrip) {
   tensorstore::TestJsonBinderRoundTripJsonOnly<tensorstore::CodecSpec::Ptr>({
       {
           {"driver", "n5"},

@@ -129,7 +129,11 @@ class N5MetadataConstraints {
 class N5CodecSpec : public CodecSpec {
  public:
   constexpr static char id[] = "n5";
-  Compressor compressor;
+
+  Ptr Clone() const final;
+  absl::Status DoMergeFrom(const CodecSpec& other_base) final;
+
+  std::optional<Compressor> compressor;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(N5CodecSpec, FromJsonOptions,
                                           ToJsonOptions,

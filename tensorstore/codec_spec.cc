@@ -31,6 +31,23 @@ CodecSpecRegistry& GetCodecSpecRegistry() {
 
 }  // namespace internal
 
+absl::Status CodecSpec::MergeFrom(const Ptr& other) {
+  if (!other) return absl::OkStatus();
+  TENSORSTORE_RETURN_IF_ERROR(
+      this->DoMergeFrom(*other),
+      tensorstore::MaybeAnnotateStatus(
+          _, tensorstore::StrCat("Cannot merge codec spec ", Ptr(this),
+                                 " with ", other)));
+  return absl::OkStatus();
+}
+
+bool CodecSpec::EqualTo(const CodecSpec& other) const {
+  auto a_json = Ptr(this).ToJson();
+  auto b_json = Ptr(&other).ToJson();
+  if (!a_json.ok() || !b_json.ok()) return false;
+  return internal_json::JsonSame(*a_json, *b_json);
+}
+
 CodecSpec::~CodecSpec() = default;
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(CodecSpec::Ptr, [](auto is_loading,
@@ -54,10 +71,28 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(CodecSpec::Ptr, [](auto is_loading,
 })
 
 bool operator==(const CodecSpec::Ptr& a, const CodecSpec::Ptr& b) {
-  auto a_json = a.ToJson();
-  auto b_json = b.ToJson();
-  if (!a_json.ok() || !b_json.ok()) return false;
-  return internal_json::JsonSame(*a_json, *b_json);
+  if (!a) return !b;
+  if (!b) return false;
+  return a->EqualTo(*b);
+}
+
+absl::Status CodecSpec::Ptr::MergeFrom(Ptr other) {
+  if (!other) {
+    return absl::OkStatus();
+  }
+  if (!*this) {
+    *this = std::move(other);
+    return absl::OkStatus();
+  }
+  if (get()->use_count() != 1) {
+    *this = get()->Clone();
+  }
+  return const_cast<CodecSpec&>(**this).MergeFrom(other);
+}
+
+Result<CodecSpec::Ptr> CodecSpec::Merge(Ptr a, Ptr b) {
+  TENSORSTORE_RETURN_IF_ERROR(a.MergeFrom(std::move(b)));
+  return a;
 }
 
 std::ostream& operator<<(std::ostream& os, const CodecSpec::Ptr& codec) {

@@ -25,6 +25,7 @@
 
 namespace {
 
+using tensorstore::CodecSpec;
 using tensorstore::MatchesStatus;
 using tensorstore::internal_zarr::ChunkKeyEncoding;
 using tensorstore::internal_zarr::ChunkKeyEncodingJsonBinder;
@@ -416,7 +417,42 @@ TEST(ValidateMetadataTest, FillValueMismatch) {
                             "Expected \"fill_value\" of 1 but received: null"));
 }
 
-TEST(ZarrEncodingSpecTest, RoundTrip) {
+TEST(ZarrCodecSpecTest, Merge) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec1, CodecSpec::Ptr::FromJson({{"driver", "zarr"}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec2,
+      CodecSpec::Ptr::FromJson({{"driver", "zarr"}, {"filters", nullptr}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec3,
+      CodecSpec::Ptr::FromJson({{"driver", "zarr"}, {"compressor", nullptr}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec4,
+      CodecSpec::Ptr::FromJson(
+          {{"driver", "zarr"}, {"compressor", {{"id", "blosc"}}}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto codec5,
+      CodecSpec::Ptr::FromJson(
+          {{"driver", "zarr"}, {"compressor", nullptr}, {"filters", nullptr}}));
+  EXPECT_THAT(CodecSpec::Merge(codec1, codec1), ::testing::Optional(codec1));
+  EXPECT_THAT(CodecSpec::Merge(codec3, codec3), ::testing::Optional(codec3));
+  EXPECT_THAT(CodecSpec::Merge(codec1, CodecSpec::Ptr()),
+              ::testing::Optional(codec1));
+  EXPECT_THAT(CodecSpec::Merge(CodecSpec::Ptr(), codec1),
+              ::testing::Optional(codec1));
+  EXPECT_THAT(CodecSpec::Merge(CodecSpec::Ptr(), CodecSpec::Ptr()),
+              ::testing::Optional(CodecSpec::Ptr()));
+  EXPECT_THAT(CodecSpec::Merge(codec1, codec2), ::testing::Optional(codec2));
+  EXPECT_THAT(CodecSpec::Merge(codec1, codec3), ::testing::Optional(codec3));
+  EXPECT_THAT(CodecSpec::Merge(codec2, codec3), ::testing::Optional(codec5));
+  EXPECT_THAT(
+      CodecSpec::Merge(codec3, codec4),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "Cannot merge codec spec .* with .*: \"compressor\" does not match"));
+}
+
+TEST(ZarrCodecSpecTest, RoundTrip) {
   tensorstore::TestJsonBinderRoundTripJsonOnly<tensorstore::CodecSpec::Ptr>({
       ::nlohmann::json::value_t::discarded,
       {

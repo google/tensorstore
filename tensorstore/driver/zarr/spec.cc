@@ -23,6 +23,31 @@ namespace internal_zarr {
 
 namespace jb = tensorstore::internal_json_binding;
 
+CodecSpec::Ptr ZarrCodecSpec::Clone() const {
+  return Ptr(new ZarrCodecSpec(*this));
+}
+
+absl::Status ZarrCodecSpec::DoMergeFrom(const CodecSpec& other_base) {
+  if (typeid(other_base) != typeid(ZarrCodecSpec)) {
+    return absl::InvalidArgumentError("");
+  }
+  auto& other = static_cast<const ZarrCodecSpec&>(other_base);
+  // Set filters if set in either spec.
+  if (other.filters) {
+    filters = nullptr;
+  }
+
+  if (other.compressor) {
+    if (!compressor) {
+      compressor = other.compressor;
+    } else if (!internal_json::JsonSame(::nlohmann::json(*compressor),
+                                        ::nlohmann::json(*other.compressor))) {
+      return absl::InvalidArgumentError("\"compressor\" does not match");
+    }
+  }
+  return absl::OkStatus();
+}
+
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     ZarrCodecSpec,
     jb::Sequence(
