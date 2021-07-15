@@ -23,9 +23,12 @@
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
 #include "tensorstore/array.h"
+#include "tensorstore/box.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/index_transform_testutil.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/test_util.h"
@@ -36,19 +39,31 @@
 
 namespace {
 
+using tensorstore::Box;
+using tensorstore::BoxView;
 using tensorstore::ChunkLayout;
 using tensorstore::DimensionIndex;
 using tensorstore::Dims;
+using tensorstore::dynamic_rank;
 using tensorstore::Index;
+using tensorstore::IndexDomainBuilder;
+using tensorstore::IndexTransformBuilder;
 using tensorstore::IndexTransformView;
+using tensorstore::kImplicit;
+using tensorstore::kInfIndex;
+using tensorstore::kMaxRank;
+using tensorstore::MatchesJson;
+using tensorstore::MatchesStatus;
 using tensorstore::span;
+using tensorstore::internal::ChooseChunkGrid;
 using tensorstore::internal::MakeRandomDimensionOrder;
 using ::testing::Optional;
 using Usage = ChunkLayout::Usage;
 
 TEST(ChunkLayoutTest, SingleLevelRank0) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto layout,
-                                   ChunkLayout::Builder(0).Finalize());
+  ChunkLayout layout;
+  TENSORSTORE_ASSERT_OK(layout.Set(tensorstore::RankConstraint(0)));
+  TENSORSTORE_ASSERT_OK(layout.Finalize());
   ASSERT_EQ(0, layout.rank());
   EXPECT_THAT(layout.inner_order(), ::testing::ElementsAre());
   EXPECT_THAT(layout | tensorstore::IdentityTransform(0), Optional(layout));
@@ -56,14 +71,15 @@ TEST(ChunkLayoutTest, SingleLevelRank0) {
 }
 
 TEST(ChunkLayoutTest, SingleLevelRank1) {
-  ChunkLayout::Builder builder(1);
-  builder.write_chunk().shape({5});
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto layout, builder.Finalize());
+  ChunkLayout layout;
+  TENSORSTORE_ASSERT_OK(layout.Set(ChunkLayout::GridOrigin({0})));
+  TENSORSTORE_ASSERT_OK(layout.Set(ChunkLayout::WriteChunkShape({5})));
+  TENSORSTORE_ASSERT_OK(layout.Finalize());
   ASSERT_EQ(1, layout.rank());
   EXPECT_THAT(layout.inner_order(), ::testing::ElementsAre());
-  for (auto grid : {layout.read_chunk(), layout.write_chunk()}) {
-    EXPECT_THAT(grid.shape(), ::testing::ElementsAre(5));
-  }
+  EXPECT_THAT(layout.grid_origin(), ::testing::ElementsAre(0));
+  EXPECT_THAT(layout.read_chunk_shape(), ::testing::ElementsAre(5));
+  EXPECT_THAT(layout.write_chunk_shape(), ::testing::ElementsAre(5));
   EXPECT_THAT(layout | tensorstore::IdentityTransform(1), Optional(layout));
 }
 
@@ -217,47 +233,56 @@ ChunkLayout MakeRandomChunkLayout(
     absl::BitGenRef gen, const MakeRandomChunkLayoutParameters& p = {}) {
   const DimensionIndex rank = absl::Uniform<DimensionIndex>(
       absl::IntervalClosedClosed, gen, p.min_rank, p.max_rank);
-  ChunkLayout::Builder builder(rank);
+  ChunkLayout layout;
+  TENSORSTORE_CHECK_OK(layout.Set(tensorstore::RankConstraint(rank)));
   if (absl::Bernoulli(gen, 0.5)) {
     // Set inner_order
-    MakeRandomDimensionOrder(gen, builder.inner_order());
+    DimensionIndex inner_order[kMaxRank];
+    MakeRandomDimensionOrder(gen, span(inner_order, rank));
+    TENSORSTORE_CHECK_OK(
+        layout.Set(ChunkLayout::InnerOrder(span(inner_order, rank))));
   } else {
     // Leave inner_order unspecified.
   }
   // Set origin
+  Index grid_origin[kMaxRank];
   for (DimensionIndex dim = 0; dim < rank; ++dim) {
-    builder.grid_origin()[dim] =
+    grid_origin[dim] =
         absl::Uniform<Index>(absl::IntervalClosedClosed, gen, -5, 5);
   }
+  TENSORSTORE_CHECK_OK(
+      layout.Set(ChunkLayout::GridOrigin(span(grid_origin, rank))));
   const auto set_grid = [&](Usage usage) {
     if (absl::Bernoulli(gen, 0.3)) {
       // Skip this usage.
       return;
     }
-    auto grid = builder[usage];
+    Index shape[kMaxRank];
+    std::fill_n(shape, rank, 0);
     for (DimensionIndex dim = 0; dim < rank; ++dim) {
       if (absl::Bernoulli(gen, 0.3)) {
         // No chunking for this dimension.
         continue;
       }
       Index size;
-      if (usage == Usage::kWrite && builder.read_chunk().shape()[dim] != 0) {
-        const Index read_size = builder.read_chunk().shape()[dim];
+      if (usage == Usage::kWrite && layout.read_chunk_shape()[dim] != 0) {
+        const Index read_size = layout.read_chunk_shape()[dim];
         size = absl::Uniform<Index>(absl::IntervalClosedClosed, gen, 1, 5) *
                read_size;
       } else {
         size = absl::Uniform<Index>(absl::IntervalClosedClosed, gen, 1,
                                     usage == Usage::kCodec ? 5 : 10);
       }
-      grid.shape()[dim] = size;
+      shape[dim] = size;
     }
-    std::cout << "For usage =" << usage << ", shape = " << grid.shape()
-              << std::endl;
+    TENSORSTORE_CHECK_OK(layout.Set(ChunkLayout::Chunk(
+        ChunkLayout::ChunkShapeBase(span<const Index>(shape, rank)), usage)));
   };
   set_grid(Usage::kCodec);
   set_grid(Usage::kRead);
   set_grid(Usage::kWrite);
-  return std::move(builder).Finalize().value();
+  TENSORSTORE_CHECK_OK(layout.Finalize());
+  return layout;
 }
 
 TEST(ChunkLayoutTest, Json) {
@@ -272,34 +297,6 @@ TEST(ChunkLayoutTest, Json) {
               {"inner_order", {1, 0}},
           },
       },
-      tensorstore::internal_json_binding::DefaultBinder<>,
-      tensorstore::IncludeDefaults{false});
-}
-
-TEST(ChunkLayoutTest, Simplify) {
-  tensorstore::TestJsonBinderRoundTripJsonOnlyInexact<ChunkLayout>(
-      {{
-          {
-              {"grid_origin", {1, 2}},
-              {"write_chunk",
-               {
-                   {"shape", {10, 11}},
-               }},
-              {"read_chunk",
-               {
-                   {"shape", {10, 11}},
-               }},
-              {"inner_order", {1, 0}},
-          },
-          {
-              {"grid_origin", {1, 2}},
-              {"write_chunk",
-               {
-                   {"shape", {10, 11}},
-               }},
-              {"inner_order", {1, 0}},
-          },
-      }},
       tensorstore::internal_json_binding::DefaultBinder<>,
       tensorstore::IncludeDefaults{false});
 }
@@ -435,7 +432,7 @@ TEST(ChunkLayoutTest, Rank2StrideNegative) {
       },
       Dims(0, 1).Stride(-2),
       {
-          {"grid_origin", {-4, -10}},
+          {"grid_origin", {1, 0}},
           {"write_chunk",
            {
                {"shape", {5, 10}},
@@ -460,7 +457,7 @@ TEST(ChunkLayoutTest, Rank2TwoLevelStrideNegative) {
       },
       Dims(0, 1).TranslateBy({2, 3}).Stride(-2),
       {
-          {"grid_origin", {-5, -11}},
+          {"grid_origin", {0, -1}},
           {"write_chunk",
            {
                {"shape", {5, 10}},
@@ -672,7 +669,7 @@ TEST(TransformOutputDimensionOrderTest, Rank2FortranOrderTranspose) {
 }
 
 TEST(ApplyIndexTransformTest, RandomInvertible) {
-  constexpr size_t kNumIterations = 100;
+  constexpr size_t kNumIterations = 10;
 
   for (size_t iteration = 0; iteration < kNumIterations; ++iteration) {
     std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
@@ -699,7 +696,7 @@ TEST(ApplyIndexTransformTest, RandomInvertible) {
 }
 
 TEST(ApplyIndexTransformTest, RandomNonInvertibleUnaligned) {
-  constexpr size_t kNumIterations = 100;
+  constexpr size_t kNumIterations = 10;
 
   for (size_t iteration = 0; iteration < kNumIterations; ++iteration) {
     std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
@@ -722,7 +719,7 @@ TEST(ApplyIndexTransformTest, RandomNonInvertibleUnaligned) {
 }
 
 TEST(ApplyIndexTransformTest, RandomNonInvertibleAligned) {
-  constexpr size_t kNumIterations = 100;
+  constexpr size_t kNumIterations = 10;
 
   for (size_t iteration = 0; iteration < kNumIterations; ++iteration) {
     std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
@@ -746,6 +743,1071 @@ TEST(ApplyIndexTransformTest, RandomNonInvertibleAligned) {
         << "output_layout=" << output_layout;
     TestGridCorrespondence(gen, output_layout, input_layout, transform);
   }
+}
+
+TEST(ChunkLayoutTest, DefaultConstruct) {
+  ChunkLayout x;
+  EXPECT_EQ(dynamic_rank, x.rank());
+  EXPECT_FALSE(x.inner_order().valid());
+  EXPECT_FALSE(x.grid_origin().valid());
+  EXPECT_FALSE(x.read_chunk().aspect_ratio().valid());
+}
+
+TEST(ChunkLayoutTest, ConstraintsJson) {
+  tensorstore::TestJsonBinderRoundTripJsonOnly<ChunkLayout>({
+      {
+          {"write_chunk",
+           {
+               {"elements_soft_constraint", 5},
+           }},
+      },
+      {
+          {"grid_origin", {1, 2}},
+          {"write_chunk",
+           {
+               {"shape", {10, 11}},
+           }},
+          {"inner_order", {1, 0}},
+      },
+      {
+          {"grid_origin", {1, 2}},
+          {"write_chunk",
+           {
+               {"shape", {10, 11}},
+           }},
+          {"inner_order_soft_constraint", {1, 0}},
+      },
+      {
+          {"grid_origin", {nullptr, nullptr, 3}},
+          {"grid_origin_soft_constraint", {4, nullptr, nullptr}},
+          {"write_chunk",
+           {{"elements_soft_constraint", 1000}, {"shape", {5, nullptr, 6}}}},
+          {"read_chunk",
+           {{"elements", 100},
+            {"shape_soft_constraint", {nullptr, 10, nullptr}},
+            {"aspect_ratio", {nullptr, 1, 2}}}},
+          {"codec_chunk", {{"aspect_ratio_soft_constraint", {nullptr, 2, 1}}}},
+          {"inner_order", {2, 1, 0}},
+      },
+  });
+}
+
+TEST(ChunkLayoutTest, JsonRoundTripInexact) {
+  tensorstore::TestJsonBinderRoundTripJsonOnlyInexact<ChunkLayout>({
+      {{
+           {"chunk", {{"elements", 50}}},
+       },
+       {
+           {"read_chunk", {{"elements", 50}}},
+           {"write_chunk", {{"elements", 50}}},
+       }},
+      {{
+           {"chunk", {{"elements_soft_constraint", 50}}},
+       },
+       {
+           {"read_chunk", {{"elements_soft_constraint", 50}}},
+           {"write_chunk", {{"elements_soft_constraint", 50}}},
+       }},
+      {{
+           {"read_chunk", {{"shape", {-1, 2, 3}}}},
+       },
+       {
+           {"read_chunk",
+            {{"shape", {nullptr, 2, 3}},
+             {"shape_soft_constraint", {-1, nullptr, nullptr}}}},
+       }},
+      {{
+           {"chunk", {{"elements_soft_constraint", 50}}},
+           {"read_chunk", {{"elements_soft_constraint", 60}}},
+       },
+       {
+           {"read_chunk", {{"elements_soft_constraint", 50}}},
+           {"write_chunk", {{"elements_soft_constraint", 50}}},
+       }},
+      {{
+           {"chunk", {{"elements_soft_constraint", 50}}},
+           {"read_chunk", {{"elements", 60}}},
+       },
+       {
+           {"read_chunk", {{"elements", 60}}},
+           {"write_chunk", {{"elements_soft_constraint", 50}}},
+       }},
+      {{
+           {"chunk", {{"aspect_ratio", {2, 3}}}},
+       },
+       {
+           {"codec_chunk", {{"aspect_ratio", {2, 3}}}},
+           {"read_chunk", {{"aspect_ratio", {2, 3}}}},
+           {"write_chunk", {{"aspect_ratio", {2, 3}}}},
+       }},
+      {{
+           {"chunk", {{"aspect_ratio_soft_constraint", {2, 3}}}},
+       },
+       {
+           {"codec_chunk", {{"aspect_ratio_soft_constraint", {2, 3}}}},
+           {"read_chunk", {{"aspect_ratio_soft_constraint", {2, 3}}}},
+           {"write_chunk", {{"aspect_ratio_soft_constraint", {2, 3}}}},
+       }},
+      {{
+           {"chunk", {{"shape", {2, 3}}}},
+       },
+       {
+           {"read_chunk", {{"shape", {2, 3}}}},
+           {"write_chunk", {{"shape", {2, 3}}}},
+       }},
+      {{
+           {"chunk", {{"shape_soft_constraint", {2, 3}}}},
+       },
+       {
+           {"read_chunk", {{"shape_soft_constraint", {2, 3}}}},
+           {"write_chunk", {{"shape_soft_constraint", {2, 3}}}},
+       }},
+      {{
+           {"chunk", {{"shape_soft_constraint", {2, 3}}}},
+           {"read_chunk", {{"shape", {4, nullptr}}}},
+       },
+       {
+           {"read_chunk",
+            {
+                {"shape_soft_constraint", {nullptr, 3}},
+                {"shape", {4, nullptr}},
+            }},
+           {"write_chunk", {{"shape_soft_constraint", {2, 3}}}},
+       }},
+  });
+}
+
+TEST(ChunkLayoutTest, CompareAllUnset) {
+  ChunkLayout a;
+  ChunkLayout b;
+  EXPECT_FALSE(b.Set(ChunkLayout::InnerOrder({2, 3, 4})).ok());
+  EXPECT_EQ(a, b);
+  EXPECT_EQ(b, a);
+}
+
+TEST(ChunkLayoutTest, CompareInnerOrder) {
+  tensorstore::TestCompareDistinctFromJson<ChunkLayout>({
+      ::nlohmann::json::object_t(),
+      {{"inner_order", {0, 1}}},
+      {{"inner_order", {0, 1, 2}}},
+      {{"inner_order", {0, 2, 1}}},
+      {{"inner_order_soft_constraint", {0, 2, 1}}},
+  });
+}
+
+TEST(ChunkLayoutTest, CompareChunkElements) {
+  for (std::string prefix : {"codec", "read", "write"}) {
+    tensorstore::TestCompareDistinctFromJson<ChunkLayout>({
+        ::nlohmann::json::object_t(),
+        {{prefix + "_chunk", {{"elements", 42}}}},
+        {{prefix + "_chunk", {{"elements", 43}}}},
+        {{prefix + "_chunk", {{"elements_soft_constraint", 42}}}},
+    });
+  }
+}
+
+TEST(ChunkLayoutTest, CompareChunkAspectRatio) {
+  for (std::string prefix : {"codec", "read", "write"}) {
+    tensorstore::TestCompareDistinctFromJson<ChunkLayout>({
+        ::nlohmann::json::object_t(),
+        {{prefix + "_chunk", {{"aspect_ratio", {1, 2, nullptr}}}}},
+        {{prefix + "_chunk", {{"aspect_ratio", {1, 1, nullptr}}}}},
+        {{prefix + "_chunk",
+          {
+              {"aspect_ratio", {1, 1, nullptr}},
+              {"aspect_ratio_soft_constraint", {nullptr, nullptr, 4}},
+          }}},
+        {{prefix + "_chunk",
+          {{"aspect_ratio_soft_constraint", {1, 2, nullptr}}}}},
+    });
+  }
+}
+
+TEST(ChunkLayoutTest, CompareGridOrigin) {
+  tensorstore::TestCompareDistinctFromJson<ChunkLayout>({
+      ::nlohmann::json::object_t(),
+      {{"grid_origin", {1, 2, nullptr}}},
+      {{"grid_origin", {1, 1, nullptr}}},
+      {
+          {"grid_origin", {1, 1, nullptr}},
+          {"grid_origin_soft_constraint", {nullptr, nullptr, 4}},
+      },
+      {{"grid_origin_soft_constraint", {1, 2, nullptr}}},
+  });
+}
+
+TEST(ChunkLayoutTest, CompareChunkShape) {
+  for (std::string prefix : {"codec", "read", "write"}) {
+    tensorstore::TestCompareDistinctFromJson<ChunkLayout>({
+        ::nlohmann::json::object_t(),
+        {{prefix + "_chunk", {{"shape", {1, 2, nullptr}}}}},
+        {{prefix + "_chunk", {{"shape", {1, 1, nullptr}}}}},
+        {{prefix + "_chunk",
+          {
+              {"shape", {1, 1, nullptr}},
+              {"shape_soft_constraint", {nullptr, nullptr, 4}},
+          }}},
+        {{prefix + "_chunk", {{"shape_soft_constraint", {1, 2, nullptr}}}}},
+    });
+  }
+}
+
+TEST(ChunkLayoutTest, SetUnspecifiedUsage) {
+  ChunkLayout constraints;
+  TENSORSTORE_ASSERT_OK(constraints.Set(
+      ChunkLayout::Chunk(ChunkLayout::ChunkShape({5, 6, 0}),
+                         ChunkLayout::ChunkAspectRatio({2, 1, 0}),
+                         ChunkLayout::ChunkElements(42))));
+  EXPECT_THAT(constraints.ToJson(),
+              ::testing::Optional(MatchesJson({
+                  {"write_chunk",
+                   {{"shape", {5, 6, nullptr}},
+                    {"aspect_ratio", {2, 1, nullptr}},
+                    {"elements", 42}}},
+                  {"read_chunk",
+                   {{"shape", {5, 6, nullptr}},
+                    {"aspect_ratio", {2, 1, nullptr}},
+                    {"elements", 42}}},
+                  {"codec_chunk", {{"aspect_ratio", {2, 1, nullptr}}}},
+              })));
+}
+
+TEST(ChunkLayoutConstraintsTest, ApplyIndexTransformRandomInvertible) {
+  constexpr size_t kNumIterations = 10;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto output_constraints,
+      ChunkLayout::FromJson({
+          {"codec_chunk",
+           {{"elements_soft_constraint", 20},
+            {"aspect_ratio", {1, 2, 3}},
+            {"shape", {nullptr, 4, 5}}}},
+          {"read_chunk",
+           {{"elements", 30},
+            {"aspect_ratio", {4, 5, 6}},
+            {"shape_soft_constraint", {6, nullptr, 7}}}},
+          {"write_chunk",
+           {{"elements", 40},
+            {"aspect_ratio_soft_constraint", {7, 8, 9}},
+            {"shape", {8, 9, nullptr}}}},
+          {"grid_origin", {nullptr, nullptr, 11}},
+          {"inner_order_soft_constraint", {2, 0, 1}},
+      }));
+  for (size_t iteration = 0; iteration < kNumIterations; ++iteration) {
+    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+        "TENSORSTORE_INTERNAL_LAYOUT_CONSTRAINTS_TEST_SEED")};
+    tensorstore::internal::MakeStridedIndexTransformForOutputSpaceParameters
+        transform_p;
+    transform_p.new_dims_are_singleton = true;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto domain, IndexDomainBuilder(output_constraints.rank()).Finalize());
+    auto transform =
+        tensorstore::internal::MakeRandomStridedIndexTransformForOutputSpace(
+            gen, domain, transform_p);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto inverse_transform,
+                                     InverseTransform(transform));
+    SCOPED_TRACE(tensorstore::StrCat("transform=", transform));
+    SCOPED_TRACE(tensorstore::StrCat("inverse_transform=", inverse_transform));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto input_constraints,
+                                     output_constraints | transform);
+
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto input_constraints2,
+        ApplyInverseIndexTransform(inverse_transform, output_constraints));
+    EXPECT_EQ(input_constraints, input_constraints2)
+        << "output_constraints=" << output_constraints;
+
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto output_constraints2,
+        ApplyInverseIndexTransform(transform, input_constraints));
+    EXPECT_EQ(output_constraints, output_constraints2)
+        << "input_constraints=" << input_constraints;
+
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto new_output_constraints,
+                                     input_constraints | inverse_transform);
+    EXPECT_EQ(output_constraints, new_output_constraints)
+        << "input_constraints=" << input_constraints;
+  }
+}
+
+TEST(ChunkLayoutTest, ApplyIndexTransformNoRank) {
+  ChunkLayout constraints;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto new_constraints,
+      constraints | tensorstore::Dims(0, 1).TranslateBy(5));
+  EXPECT_EQ(constraints, new_constraints);
+}
+
+TEST(ChunkLayoutTest, ApplyIndexTransform) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto constraints,
+                                   ChunkLayout::FromJson({
+                                       {"inner_order", {0, 1, 2}},
+                                       {"grid_origin", {1, 2, 3}},
+                                       {"read_chunk", {{"shape", {4, 5, 6}}}},
+                                   }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_new_constraints,
+                                   ChunkLayout::FromJson({
+                                       {"inner_order", {2, 1, 0}},
+                                       {"grid_origin", {8, 7, 6}},
+                                       {"read_chunk", {{"shape", {6, 5, 4}}}},
+                                   }));
+  EXPECT_THAT(
+      constraints | tensorstore::Dims(2, 1, 0).TranslateBy(5).Transpose(),
+      ::testing::Optional(expected_new_constraints));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_new_inverse_constraints,
+                                   ChunkLayout::FromJson({
+                                       {"inner_order", {2, 1, 0}},
+                                       {"grid_origin", {-2, -3, -4}},
+                                       {"read_chunk", {{"shape", {6, 5, 4}}}},
+                                   }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto transform,
+      tensorstore::IdentityTransform(3) |
+          tensorstore::Dims(2, 1, 0).TranslateBy(5).Transpose());
+  EXPECT_THAT(ApplyInverseIndexTransform(transform, constraints),
+              ::testing::Optional(expected_new_inverse_constraints));
+}
+
+TEST(ChunkLayoutTest, ApplyIndexTransformOverflow) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto constraints,
+                                   ChunkLayout::FromJson({
+                                       {"grid_origin", {0, 0, 0}},
+                                   }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto transform, tensorstore::IdentityTransform(3) |
+                          tensorstore::Dims(0).TranslateBy(kInfIndex));
+  EXPECT_THAT(constraints | transform,
+              MatchesStatus(
+                  absl::StatusCode::kOutOfRange,
+                  "Error transforming grid_origin: "
+                  "Error transforming output dimension 0 -> input dimension 0: "
+                  "Integer overflow transforming output origin 0 by offset .* "
+                  "and stride 1"));
+  EXPECT_THAT(ApplyInverseIndexTransform(transform, constraints),
+              MatchesStatus(
+                  absl::StatusCode::kOutOfRange,
+                  "Error transforming grid_origin: "
+                  "Error transforming input dimension 0 -> output dimension 0: "
+                  "Integer overflow transforming input origin 0 by offset .* "
+                  "and stride 1"));
+}
+
+TEST(ChunkLayoutTest, ApplyInverseIndexTransformMissingInputDimensionRequired) {
+  ChunkLayout input_constraints;
+  TENSORSTORE_ASSERT_OK(input_constraints.Set(ChunkLayout::GridOrigin({5, 6})));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto transform,
+                                   IndexTransformBuilder(2, 1)
+                                       .output_single_input_dimension(0, 1)
+                                       .Finalize());
+  EXPECT_THAT(
+      ApplyInverseIndexTransform(transform, input_constraints),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Error transforming grid_origin: "
+                    "No output dimension corresponds to input dimension 0"));
+}
+
+TEST(ChunkLayoutTest,
+     ApplyInverseIndexTransformMissingInputDimensionNotRequired) {
+  ChunkLayout input_constraints;
+  TENSORSTORE_ASSERT_OK(input_constraints.Set(
+      ChunkLayout::GridOrigin({5, 6}, /*hard_constraint=*/false)));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto transform,
+                                   IndexTransformBuilder(2, 1)
+                                       .output_single_input_dimension(0, 1)
+                                       .Finalize());
+  ChunkLayout output_constraints;
+  TENSORSTORE_ASSERT_OK(output_constraints.Set(
+      ChunkLayout::GridOrigin({6}, /*hard_constraint=*/false)));
+  EXPECT_THAT(ApplyInverseIndexTransform(transform, input_constraints),
+              ::testing::Optional(output_constraints));
+}
+
+TEST(ChunkLayoutTest, ApplyIndexTransformKnownRankNullTransform) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto constraints,
+                                   ChunkLayout::FromJson({
+                                       {"inner_order", {2, 1, 0}},
+                                   }));
+  EXPECT_THAT(constraints | tensorstore::IndexTransform<>(),
+              ::testing::Optional(constraints));
+  EXPECT_THAT(
+      ApplyInverseIndexTransform(tensorstore::IndexTransform<>(), constraints),
+      ::testing::Optional(constraints));
+}
+
+TEST(ChunkLayoutTest, ApplyIndexTransformRankMismatch) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto constraints,
+                                   ChunkLayout::FromJson({
+                                       {"inner_order", {2, 1, 0}},
+                                   }));
+  EXPECT_THAT(constraints | tensorstore::IdentityTransform(2),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Cannot transform constraints of rank 3 by index "
+                            "transform of rank 2 -> 2"));
+  EXPECT_THAT(ApplyInverseIndexTransform(tensorstore::IdentityTransform(2),
+                                         constraints),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Cannot transform constraints of rank 3 by index "
+                            "transform of rank 2 -> 2"));
+}
+
+TEST(ChunkLayoutTest, ApplyIndexTransformUnknownRankNullTransform) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto constraints,
+                                   ChunkLayout::FromJson({
+                                       {"read_chunk", {{"elements", 42}}},
+                                   }));
+  EXPECT_THAT(constraints | tensorstore::IndexTransform<>(),
+              ::testing::Optional(constraints));
+  EXPECT_THAT(
+      ApplyInverseIndexTransform(tensorstore::IndexTransform<>(), constraints),
+      ::testing::Optional(constraints));
+}
+
+TEST(ChunkLayoutTest, InnerOrder) {
+  ChunkLayout constraints;
+  EXPECT_FALSE(constraints.inner_order().valid());
+  EXPECT_FALSE(constraints.inner_order().hard_constraint);
+  EXPECT_FALSE(constraints.inner_order().valid());
+  EXPECT_THAT(constraints.inner_order(), ::testing::ElementsAre());
+  TENSORSTORE_ASSERT_OK(constraints.Set(
+      ChunkLayout::InnerOrder({0, 2, 1}, /*hard_constraint=*/false)));
+  EXPECT_EQ(3, constraints.rank());
+  EXPECT_FALSE(constraints.inner_order().hard_constraint);
+  EXPECT_THAT(constraints.inner_order(), ::testing::ElementsAre(0, 2, 1));
+
+  EXPECT_THAT(
+      constraints.Set(ChunkLayout::InnerOrder({0, 2, 2})),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "Error setting inner_order: Invalid permutation: \\{0, 2, 2\\}"));
+  EXPECT_THAT(
+      constraints.Set(
+          ChunkLayout::InnerOrder({0, 2, 2}, /*hard_constraint=*/false)),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "Error setting inner_order: Invalid permutation: \\{0, 2, 2\\}"));
+
+  TENSORSTORE_ASSERT_OK(constraints.Set(
+      ChunkLayout::InnerOrder({1, 2, 0}, /*hard_constraint=*/false)));
+  EXPECT_FALSE(constraints.inner_order().hard_constraint);
+  EXPECT_THAT(constraints.inner_order(), ::testing::ElementsAre(0, 2, 1));
+  TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::InnerOrder({2, 1, 0})));
+  EXPECT_TRUE(constraints.inner_order().hard_constraint);
+  EXPECT_THAT(constraints.inner_order(), ::testing::ElementsAre(2, 1, 0));
+  TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::InnerOrder({2, 1, 0})));
+  TENSORSTORE_ASSERT_OK(constraints.Set(
+      ChunkLayout::InnerOrder({0, 2, 1}, /*hard_constraint=*/false)));
+  EXPECT_TRUE(constraints.inner_order().hard_constraint);
+  EXPECT_THAT(constraints.inner_order(), ::testing::ElementsAre(2, 1, 0));
+  TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::InnerOrder()));
+  EXPECT_THAT(
+      constraints.Set(ChunkLayout::InnerOrder({0, 1, 2})),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Error setting inner_order: "
+                    "New hard constraint \\(\\{0, 1, 2\\}\\) does not match "
+                    "existing hard constraint \\(\\{2, 1, 0\\}\\)"));
+  EXPECT_TRUE(constraints.inner_order().hard_constraint);
+  EXPECT_THAT(constraints.inner_order(), ::testing::ElementsAre(2, 1, 0));
+}
+
+TEST(ChunkLayoutTest, GridOrigin) {
+  ChunkLayout constraints;
+  TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::GridOrigin(
+      {1, kImplicit, kImplicit}, /*hard_constraint=*/false)));
+  EXPECT_EQ(3, constraints.rank());
+  EXPECT_THAT(constraints.grid_origin(),
+              ::testing::ElementsAre(1, kImplicit, kImplicit));
+  EXPECT_EQ(0, constraints.grid_origin().hard_constraint.bits());
+  TENSORSTORE_ASSERT_OK(constraints.Set(
+      ChunkLayout::GridOrigin({2, 3, kImplicit}, /*hard_constraint=*/false)));
+  EXPECT_THAT(constraints.grid_origin(),
+              ::testing::ElementsAre(1, 3, kImplicit));
+  EXPECT_EQ(0, constraints.grid_origin().hard_constraint.bits());
+  EXPECT_THAT(constraints.Set(ChunkLayout::GridOrigin({kInfIndex, 2, 3})),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Error setting grid_origin: "
+                            "Invalid value for dimension 0: .*"));
+  EXPECT_THAT(constraints.Set(
+                  ChunkLayout::GridOrigin({2, 3}, /*hard_constraint=*/false)),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Error setting grid_origin: "
+                            "Rank 2 does not match existing rank 3"));
+  TENSORSTORE_ASSERT_OK(
+      constraints.Set(ChunkLayout::GridOrigin({kImplicit, 4, kImplicit})));
+  EXPECT_THAT(constraints.grid_origin(),
+              ::testing::ElementsAre(1, 4, kImplicit));
+  EXPECT_EQ(0b10, constraints.grid_origin().hard_constraint.bits());
+  EXPECT_THAT(constraints.Set(ChunkLayout::GridOrigin({3, 5, kImplicit})),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Error setting grid_origin: "
+                            "New hard constraint \\(5\\) for dimension 1 "
+                            "does not match existing hard constraint \\(4\\)"));
+  EXPECT_THAT(constraints.grid_origin(),
+              ::testing::ElementsAre(1, 4, kImplicit));
+  EXPECT_EQ(0b10, constraints.grid_origin().hard_constraint.bits());
+  TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::GridOrigin({1, 4, 5})));
+  EXPECT_THAT(constraints.grid_origin(), ::testing::ElementsAre(1, 4, 5));
+  EXPECT_EQ(0b111, constraints.grid_origin().hard_constraint.bits());
+}
+
+TEST(ChunkLayoutTest, ReadChunkShape) {
+  ChunkLayout constraints;
+  TENSORSTORE_ASSERT_OK(constraints.Set(
+      ChunkLayout::ReadChunkShape({100, 0, 0}, /*hard_constraint=*/false)));
+  EXPECT_EQ(3, constraints.rank());
+  EXPECT_THAT(constraints.read_chunk_shape(),
+              ::testing::ElementsAre(100, 0, 0));
+  EXPECT_THAT(constraints.read_chunk().shape(),
+              ::testing::ElementsAre(100, 0, 0));
+  EXPECT_EQ(0, constraints.read_chunk_shape().hard_constraint.bits());
+  EXPECT_EQ(0, constraints.read_chunk().shape().hard_constraint.bits());
+  TENSORSTORE_ASSERT_OK(constraints.Set(
+      ChunkLayout::ReadChunkShape({2, 300, 0}, /*hard_constraint=*/false)));
+  EXPECT_THAT(constraints.read_chunk().shape(),
+              ::testing::ElementsAre(100, 300, 0));
+  EXPECT_EQ(0, constraints.read_chunk_shape().hard_constraint.bits());
+  EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkShape({-5, 300, 3})),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Error setting read_chunk shape: "
+                            "Invalid value for dimension 0: .*"));
+  EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkShape(
+                  {2, 3}, /*hard_constraint=*/false)),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Error setting read_chunk shape: "
+                            "Rank 2 does not match existing rank 3"));
+  TENSORSTORE_ASSERT_OK(
+      constraints.Set(ChunkLayout::ReadChunkShape({0, 4, 0})));
+  EXPECT_THAT(constraints.read_chunk_shape(),
+              ::testing::ElementsAre(100, 4, 0));
+  EXPECT_EQ(0b10, constraints.read_chunk_shape().hard_constraint.bits());
+  EXPECT_EQ(0b10, constraints.read_chunk().shape().hard_constraint.bits());
+  EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkShape({100, 5, 0})),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Error setting read_chunk shape: "
+                            "New hard constraint \\(5\\) for dimension 1 "
+                            "does not match existing hard constraint \\(4\\)"));
+  EXPECT_THAT(constraints.read_chunk_shape(),
+              ::testing::ElementsAre(100, 4, 0));
+  EXPECT_EQ(0b10, constraints.read_chunk_shape().hard_constraint.bits());
+  TENSORSTORE_ASSERT_OK(
+      constraints.Set(ChunkLayout::ReadChunkShape({100, 4, 5})));
+  EXPECT_THAT(constraints.read_chunk_shape(),
+              ::testing::ElementsAre(100, 4, 5));
+  EXPECT_EQ(0b111, constraints.read_chunk_shape().hard_constraint.bits());
+}
+
+TEST(ChunkLayoutTest, WriteChunkShape) {
+  ChunkLayout constraints;
+  TENSORSTORE_ASSERT_OK(constraints.Set(
+      ChunkLayout::WriteChunkShape({100, 0, 0}, /*hard_constraint=*/false)));
+  EXPECT_EQ(3, constraints.rank());
+  EXPECT_THAT(constraints.write_chunk_shape(),
+              ::testing::ElementsAre(100, 0, 0));
+  EXPECT_THAT(constraints.write_chunk().shape(),
+              ::testing::ElementsAre(100, 0, 0));
+  EXPECT_EQ(0, constraints.write_chunk_shape().hard_constraint.bits());
+  EXPECT_EQ(0, constraints.write_chunk().shape().hard_constraint.bits());
+}
+
+TEST(ChunkLayoutTest, ReadChunkAspectRatio) {
+  ChunkLayout constraints;
+  TENSORSTORE_ASSERT_OK(constraints.Set(
+      ChunkLayout::ReadChunkAspectRatio({2, 0, 0}, /*hard_constraint=*/false)));
+  EXPECT_EQ(3, constraints.rank());
+  EXPECT_THAT(constraints.read_chunk_aspect_ratio(),
+              ::testing::ElementsAre(2, 0, 0));
+  EXPECT_THAT(constraints.read_chunk().aspect_ratio(),
+              ::testing::ElementsAre(2, 0, 0));
+  EXPECT_EQ(0, constraints.read_chunk_aspect_ratio().hard_constraint.bits());
+  EXPECT_EQ(0, constraints.read_chunk().aspect_ratio().hard_constraint.bits());
+  TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::ReadChunkAspectRatio(
+      {3, 1.5, 0}, /*hard_constraint=*/false)));
+  EXPECT_THAT(constraints.read_chunk().aspect_ratio(),
+              ::testing::ElementsAre(2, 1.5, 0));
+  EXPECT_EQ(0, constraints.read_chunk_aspect_ratio().hard_constraint.bits());
+  EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkAspectRatio({-5, 1.5, 3})),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Error setting read_chunk aspect_ratio: "
+                            "Invalid value for dimension 0: .*"));
+  EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkAspectRatio(
+                  {2, 3}, /*hard_constraint=*/false)),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Error setting read_chunk aspect_ratio: "
+                            "Rank 2 does not match existing rank 3"));
+  TENSORSTORE_ASSERT_OK(
+      constraints.Set(ChunkLayout::ReadChunkAspectRatio({0, 4, 0})));
+  EXPECT_THAT(constraints.read_chunk_aspect_ratio(),
+              ::testing::ElementsAre(2, 4, 0));
+  EXPECT_EQ(0b10, constraints.read_chunk_aspect_ratio().hard_constraint.bits());
+  EXPECT_EQ(0b10,
+            constraints.read_chunk().aspect_ratio().hard_constraint.bits());
+  EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkAspectRatio({2, 5, 0})),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Error setting read_chunk aspect_ratio: "
+                            "New hard constraint \\(5\\) for dimension 1 "
+                            "does not match existing hard constraint \\(4\\)"));
+  EXPECT_THAT(constraints.read_chunk_aspect_ratio(),
+              ::testing::ElementsAre(2, 4, 0));
+  EXPECT_EQ(0b10, constraints.read_chunk_aspect_ratio().hard_constraint.bits());
+  TENSORSTORE_ASSERT_OK(
+      constraints.Set(ChunkLayout::ReadChunkAspectRatio({2, 4, 5})));
+  EXPECT_THAT(constraints.read_chunk_aspect_ratio(),
+              ::testing::ElementsAre(2, 4, 5));
+  EXPECT_EQ(0b111,
+            constraints.read_chunk_aspect_ratio().hard_constraint.bits());
+}
+
+TEST(ChunkLayoutTest, WriteChunkAspectRatio) {
+  ChunkLayout constraints;
+  TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::WriteChunkAspectRatio(
+      {2, 0, 0}, /*hard_constraint=*/false)));
+  EXPECT_EQ(3, constraints.rank());
+  EXPECT_THAT(constraints.write_chunk_aspect_ratio(),
+              ::testing::ElementsAre(2, 0, 0));
+  EXPECT_THAT(constraints.write_chunk().aspect_ratio(),
+              ::testing::ElementsAre(2, 0, 0));
+  EXPECT_EQ(0, constraints.write_chunk_aspect_ratio().hard_constraint.bits());
+  EXPECT_EQ(0, constraints.write_chunk().aspect_ratio().hard_constraint.bits());
+  TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::WriteChunkAspectRatio(
+      {3, 1.5, 0}, /*hard_constraint=*/false)));
+  EXPECT_THAT(constraints.write_chunk().aspect_ratio(),
+              ::testing::ElementsAre(2, 1.5, 0));
+  EXPECT_EQ(0, constraints.write_chunk_aspect_ratio().hard_constraint.bits());
+}
+
+TEST(ChunkLayoutTest, CodecChunkAspectRatio) {
+  ChunkLayout constraints;
+  TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::CodecChunkAspectRatio(
+      {2, 0, 0}, /*hard_constraint=*/false)));
+  EXPECT_EQ(3, constraints.rank());
+  EXPECT_THAT(constraints.codec_chunk_aspect_ratio(),
+              ::testing::ElementsAre(2, 0, 0));
+  EXPECT_THAT(constraints.codec_chunk().aspect_ratio(),
+              ::testing::ElementsAre(2, 0, 0));
+  EXPECT_EQ(0, constraints.codec_chunk_aspect_ratio().hard_constraint.bits());
+  EXPECT_EQ(0, constraints.codec_chunk().aspect_ratio().hard_constraint.bits());
+  TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::CodecChunkAspectRatio(
+      {3, 1.5, 0}, /*hard_constraint=*/false)));
+  EXPECT_THAT(constraints.codec_chunk().aspect_ratio(),
+              ::testing::ElementsAre(2, 1.5, 0));
+  EXPECT_EQ(0, constraints.codec_chunk_aspect_ratio().hard_constraint.bits());
+}
+
+TEST(ChunkLayoutTest, ReadChunkElements) {
+  ChunkLayout constraints;
+  TENSORSTORE_ASSERT_OK(constraints.Set(
+      ChunkLayout::ReadChunkElements(kImplicit, /*hard_constraint=*/false)));
+  EXPECT_EQ(kImplicit, constraints.read_chunk_elements());
+  TENSORSTORE_ASSERT_OK(constraints.Set(
+      ChunkLayout::ReadChunkElements(42, /*hard_constraint=*/false)));
+  EXPECT_EQ(42, constraints.read_chunk_elements());
+  EXPECT_EQ(42, constraints.read_chunk().elements());
+  EXPECT_EQ(false, constraints.read_chunk_elements().hard_constraint);
+  EXPECT_EQ(false, constraints.read_chunk().elements().hard_constraint);
+  TENSORSTORE_ASSERT_OK(constraints.Set(
+      ChunkLayout::ReadChunkElements(43, /*hard_constraint=*/false)));
+  EXPECT_EQ(42, constraints.read_chunk().elements());
+  EXPECT_EQ(false, constraints.read_chunk_elements().hard_constraint);
+  EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkElements(-5)),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Error setting read_chunk elements: "
+                            "Invalid value: -5"));
+  TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::ReadChunkElements(45)));
+  EXPECT_EQ(45, constraints.read_chunk_elements());
+  EXPECT_EQ(true, constraints.read_chunk_elements().hard_constraint);
+  EXPECT_EQ(true, constraints.read_chunk().elements().hard_constraint);
+  EXPECT_THAT(
+      constraints.Set(ChunkLayout::ReadChunkElements(46)),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Error setting read_chunk elements: "
+                    "New hard constraint \\(46\\) "
+                    "does not match existing hard constraint \\(45\\)"));
+  EXPECT_EQ(45, constraints.read_chunk_elements());
+  EXPECT_EQ(true, constraints.read_chunk_elements().hard_constraint);
+  TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::ReadChunkElements(45)));
+  EXPECT_EQ(45, constraints.read_chunk_elements());
+  EXPECT_EQ(true, constraints.read_chunk_elements().hard_constraint);
+}
+
+TEST(ChunkLayoutTest, SetPreciseChunkLayout) {
+  ::nlohmann::json layout_json{
+      {"inner_order", {0, 1, 2}},
+      {"grid_origin", {1, 2, 3}},
+      {"write_chunk", {{"shape", {100, 200, 300}}}},
+      {"read_chunk", {{"shape", {10, 20, 30}}}},
+      {"codec_chunk", {{"shape", {4, 5, 6}}}},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto layout,
+                                   ChunkLayout::FromJson(layout_json));
+  ChunkLayout constraints;
+  TENSORSTORE_ASSERT_OK(constraints.Set(layout));
+  EXPECT_THAT(constraints.ToJson(),
+              ::testing::Optional(MatchesJson(layout_json)));
+  EXPECT_EQ(ChunkLayout(layout), constraints);
+}
+
+TEST(ChunkLayoutTest, SetPreciseChunkLayoutAsSoftConstraints) {
+  ::nlohmann::json layout_json{
+      {"inner_order", {0, 1, 2}},
+      {"grid_origin", {1, 2, 3}},
+      {"write_chunk", {{"shape", {100, 200, 300}}}},
+      {"read_chunk", {{"shape", {10, 20, 30}}}},
+      {"codec_chunk", {{"shape", {4, 5, 6}}}},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto layout,
+                                   ChunkLayout::FromJson(layout_json));
+  ChunkLayout constraints;
+  TENSORSTORE_ASSERT_OK(
+      constraints.Set(ChunkLayout(layout, /*hard_constraint=*/false)));
+  EXPECT_THAT(constraints.ToJson(),
+              ::testing::Optional(MatchesJson({
+                  {"inner_order_soft_constraint", {0, 1, 2}},
+                  {"grid_origin_soft_constraint", {1, 2, 3}},
+                  {"write_chunk", {{"shape_soft_constraint", {100, 200, 300}}}},
+                  {"read_chunk", {{"shape_soft_constraint", {10, 20, 30}}}},
+                  {"codec_chunk", {{"shape_soft_constraint", {4, 5, 6}}}},
+              })));
+  EXPECT_EQ(constraints, ChunkLayout(ChunkLayout(layout),
+                                     /*hard_constraint=*/false));
+  ChunkLayout constraints2;
+  TENSORSTORE_ASSERT_OK(
+      constraints2.Set(ChunkLayout(layout, /*hard_constraint=*/false)));
+  EXPECT_EQ(constraints, constraints2);
+}
+
+TEST(ChunkLayoutTest, SetChunkLayout) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto layout_a,
+      ChunkLayout::FromJson({
+          {"inner_order", {0, 1, 2}},
+          {"grid_origin_soft_constraint", {1, 2, 3}},
+          {"write_chunk",
+           {
+               {"shape_soft_constraint", {100, 200, 300}},
+               {"elements", 42},
+           }},
+          {"read_chunk",
+           {
+               {"shape", {nullptr, 20, 30}},
+               {"shape_soft_constraint", {100, nullptr, nullptr}},
+               {"elements_soft_constraint", 50},
+           }},
+          {"codec_chunk", {{"aspect_ratio", {4, 5, 6}}}},
+      }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto layout_b, ChunkLayout::FromJson({
+                         {"inner_order_soft_constraint", {2, 0, 1}},
+                         {"grid_origin", {4, 5, 6}},
+                         {"write_chunk",
+                          {
+                              {"shape", {200, 400, 900}},
+                              {"elements", 42},
+                          }},
+                         {"read_chunk",
+                          {
+                              {"shape", {10, nullptr, 30}},
+                              {"elements", 50},
+                          }},
+                     }));
+  ChunkLayout constraints;
+  TENSORSTORE_ASSERT_OK(constraints.Set(layout_a));
+  TENSORSTORE_ASSERT_OK(constraints.Set(layout_b));
+  EXPECT_THAT(constraints.ToJson(), ::testing::Optional(MatchesJson({
+                                        {"inner_order", {0, 1, 2}},
+                                        {"grid_origin", {4, 5, 6}},
+                                        {"write_chunk",
+                                         {
+                                             {"shape", {200, 400, 900}},
+                                             {"elements", 42},
+                                         }},
+                                        {"read_chunk",
+                                         {
+                                             {"shape", {10, 20, 30}},
+                                             {"elements", 50},
+                                         }},
+                                        {"codec_chunk",
+                                         {
+                                             {"aspect_ratio", {4, 5, 6}},
+                                         }},
+                                    })));
+  constraints = layout_a;
+  TENSORSTORE_ASSERT_OK(
+      constraints.Set(ChunkLayout(layout_b, /*hard_constraint=*/false)));
+  EXPECT_THAT(constraints.ToJson(),
+              ::testing::Optional(MatchesJson({
+                  {"inner_order", {0, 1, 2}},
+                  {"grid_origin_soft_constraint", {1, 2, 3}},
+                  {"write_chunk",
+                   {
+                       {"shape_soft_constraint", {100, 200, 300}},
+                       {"elements", 42},
+                   }},
+                  {"read_chunk",
+                   {
+                       {"shape", {nullptr, 20, 30}},
+                       {"shape_soft_constraint", {100, nullptr, nullptr}},
+                       {"elements_soft_constraint", 50},
+                   }},
+                  {"codec_chunk",
+                   {
+                       {"aspect_ratio", {4, 5, 6}},
+                   }},
+              })));
+}
+
+TEST(ChunkLayoutTest, CopyOnWriteWithRankSet) {
+  ChunkLayout a;
+  TENSORSTORE_ASSERT_OK(a.Set(ChunkLayout::InnerOrder({0, 1, 2})));
+  EXPECT_THAT(a.ToJson(),
+              ::testing::Optional(MatchesJson({{"inner_order", {0, 1, 2}}})));
+  ChunkLayout b = a;
+  TENSORSTORE_ASSERT_OK(b.Set(ChunkLayout::GridOrigin({1, 2, 3})));
+  EXPECT_THAT(a.ToJson(),
+              ::testing::Optional(MatchesJson({{"inner_order", {0, 1, 2}}})));
+  EXPECT_THAT(b.ToJson(), ::testing::Optional(MatchesJson({
+                              {"inner_order", {0, 1, 2}},
+                              {"grid_origin", {1, 2, 3}},
+                          })));
+}
+
+TEST(ChunkLayoutTest, CopyOnWriteWithRankNotSet) {
+  ChunkLayout a;
+  TENSORSTORE_ASSERT_OK(a.Set(ChunkLayout::ReadChunkElements(5)));
+  EXPECT_THAT(
+      a.ToJson(),
+      ::testing::Optional(MatchesJson({{"read_chunk", {{"elements", 5}}}})));
+  ChunkLayout b = a;
+  TENSORSTORE_ASSERT_OK(b.Set(ChunkLayout::GridOrigin({1, 2, 3})));
+  EXPECT_THAT(
+      a.ToJson(),
+      ::testing::Optional(MatchesJson({{"read_chunk", {{"elements", 5}}}})));
+  EXPECT_THAT(b.ToJson(), ::testing::Optional(MatchesJson({
+                              {"read_chunk", {{"elements", 5}}},
+                              {"grid_origin", {1, 2, 3}},
+                          })));
+}
+
+TEST(ChunkLayoutTest, Ostream) {
+  ChunkLayout a;
+  EXPECT_EQ("{}", tensorstore::StrCat(a));
+}
+
+TEST(ChooseChunkGridTest, Rank0) {
+  Box box(0);
+  TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+      /*origin_constraints=*/{}, ChunkLayout::GridView(), BoxView(0), box));
+}
+
+TEST(ChooseChunkGridTest, Rank1Unconstrained) {
+  Box box(1);
+  TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+      /*origin_constraints=*/{}, ChunkLayout::GridView(), BoxView(1), box));
+  // 1-d chunk size is simply equal to the default number of elements per chunk.
+  EXPECT_EQ(Box<1>({1024 * 1024}), box);
+}
+
+TEST(ChooseChunkGridTest, Rank2Unconstrained) {
+  Box box(2);
+  TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+      /*origin_constraints=*/{}, ChunkLayout::GridView(), BoxView(2), box));
+  // 2-d chunk size is based on the default number of elements per chunk.
+  EXPECT_EQ(Box({1024, 1024}), box);
+}
+
+TEST(ChooseChunkGridTest, Rank3Unconstrained) {
+  Box box(3);
+  TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+      /*origin_constraints=*/{}, ChunkLayout::GridView(), BoxView(3), box));
+  // 3-d chunk size is based on the default number of elements per chunk.
+  EXPECT_EQ(Box({102, 102, 102}), box);
+}
+
+TEST(ChooseChunkGridTest, Rank4Unconstrained) {
+  Box box(4);
+  TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+      /*origin_constraints=*/{}, ChunkLayout::GridView(), BoxView(4), box));
+  // 4-d chunk size is based on the default number of elements per chunk.
+  EXPECT_EQ(Box({32, 32, 32, 32}), box);
+}
+
+TEST(ChooseChunkGridTest, Rank1ElementsConstrained) {
+  Box box(1);
+  TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+      /*origin_constraints=*/span<const Index>({42}),
+      ChunkLayout::GridView(ChunkLayout::ChunkElementsBase(9000)), BoxView(1),
+      box));
+  EXPECT_EQ(Box<1>({42}, {9000}), box);
+}
+
+TEST(ChooseChunkGridTest, Rank1ShapeConstrained) {
+  Box box(1);
+  TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+      /*origin_constraints=*/span<const Index>({42}),
+      ChunkLayout::GridView(ChunkLayout::ChunkShape({55})), BoxView(1), box));
+  EXPECT_EQ(Box<1>({42}, {55}), box);
+}
+
+TEST(ChooseChunkGridTest, Rank1ShapeFullExtent) {
+  Box box(1);
+  TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+      /*origin_constraints=*/span<const Index>({42}),
+      ChunkLayout::GridView(
+          // -1 means match size to domain
+          ChunkLayout::ChunkShape({-1}), ChunkLayout::ChunkAspectRatio(),
+          ChunkLayout::ChunkElements(10)),
+      BoxView<1>({100}), box));
+  EXPECT_EQ(Box<1>({42}, {100}), box);
+
+  // Error if domain is not bounded.
+  EXPECT_THAT(
+      ChooseChunkGrid(
+          /*origin_constraints=*/span<const Index>({42}),
+          ChunkLayout::GridView(
+              // -1 means match size to domain
+              ChunkLayout::ChunkShape({-1}), ChunkLayout::ChunkAspectRatio(),
+              ChunkLayout::ChunkElements(10)),
+          BoxView(1), box),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Cannot match chunk size for dimension 0 to "
+                    "unbounded domain \\(-inf, \\+inf\\)"));
+}
+
+TEST(ChooseChunkGridTest, Rank1BoundedDomain) {
+  Box box(1);
+  TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+      /*origin_constraints=*/{},
+      ChunkLayout::GridView(ChunkLayout::ChunkElementsBase(9000)),
+      BoxView<1>({42}, {1000}), box));
+  EXPECT_EQ(Box<1>({42}, {1000}), box);
+}
+
+TEST(ChunkLayoutTest, ChooseChunkGridRank1BoundedDomainOriginConstrained) {
+  Box box(1);
+  TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+      /*origin_constraints=*/span<const Index>({45}),
+      ChunkLayout::GridView(ChunkLayout::ChunkElementsBase(9000)),
+      BoxView<1>({42}, {1000}), box));
+  EXPECT_EQ(Box<1>({45}, {1000}), box);
+}
+
+TEST(ChooseChunkGridTest, Rank2AspectRatio) {
+  Box box(2);
+  TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+      /*origin_constraints=*/{},
+      ChunkLayout::GridView(ChunkLayout::ChunkShape(),
+                            ChunkLayout::ChunkAspectRatio({1.0, 2.0}),
+                            ChunkLayout::ChunkElements(200)),
+      BoxView(2), box));
+  EXPECT_EQ(Box({10, 20}), box);
+}
+
+TEST(ChooseChunkGridTest, Rank3AspectRatio) {
+  Box box(3);
+  TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+      /*origin_constraints=*/{},
+      ChunkLayout::GridView(ChunkLayout::ChunkShape(),
+                            ChunkLayout::ChunkAspectRatio({1.0, 0, 2.0}),
+                            ChunkLayout::ChunkElements(2000)),
+      BoxView(3), box));
+  EXPECT_EQ(Box({10, 10, 20}), box);
+}
+
+TEST(ChooseChunkGridTest, Rank3AspectRatioWithChunkShapeConstraint) {
+  Box box(3);
+  TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+      /*origin_constraints=*/{},
+      ChunkLayout::GridView(ChunkLayout::ChunkShape({0, 1, 0}),
+                            ChunkLayout::ChunkAspectRatio({1.0, 0, 2.0}),
+                            ChunkLayout::ChunkElements(200)),
+      BoxView(3), box));
+  EXPECT_EQ(Box({10, 1, 20}), box);
+}
+
+TEST(ChooseChunkGridTest, Rank3AspectRatioLarge1) {
+  Box box(3);
+  TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+      /*origin_constraints=*/{},
+      ChunkLayout::GridView(ChunkLayout::ChunkShape(),
+                            ChunkLayout::ChunkAspectRatio({1.0, 1.0, 1e30}),
+                            ChunkLayout::ChunkElements(200)),
+      BoxView(3), box));
+  EXPECT_EQ(Box({1, 1, 200}), box);
+}
+
+TEST(ChooseChunkGridTest, Rank3AspectRatioLarge2) {
+  Box box(3);
+  TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+      /*origin_constraints=*/{},
+      ChunkLayout::GridView(ChunkLayout::ChunkShape(),
+                            ChunkLayout::ChunkAspectRatio({1.0, 1e30, 1e30}),
+                            ChunkLayout::ChunkElements(100)),
+      BoxView(3), box));
+  EXPECT_EQ(Box({1, 10, 10}), box);
+}
+
+TEST(ChooseChunkGridTest, Rank3AspectRatioLarge3) {
+  Box box(3);
+  TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+      /*origin_constraints=*/{},
+      ChunkLayout::GridView(ChunkLayout::ChunkShape(),
+                            ChunkLayout::ChunkAspectRatio({1.0, 1e30, 1e30}),
+                            ChunkLayout::ChunkElements(Index(1) << 40)),
+      BoxView(3), box));
+  EXPECT_EQ(Box({1, Index(1) << 20, Index(1) << 20}), box);
+}
+
+TEST(ChooseChunkGridTest, GridOriginRankMismatch) {
+  Box box(3);
+  EXPECT_THAT(
+      ChooseChunkGrid(
+          /*origin_constraints=*/span<const Index>({1, 2}),
+          ChunkLayout::GridView(), BoxView(3), box),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "Rank of constraints \\(2\\) does not match rank of domain \\(3\\)"));
+}
+
+TEST(ChooseChunkGridTest, ShapeConstraintRankMismatch) {
+  Box box(3);
+  EXPECT_THAT(
+      ChooseChunkGrid(
+          /*origin_constraints=*/{},
+          ChunkLayout::GridView(ChunkLayout::ChunkShape({1, 2})), BoxView(3),
+          box),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "Rank of constraints \\(2\\) does not match rank of domain \\(3\\)"));
+}
+
+TEST(ChooseChunkGridTest, AspectRatioConstraintRankMismatch) {
+  Box box(3);
+  EXPECT_THAT(
+      ChooseChunkGrid(
+          /*origin_constraints=*/{},
+          ChunkLayout::GridView(ChunkLayout::ChunkAspectRatio({1, 2})),
+          BoxView(3), box),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "Rank of constraints \\(2\\) does not match rank of domain \\(3\\)"));
+}
+
+TEST(ChunkLayoutGridTest, Basic) {
+  ChunkLayout::Grid grid;
+  TENSORSTORE_EXPECT_OK(grid.Set(ChunkLayout::ChunkShape({10, 11})));
+  EXPECT_EQ(2, grid.rank());
+  EXPECT_THAT(grid.shape(), ::testing::ElementsAre(10, 11));
+}
+
+TEST(ChunkLayoutGridTest, Json) {
+  tensorstore::TestJsonBinderRoundTripJsonOnly<ChunkLayout::Grid>(
+      {
+          {
+              {"shape", {10, 11}},
+              {"aspect_ratio", {2, nullptr}},
+              {"aspect_ratio_soft_constraint", {nullptr, 3}},
+              {"elements_soft_constraint", 10000},
+          },
+      },
+      tensorstore::internal_json_binding::DefaultBinder<>,
+      tensorstore::IncludeDefaults{false});
 }
 
 }  // namespace

@@ -986,6 +986,16 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "maybe_hard_constraint",
+    hdrs = ["maybe_hard_constraint.h"],
+    deps = [
+        "//tensorstore:index",
+        "//tensorstore/util:dimension_set",
+        "//tensorstore/util:span",
+    ],
+)
+
+tensorstore_cc_library(
     name = "async_write_array",
     srcs = ["async_write_array.cc"],
     hdrs = ["async_write_array.h"],

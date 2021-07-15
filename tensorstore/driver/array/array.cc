@@ -287,9 +287,16 @@ Result<IndexTransform<>> ArrayDriver::GetBoundSpecData(
 
 Result<ChunkLayout> ArrayDriver::GetChunkLayout(
     IndexTransformView<> transform) {
-  ChunkLayout::Builder builder(data_.rank());
-  SetPermutationFromStridedLayout(data_.layout(), builder.inner_order());
-  return builder.Finalize() | transform;
+  ChunkLayout layout;
+  const DimensionIndex rank = data_.rank();
+  DimensionIndex inner_order[kMaxRank];
+  SetPermutationFromStridedLayout(data_.layout(), span(inner_order, rank));
+  TENSORSTORE_RETURN_IF_ERROR(
+      layout.Set(ChunkLayout::InnerOrder(span(inner_order, rank))));
+  TENSORSTORE_RETURN_IF_ERROR(
+      layout.Set(ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(rank))));
+  TENSORSTORE_RETURN_IF_ERROR(layout.Finalize());
+  return std::move(layout) | transform;
 }
 
 Future<internal::Driver::Handle> ArrayDriver::Open(

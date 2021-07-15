@@ -744,10 +744,16 @@ Result<ChunkLayout> ChunkCacheDriver::GetChunkLayout(
 
 Result<ChunkLayout> ChunkCache::GetChunkLayout(size_t component_index) {
   const auto& component_spec = grid().components[component_index];
-  ChunkLayout::Builder builder(component_spec.rank());
-  tensorstore::SetPermutation(c_order, builder.inner_order());
-  builder.write_chunk().shape(component_spec.shape());
-  return builder.Finalize();
+  ChunkLayout layout;
+  DimensionIndex inner_order[kMaxRank];
+  const DimensionIndex rank = component_spec.rank();
+  tensorstore::SetPermutation(c_order, span(inner_order, rank));
+  TENSORSTORE_RETURN_IF_ERROR(
+      layout.Set(ChunkLayout::InnerOrder(span(inner_order, rank))));
+  TENSORSTORE_RETURN_IF_ERROR(
+      layout.Set(ChunkLayout::WriteChunkShape(component_spec.shape())));
+  TENSORSTORE_RETURN_IF_ERROR(layout.Finalize());
+  return layout;
 }
 
 Executor ChunkCacheDriver::data_copy_executor() { return cache_->executor(); }

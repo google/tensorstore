@@ -658,6 +658,7 @@ TEST(FromArrayTest, ChunkLayoutCOrder) {
       auto store, tensorstore::FromArray(Context::Default(), array));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout,
                                    ChunkLayout::FromJson({
+                                       {"grid_origin", {0, 0, 0}},
                                        {"inner_order", {0, 1, 2}},
                                    }));
   EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
@@ -670,6 +671,7 @@ TEST(FromArrayTest, ChunkLayoutFortranOrder) {
       auto store, tensorstore::FromArray(Context::Default(), array));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout,
                                    ChunkLayout::FromJson({
+                                       {"grid_origin", {0, 0, 0}},
                                        {"inner_order", {2, 1, 0}},
                                    }));
   EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));

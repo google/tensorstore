@@ -2139,7 +2139,9 @@ TEST(DriverTest, ChunkLayout) {
         tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout,
                                      ChunkLayout::FromJson({
+                                         {"grid_origin", {0, 0}},
                                          {"write_chunk", {{"shape", {3, 2}}}},
+                                         {"read_chunk", {{"shape", {3, 2}}}},
                                          {"inner_order", {0, 1}},
                                      }));
     EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
@@ -2152,6 +2154,7 @@ TEST(DriverTest, ChunkLayout) {
         auto expected_transformed_layout,
         ChunkLayout::FromJson({
             {"write_chunk", {{"shape", {1, 3}}}},
+            {"read_chunk", {{"shape", {1, 3}}}},
             // Chunk grid is aligned to an origin of `{3, 2}` rather than
             // `{0, 0}` due to the translation above.
             {"grid_origin", {3, 2}},
@@ -2169,7 +2172,9 @@ TEST(DriverTest, ChunkLayout) {
         tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout,
                                      ChunkLayout::FromJson({
+                                         {"grid_origin", {0, 0}},
                                          {"write_chunk", {{"shape", {3, 2}}}},
+                                         {"read_chunk", {{"shape", {3, 2}}}},
                                          {"inner_order", {1, 0}},
                                      }));
     EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));

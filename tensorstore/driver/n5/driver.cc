@@ -228,11 +228,19 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
                                      std::size_t component_index) override {
     const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
     auto& encoded_strided_layout = metadata.chunk_layout;
-    ChunkLayout::Builder builder(encoded_strided_layout.rank());
-    builder.write_chunk().shape(encoded_strided_layout.shape());
+    ChunkLayout layout;
+    const DimensionIndex rank = encoded_strided_layout.rank();
+    TENSORSTORE_RETURN_IF_ERROR(
+        layout.Set(ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(rank))));
+    DimensionIndex inner_order[kMaxRank];
     SetPermutationFromStridedLayout(encoded_strided_layout,
-                                    builder.inner_order());
-    return builder.Finalize();
+                                    span(inner_order, rank));
+    TENSORSTORE_RETURN_IF_ERROR(
+        layout.Set(ChunkLayout::InnerOrder(span(inner_order, rank))));
+    TENSORSTORE_RETURN_IF_ERROR(layout.Set(
+        ChunkLayout::WriteChunkShape(encoded_strided_layout.shape())));
+    TENSORSTORE_RETURN_IF_ERROR(layout.Finalize());
+    return layout;
   }
 
   Result<CodecSpec::Ptr> GetCodec(const void* metadata,

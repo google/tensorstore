@@ -265,19 +265,28 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
     return absl::OkStatus();
   }
 
-  void SetBaseChunkGrid(const MultiscaleMetadata& metadata,
-                        ChunkLayout::Builder& builder,
-                        ChunkLayout::Usage base_usage) {
+  Result<ChunkLayout> GetBaseChunkLayout(const MultiscaleMetadata& metadata,
+                                         ChunkLayout::Usage base_usage) {
+    ChunkLayout layout;
+    // Leave origin set at zero; origin is accounted for by the index transform.
+    TENSORSTORE_RETURN_IF_ERROR(
+        layout.Set(ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(4))));
     const auto& scale = metadata.scales[scale_index_];
-    SetPermutation(c_order, builder.inner_order());
-    builder[base_usage].shape(chunk_layout_czyx_.shape());
+    {
+      DimensionIndex inner_order[4];
+      SetPermutation(c_order, inner_order);
+      TENSORSTORE_RETURN_IF_ERROR(
+          layout.Set(ChunkLayout::InnerOrder(inner_order)));
+    }
+    TENSORSTORE_RETURN_IF_ERROR(layout.Set(ChunkLayout::Chunk(
+        ChunkLayout::ChunkShape(chunk_layout_czyx_.shape()), base_usage)));
     if (scale.encoding == ScaleMetadata::Encoding::compressed_segmentation) {
-      builder.codec_chunk().shape(
+      TENSORSTORE_RETURN_IF_ERROR(layout.Set(ChunkLayout::CodecChunkShape(
           {metadata.num_channels, scale.compressed_segmentation_block_size[2],
            scale.compressed_segmentation_block_size[1],
-           scale.compressed_segmentation_block_size[0]});
+           scale.compressed_segmentation_block_size[0]})));
     }
-    // Leave origin set at zero; origin is accounted for by the index transform.
+    return layout;
   }
 
   std::string key_prefix_;
@@ -321,9 +330,10 @@ class UnshardedDataCache : public DataCacheBase {
                                      std::size_t component_index) override {
     const auto& metadata =
         *static_cast<const MultiscaleMetadata*>(metadata_ptr);
-    ChunkLayout::Builder builder(4);
-    SetBaseChunkGrid(metadata, builder, ChunkLayout::kWrite);
-    return builder.Finalize();
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto layout, GetBaseChunkLayout(metadata, ChunkLayout::kWrite));
+    TENSORSTORE_RETURN_IF_ERROR(layout.Finalize());
+    return layout;
   }
 
  private:
@@ -359,19 +369,23 @@ class ShardedDataCache : public DataCacheBase {
         *static_cast<const MultiscaleMetadata*>(metadata_ptr);
     const auto& scale = metadata.scales[scale_index_];
     const auto& sharding = *std::get_if<ShardingSpec>(&scale.sharding);
-    ChunkLayout::Builder builder(4);
-    SetBaseChunkGrid(metadata, builder, ChunkLayout::kRead);
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto layout, GetBaseChunkLayout(metadata, ChunkLayout::kRead));
     if (ShardChunkHierarchy hierarchy; GetShardChunkHierarchy(
             sharding, scale.box.shape(), scale.chunk_sizes[0], hierarchy)) {
-      builder.write_chunk().shape()[0] = metadata.num_channels;
+      Index write_chunk_shape[4];
+      write_chunk_shape[0] = metadata.num_channels;
       for (int dim = 0; dim < 3; ++dim) {
         const Index chunk_size = scale.chunk_sizes[0][dim];
         const Index volume_size = scale.box.shape()[dim];
-        builder.write_chunk().shape()[3 - dim] = std::min(
+        write_chunk_shape[3 - dim] = std::min(
             hierarchy.shard_shape_in_chunks[dim] * chunk_size, volume_size);
       }
+      TENSORSTORE_RETURN_IF_ERROR(
+          layout.Set(ChunkLayout::WriteChunkShape(write_chunk_shape)));
     }
-    return builder.Finalize();
+    TENSORSTORE_RETURN_IF_ERROR(layout.Finalize());
+    return layout;
   }
 
   std::array<int, 3> compressed_z_index_bits_;

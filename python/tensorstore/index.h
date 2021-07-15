@@ -43,6 +43,17 @@ struct OptionallyImplicitIndex {
   constexpr operator Index() const { return value; }
 };
 
+template <typename T>
+std::vector<T> ConvertVectorWithDefault(span<const std::optional<T>> input,
+                                        T default_value) {
+  std::vector<T> output;
+  output.reserve(input.size());
+  for (const auto& x : input) {
+    output.push_back(x.value_or(default_value));
+  }
+  return output;
+}
+
 /// Wrapper around `std::vector<T>` that displays as `Sequence[T]`.
 ///
 /// This is intended as a pybind11 function parameter type, in order to

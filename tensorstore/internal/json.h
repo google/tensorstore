@@ -410,7 +410,7 @@ struct MemberBinderImpl {
   Binder binder;
   template <typename Options, typename Obj>
   absl::Status operator()(std::true_type is_loading, const Options& options,
-                          Obj* obj, ::nlohmann::json::object_t* j_obj) {
+                          Obj* obj, ::nlohmann::json::object_t* j_obj) const {
     ::nlohmann::json j_member = internal::JsonExtractMember(j_obj, name);
     if constexpr (kDropDiscarded) {
       if (j_member.is_discarded()) return absl::OkStatus();
@@ -420,7 +420,7 @@ struct MemberBinderImpl {
   }
   template <typename Options, typename Obj>
   absl::Status operator()(std::false_type is_loading, const Options& options,
-                          Obj* obj, ::nlohmann::json::object_t* j_obj) {
+                          Obj* obj, ::nlohmann::json::object_t* j_obj) const {
     ::nlohmann::json j_member(::nlohmann::json::value_t::discarded);
     TENSORSTORE_RETURN_IF_ERROR(
         binder(is_loading, options, obj, &j_member),

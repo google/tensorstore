@@ -703,6 +703,8 @@ TEST(DownsampleTest, ChunkLayout) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout,
                                    ChunkLayout::FromJson({
                                        {"write_chunk", {{"shape", {5, 7}}}},
+                                       {"read_chunk", {{"shape", {5, 7}}}},
+                                       {"grid_origin", {0, 0}},
                                        {"inner_order", {1, 0}},
                                    }));
   EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));

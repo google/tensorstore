@@ -423,4 +423,48 @@ Result<IndexDomain<>> MergeIndexDomains(IndexDomain<> a, IndexDomain<> b) {
   return result;
 }
 
+namespace internal {
+
+DimensionSet GetOneToOneInputDimensions(IndexTransformView<> transform) {
+  DimensionSet invalid_input_dims;
+  DimensionSet seen_input_dims;
+  const DimensionIndex input_rank = transform.input_rank();
+  const DimensionIndex output_rank = transform.output_rank();
+  for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
+    const auto map = transform.output_index_maps()[output_dim];
+    switch (map.method()) {
+      case OutputIndexMethod::constant:
+        // Constant maps don't involve any input dimensions.
+        break;
+      case OutputIndexMethod::single_input_dimension: {
+        const DimensionIndex input_dim = map.input_dimension();
+        if (map.stride() == std::numeric_limits<Index>::min()) {
+          // Stride is not invertible.
+          invalid_input_dims[input_dim] = true;
+          break;
+        }
+        if (seen_input_dims[input_dim]) {
+          invalid_input_dims[input_dim] = true;
+          break;
+        }
+        seen_input_dims[input_dim] = true;
+        break;
+      }
+      case OutputIndexMethod::array: {
+        const auto index_array = map.index_array();
+        for (DimensionIndex input_dim = 0; input_dim < input_rank;
+             ++input_dim) {
+          if (index_array.byte_strides()[input_dim] != 0) {
+            invalid_input_dims[input_dim] = true;
+          }
+        }
+        break;
+      }
+    }
+  }
+  return seen_input_dims & ~invalid_input_dims;
+}
+
+}  // namespace internal
+
 }  // namespace tensorstore

@@ -71,6 +71,11 @@ TEST(SmallBitSetTest, FromBits) {
   EXPECT_EQ(0b110'1011, v2.bits());
 }
 
+TEST(SmallBitSetTest, BracedList) {
+  auto v = BitSet({0, 1, 1, 0, 0, 1});
+  EXPECT_EQ(0b100110, v.bits());
+}
+
 TEST(SmallBitSetTest, Reference) {
   BitSet v;
   v[2] = true;

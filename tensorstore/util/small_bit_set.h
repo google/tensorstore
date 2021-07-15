@@ -46,6 +46,18 @@ class SmallBitSet {
   /// Constructs a vector with all bits set to `value`.
   constexpr SmallBitSet(bool value) : bits_(value * ~Bits(0)) {}
 
+  /// Constructs a vector from the specified bool array.
+  ///
+  /// Can be invoked with a braced list, e.g. `SmallBitSet<8>({0, 1, 1, 0})`.
+  template <size_t NumBits, typename = std::enable_if_t<(NumBits <= N)>>
+  constexpr SmallBitSet(const bool (&bits)[NumBits]) {
+    Bits v = 0;
+    for (size_t i = 0; i < NumBits; ++i) {
+      v |= Bits(bits[i]) << i;
+    }
+    bits_ = v;
+  }
+
   /// Constructs a vector from an unsigned integer.
   static constexpr SmallBitSet FromBits(Bits bits) {
     SmallBitSet v;

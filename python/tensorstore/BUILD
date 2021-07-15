@@ -288,6 +288,7 @@ pybind11_cc_library(
     hdrs = ["spec.h"],
     deps = [
         ":data_type",
+        ":index",
         ":index_space",
         ":json_type_caster",
         ":result_type_caster",
@@ -565,15 +566,44 @@ pybind11_cc_library(
 
 pybind11_cc_library(
     name = "chunk_layout",
-    srcs = ["chunk_layout.cc"],
+    srcs = [
+        "chunk_layout.cc",
+        "chunk_layout_keyword_arguments.h",
+    ],
     hdrs = ["chunk_layout.h"],
     deps = [
         ":array_type_caster",
+        ":index",
         ":index_space",
         ":json_type_caster",
+        ":keyword_arguments",
         "//tensorstore:chunk_layout",
         "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/internal:json_pprint_python",
+        "@com_github_pybind_pybind11//:pybind11",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+pybind11_cc_library(
+    name = "keyword_arguments",
+    hdrs = ["keyword_arguments.h"],
+    deps = [
+        ":status",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "@com_github_pybind_pybind11//:pybind11",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+pybind11_cc_library(
+    name = "keyword_arguments_test",
+    testonly = True,
+    srcs = ["keyword_arguments_test.cc"],
+    deps = [
+        ":keyword_arguments",
+        "//tensorstore/util:str_cat",
         "@com_github_pybind_pybind11//:pybind11",
     ],
 )

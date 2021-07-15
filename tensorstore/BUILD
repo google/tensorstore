@@ -137,6 +137,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:dimension_indexed_json_binder",
         "//tensorstore/internal:integer_range",
         "//tensorstore/internal:json",
+        "//tensorstore/internal:maybe_hard_constraint",
         "//tensorstore/util:constant_vector",
         "//tensorstore/util:dimension_set",
         "//tensorstore/util:division",
@@ -151,10 +152,12 @@ tensorstore_cc_test(
     srcs = ["chunk_layout_test.cc"],
     deps = [
         ":array",
+        ":box",
         ":chunk_layout",
         ":index_interval",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/index_space:index_transform_testutil",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/internal:test_util",
@@ -750,25 +753,5 @@ tensorstore_cc_library(
         "//tensorstore/util:division",
         "//tensorstore/util:status",
         "@com_google_absl//absl/status",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "schema_test",
-    size = "small",
-    srcs = ["schema_test.cc"],
-    deps = [
-        ":schema",
-        "//tensorstore/driver/zarr:spec",
-        "//tensorstore/index_space:dim_expression",
-        "//tensorstore/index_space:index_transform_builder",
-        "//tensorstore/index_space:index_transform_testutil",
-        "//tensorstore/index_space:json",
-        "//tensorstore/internal:json_gtest",
-        "//tensorstore/internal:test_util",
-        "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/random",
-        "@com_google_absl//absl/random:bit_gen_ref",
-        "@com_google_googletest//:gtest_main",
     ],
 )

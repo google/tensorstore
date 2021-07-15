@@ -1611,6 +1611,7 @@ TEST(DriverTest, ChunkLayoutUnshardedRaw) {
       auto expected_layout, ChunkLayout::FromJson({
                                 {"grid_origin", {1, 2, 3, 0}},
                                 {"write_chunk", {{"shape", {5, 6, 7, 4}}}},
+                                {"read_chunk", {{"shape", {5, 6, 7, 4}}}},
                                 {"inner_order", {3, 2, 1, 0}},
                             }));
   EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
@@ -1807,6 +1808,7 @@ TEST(DriverTest, ChunkLayoutUnshardedCompressedSegmentation) {
       auto expected_layout, ChunkLayout::FromJson({
                                 {"grid_origin", {1, 2, 3, 0}},
                                 {"write_chunk", {{"shape", {5, 6, 7, 4}}}},
+                                {"read_chunk", {{"shape", {5, 6, 7, 4}}}},
                                 {"codec_chunk", {{"shape", {8, 9, 10, 4}}}},
                                 {"inner_order", {3, 2, 1, 0}},
                             }));

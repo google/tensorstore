@@ -202,6 +202,7 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["metadata_test.cc"],
     deps = [
+        ":blosc_compressor",
         ":metadata",
         "//tensorstore:array",
         "//tensorstore/internal:json_gtest",

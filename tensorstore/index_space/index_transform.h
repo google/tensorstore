@@ -1471,6 +1471,15 @@ Status PropagateInputDomainResizeToOutput(
     span<Index> new_output_inclusive_min, span<Index> new_output_exclusive_max,
     bool* is_noop);
 
+namespace internal {
+
+/// Returns the set of input dimensions that map to a unique output dimension
+/// via a `single_input_dimension` output index map, and do not affect any other
+/// output dimensions.
+DimensionSet GetOneToOneInputDimensions(IndexTransformView<> transform);
+
+}  // namespace internal
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_INDEX_SPACE_INDEX_TRANSFORM_H_
