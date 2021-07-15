@@ -1,24 +1,44 @@
 load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//docs:doctest.bzl", "doctest_multi_test")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
+DRIVERS = [
+    "array",
+    "cast",
+    "downsample",
+    "json",
+    "n5",
+    "neuroglancer_precomputed",
+    "zarr",
+]
+
+DOCTEST_SOURCES = glob([
+    "**/*.rst",
+    "**/*.yml",
+])
+
+doctest_multi_test(
+    name = "doctest_tests",
+    srcs = DOCTEST_SOURCES,
+)
+
 filegroup(
     name = "doc_sources",
-    srcs = glob([
-        "**/*.rst",
-        "**/*.yml",
-    ]),
-    data = [
-        "//tensorstore/driver/array:doc_sources",
-        "//tensorstore/driver/cast:doc_sources",
-        "//tensorstore/driver/downsample:doc_sources",
-        "//tensorstore/driver/json:doc_sources",
-        "//tensorstore/driver/n5:doc_sources",
-        "//tensorstore/driver/neuroglancer_precomputed:doc_sources",
-        "//tensorstore/driver/zarr:doc_sources",
+    srcs = DOCTEST_SOURCES + [
+        "//tensorstore/driver/" + driver + ":doc_sources"
+        for driver in DRIVERS
+    ],
+)
+
+tensorstore_cc_library(
+    name = "all_drivers",
+    deps = [
+        "//tensorstore/driver/" + driver
+        for driver in DRIVERS
     ],
 )
 

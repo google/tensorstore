@@ -56,6 +56,8 @@ specified without specifying the precise layout explicitly.
 
 .. json:schema:: ChunkLayout/Grid
 
+.. _codec:
+
 Codec
 -----
 

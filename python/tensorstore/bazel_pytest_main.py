@@ -13,6 +13,10 @@
 # limitations under the License.
 """Driver for running pytest from bazel."""
 
+# This file is a template used by the implementation of
+# `tensorstore_pytest_test`.  PYTEST_ARGS, PYTEST_TARGETS, and USE_ABSL will be
+# substituted with constants.
+
 import os
 import sys
 
@@ -23,23 +27,31 @@ def invoke_tests(argv):
   # Remove directory containing this script from the search path to avoid import
   # problems.
   del sys.path[0]
-  args = argv[1:]
+  implicit_args = PYTEST_ARGS
   if 'TEST_TMPDIR' in os.environ:  # running as bazel test
     # set pytest's cache dir to a location that it can safely write to
-    args += ['--override-ini', 'cache_dir=' + os.environ['TEST_TMPDIR']]
+    implicit_args += [
+        '--override-ini', 'cache_dir=' + os.environ['TEST_TMPDIR']
+    ]
   if 'XML_OUTPUT_FILE' in os.environ:
     # Output per-test-case information in XML format to allow Bazel to aggregate
     # with greater detail.
-    args += ['--junitxml', os.environ['XML_OUTPUT_FILE']]
-  return pytest.main(args=args)
+    implicit_args += ['--junitxml', os.environ['XML_OUTPUT_FILE']]
+  implicit_args += ['--pyargs']
+  implicit_args += PYTEST_TARGETS
+  return pytest.main(args=implicit_args + argv[1:])
 
 
 def main():
-  if 'TENSORSTORE_PYTEST_USE_ABSL' in os.environ:
+  if USE_ABSL:
     import absl.app
+    import absl.flags
+    absl.flags.FLAGS.set_default('logtostderr', True)
+    sys.argv.insert(1, '--')
     absl.app.run(invoke_tests)
   else:
     sys.exit(invoke_tests(sys.argv))
+
 
 if __name__ == '__main__':
   main()

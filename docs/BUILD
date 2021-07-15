@@ -1,6 +1,7 @@
 load("//python/tensorstore:pytype.bzl", "pytype_strict_binary", "pytype_strict_test")
 load("//python/tensorstore:pytest.bzl", "tensorstore_pytest_test")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("//docs:doctest.bzl", "doctest_multi_test")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -17,19 +18,10 @@ filegroup(
         "**/*.rst",
         "**/*.yml",
         "intersphinx_inv/**",
-    ]),
-    data = [
+    ]) + [
         "//tensorstore/driver:doc_sources",
         "//tensorstore/kvstore:doc_sources",
         "//third_party:doc_sources",
-    ],
-)
-
-filegroup(
-    name = "doctest_sources",
-    testonly = True,
-    srcs = glob(["python/**/*.rst"]) + [
-        "//python/tensorstore:doctest_sources",
     ],
 )
 
@@ -111,22 +103,17 @@ tensorstore_pytest_test(
         "conftest.py",
         "doctest_test.py",
     ],
-    args = [
-        "--doctests",
-        "$(locations :doctest_sources)",
-    ],
-    data = [
-        ":doctest_sources",
-    ],
-    env = {
-        # Ensure that even if the test is running on GCE, no attempt is made to
-        # use GCE credentials.
-        "GCE_METADATA_ROOT": "metadata.google.internal.invalid",
-    },
+    tags = ["manual"],
+    tests = ["doctest_test.py"],
     deps = [
         "//docs/tensorstore_sphinx_ext:json_pprint",
         "//python/tensorstore",
         "@pypa_numpy//:numpy",
         "@pypa_yapf//:yapf",
     ],
+)
+
+doctest_multi_test(
+    name = "doctest_tests",
+    srcs = glob(["python/**/*.rst"]),
 )

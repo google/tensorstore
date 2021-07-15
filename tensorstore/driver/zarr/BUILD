@@ -1,15 +1,33 @@
 load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//docs:doctest.bzl", "doctest_multi_test")
 
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
+DOCTEST_SOURCES = glob([
+    "**/*.rst",
+    "**/*.yml",
+])
+
+doctest_multi_test(
+    name = "doctest_tests",
+    srcs = DOCTEST_SOURCES,
+)
+
 filegroup(
     name = "doc_sources",
-    srcs = glob([
-        "**/*.rst",
-        "**/*.yml",
-    ]),
+    srcs = DOCTEST_SOURCES,
+)
+
+tensorstore_cc_library(
+    name = "zarr",
+    deps = [
+        ":blosc_compressor",
+        ":bzip2_compressor",
+        ":driver",
+        ":zlib_compressor",
+    ],
 )
 
 tensorstore_cc_library(
@@ -101,9 +119,9 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["driver_impl_test.cc"],
     deps = [
+        ":driver",
         ":metadata",
         ":spec",
-        ":zarr",
         "//tensorstore:context",
         "//tensorstore:open",
         "//tensorstore/driver:kvs_backed_chunk_driver",
@@ -123,7 +141,7 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["driver_test.cc"],
     deps = [
-        ":zarr",
+        ":driver",
         "//tensorstore:context",
         "//tensorstore:open",
         "//tensorstore/driver:driver_testutil",
@@ -269,7 +287,7 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "zarr",
+    name = "driver",
     srcs = ["driver.cc"],
     hdrs = ["driver_impl.h"],
     deps = [

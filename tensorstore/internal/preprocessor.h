@@ -37,4 +37,6 @@
 // force expansion.
 #define TENSORSTORE_INTERNAL_PP_CAT1(a, b) a##b
 
+#define TENSORSTORE_PP_COMMA() ,
+
 #endif  // TENSORSTORE_INTERNAL_PREPROCESSOR_H_

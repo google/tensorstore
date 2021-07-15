@@ -1,17 +1,36 @@
 # N5 TensorStore driver
 
 load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//docs:doctest.bzl", "doctest_multi_test")
 
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
+DOCTEST_SOURCES = glob([
+    "**/*.rst",
+    "**/*.yml",
+])
+
+doctest_multi_test(
+    name = "doctest_tests",
+    srcs = DOCTEST_SOURCES,
+)
+
 filegroup(
     name = "doc_sources",
-    srcs = glob([
-        "**/*.rst",
-        "**/*.yml",
-    ]),
+    srcs = DOCTEST_SOURCES,
+)
+
+tensorstore_cc_library(
+    name = "n5",
+    deps = [
+        ":blosc_compressor",
+        ":bzip2_compressor",
+        ":driver",
+        ":gzip_compressor",
+        ":xz_compressor",
+    ],
 )
 
 tensorstore_cc_library(
@@ -92,7 +111,7 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["driver_test.cc"],
     deps = [
-        ":n5",
+        ":driver",
         "//tensorstore:open",
         "//tensorstore/driver:driver_testutil",
         "//tensorstore/driver/zarr",
@@ -121,11 +140,11 @@ tensorstore_cc_test(
     ],
     data = [":testdata"],
     deps = [
-        "xz_compressor",
         ":blosc_compressor",
         ":bzip2_compressor",
+        ":driver",
         ":gzip_compressor",
-        ":n5",
+        ":xz_compressor",
         "//tensorstore:array",
         "//tensorstore:array_testutil",
         "//tensorstore:context",
@@ -220,7 +239,7 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "n5",
+    name = "driver",
     srcs = ["driver.cc"],
     deps = [
         ":metadata",

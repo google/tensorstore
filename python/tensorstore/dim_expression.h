@@ -76,7 +76,7 @@ void AppendDimensionSelectionRepr(std::string* out,
 /// This behaves similarly `tensorstore::DimExpression`.  We can't simply use
 /// `tensorstore::DimExpression` because it holds vectors by reference rather
 /// than by value, and because it does not do type erasure.
-class PythonDimExpressionBase {
+class PythonDimExpression {
  public:
   /// Returns the string representation for `__repr__`.
   virtual std::string repr() const = 0;
@@ -90,15 +90,22 @@ class PythonDimExpressionBase {
   ///     existing dimension selection (corresponding to the domain of
   ///     `transform`).  On output, set to the new dimension selection
   ///     corresponding to the domain of the returned transform.
-  virtual Result<IndexTransform<>> Apply(
-      IndexTransform<> transform, DimensionIndexBuffer* dimensions) const = 0;
+  /// \param top_level Indicates whether this expression is the top-level
+  ///     (outer-most) expression being applied, i.e. `dimensions` is the
+  ///     dimension selection specified directly.  When an operation recursively
+  ///     invokes a parent operation, it must specify `top_level=false`.  This
+  ///     option is checked by `DimensionSelection::Apply` in order to return an
+  ///     error if no operations are specified.
+  virtual Result<IndexTransform<>> Apply(IndexTransform<> transform,
+                                         DimensionIndexBuffer* dimensions,
+                                         bool top_level) const = 0;
 
-  virtual ~PythonDimExpressionBase() = default;
+  virtual ~PythonDimExpression() = default;
 };
 
 /// Specifies a sequence of existing or new dimensions, and serves as the
 /// starting point for a dimension expression.
-class DimensionSelection : public PythonDimExpressionBase {
+class DimensionSelection : public PythonDimExpression {
  public:
   DimensionSelection() = default;
 
@@ -106,16 +113,13 @@ class DimensionSelection : public PythonDimExpressionBase {
 
   /// Sets `*dimensions` to the list of existing dimensions, and returns
   /// `transform` unmodified.
-  Result<IndexTransform<>> Apply(
-      IndexTransform<> transform,
-      DimensionIndexBuffer* dimensions) const override;
+  Result<IndexTransform<>> Apply(IndexTransform<> transform,
+                                 DimensionIndexBuffer* dimensions,
+                                 bool top_level) const override;
 
   /// Specifies the dimension selection.
   std::vector<DynamicDimSpec> dims;
 };
-
-/// Base class for dimension expressions with at least one operation.
-class PythonDimExpression : public PythonDimExpressionBase {};
 
 /// Converts a Python object to a dimension selection.
 ///
@@ -144,7 +148,7 @@ namespace detail {
 template <>
 struct type_caster<tensorstore::internal_python::DimensionSelectionLike> {
   PYBIND11_TYPE_CASTER(tensorstore::internal_python::DimensionSelectionLike,
-                       _("tensorstore.d"));
+                       _("DimSelectionLike"));
 
   bool load(handle src, bool convert);
   static handle cast(tensorstore::internal_python::DimensionSelectionLike value,

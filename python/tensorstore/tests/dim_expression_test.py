@@ -36,6 +36,15 @@ def test_dimension_selection():
     iter(ts.d)
 
 
+def test_no_operations():
+  x = ts.IndexTransform(input_rank=3)
+  expr = ts.d[0, 1]
+  with pytest.raises(
+      IndexError,
+      match="Must specify at least one operation in dimension expression"):
+    x[expr]  # pylint: disable=pointless-statement
+
+
 def test_translate_by_vector():
   x = ts.IndexTransform(input_shape=[2, 3], input_labels=["x", "y"])
 
@@ -150,6 +159,18 @@ def test_label_vector():
   assert repr(expr) == "d['x','y'].label['a','b']"
   assert x[expr] == ts.IndexTransform(
       input_shape=[2, 3], input_labels=["a", "b"])
+
+
+def test_label_wrong_number():
+  transform = ts.IndexTransform(3)
+  with pytest.raises(IndexError):
+    transform[ts.d[0].label["x", "y"]]
+
+
+def test_label_duplicates():
+  transform = ts.IndexTransform(3)[ts.d[0].label["x"]]
+  with pytest.raises(IndexError):
+    transform[ts.d[1].label["x"]]
 
 
 def test_add_new():

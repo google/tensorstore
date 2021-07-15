@@ -5,16 +5,28 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
+DRIVERS = [
+    "file",
+    "gcs",
+    "memory",
+]
+
 filegroup(
     name = "doc_sources",
     srcs = glob([
         "**/*.rst",
         "**/*.yml",
-    ]),
-    data = [
-        "//tensorstore/kvstore/file:doc_sources",
-        "//tensorstore/kvstore/gcs:doc_sources",
-        "//tensorstore/kvstore/memory:doc_sources",
+    ]) + [
+        "//tensorstore/kvstore/" + driver + ":doc_sources"
+        for driver in DRIVERS
+    ],
+)
+
+tensorstore_cc_library(
+    name = "all_drivers",
+    deps = [
+        "//tensorstore/kvstore/" + driver
+        for driver in DRIVERS
     ],
 )
 

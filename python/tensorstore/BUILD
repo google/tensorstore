@@ -1,6 +1,7 @@
 load(":pybind11.bzl", "pybind11_cc_library", "pybind11_cc_test", "pybind11_py_extension")
 load(":pytest.bzl", "tensorstore_pytest_test")
 load(":pytype.bzl", "pytype_strict_binary")
+load("//docs:doctest.bzl", "doctest_multi_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -11,13 +12,12 @@ exports_files([
     "bazel_pytest_main.py",
 ])
 
-filegroup(
-    name = "doctest_sources",
+doctest_multi_test(
+    name = "doctest_tests",
     srcs = glob([
         "*.py",
         "*.cc",
     ]),
-    visibility = ["//docs:__subpackages__"],
 )
 
 pybind11_py_extension(
@@ -75,9 +75,9 @@ pytype_strict_binary(
 )
 
 tensorstore_pytest_test(
-    name = "index_interval_test",
+    name = "dim_test",
     size = "small",
-    srcs = ["tests/index_interval_test.py"],
+    srcs = ["tests/dim_test.py"],
     deps = [
         ":tensorstore",
     ],
@@ -287,20 +287,25 @@ pybind11_cc_library(
     srcs = ["spec.cc"],
     hdrs = ["spec.h"],
     deps = [
+        ":array_type_caster",
         ":data_type",
         ":index",
         ":index_space",
+        ":intrusive_ptr_holder",
         ":json_type_caster",
+        ":keyword_arguments",
         ":result_type_caster",
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:json_serialization_options",
         "//tensorstore:rank",
+        "//tensorstore:schema",
         "//tensorstore:spec",
         "//tensorstore/driver",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:json_pprint_python",
+        "//tensorstore/internal:preprocessor",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
         "@com_github_pybind_pybind11//:pybind11",
@@ -342,6 +347,7 @@ pybind11_cc_library(
         ":future",
         ":index_space",
         ":json_type_caster",
+        ":keyword_arguments",
         ":result_type_caster",
         ":spec",
         ":transaction",
@@ -362,6 +368,7 @@ pybind11_cc_library(
         "//tensorstore/driver/array",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:json_pprint_python",
+        "//tensorstore/internal:preprocessor",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "@com_github_pybind_pybind11//:pybind11",

@@ -89,6 +89,61 @@ struct OutputIndexMap {
 
 void RegisterIndexSpaceBindings(pybind11::module m);
 
+template <size_t NumAssign>
+struct IndexTransformOperationDocstrings {
+  NumpyIndexingMethodDocstrings<NumAssign> numpy_indexing;
+  IndexingOperationDocstrings<NumAssign> index_transform;
+  IndexingOperationDocstrings<NumAssign> index_domain;
+  IndexingOperationDocstrings<NumAssign> dim_expression;
+};
+
+/// \param modify_transform Function with signature
+///     `IndexTransform<> (IndexTransform<> orig, SubscriptType subscript)`.
+template <typename SubscriptType, typename T, typename... ClassOptions,
+          typename GetTransform, typename ModifyTransform,
+          typename ApplyTransform, typename... Assign>
+void DefineIndexingMethods(
+    pybind11::class_<T, ClassOptions...>* cls, const char* subscript_name,
+    IndexingOperationDocstrings<sizeof...(Assign)> doc_strings,
+    GetTransform get_transform, ModifyTransform modify_transform,
+    ApplyTransform apply_transform, Assign... assign) {
+  namespace py = ::pybind11;
+  using Self = typename FunctionArgType<
+      0, py::detail::function_signature_t<ApplyTransform>>::type;
+
+  cls->def(
+      "__getitem__",
+      [get_transform, modify_transform, apply_transform](
+          Self self, SubscriptType subscript) {
+        auto transform =
+            modify_transform(get_transform(self), std::move(subscript));
+        return apply_transform(std::move(self), std::move(transform));
+      },
+      doc_strings[0], py::arg(subscript_name));
+
+  size_t doc_string_index = 1;
+
+  // Defined as separate function rather than expanded inline within the `,`
+  // fold expression below to work around MSVC 2019 ICE.
+  [[maybe_unused]] const auto DefineAssignMethod = [&](auto assign) {
+    cls->def(
+        "__setitem__",
+        [get_transform, modify_transform, apply_transform, assign](
+            Self self, SubscriptType subscript,
+            typename FunctionArgType<1, py::detail::function_signature_t<
+                                            decltype(assign)>>::type source) {
+          auto transform =
+              modify_transform(get_transform(self), std::move(subscript));
+          return assign(apply_transform(std::move(self), std::move(transform)),
+                        source);
+        },
+        doc_strings[doc_string_index++], py::arg("transform"),
+        py::arg("source"));
+  };
+
+  (DefineAssignMethod(assign), ...);
+}
+
 /// Defines the common indexing operations supported by all
 /// `tensorstore.Indexable` types.
 ///
@@ -103,97 +158,50 @@ void RegisterIndexSpaceBindings(pybind11::module m);
 ///     exposed as `__setitem__` overloads.
 template <typename T, typename... ClassOptions, typename GetTransform,
           typename ApplyTransform, typename... Assign>
-void DefineIndexTransformOperations(pybind11::class_<T, ClassOptions...>* cls,
-                                    GetTransform get_transform,
-                                    ApplyTransform apply_transform,
-                                    Assign... assign) {
+void DefineIndexTransformOperations(
+    pybind11::class_<T, ClassOptions...>* cls,
+    IndexTransformOperationDocstrings<sizeof...(Assign)> doc_strings,
+    GetTransform get_transform, ApplyTransform apply_transform,
+    Assign... assign) {
   namespace py = ::pybind11;
   using Self = typename FunctionArgType<
       0, py::detail::function_signature_t<ApplyTransform>>::type;
-  cls->def(
-      "__getitem__",
-      [get_transform, apply_transform](Self self,
-                                       IndexTransform<> other_transform) {
-        IndexTransform<> transform = get_transform(self);
-        transform = ValueOrThrow(
+
+  DefineIndexingMethods<IndexTransform<>>(
+      cls, "transform", doc_strings.index_transform,
+      get_transform, /*modify_transform=*/
+      [](IndexTransform<> transform, IndexTransform<> other_transform) {
+        return ValueOrThrow(
             [&] {
               py::gil_scoped_release gil_release;
               return ComposeTransforms(transform, other_transform);
             }(),
             StatusExceptionPolicy::kIndexError);
-        return apply_transform(std::move(self), std::move(transform));
       },
-      "Applies an IndexTransform.", py::arg("transform"));
-  cls->def(
-      "__getitem__",
-      [get_transform, apply_transform](Self self, IndexDomain<> other_domain) {
-        IndexTransform<> transform = get_transform(self);
-        transform = ValueOrThrow(other_domain(std::move(transform)),
-                                 StatusExceptionPolicy::kIndexError);
-        return apply_transform(std::move(self), std::move(transform));
+      apply_transform, assign...);
+  DefineIndexingMethods<IndexDomain<>>(
+      cls, "domain", doc_strings.index_domain,
+      get_transform, /*modify_transform=*/
+      [](IndexTransform<> transform, IndexDomain<> other_domain) {
+        return ValueOrThrow(other_domain(std::move(transform)),
+                            StatusExceptionPolicy::kIndexError);
       },
-      "Slices by IndexDomain.", py::arg("domain"));
+      apply_transform, assign...);
 
-  // Defined as separate function rather than expanded inline within the `,`
-  // fold expression below to work around MSVC 2019 ICE.
-  [[maybe_unused]] const auto DefineSetItemOperations = [&](auto assign) {
-    cls->def(
-        "__setitem__",
-        [get_transform, apply_transform, assign](
-            Self self, IndexTransform<> other_transform,
-            typename FunctionArgType<1, py::detail::function_signature_t<
-                                            decltype(assign)>>::type source) {
-          IndexTransform<> transform = get_transform(self);
-          transform = ValueOrThrow(
-              [&] {
-                py::gil_scoped_release gil_release;
-                return ComposeTransforms(transform, other_transform);
-              }(),
-              StatusExceptionPolicy::kIndexError);
-          return assign(apply_transform(std::move(self), std::move(transform)),
-                        source);
-        },
-        "Assigns to the result of applying an IndexTransform",
-        py::arg("transform"), py::arg("source"));
-
-    cls->def(
-        "__setitem__",
-        [get_transform, apply_transform, assign](
-            Self self, const PythonDimExpression& expr,
-            typename FunctionArgType<1, py::detail::function_signature_t<
-                                            decltype(assign)>>::type source) {
-          IndexTransform<> transform = get_transform(self);
-          DimensionIndexBuffer dims;
-          transform = ValueOrThrow(
-              [&] {
-                py::gil_scoped_release gil_release;
-                return expr.Apply(std::move(transform), &dims);
-              }(),
-              StatusExceptionPolicy::kIndexError);
-          return assign(apply_transform(std::move(self), std::move(transform)),
-                        source);
-        },
-        "Assigns to the result of applying a DimExpression",
-        py::arg("transform"), py::arg("source"));
-  };
-
-  (DefineSetItemOperations(assign), ...);
-
-  cls->def(
-      "__getitem__",
-      [get_transform, apply_transform](Self self,
-                                       const PythonDimExpression& expr) {
-        IndexTransform<> transform = get_transform(self);
-        DimensionIndexBuffer dims;
-        transform = ValueOrThrow(
+  DefineIndexingMethods<const PythonDimExpression&>(
+      cls, "expr", doc_strings.dim_expression,
+      get_transform, /*modify_transform=*/
+      [](IndexTransform<> transform, const PythonDimExpression& expr) {
+        return ValueOrThrow(
             [&] {
               py::gil_scoped_release gil_release;
-              return expr.Apply(std::move(transform), &dims);
+              DimensionIndexBuffer dims;
+              return expr.Apply(std::move(transform), &dims,
+                                /*top_level=*/true);
             }(),
             StatusExceptionPolicy::kIndexError);
-        return apply_transform(std::move(self), std::move(transform));
       },
-      "Applies a DimExpression.", py::arg("expr"));
+      apply_transform, assign...);
 
   // Defined as separate function rather than expanded inline within parameter
   // list below to work around MSVC 2019 ICE.
@@ -201,13 +209,15 @@ void DefineIndexTransformOperations(pybind11::class_<T, ClassOptions...>* cls,
                                                     apply_transform](
                                                        auto assign) {
     return [get_transform, apply_transform, assign](
-               Self self, NumpyIndexingSpec spec,
+               Self self, NumpyIndexingSpecPlaceholder spec_placeholder,
                typename FunctionArgType<
                    1, py::detail::function_signature_t<decltype(assign)>>::type
                    source) {
       IndexTransform<> transform = get_transform(self);
       transform = ValueOrThrow(
           [&]() -> Result<IndexTransform<>> {
+            auto spec =
+                spec_placeholder.Parse(NumpyIndexingSpec::Usage::kDirect);
             py::gil_scoped_release gil_release;
             TENSORSTORE_ASSIGN_OR_RETURN(
                 auto spec_transform,
@@ -220,12 +230,15 @@ void DefineIndexTransformOperations(pybind11::class_<T, ClassOptions...>* cls,
                     source);
     };
   };
-  DefineIndexingMethods<NumpyIndexingSpec::Usage::kDirect>(
-      cls,
-      [get_transform, apply_transform](Self self, NumpyIndexingSpec spec) {
+  DefineNumpyIndexingMethods(
+      cls, doc_strings.numpy_indexing,
+      [get_transform, apply_transform](
+          Self self, NumpyIndexingSpecPlaceholder spec_placeholder) {
         IndexTransform<> transform = get_transform(self);
         transform = ValueOrThrow(
             [&]() -> Result<IndexTransform<>> {
+              auto spec =
+                  spec_placeholder.Parse(NumpyIndexingSpec::Usage::kDirect);
               py::gil_scoped_release gil_release;
               TENSORSTORE_ASSIGN_OR_RETURN(
                   auto spec_transform,
@@ -237,6 +250,7 @@ void DefineIndexTransformOperations(pybind11::class_<T, ClassOptions...>* cls,
         return apply_transform(std::move(self), std::move(transform));
       },
       DirectAssignMethod(assign)...);
+
   cls->def_property_readonly(
       "T",
       [get_transform, apply_transform](Self self) {
@@ -254,6 +268,10 @@ void DefineIndexTransformOperations(pybind11::class_<T, ClassOptions...>* cls,
       R"(View with transposed domain (reversed dimension order).
 
 This is equivalent to: :python:`self[ts.d[::-1].transpose[:]]`.
+
+Group:
+  Indexing
+
 )");
   cls->def_property_readonly(
       "origin",
@@ -264,6 +282,10 @@ This is equivalent to: :python:`self[ts.d[::-1].transpose[:]]`.
       R"(Inclusive lower bound of the domain.
 
 This is equivalent to :python:`self.domain.origin`.
+
+Group:
+  Accessors
+
 )");
   cls->def_property_readonly(
       "shape",
@@ -273,6 +295,10 @@ This is equivalent to :python:`self.domain.origin`.
       R"(Shape of the domain.
 
 This is equivalent to :python:`self.domain.shape`.
+
+Group:
+  Accessors
+
 )");
   cls->def_property_readonly(
       "size",
@@ -282,6 +308,10 @@ This is equivalent to :python:`self.domain.shape`.
       R"(Total number of elements in the domain.
 
 This is equivalent to :python:`self.domain.size`.
+
+Group:
+  Accessors
+
 )");
 }
 

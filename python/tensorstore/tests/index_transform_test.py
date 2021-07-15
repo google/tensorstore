@@ -117,7 +117,7 @@ def test_pickle():
               offset=1,
               stride=-2,
               index_array=[[[1, 2]]],
-              index_range=ts.IndexInterval(inclusive_min=-3, exclusive_max=10),
+              index_range=ts.Dim(inclusive_min=-3, exclusive_max=10),
           ),
       ],
   )

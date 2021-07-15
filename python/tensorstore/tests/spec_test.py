@@ -112,3 +112,42 @@ def test_spec_indexing_unknown_rank():
       ValueError,
       match="Cannot perform indexing operations on Spec with unspecified rank"):
     s.T
+
+
+def test_codec_spec():
+  s = ts.CodecSpec({"driver": "zarr", "compressor": None})
+  assert s.to_json() == {"driver": "zarr", "compressor": None}
+
+
+def test_schema_from_json():
+  s = ts.Schema({
+      "dtype": "int32",
+      "chunk_layout": {
+          "read_chunk": {
+              "elements": 10000
+          }
+      }
+  })
+  assert s.to_json() == {
+      "dtype": "int32",
+      "chunk_layout": {
+          "read_chunk": {
+              "elements": 10000
+          }
+      }
+  }
+
+
+def test_schema():
+  s = ts.Schema(dtype=ts.int32, fill_value=42)
+  assert s.to_json() == {"dtype": "int32", "fill_value": 42}
+  s.update(chunk_layout=ts.ChunkLayout(read_chunk_elements=5))
+  assert s.to_json() == {
+      "dtype": "int32",
+      "fill_value": 42,
+      "chunk_layout": {
+          "read_chunk": {
+              "elements": 5
+          }
+      },
+  }

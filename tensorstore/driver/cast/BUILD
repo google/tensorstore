@@ -1,17 +1,25 @@
 # TensorStore driver adapter that performs data type conversion
 
 load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//docs:doctest.bzl", "doctest_multi_test")
 
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
+DOCTEST_SOURCES = glob([
+    "**/*.rst",
+    "**/*.yml",
+])
+
+doctest_multi_test(
+    name = "doctest_tests",
+    srcs = DOCTEST_SOURCES,
+)
+
 filegroup(
     name = "doc_sources",
-    srcs = glob([
-        "**/*.rst",
-        "**/*.yml",
-    ]),
+    srcs = DOCTEST_SOURCES,
 )
 
 tensorstore_cc_library(
