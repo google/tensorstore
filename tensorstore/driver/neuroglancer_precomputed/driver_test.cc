@@ -37,15 +37,20 @@ namespace {
 using tensorstore::ChunkLayout;
 using tensorstore::Context;
 using tensorstore::DimensionIndex;
+using tensorstore::dtype_v;
 using tensorstore::Index;
 using tensorstore::KeyValueStore;
 using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
+using tensorstore::Schema;
 using tensorstore::StorageGeneration;
 using tensorstore::StrCat;
 using tensorstore::TimestampedStorageGeneration;
 using tensorstore::internal::GetMap;
 using tensorstore::internal::ParseJsonMatches;
+using tensorstore::internal::TestSpecSchema;
+using tensorstore::internal::TestTensorStoreCreateCheckSchema;
+using tensorstore::internal::TestTensorStoreCreateWithSchema;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;
 
@@ -477,7 +482,7 @@ TEST(DriverTest, OptionMismatch) {
     EXPECT_THAT(
         tensorstore::Open(modified_spec, context, tensorstore::OpenMode::open)
             .result(),
-        MatchesStatus(absl::StatusCode::kInvalidArgument, ".*rank 5.*"));
+        MatchesStatus(absl::StatusCode::kInvalidArgument, ".*rank.*"));
   }
 }
 
@@ -499,8 +504,9 @@ TEST(DriverTest, DataTypeMismatch) {
   EXPECT_THAT(
       tensorstore::Open(modified_spec, context, tensorstore::OpenMode::open)
           .result(),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    ".*: Expected data type of uint32 but received: uint16"));
+      MatchesStatus(
+          absl::StatusCode::kFailedPrecondition,
+          ".*: Expected \"data_type\" of \"uint32\" but received: \"uint16\""));
 }
 
 TEST(DriverTest, InvalidSpec) {
@@ -1734,11 +1740,17 @@ TEST(DriverTest, ChunkLayoutShardedRawNonRectangular) {
       auto store,
       tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto expected_layout, ChunkLayout::FromJson({
-                                {"grid_origin", {1, 2, 3, 0}},
-                                {"read_chunk", {{"shape", {64, 64, 64, 4}}}},
-                                {"inner_order", {3, 2, 1, 0}},
-                            }));
+      auto expected_layout,
+      ChunkLayout::FromJson({
+          {"grid_origin", {1, 2, 3, 0}},
+          {"read_chunk", {{"shape", {64, 64, 64, 4}}}},
+          // Write chunk shape is equal to the full shape of the domain, since
+          // that is the finest granularity (for a rectangular region) at which
+          // writes can be performed efficiently.  In practice this sharding
+          // configuration should not be used.
+          {"write_chunk", {{"shape", {34432, 39552, 51520, 4}}}},
+          {"inner_order", {3, 2, 1, 0}},
+      }));
   EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
 }
 
@@ -1775,11 +1787,13 @@ TEST(DriverTest, ChunkLayoutShardedRawNonIdentity) {
       auto store,
       tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto expected_layout, ChunkLayout::FromJson({
-                                {"grid_origin", {1, 2, 3, 0}},
-                                {"read_chunk", {{"shape", {64, 64, 64, 4}}}},
-                                {"inner_order", {3, 2, 1, 0}},
-                            }));
+      auto expected_layout,
+      ChunkLayout::FromJson({
+          {"grid_origin", {1, 2, 3, 0}},
+          {"read_chunk", {{"shape", {64, 64, 64, 4}}}},
+          {"write_chunk", {{"shape", {34432, 39552, 51520, 4}}}},
+          {"inner_order", {3, 2, 1, 0}},
+      }));
   EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
 }
 
@@ -1811,7 +1825,7 @@ TEST(DriverTest, ChunkLayoutUnshardedCompressedSegmentation) {
                                 {"grid_origin", {1, 2, 3, 0}},
                                 {"write_chunk", {{"shape", {5, 6, 7, 4}}}},
                                 {"read_chunk", {{"shape", {5, 6, 7, 4}}}},
-                                {"codec_chunk", {{"shape", {8, 9, 10, 4}}}},
+                                {"codec_chunk", {{"shape", {8, 9, 10, 1}}}},
                                 {"inner_order", {3, 2, 1, 0}},
                             }));
   EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
@@ -1854,7 +1868,7 @@ TEST(DriverTest, ChunkLayoutShardedCompressedSegmentation) {
           {"grid_origin", {1, 2, 3, 0}},
           {"write_chunk", {{"shape", {2048, 2048, 2048, 4}}}},
           {"read_chunk", {{"shape", {64, 64, 64, 4}}}},
-          {"codec_chunk", {{"shape", {8, 9, 10, 4}}}},
+          {"codec_chunk", {{"shape", {8, 9, 10, 1}}}},
           {"inner_order", {3, 2, 1, 0}},
       }));
   EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
@@ -2026,6 +2040,573 @@ TEST(CodecSpecTest, Raw) {
                                   {"driver", "neuroglancer_precomputed"},
                                   {"encoding", "raw"},
                               })));
+}
+
+TEST(DriverCreateWithSchemaTest, Dtypes) {
+  constexpr tensorstore::DataType kSupportedDataTypes[] = {
+      dtype_v<uint8_t>,  dtype_v<uint16_t>,
+      dtype_v<uint32_t>, dtype_v<int8_t>,
+      dtype_v<int16_t>,  dtype_v<int32_t>,
+      dtype_v<uint64_t>, dtype_v<tensorstore::float32_t>,
+  };
+  for (auto dtype : kSupportedDataTypes) {
+    TestTensorStoreCreateWithSchema({{"driver", "neuroglancer_precomputed"},
+                                     {"kvstore", {{"driver", "memory"}}}},
+                                    dtype, Schema::Shape({5, 6, 7, 2}));
+  }
+}
+
+TEST(DriverCreateWithSchemaTest, ChunkShapeUnsharded) {
+  TestTensorStoreCreateWithSchema({{"driver", "neuroglancer_precomputed"},
+                                   {"kvstore", {{"driver", "memory"}}}},
+                                  dtype_v<uint32_t>,
+                                  Schema::Shape({5, 6, 7, 2}),
+                                  ChunkLayout::ChunkShape({2, 3, 4, 0}));
+}
+
+TEST(DriverCreateWithSchemaTest, ChunkShapeSharded) {
+  TestTensorStoreCreateWithSchema(
+      {{"driver", "neuroglancer_precomputed"},
+       {"kvstore", {{"driver", "memory"}}}},
+      dtype_v<uint32_t>, Schema::Shape({1000, 1000, 1000, 2}),
+      ChunkLayout::ReadChunkShape({30, 40, 50, 0}),
+      ChunkLayout::WriteChunkShape({30 * 4, 40 * 4, 50 * 2, 0}));
+}
+
+TEST(DriverCreateWithSchemaTest, ChunkShapeShardedTargetElementsExact) {
+  TestTensorStoreCreateCheckSchema(
+      {
+          {"driver", "neuroglancer_precomputed"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"schema",
+           {
+               {"dtype", "uint32"},
+               {"domain", {{"shape", {1000, 1000, 1000, 1}}}},
+               {"chunk_layout",
+                {
+                    {"read_chunk", {{"shape", {30, 40, 50, 0}}}},
+                    {"write_chunk", {{"elements", 30 * 40 * 50 * 8}}},
+                }},
+           }},
+      },
+      {
+          {"dtype", "uint32"},
+          {"domain",
+           {{"shape", {1000, 1000, 1000, 1}},
+            {"labels", {"x", "y", "z", "channel"}}}},
+          {"chunk_layout",
+           {{"grid_origin", {0, 0, 0, 0}},
+            {"inner_order", {3, 2, 1, 0}},
+            {"read_chunk", {{"shape", {30, 40, 50, 1}}}},
+            {"write_chunk", {{"shape", {30 * 2, 40 * 2, 50 * 2, 1}}}}}},
+          {"codec",
+           {{"driver", "neuroglancer_precomputed"},
+            {"encoding", "raw"},
+            {"shard_data_encoding", "gzip"}}},
+      });
+}
+
+TEST(DriverCreateWithSchemaTest, ChunkShapeShardedWriteChunkSizeNegative1) {
+  TestTensorStoreCreateCheckSchema(
+      {
+          {"driver", "neuroglancer_precomputed"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"schema",
+           {
+               {"dtype", "uint32"},
+               {"domain", {{"shape", {1000, 1000, 1000, 1}}}},
+               {"chunk_layout",
+                {
+                    {"read_chunk", {{"shape", {30, 40, 50, 0}}}},
+                    {"write_chunk", {{"shape_soft_constraint", {0, 0, -1, 0}}}},
+                }},
+           }},
+      },
+      {
+          {"dtype", "uint32"},
+          {"domain",
+           {{"shape", {1000, 1000, 1000, 1}},
+            {"labels", {"x", "y", "z", "channel"}}}},
+          {"chunk_layout",
+           {{"grid_origin", {0, 0, 0, 0}},
+            {"inner_order", {3, 2, 1, 0}},
+            {"read_chunk", {{"shape", {30, 40, 50, 1}}}},
+            {"write_chunk", {{"shape", {960, 1000, 1000, 1}}}}}},
+          {"codec",
+           {{"driver", "neuroglancer_precomputed"},
+            {"encoding", "raw"},
+            {"shard_data_encoding", "gzip"}}},
+      });
+}
+
+TEST(DriverCreateWithSchemaTest, ChunkShapeShardedTargetElementsRoundDown) {
+  TestTensorStoreCreateCheckSchema(
+      {
+          {"driver", "neuroglancer_precomputed"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"schema",
+           {
+               {"dtype", "uint32"},
+               {"domain", {{"shape", {1000, 1000, 1000, 1}}}},
+               {"chunk_layout",
+                {
+                    {"read_chunk", {{"shape", {30, 40, 50, 0}}}},
+                    {"write_chunk", {{"elements", 30 * 40 * 50 * 9}}},
+                }},
+           }},
+      },
+      {
+          {"dtype", "uint32"},
+          {"domain",
+           {{"shape", {1000, 1000, 1000, 1}},
+            {"labels", {"x", "y", "z", "channel"}}}},
+          {"chunk_layout",
+           {{"grid_origin", {0, 0, 0, 0}},
+            {"inner_order", {3, 2, 1, 0}},
+            {"read_chunk", {{"shape", {30, 40, 50, 1}}}},
+            {"write_chunk", {{"shape", {30 * 2, 40 * 2, 50 * 2, 1}}}}}},
+          {"codec",
+           {{"driver", "neuroglancer_precomputed"},
+            {"encoding", "raw"},
+            {"shard_data_encoding", "gzip"}}},
+      });
+}
+
+TEST(DriverCreateWithSchemaTest, CompressedSegmentation) {
+  TestTensorStoreCreateCheckSchema(
+      {
+          {"driver", "neuroglancer_precomputed"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"scale_metadata", {{"encoding", "compressed_segmentation"}}},
+          {"schema",
+           {
+               {"dtype", "uint32"},
+               {"domain", {{"shape", {1000, 1000, 1000, 2}}}},
+               {"chunk_layout",
+                {
+                    {"chunk", {{"shape", {30, 40, 50, 0}}}},
+                }},
+           }},
+      },
+      {
+          {"dtype", "uint32"},
+          {"domain",
+           {{"shape", {1000, 1000, 1000, 2}},
+            {"labels", {"x", "y", "z", "channel"}}}},
+          {"chunk_layout",
+           {{"grid_origin", {0, 0, 0, 0}},
+            {"inner_order", {3, 2, 1, 0}},
+            {"chunk", {{"shape", {30, 40, 50, 2}}}},
+            {"codec_chunk", {{"shape", {8, 8, 8, 1}}}}}},
+          {"codec",
+           {{"driver", "neuroglancer_precomputed"},
+            {"encoding", "compressed_segmentation"}}},
+      });
+}
+
+TEST(DriverTest, InvalidCodec) {
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "neuroglancer_precomputed"},
+                      {"kvstore", {{"driver", "memory"}}},
+                      {"schema",
+                       {
+                           {"dtype", "uint16"},
+                           {"domain", {{"shape", {100, 200, 300, 1}}}},
+                           {"codec", {{"driver", "zarr"}}},
+                       }},
+                  },
+                  tensorstore::OpenMode::create)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: Cannot merge codec spec .*"));
+}
+
+TEST(DriverTest, InvalidWriteChunkShape) {
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "neuroglancer_precomputed"},
+                      {"kvstore", {{"driver", "memory"}}},
+                  },
+                  tensorstore::OpenMode::create, dtype_v<uint32_t>,
+                  Schema::Shape({1000, 1000, 1000, 2}),
+                  ChunkLayout::ReadChunkShape({30, 40, 50, 0}),
+                  ChunkLayout::WriteChunkShape({30 * 4, 40 * 2, 50 * 4, 0}))
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: Cannot satisfy write chunk shape constraint"));
+}
+
+TEST(DriverTest, NoDomain) {
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "neuroglancer_precomputed"},
+                      {"kvstore", {{"driver", "memory"}}},
+                  },
+                  tensorstore::OpenMode::create, dtype_v<uint32_t>)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: domain must be specified"));
+}
+
+TEST(SpecSchemaTest, Domain) {
+  TestSpecSchema({{"driver", "neuroglancer_precomputed"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"scale_metadata", {{"size", {100, 200, 300}}}}},
+                 {{"chunk_layout",
+                   {
+                       {"grid_origin", {0, 0, 0, 0}},
+                       {"inner_order", {3, 2, 1, 0}},
+                   }},
+                  {"domain",
+                   {
+                       {"labels", {"x", "y", "z", "channel"}},
+                       {"shape", {100, 200, 300, {"+inf"}}},
+                   }},
+                  {"codec", {{"driver", "neuroglancer_precomputed"}}}});
+}
+
+TEST(SpecSchemaTest, DomainWithOffset) {
+  TestSpecSchema({{"driver", "neuroglancer_precomputed"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"scale_metadata",
+                   {{"voxel_offset", {1, 2, 3}}, {"size", {100, 200, 300}}}}},
+                 {{"chunk_layout",
+                   {
+                       {"grid_origin", {1, 2, 3, 0}},
+                       {"inner_order", {3, 2, 1, 0}},
+                   }},
+                  {"domain",
+                   {
+                       {"labels", {"x", "y", "z", "channel"}},
+                       {"inclusive_min", {1, 2, 3, 0}},
+                       {"shape", {100, 200, 300, {"+inf"}}},
+                   }},
+                  {"codec", {{"driver", "neuroglancer_precomputed"}}}});
+}
+
+TEST(SpecSchemaTest, DomainWithNumChannels) {
+  TestSpecSchema({{"driver", "neuroglancer_precomputed"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"multiscale_metadata", {{"num_channels", 3}}},
+                  {"scale_metadata", {{"size", {100, 200, 300}}}}},
+                 {{"chunk_layout",
+                   {
+                       {"grid_origin", {0, 0, 0, 0}},
+                       {"inner_order", {3, 2, 1, 0}},
+                       {"chunk", {{"shape", {0, 0, 0, 3}}}},
+                   }},
+                  {"domain",
+                   {
+                       {"labels", {"x", "y", "z", "channel"}},
+                       {"shape", {100, 200, 300, 3}},
+                   }},
+                  {"codec", {{"driver", "neuroglancer_precomputed"}}}});
+}
+
+TEST(SpecSchemaTest, ChunkLayoutShardingUnknown) {
+  TestSpecSchema({{"driver", "neuroglancer_precomputed"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"scale_metadata", {{"chunk_size", {100, 200, 300}}}}},
+                 {{"chunk_layout",
+                   {
+                       {"grid_origin", {nullptr, nullptr, nullptr, 0}},
+                       {"inner_order", {3, 2, 1, 0}},
+                       {"read_chunk", {{"shape", {100, 200, 300, 0}}}},
+                   }},
+                  {"domain",
+                   {{"inclusive_min", {{"-inf"}, {"-inf"}, {"-inf"}, 0}},
+                    {"labels", {"x", "y", "z", "channel"}}}},
+                  {"codec", {{"driver", "neuroglancer_precomputed"}}}});
+}
+
+TEST(SpecSchemaTest, ChunkLayoutUnsharded) {
+  TestSpecSchema({{"driver", "neuroglancer_precomputed"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"scale_metadata",
+                   {
+                       {"chunk_size", {100, 200, 300}},
+                       {"sharding", nullptr},
+                   }}},
+                 {{"chunk_layout",
+                   {
+                       {"grid_origin", {nullptr, nullptr, nullptr, 0}},
+                       {"inner_order", {3, 2, 1, 0}},
+                       {"chunk", {{"shape", {100, 200, 300, 0}}}},
+                   }},
+                  {"domain",
+                   {{"inclusive_min", {{"-inf"}, {"-inf"}, {"-inf"}, 0}},
+                    {"labels", {"x", "y", "z", "channel"}}}},
+                  {"codec", {{"driver", "neuroglancer_precomputed"}}}});
+}
+
+TEST(SpecSchemaTest, ChunkLayoutShardedWithoutVolumeSize) {
+  // Even with the sharding parameters, without knowing the full volume size, we
+  // cannot determine the write chunk shape.
+  TestSpecSchema({{"driver", "neuroglancer_precomputed"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"scale_metadata",
+                   {
+                       {"chunk_size", {100, 200, 300}},
+                       {"sharding",
+                        {{"@type", "neuroglancer_uint64_sharded_v1"},
+                         {"preshift_bits", 1},
+                         {"minishard_bits", 2},
+                         {"shard_bits", 3},
+                         {"data_encoding", "raw"},
+                         {"minishard_index_encoding", "raw"},
+                         {"hash", "identity"}}},
+                   }}},
+                 {{"chunk_layout",
+                   {
+                       {"grid_origin", {nullptr, nullptr, nullptr, 0}},
+                       {"inner_order", {3, 2, 1, 0}},
+                       {"read_chunk", {{"shape", {100, 200, 300, 0}}}},
+                   }},
+                  {"domain",
+                   {{"inclusive_min", {{"-inf"}, {"-inf"}, {"-inf"}, 0}},
+                    {"labels", {"x", "y", "z", "channel"}}}},
+                  {"codec",
+                   {{"driver", "neuroglancer_precomputed"},
+                    {"shard_data_encoding", "raw"}}}});
+}
+
+TEST(SpecSchemaTest, ChunkLayoutShardedWithVolumeSizeNonRectangular) {
+  // Shard does not correspond to a rectangular region of the domain.  Therefore
+  // the write_chunk_shape is still unspecified.
+  TestSpecSchema({{"driver", "neuroglancer_precomputed"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"scale_metadata",
+                   {
+                       {"chunk_size", {100, 200, 300}},
+                       {"size", {10000, 20000, 30000}},
+                       {"sharding",
+                        {{"@type", "neuroglancer_uint64_sharded_v1"},
+                         {"preshift_bits", 1},
+                         {"minishard_bits", 2},
+                         {"shard_bits", 3},
+                         {"data_encoding", "raw"},
+                         {"minishard_index_encoding", "raw"},
+                         {"hash", "identity"}}},
+                   }}},
+                 {{"chunk_layout",
+                   {
+                       {"grid_origin", {0, 0, 0, 0}},
+                       {"inner_order", {3, 2, 1, 0}},
+                       {"read_chunk", {{"shape", {100, 200, 300, 0}}}},
+                   }},
+                  {"domain",
+                   {{"shape", {10000, 20000, 30000, {"+inf"}}},
+                    {"labels", {"x", "y", "z", "channel"}}}},
+                  {"codec",
+                   {{"driver", "neuroglancer_precomputed"},
+                    {"shard_data_encoding", "raw"}}}});
+}
+
+TEST(SpecSchemaTest, ChunkLayoutShardedWithVolumeSizeRectangular) {
+  TestSpecSchema({{"driver", "neuroglancer_precomputed"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"scale_metadata",
+                   {
+                       {"chunk_size", {100, 200, 300}},
+                       {"size", {1000, 2000, 3000}},
+                       {"sharding",
+                        {{"@type", "neuroglancer_uint64_sharded_v1"},
+                         {"preshift_bits", 1},
+                         {"minishard_bits", 2},
+                         {"shard_bits", 15},
+                         {"data_encoding", "raw"},
+                         {"minishard_index_encoding", "raw"},
+                         {"hash", "identity"}}},
+                   }}},
+                 {{"chunk_layout",
+                   {
+                       {"grid_origin", {0, 0, 0, 0}},
+                       {"inner_order", {3, 2, 1, 0}},
+                       {"read_chunk", {{"shape", {100, 200, 300, 0}}}},
+                       {"write_chunk", {{"shape", {200, 400, 600, 0}}}},
+                   }},
+                  {"domain",
+                   {{"shape", {1000, 2000, 3000, {"+inf"}}},
+                    {"labels", {"x", "y", "z", "channel"}}}},
+                  {"codec",
+                   {{"driver", "neuroglancer_precomputed"},
+                    {"shard_data_encoding", "raw"}}}});
+}
+
+TEST(SpecSchemaTest, ChunkLayoutShardedWithVolumeSizeRectangularNoChunkSize) {
+  TestSpecSchema({{"driver", "neuroglancer_precomputed"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"scale_metadata",
+                   {
+                       {"size", {1000, 2000, 3000}},
+                       {"sharding",
+                        {{"@type", "neuroglancer_uint64_sharded_v1"},
+                         {"preshift_bits", 1},
+                         {"minishard_bits", 2},
+                         {"shard_bits", 15},
+                         {"data_encoding", "raw"},
+                         {"minishard_index_encoding", "raw"},
+                         {"hash", "identity"}}},
+                   }}},
+                 {{"chunk_layout",
+                   {
+                       {"grid_origin", {0, 0, 0, 0}},
+                       {"inner_order", {3, 2, 1, 0}},
+                   }},
+                  {"domain",
+                   {{"shape", {1000, 2000, 3000, {"+inf"}}},
+                    {"labels", {"x", "y", "z", "channel"}}}},
+                  {"codec",
+                   {{"driver", "neuroglancer_precomputed"},
+                    {"shard_data_encoding", "raw"}}}});
+}
+
+TEST(SpecSchemaTest, Codec) {
+  TestSpecSchema(
+      {{"driver", "neuroglancer_precomputed"},
+       {"kvstore", {{"driver", "memory"}}},
+       {"scale_metadata", {{"encoding", "jpeg"}, {"jpeg_quality", 50}}}},
+      {{"chunk_layout",
+        {
+            {"grid_origin", {nullptr, nullptr, nullptr, 0}},
+            {"inner_order", {3, 2, 1, 0}},
+        }},
+       {"domain",
+        {
+            {"labels", {"x", "y", "z", "channel"}},
+            {"inclusive_min", {{"-inf"}, {"-inf"}, {"-inf"}, 0}},
+        }},
+       {"codec",
+        {{"driver", "neuroglancer_precomputed"},
+         {"encoding", "jpeg"},
+         {"jpeg_quality", 50}}}});
+}
+
+TEST(SpecSchemaTest, Dtype) {
+  TestSpecSchema({{"driver", "neuroglancer_precomputed"},
+                  {"kvstore", {{"driver", "memory"}}},
+                  {"multiscale_metadata", {{"data_type", "uint32"}}}},
+                 {{"chunk_layout",
+                   {
+                       {"grid_origin", {nullptr, nullptr, nullptr, 0}},
+                       {"inner_order", {3, 2, 1, 0}},
+                   }},
+                  {"dtype", "uint32"},
+                  {"domain",
+                   {
+                       {"labels", {"x", "y", "z", "channel"}},
+                       {"inclusive_min", {{"-inf"}, {"-inf"}, {"-inf"}, 0}},
+                   }},
+                  {"codec", {{"driver", "neuroglancer_precomputed"}}}});
+}
+
+TEST(DriverTest, ChunkLayoutMismatch) {
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open({{"driver", "neuroglancer_precomputed"},
+                         {"kvstore", {{"driver", "memory"}}}},
+                        context, Schema::Shape({100, 200, 300, 1}),
+                        ChunkLayout::ChunkShape({30, 40, 50, 1}),
+                        dtype_v<uint32_t>, tensorstore::OpenMode::create)
+          .result());
+  EXPECT_THAT(
+      tensorstore::Open({{"driver", "neuroglancer_precomputed"},
+                         {"kvstore", {{"driver", "memory"}}}},
+                        context, ChunkLayout::ChunkShape({31, 40, 50, 1}))
+          .result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    ".*: chunk layout from metadata does not match chunk "
+                    "layout in schema: .*"));
+}
+
+TEST(DriverTest, CodecMismatchEncoding) {
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open({{"driver", "neuroglancer_precomputed"},
+                         {"kvstore", {{"driver", "memory"}}},
+                         {"scale_metadata", {{"encoding", "raw"}}}},
+                        context, Schema::Shape({100, 200, 300, 1}),
+                        dtype_v<uint8_t>, tensorstore::OpenMode::create)
+          .result());
+  EXPECT_THAT(
+      tensorstore::Open({{"driver", "neuroglancer_precomputed"},
+                         {"kvstore", {{"driver", "memory"}}},
+                         {"schema",
+                          {{"codec",
+                            {{"driver", "neuroglancer_precomputed"},
+                             {"encoding", "jpeg"}}}}}},
+                        context)
+          .result(),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          ".*: codec from metadata does not match codec in schema: .*"));
+}
+
+TEST(DriverTest, CodecChunkShapeInvalid) {
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open({{"driver", "neuroglancer_precomputed"},
+                         {"kvstore", {{"driver", "memory"}}},
+                         {"scale_metadata", {{"encoding", "raw"}}}},
+                        context, Schema::Shape({100, 200, 300, 1}),
+                        dtype_v<uint8_t>, tensorstore::OpenMode::create)
+          .result());
+  EXPECT_THAT(
+      tensorstore::Open(
+          {{"driver", "neuroglancer_precomputed"},
+           {"kvstore", {{"driver", "memory"}}},
+           {"schema",
+            {{"chunk_layout", {{"codec_chunk", {{"shape", {8, 8, 8, 1}}}}}}}}},
+          context)
+          .result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    ".*: codec_chunk_shape not supported by raw encoding"));
+}
+
+TEST(DriverTest, CodecMismatchShardDataEncoding) {
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open({{"driver", "neuroglancer_precomputed"},
+                         {"kvstore", {{"driver", "memory"}}},
+                         {"scale_metadata", {{"encoding", "raw"}}}},
+                        context, Schema::Shape({100, 200, 300, 1}),
+                        dtype_v<uint8_t>, tensorstore::OpenMode::create)
+          .result());
+  EXPECT_THAT(tensorstore::Open({{"driver", "neuroglancer_precomputed"},
+                                 {"kvstore", {{"driver", "memory"}}},
+                                 {"schema",
+                                  {{"codec",
+                                    {{"driver", "neuroglancer_precomputed"},
+                                     {"shard_data_encoding", "raw"}}}}}},
+                                context)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: shard_data_encoding requires sharded format"));
+}
+
+TEST(DriverTest, FillValue) {
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open({{"driver", "neuroglancer_precomputed"},
+                         {"kvstore", {{"driver", "memory"}}}},
+                        context, Schema::Shape({100, 200, 300, 1}),
+                        dtype_v<uint8_t>, tensorstore::OpenMode::create)
+          .result());
+  EXPECT_THAT(
+      tensorstore::Open({{"driver", "neuroglancer_precomputed"},
+                         {"kvstore", {{"driver", "memory"}}},
+                         {"schema", {{"fill_value", 42}}}},
+                        context)
+          .result(),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          ".*: fill_value not supported by neuroglancer_precomputed format"));
 }
 
 }  // namespace

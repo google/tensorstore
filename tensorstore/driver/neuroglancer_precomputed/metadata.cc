@@ -20,11 +20,13 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
 #include "tensorstore/codec_spec_registry.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/internal/bit_operations.h"
 #include "tensorstore/internal/data_type_json_binder.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/internal/logging.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span_json.h"
@@ -56,6 +58,7 @@ namespace {
 
 constexpr std::array kSupportedDataTypes{
     DataTypeId::uint8_t,  DataTypeId::uint16_t,  DataTypeId::uint32_t,
+    DataTypeId::int8_t,   DataTypeId::int16_t,   DataTypeId::int32_t,
     DataTypeId::uint64_t, DataTypeId::float32_t,
 };
 
@@ -381,22 +384,6 @@ constexpr static auto OpenConstraintsBinder = jb::Object(
                        return absl::OkStatus();
                      }))));
 
-Status ValidateScaleConstraintsForCreate(const ScaleMetadataConstraints& m) {
-  const auto Error = [](const char* property) {
-    return absl::InvalidArgumentError(StrCat(
-        QuoteString(property), " must be specified in \"scale_metadata\""));
-  };
-  if (!m.box) return Error(kSizeId);
-  if (!m.resolution) return Error(kResolutionId);
-  if (!m.chunk_size) return Error(kChunkSizeId);
-  if (!m.encoding) return Error(kEncodingId);
-  if (*m.encoding == ScaleMetadata::Encoding::compressed_segmentation &&
-      !m.compressed_segmentation_block_size) {
-    return Error(kCompressedSegmentationBlockSizeId);
-  }
-  return absl::OkStatus();
-}
-
 Status ValidateScaleConstraintsForOpen(
     const ScaleMetadataConstraints& constraints,
     const ScaleMetadata& metadata) {
@@ -493,9 +480,7 @@ std::string GetScaleKeyFromResolution(span<const double, 3> resolution) {
 
 Result<std::shared_ptr<MultiscaleMetadata>> InitializeNewMultiscaleMetadata(
     const MultiscaleMetadataConstraints& m) {
-  if (auto status = ValidateMultiscaleConstraintsForCreate(m); !status.ok()) {
-    return status;
-  }
+  TENSORSTORE_RETURN_IF_ERROR(ValidateMultiscaleConstraintsForCreate(m));
   auto new_metadata = std::make_shared<MultiscaleMetadata>();
   new_metadata->type = *m.type;
   new_metadata->num_channels = *m.num_channels;
@@ -644,13 +629,430 @@ std::string GetMetadataCompatibilityKey(
   return obj.dump();
 }
 
+namespace {
+absl::Status ChooseShardingSpec(ChunkLayout::ChunkShapeBase shape_constraints,
+                                Index target_elements,
+                                span<const Index, 3> shape,
+                                span<const Index, 3> chunk_size,
+                                ShardingSpec& sharding_spec) {
+  std::array<int, 3> max_bits_per_dim =
+      GetCompressedZIndexBits(shape, chunk_size);
+  // Maximum value for the sum of the total shard bits per dimension.  The total
+  // shard bits is `preshift_bits + minishard_bits + shard_bits`.
+  const int max_total_bits =
+      max_bits_per_dim[0] + max_bits_per_dim[1] + max_bits_per_dim[2];
+
+  // Convert `target_elements` into `target_bits`, the value of
+  // `total_within_shard_bits` that makes the total number of elements per shard
+  // closest to `target_elements`.
+  int target_bits = 0;
+  {
+    const Index chunk_elements = ProductOfExtents(chunk_size);
+    const Index target_chunks =
+        (target_elements + (chunk_elements / 2)) / chunk_elements;
+    while (target_bits < max_total_bits &&
+           (Index(1) << target_bits) < target_chunks) {
+      ++target_bits;
+    }
+    if (target_bits > 0 &&
+        (Index(1) << target_bits) - target_chunks >
+            target_chunks - (Index(1) << (target_bits - 1))) {
+      --target_bits;
+    }
+  }
+
+  const auto get_cost =
+      [&](span<const int, 3> within_shard_bits_per_dim) -> double {
+    double cost = 0;
+    if (shape_constraints.valid()) {
+      for (int dim = 0; dim < 3; ++dim) {
+        Index desired_size = shape_constraints[dim];
+        if (desired_size == 0) continue;
+        if (desired_size == -1 || desired_size == kInfSize) {
+          desired_size = chunk_size[dim] << max_bits_per_dim[dim];
+        }
+        const Index cur_size = chunk_size[dim]
+                               << within_shard_bits_per_dim[dim];
+        if (shape_constraints.hard_constraint[dim] &&
+            cur_size != desired_size) {
+          return INFINITY;
+        }
+        cost += std::abs(cur_size - desired_size) /
+                static_cast<double>(desired_size);
+      }
+    }
+    return cost;
+  };
+
+  // Specifies the total within-shard bits (preshift_bits + minishard_bits) per
+  // dimension, for the current write chunk shape being evaluated:
+  // `write_chunk_shape[dim] = chunk_size[dim] <<
+  // within_shard_bits_per_dim[dim]`
+  std::array<int, 3> within_shard_bits_per_dim;
+  within_shard_bits_per_dim.fill(0);
+
+  // Computes the cost of the current write chunk shape specified by
+  // `within_shard_bits_per_dim`.  The cost is INFINITY if a hard constraint is
+  // violated.  Otherwise, it is the sum of
+  // `|cur_size - desired_size| / desired_size` for each dimension with a soft
+  // constraint on the size.  The cost is defined such that it is zero if all
+  // hard and soft constraints are perfectly satisfied, and increases as
+  // constraints become more violated.  Note that the choice of sum for
+  // combining the costs is somewhat arbitrary, but given that we just have a
+  // single degree of freedom (`total_within_shard_bits`), it shouldn't make
+  // that much difference how we combine the costs.
+
+  // Iterate through all possible values of `total_within_shard_bits` to find
+  // the one that minimizes cost, and as a secondary objective is as close to
+  // `target_bits` as possible.
+  int best_total_within_shard_bits = 0;
+  double best_cost = get_cost(within_shard_bits_per_dim);
+  for (int i = 0, total_within_shard_bits = 0;
+       total_within_shard_bits < max_total_bits; ++i) {
+    const int dim = i % 3;
+    if (within_shard_bits_per_dim[dim] == max_bits_per_dim[dim]) {
+      // This dimension is already at its maximum size.
+      continue;
+    }
+    ++total_within_shard_bits;
+    ++within_shard_bits_per_dim[dim];
+
+    const double cost = get_cost(within_shard_bits_per_dim);
+    if (cost < best_cost ||
+        (cost == best_cost && total_within_shard_bits <= target_bits)) {
+      best_cost = cost;
+      best_total_within_shard_bits = total_within_shard_bits;
+    }
+  }
+
+  if (best_cost == INFINITY) {
+    return absl::InvalidArgumentError(
+        "Cannot satisfy write chunk shape constraint");
+  }
+
+  sharding_spec.preshift_bits = std::min(best_total_within_shard_bits, 9);
+  sharding_spec.minishard_bits =
+      best_total_within_shard_bits - sharding_spec.preshift_bits;
+  sharding_spec.shard_bits = max_total_bits - sharding_spec.preshift_bits -
+                             sharding_spec.minishard_bits;
+  sharding_spec.hash_function = ShardingSpec::HashFunction::identity;
+  sharding_spec.minishard_index_encoding = ShardingSpec::DataEncoding::gzip;
+  return absl::OkStatus();
+}
+}  // namespace
+
+Result<IndexDomain<>> GetDomainFromMetadata(const MultiscaleMetadata& metadata,
+                                            size_t scale_index) {
+  const auto& scale = metadata.scales[scale_index];
+  IndexDomainBuilder domain_builder(4);
+  domain_builder.labels({"x", "y", "z", "channel"});
+  auto origin = domain_builder.origin();
+  auto shape = domain_builder.shape();
+  origin[3] = 0;
+  shape[3] = metadata.num_channels;
+  std::copy_n(scale.box.origin().begin(), 3, origin.begin());
+  std::copy_n(scale.box.shape().begin(), 3, shape.begin());
+  return domain_builder.Finalize();
+}
+
+Result<IndexDomain<>> GetEffectiveDomain(
+    const MultiscaleMetadata* existing_metadata,
+    const OpenConstraints& constraints, const Schema& schema) {
+  IndexDomainBuilder domain_builder(4);
+  domain_builder.labels({"x", "y", "z", "channel"});
+  auto domain_inclusive_min = domain_builder.origin();
+  auto domain_shape = domain_builder.shape();
+  std::fill_n(domain_inclusive_min.begin(), 3, -kInfIndex);
+  std::fill_n(domain_shape.begin(), 4, kInfSize);
+  auto domain_implicit_lower_bounds = domain_builder.implicit_lower_bounds();
+  auto domain_implicit_upper_bounds = domain_builder.implicit_upper_bounds();
+  domain_inclusive_min[3] = 0;
+  domain_implicit_lower_bounds[3] = false;
+  domain_implicit_upper_bounds[3] = true;
+  if (existing_metadata) {
+    // Set constraints from existing_metadata.
+    TENSORSTORE_RETURN_IF_ERROR(ValidateMultiscaleConstraintsForOpen(
+        constraints.multiscale, *existing_metadata));
+    domain_shape[3] = existing_metadata->num_channels;
+    domain_implicit_upper_bounds[3] = false;
+  }
+  if (constraints.multiscale.num_channels) {
+    domain_shape[3] = *constraints.multiscale.num_channels;
+    domain_implicit_upper_bounds[3] = false;
+  }
+  if (constraints.scale.box) {
+    for (int i = 0; i < 3; ++i) {
+      domain_inclusive_min[i] = constraints.scale.box->origin()[i];
+      domain_shape[i] = constraints.scale.box->shape()[i];
+      domain_implicit_lower_bounds[i] = false;
+      domain_implicit_upper_bounds[i] = false;
+    }
+  } else {
+    for (int i = 0; i < 3; ++i) {
+      domain_implicit_lower_bounds[i] = true;
+      domain_implicit_upper_bounds[i] = true;
+    }
+  }
+  TENSORSTORE_ASSIGN_OR_RETURN(auto domain_constraint,
+                               domain_builder.Finalize());
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto domain, MergeIndexDomains(schema.domain(), domain_constraint),
+      tensorstore::MaybeAnnotateStatus(
+          _,
+          "Error applying domain constraints from \"multiscale_metadata\" and "
+          "\"scale_metadata\""));
+  return domain;
+}
+
+namespace {
+/// Updates the `write_chunk_shape` of `chunk_layout` based on the
+/// `sharding_spec`.
+absl::Status SetShardedWriteChunkConstraints(
+    IndexDomainView<> domain, ChunkLayout& chunk_layout,
+    const ShardingSpec& sharding_spec) {
+  auto read_chunk_shape = chunk_layout.read_chunk_shape();
+  if (!read_chunk_shape.valid()) return absl::OkStatus();
+  if (!domain.valid() ||
+      !IsFinite(BoxView<>(3, domain.origin().data(), domain.shape().data()))) {
+    // Non-channel dimensions of domain are not fully specified.
+    return absl::OkStatus();
+  }
+  for (DimensionIndex i = 0; i < 3; ++i) {
+    if (read_chunk_shape[i] == 0 || !read_chunk_shape.hard_constraint[i]) {
+      // read_chunk_shape is not fully specified.
+      return absl::OkStatus();
+    }
+  }
+  ShardChunkHierarchy hierarchy;
+  if (!GetShardChunkHierarchy(sharding_spec, domain.shape().first<3>(),
+                              read_chunk_shape.first<3>(), hierarchy)) {
+    // Shards are non-rectangular.
+    return absl::OkStatus();
+  }
+  Index write_chunk_shape[4];
+  write_chunk_shape[3] = IsFinite(domain[3]) ? domain.shape()[3] : 0;
+  for (DimensionIndex dim = 0; dim < 3; ++dim) {
+    const Index chunk_size = read_chunk_shape[dim];
+    const Index volume_size = domain.shape()[dim];
+    write_chunk_shape[dim] = std::min(
+        hierarchy.shard_shape_in_chunks[dim] * chunk_size, volume_size);
+  }
+  return chunk_layout.Set(ChunkLayout::WriteChunkShape(write_chunk_shape));
+}
+}  // namespace
+
+absl::Status SetChunkLayoutFromMetadata(
+    IndexDomainView<> domain, std::optional<span<const Index, 3>> chunk_size,
+    const std::variant<NoShardingSpec, ShardingSpec>* sharding,
+    std::optional<ScaleMetadata::Encoding> encoding,
+    std::optional<span<const Index, 3>> compressed_segmentation_block_size,
+    ChunkLayout& chunk_layout) {
+  {
+    Index origin[4];
+    origin[3] = 0;
+    if (domain.valid()) {
+      for (DimensionIndex i = 0; i < 4; ++i) {
+        const Index origin_value = domain.origin()[i];
+        origin[i] =
+            (!domain.implicit_lower_bounds()[i] || origin_value != -kInfIndex)
+                ? origin_value
+                : kImplicit;
+      }
+    } else {
+      std::fill_n(origin, 3, kImplicit);
+    }
+    TENSORSTORE_RETURN_IF_ERROR(
+        chunk_layout.Set(ChunkLayout::GridOrigin(origin)),
+        tensorstore::MaybeAnnotateStatus(
+            _, "Chunk grid origin must match domain origin"));
+  }
+  TENSORSTORE_RETURN_IF_ERROR(
+      chunk_layout.Set(ChunkLayout::InnerOrder({3, 2, 1, 0})),
+      tensorstore::MaybeAnnotateStatus(
+          _, "Only lexicographic {channel, z, y, x} inner order is supported"));
+
+  if (domain.valid() && IsFinite(domain[3])) {
+    Index csize[4] = {0, 0, 0, domain.shape()[3]};
+    TENSORSTORE_RETURN_IF_ERROR(
+        chunk_layout.Set(ChunkLayout::ChunkShape(csize)),
+        tensorstore::MaybeAnnotateStatus(
+            _, "Chunking of channel dimension is not supported"));
+  }
+
+  if (chunk_size) {
+    Index csize[4];
+    csize[3] = 0;
+    std::copy_n(chunk_size->begin(), 3, csize);
+    TENSORSTORE_RETURN_IF_ERROR(
+        chunk_layout.Set(ChunkLayout::ReadChunkShape(csize)));
+  }
+
+  if (sharding) {
+    if (auto* sharding_spec = std::get_if<ShardingSpec>(sharding)) {
+      // Sharded format.
+      TENSORSTORE_RETURN_IF_ERROR(SetShardedWriteChunkConstraints(
+          domain, chunk_layout, *sharding_spec));
+    } else {
+      // Unsharded format.  Write chunk shape must match read chunk shape.
+      TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(
+          ChunkLayout::WriteChunk(chunk_layout.read_chunk_shape())));
+    }
+  }
+
+  if (encoding == ScaleMetadata::Encoding::compressed_segmentation) {
+    Index codec_block_size[4];
+    codec_block_size[3] = 1;
+    if (compressed_segmentation_block_size) {
+      std::copy_n(compressed_segmentation_block_size->begin(), 3,
+                  codec_block_size);
+    } else {
+      std::fill_n(codec_block_size, 3, 0);
+    }
+    TENSORSTORE_RETURN_IF_ERROR(
+        chunk_layout.Set(ChunkLayout::CodecChunkShape(codec_block_size)));
+  }
+
+  return absl::OkStatus();
+}
+
+Result<std::pair<IndexDomain<>, ChunkLayout>> GetEffectiveDomainAndChunkLayout(
+    const MultiscaleMetadata* existing_metadata,
+    const OpenConstraints& constraints, const Schema& schema) {
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto domain, GetEffectiveDomain(existing_metadata, constraints, schema));
+  auto chunk_layout = schema.chunk_layout();
+  TENSORSTORE_RETURN_IF_ERROR(SetChunkLayoutFromMetadata(
+      domain, constraints.scale.chunk_size,
+      constraints.scale.sharding ? &*constraints.scale.sharding : nullptr,
+      constraints.scale.encoding,
+      constraints.scale.compressed_segmentation_block_size, chunk_layout));
+  return {std::in_place, std::move(domain), std::move(chunk_layout)};
+}
+
+Result<CodecSpec::PtrT<NeuroglancerPrecomputedCodecSpec>> GetEffectiveCodec(
+    const OpenConstraints& constraints, const Schema& schema) {
+  auto codec_spec = CodecSpec::Make<NeuroglancerPrecomputedCodecSpec>();
+  codec_spec->encoding = constraints.scale.encoding;
+  codec_spec->jpeg_quality = constraints.scale.jpeg_quality;
+
+  if (constraints.scale.sharding) {
+    if (auto* sharding =
+            std::get_if<ShardingSpec>(&*constraints.scale.sharding)) {
+      codec_spec->shard_data_encoding = sharding->data_encoding;
+    }
+  }
+  TENSORSTORE_RETURN_IF_ERROR(codec_spec->MergeFrom(schema.codec()));
+  return codec_spec;
+}
+
 Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
     const MultiscaleMetadata* existing_metadata,
-    const OpenConstraints& constraints) {
-  if (auto status = ValidateScaleConstraintsForCreate(constraints.scale);
-      !status.ok()) {
-    return status;
+    const OpenConstraints& orig_constraints, const Schema& orig_schema) {
+  auto schema = orig_schema;
+  auto constraints = orig_constraints;
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto domain_and_chunk_layout,
+      GetEffectiveDomainAndChunkLayout(existing_metadata, constraints, schema));
+  auto domain = std::move(domain_and_chunk_layout.first);
+  if (!domain.valid() || !IsFinite(domain.box())) {
+    return absl::InvalidArgumentError("domain must be specified");
   }
+
+  auto chunk_layout = std::move(domain_and_chunk_layout.second);
+  if (existing_metadata) {
+    // Set constraints from existing_metadata.
+    TENSORSTORE_RETURN_IF_ERROR(schema.Set(existing_metadata->dtype));
+  }
+  TENSORSTORE_RETURN_IF_ERROR(schema.Set(constraints.multiscale.dtype));
+  if (!schema.dtype().valid()) {
+    return absl::InvalidArgumentError("dtype must be specified");
+  }
+  TENSORSTORE_RETURN_IF_ERROR(ValidateDataType(schema.dtype()));
+
+  constraints.multiscale.dtype = schema.dtype();
+  constraints.scale.box.emplace();
+  for (int i = 0; i < 3; ++i) {
+    constraints.scale.box->origin()[i] = domain.origin()[i];
+    constraints.scale.box->shape()[i] = domain.shape()[i];
+  }
+  constraints.multiscale.num_channels = domain.shape()[3];
+  if (!constraints.multiscale.type) {
+    // Choose default "type".
+    constraints.multiscale.type = (schema.dtype() == dtype_v<uint64_t> ||
+                                   schema.dtype() == dtype_v<uint32_t>)
+                                      ? "segmentation"
+                                      : "image";
+  }
+  if (!constraints.scale.resolution) {
+    constraints.scale.resolution = std::array<double, 3>{{1, 1, 1}};
+  }
+
+  TENSORSTORE_ASSIGN_OR_RETURN(auto codec_spec,
+                               GetEffectiveCodec(constraints, schema));
+  constraints.scale.encoding =
+      codec_spec->encoding.value_or(ScaleMetadata::Encoding::raw);
+  constraints.scale.jpeg_quality = codec_spec->jpeg_quality;
+
+  TENSORSTORE_RETURN_IF_ERROR(
+      schema.Set(ChunkLayout::GridOrigin(domain.origin())));
+
+  // Compute read chunk shape.
+  Box<4> read_chunk_box;
+  TENSORSTORE_RETURN_IF_ERROR(internal::ChooseChunkGrid(
+      chunk_layout.grid_origin(), chunk_layout.read_chunk(), domain.box(),
+      read_chunk_box));
+  std::copy_n(read_chunk_box.shape().begin(), 3,
+              constraints.scale.chunk_size.emplace().begin());
+
+  if (constraints.scale.encoding ==
+      ScaleMetadata::Encoding::compressed_segmentation) {
+    chunk_layout
+        .Set(ChunkLayout::CodecChunkElements(512, /*hard_constraint=*/false))
+        // Setting a soft constraint cannot fail.
+        .IgnoreError();
+
+    {
+      Index codec_chunk_shape[4] = {0, 0, 0, 1};
+      // Constrain the channel dimension to have a chunk size of 1.
+      TENSORSTORE_RETURN_IF_ERROR(
+          chunk_layout.Set(ChunkLayout::CodecChunkShape(codec_chunk_shape)));
+    }
+
+    // Compute codec chunk shape.
+    {
+      Index codec_chunk_shape[4];
+      TENSORSTORE_RETURN_IF_ERROR(internal::ChooseChunkShape(
+          chunk_layout.codec_chunk(), read_chunk_box, codec_chunk_shape));
+      std::copy_n(codec_chunk_shape, 3,
+                  constraints.scale.compressed_segmentation_block_size.emplace()
+                      .begin());
+    }
+  }
+
+  if (!constraints.scale.sharding) {
+    // Determine write chunk shape as multiple of read chunk shape.
+    auto& sharding =
+        constraints.scale.sharding.emplace().emplace<ShardingSpec>();
+    TENSORSTORE_RETURN_IF_ERROR(ChooseShardingSpec(
+        schema.chunk_layout().write_chunk_shape(),
+        schema.chunk_layout().write_chunk_elements(), domain.shape().first<3>(),
+        read_chunk_box.shape().first<3>(), sharding));
+    if (sharding.preshift_bits == 0 && sharding.minishard_bits == 0 &&
+        !codec_spec->shard_data_encoding) {
+      // Use unsharded format since there would just be a single chunk per
+      // shard.
+      constraints.scale.sharding->emplace<NoShardingSpec>();
+    } else {
+      if (!codec_spec->shard_data_encoding) {
+        codec_spec->shard_data_encoding =
+            constraints.scale.encoding != ScaleMetadata::Encoding::jpeg
+                ? ShardingSpec::DataEncoding::gzip
+                : ShardingSpec::DataEncoding::raw;
+      }
+      sharding.data_encoding = *codec_spec->shard_data_encoding;
+    }
+  }
+
   std::string scale_key =
       constraints.scale.key
           ? *constraints.scale.key
@@ -745,7 +1147,89 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
         scale.compressed_segmentation_block_size;
   }
   new_metadata->attributes[kScalesId].push_back(scale.attributes);
-  return std::pair(new_metadata, new_metadata->scales.size() - 1);
+  const size_t scale_index = new_metadata->scales.size() - 1;
+  TENSORSTORE_RETURN_IF_ERROR(ValidateMetadataSchema(
+      *new_metadata, scale_index, scale.chunk_sizes[0], schema));
+  return std::pair(new_metadata, scale_index);
+}
+
+CodecSpec::Ptr GetCodecFromMetadata(const MultiscaleMetadata& metadata,
+                                    size_t scale_index) {
+  const auto& scale = metadata.scales[scale_index];
+  internal::IntrusivePtr<NeuroglancerPrecomputedCodecSpec> codec(
+      new NeuroglancerPrecomputedCodecSpec);
+  codec->encoding = scale.encoding;
+  if (scale.encoding == ScaleMetadata::Encoding::jpeg) {
+    codec->jpeg_quality = scale.jpeg_quality;
+  }
+  if (auto* sharding = std::get_if<ShardingSpec>(&scale.sharding)) {
+    codec->shard_data_encoding = sharding->data_encoding;
+  }
+  return CodecSpec::Ptr(std::move(codec));
+}
+
+absl::Status ValidateMetadataSchema(const MultiscaleMetadata& metadata,
+                                    size_t scale_index,
+                                    span<const Index, 3> chunk_size_xyz,
+                                    const Schema& schema) {
+  const auto& scale = metadata.scales[scale_index];
+
+  if (auto dtype = schema.dtype();
+      !IsPossiblySameDataType(dtype, metadata.dtype)) {
+    return absl::FailedPreconditionError(
+        tensorstore::StrCat("dtype from metadata (", metadata.dtype,
+                            ") does not match dtype in schema (", dtype, ")"));
+  }
+
+  if (auto schema_codec = schema.codec(); schema_codec.valid()) {
+    auto codec = GetCodecFromMetadata(metadata, scale_index);
+    TENSORSTORE_RETURN_IF_ERROR(
+        codec.MergeFrom(schema_codec),
+        tensorstore::MaybeAnnotateStatus(
+            _, "codec from metadata does not match codec in schema"));
+    if (static_cast<const NeuroglancerPrecomputedCodecSpec&>(*codec)
+            .shard_data_encoding &&
+        std::holds_alternative<NoShardingSpec>(scale.sharding)) {
+      return absl::InvalidArgumentError(
+          "shard_data_encoding requires sharded format");
+    }
+  }
+
+  IndexDomain<> domain;
+  auto schema_domain = schema.domain();
+  auto chunk_layout = schema.chunk_layout();
+  if (schema_domain.valid() || chunk_layout.rank() != dynamic_rank) {
+    TENSORSTORE_ASSIGN_OR_RETURN(domain,
+                                 GetDomainFromMetadata(metadata, scale_index));
+  }
+  if (schema_domain.valid()) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        MergeIndexDomains(domain, schema_domain),
+        tensorstore::MaybeAnnotateStatus(
+            _, "domain from metadata does not match domain in schema"));
+  }
+
+  if (chunk_layout.rank() != dynamic_rank) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        SetChunkLayoutFromMetadata(
+            domain, chunk_size_xyz, &scale.sharding, scale.encoding,
+            scale.compressed_segmentation_block_size, chunk_layout),
+        tensorstore::MaybeAnnotateStatus(_,
+                                         "chunk layout from metadata does not "
+                                         "match chunk layout in schema"));
+    if (scale.encoding != ScaleMetadata::Encoding::compressed_segmentation &&
+        chunk_layout.codec_chunk_shape().hard_constraint) {
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "codec_chunk_shape not supported by ", scale.encoding, " encoding"));
+    }
+  }
+
+  if (schema.fill_value().valid()) {
+    return absl::InvalidArgumentError(
+        "fill_value not supported by neuroglancer_precomputed format");
+  }
+
+  return absl::OkStatus();
 }
 
 Result<std::size_t> OpenScale(const MultiscaleMetadata& metadata,

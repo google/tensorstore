@@ -1076,7 +1076,8 @@ TEST(CreateScaleTest, NoExistingMetadata) {
                          },
                          /*data_type_constraint=*/{})
                          .value();
-  auto result = CreateScale(/*existing_metadata=*/nullptr, constraints);
+  auto result = CreateScale(/*existing_metadata=*/nullptr, constraints,
+                            /*schema=*/{});
   ASSERT_EQ(absl::OkStatus(), GetStatus(result));
   const auto& [metadata, scale_index] = *result;
   ASSERT_TRUE(metadata);
@@ -1126,7 +1127,8 @@ TEST(CreateScaleTest, NoExistingMetadataGenerateKey) {
                          },
                          /*data_type_constraint=*/{})
                          .value();
-  auto result = CreateScale(/*existing_metadata=*/nullptr, constraints);
+  auto result =
+      CreateScale(/*existing_metadata=*/nullptr, constraints, /*schema=*/{});
   ASSERT_EQ(absl::OkStatus(), GetStatus(result));
   const auto& [metadata, scale_index] = *result;
   ASSERT_TRUE(metadata);
@@ -1165,7 +1167,8 @@ TEST(CreateScaleTest, NoExistingMetadataCompressedSegmentation) {
            {"scale_index", 0}},
           /*data_type_constraint=*/{})
           .value();
-  auto result = CreateScale(/*existing_metadata=*/nullptr, constraints);
+  auto result =
+      CreateScale(/*existing_metadata=*/nullptr, constraints, /*schema=*/{});
   ASSERT_EQ(absl::OkStatus(), GetStatus(result));
   const auto& [metadata, scale_index] = *result;
   ASSERT_TRUE(metadata);
@@ -1218,31 +1221,12 @@ TEST(CreateScaleTest, InvalidScaleConstraints) {
            {"chunk_size", {8, 9, 10}},
        }}};
   // Control case
-  EXPECT_EQ(absl::OkStatus(),
-            GetStatus(CreateScale(
-                /*existing_metadata=*/nullptr,
-                OpenConstraints::Parse(constraints_json,
-                                       /*data_type_constraint=*/{})
-                    .value())));
-
-  // Tests that removing any of the following keys results in an error.
-  for (const char* k : {"encoding", "compressed_segmentation_block_size",
-                        "size", "resolution", "chunk_size"}) {
-    auto j = constraints_json;
-    j["scale_metadata"].erase(k);
-    if (k == std::string_view("encoding")) {
-      j["scale_metadata"].erase("compressed_segmentation_block_size");
-    }
-    if (k == std::string_view("size")) {
-      j["scale_metadata"].erase("voxel_offset");
-    }
-    EXPECT_THAT(CreateScale(/*existing_metadata=*/nullptr,
-                            OpenConstraints::Parse(j,
-                                                   /*data_type_constraint=*/{})
-                                .value()),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              StrCat(".*\"", k, "\".*")));
-  }
+  TENSORSTORE_EXPECT_OK(CreateScale(
+      /*existing_metadata=*/nullptr,
+      OpenConstraints::Parse(constraints_json,
+                             /*data_type_constraint=*/{})
+          .value(),
+      /*schema=*/{}));
 
   // Tests that create fails when a non-zero "scale_index" is specified.
   {
@@ -1252,7 +1236,8 @@ TEST(CreateScaleTest, InvalidScaleConstraints) {
         CreateScale(/*existing_metadata=*/nullptr,
                     OpenConstraints::Parse(j,
                                            /*data_type_constraint=*/{})
-                        .value()),
+                        .value(),
+                    /*schema=*/{}),
         MatchesStatus(absl::StatusCode::kFailedPrecondition,
                       ".*Cannot create scale 1 in new multiscale volume"));
   }
@@ -1278,23 +1263,23 @@ TEST(CreateScaleTest, InvalidMultiscaleConstraints) {
            {"chunk_size", {8, 9, 10}},
        }}};
   // Control case
-  EXPECT_EQ(absl::OkStatus(),
-            GetStatus(CreateScale(
-                /*existing_metadata=*/nullptr,
-                OpenConstraints::Parse(constraints_json,
-                                       /*data_type_constraint=*/{})
-                    .value())));
+  TENSORSTORE_EXPECT_OK(CreateScale(
+      /*existing_metadata=*/nullptr,
+      OpenConstraints::Parse(constraints_json,
+                             /*data_type_constraint=*/{})
+          .value(),
+      /*schema=*/{}));
 
   // Tests that removing any of the following keys results in an error.
-  for (const char* k : {"type", "data_type", "num_channels"}) {
+  for (const char* k : {"data_type", "num_channels"}) {
     auto j = constraints_json;
     j["multiscale_metadata"].erase(k);
     EXPECT_THAT(CreateScale(/*existing_metadata=*/nullptr,
                             OpenConstraints::Parse(j,
                                                    /*data_type_constraint=*/{})
-                                .value()),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              StrCat(".*\"", k, "\".*")));
+                                .value(),
+                            /*schema=*/{}),
+                MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 }
 
@@ -1367,7 +1352,7 @@ TEST(CreateScaleTest, ExistingMetadata) {
     auto constraints = OpenConstraints::Parse(constraints_json,
                                               /*data_type_constraint=*/{})
                            .value();
-    auto result = CreateScale(&existing_metadata, constraints);
+    auto result = CreateScale(&existing_metadata, constraints, /*schema=*/{});
     ASSERT_EQ(absl::OkStatus(), GetStatus(result));
     const auto& [metadata, scale_index] = *result;
     ASSERT_TRUE(metadata);
@@ -1391,10 +1376,12 @@ TEST(CreateScaleTest, ExistingMetadata) {
   {
     auto j = constraints_json;
     j["scale_index"] = 2;
-    auto result = CreateScale(
-        &existing_metadata, OpenConstraints::Parse(j,
-                                                   /*data_type_constraint=*/{})
-                                .value());
+    auto result =
+        CreateScale(&existing_metadata,
+                    OpenConstraints::Parse(j,
+                                           /*data_type_constraint=*/{})
+                        .value(),
+                    /*schema=*/{});
     ASSERT_EQ(absl::OkStatus(), GetStatus(result));
     const auto& [metadata, scale_index] = *result;
     ASSERT_TRUE(metadata);
@@ -1407,10 +1394,12 @@ TEST(CreateScaleTest, ExistingMetadata) {
     auto j = constraints_json;
     j["scale_metadata"].erase("key");
     j["scale_metadata"]["resolution"] = {41, 42, 43};
-    auto result = CreateScale(
-        &existing_metadata, OpenConstraints::Parse(j,
-                                                   /*data_type_constraint=*/{})
-                                .value());
+    auto result =
+        CreateScale(&existing_metadata,
+                    OpenConstraints::Parse(j,
+                                           /*data_type_constraint=*/{})
+                        .value(),
+                    /*schema=*/{});
     ASSERT_EQ(absl::OkStatus(), GetStatus(result));
     const auto& [metadata, scale_index] = *result;
     ASSERT_TRUE(metadata);
@@ -1426,10 +1415,12 @@ TEST(CreateScaleTest, ExistingMetadata) {
   for (const char* k : {"data_type", "num_channels", "type"}) {
     auto j = constraints_json;
     j["multiscale_metadata"].erase(k);
-    auto result = CreateScale(
-        &existing_metadata, OpenConstraints::Parse(j,
-                                                   /*data_type_constraint=*/{})
-                                .value());
+    auto result =
+        CreateScale(&existing_metadata,
+                    OpenConstraints::Parse(j,
+                                           /*data_type_constraint=*/{})
+                        .value(),
+                    /*schema=*/{});
     ASSERT_EQ(absl::OkStatus(), GetStatus(result));
     const auto& [metadata, scale_index] = *result;
     ASSERT_TRUE(metadata);
@@ -1447,7 +1438,8 @@ TEST(CreateScaleTest, ExistingMetadata) {
     EXPECT_THAT(CreateScale(&existing_metadata,
                             OpenConstraints::Parse(j,
                                                    /*data_type_constraint=*/{})
-                                .value()),
+                                .value(),
+                            /*schema=*/{}),
                 MatchesStatus(absl::StatusCode::kFailedPrecondition,
                               StrCat(".*\"", k, "\".*")));
   }
@@ -1463,7 +1455,8 @@ TEST(CreateScaleTest, ExistingMetadata) {
         CreateScale(&existing_metadata,
                     OpenConstraints::Parse(j,
                                            /*data_type_constraint=*/{})
-                        .value()),
+                        .value(),
+                    /*schema=*/{}),
         MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"jpeg\".*"));
   }
 }
@@ -1516,7 +1509,8 @@ TEST(CreateScaleTest, ExistingScale) {
   EXPECT_THAT(CreateScale(&existing_metadata,
                           OpenConstraints::Parse(constraints_json,
                                                  /*data_type_constraint=*/{})
-                              .value()),
+                              .value(),
+                          /*schema=*/{}),
               MatchesStatus(absl::StatusCode::kAlreadyExists,
                             "Scale with key \"8_8_8\" already exists"));
 
@@ -1526,7 +1520,8 @@ TEST(CreateScaleTest, ExistingScale) {
     EXPECT_THAT(CreateScale(&existing_metadata,
                             OpenConstraints::Parse(j,
                                                    /*data_type_constraint=*/{})
-                                .value()),
+                                .value(),
+                            /*schema=*/{}),
                 MatchesStatus(absl::StatusCode::kFailedPrecondition,
                               "Scale index to create \\(3\\) must equal the "
                               "existing number of scales \\(2\\)"));
@@ -1539,7 +1534,8 @@ TEST(CreateScaleTest, ExistingScale) {
         CreateScale(&existing_metadata,
                     OpenConstraints::Parse(j,
                                            /*data_type_constraint=*/{})
-                        .value()),
+                        .value(),
+                    /*schema=*/{}),
         MatchesStatus(absl::StatusCode::kAlreadyExists,
                       StrCat("Scale index ", scale_index, " already exists")));
   }
@@ -1551,7 +1547,8 @@ TEST(CreateScaleTest, ExistingScale) {
         CreateScale(&existing_metadata,
                     OpenConstraints::Parse(j,
                                            /*data_type_constraint=*/{})
-                        .value()),
+                        .value(),
+                    /*schema=*/{}),
         MatchesStatus(
             absl::StatusCode::kAlreadyExists,
             "Scale with resolution \\[5\\.0,6\\.0,7\\.0\\] already exists"));
@@ -1781,8 +1778,7 @@ TEST(ValidateDataTypeTest, Basic) {
   }
   for (auto data_type_id :
        {DataTypeId::string_t, DataTypeId::json_t, DataTypeId::ustring_t,
-        DataTypeId::bool_t, DataTypeId::int8_t, DataTypeId::float64_t,
-        DataTypeId::complex64_t}) {
+        DataTypeId::bool_t, DataTypeId::float64_t, DataTypeId::complex64_t}) {
     const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
     EXPECT_THAT(
         ValidateDataType(dtype),

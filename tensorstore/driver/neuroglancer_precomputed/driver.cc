@@ -31,6 +31,7 @@
 #include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/constant_vector.h"
+#include "tensorstore/util/division.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
@@ -282,7 +283,7 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
         ChunkLayout::ChunkShape(chunk_layout_czyx_.shape()), base_usage)));
     if (scale.encoding == ScaleMetadata::Encoding::compressed_segmentation) {
       TENSORSTORE_RETURN_IF_ERROR(layout.Set(ChunkLayout::CodecChunkShape(
-          {metadata.num_channels, scale.compressed_segmentation_block_size[2],
+          {1, scale.compressed_segmentation_block_size[2],
            scale.compressed_segmentation_block_size[1],
            scale.compressed_segmentation_block_size[0]})));
     }
@@ -291,19 +292,8 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
 
   Result<CodecSpec::Ptr> GetCodec(const void* metadata_ptr,
                                   std::size_t component_index) override {
-    const auto& metadata =
-        *static_cast<const MultiscaleMetadata*>(metadata_ptr);
-    const auto& scale = metadata.scales[scale_index_];
-    internal::IntrusivePtr<NeuroglancerPrecomputedCodecSpec> codec(
-        new NeuroglancerPrecomputedCodecSpec);
-    codec->encoding = scale.encoding;
-    if (scale.encoding == ScaleMetadata::Encoding::jpeg) {
-      codec->jpeg_quality = scale.jpeg_quality;
-    }
-    if (auto* sharding = std::get_if<ShardingSpec>(&scale.sharding)) {
-      codec->shard_data_encoding = sharding->data_encoding;
-    }
-    return codec;
+    return GetCodecFromMetadata(
+        *static_cast<const MultiscaleMetadata*>(metadata_ptr), scale_index_);
   }
 
   std::string key_prefix_;
@@ -390,13 +380,27 @@ class ShardedDataCache : public DataCacheBase {
         auto layout, GetBaseChunkLayout(metadata, ChunkLayout::kRead));
     if (ShardChunkHierarchy hierarchy; GetShardChunkHierarchy(
             sharding, scale.box.shape(), scale.chunk_sizes[0], hierarchy)) {
+      // Each shard corresponds to a rectangular region.
       Index write_chunk_shape[4];
       write_chunk_shape[0] = metadata.num_channels;
       for (int dim = 0; dim < 3; ++dim) {
         const Index chunk_size = scale.chunk_sizes[0][dim];
         const Index volume_size = scale.box.shape()[dim];
-        write_chunk_shape[3 - dim] = std::min(
-            hierarchy.shard_shape_in_chunks[dim] * chunk_size, volume_size);
+        write_chunk_shape[3 - dim] = RoundUpTo(
+            std::min(hierarchy.shard_shape_in_chunks[dim] * chunk_size,
+                     volume_size),
+            chunk_size);
+      }
+      TENSORSTORE_RETURN_IF_ERROR(
+          layout.Set(ChunkLayout::WriteChunkShape(write_chunk_shape)));
+    } else {
+      // Each shard does not correspond to a rectangular region.  The write
+      // chunk shape is equal to the full domain.
+      Index write_chunk_shape[4];
+      write_chunk_shape[0] = metadata.num_channels;
+      for (int dim = 0; dim < 3; ++dim) {
+        write_chunk_shape[3 - dim] =
+            RoundUpTo(scale.box.shape()[dim], scale.chunk_sizes[0][dim]);
       }
       TENSORSTORE_RETURN_IF_ERROR(
           layout.Set(ChunkLayout::WriteChunkShape(write_chunk_shape)));
@@ -433,6 +437,9 @@ class NeuroglancerPrecomputedDriver
           TENSORSTORE_ASSIGN_OR_RETURN(
               obj->open_constraints,
               OpenConstraints::Parse(*j, obj->schema.dtype()));
+          TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(RankConstraint{4}));
+          TENSORSTORE_RETURN_IF_ERROR(
+              obj->schema.Set(obj->open_constraints.multiscale.dtype));
           // Erase members that were parsed to prevent error about extra
           // members.
           j->erase("scale_metadata");
@@ -531,6 +538,30 @@ class NeuroglancerPrecomputedDriver
     }
     return Base::ApplyOptions(spec, std::move(options));
   }
+
+  static Result<IndexDomain<>> SpecGetDomain(const SpecT<>& spec) {
+    return GetEffectiveDomain(/*existing_metadata=*/nullptr,
+                              spec.open_constraints, spec.schema);
+  }
+
+  static Result<CodecSpec::Ptr> SpecGetCodec(const SpecT<>& spec) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto codec, GetEffectiveCodec(spec.open_constraints, spec.schema));
+    return CodecSpec::Ptr(std::move(codec));
+  }
+
+  static Result<ChunkLayout> SpecGetChunkLayout(const SpecT<>& spec) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto domain_and_chunk_layout,
+        GetEffectiveDomainAndChunkLayout(/*existing_metadata=*/nullptr,
+                                         spec.open_constraints, spec.schema));
+    return domain_and_chunk_layout.second;
+  }
+
+  static Result<SharedArray<const void>> SpecGetFillValue(
+      const SpecT<>& spec, IndexTransformView<> transform) {
+    return {std::in_place};
+  }
 };
 
 class NeuroglancerPrecomputedDriver::OpenState
@@ -575,7 +606,8 @@ class NeuroglancerPrecomputedDriver::OpenState
       const void* existing_metadata) override {
     const auto* metadata =
         static_cast<const MultiscaleMetadata*>(existing_metadata);
-    if (auto result = CreateScale(metadata, spec().open_constraints)) {
+    if (auto result =
+            CreateScale(metadata, spec().open_constraints, spec().schema)) {
       scale_index_ = result->second;
       return result->first;
     } else {
@@ -606,12 +638,6 @@ class NeuroglancerPrecomputedDriver::OpenState
                                         OpenMode open_mode) override {
     const auto& metadata =
         *static_cast<const MultiscaleMetadata*>(metadata_ptr);
-    // Check for compatibility
-    if (auto dtype = spec().schema.dtype();
-        !IsPossiblySameDataType(dtype, metadata.dtype)) {
-      return absl::FailedPreconditionError(StrCat(
-          "Expected data type of ", dtype, " but received: ", metadata.dtype));
-    }
     // FIXME: avoid copy by changing OpenScale to take separate arguments
     auto open_constraints = spec().open_constraints;
     if (scale_index_) {
@@ -621,24 +647,25 @@ class NeuroglancerPrecomputedDriver::OpenState
         open_constraints.scale_index = *scale_index_;
       }
     }
-    if (auto result = OpenScale(metadata, open_constraints)) {
-      scale_index_ = *result;
-      const auto& scale = metadata.scales[*result];
-      if (spec().open_constraints.scale.chunk_size &&
-          absl::c_linear_search(scale.chunk_sizes,
-                                *spec().open_constraints.scale.chunk_size)) {
-        // Use the specified chunk size.
-        chunk_size_xyz_ = *spec().open_constraints.scale.chunk_size;
-      } else {
-        // Chunk size was unspecified.
-        assert(!spec().open_constraints.scale.chunk_size);
-        chunk_size_xyz_ = scale.chunk_sizes[0];
-      }
-      // Component index is always 0.
-      return 0;
+    TENSORSTORE_ASSIGN_OR_RETURN(size_t scale_index,
+                                 OpenScale(metadata, open_constraints));
+    const auto& scale = metadata.scales[scale_index];
+    if (spec().open_constraints.scale.chunk_size &&
+        absl::c_linear_search(scale.chunk_sizes,
+                              *spec().open_constraints.scale.chunk_size)) {
+      // Use the specified chunk size.
+      chunk_size_xyz_ = *spec().open_constraints.scale.chunk_size;
     } else {
-      return std::move(result).status();
+      // Chunk size was unspecified.
+      assert(!spec().open_constraints.scale.chunk_size);
+      chunk_size_xyz_ = scale.chunk_sizes[0];
     }
+
+    TENSORSTORE_RETURN_IF_ERROR(ValidateMetadataSchema(
+        metadata, scale_index, chunk_size_xyz_, spec().schema));
+    scale_index_ = scale_index;
+    // Component index is always 0.
+    return 0;
   }
 
   Result<KeyValueStore::Ptr> GetDataKeyValueStore(

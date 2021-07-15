@@ -38,6 +38,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -230,7 +231,44 @@ Status ValidateMetadataCompatibility(
 ///     for creating a new scale.
 Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
     const MultiscaleMetadata* existing_metadata,
-    const OpenConstraints& constraints);
+    const OpenConstraints& constraints, const Schema& schema);
+
+/// Validates that the specified scale is compatible with `schema`.
+absl::Status ValidateMetadataSchema(const MultiscaleMetadata& metadata,
+                                    size_t scale_index,
+                                    span<const Index, 3> chunk_size_xyz,
+                                    const Schema& schema);
+
+CodecSpec::Ptr GetCodecFromMetadata(const MultiscaleMetadata& metadata,
+                                    size_t scale_index);
+
+/// Returns the combined domain from `existing_metadata`, `constraints` and
+/// `schema`.
+///
+/// If the domain is unspecified, returns a null domain.
+///
+/// \error `absl::StatusCode::kInvalidArgument` if `constraints` is inconsistent
+///     with `schema`.
+Result<IndexDomain<>> GetEffectiveDomain(
+    const MultiscaleMetadata* existing_metadata,
+    const OpenConstraints& constraints, const Schema& schema);
+
+/// Returns the combined domain and chunk layout from `existing_metadata`,
+/// `constraints` and `schema`.
+///
+/// \error `absl::StatusCode::kInvalidArgument` if `constraints` is inconsistent
+///     with `schema`.
+Result<std::pair<IndexDomain<>, ChunkLayout>> GetEffectiveDomainAndChunkLayout(
+    const MultiscaleMetadata* existing_metadata,
+    const OpenConstraints& constraints, const Schema& schema);
+
+/// Returns the combined codec spec from from `constraints` and `schema`.
+///
+/// \returns Non-null pointer.
+/// \error `absl::StatusCode::kInvalidArgument` if `constraints` is inconsistent
+///     with `schema`.
+Result<CodecSpec::PtrT<NeuroglancerPrecomputedCodecSpec>> GetEffectiveCodec(
+    const OpenConstraints& constraints, const Schema& schema);
 
 /// Attempts to open an existing scale.
 ///
