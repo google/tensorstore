@@ -79,8 +79,7 @@ using EncodedValueCache = absl::flat_hash_map<std::vector<Label>, uint32_t>;
 ///     it.
 /// \param input_shape Dimensions of input array.
 /// \param input_byte_strides Stride in bytes between consecutive elements
-/// along
-///     each dimension of the input array.
+///     along each dimension of the input array.
 /// \param base_offset Starting byte offset into `*output` relative to which
 ///     table offsets will be specified.
 /// \param encoded_bits_output[out] Will be set to the number of bits used to
@@ -105,8 +104,7 @@ void EncodeBlock(const Label* input, const std::ptrdiff_t input_shape[3],
 /// \param input Pointer to input array.
 /// \param input_shape Dimensions of input array.
 /// \param input_byte_strides Stride in bytes between consecutive elements
-/// along
-///     each dimension of the input array.
+///     along each dimension of the input array.
 /// \param block_shape Block shape to use for encoding.
 /// \param output[out] String to which encoded output will be appended.
 template <typename Label>
@@ -127,8 +125,7 @@ void EncodeChannel(const Label* input, const std::ptrdiff_t input_shape[3],
 /// \param input_shape Dimensions of input array.  The first dimension
 ///     corresponds to the channel.
 /// \param input_byte_strides Stride in bytes between consecutive elements
-/// along
-///     each dimension of the input array.
+///     along each dimension of the input array.
 /// \param block_shape Block shape to use for encoding.
 /// \param output[out] String to which encoded output will be appended.
 template <typename Label>
@@ -140,8 +137,7 @@ void EncodeChannels(const Label* input, const std::ptrdiff_t input_shape[3 + 1],
 ///
 /// \tparam Label Must be `std::uint32_t` or `std::uint64_t`.
 /// \param encoded_bits Number of bits used to encode each label (i.e. to
-/// encode
-///     index into the table of labels).
+///     encode index into the table of labels).
 /// \param encoded_input Pointer to encoded block values.
 /// \param table_input Pointer to table of labels.
 /// \param table_size Number of labels in table, used for bounds checking.
@@ -181,8 +177,7 @@ bool DecodeChannel(std::string_view input, const std::ptrdiff_t block_shape[3],
 /// \param input Encoded input data.
 /// \param block_shape Block shape used for encoding.
 /// \param output_shape Shape of output array.  The first dimension
-/// corresponds
-///     to the channel.
+///     corresponds to the channel.
 /// \param output_byte_strides Byte strides for each dimension of the output
 ///     array.
 /// \param output[out] Pointer to output array.
