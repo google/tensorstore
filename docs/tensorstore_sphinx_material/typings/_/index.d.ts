@@ -24,9 +24,6 @@ import { Observable, Subject } from "rxjs"
 
 import { Keyboard, Viewport } from "~/browser"
 import { Component } from "~/components"
-import {
-  SearchTransformFn
-} from "~/integrations"
 
 /* ----------------------------------------------------------------------------
  * Global types
@@ -36,7 +33,6 @@ import {
  * Global search configuration
  */
 export interface GlobalSearchConfig {
-  transform?: SearchTransformFn        /* Transformation function */
 }
 
 /* ------------------------------------------------------------------------- */

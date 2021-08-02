@@ -42,24 +42,13 @@ import {
   getElementOrThrow
 } from "~/browser"
 import {
-  SearchResult as SearchResultData,
+  SearchResult
 } from "~/integrations"
 import { SearchResultStream, getResults } from "~/sphinx_search"
-import { renderSearchResult } from "~/templates"
+import { renderSearchResultItem } from "~/templates"
 
 import { Component } from "../../_"
 import { SearchQuery } from "../query"
-
-/* ----------------------------------------------------------------------------
- * Types
- * ------------------------------------------------------------------------- */
-
-/**
- * Search result
- */
-export interface SearchResult {
-  data: SearchResultData[]             /* Search result data */
-}
 
 /* ----------------------------------------------------------------------------
  * Helper types
@@ -133,7 +122,7 @@ export function mountSearchResult(
         // Cancelled.
         return
       }
-      addToSearchResultList(list, renderSearchResult(result))
+      addToSearchResultList(list, renderSearchResultItem(result))
     }
   }
   query$

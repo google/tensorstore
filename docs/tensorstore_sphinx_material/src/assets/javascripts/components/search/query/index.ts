@@ -43,6 +43,7 @@ import {
   setSearchQueryPlaceholder
 } from "~/actions"
 import {
+  getLocation,
   setElementFocus,
   setToggle,
   watchElementFocus
@@ -89,6 +90,14 @@ export function watchSearchQuery(
       map(() => el.value.trim()),
       distinctUntilChanged()
     )
+
+  /* Intercept deep links */
+  const location = getLocation()
+  if (location.searchParams.has("q")) {
+    setToggle("search", true)
+    el.value = location.searchParams.get("q")!
+    setElementFocus(el)
+  }
 
   /* Combine into single observable */
   return combineLatest([value$, focus$])

@@ -21,7 +21,7 @@
  */
 
 import { NEVER, Observable, merge } from "rxjs"
-import { filter } from "rxjs/operators"
+import { filter, mergeWith } from "rxjs/operators"
 
 import {
   Keyboard,
@@ -31,10 +31,19 @@ import {
   setElementSelection,
   setToggle
 } from "~/browser"
+import {
+  SearchResult
+} from "~/integrations"
 
-import { Component, getComponentElement } from "../../_"
+import {
+  Component,
+  getComponentElement,
+  getComponentElements
+} from "../../_"
 import { SearchQuery, mountSearchQuery } from "../query"
-import { SearchResult, mountSearchResult } from "../result"
+import { mountSearchResult } from "../result"
+import { SearchShare, mountSearchShare } from "../share"
+import { SearchSuggest, mountSearchSuggest } from "../suggest"
 
 /* ----------------------------------------------------------------------------
  * Types
@@ -46,6 +55,8 @@ import { SearchResult, mountSearchResult } from "../result"
 export type Search =
   | SearchQuery
   | SearchResult
+  | SearchShare
+  | SearchSuggest
 
 /* ----------------------------------------------------------------------------
  * Helper types
@@ -76,85 +87,120 @@ interface MountOptions {
 export function mountSearch(
   el: HTMLElement, { keyboard$ }: MountOptions
 ): Observable<Component<Search>> {
+  try {
 
-  /* Retrieve nested components */
-  const query  = getComponentElement("search-query", el)
-  const result = getComponentElement("search-result", el)
+    /* Retrieve query and result components */
+    const query  = getComponentElement("search-query", el)
+    const result = getComponentElement("search-result", el)
 
-  /* Set up search keyboard handlers */
-  keyboard$
-    .pipe(
-      filter(({ mode }) => mode === "search")
-    )
-      .subscribe(key => {
-        const active = getActiveElement()
-        switch (key.type) {
+    /* Set up search keyboard handlers */
+    keyboard$
+      .pipe(
+        filter(({ mode }) => mode === "search")
+      )
+        .subscribe(key => {
+          const active = getActiveElement()
+          switch (key.type) {
 
-          /* Enter: prevent form submission */
-          case "Enter":
-            if (active === query)
+            /* Enter: go to first (best) result */
+            case "Enter":
+              if (active === query) {
+                const anchors = new Map<HTMLAnchorElement, number>()
+                for (const anchor of getElements<HTMLAnchorElement>(
+                  ":first-child [href]", result
+                )) {
+                  const article = anchor.firstElementChild!
+                  anchors.set(anchor, parseFloat(
+                    article.getAttribute("data-md-score")!
+                  ))
+                }
+
+                /* Go to result with highest score, if any */
+                if (anchors.size) {
+                  const [[best]] = [...anchors].sort(([, a], [, b]) => b - a)
+                  best.click()
+                }
+
+                /* Otherwise omit form submission */
+                key.claim()
+              }
+              break
+
+            /* Escape or Tab: close search */
+            case "Escape":
+            case "Tab":
+              setToggle("search", false)
+              setElementFocus(query, false)
+              break
+
+            /* Vertical arrows: select previous or next search result */
+            case "ArrowUp":
+            case "ArrowDown":
+              if (typeof active === "undefined") {
+                setElementFocus(query)
+              } else {
+                const els = [query, ...getElements(
+                  ":not(details) > [href], summary, details[open] [href]",
+                  result
+                )]
+                const i = Math.max(0, (
+                  Math.max(0, els.indexOf(active)) + els.length + (
+                    key.type === "ArrowUp" ? -1 : +1
+                  )
+                ) % els.length)
+                setElementFocus(els[i])
+              }
+
+              /* Prevent scrolling of page */
               key.claim()
-            break
+              break
 
-          /* Escape or Tab: close search */
-          case "Escape":
-          case "Tab":
-            setToggle("search", false)
-            setElementFocus(query, false)
-            break
+            /* All other keys: hand to search query */
+            default:
+              if (query !== getActiveElement())
+                setElementFocus(query)
+          }
+        })
 
-          /* Vertical arrows: select previous or next search result */
-          case "ArrowUp":
-          case "ArrowDown":
-            if (typeof active === "undefined") {
+    /* Set up global keyboard handlers */
+    keyboard$
+      .pipe(
+        filter(({ mode }) => mode === "global"),
+      )
+        .subscribe(key => {
+          switch (key.type) {
+
+            /* Open search and select query */
+            case "f":
+            case "s":
+            case "/":
               setElementFocus(query)
-            } else {
-              const els = [query, ...getElements(
-                ":not(details) > [href], summary, details[open] [href]",
-                result
-              )]
-              const i = Math.max(0, (
-                Math.max(0, els.indexOf(active)) + els.length + (
-                  key.type === "ArrowUp" ? -1 : +1
-                )
-              ) % els.length)
-              setElementFocus(els[i])
-            }
+              setElementSelection(query)
+              key.claim()
+              break
+          }
+        })
 
-            /* Prevent scrolling of page */
-            key.claim()
-            break
+    /* Create and return component */
+    const query$  = mountSearchQuery(query)
+    const result$ = mountSearchResult(result, { query$ })
+    return merge(query$, result$)
+      .pipe(
+        mergeWith(
 
-          /* All other keys: hand to search query */
-          default:
-            if (query !== getActiveElement())
-              setElementFocus(query)
-        }
-      })
+          /* Search sharing */
+          ...getComponentElements("search-share", el)
+          .map(child => mountSearchShare(child, { query$ })),
 
-  /* Set up global keyboard handlers */
-  keyboard$
-    .pipe(
-      filter(({ mode }) => mode === "global"),
-    )
-      .subscribe(key => {
-        switch (key.type) {
+          /* Search suggestions */
+          ...getComponentElements("search-suggest", el)
+            .map(child => mountSearchSuggest(child, { keyboard$ }))
+        )
+      )
 
-          /* Open search and select query */
-          case "f":
-          case "s":
-          case "/":
-            setElementFocus(query)
-            setElementSelection(query)
-            key.claim()
-            break
-        }
-      })
-
-  /* Create and return component */
-  const query$ = mountSearchQuery(query)
-  return merge(
-    query$,
-    mountSearchResult(result, { query$ })
-  )
+  /* Gracefully handle broken search */
+  } catch (err) {
+    el.hidden = true
+    return NEVER
+  }
 }

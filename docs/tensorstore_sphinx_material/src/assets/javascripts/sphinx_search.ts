@@ -7,7 +7,7 @@ import escapeHTML from "escape-html"
 
 import { configuration } from "~/_"
 
-import { SearchResult } from "./integrations/search/_"
+import { SearchResultItem } from "./integrations/search/_"
 
 interface SphinxSearchResult {
   docurl: string
@@ -188,7 +188,7 @@ function performObjectSearch(objectTerm: string, otherterms: string[]): SphinxSe
           anchor: `#${anchor}`,
           objectLabel: objname,
           synopsis,
-          score,
+          score
         })
       }
     }
@@ -359,7 +359,7 @@ function performTermsSearch(
         anchor: "",
         objectLabel: null,
         synopsis: null,
-        score,
+        score
       })
     }
   }
@@ -474,48 +474,60 @@ interface SectionMatch {
    * section.
    */
   anchor: string
+
+  /**
+   * Search terms found in the section.
+   */
+  terms: Record<string, boolean>
 }
 
 /**
  * Extracts per-section matches and snippets from the raw HTML document text.
  *
  * @param htmlText - Raw text of full HTML document.
- * @param stemmedTerms - List of stemmed search terms.
+ * @param hlterms - List of unstemmed (raw) search terms to highlight.
  * @returns List of section matches.
  */
 function getSectionMatches(
   htmlText: string,
-  stemmedTerms: string[]
+  hlterms: string[]
 ): SectionMatch[]|undefined {
   const sections = htmlToSections(htmlText)
-  const keywordPatterns = stemmedTerms.map(
+  const keywordPatterns = hlterms.map(
     s => new RegExp(escapeRegExp(s), "im")
   )
   const sectionMatches: {
     sectionIndex: number
     score: number
     snippetIndex: number
+    terms: Record<string, boolean>
   }[] = []
   // Find all sections that match at least one search term.
   for (let sectionIndex = 0; sectionIndex < sections.length; ++sectionIndex) {
     const section = sections[sectionIndex]
     let score = 0
     let snippetIndex = Infinity
-    for (const pattern of keywordPatterns) {
+    const terms: Record<string, boolean> = {}
+    for (let termIndex = 0, numTerms = hlterms.length; termIndex < numTerms; ++termIndex) {
+      const pattern = keywordPatterns[termIndex]
       let m = section.title.match(pattern)
+      let found = false
       if (m !== null) {
         snippetIndex = 0
         score += Scorer.partialTitle
+        found = true
       } else {
         m = section.text.match(pattern)
         if (m !== null) {
           score += Scorer.partialTerm
           snippetIndex = Math.min(snippetIndex, m.index!)
+          found = true
         }
       }
+      terms[hlterms[termIndex]] = found
     }
     if (score !== 0) {
-      sectionMatches.push({ sectionIndex, score, snippetIndex })
+      sectionMatches.push({ sectionIndex, score, snippetIndex, terms })
     }
   }
   // Sort sections by score.
@@ -539,7 +551,8 @@ function getSectionMatches(
       snippet: excerpt,
       anchor: section.anchor,
       title: section.title,
-      score: m.score
+      score: m.score,
+      terms: m.terms
     }
   })
 }
@@ -549,30 +562,34 @@ function getSectionMatches(
  * result including section and snippet information.
  *
  * @param result - The result obtained from the sphinx index.
- * @param keywords - List of stemmed search terms.
+ * @param hlterms - List of unstemmed (raw) search terms.
  * @param highlight - Function that adds search term highlighting markup
  * to a text string.
  * @returns Converted result.
  */
 async function convertSphinxResult(
   result: SphinxSearchResult,
-  keywords: string[],
+  hlterms: string[],
   highlight: (s: string) => string
-): Promise<SearchResult> {
+): Promise<SearchResultItem> {
   const location = getAbsoluteUrl(result.docurl) + result.anchor
   // The title provided by the sphinx search index can include HTML
   // markup, which we need to strip.
   const title = stripHTML(result.title)
+  const allTerms: Record<string, boolean> = {}
+  for (const term of hlterms) {
+    allTerms[term] = true
+  }
   if (result.objectLabel !== null) {
-    return [
-      {
-        location,
-        score: result.score,
-        terms: {},
-        title: highlight(title) + `<span class="search-result-objlabel">${escapeHTML(result.objectLabel)}</span>`,
-        text: highlight(result.synopsis!)
-      }
-    ]
+    return [{
+      location,
+      score: result.score,
+      terms: allTerms,
+      title: `${highlight(title)
+      }<span class="search-result-objlabel">${
+        escapeHTML(result.objectLabel)}</span>`,
+      text: highlight(result.synopsis!)
+    }]
   }
 
   // Text match: attempt to obtain section and snippet information.
@@ -584,7 +601,7 @@ async function convertSphinxResult(
     try {
       const resp = await fetch(requestUrl)
       const rawData = await resp.text()
-      sectionMatches = getSectionMatches(rawData, keywords)
+      sectionMatches = getSectionMatches(rawData, hlterms)
     } catch (e) {
       // eslint-disable-next-line no-console
       console.warn("Failed to retrieve search result document: ", e)
@@ -594,12 +611,12 @@ async function convertSphinxResult(
     sectionMatches = [{score: -1, title: "", anchor: "", snippet: ""}]
   }
   // Add entry for parent document.
-  const searchResults: SearchResult = []
+  const searchResults: SearchResultItem = []
   if (sectionMatches[0].score !== -1) {
     searchResults.push({
         location,
         score: result.score,
-        terms: {},
+        terms: allTerms,
         title: highlight(title),
         text: ""
       })
@@ -612,7 +629,7 @@ async function convertSphinxResult(
       // Give lower score to worse matches so that they are shown as
       // "more results".
       score: m.score === firstScore ? result.score : 0,
-      terms: {},
+      terms: m.terms,
       title: highlight(m.title || title),
       text: highlight(m.snippet)
     })
@@ -632,7 +649,7 @@ export interface SearchResultStream {
    *
    * @param index - Result index, in range `[0, count)`.
    */
-  get(index: number): Promise<SearchResult>
+  get(index: number): Promise<SearchResultItem>
 }
 
 /**
@@ -726,7 +743,7 @@ export async function getResults(query: string): Promise<SearchResultStream> {
   // }
 
   // now sort the results by score and then alphabetically
-  results.sort(function (a, b) {
+  results.sort((a, b) => {
     const left = a.score
     const right = b.score
     if (left !== right) return right - left
@@ -756,7 +773,7 @@ export async function getResults(query: string): Promise<SearchResultStream> {
   return {
     count: results.length,
     get: (index: number) => {
-      return convertSphinxResult(results[index], searchterms, highlightTerms)
+      return convertSphinxResult(results[index], hlterms, highlightTerms)
     }
   }
 }

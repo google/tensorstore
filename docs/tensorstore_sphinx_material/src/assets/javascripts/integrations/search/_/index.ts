@@ -23,6 +23,7 @@
 import {
   SearchDocument
 } from "../document"
+import { SearchOptions } from "../options"
 import {
   SearchQueryTerms
 } from "../query"
@@ -51,21 +52,6 @@ export interface SearchIndexDocument {
 /* ------------------------------------------------------------------------- */
 
 /**
- * Search index pipeline function
- */
-export type SearchIndexPipelineFn =
-  | "trimmer"                          /* Trimmer */
-  | "stopWordFilter"                   /* Stop word filter */
-  | "stemmer"                          /* Stemmer */
-
-/**
- * Search index pipeline
- */
-export type SearchIndexPipeline = SearchIndexPipelineFn[]
-
-/* ------------------------------------------------------------------------- */
-
-/**
  * Search index
  *
  * This interfaces describes the format of the `search_index.json` file which
@@ -75,7 +61,7 @@ export interface SearchIndex {
   config: SearchIndexConfig            /* Search index configuration */
   docs: SearchIndexDocument[]          /* Search index documents */
   index?: object                       /* Prebuilt index */
-  pipeline?: SearchIndexPipeline       /* Search index pipeline */
+  options: SearchOptions               /* Search options */
 }
 
 /* ------------------------------------------------------------------------- */
@@ -91,6 +77,21 @@ export interface SearchMetadata {
 /* ------------------------------------------------------------------------- */
 
 /**
+ * Search result document
+ */
+export type SearchResultDocument = SearchDocument & SearchMetadata
+
+/**
+ * Search result item
+ */
+export type SearchResultItem = SearchResultDocument[]
+
+/* ------------------------------------------------------------------------- */
+
+/**
  * Search result
  */
-export type SearchResult = Array<SearchDocument & SearchMetadata>
+export interface SearchResult {
+  items: SearchResultItem[]            /* Search result items */
+  suggestions?: string[]               /* Search suggestions */
+}

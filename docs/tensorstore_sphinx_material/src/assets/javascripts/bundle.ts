@@ -21,7 +21,7 @@
  */
 
 import "focus-visible"
-import { Subject, defer, merge } from "rxjs"
+import { NEVER, Subject, defer, merge } from "rxjs"
 import {
   delay,
   filter,
@@ -54,6 +54,7 @@ import {
   mountHeaderTitle,
   mountPalette,
   mountSearch,
+  mountSearchHiglight,
   mountSidebar,
   mountSource,
   mountTableOfContents,
@@ -187,6 +188,13 @@ const content$ = defer(() => merge(
   ...getComponentElements("content")
     .map(el => mountContent(el, { target$, viewport$, print$ })),
 
+  /* Search highlighting */
+  ...getComponentElements("content")
+    .map(el => feature("search.highlight")
+      ? mountSearchHiglight(el, { location$ })
+      : NEVER
+    ),
+
   /* Header title */
   ...getComponentElements("header-title")
     .map(el => mountHeaderTitle(el, { viewport$, header$ })),
@@ -208,7 +216,7 @@ const content$ = defer(() => merge(
 
   /* Back-to-top button */
   ...getComponentElements("top")
-    .map(el => mountBackToTop(el, { viewport$, main$ }))
+    .map(el => mountBackToTop(el, { viewport$, header$, main$ }))
 ))
 
 /* Set up component observables */
