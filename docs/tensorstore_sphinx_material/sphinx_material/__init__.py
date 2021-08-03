@@ -98,6 +98,8 @@ def _get_html_builder(
             return _get_html_translator(super().default_translator_class)
 
         def init_js_files(self):
+            super().init_js_files()
+
             # Remove unnecessary scripts
 
             excluded_scripts = set([
@@ -107,7 +109,21 @@ def _get_html_builder(
                 '_static/language_data.js',
             ])
             self.script_files = [
-                x for x in self.script_files if x not in excluded_scripts
+                x for x in self.script_files
+                if x.filename not in excluded_scripts
+            ]
+
+        def init_css_files(self):
+            super().init_css_files()
+
+            # Remove unnecessary styles
+
+            excluded = frozenset([
+                '_static/pygments.css',
+                '_static/material.css',
+            ])
+            self.css_files = [
+                x for x in self.css_files if x.filename not in excluded
             ]
 
         def gen_additional_pages(self):

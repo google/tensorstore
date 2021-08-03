@@ -208,7 +208,7 @@ def generate(args):
         # Build
         "wheel",
         # Docs
-        "sphinx<4",
+        "sphinx",
         "jsonschema",
         "pyyaml",
         "docutils<0.17",

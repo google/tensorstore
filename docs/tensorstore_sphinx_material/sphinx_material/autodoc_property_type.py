@@ -1,5 +1,5 @@
-# Backports https://github.com/sphinx-doc/sphinx/pull/8983/, which adds autodoc
-# support for return annotations on property getters.
+# Adds support for obtaining property types from docstring signatures, and
+# improves formatting by PyProperty of type annotations.
 
 import re
 from typing import Tuple, Optional, List
@@ -28,11 +28,7 @@ def _get_property_return_type(obj: property) -> Optional[str]:
 
 def _apply_property_documenter_type_annotation_fix():
 
-    sphinx.domains.python.PythonDomain.object_types[
-        'property'] = sphinx.domains.ObjType(sphinx.locale._('property'),
-                                             'meth', 'obj')
-
-    # Modify PropertyDocumenter to include :type: option
+    # Modify PropertyDocumenter to support obtaining signature from docstring.
     PropertyDocumenter = sphinx.ext.autodoc.PropertyDocumenter
 
     orig_import_object = PropertyDocumenter.import_object
@@ -59,16 +55,14 @@ def _apply_property_documenter_type_annotation_fix():
 
     PropertyDocumenter.add_directive_header = add_directive_header
 
-    # Modify PyMethod to support :type: option
-    PyMethod = sphinx.domains.python.PyMethod
-    PyMethod.option_spec['type'] = docutils.parsers.rst.directives.unchanged
-
-    orig_handle_signature = PyMethod.handle_signature
+    # Modify PyProperty to improve formatting of :type: option
+    PyProperty = sphinx.domains.python.PyProperty
 
     def handle_signature(
             self, sig: str,
             signode: sphinx.addnodes.desc_signature) -> Tuple[str, str]:
-        fullname, prefix = orig_handle_signature(self, sig, signode)
+        fullname, prefix = super(PyProperty,
+                                 self).handle_signature(sig, signode)
 
         typ = self.options.get('type')
         if typ:
@@ -77,19 +71,7 @@ def _apply_property_documenter_type_annotation_fix():
 
         return fullname, prefix
 
-    PyMethod.handle_signature = handle_signature
-
-    orig_add_target_and_index = PyMethod.add_target_and_index
-
-    def add_target_and_index(self, name_cls: Tuple[str, str], sig: str,
-                             signode: sphinx.addnodes.desc_signature) -> None:
-        orig_objtype = self.objtype
-        if 'property' in self.options:
-            self.objtype = 'property'
-        orig_add_target_and_index(self, name_cls, sig, signode)
-        self.objtype = orig_objtype
-
-    PyMethod.add_target_and_index = add_target_and_index
+    PyProperty.handle_signature = handle_signature
 
 
 _apply_property_documenter_type_annotation_fix()

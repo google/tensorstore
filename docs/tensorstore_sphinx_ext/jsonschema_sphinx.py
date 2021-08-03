@@ -58,7 +58,6 @@ bare references to work:
 """
 
 import collections
-import io
 import json
 import os
 from typing import List, Any, Optional, Dict, Callable, cast, NamedTuple, Tuple, Iterator, Set, Union
@@ -831,8 +830,8 @@ class JsonSchemaDirective(sphinx.directives.ObjectDescription):
     # Set ref_context information which will be used to resolve cross references
     # in the body.
     self.env.ref_context['json:schema'] = self._fully_qualified_name
-    self.env.ref_context.setdefault('json:schemas',
-                                    []).append(self._fully_qualified_name)
+    self.env.ref_context.setdefault('json:schemas', []).append(  # type: ignore
+        self._fully_qualified_name)
 
   def after_content(self):
     # Clear the ref_context information set by `.before_context`.
@@ -860,6 +859,8 @@ class JsonSchemaDirective(sphinx.directives.ObjectDescription):
     if self._short_default_value:
       signode += sphinx.addnodes.desc_sig_punctuation('', ' = ')
       signode += self._inline_text(':json:`' + self._short_default_value + '`')
+    if not self._nosection and self._section_title:
+      signode['toc_title'] = self._section_title
     return schema_entry.id
 
   def add_target_and_index(self, name: Any, sig: str,
@@ -912,6 +913,8 @@ class JsonSchemaRole(sphinx.roles.XRefRole):
 
 
 class DomainSchemaEntry(NamedTuple):
+  """Entry representing a schema in the JSON domain."""
+
   docname: str
   """Document id where schema is defined."""
 

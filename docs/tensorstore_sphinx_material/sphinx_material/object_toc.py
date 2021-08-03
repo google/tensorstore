@@ -34,10 +34,12 @@ def _monkey_patch_toc_tree_process_doc(app: sphinx.application.Sphinx):
         section['ids'] = ids
 
         # Extract title from signature
-        title = ''
-        for child in signature._traverse():
-            if isinstance(child, (sphinx.addnodes.desc_name, sphinx.addnodes.desc_addname)):
-                title += child.astext()
+        title = signature.get('toc_title', None)
+        if not title:
+            title = ''
+            for child in signature._traverse():
+                if isinstance(child, (sphinx.addnodes.desc_name, sphinx.addnodes.desc_addname)):
+                    title += child.astext()
         if not title:
             # No name found
             return None

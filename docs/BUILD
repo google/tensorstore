@@ -71,7 +71,6 @@ pytype_strict_test(
         "//docs/tensorstore_sphinx_ext:autosummary",
         "//docs/tensorstore_sphinx_ext:doctest",
         "//docs/tensorstore_sphinx_ext:jsonschema_sphinx",
-        "//docs/tensorstore_sphinx_ext:mathjax",
         "//docs/tensorstore_sphinx_material",
         "//python/tensorstore",
         "@pypa_htmlmin//:htmlmin",

@@ -278,6 +278,7 @@ class _MemberDocumenterEntry(NamedTuple):
 
   @property
   def page_name(self):
+    """Name of rST document (without ".rst" extension) for this entity."""
     page = self.full_name
     if self.overload and self.overload.overload_id:
       page += f'-{self.overload.overload_id}'
@@ -291,6 +292,7 @@ class _MemberDocumenterEntry(NamedTuple):
 
   @property
   def object_name(self):
+    """Python object ref target for this entity."""
     name = self.full_name
     if self.overload and self.overload.overload_id:
       name += f'({self.overload.overload_id})'
@@ -551,14 +553,25 @@ class TensorstorePythonApidoc(sphinx.util.docutils.SphinxDirective):
       # `_new_docstrings` member.
       entry.documenter._new_docstrings = [  # pylint: disable=protected-access
           sphinx.util.docstrings.prepare_docstring(
-              entry.overload.doc or '', 1,
-              self.state.document.settings.tab_width)
+              entry.overload.doc or '',
+              tabsize=self.state.document.settings.tab_width)
       ]
+      # Workaround for https://github.com/sphinx-doc/sphinx/pull/9518
+      orig_get_doc = entry.documenter.get_doc
+
+      def get_doc(ignore: Optional[int] = None) -> List[List[str]]:
+        if entry.documenter._new_docstrings is not None:  # pylint: disable=protected-access
+          return entry.documenter._new_docstrings  # pylint: disable=protected-access
+        return orig_get_doc(ignore)  # type: ignore
+
+      entry.documenter.get_doc = get_doc
+
     else:
       # Force autodoc to obtain the docstring through its normal mechanism,
       # which includes the "ModuleAnalyzer" for reading docstrings of
       # variables/attributes that are only contained in the source code.
       entry.documenter._new_docstrings = None  # pylint: disable=protected-access
+      orig_get_doc = None
 
     if summary and entry.is_inherited:
       overridename = entry.name
@@ -571,6 +584,8 @@ class TensorstorePythonApidoc(sphinx.util.docutils.SphinxDirective):
         'tensorstore_autodoc_current_documenter', {})
     current_documenter_map[entry.documenter.fullname] = entry.documenter
     entry.documenter.generate()
+    if orig_get_doc is not None:
+      del entry.documenter.get_doc
     del current_documenter_map[entry.documenter.fullname]
 
     group_name = _postprocess_autodoc_rst_output(rst_strings, summary=summary)
@@ -1144,7 +1159,7 @@ def _get_documenter_members(
       yield from _get_unseen_members(
           _get_documenter_direct_members(superclass_documenter),
           is_inherited=True)
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-except
       logger.warning('Cannot obtain documenter for base class %r of %r: %r',
                      cls, documenter.fullname, e)
 
@@ -1405,10 +1420,11 @@ def _monkey_patch_python_domain_to_deprioritize_params_in_search():
 
 
 sphinx.domains.python.PythonDomain.object_types[
-    "parameter"] = sphinx.domains.ObjType("parameter", "param")
+    'parameter'] = sphinx.domains.ObjType('parameter', 'param')
 
 
-def setup(app):
+def setup(app: sphinx.application.Sphinx):
+  """Initializes the extension."""
   _monkey_patch_napoleon_to_add_group_field()
   _monkey_patch_python_domain_to_support_titles()
   _monkey_patch_python_domain_to_merge_object_synopses()

@@ -43,7 +43,6 @@ extensions = [
     'sphinx.ext.doctest',
     'tensorstore_sphinx_ext.autodoc',
     'tensorstore_sphinx_ext.autosummary',
-    'tensorstore_sphinx_ext.mathjax',
     'tensorstore_sphinx_ext.doctest',
     'sphinx.ext.mathjax',
 ]
@@ -153,6 +152,12 @@ default_role = 'any'
 
 # Use MathJax 3.
 mathjax_path = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js'
+
+mathjax3_config = {
+    'chtml': {
+        'displayAlign': 'left',
+    },
+}
 
 always_document_param_types = True
 

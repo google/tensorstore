@@ -46,42 +46,52 @@ definitions:
           Each value occupies an entire byte in memory, but depending on the
           format may be encoded more efficiently.
       - const: "char"
-        title: Single byte, interpreted as an ASCII character.
+        title: |
+          Single byte, interpreted as an ASCII character.
       - const: "byte"
-        title: Single byte.
+        title: |
+          Single byte.
       - const: "int8"
-        title: 8-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`_ integer.
+        title: |
+          8-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`__ integer.
       - const: "uint8"
-        title: 8-bit unsigned integer.
+        title: |
+          8-bit unsigned integer.
       - const: "int16"
-        title: 16-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`_ integer.
+        title: |
+          16-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`__ integer.
       - const: "uint16"
-        title: 16-bit unsigned integer.
+        title: |
+          16-bit unsigned integer.
       - const: "int32"
-        title: 32-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`_ integer.
+        title: |
+          32-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`__ integer.
       - const: "uint32"
-        title: 32-bit unsigned integer.
+        title: |
+          32-bit unsigned integer.
       - const: "int64"
-        title: 64-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`_ integer.
+        title: |
+          64-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`__ integer.
       - const: "uint64"
-        title: 64-bit unsigned integer.
+        title: |
+          64-bit unsigned integer.
       - const: "float16"
         title: |
            `IEEE 754 binary16
-           <https://en.wikipedia.org/wiki/Half-precision_floating-point_format>`_
+           <https://en.wikipedia.org/wiki/Half-precision_floating-point_format>`__
            half-precision floating-point number.
       - const: "bfloat16"
         title: |
-          `bfloat16 floating-point format <https://en.wikipedia.org/wiki/Bfloat16_floating-point_format>`_ number.
+          `bfloat16 floating-point format <https://en.wikipedia.org/wiki/Bfloat16_floating-point_format>`__ number.
       - const: "float32"
         title: |
            `IEEE 754 binary32
-           <https://en.wikipedia.org/wiki/Single-precision_floating-point_format>`_
+           <https://en.wikipedia.org/wiki/Single-precision_floating-point_format>`__
            single-precision floating-point number.
       - const: "float64"
         title: |
            `IEEE 754 binary64
-           <https://en.wikipedia.org/wiki/Double-precision_floating-point_format>`_
+           <https://en.wikipedia.org/wiki/Double-precision_floating-point_format>`__
            double-precision floating-point number.
       - const: "complex64"
         title: |
@@ -92,9 +102,11 @@ definitions:
           Complex number, where the real and imaginary components are each
           represented by a `.float64`.
       - const: "string"
-        title: Byte string.
+        title: |
+          Byte string.
       - const: "ustring"
-        title: Unicode string (represented in memory as UTF-8).
+        title: |
+          Unicode string (represented in memory as UTF-8).
       - const: "json"
         title: |
-          `JSON <https://en.wikipedia.org/wiki/JSON>`_ value.
+          `JSON <https://en.wikipedia.org/wiki/JSON>`__ value.

@@ -63,15 +63,6 @@ pytype_strict_library(
 )
 
 pytype_strict_library(
-    name = "mathjax",
-    srcs = ["mathjax.py"],
-    deps = [
-        ":__init__",
-        "@pypa_sphinx//:sphinx",
-    ],
-)
-
-pytype_strict_library(
     name = "doctest",
     srcs = ["doctest.py"],
     deps = [

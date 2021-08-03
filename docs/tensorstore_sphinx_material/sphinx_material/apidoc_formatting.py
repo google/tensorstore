@@ -1,7 +1,8 @@
 """Modifies the formatting of API documentation."""
 
-from typing import Sequence, Tuple, List, Dict, Type, Union
+from typing import Sequence, Tuple, List, Dict, Type, Union, Optional
 import docutils.nodes
+import docutils.parsers.rst.states
 import sphinx.addnodes
 import sphinx.application
 import sphinx.domains
@@ -26,7 +27,9 @@ def _monkey_patch_python_doc_fields():
         types: Dict[str, List[docutils.nodes.Node]],
         domain: str,
         items: Sequence[Tuple[str, str]],
-        env: sphinx.environment.BuildEnvironment = None
+        env: Optional[sphinx.environment.BuildEnvironment] = None,
+        inliner: Optional[docutils.parsers.rst.states.Inliner] = None,
+        location: Optional[docutils.nodes.Node] = None,
     ) -> docutils.nodes.field:
         bodynode = docutils.nodes.definition_list()
         bodynode['classes'].append('api-field')
@@ -51,7 +54,9 @@ def _monkey_patch_python_doc_fields():
                                             domain,
                                             typename,
                                             docutils.nodes.Text,
-                                            env=env)))
+                                            env=env,
+                                            inliner=inliner,
+                                            location=location)))
                 else:
                     fieldtype_node += fieldtype
                 term_node += fieldtype_node
@@ -235,6 +240,7 @@ def setup(app: sphinx.application.Sphinx) -> None:
     _monkey_patch_python_parse_arglist()
     _monkey_patch_python_get_signature_prefix(sphinx.domains.python.PyFunction)
     _monkey_patch_python_get_signature_prefix(sphinx.domains.python.PyMethod)
+    _monkey_patch_python_get_signature_prefix(sphinx.domains.python.PyProperty)
     _monkey_patch_pyattribute_handle_signature(
         sphinx.domains.python.PyAttribute)
     _monkey_patch_pyattribute_handle_signature(

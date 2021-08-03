@@ -27,12 +27,12 @@ The resultant output is equivalent to:
        {"a": true, "b": false}
 """
 
+import doctest
 from typing import List
 
 import docutils.nodes
 import sphinx.application
 import sphinx.util.docutils
-import doctest
 
 from . import sphinx_utils
 
@@ -41,6 +41,7 @@ JSON_OUTPUT_FLAG = doctest.register_optionflag('JSON_OUTPUT')
 
 
 class DoctestOutputDirective(sphinx.util.docutils.SphinxDirective):
+  """Directive for doctests where only the output is shown."""
 
   has_content = True
   required_arguments = 0

@@ -19,6 +19,7 @@ import sys
 from typing import List, Tuple, Any, Type, Optional
 
 import docutils.nodes
+import docutils.parsers.rst.states
 import sphinx.addnodes
 import sphinx.application
 import sphinx.domains.python
@@ -83,13 +84,17 @@ def _monkey_patch_py_xref_mixin():
       self, rolename: str, domain: str, target: str,
       innernode: Type[docutils.nodes.TextElement] = docutils.nodes.emphasis,
       contnode: Optional[docutils.nodes.Node] = None,
-      env: Optional[sphinx.environment.BuildEnvironment] = None
+      env: Optional[sphinx.environment.BuildEnvironment] = None,
+      inliner: Optional[docutils.parsers.rst.states.Inliner] = None,
+      location: Optional[docutils.nodes.Node] = None,
   ) -> List[docutils.nodes.Node]:
     del self
     del rolename
     del domain
     del innernode
     del contnode
+    del inliner
+    del location
     return sphinx.domains.python._parse_annotation(target, env)  # pylint: disable=protected-access
 
   PyXrefMixin.make_xrefs = make_xrefs
