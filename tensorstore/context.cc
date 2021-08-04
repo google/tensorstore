@@ -724,8 +724,7 @@ internal_context::ResourceSpecImplPtr AddResource(
 
 ResourceOrSpecPtr AddResourceOrSpec(const internal::ContextSpecBuilder& builder,
                                     ResourceOrSpecTaggedPtr resource_or_spec) {
-  auto& impl = internal_context::Access::impl(builder);
-  assert(impl);
+  assert(internal_context::Access::impl(builder));
   if (!resource_or_spec) {
     resource_or_spec.set_tag<1>(false);
     return ResourceOrSpecPtr(resource_or_spec);
