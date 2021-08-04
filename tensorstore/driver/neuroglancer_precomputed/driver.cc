@@ -41,16 +41,13 @@ namespace {
 
 namespace jb = tensorstore::internal_json_binding;
 
-template <template <typename> class MaybeBound = internal::ContextUnbound>
-struct SpecT : public internal_kvs_backed_chunk_driver::SpecT<MaybeBound> {
+struct SpecData : public internal_kvs_backed_chunk_driver::SpecData {
   std::string key_prefix;
   OpenConstraints open_constraints;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
-    return f(
-        internal::BaseCast<internal_kvs_backed_chunk_driver::SpecT<MaybeBound>>(
-            x),
-        x.key_prefix, x.open_constraints);
+    return f(internal::BaseCast<internal_kvs_backed_chunk_driver::SpecData>(x),
+             x.key_prefix, x.open_constraints);
   };
 };
 
@@ -237,13 +234,12 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
     return builder.Finalize();
   }
 
-  Status GetBoundSpecData(
-      internal_kvs_backed_chunk_driver::SpecT<internal::ContextBound>*
-          spec_base,
+  absl::Status GetBoundSpecData(
+      internal_kvs_backed_chunk_driver::SpecData& spec_base,
       const void* metadata_ptr,
       [[maybe_unused]] std::size_t component_index) override {
     assert(component_index == 0);
-    auto& spec = static_cast<SpecT<internal::ContextBound>&>(*spec_base);
+    auto& spec = static_cast<SpecData&>(spec_base);
     const auto& metadata =
         *static_cast<const MultiscaleMetadata*>(metadata_ptr);
     const auto& scale = metadata.scales[scale_index_];
@@ -423,19 +419,18 @@ class NeuroglancerPrecomputedDriver
 
   constexpr static char id[] = "neuroglancer_precomputed";
 
-  template <template <typename> class MaybeBound = internal::ContextUnbound>
-  using SpecT = internal_neuroglancer_precomputed::SpecT<MaybeBound>;
+  using SpecData = internal_neuroglancer_precomputed::SpecData;
 
   static inline const auto json_binder = jb::Sequence(
       internal_kvs_backed_chunk_driver::SpecJsonBinder,
-      jb::Member("path", jb::Projection(&SpecT<>::key_prefix,
+      jb::Member("path", jb::Projection(&SpecData::key_prefix,
                                         jb::DefaultInitializedValue())),
       [](auto is_loading, auto options, auto* obj, auto* j) {
         options.Set(obj->schema.dtype());
         return jb::DefaultBinder<>(is_loading, options, &obj->open_constraints,
                                    j);
       },
-      jb::Initialize([](SpecT<>* obj) {
+      jb::Initialize([](SpecData* obj) {
         TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(RankConstraint{4}));
         TENSORSTORE_RETURN_IF_ERROR(
             obj->schema.Set(obj->open_constraints.multiscale.dtype));
@@ -444,7 +439,7 @@ class NeuroglancerPrecomputedDriver
 
   class OpenState;
 
-  static absl::Status ApplyOptions(SpecT<>& spec, SpecOptions&& options) {
+  static absl::Status ApplyOptions(SpecData& spec, SpecOptions&& options) {
     if (options.minimal_spec) {
       spec.open_constraints.scale = ScaleMetadataConstraints{};
       spec.open_constraints.multiscale = MultiscaleMetadataConstraints{};
@@ -452,18 +447,18 @@ class NeuroglancerPrecomputedDriver
     return Base::ApplyOptions(spec, std::move(options));
   }
 
-  static Result<IndexDomain<>> SpecGetDomain(const SpecT<>& spec) {
+  static Result<IndexDomain<>> SpecGetDomain(const SpecData& spec) {
     return GetEffectiveDomain(/*existing_metadata=*/nullptr,
                               spec.open_constraints, spec.schema);
   }
 
-  static Result<CodecSpec::Ptr> SpecGetCodec(const SpecT<>& spec) {
+  static Result<CodecSpec::Ptr> SpecGetCodec(const SpecData& spec) {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto codec, GetEffectiveCodec(spec.open_constraints, spec.schema));
     return CodecSpec::Ptr(std::move(codec));
   }
 
-  static Result<ChunkLayout> SpecGetChunkLayout(const SpecT<>& spec) {
+  static Result<ChunkLayout> SpecGetChunkLayout(const SpecData& spec) {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto domain_and_chunk_layout,
         GetEffectiveDomainAndChunkLayout(/*existing_metadata=*/nullptr,
@@ -472,7 +467,7 @@ class NeuroglancerPrecomputedDriver
   }
 
   static Result<SharedArray<const void>> SpecGetFillValue(
-      const SpecT<>& spec, IndexTransformView<> transform) {
+      const SpecData& spec, IndexTransformView<> transform) {
     return {std::in_place};
   }
 };

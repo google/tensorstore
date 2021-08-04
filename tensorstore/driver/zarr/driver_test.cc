@@ -216,7 +216,7 @@ TEST(ZarrDriverTest, Create) {
 
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
+      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
           .value(),
       UnorderedElementsAreArray({
           Pair("prefix/.zarray",  //
@@ -299,7 +299,7 @@ TEST(ZarrDriverTest, Create) {
     TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto kv_store,
-        KeyValueStore::Open(context, {{"driver", "memory"}}, {}).result());
+        KeyValueStore::Open({{"driver", "memory"}}, context).result());
     EXPECT_THAT(ListFuture(kv_store.get()).value(),
                 ::testing::UnorderedElementsAre("prefix/.zarray"));
   }
@@ -310,9 +310,7 @@ TEST(ZarrDriverTest, MetadataCache) {
   Context context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto mock_key_value_store_resource,
-      context.GetResource(
-          Context::ResourceSpec<
-              tensorstore::internal::MockKeyValueStoreResource>::Default()));
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
   auto mock_key_value_store = *mock_key_value_store_resource;
   auto memory_store = tensorstore::GetMemoryKeyValueStore();
 
@@ -346,9 +344,7 @@ class MockKeyValueStoreTest : public ::testing::Test {
   KeyValueStore::PtrT<tensorstore::internal::MockKeyValueStore>
       mock_key_value_store =
           *context
-               .GetResource(Context::ResourceSpec<
-                            tensorstore::internal::MockKeyValueStoreResource>::
-                                Default())
+               .GetResource<tensorstore::internal::MockKeyValueStoreResource>()
                .value();
   tensorstore::KeyValueStore::Ptr memory_store =
       tensorstore::GetMemoryKeyValueStore();
@@ -622,7 +618,7 @@ TEST(ZarrDriverTest, CreateBigEndian) {
   TestCreateWriteRead(context, json_spec);
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
+      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
           .value(),
       UnorderedElementsAreArray({
           Pair("prefix/.zarray",  //
@@ -681,7 +677,7 @@ TEST(ZarrDriverTest, CreateBfloat16) {
       store | tensorstore::Dims(0, 1).SizedInterval({3, 2}, {3, 2})));
   // Check that key value store has expected contents.
   auto map =
-      GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
+      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
           .value();
   auto v = map.at("prefix/1.1");
   std::cout << "Value = {";
@@ -690,7 +686,7 @@ TEST(ZarrDriverTest, CreateBfloat16) {
   }
   std::cout << "}" << std::endl;
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
+      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
           .value(),
       UnorderedElementsAreArray({
           Pair("prefix/.zarray",  //
@@ -737,7 +733,7 @@ TEST(ZarrDriverTest, CreateBigEndianUnaligned) {
 
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
+      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
           .value(),
       UnorderedElementsAreArray({
           Pair("prefix/.zarray",
@@ -809,7 +805,7 @@ TEST(ZarrDriverTest, CreateLittleEndianUnaligned) {
 
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
+      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
           .value(),
       UnorderedElementsAreArray({
           Pair("prefix/.zarray",
@@ -902,7 +898,8 @@ TEST(ZarrDriverTest, KeyEncodingWithSlash) {
       tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
       store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
-  auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
   EXPECT_THAT(  //
       GetMap(kv_store).value(),
       UnorderedElementsAre(
@@ -943,7 +940,8 @@ TEST(ZarrDriverTest, Resize) {
           store |
               tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
       // Check that key value store has expected contents.
-      auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto kv_store, KeyValueStore::Open(storage_spec, context).result());
       EXPECT_THAT(  //
           GetMap(kv_store).value(),
           UnorderedElementsAre(
@@ -1088,7 +1086,8 @@ TEST(ZarrDriverTest, ResizeMetadataOnly) {
       tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
       store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
-  auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
   EXPECT_THAT(  //
       GetMap(kv_store).value(),
       UnorderedElementsAre(
@@ -1139,7 +1138,8 @@ TEST(ZarrDriverTest, ResizeExpandOnly) {
       tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
       store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
-  auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
   EXPECT_THAT(  //
       GetMap(kv_store).value(),
       UnorderedElementsAre(
@@ -1423,7 +1423,8 @@ TEST(ZarrDriverTest, ResolveBoundsDeletedMetadata) {
       tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result());
-  auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
   kv_store->Delete("prefix/.zarray").value();
   EXPECT_THAT(ResolveBounds(store).result(),
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
@@ -1446,7 +1447,8 @@ TEST(ZarrDriverTest, InvalidResizeDeletedMetadata) {
       tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result());
-  auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
   kv_store->Delete("prefix/.zarray").value();
   EXPECT_THAT(
       Resize(store, span<const Index>({kImplicit, kImplicit}),
@@ -1532,7 +1534,8 @@ TEST(ZarrDriverTest, OpenInvalidMetadata) {
       {"path", "prefix"},
       {"metadata", zarr_metadata_json},
   };
-  auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
 
   // Write invalid JSON
   TENSORSTORE_EXPECT_OK(
@@ -1575,7 +1578,8 @@ TEST(ZarrDriverTest, ResolveBoundsIncompatibleMetadata) {
       {"path", "prefix"},
       {"metadata", zarr_metadata_json},
   };
-  auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
@@ -2035,7 +2039,6 @@ TENSORSTORE_GLOBAL_INITIALIZER {
        {{"input_exclusive_max", {{100}, {100}}},
         {"input_inclusive_min", {0, 0}}}},
   };
-  options.to_json_options = tensorstore::IncludeContext{false};
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }
@@ -2125,7 +2128,7 @@ TEST(DriverTest, NoPrefix) {
       store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(context, storage_spec, {}).result());
+      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
   EXPECT_THAT(  //
       GetMap(kv_store).value(),
       UnorderedElementsAre(
@@ -2598,7 +2601,7 @@ void TestReadWriteWithDimensionSeparator(std::string dimension_separator) {
 
   // Remove dimension_separator field from metadata.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(context, storage_spec, {}).result());
+      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata_json_encoded,
                                    kv_store->Read(".zarray").result());
   auto metadata_json =

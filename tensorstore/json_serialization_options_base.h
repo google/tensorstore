@@ -41,18 +41,6 @@ class IncludeDefaults {
   bool value_;
 };
 
-/// Specifies whether context and context resource specifications are included
-/// when converting to JSON.
-class IncludeContext {
- public:
-  constexpr explicit IncludeContext(bool include_context = true)
-      : value_(include_context) {}
-  constexpr bool include_context() const { return value_; }
-
- private:
-  bool value_;
-};
-
 struct RankConstraint {
   constexpr explicit RankConstraint(DimensionIndex rank = dynamic_rank)
       : rank(rank) {}

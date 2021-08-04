@@ -66,6 +66,7 @@ tensorstore_cc_test(
         ":gcs",
         "//tensorstore:context",
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:json_gtest",
         "//tensorstore/internal:logging",
         "//tensorstore/internal:mutex",
         "//tensorstore/internal:path",

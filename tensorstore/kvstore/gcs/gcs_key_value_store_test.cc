@@ -38,6 +38,7 @@
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/path.h"
@@ -58,6 +59,7 @@ using tensorstore::Future;
 using tensorstore::GCSMockStorageBucket;
 using tensorstore::KeyRange;
 using tensorstore::KeyValueStore;
+using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
 using tensorstore::internal_http::HttpRequest;
 using tensorstore::internal_http::HttpResponse;
@@ -142,15 +144,15 @@ TEST(GcsKeyValueStoreTest, BadBucketNames) {
         "0123456789123456789012345678912345678901234567891234567890"
         "1234567891234567890123456789123456789012345678912345678901"
         "23456789123456789.b"}) {
-    EXPECT_FALSE(KeyValueStore::Open(
-                     context, {{"driver", "gcs"}, {"bucket", bucket}}, {})
-                     .result())
+    EXPECT_FALSE(
+        KeyValueStore::Open({{"driver", "gcs"}, {"bucket", bucket}}, context)
+            .result())
         << "bucket: " << bucket;
   }
   for (auto bucket : {"abc", "abc.1-2_3.abc"}) {
-    EXPECT_TRUE(KeyValueStore::Open(context,
-                                    {{"driver", "gcs"}, {"bucket", bucket}}, {})
-                    .result())
+    EXPECT_TRUE(
+        KeyValueStore::Open({{"driver", "gcs"}, {"bucket", bucket}}, context)
+            .result())
         << "bucket: " << bucket;
   }
 }
@@ -167,14 +169,10 @@ TEST(GcsKeyValueStoreTest, BadObjectNames) {
   auto context = Context::Default();
 
   // https://www.googleapis.com/kvstore/v1/b/my-project/o/test
-  auto store_result =
-      KeyValueStore::Open(context, {{"driver", "gcs"}, {"bucket", "my-bucket"}},
-                          {})
-          .result();
-  ASSERT_TRUE(store_result.ok());
-
-  KeyValueStore::Ptr store = std::move(*store_result);
-
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      KeyValueStore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+          .result());
   EXPECT_THAT(store->Read(".").result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(store->Read("..").result(),
@@ -204,15 +202,15 @@ TEST(GcsKeyValueStoreTest, Basic) {
   mock_transport->buckets_.push_back(&bucket);
 
   auto context = Context::Default();
-  auto store = KeyValueStore::Open(
-                   context, {{"driver", "gcs"}, {"bucket", "my-bucket"}}, {})
-                   .result();
-  ASSERT_EQ(absl::OkStatus(), GetStatus(store));
-  auto spec_result = (*store)->spec();
-  ASSERT_EQ(absl::OkStatus(), GetStatus(spec_result));
-  EXPECT_THAT(spec_result->ToJson(tensorstore::IncludeDefaults{false}),
-              ::nlohmann::json({{"driver", "gcs"}, {"bucket", "my-bucket"}}));
-  tensorstore::internal::TestKeyValueStoreBasicFunctionality(*store);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      KeyValueStore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store->spec());
+  EXPECT_THAT(spec.ToJson(tensorstore::IncludeDefaults{false}),
+              ::testing::Optional(
+                  MatchesJson({{"driver", "gcs"}, {"bucket", "my-bucket"}})));
+  tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
 }
 
 TEST(GcsKeyValueStoreTest, Retry) {
@@ -230,12 +228,11 @@ TEST(GcsKeyValueStoreTest, Retry) {
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
           auto store,
           KeyValueStore::Open(
-              context,
               {{"driver", "gcs"},
                {"bucket", "my-bucket"},
                {"context",
                 {{"gcs_request_retries", {{"max_retries", max_retries}}}}}},
-              {})
+              context)
               .result());
       if (fail) {
         bucket.TriggerErrors(max_retries);
@@ -259,13 +256,10 @@ TEST(GcsKeyValueStoreTest, List) {
   mock_transport->buckets_.push_back(&bucket);
 
   auto context = Context::Default();
-  auto store_result =
-      KeyValueStore::Open(context, {{"driver", "gcs"}, {"bucket", "my-bucket"}},
-                          {})
-          .result();
-  ASSERT_TRUE(store_result.ok());
-
-  tensorstore::KeyValueStore::Ptr store = std::move(*store_result);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      KeyValueStore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+          .result());
 
   // Listing an empty bucket via `List` works.
   {
@@ -410,19 +404,18 @@ TEST(GcsKeyValueStoreTest, InvalidSpec) {
   // Test with extra key.
   EXPECT_THAT(
       KeyValueStore::Open(
-          context,
-          {{"driver", "gcs"}, {"bucket", "my-bucket"}, {"extra", "key"}}, {})
+          {{"driver", "gcs"}, {"bucket", "my-bucket"}, {"extra", "key"}},
+          context)
           .result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument));
 
   // Test with missing `"bucket"` key.
-  EXPECT_THAT(KeyValueStore::Open(context, {{"driver", "gcs"}}, {}).result(),
+  EXPECT_THAT(KeyValueStore::Open({{"driver", "gcs"}}, context).result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 
   // Test with invalid `"bucket"` key.
   EXPECT_THAT(
-      KeyValueStore::Open(context, {{"driver", "gcs"}, {"bucket", 5}}, {})
-          .result(),
+      KeyValueStore::Open({{"driver", "gcs"}, {"bucket", 5}}, context).result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
@@ -436,18 +429,16 @@ TEST(GcsKeyValueStoreTest, RequestorPays) {
   mock_transport->buckets_.push_back(&bucket2);
 
   const auto TestWrite = [&](Context context, auto bucket2_status_matcher) {
-    auto store_result1 =
-        KeyValueStore::Open(context,
-                            {{"driver", "gcs"}, {"bucket", "my-bucket1"}}, {})
-            .result();
-    auto store_result2 =
-        KeyValueStore::Open(context,
-                            {{"driver", "gcs"}, {"bucket", "my-bucket2"}}, {})
-            .result();
-    ASSERT_TRUE(store_result1.ok());
-    ASSERT_TRUE(store_result2.ok());
-    TENSORSTORE_EXPECT_OK((*store_result1)->Write("abc", absl::Cord("xyz")));
-    EXPECT_THAT(GetStatus((*store_result2)->Write("abc", absl::Cord("xyz"))),
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store1, KeyValueStore::Open(
+                         {{"driver", "gcs"}, {"bucket", "my-bucket1"}}, context)
+                         .result());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store2, KeyValueStore::Open(
+                         {{"driver", "gcs"}, {"bucket", "my-bucket2"}}, context)
+                         .result());
+    TENSORSTORE_EXPECT_OK(store1->Write("abc", absl::Cord("xyz")));
+    EXPECT_THAT(GetStatus(store2->Write("abc", absl::Cord("xyz"))),
                 bucket2_status_matcher);
   };
 
@@ -526,10 +517,9 @@ TEST(GcsKeyValueStoreTest, Concurrency) {
                         {{"gcs_request_concurrency", {{"limit", limit}}}})
                         .value()};
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto store,
-        KeyValueStore::Open(context,
-                            {{"driver", "gcs"}, {"bucket", "my-bucket"}}, {})
-            .result());
+        auto store, KeyValueStore::Open(
+                        {{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+                        .result());
 
     std::vector<tensorstore::Future<KeyValueStore::ReadResult>> futures;
     for (size_t i = 0; i < 10 * limit; ++i) {
@@ -555,9 +545,9 @@ TEST(GcsKeyValueStoreTest, DeletePrefix) {
 
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, KeyValueStore::Open(
-                      context, {{"driver", "gcs"}, {"bucket", "my-bucket"}}, {})
-                      .result());
+      auto store,
+      KeyValueStore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+          .result());
   tensorstore::internal::TestKeyValueStoreDeletePrefix(store);
 }
 
@@ -570,9 +560,9 @@ TEST(GcsKeyValueStoreTest, DeleteRange) {
 
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, KeyValueStore::Open(
-                      context, {{"driver", "gcs"}, {"bucket", "my-bucket"}}, {})
-                      .result());
+      auto store,
+      KeyValueStore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+          .result());
   tensorstore::internal::TestKeyValueStoreDeleteRange(store);
 }
 
@@ -585,9 +575,9 @@ TEST(GcsKeyValueStoreTest, DeleteRangeToEnd) {
 
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, KeyValueStore::Open(
-                      context, {{"driver", "gcs"}, {"bucket", "my-bucket"}}, {})
-                      .result());
+      auto store,
+      KeyValueStore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+          .result());
   tensorstore::internal::TestKeyValueStoreDeleteRangeToEnd(store);
 }
 
@@ -600,9 +590,9 @@ TEST(GcsKeyValueStoreTest, DeleteRangeFromBeginning) {
 
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, KeyValueStore::Open(
-                      context, {{"driver", "gcs"}, {"bucket", "my-bucket"}}, {})
-                      .result());
+      auto store,
+      KeyValueStore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+          .result());
   tensorstore::internal::TestKeyValueStoreDeleteRangeFromBeginning(store);
 }
 
@@ -636,13 +626,12 @@ TEST(GcsKeyValueStoreTest, DeleteRangeCancellation) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       KeyValueStore::Open(
-          context,
           {
               {"driver", "gcs"},
               {"bucket", "my-bucket"},
               {"context", {{"gcs_request_concurrency", {{"limit", 1}}}}},
           },
-          {})
+          context)
           .result());
   for (std::string key : {"a/b", "a/c/a", "a/c/b", "a/c/d", "a/d"}) {
     TENSORSTORE_ASSERT_OK(store->Write(key, absl::Cord()));

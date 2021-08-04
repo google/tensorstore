@@ -65,10 +65,19 @@ void TestKeyValueStoreDeleteRangeToEnd(KeyValueStore::Ptr store);
 /// Tests DeleteRange on `store`, which should be empty.
 void TestKeyValueStoreDeleteRangeFromBeginning(KeyValueStore::Ptr store);
 
+struct KeyValueStoreSpecRoundtripOptions {
+  KeyValueStore::SpecRequestOptions spec_request_options;
+  JsonSerializationOptions json_serialization_options;
+  // Checks that data persists after re-opening from the returned spec.
+  bool check_data_persists = true;
+};
+
 /// Tests that calling `KeyValueStore::Open` with `spec` returns a
 /// `KeyValueStore::Ptr` whose `spec()` method returns `spec`, and that data
 /// persists when re-opening using the same `spec` after closing.
-void TestKeyValueStoreSpecRoundtrip(::nlohmann::json json_spec);
+void TestKeyValueStoreSpecRoundtrip(
+    ::nlohmann::json json_spec,
+    const KeyValueStoreSpecRoundtripOptions& options = {});
 
 /// Returns the contents of `kv_store` as an `std::map`.
 Result<std::map<KeyValueStore::Key, KeyValueStore::Value>> GetMap(
@@ -214,10 +223,8 @@ class MockKeyValueStore : public KeyValueStore {
 ///
 ///     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
 ///         auto mock_key_value_store_resource,
-///         context.GetResource(
-///             Context::ResourceSpec<
-///                 tensorstore::internal::MockKeyValueStoreResource>::
-///                 Default()));
+///         context.GetResource<
+///             tensorstore::internal::MockKeyValueStoreResource>());
 ///     MockKeyValueStore *mock_key_value_store =
 ///         mock_key_value_store_resource->get();
 ///

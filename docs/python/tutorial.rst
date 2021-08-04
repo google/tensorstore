@@ -93,7 +93,13 @@ Wait for the open to complete:
    >>> dataset = dataset_future.result()
    >>> dataset
    TensorStore({
-     'context': {'cache_pool': {'total_bytes_limit': 100000000}},
+     'context': {
+       'cache_pool': {'total_bytes_limit': 100000000},
+       'data_copy_concurrency': {},
+       'gcs_request_concurrency': {},
+       'gcs_request_retries': {},
+       'gcs_user_project': {},
+     },
      'driver': 'neuroglancer_precomputed',
      'dtype': 'uint64',
      'kvstore': {
@@ -157,7 +163,13 @@ Create a view of a 100x100x1 slice from the middle, without performing any I/O:
    >>> x = dataset_3d[15000:15100, 15000:15100, 20000]
    >>> x
    TensorStore({
-     'context': {'cache_pool': {'total_bytes_limit': 100000000}},
+     'context': {
+       'cache_pool': {'total_bytes_limit': 100000000},
+       'data_copy_concurrency': {},
+       'gcs_request_concurrency': {},
+       'gcs_request_retries': {},
+       'gcs_user_project': {},
+     },
      'driver': 'neuroglancer_precomputed',
      'dtype': 'uint64',
      'kvstore': {

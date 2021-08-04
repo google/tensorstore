@@ -185,7 +185,7 @@ TEST(DriverTest, Create) {
 
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
+      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
           .value(),
       (UnorderedElementsAreArray<
           ::testing::Matcher<std::pair<std::string, absl::Cord>>>({
@@ -337,7 +337,8 @@ TEST(DriverTest, Create) {
 
     // Test corrupt "raw" chunk handling
     ::nlohmann::json storage_spec{{"driver", "memory"}};
-    auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto kv_store, KeyValueStore::Open(storage_spec, context).result());
     TENSORSTORE_EXPECT_OK(
         kv_store->Write("prefix/1_1_1/10-11_10-12_7-9", absl::Cord("junk")));
     EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
@@ -364,8 +365,9 @@ TEST(DriverTest, Create) {
                   ChainResult(store, tensorstore::AllDims().SizedInterval(
                                          {9, 7, 7, 0}, {2, 4, 2, 3})))
                   .value());
-    auto kv_store =
-        KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto kv_store,
+        KeyValueStore::Open({{"driver", "memory"}}, context).result());
     EXPECT_THAT(ListFuture(kv_store.get()).value(),
                 ::testing::UnorderedElementsAre("prefix/info"));
   }
@@ -495,11 +497,8 @@ TEST(DriverTest, DataTypeMismatchInSpec) {
       auto store,
       tensorstore::Open(json_spec, context, tensorstore::OpenMode::create)
           .result());
-  // Specify `IncludeContext{false}` since we need to re-open with the same
-  // `memory_key_value_store` context resource from the parent `context`.
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      ::nlohmann::json modified_spec,
-      store.spec().value().ToJson(tensorstore::IncludeContext{false}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(::nlohmann::json modified_spec,
+                                   store.spec().value().ToJson());
   modified_spec["dtype"] = "uint32";
   EXPECT_THAT(
       tensorstore::Open(modified_spec, context, tensorstore::OpenMode::open)
@@ -623,7 +622,7 @@ TEST(DriverTest, CompressedSegmentationEncodingUint32) {
 
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
+      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
           .value(),
       (UnorderedElementsAreArray<
           ::testing::Matcher<std::pair<std::string, absl::Cord>>>({
@@ -738,7 +737,7 @@ TEST(DriverTest, CompressedSegmentationEncodingUint64) {
 
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
+      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
           .value(),
       (UnorderedElementsAreArray<
           ::testing::Matcher<std::pair<std::string, absl::Cord>>>({
@@ -815,7 +814,8 @@ TEST(DriverTest, CompressedSegmentationEncodingUint64) {
 
     // Test corrupt "compressed_segmentation" chunk handling
     ::nlohmann::json storage_spec{{"driver", "memory"}};
-    auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto kv_store, KeyValueStore::Open(storage_spec, context).result());
     TENSORSTORE_EXPECT_OK(
         kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", absl::Cord("junk")));
     EXPECT_THAT(
@@ -887,7 +887,7 @@ TEST(DriverTest, Jpeg1Channel) {
 
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
+      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
           .value(),
       (UnorderedElementsAreArray<
           ::testing::Matcher<std::pair<std::string, absl::Cord>>>({
@@ -939,7 +939,8 @@ TEST(DriverTest, Jpeg1Channel) {
 
     // Test corrupt "jpeg" chunk handling
     ::nlohmann::json storage_spec{{"driver", "memory"}};
-    auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto kv_store, KeyValueStore::Open(storage_spec, context).result());
     // Write invalid jpeg
     TENSORSTORE_EXPECT_OK(
         kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", absl::Cord("junk")));
@@ -1035,8 +1036,7 @@ TEST(DriverTest, JpegQuality) {
             .result());
     size_t size = 0;
     for (const auto& [key, value] :
-         GetMap(
-             KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
+         GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
              .value()) {
       size += value.size();
     }
@@ -1104,7 +1104,7 @@ TEST(DriverTest, Jpeg3Channel) {
 
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
+      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
           .value(),
       (UnorderedElementsAreArray<
           ::testing::Matcher<std::pair<std::string, absl::Cord>>>({
@@ -1160,7 +1160,8 @@ TEST(DriverTest, Jpeg3Channel) {
 TEST(DriverTest, CorruptMetadataTest) {
   auto context = Context::Default();
   ::nlohmann::json storage_spec{{"driver", "memory"}};
-  auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
 
   // Write invalid JSON
   TENSORSTORE_EXPECT_OK(kv_store->Write("prefix/info", absl::Cord("invalid")));
@@ -1218,53 +1219,6 @@ TENSORSTORE_GLOBAL_INITIALIZER {
                            {{"input_labels", {"x", "y", "z", "channel"}},
                             {"input_exclusive_max", {11, 101, 101, 4}},
                             {"input_inclusive_min", {1, 2, 3, 0}}}}};
-  tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
-      std::move(options));
-}
-
-TENSORSTORE_GLOBAL_INITIALIZER {
-  tensorstore::internal::TestTensorStoreDriverSpecRoundtripOptions options;
-  options.test_name = "raw/cache_pool";
-  options.full_spec = {
-      {"dtype", "uint16"},
-      {"driver", "neuroglancer_precomputed"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
-      {"multiscale_metadata",
-       {
-           {"num_channels", 4},
-           {"type", "image"},
-       }},
-      {"scale_metadata",
-       {
-           {"key", "1_1_1"},
-           {"resolution", {1.0, 1.0, 1.0}},
-           {"encoding", "raw"},
-           {"chunk_size", {3, 2, 2}},
-           {"size", {10, 99, 98}},
-           {"voxel_offset", {1, 2, 3}},
-           {"sharding", nullptr},
-       }},
-      {"scale_index", 0},
-      {"transform",
-       {{"input_labels", {"x", "y", "z", "channel"}},
-        {"input_exclusive_max", {11, 101, 101, 4}},
-        {"input_inclusive_min", {1, 2, 3, 0}}}},
-      {"context", {{"cache_pool", {{"total_bytes_limit", 10000000}}}}},
-  };
-  options.minimal_spec = {
-      {"dtype", "uint16"},
-      {"driver", "neuroglancer_precomputed"},
-      {"scale_index", 0},
-      {"path", "prefix"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"transform",
-       {{"input_labels", {"x", "y", "z", "channel"}},
-        {"input_exclusive_max", {11, 101, 101, 4}},
-        {"input_inclusive_min", {1, 2, 3, 0}}}},
-      {"context", {{"cache_pool", {{"total_bytes_limit", 10000000}}}}},
-  };
-  options.check_transactional_open_before_commit = false;
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }
@@ -1475,9 +1429,7 @@ TEST(FullShardWriteTest, Basic) {
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto mock_key_value_store_resource,
-      context.GetResource(
-          Context::ResourceSpec<
-              tensorstore::internal::MockKeyValueStoreResource>::Default()));
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
   auto mock_key_value_store = *mock_key_value_store_resource;
 
   ::nlohmann::json json_spec{
@@ -1604,7 +1556,7 @@ TEST(DriverTest, NoPrefix) {
       store | tensorstore::Dims("z", "channel").IndexSlice({0, 0})));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(context, storage_spec, {}).result());
+      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
   EXPECT_THAT(  //
       GetMap(kv_store).value(),
       ::testing::UnorderedElementsAre(

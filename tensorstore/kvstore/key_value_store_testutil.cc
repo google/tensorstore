@@ -29,6 +29,7 @@
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
@@ -44,6 +45,7 @@ namespace tensorstore {
 namespace internal {
 namespace {
 
+using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
 namespace jb = tensorstore::internal_json_binding;
 
@@ -471,7 +473,10 @@ void TestKeyValueStoreDeleteRangeFromBeginning(KeyValueStore::Ptr store) {
                   ::testing::UnorderedElementsAre("a/c/b", "b/a", "b/b")));
 }
 
-void TestKeyValueStoreSpecRoundtrip(::nlohmann::json json_spec) {
+void TestKeyValueStoreSpecRoundtrip(
+    ::nlohmann::json json_spec,
+    const KeyValueStoreSpecRoundtripOptions& options) {
+  SCOPED_TRACE(tensorstore::StrCat("json_spec=", json_spec.dump()));
   auto context = Context::Default();
 
   const std::string key = "mykey";
@@ -481,21 +486,22 @@ void TestKeyValueStoreSpecRoundtrip(::nlohmann::json json_spec) {
   // Open and populate `"mykey"`.
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto store, KeyValueStore::Open(context, json_spec, {}).result());
-    auto spec_result = store->spec();
-    TENSORSTORE_ASSERT_OK(spec_result);
+        auto store, KeyValueStore::Open(json_spec, context).result());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        derived_spec, spec_result->ToJson(tensorstore::IncludeDefaults{false}));
-    EXPECT_THAT(derived_spec, json_spec);
+        auto spec, store->spec(KeyValueStore::SpecRequestOptions{
+                       options.spec_request_options}));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        derived_spec, spec.ToJson(options.json_serialization_options));
+    EXPECT_THAT(derived_spec, MatchesJson(json_spec));
     ASSERT_THAT(store->Write(key, value).result(),
                 MatchesRegularTimestampedStorageGeneration());
     EXPECT_THAT(store->Read(key).result(), MatchesKvsReadResult(value));
   }
 
   // Reopen and verify contents.
-  {
+  if (options.check_data_persists) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto store, KeyValueStore::Open(context, derived_spec, {}).result());
+        auto store, KeyValueStore::Open(derived_spec, context).result());
     TENSORSTORE_ASSERT_OK(store->spec());
     EXPECT_THAT(store->Read(key).result(), MatchesKvsReadResult(value));
   }
@@ -539,21 +545,13 @@ class RegisteredMockKeyValueStore
     : public RegisteredKeyValueStore<RegisteredMockKeyValueStore> {
  public:
   static constexpr char id[] = "mock_key_value_store";
-  template <template <typename> class MaybeBound = ContextUnbound>
-  using SpecT = MaybeBound<Context::ResourceSpec<MockKeyValueStoreResource>>;
+  using SpecData = Context::Resource<MockKeyValueStoreResource>;
 
   static constexpr auto json_binder =
       jb::Object(jb::Member(MockKeyValueStoreResource::id));
 
-  static void EncodeCacheKey(std::string* out,
-                             const SpecT<ContextBound>& data) {
+  static void EncodeCacheKey(std::string* out, const SpecData& data) {
     tensorstore::internal::EncodeCacheKey(out, data);
-  }
-
-  static absl::Status ConvertSpec(
-      SpecT<ContextUnbound>* spec,
-      const KeyValueStore::SpecRequestOptions& options) {
-    return absl::OkStatus();
   }
 
   static void Open(
@@ -561,8 +559,8 @@ class RegisteredMockKeyValueStore
     state.driver().base_ = state.spec();
   }
 
-  absl::Status GetBoundSpecData(SpecT<ContextBound>* spec) const {
-    *spec = base_;
+  absl::Status GetBoundSpecData(SpecData& spec) const {
+    spec = base_;
     return absl::OkStatus();
   }
 

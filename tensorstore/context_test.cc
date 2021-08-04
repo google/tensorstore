@@ -28,6 +28,17 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
+// Workaround for GoogleMock `::testing::Pointee` requiring a nested
+// `element_type` alias, which `Context::Resource<Provider>` can't provide
+// without requiring `Provider` to be a complete type, which would prevent
+// recursive resource types.
+namespace tensorstore {
+template <typename Provider>
+auto* GetRawPointer(const Context::Resource<Provider>& resource) {
+  return resource.get();
+}
+}  // namespace tensorstore
+
 namespace {
 using tensorstore::Context;
 using tensorstore::IncludeDefaults;
@@ -84,11 +95,11 @@ struct StrongRefResource : public ContextResourceTraits<StrongRefResource> {
   static Spec GetSpec(const Resource& v, const ContextSpecBuilder& builder) {
     return {42};
   }
-  static void AcquireContextReference(Resource* v) {
-    ++v->num_strong_references;
+  static void AcquireContextReference(Resource& v) {
+    ++v.num_strong_references;
   }
-  static void ReleaseContextReference(Resource* v) {
-    --v->num_strong_references;
+  static void ReleaseContextReference(Resource& v) {
+    --v.num_strong_references;
   }
 };
 
@@ -99,9 +110,9 @@ struct OptionalResource : public ContextResourceTraits<OptionalResource> {
   static Spec Default() { return {}; }
   static constexpr auto JsonBinder() {
     namespace jb = tensorstore::internal_json_binding;
-    return jb::DefaultInitializedValue(jb::Object(jb::Member(
+    return jb::Object(jb::Member(
         "limit", jb::DefaultInitializedValue(jb::Optional(
-                     jb::Integer<size_t>(1), [] { return "shared"; })))));
+                     jb::Integer<size_t>(1), [] { return "shared"; }))));
   }
   static Result<Resource> Create(Spec v,
                                  ContextResourceCreationContext context) {
@@ -119,16 +130,16 @@ const ContextResourceRegistration<OptionalResource>
     optional_resource_registration;
 
 TEST(IntResourceTest, InvalidDirectSpec) {
-  EXPECT_THAT(Context::ResourceSpec<IntResource>::FromJson(nullptr),
+  EXPECT_THAT(Context::Resource<IntResource>::FromJson(nullptr),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Expected string or object, but received: null"));
 
-  EXPECT_THAT(Context::ResourceSpec<IntResource>::FromJson(3),
+  EXPECT_THAT(Context::Resource<IntResource>::FromJson(3),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Expected string or object, but received: 3"));
 
   EXPECT_THAT(
-      Context::ResourceSpec<IntResource>::FromJson("foo"),
+      Context::Resource<IntResource>::FromJson("foo"),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Invalid reference to \"int_resource\" resource: \"foo\""));
 }
@@ -141,7 +152,7 @@ TEST(IntResourceTest, Default) {
   EXPECT_NE(context, context2);
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto resource_spec,
-      Context::ResourceSpec<IntResource>::FromJson("int_resource"));
+      Context::Resource<IntResource>::FromJson("int_resource"));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource,
                                    context.GetResource(resource_spec));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource2,
@@ -164,7 +175,7 @@ TEST(IntResourceTest, ValidDirectSpec) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto resource_spec,
-      Context::ResourceSpec<IntResource>::FromJson({{"value", 7}}));
+      Context::Resource<IntResource>::FromJson({{"value", 7}}));
   EXPECT_THAT(context.GetResource(resource_spec),
               ::testing::Optional(::testing::Pointee(7)));
 }
@@ -173,7 +184,7 @@ TEST(IntResourceTest, ValidIndirectSpecDefaultId) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto spec, Context::Spec::FromJson({{"int_resource", {{"value", 7}}}}));
   auto context = Context(spec);
-  auto resource_spec = Context::ResourceSpec<IntResource>::Default();
+  auto resource_spec = Context::Resource<IntResource>::DefaultSpec();
   EXPECT_THAT(context.GetResource(resource_spec),
               ::testing::Optional(::testing::Pointee(7)));
 }
@@ -187,7 +198,7 @@ TEST(IntResourceTest, ContextFromJson) {
 
 TEST(IntResourceTest, ValidIndirectSpecDefault) {
   auto context = Context::Default();
-  auto resource_spec = Context::ResourceSpec<IntResource>::Default();
+  auto resource_spec = Context::Resource<IntResource>::DefaultSpec();
   EXPECT_THAT(context.GetResource(resource_spec),
               ::testing::Optional(::testing::Pointee(42)));
 }
@@ -198,7 +209,7 @@ TEST(IntResourceTest, ValidIndirectSpecIdentifier) {
   auto context = Context(spec);
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto resource_spec,
-      Context::ResourceSpec<IntResource>::FromJson("int_resource#x"));
+      Context::Resource<IntResource>::FromJson("int_resource#x"));
   EXPECT_THAT(context.GetResource(resource_spec),
               ::testing::Optional(::testing::Pointee(7)));
 }
@@ -207,7 +218,7 @@ TEST(IntResourceTest, UndefinedIndirectReference) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto resource_spec,
-      Context::ResourceSpec<IntResource>::FromJson("int_resource#x"));
+      Context::Resource<IntResource>::FromJson("int_resource#x"));
   EXPECT_THAT(context.GetResource(resource_spec),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Resource not defined: \"int_resource#x\""));
@@ -222,7 +233,7 @@ TEST(IntResourceTest, SimpleReference) {
   auto context = Context(spec);
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto resource_spec,
-      Context::ResourceSpec<IntResource>::FromJson("int_resource#y"));
+      Context::Resource<IntResource>::FromJson("int_resource#y"));
   EXPECT_THAT(context.GetResource(resource_spec),
               ::testing::Optional(::testing::Pointee(7)));
 }
@@ -233,11 +244,11 @@ TEST(IntResourceTest, ReferenceCycle1) {
   auto context = Context(spec);
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto resource_spec,
-      Context::ResourceSpec<IntResource>::FromJson("int_resource"));
-  EXPECT_THAT(
-      context.GetResource(resource_spec),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Context resource reference cycle: \"int_resource\""));
+      Context::Resource<IntResource>::FromJson("int_resource"));
+  EXPECT_THAT(context.GetResource(resource_spec),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Context resource reference cycle: "
+                            "\"int_resource\":\"int_resource\""));
 }
 
 TEST(IntResourceTest, ReferenceCycle2) {
@@ -249,11 +260,12 @@ TEST(IntResourceTest, ReferenceCycle2) {
   auto context = Context(spec);
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto resource_spec,
-      Context::ResourceSpec<IntResource>::FromJson("int_resource#a"));
+      Context::Resource<IntResource>::FromJson("int_resource#a"));
   EXPECT_THAT(context.GetResource(resource_spec),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Context resource reference cycle: "
-                            "\"int_resource#a\" -> \"int_resource#b\""));
+                            "\"int_resource#b\":\"int_resource#a\" -> "
+                            "\"int_resource#a\":\"int_resource#b\""));
 }
 
 TEST(IntResourceTest, Inherit) {
@@ -295,23 +307,19 @@ TEST(IntResourceTest, Inherit) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto resource1,
       context2.GetResource(
-          Context::ResourceSpec<IntResource>::FromJson("int_resource")
-              .value()));
+          Context::Resource<IntResource>::FromJson("int_resource").value()));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto resource2,
       context2.GetResource(
-          Context::ResourceSpec<IntResource>::FromJson("int_resource#a")
-              .value()));
+          Context::Resource<IntResource>::FromJson("int_resource#a").value()));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto resource3,
       context2.GetResource(
-          Context::ResourceSpec<IntResource>::FromJson("int_resource#b")
-              .value()));
+          Context::Resource<IntResource>::FromJson("int_resource#b").value()));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto resource4,
       context2.GetResource(
-          Context::ResourceSpec<IntResource>::FromJson("int_resource#c")
-              .value()));
+          Context::Resource<IntResource>::FromJson("int_resource#c").value()));
   EXPECT_EQ(8, *resource1);
   EXPECT_EQ(9, *resource2);
   EXPECT_EQ(7, *resource3);
@@ -329,7 +337,7 @@ TEST(IntResourceTest, Unknown) {
 TEST(StrongRefResourceTest, DirectSpec) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto resource_spec, Context::ResourceSpec<StrongRefResource>::FromJson(
+      auto resource_spec, Context::Resource<StrongRefResource>::FromJson(
                               ::nlohmann::json::object_t{}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource,
                                    context.GetResource(resource_spec));
@@ -345,7 +353,7 @@ TEST(StrongRefResourceTest, IndirectSpec) {
       auto spec,
       Context::Spec::FromJson({{"strongref", ::nlohmann::json::object_t{}}}));
   auto context = Context(spec);
-  auto resource_spec = Context::ResourceSpec<StrongRefResource>::Default();
+  auto resource_spec = Context::Resource<StrongRefResource>::DefaultSpec();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource,
                                    context.GetResource(resource_spec));
   // The `context` object maintains a strong reference to the resource.
@@ -361,11 +369,11 @@ TEST(ContextSpecBuilderTest, Simple) {
   auto spec =
       Context::Spec::FromJson({{"int_resource", {{"value", 5}}}}).value();
   auto context = Context(spec);
-  auto resource_spec = Context::ResourceSpec<IntResource>::Default();
+  auto resource_spec = Context::Resource<IntResource>::DefaultSpec();
   auto resource = context.GetResource(resource_spec).value();
 
   Context::Spec new_spec;
-  Context::ResourceSpec<IntResource> new_resource_spec;
+  Context::Resource<IntResource> new_resource_spec;
   {
     auto builder = ContextSpecBuilder::Make();
     new_spec = builder.spec();
@@ -385,12 +393,11 @@ TEST(ContextSpecBuilderTest, Simple) {
 }
 
 TEST(ContextSpecBuilderTest, Default) {
-  auto context = Context::Default();
-  auto resource_spec = Context::ResourceSpec<IntResource>::Default();
-  auto resource = context.GetResource(resource_spec).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto resource, Context::Default().GetResource<IntResource>());
 
   Context::Spec new_spec;
-  Context::ResourceSpec<IntResource> new_resource_spec;
+  Context::Resource<IntResource> new_resource_spec;
   {
     auto builder = ContextSpecBuilder::Make();
     new_spec = builder.spec();
@@ -400,7 +407,8 @@ TEST(ContextSpecBuilderTest, Default) {
       jb::ToJson(new_spec,
                  tensorstore::internal::ContextSpecDefaultableJsonBinder,
                  IncludeDefaults{false}),
-      ::testing::Optional(MatchesJson(::nlohmann::json::value_t::discarded)));
+      ::testing::Optional(
+          MatchesJson({{"int_resource", ::nlohmann::json::object_t()}})));
   EXPECT_THAT(
       new_spec.ToJson(IncludeDefaults{true}),
       ::testing::Optional(MatchesJson({{"int_resource", {{"value", 42}}}})));
@@ -409,8 +417,9 @@ TEST(ContextSpecBuilderTest, Default) {
 
   // Test that we can convert back to resources.
   auto new_context = Context(new_spec);
-  auto new_resource = new_context.GetResource(new_resource_spec).value();
-  EXPECT_EQ(42, *new_resource);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto new_resource,
+                                   new_context.GetResource(new_resource_spec));
+  EXPECT_THAT(new_resource, ::testing::Pointee(42));
 }
 
 TEST(ContextSpecBuilderTest, MultipleContexts) {
@@ -420,15 +429,15 @@ TEST(ContextSpecBuilderTest, MultipleContexts) {
       auto spec2, Context::Spec::FromJson({{"int_resource", {{"value", 6}}}}));
   auto context1 = Context(spec1);
   auto context2 = Context(spec2);
-  auto resource_spec = Context::ResourceSpec<IntResource>::Default();
+  auto resource_spec = Context::Resource<IntResource>::DefaultSpec();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource1,
                                    context1.GetResource(resource_spec));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource2,
                                    context2.GetResource(resource_spec));
 
   Context::Spec new_spec;
-  Context::ResourceSpec<IntResource> new_resource_spec1;
-  Context::ResourceSpec<IntResource> new_resource_spec2;
+  Context::Resource<IntResource> new_resource_spec1;
+  Context::Resource<IntResource> new_resource_spec2;
   {
     auto builder = ContextSpecBuilder::Make();
     new_spec = builder.spec();
@@ -447,12 +456,12 @@ TEST(ContextSpecBuilderTest, Inline) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto resource_spec,
-      Context::ResourceSpec<IntResource>::FromJson({{"value", 5}}));
+      Context::Resource<IntResource>::FromJson({{"value", 5}}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource,
                                    context.GetResource(resource_spec));
 
   Context::Spec new_spec;
-  Context::ResourceSpec<IntResource> new_resource_spec;
+  Context::Resource<IntResource> new_resource_spec;
   {
     auto builder = ContextSpecBuilder::Make();
     new_spec = builder.spec();
@@ -467,11 +476,11 @@ TEST(ContextSpecBuilderTest, Inline) {
 TEST(ContextSpecBuilderTest, InlineEqualToDefault) {
   auto context = Context::Default();
   auto resource_spec =
-      Context::ResourceSpec<IntResource>::FromJson({{"value", 42}}).value();
+      Context::Resource<IntResource>::FromJson({{"value", 42}}).value();
   auto resource = context.GetResource(resource_spec).value();
 
   Context::Spec new_spec;
-  Context::ResourceSpec<IntResource> new_resource_spec;
+  Context::Resource<IntResource> new_resource_spec;
   {
     auto builder = ContextSpecBuilder::Make();
     new_spec = builder.spec();
@@ -485,12 +494,12 @@ TEST(ContextSpecBuilderTest, InlineEqualToDefault) {
 TEST(ContextSpecBuilderTest, InlineShared) {
   auto context = Context::Default();
   auto resource_spec =
-      Context::ResourceSpec<IntResource>::FromJson({{"value", 5}}).value();
+      Context::Resource<IntResource>::FromJson({{"value", 5}}).value();
   auto resource = context.GetResource(resource_spec).value();
 
   Context::Spec new_spec;
-  Context::ResourceSpec<IntResource> new_resource_spec1;
-  Context::ResourceSpec<IntResource> new_resource_spec2;
+  Context::Resource<IntResource> new_resource_spec1;
+  Context::Resource<IntResource> new_resource_spec2;
   {
     auto builder = ContextSpecBuilder::Make();
     new_spec = builder.spec();
@@ -503,7 +512,6 @@ TEST(ContextSpecBuilderTest, InlineShared) {
   EXPECT_EQ("int_resource#0", new_resource_spec2.ToJson());
 }
 
-// Tests that the JSON never includes `discarded` values.
 TEST(ContextSpecBuilderTest, ExcludeDefaultsJson) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto context, Context::FromJson({
@@ -516,8 +524,8 @@ TEST(ContextSpecBuilderTest, ExcludeDefaultsJson) {
       auto resource2,
       context.GetResource<OptionalResource>("optional_resource#a"));
   Context::Spec new_spec;
-  Context::ResourceSpec<OptionalResource> new_resource_spec1;
-  Context::ResourceSpec<OptionalResource> new_resource_spec2;
+  Context::Resource<OptionalResource> new_resource_spec1;
+  Context::Resource<OptionalResource> new_resource_spec2;
   {
     auto builder = ContextSpecBuilder::Make();
     new_spec = builder.spec();
@@ -527,6 +535,7 @@ TEST(ContextSpecBuilderTest, ExcludeDefaultsJson) {
   EXPECT_THAT(new_spec.ToJson(tensorstore::IncludeDefaults{false}),
               ::testing::Optional(MatchesJson({
                   {"optional_resource#a", {{"limit", 5}}},
+                  {"optional_resource", ::nlohmann::json::object_t()},
               })));
   EXPECT_THAT(new_spec.ToJson(tensorstore::IncludeDefaults{true}),
               ::testing::Optional(MatchesJson({
@@ -538,6 +547,7 @@ TEST(ContextSpecBuilderTest, ExcludeDefaultsJson) {
 TEST(ContextTest, WeakCreator) {
   using tensorstore::internal_context::Access;
   using tensorstore::internal_context::GetCreator;
+  using tensorstore::internal_context::ResourceImplBase;
 
   const ::nlohmann::json json_spec1{
       {"int_resource", {{"value", 7}}},
@@ -565,14 +575,168 @@ TEST(ContextTest, WeakCreator) {
       auto resource2_b, context2.GetResource<IntResource>("int_resource#b"));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto resource2_c, context2.GetResource<IntResource>("int_resource#c"));
-  EXPECT_EQ(Access::impl(context1), GetCreator(*Access::impl(resource1)));
-  EXPECT_EQ(Access::impl(context1), GetCreator(*Access::impl(resource2_a)));
-  EXPECT_EQ(Access::impl(context1), GetCreator(*Access::impl(resource2_b)));
-  EXPECT_EQ(Access::impl(context1), GetCreator(*Access::impl(resource2_c)));
-  EXPECT_EQ(Access::impl(context2), GetCreator(*Access::impl(resource2)));
+  EXPECT_EQ(
+      Access::impl(context1),
+      GetCreator(static_cast<ResourceImplBase&>(*Access::impl(resource1))));
+  EXPECT_EQ(
+      Access::impl(context1),
+      GetCreator(static_cast<ResourceImplBase&>(*Access::impl(resource2_a))));
+  EXPECT_EQ(
+      Access::impl(context1),
+      GetCreator(static_cast<ResourceImplBase&>(*Access::impl(resource2_b))));
+  EXPECT_EQ(
+      Access::impl(context1),
+      GetCreator(static_cast<ResourceImplBase&>(*Access::impl(resource2_c))));
+  EXPECT_EQ(
+      Access::impl(context2),
+      GetCreator(static_cast<ResourceImplBase&>(*Access::impl(resource2))));
   context2 = Context();
-  EXPECT_EQ(Access::impl(context1), GetCreator(*Access::impl(resource1)));
-  EXPECT_FALSE(GetCreator(*Access::impl(resource2)));
+  EXPECT_EQ(
+      Access::impl(context1),
+      GetCreator(static_cast<ResourceImplBase&>(*Access::impl(resource1))));
+  EXPECT_FALSE(
+      GetCreator(static_cast<ResourceImplBase&>(*Access::impl(resource2))));
+}
+
+/// Resource provider used for testing context resources that depend on other
+/// context resources.
+///
+/// In this case we are also testing a recursive context resource, which
+/// requires that `Context::Resource` can be instantiated with an incomplete
+/// `Provider` type.
+struct NestedResource : public ContextResourceTraits<NestedResource> {
+  struct Spec {
+    int value;
+    Context::Resource<NestedResource> parent;
+    int GetTotal() const {
+      int total = value;
+      if (parent.has_resource()) total += parent->GetTotal();
+      return total;
+    }
+  };
+  using Resource = Spec;
+  static constexpr char id[] = "nested_resource";
+  static Spec Default() { return {42}; }
+  static constexpr auto JsonBinder() {
+    return jb::Object(
+        jb::Member("value",
+                   jb::Projection(&Spec::value,
+                                  jb::DefaultValue([](auto* v) { *v = 42; }))),
+        jb::Member(
+            "parent",
+            jb::Projection(
+                &Spec::parent,
+                jb::DefaultInitializedPredicate<jb::kNeverIncludeDefaults>(
+                    [](auto* obj) { return !obj->valid(); }))));
+  }
+
+  static Result<Resource> Create(const Spec& spec,
+                                 ContextResourceCreationContext context) {
+    Resource resource = spec;
+    TENSORSTORE_RETURN_IF_ERROR(resource.parent.BindContext(context));
+    return resource;
+  }
+
+  static Spec GetSpec(const Resource& resource,
+                      const ContextSpecBuilder& builder) {
+    Spec spec = resource;
+    UnbindContext(spec, builder);
+    return spec;
+  }
+
+  static void UnbindContext(Spec& spec, const ContextSpecBuilder& builder) {
+    spec.parent.UnbindContext(builder);
+  }
+};
+
+const ContextResourceRegistration<NestedResource> nested_resource_registration;
+
+TEST(NestedResourceTest, Basic) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto context, Context::FromJson({
+                        {"nested_resource#a", {{"value", 1}}},
+                        {"nested_resource#b",
+                         {{"value", 3}, {"parent", "nested_resource#a"}}},
+                        {"nested_resource#c",
+                         {{"value", 5}, {"parent", "nested_resource#b"}}},
+                        {"nested_resource#d",
+                         {{"value", 10}, {"parent", "nested_resource#e"}}},
+                        {"nested_resource#e",
+                         {{"value", 15}, {"parent", "nested_resource#d"}}},
+                    }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto a, context.GetResource<NestedResource>("nested_resource#a"));
+  EXPECT_FALSE(a->parent.valid());
+  EXPECT_EQ(1, a->GetTotal());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto b, context.GetResource<NestedResource>("nested_resource#b"));
+  EXPECT_EQ(a, b->parent);
+  EXPECT_EQ(4, b->GetTotal());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto c, context.GetResource<NestedResource>("nested_resource#c"));
+  EXPECT_EQ(b, c->parent);
+  EXPECT_EQ(9, c->GetTotal());
+
+  EXPECT_THAT(
+      context.GetResource<NestedResource>("nested_resource#d"),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Context resource reference cycle: "
+                    "\"nested_resource#d\" -> "
+                    "\"nested_resource#d\":"
+                    "\\{\"parent\":\"nested_resource#e\",\"value\":10\\} -> "
+                    "\"nested_resource#e\" -> "
+                    "\"nested_resource#e\":"
+                    "\\{\"parent\":\"nested_resource#d\",\"value\":15\\}"));
+  EXPECT_THAT(context.GetResource<NestedResource>("nested_resource#e"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Context resource reference cycle: .*"));
+}
+
+// Tests unbinding a collection of context resources, where some are bound and
+// some are not, to ensure that the ids chosen in the resultant `Context::Spec`
+// are all unique.
+TEST(ContextSpecBuilderTest, PartiallyBound) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto context_spec, Context::Spec::FromJson({
+                             {"nested_resource#a", {{"value", 2}}},
+                             {"nested_resource#b",
+                              {{"value", 3}, {"parent", "nested_resource#a"}}},
+                         }));
+  auto context = Context(context_spec);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto resource_spec,
+      Context::Resource<NestedResource>::FromJson("nested_resource#b"));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource,
+                                   context.GetResource(resource_spec));
+
+  Context::Spec new_spec;
+  Context::Resource<NestedResource> new_resource_spec1;
+  Context::Resource<NestedResource> new_resource_spec2;
+  {
+    auto builder = ContextSpecBuilder::Make({}, context_spec);
+    new_spec = builder.spec();
+    new_resource_spec1 = builder.AddResource(resource_spec);
+    new_resource_spec2 = builder.AddResource(resource);
+  }
+
+  // If unbound independently, `new_resource_spec2` would use the identifier
+  // "nested_resource#b".  However, since `new_resource_spec1` was registered
+  // with `builder`, a unique identifier is chosen.
+  EXPECT_THAT(new_spec.ToJson(),
+              ::testing::Optional(MatchesJson({
+                  {"nested_resource#a", {{"value", 2}}},
+                  {"nested_resource#b",
+                   {{"value", 3}, {"parent", "nested_resource#a"}}},
+                  {"nested_resource#1", {{"value", 2}}},
+                  {"nested_resource#0",
+                   {{"value", 3}, {"parent", "nested_resource#1"}}},
+              })));
+  EXPECT_THAT(new_resource_spec1.ToJson(),
+              ::testing::Optional(MatchesJson("nested_resource#b")));
+  EXPECT_THAT(new_resource_spec2.ToJson(),
+              ::testing::Optional(MatchesJson("nested_resource#0")));
 }
 
 }  // namespace

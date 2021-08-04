@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "python/tensorstore/array_type_caster.h"
+#include "python/tensorstore/context.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/intrusive_ptr_holder.h"
@@ -57,9 +58,11 @@ constexpr auto GetOptionalRank =
 
 constexpr auto WithSpecKeywordArguments = [](auto callback,
                                              auto... other_param) {
-  using namespace spec_setters;
-  WithSchemaKeywordArguments(callback, other_param..., SetOpen{}, SetCreate{},
-                             SetDeleteExisting{});
+  WithSchemaKeywordArguments(
+      callback, other_param..., spec_setters::SetOpen{},
+      spec_setters::SetCreate{}, spec_setters::SetDeleteExisting{},
+      spec_setters::SetUnbindContext{}, spec_setters::SetStripContext{},
+      spec_setters::SetContext{});
 };
 
 auto MakeSpecClass(py::module m) {
@@ -495,9 +498,8 @@ Group:
 
   cls.def(
       "to_json",
-      [](const Spec& self, bool include_defaults, bool include_context) {
-        return ValueOrThrow(self.ToJson({IncludeDefaults{include_defaults},
-                                         IncludeContext{include_context}}));
+      [](const Spec& self, bool include_defaults) {
+        return ValueOrThrow(self.ToJson({IncludeDefaults{include_defaults}}));
       },
       R"(
 Converts to the :json:schema:`JSON representation<TensorStore>`.
@@ -526,23 +528,107 @@ Example:
 Group:
   Accessors
 )",
-      py::arg("include_defaults") = false, py::arg("include_context") = true);
+      py::arg("include_defaults") = false);
 
-  cls.def("__repr__", [](const Spec& self) {
-    return internal_python::PrettyPrintJsonAsPythonRepr(
-        self.ToJson(IncludeDefaults{false}), "Spec(", ")");
-  });
+  cls.def(
+      "copy", [](const Spec& self) { return self; }, R"(
+Returns a copy of the spec.
+
+Example:
+
+  >>> a = ts.Spec({'driver': 'n5', 'kvstore': {'driver': 'memory'}})
+  >>> b = a.copy()
+  >>> a.update(dtype=ts.uint8)
+  >>> b.update(dtype=ts.uint16)
+  >>> a
+  Spec({'driver': 'n5', 'dtype': 'uint8', 'kvstore': {'driver': 'memory'}})
+  >>> b
+  Spec({'driver': 'n5', 'dtype': 'uint16', 'kvstore': {'driver': 'memory'}})
+
+Group:
+  Accessors
+)");
+
+  cls.def(
+      "__copy__", [](const Spec& self) { return self; }, R"(
+Alias for `.copy` for compatibility with the :py:obj:`copy` module.
+)");
+
+  cls.def(
+      "__deepcopy__", [](const Spec& self, py::dict memo) { return self; },
+      py::arg("memo"), R"(
+Alias for `.copy` for compatibility with the :py:obj:`copy` module.
+)");
+
+  cls.def(
+      "__repr__",
+      [](const Spec& self) {
+        JsonSerializationOptions options;
+        options.preserve_bound_context_resources_ = true;
+        return internal_python::PrettyPrintJsonAsPythonRepr(
+            self.ToJson(options), "Spec(", ")");
+      },
+      R"(
+Returns a string representation based on the :json:schema:`JSON representation<TensorStore>`.
+
+Example:
+
+  >>> spec = ts.Spec({'driver': 'n5', 'kvstore': {'driver': 'memory'}})
+  >>> spec
+  Spec({'driver': 'n5', 'kvstore': {'driver': 'memory'}})
+
+  Bound :json:schema:`context resources<ContextResource>` are indicated by
+  single-element arrays:
+
+  >>> spec.update(context=ts.Context())
+  >>> spec
+  Spec({
+    'cache_pool': ['cache_pool'],
+    'context': {
+      'cache_pool': {},
+      'data_copy_concurrency': {},
+      'memory_key_value_store': {},
+    },
+    'data_copy_concurrency': ['data_copy_concurrency'],
+    'driver': 'n5',
+    'kvstore': {
+      'driver': 'memory',
+      'memory_key_value_store': ['memory_key_value_store'],
+    },
+  })
+
+)");
 
   cls.def(
       "__eq__",
       [](const Spec& self, const Spec& other) { return self == other; },
-      py::arg("other"));
+      py::arg("other"),
+      R"(
+Compares with another `Spec` for equality based on the :json:schema:`JSON representation<TensorStore>`.
 
-  cls.def(
-      py::pickle([](const Spec& self) { return ValueOrThrow(self.ToJson()); },
-                 [](::nlohmann::json json) {
-                   return ValueOrThrow(Spec::FromJson(std::move(json)));
-                 }));
+The comparison is based on the JSON representation, except that any bound
+context resources are compared by identity (not by their JSON representation).
+
+Example:
+
+  >>> spec = ts.Spec({'driver': 'n5', 'kvstore': {'driver': 'memory'}})
+  >>> assert spec == spec
+  >>> a, b = spec.copy(), spec.copy()
+  >>> context_a, context_b = ts.Context(), ts.Context()
+  >>> a.update(context=context_a)
+  >>> b.update(context=context_b)
+  >>> assert a == a
+  >>> assert a != b
+
+)");
+
+  cls.def(py::pickle(
+      [](const Spec& self) -> py::tuple {
+        return internal_python::PickleWithNestedContext(self);
+      },
+      [](py::tuple t) {
+        return internal_python::UnpickleWithNestedContext<Spec>(std::move(t));
+      }));
 
   cls.attr("__iter__") = py::none();
 
@@ -1117,10 +1203,52 @@ Group:
 )",
       py::arg("include_defaults") = false);
 
-  cls.def("__repr__", [](const Schema& self) {
-    return internal_python::PrettyPrintJsonAsPythonRepr(
-        self.ToJson(IncludeDefaults{false}), "Schema(", ")");
-  });
+  cls.def(
+      "copy", [](const Schema& self) { return self; }, R"(
+Returns a copy of the schema.
+
+Example:
+
+  >>> a = ts.Schema(dtype=ts.uint8)
+  >>> b = a.copy()
+  >>> a.update(rank=2)
+  >>> b.update(rank=3)
+  >>> a
+  Schema({'dtype': 'uint8', 'rank': 2})
+  >>> b
+  Schema({'dtype': 'uint8', 'rank': 3})
+
+Group:
+  Accessors
+)");
+
+  cls.def(
+      "__copy__", [](const Schema& self) { return self; }, R"(
+Alias for `.copy` for compatibility with the :py:obj:`copy` module.
+)");
+
+  cls.def(
+      "__deepcopy__", [](const Schema& self, py::dict memo) { return self; },
+      py::arg("memo"), R"(
+Alias for `.copy` for compatibility with the :py:obj:`copy` module.
+)");
+
+  cls.def(
+      "__repr__",
+      [](const Schema& self) {
+        return internal_python::PrettyPrintJsonAsPythonRepr(
+            self.ToJson(IncludeDefaults{false}), "Schema(", ")");
+      },
+      R"(
+Returns a string representation based on the  :json:schema:`JSON representation<Schema>`.
+
+Example:
+
+  >>> schema = ts.Schema(rank=5, dtype=ts.uint8)
+  >>> schema
+  Schema({'dtype': 'uint8', 'rank': 5})
+
+)");
 
   DefineIndexTransformOperations(
       &cls,

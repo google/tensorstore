@@ -206,7 +206,7 @@ TEST(N5DriverTest, Create) {
   // Check that key value store has expected contents.  This verifies that the
   // encoding path works as expected.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value())
+      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
           .value(),
       UnorderedElementsAreArray({
           Pair("prefix/attributes.json",  //
@@ -291,7 +291,7 @@ TEST(N5DriverTest, Create) {
                   tensorstore::AllDims().TranslateSizedInterval({7, 7}, {3, 4}))
                   .value());
     auto kv_store =
-        KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value();
+        KeyValueStore::Open({{"driver", "memory"}}, context).value();
     EXPECT_THAT(ListFuture(kv_store.get()).value(),
                 ::testing::UnorderedElementsAre("prefix/attributes.json"));
   }
@@ -335,7 +335,8 @@ TEST(N5DriverTest, Resize) {
           store |
               tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
       // Check that key value store has expected contents.
-      auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto kv_store, KeyValueStore::Open(storage_spec, context).result());
       EXPECT_THAT(  //
           GetMap(kv_store).value(),
           UnorderedElementsAre(
@@ -391,7 +392,8 @@ TEST(N5DriverTest, ResizeMetadataOnly) {
                                 {2, 1}, {2, 3}))
                     .commit_future.result()));
   // Check that key value store has expected contents.
-  auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
   EXPECT_THAT(  //
       GetMap(kv_store).value(),
       UnorderedElementsAre(
@@ -586,7 +588,8 @@ TEST(N5DriverTest, InvalidResizeDeletedMetadata) {
       tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result());
-  auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
   kv_store->Delete("prefix/attributes.json").value();
   // To avoid risk of accidental data loss, no recovery of this TensorStore
   // object is possible after the metadata is modified in an unexpected way.
@@ -719,7 +722,8 @@ TEST(N5DriverTest, OpenInvalidMetadata) {
       {"path", "prefix"},
       {"metadata", metadata_json},
   };
-  auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
 
   {
     // Write invalid JSON
@@ -766,7 +770,8 @@ TEST(N5DriverTest, ResolveBoundsIncompatibleMetadata) {
       {"path", "prefix"},
       {"metadata", metadata_json},
   };
-  auto kv_store = KeyValueStore::Open(context, storage_spec, {}).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
@@ -936,7 +941,7 @@ TEST(DriverTest, NoPrefix) {
       store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(context, storage_spec, {}).result());
+      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
   EXPECT_THAT(  //
       GetMap(kv_store).value(),
       UnorderedElementsAre(
@@ -1004,9 +1009,8 @@ void TestCreateMetadata(::nlohmann::json base_spec,
   base_spec["kvstore"] = {{"driver", "memory"}};
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
                                    tensorstore::Spec::FromJson(base_spec));
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      spec, std::move(spec).With(std::forward<Option>(option)...,
-                                 tensorstore::OpenMode::create));
+  TENSORSTORE_ASSERT_OK(
+      spec.Set(std::forward<Option>(option)..., tensorstore::OpenMode::create));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
                                    tensorstore::Open(spec).result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto new_spec, store.spec());

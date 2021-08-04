@@ -22,6 +22,7 @@
 #include <string>
 
 #include "python/tensorstore/array_type_caster.h"
+#include "python/tensorstore/context.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/keyword_arguments.h"
@@ -236,6 +237,102 @@ Delete any existing data before creating a new array.  Overrides the existing
 open mode.  Must be specified in conjunction with :python:`create=True`.
 
 )";
+};
+
+struct SetMinimalSpec {
+  using type = bool;
+  static constexpr const char* name = "minimal_spec";
+  static constexpr const char* doc = R"(
+
+Indicates whether to include in the returned :py:obj:`~tensorstore.Spec` the
+metadata necessary to re-create the :py:obj:`~tensorstore.TensorStore`.  By
+default, the returned :py:obj:`~tensorstore.Spec` includes the full metadata,
+but it is skipped if :py:param:`.minimal_spec` is set to :python:`True`.
+
+)";
+  template <typename Self>
+  static absl::Status Apply(Self& self, bool value) {
+    return self.Set(tensorstore::MinimalSpec{value});
+  }
+};
+
+template <ContextBindingMode Mode>
+struct SetContextBindingModeBase {
+  using type = bool;
+  template <typename Self>
+  static absl::Status Apply(Self& self, bool value) {
+    if (!value) return absl::OkStatus();
+    return self.Set(Mode);
+  }
+};
+
+struct SetRetainContext
+    : SetContextBindingModeBase<ContextBindingMode::retain> {
+  static constexpr const char* name = "retain_context";
+  static constexpr const char* doc = R"(
+
+Retain all bound context resources (e.g. specific concurrency pools, specific
+cache pools).
+
+The resultant `~tensorstore.Spec` may be used to re-open the
+:py:obj:`~tensorstore.TensorStore` using the identical context resources.
+
+Specifying a value of :python:`False` has no effect.
+
+)";
+};
+
+struct SetUnbindContext
+    : SetContextBindingModeBase<ContextBindingMode::unbind> {
+  static constexpr const char* name = "unbind_context";
+  static constexpr const char* doc = R"(
+
+Convert any bound context resources to context resource specs that fully capture
+the graph of shared context resources and interdependencies.
+
+Re-binding/re-opening the resultant spec will result in a new graph of new
+context resources that is isomorphic to the original graph of context resources.
+The resultant spec will not refer to any external context resources;
+consequently, binding it to any specific context will have the same effect as
+binding it to a default context.
+
+Specifying a value of :python:`False` has no effect.
+
+)";
+};
+
+struct SetStripContext : SetContextBindingModeBase<ContextBindingMode::strip> {
+  static constexpr const char* name = "strip_context";
+  static constexpr const char* doc = R"(
+
+Replace any bound context resources and unbound context resource specs by
+default context resource specs.
+
+If the resultant :py:obj:`~tensorstore.Spec` is re-opened with, or re-bound to,
+a new context, it will use the default context resources specified by that
+context.
+
+Specifying a value of :python:`False` has no effect.
+
+)";
+};
+
+struct SetContext {
+  using type = internal_context::ContextImplPtr;
+  static constexpr const char* name = "context";
+  static constexpr const char* doc = R"(
+
+Bind any context resource specs using the specified shared resource context.
+
+Any already-bound context resources remain unchanged.  Additionally, any context
+resources specified by a nested :json:schema:`TensorStore.context` spec will be
+created as specified, but won't be overridden by :py:param:`.context`.
+
+)";
+  template <typename Self>
+  static absl::Status Apply(Self& self, type value) {
+    return self.Set(WrapImpl(std::move(value)));
+  }
 };
 
 }  // namespace spec_setters

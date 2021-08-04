@@ -39,16 +39,13 @@ namespace jb = tensorstore::internal_json_binding;
 
 constexpr const char kMetadataKey[] = "attributes.json";
 
-template <template <typename> class MaybeBound = internal::ContextUnbound>
-struct SpecT : public internal_kvs_backed_chunk_driver::SpecT<MaybeBound> {
+struct SpecData : public internal_kvs_backed_chunk_driver::SpecData {
   std::string key_prefix;
   N5MetadataConstraints metadata_constraints;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
-    return f(
-        internal::BaseCast<internal_kvs_backed_chunk_driver::SpecT<MaybeBound>>(
-            x),
-        x.key_prefix, x.metadata_constraints);
+    return f(internal::BaseCast<internal_kvs_backed_chunk_driver::SpecData>(x),
+             x.key_prefix, x.metadata_constraints);
   };
 };
 
@@ -204,12 +201,11 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     return builder.Finalize();
   }
 
-  Status GetBoundSpecData(
-      internal_kvs_backed_chunk_driver::SpecT<internal::ContextBound>*
-          spec_base,
-      const void* metadata_ptr, std::size_t component_index) override {
+  Status GetBoundSpecData(internal_kvs_backed_chunk_driver::SpecData& spec_base,
+                          const void* metadata_ptr,
+                          std::size_t component_index) override {
     assert(component_index == 0);
-    auto& spec = static_cast<SpecT<internal::ContextBound>&>(*spec_base);
+    auto& spec = static_cast<SpecData&>(spec_base);
     spec.key_prefix = key_prefix_;
     const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
     auto& constraints = spec.metadata_constraints;
@@ -252,8 +248,7 @@ class N5Driver
 
   constexpr static char id[] = "n5";
 
-  template <template <typename> class MaybeBound = internal::ContextUnbound>
-  using SpecT = internal_n5::SpecT<MaybeBound>;
+  using SpecData = internal_n5::SpecData;
 
   static inline const auto json_binder = jb::Sequence(
       jb::Validate(
@@ -264,7 +259,7 @@ class N5Driver
             return absl::OkStatus();
           },
           internal_kvs_backed_chunk_driver::SpecJsonBinder),
-      jb::Member("path", jb::Projection(&SpecT<>::key_prefix,
+      jb::Member("path", jb::Projection(&SpecData::key_prefix,
                                         jb::DefaultValue([](auto* obj) {
                                           *obj = std::string{};
                                         }))),
@@ -278,34 +273,34 @@ class N5Driver
                     RankConstraint{obj->metadata_constraints.rank}));
                 return absl::OkStatus();
               },
-              jb::Projection(&SpecT<>::metadata_constraints,
+              jb::Projection(&SpecData::metadata_constraints,
                              jb::DefaultInitializedValue()))));
 
   class OpenState;
 
-  static absl::Status ApplyOptions(SpecT<>& spec, SpecOptions&& options) {
+  static absl::Status ApplyOptions(SpecData& spec, SpecOptions&& options) {
     if (options.minimal_spec) {
       spec.metadata_constraints = N5MetadataConstraints{};
     }
     return Base::ApplyOptions(spec, std::move(options));
   }
 
-  static Result<IndexDomain<>> SpecGetDomain(const SpecT<>& spec) {
+  static Result<IndexDomain<>> SpecGetDomain(const SpecData& spec) {
     return GetEffectiveDomain(spec.metadata_constraints, spec.schema);
   }
 
-  static Result<CodecSpec::Ptr> SpecGetCodec(const SpecT<>& spec) {
+  static Result<CodecSpec::Ptr> SpecGetCodec(const SpecData& spec) {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto codec, GetEffectiveCodec(spec.metadata_constraints, spec.schema));
     return CodecSpec::Ptr(std::move(codec));
   }
 
-  static Result<ChunkLayout> SpecGetChunkLayout(const SpecT<>& spec) {
+  static Result<ChunkLayout> SpecGetChunkLayout(const SpecData& spec) {
     return GetEffectiveChunkLayout(spec.metadata_constraints, spec.schema);
   }
 
   static Result<SharedArray<const void>> SpecGetFillValue(
-      const SpecT<>& spec, IndexTransformView<> transform) {
+      const SpecData& spec, IndexTransformView<> transform) {
     return {std::in_place};
   }
 };

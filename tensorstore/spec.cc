@@ -14,23 +14,21 @@
 
 #include "tensorstore/spec.h"
 
+#include "tensorstore/context.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/index_space/json.h"
 #include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_same.h"
 
 namespace tensorstore {
 
-Result<Spec> Spec::With(SpecOptions&& options) && {
-  auto status = internal::TransformAndApplyOptions(impl_, std::move(options));
-  if (!status.ok()) return status;
-  return std::move(*this);
-}
-
-Result<Spec> Spec::With(SpecOptions&& options) const& {
-  return Spec(*this).With(std::move(options));
-}
-
-absl::Status Spec::Set(SpecOptions&& options) {
+absl::Status Spec::Set(SpecConvertOptions&& options) {
+  internal::ApplyContextBindingMode(
+      *this, options.context_binding_mode,
+      /*default_mode=*/ContextBindingMode::retain);
+  if (options.context) {
+    TENSORSTORE_RETURN_IF_ERROR(this->BindContext(options.context));
+  }
   return internal::TransformAndApplyOptions(impl_, std::move(options));
 }
 
@@ -54,15 +52,45 @@ Result<SharedArray<const void>> Spec::fill_value() const {
   return internal::GetEffectiveFillValue(impl_);
 }
 
+ContextBindingState Spec::context_binding_state() const {
+  return impl_.context_binding_state();
+}
+
 std::ostream& operator<<(std::ostream& os, const Spec& spec) {
-  return os << ::nlohmann::json(spec).dump();
+  Spec copy = spec;
+  copy.UnbindContext();
+  JsonSerializationOptions options;
+  options.preserve_bound_context_resources_ = true;
+  auto json_result = copy.ToJson(options);
+  if (!json_result.ok()) {
+    os << "<unprintable spec: " << json_result.status() << ">";
+  } else {
+    os << json_result->dump();
+  }
+  return os;
 }
 
 bool operator==(const Spec& a, const Spec& b) {
-  auto result_a = a.ToJson(tensorstore::IncludeContext{true});
-  auto result_b = b.ToJson(tensorstore::IncludeContext{true});
-  if (!result_a || !result_b) return false;
-  return *result_a == *result_b;
+  if (!a.valid() || !b.valid()) {
+    return a.valid() == b.valid();
+  }
+  Spec a_unbound, b_unbound;
+  {
+    auto spec_builder = internal::ContextSpecBuilder::Make();
+    // Track binding state, so that we don't compare equal if the binding state
+    // is not the same.
+    internal::SetRecordBindingState(spec_builder, true);
+    a_unbound = a;
+    a_unbound.UnbindContext(spec_builder);
+    b_unbound = b;
+    b_unbound.UnbindContext(spec_builder);
+  }
+  JsonSerializationOptions json_serialization_options;
+  json_serialization_options.preserve_bound_context_resources_ = true;
+  auto a_json = a_unbound.ToJson(json_serialization_options);
+  auto b_json = b_unbound.ToJson(json_serialization_options);
+  if (!a_json.ok() || !b_json.ok()) return false;
+  return internal_json::JsonSame(*a_json, *b_json);
 }
 
 namespace jb = tensorstore::internal_json_binding;
@@ -89,11 +117,47 @@ Result<Spec> ApplyIndexTransform(IndexTransform<> transform, Spec spec) {
         spec.impl_.transform, ComposeTransforms(std::move(spec.impl_.transform),
                                                 std::move(transform)));
   } else {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        spec, std::move(spec).With(RankConstraint{transform.output_rank()}));
+    TENSORSTORE_RETURN_IF_ERROR(
+        spec.Set(RankConstraint{transform.output_rank()}));
     spec.impl_.transform = std::move(transform);
   }
   return spec;
 }
+
+absl::Status Spec::BindContext(const Context& context) {
+  return internal::DriverSpecBindContext(impl_.driver_spec, context);
+}
+
+void Spec::UnbindContext(const internal::ContextSpecBuilder& context_builder) {
+  return internal::DriverSpecUnbindContext(impl_.driver_spec, context_builder);
+}
+
+void Spec::StripContext() {
+  return internal::DriverSpecStripContext(impl_.driver_spec);
+}
+
+namespace internal {
+Result<Spec> GetSpec(const DriverHandle& handle, SpecRequestOptions&& options) {
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto open_transaction,
+      internal::AcquireOpenTransactionPtrOrError(handle.transaction));
+  Spec spec;
+  auto& transformed_driver_spec = internal_spec::SpecAccess::impl(spec);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      transformed_driver_spec,
+      handle.driver->GetBoundSpec(std::move(open_transaction),
+                                  handle.transform));
+  // `ApplyContextBindingMode` and `TransformAndApplyOptions` are both
+  // copy-on-write operations that will reset
+  // `transformed_driver_spec.driver_spec` to a new copy if necessary, but in
+  // this case, as there should only be a single reference, no copy will
+  // actually be required.
+  internal::ApplyContextBindingMode(spec, options.context_binding_mode,
+                                    /*default_mode=*/ContextBindingMode::strip);
+  TENSORSTORE_RETURN_IF_ERROR(internal::TransformAndApplyOptions(
+      transformed_driver_spec, std::move(options)));
+  return spec;
+}
+}  // namespace internal
 
 }  // namespace tensorstore

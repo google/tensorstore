@@ -50,12 +50,17 @@ void TestMinimalSpecRoundTrips(
       auto store2, tensorstore::Open(options.minimal_spec, context, transaction,
                                      tensorstore::OpenMode::open)
                        .result());
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto full_spec_obj2, store2.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto full_spec_obj2,
+      store2.spec(SpecRequestOptions(options.spec_request_options)));
   EXPECT_THAT(full_spec_obj2.ToJson(options.to_json_options),
               ::testing::Optional(MatchesJson(options.full_spec)));
-
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto minimal_spec_obj2,
-                                   store2.spec(tensorstore::MinimalSpec{true}));
+  auto minimal_spec_request_options = options.spec_request_options;
+  TENSORSTORE_ASSERT_OK(
+      minimal_spec_request_options.Set(tensorstore::MinimalSpec{true}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto minimal_spec_obj2,
+      store2.spec(std::move(minimal_spec_request_options)));
   EXPECT_THAT(minimal_spec_obj2.ToJson(options.to_json_options),
               ::testing::Optional(MatchesJson(options.minimal_spec)));
 }
@@ -79,11 +84,17 @@ void TestTensorStoreDriverSpecRoundtrip(
         auto store, tensorstore::Open(options.full_spec, context, transaction,
                                       tensorstore::OpenMode::create)
                         .result());
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto full_spec_obj, store.spec());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto full_spec_obj,
+        store.spec(SpecRequestOptions(options.spec_request_options)));
     EXPECT_THAT(full_spec_obj.ToJson(options.to_json_options),
                 ::testing::Optional(MatchesJson(options.full_spec)));
+    auto minimal_spec_request_options = options.spec_request_options;
+    TENSORSTORE_ASSERT_OK(
+        minimal_spec_request_options.Set(tensorstore::MinimalSpec{true}));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto minimal_spec_obj, store.spec(tensorstore::MinimalSpec{true}));
+        auto minimal_spec_obj,
+        store.spec(std::move(minimal_spec_request_options)));
     EXPECT_THAT(minimal_spec_obj.ToJson(options.to_json_options),
                 ::testing::Optional(MatchesJson(options.minimal_spec)));
 
@@ -142,11 +153,10 @@ void TestTensorStoreDriverSpecConvertImpl(
     SpecConvertOptions&& options) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_obj,
                                    tensorstore::Spec::FromJson(orig_spec));
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto converted_spec_obj,
-                                   spec_obj.With(std::move(options)));
+  TENSORSTORE_ASSERT_OK(spec_obj.Set(std::move(options)));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto converted_spec,
-      converted_spec_obj.ToJson(tensorstore::IncludeDefaults{false}));
+      spec_obj.ToJson(tensorstore::IncludeDefaults{false}));
   EXPECT_THAT(converted_spec, MatchesJson(expected_converted_spec));
 }
 

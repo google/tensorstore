@@ -168,13 +168,11 @@ class JsonDriver
  public:
   constexpr static char id[] = "json";
 
-  template <template <typename> class MaybeBound = internal::ContextUnbound>
-  struct SpecT : public internal::DriverSpecCommonData {
-    MaybeBound<KeyValueStore::Spec::Ptr> store;
+  struct SpecData : public internal::DriverSpecCommonData {
+    KeyValueStore::Spec::Ptr store;
     std::string path;
-    MaybeBound<Context::ResourceSpec<DataCopyConcurrencyResource>>
-        data_copy_concurrency;
-    MaybeBound<Context::ResourceSpec<CachePoolResource>> cache_pool;
+    Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency;
+    Context::Resource<CachePoolResource> cache_pool;
     StalenessBound data_staleness;
     std::string json_pointer;
 
@@ -184,9 +182,6 @@ class JsonDriver
                x.json_pointer);
     };
   };
-
-  using SpecData = SpecT<internal::ContextUnbound>;
-  using BoundSpecData = SpecT<internal::ContextBound>;
 
   static absl::Status ValidateSchema(Schema& schema) {
     TENSORSTORE_RETURN_IF_ERROR(schema.Set(dtype_v<json_t>));
@@ -206,27 +201,26 @@ class JsonDriver
         return ValidateSchema(obj->schema);
       }),
       jb::Member(DataCopyConcurrencyResource::id,
-                 jb::Projection(&SpecT<>::data_copy_concurrency)),
+                 jb::Projection(&SpecData::data_copy_concurrency)),
       jb::Member(internal::CachePoolResource::id,
-                 jb::Projection(&SpecT<>::cache_pool)),
-      jb::Member("kvstore", jb::Projection(&SpecT<>::store)),
-      jb::Member("path", jb::Projection(&SpecT<>::path)),
+                 jb::Projection(&SpecData::cache_pool)),
+      jb::Member("kvstore", jb::Projection(&SpecData::store)),
+      jb::Member("path", jb::Projection(&SpecData::path)),
       jb::Member("recheck_cached_data",
-                 jb::Projection(&SpecT<>::data_staleness,
+                 jb::Projection(&SpecData::data_staleness,
                                 jb::DefaultValue([](auto* obj) {
                                   obj->bounded_by_open_time = true;
                                 }))),
       jb::Member(
           "json_pointer",
-          jb::Projection(&SpecT<>::json_pointer,
+          jb::Projection(&SpecData::json_pointer,
                          jb::Validate(
                              [](const auto& options, auto* obj) {
                                return tensorstore::json_pointer::Validate(*obj);
                              },
                              jb::DefaultInitializedValue()))));
 
-  static absl::Status ApplyOptions(SpecT<ContextUnbound>& spec,
-                                   SpecOptions&& options) {
+  static absl::Status ApplyOptions(SpecData& spec, SpecOptions&& options) {
     if (options.recheck_cached_data.specified()) {
       spec.data_staleness = StalenessBound(options.recheck_cached_data);
     } else if (options.recheck_cached_data.specified()) {
@@ -253,11 +247,11 @@ class JsonDriver
 
   static Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
-      internal::RegisteredDriverOpener<BoundSpecData> spec,
+      internal::RegisteredDriverOpener<SpecData> spec,
       ReadWriteMode read_write_mode);
 
   Result<IndexTransform<>> GetBoundSpecData(
-      internal::OpenTransactionPtr transaction, SpecT<ContextBound>* spec,
+      internal::OpenTransactionPtr transaction, SpecData& spec,
       IndexTransformView<> transform) const;
 
   DataType dtype() override { return dtype_v<json_t>; }
@@ -281,7 +275,7 @@ class JsonDriver
 
 Future<internal::Driver::Handle> JsonDriver::Open(
     internal::OpenTransactionPtr transaction,
-    internal::RegisteredDriverOpener<BoundSpecData> spec,
+    internal::RegisteredDriverOpener<SpecData> spec,
     ReadWriteMode read_write_mode) {
   if (read_write_mode == ReadWriteMode::dynamic) {
     read_write_mode = ReadWriteMode::read_write;
@@ -305,7 +299,7 @@ Future<internal::Driver::Handle> JsonDriver::Open(
                                        ReadyFuture<KeyValueStore::Ptr> future) {
               cache->SetKeyValueStore(std::move(*future.result()));
             },
-            initialize_promise, spec->store->Open());
+            initialize_promise, KeyValueStore::Open(spec->store));
       });
   internal::Driver::PtrT<JsonDriver> driver(new JsonDriver, read_write_mode);
   driver->cache_entry_ = GetCacheEntry(cache, spec->path);
@@ -320,17 +314,17 @@ Future<internal::Driver::Handle> JsonDriver::Open(
 }
 
 Result<IndexTransform<>> JsonDriver::GetBoundSpecData(
-    internal::OpenTransactionPtr transaction, SpecT<ContextBound>* spec,
+    internal::OpenTransactionPtr transaction, SpecData& spec,
     IndexTransformView<> transform) const {
   auto& cache = GetOwningCache(*cache_entry_);
-  TENSORSTORE_ASSIGN_OR_RETURN(spec->store, cache.kvstore()->GetBoundSpec());
-  spec->path = std::string(cache_entry_->key());
-  spec->data_copy_concurrency = cache.data_copy_concurrency_;
-  spec->cache_pool = cache.cache_pool_;
-  spec->data_staleness = data_staleness_;
-  spec->json_pointer = json_pointer_;
-  spec->schema.Set(RankConstraint{0}).IgnoreError();
-  spec->schema.Set(dtype_v<json_t>).IgnoreError();
+  TENSORSTORE_ASSIGN_OR_RETURN(spec.store, cache.kvstore()->GetBoundSpec());
+  spec.path = std::string(cache_entry_->key());
+  spec.data_copy_concurrency = cache.data_copy_concurrency_;
+  spec.cache_pool = cache.cache_pool_;
+  spec.data_staleness = data_staleness_;
+  spec.json_pointer = json_pointer_;
+  spec.schema.Set(RankConstraint{0}).IgnoreError();
+  spec.schema.Set(dtype_v<json_t>).IgnoreError();
   return transform;
 }
 

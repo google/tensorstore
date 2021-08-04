@@ -61,18 +61,63 @@ TEST(SpecTest, ToJson) {
 }
 
 TEST(SpecTest, Comparison) {
-  Spec spec_a = Spec::FromJson({{"driver", "array"},
-                                {"dtype", "int32"},
-                                {"array", {1, 2, 3}},
-                                {"rank", 1}})
-                    .value();
-  Spec spec_b = Spec::FromJson({{"driver", "array"},
-                                {"dtype", "int32"},
-                                {"array", {1, 2, 3, 4}},
-                                {"rank", 1}})
-                    .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(  //
+      auto spec_a, Spec::FromJson({
+                       {"driver", "array"},
+                       {"dtype", "int32"},
+                       {"array", {1, 2, 3}},
+                       {"rank", 1},
+                   }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(  //
+      auto spec_b, Spec::FromJson({
+                       {"driver", "array"},
+                       {"dtype", "int32"},
+                       {"array", {1, 2, 3, 4}},
+                       {"rank", 1},
+                   }));
   EXPECT_EQ(spec_a, spec_a);
   EXPECT_NE(spec_a, spec_b);
+
+  // Bind `spec_a` and `spec_b` to contexts.  This binds the
+  // "data_copy_concurrency" resource (which is not explicitly specified by the
+  // above JSON specifications).
+  auto context1 = tensorstore::Context::Default();
+  auto context2 = tensorstore::Context::Default();
+
+  auto a1x = spec_a;
+  auto a1y = spec_a;
+  TENSORSTORE_ASSERT_OK(a1x.BindContext(context1));
+  TENSORSTORE_ASSERT_OK(a1y.BindContext(context1));
+
+  // a1x and a1y do not refer to identical `Driver::Spec` objects, but the spec
+  // has the same JSON representation and they are bound to the same resources.
+  EXPECT_EQ(a1x, a1y);
+
+  // a2 and a1x are equivalent specs but not bound to the same resources.
+  auto a2 = spec_a;
+  TENSORSTORE_ASSERT_OK(a2.BindContext(context2));
+  EXPECT_NE(a1x, a2);
+
+  auto a2_unbound = a2;
+  a2_unbound.UnbindContext();
+
+  auto a1_unbound = a1x;
+  a1_unbound.UnbindContext();
+
+  // The unbound representations (which include the "data_copy_concurrency"
+  // resource explicitly) are identical.
+  EXPECT_EQ(a1_unbound, a2_unbound);
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto a3, Spec::FromJson({
+                   {"driver", "array"},
+                   {"dtype", "int32"},
+                   {"array", {1, 2, 3}},
+                   {"rank", 1},
+                   {"context",
+                    {{"data_copy_concurrency", ::nlohmann::json::object_t()}}},
+               }));
+  EXPECT_EQ(a3, a1_unbound);
 }
 
 TEST(SpecTest, ApplyIndexTransform) {
@@ -198,6 +243,29 @@ TEST(SpecTest, Schema) {
       },
       tensorstore::internal_json_binding::DefaultBinder<>,
       tensorstore::IncludeDefaults{false});
+}
+
+TEST(SpecTest, PreserveBoundContextResources) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, Spec::FromJson({
+                                                  {"driver", "array"},
+                                                  {"array", {1, 2, 3}},
+                                                  {"dtype", "uint8"},
+                                              }));
+  TENSORSTORE_ASSERT_OK(spec.Set(tensorstore::Context::Default()));
+  tensorstore::JsonSerializationOptions json_serialization_options;
+  json_serialization_options.preserve_bound_context_resources_ = true;
+  EXPECT_THAT(
+      spec.ToJson(json_serialization_options),
+      ::testing::Optional(MatchesJson({
+          {"driver", "array"},
+          {"array", {1, 2, 3}},
+          {"dtype", "uint8"},
+          {"transform",
+           {{"input_inclusive_min", {0}}, {"input_exclusive_max", {3}}}},
+          {"data_copy_concurrency", {"data_copy_concurrency"}},
+          {"context",
+           {{"data_copy_concurrency", ::nlohmann::json::object_t()}}},
+      })));
 }
 
 }  // namespace

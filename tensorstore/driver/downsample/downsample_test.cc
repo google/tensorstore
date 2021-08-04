@@ -641,7 +641,6 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.check_not_found_before_create = false;
   options.check_not_found_before_commit = false;
   options.supported_transaction_modes = {};
-  options.to_json_options = tensorstore::IncludeContext{false};
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }
@@ -663,7 +662,7 @@ TEST(DownsampleTest, Spec) {
               Optional(MakeArray<float>({1.5, 3.5})));
 
   EXPECT_THAT(
-      downsampled_spec.ToJson(tensorstore::IncludeContext(false)),
+      downsampled_spec.ToJson(),
       Optional(MatchesJson(::nlohmann::json({
           {"driver", "downsample"},
           {"dtype", "float32"},

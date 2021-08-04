@@ -77,12 +77,10 @@ class ArrayDriver
   /// Specifies the string identifier under which the driver will be registered.
   constexpr static char id[] = "array";
 
-  /// RegisteredDriver types must define a `SpecT` class template specifying the
+  /// RegisteredDriver types must define a `SpecData` class specifying the
   /// parameters and resources necessary to create/open the driver.
-  template <template <typename> class MaybeBound>
-  struct SpecT : public internal::DriverSpecCommonData {
-    MaybeBound<Context::ResourceSpec<DataCopyConcurrencyResource>>
-        data_copy_concurrency;
+  struct SpecData : public internal::DriverSpecCommonData {
+    Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency;
     SharedArray<const void> array;
 
     constexpr static auto ApplyMembers = [](auto& x, auto f) {
@@ -91,16 +89,15 @@ class ArrayDriver
     };
   };
 
-  using SpecData = SpecT<internal::ContextUnbound>;
-  using BoundSpecData = SpecT<internal::ContextBound>;
-
   explicit ArrayDriver(
       Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency,
       SharedArray<void> data)
       : data_copy_concurrency_(std::move(data_copy_concurrency)),
-        data_(std::move(data)) {}
+        data_(std::move(data)) {
+    assert(data_copy_concurrency_.has_resource());
+  }
 
-  /// JSON binder for `SpecT<ContextUnbound>`, required by `RegisteredDriver`.
+  /// JSON binder for `SpecData`, required by `RegisteredDriver`.
   constexpr static auto json_binder = jb::Object(
       jb::Initialize([](auto* obj) -> Status {
         if (!obj->schema.dtype().valid()) {
@@ -157,14 +154,14 @@ class ArrayDriver
       const SpecData& spec, IndexTransformView<> transform);
 
   Result<IndexTransform<>> GetBoundSpecData(
-      internal::OpenTransactionPtr transaction, BoundSpecData* spec,
+      internal::OpenTransactionPtr transaction, SpecData& spec,
       IndexTransformView<> transform);
 
   Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override;
 
   static Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
-      internal::RegisteredDriverOpener<BoundSpecData> spec,
+      internal::RegisteredDriverOpener<SpecData> spec,
       ReadWriteMode read_write_mode);
 
  private:
@@ -259,7 +256,7 @@ void ArrayDriver::Write(
 }
 
 Result<IndexTransform<>> ArrayDriver::GetBoundSpecData(
-    internal::OpenTransactionPtr transaction, BoundSpecData* spec,
+    internal::OpenTransactionPtr transaction, SpecData& spec,
     IndexTransformView<> transform) {
   if (transaction) return TransactionError();
   SharedArray<const void> array;
@@ -289,10 +286,10 @@ Result<IndexTransform<>> ArrayDriver::GetBoundSpecData(
       ++output_dim;
     }
   }
-  spec->array = std::move(new_array);
-  spec->data_copy_concurrency = data_copy_concurrency_;
-  spec->schema.Set(spec->array.dtype()).IgnoreError();
-  spec->schema.Set(RankConstraint{spec->array.rank()}).IgnoreError();
+  spec.array = std::move(new_array);
+  spec.data_copy_concurrency = data_copy_concurrency_;
+  spec.schema.Set(spec.array.dtype()).IgnoreError();
+  spec.schema.Set(RankConstraint{spec.array.rank()}).IgnoreError();
   return transform_builder.Finalize();
 }
 
@@ -320,7 +317,7 @@ Result<ChunkLayout> ArrayDriver::GetChunkLayout(
 
 Future<internal::Driver::Handle> ArrayDriver::Open(
     internal::OpenTransactionPtr transaction,
-    internal::RegisteredDriverOpener<BoundSpecData> spec,
+    internal::RegisteredDriverOpener<SpecData> spec,
     ReadWriteMode read_write_mode) {
   if (transaction) return TransactionError();
   if (read_write_mode == ReadWriteMode::dynamic) {
@@ -385,13 +382,14 @@ Result<internal::Driver::Handle> MakeArrayDriver<zero_origin>(
     Context context, SharedArray<void, dynamic_rank, zero_origin> array) {
   auto transform = tensorstore::IdentityTransform(array.shape());
   return internal::Driver::Handle{
-      Driver::Ptr(new ArrayDriver(
-                      context
-                          .GetResource(Context::ResourceSpec<
-                                       DataCopyConcurrencyResource>::Default())
-                          .value(),
-                      std::move(array)),
-                  ReadWriteMode::read_write),
+      Driver::Ptr(
+          new ArrayDriver(
+              context
+                  .GetResource(Context::Resource<
+                               DataCopyConcurrencyResource>::DefaultSpec())
+                  .value(),
+              std::move(array)),
+          ReadWriteMode::read_write),
       std::move(transform)};
 }
 
@@ -406,13 +404,14 @@ Result<internal::Driver::Handle> MakeArrayDriver<offset_origin>(
       auto zero_origin_array,
       (tensorstore::ArrayOriginCast<zero_origin, container>(std::move(array))));
   return internal::Driver::Handle{
-      Driver::Ptr(new ArrayDriver(
-                      context
-                          .GetResource(Context::ResourceSpec<
-                                       DataCopyConcurrencyResource>::Default())
-                          .value(),
-                      std::move(zero_origin_array)),
-                  ReadWriteMode::read_write),
+      Driver::Ptr(
+          new ArrayDriver(
+              context
+                  .GetResource(Context::Resource<
+                               DataCopyConcurrencyResource>::DefaultSpec())
+                  .value(),
+              std::move(zero_origin_array)),
+          ReadWriteMode::read_write),
       std::move(transform)};
 }
 
@@ -425,10 +424,11 @@ Result<tensorstore::Spec> SpecFromArray(
   Spec spec;
   auto& impl = SpecAccess::impl(spec);
   auto driver_spec = ArrayDriver::DriverSpecBuilder::Make();
+  driver_spec.context_binding_state() = ContextBindingState::unbound;
   driver_spec->schema.Set(RankConstraint{array.rank()}).IgnoreError();
   driver_spec->schema.Set(array.dtype()).IgnoreError();
   driver_spec->data_copy_concurrency =
-      Context::ResourceSpec<internal::DataCopyConcurrencyResource>::Default();
+      Context::Resource<internal::DataCopyConcurrencyResource>::DefaultSpec();
   TENSORSTORE_ASSIGN_OR_RETURN(
       impl.transform, tensorstore::IdentityTransform(array.shape()) |
                           tensorstore::AllDims().TranslateTo(array.origin()));

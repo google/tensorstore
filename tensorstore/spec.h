@@ -74,7 +74,7 @@ class Spec {
   /// Returns the transform applied on top of the driver.
   const IndexTransform<>& transform() const { return impl_.transform; }
 
-  /// Returns a modified Spec with the specified options applied.
+  /// Applies the specified options in place.
   ///
   /// Supported options include:
   ///
@@ -82,26 +82,10 @@ class Spec {
   ///   - OpenMode
   ///   - RecheckCachedData
   ///   - RecheckCachedMetadata
-  template <typename... Option>
-  std::enable_if_t<IsCompatibleOptionSequence<SpecConvertOptions, Option...>,
-                   Result<Spec>>
-  With(Option&&... option) && {
-    TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(SpecConvertOptions, options,
-                                                  option)
-    return std::move(*this).With(std::move(options));
-  }
-
-  template <typename... Option>
-  std::enable_if_t<IsCompatibleOptionSequence<SpecConvertOptions, Option...>,
-                   Result<Spec>>
-  With(Option&&... option) const& {
-    return Spec(*this).With(std::forward<Option>(option)...);
-  }
-
-  Result<Spec> With(SpecOptions&& options) &&;
-  Result<Spec> With(SpecOptions&& options) const&;
-
-  /// Applies the specified options in place.
+  ///   - ContextBindingMode
+  ///   - Context
+  ///
+  /// If an error occurs, the spec may be in a partially modified state.
   template <typename... Option>
   std::enable_if_t<IsCompatibleOptionSequence<SpecConvertOptions, Option...>,
                    absl::Status>
@@ -111,7 +95,10 @@ class Spec {
     return this->Set(std::move(options));
   }
 
-  absl::Status Set(SpecOptions&& options);
+  /// Applies the specified options in place.
+  ///
+  /// If an error occurs, the spec may be in a partially modified state.
+  absl::Status Set(SpecConvertOptions&& options);
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(Spec, JsonSerializationOptions,
                                           JsonSerializationOptions)
@@ -150,6 +137,23 @@ class Spec {
   friend Result<Spec> ApplyIndexTransform(IndexTransform<> transform,
                                           Spec spec);
 
+  /// Binds any unbound context resources using the specified context.  Any
+  /// already-bound context resources remain unmodified.
+  ///
+  /// If an error occurs, some context resources may remain unbound.
+  absl::Status BindContext(const Context& context);
+
+  /// Unbinds any bound context resources, replacing them with context resource
+  /// specs that may be used to recreate the context resources.  Any
+  /// already-unbound context resources remain unmodified.
+  void UnbindContext(const internal::ContextSpecBuilder& context_builder = {});
+
+  /// Replaces any context resources with a default context resource spec.
+  void StripContext();
+
+  /// Indicates the context binding state of the spec.
+  ContextBindingState context_binding_state() const;
+
   friend std::ostream& operator<<(std::ostream& os, const Spec& spec);
 
   /// Compares for equality via JSON representation.
@@ -174,9 +178,15 @@ class Spec {
  private:
   friend class internal_spec::SpecAccess;
 
-  internal::TransformedDriverSpec<> impl_;
+  internal::TransformedDriverSpec impl_;
 };
 
+namespace internal {
+/// Implementation of `TensorStore::spec`.
+///
+/// Refer to that method documentation for details.
+Result<Spec> GetSpec(const DriverHandle& handle, SpecRequestOptions&& options);
+}  // namespace internal
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_SPEC_H_

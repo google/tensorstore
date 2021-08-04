@@ -196,6 +196,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:logging",
         "//tensorstore/internal:mutex",
         "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal:tagged_ptr",
         "//tensorstore/internal/cache:cache_key",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
@@ -408,6 +409,7 @@ tensorstore_cc_library(
         ":schema",
         ":staleness_bound",
         ":transaction",
+        "//tensorstore/util:option",
         "@com_google_absl//absl/status",
     ],
 )
@@ -507,6 +509,7 @@ tensorstore_cc_library(
     ],
     hdrs = ["spec.h"],
     deps = [
+        ":context",
         ":data_type",
         ":index",
         ":rank",
@@ -515,6 +518,7 @@ tensorstore_cc_library(
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:json",
         "//tensorstore/internal:json",
+        "//tensorstore/internal:json_same",
         "//tensorstore/internal:type_traits",
         "//tensorstore/util:result",
         "@com_github_nlohmann_json//:nlohmann_json",

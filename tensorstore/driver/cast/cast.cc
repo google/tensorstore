@@ -34,17 +34,13 @@ class CastDriver
  public:
   constexpr static char id[] = "cast";
 
-  template <template <typename> class MaybeBound>
-  struct SpecT : public DriverSpecCommonData {
-    MaybeBound<TransformedDriverSpec<>> base;
+  struct SpecData : public DriverSpecCommonData {
+    TransformedDriverSpec base;
 
     constexpr static auto ApplyMembers = [](auto& x, auto f) {
       return f(internal::BaseCast<internal::DriverSpecCommonData>(x), x.base);
     };
   };
-
-  using SpecData = SpecT<internal::ContextUnbound>;
-  using BoundSpecData = SpecT<internal::ContextBound>;
 
   using Ptr = Driver::PtrT<CastDriver>;
 
@@ -110,7 +106,7 @@ class CastDriver
 
   static Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
-      internal::RegisteredDriverOpener<BoundSpecData> spec,
+      internal::RegisteredDriverOpener<SpecData> spec,
       ReadWriteMode read_write_mode) {
     DataType target_dtype = spec->schema.dtype();
     if (!target_dtype.valid()) {
@@ -128,15 +124,15 @@ class CastDriver
   }
 
   Result<IndexTransform<>> GetBoundSpecData(
-      internal::OpenTransactionPtr transaction, BoundSpecData* spec,
+      internal::OpenTransactionPtr transaction, SpecData& spec,
       IndexTransformView<> transform) {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        spec->base,
+        spec.base,
         base_driver_->GetBoundSpec(std::move(transaction), transform));
-    spec->schema.Set(target_dtype_).IgnoreError();
+    spec.schema.Set(target_dtype_).IgnoreError();
     const DimensionIndex base_rank = base_driver_->rank();
-    spec->schema.Set(RankConstraint{base_rank}).IgnoreError();
-    return std::exchange(spec->base.transform, {});
+    spec.schema.Set(RankConstraint{base_rank}).IgnoreError();
+    return std::exchange(spec.base.transform, {});
   }
 
   Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override {

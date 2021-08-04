@@ -47,15 +47,16 @@
 namespace tensorstore {
 
 KeyValueStoreSpec::~KeyValueStoreSpec() = default;
-KeyValueStoreSpec::Bound::~Bound() = default;
 
 Result<KeyValueStoreSpec::Ptr> KeyValueStore::spec(
-    const internal::ContextSpecBuilder& context_builder) const {
-  return absl::UnimplementedError(
-      "KeyValueStore does not support JSON representation");
+    SpecRequestOptions&& options) const {
+  TENSORSTORE_ASSIGN_OR_RETURN(auto spec, GetBoundSpec());
+  internal::ApplyContextBindingMode(spec, options.context_binding_mode,
+                                    /*default_mode=*/ContextBindingMode::strip);
+  return spec;
 }
 
-Result<KeyValueStoreSpec::BoundPtr> KeyValueStore::GetBoundSpec() const {
+Result<KeyValueStoreSpec::Ptr> KeyValueStore::GetBoundSpec() const {
   return absl::UnimplementedError(
       "KeyValueStore does not support JSON representation");
 }
@@ -64,38 +65,25 @@ void KeyValueStore::EncodeCacheKey(std::string* out) const {
   internal::EncodeCacheKey(out, reinterpret_cast<std::uintptr_t>(this));
 }
 
-Result<KeyValueStoreSpec::BoundPtr> KeyValueStoreSpec::Bind(
-    const Context& context) const {
-  return absl::UnimplementedError("Driver not registered");
-}
-
-Result<KeyValueStoreSpec::Ptr> KeyValueStoreSpec::Convert(
-    const RequestOptions& options) const {
-  return absl::UnimplementedError("Driver not registered");
-}
-
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     KeyValueStoreSpec::Ptr,
     [](auto is_loading, const auto& options, auto* obj, auto* j) {
       namespace jb = tensorstore::internal_json_binding;
       auto& registry = internal::GetKeyValueStoreDriverRegistry();
-      return jb::Object(
+      return jb::NestedContextJsonBinder(jb::Object(
           jb::Member("driver", registry.KeyBinder()),
+          jb::Initialize([](KeyValueStoreSpec::Ptr* p) {
+            const_cast<KeyValueStoreSpec&>(**p).context_binding_state_ =
+                ContextBindingState::unbound;
+          }),
           jb::Member("context",
                      jb::Projection(
-                         [](const KeyValueStoreSpec::Ptr& p) -> decltype(auto) {
-                           return (p->context_spec_);
+                         [](const KeyValueStoreSpec::Ptr& p) -> Context::Spec& {
+                           return const_cast<Context::Spec&>(p->context_spec_);
                          },
                          internal::ContextSpecDefaultableJsonBinder)),
-          registry.RegisteredObjectBinder())(is_loading, options, obj, j);
+          registry.RegisteredObjectBinder()))(is_loading, options, obj, j);
     })
-
-Future<KeyValueStore::Ptr> KeyValueStoreSpec::Open(
-    const Context& context, const OpenOptions& options) const {
-  return ChainResult(
-      Convert(options), [&](const Ptr& spec) { return spec->Bind(context); },
-      [](const BoundPtr& bound_spec) { return bound_spec->Open(); });
-}
 
 std::ostream& operator<<(std::ostream& os,
                          KeyValueStore::ReadResult::State state) {
@@ -140,11 +128,11 @@ KeyValueStoreDriverRegistry& GetKeyValueStoreDriverRegistry() {
 
 KeyValueStore::~KeyValueStore() = default;
 
-Future<KeyValueStore::Ptr> KeyValueStore::Open(
-    const Context& context, ::nlohmann::json j,
-    const KeyValueStoreSpec::OpenOptions& options) {
-  TENSORSTORE_ASSIGN_OR_RETURN(auto spec, Spec::Ptr::FromJson(std::move(j)));
-  return spec->Open(context, options);
+Future<KeyValueStore::Ptr> KeyValueStore::Open(::nlohmann::json json_spec,
+                                               OpenOptions&& options) {
+  TENSORSTORE_ASSIGN_OR_RETURN(auto spec,
+                               Spec::Ptr::FromJson(std::move(json_spec)));
+  return KeyValueStore::Open(std::move(spec), std::move(options));
 }
 
 namespace {
@@ -159,7 +147,9 @@ OpenKeyValueStoreCache& GetOpenKeyValueStoreCache() {
 }
 }  // namespace
 
-Future<KeyValueStore::Ptr> KeyValueStoreSpec::Bound::Open() const {
+Future<KeyValueStore::Ptr> KeyValueStore::Open(KeyValueStore::Spec::Ptr spec,
+                                               OpenOptions&& options) {
+  TENSORSTORE_RETURN_IF_ERROR(spec.BindContext(options.context));
   return MapFutureValue(
       InlineExecutor{},
       [](KeyValueStore::Ptr store) {
@@ -178,7 +168,7 @@ Future<KeyValueStore::Ptr> KeyValueStoreSpec::Bound::Open() const {
 #endif
         return KeyValueStore::Ptr(p.first->second);
       },
-      this->DoOpen());
+      spec->DoOpen());
 }
 
 void KeyValueStore::DestroyLastReference() {
@@ -263,6 +253,29 @@ Future<std::vector<KeyValueStore::Key>> ListFuture(
       tensorstore::internal::MakeCollectingSender<
           std::vector<KeyValueStore::Key>>(
           tensorstore::MakeSyncFlowSender(store->List(options))));
+}
+
+absl::Status KeyValueStoreSpec::Ptr::Set(ConvertOptions&& options) {
+  internal::ApplyContextBindingMode(
+      *this, options.context_binding_mode,
+      /*default_mode=*/ContextBindingMode::retain);
+  if (options.context) {
+    TENSORSTORE_RETURN_IF_ERROR(BindContext(options.context));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status KeyValueStoreSpec::Ptr::BindContext(const Context& context) {
+  return internal::BindContextCopyOnWriteWithNestedContext(*this, context);
+}
+
+void KeyValueStoreSpec::Ptr::UnbindContext(
+    const internal::ContextSpecBuilder& context_builder) {
+  internal::UnbindContextCopyOnWriteWithNestedContext(*this, context_builder);
+}
+
+void KeyValueStoreSpec::Ptr::StripContext() {
+  internal::StripContextCopyOnWriteWithNestedContext(*this);
 }
 
 }  // namespace tensorstore

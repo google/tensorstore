@@ -66,9 +66,7 @@ using tensorstore::internal::MatchesTimestampedStorageGeneration;
 using ::testing::HasSubstr;
 
 KeyValueStore::Ptr GetStore(std::string root) {
-  return KeyValueStore::Open(Context::Default(),
-                             {{"driver", "file"}, {"path", root}})
-      .value();
+  return KeyValueStore::Open({{"driver", "file"}, {"path", root}}).value();
 }
 
 TEST(FileKeyValueStoreTest, Basic) {
@@ -500,18 +498,17 @@ TEST(FileKeyValueStoreTest, InvalidSpec) {
   // Test with extra key.
   EXPECT_THAT(
       KeyValueStore::Open(
-          context, {{"driver", "file"}, {"path", root}, {"extra", "key"}})
+          {{"driver", "file"}, {"path", root}, {"extra", "key"}}, context)
           .result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument));
 
   // Test with missing `"path"` key.
-  EXPECT_THAT(KeyValueStore::Open(context, {{"driver", "file"}}).result(),
+  EXPECT_THAT(KeyValueStore::Open({{"driver", "file"}}, context).result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 
   // Test with invalid `"path"` key.
   EXPECT_THAT(
-      KeyValueStore::Open(context, {{"driver", "file"}, {"path", 5}}, {})
-          .result(),
+      KeyValueStore::Open({{"driver", "file"}, {"path", 5}}, context).result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 

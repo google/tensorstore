@@ -484,6 +484,12 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "option",
+    hdrs = ["option.h"],
+    deps = ["//tensorstore/internal:type_traits"],
+)
+
+tensorstore_cc_library(
     name = "quote_string",
     srcs = ["quote_string.cc"],
     hdrs = ["quote_string.h"],

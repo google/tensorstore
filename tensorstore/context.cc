@@ -29,11 +29,12 @@
 namespace tensorstore {
 namespace internal_context {
 
-ContextResourceProviderImplBase::~ContextResourceProviderImplBase() = default;
-ContextResourceImplBase::~ContextResourceImplBase() = default;
-ContextResourceSpecImplBase::~ContextResourceSpecImplBase() = default;
+ResourceProviderImplBase::~ResourceProviderImplBase() = default;
+ResourceOrSpecBase::~ResourceOrSpecBase() = default;
+ResourceImplBase::~ResourceImplBase() = default;
+ResourceSpecImplBase::~ResourceSpecImplBase() = default;
 
-ContextImplPtr GetCreator(ContextResourceImplBase& resource) {
+ContextImplPtr GetCreator(ResourceImplBase& resource) {
   absl::MutexLock lock(&resource.mutex_);
   auto* creator_ptr = resource.weak_creator_;
   if (!creator_ptr ||
@@ -43,21 +44,29 @@ ContextImplPtr GetCreator(ContextResourceImplBase& resource) {
   return ContextImplPtr(creator_ptr, internal::adopt_object_ref);
 }
 
-void ContextResourceImplWeakPtrTraits::increment(ContextResourceImplBase* p) {
+void ResourceOrSpecPtrTraits::increment(ResourceOrSpecBase* p) {
   intrusive_ptr_increment(p);
 }
 
-void ContextResourceImplWeakPtrTraits::decrement(ContextResourceImplBase* p) {
+void ResourceOrSpecPtrTraits::decrement(ResourceOrSpecBase* p) {
   intrusive_ptr_decrement(p);
 }
 
-void ContextResourceImplStrongPtrTraits::increment(ContextResourceImplBase* p) {
+void ResourceImplWeakPtrTraits::increment(ResourceOrSpecBase* p) {
   intrusive_ptr_increment(p);
-  p->spec_->provider_->AcquireContextReference(p);
 }
 
-void ContextResourceImplStrongPtrTraits::decrement(ContextResourceImplBase* p) {
-  p->spec_->provider_->ReleaseContextReference(p);
+void ResourceImplWeakPtrTraits::decrement(ResourceOrSpecBase* p) {
+  intrusive_ptr_decrement(p);
+}
+
+void ResourceImplStrongPtrTraits::increment(ResourceImplBase* p) {
+  intrusive_ptr_increment(p);
+  p->spec_->provider_->AcquireContextReference(*p);
+}
+
+void ResourceImplStrongPtrTraits::decrement(ResourceImplBase* p) {
+  p->spec_->provider_->ReleaseContextReference(*p);
   intrusive_ptr_decrement(p);
 }
 
@@ -102,7 +111,7 @@ namespace {
 struct ContextProviderRegistry {
   struct ProviderKey : public std::string_view {
     using Base = std::string_view;
-    ProviderKey(const std::unique_ptr<const ContextResourceProviderImplBase>& p)
+    ProviderKey(const std::unique_ptr<const ResourceProviderImplBase>& p)
         : Base(p->id_) {}
     ProviderKey(std::string_view s) : Base(s) {}
   };
@@ -116,7 +125,7 @@ struct ContextProviderRegistry {
   };
 
   absl::Mutex mutex_;
-  absl::flat_hash_set<std::unique_ptr<const ContextResourceProviderImplBase>,
+  absl::flat_hash_set<std::unique_ptr<const ResourceProviderImplBase>,
                       ProviderHash, ProviderEqualTo>
       providers_ ABSL_GUARDED_BY(mutex_);
 };
@@ -129,7 +138,7 @@ static ContextProviderRegistry& GetRegistry() {
 /// Checks for a cycle in the `creation_blocked_on_` pointers starting from
 /// `container`.  If one is found, returns a node in the cycle.  Note that
 /// `container` may lead to a cycle without being part of one.
-ContextResourceContainer* FindCycle(ContextResourceContainer* container) {
+ResourceContainer* FindCycle(ResourceContainer* container) {
   // Brent's algorithm for cycle detection.
   std::size_t power = 1;
   std::size_t lambda = 1;
@@ -149,15 +158,26 @@ ContextResourceContainer* FindCycle(ContextResourceContainer* container) {
   }
 }
 
-void KillCycle(ContextResourceContainer* container) {
+void KillCycle(ResourceContainer* container) {
   std::vector<std::string> parts;
   auto* node = container;
   do {
     assert(node->spec_);
-    parts.push_back(QuoteString(node->spec_->key_));
+    std::string part;
+    if (!node->spec_->key_.empty()) {
+      tensorstore::StrAppend(&part, QuoteString(node->spec_->key_), ":");
+    }
+    auto json_result = node->spec_->ToJson(IncludeDefaults{true});
+    if (json_result.has_value()) {
+      tensorstore::StrAppend(&part, json_result->dump());
+    } else {
+      tensorstore::StrAppend(
+          &part, "unprintable spec for ",
+          tensorstore::QuoteString(node->spec_->provider_->id_));
+    }
+    parts.push_back(std::move(part));
     node = node->creation_blocked_on_;
   } while (node != container);
-  std::reverse(parts.begin(), parts.end());
   auto error = absl::InvalidArgumentError("Context resource reference cycle: " +
                                           absl::StrJoin(parts, " -> "));
   do {
@@ -168,8 +188,8 @@ void KillCycle(ContextResourceContainer* container) {
   } while (node != container);
 }
 
-void WaitForCompletion(absl::Mutex* mutex, ContextResourceContainer* container,
-                       ContextResourceContainer* trigger) {
+void WaitForCompletion(absl::Mutex* mutex, ResourceContainer* container,
+                       ResourceContainer* trigger) {
   if (trigger) {
     assert(!trigger->creation_blocked_on_);
     trigger->creation_blocked_on_ = container;
@@ -190,28 +210,27 @@ void WaitForCompletion(absl::Mutex* mutex, ContextResourceContainer* container,
   }
 }
 
-Result<ContextResourceImplStrongPtr> CreateResource(
-    ContextImpl* context, ContextResourceSpecImplBase* spec,
-    ContextResourceContainer* trigger) {
-  std::unique_ptr<ContextResourceContainer> container(
-      new ContextResourceContainer);
+Result<ResourceImplStrongPtr> CreateResource(ContextImpl& context,
+                                             ResourceSpecImplBase& spec,
+                                             ResourceContainer* trigger) {
+  std::unique_ptr<ResourceContainer> container(new ResourceContainer);
   auto* container_ptr = container.get();
-  container->spec_.reset(spec);
+  container->spec_.reset(&spec);
   if (trigger) {
     assert(!trigger->creation_blocked_on_);
     trigger->creation_blocked_on_ = container.get();
   }
-  context->resources_.insert(std::move(container));
+  context.resources_.insert(std::move(container));
   {
-    internal::ScopedWriterUnlock unlock(context->root_->mutex_);
-    container_ptr->result_ = spec->CreateResource({context, container_ptr});
+    internal::ScopedWriterUnlock unlock(context.root_->mutex_);
+    container_ptr->result_ = spec.CreateResource({&context, container_ptr});
     if (container_ptr->result_.ok()) {
       auto& resource = **container_ptr->result_;
       // Set `weak_creator_` if `resource` was created directly from `spec` by
       // `context`.  The alternative is that `spec` is a
-      // `ContextResourceReference` and `resource` was created by a parent
+      // `ResourceReference` and `resource` was created by a parent
       // context, in which case `weak_creator_` must not be modified.
-      if (resource.spec_.get() == spec) {
+      if (resource.spec_.get() == &spec) {
         // Resource was created directly from `spec`, which means it was defined
         // directly by `context->spec_`.  At this point, no other thread has
         // access to `resource`, because `trigger->creation_blocked_on_` has not
@@ -220,7 +239,7 @@ Result<ContextResourceImplStrongPtr> CreateResource(
         // for consistency we acquire it anyway.
         absl::MutexLock lock(&resource.mutex_);
         assert(resource.weak_creator_ == nullptr);
-        resource.weak_creator_ = context;
+        resource.weak_creator_ = &context;
       }
     }
   }
@@ -231,68 +250,66 @@ Result<ContextResourceImplStrongPtr> CreateResource(
   return container_ptr->result_;
 }
 
-}  // namespace
-
-Result<ContextResourceImplWeakPtr> GetResource(
-    ContextImpl* context, ContextResourceSpecImplBase* spec,
-    ContextResourceContainer* trigger) {
-  assert(spec);
-  assert(context);
-  if (!spec->provider_) {
+Result<ResourceImplStrongPtr> GetOrCreateResourceStrongPtr(
+    ContextImpl& context, ResourceSpecImplBase& spec,
+    ResourceContainer* trigger) {
+  if (!spec.provider_) {
     // The provider was not linked in, despite linking in code that depends on
     // it.  This indicates a build configuration error.
     TENSORSTORE_LOG_FATAL("Context resource provider not registered for: ",
-                          QuoteString(spec->key_));
+                          QuoteString(spec.key_));
   }
-  const std::string_view key = spec->key_;
-  return ChainResult(
-      [&] {
-        if (key.empty()) {
-          // Inline resource, not memoized.
+  const std::string_view key = spec.key_;
+  if (key.empty()) {
+    // Inline resource, not memoized.
 
-          // Temporary ContextResourceContainer for deadlock detection.
-          ContextResourceContainer container;
-          container.spec_.reset(spec);
-          if (trigger) {
-            absl::MutexLock lock(&context->root_->mutex_);
-            assert(!trigger->creation_blocked_on_);
-            trigger->creation_blocked_on_ = &container;
-          }
-          auto result = spec->CreateResource({context, &container});
-          if (trigger) {
-            absl::MutexLock lock(&context->root_->mutex_);
-            trigger->creation_blocked_on_ = nullptr;
-          }
-          return result;
-        }
-        absl::MutexLock lock(&context->root_->mutex_);
-        assert(context->spec_);
+    // Temporary ResourceContainer for deadlock detection.
+    ResourceContainer container;
+    container.spec_.reset(&spec);
+    if (trigger) {
+      absl::MutexLock lock(&context.root_->mutex_);
+      assert(!trigger->creation_blocked_on_);
+      trigger->creation_blocked_on_ = &container;
+    }
+    auto result = spec.CreateResource({&context, &container});
+    if (trigger) {
+      absl::MutexLock lock(&context.root_->mutex_);
+      trigger->creation_blocked_on_ = nullptr;
+    }
+    return result;
+  }
+  absl::MutexLock lock(&context.root_->mutex_);
+  assert(context.spec_);
 #ifndef NDEBUG
-        {
-          auto it = context->spec_->resources_.find(key);
-          assert(it != context->spec_->resources_.end() && it->get() == spec);
-        }
+  {
+    auto it = context.spec_->resources_.find(key);
+    assert(it != context.spec_->resources_.end() && it->get() == &spec);
+  }
 #endif
-        if (auto it = context->resources_.find(key);
-            it != context->resources_.end()) {
-          auto* container = it->get();
-          WaitForCompletion(&context->root_->mutex_, container, trigger);
-          return container->result_;
-        }
-        return CreateResource(context, spec, trigger);
-      }(),
-      [](ContextResourceImplStrongPtr p) {
-        p->spec_->provider_->ReleaseContextReference(p.get());
-        return ContextResourceImplWeakPtr(p.release(),
-                                          internal::adopt_object_ref);
-      });
+  if (auto it = context.resources_.find(key); it != context.resources_.end()) {
+    auto* container = it->get();
+    WaitForCompletion(&context.root_->mutex_, container, trigger);
+    return container->result_;
+  }
+  return CreateResource(context, spec, trigger);
 }
 
-class ContextResourceReference : public ContextResourceSpecImplBase {
- public:
-  ContextResourceReference(const std::string& referent) : referent_(referent) {}
+}  // namespace
 
-  Result<ContextResourceImplStrongPtr> CreateResource(
+Result<ResourceImplWeakPtr> GetOrCreateResource(ContextImpl& context,
+                                                ResourceSpecImplBase& spec,
+                                                ResourceContainer* trigger) {
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto p, GetOrCreateResourceStrongPtr(context, spec, trigger));
+  p->spec_->provider_->ReleaseContextReference(*p);
+  return ResourceImplWeakPtr(p.release(), internal::adopt_object_ref);
+}
+
+class ResourceReference : public ResourceSpecImplBase {
+ public:
+  ResourceReference(const std::string& referent) : referent_(referent) {}
+
+  Result<ResourceImplStrongPtr> CreateResource(
       const internal::ContextResourceCreationContext& creation_context)
       override {
     // Look up referent.
@@ -309,7 +326,7 @@ class ContextResourceReference : public ContextResourceSpecImplBase {
       } else {
         // Create new default value.
         auto default_spec = MakeDefaultResourceSpec(*provider_, key_);
-        return internal_context::CreateResource(c, default_spec.get(),
+        return internal_context::CreateResource(*c, *default_spec,
                                                 creation_context.trigger_);
       }
     }
@@ -322,7 +339,7 @@ class ContextResourceReference : public ContextResourceSpecImplBase {
       if (context_spec) {
         if (auto it = context_spec->resources_.find(referent);
             it != context_spec->resources_.end()) {
-          return internal_context::CreateResource(c, it->get(),
+          return internal_context::CreateResource(*c, **it,
                                                   creation_context.trigger_);
         }
       }
@@ -333,7 +350,7 @@ class ContextResourceReference : public ContextResourceSpecImplBase {
         }
         // Create default.
         auto default_spec = MakeDefaultResourceSpec(*provider_, provider_->id_);
-        return internal_context::CreateResource(c, default_spec.get(),
+        return internal_context::CreateResource(*c, *default_spec,
                                                 creation_context.trigger_);
       }
       c = c->parent_.get();
@@ -344,11 +361,20 @@ class ContextResourceReference : public ContextResourceSpecImplBase {
     if (referent_.empty()) return nullptr;
     return referent_;
   }
+
+  ResourceSpecImplPtr UnbindContext(
+      const internal::ContextSpecBuilder& spec_builder) final {
+    auto& builder_impl = *internal_context::Access::impl(spec_builder);
+    // Ensure the referent is not re-used as an identifier for another resource.
+    ++builder_impl.ids_[referent_];
+    return ResourceSpecImplPtr(this);
+  }
+
   std::string referent_;
 };
 
 void RegisterContextResourceProvider(
-    std::unique_ptr<const ContextResourceProviderImplBase> provider) {
+    std::unique_ptr<const ResourceProviderImplBase> provider) {
   auto& registry = GetRegistry();
   absl::MutexLock lock(&registry.mutex_);
   auto id = provider->id_;
@@ -357,7 +383,7 @@ void RegisterContextResourceProvider(
   }
 }
 
-const ContextResourceProviderImplBase* GetProvider(std::string_view id) {
+const ResourceProviderImplBase* GetProvider(std::string_view id) {
   auto& registry = GetRegistry();
   absl::ReaderMutexLock lock(&registry.mutex_);
   auto it = registry.providers_.find(id);
@@ -365,7 +391,7 @@ const ContextResourceProviderImplBase* GetProvider(std::string_view id) {
   return it->get();
 }
 
-const ContextResourceProviderImplBase& GetProviderOrDie(std::string_view id) {
+const ResourceProviderImplBase& GetProviderOrDie(std::string_view id) {
   auto* provider = GetProvider(id);
   if (!provider) {
     // Indicates a build configuration problem.
@@ -375,8 +401,8 @@ const ContextResourceProviderImplBase& GetProviderOrDie(std::string_view id) {
   return *provider;
 }
 
-ContextResourceSpecImplPtr MakeDefaultResourceSpec(
-    const ContextResourceProviderImplBase& provider, std::string_view key) {
+ResourceSpecImplPtr MakeDefaultResourceSpec(
+    const ResourceProviderImplBase& provider, std::string_view key) {
   auto default_spec = provider.Default();
   default_spec->provider_ = &provider;
   default_spec->key_ = key;
@@ -394,13 +420,13 @@ Status ProviderNotRegisteredError(std::string_view key) {
       StrCat("Invalid context resource identifier: ", QuoteString(key)));
 }
 
-Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJson(
-    const ContextResourceProviderImplBase& provider, const ::nlohmann::json& j,
+Result<ResourceSpecImplPtr> ResourceSpecFromJson(
+    const ResourceProviderImplBase& provider, const ::nlohmann::json& j,
     JsonSerializationOptions options) {
-  ContextResourceSpecImplPtr impl;
+  ResourceSpecImplPtr impl;
   if (j.is_null()) {
     // Refers to default value in parent.
-    impl.reset(new ContextResourceReference(""));
+    impl.reset(new ResourceReference(""));
   } else if (auto* s = j.get_ptr<const std::string*>()) {
     auto provider_id = ParseResourceProvider(*s);
     if (provider_id != provider.id_) {
@@ -408,7 +434,7 @@ Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJson(
                                                QuoteString(provider.id_),
                                                " resource: ", QuoteString(*s)));
     }
-    impl.reset(new ContextResourceReference(*s));
+    impl.reset(new ResourceReference(*s));
   } else {
     if (!j.is_object()) {
       return internal_json::ExpectedError(j, "string or object");
@@ -419,35 +445,34 @@ Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJson(
   return impl;
 }
 
-Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJsonWithKey(
+Result<ResourceSpecImplPtr> ResourceSpecFromJsonWithKey(
     std::string_view key, const ::nlohmann::json& j,
     Context::FromJsonOptions options) {
   auto* provider = GetProvider(ParseResourceProvider(key));
-  ContextResourceSpecImplPtr impl;
+  ResourceSpecImplPtr impl;
   if (!provider) {
     return ProviderNotRegisteredError(key);
   } else {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        impl, ContextResourceSpecFromJson(*provider, j, options));
+    TENSORSTORE_ASSIGN_OR_RETURN(impl,
+                                 ResourceSpecFromJson(*provider, j, options));
   }
   impl->key_ = key;
   return impl;
 }
 
-Result<ContextResourceSpecImplPtr> ContextResourceSpecFromJson(
+Result<ResourceSpecImplPtr> ResourceSpecFromJson(
     std::string_view provider_id, const ::nlohmann::json& j,
     Context::FromJsonOptions options) {
   auto& provider = GetProviderOrDie(provider_id);
   if (j.is_null()) {
     return internal_json::ExpectedError(j, "string or object");
   }
-  return ContextResourceSpecFromJson(provider, j, options);
+  return ResourceSpecFromJson(provider, j, options);
 }
 
-ContextResourceSpecImplPtr DefaultContextResourceSpec(
-    std::string_view provider_id) {
-  return ContextResourceSpecFromJson(provider_id, std::string(provider_id), {})
-      .value();
+ResourceOrSpecPtr DefaultResourceSpec(std::string_view provider_id) {
+  return ToResourceOrSpecPtr(
+      ResourceSpecFromJson(provider_id, std::string(provider_id), {}).value());
 }
 
 }  // namespace internal_context
@@ -504,24 +529,17 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
 
         for (const auto& [key, value] : *j_obj) {
           TENSORSTORE_ASSIGN_OR_RETURN(
-              auto resource,
-              internal_context::ContextResourceSpecFromJsonWithKey(key, value,
-                                                                   options));
+              auto resource, internal_context::ResourceSpecFromJsonWithKey(
+                                 key, value, options));
           obj->impl_->resources_.insert(std::move(resource));
         }
       } else {
         if (!obj->impl_) return absl::OkStatus();
         for (const auto& resource_spec : obj->impl_->resources_) {
-          if (!IncludeDefaults(options).include_defaults() &&
-              resource_spec->is_default_ &&
-              resource_spec->key_ == resource_spec->provider_->id_) {
-            continue;
-          }
           TENSORSTORE_ASSIGN_OR_RETURN(auto resource_spec_json,
                                        resource_spec->ToJson(options));
-          if (!resource_spec_json.is_discarded()) {
-            j_obj->emplace(resource_spec->key_, std::move(resource_spec_json));
-          }
+          assert(!resource_spec_json.is_discarded());
+          j_obj->emplace(resource_spec->key_, std::move(resource_spec_json));
         }
       }
       return absl::OkStatus();
@@ -529,17 +547,24 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
 
 namespace internal {
 
-TENSORSTORE_DEFINE_JSON_BINDER(
-    ContextSpecDefaultableJsonBinder,
-    [](auto is_loading, const auto& options, auto* obj, auto* j) {
-      if constexpr (!is_loading) {
-        if (!IncludeContext(options).include_context()) {
-          *j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
-          return absl::OkStatus();
-        }
-      }
-      return jb::DefaultInitializedValue()(is_loading, options, obj, j);
-    })
+TENSORSTORE_DEFINE_JSON_BINDER(ContextSpecDefaultableJsonBinder,
+                               [](auto is_loading, const auto& options,
+                                  auto* obj, auto* j) {
+                                 return jb::DefaultInitializedValue()(
+                                     is_loading, options, obj, j);
+                               })
+
+bool IsPartialBindingContext(const Context& context) {
+  return internal_context::Access::impl(context)->root_->bind_partial_;
+}
+
+void SetRecordBindingState(internal::ContextSpecBuilder& builder,
+                           bool record_binding_state) {
+  auto& impl = internal_context::Access::impl(builder);
+  auto ptr = impl.release();
+  ptr.set_tag(record_binding_state);
+  impl.reset(ptr, internal::adopt_object_ref);
+}
 
 }  // namespace internal
 
@@ -547,18 +572,29 @@ namespace internal_context {
 
 Result<::nlohmann::json> BuilderResourceSpec::ToJson(
     Context::ToJsonOptions options) {
-  if (!underlying_spec_->key_.empty()) return underlying_spec_->key_;
+  ::nlohmann::json json_spec;
+  if (!underlying_spec_->key_.empty()) {
+    return underlying_spec_->key_;
+  }
   return underlying_spec_->ToJson(options);
 }
 
-Result<ContextResourceImplStrongPtr> BuilderResourceSpec::CreateResource(
+Result<ResourceImplStrongPtr> BuilderResourceSpec::CreateResource(
     const internal::ContextResourceCreationContext& creation_context) {
   return underlying_spec_->CreateResource(creation_context);
 }
 
+ResourceSpecImplPtr BuilderResourceSpec::UnbindContext(
+    const internal::ContextSpecBuilder& spec_builder) {
+  if (!underlying_spec_->key_.empty()) {
+    return ResourceSpecImplPtr(new ResourceReference(underlying_spec_->key_));
+  }
+  return underlying_spec_->UnbindContext(spec_builder);
+}
+
 BuilderImpl::~BuilderImpl() {
-  absl::flat_hash_map<std::string, std::size_t> ids;
-  using SharedEntry = std::pair<ContextResourceImplBase*, ResourceEntry*>;
+  auto& ids = ids_;
+  using SharedEntry = std::pair<ResourceImplBase*, ResourceEntry*>;
   std::vector<SharedEntry> shared_entries;
   for (auto& p : resources_) {
     std::string_view key = p.first->spec_->key_;
@@ -587,32 +623,55 @@ BuilderImpl::~BuilderImpl() {
       ids[key]++;
     }
     // Leave `entry->spec->key_` unset since `entry->spec` is exposed as a
-    // `Context::ResourceSpec`
+    // resource spec accessible via a `Context::Resource` instance.
     entry->spec->underlying_spec_->key_ = key;
     root_->resources_.insert(entry->spec->underlying_spec_);
   }
 }
 
-void intrusive_ptr_increment(BuilderImpl* p) {
+void BuilderImplPtrTraits::increment(BuilderImplTaggedPtr p) {
   intrusive_ptr_increment(
-      static_cast<internal::AtomicReferenceCount<BuilderImpl>*>(p));
+      static_cast<internal::AtomicReferenceCount<BuilderImpl>*>(p.get()));
 }
 
-void intrusive_ptr_decrement(BuilderImpl* p) {
+void BuilderImplPtrTraits::decrement(BuilderImplTaggedPtr p) {
   intrusive_ptr_decrement(
-      static_cast<internal::AtomicReferenceCount<BuilderImpl>*>(p));
+      static_cast<internal::AtomicReferenceCount<BuilderImpl>*>(p.get()));
 }
 }  // namespace internal_context
 
 namespace internal {
-ContextSpecBuilder ContextSpecBuilder::Make(ContextSpecBuilder parent) {
+ContextSpecBuilder ContextSpecBuilder::Make(ContextSpecBuilder parent,
+                                            Context::Spec existing_spec) {
   ContextSpecBuilder builder;
+  if (existing_spec.impl_) {
+    if (existing_spec.impl_->use_count() != 1) {
+      existing_spec.impl_.reset(
+          new internal_context::ContextSpecImpl(*existing_spec.impl_));
+    }
+  }
   if (parent.impl_) {
     builder.impl_ = std::move(parent.impl_);
+    builder.spec_impl_ = std::move(existing_spec.impl_);
   } else {
-    builder.impl_.reset(new internal_context::BuilderImpl);
-    builder.spec_impl_.reset(new internal_context::ContextSpecImpl);
+    builder.impl_.reset(internal_context::BuilderImplTaggedPtr(
+        new internal_context::BuilderImpl, parent.impl_.get().tag()));
+    if (!existing_spec.impl_) {
+      builder.spec_impl_.reset(new internal_context::ContextSpecImpl);
+    } else {
+      builder.spec_impl_ = std::move(existing_spec.impl_);
+    }
     builder.impl_->root_ = builder.spec_impl_;
+  }
+  if (builder.spec_impl_ && !builder.spec_impl_->resources_.empty()) {
+    auto& ids = builder.impl_->ids_;
+    for (const auto& resource_spec : builder.spec_impl_->resources_) {
+      ids[resource_spec->key_]++;
+      // Call `UnbindContext` to ensure any resource references within
+      // `resource_spec` are also marked in `ids`.  We discard the returned
+      // copy, since anything in `Context::Spec` is guaranteed not to be bound.
+      resource_spec->UnbindContext(builder);
+    }
   }
   return builder;
 }
@@ -625,27 +684,160 @@ Context::Spec ContextSpecBuilder::spec() const {
 }  // namespace internal
 
 namespace internal_context {
-internal_context::ContextResourceSpecImplPtr AddResource(
+
+ResourceSpecImplPtr ResourceImplBase::UnbindContext(
+    const internal::ContextSpecBuilder& spec_builder) {
+  auto spec = spec_->provider_->DoGetSpec(*this, spec_builder);
+  spec->provider_ = spec_->provider_;
+  spec->is_default_ = spec_->is_default_;
+  spec->key_ = spec_->key_;
+  return spec;
+}
+
+namespace {
+internal_context::ResourceSpecImplPtr AddResource(
     const internal::ContextSpecBuilder& builder,
-    internal_context::ContextResourceImplBase* resource) {
-  internal_context::ContextResourceImplWeakPtr resource_ptr(resource);
-  auto* impl = internal_context::Access::impl(builder).get();
+    internal_context::ResourceImplBase* resource) {
+  internal_context::ResourceImplWeakPtr resource_ptr(resource);
+  auto* impl = internal_context::Access::impl(builder).get().get();
   auto& entry = impl->resources_[resource_ptr];
   if (!entry.spec) {
     // Register new resource.
     entry.spec.reset(new internal_context::BuilderResourceSpec);
+    auto new_spec = entry.spec;
     entry.spec->provider_ = resource->spec_->provider_;
     entry.id = impl->next_id_++;
     entry.shared =
         (resource->spec_->is_default_ || !resource->spec_->key_.empty());
-    entry.spec->underlying_spec_ =
-        resource->spec_->provider_->GetSpec(resource, builder);
+    // Note: We can't access `entry` after calling `UnbindContext`, because
+    // `UnbindContext` may call back into `AddResource`, which may modify the
+    // `impl->resources_` hash table and invalidate our `entry` reference.
+    auto underlying_spec = resource->UnbindContext(builder);
+    new_spec->underlying_spec_ = std::move(underlying_spec);
+    return new_spec;
   } else {
     entry.shared = true;
+    return entry.spec;
   }
-  return entry.spec;
+}
+}  // namespace
+
+ResourceOrSpecPtr AddResourceOrSpec(const internal::ContextSpecBuilder& builder,
+                                    ResourceOrSpecTaggedPtr resource_or_spec) {
+  auto& impl = internal_context::Access::impl(builder);
+  assert(impl);
+  if (!resource_or_spec) {
+    resource_or_spec.set_tag<1>(false);
+    return ResourceOrSpecPtr(resource_or_spec);
+  }
+  if (!IsResource(resource_or_spec)) {
+    return ToResourceOrSpecPtr(
+        static_cast<ResourceSpecImplBase*>(resource_or_spec.get())
+            ->UnbindContext(builder));
+  } else {
+    auto new_ptr = ToResourceOrSpecPtr(AddResource(
+        builder, static_cast<ResourceImplBase*>(resource_or_spec.get())));
+    if (internal::GetRecordBindingState(builder)) {
+      auto new_tagged_ptr = new_ptr.release();
+      new_tagged_ptr.set_tag<1>(true);
+      new_ptr = ResourceOrSpecPtr(new_tagged_ptr, internal::adopt_object_ref);
+    }
+    return new_ptr;
+  }
+}
+
+absl::Status ResourceSpecFromJsonWithDefaults(
+    std::string_view provider_id, const JsonSerializationOptions& options,
+    ResourceOrSpecPtr& spec, ::nlohmann::json* j) {
+  if (j->is_discarded()) {
+    spec = internal_context::DefaultResourceSpec(provider_id);
+  } else if (j->is_array()) {
+    // Context resource marked as being bound when it was serialized.
+    const auto& arr = j->get_ref<const ::nlohmann::json::array_t&>();
+    if (arr.size() != 1) {
+      return internal_json::ExpectedError(*j, "single-element array");
+    }
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto spec_ptr, ResourceSpecFromJson(provider_id, arr[0], options));
+    spec = ToResourceOrSpecPtr(std::move(spec_ptr));
+    if (options.preserve_bound_context_resources_) {
+      auto tagged_ptr = spec.release();
+      tagged_ptr.set_tag<1>(true);
+      spec = ResourceOrSpecPtr(tagged_ptr, internal::adopt_object_ref);
+    }
+  } else {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto spec_ptr,
+                                 internal_context::ResourceSpecFromJson(
+                                     provider_id, std::move(*j), options));
+    spec = ToResourceOrSpecPtr(std::move(spec_ptr));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status ResourceSpecToJsonWithDefaults(
+    const JsonSerializationOptions& options, ResourceOrSpecTaggedPtr spec,
+    ::nlohmann::json* j) {
+  if (!spec || IsResource(spec)) {
+    // We cannot convert a bound context resource to json.  When converting a
+    // spec type like `tensorstore::KeyValueStore::Spec` or `tensorstore::Spec`,
+    // `NestedContextJsonBinder` will first unbind the context resources in
+    // order to allow them to be converted to json.  However, for individual
+    // `Context::Resource` objects not contained within a `Spec`-like type (not
+    // very likely to occur), that is not possible since there is no
+    // `Context::Spec` in which shared resources could be specified; in that
+    // case, we will just skip encoding context resources.
+    *j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
+  } else {
+    auto* spec_ptr = static_cast<ResourceSpecImplBase*>(spec.get());
+    TENSORSTORE_ASSIGN_OR_RETURN(*j, spec_ptr->ToJson(options));
+    if (options.preserve_bound_context_resources_ &&
+        IsImmediateBindingResourceSpec(spec)) {
+      ::nlohmann::json::array_t arr(1);
+      arr[0] = std::move(*j);
+      *j = std::move(arr);
+    }
+    if (!IncludeDefaults(options).include_defaults() && j->is_string() &&
+        j->get_ref<const std::string&>() == spec_ptr->provider_->id_) {
+      *j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status GetOrCreateResource(ContextImpl* context,
+                                 ResourceOrSpecTaggedPtr resource_or_spec,
+                                 ResourceContainer* trigger,
+                                 ResourceOrSpecPtr& resource) {
+  assert(context);
+  if (!resource_or_spec) {
+    resource.reset();
+    return absl::OkStatus();
+  }
+  if (IsResource(resource_or_spec)) {
+    resource.reset(resource_or_spec);
+    return absl::OkStatus();
+  }
+  if (context->root_->bind_partial_ &&
+      !IsImmediateBindingResourceSpec(resource_or_spec)) {
+    resource.reset(resource_or_spec);
+    return absl::OkStatus();
+  }
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto resource_ptr,
+      internal_context::GetOrCreateResource(
+          *context, static_cast<ResourceSpecImplBase&>(*resource_or_spec),
+          trigger));
+  resource = ToResourceOrSpecPtr(std::move(resource_ptr));
+  return absl::OkStatus();
+}
+
+void StripContext(ResourceOrSpecPtr& spec) {
+  if (!spec) return;
+  spec = internal_context::DefaultResourceSpec(
+      IsResource(spec.get())
+          ? static_cast<ResourceImplBase&>(*spec).spec_->provider_->id_
+          : static_cast<ResourceSpecImplBase&>(*spec).provider_->id_);
 }
 
 }  // namespace internal_context
-
 }  // namespace tensorstore

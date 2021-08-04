@@ -118,7 +118,9 @@ class TaggedPtr {
   }
 
   /// Returns `true` if, and only if, the pointer is not null.
-  explicit operator bool() const noexcept { return get() != nullptr; }
+  explicit operator bool() const noexcept {
+    return static_cast<bool>(reinterpret_cast<T*>(value_ & kPointerMask));
+  }
 
   /// Returns the pointer.
   T* get() const noexcept {

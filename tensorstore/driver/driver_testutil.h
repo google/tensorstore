@@ -40,6 +40,7 @@ struct TestTensorStoreDriverSpecRoundtripOptions {
   ::nlohmann::json full_spec;
   ::nlohmann::json create_spec{::nlohmann::json::value_t::discarded};
   ::nlohmann::json minimal_spec;
+  SpecRequestOptions spec_request_options;
   JsonSerializationOptions to_json_options;
   std::vector<TransactionMode> supported_transaction_modes = {
       tensorstore::isolated, tensorstore::atomic_isolated};

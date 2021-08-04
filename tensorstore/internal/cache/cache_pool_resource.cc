@@ -57,11 +57,11 @@ struct CachePoolResourceTraits
   static Spec GetSpec(const Resource& pool, const ContextSpecBuilder& builder) {
     return pool->limits();
   }
-  static void AcquireStrongReference(const Resource* p) {
-    internal_cache::StrongPtrTraitsCachePool::increment(p->get());
+  static void AcquireStrongReference(const Resource& p) {
+    internal_cache::StrongPtrTraitsCachePool::increment(p.get());
   }
-  static void ReleaseStrongReference(const Resource* p) {
-    internal_cache::StrongPtrTraitsCachePool::decrement(p->get());
+  static void ReleaseStrongReference(const Resource& p) {
+    internal_cache::StrongPtrTraitsCachePool::decrement(p.get());
   }
 };
 

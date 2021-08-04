@@ -60,7 +60,7 @@ TEST(JsonDriverTest, Basic) {
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto kvstore,
-      tensorstore::KeyValueStore::Open(context, GetKvstoreSpec()).result());
+      tensorstore::KeyValueStore::Open(GetKvstoreSpec(), context).result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, tensorstore::Open(GetSpec(""), context).result());
@@ -166,7 +166,7 @@ TEST(JsonDriverTest, WriteDiscarded) {
   auto context = tensorstore::Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto kvstore,
-      tensorstore::KeyValueStore::Open(context, GetKvstoreSpec()).result());
+      tensorstore::KeyValueStore::Open(GetKvstoreSpec(), context).result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, tensorstore::Open(GetSpec(""), context).result());
   // Write initial value (42)
@@ -207,7 +207,7 @@ TEST(JsonDriverTest, InvalidJson) {
   auto context = tensorstore::Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto kvstore,
-      tensorstore::KeyValueStore::Open(context, GetKvstoreSpec()).result());
+      tensorstore::KeyValueStore::Open(GetKvstoreSpec(), context).result());
   TENSORSTORE_EXPECT_OK(kvstore->Write(GetPath(), absl::Cord("invalid")));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, tensorstore::Open(GetSpec(""), context).result());
@@ -228,9 +228,7 @@ TEST(JsonDriverTest, ReadError) {
   auto context = tensorstore::Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto mock_key_value_store_resource,
-      context.GetResource(
-          tensorstore::Context::ResourceSpec<
-              tensorstore::internal::MockKeyValueStoreResource>::Default()));
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
   auto mock_key_value_store = *mock_key_value_store_resource;
   auto spec = GetSpec("/a");
   spec["kvstore"] = {{"driver", "mock_key_value_store"}};
@@ -264,9 +262,7 @@ TEST(JsonDriverTest, ConditionalWriteback) {
   auto context = tensorstore::Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto mock_key_value_store_resource,
-      context.GetResource(
-          tensorstore::Context::ResourceSpec<
-              tensorstore::internal::MockKeyValueStoreResource>::Default()));
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
   auto mock_key_value_store = *mock_key_value_store_resource;
   auto memory_store = tensorstore::GetMemoryKeyValueStore();
   auto spec = GetSpec("/a");
@@ -299,9 +295,7 @@ TEST(JsonDriverTest, UnconditionalWriteback) {
   auto context = tensorstore::Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto mock_key_value_store_resource,
-      context.GetResource(
-          tensorstore::Context::ResourceSpec<
-              tensorstore::internal::MockKeyValueStoreResource>::Default()));
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
   auto mock_key_value_store = *mock_key_value_store_resource;
   auto memory_store = tensorstore::GetMemoryKeyValueStore();
   auto spec = GetSpec("");
@@ -366,7 +360,6 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.minimal_spec = options.full_spec;
   options.check_not_found_before_create = false;
   options.check_not_found_before_commit = false;
-  options.to_json_options = tensorstore::IncludeContext{false};
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }

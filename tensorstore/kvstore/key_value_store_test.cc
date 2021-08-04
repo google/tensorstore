@@ -31,7 +31,7 @@ using tensorstore::MatchesStatus;
 
 TEST(KeyValueStoreTest, OpenInvalid) {
   auto context = tensorstore::Context::Default();
-  EXPECT_THAT(KeyValueStore::Open(context, {{"driver", "invalid"}}).result(),
+  EXPECT_THAT(KeyValueStore::Open({{"driver", "invalid"}}, context).result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Error parsing object member \"driver\": "
                             "\"invalid\" is not registered"));

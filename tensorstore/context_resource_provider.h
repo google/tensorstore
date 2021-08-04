@@ -32,32 +32,10 @@
 /// to also serve as the `Traits` type.
 
 #include "tensorstore/context.h"
-#include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_bindable.h"
 
 namespace tensorstore {
 namespace internal {
-
-/// Context object for use by `Create` methods of context resource traits
-/// classes.
-class ContextResourceCreationContext {
- public:
-  /// Gets the resource for a given resource spec.
-  template <typename Provider>
-  Result<Context::Resource<Provider>> operator[](
-      const Context::ResourceSpec<Provider>& resource_spec) const {
-    Context::Resource<Provider> resource;
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        resource.impl_, internal_context::GetResource(
-                            context_, resource_spec.impl_.get(), trigger_));
-    return resource;
-  }
-
-  // The following members are internal use only.
-
-  internal_context::ContextImpl* context_ = nullptr;
-  internal_context::ContextResourceContainer* trigger_ = nullptr;
-};
 
 template <typename Spec>
 using AnyContextResourceJsonBinder =
@@ -76,8 +54,13 @@ class ContextResourceTraits {
   using ToJsonOptions = Context::ToJsonOptions;
   using FromJsonOptions = Context::FromJsonOptions;
 
-  static void AcquireContextReference(void* obj) {}
-  static void ReleaseContextReference(void* obj) {}
+  template <typename Resource>
+  static void AcquireContextReference(Resource& obj) {}
+  template <typename Resource>
+  static void ReleaseContextReference(Resource& obj) {}
+  template <typename Spec>
+  static void UnbindContext(Spec& spec,
+                            const internal::ContextSpecBuilder& builder) {}
 };
 
 /// Registers a context resource type.
@@ -88,7 +71,7 @@ class ContextResourceRegistration {
  public:
   template <typename... U>
   ContextResourceRegistration(U&&... arg) {
-    using Impl = internal_context::ContextResourceProviderImpl<Traits>;
+    using Impl = internal_context::ResourceProviderImpl<Traits>;
     internal_context::RegisterContextResourceProvider(
         std::make_unique<Impl>(std::forward<U>(arg)...));
   }
@@ -141,7 +124,7 @@ class ContextResourceTraitsConcept : public ContextResourceTraits<Provider> {
     /// ...
     ///
     /// If this resource type depends on other resources, the `Spec` class
-    /// should include a `Context::ResourceSpec` member for each dependency.
+    /// should include a `Context::Resource` member for each dependency.
   };
 
   /// Required.  Returns the default `Spec`.
@@ -163,9 +146,15 @@ class ContextResourceTraitsConcept : public ContextResourceTraits<Provider> {
   /// This is essentially the inverse of `Create`.
   ///
   /// If `resource` depends on other context resources, they may be converted
-  /// back to `Context::ResourceSpec` objects using `builder`.
+  /// back to resource spec objects using `builder`.
   Spec GetSpec(const typename Provider::Resource& resource,
                const ContextSpecBuilder& builder) const;
+
+  /// Ensures all nested context resources are unbound, by calling
+  /// `Context::Resource<T>::UnbindContext(builder)`.
+  ///
+  /// If there are no nested context resources, this need not be defined.
+  void UnbindContext(Spec& spec, const ContextSpecBuilder& builder) const;
 
   /// Optional.  Increments the strong reference count associated with
   ///
@@ -184,7 +173,7 @@ class ContextResourceTraitsConcept : public ContextResourceTraits<Provider> {
   /// caches are retained even if they are not referenced.  Resources that
   /// behave like caches may need to distinguish between strong and weak
   /// references to prevent reference cycles.
-  void AcquireContextReference(typename Provider::Resource* value) const;
+  void AcquireContextReference(typename Provider::Resource& value) const;
 
   /// Optional.  Decrements the strong reference count.
   ///
@@ -192,7 +181,7 @@ class ContextResourceTraitsConcept : public ContextResourceTraits<Provider> {
   /// references, this method need not be defined, in which case the default
   /// do-nothing implementation in the `ContextResourceProvider` base class is
   /// used.
-  void ReleaseContextReference(typename Provider::Resource* value) const;
+  void ReleaseContextReference(typename Provider::Resource& value) const;
 };
 
 }  // namespace internal

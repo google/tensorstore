@@ -772,6 +772,13 @@ This is simply the product of the extents in :py:obj:`.shape`.)");
     return self == other;
   });
 
+  cls.def("__copy__", [](const IndexDomain<>& self) { return self; });
+
+  cls.def(
+      "__deepcopy__",
+      [](const IndexDomain<>& self, py::dict memo) { return self; },
+      py::arg("memo"));
+
   cls.def(py::pickle(
       [](const IndexDomain<>& self) -> py::tuple {
         return py::tuple(py::cast(self));
@@ -1306,10 +1313,12 @@ Examples:
       },
       py::arg("other"));
 
-  cls.def("__hash__", [](const IndexTransform<>& self) {
-    // FIXME
-    return 0;
-  });
+  cls.def("__copy__", [](const IndexTransform<>& self) { return self; });
+
+  cls.def(
+      "__deepcopy__",
+      [](const IndexTransform<>& self, py::dict memo) { return self; },
+      py::arg("memo"));
 
   cls.def(py::pickle(
       [](const IndexTransform<>& self) -> py::tuple {
@@ -1965,6 +1974,12 @@ Returns the string representation as a Python expression.
          const IndexDomainDimension<>& other) { return self == other; },
       py::arg("other"));
 
+  cls.def("__copy__", [](const IndexDomainDimension<>& self) { return self; });
+  cls.def(
+      "__deepcopy__",
+      [](const IndexDomainDimension<>& self, py::dict memo) { return self; },
+      py::arg("memo"));
+
   cls.def(
       py::pickle(&PickleIndexDomainDimension, &UnpickleIndexDomainDimension));
 }
@@ -2112,11 +2127,6 @@ Overload:
         return self == other;
       },
       py::arg("other"));
-
-  cls.def("__hash__", [](const OutputIndexMap& self) {
-    // FIXME
-    return 0;  // absl::Hash<OutputIndexMap>()(self);
-  });
 
   cls.def(py::pickle(
       [](const OutputIndexMap& self) {

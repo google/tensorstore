@@ -136,10 +136,18 @@ default, the open is non-transactional.
 }  // namespace open_setters
 
 constexpr auto ForwardOpenSetters = [](auto callback, auto... other_param) {
-  using namespace open_setters;
-  WithSchemaKeywordArguments(callback, other_param..., SetRead{}, SetWrite{},
-                             SetOpen{}, SetCreate{}, SetDeleteExisting{},
-                             SetContext{}, SetTransaction{});
+  WithSchemaKeywordArguments(
+      callback, other_param..., open_setters::SetRead{},
+      open_setters::SetWrite{}, open_setters::SetOpen{},
+      open_setters::SetCreate{}, open_setters::SetDeleteExisting{},
+      open_setters::SetContext{}, open_setters::SetTransaction{});
+};
+
+constexpr auto ForwardSpecRequestSetters = [](auto callback,
+                                              auto... other_param) {
+  callback(other_param..., spec_setters::SetOpen{}, spec_setters::SetCreate{},
+           spec_setters::SetDeleteExisting{}, spec_setters::SetMinimalSpec{},
+           spec_setters::SetRetainContext{}, spec_setters::SetUnbindContext{});
 };
 
 }  // namespace
@@ -163,6 +171,11 @@ Examples:
     ...     create=True)
     >>> dataset
     TensorStore({
+      'context': {
+        'cache_pool': {},
+        'data_copy_concurrency': {},
+        'memory_key_value_store': {},
+      },
       'driver': 'zarr',
       'dtype': 'uint32',
       'kvstore': {'driver': 'memory'},
@@ -292,8 +305,8 @@ Group:
 
 )");
 
-  cls_tensorstore.def(
-      "spec", [](const TensorStore<>& self) { return self.spec(); }, R"(
+  ForwardSpecRequestSetters([&](auto... param_def) {
+    std::string doc = R"(
 Spec that may be used to re-open or re-create the array.
 
 Example:
@@ -335,11 +348,59 @@ Example:
         'input_inclusive_min': [0, 0],
       },
     })
+    >>> dataset.spec(minimal_spec=True)
+    Spec({
+      'driver': 'zarr',
+      'dtype': 'uint32',
+      'kvstore': {'driver': 'memory'},
+      'transform': {
+        'input_exclusive_max': [[70], [80]],
+        'input_inclusive_min': [0, 0],
+      },
+    })
+    >>> dataset.spec(minimal_spec=True, unbind_context=True)
+    Spec({
+      'context': {
+        'cache_pool': {},
+        'data_copy_concurrency': {},
+        'memory_key_value_store': {},
+      },
+      'driver': 'zarr',
+      'dtype': 'uint32',
+      'kvstore': {'driver': 'memory'},
+      'transform': {
+        'input_exclusive_max': [[70], [80]],
+        'input_inclusive_min': [0, 0],
+      },
+    })
+
+If neither :py:param:`.retain_context` nor :py:param:`.unbind_context` is
+specified, the returned :py:obj:`~tensorstore.Spec` does not include any context
+resources, equivalent to specifying
+:py:param:`tensorstore.Spec.update.strip_context`.
+
+Args:
+
+)";
+    AppendKeywordArgumentDocs(doc, param_def...);
+
+    doc += R"(
 
 Group:
   Accessors
 
-)");
+)";
+
+    cls_tensorstore.def(
+        "spec",
+        [](const TensorStore<>& self,
+           KeywordArgument<decltype(param_def)>... kwarg) {
+          SpecRequestOptions options;
+          ApplyKeywordArguments<decltype(param_def)...>(options, kwarg...);
+          return self.spec(std::move(options));
+        },
+        doc.c_str(), py::kw_only(), MakeKeywordArgumentPyArg(param_def)...);
+  });
 
   cls_tensorstore.def_property_readonly(
       "mode",
@@ -396,10 +457,8 @@ Group:
 
   cls_tensorstore.def("__repr__", [](const TensorStore<>& self) -> std::string {
     return internal_python::PrettyPrintJsonAsPythonRepr(
-        self.spec() |
-            [](const auto& spec) {
-              return spec.ToJson(IncludeDefaults{false});
-            },
+        self.spec(tensorstore::unbind_context) |
+            [](const auto& spec) { return spec.ToJson(); },
         "TensorStore(", ")");
   });
 
@@ -754,6 +813,7 @@ Example:
   >>> store.astype(ts.string)
   TensorStore({
     'base': {'array': [1, 2, 3], 'driver': 'array', 'dtype': 'uint32'},
+    'context': {'data_copy_concurrency': {}},
     'driver': 'cast',
     'dtype': 'string',
     'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
@@ -928,29 +988,22 @@ Example:
 
   cls_tensorstore.def(py::pickle(
       [](const TensorStore<>& self) -> py::tuple {
-        auto builder = internal::ContextSpecBuilder::Make();
-        auto spec = ValueOrThrow(self.spec(builder));
-        auto pickled_context =
-            internal_python::PickleContextSpecBuilder(std::move(builder));
-        auto json_spec = ValueOrThrow(spec.ToJson());
-        return py::make_tuple(py::cast(json_spec), std::move(pickled_context),
-                              static_cast<int>(self.read_write_mode()));
+        auto spec = ValueOrThrow(self.spec(tensorstore::retain_context));
+        return py::make_tuple(
+            internal_python::PickleWithNestedContext(std::move(spec)),
+            static_cast<int>(self.read_write_mode()));
       },
       [](py::tuple t) -> tensorstore::TensorStore<> {
-        auto json_spec = py::cast<::nlohmann::json>(t[0]);
-        auto context =
-            WrapImpl(internal_python::UnpickleContextSpecBuilder(t[1]));
+        auto spec = internal_python::UnpickleWithNestedContext<Spec>(t[0]);
         auto read_write_mode = static_cast<ReadWriteMode>(
-            py::cast<int>(t[2]) & static_cast<int>(ReadWriteMode::read_write));
+            py::cast<int>(t[1]) & static_cast<int>(ReadWriteMode::read_write));
         if (read_write_mode == ReadWriteMode::dynamic) {
           throw py::value_error(
               "Invalid ReadWriteMode encountered unpickling TensorStore");
         }
         py::gil_scoped_release gil_release;
-        return ValueOrThrow(tensorstore::Open(std::move(json_spec),
-                                              std::move(context),
-                                              read_write_mode)
-                                .result());
+        return ValueOrThrow(
+            tensorstore::Open(std::move(spec), read_write_mode).result());
       }));
 
   cls_tensorstore.attr("__iter__") = py::none();
@@ -1011,6 +1064,11 @@ Example:
     >>> view = dataset[[5, 10, 20], 6:10]
     >>> view
     TensorStore({
+      'context': {
+        'cache_pool': {},
+        'data_copy_concurrency': {},
+        'memory_key_value_store': {},
+      },
       'driver': 'zarr',
       'dtype': 'uint32',
       'kvstore': {'driver': 'memory'},
@@ -1139,6 +1197,11 @@ integer or boolean array indexing terms are applied orthogonally:
     >>> view = dataset.oindex[[5, 10, 20], [7, 8, 10]]
     >>> view
     TensorStore({
+      'context': {
+        'cache_pool': {},
+        'data_copy_concurrency': {},
+        'memory_key_value_store': {},
+      },
       'driver': 'zarr',
       'dtype': 'uint32',
       'kvstore': {'driver': 'memory'},
@@ -1249,6 +1312,11 @@ domain:
     >>> view = dataset.vindex[:, [5, 10, 20], [7, 8, 10]]
     >>> view
     TensorStore({
+      'context': {
+        'cache_pool': {},
+        'data_copy_concurrency': {},
+        'memory_key_value_store': {},
+      },
       'driver': 'zarr',
       'dtype': 'uint32',
       'kvstore': {'driver': 'memory'},
@@ -1371,6 +1439,11 @@ Example:
     ...     ])
     >>> dataset[transform]
     TensorStore({
+      'context': {
+        'cache_pool': {},
+        'data_copy_concurrency': {},
+        'memory_key_value_store': {},
+      },
       'driver': 'zarr',
       'dtype': 'uint32',
       'kvstore': {'driver': 'memory'},
@@ -1534,6 +1607,11 @@ Example:
     ...                         exclusive_max=[8, 9])
     >>> dataset[domain]
     TensorStore({
+      'context': {
+        'cache_pool': {},
+        'data_copy_concurrency': {},
+        'memory_key_value_store': {},
+      },
       'driver': 'n5',
       'dtype': 'uint32',
       'kvstore': {'driver': 'memory'},
@@ -1652,6 +1730,11 @@ Example:
     ...     create=True)
     >>> dataset[ts.d['x', 'z'][5:10, 6:9]]
     TensorStore({
+      'context': {
+        'cache_pool': {},
+        'data_copy_concurrency': {},
+        'memory_key_value_store': {},
+      },
       'driver': 'n5',
       'dtype': 'uint32',
       'kvstore': {'driver': 'memory'},
@@ -1770,6 +1853,7 @@ Example:
         'driver': 'array',
         'dtype': 'float32',
       },
+      'context': {'data_copy_concurrency': {}},
       'driver': 'cast',
       'dtype': 'uint32',
       'transform': {'input_exclusive_max': [5], 'input_inclusive_min': [0]},
@@ -1834,6 +1918,11 @@ Opens or creates a :py:class:`TensorStore` from a :py:class:`Spec`.
     ... )
     >>> store
     TensorStore({
+      'context': {
+        'cache_pool': {},
+        'data_copy_concurrency': {},
+        'memory_key_value_store': {},
+      },
       'driver': 'zarr',
       'dtype': 'int32',
       'kvstore': {'driver': 'memory'},
@@ -1890,6 +1979,13 @@ like the data type, domain, and chunk layout, may be omitted:
     ...     read=True)
     >>> store
     TensorStore({
+      'context': {
+        'cache_pool': {},
+        'data_copy_concurrency': {},
+        'gcs_request_concurrency': {},
+        'gcs_request_retries': {},
+        'gcs_user_project': {},
+      },
       'driver': 'neuroglancer_precomputed',
       'dtype': 'uint64',
       'kvstore': {
@@ -1945,6 +2041,11 @@ properties that are left unconstrained:
     ...     fill_value=42)
     >>> store
     TensorStore({
+      'context': {
+        'cache_pool': {},
+        'data_copy_concurrency': {},
+        'memory_key_value_store': {},
+      },
       'driver': 'zarr',
       'dtype': 'float32',
       'kvstore': {'driver': 'memory'},
@@ -1992,6 +2093,11 @@ determine a matching chunk layout automatically:
     ... )
     >>> store
     TensorStore({
+      'context': {
+        'cache_pool': {},
+        'data_copy_concurrency': {},
+        'memory_key_value_store': {},
+      },
       'driver': 'zarr',
       'dtype': 'float32',
       'kvstore': {'driver': 'memory'},
@@ -2039,6 +2145,11 @@ independent of the driver/format:
     ... )
     >>> store
     TensorStore({
+      'context': {
+        'cache_pool': {},
+        'data_copy_concurrency': {},
+        'memory_key_value_store': {},
+      },
       'driver': 'n5',
       'dtype': 'float32',
       'kvstore': {'driver': 'memory'},
@@ -2077,6 +2188,11 @@ schema constraints:
     ...     shape=[1000, 2000, 3000])
     >>> store
     TensorStore({
+      'context': {
+        'cache_pool': {},
+        'data_copy_concurrency': {},
+        'memory_key_value_store': {},
+      },
       'driver': 'zarr',
       'dtype': 'float32',
       'kvstore': {'driver': 'memory'},

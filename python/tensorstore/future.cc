@@ -358,6 +358,7 @@ This type supports several different patterns for consuming results:
       >>> await future
       TensorStore({
         'array': [1, 2, 3],
+        'context': {'data_copy_concurrency': {}},
         'driver': 'array',
         'dtype': 'uint32',
         'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
@@ -373,6 +374,7 @@ This type supports several different patterns for consuming results:
       >>> future.result()
       TensorStore({
         'array': [1, 2, 3],
+        'context': {'data_copy_concurrency': {}},
         'driver': 'array',
         'dtype': 'uint32',
         'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},

@@ -721,19 +721,14 @@ class FileKeyValueStore
  public:
   static constexpr char id[] = "file";
 
-  template <template <typename T> class MaybeBound>
-  struct SpecT {
+  struct SpecData {
     std::string path;
-    MaybeBound<Context::ResourceSpec<internal::FileIoConcurrencyResource>>
-        file_io_concurrency;
+    Context::Resource<internal::FileIoConcurrencyResource> file_io_concurrency;
 
     constexpr static auto ApplyMembers = [](auto& x, auto f) {
       return f(x.path, x.file_io_concurrency);
     };
   };
-
-  using SpecData = SpecT<internal::ContextUnbound>;
-  using BoundSpecData = SpecT<internal::ContextBound>;
 
   constexpr static auto json_binder = jb::Object(
       // TODO(jbms): Storing a UNIX path as a JSON string presents a challenge
@@ -755,13 +750,8 @@ class FileKeyValueStore
       jb::Member(internal::FileIoConcurrencyResource::id,
                  jb::Projection(&SpecData::file_io_concurrency)));
 
-  static void EncodeCacheKey(std::string* out, const BoundSpecData& spec) {
+  static void EncodeCacheKey(std::string* out, const SpecData& spec) {
     internal::EncodeCacheKey(out, spec.path, spec.file_io_concurrency);
-  }
-
-  static Status ConvertSpec(SpecData* spec,
-                            KeyValueStore::SpecRequestOptions options) {
-    return absl::OkStatus();
   }
 
   Future<ReadResult> Read(Key key, ReadOptions options) override {
@@ -837,12 +827,12 @@ class FileKeyValueStore
     state.driver().spec_ = state.spec();
   }
 
-  Status GetBoundSpecData(BoundSpecData* spec) const {
-    *spec = spec_;
+  absl::Status GetBoundSpecData(SpecData& spec) const {
+    spec = spec_;
     return absl::OkStatus();
   }
 
-  BoundSpecData spec_;
+  SpecData spec_;
 };
 
 const internal::KeyValueStoreDriverRegistration<FileKeyValueStore> registration;

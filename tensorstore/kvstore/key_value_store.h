@@ -21,54 +21,48 @@
 /// This file define the interface for using a KeyValueStore.  See `registry.h`
 /// for the interface for defining a KeyValueStore driver.
 ///
-/// There are three representations of a KeyValueStore that may be used for
+/// There are two representations of a KeyValueStore that may be used for
 /// different purposes:
 ///
 /// 1. `KeyValueStore::Spec` specifies the parameters necessary to open/create a
 ///    `KeyValueStore`, including the driver id as well as any relevant
 ///    driver-specific options.  Parsing a `KeyValueStore::Spec` from JSON does
 ///    not involve any I/O and does not depend on a `Context` object.
-///    Consequently, any references to context resources in the JSON
-///    specification are left unresolved.
+///    Initially, any references to context resources in the JSON specification
+///    are left unresolved.  Calling `KeyValueStore::Ptr::Bind` modifies the
+///    spec to resolve references to context resources from a specified
+///    `Context`.  This may be useful for calculating a cache key without
+///    actually opening the `KeyValueStore`, and for composition.
 ///
-/// 2. `KeyValueStore::BoundSpec::Ptr` specifies the parameters and resources
-///    necessary to open/create a `KeyValueStore` after resolving any resources
-///    from a specified `Context`.  Converting from a `KeyValueStore::Spec` to a
-///    `KeyValueStore::BoundSpec::Ptr` still does not involve any I/O, however.
-///    In most cases it is unnecessary to work with the `BoundSpec`
-///    representation directly, but it is useful for calculating a cache key
-///    without actually opening the `KeyValueStore`, and for composition.
-///
-/// 3. `KeyValueStore::Ptr` is a handle to an open key value store that may be
+/// 2. `KeyValueStore::Ptr` is a handle to an open key value store that may be
 ///    used to perform reads and writes to the underlying key value store.  It
-///    is opened asynchronously from a `KeyValueStore::BoundSpec::Ptr` or from a
-///    `Context` and a `KeyValueStore::Spec` (and this open operation may
-///    involve I/O).
+///    is opened asynchronously from a `KeyValueStore::Spec::Ptr` (and this open
+///    operation may involve I/O).
 ///
-/// The `KeyValueStore::Spec` and `KeyValueStore::BoundSpec::Ptr`
-/// representations may be used to validate a JSON specification without
-/// actually performing any I/O.
+/// The `KeyValueStore::Spec` may be used to validate a JSON specification
+/// without actually performing any I/O.
 ///
 /// Example of opening directly:
 ///
 ///     Future<KeyValueStore::Ptr> store =
-///         KeyValueStore::Open(Context::Default(), {"driver", "memory"});
+///         KeyValueStore::Open({"driver", "memory"});
 ///
 /// Example of opening via `KeyValueStore::Spec`:
 ///
-///     KeyValueStore::Spec::Ptr spec =
-///         KeyValueStore::Spec::Ptr::FromJson({"driver", "memory"}).value();
+///     TENSORSTORE_ASSIGN_OR_RETURN(
+///         auto spec,
+///         KeyValueStore::Spec::Ptr::FromJson({"driver", "memory"}));
 ///
-///     Future<KeyValueStore::Ptr> store = spec->Open(Context::Default());
+///     Future<KeyValueStore::Ptr> store = KeyValueStore::Open(spec);
 ///
 /// Example of opening via `KeyValueStore::Spec` and
 /// `KeyValueStore::BoundSpec::Ptr`:
 ///
-///     KeyValueStore::Spec::Ptr spec =
-///         KeyValueStore::Spec::Ptr::FromJson({"driver", "memory"}).value();
+///     TENSORSTORE_ASSIGN_OR_RETURN(
+///         auto spec,
+///         KeyValueStore::Spec::Ptr::FromJson({"driver", "memory"}));
 ///
-///     KeyValueStore::BoundSpec::Ptr bound_spec =
-///         spec->Bind(Context::Default()).value();
+///     TENSORSTORE_RETURN_IF_ERROR(spec.BindContext(Context::Default()));
 ///
 ///     std::string store_cache_key;
 ///     internal::EncodeCacheKey(&store_cache_key, bound_spec);
@@ -76,7 +70,7 @@
 ///     // Compute derived cache key based on `store_cache_key`.  If already
 ///     // present in cache of opened objects, use existing object and return.
 ///
-///     Future<KeyValueStore::Ptr> store = bound_spec->Open();
+///     Future<KeyValueStore::Ptr> store = KeyValueStore::Open(spec);
 ///
 /// Some internal-only KeyValueStore implementations may not support
 /// construction from a JSON specification.
@@ -100,6 +94,7 @@
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/option.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/sender.h"
 #include "tensorstore/util/status.h"
@@ -114,8 +109,6 @@ template <typename Derived, typename Parent>
 class RegisteredKeyValueStore;
 template <typename Derived>
 class RegisteredKeyValueStoreSpec;
-template <typename Derived>
-class RegisteredKeyValueStoreBoundSpec;
 }  // namespace internal
 
 /// Abstract base class representing a KeyValueStore specification, for creating
@@ -126,7 +119,7 @@ class RegisteredKeyValueStoreBoundSpec;
 /// - The driver id (as a string);
 ///
 /// - Any driver-specific options, such as a cloud storage bucket or path to the
-///   data, and `Context::ResourceSpec` objects for any necessary credentials or
+///   data, and `Context::Resource` objects for any necessary credentials or
 ///   concurrency pools.
 ///
 /// - A `Context::Spec` with context resource specifications that may be
@@ -142,16 +135,20 @@ class KeyValueStoreSpec
   friend class KeyValueStore;
 
  public:
-  /// Driver-agnostic options that may be specified when opening a
-  /// `KeyValueStore`, which may alter the interpretation of the
-  /// `KeyValueStoreSpec`.
-  ///
-  /// Currently, no options are supported.
-  struct OpenOptions {};
+  /// Options that may be specified for modifying an existing `Spec`.  Refer to
+  /// the documentation of `KeyValueStore::Spec::Ptr::Set` for details.
+  struct ConvertOptions {
+    ContextBindingMode context_binding_mode = ContextBindingMode::unspecified;
+    Context context;
 
-  /// Opens a `KeyValueStore` from this specification.
-  Future<KeyValueStorePtr> Open(const Context& context,
-                                const OpenOptions& options = {}) const;
+    template <typename T>
+    constexpr static bool IsOption = false;
+
+    void Set(Context value) { context = std::move(value); }
+    void Set(ContextBindingMode value) {
+      if (value > context_binding_mode) context_binding_mode = value;
+    }
+  };
 
   /// Returns the driver id.
   const std::string& driver() const;
@@ -167,70 +164,78 @@ class KeyValueStoreSpec
   ///
   /// Conversion to/from JSON is supported via
   /// `KeyValueStore::Spec::Ptr::{ToJson,FromJson}`.
-  class Ptr : public internal::IntrusivePtr<KeyValueStoreSpec> {
-    using Base = internal::IntrusivePtr<KeyValueStoreSpec>;
+  class Ptr : public internal::IntrusivePtr<const KeyValueStoreSpec> {
+    using Base = internal::IntrusivePtr<const KeyValueStoreSpec>;
 
    public:
     using Base::Base;
+
+    /// Binds any unbound context resources using the specified context.  Any
+    /// already-bound context resources remain unmodified.
+    ///
+    /// If an error occurs, some context resources may remain unbound.
+    absl::Status BindContext(const Context& context);
+
+    /// Unbinds any bound context resources, replacing them with context
+    /// resource specs that may be used to recreate the context resources.  Any
+    /// already-unbound context resources remain unmodified.
+    void UnbindContext(
+        const internal::ContextSpecBuilder& context_builder = {});
+
+    /// Replaces any context resources with a default context resource spec.
+    void StripContext();
+
+    /// Indicates the context binding state of the spec.
+    ContextBindingState context_binding_state() const {
+      return get()->context_binding_state_;
+    }
+
+    /// Mutates this spec according to the specified options.
+    ///
+    /// Options may be specified in any order and are identified by their type.
+    /// Supported option types are:
+    ///
+    /// - ContextBindingMode: Defaults to `ContextBindingMode::retain`, which
+    ///   does nothing.  Specifying `ContextBindingMode::unbind` is equivalent
+    ///   to calling `UnbindContext`.  Specifying `ContextBindingMode::strip` is
+    ///   equivalent to calling `StripContext`.
+    ///
+    /// - Context: If a non-null context is specified, any unbound context
+    ///   resources are resolved using the specified context, equivalent to
+    ///   calling `BindContext`.  If not specified, unbound context resources
+    ///   remain unmodified.  If `ContextBindingMode::unbind` or
+    ///   `ContextBindingMode::strip` is specified along with this option, the
+    ///   unbind or strip operation is performed before re-binding with the
+    ///   specified context.
+    ///
+    /// If an error occurs, the spec may be left in a partially modified state.
+    ///
+    /// \param option Any option type supported by `ConvertOptions`.
+    template <typename... Option>
+    std::enable_if_t<IsCompatibleOptionSequence<ConvertOptions, Option...>,
+                     absl::Status>
+    Set(Option&&... option) {
+      ConvertOptions options;
+      (options.Set(option), ...);
+      return Set(std::move(options));
+    }
+
+    /// Mutates this spec according to the specified options.
+    absl::Status Set(ConvertOptions&& options);
+
     TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(Ptr, FromJsonOptions, ToJsonOptions)
   };
 
-  /// Options that may be specified to alter an existing `Spec` in a
-  /// driver-agnostic way.
-  ///
-  /// Currently, this is the same as `OpenOptions`.
-  using RequestOptions = OpenOptions;
-
-  /// Returns a modified specification according to `options`.
-  virtual Result<Ptr> Convert(const RequestOptions& options) const;
-
-  /// Representation of a KeyValueStore specification after context resources
-  /// are resolved.
-  ///
-  /// This representation can be used to obtain a cache key representing the
-  /// `KeyValueStore`, and to validate the context resource bindings.  It is not
-  /// normally needed except to implement other composed `KeyValueStore` or
-  /// `TensorStore` drivers.
-  class Bound;
-  using BoundPtr = internal::IntrusivePtr<const Bound>;
-
-  /// Resolves any context references using `context` and returns a
-  /// `BoundSpec` representation.
-  virtual Result<BoundPtr> Bind(const Context& context) const;
-
   virtual ~KeyValueStoreSpec();
 
- private:
-  template <typename, typename>
-  friend class internal::RegisteredKeyValueStore;
-  template <typename Derived>
-  friend class internal::RegisteredKeyValueStoreSpec;
-  template <typename Derived>
-  friend class internal::RegisteredKeyValueStoreBoundSpec;
-  /// Specifies context resource overrides.
-  Context::Spec context_spec_;
-};
+  /// Resolves any context references using `context`.
+  virtual absl::Status BindContext(const Context& context) = 0;
 
-/// `KeyValueStoreSpec` bound to a `Context`, normally used only in the
-/// implementation of other composed `KeyValueStore` or `TensorStore` drivers.
-///
-/// All `Context` resources required by the driver are fully resolved.
-///
-/// This provides an interface to obtain the cache key for a given
-/// `KeyValueStoreSpec` (which depends on the `Context`) without actually
-/// opening the `KeyValueStore`.
-///
-/// Instances of this class should be managed using a
-/// `KeyValueStore::Spec::BoundPtr` reference-counted smart pointer.
-///
-/// For each `Derived` KeyValueStore driver implementation that supports a JSON
-/// representation, `internal::RegisteredKeyValueStoreBoundSpec<Derived>`
-/// defined in `registry.h` serves as the corresponding
-/// `KeyValueStoreSpec::Bound` implementation.
-class KeyValueStoreSpec::Bound
-    : public AtomicReferenceCount<KeyValueStoreSpec::Bound> {
- public:
-  using Ptr = internal::IntrusivePtr<const Bound>;
+  /// Converts any bound context resources to unbound resource specs.
+  virtual void UnbindContext(const internal::ContextSpecBuilder& builder) = 0;
+
+  /// Replaces any context resources with default context resource specs.
+  virtual void StripContext() = 0;
 
   /// Encodes any relevant parameters as a cache key.  This should only include
   /// parameters relevant after the `KeyValueStore` is open that determine
@@ -238,21 +243,40 @@ class KeyValueStoreSpec::Bound
   /// Parameters that only affect creation should be excluded.
   virtual void EncodeCacheKey(std::string* out) const = 0;
 
-  Future<KeyValueStorePtr> Open() const;
-
-  virtual KeyValueStoreSpec::Ptr Unbind(
-      const internal::ContextSpecBuilder& builder = {}) const = 0;
-
-  virtual ~Bound();
+  /// Returns a copy of this spec, used to implement copy-on-write behavior.
+  virtual Ptr Clone() const = 0;
 
  private:
+  /// Opens a KeyValueStore using this spec.
+  ///
+  /// \pre All context resources must be bound.
   virtual Future<KeyValueStorePtr> DoOpen() const = 0;
 
   /// For compatibility with `tensorstore::internal::EncodeCacheKey`.
   friend void EncodeCacheKeyAdl(std::string* out, const Ptr& ptr) {
     ptr->EncodeCacheKey(out);
   }
+
+  template <typename, typename>
+  friend class internal::RegisteredKeyValueStore;
+  template <typename Derived>
+  friend class internal::RegisteredKeyValueStoreSpec;
+  friend class internal_context::Access;
+
+  /// Specifies context resource overrides.
+  Context::Spec context_spec_;
+
+  /// Indicates the binding state.
+  ContextBindingState context_binding_state_;
 };
+
+template <>
+constexpr inline bool KeyValueStoreSpec::ConvertOptions::IsOption<Context> =
+    true;
+
+template <>
+constexpr inline bool
+    KeyValueStoreSpec::ConvertOptions::IsOption<ContextBindingMode> = true;
 
 // Note: `KeyValueStoreCommonReadOptions` is not defined as a nested class in
 // `KeyValueStore` in order to work around Clang bug
@@ -658,47 +682,114 @@ class KeyValueStore {
   AnyFlowSender<Status, Key> List(ListOptions options);
 
   using Spec = KeyValueStoreSpec;
-  using OpenOptions = Spec::OpenOptions;
-  using SpecRequestOptions = Spec::RequestOptions;
-  using BoundSpec = Spec::Bound;
+
+  /// Driver-agnostic options that may be specified when opening a
+  /// `KeyValueStore`.  Refer to the documentation of `KeyValueStore::Open` for
+  /// details.
+  struct OpenOptions {
+    Context context;
+
+    template <typename T>
+    constexpr static bool IsOption = false;
+
+    void Set(Context value) { context = std::move(value); }
+  };
+
+  /// Opens a `KeyValueStore` based on an already-parsed `Spec` and an optional
+  /// sequence of options.
+  ///
+  /// Options may be specified in any order, and are identified by their type.
+  /// Supported option types are:
+  ///
+  /// - Context: specifies the context in which to obtain any unbound context
+  ///   resources in `spec`.  Any already-bound context resources in `spec`
+  ///   remain unmodified.  If not specified, `Context::Default()` is used.
+  ///
+  /// \param spec KeyValueStore specification.
+  /// \param option Any option compatible with `OpenOptions`.
+  template <typename... Option>
+  static std::enable_if_t<IsCompatibleOptionSequence<OpenOptions, Option...>,
+                          Future<KeyValueStore::Ptr>>
+  Open(Spec::Ptr spec, Option&&... option) {
+    OpenOptions options;
+    (options.Set(option), ...);
+    return Open(std::move(spec), std::move(options));
+  }
+
+  /// Same as above, but first parses the `Spec` from JSON.
+  ///
+  /// \param j JSON specification.
+  /// \param option Any option compatible with `OpenOptions`.
+  template <typename... Option>
+  static std::enable_if_t<IsCompatibleOptionSequence<OpenOptions, Option...>,
+                          Future<KeyValueStore::Ptr>>
+  Open(::nlohmann::json j, Option&&... option) {
+    OpenOptions options;
+    (options.Set(option), ...);
+    return Open(std::move(j), std::move(options));
+  }
+
+  /// Opens a `KeyValueStore` based on an already-parsed `Spec`.
+  ///
+  /// \param spec KeyValueStore specification.
+  /// \param options Options for opening the spec.
+  static Future<KeyValueStore::Ptr> Open(Spec::Ptr spec, OpenOptions&& options);
 
   /// Opens a `KeyValueStore` based on a JSON specification.
   ///
-  /// \param context Specifies context resources that may be used.
-  /// \param j JSON specification, passed by value because it is destructively
-  ///     modified (and sub-objects may be retained) during parsing.
-  /// \param options Options that may alter the interpretation of the JSON
-  ///     specification.
+  /// \param json_spec JSON specification.
+  /// \param options Options for opening the spec.
   /// \threadsafety Thread safe.
-  static Future<KeyValueStore::Ptr> Open(const Context& context,
-                                         ::nlohmann::json j,
-                                         const OpenOptions& options = {});
+  static Future<KeyValueStore::Ptr> Open(::nlohmann::json json_spec,
+                                         OpenOptions&& options);
+
+  /// Options that may be specified when requesting the `Spec` for an open
+  /// `KeyValueStore`.  Refer to the documentation of `KeyValueStore::spec` for
+  /// details.
+  struct SpecRequestOptions {
+    ContextBindingMode context_binding_mode = ContextBindingMode::unspecified;
+
+    template <typename T>
+    constexpr static bool IsOption = false;
+
+    void Set(ContextBindingMode value) {
+      if (value > context_binding_mode) context_binding_mode = value;
+    }
+  };
 
   /// Returns a Spec that can be used to re-open this KeyValueStore.
   ///
-  /// Returns `absl::StatusCode::kUnimplemented` if a JSON representation is not
-  /// supported.  (This behavior is provided by the default implementation.)
+  /// Options that modify the returned `Spec` may be specified in any order.
+  /// The meaning of the option is determined by its type.
   ///
-  /// For drivers that do support a JSON representation, this is defined
-  /// automatically by `RegisteredKeyValueStore` in `registry.h`.
+  /// Supported options are:
   ///
-  /// \param context_builder Optional.  Specifies a parent context spec builder,
-  ///     if this `Spec` is to be used in conjunction with a parent context.  If
-  ///     specified, all required shared context resources are recorded in the
-  ///     specified builder.  If not specified, required shared context
-  ///     resources are recorded in the `Context::Spec` owned by the returned
-  ///     `Spec`.
-  virtual Result<Spec::Ptr> spec(
-      const internal::ContextSpecBuilder& context_builder = {}) const;
+  /// - ContextBindingMode: Defaults to `ContextBindingMode::strip`, such that
+  ///   the returned `Spec` does not specify any context resources.  To retain
+  ///   the bound context resources, such that the returned `Spec` may be used
+  ///   to re-open the `KeyValueStore` with the identical context resources,
+  ///   specify `ContextBindingMode::retain`.  Specifying
+  ///   `ContextBindingMode::unbind` converts all context resources to context
+  ///   resource specs that may be used to re-open the `KeyValueStore` with a
+  ///   graph new context resources isomorphic to the existing graph of context
+  ///   resources.
+  ///
+  /// \param option Any option compatible with `SpecRequestOptions`.
+  /// \error `absl::StatusCode::kUnimplemented` if a JSON representation is not
+  ///     supported.  (This behavior is provided by the default implementation.)
+  template <typename... Option>
+  std::enable_if_t<IsCompatibleOptionSequence<SpecRequestOptions, Option...>,
+                   Result<Spec::Ptr>>
+  spec(Option&&... option) const {
+    SpecRequestOptions options;
+    (options.Set(std::move(option)), ...);
+    return spec(std::move(options));
+  }
 
-  /// Returns a BoundSpec that can be used to re-open this KeyValueStore.
+  /// Returns a Spec that can be used to re-open this KeyValueStore.
   ///
-  /// Returns `absl::StatusCode::kUnimplemented` if a JSON representation is not
-  /// supported.  (This behavior is provided by the default implementation.)
-  ///
-  /// For drivers that do support a JSON representation, this is defined
-  /// automatically by `RegisteredKeyValueStore` in `registry.h`.
-  virtual Result<Spec::BoundPtr> GetBoundSpec() const;
+  /// \param option Options that may modify the returned `Spec`.
+  Result<Spec::Ptr> spec(SpecRequestOptions&& options) const;
 
   /// Encodes relevant state as a cache key.
   ///
@@ -741,6 +832,15 @@ class KeyValueStore {
       std::string_view key_description, std::string_view action,
       const absl::Status& error);
 
+  /// Returns a Spec that can be used to re-open this KeyValueStore.
+  ///
+  /// Returns `absl::StatusCode::kUnimplemented` if a JSON representation is not
+  /// supported.  (This behavior is provided by the default implementation.)
+  ///
+  /// For drivers that do support a JSON representation, this is defined
+  /// automatically by `RegisteredKeyValueStore` in `registry.h`.
+  virtual Result<Spec::Ptr> GetBoundSpec() const;
+
   virtual ~KeyValueStore();
 
  private:
@@ -760,6 +860,13 @@ class KeyValueStore {
   std::atomic<size_t> reference_count_{0};
 };
 
+template <>
+constexpr inline bool KeyValueStore::OpenOptions::IsOption<Context> = true;
+
+template <>
+constexpr inline bool
+    KeyValueStore::SpecRequestOptions::IsOption<ContextBindingMode> = true;
+
 /// Calls `List` and collects the results in an `std::vector`.
 Future<std::vector<KeyValueStore::Key>> ListFuture(
     KeyValueStore* store, KeyValueStore::ListOptions options = {});
@@ -772,19 +879,14 @@ namespace internal {
 template <>
 struct ContextBindingTraits<KeyValueStoreSpec::Ptr> {
   using Spec = KeyValueStoreSpec::Ptr;
-  using Bound = KeyValueStoreSpec::BoundPtr;
-  static Status Bind(const Spec* spec, Bound* bound, const Context& context) {
-    if (!*spec) {
-      *bound = Bound{};
-    } else {
-      TENSORSTORE_ASSIGN_OR_RETURN(*bound, (*spec)->Bind(context));
-    }
-    return absl::OkStatus();
+  static Status Bind(Spec& spec, const Context& context) {
+    if (!spec) return absl::OkStatus();
+    return spec.BindContext(context);
   }
-  static void Unbind(Spec* spec, const Bound* bound,
-                     const ContextSpecBuilder& builder) {
-    *spec = (*bound)->Unbind(builder);
+  static void Unbind(Spec& spec, const ContextSpecBuilder& builder) {
+    spec.UnbindContext(builder);
   }
+  static void Strip(Spec& spec) { spec.StripContext(); }
 };
 }  // namespace internal
 

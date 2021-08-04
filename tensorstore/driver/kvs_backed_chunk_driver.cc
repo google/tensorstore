@@ -563,21 +563,21 @@ Future<IndexTransform<>> DriverBase::Resize(
 }
 
 Result<IndexTransform<>> DriverBase::GetBoundSpecData(
-    internal::OpenTransactionPtr transaction,
-    SpecT<internal::ContextBound>* spec, IndexTransformView<> transform_view) {
+    internal::OpenTransactionPtr transaction, SpecData& spec,
+    IndexTransformView<> transform_view) {
   auto* cache = this->cache();
   auto* metadata_cache = cache->metadata_cache();
-  TENSORSTORE_ASSIGN_OR_RETURN(spec->store,
+  TENSORSTORE_ASSIGN_OR_RETURN(spec.store,
                                metadata_cache->base_store()->GetBoundSpec());
-  spec->data_copy_concurrency = metadata_cache->data_copy_concurrency_;
-  spec->cache_pool = metadata_cache->cache_pool_;
-  spec->delete_existing = false;
-  spec->open = true;
-  spec->create = false;
-  spec->staleness.metadata = this->metadata_staleness_bound();
-  spec->staleness.data = this->data_staleness_bound();
-  spec->schema.Set(RankConstraint{this->rank()}).IgnoreError();
-  spec->schema.Set(this->dtype()).IgnoreError();
+  spec.data_copy_concurrency = metadata_cache->data_copy_concurrency_;
+  spec.cache_pool = metadata_cache->cache_pool_;
+  spec.delete_existing = false;
+  spec.open = true;
+  spec.create = false;
+  spec.staleness.metadata = this->metadata_staleness_bound();
+  spec.staleness.data = this->data_staleness_bound();
+  spec.schema.Set(RankConstraint{this->rank()}).IgnoreError();
+  spec.schema.Set(this->dtype()).IgnoreError();
 
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto validated_metadata,
@@ -603,8 +603,7 @@ Result<IndexTransform<>> DriverBase::GetBoundSpecData(
   return transform;
 }
 
-Status DriverBase::ApplyOptions(SpecT<internal::ContextUnbound>& spec,
-                                SpecOptions&& options) {
+Status DriverBase::ApplyOptions(SpecData& spec, SpecOptions&& options) {
   if (options.recheck_cached_data.specified()) {
     spec.staleness.data = StalenessBound(options.recheck_cached_data);
   }
@@ -1119,7 +1118,7 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(OpenState* state) {
                 metadata_cache_promise.SetResult(std::move(result).status());
               }
             },
-            initialized, spec.store->Open());
+            initialized, KeyValueStore::Open(spec.store));
       });
 }
 }  // namespace
@@ -1302,12 +1301,12 @@ TENSORSTORE_DEFINE_JSON_BINDER(
     SpecJsonBinder,
     jb::Sequence(
         jb::Member(internal::DataCopyConcurrencyResource::id,
-                   jb::Projection(&SpecT<>::data_copy_concurrency)),
+                   jb::Projection(&SpecData::data_copy_concurrency)),
         jb::Member(internal::CachePoolResource::id,
-                   jb::Projection(&SpecT<>::cache_pool)),
-        jb::Member("kvstore", jb::Projection(&SpecT<>::store)),
+                   jb::Projection(&SpecData::cache_pool)),
+        jb::Member("kvstore", jb::Projection(&SpecData::store)),
         jb::Projection(
-            &SpecT<>::staleness,
+            &SpecData::staleness,
             jb::Sequence(
                 jb::Member("recheck_cached_metadata",
                            jb::Projection(&StalenessBounds::metadata,

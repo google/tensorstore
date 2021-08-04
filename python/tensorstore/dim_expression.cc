@@ -580,6 +580,7 @@ coordinates given by the elements of the array of the selected dimension:
     >>> x[ts.d['y'][[1, 1, 0]]]
     TensorStore({
       'array': [[2, 2, 1], [5, 5, 4]],
+      'context': {'data_copy_concurrency': {}},
       'driver': 'array',
       'dtype': 'int32',
       'transform': {
@@ -608,6 +609,7 @@ dimensions are not well-defined for dimension expressions:
     >>> x[ts.d['z', 'y'][[1, 0], [1, 1]]]
     TensorStore({
       'array': [[4, 3], [8, 7]],
+      'context': {'data_copy_concurrency': {}},
       'driver': 'array',
       'dtype': 'int32',
       'transform': {
@@ -637,6 +639,7 @@ non-zero coordinates:
     >>> x[ts.d['y'][[False, True, True]]]
     TensorStore({
       'array': [[2, 3], [5, 6]],
+      'context': {'data_copy_concurrency': {}},
       'driver': 'array',
       'dtype': 'int32',
       'transform': {
@@ -651,6 +654,7 @@ Equivalently, using an index array:
     >>> x[ts.d['y'][[1, 2]]]
     TensorStore({
       'array': [[2, 3], [5, 6]],
+      'context': {'data_copy_concurrency': {}},
       'driver': 'array',
       'dtype': 'int32',
       'transform': {
@@ -670,6 +674,7 @@ the ``i``\ th coordinate of the `True` values:
     >>> x[ts.d['x', 'z'][[[True, False, False], [True, True, False]]]]
     TensorStore({
       'array': [[1, 4], [7, 10], [8, 11]],
+      'context': {'data_copy_concurrency': {}},
       'driver': 'array',
       'dtype': 'int32',
       'transform': {
@@ -684,6 +689,7 @@ Equivalently, using an index array:
     >>> x[ts.d['x', 'z'][[0, 1, 1], [0, 0, 1]]]
     TensorStore({
       'array': [[1, 4], [7, 10], [8, 11]],
+      'context': {'data_copy_concurrency': {}},
       'driver': 'array',
       'dtype': 'int32',
       'transform': {

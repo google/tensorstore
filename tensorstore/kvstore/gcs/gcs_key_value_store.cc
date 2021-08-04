@@ -291,21 +291,16 @@ class GcsKeyValueStore
  public:
   static constexpr char id[] = "gcs";
 
-  template <template <typename T> class MaybeBound>
-  struct SpecT {
+  struct SpecData {
     std::string bucket;
-    MaybeBound<Context::ResourceSpec<GcsRequestConcurrencyResource>>
-        request_concurrency;
-    MaybeBound<Context::ResourceSpec<GcsUserProjectResource>> user_project;
-    MaybeBound<Context::ResourceSpec<GcsRequestRetries>> retries;
+    Context::Resource<GcsRequestConcurrencyResource> request_concurrency;
+    Context::Resource<GcsUserProjectResource> user_project;
+    Context::Resource<GcsRequestRetries> retries;
 
     constexpr static auto ApplyMembers = [](auto& x, auto f) {
       return f(x.bucket, x.request_concurrency, x.user_project, x.retries);
     };
   };
-
-  using SpecData = SpecT<internal::ContextUnbound>;
-  using BoundSpecData = SpecT<internal::ContextBound>;
 
   constexpr static auto json_binder = jb::Object(
       // Bucket is specified in the `spec` since it identifies the resource
@@ -329,15 +324,10 @@ class GcsKeyValueStore
                  jb::Projection(&SpecData::user_project)),
       jb::Member(GcsRequestRetries::id, jb::Projection(&SpecData::retries)));
 
-  static void EncodeCacheKey(std::string* out, const BoundSpecData& spec) {
+  static void EncodeCacheKey(std::string* out, const SpecData& spec) {
     internal::EncodeCacheKey(out, spec.bucket, spec.request_concurrency,
                              spec.user_project->project_id,
                              spec.retries->max_retries);
-  }
-
-  static absl::Status ConvertSpec(SpecData* spec,
-                                  KeyValueStore::SpecRequestOptions options) {
-    return absl::OkStatus();
   }
 
   using KeyValueStore::Key;
@@ -400,8 +390,8 @@ class GcsKeyValueStore
     }
   }
 
-  absl::Status GetBoundSpecData(BoundSpecData* spec) const {
-    *spec = spec_;
+  absl::Status GetBoundSpecData(SpecData& spec) const {
+    spec = spec_;
     return absl::OkStatus();
   }
 
@@ -440,7 +430,7 @@ class GcsKeyValueStore
         absl::Milliseconds(100), absl::Seconds(5), IsRetriable);
   }
 
-  BoundSpecData spec_;
+  SpecData spec_;
   std::string resource_root_;  // bucket resource root.
   std::string upload_root_;    // bucket upload root.
   std::string encoded_user_project_;

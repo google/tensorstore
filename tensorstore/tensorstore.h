@@ -156,19 +156,8 @@ class TensorStore {
   /// Returns a Spec that may be used to open/recreate this TensorStore.
   ///
   /// \pre `valid()`
-  Result<Spec> spec(
-      SpecOptions&& options,
-      const internal::ContextSpecBuilder& context_builder = {}) const {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto open_transaction,
-        internal::AcquireOpenTransactionPtrOrError(handle_.transaction));
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        internal::TransformedDriverSpec<> transformed_driver_spec,
-        handle_.driver->GetSpec(std::move(open_transaction), handle_.transform,
-                                std::move(options), context_builder));
-    Spec spec;
-    internal_spec::SpecAccess::impl(spec) = std::move(transformed_driver_spec);
-    return spec;
+  Result<Spec> spec(SpecRequestOptions&& options) const {
+    return internal::GetSpec(handle_, std::move(options));
   }
 
   /// Returns a Spec that may be used to open/recreate this TensorStore.
@@ -190,6 +179,14 @@ class TensorStore {
   /// - RecheckCached, RecheckCachedData, RecheckCachedMetadata: specifies cache
   ///   staleness bounds, overriding the current bounds (if applicable).
   ///
+  /// - UnbindContext: Indicates whether context resources should be unbound,
+  ///   meaning that they refer to an unresolved context resource spec (e.g. a
+  ///   desired number of concurrent requests, memory limits on cache pool),
+  ///   rather than a specific context resource (specific concurrency pool,
+  ///   specific cache pool).  Defaults to `UnbindContext{true}`.  If
+  ///   `UnbindContext{false}` is specified, the returned `Spec` may be used to
+  ///   re-open the TensorStore using the identical context resources.
+  ///
   /// \param option Any option compatible with `SpecRequestOptions`.
   /// \pre `valid()`
   template <typename... Option>
@@ -199,19 +196,6 @@ class TensorStore {
     TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(SpecRequestOptions, options,
                                                   option)
     return spec(std::move(options));
-  }
-
-  /// Same as above, but allows specifying a `context_builder`.
-  ///
-  /// \pre `valid()`
-  template <typename... Option>
-  std::enable_if_t<IsCompatibleOptionSequence<SpecRequestOptions, Option...>,
-                   Result<Spec>>
-  spec(const internal::ContextSpecBuilder& context_builder,
-       Option&&... option) const {
-    TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(SpecRequestOptions, options,
-                                                  option)
-    return spec(std::move(options), context_builder);
   }
 
   /// Returns the storage layout of this TensorStore, which can be used to

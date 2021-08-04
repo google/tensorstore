@@ -23,6 +23,7 @@
 #include "tensorstore/schema.h"
 #include "tensorstore/staleness_bound.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/option.h"
 
 namespace tensorstore {
 
@@ -170,6 +171,8 @@ constexpr inline bool SpecOptions::IsCommonOption<RecheckCached> = true;
 
 /// Options for requesting a `Spec` from an open `TensorStore`.
 struct SpecRequestOptions : public SpecOptions {
+  ContextBindingMode context_binding_mode = ContextBindingMode::unspecified;
+
   template <typename T>
   constexpr static inline bool IsOption = SpecOptions::IsCommonOption<T>;
 
@@ -179,20 +182,40 @@ struct SpecRequestOptions : public SpecOptions {
     minimal_spec = value.minimal_spec();
     return absl::OkStatus();
   }
+
+  absl::Status Set(ContextBindingMode value) {
+    if (value > context_binding_mode) context_binding_mode = value;
+    return absl::OkStatus();
+  }
 };
 
 template <>
 constexpr inline bool SpecRequestOptions::IsOption<MinimalSpec> = true;
 
+template <>
+constexpr inline bool SpecRequestOptions::IsOption<ContextBindingMode> = true;
+
 /// Options for converting an existing `Spec`.
 struct SpecConvertOptions : public SpecRequestOptions {
+  Context context;
+
   template <typename T>
   constexpr static inline bool IsOption =
       SpecRequestOptions::IsOption<T> || Schema::IsOption<T>;
 
   using Schema::Set;
   using SpecRequestOptions::Set;
+
+  // Additionally supports `Context`.
+
+  absl::Status Set(Context value) {
+    context = std::move(value);
+    return absl::OkStatus();
+  }
 };
+
+template <>
+constexpr inline bool SpecConvertOptions::IsOption<Context> = true;
 
 /// Options for opening a `Spec`.
 struct OpenOptions : public SpecOptions {
@@ -246,10 +269,6 @@ struct TransactionalOpenOptions : public OpenOptions {
 
 template <>
 constexpr inline bool TransactionalOpenOptions::IsOption<Transaction> = true;
-
-template <typename Options, typename... Option>
-constexpr inline bool IsCompatibleOptionSequence =
-    (Options::template IsOption<internal::remove_cvref_t<Option>> && ...);
 
 /// Collects a parameter pack of options into an options type.
 ///

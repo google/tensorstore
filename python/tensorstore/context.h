@@ -37,6 +37,8 @@
 /// the object deduplication built into Python's pickling mechanism.
 
 #include "python/tensorstore/intrusive_ptr_holder.h"
+#include "python/tensorstore/json_type_caster.h"
+#include "python/tensorstore/result_type_caster.h"
 #include "pybind11/pybind11.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_impl.h"
@@ -67,19 +69,18 @@ pybind11::tuple PickleContextSpecBuilder(internal::ContextSpecBuilder builder);
 ///
 /// \returns Non-null context object.
 internal_context::ContextImplPtr UnpickleContextSpecBuilder(
-    pybind11::tuple t, bool allow_key_mismatch = true);
+    pybind11::tuple t, bool allow_key_mismatch, bool bind_partial);
 
 // Type alias for use with `PYBIND11_DECLARE_HOLDER_TYPE` below.
 //
 // Because `PYBIND11_DECLARE_HOLDER_TYPE` expects a template, we have to
 // register a template even though
-// `T = tensorstore::internal_context::ContextResourceImplBase` (corresponding
-// to `ContextResourceImplWeakPtr`).  The alias is needed to avoid having a
+// `T = tensorstore::internal_context::ResourceImplBase` (corresponding
+// to `ResourceImplWeakPtr`).  The alias is needed to avoid having a
 // comma inside the macro argument.
 template <typename T>
 using ContextResourcePtrHolderWorkaround =
-    internal::IntrusivePtr<T,
-                           internal_context::ContextResourceImplWeakPtrTraits>;
+    internal::IntrusivePtr<T, internal_context::ResourceImplWeakPtrTraits>;
 
 inline Context WrapImpl(internal_context::ContextImplPtr impl) {
   Context context;
@@ -93,12 +94,47 @@ inline Context::Spec WrapImpl(internal_context::ContextSpecImplPtr impl) {
   return spec;
 }
 
+/// Pickles a `Spec`-like type that supports a JSON representation with a nested
+/// `context`.
+///
+/// This is the inverse of `UnpickleWithNestedContext`.
+template <typename T>
+pybind11::tuple PickleWithNestedContext(T spec) {
+  auto builder = internal::ContextSpecBuilder::Make();
+  internal::SetRecordBindingState(builder, true);
+  spec.UnbindContext(builder);
+  auto pickled_context =
+      internal_python::PickleContextSpecBuilder(std::move(builder));
+  JsonSerializationOptions json_serialization_options;
+  json_serialization_options.preserve_bound_context_resources_ = true;
+  auto json_spec = ValueOrThrow(spec.ToJson(json_serialization_options));
+  return pybind11::make_tuple(pybind11::cast(json_spec),
+                              std::move(pickled_context));
+}
+
+/// Unpickles a `Spec`-like type that supports a JSON representation with a
+/// nested `context`.
+///
+/// This is the inverse of `PickleWithNestedContext`.
+template <typename T>
+T UnpickleWithNestedContext(pybind11::tuple t) {
+  auto json_spec = pybind11::cast<::nlohmann::json>(t[0]);
+  auto context = WrapImpl(internal_python::UnpickleContextSpecBuilder(
+      t[1], /*allow_key_mismatch=*/true, /*bind_partial=*/true));
+  JsonSerializationOptions json_serialization_options;
+  json_serialization_options.preserve_bound_context_resources_ = true;
+  T spec = ValueOrThrow(
+      T::FromJson(std::move(json_spec), json_serialization_options));
+  ThrowStatusException(spec.BindContext(context));
+  return spec;
+}
+
 }  // namespace internal_python
 }  // namespace tensorstore
 
-// Declare `tensorstore::internal_context::ContextResourceImplWeakPtr` a holder
-// for `internal_context::ContextResourceImplBase`.  This allows pybind11 to
-// directly hold a `ContextResourceImplWeakPtr`, rather than wrapping that
+// Declare `tensorstore::internal_context::ResourceImplWeakPtr` a holder
+// for `internal_context::ResourceImplBase`.  This allows pybind11 to
+// directly hold a `ResourceImplWeakPtr`, rather than wrapping that
 // pointer in a `unique_ptr`, which is needed for correct deduplication when
 // pickling (and also improves efficiently generally).
 PYBIND11_DECLARE_HOLDER_TYPE(

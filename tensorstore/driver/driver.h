@@ -112,7 +112,7 @@ class Driver;
 using DriverPtr = ReadWritePtr<Driver>;
 
 class DriverSpec;
-using DriverSpecPtr = IntrusivePtr<DriverSpec>;
+using DriverSpecPtr = IntrusivePtr<const DriverSpec>;
 
 template <typename Driver>
 struct HandleBase {
@@ -145,8 +145,8 @@ class DriverSpecCommonData {
 /// - The driver id (as a string, implicitly);
 ///
 /// - Any driver-specific options, such as any necessary `KeyValueStore::Spec`
-///   objects, relevant paths, and `Context::ResourceSpec` objects for any
-///   necessary concurrency pools or caches.
+///   objects, relevant paths, and `Context::Resource` objects for any necessary
+///   concurrency pools or caches.
 ///
 /// - A `Context::Spec` with context resource specifications that may be
 ///   referenced by driver-specific context resource specifications; these
@@ -160,10 +160,7 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
  public:
   /// DriverSpec objects are logically immutable and always managed by
   /// reference-counted smart pointer.
-  using Ptr = IntrusivePtr<DriverSpec>;
-
-  class Bound;
-  using BoundPtr = IntrusivePtr<const Bound>;
+  using Ptr = IntrusivePtr<const DriverSpec>;
 
   virtual ~DriverSpec();
 
@@ -175,8 +172,53 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   /// called if `use_count() == 1`.
   virtual absl::Status ApplyOptions(SpecOptions&& options) = 0;
 
-  /// Resolves any `Context` resources and returns a `DriverSpec::Bound`.
-  virtual Result<BoundPtr> Bind(Context context) const = 0;
+  /// Indicates the binding state of the spec.
+  ContextBindingState context_binding_state() const {
+    return context_binding_state_;
+  }
+
+  /// Resolves any `Context` resources.
+  ///
+  /// \pre `use_count() == 1`.
+  virtual absl::Status BindContext(const Context& context) = 0;
+
+  /// Converts any bound context resources to unbound resource specs.
+  ///
+  /// \pre `use_count() == 1`.
+  /// \param context_builder Optional.  Specifies a parent context spec builder,
+  ///     if the returned `DriverSpec` is to be used in conjunction with a
+  ///     parent context.  If specified, all required shared context resources
+  ///     are recorded in the specified builder.  If not specified, required
+  ///     shared context resources are recorded in the `Context::Spec` owned by
+  ///     the returned `DriverSpec`.
+  virtual void UnbindContext(const ContextSpecBuilder& context_builder) = 0;
+
+  /// Converts any context resources to default context resource specs.
+  ///
+  /// \pre `use_count() == 1`.
+  /// \param context_builder Optional.  Specifies a parent context spec builder,
+  ///     if the returned `DriverSpec` is to be used in conjunction with a
+  ///     parent context.  If specified, all required shared context resources
+  ///     are recorded in the specified builder.  If not specified, required
+  ///     shared context resources are recorded in the `Context::Spec` owned by
+  ///     the returned `DriverSpec`.
+  virtual void StripContext() = 0;
+
+  /// Opens the driver.
+  ///
+  /// In the resultant `DriverHandle`, the `transform` specifies any "intrinsic"
+  /// transform implicit in the specification.  It will be composed with the
+  /// `IndexTransform` specified in the `TransformedDriverSpec`.
+  ///
+  /// If this is a multiscale spec, this opens the base resolution.
+  ///
+  /// \param transaction The transaction to use for opening, or `nullptr` to not
+  ///     use a transaction.  If specified, the same transaction should be
+  ///     returned in the `DriverHandle`.
+  /// \param read_write_mode Required mode, or `ReadWriteMode::dynamic` to
+  ///     determine the allowed modes.
+  virtual Future<DriverHandle> Open(OpenTransactionPtr transaction,
+                                    ReadWriteMode read_write_mode) const = 0;
 
   /// Returns the domain, or a null domain if unknown.
   virtual Result<IndexDomain<>> GetDomain() const = 0;
@@ -203,57 +245,20 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   /// driver-specific metadata, call `GetEffectiveSchema` instead.
   Schema& schema() { return data().schema; }
 
+  const Schema& schema() const {
+    return const_cast<DriverSpec&>(*this).data().schema;
+  }
+
   /// Specifies any context resource overrides.
   Context::Spec context_spec_;
+
+  ContextBindingState context_binding_state_ = ContextBindingState::unknown;
 };
 
-/// `DriverSpec` bound to a `Context`.
-///
-/// All `Context` resources required by the driver are fully resolved.
-///
-/// For each `Derived` driver implementation that supports a JSON
-/// representation, `internal::RegisteredDriverBoundSpec<Derived>` defined in
-/// `registry.h` serves as the corresponding `DriverSpec::Bound` implementation.
-class DriverSpec::Bound : public AtomicReferenceCount<DriverSpec::Bound> {
- public:
-  /// DriverSpec::Bound objects are logically immutable and always managed by
-  /// reference-counted smart pointer.
-  using Ptr = internal::IntrusivePtr<const DriverSpec::Bound>;
-
-  virtual ~Bound();
-
-  /// Returns the common spec data (stored as a member of the derived type).
-  virtual const DriverSpecCommonData& data() const = 0;
-
-  const Schema& schema() const { return data().schema; }
-
-  /// Opens the driver.
-  ///
-  /// In the resultant `DriverHandle`, the `transform` specifies any "intrinsic"
-  /// transform implicit in the specification.  It will be composed with the
-  /// `IndexTransform` specified in the `TransformedDriverSpec`.
-  ///
-  /// If this is a multiscale spec, this opens the base resolution.
-  ///
-  /// \param transaction The transaction to use for opening, or `nullptr` to not
-  ///     use a transaction.  If specified, the same transaction should be
-  ///     returned in the `DriverHandle`.
-  /// \param read_write_mode Required mode, or `ReadWriteMode::dynamic` to
-  ///     determine the allowed modes.
-  virtual Future<DriverHandle> Open(OpenTransactionPtr transaction,
-                                    ReadWriteMode read_write_mode) const = 0;
-
-  /// Returns a corresponding `DriverSpec`.
-  ///
-  /// \param context_builder Optional.  Specifies a parent context spec builder,
-  ///     if the returned `DriverSpec` is to be used in conjunction with a
-  ///     parent context.  If specified, all required shared context resources
-  ///     are recorded in the specified builder.  If not specified, required
-  ///     shared context resources are recorded in the `Context::Spec` owned by
-  ///     the returned `DriverSpec`.
-  virtual DriverSpecPtr Unbind(
-      const ContextSpecBuilder& context_builder) const = 0;
-};
+absl::Status DriverSpecBindContext(DriverSpecPtr& spec, const Context& context);
+void DriverSpecUnbindContext(DriverSpecPtr& spec,
+                             const ContextSpecBuilder& context_builder = {});
+void DriverSpecStripContext(DriverSpecPtr& spec);
 
 /// For compatibility with `ContextBindingTraits`.  `DriverSpec::Ptr` is the
 /// context-unbound type corresponding to the context-bound type
@@ -261,15 +266,13 @@ class DriverSpec::Bound : public AtomicReferenceCount<DriverSpec::Bound> {
 template <>
 struct ContextBindingTraits<DriverSpecPtr> {
   using Spec = DriverSpecPtr;
-  using Bound = DriverSpec::Bound::Ptr;
-  static Status Bind(const Spec* spec, Bound* bound, const Context& context) {
-    TENSORSTORE_ASSIGN_OR_RETURN(*bound, (*spec)->Bind(context));
-    return absl::OkStatus();
+  static absl::Status Bind(Spec& spec, const Context& context) {
+    return DriverSpecBindContext(spec, context);
   }
-  static void Unbind(Spec* spec, const Bound* bound,
-                     const ContextSpecBuilder& builder) {
-    *spec = (*bound)->Unbind(builder);
+  static void Unbind(Spec& spec, const ContextSpecBuilder& builder) {
+    return DriverSpecUnbindContext(spec, builder);
   }
+  static void Strip(Spec& spec) { return DriverSpecStripContext(spec); }
 };
 
 /// Pairs a `DriverSpec` with an `IndexTransform`.
@@ -279,10 +282,20 @@ struct ContextBindingTraits<DriverSpecPtr> {
 ///
 /// If `transform.valid()`, `transform.output_rank()` must equal
 /// `driver_spec->schema().rank()`.
-template <template <typename> class MaybeBound = ContextUnbound>
 struct TransformedDriverSpec {
-  MaybeBound<DriverSpecPtr> driver_spec;
+  DriverSpecPtr driver_spec;
   IndexTransform<> transform;
+
+  // Forwarding method required by NestedContextJsonBinder
+  ContextBindingState context_binding_state() const {
+    return driver_spec ? driver_spec->context_binding_state()
+                       : ContextBindingState::unknown;
+  }
+
+  // Forwarding method required by NestedContextJsonBinder
+  void UnbindContext(const ContextSpecBuilder& context_builder = {}) {
+    DriverSpecUnbindContext(driver_spec, context_builder);
+  }
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(x.driver_spec, x.transform);
@@ -290,29 +303,26 @@ struct TransformedDriverSpec {
 };
 
 absl::Status ApplyOptions(DriverSpec::Ptr& spec, SpecOptions&& options);
-absl::Status TransformAndApplyOptions(TransformedDriverSpec<>& spec,
+absl::Status TransformAndApplyOptions(TransformedDriverSpec& spec,
                                       SpecOptions&& options);
 
-Result<IndexDomain<>> GetEffectiveDomain(const TransformedDriverSpec<>& spec);
+Result<IndexDomain<>> GetEffectiveDomain(const TransformedDriverSpec& spec);
 
-Result<ChunkLayout> GetEffectiveChunkLayout(
-    const TransformedDriverSpec<>& spec);
+Result<ChunkLayout> GetEffectiveChunkLayout(const TransformedDriverSpec& spec);
 
 Result<SharedArray<const void>> GetEffectiveFillValue(
-    const TransformedDriverSpec<>& spec);
+    const TransformedDriverSpec& spec);
 
-Result<CodecSpec::Ptr> GetEffectiveCodec(const TransformedDriverSpec<>& spec);
+Result<CodecSpec::Ptr> GetEffectiveCodec(const TransformedDriverSpec& spec);
 
-Result<Schema> GetEffectiveSchema(const TransformedDriverSpec<>& spec);
+Result<Schema> GetEffectiveSchema(const TransformedDriverSpec& spec);
 
-template <template <typename> class MaybeBound>
-DimensionIndex GetRank(const TransformedDriverSpec<MaybeBound>& spec);
+DimensionIndex GetRank(const TransformedDriverSpec& spec);
 
 /// JSON binder for TensorStore specification.
 TENSORSTORE_DECLARE_JSON_BINDER(TransformedDriverSpecJsonBinder,
-                                TransformedDriverSpec<>,
-                                JsonSerializationOptions,
-                                JsonSerializationOptions, ::nlohmann::json);
+                                TransformedDriverSpec, JsonSerializationOptions,
+                                JsonSerializationOptions, ::nlohmann::json)
 
 /// Abstract base class for defining a TensorStore driver, which serves as the
 /// glue between the public TensorStore API and an arbitrary data
@@ -331,7 +341,6 @@ class Driver : public AtomicReferenceCount<Driver> {
   using Handle = DriverHandle;
 
   using Spec = DriverSpec;
-  using BoundSpec = DriverSpec::Bound;
 
   /// Returns the element representation.
   virtual DataType dtype() = 0;
@@ -339,29 +348,8 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// Returns the rank.
   virtual DimensionIndex rank() = 0;
 
-  /// Returns a `TransformedDriverSpec<>` that can be used to re-open the
+  /// Returns a `TransformedDriverSpec` that can be used to re-open the
   /// TensorStore defined by this `Driver` and the specified `transform`.
-  ///
-  /// This is equivalent to chaining `Driver::GetBoundSpec`,
-  /// `DriverSpec::Bound::Unbind`, and `TransformAndApplyOptions`.
-  ///
-  /// \param transaction The transaction to use.
-  /// \param transform Transform from the domain exposed to the user to the
-  ///     domain expected by the driver.
-  /// \param options Specifies options for modifying the returned `DriverSpec`.
-  /// \param context_builder Optional.  Specifies a parent context spec builder,
-  ///     if this `DriverSpec` is to be used in conjunction with a parent
-  ///     context.  If specified, all required shared context resources are
-  ///     recorded in the specified builder.  If not specified, required shared
-  ///     context resources are recorded in the `Context::Spec` owned by the
-  ///     returned `DriverSpec`.
-  Result<TransformedDriverSpec<>> GetSpec(
-      internal::OpenTransactionPtr transaction, IndexTransformView<> transform,
-      SpecOptions&& options, const ContextSpecBuilder& context_builder);
-
-  /// Returns a `TransformedDriverSpec<ContextBound>` that can be used to
-  /// re-open the TensorStore defined by this `Driver` and the specified
-  /// `transform`.
   ///
   /// Returns `absl::StatusCode::kUnimplemented` if a JSON representation is not
   /// supported.  (This behavior is provided by the default implementation.)
@@ -369,13 +357,13 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// The returned `transform` must have a domain equal to `transform.domain()`,
   /// but may or may not equal `transform`.  For example, the returned
   /// `transform` may be composed with another invertible transform, or the
-  /// returned `DriverSpec::Bound` may somehow incorporate part or all of the
+  /// returned `DriverSpec` may somehow incorporate part or all of the
   /// transform.
   ///
   /// \param transaction The transaction to use.
   /// \param transform Transform from the domain exposed to the user to the
   ///     domain expected by the driver.
-  virtual Result<TransformedDriverSpec<ContextBound>> GetBoundSpec(
+  virtual Result<TransformedDriverSpec> GetBoundSpec(
       internal::OpenTransactionPtr transaction, IndexTransformView<> transform);
 
   /// Returns the chunk layout.
@@ -486,24 +474,23 @@ class Driver : public AtomicReferenceCount<Driver> {
   virtual ~Driver();
 };
 
-/// Opens a `TransformedDriverSpec<>` using the specified options.
+/// Opens a `TransformedDriverSpec` using the specified options.
 ///
 /// This simply chains `DriverSpec::Convert`, `DriverSpec::Bind`, and the
 /// `OpenDriver` overload defined below.
 Future<DriverHandle> OpenDriver(OpenTransactionPtr transaction,
-                                TransformedDriverSpec<> spec,
+                                TransformedDriverSpec spec,
                                 OpenOptions&& options);
 
-Future<DriverHandle> OpenDriver(TransformedDriverSpec<> spec,
+Future<DriverHandle> OpenDriver(TransformedDriverSpec spec,
                                 TransactionalOpenOptions&& options);
 
-/// Opens a `TransformedDriverSpec<ContextBound>` using the specified
-/// `read_write_mode`.
+/// Opens a `TransformedDriverSpec` using the specified `read_write_mode`.
 ///
-/// This simply calls `DriverSpec::Bound::Open` and then composes the
-/// `transform` of the returned `Driver::Handle` with `bound_spec.transform`.
+/// This simply calls `DriverSpec::Open` and then composes the `transform` of
+/// the returned `Driver::Handle` with `bound_spec.transform`.
 Future<DriverHandle> OpenDriver(OpenTransactionPtr transaction,
-                                TransformedDriverSpec<ContextBound> bound_spec,
+                                TransformedDriverSpec bound_spec,
                                 ReadWriteMode read_write_mode);
 
 /// Options for DriverRead.
@@ -678,7 +665,7 @@ Result<Schema> GetSchema(const Driver::Handle& handle);
 }  // namespace internal
 namespace internal_json_binding {
 template <>
-inline constexpr auto DefaultBinder<internal::TransformedDriverSpec<>> =
+inline constexpr auto DefaultBinder<internal::TransformedDriverSpec> =
     internal::TransformedDriverSpecJsonBinder;
 }  // namespace internal_json_binding
 }  // namespace tensorstore

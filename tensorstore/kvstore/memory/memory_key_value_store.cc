@@ -126,17 +126,9 @@ class MemoryKeyValueStore
   /// Specifies the string identifier under which the driver will be registered.
   static constexpr char id[] = "memory";
 
-  /// KeyValueStore types must define a `SpecT` class template, where the
-  /// `MaybeBound` parameter will be either `ContextBound` or `ContextUnbound`
-  /// (defined in `tensorstore/internal/context_binding.h`).
-  ///
-  /// `SpecT<internal::ContextUnbound>` and `SpecT<internal::ContextBound>` are
-  /// stored in the derived `KeyValueStore::Spec` and `KeyValueStore::BoundSpec`
-  /// types that are defined automatically for this driver.
-  template <template <typename T> class MaybeBound>
-  struct SpecT {
-    MaybeBound<Context::ResourceSpec<MemoryKeyValueStoreResource>>
-        memory_key_value_store;
+  /// KeyValueStore types must define a `SpecData` class.
+  struct SpecData {
+    Context::Resource<MemoryKeyValueStoreResource> memory_key_value_store;
 
     bool atomic = true;
 
@@ -148,12 +140,6 @@ class MemoryKeyValueStore
     };
   };
 
-  /// Convenience aliases used in the definitions below.  These are not required
-  /// to define a `KeyValueStore`, but are recommended to reduce verbosity of
-  /// the required method definitions.
-  using SpecData = SpecT<internal::ContextUnbound>;
-  using BoundSpecData = SpecT<internal::ContextBound>;
-
   /// Must specify a JSON binder for the `SpecData` type.
   constexpr static auto json_binder = jb::Object(
       jb::Member(MemoryKeyValueStoreResource::id,
@@ -162,20 +148,12 @@ class MemoryKeyValueStore
                  jb::Projection(&SpecData::atomic,
                                 jb::DefaultValue([](auto* y) { *y = true; }))));
 
-  /// Encodes the `BoundSpecData` as a cache key.  Typically this is defined by
+  /// Encodes the bound `SpecData` as a cache key.  Typically this is defined by
   /// calling `internal::EncodeCacheKey` with the members of `BoundSpecData`
   /// that are relevant to caching.  Members that only affect creation but not
   /// opening should normally be skipped.
-  static void EncodeCacheKey(std::string* out, const BoundSpecData& spec) {
+  static void EncodeCacheKey(std::string* out, const SpecData& spec) {
     internal::EncodeCacheKey(out, spec.memory_key_value_store, spec.atomic);
-  }
-
-  /// Converts a `SpecData` representation in place.
-  ///
-  /// Currently no options are supported, making this a no-op.
-  static Status ConvertSpec(SpecData* spec,
-                            const KeyValueStore::SpecRequestOptions& options) {
-    return absl::OkStatus();
   }
 
   Future<ReadResult> Read(Key key, ReadOptions options) override;
@@ -217,17 +195,17 @@ class MemoryKeyValueStore
   }
 
   /// Obtains a `BoundSpec` representation from an open `Driver`.
-  Status GetBoundSpecData(BoundSpecData* spec) const {
+  Status GetBoundSpecData(SpecData& spec) const {
     // `spec` is returned via an out parameter rather than returned via a
     // `Result`, as that simplifies use cases involving composition via
     // inheritance.
-    *spec = spec_;
+    spec = spec_;
     return absl::Status();
   }
 
   /// In simple cases, such as the "memory" driver, the `Driver` can simply
   /// store a copy of the `BoundSpecData` as a member.
-  BoundSpecData spec_;
+  SpecData spec_;
 };
 
 using BufferedReadModifyWriteEntry =
@@ -518,7 +496,7 @@ KeyValueStore::Ptr GetMemoryKeyValueStore(bool atomic) {
   ptr->spec_.memory_key_value_store =
       Context::Default()
           .GetResource(
-              Context::ResourceSpec<MemoryKeyValueStoreResource>::Default())
+              Context::Resource<MemoryKeyValueStoreResource>::DefaultSpec())
           .value();
   ptr->spec_.atomic = atomic;
   return ptr;

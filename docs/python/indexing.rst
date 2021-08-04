@@ -70,6 +70,7 @@ Indexing with an integer selects a single position within the corresponding dime
    >>> x[1]
    TensorStore({
      'array': [3, 4, 5],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
@@ -77,6 +78,7 @@ Indexing with an integer selects a single position within the corresponding dime
    >>> x[1, 2]
    TensorStore({
      'array': 5,
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_rank': 0},
@@ -107,6 +109,7 @@ negative positions:
    >>> x[-10]
    TensorStore({
      'array': 1,
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_rank': 0},
@@ -169,6 +172,7 @@ interval or strided interval within the corresponding dimension:
    >>> x[1:5]
    TensorStore({
      'array': [1, 2, 3, 4],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {
@@ -198,6 +202,7 @@ instead, it has an origin equal to the start position of the interval
    >>> x[1:5][2]
    TensorStore({
      'array': 2,
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_rank': 0},
@@ -212,6 +217,7 @@ the :python:`step` value, rounded towards zero:
    >>> x[3:8:2]
    TensorStore({
      'array': [3, 5, 7],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {
@@ -223,6 +229,7 @@ the :python:`step` value, rounded towards zero:
    >>> x[7:3:-2]
    TensorStore({
      'array': [7, 5],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {
@@ -282,6 +289,7 @@ may be specified as a sequence of integer or `None` values (e.g. a
    >>> x[(1, 1):(3, 4)]
    TensorStore({
      'array': [[6, 7, 8], [10, 11, 12]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {
@@ -299,6 +307,7 @@ This is equivalent to specifying a sequence of `slice` objects:
    >>> x[1:3, 1:4]
    TensorStore({
      'array': [[6, 7, 8], [10, 11, 12]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {
@@ -317,6 +326,7 @@ lengths, but a sequence may be combined with a scalar value:
    >>> x[1:(3, 4)]
    TensorStore({
      'array': [[6, 7, 8], [10, 11, 12]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {
@@ -399,6 +409,7 @@ indexing terms:
    >>> x[..., 1]
    TensorStore({
      'array': [2, 5],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {
@@ -429,6 +440,7 @@ for the purpose of an assignment:
    >>> x
    TensorStore({
      'array': [7, 7, 7, 7],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [4], 'input_inclusive_min': [0]},
@@ -448,6 +460,7 @@ coordinates of the dimension given by the elements of the array:
    >>> x[[0, 3, 3]]
    TensorStore({
      'array': [5, 2, 2],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
@@ -455,6 +468,7 @@ coordinates of the dimension given by the elements of the array:
    >>> x[[[0, 1], [2, 3]]]
    TensorStore({
      'array': [[5, 4], [3, 2]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [2, 2], 'input_inclusive_min': [0, 0]},
@@ -480,6 +494,7 @@ of the single broadcasted domain are added to the result domain:
    >>> x[[0, 1, 2], [0, 1, 0]]
    TensorStore({
      'array': [1, 4, 5],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
@@ -487,6 +502,7 @@ of the single broadcasted domain are added to the result domain:
    >>> x[[[0, 1], [2, 2]], [[0, 1], [1, 0]]]
    TensorStore({
      'array': [[1, 4], [6, 5]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [2, 2], 'input_inclusive_min': [0, 0]},
@@ -494,6 +510,7 @@ of the single broadcasted domain are added to the result domain:
    >>> x[[[0, 1], [2, 2]], [0, 1]]
    TensorStore({
      'array': [[1, 4], [5, 6]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [2, 2], 'input_inclusive_min': [0, 0]},
@@ -512,6 +529,7 @@ dimensions added by prior indexing terms in the indexing expression:
    >>> x[:, [1, 0], [1, 1]]
    TensorStore({
      'array': [[4, 2], [8, 6]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [2, 2], 'input_inclusive_min': [0, 0]},
@@ -527,6 +545,7 @@ result domain:
    >>> x[:, [1, 0], ts.newaxis, [1, 1]]
    TensorStore({
      'array': [[4, 8], [2, 6]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {
@@ -575,6 +594,7 @@ non-zero coordinates:
    >>> x[[True, False, True, True]]
    TensorStore({
      'array': [0, 2, 3],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
@@ -583,6 +603,7 @@ non-zero coordinates:
    >>> x[[0, 2, 3]]
    TensorStore({
      'array': [0, 2, 3],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
@@ -598,6 +619,7 @@ the ``i``\ th coordinate of the `True` values:
    >>> x[[[True, False, False], [True, True, False]]]
    TensorStore({
      'array': [0, 3, 4],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
@@ -606,6 +628,7 @@ the ``i``\ th coordinate of the `True` values:
    >>> x[[0, 1, 1], [0, 0, 1]]
    TensorStore({
      'array': [0, 3, 4],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
@@ -625,6 +648,7 @@ sequence of integer index arrays:
    >>> x[[True, False, True], [2, 1]]
    TensorStore({
      'array': [2, 8],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [2], 'input_inclusive_min': [0]},
@@ -633,6 +657,7 @@ sequence of integer index arrays:
    >>> x[[0, 2], [2, 1]]
    TensorStore({
      'array': [2, 8],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [2], 'input_inclusive_min': [0]},
@@ -776,6 +801,7 @@ domain:
    >>> x.vindex[:, [1, 0], [1, 1]]
    TensorStore({
      'array': [[4, 8], [2, 6]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [2, 2], 'input_inclusive_min': [0, 0]},
@@ -817,6 +843,7 @@ indexing terms are applied orthogonally:
    >>> x.oindex[[0, 0, 1], [1, 2]]
    TensorStore({
      'array': [[1, 2], [1, 2], [4, 5]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [3, 2], 'input_inclusive_min': [0, 0]},
@@ -825,6 +852,7 @@ indexing terms are applied orthogonally:
    >>> x.oindex[[0, 0, 1], [False, True, True]]
    TensorStore({
      'array': [[1, 2], [1, 2], [4, 5]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [3, 2], 'input_inclusive_min': [0, 0]},
@@ -843,6 +871,7 @@ added by the previous indexing terms:
    >>> x.oindex[[1, 0], :, [0, 0, 1]]
    TensorStore({
      'array': [[[5, 5, 6], [7, 7, 8]], [[1, 1, 2], [3, 3, 4]]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {
@@ -859,6 +888,7 @@ domain:
    >>> x.oindex[[[True, False], [False, True]], [1, 0]]
    TensorStore({
      'array': [[2, 1], [8, 7]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [2, 2], 'input_inclusive_min': [0, 0]},
@@ -895,6 +925,7 @@ verbose):
    >>> x
    TensorStore({
      'array': [[[0, 1], [2, 3], [4, 5]], [[6, 7], [8, 9], [10, 11]]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {
@@ -907,6 +938,7 @@ verbose):
    >>> x[ts.d["x"][0]]
    TensorStore({
      'array': [[0, 1], [2, 3], [4, 5]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {
@@ -919,6 +951,7 @@ verbose):
    >>> x[ts.d["y", "x"][1, 0]]
    TensorStore({
      'array': [2, 3],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {
@@ -931,6 +964,7 @@ verbose):
    >>> x[ts.d["x", "z"].transpose[2, 0]]
    TensorStore({
      'array': [[[0, 6], [2, 8], [4, 10]], [[1, 7], [3, 9], [5, 11]]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {
@@ -943,6 +977,7 @@ verbose):
    >>> x[ts.d["x", "y"].diagonal.label["d"].transpose[-1]]
    TensorStore({
      'array': [[0, 8], [1, 9]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {
@@ -955,6 +990,7 @@ verbose):
    >>> x[ts.d["z", "x", "y"].oindex[0, [0, 1], [2, 1]].label["a", "b"]]
    TensorStore({
      'array': [[4, 2], [10, 8]],
+     'context': {'data_copy_concurrency': {}},
      'driver': 'array',
      'dtype': 'int32',
      'transform': {

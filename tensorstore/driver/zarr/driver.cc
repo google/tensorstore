@@ -102,36 +102,35 @@ class ZarrDriver
 
   constexpr static char id[] = "zarr";
 
-  template <template <typename> class MaybeBound = internal::ContextUnbound>
-  struct SpecT : public internal_kvs_backed_chunk_driver::SpecT<MaybeBound> {
+  struct SpecData : public internal_kvs_backed_chunk_driver::SpecData {
     std::string key_prefix;
     ZarrPartialMetadata partial_metadata;
     SelectedField selected_field;
 
     constexpr static auto ApplyMembers = [](auto& x, auto f) {
-      return f(internal::BaseCast<
-                   internal_kvs_backed_chunk_driver::SpecT<MaybeBound>>(x),
-               x.key_prefix, x.partial_metadata, x.selected_field);
+      return f(
+          internal::BaseCast<internal_kvs_backed_chunk_driver::SpecData>(x),
+          x.key_prefix, x.partial_metadata, x.selected_field);
     };
   };
 
-  static Status ApplyOptions(SpecT<>& spec, SpecOptions&& options) {
+  static Status ApplyOptions(SpecData& spec, SpecOptions&& options) {
     if (options.minimal_spec) {
       spec.partial_metadata = ZarrPartialMetadata{};
     }
     return Base::ApplyOptions(spec, std::move(options));
   }
 
-  static Result<SpecRankAndFieldInfo> GetSpecInfo(const SpecT<>& spec) {
+  static Result<SpecRankAndFieldInfo> GetSpecInfo(const SpecData& spec) {
     return GetSpecRankAndFieldInfo(spec.partial_metadata, spec.selected_field,
                                    spec.schema);
   }
 
   static inline const auto json_binder = jb::Sequence(
       internal_kvs_backed_chunk_driver::SpecJsonBinder,
-      jb::Member("path", jb::Projection(&SpecT<>::key_prefix,
+      jb::Member("path", jb::Projection(&SpecData::key_prefix,
                                         jb::DefaultInitializedValue())),
-      jb::Member("metadata", jb::Projection(&SpecT<>::partial_metadata,
+      jb::Member("metadata", jb::Projection(&SpecData::partial_metadata,
                                             jb::DefaultInitializedValue())),
       // Deprecated `key_encoding` property.
       jb::LoadSave(jb::OptionalMember(
@@ -151,7 +150,7 @@ class ZarrDriver
               },
               DimensionSeparatorJsonBinder))),
       jb::Member("field",
-                 jb::Projection(&SpecT<>::selected_field,
+                 jb::Projection(&SpecData::selected_field,
                                 jb::DefaultValue<jb::kNeverIncludeDefaults>(
                                     [](auto* obj) { *obj = std::string{}; }))),
       jb::Initialize([](auto* obj) {
@@ -166,20 +165,20 @@ class ZarrDriver
         return absl::OkStatus();
       }));
 
-  static Result<IndexDomain<>> SpecGetDomain(const SpecT<>& spec) {
+  static Result<IndexDomain<>> SpecGetDomain(const SpecData& spec) {
     TENSORSTORE_ASSIGN_OR_RETURN(auto info, GetSpecInfo(spec));
     return GetDomainFromMetadata(info, spec.partial_metadata.shape,
                                  spec.schema);
   }
 
-  static Result<CodecSpec::Ptr> SpecGetCodec(const SpecT<>& spec) {
+  static Result<CodecSpec::Ptr> SpecGetCodec(const SpecData& spec) {
     auto codec_spec = CodecSpec::Make<ZarrCodecSpec>();
     codec_spec->compressor = spec.partial_metadata.compressor;
     TENSORSTORE_RETURN_IF_ERROR(codec_spec->MergeFrom(spec.schema.codec()));
     return codec_spec;
   }
 
-  static Result<ChunkLayout> SpecGetChunkLayout(const SpecT<>& spec) {
+  static Result<ChunkLayout> SpecGetChunkLayout(const SpecData& spec) {
     auto chunk_layout = spec.schema.chunk_layout();
     TENSORSTORE_ASSIGN_OR_RETURN(auto info, GetSpecInfo(spec));
     TENSORSTORE_RETURN_IF_ERROR(
@@ -189,7 +188,7 @@ class ZarrDriver
   }
 
   static Result<SharedArray<const void>> SpecGetFillValue(
-      const SpecT<>& spec, IndexTransformView<> transform) {
+      const SpecData& spec, IndexTransformView<> transform) {
     SharedArrayView<const void> fill_value = spec.schema.fill_value();
 
     const auto& metadata = spec.partial_metadata;
@@ -370,12 +369,10 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
         key_prefix_, EncodeChunkIndices(cell_indices, dimension_separator_));
   }
 
-  Status GetBoundSpecData(
-      internal_kvs_backed_chunk_driver::SpecT<internal::ContextBound>*
-          spec_base,
+  absl::Status GetBoundSpecData(
+      internal_kvs_backed_chunk_driver::SpecData& spec_base,
       const void* metadata_ptr, std::size_t component_index) override {
-    auto& spec =
-        static_cast<ZarrDriver::SpecT<internal::ContextBound>&>(*spec_base);
+    auto& spec = static_cast<ZarrDriver::SpecData&>(spec_base);
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
     spec.key_prefix = key_prefix_;
     spec.selected_field = EncodeSelectedField(component_index, metadata.dtype);

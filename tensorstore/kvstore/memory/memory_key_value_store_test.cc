@@ -24,6 +24,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache/cache_key.h"
+#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/kvstore/key_value_store_testutil.h"
 #include "tensorstore/util/execution.h"
 #include "tensorstore/util/future.h"
@@ -37,6 +38,7 @@ namespace {
 using tensorstore::Context;
 using tensorstore::KeyRange;
 using tensorstore::KeyValueStore;
+using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
 using tensorstore::internal::MatchesKvsReadResult;
 using tensorstore::internal::MatchesKvsReadResultNotFound;
@@ -161,25 +163,27 @@ TEST(MemoryKeyValueStoreTest, Open) {
   auto context = Context::Default();
 
   {
-    auto store =
-        KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        KeyValueStore::Open({{"driver", "memory"}}, context).result());
     TENSORSTORE_ASSERT_OK(store->Write("key", absl::Cord("value")));
 
     {
-      auto store2 =
-          KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value();
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store2,
+          KeyValueStore::Open({{"driver", "memory"}}, context).result());
       // Verify that `store2` shares the same underlying storage as `store`.
       EXPECT_THAT(store2->Read("key").result(),
                   MatchesKvsReadResult(absl::Cord("value")));
     }
 
-    auto other_context =
-        Context(Context::Spec::FromJson(
-                    {{"memory_key_value_store", ::nlohmann::json::object_t{}}})
-                    .value(),
-                context);
-    auto store3 =
-        KeyValueStore::Open(other_context, {{"driver", "memory"}}, {}).value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto other_context, Context::FromJson({{"memory_key_value_store",
+                                                ::nlohmann::json::object_t{}}},
+                                              context));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store3,
+        KeyValueStore::Open({{"driver", "memory"}}, other_context).result());
     // Verify that `store3` does not share the same underlying storage as
     // `store`.
     EXPECT_THAT(store3->Read("key").result(), MatchesKvsReadResultNotFound());
@@ -187,14 +191,35 @@ TEST(MemoryKeyValueStoreTest, Open) {
 
   // Test that the data persists even when there are no references to the store.
   {
-    auto store =
-        KeyValueStore::Open(context, {{"driver", "memory"}}, {}).value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        KeyValueStore::Open({{"driver", "memory"}}, context).result());
     EXPECT_EQ("value", store->Read("key").value().value);
   }
 }
 
 TEST(MemoryKeyValueStoreTest, SpecRoundtrip) {
-  tensorstore::internal::TestKeyValueStoreSpecRoundtrip({{"driver", "memory"}});
+  tensorstore::internal::TestKeyValueStoreSpecRoundtrip({
+      {"driver", "memory"},
+  });
+}
+
+TEST(MemoryKeyValueStoreTest, SpecRoundtripWithContextSpec) {
+  tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
+  options.spec_request_options.Set(tensorstore::unbind_context);
+  // Since spec includes context resources, if we re-open we get a different
+  // context resource.
+  options.check_data_persists = false;
+  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(
+      {
+          {"driver", "memory"},
+          {"memory_key_value_store", "memory_key_value_store#a"},
+          {"context",
+           {
+               {"memory_key_value_store#a", ::nlohmann::json::object_t()},
+           }},
+      },
+      options);
 }
 
 TEST(MemoryKeyValueStoreTest, InvalidSpec) {
@@ -202,7 +227,7 @@ TEST(MemoryKeyValueStoreTest, InvalidSpec) {
 
   // Test with extra key.
   EXPECT_THAT(
-      KeyValueStore::Open(context, {{"driver", "memory"}, {"extra", "key"}}, {})
+      KeyValueStore::Open({{"driver", "memory"}, {"extra", "key"}}, context)
           .result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
@@ -212,22 +237,24 @@ TEST(MemoryKeyValueStoreTest, BoundSpec) {
   ::nlohmann::json json_spec{{"driver", "memory"}};
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto spec, KeyValueStore::Spec::Ptr::FromJson(json_spec));
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bound_spec, spec->Bind(context));
+  TENSORSTORE_ASSERT_OK(spec.BindContext(context));
   std::string bound_spec_cache_key;
-  tensorstore::internal::EncodeCacheKey(&bound_spec_cache_key, bound_spec);
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, bound_spec->Open().result());
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto new_bound_spec, store->GetBoundSpec());
+  tensorstore::internal::EncodeCacheKey(&bound_spec_cache_key, spec);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   KeyValueStore::Open(spec).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto new_spec,
+                                   store->spec(tensorstore::retain_context));
   std::string store_cache_key;
   tensorstore::internal::EncodeCacheKey(&store_cache_key, store);
   EXPECT_EQ(bound_spec_cache_key, store_cache_key);
-  auto new_spec = new_bound_spec->Unbind();
+  new_spec.StripContext();
   EXPECT_THAT(new_spec.ToJson(tensorstore::IncludeDefaults{false}),
               ::testing::Optional(json_spec));
 
   // Reopen the same KeyValueStore, using the same spec and context.
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto store2, KeyValueStore::Open(context, json_spec).result());
+        auto store2, KeyValueStore::Open(json_spec, context).result());
     std::string store2_cache_key;
     tensorstore::internal::EncodeCacheKey(&store2_cache_key, store2);
     EXPECT_EQ(store_cache_key, store2_cache_key);
@@ -238,11 +265,11 @@ TEST(MemoryKeyValueStoreTest, BoundSpec) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store2,
         KeyValueStore::Open(
-            context,
             {{"driver", "memory"},
              {"context",
               {{"memory_key_value_store#a", "memory_key_value_store"}}},
-             {"memory_key_value_store", "memory_key_value_store#a"}})
+             {"memory_key_value_store", "memory_key_value_store#a"}},
+            context)
             .result());
     std::string store2_cache_key;
     tensorstore::internal::EncodeCacheKey(&store2_cache_key, store2);
@@ -252,9 +279,8 @@ TEST(MemoryKeyValueStoreTest, BoundSpec) {
   // Reopen a different KeyValueStore, using the same spec but different
   // context.
   {
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto store3,
-        KeyValueStore::Open(Context::Default(), json_spec).result());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store3,
+                                     KeyValueStore::Open(json_spec).result());
     std::string store3_cache_key;
     tensorstore::internal::EncodeCacheKey(&store3_cache_key, store3);
     EXPECT_NE(store_cache_key, store3_cache_key);
@@ -266,12 +292,11 @@ TEST(MemoryKeyValueStoreTest, OpenCache) {
   ::nlohmann::json json_spec{{"driver", "memory"}};
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store1, KeyValueStore::Open(context, json_spec).result());
+      auto store1, KeyValueStore::Open(json_spec, context).result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store2, KeyValueStore::Open(context, json_spec).result());
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store3,
-      KeyValueStore::Open(tensorstore::Context::Default(), json_spec).result());
+      auto store2, KeyValueStore::Open(json_spec, context).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store3,
+                                   KeyValueStore::Open(json_spec).result());
   EXPECT_EQ(store1.get(), store2.get());
   EXPECT_NE(store1.get(), store3.get());
 
@@ -279,6 +304,47 @@ TEST(MemoryKeyValueStoreTest, OpenCache) {
   tensorstore::internal::EncodeCacheKey(&cache_key1, store1);
   tensorstore::internal::EncodeCacheKey(&cache_key3, store3);
   EXPECT_NE(cache_key1, cache_key3);
+}
+
+TEST(MemoryKeyValueStoreTest, ContextBinding) {
+  auto context1 = Context::Default();
+  auto context2 = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_spec,
+      KeyValueStore::Spec::Ptr::FromJson({{"driver", "memory"}}));
+  auto base_spec1 = base_spec;
+  TENSORSTORE_ASSERT_OK(base_spec1.Set(context1));
+
+  // Check JSON conversion of bound spec.
+  EXPECT_THAT(
+      base_spec1.ToJson(),
+      ::testing::Optional(MatchesJson(
+          {{"driver", "memory"},
+           {"context",
+            {{"memory_key_value_store", ::nlohmann::json::object_t()}}}})));
+
+  auto base_spec2 = base_spec;
+  TENSORSTORE_ASSERT_OK(base_spec2.Set(context2));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store1, KeyValueStore::Open(base_spec, context1).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store2, KeyValueStore::Open(base_spec, context2).result());
+  ASSERT_NE(store1, store2);
+  EXPECT_THAT(KeyValueStore::Open(base_spec1).result(),
+              ::testing::Optional(store1));
+  EXPECT_THAT(KeyValueStore::Open(base_spec2).result(),
+              ::testing::Optional(store2));
+
+  auto base_spec3 = base_spec1;
+  // All resources are already bound, setting `context2` has no effect.
+  TENSORSTORE_ASSERT_OK(base_spec3.Set(context2));
+  EXPECT_THAT(KeyValueStore::Open(base_spec3).result(),
+              ::testing::Optional(store1));
+
+  // Rebind resources with `context2`
+  TENSORSTORE_ASSERT_OK(base_spec3.Set(tensorstore::strip_context, context2));
+  EXPECT_THAT(KeyValueStore::Open(base_spec3).result(),
+              ::testing::Optional(store2));
 }
 
 }  // namespace

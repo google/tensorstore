@@ -47,6 +47,7 @@ tensorstore_cc_test(
     deps = [
         ":memory",
         "//tensorstore:context",
+        "//tensorstore/internal:json_gtest",
         "//tensorstore/internal/cache:cache_key",
         "//tensorstore/kvstore:key_value_store_testutil",
         "//tensorstore/util:execution",

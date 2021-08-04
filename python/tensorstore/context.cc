@@ -39,11 +39,11 @@ using internal_context::Access;
 using internal_context::BuilderResourceSpec;
 using internal_context::ContextImpl;
 using internal_context::ContextImplPtr;
-using internal_context::ContextResourceContainer;
-using internal_context::ContextResourceImplBase;
-using internal_context::ContextResourceImplWeakPtr;
 using internal_context::ContextSpecImpl;
 using internal_context::ContextSpecImplPtr;
+using internal_context::ResourceContainer;
+using internal_context::ResourceImplBase;
+using internal_context::ResourceImplWeakPtr;
 
 [[noreturn]] void ThrowCorruptContextPickle() {
   throw py::value_error(
@@ -84,7 +84,7 @@ constexpr auto PickleContext = [](ContextImplPtr self) -> py::tuple {
   // advantage of the deduplication built into Python's pickling
   // mechanism.
   struct ResourceToPickle {
-    ContextResourceImplWeakPtr resource;
+    ResourceImplWeakPtr resource;
     bool exclude_from_spec;
   };
   absl::flat_hash_map<std::string_view, ResourceToPickle> resources;
@@ -102,7 +102,7 @@ constexpr auto PickleContext = [](ContextImplPtr self) -> py::tuple {
       if (!container->result_.ok() || !container->result_->get()) {
         continue;
       }
-      ContextResourceImplBase* resource = container->result_->get();
+      ResourceImplBase* resource = container->result_->get();
       // Skip resources that merely refer to other resources.  These
       // are guaranteed to be pickled separately.
       if (resource->spec_ != container->spec_) continue;
@@ -120,9 +120,8 @@ constexpr auto PickleContext = [](ContextImplPtr self) -> py::tuple {
         assert(num_unloaded_resources > 0);
         --num_unloaded_resources;
       }
-      resources.emplace(key,
-                        ResourceToPickle{ContextResourceImplWeakPtr(resource),
-                                         exclude_from_spec});
+      resources.emplace(key, ResourceToPickle{ResourceImplWeakPtr(resource),
+                                              exclude_from_spec});
     }
   }
 
@@ -174,8 +173,9 @@ constexpr auto UnpickleContext = [](py::tuple t) -> ContextImplPtr {
   if (auto parent_obj = t[0]; !parent_obj.is_none()) {
     parent = py::cast<ContextImplPtr>(parent_obj);
   }
-  ContextImplPtr context =
-      UnpickleContextSpecBuilder(py::cast<py::tuple>(t[1]));
+  ContextImplPtr context = UnpickleContextSpecBuilder(
+      py::cast<py::tuple>(t[1]), /*allow_key_mismatch=*/true,
+      /*bind_partial=*/false);
   if (parent) {
     context->root_ = parent->root_;
     context->parent_ = std::move(parent);
@@ -185,9 +185,8 @@ constexpr auto UnpickleContext = [](py::tuple t) -> ContextImplPtr {
   for (size_t i = 2; i < t.size(); i += 2) {
     std::string key = py::cast<std::string>(t[i]);
     ::nlohmann::json json_spec = py::cast<::nlohmann::json>(t[i + 1]);
-    auto spec =
-        ValueOrThrow(internal_context::ContextResourceSpecFromJsonWithKey(
-            key, json_spec, {}));
+    auto spec = ValueOrThrow(
+        internal_context::ResourceSpecFromJsonWithKey(key, json_spec, {}));
     if (!context->spec_->resources_.emplace(spec).second) {
       ThrowCorruptContextPickle();
     }
@@ -195,30 +194,29 @@ constexpr auto UnpickleContext = [](py::tuple t) -> ContextImplPtr {
   return context;
 };
 
-constexpr auto PickleContextResource =
-    [](ContextResourceImplBase* self) -> py::tuple {
+constexpr auto PickleContextResource = [](ResourceImplBase* self) -> py::tuple {
   auto builder = ContextSpecBuilder::Make();
-  auto spec = self->spec_->provider_->GetSpec(self, builder);
+  auto spec = self->UnbindContext(builder);
   py::object pickled_context = PickleContextSpecBuilder(std::move(builder));
   // Pickle the resource spec itself, along with any resources it
   // depends on.
-  return py::make_tuple(
-      py::cast(spec->provider_->id_), py::cast(spec->key_),
-      py::cast(spec->is_default_),
-      py::cast(ValueOrThrow(spec->ToJson(IncludeDefaults{true}))),
-      pickled_context);
+  return py::make_tuple(py::cast(spec->provider_->id_), py::cast(spec->key_),
+                        py::cast(spec->is_default_),
+                        py::cast(ValueOrThrow(spec->ToJson({}))),
+                        pickled_context);
 };
 
 constexpr auto UnpickleContextResource =
-    [](py::tuple t) -> ContextResourceImplWeakPtr {
+    [](py::tuple t) -> ResourceImplWeakPtr {
   if (t.size() != 5) ThrowCorruptContextPickle();
   std::string provider_id = py::cast<std::string>(t[0]);
   std::string key = py::cast<std::string>(t[1]);
   bool is_default = py::cast<bool>(t[2]);
   auto json_spec = py::cast<::nlohmann::json>(t[3]);
   // Unpickle any resources it depends on.
-  auto context_impl =
-      UnpickleContextSpecBuilder(py::cast<py::tuple>(t[4]), false);
+  auto context_impl = UnpickleContextSpecBuilder(py::cast<py::tuple>(t[4]),
+                                                 /*allow_key_mismatch=*/false,
+                                                 /*bind_partial=*/false);
   if (!key.empty() &&
       internal_context::ParseResourceProvider(key) != provider_id) {
     ThrowCorruptContextPickle();
@@ -232,15 +230,14 @@ constexpr auto UnpickleContextResource =
   if (json_spec.is_null()) {
     ThrowCorruptContextPickle();
   }
-  auto resource_spec =
-      ValueOrThrow(internal_context::ContextResourceSpecFromJson(
-          *provider, std::move(json_spec), {}));
+  auto resource_spec = ValueOrThrow(internal_context::ResourceSpecFromJson(
+      *provider, std::move(json_spec), {}));
   resource_spec->is_default_ = is_default;
-  auto resource = ValueOrThrow(internal_context::GetResource(
-      context_impl.get(), resource_spec.get(), nullptr));
-  // Don't set key until after getting the resource, since
-  // `GetResource` expects any `resource_spec` with a key to be
-  // internal to the same `context_impl`.
+  auto resource = ValueOrThrow(internal_context::GetOrCreateResource(
+      *context_impl, *resource_spec, nullptr));
+  // Don't set key until after getting the resource, since `GetOrCreateResource`
+  // expects any `resource_spec` with a key to be internal to the same
+  // `context_impl`.
   resource_spec->key_ = std::move(key);
   return resource;
 };
@@ -248,7 +245,7 @@ constexpr auto UnpickleContextResource =
 }  // namespace
 
 py::tuple PickleContextSpecBuilder(ContextSpecBuilder builder) {
-  std::vector<std::pair<ContextResourceImplWeakPtr,
+  std::vector<std::pair<ResourceImplWeakPtr,
                         internal::IntrusivePtr<BuilderResourceSpec>>>
       deps;
   auto& resources = Access::impl(builder)->resources_;
@@ -270,19 +267,20 @@ py::tuple PickleContextSpecBuilder(ContextSpecBuilder builder) {
   return t;
 }
 
-ContextImplPtr UnpickleContextSpecBuilder(py::tuple t,
-                                          bool allow_key_mismatch) {
+ContextImplPtr UnpickleContextSpecBuilder(py::tuple t, bool allow_key_mismatch,
+                                          bool bind_partial) {
   if (t.size() % 2 != 0) {
     ThrowCorruptContextPickle();
   }
   ContextImplPtr context_impl(new ContextImpl);
   context_impl->spec_.reset(new ContextSpecImpl);
   context_impl->root_ = context_impl.get();
+  context_impl->bind_partial_ = bind_partial;
   for (size_t i = 0; i < t.size(); i += 2) {
     py::object key_obj = t[i];
     bool exclude_from_spec;
     std::string dep_key;
-    auto resource = py::cast<ContextResourceImplWeakPtr>(t[i + 1]);
+    auto resource = py::cast<ResourceImplWeakPtr>(t[i + 1]);
     if (!resource) ThrowCorruptContextPickle();
     if (key_obj.is_none()) {
       exclude_from_spec = true;
@@ -298,7 +296,7 @@ ContextImplPtr UnpickleContextSpecBuilder(py::tuple t,
         ThrowCorruptContextPickle();
       }
     }
-    auto container = std::make_unique<ContextResourceContainer>();
+    auto container = std::make_unique<ResourceContainer>();
     if (resource->spec_->key_ != dep_key) {
       // Wrap the spec in a `BuilderResourceSpec` in order to allow it to be
       // stored under a different key.  When unpickling a `Context` object that
@@ -345,11 +343,11 @@ See also:
 Parsed representation of a :json:schema:`JSON Context<Context>` specification.
 )");
 
-  // `ContextResourceImplBase` represents a context resource.  It is exposed
+  // `ResourceImplBase` represents a context resource.  It is exposed
   // primarily for pickling and testing.  There isn't a whole lot that can be
   // done with objects of this type, though their identity can be compared.
-  py::class_<ContextResourceImplBase, ContextResourceImplWeakPtr>
-    cls_context_resource(cls_context, "Resource", R"(
+  py::class_<ResourceImplBase, ResourceImplWeakPtr> cls_context_resource(
+      cls_context, "Resource", R"(
 Handle to a context resource.
 )");
 
@@ -526,11 +524,10 @@ Group:
               ThrowStatusException(
                   internal_context::ProviderNotRegisteredError(provider_id));
             }
-            auto spec =
-                ValueOrThrow(internal_context::ContextResourceSpecFromJson(
-                    provider_id, key, {}));
+            auto spec = ValueOrThrow(
+                internal_context::ResourceSpecFromJson(provider_id, key, {}));
             return ValueOrThrow(
-                internal_context::GetResource(self.get(), spec.get(), nullptr));
+                internal_context::GetOrCreateResource(*self, *spec, nullptr));
           },
           R"(
 Creates or retrieves the context resource for the given key.
@@ -564,7 +561,7 @@ Group:
   cls_context_resource
       .def(
           "to_json",
-          [](ContextResourceImplWeakPtr self, bool include_defaults) {
+          [](ResourceImplWeakPtr self, bool include_defaults) {
             return ValueOrThrow(
                 self->spec_->ToJson(IncludeDefaults{include_defaults}));
           },
@@ -585,7 +582,7 @@ Group:
   Accessors
 )")
       .def("__repr__",
-           [](ContextResourceImplWeakPtr self) {
+           [](ResourceImplWeakPtr self) {
              return internal_python::PrettyPrintJsonAsPythonRepr(
                  self->spec_->ToJson(IncludeDefaults{false}),
                  "Context.Resource(", ")");

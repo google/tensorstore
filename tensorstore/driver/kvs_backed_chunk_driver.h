@@ -56,13 +56,12 @@ namespace internal_kvs_backed_chunk_driver {
 /// the driver registry.
 ///
 /// This inherits from `DriverConstraints` as required by the driver registry.
-template <template <typename> class MaybeBound = internal::ContextUnbound>
-struct SpecT : public internal::DriverSpecCommonData,
-               public internal::OpenModeSpec {
-  MaybeBound<KeyValueStore::Spec::Ptr> store;
-  MaybeBound<Context::ResourceSpec<internal::DataCopyConcurrencyResource>>
+struct SpecData : public internal::DriverSpecCommonData,
+                  public internal::OpenModeSpec {
+  KeyValueStore::Spec::Ptr store;
+  Context::Resource<internal::DataCopyConcurrencyResource>
       data_copy_concurrency;
-  MaybeBound<Context::ResourceSpec<internal::CachePoolResource>> cache_pool;
+  Context::Resource<internal::CachePoolResource> cache_pool;
   StalenessBounds staleness;
 
   static constexpr auto ApplyMembers = [](auto& x, auto f) {
@@ -72,9 +71,9 @@ struct SpecT : public internal::DriverSpecCommonData,
   };
 };
 
-/// JSON binder for the base `SpecT<>` type, must be called by the
+/// JSON binder for the base `SpecData` type, must be called by the
 /// driver-specific JSON binders.
-TENSORSTORE_DECLARE_JSON_BINDER(SpecJsonBinder, SpecT<>,
+TENSORSTORE_DECLARE_JSON_BINDER(SpecJsonBinder, SpecData,
                                 JsonSerializationOptions,
                                 JsonSerializationOptions,
                                 ::nlohmann::json::object_t);
@@ -303,16 +302,15 @@ class DataCache : public DataCacheBase {
       BitSpan<std::uint64_t> implicit_lower_bounds,
       BitSpan<std::uint64_t> implicit_upper_bounds) = 0;
 
-  /// Sets `*spec` with the bound spec data associated with the specified
+  /// Sets `spec` with the bound spec data associated with the specified
   /// component.
   ///
-  /// \param spec Non-null pointer to the derived bound Spec type for the
-  ///     driver.  The implementation must `static_cast` this pointer to the
-  ///     appropriate derived type.
+  /// \param spec[out] Reference to derived SpecData type for the driver.  The
+  ///     implementation must `static_cast` this pointer to the appropriate
+  ///     derived type.
   /// \param metadata Non-null pointer to metadata of type `Metadata`.
   /// \param component_index The ChunkCache component index.
-  virtual Status GetBoundSpecData(SpecT<internal::ContextBound>* spec,
-                                  const void* metadata,
+  virtual Status GetBoundSpecData(SpecData& spec, const void* metadata,
                                   std::size_t component_index) = 0;
 
   /// Returns the chunk layout for the specified component.
@@ -452,7 +450,7 @@ class DataCache : public DataCacheBase {
 /// Private data members of `OpenState`.
 struct PrivateOpenState {
   internal::OpenTransactionPtr transaction_;
-  internal::RegisteredDriverOpener<SpecT<internal::ContextBound>> spec_;
+  internal::RegisteredDriverOpener<SpecData> spec_;
   ReadWriteMode read_write_mode_;
   std::string metadata_cache_key_;
   /// Pointer to `MetadataCache::Entry`, but upcast to type
@@ -497,11 +495,10 @@ class DriverBase : public internal::ChunkCacheDriver {
   }
 
   Result<IndexTransform<>> GetBoundSpecData(
-      internal::OpenTransactionPtr transaction,
-      SpecT<internal::ContextBound>* spec, IndexTransformView<> transform);
+      internal::OpenTransactionPtr transaction, SpecData& spec,
+      IndexTransformView<> transform);
 
-  static absl::Status ApplyOptions(SpecT<internal::ContextUnbound>& spec,
-                                   SpecOptions&& options);
+  static absl::Status ApplyOptions(SpecData& spec, SpecOptions&& options);
 
   Result<CodecSpec::Ptr> GetCodec() override;
 
@@ -526,7 +523,7 @@ class OpenState : public internal::AtomicReferenceCount<OpenState>,
 
   struct Initializer {
     internal::OpenTransactionPtr transaction;
-    internal::RegisteredDriverOpener<SpecT<internal::ContextBound>> spec;
+    internal::RegisteredDriverOpener<SpecData> spec;
     ReadWriteMode read_write_mode;
   };
 
@@ -621,7 +618,7 @@ class OpenState : public internal::AtomicReferenceCount<OpenState>,
   /// Defined automatically by `RegisteredOpenState`.
   virtual DriverBase* AllocateDriver(DriverBase::Initializer&& initializer) = 0;
 
-  const SpecT<internal::ContextBound>& spec() const { return *spec_; }
+  const SpecData& spec() const { return *spec_; }
 
   /// Returns the data copy executor.
   const Executor& executor() const {
@@ -708,17 +705,14 @@ Future<internal::Driver::Handle> OpenDriver(OpenState::Ptr open_state);
 ///       // Specifies the driver identifier.
 ///       constexpr static char id[] = "...";
 ///
-///
 ///       // Defines the specification used to open the driver.
-///       template <template <typename>
-///                 class MaybeBound = internal::ContextUnbound>
-///       struct SpecT
-///         : public internal_kvs_backed_chunk_driver::SpecT<MaybeBound> {
+///       struct SpecData
+///         : public internal_kvs_backed_chunk_driver::SpecData {
 ///         // ...
 ///         constexpr static auto ApplyMembers = [](auto& x, auto f) {
 ///           return f(
 ///               internal::BaseCast<
-///                   internal_kvs_backed_chunk_driver::SpecT<MaybeBound>>(
+///                   internal_kvs_backed_chunk_driver::SpecData>(
 ///                   x),
 ///               ...);
 ///         };
@@ -729,7 +723,7 @@ Future<internal::Driver::Handle> OpenDriver(OpenState::Ptr open_state);
 ///       // implement all of the required virtual methods of
 ///       // `internal_kvs_backed_chunk_driver::OpenState` defined above.  The
 ///       // `spec()` method defined by `Base::OpenState` may be used to access
-///       // the bound spec data of type `SpecT<ContextUnbound>`.
+///       // the bound spec data of type `SpecData`.
 ///       class OpenState : public Base::OpenStateBase {
 ///        public:
 ///         using Base::OpenStateBase::OpenStateBase;
@@ -737,15 +731,15 @@ Future<internal::Driver::Handle> OpenDriver(OpenState::Ptr open_state);
 ///         // ...
 ///       };
 ///
-///       // Defines the JSON binder for `SpecT<>`.
+///       // Defines the JSON binder for `SpecData`.
 ///       static inline const auto json_binder = jb::Sequence(
 ///           internal_kvs_backed_chunk_driver::SpecJsonBinder,
 ///           ...);
 ///
 ///
-///       // Applies the specified options in place to `*spec`.
-///       static Status ConvertSpec(SpecT<>* spec,
-///                                 const SpecRequestOptions& options);
+///       // Applies the specified options in place to `spec`.
+///       static Status ApplyOptions(SpecData& spec,
+///                                  SpecOptions&& options);
 ///     };
 ///
 template <typename Derived>
@@ -762,13 +756,13 @@ class RegisteredKvsDriver
    public:
     using internal_kvs_backed_chunk_driver::OpenState::OpenState;
 
-    /// Returns a reference to the bound spec data of type
-    /// `Derived::SpecT<ContextBound>` used to open the driver.
+    /// Returns a reference to the bound spec data of type `Derived::SpecData`
+    /// used to open the driver.
     ///
     /// This is intended to be called by the derived class to implement the
     /// `OpenState` interface.
     decltype(auto) spec() const {
-      using SpecData = typename Derived::template SpecT<internal::ContextBound>;
+      using SpecData = typename Derived::SpecData;
       return static_cast<const SpecData&>(
           internal_kvs_backed_chunk_driver::OpenState::spec());
     }
@@ -789,9 +783,7 @@ class RegisteredKvsDriver
       ReadWriteMode read_write_mode) {
     // We have to use a template parameter because `Derived` is incomplete when
     // `RegisteredKvsDriver` is instantiated.
-    static_assert(
-        std::is_same_v<
-            Spec, typename Derived::template SpecT<internal::ContextBound>>);
+    static_assert(std::is_same_v<Spec, typename Derived::SpecData>);
     return internal_kvs_backed_chunk_driver::OpenDriver(
         internal_kvs_backed_chunk_driver::OpenState::Ptr(
             new typename Derived::OpenState(

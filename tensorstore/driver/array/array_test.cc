@@ -780,7 +780,7 @@ TEST(FromArrayTest, Spec) {
             },
         }}},
   };
-  EXPECT_THAT(store.spec().value().ToJson(tensorstore::IncludeContext{false}),
+  EXPECT_THAT(store.spec().value().ToJson(),
               ::testing::Optional(MatchesJson(json_spec)));
 }
 
@@ -854,7 +854,7 @@ TEST(ArrayTest, SpecFromArray) {
                                    tensorstore::SpecFromArray(orig_array));
   EXPECT_EQ(1, spec.rank());
   EXPECT_EQ(tensorstore::dtype_v<float>, spec.dtype());
-  EXPECT_THAT(spec.ToJson(tensorstore::IncludeContext{false}),
+  EXPECT_THAT(spec.ToJson(),
               ::testing::Optional(MatchesJson({
                   {"driver", "array"},
                   {"array", {1, 2, 3}},

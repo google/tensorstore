@@ -38,7 +38,7 @@ namespace tensorstore {
 namespace internal {
 
 using DriverRegistry = JsonRegistry<DriverSpec, JsonSerializationOptions,
-                                    JsonSerializationOptions>;
+                                    JsonSerializationOptions, DriverSpecPtr>;
 
 /// Returns the global driver registry.
 DriverRegistry& GetDriverRegistry();
@@ -73,28 +73,21 @@ class RegisteredDriverBase {
 /// except for `GetSpec` and `GetBoundSpec`, which are defined automatically.
 /// In addition it must define the following members:
 ///
-/// - The `SpecT` class template must inherit from
-///   `internal::DriverSpecCommonData` and includes as members the parameters
-///   and resources necessary to create/open the driver.  Depending on the
-///   `MaybeBound` argument, which is either `ContextUnbound` or `ContextBound`,
-///   it specifies either the context-unbound or context-bound state of the
-///   parameters/resources.  The dependence on `MaybeBound` permits
-///   `Context::ResourceSpec` objects (as used for the JSON representation) to
-///   be converted automatically to/from `Context::Resource` objects (as used by
-///   the driver implementation).
+/// - The `SpecData` class must inherit from `internal::DriverSpecCommonData`
+///   and includes as members the parameters and resources necessary to
+///   create/open the driver.
 ///
 ///   It must define an `ApplyMembers` method for compatibility with
 ///   `ContextBindingTraits` (refer to `tensorstore/internal/context_binding.h`
 ///   for details).
 ///
-///   Members of `SpecT` should be referenced in the `json_binder`
+///   Members of `SpecData` should be referenced in the `json_binder`
 ///   implementation, as noted below.
 ///
-///     template <template <typename> class MaybeBound>
-///     struct SpecT : public internal::DriverSpecCommonData {
+///     struct SpecData : public internal::DriverSpecCommonData {
 ///       // Example members:
 ///       int mem1;
-///       MaybeBound<Context::ResourceSpec<SomeResource>> mem2;
+///       Context::Resource<SomeResource> mem2;
 ///
 ///       // For compatibility with `ContextBindingTraits`.
 ///       constexpr static auto ApplyMembers = [](auto& x, auto f) {
@@ -103,42 +96,41 @@ class RegisteredDriverBase {
 ///       };
 ///     };
 ///
-/// - The `json_binder` member must be a JSON object binder for
-///   `SpecT<ContextUnbound>`.  This should handle converting each member of
-///   `SpecT` to/from the JSON representation.
+/// - The `json_binder` member must be a JSON object binder for `SpecData`.
+///   This should handle converting each member of `SpecData` to/from the JSON
+///   representation.
 ///
 ///     constexpr static auto json_binder = jb::Object(
-///         jb::Member("mem1", jb::Projection(&SpecT<ContextUnbound>::mem1)),
-///         jb::Member("mem2", jb::Projection(&SpecT<ContextUnbound>::mem2)));
+///         jb::Member("mem1", jb::Projection(&SpecData::mem1)),
+///         jb::Member("mem2", jb::Projection(&SpecData::mem2)));
 ///
 /// - The static `ApplyOptions` method should apply any modifications requested
 ///   in `options` in place to `spec`.
 ///
 ///     static absl::Status ApplyOptions(
-///         SpecT<ContextUnbound>& spec, SpecOptions&& options);
+///         SpecData& spec, SpecConvertOptions&& options);
 ///
 /// - The static `GetEffectiveSchema` method should return the effective schema.
 ///
 ///     static Result<Schema> GetEffectiveSchema(
-///         const SpecT<ContextUnbound> &spec);
+///         const SpecData &spec);
 ///
 /// - The static `Open` method is called to initiate opening the driver.  This
-///   is called by `DriverSpec::Bound::Open`.  Note that
-///   `RegisteredDriverOpener` is a CRTP class template parameterized by the
-///   `Derived` driver type, and serves as a reference-counted smart pointer to
-///   the `SpecT<ContextBound>`.
+///   is called by `DriverSpec::Open`.  Note that `RegisteredDriverOpener` is a
+///   CRTP class template parameterized by the `Derived` driver type, and serves
+///   as a reference-counted smart pointer to the `SpecData`.
 ///
 ///     static Future<internal::Driver::Handle> Open(
 ///         internal::OpenTransactionPtr transaction,
 ///         internal::RegisteredDriverOpener<Derived> spec,
 ///         ReadWriteMode read_write_mode) {
-///       // Access the `SpecT<ContextBound>` representation as `*spec`.
+///       // Access the `SpecData` representation as `*spec`.
 ///       auto [promise, future] = PromiseFuturePair<Derived>::Make();
 ///       // ...
 ///       return future;
 ///     }
 ///
-/// - The `GetBoundSpecData` method must set `*spec` to the context-bound
+/// - The `GetBoundSpecData` method must set `spec` to the context-bound
 ///   representation of the JSON specification of the TensorStore defined by
 ///   this driver and the specified `transform`.  The returned
 ///   `IndexTransform<>` must have the same domain as `transform`, but the
@@ -149,7 +141,7 @@ class RegisteredDriverBase {
 ///
 ///     Result<IndexTransform<>> GetBoundSpecData(
 ///         internal::OpenTransactionPtr transaction,
-///         SpecT<ContextBound>* spec,
+///         SpecData& spec,
 ///         IndexTransformView<> transform) const;
 ///
 /// \tparam Derived The derived driver type.
@@ -162,17 +154,18 @@ class RegisteredDriver : public Parent, RegisteredDriverBase {
  public:
   using Parent::Parent;
 
-  Result<TransformedDriverSpec<ContextBound>> GetBoundSpec(
+  Result<TransformedDriverSpec> GetBoundSpec(
       internal::OpenTransactionPtr transaction,
       IndexTransformView<> transform) override {
-    IntrusivePtr<typename DriverSpecImpl::Bound> bound_spec(
-        new typename DriverSpecImpl::Bound);
-    TransformedDriverSpec<ContextBound> transformed_spec;
+    IntrusivePtr<DriverSpecImpl> spec(new DriverSpecImpl);
+    internal_context::Access::context_binding_state(*spec) =
+        ContextBindingState::bound;
+    TransformedDriverSpec transformed_spec;
     TENSORSTORE_ASSIGN_OR_RETURN(
         transformed_spec.transform,
-        static_cast<Derived*>(this)->GetBoundSpecData(
-            std::move(transaction), &bound_spec->data_, transform));
-    transformed_spec.driver_spec = std::move(bound_spec);
+        static_cast<Derived*>(this)->GetBoundSpecData(std::move(transaction),
+                                                      spec->data_, transform));
+    transformed_spec.driver_spec = std::move(spec);
     return transformed_spec;
   }
 
@@ -186,7 +179,7 @@ class RegisteredDriver : public Parent, RegisteredDriverBase {
   ///     DriverSpec::Ptr driver_spec = std::move(driver_spec_builder).Build();
   class DriverSpecBuilder {
    public:
-    using SpecData = typename Derived::template SpecT<ContextUnbound>;
+    using SpecData = typename Derived::SpecData;
 
     static DriverSpecBuilder Make() {
       DriverSpecBuilder builder;
@@ -200,6 +193,10 @@ class RegisteredDriver : public Parent, RegisteredDriverBase {
     DriverSpecBuilder& operator=(const DriverSpecBuilder&) = delete;
     DriverSpecBuilder& operator=(DriverSpecBuilder&&) = default;
 
+    ContextBindingState& context_binding_state() {
+      return internal_context::Access::context_binding_state(*impl_);
+    }
+
     SpecData& operator*() { return impl_->data_; }
     SpecData* operator->() { return &impl_->data_; }
     DriverSpec::Ptr Build() && { return std::move(impl_); }
@@ -210,17 +207,15 @@ class RegisteredDriver : public Parent, RegisteredDriverBase {
 
  private:
   class DriverSpecImpl : public internal::DriverSpec {
-    using SpecData = typename Derived::template SpecT<ContextUnbound>;
-    using BoundSpecData = typename Derived::template SpecT<ContextBound>;
+    using SpecData = typename Derived::SpecData;
     static_assert(std::is_base_of_v<internal::DriverSpecCommonData, SpecData>);
-    static_assert(
-        std::is_base_of_v<internal::DriverSpecCommonData, BoundSpecData>);
 
    public:
     DriverSpec::Ptr Clone() const override {
       IntrusivePtr<DriverSpecImpl> new_spec(new DriverSpecImpl);
       new_spec->data_ = data_;
-      new_spec->context_spec_ = context_spec_;
+      internal_context::Access::context_spec(*new_spec) =
+          internal_context::Access::context_spec(*this);
       return new_spec;
     }
 
@@ -246,51 +241,36 @@ class RegisteredDriver : public Parent, RegisteredDriverBase {
       return Derived::SpecGetFillValue(data_, transform);
     }
 
-    Result<Driver::BoundSpec::Ptr> Bind(Context context) const override {
-      IntrusivePtr<Bound> bound_spec(new Bound);
-      Context child_context(context_spec_, context);
-      TENSORSTORE_RETURN_IF_ERROR(ContextBindingTraits<SpecData>::Bind(
-          &data_, &bound_spec->data_, child_context));
-      return bound_spec;
+    absl::Status BindContext(const Context& context) override {
+      return ContextBindingTraits<SpecData>::Bind(data_, context);
     }
 
-    DriverSpecCommonData& data() override { return data_; }
+    void UnbindContext(const ContextSpecBuilder& context_builder) override {
+      ContextBindingTraits<SpecData>::Unbind(data_, context_builder);
+    }
 
-    class Bound : public internal::DriverSpec::Bound {
-     public:
-      Future<Driver::Handle> Open(
-          OpenTransactionPtr transaction,
-          ReadWriteMode read_write_mode) const override {
-        RegisteredDriverOpener<BoundSpecData> data_ptr;
-        data_ptr.owner_.reset(this);
-        data_ptr.ptr_ = &data_;
-        return tensorstore::MapFutureError(
-            InlineExecutor{},
-            [](const Status& status) {
-              return tensorstore::MaybeAnnotateStatus(
-                  status,
-                  tensorstore::StrCat("Error opening ",
-                                      tensorstore::QuoteString(Derived::id),
-                                      " driver"));
-            },
-            Derived::Open(std::move(transaction), std::move(data_ptr),
-                          read_write_mode));
-      }
+    void StripContext() override {
+      ContextBindingTraits<SpecData>::Strip(data_);
+    }
 
-      DriverSpecPtr Unbind(
-          const ContextSpecBuilder& context_builder) const override {
-        auto child_builder =
-            internal::ContextSpecBuilder::Make(context_builder);
-        IntrusivePtr<DriverSpecImpl> spec(new DriverSpecImpl);
-        spec->context_spec_ = child_builder.spec();
-        ContextBindingTraits<SpecData>::Unbind(&spec->data_, &data_,
-                                               child_builder);
-        return spec;
-      }
-      const BoundSpecData& data() const override { return data_; }
+    Future<Driver::Handle> Open(OpenTransactionPtr transaction,
+                                ReadWriteMode read_write_mode) const override {
+      RegisteredDriverOpener<SpecData> data_ptr;
+      data_ptr.owner_.reset(this);
+      data_ptr.ptr_ = &data_;
+      return tensorstore::MapFutureError(
+          InlineExecutor{},
+          [](const Status& status) {
+            return tensorstore::MaybeAnnotateStatus(
+                status, tensorstore::StrCat(
+                            "Error opening ",
+                            tensorstore::QuoteString(Derived::id), " driver"));
+          },
+          Derived::Open(std::move(transaction), std::move(data_ptr),
+                        read_write_mode));
+    }
 
-      BoundSpecData data_;
-    };
+    SpecData& data() override { return data_; }
 
     SpecData data_;
   };
@@ -299,7 +279,7 @@ class RegisteredDriver : public Parent, RegisteredDriverBase {
   friend class DriverRegistration;
 };
 
-/// Smart pointer to `const T` owned by a `DriverSpec::Bound`.
+/// Smart pointer to `const T` owned by a `DriverSpec`.
 ///
 /// This serves as a parameter to the `Open` method that `RegisteredDriver`
 /// implementations must define and provides access to the bound spec data.
@@ -328,7 +308,7 @@ class RegisteredDriverOpener {
   template <typename, typename>
   friend class RegisteredDriver;
 
-  internal::DriverSpec::Bound::Ptr owner_;
+  internal::DriverSpec::Ptr owner_;
   const T* ptr_;
 };
 

@@ -82,9 +82,8 @@ class DownsampleDriver
  public:
   constexpr static char id[] = "downsample";
 
-  template <template <typename> class MaybeBound>
-  struct SpecT : public internal::DriverSpecCommonData {
-    MaybeBound<TransformedDriverSpec<>> base;
+  struct SpecData : public internal::DriverSpecCommonData {
+    TransformedDriverSpec base;
     std::vector<Index> downsample_factors;
     DownsampleMethod downsample_method;
 
@@ -114,9 +113,6 @@ class DownsampleDriver
           dtype, this->downsample_method);
     }
   };
-
-  using SpecData = SpecT<internal::ContextUnbound>;
-  using BoundSpecData = SpecT<internal::ContextBound>;
 
   using Ptr = Driver::PtrT<DownsampleDriver>;
 
@@ -209,7 +205,7 @@ class DownsampleDriver
 
   static Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
-      internal::RegisteredDriverOpener<BoundSpecData> spec,
+      internal::RegisteredDriverOpener<SpecData> spec,
       ReadWriteMode read_write_mode) {
     if (!!(read_write_mode & ReadWriteMode::write)) {
       return absl::InvalidArgumentError("only reading is supported");
@@ -239,14 +235,14 @@ class DownsampleDriver
   }
 
   Result<IndexTransform<>> GetBoundSpecData(
-      internal::OpenTransactionPtr transaction, BoundSpecData* spec,
+      internal::OpenTransactionPtr transaction, SpecData& spec,
       IndexTransformView<> transform) {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        spec->base,
+        spec.base,
         base_driver_->GetBoundSpec(std::move(transaction), base_transform_));
-    spec->downsample_factors = downsample_factors_;
-    spec->downsample_method = downsample_method_;
-    TENSORSTORE_RETURN_IF_ERROR(spec->InitializeFromBase());
+    spec.downsample_factors = downsample_factors_;
+    spec.downsample_method = downsample_method_;
+    TENSORSTORE_RETURN_IF_ERROR(spec.InitializeFromBase());
     return transform;
   }
 
@@ -922,6 +918,7 @@ Result<Spec> Downsample(const Spec& base_spec,
   Spec downsampled_spec;
   auto& impl = SpecAccess::impl(downsampled_spec);
   auto driver_spec = DownsampleDriver::DriverSpecBuilder::Make();
+  driver_spec.context_binding_state() = base_spec.context_binding_state();
   driver_spec->base = SpecAccess::impl(base_spec);
   TENSORSTORE_RETURN_IF_ERROR(driver_spec->InitializeFromBase());
   driver_spec->downsample_factors.assign(downsample_factors.begin(),

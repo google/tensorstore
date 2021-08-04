@@ -283,8 +283,7 @@ TEST(CastTest, Int32ToStringDynamic) {
   EXPECT_EQ(tensorstore::Read<zero_origin>(cast_store).result(),
             MakeArray<std::string>({"1", "2", "3"}));
   EXPECT_THAT(
-      cast_store.spec().value().ToJson({tensorstore::IncludeDefaults{false},
-                                        tensorstore::IncludeContext{false}}),
+      cast_store.spec().value().ToJson({tensorstore::IncludeDefaults{false}}),
       ::nlohmann::json(
           {{"driver", "cast"},
            {"dtype", "string"},
@@ -409,8 +408,7 @@ TEST(CastTest, ComposeTransforms) {
              {"dtype", "int32"}}}})
           .result());
   EXPECT_EQ(
-      store.spec().value().ToJson({tensorstore::IncludeDefaults{false},
-                                   tensorstore::IncludeContext{false}}),
+      store.spec().value().ToJson({tensorstore::IncludeDefaults{false}}),
       ::nlohmann::json(
           {{"driver", "cast"},
            {"base",

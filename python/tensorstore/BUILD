@@ -288,6 +288,7 @@ pybind11_cc_library(
     hdrs = ["spec.h"],
     deps = [
         ":array_type_caster",
+        ":context",
         ":data_type",
         ":index",
         ":index_space",

@@ -29,7 +29,7 @@
 /// form of named parameters.  For example:
 ///
 ///     auto j = x.ToJson(IncludeDefaults{false});
-///     auto j = x.ToJson({IncludeDefaults{false}, IncludeContext{true}});
+///     auto j = x.ToJson({IncludeDefaults{false}, RankConstraint{3}});
 
 namespace tensorstore {
 
@@ -54,10 +54,6 @@ class JsonSerializationOptions {
     include_defaults_ = value.include_defaults();
   }
 
-  constexpr void Set(IncludeContext value) {
-    include_context_ = value.include_context();
-  }
-
   constexpr void Set(DataType value) { data_type_ = value; }
   template <typename T>
   constexpr void Set(StaticDataType<T> value) {
@@ -75,15 +71,17 @@ class JsonSerializationOptions {
     return IncludeDefaults(include_defaults_);
   }
 
-  constexpr operator IncludeContext() const {
-    return IncludeContext(include_context_);
-  }
-
  private:
   DataType data_type_;
   bool include_defaults_ = false;
-  bool include_context_ = true;
   int8_t rank_ = dynamic_rank;
+
+ public:
+  // For internal use only: context resource specs that should be immediately
+  // re-bound upon deserialization are indicated by a single-element array
+  // wrapping the normal context resource spec.  This is used for
+  // serialization/pickling only.
+  bool preserve_bound_context_resources_ = false;
 };
 
 template <>
@@ -93,8 +91,6 @@ template <>
 constexpr bool JsonSerializationOptions::IsOption<RankConstraint> = true;
 template <>
 constexpr bool JsonSerializationOptions::IsOption<IncludeDefaults> = true;
-template <>
-constexpr bool JsonSerializationOptions::IsOption<IncludeContext> = true;
 template <>
 constexpr bool JsonSerializationOptions::IsOption<DataType> = true;
 template <typename T>
