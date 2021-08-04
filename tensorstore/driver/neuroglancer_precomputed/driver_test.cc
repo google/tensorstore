@@ -463,7 +463,7 @@ TEST(DriverTest, UnsupportedDataTypeInSpec) {
           .result(),
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,
-          "string data type is not one of the supported data types: .*"));
+          ".*string data type is not one of the supported data types: .*"));
 }
 
 TEST(DriverTest, OptionMismatch) {
@@ -487,7 +487,7 @@ TEST(DriverTest, OptionMismatch) {
 }
 
 // Tests that the data type constraint applies.
-TEST(DriverTest, DataTypeMismatch) {
+TEST(DriverTest, DataTypeMismatchInSpec) {
   ::nlohmann::json json_spec = GetJsonSpec();
   auto context = Context::Default();
   // Create the store.
@@ -507,6 +507,25 @@ TEST(DriverTest, DataTypeMismatch) {
       MatchesStatus(
           absl::StatusCode::kFailedPrecondition,
           ".*: Expected \"data_type\" of \"uint32\" but received: \"uint16\""));
+}
+
+TEST(DriverTest, DataTypeMismatchInStoredMetadata) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open({{"driver", "neuroglancer_precomputed"},
+                         {"kvstore", {{"driver", "memory"}}}},
+                        context, Schema::Shape({10, 20, 30, 1}),
+                        dtype_v<uint8_t>, tensorstore::OpenMode::create)
+          .result());
+  EXPECT_THAT(
+      tensorstore::Open({{"driver", "neuroglancer_precomputed"},
+                         {"kvstore", {{"driver", "memory"}}}},
+                        context, dtype_v<uint32_t>, tensorstore::OpenMode::open)
+          .result(),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                    ".*: data_type from metadata \\(uint8\\) does not match "
+                    "dtype in schema \\(uint32\\)"));
 }
 
 TEST(DriverTest, InvalidSpec) {

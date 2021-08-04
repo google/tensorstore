@@ -59,6 +59,10 @@ class JsonSerializationOptions {
   }
 
   constexpr void Set(DataType value) { data_type_ = value; }
+  template <typename T>
+  constexpr void Set(StaticDataType<T> value) {
+    data_type_ = value;
+  }
   constexpr void Set(internal_json_binding::NoOptions) {}
 
   constexpr operator RankConstraint() const { return RankConstraint(rank_); }

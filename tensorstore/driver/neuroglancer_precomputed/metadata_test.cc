@@ -37,6 +37,7 @@ using tensorstore::dtype_v;
 using tensorstore::GetStatus;
 using tensorstore::Index;
 using tensorstore::kDataTypes;
+using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
 using tensorstore::span;
 using tensorstore::StrCat;
@@ -105,13 +106,12 @@ TEST(MetadataTest, ParseUnsharded) {
 }
 )");
 
-  auto metadata_result = MultiscaleMetadata::Parse(metadata_json);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(metadata_result));
-  auto& m = *metadata_result;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto m,
+                                   MultiscaleMetadata::FromJson(metadata_json));
   EXPECT_EQ("image", m.type);
   EXPECT_EQ(dtype_v<std::uint8_t>, m.dtype);
   EXPECT_EQ(1, m.num_channels);
-  EXPECT_EQ(metadata_json, m.attributes);
+  EXPECT_EQ(::nlohmann::json::object_t{}, m.extra_attributes);
   ASSERT_EQ(2, m.scales.size());
   {
     auto& s = m.scales[0];
@@ -164,17 +164,19 @@ TEST(MetadataTest, ParseSharded) {
   "extra_attribute": "attribute_value"
 }
 )");
-
-  auto metadata_result = MultiscaleMetadata::Parse(metadata_json);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(metadata_result));
-  auto& m = *metadata_result;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto m,
+                                   MultiscaleMetadata::FromJson(metadata_json));
   EXPECT_EQ("segmentation", m.type);
   EXPECT_EQ(dtype_v<std::uint64_t>, m.dtype);
   EXPECT_EQ(2, m.num_channels);
-  EXPECT_EQ(metadata_json, m.attributes);
+  EXPECT_THAT(m.extra_attributes,
+              MatchesJson({{"extra_attribute", "attribute_value"}}));
   ASSERT_EQ(1, m.scales.size());
   {
     auto& s = m.scales[0];
+    EXPECT_THAT(
+        s.extra_attributes,
+        MatchesJson({{"extra_scale_attribute", "scale_attribute_value"}}));
     EXPECT_EQ("8_8_8", s.key);
     EXPECT_EQ(Encoding::compressed_segmentation, s.encoding);
     EXPECT_THAT(s.compressed_segmentation_block_size, ElementsAre(8, 9, 10));
@@ -196,7 +198,7 @@ TEST(MetadataTest, ParseSharded) {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0]["chunk_sizes"] = {{64, 64, 64}, {64, 65, 66}};
     EXPECT_THAT(
-        MultiscaleMetadata::Parse(invalid_json),
+        MultiscaleMetadata::FromJson(invalid_json),
         MatchesStatus(
             absl::StatusCode::kInvalidArgument,
             ".*: Sharded format does not support more than one chunk size"));
@@ -205,7 +207,7 @@ TEST(MetadataTest, ParseSharded) {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0]["chunk_sizes"] = {{0, 3, 4}};
     EXPECT_THAT(
-        MultiscaleMetadata::Parse(invalid_json),
+        MultiscaleMetadata::FromJson(invalid_json),
         MatchesStatus(
             absl::StatusCode::kInvalidArgument,
             ".*: Expected integer in the range \\[1, .*\\], but received: 0"));
@@ -213,7 +215,7 @@ TEST(MetadataTest, ParseSharded) {
   {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0]["chunk_sizes"] = ::nlohmann::json::array_t{};
-    EXPECT_THAT(MultiscaleMetadata::Parse(invalid_json),
+    EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*: At least one chunk size must be specified"));
   }
@@ -222,7 +224,7 @@ TEST(MetadataTest, ParseSharded) {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0]["encoding"] = "raw";
     EXPECT_THAT(
-        MultiscaleMetadata::Parse(invalid_json),
+        MultiscaleMetadata::FromJson(invalid_json),
         MatchesStatus(absl::StatusCode::kInvalidArgument,
                       ".*: Error parsing object member "
                       "\"compressed_segmentation_block_size\": "
@@ -231,14 +233,14 @@ TEST(MetadataTest, ParseSharded) {
   {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0].erase("compressed_segmentation_block_size");
-    EXPECT_THAT(MultiscaleMetadata::Parse(invalid_json),
+    EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"compressed_segmentation_block_size\".*"));
   }
   {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0]["compressed_segmentation_block_size"] = {0, 2, 3};
-    EXPECT_THAT(MultiscaleMetadata::Parse(invalid_json),
+    EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"compressed_segmentation_block_size\".*"));
   }
@@ -246,7 +248,7 @@ TEST(MetadataTest, ParseSharded) {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0]["compressed_segmentation_block_size"] =  //
         {0, 2, 3, 4};
-    EXPECT_THAT(MultiscaleMetadata::Parse(invalid_json),
+    EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"compressed_segmentation_block_size\".*"));
   }
@@ -264,9 +266,8 @@ TEST(MetadataTest, ParseDefaultVoxelOffset) {
                                     {"size", {6446, 6643, 8090}}}}},
                                  {"type", "image"},
                                  {"data_type", "uint8"}};
-  auto metadata_result = MultiscaleMetadata::Parse(metadata_json);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(metadata_result));
-  auto& m = *metadata_result;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto m,
+                                   MultiscaleMetadata::FromJson(metadata_json));
   EXPECT_EQ(Box({6446, 6643, 8090}), m.scales.at(0).box);
 }
 
@@ -296,22 +297,22 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
   };
 
   // Test number in place of string data type.
-  EXPECT_THAT(
-      MultiscaleMetadata::Parse(GetMetadata(3, ScaleMetadata::Encoding::raw)),
-      MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(MultiscaleMetadata::FromJson(
+                  GetMetadata(3, ScaleMetadata::Encoding::raw)),
+              MatchesStatus(absl::StatusCode::kInvalidArgument));
 
   // Test invalid data type name.
-  EXPECT_THAT(MultiscaleMetadata::Parse(
+  EXPECT_THAT(MultiscaleMetadata::FromJson(
                   GetMetadata("invalid", ScaleMetadata::Encoding::raw)),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 
   // Test invalid encoding JSON type.
-  EXPECT_THAT(MultiscaleMetadata::Parse(GetMetadata("uint8", 123456)),
+  EXPECT_THAT(MultiscaleMetadata::FromJson(GetMetadata("uint8", 123456)),
               MatchesStatus(absl::StatusCode::kInvalidArgument, ".*123456.*"));
 
   // Test invalid encoding name.
   EXPECT_THAT(
-      MultiscaleMetadata::Parse(GetMetadata("uint8", "invalid_encoding")),
+      MultiscaleMetadata::FromJson(GetMetadata("uint8", "invalid_encoding")),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     ".*\"invalid_encoding\".*"));
 
@@ -320,10 +321,9 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
        {DataTypeId::uint8_t, DataTypeId::uint16_t, DataTypeId::uint32_t,
         DataTypeId::uint64_t, DataTypeId::float32_t}) {
     const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
-    auto metadata_result = MultiscaleMetadata::Parse(
-        GetMetadata(dtype.name(), ScaleMetadata::Encoding::raw));
-    ASSERT_EQ(absl::OkStatus(), GetStatus(metadata_result));
-    auto& m = *metadata_result;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto m, MultiscaleMetadata::FromJson(
+                    GetMetadata(dtype.name(), ScaleMetadata::Encoding::raw)));
     ASSERT_EQ(1, m.scales.size());
     EXPECT_EQ(dtype, m.dtype);
     EXPECT_EQ(ScaleMetadata::Encoding::raw, m.scales[0].encoding);
@@ -331,14 +331,14 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
 
   // Test that "jpeg_quality" is not valid for `raw` encoding.
   EXPECT_THAT(
-      MultiscaleMetadata::Parse(
+      MultiscaleMetadata::FromJson(
           GetMetadata("uint8", ScaleMetadata::Encoding::raw, 1, 75)),
       MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"jpeg\".*"));
 
   // Test that "jpeg_quality" is not valid for `compressed_segmentation`
   // encoding.
   EXPECT_THAT(
-      MultiscaleMetadata::Parse(GetMetadata(
+      MultiscaleMetadata::FromJson(GetMetadata(
           "uint32", ScaleMetadata::Encoding::compressed_segmentation, 1, 75)),
       MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"jpeg\".*"));
 
@@ -346,7 +346,7 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
   for (auto data_type_id : {DataTypeId::string_t, DataTypeId::json_t,
                             DataTypeId::ustring_t, DataTypeId::bool_t}) {
     const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
-    EXPECT_THAT(MultiscaleMetadata::Parse(
+    EXPECT_THAT(MultiscaleMetadata::FromJson(
                     GetMetadata(dtype.name(), ScaleMetadata::Encoding::raw)),
                 MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
@@ -357,7 +357,7 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
       const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
           auto m,
-          MultiscaleMetadata::Parse(GetMetadata(
+          MultiscaleMetadata::FromJson(GetMetadata(
               dtype.name(), ScaleMetadata::Encoding::jpeg, num_channels)));
       ASSERT_EQ(1, m.scales.size());
       EXPECT_EQ(dtype, m.dtype);
@@ -368,17 +368,17 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
   }
 
   // Test invalid jpeg_quality values.
-  EXPECT_THAT(MultiscaleMetadata::Parse(
+  EXPECT_THAT(MultiscaleMetadata::FromJson(
                   GetMetadata("uint8", ScaleMetadata::Encoding::jpeg, 1, -5)),
               MatchesStatus(absl::StatusCode::kInvalidArgument, ".*-5.*"));
-  EXPECT_THAT(MultiscaleMetadata::Parse(
+  EXPECT_THAT(MultiscaleMetadata::FromJson(
                   GetMetadata("uint8", ScaleMetadata::Encoding::jpeg, 1, 101)),
               MatchesStatus(absl::StatusCode::kInvalidArgument, ".*101.*"));
 
   // Test that jpeg_quality is valid for `jpeg` encoding.
   for (int quality : {0, 50, 100}) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto m, MultiscaleMetadata::Parse(GetMetadata(
+        auto m, MultiscaleMetadata::FromJson(GetMetadata(
                     "uint8", ScaleMetadata::Encoding::jpeg, 1, quality)));
     ASSERT_EQ(1, m.scales.size());
     EXPECT_EQ(quality, m.scales[0].jpeg_quality);
@@ -386,7 +386,7 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
 
   // Test invalid number of channels for `jpeg` encoding.
   for (int num_channels : {2, 4, 5}) {
-    EXPECT_THAT(MultiscaleMetadata::Parse(GetMetadata(
+    EXPECT_THAT(MultiscaleMetadata::FromJson(GetMetadata(
                     "uint8", ScaleMetadata::Encoding::jpeg, num_channels)),
                 MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
@@ -399,7 +399,7 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
         DataTypeId::float64_t, DataTypeId::complex64_t,
         DataTypeId::complex128_t}) {
     const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
-    EXPECT_THAT(MultiscaleMetadata::Parse(
+    EXPECT_THAT(MultiscaleMetadata::FromJson(
                     GetMetadata(dtype.name(), ScaleMetadata::Encoding::jpeg)),
                 MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
@@ -407,10 +407,10 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
   // Test valid data types for `compressed_segmentation` encoding.
   for (auto data_type_id : {DataTypeId::uint32_t, DataTypeId::uint64_t}) {
     const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
-    auto metadata_result = MultiscaleMetadata::Parse(GetMetadata(
-        dtype.name(), ScaleMetadata::Encoding::compressed_segmentation));
-    ASSERT_EQ(absl::OkStatus(), GetStatus(metadata_result));
-    auto& m = *metadata_result;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto m,
+        MultiscaleMetadata::FromJson(GetMetadata(
+            dtype.name(), ScaleMetadata::Encoding::compressed_segmentation)));
     ASSERT_EQ(1, m.scales.size());
     EXPECT_EQ(dtype, m.dtype);
     EXPECT_EQ(ScaleMetadata::Encoding::compressed_segmentation,
@@ -425,14 +425,14 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
         DataTypeId::complex64_t, DataTypeId::complex128_t}) {
     const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
     EXPECT_THAT(
-        MultiscaleMetadata::Parse(GetMetadata(
+        MultiscaleMetadata::FromJson(GetMetadata(
             dtype.name(), ScaleMetadata::Encoding::compressed_segmentation)),
         MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 }
 
 TEST(MetadataTest, ParseInvalid) {
-  EXPECT_THAT(MultiscaleMetadata::Parse(3),
+  EXPECT_THAT(MultiscaleMetadata::FromJson(3),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 
   ::nlohmann::json metadata_json{{"@type", "neuroglancer_multiscale_volume"},
@@ -452,7 +452,7 @@ TEST(MetadataTest, ParseInvalid) {
        {"@type", "num_channels", "type", "scales", "data_type"}) {
     auto invalid_json = metadata_json;
     invalid_json[k] = nullptr;
-    EXPECT_THAT(MultiscaleMetadata::Parse(invalid_json),
+    EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               StrCat(".*\"", k, "\".*")));
   }
@@ -460,7 +460,7 @@ TEST(MetadataTest, ParseInvalid) {
   for (const char* k : {"num_channels", "type", "scales", "data_type"}) {
     auto invalid_json = metadata_json;
     invalid_json.erase(k);
-    EXPECT_THAT(MultiscaleMetadata::Parse(invalid_json),
+    EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               StrCat(".*\"", k, "\".*")));
   }
@@ -469,7 +469,7 @@ TEST(MetadataTest, ParseInvalid) {
   for (const char* k : {"@type", "num_channels", "scales", "data_type"}) {
     auto invalid_json = metadata_json;
     invalid_json[k] = "invalid_string";
-    EXPECT_THAT(MultiscaleMetadata::Parse(invalid_json),
+    EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               StrCat(".*\"", k, "\".*invalid_string.*")));
   }
@@ -479,7 +479,7 @@ TEST(MetadataTest, ParseInvalid) {
                         "voxel_offset"}) {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0][k] = nullptr;
-    EXPECT_THAT(MultiscaleMetadata::Parse(invalid_json),
+    EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               StrCat(".*\"", k, "\".*")))
         << k;
@@ -489,7 +489,7 @@ TEST(MetadataTest, ParseInvalid) {
   for (const char* k : {"resolution", "size", "voxel_offset"}) {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0][k] = {2, 3};
-    EXPECT_THAT(MultiscaleMetadata::Parse(invalid_json),
+    EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               StrCat(".*\"", k, "\".*")));
   }
@@ -499,7 +499,7 @@ TEST(MetadataTest, ParseInvalid) {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0]["size"] = {-1, 2, 7};
     EXPECT_THAT(
-        MultiscaleMetadata::Parse(invalid_json),
+        MultiscaleMetadata::FromJson(invalid_json),
         MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"size\".*"));
   }
 
@@ -508,27 +508,29 @@ TEST(MetadataTest, ParseInvalid) {
     auto invalid_json = metadata_json;
     invalid_json["scales"][0]["voxel_offset"] =  //
         {tensorstore::kMaxFiniteIndex, 2, 7};
-    EXPECT_THAT(MultiscaleMetadata::Parse(invalid_json),
+    EXPECT_THAT(MultiscaleMetadata::FromJson(invalid_json),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"voxel_offset\".*"));
   }
 }
 
 TEST(MultiscaleMetadataConstraintsTest, ParseEmptyObject) {
-  auto m = MultiscaleMetadataConstraints::Parse(::nlohmann::json::object_t{});
-  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
-  EXPECT_FALSE(m->type);
-  EXPECT_FALSE(m->dtype.valid());
-  EXPECT_FALSE(m->num_channels);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto m,
+      MultiscaleMetadataConstraints::FromJson(::nlohmann::json::object_t{}));
+  EXPECT_FALSE(m.type);
+  EXPECT_FALSE(m.dtype.valid());
+  EXPECT_FALSE(m.num_channels);
 }
 
 TEST(MultiscaleMetadataConstraintsTest, ParseValid) {
-  auto m = MultiscaleMetadataConstraints::Parse(
-      {{"data_type", "uint8"}, {"num_channels", 3}, {"type", "image"}});
-  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
-  EXPECT_EQ("image", m->type.value());
-  EXPECT_EQ(dtype_v<std::uint8_t>, m->dtype);
-  EXPECT_EQ(3, m->num_channels.value());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto m,
+      MultiscaleMetadataConstraints::FromJson(
+          {{"data_type", "uint8"}, {"num_channels", 3}, {"type", "image"}}));
+  EXPECT_EQ("image", m.type.value());
+  EXPECT_EQ(dtype_v<std::uint8_t>, m.dtype);
+  EXPECT_EQ(3, m.num_channels.value());
 }
 
 TEST(MultiscaleMetadataConstraintsTest, ParseInvalid) {
@@ -536,57 +538,55 @@ TEST(MultiscaleMetadataConstraintsTest, ParseInvalid) {
     ::nlohmann::json j{
         {"data_type", "uint8"}, {"num_channels", 3}, {"type", "image"}};
     j[k] = nullptr;
-    EXPECT_THAT(MultiscaleMetadataConstraints::Parse(j),
+    EXPECT_THAT(MultiscaleMetadataConstraints::FromJson(j),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               StrCat(".*\"", k, "\".*")));
   }
   EXPECT_THAT(
-      MultiscaleMetadataConstraints::Parse(
+      MultiscaleMetadataConstraints::FromJson(
           {{"extra", "member"}, {"data_type", "uint8"}}),
       MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"extra\".*"));
 }
 
 TEST(ScaleMetadataConstraintsTest, ParseEmptyObject) {
-  auto m = ScaleMetadataConstraints::Parse(::nlohmann::json::object_t{},
-                                           /*dtype=*/{}, /*num_channels=*/{});
-  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
-  EXPECT_FALSE(m->key);
-  EXPECT_FALSE(m->box);
-  EXPECT_FALSE(m->chunk_size);
-  EXPECT_FALSE(m->resolution);
-  EXPECT_FALSE(m->encoding);
-  EXPECT_FALSE(m->jpeg_quality);
-  EXPECT_FALSE(m->compressed_segmentation_block_size);
-  EXPECT_FALSE(m->sharding);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto m, ScaleMetadataConstraints::FromJson(::nlohmann::json::object_t{}));
+  EXPECT_FALSE(m.key);
+  EXPECT_FALSE(m.box);
+  EXPECT_FALSE(m.chunk_size);
+  EXPECT_FALSE(m.resolution);
+  EXPECT_FALSE(m.encoding);
+  EXPECT_FALSE(m.jpeg_quality);
+  EXPECT_FALSE(m.compressed_segmentation_block_size);
+  EXPECT_FALSE(m.sharding);
 }
 
 TEST(ScaleMetadataConstraintsTest, ParseValid) {
-  auto m = ScaleMetadataConstraints::Parse(
-      {{"key", "k"},
-       {"size", {1, 2, 3}},
-       {"voxel_offset", {4, 5, 6}},
-       {"resolution", {5, 6, 7}},
-       {"chunk_size", {2, 3, 4}},
-       {"encoding", "compressed_segmentation"},
-       {"compressed_segmentation_block_size", {4, 5, 6}},
-       {"sharding",
-        {{"@type", "neuroglancer_uint64_sharded_v1"},
-         {"preshift_bits", 1},
-         {"minishard_bits", 2},
-         {"shard_bits", 3},
-         {"hash", "identity"}}}},
-      /*dtype=*/{}, /*num_channels=*/{});
-  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
-  EXPECT_THAT(m->key, ::testing::Optional(::testing::Eq("k")));
-  EXPECT_THAT(m->box, ::testing::Optional(Box({4, 5, 6}, {1, 2, 3})));
-  EXPECT_THAT(m->resolution, ::testing::Optional(ElementsAre(5, 6, 7)));
-  EXPECT_THAT(m->chunk_size, ::testing::Optional(ElementsAre(2, 3, 4)));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto m, ScaleMetadataConstraints::FromJson(
+                  {{"key", "k"},
+                   {"size", {1, 2, 3}},
+                   {"voxel_offset", {4, 5, 6}},
+                   {"resolution", {5, 6, 7}},
+                   {"chunk_size", {2, 3, 4}},
+                   {"encoding", "compressed_segmentation"},
+                   {"compressed_segmentation_block_size", {4, 5, 6}},
+                   {"sharding",
+                    {{"@type", "neuroglancer_uint64_sharded_v1"},
+                     {"preshift_bits", 1},
+                     {"minishard_bits", 2},
+                     {"shard_bits", 3},
+                     {"hash", "identity"}}}}));
+  EXPECT_THAT(m.key, ::testing::Optional(::testing::Eq("k")));
+  EXPECT_THAT(m.box, ::testing::Optional(Box({4, 5, 6}, {1, 2, 3})));
+  EXPECT_THAT(m.resolution, ::testing::Optional(ElementsAre(5, 6, 7)));
+  EXPECT_THAT(m.chunk_size, ::testing::Optional(ElementsAre(2, 3, 4)));
   EXPECT_THAT(
-      m->encoding,
+      m.encoding,
       ::testing::Optional(ScaleMetadata::Encoding::compressed_segmentation));
-  EXPECT_THAT(m->compressed_segmentation_block_size,
+  EXPECT_THAT(m.compressed_segmentation_block_size,
               ::testing::Optional(ElementsAre(4, 5, 6)));
-  EXPECT_THAT(m->sharding,
+  EXPECT_THAT(m.sharding,
               ::testing::Optional(ShardingSpec{
                   /*.hash_function=*/ShardingSpec::HashFunction::identity,
                   /*.preshift_bits=*/1,
@@ -598,19 +598,18 @@ TEST(ScaleMetadataConstraintsTest, ParseValid) {
 }
 
 TEST(ScaleMetadataConstraintsTest, ParseValidNullSharding) {
-  auto m = ScaleMetadataConstraints::Parse(
-      {{"key", "k"},
-       {"size", {1, 2, 3}},
-       {"voxel_offset", {4, 5, 6}},
-       {"resolution", {5, 6, 7}},
-       {"chunk_size", {2, 3, 4}},
-       {"encoding", "compressed_segmentation"},
-       {"compressed_segmentation_block_size", {4, 5, 6}},
-       {"sharding", nullptr}},
-      /*dtype=*/{}, /*num_channels=*/{});
-  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
-  ASSERT_TRUE(m->sharding);
-  EXPECT_TRUE(std::holds_alternative<NoShardingSpec>(*m->sharding));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto m, ScaleMetadataConstraints::FromJson(
+                  {{"key", "k"},
+                   {"size", {1, 2, 3}},
+                   {"voxel_offset", {4, 5, 6}},
+                   {"resolution", {5, 6, 7}},
+                   {"chunk_size", {2, 3, 4}},
+                   {"encoding", "compressed_segmentation"},
+                   {"compressed_segmentation_block_size", {4, 5, 6}},
+                   {"sharding", nullptr}}));
+  ASSERT_TRUE(m.sharding);
+  EXPECT_TRUE(std::holds_alternative<NoShardingSpec>(*m.sharding));
 }
 
 TEST(ScaleMetadataConstraintsTest, ParseInvalid) {
@@ -636,30 +635,24 @@ TEST(ScaleMetadataConstraintsTest, ParseInvalid) {
   {
     auto with_quality = metadata_json_jpeg;
     with_quality["jpeg_quality"] = 70;
-    TENSORSTORE_EXPECT_OK(ScaleMetadataConstraints::Parse(with_quality,
-                                                          /*dtype=*/{},
-                                                          /*num_channels=*/{}));
+    TENSORSTORE_EXPECT_OK(ScaleMetadataConstraints::FromJson(with_quality));
   }
 
-  TENSORSTORE_EXPECT_OK(ScaleMetadataConstraints::Parse(metadata_json_jpeg,
-                                                        /*dtype=*/{},
-                                                        /*num_channels=*/{}));
-  TENSORSTORE_EXPECT_OK(ScaleMetadataConstraints::Parse(metadata_json_cseg,
-                                                        /*dtype=*/{},
-                                                        /*num_channels=*/{}));
+  TENSORSTORE_EXPECT_OK(ScaleMetadataConstraints::FromJson(metadata_json_jpeg));
+  TENSORSTORE_EXPECT_OK(ScaleMetadataConstraints::FromJson(metadata_json_cseg));
 
   // Tests that an incompatible encoding triggers an error.
-  EXPECT_THAT(ScaleMetadataConstraints::Parse(metadata_json_cseg,
-                                              /*dtype=*/dtype_v<std::uint8_t>,
-                                              /*num_channels=*/{}),
+  EXPECT_THAT(OpenConstraints::FromJson(
+                  {{"scale_metadata", metadata_json_cseg},
+                   {"multiscale_metadata", {{"data_type", "uint8"}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument, ".*uint8.*"));
 
   // Tests that an incompatible number of channels triggers an error.
   {
-    EXPECT_THAT(
-        ScaleMetadataConstraints::Parse(metadata_json_jpeg, /*dtype=*/{},
-                                        /*num_channels=*/12345),
-        MatchesStatus(absl::StatusCode::kInvalidArgument, ".*12345.*"));
+    EXPECT_THAT(OpenConstraints::FromJson(
+                    {{"scale_metadata", metadata_json_jpeg},
+                     {"multiscale_metadata", {{"num_channels", 12345}}}}),
+                MatchesStatus(absl::StatusCode::kInvalidArgument, ".*12345.*"));
   }
 
   // Tests that `compressed_segmentation_block_size` must not be specified with
@@ -667,13 +660,11 @@ TEST(ScaleMetadataConstraintsTest, ParseInvalid) {
   {
     auto j = metadata_json_cseg;
     j["encoding"] = "raw";
-    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
-                                                /*num_channels=*/{}),
+    EXPECT_THAT(ScaleMetadataConstraints::FromJson(j),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"compressed_segmentation_block_size\".*"));
     j.erase("encoding");
-    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
-                                                /*num_channels=*/{}),
+    EXPECT_THAT(ScaleMetadataConstraints::FromJson(j),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"compressed_segmentation_block_size\".*"));
   }
@@ -684,13 +675,11 @@ TEST(ScaleMetadataConstraintsTest, ParseInvalid) {
     auto j = metadata_json_jpeg;
     j["encoding"] = "raw";
     j["jpeg_quality"] = 70;
-    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
-                                                /*num_channels=*/{}),
+    EXPECT_THAT(ScaleMetadataConstraints::FromJson(j),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"jpeg_quality\".*"));
     j.erase("encoding");
-    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
-                                                /*num_channels=*/{}),
+    EXPECT_THAT(ScaleMetadataConstraints::FromJson(j),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"jpeg_quality\".*"));
   }
@@ -701,23 +690,20 @@ TEST(ScaleMetadataConstraintsTest, ParseInvalid) {
         "compressed_segmentation_block_size"}) {
     auto j = metadata_json_cseg;
     j[k] = nullptr;
-    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
-                                                /*num_channels=*/{}),
+    EXPECT_THAT(ScaleMetadataConstraints::FromJson(j),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               StrCat(".*\"", k, "\".*")));
   }
   // Tests that an extra member triggers an error.
   EXPECT_THAT(
-      ScaleMetadataConstraints::Parse({{"extra", "member"}, {"key", "k"}},
-                                      /*dtype=*/{}, /*num_channels=*/{}),
+      ScaleMetadataConstraints::FromJson({{"extra", "member"}, {"key", "k"}}),
       MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"extra\".*"));
 
   // Tests that `voxel_offset` must not be specified without `size`.
   {
     auto j = metadata_json_jpeg;
     j.erase("size");
-    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
-                                                /*num_channels=*/{}),
+    EXPECT_THAT(ScaleMetadataConstraints::FromJson(j),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"voxel_offset\".*"));
   }
@@ -726,8 +712,7 @@ TEST(ScaleMetadataConstraintsTest, ParseInvalid) {
   {
     auto j = metadata_json_jpeg;
     j["voxel_offset"] = {2, tensorstore::kMaxFiniteIndex, 3};
-    EXPECT_THAT(ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
-                                                /*num_channels=*/{}),
+    EXPECT_THAT(ScaleMetadataConstraints::FromJson(j),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"voxel_offset\".*"));
   }
@@ -737,8 +722,7 @@ TEST(ScaleMetadataConstraintsTest, ParseInvalid) {
     auto j = metadata_json_jpeg;
     j["sharding"] = "invalid";
     EXPECT_THAT(
-        ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
-                                        /*num_channels=*/{}),
+        ScaleMetadataConstraints::FromJson(j),
         MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"sharding\".*"));
   }
 
@@ -749,8 +733,7 @@ TEST(ScaleMetadataConstraintsTest, ParseInvalid) {
     j["size"] = {0xffffffff, 0xffffffff, 0xffffffff};
     j["chunk_size"] = {1, 1, 1};
     EXPECT_THAT(
-        ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
-                                        /*num_channels=*/{}),
+        ScaleMetadataConstraints::FromJson(j),
         MatchesStatus(
             absl::StatusCode::kInvalidArgument,
             "\"size\" of .* with \"chunk_size\" of .* is not compatible with "
@@ -758,64 +741,58 @@ TEST(ScaleMetadataConstraintsTest, ParseInvalid) {
 
     // Verify that error does not occur when `"sharding"` is not specified.
     j["sharding"] = nullptr;
-    EXPECT_EQ(absl::OkStatus(),
-              GetStatus(ScaleMetadataConstraints::Parse(j, /*dtype=*/{},
-                                                        /*num_channels=*/{})));
+    TENSORSTORE_EXPECT_OK(ScaleMetadataConstraints::FromJson(j));
   }
 }
 
 TEST(OpenConstraintsTest, ParseEmptyObject) {
-  auto m = OpenConstraints::Parse(::nlohmann::json::object_t{},
-                                  /*data_type_constraint=*/{});
-  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
-  EXPECT_FALSE(m->scale_index);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto m, OpenConstraints::FromJson(::nlohmann::json::object_t{}));
+  EXPECT_FALSE(m.scale_index);
 }
 
 TEST(OpenConstraintsTest, ParseEmptyObjectDataTypeConstraint) {
-  auto m =
-      OpenConstraints::Parse(::nlohmann::json::object_t{},
-                             /*data_type_constraint=*/dtype_v<std::uint8_t>);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
-  EXPECT_FALSE(m->scale_index);
-  EXPECT_EQ(dtype_v<std::uint8_t>, m->multiscale.dtype);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto m, OpenConstraints::FromJson(::nlohmann::json::object_t{},
+                                        dtype_v<std::uint8_t>));
+  EXPECT_FALSE(m.scale_index);
+  EXPECT_EQ(dtype_v<std::uint8_t>, m.multiscale.dtype);
 }
 
 TEST(OpenConstraintsTest, ParseEmptyObjectInvalidDataTypeConstraint) {
-  EXPECT_THAT(OpenConstraints::Parse(::nlohmann::json::object_t{},
-                                     /*data_type_constraint=*/dtype_v<bool>),
-              MatchesStatus(
-                  absl::StatusCode::kInvalidArgument,
-                  "bool data type is not one of the supported data types: .*"));
+  EXPECT_THAT(
+      OpenConstraints::FromJson(::nlohmann::json::object_t{}, dtype_v<bool>),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "bool data type is not one of the supported data types: .*"));
 }
 
 TEST(OpenConstraintsTest, ParseValid) {
-  auto m =
-      OpenConstraints::Parse({{"multiscale_metadata", {{"data_type", "uint8"}}},
-                              {"scale_metadata", {{"encoding", "jpeg"}}},
-                              {"scale_index", 2}},
-                             /*data_type_constraint=*/{});
-  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
-  EXPECT_THAT(m->scale_index, ::testing::Optional(2));
-  EXPECT_EQ(dtype_v<std::uint8_t>, m->multiscale.dtype);
-  EXPECT_EQ(ScaleMetadata::Encoding::jpeg, m->scale.encoding);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto m, OpenConstraints::FromJson(
+                  {{"multiscale_metadata", {{"data_type", "uint8"}}},
+                   {"scale_metadata", {{"encoding", "jpeg"}}},
+                   {"scale_index", 2}}));
+  EXPECT_THAT(m.scale_index, ::testing::Optional(2));
+  EXPECT_EQ(dtype_v<std::uint8_t>, m.multiscale.dtype);
+  EXPECT_EQ(ScaleMetadata::Encoding::jpeg, m.scale.encoding);
 }
 
 TEST(OpenConstraintsTest, ParseDataTypeConstraint) {
-  auto m = OpenConstraints::Parse(
-      {{"multiscale_metadata", {{"data_type", "uint8"}}}},
-      /*data_type_constraint=*/dtype_v<std::uint8_t>);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(m));
-  EXPECT_EQ(dtype_v<std::uint8_t>, m->multiscale.dtype);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto m, OpenConstraints::FromJson(
+                  {{"multiscale_metadata", {{"data_type", "uint8"}}}},
+                  dtype_v<std::uint8_t>));
+  EXPECT_EQ(dtype_v<std::uint8_t>, m.multiscale.dtype);
 }
 
 TEST(OpenConstraintsTest, ParseDataTypeConstraintMismatch) {
   EXPECT_THAT(
-      OpenConstraints::Parse(
+      OpenConstraints::FromJson(
           {{"multiscale_metadata", {{"data_type", "uint8"}}}},
-          /*data_type_constraint=*/dtype_v<std::uint16_t>),
+          dtype_v<std::uint16_t>),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Mismatch between data type in TensorStore Spec "
-                    "\\(uint16\\) and in \"multiscale_metadata\" \\(uint8\\)"));
+                    ".*: Expected data type of uint16 but received: uint8"));
 }
 
 TEST(OpenConstraintsTest, ParseInvalid) {
@@ -828,8 +805,7 @@ TEST(OpenConstraintsTest, ParseInvalid) {
   {
     auto invalid_json = metadata_json;
     invalid_json["scale_index"] = -1;
-    EXPECT_THAT(OpenConstraints::Parse(invalid_json,
-                                       /*data_type_constraint=*/{}),
+    EXPECT_THAT(OpenConstraints::FromJson(invalid_json),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"scale_index\".*"));
   }
@@ -838,8 +814,7 @@ TEST(OpenConstraintsTest, ParseInvalid) {
   {
     auto invalid_json = metadata_json;
     invalid_json["scale_metadata"] = 3;
-    EXPECT_THAT(OpenConstraints::Parse(invalid_json,
-                                       /*data_type_constraint=*/{}),
+    EXPECT_THAT(OpenConstraints::FromJson(invalid_json),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"scale_metadata\".*"));
   }
@@ -848,8 +823,7 @@ TEST(OpenConstraintsTest, ParseInvalid) {
   {
     auto invalid_json = metadata_json;
     invalid_json["multiscale_metadata"] = 3;
-    EXPECT_THAT(OpenConstraints::Parse(invalid_json,
-                                       /*data_type_constraint=*/{}),
+    EXPECT_THAT(OpenConstraints::FromJson(invalid_json),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,
                               ".*\"multiscale_metadata\".*"));
   }
@@ -860,8 +834,7 @@ TEST(OpenConstraintsTest, ParseInvalid) {
     auto invalid_json = metadata_json;
     invalid_json["multiscale_metadata"]["num_channels"] = 2;
     EXPECT_THAT(
-        OpenConstraints::Parse(invalid_json,
-                               /*data_type_constraint=*/{}),
+        OpenConstraints::FromJson(invalid_json),
         MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"jpeg\".*"));
   }
 }
@@ -900,7 +873,8 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
        }},
       {"type", "segmentation"},
   };
-  auto a = MultiscaleMetadata::Parse(metadata_json).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto a,
+                                   MultiscaleMetadata::FromJson(metadata_json));
 
   const auto Validate = [](const MultiscaleMetadata& a,
                            const MultiscaleMetadata& b, std::size_t scale_index,
@@ -921,29 +895,29 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
   };
 
   // Identical metadata is always compatible.
-  EXPECT_EQ(absl::OkStatus(), Validate(a, a, 0, {{64, 65, 66}}));
-  EXPECT_EQ(absl::OkStatus(), Validate(a, a, 1, {{8, 9, 10}}));
-  EXPECT_EQ(absl::OkStatus(), Validate(a, a, 1, {{11, 12, 13}}));
+  TENSORSTORE_EXPECT_OK(Validate(a, a, 0, {{64, 65, 66}}));
+  TENSORSTORE_EXPECT_OK(Validate(a, a, 1, {{8, 9, 10}}));
+  TENSORSTORE_EXPECT_OK(Validate(a, a, 1, {{11, 12, 13}}));
 
   {
     SCOPED_TRACE("Other scales can be removed");
     auto b = a;
     b.scales.resize(1);
-    EXPECT_EQ(absl::OkStatus(), Validate(a, b, 0, {{64, 65, 66}}));
+    TENSORSTORE_EXPECT_OK(Validate(a, b, 0, {{64, 65, 66}}));
   }
 
   {
     SCOPED_TRACE("Other scales can be added");
     auto b = a;
     b.scales.push_back(b.scales[1]);
-    EXPECT_EQ(absl::OkStatus(), Validate(a, b, 0, {{64, 65, 66}}));
+    TENSORSTORE_EXPECT_OK(Validate(a, b, 0, {{64, 65, 66}}));
   }
 
   {
     SCOPED_TRACE("Other scales can change");
     auto b = a;
     b.scales[1].key = "new_key";
-    EXPECT_EQ(absl::OkStatus(), Validate(a, b, 0, {{64, 65, 66}}));
+    TENSORSTORE_EXPECT_OK(Validate(a, b, 0, {{64, 65, 66}}));
   }
 
   {
@@ -968,14 +942,14 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
     SCOPED_TRACE("`type` can change");
     auto b = a;
     b.type = "image";
-    EXPECT_EQ(absl::OkStatus(), Validate(a, b, 0, {{64, 65, 66}}));
+    TENSORSTORE_EXPECT_OK(Validate(a, b, 0, {{64, 65, 66}}));
   }
 
   {
     SCOPED_TRACE("`resolution` can change");
     auto b = a;
     b.scales[0].resolution[0] = 42;
-    EXPECT_EQ(absl::OkStatus(), Validate(a, b, 0, {{64, 65, 66}}));
+    TENSORSTORE_EXPECT_OK(Validate(a, b, 0, {{64, 65, 66}}));
   }
 
   {
@@ -1014,7 +988,7 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
     EXPECT_THAT(ValidateMetadataCompatibility(a, b, 1, {{11, 12, 13}}),
                 MatchesStatus(absl::StatusCode::kFailedPrecondition,
                               ".*\\[11,12,13\\].*"));
-    EXPECT_EQ(absl::OkStatus(), GetStatus(Validate(a, b, 1, {{8, 9, 10}})));
+    TENSORSTORE_EXPECT_OK(GetStatus(Validate(a, b, 1, {{8, 9, 10}})));
   }
 
   {
@@ -1056,42 +1030,42 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
 }
 
 TEST(CreateScaleTest, NoExistingMetadata) {
-  auto constraints = OpenConstraints::Parse(
-                         {
-                             {"multiscale_metadata",
-                              {
-                                  {"data_type", "uint8"},
-                                  {"num_channels", 2},
-                                  {"type", "image"},
-                              }},
-                             {"scale_metadata",
-                              {
-                                  {"encoding", "raw"},
-                                  {"key", "scale_key"},
-                                  {"size", {10, 11, 12}},
-                                  {"voxel_offset", {1, 2, 3}},
-                                  {"resolution", {5, 6, 7}},
-                                  {"chunk_size", {8, 9, 10}},
-                              }},
-                         },
-                         /*data_type_constraint=*/{})
-                         .value();
-  auto result = CreateScale(/*existing_metadata=*/nullptr, constraints,
-                            /*schema=*/{});
-  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
-  const auto& [metadata, scale_index] = *result;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto constraints,
+                                   OpenConstraints::FromJson({
+                                       {"multiscale_metadata",
+                                        {
+                                            {"data_type", "uint8"},
+                                            {"num_channels", 2},
+                                            {"type", "image"},
+                                        }},
+                                       {"scale_metadata",
+                                        {
+                                            {"encoding", "raw"},
+                                            {"key", "scale_key"},
+                                            {"size", {10, 11, 12}},
+                                            {"voxel_offset", {1, 2, 3}},
+                                            {"resolution", {5, 6, 7}},
+                                            {"chunk_size", {8, 9, 10}},
+                                        }},
+                                   }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto result, CreateScale(/*existing_metadata=*/nullptr, constraints,
+                               /*schema=*/{}));
+  const auto& [metadata, scale_index] = result;
   ASSERT_TRUE(metadata);
   EXPECT_EQ(0, scale_index);
   const ::nlohmann::json scale_attributes{
       {"encoding", "raw"},           {"key", "scale_key"},
       {"size", {10, 11, 12}},        {"voxel_offset", {1, 2, 3}},
       {"chunk_sizes", {{8, 9, 10}}}, {"resolution", {5, 6, 7}}};
-  EXPECT_EQ(::nlohmann::json({{"@type", "neuroglancer_multiscale_volume"},
-                              {"type", "image"},
-                              {"data_type", "uint8"},
-                              {"num_channels", 2},
-                              {"scales", {scale_attributes}}}),
-            metadata->attributes);
+  EXPECT_EQ(::nlohmann::json::object_t(), metadata->extra_attributes);
+  EXPECT_THAT(metadata->ToJson(),
+              ::testing::Optional(
+                  MatchesJson({{"@type", "neuroglancer_multiscale_volume"},
+                               {"type", "image"},
+                               {"data_type", "uint8"},
+                               {"num_channels", 2},
+                               {"scales", {scale_attributes}}})));
   EXPECT_EQ(dtype_v<std::uint8_t>, metadata->dtype);
   EXPECT_EQ(2, metadata->num_channels);
   EXPECT_EQ("image", metadata->type);
@@ -1102,52 +1076,53 @@ TEST(CreateScaleTest, NoExistingMetadata) {
   EXPECT_THAT(s.chunk_sizes, ElementsAre(ElementsAre(8, 9, 10)));
   EXPECT_THAT(s.resolution, ElementsAre(5, 6, 7));
   EXPECT_EQ(ScaleMetadata::Encoding::raw, s.encoding);
-  EXPECT_EQ(s.attributes, scale_attributes);
+  EXPECT_EQ(::nlohmann::json::object_t(), s.extra_attributes);
+  EXPECT_THAT(s.ToJson(), ::testing::Optional(MatchesJson(scale_attributes)));
 }
 
 // Tests that the scale key is generated from the `resolution` if it is not
 // specified.
 TEST(CreateScaleTest, NoExistingMetadataGenerateKey) {
-  auto constraints = OpenConstraints::Parse(
-                         {
-                             {"multiscale_metadata",
-                              {
-                                  {"data_type", "uint8"},
-                                  {"num_channels", 2},
-                                  {"type", "image"},
-                              }},
-                             {"scale_metadata",
-                              {
-                                  {"encoding", "raw"},
-                                  {"size", {10, 11, 12}},
-                                  {"voxel_offset", {1, 2, 3}},
-                                  {"resolution", {5, 6, 7}},
-                                  {"chunk_size", {8, 9, 10}},
-                              }},
-                         },
-                         /*data_type_constraint=*/{})
-                         .value();
-  auto result =
-      CreateScale(/*existing_metadata=*/nullptr, constraints, /*schema=*/{});
-  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
-  const auto& [metadata, scale_index] = *result;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto constraints,
+                                   OpenConstraints::FromJson({
+                                       {"multiscale_metadata",
+                                        {
+                                            {"data_type", "uint8"},
+                                            {"num_channels", 2},
+                                            {"type", "image"},
+                                        }},
+                                       {"scale_metadata",
+                                        {
+                                            {"encoding", "raw"},
+                                            {"size", {10, 11, 12}},
+                                            {"voxel_offset", {1, 2, 3}},
+                                            {"resolution", {5, 6, 7}},
+                                            {"chunk_size", {8, 9, 10}},
+                                        }},
+                                   }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto result,
+      CreateScale(/*existing_metadata=*/nullptr, constraints, /*schema=*/{}));
+  const auto& [metadata, scale_index] = result;
   ASSERT_TRUE(metadata);
   EXPECT_EQ(0, scale_index);
   const ::nlohmann::json scale_attributes{
       {"encoding", "raw"},           {"key", "5_6_7"},
       {"size", {10, 11, 12}},        {"voxel_offset", {1, 2, 3}},
       {"chunk_sizes", {{8, 9, 10}}}, {"resolution", {5, 6, 7}}};
-  EXPECT_EQ(::nlohmann::json({{"@type", "neuroglancer_multiscale_volume"},
-                              {"type", "image"},
-                              {"data_type", "uint8"},
-                              {"num_channels", 2},
-                              {"scales", {scale_attributes}}}),
-            metadata->attributes);
+  EXPECT_THAT(metadata->ToJson(),
+              ::testing::Optional(
+                  MatchesJson({{"@type", "neuroglancer_multiscale_volume"},
+                               {"type", "image"},
+                               {"data_type", "uint8"},
+                               {"num_channels", 2},
+                               {"scales", {scale_attributes}}})));
 }
 
 TEST(CreateScaleTest, NoExistingMetadataCompressedSegmentation) {
-  auto constraints =
-      OpenConstraints::Parse(
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto constraints,
+      OpenConstraints::FromJson(
           {{"multiscale_metadata",
             {
                 {"data_type", "uint32"},
@@ -1164,13 +1139,11 @@ TEST(CreateScaleTest, NoExistingMetadataCompressedSegmentation) {
                 {"resolution", {5, 6, 7}},
                 {"chunk_size", {8, 9, 10}},
             }},
-           {"scale_index", 0}},
-          /*data_type_constraint=*/{})
-          .value();
-  auto result =
-      CreateScale(/*existing_metadata=*/nullptr, constraints, /*schema=*/{});
-  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
-  const auto& [metadata, scale_index] = *result;
+           {"scale_index", 0}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto result,
+      CreateScale(/*existing_metadata=*/nullptr, constraints, /*schema=*/{}));
+  const auto& [metadata, scale_index] = result;
   ASSERT_TRUE(metadata);
   EXPECT_EQ(0, scale_index);
   const ::nlohmann::json scale_attributes{
@@ -1181,12 +1154,13 @@ TEST(CreateScaleTest, NoExistingMetadataCompressedSegmentation) {
       {"voxel_offset", {1, 2, 3}},
       {"chunk_sizes", {{8, 9, 10}}},
       {"resolution", {5, 6, 7}}};
-  EXPECT_EQ(::nlohmann::json({{"@type", "neuroglancer_multiscale_volume"},
-                              {"type", "image"},
-                              {"data_type", "uint32"},
-                              {"num_channels", 2},
-                              {"scales", {scale_attributes}}}),
-            metadata->attributes);
+  EXPECT_THAT(metadata->ToJson(),
+              ::testing::Optional(
+                  MatchesJson({{"@type", "neuroglancer_multiscale_volume"},
+                               {"type", "image"},
+                               {"data_type", "uint32"},
+                               {"num_channels", 2},
+                               {"scales", {scale_attributes}}})));
   EXPECT_EQ(dtype_v<std::uint32_t>, metadata->dtype);
   EXPECT_EQ(2, metadata->num_channels);
   EXPECT_EQ("image", metadata->type);
@@ -1198,7 +1172,7 @@ TEST(CreateScaleTest, NoExistingMetadataCompressedSegmentation) {
   EXPECT_THAT(s.resolution, ElementsAre(5, 6, 7));
   EXPECT_EQ(ScaleMetadata::Encoding::compressed_segmentation, s.encoding);
   EXPECT_THAT(s.compressed_segmentation_block_size, ElementsAre(8, 9, 10));
-  EXPECT_EQ(s.attributes, scale_attributes);
+  EXPECT_THAT(s.ToJson(), ::testing::Optional(MatchesJson(scale_attributes)));
 }
 
 TEST(CreateScaleTest, InvalidScaleConstraints) {
@@ -1223,9 +1197,7 @@ TEST(CreateScaleTest, InvalidScaleConstraints) {
   // Control case
   TENSORSTORE_EXPECT_OK(CreateScale(
       /*existing_metadata=*/nullptr,
-      OpenConstraints::Parse(constraints_json,
-                             /*data_type_constraint=*/{})
-          .value(),
+      OpenConstraints::FromJson(constraints_json).value(),
       /*schema=*/{}));
 
   // Tests that create fails when a non-zero "scale_index" is specified.
@@ -1234,9 +1206,7 @@ TEST(CreateScaleTest, InvalidScaleConstraints) {
     j["scale_index"] = 1;
     EXPECT_THAT(
         CreateScale(/*existing_metadata=*/nullptr,
-                    OpenConstraints::Parse(j,
-                                           /*data_type_constraint=*/{})
-                        .value(),
+                    OpenConstraints::FromJson(j).value(),
                     /*schema=*/{}),
         MatchesStatus(absl::StatusCode::kFailedPrecondition,
                       ".*Cannot create scale 1 in new multiscale volume"));
@@ -1265,9 +1235,7 @@ TEST(CreateScaleTest, InvalidMultiscaleConstraints) {
   // Control case
   TENSORSTORE_EXPECT_OK(CreateScale(
       /*existing_metadata=*/nullptr,
-      OpenConstraints::Parse(constraints_json,
-                             /*data_type_constraint=*/{})
-          .value(),
+      OpenConstraints::FromJson(constraints_json).value(),
       /*schema=*/{}));
 
   // Tests that removing any of the following keys results in an error.
@@ -1275,9 +1243,7 @@ TEST(CreateScaleTest, InvalidMultiscaleConstraints) {
     auto j = constraints_json;
     j["multiscale_metadata"].erase(k);
     EXPECT_THAT(CreateScale(/*existing_metadata=*/nullptr,
-                            OpenConstraints::Parse(j,
-                                                   /*data_type_constraint=*/{})
-                                .value(),
+                            OpenConstraints::FromJson(j).value(),
                             /*schema=*/{}),
                 MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
@@ -1335,7 +1301,8 @@ TEST(CreateScaleTest, ExistingMetadata) {
        }},
       {"type", "segmentation"},
   };
-  auto existing_metadata = MultiscaleMetadata::Parse(metadata_json).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto existing_metadata,
+                                   MultiscaleMetadata::FromJson(metadata_json));
   auto expected_metadata = metadata_json;
   const ::nlohmann::json scale_attributes{
       {"encoding", "compressed_segmentation"},
@@ -1345,19 +1312,21 @@ TEST(CreateScaleTest, ExistingMetadata) {
       {"voxel_offset", {1, 2, 3}},
       {"chunk_sizes", {{8, 9, 10}}},
       {"resolution", {5, 6, 7}}};
+  expected_metadata["@type"] = "neuroglancer_multiscale_volume";
   expected_metadata["scales"].push_back(scale_attributes);
 
   // Test with full set of constraints.
   {
-    auto constraints = OpenConstraints::Parse(constraints_json,
-                                              /*data_type_constraint=*/{})
-                           .value();
-    auto result = CreateScale(&existing_metadata, constraints, /*schema=*/{});
-    ASSERT_EQ(absl::OkStatus(), GetStatus(result));
-    const auto& [metadata, scale_index] = *result;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto constraints, OpenConstraints::FromJson(constraints_json));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto result,
+        CreateScale(&existing_metadata, constraints, /*schema=*/{}));
+    const auto& [metadata, scale_index] = result;
     ASSERT_TRUE(metadata);
     EXPECT_EQ(2, scale_index);
-    EXPECT_EQ(expected_metadata, metadata->attributes);
+    EXPECT_THAT(metadata->ToJson(),
+                ::testing::Optional(MatchesJson(expected_metadata)));
     EXPECT_EQ(dtype_v<std::uint64_t>, metadata->dtype);
     EXPECT_EQ(1, metadata->num_channels);
     EXPECT_EQ("segmentation", metadata->type);
@@ -1369,24 +1338,22 @@ TEST(CreateScaleTest, ExistingMetadata) {
     EXPECT_THAT(s.resolution, ElementsAre(5, 6, 7));
     EXPECT_EQ(ScaleMetadata::Encoding::compressed_segmentation, s.encoding);
     EXPECT_THAT(s.compressed_segmentation_block_size, ElementsAre(8, 9, 10));
-    EXPECT_EQ(s.attributes, scale_attributes);
+    EXPECT_THAT(s.ToJson(), ::testing::Optional(MatchesJson(scale_attributes)));
   }
 
   // Test that `scale_index` may be specified.
   {
     auto j = constraints_json;
     j["scale_index"] = 2;
-    auto result =
-        CreateScale(&existing_metadata,
-                    OpenConstraints::Parse(j,
-                                           /*data_type_constraint=*/{})
-                        .value(),
-                    /*schema=*/{});
-    ASSERT_EQ(absl::OkStatus(), GetStatus(result));
-    const auto& [metadata, scale_index] = *result;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto result,
+        CreateScale(&existing_metadata, OpenConstraints::FromJson(j).value(),
+                    /*schema=*/{}));
+    const auto& [metadata, scale_index] = result;
     ASSERT_TRUE(metadata);
     EXPECT_EQ(2, scale_index);
-    EXPECT_EQ(expected_metadata, metadata->attributes);
+    EXPECT_THAT(metadata->ToJson(),
+                ::testing::Optional(MatchesJson(expected_metadata)));
   }
 
   // Test that `key` may be unspecified.
@@ -1394,20 +1361,17 @@ TEST(CreateScaleTest, ExistingMetadata) {
     auto j = constraints_json;
     j["scale_metadata"].erase("key");
     j["scale_metadata"]["resolution"] = {41, 42, 43};
-    auto result =
-        CreateScale(&existing_metadata,
-                    OpenConstraints::Parse(j,
-                                           /*data_type_constraint=*/{})
-                        .value(),
-                    /*schema=*/{});
-    ASSERT_EQ(absl::OkStatus(), GetStatus(result));
-    const auto& [metadata, scale_index] = *result;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto result,
+        CreateScale(&existing_metadata, OpenConstraints::FromJson(j).value(),
+                    /*schema=*/{}));
+    const auto& [metadata, scale_index] = result;
     ASSERT_TRUE(metadata);
     EXPECT_EQ(2, scale_index);
     auto expected = expected_metadata;
     expected["scales"][2]["key"] = "41_42_43";
     expected["scales"][2]["resolution"] = {41, 42, 43};
-    EXPECT_EQ(expected, metadata->attributes);
+    EXPECT_THAT(metadata->ToJson(), ::testing::Optional(MatchesJson(expected)));
   }
 
   // Test that any of the following `multiscale_metadata` keys may be omitted
@@ -1415,17 +1379,15 @@ TEST(CreateScaleTest, ExistingMetadata) {
   for (const char* k : {"data_type", "num_channels", "type"}) {
     auto j = constraints_json;
     j["multiscale_metadata"].erase(k);
-    auto result =
-        CreateScale(&existing_metadata,
-                    OpenConstraints::Parse(j,
-                                           /*data_type_constraint=*/{})
-                        .value(),
-                    /*schema=*/{});
-    ASSERT_EQ(absl::OkStatus(), GetStatus(result));
-    const auto& [metadata, scale_index] = *result;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto result,
+        CreateScale(&existing_metadata, OpenConstraints::FromJson(j).value(),
+                    /*schema=*/{}));
+    const auto& [metadata, scale_index] = result;
     ASSERT_TRUE(metadata);
     EXPECT_EQ(2, scale_index);
-    EXPECT_EQ(expected_metadata, metadata->attributes);
+    EXPECT_THAT(metadata->ToJson(),
+                ::testing::Optional(MatchesJson(expected_metadata)));
   }
 
   // Tests that any of the following changes in the `multiscale_metadata` leads
@@ -1435,13 +1397,11 @@ TEST(CreateScaleTest, ExistingMetadata) {
            {"data_type", "uint32"}, {"num_channels", 3}, {"type", "image"}}) {
     auto j = constraints_json;
     j["multiscale_metadata"][k] = new_value;
-    EXPECT_THAT(CreateScale(&existing_metadata,
-                            OpenConstraints::Parse(j,
-                                                   /*data_type_constraint=*/{})
-                                .value(),
-                            /*schema=*/{}),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              StrCat(".*\"", k, "\".*")));
+    EXPECT_THAT(
+        CreateScale(&existing_metadata, OpenConstraints::FromJson(j).value(),
+                    /*schema=*/{}),
+        MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                      StrCat(".*\"", k, "\".*")));
   }
 
   // Tests that a mismatch between the `encoding` specified in `constraints` and
@@ -1452,10 +1412,7 @@ TEST(CreateScaleTest, ExistingMetadata) {
     j["scale_metadata"].erase("compressed_segmentation_block_size");
     j["scale_metadata"]["encoding"] = "jpeg";
     EXPECT_THAT(
-        CreateScale(&existing_metadata,
-                    OpenConstraints::Parse(j,
-                                           /*data_type_constraint=*/{})
-                        .value(),
+        CreateScale(&existing_metadata, OpenConstraints::FromJson(j).value(),
                     /*schema=*/{}),
         MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"jpeg\".*"));
   }
@@ -1504,12 +1461,11 @@ TEST(CreateScaleTest, ExistingScale) {
        }},
       {"type", "segmentation"},
   };
-  auto existing_metadata = MultiscaleMetadata::Parse(metadata_json).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto existing_metadata,
+                                   MultiscaleMetadata::FromJson(metadata_json));
 
   EXPECT_THAT(CreateScale(&existing_metadata,
-                          OpenConstraints::Parse(constraints_json,
-                                                 /*data_type_constraint=*/{})
-                              .value(),
+                          OpenConstraints::FromJson(constraints_json).value(),
                           /*schema=*/{}),
               MatchesStatus(absl::StatusCode::kAlreadyExists,
                             "Scale with key \"8_8_8\" already exists"));
@@ -1517,24 +1473,19 @@ TEST(CreateScaleTest, ExistingScale) {
   {
     auto j = constraints_json;
     j["scale_index"] = 3;
-    EXPECT_THAT(CreateScale(&existing_metadata,
-                            OpenConstraints::Parse(j,
-                                                   /*data_type_constraint=*/{})
-                                .value(),
-                            /*schema=*/{}),
-                MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                              "Scale index to create \\(3\\) must equal the "
-                              "existing number of scales \\(2\\)"));
+    EXPECT_THAT(
+        CreateScale(&existing_metadata, OpenConstraints::FromJson(j).value(),
+                    /*schema=*/{}),
+        MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                      "Scale index to create \\(3\\) must equal the "
+                      "existing number of scales \\(2\\)"));
   }
 
   for (int scale_index = 0; scale_index < 2; ++scale_index) {
     auto j = constraints_json;
     j["scale_index"] = scale_index;
     EXPECT_THAT(
-        CreateScale(&existing_metadata,
-                    OpenConstraints::Parse(j,
-                                           /*data_type_constraint=*/{})
-                        .value(),
+        CreateScale(&existing_metadata, OpenConstraints::FromJson(j).value(),
                     /*schema=*/{}),
         MatchesStatus(absl::StatusCode::kAlreadyExists,
                       StrCat("Scale index ", scale_index, " already exists")));
@@ -1544,10 +1495,7 @@ TEST(CreateScaleTest, ExistingScale) {
     auto j = constraints_json;
     j["scale_metadata"].erase("key");
     EXPECT_THAT(
-        CreateScale(&existing_metadata,
-                    OpenConstraints::Parse(j,
-                                           /*data_type_constraint=*/{})
-                        .value(),
+        CreateScale(&existing_metadata, OpenConstraints::FromJson(j).value(),
                     /*schema=*/{}),
         MatchesStatus(
             absl::StatusCode::kAlreadyExists,
@@ -1589,115 +1537,120 @@ class OpenScaleTest : public ::testing::Test {
       {"type", "segmentation"},
   };
   MultiscaleMetadata metadata =
-      MultiscaleMetadata::Parse(metadata_json).value();
+      MultiscaleMetadata::FromJson(metadata_json).value();
 };
 
 TEST_F(OpenScaleTest, Success) {
   // Open with no constraints
-  EXPECT_EQ(0u, OpenScale(metadata,
-                          OpenConstraints::Parse(::nlohmann::json::object_t{},
-                                                 /*data_type_constraint=*/{})
-                              .value()));
+  EXPECT_EQ(
+      0u,
+      OpenScale(metadata,
+                OpenConstraints::FromJson(::nlohmann::json::object_t{}).value(),
+                /*schema=*/{}));
 
   // Open by `scale_index` only
-  EXPECT_EQ(0u, OpenScale(metadata,
-                          OpenConstraints::Parse({{"scale_index", 0}},
-                                                 /*data_type_constraint=*/{})
-                              .value()));
+  EXPECT_EQ(0u,
+            OpenScale(metadata,
+                      OpenConstraints::FromJson({{"scale_index", 0}}).value(),
+                      /*schema=*/{}));
 
   // Open with invalid `scale_index`
-  EXPECT_THAT(
-      OpenScale(metadata, OpenConstraints::Parse({{"scale_index", 2}},
-                                                 /*data_type_constraint=*/{})
-                              .value()),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    "Scale 2 does not exist, number of scales is 2"));
+  EXPECT_THAT(OpenScale(metadata,
+                        OpenConstraints::FromJson({{"scale_index", 2}}).value(),
+                        /*schema=*/{}),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            "Scale 2 does not exist, number of scales is 2"));
 
   // Open by `key` only
-  EXPECT_EQ(0u,
-            OpenScale(metadata, OpenConstraints::Parse(
-                                    {{"scale_metadata", {{"key", "8_8_8"}}}},
-                                    /*data_type_constraint=*/{})
-                                    .value()));
-  EXPECT_EQ(1u,
-            OpenScale(metadata, OpenConstraints::Parse(
-                                    {{"scale_metadata", {{"key", "16_16_16"}}}},
-                                    /*data_type_constraint=*/{})
-                                    .value()));
+  EXPECT_EQ(0u, OpenScale(metadata,
+                          OpenConstraints::FromJson(
+                              {{"scale_metadata", {{"key", "8_8_8"}}}})
+                              .value(),
+                          /*schema=*/{}));
+  EXPECT_EQ(1u, OpenScale(metadata,
+                          OpenConstraints::FromJson(
+                              {{"scale_metadata", {{"key", "16_16_16"}}}})
+                              .value(),
+                          /*schema=*/{}));
 
   // Open by `resolution` only
   EXPECT_EQ(0u, OpenScale(metadata,
-                          OpenConstraints::Parse(
-                              {{"scale_metadata", {{"resolution", {5, 6, 7}}}}},
-                              /*data_type_constraint=*/{})
-                              .value()));
+                          OpenConstraints::FromJson(
+                              {{"scale_metadata", {{"resolution", {5, 6, 7}}}}})
+                              .value(),
+                          /*schema=*/{}));
   EXPECT_EQ(1u,
             OpenScale(metadata,
-                      OpenConstraints::Parse(
-                          {{"scale_metadata", {{"resolution", {10, 11, 12}}}}},
-                          /*data_type_constraint=*/{})
-                          .value()));
+                      OpenConstraints::FromJson(
+                          {{"scale_metadata", {{"resolution", {10, 11, 12}}}}})
+                          .value(),
+                      /*schema=*/{}));
 
   // Open by `key` and `resolution`
   EXPECT_EQ(0u, OpenScale(metadata,
-                          OpenConstraints::Parse(
+                          OpenConstraints::FromJson(
                               {{"scale_metadata",
-                                {{"key", "8_8_8"}, {"resolution", {5, 6, 7}}}}},
-                              /*data_type_constraint=*/{})
-                              .value()));
+                                {{"key", "8_8_8"}, {"resolution", {5, 6, 7}}}}})
+                              .value(),
+                          /*schema=*/{}));
 }
 
-TEST_F(OpenScaleTest, Invalid) {
-  // Open with invalid `key`
-  EXPECT_THAT(
-      OpenScale(metadata, OpenConstraints::Parse(
-                              {{"scale_metadata", {{"key", "invalidkey"}}}},
-                              /*data_type_constraint=*/{})
-                              .value()),
-      MatchesStatus(absl::StatusCode::kNotFound,
-                    "No scale found matching \\{\"key\":\"invalidkey\"\\}"));
-
-  // Open with invalid `resolution`
+TEST_F(OpenScaleTest, InvalidKey) {
   EXPECT_THAT(
       OpenScale(metadata,
-                OpenConstraints::Parse(
-                    {{"scale_metadata", {{"resolution", {41, 42, 43}}}}},
-                    /*data_type_constraint=*/{})
-                    .value()),
+                OpenConstraints::FromJson(
+                    {{"scale_metadata", {{"key", "invalidkey"}}}})
+                    .value(),
+                /*schema=*/{}),
+      MatchesStatus(absl::StatusCode::kNotFound,
+                    "No scale found matching \\{\"key\":\"invalidkey\"\\}"));
+}
+
+TEST_F(OpenScaleTest, InvalidResolution) {
+  EXPECT_THAT(
+      OpenScale(metadata,
+                OpenConstraints::FromJson(
+                    {{"scale_metadata", {{"resolution", {41, 42, 43}}}}})
+                    .value(),
+                /*schema=*/{}),
       MatchesStatus(absl::StatusCode::kNotFound,
                     "No scale found matching "
                     "\\{\"resolution\":\\[41\\.0,42\\.0,43\\.0\\]\\}"));
+}
 
-  // Open with invalid `key` and `resolution` combination.
+TEST_F(OpenScaleTest, InvalidKeyAndResolutionCombination) {
   EXPECT_THAT(
       OpenScale(metadata,
-                OpenConstraints::Parse(
+                OpenConstraints::FromJson(
                     {{"scale_metadata",
-                      {{"key", "16_16_16"}, {"resolution", {5, 6, 7}}}}},
-                    /*data_type_constraint=*/{})
-                    .value()),
+                      {{"key", "16_16_16"}, {"resolution", {5, 6, 7}}}}})
+                    .value(),
+                /*schema=*/{}),
       MatchesStatus(
           absl::StatusCode::kNotFound,
           "No scale found matching "
           "\\{\"key\":\"16_16_16\",\"resolution\":\\[5\\.0,6\\.0,7\\.0\\]\\}"));
+}
 
-  // Invalid multiscale metadata open constraints
-  EXPECT_THAT(
-      OpenScale(metadata, OpenConstraints::Parse(
-                              {{"scale_index", 0},
-                               {"multiscale_metadata", {{"num_channels", 7}}}},
-                              /*data_type_constraint=*/{})
-                              .value()),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    ".*\"num_channels\".*"));
+TEST_F(OpenScaleTest, InvalidNumChannels) {
+  EXPECT_THAT(OpenScale(metadata,
+                        OpenConstraints::FromJson(
+                            {{"scale_index", 0},
+                             {"multiscale_metadata", {{"num_channels", 7}}}})
+                            .value(),
+                        /*schema=*/{}),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*\"num_channels\".*"));
+}
 
-  // Invalid scale metadata open constraints
+TEST_F(OpenScaleTest, InvalidScaleSize) {
   EXPECT_THAT(
-      OpenScale(metadata, OpenConstraints::Parse(
-                              {{"scale_index", 0},
-                               {"scale_metadata", {{"size", {1, 2, 3}}}}},
-                              /*data_type_constraint=*/{})
-                              .value()),
+      OpenScale(
+          metadata,
+          OpenConstraints::FromJson(
+              {{"scale_index", 0}, {"scale_metadata", {{"size", {1, 2, 3}}}}})
+              .value(),
+          /*schema=*/{}),
       MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"size\".*"));
 }
 
@@ -1731,9 +1684,8 @@ TEST_F(OpenScaleTest, MetadataMismatch) {
   };
   // Control case.
   EXPECT_EQ(0u, OpenScale(metadata,
-                          OpenConstraints::Parse(constraints_json,
-                                                 /*data_type_constraint=*/{})
-                              .value()));
+                          OpenConstraints::FromJson(constraints_json).value(),
+                          /*schema=*/{}));
 
   // Tests that any of the following changes in the `scale_metadata` leads
   // to an error.
@@ -1752,12 +1704,10 @@ TEST_F(OpenScaleTest, MetadataMismatch) {
     if (k == "encoding") {
       j["scale_metadata"].erase("compressed_segmentation_block_size");
     }
-    EXPECT_THAT(
-        OpenScale(metadata, OpenConstraints::Parse(j,
-                                                   /*data_type_constraint=*/{})
-                                .value()),
-        MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                      StrCat(".*\"", k, "\".*")));
+    EXPECT_THAT(OpenScale(metadata, OpenConstraints::FromJson(j).value(),
+                          /*schema=*/{}),
+                MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                              StrCat(".*\"", k, "\".*")));
   }
 }
 
@@ -1774,7 +1724,7 @@ TEST(ValidateDataTypeTest, Basic) {
        {DataTypeId::uint8_t, DataTypeId::uint16_t, DataTypeId::uint32_t,
         DataTypeId::uint64_t, DataTypeId::float32_t}) {
     const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
-    EXPECT_EQ(absl::OkStatus(), ValidateDataType(dtype));
+    TENSORSTORE_EXPECT_OK(ValidateDataType(dtype));
   }
   for (auto data_type_id :
        {DataTypeId::string_t, DataTypeId::json_t, DataTypeId::ustring_t,

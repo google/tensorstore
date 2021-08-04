@@ -62,7 +62,7 @@ Result<std::shared_ptr<const MultiscaleMetadata>> ParseEncodedMetadata(
     return absl::FailedPreconditionError("Invalid JSON");
   }
   TENSORSTORE_ASSIGN_OR_RETURN(auto metadata,
-                               MultiscaleMetadata::Parse(raw_data));
+                               MultiscaleMetadata::FromJson(raw_data));
   return std::make_shared<MultiscaleMetadata>(std::move(metadata));
 }
 
@@ -430,104 +430,17 @@ class NeuroglancerPrecomputedDriver
       internal_kvs_backed_chunk_driver::SpecJsonBinder,
       jb::Member("path", jb::Projection(&SpecT<>::key_prefix,
                                         jb::DefaultInitializedValue())),
-      [](auto is_loading, const auto& options, auto* obj, auto* j) {
-        if constexpr (is_loading) {
-          // TODO(jbms): Convert to use JSON binding framework for loading as
-          // well.
-          TENSORSTORE_ASSIGN_OR_RETURN(
-              obj->open_constraints,
-              OpenConstraints::Parse(*j, obj->schema.dtype()));
-          TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(RankConstraint{4}));
-          TENSORSTORE_RETURN_IF_ERROR(
-              obj->schema.Set(obj->open_constraints.multiscale.dtype));
-          // Erase members that were parsed to prevent error about extra
-          // members.
-          j->erase("scale_metadata");
-          j->erase("multiscale_metadata");
-          j->erase("scale_index");
-          return absl::OkStatus();
-        } else {
-          return jb::Projection(
-              &SpecT<>::open_constraints,
-              jb::Sequence(
-                  jb::Member("scale_index",
-                             jb::Projection(&OpenConstraints::scale_index)),
-                  jb::Member(
-                      "scale_metadata",
-                      jb::Projection(
-                          &OpenConstraints::scale,
-                          jb::DefaultInitializedValue<
-                              jb::kNeverIncludeDefaults>(jb::Object(
-                              jb::Member("key",
-                                         jb::Projection(
-                                             &ScaleMetadataConstraints::key)),
-                              jb::Member(
-                                  "resolution",
-                                  jb::Projection(
-                                      &ScaleMetadataConstraints::resolution)),
-                              jb::Member(
-                                  "chunk_size",
-                                  jb::Projection(
-                                      &ScaleMetadataConstraints::chunk_size)),
-                              jb::Member(
-                                  "voxel_offset",
-                                  jb::Projection(
-                                      &ScaleMetadataConstraints::box,
-                                      jb::Optional(jb::Projection([](auto& b) {
-                                        return b.origin();
-                                      })))),
-                              jb::Member(
-                                  "size",
-                                  jb::Projection(
-                                      &ScaleMetadataConstraints::box,
-                                      jb::Optional(jb::Projection(
-                                          [](auto& b) { return b.shape(); })))),
-                              jb::Member(
-                                  "encoding",
-                                  jb::Projection(
-                                      &ScaleMetadataConstraints::encoding,
-                                      jb::Optional([](auto is_loading,
-                                                      const auto& options,
-                                                      auto* obj, auto* j) {
-                                        if constexpr (!is_loading) {
-                                          *j = to_string(*obj);
-                                        }
-                                        return absl::OkStatus();
-                                      }))),
-                              jb::Member(
-                                  "compressed_segmentation_block_size",
-                                  jb::Projection(
-                                      &ScaleMetadataConstraints::
-                                          compressed_segmentation_block_size)),
-                              jb::Member(
-                                  "sharding",
-                                  jb::Projection(
-                                      &ScaleMetadataConstraints::sharding,
-                                      jb::Optional([](auto is_loading,
-                                                      const auto& options,
-                                                      auto* obj, auto* j) {
-                                        if constexpr (!is_loading) {
-                                          *j = ::nlohmann::json(*obj);
-                                        }
-                                        return absl::OkStatus();
-                                      }))))))),
-                  jb::Member(
-                      "multiscale_metadata",
-                      jb::Projection(
-                          &OpenConstraints::multiscale,
-                          jb::DefaultInitializedValue<
-                              jb::kNeverIncludeDefaults>(jb::Object(
-                              jb::Member("num_channels",
-                                         jb::Projection(
-                                             &MultiscaleMetadataConstraints::
-                                                 num_channels)),
-                              jb::Member(kTypeId,
-                                         jb::Projection(
-                                             &MultiscaleMetadataConstraints::
-                                                 type))))))))(is_loading,
-                                                              options, obj, j);
-        }
-      });
+      [](auto is_loading, auto options, auto* obj, auto* j) {
+        options.Set(obj->schema.dtype());
+        return jb::DefaultBinder<>(is_loading, options, &obj->open_constraints,
+                                   j);
+      },
+      jb::Initialize([](SpecT<>* obj) {
+        TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(RankConstraint{4}));
+        TENSORSTORE_RETURN_IF_ERROR(
+            obj->schema.Set(obj->open_constraints.multiscale.dtype));
+        return absl::OkStatus();
+      }));
 
   class OpenState;
 
@@ -647,8 +560,9 @@ class NeuroglancerPrecomputedDriver::OpenState
         open_constraints.scale_index = *scale_index_;
       }
     }
-    TENSORSTORE_ASSIGN_OR_RETURN(size_t scale_index,
-                                 OpenScale(metadata, open_constraints));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        size_t scale_index,
+        OpenScale(metadata, open_constraints, spec().schema));
     const auto& scale = metadata.scales[scale_index];
     if (spec().open_constraints.scale.chunk_size &&
         absl::c_linear_search(scale.chunk_sizes,

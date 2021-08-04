@@ -39,7 +39,8 @@ template <typename T>
 void TestRoundtrip(::nlohmann::json metadata_json, bool compare) {
   const auto dtype = tensorstore::dtype_v<T>;
   metadata_json["data_type"] = dtype.name();
-  auto metadata = MultiscaleMetadata::Parse(metadata_json).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   MultiscaleMetadata::FromJson(metadata_json));
   auto array = tensorstore::AllocateArray<T>({metadata.num_channels, 5, 4, 3});
   for (Index i = 0, n = array.num_elements(); i < n; ++i) {
     array.data()[i] = static_cast<T>(i);

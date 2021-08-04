@@ -25,6 +25,7 @@
 #include "tensorstore/internal/data_type_json_binder.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_metadata_matching.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/util/quote_string.h"
@@ -35,6 +36,8 @@ namespace jb = ::tensorstore::internal_json_binding;
 
 namespace tensorstore {
 namespace internal_neuroglancer_precomputed {
+
+using internal::MetadataMismatchError;
 
 void to_json(::nlohmann::json& out,  // NOLINT
              const std::variant<NoShardingSpec, ShardingSpec>& s) {
@@ -133,25 +136,12 @@ Status ValidateChunkSize(
   return absl::OkStatus();
 }
 
-/// The default json object copy moves the attributes; instead copy before
-/// anything else is done.
-constexpr static auto CopyAttributesBinder =
-    [](auto is_loading, const auto& options, auto* obj,
-       ::nlohmann::json::object_t* j_obj) -> Status {
-  if constexpr (is_loading) {
-    obj->attributes = *j_obj;
-  }
-  return absl::OkStatus();
-};
-
 /// Binder for std::variant<NoShardingSpec, ShardingSpec>, maps discarded
 /// (missing) and nullptr values to NoShardingSpec{}.
-constexpr static auto ShardingBinder =
-    [](auto is_loading, const auto& options,
-       std::variant<NoShardingSpec, ShardingSpec>* obj,
-       auto* j) -> absl::Status {
+constexpr static auto ShardingBinder = [](auto is_loading, const auto& options,
+                                          auto* obj, auto* j) -> absl::Status {
   if constexpr (is_loading) {
-    if (j->is_discarded() || nullptr == *j) {
+    if (j->is_discarded() || j->is_null()) {
       *obj = NoShardingSpec{};
       return absl::OkStatus();
     }
@@ -225,8 +215,19 @@ constexpr auto ScaleMetadataCommon(MaybeOptional maybe_optional) {
             "resolution",
             jb::Projection(&T::resolution, maybe_optional(jb::FixedSizeArray(
                                                jb::LooseFloatBinder)))),
-        jb::Member("sharding", jb::Projection(&T::sharding,
-                                              maybe_optional(ShardingBinder))),
+        jb::Member(
+            "sharding",
+            jb::Projection(
+                &T::sharding,
+                [=](auto is_loading, const auto& options, auto* obj, auto* j) {
+                  if constexpr (!is_loading &&
+                                std::is_same_v<T, ScaleMetadata>) {
+                    if (std::holds_alternative<NoShardingSpec>(*obj))
+                      return absl::OkStatus();
+                  }
+                  return maybe_optional(ShardingBinder)(is_loading, options,
+                                                        obj, j);
+                })),
         EncodingJsonBinder(maybe_optional),
         jb::Member(
             "compressed_segmentation_block_size",
@@ -242,7 +243,6 @@ constexpr auto ScaleMetadataCommon(MaybeOptional maybe_optional) {
               } else {
                 if (obj->encoding !=
                     ScaleMetadata::Encoding::compressed_segmentation) {
-                  *j = ::nlohmann::json(::nlohmann::json::value_t::discarded);
                   return absl::OkStatus();
                 }
               }
@@ -256,7 +256,7 @@ constexpr auto ScaleMetadataCommon(MaybeOptional maybe_optional) {
 }
 
 constexpr static auto ScaleMetadataBinder = jb::Object(
-    CopyAttributesBinder, ScaleMetadataCommon(internal::identity{}),
+    ScaleMetadataCommon(internal::identity{}),
     jb::Initialize([](ScaleMetadata* x) {
       x->box.Fill(IndexInterval::UncheckedSized(0, 0));
     }),
@@ -267,7 +267,8 @@ constexpr static auto ScaleMetadataBinder = jb::Object(
                jb::Projection(&ScaleMetadata::chunk_sizes,
                               jb::Array(jb::FixedSizeArray(
                                   jb::Integer<Index>(1, kInfSize - 1))))),
-    jb::DiscardExtraMembers, jb::Initialize([](ScaleMetadata* obj) {
+    jb::Projection(&ScaleMetadata::extra_attributes),
+    jb::Initialize([](ScaleMetadata* obj) {
       if (obj->chunk_sizes.empty()) {
         return absl::InvalidArgumentError(
             "At least one chunk size must be specified");
@@ -286,26 +287,32 @@ constexpr static auto ScaleMetadataBinder = jb::Object(
 
 constexpr static auto ScaleMetadataConstraintsBinder = jb::Object(
     ScaleMetadataCommon(WrapInOptional),
-    jb::OptionalMember(
-        "size", jb::Sequence(jb::Initialize([](ScaleMetadataConstraints* x) {
-                               x->box.emplace().Fill(
-                                   IndexInterval::UncheckedSized(0, 0));
-                             }),
-                             jb::Projection([](ScaleMetadataConstraints& x) {
-                               return x.box->shape();
-                             }))),
+    jb::Member("size",
+               jb::Projection(
+                   &ScaleMetadataConstraints::box,
+                   jb::Optional(jb::Sequence(
+                       jb::Initialize([](Box<3>* box) {
+                         std::fill(box->origin().begin(), box->origin().end(),
+                                   Index(0));
+                       }),
+                       jb::Projection([](auto& x) { return x.shape(); }))))),
     jb::OptionalMember(
         "voxel_offset",
-        jb::Sequence(jb::Initialize([](ScaleMetadataConstraints* x) {
-                       if (!x->box) {
-                         return absl::InvalidArgumentError(
-                             "cannot be specified without \"size\"");
-                       }
-                       return absl::OkStatus();
-                     }),
-                     jb::Projection([](ScaleMetadataConstraints& x) {
-                       return x.box->origin();
-                     }))),
+        jb::Projection(
+            &ScaleMetadataConstraints::box,
+            [](auto is_loading, const auto& options, auto* obj, auto* j) {
+              if constexpr (is_loading) {
+                if (!obj->has_value()) {
+                  return absl::InvalidArgumentError(
+                      "cannot be specified without \"size\"");
+                }
+              } else {
+                if (!obj->has_value()) return absl::OkStatus();
+              }
+              // span<Index, 4> or span<const Index, 4>
+              auto origin = (*obj)->origin();
+              return jb::DefaultBinder<>(is_loading, options, &origin, j);
+            })),
     jb::Member("chunk_size",
                jb::Projection(&ScaleMetadataConstraints::chunk_size,
                               jb::Optional(jb::FixedSizeArray(
@@ -323,9 +330,8 @@ constexpr static auto ScaleMetadataConstraintsBinder = jb::Object(
     }));
 
 constexpr static auto MultiscaleMetadataBinder = jb::Object(
-    CopyAttributesBinder, jb::OptionalMember("@type", jb::Constant([] {
-                                               return kMultiscaleVolumeTypeId;
-                                             })),
+    jb::OptionalMember("@type",
+                       jb::Constant([] { return kMultiscaleVolumeTypeId; })),
     jb::Member("type", jb::Projection(&MultiscaleMetadata::type)),
     jb::Member("data_type",
                jb::Projection(&MultiscaleMetadata::dtype,
@@ -338,7 +344,8 @@ constexpr static auto MultiscaleMetadataBinder = jb::Object(
                                               jb::Integer(1))),
     jb::Member("scales", jb::Projection(&MultiscaleMetadata::scales,
                                         jb::Array(ScaleMetadataBinder))),
-    jb::DiscardExtraMembers, jb::Initialize([](MultiscaleMetadata* obj) {
+    jb::Projection(&MultiscaleMetadata::extra_attributes),
+    jb::Initialize([](MultiscaleMetadata* obj) {
       for (const auto& s : obj->scales) {
         TENSORSTORE_RETURN_IF_ERROR(ValidateEncodingDataType(
             s.encoding, obj->dtype, obj->num_channels));
@@ -348,221 +355,146 @@ constexpr static auto MultiscaleMetadataBinder = jb::Object(
 
 constexpr static auto MultiscaleMetadataConstraintsBinder = jb::Object(
     jb::Member("type", jb::Projection(&MultiscaleMetadataConstraints::type)),
-    jb::Member(
-        "data_type",
-        [](auto is_loading, const auto& options, auto* obj, auto* j) -> Status {
-          if constexpr (is_loading) {
-            if (j->is_discarded()) return absl::OkStatus();
-          }
-          return jb::Projection(
-              &MultiscaleMetadataConstraints::dtype,
-              jb::Validate([](const auto& options,
-                              auto* obj) { return ValidateDataType(*obj); },
-                           jb::DataTypeJsonBinder))(is_loading, options, obj,
-                                                    j);
-        }),
+    jb::Member("data_type",
+               jb::Projection(&MultiscaleMetadataConstraints::dtype,
+                              jb::ConstrainedDataTypeJsonBinder)),
     jb::Member("num_channels",
                jb::Projection(&MultiscaleMetadataConstraints::num_channels,
                               jb::Optional(jb::Integer(1)))));
 
 constexpr static auto OpenConstraintsBinder = jb::Object(
     jb::Member("scale_index", jb::Projection(&OpenConstraints::scale_index)),
-    jb::OptionalMember("multiscale_metadata",
-                       jb::Projection(&OpenConstraints::multiscale,
-                                      MultiscaleMetadataConstraintsBinder)),
-    jb::OptionalMember(
+    jb::Projection(
+        &OpenConstraints::multiscale,
+        jb::Validate(
+            [](const auto& options, auto* obj) {
+              auto& dtype = obj->dtype;
+              if (!dtype.valid()) {
+                dtype = options.dtype();
+              }
+              if (!dtype.valid()) return absl::OkStatus();
+              return ValidateDataType(dtype);
+            },
+            jb::Member(
+                "multiscale_metadata",
+                jb::DefaultInitializedValue<jb::kNeverIncludeDefaults>()))),
+    jb::Member(
         "scale_metadata",
-        jb::Sequence(jb::Projection(&OpenConstraints::scale,
-                                    ScaleMetadataConstraintsBinder),
-                     jb::Initialize([](OpenConstraints* obj) {
-                       if (obj->scale.encoding &&
-                           obj->multiscale.num_channels) {
-                         return ValidateEncodingDataType(
-                             obj->scale.encoding.value(), obj->multiscale.dtype,
-                             obj->multiscale.num_channels);
-                       }
-                       return absl::OkStatus();
-                     }))));
+        jb::Validate(
+            [](const auto& options, OpenConstraints* obj) {
+              if (obj->scale.encoding) {
+                return ValidateEncodingDataType(obj->scale.encoding.value(),
+                                                obj->multiscale.dtype,
+                                                obj->multiscale.num_channels);
+              }
+              return absl::OkStatus();
+            },
+            jb::Projection(
+                &OpenConstraints::scale,
+                jb::DefaultInitializedValue<jb::kNeverIncludeDefaults>()))));
 
 Status ValidateScaleConstraintsForOpen(
     const ScaleMetadataConstraints& constraints,
     const ScaleMetadata& metadata) {
-  const auto Error = [](const char* name, const auto& expected,
-                        const auto& actual) -> Status {
-    return absl::FailedPreconditionError(
-        StrCat("Expected ", QuoteString(name), " of ",
-               ::nlohmann::json(expected).dump(),
-               " but received: ", ::nlohmann::json(actual).dump()));
-  };
   if (constraints.key && *constraints.key != metadata.key) {
-    return Error(kKeyId, *constraints.key, metadata.key);
+    return MetadataMismatchError(kKeyId, *constraints.key, metadata.key);
   }
   if (constraints.encoding && *constraints.encoding != metadata.encoding) {
-    return Error(kEncodingId, *constraints.encoding, metadata.encoding);
+    return MetadataMismatchError(kEncodingId, *constraints.encoding,
+                                 metadata.encoding);
   }
   if (metadata.encoding == ScaleMetadata::Encoding::jpeg &&
       constraints.jpeg_quality &&
       *constraints.jpeg_quality != metadata.jpeg_quality) {
-    return Error(kJpegQualityId, *constraints.jpeg_quality,
-                 metadata.jpeg_quality);
+    return MetadataMismatchError(kJpegQualityId, *constraints.jpeg_quality,
+                                 metadata.jpeg_quality);
   }
   if (metadata.encoding == ScaleMetadata::Encoding::compressed_segmentation &&
       constraints.compressed_segmentation_block_size &&
       *constraints.compressed_segmentation_block_size !=
           metadata.compressed_segmentation_block_size) {
-    return Error(kCompressedSegmentationBlockSizeId,
-                 *constraints.compressed_segmentation_block_size,
-                 metadata.compressed_segmentation_block_size);
+    return MetadataMismatchError(
+        kCompressedSegmentationBlockSizeId,
+        *constraints.compressed_segmentation_block_size,
+        metadata.compressed_segmentation_block_size);
   }
   if (constraints.resolution &&
       *constraints.resolution != metadata.resolution) {
-    return Error(kResolutionId, *constraints.resolution, metadata.resolution);
+    return MetadataMismatchError(kResolutionId, *constraints.resolution,
+                                 metadata.resolution);
   }
   if (constraints.sharding && *constraints.sharding != metadata.sharding) {
-    return Error(kShardingId, *constraints.sharding, metadata.sharding);
+    return MetadataMismatchError(kShardingId, *constraints.sharding,
+                                 metadata.sharding);
   }
   if (constraints.box) {
     if (!absl::c_equal(constraints.box->shape(), metadata.box.shape())) {
-      return Error(kSizeId, constraints.box->shape(), metadata.box.shape());
+      return MetadataMismatchError(kSizeId, constraints.box->shape(),
+                                   metadata.box.shape());
     }
     if (!absl::c_equal(constraints.box->origin(), metadata.box.origin())) {
-      return Error(kVoxelOffsetId, constraints.box->origin(),
-                   metadata.box.origin());
+      return MetadataMismatchError(kVoxelOffsetId, constraints.box->origin(),
+                                   metadata.box.origin());
     }
   }
   if (constraints.chunk_size &&
       !absl::c_linear_search(metadata.chunk_sizes, *constraints.chunk_size)) {
-    return Error(kChunkSizeId, *constraints.chunk_size, metadata.chunk_sizes);
+    return MetadataMismatchError(kChunkSizeId, *constraints.chunk_size,
+                                 metadata.chunk_sizes);
   }
-  return absl::OkStatus();
-}
-
-Status ValidateMultiscaleConstraintsForCreate(
-    const MultiscaleMetadataConstraints& m) {
-  const auto Error = [](const char* property) {
-    return absl::InvalidArgumentError(
-        StrCat(QuoteString(property),
-               " must be specified in \"multiscale_metadata\""));
-  };
-  if (!m.dtype.valid()) return Error(kDataTypeId);
-  if (!m.num_channels) return Error(kNumChannelsId);
-  if (!m.type) return Error(kTypeId);
-  return absl::OkStatus();
+  return internal::ValidateMetadataSubset(constraints.extra_attributes,
+                                          metadata.extra_attributes);
 }
 
 Status ValidateMultiscaleConstraintsForOpen(
     const MultiscaleMetadataConstraints& constraints,
     const MultiscaleMetadata& metadata) {
-  const auto Error = [](const char* name, const auto& expected,
-                        const auto& actual) -> Status {
-    return absl::FailedPreconditionError(
-        StrCat("Expected ", QuoteString(name), " of ",
-               ::nlohmann::json(expected).dump(),
-               " but received: ", ::nlohmann::json(actual).dump()));
-  };
   if (constraints.dtype.valid() && constraints.dtype != metadata.dtype) {
-    return Error(kDataTypeId, constraints.dtype.name(), metadata.dtype.name());
+    return MetadataMismatchError(kDataTypeId, constraints.dtype.name(),
+                                 metadata.dtype.name());
   }
   if (constraints.num_channels &&
       *constraints.num_channels != metadata.num_channels) {
-    return Error(kNumChannelsId, *constraints.num_channels,
-                 metadata.num_channels);
+    return MetadataMismatchError(kNumChannelsId, *constraints.num_channels,
+                                 metadata.num_channels);
   }
   if (constraints.type && *constraints.type != metadata.type) {
-    return Error(kTypeId, *constraints.type, metadata.type);
+    return MetadataMismatchError(kTypeId, *constraints.type, metadata.type);
   }
-  return absl::OkStatus();
+  return internal::ValidateMetadataSubset(constraints.extra_attributes,
+                                          metadata.extra_attributes);
 }
 
 std::string GetScaleKeyFromResolution(span<const double, 3> resolution) {
   return absl::StrCat(resolution[0], "_", resolution[1], "_", resolution[2]);
 }
 
-Result<std::shared_ptr<MultiscaleMetadata>> InitializeNewMultiscaleMetadata(
-    const MultiscaleMetadataConstraints& m) {
-  TENSORSTORE_RETURN_IF_ERROR(ValidateMultiscaleConstraintsForCreate(m));
-  auto new_metadata = std::make_shared<MultiscaleMetadata>();
-  new_metadata->type = *m.type;
-  new_metadata->num_channels = *m.num_channels;
-  new_metadata->dtype = m.dtype;
-  new_metadata->attributes = {{kTypeId, new_metadata->type},
-                              {kNumChannelsId, new_metadata->num_channels},
-                              {kDataTypeId, new_metadata->dtype.name()},
-                              {kAtSignTypeId, kMultiscaleVolumeTypeId},
-                              {kScalesId, ::nlohmann::json::array_t{}}};
-  return new_metadata;
-}
-
 }  // namespace
 
-Result<MultiscaleMetadata> MultiscaleMetadata::Parse(::nlohmann::json j) {
-  auto result = jb::FromJson<MultiscaleMetadata>(j, MultiscaleMetadataBinder);
-  if (!result.ok()) {
-    return MaybeAnnotateStatus(result.status(),
-                               StrCat("While parsing ", j.dump()));
-  }
-  return result;
-}
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ScaleMetadata, ScaleMetadataBinder)
 
-Result<MultiscaleMetadataConstraints> MultiscaleMetadataConstraints::Parse(
-    const ::nlohmann::json& j) {
-  return jb::FromJson<MultiscaleMetadataConstraints>(
-      j, MultiscaleMetadataConstraintsBinder);
-}
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(MultiscaleMetadata,
+                                       MultiscaleMetadataBinder)
 
-Result<ScaleMetadataConstraints> ScaleMetadataConstraints::Parse(
-    const ::nlohmann::json& j, DataType dtype,
-    std::optional<Index> num_channels) {
-  TENSORSTORE_ASSIGN_OR_RETURN(ScaleMetadataConstraints metadata,
-                               jb::FromJson<ScaleMetadataConstraints>(
-                                   j, ScaleMetadataConstraintsBinder));
-  if (metadata.encoding) {
-    TENSORSTORE_RETURN_IF_ERROR(
-        ValidateEncodingDataType(*metadata.encoding, dtype, num_channels));
-  }
-  return metadata;
-}
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(MultiscaleMetadataConstraints,
+                                       MultiscaleMetadataConstraintsBinder)
 
-Result<OpenConstraints> OpenConstraints::Parse(const ::nlohmann::json& j,
-                                               DataType data_type_constraint) {
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      OpenConstraints constraints,
-      jb::FromJson<OpenConstraints>(j, OpenConstraintsBinder));
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ScaleMetadataConstraints,
+                                       ScaleMetadataConstraintsBinder)
 
-  if (data_type_constraint.valid()) {
-    TENSORSTORE_RETURN_IF_ERROR(ValidateDataType(data_type_constraint));
-    if (constraints.multiscale.dtype.valid() &&
-        constraints.multiscale.dtype != data_type_constraint) {
-      return absl::InvalidArgumentError(
-          StrCat("Mismatch between data type in TensorStore Spec (",
-                 data_type_constraint, ") and in \"multiscale_metadata\" (",
-                 constraints.multiscale.dtype, ")"));
-    }
-    constraints.multiscale.dtype = data_type_constraint;
-  }
-
-  return constraints;
-}
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(OpenConstraints, OpenConstraintsBinder)
 
 Status ValidateMetadataCompatibility(
     const MultiscaleMetadata& existing_metadata,
     const MultiscaleMetadata& new_metadata, std::size_t scale_index,
     const std::array<Index, 3>& chunk_size) {
-  const auto MismatchError = [](const char* member_name,
-                                const auto& expected_value,
-                                const auto& actual_value) {
-    return absl::FailedPreconditionError(
-        StrCat("Mismatch in ", QuoteString(member_name), ": expected ",
-               ::nlohmann::json(expected_value).dump(), ", received ",
-               ::nlohmann::json(actual_value).dump()));
-  };
   if (new_metadata.num_channels != existing_metadata.num_channels) {
-    return MismatchError(kNumChannelsId, existing_metadata.num_channels,
-                         new_metadata.num_channels);
+    return MetadataMismatchError(kNumChannelsId, existing_metadata.num_channels,
+                                 new_metadata.num_channels);
   }
   if (new_metadata.dtype != existing_metadata.dtype) {
-    return MismatchError(kDataTypeId, existing_metadata.dtype.name(),
-                         new_metadata.dtype.name());
+    return MetadataMismatchError(kDataTypeId, existing_metadata.dtype.name(),
+                                 new_metadata.dtype.name());
   }
   if (new_metadata.scales.size() <= scale_index) {
     return absl::FailedPreconditionError(
@@ -571,7 +503,7 @@ Status ValidateMetadataCompatibility(
   const auto& existing_scale = existing_metadata.scales[scale_index];
   const auto& new_scale = new_metadata.scales[scale_index];
   if (existing_scale.key != new_scale.key) {
-    return MismatchError(kKeyId, existing_scale.key, new_scale.key);
+    return MetadataMismatchError(kKeyId, existing_scale.key, new_scale.key);
   }
   if (!absl::c_linear_search(new_scale.chunk_sizes, chunk_size)) {
     return absl::FailedPreconditionError(StrCat(
@@ -579,29 +511,30 @@ Status ValidateMetadataCompatibility(
         ::nlohmann::json(chunk_size).dump(), " for scale ", scale_index));
   }
   if (!absl::c_equal(existing_scale.box.shape(), new_scale.box.shape())) {
-    return MismatchError(kSizeId, existing_scale.box.shape(),
-                         new_scale.box.shape());
+    return MetadataMismatchError(kSizeId, existing_scale.box.shape(),
+                                 new_scale.box.shape());
   }
   if (!absl::c_equal(existing_scale.box.origin(), new_scale.box.origin())) {
-    return MismatchError(kVoxelOffsetId, existing_scale.box.origin(),
-                         new_scale.box.origin());
+    return MetadataMismatchError(kVoxelOffsetId, existing_scale.box.origin(),
+                                 new_scale.box.origin());
   }
   if (existing_scale.encoding != new_scale.encoding) {
-    return MismatchError(kEncodingId, existing_scale.encoding,
-                         new_scale.encoding);
+    return MetadataMismatchError(kEncodingId, existing_scale.encoding,
+                                 new_scale.encoding);
   }
   // jpeg_quality not checked because it does not affect compatibility.
   if (existing_scale.encoding ==
           ScaleMetadata::Encoding::compressed_segmentation &&
       existing_scale.compressed_segmentation_block_size !=
           new_scale.compressed_segmentation_block_size) {
-    return MismatchError(kCompressedSegmentationBlockSizeId,
-                         existing_scale.compressed_segmentation_block_size,
-                         new_scale.compressed_segmentation_block_size);
+    return MetadataMismatchError(
+        kCompressedSegmentationBlockSizeId,
+        existing_scale.compressed_segmentation_block_size,
+        new_scale.compressed_segmentation_block_size);
   }
   if (existing_scale.sharding != new_scale.sharding) {
-    return MismatchError(kShardingId, existing_scale.sharding,
-                         new_scale.sharding);
+    return MetadataMismatchError(kShardingId, existing_scale.sharding,
+                                 new_scale.sharding);
   }
   return absl::OkStatus();
 }
@@ -1064,14 +997,14 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
                                                   *constraints.scale_index,
                                                   " in new multiscale volume"));
     }
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        new_metadata, InitializeNewMultiscaleMetadata(constraints.multiscale));
+    new_metadata = std::make_shared<MultiscaleMetadata>();
+    new_metadata->type = *constraints.multiscale.type;
+    new_metadata->num_channels = *constraints.multiscale.num_channels;
+    new_metadata->dtype = constraints.multiscale.dtype;
+    new_metadata->extra_attributes = constraints.multiscale.extra_attributes;
   } else {
-    if (auto status = ValidateMultiscaleConstraintsForOpen(
-            constraints.multiscale, *existing_metadata);
-        !status.ok()) {
-      return status;
-    }
+    TENSORSTORE_RETURN_IF_ERROR(ValidateMultiscaleConstraintsForOpen(
+        constraints.multiscale, *existing_metadata));
     if (constraints.scale_index) {
       if (*constraints.scale_index < existing_metadata->scales.size()) {
         // Scale index already exists
@@ -1113,6 +1046,7 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
     return absl::FailedPreconditionError(status.message());
   }
   auto& scale = new_metadata->scales.emplace_back();
+  scale.extra_attributes = constraints.scale.extra_attributes;
   scale.key = scale_key;
   scale.box = *constraints.scale.box;
   scale.chunk_sizes = {*constraints.scale.chunk_size};
@@ -1121,32 +1055,18 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
   if (constraints.scale.sharding) {
     scale.sharding = *constraints.scale.sharding;
   }
+  if (constraints.scale.jpeg_quality) {
+    scale.jpeg_quality = *constraints.scale.jpeg_quality;
+  }
+  if (constraints.scale.compressed_segmentation_block_size) {
+    scale.compressed_segmentation_block_size =
+        *constraints.scale.compressed_segmentation_block_size;
+  }
   if (auto status = ValidateChunkSize(scale.chunk_sizes[0], scale.box.shape(),
                                       scale.sharding);
       !status.ok()) {
     return absl::FailedPreconditionError(status.message());
   }
-  scale.attributes = {{kKeyId, scale_key},
-                      {kSizeId, scale.box.shape()},
-                      {kVoxelOffsetId, scale.box.origin()},
-                      {kResolutionId, scale.resolution},
-                      {kChunkSizesId, scale.chunk_sizes},
-                      {kEncodingId, scale.encoding}};
-  if (std::holds_alternative<ShardingSpec>(scale.sharding)) {
-    scale.attributes[kShardingId] = scale.sharding;
-  }
-  if (scale.encoding == ScaleMetadata::Encoding::jpeg) {
-    scale.jpeg_quality =
-        constraints.scale.jpeg_quality.value_or(kDefaultJpegQuality);
-    scale.attributes[kJpegQualityId] = scale.jpeg_quality;
-  }
-  if (scale.encoding == ScaleMetadata::Encoding::compressed_segmentation) {
-    scale.compressed_segmentation_block_size =
-        *constraints.scale.compressed_segmentation_block_size;
-    scale.attributes[kCompressedSegmentationBlockSizeId] =
-        scale.compressed_segmentation_block_size;
-  }
-  new_metadata->attributes[kScalesId].push_back(scale.attributes);
   const size_t scale_index = new_metadata->scales.size() - 1;
   TENSORSTORE_RETURN_IF_ERROR(ValidateMetadataSchema(
       *new_metadata, scale_index, scale.chunk_sizes[0], schema));
@@ -1177,7 +1097,7 @@ absl::Status ValidateMetadataSchema(const MultiscaleMetadata& metadata,
   if (auto dtype = schema.dtype();
       !IsPossiblySameDataType(dtype, metadata.dtype)) {
     return absl::FailedPreconditionError(
-        tensorstore::StrCat("dtype from metadata (", metadata.dtype,
+        tensorstore::StrCat("data_type from metadata (", metadata.dtype,
                             ") does not match dtype in schema (", dtype, ")"));
   }
 
@@ -1233,7 +1153,8 @@ absl::Status ValidateMetadataSchema(const MultiscaleMetadata& metadata,
 }
 
 Result<std::size_t> OpenScale(const MultiscaleMetadata& metadata,
-                              const OpenConstraints& constraints) {
+                              const OpenConstraints& constraints,
+                              const Schema& schema) {
   TENSORSTORE_RETURN_IF_ERROR(
       ValidateMultiscaleConstraintsForOpen(constraints.multiscale, metadata));
   std::size_t scale_index;

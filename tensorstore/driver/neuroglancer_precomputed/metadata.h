@@ -119,15 +119,14 @@ struct ScaleMetadata {
   std::array<Index, 3> compressed_segmentation_block_size{};
   std::variant<NoShardingSpec, ShardingSpec> sharding;
   std::array<double, 3> resolution;
-  /// The full JSON representation, including (redundantly) the JSON
-  /// representation of the above members as well as any additional unknown
-  /// members, which are preserved when re-writing the metadata.
-  ::nlohmann::json::object_t attributes;
 
-  friend void to_json(::nlohmann::json& out,  // NOLINT
-                      const ScaleMetadata& metadata) {
-    out = metadata.attributes;
-  }
+  /// Additional members excluding those listed above.  These are preserved when
+  /// re-writing the metadata.
+  ::nlohmann::json::object_t extra_attributes;
+
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ScaleMetadata,
+                                          internal_json_binding::NoOptions,
+                                          IncludeDefaults)
 };
 
 /// Parsed representation of the multiscale volume `info` metadata file.
@@ -136,17 +135,14 @@ struct MultiscaleMetadata {
   DataType dtype;
   Index num_channels;
   std::vector<ScaleMetadata> scales;
-  /// The full JSON representation, including (redundantly) the JSON
-  /// representation of the above members as well as any additional unknown
-  /// members, which are preserved when re-writing the metadata.
-  ::nlohmann::json::object_t attributes;
 
-  static Result<MultiscaleMetadata> Parse(::nlohmann::json j);
+  /// Extra JSON members (excluding the parsed members above).  These are
+  /// preserved when re-writing the metadata.
+  ::nlohmann::json::object_t extra_attributes;
 
-  friend void to_json(::nlohmann::json& out,  // NOLINT
-                      const MultiscaleMetadata& metadata) {
-    out = metadata.attributes;
-  }
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(MultiscaleMetadata,
+                                          internal_json_binding::NoOptions,
+                                          IncludeDefaults)
 };
 
 /// Specifies constraints on the non-scale-specific metadata for
@@ -156,7 +152,11 @@ struct MultiscaleMetadataConstraints {
   DataType dtype;
   std::optional<Index> num_channels;
 
-  static Result<MultiscaleMetadataConstraints> Parse(const ::nlohmann::json& j);
+  /// Additional JSON members required in the multiscale metadata.
+  ::nlohmann::json::object_t extra_attributes;
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(MultiscaleMetadataConstraints,
+                                          JsonSerializationOptions,
+                                          JsonSerializationOptions)
 };
 
 /// Specifies constraints on the per-scale metadata for opening/creating a
@@ -170,9 +170,11 @@ struct ScaleMetadataConstraints {
   std::optional<int> jpeg_quality;
   std::optional<std::array<Index, 3>> compressed_segmentation_block_size;
   std::optional<std::variant<NoShardingSpec, ShardingSpec>> sharding;
-  static Result<ScaleMetadataConstraints> Parse(
-      const ::nlohmann::json& j, DataType dtype,
-      std::optional<Index> num_channels);
+  /// Additional JSON members required in the scale metadata.
+  ::nlohmann::json::object_t extra_attributes;
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ScaleMetadataConstraints,
+                                          JsonSerializationOptions,
+                                          JsonSerializationOptions)
 };
 
 /// Specifies constraints for opening/creating a multiscale volume.
@@ -180,9 +182,10 @@ struct OpenConstraints {
   MultiscaleMetadataConstraints multiscale;
   ScaleMetadataConstraints scale;
   std::optional<std::size_t> scale_index;
-
-  static Result<OpenConstraints> Parse(const ::nlohmann::json& j,
-                                       DataType data_type_constraint);
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(OpenConstraints,
+                                          JsonSerializationOptions,
+                                          JsonSerializationOptions,
+                                          ::nlohmann::json::object_t)
 };
 
 struct NeuroglancerPrecomputedCodecSpec : public tensorstore::CodecSpec {
@@ -274,12 +277,14 @@ Result<CodecSpec::PtrT<NeuroglancerPrecomputedCodecSpec>> GetEffectiveCodec(
 ///
 /// \param The existing metadata.
 /// \param constraints Constraints specifying the scale to open.
+/// \param schema Schema constraints.
 /// \returns The scale index that is compatible with `constraints`.
 /// \error `absl::StatusCode::kNotFound` if no such scale is found.
 /// \error `absl::StatusCode::kFailedPrecondition` if constraints are not
 ///     satisfied.
 Result<std::size_t> OpenScale(const MultiscaleMetadata& metadata,
-                              const OpenConstraints& constraints);
+                              const OpenConstraints& constraints,
+                              const Schema& schema);
 
 /// Resolves `scale_key` relative to `key_prefix`.
 ///

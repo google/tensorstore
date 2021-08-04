@@ -97,6 +97,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:bit_operations",
         "//tensorstore/internal:data_type_json_binder",
         "//tensorstore/internal:json",
+        "//tensorstore/internal:json_metadata_matching",
         "//tensorstore/internal:logging",
         "//tensorstore/kvstore:key_value_store",
         "//tensorstore/util:quote_string",
