@@ -1889,3 +1889,28 @@ tensorstore_cc_library(
         "@com_google_absl//absl/status",
     ],
 )
+
+tensorstore_cc_library(
+    name = "json_tuple",
+    hdrs = ["json_tuple.h"],
+    deps = [
+        ":json",
+        "@com_github_nlohmann_json//:nlohmann_json",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "json_tuple_test",
+    size = "small",
+    srcs = ["json_tuple_test.cc"],
+    deps = [
+        ":json",
+        ":json_gtest",
+        ":json_tuple",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

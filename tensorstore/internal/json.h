@@ -222,6 +222,34 @@ constexpr auto Projection(Proj projection, Binder binder = DefaultBinder<>) {
       };
 }
 
+/// Same as above, but the projection must be a function pointer or member
+/// pointer and is specified as a template argument.
+///
+/// Example:
+///
+///     struct Foo {
+///       int x;
+///     };
+///
+///     const auto FooBinder = jb::Object(
+///         jb::Member("x", jb::Projection<&Foo::x>()));
+///
+/// \tparam Proj Invocable with signature `T& (Obj& obj)`, where `T` is the
+///     projected value type, and `Obj` is the (possibly const-qualified) parsed
+///     representation type.
+/// \param binder Binder to apply to the projected value obtained from `Proj`.
+template <auto Proj, typename Binder = decltype(DefaultBinder<>)>
+constexpr auto Projection(Binder binder = DefaultBinder<>) {
+  return [binder = std::move(binder)](auto is_loading, const auto& options,
+                                      auto* obj, auto* j) -> Status {
+    // Use `&&` rather than `&` in case the projection returns an object
+    // with reference semantics (such as `span`) rather than an actual
+    // reference.
+    auto&& projected = std::invoke(Proj, *obj);
+    return binder(is_loading, options, &projected, j);
+  };
+}
+
 /// Binder adapter that projects the parsed representation using gettter/setter
 /// functions.
 ///
@@ -511,8 +539,7 @@ constexpr auto AtMostOne(MemberName... names) {
       if ((has_member(names) + ...) > 1) {
         return absl::InvalidArgumentError(StrCat(
             "At most one of ",
-            absl::StrJoin(
-                std::make_tuple(QuoteString(std::string_view(names))...), ", "),
+            absl::StrJoin({QuoteString(std::string_view(names))...}, ", "),
             " members is allowed"));
       }
     }
