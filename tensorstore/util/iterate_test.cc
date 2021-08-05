@@ -456,6 +456,21 @@ TEST(IterateOverStridedLayoutsTest, InnerRank0ContiguousC) {
   EXPECT_EQ(expected_result, result);
 }
 
+TEST(IterateOverStridedLayoutsTest, EmptyDomain) {
+  const Index shape[] = {0, 3};
+  const Index strides[] = {0, 1};
+
+  std::vector<int> result;
+  auto func = [&](int a) {
+    result.emplace_back(a);
+    return true;
+  };
+  IterateOverStridedLayouts(shape, {{strides}}, func,
+                            {ContiguousLayoutOrder::c, skip_repeated_elements},
+                            0);
+  EXPECT_THAT(result, ::testing::ElementsAre());
+}
+
 TEST(IterateOverStridedLayoutsTest, InnerRank0ContiguousCStop) {
   const Index shape[] = {2, 3};
   const Index strides0[] = {3, 1};

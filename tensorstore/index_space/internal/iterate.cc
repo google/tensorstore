@@ -34,8 +34,9 @@ void MarkSingletonDimsAsSkippable(
     span<const Index> input_shape,
     input_dimension_iteration_flags::Bitmask* input_dimension_flags) {
   for (DimensionIndex i = 0; i < input_shape.size(); ++i) {
-    if (input_shape[i] <= 1)
+    if (input_shape[i] == 1) {
       input_dimension_flags[i] = input_dimension_iteration_flags::can_skip;
+    }
   }
 }
 
@@ -72,7 +73,7 @@ Status InitializeSingleArrayIterationStateImpl(
         const DimensionIndex input_dim = output_dim;
         const Index byte_stride = array.byte_strides()[output_dim];
         single_array_state->input_byte_strides[input_dim] = byte_stride;
-        if (iteration_shape[input_dim] > 1) {
+        if (iteration_shape[input_dim] != 1) {
           input_dimension_flags[input_dim] |=
               input_dimension_iteration_flags::strided;
         }

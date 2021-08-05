@@ -30,6 +30,17 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
   const DimensionIndex input_rank =
       transform ? transform->input_rank : array.rank();
 
+  // Early exit if result has zero elements.  This is not purely an
+  // optimization: the iteration logic below does not correctly handle zero-size
+  // dimensions.
+  for (DimensionIndex i = 0; i < input_rank; ++i) {
+    if (result_shape[i] == 0) {
+      std::fill_n(result_byte_strides, input_rank, 0);
+      return SharedElementPointer<const void>(std::shared_ptr<const void>(),
+                                              array.dtype());
+    }
+  }
+
   namespace flags = input_dimension_iteration_flags;
 
   absl::FixedArray<flags::Bitmask, internal::kNumInlinedDims>

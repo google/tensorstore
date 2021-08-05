@@ -236,9 +236,9 @@ absl::Status PropagateUnitStrideSingleInputDimensionMapDownsampling(
   return absl::OkStatus();
 }
 
-/// Propagates a downsampling factor through a `single_input_dimension`
-/// output index map with non-unit stride or for an input dimension that is also
-/// referenced from other output index maps.
+/// Propagates a downsampling factor through a `single_input_dimension` output
+/// index map with non-unit stride or an input dimension that is also referenced
+/// from other output index maps.
 ///
 /// In this case a new input dimension is always added.
 ///
@@ -282,17 +282,17 @@ absl::Status PropagateSingleInputDimensionMapDownsamplingAsNewDimension(
         output_downsample_factor, new_output_map, output_base_bounds,
         new_input_domain, new_input_dim, propagated);
   }
-  // Convert to index array map.
-  new_output_map.stride() = 1;
-  new_output_map.offset() = 0;
   propagated.input_downsample_factors[new_input_dim] = output_downsample_factor;
-  auto& new_index_array_data =
-      new_output_map.SetArrayIndexing(new_input_domain.rank());
   if (output_downsample_factor > kInfIndex) {
     return absl::OutOfRangeError("Downsample factor is out of range");
   }
   new_input_domain[new_input_dim] =
       IndexInterval::UncheckedSized(0, output_downsample_factor);
+  // Convert to index array map.
+  new_output_map.offset() = 0;
+  new_output_map.stride() = 1;
+  auto& new_index_array_data =
+      new_output_map.SetArrayIndexing(new_input_domain.rank());
   new_index_array_data.index_range = output_base_bounds;
   Index adjusted_stride;
   Index adjusted_offset;
@@ -322,9 +322,9 @@ absl::Status PropagateSingleInputDimensionMapDownsamplingAsNewDimension(
           " does not contain output range interval ", output_range));
     }
   }
-  // Use `new_index_array_data.byte_strides` as temporary buffer for
-  // calling `AllocateArrayLike`.  Copy the byte strides of the existing
-  // index array, and add an additional dimension
+  // Use `new_index_array_data.byte_strides` as temporary buffer for calling
+  // `AllocateArrayElementsLike`.  Copy the byte strides of the existing index
+  // array, and add an additional dimension
   std::fill_n(new_index_array_data.byte_strides, new_input_domain.rank(),
               Index(0));
   new_index_array_data.byte_strides[output_map.input_dimension()] = 1;
@@ -354,6 +354,35 @@ absl::Status PropagateSingleInputDimensionMapDownsamplingAsNewDimension(
   return absl::OkStatus();
 }
 
+/// Creates a constant output map corresponding to an output index map that
+/// requires a new input dimension in the propagated transform.
+///
+/// This is used to create a dummy constant output map in the case where the
+/// downsampled transform has an empty domain.
+///
+/// \param output_downsample_factor Downsample factor to propagate.
+/// \param new_output_map[out] New output index map to assign.
+/// \param new_input_domain[in,out] Input domain of `propagated.transform` to
+///     update for `new_input_dim`.
+/// \param new_input_dim New input dimension index.
+/// \param propagated[out] Propagated transform.
+absl::Status PropagateIndexMapThatRequiresNewInputDimensionForEmptyDomain(
+    Index output_downsample_factor,
+    internal_index_space::OutputIndexMap& new_output_map,
+    MutableBoxView<> new_input_domain, DimensionIndex new_input_dim,
+    PropagatedIndexTransformDownsampling& propagated) {
+  propagated.input_downsample_factors[new_input_dim] = output_downsample_factor;
+  if (output_downsample_factor > kInfIndex) {
+    return absl::OutOfRangeError("Downsample factor is out of range");
+  }
+  new_input_domain[new_input_dim] =
+      IndexInterval::UncheckedSized(0, output_downsample_factor);
+  new_output_map.SetConstant();
+  new_output_map.offset() = 0;
+  new_output_map.stride() = 0;
+  return absl::OkStatus();
+}
+
 /// Propagates a downsampling factor through an index array output index map.
 ///
 /// \param output_map Original output index map.
@@ -374,18 +403,18 @@ absl::Status PropagateIndexArrayMapDownsampling(
     IndexInterval output_base_bounds, MutableBoxView<> new_input_domain,
     DimensionIndex new_input_dim,
     PropagatedIndexTransformDownsampling& propagated) {
-  const DimensionIndex input_rank = downsampled_input_domain.rank();
-  const auto& index_array_data = output_map.index_array_data();
-  new_output_map.stride() = 1;
   new_output_map.offset() = 0;
   propagated.input_downsample_factors[new_input_dim] = output_downsample_factor;
-  auto& new_index_array_data =
-      new_output_map.SetArrayIndexing(new_input_domain.rank());
   if (output_downsample_factor > kInfIndex) {
     return absl::OutOfRangeError("Downsample factor is out of range");
   }
   new_input_domain[new_input_dim] =
       IndexInterval::UncheckedSized(0, output_downsample_factor);
+  const DimensionIndex input_rank = downsampled_input_domain.rank();
+  const auto& index_array_data = output_map.index_array_data();
+  new_output_map.stride() = 1;
+  auto& new_index_array_data =
+      new_output_map.SetArrayIndexing(new_input_domain.rank());
   Index adjusted_stride;
   Index adjusted_offset;
   if (internal::MulOverflow(output_map.stride(), output_downsample_factor,
@@ -422,10 +451,9 @@ absl::Status PropagateIndexArrayMapDownsampling(
       std::numeric_limits<Index>::max();
   // Note that we pass `new_input_domain` to `AllocateArrayElementsLike` even
   // though it is only partially initialized; only dimensions up to
-  // `new_input_dim` are initialized.  That is not a problem because
-  // `AllocateArrayElementsLike` only relies on the shape for dimensions with a
-  // non-zero byte_stride, and the byte_stride is only non-zero for dimension
-  // `new_input_dim` and for dimensions < input_rank.
+  // `new_input_dim` are initialized.  The dimensions after `new_input_dim` have
+  // the origin set to 0 and the shape set to 1, to ensure they are "skipped"
+  // (i.e. byte_stride set to 0).
   new_index_array_data.element_pointer = AllocateArrayElementsLike<Index>(
       new_index_array_data.layout(new_input_domain),
       new_index_array_data.byte_strides, skip_repeated_elements);
@@ -497,14 +525,15 @@ absl::Status PropagateIndexTransformDownsampling(
   new_transform->implicit_lower_bounds(new_input_rank).fill(false);
   new_transform->implicit_upper_bounds(new_input_rank).fill(false);
   MutableBoxView<> input_domain = new_transform->input_domain(new_input_rank);
-  // Zero initialize origin and shape for new input dimensions, to avoid a
-  // spurious MemorySanitizer use-of-uninitialized-value error in
-  // PropagateIndexArrayMapDownsampling due to the (safe) use of `input_domain`
-  // while it is partially initialized.
+  // Initialize origin and shape for new input dimensions.  The origin does not
+  // matter, but is set to avoid a spurious MemorySanitizer
+  // use-of-uninitialized-value error in PropagateIndexArrayMapDownsampling.
+  // The shape is set to 1 to ensure uninitialized dimensions are skipped when
+  // allocating index arrays.
   std::fill(input_domain.origin().begin() + input_rank,
             input_domain.origin().begin() + new_input_rank, Index(0));
   std::fill(input_domain.shape().begin() + input_rank,
-            input_domain.shape().begin() + new_input_rank, Index(0));
+            input_domain.shape().begin() + new_input_rank, Index(1));
   propagated.input_downsample_factors.clear();
   propagated.input_downsample_factors.resize(new_input_rank, 1);
   DimensionIndex next_input_dim = input_rank;
@@ -569,18 +598,28 @@ absl::Status PropagateIndexTransformDownsampling(
           break;
         }
         // New input dimension is required.
-        status = PropagateSingleInputDimensionMapDownsamplingAsNewDimension(
-            output_map, input_interval, output_downsample_factor,
-            new_output_map, output_base_bounds[output_dim], input_domain,
-            next_input_dim++, propagated);
+        status =
+            is_domain_empty
+                ? PropagateIndexMapThatRequiresNewInputDimensionForEmptyDomain(
+                      output_downsample_factor, new_output_map, input_domain,
+                      next_input_dim++, propagated)
+                : PropagateSingleInputDimensionMapDownsamplingAsNewDimension(
+                      output_map, input_interval, output_downsample_factor,
+                      new_output_map, output_base_bounds[output_dim],
+                      input_domain, next_input_dim++, propagated);
         break;
       }
       case OutputIndexMethod::array: {
-        status = PropagateIndexArrayMapDownsampling(
-            output_map, downsampled_transform.domain().box(),
-            output_downsample_factor, new_output_map,
-            output_base_bounds[output_dim], input_domain, next_input_dim++,
-            propagated);
+        status =
+            is_domain_empty
+                ? PropagateIndexMapThatRequiresNewInputDimensionForEmptyDomain(
+                      output_downsample_factor, new_output_map, input_domain,
+                      next_input_dim++, propagated)
+                : PropagateIndexArrayMapDownsampling(
+                      output_map, downsampled_transform.domain().box(),
+                      output_downsample_factor, new_output_map,
+                      output_base_bounds[output_dim], input_domain,
+                      next_input_dim++, propagated);
         break;
       }
     }

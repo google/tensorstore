@@ -63,13 +63,14 @@ ComputeStridedLayoutDimensionIterationOrder(IterationConstraints constraints,
   {
     DimensionIndex num_dims_preserved = 0;
     for (DimensionIndex dim_i = 0; dim_i < rank; ++dim_i) {
+      const Index size = shape[dim_i];
       // Skip dimensions of size 1, as they can safely be ignored.
-      if (shape[dim_i] == 1) continue;
+      if (size == 1) continue;
 
       // If we can skip repeated elements, skip dimensions for which all stride
       // values are 0.
-      if (constraints.repeated_elements_constraint() ==
-          skip_repeated_elements) {
+      if (size != 0 && constraints.repeated_elements_constraint() ==
+                           skip_repeated_elements) {
         for (std::ptrdiff_t i = 0; i < strides.size(); ++i) {
           if (strides[i][dim_i] != 0) goto cannot_skip_dimension;
         }

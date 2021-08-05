@@ -457,4 +457,18 @@ TEST(TransformArrayTest, MultipleArrayIndexedDimensions) {
   EXPECT_EQ(MakeArray<int>({{1, 5}, {2, 6}}), new_array);
 }
 
+TEST(TransformArrayTest, EmptyDomain) {
+  auto original_array = tensorstore::MakeArray<int>({{1, 2, 3}, {4, 5, 6}});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(  //
+      auto transform,                //
+      (IndexTransformBuilder<2, 2>()
+           .input_shape({0, 3})
+           .implicit_upper_bounds({1, 0})
+           .output_single_input_dimension(0, 0)
+           .output_index_array(0, 0, 1, MakeArray<Index>({{0, 1, 2}}))
+           .Finalize()));
+  EXPECT_THAT(tensorstore::TransformArray(original_array, transform),
+              ::testing::Optional(tensorstore::AllocateArray<int>({0, 3})));
+}
+
 }  // namespace

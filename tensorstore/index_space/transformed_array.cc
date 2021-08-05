@@ -156,6 +156,14 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
             }));
   }
 
+  // Early return if the domain is empty.  The iteration code below cannot
+  // handle this case correctly.
+  for (DimensionIndex i = 0; i < input_rank; ++i) {
+    if (input_bounds.shape()[i] == 0) {
+      return ArrayIterateResult{/*.success=*/true, /*.count=*/0};
+    }
+  }
+
   bool has_array_indexed_output_dimensions = false;
 
   for (std::size_t i = 0; i < Arity; ++i) {
