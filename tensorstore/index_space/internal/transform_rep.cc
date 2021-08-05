@@ -240,6 +240,30 @@ TransformRep::Ptr<> NewOrMutableRep(TransformRep* ptr,
   }
 }
 
+bool IsDomainExplicitlyEmpty(TransformRep* ptr) {
+  DimensionSet implicit_dims = ptr->implicit_dimensions();
+
+  const Index* input_shape = ptr->input_shape().data();
+  for (DimensionIndex input_dim = 0, input_rank = ptr->input_rank;
+       input_dim < input_rank; ++input_dim) {
+    if (!implicit_dims[input_dim] && input_shape[input_dim] == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void ReplaceAllIndexArrayMapsWithConstantMaps(TransformRep* ptr) {
+  for (DimensionIndex output_dim = 0, output_rank = ptr->output_rank;
+       output_dim < output_rank; ++output_dim) {
+    auto& map = ptr->output_index_maps()[output_dim];
+    if (map.method() != OutputIndexMethod::array) continue;
+    map.SetConstant();
+    map.offset() = 0;
+    map.stride() = 0;
+  }
+}
+
 bool AreIndexMapsEqual(const OutputIndexMap& a, const OutputIndexMap& b,
                        BoxView<> input_domain) {
   const auto method = a.method();
@@ -529,6 +553,62 @@ TransformRep::Ptr<> WithImplicitDimensions(TransformRep::Ptr<> transform,
       (static_cast<uint64_t>(implicit_upper_bounds.bits()) << kMaxRank);
   return transform;
 }
+
+#ifndef NDEBUG
+void DebugCheckInvariants(TransformRep* rep) {
+  assert(rep);
+  const DimensionIndex input_rank = rep->input_rank,
+                       output_rank = rep->output_rank;
+  assert(rep->input_rank_capacity <= kMaxRank);
+  assert(rep->output_rank_capacity <= kMaxRank);
+  assert(input_rank <= rep->input_rank_capacity);
+  assert(output_rank <= rep->output_rank_capacity);
+  assert(input_rank >= 0);
+  assert(output_rank >= 0);
+  TENSORSTORE_CHECK_OK(
+      ValidateLabelsAreUnique(rep->input_labels().first(input_rank)));
+  auto input_origin = rep->input_origin().data();
+  auto input_shape = rep->input_shape().data();
+  for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {
+    TENSORSTORE_CHECK_OK(
+        IndexInterval::Sized(input_origin[input_dim], input_shape[input_dim]));
+  }
+  const bool is_domain_explicitly_empty = IsDomainExplicitlyEmpty(rep);
+  const auto implicit_dims = rep->implicit_dimensions();
+  for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
+    auto& map = rep->output_index_maps()[output_dim];
+    switch (map.method()) {
+      case OutputIndexMethod::constant: {
+        assert(map.stride() == 0);
+        break;
+      }
+      case OutputIndexMethod::single_input_dimension: {
+        const DimensionIndex input_dim = map.input_dimension();
+        assert(input_dim >= 0 && input_dim < input_rank);
+        assert(map.stride() != 0);
+        break;
+      }
+      case OutputIndexMethod::array: {
+        assert(map.stride() != 0);
+        const auto& index_array_data = map.index_array_data();
+        assert(index_array_data.rank_capacity >= input_rank);
+        assert(index_array_data.rank_capacity <= kMaxRank);
+        assert(!is_domain_explicitly_empty);
+        for (DimensionIndex input_dim = 0; input_dim < input_rank;
+             ++input_dim) {
+          const Index byte_stride = index_array_data.byte_strides[input_dim];
+          if (byte_stride == 0) continue;
+          const auto bounds = IndexInterval::UncheckedSized(
+              input_origin[input_dim], input_shape[input_dim]);
+          assert(IsFinite(bounds));
+          assert(!implicit_dims[input_dim]);
+        }
+        break;
+      }
+    }
+  }
+}
+#endif
 
 }  // namespace internal_index_space
 }  // namespace tensorstore

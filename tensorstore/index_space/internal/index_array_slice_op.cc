@@ -107,46 +107,28 @@ Result<TransformRep::Ptr<>> MakeTransformFromJointIndexArrays(
   for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
     maps[output_dim].SetSingleInputDimension(0);
   }
-
   const auto input_domain = result->input_domain(input_rank);
-  bool is_singleton_index_array = true;
   // Sets the input domain for dimensions corresponding to the domain of the
   // index arrays.
   for (DimensionIndex new_dim = 0; new_dim < num_new_dims; ++new_dim) {
-    const IndexInterval bounds = input_domain[new_dim] =
-        get_new_dimension_bounds(new_dim);
-    if (bounds.size() != 1) is_singleton_index_array = false;
+    input_domain[new_dim] = get_new_dimension_bounds(new_dim);
   }
-  if (is_singleton_index_array) {
-    // Index array actually has only a single value; therefore, we can just set
-    // all specified array-indexed dimensions to have constant output index
-    // maps.
-    for (DimensionIndex indexed_dim = 0; indexed_dim < num_indexed_dims;
-         ++indexed_dim) {
-      const DimensionIndex output_dim = (*dimensions)[indexed_dim];
-      auto& map = maps[output_dim];
-      map.SetConstant();
-      map.stride() = 0;
-      map.offset() = *get_index_array_base_pointer(indexed_dim);
+  // Sets all array-indexed dimensions to have array output index maps.
+  for (DimensionIndex indexed_dim = 0; indexed_dim < num_indexed_dims;
+       ++indexed_dim) {
+    const DimensionIndex output_dim = (*dimensions)[indexed_dim];
+    auto& map = maps[output_dim];
+    map.offset() = 0;
+    map.stride() = 1;
+    auto& index_array_data = map.SetArrayIndexing(input_rank);
+    std::fill_n(index_array_data.byte_strides + num_new_dims,
+                num_preserved_dims, 0);
+    for (DimensionIndex new_dim = 0; new_dim < num_new_dims; ++new_dim) {
+      index_array_data.byte_strides[new_dim] =
+          get_index_array_byte_stride(indexed_dim, new_dim);
     }
-  } else {
-    // Sets all array-indexed dimensions to have array output index maps.
-    for (DimensionIndex indexed_dim = 0; indexed_dim < num_indexed_dims;
-         ++indexed_dim) {
-      const DimensionIndex output_dim = (*dimensions)[indexed_dim];
-      auto& map = maps[output_dim];
-      map.offset() = 0;
-      map.stride() = 1;
-      auto& index_array_data = map.SetArrayIndexing(input_rank);
-      std::fill_n(index_array_data.byte_strides + num_new_dims,
-                  num_preserved_dims, 0);
-      for (DimensionIndex new_dim = 0; new_dim < num_new_dims; ++new_dim) {
-        index_array_data.byte_strides[new_dim] =
-            get_index_array_byte_stride(indexed_dim, new_dim);
-      }
-      index_array_data.element_pointer =
-          get_index_array_base_pointer(indexed_dim);
-    }
+    index_array_data.element_pointer =
+        get_index_array_base_pointer(indexed_dim);
   }
   // Sets the output index maps for output dimensions not indexed by the index
   // array to be identity maps, and copies the input dimension fields from the
@@ -162,9 +144,13 @@ Result<TransformRep::Ptr<>> MakeTransformFromJointIndexArrays(
         orig_transform->input_dimension(output_dim);
     ++input_dim;
   }
+  if (IsDomainExplicitlyEmpty(result.get())) {
+    ReplaceAllIndexArrayMapsWithConstantMaps(result.get());
+  }
   dimensions->resize(num_new_dims);
   std::iota(dimensions->begin(), dimensions->end(),
             static_cast<DimensionIndex>(0));
+  internal_index_space::DebugCheckInvariants(result.get());
   return result;
 }
 
@@ -275,6 +261,7 @@ Result<TransformRep::Ptr<>> MakeTransformFromOuterIndexArrays(
         if (array.num_elements() == 1) {
           map.SetConstant();
           map.offset() = *array.data();
+          map.stride() = 0;
         } else {
           auto& index_array_data = map.SetArrayIndexing(input_rank);
           index_array_data.element_pointer = array.element_pointer();
@@ -296,6 +283,9 @@ Result<TransformRep::Ptr<>> MakeTransformFromOuterIndexArrays(
     map.SetSingleInputDimension(input_dim);
     ++input_dim;
   }
+  if (IsDomainExplicitlyEmpty(result.get())) {
+    ReplaceAllIndexArrayMapsWithConstantMaps(result.get());
+  }
   // Sets `dimensions` to the new input dimensions corresponding to the index
   // array domains.
   dimensions->clear();
@@ -310,6 +300,7 @@ Result<TransformRep::Ptr<>> MakeTransformFromOuterIndexArrays(
       dimensions->push_back(input_dim);
     }
   }
+  internal_index_space::DebugCheckInvariants(result.get());
   return result;
 }
 

@@ -333,6 +333,7 @@ class ConnectedSetIterateHelper {
   ///
   /// \error Any error returned by the iteration callback function.
   Status InvokeCallback() {
+    internal_index_space::DebugCheckInvariants(cell_transform_.get());
     auto status = params_.func(
         grid_cell_indices_,
         TransformAccess::Make<IndexTransformView<>>(cell_transform_.get()));

@@ -14,6 +14,9 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
@@ -23,8 +26,10 @@
 namespace {
 
 using tensorstore::Box;
+using tensorstore::Index;
 using tensorstore::IndexDomainBuilder;
 using tensorstore::IndexTransformBuilder;
+using tensorstore::MakeArray;
 using tensorstore::MatchesStatus;
 
 TEST(IndexTransformSliceByBoxTest, Simple) {
@@ -99,6 +104,42 @@ TEST(IndexTransformSliceByBoxTest, RankMismatch) {
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,
           "Rank of index domain \\(3\\) must match rank of box \\(2\\)"));
+}
+
+TEST(IndexTransformSliceByBoxTest, IndexArray) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(  //
+      auto transform,                //
+      IndexTransformBuilder(1, 1)
+          .input_shape({5})
+          .output_index_array(0, 0, 1, MakeArray<Index>({1, 2, 3, 4, 5}))
+          .Finalize());
+  Box<> box({1}, {2});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(  //
+      auto expected_transform,       //
+      IndexTransformBuilder(1, 1)
+          .input_origin({1})
+          .input_shape({2})
+          .output_index_array(0, 0, 1, MakeArray<Index>({2, 3}))
+          .Finalize());
+  EXPECT_THAT(transform | box, ::testing::Optional(expected_transform));
+}
+
+TEST(IndexTransformSliceByBoxTest, IndexArrayZeroSize) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(  //
+      auto transform,                //
+      IndexTransformBuilder(1, 1)
+          .input_shape({5})
+          .output_index_array(0, 0, 1, MakeArray<Index>({1, 2, 3, 4, 5}))
+          .Finalize());
+  Box<> box({1}, {0});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(  //
+      auto expected_transform,       //
+      IndexTransformBuilder(1, 1)
+          .input_origin({1})
+          .input_shape({0})
+          .output_constant(0, 0)
+          .Finalize());
+  EXPECT_THAT(transform | box, ::testing::Optional(expected_transform));
 }
 
 TEST(IndexDomainSliceByBoxTest, Simple) {

@@ -139,6 +139,7 @@ Result<IndexTransform<>> ApplyAddNewDims(IndexTransform<> transform,
   auto new_rep = NewOrMutableRep(TransformAccess::rep(transform),
                                  new_input_rank, transform.output_rank());
   AddNewDims(TransformAccess::rep(transform), new_rep.get(), dimensions);
+  internal_index_space::DebugCheckInvariants(new_rep.get());
   return TransformAccess::Make<IndexTransform<>>(std::move(new_rep));
 }
 

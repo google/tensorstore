@@ -642,6 +642,8 @@ tensorstore_cc_library(
         ":index_transform",
         "//tensorstore:rank",
         "//tensorstore/util:result",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -653,6 +655,8 @@ tensorstore_cc_test(
         ":dim_expression",
         ":dim_expression_testutil",
         ":index_transform_builder",
+        "//tensorstore:array",
+        "//tensorstore:index",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -777,6 +781,9 @@ tensorstore_cc_test(
     deps = [
         ":index_transform",
         ":index_transform_builder",
+        "//tensorstore:array",
+        "//tensorstore:box",
+        "//tensorstore:index",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
@@ -790,6 +797,9 @@ tensorstore_cc_test(
     deps = [
         ":index_transform",
         ":index_transform_builder",
+        "//tensorstore:array",
+        "//tensorstore:box",
+        "//tensorstore:index",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",

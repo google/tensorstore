@@ -281,6 +281,34 @@ TEST(DiagonalTest, IndexArray) {
                     /*equivalent_indices=*/{{{6, 8, 6}, {6, 8}}});
 }
 
+TEST(DiagonalTest, IndexArrayZeroSize) {
+  TestDimExpression(/*original_transform=*/
+                    IndexTransformBuilder<2, 2>()
+                        .input_shape({0, 2})
+                        .implicit_upper_bounds({1, 0})
+                        .output_single_input_dimension(0, 0)
+                        .output_index_array(1, 0, 1, MakeArray<Index>({{1, 2}}))
+                        .Finalize()
+                        .value(),
+                    /*expression=*/Dims(0, 1).Diagonal(),
+                    /*expected_new_dimension_selection=*/{0},
+                    /*expected_identity_new_transform=*/
+                    IndexTransformBuilder<1, 2>()
+                        .input_shape({0})
+                        .output_single_input_dimension(0, 0)
+                        .output_single_input_dimension(1, 0)
+                        .Finalize()
+                        .value(),
+                    /*expected_new_transform=*/
+                    IndexTransformBuilder<1, 2>()
+                        .input_shape({0})
+                        .output_single_input_dimension(0, 0)
+                        .output_constant(1, 0)
+                        .Finalize()
+                        .value(),
+                    /*equivalent_indices=*/{});
+}
+
 TEST(DiagonalTest, Labeled) {
   TestDimExpression(/*original_transform=*/
                     IndexTransformBuilder<3, 2>()

@@ -224,6 +224,12 @@ struct TransformRep {
   /// `kMaxRank` bits are for `implicit_upper_bounds`.
   uint64_t implicit_bitvector;
 
+  /// Dimensions for which the lower or upper bound is implicit.
+  DimensionSet implicit_dimensions() const {
+    return DimensionSet::FromBits(static_cast<uint32_t>(
+        implicit_bitvector | (implicit_bitvector >> kMaxRank)));
+  }
+
   static_assert(kMaxRank * 2 <= 64);
 
   /// Reference count.
@@ -354,6 +360,17 @@ struct TransformRep {
   static Ptr<> Allocate(DimensionIndex input_rank_capacity,
                         DimensionIndex output_rank_capacity);
 };
+
+#ifdef NDEBUG
+// Don't check invariants when not in debug mode.
+inline void DebugCheckInvariants(TransformRep* rep) {}
+#else
+/// Checks invariants of the representation in debug mode.
+///
+/// This must be called any time the internal representation of an index
+/// transform is manipulated directly.
+void DebugCheckInvariants(TransformRep* rep);
+#endif
 
 // Check that OutputIndexMap and std::string don't have a greater alignment
 // value than Index, as that would require more complicated logic for accessing
@@ -515,6 +532,20 @@ TransformRep::Ptr<> MutableRep(TransformRep::Ptr<> ptr);
 TransformRep::Ptr<> NewOrMutableRep(TransformRep* ptr,
                                     DimensionIndex input_rank_capacity,
                                     DimensionIndex output_rank_capacity);
+
+/// Returns `true` if at least one dimension has an explicit zero-size domain,
+/// i.e. the domain is empty and it cannot be resized to become non-empty.
+///
+/// Transforms for which this is true must not contain any index arrays, as the
+/// index array output map representation does not support index arrays that
+/// contain zero elements.
+bool IsDomainExplicitlyEmpty(TransformRep* ptr);
+
+/// Replaces all index array maps with constant maps to 0.
+///
+/// This is used in the case that `IsDomainExplicitlyEmpty(ptr) == true` to
+/// ensure the invariant is satisfied.
+void ReplaceAllIndexArrayMapsWithConstantMaps(TransformRep* ptr);
 
 /// Validates that non-empty labels are unique.
 ///

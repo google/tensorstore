@@ -97,6 +97,7 @@ Result<IndexTransform<>> ApplyTranslate(IndexTransform<> transform,
   }
   TENSORSTORE_RETURN_IF_ERROR(
       TranslateOutputOffsetsUsingInputOffsets(rep.get(), input_offsets.data()));
+  internal_index_space::DebugCheckInvariants(rep.get());
   return TransformAccess::Make<IndexTransform<>>(std::move(rep));
 }
 

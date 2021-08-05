@@ -592,6 +592,7 @@ absl::Status PropagateIndexTransformDownsampling(
                               " through output dimension ", output_dim));
     }
   }
+  internal_index_space::DebugCheckInvariants(new_transform.get());
   propagated.transform =
       internal_index_space::TransformAccess::Make<IndexTransform<>>(
           std::move(new_transform));
@@ -682,6 +683,7 @@ IndexDomain<> DownsampleDomain(IndexDomain<> base_domain,
       base_domain.implicit_upper_bounds());
   const auto& labels = base_domain.labels();
   std::copy(labels.begin(), labels.end(), rep->input_labels().begin());
+  internal_index_space::DebugCheckInvariants(rep.get());
   return IndexDomain<>(TransformAccess::Make<IndexTransform<>>(std::move(rep)));
 }
 
@@ -703,6 +705,7 @@ IndexTransform<> GetDownsampledDomainIdentityTransform(
   const auto& labels = base_domain.labels();
   std::copy(labels.begin(), labels.end(), rep->input_labels().begin());
   internal_index_space::SetToIdentityTransform(rep->output_index_maps());
+  internal_index_space::DebugCheckInvariants(rep.get());
   return TransformAccess::Make<IndexTransform<>>(std::move(rep));
 }
 

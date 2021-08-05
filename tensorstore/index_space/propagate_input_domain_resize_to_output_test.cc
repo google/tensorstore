@@ -526,21 +526,19 @@ TEST(PropagateInputDomainResizeToOutputTest, InvalidArguments) {
                     StrCat("Error propagating bounds for output dimension 0 "
                            "from existing bounds for input dimension 1: .*")));
 
-  // TODO(jbms): If support for treating rank-0 index arrays like constant maps
-  // is added, this test will also need to change.
   EXPECT_THAT(
       tensorstore::PropagateInputDomainResizeToOutput(
-          IndexTransformBuilder<>(1, 2)
-              .input_origin({1})
-              .input_shape({10})
-              .implicit_lower_bounds({1})
-              .implicit_upper_bounds({1})
-              .output_index_array(0, 0, 1, MakeArray<Index>({5}))
-              .output_single_input_dimension(1, 0)
+          IndexTransformBuilder(2, 2)
+              .input_origin({0, 1})
+              .input_shape({2, 10})
+              .implicit_lower_bounds({0, 1})
+              .implicit_upper_bounds({0, 1})
+              .output_index_array(0, 0, 1, MakeArray<Index>({{5}, {6}}))
+              .output_single_input_dimension(1, 1)
               .Finalize()
               .value(),
-          /*requested_input_inclusive_min=*/span<const Index>({2}),
-          /*requested_input_exclusive_max=*/span<const Index>({7}),
+          /*requested_input_inclusive_min=*/span<const Index>({kImplicit, 2}),
+          /*requested_input_exclusive_max=*/span<const Index>({kImplicit, 7}),
           /*can_resize_tied_bounds=*/false,
           /*output_inclusive_min_constraint=*/
           GetLValue(std::array<Index, 2>()),

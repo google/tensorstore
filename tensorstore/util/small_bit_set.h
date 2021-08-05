@@ -44,7 +44,10 @@ class SmallBitSet {
   constexpr SmallBitSet() : bits_(0) {}
 
   /// Constructs a vector with all bits set to `value`.
-  constexpr SmallBitSet(bool value) : bits_(value * ~Bits(0)) {}
+  template <typename T,
+            // Prevent narrowing conversions to `bool`.
+            typename = std::enable_if_t<std::is_same_v<T, bool>>>
+  constexpr SmallBitSet(T value) : bits_(value * ~Bits(0)) {}
 
   /// Constructs a vector from the specified bool array.
   ///

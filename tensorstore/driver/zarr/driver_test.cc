@@ -994,24 +994,24 @@ void TestResizeToZeroAndBack(Op... op) {
                         tensorstore::ReadWriteMode::read_write)
           .result());
   // Resize to shape of {0, 0}
-  auto resize_future = Resize(store, span<const Index>({kImplicit, kImplicit}),
-                              span<const Index>({0, 0}));
-  TENSORSTORE_ASSERT_OK(resize_future);
-  EXPECT_EQ(tensorstore::BoxView({0, 0}), resize_future.value().domain().box());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto resized, Resize(store, span<const Index>({kImplicit, kImplicit}),
+                           span<const Index>({0, 0}))
+                        .result());
+  EXPECT_EQ(tensorstore::BoxView({0, 0}), resized.domain().box());
 
   // Resize back to non-zero shape of {10, 20}.
-  auto resize_future2 = Resize(store, span<const Index>({kImplicit, kImplicit}),
-                               span<const Index>({10, 20}));
-  TENSORSTORE_ASSERT_OK(resize_future2);
-  EXPECT_EQ(tensorstore::BoxView({10, 20}),
-            resize_future2.value().domain().box());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto resized2, Resize(store, span<const Index>({kImplicit, kImplicit}),
+                            span<const Index>({10, 20}))
+                         .result());
+  EXPECT_EQ(tensorstore::BoxView({10, 20}), resized2.domain().box());
 
-  auto transformed_store = ChainResult(resize_future.value(), op...);
-  TENSORSTORE_EXPECT_OK(transformed_store);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto transformed_store,
+                                   ChainResult(resized, op...));
 
-  // Should be able to write using `resize_future.value()`.  Use
-  // `IndexArraySlice` to ensure that edge cases of `ComposeTransforms` are
-  // tested.
+  // Should be able to write using `resized`.  Use `IndexArraySlice` to ensure
+  // that edge cases of `ComposeTransforms` are tested.
   TENSORSTORE_EXPECT_OK(tensorstore::Write(
       tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
       transformed_store));

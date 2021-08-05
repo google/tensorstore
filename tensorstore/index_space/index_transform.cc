@@ -98,6 +98,7 @@ Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
                  input_rank, ")"));
     }
   }
+  bool domain_is_empty = false;
   for (DimensionIndex i = 0; i < slice_rank; ++i) {
     const DimensionIndex j = transform_dims[i];
     const internal_index_space::InputDimensionRef d = rep->input_dimension(j);
@@ -110,10 +111,15 @@ Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
                  d.index_domain_dimension<view>(),
                  "} with index domain dimension ", i, " {", domain[i], "}"));
     }
+    if (new_domain.empty()) domain_is_empty = true;
     d.domain() = new_domain;
     d.implicit_lower_bound() = false;
     d.implicit_upper_bound() = false;
   }
+  if (domain_is_empty) {
+    ReplaceAllIndexArrayMapsWithConstantMaps(rep.get());
+  }
+  internal_index_space::DebugCheckInvariants(rep.get());
   return TransformAccess::Make<IndexTransform<>>(std::move(rep));
 }
 
@@ -128,11 +134,13 @@ Result<IndexTransform<>> SliceByBox(IndexTransform<> transform,
   }
   TransformRep::Ptr<> rep =
       MutableRep(TransformAccess::rep_ptr<container>(std::move(transform)));
+  bool domain_is_empty = false;
   for (DimensionIndex i = 0; i < domain.rank(); ++i) {
     const internal_index_space::InputDimensionRef d = rep->input_dimension(i);
     const IndexInterval orig_domain =
         d.optionally_implicit_domain().effective_interval();
     const IndexInterval new_domain = domain[i];
+    if (new_domain.empty()) domain_is_empty = true;
     if (!Contains(orig_domain, new_domain)) {
       return absl::OutOfRangeError(StrCat("Cannot slice dimension ", i, " {",
                                           d.index_domain_dimension<view>(),
@@ -142,6 +150,10 @@ Result<IndexTransform<>> SliceByBox(IndexTransform<> transform,
     d.implicit_lower_bound() = false;
     d.implicit_upper_bound() = false;
   }
+  if (domain_is_empty) {
+    ReplaceAllIndexArrayMapsWithConstantMaps(rep.get());
+  }
+  internal_index_space::DebugCheckInvariants(rep.get());
   return TransformAccess::Make<IndexTransform<>>(std::move(rep));
 }
 
@@ -411,6 +423,7 @@ Result<IndexDomain<>> MergeIndexDomains(IndexDomain<> a, IndexDomain<> b) {
             status, tensorstore::StrCat("Mismatch in dimension ", i));
       }
     }
+    internal_index_space::DebugCheckInvariants(new_rep.get());
     return IndexDomain<>(
         internal_index_space::TransformAccess::Make<IndexTransform<>>(
             std::move(new_rep)));

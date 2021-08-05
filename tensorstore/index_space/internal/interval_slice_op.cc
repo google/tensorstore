@@ -15,6 +15,7 @@
 #include "tensorstore/index_space/internal/interval_slice_op.h"
 
 #include "absl/container/fixed_array.h"
+#include "tensorstore/index_space/internal/transform_rep_impl.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/span.h"
@@ -108,6 +109,8 @@ absl::Status ApplyOffsetsAndStridesToOutputIndexMaps(
     span<const InputDimensionIntervalSliceInfo> input_dimension_info) {
   const DimensionIndex input_rank = input_dimension_info.size();
   const DimensionIndex output_rank = rep->output_rank;
+  BoxView<> input_domain = rep->input_domain(input_rank);
+  const bool domain_is_explicitly_empty = IsDomainExplicitlyEmpty(rep);
   span<OutputIndexMap> maps = rep->output_index_maps().first(output_rank);
   // Updates the output index maps.
   for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
@@ -134,8 +137,15 @@ absl::Status ApplyOffsetsAndStridesToOutputIndexMaps(
         break;
       }
       case OutputIndexMethod::array: {
+        if (domain_is_explicitly_empty) {
+          map.SetConstant();
+          map.offset() = 0;
+          map.stride() = 0;
+          break;
+        }
         auto& index_array_data = map.index_array_data();
         Index element_pointer_byte_offset = 0;
+        bool array_is_singleton = true;
         for (DimensionIndex input_dim = 0; input_dim < input_rank;
              ++input_dim) {
           const auto& slice_info = input_dimension_info[input_dim];
@@ -145,14 +155,32 @@ absl::Status ApplyOffsetsAndStridesToOutputIndexMaps(
                                                byte_stride, slice_info.offset));
           byte_stride = internal::wrap_on_overflow::Multiply(byte_stride,
                                                              slice_info.stride);
+          if (input_domain.shape()[input_dim] == 1) {
+            element_pointer_byte_offset = internal::wrap_on_overflow::Add(
+                element_pointer_byte_offset,
+                internal::wrap_on_overflow::Multiply(
+                    byte_stride, input_domain.origin()[input_dim]));
+            byte_stride = 0;
+          } else if (byte_stride != 0) {
+            array_is_singleton = false;
+          }
         }
         index_array_data.element_pointer =
             AddByteOffset(std::move(index_array_data.element_pointer),
                           element_pointer_byte_offset);
+        if (array_is_singleton) {
+          const Index index = *index_array_data.array_view(input_domain)
+                                   .byte_strided_origin_pointer();
+          const IndexInterval index_range = index_array_data.index_range;
+          map.SetConstant();
+          TENSORSTORE_RETURN_IF_ERROR(ReplaceZeroRankIndexArrayIndexMap(
+              index, index_range, &map.offset(), &map.stride()));
+        }
         break;
       }
     }
   }
+  internal_index_space::DebugCheckInvariants(rep);
   return absl::OkStatus();
 }
 

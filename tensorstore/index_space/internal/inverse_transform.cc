@@ -116,7 +116,9 @@ Result<TransformRep::Ptr<>> InverseTransform(TransformRep* transform) {
           " that is not mapped by an output dimension"));
     }
     new_map.offset() = input_domain.inclusive_min();
+    new_map.stride() = 0;
   }
+  internal_index_space::DebugCheckInvariants(new_transform.get());
   return new_transform;
 }
 

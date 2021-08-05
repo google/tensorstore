@@ -58,6 +58,7 @@ TransformRep::Ptr<> MakeIdentityTransform(DimensionIndex rank,
                                           bool domain_only) {
   auto data = TransformRep::Allocate(rank, domain_only ? 0 : rank);
   SetToIdentityTransform(data.get(), rank, domain_only);
+  internal_index_space::DebugCheckInvariants(data.get());
   return data;
 }
 
@@ -71,6 +72,7 @@ TransformRep::Ptr<> MakeIdentityTransform(internal::StringLikeSpan labels,
     std::string_view label = labels[i];
     input_labels[i].assign(label.data(), label.size());
   }
+  internal_index_space::DebugCheckInvariants(data.get());
   return data;
 }
 
@@ -81,6 +83,7 @@ TransformRep::Ptr<> MakeIdentityTransformLike(TransformRep* data,
   auto result = TransformRep::Allocate(rank, domain_only ? 0 : rank);
   CopyTransformRepDomain(data, result.get());
   SetIdentityOutputOrDomainOnly(result.get(), rank, domain_only);
+  internal_index_space::DebugCheckInvariants(result.get());
   return result;
 }
 
@@ -93,6 +96,7 @@ TransformRep::Ptr<> MakeIdentityTransform(span<const Index> shape,
   std::copy_n(shape.begin(), rank, result->input_shape().begin());
   result->implicit_bitvector = 0;
   SetIdentityOutputOrDomainOnly(result.get(), rank, domain_only);
+  internal_index_space::DebugCheckInvariants(result.get());
   return result;
 }
 
@@ -103,6 +107,7 @@ TransformRep::Ptr<> MakeIdentityTransform(BoxView<> domain, bool domain_only) {
   result->input_domain(rank).DeepAssign(domain);
   result->implicit_bitvector = 0;
   SetIdentityOutputOrDomainOnly(result.get(), rank, domain_only);
+  internal_index_space::DebugCheckInvariants(result.get());
   return result;
 }
 

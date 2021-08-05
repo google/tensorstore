@@ -94,8 +94,10 @@ void TestDimExpressionOutOfPlace(
   tensorstore::DimensionIndexBuffer dimensions;
   auto result_transform = expression(original_transform, &dimensions).value();
   CheckSameTypes<decltype(result_transform), ExpectedResult>();
-  EXPECT_NE(TransformAccess::rep(result_transform),
-            TransformAccess::rep(original_transform));
+  if (original_transform != expected_new_transform) {
+    EXPECT_NE(TransformAccess::rep(result_transform),
+              TransformAccess::rep(original_transform));
+  }
   EXPECT_EQ(expected_new_transform, result_transform);
   EXPECT_EQ(original_copy, original_transform);
   EXPECT_THAT(dimensions,

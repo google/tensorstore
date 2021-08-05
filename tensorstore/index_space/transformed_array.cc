@@ -40,11 +40,12 @@ void MultiplyByteStridesIntoOutputIndexMaps(TransformRep* transform,
   for (DimensionIndex i = 0; i < byte_strides.size(); ++i) {
     auto& map = output_maps[i];
     const Index byte_stride = byte_strides[i];
-    // If `map.method() == OutputIndexMethod::constant`, `map.stride()` may be
-    // uninitialized, in which case multiplying by `byte_stride` could result in
-    // overflow.  Overflow should not, however, occur otherwise.
-    map.stride() =
+    const Index stride =
         internal::wrap_on_overflow::Multiply(map.stride(), byte_stride);
+    if (stride == 0) {
+      map.SetConstant();
+    }
+    map.stride() = stride;
     // Overflow is valid for `map.offset()` because handling of non-zero array
     // origins relies on mod-2**64 arithmetic.
     map.offset() =
@@ -73,6 +74,7 @@ TransformRep::Ptr<> MakeTransformFromStridedLayout(
     StridedLayoutView<dynamic_rank, offset_origin> layout) {
   auto result = MakeIdentityTransform(layout.domain());
   MultiplyByteStridesIntoOutputIndexMaps(result.get(), layout.byte_strides());
+  internal_index_space::DebugCheckInvariants(result.get());
   return result;
 }
 
@@ -90,6 +92,7 @@ Result<TransformRep::Ptr<>> MakeTransformFromStridedLayoutAndTransform(
                                                     std::move(transform)));
   MultiplyByteStridesIntoOutputIndexMaps(transform.get(),
                                          layout.byte_strides());
+  internal_index_space::DebugCheckInvariants(transform.get());
   return transform;
 }
 

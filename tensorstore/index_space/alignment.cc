@@ -155,6 +155,7 @@ Result<IndexTransform<>> AlignDomainTo(IndexDomainView<> source,
       map.stride() = 1;
     }
   }
+  internal_index_space::DebugCheckInvariants(alignment.get());
   return TransformAccess::Make<IndexTransform<>>(std::move(alignment));
 }
 

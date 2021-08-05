@@ -15,6 +15,7 @@
 #include "tensorstore/index_space/index_transform_builder.h"
 
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/internal/transform_rep_impl.h"
 #include "tensorstore/internal/integer_overflow.h"
 
 namespace tensorstore {
@@ -104,49 +105,77 @@ Status SetOutputIndexMapsAndValidateTransformRep(
       TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
   }
 
+  const bool domain_is_explicitly_empty = IsDomainExplicitlyEmpty(data);
+
   // Initialize and validate the output index maps.
   for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
     const auto& initializer = output_index_maps[output_dim];
     auto& map = maps[output_dim];
     if (initializer.index_array.valid()) {
-      if (!initializer.index_array_bounds) {
-        return initializer.index_array_bounds.status();
-      }
+      TENSORSTORE_RETURN_IF_ERROR(initializer.index_array_bounds);
       span<const Index> shape = initializer.index_array.shape();
       const Index* byte_strides = initializer.index_array.byte_strides().data();
       if (shape.size() != input_rank) {
         return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Index array for dimension ", output_dim, " has rank ",
+            "Index array for output dimension ", output_dim, " has rank ",
             shape.size(), " but must have rank ", input_rank));
       }
       auto& index_array_data = map.SetArrayIndexing(shape.size());
       // Check that the index array shape is broadcast-compatible with
       // `input_shape`.
       for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {
-        if (shape[input_dim] == 1) {
+        const Index array_dim_size = shape[input_dim];
+        if (array_dim_size == 1) {
           index_array_data.byte_strides[input_dim] = 0;
-        } else if (shape[input_dim] != input_shape[input_dim]) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Index array for dimension ", output_dim, " has shape ", shape,
-              " which does not match input_shape ", input_shape));
-        } else if (byte_strides[input_dim] == 0) {
-          index_array_data.byte_strides[input_dim] = 0;
-        } else if (implicit_lower_bounds[input_dim] ||
-                   implicit_upper_bounds[input_dim]) {
-          return absl::InvalidArgumentError(
-              tensorstore::StrCat("Index array depends on input dimension ",
-                                  input_dim, " with implicit bounds"));
-        } else {
-          index_array_data.byte_strides[input_dim] = byte_strides[input_dim];
+          continue;
         }
+        const Index input_size = input_shape[input_dim];
+        if (array_dim_size != input_size) {
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              "Index array for output dimension ", output_dim, " has shape ",
+              shape, " which does not match input_shape ", input_shape));
+        }
+        // Note: We exclude `array_dim_size == 0` case here because we need
+        // to check the implicit bounds condition in that case.
+        // Additionally, the byte stride does not matter if
+        // `array_dim_size == 0` since a constant map will be used instead.
+        if (byte_strides[input_dim] == 0 && array_dim_size != 0) {
+          index_array_data.byte_strides[input_dim] = 0;
+          continue;
+        }
+        if (implicit_lower_bounds[input_dim] ||
+            implicit_upper_bounds[input_dim]) {
+          return absl::InvalidArgumentError(
+              tensorstore::StrCat("Index array for output dimension ",
+                                  output_dim, " depends on input dimension ",
+                                  input_dim, " with implicit bounds"));
+        }
+        if (!IsFinite(IndexInterval::UncheckedSized(input_origin[input_dim],
+                                                    input_size))) {
+          return absl::InvalidArgumentError(
+              tensorstore::StrCat("Index array for output dimension ",
+                                  output_dim, " depends on input dimension ",
+                                  input_dim, " with infinite bounds"));
+        }
+        index_array_data.byte_strides[input_dim] = byte_strides[input_dim];
       }
-      index_array_data.index_range = *initializer.index_array_bounds;
-      index_array_data.element_pointer = AddByteOffset(
-          initializer.index_array.element_pointer(),
-          internal::wrap_on_overflow::Subtract(
-              initializer.index_array.layout().origin_byte_offset(),
-              IndexInnerProduct(input_rank, input_origin.data(),
-                                index_array_data.byte_strides)));
+
+      if (domain_is_explicitly_empty) {
+        // Convert the index array to a constant map, since the
+        // index transform representation cannot contain index array maps that
+        // don't contain any elements.
+        map.SetConstant();
+        map.offset() = 0;
+        map.stride() = 0;
+      } else {
+        index_array_data.index_range = *initializer.index_array_bounds;
+        index_array_data.element_pointer = AddByteOffset(
+            initializer.index_array.element_pointer(),
+            internal::wrap_on_overflow::Subtract(
+                initializer.index_array.layout().origin_byte_offset(),
+                IndexInnerProduct(input_rank, input_origin.data(),
+                                  index_array_data.byte_strides)));
+      }
     } else if (initializer.input_dimension) {
       const DimensionIndex input_dim = *initializer.input_dimension;
       if (input_dim < 0 || input_dim >= input_rank) {
@@ -164,6 +193,7 @@ Status SetOutputIndexMapsAndValidateTransformRep(
       map.stride() = 0;
     }
   }
+  internal_index_space::DebugCheckInvariants(data);
   return absl::OkStatus();
 }
 

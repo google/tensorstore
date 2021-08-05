@@ -23,30 +23,22 @@ namespace internal_index_space {
 
 namespace {
 
-enum class ArrayUniqueElementZeroOneManyCount {
-  kZero = 0,
-  kOne = 1,
-  kMoreThanOne = 2,
-};
-
-/// Returns a bound on the number of unique elements in an array with the
-/// specified `shape` and `byte_strides`.
+/// Returns `true` if `layout` specifies an index array map with a single
+/// distinct element.
 ///
-/// \param rank Rank of the array
-/// \param shape Pointer to vector of length `rank`
-/// \param byte_strides Pointer to vector of length `rank`
-ArrayUniqueElementZeroOneManyCount GetArrayUniqueElementZeroOneManyCount(
-    DimensionIndex rank, const Index* shape, const Index* byte_strides) {
-  ArrayUniqueElementZeroOneManyCount result =
-      ArrayUniqueElementZeroOneManyCount::kOne;
-  for (DimensionIndex dim = 0; dim < rank; ++dim) {
-    if (byte_strides[dim] == 0) continue;
-    const Index size = shape[dim];
-    if (size == 0) return ArrayUniqueElementZeroOneManyCount::kZero;
-    if (size != 1) result = ArrayUniqueElementZeroOneManyCount::kMoreThanOne;
+/// Note that zero-size dimensions with `byte_stride == 0` do not disqualify
+/// `layout` from being considered a singleton map; it is assumed that these
+/// dimensions have implicit bounds.
+///
+/// \param layout Array layout.
+bool IsSingletonIndexArrayMap(StridedLayoutView<> layout) {
+  for (DimensionIndex dim = 0, rank = layout.rank(); dim < rank; ++dim) {
+    if (layout.byte_strides()[dim] == 0) continue;
+    if (layout.shape()[dim] != 1) return false;
   }
-  return result;
+  return true;
 }
+
 }  // namespace
 
 Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
@@ -88,6 +80,9 @@ Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
                       b_to_c->implicit_upper_bounds(b_rank), a_to_b,
                       a_to_c_domain, a_to_c->implicit_lower_bounds(a_rank),
                       a_to_c->implicit_upper_bounds(a_rank)));
+
+  const bool a_to_c_domain_is_explicitly_empty =
+      IsDomainExplicitlyEmpty(a_to_c);
 
   // Compute the output index maps for each output dimension of the new `a_to_c`
   // transform.
@@ -146,6 +141,14 @@ Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
         }
         // Handle the single_input_dimension -> array case.
         assert(a_to_b_method == OutputIndexMethod::array);
+        if (a_to_c_domain_is_explicitly_empty) {
+          // Index array would contain zero elements, convert it to a constant
+          // map.
+          a_to_c_map.SetConstant();
+          a_to_c_map.offset() = 0;
+          a_to_c_map.stride() = 0;
+          break;
+        }
         const auto& a_to_b_index_array_data = a_to_b_map.index_array_data();
         // Compute the updated index_range bounds for this index array.
         IndexInterval index_range;
@@ -162,71 +165,62 @@ Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
           index_range =
               Intersect(a_to_b_index_array_data.index_range, propagated_bounds);
         }
-        switch (GetArrayUniqueElementZeroOneManyCount(
-            a_rank, a_to_c_domain.shape().data(),
-            a_to_b_index_array_data.byte_strides)) {
-          case ArrayUniqueElementZeroOneManyCount::kZero: {
-            // Array has no elements.  Convert the index array to a constant
-            // map.
-            a_to_c_map.SetConstant();
-            break;
-          }
-          case ArrayUniqueElementZeroOneManyCount::kOne: {
-            // Convert index array map to constant map.
-            a_to_c_map.SetConstant();
-            TENSORSTORE_RETURN_IF_ERROR(ReplaceZeroRankIndexArrayIndexMap(
-                *a_to_b_index_array_data
-                     .array_view(a_to_b->input_domain(a_rank))
-                     .byte_strided_origin_pointer(),
-                index_range, &a_to_c_map.offset(), &a_to_c_map.stride()));
-            break;
-          }
-          case ArrayUniqueElementZeroOneManyCount::kMoreThanOne: {
-            // TODO(jbms): move IndexArrayData if possible
-            auto& index_array =
-                a_to_c_map.SetArrayIndexing(a_rank, a_to_b_index_array_data);
-            index_array.index_range = index_range;
-            break;
-          }
+        if (IsSingletonIndexArrayMap(
+                StridedLayoutView<>(a_rank, a_to_c_domain.shape().data(),
+                                    a_to_b_index_array_data.byte_strides))) {
+          // Convert index array map to constant map.
+          a_to_c_map.SetConstant();
+          TENSORSTORE_RETURN_IF_ERROR(ReplaceZeroRankIndexArrayIndexMap(
+              *a_to_b_index_array_data.array_view(a_to_b->input_domain(a_rank))
+                   .byte_strided_origin_pointer(),
+              index_range, &a_to_c_map.offset(), &a_to_c_map.stride()));
+        } else {
+          // TODO(jbms): move IndexArrayData if possible
+          auto& index_array =
+              a_to_c_map.SetArrayIndexing(a_rank, a_to_b_index_array_data);
+          index_array.index_range = index_range;
         }
         break;
       }
       case OutputIndexMethod::array: {
-        // Handle array -> * case.  We simply rely on TransformArraySubRegion to
-        // compute the new index array.
-        auto& index_array_data = b_to_c_map.index_array_data();
+        // Handle array -> * case.
         auto& a_to_c_map = a_to_c_output_index_maps[c_dim];
+        if (a_to_c_domain_is_explicitly_empty) {
+          // Index array would contain zero elements, convert it to a constant
+          // map.
+          a_to_c_map.SetConstant();
+          a_to_c_map.offset() = 0;
+          a_to_c_map.stride() = 0;
+          break;
+        }
+        // Use TransformArraySubRegion to compute the new index array.
+        auto& index_array_data = b_to_c_map.index_array_data();
         auto& result_array_data = a_to_c_map.SetArrayIndexing(a_rank);
         result_array_data.index_range = index_array_data.index_range;
-        auto transform_result = TransformArraySubRegion(
-            index_array_data.shared_array_view(b_to_c_domain), a_to_b,
-            a_to_c_domain.origin().data(), a_to_c_domain.shape().data(),
-            result_array_data.byte_strides,
-            /*constraints=*/{skip_repeated_elements});
-        if (!transform_result) return transform_result.status();
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto transformed_element_pointer,
+            TransformArraySubRegion(
+                index_array_data.shared_array_view(b_to_c_domain), a_to_b,
+                a_to_c_domain.origin().data(), a_to_c_domain.shape().data(),
+                result_array_data.byte_strides,
+                /*constraints=*/{skip_repeated_elements}));
         auto new_index_array_origin_pointer =
-            StaticDataTypeCast<const Index, unchecked>(*transform_result);
+            StaticDataTypeCast<const Index, unchecked>(
+                std::move(transformed_element_pointer));
         result_array_data.element_pointer = AddByteOffset(
             new_index_array_origin_pointer,
             -IndexInnerProduct(a_rank, result_array_data.byte_strides,
                                a_to_c_domain.origin().data()));
         Index output_offset = b_to_c_map.offset();
         Index output_stride = b_to_c_map.stride();
-        switch (GetArrayUniqueElementZeroOneManyCount(
-            a_rank, a_to_c_domain.shape().data(),
-            result_array_data.byte_strides)) {
-          case ArrayUniqueElementZeroOneManyCount::kZero:
-            a_to_c_map.SetConstant();
-            break;
-          case ArrayUniqueElementZeroOneManyCount::kOne:
-            // Convert index array map to constant map.
-            TENSORSTORE_RETURN_IF_ERROR(ReplaceZeroRankIndexArrayIndexMap(
-                *new_index_array_origin_pointer.data(),
-                result_array_data.index_range, &output_offset, &output_stride));
-            a_to_c_map.SetConstant();
-            break;
-          case ArrayUniqueElementZeroOneManyCount::kMoreThanOne:
-            break;
+        if (IsSingletonIndexArrayMap(
+                StridedLayoutView<>(a_rank, a_to_c_domain.shape().data(),
+                                    result_array_data.byte_strides))) {
+          // Convert index array map to constant map.
+          TENSORSTORE_RETURN_IF_ERROR(ReplaceZeroRankIndexArrayIndexMap(
+              *new_index_array_origin_pointer.data(),
+              result_array_data.index_range, &output_offset, &output_stride));
+          a_to_c_map.SetConstant();
         }
         a_to_c_map.offset() = output_offset;
         a_to_c_map.stride() = output_stride;
@@ -234,7 +228,7 @@ Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
       }
     }
   }
-
+  internal_index_space::DebugCheckInvariants(a_to_c);
   return absl::OkStatus();
 }
 

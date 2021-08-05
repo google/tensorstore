@@ -77,6 +77,11 @@ void ExtractDiagonal(TransformRep* original, TransformRep* result,
       orig_to_new_input_dim[orig_input_dim] = new_input_dim++;
     }
   }
+
+  const bool domain_is_explicitly_empty = !lower_diagonal_bound_implicit &&
+                                          !upper_diagonal_bound_implicit &&
+                                          diagonal_bounds.empty();
+
   // Computes the output index maps of `result`.
   span<const OutputIndexMap> orig_maps =
       original->output_index_maps().first(output_rank);
@@ -100,6 +105,12 @@ void ExtractDiagonal(TransformRep* original, TransformRep* result,
         break;
       }
       case OutputIndexMethod::array: {
+        if (domain_is_explicitly_empty) {
+          result_map.SetConstant();
+          result_map.stride() = 0;
+          result_map.offset() = 0;
+          break;
+        }
         auto& result_index_array = result_map.SetArrayIndexing(new_input_rank);
         // This is safe even if result_map aliases orig_map because
         // SetArrayIndexing is guaranteed not to reduce the capacity.
@@ -174,6 +185,7 @@ Result<IndexTransform<>> ApplyDiagonal(IndexTransform<> transform,
   TransformRep::Ptr<> new_rep =
       NewOrMutableRep(rep, new_input_rank, rep->output_rank);
   ExtractDiagonal(rep, new_rep.get(), dimensions);
+  internal_index_space::DebugCheckInvariants(new_rep.get());
   return TransformAccess::Make<IndexTransform<>>(std::move(new_rep));
 }
 

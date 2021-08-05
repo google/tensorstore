@@ -30,6 +30,7 @@ using tensorstore::AllDims;
 using tensorstore::BoxView;
 using tensorstore::Dims;
 using tensorstore::Index;
+using tensorstore::IndexInterval;
 using tensorstore::IndexTransformBuilder;
 using tensorstore::kImplicit;
 using tensorstore::kInfIndex;
@@ -316,6 +317,73 @@ TEST(ClosedIntervalTest, OneDimensionalArrayNonStrided) {
           .Finalize()
           .value(),
       /*equivalent_indices=*/{{{1}, {1}}});
+}
+
+TEST(ClosedIntervalTest, OneDimensionalArrayNonStridedZeroElements) {
+  TestDimExpression(
+      /*original_transform=*/IndexTransformBuilder<1, 1>()
+          .input_origin({-2})
+          .input_shape({4})
+          .output_index_array(0, 3, 2, MakeArray<Index>({6, 5, 4, 3}))
+          .Finalize()
+          .value(),
+      /*expression=*/AllDims().ClosedInterval(-1, -2),
+      /*expected_new_dimension_selection=*/{0},
+      /*expected_identity_new_transform=*/
+      IndexTransformBuilder<1, 1>()
+          .input_origin({-1})
+          .input_shape({0})
+          .output_identity_transform()
+          .Finalize()
+          .value(),
+      /*expected_new_transform=*/
+      IndexTransformBuilder<1, 1>()
+          .input_origin({-1})
+          .input_shape({0})
+          .output_constant(0, 0)
+          .Finalize()
+          .value(),
+      /*equivalent_indices=*/{});
+}
+
+TEST(ClosedIntervalTest, OneDimensionalArrayNonStridedOneElement) {
+  TestDimExpression(
+      /*original_transform=*/IndexTransformBuilder<1, 1>()
+          .input_origin({-2})
+          .input_shape({4})
+          .output_index_array(0, 3, 2, MakeArray<Index>({6, 5, 4, 3}))
+          .Finalize()
+          .value(),
+      /*expression=*/AllDims().ClosedInterval(-1, -1),
+      /*expected_new_dimension_selection=*/{0},
+      /*expected_identity_new_transform=*/
+      IndexTransformBuilder<1, 1>()
+          .input_origin({-1})
+          .input_shape({1})
+          .output_identity_transform()
+          .Finalize()
+          .value(),
+      /*expected_new_transform=*/
+      IndexTransformBuilder<1, 1>()
+          .input_origin({-1})
+          .input_shape({1})
+          .output_constant(0, 13)
+          .Finalize()
+          .value(),
+      /*equivalent_indices=*/{{{-1}, {-1}}});
+}
+
+TEST(ClosedIntervalTest, OneDimensionalArrayNonStridedInvalidOneElement) {
+  TestDimExpressionError(
+      IndexTransformBuilder<1, 1>()
+          .input_origin({-2})
+          .input_shape({4})
+          .output_index_array(0, 3, 2, MakeArray<Index>({6, 5, 4, 3}),
+                              IndexInterval::Closed(3, 4))
+          .Finalize()
+          .value(),
+      AllDims().ClosedInterval(-1, -1), absl::StatusCode::kOutOfRange,
+      "Index 5 is outside valid range \\[3, 5\\)");
 }
 
 TEST(SliceTranslateClosedIntervalTest, OneDimensionalArrayNonStrided) {

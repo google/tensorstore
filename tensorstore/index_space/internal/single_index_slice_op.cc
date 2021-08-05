@@ -132,8 +132,8 @@ Status PerformSingleIndexSlice(TransformRep* original_transform,
   const DimensionIndex new_input_rank = info.new_input_rank;
   span<const InputDimensionSingletonSliceInfo> original_input_dimension_info =
       info.original_input_dimension_info;
-  // Indicates whether the new transform has a zero-element transform.
-  bool has_zero_elements = false;
+  // Indicates whether the new transform has an empty domain.
+  bool domain_is_explicitly_empty = false;
   // Set the fields of each input dimension of the new transform from the
   // corresponding fields of the original input dimension.
   for (DimensionIndex original_input_dim = 0, new_input_dim = 0;
@@ -143,7 +143,10 @@ Status PerformSingleIndexSlice(TransformRep* original_transform,
     const InputDimensionRef new_dim_ref =
         new_transform->input_dimension(new_input_dim);
     new_dim_ref = original_transform->input_dimension(original_input_dim);
-    if (new_dim_ref.domain().empty()) has_zero_elements = true;
+    if (new_dim_ref.domain().empty() && !new_dim_ref.implicit_lower_bound() &&
+        !new_dim_ref.implicit_upper_bound()) {
+      domain_is_explicitly_empty = true;
+    }
     ++new_input_dim;
   }
   const DimensionIndex output_rank = original_transform->output_rank;
@@ -194,6 +197,12 @@ Status PerformSingleIndexSlice(TransformRep* original_transform,
         break;
       }
       case OutputIndexMethod::array: {
+        if (domain_is_explicitly_empty) {
+          new_map.SetConstant();
+          new_map.offset() = 0;
+          new_map.stride() = 0;
+          break;
+        }
         const IndexArrayData& original_index_array_data =
             original_map.index_array_data();
         IndexArrayData& new_index_array_data =
@@ -231,16 +240,11 @@ Status PerformSingleIndexSlice(TransformRep* original_transform,
         } else {
           // Index array has become rank 0, so we can replace it with a constant
           // index.
-          if (!has_zero_elements) {
-            TENSORSTORE_RETURN_IF_ERROR(ReplaceZeroRankIndexArrayIndexMap(
-                original_index_array_data.element_pointer
-                    .byte_strided_pointer()[array_byte_offset],
-                new_index_array_data.index_range, &output_offset,
-                &output_stride));
-          } else {
-            output_offset = 0;
-            output_stride = 0;
-          }
+          TENSORSTORE_RETURN_IF_ERROR(ReplaceZeroRankIndexArrayIndexMap(
+              original_index_array_data.element_pointer
+                  .byte_strided_pointer()[array_byte_offset],
+              new_index_array_data.index_range, &output_offset,
+              &output_stride));
           new_map.SetConstant();
         }
         new_map.stride() = output_stride;
@@ -251,6 +255,7 @@ Status PerformSingleIndexSlice(TransformRep* original_transform,
   }
   new_transform->input_rank = new_input_rank;
   new_transform->output_rank = output_rank;
+  internal_index_space::DebugCheckInvariants(new_transform);
   return absl::OkStatus();
 }
 }  // namespace

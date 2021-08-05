@@ -147,6 +147,7 @@ TransformRep::Ptr<> PermuteDimsOutOfPlace(
       }
     }
   }
+  internal_index_space::DebugCheckInvariants(result.get());
   return result;
 }
 
@@ -200,6 +201,7 @@ TransformRep::Ptr<> PermuteDimsInplace(TransformRep::Ptr<> rep,
       }
     }
   }
+  internal_index_space::DebugCheckInvariants(rep.get());
   return rep;
 }
 

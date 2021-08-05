@@ -50,8 +50,7 @@ TEST(PropagateExplicitBoundsTest, IdentityTransform) {
   DimensionIndex rank = 2;
   const Box<> b({2, 3}, {4, 5});
   Box<> a(rank);
-  EXPECT_EQ(absl::OkStatus(),
-            PropagateExplicitBounds(b, IndexTransform<>(), a));
+  TENSORSTORE_ASSERT_OK(PropagateExplicitBounds(b, IndexTransform<>(), a));
   EXPECT_EQ(a, b);
 }
 
@@ -61,10 +60,10 @@ TEST(PropagateBoundsTest, IdentityTransform) {
   BitVec<2> a_implicit_lower_bounds, a_implicit_upper_bounds;
   auto b_implicit_lower_bounds = BitVec({0, 1});
   auto b_implicit_upper_bounds = BitVec({1, 0});
-  EXPECT_EQ(absl::OkStatus(),
-            PropagateBounds(b, b_implicit_lower_bounds, b_implicit_upper_bounds,
-                            IndexTransform<2, 2>(), a, a_implicit_lower_bounds,
-                            a_implicit_upper_bounds));
+  TENSORSTORE_ASSERT_OK(
+      PropagateBounds(b, b_implicit_lower_bounds, b_implicit_upper_bounds,
+                      IndexTransform<2, 2>(), a, a_implicit_lower_bounds,
+                      a_implicit_upper_bounds));
   EXPECT_EQ(a, b);
   EXPECT_EQ(b_implicit_lower_bounds, a_implicit_lower_bounds);
   EXPECT_EQ(b_implicit_upper_bounds, a_implicit_upper_bounds);
@@ -85,10 +84,9 @@ TEST(PropagateBoundsTest, ValidateOnly) {
   BitVec<3> b_implicit_upper_bounds({1, 0, 0});
   BitVec<2> a_implicit_lower_bounds, a_implicit_upper_bounds;
 
-  EXPECT_EQ(absl::OkStatus(),
-            PropagateBounds(b, b_implicit_lower_bounds, b_implicit_upper_bounds,
-                            transform, a, a_implicit_lower_bounds,
-                            a_implicit_upper_bounds));
+  TENSORSTORE_ASSERT_OK(PropagateBounds(
+      b, b_implicit_lower_bounds, b_implicit_upper_bounds, transform, a,
+      a_implicit_lower_bounds, a_implicit_upper_bounds));
   // Check that the propagated bounds match the transform input domain.
   EXPECT_EQ(BoxView({2, 3}, {5, 10}), a);
   EXPECT_THAT(a_implicit_lower_bounds, ::testing::ElementsAre(0, 0));
@@ -102,11 +100,10 @@ TEST(PropagateBoundsTest, Constant) {
                        .Finalize()
                        .value();
   Box<0> a;
-  EXPECT_EQ(absl::OkStatus(),
-            PropagateBounds(/*b_domain=*/Box({2, 1}, {2, 3}),
-                            /*b_implicit_lower_bounds=*/BitVec({1, 0}),
-                            /*b_implicit_upper_bounds=*/BitVec({0, 0}),
-                            transform, a));
+  TENSORSTORE_ASSERT_OK(PropagateBounds(
+      /*b_domain=*/Box({2, 1}, {2, 3}),
+      /*b_implicit_lower_bounds=*/BitVec({1, 0}),
+      /*b_implicit_upper_bounds=*/BitVec({0, 0}), transform, a));
 }
 
 TEST(PropagateBoundsTest, ConstantError) {
@@ -152,8 +149,7 @@ TEST(PropagateBoundsTest, Propagate0Upper1Lower) {
                        .value();
   Box<2> a;
   BitVec<2> a_implicit_lower_bounds, a_implicit_upper_bounds;
-  EXPECT_EQ(
-      absl::OkStatus(),
+  TENSORSTORE_ASSERT_OK(
       PropagateBounds(/*b_domain=*/Box({2, 3, 4}, {50, 66, 100}),
                       /*b_implicit_lower_bounds=*/BitVec({0, 1, 1}),
                       /*b_implicit_upper_bounds=*/BitVec({1, 0, 1}), transform,
@@ -189,12 +185,11 @@ TEST(PropagateBoundsTest, PropagateImplicitConstraints1) {
                              .value();
   Box<1> a;
   BitVec<1> a_implicit_lower_bounds, a_implicit_upper_bounds;
-  EXPECT_EQ(
-      absl::OkStatus(),
-      PropagateBounds(/*b_domain=*/Box({0}, {4}),
-                      /*b_implicit_lower_bounds=*/BitVec({1}),
-                      /*b_implicit_upper_bounds=*/BitVec({0}), transform, a,
-                      a_implicit_lower_bounds, a_implicit_upper_bounds));
+  TENSORSTORE_ASSERT_OK(PropagateBounds(/*b_domain=*/Box({0}, {4}),
+                                        /*b_implicit_lower_bounds=*/BitVec({1}),
+                                        /*b_implicit_upper_bounds=*/BitVec({0}),
+                                        transform, a, a_implicit_lower_bounds,
+                                        a_implicit_upper_bounds));
 
   // a dim 0:
   //   Initial bounds:     [-1, 2*)
@@ -222,12 +217,11 @@ TEST(PropagateBoundsTest, PropagateImplicitConstraints2) {
                              .value();
   Box<1> a;
   BitVec<1> a_implicit_lower_bounds, a_implicit_upper_bounds;
-  EXPECT_EQ(absl::OkStatus(),
-            PropagateBounds(
-                /*b_domain=*/Box({-1, 0}, {3, 4}),
-                /*b_implicit_lower_bounds=*/BitVec({1, 1}),
-                /*b_implicit_upper_bounds=*/BitVec({1, 0}), transform, a,
-                a_implicit_lower_bounds, a_implicit_upper_bounds));
+  TENSORSTORE_ASSERT_OK(PropagateBounds(
+      /*b_domain=*/Box({-1, 0}, {3, 4}),
+      /*b_implicit_lower_bounds=*/BitVec({1, 1}),
+      /*b_implicit_upper_bounds=*/BitVec({1, 0}), transform, a,
+      a_implicit_lower_bounds, a_implicit_upper_bounds));
 
   // a dim 0:
   //   Initial bounds:     [-1, 2*)
@@ -257,10 +251,9 @@ TEST(PropagateBoundsTest, PropagateNegativeStride) {
   BitVec<1> b_implicit_lower_bounds({0}), b_implicit_upper_bounds({1});
   BitVec<2> a_implicit_lower_bounds, a_implicit_upper_bounds;
 
-  EXPECT_EQ(absl::OkStatus(),
-            PropagateBounds(b, b_implicit_lower_bounds, b_implicit_upper_bounds,
-                            transform, a, a_implicit_lower_bounds,
-                            a_implicit_upper_bounds));
+  TENSORSTORE_ASSERT_OK(PropagateBounds(
+      b, b_implicit_lower_bounds, b_implicit_upper_bounds, transform, a,
+      a_implicit_lower_bounds, a_implicit_upper_bounds));
 
   // a dim 0:
   //   Initial bounds:     [2, 6*)
@@ -291,7 +284,7 @@ TEST(PropagateExplicitBoundsTest, Propagate0Upper1Upper) {
                        .value();
   const Box<3> b({2, 3, 4}, {50, 66, 100});
   Box<2> a;
-  EXPECT_EQ(absl::OkStatus(), PropagateExplicitBounds(b, transform, a));
+  TENSORSTORE_ASSERT_OK(PropagateExplicitBounds(b, transform, a));
   EXPECT_EQ(Box<>({2, -9}, {5, 22}), a);
 }
 
@@ -308,7 +301,7 @@ TEST(PropagateExplicitBoundsTest, PropagateExtraExplicit) {
                        .value();
   const Box<3> b({2, 3, 4}, {50, 66, 100});
   Box<3> a;
-  EXPECT_EQ(absl::OkStatus(), PropagateExplicitBounds(b, transform, a));
+  TENSORSTORE_ASSERT_OK(PropagateExplicitBounds(b, transform, a));
   EXPECT_EQ(Box<>({2, -9, 7}, {5, 22, 8}), a);
 }
 
@@ -325,7 +318,7 @@ TEST(PropagateExplicitBoundsTest, PropagateExtraImplicitLower) {
                        .value();
   const Box<3> b({2, 3, 4}, {50, 66, 100});
   Box<3> a;
-  EXPECT_EQ(absl::OkStatus(), PropagateExplicitBounds(b, transform, a));
+  TENSORSTORE_ASSERT_OK(PropagateExplicitBounds(b, transform, a));
   EXPECT_EQ(Box<>({2, -9, 7}, {5, 22, 8}), a);
 }
 
@@ -342,7 +335,7 @@ TEST(PropagateExplicitBoundsTest, PropagateExtraImplicitUpper) {
                        .value();
   const Box<3> b({2, 3, 4}, {50, 66, 100});
   Box<3> a;
-  EXPECT_EQ(absl::OkStatus(), PropagateExplicitBounds(b, transform, a));
+  TENSORSTORE_ASSERT_OK(PropagateExplicitBounds(b, transform, a));
   EXPECT_EQ(Box<>({2, -9, 7}, {5, 22, 8}), a);
 }
 
@@ -461,7 +454,7 @@ TEST(PropagateExplicitBoundsTest, ZeroSize) {
                        .value();
   const Box<3> b({2, 3, 4}, {50, 66, 100});
   Box<2> a;
-  EXPECT_EQ(absl::OkStatus(), PropagateExplicitBounds(b, transform, a));
+  TENSORSTORE_ASSERT_OK(PropagateExplicitBounds(b, transform, a));
   // Check that the propagated bounds match the transform input domain.
   EXPECT_EQ(BoxView({2, 3}, {5, 0}), a);
 }
@@ -472,16 +465,16 @@ TEST(PropagateExplicitBoundsToTransformTest,
      InvalidTransformTreatedAsIdentityTransformDefaultImplicit) {
   IndexTransform<2, 2> t;
   Box<2> output_domain({1, 2}, {3, 4});
-  auto t_result = PropagateExplicitBoundsToTransform(output_domain, t);
-  ASSERT_TRUE(t_result);
-  EXPECT_EQ(IndexTransformBuilder<>(2, 2)
-                .input_bounds(output_domain)
-                .implicit_lower_bounds({0, 0})
-                .implicit_upper_bounds({0, 0})
-                .output_identity_transform()
-                .Finalize()
-                .value(),
-            *t_result);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(  //
+      auto t_expected,               //
+      IndexTransformBuilder(2, 2)
+          .input_bounds(output_domain)
+          .implicit_lower_bounds({0, 0})
+          .implicit_upper_bounds({0, 0})
+          .output_identity_transform()
+          .Finalize());
+  EXPECT_THAT(PropagateExplicitBoundsToTransform(output_domain, t),
+              ::testing::Optional(t_expected));
 }
 
 // Tests that an invalid transform is correctly treated as an identity transform
@@ -490,17 +483,17 @@ TEST(PropagateBoundsToTransformTest,
      InvalidTransformTreatedAsIdentityTransformImplicit) {
   IndexTransform<2, 2> t;
   Box<2> output_domain({1, 2}, {3, 4});
-  auto t_result = PropagateBoundsToTransform(output_domain, BitVec({1, 0}),
-                                             BitVec({0, 1}), t);
-  ASSERT_TRUE(t_result);
-  EXPECT_EQ(IndexTransformBuilder<>(2, 2)
-                .input_bounds(output_domain)
-                .implicit_lower_bounds({1, 0})
-                .implicit_upper_bounds({0, 1})
-                .output_identity_transform()
-                .Finalize()
-                .value(),
-            *t_result);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(  //
+      auto t_expected,               //
+      IndexTransformBuilder(2, 2)
+          .input_bounds(output_domain)
+          .implicit_lower_bounds({1, 0})
+          .implicit_upper_bounds({0, 1})
+          .output_identity_transform()
+          .Finalize());
+  EXPECT_THAT(PropagateBoundsToTransform(output_domain, BitVec({1, 0}),
+                                         BitVec({0, 1}), t),
+              ::testing::Optional(t_expected));
 }
 
 // Tests that calling PropagateExplicitBoundsToTransform with an index transform
@@ -515,9 +508,31 @@ TEST(PropagateExplicitBoundsToTransformTest, IndexArrayNoPropagationNeeded) {
                                    IndexInterval::Closed(1, 2))
                .Finalize()
                .value();
-  auto t_result = PropagateExplicitBoundsToTransform(output_domain, t);
-  ASSERT_TRUE(t_result);
-  EXPECT_EQ(t, *t_result);
+  EXPECT_THAT(PropagateExplicitBoundsToTransform(output_domain, t),
+              ::testing::Optional(t));
+}
+
+// Tests that the index array is converted to a constant map since the domain
+// becomes explicitly empty.
+TEST(PropagateExplicitBoundsToTransformTest, IndexArrayZeroElements) {
+  Box<2> output_domain({0, 2});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(  //
+      auto t,                        //
+      IndexTransformBuilder(2, 2)
+          .input_shape({3, 2})
+          .implicit_upper_bounds({1, 0})
+          .output_single_input_dimension(0, 0)
+          .output_index_array(1, 0, 1, MakeArray<Index>({{1, 2}}))
+          .Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(  //
+      auto t_expected,               //
+      IndexTransformBuilder(2, 2)
+          .input_shape({0, 2})
+          .output_single_input_dimension(0, 0)
+          .output_constant(1, 0)
+          .Finalize());
+  EXPECT_THAT(PropagateExplicitBoundsToTransform(output_domain, t),
+              ::testing::Optional(t_expected));
 }
 
 // Tests that calling PropagateExplicitBoundsToTransform with an index transform
@@ -526,39 +541,38 @@ TEST(PropagateExplicitBoundsToTransformTest, IndexArrayNoPropagationNeeded) {
 TEST(PropagateExplicitBoundsToTransformTest,
      SingleInputDimensionNoPropagationNeeded) {
   Box<1> output_domain({1}, {10});
-  auto t = IndexTransformBuilder<1, 1>()
-               .input_origin({11})
-               .input_shape({3})
-               .output_single_input_dimension(0, -32, 3, 0)
-               .Finalize()
-               .value();
-  auto t_result = PropagateExplicitBoundsToTransform(output_domain, t);
-  ASSERT_TRUE(t_result);
-  EXPECT_EQ(t, *t_result);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(  //
+      auto t,                        //
+      IndexTransformBuilder(1, 1)
+          .input_origin({11})
+          .input_shape({3})
+          .output_single_input_dimension(0, -32, 3, 0)
+          .Finalize());
+  EXPECT_THAT(PropagateExplicitBoundsToTransform(output_domain, t),
+              ::testing::Optional(t));
 }
 
 /// Tests that the index_range for an index array output index map is correctly
 /// computed using GetAffineTransformDomain.
 TEST(PropagateExplicitBoundsToTransformTest, PropagateToIndexRange) {
   Box<1> output_domain({1}, {10});
-  auto t = IndexTransformBuilder<1, 1>()
-               .input_origin({11})
-               .input_shape({3})
-               .output_index_array(0, 2, 3, MakeArray<Index>({1, 2, 1}))
-               .Finalize()
-               .value();
-  auto t_result = PropagateExplicitBoundsToTransform(output_domain, t);
-  ASSERT_TRUE(t_result);
-  auto t_expected =
-      IndexTransformBuilder<>(1, 1)
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(  //
+      auto t,                        //
+      IndexTransformBuilder(1, 1)
+          .input_origin({11})
+          .input_shape({3})
+          .output_index_array(0, 2, 3, MakeArray<Index>({1, 2, 1}))
+          .Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(  //
+      auto t_expected,               //
+      IndexTransformBuilder(1, 1)
           .input_origin({11})
           .input_shape({3})
           .output_index_array(0, 2, 3, MakeArray<Index>({1, 2, 1}),
                               IndexInterval::Closed(0, 2))
-          .Finalize()
-          .value();
-
-  EXPECT_EQ(t_expected, *t_result);
+          .Finalize());
+  EXPECT_THAT(PropagateExplicitBoundsToTransform(output_domain, t),
+              ::testing::Optional(t_expected));
 }
 
 /// Tests that implicit bounds do not propagate to the index range of index

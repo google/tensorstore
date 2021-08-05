@@ -254,10 +254,21 @@ Result<TransformRep::Ptr<>> PropagateBoundsToTransform(
                                               a_to_b.get(), bounds_temp));
   a_to_b = MutableRep(std::move(a_to_b));
   a_to_b->input_domain(a_rank).DeepAssign(bounds_temp);
+  PropagateImplicitBoundState(b_rank, b_implicit_lower_bounds,
+                              b_implicit_upper_bounds, a_to_b.get(), a_rank,
+                              a_to_b->implicit_lower_bounds(a_rank),
+                              a_to_b->implicit_upper_bounds(a_rank));
+  const bool domain_is_explicitly_empty = IsDomainExplicitlyEmpty(a_to_b.get());
   const auto output_index_maps = a_to_b->output_index_maps().first(b_rank);
   for (DimensionIndex b_dim = 0; b_dim < b_rank; ++b_dim) {
     auto& map = output_index_maps[b_dim];
     if (map.method() != OutputIndexMethod::array) continue;
+    if (domain_is_explicitly_empty) {
+      map.SetConstant();
+      map.offset() = 0;
+      map.stride() = 0;
+      continue;
+    }
     auto& index_array_data = map.index_array_data();
     TENSORSTORE_ASSIGN_OR_RETURN(
         const IndexInterval propagated_bounds,
@@ -270,10 +281,7 @@ Result<TransformRep::Ptr<>> PropagateBoundsToTransform(
     index_array_data.index_range =
         Intersect(propagated_bounds, index_array_data.index_range);
   }
-  PropagateImplicitBoundState(b_rank, b_implicit_lower_bounds,
-                              b_implicit_upper_bounds, a_to_b.get(), a_rank,
-                              a_to_b->implicit_lower_bounds(a_rank),
-                              a_to_b->implicit_upper_bounds(a_rank));
+  internal_index_space::DebugCheckInvariants(a_to_b.get());
   return a_to_b;
 }
 

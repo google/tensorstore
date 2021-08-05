@@ -17,6 +17,8 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/array.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/dim_expression_testutil.h"
@@ -25,8 +27,11 @@ namespace {
 
 using tensorstore::DimensionIndex;
 using tensorstore::Dims;
+using tensorstore::Index;
 using tensorstore::IndexTransformBuilder;
+using tensorstore::MakeArray;
 using tensorstore::internal_index_space::TestDimExpression;
+using tensorstore::internal_index_space::TestDimExpressionError;
 
 TEST(MarkBoundsExplicitTest, Example) {
   const auto original_transform = IndexTransformBuilder<3, 3>()
@@ -69,6 +74,56 @@ TEST(MarkBoundsExplicitTest, Example) {
                     /*expected_identity_new_transform=*/expected_new_transform,
                     /*expected_new_transform=*/expected_new_transform,
                     /*equivalent_indices=*/{});
+}
+
+TEST(MarkBoundsExplicitTest, IndexArray) {
+  TestDimExpression(
+      /*original_transform=*/IndexTransformBuilder(2, 1)
+          .input_shape({2, 3})
+          .implicit_upper_bounds({1, 0})
+          .output_index_array(0, 0, 1, MakeArray<Index>({{1, 2, 3}}))
+          .Finalize()
+          .value(),
+      /*expression=*/Dims(0).MarkBoundsExplicit(),
+      /*expected_new_dimension_selection=*/{0},
+      /*expected_identity_new_transform=*/
+      IndexTransformBuilder(2, 2)
+          .input_shape({2, 3})
+          .output_identity_transform()
+          .Finalize()
+          .value(),
+      /*expected_new_transform=*/
+      IndexTransformBuilder(2, 1)
+          .input_shape({2, 3})
+          .output_index_array(0, 0, 1, MakeArray<Index>({{1, 2, 3}}))
+          .Finalize()
+          .value(),
+      /*equivalent_indices=*/{});
+}
+
+TEST(MarkBoundsExplicitTest, IndexArrayZeroSize) {
+  TestDimExpression(
+      /*original_transform=*/IndexTransformBuilder(2, 1)
+          .input_shape({0, 3})
+          .implicit_upper_bounds({1, 0})
+          .output_index_array(0, 0, 1, MakeArray<Index>({{1, 2, 3}}))
+          .Finalize()
+          .value(),
+      /*expression=*/Dims(0).MarkBoundsExplicit(),
+      /*expected_new_dimension_selection=*/{0},
+      /*expected_identity_new_transform=*/
+      IndexTransformBuilder(2, 2)
+          .input_shape({0, 3})
+          .output_identity_transform()
+          .Finalize()
+          .value(),
+      /*expected_new_transform=*/
+      IndexTransformBuilder(2, 1)
+          .input_shape({0, 3})
+          .output_constant(0, 0)
+          .Finalize()
+          .value(),
+      /*equivalent_indices=*/{});
 }
 
 TEST(UnsafeMarkBoundsImplicitTest, Example) {
@@ -119,6 +174,48 @@ TEST(UnsafeMarkBoundsImplicitTest, Example) {
                     /*equivalent_indices=*/{},
                     /*can_operate_in_place=*/true,
                     /*test_compose=*/false);
+}
+
+TEST(UnsafeMarkBoundsImplicitTest, IndexArray) {
+  TestDimExpression(
+      /*original_transform=*/IndexTransformBuilder(2, 1)
+          .input_shape({2, 3})
+          .output_index_array(0, 0, 1, MakeArray<Index>({{1, 2, 3}}))
+          .Finalize()
+          .value(),
+      /*expression=*/
+      Dims(0).UnsafeMarkBoundsImplicit(/*lower=*/false, /*upper=*/true),
+      /*expected_new_dimension_selection=*/{0},
+      /*expected_identity_new_transform=*/
+      IndexTransformBuilder(2, 2)
+          .input_shape({2, 3})
+          .implicit_upper_bounds({1, 0})
+          .output_identity_transform()
+          .Finalize()
+          .value(),
+      /*expected_new_transform=*/
+      IndexTransformBuilder(2, 1)
+          .input_shape({2, 3})
+          .implicit_upper_bounds({1, 0})
+          .output_index_array(0, 0, 1, MakeArray<Index>({{1, 2, 3}}))
+          .Finalize()
+          .value(),
+      /*equivalent_indices=*/{},
+      /*can_operate_in_place=*/true,
+      /*test_compose=*/false);
+}
+
+TEST(UnsafeMarkBoundsImplicitTest, IndexArrayInvalid) {
+  TestDimExpressionError(
+      IndexTransformBuilder(2, 1)
+          .input_shape({2, 3})
+          .output_index_array(0, 0, 1, MakeArray<Index>({{1, 2, 3}}))
+          .Finalize()
+          .value(),
+      Dims(1).UnsafeMarkBoundsImplicit(/*lower=*/false, /*upper=*/true),
+      absl::StatusCode::kInvalidArgument,
+      "Cannot mark input dimension 1 as having implicit bounds because it "
+      "indexes the index array map for output dimension 0");
 }
 
 TEST(MarkBoundsExplicitTest, LowerOnly) {

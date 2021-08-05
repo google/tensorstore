@@ -59,11 +59,15 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
       case ExpressionKind::kAddNew: {
         auto dim = absl::Uniform<DimensionIndex>(
             absl::IntervalClosedClosed, gen, 0, transform.input_rank());
-        return (transform | Dims(dim).AddNew().SizedInterval(
-                                absl::Uniform<Index>(absl::IntervalClosedClosed,
-                                                     gen, -10, 10),
-                                absl::Uniform<Index>(absl::IntervalClosedClosed,
-                                                     gen, 1, 3)))
+        const Index origin =
+            absl::Uniform<Index>(absl::IntervalClosedClosed, gen, -10, 10);
+        const Index size =
+            absl::Uniform<Index>(absl::IntervalClosedClosed, gen, 1, 3);
+        if (log) {
+          TENSORSTORE_LOG("Dims(", dim, ").AddNew().SizedInterval(", origin,
+                          ", ", size, ")");
+        }
+        return (transform | Dims(dim).AddNew().SizedInterval(origin, size))
             .value();
       }
       case ExpressionKind::kStride: {
@@ -73,7 +77,9 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
         if (absl::Bernoulli(gen, 0.5)) {
           stride *= -1;
         }
-        if (log) TENSORSTORE_LOG("Stride(", stride, ")");
+        if (log) {
+          TENSORSTORE_LOG("Dims(", input_dim, ").Stride(", stride, ")");
+        }
         return (transform | Dims(input_dim).Stride(stride)).value();
       }
       case ExpressionKind::kTranslate: {
@@ -81,7 +87,9 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
         for (auto& i : translation) {
           i = absl::Uniform<Index>(absl::IntervalClosedClosed, gen, -10, 10);
         }
-        if (log) TENSORSTORE_LOG("TranslateBy(", translation, ")");
+        if (log) {
+          TENSORSTORE_LOG("AllDims().TranslateBy(", span(translation), ")");
+        }
         return (transform | AllDims().TranslateBy(translation)).value();
       }
       case ExpressionKind::kIndexSlice: {
@@ -95,7 +103,9 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
                                  transform.domain()[dim].inclusive_min(),
                                  transform.domain()[dim].exclusive_max());
 
-        if (log) TENSORSTORE_LOG("IndexSlice(", slice, ")");
+        if (log) {
+          TENSORSTORE_LOG("Dims(", dim, ").IndexSlice(", slice, ")");
+        }
         return (transform | Dims(dim).IndexSlice(slice)).value();
       }
       case ExpressionKind::kIntervalSlice: {
@@ -110,6 +120,10 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
                                           interval.inclusive_max());
         auto end = absl::Uniform<Index>(absl::IntervalClosedClosed, gen, start,
                                         interval.inclusive_max());
+        if (log) {
+          TENSORSTORE_LOG("Dims(", dim, ").ClosedInterval(", start, ", ", end,
+                          ")");
+        }
         return (transform | Dims(dim).ClosedInterval(start, end)).value();
       }
       case ExpressionKind::kIndexArraySlice: {
@@ -133,21 +147,26 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
               absl::IntervalClosedOpen, gen, index_range.inclusive_min(),
               index_range.exclusive_max());
         }
-        if (log) TENSORSTORE_LOG("IndexArraySlice(", new_array, ")");
+        if (log) {
+          TENSORSTORE_LOG("Dims(", input_dim, ").IndexArraySlice(", new_array,
+                          ")");
+        }
         return (transform | Dims(input_dim).IndexArraySlice(new_array)).value();
       }
       case ExpressionKind::kPermute: {
         std::vector<DimensionIndex> dims(transform.input_rank());
         std::iota(dims.begin(), dims.end(), DimensionIndex(0));
         std::shuffle(dims.begin(), dims.end(), gen);
-        if (log) TENSORSTORE_LOG("Transpose(", dims, ")");
+        if (log) TENSORSTORE_LOG("AllDims().Transpose(", span(dims), ")");
         return (transform | AllDims().Transpose(dims)).value();
       }
       case ExpressionKind::kDiagonal: {
         while (true) {
           DimensionIndex dim1 = sample_input_dim(), dim2 = sample_input_dim();
           if (dim1 == dim2) continue;
-          if (log) TENSORSTORE_LOG("Diagonal(", dim1, dim2, ")");
+          if (log) {
+            TENSORSTORE_LOG("Dims(", dim1, ", ", dim2, ").Diagonal()");
+          }
           return (transform | Dims(dim1, dim2).Diagonal()).value();
         }
       }

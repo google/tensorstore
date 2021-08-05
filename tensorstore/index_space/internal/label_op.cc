@@ -36,6 +36,7 @@ Result<IndexTransform<>> ApplyLabel(IndexTransform<> transform,
     input_labels[input_dim].assign(label.begin(), label.end());
   }
   TENSORSTORE_RETURN_IF_ERROR(ValidateLabelsAreUnique(input_labels));
+  internal_index_space::DebugCheckInvariants(rep.get());
   return TransformAccess::Make<IndexTransform<>>(std::move(rep));
 }
 
