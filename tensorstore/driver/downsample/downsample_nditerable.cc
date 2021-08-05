@@ -1005,16 +1005,19 @@ class DownsampledNDIterable : public NDIterable::Base<DownsampledNDIterable> {
     // Since `prefs` points to an array of length `target_rank_` and
     // `base_rank_ > target_rank_`, we need to use a temporary array to call
     // `base_.UpdateDirectionPrefs`.
+    const DimensionIndex target_rank = target_rank_;
     absl::FixedArray<DirectionPref, internal::kNumInlinedDims> base_prefs(
-        prefs, prefs + base_rank_);
+        base_rank_);
+    std::fill(base_prefs.begin() + target_rank, base_prefs.end(),
+              DirectionPref::kCanSkip);
     base_.UpdateDirectionPrefs(base_prefs.data());
     const Index* downsample_factors = this->downsample_factors();
-    for (DimensionIndex i = 0, rank = target_rank_; i < rank; ++i) {
+    for (DimensionIndex i = 0; i < target_rank; ++i) {
       if (downsample_factors[i] != 1) {
         base_prefs[i] = DirectionPref::kForwardRequired;
       }
+      prefs[i] = CombineDirectionPrefs(prefs[i], base_prefs[i]);
     }
-    std::copy_n(base_prefs.begin(), target_rank_, prefs);
   }
 
   IterationBufferConstraint GetIterationBufferConstraint(

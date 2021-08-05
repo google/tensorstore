@@ -455,8 +455,9 @@ TEST(CanDownsampleIndexTransformTest, IndexArray) {
       BoxView<1>({0}, {100}), span<const Index>({2})));
 }
 
-void TestPropagateIndexTransformDownsamplingInvariance(absl::BitGenRef gen,
-                                                       DimensionIndex rank) {
+void TestPropagateIndexTransformDownsamplingInvariance(DimensionIndex rank) {
+  std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+      "TENSORSTORE_DOWNSAMPLE_PROPAGATE_INVARIANCE_SEED")};
   tensorstore::internal::MakeRandomBoxParameters box_p;
   box_p.min_rank = box_p.max_rank = rank;
   auto base_bounds = tensorstore::internal::MakeRandomBox(gen, box_p);
@@ -516,34 +517,26 @@ void TestPropagateIndexTransformDownsamplingInvariance(absl::BitGenRef gen,
 constexpr size_t kNumRandomTests = 1000;
 
 TEST(PropagateIndexTransformDownsamplingTest, InvarianceRank0) {
-  std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
-      "TENSORSTORE_DOWNSAMPLE_PROPAGATE_INVARIANCE_SEED_0")};
   for (size_t i = 0; i < kNumRandomTests; ++i) {
-    TestPropagateIndexTransformDownsamplingInvariance(gen, /*rank=*/0);
+    TestPropagateIndexTransformDownsamplingInvariance(/*rank=*/0);
   }
 }
 
 TEST(PropagateIndexTransformDownsamplingTest, InvarianceRank1) {
-  std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
-      "TENSORSTORE_DOWNSAMPLE_PROPAGATE_INVARIANCE_SEED_1")};
   for (size_t i = 0; i < kNumRandomTests; ++i) {
-    TestPropagateIndexTransformDownsamplingInvariance(gen, /*rank=*/1);
+    TestPropagateIndexTransformDownsamplingInvariance(/*rank=*/1);
   }
 }
 
 TEST(PropagateIndexTransformDownsamplingTest, InvarianceRank2) {
-  std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
-      "TENSORSTORE_DOWNSAMPLE_PROPAGATE_INVARIANCE_SEED_2")};
   for (size_t i = 0; i < kNumRandomTests; ++i) {
-    TestPropagateIndexTransformDownsamplingInvariance(gen, /*rank=*/2);
+    TestPropagateIndexTransformDownsamplingInvariance(/*rank=*/2);
   }
 }
 
 TEST(PropagateIndexTransformDownsamplingTest, InvarianceRank3) {
-  std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
-      "TENSORSTORE_DOWNSAMPLE_PROPAGATE_INVARIANCE_SEED_3")};
   for (size_t i = 0; i < kNumRandomTests; ++i) {
-    TestPropagateIndexTransformDownsamplingInvariance(gen, /*rank=*/3);
+    TestPropagateIndexTransformDownsamplingInvariance(/*rank=*/3);
   }
 }
 
