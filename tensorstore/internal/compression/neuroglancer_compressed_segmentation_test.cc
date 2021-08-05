@@ -97,9 +97,13 @@ void TestSingleChannelRoundTrip(std::vector<T> input,
   ASSERT_THAT(output.substr(0, 3), ::testing::ElementsAre(1, 2, 3));
   EXPECT_EQ(expected_output, AsVec(output.substr(initial_offset)));
   std::vector<T> decoded_output(input.size());
-  EXPECT_TRUE(DecodeChannel(output.substr(initial_offset), block_shape,
-                            input_shape, input_byte_strides,
-                            decoded_output.data()));
+  // Use a temporary std::vector rather than std::string as the input to
+  // `DecodeChannels` in order to ensure AddressSanitizer catches
+  // one-past-the-end accesses.
+  std::vector<char> output_copy(output.begin() + initial_offset, output.end());
+  EXPECT_TRUE(DecodeChannel(
+      std::string_view(output_copy.data(), output_copy.size()), block_shape,
+      input_shape, input_byte_strides, decoded_output.data()));
   EXPECT_EQ(input, decoded_output);
 }
 
@@ -152,6 +156,7 @@ TEST(EncodeBlockTest, Basic0) {
                                /*expected_output=*/{3, 0},
                                /*expected_cache=*/{{{3}, 0}});
 }
+
 // Tests 1-bit encoding.
 TEST(EncodeBlockTest, Basic1) {
   TestBlockRoundTrip<uint64_t>(
@@ -233,6 +238,32 @@ TEST(EncodeChannelTest, BasicCached) {
           0,
           0b00000001,
           0b01001010,
+      });
+}
+
+TEST(EncodeChannelTest, BasicCachedZeroBitsAtEnd) {
+  TestSingleChannelRoundTrip<std::uint64_t>(
+      /*input=*/
+      {
+          3, 3, 3, 3,  //
+          3, 3, 3, 3,  //
+          3, 3, 3, 3,  //
+          3, 3, 3, 3,  //
+      },
+      /*input_shape=*/{4, 2, 2},
+      /*block_shape=*/{1, 2, 2},
+      /*expected_output=*/
+      {
+          8 | (0 << 24),
+          8,
+          8 | (0 << 24),
+          10,
+          8 | (0 << 24),
+          10,
+          8 | (0 << 24),
+          10,
+          3,
+          0,
       });
 }
 

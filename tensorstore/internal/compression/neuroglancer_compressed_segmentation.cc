@@ -225,35 +225,61 @@ bool DecodeBlock(size_t encoded_bits, const char* encoded_input,
   // `encoded_bits` and whether `table_size` is `< 2**encoded_bits`.  If
   // `table_size >= 2**encoded_bits`, there is no need to check below that
   // `index <= table_size`.
+
+  // Invokes `callback(label, z, y, x)` for each block position in C order.  If
+  // `callback` returns `false`, stops iterating and returns `false`.  Otherwise
+  // returns `true` when done.
+  const auto for_each_position = [&](auto callback) {
+    auto* output_z = reinterpret_cast<char*>(output);
+    for (std::ptrdiff_t z = 0; z < output_shape[0]; ++z) {
+      auto* output_y = output_z;
+      for (std::ptrdiff_t y = 0; y < output_shape[1]; ++y) {
+        auto* output_x = output_y;
+        for (std::ptrdiff_t x = 0; x < output_shape[2]; ++x) {
+          auto& label = *reinterpret_cast<Label*>(output_x);
+          if (!callback(label, z, y, x)) return false;
+          output_x += output_byte_strides[2];
+        }
+        output_y += output_byte_strides[1];
+      }
+      output_z += output_byte_strides[0];
+    }
+    return true;
+  };
+
+  // Returns the label at the specified table index.
+  const auto read_label = [&](size_t index) -> Label {
+    if constexpr (sizeof(Label) == 4) {
+      return absl::little_endian::Load32(table_input + index * sizeof(Label));
+    } else {
+      return absl::little_endian::Load64(table_input + index * sizeof(Label));
+    }
+  };
+
+  if (encoded_bits == 0) {
+    // There are no encoded indices to read.
+    if (table_size == 0) return false;
+    const Label label = read_label(0);
+    return for_each_position(
+        [&](Label& output_label, ptrdiff_t z, ptrdiff_t y, ptrdiff_t x) {
+          output_label = label;
+          return true;
+        });
+  }
+
   const std::uint32_t encoded_value_mask =
       (std::uint32_t(1) << encoded_bits) - 1;
-  auto* output_z = reinterpret_cast<char*>(output);
-  for (std::ptrdiff_t z = 0; z < output_shape[0]; ++z) {
-    auto* output_y = output_z;
-    for (std::ptrdiff_t y = 0; y < output_shape[1]; ++y) {
-      auto* output_x = output_y;
-      for (std::ptrdiff_t x = 0; x < output_shape[2]; ++x) {
-        size_t encoded_offset = x + block_shape[2] * (y + block_shape[1] * z);
-        auto index =
-            absl::little_endian::Load32(
-                encoded_input + encoded_offset * encoded_bits / 32 * 4) >>
-                (encoded_offset * encoded_bits % 32) &
-            encoded_value_mask;
-        if (index >= table_size) return false;
-        auto& label = *reinterpret_cast<Label*>(output_x);
-        if constexpr (sizeof(Label) == 4) {
-          label =
-              absl::little_endian::Load32(table_input + index * sizeof(Label));
-        } else {
-          label =
-              absl::little_endian::Load64(table_input + index * sizeof(Label));
-        }
-        output_x += output_byte_strides[2];
-      }
-      output_y += output_byte_strides[1];
-    }
-    output_z += output_byte_strides[0];
-  }
+  return for_each_position([&](Label& output_label, ptrdiff_t z, ptrdiff_t y,
+                               ptrdiff_t x) {
+    size_t encoded_offset = x + block_shape[2] * (y + block_shape[1] * z);
+    auto index = absl::little_endian::Load32(
+                     encoded_input + encoded_offset * encoded_bits / 32 * 4) >>
+                     (encoded_offset * encoded_bits % 32) &
+                 encoded_value_mask;
+    if (index >= table_size) return false;
+    output_label = read_label(index);
+    return true;
+  });
   return true;
 }
 
