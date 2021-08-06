@@ -276,7 +276,7 @@ def repo_pypa_docutils():
         third_party_python_package,
         name = "pypa_docutils",
         target = "docutils",
-        requirement = "docutils==0.16",
+        requirement = "docutils==0.17.1",
     )
 
 def repo_pypa_fastavro():

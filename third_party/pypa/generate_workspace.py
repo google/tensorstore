@@ -211,7 +211,7 @@ def generate(args):
         "sphinx",
         "jsonschema",
         "pyyaml",
-        "docutils<0.17",
+        "docutils",
         "jinja2",
         "htmlmin",
         # Examples
