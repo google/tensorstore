@@ -1008,8 +1008,10 @@ class DownsampledNDIterable : public NDIterable::Base<DownsampledNDIterable> {
     const DimensionIndex target_rank = target_rank_;
     absl::FixedArray<DirectionPref, internal::kNumInlinedDims> base_prefs(
         base_rank_);
-    std::fill(base_prefs.begin() + target_rank, base_prefs.end(),
-              DirectionPref::kCanSkip);
+
+    // kCanSkip imposes no constraipnts.  The call to
+    // `base_.UpdateDirectionPrefs` adds constraints.
+    std::fill(base_prefs.begin(), base_prefs.end(), DirectionPref::kCanSkip);
     base_.UpdateDirectionPrefs(base_prefs.data());
     const Index* downsample_factors = this->downsample_factors();
     for (DimensionIndex i = 0; i < target_rank; ++i) {
