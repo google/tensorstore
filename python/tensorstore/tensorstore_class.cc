@@ -24,6 +24,7 @@
 #include "python/tensorstore/context.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/future.h"
+#include "python/tensorstore/homogeneous_tuple.h"
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/keyword_arguments.h"
@@ -927,6 +928,39 @@ Example:
     ...     fill_value=42)
     >>> store.fill_value
     array(42, dtype=uint32)
+
+)");
+
+  cls_tensorstore.def_property_readonly(
+      "dimension_units",
+      [](const TensorStore<>& self) -> HomogeneousTuple<std::optional<Unit>> {
+        return internal_python::SpanToHomogeneousTuple<std::optional<Unit>>(
+            ValueOrThrow(self.dimension_units()));
+      },
+      R"(
+Physical units of each dimension of the domain.
+
+The *physical unit* for a dimension is the physical quantity corresponding to a
+single index increment along each dimension.
+
+A value of :python:`None` indicates that the unit is unknown.  A dimension-less
+quantity is indicated by a unit of :python:`ts.Unit(1, "")`.
+
+Example:
+
+    >>> store = await ts.open(
+    ...     {
+    ...         'driver': 'n5',
+    ...         'kvstore': {
+    ...             'driver': 'memory'
+    ...         }
+    ...     },
+    ...     create=True,
+    ...     shape=[100, 200],
+    ...     dtype=ts.uint32,
+    ...     dimension_units=['5nm', '8nm'])
+    >>> store.dimension_units
+    (Unit(5, "nm"), Unit(8, "nm"))
 
 )");
 

@@ -48,6 +48,18 @@ Example JSON specifications
    }
 
 .. code-block:: json
+   :caption: Example: Opening an existing scale by dimension units.
+
+   {
+     "driver": "neuroglancer_precomputed",
+     "kvstore": {"driver": "gcs", "bucket": "my-bucket"},
+     "path": "path/to/volume",
+     "schema": {
+       "dimension_units": ["4nm", "4nm", "40nm", null]
+     }
+   }
+
+.. code-block:: json
    :caption: Example: Opening an existing scale by key.
 
    {
@@ -180,6 +192,7 @@ Mapping to TensorStore Schema
           "write_chunk": {"shape": [100, 200, 300, 2]}
         },
         "codec": {"driver": "neuroglancer_precomputed", "encoding": "raw"},
+        "dimension_units": [[8.0, "nm"], [8.0, "nm"], [8.0, "nm"], null],
         "domain": {
           "exclusive_max": [1020, 2030, 3040, 2],
           "inclusive_min": [20, 30, 40, 0],
@@ -241,6 +254,7 @@ Mapping to TensorStore Schema
           "write_chunk": {"shape": [100, 200, 300, 2]}
         },
         "codec": {"driver": "neuroglancer_precomputed", "encoding": "compressed_segmentation"},
+        "dimension_units": [[8.0, "nm"], [8.0, "nm"], [8.0, "nm"], null],
         "domain": {
           "exclusive_max": [1020, 2030, 3040, 2],
           "inclusive_min": [20, 30, 40, 0],
@@ -314,6 +328,7 @@ Mapping to TensorStore Schema
           "encoding": "raw",
           "shard_data_encoding": "gzip"
         },
+        "dimension_units": [[8.0, "nm"], [8.0, "nm"], [8.0, "nm"], null],
         "domain": {
           "exclusive_max": [34452, 39582, 51548, 2],
           "inclusive_min": [20, 30, 40, 0],
@@ -595,6 +610,24 @@ Fill value
 
 The ``neuroglancer_precomputed`` format does not support specifying a fill
 value.  TensorStore always assumes a fill value of :json:`0`.
+
+Dimension Units
+~~~~~~~~~~~~~~~
+
+The dimension units of the first three (``x``, ``y``, and ``z``) dimensions
+always have a base unit of :json:`"nm"`; the multiplier corresponds to the
+:json:schema:`~driver/neuroglancer_precomputed.scale_metadata.resolution`.  It
+is an error to specify a base unit other than :json:`"nm"` for these dimensions.
+
+The final (``channel``) dimension always has an unspecified base unit.  It is an
+error to specify a unit for this dimension.
+
+When creating a new scale, if neither :json:schema:`~Schema.dimension_units` nor
+:json:schema:`~driver/neuroglancer_precomputed.scale_metadata.resolution` is
+specified, a unit of :json:`"1nm"` is used by default.
+
+When opening an existing scale, the scale to open may be selected based on the
+specified :json:schema:`~Schema.dimension_units`.
 
 Limitations
 -----------

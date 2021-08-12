@@ -71,6 +71,10 @@ class Spec {
   /// Returns the effective fill value, propagated to the transformed space.
   Result<SharedArray<const void>> fill_value() const;
 
+  /// Returns the effective dimension units, propagated to the transformed
+  /// space.
+  Result<DimensionUnitsVector> dimension_units() const;
+
   /// Returns the transform applied on top of the driver.
   const IndexTransform<>& transform() const { return impl_.transform; }
 

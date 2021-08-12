@@ -104,6 +104,11 @@ class CastDriver
     return MakeCopy(fill_value, skip_repeated_elements, dtype);
   }
 
+  static Result<DimensionUnitsVector> SpecGetDimensionUnits(
+      const SpecData& spec) {
+    return internal::GetEffectiveDimensionUnits(spec.base);
+  }
+
   static Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
       internal::RegisteredDriverOpener<SpecData> spec,
@@ -160,6 +165,10 @@ class CastDriver
     }
     return tensorstore::MakeCopy(base_fill_value, skip_repeated_elements,
                                  target_dtype_);
+  }
+
+  Result<DimensionUnitsVector> GetDimensionUnits() override {
+    return base_driver_->GetDimensionUnits();
   }
 
   explicit CastDriver(Driver::Ptr base, DataType target_dtype,

@@ -23,6 +23,7 @@
 
 #include "absl/strings/escaping.h"
 #include "python/tensorstore/numpy_indexing_spec.h"
+#include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/subscript_method.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"

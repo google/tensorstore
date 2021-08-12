@@ -72,6 +72,17 @@ class N5Metadata {
   /// Specifies the dimension labels.
   std::vector<std::string> axes;
 
+  struct UnitsAndResolution {
+    /// Specifies the base unit for each dimension.
+    std::optional<std::vector<std::string>> units;
+
+    /// Specifies the resolution (i.e. multiplier for the base unit) for each
+    /// dimension.
+    std::optional<std::vector<double>> resolution;
+  };
+
+  UnitsAndResolution units_and_resolution;
+
   /// Specifies the chunk size (corresponding to the `"blockSize"` attribute)
   /// and the in-memory layout of a full chunk (always C order).
   std::vector<Index> chunk_shape;
@@ -110,6 +121,8 @@ class N5MetadataConstraints {
 
   /// Specifies the dimension labels.
   std::optional<std::vector<std::string>> axes;
+
+  N5Metadata::UnitsAndResolution units_and_resolution;
 
   /// Specifies the chunk size (corresponding to the `"blockSize"` attribute)
   /// and the in-memory layout of a full chunk (always C order).
@@ -187,6 +200,21 @@ Result<CodecSpec::PtrT<N5CodecSpec>> GetEffectiveCodec(
 
 /// Returns the codec from the specified metadata.
 CodecSpec::Ptr GetCodecFromMetadata(const N5Metadata& metadata);
+
+/// Combines the units and resolution fields into a dimension units vector.
+DimensionUnitsVector GetDimensionUnits(
+    DimensionIndex metadata_rank,
+    const N5Metadata::UnitsAndResolution& units_and_resolution);
+
+/// Returns the combined dimension units from `units_and_resolution` and
+/// `schema_units`.
+///
+/// \error `absl::StatusCode::kInvalidArgument` if `units_and_resolution` is
+///     inconsistent with `schema_units`.
+Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
+    DimensionIndex metadata_rank,
+    const N5Metadata::UnitsAndResolution& units_and_resolution,
+    Schema::DimensionUnits schema_units);
 
 /// Decodes a chunk.
 ///

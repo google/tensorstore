@@ -94,7 +94,8 @@ allOf:
             title: >-
               Voxel dimensions of the volume (XYZ order).
             description: >-
-              Required when creating a new scale.
+              Required when creating a new scale if `~Schema.domain` is not
+              specified.
             examples:
             - - 500
               - 500
@@ -123,10 +124,11 @@ allOf:
             title: >-
               Chunk dimensions (XYZ order).
             description: >-
-              Required when creating a new scale.  When opening an existing scale
-              with multiple supported ``chunk_sizes``, may be specified
-              to select the chunk size to use.  Otherwise, the first supported
-              chunk size is used.
+              When creating a new scale, if not specified explicitly, will be
+              chosen automatically based on the `~Schema.chunk_layout`.  When
+              opening an existing scale with multiple supported ``chunk_sizes``,
+              may be specified to select the chunk size to use.  Otherwise, the
+              first supported chunk size is used.
             examples:
             - - 500
               - 500
@@ -141,7 +143,7 @@ allOf:
               Voxel size in nanometers (XYZ order).
             description: >-
               When opening an existing scale, may be specified to select the
-              scale by `.resolution`.  Required when creating a new scale.
+              scale by `.resolution`.
       - $ref: "#codec-properties"
       - type: object
         properties:

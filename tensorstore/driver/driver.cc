@@ -67,6 +67,11 @@ Result<SharedArray<const void>> RegisteredDriverBase::SpecGetFillValue(
                                            schema.domain());
 }
 
+Result<DimensionUnitsVector> RegisteredDriverBase::SpecGetDimensionUnits(
+    const DriverSpecCommonData& spec) {
+  return DimensionUnitsVector(spec.schema.dimension_units());
+}
+
 absl::Status ApplyOptions(DriverSpec::Ptr& spec, SpecOptions&& options) {
   if (spec->use_count() != 1) spec = spec->Clone();
   return const_cast<DriverSpec&>(*spec).ApplyOptions(std::move(options));
@@ -127,6 +132,24 @@ Result<CodecSpec::Ptr> GetEffectiveCodec(const TransformedDriverSpec& spec) {
   return spec.driver_spec->GetCodec();
 }
 
+Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
+    const TransformedDriverSpec& spec) {
+  if (!spec.driver_spec) return {std::in_place};
+  TENSORSTORE_ASSIGN_OR_RETURN(auto dimension_units,
+                               spec.driver_spec->GetDimensionUnits());
+  if (dimension_units.empty()) {
+    if (const DimensionIndex rank = spec.driver_spec->schema().rank();
+        rank != dynamic_rank) {
+      dimension_units.resize(rank);
+    }
+  }
+  if (spec.transform.valid()) {
+    dimension_units = tensorstore::TransformOutputDimensionUnits(
+        spec.transform, std::move(dimension_units));
+  }
+  return dimension_units;
+}
+
 Result<Schema> GetEffectiveSchema(const TransformedDriverSpec& spec) {
   if (!spec.driver_spec) return {std::in_place};
   Schema schema;
@@ -149,6 +172,12 @@ Result<Schema> GetEffectiveSchema(const TransformedDriverSpec& spec) {
     TENSORSTORE_ASSIGN_OR_RETURN(auto fill_value, GetEffectiveFillValue(spec));
     TENSORSTORE_RETURN_IF_ERROR(
         schema.Set(Schema::FillValue(std::move(fill_value))));
+  }
+  {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto dimension_units,
+                                 GetEffectiveDimensionUnits(spec));
+    TENSORSTORE_RETURN_IF_ERROR(
+        schema.Set(Schema::DimensionUnits(dimension_units)));
   }
   return schema;
 }
@@ -217,6 +246,10 @@ Result<CodecSpec::Ptr> Driver::GetCodec() { return CodecSpec::Ptr{}; }
 Result<SharedArray<const void>> Driver::GetFillValue(
     IndexTransformView<> transform) {
   return {std::in_place};
+}
+
+Result<DimensionUnitsVector> Driver::GetDimensionUnits() {
+  return {std::in_place, this->rank()};
 }
 
 Future<IndexTransform<>> Driver::ResolveBounds(OpenTransactionPtr transaction,
@@ -1252,6 +1285,12 @@ Result<CodecSpec::Ptr> GetCodec(const Driver::Handle& handle) {
   return handle.driver->GetCodec();
 }
 
+Result<DimensionUnitsVector> GetDimensionUnits(const Driver::Handle& handle) {
+  TENSORSTORE_ASSIGN_OR_RETURN(auto units, handle.driver->GetDimensionUnits());
+  return tensorstore::TransformOutputDimensionUnits(handle.transform,
+                                                    std::move(units));
+}
+
 Result<Schema> GetSchema(const Driver::Handle& handle) {
   Schema schema;
   TENSORSTORE_RETURN_IF_ERROR(schema.Set(handle.driver->dtype()));
@@ -1268,6 +1307,12 @@ Result<Schema> GetSchema(const Driver::Handle& handle) {
     TENSORSTORE_ASSIGN_OR_RETURN(auto fill_value, GetFillValue(handle));
     TENSORSTORE_RETURN_IF_ERROR(
         schema.Set(Schema::FillValue(std::move(fill_value))));
+  }
+  {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto dimension_units,
+                                 GetDimensionUnits(handle));
+    TENSORSTORE_RETURN_IF_ERROR(
+        schema.Set(Schema::DimensionUnits(dimension_units)));
   }
   return schema;
 }

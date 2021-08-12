@@ -22,10 +22,12 @@
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/context.h"
 #include "python/tensorstore/data_type.h"
+#include "python/tensorstore/homogeneous_tuple.h"
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/intrusive_ptr_holder.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/result_type_caster.h"
+#include "python/tensorstore/unit.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 #include "tensorstore/data_type.h"
@@ -55,6 +57,17 @@ constexpr auto GetOptionalRank =
   if (rank == dynamic_rank) return std::nullopt;
   return rank;
 };
+
+std::optional<HomogeneousTuple<std::optional<Unit>>> GetDimensionUnits(
+    DimensionIndex rank, span<const std::optional<Unit>> units) {
+  if (rank == dynamic_rank) return std::nullopt;
+  if (units.empty()) {
+    const std::optional<Unit> units_vec[kMaxRank];
+    return internal_python::SpanToHomogeneousTuple<std::optional<Unit>>(
+        span(&units_vec[0], rank));
+  }
+  return internal_python::SpanToHomogeneousTuple<std::optional<Unit>>(units);
+}
 
 constexpr auto WithSpecKeywordArguments = [](auto callback,
                                              auto... other_param) {
@@ -485,6 +498,43 @@ Example:
   ... })
   >>> spec.fill_value
   array(42., dtype=float32)
+
+Note:
+
+  This does not perform any I/O.  Only directly-specified constraints are
+  included.
+
+Group:
+  Accessors
+
+)");
+
+  cls.def_property_readonly(
+      "dimension_units",
+      [](const Spec& self)
+          -> std::optional<HomogeneousTuple<std::optional<Unit>>> {
+        return internal_python::GetDimensionUnits(
+            self.rank(), ValueOrThrow(self.dimension_units()));
+      },
+      R"(
+
+Effective physical units of each dimension of the domain, including any
+constraints implied by driver-specific options.
+
+Example:
+
+  >>> spec = ts.Spec({
+  ...     'driver': 'n5',
+  ...     'kvstore': {
+  ...         'driver': 'memory'
+  ...     },
+  ...     'metadata': {
+  ...         'units': ['nm', 'nm', 'um'],
+  ...         'resolution': [200, 300, 1],
+  ...     }
+  ... })
+  >>> spec.dimension_units
+  (Unit(200, "nm"), Unit(300, "nm"), Unit(1, "um"))
 
 Note:
 
@@ -1175,6 +1225,50 @@ Example:
   >>> schema.update(fill_value=42)
   >>> schema.fill_value
   array(42)
+
+Group:
+  Accessors
+)");
+
+  cls.def_property_readonly(
+      "dimension_units",
+      [](const Schema& self)
+          -> std::optional<HomogeneousTuple<std::optional<Unit>>> {
+        return internal_python::GetDimensionUnits(self.rank(),
+                                                  self.dimension_units());
+      },
+      R"(
+Physical units of each dimension of the domain.
+
+The *physical unit* for a dimension is the physical quantity corresponding to a
+single index increment along each dimension.
+
+A value of :python:`None` indicates that the unit is unknown/unconstrained.  A
+dimension-less quantity is indicated by a unit of :python:`ts.Unit(1, "")`.
+
+When creating a new TensorStore, the specified units may be stored as part of
+the metadata.
+
+When opening an existing TensorStore, the specified units serve as a constraint,
+to ensure the units are as expected.  Additionally, for drivers like
+:ref:`neuroglancer_precomputed<neuroglancer-precomputed-driver>` that support
+multiple scales, the desired scale can be selected by specifying constraints on
+the units.
+
+Example:
+
+  >>> schema = ts.Schema()
+  >>> print(schema.dimension_units)
+  None
+  >>> schema.update(rank=3)
+  >>> schema.dimension_units
+  (None, None, None)
+  >>> schema.update(dimension_units=['3nm', None, ''])
+  >>> schema.dimension_units
+  (Unit(3, "nm"), None, Unit(1, ""))
+  >>> schema.update(dimension_units=[None, '4nm', None])
+  >>> schema.dimension_units
+  (Unit(3, "nm"), Unit(4, "nm"), Unit(1, ""))
 
 Group:
   Accessors

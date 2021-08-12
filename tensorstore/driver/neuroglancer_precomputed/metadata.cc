@@ -878,6 +878,68 @@ Result<CodecSpec::PtrT<NeuroglancerPrecomputedCodecSpec>> GetEffectiveCodec(
   return codec_spec;
 }
 
+namespace {
+
+absl::Status ValidateDimensionUnits(span<const std::optional<Unit>> units) {
+  if (!units.empty()) {
+    assert(units.size() == 4);
+    if (units[3]) {
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "Invalid dimension units ", DimensionUnitsToString(units),
+          ": neuroglancer_precomputed format does not allow units to be "
+          "specified for channel dimension"));
+    }
+    for (int i = 0; i < 3; ++i) {
+      const auto& unit = units[i];
+      if (!unit) continue;
+      if (unit->base_unit != "nm") {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Invalid dimension units ", DimensionUnitsToString(units),
+            ": neuroglancer_precomputed format requires a base unit of \"nm\" "
+            "for the \"x\", \"y\", and \"z\" dimensions"));
+      }
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status ValidateDimensionUnitsForResolution(
+    span<const double, 3> xyz_resolution,
+    span<const std::optional<Unit>> units) {
+  if (!units.empty()) {
+    assert(units.size() == 4);
+    for (int i = 0; i < 3; ++i) {
+      const auto& unit = units[i];
+      if (!unit) continue;
+      if (unit->multiplier != xyz_resolution[i]) {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Dimension units ", DimensionUnitsToString(units),
+            " do not match \"resolution\" in metadata: ", xyz_resolution));
+      }
+    }
+  }
+  return absl::OkStatus();
+}
+
+}  // namespace
+
+Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
+    const OpenConstraints& constraints, const Schema& schema) {
+  DimensionUnitsVector units(4);
+  if (auto schema_units = schema.dimension_units(); schema_units.valid()) {
+    TENSORSTORE_RETURN_IF_ERROR(MergeDimensionUnits(units, schema_units));
+    TENSORSTORE_RETURN_IF_ERROR(ValidateDimensionUnits(units));
+  }
+  if (constraints.scale.resolution) {
+    TENSORSTORE_RETURN_IF_ERROR(ValidateDimensionUnitsForResolution(
+        *constraints.scale.resolution, units));
+    for (int i = 0; i < 3; ++i) {
+      units[i] = Unit((*constraints.scale.resolution)[i], "nm");
+    }
+  }
+  return units;
+}
+
 Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
     const MultiscaleMetadata* existing_metadata,
     const OpenConstraints& orig_constraints, const Schema& orig_schema) {
@@ -916,8 +978,16 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
                                       ? "segmentation"
                                       : "image";
   }
-  if (!constraints.scale.resolution) {
-    constraints.scale.resolution = std::array<double, 3>{{1, 1, 1}};
+
+  // Set the resolution.
+  {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto dimension_units, GetEffectiveDimensionUnits(constraints, schema));
+    auto& resolution = constraints.scale.resolution.emplace();
+    for (int i = 0; i < 3; ++i) {
+      const auto& unit = dimension_units[i];
+      resolution[i] = unit ? unit->multiplier : 1.0;
+    }
   }
 
   TENSORSTORE_ASSIGN_OR_RETURN(auto codec_spec,
@@ -1149,6 +1219,13 @@ absl::Status ValidateMetadataSchema(const MultiscaleMetadata& metadata,
         "fill_value not supported by neuroglancer_precomputed format");
   }
 
+  if (auto dimension_units = schema.dimension_units();
+      dimension_units.valid()) {
+    TENSORSTORE_RETURN_IF_ERROR(ValidateDimensionUnits(dimension_units));
+    TENSORSTORE_RETURN_IF_ERROR(
+        ValidateDimensionUnitsForResolution(scale.resolution, dimension_units));
+  }
+
   return absl::OkStatus();
 }
 
@@ -1158,6 +1235,8 @@ Result<std::size_t> OpenScale(const MultiscaleMetadata& metadata,
   TENSORSTORE_RETURN_IF_ERROR(
       ValidateMultiscaleConstraintsForOpen(constraints.multiscale, metadata));
   std::size_t scale_index;
+  TENSORSTORE_ASSIGN_OR_RETURN(auto dimension_units,
+                               GetEffectiveDimensionUnits(constraints, schema));
   if (constraints.scale_index) {
     scale_index = *constraints.scale_index;
     if (scale_index >= metadata.scales.size()) {
@@ -1171,21 +1250,33 @@ Result<std::size_t> OpenScale(const MultiscaleMetadata& metadata,
       if (constraints.scale.key && scale.key != *constraints.scale.key) {
         continue;
       }
-      if (constraints.scale.resolution &&
-          scale.resolution != *constraints.scale.resolution) {
-        continue;
+      bool resolution_mismatch = false;
+      for (int i = 0; i < 3; ++i) {
+        const auto& unit = dimension_units[i];
+        if (unit && scale.resolution[i] != unit->multiplier) {
+          resolution_mismatch = true;
+          break;
+        }
       }
+      if (resolution_mismatch) continue;
       break;
     }
     if (scale_index == metadata.scales.size()) {
-      ::nlohmann::json c;
-      if (constraints.scale.resolution) {
-        c[kResolutionId] = *constraints.scale.resolution;
+      std::string explanation = "No scale found matching ";
+      std::string_view sep = "";
+      if (std::any_of(dimension_units.begin(), dimension_units.end(),
+                      [](const auto& unit) { return unit.has_value(); })) {
+        tensorstore::StrAppend(
+            &explanation, "dimension_units=",
+            tensorstore::DimensionUnitsToString(dimension_units));
+        sep = ", ";
       }
       if (constraints.scale.key) {
-        c[kKeyId] = *constraints.scale.key;
+        tensorstore::StrAppend(
+            &explanation, sep, kKeyId, "=",
+            tensorstore::QuoteString(*constraints.scale.key));
       }
-      return absl::NotFoundError(StrCat("No scale found matching ", c.dump()));
+      return absl::NotFoundError(explanation);
     }
   }
   TENSORSTORE_RETURN_IF_ERROR(ValidateScaleConstraintsForOpen(

@@ -25,6 +25,7 @@
 #include "absl/status/status.h"
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/keyword_arguments.h"
+#include "python/tensorstore/sequence_parameter.h"
 #include "tensorstore/chunk_layout.h"
 
 namespace tensorstore {

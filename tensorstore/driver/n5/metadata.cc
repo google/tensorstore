@@ -126,6 +126,14 @@ constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
         jb::Member("axes", jb::Projection(
                                &T::axes,
                                maybe_optional(jb::DimensionLabelVector(rank)))),
+        jb::Projection<&T::units_and_resolution>(jb::Sequence(
+            jb::Member("units",
+                       jb::Projection<&N5Metadata::UnitsAndResolution::units>(
+                           jb::Optional(jb::DimensionIndexedVector(rank)))),
+            jb::Member(
+                "resolution",
+                jb::Projection<&N5Metadata::UnitsAndResolution::resolution>(
+                    jb::Optional(jb::DimensionIndexedVector(rank)))))),
         jb::Projection(&T::extra_attributes))(is_loading, options, obj, j);
   };
 };
@@ -322,6 +330,24 @@ Status ValidateMetadata(const N5Metadata& metadata,
     return MetadataMismatchError("compression", *constraints.compressor,
                                  metadata.compressor);
   }
+  if (constraints.units_and_resolution.units &&
+      metadata.units_and_resolution.units !=
+          constraints.units_and_resolution.units) {
+    return MetadataMismatchError(
+        "units", *constraints.units_and_resolution.units,
+        metadata.units_and_resolution.units
+            ? ::nlohmann::json(*metadata.units_and_resolution.units)
+            : ::nlohmann::json(::nlohmann::json::value_t::discarded));
+  }
+  if (constraints.units_and_resolution.resolution &&
+      metadata.units_and_resolution.resolution !=
+          constraints.units_and_resolution.resolution) {
+    return MetadataMismatchError(
+        "resolution", *constraints.units_and_resolution.resolution,
+        metadata.units_and_resolution.resolution
+            ? ::nlohmann::json(*metadata.units_and_resolution.resolution)
+            : ::nlohmann::json(::nlohmann::json::value_t::discarded));
+  }
   return internal::ValidateMetadataSubset(constraints.extra_attributes,
                                           metadata.extra_attributes);
 }
@@ -423,6 +449,64 @@ CodecSpec::Ptr GetCodecFromMetadata(const N5Metadata& metadata) {
   return CodecSpec::Ptr(std::move(codec_spec));
 }
 
+DimensionUnitsVector GetDimensionUnits(
+    DimensionIndex metadata_rank,
+    const N5Metadata::UnitsAndResolution& units_and_resolution) {
+  if (metadata_rank == dynamic_rank) return {};
+  DimensionUnitsVector dimension_units(metadata_rank);
+  if (units_and_resolution.units) {
+    assert(units_and_resolution.units->size() == metadata_rank);
+    assert(!units_and_resolution.resolution ||
+           units_and_resolution.resolution->size() == metadata_rank);
+    for (DimensionIndex i = 0; i < metadata_rank; ++i) {
+      dimension_units[i] = Unit(units_and_resolution.resolution
+                                    ? (*units_and_resolution.resolution)[i]
+                                    : 1.0,
+                                (*units_and_resolution.units)[i]);
+    }
+  }
+  return dimension_units;
+}
+
+namespace {
+absl::Status ValidateDimensionUnitsResolution(
+    span<const std::optional<Unit>> dimension_units,
+    const N5Metadata::UnitsAndResolution& units_and_resolution) {
+  if (!units_and_resolution.units && units_and_resolution.resolution) {
+    // Since `units` wasn't specified, `GetDimensionUnits` did not set any
+    // dimension units from the metadata.  But we can still validate the
+    // resolution separately.
+    for (DimensionIndex i = 0; i < dimension_units.size(); ++i) {
+      const auto& unit = dimension_units[i];
+      if (!unit) continue;
+      if ((*units_and_resolution.resolution)[i] != unit->multiplier) {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "\"resolution\" from metadata ",
+            span(*units_and_resolution.resolution),
+            " does not match dimension units from schema ",
+            tensorstore::DimensionUnitsToString(dimension_units)));
+      }
+    }
+  }
+  return absl::OkStatus();
+}
+}  // namespace
+
+Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
+    DimensionIndex metadata_rank,
+    const N5Metadata::UnitsAndResolution& units_and_resolution,
+    Schema::DimensionUnits schema_units) {
+  DimensionUnitsVector dimension_units =
+      GetDimensionUnits(metadata_rank, units_and_resolution);
+  if (schema_units.valid()) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        tensorstore::MergeDimensionUnits(dimension_units, schema_units));
+    TENSORSTORE_RETURN_IF_ERROR(ValidateDimensionUnitsResolution(
+        dimension_units, units_and_resolution));
+  }
+  return dimension_units;
+}
+
 Result<std::shared_ptr<const N5Metadata>> GetNewMetadata(
     const N5MetadataConstraints& metadata_constraints, const Schema& schema) {
   auto metadata = std::make_shared<N5Metadata>();
@@ -468,6 +552,31 @@ Result<std::shared_ptr<const N5Metadata>> GetNewMetadata(
                               {"cname", "lz4"},
                               {"clevel", 5},
                               {"shuffle", dtype.size() == 1 ? 2 : 1}}));
+  }
+
+  // Set `units_and_resolution`.
+  {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto dimension_units,
+        GetEffectiveDimensionUnits(metadata_constraints.rank,
+                                   metadata_constraints.units_and_resolution,
+                                   schema.dimension_units()));
+    metadata->units_and_resolution = metadata_constraints.units_and_resolution;
+    if (std::any_of(dimension_units.begin(), dimension_units.end(),
+                    [](const auto& unit) { return unit.has_value(); })) {
+      if (!metadata->units_and_resolution.units) {
+        metadata->units_and_resolution.units.emplace(rank);
+      }
+      if (!metadata->units_and_resolution.resolution) {
+        metadata->units_and_resolution.resolution.emplace(rank, 1);
+      }
+      for (DimensionIndex i = 0; i < rank; ++i) {
+        const auto& unit = dimension_units[i];
+        if (!unit) continue;
+        (*metadata->units_and_resolution.resolution)[i] = unit->multiplier;
+        (*metadata->units_and_resolution.units)[i] = unit->base_unit;
+      }
+    }
   }
 
   metadata->extra_attributes = metadata_constraints.extra_attributes;
@@ -516,6 +625,22 @@ absl::Status ValidateMetadataSchema(const N5Metadata& metadata,
 
   if (schema.fill_value().valid()) {
     return absl::InvalidArgumentError("fill_value not supported by N5 format");
+  }
+
+  if (auto schema_units = schema.dimension_units(); schema_units.valid()) {
+    auto dimension_units =
+        GetDimensionUnits(metadata.rank, metadata.units_and_resolution);
+    DimensionUnitsVector schema_units_vector(schema_units);
+    TENSORSTORE_RETURN_IF_ERROR(
+        MergeDimensionUnits(schema_units_vector, dimension_units),
+        ConvertInvalidArgumentToFailedPrecondition(_));
+    if (schema_units_vector != dimension_units) {
+      return absl::FailedPreconditionError(
+          tensorstore::StrCat("Dimension units in metadata ",
+                              DimensionUnitsToString(dimension_units),
+                              " do not match dimension units in schema ",
+                              DimensionUnitsToString(schema_units)));
+    }
   }
   return absl::OkStatus();
 }

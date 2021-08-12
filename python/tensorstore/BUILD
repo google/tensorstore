@@ -35,6 +35,7 @@ pybind11_py_extension(
         ":spec",
         ":tensorstore_class",
         ":transaction",
+        ":unit",
         ":write_futures",
         "//tensorstore:all_drivers",
         "@com_github_pybind_pybind11//:pybind11",
@@ -173,10 +174,29 @@ pybind11_cc_library(
 )
 
 pybind11_cc_library(
+    name = "homogeneous_tuple",
+    hdrs = ["homogeneous_tuple.h"],
+    deps = [
+        "//tensorstore/util:span",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+)
+
+pybind11_cc_library(
+    name = "sequence_parameter",
+    hdrs = ["sequence_parameter.h"],
+    deps = [
+        "//tensorstore/util:span",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+)
+
+pybind11_cc_library(
     name = "index",
     srcs = ["index.cc"],
     hdrs = ["index.h"],
     deps = [
+        ":sequence_parameter",
         "//tensorstore:index",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:numpy_indexing_spec",
@@ -192,6 +212,7 @@ pybind11_cc_library(
     deps = [
         ":index",
         ":numpy_indexing_spec",
+        ":sequence_parameter",
         ":subscript_method",
         "//tensorstore:index",
         "//tensorstore/index_space:dim_expression",
@@ -214,11 +235,13 @@ pybind11_cc_library(
     deps = [
         ":array_type_caster",
         ":dim_expression",
+        ":homogeneous_tuple",
         ":index",
         ":json_type_caster",
         ":numpy",
         ":numpy_indexing_spec",
         ":result_type_caster",
+        ":sequence_parameter",
         ":status",
         ":subscript_method",
         "//tensorstore:array",
@@ -290,12 +313,15 @@ pybind11_cc_library(
         ":array_type_caster",
         ":context",
         ":data_type",
+        ":homogeneous_tuple",
         ":index",
         ":index_space",
         ":intrusive_ptr_holder",
         ":json_type_caster",
         ":keyword_arguments",
         ":result_type_caster",
+        ":sequence_parameter",
+        ":unit",
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:json_serialization_options",
@@ -346,6 +372,7 @@ pybind11_cc_library(
         ":context",
         ":data_type",
         ":future",
+        ":homogeneous_tuple",
         ":index_space",
         ":json_type_caster",
         ":keyword_arguments",
@@ -580,10 +607,12 @@ pybind11_cc_library(
     hdrs = ["chunk_layout.h"],
     deps = [
         ":array_type_caster",
+        ":homogeneous_tuple",
         ":index",
         ":index_space",
         ":json_type_caster",
         ":keyword_arguments",
+        ":sequence_parameter",
         "//tensorstore:chunk_layout",
         "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/internal:json_pprint_python",
@@ -611,6 +640,21 @@ pybind11_cc_library(
     deps = [
         ":keyword_arguments",
         "//tensorstore/util:str_cat",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+)
+
+pybind11_cc_library(
+    name = "unit",
+    srcs = ["unit.cc"],
+    hdrs = ["unit.h"],
+    deps = [
+        ":json_type_caster",
+        ":result_type_caster",
+        ":status",
+        "//tensorstore/internal:json_unit",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:unit",
         "@com_github_pybind_pybind11//:pybind11",
     ],
 )

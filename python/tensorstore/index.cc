@@ -18,6 +18,7 @@
 #include <variant>
 #include <vector>
 
+#include "python/tensorstore/sequence_parameter.h"
 #include "tensorstore/index.h"
 #include "tensorstore/util/str_cat.h"
 

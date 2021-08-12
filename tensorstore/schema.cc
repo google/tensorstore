@@ -20,6 +20,7 @@
 #include "tensorstore/array.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
@@ -30,10 +31,12 @@
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_array.h"
 #include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_unit.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/unit.h"
 
 namespace tensorstore {
 
@@ -45,6 +48,7 @@ struct SchemaConstraintsData {
   ChunkLayout chunk_layout_;
   CodecSpec::Ptr codec_;
   SharedArray<const void> fill_value_;
+  DimensionUnitsVector dimension_units_;
 };
 }  // namespace
 
@@ -106,6 +110,7 @@ absl::Status MergeSchemaInto(const Schema& source, Schema& dest) {
   TENSORSTORE_RETURN_IF_ERROR(dest.Set(source.chunk_layout()));
   TENSORSTORE_RETURN_IF_ERROR(dest.Set(source.fill_value()));
   TENSORSTORE_RETURN_IF_ERROR(dest.Set(source.codec()));
+  TENSORSTORE_RETURN_IF_ERROR(dest.Set(source.dimension_units()));
   return absl::OkStatus();
 }
 
@@ -188,7 +193,23 @@ auto JsonBinder() {
                           [](auto* obj) { return !obj->valid(); },
                           jb::NestedVoidArray(dtype))))(is_loading, options,
                                                         obj, j);
-            })(is_loading, options, obj, j);
+            },
+            jb::Member(
+                "dimension_units",
+                ScalarMemberJsonBinder<Schema::DimensionUnits,
+                                       DimensionUnitsVector,
+                                       &Schema::Impl::dimension_units_>(
+                    jb::DefaultInitializedPredicate<jb::kNeverIncludeDefaults>(
+                        [](auto* obj) {
+                          return obj->empty() ||
+                                 std::none_of(obj->begin(), obj->end(),
+                                              [](const auto& u) {
+                                                return u.has_value();
+                                              });
+                        },
+                        jb::Array(jb::Optional(jb::DefaultBinder<>,
+                                               [] { return nullptr; }))))))  //
+            (is_loading, options, obj, j);
       });
 }
 
@@ -358,6 +379,14 @@ absl::Status Schema::Set(FillValue value) {
   return absl::OkStatus();
 }
 
+absl::Status Schema::Set(DimensionUnits value) {
+  if (value.empty()) return absl::OkStatus();
+  TENSORSTORE_RETURN_IF_ERROR(
+      ValidateRank(*this, "dimension_units", value.size()));
+  auto& impl = EnsureUniqueImpl();
+  return tensorstore::MergeDimensionUnits(impl.dimension_units_, value);
+}
+
 absl::Status Schema::Set(Schema value) { return MergeSchemaInto(value, *this); }
 
 IndexDomain<> Schema::domain() const {
@@ -393,6 +422,11 @@ CodecSpec::Ptr Schema::codec() const {
 Schema::FillValue Schema::fill_value() const {
   if (!impl_) return Schema::FillValue();
   return Schema::FillValue(impl_->fill_value_);
+}
+
+Schema::DimensionUnits Schema::dimension_units() const {
+  if (!impl_) return DimensionUnits();
+  return DimensionUnits(impl_->dimension_units_);
 }
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Schema, JsonBinder())
@@ -431,6 +465,16 @@ absl::Status Schema::TransformInputSpaceSchema(IndexTransformView<> transform) {
         TransformInputBroadcastableArray(transform, impl.fill_value_),
         tensorstore::MaybeAnnotateStatus(_, "Error transforming fill_value"));
   }
+
+  // Transform dimension units.
+  if (!impl.dimension_units_.empty()) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        impl.dimension_units_,
+        TransformInputDimensionUnits(transform,
+                                     std::move(impl.dimension_units_)),
+        tensorstore::MaybeAnnotateStatus(_,
+                                         "Error transforming dimension_units"));
+  }
   return absl::OkStatus();
 }
 
@@ -466,12 +510,26 @@ Result<Schema> ApplyIndexTransform(IndexTransform<> transform, Schema schema) {
             transform, std::move(impl.fill_value_), output_domain),
         tensorstore::MaybeAnnotateStatus(_, "Error transforming fill_value"));
   }
+
+  // Transform dimension units.
+  if (!impl.dimension_units_.empty()) {
+    impl.dimension_units_ = TransformOutputDimensionUnits(
+        transform, std::move(impl.dimension_units_));
+  }
   return schema;
 }
 
 bool operator==(const Schema::FillValue& a, const Schema::FillValue& b) {
   return a.valid() == b.valid() &&
          (!a.valid() || a.array_view() == b.array_view());
+}
+
+bool operator==(Schema::DimensionUnits a, Schema::DimensionUnits b) {
+  return internal::RangesEqual(a, b);
+}
+
+std::ostream& operator<<(std::ostream& os, Schema::DimensionUnits u) {
+  return os << tensorstore::DimensionUnitsToString(u);
 }
 
 namespace {
@@ -483,7 +541,8 @@ inline bool CompareEqualImpl(const Schema& a, const Schema& b) {
 
 bool operator==(const Schema& a, const Schema& b) {
   return CompareEqualImpl<RankConstraint, DataType, IndexDomain<>, ChunkLayout,
-                          Schema::FillValue, CodecSpec::Ptr>(a, b);
+                          Schema::FillValue, CodecSpec::Ptr,
+                          Schema::DimensionUnits>(a, b);
 }
 
 std::ostream& operator<<(std::ostream& os, const Schema& schema) {

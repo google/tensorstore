@@ -64,6 +64,9 @@ class RegisteredDriverBase {
 
   static Result<SharedArray<const void>> SpecGetFillValue(
       const DriverSpecCommonData& spec, IndexTransformView<> transform);
+
+  static Result<DimensionUnitsVector> SpecGetDimensionUnits(
+      const DriverSpecCommonData& spec);
 };
 
 /// CRTP base class for `Driver` implementations that support a JSON
@@ -239,6 +242,10 @@ class RegisteredDriver : public Parent, RegisteredDriverBase {
     Result<SharedArray<const void>> GetFillValue(
         IndexTransformView<> transform) const override {
       return Derived::SpecGetFillValue(data_, transform);
+    }
+
+    Result<DimensionUnitsVector> GetDimensionUnits() const override {
+      return Derived::SpecGetDimensionUnits(data_);
     }
 
     absl::Status BindContext(const Context& context) override {

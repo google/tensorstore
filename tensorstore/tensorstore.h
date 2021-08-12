@@ -226,6 +226,26 @@ class TensorStore {
     return internal::GetFillValue<Element>(handle_);
   }
 
+  /// Returns the dimension units.
+  ///
+  /// The returned vector has a length equal to `this->rank()`.
+  ///
+  /// Example:
+  ///
+  ///     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+  ///         auto store,
+  ///         tensorstore::Open({
+  ///             {"driver", "array"},
+  ///             {"array", {1, 2, 3}},
+  ///             {"dtype", "int32"},
+  ///             {"schema", {{"dimension_units", {"4nm"}}}}}).result());
+  ///     EXPECT_THAT(store.dimension_units(),
+  ///                 ::testing::Optional(::testing::ElementsAre(
+  ///                     tensorstore::Unit(4, "nm"))));
+  Result<DimensionUnitsVector> dimension_units() const {
+    return internal::GetDimensionUnits(handle_);
+  }
+
   /// Returns the schema for this TensorStore.
   ///
   /// Note that the schema reflects any index transforms that have been applied

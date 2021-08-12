@@ -26,6 +26,8 @@
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/keyword_arguments.h"
+#include "python/tensorstore/sequence_parameter.h"
+#include "python/tensorstore/unit.h"
 #include "pybind11/pybind11.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
@@ -189,13 +191,41 @@ normalization by broadcasting).
   }
 };
 
+struct SetDimensionUnits {
+  using type = SequenceParameter<std::optional<UnitLike>>;
+  constexpr static const char* name = "dimension_units";
+  constexpr static const char* doc = R"(
+
+Specifies the physical units of each dimension of the domain.
+
+The *physical unit* for a dimension is the physical quantity corresponding to a
+single index increment along each dimension.
+
+A value of :python:`None` indicates that the unit is unknown.  A dimension-less
+quantity can be indicated by a unit of :python:`""`.
+
+)";
+  template <typename Self>
+  static absl::Status Apply(Self& self, type value) {
+    const size_t size = value.size();
+    std::vector<std::optional<Unit>> units(size);
+    for (size_t i = 0; i < size; ++i) {
+      auto& unit = value[i];
+      if (!unit) continue;
+      units[i] = std::move(unit->value);
+    }
+    return self.Set(Schema::DimensionUnits(units));
+  }
+};
+
 }  // namespace schema_setters
 
 constexpr auto WithSchemaKeywordArguments = [](auto callback,
                                                auto... other_param) {
   using namespace schema_setters;
   callback(other_param..., SetRank{}, SetDtype{}, SetDomain{}, SetShape{},
-           SetChunkLayout{}, SetCodec{}, SetFillValue{}, SetSchema{});
+           SetChunkLayout{}, SetCodec{}, SetFillValue{}, SetDimensionUnits{},
+           SetSchema{});
 };
 
 namespace spec_setters {

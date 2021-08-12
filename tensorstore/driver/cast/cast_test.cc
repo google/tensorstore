@@ -486,6 +486,7 @@ TEST(SpecSchemaTest, CastArray) {
                {"driver", "array"},
                {"array", {{1, 2, 3}, {4, 5, 6}}},
                {"dtype", "float32"},
+               {"schema", {{"dimension_units", {"4nm", "5nm"}}}},
            }},
           {"dtype", "int32"},
       },
@@ -494,6 +495,7 @@ TEST(SpecSchemaTest, CastArray) {
           {"dtype", "int32"},
           {"domain", {{"shape", {2, 3}}}},
           {"chunk_layout", {{"grid_origin", {0, 0}}, {"inner_order", {0, 1}}}},
+          {"dimension_units", {"4nm", "5nm"}},
       });
 }
 
@@ -506,6 +508,7 @@ TEST(DriverCreateCheckSchemaTest, CastArray) {
                {"driver", "array"},
                {"array", {{1, 2, 3}, {4, 5, 6}}},
                {"dtype", "float32"},
+               {"schema", {{"dimension_units", {"4nm", "5nm"}}}},
            }},
           {"dtype", "int32"},
       },
@@ -514,6 +517,7 @@ TEST(DriverCreateCheckSchemaTest, CastArray) {
           {"dtype", "int32"},
           {"domain", {{"shape", {2, 3}}}},
           {"chunk_layout", {{"grid_origin", {0, 0}}, {"inner_order", {0, 1}}}},
+          {"dimension_units", {"4nm", "5nm"}},
       });
 }
 

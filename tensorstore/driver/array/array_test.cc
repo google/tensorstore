@@ -680,6 +680,17 @@ TEST(FromArrayTest, ChunkLayoutFortranOrder) {
   EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
 }
 
+TEST(FromArrayTest, DimensionUnits) {
+  auto array =
+      tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::FromArray(context, array, {"4nm", "5nm"}));
+  EXPECT_THAT(store.dimension_units(),
+              ::testing::Optional(::testing::ElementsAre(
+                  tensorstore::Unit("4nm"), tensorstore::Unit("5nm"))));
+}
+
 }  // namespace frontend_tests
 
 namespace open_tests {
@@ -740,6 +751,21 @@ TEST(OpenTest, RoundtripString) {
   EXPECT_THAT(tensorstore::Read(store).result(),
               ::testing::Optional(tensorstore::MakeArray<std::string>(
                   {{"a", "b", "c"}, {"d", "e", "f"}})));
+}
+
+TEST(OpenTest, RoundtripDimensionUnits) {
+  ::nlohmann::json json_spec{
+      {"driver", "array"},
+      {"array", {{"a", "b", "c"}, {"d", "e", "f"}}},
+      {"dtype", "string"},
+      {"schema", {{"dimension_units", {{4, "nm"}, {5, "nm"}}}}},
+      {"transform",
+       {{"input_exclusive_max", {2, 3}}, {"input_inclusive_min", {0, 0}}}},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   tensorstore::Open(json_spec).result());
+  EXPECT_THAT(store.spec().value().ToJson(tensorstore::IncludeDefaults{false}),
+              ::testing::Optional(MatchesJson(json_spec)));
 }
 
 TEST(OpenTest, InvalidConversion) {
@@ -879,12 +905,14 @@ TEST(SpecSchemaTest, Basic) {
           {"driver", "array"},
           {"array", {{1, 2, 3}, {4, 5, 6}}},
           {"dtype", "float32"},
+          {"schema", {{"dimension_units", {"4nm", "5nm"}}}},
       },
       {
           {"rank", 2},
           {"dtype", "float32"},
           {"domain", {{"shape", {2, 3}}}},
           {"chunk_layout", {{"grid_origin", {0, 0}}, {"inner_order", {0, 1}}}},
+          {"dimension_units", {"4nm", "5nm"}},
       });
 }
 
@@ -894,13 +922,42 @@ TEST(CreateCheckSchemaTest, Basic) {
           {"driver", "array"},
           {"array", {{1, 2, 3}, {4, 5, 6}}},
           {"dtype", "float32"},
+          {"schema", {{"dimension_units", {"4nm", "5nm"}}}},
       },
       {
           {"rank", 2},
           {"dtype", "float32"},
           {"domain", {{"shape", {2, 3}}}},
           {"chunk_layout", {{"grid_origin", {0, 0}}, {"inner_order", {0, 1}}}},
+          {"dimension_units", {"4nm", "5nm"}},
       });
+}
+
+TEST(ArrayTest, SpecFromArrayWithDimensionUnits) {
+  auto orig_array = tensorstore::MakeOffsetArray<float>({2}, {1, 2, 3});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec, tensorstore::SpecFromArray(orig_array, {"5nm"}));
+  EXPECT_EQ(1, spec.rank());
+  EXPECT_EQ(tensorstore::dtype_v<float>, spec.dtype());
+  EXPECT_THAT(spec.ToJson(),
+              ::testing::Optional(MatchesJson(::nlohmann::json{
+                  {"driver", "array"},
+                  {"array", {1, 2, 3}},
+                  {"dtype", "float32"},
+                  {"transform",
+                   {
+                       {"input_inclusive_min", {2}},
+                       {"input_exclusive_max", {5}},
+                       {"output", {{{"input_dimension", 0}, {"offset", -2}}}},
+                   }},
+                  {"schema", {{"dimension_units", {{5, "nm"}}}}},
+              })));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   tensorstore::Open(spec).result());
+  EXPECT_THAT(
+      store.dimension_units(),
+      ::testing::Optional(::testing::ElementsAre(tensorstore::Unit("5nm"))));
 }
 
 }  // namespace open_tests

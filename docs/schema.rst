@@ -62,3 +62,8 @@ Codec
 -----
 
 .. json:schema:: Codec
+
+Dimension units
+---------------
+
+.. json:schema:: Unit

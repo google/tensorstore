@@ -995,3 +995,34 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "dimension_units",
+    srcs = ["dimension_units.cc"],
+    hdrs = ["dimension_units.h"],
+    deps = [
+        ":index_transform",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:span",
+        "//tensorstore/util:str_cat",
+        "//tensorstore/util:unit",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "dimension_units_test",
+    srcs = ["dimension_units_test.cc"],
+    deps = [
+        ":dimension_units",
+        ":index_transform",
+        ":index_transform_builder",
+        ":index_transform_testutil",
+        "//tensorstore/internal:test_util",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "//tensorstore/util:unit",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/random:bit_gen_ref",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

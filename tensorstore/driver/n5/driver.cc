@@ -303,6 +303,22 @@ class N5Driver
       const SpecData& spec, IndexTransformView<> transform) {
     return {std::in_place};
   }
+
+  static Result<DimensionUnitsVector> SpecGetDimensionUnits(
+      const SpecData& spec) {
+    return GetEffectiveDimensionUnits(
+        spec.metadata_constraints.rank,
+        spec.metadata_constraints.units_and_resolution,
+        spec.schema.dimension_units());
+  }
+
+  Result<DimensionUnitsVector> GetDimensionUnits() override {
+    auto* cache = static_cast<DataCache*>(this->cache());
+    const auto& metadata =
+        *static_cast<const N5Metadata*>(cache->initial_metadata_.get());
+    return internal_n5::GetDimensionUnits(metadata.rank,
+                                          metadata.units_and_resolution);
+  }
 };
 
 class N5Driver::OpenState : public N5Driver::OpenStateBase {

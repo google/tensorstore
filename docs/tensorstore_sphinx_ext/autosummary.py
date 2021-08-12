@@ -898,6 +898,10 @@ def _create_documenter(env: sphinx.environment.BuildEnvironment,
   if documenter_cls.objtype == 'class':
     bridge.genopt['special-members'] = [
         '__eq__',
+        '__add__',
+        '__sub__',
+        '__mul__',
+        '__truediv__',
         '__getitem__',
         '__setitem__',
         # '__hash__',

@@ -250,6 +250,9 @@ CodecSpec::Ptr GetCodecFromMetadata(const MultiscaleMetadata& metadata,
 ///
 /// If the domain is unspecified, returns a null domain.
 ///
+/// This function uses the same dimension order as the schema,
+/// i.e. `{"x", "y", "z", "channel"}`.
+///
 /// \error `absl::StatusCode::kInvalidArgument` if `constraints` is inconsistent
 ///     with `schema`.
 Result<IndexDomain<>> GetEffectiveDomain(
@@ -258,6 +261,9 @@ Result<IndexDomain<>> GetEffectiveDomain(
 
 /// Returns the combined domain and chunk layout from `existing_metadata`,
 /// `constraints` and `schema`.
+///
+/// This function uses the same dimension order as the schema,
+/// i.e. `{"x", "y", "z", "channel"}`.
 ///
 /// \error `absl::StatusCode::kInvalidArgument` if `constraints` is inconsistent
 ///     with `schema`.
@@ -271,6 +277,16 @@ Result<std::pair<IndexDomain<>, ChunkLayout>> GetEffectiveDomainAndChunkLayout(
 /// \error `absl::StatusCode::kInvalidArgument` if `constraints` is inconsistent
 ///     with `schema`.
 Result<CodecSpec::PtrT<NeuroglancerPrecomputedCodecSpec>> GetEffectiveCodec(
+    const OpenConstraints& constraints, const Schema& schema);
+
+/// Returns the combined dimension units from `constraints` and `schema`.
+///
+/// This function uses the same dimension order as the schema,
+/// i.e. `{"x", "y", "z", "channel"}`.
+///
+/// \error `absl::StatusCode::kInvalidArgument` if `constraints` is inconsistent
+///     with `schema`.
+Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
     const OpenConstraints& constraints, const Schema& schema);
 
 /// Attempts to open an existing scale.

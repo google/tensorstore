@@ -286,6 +286,21 @@ Fill value
 The N5 metadata format does not support specifying a fill value.  TensorStore
 always assumes a fill value of :json:`0`.
 
+Dimension units
+~~~~~~~~~~~~~~~
+
+The :json:schema:`Schema.dimension_units` correspond to the
+:json:schema:`~driver/n5.metadata.units` and
+:json:schema:`~driver/n5.metadata.resolution` metadata properties.  The base
+unit is used directly; it is not converted in any way.
+
+The N5 format requires that dimension units are specified either for all
+dimensions, or for no dimensions; it is not possible to specify dimension units
+for some dimensions while leaving the dimension units of the remaining
+dimensions unspecified.  When creating a new dataset, if dimension units are
+specified for at least one dimension, any dimensions for which the unit is
+unspecified are assigned a dimensionless unit of :json:`1`.
+
 Limitations
 -----------
 

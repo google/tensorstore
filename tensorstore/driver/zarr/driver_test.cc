@@ -2628,4 +2628,15 @@ TEST(DimensionSeparatorTest, Slash) {
   TestReadWriteWithDimensionSeparator("/");
 }
 
+TEST(DriverTest, DimensionUnitsError) {
+  EXPECT_THAT(
+      tensorstore::Open(
+          {{"driver", "zarr"}, {"kvstore", {{"driver", "memory"}}}},
+          tensorstore::OpenMode::create, dtype_v<uint8_t>, Schema::Shape({1}),
+          Schema::DimensionUnits({"nm"}))
+          .result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    ".*: Dimension units not supported by zarr driver"));
+}
+
 }  // namespace

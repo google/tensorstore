@@ -46,6 +46,7 @@ using tensorstore::Schema;
 using tensorstore::StorageGeneration;
 using tensorstore::StrCat;
 using tensorstore::TimestampedStorageGeneration;
+using tensorstore::Unit;
 using tensorstore::internal::GetMap;
 using tensorstore::internal::ParseJsonMatches;
 using tensorstore::internal::TestSpecSchema;
@@ -2027,6 +2028,15 @@ TEST(DriverCreateWithSchemaTest, Dtypes) {
   }
 }
 
+TEST(DriverCreateWithSchemaTest, DimensionUnits) {
+  TestTensorStoreCreateWithSchema(
+      {{"driver", "neuroglancer_precomputed"},
+       {"kvstore", {{"driver", "memory"}}}},
+      dtype_v<uint32_t>, Schema::Shape({5, 6, 7, 2}),
+      ChunkLayout::ChunkShape({2, 3, 4, 0}),
+      Schema::DimensionUnits({"3nm", "4nm", "5nm", std::nullopt}));
+}
+
 TEST(DriverCreateWithSchemaTest, ChunkShapeUnsharded) {
   TestTensorStoreCreateWithSchema({{"driver", "neuroglancer_precomputed"},
                                    {"kvstore", {{"driver", "memory"}}}},
@@ -2058,6 +2068,7 @@ TEST(DriverCreateWithSchemaTest, ChunkShapeShardedTargetElementsExact) {
                     {"read_chunk", {{"shape", {30, 40, 50, 0}}}},
                     {"write_chunk", {{"elements", 30 * 40 * 50 * 8}}},
                 }},
+               {"dimension_units", {"4nm", "5nm", "6nm", nullptr}},
            }},
       },
       {
@@ -2074,6 +2085,7 @@ TEST(DriverCreateWithSchemaTest, ChunkShapeShardedTargetElementsExact) {
            {{"driver", "neuroglancer_precomputed"},
             {"encoding", "raw"},
             {"shard_data_encoding", "gzip"}}},
+          {"dimension_units", {"4nm", "5nm", "6nm", nullptr}},
       });
 }
 
@@ -2107,6 +2119,7 @@ TEST(DriverCreateWithSchemaTest, ChunkShapeShardedWriteChunkSizeNegative1) {
            {{"driver", "neuroglancer_precomputed"},
             {"encoding", "raw"},
             {"shard_data_encoding", "gzip"}}},
+          {"dimension_units", {"nm", "nm", "nm", nullptr}},
       });
 }
 
@@ -2140,6 +2153,7 @@ TEST(DriverCreateWithSchemaTest, ChunkShapeShardedTargetElementsRoundDown) {
            {{"driver", "neuroglancer_precomputed"},
             {"encoding", "raw"},
             {"shard_data_encoding", "gzip"}}},
+          {"dimension_units", {"nm", "nm", "nm", nullptr}},
       });
 }
 
@@ -2172,6 +2186,7 @@ TEST(DriverCreateWithSchemaTest, CompressedSegmentation) {
           {"codec",
            {{"driver", "neuroglancer_precomputed"},
             {"encoding", "compressed_segmentation"}}},
+          {"dimension_units", {"nm", "nm", "nm", nullptr}},
       });
 }
 
@@ -2578,6 +2593,99 @@ TEST(DriverTest, FillValue) {
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,
           ".*: fill_value not supported by neuroglancer_precomputed format"));
+}
+
+TEST(DriverTest, DimensionUnitsInvalidBaseUnit) {
+  EXPECT_THAT(tensorstore::Open(
+                  {{"driver", "neuroglancer_precomputed"},
+                   {"kvstore", {{"driver", "memory"}}}},
+                  Schema::Shape({100, 200, 300, 1}), dtype_v<uint8_t>,
+                  Schema::DimensionUnits({"4nm", "4nm", "um", std::nullopt}),
+                  tensorstore::OpenMode::create)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".* requires a base unit of \"nm\" .*"));
+}
+
+TEST(DriverTest, DimensionUnitsInvalidChannelUnit) {
+  EXPECT_THAT(
+      tensorstore::Open({{"driver", "neuroglancer_precomputed"},
+                         {"kvstore", {{"driver", "memory"}}}},
+                        Schema::Shape({100, 200, 300, 1}), dtype_v<uint8_t>,
+                        Schema::DimensionUnits({"4nm", "4nm", "40nm", ""}),
+                        tensorstore::OpenMode::create)
+          .result(),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          ".* does not allow units to be specified for channel dimension"));
+}
+
+TEST(DriverTest, DimensionUnitsInvalidResolution) {
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "neuroglancer_precomputed"},
+                      {"kvstore", {{"driver", "memory"}}},
+                      {"scale_metadata", {{"resolution", {4, 4, 50}}}},
+                  },
+                  Schema::Shape({100, 200, 300, 1}), dtype_v<uint8_t>,
+                  Schema::DimensionUnits({"4nm", "4nm", "40nm", std::nullopt}),
+                  tensorstore::OpenMode::create)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".* do not match \"resolution\" in metadata: .*"));
+}
+
+TEST(DriverTest, MultipleScales) {
+  auto context = Context::Default();
+
+  ::nlohmann::json base_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore", {{"driver", "memory"}}},
+  };
+
+  // Create first scale with 8x10x30nm resolution
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Open(
+          base_spec, context, Schema::Shape({100, 200, 300, 1}),
+          dtype_v<uint8_t>,
+          Schema::DimensionUnits({"8nm", "10nm", "30nm", std::nullopt}),
+          tensorstore::OpenMode::create)
+          .result());
+
+  // Create second scale with 16x20x30nm resolution
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Open(
+          base_spec, context, Schema::Shape({50, 100, 300, 1}),
+          dtype_v<uint8_t>,
+          Schema::DimensionUnits({"16nm", "20nm", "30nm", std::nullopt}),
+          tensorstore::OpenMode::create)
+          .result());
+
+  // Open 8x10x30nm scale via `DimensionUnits` constraint.
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(base_spec, context,
+                          Schema::DimensionUnits({"8nm", std::nullopt,
+                                                  std::nullopt, std::nullopt}))
+            .result());
+    EXPECT_THAT(store.dimension_units(),
+                ::testing::Optional(::testing::ElementsAre(
+                    Unit("8nm"), Unit("10nm"), Unit("30nm"), std::nullopt)));
+  }
+
+  // Open 16x20x30nm scale via `DimensionUnits` constraint.
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(base_spec, context,
+                          Schema::DimensionUnits({"16nm", std::nullopt,
+                                                  std::nullopt, std::nullopt}))
+            .result());
+    EXPECT_THAT(store.dimension_units(),
+                ::testing::Optional(::testing::ElementsAre(
+                    Unit("16nm"), Unit("20nm"), Unit("30nm"), std::nullopt)));
+  }
 }
 
 }  // namespace

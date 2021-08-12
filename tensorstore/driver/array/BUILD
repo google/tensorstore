@@ -31,6 +31,7 @@ tensorstore_cc_library(
         "//tensorstore:data_type",
         "//tensorstore/driver",
         "//tensorstore/index_space:dim_expression",
+        "//tensorstore/index_space:dimension_units",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/index_space:transformed_array",

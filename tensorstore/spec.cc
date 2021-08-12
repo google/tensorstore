@@ -52,6 +52,10 @@ Result<SharedArray<const void>> Spec::fill_value() const {
   return internal::GetEffectiveFillValue(impl_);
 }
 
+Result<DimensionUnitsVector> Spec::dimension_units() const {
+  return internal::GetEffectiveDimensionUnits(impl_);
+}
+
 ContextBindingState Spec::context_binding_state() const {
   return impl_.context_binding_state();
 }

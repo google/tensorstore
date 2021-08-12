@@ -1274,6 +1274,8 @@ TEST(DriverTest, SchemaMismatch) {
                                           {"dataType", "uint32"},
                                           {"blockSize", {10}},
                                           {"compression", {{"type", "raw"}}},
+                                          {"units", {"nm"}},
+                                          {"resolution", {5}},
                                       }}},
                                     context, tensorstore::OpenMode::create)
                       .result());
@@ -1340,6 +1342,18 @@ TEST(DriverTest, SchemaMismatch) {
                   .result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*codec_chunk_shape not supported"));
+
+  // Mismatched dimension units
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "n5"},
+                      {"kvstore", {{"driver", "memory"}}},
+                      {"schema", {{"dimension_units", {"5 um"}}}},
+                  },
+                  context, tensorstore::OpenMode::open)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*Cannot merge dimension units.*.*"));
 }
 
 TEST(SpecSchemaTest, Domain) {
@@ -1401,6 +1415,72 @@ TEST(SpecSchemaTest, Codec) {
       });
 }
 
+TEST(SpecSchemaTest, UnitsOnly) {
+  TestSpecSchema(
+      {
+          {"driver", "n5"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"metadata",
+           {
+               {"units", {"nm", "um"}},
+           }},
+      },
+      {
+          {"rank", 2},
+          {"chunk_layout",
+           {
+               {"grid_origin", {0, 0}},
+               {"inner_order", {1, 0}},
+           }},
+          {"codec", {{"driver", "n5"}}},
+          {"dimension_units", {"nm", "um"}},
+      });
+}
+
+TEST(SpecSchemaTest, ResolutionOnly) {
+  TestSpecSchema(
+      {
+          {"driver", "n5"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"metadata",
+           {
+               {"resolution", {3, 4}},
+           }},
+      },
+      {
+          {"rank", 2},
+          {"chunk_layout",
+           {
+               {"grid_origin", {0, 0}},
+               {"inner_order", {1, 0}},
+           }},
+          {"codec", {{"driver", "n5"}}},
+      });
+}
+
+TEST(SpecSchemaTest, UnitsAndResolution) {
+  TestSpecSchema(
+      {
+          {"driver", "n5"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"metadata",
+           {
+               {"units", {"nm", "um"}},
+               {"resolution", {3, 4}},
+           }},
+      },
+      {
+          {"rank", 2},
+          {"chunk_layout",
+           {
+               {"grid_origin", {0, 0}},
+               {"inner_order", {1, 0}},
+           }},
+          {"codec", {{"driver", "n5"}}},
+          {"dimension_units", {"3nm", "4um"}},
+      });
+}
+
 TEST(DriverCreateCheckSchemaTest, Simple) {
   TestTensorStoreCreateCheckSchema(
       {
@@ -1419,6 +1499,7 @@ TEST(DriverCreateCheckSchemaTest, Simple) {
                 {
                     {"chunk", {{"shape", {30, 40, 50}}}},
                 }},
+               {"dimension_units", {"30nm", "40nm", "1um"}},
            }},
       },
       {
@@ -1435,7 +1516,190 @@ TEST(DriverCreateCheckSchemaTest, Simple) {
                {"chunk", {{"shape", {30, 40, 50}}}},
            }},
           {"codec", {{"driver", "n5"}, {"compression", {{"type", "raw"}}}}},
+          {"dimension_units", {"30nm", "40nm", "1um"}},
       });
+}
+
+TEST(DriverTest, DimensionUnitsMetadataMismatch) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK(tensorstore::Open(
+                            {
+                                {"driver", "n5"},
+                                {"kvstore", {{"driver", "memory"}}},
+                            },
+                            context, Schema::Shape({100, 200, 300}),
+                            dtype_v<uint8_t>,
+                            Schema::DimensionUnits({"4nm", "4nm", "1um"}),
+                            tensorstore::OpenMode::create)
+                            .result());
+
+  // Re-open with matching dimension_units in schema
+  TENSORSTORE_EXPECT_OK(tensorstore::Open(
+                            {
+                                {"driver", "n5"},
+                                {"kvstore", {{"driver", "memory"}}},
+                            },
+                            context,
+                            Schema::DimensionUnits({"4nm", "4nm", "1um"}))
+                            .result());
+
+  // Re-open with matching "resolution" in metadata
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Open({{"driver", "n5"},
+                         {"kvstore", {{"driver", "memory"}}},
+                         {"metadata", {{"resolution", {4, 4, 1}}}}},
+                        context)
+          .result());
+
+  // Re-open with matching "units" in metadata
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Open({{"driver", "n5"},
+                         {"kvstore", {{"driver", "memory"}}},
+                         {"metadata", {{"units", {"nm", "nm", "um"}}}}},
+                        context)
+          .result());
+
+  // Re-open with non-matching dimension_units in schema
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "n5"},
+                      {"kvstore", {{"driver", "memory"}}},
+                  },
+                  context, Schema::DimensionUnits({"4nm", "5nm", "1um"}))
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*dimension units.*"));
+
+  // Re-open with non-matching "resolution" in metadata
+  EXPECT_THAT(tensorstore::Open({{"driver", "n5"},
+                                 {"kvstore", {{"driver", "memory"}}},
+                                 {"metadata", {{"resolution", {4, 5, 40}}}}},
+                                context)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*\"resolution\".*"));
+
+  // Re-open with non-matching "units" in metadata
+  EXPECT_THAT(
+      tensorstore::Open({{"driver", "n5"},
+                         {"kvstore", {{"driver", "memory"}}},
+                         {"metadata", {{"units", {"nm", "nm", "nm"}}}}},
+                        context)
+          .result(),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"units\".*"));
+}
+
+TEST(DriverTest, MissingDimensionUnitsMetadataMismatch) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK(tensorstore::Open(
+                            {
+                                {"driver", "n5"},
+                                {"kvstore", {{"driver", "memory"}}},
+                            },
+                            context, Schema::Shape({100, 200, 300}),
+                            dtype_v<uint8_t>, tensorstore::OpenMode::create)
+                            .result());
+  // Re-open with non-matching dimension_units in schema
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "n5"},
+                      {"kvstore", {{"driver", "memory"}}},
+                  },
+                  context, Schema::DimensionUnits({"4nm", "5nm", "1um"}))
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*dimension units.*"));
+
+  // Re-open with non-matching "resolution" in metadata
+  EXPECT_THAT(tensorstore::Open({{"driver", "n5"},
+                                 {"kvstore", {{"driver", "memory"}}},
+                                 {"metadata", {{"resolution", {4, 5, 40}}}}},
+                                context)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*\"resolution\".*"));
+
+  // Re-open with non-matching "units" in metadata
+  EXPECT_THAT(
+      tensorstore::Open({{"driver", "n5"},
+                         {"kvstore", {{"driver", "memory"}}},
+                         {"metadata", {{"units", {"nm", "nm", "nm"}}}}},
+                        context)
+          .result(),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"units\".*"));
+}
+
+TEST(DriverTest, ResolutionOnlyMetadataMismatch) {
+  // Create n5 TensorStore with match between "resolution" in metadata and
+  // dimension_units in schema.  The "units" are not specified in the metadata,
+  // in order to check the resolution-only verification code path.  This is a
+  // control case for the mismatch test below.
+  TENSORSTORE_EXPECT_OK(tensorstore::Open(
+                            {
+                                {"driver", "n5"},
+                                {"kvstore", {{"driver", "memory"}}},
+                                {"metadata", {{"resolution", {4, 5, 6}}}},
+                            },
+                            Schema::Shape({100, 200, 300}), dtype_v<uint8_t>,
+                            Schema::DimensionUnits({"4nm", "5nm", "6nm"}),
+                            tensorstore::OpenMode::create)
+                            .result());
+
+  // Same as above, but this time the "resolution" does not match.
+  EXPECT_THAT(
+      tensorstore::Open(
+          {
+              {"driver", "n5"},
+              {"kvstore", {{"driver", "memory"}}},
+              {"metadata", {{"resolution", {4, 5, 6}}}},
+          },
+          Schema::Shape({100, 200, 300}), dtype_v<uint8_t>,
+          Schema::DimensionUnits({"4nm", "5nm", "7nm"}),
+          tensorstore::OpenMode::create)
+          .result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"resolution\".*"));
+
+  auto context = Context::Default();
+  // Create n5 TensorStore with "resolution" specified but "units" not
+  // specified.  In this case dimension_units will not be set in the schema.
+  TENSORSTORE_ASSERT_OK(tensorstore::Open(
+                            {
+                                {"driver", "n5"},
+                                {"kvstore", {{"driver", "memory"}}},
+                                {"metadata", {{"resolution", {4, 5, 6}}}},
+                            },
+                            context, Schema::Shape({100, 200, 300}),
+                            dtype_v<uint8_t>, tensorstore::OpenMode::create)
+                            .result());
+
+  // Re-open with non-matching dimension_units in schema
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "n5"},
+                      {"kvstore", {{"driver", "memory"}}},
+                  },
+                  context, Schema::DimensionUnits({"4nm", "5nm", "6um"}))
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*dimension units.*"));
+
+  // Re-open with non-matching "resolution" in metadata
+  EXPECT_THAT(tensorstore::Open({{"driver", "n5"},
+                                 {"kvstore", {{"driver", "memory"}}},
+                                 {"metadata", {{"resolution", {4, 5, 7}}}}},
+                                context)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*\"resolution\".*"));
+
+  // Re-open with non-matching "units" in metadata
+  EXPECT_THAT(
+      tensorstore::Open({{"driver", "n5"},
+                         {"kvstore", {{"driver", "memory"}}},
+                         {"metadata", {{"units", {"", "", ""}}}}},
+                        context)
+          .result(),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"units\".*"));
 }
 
 }  // namespace

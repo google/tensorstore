@@ -233,6 +233,8 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   virtual Result<SharedArray<const void>> GetFillValue(
       IndexTransformView<> transform) const = 0;
 
+  virtual Result<DimensionUnitsVector> GetDimensionUnits() const = 0;
+
   /// Returns the common spec data (stored as a member of the derived type).
   virtual DriverSpecCommonData& data() = 0;
 
@@ -315,6 +317,9 @@ Result<SharedArray<const void>> GetEffectiveFillValue(
 
 Result<CodecSpec::Ptr> GetEffectiveCodec(const TransformedDriverSpec& spec);
 
+Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
+    const TransformedDriverSpec& spec);
+
 Result<Schema> GetEffectiveSchema(const TransformedDriverSpec& spec);
 
 DimensionIndex GetRank(const TransformedDriverSpec& spec);
@@ -391,6 +396,12 @@ class Driver : public AtomicReferenceCount<Driver> {
   ///     fill value is unknown.
   virtual Result<SharedArray<const void>> GetFillValue(
       IndexTransformView<> transform);
+
+  /// Returns the dimension units.
+  ///
+  /// \returns Vector of length `rank()` specifying the dimension units for each
+  ///     dimension.
+  virtual Result<DimensionUnitsVector> GetDimensionUnits();
 
   /// Returns the Executor to use for data copying to/from this Driver (e.g. for
   /// Read and Write operations).
@@ -659,6 +670,8 @@ Result<SharedArray<const Element>> GetFillValue(const Driver::Handle& handle) {
                                handle.driver->GetFillValue(handle.transform));
   return tensorstore::StaticDataTypeCast<const Element>(std::move(fill_value));
 }
+
+Result<DimensionUnitsVector> GetDimensionUnits(const Driver::Handle& handle);
 
 Result<Schema> GetSchema(const Driver::Handle& handle);
 

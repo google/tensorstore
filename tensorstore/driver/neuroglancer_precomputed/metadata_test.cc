@@ -1596,14 +1596,13 @@ TEST_F(OpenScaleTest, Success) {
 }
 
 TEST_F(OpenScaleTest, InvalidKey) {
-  EXPECT_THAT(
-      OpenScale(metadata,
-                OpenConstraints::FromJson(
-                    {{"scale_metadata", {{"key", "invalidkey"}}}})
-                    .value(),
-                /*schema=*/{}),
-      MatchesStatus(absl::StatusCode::kNotFound,
-                    "No scale found matching \\{\"key\":\"invalidkey\"\\}"));
+  EXPECT_THAT(OpenScale(metadata,
+                        OpenConstraints::FromJson(
+                            {{"scale_metadata", {{"key", "invalidkey"}}}})
+                            .value(),
+                        /*schema=*/{}),
+              MatchesStatus(absl::StatusCode::kNotFound,
+                            "No scale found matching key=\"invalidkey\""));
 }
 
 TEST_F(OpenScaleTest, InvalidResolution) {
@@ -1613,9 +1612,10 @@ TEST_F(OpenScaleTest, InvalidResolution) {
                     {{"scale_metadata", {{"resolution", {41, 42, 43}}}}})
                     .value(),
                 /*schema=*/{}),
-      MatchesStatus(absl::StatusCode::kNotFound,
-                    "No scale found matching "
-                    "\\{\"resolution\":\\[41\\.0,42\\.0,43\\.0\\]\\}"));
+      MatchesStatus(
+          absl::StatusCode::kNotFound,
+          "No scale found matching "
+          "dimension_units=\\[\"41 nm\", \"42 nm\", \"43 nm\", null\\]"));
 }
 
 TEST_F(OpenScaleTest, InvalidKeyAndResolutionCombination) {
@@ -1626,10 +1626,10 @@ TEST_F(OpenScaleTest, InvalidKeyAndResolutionCombination) {
                       {{"key", "16_16_16"}, {"resolution", {5, 6, 7}}}}})
                     .value(),
                 /*schema=*/{}),
-      MatchesStatus(
-          absl::StatusCode::kNotFound,
-          "No scale found matching "
-          "\\{\"key\":\"16_16_16\",\"resolution\":\\[5\\.0,6\\.0,7\\.0\\]\\}"));
+      MatchesStatus(absl::StatusCode::kNotFound,
+                    "No scale found matching "
+                    "dimension_units=\\[\"5 nm\", \"6 nm\", \"7 nm\", null\\], "
+                    "key=\"16_16_16\""));
 }
 
 TEST_F(OpenScaleTest, InvalidNumChannels) {

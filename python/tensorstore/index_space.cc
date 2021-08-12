@@ -29,10 +29,12 @@
 #include <nlohmann/json.hpp>
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/dim_expression.h"
+#include "python/tensorstore/homogeneous_tuple.h"
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/result_type_caster.h"
+#include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/status.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"

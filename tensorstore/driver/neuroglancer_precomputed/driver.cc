@@ -470,6 +470,23 @@ class NeuroglancerPrecomputedDriver
       const SpecData& spec, IndexTransformView<> transform) {
     return {std::in_place};
   }
+
+  static Result<DimensionUnitsVector> SpecGetDimensionUnits(
+      const SpecData& spec) {
+    return GetEffectiveDimensionUnits(spec.open_constraints, spec.schema);
+  }
+
+  Result<DimensionUnitsVector> GetDimensionUnits() override {
+    auto* cache = static_cast<DataCacheBase*>(this->cache());
+    const auto& metadata =
+        *static_cast<const MultiscaleMetadata*>(cache->initial_metadata_.get());
+    const auto& scale = metadata.scales[cache->scale_index_];
+    DimensionUnitsVector units(4);
+    for (int i = 0; i < 3; ++i) {
+      units[3 - i] = Unit(scale.resolution[i], "nm");
+    }
+    return units;
+  }
 };
 
 class NeuroglancerPrecomputedDriver::OpenState

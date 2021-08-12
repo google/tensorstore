@@ -91,9 +91,11 @@ class ArrayDriver
 
   explicit ArrayDriver(
       Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency,
-      SharedArray<void> data)
+      SharedArray<void> data, DimensionUnitsVector dimension_units)
       : data_copy_concurrency_(std::move(data_copy_concurrency)),
-        data_(std::move(data)) {
+        data_(std::move(data)),
+        dimension_units_(std::move(dimension_units)) {
+    assert(dimension_units_.size() == data_.rank());
     assert(data_copy_concurrency_.has_resource());
   }
 
@@ -159,6 +161,8 @@ class ArrayDriver
 
   Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override;
 
+  Result<DimensionUnitsVector> GetDimensionUnits() override;
+
   static Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
       internal::RegisteredDriverOpener<SpecData> spec,
@@ -167,6 +171,7 @@ class ArrayDriver
  private:
   Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency_;
   SharedArray<void> data_;
+  DimensionUnitsVector dimension_units_;
 
   /// Controls access to the data referred to by `data_`.
   ///
@@ -290,6 +295,7 @@ Result<IndexTransform<>> ArrayDriver::GetBoundSpecData(
   spec.data_copy_concurrency = data_copy_concurrency_;
   spec.schema.Set(spec.array.dtype()).IgnoreError();
   spec.schema.Set(RankConstraint{spec.array.rank()}).IgnoreError();
+  spec.schema.Set(Schema::DimensionUnits(dimension_units_)).IgnoreError();
   return transform_builder.Finalize();
 }
 
@@ -313,6 +319,10 @@ Result<ChunkLayout> ArrayDriver::GetChunkLayout(
   TENSORSTORE_ASSIGN_OR_RETURN(auto layout,
                                GetChunkLayoutFromStridedLayout(data_.layout()));
   return std::move(layout) | transform;
+}
+
+Result<DimensionUnitsVector> ArrayDriver::GetDimensionUnits() {
+  return dimension_units_;
 }
 
 Future<internal::Driver::Handle> ArrayDriver::Open(
@@ -349,9 +359,14 @@ Future<internal::Driver::Handle> ArrayDriver::Open(
           tensorstore::StrCat("chunking not supported"));
     }
   }
+  DimensionUnitsVector dimension_units(spec->array.rank());
+  if (auto schema_units = schema.dimension_units(); schema_units.valid()) {
+    MergeDimensionUnits(dimension_units, schema_units).IgnoreError();
+  }
   return internal::Driver::Handle{
       Ptr(new ArrayDriver(spec->data_copy_concurrency,
-                          tensorstore::MakeCopy(spec->array)),
+                          tensorstore::MakeCopy(spec->array),
+                          std::move(dimension_units)),
           read_write_mode),
       tensorstore::IdentityTransform(spec->array.shape())};
 }
@@ -377,48 +392,54 @@ const internal::DriverRegistration<ArrayDriver> driver_registration;
 
 }  // namespace
 
-template <>
-Result<internal::Driver::Handle> MakeArrayDriver<zero_origin>(
-    Context context, SharedArray<void, dynamic_rank, zero_origin> array) {
+template <ArrayOriginKind OriginKind>
+Result<internal::Driver::Handle> MakeArrayDriver(
+    Context context, SharedArray<void, dynamic_rank, OriginKind> array,
+    DimensionUnitsVector dimension_units) {
+  if (dimension_units.empty()) {
+    dimension_units.resize(array.rank());
+  } else {
+    if (dimension_units.size() != array.rank()) {
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "Dimension units ", DimensionUnitsToString(dimension_units),
+          " not valid for array of rank ", array.rank()));
+    }
+  }
   auto transform = tensorstore::IdentityTransform(array.shape());
+  SharedArray<void, dynamic_rank, zero_origin> zero_origin_array;
+  if constexpr (OriginKind == zero_origin) {
+    zero_origin_array = std::move(array);
+  } else {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        transform, std::move(transform) |
+                       tensorstore::AllDims().TranslateTo(array.origin()));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        zero_origin_array,
+        (tensorstore::ArrayOriginCast<zero_origin, container>(
+            std::move(array))));
+  }
   return internal::Driver::Handle{
       Driver::Ptr(
           new ArrayDriver(
-              context
-                  .GetResource(Context::Resource<
-                               DataCopyConcurrencyResource>::DefaultSpec())
-                  .value(),
-              std::move(array)),
+              context.GetResource<DataCopyConcurrencyResource>().value(),
+              std::move(zero_origin_array), std::move(dimension_units)),
           ReadWriteMode::read_write),
       std::move(transform)};
 }
 
-template <>
-Result<internal::Driver::Handle> MakeArrayDriver<offset_origin>(
-    Context context, SharedArray<void, dynamic_rank, offset_origin> array) {
-  auto transform = tensorstore::IdentityTransform(array.shape());
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      transform, std::move(transform) |
-                     tensorstore::AllDims().TranslateTo(array.origin()));
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto zero_origin_array,
-      (tensorstore::ArrayOriginCast<zero_origin, container>(std::move(array))));
-  return internal::Driver::Handle{
-      Driver::Ptr(
-          new ArrayDriver(
-              context
-                  .GetResource(Context::Resource<
-                               DataCopyConcurrencyResource>::DefaultSpec())
-                  .value(),
-              std::move(zero_origin_array)),
-          ReadWriteMode::read_write),
-      std::move(transform)};
-}
+#define TENSORSTORE_INTERNAL_DO_INSTANTIATE(OriginKind)                   \
+  template Result<internal::Driver::Handle> MakeArrayDriver<OriginKind>(  \
+      Context context, SharedArray<void, dynamic_rank, OriginKind> array, \
+      DimensionUnitsVector dimension_units);                              \
+  /**/
+TENSORSTORE_INTERNAL_DO_INSTANTIATE(zero_origin)
+TENSORSTORE_INTERNAL_DO_INSTANTIATE(offset_origin)
+#undef TENSORSTORE_INTERNAL_DO_INSTANTIATE
 
 }  // namespace internal
 
-Result<tensorstore::Spec> SpecFromArray(
-    SharedOffsetArrayView<const void> array) {
+Result<tensorstore::Spec> SpecFromArray(SharedOffsetArrayView<const void> array,
+                                        DimensionUnitsVector dimension_units) {
   using internal::ArrayDriver;
   using internal_spec::SpecAccess;
   Spec spec;
@@ -427,6 +448,10 @@ Result<tensorstore::Spec> SpecFromArray(
   driver_spec.context_binding_state() = ContextBindingState::unbound;
   driver_spec->schema.Set(RankConstraint{array.rank()}).IgnoreError();
   driver_spec->schema.Set(array.dtype()).IgnoreError();
+  if (!dimension_units.empty()) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        driver_spec->schema.Set(Schema::DimensionUnits(dimension_units)));
+  }
   driver_spec->data_copy_concurrency =
       Context::Resource<internal::DataCopyConcurrencyResource>::DefaultSpec();
   TENSORSTORE_ASSIGN_OR_RETURN(

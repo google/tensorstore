@@ -40,6 +40,7 @@ using tensorstore::kInfSize;
 using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
 using tensorstore::Schema;
+using tensorstore::Unit;
 
 TEST(SchemaTest, JsonRoundTrip) {
   tensorstore::TestJsonBinderRoundTripJsonOnly<Schema>({
@@ -87,6 +88,10 @@ TEST(SchemaTest, JsonRoundTrip) {
                {"filters", nullptr},
            }},
           {"fill_value", 5},
+      },
+      {
+          {"rank", 3},
+          {"dimension_units", {{4, "nm"}, {4, "nm"}, {30, "nm"}}},
       },
   });
 }
@@ -154,6 +159,14 @@ TEST(SchemaTest, CompareCodec) {
   });
 }
 
+TEST(SchemaTest, CompareDimensionUnits) {
+  tensorstore::TestCompareDistinctFromJson<Schema>({
+      ::nlohmann::json::object_t(),
+      {{"rank", 3}, {"dimension_units", {{4, "nm"}, {5, "nm"}, {30, "nm"}}}},
+      {{"rank", 3}, {"dimension_units", {{4, "nm"}, {5, "nm"}, {31, "nm"}}}},
+  });
+}
+
 void TestApplyIndexTransformRandomInvertible(bool allow_new_dims) {
   constexpr size_t kNumIterations = 10;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -195,6 +208,7 @@ void TestApplyIndexTransformRandomInvertible(bool allow_new_dims) {
                {"filters", nullptr},
            }},
           {"fill_value", 5},
+          {"dimension_units", {{4, "nm"}, {5, "nm"}, {30, "nm"}}},
       }));
   for (size_t iteration = 0; iteration < kNumIterations; ++iteration) {
     std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
@@ -401,6 +415,53 @@ TEST(SchemaTest, ApplyIndexTransformUnknownRankNullTransform) {
               ::testing::Optional(schema));
 }
 
+TEST(SchemaTest, ApplyIndexTransformDimensionUnits) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto schema, Schema::FromJson({
+                       {"dimension_units", {"4nm", nullptr, "5nm"}},
+                   }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto expected_schema,
+      Schema::FromJson({
+          {"dimension_units", {nullptr, "8nm", nullptr, "5nm"}},
+      }));
+  EXPECT_THAT(
+      schema | tensorstore::Dims(0).Stride(2) | tensorstore::Dims(0).AddNew(),
+      ::testing::Optional(expected_schema));
+}
+
+TEST(SchemaTest, TransformInputSpaceSchemaDimensionUnits) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto schema, Schema::FromJson({
+                       {"dimension_units", {"4nm", nullptr, "5nm"}},
+                   }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_schema,
+                                   Schema::FromJson({
+                                       {"dimension_units", {"2nm", "5nm"}},
+                                   }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto transform,
+                                   tensorstore::IdentityTransform(2) |
+                                       tensorstore::Dims(0).Stride(2) |
+                                       tensorstore::Dims(1).AddNew());
+  TENSORSTORE_ASSERT_OK(schema.TransformInputSpaceSchema(transform));
+  EXPECT_EQ(expected_schema, schema);
+}
+
+TEST(SchemaTest, TransformInputSpaceSchemaDimensionUnitsError) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto schema,
+                                   Schema::FromJson({
+                                       {"dimension_units", {"4nm", "5nm"}},
+                                   }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto transform,
+      tensorstore::IdentityTransform(1) | tensorstore::Dims(0).AddNew());
+  EXPECT_THAT(schema.TransformInputSpaceSchema(transform),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Error transforming dimension_units: "
+                            "No output dimension corresponds to input "
+                            "dimension 0 with unit 4 nm"));
+}
+
 TEST(SchemaTest, DtypeSet) {
   Schema schema;
   EXPECT_FALSE(schema.dtype().valid());
@@ -549,6 +610,38 @@ TEST(SchemaTest, FillValue) {
   EXPECT_EQ(fill_value2_normalized, schema.fill_value());
 }
 
+TEST(SchemaTest, DimensionUnits) {
+  Schema schema;
+  EXPECT_TRUE(schema.dimension_units().empty());
+  TENSORSTORE_ASSERT_OK(
+      schema.Set(Schema::DimensionUnits({"4nm", std::nullopt, std::nullopt})));
+  EXPECT_EQ(3, schema.rank());
+  EXPECT_THAT(schema.dimension_units(),
+              ::testing::ElementsAre(std::optional<Unit>("4nm"),
+                                     std::optional<Unit>(std::nullopt),
+                                     std::optional<Unit>(std::nullopt)));
+  // Setting empty dimension units vector has no effect.
+  TENSORSTORE_ASSERT_OK(schema.Set(Schema::DimensionUnits()));
+  EXPECT_THAT(schema.dimension_units(),
+              ::testing::ElementsAre(std::optional<Unit>("4nm"),
+                                     std::optional<Unit>(std::nullopt),
+                                     std::optional<Unit>(std::nullopt)));
+  TENSORSTORE_ASSERT_OK(
+      schema.Set(Schema::DimensionUnits({std::nullopt, std::nullopt, "5nm"})));
+  EXPECT_THAT(schema.dimension_units(),
+              ::testing::ElementsAre(std::optional<Unit>("4nm"),
+                                     std::optional<Unit>(std::nullopt),
+                                     std::optional<Unit>("5nm")));
+  // If there is a conflict, no changes are made.
+  EXPECT_THAT(schema.Set(Schema::DimensionUnits({std::nullopt, "6nm", "7nm"})),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Cannot merge dimension units .*"));
+  EXPECT_THAT(schema.dimension_units(),
+              ::testing::ElementsAre(std::optional<Unit>("4nm"),
+                                     std::optional<Unit>(std::nullopt),
+                                     std::optional<Unit>("5nm")));
+}
+
 TEST(SchemaTest, Codec) {
   Schema schema;
   EXPECT_FALSE(schema.codec().valid());
@@ -608,6 +701,7 @@ TEST(SchemaTest, SetSchema) {
                             {"read_chunk", {{"shape", {4, 5, 6}}}},
                             {"grid_origin", {1, 2, 3}},
                         }},
+                       {"dimension_units", {"4nm", "5nm", "30nm"}},
                    }));
   TENSORSTORE_ASSERT_OK(constraints.Set(schema));
   EXPECT_THAT(constraints.ToJson(tensorstore::IncludeDefaults{false}),
@@ -633,6 +727,7 @@ TEST(SchemaTest, SetSchema) {
                        {"read_chunk", {{"shape", {4, 5, 6}}}},
                        {"grid_origin", {1, 2, 3}},
                    }},
+                  {"dimension_units", {{4, "nm"}, {5, "nm"}, {30, "nm"}}},
               })));
   EXPECT_EQ(Schema(schema), constraints);
 }

@@ -81,6 +81,30 @@ allOf:
               labels may also be overridden by specifying a `.transform`.
             examples:
             - ["x", "y", "z"]
+          units:
+            type: array
+            items:
+              type: string
+            title: Specifies the base physical unit for each dimension.
+            description: |
+              Optional.  Must have the same length as `.dimensions`.
+            examples:
+            - ["nm", "nm", "nm", "s"]
+          resolution:
+            type: array
+            items:
+              type: number
+            title: Specifies the multiplier for the physical `.units`.
+            description: |
+              Optional.  Must have the same length as `.dimensions`.  If
+              `.resolution` is not specified but `.units` is specified, the
+              multipliers are assumed to be all :json:`1`.  Normally,
+              `.resolution` should only be specified if `.units` is also
+              specified; if `.resolution` is specified but `.units` is not
+              specified, the `Schema.dimension_units` will be considered
+              unspecified.
+            examples:
+            - [4, 4, 40, 0.5]
       - $ref: "#codec-properties"
 
 definitions:

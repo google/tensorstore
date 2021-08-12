@@ -16,6 +16,7 @@
 
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/chunk_layout_keyword_arguments.h"
+#include "python/tensorstore/homogeneous_tuple.h"
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/keyword_arguments.h"

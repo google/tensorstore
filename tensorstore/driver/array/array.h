@@ -19,6 +19,7 @@
 
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver.h"
+#include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/tensorstore.h"
@@ -28,7 +29,8 @@ namespace tensorstore {
 namespace internal {
 template <ArrayOriginKind OriginKind>
 Result<internal::Driver::Handle> MakeArrayDriver(
-    Context context, SharedArray<void, dynamic_rank, OriginKind> array);
+    Context context, SharedArray<void, dynamic_rank, OriginKind> array,
+    DimensionUnitsVector dimension_units = {});
 }  // namespace internal
 
 /// Alias that evaluates to the TensorStore type corresponding to `Array`.
@@ -45,17 +47,21 @@ using TensorStoreFromArrayType = TensorStore<
 ///
 /// \param context The context object held by the `TensorStore`.
 /// \param array The array held by the `TensorStore`.
+/// \param dimension_units Optional dimension units.  If specified, the length
+///     must equal `array.rank()`.
 /// \requires `IsArray<Array>::value`.
 template <typename Array>
 std::enable_if_t<(IsArray<Array>::value &&
                   IsShared<typename Array::ElementTag>::value),
                  Result<TensorStoreFromArrayType<Array>>>
-FromArray(Context context, const Array& array) {
+FromArray(Context context, const Array& array,
+          DimensionUnitsVector dimension_units = {}) {
   using Store = TensorStoreFromArrayType<Array>;
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto handle, internal::MakeArrayDriver<Array::array_origin_kind>(
-                       std::move(context),
-                       ConstDataTypeCast<typename Store::Element>(array)));
+      auto handle,
+      internal::MakeArrayDriver<Array::array_origin_kind>(
+          std::move(context), ConstDataTypeCast<typename Store::Element>(array),
+          std::move(dimension_units)));
   return internal::TensorStoreAccess::Construct<Store>(std::move(handle));
 }
 
@@ -63,8 +69,13 @@ FromArray(Context context, const Array& array) {
 ///
 /// The specified `array` is shared with the returned `Spec` and should not be
 /// modified, but opening the returned `Spec` makes a copy of the array.
+
+/// \param array The array to be held by the `Spec`.
+/// \param dimension_units Optional dimension units.  If specified, the length
+///     must equal `array.rank()`.
 Result<tensorstore::Spec> SpecFromArray(
-    SharedOffsetArrayView<const void> array);
+    SharedOffsetArrayView<const void> array,
+    DimensionUnitsVector dimension_units = {});
 
 }  // namespace tensorstore
 

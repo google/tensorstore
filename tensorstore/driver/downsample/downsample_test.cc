@@ -724,12 +724,14 @@ TEST(SpecSchemaTest, Basic) {
                {"array", {{1, 2, 3, 4}, {5, 6, 7, 8}}},
                {"dtype", "float32"},
            }},
+          {"schema", {{"dimension_units", {"4nm", "5nm"}}}},
       },
       {
           {"rank", 2},
           {"dtype", "float32"},
           {"domain", {{"shape", {2, 2}}}},
           {"chunk_layout", {{"grid_origin", {0, 0}}, {"inner_order", {0, 1}}}},
+          {"dimension_units", {"4nm", "5nm"}},
       });
 }
 
@@ -745,12 +747,14 @@ TEST(TensorStoreCreateCheckSchemaTest, Basic) {
                {"array", {{1, 2, 3, 4}, {5, 6, 7, 8}}},
                {"dtype", "float32"},
            }},
+          {"schema", {{"dimension_units", {"4nm", "5nm"}}}},
       },
       {
           {"rank", 2},
           {"dtype", "float32"},
           {"domain", {{"shape", {2, 2}}}},
           {"chunk_layout", {{"grid_origin", {0, 0}}, {"inner_order", {0, 1}}}},
+          {"dimension_units", {"4nm", "5nm"}},
       });
 }
 
@@ -846,6 +850,21 @@ TEST(DownsampleTest, FillValueSpecified) {
   EXPECT_THAT(transformed.fill_value(),
               ::testing::Optional(
                   tensorstore::MakeArray<uint32_t>({{26, 32}, {59, 64}})));
+}
+
+TEST(DownsampleTest, DimensionUnits) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store,
+      tensorstore::FromArray(
+          tensorstore::Context::Default(),
+          tensorstore::MakeArray<int>({{1, 2, 3}, {4, 5, 6}}), {"4nm", "5nm"}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Downsample(base_store, {1, 2},
+                              tensorstore::DownsampleMethod::kMean));
+  EXPECT_THAT(store.dimension_units(),
+              ::testing::Optional(::testing::ElementsAre(
+                  tensorstore::Unit("4nm"), tensorstore::Unit("10nm"))));
 }
 
 }  // namespace

@@ -25,6 +25,7 @@
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_bindable.h"
@@ -32,6 +33,7 @@
 #include "tensorstore/schema.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/unit.h"
 
 namespace tensorstore {
 
@@ -143,6 +145,43 @@ class Schema {
   explicit operator CodecSpec::Ptr() const { return codec(); }
   absl::Status Set(CodecSpec::Ptr value);
 
+  /// Specifies the physical quantity corresponding to a single index increment
+  /// along each dimension.
+  ///
+  /// A value of `std::nullopt` indicates that the unit is
+  /// unknown/unconstrained.  A dimension-less quantity can be indicated by a
+  /// unit of `Unit()`.
+  ///
+  /// When creating a new TensorStore, the specified units may be stored as part
+  /// of the metadata.
+  ///
+  /// When opening an existing TensorStore, the specified units serve as a
+  /// constraint, to ensure the units are as expected.  Additionally, for
+  /// drivers like neuroglancer_precomputed that support multiple scales, the
+  /// desired scale can be selected by specifying constraints on the units.
+  struct DimensionUnits : public span<const std::optional<Unit>> {
+   public:
+    explicit DimensionUnits() = default;
+    explicit DimensionUnits(span<const std::optional<Unit>> s)
+        : span<const std::optional<Unit>>(s) {}
+    template <size_t N>
+    explicit DimensionUnits(const std::optional<Unit> (&s)[N])
+        : span<const std::optional<Unit>>(s) {}
+    friend std::ostream& operator<<(std::ostream& os, DimensionUnits u);
+    friend bool operator==(DimensionUnits a, DimensionUnits b);
+    friend bool operator!=(DimensionUnits a, DimensionUnits b) {
+      return !(a == b);
+    }
+    bool valid() const { return !this->empty(); }
+
+    explicit operator DimensionUnitsVector() const {
+      return DimensionUnitsVector(this->begin(), this->end());
+    }
+  };
+  DimensionUnits dimension_units() const;
+  absl::Status Set(DimensionUnits value);
+  explicit operator DimensionUnits() const { return dimension_units(); }
+
   /// Merges in constraints from an existing schema.
   absl::Status Set(Schema value);
 
@@ -156,6 +195,7 @@ class Schema {
   /// - `Schema::Shape`
   /// - `Schema::FillValue`
   /// - `CodecSpec::Ptr`
+  /// - `Schema::DimensionUnits`
   ///
   /// Additionally, all `ChunkLayout` options are also supported:
   ///
@@ -281,6 +321,9 @@ constexpr inline bool Schema::IsOption<Schema::FillValue> = true;
 
 template <>
 constexpr inline bool Schema::IsOption<CodecSpec::Ptr> = true;
+
+template <>
+constexpr inline bool Schema::IsOption<Schema::DimensionUnits> = true;
 
 template <>
 constexpr inline bool Schema::IsOption<Schema> = true;

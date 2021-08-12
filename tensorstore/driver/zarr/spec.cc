@@ -461,6 +461,14 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
     }
   }
 
+  if (auto schema_units = schema.dimension_units(); schema_units.valid()) {
+    if (std::any_of(schema_units.begin(), schema_units.end(),
+                    [](const auto& u) { return u.has_value(); })) {
+      return absl::InvalidArgumentError(
+          "Dimension units not supported by zarr driver");
+    }
+  }
+
   return absl::OkStatus();
 }
 

@@ -26,6 +26,7 @@
 #include <utility>
 
 #include "python/tensorstore/dim_expression.h"
+#include "python/tensorstore/homogeneous_tuple.h"
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/result_type_caster.h"

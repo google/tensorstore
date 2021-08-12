@@ -203,6 +203,22 @@ class DownsampleDriver
     return {std::in_place};
   }
 
+  static Result<DimensionUnitsVector> SpecGetDimensionUnits(
+      const SpecData& spec) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto dimension_units, internal::GetEffectiveDimensionUnits(spec.base));
+    if (!dimension_units.empty()) {
+      span<const Index> downsample_factors = spec.downsample_factors;
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto transform,
+          tensorstore::IdentityTransform(downsample_factors.size()) |
+              tensorstore::AllDims().Stride(downsample_factors));
+      dimension_units =
+          TransformOutputDimensionUnits(transform, std::move(dimension_units));
+    }
+    return dimension_units;
+  }
+
   static Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
       internal::RegisteredDriverOpener<SpecData> spec,
@@ -247,9 +263,8 @@ class DownsampleDriver
   }
 
   Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto strided_base_transform,
-        base_transform_ | AllDims().Stride(downsample_factors_));
+    TENSORSTORE_ASSIGN_OR_RETURN(auto strided_base_transform,
+                                 GetStridedBaseTransform());
     return base_driver_->GetChunkLayout(strided_base_transform) | transform;
   }
 
@@ -262,10 +277,8 @@ class DownsampleDriver
     if (downsample_method_ == DownsampleMethod::kStride) {
       // Stride-based downsampling just relies on the normal `IndexTransform`
       // machinery.
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          auto strided_transform,
-          base_transform_ | tensorstore::AllDims().Stride(downsample_factors_) |
-              transform);
+      TENSORSTORE_ASSIGN_OR_RETURN(auto strided_transform,
+                                   GetStridedBaseTransform() | transform);
       return base_driver_->GetFillValue(strided_transform);
     }
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -288,6 +301,19 @@ class DownsampleDriver
             broadcast_fill_value, propagated_transform.input_downsample_factors,
             downsample_method_));
     return UnbroadcastArray(downsampled_fill_value);
+  }
+
+  Result<DimensionUnitsVector> GetDimensionUnits() override {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto dimension_units,
+                                 base_driver_->GetDimensionUnits());
+    TENSORSTORE_ASSIGN_OR_RETURN(auto strided_base_transform,
+                                 GetStridedBaseTransform());
+    return TransformOutputDimensionUnits(strided_base_transform,
+                                         std::move(dimension_units));
+  }
+
+  Result<IndexTransform<>> GetStridedBaseTransform() {
+    return base_transform_ | tensorstore::AllDims().Stride(downsample_factors_);
   }
 
   explicit DownsampleDriver(Driver::Ptr base, IndexTransform<> base_transform,
@@ -818,9 +844,7 @@ void DownsampleDriver::Read(
     // Stride-based downsampling just relies on the normal `IndexTransform`
     // machinery.
     TENSORSTORE_ASSIGN_OR_RETURN(
-        auto strided_transform,
-        base_transform_ | tensorstore::AllDims().Stride(downsample_factors_) |
-            transform,
+        auto strided_transform, GetStridedBaseTransform() | transform,
         execution::set_error(FlowSingleReceiver{std::move(receiver)}, _));
     base_driver_->Read(std::move(transaction), std::move(strided_transform),
                        std::move(receiver));
