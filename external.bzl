@@ -18,6 +18,7 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 # Third-party repositories
 load("//third_party:jpeg/workspace.bzl", repo_jpeg = "repo")
 load("//third_party:com_google_absl/workspace.bzl", repo_com_google_absl = "repo")
+load("//third_party:com_google_re2/workspace.bzl", repo_com_google_re2 = "repo")
 load("//third_party:com_google_googletest/workspace.bzl", repo_com_google_googletest = "repo")
 load("//third_party:com_google_brotli/workspace.bzl", repo_com_google_brotli = "repo")
 load("//third_party:com_google_benchmark/workspace.bzl", repo_com_google_benchmark = "repo")
@@ -62,6 +63,7 @@ def _python_dependencies():
 def _cc_dependencies():
     repo_com_google_absl()
     repo_com_google_googletest()
+    repo_com_google_re2()
     repo_com_google_brotli()
     repo_com_google_benchmark()
     repo_nasm()

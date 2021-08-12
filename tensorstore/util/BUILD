@@ -741,3 +741,26 @@ tensorstore_cc_library(
     name = "utf8_string",
     hdrs = ["utf8_string.h"],
 )
+
+tensorstore_cc_library(
+    name = "unit",
+    srcs = ["unit.cc"],
+    hdrs = ["unit.h"],
+    deps = [
+        "@com_google_absl//absl/strings",
+        "@com_google_re2//:re2",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "unit_test",
+    size = "small",
+    srcs = ["unit_test.cc"],
+    deps = [
+        ":str_cat",
+        ":unit",
+        "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal:json_unit",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

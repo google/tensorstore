@@ -1914,3 +1914,14 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "json_unit",
+    srcs = ["json_unit.cc"],
+    hdrs = ["json_unit.h"],
+    deps = [
+        ":json",
+        ":json_tuple",
+        "//tensorstore/util:unit",
+    ],
+)
