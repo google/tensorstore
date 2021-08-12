@@ -295,14 +295,10 @@ class TransactionState {
     using pointer = TransactionState*;
 
     static void increment(TransactionState* state) noexcept {
-      assert(state->commit_state_ != kCommitStarted &&
-             state->commit_state_ != kAborted);
       state->open_reference_count_.fetch_add(1, std::memory_order_relaxed);
     }
 
     static void decrement(TransactionState* state) noexcept {
-      assert(state->commit_state_ != kCommitStarted &&
-             state->commit_state_ != kAborted);
       if (state->open_reference_count_.fetch_sub(
               1, std::memory_order_acq_rel) == 1) {
         state->NoMoreOpenReferences();
