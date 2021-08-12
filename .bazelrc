@@ -24,6 +24,13 @@ build:linux --copt='-Wno-sign-compare'
 build:macos --copt='-Wno-sign-compare'
 build:freebsd --copt='-Wno-sign-compare'
 
+# disable spurious warnings from gcc
+build:linux --copt='-Wno-unused-but-set-parameter'
+build:linux --copt='-Wno-maybe-uninitialized'
+
+# disable warnings from clang about unknown warnings
+build:linux --copt='-Wno-unknown-warning-option'
+
 # Windows 10 RS1 required for rename/delete with POSIX semantics
 build:windows --copt=-D_WIN32_WINNT=0x0A000002
 

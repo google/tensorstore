@@ -5,20 +5,13 @@ licenses(["notice"])
 exports_files(["LICENSE.md"])
 
 WIN_COPTS = [
-    "/Ox",
     "-DWITH_SIMD",
     "-wd4996",
 ]
 
 libjpegturbo_copts = select({
-    ":android": [
-        "-O2",
-        "-fPIE",
-        "-w",
-    ],
     ":windows": WIN_COPTS,
     "//conditions:default": [
-        "-O3",
         "-w",
     ],
 }) + select({

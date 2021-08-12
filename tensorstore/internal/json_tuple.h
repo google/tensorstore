@@ -158,12 +158,14 @@ constexpr auto HeterogeneousArray(ElementBinder... element_binder) {
                                      is_loading, j, sizeof...(ElementBinder)));
     absl::Status status;
     size_t i = 0;
-    (((status = element_binder(is_loading, options, obj, &(*array_ptr)[i++]))
-          .ok() ||
-      ((status = internal_json::MaybeAnnotateArrayElementError(status, i - 1,
-                                                               is_loading)),
-       false)) &&
-     ...);
+    [[maybe_unused]] bool ok =
+        (((status =
+               element_binder(is_loading, options, obj, &(*array_ptr)[i++]))
+              .ok() ||
+          ((status = internal_json::MaybeAnnotateArrayElementError(
+                status, i - 1, is_loading)),
+           false)) &&
+         ...);
     return status;
   };
 }
