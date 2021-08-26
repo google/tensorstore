@@ -104,10 +104,10 @@ allOf:
         Deprecated.  Equivalent to specifying `.metadata.dimension_separator`.
 examples:
 - driver: zarr
-  "kvstore":
+  kvstore:
     driver: gcs
     bucket: my-bucket
-  path: path/to/array
+    path: path/to/array/
   key_encoding: .
   metadata:
     shape:

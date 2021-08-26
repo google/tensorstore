@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_KEY_VALUE_STORE_TESTUTIL_H_
-#define TENSORSTORE_KVSTORE_KEY_VALUE_STORE_TESTUTIL_H_
+#ifndef TENSORSTORE_KVSTORE_TEST_UTIL_H_
+#define TENSORSTORE_KVSTORE_TEST_UTIL_H_
 
 #include <map>
 #include <optional>
@@ -26,9 +26,10 @@
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/queue_testutil.h"
+#include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
-#include "tensorstore/kvstore/key_value_store.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -45,64 +46,63 @@ namespace internal {
 ///     to the same output key, and distinct input keys always map to distinct
 ///     output keys.
 void TestKeyValueStoreBasicFunctionality(
-    KeyValueStore::Ptr store,
+    const KvStore& store,
     absl::FunctionRef<std::string(std::string key)> get_key);
 
-inline void TestKeyValueStoreBasicFunctionality(KeyValueStore::Ptr store) {
+inline void TestKeyValueStoreBasicFunctionality(const KvStore& store) {
   return TestKeyValueStoreBasicFunctionality(
-      std::move(store), [](std::string key) { return key; });
+      store, [](std::string key) { return key; });
 }
 
 /// Tests DeleteRange on `store`, which should be empty.
-void TestKeyValueStoreDeleteRange(KeyValueStore::Ptr store);
+void TestKeyValueStoreDeleteRange(const KvStore& store);
 
 /// Tests DeleteRange on `store`, which should be empty.
-void TestKeyValueStoreDeletePrefix(KeyValueStore::Ptr store);
+void TestKeyValueStoreDeletePrefix(const KvStore& store);
 
 /// Tests DeleteRange on `store`, which should be empty.
-void TestKeyValueStoreDeleteRangeToEnd(KeyValueStore::Ptr store);
+void TestKeyValueStoreDeleteRangeToEnd(const KvStore& store);
 
 /// Tests DeleteRange on `store`, which should be empty.
-void TestKeyValueStoreDeleteRangeFromBeginning(KeyValueStore::Ptr store);
+void TestKeyValueStoreDeleteRangeFromBeginning(const KvStore& store);
 
 struct KeyValueStoreSpecRoundtripOptions {
-  KeyValueStore::SpecRequestOptions spec_request_options;
+  kvstore::SpecRequestOptions spec_request_options;
   JsonSerializationOptions json_serialization_options;
   // Checks that data persists after re-opening from the returned spec.
   bool check_data_persists = true;
 };
 
-/// Tests that calling `KeyValueStore::Open` with `spec` returns a
-/// `KeyValueStore::Ptr` whose `spec()` method returns `spec`, and that data
-/// persists when re-opening using the same `spec` after closing.
+/// Tests that calling `kvstore::Open` with `spec` returns a `KvStore` whose
+/// `spec()` method returns `spec`, and that data persists when re-opening using
+/// the same `spec` after closing.
 void TestKeyValueStoreSpecRoundtrip(
     ::nlohmann::json json_spec,
     const KeyValueStoreSpecRoundtripOptions& options = {});
 
 /// Returns the contents of `kv_store` as an `std::map`.
-Result<std::map<KeyValueStore::Key, KeyValueStore::Value>> GetMap(
-    KeyValueStore::Ptr kv_store);
+Result<std::map<kvstore::Key, kvstore::Value>> GetMap(const KvStore& store);
 
-/// Returns a GMock matcher for a `KeyValueStore::ReadResult` or
-/// `Result<KeyValueStore::ReadResult>`.
+/// Returns a GMock matcher for a `kvstore::ReadResult` or
+/// `Result<kvstore::ReadResult>`.
 template <typename ValueMatcher>
-::testing::Matcher<Result<KeyValueStore::ReadResult>> MatchesKvsReadResult(
+::testing::Matcher<Result<kvstore::ReadResult>> MatchesKvsReadResult(
     ValueMatcher value,
     ::testing::Matcher<StorageGeneration> generation = ::testing::_,
     ::testing::Matcher<absl::Time> time = ::testing::_) {
-  using ReadResult = KeyValueStore::ReadResult;
-  ::testing::Matcher<KeyValueStore::ReadResult::State> state_matcher;
-  ::testing::Matcher<KeyValueStore::Value> value_matcher;
-  if constexpr (std::is_convertible_v<
-                    ValueMatcher, ::testing::Matcher<KeyValueStore::Value>>) {
-    value_matcher = ::testing::Matcher<KeyValueStore::Value>(value);
-    state_matcher = KeyValueStore::ReadResult::kValue;
+  using ReadResult = kvstore::ReadResult;
+  ::testing::Matcher<kvstore::ReadResult::State> state_matcher;
+  ::testing::Matcher<kvstore::Value> value_matcher;
+  if constexpr (std::is_convertible_v<ValueMatcher,
+                                      ::testing::Matcher<kvstore::Value>>) {
+    value_matcher = ::testing::Matcher<kvstore::Value>(value);
+    state_matcher = kvstore::ReadResult::kValue;
   } else {
-    static_assert(std::is_convertible_v<
-                  ValueMatcher,
-                  ::testing::Matcher<KeyValueStore::ReadResult::State>>);
+    static_assert(
+        std::is_convertible_v<ValueMatcher,
+                              ::testing::Matcher<kvstore::ReadResult::State>>);
     value_matcher = absl::Cord();
-    state_matcher = ::testing::Matcher<KeyValueStore::ReadResult::State>(value);
+    state_matcher = ::testing::Matcher<kvstore::ReadResult::State>(value);
   }
   return ::testing::Optional(::testing::AllOf(
       ::testing::Field("state", &ReadResult::state, state_matcher),
@@ -113,39 +113,41 @@ template <typename ValueMatcher>
 
 /// Overload that permits an `absl::Cord` matcher to be specified for the
 /// `value`.
-::testing::Matcher<Result<KeyValueStore::ReadResult>> MatchesKvsReadResult(
-    ::testing::Matcher<KeyValueStore::Value> value,
+::testing::Matcher<Result<kvstore::ReadResult>> MatchesKvsReadResult(
+    ::testing::Matcher<kvstore::Value> value,
     ::testing::Matcher<StorageGeneration> generation = ::testing::_,
     ::testing::Matcher<absl::Time> time = ::testing::_);
 
-/// Returns a GMock matcher for a "not found" `KeyValueStore::ReadResult`.
-inline ::testing::Matcher<Result<KeyValueStore::ReadResult>>
+/// Returns a GMock matcher for a "not found" `kvstore::ReadResult`.
+inline ::testing::Matcher<Result<kvstore::ReadResult>>
 MatchesKvsReadResultNotFound(
     ::testing::Matcher<absl::Time> time = ::testing::_) {
-  return MatchesKvsReadResult(KeyValueStore::ReadResult::kMissing,
+  return MatchesKvsReadResult(kvstore::ReadResult::kMissing,
                               ::testing::Not(StorageGeneration::Unknown()),
                               time);
 }
 
-/// Returns a GMock matcher for an "aborted" `KeyValueStore::ReadResult`.
-inline ::testing::Matcher<Result<KeyValueStore::ReadResult>>
+/// Returns a GMock matcher for an "aborted" `kvstore::ReadResult`.
+inline ::testing::Matcher<Result<kvstore::ReadResult>>
 MatchesKvsReadResultAborted(
     ::testing::Matcher<absl::Time> time = ::testing::_) {
-  return MatchesKvsReadResult(KeyValueStore::ReadResult::kUnspecified,
-                              ::testing::_, time);
+  return MatchesKvsReadResult(kvstore::ReadResult::kUnspecified, ::testing::_,
+                              time);
 }
 
 /// Mock KeyValueStore that simply records requests in a queue.
 ///
 /// This can be used to test the behavior of code that interacts with a
 /// `KeyValueStore`, and to inject errors to test error handling.
-class MockKeyValueStore : public KeyValueStore {
+class MockKeyValueStore : public kvstore::Driver {
  public:
+  using Ptr = PtrT<MockKeyValueStore>;
+
   struct ReadRequest {
     Promise<ReadResult> promise;
     Key key;
     ReadOptions options;
-    void operator()(KeyValueStore::Ptr target) const {
+    void operator()(kvstore::DriverPtr target) const {
       Link(promise, target->Read(key, options));
     }
   };
@@ -155,7 +157,7 @@ class MockKeyValueStore : public KeyValueStore {
     Key key;
     std::optional<Value> value;
     WriteOptions options;
-    void operator()(KeyValueStore::Ptr target) const {
+    void operator()(kvstore::DriverPtr target) const {
       Link(promise, target->Write(key, value, options));
     }
   };
@@ -163,7 +165,7 @@ class MockKeyValueStore : public KeyValueStore {
   struct DeleteRangeRequest {
     Promise<void> promise;
     KeyRange range;
-    void operator()(KeyValueStore::Ptr target) const {
+    void operator()(kvstore::DriverPtr target) const {
       Link(promise, target->DeleteRange(range));
     }
   };
@@ -190,7 +192,7 @@ class MockKeyValueStore : public KeyValueStore {
     return future;
   }
 
-  void ListImpl(const ListOptions& options,
+  void ListImpl(ListOptions options,
                 AnyFlowReceiver<Status, Key> receiver) override {
     list_requests.push({options, std::move(receiver)});
   }
@@ -236,10 +238,10 @@ class MockKeyValueStore : public KeyValueStore {
 ///
 struct MockKeyValueStoreResource {
   static constexpr char id[] = "mock_key_value_store";
-  using Resource = KeyValueStore::PtrT<MockKeyValueStore>;
+  using Resource = MockKeyValueStore::Ptr;
 };
 
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_KVSTORE_KEY_VALUE_STORE_TESTUTIL_H_
+#endif  // TENSORSTORE_KVSTORE_TEST_UTIL_H_

@@ -52,7 +52,7 @@ class JsonCache : public JsonCacheBase, public AsyncInitializedCacheMixin {
  public:
   using ReadData = ::nlohmann::json;
 
-  JsonCache() : JsonCacheBase(KeyValueStore::Ptr()) {}
+  JsonCache() : JsonCacheBase(kvstore::DriverPtr()) {}
 
   class Entry : public Base::Entry {
    public:
@@ -169,8 +169,7 @@ class JsonDriver
   constexpr static char id[] = "json";
 
   struct SpecData : public internal::DriverSpecCommonData {
-    KeyValueStore::Spec::Ptr store;
-    std::string path;
+    kvstore::Spec store;
     Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency;
     Context::Resource<CachePoolResource> cache_pool;
     StalenessBound data_staleness;
@@ -178,7 +177,7 @@ class JsonDriver
 
     constexpr static auto ApplyMembers = [](auto& x, auto f) {
       return f(internal::BaseCast<internal::DriverSpecCommonData>(x), x.store,
-               x.path, x.data_copy_concurrency, x.cache_pool, x.data_staleness,
+               x.data_copy_concurrency, x.cache_pool, x.data_staleness,
                x.json_pointer);
     };
   };
@@ -204,8 +203,7 @@ class JsonDriver
                  jb::Projection(&SpecData::data_copy_concurrency)),
       jb::Member(internal::CachePoolResource::id,
                  jb::Projection(&SpecData::cache_pool)),
-      jb::Member("kvstore", jb::Projection(&SpecData::store)),
-      jb::Member("path", jb::Projection(&SpecData::path)),
+      jb::Projection<&SpecData::store>(jb::KvStoreSpecAndPathJsonBinder),
       jb::Member("recheck_cached_data",
                  jb::Projection(&SpecData::data_staleness,
                                 jb::DefaultValue([](auto* obj) {
@@ -282,7 +280,7 @@ Future<internal::Driver::Handle> JsonDriver::Open(
   }
   std::string cache_identifier;
   auto request_time = absl::Now();
-  internal::EncodeCacheKey(&cache_identifier, spec->store,
+  internal::EncodeCacheKey(&cache_identifier, spec->store.driver,
                            spec->data_copy_concurrency);
   auto cache = internal::GetOrCreateAsyncInitializedCache<JsonCache>(
       **spec->cache_pool, cache_identifier,
@@ -296,13 +294,13 @@ Future<internal::Driver::Handle> JsonDriver::Open(
         // The cache didn't previously exist.  Open the KeyValueStore.
         LinkValue(
             [cache = std::move(cache)](Promise<void> cache_promise,
-                                       ReadyFuture<KeyValueStore::Ptr> future) {
-              cache->SetKeyValueStore(std::move(*future.result()));
+                                       ReadyFuture<kvstore::DriverPtr> future) {
+              cache->SetKvStoreDriver(std::move(*future.result()));
             },
-            initialize_promise, KeyValueStore::Open(spec->store));
+            initialize_promise, kvstore::Open(spec->store.driver));
       });
   internal::Driver::PtrT<JsonDriver> driver(new JsonDriver, read_write_mode);
-  driver->cache_entry_ = GetCacheEntry(cache, spec->path);
+  driver->cache_entry_ = GetCacheEntry(cache, spec->store.path);
   driver->json_pointer_ = spec->json_pointer;
   driver->data_staleness_ = spec->data_staleness.BoundAtOpen(request_time);
   return PromiseFuturePair<internal::Driver::Handle>::LinkError(
@@ -317,8 +315,9 @@ Result<IndexTransform<>> JsonDriver::GetBoundSpecData(
     internal::OpenTransactionPtr transaction, SpecData& spec,
     IndexTransformView<> transform) const {
   auto& cache = GetOwningCache(*cache_entry_);
-  TENSORSTORE_ASSIGN_OR_RETURN(spec.store, cache.kvstore()->GetBoundSpec());
-  spec.path = std::string(cache_entry_->key());
+  TENSORSTORE_ASSIGN_OR_RETURN(spec.store.driver,
+                               cache.kvstore_driver()->GetBoundSpec());
+  spec.store.path = cache_entry_->key();
   spec.data_copy_concurrency = cache.data_copy_concurrency_;
   spec.cache_pool = cache.cache_pool_;
   spec.data_staleness = data_staleness_;

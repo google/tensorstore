@@ -49,6 +49,8 @@ class KeyRange {
   /// Returns the range that contains all keys that start with `prefix`.
   static KeyRange Prefix(std::string prefix);
 
+  static KeyRange AddPrefix(std::string_view prefix, KeyRange range);
+
   /// Returns the key that occurs immediately after `key`.
   ///
   /// This is equal to `key` with '\x00` appended.

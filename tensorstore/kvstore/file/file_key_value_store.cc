@@ -117,7 +117,7 @@
 #include "tensorstore/kvstore/file/util.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
-#include "tensorstore/kvstore/key_value_store.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/util/execution.h"
 #include "tensorstore/util/executor.h"
@@ -167,6 +167,7 @@ using internal_file_util::IsKeyValid;
 using internal_file_util::kLockSuffix;
 using internal_file_util::LongestDirectoryPrefix;
 using internal_file_util::UniqueFileDescriptor;
+using kvstore::ReadResult;
 
 namespace jb = tensorstore::internal_json_binding;
 
@@ -310,17 +311,17 @@ Result<UniqueFileDescriptor> OpenValueFile(const char* path,
 /// Implements `FileKeyValueStore::Read`.
 struct ReadTask {
   std::string full_path;
-  KeyValueStore::ReadOptions options;
+  kvstore::ReadOptions options;
 
-  Result<KeyValueStore::ReadResult> operator()() const {
-    KeyValueStore::ReadResult read_result;
+  Result<ReadResult> operator()() const {
+    ReadResult read_result;
     read_result.stamp.time = absl::Now();
     std::int64_t size;
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto fd,
         OpenValueFile(full_path.c_str(), &read_result.stamp.generation, &size));
     if (!fd.valid()) {
-      read_result.state = KeyValueStore::ReadResult::kMissing;
+      read_result.state = ReadResult::kMissing;
       return read_result;
     }
     if (read_result.stamp.generation == options.if_not_equal ||
@@ -330,7 +331,7 @@ struct ReadTask {
     }
     TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
                                  options.byte_range.Validate(size));
-    read_result.state = KeyValueStore::ReadResult::kValue;
+    read_result.state = ReadResult::kValue;
     internal::FlatCordBuilder buffer(byte_range.size());
     std::size_t offset = 0;
     while (offset < buffer.size()) {
@@ -454,8 +455,8 @@ Result<StorageGeneration> WithWriteLock(
 /// Implements `FileKeyValueStore::Write`.
 struct WriteTask {
   std::string full_path;
-  KeyValueStore::Value value;
-  KeyValueStore::WriteOptions options;
+  kvstore::Value value;
+  kvstore::WriteOptions options;
   Result<TimestampedStorageGeneration> operator()() const {
     TimestampedStorageGeneration r;
     r.time = absl::Now();
@@ -508,7 +509,7 @@ struct WriteTask {
 /// Implements `FileKeyValueStore::Delete`.
 struct DeleteTask {
   std::string full_path;
-  KeyValueStore::WriteOptions options;
+  kvstore::WriteOptions options;
   Result<TimestampedStorageGeneration> operator()() const {
     TimestampedStorageGeneration r;
     r.time = absl::Now();
@@ -683,8 +684,8 @@ struct DeleteRangeTask {
 
 struct ListTask {
   KeyRange range;
-  std::size_t prefix_size;
-  AnyFlowReceiver<absl::Status, KeyValueStore::Key> receiver;
+  size_t strip_prefix_length;
+  AnyFlowReceiver<absl::Status, kvstore::Key> receiver;
 
   void operator()() {
     PathRangeVisitor visitor(range);
@@ -699,7 +700,8 @@ struct ListTask {
     auto handle_file_at = [this, &visitor] {
       std::string path = visitor.GetFullPath();
       if (!absl::EndsWith(path, kLockSuffix)) {
-        execution::set_value(receiver, path.substr(prefix_size));
+        path.erase(0, strip_prefix_length);
+        execution::set_value(receiver, std::move(path));
       }
       return absl::OkStatus();
     };
@@ -717,47 +719,44 @@ struct ListTask {
 };
 
 class FileKeyValueStore
-    : public internal::RegisteredKeyValueStore<FileKeyValueStore> {
+    : public internal_kvstore::RegisteredDriver<FileKeyValueStore> {
  public:
   static constexpr char id[] = "file";
 
   struct SpecData {
-    std::string path;
     Context::Resource<internal::FileIoConcurrencyResource> file_io_concurrency;
 
     constexpr static auto ApplyMembers = [](auto& x, auto f) {
-      return f(x.path, x.file_io_concurrency);
+      return f(x.file_io_concurrency);
     };
   };
 
-  constexpr static auto json_binder = jb::Object(
-      // TODO(jbms): Storing a UNIX path as a JSON string presents a challenge
-      // because UNIX paths are byte strings, and while it is common to use
-      // UTF-8 encoding it is not required that the path be a valid UTF-8
-      // string.  On MS Windows, there is a related problem that path names
-      // are stored as UCS-2 may contain invalid surrogate pairs.
-      //
-      // However, while supporting such paths is important for general purpose
-      // software like a file backup tool, it is relatively unlikely that the
-      // user will want to use such a path as the root of a file-backed
-      // KeyValueStore.
-      //
-      // If we do want to support such paths, there are various options
-      // including base64-encoding, or using NUL as an escape sequence (taking
-      // advantage of the fact that valid paths on all operating systems
-      // cannot contain NUL characters).
-      jb::Member("path", jb::Projection(&SpecData::path)),
-      jb::Member(internal::FileIoConcurrencyResource::id,
-                 jb::Projection(&SpecData::file_io_concurrency)));
+  // TODO(jbms): Storing a UNIX path as a JSON string presents a challenge
+  // because UNIX paths are byte strings, and while it is common to use
+  // UTF-8 encoding it is not required that the path be a valid UTF-8
+  // string.  On MS Windows, there is a related problem that path names
+  // are stored as UCS-2 may contain invalid surrogate pairs.
+  //
+  // However, while supporting such paths is important for general purpose
+  // software like a file backup tool, it is relatively unlikely that the
+  // user will want to use such a path as the root of a file-backed
+  // KeyValueStore.
+  //
+  // If we do want to support such paths, there are various options
+  // including base64-encoding, or using NUL as an escape sequence (taking
+  // advantage of the fact that valid paths on all operating systems
+  // cannot contain NUL characters).
+  constexpr static auto json_binder =
+      jb::Object(jb::Member(internal::FileIoConcurrencyResource::id,
+                            jb::Projection(&SpecData::file_io_concurrency)));
 
   static void EncodeCacheKey(std::string* out, const SpecData& spec) {
-    internal::EncodeCacheKey(out, spec.path, spec.file_io_concurrency);
+    internal::EncodeCacheKey(out, spec.file_io_concurrency);
   }
 
   Future<ReadResult> Read(Key key, ReadOptions options) override {
     TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
-    return MapFuture(executor(), ReadTask{internal::JoinPath(root(), key),
-                                          std::move(options)});
+    return MapFuture(executor(), ReadTask{std::move(key), std::move(options)});
   }
 
   Future<TimestampedStorageGeneration> Write(Key key,
@@ -765,39 +764,23 @@ class FileKeyValueStore
                                              WriteOptions options) override {
     TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
     if (value) {
+      return MapFuture(executor(), WriteTask{std::move(key), std::move(*value),
+                                             std::move(options)});
+    } else {
       return MapFuture(executor(),
-                       WriteTask{internal::JoinPath(root(), key),
-                                 std::move(*value), std::move(options)});
-    } else {
-      return MapFuture(executor(), DeleteTask{internal::JoinPath(root(), key),
-                                              std::move(options)});
+                       DeleteTask{std::move(key), std::move(options)});
     }
-  }
-
-  KeyRange GetFullKeyRange(const KeyRange& range) {
-    KeyRange full_range;
-    // We can't use `internal::JoinPath`, because we need "/" to be added
-    // consistently.
-    full_range.inclusive_min = absl::StrCat(root(), "/", range.inclusive_min);
-    if (range.exclusive_max.empty()) {
-      full_range.exclusive_max =
-          KeyRange::PrefixExclusiveMax(absl::StrCat(root(), "/"));
-    } else {
-      full_range.exclusive_max = absl::StrCat(root(), "/", range.exclusive_max);
-    }
-    return full_range;
   }
 
   Future<void> DeleteRange(KeyRange range) override {
     if (range.empty()) return MakeResult();
     TENSORSTORE_RETURN_IF_ERROR(ValidateKeyRange(range));
     return PromiseFuturePair<void>::Link(
-               WithExecutor(executor(),
-                            DeleteRangeTask{GetFullKeyRange(range)}))
+               WithExecutor(executor(), DeleteRangeTask{std::move(range)}))
         .future;
   }
 
-  void ListImpl(const ListOptions& options,
+  void ListImpl(ListOptions options,
                 AnyFlowReceiver<Status, Key> receiver) override {
     if (options.range.empty()) {
       execution::set_starting(receiver, [] {});
@@ -811,19 +794,16 @@ class FileKeyValueStore
       execution::set_stopping(receiver);
       return;
     }
-    executor()(ListTask{GetFullKeyRange(options.range), root().size() + 1,
+    executor()(ListTask{std::move(options.range), options.strip_prefix_length,
                         std::move(receiver)});
   }
   const Executor& executor() { return spec_.file_io_concurrency->executor; }
-  const std::string& root() { return spec_.path; }
 
   std::string DescribeKey(std::string_view key) override {
-    return tensorstore::StrCat(
-        "local file ",
-        tensorstore::QuoteString(internal::JoinPath(root(), key)));
+    return tensorstore::StrCat("local file ", tensorstore::QuoteString(key));
   }
 
-  static void Open(internal::KeyValueStoreOpenState<FileKeyValueStore> state) {
+  static void Open(internal_kvstore::DriverOpenState<FileKeyValueStore> state) {
     state.driver().spec_ = state.spec();
   }
 
@@ -835,7 +815,7 @@ class FileKeyValueStore
   SpecData spec_;
 };
 
-const internal::KeyValueStoreDriverRegistration<FileKeyValueStore> registration;
+const internal_kvstore::DriverRegistration<FileKeyValueStore> registration;
 
 }  // namespace
 }  // namespace tensorstore

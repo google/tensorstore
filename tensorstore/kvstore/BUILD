@@ -139,14 +139,19 @@ config_setting(
 )
 
 tensorstore_cc_library(
-    name = "key_value_store",
+    name = "kvstore",
     srcs = [
-        "key_value_store.cc",
+        "kvstore.cc",
         "transaction.cc",
     ],
     hdrs = [
-        "key_value_store.h",
+        "driver.h",
+        "kvstore.h",
+        "operations.h",
+        "read_modify_write.h",
+        "read_result.h",
         "registry.h",
+        "spec.h",
         "transaction.h",
     ],
     local_defines = select({
@@ -161,14 +166,17 @@ tensorstore_cc_library(
         ":generation",
         ":key_range",
         "//tensorstore:context",
+        "//tensorstore:json_serialization_options",
         "//tensorstore:transaction",
         "//tensorstore/internal:context_binding",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:intrusive_red_black_tree",
         "//tensorstore/internal:json",
+        "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:json_registry",
         "//tensorstore/internal:logging",
         "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal:path",
         "//tensorstore/util:assert_macros",
         "//tensorstore/util:collecting_sender",
         "//tensorstore/util:executor",
@@ -191,11 +199,11 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_test(
-    name = "key_value_store_test",
+    name = "kvstore_test",
     size = "small",
-    srcs = ["key_value_store_test.cc"],
+    srcs = ["kvstore_test.cc"],
     deps = [
-        ":key_value_store",
+        ":kvstore",
         "//tensorstore:context",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
@@ -208,15 +216,15 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "key_value_store_testutil",
+    name = "test_util",
     testonly = 1,
-    srcs = ["key_value_store_testutil.cc"],
-    hdrs = ["key_value_store_testutil.h"],
+    srcs = ["test_util.cc"],
+    hdrs = ["test_util.h"],
     deps = [
         ":byte_range",
         ":generation",
         ":generation_testutil",
-        ":key_value_store",
+        ":kvstore",
         "//tensorstore:context",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json",

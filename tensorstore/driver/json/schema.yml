@@ -15,16 +15,22 @@ allOf:
       description: |
         Optional.  If specified, must be :json:`0`.
     kvstore:
-      $ref: KeyValueStore
+      $ref: KvStore
       description: >-
         Specifies the underlying storage mechanism.
     path:
       type: string
       examples:
       - path/to/data.json
-      description: >-
-        Path to the JSON file within the `KeyValueStore` specified by
+      deprecated: true
+      title: |
+        Additional path to the JSON file within the `KvStore` specified by
         `.kvstore`.
+      description: >-
+        This is joined as an additional :json:`"/"`-separated path component
+        after any :json:schema:`~KvStore.path` member directly within
+        `.kvstore`.  This is supported for backwards compatibility only; the
+        :json:schema:`KvStore.path` member should be used instead.
     cache_pool:
       $ref: ContextResource
       description: >-

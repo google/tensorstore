@@ -28,6 +28,10 @@ std::string JoinPathImpl(std::initializer_list<std::string_view> paths);
 namespace internal {
 // Join multiple paths together, without introducing unnecessary path
 // separators.
+//
+// Equivalent to repeatedly calling `AppendPathComponent` for each argument,
+// starting with an empty string.
+//
 // For example:
 //
 //  Arguments                  | JoinPath
@@ -35,7 +39,7 @@ namespace internal {
 //  '/foo', 'bar'              | /foo/bar
 //  '/foo/', 'bar'             | /foo/bar
 //  '/foo', '/bar'             | /foo/bar
-//  '/foo/', '/bar'            | /foo/bar
+//  '/foo/', '/bar'            | /foo//bar
 
 //
 // Usage:
@@ -64,6 +68,18 @@ std::string CreateURI(std::string_view scheme, std::string_view host,
 // If the `uri` has no path, then the scheme and host are set, but no path.
 void ParseURI(std::string_view uri, std::string_view* scheme,
               std::string_view* host, std::string_view* path);
+
+/// Joins `component` to the end of `path`, adding a '/'-separator between them
+/// if both are non-empty and `path` does not in end '/' and `component` does
+/// not start with '/'.
+void AppendPathComponent(std::string& path, std::string_view component);
+
+/// Ensure that `path` is either empty, or consists of a non-empty string
+/// followed by a '/'.
+void EnsureDirectoryPath(std::string& path);
+
+/// Ensure that `path` does not end in '/'.
+void EnsureNonDirectoryPath(std::string& path);
 
 }  // namespace internal
 }  // namespace tensorstore

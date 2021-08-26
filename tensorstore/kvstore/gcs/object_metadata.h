@@ -27,7 +27,7 @@
 
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
-#include "tensorstore/kvstore/key_value_store.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
 

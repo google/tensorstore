@@ -13,7 +13,7 @@ Create a new :ref:`N5<n5-driver>` dataset on the local filesystem using the
    ...     'driver': 'n5',
    ...     'kvstore': {
    ...         'driver': 'file',
-   ...         'path': '/tmp/dataset',
+   ...         'path': '/tmp/dataset/',
    ...     },
    ...     'metadata': {
    ...         'compression': {
@@ -73,8 +73,8 @@ Open the dataset asynchronously to obtain a :py:obj:`tensorstore.Future`:
    ...     'kvstore': {
    ...         'driver': 'gcs',
    ...         'bucket': 'neuroglancer-janelia-flyem-hemibrain',
+   ...         'path': 'v1.1/segmentation/',
    ...     },
-   ...     'path': 'v1.1/segmentation',
    ...     # Use 100MB in-memory cache.
    ...     'context': {
    ...         'cache_pool': {
@@ -105,9 +105,9 @@ Wait for the open to complete:
      'kvstore': {
        'bucket': 'neuroglancer-janelia-flyem-hemibrain',
        'driver': 'gcs',
+       'path': 'v1.1/segmentation/',
      },
      'multiscale_metadata': {'num_channels': 1, 'type': 'segmentation'},
-     'path': 'v1.1/segmentation',
      'recheck_cached_data': 'open',
      'scale_index': 0,
      'scale_metadata': {
@@ -175,9 +175,9 @@ Create a view of a 100x100x1 slice from the middle, without performing any I/O:
      'kvstore': {
        'bucket': 'neuroglancer-janelia-flyem-hemibrain',
        'driver': 'gcs',
+       'path': 'v1.1/segmentation/',
      },
      'multiscale_metadata': {'num_channels': 1, 'type': 'segmentation'},
-     'path': 'v1.1/segmentation',
      'recheck_cached_data': 'open',
      'scale_index': 0,
      'scale_metadata': {

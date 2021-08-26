@@ -45,8 +45,8 @@
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/key_range.h"
-#include "tensorstore/kvstore/key_value_store.h"
-#include "tensorstore/kvstore/key_value_store_testutil.h"
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/transaction_impl.h"
 #include "tensorstore/util/assert_macros.h"
@@ -190,7 +190,7 @@ void KvsBackedTestCache::TransactionNode::DoApply(ApplyOptions options,
 }
 
 CachePtr<KvsBackedTestCache> KvsBackedTestCache::Make(
-    KeyValueStore::Ptr kvstore, CachePool::StrongPtr pool,
+    kvstore::DriverPtr kvstore, CachePool::StrongPtr pool,
     std::string_view cache_identifier) {
   if (!pool) {
     pool = CachePool::Make(CachePool::Limits{});
@@ -201,7 +201,7 @@ CachePtr<KvsBackedTestCache> KvsBackedTestCache::Make(
 }
 
 KvsRandomOperationTester::KvsRandomOperationTester(
-    absl::BitGenRef gen, KeyValueStore::Ptr kvstore,
+    absl::BitGenRef gen, kvstore::DriverPtr kvstore,
     std::function<std::string(std::string)> get_key)
     : gen(gen), kvstore(kvstore) {
   for (const auto& key : {"x", "y"}) {

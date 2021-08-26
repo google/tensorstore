@@ -20,6 +20,8 @@
 #include <gtest/gtest.h>
 
 using tensorstore::internal::CreateURI;
+using tensorstore::internal::EnsureDirectoryPath;
+using tensorstore::internal::EnsureNonDirectoryPath;
 using tensorstore::internal::JoinPath;
 using tensorstore::internal::ParseURI;
 using tensorstore::internal::PathDirnameBasename;
@@ -30,7 +32,7 @@ TEST(PathTest, JoinPath) {
   EXPECT_EQ("/foo/bar", JoinPath("/foo", "bar"));
   EXPECT_EQ("/foo/bar", JoinPath("/foo/", "bar"));
   EXPECT_EQ("/foo/bar", JoinPath("/foo", "/bar"));
-  EXPECT_EQ("/foo/bar", JoinPath("/foo/", "/bar"));
+  EXPECT_EQ("/foo//bar", JoinPath("/foo/", "/bar"));
 
   EXPECT_EQ("foo/bar", JoinPath("foo", "bar"));
   EXPECT_EQ("foo/bar", JoinPath("foo", "/bar"));
@@ -39,7 +41,7 @@ TEST(PathTest, JoinPath) {
   EXPECT_EQ("bar", JoinPath("", "bar"));
   EXPECT_EQ("/foo", JoinPath("/foo", ""));
 
-  EXPECT_EQ("/foo/bar/baz/blah/blink/biz",
+  EXPECT_EQ("/foo/bar/baz//blah/blink/biz",
             JoinPath("/foo/bar/baz/", "/blah/blink/biz"));
   EXPECT_EQ("/foo/bar/baz/blah", JoinPath("/foo", "bar", "baz", "blah"));
 
@@ -130,6 +132,60 @@ TEST(PathTest, ParseURIMissingParams) {
 
   ParseURI("http://foo/bar", nullptr, nullptr, &p);
   EXPECT_EQ("/bar", p);
+}
+
+TEST(EnsureDirectoryPathTest, EmptyString) {
+  std::string path = "";
+  EnsureDirectoryPath(path);
+  EXPECT_EQ("", path);
+}
+
+TEST(EnsureDirectoryPathTest, SingleSlash) {
+  std::string path = "/";
+  EnsureDirectoryPath(path);
+  EXPECT_EQ("", path);
+}
+
+TEST(EnsureDirectoryPathTest, NonEmptyWithoutSlash) {
+  std::string path = "abc";
+  EnsureDirectoryPath(path);
+  EXPECT_EQ("abc/", path);
+}
+
+TEST(EnsureDirectoryPathTest, NonEmptyWithSlash) {
+  std::string path = "abc/";
+  EnsureDirectoryPath(path);
+  EXPECT_EQ("abc/", path);
+}
+
+TEST(EnsureNonDirectoryPathTest, EmptyString) {
+  std::string path = "";
+  EnsureNonDirectoryPath(path);
+  EXPECT_EQ("", path);
+}
+
+TEST(EnsureNonDirectoryPathTest, SingleSlash) {
+  std::string path = "/";
+  EnsureNonDirectoryPath(path);
+  EXPECT_EQ("", path);
+}
+
+TEST(EnsureNonDirectoryPathTest, NonEmptyWithoutSlash) {
+  std::string path = "abc";
+  EnsureNonDirectoryPath(path);
+  EXPECT_EQ("abc", path);
+}
+
+TEST(EnsureNonDirectoryPathTest, NonEmptyWithSlash) {
+  std::string path = "abc/";
+  EnsureNonDirectoryPath(path);
+  EXPECT_EQ("abc", path);
+}
+
+TEST(EnsureNonDirectoryPathTest, NonEmptyWithSlashes) {
+  std::string path = "abc////";
+  EnsureNonDirectoryPath(path);
+  EXPECT_EQ("abc", path);
 }
 
 }  // namespace

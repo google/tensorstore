@@ -44,8 +44,8 @@
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/gcs/gcs_mock.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/key_value_store.h"
-#include "tensorstore/kvstore/key_value_store_testutil.h"
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -53,12 +53,12 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
+namespace kvstore = tensorstore::kvstore;
 using tensorstore::CompletionNotifyingReceiver;
 using tensorstore::Context;
 using tensorstore::Future;
 using tensorstore::GCSMockStorageBucket;
 using tensorstore::KeyRange;
-using tensorstore::KeyValueStore;
 using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
 using tensorstore::internal_http::HttpRequest;
@@ -144,15 +144,13 @@ TEST(GcsKeyValueStoreTest, BadBucketNames) {
         "0123456789123456789012345678912345678901234567891234567890"
         "1234567891234567890123456789123456789012345678912345678901"
         "23456789123456789.b"}) {
-    EXPECT_FALSE(
-        KeyValueStore::Open({{"driver", "gcs"}, {"bucket", bucket}}, context)
-            .result())
+    EXPECT_FALSE(kvstore::Open({{"driver", "gcs"}, {"bucket", bucket}}, context)
+                     .result())
         << "bucket: " << bucket;
   }
   for (auto bucket : {"abc", "abc.1-2_3.abc"}) {
-    EXPECT_TRUE(
-        KeyValueStore::Open({{"driver", "gcs"}, {"bucket", bucket}}, context)
-            .result())
+    EXPECT_TRUE(kvstore::Open({{"driver", "gcs"}, {"bucket", bucket}}, context)
+                    .result())
         << "bucket: " << bucket;
   }
 }
@@ -171,23 +169,23 @@ TEST(GcsKeyValueStoreTest, BadObjectNames) {
   // https://www.googleapis.com/kvstore/v1/b/my-project/o/test
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      KeyValueStore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+      kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
           .result());
-  EXPECT_THAT(store->Read(".").result(),
+  EXPECT_THAT(kvstore::Read(store, ".").result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(store->Read("..").result(),
+  EXPECT_THAT(kvstore::Read(store, "..").result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(store->Read(".well-known/acme-challenge").result(),
+  EXPECT_THAT(kvstore::Read(store, ".well-known/acme-challenge").result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(store->Read("foo\nbar").result(),
+  EXPECT_THAT(kvstore::Read(store, "foo\nbar").result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(store->Read("foo\rbar").result(),
+  EXPECT_THAT(kvstore::Read(store, "foo\rbar").result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 
   {
-    KeyValueStore::ReadOptions options;
+    kvstore::ReadOptions options;
     options.if_not_equal = StorageGeneration::FromString("abc123");
-    EXPECT_THAT(store->Read("abc", options).result(),
+    EXPECT_THAT(kvstore::Read(store, "abc", options).result(),
                 MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 }
@@ -204,9 +202,9 @@ TEST(GcsKeyValueStoreTest, Basic) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      KeyValueStore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+      kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
           .result());
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store->spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store.spec());
   EXPECT_THAT(spec.ToJson(tensorstore::IncludeDefaults{false}),
               ::testing::Optional(
                   MatchesJson({{"driver", "gcs"}, {"bucket", "my-bucket"}})));
@@ -227,7 +225,7 @@ TEST(GcsKeyValueStoreTest, Retry) {
       auto context = Context::Default();
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
           auto store,
-          KeyValueStore::Open(
+          kvstore::Open(
               {{"driver", "gcs"},
                {"bucket", "my-bucket"},
                {"context",
@@ -236,11 +234,11 @@ TEST(GcsKeyValueStoreTest, Retry) {
               .result());
       if (fail) {
         bucket.TriggerErrors(max_retries);
-        EXPECT_THAT(store->Read("x").result(),
+        EXPECT_THAT(kvstore::Read(store, "x").result(),
                     MatchesStatus(absl::StatusCode::kAborted));
       } else {
         bucket.TriggerErrors(max_retries - 2);
-        TENSORSTORE_EXPECT_OK(store->Read("x").result());
+        TENSORSTORE_EXPECT_OK(kvstore::Read(store, "x").result());
       }
     }
   }
@@ -258,7 +256,7 @@ TEST(GcsKeyValueStoreTest, List) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      KeyValueStore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+      kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
           .result());
 
   // Listing an empty bucket via `List` works.
@@ -266,7 +264,7 @@ TEST(GcsKeyValueStoreTest, List) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({}),
+        kvstore::List(store, {}),
         CompletionNotifyingReceiver{&notification,
                                     tensorstore::LoggingReceiver{&log}});
     notification.WaitForNotification();
@@ -275,22 +273,22 @@ TEST(GcsKeyValueStoreTest, List) {
   }
 
   // Listing an empty bucket via `ListFuture` works.
-  EXPECT_THAT(ListFuture(store.get(), {}).result(),
+  EXPECT_THAT(ListFuture(store, {}).result(),
               ::testing::Optional(::testing::ElementsAre()));
 
-  TENSORSTORE_EXPECT_OK(store->Write("a/b", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/d", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/b", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/d", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/x", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/y", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/z/e", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/z/f", absl::Cord("xyz")));
 
   // Listing the entire stream via `List` works.
   {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({}),
+        kvstore::List(store, {}),
         CompletionNotifyingReceiver{&notification,
                                     tensorstore::LoggingReceiver{&log}});
     notification.WaitForNotification();
@@ -302,7 +300,7 @@ TEST(GcsKeyValueStoreTest, List) {
   }
 
   // Listing the entire stream via `ListFuture` works.
-  EXPECT_THAT(ListFuture(store.get(), {}).result(),
+  EXPECT_THAT(ListFuture(store, {}).result(),
               ::testing::Optional(::testing::UnorderedElementsAre(
                   "a/d", "a/c/z/f", "a/c/y", "a/c/z/e", "a/c/x", "a/b")));
 
@@ -311,7 +309,7 @@ TEST(GcsKeyValueStoreTest, List) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({KeyRange::Prefix("a/c/")}),
+        kvstore::List(store, {KeyRange::Prefix("a/c/")}),
         CompletionNotifyingReceiver{&notification,
                                     tensorstore::LoggingReceiver{&log}});
     notification.WaitForNotification();
@@ -333,7 +331,7 @@ TEST(GcsKeyValueStoreTest, List) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({}),
+        kvstore::List(store, {}),
         CompletionNotifyingReceiver{&notification, CancelOnStarting{{&log}}});
     notification.WaitForNotification();
     EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_done",
@@ -343,7 +341,7 @@ TEST(GcsKeyValueStoreTest, List) {
   // Cancellation in the middle of the stream stops the stream.
   // However it may not do it immediately.
   struct CancelAfter2 : public tensorstore::LoggingReceiver {
-    using Key = tensorstore::KeyValueStore::Key;
+    using Key = kvstore::Key;
     tensorstore::AnyCancelReceiver cancel;
 
     void set_starting(tensorstore::AnyCancelReceiver do_cancel) {
@@ -363,7 +361,7 @@ TEST(GcsKeyValueStoreTest, List) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({}),
+        kvstore::List(store, {}),
         CompletionNotifyingReceiver{&notification, CancelAfter2{{&log}}});
     notification.WaitForNotification();
     EXPECT_THAT(log, ::testing::Contains("set_starting"));
@@ -379,7 +377,7 @@ TEST(GcsKeyValueStoreTest, List) {
   }
 
   // Listing a subset of the stream via `ListFuture` works.
-  EXPECT_THAT(ListFuture(store.get(), {KeyRange::Prefix("a/c/")}).result(),
+  EXPECT_THAT(ListFuture(store, {KeyRange::Prefix("a/c/")}).result(),
               ::testing::Optional(::testing::UnorderedElementsAre(
                   "a/c/z/f", "a/c/y", "a/c/z/e", "a/c/x")));
 }
@@ -403,19 +401,19 @@ TEST(GcsKeyValueStoreTest, InvalidSpec) {
 
   // Test with extra key.
   EXPECT_THAT(
-      KeyValueStore::Open(
+      kvstore::Open(
           {{"driver", "gcs"}, {"bucket", "my-bucket"}, {"extra", "key"}},
           context)
           .result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument));
 
   // Test with missing `"bucket"` key.
-  EXPECT_THAT(KeyValueStore::Open({{"driver", "gcs"}}, context).result(),
+  EXPECT_THAT(kvstore::Open({{"driver", "gcs"}}, context).result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 
   // Test with invalid `"bucket"` key.
   EXPECT_THAT(
-      KeyValueStore::Open({{"driver", "gcs"}, {"bucket", 5}}, context).result(),
+      kvstore::Open({{"driver", "gcs"}, {"bucket", 5}}, context).result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
@@ -430,15 +428,15 @@ TEST(GcsKeyValueStoreTest, RequestorPays) {
 
   const auto TestWrite = [&](Context context, auto bucket2_status_matcher) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto store1, KeyValueStore::Open(
-                         {{"driver", "gcs"}, {"bucket", "my-bucket1"}}, context)
-                         .result());
+        auto store1,
+        kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket1"}}, context)
+            .result());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto store2, KeyValueStore::Open(
-                         {{"driver", "gcs"}, {"bucket", "my-bucket2"}}, context)
-                         .result());
-    TENSORSTORE_EXPECT_OK(store1->Write("abc", absl::Cord("xyz")));
-    EXPECT_THAT(GetStatus(store2->Write("abc", absl::Cord("xyz"))),
+        auto store2,
+        kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket2"}}, context)
+            .result());
+    TENSORSTORE_EXPECT_OK(kvstore::Write(store1, "abc", absl::Cord("xyz")));
+    EXPECT_THAT(GetStatus(kvstore::Write(store2, "abc", absl::Cord("xyz"))),
                 bucket2_status_matcher);
   };
 
@@ -517,13 +515,13 @@ TEST(GcsKeyValueStoreTest, Concurrency) {
                         {{"gcs_request_concurrency", {{"limit", limit}}}})
                         .value()};
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto store, KeyValueStore::Open(
-                        {{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
-                        .result());
+        auto store,
+        kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+            .result());
 
-    std::vector<tensorstore::Future<KeyValueStore::ReadResult>> futures;
+    std::vector<tensorstore::Future<kvstore::ReadResult>> futures;
     for (size_t i = 0; i < 10 * limit; ++i) {
-      futures.push_back(store->Read("abc"));
+      futures.push_back(kvstore::Read(store, "abc"));
     }
     for (const auto& future : futures) {
       future.Wait();
@@ -546,7 +544,7 @@ TEST(GcsKeyValueStoreTest, DeletePrefix) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      KeyValueStore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+      kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
           .result());
   tensorstore::internal::TestKeyValueStoreDeletePrefix(store);
 }
@@ -561,7 +559,7 @@ TEST(GcsKeyValueStoreTest, DeleteRange) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      KeyValueStore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+      kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
           .result());
   tensorstore::internal::TestKeyValueStoreDeleteRange(store);
 }
@@ -576,7 +574,7 @@ TEST(GcsKeyValueStoreTest, DeleteRangeToEnd) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      KeyValueStore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+      kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
           .result());
   tensorstore::internal::TestKeyValueStoreDeleteRangeToEnd(store);
 }
@@ -591,7 +589,7 @@ TEST(GcsKeyValueStoreTest, DeleteRangeFromBeginning) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      KeyValueStore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+      kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
           .result());
   tensorstore::internal::TestKeyValueStoreDeleteRangeFromBeginning(store);
 }
@@ -625,7 +623,7 @@ TEST(GcsKeyValueStoreTest, DeleteRangeCancellation) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      KeyValueStore::Open(
+      kvstore::Open(
           {
               {"driver", "gcs"},
               {"bucket", "my-bucket"},
@@ -634,14 +632,14 @@ TEST(GcsKeyValueStoreTest, DeleteRangeCancellation) {
           context)
           .result());
   for (std::string key : {"a/b", "a/c/a", "a/c/b", "a/c/d", "a/d"}) {
-    TENSORSTORE_ASSERT_OK(store->Write(key, absl::Cord()));
+    TENSORSTORE_ASSERT_OK(kvstore::Write(store, key, absl::Cord()));
   }
 
   // Issue DeleteRange request and then immediately cancel it by dropping the
   // future.
   {
     [[maybe_unused]] auto future =
-        store->DeleteRange(tensorstore::KeyRange{"a/ba", "a/ca"});
+        kvstore::DeleteRange(store, tensorstore::KeyRange{"a/ba", "a/ca"});
   }
   mock_transport->cancellation_notification_.Notify();
   // FIXME(jbms): Unfortunately our cancellation mechanism does not permit
@@ -650,7 +648,7 @@ TEST(GcsKeyValueStoreTest, DeleteRangeCancellation) {
   // but it won't fail spuriously.
   absl::SleepFor(absl::Milliseconds(100));
   EXPECT_GE(1, mock_transport->total_delete_requests_.load());
-  EXPECT_THAT(ListFuture(store.get()).result(),
+  EXPECT_THAT(ListFuture(store).result(),
               ::testing::Optional(::testing::SizeIs(::testing::Ge(4))));
 }
 

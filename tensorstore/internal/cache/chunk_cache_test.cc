@@ -55,8 +55,8 @@
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/internal/thread_pool.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/key_value_store_testutil.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/progress.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/staleness_bound.h"
@@ -71,6 +71,7 @@
 
 namespace {
 
+namespace kvstore = tensorstore::kvstore;
 using tensorstore::ArrayView;
 using tensorstore::Box;
 using tensorstore::DimensionIndex;
@@ -78,7 +79,6 @@ using tensorstore::Executor;
 using tensorstore::Future;
 using tensorstore::Index;
 using tensorstore::IndexTransform;
-using tensorstore::KeyValueStore;
 using tensorstore::MakeArray;
 using tensorstore::MakeCopy;
 using tensorstore::MatchesStatus;
@@ -275,8 +275,8 @@ class ChunkCacheTest : public ::testing::Test {
 
   std::optional<ChunkGridSpecification> grid;
 
-  KeyValueStore::Ptr memory_store = tensorstore::GetMemoryKeyValueStore();
-  KeyValueStore::PtrT<MockKeyValueStore> mock_store{new MockKeyValueStore};
+  kvstore::DriverPtr memory_store = tensorstore::GetMemoryKeyValueStore();
+  MockKeyValueStore::Ptr mock_store{new MockKeyValueStore};
 
   std::vector<ChunkCache::ReadData> GetChunk(
       const std::vector<Index>& indices) {

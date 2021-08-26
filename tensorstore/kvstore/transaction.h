@@ -17,29 +17,28 @@
 
 /// \file
 ///
-/// Facilities for implementing the transactional KeyValueStore operations:
+/// Facilities for implementing the transactional operations:
 ///
-/// - `KeyValueStore::ReadModifyWrite`
+/// - `kvstore::Driver::ReadModifyWrite`
 ///
-/// - `KeyValueStore::TransactionalDeleteRange`
+/// - `kvstore::Driver::TransactionalDeleteRange`
 ///
-/// There are three types of KeyValueStore drivers:
+/// There are three types of key-value store drivers:
 ///
-/// - Terminal: The `KeyValueStore` driver directly accesses the underlying
-///   storage without going through any lower-level `KeyValueStore`.  There are
-///   two sub-types of terminal `KeyValueStore`:
+/// - Terminal: The `kvstore::Driver` directly accesses the underlying storage
+///   without going through any lower-level `kvstore::Driver`.  There are two
+///   sub-types of terminal `kvstore::Driver`:
 ///
 ///   - Non-atomic: implements `Read`, `Write` (and possibly) `DeleteRange` but
-///     not any transactional operations.  The default
-///     `KeyValueStore::ReadModifyWrite` and
-///     `KeyValueStore::TransactionalDeleteRange` implementations using
+///     not any transactional operations.  The default `Driver::ReadModifyWrite`
+///     and `Driver::TransactionalDeleteRange` implementations using
 ///     `NonAtomicTransactionNode` are used, which are based on the driver's
 ///     non-transactional `Read`, `Write`, and `DeleteRange` methods.  When used
 ///     with an atomic-mode transaction, the transaction will fail if more than
 ///     a single key is affected.  The "file" and "gcs" drivers are in this
 ///     category.
 ///
-///   - Atomic: The `KeyValueStore` implements its own `TransactionNode` class
+///   - Atomic: The `Driver` implements its own `TransactionNode` class
 ///     that inherits from `AtomicTransactionNode` and defines `ReadModifyWrite`
 ///     based on `AddReadModifyWrite` and `TransactionalDeleteRange` based on
 ///     `AddDeleteRange`.  The driver implements non-transactional `Read` and
@@ -47,13 +46,13 @@
 ///     `WriteViaTransaction` to implement it in terms of the transactional
 ///     `ReadModifyWrite`.  The "memory" driver is in this category.
 ///
-/// - Non-terminal: The `KeyValueStore` driver is merely an adapter over an
-///   underlying `KeyValueStore`; the connection to the underlying
-///   `KeyValueStore` is provided by `KvsBackedCache`.  The
-///   uint64_sharded_key_value_store driver is in this category.
+/// - Non-terminal: The `Driver` driver is merely an adapter over an underlying
+///   `Driver`; the connection to the underlying `Driver` is provided by
+///   `KvsBackedCache`.  The uint64_sharded_key_value_store driver is in this
+///   category.
 ///
-/// For all three types of KeyValueStore driver, the `MultiPhaseMutation` class
-/// tracks the uncommitted transactional operations in order to provide a
+/// For all three types of key-value store driver, the `MultiPhaseMutation`
+/// class tracks the uncommitted transactional operations in order to provide a
 /// virtual view of the result after the transaction is committed:
 ///
 /// In the simple case, the only transactional operations are `ReadModifyWrite`
@@ -64,11 +63,12 @@
 /// the same key, possibly with intervening `Transaction::Barrier` calls, and
 /// there may be `TransctionalDeleteRange` operations before or after
 /// `ReadModifyWrite` operations that affect some of the same keys.  (Note that
-/// `Transaction::Barrier` calls are only relevant to terminal `KeyValueStore`
+/// `Transaction::Barrier` calls are only relevant to terminal key-value store
 /// drivers, which use a multi-phase TransactionNode.  A TransactionNode for a
 /// non-terminal driver only needs to track operations for a single phase; if
-/// transactional operations are performed on a non-terminal KeyValueStore over
-/// multiple phases, a separate TransactionNode object is used for each phase.)
+/// transactional operations are performed on a non-terminal key-value store
+/// over multiple phases, a separate TransactionNode object is used for each
+/// phase.)
 ///
 /// Transactional operations are tracked as follows:
 ///
@@ -86,12 +86,23 @@
 
 #include "tensorstore/internal/intrusive_red_black_tree.h"
 #include "tensorstore/internal/logging.h"
-#include "tensorstore/kvstore/key_value_store.h"
+#include "tensorstore/kvstore/read_modify_write.h"
+#include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
-namespace internal_kvs {
+namespace internal_kvstore {
+
+using kvstore::Driver;
+using kvstore::Key;
+using kvstore::ReadModifyWriteSource;
+using kvstore::ReadModifyWriteTarget;
+using kvstore::ReadOptions;
+using kvstore::ReadResult;
+using kvstore::Value;
+using kvstore::WriteOptions;
 
 class ReadModifyWriteEntry;
 class DeleteRangeEntry;
@@ -212,12 +223,12 @@ class DeleteRangeEntry final : public MutationEntry {
 
 /// MutationEntry representing a `ReadModifyWrite` operation.
 class ReadModifyWriteEntry : public MutationEntry,
-                             public KeyValueStore::ReadModifyWriteTarget {
+                             public ReadModifyWriteTarget {
  public:
   /// The `ReadModifyWriteSource` (normally associated with a
   /// `KvsBackedCache::TransactionNode`) provided to the `ReadModifyWrite`
   /// operation.
-  KeyValueStore::ReadModifyWriteSource* source_;
+  ReadModifyWriteSource* source_;
 
   /// Pointer to prior `ReadModifyWrite` operation (possibly in a prior phase)
   /// that was superseded by this operation.
@@ -291,7 +302,7 @@ class ReadModifyWriteEntry : public MutationEntry,
   /// repeatedly due to splits and merges.
   constexpr static Flags kDeleted = 32;
 
-  // Implementation of `KeyValueStore::ReadModifyWriteTarget` interface:
+  // Implementation of `ReadModifyWriteTarget` interface:
 
   /// Satisfies a read request by requesting a writeback of `prev_`, or by
   /// calling `MultiPhaseMutation::Read` if there is no previous operation.
@@ -400,13 +411,12 @@ class MultiPhaseMutation {
   /// Reads from the underlying storage.  This is called when a
   /// `ReadModifyWriteSource` requests a read that cannot be satisfied by a
   /// prior (superseded) entry.
-  virtual void Read(
-      ReadModifyWriteEntry& entry,
-      KeyValueStore::ReadModifyWriteTarget::TransactionalReadOptions&& options,
-      KeyValueStore::ReadModifyWriteTarget::ReadReceiver&& receiver) = 0;
+  virtual void Read(ReadModifyWriteEntry& entry,
+                    ReadModifyWriteTarget::TransactionalReadOptions&& options,
+                    ReadModifyWriteTarget::ReadReceiver&& receiver) = 0;
 
   virtual void Writeback(ReadModifyWriteEntry& entry,
-                         KeyValueStore::ReadResult&& read_result) = 0;
+                         ReadResult&& read_result) = 0;
 
   virtual void Writeback(DeleteRangeEntry& entry) = 0;
   virtual bool MultiPhaseReadsCommitted() { return true; }
@@ -430,8 +440,7 @@ class MultiPhaseMutation {
 
   /// Registers a `ReadModifyWrite` operation for the specified `key`.
   ///
-  /// This is normally called by implementations of
-  /// `KeyValueStore::ReadModifyWrite`.
+  /// This is normally called by implementations of `Driver::ReadModifyWrite`.
   ///
   /// \pre Must be called with `mutex()` held.
   /// \param phase[out] On return, set to the transaction phase to which the
@@ -443,14 +452,12 @@ class MultiPhaseMutation {
   /// \param source The write source.
   /// \returns A status value that may be used to validate constraints in the
   ///     case that multi-key transactions are not supported.
-  ReadModifyWriteStatus ReadModifyWrite(
-      size_t& phase, KeyValueStore::Key key,
-      KeyValueStore::ReadModifyWriteSource& source);
+  ReadModifyWriteStatus ReadModifyWrite(size_t& phase, Key key,
+                                        ReadModifyWriteSource& source);
 
   /// Registers a `DeleteRange` operation for the specified `range`.
   ///
-  /// This is normally called by implementations of
-  /// `KeyValueStore::DeleteRange`.
+  /// This is normally called by implementations of `Driver::DeleteRange`.
   ///
   /// \pre Must be called with `mutex()` held.
   /// \param range The range to delete.
@@ -483,7 +490,7 @@ class AtomicMultiPhaseMutation : public MultiPhaseMutation {
  public:
   class BufferedReadModifyWriteEntry : public ReadModifyWriteEntry {
    public:
-    KeyValueStore::ReadResult read_result_;
+    ReadResult read_result_;
 
     bool IsOutOfDate(absl::Time staleness_bound) {
       return read_result_.stamp.time == absl::InfinitePast() ||
@@ -494,7 +501,7 @@ class AtomicMultiPhaseMutation : public MultiPhaseMutation {
   ReadModifyWriteEntry* AllocateReadModifyWriteEntry() override;
   void FreeReadModifyWriteEntry(ReadModifyWriteEntry* entry) override;
   void Writeback(ReadModifyWriteEntry& entry,
-                 KeyValueStore::ReadResult&& read_result) override;
+                 ReadResult&& read_result) override;
   void Writeback(DeleteRangeEntry& entry) override;
   void RevokeAllEntries();
 
@@ -506,45 +513,41 @@ void RetryAtomicWriteback(SinglePhaseMutation& single_phase_mutation,
                           absl::Time staleness_bound);
 void AtomicCommitWritebackSuccess(SinglePhaseMutation& single_phase_mutation);
 
-void ReadDirectly(
-    KeyValueStore* kvstore, ReadModifyWriteEntry& entry,
-    KeyValueStore::ReadModifyWriteTarget::TransactionalReadOptions&& options,
-    KeyValueStore::ReadModifyWriteTarget::ReadReceiver&& receiver);
+void ReadDirectly(Driver* driver, ReadModifyWriteEntry& entry,
+                  ReadModifyWriteTarget::TransactionalReadOptions&& options,
+                  ReadModifyWriteTarget::ReadReceiver&& receiver);
 
-void WritebackDirectly(KeyValueStore* kvstore, ReadModifyWriteEntry& entry,
-                       KeyValueStore::ReadResult&& read_result);
+void WritebackDirectly(Driver* driver, ReadModifyWriteEntry& entry,
+                       ReadResult&& read_result);
 
-void WritebackDirectly(KeyValueStore* kvstore, DeleteRangeEntry& entry);
+void WritebackDirectly(Driver* driver, DeleteRangeEntry& entry);
 
 template <typename DerivedMultiPhaseMutation = MultiPhaseMutation>
 class TransactionNodeBase : public internal::TransactionState::Node,
                             public DerivedMultiPhaseMutation {
  public:
-  TransactionNodeBase(KeyValueStore* kvstore)
-      : internal::TransactionState::Node(kvstore) {
-    intrusive_ptr_increment(kvstore);
+  TransactionNodeBase(Driver* driver)
+      : internal::TransactionState::Node(driver) {
+    intrusive_ptr_increment(driver);
   }
 
-  ~TransactionNodeBase() { intrusive_ptr_decrement(this->kvstore()); }
+  ~TransactionNodeBase() { intrusive_ptr_decrement(this->driver()); }
 
-  KeyValueStore* kvstore() {
-    return static_cast<KeyValueStore*>(this->associated_data());
-  }
+  Driver* driver() { return static_cast<Driver*>(this->associated_data()); }
 
   internal::TransactionState::Node& GetTransactionNode() override {
     return *this;
   }
 
   std::string DescribeKey(std::string_view key) override {
-    return this->kvstore()->DescribeKey(key);
+    return this->driver()->DescribeKey(key);
   }
 
-  void Read(
-      ReadModifyWriteEntry& entry,
-      KeyValueStore::ReadModifyWriteTarget::TransactionalReadOptions&& options,
-      KeyValueStore::ReadModifyWriteTarget::ReadReceiver&& receiver) override {
-    internal_kvs::ReadDirectly(kvstore(), entry, std::move(options),
-                               std::move(receiver));
+  void Read(ReadModifyWriteEntry& entry,
+            ReadModifyWriteTarget::TransactionalReadOptions&& options,
+            ReadModifyWriteTarget::ReadReceiver&& receiver) override {
+    internal_kvstore::ReadDirectly(driver(), entry, std::move(options),
+                                   std::move(receiver));
   }
 
   void PhaseCommitDone(size_t next_phase) override {
@@ -579,13 +582,13 @@ class NonAtomicTransactionNode
   using TransactionNodeBase<MultiPhaseMutation>::TransactionNodeBase;
 
   void Writeback(ReadModifyWriteEntry& entry,
-                 KeyValueStore::ReadResult&& read_result) override {
-    internal_kvs::WritebackDirectly(this->kvstore(), entry,
-                                    std::move(read_result));
+                 ReadResult&& read_result) override {
+    internal_kvstore::WritebackDirectly(this->driver(), entry,
+                                        std::move(read_result));
   }
 
   void Writeback(DeleteRangeEntry& entry) override {
-    internal_kvs::WritebackDirectly(kvstore(), entry);
+    internal_kvstore::WritebackDirectly(driver(), entry);
   }
 };
 
@@ -593,45 +596,43 @@ using AtomicTransactionNode = TransactionNodeBase<AtomicMultiPhaseMutation>;
 
 template <typename TransactionNode>
 Result<internal::OpenTransactionNodePtr<TransactionNode>> GetTransactionNode(
-    KeyValueStore* kvstore, internal::OpenTransactionPtr& transaction) {
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto node, internal::GetOrCreateOpenTransaction(transaction)
-                     .GetOrCreateMultiPhaseNode(kvstore, [kvstore] {
-                       return new TransactionNode(kvstore);
-                     }));
+    Driver* driver, internal::OpenTransactionPtr& transaction) {
+  TENSORSTORE_ASSIGN_OR_RETURN(auto node,
+                               internal::GetOrCreateOpenTransaction(transaction)
+                                   .GetOrCreateMultiPhaseNode(driver, [driver] {
+                                     return new TransactionNode(driver);
+                                   }));
   return internal::static_pointer_cast<TransactionNode>(std::move(node));
 }
 
 template <typename TransactionNode>
-absl::Status AddReadModifyWrite(KeyValueStore* kvstore,
+absl::Status AddReadModifyWrite(Driver* driver,
                                 internal::OpenTransactionPtr& transaction,
-                                size_t& phase, KeyValueStore::Key key,
-                                KeyValueStore::ReadModifyWriteSource& source) {
+                                size_t& phase, Key key,
+                                ReadModifyWriteSource& source) {
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto node,
-      internal_kvs::GetTransactionNode<TransactionNode>(kvstore, transaction));
+      auto node, internal_kvstore::GetTransactionNode<TransactionNode>(
+                     driver, transaction));
   absl::MutexLock lock(&node->mutex_);
   node->ReadModifyWrite(phase, std::move(key), source);
   return absl::OkStatus();
 }
 
 template <typename TransactionNode>
-absl::Status AddDeleteRange(KeyValueStore* kvstore,
+absl::Status AddDeleteRange(Driver* driver,
                             const internal::OpenTransactionPtr& transaction,
                             KeyRange&& range) {
   auto transaction_copy = transaction;
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto node, internal_kvs::GetTransactionNode<TransactionNode>(
-                     kvstore, transaction_copy));
+      auto node, internal_kvstore::GetTransactionNode<TransactionNode>(
+                     driver, transaction_copy));
   absl::MutexLock lock(&node->mutex_);
   node->DeleteRange(std::move(range));
   return absl::OkStatus();
 }
 
 Future<TimestampedStorageGeneration> WriteViaTransaction(
-    KeyValueStore* kvstore, KeyValueStore::Key key,
-    std::optional<KeyValueStore::Value> value,
-    KeyValueStore::WriteOptions options);
+    Driver* driver, Key key, std::optional<Value> value, WriteOptions options);
 
 #ifdef TENSORSTORE_INTERNAL_KVSTORE_TRANSACTION_DEBUG
 
@@ -644,9 +645,10 @@ Future<TimestampedStorageGeneration> WriteViaTransaction(
 ///
 ///     MutationEntry &entry = ...;
 ///     TENSORSTORE_KVSTORE_DEBUG_LOG(entry, "Information", to, "include");
-#define TENSORSTORE_KVSTORE_DEBUG_LOG(...)                                    \
-  do {                                                                        \
-    tensorstore::internal_kvs::KvstoreDebugLog(TENSORSTORE_LOC, __VA_ARGS__); \
+#define TENSORSTORE_KVSTORE_DEBUG_LOG(...)                          \
+  do {                                                              \
+    tensorstore::internal_kvstore::KvstoreDebugLog(TENSORSTORE_LOC, \
+                                                   __VA_ARGS__);    \
   } while (false)
 
 template <typename... T>
@@ -678,7 +680,7 @@ void KvstoreDebugLog(tensorstore::SourceLocation loc, MutationEntry& entry,
 #define TENSORSTORE_KVSTORE_DEBUG_LOG(...) while (false)
 #endif
 
-}  // namespace internal_kvs
+}  // namespace internal_kvstore
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_KVSTORE_TRANSACTION_H_

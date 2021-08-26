@@ -154,14 +154,14 @@ class JsonRegistry {
   // `RegisteredObjectBinder` to work around a clang-cl error.
   struct KeyBinderImpl {
     const internal_json_registry::JsonRegistryImpl& impl;
-    absl::Status operator()(std::true_type is_loading,
-                            const LoadOptions& options, BasePtr* obj,
-                            ::nlohmann::json* j) const {
+    template <typename Options>
+    absl::Status operator()(std::true_type is_loading, const Options& options,
+                            BasePtr* obj, ::nlohmann::json* j) const {
       return impl.LoadKey(obj, j);
     }
-    absl::Status operator()(std::false_type is_loading,
-                            const SaveOptions& options, const BasePtr* obj,
-                            ::nlohmann::json* j) const {
+    template <typename Options>
+    absl::Status operator()(std::false_type is_loading, const Options& options,
+                            const BasePtr* obj, ::nlohmann::json* j) const {
       return impl.SaveKey(typeid(*obj->get()), obj, j);
     }
   };

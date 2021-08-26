@@ -22,7 +22,7 @@
 
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded.h"
 #include "tensorstore/internal/cache/cache.h"
-#include "tensorstore/kvstore/key_value_store.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {
@@ -94,8 +94,8 @@ using GetMaxChunksPerShardFunction =
 ///     by the `neuroglancer_precomputed` volume driver to allow shard-aligned
 ///     writes to be performed unconditionally, in the case where a shard
 ///     corresponds to a rectangular region.
-KeyValueStore::Ptr GetShardedKeyValueStore(
-    KeyValueStore::Ptr base_kvstore, Executor executor, std::string key_prefix,
+kvstore::DriverPtr GetShardedKeyValueStore(
+    kvstore::DriverPtr base_kvstore, Executor executor, std::string key_prefix,
     const ShardingSpec& sharding_spec, internal::CachePool::WeakPtr cache_pool,
     GetMaxChunksPerShardFunction get_max_chunks_per_shard = {});
 

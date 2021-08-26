@@ -30,9 +30,9 @@ TEST(IsKeyValid, Basic) {
 
   EXPECT_FALSE(IsKeyValid("", ""));
   EXPECT_FALSE(IsKeyValid("/", ""));
-  EXPECT_FALSE(IsKeyValid("/tmp/root", ""));
+  EXPECT_TRUE(IsKeyValid("/tmp/root", ""));
   EXPECT_FALSE(IsKeyValid("/tmp/root/", ""));
-  EXPECT_FALSE(IsKeyValid("tmp//root", ""));
+  EXPECT_TRUE(IsKeyValid("tmp//root", ""));
   EXPECT_FALSE(IsKeyValid("tmp/./root", ""));
   EXPECT_FALSE(IsKeyValid("tmp/../root", ""));
   EXPECT_FALSE(IsKeyValid("tmp/root/", ""));

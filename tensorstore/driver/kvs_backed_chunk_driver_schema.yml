@@ -7,7 +7,7 @@ allOf:
 - type: object
   properties:
     kvstore:
-      $ref: KeyValueStore
+      $ref: KvStore
       description: >-
         Specifies the underlying storage mechanism.
     path:
@@ -15,9 +15,15 @@ allOf:
       default: ''
       examples:
       - path/to/data
-      description: >-
-        Path within the :json:schema:`KeyValueStore` specified by
+      deprecated: true
+      title: |
+        Additional path within the :json:schema:`KvStore` specified by
         `.kvstore`.
+      description: >-
+        This is joined as an additional :json:`"/"`-separated path component
+        after any :json:schema:`~KvStore.path` member directly within
+        `.kvstore`.  This is supported for backwards compatibility only; the
+        :json:schema:`KvStore.path` member should be used instead.
     open:
       type: boolean
       description: >-

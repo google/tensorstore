@@ -15,12 +15,11 @@
 #ifndef TENSORSTORE_DRIVER_KVS_BACKED_CHUNK_DRIVER_H_
 #define TENSORSTORE_DRIVER_KVS_BACKED_CHUNK_DRIVER_H_
 
-/// \file
-/// Framework for implementing TensorStore drivers for storage formats like
-/// zarr, n5, and Neuroglancer precomputed backed by an arbitrary
-/// `KeyValueStore`, where there is a KeyValueStore entry for metadata (which
-/// may be shared by multiple independent arrays) and one KeyValueStore entry
-/// per chunk.
+/// \file Framework for implementing TensorStore drivers for storage formats
+/// like zarr, n5, and Neuroglancer precomputed backed by an arbitrary key-value
+/// store, where there is a key-value store entry for metadata (which may be
+/// shared by multiple independent arrays) and one key-value store entry per
+/// chunk.
 
 #include <memory>
 #include <string_view>
@@ -42,7 +41,7 @@
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/internal/open_mode_spec.h"
 #include "tensorstore/internal/type_traits.h"
-#include "tensorstore/kvstore/key_value_store.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/util/bit_span.h"
@@ -58,7 +57,7 @@ namespace internal_kvs_backed_chunk_driver {
 /// This inherits from `DriverConstraints` as required by the driver registry.
 struct SpecData : public internal::DriverSpecCommonData,
                   public internal::OpenModeSpec {
-  KeyValueStore::Spec::Ptr store;
+  kvstore::Spec store;
   Context::Resource<internal::DataCopyConcurrencyResource>
       data_copy_concurrency;
   Context::Resource<internal::CachePoolResource> cache_pool;
@@ -102,7 +101,7 @@ using MetadataCacheBase = internal::AggregateWritebackCache<
     MetadataCache,
     internal::KvsBackedCache<MetadataCache, internal::AsyncCache>>;
 
-/// Caches metadata associated with a KeyValueStore-backed chunk driver.  Driver
+/// Caches metadata associated with a kvstore-backed chunk driver.  Driver
 /// implementations must define a derived type that inherits from this class to
 /// perform driver-specific metadata handling.
 ///
@@ -110,10 +109,10 @@ using MetadataCacheBase = internal::AggregateWritebackCache<
 /// may be multiple `DataCache` objects associated with a single entry).
 ///
 /// Typically for a given driver, there will be one `MetadataCache` per
-/// underlying `KeyValueStore` with which the driver is used, though there could
-/// be more than one if the `MetadataCache` depends on some additional
+/// underlying `kvstore::Driver` with which the driver is used, though there
+/// could be more than one if the `MetadataCache` depends on some additional
 /// parameters.  Entries within the `MetadataCache` correspond to individual
-/// paths within the `KeyValueStore` and store the decoded metadata
+/// paths within the `kvstore::Driver` and store the decoded metadata
 /// representation.
 ///
 /// Implicitly, instances of this class assume a particular `Metadata` type.
@@ -133,26 +132,25 @@ class MetadataCache : public MetadataCacheBase,
 
   explicit MetadataCache(Initializer initializer);
 
-  /// Returns the KeyValueStore key from which to read the encoded metadata
-  /// for a given metadata cache entry.
+  /// Returns the kvstore key from which to read the encoded metadata for a
+  /// given metadata cache entry.
   ///
   /// Typically, this appends a suffix like "/.zarr".
   virtual std::string GetMetadataStorageKey(std::string_view entry_key) = 0;
 
-  /// Decodes metadata read from `KeyValueStore`.
+  /// Decodes metadata read from the kvstore.
   ///
-  /// \param entry_key The metadata cache entry key (not the KeyValueStore key)
-  ///     with which this metadata is associated.
-  /// \param encoded_metadata The encoded metadata read from the
-  ///     `KeyValueStore`.
+  /// \param entry_key The metadata cache entry key (not the kvstore key) with
+  ///     which this metadata is associated.
+  /// \param encoded_metadata The encoded metadata read from the kvstore.
   /// \returns On success, non-null pointer to `Metadata` object.
   virtual Result<MetadataPtr> DecodeMetadata(std::string_view entry_key,
                                              absl::Cord encoded_metadata) = 0;
 
-  /// Encodes metadata for storage in the `KeyValueStore`.
+  /// Encodes metadata for storage in the kvstore.
   ///
-  /// \param entry_key The metadata cache entry key (not the KeyValueStore key)
-  ///     with which this metadata is associated.
+  /// \param entry_key The metadata cache entry key (not the kvstore key) with
+  ///     which this metadata is associated.
   /// \param metadata Non-null pointer to the metadata to encode, of type
   ///     `Metadata`.
   virtual Result<absl::Cord> EncodeMetadata(std::string_view entry_key,
@@ -207,7 +205,7 @@ class MetadataCache : public MetadataCacheBase,
     ///     (either successfully or with an error).  Any error returned from the
     ///     last call to `update` (i.e. the last retry) is returned as the
     ///     Future result.  Additionally, any error that occurs with the
-    ///     underlying KeyValueStore is also returned.
+    ///     underlying kvstore is also returned.
     Future<const void> RequestAtomicUpdate(
         const internal::OpenTransactionPtr& transaction, UpdateFunction update,
         AtomicUpdateConstraint update_constraint);
@@ -243,16 +241,16 @@ class MetadataCache : public MetadataCacheBase,
     return new TransactionNode(static_cast<Entry&>(entry));
   }
 
-  KeyValueStore* base_store() { return base_store_.get(); }
+  kvstore::Driver* base_store() { return base_store_.get(); }
 
   const Executor& executor() { return data_copy_concurrency_->executor; }
 
-  /// KeyValueStore from which `kvstore()` was derived.  Used only by
+  /// Key-value store from which `kvstore_driver()` was derived.  Used only by
   /// `DriverBase::GetBoundSpecData`.  A driver implementation may apply some
-  /// type of adapter to the `KeyValueStore` in order to retrieve metadata by
+  /// type of adapter to the `kvstore_driver()` in order to retrieve metadata by
   /// overriding the default implementation of
   /// `OpenState::GetMetadataKeyValueStore`.
-  KeyValueStore::Ptr base_store_;
+  kvstore::DriverPtr base_store_;
   Context::Resource<internal::DataCopyConcurrencyResource>
       data_copy_concurrency_;
   Context::Resource<internal::CachePoolResource> cache_pool_;
@@ -275,7 +273,7 @@ class DataCache : public DataCacheBase {
   using MetadataPtr = MetadataCache::MetadataPtr;
 
   struct Initializer {
-    KeyValueStore::Ptr store;
+    kvstore::DriverPtr store;
     internal::PinnedCacheEntry<MetadataCache> metadata_cache_entry;
     MetadataPtr metadata;
   };
@@ -438,6 +436,9 @@ class DataCache : public DataCacheBase {
     return new TransactionNode(static_cast<Entry&>(entry));
   }
 
+  /// Returns the kvstore path to include in the spec.
+  virtual std::string GetBaseKvstorePath() = 0;
+
   MetadataCache* metadata_cache() {
     return &GetOwningCache(*metadata_cache_entry_);
   }
@@ -572,14 +573,15 @@ class OpenState : public internal::AtomicReferenceCount<OpenState>,
   virtual std::unique_ptr<MetadataCache> GetMetadataCache(
       MetadataCache::Initializer initializer) = 0;
 
-  /// Returns the `KeyValueStore` to use for retrieving the metadata.
+  /// Returns the `kvstore::Driver` to use for retrieving the metadata.
   ///
-  /// Any parameters of the `OpenState` that affect the returned `KeyValueStore`
-  /// must be encoded in the value returned from `GetMetadataCacheKey()`.
+  /// Any parameters of the `OpenState` that affect the returned
+  /// `kvstore::Driver` must be encoded in the value returned from
+  /// `GetMetadataCacheKey()`.
   ///
   /// The default implementation simply returns `base_kv_store`.
-  virtual Result<KeyValueStore::Ptr> GetMetadataKeyValueStore(
-      KeyValueStore::Ptr base_kv_store);
+  virtual Result<kvstore::DriverPtr> GetMetadataKeyValueStore(
+      kvstore::DriverPtr base_kv_store);
 
   /// Returns a unique identifier (for a given value of `typeid(*this)`) of the
   /// cache returned by `GetDataCache`.
@@ -592,14 +594,15 @@ class OpenState : public internal::AtomicReferenceCount<OpenState>,
   virtual std::unique_ptr<DataCache> GetDataCache(
       DataCache::Initializer initializer) = 0;
 
-  /// Returns the `KeyValueStore` to use for retrieving the data chunks.
+  /// Returns the `kvstore::Driver` to use for retrieving the data chunks.
   ///
-  /// Any parameters of the `OpenState` that affect the returned `KeyValueStore`
-  /// must be encoded in the value returned from `GetDataCacheKey(metadata)`.
+  /// Any parameters of the `OpenState` that affect the returned
+  /// `kvstore::Driver` must be encoded in the value returned from
+  /// `GetDataCacheKey(metadata)`.
   ///
   /// The default implementation simply returns `base_kv_store`.
-  virtual Result<KeyValueStore::Ptr> GetDataKeyValueStore(
-      KeyValueStore::Ptr base_kv_store, const void* metadata);
+  virtual Result<kvstore::DriverPtr> GetDataKeyValueStore(
+      kvstore::DriverPtr base_kv_store, const void* metadata);
 
   /// Returns the component index within the data cache.
   ///
@@ -630,14 +633,14 @@ class OpenState : public internal::AtomicReferenceCount<OpenState>,
   }
 };
 
-/// Attempts to open a TensorStore with a KeyValueStore-backed chunk driver.
+/// Attempts to open a TensorStore with a kvstore-backed chunk driver.
 ///
 /// This is intended to be used within the implementation of the open function
 /// for drivers based on this framework.
 ///
-/// Creating/opening a KeyValueStore-backed chunked array proceeds as follows:
+/// Creating/opening a kvstore-backed chunked array proceeds as follows:
 ///
-/// 1. Opens the `KeyValueStore` specified by `open_state.spec().store`.
+/// 1. Opens the `kvstore::Driver` specified by `open_state.spec().store`.
 ///
 /// 2. If `OpenMode::delete_existing` is specified, deletes all keys starting
 ///    with `open_state->GetPrefixForDeleteExisting()`.
@@ -688,7 +691,7 @@ class OpenState : public internal::AtomicReferenceCount<OpenState>,
 /// \param open_state Non-null pointer to open state.
 Future<internal::Driver::Handle> OpenDriver(OpenState::Ptr open_state);
 
-/// CRTP base class for KeyValueStore-backed driver implementations.
+/// CRTP base class for kvstore-backed driver implementations.
 ///
 /// `Derived` driver implementations should inherit from this class and define
 /// the following members:
@@ -750,7 +753,7 @@ class RegisteredKvsDriver
  public:
   using Base::Base;
 
-  /// CRTP base class for the OpenState associated with KeyValueStore-backed
+  /// CRTP base class for the OpenState associated with kvstore-backed
   /// driver implementations.
   class OpenStateBase : public internal_kvs_backed_chunk_driver::OpenState {
    public:

@@ -25,7 +25,7 @@
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/kvstore/key_value_store.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/future.h"
@@ -40,12 +40,11 @@ namespace jb = tensorstore::internal_json_binding;
 constexpr const char kMetadataKey[] = "attributes.json";
 
 struct SpecData : public internal_kvs_backed_chunk_driver::SpecData {
-  std::string key_prefix;
   N5MetadataConstraints metadata_constraints;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(internal::BaseCast<internal_kvs_backed_chunk_driver::SpecData>(x),
-             x.key_prefix, x.metadata_constraints);
+             x.metadata_constraints);
   };
 };
 
@@ -69,7 +68,7 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
 
   // Metadata is stored as JSON under the `attributes.json` key.
   std::string GetMetadataStorageKey(std::string_view entry_key) override {
-    return internal::JoinPath(entry_key, kMetadataKey);
+    return tensorstore::StrCat(entry_key, kMetadataKey);
   }
 
   Result<MetadataPtr> DecodeMetadata(std::string_view entry_key,
@@ -179,8 +178,10 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
   std::string GetChunkStorageKey(const void* metadata,
                                  span<const Index> cell_indices) override {
     std::string key = key_prefix_;
+    std::string_view sep = "";
     for (const Index x : cell_indices) {
-      absl::StrAppend(&key, key.empty() ? "" : "/", x);
+      absl::StrAppend(&key, sep, x);
+      sep = "/";
     }
     return key;
   }
@@ -206,7 +207,6 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
                           std::size_t component_index) override {
     assert(component_index == 0);
     auto& spec = static_cast<SpecData&>(spec_base);
-    spec.key_prefix = key_prefix_;
     const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
     auto& constraints = spec.metadata_constraints;
     constraints.shape = metadata.shape;
@@ -236,6 +236,8 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     return GetCodecFromMetadata(*static_cast<const N5Metadata*>(metadata));
   }
 
+  std::string GetBaseKvstorePath() override { return key_prefix_; }
+
   std::string key_prefix_;
 };
 
@@ -259,10 +261,6 @@ class N5Driver
             return absl::OkStatus();
           },
           internal_kvs_backed_chunk_driver::SpecJsonBinder),
-      jb::Member("path", jb::Projection(&SpecData::key_prefix,
-                                        jb::DefaultValue([](auto* obj) {
-                                          *obj = std::string{};
-                                        }))),
       jb::Member(
           "metadata",
           jb::Validate(
@@ -326,11 +324,10 @@ class N5Driver::OpenState : public N5Driver::OpenStateBase {
   using N5Driver::OpenStateBase::OpenStateBase;
 
   std::string GetPrefixForDeleteExisting() override {
-    return spec().key_prefix.empty() ? std::string()
-                                     : StrCat(spec().key_prefix, "/");
+    return spec().store.path;
   }
 
-  std::string GetMetadataCacheEntryKey() override { return spec().key_prefix; }
+  std::string GetMetadataCacheEntryKey() override { return spec().store.path; }
 
   // The metadata cache isn't parameterized by anything other than the
   // KeyValueStore; therefore, we don't need to override `GetMetadataCacheKey`
@@ -343,7 +340,7 @@ class N5Driver::OpenState : public N5Driver::OpenStateBase {
   std::string GetDataCacheKey(const void* metadata) override {
     std::string result;
     internal::EncodeCacheKey(
-        &result, spec().key_prefix,
+        &result, spec().store.path,
         static_cast<const N5Metadata*>(metadata)->GetCompatibilityKey());
     return result;
   }
@@ -364,7 +361,7 @@ class N5Driver::OpenState : public N5Driver::OpenStateBase {
   std::unique_ptr<internal_kvs_backed_chunk_driver::DataCache> GetDataCache(
       DataCache::Initializer initializer) override {
     return std::make_unique<DataCache>(std::move(initializer),
-                                       spec().key_prefix);
+                                       spec().store.path);
   }
 
   Result<std::size_t> GetComponentIndex(const void* metadata_ptr,

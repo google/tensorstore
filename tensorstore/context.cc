@@ -778,7 +778,7 @@ absl::Status ResourceSpecToJsonWithDefaults(
     ::nlohmann::json* j) {
   if (!spec || IsResource(spec)) {
     // We cannot convert a bound context resource to json.  When converting a
-    // spec type like `tensorstore::KeyValueStore::Spec` or `tensorstore::Spec`,
+    // spec type like `tensorstore::kvstore::Spec` or `tensorstore::Spec`,
     // `NestedContextJsonBinder` will first unbind the context resources in
     // order to allow them to be converted to json.  However, for individual
     // `Context::Resource` objects not contained within a `Spec`-like type (not

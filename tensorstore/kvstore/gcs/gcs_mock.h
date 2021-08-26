@@ -28,7 +28,7 @@
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/kvstore/key_value_store_testutil.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/status.h"
 

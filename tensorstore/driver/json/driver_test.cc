@@ -24,15 +24,16 @@
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/parse_json_matches.h"
-#include "tensorstore/kvstore/key_value_store.h"
-#include "tensorstore/kvstore/key_value_store_testutil.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
+namespace kvstore = tensorstore::kvstore;
 using tensorstore::MakeArray;
 using tensorstore::MakeScalarArray;
 using tensorstore::MatchesStatus;
@@ -43,14 +44,13 @@ using tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using testing::Optional;
 using testing::Pair;
 
-::nlohmann::json GetKvstoreSpec() { return {{"driver", "memory"}}; }
 std::string GetPath() { return "path.json"; }
+::nlohmann::json GetKvstoreSpec() { return {{"driver", "memory"}}; }
 
 ::nlohmann::json GetSpec(std::string json_pointer) {
   return ::nlohmann::json{
       {"driver", "json"},
-      {"kvstore", GetKvstoreSpec()},
-      {"path", GetPath()},
+      {"kvstore", {{"driver", "memory"}, {"path", GetPath()}}},
       {"json_pointer", json_pointer},
   };
 }
@@ -59,8 +59,7 @@ TEST(JsonDriverTest, Basic) {
   auto context = tensorstore::Context::Default();
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kvstore,
-      tensorstore::KeyValueStore::Open(GetKvstoreSpec(), context).result());
+      auto kvs, kvstore::Open(GetKvstoreSpec(), context).result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, tensorstore::Open(GetSpec(""), context).result());
@@ -94,7 +93,7 @@ TEST(JsonDriverTest, Basic) {
   }
 
   EXPECT_THAT(
-      GetMap(kvstore).value(),
+      GetMap(kvs).value(),
       testing::ElementsAre(
           Pair(GetPath(), ::testing::MatcherCast<absl::Cord>(
                               ParseJsonMatches(::nlohmann::json{{"a", 42}})))));
@@ -116,7 +115,7 @@ TEST(JsonDriverTest, Basic) {
     // Actual contents of kvstore has not yet changed since transaction has not
     // been committed.
     EXPECT_THAT(
-        GetMap(kvstore).value(),
+        GetMap(kvs).value(),
         testing::ElementsAre(Pair(
             GetPath(), ::testing::MatcherCast<absl::Cord>(
                            ParseJsonMatches(::nlohmann::json{{"a", 42}})))));
@@ -124,7 +123,7 @@ TEST(JsonDriverTest, Basic) {
   }
 
   EXPECT_THAT(
-      GetMap(kvstore).value(),
+      GetMap(kvs).value(),
       testing::ElementsAre(
           Pair(GetPath(), ::testing::MatcherCast<absl::Cord>(
                               ParseJsonMatches(::nlohmann::json{{"c", 50}})))));
@@ -134,7 +133,8 @@ TEST(JsonDriverTest, Basic) {
                             "JSON Pointer reference \"/c/x\" cannot be applied "
                             "to number value: 50"));
 
-  TENSORSTORE_EXPECT_OK(kvstore->Write(GetPath(), absl::Cord("{\"x\":42}")));
+  TENSORSTORE_EXPECT_OK(
+      kvstore::Write(kvs, GetPath(), absl::Cord("{\"x\":42}")));
 
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -165,14 +165,13 @@ TEST(JsonDriverTest, WriteIncompatibleWithExisting) {
 TEST(JsonDriverTest, WriteDiscarded) {
   auto context = tensorstore::Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kvstore,
-      tensorstore::KeyValueStore::Open(GetKvstoreSpec(), context).result());
+      auto kvs, tensorstore::kvstore::Open(GetKvstoreSpec(), context).result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, tensorstore::Open(GetSpec(""), context).result());
   // Write initial value (42)
   TENSORSTORE_EXPECT_OK(
       tensorstore::Write(MakeScalarArray<::nlohmann::json>(42), store));
-  EXPECT_THAT(GetMap(kvstore).value(),
+  EXPECT_THAT(GetMap(kvs).value(),
               testing::ElementsAre(Pair(
                   GetPath(), ::testing::MatcherCast<absl::Cord>(
                                  ParseJsonMatches(::nlohmann::json(42))))));
@@ -180,7 +179,7 @@ TEST(JsonDriverTest, WriteDiscarded) {
   TENSORSTORE_EXPECT_OK(tensorstore::Write(
       MakeScalarArray<::nlohmann::json>(::nlohmann::json::value_t::discarded),
       store));
-  EXPECT_THAT(GetMap(kvstore).value(), testing::ElementsAre());
+  EXPECT_THAT(GetMap(kvs).value(), testing::ElementsAre());
 }
 
 TEST(JsonDriverTest, IncompatibleWrites) {
@@ -206,9 +205,8 @@ TEST(JsonDriverTest, IncompatibleWrites) {
 TEST(JsonDriverTest, InvalidJson) {
   auto context = tensorstore::Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kvstore,
-      tensorstore::KeyValueStore::Open(GetKvstoreSpec(), context).result());
-  TENSORSTORE_EXPECT_OK(kvstore->Write(GetPath(), absl::Cord("invalid")));
+      auto kvs, tensorstore::kvstore::Open(GetKvstoreSpec(), context).result());
+  TENSORSTORE_EXPECT_OK(kvstore::Write(kvs, GetPath(), absl::Cord("invalid")));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, tensorstore::Open(GetSpec(""), context).result());
   EXPECT_THAT(tensorstore::Read(store).result(),
@@ -231,7 +229,7 @@ TEST(JsonDriverTest, ReadError) {
       context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
   auto mock_key_value_store = *mock_key_value_store_resource;
   auto spec = GetSpec("/a");
-  spec["kvstore"] = {{"driver", "mock_key_value_store"}};
+  spec["kvstore"] = {{"driver", "mock_key_value_store"}, {"path", GetPath()}};
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
                                    tensorstore::Open(spec, context).result());
 
@@ -266,7 +264,7 @@ TEST(JsonDriverTest, ConditionalWriteback) {
   auto mock_key_value_store = *mock_key_value_store_resource;
   auto memory_store = tensorstore::GetMemoryKeyValueStore();
   auto spec = GetSpec("/a");
-  spec["kvstore"] = {{"driver", "mock_key_value_store"}};
+  spec["kvstore"] = {{"driver", "mock_key_value_store"}, {"path", GetPath()}};
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
                                    tensorstore::Open(spec, context).result());
 
@@ -347,14 +345,12 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.test_name = "json";
   options.create_spec = {
       {"driver", "json"},
-      {"kvstore", GetKvstoreSpec()},
-      {"path", GetPath()},
+      {"kvstore", {{"driver", "memory"}, {"path", GetPath()}}},
   };
   options.full_spec = {
       {"dtype", "json"},
       {"driver", "json"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", GetPath()},
+      {"kvstore", {{"driver", "memory"}, {"path", GetPath()}}},
       {"transform", {{"input_rank", 0}}},
   };
   options.minimal_spec = options.full_spec;
@@ -366,7 +362,10 @@ TENSORSTORE_GLOBAL_INITIALIZER {
 
 TEST(SpecSchemaTest, Basic) {
   TestSpecSchema(
-      {{"driver", "json"}, {"kvstore", {{"driver", "memory"}}}, {"path", "x"}},
+      {
+          {"driver", "json"},
+          {"kvstore", {{"driver", "memory"}, {"path", "x"}}},
+      },
       {{"dtype", "json"},
        {"rank", 0},
        {"domain", {{"rank", 0}}},
@@ -375,7 +374,10 @@ TEST(SpecSchemaTest, Basic) {
 
 TEST(CreateCheckSchemaTest, Basic) {
   TestTensorStoreCreateCheckSchema(
-      {{"driver", "json"}, {"kvstore", {{"driver", "memory"}}}, {"path", "x"}},
+      {
+          {"driver", "json"},
+          {"kvstore", {{"driver", "memory"}, {"path", "x"}}},
+      },
       {{"dtype", "json"},
        {"rank", 0},
        {"domain", {{"rank", 0}}},

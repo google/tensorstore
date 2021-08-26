@@ -22,8 +22,8 @@
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/parse_json_matches.h"
-#include "tensorstore/kvstore/key_value_store.h"
-#include "tensorstore/kvstore/key_value_store_testutil.h"
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
@@ -31,12 +31,12 @@
 
 namespace {
 
+namespace kvstore = tensorstore::kvstore;
 using tensorstore::ChunkLayout;
 using tensorstore::Context;
 using tensorstore::DimensionIndex;
 using tensorstore::dtype_v;
 using tensorstore::Index;
-using tensorstore::KeyValueStore;
 using tensorstore::kImplicit;
 using tensorstore::MatchesStatus;
 using tensorstore::Schema;
@@ -52,8 +52,11 @@ using ::testing::UnorderedElementsAreArray;
 ::nlohmann::json GetJsonSpec() {
   return {
       {"driver", "n5"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"metadata",
        {
            {"compression", {{"type", "raw"}}},
@@ -144,7 +147,8 @@ TEST(N5DriverTest, Create) {
                 ::testing::ElementsAre(1, 1));
 
     // Test ResolveBounds.
-    auto resolved = ResolveBounds(store).value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resolved,
+                                     ResolveBounds(store).result());
     EXPECT_EQ(store.domain(), resolved.domain());
 
     // Test ResolveBounds with a transform that swaps upper and lower bounds.
@@ -159,15 +163,17 @@ TEST(N5DriverTest, Create) {
                 ::testing::ElementsAre(1, 0));
     EXPECT_THAT(reversed_dim0.domain().implicit_upper_bounds(),
                 ::testing::ElementsAre(0, 1));
-    auto resolved_reversed_dim0 = ResolveBounds(reversed_dim0).value();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resolved_reversed_dim0,
+                                     ResolveBounds(reversed_dim0).result());
     EXPECT_EQ(reversed_dim0.domain(), resolved_reversed_dim0.domain());
 
     // Issue a read to be filled with the fill value.
-    EXPECT_EQ(tensorstore::MakeArray<std::int16_t>({{0}}),
-              tensorstore::Read<tensorstore::zero_origin>(
-                  store |
-                  tensorstore::AllDims().TranslateSizedInterval({9, 7}, {1, 1}))
-                  .value());
+    EXPECT_THAT(
+        tensorstore::Read<tensorstore::zero_origin>(
+            store |
+            tensorstore::AllDims().TranslateSizedInterval({9, 7}, {1, 1}))
+            .result(),
+        ::testing::Optional(tensorstore::MakeArray<std::int16_t>({{0}})));
 
     // Issue an out-of-bounds read.
     EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
@@ -192,22 +198,21 @@ TEST(N5DriverTest, Create) {
 
     // Re-read and validate result.  This verifies that the read/write
     // encoding/decoding paths round trip.
-    EXPECT_EQ(tensorstore::MakeArray<std::int16_t>({
-                  {0, 0, 0, 0},
-                  {0, 1, 2, 3},
-                  {0, 4, 5, 6},
-              }),
-              tensorstore::Read<tensorstore::zero_origin>(
-                  store |
-                  tensorstore::AllDims().TranslateSizedInterval({7, 7}, {3, 4}))
-                  .value());
+    EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
+                    store | tensorstore::AllDims().TranslateSizedInterval(
+                                {7, 7}, {3, 4}))
+                    .result(),
+                ::testing::Optional(tensorstore::MakeArray<std::int16_t>({
+                    {0, 0, 0, 0},
+                    {0, 1, 2, 3},
+                    {0, 4, 5, 6},
+                })));
   }
 
   // Check that key value store has expected contents.  This verifies that the
   // encoding path works as expected.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
-          .value(),
+      GetMap(kvstore::Open({{"driver", "memory"}}, context).value()).value(),
       UnorderedElementsAreArray({
           Pair("prefix/attributes.json",  //
                ::testing::MatcherCast<absl::Cord>(ParseJsonMatches({
@@ -290,10 +295,11 @@ TEST(N5DriverTest, Create) {
                   store |
                   tensorstore::AllDims().TranslateSizedInterval({7, 7}, {3, 4}))
                   .value());
-    auto kv_store =
-        KeyValueStore::Open({{"driver", "memory"}}, context).value();
-    EXPECT_THAT(ListFuture(kv_store.get()).value(),
-                ::testing::UnorderedElementsAre("prefix/attributes.json"));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto kvs, kvstore::Open({{"driver", "memory"}}, context).result());
+    EXPECT_THAT(ListFuture(kvs).result(),
+                ::testing::Optional(
+                    ::testing::UnorderedElementsAre("prefix/attributes.json")));
   }
 }
 
@@ -322,7 +328,7 @@ TEST(N5DriverTest, Resize) {
       ::nlohmann::json json_spec{
           {"driver", "n5"},
           {"kvstore", storage_spec},
-          {"path", "prefix"},
+          {"path", "prefix/"},
           {"metadata", metadata_json},
       };
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -336,9 +342,9 @@ TEST(N5DriverTest, Resize) {
               tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
       // Check that key value store has expected contents.
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-          auto kv_store, KeyValueStore::Open(storage_spec, context).result());
+          auto kvs, kvstore::Open(storage_spec, context).result());
       EXPECT_THAT(  //
-          GetMap(kv_store).value(),
+          GetMap(kvs).value(),
           UnorderedElementsAre(
               Pair("prefix/attributes.json",
                    ::testing::MatcherCast<absl::Cord>(
@@ -358,7 +364,7 @@ TEST(N5DriverTest, Resize) {
       ::nlohmann::json resized_metadata_json = metadata_json;
       resized_metadata_json["dimensions"] = {3, 2};
       EXPECT_THAT(  //
-          GetMap(kv_store).value(),
+          GetMap(kvs).value(),
           UnorderedElementsAre(
               Pair("prefix/attributes.json",
                    ::testing::MatcherCast<absl::Cord>(
@@ -376,7 +382,7 @@ TEST(N5DriverTest, ResizeMetadataOnly) {
   ::nlohmann::json json_spec{
       {"driver", "n5"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -393,9 +399,9 @@ TEST(N5DriverTest, ResizeMetadataOnly) {
                     .commit_future.result()));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
+      auto kvs, kvstore::Open(storage_spec, context).result());
   EXPECT_THAT(  //
-      GetMap(kv_store).value(),
+      GetMap(kvs).value(),
       UnorderedElementsAre(
           Pair("prefix/attributes.json", ::testing::MatcherCast<absl::Cord>(
                                              ParseJsonMatches(metadata_json))),
@@ -413,7 +419,7 @@ TEST(N5DriverTest, ResizeMetadataOnly) {
   ::nlohmann::json resized_metadata_json = metadata_json;
   resized_metadata_json["dimensions"] = {3, 2};
   EXPECT_THAT(  //
-      GetMap(kv_store).value(),
+      GetMap(kvs).value(),
       UnorderedElementsAre(
           Pair("prefix/attributes.json",
                ::testing::MatcherCast<absl::Cord>(
@@ -432,7 +438,7 @@ TEST(N5DriverTest, InvalidResize) {
   ::nlohmann::json json_spec{
       {"driver", "n5"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -488,7 +494,7 @@ TEST(N5DriverTest, InvalidResizeConcurrentModification) {
   ::nlohmann::json json_spec{
       {"driver", "n5"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -521,7 +527,7 @@ TEST(N5DriverTest, InvalidResizeLowerBound) {
   ::nlohmann::json json_spec{
       {"driver", "n5"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -548,7 +554,7 @@ TEST(N5DriverTest, InvalidResizeIncompatibleMetadata) {
   ::nlohmann::json json_spec{
       {"driver", "n5"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -580,7 +586,7 @@ TEST(N5DriverTest, InvalidResizeDeletedMetadata) {
   ::nlohmann::json json_spec{
       {"driver", "n5"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -589,8 +595,8 @@ TEST(N5DriverTest, InvalidResizeDeletedMetadata) {
                         tensorstore::ReadWriteMode::read_write)
           .result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
-  kv_store->Delete("prefix/attributes.json").value();
+      auto kvs, kvstore::Open(storage_spec, context).result());
+  TENSORSTORE_ASSERT_OK(kvstore::Delete(kvs, "prefix/attributes.json"));
   // To avoid risk of accidental data loss, no recovery of this TensorStore
   // object is possible after the metadata is modified in an unexpected way.
   EXPECT_THAT(
@@ -609,7 +615,7 @@ TEST(N5DriverTest, UnsupportedDataTypeInSpec) {
               {"dtype", "string"},
               {"driver", "n5"},
               {"kvstore", {{"driver", "memory"}}},
-              {"path", "prefix"},
+              {"path", "prefix/"},
               {"metadata",
                {
                    {"compression", {{"type", "raw"}}},
@@ -632,7 +638,7 @@ TEST(N5DriverTest, DataTypeMismatch) {
                           {"dtype", "int8"},
                           {"driver", "n5"},
                           {"kvstore", {{"driver", "memory"}}},
-                          {"path", "prefix"},
+                          {"path", "prefix/"},
                           {"metadata",
                            {
                                {"compression", {{"type", "raw"}}},
@@ -649,7 +655,7 @@ TEST(N5DriverTest, DataTypeMismatch) {
                       {"dtype", "uint8"},
                       {"driver", "n5"},
                       {"kvstore", {{"driver", "memory"}}},
-                      {"path", "prefix"},
+                      {"path", "prefix/"},
                   },
                   context, tensorstore::OpenMode::open,
                   tensorstore::ReadWriteMode::read_write)
@@ -719,16 +725,16 @@ TEST(N5DriverTest, OpenInvalidMetadata) {
   ::nlohmann::json json_spec{
       {"driver", "n5"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
+      auto kvs, kvstore::Open(storage_spec, context).result());
 
   {
     // Write invalid JSON
     TENSORSTORE_EXPECT_OK(
-        kv_store->Write("prefix/attributes.json", absl::Cord("invalid")));
+        kvstore::Write(kvs, "prefix/attributes.json", absl::Cord("invalid")));
 
     EXPECT_THAT(
         tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
@@ -745,8 +751,8 @@ TEST(N5DriverTest, OpenInvalidMetadata) {
     invalid_json.erase("dimensions");
 
     // Write invalid metadata JSON
-    TENSORSTORE_EXPECT_OK(kv_store->Write("prefix/attributes.json",
-                                          absl::Cord(invalid_json.dump())));
+    TENSORSTORE_EXPECT_OK(kvstore::Write(kvs, "prefix/attributes.json",
+                                         absl::Cord(invalid_json.dump())));
 
     EXPECT_THAT(
         tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
@@ -767,11 +773,11 @@ TEST(N5DriverTest, ResolveBoundsIncompatibleMetadata) {
   ::nlohmann::json json_spec{
       {"driver", "n5"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
+      auto kvs, kvstore::Open(storage_spec, context).result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
@@ -784,7 +790,7 @@ TEST(N5DriverTest, ResolveBoundsIncompatibleMetadata) {
   json_spec = {
       {"driver", "n5"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", metadata_json},
   };
 
@@ -809,13 +815,16 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.full_spec = {
       {"dtype", "int16"},
       {"driver", "n5"},
-      {"path", "prefix"},
       {"metadata",
        {{"blockSize", {3, 2}},
         {"compression", {{"type", "raw"}}},
         {"dataType", "int16"},
         {"dimensions", {10, 11}}}},
-      {"kvstore", {{"driver", "memory"}}},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"transform",
        {{"input_exclusive_max", {{10}, {11}}},
         {"input_inclusive_min", {0, 0}}}},
@@ -824,8 +833,11 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.minimal_spec = {
       {"dtype", "int16"},
       {"driver", "n5"},
-      {"path", "prefix"},
-      {"kvstore", {{"driver", "memory"}}},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"transform",
        {{"input_exclusive_max", {{10}, {11}}},
         {"input_inclusive_min", {0, 0}}}},
@@ -841,7 +853,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.create_spec = {
       {"driver", "n5"},
       {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata",
        {
            {"compression", {{"type", "raw"}}},
@@ -868,7 +880,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.create_spec = {
       {"driver", "n5"},
       {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata",
        {
            {"compression", {{"type", "raw"}}},
@@ -897,8 +909,11 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.get_create_spec = [](tensorstore::BoxView<> bounds) {
     return ::nlohmann::json{
         {"driver", "n5"},
-        {"kvstore", {{"driver", "memory"}}},
-        {"path", "prefix"},
+        {"kvstore",
+         {
+             {"driver", "memory"},
+             {"path", "prefix/"},
+         }},
         {"dtype", "uint16"},
         {"metadata",
          {
@@ -941,9 +956,9 @@ TEST(DriverTest, NoPrefix) {
       store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
+      auto kvs, kvstore::Open(storage_spec, context).result());
   EXPECT_THAT(  //
-      GetMap(kv_store).value(),
+      GetMap(kvs).value(),
       UnorderedElementsAre(
           Pair("attributes.json", ::testing::MatcherCast<absl::Cord>(
                                       ParseJsonMatches(metadata_json))),
@@ -955,7 +970,7 @@ TEST(DriverTest, ChunkLayout) {
   ::nlohmann::json json_spec{
       {"driver", "n5"},
       {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata",
        {
            {"compression", {{"type", "raw"}}},
@@ -981,7 +996,7 @@ TEST(DriverTest, Codec) {
   ::nlohmann::json json_spec{
       {"driver", "n5"},
       {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata",
        {
            {"compression", {{"type", "raw"}}},

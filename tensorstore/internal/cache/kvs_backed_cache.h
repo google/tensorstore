@@ -17,7 +17,7 @@
 
 /// \file
 ///
-/// Integrates `AsyncCache` with `KeyValueStore`.
+/// Integrates `AsyncCache` with `kvstore::Driver`.
 
 #include <memory>
 #include <optional>
@@ -29,8 +29,11 @@
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/cache/async_cache.h"
+#include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/key_value_store.h"
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_modify_write.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/execution.h"
 #include "tensorstore/util/future.h"
@@ -40,27 +43,26 @@
 namespace tensorstore {
 namespace internal {
 
-/// Base class that integrates an `AsyncCache` with a
-/// `KeyValueStore`.
+/// Base class that integrates an `AsyncCache` with a `kvstore::Driver`.
 ///
 /// Each cache entry is assumed to correspond one-to-one with a key in a
-/// `KeyValueStore`, defined by the `GetKeyValueStoreKey` method.
+/// `kvstore::Driver`, defined by the `GetKeyValueStoreKey` method.
 ///
 /// To use this class, define a `Derived` class that inherits from
 /// `KvsBackedCache<Parent>`, where `Parent` is the desired base class.  The
 /// derived class is responsible for defining:
 ///
 /// 1. `DoDecode`, which decodes an `std::optional<absl::Cord>` read from the
-///   `KeyValueStore` into an `std::shared_ptr<const ReadData>` object (see
+///   `kvstore::Driver` into an `std::shared_ptr<const ReadData>` object (see
 ///   `DoDecode`);
 ///
 /// 2. (if writing is supported) `DoEncode`, which encodes an
 ///    `std::shared_ptr<const ReadData>` object into an
-///    `std::optional<absl::Cord>` to write it back to the `KeyValueStore`.
+///    `std::optional<absl::Cord>` to write it back to the `kvstore::Driver`.
 ///
 /// 3. overrides `GetKeyValueStoreKey` if necessary.
 ///
-/// This class takes care of reading from and writing to the `KeyValueStore`,
+/// This class takes care of reading from and writing to the `kvstore::Driver`,
 /// and handling the timestamps and `StorageGeneration` values.
 ///
 /// \tparam Parent Parent class, must inherit from (or equal) `AsyncCache`.
@@ -71,13 +73,14 @@ class KvsBackedCache : public Parent {
  public:
   /// Constructs a `KvsBackedCache`.
   ///
-  /// \param kvstore The `KeyValueStore` to use.  If `nullptr`,
-  ///     `SetKeyValueStore` must be called before any read or write operations
+  /// \param kvstore The `kvstore::Driver` to use.  If `nullptr`,
+  ///     `SetKvStoreDriver` must be called before any read or write operations
   ///     are performed.
   /// \param args Arguments to forward to the `Parent` constructor.
   template <typename... U>
-  explicit KvsBackedCache(KeyValueStore::Ptr kvstore, U&&... args)
-      : Parent(std::forward<U>(args)...), kvstore_(std::move(kvstore)) {}
+  explicit KvsBackedCache(kvstore::DriverPtr kvstore_driver, U&&... args)
+      : Parent(std::forward<U>(args)...),
+        kvstore_driver_(std::move(kvstore_driver)) {}
 
   class TransactionNode;
 
@@ -85,7 +88,7 @@ class KvsBackedCache : public Parent {
    public:
     using OwningCache = KvsBackedCache;
 
-    /// Defines the mapping from a cache entry to a `KeyValueStore` key.
+    /// Defines the mapping from a cache entry to a kvstore key.
     ///
     /// By default the cache entry key is used, but derived classes may override
     /// this behavior.
@@ -97,7 +100,7 @@ class KvsBackedCache : public Parent {
     struct ReadReceiverImpl {
       EntryOrNode* entry_or_node_;
       std::shared_ptr<const void> existing_read_data_;
-      void set_value(KeyValueStore::ReadResult read_result) {
+      void set_value(kvstore::ReadResult read_result) {
         if (read_result.aborted()) {
           TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(
               *entry_or_node_,
@@ -139,18 +142,18 @@ class KvsBackedCache : public Parent {
 
     /// Implements reading for the `AsyncCache` interface.
     ///
-    /// Reads from the `KeyValueStore` and invokes `DoDecode` with the result.
+    /// Reads from the `kvstore::Driver` and invokes `DoDecode` with the result.
     ///
     /// If an error occurs, calls `ReadError` directly without invoking
     /// `DoDecode`.
     void DoRead(absl::Time staleness_bound) final {
-      KeyValueStore::ReadOptions options;
+      kvstore::ReadOptions options;
       options.staleness_bound = staleness_bound;
       auto read_state = AsyncCache::ReadLock<void>(*this).read_state();
       options.if_not_equal = std::move(read_state.stamp.generation);
       auto& cache = GetOwningCache(*this);
-      auto future =
-          cache.kvstore_->Read(this->GetKeyValueStoreKey(), std::move(options));
+      auto future = cache.kvstore_driver_->Read(this->GetKeyValueStoreKey(),
+                                                std::move(options));
       execution::submit(
           std::move(future),
           ReadReceiverImpl<Entry>{this, std::move(read_state.data)});
@@ -160,7 +163,7 @@ class KvsBackedCache : public Parent {
         AnyReceiver<absl::Status,
                     std::shared_ptr<const typename Derived::ReadData>>;
 
-    /// Decodes a value from the `KeyValueStore` into a `ReadData` object.
+    /// Decodes a value from the kvstore into a `ReadData` object.
     ///
     /// The derived class implementation should use a separate executor to
     /// complete any expensive computations.
@@ -170,7 +173,7 @@ class KvsBackedCache : public Parent {
     using EncodeReceiver = AnyReceiver<absl::Status, std::optional<absl::Cord>>;
 
     /// Encodes a `ReadData` object into a value to write back to the
-    /// `KeyValueStore`.
+    /// kvstore.
     ///
     /// The derived class implementation should synchronously perform any
     /// operations that require the lock be held , and then use a separate
@@ -183,13 +186,13 @@ class KvsBackedCache : public Parent {
     }
 
     absl::Status AnnotateError(const absl::Status& error, bool reading) {
-      return GetOwningCache(*this).kvstore_->AnnotateError(
+      return GetOwningCache(*this).kvstore_driver_->AnnotateError(
           this->GetKeyValueStoreKey(), reading ? "reading" : "writing", error);
     }
   };
 
   class TransactionNode : public Parent::TransactionNode,
-                          public KeyValueStore::ReadModifyWriteSource {
+                          public kvstore::ReadModifyWriteSource {
    public:
     using OwningCache = KvsBackedCache;
     using Parent::TransactionNode::TransactionNode;
@@ -200,7 +203,7 @@ class KvsBackedCache : public Parent {
           Parent::TransactionNode::DoInitialize(transaction));
       size_t phase;
       TENSORSTORE_RETURN_IF_ERROR(
-          GetOwningCache(*this).kvstore()->ReadModifyWrite(
+          GetOwningCache(*this).kvstore_driver()->ReadModifyWrite(
               transaction, phase, GetOwningEntry(*this).GetKeyValueStoreKey(),
               std::ref(*this)));
       this->SetPhase(phase);
@@ -218,8 +221,8 @@ class KvsBackedCache : public Parent {
               this, std::move(read_state.data)});
     }
 
-    using ReadModifyWriteSource = KeyValueStore::ReadModifyWriteSource;
-    using ReadModifyWriteTarget = KeyValueStore::ReadModifyWriteTarget;
+    using ReadModifyWriteSource = kvstore::ReadModifyWriteSource;
+    using ReadModifyWriteTarget = kvstore::ReadModifyWriteTarget;
 
     // Implementation of the `ReadModifyWriteSource` interface:
 
@@ -247,7 +250,7 @@ class KvsBackedCache : public Parent {
           read_state.stamp.time >= options.staleness_bound) {
         TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(
             *this, "KvsWriteback: skipping because condition is satisfied");
-        KeyValueStore::ReadResult read_result;
+        kvstore::ReadResult read_result;
         read_result.stamp = std::move(read_state.stamp);
         return execution::set_value(receiver, std::move(read_result));
       }
@@ -262,13 +265,13 @@ class KvsBackedCache : public Parent {
         }
         void set_cancel() { TENSORSTORE_UNREACHABLE; }
         void set_value(std::optional<absl::Cord> value) {
-          KeyValueStore::ReadResult read_result;
+          kvstore::ReadResult read_result;
           read_result.stamp = std::move(update_.stamp);
           if (value) {
-            read_result.state = KeyValueStore::ReadResult::kValue;
+            read_result.state = kvstore::ReadResult::kValue;
             read_result.value = std::move(*value);
           } else {
-            read_result.state = KeyValueStore::ReadResult::kMissing;
+            read_result.state = kvstore::ReadResult::kMissing;
           }
 
           // FIXME: only save if committing, also could do this inside
@@ -338,16 +341,16 @@ class KvsBackedCache : public Parent {
     std::shared_ptr<const void> new_data_;
   };
 
-  /// Returns the associated `KeyValueStore`.
-  KeyValueStore* kvstore() { return kvstore_.get(); }
+  /// Returns the associated `kvstore::Driver`.
+  kvstore::Driver* kvstore_driver() { return kvstore_driver_.get(); }
 
-  /// Sets the KeyValueStore.  The caller is responsible for ensuring there are
-  /// no concurrent read or write operations.
-  void SetKeyValueStore(KeyValueStore::Ptr kvstore) {
-    kvstore_ = std::move(kvstore);
+  /// Sets the `kvstore::Driver`.  The caller is responsible for ensuring there
+  /// are no concurrent read or write operations.
+  void SetKvStoreDriver(kvstore::DriverPtr driver) {
+    kvstore_driver_ = std::move(driver);
   }
 
-  KeyValueStore::Ptr kvstore_;
+  kvstore::DriverPtr kvstore_driver_;
 };
 
 }  // namespace internal

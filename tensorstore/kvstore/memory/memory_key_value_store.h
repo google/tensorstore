@@ -18,17 +18,17 @@
 /// \file
 /// Simple, non-persistent key-value store backed by an in-memory hash table.
 
-#include "tensorstore/kvstore/key_value_store.h"
+#include "tensorstore/kvstore/kvstore.h"
 
 namespace tensorstore {
 
-/// Creates a new (unique) in-memory KeyValueStore.
+/// Creates a new (unique) in-memory KvStore.
 ///
 /// \param atomic If `true`, atomic multi-key transactions are supported.  If
 ///     `false`, only single-key atomic transactions are supported.  Both
 ///     versions are exposed for testing implementations of transactional
 ///     operations.
-KeyValueStore::Ptr GetMemoryKeyValueStore(bool atomic = true);
+kvstore::DriverPtr GetMemoryKeyValueStore(bool atomic = true);
 
 }  // namespace tensorstore
 

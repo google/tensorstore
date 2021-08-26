@@ -146,4 +146,15 @@ std::ostream& operator<<(std::ostream& os, const KeyRange& range) {
             << tensorstore::QuoteString(range.exclusive_max) << ")";
 }
 
+KeyRange KeyRange::AddPrefix(std::string_view prefix, KeyRange range) {
+  if (prefix.empty()) return range;
+  range.inclusive_min.insert(0, prefix);
+  if (range.exclusive_max.empty()) {
+    range.exclusive_max = KeyRange::PrefixExclusiveMax(std::string(prefix));
+  } else {
+    range.exclusive_max.insert(0, prefix);
+  }
+  return range;
+}
+
 }  // namespace tensorstore

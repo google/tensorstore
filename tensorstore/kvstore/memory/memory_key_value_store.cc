@@ -33,8 +33,9 @@
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/key_value_store.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/util/execution.h"
@@ -48,17 +49,19 @@ namespace {
 
 namespace jb = tensorstore::internal_json_binding;
 
+using kvstore::ReadResult;
+
 TimestampedStorageGeneration GenerationNow(StorageGeneration generation) {
   return TimestampedStorageGeneration{std::move(generation), absl::Now()};
 }
 
 /// The actual data for a memory-based KeyValueStore.
 ///
-/// This is a separate reference-counted object where: `MemoryKeyValueStore` ->
+/// This is a separate reference-counted object where: `MemoryDriver` ->
 /// `Context::Resource<MemoryKeyValueStoreResource>` -> `StoredKeyValuePairs`.
-/// This allows the `MemoryKeyValueStore` to retain a reference to the
+/// This allows the `MemoryDriver` to retain a reference to the
 /// `MemoryKeyValueStoreResource`, while also allowing an equivalent
-/// `MemoryKeyValueStore` to be constructed from the
+/// `MemoryDriver` to be constructed from the
 /// `MemoryKeyValueStoreResource`.
 struct StoredKeyValuePairs
     : public internal::AtomicReferenceCount<StoredKeyValuePairs> {
@@ -120,8 +123,7 @@ const internal::ContextResourceRegistration<MemoryKeyValueStoreResource>
 ///
 /// This also serves as documentation of how to implement a KeyValueStore
 /// driver.
-class MemoryKeyValueStore
-    : public internal::RegisteredKeyValueStore<MemoryKeyValueStore> {
+class MemoryDriver : public internal_kvstore::RegisteredDriver<MemoryDriver> {
  public:
   /// Specifies the string identifier under which the driver will be registered.
   static constexpr char id[] = "memory";
@@ -164,7 +166,7 @@ class MemoryKeyValueStore
 
   Future<void> DeleteRange(KeyRange range) override;
 
-  void ListImpl(const ListOptions& options,
+  void ListImpl(ListOptions options,
                 AnyFlowReceiver<Status, Key> receiver) override;
 
   absl::Status ReadModifyWrite(internal::OpenTransactionPtr& transaction,
@@ -178,15 +180,14 @@ class MemoryKeyValueStore
 
   /// Returns a reference to the stored key value pairs.  The stored data is
   /// owned by the `Context::Resource` rather than directly by
-  /// `MemoryKeyValueStore` in order to allow it to live as long as the
-  /// `Context` from which the `MemoryKeyValueStore` was opened, and thereby
-  /// allow an equivalent `MemoryKeyValueStore` to be re-opened from the
+  /// `MemoryDriver` in order to allow it to live as long as the
+  /// `Context` from which the `MemoryDriver` was opened, and thereby
+  /// allow an equivalent `MemoryDriver` to be re-opened from the
   /// `Context`.
   StoredKeyValuePairs& data() { return **spec_.memory_key_value_store; }
 
   /// Initiates opening a driver.
-  static void Open(
-      internal::KeyValueStoreOpenState<MemoryKeyValueStore> state) {
+  static void Open(internal_kvstore::DriverOpenState<MemoryDriver> state) {
     // For the "memory" driver, this simply involves copying
     state.driver().spec_ = state.spec();
     // For drivers implementations for which opening is asynchronous, operations
@@ -195,7 +196,7 @@ class MemoryKeyValueStore
   }
 
   /// Obtains a `BoundSpec` representation from an open `Driver`.
-  Status GetBoundSpecData(SpecData& spec) const {
+  absl::Status GetBoundSpecData(SpecData& spec) const {
     // `spec` is returned via an out parameter rather than returned via a
     // `Result`, as that simplifies use cases involving composition via
     // inheritance.
@@ -209,13 +210,13 @@ class MemoryKeyValueStore
 };
 
 using BufferedReadModifyWriteEntry =
-    internal_kvs::AtomicMultiPhaseMutation::BufferedReadModifyWriteEntry;
-using internal_kvs::DeleteRangeEntry;
-using internal_kvs::kReadModifyWrite;
+    internal_kvstore::AtomicMultiPhaseMutation::BufferedReadModifyWriteEntry;
+using internal_kvstore::DeleteRangeEntry;
+using internal_kvstore::kReadModifyWrite;
 
-class MemoryKeyValueStore::TransactionNode
-    : public internal_kvs::AtomicTransactionNode {
-  using Base = internal_kvs::AtomicTransactionNode;
+class MemoryDriver::TransactionNode
+    : public internal_kvstore::AtomicTransactionNode {
+  using Base = internal_kvstore::AtomicTransactionNode;
 
  public:
   using Base::Base;
@@ -232,23 +233,25 @@ class MemoryKeyValueStore::TransactionNode
   ///    modified values.
   ///
   /// 2. If validation succeeds, applies the modifications.
-  void AllEntriesDone(internal_kvs::SinglePhaseMutation& single_phase_mutation)
-      override ABSL_NO_THREAD_SAFETY_ANALYSIS {
+  void AllEntriesDone(
+      internal_kvstore::SinglePhaseMutation& single_phase_mutation) override
+      ABSL_NO_THREAD_SAFETY_ANALYSIS {
     if (!single_phase_mutation.remaining_entries_.HasError()) {
-      auto& data = static_cast<MemoryKeyValueStore&>(*this->kvstore()).data();
+      auto& data = static_cast<MemoryDriver&>(*this->driver()).data();
       TimestampedStorageGeneration generation;
       UniqueWriterLock lock(data.mutex);
       absl::Time commit_time = absl::Now();
       if (!ValidateEntryConditions(data, single_phase_mutation, commit_time)) {
         lock.unlock();
-        internal_kvs::RetryAtomicWriteback(single_phase_mutation, commit_time);
+        internal_kvstore::RetryAtomicWriteback(single_phase_mutation,
+                                               commit_time);
         return;
       }
       ApplyMutation(data, single_phase_mutation, commit_time);
       lock.unlock();
-      internal_kvs::AtomicCommitWritebackSuccess(single_phase_mutation);
+      internal_kvstore::AtomicCommitWritebackSuccess(single_phase_mutation);
     } else {
-      internal_kvs::WritebackError(single_phase_mutation);
+      internal_kvstore::WritebackError(single_phase_mutation);
     }
     MultiPhaseMutation::AllEntriesDone(single_phase_mutation);
   }
@@ -257,7 +260,7 @@ class MemoryKeyValueStore::TransactionNode
   /// specified in the transaction.  No changes are made to the `data`.
   static bool ValidateEntryConditions(
       StoredKeyValuePairs& data,
-      internal_kvs::SinglePhaseMutation& single_phase_mutation,
+      internal_kvstore::SinglePhaseMutation& single_phase_mutation,
       const absl::Time& commit_time) ABSL_SHARED_LOCKS_REQUIRED(data.mutex) {
     bool validated = true;
     for (auto& entry : single_phase_mutation.entries_) {
@@ -269,7 +272,7 @@ class MemoryKeyValueStore::TransactionNode
   }
 
   static bool ValidateEntryConditions(StoredKeyValuePairs& data,
-                                      internal_kvs::MutationEntry& entry,
+                                      internal_kvstore::MutationEntry& entry,
                                       const absl::Time& commit_time)
       ABSL_SHARED_LOCKS_REQUIRED(data.mutex) {
     if (entry.entry_type() == kReadModifyWrite) {
@@ -319,7 +322,7 @@ class MemoryKeyValueStore::TransactionNode
   /// `ValidateConditions`.
   static void ApplyMutation(
       StoredKeyValuePairs& data,
-      internal_kvs::SinglePhaseMutation& single_phase_mutation,
+      internal_kvstore::SinglePhaseMutation& single_phase_mutation,
       const absl::Time& commit_time) ABSL_EXCLUSIVE_LOCKS_REQUIRED(data.mutex) {
     for (auto& entry : single_phase_mutation.entries_) {
       if (entry.entry_type() == kReadModifyWrite) {
@@ -329,13 +332,11 @@ class MemoryKeyValueStore::TransactionNode
         if (!StorageGeneration::IsDirty(
                 rmw_entry.read_result_.stamp.generation)) {
           // Do nothing
-        } else if (rmw_entry.read_result_.state ==
-                   KeyValueStore::ReadResult::kMissing) {
+        } else if (rmw_entry.read_result_.state == ReadResult::kMissing) {
           data.values.erase(rmw_entry.key_);
           stamp.generation = StorageGeneration::NoValue();
         } else {
-          assert(rmw_entry.read_result_.state ==
-                 KeyValueStore::ReadResult::kValue);
+          assert(rmw_entry.read_result_.state == ReadResult::kValue);
           auto& v = data.values[rmw_entry.key_];
           v.generation_number = data.next_generation_number++;
           v.value = std::move(rmw_entry.read_result_.value);
@@ -350,8 +351,7 @@ class MemoryKeyValueStore::TransactionNode
   }
 };
 
-Future<KeyValueStore::ReadResult> MemoryKeyValueStore::Read(
-    Key key, ReadOptions options) {
+Future<ReadResult> MemoryDriver::Read(Key key, ReadOptions options) {
   auto& data = this->data();
   absl::ReaderMutexLock lock(&data.mutex);
   ReadResult result;
@@ -360,7 +360,7 @@ Future<KeyValueStore::ReadResult> MemoryKeyValueStore::Read(
   if (it == values.end()) {
     // Key not found.
     result.stamp = GenerationNow(StorageGeneration::NoValue());
-    result.state = KeyValueStore::ReadResult::kMissing;
+    result.state = ReadResult::kMissing;
     return result;
   }
   // Key found.
@@ -373,12 +373,12 @@ Future<KeyValueStore::ReadResult> MemoryKeyValueStore::Read(
   }
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto byte_range, options.byte_range.Validate(it->second.value.size()));
-  result.state = KeyValueStore::ReadResult::kValue;
+  result.state = ReadResult::kValue;
   result.value = internal::GetSubCord(it->second.value, byte_range);
   return result;
 }
 
-Future<TimestampedStorageGeneration> MemoryKeyValueStore::Write(
+Future<TimestampedStorageGeneration> MemoryDriver::Write(
     Key key, std::optional<Value> value, WriteOptions options) {
   using ValueWithGenerationNumber =
       StoredKeyValuePairs::ValueWithGenerationNumber;
@@ -426,7 +426,7 @@ Future<TimestampedStorageGeneration> MemoryKeyValueStore::Write(
   return GenerationNow(it->second.generation());
 }
 
-Future<void> MemoryKeyValueStore::DeleteRange(KeyRange range) {
+Future<void> MemoryDriver::DeleteRange(KeyRange range) {
   auto& data = this->data();
   absl::WriterMutexLock lock(&data.mutex);
   if (!range.empty()) {
@@ -436,8 +436,8 @@ Future<void> MemoryKeyValueStore::DeleteRange(KeyRange range) {
   return MakeResult();
 }
 
-void MemoryKeyValueStore::ListImpl(const ListOptions& options,
-                                   AnyFlowReceiver<Status, Key> receiver) {
+void MemoryDriver::ListImpl(ListOptions options,
+                            AnyFlowReceiver<Status, Key> receiver) {
   auto& data = this->data();
   std::atomic<bool> cancelled{false};
   execution::set_starting(receiver, [&cancelled] {
@@ -445,54 +445,53 @@ void MemoryKeyValueStore::ListImpl(const ListOptions& options,
   });
 
   // Collect the keys.
-  std::deque<Key> keys;
+  std::vector<Key> keys;
   {
     absl::ReaderMutexLock lock(&data.mutex);
     auto it_range = data.Find(options.range);
     for (auto it = it_range.first; it != it_range.second; ++it) {
       if (cancelled.load(std::memory_order_relaxed)) break;
-      keys.push_back(it->first);
+      std::string_view key = it->first;
+      keys.emplace_back(
+          key.substr(std::min(options.strip_prefix_length, key.size())));
     }
   }
 
   // Send the keys.
-  while (!keys.empty() && !cancelled.load(std::memory_order_relaxed)) {
-    execution::set_value(receiver, std::move(keys.back()));
-    keys.pop_back();
+  for (auto& key : keys) {
+    if (cancelled.load(std::memory_order_relaxed)) break;
+    execution::set_value(receiver, std::move(key));
   }
   execution::set_done(receiver);
   execution::set_stopping(receiver);
 }
 
-absl::Status MemoryKeyValueStore::ReadModifyWrite(
+absl::Status MemoryDriver::ReadModifyWrite(
     internal::OpenTransactionPtr& transaction, size_t& phase, Key key,
     ReadModifyWriteSource& source) {
   if (!spec_.atomic) {
-    return KeyValueStore::ReadModifyWrite(transaction, phase, std::move(key),
-                                          source);
+    return Driver::ReadModifyWrite(transaction, phase, std::move(key), source);
   }
-  return internal_kvs::AddReadModifyWrite<TransactionNode>(
+  return internal_kvstore::AddReadModifyWrite<TransactionNode>(
       this, transaction, phase, std::move(key), source);
 }
 
-absl::Status MemoryKeyValueStore::TransactionalDeleteRange(
+absl::Status MemoryDriver::TransactionalDeleteRange(
     const internal::OpenTransactionPtr& transaction, KeyRange range) {
   if (!spec_.atomic) {
-    return KeyValueStore::TransactionalDeleteRange(transaction,
-                                                   std::move(range));
+    return Driver::TransactionalDeleteRange(transaction, std::move(range));
   }
-  return internal_kvs::AddDeleteRange<TransactionNode>(this, transaction,
-                                                       std::move(range));
+  return internal_kvstore::AddDeleteRange<TransactionNode>(this, transaction,
+                                                           std::move(range));
 }
 
 // Registers the driver.
-const internal::KeyValueStoreDriverRegistration<MemoryKeyValueStore>
-    registration;
+const internal_kvstore::DriverRegistration<MemoryDriver> registration;
 
 }  // namespace
 
-KeyValueStore::Ptr GetMemoryKeyValueStore(bool atomic) {
-  KeyValueStore::PtrT<MemoryKeyValueStore> ptr(new MemoryKeyValueStore);
+kvstore::DriverPtr GetMemoryKeyValueStore(bool atomic) {
+  kvstore::Driver::PtrT<MemoryDriver> ptr(new MemoryDriver);
   ptr->spec_.memory_key_value_store =
       Context::Default()
           .GetResource(

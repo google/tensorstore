@@ -22,6 +22,7 @@
 #include "tensorstore/internal/cache/cache_pool_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/logging.h"
+#include "tensorstore/internal/path.h"
 #include "tensorstore/internal/staleness_bound_json_binder.h"
 #include "tensorstore/internal/unowned_to_shared.h"
 #include "tensorstore/tensorstore.h"
@@ -56,13 +57,13 @@ OpenState::OpenState(Initializer initializer)
 
 std::string OpenState::GetMetadataCacheKey() { return {}; }
 
-Result<KeyValueStore::Ptr> OpenState::GetMetadataKeyValueStore(
-    KeyValueStore::Ptr base_kv_store) {
+Result<kvstore::DriverPtr> OpenState::GetMetadataKeyValueStore(
+    kvstore::DriverPtr base_kv_store) {
   return base_kv_store;
 }
 
-Result<KeyValueStore::Ptr> OpenState::GetDataKeyValueStore(
-    KeyValueStore::Ptr base_kv_store, const void* metadata) {
+Result<kvstore::DriverPtr> OpenState::GetDataKeyValueStore(
+    kvstore::DriverPtr base_kv_store, const void* metadata) {
   return base_kv_store;
 }
 
@@ -75,7 +76,7 @@ AtomicUpdateConstraint OpenState::GetCreateConstraint() {
 }
 
 MetadataCache::MetadataCache(Initializer initializer)
-    : Base(KeyValueStore::Ptr()),
+    : Base(kvstore::DriverPtr()),
       data_copy_concurrency_(std::move(initializer.data_copy_concurrency)),
       cache_pool_(std::move(initializer.cache_pool)) {}
 
@@ -232,7 +233,7 @@ std::string GetMetadataMissingErrorMessage(
   return tensorstore::StrCat(
       "Metadata at ",
       GetOwningCache(*metadata_cache_entry)
-          .kvstore()
+          .kvstore_driver()
           ->DescribeKey(metadata_cache_entry->GetKeyValueStoreKey()),
       " does not exist");
 }
@@ -567,8 +568,9 @@ Result<IndexTransform<>> DriverBase::GetBoundSpecData(
     IndexTransformView<> transform_view) {
   auto* cache = this->cache();
   auto* metadata_cache = cache->metadata_cache();
-  TENSORSTORE_ASSIGN_OR_RETURN(spec.store,
+  TENSORSTORE_ASSIGN_OR_RETURN(spec.store.driver,
                                metadata_cache->base_store()->GetBoundSpec());
+  spec.store.path = cache->GetBaseKvstorePath();
   spec.data_copy_concurrency = metadata_cache->data_copy_concurrency_;
   spec.cache_pool = metadata_cache->cache_pool_;
   spec.delete_existing = false;
@@ -641,8 +643,8 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
   TENSORSTORE_KVS_DRIVER_DEBUG_LOG("CreateTensorStoreFromMetadata: state=",
                                    state.get());
   auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
-  // TODO(jbms): The read-write mode should be determined based on the
-  // KeyValueStore mode, once that is exposed.
+  // TODO(jbms): The read-write mode should be determined based on the kvstore
+  // mode, once that is exposed.
   auto read_write_mode = state->GetReadWriteMode(metadata.get());
   if (base.read_write_mode_ != ReadWriteMode::dynamic) {
     TENSORSTORE_RETURN_IF_ERROR(internal::ValidateSupportsModes(
@@ -821,12 +823,12 @@ struct GetMetadataForOpen {
   }
 };
 
-/// Called when the KeyValueStore has been successfully opened.
+/// Called when the kvstore has been successfully opened.
 struct HandleKeyValueStoreReady {
   OpenState::Ptr state;
   void operator()(Promise<internal::Driver::Handle> promise,
                   ReadyFuture<const void> store) {
-    TENSORSTORE_KVS_DRIVER_DEBUG_LOG("Metadata KeyValueStore ready: state=",
+    TENSORSTORE_KVS_DRIVER_DEBUG_LOG("Metadata kvstore ready: state=",
                                      state.get());
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
     auto* state_ptr = state.get();
@@ -1077,19 +1079,18 @@ namespace {
 /// Returns the metadata cache for `state`, creating it if it doesn't already
 /// exist.
 ///
-/// The key used to lookup the cache depends on the
-/// `KeyValueStore::Bound::Spec`; the actual `KeyValueStore` has not yet been
-/// opened.
+/// The key used to lookup the cache depends on the `kvstore::DriverSpec`; the
+/// actual `kvstore::Driver` has not yet been opened.
 ///
 /// The returned `metadata_cache` must not be used for read or write operations
 /// until the `metadata_cache->initialized_` future becomes ready.  This
 /// asynchronous initialization pattern is needed in order to asynchronously
-/// open the `KeyValueStore` when the metadata cache is created.
+/// open the `kvstore::Driver` when the metadata cache is created.
 internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(OpenState* state) {
   auto& base = *(PrivateOpenState*)state;  // Cast to private base
 
   auto& spec = *base.spec_;
-  internal::EncodeCacheKey(&base.metadata_cache_key_, spec.store,
+  internal::EncodeCacheKey(&base.metadata_cache_key_, spec.store.driver,
                            typeid(*state), state->GetMetadataCacheKey());
   return internal::GetOrCreateAsyncInitializedCache<MetadataCache>(
       **state->cache_pool(), base.metadata_cache_key_,
@@ -1102,23 +1103,23 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(OpenState* state) {
       [&](Promise<void> initialized,
           internal::CachePtr<MetadataCache> metadata_cache) {
         TENSORSTORE_KVS_DRIVER_DEBUG_LOG(
-            "Opening metadata KeyValueStore: open_state=", state);
-        // The cache didn't previously exist.  Open the KeyValueStore.
+            "Opening metadata kvstore: open_state=", state);
+        // The cache didn't previously exist.  Open the kvstore.
         LinkValue(
             [state = OpenState::Ptr(state),
              metadata_cache = std::move(metadata_cache)](
                 Promise<void> metadata_cache_promise,
-                ReadyFuture<KeyValueStore::Ptr> future) {
+                ReadyFuture<kvstore::DriverPtr> future) {
               metadata_cache->base_store_ = *future.result();
               if (auto result = state->GetMetadataKeyValueStore(
                       metadata_cache->base_store_);
                   result.ok()) {
-                metadata_cache->SetKeyValueStore(std::move(*result));
+                metadata_cache->SetKvStoreDriver(std::move(*result));
               } else {
                 metadata_cache_promise.SetResult(std::move(result).status());
               }
             },
-            initialized, KeyValueStore::Open(spec.store));
+            initialized, kvstore::Open(spec.store.driver));
       });
 }
 }  // namespace
@@ -1304,7 +1305,11 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                    jb::Projection(&SpecData::data_copy_concurrency)),
         jb::Member(internal::CachePoolResource::id,
                    jb::Projection(&SpecData::cache_pool)),
-        jb::Member("kvstore", jb::Projection(&SpecData::store)),
+        jb::Projection<&SpecData::store>(jb::KvStoreSpecAndPathJsonBinder),
+        jb::Initialize([](auto* obj) {
+          internal::EnsureDirectoryPath(obj->store.path);
+          return absl::OkStatus();
+        }),
         jb::Projection(
             &SpecData::staleness,
             jb::Sequence(

@@ -2,25 +2,23 @@
 
 #include "absl/functional/function_ref.h"
 #include "tensorstore/internal/logging.h"
+#include "tensorstore/kvstore/driver.h"
 
 namespace tensorstore {
-namespace internal_kvs {
+namespace internal_kvstore {
 
 namespace {
-
-using ReadModifyWriteSource = KeyValueStore::ReadModifyWriteSource;
-using ReadModifyWriteTarget = KeyValueStore::ReadModifyWriteTarget;
 
 template <typename Controller>
 void ReportWritebackError(Controller controller, std::string_view action,
                           const absl::Status& error) {
-  controller.Error(KeyValueStore::AnnotateErrorWithKeyDescription(
+  controller.Error(kvstore::Driver::AnnotateErrorWithKeyDescription(
       controller.DescribeKey(controller.GetKey()), action, error));
 }
 
 template <typename Controller>
-void PerformWriteback(KeyValueStore* kvstore, Controller controller,
-                      KeyValueStore::ReadResult read_result) {
+void PerformWriteback(Driver* driver, Controller controller,
+                      ReadResult read_result) {
   if (!StorageGeneration::IsDirty(read_result.stamp.generation)) {
     if (!StorageGeneration::IsConditional(read_result.stamp.generation) ||
         read_result.stamp.time > controller.GetTransactionNode()
@@ -28,14 +26,14 @@ void PerformWriteback(KeyValueStore* kvstore, Controller controller,
                                      ->commit_start_time()) {
       controller.Success(std::move(read_result.stamp));
     } else {
-      KeyValueStore::ReadOptions read_options;
+      ReadOptions read_options;
       read_options.if_not_equal =
           StorageGeneration::Clean(std::move(read_result.stamp.generation));
       read_options.byte_range = {0, 0};
-      auto future = kvstore->Read(controller.GetKey(), std::move(read_options));
+      auto future = driver->Read(controller.GetKey(), std::move(read_options));
       future.Force();
       std::move(future).ExecuteWhenReady(
-          [controller](ReadyFuture<KeyValueStore::ReadResult> future) mutable {
+          [controller](ReadyFuture<ReadResult> future) mutable {
             auto& r = future.result();
             if (!r.ok()) {
               ReportWritebackError(controller, "reading", r.status());
@@ -47,13 +45,13 @@ void PerformWriteback(KeyValueStore* kvstore, Controller controller,
           });
     }
   } else {
-    KeyValueStore::WriteOptions write_options;
+    WriteOptions write_options;
     assert(!read_result.aborted());
     write_options.if_equal =
         StorageGeneration::Clean(std::move(read_result.stamp.generation));
-    auto future = kvstore->Write(controller.GetKey(),
-                                 std::move(read_result).optional_value(),
-                                 std::move(write_options));
+    auto future = driver->Write(controller.GetKey(),
+                                std::move(read_result).optional_value(),
+                                std::move(write_options));
     future.Force();
     std::move(future).ExecuteWhenReady(
         [controller](ReadyFuture<TimestampedStorageGeneration> future) mutable {
@@ -81,7 +79,7 @@ void EntryDone(SinglePhaseMutation& single_phase_mutation, bool error,
 /// supersedes.
 ///
 /// This is for debugging/testing and only used if
-/// `TENSORSTORE_INTERNAL_KVSTORE_TRANSACTION_DEBUG` is defined.
+/// `TENSORSTORE_INTERNAL_KVSTORETORE_TRANSACTION_DEBUG` is defined.
 [[maybe_unused]] void CheckInvariants(ReadModifyWriteEntry* entry) {
   do {
     assert(!(entry->flags_ & ReadModifyWriteEntry::kDeleted));
@@ -97,7 +95,7 @@ void EntryDone(SinglePhaseMutation& single_phase_mutation, bool error,
 /// Checks the invariants of all entries in all phases.
 ///
 /// This is for debugging/testing and only used if
-/// `TENSORSTORE_INTERNAL_KVSTORE_TRANSACTION_DEBUG` is defined.
+/// `TENSORSTORE_INTERNAL_KVSTORETORE_TRANSACTION_DEBUG` is defined.
 [[maybe_unused]] void CheckInvariants(MultiPhaseMutation& multi_phase,
                                       bool commit_started) {
   std::map<size_t, size_t> phase_entry_count;
@@ -176,7 +174,7 @@ void EntryDone(SinglePhaseMutation& single_phase_mutation, bool error,
   }
 }
 
-#ifdef TENSORSTORE_INTERNAL_KVSTORE_TRANSACTION_DEBUG
+#ifdef TENSORSTORE_INTERNAL_KVSTORETORE_TRANSACTION_DEBUG
 inline void DebugCheckInvariants(MultiPhaseMutation& multi_phase,
                                  bool commit_started) {
   CheckInvariants(multi_phase, commit_started);
@@ -278,8 +276,8 @@ SinglePhaseMutation& GetCurrentSinglePhaseMutation(
     single_phase_mutation = multi_phase.phases_.prev_;
     assert(single_phase_mutation->phase_number_ <= phase);
     if (single_phase_mutation->phase_number_ != phase) {
-      // Phase changed since the last operation on this KeyValueStore.  Create a
-      // new SinglePhaseMutation.
+      // Phase changed since the last operation on this key-value store.  Create
+      // a new SinglePhaseMutation.
       auto* new_single_phase_mutation = new SinglePhaseMutation;
       std::swap(new_single_phase_mutation->entries_,
                 single_phase_mutation->entries_);
@@ -314,7 +312,7 @@ struct Controller {
   std::string DescribeKey(std::string_view key) {
     return entry_->multi_phase().DescribeKey(key);
   }
-  const KeyValueStore::Key& GetKey() { return entry_->key_; }
+  const Key& GetKey() { return entry_->key_; }
   void Success(TimestampedStorageGeneration new_stamp) {
     if (auto* dr_entry = static_cast<DeleteRangeEntry*>(entry_->next_)) {
       DeletedEntryDone(*dr_entry, /*error=*/false);
@@ -384,7 +382,7 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
         ReportWritebackError(Controller{entry_}, "writing", error);
       }
       void set_cancel() { TENSORSTORE_UNREACHABLE; }  // COV_NF_LINE
-      void set_value(KeyValueStore::ReadResult read_result) {
+      void set_value(ReadResult read_result) {
         ReceiveWritebackCommon(*entry_, read_result.stamp.generation);
         entry_->multi_phase().Writeback(*entry_, std::move(read_result));
       }
@@ -430,7 +428,7 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
       // solely from the initial writeback request to
       // `GetLastReadModifyWriteEntry()`.  However, `read_result.stamp` may be
       // affected by "skipped" entries.
-      KeyValueStore::ReadResult read_result;
+      ReadResult read_result;
 
       // Returns the last (i.e. most recent) entry in the sequence.  This is the
       // entry to which the initial writeback request is issued.
@@ -447,7 +445,7 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
                            "writing", error);
     }
     void set_cancel() { TENSORSTORE_UNREACHABLE; }  // COV_NF_LINE
-    void set_value(KeyValueStore::ReadResult read_result) {
+    void set_value(ReadResult read_result) {
       auto& entry = *state_->entry;
       ReceiveWritebackCommon(entry, read_result.stamp.generation);
       if (!state_->entry->next_ &&
@@ -598,7 +596,7 @@ void ReadModifyWriteEntry::KvsRead(
     ReadModifyWriteEntry* entry_;
     ReadModifyWriteTarget::ReadReceiver receiver_;
     void set_cancel() { execution::set_cancel(receiver_); }
-    void set_value(KeyValueStore::ReadResult read_result) {
+    void set_value(ReadResult read_result) {
       {
         assert(!StorageGeneration::IsUnknown(read_result.stamp.generation));
         absl::MutexLock lock(&entry_->mutex());
@@ -614,11 +612,11 @@ void ReadModifyWriteEntry::KvsRead(
   };
   if (flags_ & ReadModifyWriteEntry::kPrevDeleted) {
     execution::set_value(
-        receiver, KeyValueStore::ReadResult{
-                      KeyValueStore::ReadResult::kMissing,
-                      {},
-                      {StorageGeneration::Dirty(StorageGeneration::Unknown()),
-                       absl::InfiniteFuture()}});
+        receiver,
+        ReadResult{ReadResult::kMissing,
+                   {},
+                   {StorageGeneration::Dirty(StorageGeneration::Unknown()),
+                    absl::InfiniteFuture()}});
   } else if (prev_) {
     TENSORSTORE_KVSTORE_DEBUG_LOG(*prev_, "Requesting writeback for read");
     ReadModifyWriteSource::WritebackOptions writeback_options;
@@ -861,7 +859,7 @@ void MultiPhaseMutation::AbortRemainingPhases() {
 }
 
 MultiPhaseMutation::ReadModifyWriteStatus MultiPhaseMutation::ReadModifyWrite(
-    size_t& phase, KeyValueStore::Key key, ReadModifyWriteSource& source) {
+    size_t& phase, Key key, ReadModifyWriteSource& source) {
   DebugCheckInvariantsInDestructor debug_check(*this, false);
 #ifndef NDEBUG
   mutex().AssertHeld();
@@ -1118,25 +1116,24 @@ ReadModifyWriteEntry* MultiPhaseMutation::AllocateReadModifyWriteEntry() {
 void MultiPhaseMutation::FreeReadModifyWriteEntry(ReadModifyWriteEntry* entry) {
   delete entry;
 }
-void ReadDirectly(KeyValueStore* kvstore, ReadModifyWriteEntry& entry,
+void ReadDirectly(Driver* driver, ReadModifyWriteEntry& entry,
                   ReadModifyWriteTarget::TransactionalReadOptions&& options,
                   ReadModifyWriteTarget::ReadReceiver&& receiver) {
-  KeyValueStore::ReadOptions kvstore_options;
+  ReadOptions kvstore_options;
   kvstore_options.staleness_bound = options.staleness_bound;
   kvstore_options.if_not_equal = std::move(options.if_not_equal);
-  execution::submit(kvstore->Read(entry.key_, std::move(kvstore_options)),
+  execution::submit(driver->Read(entry.key_, std::move(kvstore_options)),
                     std::move(receiver));
 }
 
-void WritebackDirectly(KeyValueStore* kvstore, ReadModifyWriteEntry& entry,
-                       KeyValueStore::ReadResult&& read_result) {
+void WritebackDirectly(Driver* driver, ReadModifyWriteEntry& entry,
+                       ReadResult&& read_result) {
   assert(read_result.stamp.time != absl::InfinitePast());
-  PerformWriteback(kvstore, Controller{&entry}, std::move(read_result));
+  PerformWriteback(driver, Controller{&entry}, std::move(read_result));
 }
 
-void WritebackDirectly(KeyValueStore* kvstore, DeleteRangeEntry& entry) {
-  auto future =
-      kvstore->DeleteRange(KeyRange{entry.key_, entry.exclusive_max_});
+void WritebackDirectly(Driver* driver, DeleteRangeEntry& entry) {
+  auto future = driver->DeleteRange(KeyRange{entry.key_, entry.exclusive_max_});
   future.Force();
   std::move(future).ExecuteWhenReady([&entry](ReadyFuture<const void> future) {
     auto& r = future.result();
@@ -1175,8 +1172,8 @@ void AtomicWritebackReady(
 
 }  // namespace
 
-void AtomicMultiPhaseMutation::Writeback(
-    ReadModifyWriteEntry& entry, KeyValueStore::ReadResult&& read_result) {
+void AtomicMultiPhaseMutation::Writeback(ReadModifyWriteEntry& entry,
+                                         ReadResult&& read_result) {
   assert(read_result.stamp.time != absl::InfinitePast());
   auto& buffered = static_cast<BufferedReadModifyWriteEntry&>(entry);
   buffered.read_result_ = std::move(read_result);
@@ -1255,12 +1252,10 @@ absl::Status GetNonAtomicReadModifyWriteError(
 }  // namespace
 
 Future<TimestampedStorageGeneration> WriteViaTransaction(
-    KeyValueStore* kvstore, KeyValueStore::Key key,
-    std::optional<KeyValueStore::Value> value,
-    KeyValueStore::WriteOptions options) {
-  using ReadModifyWriteTarget = KeyValueStore::ReadModifyWriteTarget;
+    Driver* driver, Key key, std::optional<Value> value, WriteOptions options) {
+  using ReadModifyWriteTarget = ReadModifyWriteTarget;
   class Node : public internal::TransactionState::Node,
-               public KeyValueStore::ReadModifyWriteSource {
+               public ReadModifyWriteSource {
    public:
     Node()
         :  // No associated data.
@@ -1307,7 +1302,7 @@ Future<TimestampedStorageGeneration> WriteViaTransaction(
       struct ReadReceiverImpl {
         Node& source_;
         ReadModifyWriteSource::WritebackReceiver receiver_;
-        void set_value(KeyValueStore::ReadResult read_result) {
+        void set_value(ReadResult read_result) {
           auto& existing_generation = source_.read_result_.stamp.generation;
           auto clean_generation = StorageGeneration::Clean(existing_generation);
           // Check if the new read generation matches the condition specified in
@@ -1321,7 +1316,7 @@ Future<TimestampedStorageGeneration> WriteViaTransaction(
               // `Uint64ShardedKeyValueStore` uses the generation of the shard
               // even for missing keys.
               (source_.if_equal_no_value_ &&
-               read_result.state == KeyValueStore::ReadResult::kMissing)) {
+               read_result.state == ReadResult::kMissing)) {
             // Read generation matches, store the updated stamp.  Normally this
             // will just store an updated time, but in the `if_equal_no_value_`
             // case, this may also store an updated generation.
@@ -1371,7 +1366,7 @@ Future<TimestampedStorageGeneration> WriteViaTransaction(
     /// new read result here, because the result of "writeback" will actually
     /// just be the existing read result (since the requested conditional write
     /// will have no effect).
-    KeyValueStore::ReadResult read_result_;
+    ReadResult read_result_;
 
     /// If `true`, `if_equal=StorageGeneration::NoValue()` was specified, and it
     /// has not yet been found to have been violated (`read_result_` still
@@ -1380,12 +1375,12 @@ Future<TimestampedStorageGeneration> WriteViaTransaction(
 
     ReadModifyWriteTarget* target_;
   };
-  KeyValueStore::ReadResult read_result;
+  ReadResult read_result;
   if (value) {
-    read_result.state = KeyValueStore::ReadResult::kValue;
+    read_result.state = ReadResult::kValue;
     read_result.value = std::move(*value);
   } else {
-    read_result.state = KeyValueStore::ReadResult::kMissing;
+    read_result.state = ReadResult::kMissing;
   }
   if (StorageGeneration::IsUnknown(options.if_equal)) {
     read_result.stamp.time = absl::InfiniteFuture();
@@ -1406,7 +1401,7 @@ Future<TimestampedStorageGeneration> WriteViaTransaction(
   internal::OpenTransactionPtr transaction;
   size_t phase;
   TENSORSTORE_RETURN_IF_ERROR(
-      kvstore->ReadModifyWrite(transaction, phase, std::move(key), *node));
+      driver->ReadModifyWrite(transaction, phase, std::move(key), *node));
   node->SetTransaction(*transaction);
   node->SetPhase(phase);
   TENSORSTORE_RETURN_IF_ERROR(node->Register());
@@ -1414,24 +1409,26 @@ Future<TimestampedStorageGeneration> WriteViaTransaction(
   return future;
 }
 
-}  // namespace internal_kvs
+}  // namespace internal_kvstore
 
-absl::Status KeyValueStore::ReadModifyWrite(
-    internal::OpenTransactionPtr& transaction, size_t& phase, Key key,
-    ReadModifyWriteSource& source) {
+namespace kvstore {
+
+absl::Status Driver::ReadModifyWrite(internal::OpenTransactionPtr& transaction,
+                                     size_t& phase, Key key,
+                                     ReadModifyWriteSource& source) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto node,
-      internal_kvs::GetTransactionNode<internal_kvs::NonAtomicTransactionNode>(
-          this, transaction));
-  internal_kvs::MultiPhaseMutation::ReadModifyWriteStatus rmw_status;
+      internal_kvstore::GetTransactionNode<
+          internal_kvstore::NonAtomicTransactionNode>(this, transaction));
+  internal_kvstore::MultiPhaseMutation::ReadModifyWriteStatus rmw_status;
   {
     absl::MutexLock lock(&node->mutex_);
     rmw_status = node->ReadModifyWrite(phase, std::move(key), source);
   }
-  return internal_kvs::GetNonAtomicReadModifyWriteError(*node, rmw_status);
+  return internal_kvstore::GetNonAtomicReadModifyWriteError(*node, rmw_status);
 }
 
-absl::Status KeyValueStore::TransactionalDeleteRange(
+absl::Status Driver::TransactionalDeleteRange(
     const internal::OpenTransactionPtr& transaction, KeyRange range) {
   if (range.empty()) return absl::OkStatus();
   if (transaction && transaction->atomic()) {
@@ -1442,8 +1439,11 @@ absl::Status KeyValueStore::TransactionalDeleteRange(
     transaction->RequestAbort(error);
     return error;
   }
-  return internal_kvs::AddDeleteRange<internal_kvs::NonAtomicTransactionNode>(
-      this, transaction, std::move(range));
+  return internal_kvstore::AddDeleteRange<
+      internal_kvstore::NonAtomicTransactionNode>(this, transaction,
+                                                  std::move(range));
 }
+
+}  // namespace kvstore
 
 }  // namespace tensorstore

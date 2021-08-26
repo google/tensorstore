@@ -24,24 +24,35 @@
 ///
 /// Refer to `memory/memory_key_value_store.cc` for an example.
 
+#include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/json_registry.h"
-#include "tensorstore/kvstore/key_value_store.h"
+#include "tensorstore/json_serialization_options.h"
+#include "tensorstore/kvstore/driver.h"
 
 namespace tensorstore {
-namespace internal {
+namespace internal_kvstore {
+
+using kvstore::Driver;
+using kvstore::DriverPtr;
+using kvstore::DriverSpec;
+using kvstore::DriverSpecPtr;
 
 template <typename Derived>
-class KeyValueStoreOpenState;
+class DriverOpenState;
 
-using KeyValueStoreDriverRegistry =
-    JsonRegistry<KeyValueStoreSpec, KeyValueStoreSpec::FromJsonOptions,
-                 KeyValueStoreSpec::ToJsonOptions,
-                 IntrusivePtr<const KeyValueStoreSpec>>;
+struct DriverFromJsonOptions : public JsonSerializationOptions {
+  const std::string& path;
+};
+
+using DriverRegistry =
+    internal::JsonRegistry<DriverSpec, DriverFromJsonOptions,
+                           JsonSerializationOptions,
+                           internal::IntrusivePtr<const DriverSpec>>;
 
 /// Returns the global KeyValueStore driver registry.
 ///
 /// This should not be called directly by code outside this module.
-KeyValueStoreDriverRegistry& GetKeyValueStoreDriverRegistry();
+DriverRegistry& GetDriverRegistry();
 
 /// CRTP base class for KeyValueStore implementations that support a JSON
 /// representation.
@@ -96,10 +107,10 @@ KeyValueStoreDriverRegistry& GetKeyValueStoreDriverRegistry();
 ///     }
 ///
 /// - The static `Open` method is called to initiate opening the driver.  This
-///   is called by `KeyValueStore::Open`.  Note that `KeyValueStoreOpenState` is
+///   is called by `kvstore::Open`.  Note that `KeyValueStoreOpenState` is
 ///   a CRTP class template parameterized by the `Derived` driver type.
 ///
-///     static void Open(internal::KeyValueStoreOpenState<Derived> state) {
+///     static void Open(internal_kvstore::DriverOpenState<Derived> state) {
 ///       // Access the context-bound `SpecData` representation as
 ///       `state.spec()`.
 ///       // Access the newly allocated `Derived` object as `state.driver()`.
@@ -116,8 +127,8 @@ KeyValueStoreDriverRegistry& GetKeyValueStoreDriverRegistry();
 ///
 /// Refer to `memory/memory_key_value_store.cc` for an example driver
 /// implementation.
-template <typename Derived, typename Parent = KeyValueStore>
-class RegisteredKeyValueStore : public Parent {
+template <typename Derived, typename Parent = Driver>
+class RegisteredDriver : public Parent {
  private:
   /// Encodes the cache key from the context-bound `SpecData` representation.
   ///
@@ -144,14 +155,14 @@ class RegisteredKeyValueStore : public Parent {
         !status.ok()) {
       // Could not obtain bound spec data.  Just use the default implementation
       // that encodes the exact object identity.
-      return KeyValueStore::EncodeCacheKey(out);
+      return Driver::EncodeCacheKey(out);
     }
     EncodeCacheKeyImpl(out, bound_spec_data);
   }
 
-  Result<KeyValueStoreSpec::Ptr> GetBoundSpec() const override {
-    using SpecImpl = RegisteredKeyValueStoreSpec<Derived>;
-    IntrusivePtr<SpecImpl> spec(new SpecImpl);
+  Result<DriverSpecPtr> GetBoundSpec() const override {
+    using SpecImpl = RegisteredDriverSpec<Derived>;
+    internal::IntrusivePtr<SpecImpl> spec(new SpecImpl);
     spec->context_binding_state_ = ContextBindingState::bound;
     TENSORSTORE_RETURN_IF_ERROR(
         static_cast<const Derived*>(this)->GetBoundSpecData(spec->data_));
@@ -160,9 +171,9 @@ class RegisteredKeyValueStore : public Parent {
 
  private:
   template <typename>
-  friend class KeyValueStoreDriverRegistration;
+  friend class DriverRegistration;
   template <typename>
-  friend class RegisteredKeyValueStoreSpec;
+  friend class RegisteredDriverSpec;
 };
 
 /// Parameter type for the static `Open` method that driver types inherited from
@@ -170,11 +181,11 @@ class RegisteredKeyValueStore : public Parent {
 /// implementations, this type may be copied and the copy retained until the
 /// operation completes.
 template <typename Derived>
-class KeyValueStoreOpenState {
+class DriverOpenState {
   template <typename, typename>
-  friend class RegisteredKeyValueStore;
+  friend class RegisteredDriver;
   template <typename>
-  friend class RegisteredKeyValueStoreSpec;
+  friend class RegisteredDriverSpec;
 
  public:
   using SpecData = typename Derived::SpecData;
@@ -185,7 +196,7 @@ class KeyValueStoreOpenState {
   /// released, the promise is marked ready and the open is considered to have
   /// completed successfully.  The result should only be changed to indicate an
   /// error.
-  const Promise<KeyValueStore::Ptr>& promise() const { return promise_; }
+  const Promise<DriverPtr>& promise() const { return promise_; }
 
   /// Sets an error on the promise, indicating that the open failed.
   void SetError(Status status) { promise_.SetResult(std::move(status)); }
@@ -197,41 +208,43 @@ class KeyValueStoreOpenState {
   const SpecData& spec() const { return spec_->data_; }
 
  private:
-  KeyValueStore::PtrT<Derived> driver_;
-  Promise<KeyValueStore::Ptr> promise_;
-  IntrusivePtr<const RegisteredKeyValueStoreSpec<Derived>> spec_;
+  Driver::PtrT<Derived> driver_;
+  Promise<DriverPtr> promise_;
+  internal::IntrusivePtr<const RegisteredDriverSpec<Derived>> spec_;
 };
 
 template <typename Derived>
-class RegisteredKeyValueStoreSpec : public KeyValueStoreSpec {
+class RegisteredDriverSpec : public DriverSpec {
   using SpecData = typename Derived::SpecData;
 
  public:
   absl::Status BindContext(const Context& context) override {
-    return ContextBindingTraits<SpecData>::Bind(data_, context);
+    return internal::ContextBindingTraits<SpecData>::Bind(data_, context);
   }
 
   void UnbindContext(
       const internal::ContextSpecBuilder& context_builder) override {
-    ContextBindingTraits<SpecData>::Unbind(data_, context_builder);
+    internal::ContextBindingTraits<SpecData>::Unbind(data_, context_builder);
   }
 
-  void StripContext() override { ContextBindingTraits<SpecData>::Strip(data_); }
+  void StripContext() override {
+    internal::ContextBindingTraits<SpecData>::Strip(data_);
+  }
 
   void EncodeCacheKey(std::string* out) const override {
-    Derived::RegisteredKeyValueStore::EncodeCacheKeyImpl(out, data_);
+    Derived::RegisteredDriver::EncodeCacheKeyImpl(out, data_);
   }
 
-  KeyValueStoreSpec::Ptr Clone() const final {
-    return KeyValueStoreSpec::Ptr(new RegisteredKeyValueStoreSpec(*this));
+  DriverSpecPtr Clone() const final {
+    return DriverSpecPtr(new RegisteredDriverSpec(*this));
   }
 
-  Future<KeyValueStore::Ptr> DoOpen() const override {
-    KeyValueStoreOpenState<Derived> open_state;
+  Future<DriverPtr> DoOpen() const override {
+    DriverOpenState<Derived> open_state;
     open_state.spec_.reset(this);
     open_state.driver_.reset(new Derived);
     auto [promise, future] =
-        PromiseFuturePair<KeyValueStore::Ptr>::Make(open_state.driver_);
+        PromiseFuturePair<DriverPtr>::Make(open_state.driver_);
     open_state.promise_ = std::move(promise);
     Derived::Open(std::move(open_state));
     return future;
@@ -244,25 +257,24 @@ class RegisteredKeyValueStoreSpec : public KeyValueStoreSpec {
 ///
 /// Example usage:
 ///
-///     class MyDriver : public RegisteredKeyValueStore<MyDriver> {
+///     class MyDriver : public internal_kvstore::RegisteredDriver<MyDriver> {
 ///       // ...
 ///     };
 ///
-///     const KeyValueStoreDriverRegistration<MyDriver> registration;
+///     const internal_kvstore::DriverRegistration<MyDriver> registration;
 ///
 template <typename Derived>
-class KeyValueStoreDriverRegistration {
+class DriverRegistration {
  public:
-  KeyValueStoreDriverRegistration() {
-    GetKeyValueStoreDriverRegistry()
-        .Register<RegisteredKeyValueStoreSpec<Derived>>(
-            Derived::id, internal_json_binding::Projection(
-                             &RegisteredKeyValueStoreSpec<Derived>::data_,
-                             Derived::json_binder));
+  DriverRegistration() {
+    GetDriverRegistry().Register<RegisteredDriverSpec<Derived>>(
+        Derived::id,
+        internal_json_binding::Projection(&RegisteredDriverSpec<Derived>::data_,
+                                          Derived::json_binder));
   }
 };
 
-}  // namespace internal
+}  // namespace internal_kvstore
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_KVSTORE_REGISTRY_H_

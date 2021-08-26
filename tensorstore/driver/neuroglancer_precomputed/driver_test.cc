@@ -25,8 +25,8 @@
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/parse_json_matches.h"
-#include "tensorstore/kvstore/key_value_store.h"
-#include "tensorstore/kvstore/key_value_store_testutil.h"
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
@@ -34,12 +34,12 @@
 
 namespace {
 
+namespace kvstore = tensorstore::kvstore;
 using tensorstore::ChunkLayout;
 using tensorstore::Context;
 using tensorstore::DimensionIndex;
 using tensorstore::dtype_v;
 using tensorstore::Index;
-using tensorstore::KeyValueStore;
 using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
 using tensorstore::Schema;
@@ -63,8 +63,11 @@ absl::Cord Bytes(std::vector<unsigned char> values) {
 ::nlohmann::json GetJsonSpec() {
   return {
       {"driver", "neuroglancer_precomputed"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"multiscale_metadata",
        {
            {"data_type", "uint16"},
@@ -186,8 +189,7 @@ TEST(DriverTest, Create) {
 
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
-          .value(),
+      GetMap(kvstore::Open({{"driver", "memory"}}, context).value()).value(),
       (UnorderedElementsAreArray<
           ::testing::Matcher<std::pair<std::string, absl::Cord>>>({
           Pair("prefix/info",  //
@@ -339,9 +341,9 @@ TEST(DriverTest, Create) {
     // Test corrupt "raw" chunk handling
     ::nlohmann::json storage_spec{{"driver", "memory"}};
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto kv_store, KeyValueStore::Open(storage_spec, context).result());
-    TENSORSTORE_EXPECT_OK(
-        kv_store->Write("prefix/1_1_1/10-11_10-12_7-9", absl::Cord("junk")));
+        auto kvs, kvstore::Open(storage_spec, context).result());
+    TENSORSTORE_EXPECT_OK(kvstore::Write(kvs, "prefix/1_1_1/10-11_10-12_7-9",
+                                         absl::Cord("junk")));
     EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
                     ChainResult(store, tensorstore::AllDims().SizedInterval(
                                            {9, 7, 7, 0}, {2, 4, 2, 3})))
@@ -367,10 +369,10 @@ TEST(DriverTest, Create) {
                                          {9, 7, 7, 0}, {2, 4, 2, 3})))
                   .value());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto kv_store,
-        KeyValueStore::Open({{"driver", "memory"}}, context).result());
-    EXPECT_THAT(ListFuture(kv_store.get()).value(),
-                ::testing::UnorderedElementsAre("prefix/info"));
+        auto kvs, kvstore::Open({{"driver", "memory"}}, context).result());
+    EXPECT_THAT(
+        ListFuture(kvs).result(),
+        ::testing::Optional(::testing::UnorderedElementsAre("prefix/info")));
   }
 }
 
@@ -378,8 +380,11 @@ TEST(DriverTest, ConvertSpec) {
   ::nlohmann::json spec{
       {"dtype", "uint16"},
       {"driver", "neuroglancer_precomputed"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"multiscale_metadata",
        {
            {"num_channels", 4},
@@ -447,8 +452,11 @@ TEST(DriverTest, UnsupportedDataTypeInSpec) {
           {
               {"dtype", "string"},
               {"driver", "neuroglancer_precomputed"},
-              {"kvstore", {{"driver", "memory"}}},
-              {"path", "prefix"},
+              {"kvstore",
+               {
+                   {"driver", "memory"},
+                   {"path", "prefix/"},
+               }},
               {"multiscale_metadata",
                {
                    {"num_channels", 1},
@@ -585,7 +593,7 @@ TEST(DriverTest, CompressedSegmentationEncodingUint32) {
   ::nlohmann::json json_spec{
       {"driver", "neuroglancer_precomputed"},
       {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"multiscale_metadata",
        {
            {"data_type", "uint32"},
@@ -623,8 +631,7 @@ TEST(DriverTest, CompressedSegmentationEncodingUint32) {
 
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
-          .value(),
+      GetMap(kvstore::Open({{"driver", "memory"}}, context).value()).value(),
       (UnorderedElementsAreArray<
           ::testing::Matcher<std::pair<std::string, absl::Cord>>>({
           Pair("prefix/info",  //
@@ -700,7 +707,7 @@ TEST(DriverTest, CompressedSegmentationEncodingUint64) {
   ::nlohmann::json json_spec{
       {"driver", "neuroglancer_precomputed"},
       {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"multiscale_metadata",
        {
            {"data_type", "uint64"},
@@ -738,8 +745,7 @@ TEST(DriverTest, CompressedSegmentationEncodingUint64) {
 
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
-          .value(),
+      GetMap(kvstore::Open({{"driver", "memory"}}, context).value()).value(),
       (UnorderedElementsAreArray<
           ::testing::Matcher<std::pair<std::string, absl::Cord>>>({
           Pair("prefix/info",  //
@@ -816,9 +822,9 @@ TEST(DriverTest, CompressedSegmentationEncodingUint64) {
     // Test corrupt "compressed_segmentation" chunk handling
     ::nlohmann::json storage_spec{{"driver", "memory"}};
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto kv_store, KeyValueStore::Open(storage_spec, context).result());
+        auto kvs, kvstore::Open(storage_spec, context).result());
     TENSORSTORE_EXPECT_OK(
-        kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", absl::Cord("junk")));
+        kvstore::Write(kvs, "prefix/1_1_1/0-3_0-4_0-2", absl::Cord("junk")));
     EXPECT_THAT(
         tensorstore::Read<tensorstore::zero_origin>(
             ChainResult(store, tensorstore::Dims("channel").IndexSlice(0),
@@ -850,7 +856,7 @@ TEST(DriverTest, Jpeg1Channel) {
   ::nlohmann::json json_spec{
       {"driver", "neuroglancer_precomputed"},
       {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"multiscale_metadata",
        {
            {"data_type", "uint8"},
@@ -888,8 +894,7 @@ TEST(DriverTest, Jpeg1Channel) {
 
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
-          .value(),
+      GetMap(kvstore::Open({{"driver", "memory"}}, context).value()).value(),
       (UnorderedElementsAreArray<
           ::testing::Matcher<std::pair<std::string, absl::Cord>>>({
           Pair("prefix/info",  //
@@ -941,10 +946,10 @@ TEST(DriverTest, Jpeg1Channel) {
     // Test corrupt "jpeg" chunk handling
     ::nlohmann::json storage_spec{{"driver", "memory"}};
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto kv_store, KeyValueStore::Open(storage_spec, context).result());
+        auto kvs, kvstore::Open(storage_spec, context).result());
     // Write invalid jpeg
     TENSORSTORE_EXPECT_OK(
-        kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", absl::Cord("junk")));
+        kvstore::Write(kvs, "prefix/1_1_1/0-3_0-4_0-2", absl::Cord("junk")));
     EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
                     ChainResult(store, tensorstore::AllDims().SizedInterval(
                                            0, array.shape())))
@@ -961,7 +966,7 @@ TEST(DriverTest, Jpeg1Channel) {
           /*width=*/3, /*height=*/4 * 2, /*num_components=*/3,
           tensorstore::jpeg::EncodeOptions{}, &jpeg_data));
       TENSORSTORE_EXPECT_OK(
-          kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", jpeg_data));
+          kvstore::Write(kvs, "prefix/1_1_1/0-3_0-4_0-2", jpeg_data));
     }
     EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
                     ChainResult(store, tensorstore::AllDims().SizedInterval(
@@ -979,7 +984,7 @@ TEST(DriverTest, Jpeg1Channel) {
           /*width=*/3, /*height=*/5 * 2, /*num_components=*/1,
           tensorstore::jpeg::EncodeOptions{}, &jpeg_data));
       TENSORSTORE_EXPECT_OK(
-          kv_store->Write("prefix/1_1_1/0-3_0-4_0-2", jpeg_data));
+          kvstore::Write(kvs, "prefix/1_1_1/0-3_0-4_0-2", jpeg_data));
     }
     EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
                     ChainResult(store, tensorstore::AllDims().SizedInterval(
@@ -999,7 +1004,7 @@ TEST(DriverTest, JpegQuality) {
   ::nlohmann::json json_spec{
       {"driver", "neuroglancer_precomputed"},
       {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"multiscale_metadata",
        {
            {"data_type", "uint8"},
@@ -1037,7 +1042,7 @@ TEST(DriverTest, JpegQuality) {
             .result());
     size_t size = 0;
     for (const auto& [key, value] :
-         GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
+         GetMap(kvstore::Open({{"driver", "memory"}}, context).value())
              .value()) {
       size += value.size();
     }
@@ -1065,7 +1070,7 @@ TEST(DriverTest, Jpeg3Channel) {
   ::nlohmann::json json_spec{
       {"driver", "neuroglancer_precomputed"},
       {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"multiscale_metadata",
        {
            {"data_type", "uint8"},
@@ -1105,8 +1110,7 @@ TEST(DriverTest, Jpeg3Channel) {
 
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
-          .value(),
+      GetMap(kvstore::Open({{"driver", "memory"}}, context).value()).value(),
       (UnorderedElementsAreArray<
           ::testing::Matcher<std::pair<std::string, absl::Cord>>>({
           Pair("prefix/info",  //
@@ -1162,10 +1166,11 @@ TEST(DriverTest, CorruptMetadataTest) {
   auto context = Context::Default();
   ::nlohmann::json storage_spec{{"driver", "memory"}};
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
+      auto kvs, kvstore::Open(storage_spec, context).result());
 
   // Write invalid JSON
-  TENSORSTORE_EXPECT_OK(kv_store->Write("prefix/info", absl::Cord("invalid")));
+  TENSORSTORE_EXPECT_OK(
+      kvstore::Write(kvs, "prefix/info", absl::Cord("invalid")));
 
   auto json_spec = GetJsonSpec();
   EXPECT_THAT(tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
@@ -1175,7 +1180,7 @@ TEST(DriverTest, CorruptMetadataTest) {
                             ".*: Error reading \"prefix/info\": Invalid JSON"));
 
   // Write valid JSON that is invalid metadata.
-  TENSORSTORE_EXPECT_OK(kv_store->Write("prefix/info", absl::Cord("[1]")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(kvs, "prefix/info", absl::Cord("[1]")));
 
   EXPECT_THAT(tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
                                 tensorstore::ReadWriteMode::read_write)
@@ -1189,8 +1194,11 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.test_name = "neuroglancer_precomputed/raw";
   options.full_spec = {{"dtype", "uint16"},
                        {"driver", "neuroglancer_precomputed"},
-                       {"kvstore", {{"driver", "memory"}}},
-                       {"path", "prefix"},
+                       {"kvstore",
+                        {
+                            {"driver", "memory"},
+                            {"path", "prefix/"},
+                        }},
                        {"multiscale_metadata",
                         {
                             {"num_channels", 4},
@@ -1214,8 +1222,11 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.minimal_spec = {{"dtype", "uint16"},
                           {"driver", "neuroglancer_precomputed"},
                           {"scale_index", 0},
-                          {"path", "prefix"},
-                          {"kvstore", {{"driver", "memory"}}},
+                          {"kvstore",
+                           {
+                               {"driver", "memory"},
+                               {"path", "prefix/"},
+                           }},
                           {"transform",
                            {{"input_labels", {"x", "y", "z", "channel"}},
                             {"input_exclusive_max", {11, 101, 101, 4}},
@@ -1230,8 +1241,11 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.full_spec = {
       {"dtype", "uint16"},
       {"driver", "neuroglancer_precomputed"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"multiscale_metadata",
        {
            {"num_channels", 4},
@@ -1264,8 +1278,11 @@ TENSORSTORE_GLOBAL_INITIALIZER {
       {"dtype", "uint16"},
       {"driver", "neuroglancer_precomputed"},
       {"scale_index", 0},
-      {"path", "prefix"},
-      {"kvstore", {{"driver", "memory"}}},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"transform",
        {{"input_labels", {"x", "y", "z", "channel"}},
         {"input_exclusive_max", {11, 101, 101, 4}},
@@ -1281,8 +1298,11 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.full_spec = {
       {"dtype", "uint32"},
       {"driver", "neuroglancer_precomputed"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"multiscale_metadata",
        {
            {"num_channels", 4},
@@ -1309,8 +1329,11 @@ TENSORSTORE_GLOBAL_INITIALIZER {
       {"dtype", "uint32"},
       {"driver", "neuroglancer_precomputed"},
       {"scale_index", 0},
-      {"path", "prefix"},
-      {"kvstore", {{"driver", "memory"}}},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"transform",
        {{"input_labels", {"x", "y", "z", "channel"}},
         {"input_exclusive_max", {11, 101, 101, 4}},
@@ -1336,8 +1359,11 @@ TENSORSTORE_GLOBAL_INITIALIZER {
           "/shape=", x_size, ",", y_size, ",", z_size, ",", c_size);
       options.create_spec = {
           {"driver", "neuroglancer_precomputed"},
-          {"kvstore", {{"driver", "memory"}}},
-          {"path", "prefix"},
+          {"kvstore",
+           {
+               {"driver", "memory"},
+               {"path", "prefix/"},
+           }},
           {"multiscale_metadata",
            {
                {"data_type", "uint16"},
@@ -1389,8 +1415,11 @@ TEST(ShardedWriteTest, Basic) {
       auto store,
       tensorstore::Open({
                             {"driver", "neuroglancer_precomputed"},
-                            {"kvstore", {{"driver", "memory"}}},
-                            {"path", "prefix"},
+                            {"kvstore",
+                             {
+                                 {"driver", "memory"},
+                                 {"path", "prefix/"},
+                             }},
                             {"multiscale_metadata",
                              {
                                  {"data_type", "uint16"},
@@ -1437,8 +1466,11 @@ TEST(FullShardWriteTest, Basic) {
       // Use a cache to avoid early writeback of partial shard.
       {"context", {{"cache_pool", {{"total_bytes_limit", 10'000'000}}}}},
       {"driver", "neuroglancer_precomputed"},
-      {"kvstore", {{"driver", "mock_key_value_store"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "mock_key_value_store"},
+           {"path", "prefix/"},
+       }},
       {"create", true},
       {"multiscale_metadata",
        {
@@ -1484,10 +1516,10 @@ TEST(FullShardWriteTest, Basic) {
     {
       auto req = mock_key_value_store->read_requests.pop();
       EXPECT_EQ("prefix/info", req.key);
-      req.promise.SetResult(KeyValueStore::ReadResult{
-          KeyValueStore::ReadResult::kMissing,
-          {},
-          {StorageGeneration::NoValue(), absl::Now()}});
+      req.promise.SetResult(
+          kvstore::ReadResult{kvstore::ReadResult::kMissing,
+                              {},
+                              {StorageGeneration::NoValue(), absl::Now()}});
     }
 
     {
@@ -1557,9 +1589,9 @@ TEST(DriverTest, NoPrefix) {
       store | tensorstore::Dims("z", "channel").IndexSlice({0, 0})));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
+      auto kvs, kvstore::Open(storage_spec, context).result());
   EXPECT_THAT(  //
-      GetMap(kv_store).value(),
+      GetMap(kvs).value(),
       ::testing::UnorderedElementsAre(
           Pair("info", ::testing::_),
           Pair("1_1_1/0-2_0-3_0-1", Bytes({1, 4, 2, 5, 3, 6}))));

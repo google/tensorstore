@@ -20,4 +20,4 @@ Drivers
    file/index
    gcs/index
 
-.. json:schema:: KeyValueStore
+.. json:schema:: KvStore

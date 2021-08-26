@@ -2007,8 +2007,8 @@ like the data type, domain, and chunk layout, may be omitted:
     ...         'kvstore': {
     ...             'driver': 'gcs',
     ...             'bucket': 'neuroglancer-janelia-flyem-hemibrain',
+    ...             'path': 'v1.2/segmentation/',
     ...         },
-    ...         'path': 'v1.2/segmentation',
     ...     },
     ...     read=True)
     >>> store
@@ -2025,9 +2025,9 @@ like the data type, domain, and chunk layout, may be omitted:
       'kvstore': {
         'bucket': 'neuroglancer-janelia-flyem-hemibrain',
         'driver': 'gcs',
+        'path': 'v1.2/segmentation/',
       },
       'multiscale_metadata': {'num_channels': 1, 'type': 'segmentation'},
-      'path': 'v1.2/segmentation',
       'scale_index': 0,
       'scale_metadata': {
         'chunk_size': [64, 64, 64],

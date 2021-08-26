@@ -49,7 +49,7 @@
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/gcs/object_metadata.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/key_value_store.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/util/execution.h"
 #include "tensorstore/util/executor.h"
@@ -287,7 +287,7 @@ bool IsRetriable(const absl::Status& status) {
 /// Implements the KeyValueStore interface for storing tensorstore data into a
 /// GCS storage bucket.
 class GcsKeyValueStore
-    : public internal::RegisteredKeyValueStore<GcsKeyValueStore> {
+    : public internal_kvstore::RegisteredDriver<GcsKeyValueStore> {
  public:
   static constexpr char id[] = "gcs";
 
@@ -330,9 +330,7 @@ class GcsKeyValueStore
                              spec.retries->max_retries);
   }
 
-  using KeyValueStore::Key;
-  using KeyValueStore::ReadResult;
-  using Ptr = KeyValueStore::PtrT<GcsKeyValueStore>;
+  using Ptr = PtrT<GcsKeyValueStore>;
 
   /// The resource_root is the url used to read data and metadata from the GCS
   /// bucket.
@@ -352,7 +350,7 @@ class GcsKeyValueStore
                                              std::optional<Value> value,
                                              WriteOptions options) override;
 
-  void ListImpl(const ListOptions& options,
+  void ListImpl(ListOptions options,
                 AnyFlowReceiver<absl::Status, Key> receiver) override;
 
   Future<void> DeleteRange(KeyRange range) override;
@@ -378,7 +376,7 @@ class GcsKeyValueStore
     return spec_.request_concurrency->executor;
   }
 
-  static void Open(internal::KeyValueStoreOpenState<GcsKeyValueStore> state) {
+  static void Open(internal_kvstore::DriverOpenState<GcsKeyValueStore> state) {
     auto& d = state.driver();
     d.spec_ = state.spec();
     d.resource_root_ = BucketResourceRoot(d.spec_.bucket);
@@ -448,9 +446,9 @@ class GcsKeyValueStore
 struct ReadTask {
   GcsKeyValueStore::Ptr owner;
   std::string resource;
-  KeyValueStore::ReadOptions options;
+  kvstore::ReadOptions options;
 
-  Result<KeyValueStore::ReadResult> operator()() {
+  Result<kvstore::ReadResult> operator()() {
     /// Reads contents of a GCS object.
     std::string media_url = StrCat(resource, "?alt=media");
 
@@ -462,7 +460,7 @@ struct ReadTask {
     // Assume that if the user_project field is set, that we want to provide
     // it on the uri for a requestor pays bucket.
     AddUserProjectParam(&media_url, true, owner->encoded_user_project());
-    KeyValueStore::ReadResult read_result;
+    kvstore::ReadResult read_result;
 
     // TODO: Configure timeouts.
     HttpResponse httpresponse;
@@ -496,7 +494,7 @@ struct ReadTask {
       case 404:
         // Object not found.
         read_result.stamp.generation = StorageGeneration::NoValue();
-        read_result.state = KeyValueStore::ReadResult::kMissing;
+        read_result.state = kvstore::ReadResult::kMissing;
         return read_result;
       case 412:
         // "Failed precondition": indicates the ifGenerationMatch condition did
@@ -513,7 +511,7 @@ struct ReadTask {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto byte_range,
         GetHttpResponseByteRange(httpresponse, options.byte_range));
-    read_result.state = KeyValueStore::ReadResult::kValue;
+    read_result.state = kvstore::ReadResult::kValue;
     read_result.value = internal::GetSubCord(httpresponse.payload, byte_range);
 
     // TODO: Avoid parsing the entire metadata & only extract the
@@ -527,8 +525,8 @@ struct ReadTask {
   }
 };
 
-Future<KeyValueStore::ReadResult> GcsKeyValueStore::Read(Key key,
-                                                         ReadOptions options) {
+Future<kvstore::ReadResult> GcsKeyValueStore::Read(Key key,
+                                                   ReadOptions options) {
   TENSORSTORE_RETURN_IF_ERROR(
       ValidateObjectAndStorageGeneration(key, options.if_not_equal));
 
@@ -543,12 +541,12 @@ Future<KeyValueStore::ReadResult> GcsKeyValueStore::Read(Key key,
 /// A WriteTask is a function object used to satisfy a
 /// GcsKeyValueStore::Write request.
 struct WriteTask {
-  using Value = KeyValueStore::Value;
+  using Value = kvstore::Value;
 
   GcsKeyValueStore::Ptr owner;
   std::string encoded_object_name;
   Value value;
-  KeyValueStore::WriteOptions options;
+  kvstore::WriteOptions options;
 
   /// Writes an object to GCS.
   Result<TimestampedStorageGeneration> operator()() {
@@ -635,7 +633,7 @@ struct WriteTask {
 struct DeleteTask {
   GcsKeyValueStore::Ptr owner;
   std::string resource;
-  KeyValueStore::WriteOptions options;
+  kvstore::WriteOptions options;
 
   /// Writes an object to GCS.
   Result<TimestampedStorageGeneration> operator()() {
@@ -858,12 +856,14 @@ struct ListOp {
 };
 
 struct ListReceiver {
-  AnyFlowReceiver<absl::Status, KeyValueStore::Key> receiver;
+  AnyFlowReceiver<absl::Status, kvstore::Key> receiver;
+  size_t strip_prefix_length;
 
   // set_value extracts the name from the object metadata.
   [[maybe_unused]] friend void set_value(ListReceiver& self,
                                          std::vector<ObjectMetadata> v) {
     for (auto& metadata : v) {
+      metadata.name.erase(0, self.strip_prefix_length);
       execution::set_value(self.receiver, std::move(metadata.name));
     }
   }
@@ -885,7 +885,7 @@ struct ListReceiver {
   }
 };
 
-void GcsKeyValueStore::ListImpl(const ListOptions& options,
+void GcsKeyValueStore::ListImpl(ListOptions options,
                                 AnyFlowReceiver<absl::Status, Key> receiver) {
   using State = ListState<ListReceiver>;
   internal::IntrusivePtr<State> state(new State);
@@ -895,6 +895,7 @@ void GcsKeyValueStore::ListImpl(const ListOptions& options,
   state->query_parameters =
       BuildListQueryParameters(options.range, std::nullopt);
   state->receiver.receiver = std::move(receiver);
+  state->receiver.strip_prefix_length = options.strip_prefix_length;
 
   executor()(ListOp<ListReceiver>{state});
 }
@@ -902,7 +903,7 @@ void GcsKeyValueStore::ListImpl(const ListOptions& options,
 // Receiver used by `DeleteRange` for processing the results from `List`.
 struct DeleteRangeListReceiver {
   Promise<void> promise_;
-  KeyValueStore::PtrT<GcsKeyValueStore> owner_;
+  GcsKeyValueStore::Ptr owner_;
   FutureCallbackRegistration cancel_registration_;
 
   void set_starting(AnyCancelReceiver cancel) {
@@ -933,13 +934,12 @@ Future<void> GcsKeyValueStore::DeleteRange(KeyRange range) {
       PromiseFuturePair<void>::Make(tensorstore::MakeResult());
   ListOptions list_options;
   list_options.range = std::move(range);
-  ListImpl(list_options, DeleteRangeListReceiver{
-                             std::move(promise),
-                             KeyValueStore::PtrT<GcsKeyValueStore>(this)});
+  ListImpl(list_options, DeleteRangeListReceiver{std::move(promise),
+                                                 GcsKeyValueStore::Ptr(this)});
   return future;
 }
 
-const internal::KeyValueStoreDriverRegistration<GcsKeyValueStore> registration;
+const internal_kvstore::DriverRegistration<GcsKeyValueStore> registration;
 
 }  // namespace
 }  // namespace tensorstore

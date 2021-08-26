@@ -36,7 +36,6 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded.h"
 #include "tensorstore/index.h"
-#include "tensorstore/kvstore/key_value_store.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/util/result.h"

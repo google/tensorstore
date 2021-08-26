@@ -36,8 +36,8 @@
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/key_range.h"
-#include "tensorstore/kvstore/key_value_store.h"
-#include "tensorstore/kvstore/key_value_store_testutil.h"
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -55,18 +55,19 @@
 
 namespace {
 
+namespace kvstore = tensorstore::kvstore;
 using tensorstore::CompletionNotifyingReceiver;
 using tensorstore::Context;
 using tensorstore::KeyRange;
-using tensorstore::KeyValueStore;
+using tensorstore::KvStore;
 using tensorstore::MatchesStatus;
 using tensorstore::StorageGeneration;
 using tensorstore::internal::MatchesKvsReadResultNotFound;
 using tensorstore::internal::MatchesTimestampedStorageGeneration;
 using ::testing::HasSubstr;
 
-KeyValueStore::Ptr GetStore(std::string root) {
-  return KeyValueStore::Open({{"driver", "file"}, {"path", root}}).value();
+KvStore GetStore(std::string root) {
+  return kvstore::Open({{"driver", "file"}, {"path", root + "/"}}).value();
 }
 
 TEST(FileKeyValueStoreTest, Basic) {
@@ -81,49 +82,43 @@ TEST(FileKeyValueStoreTest, InvalidKey) {
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
 
-  EXPECT_THAT(store->Read("this_is_a_long_key").result(),
+  EXPECT_THAT(kvstore::Read(store, "this_is_a_long_key").result(),
               MatchesKvsReadResultNotFound());
   EXPECT_THAT(
-      GetStatus(store->Read("").result()),
+      kvstore::Read(store, "").result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
   EXPECT_THAT(
-      GetStatus(store->Read(std::string("\0", 1)).result()),
+      kvstore::Read(store, std::string("\0", 1)).result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
   EXPECT_THAT(
-      GetStatus(store->Write("", {}).result()),
+      kvstore::Write(store, "", {}).result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
   EXPECT_THAT(
-      GetStatus(store->Read("/").result()),
+      kvstore::Read(store, "/").result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
   EXPECT_THAT(
-      GetStatus(store->Read(".").result()),
+      kvstore::Read(store, ".").result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
   EXPECT_THAT(
-      GetStatus(store->Read("..").result()),
+      kvstore::Read(store, "..").result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
   EXPECT_THAT(
-      GetStatus(store->Read("a//b").result()),
+      kvstore::Read(store, "a/./b").result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
   EXPECT_THAT(
-      GetStatus(store->Read("a/./b").result()),
+      kvstore::Read(store, "a/../b").result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
   EXPECT_THAT(
-      GetStatus(store->Read("a/../b").result()),
+      kvstore::Read(store, "a/").result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
   EXPECT_THAT(
-      GetStatus(store->Read("a/").result()),
+      kvstore::Read(store, "a.__lock").result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
   EXPECT_THAT(
-      GetStatus(store->Read("/a").result()),
+      kvstore::Read(store, "a/b.__lock/c").result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
   EXPECT_THAT(
-      GetStatus(store->Read("a.__lock").result()),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
-  EXPECT_THAT(
-      GetStatus(store->Read("a/b.__lock/c").result()),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
-  EXPECT_THAT(
-      GetStatus(store->Read("///").result()),
+      kvstore::Read(store, "///").result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
 }
 
@@ -148,16 +143,14 @@ TEST(FileKeyValueStoreTest, LockFiles) {
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
   TENSORSTORE_ASSERT_OK(
-      store
-          ->Write("a/foo", absl::Cord("xyz"),
-                  {/*.if_equal=*/StorageGeneration::NoValue()})
+      kvstore::Write(store, "a/foo", absl::Cord("xyz"),
+                     {/*.if_equal=*/StorageGeneration::NoValue()})
           .result());
   EXPECT_THAT(GetDirectoryContents(root),
               ::testing::UnorderedElementsAre("a", "a/foo"));
   EXPECT_THAT(
-      store
-          ->Write("a/foo", absl::Cord("qqq"),
-                  {/*.if_equal=*/StorageGeneration::NoValue()})
+      kvstore::Write(store, "a/foo", absl::Cord("qqq"),
+                     {/*.if_equal=*/StorageGeneration::NoValue()})
           .result(),
       MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
 
@@ -172,11 +165,12 @@ TEST(FileKeyValueStoreTest, LockFiles) {
               ::testing::UnorderedElementsAre("a", "a/foo", "a/foo.__lock"));
 
   // Test that the lock file is not included in the `List` result.
-  EXPECT_THAT(ListFuture(store.get()).result(),
+  EXPECT_THAT(ListFuture(store).result(),
               ::testing::Optional(::testing::UnorderedElementsAre("a/foo")));
 
   // Test that a stale lock file does not interfere with writing.
-  TENSORSTORE_ASSERT_OK(store->Write("a/foo", absl::Cord("xyz")).result());
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(store, "a/foo", absl::Cord("xyz")).result());
 
   // Recreate the lock file.
   std::ofstream(root + "/a/foo.__lock");
@@ -184,7 +178,7 @@ TEST(FileKeyValueStoreTest, LockFiles) {
   // Test that the "a" prefix can be deleted despite the presence of the lock
   // file.  Only a single key, "a/foo" is removed.  The lock file should not be
   // included in the count.
-  TENSORSTORE_EXPECT_OK(store->DeleteRange(KeyRange::Prefix("a/")));
+  TENSORSTORE_EXPECT_OK(kvstore::DeleteRange(store, KeyRange::Prefix("a/")));
   EXPECT_THAT(GetDirectoryContents(root), ::testing::UnorderedElementsAre());
 }
 
@@ -192,12 +186,14 @@ TEST(FileKeyValueStoreTest, NestedDirectories) {
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
-  TENSORSTORE_EXPECT_OK(store->Write("a/foo", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/foo", absl::Cord("xyz")));
 
-  TENSORSTORE_EXPECT_OK(store->Write("a/ba/ccc/dddd", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/ba/ccc/foo", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(
+      kvstore::Write(store, "a/ba/ccc/dddd", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(
+      kvstore::Write(store, "a/ba/ccc/foo", absl::Cord("xyz")));
   EXPECT_THAT(
-      store->Write("a/ba/ccc", absl::Cord("xyz")).result(),
+      kvstore::Write(store, "a/ba/ccc", absl::Cord("xyz")).result(),
       ::testing::AnyOf(MatchesStatus(absl::StatusCode::kPermissionDenied),
                        MatchesStatus(absl::StatusCode::kFailedPrecondition)));
 }
@@ -212,7 +208,7 @@ TEST(FileKeyValueStoreTest, ConcurrentWrites) {
   std::string initial_value;
   initial_value.resize(sizeof(std::size_t) * num_threads);
   auto initial_generation =
-      store->Write(key, absl::Cord(initial_value)).value().generation;
+      kvstore::Write(store, key, absl::Cord(initial_value)).value().generation;
   constexpr std::size_t num_iterations = 100;
   for (std::size_t thread_i = 0; thread_i < num_threads; ++thread_i) {
     threads.push_back(std::thread([&, thread_i] {
@@ -227,16 +223,17 @@ TEST(FileKeyValueStoreTest, ConcurrentWrites) {
           std::string new_value = value;
           x = i + 1;
           std::memcpy(&new_value[value_offset], &x, sizeof(std::size_t));
-          auto write_result =
-              store->Write(key, absl::Cord(new_value), {generation}).result();
-          ASSERT_EQ(absl::OkStatus(), GetStatus(write_result));
-          if (!StorageGeneration::IsUnknown(write_result->generation)) {
-            generation = write_result->generation;
+          TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+              auto write_result,
+              kvstore::Write(store, key, absl::Cord(new_value), {generation})
+                  .result());
+          if (!StorageGeneration::IsUnknown(write_result.generation)) {
+            generation = write_result.generation;
             value = new_value;
             break;
           }
           TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read_result,
-                                           store->Read(key).result());
+                                           kvstore::Read(store, key).result());
           ASSERT_FALSE(read_result.aborted() || read_result.not_found());
           value = std::string(read_result.value);
           ASSERT_EQ(sizeof(std::size_t) * num_threads, value.size());
@@ -247,7 +244,7 @@ TEST(FileKeyValueStoreTest, ConcurrentWrites) {
   }
   for (auto& t : threads) t.join();
   {
-    auto read_result = store->Read(key).result();
+    auto read_result = kvstore::Read(store, key).result();
     ASSERT_TRUE(read_result);
     std::string expected_value;
     expected_value.resize(sizeof(std::size_t) * num_threads);
@@ -272,8 +269,8 @@ TEST(FileKeyValueStoreTest, Permissions) {
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
-  EXPECT_EQ(absl::OkStatus(),
-            GetStatus(store->Write("foo", absl::Cord("xyz")).result()));
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(store, "foo", absl::Cord("xyz")).result());
 
   // Remove write permission on directory.
   ASSERT_EQ(0, ::chmod(root.c_str(), 0500))
@@ -291,24 +288,25 @@ TEST(FileKeyValueStoreTest, Permissions) {
   RestoreWritePermission restore{root};
 
   // Read should still succeed.
-  EXPECT_EQ("xyz", store->Read("foo").value().value);
+  EXPECT_EQ("xyz", kvstore::Read(store, "foo").value().value);
 
   // Writing an existing key should fail.
-  EXPECT_THAT(store->Write("foo", absl::Cord("abc")).result(),
+  EXPECT_THAT(kvstore::Write(store, "foo", absl::Cord("abc")).result(),
               MatchesStatus(absl::StatusCode::kPermissionDenied));
 
   // Value should not have changed.
-  EXPECT_EQ("xyz", store->Read("foo").value().value);
+  EXPECT_EQ("xyz", kvstore::Read(store, "foo").value().value);
 
   // Writing a new key should fail.
-  EXPECT_THAT(store->Write("bar", absl::Cord("abc")).result(),
+  EXPECT_THAT(kvstore::Write(store, "bar", absl::Cord("abc")).result(),
               MatchesStatus(absl::StatusCode::kPermissionDenied));
 
   // Value should not exist.
-  EXPECT_THAT(store->Read("bar").result(), MatchesKvsReadResultNotFound());
+  EXPECT_THAT(kvstore::Read(store, "bar").result(),
+              MatchesKvsReadResultNotFound());
 
   // Delete should fail.
-  EXPECT_THAT(store->Delete("foo").result(),
+  EXPECT_THAT(kvstore::Delete(store, "foo").result(),
               MatchesStatus(absl::StatusCode::kPermissionDenied));
 
   // Remove read permission on file.
@@ -316,7 +314,7 @@ TEST(FileKeyValueStoreTest, Permissions) {
       << "Error " << errno << ": " << ::strerror(errno);
 
   // Read should fail.
-  EXPECT_THAT(store->Read("foo").result(),
+  EXPECT_THAT(kvstore::Read(store, "foo").result(),
               MatchesStatus(absl::StatusCode::kPermissionDenied));
 }
 #endif
@@ -358,15 +356,15 @@ TEST(FileKeyValueStoreTest, ListErrors) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({KeyRange::Prefix("a//")}),
+        kvstore::List(store, {KeyRange::Prefix("a//")}),
         CompletionNotifyingReceiver{&notification,
                                     tensorstore::LoggingReceiver{&log}});
     notification.WaitForNotification();
-    EXPECT_THAT(
-        log, ::testing::ElementsAre(
-                 "set_starting",
-                 HasSubstr("set_error: INVALID_ARGUMENT: Invalid key: \"a/\""),
-                 "set_stopping"));
+    EXPECT_THAT(log,
+                ::testing::ElementsAre(
+                    "set_starting",
+                    HasSubstr("set_error: INVALID_ARGUMENT: Invalid key: "),
+                    "set_stopping"));
   }
 }
 
@@ -379,7 +377,7 @@ TEST(FileKeyValueStoreTest, List) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({}),
+        kvstore::List(store, {}),
         CompletionNotifyingReceiver{&notification,
                                     tensorstore::LoggingReceiver{&log}});
     notification.WaitForNotification();
@@ -387,19 +385,19 @@ TEST(FileKeyValueStoreTest, List) {
                                             "set_stopping"));
   }
 
-  TENSORSTORE_EXPECT_OK(store->Write("a/b", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/d", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/b", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/d", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/x", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/y", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/z/e", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/z/f", absl::Cord("xyz")));
 
   // Listing the entire stream works.
   {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({}),
+        kvstore::List(store, {}),
         CompletionNotifyingReceiver{&notification,
                                     tensorstore::LoggingReceiver{&log}});
     notification.WaitForNotification();
@@ -416,7 +414,7 @@ TEST(FileKeyValueStoreTest, List) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({KeyRange::Prefix("a/c/")}),
+        kvstore::List(store, {KeyRange::Prefix("a/c/")}),
         CompletionNotifyingReceiver{&notification,
                                     tensorstore::LoggingReceiver{&log}});
     notification.WaitForNotification();
@@ -439,7 +437,7 @@ TEST(FileKeyValueStoreTest, List) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({}),
+        kvstore::List(store, {}),
         CompletionNotifyingReceiver{&notification, CancelOnStarting{{&log}}});
     notification.WaitForNotification();
 
@@ -449,7 +447,7 @@ TEST(FileKeyValueStoreTest, List) {
 
   // Cancellation in the middle of the stream stops the stream.
   struct CancelAfter2 : public tensorstore::LoggingReceiver {
-    using Key = tensorstore::KeyValueStore::Key;
+    using Key = kvstore::Key;
     tensorstore::AnyCancelReceiver cancel;
 
     void set_starting(tensorstore::AnyCancelReceiver do_cancel) {
@@ -469,7 +467,7 @@ TEST(FileKeyValueStoreTest, List) {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
-        store->List({}),
+        kvstore::List(store, {}),
         CompletionNotifyingReceiver{&notification, CancelAfter2{{&log}}});
     notification.WaitForNotification();
 
@@ -497,18 +495,14 @@ TEST(FileKeyValueStoreTest, InvalidSpec) {
 
   // Test with extra key.
   EXPECT_THAT(
-      KeyValueStore::Open(
-          {{"driver", "file"}, {"path", root}, {"extra", "key"}}, context)
+      kvstore::Open({{"driver", "file"}, {"path", root}, {"extra", "key"}},
+                    context)
           .result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument));
 
-  // Test with missing `"path"` key.
-  EXPECT_THAT(KeyValueStore::Open({{"driver", "file"}}, context).result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
-
   // Test with invalid `"path"` key.
   EXPECT_THAT(
-      KeyValueStore::Open({{"driver", "file"}, {"path", 5}}, context).result(),
+      kvstore::Open({{"driver", "file"}, {"path", 5}}, context).result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 

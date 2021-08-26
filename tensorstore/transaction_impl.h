@@ -56,8 +56,8 @@ namespace internal {
 /// reference counting.  In the common case, a transaction may contain nodes
 /// representing modifications to one or more chunks in a `ChunkCache`, as well
 /// as nodes representing the downstream writeback of those chunks to an
-/// underlying `KeyValueStore`.  If this `KeyValueStore` is itself backed by a
-/// cache (e.g. in the case of the neuroglancer_precomputed
+/// underlying `kvstore::Driver`.  If this `kvstore::Driver` is itself backed by
+/// a cache (e.g. in the case of the neuroglancer_precomputed
 /// `Uint64ShardedKeyValueStore`), there may be additional downstream nodes.
 /// Implicitly, the dependencies between nodes form a forest, where the roots
 /// correspond to "terminal" nodes that are added via
@@ -66,14 +66,14 @@ namespace internal {
 /// In an isolated, non-atomic transaction, there may be multiple terminal
 /// nodes, each of which may also commit non-atomically.  For example, an
 /// isolated, non-atomic transaction may affect multiple independent
-/// `KeyValueStore` objects.  In an isolated atomic transaction, there may only
-/// be a single terminal node, and that node must commit atomically.
+/// `kvstore::Driver` objects.  In an isolated atomic transaction, there may
+/// only be a single terminal node, and that node must commit atomically.
 ///
 /// Note that `TransactionState` does not explicitly represent the links between
 /// nodes; it merely contains a flat list of nodes.  It is up to the individual
 /// `Node` implementations to keep track of any necessary dependency
-/// relationships, e.g. via `KeyValueStore::ReadModifyWriteSource` and
-/// `KeyValueStore::ReadModifyWriteTarget` objects.
+/// relationships, e.g. via `kvstore::ReadModifyWriteSource` and
+/// `kvstore::ReadModifyWriteTarget` objects.
 ///
 /// As an example of a transactional operation, writing an in-memory array to a
 /// non-sharded neuroglancer_precomputed volume with an explicit transaction
@@ -111,12 +111,12 @@ namespace internal {
 ///    - Otherwise, a new transaction node is created.  When the new transaction
 ///      node is initialized, the `neuroglancer_precomputed` `DataCache` class
 ///      inherits the behavior of `KvsBackedCache`, which calls
-///      `KeyValueStore::ReadModifyWrite` to create/update a transaction node
-///      representing the modifications to the backing `KeyValueStore`.
+///      `kvstore::Driver::ReadModifyWrite` to create/update a transaction node
+///      representing the modifications to the backing `kvstore::Driver`.
 ///
 /// 4. After the copy stage of the write completes, all modifications are
 ///    recorded in transaction nodes, but no changes have been written back to
-///    the backing `KeyValueStore`.
+///    the backing `kvstore::Driver`.
 ///
 /// 5. If the user calls `Transaction::Abort`, or an error occurs during
 ///    copying, the transaction is aborted, and the transaction nodes are
@@ -128,39 +128,39 @@ namespace internal {
 ///    references are released, the commit proceeds by invoking the `Commit`
 ///    method of the nodes added to the transaction.
 ///
-/// 7. The transaction node associated with the `KeyValueStore` requests
+/// 7. The transaction node associated with the `kvstore::Driver` requests
 ///    writeback from all of the `ReadModifyWriteSource` objects that have been
 ///    added from `KvsBackedCache` via `ReadModifyWrite` operations, initially
 ///    with a `staleness_bound` of `absl::InfinitePast()`.  In turn, the
 ///    `KvsBackedCache` arranges for the `DataCache` to encode the modified
 ///    chunks (after reading and decoding the existing values from the
-///    `KeyValueStore`) and passes the updated values (along with the read
+///    `kvstore::Driver`) and passes the updated values (along with the read
 ///    generations on which they are conditioned, if any) back to the
-///    `KeyValueStore` via the `ReadModifyWriteTarget` interface.  The
-///    `KeyValueStore` performs the writes (which may be conditioned on existing
-///    generations).  If the generations don't match (due to concurrent
+///    `kvstore::Driver` via the `ReadModifyWriteTarget` interface.  The
+///    `kvstore::Driver` performs the writes (which may be conditioned on
+///    existing generations).  If the generations don't match (due to concurrent
 ///    modifications), this step is repeated, with an updated `staleness_bound`
 ///    to ensure the updated values are read.
 ///
-/// 8. Once all the `KeyValueStore` writes complete (either successfully or with
-///    an error), the transaction becomes ready.
+/// 8. Once all the `kvstore::Driver` writes complete (either successfully or
+///    with an error), the transaction becomes ready.
 ///
 /// In the case of a sharded neuroglancer_precomputed volume, everything
 /// proceeds in the same way except:
 ///
 /// - In step 3, when the `ChunkCache` creates a new transaction node, the
 ///   `Uint64ShardedKeyValueStore::ReadModifyWrite` implementation does not
-///   create/update a transaction node directly on the backing `KeyValueStore`.
-///   Instead, it obtains a new or existing transaction node corresponding to
-///   the shard that contains the chunk.  (In general, many chunks will be in
-///   the same shard.)  The
+///   create/update a transaction node directly on the backing
+///   `kvstore::Driver`.  Instead, it obtains a new or existing transaction node
+///   corresponding to the shard that contains the chunk.  (In general, many
+///   chunks will be in the same shard.)  The
 ///   `Uint64ShardedKeyValueStoreWriteCache::TransactionNode`, in turn, also
 ///   inherits from `KvsBackedCache` which calls
-///   `KeyValueStore::ReadModifyWrite` to create/update a transaction node in
-///   the backing `KeyValueStore`.
+///   `kvstore::Driver::ReadModifyWrite` to create/update a transaction node in
+///   the backing `kvstore::Driver`.
 ///
 /// - If all chunks are in the same shard, then the transaction will only affect
-///   a single key in the backing `KeyValueStore`, and the transaction can be
+///   a single key in the backing `kvstore::Driver`, and the transaction can be
 ///   committed atomically even if the backing store does not support atomic
 ///   multi-key transactions.  Otherwise, each shard will be committed
 ///   separately, but there will still only be one write per shard.
@@ -178,12 +178,12 @@ namespace internal {
 ///
 ///    - Otherwise, a new implicit transaction node is created, but not yet
 ///      associated with a transaction.  When the new transaction node is
-///      initialized, `KvsBackedCache` calls `KeyValueStore::ReadModifyWrite`.
-///      The default `KeyValueStore::ReadModifyWrite` implementation simply
+///      initialized, `KvsBackedCache` calls `kvstore::Driver::ReadModifyWrite`.
+///      The default `kvstore::Driver::ReadModifyWrite` implementation simply
 ///      creates a new unique implicit transaction.  Consequently, for each
 ///      modified chunk, there will be a separate implicit transaction
 ///      containing just two nodes, one node associated with the entry in the
-///      `ChunkCache` and one node associated with the `KeyValueStore`.
+///      `ChunkCache` and one node associated with the `kvstore::Driver`.
 ///
 /// 2. If the user requests writeback of the complete write operation (by
 ///    forcing the `Future` returned from the write operation), commit is
@@ -210,9 +210,9 @@ namespace internal {
 ///      `ChunkCache`.
 ///
 ///    - Otherwise, a new implicit transaction node is created for the shard,
-///      and which in turn calls `KeyValueStore::ReadModifyWrite` to obtain a
-///      new transaction node in the backing `KeyValueStore` and a new implicit
-///      transaction.
+///      and which in turn calls `kvstore::Driver::ReadModifyWrite` to obtain a
+///      new transaction node in the backing `kvstore::Driver` and a new
+///      implicit transaction.
 ///
 ///    Consequently, for each modified shard, there will be a separate implicit
 ///    transaction containing:
@@ -223,7 +223,7 @@ namespace internal {
 ///       corresponding to the shard;
 ///
 ///    c. a transaction node corresponding to the writeback of the shard to the
-///       backing `KeyValueStore`.
+///       backing `kvstore::Driver`.
 ///
 /// 2. If the `CachePool` is sufficiently large that writeback is not triggered
 ///    automatically while the copying stage of the write operation is in
@@ -792,7 +792,7 @@ class TransactionState {
   };
 #endif
 
-  /// Time at which commit started.  This may be used by `KeyValueStore` to
+  /// Time at which commit started.  This may be used by `kvstore::Driver` to
   /// verify that a given generation is up to date as of the start of the
   /// commit.
   absl::Time commit_start_time_;

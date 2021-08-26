@@ -39,7 +39,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/kvstore/key_range.h"
-#include "tensorstore/kvstore/key_value_store.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/transaction_impl.h"
 #include "tensorstore/util/future.h"
@@ -134,7 +134,7 @@ class KvsBackedTestCache : public KvsBackedTestCacheBase {
   }
 
   static CachePtr<KvsBackedTestCache> Make(
-      KeyValueStore::Ptr kvstore, CachePool::StrongPtr pool = {},
+      kvstore::DriverPtr kvstore, CachePool::StrongPtr pool = {},
       std::string_view cache_identifier = {});
 };
 
@@ -150,7 +150,7 @@ struct KvsBackedCacheBasicTransactionalTestOptions {
   /// `KeyValueStore` should be empty, and if this function is called multiple
   /// times, the returned `KeyValueStore` objects should not share underlying
   /// storage.
-  std::function<KeyValueStore::Ptr()> get_store;
+  std::function<kvstore::DriverPtr()> get_store;
 
   /// Returns a function that maps arbitrary strings to unique valid keys.
   ///
@@ -199,7 +199,7 @@ class KvsRandomOperationTester {
   using Map = std::map<std::string, std::string>;
 
   explicit KvsRandomOperationTester(
-      absl::BitGenRef gen, KeyValueStore::Ptr kvstore,
+      absl::BitGenRef gen, kvstore::DriverPtr kvstore,
       std::function<std::string(std::string)> get_key);
 
   void SimulateDeleteRange(const KeyRange& range);
@@ -215,7 +215,7 @@ class KvsRandomOperationTester {
   void PerformRandomActions();
 
   absl::BitGenRef gen;  // Not owned.
-  KeyValueStore::Ptr kvstore;
+  kvstore::DriverPtr kvstore;
   Map map;
 
   std::vector<std::string> keys;

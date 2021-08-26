@@ -18,7 +18,7 @@
 
 #include <gtest/gtest.h>
 #include "absl/time/time.h"
-#include "tensorstore/kvstore/key_value_store_testutil.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 

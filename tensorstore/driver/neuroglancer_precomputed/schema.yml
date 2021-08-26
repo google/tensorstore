@@ -6,14 +6,6 @@ allOf:
   properties:
     driver:
       const: neuroglancer_precomputed
-    path:
-      type: string
-      default: ''
-      examples:
-      - path/to/array
-      description: >-
-        Path within the `KeyValueStore` specified by `.kvstore` to
-        the multiscale volume.
     scale_index:
       type: integer
       minimum: 0

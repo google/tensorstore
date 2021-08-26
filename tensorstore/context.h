@@ -42,12 +42,12 @@ namespace tensorstore {
 /// JSON representation) when first accessed.
 ///
 /// Context resources are used with the TensorStore library to specify
-/// TensorStore driver and KeyValueStore driver configuration options that do
-/// not affect the identity of the KeyValueStore or TensorStore; in general, the
-/// contents of a KeyValueStore or TensorStore should be identical for any valid
-/// context.  For example, a file or bucket path for accessing data should not
-/// be specified as a context resource, while authentication credentials,
-/// caching, and concurrency options should be specified as context resources.
+/// TensorStore driver and kvstore driver configuration options that do not
+/// affect the identity of the KvStore or TensorStore; in general, the contents
+/// of a KvStore or TensorStore should be identical for any valid context.
+/// For example, a file or bucket path for accessing data should not be
+/// specified as a context resource, while authentication credentials, caching,
+/// and concurrency options should be specified as context resources.
 ///
 /// Example usage:
 ///
@@ -98,8 +98,8 @@ namespace tensorstore {
 /// with a `Context` converts the context resource spec to an actual context
 /// resource.  *Unbinding* a context resource converts it back to a context
 /// resource spec.  These binding and unbinding operations can also be applied
-/// to data structures like `tensorstore::Spec` and
-/// `tensorstore::KeyValueStore::Spec` that indirectly hold context resources.
+/// to data structures like `tensorstore::Spec` and `tensorstore::kvstore::Spec`
+/// that indirectly hold context resources.
 ///
 /// \threadsafety Thread compatible.
 class Context {
@@ -322,10 +322,10 @@ class Context {
 };
 
 /// Specifies how context bindings should be handled for Spec-like types, such
-/// as `tensorstore::KeyValueStore::Spec` and `tensorstore::Spec`.
+/// as `tensorstore::kvstore::Spec` and `tensorstore::Spec`.
 ///
 /// This is an "option" type that can be used with `TensorStore::spec`,
-/// `KeyValueStore::spec`, and related methods.
+/// `kvstore::spec`, and related methods.
 enum class ContextBindingMode : unsigned char {
   /// Context binding mode is unspecified.
   unspecified,
@@ -350,7 +350,7 @@ enum class ContextBindingMode : unsigned char {
 };
 
 /// Indicates the binding state of context resources within a Spec-like type,
-/// such as `tensorstore::Spec` and `tensorstore::KeyValueStore::Spec`.
+/// such as `tensorstore::Spec` and `tensorstore::kvstore::Spec`.
 enum class ContextBindingState : unsigned char {
   /// All resources are unbound.
   unbound,
@@ -453,7 +453,7 @@ void SetRecordBindingState(internal::ContextSpecBuilder& builder,
                            bool record_binding_state);
 
 /// Binds context resources within a type that supports a nested `context`, such
-/// as `Spec` and `KeyValueStore::Spec`.
+/// as `Spec` and `kvstore::Spec`.
 ///
 /// This properly takes into account `IsPartialBindingContext(context)`.
 ///
@@ -478,7 +478,7 @@ absl::Status BindWithNestedContext(const Context& context,
 /// Binds context resources with a copy-on-write pointer type that has a nested
 /// `context_spec_` and `context_binding_state_`.
 ///
-/// This is used for `DriverSpecPtr` and `KeyValueStore::Spec::Ptr`.
+/// This is used for `DriverSpecPtr` and `kvstore::DriverSpecPtr`.
 template <typename Ptr>
 absl::Status BindContextCopyOnWriteWithNestedContext(Ptr& ptr,
                                                      const Context& context) {
@@ -547,7 +547,7 @@ void UnbindContextCopyOnWriteWithNestedContext(
 /// Strips context resources from a copy-on-write pointer type that has a nested
 /// `context_spec_` and `context_binding_state_`.
 ///
-/// This is used for `DriverSpecPtr` and `KeyValueStore::Spec::Ptr`.
+/// This is used for `DriverSpecPtr` and `kvstore::DriverSpecPtr`.
 template <typename Ptr>
 void StripContextCopyOnWriteWithNestedContext(Ptr& ptr) {
   using internal_context::Access;
@@ -563,7 +563,7 @@ void StripContextCopyOnWriteWithNestedContext(Ptr& ptr) {
 }
 
 /// Applies a context binding mode operation to a type (like
-/// `KeyValueStore::Spec::Ptr` or `Spec`) that supports `UnbindContext` and
+/// `kvstore::DriverSpecPtr` or `Spec`) that supports `UnbindContext` and
 /// `StripContext`.
 ///
 /// \param ptr Object to which the operation should be applied.
@@ -601,8 +601,8 @@ class ContextResourceCreationContext {
 
 namespace internal_json_binding {
 
-/// JSON binder for types (like `Spec` and `KeyValueStore::Spec::Ptr`) that
-/// contain context resources and/or context resource specs and support a
+/// JSON binder for types (like `Spec` and `kvstore::Spec`) that contain context
+/// resources and/or context resource specs and support a
 /// `context_binding_state()` method.
 template <typename Binder>
 auto NestedContextJsonBinder(Binder binder) {

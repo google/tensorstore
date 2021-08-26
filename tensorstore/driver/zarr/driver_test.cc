@@ -28,9 +28,9 @@
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/parse_json_matches.h"
-#include "tensorstore/kvstore/key_value_store.h"
-#include "tensorstore/kvstore/key_value_store_testutil.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/status.h"
@@ -39,13 +39,13 @@
 
 namespace {
 
+namespace kvstore = tensorstore::kvstore;
 using tensorstore::ChunkLayout;
 using tensorstore::complex64_t;
 using tensorstore::Context;
 using tensorstore::DimensionIndex;
 using tensorstore::dtype_v;
 using tensorstore::Index;
-using tensorstore::KeyValueStore;
 using tensorstore::kImplicit;
 using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
@@ -54,6 +54,7 @@ using tensorstore::span;
 using tensorstore::StrCat;
 using tensorstore::internal::DecodedMatches;
 using tensorstore::internal::GetMap;
+using tensorstore::internal::MockKeyValueStore;
 using tensorstore::internal::ParseJsonMatches;
 using tensorstore::internal::TestSpecSchema;
 using tensorstore::internal::TestTensorStoreCreateCheckSchema;
@@ -70,8 +71,7 @@ absl::Cord Bytes(std::vector<unsigned char> values) {
 ::nlohmann::json GetJsonSpec() {
   return {
       {"driver", "zarr"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
       {"metadata",
        {
            {"compressor", {{"id", "blosc"}}},
@@ -216,8 +216,7 @@ TEST(ZarrDriverTest, Create) {
 
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
-          .value(),
+      GetMap(kvstore::Open({{"driver", "memory"}}, context).value()).value(),
       UnorderedElementsAreArray({
           Pair("prefix/.zarray",  //
                ::testing::MatcherCast<absl::Cord>(ParseJsonMatches({
@@ -298,9 +297,8 @@ TEST(ZarrDriverTest, Create) {
                     {{0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}})));
     TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto kv_store,
-        KeyValueStore::Open({{"driver", "memory"}}, context).result());
-    EXPECT_THAT(ListFuture(kv_store.get()).value(),
+        auto kvs, kvstore::Open({{"driver", "memory"}}, context).result());
+    EXPECT_THAT(ListFuture(kvs).value(),
                 ::testing::UnorderedElementsAre("prefix/.zarray"));
   }
 }
@@ -316,8 +314,11 @@ TEST(ZarrDriverTest, MetadataCache) {
 
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
-      {"kvstore", {{"driver", "mock_key_value_store"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "mock_key_value_store"},
+           {"path", "prefix/"},
+       }},
       {"metadata",
        {
            {"compressor", {{"id", "blosc"}}},
@@ -341,12 +342,10 @@ TEST(ZarrDriverTest, MetadataCache) {
 class MockKeyValueStoreTest : public ::testing::Test {
  protected:
   Context context = Context::Default();
-  KeyValueStore::PtrT<tensorstore::internal::MockKeyValueStore>
-      mock_key_value_store =
-          *context
-               .GetResource<tensorstore::internal::MockKeyValueStoreResource>()
-               .value();
-  tensorstore::KeyValueStore::Ptr memory_store =
+  MockKeyValueStore::Ptr mock_key_value_store =
+      *context.GetResource<tensorstore::internal::MockKeyValueStoreResource>()
+           .value();
+  tensorstore::kvstore::DriverPtr memory_store =
       tensorstore::GetMemoryKeyValueStore();
 };
 
@@ -355,8 +354,11 @@ TEST_F(MockKeyValueStoreTest, CreateMetadataError) {
   auto store_future = tensorstore::Open(
       {
           {"driver", "zarr"},
-          {"kvstore", {{"driver", "mock_key_value_store"}}},
-          {"path", "prefix"},
+          {"kvstore",
+           {
+               {"driver", "mock_key_value_store"},
+               {"path", "prefix/"},
+           }},
           {"metadata",
            {
                {"compressor", {{"id", "blosc"}}},
@@ -385,8 +387,11 @@ TEST_F(MockKeyValueStoreTest,
        CreateMetadataConcurrentErrorIndependentCachePools) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
-      {"kvstore", {{"driver", "mock_key_value_store"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "mock_key_value_store"},
+           {"path", "prefix/"},
+       }},
       {"metadata",
        {
            {"compressor", {{"id", "blosc"}}},
@@ -425,8 +430,11 @@ TEST(ZarrDriverTest, CreateMetadataConcurrentErrorSharedCachePool) {
   auto context = Context::Default();
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"metadata",
        {
            {"compressor", {{"id", "blosc"}}},
@@ -456,8 +464,11 @@ TEST_F(MockKeyValueStoreTest,
        CreateMetadataConcurrentSuccessIndependentCachePools) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
-      {"kvstore", {{"driver", "mock_key_value_store"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "mock_key_value_store"},
+           {"path", "prefix/"},
+       }},
       {"metadata",
        {
            {"compressor", {{"id", "blosc"}}},
@@ -490,8 +501,11 @@ TEST(ZarrDriverTest, CreateMetadataConcurrentSuccessSharedCachePool) {
   auto context = Context::Default();
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"metadata",
        {
            {"compressor", {{"id", "blosc"}}},
@@ -511,8 +525,11 @@ TEST(ZarrDriverTest, CreateMetadataConcurrentSuccessSharedCachePool) {
 TEST_F(MockKeyValueStoreTest, CreateWithTransactionWriteError) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
-      {"kvstore", {{"driver", "mock_key_value_store"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "mock_key_value_store"},
+           {"path", "prefix/"},
+       }},
       {"metadata",
        {
            {"compressor", {{"id", "blosc"}}},
@@ -538,8 +555,11 @@ TEST_F(MockKeyValueStoreTest, CreateWithTransactionWriteError) {
 TEST_F(MockKeyValueStoreTest, CreateWithTransactionAlreadyExists) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
-      {"kvstore", {{"driver", "mock_key_value_store"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "mock_key_value_store"},
+           {"path", "prefix/"},
+       }},
       {"metadata",
        {
            {"compressor", {{"id", "blosc"}}},
@@ -604,8 +624,11 @@ void TestCreateWriteRead(Context context, ::nlohmann::json json_spec) {
 TEST(ZarrDriverTest, CreateBigEndian) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"metadata",
        {
            {"compressor", {{"id", "blosc"}}},
@@ -618,8 +641,7 @@ TEST(ZarrDriverTest, CreateBigEndian) {
   TestCreateWriteRead(context, json_spec);
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
-          .value(),
+      GetMap(kvstore::Open({{"driver", "memory"}}, context).value()).value(),
       UnorderedElementsAreArray({
           Pair("prefix/.zarray",  //
                ::testing::MatcherCast<absl::Cord>(ParseJsonMatches({
@@ -653,8 +675,11 @@ TEST(ZarrDriverTest, CreateBfloat16) {
   using tensorstore::bfloat16_t;
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"dtype", "bfloat16"},
       {"metadata",
        {
@@ -677,8 +702,7 @@ TEST(ZarrDriverTest, CreateBfloat16) {
       store | tensorstore::Dims(0, 1).SizedInterval({3, 2}, {3, 2})));
   // Check that key value store has expected contents.
   auto map =
-      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
-          .value();
+      GetMap(kvstore::Open({{"driver", "memory"}}, context).value()).value();
   auto v = map.at("prefix/1.1");
   std::cout << "Value = {";
   for (auto x : std::string(v)) {
@@ -686,8 +710,7 @@ TEST(ZarrDriverTest, CreateBfloat16) {
   }
   std::cout << "}" << std::endl;
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
-          .value(),
+      GetMap(kvstore::Open({{"driver", "memory"}}, context).value()).value(),
       UnorderedElementsAreArray({
           Pair("prefix/.zarray",  //
                ::testing::MatcherCast<absl::Cord>(ParseJsonMatches({
@@ -717,8 +740,11 @@ TEST(ZarrDriverTest, CreateBfloat16) {
 TEST(ZarrDriverTest, CreateBigEndianUnaligned) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"field", "y"},
       {"metadata",
        {
@@ -733,8 +759,7 @@ TEST(ZarrDriverTest, CreateBigEndianUnaligned) {
 
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
-          .value(),
+      GetMap(kvstore::Open({{"driver", "memory"}}, context).value()).value(),
       UnorderedElementsAreArray({
           Pair("prefix/.zarray",
                ::testing::MatcherCast<absl::Cord>(ParseJsonMatches({
@@ -770,8 +795,11 @@ TEST(ZarrDriverTest, CreateBigEndianUnaligned) {
 TEST(ZarrDriverTest, CreateLittleEndianUnaligned) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"field", "y"},
       {"metadata",
        {
@@ -793,8 +821,11 @@ TEST(ZarrDriverTest, CreateLittleEndianUnaligned) {
     EXPECT_EQ(::nlohmann::json({{"dtype", "int16"},
                                 {"driver", "zarr"},
                                 {"field", "y"},
-                                {"path", "prefix"},
-                                {"kvstore", {{"driver", "memory"}}},
+                                {"kvstore",
+                                 {
+                                     {"driver", "memory"},
+                                     {"path", "prefix/"},
+                                 }},
                                 {"transform",
                                  {{"input_exclusive_max", {{100}, {100}}},
                                   {"input_inclusive_min", {0, 0}}}}}),
@@ -805,8 +836,7 @@ TEST(ZarrDriverTest, CreateLittleEndianUnaligned) {
 
   // Check that key value store has expected contents.
   EXPECT_THAT(
-      GetMap(KeyValueStore::Open({{"driver", "memory"}}, context).value())
-          .value(),
+      GetMap(kvstore::Open({{"driver", "memory"}}, context).value()).value(),
       UnorderedElementsAreArray({
           Pair("prefix/.zarray",
                ::testing::MatcherCast<absl::Cord>(ParseJsonMatches({
@@ -842,8 +872,11 @@ TEST(ZarrDriverTest, CreateLittleEndianUnaligned) {
 TEST(ZarrDriverTest, CreateComplexWithFillValue) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"metadata",
        {
            {"compressor", {{"id", "blosc"}}},
@@ -884,7 +917,7 @@ TEST(ZarrDriverTest, KeyEncodingWithSlash) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"key_encoding", "/"},
       {"metadata", zarr_metadata_json},
   };
@@ -899,9 +932,9 @@ TEST(ZarrDriverTest, KeyEncodingWithSlash) {
       store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
+      auto kvs, kvstore::Open(storage_spec, context).result());
   EXPECT_THAT(  //
-      GetMap(kv_store).value(),
+      GetMap(kvs).value(),
       UnorderedElementsAre(
           Pair("prefix/.zarray", ::testing::MatcherCast<absl::Cord>(
                                      ParseJsonMatches(zarr_metadata_json))),
@@ -927,7 +960,7 @@ TEST(ZarrDriverTest, Resize) {
       ::nlohmann::json json_spec{
           {"driver", "zarr"},
           {"kvstore", storage_spec},
-          {"path", "prefix"},
+          {"path", "prefix/"},
           {"metadata", zarr_metadata_json},
       };
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -941,9 +974,9 @@ TEST(ZarrDriverTest, Resize) {
               tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
       // Check that key value store has expected contents.
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-          auto kv_store, KeyValueStore::Open(storage_spec, context).result());
+          auto kvs, kvstore::Open(storage_spec, context).result());
       EXPECT_THAT(  //
-          GetMap(kv_store).value(),
+          GetMap(kvs).value(),
           UnorderedElementsAre(
               Pair("prefix/.zarray", ::testing::MatcherCast<absl::Cord>(
                                          ParseJsonMatches(zarr_metadata_json))),
@@ -962,7 +995,7 @@ TEST(ZarrDriverTest, Resize) {
       ::nlohmann::json resized_zarr_metadata_json = zarr_metadata_json;
       resized_zarr_metadata_json["shape"] = {3, 2};
       EXPECT_THAT(  //
-          GetMap(kv_store).value(),
+          GetMap(kvs).value(),
           UnorderedElementsAre(
               Pair("prefix/.zarray",
                    ::testing::MatcherCast<absl::Cord>(
@@ -985,7 +1018,7 @@ void TestResizeToZeroAndBack(Op... op) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", zarr_metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1074,7 +1107,7 @@ TEST(ZarrDriverTest, ResizeMetadataOnly) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", zarr_metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1087,9 +1120,9 @@ TEST(ZarrDriverTest, ResizeMetadataOnly) {
       store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
+      auto kvs, kvstore::Open(storage_spec, context).result());
   EXPECT_THAT(  //
-      GetMap(kv_store).value(),
+      GetMap(kvs).value(),
       UnorderedElementsAre(
           Pair("prefix/.zarray", ::testing::MatcherCast<absl::Cord>(
                                      ParseJsonMatches(zarr_metadata_json))),
@@ -1107,7 +1140,7 @@ TEST(ZarrDriverTest, ResizeMetadataOnly) {
   ::nlohmann::json resized_zarr_metadata_json = zarr_metadata_json;
   resized_zarr_metadata_json["shape"] = {3, 2};
   EXPECT_THAT(  //
-      GetMap(kv_store).value(),
+      GetMap(kvs).value(),
       UnorderedElementsAre(
           Pair("prefix/.zarray",
                ::testing::MatcherCast<absl::Cord>(
@@ -1126,7 +1159,7 @@ TEST(ZarrDriverTest, ResizeExpandOnly) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", zarr_metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1139,9 +1172,9 @@ TEST(ZarrDriverTest, ResizeExpandOnly) {
       store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
+      auto kvs, kvstore::Open(storage_spec, context).result());
   EXPECT_THAT(  //
-      GetMap(kv_store).value(),
+      GetMap(kvs).value(),
       UnorderedElementsAre(
           Pair("prefix/.zarray", ::testing::MatcherCast<absl::Cord>(
                                      ParseJsonMatches(zarr_metadata_json))),
@@ -1160,7 +1193,7 @@ TEST(ZarrDriverTest, ResizeExpandOnly) {
   ::nlohmann::json resized_zarr_metadata_json = zarr_metadata_json;
   resized_zarr_metadata_json["shape"] = {150, 200};
   EXPECT_THAT(  //
-      GetMap(kv_store).value(),
+      GetMap(kvs).value(),
       UnorderedElementsAre(
           Pair("prefix/.zarray",
                ::testing::MatcherCast<absl::Cord>(
@@ -1178,7 +1211,7 @@ TEST(ZarrDriverTest, InvalidResize) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", zarr_metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1232,7 +1265,7 @@ TEST(ZarrDriverTest, InvalidResizeConcurrentModification) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", zarr_metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1261,7 +1294,7 @@ TEST(ZarrDriverTest, InvalidResizeLowerBound) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", zarr_metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1286,7 +1319,7 @@ TEST(ZarrDriverTest, InvalidResizeDueToOtherFields) {
   zarr_metadata_json["dtype"] =
       ::nlohmann::json::array_t{{"x", "<u2"}, {"y", "<i2"}};
   ::nlohmann::json json_spec{
-      {"driver", "zarr"}, {"kvstore", storage_spec},        {"path", "prefix"},
+      {"driver", "zarr"}, {"kvstore", storage_spec},        {"path", "prefix/"},
       {"field", "x"},     {"metadata", zarr_metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1309,7 +1342,7 @@ TEST(ZarrDriverTest, InvalidResizeDueToFieldShapeConstraints) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", zarr_metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1344,7 +1377,7 @@ TEST(ZarrDriverTest, InvalidResizeIncompatibleMetadata) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", zarr_metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1377,7 +1410,7 @@ TEST(ZarrDriverTest, InvalidResizeConstraintsViolated) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", zarr_metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1414,7 +1447,7 @@ TEST(ZarrDriverTest, ResolveBoundsDeletedMetadata) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", zarr_metadata_json},
       {"recheck_cached_metadata", true},
   };
@@ -1424,8 +1457,8 @@ TEST(ZarrDriverTest, ResolveBoundsDeletedMetadata) {
                         tensorstore::ReadWriteMode::read_write)
           .result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
-  kv_store->Delete("prefix/.zarray").value();
+      auto kvs, kvstore::Open(storage_spec, context).result());
+  TENSORSTORE_ASSERT_OK(kvstore::Delete(kvs, "prefix/.zarray"));
   EXPECT_THAT(ResolveBounds(store).result(),
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
                             "Metadata at \"prefix/.zarray\" does not exist"));
@@ -1439,7 +1472,7 @@ TEST(ZarrDriverTest, InvalidResizeDeletedMetadata) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", zarr_metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1448,8 +1481,8 @@ TEST(ZarrDriverTest, InvalidResizeDeletedMetadata) {
                         tensorstore::ReadWriteMode::read_write)
           .result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
-  kv_store->Delete("prefix/.zarray").value();
+      auto kvs, kvstore::Open(storage_spec, context).result());
+  TENSORSTORE_ASSERT_OK(kvstore::Delete(kvs, "prefix/.zarray"));
   EXPECT_THAT(
       Resize(store, span<const Index>({kImplicit, kImplicit}),
              span<const Index>({5, 5}), tensorstore::resize_metadata_only)
@@ -1531,15 +1564,15 @@ TEST(ZarrDriverTest, OpenInvalidMetadata) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", zarr_metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
+      auto kvs, kvstore::Open(storage_spec, context).result());
 
   // Write invalid JSON
   TENSORSTORE_EXPECT_OK(
-      kv_store->Write("prefix/.zarray", absl::Cord("invalid")));
+      kvstore::Write(kvs, "prefix/.zarray", absl::Cord("invalid")));
 
   EXPECT_THAT(tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
                                 tensorstore::ReadWriteMode::read_write)
@@ -1554,7 +1587,7 @@ TEST(ZarrDriverTest, OpenInvalidMetadata) {
 
     // Write invalid metadata JSON
     TENSORSTORE_EXPECT_OK(
-        kv_store->Write("prefix/.zarray", absl::Cord(invalid_json.dump())));
+        kvstore::Write(kvs, "prefix/.zarray", absl::Cord(invalid_json.dump())));
 
     EXPECT_THAT(
         tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
@@ -1575,11 +1608,11 @@ TEST(ZarrDriverTest, ResolveBoundsIncompatibleMetadata) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", zarr_metadata_json},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
+      auto kvs, kvstore::Open(storage_spec, context).result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
@@ -1592,7 +1625,7 @@ TEST(ZarrDriverTest, ResolveBoundsIncompatibleMetadata) {
   json_spec = {
       {"driver", "zarr"},
       {"kvstore", storage_spec},
-      {"path", "prefix"},
+      {"path", "prefix/"},
       {"metadata", zarr_metadata_json},
   };
 
@@ -1951,8 +1984,11 @@ TEST_P(RecheckCachedTest, RecheckCachedMetadata) {
 TEST(ZarrDriverTest, ReadAfterUncommittedWrite) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       // Use cache to ensure write is not committed immediately.
       {"cache_pool", {{"total_bytes_limit", 10000000}}},
       // Even with this, read still shouldn't return uncommitted data.
@@ -2007,7 +2043,6 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.full_spec = {
       {"dtype", "int16"},
       {"driver", "zarr"},
-      {"path", "prefix"},
       {"metadata",
        {
            {"chunks", {3, 2}},
@@ -2025,7 +2060,11 @@ TENSORSTORE_GLOBAL_INITIALIZER {
            {"zarr_format", 2},
            {"dimension_separator", "."},
        }},
-      {"kvstore", {{"driver", "memory"}}},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"transform",
        {{"input_exclusive_max", {{100}, {100}}},
         {"input_inclusive_min", {0, 0}}}},
@@ -2033,8 +2072,11 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.minimal_spec = {
       {"dtype", "int16"},
       {"driver", "zarr"},
-      {"path", "prefix"},
-      {"kvstore", {{"driver", "memory"}}},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"transform",
        {{"input_exclusive_max", {{100}, {100}}},
         {"input_inclusive_min", {0, 0}}}},
@@ -2048,8 +2090,11 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.test_name = "zarr";
   options.create_spec = {
       {"driver", "zarr"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"metadata",
        {
            {"compressor", nullptr},
@@ -2076,8 +2121,11 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.get_create_spec = [](tensorstore::BoxView<> bounds) {
     return ::nlohmann::json{
         {"driver", "zarr"},
-        {"kvstore", {{"driver", "memory"}}},
-        {"path", "prefix"},
+        {"kvstore",
+         {
+             {"driver", "memory"},
+             {"path", "prefix/"},
+         }},
         {"dtype", "uint16"},
         {"metadata",
          {
@@ -2128,9 +2176,9 @@ TEST(DriverTest, NoPrefix) {
       store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
+      auto kvs, kvstore::Open(storage_spec, context).result());
   EXPECT_THAT(  //
-      GetMap(kv_store).value(),
+      GetMap(kvs).value(),
       UnorderedElementsAre(
           Pair(".zarray", ::testing::MatcherCast<absl::Cord>(
                               ParseJsonMatches(zarr_metadata_json))),
@@ -2174,8 +2222,11 @@ TEST(DriverTest, DimensionSeparatorMismatch) {
 TEST(DriverTest, ChunkLayout) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"metadata",
        {
            {"compressor", {{"id", "blosc"}}},
@@ -2237,8 +2288,11 @@ TEST(DriverTest, ChunkLayout) {
 TEST(DriverTest, Codec) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "prefix"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
       {"metadata",
        {
            {"compressor", {{"id", "blosc"}}},
@@ -2601,14 +2655,14 @@ void TestReadWriteWithDimensionSeparator(std::string dimension_separator) {
 
   // Remove dimension_separator field from metadata.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto kv_store, KeyValueStore::Open(storage_spec, context).result());
+      auto kvs, kvstore::Open(storage_spec, context).result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata_json_encoded,
-                                   kv_store->Read(".zarray").result());
+                                   kvstore::Read(kvs, ".zarray").result());
   auto metadata_json =
       tensorstore::internal::ParseJson(metadata_json_encoded.value.Flatten());
   metadata_json.erase("dimension_separator");
   TENSORSTORE_ASSERT_OK(
-      kv_store->Write(".zarray", absl::Cord(metadata_json.dump())));
+      kvstore::Write(kvs, ".zarray", absl::Cord(metadata_json.dump())));
 
   // Read array with explicit dimension_separator.
   EXPECT_THAT(perform_read({{"dimension_separator", dimension_separator}}),
@@ -2637,6 +2691,80 @@ TEST(DriverTest, DimensionUnitsError) {
           .result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     ".*: Dimension units not supported by zarr driver"));
+}
+
+// Tests that the deprecated "path" member outside of the "kvstore" is
+// supported.
+TEST(DriverTest, DeprecatedPath) {
+  tensorstore::TestJsonBinderRoundTripJsonOnlyInexact<tensorstore::Spec>({
+      // "path" specified outside of "kvstore" only, without trailing slash.
+      {{
+           {"driver", "zarr"},
+           {"kvstore", {{"driver", "memory"}}},
+           {"path", "a/b"},
+       },
+       {
+           {"driver", "zarr"},
+           {"kvstore", {{"driver", "memory"}, {"path", "a/b/"}}},
+       }},
+
+      // "path" specified outside of "kvstore" only, with trailing slash.
+      {{
+           {"driver", "zarr"},
+           {"kvstore", {{"driver", "memory"}}},
+           {"path", "a/b/"},
+       },
+       {
+           {"driver", "zarr"},
+           {"kvstore", {{"driver", "memory"}, {"path", "a/b/"}}},
+       }},
+
+      // "path" specified inside "kvstore" without trailing slash, and outside
+      // of "kvstore" without trailing slash.
+      {{
+           {"driver", "zarr"},
+           {"kvstore", {{"driver", "memory"}, {"path", "a"}}},
+           {"path", "b"},
+       },
+       {
+           {"driver", "zarr"},
+           {"kvstore", {{"driver", "memory"}, {"path", "a/b/"}}},
+       }},
+
+      // "path" specified inside "kvstore" with trailing slash, and outside
+      // of "kvstore" without trailing slash.
+      {{
+           {"driver", "zarr"},
+           {"kvstore", {{"driver", "memory"}, {"path", "a/"}}},
+           {"path", "b"},
+       },
+       {
+           {"driver", "zarr"},
+           {"kvstore", {{"driver", "memory"}, {"path", "a/b/"}}},
+       }},
+
+      // "path" specified inside "kvstore" with trailing slash, and outside
+      // of "kvstore" with trailing slash.
+      {{
+           {"driver", "zarr"},
+           {"kvstore", {{"driver", "memory"}, {"path", "a/"}}},
+           {"path", "b/"},
+       },
+       {
+           {"driver", "zarr"},
+           {"kvstore", {{"driver", "memory"}, {"path", "a/b/"}}},
+       }},
+
+      // "path" specified inside of "kvstore", without trailing slash.
+      {{
+           {"driver", "zarr"},
+           {"kvstore", {{"driver", "memory"}, {"path", "a/b"}}},
+       },
+       {
+           {"driver", "zarr"},
+           {"kvstore", {{"driver", "memory"}, {"path", "a/b/"}}},
+       }},
+  });
 }
 
 }  // namespace

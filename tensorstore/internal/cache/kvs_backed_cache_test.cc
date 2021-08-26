@@ -14,7 +14,7 @@
 
 /// \file
 ///
-/// Tests for `kvs_backed_cache` and for `internal_kvs::MultiPhaseMutation`.
+/// Tests for `kvs_backed_cache` and for `internal_kvstore::MultiPhaseMutation`.
 
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
 
@@ -29,15 +29,16 @@
 #include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/kvstore/generation_testutil.h"
-#include "tensorstore/kvstore/key_value_store.h"
-#include "tensorstore/kvstore/key_value_store_testutil.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
+namespace kvstore = tensorstore::kvstore;
 using tensorstore::KeyRange;
 using tensorstore::MatchesStatus;
 using tensorstore::StorageGeneration;
@@ -46,6 +47,7 @@ using tensorstore::Transaction;
 using tensorstore::internal::CachePool;
 using tensorstore::internal::KvsBackedTestCache;
 using tensorstore::internal::MatchesKvsReadResult;
+using tensorstore::internal::MockKeyValueStore;
 using tensorstore::internal::OpenTransactionPtr;
 
 TENSORSTORE_GLOBAL_INITIALIZER {
@@ -74,17 +76,15 @@ TENSORSTORE_GLOBAL_INITIALIZER {
 class MockStoreTest : public ::testing::Test {
  protected:
   CachePool::StrongPtr pool = CachePool::Make(CachePool::Limits{});
-  tensorstore::KeyValueStore::PtrT<tensorstore::internal::MockKeyValueStore>
-      mock_store{new tensorstore::internal::MockKeyValueStore};
-  tensorstore::KeyValueStore::Ptr memory_store =
-      tensorstore::GetMemoryKeyValueStore();
+  MockKeyValueStore::Ptr mock_store{new MockKeyValueStore};
+  kvstore::DriverPtr memory_store = tensorstore::GetMemoryKeyValueStore();
 
   tensorstore::internal::CachePtr<KvsBackedTestCache> GetCache(
       std::string cache_identifier = {},
-      tensorstore::KeyValueStore::Ptr kvstore = {}) {
-    if (!kvstore) kvstore = mock_store;
+      kvstore::DriverPtr kvstore_driver = {}) {
+    if (!kvstore_driver) kvstore_driver = mock_store;
     return pool->GetCache<KvsBackedTestCache>(cache_identifier, [&] {
-      return std::make_unique<KvsBackedTestCache>(kvstore);
+      return std::make_unique<KvsBackedTestCache>(kvstore_driver);
     });
   }
 
@@ -799,8 +799,7 @@ TEST_F(MockStoreTest, MultiPhaseDeleteRangeAndWrite) {
 
 TEST_F(MockStoreTest, MultipleKeyValueStoreAtomicError) {
   auto transaction = Transaction(tensorstore::atomic_isolated);
-  tensorstore::KeyValueStore::PtrT<tensorstore::internal::MockKeyValueStore>
-      mock_store2{new tensorstore::internal::MockKeyValueStore};
+  MockKeyValueStore::Ptr mock_store2{new MockKeyValueStore};
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto open_transaction,

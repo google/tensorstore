@@ -46,27 +46,7 @@ std::string JoinPathImpl(std::initializer_list<std::string_view> paths) {
   std::string result;
   result.reserve(s);
   for (std::string_view path : paths) {
-    if (path.empty()) continue;
-
-    if (result.empty()) {
-      absl::StrAppend(&result, path);
-      continue;
-    }
-
-    const bool begins_with_slash = (path[0] == '/');
-    if (result[result.size() - 1] == '/') {
-      if (begins_with_slash) {
-        absl::StrAppend(&result, path.substr(1));
-      } else {
-        absl::StrAppend(&result, path);
-      }
-    } else {
-      if (begins_with_slash) {
-        absl::StrAppend(&result, path);
-      } else {
-        absl::StrAppend(&result, "/", path);
-      }
-    }
+    internal::AppendPathComponent(result, path);
   }
   return result;
 }
@@ -148,6 +128,31 @@ std::string CreateURI(std::string_view scheme, std::string_view host,
     return std::string(path);
   }
   return absl::StrCat(scheme, "://", host, path);
+}
+
+void EnsureDirectoryPath(std::string& path) {
+  if (path.size() == 1 && path[0] == '/') {
+    path.clear();
+  } else if (!path.empty() && path.back() != '/') {
+    path += '/';
+  }
+}
+
+void EnsureNonDirectoryPath(std::string& path) {
+  size_t size = path.size();
+  while (size > 0 && path[size - 1] == '/') {
+    --size;
+  }
+  path.resize(size);
+}
+
+void AppendPathComponent(std::string& path, std::string_view component) {
+  if (!path.empty() && path.back() != '/' && !component.empty() &&
+      component.front() != '/') {
+    absl::StrAppend(&path, "/", component);
+  } else {
+    path += component;
+  }
 }
 
 }  // namespace internal

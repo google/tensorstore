@@ -1,5 +1,5 @@
 $schema: http://json-schema.org/draft-07/schema#
-$id: KeyValueStore
+$id: KvStore
 description: |
   Common properties supported by all key-value stores.  Refer to the :ref:`driver
   documentation<key-value-store-drivers>` for the supported
@@ -10,6 +10,13 @@ properties:
     type: string
     title: |
       Key-value store :ref:`driver identifier<key-value-store-drivers>`
+  path:
+    type: string
+    title: |
+      Key prefix within the key-value store.
+    description: |
+      If the prefix is intended to correspond to a Unix-style directory path, it
+      should end with :json:`"/"`.
   context:
     $ref: Context
     description: Specifies context resources that augment/override the parent context.

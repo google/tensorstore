@@ -50,9 +50,9 @@ namespace {
 /// minishard indices.  By using a separate `KeyValueStore` rather than just
 /// including this logic directly in `MinishardIndexCache`, we are able to take
 /// advantage of `KvsBackedCache` to define `MinishardIndexCache`.
-class MinishardIndexKeyValueStore : public KeyValueStore {
+class MinishardIndexKeyValueStore : public kvstore::Driver {
  public:
-  explicit MinishardIndexKeyValueStore(KeyValueStore::Ptr base,
+  explicit MinishardIndexKeyValueStore(kvstore::DriverPtr base,
                                        Executor executor,
                                        std::string key_prefix,
                                        const ShardingSpec& sharding_spec)
@@ -90,7 +90,7 @@ class MinishardIndexKeyValueStore : public KeyValueStore {
             GetShardKey(sharding_spec_, key_prefix_, split_info.shard)));
   }
 
-  KeyValueStore* base() { return base_.get(); }
+  kvstore::Driver* base() { return base_.get(); }
   const ShardingSpec& sharding_spec() { return sharding_spec_; }
   const std::string& key_prefix() const { return key_prefix_; }
   const Executor& executor() const { return executor_; }
@@ -123,11 +123,11 @@ class MinishardIndexKeyValueStore : public KeyValueStore {
     //
     //    c.  Otherwise, return the encoded minishard index.
     struct MinishardIndexReadyCallback {
-      KeyValueStore::PtrT<MinishardIndexKeyValueStore> self;
+      PtrT<MinishardIndexKeyValueStore> self;
       ChunkSplitShardInfo split_info;
 
-      void operator()(Promise<KeyValueStore::ReadResult> promise,
-                      ReadyFuture<KeyValueStore::ReadResult> future) {
+      void operator()(Promise<kvstore::ReadResult> promise,
+                      ReadyFuture<kvstore::ReadResult> future) {
         auto& r = future.result();
         if (!r) {
           promise.SetResult(
@@ -154,18 +154,18 @@ class MinishardIndexKeyValueStore : public KeyValueStore {
     };
 
     struct ShardIndexReadyCallback {
-      KeyValueStore::PtrT<MinishardIndexKeyValueStore> self;
+      PtrT<MinishardIndexKeyValueStore> self;
       ChunkSplitShardInfo split_info;
       absl::Time staleness_bound;
-      static void SetError(const Promise<KeyValueStore::ReadResult>& promise,
+      static void SetError(const Promise<kvstore::ReadResult>& promise,
                            Status error) {
         promise.SetResult(MaybeAnnotateStatus(
             ConvertInvalidArgumentToFailedPrecondition(std::move(error)),
             StrCat("Error retrieving shard index entry")));
       }
 
-      void operator()(Promise<KeyValueStore::ReadResult> promise,
-                      ReadyFuture<KeyValueStore::ReadResult> future) {
+      void operator()(Promise<kvstore::ReadResult> promise,
+                      ReadyFuture<kvstore::ReadResult> future) {
         auto& r = future.result();
         if (!r) {
           return SetError(promise, r.status());
@@ -197,11 +197,11 @@ class MinishardIndexKeyValueStore : public KeyValueStore {
         if (byte_range.size() == 0) {
           // Minishard index is 0 bytes, which means the minishard is empty.
           r->value.Clear();
-          r->state = KeyValueStore::ReadResult::kMissing;
+          r->state = kvstore::ReadResult::kMissing;
           promise.SetResult(std::move(r));
           return;
         }
-        KeyValueStore::ReadOptions kvs_read_options;
+        kvstore::ReadOptions kvs_read_options;
         // The `if_equal` condition ensure that an "aborted" `ReadResult` is
         // returned in the case of a concurrent modification (case 2a above).
         kvs_read_options.if_equal = std::move(r->stamp.generation);
@@ -219,17 +219,16 @@ class MinishardIndexKeyValueStore : public KeyValueStore {
     options.byte_range = {split_info.minishard * 16,
                           (split_info.minishard + 1) * 16};
     const auto staleness_bound = options.staleness_bound;
-    Link(
-        WithExecutor(executor_,
-                     ShardIndexReadyCallback{
-                         KeyValueStore::PtrT<MinishardIndexKeyValueStore>(this),
-                         split_info, staleness_bound}),
-        std::move(promise),
-        base_->Read(GetShardKey(sharding_spec_, key_prefix_, split_info.shard),
-                    std::move(options)));
+    Link(WithExecutor(
+             executor_,
+             ShardIndexReadyCallback{PtrT<MinishardIndexKeyValueStore>(this),
+                                     split_info, staleness_bound}),
+         std::move(promise),
+         base_->Read(GetShardKey(sharding_spec_, key_prefix_, split_info.shard),
+                     std::move(options)));
   }
 
-  KeyValueStore::Ptr base_;
+  kvstore::DriverPtr base_;
   Executor executor_;
   std::string key_prefix_;
   ShardingSpec sharding_spec_;
@@ -298,22 +297,25 @@ class MinishardIndexCache : public MinishardIndexCacheBase {
     return new TransactionNode(static_cast<Entry&>(entry));
   }
 
-  explicit MinishardIndexCache(KeyValueStore::Ptr base_kvstore,
+  explicit MinishardIndexCache(kvstore::DriverPtr base_kvstore,
                                Executor executor, std::string key_prefix,
                                const ShardingSpec& sharding_spec)
-      : Base(KeyValueStore::Ptr(new MinishardIndexKeyValueStore(
+      : Base(kvstore::DriverPtr(new MinishardIndexKeyValueStore(
             std::move(base_kvstore), executor, std::move(key_prefix),
             sharding_spec))) {}
 
-  MinishardIndexKeyValueStore* kvstore() {
-    return static_cast<MinishardIndexKeyValueStore*>(this->Base::kvstore());
+  MinishardIndexKeyValueStore* kvstore_driver() {
+    return static_cast<MinishardIndexKeyValueStore*>(
+        this->Base::kvstore_driver());
   }
 
-  const ShardingSpec& sharding_spec() { return kvstore()->sharding_spec(); }
+  const ShardingSpec& sharding_spec() {
+    return kvstore_driver()->sharding_spec();
+  }
 
-  KeyValueStore* base_kvstore() { return kvstore()->base(); }
-  const Executor& executor() { return kvstore()->executor(); }
-  const std::string& key_prefix() { return kvstore()->key_prefix(); }
+  kvstore::Driver* base_kvstore_driver() { return kvstore_driver()->base(); }
+  const Executor& executor() { return kvstore_driver()->executor(); }
+  const std::string& key_prefix() { return kvstore_driver()->key_prefix(); }
 };
 
 MinishardAndChunkId GetMinishardAndChunkId(std::string_view key) {
@@ -407,7 +409,7 @@ class ShardedKeyValueStoreWriteCache
   };
 
   class TransactionNode : public Base::TransactionNode,
-                          public internal_kvs::AtomicMultiPhaseMutation {
+                          public internal_kvstore::AtomicMultiPhaseMutation {
    public:
     using OwningCache = ShardedKeyValueStoreWriteCache;
     using Base::TransactionNode::TransactionNode;
@@ -432,14 +434,15 @@ class ShardedKeyValueStoreWriteCache
       return tensorstore::StrCat(
           "chunk ", minishard_and_chunk_id.chunk_id.value, " in minishard ",
           minishard_and_chunk_id.minishard, " in ",
-          cache.kvstore()->DescribeKey(entry.GetKeyValueStoreKey()));
+          cache.kvstore_driver()->DescribeKey(entry.GetKeyValueStoreKey()));
     }
 
     void DoApply(ApplyOptions options, ApplyReceiver receiver) override;
     void AllEntriesDone(
-        internal_kvs::SinglePhaseMutation& single_phase_mutation) override;
-    void RecordEntryWritebackError(internal_kvs::ReadModifyWriteEntry& entry,
-                                   absl::Status error) override {
+        internal_kvstore::SinglePhaseMutation& single_phase_mutation) override;
+    void RecordEntryWritebackError(
+        internal_kvstore::ReadModifyWriteEntry& entry,
+        absl::Status error) override {
       absl::MutexLock lock(&mutex_);
       if (apply_status_.ok()) {
         apply_status_ = std::move(error);
@@ -465,11 +468,10 @@ class ShardedKeyValueStoreWriteCache
     ///
     /// Always reads the full shard, and then decodes the individual chunk
     /// within it.
-    void Read(internal_kvs::ReadModifyWriteEntry& entry,
-              KeyValueStore::ReadModifyWriteTarget::TransactionalReadOptions&&
-                  options,
-              KeyValueStore::ReadModifyWriteTarget::ReadReceiver&& receiver)
-        override {
+    void Read(
+        internal_kvstore::ReadModifyWriteEntry& entry,
+        kvstore::ReadModifyWriteTarget::TransactionalReadOptions&& options,
+        kvstore::ReadModifyWriteTarget::ReadReceiver&& receiver) override {
       this->AsyncCache::TransactionNode::Read(options.staleness_bound)
           .ExecuteWhenReady(WithExecutor(
               GetOwningCache(*this).executor(),
@@ -486,11 +488,11 @@ class ShardedKeyValueStoreWriteCache
     }
 
     /// Called asynchronously from `Read` when the full shard is ready.
-    static Result<KeyValueStore::ReadResult> HandleShardReadSuccess(
-        internal_kvs::ReadModifyWriteEntry& entry,
+    static Result<kvstore::ReadResult> HandleShardReadSuccess(
+        internal_kvstore::ReadModifyWriteEntry& entry,
         const StorageGeneration& if_not_equal) {
       auto& self = static_cast<TransactionNode&>(entry.multi_phase());
-      KeyValueStore::ReadResult read_result;
+      kvstore::ReadResult read_result;
       std::shared_ptr<const EncodedChunks> encoded_chunks;
       {
         AsyncCache::ReadLock<EncodedChunks> lock{self};
@@ -499,14 +501,14 @@ class ShardedKeyValueStoreWriteCache
       }
       if (!StorageGeneration::IsUnknown(read_result.stamp.generation) &&
           read_result.stamp.generation == if_not_equal) {
-        read_result.state = KeyValueStore::ReadResult::kUnspecified;
+        read_result.state = kvstore::ReadResult::kUnspecified;
       } else {
         auto* chunk =
             FindChunk(*encoded_chunks, GetMinishardAndChunkId(entry.key_));
         if (!chunk) {
-          read_result.state = KeyValueStore::ReadResult::kMissing;
+          read_result.state = kvstore::ReadResult::kMissing;
         } else {
-          read_result.state = KeyValueStore::ReadResult::kValue;
+          read_result.state = kvstore::ReadResult::kValue;
           TENSORSTORE_ASSIGN_OR_RETURN(
               read_result.value,
               DecodeData(chunk->encoded_data,
@@ -529,15 +531,15 @@ class ShardedKeyValueStoreWriteCache
       return read_result;
     }
 
-    void Writeback(internal_kvs::ReadModifyWriteEntry& entry,
-                   KeyValueStore::ReadResult&& read_result) override {
+    void Writeback(internal_kvstore::ReadModifyWriteEntry& entry,
+                   kvstore::ReadResult&& read_result) override {
       auto& value = read_result.value;
-      if (read_result.state == KeyValueStore::ReadResult::kValue) {
+      if (read_result.state == kvstore::ReadResult::kValue) {
         value = EncodeData(value,
                            GetOwningCache(*this).sharding_spec().data_encoding);
       }
-      internal_kvs::AtomicMultiPhaseMutation::Writeback(entry,
-                                                        std::move(read_result));
+      internal_kvstore::AtomicMultiPhaseMutation::Writeback(
+          entry, std::move(read_result));
     }
 
     absl::Time apply_staleness_bound_;
@@ -554,7 +556,7 @@ class ShardedKeyValueStoreWriteCache
   explicit ShardedKeyValueStoreWriteCache(
       internal::CachePtr<MinishardIndexCache> minishard_index_cache,
       GetMaxChunksPerShardFunction get_max_chunks_per_shard)
-      : Base(KeyValueStore::Ptr(minishard_index_cache->base_kvstore())),
+      : Base(kvstore::DriverPtr(minishard_index_cache->base_kvstore_driver())),
         minishard_index_cache_(std::move(minishard_index_cache)),
         get_max_chunks_per_shard_(std::move(get_max_chunks_per_shard)) {}
 
@@ -579,23 +581,23 @@ class ShardedKeyValueStoreWriteCache
 
 void ShardedKeyValueStoreWriteCache::TransactionNode::InvalidateReadState() {
   Base::TransactionNode::InvalidateReadState();
-  internal_kvs::InvalidateReadState(phases_);
+  internal_kvstore::InvalidateReadState(phases_);
 }
 
 void ShardedKeyValueStoreWriteCache::TransactionNode::WritebackSuccess(
     ReadState&& read_state) {
   for (auto& entry : phases_.entries_) {
-    internal_kvs::WritebackSuccess(
-        static_cast<internal_kvs::ReadModifyWriteEntry&>(entry),
+    internal_kvstore::WritebackSuccess(
+        static_cast<internal_kvstore::ReadModifyWriteEntry&>(entry),
         read_state.stamp);
   }
-  internal_kvs::DestroyPhaseEntries(phases_);
+  internal_kvstore::DestroyPhaseEntries(phases_);
   Base::TransactionNode::WritebackSuccess(std::move(read_state));
 }
 
 void ShardedKeyValueStoreWriteCache::TransactionNode::WritebackError() {
-  internal_kvs::WritebackError(phases_);
-  internal_kvs::DestroyPhaseEntries(phases_);
+  internal_kvstore::WritebackError(phases_);
+  internal_kvstore::DestroyPhaseEntries(phases_);
   Base::TransactionNode::WritebackError();
 }
 
@@ -644,9 +646,9 @@ void MergeForWriteback(ShardedKeyValueStoreWriteCache::TransactionNode& node,
   // guaranteed to be ordered by minishard and then by chunk id, which is the
   // order required for encoding.
   for (auto& entry : node.phases_.entries_) {
-    auto& buffered_entry = static_cast<
-        internal_kvs::AtomicMultiPhaseMutation::BufferedReadModifyWriteEntry&>(
-        entry);
+    auto& buffered_entry =
+        static_cast<internal_kvstore::AtomicMultiPhaseMutation::
+                        BufferedReadModifyWriteEntry&>(entry);
     if (StorageGeneration::IsConditional(
             buffered_entry.read_result_.stamp.generation) &&
         StorageGeneration::Clean(
@@ -658,7 +660,7 @@ void MergeForWriteback(ShardedKeyValueStoreWriteCache::TransactionNode& node,
       break;
     }
     if (buffered_entry.read_result_.state ==
-            KeyValueStore::ReadResult::kUnspecified ||
+            kvstore::ReadResult::kUnspecified ||
         !StorageGeneration::IsInnerLayerDirty(
             buffered_entry.read_result_.stamp.generation)) {
       // This is a no-op mutation; ignore it, which has the effect of retaining
@@ -685,8 +687,7 @@ void MergeForWriteback(ShardedKeyValueStoreWriteCache::TransactionNode& node,
         break;
       }
     }
-    if (buffered_entry.read_result_.state ==
-        KeyValueStore::ReadResult::kValue) {
+    if (buffered_entry.read_result_.state == kvstore::ReadResult::kValue) {
       // The mutation specifies a new value (rather than a deletion).
       chunks.push_back(EncodedChunk{minishard_and_chunk_id,
                                     buffered_entry.read_result_.value});
@@ -734,7 +735,7 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::DoApply(
 }
 
 void ShardedKeyValueStoreWriteCache::TransactionNode::AllEntriesDone(
-    internal_kvs::SinglePhaseMutation& single_phase_mutation) {
+    internal_kvstore::SinglePhaseMutation& single_phase_mutation) {
   if (!apply_status_.ok()) {
     execution::set_error(std::exchange(apply_receiver_, {}),
                          std::exchange(apply_status_, {}));
@@ -805,8 +806,8 @@ Result<ChunkId> KeyToChunkIdOrError(std::string_view key) {
 /// Asynchronous callback invoked (indirectly) from `ShardedKeyValueStore::Read`
 /// when the cache entry for a given minishard index is ready.
 struct MinishardIndexCacheEntryReadyCallback {
-  using ReadResult = KeyValueStore::ReadResult;
-  using ReadOptions = KeyValueStore::ReadOptions;
+  using ReadResult = kvstore::ReadResult;
+  using ReadOptions = kvstore::ReadOptions;
 
   internal::PinnedCacheEntry<MinishardIndexCache> entry_;
   ChunkId chunk_id_;
@@ -814,7 +815,7 @@ struct MinishardIndexCacheEntryReadyCallback {
   void operator()(Promise<ReadResult> promise, ReadyFuture<const void>) {
     std::optional<ByteRange> byte_range;
     TimestampedStorageGeneration stamp;
-    KeyValueStore::ReadResult::State state;
+    kvstore::ReadResult::State state;
     {
       auto lock = internal::AsyncCache::ReadLock<MinishardIndexCache::ReadData>(
           *entry_);
@@ -823,12 +824,12 @@ struct MinishardIndexCacheEntryReadyCallback {
           (options_.if_not_equal == stamp.generation ||
            (!StorageGeneration::IsUnknown(options_.if_equal) &&
             options_.if_equal != stamp.generation))) {
-        state = KeyValueStore::ReadResult::kUnspecified;
+        state = kvstore::ReadResult::kUnspecified;
       } else {
         span<const MinishardIndexEntry> minishard_index;
         if (lock.data()) minishard_index = *lock.data();
         byte_range = FindChunkInMinishard(minishard_index, chunk_id_);
-        state = KeyValueStore::ReadResult::kMissing;
+        state = kvstore::ReadResult::kMissing;
       }
     }
     if (!byte_range) {
@@ -903,16 +904,16 @@ struct MinishardIndexCacheEntryReadyCallback {
           promise.SetResult(std::move(r));
         },
         std::move(promise),
-        cache.base_kvstore()->Read(
+        cache.base_kvstore_driver()->Read(
             GetShardKey(cache.sharding_spec(), cache.key_prefix(), shard),
             std::move(kvs_read_options)));
   }
 };
 
-class ShardedKeyValueStore : public KeyValueStore {
+class ShardedKeyValueStore : public kvstore::Driver {
  public:
   explicit ShardedKeyValueStore(
-      KeyValueStore::Ptr base_kvstore, Executor executor,
+      kvstore::DriverPtr base_kvstore, Executor executor,
       std::string key_prefix, const ShardingSpec& sharding_spec,
       internal::CachePool::WeakPtr cache_pool,
       GetMaxChunksPerShardFunction get_max_chunks_per_shard)
@@ -953,7 +954,7 @@ class ShardedKeyValueStore : public KeyValueStore {
     return absl::UnimplementedError("DeleteRange not supported");
   }
 
-  void ListImpl(const ListOptions& options,
+  void ListImpl(ListOptions options,
                 AnyFlowReceiver<Status, Key> receiver) override {
     struct State {
       explicit State(AnyFlowReceiver<Status, Key>&& receiver,
@@ -997,6 +998,7 @@ class ShardedKeyValueStore : public KeyValueStore {
             for (auto& chunk : *chunks) {
               auto key = ChunkIdToKey(chunk.minishard_and_chunk_id.chunk_id);
               if (!Contains(state->options_.range, key)) continue;
+              key.erase(0, state->options_.strip_prefix_length);
               execution::set_value(state->receiver_, std::move(key));
             }
           },
@@ -1007,7 +1009,7 @@ class ShardedKeyValueStore : public KeyValueStore {
   Future<TimestampedStorageGeneration> Write(Key key,
                                              std::optional<Value> value,
                                              WriteOptions options) override {
-    return internal_kvs::WriteViaTransaction(
+    return internal_kvstore::WriteViaTransaction(
         this, std::move(key), std::move(value), std::move(options));
   }
 
@@ -1051,12 +1053,12 @@ class ShardedKeyValueStore : public KeyValueStore {
     return tensorstore::StrCat(
         "chunk ", chunk_id_opt->value, " in minishard ", shard_info.minishard,
         " in ",
-        base_kvstore()->DescribeKey(
+        base_kvstore_driver()->DescribeKey(
             GetShardKey(sharding_spec, key_prefix(), shard_info.shard)));
   }
 
-  KeyValueStore* base_kvstore() const {
-    return minishard_index_cache()->base_kvstore();
+  kvstore::Driver* base_kvstore_driver() const {
+    return minishard_index_cache()->base_kvstore_driver();
   }
   const ShardingSpec& sharding_spec() const {
     return minishard_index_cache()->sharding_spec();
@@ -1077,11 +1079,11 @@ class ShardedKeyValueStore : public KeyValueStore {
 
 }  // namespace
 
-KeyValueStore::Ptr GetShardedKeyValueStore(
-    KeyValueStore::Ptr base_kvstore, Executor executor, std::string key_prefix,
+kvstore::DriverPtr GetShardedKeyValueStore(
+    kvstore::DriverPtr base_kvstore, Executor executor, std::string key_prefix,
     const ShardingSpec& sharding_spec, internal::CachePool::WeakPtr cache_pool,
     GetMaxChunksPerShardFunction get_max_chunks_per_shard) {
-  return KeyValueStore::Ptr(new ShardedKeyValueStore(
+  return kvstore::DriverPtr(new ShardedKeyValueStore(
       std::move(base_kvstore), std::move(executor), std::move(key_prefix),
       sharding_spec, std::move(cache_pool),
       std::move(get_max_chunks_per_shard)));

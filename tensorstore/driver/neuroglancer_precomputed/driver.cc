@@ -28,7 +28,7 @@
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/kvstore/key_value_store.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/division.h"
@@ -42,12 +42,11 @@ namespace {
 namespace jb = tensorstore::internal_json_binding;
 
 struct SpecData : public internal_kvs_backed_chunk_driver::SpecData {
-  std::string key_prefix;
   OpenConstraints open_constraints;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(internal::BaseCast<internal_kvs_backed_chunk_driver::SpecData>(x),
-             x.key_prefix, x.open_constraints);
+             x.open_constraints);
   };
 };
 
@@ -70,7 +69,7 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
   using Base::Base;
 
   std::string GetMetadataStorageKey(std::string_view entry_key) override {
-    return internal::JoinPath(entry_key, kMetadataKey);
+    return tensorstore::StrCat(entry_key, kMetadataKey);
   }
 
   Result<MetadataPtr> DecodeMetadata(std::string_view entry_key,
@@ -243,7 +242,6 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
     const auto& metadata =
         *static_cast<const MultiscaleMetadata*>(metadata_ptr);
     const auto& scale = metadata.scales[scale_index_];
-    spec.key_prefix = key_prefix_;
     spec.open_constraints.scale_index = scale_index_;
     auto& scale_constraints = spec.open_constraints.scale;
     scale_constraints.chunk_size = chunk_size_xyz();
@@ -291,6 +289,8 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
     return GetCodecFromMetadata(
         *static_cast<const MultiscaleMetadata*>(metadata_ptr), scale_index_);
   }
+
+  std::string GetBaseKvstorePath() override { return key_prefix_; }
 
   std::string key_prefix_;
   std::size_t scale_index_;
@@ -423,8 +423,6 @@ class NeuroglancerPrecomputedDriver
 
   static inline const auto json_binder = jb::Sequence(
       internal_kvs_backed_chunk_driver::SpecJsonBinder,
-      jb::Member("path", jb::Projection(&SpecData::key_prefix,
-                                        jb::DefaultInitializedValue())),
       [](auto is_loading, auto options, auto* obj, auto* j) {
         options.Set(obj->schema.dtype());
         return jb::DefaultBinder<>(is_loading, options, &obj->open_constraints,
@@ -497,11 +495,10 @@ class NeuroglancerPrecomputedDriver::OpenState
   std::string GetPrefixForDeleteExisting() override {
     // TODO(jbms): Possibly change behavior in the future to allow deleting
     // just a single scale.
-    return spec().key_prefix.empty() ? std::string()
-                                     : StrCat(spec().key_prefix, "/");
+    return spec().store.path;
   }
 
-  std::string GetMetadataCacheEntryKey() override { return spec().key_prefix; }
+  std::string GetMetadataCacheEntryKey() override { return spec().store.path; }
 
   std::unique_ptr<internal_kvs_backed_chunk_driver::MetadataCache>
   GetMetadataCache(MetadataCache::Initializer initializer) override {
@@ -512,7 +509,7 @@ class NeuroglancerPrecomputedDriver::OpenState
     std::string result;
     const auto& spec = this->spec();
     internal::EncodeCacheKey(
-        &result, spec.key_prefix,
+        &result, spec.store.path,
         GetMetadataCompatibilityKey(
             *static_cast<const MultiscaleMetadata*>(metadata),
             scale_index_ ? *scale_index_ : *spec.open_constraints.scale_index,
@@ -550,11 +547,11 @@ class NeuroglancerPrecomputedDriver::OpenState
     const auto& scale = metadata.scales[scale_index_.value()];
     if (std::holds_alternative<ShardingSpec>(scale.sharding)) {
       return std::make_unique<ShardedDataCache>(
-          std::move(initializer), spec().key_prefix, metadata,
+          std::move(initializer), spec().store.path, metadata,
           scale_index_.value(), chunk_size_xyz_);
     } else {
       return std::make_unique<UnshardedDataCache>(
-          std::move(initializer), spec().key_prefix, metadata,
+          std::move(initializer), spec().store.path, metadata,
           scale_index_.value(), chunk_size_xyz_);
     }
   }
@@ -594,8 +591,8 @@ class NeuroglancerPrecomputedDriver::OpenState
     return 0;
   }
 
-  Result<KeyValueStore::Ptr> GetDataKeyValueStore(
-      KeyValueStore::Ptr base_kv_store, const void* metadata_ptr) override {
+  Result<kvstore::DriverPtr> GetDataKeyValueStore(
+      kvstore::DriverPtr base_kv_store, const void* metadata_ptr) override {
     const auto& metadata =
         *static_cast<const MultiscaleMetadata*>(metadata_ptr);
     assert(scale_index_);
@@ -604,7 +601,7 @@ class NeuroglancerPrecomputedDriver::OpenState
       assert(scale.chunk_sizes.size() == 1);
       return neuroglancer_uint64_sharded::GetShardedKeyValueStore(
           std::move(base_kv_store), executor(),
-          ResolveScaleKey(spec().key_prefix, scale.key), *sharding_spec,
+          ResolveScaleKey(spec().store.path, scale.key), *sharding_spec,
           *cache_pool(),
           GetChunksPerVolumeShardFunction(*sharding_spec, scale.box.shape(),
                                           scale.chunk_sizes[0]));
