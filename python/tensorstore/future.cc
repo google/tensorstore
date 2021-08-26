@@ -343,7 +343,7 @@ absl::Time GetWaitDeadline(std::optional<double> timeout,
 
 void RegisterFutureBindings(pybind11::module m) {
   py::class_<PythonFutureBase, std::shared_ptr<PythonFutureBase>> cls_future(
-                                                                             m, "Future", R"(
+      m, "Future", R"(
 Handle for *consuming* the result of an asynchronous operation.
 
 This type supports several different patterns for consuming results:
@@ -433,35 +433,142 @@ Group:
   Asynchronous support
 )");
 
-
   cls_future.def("__await__", &PythonFutureBase::get_await_result);
+
   cls_future.def("add_done_callback", &PythonFutureBase::add_done_callback,
-                 py::arg("callback"));
+                 py::arg("callback"),
+                 R"(
+Registers a callback to be invoked upon completion of the asynchronous operation.
+
+Group:
+  Callback interface
+)");
   cls_future.def("remove_done_callback",
-                 &PythonFutureBase::remove_done_callback, py::arg("callback"));
+                 &PythonFutureBase::remove_done_callback, py::arg("callback"),
+                 R"(
+Unregisters a previously-registered callback.
+
+Group:
+  Callback interface
+)");
   cls_future.def(
       "result",
       [](PythonFutureBase& self, std::optional<double> timeout,
          std::optional<double> deadline) -> py::object {
         return self.result(GetWaitDeadline(timeout, deadline));
       },
-      py::arg("timeout") = std::nullopt, py::arg("deadline") = std::nullopt);
+      py::arg("timeout") = std::nullopt, py::arg("deadline") = std::nullopt,
+      R"(
+Blocks until the asynchronous operation completes, and returns the result.
+
+If the asynchronous operation completes unsuccessfully, raises the error that
+was produced.
+
+Args:
+  timeout: Maximum number of seconds to block.
+  deadline: Deadline in seconds since the Unix epoch.
+
+Returns:
+  The result of the asynchronous operation, if successful.
+
+Raises:
+
+  TimeoutError: If the result did not become ready within the specified
+    :py:param:`.timeout` or :py:param:`.deadline`.
+
+  KeyboardInterrupt: If running on the main thread and a keyboard interrupt is
+    received.
+
+Group:
+  Blocking interface
+)");
   cls_future.def(
       "exception",
       [](PythonFutureBase& self, std::optional<double> timeout,
          std::optional<double> deadline) -> py::object {
         return self.exception(GetWaitDeadline(timeout, deadline));
       },
-      py::arg("timeout") = std::nullopt, py::arg("deadline") = std::nullopt);
-  cls_future.def("done", &PythonFutureBase::done);
-  cls_future.def("force", &PythonFutureBase::force);
-  cls_future.def("cancelled", &PythonFutureBase::cancelled);
-  cls_future.def("cancel", &PythonFutureBase::cancel);
+      py::arg("timeout") = std::nullopt, py::arg("deadline") = std::nullopt,
+      R"(
+Blocks until asynchronous operation completes, and returns the error if any.
 
-  cls_promise.def("set_result", [](const Promise<PythonValueOrException>& self,
-                                   py::object result) {
-    self.SetResult(PythonValueOrException{std::move(result)});
-  });
+Returns:
+
+  The error that was produced by the asynchronous operation, or :py:obj:`None`
+  if the operation completed successfully.
+
+Raises:
+
+  TimeoutError: If the result did not become ready within the specified
+    :py:param:`.timeout` or :py:param:`.deadline`.
+
+  KeyboardInterrupt: If running on the main thread and a keyboard interrupt is
+    received.
+
+Group:
+  Blocking interface
+)");
+
+  cls_future.def("done", &PythonFutureBase::done,
+                 R"(
+Queries whether the asynchronous operation has completed or been cancelled.
+
+Group:
+  Accessors
+)");
+  cls_future.def("force", &PythonFutureBase::force,
+                 R"(
+Ensures the asynchronous operation begins executing.
+
+This is called automatically by :py:obj:`.result` and :py:obj:`.exception`, but
+must be called explicitly when using :py:obj:`.add_done_callback`.
+)");
+  cls_future.def("cancelled", &PythonFutureBase::cancelled,
+                 R"(
+Queries whether the asynchronous operation has been cancelled.
+
+Example:
+
+    >>> promise, future = ts.Promise.new()
+    >>> future.cancelled()
+    False
+    >>> future.cancel()
+    >>> future.cancelled()
+    True
+    >>> future.exception()
+    CancelledError(...)
+
+Group:
+  Accessors
+)");
+  cls_future.def("cancel", &PythonFutureBase::cancel,
+                 R"(
+Requests cancellation of the asynchronous operation.
+
+If the operation has not already completed, it is marked as unsuccessfully
+completed with an instance of :py:obj:`asyncio.CancelledError`.
+)");
+
+  cls_promise.def(
+      "set_result",
+      [](const Promise<PythonValueOrException>& self, py::object result) {
+        self.SetResult(PythonValueOrException{std::move(result)});
+      },
+      py::arg("result"), R"(
+Marks the linked future as successfully completed with the specified result.
+
+Example:
+
+    >>> promise, future = ts.Promise.new()
+    >>> future.done()
+    False
+    >>> promise.set_result(5)
+    >>> future.done()
+    True
+    >>> future.result()
+    5
+
+)");
   cls_promise.def(
       "set_exception",
       [](const Promise<PythonValueOrException>& self, py::object exception) {
@@ -472,14 +579,40 @@ Group:
                     &v.error_traceback.ptr());
         assert(v.error_type.ptr());
         self.SetResult(std::move(v));
-      });
-  cls_promise.def_static("new", [] {
-    py::tuple result(2);
-    auto [promise, future] = PromiseFuturePair<PythonValueOrException>::Make();
-    result[0] = py::cast(std::move(promise));
-    result[1] = py::cast(std::move(future));
-    return result;
-  });
+      },
+      py::arg("exception"), R"(
+Marks the linked future as unsuccessfully completed with the specified error.
+
+Example:
+
+    >>> promise, future = ts.Promise.new()
+    >>> future.done()
+    False
+    >>> promise.set_exception(Exception(5))
+    >>> future.done()
+    True
+    >>> future.result()
+    Traceback (most recent call last):
+        ...
+    Exception: 5
+
+)");
+  cls_promise.def_static(
+      "new",
+      [] {
+        py::tuple result(2);
+        auto [promise, future] =
+            PromiseFuturePair<PythonValueOrException>::Make();
+        result[0] = py::cast(std::move(promise));
+        result[1] = py::cast(std::move(future));
+        return result;
+      },
+      R"(
+Creates a linked promise and future pair.
+
+Group:
+  Constructors
+)");
 }
 
 }  // namespace internal_python

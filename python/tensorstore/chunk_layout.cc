@@ -85,8 +85,8 @@ Setters
 Chunk templates
 ---------------
 
-Special members
----------------
+Comparison operators
+--------------------
 
 )");
 }

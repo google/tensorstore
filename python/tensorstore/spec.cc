@@ -94,8 +94,8 @@ Accessors
 Indexing
 ========
 
-Special members
-===============
+Comparison operators
+====================
 
 )");
 }
@@ -599,16 +599,11 @@ Group:
   Accessors
 )");
 
-  cls.def(
-      "__copy__", [](const Spec& self) { return self; }, R"(
-Alias for `.copy` for compatibility with the :py:obj:`copy` module.
-)");
+  cls.def("__copy__", [](const Spec& self) { return self; });
 
   cls.def(
       "__deepcopy__", [](const Spec& self, py::dict memo) { return self; },
-      py::arg("memo"), R"(
-Alias for `.copy` for compatibility with the :py:obj:`copy` module.
-)");
+      py::arg("memo"));
 
   cls.def(
       "__repr__",
@@ -1316,16 +1311,11 @@ Group:
   Accessors
 )");
 
-  cls.def(
-      "__copy__", [](const Schema& self) { return self; }, R"(
-Alias for `.copy` for compatibility with the :py:obj:`copy` module.
-)");
+  cls.def("__copy__", [](const Schema& self) { return self; });
 
   cls.def(
       "__deepcopy__", [](const Schema& self, py::dict memo) { return self; },
-      py::arg("memo"), R"(
-Alias for `.copy` for compatibility with the :py:obj:`copy` module.
-)");
+      py::arg("memo"));
 
   cls.def(
       "__repr__",

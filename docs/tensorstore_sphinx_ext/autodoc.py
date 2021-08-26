@@ -219,6 +219,8 @@ def _type_to_xref(
   if text in ('Optional', 'List', 'Union', 'Dict', 'Any', 'Iterator', 'Tuple',
               'Literal', 'Sequence'):
     reftarget = 'typing.' + text
+  elif text in ('Real',):
+    reftarget = 'numbers.Real'
   elif text == 'array':
     reftarget = 'numpy.ndarray'
   elif text == 'dtype':

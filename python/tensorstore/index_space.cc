@@ -1301,6 +1301,8 @@ Examples:
     >>> transform([1, 2])
     (0, 0)
 
+Group:
+  Indexing
 )",
       py::arg("indices"));
 
@@ -1812,31 +1814,163 @@ Overload:
           py::arg("implicit_upper") = std::nullopt);
 
   cls.def_property_readonly("inclusive_min", &IndexInterval::inclusive_min,
-                            "Inclusive lower bound of the interval.");
+                            R"(
+Inclusive lower bound of the interval.
+
+Equal to :python:`self.exclusive_min + 1`.  If the interval is unbounded below,
+equal to the special value of :py:obj:`-inf<tensorstore.inf>`.
+
+Example:
+
+    >>> ts.Dim(5).inclusive_min
+    0
+    >>> ts.Dim(inclusive_min=5, inclusive_max=10).inclusive_min
+    5
+    >>> ts.Dim().inclusive_min
+    -4611686018427387903
+
+Group:
+  Accessors
+)");
 
   cls.def_property_readonly("inclusive_max", &IndexInterval::inclusive_max,
-                            "Inclusive upper bound of the interval.");
+                            R"(
+Inclusive upper bound of the interval.
+
+Equal to :python:`self.exclusive_max - 1`.  If the interval is unbounded above,
+equal to the special value of :py:obj:`+inf<tensorstore.inf>`.
+
+Example:
+
+    >>> ts.Dim(inclusive_min=5, inclusive_max=10).inclusive_max
+    10
+    >>> ts.Dim(exclusive_max=5).inclusive_max
+    4
+    >>> ts.Dim().inclusive_max
+    4611686018427387903
+
+Group:
+  Accessors
+)");
 
   cls.def_property_readonly("exclusive_min", &IndexInterval::exclusive_min,
-                            "Exclusive lower bound of the interval.");
+                            R"(
+Exclusive lower bound of the interval.
+
+Equal to :python:`self.inclusive_min - 1`.  If the interval is unbounded below,
+equal to the special value of :py:obj:`-inf-1<tensorstore.inf>`.
+
+Example:
+
+    >>> ts.Dim(inclusive_min=5, inclusive_max=10).exclusive_min
+    4
+    >>> ts.Dim(5).exclusive_min
+    -1
+    >>> ts.Dim(exclusive_max=10).exclusive_min
+    -4611686018427387904
+    >>> ts.Dim().exclusive_min
+    -4611686018427387904
+
+Group:
+  Accessors
+)");
 
   cls.def_property_readonly("exclusive_max", &IndexInterval::exclusive_max,
-                            "Exclusive upper bound of the interval.");
+                            R"(
+Exclusive upper bound of the interval.
+
+Equal to :python:`self.inclusive_max + 1`.  If the interval is unbounded above,
+equal to the special value of :py:obj:`+inf+1<tensorstore.inf>`.
+
+Example:
+
+    >>> ts.Dim(inclusive_min=5, inclusive_max=10).exclusive_max
+    11
+    >>> ts.Dim(exclusive_max=5).exclusive_max
+    5
+    >>> ts.Dim().exclusive_max
+    4611686018427387904
+
+Group:
+  Accessors
+)");
 
   cls.def_property_readonly("size", &IndexInterval::size,
-                            "Size of the interval.");
+                            R"(
+Size of the interval.
+
+Equal to :python:`self.exclusive_max - self.inclusive_min`.
+
+Example:
+
+    >>> ts.Dim(5).size
+    5
+    >>> ts.Dim(inclusive_min=3, inclusive_max=7).size
+    5
+    >>> ts.Dim().size
+    9223372036854775807
+
+Note:
+
+  If the interval is unbounded below or above
+  (i.e. :python:`self.finite == False`), this value it not particularly
+  meaningful.
+
+Group:
+  Accessors
+)");
 
   cls.def_property(
       "implicit_lower",
       [](const IndexDomainDimension<>& x) { return x.implicit_lower(); },
       [](IndexDomainDimension<>& x, bool value) { x.implicit_lower() = value; },
-      R"(Indicates if the lower bound is "implicit".)");
+      R"(
+Indicates if the lower bound is :ref:`implicit/resizeable<implicit-bounds>`.
+
+Example:
+
+    >>> ts.Dim().implicit_lower
+    True
+    >>> ts.Dim(5).implicit_lower
+    False
+    >>> ts.Dim(exclusive_max=5).implicit_lower
+    True
+    >>> ts.Dim(inclusive_min=1, exclusive_max=5).implicit_lower
+    False
+    >>> ts.Dim(implicit_lower=False).implicit_lower
+    False
+    >>> ts.Dim(inclusive_min=5, implicit_lower=True).implicit_lower
+    True
+
+Group:
+  Accessors
+)");
 
   cls.def_property(
       "implicit_upper",
       [](const IndexDomainDimension<>& x) { return x.implicit_upper(); },
       [](IndexDomainDimension<>& x, bool value) { x.implicit_upper() = value; },
-      R"(Indicates if the upper bound is "implicit".)");
+      R"(
+Indicates if the upper bound is :ref:`implicit/resizeable<implicit-bounds>`.
+
+Example:
+
+    >>> ts.Dim().implicit_upper
+    True
+    >>> ts.Dim(5).implicit_upper
+    False
+    >>> ts.Dim(inclusive_min=5).implicit_upper
+    True
+    >>> ts.Dim(inclusive_min=1, exclusive_max=5).implicit_upper
+    False
+    >>> ts.Dim(implicit_upper=False).implicit_upper
+    False
+    >>> ts.Dim(inclusive_max=5, implicit_upper=True).implicit_upper
+    True
+
+Group:
+  Accessors
+)");
 
   cls.def_property(
       "label",
@@ -1844,18 +1978,57 @@ Overload:
       [](IndexDomainDimension<>& x, const std::string& label) {
         x.label() = label;
       },
-      "Dimension label, or the empty string to indicate an unlabeled "
-      "dimension.");
+      R"(
+Dimension label, or the empty string to indicate an unlabeled dimension.
+
+Example:
+
+    >>> ts.Dim().label
+    ''
+    >>> ts.Dim(label='x').label
+    'x'
+
+Group:
+  Accessors
+)");
 
   cls.def("__len__", &IndexInterval::size,
-          "Size of the interval, equivalent to :py:obj:`.size`.");
+          R"(
+Size of the interval, equivalent to :py:obj:`.size`.
+
+Group:
+  Accessors
+)");
 
   cls.def_property_readonly("empty", &IndexInterval::empty,
-                            "Returns `True` if `size` is zero.");
+                            R"(
+Returns `True` if `size` is zero.
+
+Group:
+  Accessors
+)");
 
   cls.def_property_readonly(
       "finite", [](const IndexDomainDimension<>& x) { return IsFinite(x); },
-      "Indicates if the interval is finite.");
+      R"(
+Indicates if the interval is finite.
+
+Example:
+
+  >>> ts.Dim().finite
+  False
+  >>> ts.Dim(5).finite
+  True
+  >>> ts.Dim(exclusive_max=10).finite
+  False
+  >>> ts.Dim(inclusive_min=10).finite
+  False
+  >>> ts.Dim(inclusive_min=10, exclusive_max=20).finite
+  True
+
+Group:
+  Accessors
+)");
 
   cls.def(
       "__contains__",
@@ -1872,6 +2045,11 @@ Examples:
     >>> 5 in ts.Dim(inclusive_min=6)
     False
 
+Overload:
+  index
+
+Group:
+  Operations
 )",
       py::arg("other"));
 
@@ -1891,6 +2069,11 @@ Examples:
     >>> ts.Dim(inclusive_min=1, exclusive_max=5) in ts.Dim(4)
     False
 
+Overload:
+  dim
+
+Group:
+  Operations
 )",
       py::arg("inner"));
 
@@ -1915,6 +2098,8 @@ Examples:
     >>> list(ts.Dim(inclusive_min=1, exclusive_max=6))
     [1, 2, 3, 4, 5]
 
+Group:
+  Operations
 )");
 
   cls.def(
@@ -1965,8 +2150,8 @@ Returns the string representation of the interval.
       R"(
 Returns the string representation as a Python expression.
 
-    >>> ts.Dim(size=5)
-    Dim(inclusive_min=0, exclusive_max=5)
+    >>> ts.Dim(size=5, label='x', implicit_upper=True)
+    Dim(inclusive_min=0, exclusive_max=5, implicit_upper=True, label="x")
 
 )");
 
@@ -1974,7 +2159,22 @@ Returns the string representation as a Python expression.
       "__eq__",
       [](const IndexDomainDimension<>& self,
          const IndexDomainDimension<>& other) { return self == other; },
-      py::arg("other"));
+      py::arg("other"),
+          R"(
+Compares for equality with another interval.
+
+In addition to the bounds, the values of :py:obj:`.label`,
+:py:obj:`.implicit_lower`, and :py:obj:`.implicit_upper` are also taken into
+account.
+
+    >>> a = ts.Dim(inclusive_min=5, exclusive_max=10)
+    >>> b = ts.Dim(inclusive_min=5, inclusive_max=9)
+    >>> a == b
+    True
+
+Group:
+  Operations
+)");
 
   cls.def("__copy__", [](const IndexDomainDimension<>& self) { return self; });
   cls.def(

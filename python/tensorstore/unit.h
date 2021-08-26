@@ -45,8 +45,8 @@ namespace detail {
 template <>
 struct type_caster<tensorstore::internal_python::UnitLike> {
   PYBIND11_TYPE_CASTER(tensorstore::internal_python::UnitLike,
-                       _("Union[tensorstore.Unit, str, numbers.Real, "
-                         "Tuple[numbers.Real, str]]"));
+                       _("Union[tensorstore.Unit, str, Real, "
+                         "Tuple[Real, str]]"));
   bool load(handle src, bool convert);
   static handle cast(const tensorstore::internal_python::UnitLike& value,
                      return_value_policy policy, handle parent);

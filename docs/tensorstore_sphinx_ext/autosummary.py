@@ -65,6 +65,15 @@ this limit.
 OBJECT_SYNOPSES_KEY = 'object_synopses'
 """Key within the Python domain `data` dict used to store object synopses."""
 
+_UNCONDITIONALLY_DOCUMENTED_MEMBERS = frozenset([
+    '__init__',
+    '__class_getitem__',
+    '__call__',
+    '__getitem__',
+    '__setitem__',
+])
+"""Special members to include even if they have no docstring."""
+
 
 class ParsedOverload(NamedTuple):
   """Parsed representation of a single overload.
@@ -355,7 +364,9 @@ def _ensure_module_name_in_signature(
 MEMBER_NAME_TO_GROUP_NAME_MAP = {
     '__init__': 'Constructors',
     '__class_getitem__': 'Constructors',
-    '__eq__': 'Special members',
+    '__eq__': 'Comparison operators',
+    '__str__': 'String representation',
+    '__repr__': 'String representation',
 }
 
 
@@ -508,9 +519,12 @@ class TensorstorePythonApidoc(sphinx.util.docutils.SphinxDirective):
     self._importname = self.options.get('importname') or self._fullname
     self._is_subscript = self.options.get('subscript')
     documenter_cls = self.env.app.registry.documenters[self._objtype]
-    self._documenter = _create_documenter(env=self.env,
-                                          documenter_cls=documenter_cls,
-                                          name=self._importname)
+    self._documenter = _create_documenter(
+        env=self.env,
+        documenter_cls=documenter_cls,
+        name=self._importname,
+        tab_width=self.state.document.settings.tab_width,
+    )
     overloads = _get_overloads_from_documenter(self._documenter)
     overload_id = self.options.get('overload')
     for overload in overloads:
@@ -547,31 +561,9 @@ class TensorstorePythonApidoc(sphinx.util.docutils.SphinxDirective):
     rst_strings = docutils.statemachine.StringList()
     entry.documenter.directive.result = rst_strings
 
-    if entry.overload and entry.overload.overload_id is not None:
-      # Force autodoc to use the overload-specific signature.  autodoc already
-      # has an internal mechanism for overriding the docstrings based on the
-      # `_new_docstrings` member.
-      entry.documenter._new_docstrings = [  # pylint: disable=protected-access
-          sphinx.util.docstrings.prepare_docstring(
-              entry.overload.doc or '',
-              tabsize=self.state.document.settings.tab_width)
-      ]
-      # Workaround for https://github.com/sphinx-doc/sphinx/pull/9518
-      orig_get_doc = entry.documenter.get_doc
+    _prepare_documenter_docstring(entry)
 
-      def get_doc(ignore: Optional[int] = None) -> List[List[str]]:
-        if entry.documenter._new_docstrings is not None:  # pylint: disable=protected-access
-          return entry.documenter._new_docstrings  # pylint: disable=protected-access
-        return orig_get_doc(ignore)  # type: ignore
-
-      entry.documenter.get_doc = get_doc
-
-    else:
-      # Force autodoc to obtain the docstring through its normal mechanism,
-      # which includes the "ModuleAnalyzer" for reading docstrings of
-      # variables/attributes that are only contained in the source code.
-      entry.documenter._new_docstrings = None  # pylint: disable=protected-access
-      orig_get_doc = None
+    entry.documenter.get_sourcename = lambda: entry.object_name
 
     if summary and entry.is_inherited:
       overridename = entry.name
@@ -584,8 +576,6 @@ class TensorstorePythonApidoc(sphinx.util.docutils.SphinxDirective):
         'tensorstore_autodoc_current_documenter', {})
     current_documenter_map[entry.documenter.fullname] = entry.documenter
     entry.documenter.generate()
-    if orig_get_doc is not None:
-      del entry.documenter.get_doc
     del current_documenter_map[entry.documenter.fullname]
 
     group_name = _postprocess_autodoc_rst_output(rst_strings, summary=summary)
@@ -843,8 +833,9 @@ def _insert_autosummary(
 
 class _FakeBridge(sphinx.ext.autodoc.directive.DocumenterBridge):
 
-  def __init__(self, env: sphinx.environment.BuildEnvironment) -> None:
-    settings = docutils.parsers.rst.states.Struct(tab_width=8)
+  def __init__(self, env: sphinx.environment.BuildEnvironment,
+               tab_width: int) -> None:
+    settings = docutils.parsers.rst.states.Struct(tab_width=tab_width)
     document = docutils.parsers.rst.states.Struct(settings=settings)
     state = docutils.parsers.rst.states.Struct(document=document)
     options = sphinx.ext.autodoc.Options()
@@ -874,9 +865,12 @@ _EXCLUDED_SPECIAL_MEMBERS = frozenset([
 ])
 
 
-def _create_documenter(env: sphinx.environment.BuildEnvironment,
-                       documenter_cls: Type[sphinx.ext.autodoc.Documenter],
-                       name: str) -> sphinx.ext.autodoc.Documenter:
+def _create_documenter(
+    env: sphinx.environment.BuildEnvironment,
+    documenter_cls: Type[sphinx.ext.autodoc.Documenter],
+    name: str,
+    tab_width: int = 8,
+) -> sphinx.ext.autodoc.Documenter:
   """Creates a documenter for the given full object name.
 
   Since we are using the documenter independent of any autodoc directive, we use
@@ -887,29 +881,17 @@ def _create_documenter(env: sphinx.environment.BuildEnvironment,
     env: Sphinx build environment.
     documenter_cls: Documenter class to use.
     name: Full object name, e.g. `tensorstore.TensorStore.read`.
+    tab_width: Tab width setting to use when parsing docstrings.
   Returns:
     The documenter object.
 
   """
-  bridge = _FakeBridge(env)
+  bridge = _FakeBridge(env, tab_width=tab_width)
   documenter = documenter_cls(bridge, name)
   assert documenter.parse_name()
   assert documenter.import_object()
   if documenter_cls.objtype == 'class':
-    bridge.genopt['special-members'] = [
-        '__eq__',
-        '__add__',
-        '__sub__',
-        '__mul__',
-        '__truediv__',
-        '__getitem__',
-        '__setitem__',
-        # '__hash__',
-        '__init__',
-        '__class_getitem__',
-        '__call__',
-        '__array__',
-    ]
+    bridge.genopt['special-members'] = sphinx.ext.autodoc.ALL
   try:
     documenter.analyzer = sphinx.pycode.ModuleAnalyzer.for_module(
         documenter.get_real_modname())
@@ -944,8 +926,12 @@ def _get_member_documenter(
   # prefer the documenter with the highest priority
   classes.sort(key=lambda cls: cls.priority)
   full_mname = parent.modname + '::' + '.'.join(parent.objpath + [member_name])
-  documenter = _create_documenter(env=parent.env, documenter_cls=classes[-1],
-                                  name=full_mname)
+  documenter = _create_documenter(
+      env=parent.env,
+      documenter_cls=classes[-1],
+      name=full_mname,
+      tab_width=parent.directive.state.document.settings.tab_width,
+  )
   return documenter
 
 
@@ -1042,7 +1028,10 @@ def _transform_member(
                      import_name[len(entry.documenter.modname) + 1:])
     new_documenter = _create_documenter(
         env=parent_documenter.env,
-        documenter_cls=sphinx.ext.autodoc.MethodDocumenter, name=import_name)
+        documenter_cls=sphinx.ext.autodoc.MethodDocumenter,
+        name=import_name,
+        tab_width=parent_documenter.directive.state.document.settings.tab_width,
+    )
     if suffix != '__getitem__':
       new_member_name = f'{entry.name}.{suffix}'
       full_name = f'{entry.full_name}.{suffix}'
@@ -1062,6 +1051,49 @@ def _transform_member(
     )
 
 
+def _prepare_documenter_docstring(entry: _MemberDocumenterEntry) -> None:
+  """Initializes `entry.documenter` with the correct docstring.
+
+  This overrides the docstring based on `entry.overload` if applicable.
+
+  This must be called before using `entry.documenter`.
+
+  Args:
+    entry: Entry to prepare.
+  """
+
+  if entry.overload and entry.overload.overload_id is not None:
+    # Force autodoc to use the overload-specific signature.  autodoc already
+    # has an internal mechanism for overriding the docstrings based on the
+    # `_new_docstrings` member.
+    tab_width = entry.documenter.directive.state.document.settings.tab_width
+    entry.documenter._new_docstrings = [  # pylint: disable=protected-access
+        sphinx.util.docstrings.prepare_docstring(entry.overload.doc or '',
+                                                 tabsize=tab_width)
+    ]
+  else:
+    # Force autodoc to obtain the docstring through its normal mechanism,
+    # which includes the "ModuleAnalyzer" for reading docstrings of
+    # variables/attributes that are only contained in the source code.
+    entry.documenter._new_docstrings = None  # pylint: disable=protected-access
+
+  # Workaround for https://github.com/sphinx-doc/sphinx/pull/9518
+  orig_get_doc = entry.documenter.get_doc
+
+  def get_doc(ignore: Optional[int] = None) -> List[List[str]]:
+    if entry.documenter._new_docstrings is not None:  # pylint: disable=protected-access
+      return entry.documenter._new_docstrings  # pylint: disable=protected-access
+    return orig_get_doc(ignore)  # type: ignore
+
+  entry.documenter.get_doc = get_doc
+
+
+def _is_conditionally_documented_entry(entry: _MemberDocumenterEntry):
+  if entry.name in _UNCONDITIONALLY_DOCUMENTED_MEMBERS:
+    return False
+  return sphinx.ext.autodoc.special_member_re.match(entry.name)
+
+
 def _get_member_overloads(
     entry: _MemberDocumenterEntry) -> Iterator[_MemberDocumenterEntry]:
   """Returns the list of overloads for a given entry."""
@@ -1069,8 +1101,23 @@ def _get_member_overloads(
   for overload in overloads:
     # Shallow copy the documenter.  Certain methods on the documenter mutate it,
     # and we don't want those mutations to affect other overloads.
-    yield entry._replace(overload=overload,
-                         documenter=copy.copy(entry.documenter))
+    new_entry = entry._replace(overload=overload,
+                               documenter=copy.copy(entry.documenter))
+
+    if _is_conditionally_documented_entry(new_entry):
+      # Only document this entry if it has a docstring.
+      _prepare_documenter_docstring(new_entry)
+      new_entry.documenter.format_signature()
+      doc = new_entry.documenter.get_doc()
+      if not doc: continue
+      if not any(x for x in doc):
+        # No docstring, skip.
+        continue
+
+      new_entry = entry._replace(overload=overload,
+                                 documenter=copy.copy(entry.documenter))
+
+    yield new_entry
 
 
 def _get_documenter_direct_members(
@@ -1158,8 +1205,11 @@ def _get_documenter_members(
     class_name = f'{cls.__module__}::{cls.__qualname__}'
     try:
       superclass_documenter = _create_documenter(
-          env=documenter.env, documenter_cls=sphinx.ext.autodoc.ClassDocumenter,
-          name=class_name)
+          env=documenter.env,
+          documenter_cls=sphinx.ext.autodoc.ClassDocumenter,
+          name=class_name,
+          tab_width=documenter.directive.state.document.settings.tab_width,
+      )
       yield from _get_unseen_members(
           _get_documenter_direct_members(superclass_documenter),
           is_inherited=True)
