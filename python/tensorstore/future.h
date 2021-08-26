@@ -344,15 +344,7 @@ struct type_caster<tensorstore::internal_python::PythonValueOrException> {
                        _("Any"));
   static handle cast(
       tensorstore::internal_python::PythonValueOrException result,
-      return_value_policy policy, handle parent) {
-    if (!result.value.ptr()) {
-      ::PyErr_Restore(result.error_type.release().ptr(),
-                      result.error_value.release().ptr(),
-                      result.error_traceback.release().ptr());
-      throw error_already_set();
-    }
-    return result.value.release();
-  }
+      return_value_policy policy, handle parent);
 };
 
 }  // namespace detail

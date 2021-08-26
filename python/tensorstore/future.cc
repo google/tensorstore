@@ -465,10 +465,12 @@ Group:
   cls_promise.def(
       "set_exception",
       [](const Promise<PythonValueOrException>& self, py::object exception) {
-        PyErr_SetObject(nullptr, exception.ptr());
+        PyErr_SetObject(reinterpret_cast<PyObject*>(exception.ptr()->ob_type),
+                        exception.ptr());
         PythonValueOrException v;
         PyErr_Fetch(&v.error_type.ptr(), &v.error_value.ptr(),
                     &v.error_traceback.ptr());
+        assert(v.error_type.ptr());
         self.SetResult(std::move(v));
       });
   cls_promise.def_static("new", [] {
@@ -482,3 +484,22 @@ Group:
 
 }  // namespace internal_python
 }  // namespace tensorstore
+
+namespace pybind11 {
+namespace detail {
+
+handle type_caster<tensorstore::internal_python::PythonValueOrException>::cast(
+    tensorstore::internal_python::PythonValueOrException result,
+    return_value_policy policy, handle parent) {
+  if (!result.value.ptr()) {
+    assert(result.error_type.ptr());
+    ::PyErr_Restore(result.error_type.release().ptr(),
+                    result.error_value.release().ptr(),
+                    result.error_traceback.release().ptr());
+    throw error_already_set();
+  }
+  return result.value.release();
+}
+
+}  // namespace detail
+}  // namespace pybind11

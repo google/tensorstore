@@ -44,10 +44,10 @@ def test_promise_set_exception():
 
   promise, future = ts.Promise.new()
   assert future.done() == False
-  promise.set_exception(RuntimeError(5))
-  with pytest.raises(RuntimeError):
+  promise.set_exception(ValueError('abc'))
+  with pytest.raises(ValueError, match='abc'):
     future.result()
-  assert isinstance(future.exception(), RuntimeError)
+  assert isinstance(future.exception(), ValueError)
 
 
 @pytest.mark.skipif(
