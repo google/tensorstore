@@ -28,10 +28,9 @@
 
 namespace {
 
-using tensorstore::AllocateArray;
-using tensorstore::Box;
 using tensorstore::DimensionIndex;
 using tensorstore::DimensionSet;
+using tensorstore::HullIndexDomains;
 using tensorstore::IdentityTransform;
 using tensorstore::Index;
 using tensorstore::IndexDomain;
@@ -42,6 +41,7 @@ using tensorstore::IndexInterval;
 using tensorstore::IndexTransform;
 using tensorstore::IndexTransformBuilder;
 using tensorstore::IndexTransformView;
+using tensorstore::IntersectIndexDomains;
 using tensorstore::IsIndexDomain;
 using tensorstore::kImplicit;
 using tensorstore::kInfIndex;
@@ -729,6 +729,7 @@ TEST(CastTest, IndexTransformView) {
 TEST(MergeIndexDomainsTest, Basic) {
   EXPECT_THAT(MergeIndexDomains(IndexDomain<>(), IndexDomain<>()),
               ::testing::Optional(IndexDomain<>()));
+
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain1,
                                    IndexDomainBuilder(3)
                                        .implicit_lower_bounds({0, 1, 0})
@@ -737,8 +738,23 @@ TEST(MergeIndexDomainsTest, Basic) {
                                        .inclusive_max({10, 11, kInfIndex})
                                        .labels({"x", "", ""})
                                        .Finalize());
+
+  EXPECT_THAT(MergeIndexDomains(IndexDomain<>(), domain1),
+              ::testing::Optional(domain1));
+  EXPECT_THAT(MergeIndexDomains(domain1, IndexDomain<>()),
+              ::testing::Optional(domain1));
+  EXPECT_THAT(MergeIndexDomains(domain1, domain1),
+              ::testing::Optional(domain1));
+
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain2,
                                    IndexDomainBuilder(4).Finalize());
+  EXPECT_THAT(
+      MergeIndexDomains(domain1, domain2),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "Cannot merge index domain \\{ .* \\} with index domain \\{ .* \\}: "
+          "Ranks do not match"));
+
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain3,
                                    IndexDomainBuilder(3)
                                        .implicit_lower_bounds({0, 1, 0})
@@ -763,6 +779,11 @@ TEST(MergeIndexDomainsTest, Basic) {
                                        .inclusive_max({10, 11, 12})
                                        .labels({"x", "y", ""})
                                        .Finalize());
+  EXPECT_THAT(MergeIndexDomains(domain1, domain3),
+              ::testing::Optional(domain3));
+  EXPECT_THAT(MergeIndexDomains(domain1, domain4),
+              ::testing::Optional(domain4_merged));
+
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain5,
                                    IndexDomainBuilder(3)
                                        .implicit_lower_bounds({0, 1, 0})
@@ -787,22 +808,7 @@ TEST(MergeIndexDomainsTest, Basic) {
                                        .inclusive_max({10, 12, kInfIndex})
                                        .labels({"x", "", ""})
                                        .Finalize());
-  EXPECT_THAT(MergeIndexDomains(IndexDomain<>(), domain1),
-              ::testing::Optional(domain1));
-  EXPECT_THAT(MergeIndexDomains(domain1, IndexDomain<>()),
-              ::testing::Optional(domain1));
-  EXPECT_THAT(MergeIndexDomains(domain1, domain1),
-              ::testing::Optional(domain1));
-  EXPECT_THAT(
-      MergeIndexDomains(domain1, domain2),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Cannot merge index domain \\{ .* \\} with index domain \\{ .* \\}: "
-          "Ranks do not match"));
-  EXPECT_THAT(MergeIndexDomains(domain1, domain3),
-              ::testing::Optional(domain3));
-  EXPECT_THAT(MergeIndexDomains(domain1, domain4),
-              ::testing::Optional(domain4_merged));
+
   EXPECT_THAT(MergeIndexDomains(domain1, domain5),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Cannot merge .*: "
@@ -818,6 +824,128 @@ TEST(MergeIndexDomainsTest, Basic) {
                             "Cannot merge .*: "
                             "Mismatch in dimension 1: "
                             "Upper bounds do not match"));
+}
+
+TEST(HullIndexDomains, Basic) {
+  EXPECT_THAT(HullIndexDomains(IndexDomain<>(), IndexDomain<>()),
+              ::testing::Optional(IndexDomain<>()));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto domain1, IndexDomainBuilder(3)
+                        .implicit_lower_bounds({0, 0, 0})
+                        .implicit_upper_bounds({0, 0, 1})
+                        .origin({1, kMinFiniteIndex, -kInfIndex})
+                        .inclusive_max({10, kInfIndex, kMaxFiniteIndex})
+                        .labels({"x", "", ""})
+                        .Finalize());
+
+  EXPECT_THAT(HullIndexDomains(IndexDomain<>(), domain1),
+              ::testing::Optional(domain1));
+  EXPECT_THAT(HullIndexDomains(domain1, IndexDomain<>()),
+              ::testing::Optional(domain1));
+  EXPECT_THAT(HullIndexDomains(domain1, domain1), ::testing::Optional(domain1));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain2,
+                                   IndexDomainBuilder(4).Finalize());
+
+  EXPECT_THAT(
+      HullIndexDomains(domain1, domain2),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "Cannot hull index domain \\{ .* \\} with index domain \\{ .* \\}: "
+          "Ranks do not match"));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto domain3, IndexDomainBuilder(3)
+                        .implicit_lower_bounds({0, 1, 1})
+                        .implicit_upper_bounds({1, 1, 1})
+                        .origin({0, -kInfIndex, kMinFiniteIndex})
+                        .inclusive_max({9, kMaxFiniteIndex, kInfIndex})
+                        .labels({"x", "y", ""})
+                        .Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto domain4, IndexDomainBuilder(3)
+                        .implicit_lower_bounds({0, 1, 0})
+                        .implicit_upper_bounds({0, 0, 1})
+                        .origin({0, -kInfIndex, -kInfIndex})
+                        .inclusive_max({10, kInfIndex, kInfIndex})
+                        .labels({"x", "y", ""})
+                        .Finalize());
+
+  EXPECT_THAT(HullIndexDomains(domain1, domain3), ::testing::Optional(domain4));
+}
+
+TEST(IntersectIndexDomains, Basic) {
+  EXPECT_THAT(IntersectIndexDomains(IndexDomain<>(), IndexDomain<>()),
+              ::testing::Optional(IndexDomain<>()));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto domain1, IndexDomainBuilder(3)
+                        .implicit_lower_bounds({0, 0, 0})
+                        .implicit_upper_bounds({0, 0, 1})
+                        .origin({1, kMinFiniteIndex, -kInfIndex})
+                        .inclusive_max({10, kInfIndex, kMaxFiniteIndex})
+                        .labels({"x", "", ""})
+                        .Finalize());
+
+  EXPECT_THAT(IntersectIndexDomains(IndexDomain<>(), domain1),
+              ::testing::Optional(domain1));
+  EXPECT_THAT(IntersectIndexDomains(domain1, IndexDomain<>()),
+              ::testing::Optional(domain1));
+  EXPECT_THAT(IntersectIndexDomains(domain1, domain1),
+              ::testing::Optional(domain1));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain2,
+                                   IndexDomainBuilder(4).Finalize());
+
+  EXPECT_THAT(IntersectIndexDomains(domain1, domain2),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Cannot intersect index domain \\{ .* \\} with "
+                            "index domain \\{ .* \\}: "
+                            "Ranks do not match"));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto domain3, IndexDomainBuilder(3)
+                        .implicit_lower_bounds({0, 1, 1})
+                        .implicit_upper_bounds({1, 1, 1})
+                        .origin({0, -kInfIndex, kMinFiniteIndex})
+                        .inclusive_max({9, kMaxFiniteIndex, kInfIndex})
+                        .labels({"x", "y", ""})
+                        .Finalize());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto domain4, IndexDomainBuilder(3)
+                        .implicit_lower_bounds({0, 0, 1})
+                        .implicit_upper_bounds({1, 1, 1})
+                        .origin({1, kMinFiniteIndex, kMinFiniteIndex})
+                        .inclusive_max({9, kMaxFiniteIndex, kMaxFiniteIndex})
+                        .labels({"x", "y", ""})
+                        .Finalize());
+
+  EXPECT_THAT(IntersectIndexDomains(domain1, domain3),
+              ::testing::Optional(domain4));
+
+  // Somewhat surprising: implicit vs. explicit bounds make a difference.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto domain5, IndexDomainBuilder(3)
+                        .implicit_lower_bounds({0, 0, 0})
+                        .implicit_upper_bounds({1, 1, 1})
+                        .origin({0, -kInfIndex, kMinFiniteIndex})
+                        .inclusive_max({9, kMaxFiniteIndex, kInfIndex})
+                        .labels({"x", "y", ""})
+                        .Finalize());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto domain6, IndexDomainBuilder(3)
+                        .implicit_lower_bounds({0, 0, 0})
+                        .implicit_upper_bounds({1, 1, 1})
+                        .origin({1, kMinFiniteIndex, kMinFiniteIndex})
+                        .inclusive_max({9, kMaxFiniteIndex, kMaxFiniteIndex})
+                        .labels({"x", "y", ""})
+                        .Finalize());
+
+  EXPECT_THAT(IntersectIndexDomains(domain1, domain5),
+              ::testing::Optional(domain6));
 }
 
 TEST(IndexTransformTest, WithImplicitDimensions) {

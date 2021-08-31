@@ -322,11 +322,11 @@ class IndexIntervalRef {
   Index& size_;
 };
 
-/// Returns the intersection of two intervals.
-IndexInterval Intersect(IndexInterval a, IndexInterval b);
-
 /// Returns the smallest interval that contains `a` and `b`.
 IndexInterval Hull(IndexInterval a, IndexInterval b);
+
+/// Returns the intersection of two intervals.
+IndexInterval Intersect(IndexInterval a, IndexInterval b);
 
 /// Returns `Intersect(interval, IndexInterval::FiniteRange())`.
 inline IndexInterval FiniteSubset(IndexInterval interval) {
@@ -467,12 +467,44 @@ class OptionallyImplicitIndexInterval : public IndexInterval {
   bool implicit_upper_ = true;
 };
 
-/// Returns the intersection of two intervals.
+/// Hull two index intervals.
+///
+/// Returns the smaller of the lower bounds and the larger of the upper bounds.
+/// The `implicit` flag that corresponds to the selected bound is propagated, in
+/// the event of equal bounds and mismatched implicit flags, an explicit flag is
+/// used.
+///
+/// \param a OptionallyImplicitIndexInterval to hull.
+/// \param b Other OptionallyImplicitIndexInterval to hull.
+OptionallyImplicitIndexInterval Hull(OptionallyImplicitIndexInterval a,
+                                     OptionallyImplicitIndexInterval b);
+
+/// Intersect two index intervals.
+///
+/// Returns the larger of the lower bounds and the smaller of the upper bounds.
+/// The `implicit` flag that corresponds to the selected bound is propagated, in
+/// the event of equal bounds and mismatched implicit flags, an explicit flag is
+/// used.
+///
+/// \param a OptionallyImplicitIndexInterval to intersect.
+/// \param b Other OptionallyImplicitIndexInterval to intersect.
+OptionallyImplicitIndexInterval Intersect(OptionallyImplicitIndexInterval a,
+                                          OptionallyImplicitIndexInterval b);
+
+/// Intersect two index intervals, preferring explicit bounds when implicit
+/// flags mismatch.
+///
+/// Returns the larger of the lower bounds and the smaller of the upper bounds.
+/// If the lower/upper bound is explicit in either a or b, then the lower/upper
+/// bound of the result is explicit.
 ///
 /// The normal intersection behavior applies if both bounds are either implicit
 /// or explicit, but an explicit bound always overrides an implicit bound.
-OptionallyImplicitIndexInterval Intersect(OptionallyImplicitIndexInterval a,
-                                          OptionallyImplicitIndexInterval b);
+///
+/// \param a OptionallyImplicitIndexInterval to intersect.
+/// \param b Other OptionallyImplicitIndexInterval to intersect.
+OptionallyImplicitIndexInterval IntersectPreferringExplicit(
+    OptionallyImplicitIndexInterval a, OptionallyImplicitIndexInterval b);
 
 /// Represents an index interval with optionally-implicit bounds and an
 /// optionally dimension label.

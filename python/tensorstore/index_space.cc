@@ -697,6 +697,54 @@ Overload:
 )",
       py::arg("expr"));
 
+  cls.def(
+      "intersect",
+      [](const IndexDomain<>& self, const IndexDomain<> b) {
+        return tensorstore::IntersectIndexDomains(self, b);
+      },
+      R"(
+Intersect with another domain.
+
+The ``implicit`` flag that corresponds to the selected bound is propagated.
+
+Args:
+  other: Object to intersect with.
+
+Example:
+
+    >>> a = ts.IndexDomain(inclusive_min=[1, 2, 3],
+    ...                    exclusive_max=[4, 5, 6],
+    ...                    labels=['x', 'y', ''])
+    >>> a.intersect(ts.IndexDomain(shape=[2, 3, 4]))
+    { "x": [1, 2), "y": [2, 3), [3, 4) }
+
+)",
+      py::arg("other"));
+
+  cls.def(
+      "hull",
+      [](const IndexDomain<>& self, const IndexDomain<> b) {
+        return tensorstore::HullIndexDomains(self, b);
+      },
+      R"(
+Hull (minimum containing box) with another domain.
+
+The ``implicit`` flag that corresponds to the selected bound is propagated.
+
+Args:
+  other: Object to hull with.
+
+Example:
+
+    >>> a = ts.IndexDomain(inclusive_min=[1, 2, 3],
+    ...                    exclusive_max=[4, 5, 6],
+    ...                    labels=['x', 'y', ''])
+    >>> a.hull(ts.IndexDomain(shape=[2, 3, 4]))
+    { "x": [0, 4), "y": [0, 5), [0, 6) }
+
+)",
+      py::arg("other"));
+
   cls.def_property_readonly(
       "origin",
       [](const IndexDomain<>& self) {
@@ -1813,6 +1861,65 @@ Overload:
           py::arg("implicit_lower") = std::nullopt,
           py::arg("implicit_upper") = std::nullopt);
 
+  cls.def(
+      "intersect",
+      [](const IndexDomainDimension<>& self,
+         const IndexDomainDimension<>& b) -> Result<IndexDomainDimension<>> {
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto merged_label, MergeDimensionLabels(self.label(), b.label()));
+
+        return IndexDomainDimension<>(
+            Intersect(self.optionally_implicit_interval(),
+                      b.optionally_implicit_interval()),
+            std::string(merged_label));
+      },
+      R"(
+Intersect with another Dim.
+
+The ``implicit`` flag that corresponds to the selected bound is propagated.
+The :py:obj:`.label`  field, if non-empty, must match, and will be propagated.
+
+Args:
+  other: Object to intersect with.
+
+Example:
+
+    >>> a = ts.Dim(inclusive_min=1, exclusive_max=5, label='x')
+    >>> a.intersect(ts.Dim(size=3))
+    Dim(inclusive_min=1, exclusive_max=3, label="x")
+
+)",
+      py::arg("other"));
+
+  cls.def(
+      "hull",
+      [](const IndexDomainDimension<>& self,
+         const IndexDomainDimension<>& b) -> Result<IndexDomainDimension<>> {
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto merged_label, MergeDimensionLabels(self.label(), b.label()));
+
+        return IndexDomainDimension<>(Hull(self.optionally_implicit_interval(),
+                                           b.optionally_implicit_interval()),
+                                      std::string(merged_label));
+      },
+      R"(
+Hull with another Dim.
+
+The ``implicit`` flag that corresponds to the selected bound is propagated.
+The :py:obj:`.label` field, if non-empty, must match, and will be propagated.
+
+Args:
+  other: Object to hull with.
+
+Example:
+
+    >>> a = ts.Dim(inclusive_min=1, exclusive_max=5, label='x')
+    >>> a.hull(ts.Dim(size=3))
+    Dim(inclusive_min=0, exclusive_max=5, label="x")
+
+)",
+      py::arg("other"));
+
   cls.def_property_readonly("inclusive_min", &IndexInterval::inclusive_min,
                             R"(
 Inclusive lower bound of the interval.
@@ -2160,7 +2267,7 @@ Returns the string representation as a Python expression.
       [](const IndexDomainDimension<>& self,
          const IndexDomainDimension<>& other) { return self == other; },
       py::arg("other"),
-          R"(
+      R"(
 Compares for equality with another interval.
 
 In addition to the bounds, the values of :py:obj:`.label`,

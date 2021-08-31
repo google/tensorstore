@@ -395,43 +395,81 @@ Status PropagateInputDomainResizeToOutput(
   return absl::OkStatus();
 }
 
-Result<IndexDomain<>> MergeIndexDomains(IndexDomain<> a, IndexDomain<> b) {
+namespace {
+template <typename MergeFn>
+inline Result<IndexDomain<>> MergeIndexDomainsImpl(IndexDomainView<> a,
+                                                   IndexDomainView<> b,
+                                                   MergeFn merge) {
   if (!a.valid()) return b;
   if (!b.valid()) return a;
-  auto result = [&]() -> Result<IndexDomain<>> {
-    if (a.rank() != b.rank()) {
-      return absl::InvalidArgumentError("Ranks do not match");
+  if (a.rank() != b.rank()) {
+    return absl::InvalidArgumentError("Ranks do not match");
+  }
+  const DimensionIndex rank = a.rank();
+  auto new_rep = internal_index_space::TransformRep::Allocate(rank, 0);
+  new_rep->input_rank = rank;
+  new_rep->output_rank = 0;
+  const auto a_labels = a.labels();
+  const auto b_labels = b.labels();
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    auto status = [&] {
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto new_label, MergeDimensionLabels(a_labels[i], b_labels[i]));
+      TENSORSTORE_ASSIGN_OR_RETURN(auto new_bounds, merge(a[i], b[i]));
+      new_rep->input_dimension(i) =
+          IndexDomainDimension<view>(new_bounds, new_label);
+      return absl::OkStatus();
+    }();
+    if (!status.ok()) {
+      return tensorstore::MaybeAnnotateStatus(
+          status, tensorstore::StrCat("Mismatch in dimension ", i));
     }
-    const DimensionIndex rank = a.rank();
-    auto new_rep = internal_index_space::TransformRep::Allocate(rank, 0);
-    new_rep->input_rank = rank;
-    new_rep->output_rank = 0;
-    const auto a_labels = a.labels();
-    const auto b_labels = b.labels();
-    for (DimensionIndex i = 0; i < rank; ++i) {
-      auto status = [&] {
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            auto new_label, MergeDimensionLabels(a_labels[i], b_labels[i]));
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            auto new_bounds, MergeOptionallyImplicitIndexIntervals(a[i], b[i]));
-        new_rep->input_dimension(i) =
-            IndexDomainDimension<view>(new_bounds, new_label);
-        return absl::OkStatus();
-      }();
-      if (!status.ok()) {
-        return tensorstore::MaybeAnnotateStatus(
-            status, tensorstore::StrCat("Mismatch in dimension ", i));
-      }
-    }
-    internal_index_space::DebugCheckInvariants(new_rep.get());
-    return IndexDomain<>(
-        internal_index_space::TransformAccess::Make<IndexTransform<>>(
-            std::move(new_rep)));
-  }();
+  }
+  internal_index_space::DebugCheckInvariants(new_rep.get());
+  return IndexDomain<>(
+      internal_index_space::TransformAccess::Make<IndexTransform<>>(
+          std::move(new_rep)));
+}
+}  // namespace
+
+Result<IndexDomain<>> MergeIndexDomains(IndexDomainView<> a,
+                                        IndexDomainView<> b) {
+  auto result =
+      MergeIndexDomainsImpl(a, b, MergeOptionallyImplicitIndexIntervals);
   if (!result.ok()) {
     return tensorstore::MaybeAnnotateStatus(
         result.status(), tensorstore::StrCat("Cannot merge index domain ", a,
                                              " with index domain ", b));
+  }
+  return result;
+}
+
+Result<IndexDomain<>> HullIndexDomains(IndexDomainView<> a,
+                                       IndexDomainView<> b) {
+  auto result = MergeIndexDomainsImpl(
+      a, b,
+      [](OptionallyImplicitIndexInterval a, OptionallyImplicitIndexInterval b)
+          -> Result<OptionallyImplicitIndexInterval> { return Hull(a, b); });
+  if (!result.ok()) {
+    return tensorstore::MaybeAnnotateStatus(
+        result.status(), tensorstore::StrCat("Cannot hull index domain ", a,
+                                             " with index domain ", b));
+  }
+  return result;
+}
+
+Result<IndexDomain<>> IntersectIndexDomains(IndexDomainView<> a,
+                                            IndexDomainView<> b) {
+  auto result = MergeIndexDomainsImpl(
+      a, b,
+      [](OptionallyImplicitIndexInterval a, OptionallyImplicitIndexInterval b)
+          -> Result<OptionallyImplicitIndexInterval> {
+        return Intersect(a, b);
+      });
+  if (!result.ok()) {
+    return tensorstore::MaybeAnnotateStatus(
+        result.status(), tensorstore::StrCat("Cannot intersect index domain ",
+                                             a, " with index domain ", b));
   }
   return result;
 }

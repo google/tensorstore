@@ -90,6 +90,30 @@ def test_sized():
     ts.Dim(inclusive_min=3, size=-3)
 
 
+def test_intersect():
+  a = ts.Dim(inclusive_min=1, exclusive_max=5, label="x")
+  b = ts.Dim(size=3)
+  x = a.intersect(b)
+  assert x.inclusive_min == 1
+  assert x.exclusive_max == 3
+  assert x.label == "x"
+
+  with pytest.raises(ValueError):
+    a.intersect(ts.Dim(size=3, label="y"))
+
+
+def test_hull():
+  a = ts.Dim(inclusive_min=1, exclusive_max=5, label="x")
+  b = ts.Dim(size=3)
+  x = a.hull(b)
+  assert x.inclusive_min == 0
+  assert x.exclusive_max == 5
+  assert x.label == "x"
+
+  with pytest.raises(ValueError):
+    a.hull(ts.Dim(size=3, label="y"))
+
+
 def test_pickle():
   x = ts.Dim(inclusive_min=3, size=10)
   assert pickle.loads(pickle.dumps(x)) == x

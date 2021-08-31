@@ -40,7 +40,7 @@ def test_init_rank():
 def test_init_inclusive_min():
   x = ts.IndexDomain(inclusive_min=[1, 2])
   assert x.rank == 2
-  assert x.inclusive_min ==  (1, 2)
+  assert x.inclusive_min == (1, 2)
   assert x.inclusive_max == (+ts.inf,) * 2
   assert x.exclusive_max == (+ts.inf + 1,) * 2
   assert x.labels == ("", "")
@@ -133,6 +133,44 @@ def test_init_implicit_upper_bounds():
   assert x.labels == ("", "")
   assert x.implicit_lower_bounds == (True, True)
   assert x.implicit_upper_bounds == (False, True)
+
+
+def test_intersect():
+  a = ts.IndexDomain(
+      inclusive_min=[0, 1, 2, 3],
+      exclusive_max=[2, 4, 5, 6],
+      labels=["x", "y", "", ""],
+      implicit_lower_bounds=[0, 0, 0, 1],
+      implicit_upper_bounds=[0, 0, 0, 1])
+  b = ts.IndexDomain(
+      inclusive_min=[0, 0, 0, 0],
+      exclusive_max=[2, 2, 3, 4],
+      implicit_upper_bounds=[1, 0, 1, 1])
+  x = a.intersect(b)
+  assert x.inclusive_min == (0, 1, 2, 3)
+  assert x.exclusive_max == (2, 2, 3, 4)
+  assert x.labels == ("x", "y", "", "")
+  assert x.implicit_upper_bounds == (False, False, True, True)
+  assert x.implicit_lower_bounds == (False, False, False, True)
+
+
+def test_hull():
+  a = ts.IndexDomain(
+      inclusive_min=[0, 1, 2, 3],
+      exclusive_max=[2, 4, 5, 6],
+      labels=["x", "y", "", ""],
+      implicit_lower_bounds=[0, 0, 0, 1],
+      implicit_upper_bounds=[0, 0, 0, 1])
+  b = ts.IndexDomain(
+      inclusive_min=[0, 0, 0, 0],
+      exclusive_max=[2, 2, 3, 4],
+      implicit_upper_bounds=[1, 0, 1, 1])
+  x = a.hull(b)
+  assert x.inclusive_min == (0, 0, 0, 0)
+  assert x.exclusive_max == (2, 4, 5, 6)
+  assert x.labels == ("x", "y", "", "")
+  assert x.implicit_upper_bounds == (False, False, False, True)
+  assert x.implicit_lower_bounds == (False, False, False, False)
 
 
 def test_getitem_index():

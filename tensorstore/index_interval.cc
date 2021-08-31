@@ -130,6 +130,14 @@ bool AreCompatibleOrUnbounded(IndexInterval a, IndexInterval b) {
          (a_upper == b_upper || a_upper == kInfIndex || b_upper == kInfIndex);
 }
 
+IndexInterval Hull(IndexInterval a, IndexInterval b) {
+  if (a.empty()) return b;
+  if (b.empty()) return a;
+  const Index lower = std::min(a.inclusive_min(), b.inclusive_min());
+  const Index upper = std::max(a.inclusive_max(), b.inclusive_max());
+  return IndexInterval::UncheckedClosed(lower, upper);
+}
+
 IndexInterval Intersect(IndexInterval a, IndexInterval b) {
   const Index lower = std::max(a.inclusive_min(), b.inclusive_min());
   const Index upper = std::min(a.inclusive_max(), b.inclusive_max());
@@ -137,8 +145,44 @@ IndexInterval Intersect(IndexInterval a, IndexInterval b) {
   return IndexInterval::UncheckedSized(lower, size);
 }
 
+OptionallyImplicitIndexInterval Hull(OptionallyImplicitIndexInterval a,
+                                     OptionallyImplicitIndexInterval b) {
+  IndexInterval interval = Hull(a.interval(), b.interval());
+  bool implicit_lower = (a.inclusive_min() == b.inclusive_min())
+                            ? (a.implicit_lower() && b.implicit_lower())
+                            : (interval.inclusive_min() == a.inclusive_min()
+                                   ? a.implicit_lower()
+                                   : b.implicit_lower());
+  bool implicit_upper = (a.inclusive_max() == b.inclusive_max())
+                            ? (a.implicit_upper() && b.implicit_upper())
+                            : (a.inclusive_max() == interval.inclusive_max()
+                                   ? a.implicit_upper()
+                                   : b.implicit_upper());
+
+  return OptionallyImplicitIndexInterval{interval, implicit_lower,
+                                         implicit_upper};
+}
+
 OptionallyImplicitIndexInterval Intersect(OptionallyImplicitIndexInterval a,
                                           OptionallyImplicitIndexInterval b) {
+  IndexInterval interval = Intersect(a.interval(), b.interval());
+  bool implicit_lower = (a.inclusive_min() == b.inclusive_min())
+                            ? (a.implicit_lower() && b.implicit_lower())
+                            : (interval.inclusive_min() == a.inclusive_min()
+                                   ? a.implicit_lower()
+                                   : b.implicit_lower());
+  bool implicit_upper = (a.inclusive_max() == b.inclusive_max())
+                            ? (a.implicit_upper() && b.implicit_upper())
+                            : (a.inclusive_max() == interval.inclusive_max()
+                                   ? a.implicit_upper()
+                                   : b.implicit_upper());
+
+  return OptionallyImplicitIndexInterval{interval, implicit_lower,
+                                         implicit_upper};
+}
+
+OptionallyImplicitIndexInterval IntersectPreferringExplicit(
+    OptionallyImplicitIndexInterval a, OptionallyImplicitIndexInterval b) {
   const Index inclusive_min =
       a.implicit_lower() == b.implicit_lower()
           ? std::max(a.inclusive_min(), b.inclusive_min())
@@ -149,18 +193,11 @@ OptionallyImplicitIndexInterval Intersect(OptionallyImplicitIndexInterval a,
           ? std::min(a.inclusive_max(), b.inclusive_max())
           : std::min(a.effective_interval().inclusive_max(),
                      b.effective_interval().inclusive_max());
-  return {IndexInterval::UncheckedClosed(
-              inclusive_min, std::max(inclusive_min - 1, inclusive_max)),
-          a.implicit_lower() && b.implicit_lower(),
-          a.implicit_upper() && b.implicit_upper()};
-}
-
-IndexInterval Hull(IndexInterval a, IndexInterval b) {
-  if (a.empty()) return b;
-  if (b.empty()) return a;
-  const Index lower = std::min(a.inclusive_min(), b.inclusive_min());
-  const Index upper = std::max(a.inclusive_max(), b.inclusive_max());
-  return IndexInterval::UncheckedClosed(lower, upper);
+  return OptionallyImplicitIndexInterval{
+      IndexInterval::UncheckedClosed(
+          inclusive_min, std::max(inclusive_min - 1, inclusive_max)),
+      a.implicit_lower() && b.implicit_lower(),
+      a.implicit_upper() && b.implicit_upper()};
 }
 
 bool ContainsOrUnbounded(IndexInterval outer, IndexInterval inner) {

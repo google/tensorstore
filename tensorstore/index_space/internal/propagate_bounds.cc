@@ -103,11 +103,11 @@ Status PropagateBounds(BoxView<> b,
         GetAffineTransformDomain(b_bounds_oi, map.offset(), map.stride()),
         MaybeAnnotateStatus(_, StrCat("Propagating bounds from dimension ",
                                       b_dim, " to input dimension ", a_dim)));
-    propagated_a_bounds =
-        Intersect(propagated_a_bounds,
-                  OptionallyImplicitIndexInterval{
-                      a[a_dim], inferred_implicit_lower_bounds[a_dim],
-                      inferred_implicit_upper_bounds[a_dim]});
+    propagated_a_bounds = IntersectPreferringExplicit(
+        propagated_a_bounds,
+        OptionallyImplicitIndexInterval{a[a_dim],
+                                        inferred_implicit_lower_bounds[a_dim],
+                                        inferred_implicit_upper_bounds[a_dim]});
     a[a_dim] = propagated_a_bounds.interval();
     inferred_implicit_lower_bounds[a_dim] =
         propagated_a_bounds.implicit_lower();

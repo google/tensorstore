@@ -236,44 +236,173 @@ TEST(IndexIntervalTest, Intersect) {
 
 TEST(IndexIntervalTest, IntersectOptionallyImplicit) {
   using OIII = OptionallyImplicitIndexInterval;
-  EXPECT_EQ(
-      (OIII{IndexInterval::UncheckedClosed(3, 5), true, false}),
-      Intersect(OIII{IndexInterval::UncheckedClosed(-3, 5), true, false},
-                OIII{IndexInterval::UncheckedClosed(3, 10), true, false}));
 
-  EXPECT_EQ(
-      (OIII{IndexInterval::UncheckedClosed(3, 5), false, false}),
-      Intersect(OIII{IndexInterval::UncheckedClosed(-3, 5), false, false},
-                OIII{IndexInterval::UncheckedClosed(3, 10), false, false}));
+  // Values
+  EXPECT_THAT(
+      Intersect(OIII{IndexInterval::UncheckedClosed(1, 5), false, false},
+                OIII{IndexInterval::UncheckedClosed(2, 6), false, true}),
+      ::testing::Eq(OIII{IndexInterval::UncheckedClosed(2, 5), false, false}));
 
-  EXPECT_EQ(
-      (OIII{IndexInterval::UncheckedClosed(3, 5), false, true}),
-      Intersect(OIII{IndexInterval::UncheckedClosed(-3, 5), false, true},
-                OIII{IndexInterval::UncheckedClosed(3, 10), false, true}));
+  EXPECT_THAT(
+      Intersect(OIII{IndexInterval::UncheckedClosed(2, 5), false, true},
+                OIII{IndexInterval::UncheckedClosed(1, 6), true, true}),
+      ::testing::Eq(OIII{IndexInterval::UncheckedClosed(2, 5), false, true}));
 
-  EXPECT_EQ((OIII{IndexInterval::UncheckedClosed(3, 5), true, true}),
-            Intersect(OIII{IndexInterval::UncheckedClosed(-3, 5), true, true},
-                      OIII{IndexInterval::UncheckedClosed(3, 10), true, true}));
+  // implicit/explicit does not change the result.
+  for (int x = 0; x < 16; x++) {
+    const bool a = ((x & 1) != 0);
+    const bool b = ((x & 2) != 0);
+    const bool c = ((x & 4) != 0);
+    const bool d = ((x & 8) != 0);
 
-  EXPECT_EQ(
-      (OIII{IndexInterval::UncheckedClosed(-5, 5), false, false}),
-      Intersect(OIII{IndexInterval::UncheckedClosed(-3, 5), true, false},
-                OIII{IndexInterval::UncheckedClosed(-5, 10), false, false}));
+    EXPECT_THAT(Intersect(OIII{IndexInterval::UncheckedClosed(1, 5), a, b},
+                          OIII{IndexInterval::UncheckedClosed(1, 5), c, d}),
+                ::testing::Eq(
+                    OIII{IndexInterval::UncheckedClosed(1, 5), a && c, b && d}))
+        << x;
 
-  EXPECT_EQ(
-      (OIII{IndexInterval::UncheckedClosed(-5, 5), false, false}),
-      Intersect(OIII{IndexInterval::UncheckedClosed(-5, 10), false, false},
-                OIII{IndexInterval::UncheckedClosed(-3, 5), true, false}));
+    EXPECT_THAT(Intersect(OIII{IndexInterval::UncheckedClosed(-3, 5), a, b},
+                          OIII{IndexInterval::UncheckedClosed(3, 10), c, d}),
+                ::testing::Eq(OIII{IndexInterval::UncheckedClosed(3, 5), c, b}))
+        << x;
+  }
 
-  EXPECT_EQ(
-      (OIII{IndexInterval::UncheckedClosed(-5, 12), false, false}),
-      Intersect(OIII{IndexInterval::UncheckedClosed(-3, 12), true, false},
-                OIII{IndexInterval::UncheckedClosed(-5, 10), false, true}));
+  // Edge cases
+  EXPECT_THAT(
+      Intersect(
+          OIII{IndexInterval::UncheckedClosed(-kInfIndex, kMaxFiniteIndex),
+               true, true},
+          OIII{IndexInterval::UncheckedClosed(0, 10), false, false}),
+      ::testing::Eq(OIII{IndexInterval::UncheckedClosed(0, 10), false, false}));
 
-  EXPECT_EQ(
-      (OIII{IndexInterval::UncheckedClosed(-5, 12), false, false}),
-      Intersect(OIII{IndexInterval::UncheckedClosed(-5, 10), false, true},
-                OIII{IndexInterval::UncheckedClosed(-3, 12), true, false}));
+  EXPECT_THAT(
+      Intersect(
+          OIII{IndexInterval::UncheckedClosed(-kInfIndex, kMaxFiniteIndex),
+               true, true},
+          OIII{IndexInterval::UncheckedClosed(kMinFiniteIndex, kInfIndex),
+               false, false}),
+      ::testing::Eq(
+          OIII{IndexInterval::UncheckedClosed(kMinFiniteIndex, kMaxFiniteIndex),
+               false, true}));
+
+  EXPECT_THAT(
+      Intersect(
+          OIII{IndexInterval::UncheckedClosed(-kInfIndex, kMaxFiniteIndex),
+               false, false},
+          OIII{IndexInterval::UncheckedClosed(0, 10), true, true}),
+      ::testing::Eq(OIII{IndexInterval::UncheckedClosed(0, 10), true, true}));
+}
+
+TEST(IndexIntervalTest, IntersectPreferringExplicit) {
+  using OIII = OptionallyImplicitIndexInterval;
+
+  // Equal but for implicit flags.
+  for (int x = 0; x < 16; x++) {
+    const bool a = ((x & 1) != 0);
+    const bool b = ((x & 2) != 0);
+    const bool c = ((x & 4) != 0);
+    const bool d = ((x & 8) != 0);
+
+    EXPECT_THAT(Intersect(OIII{IndexInterval::UncheckedClosed(1, 5), a, b},
+                          OIII{IndexInterval::UncheckedClosed(1, 5), c, d}),
+                ::testing::Eq(
+                    OIII{IndexInterval::UncheckedClosed(1, 5), a && c, b && d}))
+        << x;
+
+    EXPECT_THAT(Intersect(OIII{IndexInterval::UncheckedClosed(-3, 5), a, b},
+                          OIII{IndexInterval::UncheckedClosed(3, 10), a, b}),
+                ::testing::Eq(OIII{IndexInterval::UncheckedClosed(3, 5), a, b}))
+        << x;
+  }
+
+  // Values
+  EXPECT_THAT(
+      IntersectPreferringExplicit(
+          OIII{IndexInterval::UncheckedClosed(1, 5), false, false},
+          OIII{IndexInterval::UncheckedClosed(2, 6), false, true}),
+      ::testing::Eq(OIII{IndexInterval::UncheckedClosed(2, 5), false, false}));
+
+  EXPECT_THAT(
+      IntersectPreferringExplicit(
+          OIII{IndexInterval::UncheckedClosed(2, 5), false, true},
+          OIII{IndexInterval::UncheckedClosed(1, 6), true, true}),
+      ::testing::Eq(OIII{IndexInterval::UncheckedClosed(2, 5), false, true}));
+
+  EXPECT_THAT(
+      IntersectPreferringExplicit(
+          OIII{IndexInterval::UncheckedClosed(-3, 5), true, false},
+          OIII{IndexInterval::UncheckedClosed(3, 10), true, false}),
+      ::testing::Eq(OIII{IndexInterval::UncheckedClosed(3, 5), true, false}));
+
+  EXPECT_THAT(
+      IntersectPreferringExplicit(
+          OIII{IndexInterval::UncheckedClosed(-3, 5), false, false},
+          OIII{IndexInterval::UncheckedClosed(3, 10), false, false}),
+      ::testing::Eq(OIII{IndexInterval::UncheckedClosed(3, 5), false, false}));
+
+  EXPECT_THAT(
+      IntersectPreferringExplicit(
+          OIII{IndexInterval::UncheckedClosed(-3, 5), false, true},
+          OIII{IndexInterval::UncheckedClosed(3, 10), false, true}),
+      ::testing::Eq(OIII{IndexInterval::UncheckedClosed(3, 5), false, true}));
+
+  EXPECT_THAT(
+      IntersectPreferringExplicit(
+          OIII{IndexInterval::UncheckedClosed(-3, 5), true, true},
+          OIII{IndexInterval::UncheckedClosed(3, 10), true, true}),
+      ::testing::Eq(OIII{IndexInterval::UncheckedClosed(3, 5), true, true}));
+
+  EXPECT_THAT(
+      IntersectPreferringExplicit(
+          OIII{IndexInterval::UncheckedClosed(-3, 5), true, false},
+          OIII{IndexInterval::UncheckedClosed(-5, 10), false, false}),
+      ::testing::Eq(OIII{IndexInterval::UncheckedClosed(-5, 5), false, false}));
+
+  EXPECT_THAT(
+      IntersectPreferringExplicit(
+          OIII{IndexInterval::UncheckedClosed(-5, 10), false, false},
+          OIII{IndexInterval::UncheckedClosed(-3, 5), true, false}),
+      ::testing::Eq(OIII{IndexInterval::UncheckedClosed(-5, 5), false, false}));
+
+  EXPECT_THAT(IntersectPreferringExplicit(
+                  OIII{IndexInterval::UncheckedClosed(-3, 12), true, false},
+                  OIII{IndexInterval::UncheckedClosed(-5, 10), false, true}),
+              ::testing::Eq(
+                  OIII{IndexInterval::UncheckedClosed(-5, 12), false, false}));
+
+  EXPECT_THAT(IntersectPreferringExplicit(
+                  OIII{IndexInterval::UncheckedClosed(-5, 10), false, true},
+                  OIII{IndexInterval::UncheckedClosed(-3, 12), true, false}),
+              ::testing::Eq(
+                  OIII{IndexInterval::UncheckedClosed(-5, 12), false, false}));
+
+  // Edge cases
+  EXPECT_THAT(
+      IntersectPreferringExplicit(
+          OIII{IndexInterval::UncheckedClosed(-kInfIndex, kMaxFiniteIndex),
+               true, true},
+          OIII{IndexInterval::UncheckedClosed(0, 10), false, false}),
+      ::testing::Eq(OIII{IndexInterval::UncheckedClosed(0, 10), false, false}));
+
+  // These may surprise you!  explicit takes prededence over implicit!
+  EXPECT_THAT(
+      IntersectPreferringExplicit(
+          OIII{IndexInterval::UncheckedClosed(-kInfIndex, kMaxFiniteIndex),
+               true, true},
+          OIII{IndexInterval::UncheckedClosed(kMinFiniteIndex, kInfIndex),
+               false, false}),
+      ::testing::Eq(
+          OIII{IndexInterval::UncheckedClosed(kMinFiniteIndex, kInfIndex),
+               false, false}));
+
+  EXPECT_THAT(
+      IntersectPreferringExplicit(
+          OIII{IndexInterval::UncheckedClosed(-kInfIndex, kMaxFiniteIndex),
+               false, false},
+          OIII{IndexInterval::UncheckedClosed(0, 10), true, true}),
+      ::testing::Eq(
+          OIII{IndexInterval::UncheckedClosed(-kInfIndex, kMaxFiniteIndex),
+               false, false}));
 }
 
 TEST(IndexIntervalTest, Hull) {
@@ -289,6 +418,44 @@ TEST(IndexIntervalTest, Hull) {
   EXPECT_EQ(IndexInterval::UncheckedClosed(0, -1),
             Hull(IndexInterval::UncheckedClosed(5, 4),
                  IndexInterval::UncheckedClosed(0, -1)));
+}
+
+TEST(IndexIntervalTest, HullOptionallyImplicit) {
+  using OIII = OptionallyImplicitIndexInterval;
+
+  EXPECT_THAT(
+      Hull(OIII{IndexInterval::UncheckedClosed(1, 5), false, true},
+           OIII{IndexInterval::UncheckedClosed(2, 6), false, true}),
+      ::testing::Eq(OIII{IndexInterval::UncheckedClosed(1, 6), false, true}));
+
+  // implicit/explicit does not change the result.
+  for (int x = 0; x < 16; x++) {
+    const bool a = ((x & 1) != 0);
+    const bool b = ((x & 2) != 0);
+    const bool c = ((x & 4) != 0);
+    const bool d = ((x & 8) != 0);
+
+    EXPECT_THAT(Hull(OIII{IndexInterval::UncheckedClosed(1, 5), a, b},
+                     OIII{IndexInterval::UncheckedClosed(1, 5), c, d}),
+                ::testing::Eq(
+                    OIII{IndexInterval::UncheckedClosed(1, 5), a && c, b && d}))
+        << x;
+
+    EXPECT_THAT(
+        Hull(OIII{IndexInterval::UncheckedClosed(-3, 5), a, b},
+             OIII{IndexInterval::UncheckedClosed(3, 10), c, d}),
+        ::testing::Eq(OIII{IndexInterval::UncheckedClosed(-3, 10), a, d}))
+        << x;
+  }
+
+  // Edge cases
+  EXPECT_THAT(
+      Hull(OIII{IndexInterval::UncheckedClosed(-kInfIndex, kMaxFiniteIndex),
+                true, true},
+           OIII{IndexInterval::UncheckedClosed(kMinFiniteIndex, kInfIndex),
+                false, false}),
+      ::testing::Eq(OIII{IndexInterval::UncheckedClosed(-kInfIndex, kInfIndex),
+                         true, false}));
 }
 
 TEST(IndexIntervalTest, ContainsOrUnbounded) {
@@ -1500,6 +1667,7 @@ TEST(MergeOptionallyImplicitIndexIntervalsTest, EqualImplicit) {
               ::testing::Optional(OptionallyImplicitIndexInterval{
                   IndexInterval::UncheckedClosed(1, 5), false, true}));
 }
+
 TEST(MergeOptionallyImplicitIndexIntervalsTest, UpperUnspecified) {
   EXPECT_THAT(
       MergeOptionallyImplicitIndexIntervals(

@@ -801,12 +801,68 @@ BoxView<InputRank> GetBoxDomainOf(
 /// In the merged domain, non-empty labels take precedence, and explicit/finite
 /// bounds take precedence over implicit/infinite bounds.
 ///
-/// \param a Domain to merge.  May be null.
-/// \param b Other domain to merge.  May be null.
+/// \param a IndexDomain to merge.  May be null.
+/// \param b Other IndexDomain to merge.  May be null.
 /// \returns The merged domain, or a null domain if `a` and `b` are both null.
 /// \error `absl::StatusCode::kInvalidArgument` if `a` and `b` are not
 ///     compatible.
-Result<IndexDomain<>> MergeIndexDomains(IndexDomain<> a, IndexDomain<> b);
+Result<IndexDomain<>> MergeIndexDomains(IndexDomainView<> a,
+                                        IndexDomainView<> b);
+
+/// Hulls two index domains.
+///
+/// If both `a` and `b` are null, returns a null index domain.
+///
+/// If exactly one of `a` and `b` is non-null, returns the non-null domain.
+///
+/// Otherwise, `a` and `b` must be compatible:
+///
+/// - `a.rank() == b.rank()`
+///
+/// - For all dimension `i` for which
+///   `!a.labels()[i].empty() && !b.labels()[i].empty()`,
+///   `a.labels[i] == b.labels[i]`.
+///
+/// In the resulting IndexDomain, each bound is the smaller of the lower bounds
+/// and the larger of the upper bounds. The `implicit` flag that corresponds to
+/// the chosen bound is propagated.
+/// The result includes the labels, with non-empty labels having precedence.
+///
+/// \param a IndexDomain to hull.
+/// \param b Other IndexDomain to hull.
+/// \returns The hulled domain, or a null domain if `a` and `b` are both null.
+/// \error `absl::StatusCode::kInvalidArgument` if `a` and `b` are not
+///     compatible.
+Result<IndexDomain<>> HullIndexDomains(IndexDomainView<> a,
+                                       IndexDomainView<> b);
+
+/// Intersects two index domains.
+///
+/// If both `a` and `b` are null, returns a null index domain.
+///
+/// If exactly one of `a` and `b` is non-null, returns the non-null domain.
+///
+/// Otherwise, `a` and `b` must be compatible:
+///
+/// - `a.rank() == b.rank()`
+///
+/// - For all dimension `i` for which
+///   `!a.labels()[i].empty() && !b.labels()[i].empty()`,
+///   `a.labels[i] == b.labels[i]`.
+///
+/// In the resulting IndexDomain, each bound is the larger of the lower bounds
+/// and the smaller of the upper bounds. The `implicit` flag that corresponds to
+/// the chosen bound is propagated.
+/// The result includes the labels, with non-empty labels having precedence.
+///
+/// \param a IndexDomain to intersect.
+/// \param b Other IndexDomain to intersect.
+/// \returns The intersected domain, or a null domain if `a` and `b` are both
+///          null.
+/// \error `absl::StatusCode::kInvalidArgument` if `a` and `b` are not
+///     compatible.
+Result<IndexDomain<>> IntersectIndexDomains(IndexDomainView<> a,
+                                            IndexDomainView<> b);
 
 namespace internal_index_space {
 std::string DescribeTransformForCast(DimensionIndex input_rank,
