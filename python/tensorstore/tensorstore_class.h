@@ -21,11 +21,12 @@
 /// and `tensorstore.array`.
 
 #include "pybind11/pybind11.h"
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
 
-void RegisterTensorStoreBindings(pybind11::module m);
+void RegisterTensorStoreBindings(pybind11::module m, Executor defer);
 
 }  // namespace internal_python
 }  // namespace tensorstore

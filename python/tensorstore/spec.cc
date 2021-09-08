@@ -40,6 +40,7 @@
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -1669,13 +1670,12 @@ Converts to the :json:schema:`JSON representation<Codec>`.
 
 }  // namespace
 
-void RegisterSpecBindings(pybind11::module m) {
-  auto cls_spec = MakeSpecClass(m);
-  auto cls_schema = MakeSchemaClass(m);
-  auto cls_codec_spec = MakeCodecSpecClass(m);
-  DefineSpecAttributes(cls_spec);
-  DefineSchemaAttributes(cls_schema);
-  DefineCodecSpecAttributes(cls_codec_spec);
+void RegisterSpecBindings(pybind11::module m, Executor defer) {
+  defer([cls = MakeSpecClass(m)]() mutable { DefineSpecAttributes(cls); });
+  defer([cls = MakeSchemaClass(m)]() mutable { DefineSchemaAttributes(cls); });
+  defer([cls = MakeCodecSpecClass(m)]() mutable {
+    DefineCodecSpecAttributes(cls);
+  });
 }
 
 }  // namespace internal_python

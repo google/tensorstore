@@ -2552,26 +2552,30 @@ void DefineOutputIndexMethodAttributes(py::enum_<OutputIndexMethod>& cls) {
 
 }  // namespace
 
-void RegisterIndexSpaceBindings(pybind11::module m) {
-  // Register dim expression bindings first, so that function argument type
-  // annotations below use the correct Python type names rather than the C++
-  // type names.
-  RegisterDimExpressionBindings(m);
+void RegisterIndexSpaceBindings(pybind11::module m, Executor defer) {
   m.attr("inf") = kInfIndex;
 
-  auto cls_index_domain = MakeIndexDomainClass(m);
-  auto cls_index_transform = MakeIndexTransformClass(m);
-  auto cls_dim = MakeDimClass(m);
-  auto cls_output_index_map = MakeOutputIndexMapClass(m);
-  auto cls_output_index_maps = MakeOutputIndexMapsClass(m);
-  auto cls_output_index_method = MakeOutputIndexMethodClass(m);
+  defer([cls = MakeIndexDomainClass(m)]() mutable {
+    DefineIndexDomainAttributes(cls);
+  });
 
-  DefineIndexDomainAttributes(cls_index_domain);
-  DefineIndexTransformAttributes(cls_index_transform);
-  DefineDimAttributes(cls_dim);
-  DefineOutputIndexMapAttributes(cls_output_index_map);
-  DefineOutputIndexMapsAttributes(cls_output_index_maps);
-  DefineOutputIndexMethodAttributes(cls_output_index_method);
+  defer([cls = MakeIndexTransformClass(m)]() mutable {
+    DefineIndexTransformAttributes(cls);
+  });
+
+  defer([cls = MakeDimClass(m)]() mutable { DefineDimAttributes(cls); });
+
+  defer([cls = MakeOutputIndexMapClass(m)]() mutable {
+    DefineOutputIndexMapAttributes(cls);
+  });
+
+  defer([cls = MakeOutputIndexMapsClass(m)]() mutable {
+    DefineOutputIndexMapsAttributes(cls);
+  });
+
+  defer([cls = MakeOutputIndexMethodClass(m)]() mutable {
+    DefineOutputIndexMethodAttributes(cls);
+  });
 }
 
 }  // namespace internal_python

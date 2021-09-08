@@ -26,6 +26,7 @@
 #include "python/tensorstore/future.h"
 #include "pybind11/pybind11.h"
 #include "tensorstore/progress.h"
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -40,7 +41,7 @@ struct PythonWriteFutures {
   std::shared_ptr<PythonFutureBase> commit_future;
 };
 
-void RegisterWriteFuturesBindings(pybind11::module m);
+void RegisterWriteFuturesBindings(pybind11::module m, Executor defer);
 
 }  // namespace internal_python
 }  // namespace tensorstore

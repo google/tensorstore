@@ -36,6 +36,7 @@
 #include "pybind11/pybind11.h"
 #include "tensorstore/internal/intrusive_linked_list.h"
 #include "tensorstore/internal/logging.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 
@@ -307,7 +308,7 @@ class PythonFuture : public PythonFutureBase {
   Future<const T> future_;
 };
 
-void RegisterFutureBindings(pybind11::module m);
+void RegisterFutureBindings(pybind11::module m, Executor defer);
 
 }  // namespace internal_python
 }  // namespace tensorstore

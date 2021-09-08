@@ -24,21 +24,23 @@
 #include "tensorstore/downsample_method.h"
 #include "tensorstore/driver/downsample/downsample_method_json_binder.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
 
 namespace py = ::pybind11;
 
-void RegisterDownsampleBindings(pybind11::module m) {
-  m.def(
-      "downsample",
-      [](const TensorStore<>& base, std::vector<Index> downsample_factors,
-         DownsampleMethod method) -> TensorStore<> {
-        return ValueOrThrow(tensorstore::Downsample(
-            std::move(base), downsample_factors, method));
-      },
-      R"(
+void RegisterDownsampleBindings(pybind11::module m, Executor defer) {
+  defer([m]() mutable {
+    m.def(
+        "downsample",
+        [](const TensorStore<>& base, std::vector<Index> downsample_factors,
+           DownsampleMethod method) -> TensorStore<> {
+          return ValueOrThrow(tensorstore::Downsample(
+              std::move(base), downsample_factors, method));
+        },
+        R"(
 Returns a virtual :ref:`downsampled view<driver/downsample>` of a :py:obj:`TensorStore`.
 
 Group:
@@ -47,16 +49,16 @@ Group:
 Overload:
   store
 )",
-      py::arg("base"), py::arg("downsample_factors"), py::arg("method"));
+        py::arg("base"), py::arg("downsample_factors"), py::arg("method"));
 
-  m.def(
-      "downsample",
-      [](const Spec& base, std::vector<Index> downsample_factors,
-         DownsampleMethod method) -> Spec {
-        return ValueOrThrow(
-            tensorstore::Downsample(base, downsample_factors, method));
-      },
-      R"(
+    m.def(
+        "downsample",
+        [](const Spec& base, std::vector<Index> downsample_factors,
+           DownsampleMethod method) -> Spec {
+          return ValueOrThrow(
+              tensorstore::Downsample(base, downsample_factors, method));
+        },
+        R"(
 Returns a virtual :ref:`downsampled view<driver/downsample>` view of a :py:obj:`Spec`.
 
 Group:
@@ -65,7 +67,8 @@ Group:
 Overload:
   spec
 )",
-      py::arg("base"), py::arg("downsample_factors"), py::arg("method"));
+        py::arg("base"), py::arg("downsample_factors"), py::arg("method"));
+  });
 }
 
 }  // namespace internal_python

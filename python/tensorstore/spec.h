@@ -31,11 +31,12 @@
 #include "pybind11/pybind11.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
 
-void RegisterSpecBindings(pybind11::module m);
+void RegisterSpecBindings(pybind11::module m, Executor defer);
 
 /// Wrapper type used to indicate parameters that may be specified either as
 /// `tensorstore.Spec` objects or json values.

@@ -1331,14 +1331,16 @@ Examples:
 
 }  // namespace
 
-void RegisterDimExpressionBindings(pybind11::module m) {
-  auto cls_dim_expression = MakeDimExpressionClass(m);
-  auto cls_dimension_selection = MakeDimensionSelectionClass(m);
+void RegisterDimExpressionBindings(pybind11::module m, Executor defer) {
+  defer([cls = MakeDimExpressionClass(m)]() mutable {
+    DefineDimExpressionAttributes(cls);
+  });
+
+  defer([cls = MakeDimensionSelectionClass(m)]() mutable {
+    DefineDimensionSelectionAttributes(cls);
+  });
 
   m.attr("newaxis") = py::none();
-
-  DefineDimExpressionAttributes(cls_dim_expression);
-  DefineDimensionSelectionAttributes(cls_dimension_selection);
 }
 
 bool CastToDimensionSelection(py::handle src, DimensionSelection& out) {

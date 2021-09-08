@@ -32,6 +32,7 @@
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -128,7 +129,7 @@ class DimensionSelection : public PythonDimExpression {
 /// sequences thereof.
 bool CastToDimensionSelection(pybind11::handle src, DimensionSelection& out);
 
-void RegisterDimExpressionBindings(pybind11::module m);
+void RegisterDimExpressionBindings(pybind11::module m, Executor defer);
 
 /// Wrapper type used to indicate parameters to pybind11-wrapped functions that
 /// may be specified either as `tensorstore.d` objects, or anything supported by

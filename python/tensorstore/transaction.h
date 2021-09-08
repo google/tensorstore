@@ -21,11 +21,12 @@
 
 #include "pybind11/pybind11.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
 
-void RegisterTransactionBindings(pybind11::module m);
+void RegisterTransactionBindings(pybind11::module m, Executor defer);
 
 template <typename T>
 using TransactionCommitPtrWorkaround =

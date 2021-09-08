@@ -29,6 +29,7 @@
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -112,68 +113,87 @@ py::object GetTypeObjectOrThrow(DataType dtype) {
       py::detail::array_descriptor_proxy(numpy_dtype.ptr())->typeobj);
 }
 
-void RegisterDataTypeBindings(pybind11::module m) {
-  if (!internal_python::RegisterNumpyBfloat16()) {
-    throw py::error_already_set();
-  }
-  py::class_<DataType> cls_data_type(m, "dtype", R"(
+namespace {
+using DataTypeCls = py::class_<DataType>;
+
+auto MakeDataTypeClass(py::module m) {
+  return DataTypeCls(m, "dtype", R"(
 TensorStore data type representation.
 
 Group:
   Data types
 )");
-  cls_data_type
-      .def(py::init([](std::string name) { return GetDataTypeOrThrow(name); }),
-           R"(
+}
+
+void DefineDataTypeAttributes(DataTypeCls& cls) {
+  cls.def(py::init([](std::string name) { return GetDataTypeOrThrow(name); }),
+          R"(
 Construct by name.
 
 Overload:
   name
 )",
-           py::arg("name"))
-      .def(py::init([](DataTypeLike dtype) { return dtype.value; }),
-           R"(
+          py::arg("name"));
+
+  cls.def(py::init([](DataTypeLike dtype) { return dtype.value; }),
+          R"(
 Construct from an existing TensorStore or NumPy data type.
 
 Overload:
   dtype
 )",
-           py::arg("dtype"))
-      .def_property_readonly(
-          "name", [](DataType self) { return std::string(self.name()); })
-      .def("__repr__",
-           [](DataType self) {
-             return StrCat("dtype(", QuoteString(self.name()), ")");
-           })
-      .def(
-          py::pickle([](DataType self) { return std::string(self.name()); },
-                     [](std::string name) { return GetDataTypeOrThrow(name); }))
-      .def("to_json", [](DataType self) { return std::string(self.name()); })
-      .def_property_readonly(
-          "numpy_dtype",
-          [](DataType self) { return GetNumpyDtypeOrThrow(self); })
-      .def("__hash__",
-           [](DataType self) {
-             absl::Hash<DataType> h;
-             return h(self);
-           })
-      .def_property_readonly("type",
-                             [](DataType self) -> py::object {
-                               return GetTypeObjectOrThrow(self);
-                             })
-      .def(
-          "__call__",
-          [](DataType self, py::object arg) -> py::object {
-            if (self.id() == DataTypeId::json_t) {
-              return py::cast(PyObjectToJson(arg));
-            }
-            return GetTypeObjectOrThrow(self)(std::move(arg));
-          },
-          "Construct a scalar instance of this data type")
-      .def(
-          "__eq__",
-          [](DataType self, DataTypeLike other) { return self == other.value; },
-          py::arg("other"));
+          py::arg("dtype"));
+
+  cls.def_property_readonly(
+      "name", [](DataType self) { return std::string(self.name()); });
+
+  cls.def("__repr__", [](DataType self) {
+    return StrCat("dtype(", QuoteString(self.name()), ")");
+  });
+
+  cls.def(
+      py::pickle([](DataType self) { return std::string(self.name()); },
+                 [](std::string name) { return GetDataTypeOrThrow(name); }));
+
+  cls.def("to_json", [](DataType self) { return std::string(self.name()); });
+
+  cls.def_property_readonly(
+      "numpy_dtype", [](DataType self) { return GetNumpyDtypeOrThrow(self); });
+
+  cls.def("__hash__", [](DataType self) {
+    absl::Hash<DataType> h;
+    return h(self);
+  });
+
+  cls.def_property_readonly("type", [](DataType self) -> py::object {
+    return GetTypeObjectOrThrow(self);
+  });
+
+  cls.def(
+      "__call__",
+      [](DataType self, py::object arg) -> py::object {
+        if (self.id() == DataTypeId::json_t) {
+          return py::cast(PyObjectToJson(arg));
+        }
+        return GetTypeObjectOrThrow(self)(std::move(arg));
+      },
+      "Construct a scalar instance of this data type");
+
+  cls.def(
+      "__eq__",
+      [](DataType self, DataTypeLike other) { return self == other.value; },
+      py::arg("other"));
+}
+}  // namespace
+
+void RegisterDataTypeBindings(pybind11::module m, Executor defer) {
+  if (!internal_python::RegisterNumpyBfloat16()) {
+    throw py::error_already_set();
+  }
+
+  defer([cls = MakeDataTypeClass(m)]() mutable {
+    DefineDataTypeAttributes(cls);
+  });
 
   // Like NumPy and Tensorflow, define `tensorstore.<dtype>` constants for each
   // supported data type.

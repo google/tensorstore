@@ -20,14 +20,18 @@
 
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
 
-void RegisterWriteFuturesBindings(pybind11::module m) {
-  namespace py = ::pybind11;
+namespace {
+namespace py = ::pybind11;
 
-  py::class_<PythonWriteFutures> cls_write_futures(m, "WriteFutures", R"(
+using WriteFuturesCls = py::class_<PythonWriteFutures>;
+
+auto MakeWriteFuturesClass(py::module m) {
+  return WriteFuturesCls(m, "WriteFutures", R"(
 Handle for consuming the result of an asynchronous write operation.
 
 This holds two futures:
@@ -54,54 +58,67 @@ See also:
 Group:
   Asynchronous support
 )");
-  cls_write_futures
-      .def("__await__",
-           [](const PythonWriteFutures& self) {
-             return self.commit_future->get_await_result();
-           })
-      .def(
-          "result",
-          [](const PythonWriteFutures& self, std::optional<double> timeout,
-             std::optional<double> deadline) {
-            return self.commit_future->result(
-                GetWaitDeadline(timeout, deadline));
-          },
-          py::arg("timeout") = std::nullopt, py::arg("deadline") = std::nullopt)
-      .def(
-          "exception",
-          [](const PythonWriteFutures& self, std::optional<double> timeout,
-             std::optional<double> deadline) {
-            return self.commit_future->exception(
-                GetWaitDeadline(timeout, deadline));
-          },
-          py::arg("timeout") = std::nullopt, py::arg("deadline") = std::nullopt)
-      .def("done",
-           [](const PythonWriteFutures& self) {
-             return self.commit_future->done();
-           })
-      .def(
-          "add_done_callback",
-          [](const PythonWriteFutures& self, py::object callback) {
-            return self.commit_future->add_done_callback(std::move(callback));
-          },
-          py::arg("callback"))
-      .def(
-          "remove_done_callback",
-          [](const PythonWriteFutures& self, py::object callback) {
-            return self.commit_future->remove_done_callback(
-                std::move(callback));
-          },
-          py::arg("callback"))
-      .def("cancel",
-           [](const PythonWriteFutures& self) {
-             return self.copy_future->cancel() || self.commit_future->cancel();
-           })
-      .def("cancelled",
-           [](const PythonWriteFutures& self) {
-             return self.copy_future->cancelled();
-           })
-      .def_readonly("copy", &PythonWriteFutures::copy_future)
-      .def_readonly("commit", &PythonWriteFutures::commit_future);
 }
+
+void DefineWriteFuturesAttributes(WriteFuturesCls& cls) {
+  cls.def("__await__", [](const PythonWriteFutures& self) {
+    return self.commit_future->get_await_result();
+  });
+
+  cls.def(
+      "result",
+      [](const PythonWriteFutures& self, std::optional<double> timeout,
+         std::optional<double> deadline) {
+        return self.commit_future->result(GetWaitDeadline(timeout, deadline));
+      },
+      py::arg("timeout") = std::nullopt, py::arg("deadline") = std::nullopt);
+
+  cls.def(
+      "exception",
+      [](const PythonWriteFutures& self, std::optional<double> timeout,
+         std::optional<double> deadline) {
+        return self.commit_future->exception(
+            GetWaitDeadline(timeout, deadline));
+      },
+      py::arg("timeout") = std::nullopt, py::arg("deadline") = std::nullopt);
+
+  cls.def("done", [](const PythonWriteFutures& self) {
+    return self.commit_future->done();
+  });
+
+  cls.def(
+      "add_done_callback",
+      [](const PythonWriteFutures& self, py::object callback) {
+        return self.commit_future->add_done_callback(std::move(callback));
+      },
+      py::arg("callback"));
+
+  cls.def(
+      "remove_done_callback",
+      [](const PythonWriteFutures& self, py::object callback) {
+        return self.commit_future->remove_done_callback(std::move(callback));
+      },
+      py::arg("callback"));
+
+  cls.def("cancel", [](const PythonWriteFutures& self) {
+    return self.copy_future->cancel() || self.commit_future->cancel();
+  });
+
+  cls.def("cancelled", [](const PythonWriteFutures& self) {
+    return self.copy_future->cancelled();
+  });
+
+  cls.def_readonly("copy", &PythonWriteFutures::copy_future);
+
+  cls.def_readonly("commit", &PythonWriteFutures::commit_future);
+}
+}  // namespace
+
+void RegisterWriteFuturesBindings(pybind11::module m, Executor defer) {
+  defer([cls = MakeWriteFuturesClass(m)]() mutable {
+    DefineWriteFuturesAttributes(cls);
+  });
+}
+
 }  // namespace internal_python
 }  // namespace tensorstore

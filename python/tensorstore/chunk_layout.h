@@ -21,11 +21,12 @@
 
 #include "pybind11/pybind11.h"
 #include "tensorstore/chunk_layout.h"
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
 
-void RegisterChunkLayoutBindings(pybind11::module m);
+void RegisterChunkLayoutBindings(pybind11::module m, Executor defer);
 
 }  // namespace internal_python
 }  // namespace tensorstore

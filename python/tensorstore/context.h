@@ -42,11 +42,12 @@
 #include "pybind11/pybind11.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_impl.h"
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
 
-void RegisterContextBindings(pybind11::module m);
+void RegisterContextBindings(pybind11::module m, Executor defer);
 
 /// Pickles a `ContextSpecBuilder` by pickling the map of resource keys and
 /// associated resources that it contains.

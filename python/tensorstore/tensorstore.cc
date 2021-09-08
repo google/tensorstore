@@ -23,6 +23,7 @@
 #include "python/tensorstore/chunk_layout.h"
 #include "python/tensorstore/context.h"
 #include "python/tensorstore/data_type.h"
+#include "python/tensorstore/dim_expression.h"
 #include "python/tensorstore/downsample.h"
 #include "python/tensorstore/future.h"
 #include "python/tensorstore/index_space.h"
@@ -32,6 +33,7 @@
 #include "python/tensorstore/unit.h"
 #include "python/tensorstore/write_futures.h"
 #include "pybind11/pybind11.h"
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -63,17 +65,35 @@ PYBIND11_MODULE(_tensorstore, m) {
   // Ensure that members of this module display as `tensorstore.X` rather than
   // `tensorstore._tensorstore.X`.
   ScopedModuleNameOverride name_override(m, "tensorstore");
-  RegisterIndexSpaceBindings(m);
-  RegisterChunkLayoutBindings(m);
-  RegisterDataTypeBindings(m);
-  RegisterUnitBindings(m);
-  RegisterSpecBindings(m);
-  RegisterContextBindings(m);
-  RegisterTransactionBindings(m);
-  RegisterTensorStoreBindings(m);
-  RegisterFutureBindings(m);
-  RegisterWriteFuturesBindings(m);
-  RegisterDownsampleBindings(m);
+
+  std::vector<ExecutorTask> deferred_registration_tasks;
+
+  // Executor used to defer definition of functions and methods until after all
+  // classes have been registered.
+  //
+  // pybind11 requires that any class parameter types are registered before the
+  // function/method in order to include the correct type name in the generated
+  // signature.
+  auto defer = [&](ExecutorTask task) {
+    deferred_registration_tasks.push_back(std::move(task));
+  };
+
+  RegisterTensorStoreBindings(m, defer);
+  RegisterIndexSpaceBindings(m, defer);
+  RegisterDimExpressionBindings(m, defer);
+  RegisterDataTypeBindings(m, defer);
+  RegisterContextBindings(m, defer);
+  RegisterSpecBindings(m, defer);
+  RegisterChunkLayoutBindings(m, defer);
+  RegisterUnitBindings(m, defer);
+  RegisterTransactionBindings(m, defer);
+  RegisterFutureBindings(m, defer);
+  RegisterWriteFuturesBindings(m, defer);
+  RegisterDownsampleBindings(m, defer);
+
+  for (auto& task : deferred_registration_tasks) {
+    task();
+  }
 }
 
 }  // namespace

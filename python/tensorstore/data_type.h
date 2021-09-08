@@ -31,6 +31,7 @@
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -143,7 +144,7 @@ DataType GetDataType(pybind11::dtype dt);
 DataType GetDataTypeOrThrow(pybind11::dtype dt);
 
 /// Defines the Python types and constants.
-void RegisterDataTypeBindings(pybind11::module m);
+void RegisterDataTypeBindings(pybind11::module m, Executor defer);
 
 /// Wrapper type used to indicate parameters that may be specified either as
 /// `tensorstore.dtype` objects or any compatible type (such as a numpy data

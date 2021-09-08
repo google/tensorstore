@@ -25,6 +25,7 @@
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 #include "tensorstore/internal/json_unit.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/unit.h"
 
@@ -267,9 +268,8 @@ Group:
 
 }  // namespace
 
-void RegisterUnitBindings(pybind11::module m) {
-  auto cls_unit = MakeUnitClass(m);
-  DefineUnitAttributes(cls_unit);
+void RegisterUnitBindings(pybind11::module m, Executor defer) {
+  defer([cls = MakeUnitClass(m)]() mutable { DefineUnitAttributes(cls); });
 }
 
 }  // namespace internal_python

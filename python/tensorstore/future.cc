@@ -22,6 +22,7 @@
 
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 
 #ifdef _WIN32
@@ -341,9 +342,13 @@ absl::Time GetWaitDeadline(std::optional<double> timeout,
   return deadline_time;
 }
 
-void RegisterFutureBindings(pybind11::module m) {
-  py::class_<PythonFutureBase, std::shared_ptr<PythonFutureBase>> cls_future(
-      m, "Future", R"(
+namespace {
+using FutureCls =
+    py::class_<PythonFutureBase, std::shared_ptr<PythonFutureBase>>;
+using PromiseCls = py::class_<Promise<PythonValueOrException>>;
+
+FutureCls MakeFutureClass(pybind11::module m) {
+  return FutureCls(m, "Future", R"(
 Handle for *consuming* the result of an asynchronous operation.
 
 This type supports several different patterns for consuming results:
@@ -409,49 +414,28 @@ See also:
 Group:
   Asynchronous support
 )");
+}
 
-  py::class_<Promise<PythonValueOrException>> cls_promise(m, "Promise", R"(
-Handle for *producing* the result of an asynchronous operation.
+void DefineFutureAttributes(FutureCls& cls) {
+  cls.def("__await__", &PythonFutureBase::get_await_result);
 
-A promise represents the producer interface corresponding to a
-:py:class:`Future`, and may be used to signal the completion of an asynchronous
-operation.
-
-    >>> promise, future = ts.Promise.new()
-    >>> future.done()
-    False
-    >>> promise.set_result(5)
-    >>> future.done()
-    True
-    >>> future.result()
-    5
-
-See also:
-  - :py:class:`Future`
-
-Group:
-  Asynchronous support
-)");
-
-  cls_future.def("__await__", &PythonFutureBase::get_await_result);
-
-  cls_future.def("add_done_callback", &PythonFutureBase::add_done_callback,
-                 py::arg("callback"),
-                 R"(
+  cls.def("add_done_callback", &PythonFutureBase::add_done_callback,
+          py::arg("callback"),
+          R"(
 Registers a callback to be invoked upon completion of the asynchronous operation.
 
 Group:
   Callback interface
 )");
-  cls_future.def("remove_done_callback",
-                 &PythonFutureBase::remove_done_callback, py::arg("callback"),
-                 R"(
+  cls.def("remove_done_callback", &PythonFutureBase::remove_done_callback,
+          py::arg("callback"),
+          R"(
 Unregisters a previously-registered callback.
 
 Group:
   Callback interface
 )");
-  cls_future.def(
+  cls.def(
       "result",
       [](PythonFutureBase& self, std::optional<double> timeout,
          std::optional<double> deadline) -> py::object {
@@ -482,7 +466,7 @@ Raises:
 Group:
   Blocking interface
 )");
-  cls_future.def(
+  cls.def(
       "exception",
       [](PythonFutureBase& self, std::optional<double> timeout,
          std::optional<double> deadline) -> py::object {
@@ -491,6 +475,10 @@ Group:
       py::arg("timeout") = std::nullopt, py::arg("deadline") = std::nullopt,
       R"(
 Blocks until asynchronous operation completes, and returns the error if any.
+
+Args:
+  timeout: Maximum number of seconds to block.
+  deadline: Deadline in seconds since the Unix epoch.
 
 Returns:
 
@@ -509,22 +497,22 @@ Group:
   Blocking interface
 )");
 
-  cls_future.def("done", &PythonFutureBase::done,
-                 R"(
+  cls.def("done", &PythonFutureBase::done,
+          R"(
 Queries whether the asynchronous operation has completed or been cancelled.
 
 Group:
   Accessors
 )");
-  cls_future.def("force", &PythonFutureBase::force,
-                 R"(
+  cls.def("force", &PythonFutureBase::force,
+          R"(
 Ensures the asynchronous operation begins executing.
 
 This is called automatically by :py:obj:`.result` and :py:obj:`.exception`, but
 must be called explicitly when using :py:obj:`.add_done_callback`.
 )");
-  cls_future.def("cancelled", &PythonFutureBase::cancelled,
-                 R"(
+  cls.def("cancelled", &PythonFutureBase::cancelled,
+          R"(
 Queries whether the asynchronous operation has been cancelled.
 
 Example:
@@ -541,15 +529,42 @@ Example:
 Group:
   Accessors
 )");
-  cls_future.def("cancel", &PythonFutureBase::cancel,
-                 R"(
+  cls.def("cancel", &PythonFutureBase::cancel,
+          R"(
 Requests cancellation of the asynchronous operation.
 
 If the operation has not already completed, it is marked as unsuccessfully
 completed with an instance of :py:obj:`asyncio.CancelledError`.
 )");
+}
 
-  cls_promise.def(
+PromiseCls MakePromiseClass(pybind11::module m) {
+  return PromiseCls(m, "Promise", R"(
+Handle for *producing* the result of an asynchronous operation.
+
+A promise represents the producer interface corresponding to a
+:py:class:`Future`, and may be used to signal the completion of an asynchronous
+operation.
+
+    >>> promise, future = ts.Promise.new()
+    >>> future.done()
+    False
+    >>> promise.set_result(5)
+    >>> future.done()
+    True
+    >>> future.result()
+    5
+
+See also:
+  - :py:class:`Future`
+
+Group:
+  Asynchronous support
+)");
+}
+
+void DefinePromiseAttributes(PromiseCls& cls) {
+  cls.def(
       "set_result",
       [](const Promise<PythonValueOrException>& self, py::object result) {
         self.SetResult(PythonValueOrException{std::move(result)});
@@ -569,7 +584,7 @@ Example:
     5
 
 )");
-  cls_promise.def(
+  cls.def(
       "set_exception",
       [](const Promise<PythonValueOrException>& self, py::object exception) {
         PyErr_SetObject(reinterpret_cast<PyObject*>(exception.ptr()->ob_type),
@@ -597,7 +612,7 @@ Example:
     Exception: 5
 
 )");
-  cls_promise.def_static(
+  cls.def_static(
       "new",
       [] {
         py::tuple result(2);
@@ -613,6 +628,13 @@ Creates a linked promise and future pair.
 Group:
   Constructors
 )");
+}
+}  // namespace
+
+void RegisterFutureBindings(pybind11::module m, Executor defer) {
+  defer([cls = MakeFutureClass(m)]() mutable { DefineFutureAttributes(cls); });
+  defer(
+      [cls = MakePromiseClass(m)]() mutable { DefinePromiseAttributes(cls); });
 }
 
 }  // namespace internal_python

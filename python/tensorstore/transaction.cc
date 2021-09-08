@@ -3,16 +3,20 @@
 #include "python/tensorstore/future.h"
 #include "pybind11/pybind11.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
 
 namespace py = ::pybind11;
 
-void RegisterTransactionBindings(pybind11::module m) {
-  using internal::TransactionState;
-  py::class_<TransactionState, TransactionState::CommitPtr> cls_transaction(
-      m, "Transaction", R"(
+namespace {
+using internal::TransactionState;
+using TransactionCls =
+    py::class_<TransactionState, TransactionState::CommitPtr>;
+
+auto MakeTransactionClass(py::module m) {
+  return TransactionCls(m, "Transaction", R"(
 
 Transactions are used to stage a group of modifications (e.g. writes to
 :py:obj:`tensorstore.TensorStore` objects) in memory, and then either commit the
@@ -121,16 +125,17 @@ Operations
 ==========
 
 )");
+}
 
-  cls_transaction.def(
-      py::init([](bool atomic) {
-        return TransactionState::ToCommitPtr(Transaction(
-            atomic ? tensorstore::atomic_isolated : tensorstore::isolated));
-      }),
-      py::arg("atomic") = false, R"(
+void DefineTransactionAttributes(TransactionCls& cls) {
+  cls.def(py::init([](bool atomic) {
+            return TransactionState::ToCommitPtr(Transaction(
+                atomic ? tensorstore::atomic_isolated : tensorstore::isolated));
+          }),
+          py::arg("atomic") = false, R"(
 Creates a new transaction.
 )");
-  cls_transaction.def(
+  cls.def(
       "commit_async",
       [](const TransactionState::CommitPtr& self) {
         self->RequestCommit();
@@ -153,7 +158,7 @@ See also:
 Group:
   Operations
 )");
-  cls_transaction.def(
+  cls.def(
       "commit_sync",
       [](const TransactionState::CommitPtr& self) {
         self->RequestCommit();
@@ -176,7 +181,7 @@ See also:
 Group:
   Operations
 )");
-  cls_transaction.def(
+  cls.def(
       "abort",
       [](const TransactionState::CommitPtr& self) { self->RequestAbort(); },
       R"(
@@ -190,7 +195,7 @@ called.
 Group:
   Operations
 )");
-  cls_transaction.def_property_readonly(
+  cls.def_property_readonly(
       "future",
       [](const TransactionState::CommitPtr& self) { return self->future(); },
       R"(
@@ -202,7 +207,7 @@ aborted.
 Group:
   Accessors
 )");
-  cls_transaction.def_property_readonly(
+  cls.def_property_readonly(
       "aborted",
       [](const TransactionState::CommitPtr& self) { return self->aborted(); },
       R"(
@@ -211,7 +216,7 @@ Indicates whether the transaction has been aborted.
 Group:
   Accessors
 )");
-  cls_transaction.def_property_readonly(
+  cls.def_property_readonly(
       "commit_started",
       [](const TransactionState::CommitPtr& self) {
         return self->commit_started();
@@ -223,7 +228,7 @@ Group:
   Accessors
 )");
 
-  cls_transaction.def_property_readonly(
+  cls.def_property_readonly(
       "atomic",
       [](const TransactionState::CommitPtr& self) {
         return self->mode() == tensorstore::atomic_isolated;
@@ -235,7 +240,7 @@ Group:
   Accessors
 )");
 
-  cls_transaction.def_property_readonly(
+  cls.def_property_readonly(
       "open",
       [](const TransactionState::CommitPtr& self) {
         return !self->commit_started() && !self->aborted();
@@ -251,12 +256,11 @@ Group:
   Accessors
 )");
 
-  cls_transaction.def("__enter__", [](const TransactionState::CommitPtr& self) {
-    return self;
-  });
-  cls_transaction.def("__exit__", [](const TransactionState::CommitPtr& self,
-                                     py::object exc_type, py::object exc_value,
-                                     py::object traceback) {
+  cls.def("__enter__",
+          [](const TransactionState::CommitPtr& self) { return self; });
+  cls.def("__exit__", [](const TransactionState::CommitPtr& self,
+                         py::object exc_type, py::object exc_value,
+                         py::object traceback) {
     if (exc_value.ptr() == Py_None) {
       // Block exited normally.  Commit the transaction.
       self->RequestCommit();
@@ -267,31 +271,37 @@ Group:
       internal_python::InterruptibleWait(self->future());
     }
   });
-  cls_transaction.def(
-      "__aenter__",
-      [](const TransactionState::CommitPtr& self)
-          -> Future<const TransactionState::CommitPtr> {
-        // Hack to obtain an "awaitable" that returns `self`.
-        return MakeReadyFuture<TransactionState::CommitPtr>(self);
-      });
-  cls_transaction.def(
-      "__aexit__",
-      [](const TransactionState::CommitPtr& self, py::object exc_type,
-         py::object exc_value, py::object traceback) -> Future<const void> {
-        if (exc_value.ptr() == Py_None) {
-          // Block exited normally.  Commit the transaction.
-          self->RequestCommit();
-          return self->future();
-        } else {
-          // Block exited with an exception.  Abort the transaction.
-          self->RequestAbort();
-          // Wait for `self->future()` to become ready, but ignore the result.
-          return MapFuture(
-              InlineExecutor{},
-              [](const Result<void>& result) { return MakeResult(); },
-              self->future());
-        }
-      });
+  cls.def("__aenter__",
+          [](const TransactionState::CommitPtr& self)
+              -> Future<const TransactionState::CommitPtr> {
+            // Hack to obtain an "awaitable" that returns `self`.
+            return MakeReadyFuture<TransactionState::CommitPtr>(self);
+          });
+  cls.def("__aexit__",
+          [](const TransactionState::CommitPtr& self, py::object exc_type,
+             py::object exc_value, py::object traceback) -> Future<const void> {
+            if (exc_value.ptr() == Py_None) {
+              // Block exited normally.  Commit the transaction.
+              self->RequestCommit();
+              return self->future();
+            } else {
+              // Block exited with an exception.  Abort the transaction.
+              self->RequestAbort();
+              // Wait for `self->future()` to become ready, but ignore the
+              // result.
+              return MapFuture(
+                  InlineExecutor{},
+                  [](const Result<void>& result) { return MakeResult(); },
+                  self->future());
+            }
+          });
+}
+}  // namespace
+
+void RegisterTransactionBindings(pybind11::module m, Executor defer) {
+  defer([cls = MakeTransactionClass(m)]() mutable {
+    DefineTransactionAttributes(cls);
+  });
 }
 
 }  // namespace internal_python

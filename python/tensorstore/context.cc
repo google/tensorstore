@@ -325,9 +325,18 @@ ContextImplPtr UnpickleContextSpecBuilder(py::tuple t, bool allow_key_mismatch,
   return context_impl;
 }
 
-void RegisterContextBindings(pybind11::module m) {
-  py::class_<ContextImpl, ContextImplPtr> cls_context(m, "Context",
-                                                      R"(
+namespace {
+using ContextCls = py::class_<ContextImpl, ContextImplPtr>;
+using ContextSpecCls = py::class_<ContextSpecImpl, ContextSpecImplPtr>;
+
+// `ResourceImplBase` represents a context resource.  It is exposed
+// primarily for pickling and testing.  There isn't a whole lot that can be
+// done with objects of this type, though their identity can be compared.
+using ContextResourceCls = py::class_<ResourceImplBase, ResourceImplWeakPtr>;
+
+ContextCls MakeContextClass(pybind11::module m) {
+  return ContextCls(m, "Context",
+                    R"(
 Manages shared TensorStore :ref:`context resources<context>`, such as caches and credentials.
 
 Group:
@@ -337,64 +346,11 @@ See also:
   :ref:`context`
 
 )");
+}
 
-  py::class_<ContextSpecImpl, ContextSpecImplPtr> cls_context_spec(cls_context,
-                                                                   "Spec", R"(
-Parsed representation of a :json:schema:`JSON Context<Context>` specification.
-)");
-
-  // `ResourceImplBase` represents a context resource.  It is exposed
-  // primarily for pickling and testing.  There isn't a whole lot that can be
-  // done with objects of this type, though their identity can be compared.
-  py::class_<ResourceImplBase, ResourceImplWeakPtr> cls_context_resource(
-      cls_context, "Resource", R"(
-Handle to a context resource.
-)");
-
-  cls_context_spec
-      .def(py::init([](const ::nlohmann::json& json) {
-             return Access::impl(ValueOrThrow(Context::Spec::FromJson(json)));
-           }),
-           R"(
-Creates a context specification from its :json:schema:`JSON representation<Context>`.
-)",
-           py::arg("json"))
-      .def(
-          "to_json",
-          [](internal_context::ContextSpecImplPtr self, bool include_defaults) {
-            return WrapImpl(std::move(self))
-                .ToJson(IncludeDefaults{include_defaults});
-          },
+void DefineContextAttributes(ContextCls& cls) {
+  cls.def(py::init([] { return Access::impl(Context::Default()); }),
           R"(
-Returns the :json:schema:`JSON representation<Context>`.
-
-Args:
-  include_defaults: Indicates whether to include members even if they are equal to the default value.
-
-Group:
-  Accessors
-)",
-          py::arg("include_defaults") = false)
-      .def("__repr__",
-           [](internal_context::ContextSpecImplPtr self) {
-             return internal_python::PrettyPrintJsonAsPythonRepr(
-                 WrapImpl(std::move(self)).ToJson(IncludeDefaults{false}),
-                 "Context.Spec(", ")");
-           })
-      .def(py::pickle(
-          [](ContextSpecImplPtr self) {
-            // Just pickles the JSON representation.
-            return py::make_tuple(py::cast(internal_python::ValueOrThrow(
-                WrapImpl(std::move(self)).ToJson(IncludeDefaults{false}))));
-          },
-          [](py::tuple t) {
-            return Access::impl(internal_python::ValueOrThrow(
-                Context::Spec::FromJson(py::cast<::nlohmann::json>(t[0]))));
-          }));
-
-  cls_context
-      .def(py::init([] { return Access::impl(Context::Default()); }),
-           R"(
 Constructs a default context.
 
 Example:
@@ -411,14 +367,15 @@ Example:
 
 Overload:
   default
-)")
-      .def(py::init([](ContextSpecImplPtr spec,
-                       std::optional<ContextImplPtr> parent) {
-             if (!parent) parent.emplace();
-             return Access::impl(Context(WrapImpl(std::move(spec)),
-                                         WrapImpl(std::move(*parent))));
-           }),
-           R"(
+)");
+
+  cls.def(py::init([](ContextSpecImplPtr spec,
+                      std::optional<ContextImplPtr> parent) {
+            if (!parent) parent.emplace();
+            return Access::impl(Context(WrapImpl(std::move(spec)),
+                                        WrapImpl(std::move(*parent))));
+          }),
+          R"(
 Constructs a context from a parsed spec.
 
 Args:
@@ -429,15 +386,15 @@ Args:
 Overload:
   spec
 )",
-           py::arg("spec"), py::arg("parent") = std::nullopt)
-      .def(py::init(
-               [](::nlohmann::json json, std::optional<ContextImplPtr> parent) {
-                 if (!parent) parent.emplace();
-                 return Access::impl(
-                     Context(ValueOrThrow(Context::Spec::FromJson(json)),
-                             WrapImpl(std::move(*parent))));
-               }),
-           R"(
+          py::arg("spec"), py::arg("parent") = std::nullopt);
+
+  cls.def(
+      py::init([](::nlohmann::json json, std::optional<ContextImplPtr> parent) {
+        if (!parent) parent.emplace();
+        return Access::impl(Context(ValueOrThrow(Context::Spec::FromJson(json)),
+                                    WrapImpl(std::move(*parent))));
+      }),
+      R"(
 Constructs a context from its :json:schema:`JSON representation<Context>`.
 
 Example:
@@ -454,10 +411,11 @@ Args:
 Overload:
   json
 )",
-           py::arg("json"), py::arg("parent") = std::nullopt)
-      .def_property_readonly(
-          "parent", [](const ContextImpl& self) { return self.parent_; },
-          R"(
+      py::arg("json"), py::arg("parent") = std::nullopt);
+
+  cls.def_property_readonly(
+      "parent", [](const ContextImpl& self) { return self.parent_; },
+      R"(
 Parent context from which this context inherits.
 
 Example:
@@ -484,10 +442,11 @@ Example:
 
 Group:
   Accessors
-)")
-      .def_property_readonly(
-          "spec", [](const ContextImpl& self) { return self.spec_; },
-          R"(
+)");
+
+  cls.def_property_readonly(
+      "spec", [](const ContextImpl& self) { return self.spec_; },
+      R"(
 Spec from which this context was constructed.
 
 Example:
@@ -514,22 +473,23 @@ Example:
 
 Group:
   Accessors
-)")
-      .def(
-          "__getitem__",
-          [](ContextImplPtr self, std::string key) {
-            auto provider_id = internal_context::ParseResourceProvider(key);
-            auto* provider = internal_context::GetProvider(provider_id);
-            if (!provider) {
-              ThrowStatusException(
-                  internal_context::ProviderNotRegisteredError(provider_id));
-            }
-            auto spec = ValueOrThrow(
-                internal_context::ResourceSpecFromJson(provider_id, key, {}));
-            return ValueOrThrow(
-                internal_context::GetOrCreateResource(*self, *spec, nullptr));
-          },
-          R"(
+)");
+
+  cls.def(
+         "__getitem__",
+         [](ContextImplPtr self, std::string key) {
+           auto provider_id = internal_context::ParseResourceProvider(key);
+           auto* provider = internal_context::GetProvider(provider_id);
+           if (!provider) {
+             ThrowStatusException(
+                 internal_context::ProviderNotRegisteredError(provider_id));
+           }
+           auto spec = ValueOrThrow(
+               internal_context::ResourceSpecFromJson(provider_id, key, {}));
+           return ValueOrThrow(
+               internal_context::GetOrCreateResource(*self, *spec, nullptr));
+         },
+         R"(
 Creates or retrieves the context resource for the given key.
 
 This is primarily useful for introspection of a context.
@@ -555,18 +515,75 @@ Returns:
 Group:
   Accessors
 )",
-          py::arg("key"))
+         py::arg("key"))
       .def(py::pickle(PickleContext, UnpickleContext));
+}
 
-  cls_context_resource
-      .def(
-          "to_json",
-          [](ResourceImplWeakPtr self, bool include_defaults) {
-            return ValueOrThrow(
-                self->spec_->ToJson(IncludeDefaults{include_defaults}));
-          },
-          py::arg("include_defaults") = false,
+ContextSpecCls MakeContextSpecClass(ContextCls& cls_context) {
+  return ContextSpecCls(cls_context, "Spec", R"(
+Parsed representation of a :json:schema:`JSON Context<Context>` specification.
+)");
+}
+
+void DefineContextSpecAttributes(ContextSpecCls& cls) {
+  cls.def(py::init([](const ::nlohmann::json& json) {
+            return Access::impl(ValueOrThrow(Context::Spec::FromJson(json)));
+          }),
           R"(
+Creates a context specification from its :json:schema:`JSON representation<Context>`.
+)",
+          py::arg("json"));
+
+  cls.def(
+      "to_json",
+      [](internal_context::ContextSpecImplPtr self, bool include_defaults) {
+        return WrapImpl(std::move(self))
+            .ToJson(IncludeDefaults{include_defaults});
+      },
+      R"(
+Returns the :json:schema:`JSON representation<Context>`.
+
+Args:
+  include_defaults: Indicates whether to include members even if they are equal to the default value.
+
+Group:
+  Accessors
+)",
+      py::arg("include_defaults") = false);
+
+  cls.def("__repr__", [](internal_context::ContextSpecImplPtr self) {
+    return internal_python::PrettyPrintJsonAsPythonRepr(
+        WrapImpl(std::move(self)).ToJson(IncludeDefaults{false}),
+        "Context.Spec(", ")");
+  });
+
+  cls.def(py::pickle(
+      [](ContextSpecImplPtr self) {
+        // Just pickles the JSON representation.
+        return py::make_tuple(py::cast(internal_python::ValueOrThrow(
+            WrapImpl(std::move(self)).ToJson(IncludeDefaults{false}))));
+      },
+      [](py::tuple t) {
+        return Access::impl(internal_python::ValueOrThrow(
+            Context::Spec::FromJson(py::cast<::nlohmann::json>(t[0]))));
+      }));
+}
+
+ContextResourceCls MakeContextResourceClass(ContextCls& cls_context) {
+  return ContextResourceCls(cls_context, "Resource", R"(
+Handle to a context resource.
+)");
+}
+
+void DefineContextResourceAttributes(ContextResourceCls& cls) {
+  cls.def(
+      "to_json",
+      [](ResourceImplWeakPtr self, bool include_defaults) {
+        return ValueOrThrow(
+            self->spec_->ToJson(IncludeDefaults{include_defaults}));
+      },
+      py::arg("include_defaults") = false,
+      R"(
 Returns the :json:schema:`JSON representation<ContextResource>` of the context resource.
 
 Example:
@@ -580,14 +597,29 @@ Example:
 
 Group:
   Accessors
-)")
-      .def("__repr__",
-           [](ResourceImplWeakPtr self) {
-             return internal_python::PrettyPrintJsonAsPythonRepr(
-                 self->spec_->ToJson(IncludeDefaults{false}),
-                 "Context.Resource(", ")");
-           })
-      .def(py::pickle(PickleContextResource, UnpickleContextResource));
+)");
+
+  cls.def("__repr__", [](ResourceImplWeakPtr self) {
+    return internal_python::PrettyPrintJsonAsPythonRepr(
+        self->spec_->ToJson(IncludeDefaults{false}), "Context.Resource(", ")");
+  });
+
+  cls.def(py::pickle(PickleContextResource, UnpickleContextResource));
+}
+
+}  // namespace
+
+void RegisterContextBindings(pybind11::module m, Executor defer) {
+  auto cls_context = MakeContextClass(m);
+  defer([cls_context]() mutable { DefineContextAttributes(cls_context); });
+
+  defer([cls = MakeContextSpecClass(cls_context)]() mutable {
+    DefineContextSpecAttributes(cls);
+  });
+
+  defer([cls = MakeContextResourceClass(cls_context)]() mutable {
+    DefineContextResourceAttributes(cls);
+  });
 }
 
 }  // namespace internal_python

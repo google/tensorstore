@@ -21,11 +21,12 @@
 
 #include "pybind11/pybind11.h"
 #include "tensorstore/downsample_method.h"
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
 
-void RegisterDownsampleBindings(pybind11::module m);
+void RegisterDownsampleBindings(pybind11::module m, Executor defer);
 
 }  // namespace internal_python
 }  // namespace tensorstore
