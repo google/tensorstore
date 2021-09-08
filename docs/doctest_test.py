@@ -174,6 +174,18 @@ def execute_doctests(filename: str, verbose: bool) -> Tuple[str, str]:
   return orig_text, new_text
 
 
+def _get_diff(orig_text: str, new_text: str, filename: str) -> str:
+  lines = difflib.unified_diff(
+      io.StringIO(orig_text).readlines(),
+      io.StringIO(new_text).readlines(),
+      fromfile=filename,
+      tofile='<expected>',
+  )
+  out = io.StringIO()
+  out.writelines(lines)
+  return out.getvalue()
+
+
 def update_doctests(filename: str, verbose: bool, in_place: bool,
                     print_expected: bool) -> None:
   orig_text, new_text = execute_doctests(filename=filename, verbose=verbose)
@@ -183,13 +195,7 @@ def update_doctests(filename: str, verbose: bool, in_place: bool,
   elif print_expected:
     print(new_text)
   else:
-    sys.stderr.writelines(
-        difflib.unified_diff(
-            io.StringIO(orig_text).readlines(),
-            io.StringIO(new_text).readlines(),
-            fromfile=filename,
-            tofile='<expected>',
-        ))
+    sys.stderr.write(_get_diff(orig_text, new_text, filename))
 
 
 def pytest_generate_tests(metafunc):
@@ -200,7 +206,8 @@ def pytest_generate_tests(metafunc):
 
 def test_doctest(doctest_filename: str) -> None:
   orig_text, new_text = execute_doctests(doctest_filename, verbose=False)
-  assert orig_text == new_text
+  if orig_text == new_text: return
+  assert False, '\n' + _get_diff(orig_text, new_text, doctest_filename)
 
 
 def execute(code: str, context: dict, json_output: bool) -> None:  # pylint: disable=g-bare-generic
