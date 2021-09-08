@@ -612,6 +612,12 @@ Status DriverBase::ApplyOptions(SpecData& spec, SpecOptions&& options) {
   if (options.recheck_cached_metadata.specified()) {
     spec.staleness.metadata = StalenessBound(options.recheck_cached_metadata);
   }
+  if (options.kvstore.valid()) {
+    if (spec.store.valid()) {
+      return absl::InvalidArgumentError("\"kvstore\" is already specified");
+    }
+    spec.store = std::move(options.kvstore);
+  }
   TENSORSTORE_RETURN_IF_ERROR(spec.schema.Set(static_cast<Schema&&>(options)));
   return spec.OpenModeSpec::ApplyOptions(options);
 }
@@ -619,6 +625,17 @@ Status DriverBase::ApplyOptions(SpecData& spec, SpecOptions&& options) {
 Result<CodecSpec::Ptr> DriverBase::GetCodec() {
   auto* cache = this->cache();
   return cache->GetCodec(cache->initial_metadata_.get(), component_index());
+}
+
+kvstore::Spec DriverBase::SpecGetKvstore(const SpecData& spec) {
+  return spec.store;
+}
+
+KvStore DriverBase::GetKvstore() {
+  auto* cache = this->cache();
+  auto* metadata_cache = cache->metadata_cache();
+  return KvStore{kvstore::DriverPtr(metadata_cache->base_store()),
+                 cache->GetBaseKvstorePath()};
 }
 
 namespace {
@@ -1131,6 +1148,9 @@ Future<internal::Driver::Handle> OpenDriver(OpenState::Ptr state) {
   auto& spec = *base.spec_;
   TENSORSTORE_RETURN_IF_ERROR(
       spec.OpenModeSpec::Validate(base.read_write_mode_));
+  if (!spec.store.valid()) {
+    return absl::InvalidArgumentError("\"kvstore\" must be specified");
+  }
   auto* state_ptr = state.get();
   auto metadata_cache = GetOrCreateMetadataCache(state_ptr);
   base.metadata_cache_entry_ =

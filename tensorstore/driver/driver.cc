@@ -72,6 +72,11 @@ Result<DimensionUnitsVector> RegisteredDriverBase::SpecGetDimensionUnits(
   return DimensionUnitsVector(spec.schema.dimension_units());
 }
 
+kvstore::Spec RegisteredDriverBase::SpecGetKvstore(
+    const DriverSpecCommonData& spec) {
+  return {};
+}
+
 absl::Status ApplyOptions(DriverSpec::Ptr& spec, SpecOptions&& options) {
   if (spec->use_count() != 1) spec = spec->Clone();
   return const_cast<DriverSpec&>(*spec).ApplyOptions(std::move(options));
@@ -242,6 +247,8 @@ Result<ChunkLayout> Driver::GetChunkLayout(IndexTransformView<> transform) {
 }
 
 Result<CodecSpec::Ptr> Driver::GetCodec() { return CodecSpec::Ptr{}; }
+
+KvStore Driver::GetKvstore() { return {}; }
 
 Result<SharedArray<const void>> Driver::GetFillValue(
     IndexTransformView<> transform) {

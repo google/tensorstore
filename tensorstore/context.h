@@ -482,6 +482,7 @@ absl::Status BindWithNestedContext(const Context& context,
 template <typename Ptr>
 absl::Status BindContextCopyOnWriteWithNestedContext(Ptr& ptr,
                                                      const Context& context) {
+  if (!ptr) return absl::OkStatus();
   using internal_context::Access;
   {
     auto& orig_obj = *ptr;
@@ -525,6 +526,7 @@ void UnbindWithNestedContext(
 template <typename Ptr>
 void UnbindContextCopyOnWriteWithNestedContext(
     Ptr& ptr, const ContextSpecBuilder& context_builder) {
+  if (!ptr) return;
   using internal_context::Access;
   {
     auto& orig_obj = *ptr;
@@ -550,6 +552,7 @@ void UnbindContextCopyOnWriteWithNestedContext(
 /// This is used for `DriverSpecPtr` and `kvstore::DriverSpecPtr`.
 template <typename Ptr>
 void StripContextCopyOnWriteWithNestedContext(Ptr& ptr) {
+  if (!ptr) return;
   using internal_context::Access;
   {
     auto& orig_obj = *ptr;

@@ -143,6 +143,10 @@ class ArrayDriver
   }
 
   static Status ApplyOptions(SpecData& spec, SpecOptions&& options) {
+    if (options.kvstore.valid()) {
+      return absl::InvalidArgumentError(
+          "\"kvstore\" not supported by \"array\" driver");
+    }
     return spec.schema.Set(static_cast<Schema&&>(options));
   }
 

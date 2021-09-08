@@ -246,6 +246,12 @@ class TensorStore {
     return internal::GetDimensionUnits(handle_);
   }
 
+  /// Returns the associated key-value store.
+  ///
+  /// If the driver does not use a key-value store, returns a null (invalid)
+  /// key-value store.
+  KvStore kvstore() const { return handle_.driver->GetKvstore(); }
+
   /// Returns the schema for this TensorStore.
   ///
   /// Note that the schema reflects any index transforms that have been applied

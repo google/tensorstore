@@ -665,37 +665,33 @@ TEST(N5DriverTest, DataTypeMismatch) {
                             ".*dtype.*"));
 }
 
-TEST(N5DriverTest, InvalidSpec) {
-  auto context = Context::Default();
+TEST(N5DriverTest, InvalidSpecExtraMember) {
+  auto spec = GetJsonSpec();
+  spec["extra_member"] = 5;
+  EXPECT_THAT(tensorstore::Open(spec, tensorstore::OpenMode::create,
+                                tensorstore::ReadWriteMode::read_write)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Object includes extra members: \"extra_member\""));
+}
 
-  {
-    auto spec = GetJsonSpec();
-    spec["extra_member"] = 5;
-    EXPECT_THAT(
-        tensorstore::Open(spec, context, tensorstore::OpenMode::create,
-                          tensorstore::ReadWriteMode::read_write)
-            .result(),
-        MatchesStatus(absl::StatusCode::kInvalidArgument,
-                      "Object includes extra members: \"extra_member\""));
-  }
+TEST(N5DriverTest, InvalidSpecMissingKvstore) {
+  auto spec = GetJsonSpec();
+  spec.erase("kvstore");
+  EXPECT_THAT(tensorstore::Open(spec, tensorstore::OpenMode::create,
+                                tensorstore::ReadWriteMode::read_write)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Error opening \"n5\" driver: "
+                            "\"kvstore\" must be specified"));
+}
 
-  // Verify that a missing "kvstore" member leads to an error.
-  {
-    auto spec = GetJsonSpec();
-    spec.erase("kvstore");
-    EXPECT_THAT(tensorstore::Open(spec, context, tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write)
-                    .result(),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              "Error parsing object member \"kvstore\": "
-                              "Expected object, but member is missing"));
-  }
-
+TEST(N5DriverTest, InvalidSpecInvalidMemberType) {
   for (auto member_name : {"kvstore", "path", "metadata"}) {
     auto spec = GetJsonSpec();
     spec[member_name] = 5;
     EXPECT_THAT(
-        tensorstore::Open(spec, context, tensorstore::OpenMode::create,
+        tensorstore::Open(spec, tensorstore::OpenMode::create,
                           tensorstore::ReadWriteMode::read_write)
             .result(),
         MatchesStatus(absl::StatusCode::kInvalidArgument,
@@ -703,19 +699,19 @@ TEST(N5DriverTest, InvalidSpec) {
                              "\": "
                              "Expected .*, but received: 5")));
   }
+}
 
-  {
-    auto spec = GetJsonSpec();
-    spec["metadata"].erase("dimensions");
-    EXPECT_THAT(
-        tensorstore::Open(spec, context, tensorstore::OpenMode::create,
-                          tensorstore::ReadWriteMode::read_write)
-            .result(),
-        MatchesStatus(absl::StatusCode::kInvalidArgument,
-                      ".*: "
-                      "Cannot create using specified \"metadata\" and schema: "
-                      "domain must be specified"));
-  }
+TEST(N5DriverTest, InvalidSpecMissingDomain) {
+  auto spec = GetJsonSpec();
+  spec["metadata"].erase("dimensions");
+  EXPECT_THAT(
+      tensorstore::Open(spec, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    ".*: "
+                    "Cannot create using specified \"metadata\" and schema: "
+                    "domain must be specified"));
 }
 
 TEST(N5DriverTest, OpenInvalidMetadata) {

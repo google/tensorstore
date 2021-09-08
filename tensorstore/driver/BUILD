@@ -96,6 +96,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:nditerable_data_type_conversion",
         "//tensorstore/internal:nditerable_transformed_array",
         "//tensorstore/internal:no_destructor",
+        "//tensorstore/kvstore",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",

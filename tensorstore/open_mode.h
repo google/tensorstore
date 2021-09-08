@@ -20,6 +20,7 @@
 
 #include "absl/status/status.h"
 #include "tensorstore/context.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/staleness_bound.h"
 #include "tensorstore/transaction.h"
@@ -121,8 +122,9 @@ struct SpecOptions : public Schema {
   RecheckCachedData recheck_cached_data;
   RecheckCachedMetadata recheck_cached_metadata;
   bool minimal_spec = false;
+  kvstore::Spec kvstore;
 
-  /// Excludes `Schema` and `MinimalSpec`.
+  /// Excludes `Schema`, `MinimalSpec`, and `kvstore::Spec`.
   template <typename T>
   constexpr static inline bool IsCommonOption = false;
 
@@ -149,6 +151,13 @@ struct SpecOptions : public Schema {
     if (value.specified()) {
       static_cast<RecheckCacheOption&>(recheck_cached_data) = value;
       static_cast<RecheckCacheOption&>(recheck_cached_metadata) = value;
+    }
+    return absl::OkStatus();
+  }
+
+  absl::Status Set(kvstore::Spec value) {
+    if (value.valid()) {
+      kvstore = std::move(value);
     }
     return absl::OkStatus();
   }
@@ -217,6 +226,9 @@ struct SpecConvertOptions : public SpecRequestOptions {
 template <>
 constexpr inline bool SpecConvertOptions::IsOption<Context> = true;
 
+template <>
+constexpr inline bool SpecConvertOptions::IsOption<kvstore::Spec> = true;
+
 /// Options for opening a `Spec`.
 struct OpenOptions : public SpecOptions {
   Context context;
@@ -251,6 +263,9 @@ constexpr inline bool OpenOptions::IsOption<ReadWriteMode> = true;
 template <>
 constexpr inline bool OpenOptions::IsOption<Context> = true;
 
+template <>
+constexpr inline bool OpenOptions::IsOption<kvstore::Spec> = true;
+
 /// Options for opening a `Spec` with optional transaction.
 struct TransactionalOpenOptions : public OpenOptions {
   Transaction transaction{no_transaction};
@@ -269,35 +284,6 @@ struct TransactionalOpenOptions : public OpenOptions {
 
 template <>
 constexpr inline bool TransactionalOpenOptions::IsOption<Transaction> = true;
-
-/// Collects a parameter pack of options into an options type.
-///
-/// Intended to be used in a function scope.  Defines a local variable named
-/// `OPTIONS_NAME` of type `OPTIONS_TYPE`, and attempts to set each of the
-/// options specified by `OPTIONS_PACK`.  If setting an option fails with an
-/// error status, it is returned.
-///
-/// Example usage:
-///
-///     template <typename... Option>
-///     std::enable_if_t<IsCompatibleOptionSequence<OpenOptions, Option...>,
-///                      Result<Whatever>>
-///     MyFunction(Option&&... option) {
-///       TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(
-///           OpenOptions, options, option);
-///       // use `options`
-///     }
-#define TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(          \
-    OPTIONS_TYPE, OPTIONS_NAME, OPTION_PACK)                    \
-  OPTIONS_TYPE OPTIONS_NAME;                                    \
-  if (absl::Status status;                                      \
-      !((status = OPTIONS_NAME.Set(                             \
-             std::forward<decltype(OPTION_PACK)>(OPTION_PACK))) \
-            .ok() &&                                            \
-        ...)) {                                                 \
-    return status;                                              \
-  }                                                             \
-  /**/
 
 namespace internal {
 

@@ -536,38 +536,35 @@ TEST(DriverTest, DataTypeMismatchInStoredMetadata) {
                     "dtype in schema \\(uint32\\)"));
 }
 
-TEST(DriverTest, InvalidSpec) {
-  auto context = Context::Default();
+TEST(DriverTest, InvalidSpecExtraMember) {
+  auto spec = GetJsonSpec();
+  spec["extra_member"] = 5;
+  EXPECT_THAT(tensorstore::Open(spec, tensorstore::OpenMode::create,
+                                tensorstore::ReadWriteMode::read_write)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Object includes extra members: \"extra_member\""));
+}
 
-  {
-    auto spec = GetJsonSpec();
-    spec["extra_member"] = 5;
-    EXPECT_THAT(
-        tensorstore::Open(spec, context, tensorstore::OpenMode::create,
-                          tensorstore::ReadWriteMode::read_write)
-            .result(),
-        MatchesStatus(absl::StatusCode::kInvalidArgument,
-                      "Object includes extra members: \"extra_member\""));
-  }
+TEST(DriverTest, InvalidSpecMissingKvstore) {
+  auto spec = GetJsonSpec();
+  spec.erase("kvstore");
+  EXPECT_THAT(
+      tensorstore::Open(spec, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Error opening \"neuroglancer_precomputed\" driver: "
+                    "\"kvstore\" must be specified"));
+}
 
-  // Verify that a missing "kvstore" member leads to an error.
-  {
-    auto spec = GetJsonSpec();
-    spec.erase("kvstore");
-    EXPECT_THAT(tensorstore::Open(spec, context, tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write)
-                    .result(),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              "Error parsing object member \"kvstore\": "
-                              "Expected object, but member is missing"));
-  }
-
+TEST(DriverTest, InvalidSpecInvalidMemberType) {
   for (auto member_name : {"kvstore", "path", "scale_metadata",
                            "multiscale_metadata", "scale_index"}) {
     auto spec = GetJsonSpec();
     spec[member_name] = nullptr;
     EXPECT_THAT(
-        tensorstore::Open(spec, context, tensorstore::OpenMode::create,
+        tensorstore::Open(spec, tensorstore::OpenMode::create,
                           tensorstore::ReadWriteMode::read_write)
             .result(),
         MatchesStatus(absl::StatusCode::kInvalidArgument,
@@ -575,16 +572,16 @@ TEST(DriverTest, InvalidSpec) {
                              "\": "
                              "Expected .*, but received: null")));
   }
+}
 
-  {
-    auto spec = GetJsonSpec();
-    spec["scale_metadata"].erase("size");
-    EXPECT_THAT(
-        tensorstore::Open(spec, context, tensorstore::OpenMode::create,
-                          tensorstore::ReadWriteMode::read_write)
-            .result(),
-        MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"size\".*"));
-  }
+TEST(DriverTest, InvalidSpecMissingDomain) {
+  auto spec = GetJsonSpec();
+  spec["scale_metadata"].erase("size");
+  EXPECT_THAT(
+      tensorstore::Open(spec, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"size\".*"));
 }
 
 TEST(DriverTest, CompressedSegmentationEncodingUint32) {

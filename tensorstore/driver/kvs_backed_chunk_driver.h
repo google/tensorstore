@@ -503,6 +503,10 @@ class DriverBase : public internal::ChunkCacheDriver {
 
   Result<CodecSpec::Ptr> GetCodec() override;
 
+  static kvstore::Spec SpecGetKvstore(const SpecData& spec);
+
+  KvStore GetKvstore() override;
+
  private:
   StalenessBound metadata_staleness_bound_;
 };
@@ -776,6 +780,8 @@ class RegisteredKvsDriver
       return new Derived(std::move(initializer));
     }
   };
+
+  using DriverBase::SpecGetKvstore;
 
   /// Implements the `Open` method required by `internal::RegisteredDriver` in
   /// terms of `internal_kvs_backed_chunk_driver::OpenDriver`.

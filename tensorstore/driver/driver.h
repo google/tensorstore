@@ -21,30 +21,24 @@
 /// This internal interface is used to implement the public `Spec` and
 /// `TensorStore` APIs.
 ///
-/// As with `KeyValueStore`, there are three representations of a TensorStore
-/// driver that may be used for different purposes:
+/// As with `KvStore`, there are two representations of a TensorStore driver
+/// that may be used for different purposes:
 ///
 /// 1. `DriverSpec` specifies the parameters necessary to open/create a
 ///    `Driver`, including the driver id as well as any relevant driver-specific
 ///    options.  Parsing a `DriverSpec` from JSON does not involve any I/O and
-///    does not depend on a `Context` object.  Consequently, any references to
-///    context resources in the JSON specification are left unresolved.
+///    does not depend on a `Context` object.  Any references to context
+///    resources in the JSON specification are initially left unresolved.
 ///
-/// 2. `DriverSpec::Bound` specifies the parameters and resources necessary to
-///    open/create a `Driver` after resolving any resources from a specified
-///    `Context`.  Converting from a `DriverSpec` to a `BoundSpec` still does
-///    not involve any I/O, however.
-///
-/// 3. `Driver` is an open driver that may be used to perform I/O.  It is opened
+/// 2. `Driver` is an open driver that may be used to perform I/O.  It is opened
 ///    asynchronously from a `DriverSpec::Bound`.
 ///
-/// The `DriverSpec` and `DriverSpec::Bound` representations may be used to
-/// validate a JSON specification without actually performing any I/O.
+/// The `DriverSpec` representation may be used to validate a JSON specification
+/// without actually performing any I/O.
 ///
-/// For `KeyValueStore`-backed driver implementations, the derived `DriverSpec`,
-/// `DriverSpec::Bound`, and `Driver` types will normally contain a
-/// `KeyValueStore::Spec::Ptr`, `KeyValueStore::BoundSpec::Ptr`, and
-/// `KeyValueStore::Ptr`, respectively.
+/// For `KvStore`-backed driver implementations, the derived `DriverSpec` and
+/// `Driver` types will normally contain a `kvstore::Spec`,
+/// `kvstore::DriverPtr`, respectively.
 
 #include <iosfwd>
 
@@ -59,6 +53,7 @@
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/progress.h"
 #include "tensorstore/read_write_options.h"
@@ -235,6 +230,10 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
 
   virtual Result<DimensionUnitsVector> GetDimensionUnits() const = 0;
 
+  /// Returns the associated KeyValueStore path spec, or an invalid (null) path
+  /// spec if there is none.
+  virtual kvstore::Spec GetKvstore() const = 0;
+
   /// Returns the common spec data (stored as a member of the derived type).
   virtual DriverSpecCommonData& data() = 0;
 
@@ -402,6 +401,10 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// \returns Vector of length `rank()` specifying the dimension units for each
   ///     dimension.
   virtual Result<DimensionUnitsVector> GetDimensionUnits();
+
+  /// Returns the associated KeyValueStore path, or an invalid (null) path if
+  /// there is none.
+  virtual KvStore GetKvstore();
 
   /// Returns the Executor to use for data copying to/from this Driver (e.g. for
   /// Read and Write operations).

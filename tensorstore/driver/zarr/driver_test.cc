@@ -1492,38 +1492,34 @@ TEST(ZarrDriverTest, InvalidResizeDeletedMetadata) {
                     "Metadata was deleted"));
 }
 
-TEST(ZarrDriverTest, InvalidSpec) {
-  auto context = Context::Default();
+TEST(ZarrDriverTest, InvalidSpecExtraMember) {
+  auto spec = GetJsonSpec();
+  spec["extra_member"] = 5;
+  EXPECT_THAT(tensorstore::Open(spec, tensorstore::OpenMode::create,
+                                tensorstore::ReadWriteMode::read_write)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Object includes extra members: \"extra_member\""));
+}
 
-  {
-    auto spec = GetJsonSpec();
-    spec["extra_member"] = 5;
-    EXPECT_THAT(
-        tensorstore::Open(spec, context, tensorstore::OpenMode::create,
-                          tensorstore::ReadWriteMode::read_write)
-            .result(),
-        MatchesStatus(absl::StatusCode::kInvalidArgument,
-                      "Object includes extra members: \"extra_member\""));
-  }
+TEST(ZarrDriverTest, InvalidSpecMissingKvstore) {
+  auto spec = GetJsonSpec();
+  spec.erase("kvstore");
+  EXPECT_THAT(tensorstore::Open(spec, tensorstore::OpenMode::create,
+                                tensorstore::ReadWriteMode::read_write)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Error opening \"zarr\" driver: "
+                            "\"kvstore\" must be specified"));
+}
 
-  // Verify that a missing "kvstore" member leads to an error.
-  {
-    auto spec = GetJsonSpec();
-    spec.erase("kvstore");
-    EXPECT_THAT(tensorstore::Open(spec, context, tensorstore::OpenMode::create,
-                                  tensorstore::ReadWriteMode::read_write)
-                    .result(),
-                MatchesStatus(absl::StatusCode::kInvalidArgument,
-                              "Error parsing object member \"kvstore\": "
-                              "Expected object, but member is missing"));
-  }
-
+TEST(ZarrDriverTest, InvalidSpecMemberType) {
   for (auto member_name :
        {"kvstore", "path", "field", "key_encoding", "metadata"}) {
     auto spec = GetJsonSpec();
     spec[member_name] = 5;
     EXPECT_THAT(
-        tensorstore::Open(spec, context, tensorstore::OpenMode::create,
+        tensorstore::Open(spec, tensorstore::OpenMode::create,
                           tensorstore::ReadWriteMode::read_write)
             .result(),
         MatchesStatus(absl::StatusCode::kInvalidArgument,
@@ -1531,30 +1527,30 @@ TEST(ZarrDriverTest, InvalidSpec) {
                              "\": "
                              "Expected .*, but received: 5")));
   }
+}
 
-  {
-    auto spec = GetJsonSpec();
-    spec["key_encoding"] = "-";
-    EXPECT_THAT(
-        tensorstore::Open(spec, context, tensorstore::OpenMode::create,
-                          tensorstore::ReadWriteMode::read_write)
-            .result(),
-        MatchesStatus(absl::StatusCode::kInvalidArgument,
-                      "Error parsing object member \"key_encoding\": .*"));
-  }
+TEST(ZarrDriverTest, InvalidSpecKeyEncoding) {
+  auto spec = GetJsonSpec();
+  spec["key_encoding"] = "-";
+  EXPECT_THAT(
+      tensorstore::Open(spec, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Error parsing object member \"key_encoding\": .*"));
+}
 
-  {
-    auto spec = GetJsonSpec();
-    spec["metadata"].erase("shape");
-    EXPECT_THAT(
-        tensorstore::Open(spec, context, tensorstore::OpenMode::create,
-                          tensorstore::ReadWriteMode::read_write)
-            .result(),
-        MatchesStatus(absl::StatusCode::kInvalidArgument,
-                      ".*: "
-                      "Cannot create using specified \"metadata\" and schema: "
-                      "domain must be specified"));
-  }
+TEST(ZarrDriverTest, InvalidSpecMissingDomain) {
+  auto spec = GetJsonSpec();
+  spec["metadata"].erase("shape");
+  EXPECT_THAT(
+      tensorstore::Open(spec, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    ".*: "
+                    "Cannot create using specified \"metadata\" and schema: "
+                    "domain must be specified"));
 }
 
 TEST(ZarrDriverTest, OpenInvalidMetadata) {
@@ -2764,6 +2760,23 @@ TEST(DriverTest, DeprecatedPath) {
            {"driver", "zarr"},
            {"kvstore", {{"driver", "memory"}, {"path", "a/b/"}}},
        }},
+  });
+}
+
+TEST(DriverTest, InvalidSpecPathButNoKvstore) {
+  EXPECT_THAT(
+      tensorstore::Spec::FromJson({{"driver", "zarr"}, {"path", "a/b"}}),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "Error parsing object member \"path\": "
+          "\"path\" must be specified in conjunction with \"kvstore\""));
+}
+
+TEST(DriverTest, MissingKvstore) {
+  tensorstore::TestJsonBinderRoundTripJsonOnly<tensorstore::Spec>({
+      {
+          {"driver", "zarr"},
+      },
   });
 }
 

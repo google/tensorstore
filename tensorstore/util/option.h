@@ -15,6 +15,9 @@
 #ifndef TENSORSTORE_UTIL_OPTION_H_
 #define TENSORSTORE_UTIL_OPTION_H_
 
+#include <utility>
+
+#include "absl/status/status.h"
 #include "tensorstore/internal/type_traits.h"
 
 namespace tensorstore {
@@ -24,5 +27,34 @@ constexpr inline bool IsCompatibleOptionSequence =
     (Options::template IsOption<internal::remove_cvref_t<Option>> && ...);
 
 }  // namespace tensorstore
+
+/// Collects a parameter pack of options into an options type.
+///
+/// Intended to be used in a function scope.  Defines a local variable named
+/// `OPTIONS_NAME` of type `OPTIONS_TYPE`, and attempts to set each of the
+/// options specified by `OPTIONS_PACK`.  If setting an option fails with an
+/// error status, it is returned.
+///
+/// Example usage:
+///
+///     template <typename... Option>
+///     std::enable_if_t<IsCompatibleOptionSequence<OpenOptions, Option...>,
+///                      Result<Whatever>>
+///     MyFunction(Option&&... option) {
+///       TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(
+///           OpenOptions, options, option);
+///       // use `options`
+///     }
+#define TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(          \
+    OPTIONS_TYPE, OPTIONS_NAME, OPTION_PACK)                    \
+  OPTIONS_TYPE OPTIONS_NAME;                                    \
+  if (absl::Status status;                                      \
+      !((status = OPTIONS_NAME.Set(                             \
+             std::forward<decltype(OPTION_PACK)>(OPTION_PACK))) \
+            .ok() &&                                            \
+        ...)) {                                                 \
+    return status;                                              \
+  }                                                             \
+  /**/
 
 #endif  // TENSORSTORE_UTIL_OPTION_H_

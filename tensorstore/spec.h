@@ -24,6 +24,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/type_traits.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/spec_impl.h"
@@ -75,6 +76,10 @@ class Spec {
   /// space.
   Result<DimensionUnitsVector> dimension_units() const;
 
+  /// Returns the associated key-value store used as the underlying storage.  If
+  /// unspecified or not applicable, returns a null (invalid) spec.
+  kvstore::Spec kvstore() const;
+
   /// Returns the transform applied on top of the driver.
   const IndexTransform<>& transform() const { return impl_.transform; }
 
@@ -88,6 +93,7 @@ class Spec {
   ///   - RecheckCachedMetadata
   ///   - ContextBindingMode
   ///   - Context
+  ///   - kvstore::Spec
   ///
   /// If an error occurs, the spec may be in a partially modified state.
   template <typename... Option>

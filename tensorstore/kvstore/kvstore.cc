@@ -409,7 +409,9 @@ bool operator==(const KvStore& a, const KvStore& b) {
 namespace internal_json_binding {
 TENSORSTORE_DEFINE_JSON_BINDER(
     KvStoreSpecAndPathJsonBinder,
-    Sequence(Member("kvstore"),
+    Sequence(Member("kvstore", DefaultInitializedPredicate([](auto* obj) {
+                      return !obj->valid();
+                    })),
              // DEPRECATED: "path" is supported for backward compatibility only.
              LoadSave(OptionalMember(
                  "path",

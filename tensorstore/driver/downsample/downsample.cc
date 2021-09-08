@@ -219,6 +219,10 @@ class DownsampleDriver
     return dimension_units;
   }
 
+  static kvstore::Spec SpecGetKvstore(const SpecData& spec) {
+    return spec.base.driver_spec->GetKvstore();
+  }
+
   static Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
       internal::RegisteredDriverOpener<SpecData> spec,
@@ -311,6 +315,8 @@ class DownsampleDriver
     return TransformOutputDimensionUnits(strided_base_transform,
                                          std::move(dimension_units));
   }
+
+  KvStore GetKvstore() override { return base_driver_->GetKvstore(); }
 
   Result<IndexTransform<>> GetStridedBaseTransform() {
     return base_transform_ | tensorstore::AllDims().Stride(downsample_factors_);

@@ -67,6 +67,8 @@ class RegisteredDriverBase {
 
   static Result<DimensionUnitsVector> SpecGetDimensionUnits(
       const DriverSpecCommonData& spec);
+
+  static kvstore::Spec SpecGetKvstore(const DriverSpecCommonData& spec);
 };
 
 /// CRTP base class for `Driver` implementations that support a JSON
@@ -246,6 +248,10 @@ class RegisteredDriver : public Parent, RegisteredDriverBase {
 
     Result<DimensionUnitsVector> GetDimensionUnits() const override {
       return Derived::SpecGetDimensionUnits(data_);
+    }
+
+    kvstore::Spec GetKvstore() const override {
+      return Derived::SpecGetKvstore(data_);
     }
 
     absl::Status BindContext(const Context& context) override {

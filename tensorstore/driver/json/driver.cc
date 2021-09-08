@@ -224,6 +224,12 @@ class JsonDriver
     } else if (options.recheck_cached_data.specified()) {
       spec.data_staleness = StalenessBound(options.recheck_cached_metadata);
     }
+    if (options.kvstore.valid()) {
+      if (spec.store.valid()) {
+        return absl::InvalidArgumentError("\"kvstore\" is already specified");
+      }
+      spec.store = std::move(options.kvstore);
+    }
     return ValidateSchema(options);
   }
 
@@ -236,6 +242,12 @@ class JsonDriver
     layout.Set(RankConstraint{0}).IgnoreError();
     return layout;
   }
+
+  static kvstore::Spec SpecGetKvstore(const SpecData& spec) {
+    return spec.store;
+  }
+
+  KvStore GetKvstore() override;
 
   Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override {
     ChunkLayout layout;
@@ -277,6 +289,9 @@ Future<internal::Driver::Handle> JsonDriver::Open(
     ReadWriteMode read_write_mode) {
   if (read_write_mode == ReadWriteMode::dynamic) {
     read_write_mode = ReadWriteMode::read_write;
+  }
+  if (!spec->store.valid()) {
+    return absl::InvalidArgumentError("\"kvstore\" must be specified");
   }
   std::string cache_identifier;
   auto request_time = absl::Now();
@@ -325,6 +340,12 @@ Result<IndexTransform<>> JsonDriver::GetBoundSpecData(
   spec.schema.Set(RankConstraint{0}).IgnoreError();
   spec.schema.Set(dtype_v<json_t>).IgnoreError();
   return transform;
+}
+
+KvStore JsonDriver::GetKvstore() {
+  auto& cache = GetOwningCache(*cache_entry_);
+  return KvStore(kvstore::DriverPtr(cache.kvstore_driver()),
+                 std::string(cache_entry_->key()));
 }
 
 /// TensorStore Driver ReadChunk implementation for the case of a

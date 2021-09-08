@@ -56,6 +56,11 @@ Result<DimensionUnitsVector> Spec::dimension_units() const {
   return internal::GetEffectiveDimensionUnits(impl_);
 }
 
+kvstore::Spec Spec::kvstore() const {
+  if (!impl_.driver_spec) return {};
+  return impl_.driver_spec->GetKvstore();
+}
+
 ContextBindingState Spec::context_binding_state() const {
   return impl_.context_binding_state();
 }

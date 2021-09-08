@@ -100,6 +100,8 @@ Future<TensorStore<Element, Rank, Mode>> Open(
 ///   staleness bounds, overriding the corresponding bound or default from
 ///   `spec`.
 ///
+/// - kvstore::Spec: specifies the underlying storage, if applicable.
+///
 /// For option types other than `ReadWriteMode` and `OpenMode` (for which
 /// multiple modes are ORed together), if the same option type is specified more
 /// than once, the later value takes precedence; however, for the sake of

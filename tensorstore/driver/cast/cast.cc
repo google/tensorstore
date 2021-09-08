@@ -109,6 +109,10 @@ class CastDriver
     return internal::GetEffectiveDimensionUnits(spec.base);
   }
 
+  static kvstore::Spec SpecGetKvstore(const SpecData& spec) {
+    return spec.base.driver_spec->GetKvstore();
+  }
+
   static Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
       internal::RegisteredDriverOpener<SpecData> spec,
@@ -170,6 +174,8 @@ class CastDriver
   Result<DimensionUnitsVector> GetDimensionUnits() override {
     return base_driver_->GetDimensionUnits();
   }
+
+  KvStore GetKvstore() override { return base_driver_->GetKvstore(); }
 
   explicit CastDriver(Driver::Ptr base, DataType target_dtype,
                       DataTypeConversionLookupResult input_conversion,
