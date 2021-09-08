@@ -151,3 +151,9 @@ def test_schema():
           }
       },
   }
+
+
+def test_schema_pickle():
+  s = ts.Schema(dtype=ts.int32, fill_value=42)
+  assert s.dtype == ts.int32
+  assert pickle.loads(pickle.dumps(s)) == s

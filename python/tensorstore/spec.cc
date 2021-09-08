@@ -1006,6 +1006,7 @@ Group:
 }
 
 void DefineSchemaAttributes(py::class_<Schema>& cls) {
+  using Self = Schema;
   cls.def(py::init([](::nlohmann::json json) {
             return ValueOrThrow(Schema::FromJson(std::move(json)));
           }),
@@ -1088,14 +1089,14 @@ Group:
 )";
       cls.def(
           "update",
-          [](Schema& self, KeywordArgument<decltype(param_def)>... kwarg) {
+          [](Self& self, KeywordArgument<decltype(param_def)>... kwarg) {
             ApplyKeywordArguments<decltype(param_def)...>(self, kwarg...);
           },
           doc.c_str(), py::kw_only(), MakeKeywordArgumentPyArg(param_def)...);
     }
   });
 
-  cls.def_property_readonly("rank", GetOptionalRank<const Schema&>,
+  cls.def_property_readonly("rank", GetOptionalRank<const Self&>,
                             R"(
 Rank of the schema, or `None` if unspecified.
 
@@ -1112,7 +1113,7 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly("ndim", GetOptionalRank<const Schema&>,
+  cls.def_property_readonly("ndim", GetOptionalRank<const Self&>,
                             R"(
 Alias for :py:obj:`.rank`.
 
@@ -1127,8 +1128,31 @@ Group:
 )");
 
   cls.def_property_readonly(
+      "dtype",
+      [](const Self& self) -> std::optional<DataType> {
+        if (self.dtype().valid()) return self.dtype();
+        return std::nullopt;
+      },
+      R"(
+Data type, or :python:`None` if unspecified.
+
+Example:
+
+  >>> schema = ts.Schema(rank=3)
+  >>> print(spec.dtype)
+  None
+
+  >>> spec = ts.Schema(dtype=ts.uint8, rank=3)
+  >>> spec.dtype
+  dtype("uint8")
+
+Group:
+  Accessors
+)");
+
+  cls.def_property_readonly(
       "domain",
-      [](const Schema& self) -> std::optional<IndexDomain<>> {
+      [](const Self& self) -> std::optional<IndexDomain<>> {
         auto domain = self.domain();
         if (!domain.valid()) return std::nullopt;
         return domain;
@@ -1152,7 +1176,7 @@ Group:
 
   cls.def_property_readonly(
       "chunk_layout",
-      [](const Schema& self) -> ChunkLayout { return self.chunk_layout(); },
+      [](const Self& self) -> ChunkLayout { return self.chunk_layout(); },
       R"(
 Chunk layout constraints specified by the schema.
 
@@ -1176,7 +1200,7 @@ Group:
 
   cls.def_property_readonly(
       "codec",
-      [](const Schema& self)
+      [](const Self& self)
           -> std::optional<internal::IntrusivePtr<const CodecSpec>> {
         auto codec = self.codec();
         if (!codec.valid()) return std::nullopt;
@@ -1204,7 +1228,7 @@ Group:
 
   cls.def_property_readonly(
       "fill_value",
-      [](const Schema& self) -> std::optional<SharedArray<const void>> {
+      [](const Self& self) -> std::optional<SharedArray<const void>> {
         auto fill_value = self.fill_value();
         if (!fill_value.valid()) return std::nullopt;
         return SharedArray<const void>(
@@ -1228,7 +1252,7 @@ Group:
 
   cls.def_property_readonly(
       "dimension_units",
-      [](const Schema& self)
+      [](const Self& self)
           -> std::optional<HomogeneousTuple<std::optional<Unit>>> {
         return internal_python::GetDimensionUnits(self.rank(),
                                                   self.dimension_units());
@@ -1272,7 +1296,7 @@ Group:
 
   cls.def(
       "to_json",
-      [](const Schema& self, bool include_defaults) {
+      [](const Self& self, bool include_defaults) {
         return ValueOrThrow(self.ToJson(IncludeDefaults{include_defaults}));
       },
       R"(
@@ -1294,7 +1318,7 @@ Group:
       py::arg("include_defaults") = false);
 
   cls.def(
-      "copy", [](const Schema& self) { return self; }, R"(
+      "copy", [](const Self& self) { return self; }, R"(
 Returns a copy of the schema.
 
 Example:
@@ -1312,15 +1336,15 @@ Group:
   Accessors
 )");
 
-  cls.def("__copy__", [](const Schema& self) { return self; });
+  cls.def("__copy__", [](const Self& self) { return self; });
 
   cls.def(
-      "__deepcopy__", [](const Schema& self, py::dict memo) { return self; },
+      "__deepcopy__", [](const Self& self, py::dict memo) { return self; },
       py::arg("memo"));
 
   cls.def(
       "__repr__",
-      [](const Schema& self) {
+      [](const Self& self) {
         return internal_python::PrettyPrintJsonAsPythonRepr(
             self.ToJson(IncludeDefaults{false}), "Schema(", ")");
       },
@@ -1609,14 +1633,40 @@ See also:
 )"},
       },
       /*get_transform=*/
-      [](const Schema& self) {
+      [](const Self& self) {
         return ValueOrThrow(self.GetTransformForIndexingOperation());
       },
       /*apply_transform=*/
-      [](Schema self, IndexTransform<> new_transform) {
+      [](Self self, IndexTransform<> new_transform) {
         return ValueOrThrow(
             ApplyIndexTransform(std::move(new_transform), std::move(self)));
       });
+
+  cls.def(
+      "__eq__",
+      [](const Self& self, const Self& other) { return self == other; },
+      py::arg("other"),
+      R"(
+Compares with another `Schema` for equality based on the :json:schema:`JSON representation<Schema>`.
+
+The comparison is based on the JSON representation.
+
+Example:
+
+  >>> schema = ts.Schema(dtype=ts.int32, rank=3)
+  >>> assert schema == schema
+  >>> a, b = spec.copy(), spec.copy()
+  >>> a.update(fill_value=42)
+  >>> assert a == a
+  >>> assert a != b
+
+)");
+
+  cls.def(
+      py::pickle([](const Self& self) { return ValueOrThrow(self.ToJson()); },
+                 [](::nlohmann::json json) -> Self {
+                   return ValueOrThrow(Self::FromJson(std::move(json)));
+                 }));
 }
 
 using ClsCodecSpec = py::class_<CodecSpec, internal::IntrusivePtr<CodecSpec>>;
