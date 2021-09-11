@@ -33,7 +33,6 @@ tensorstore_cc_library(
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:dimension_units",
         "//tensorstore/index_space:index_transform",
-        "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal:json",

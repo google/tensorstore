@@ -27,7 +27,7 @@ tensorstore_cc_test(
     deps = [
         ":dim_expression",
         ":dim_expression_testutil",
-        ":index_transform_builder",
+        ":index_transform",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -54,7 +54,6 @@ tensorstore_cc_test(
     deps = [
         ":alignment",
         ":index_transform",
-        ":index_transform_builder",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
@@ -67,7 +66,6 @@ tensorstore_cc_test(
     srcs = ["compose_transforms_test.cc"],
     deps = [
         ":index_transform",
-        ":index_transform_builder",
         "//tensorstore:array",
         "//tensorstore/util:bit_vec",
         "//tensorstore/util:status",
@@ -81,7 +79,7 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["deep_copy_transform_rep_ptr_test.cc"],
     deps = [
-        ":internal/deep_copy_transform_rep_ptr",
+        ":index_transform",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -108,7 +106,7 @@ tensorstore_cc_test(
     deps = [
         ":dim_expression",
         ":dim_expression_testutil",
-        ":index_transform_builder",
+        ":index_transform",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -243,7 +241,7 @@ tensorstore_cc_test(
     deps = [
         ":dim_expression",
         ":dim_expression_testutil",
-        ":index_transform_builder",
+        ":index_transform",
         "//tensorstore/util:status",
         "@com_google_googletest//:gtest_main",
     ],
@@ -255,7 +253,6 @@ tensorstore_cc_test(
     srcs = ["get_output_range_test.cc"],
     deps = [
         ":index_transform",
-        ":index_transform_builder",
         "//tensorstore:array",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
@@ -269,7 +266,6 @@ tensorstore_cc_test(
     srcs = ["identity_transform_test.cc"],
     deps = [
         ":index_transform",
-        ":index_transform_builder",
         "//tensorstore:array",
         "//tensorstore:box",
         "//tensorstore/util:span",
@@ -302,7 +298,7 @@ tensorstore_cc_test(
     deps = [
         ":dim_expression",
         ":dim_expression_testutil",
-        ":index_transform_builder",
+        ":index_transform",
         "//tensorstore/util:status",
         "@com_google_googletest//:gtest_main",
     ],
@@ -312,6 +308,7 @@ tensorstore_cc_library(
     name = "index_transform",
     srcs = [
         "index_transform.cc",
+        "index_transform_builder.cc",
         "internal/compose_transforms.cc",
         "internal/identity_transform.cc",
         "internal/inverse_transform.cc",
@@ -319,10 +316,14 @@ tensorstore_cc_library(
         "internal/propagate_bounds.cc",
         "internal/transform_array.cc",
         "internal/transform_rep.cc",
+        "json.cc",
     ],
     hdrs = [
+        "index_domain_builder.h",
         "index_transform.h",
+        "index_transform_builder.h",
         "internal/compose_transforms.h",
+        "internal/deep_copy_transform_rep_ptr.h",
         "internal/identity_transform.h",
         "internal/inverse_transform.h",
         "internal/iterate_impl.h",
@@ -330,6 +331,7 @@ tensorstore_cc_library(
         "internal/transform_array.h",
         "internal/transform_rep.h",
         "internal/transform_rep_impl.h",
+        "json.h",
         "output_index_map.h",
     ],
     visibility = ["//visibility:public"],
@@ -341,14 +343,21 @@ tensorstore_cc_library(
         "//tensorstore:box",
         "//tensorstore:index",
         "//tensorstore:index_interval",
+        "//tensorstore:json_serialization_options",
         "//tensorstore:rank",
         "//tensorstore:strided_layout",
+        "//tensorstore/internal:dimension_indexed_json_binder",
+        "//tensorstore/internal:dimension_labels",
         "//tensorstore/internal:elementwise_function",
         "//tensorstore/internal:gdb_scripting",
         "//tensorstore/internal:integer_overflow",
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:json",
+        "//tensorstore/internal:json_array",
+        "//tensorstore/internal:logging",
         "//tensorstore/internal:memory",
         "//tensorstore/internal:string_like",
+        "//tensorstore/internal:type_traits",
         "//tensorstore/util:bit_span",
         "//tensorstore/util:bit_vec",
         "//tensorstore/util:constant_bit_vector",
@@ -363,27 +372,11 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/container:fixed_array",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "index_transform_builder",
-    srcs = ["index_transform_builder.cc"],
-    hdrs = [
-        "index_domain_builder.h",
-        "index_transform_builder.h",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":index_transform",
-        ":internal/deep_copy_transform_rep_ptr",
-        "//tensorstore:index",
-        "//tensorstore:rank",
-        "//tensorstore/internal:integer_overflow",
-        "//tensorstore/util:bit_span",
-        "//tensorstore/util:span",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -392,7 +385,7 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["index_transform_builder_test.cc"],
     deps = [
-        ":index_transform_builder",
+        ":index_transform",
         "//tensorstore:array",
         "//tensorstore:box",
         "//tensorstore/util:span",
@@ -408,7 +401,6 @@ tensorstore_cc_test(
     srcs = ["index_transform_test.cc"],
     deps = [
         ":index_transform",
-        ":index_transform_builder",
         "//tensorstore:array",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
@@ -424,7 +416,6 @@ tensorstore_cc_library(
     deps = [
         ":dim_expression",
         ":index_transform",
-        ":index_transform_builder",
         "//tensorstore/internal:logging",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/random",
@@ -460,15 +451,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "internal/deep_copy_transform_rep_ptr",
-    hdrs = ["internal/deep_copy_transform_rep_ptr.h"],
-    deps = [
-        ":index_transform",
-        "@com_google_absl//absl/utility",
-    ],
-)
-
-tensorstore_cc_library(
     name = "interval_slice_op",
     srcs = ["internal/interval_slice_op.cc"],
     hdrs = ["internal/interval_slice_op.h"],
@@ -493,7 +475,7 @@ tensorstore_cc_test(
     deps = [
         ":dim_expression",
         ":dim_expression_testutil",
-        ":index_transform_builder",
+        ":index_transform",
         "//tensorstore:box",
         "//tensorstore/util:status",
         "@com_google_googletest//:gtest_main",
@@ -506,7 +488,6 @@ tensorstore_cc_test(
     srcs = ["inverse_transform_test.cc"],
     deps = [
         ":index_transform",
-        ":index_transform_builder",
         ":index_transform_testutil",
         "//tensorstore/internal:test_util",
         "//tensorstore/util:status",
@@ -550,7 +531,6 @@ tensorstore_cc_test(
     deps = [
         ":dim_expression",
         ":index_transform",
-        ":index_transform_builder",
         ":transformed_array",
         "//tensorstore:index_interval",
         "//tensorstore/util:span",
@@ -561,41 +541,13 @@ tensorstore_cc_test(
     ],
 )
 
-tensorstore_cc_library(
-    name = "json",
-    srcs = ["json.cc"],
-    hdrs = ["json.h"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":index_transform",
-        ":index_transform_builder",
-        "//tensorstore:index",
-        "//tensorstore:json_serialization_options",
-        "//tensorstore:rank",
-        "//tensorstore/internal:dimension_indexed_json_binder",
-        "//tensorstore/internal:json",
-        "//tensorstore/internal:json_array",
-        "//tensorstore/internal:logging",
-        "//tensorstore/internal:type_traits",
-        "//tensorstore/util:quote_string",
-        "//tensorstore/util:result",
-        "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/container:fixed_array",
-        "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/container:inlined_vector",
-        "@com_google_absl//absl/status",
-    ],
-)
-
 tensorstore_cc_test(
     name = "json_test",
     size = "small",
     srcs = ["json_test.cc"],
     deps = [
         ":dim_expression",
-        ":index_transform_builder",
-        ":json",
+        ":index_transform",
         "//tensorstore/internal:json",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/util:result",
@@ -613,6 +565,7 @@ tensorstore_cc_library(
         ":dimension_index_buffer",
         ":index_transform",
         "//tensorstore:rank",
+        "//tensorstore/internal:dimension_labels",
         "//tensorstore/internal:meta",
         "//tensorstore/internal:string_like",
         "//tensorstore/util:result",
@@ -627,7 +580,7 @@ tensorstore_cc_test(
     deps = [
         ":dim_expression",
         ":dim_expression_testutil",
-        ":index_transform_builder",
+        ":index_transform",
         "//tensorstore/util:status",
         "@com_google_googletest//:gtest_main",
     ],
@@ -654,7 +607,7 @@ tensorstore_cc_test(
     deps = [
         ":dim_expression",
         ":dim_expression_testutil",
-        ":index_transform_builder",
+        ":index_transform",
         "//tensorstore:array",
         "//tensorstore:index",
         "@com_google_googletest//:gtest_main",
@@ -668,7 +621,7 @@ tensorstore_cc_test(
     deps = [
         ":dim_expression",
         ":dim_expression_testutil",
-        ":index_transform_builder",
+        ":index_transform",
         "//tensorstore/util:status",
         "@com_google_googletest//:gtest_main",
     ],
@@ -683,7 +636,6 @@ tensorstore_cc_library(
         ":dimension_index_buffer",
         ":dimension_selection",
         ":index_transform",
-        ":index_transform_builder",
         ":index_vector_or_scalar",
         "//tensorstore:array",
         "//tensorstore:index",
@@ -702,7 +654,6 @@ tensorstore_cc_test(
     srcs = ["output_index_map_test.cc"],
     deps = [
         ":index_transform",
-        ":index_transform_builder",
         "//tensorstore:array",
         "//tensorstore:strided_layout",
         "//tensorstore/util:str_cat",
@@ -723,7 +674,6 @@ tensorstore_cc_test(
     srcs = ["propagate_bounds_test.cc"],
     deps = [
         ":index_transform",
-        ":index_transform_builder",
         "//tensorstore/util:bit_vec",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
@@ -737,7 +687,6 @@ tensorstore_cc_test(
     srcs = ["propagate_input_domain_resize_to_output_test.cc"],
     deps = [
         ":index_transform",
-        ":index_transform_builder",
         "//tensorstore:array",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
@@ -768,7 +717,7 @@ tensorstore_cc_test(
     deps = [
         ":dim_expression",
         ":dim_expression_testutil",
-        ":index_transform_builder",
+        ":index_transform",
         "//tensorstore/util:status",
         "@com_google_googletest//:gtest_main",
     ],
@@ -780,7 +729,6 @@ tensorstore_cc_test(
     srcs = ["slice_by_box_test.cc"],
     deps = [
         ":index_transform",
-        ":index_transform_builder",
         "//tensorstore:array",
         "//tensorstore:box",
         "//tensorstore:index",
@@ -796,7 +744,6 @@ tensorstore_cc_test(
     srcs = ["slice_by_index_domain_test.cc"],
     deps = [
         ":index_transform",
-        ":index_transform_builder",
         "//tensorstore:array",
         "//tensorstore:box",
         "//tensorstore:index",
@@ -829,7 +776,6 @@ tensorstore_cc_test(
     srcs = ["transform_array_test.cc"],
     deps = [
         ":index_transform",
-        ":index_transform_builder",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
@@ -842,7 +788,6 @@ tensorstore_cc_test(
     srcs = ["transform_rep_test.cc"],
     deps = [
         ":index_transform",
-        ":index_transform_builder",
         "//tensorstore/internal:concurrent_testutil",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
@@ -879,7 +824,7 @@ tensorstore_cc_test(
     srcs = ["transformed_array_test.cc"],
     deps = [
         ":dim_expression",
-        ":index_transform_builder",
+        ":index_transform",
         ":transformed_array",
         "//tensorstore:array",
         "//tensorstore:data_type",
@@ -913,7 +858,7 @@ tensorstore_cc_test(
     deps = [
         ":dim_expression",
         ":dim_expression_testutil",
-        ":index_transform_builder",
+        ":index_transform",
         "//tensorstore/util:status",
         "@com_google_googletest//:gtest_main",
     ],
@@ -941,7 +886,7 @@ tensorstore_cc_test(
     deps = [
         ":dim_expression",
         ":dim_expression_testutil",
-        ":index_transform_builder",
+        ":index_transform",
         "//tensorstore/util:status",
         "@com_google_googletest//:gtest_main",
     ],
@@ -954,7 +899,7 @@ tensorstore_cc_test(
     deps = [
         ":dim_expression",
         ":dim_expression_testutil",
-        ":index_transform_builder",
+        ":index_transform",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "@com_google_googletest//:gtest_main",
@@ -983,7 +928,6 @@ tensorstore_cc_test(
     srcs = ["transform_broadcastable_array_test.cc"],
     deps = [
         ":index_transform",
-        ":index_transform_builder",
         ":index_transform_testutil",
         ":transform_broadcastable_array",
         "//tensorstore:array",
@@ -1015,7 +959,6 @@ tensorstore_cc_test(
     deps = [
         ":dimension_units",
         ":index_transform",
-        ":index_transform_builder",
         ":index_transform_testutil",
         "//tensorstore/internal:test_util",
         "//tensorstore/util:status",

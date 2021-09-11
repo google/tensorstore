@@ -547,13 +547,6 @@ bool IsDomainExplicitlyEmpty(TransformRep* ptr);
 /// ensure the invariant is satisfied.
 void ReplaceAllIndexArrayMapsWithConstantMaps(TransformRep* ptr);
 
-/// Validates that non-empty labels are unique.
-///
-/// \param labels The sequence of labels to validate.
-/// \returns `Status()` if valid.
-/// \error `absl::StatusCode::kInvalidArgument` if there is a non-unique label.
-Status ValidateLabelsAreUnique(span<const std::string> labels);
-
 /// Checks if the domains of two transforms are equal.
 ///
 /// A null pointer is considered equal only to a null pointer.

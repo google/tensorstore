@@ -54,7 +54,6 @@ using tensorstore::internal_index_space::ReplaceZeroRankIndexArrayIndexMap;
 using tensorstore::internal_index_space::TransformAccess;
 using tensorstore::internal_index_space::TransformRep;
 using tensorstore::internal_index_space::ValidateAndIntersectBounds;
-using tensorstore::internal_index_space::ValidateLabelsAreUnique;
 
 TEST(OutputIndexMapTest, Basic) {
   OutputIndexMap map;
@@ -440,25 +439,6 @@ TEST(ValidateAndIntersectBoundsTest, Failure) {
           absl::StatusCode::kOutOfRange,
           ".*Propagated bounds are incompatible with existing bounds in "
           "dimension 1 bounds .* vs. propagated bounds.*"));
-}
-
-TEST(ValidateLabelsAreUniqueTest, Basic) {
-  EXPECT_EQ(absl::OkStatus(),
-            ValidateLabelsAreUnique(std::vector<std::string>{"a", "b", "c"}));
-  EXPECT_EQ(absl::OkStatus(),
-            ValidateLabelsAreUnique(std::vector<std::string>{"", "", ""}));
-  EXPECT_EQ(absl::OkStatus(), ValidateLabelsAreUnique(std::vector<std::string>{
-                                  "a", "b", "", "d", ""}));
-  EXPECT_EQ(absl::OkStatus(),
-            ValidateLabelsAreUnique(std::vector<std::string>{}));
-  EXPECT_THAT(
-      ValidateLabelsAreUnique(std::vector<std::string>{"a", "b", "c", "a"}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Dimension label.* \"a\" not unique"));
-  EXPECT_THAT(
-      ValidateLabelsAreUnique(std::vector<std::string>{"a", "b", "c", "b"}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Dimension label.* \"b\" not unique"));
 }
 
 }  // namespace

@@ -17,7 +17,7 @@
 
 #include <algorithm>
 
-#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/internal/dimension_labels.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/status.h"
@@ -137,7 +137,7 @@ constexpr auto DimensionLabelVector(DimensionIndex* rank) {
       }
       TENSORSTORE_RETURN_IF_ERROR(
           DimensionIndexedVector(rank)(is_loading, options, obj, j));
-      return internal_index_space::ValidateLabelsAreUnique(*obj);
+      return internal::ValidateDimensionLabelsAreUnique(*obj);
     } else {
       if (std::all_of(obj->begin(), obj->end(),
                       [](const auto& v) { return v.empty(); })) {

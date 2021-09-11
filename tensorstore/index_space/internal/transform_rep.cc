@@ -21,6 +21,7 @@
 #include "absl/container/fixed_array.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
+#include "tensorstore/internal/dimension_labels.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/util/division.h"
@@ -516,29 +517,6 @@ TransformRep::Ptr<> GetSubDomain(TransformRep* rep,
   return new_rep;
 }
 
-Status ValidateLabelsAreUnique(span<const std::string> labels) {
-  // TODO(jbms): Consider using a hash set instead.
-  absl::FixedArray<std::string_view, internal::kNumInlinedDims> sorted_labels(
-      labels.begin(), labels.end());
-  std::sort(sorted_labels.begin(), sorted_labels.end());
-  size_t i;
-  for (i = 1; i < sorted_labels.size() && sorted_labels[i].empty(); ++i)
-    continue;
-  std::string error;
-  for (; i < sorted_labels.size(); ++i) {
-    std::string_view label = sorted_labels[i];
-    if (label == sorted_labels[i - 1]) {
-      StrAppend(&error, error.empty() ? "" : ", ", QuoteString(label));
-    }
-  }
-  if (!error.empty()) {
-    return absl::InvalidArgumentError(
-        StrCat("Dimension label(s) ", error, " not unique"));
-  }
-
-  return absl::OkStatus();
-}
-
 bool IsUnlabeled(span<const std::string> labels) {
   return std::all_of(labels.begin(), labels.end(),
                      [](std::string_view s) { return s.empty(); });
@@ -565,8 +543,8 @@ void DebugCheckInvariants(TransformRep* rep) {
   assert(output_rank <= rep->output_rank_capacity);
   assert(input_rank >= 0);
   assert(output_rank >= 0);
-  TENSORSTORE_CHECK_OK(
-      ValidateLabelsAreUnique(rep->input_labels().first(input_rank)));
+  TENSORSTORE_CHECK_OK(internal::ValidateDimensionLabelsAreUnique(
+      rep->input_labels().first(input_rank)));
   auto input_origin = rep->input_origin().data();
   auto input_shape = rep->input_shape().data();
   for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {

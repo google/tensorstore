@@ -14,6 +14,8 @@
 
 #include "tensorstore/index_space/internal/label_op.h"
 
+#include "tensorstore/internal/dimension_labels.h"
+
 namespace tensorstore {
 namespace internal_index_space {
 
@@ -35,7 +37,8 @@ Result<IndexTransform<>> ApplyLabel(IndexTransform<> transform,
     std::string_view label = labels[i];
     input_labels[input_dim].assign(label.begin(), label.end());
   }
-  TENSORSTORE_RETURN_IF_ERROR(ValidateLabelsAreUnique(input_labels));
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::ValidateDimensionLabelsAreUnique(input_labels));
   internal_index_space::DebugCheckInvariants(rep.get());
   return TransformAccess::Make<IndexTransform<>>(std::move(rep));
 }

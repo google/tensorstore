@@ -16,6 +16,7 @@
 
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
+#include "tensorstore/internal/dimension_labels.h"
 #include "tensorstore/internal/integer_overflow.h"
 
 namespace tensorstore {
@@ -69,8 +70,8 @@ Status SetOutputIndexMapsAndValidateTransformRep(
                                BuilderFlags::kDefault);
   }
 
-  TENSORSTORE_RETURN_IF_ERROR(
-      ValidateLabelsAreUnique(data->input_labels().first(input_rank)));
+  TENSORSTORE_RETURN_IF_ERROR(internal::ValidateDimensionLabelsAreUnique(
+      data->input_labels().first(input_rank)));
 
   span<OutputIndexMap> maps = data->output_index_maps().first(output_rank);
 

@@ -111,7 +111,6 @@ tensorstore_cc_binary(
         "//tensorstore/driver/neuroglancer_precomputed",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
-        "//tensorstore/index_space:json",
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/internal:init_tensorstore",
         "//tensorstore/internal/compression:jpeg",

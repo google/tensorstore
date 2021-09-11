@@ -488,7 +488,6 @@ tensorstore_cc_test(
         "//tensorstore:index",
         "//tensorstore:index_interval",
         "//tensorstore/index_space:index_transform",
-        "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
@@ -509,7 +508,6 @@ tensorstore_cc_test(
         "//tensorstore:index",
         "//tensorstore:index_interval",
         "//tensorstore/index_space:index_transform",
-        "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
@@ -981,7 +979,6 @@ tensorstore_cc_test(
         "//tensorstore:strided_layout",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
-        "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/util:byte_strided_pointer",
         "//tensorstore/util:result",
@@ -1468,7 +1465,6 @@ tensorstore_cc_test(
         "//tensorstore:strided_layout",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
-        "//tensorstore/index_space:index_transform_builder",
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/util:iterate",
         "//tensorstore/util:result",
@@ -1882,10 +1878,36 @@ tensorstore_cc_library(
     name = "dimension_indexed_json_binder",
     hdrs = ["dimension_indexed_json_binder.h"],
     deps = [
+        ":dimension_labels",
         ":json",
         "//tensorstore:rank",
-        "//tensorstore/index_space:index_transform",
         "//tensorstore/util:status",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "dimension_labels",
+    srcs = ["dimension_labels.cc"],
+    hdrs = ["dimension_labels.h"],
+    deps = [
+        "//tensorstore/util:iterate",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:span",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/container:fixed_array",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "dimension_labels_test",
+    size = "small",
+    srcs = ["dimension_labels_test.cc"],
+    deps = [
+        ":dimension_labels",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
