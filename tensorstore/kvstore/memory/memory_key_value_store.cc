@@ -134,13 +134,15 @@ class MemoryDriver : public internal_kvstore::RegisteredDriver<MemoryDriver> {
 
     bool atomic = true;
 
-    /// Make this type compatible with `ContextBindingTraits`.
-    constexpr static auto ApplyMembers = [](auto& x, auto f) {
-      // `x` is a reference to a `SpecT` object.  This function must invoke `f`
-      // with a reference to each member of `x`.
+    /// Make this type compatible with `tensorstore::ApplyMembers`.
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      // `x` is a reference to a `SpecData` object.  This function must invoke
+      // `f` with a reference to each member of `x`.
       return f(x.memory_key_value_store, x.atomic);
     };
   };
+
+  static_assert(SupportsApplyMembers<SpecData>);
 
   /// Must specify a JSON binder for the `SpecData` type.
   constexpr static auto json_binder = jb::Object(
@@ -149,14 +151,6 @@ class MemoryDriver : public internal_kvstore::RegisteredDriver<MemoryDriver> {
       jb::Member("atomic",
                  jb::Projection(&SpecData::atomic,
                                 jb::DefaultValue([](auto* y) { *y = true; }))));
-
-  /// Encodes the bound `SpecData` as a cache key.  Typically this is defined by
-  /// calling `internal::EncodeCacheKey` with the members of `BoundSpecData`
-  /// that are relevant to caching.  Members that only affect creation but not
-  /// opening should normally be skipped.
-  static void EncodeCacheKey(std::string* out, const SpecData& spec) {
-    internal::EncodeCacheKey(out, spec.memory_key_value_store, spec.atomic);
-  }
 
   Future<ReadResult> Read(Key key, ReadOptions options) override;
 

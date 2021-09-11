@@ -93,6 +93,7 @@
 #include <type_traits>
 
 #include "tensorstore/context.h"
+#include "tensorstore/util/apply_members/apply_members.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
@@ -135,9 +136,10 @@ struct ContextBindingTraits<Context::Resource<Provider>> {
 ///
 /// Refer to example above.
 template <class Spec>
-struct ContextBindingTraits<Spec, std::void_t<decltype(Spec::ApplyMembers)>> {
+struct ContextBindingTraits<Spec,
+                            std::enable_if_t<SupportsApplyMembers<Spec>>> {
   static Status Bind(Spec& spec, const Context& context) {
-    return Spec::ApplyMembers(spec, [&context](auto&... spec_member) {
+    return ApplyMembers<Spec>::Apply(spec, [&context](auto&&... spec_member) {
       Status status;
       (void)((status = ContextBindingTraits<
                   remove_cvref_t<decltype(spec_member)>>::Bind(spec_member,
@@ -149,7 +151,7 @@ struct ContextBindingTraits<Spec, std::void_t<decltype(Spec::ApplyMembers)>> {
   }
 
   static void Unbind(Spec& spec, const ContextSpecBuilder& builder) {
-    Spec::ApplyMembers(spec, [&builder](auto&... spec_member) {
+    ApplyMembers<Spec>::Apply(spec, [&builder](auto&&... spec_member) {
       (ContextBindingTraits<remove_cvref_t<decltype(spec_member)>>::Unbind(
            spec_member, builder),
        ...);
@@ -157,7 +159,7 @@ struct ContextBindingTraits<Spec, std::void_t<decltype(Spec::ApplyMembers)>> {
   }
 
   static void Strip(Spec& spec) {
-    Spec::ApplyMembers(spec, [](auto&... spec_member) {
+    ApplyMembers<Spec>::Apply(spec, [](auto&&... spec_member) {
       (ContextBindingTraits<remove_cvref_t<decltype(spec_member)>>::Strip(
            spec_member),
        ...);

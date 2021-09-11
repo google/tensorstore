@@ -176,6 +176,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore:context",
         "//tensorstore/util:status",
+        "//tensorstore/util/apply_members",
     ],
 )
 

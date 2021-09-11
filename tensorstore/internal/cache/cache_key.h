@@ -21,8 +21,27 @@
 #include <type_traits>
 #include <typeinfo>
 
+#include "tensorstore/util/apply_members/apply_members.h"
+
 namespace tensorstore {
 namespace internal {
+
+/// Wrapper for use with `ApplyMembers` that indicates a value that should not
+/// be included in the cache key.
+template <typename T>
+struct CacheKeyExcludes {
+  T value;
+
+  /// When not used with `EncodeCacheKey`, `CacheKeyExcludes` just passes
+  /// through the wrapped value.
+  template <typename X, typename F>
+  static constexpr auto ApplyMembers(X&& x, F f) {
+    return f(x.value);
+  }
+};
+
+template <typename T>
+CacheKeyExcludes(T&& x) -> CacheKeyExcludes<T>;
 
 template <typename... U>
 void EncodeCacheKey(std::string* out, const U&... u);
@@ -44,12 +63,25 @@ inline void EncodeCacheKeyAdl(std::string* out, const std::type_info& t) {
 
 template <typename T>
 void EncodeCacheKeyAdl(std::string* out, const std::optional<T>& v) {
-  EncodeCacheKey(out, v.has_value());
-  if (v) EncodeCacheKey(out, *v);
+  internal::EncodeCacheKey(out, v.has_value());
+  if (v) internal::EncodeCacheKey(out, *v);
+}
+
+template <typename T>
+void EncodeCacheKeyAdl(std::string* out, const CacheKeyExcludes<T>& v) {
+  // do nothing
+}
+
+template <typename T>
+std::enable_if_t<SupportsApplyMembers<T>> EncodeCacheKeyAdl(std::string* out,
+                                                            const T& v) {
+  ApplyMembers<T>::Apply(
+      v, [&out](auto&&... x) { (EncodeCacheKeyAdl(out, x), ...); });
 }
 
 template <typename... U>
-void EncodeCacheKey(std::string* out, const U&... u) {
+ABSL_ATTRIBUTE_ALWAYS_INLINE void EncodeCacheKey(std::string* out,
+                                                 const U&... u) {
   (EncodeCacheKeyAdl(out, u), ...);
 }
 

@@ -69,21 +69,24 @@ DriverRegistry& GetDriverRegistry();
 /// - The `SpecData` class includes as members the parameters and resources
 ///   necessary to create/open the driver.
 ///
-///   It must define an `ApplyMembers` method for compatibility with
-///   `ContextBindingTraits` (refer to `tensorstore/internal/context_binding.h`
-///   for details).
+///   It must be compatible with `ContextBindingTraits`, serialization, and
+///   `EncodeCacheKey`.  While it is possible to individually define a
+///   `ContextBindingTraits` implementation, a `Serializer` specialization, and
+///   an `EncodeCacheKeyAdl` function, in most cases all three can be defined
+///   automatically simply by defining an `ApplyMembers` method.
 ///
 ///   Members of `SpecData` should be referenced in the `json_binder` and
-///   `EncodeCacheKey` implementation, as noted below.
+///   `ApplyMembers` implementation, as noted below.
 ///
 ///     struct SpecData {
 ///        // Example members:
 ///       int mem1;
 ///       Context::Resource<SomeResource> mem2;
+///       int open_option;
 ///
 ///       // For compatibility with `ContextBindingTraits`.
 ///       constexpr static auto ApplyMembers = [](auto& x, auto f) {
-///         return f(f.mem2);
+///         return f(f.mem1, f.mem2, internal::CacheKeyExcludes{open_option});
 ///       };
 ///     };
 ///
@@ -95,16 +98,12 @@ DriverRegistry& GetDriverRegistry();
 ///         jb::Member("mem1", jb::Projection(&SpecData::mem1)),
 ///         jb::Member("mem2", jb::Projection(&SpecData::mem2)));
 ///
-/// - The static `EncodeCacheKey` method encodes the `SpecData` representation
-///   as a cache key.  It will only be called after binding context resources.
-///   Typically this just calls `tensorstore::internal::EncodeCacheKey` with the
-///   members that are relevant to caching.  Members that only affect creation
-///   but not opening should normally be skipped.
-///
-///     static void EncodeCacheKey(std::string *out,
-///                                const SpecData& data) {
-///       tensorstore::internal::EncodeCacheKey(out, data.mem1, data.mem2);
-///     }
+/// - The cache key (as computed by `EncodeCacheKey`) must encode the `SpecData`
+///   representation as a cache key.  It will only be called after binding
+///   context resources.  When this is defined implicitly via `ApplyMembers`,
+///   the `internal::CacheKeyExcludes` wrapper may be used to indicate members
+///   that should be excluded from the cache key.  Members that only affect
+///   creation but not opening should normally be excluded.
 ///
 /// - The static `Open` method is called to initiate opening the driver.  This
 ///   is called by `kvstore::Open`.  Note that `KeyValueStoreOpenState` is
@@ -140,8 +139,7 @@ class RegisteredDriver : public Parent {
   /// because `Derived` is incomplete when this class template is instantiated.
   template <typename SpecData>
   static void EncodeCacheKeyImpl(std::string* out, const SpecData& data) {
-    internal::EncodeCacheKey(out, typeid(Derived));
-    Derived::EncodeCacheKey(out, data);
+    internal::EncodeCacheKey(out, typeid(Derived), data);
   }
 
  public:

@@ -750,10 +750,6 @@ class FileKeyValueStore
       jb::Object(jb::Member(internal::FileIoConcurrencyResource::id,
                             jb::Projection(&SpecData::file_io_concurrency)));
 
-  static void EncodeCacheKey(std::string* out, const SpecData& spec) {
-    internal::EncodeCacheKey(out, spec.file_io_concurrency);
-  }
-
   Future<ReadResult> Read(Key key, ReadOptions options) override {
     TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
     return MapFuture(executor(), ReadTask{std::move(key), std::move(options)});

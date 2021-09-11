@@ -203,6 +203,7 @@ tensorstore_cc_library(
 tensorstore_cc_library(
     name = "cache_key",
     hdrs = ["cache_key.h"],
+    deps = ["//tensorstore/util/apply_members"],
 )
 
 tensorstore_cc_library(
