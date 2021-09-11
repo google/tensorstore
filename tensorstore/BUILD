@@ -191,6 +191,7 @@ tensorstore_cc_library(
     deps = [
         ":json_serialization_options",
         "//tensorstore/internal:attributes",
+        "//tensorstore/internal:heterogeneous_container",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json",
         "//tensorstore/internal:logging",
@@ -202,7 +203,6 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
     ],

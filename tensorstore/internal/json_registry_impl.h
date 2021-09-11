@@ -22,9 +22,9 @@
 #include <typeindex>
 #include <typeinfo>
 
-#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
+#include "tensorstore/internal/heterogeneous_container.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/poly.h"
@@ -59,6 +59,8 @@ class JsonRegistryImpl {
 
     /// Object type.
     const std::type_info* type;
+
+    std::type_index type_index() const { return *type; }
 
     using Allocate = void (*)(void* obj);
 
@@ -121,40 +123,15 @@ class JsonRegistryImpl {
                                     ::nlohmann::json::object_t* j_obj) const;
 
  private:
-  struct EntryIdKey : public std::string_view {
-    EntryIdKey(const std::string& key) : std::string_view(key) {}
-    EntryIdKey(std::string_view key) : std::string_view(key) {}
-    EntryIdKey(const std::unique_ptr<Entry>& p) : std::string_view(p->id) {}
-  };
-  struct EntryIdHash : public absl::Hash<EntryIdKey> {
-    using is_transparent = void;
-  };
-  struct EntryIdEqualTo : public std::equal_to<EntryIdKey> {
-    using is_transparent = void;
-  };
-
-  struct EntryTypeKey : public std::type_index {
-    EntryTypeKey(std::type_index type) : std::type_index(type) {}
-    EntryTypeKey(const Entry* p) : std::type_index(*p->type) {}
-    template <typename H>
-    friend H AbslHashValue(H h, EntryTypeKey key) {
-      return H::combine(std::move(h), key.hash_code());
-    }
-  };
-  struct EntryTypeHash : public absl::Hash<EntryTypeKey> {
-    using is_transparent = void;
-  };
-  struct EntryTypeEqualTo : public std::equal_to<EntryTypeKey> {
-    using is_transparent = void;
-  };
-
   mutable absl::Mutex mutex_;
   // Allows lookup of entries by string identifier rather than pointer identity.
-  absl::flat_hash_set<std::unique_ptr<Entry>, EntryIdHash, EntryIdEqualTo>
+  internal::HeterogeneousHashSet<std::unique_ptr<Entry>, std::string_view,
+                                 &Entry::id>
       entries_ ABSL_GUARDED_BY(mutex_);
   // Allows lookup of entries by `std::type_index` rather than pointer identity.
-  absl::flat_hash_set<Entry*, EntryTypeHash, EntryTypeEqualTo> entries_by_type_
-      ABSL_GUARDED_BY(mutex_);
+  internal::HeterogeneousHashSet<const Entry*, std::type_index,
+                                 &Entry::type_index>
+      entries_by_type_ ABSL_GUARDED_BY(mutex_);
 };
 
 }  // namespace internal_json_registry

@@ -14,12 +14,11 @@
 
 #include "tensorstore/context.h"
 
-#include "absl/container/flat_hash_map.h"
-#include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_join.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/context_impl.h"
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/internal/heterogeneous_container.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/mutex.h"
@@ -109,24 +108,10 @@ ContextImpl::~ContextImpl() {
 
 namespace {
 struct ContextProviderRegistry {
-  struct ProviderKey : public std::string_view {
-    using Base = std::string_view;
-    ProviderKey(const std::unique_ptr<const ResourceProviderImplBase>& p)
-        : Base(p->id_) {}
-    ProviderKey(std::string_view s) : Base(s) {}
-  };
-
-  struct ProviderHash : public absl::Hash<ProviderKey> {
-    using is_transparent = void;
-  };
-
-  struct ProviderEqualTo : public std::equal_to<ProviderKey> {
-    using is_transparent = void;
-  };
-
   absl::Mutex mutex_;
-  absl::flat_hash_set<std::unique_ptr<const ResourceProviderImplBase>,
-                      ProviderHash, ProviderEqualTo>
+  internal::HeterogeneousHashSet<
+      std::unique_ptr<const ResourceProviderImplBase>, std::string_view,
+      &ResourceProviderImplBase::id_>
       providers_ ABSL_GUARDED_BY(mutex_);
 };
 

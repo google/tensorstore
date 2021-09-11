@@ -26,10 +26,10 @@
 #include <utility>
 
 #include "absl/base/call_once.h"
-#include "absl/container/flat_hash_set.h"
 #include "absl/functional/function_ref.h"
 #include "absl/hash/hash.h"
 #include "tensorstore/internal/cache/cache_pool_limits.h"
+#include "tensorstore/internal/heterogeneous_container.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
 
@@ -74,24 +74,6 @@ class CacheImpl {
   CacheImpl();
   virtual ~CacheImpl();
   using Entry = CacheEntryImpl;
-  /// Helper type to support heterogeneous lookup using either a
-  /// `CacheEntryImpl*` or an `std::string_view`.
-  class EntryKey : public std::string_view {
-    using Base = std::string_view;
-
-   public:
-    using Base::Base;
-    EntryKey(CacheEntryImpl* entry) : Base(entry->key_) {}
-    EntryKey(std::string_view key) : Base(key) {}
-  };
-
-  struct EntryKeyHash : public absl::Hash<EntryKey> {
-    using is_transparent = void;
-  };
-
-  struct EntryKeyEqualTo : public std::equal_to<EntryKey> {
-    using is_transparent = void;
-  };
 
   CachePoolImpl* pool_;
 
@@ -119,30 +101,21 @@ class CacheImpl {
 
   std::atomic<std::uint32_t> reference_count_;
 
-  absl::flat_hash_set<CacheEntryImpl*, EntryKeyHash, EntryKeyEqualTo> entries_;
+  internal::HeterogeneousHashSet<CacheEntryImpl*, std::string_view,
+                                 &CacheEntryImpl::key_>
+      entries_;
+
+  // Key by which a cache may be looked up in a `CachePool`.
+  using CacheKey = std::pair<std::type_index, std::string_view>;
+
+  CacheKey cache_key() const { return {*cache_type_, cache_identifier_}; }
 };
 
 class CachePoolImpl {
  public:
   explicit CachePoolImpl(const CachePoolLimits& limits);
 
-  /// Key type used for looking up a Cache within a CachePool.
-  class CacheKey : public std::pair<std::type_index, std::string_view> {
-    using Base = std::pair<std::type_index, std::string_view>;
-
-   public:
-    using Base::Base;
-    CacheKey(const CacheImpl* ptr)
-        : Base(*ptr->cache_type_, ptr->cache_identifier_) {}
-  };
-
-  struct CacheKeyHash : public absl::Hash<CacheKey> {
-    using is_transparent = void;
-  };
-
-  struct CacheKeyEqualTo : public std::equal_to<CacheKey> {
-    using is_transparent = void;
-  };
+  using CacheKey = CacheImpl::CacheKey;
 
   /// Protects access to `total_bytes_`, `queued_for_writeback_bytes_`,
   /// `writeback_queue_`, `eviction_queue_`, `caches_`, and the `entries_` hash
@@ -156,7 +129,8 @@ class CachePoolImpl {
   // next points to the front of the queue, which is the first to be evicted.
   LruListNode eviction_queue_;
 
-  absl::flat_hash_set<CacheImpl*, CacheKeyHash, CacheKeyEqualTo> caches_;
+  internal::HeterogeneousHashSet<CacheImpl*, CacheKey, &CacheImpl::cache_key>
+      caches_;
 
   /// Initial strong reference returned when the cache is created.
   std::atomic<std::size_t> strong_references_;

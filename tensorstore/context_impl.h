@@ -21,9 +21,9 @@
 /// `context.cc` and by the Python Context bindings.
 
 #include "absl/container/flat_hash_map.h"
-#include "absl/container/flat_hash_set.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/context.h"
+#include "tensorstore/internal/heterogeneous_container.h"
 
 namespace tensorstore {
 namespace internal_context {
@@ -33,24 +33,8 @@ namespace internal_context {
 /// interface.
 class ContextSpecImpl : public internal::AtomicReferenceCount<ContextSpecImpl> {
  public:
-  /// Helper type to support heterogeneous lookup by
-  /// `ResourceSpecImplBase` pointer or by key.
-  struct ResourceSpecKey : public std::string_view {
-    using Base = std::string_view;
-    ResourceSpecKey(const ResourceSpecImplPtr& p) : Base(p->key_) {}
-    ResourceSpecKey(std::string_view s) : Base(s) {}
-  };
-
-  struct ResourceSpecKeyHash : public absl::Hash<ResourceSpecKey> {
-    using is_transparent = void;
-  };
-
-  struct ResourceSpecKeyEqualTo : public std::equal_to<ResourceSpecKey> {
-    using is_transparent = void;
-  };
-
-  absl::flat_hash_set<ResourceSpecImplPtr, ResourceSpecKeyHash,
-                      ResourceSpecKeyEqualTo>
+  internal::HeterogeneousHashSet<ResourceSpecImplPtr, std::string_view,
+                                 &ResourceSpecImplBase::key_>
       resources_;
 };
 
@@ -69,6 +53,8 @@ class ResourceContainer {
   Result<ResourceImplStrongPtr> result_ = ResourceImplStrongPtr();
 
   bool ready() const { return !result_ || result_->get() != nullptr; }
+
+  std::string_view spec_key() const { return spec_->key_; }
 };
 
 /// Implementation of `Context`.  Maintains a set of `ResourceContainer`
@@ -85,32 +71,11 @@ class ContextImpl : public internal::AtomicReferenceCount<ContextImpl> {
   // Only used in the root context.
   absl::Mutex mutex_;
 
-  /// Key type for the `resources_` hash table that supports heterogeneous
-  /// lookup by string key.
-  ///
-  /// The `resources_` hash table defined below holds
-  /// `std::unique_ptr<ResourceContainer>` objects (to allow
-  /// `ResourceContainer` pointers to remain valid despite other
-  /// modifications to the hash table).  The `spec_->key_` member of the
-  /// `ResourceContainer` object serves as the key.
-  struct ResourceKey : public std::string_view {
-    using Base = std::string_view;
-    ResourceKey(const std::unique_ptr<ResourceContainer>& p)
-        : Base(p->spec_->key_) {}
-    ResourceKey(const ResourceContainer* p) : Base(p->spec_->key_) {}
-    ResourceKey(std::string_view s) : Base(s) {}
-  };
-
-  struct ResourceKeyHash : public absl::Hash<ResourceKey> {
-    using is_transparent = void;
-  };
-
-  struct ResourceKeyEqualTo : public std::equal_to<ResourceKey> {
-    using is_transparent = void;
-  };
-
-  absl::flat_hash_set<std::unique_ptr<ResourceContainer>, ResourceKeyHash,
-                      ResourceKeyEqualTo>
+  // Holds `std::unique_ptr<ResourceContainer>` objects (to allow
+  // `ResourceContainer` pointers to remain valid despite other modifications to
+  // the hash table).
+  internal::HeterogeneousHashSet<std::unique_ptr<ResourceContainer>,
+                                 std::string_view, &ResourceContainer::spec_key>
       resources_;
 
   /// Used in conjunction with

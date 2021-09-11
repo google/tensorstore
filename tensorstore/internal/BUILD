@@ -536,6 +536,22 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "heterogeneous_container",
+    hdrs = ["heterogeneous_container.h"],
+    deps = ["@com_google_absl//absl/container:flat_hash_set"],
+)
+
+tensorstore_cc_test(
+    name = "heterogeneous_container_test",
+    size = "small",
+    srcs = ["heterogeneous_container_test.cc"],
+    deps = [
+        ":heterogeneous_container",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "integer_overflow",
     hdrs = ["integer_overflow.h"],
     deps = ["@com_google_absl//absl/base:core_headers"],
@@ -816,6 +832,7 @@ tensorstore_cc_library(
         "json_registry_fwd.h",
     ],
     deps = [
+        ":heterogeneous_container",
         ":intrusive_ptr",
         ":json",
         ":logging",

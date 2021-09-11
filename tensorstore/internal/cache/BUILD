@@ -185,6 +185,7 @@ tensorstore_cc_library(
         "cache_pool_limits.h",
     ],
     deps = [
+        "//tensorstore/internal:heterogeneous_container",
         "//tensorstore/internal:integer_overflow",
         "//tensorstore/internal:intrusive_linked_list",
         "//tensorstore/internal:intrusive_ptr",
