@@ -687,7 +687,6 @@ tensorstore_cc_library(
     deps = [
         ":json_same",
         ":json_value_as",
-        ":poly",
         ":type_traits",
         "//tensorstore:index",
         "//tensorstore:json_serialization_options_base",

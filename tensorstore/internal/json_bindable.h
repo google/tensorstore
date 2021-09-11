@@ -19,7 +19,6 @@
 #include <utility>
 
 #include <nlohmann/json.hpp>
-#include "tensorstore/internal/poly.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -81,16 +80,6 @@ Result<T> FromJson(JsonValue j, Binder binder = DefaultBinder<>,
   return obj;
 }
 
-/// Type-erased `Binder` using Poly.
-template <typename T, typename LoadOptions, typename SaveOptions,
-          typename JsonValue = ::nlohmann::json, typename... ExtraValue>
-using AnyBinder =
-    internal::Poly<0, /*Copyable=*/true,  //
-                   Status(std::true_type, const LoadOptions&, T* obj,
-                          JsonValue* j, ExtraValue*...) const,
-                   Status(std::false_type, const SaveOptions&, const T* obj,
-                          JsonValue* j, ExtraValue*...) const>;
-
 /// Type-erasure stateless JSON binder wrapper.
 ///
 /// This is like `AnyBinder`, except that it merely stores a load and save
@@ -105,8 +94,19 @@ class StaticBinder {
   using ToJsonOptions = ToJsonOptionsType;
   using JsonValue = JsonValueType;
 
-  template <typename Binder>
-  explicit StaticBinder(Binder binder) : load_(binder), save_(binder) {}
+ private:
+  using LoadFunction = Status (*)(std::true_type,
+                                  const FromJsonOptions& options, T* obj,
+                                  JsonValue* j, ExtraValue*... extra);
+  using SaveFunction = Status (*)(std::false_type, const ToJsonOptions& options,
+                                  const T* obj, JsonValue* j,
+                                  ExtraValue*... extra);
+
+ public:
+  template <typename Binder, typename = std::enable_if_t<
+                                 (std::is_convertible_v<Binder, LoadFunction> &&
+                                  std::is_convertible_v<Binder, SaveFunction>)>>
+  StaticBinder(Binder binder) : load_(binder), save_(binder) {}
 
   Status operator()(std::true_type is_loading, const FromJsonOptions& options,
                     T* obj, JsonValue* j, ExtraValue*... extra) const {
@@ -119,13 +119,6 @@ class StaticBinder {
   }
 
  private:
-  using LoadFunction = Status (*)(std::true_type,
-                                  const FromJsonOptions& options, T* obj,
-                                  JsonValue* j, ExtraValue*... extra);
-  using SaveFunction = Status (*)(std::false_type, const ToJsonOptions& options,
-                                  const T* obj, JsonValue* j,
-                                  ExtraValue*... extra);
-
   LoadFunction load_;
   SaveFunction save_;
 };
