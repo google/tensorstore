@@ -1138,4 +1138,40 @@ TEST(PipelineOperator, Basic) {
   EXPECT_THAT(y2, ::testing::Optional(std::string("fn.2.5")));
 }
 
+TEST(ResultOfStatusTest, Value) {
+  Result<absl::Status> r(std::in_place, absl::InvalidArgumentError("abc"));
+  ASSERT_TRUE(r.has_value());
+  EXPECT_EQ(absl::InvalidArgumentError("abc"), *r);
+}
+
+TEST(ResultOfStatusTest, Error) {
+  Result<absl::Status> r(absl::InvalidArgumentError("abc"));
+  ASSERT_FALSE(r.has_value());
+  EXPECT_EQ(r.status(), absl::InvalidArgumentError("abc"));
+}
+
+TEST(ResultOfResultTest, ValueValue) {
+  Result<Result<int>> r(std::in_place, Result<int>(3));
+  ASSERT_TRUE(r.has_value());
+  EXPECT_EQ(Result<int>(3), *r);
+}
+
+TEST(ResultOfResultTest, ValueError) {
+  Result<Result<int>> r(std::in_place, absl::InvalidArgumentError("abc"));
+  ASSERT_TRUE(r.has_value());
+  EXPECT_EQ(Result<int>(absl::InvalidArgumentError("abc")), *r);
+}
+
+TEST(ResultOfResultTest, Error) {
+  Result<Result<int>> r(absl::InvalidArgumentError("abc"));
+  ASSERT_FALSE(r.has_value());
+  EXPECT_EQ(absl::InvalidArgumentError("abc"), r.status());
+}
+
+TEST(ResultTest, DefaultConstruct) {
+  Result<int> r;
+  ASSERT_FALSE(r.has_value());
+  EXPECT_EQ(absl::UnknownError(""), r.status());
+}
+
 }  // namespace

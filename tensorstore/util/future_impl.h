@@ -643,8 +643,6 @@ class FutureState : public FutureStateBase {
     return true;
   }
 
-  explicit FutureState() : result{absl::UnknownError("")} {}
-
   template <typename... Args>
   explicit FutureState(Args&&... args) : result(std::forward<Args>(args)...) {}
 

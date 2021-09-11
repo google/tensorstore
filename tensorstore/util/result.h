@@ -143,15 +143,10 @@ class Result : private internal_result::ResultStorage<T>,
                private internal_result::MoveCtorBase<T>,
                private internal_result::CopyAssignBase<T>,
                private internal_result::MoveAssignBase<T> {
-  static_assert(!std::is_reference<T>::value, "T must not be a reference");
-  static_assert(!std::is_same<T, absl::Status>::value,
-                "T must not be a Status");
-  static_assert(!std::is_convertible<T, absl::Status>::value,
-                "T must not be convertible to a Status");
-  static_assert(!std::is_array<T>::value, "T must not be a std::array type");
-  static_assert(!IsResult<T>::value, "T must not be a Result");
+  static_assert(!std::is_reference_v<T>, "T must not be a reference");
+  static_assert(!std::is_array_v<T>, "T must not be a C array type");
 
-  static_assert(!std::is_const<T>::value && !std::is_volatile<T>::value,
+  static_assert(!std::is_const_v<T> && !std::is_volatile_v<T>,
                 "T must not be cv-qualified");
 
   using Base = internal_result::ResultStorage<T>;
@@ -167,7 +162,10 @@ class Result : private internal_result::ResultStorage<T>,
   template <typename U>
   using rebind = Result<U>;
 
-  explicit constexpr Result() = delete;
+  /// Constructs an error Result with a code of `absl::StatusCode::kUnknown`.
+  Result() : Base(internal_result::noinit_t{}) {
+    this->construct_status(absl::UnknownError(""));
+  }
 
   /// Copy and move constructors, standard semantics
   Result(const Result& src) = default;
