@@ -282,38 +282,6 @@ class PythonInitialIndexOp : public PythonDimExpression {
 
 namespace {
 
-PyTypeObject* GetClassGetitemMetaclass() {
-#if PY_VERSION_HEX < 0x030700000
-  // Polyfill __class_getitem__ support for Python < 3.7
-  static auto* metaclass = [] {
-    PyTypeObject* base_metaclass =
-        pybind11::detail::get_internals().default_metaclass;
-    PyType_Slot slots[] = {
-        {Py_tp_base, base_metaclass},
-        {Py_mp_subscript,
-         (void*)+[](PyObject* self, PyObject* arg) -> PyObject* {
-           auto method = py::reinterpret_steal<py::object>(
-               PyObject_GetAttrString(self, "__class_getitem__"));
-           if (!method.ptr()) return nullptr;
-           return PyObject_CallFunctionObjArgs(method.ptr(), arg, nullptr);
-         }},
-        {0},
-    };
-    PyType_Spec spec = {};
-    spec.name = "tensorstore._Metaclass";
-    spec.basicsize = base_metaclass->tp_basicsize;
-    spec.flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
-    spec.slots = slots;
-    PyTypeObject* metaclass = (PyTypeObject*)PyType_FromSpec(&spec);
-    if (!metaclass) throw py::error_already_set();
-    return metaclass;
-  }();
-  return metaclass;
-#else  // Python version >= 3.7 supports __class_getitem__ natively.
-  return nullptr;
-#endif
-}
-
 using ClsDimExpression =
     py::class_<PythonDimExpression, std::shared_ptr<PythonDimExpression>>;
 using ClsDimensionSelection =
@@ -1277,9 +1245,8 @@ Group:
 }
 
 ClsDimensionSelection MakeDimensionSelectionClass(py::module m) {
-  return ClsDimensionSelection(
-      m, "d", py::metaclass((PyObject*)GetClassGetitemMetaclass()),
-      R"(
+  return ClsDimensionSelection(m, "d",
+                               R"(
 Specifies a dimension selection, for starting a `dimension expression<python-dim-expressions>`.
 
 A dimension selection specifies a sequence of dimensions, either by index or
