@@ -49,7 +49,7 @@ def _apply_property_documenter_type_annotation_fix():
         old_add_directive_header(self, sig)
 
         # Check for return annotation
-        retann = self.retann or get_property_return_type(self.object)
+        retann = self.retann or _get_property_return_type(self.object)
         if retann is not None:
             self.add_line('   :type: ' + retann, self.get_sourcename())
 
