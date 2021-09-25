@@ -47,7 +47,7 @@ def cc_with_non_compile_test(
             "//conditions:default": [],
         }),
         deps = deps + select({
-            msvc_config_setting: ["@com_github_google_tensorstore//tensorstore/internal:non_compile_bypass"],
+            msvc_config_setting: ["@com_google_tensorstore//tensorstore/internal:non_compile_bypass"],
             "//conditions:default": [],
         }),
         **kwargs

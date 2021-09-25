@@ -1,4 +1,4 @@
-load("@com_github_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix", "template_rule")
+load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix", "template_rule")
 
 licenses(["notice"])
 

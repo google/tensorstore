@@ -168,7 +168,7 @@ To add TensorStore as a dependency to an existing Bazel workspace:
 
    maybe(
        http_archive,
-       name = "com_github_google_tensorstore",
+       name = "com_google_tensorstore",
        strip_prefix = "tensorstore-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
        url = "https://github.com/google/tensorstore/archive/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
        sha256 = "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",

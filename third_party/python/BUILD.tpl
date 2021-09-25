@@ -1,5 +1,5 @@
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
-load("@com_github_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
+load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
 
 licenses(["restricted"])
 

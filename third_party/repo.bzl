@@ -28,7 +28,7 @@ load(
     "workspace_and_buildfile",
 )
 load(
-    "@com_github_google_tensorstore//third_party:python/python_configure.bzl",
+    "@com_google_tensorstore//third_party:python/python_configure.bzl",
     "get_numpy_include_rule",
     "get_python_bin",
     "python_env_vars",
@@ -127,7 +127,7 @@ def _third_party_python_package_impl(ctx):
     build_file_content = ""
     if is_numpy:
         build_file_content = """
-load("@com_github_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
+load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
 
 """
     if use_syslib:
