@@ -67,6 +67,8 @@ cc_library_with_strip_include_prefix(
             "-Wl,-framework",
             "-Wl,CoreFoundation",
             "-Wl,-framework",
+            "-Wl,SystemConfiguration",
+            "-Wl,-framework",
             "-Wl,Security",
         ],
         ":ios": [],

@@ -58,7 +58,7 @@ inline size_t EstimateHeapUsage(const std::vector<T>& x,
       total += EstimateHeapUsage(child, include_children);
     }
   }
-  return x.capacity();
+  return total;
 }
 
 template <typename T>

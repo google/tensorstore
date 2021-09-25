@@ -22,11 +22,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "se_curl",
-        strip_prefix = "curl-7.74.0",
+        strip_prefix = "curl-7.79.1",
         urls = [
-            "https://curl.se/download/curl-7.74.0.tar.gz",
+            "https://curl.se/download/curl-7.79.1.tar.gz",
         ],
-        sha256 = "e56b3921eeb7a2951959c02db0912b5fcd5fdba5aca071da819e1accf338bbd7",
+        sha256 = "370b11201349816287fb0ccc995e420277fbfcaf76206e309b3f60f0eda090c2",
         build_file = Label("//third_party:se_curl/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:se_curl/system.BUILD.bazel"),
     )

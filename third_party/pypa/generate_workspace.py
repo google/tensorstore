@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # Copyright 2020 The TensorStore Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,7 +33,7 @@ import packaging.specifiers
 import packaging.version
 import requests
 
-SUPPORTED_PYTHON_VERSIONS = ("3.6", "3.7", "3.8", "3.9")
+SUPPORTED_PYTHON_VERSIONS = ("3.7", "3.8", "3.9")
 
 
 def get_package_json(name: str):

@@ -22,9 +22,14 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_snappy",
-        urls = ["https://github.com/google/snappy/archive/1.1.8.zip"],
-        sha256 = "38b4aabf88eb480131ed45bfb89c19ca3e2a62daeb081bdf001cfb17ec4cd303",
-        strip_prefix = "snappy-1.1.8",
+        urls = ["https://github.com/google/snappy/archive/1.1.9.zip"],
+        sha256 = "e170ce0def2c71d0403f5cda61d6e2743373f9480124bcfcd0fa9b3299d428d9",
+        strip_prefix = "snappy-1.1.9",
         build_file = Label("//third_party:com_google_snappy/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:com_google_snappy/system.BUILD.bazel"),
+        patches = [
+            # https://github.com/google/snappy/pull/142
+            "//third_party:com_google_snappy/patches/asm-older-clang-fix.diff",
+        ],
+        patch_args = ["-p1"],
     )

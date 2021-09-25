@@ -4,14 +4,18 @@ package(default_visibility = ["//visibility:public"])
 
 cc_library_with_strip_include_prefix(
     name = "zstd",
-    srcs = glob([
-        "lib/common/*.h",
-        "lib/common/*.c",
-        "lib/compress/*.h",
-        "lib/compress/*.c",
-        "lib/decompress/*.h",
-        "lib/decompress/*.c",
-    ]),
+    srcs = glob(
+        [
+            "lib/*.h",
+            "lib/common/*.h",
+            "lib/common/*.c",
+            "lib/compress/*.h",
+            "lib/compress/*.c",
+            "lib/decompress/*.h",
+            "lib/decompress/*.c",
+        ],
+        exclude = ["lib/zstd.h"],
+    ),
     hdrs = ["lib/zstd.h"],
     copts = ["-I" + package_relative_path("lib/common")],
     local_defines = ["XXH_NAMESPACE=ZSTD_"],

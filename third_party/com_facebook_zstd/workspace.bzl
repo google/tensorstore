@@ -22,11 +22,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_facebook_zstd",
-        strip_prefix = "zstd-1.4.8",
+        strip_prefix = "zstd-1.5.0",
         urls = [
-            "https://github.com/facebook/zstd/archive/v1.4.8.zip",
+            "https://github.com/facebook/zstd/archive/v1.5.0.zip",
         ],
-        sha256 = "136a9197711e746899b9c8a36db378432427a165d446b19831c400ae30fa2e64",
+        sha256 = "424951b44315dd56b52573814a780b0ef57e2f32bad6ddd7a60cbf1fdf1b453b",
         build_file = Label("//third_party:com_facebook_zstd/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:com_facebook_zstd/system.BUILD.bazel"),
     )

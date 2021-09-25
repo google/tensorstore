@@ -194,10 +194,6 @@ def get_operating_system():
 
 def determine_bazel_filename(version):
   machine = normalized_machine_arch_name()
-  if machine != "x86_64":
-    raise Exception(
-        'Unsupported machine architecture "{}". Bazel currently only supports x86_64.'
-        .format(machine))
 
   operating_system = get_operating_system()
 

@@ -22,8 +22,13 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_brotli",
-        urls = ["https://github.com/google/brotli/archive/ce222e317e36aa362e83fc50c7a6226d238e03fd.zip"],  # master(2021-06-25)
-        sha256 = "c97352d1d08d18487b982cd03ff9477c12c2f90239767e9f3a9a4f93f965fca4",
-        strip_prefix = "brotli-ce222e317e36aa362e83fc50c7a6226d238e03fd",
+        urls = ["https://github.com/google/brotli/archive/62662f87cdd96deda90ac817de94e3c4af75226a.zip"],  # master(2021-09-14)
+        sha256 = "6ebaef23e67256ea3fd78c2f988d2260451a3677f5f273e888ce3de284f10292",
+        strip_prefix = "brotli-62662f87cdd96deda90ac817de94e3c4af75226a",
         system_build_file = Label("//third_party:com_google_brotli/system.BUILD.bazel"),
+        patches = [
+            # https://github.com/google/brotli/pull/929/
+            "//third_party:com_google_brotli/patches/fix_vla_parameter.diff",
+        ],
+        patch_args = ["-p1"],
     )

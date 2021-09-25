@@ -21,7 +21,6 @@ def repo():
     repo_pypa_charset_normalizer()
     repo_pypa_colorama()
     repo_pypa_crcmod()
-    repo_pypa_dataclasses()
     repo_pypa_decorator()
     repo_pypa_dill()
     repo_pypa_docopt()
@@ -38,11 +37,11 @@ def repo():
     repo_pypa_importlib_metadata()
     repo_pypa_iniconfig()
     repo_pypa_ipython()
-    repo_pypa_ipython_genutils()
     repo_pypa_jedi()
     repo_pypa_jinja2()
     repo_pypa_jsonschema()
     repo_pypa_markupsafe()
+    repo_pypa_matplotlib_inline()
     repo_pypa_numpy()
     repo_pypa_oauth2client()
     repo_pypa_orjson()
@@ -111,7 +110,6 @@ def repo_pypa_alabaster():
 def repo_pypa_apache_beam():
     repo_pypa_avro_python3()
     repo_pypa_crcmod()
-    repo_pypa_dataclasses()
     repo_pypa_dill()
     repo_pypa_fastavro()
     repo_pypa_future()
@@ -137,7 +135,6 @@ def repo_pypa_apache_beam():
         deps = [
             "@pypa_avro_python3//:avro_python3",
             "@pypa_crcmod//:crcmod",
-            "@pypa_dataclasses//:dataclasses",
             "@pypa_dill//:dill",
             "@pypa_fastavro//:fastavro",
             "@pypa_future//:future",
@@ -240,14 +237,6 @@ def repo_pypa_crcmod():
         name = "pypa_crcmod",
         target = "crcmod",
         requirement = "crcmod==1.7",
-    )
-
-def repo_pypa_dataclasses():
-    maybe(
-        third_party_python_package,
-        name = "pypa_dataclasses",
-        target = "dataclasses",
-        requirement = "dataclasses==0.6",
     )
 
 def repo_pypa_decorator():
@@ -398,6 +387,7 @@ def repo_pypa_ipython():
     repo_pypa_colorama()
     repo_pypa_decorator()
     repo_pypa_jedi()
+    repo_pypa_matplotlib_inline()
     repo_pypa_pexpect()
     repo_pypa_pickleshare()
     repo_pypa_prompt_toolkit()
@@ -408,13 +398,14 @@ def repo_pypa_ipython():
         third_party_python_package,
         name = "pypa_ipython",
         target = "ipython",
-        requirement = "ipython==7.16.1",
+        requirement = "ipython==7.27.0",
         deps = [
             "@pypa_appnope//:appnope",
             "@pypa_backcall//:backcall",
             "@pypa_colorama//:colorama",
             "@pypa_decorator//:decorator",
             "@pypa_jedi//:jedi",
+            "@pypa_matplotlib_inline//:matplotlib_inline",
             "@pypa_pexpect//:pexpect",
             "@pypa_pickleshare//:pickleshare",
             "@pypa_prompt_toolkit//:prompt_toolkit",
@@ -422,14 +413,6 @@ def repo_pypa_ipython():
             "@pypa_setuptools//:setuptools",
             "@pypa_traitlets//:traitlets",
         ],
-    )
-
-def repo_pypa_ipython_genutils():
-    maybe(
-        third_party_python_package,
-        name = "pypa_ipython_genutils",
-        target = "ipython_genutils",
-        requirement = "ipython-genutils==0.2.0",
     )
 
 def repo_pypa_jedi():
@@ -484,12 +467,24 @@ def repo_pypa_markupsafe():
         requirement = "markupsafe==2.0.1",
     )
 
+def repo_pypa_matplotlib_inline():
+    repo_pypa_traitlets()
+    maybe(
+        third_party_python_package,
+        name = "pypa_matplotlib_inline",
+        target = "matplotlib_inline",
+        requirement = "matplotlib-inline==0.1.3",
+        deps = [
+            "@pypa_traitlets//:traitlets",
+        ],
+    )
+
 def repo_pypa_numpy():
     maybe(
         third_party_python_package,
         name = "pypa_numpy",
         target = "numpy",
-        requirement = "numpy==1.19.5",
+        requirement = "numpy==1.21.2",
     )
 
 def repo_pypa_oauth2client():
@@ -517,7 +512,7 @@ def repo_pypa_orjson():
         third_party_python_package,
         name = "pypa_orjson",
         target = "orjson",
-        requirement = "orjson==3.6.1",
+        requirement = "orjson==3.6.3",
     )
 
 def repo_pypa_packaging():
@@ -578,7 +573,7 @@ def repo_pypa_prompt_toolkit():
         third_party_python_package,
         name = "pypa_prompt_toolkit",
         target = "prompt_toolkit",
-        requirement = "prompt-toolkit==3.0.3",
+        requirement = "prompt-toolkit==3.0.20",
         deps = [
             "@pypa_wcwidth//:wcwidth",
         ],
@@ -907,19 +902,11 @@ def repo_pypa_toml():
     )
 
 def repo_pypa_traitlets():
-    repo_pypa_decorator()
-    repo_pypa_ipython_genutils()
-    repo_pypa_six()
     maybe(
         third_party_python_package,
         name = "pypa_traitlets",
         target = "traitlets",
-        requirement = "traitlets==4.3.3",
-        deps = [
-            "@pypa_decorator//:decorator",
-            "@pypa_ipython_genutils//:ipython_genutils",
-            "@pypa_six//:six",
-        ],
+        requirement = "traitlets==5.1.0",
     )
 
 def repo_pypa_typing_extensions():

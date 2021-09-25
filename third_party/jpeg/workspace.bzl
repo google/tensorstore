@@ -26,10 +26,10 @@ def repo():
         # system jpeg.
         name = "jpeg",
         urls = [
-            "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/2.0.5.tar.gz",
+            "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/2.1.1.tar.gz",
         ],
-        sha256 = "b3090cd37b5a8b3e4dbd30a1311b3989a894e5d3c668f14cbc6739d77c9402b7",
-        strip_prefix = "libjpeg-turbo-2.0.5",
+        sha256 = "20e9cd3e5f517950dfb7a300ad344543d88719c254407ffb5ad88d891bf701c4",
+        strip_prefix = "libjpeg-turbo-2.1.1",
         build_file = Label("//third_party:jpeg/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:jpeg/system.BUILD.bazel"),
     )

@@ -783,7 +783,8 @@ Group:
       [](std::shared_ptr<PythonDimExpression> self,
          NumpyIndexingSpecPlaceholder spec)
           -> std::shared_ptr<PythonDimExpression> {
-        if (typeid(*self) == typeid(DimensionSelection)) {
+        auto& self_ref = *self;
+        if (typeid(self_ref) == typeid(DimensionSelection)) {
           return std::make_shared<PythonInitialIndexOp>(
               std::static_pointer_cast<DimensionSelection>(std::move(self)),
               spec.Parse(NumpyIndexingSpec::Usage::kDimSelectionInitial));

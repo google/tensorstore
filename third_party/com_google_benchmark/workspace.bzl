@@ -22,7 +22,7 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_benchmark",
-        urls = ["https://github.com/google/benchmark/archive/v1.5.2.zip"],
-        sha256 = "21e6e096c9a9a88076b46bd38c33660f565fa050ca427125f64c4a8bf60f336b",
-        strip_prefix = "benchmark-1.5.2",
+        urls = ["https://github.com/google/benchmark/archive/v1.6.0.zip"],
+        sha256 = "3da225763533aa179af8438e994842be5ca72e4a7fed4d7976dc66c8c4502f58",
+        strip_prefix = "benchmark-1.6.0",
     )

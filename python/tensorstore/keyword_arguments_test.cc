@@ -60,7 +60,7 @@ constexpr auto WithMyKeywordArguments = [](auto callback) {
   callback(MyArgA{}, MyArgB{});
 };
 
-void RegisterBindings(py::module m) {
+[[maybe_unused]] void RegisterBindings(py::module m) {
   WithMyKeywordArguments([&](auto... param_def) {
     // By defining the pybind11 function binding inside of this callback, we
     // have access to the `param_def` pack which we can expand in several

@@ -17,8 +17,8 @@ This invokes bazel via the included `bazelisk.py` wrapper script.
 """
 
 import sys
-if sys.version_info < (3, 5):
-  print('Python >= 3.5 is required to build')
+if sys.version_info < (3, 7):
+  print('Python >= 3.7 is required to build')
   sys.exit(1)
 
 # Import setuptools before distutils because setuptools monkey patches
@@ -248,7 +248,7 @@ setuptools.setup(
     author_email='jbms@google.com',
     url='https://github.com/google/tensorstore',
     license='Apache License 2.0',
-    python_requires='>=3.5',
+    python_requires='>=3.7',
     packages=setuptools.find_packages('python'),
     package_dir={'': 'python'},
     ext_modules=[setuptools.Extension('tensorstore/_tensorstore', sources=[])],

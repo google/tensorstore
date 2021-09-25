@@ -64,8 +64,8 @@ def get_latest_download(webpage_url: str, url_pattern: str) -> Tuple[str, str]:
     if m is not None:
       versions.append(
           (m.group(0), m.group(1), packaging.version.parse(m.group(1))))
-  versions.sort(key=lambda x: x[2])
-  latest_version = versions[-1]
+  versions.sort(key=lambda x: x[2], reverse=True)
+  latest_version = versions[0]
   return latest_version[0], latest_version[1]
 
 
@@ -85,12 +85,14 @@ def make_url_pattern(url: str, version: str) -> str:
       replacement_temp, '([^/"\']+)')
 
 
-def update_workspace(workspace_bzl_file: pathlib.Path, identifier: str) -> None:
+def update_workspace(workspace_bzl_file: pathlib.Path, identifier: str,
+                     dry_run: bool) -> None:
   """Updates a single workspace.bzl file for dependency `identifier`.
 
   Args:
     workspace_bzl_file: Path to workspace.bzl file to check/update.
     identifier: Identifier of dependency.
+    dry_run: Indicates whether to skip updating the workspace.
   """
   workspace_bzl_content = workspace_bzl_file.read_text()
   sha256 = re.search('sha256 = "([^"]*)"', workspace_bzl_content)
@@ -188,6 +190,9 @@ def update_workspace(workspace_bzl_file: pathlib.Path, identifier: str) -> None:
   print('   Old URL: %s' % (url,))
   print('   New URL: %s' % (new_url,))
 
+  if dry_run:
+    return
+
   r = requests.get(new_url)
   r.raise_for_status()
   new_h = hashlib.sha256(r.content).hexdigest()
@@ -210,6 +215,10 @@ def main():
   script_dir = os.path.dirname(os.path.abspath(__file__))
   ap.add_argument('dependencies', nargs='*',
                   help='Dependencies to update.  All are updated by default.')
+  ap.add_argument(
+      '--dry-run',
+      action='store_true',
+      help='Show changes that would be made but do not modify workspace files.')
   args = ap.parse_args()
   dependencies = args.dependencies
   if not dependencies:
@@ -224,7 +233,7 @@ def main():
   for name in dependencies:
     dep = pathlib.Path(script_dir) / name
     workspace_bzl_file = dep / 'workspace.bzl'
-    update_workspace(workspace_bzl_file, name)
+    update_workspace(workspace_bzl_file, name, dry_run=args.dry_run)
 
 
 if __name__ == '__main__':

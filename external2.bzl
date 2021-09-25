@@ -18,9 +18,13 @@ This cannot be in the same file as `external.bzl` because we need to load from
 repositories created by `external.bzl`.
 """
 
-load("@build_bazel_rules_nodejs//:index.bzl", "npm_install")
+load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories", "npm_install")
 
 def tensorstore_dependencies2():
+    node_repositories(
+        node_version = "16.9.0",
+    )
+
     npm_install(
         name = "npm",
         package_json = "//docs/tensorstore_sphinx_material:package.json",

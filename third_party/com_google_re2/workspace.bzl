@@ -22,10 +22,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_re2",
-        sha256 = "30be65f5599cd14016b4b80f1dd8740cfd894c02fce1fcee868580febcd18ac3",
-        strip_prefix = "re2-e6e5fc062a213e789a2fbcfb1340c61f6b3a7a5a",
+        sha256 = "65417692fc6b7bea928cbfee7d3ef71a609fea847e288700d387f7603545c853",
+        strip_prefix = "re2-b15818e68cfdb6576622e2f680e91707c60e7449",
         urls = [
-            "https://github.com/google/re2/archive/e6e5fc062a213e789a2fbcfb1340c61f6b3a7a5a.tar.gz",  # abseil(2021-07-10)
+            "https://github.com/google/re2/archive/b15818e68cfdb6576622e2f680e91707c60e7449.tar.gz",  # abseil(2021-09-14)
         ],
         patches = [
             # re2 uses rules_cc, but we just use the native c++ rules.
