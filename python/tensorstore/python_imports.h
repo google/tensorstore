@@ -22,7 +22,9 @@
 ///
 /// These imports are resolved once during module initialization for efficiency.
 
-#include "pybind11/pybind11.h"
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
 
 namespace tensorstore {
 namespace internal_python {

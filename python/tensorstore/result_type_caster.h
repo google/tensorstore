@@ -23,10 +23,13 @@
 /// type corresponding to `tensorstore::Result`; instead, we just convert
 /// `Result` objects to values or exceptions.
 
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include <type_traits>
 
 #include "python/tensorstore/status.h"
-#include "pybind11/pybind11.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -89,7 +92,7 @@ template <>
 struct type_caster<tensorstore::Result<void>> {
   PYBIND11_TYPE_CASTER(tensorstore::Result<void>, _("None"));
 
-  static handle cast(const tensorstore::Result<void> &result,
+  static handle cast(const tensorstore::Result<void>& result,
                      return_value_policy policy, handle parent) {
     if (!result.ok()) {
       tensorstore::internal_python::ThrowStatusException(result.status());

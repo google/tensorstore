@@ -19,6 +19,10 @@
 ///
 /// Defines `tensorstore.Spec` and `tensorstore.Schema`.
 
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include <string>
 
 #include "python/tensorstore/array_type_caster.h"
@@ -28,7 +32,6 @@
 #include "python/tensorstore/keyword_arguments.h"
 #include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/unit.h"
-#include "pybind11/pybind11.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/util/executor.h"

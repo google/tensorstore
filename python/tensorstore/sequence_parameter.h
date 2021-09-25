@@ -15,12 +15,15 @@
 #ifndef THIRD_PARTY_PY_TENSORSTORE_SEQUENCE_PARAMETER_H_
 #define THIRD_PARTY_PY_TENSORSTORE_SEQUENCE_PARAMETER_H_
 
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include <cstddef>
 #include <vector>
 
 #include "python/tensorstore/type_name_override.h"
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
+#include <pybind11/stl.h>
 
 namespace tensorstore {
 namespace internal_python {

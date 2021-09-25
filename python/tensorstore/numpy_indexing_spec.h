@@ -17,6 +17,10 @@
 
 /// \file Implements NumPy-compatible indexing with some extensions.
 
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include <string>
 #include <string_view>
 #include <utility>
@@ -25,7 +29,6 @@
 
 #include "python/tensorstore/subscript_method.h"
 #include "python/tensorstore/type_name_override.h"
-#include "pybind11/pybind11.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_identifier.h"

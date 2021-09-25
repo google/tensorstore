@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "python/tensorstore/context.h"
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
 
 #include <optional>
 #include <utility>
 
+#include "python/tensorstore/context.h"
 #include "python/tensorstore/intrusive_ptr_holder.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/result_type_caster.h"
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_impl.h"
 #include "tensorstore/internal/json_pprint_python.h"

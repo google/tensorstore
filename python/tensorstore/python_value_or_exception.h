@@ -15,9 +15,12 @@
 #ifndef THIRD_PARTY_PY_TENSORSTORE_PYTHON_VALUE_OR_EXCEPTION_H_
 #define THIRD_PARTY_PY_TENSORSTORE_PYTHON_VALUE_OR_EXCEPTION_H_
 
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/status.h"
-#include "pybind11/pybind11.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {

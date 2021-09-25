@@ -13,8 +13,12 @@
 // limitations under the License.
 
 #include "python/tensorstore/numpy.h"
-
 // numpy.h must be included first.
+
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
 
 #include <algorithm>
 #include <memory>
@@ -37,9 +41,6 @@
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/status.h"
-#include "pybind11/numpy.h"
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"

@@ -16,9 +16,11 @@
 ///
 /// Example and compile-only test of keyword_arguments.h
 
-#include "python/tensorstore/keyword_arguments.h"
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
 
-#include "pybind11/pybind11.h"
+#include "python/tensorstore/keyword_arguments.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {

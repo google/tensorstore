@@ -23,13 +23,16 @@
 // numpy.h must be included first to ensure the header inclusion order
 // constraints are satisfied.
 
+#include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include <array>
 #include <complex>
 #include <string_view>
 
 #include "python/tensorstore/bfloat16.h"
-#include "pybind11/numpy.h"
-#include "pybind11/pybind11.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/util/executor.h"
 

@@ -15,10 +15,13 @@
 #ifndef THIRD_PARTY_PY_TENSORSTORE_HOMOGENEOUS_TUPLE_H_
 #define THIRD_PARTY_PY_TENSORSTORE_HOMOGENEOUS_TUPLE_H_
 
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include <cstddef>
 
 #include "python/tensorstore/type_name_override.h"
-#include "pybind11/pybind11.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {

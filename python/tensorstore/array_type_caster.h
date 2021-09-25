@@ -17,6 +17,11 @@
 
 /// \file Defines conversion between NumPy arrays and `tensorstore::Array`.
 
+#include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -24,8 +29,6 @@
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/type_name_override.h"
-#include "pybind11/numpy.h"
-#include "pybind11/pybind11.h"
 #include "tensorstore/array.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/contiguous_layout.h"

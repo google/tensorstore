@@ -23,6 +23,10 @@
 ///
 /// This is used to expose all of the Future-based TensorStore APIs to Python.
 
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include <algorithm>
 #include <functional>
 #include <iterator>
@@ -36,7 +40,6 @@
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/type_name_override.h"
-#include "pybind11/pybind11.h"
 #include "tensorstore/internal/intrusive_linked_list.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/util/executor.h"

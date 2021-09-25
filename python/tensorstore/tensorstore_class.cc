@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "python/tensorstore/tensorstore_class.h"
+#include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
 
 #include <memory>
 #include <new>
@@ -31,11 +35,9 @@
 #include "python/tensorstore/keyword_arguments.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/spec.h"
+#include "python/tensorstore/tensorstore_class.h"
 #include "python/tensorstore/transaction.h"
 #include "python/tensorstore/write_futures.h"
-#include "pybind11/numpy.h"
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
 #include "tensorstore/array.h"
 #include "tensorstore/cast.h"
 #include "tensorstore/context.h"

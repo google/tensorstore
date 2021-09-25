@@ -19,6 +19,11 @@
 /// `tensorstore.d[...].op0...opN` syntax for specifying a Python "dimension
 /// expression".
 
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include <memory>
 #include <optional>
 #include <string>
@@ -26,8 +31,6 @@
 #include <vector>
 
 #include "python/tensorstore/index.h"
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"

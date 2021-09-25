@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "python/tensorstore/status.h"
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
 
 #include <string>
 #include <string_view>
@@ -23,11 +25,8 @@
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
 #include "python/tensorstore/python_imports.h"
-#include "pybind11/pybind11.h"
+#include "python/tensorstore/status.h"
 #include "tensorstore/util/assert_macros.h"
-
-// Include last to avoid build failures.
-#include <Python.h>
 
 namespace tensorstore {
 namespace internal_python {

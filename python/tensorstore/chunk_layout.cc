@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "python/tensorstore/chunk_layout.h"
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
 
 #include "python/tensorstore/array_type_caster.h"
+#include "python/tensorstore/chunk_layout.h"
 #include "python/tensorstore/chunk_layout_keyword_arguments.h"
 #include "python/tensorstore/homogeneous_tuple.h"
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/keyword_arguments.h"
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/internal/json_pprint_python.h"

@@ -19,12 +19,15 @@
 ///
 /// Defines `tensorstore.WriteFutures`.
 
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include <memory>
 #include <string>
 #include <utility>
 
 #include "python/tensorstore/future.h"
-#include "pybind11/pybind11.h"
 #include "tensorstore/progress.h"
 #include "tensorstore/util/executor.h"
 

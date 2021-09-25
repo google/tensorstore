@@ -19,7 +19,10 @@
 #ifndef THIRD_PARTY_PY_TENSORSTORE_TRANSACTION_H_
 #define THIRD_PARTY_PY_TENSORSTORE_TRANSACTION_H_
 
-#include "pybind11/pybind11.h"
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 

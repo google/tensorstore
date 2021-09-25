@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "python/tensorstore/future.h"
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
 
 #include <functional>
 #include <memory>
@@ -20,9 +23,8 @@
 #include <string>
 #include <utility>
 
+#include "python/tensorstore/future.h"
 #include "python/tensorstore/python_imports.h"
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 

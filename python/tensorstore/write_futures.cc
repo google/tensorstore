@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "python/tensorstore/write_futures.h"
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
 
 #include <memory>
 #include <new>
 #include <utility>
 
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
+#include "python/tensorstore/write_futures.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {

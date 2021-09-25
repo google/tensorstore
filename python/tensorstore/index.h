@@ -18,13 +18,16 @@
 /// \file Defines mappings between Python objects and C++ types intended to
 ///     represent Index and DimensionIndex values.
 
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include <string>
 #include <variant>
 #include <vector>
 
 #include "python/tensorstore/sequence_parameter.h"
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/internal/numpy_indexing_spec.h"

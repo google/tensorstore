@@ -40,9 +40,11 @@
 ///           pybind11::detail::__("]");
 ///     };
 
-#include <type_traits>
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
 
-#include "pybind11/pybind11.h"
+#include <type_traits>
 
 namespace tensorstore {
 namespace internal_python {

@@ -21,10 +21,13 @@
 /// support syntax like `x.property[expr]`, used for the `vindex` and `oindex`
 /// indexing methods as well as other "dimension expression" operations.
 
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include <new>
 #include <utility>
 
-#include "pybind11/pybind11.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/str_cat.h"
 

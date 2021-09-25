@@ -49,11 +49,14 @@
 ///
 /// See `keyword_arguments_test.cc` for example usage.
 
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_split.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/type_name_override.h"
-#include "pybind11/pybind11.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 

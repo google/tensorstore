@@ -37,7 +37,7 @@
 
 #include <cmath>
 // Include `<cmath>` before `Python.h` to avoid build failure on MSVC.  Note:
-// This header does not actually required `<cmath>`, but including `<cmath>`
+// This header does not actually require `<cmath>`, but including `<cmath>`
 // after `Python.h` does not work properly on MSVC.  Therefore, we include it
 // here to ensure the proper ordering for those files that #include this header
 // and require it.

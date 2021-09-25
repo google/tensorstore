@@ -19,10 +19,13 @@
 ///
 /// Utilities for safely handling the Python GIL (global interpreter lock).
 
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include <utility>
 
 #include "absl/status/status.h"
-#include "pybind11/pybind11.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 
 namespace tensorstore {

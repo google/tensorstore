@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "python/tensorstore/unit.h"
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
 
 #include <string>
 #include <string_view>
@@ -22,8 +25,7 @@
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
+#include "python/tensorstore/unit.h"
 #include "tensorstore/internal/json_unit.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/quote_string.h"

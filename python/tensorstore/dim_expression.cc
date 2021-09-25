@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "python/tensorstore/dim_expression.h"
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
 
 #include <memory>
 #include <new>
@@ -22,11 +25,10 @@
 #include <vector>
 
 #include "absl/strings/escaping.h"
+#include "python/tensorstore/dim_expression.h"
 #include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/subscript_method.h"
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/dimension_identifier.h"

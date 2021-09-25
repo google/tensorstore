@@ -12,15 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "python/tensorstore/json_type_caster.h"
+#include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
 
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <nlohmann/json.hpp>
-#include "pybind11/numpy.h"
-#include "pybind11/pybind11.h"
+#include "python/tensorstore/json_type_caster.h"
 
 namespace tensorstore {
 namespace internal_python {

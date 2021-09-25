@@ -17,8 +17,11 @@
 /// Defines the `tensorstore._tensorstore` module.
 
 #include "python/tensorstore/numpy.h"
-
 // Must include `numpy.h` before any other headers.
+
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
 
 #include "python/tensorstore/chunk_layout.h"
 #include "python/tensorstore/context.h"
@@ -34,7 +37,6 @@
 #include "python/tensorstore/transaction.h"
 #include "python/tensorstore/unit.h"
 #include "python/tensorstore/write_futures.h"
-#include "pybind11/pybind11.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {

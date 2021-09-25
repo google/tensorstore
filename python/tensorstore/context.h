@@ -36,10 +36,13 @@
 /// and rely on the combination of pybind11's object identity preservation and
 /// the object deduplication built into Python's pickling mechanism.
 
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include "python/tensorstore/intrusive_ptr_holder.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/result_type_caster.h"
-#include "pybind11/pybind11.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_impl.h"
 #include "tensorstore/util/executor.h"

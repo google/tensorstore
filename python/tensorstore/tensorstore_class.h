@@ -20,7 +20,10 @@
 /// Defines `tensorstore.TensorStore`, `tensorstore.open`, `tensorstore.cast`,
 /// and `tensorstore.array`.
 
-#include "pybind11/pybind11.h"
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {

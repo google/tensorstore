@@ -20,6 +20,10 @@
 /// Defines keyword arguments (see keyword_arguments.h) for use by
 /// chunk_layout.cc.
 
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include <optional>
 
 #include "absl/status/status.h"

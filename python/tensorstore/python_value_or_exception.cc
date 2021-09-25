@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "python/tensorstore/python_value_or_exception.h"
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
 
-#include "pybind11/pybind11.h"
+#include "python/tensorstore/python_value_or_exception.h"
 
 namespace tensorstore {
 namespace internal_python {

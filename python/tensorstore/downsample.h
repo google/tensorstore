@@ -19,7 +19,10 @@
 ///
 /// Defines `tensorstore.downsample`.
 
-#include "pybind11/pybind11.h"
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include "tensorstore/downsample_method.h"
 #include "tensorstore/util/executor.h"
 

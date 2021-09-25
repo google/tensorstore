@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "python/tensorstore/spec.h"
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
 
 #include <new>
 #include <optional>
@@ -27,9 +30,8 @@
 #include "python/tensorstore/intrusive_ptr_holder.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/result_type_caster.h"
+#include "python/tensorstore/spec.h"
 #include "python/tensorstore/unit.h"
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/index.h"

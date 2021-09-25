@@ -22,6 +22,11 @@
 /// `tensorstore.d` (for specifying dimension expressions),
 /// `tensorstore.newaxis`, and `tensorstore.inf`.
 
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include <string>
 #include <utility>
 
@@ -33,9 +38,6 @@
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/subscript_method.h"
-#include "pybind11/numpy.h"
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"

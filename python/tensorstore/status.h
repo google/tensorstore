@@ -19,8 +19,11 @@
 ///
 /// Defines mapping from `absl::Status` to Python exception types.
 
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
+
 #include "absl/status/status.h"
-#include "pybind11/pybind11.h"
 
 namespace tensorstore {
 namespace internal_python {

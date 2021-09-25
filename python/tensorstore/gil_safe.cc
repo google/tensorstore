@@ -12,17 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "python/tensorstore/gil_safe.h"
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.
 
 #include <thread>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/synchronization/mutex.h"
+#include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/python_imports.h"
-#include "pybind11/pybind11.h"
-
-// Include last to avoid build failures.
-#include <Python.h>
 
 namespace tensorstore {
 namespace internal_python {
