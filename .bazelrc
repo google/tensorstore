@@ -37,3 +37,9 @@ build:windows --copt=-D_WIN32_WINNT=0x0A000002
 # Workaround for https://github.com/abseil/abseil-cpp/issues/848
 # Root cause: https://github.com/bazelbuild/bazel/issues/4341
 build:macos --features=-supports_dynamic_linker
+
+# Significantly speeds up Python test execution.  Requires Windows
+# developer mode enabled in order for non-admin users to create
+# symlinks.
+startup --windows_enable_symlinks
+build:windows --enable_runfiles=true --build_python_zip=false
