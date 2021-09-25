@@ -63,3 +63,45 @@ std::string IndexVectorRepr(const IndexVectorOrScalarContainer& x,
 
 }  // namespace internal_python
 }  // namespace tensorstore
+
+namespace pybind11 {
+namespace detail {
+
+handle type_caster<tensorstore::internal_python::PythonDimensionIndex>::cast(
+    tensorstore::internal_python::PythonDimensionIndex x,
+    return_value_policy /* policy */, handle /* parent */) {
+  return int_(x.value).release();
+}
+bool type_caster<tensorstore::internal_python::PythonDimensionIndex>::load(
+    handle src, bool convert) {
+  value.value = PyNumber_AsSsize_t(src.ptr(), PyExc_IndexError);
+  if (value.value == -1 && PyErr_Occurred()) {
+    PyErr_Clear();
+    return false;
+  }
+  return true;
+}
+
+handle type_caster<tensorstore::internal_python::OptionallyImplicitIndex>::cast(
+    tensorstore::internal_python::OptionallyImplicitIndex x,
+    return_value_policy /* policy */, handle /* parent */) {
+  if (x.value == tensorstore::kImplicit) return none().release();
+  return int_(x.value).release();
+}
+
+bool type_caster<tensorstore::internal_python::OptionallyImplicitIndex>::load(
+    handle src, bool convert) {
+  if (src.is_none()) {
+    value.value = tensorstore::kImplicit;
+    return true;
+  }
+  value.value = PyNumber_AsSsize_t(src.ptr(), PyExc_IndexError);
+  if (value.value == -1 && PyErr_Occurred()) {
+    PyErr_Clear();
+    return false;
+  }
+  return true;
+}
+
+}  // namespace detail
+}  // namespace pybind11

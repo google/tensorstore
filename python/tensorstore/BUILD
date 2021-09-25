@@ -1,4 +1,4 @@
-load(":pybind11.bzl", "pybind11_cc_library", "pybind11_cc_test", "pybind11_py_extension")
+load(":pybind11.bzl", "pybind11_cc_googletest_test", "pybind11_cc_library", "pybind11_py_extension")
 load(":pytest.bzl", "tensorstore_pytest_test")
 load(":pytype.bzl", "pytype_strict_binary")
 load("//docs:doctest.bzl", "doctest_test")
@@ -10,6 +10,8 @@ licenses(["notice"])
 exports_files([
     "LICENSE",
     "bazel_pytest_main.py",
+    "cc_test_driver.cc",
+    "cc_test_driver_main.py",
 ])
 
 doctest_test(
@@ -615,14 +617,14 @@ tensorstore_pytest_test(
     ],
 )
 
-pybind11_cc_test(
+pybind11_cc_googletest_test(
     name = "index_test",
     size = "small",
     srcs = ["index_test.cc"],
     deps = [
         ":index",
         "//tensorstore:index",
-        "@com_google_googletest//:gtest_main",
+        "@com_google_googletest//:gtest",
     ],
 )
 

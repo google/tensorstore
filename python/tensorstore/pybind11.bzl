@@ -16,6 +16,7 @@
 
 load("//:utils.bzl", "constraint_values_config_setting")
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("//python/tensorstore:pybind11_cc_test.bzl", _pybind11_cc_googletest_test = "pybind11_cc_googletest_test")
 
 # Derived from py_extension rule in riegelli
 def py_extension(
@@ -26,6 +27,7 @@ def py_extension(
         local_defines = None,
         visibility = None,
         deps = None,
+        testonly = False,
         imports = None):
     """Creates a Python module implemented in C++.
 
@@ -57,6 +59,7 @@ def py_extension(
         local_defines = local_defines,
         visibility = visibility,
         deps = deps,
+        testonly = testonly,
         alwayslink = True,
     )
 
@@ -86,6 +89,7 @@ def py_extension(
             visibility = visibility,
             deps = deps,
             tags = ["manual"],
+            testonly = testonly,
             linkopts = linkopts,
         )
 
@@ -95,6 +99,7 @@ def py_extension(
         out = cc_binary_pyd_name,
         visibility = visibility,
         tags = ["manual"],
+        testonly = testonly,
     )
 
     native.filegroup(
@@ -103,12 +108,14 @@ def py_extension(
             constraint_values_config_setting(["@platforms//os:windows"]): [":" + cc_binary_pyd_name],
             "//conditions:default": [":" + cc_binary_so_name],
         }),
+        testonly = testonly,
     )
 
     native.py_library(
         name = name,
         data = [":" + shared_objects_name],
         imports = imports,
+        testonly = testonly,
         visibility = visibility,
     )
 
@@ -126,5 +133,14 @@ def pybind11_py_extension(**kwargs):
 def pybind11_cc_library(**kwargs):
     native.cc_library(**_get_pybind11_build_options(**kwargs))
 
-def pybind11_cc_test(**kwargs):
-    native.cc_test(**_get_pybind11_build_options(**kwargs))
+def pybind11_cc_googletest_test(name, **kwargs):
+    _pybind11_cc_googletest_test(
+        name = name,
+        pybind11_cc_library_rule = pybind11_cc_library,
+        pybind11_py_extension_rule = pybind11_py_extension,
+        googletest_deps = [
+            "@com_github_pybind_pybind11//:pybind11",
+            "@com_google_googletest//:gtest",
+        ],
+        **kwargs
+    )

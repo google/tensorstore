@@ -112,17 +112,8 @@ struct type_caster<tensorstore::internal_python::PythonDimensionIndex> {
   PYBIND11_TYPE_CASTER(tensorstore::internal_python::PythonDimensionIndex,
                        _("int"));
   static handle cast(tensorstore::internal_python::PythonDimensionIndex x,
-                     return_value_policy /* policy */, handle /* parent */) {
-    return int_(x.value).release();
-  }
-  bool load(handle src, bool convert) {
-    value.value = PyNumber_AsSsize_t(src.ptr(), PyExc_IndexError);
-    if (value.value == -1 && PyErr_Occurred()) {
-      PyErr_Clear();
-      return false;
-    }
-    return true;
-  }
+                     return_value_policy /* policy */, handle /* parent */);
+  bool load(handle src, bool convert);
 };
 
 /// Defines automatic conversion of Python objects to/from
@@ -138,23 +129,8 @@ struct type_caster<tensorstore::internal_python::OptionallyImplicitIndex> {
   PYBIND11_TYPE_CASTER(tensorstore::internal_python::OptionallyImplicitIndex,
                        _("Optional[int]"));
   static handle cast(tensorstore::internal_python::OptionallyImplicitIndex x,
-                     return_value_policy /* policy */, handle /* parent */) {
-    if (x.value == tensorstore::kImplicit) return none().release();
-    return int_(x.value).release();
-  }
-
-  bool load(handle src, bool convert) {
-    if (src.is_none()) {
-      value.value = tensorstore::kImplicit;
-      return true;
-    }
-    value.value = PyNumber_AsSsize_t(src.ptr(), PyExc_IndexError);
-    if (value.value == -1 && PyErr_Occurred()) {
-      PyErr_Clear();
-      return false;
-    }
-    return true;
-  }
+                     return_value_policy /* policy */, handle /* parent */);
+  bool load(handle src, bool convert);
 };
 
 }  // namespace detail
