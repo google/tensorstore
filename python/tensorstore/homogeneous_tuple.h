@@ -17,6 +17,7 @@
 
 #include <cstddef>
 
+#include "python/tensorstore/type_name_override.h"
 #include "pybind11/pybind11.h"
 #include "tensorstore/util/span.h"
 
@@ -30,7 +31,11 @@ namespace internal_python {
 /// the return type for `IndexDomain.shape`.
 template <typename T>
 struct HomogeneousTuple {
-  pybind11::tuple obj;
+  pybind11::object value;
+
+  constexpr static auto tensorstore_pybind11_type_name_override =
+      pybind11::detail::_("Tuple[") + pybind11::detail::make_caster<T>::name +
+      pybind11::detail::_(", ...]");
 };
 
 template <typename T>
@@ -44,26 +49,5 @@ HomogeneousTuple<T> SpanToHomogeneousTuple(span<const T> vec) {
 
 }  // namespace internal_python
 }  // namespace tensorstore
-
-namespace pybind11 {
-namespace detail {
-
-/// Defines automatic conversion of `HomogeneousTuple<T>` to a Python object.
-///
-/// Since `HomogeneousTuple` is only intended as a function return type, we do
-/// not define the reverse conversion from a Python object.
-template <typename T>
-struct type_caster<tensorstore::internal_python::HomogeneousTuple<T>> {
-  using Value = tensorstore::internal_python::HomogeneousTuple<T>;
-  using base_value_conv = make_caster<T>;
-  PYBIND11_TYPE_CASTER(Value,
-                       _("Tuple[") + base_value_conv::name + _(", ...]"));
-  static handle cast(Value value, return_value_policy policy, handle parent) {
-    return value.obj.release();
-  }
-};
-
-}  // namespace detail
-}  // namespace pybind11
 
 #endif  // THIRD_PARTY_PY_TENSORSTORE_HOMOGENEOUS_TUPLE_H_

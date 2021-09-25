@@ -24,6 +24,7 @@
 #include "python/tensorstore/context.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/future.h"
+#include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/homogeneous_tuple.h"
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/json_type_caster.h"
@@ -69,7 +70,7 @@ WriteFutures IssueCopyOrWrite(
   if (auto* store = std::get_if<TensorStore<>>(&source)) {
     return tensorstore::Copy(*store, self);
   } else {
-    auto& source_obj = std::get_if<ArrayArgumentPlaceholder>(&source)->obj;
+    auto& source_obj = std::get_if<ArrayArgumentPlaceholder>(&source)->value;
     SharedArray<const void> source_array;
     ConvertToArray<const void, dynamic_rank, /*nothrow=*/false>(
         source_obj, &source_array, self.dtype(), 0, self.rank());
@@ -469,10 +470,8 @@ Group:
 
   cls.def(
       "read",
-      [](const TensorStore<>& self,
-         std::optional<ContiguousLayoutOrder> order) {
-        py::gil_scoped_release gil_release;
-        return tensorstore::Read<zero_origin>(self, {order.value_or(c_order)});
+      [](const TensorStore<>& self, ContiguousLayoutOrder order) {
+        return tensorstore::Read<zero_origin>(self, {order});
       },
       R"(
 Reads the data within the current domain.
@@ -737,8 +736,8 @@ writes to be read:
       "__array__",
       [](const TensorStore<>& self, std::optional<py::dtype> dtype,
          std::optional<py::object> context) {
-        py::gil_scoped_release gil_release;
-        return ValueOrThrow(tensorstore::Read<zero_origin>(self).result());
+        return ValueOrThrow(internal_python::InterruptibleWait(
+            tensorstore::Read<zero_origin>(self)));
       },
       R"(
 Automatic conversion to `numpy.ndarray` for interoperability with NumPy.
@@ -789,7 +788,6 @@ Group:
   cls.def(
       "resolve",
       [](const TensorStore<>& self, bool fix_resizable_bounds) {
-        py::gil_scoped_release gil_release;
         ResolveBoundsOptions options = {};
         if (fix_resizable_bounds) {
           options.mode = options.mode | tensorstore::fix_resizable_bounds;
@@ -1917,11 +1915,11 @@ Group:
         if (dtype.has_value()) {
           ConvertToArray</*Element=*/void, /*Rank=*/dynamic_rank,
                          /*NoThrow=*/false, /*AllowCopy=*/true>(
-              array.obj, &converted_array, dtype ? dtype->value : DataType());
+              array.value, &converted_array, dtype ? dtype->value : DataType());
         } else {
           ConvertToArray</*Element=*/void, /*Rank=*/dynamic_rank,
                          /*NoThrow=*/false, /*AllowCopy=*/false>(
-              array.obj, &converted_array);
+              array.value, &converted_array);
         }
         return ValueOrThrow(FromArray(WrapImpl(std::move(context)),
                                       std::move(converted_array)));

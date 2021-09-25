@@ -39,8 +39,19 @@ enum class StatusExceptionPolicy {
 /// Throws an exception that will map to the corresponding Python exception type
 /// if `!status.ok()`.
 ///
-/// Requires GIL.
+/// Requires GIL.  Furthermore, the GIL must be held until any exception that is
+/// thrown is handled.
 void ThrowStatusException(
+    const absl::Status& status,
+    StatusExceptionPolicy policy = StatusExceptionPolicy::kDefault);
+
+/// Sets the Python error indicator (i.e. `PyErr_Occurred()`) from the specified
+/// error status.
+///
+/// Requires GIL.
+///
+/// \dchecks `!status.ok()`
+void SetErrorIndicatorFromStatus(
     const absl::Status& status,
     StatusExceptionPolicy policy = StatusExceptionPolicy::kDefault);
 
@@ -54,6 +65,36 @@ pybind11::handle GetExceptionType(
 pybind11::object GetStatusPythonException(
     const absl::Status& status,
     StatusExceptionPolicy policy = StatusExceptionPolicy::kDefault);
+
+/// Returns a status that encodes a Python exception.
+///
+/// `ThrowStatusException` may be used to re-throw it.
+///
+/// The pickled representation of the exception is stored as an additional
+/// payload in the returned `Status` object.
+///
+/// \param exc Python exception, or `nullptr` to indicate that the currently set
+///     Python exception should be converted.
+absl::Status GetStatusFromPythonException(pybind11::handle exc = {}) noexcept;
+
+/// Calls `func` and converts any exception thrown into the Python error
+/// indicator.
+template <typename Func>
+inline bool CallAndSetErrorIndicator(Func&& func) {
+  try {
+    std::forward<Func>(func)();
+    return false;
+  } catch (pybind11::error_already_set& e) {
+    e.restore();
+    return true;
+  } catch (pybind11::builtin_exception& e) {
+    e.set_error();
+    return true;
+  } catch (...) {
+    PyErr_SetString(PyExc_RuntimeError, "Unknown Python exception");
+    return true;
+  }
+}
 
 }  // namespace internal_python
 }  // namespace tensorstore

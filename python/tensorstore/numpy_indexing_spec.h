@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "python/tensorstore/subscript_method.h"
+#include "python/tensorstore/type_name_override.h"
 #include "pybind11/pybind11.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
@@ -65,15 +66,18 @@ std::string_view GetIndexingModePrefix(NumpyIndexingSpec::Mode mode);
 /// provide a type hint.  The actual parsing is deferred because it depends on
 /// the `Usage` and `Mode` which may be determined at run-time.
 struct NumpyIndexingSpecPlaceholder {
-  pybind11::object obj;
+  pybind11::object value;
 
   /// The mode is not set from Python, but instead is set by the
   /// `DefineIndexingMethodsForMode` wrapper.
   NumpyIndexingSpec::Mode mode;
 
   NumpyIndexingSpec Parse(NumpyIndexingSpec::Usage usage) const {
-    return ParseIndexingSpec(obj, mode, usage);
+    return ParseIndexingSpec(value, mode, usage);
   }
+
+  constexpr static auto tensorstore_pybind11_type_name_override =
+      pybind11::detail::_("NumpyIndexingSpec");
 };
 
 /// Docstrings for a getter and `NumAssign` setters.
@@ -172,24 +176,5 @@ void DefineNumpyIndexingMethods(
 
 }  // namespace internal_python
 }  // namespace tensorstore
-
-namespace pybind11 {
-namespace detail {
-
-/// Defines automatic conversion of Python objects to
-/// `NumpyIndexingSpecPlaceholder` function parameters.
-template <>
-struct type_caster<tensorstore::internal_python::NumpyIndexingSpecPlaceholder> {
-  PYBIND11_TYPE_CASTER(
-      tensorstore::internal_python::NumpyIndexingSpecPlaceholder,
-      _("NumpyIndexingSpec"));
-  bool load(handle src, bool convert) {
-    value.obj = reinterpret_borrow<object>(src);
-    return true;
-  }
-};
-
-}  // namespace detail
-}  // namespace pybind11
 
 #endif  // THIRD_PARTY_PY_TENSORSTORE_NUMPY_INDEXING_SPEC_H_

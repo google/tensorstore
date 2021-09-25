@@ -22,6 +22,8 @@
 #include <utility>
 
 #include "python/tensorstore/data_type.h"
+#include "python/tensorstore/gil_safe.h"
+#include "python/tensorstore/type_name_override.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
 #include "tensorstore/array.h"
@@ -49,26 +51,14 @@ namespace internal_python {
 void AssignArrayLayout(pybind11::array array_obj, DimensionIndex rank,
                        Index* shape, Index* byte_strides);
 
-/// `std::shared_ptr`-compatible deleter that holds a reference to a Python
-/// object, which it releases when invoked.
-struct PythonObjectDeleter {
-  pybind11::object obj;
-  void operator()(const void*) {
-    // Acquire the GIL in order to safely call Python APIs.
-    pybind11::gil_scoped_acquire gil;
-    // Assign a null handle to release the existing `obj` handle.
-    obj = pybind11::reinterpret_steal<pybind11::object>(pybind11::handle());
-  }
-};
-
 /// Returns an `std::shared_ptr` that refers to the base data pointer of a NumPy
 /// array and keeps the NumPy array alive.
 template <typename Element>
 std::shared_ptr<Element> GetSharedPtrFromNumpyArray(pybind11::array array_obj) {
   auto* element_ptr = static_cast<Element*>(
       static_cast<void*>(pybind11::detail::array_proxy(array_obj.ptr())->data));
-  return std::shared_ptr<Element>(element_ptr,
-                                  PythonObjectDeleter{std::move(array_obj)});
+  return internal_python::PythonObjectOwningSharedPtr(element_ptr,
+                                                      std::move(array_obj));
 }
 
 /// Returns a `tensorstore::ElementPointer` that refers to the base data pointer
@@ -172,7 +162,10 @@ std::conditional_t<NoThrow, bool, void> ConvertToArray(
 /// are constraints on the rank or data type that cannot be specified at compile
 /// time.
 struct ArrayArgumentPlaceholder {
-  pybind11::object obj;
+  pybind11::object value;
+
+  constexpr static auto tensorstore_pybind11_type_name_override =
+      pybind11::detail::_("array_like");
 };
 
 pybind11::object GetNumpyArrayImpl(SharedArrayView<const void> value,
@@ -198,18 +191,6 @@ ContiguousLayoutOrder GetContiguousLayoutOrderOrThrow(pybind11::handle obj);
 
 namespace pybind11 {
 namespace detail {
-
-/// Defines automatic conversion of Python objects to `ArrayArgumentPlaceholder`
-/// function parameters.
-template <>
-struct type_caster<tensorstore::internal_python::ArrayArgumentPlaceholder> {
-  PYBIND11_TYPE_CASTER(tensorstore::internal_python::ArrayArgumentPlaceholder,
-                       _("array_like"));
-  bool load(handle src, bool convert) {
-    value.obj = reinterpret_borrow<object>(src);
-    return true;
-  }
-};
 
 /// Defines automatic conversion of `tensorstore::SharedArray` to/from Python
 /// objects.

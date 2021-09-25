@@ -20,6 +20,7 @@
 #include <string>
 #include <utility>
 
+#include "python/tensorstore/python_imports.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 #include "tensorstore/util/executor.h"
@@ -205,19 +206,17 @@ class ScopedFutureCallbackRegistration {
 }  // namespace
 
 [[noreturn]] void ThrowCancelledError() {
-  auto cancelled_error = py::module::import("asyncio").attr("CancelledError");
-  PyErr_SetNone(cancelled_error.ptr());
+  PyErr_SetNone(python_imports.asyncio_cancelled_error_class.ptr());
   throw py::error_already_set();
 }
 
 [[noreturn]] void ThrowTimeoutError() {
-  auto timeout_error = py::module::import("builtins").attr("TimeoutError");
-  PyErr_SetNone(timeout_error.ptr());
+  PyErr_SetNone(python_imports.builtins_timeout_error_class.ptr());
   throw py::error_already_set();
 }
 
 pybind11::object GetCancelledError() {
-  return py::module::import("asyncio").attr("CancelledError")(py::none());
+  return python_imports.asyncio_cancelled_error_class(py::none());
 }
 
 void InterruptibleWaitImpl(absl::FunctionRef<FutureCallbackRegistration(
@@ -235,7 +234,7 @@ void InterruptibleWaitImpl(absl::FunctionRef<FutureCallbackRegistration(
   while (true) {
     ScopedEventWaitResult wait_result;
     {
-      pybind11::gil_scoped_release gil_release;
+      GilScopedRelease gil_release;
       wait_result = event.Wait(deadline);
     }
     switch (wait_result) {
@@ -257,8 +256,7 @@ void InterruptibleWaitImpl(absl::FunctionRef<FutureCallbackRegistration(
 
 pybind11::object PythonFutureBase::get_await_result() {
   auto self = shared_from_this();
-  py::object loop =
-      py::module::import("asyncio.events").attr("get_event_loop")();
+  py::object loop = python_imports.asyncio_get_event_loop_function();
   py::object awaitable_future = loop.attr("create_future")();
 
   self->add_done_callback(py::cpp_function([awaitable_future,
@@ -342,13 +340,127 @@ absl::Time GetWaitDeadline(std::optional<double> timeout,
   return deadline_time;
 }
 
+bool TryConvertToFuture(pybind11::handle src, pybind11::handle loop,
+                        std::shared_ptr<PythonFutureBase>& future) {
+  if (py::isinstance<PythonFutureBase>(src)) {
+    future = pybind11::cast<std::shared_ptr<PythonFutureBase>>(src);
+    return true;
+  }
+
+  if (python_imports.asyncio_iscoroutine_function(src).ptr() != Py_True) {
+    return false;
+  }
+
+  if (loop.is_none()) {
+    throw py::value_error(
+        "no event loop specified and thread does not have a default event "
+        "loop");
+  }
+
+  auto asyncio_future =
+      python_imports.asyncio_run_coroutine_threadsafe_function(src, loop);
+  auto pair = PromiseFuturePair<GilSafePythonValueOrException>::Make();
+
+  // Register done callback.
+  py::object done_callback =
+      py::cpp_function([promise = pair.promise](py::object future_obj) {
+        py::object result;
+        if (py::object method = py::reinterpret_steal<py::object>(
+                PyObject_GetAttrString(future_obj.ptr(), "result"));
+            method.ptr()) {
+          result = py::reinterpret_steal<py::object>(
+              PyObject_CallFunctionObjArgs(method.ptr(), nullptr));
+        }
+        GilSafePythonValueOrException gil_safe_value(
+            result ? PythonValueOrException{std::move(result)}
+                   : PythonValueOrException::FromErrorIndicator());
+        // Release the GIL when invoking `promise.SetResult` in order to avoid
+        // blocking other Python threads while arbitrary C++ callbacks are run.
+        {
+          GilScopedRelease gil_release;
+          promise.SetResult(std::move(gil_safe_value));
+        }
+      });
+
+  asyncio_future.attr("add_done_callback")(done_callback);
+
+  // Register cancellation handler.
+  pair.promise.ExecuteWhenNotNeeded(
+      [asyncio_future = asyncio_future.release().ptr()] {
+        ExitSafeGilScopedAcquire gil;
+        if (!gil.acquired()) return;
+
+        // Invoke `cancel` method.
+        if (auto method = py::reinterpret_steal<py::object>(
+                PyObject_GetAttrString(asyncio_future, "cancel"));
+            !method.ptr()) {
+          // Ignore error obtaining `cancel` method.
+          PyErr_WriteUnraisable(nullptr);
+          PyErr_Clear();
+        } else if (!py::reinterpret_steal<py::object>(
+                        PyObject_CallFunctionObjArgs(method.ptr(), nullptr))
+                        .ptr()) {
+          // Ignore error calling `cancel` method.
+          PyErr_WriteUnraisable(nullptr);
+          PyErr_Clear();
+        }
+        Py_DECREF(asyncio_future);
+      });
+
+  future = std::make_shared<PythonFuture<GilSafePythonValueOrException>>(
+      std::move(pair.future));
+  return true;
+}
+
 namespace {
 using FutureCls =
     py::class_<PythonFutureBase, std::shared_ptr<PythonFutureBase>>;
-using PromiseCls = py::class_<Promise<PythonValueOrException>>;
+using PromiseCls = py::class_<Promise<GilSafePythonValueOrException>>;
+
+/// Metaclass that forwards __call__ to a static `_class_call_` method defined
+/// on the class, similar to how `__class_getitem__` works.
+///
+/// Note: We use `_class_call_` rather than `__class_call__` since this is not
+/// an official special method.
+///
+/// This metaclass is used by `Future` to allow `Future(f)`, where `f` is an
+/// existing `Future` object, to return it unchanged, rather than a copy
+/// referring to the same `std::shared_ptr<PythonFutureBase>`.
+///
+/// This is a workaround for
+/// https://github.com/pybind/pybind11/issues/3253
+PyTypeObject* GetClassCallMetaclass() {
+  static auto* metaclass = [] {
+    PyTypeObject* base_metaclass =
+        pybind11::detail::get_internals().default_metaclass;
+    PyType_Slot slots[] = {
+        {Py_tp_base, base_metaclass},
+        {Py_tp_call,
+         (void*)+[](PyObject* self, PyObject* args,
+                    PyObject* kwargs) -> PyObject* {
+           auto method = py::reinterpret_steal<py::object>(
+               PyObject_GetAttrString(self, "_class_call_"));
+           if (!method.ptr()) return nullptr;
+           return PyObject_Call(method.ptr(), args, kwargs);
+         }},
+        {0},
+    };
+    PyType_Spec spec = {};
+    spec.name = "tensorstore._ClassCallMetaclass";
+    spec.basicsize = base_metaclass->tp_basicsize;
+    spec.flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+    spec.slots = slots;
+    PyTypeObject* metaclass = (PyTypeObject*)PyType_FromSpec(&spec);
+    if (!metaclass) throw py::error_already_set();
+    return metaclass;
+  }();
+  return metaclass;
+}
 
 FutureCls MakeFutureClass(pybind11::module m) {
-  return FutureCls(m, "Future", R"(
+  return FutureCls(
+      m, "Future",
+      py::metaclass(reinterpret_cast<PyObject*>(GetClassCallMetaclass())), R"(
 Handle for *consuming* the result of an asynchronous operation.
 
 This type supports several different patterns for consuming results:
@@ -417,6 +529,76 @@ Group:
 }
 
 void DefineFutureAttributes(FutureCls& cls) {
+  // Define the constructor as both both `_class_call_` and `__init__`.  The
+  // `__init__` method won't normally be used, but is useful for documentation
+  // purposes.
+  const auto define_constructor = [&](auto func, auto... arg) {
+    cls.def_static("_class_call_", func, arg...);
+    cls.def(py::init(func), arg...);
+  };
+  define_constructor(
+      [](UntypedFutureLike python_future,
+         std::optional<AbstractEventLoopParameter> loop)
+          -> std::shared_ptr<PythonFutureBase> {
+        if (!loop) loop.emplace().value = GetCurrentThreadAsyncioEventLoop();
+        if (std::shared_ptr<PythonFutureBase> future;
+            TryConvertToFuture(python_future.value, loop->value, future)) {
+          return future;
+        }
+        return std::make_shared<PythonFuture<GilSafePythonValueOrException>>(
+            Future<GilSafePythonValueOrException>(GilSafePythonValueOrException{
+                PythonValueOrException{std::move(python_future.value)}}));
+      },
+      R"(
+Converts a :py:obj:`.FutureLike` object to a :py:obj:`.Future`.
+
+Example:
+
+    >>> await ts.Future(3)
+    3
+
+    >>> x = ts.Future(3)
+    >>> assert x is ts.Future(x)
+
+    >>> async def get_value():
+    ...     return 42
+    >>> x = ts.Future(get_value())
+    >>> x.done()
+    False
+    >>> await x
+    >>> x.result()
+    42
+
+Args:
+  future: Specifies the immediate or asynchronous result.
+
+  loop: Event loop on which to run :py:param:`.future` if it is a
+  :ref:`coroutine<async>`.  If not specified (or :py:obj:`None` is specified),
+  defaults to the loop returned by :py:obj:`asyncio.get_running_loop`.  If
+  :py:param:`.loop` is not specified and there is no running event loop, it is
+  an error for :py:param:`.future` to be a coroutine.
+
+Returns:
+
+  - If :py:param:`.future` is a :py:obj:`.Future`, it is simply returned as is.
+
+  - If :py:param:`.future` is a :ref:`coroutine<async>`, it is run using
+    :py:param:`.loop` and the returned :py:obj:`.Future` corresponds to the
+    asynchronous result.
+
+  - Otherwise, :py:param:`.future` is treated as an immediate result, and the
+    returned :py:obj:`.Future` resolves immediately to :py:param:`.future`.
+
+Warning:
+
+  If :py:param:`.future` is a :ref:`coroutine<async>`, a blocking call to
+  :py:obj:`Future.result` or :py:obj:`Future.exception` in the thread running
+  the associated event loop may lead to deadlock.  Blocking calls should be
+  avoided when using an event loop.
+
+)",
+      py::arg("future"), py::kw_only(), py::arg("loop") = std::nullopt);
+
   cls.def("__await__", &PythonFutureBase::get_await_result);
 
   cls.def("add_done_callback", &PythonFutureBase::add_done_callback,
@@ -564,10 +746,12 @@ Group:
 }
 
 void DefinePromiseAttributes(PromiseCls& cls) {
+  using Self = Promise<GilSafePythonValueOrException>;
   cls.def(
       "set_result",
-      [](const Promise<PythonValueOrException>& self, py::object result) {
-        self.SetResult(PythonValueOrException{std::move(result)});
+      [](const Self& self, py::object result) {
+        self.SetResult(GilSafePythonValueOrException{
+            PythonValueOrException{std::move(result)}});
       },
       py::arg("result"), R"(
 Marks the linked future as successfully completed with the specified result.
@@ -586,14 +770,11 @@ Example:
 )");
   cls.def(
       "set_exception",
-      [](const Promise<PythonValueOrException>& self, py::object exception) {
+      [](const Self& self, py::object exception) {
         PyErr_SetObject(reinterpret_cast<PyObject*>(exception.ptr()->ob_type),
                         exception.ptr());
-        PythonValueOrException v;
-        PyErr_Fetch(&v.error_type.ptr(), &v.error_value.ptr(),
-                    &v.error_traceback.ptr());
-        assert(v.error_type.ptr());
-        self.SetResult(std::move(v));
+        self.SetResult(GilSafePythonValueOrException(
+            PythonValueOrException::FromErrorIndicator()));
       },
       py::arg("exception"), R"(
 Marks the linked future as unsuccessfully completed with the specified error.
@@ -617,7 +798,7 @@ Example:
       [] {
         py::tuple result(2);
         auto [promise, future] =
-            PromiseFuturePair<PythonValueOrException>::Make();
+            PromiseFuturePair<GilSafePythonValueOrException>::Make();
         result[0] = py::cast(std::move(promise));
         result[1] = py::cast(std::move(future));
         return result;
@@ -637,24 +818,16 @@ void RegisterFutureBindings(pybind11::module m, Executor defer) {
       [cls = MakePromiseClass(m)]() mutable { DefinePromiseAttributes(cls); });
 }
 
-}  // namespace internal_python
-}  // namespace tensorstore
-
-namespace pybind11 {
-namespace detail {
-
-handle type_caster<tensorstore::internal_python::PythonValueOrException>::cast(
-    tensorstore::internal_python::PythonValueOrException result,
-    return_value_policy policy, handle parent) {
-  if (!result.value.ptr()) {
-    assert(result.error_type.ptr());
-    ::PyErr_Restore(result.error_type.release().ptr(),
-                    result.error_value.release().ptr(),
-                    result.error_traceback.release().ptr());
-    throw error_already_set();
+py::object GetCurrentThreadAsyncioEventLoop() {
+  if (auto loop =
+          py::reinterpret_steal<py::object>(PyObject_CallFunctionObjArgs(
+              python_imports.asyncio__get_running_loop_function.ptr(),
+              nullptr))) {
+    return loop;
   }
-  return result.value.release();
+  PyErr_Clear();
+  return py::none();
 }
 
-}  // namespace detail
-}  // namespace pybind11
+}  // namespace internal_python
+}  // namespace tensorstore

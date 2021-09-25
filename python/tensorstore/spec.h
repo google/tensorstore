@@ -187,7 +187,7 @@ normalization by broadcasting).
   template <typename Self>
   static absl::Status Apply(Self& self, type value) {
     SharedArray<const void> array;
-    internal_python::ConvertToArray(value.obj, &array, self.dtype());
+    internal_python::ConvertToArray(value.value, &array, self.dtype());
     return self.Set(Schema::FillValue(std::move(array)));
   }
 };

@@ -14,6 +14,7 @@
 """TensorStore is a library for reading and writing multi-dimensional arrays."""
 
 import abc as _abc
+import collections.abc as _collections_abc
 
 from ._tensorstore import *
 
@@ -73,6 +74,26 @@ class Indexable(metaclass=_abc.ABCMeta):
 Indexable.register(TensorStore)
 Indexable.register(Spec)
 Indexable.register(IndexTransform)
+
+
+class FutureLike(metaclass=_abc.ABCMeta):
+  """Abstract base class for types representing an asynchronous result.
+
+  The following types may be used where a :py:obj:`FutureLike[T]<.FutureLike>`
+  value is expected:
+
+  - an immediate value of type :python:`T`;
+  - :py:class:`tensorstore.Future` that resolves to a value of type :python:`T`;
+  - :ref:`coroutine<async>` that resolves to a value of type :python:`T`.
+
+  Group:
+    Asynchronous support
+
+  """
+
+
+FutureLike.register(Future)
+FutureLike.register(_collections_abc.Coroutine)
 
 bool: dtype
 """Boolean data type (0 or 1).  Corresponds to the :py:obj:`python:bool` type and ``numpy.bool_``.
@@ -222,3 +243,6 @@ There is no precisely corresponding NumPy data type, but ``numpy.object_`` is us
 Group:
   Data types
 """
+
+del _abc
+del _collections_abc

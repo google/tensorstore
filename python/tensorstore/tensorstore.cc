@@ -26,7 +26,9 @@
 #include "python/tensorstore/dim_expression.h"
 #include "python/tensorstore/downsample.h"
 #include "python/tensorstore/future.h"
+#include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/index_space.h"
+#include "python/tensorstore/python_imports.h"
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/tensorstore_class.h"
 #include "python/tensorstore/transaction.h"
@@ -65,6 +67,9 @@ PYBIND11_MODULE(_tensorstore, m) {
   // Ensure that members of this module display as `tensorstore.X` rather than
   // `tensorstore._tensorstore.X`.
   ScopedModuleNameOverride name_override(m, "tensorstore");
+
+  internal_python::InitializePythonImports();
+  internal_python::SetupExitHandler();
 
   std::vector<ExecutorTask> deferred_registration_tasks;
 

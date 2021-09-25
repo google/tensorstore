@@ -51,7 +51,6 @@ async def test_open_array_driver():
 
   assert (await t.read()).flags.carray
   assert (await t.read(order="C")).flags.carray
-  assert (await t.read(order=None)).flags.carray
   assert (await t.read(order="F")).flags.fortran
 
   with pytest.raises(

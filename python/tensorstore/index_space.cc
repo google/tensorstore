@@ -33,6 +33,7 @@
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/numpy_indexing_spec.h"
+#include "python/tensorstore/python_imports.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/status.h"
@@ -652,7 +653,7 @@ Overload:
   cls.def(
       "__getitem__",
       [](const IndexDomain<>& self, const PythonDimExpression& expr) {
-        py::gil_scoped_release gil_release;
+        GilScopedRelease gil_release;
         DimensionIndexBuffer dims;
         return IndexDomain<>(ValueOrThrow(
             expr.Apply(internal_index_space::TransformAccess::transform(self),
@@ -2190,9 +2191,8 @@ Group:
         if (!IsFinite(self)) {
           throw py::value_error("Cannot iterate over infinite interval");
         }
-        return py::iter(
-            py::module::import("builtins")
-                .attr("range")(self.inclusive_min(), self.exclusive_max()));
+        return py::iter(python_imports.builtins_range_function(
+            self.inclusive_min(), self.exclusive_max()));
       },
       R"(
 Enables iteration over the indices contained in the interval.

@@ -38,8 +38,9 @@ namespace internal_python {
 ///
 /// Requires GIL.
 template <typename T>
-T ValueOrThrow(const tensorstore::Result<T>& result,
-               StatusExceptionPolicy policy = StatusExceptionPolicy::kDefault) {
+std::add_lvalue_reference_t<const T> ValueOrThrow(
+    const tensorstore::Result<T>& result,
+    StatusExceptionPolicy policy = StatusExceptionPolicy::kDefault) {
   if (!result.ok()) {
     ThrowStatusException(result.status(), policy);
   }
@@ -76,11 +77,11 @@ struct type_caster<tensorstore::Result<T>> {
   // Use the type caster for `T` to handle conversion of the value.
   PYBIND11_TYPE_CASTER(tensorstore::Result<T>, value_conv::name);
 
-  static handle cast(tensorstore::Result<T> result, return_value_policy policy,
-                     handle parent) {
+  template <typename R>
+  static handle cast(R&& result, return_value_policy policy, handle parent) {
     return value_conv::cast(
-        tensorstore::internal_python::ValueOrThrow(std::move(result)), policy,
-        parent);
+        tensorstore::internal_python::ValueOrThrow(static_cast<R&&>(result)),
+        policy, parent);
   }
 };
 
@@ -88,7 +89,7 @@ template <>
 struct type_caster<tensorstore::Result<void>> {
   PYBIND11_TYPE_CASTER(tensorstore::Result<void>, _("None"));
 
-  static handle cast(tensorstore::Result<void> result,
+  static handle cast(const tensorstore::Result<void> &result,
                      return_value_policy policy, handle parent) {
     if (!result.ok()) {
       tensorstore::internal_python::ThrowStatusException(result.status());

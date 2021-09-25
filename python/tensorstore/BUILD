@@ -31,8 +31,10 @@ pybind11_py_extension(
         ":dim_expression",
         ":downsample",
         ":future",
+        ":gil_safe",
         ":index_space",
         ":numpy",
+        ":python_imports",
         ":spec",
         ":tensorstore_class",
         ":transaction",
@@ -161,8 +163,11 @@ pybind11_cc_library(
     srcs = ["status.cc"],
     hdrs = ["status.h"],
     deps = [
+        ":python_imports",
+        "//tensorstore/util:assert_macros",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/status",
+        "@com_google_boringssl//:crypto",
     ],
 )
 
@@ -179,6 +184,7 @@ pybind11_cc_library(
     name = "homogeneous_tuple",
     hdrs = ["homogeneous_tuple.h"],
     deps = [
+        ":type_name_override",
         "//tensorstore/util:span",
         "@com_github_pybind_pybind11//:pybind11",
     ],
@@ -188,7 +194,7 @@ pybind11_cc_library(
     name = "sequence_parameter",
     hdrs = ["sequence_parameter.h"],
     deps = [
-        "//tensorstore/util:span",
+        ":type_name_override",
         "@com_github_pybind_pybind11//:pybind11",
     ],
 )
@@ -231,6 +237,15 @@ pybind11_cc_library(
     ],
 )
 
+tensorstore_pytest_test(
+    name = "exit_test",
+    size = "small",
+    srcs = ["tests/exit_test.py"],
+    deps = [
+        ":tensorstore",
+    ],
+)
+
 pybind11_cc_library(
     name = "index_space",
     srcs = ["index_space.cc"],
@@ -238,11 +253,13 @@ pybind11_cc_library(
     deps = [
         ":array_type_caster",
         ":dim_expression",
+        ":gil_safe",
         ":homogeneous_tuple",
         ":index",
         ":json_type_caster",
         ":numpy",
         ":numpy_indexing_spec",
+        ":python_imports",
         ":result_type_caster",
         ":sequence_parameter",
         ":status",
@@ -287,8 +304,10 @@ pybind11_cc_library(
     hdrs = ["array_type_caster.h"],
     deps = [
         ":data_type",
+        ":gil_safe",
         ":json_type_caster",
         ":numpy",
+        ":type_name_override",
         "//tensorstore:array",
         "//tensorstore:container_kind",
         "//tensorstore:contiguous_layout",
@@ -376,6 +395,7 @@ pybind11_cc_library(
         ":context",
         ":data_type",
         ":future",
+        ":gil_safe",
         ":homogeneous_tuple",
         ":index_space",
         ":json_type_caster",
@@ -425,12 +445,30 @@ pybind11_cc_library(
 )
 
 pybind11_cc_library(
+    name = "gil_safe",
+    srcs = ["gil_safe.cc"],
+    hdrs = ["gil_safe.h"],
+    deps = [
+        ":python_imports",
+        "//tensorstore/internal:intrusive_ptr",
+        "@com_github_pybind_pybind11//:pybind11",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/synchronization",
+    ],
+)
+
+pybind11_cc_library(
     name = "future",
     srcs = ["future.cc"],
     hdrs = ["future.h"],
     deps = [
+        ":gil_safe",
+        ":python_imports",
+        ":python_value_or_exception",
         ":result_type_caster",
         ":status",
+        ":type_name_override",
         "//tensorstore/internal:intrusive_linked_list",
         "//tensorstore/internal:logging",
         "//tensorstore/util:executor",
@@ -439,6 +477,25 @@ pybind11_cc_library(
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/functional:function_ref",
     ],
+)
+
+pybind11_cc_library(
+    name = "python_value_or_exception",
+    srcs = ["python_value_or_exception.cc"],
+    hdrs = ["python_value_or_exception.h"],
+    deps = [
+        ":gil_safe",
+        ":status",
+        "//tensorstore/util:result",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+)
+
+pybind11_cc_library(
+    name = "python_imports",
+    srcs = ["python_imports.cc"],
+    hdrs = ["python_imports.h"],
+    deps = ["@com_github_pybind_pybind11//:pybind11"],
 )
 
 pybind11_cc_library(
@@ -465,6 +522,7 @@ pybind11_cc_library(
         ":result_type_caster",
         ":status",
         ":subscript_method",
+        ":type_name_override",
         "//tensorstore:array",
         "//tensorstore:container_kind",
         "//tensorstore:contiguous_layout",
@@ -637,6 +695,7 @@ pybind11_cc_library(
     hdrs = ["keyword_arguments.h"],
     deps = [
         ":status",
+        ":type_name_override",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_github_pybind_pybind11//:pybind11",
@@ -667,6 +726,14 @@ pybind11_cc_library(
         "//tensorstore/util:executor",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:unit",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+)
+
+pybind11_cc_library(
+    name = "type_name_override",
+    hdrs = ["type_name_override.h"],
+    deps = [
         "@com_github_pybind_pybind11//:pybind11",
     ],
 )

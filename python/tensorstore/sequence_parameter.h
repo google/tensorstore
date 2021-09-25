@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <vector>
 
+#include "python/tensorstore/type_name_override.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 
@@ -45,34 +46,13 @@ struct SequenceParameter {
   const T& operator[](size_t i) const { return value[i]; }
 
   std::vector<T> value;
+
+  constexpr static auto tensorstore_pybind11_type_name_override =
+      pybind11::detail::_("Sequence[") +
+      pybind11::detail::make_caster<T>::name + pybind11::detail::_("]");
 };
 
 }  // namespace internal_python
 }  // namespace tensorstore
-
-namespace pybind11 {
-namespace detail {
-
-/// Defines automatic conversion of Python objects to `SequenceParmaeter`.
-///
-/// Since `SequenceParameter` is only intended as a function parameter type, we
-/// do not define the reverse conversion back to a Python object.
-template <typename T>
-struct type_caster<tensorstore::internal_python::SequenceParameter<T>> {
-  using base_value_conv = make_caster<T>;
-  PYBIND11_TYPE_CASTER(tensorstore::internal_python::SequenceParameter<T>,
-                       _("Sequence[") + base_value_conv::name + _("]"));
-  using value_conv = make_caster<std::vector<T>>;
-
-  bool load(handle src, bool convert) {
-    value_conv inner_caster;
-    if (!inner_caster.load(src, convert)) return false;
-    value.value = cast_op<std::vector<T>&&>(std::move(inner_caster));
-    return true;
-  }
-};
-
-}  // namespace detail
-}  // namespace pybind11
 
 #endif  // THIRD_PARTY_PY_TENSORSTORE_SEQUENCE_PARAMETER_H_

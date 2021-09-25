@@ -21,6 +21,8 @@ import threading
 import pytest
 import tensorstore as ts
 
+pytestmark = pytest.mark.asyncio
+
 
 def test_promise_new():
 
@@ -95,3 +97,53 @@ def test_promise_timeout():
     future.result(deadline=time.time() + 0.1)
   promise.set_result(5)
   assert future.result(timeout=0) == 5
+
+
+async def test_coroutine():
+
+  async def do_async():
+    return 42
+
+  assert await ts.Future(do_async()) == 42
+
+
+async def test_coroutine_explicit_loop():
+
+  data = threading.local()
+
+  loop_promise, loop_future = ts.Promise.new()
+
+  def thread_proc():
+    nonlocal loop
+    data.thread = 'new'
+    loop = asyncio.new_event_loop()
+    loop_promise.set_result(loop)
+    loop.run_forever()
+
+  t = threading.Thread(target=thread_proc)
+  t.start()
+
+  loop = await loop_future
+
+  async def do_async():
+    return data.thread
+
+  data.thread = 'main'
+
+  assert await ts.Future(do_async()) == 'main'
+  assert await ts.Future(do_async(), loop=loop) == 'new'
+
+  loop.call_soon_threadsafe(loop.stop)
+
+  t.join()
+
+
+@pytest.mark.filterwarnings(
+    'ignore:coroutine .* was never awaited:RuntimeWarning')
+def test_coroutine_no_event_loop_specified():
+
+  async def do_async():
+    return 42
+
+  with pytest.raises(ValueError, match='no event loop specified'):
+    ts.Future(do_async())

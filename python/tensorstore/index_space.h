@@ -26,6 +26,7 @@
 #include <utility>
 
 #include "python/tensorstore/dim_expression.h"
+#include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/homogeneous_tuple.h"
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/numpy_indexing_spec.h"
@@ -175,7 +176,7 @@ void DefineIndexTransformOperations(
       [](IndexTransform<> transform, IndexTransform<> other_transform) {
         return ValueOrThrow(
             [&] {
-              py::gil_scoped_release gil_release;
+              GilScopedRelease gil_release;
               return ComposeTransforms(transform, other_transform);
             }(),
             StatusExceptionPolicy::kIndexError);
@@ -196,7 +197,7 @@ void DefineIndexTransformOperations(
       [](IndexTransform<> transform, const PythonDimExpression& expr) {
         return ValueOrThrow(
             [&] {
-              py::gil_scoped_release gil_release;
+              GilScopedRelease gil_release;
               DimensionIndexBuffer dims;
               return expr.Apply(std::move(transform), &dims,
                                 /*top_level=*/true);
@@ -220,7 +221,7 @@ void DefineIndexTransformOperations(
           [&]() -> Result<IndexTransform<>> {
             auto spec =
                 spec_placeholder.Parse(NumpyIndexingSpec::Usage::kDirect);
-            py::gil_scoped_release gil_release;
+            GilScopedRelease gil_release;
             TENSORSTORE_ASSIGN_OR_RETURN(
                 auto spec_transform,
                 ToIndexTransform(spec, transform.domain()));
@@ -241,7 +242,7 @@ void DefineIndexTransformOperations(
             [&]() -> Result<IndexTransform<>> {
               auto spec =
                   spec_placeholder.Parse(NumpyIndexingSpec::Usage::kDirect);
-              py::gil_scoped_release gil_release;
+              GilScopedRelease gil_release;
               TENSORSTORE_ASSIGN_OR_RETURN(
                   auto spec_transform,
                   ToIndexTransform(spec, transform.domain()));

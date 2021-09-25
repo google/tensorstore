@@ -52,6 +52,7 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_split.h"
 #include "python/tensorstore/status.h"
+#include "python/tensorstore/type_name_override.h"
 #include "pybind11/pybind11.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
@@ -63,7 +64,8 @@ namespace internal_python {
 /// `ApplyKeywordArguments`.
 ///
 /// The template parameter is solely for showing a type annotation in the
-/// signature/documentation.
+/// signature/documentation: this type displays as `Optional[T]` in the
+/// pybind11-generated signature.
 ///
 /// This just stores the Python object that was passed without validation.
 /// `ApplyKeywordArguments` is responsible for converting to type `T`.  We don't
@@ -80,7 +82,11 @@ namespace internal_python {
 ///   problem.
 template <typename T>
 struct KeywordArgumentPlaceholder {
-  pybind11::object obj;
+  pybind11::object value;
+
+  constexpr static auto tensorstore_pybind11_type_name_override =
+      pybind11::detail::_("Optional[") +
+      pybind11::detail::make_caster<T>::name + pybind11::detail::_("]");
 };
 
 template <typename ParamDef>
@@ -146,9 +152,9 @@ auto MakeKeywordArgumentPyArg(ParamDef param_def) {
 ///     been validated).
 template <typename ParamDef, typename Target>
 void SetKeywordArgumentOrThrow(Target& target, KeywordArgument<ParamDef>& arg) {
-  if (arg.obj.is_none()) return;
+  if (arg.value.is_none()) return;
   pybind11::detail::make_caster<typename ParamDef::type> caster;
-  if (!caster.load(arg.obj, /*convert=*/true)) {
+  if (!caster.load(arg.value, /*convert=*/true)) {
     throw pybind11::type_error(tensorstore::StrCat("Invalid ", ParamDef::name));
   }
   auto status = ParamDef::Apply(
@@ -179,26 +185,5 @@ void ApplyKeywordArguments(Target& target, KeywordArgument<ParamDef>&... arg) {
 
 }  // namespace internal_python
 }  // namespace tensorstore
-
-namespace pybind11 {
-namespace detail {
-
-/// Type caster for KeywordArgumentPlaceholder that has a type annotation of
-/// `Optional[T]` and simply stores the Python object without validation.
-template <typename T>
-struct type_caster<
-    tensorstore::internal_python::KeywordArgumentPlaceholder<T>> {
-  using value_conv = make_caster<T>;
-  PYBIND11_TYPE_CASTER(
-      tensorstore::internal_python::KeywordArgumentPlaceholder<T>,
-      _("Optional[") + value_conv::name + _("]"));
-  bool load(handle src, bool convert) {
-    value.obj = reinterpret_borrow<object>(src);
-    return true;
-  }
-};
-
-}  // namespace detail
-}  // namespace pybind11
 
 #endif  // THIRD_PARTY_PY_TENSORSTORE_KEYWORD_ARGUMENTS_H_
