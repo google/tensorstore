@@ -80,8 +80,8 @@ std::enable_if_t<SupportsApplyMembers<T>> EncodeCacheKeyAdl(std::string* out,
 }
 
 template <typename... U>
-ABSL_ATTRIBUTE_ALWAYS_INLINE void EncodeCacheKey(std::string* out,
-                                                 const U&... u) {
+ABSL_ATTRIBUTE_ALWAYS_INLINE inline void EncodeCacheKey(std::string* out,
+                                                        const U&... u) {
   (EncodeCacheKeyAdl(out, u), ...);
 }
 
