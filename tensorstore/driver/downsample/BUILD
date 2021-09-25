@@ -1,5 +1,5 @@
 load("//tensorstore:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
-load("//docs:doctest.bzl", "doctest_multi_test")
+load("//docs:doctest.bzl", "doctest_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -10,8 +10,8 @@ DOCTEST_SOURCES = glob([
     "**/*.yml",
 ])
 
-doctest_multi_test(
-    name = "doctest_tests",
+doctest_test(
+    name = "doctest_test",
     srcs = DOCTEST_SOURCES,
 )
 

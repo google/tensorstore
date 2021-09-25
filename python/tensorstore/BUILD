@@ -1,7 +1,7 @@
 load(":pybind11.bzl", "pybind11_cc_library", "pybind11_cc_test", "pybind11_py_extension")
 load(":pytest.bzl", "tensorstore_pytest_test")
 load(":pytype.bzl", "pytype_strict_binary")
-load("//docs:doctest.bzl", "doctest_multi_test")
+load("//docs:doctest.bzl", "doctest_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -12,8 +12,8 @@ exports_files([
     "bazel_pytest_main.py",
 ])
 
-doctest_multi_test(
-    name = "doctest_tests",
+doctest_test(
+    name = "doctest_test",
     srcs = glob([
         "*.py",
         "*.cc",

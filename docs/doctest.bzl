@@ -30,7 +30,10 @@ def _write_wrapper_impl(ctx):
                   "echo 'set -eu'; " +
                   "cat " + ctx.file.runfiles_library.path + "; " +
                   "echo '$(rlocation " + ctx.workspace_name + "/" + ctx.executable.doctest_binary.short_path + ") " +
-                  "--doctests $(rlocation " + ctx.workspace_name + "/" + ctx.file.src.short_path + ")' " +  #
+                  "--doctests " + " ".join([
+                      "$(rlocation " + ctx.workspace_name + "/" + src.short_path + ")"
+                      for src in ctx.files.srcs
+                  ]) + "' " +  #
                   ") > " + ctx.outputs.executable.path,
     )
 
@@ -49,28 +52,28 @@ _write_wrapper = rule(
             cfg = "target",
             mandatory = True,
         ),
-        "src": attr.label(
+        "srcs": attr.label_list(
             mandatory = True,
-            allow_single_file = True,
+            allow_files = True,
         ),
     },
     executable = True,
     implementation = _write_wrapper_impl,
 )
 
-def doctest_test(name, src, **kwargs):
-    """Defines a single doctest.
+def doctest_test(name, srcs, **kwargs):
+    """Defines a doctest.
 
-    This validates Python-style doctests defined in a text file.
+    This validates Python-style doctests defined in text files.
 
     Args:
       name: Target name, typically `src + "_doctest_test"`.
-      src: Source file containing the doctests.
+      srcs: Source files containing the doctests.
       **kwargs: Additional arguments to forward to actual test rule, such as
           `size` or `tags`.
     """
-    sh_name = src + "_doctest_test.sh"
-    doctest_binary = "//docs:doctest_test"
+    sh_name = name + ".sh"
+    doctest_binary = "//docs:_doctest_test"
     runfiles_library = "@bazel_tools//tools/bash/runfiles"
 
     _write_wrapper(
@@ -78,46 +81,23 @@ def doctest_test(name, src, **kwargs):
         testonly = True,
         doctest_binary = doctest_binary,
         runfiles_library = runfiles_library,
-        src = src,
+        srcs = srcs,
     )
     native.sh_test(
         name = name,
         srcs = [sh_name],
         data = [
             doctest_binary,
-            src,
             # Include runfiles_library as data dependency as well, even though
             # it is inlined into the shell script and doesn't actually need to
             # be loaded, because its runfiles detection logic looks for the
             # runfiles library itself.
             runfiles_library,
-        ],
+        ] + srcs,
         env = {
             # Ensure that even if the test is running on GCE, no attempt is made to
             # use GCE credentials.
             "GCE_METADATA_ROOT": "metadata.google.internal.invalid",
         },
         **kwargs
-    )
-
-def doctest_multi_test(name, srcs, size = "medium", tags = []):
-    """Defines a suite of doctests.
-
-    Args:
-      name: Test suite name.
-      srcs: List of source files.
-      size: Test size.
-      tags: Test tags.
-    """
-    for src in srcs:
-        doctest_test(
-            name = src + "_doctest_test",
-            src = src,
-            size = size,
-            tags = tags,
-        )
-    native.test_suite(
-        name = name,
-        tests = [src + "_doctest_test" for src in srcs],
-        tags = tags,
     )

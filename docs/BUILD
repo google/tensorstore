@@ -1,7 +1,7 @@
 load("//python/tensorstore:pytype.bzl", "pytype_strict_binary", "pytype_strict_test")
 load("//python/tensorstore:pytest.bzl", "tensorstore_pytest_test")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
-load("//docs:doctest.bzl", "doctest_multi_test")
+load("//docs:doctest.bzl", "doctest_test")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -96,7 +96,7 @@ pytype_strict_binary(
 )
 
 tensorstore_pytest_test(
-    name = "doctest_test",
+    name = "_doctest_test",
     size = "medium",
     srcs = [
         "conftest.py",
@@ -112,7 +112,7 @@ tensorstore_pytest_test(
     ],
 )
 
-doctest_multi_test(
-    name = "doctest_tests",
+doctest_test(
+    name = "doctest_test",
     srcs = glob(["python/**/*.rst"]),
 )
