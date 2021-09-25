@@ -1,0 +1,2 @@
+# DO NOT EDIT: Generated from doctest_requirements.txt by generate_workspace.bzl
+yapf==0.31.0

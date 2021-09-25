@@ -1,0 +1,3 @@
+# Packages required to build a binary wheel.
+wheel
+setuptools_scm

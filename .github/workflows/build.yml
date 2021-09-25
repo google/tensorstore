@@ -34,7 +34,7 @@ jobs:
     - uses: actions/cache@v2
       with:
         path: ${{ steps.pip-cache.outputs.dir }}
-        key: pip-${{ runner.os }}-buildwheel-${{ hashFiles('tools/ci/*_requirements.txt') }}
+        key: pip-${{ runner.os }}-buildwheel-${{ hashFiles('tools/ci/*_requirements.txt', 'third_party/pypa/*_requirements_frozen.txt') }}
     - uses: actions/cache@v2
       with:
         path: |
@@ -45,7 +45,7 @@ jobs:
       run: python setup.py sdist --format gztar
       if: ${{ runner.os == 'Linux' }}
     - name: Install cibuildwheel
-      run: pip install -r tools/ci/cibuildwheel_requirement.txt
+      run: pip install -r third_party/pypa/cibuildwheel_requirements_frozen.txt
     - name: Build Python wheels
       run: python ./tools/ci/cibuildwheel.py --bazelrc ~/ci_bazelrc
       shell: bash # For ~ expansion

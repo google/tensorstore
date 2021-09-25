@@ -1,0 +1,3 @@
+# DO NOT EDIT: Generated from examples_requirements.txt by generate_workspace.bzl
+apache-beam==2.32.0
+gin-config==0.4.0

@@ -1,0 +1,4 @@
+# Packages required to run the tests.
+numpy
+pytest
+pytest-asyncio

@@ -1,0 +1,7 @@
+# Packages required to build the documentation.
+sphinx
+jsonschema
+pyyaml
+docutils
+jinja2
+htmlmin

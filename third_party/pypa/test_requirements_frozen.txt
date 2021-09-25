@@ -1,0 +1,4 @@
+# DO NOT EDIT: Generated from test_requirements.txt by generate_workspace.bzl
+numpy==1.19.5
+pytest==6.2.5
+pytest-asyncio==0.15.1

@@ -1,0 +1,2 @@
+# DO NOT EDIT: Generated from build_requirements.txt by generate_workspace.bzl
+numpy==1.19.5

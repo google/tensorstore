@@ -114,7 +114,7 @@ def run(args, extra_args):
   cibw_environment["PIP_NO_BUILD_ISOLATION"] = "0"
 
   env["CIBW_BEFORE_TEST"] = (
-      "pip install -r {package}/tools/ci/test_requirements.txt")
+      "pip install -r {package}/third_party/pypa/test_requirements_frozen.txt")
 
   home_dir = str(pathlib.Path.home())
 

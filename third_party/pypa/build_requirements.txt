@@ -1,0 +1,6 @@
+# Packages required to build the Python extension, and also required
+# to install the Python extension.
+
+# Note: When building redistributable wheels, `oldest-supported-numpy`
+# should be used instead.
+numpy
