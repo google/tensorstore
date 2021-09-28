@@ -144,7 +144,7 @@ py_library(
     ],
     deps = [
         "@pypa_docutils//:docutils",
-        "@pypa_jinja2//:jinja2",
+        "@pypa_markupsafe//:markupsafe",
         "@pypa_sphinx//:sphinx",
     ],
 )

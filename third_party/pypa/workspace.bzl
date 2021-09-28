@@ -93,7 +93,7 @@ def repo_pypa_absl_py():
         third_party_python_package,
         name = "pypa_absl_py",
         target = "absl_py",
-        requirement = "absl-py==0.13.0",
+        requirement = "absl-py==0.14.0",
         deps = [
             "@pypa_six//:six",
         ],
@@ -276,7 +276,7 @@ def repo_pypa_fastavro():
         third_party_python_package,
         name = "pypa_fastavro",
         target = "fastavro",
-        requirement = "fastavro==1.4.4",
+        requirement = "fastavro==1.4.5",
     )
 
 def repo_pypa_future():
@@ -301,7 +301,7 @@ def repo_pypa_grpcio():
         third_party_python_package,
         name = "pypa_grpcio",
         target = "grpcio",
-        requirement = "grpcio==1.40.0",
+        requirement = "grpcio==1.41.0",
         deps = [
             "@pypa_six//:six",
         ],
@@ -398,7 +398,7 @@ def repo_pypa_ipython():
         third_party_python_package,
         name = "pypa_ipython",
         target = "ipython",
-        requirement = "ipython==7.27.0",
+        requirement = "ipython==7.28.0",
         deps = [
             "@pypa_appnope//:appnope",
             "@pypa_backcall//:backcall",
@@ -782,7 +782,7 @@ def repo_pypa_setuptools():
         third_party_python_package,
         name = "pypa_setuptools",
         target = "setuptools",
-        requirement = "setuptools==58.0.4",
+        requirement = "setuptools==58.1.0",
     )
 
 def repo_pypa_six():
@@ -922,7 +922,7 @@ def repo_pypa_urllib3():
         third_party_python_package,
         name = "pypa_urllib3",
         target = "urllib3",
-        requirement = "urllib3==1.26.6",
+        requirement = "urllib3==1.26.7",
     )
 
 def repo_pypa_wcwidth():
@@ -946,5 +946,5 @@ def repo_pypa_zipp():
         third_party_python_package,
         name = "pypa_zipp",
         target = "zipp",
-        requirement = "zipp==3.5.0",
+        requirement = "zipp==3.5.1",
     )

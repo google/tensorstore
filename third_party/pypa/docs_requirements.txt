@@ -3,5 +3,5 @@ sphinx
 jsonschema
 pyyaml
 docutils
-jinja2
 htmlmin
+markupsafe
