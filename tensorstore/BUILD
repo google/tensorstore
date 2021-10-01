@@ -347,6 +347,7 @@ tensorstore_cc_library(
         ":container_kind",
         ":index",
         "//tensorstore/internal:integer_overflow",
+        "//tensorstore/serialization",
         "//tensorstore/util:division",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
@@ -361,6 +362,8 @@ tensorstore_cc_test(
     srcs = ["index_interval_test.cc"],
     deps = [
         ":index_interval",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:test_util",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",

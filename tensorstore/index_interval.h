@@ -22,6 +22,7 @@
 
 #include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/result.h"
 
@@ -441,6 +442,10 @@ class OptionallyImplicitIndexInterval : public IndexInterval {
                       x.implicit_upper());
   }
 
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.interval(), x.implicit_lower(), x.implicit_upper());
+  };
+
   const IndexInterval& interval() const { return *this; }
   IndexInterval& interval() { return *this; }
 
@@ -544,6 +549,10 @@ class IndexDomainDimension : public OptionallyImplicitIndexInterval {
 
   std::string_view label() const { return label_; }
   Label& label() { return label_; }
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.optionally_implicit_interval(), x.label_);
+  };
 
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
@@ -960,5 +969,7 @@ constexpr inline IndexInterval DividePositiveRoundOut(IndexInterval interval,
 }
 
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::IndexInterval)
 
 #endif  // TENSORSTORE_INDEX_INTERVAL_H_

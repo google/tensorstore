@@ -15,9 +15,9 @@
 #include "tensorstore/index_interval.h"
 
 #include <ostream>
-#include <system_error>  // NOLINT
 
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
@@ -598,5 +598,25 @@ Result<OptionallyImplicitIndexInterval> MergeOptionallyImplicitIndexIntervals(
   return OptionallyImplicitIndexInterval{interval, implicit_lower,
                                          implicit_upper};
 }
+
+namespace serialization {
+
+bool Serializer<IndexInterval>::Encode(EncodeSink& sink,
+                                       const IndexInterval& value) {
+  return serialization::EncodeTuple(sink, value.inclusive_min(), value.size());
+}
+
+bool Serializer<IndexInterval>::Decode(DecodeSource& source,
+                                       IndexInterval& value) {
+  Index inclusive_min, size;
+  if (!serialization::DecodeTuple(source, inclusive_min, size)) {
+    return false;
+  }
+  TENSORSTORE_ASSIGN_OR_RETURN(value, IndexInterval::Sized(inclusive_min, size),
+                               (source.Fail(_), false));
+  return true;
+}
+
+}  // namespace serialization
 
 }  // namespace tensorstore

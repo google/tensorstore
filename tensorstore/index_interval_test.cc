@@ -17,6 +17,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/hash/hash_testing.h"
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
@@ -53,6 +55,7 @@ using tensorstore::ShiftIntervalBackward;
 using tensorstore::ShiftIntervalTo;
 using tensorstore::StrCat;
 using tensorstore::view;
+using tensorstore::serialization::TestSerializationRoundTrip;
 using ::testing::Optional;
 using ::testing::Pair;
 
@@ -1176,7 +1179,7 @@ void TestGetAffineTransformRangeRoundTrip(IndexInterval domain, Index offset,
 
 // Tests that GetAffineTransformDomain inverts GetAffineTransformRange when the
 // multiplier is non-zero.
-TEST(GetAffineTransformRangeTest, RoundTrip) {
+TEST(GetAffineTransformRangeTest, SerializationRoundTrip) {
   TestGetAffineTransformRangeRoundTrip(
       /*domain=*/IndexInterval::UncheckedClosed(1, 10), /*offset=*/3,
       /*multiplier=*/1,
@@ -1788,6 +1791,10 @@ TEST(MergeOptionallyImplicitIndexIntervalsTest, InvalidInterval) {
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,
           "\\(5, -5\\) do not specify a valid closed index interval"));
+}
+
+TEST(IndexIntervalSerializationTest, Basic) {
+  TestSerializationRoundTrip(IndexInterval::UncheckedSized(1, 2));
 }
 
 }  // namespace
