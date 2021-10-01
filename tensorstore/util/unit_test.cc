@@ -18,6 +18,8 @@
 #include <gtest/gtest.h>
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/json_unit.h"
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace {
@@ -25,6 +27,7 @@ namespace {
 using tensorstore::TestJsonBinderRoundTrip;
 using tensorstore::TestJsonBinderRoundTripJsonOnlyInexact;
 using tensorstore::Unit;
+using tensorstore::serialization::TestSerializationRoundTrip;
 
 TEST(UnitTest, DefaultConstruct) {
   Unit u;
@@ -95,6 +98,13 @@ TEST(UnitTest, JsonRoundTripInexact) {
       {4, {4, ""}},
       {"nm", {1, "nm"}},
   });
+}
+
+TEST(SerializationTest, Basic) {
+  TestSerializationRoundTrip(Unit("4nm"));
+  TestSerializationRoundTrip(Unit("4"));
+  TestSerializationRoundTrip(Unit("nm"));
+  TestSerializationRoundTrip(Unit(""));
 }
 
 }  // namespace

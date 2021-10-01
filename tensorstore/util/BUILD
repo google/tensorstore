@@ -786,6 +786,8 @@ tensorstore_cc_test(
         ":unit",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/internal:json_unit",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:test_util",
         "@com_google_googletest//:gtest_main",
     ],
 )

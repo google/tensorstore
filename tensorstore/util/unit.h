@@ -104,6 +104,11 @@ struct Unit {
     u.multiplier /= x;
     return u;
   }
+
+  // Reflection support.
+  static constexpr auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.multiplier, x.base_unit);
+  };
 };
 
 }  // namespace tensorstore
