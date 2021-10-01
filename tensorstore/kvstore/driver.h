@@ -20,6 +20,7 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_modify_write.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/transaction.h"
 
 namespace tensorstore {
@@ -65,6 +66,9 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   /// creation should be excluded.
   virtual void EncodeCacheKey(std::string* out) const = 0;
 
+  /// Returns the driver identifier.
+  virtual std::string_view driver_id() const = 0;
+
   /// Returns a copy of this spec, used to implement copy-on-write behavior.
   virtual Ptr Clone() const = 0;
 
@@ -87,7 +91,7 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   Context::Spec context_spec_;
 
   /// Indicates the binding state.
-  ContextBindingState context_binding_state_;
+  ContextBindingState context_binding_state_ = ContextBindingState::unknown;
 };
 
 /// Abstract base class representing a key-value store.
@@ -330,5 +334,9 @@ Open(DriverSpecPtr spec, Option&&... option) {
 
 }  // namespace kvstore
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::kvstore::DriverSpecPtr)
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::kvstore::DriverPtr)
 
 #endif  // TENSORSTORE_KVSTORE_DRIVER_H_

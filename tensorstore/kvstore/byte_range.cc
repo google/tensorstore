@@ -20,6 +20,8 @@
 #include <string>
 
 #include "absl/status/status.h"
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/std_optional.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
@@ -52,3 +54,12 @@ Result<ByteRange> OptionalByteRangeRequest::Validate(std::uint64_t size) const {
 }
 
 }  // namespace tensorstore
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::ByteRange, tensorstore::serialization::ApplyMembersSerializer<
+                                tensorstore::ByteRange>())
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::OptionalByteRangeRequest,
+    tensorstore::serialization::ApplyMembersSerializer<
+        tensorstore::OptionalByteRangeRequest>())

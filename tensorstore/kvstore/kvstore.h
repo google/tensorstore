@@ -125,4 +125,6 @@ using kvstore::KvStore;
 
 }  // namespace tensorstore
 
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::kvstore::KvStore)
+
 #endif  // TENSORSTORE_KVSTORE_KVSTORE_H_

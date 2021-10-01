@@ -28,6 +28,8 @@
 #include "tensorstore/internal/json_registry.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/driver.h"
+#include "tensorstore/serialization/registry.h"
+#include "tensorstore/serialization/serialization.h"
 
 namespace tensorstore {
 namespace internal_kvstore {
@@ -216,6 +218,7 @@ class RegisteredDriverSpec : public DriverSpec {
   using SpecData = typename Derived::SpecData;
 
  public:
+  constexpr static std::string_view id = Derived::id;
   absl::Status BindContext(const Context& context) override {
     return internal::ContextBindingTraits<SpecData>::Bind(data_, context);
   }
@@ -233,6 +236,8 @@ class RegisteredDriverSpec : public DriverSpec {
     Derived::RegisteredDriver::EncodeCacheKeyImpl(out, data_);
   }
 
+  std::string_view driver_id() const override { return Derived::id; }
+
   DriverSpecPtr Clone() const final {
     return DriverSpecPtr(new RegisteredDriverSpec(*this));
   }
@@ -247,6 +252,10 @@ class RegisteredDriverSpec : public DriverSpec {
     Derived::Open(std::move(open_state));
     return future;
   }
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.context_spec_, x.data_);
+  };
 
   SpecData data_;
 };
@@ -269,10 +278,16 @@ class DriverRegistration {
         Derived::id,
         internal_json_binding::Projection(&RegisteredDriverSpec<Derived>::data_,
                                           Derived::json_binder));
+    serialization::Register<internal::IntrusivePtr<const DriverSpec>,
+                            RegisteredDriverSpec<Derived>>();
   }
 };
 
 }  // namespace internal_kvstore
+
+extern template serialization::Registry&
+serialization::GetRegistry<internal::IntrusivePtr<const kvstore::DriverSpec>>();
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_KVSTORE_REGISTRY_H_

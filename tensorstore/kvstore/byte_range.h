@@ -23,6 +23,7 @@
 #include <utility>
 
 #include "absl/strings/cord.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -54,6 +55,10 @@ struct ByteRange {
   }
 
   friend std::ostream& operator<<(std::ostream& os, const ByteRange& r);
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.inclusive_min, x.exclusive_max);
+  };
 };
 
 /// Specifies an optional byte range request.
@@ -97,6 +102,10 @@ struct OptionalByteRangeRequest {
   ///
   /// \error `absl::StatusCode::kOutOfRange` if `*this` is not valid.
   Result<ByteRange> Validate(std::uint64_t size) const;
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.inclusive_min, x.exclusive_max);
+  };
 };
 
 namespace internal {
@@ -113,5 +122,9 @@ inline absl::Cord GetSubCord(const absl::Cord& s, ByteRange r) {
 }  // namespace internal
 
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::ByteRange)
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::OptionalByteRangeRequest)
 
 #endif  // TENSORSTORE_KVSTORE_BYTE_RANGE_REQUEST_H_

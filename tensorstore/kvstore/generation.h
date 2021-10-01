@@ -22,6 +22,7 @@
 #include <utility>
 
 #include "absl/time/time.h"
+#include "tensorstore/serialization/fwd.h"
 
 namespace tensorstore {
 
@@ -279,6 +280,10 @@ struct StorageGeneration {
   }
 
   friend std::ostream& operator<<(std::ostream& os, const StorageGeneration& g);
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.value);
+  };
 };
 
 /// Combines a local timestamp with a StorageGeneration indicating the local
@@ -307,8 +312,16 @@ struct TimestampedStorageGeneration {
   }
   friend std::ostream& operator<<(std::ostream& os,
                                   const TimestampedStorageGeneration& x);
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.generation, x.time);
+  };
 };
 
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::StorageGeneration)
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::TimestampedStorageGeneration)
 
 #endif  // TENSORSTORE_KVSTORE_GENERATION_H_

@@ -15,10 +15,14 @@
 #include "tensorstore/kvstore/generation.h"
 
 #include <gtest/gtest.h>
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/test_util.h"
 
 namespace {
 
 using tensorstore::StorageGeneration;
+using tensorstore::TimestampedStorageGeneration;
+using tensorstore::serialization::TestSerializationRoundTrip;
 
 TEST(StorageGenerationTest, Basic) {
   EXPECT_TRUE(StorageGeneration::IsUnknown(StorageGeneration::Unknown()));
@@ -56,6 +60,18 @@ TEST(StorageGenerationTest, Uint64) {
   EXPECT_FALSE(StorageGeneration::IsUint64(StorageGeneration::Unknown()));
   EXPECT_FALSE(StorageGeneration::IsUint64(StorageGeneration::NoValue()));
   EXPECT_FALSE(StorageGeneration::IsUint64(StorageGeneration::Invalid()));
+}
+
+TEST(StorageGenerationSerializationTest, Basic) {
+  TestSerializationRoundTrip(StorageGeneration::Unknown());
+  TestSerializationRoundTrip(StorageGeneration::FromUint64(12345));
+}
+
+TEST(TimestampedStorageGenerationSerializationTest, Basic) {
+  TestSerializationRoundTrip(TimestampedStorageGeneration(
+      StorageGeneration::FromUint64(12345), absl::InfinitePast()));
+  TestSerializationRoundTrip(TimestampedStorageGeneration(
+      StorageGeneration::FromUint64(12345), absl::InfiniteFuture()));
 }
 
 }  // namespace

@@ -20,6 +20,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
@@ -32,6 +34,7 @@ using tensorstore::MatchesStatus;
 using tensorstore::OptionalByteRangeRequest;
 using tensorstore::StrCat;
 using tensorstore::internal::GetSubCord;
+using tensorstore::serialization::TestSerializationRoundTrip;
 
 TEST(ByteRangeTest, SatisfiesInvariants) {
   EXPECT_TRUE((ByteRange{0, 1}).SatisfiesInvariants());
@@ -149,6 +152,15 @@ TEST(GetSubStringTest, Basic) {
   EXPECT_EQ("bcd", GetSubCord(absl::Cord("abcde"), {1, 4}));
   EXPECT_EQ("bcd", GetSubCord(absl::Cord("abcde"), {1, 4}));
   EXPECT_EQ("abcde", GetSubCord(absl::Cord("abcde"), {0, 5}));
+}
+
+TEST(ByteRangeSerializationTest, Basic) {
+  TestSerializationRoundTrip(ByteRange{1, 5});
+}
+
+TEST(OptionalByteRangeRequestSerializationTest, Basic) {
+  TestSerializationRoundTrip(OptionalByteRangeRequest{1, 5});
+  TestSerializationRoundTrip(OptionalByteRangeRequest{1});
 }
 
 }  // namespace

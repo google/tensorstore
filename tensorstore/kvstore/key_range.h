@@ -95,6 +95,11 @@ class KeyRange {
 
   friend std::ostream& operator<<(std::ostream& os, const KeyRange& range);
 
+  // Reflection support.
+  static constexpr auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.inclusive_min, x.exclusive_max);
+  };
+
   std::string inclusive_min;
   std::string exclusive_max;
 };

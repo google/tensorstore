@@ -35,6 +35,7 @@ tensorstore_cc_library(
     srcs = ["byte_range.cc"],
     hdrs = ["byte_range.h"],
     deps = [
+        "//tensorstore/serialization",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
@@ -49,6 +50,8 @@ tensorstore_cc_test(
     srcs = ["byte_range_test.cc"],
     deps = [
         ":byte_range",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:test_util",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
@@ -63,6 +66,8 @@ tensorstore_cc_library(
     srcs = ["generation.cc"],
     hdrs = ["generation.h"],
     deps = [
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:absl_time",
         "//tensorstore/util:quote_string",
         "@com_google_absl//absl/time",
     ],
@@ -74,6 +79,8 @@ tensorstore_cc_test(
     srcs = ["generation_test.cc"],
     deps = [
         ":generation",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:test_util",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -177,6 +184,8 @@ tensorstore_cc_library(
         "//tensorstore/internal:logging",
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal:path",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:registry",
         "//tensorstore/util:assert_macros",
         "//tensorstore/util:collecting_sender",
         "//tensorstore/util:executor",

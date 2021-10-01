@@ -26,6 +26,8 @@
 #include "tensorstore/internal/cache/cache_key.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/kvstore/test_util.h"
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/execution.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/sender.h"
@@ -43,6 +45,7 @@ using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
 using tensorstore::internal::MatchesKvsReadResult;
 using tensorstore::internal::MatchesKvsReadResultNotFound;
+using tensorstore::serialization::SerializationRoundTrip;
 
 TEST(MemoryKeyValueStoreTest, Basic) {
   auto store = tensorstore::GetMemoryKeyValueStore();
@@ -337,6 +340,28 @@ TEST(MemoryKeyValueStoreTest, ContextBinding) {
   // Rebind resources with `context2`
   TENSORSTORE_ASSERT_OK(base_spec3.Set(tensorstore::strip_context, context2));
   EXPECT_THAT(kvstore::Open(base_spec3).result(), ::testing::Optional(store2));
+}
+
+TEST(MemoryKeyValueStoreTest, SpecSerialization) {
+  ::nlohmann::json json_spec{{"driver", "memory"}, {"path", "abc/"}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   kvstore::Spec::FromJson(json_spec));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_roundtripped,
+                                   SerializationRoundTrip(spec));
+  EXPECT_THAT(spec_roundtripped.ToJson(),
+              ::testing::Optional(MatchesJson(json_spec)));
+}
+
+TEST(MemoryKeyValueStoreTest, KvStoreSerialization) {
+  ::nlohmann::json json_spec{{"driver", "memory"}, {"path", "abc/"}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   kvstore::Open(json_spec).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_roundtripped,
+                                   SerializationRoundTrip(store));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_roundtripped,
+                                   store_roundtripped.spec());
+  EXPECT_THAT(spec_roundtripped.ToJson(),
+              ::testing::Optional(MatchesJson(json_spec)));
 }
 
 }  // namespace

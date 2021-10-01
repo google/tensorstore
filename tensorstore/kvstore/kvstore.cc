@@ -178,6 +178,9 @@ DriverRegistry& GetDriverRegistry() {
 
 }  // namespace internal_kvstore
 
+template serialization::Registry&
+serialization::GetRegistry<internal::IntrusivePtr<const kvstore::DriverSpec>>();
+
 namespace kvstore {
 
 Driver::~Driver() = default;
@@ -406,6 +409,48 @@ bool operator==(const KvStore& a, const KvStore& b) {
 
 }  // namespace kvstore
 
+namespace serialization {
+
+namespace {
+
+using DriverSpecPtrNonNullDirectSerializer =
+    RegistrySerializer<internal::IntrusivePtr<const kvstore::DriverSpec>>;
+
+using DriverSpecPtrSerializer =
+    IndirectPointerSerializer<internal::IntrusivePtr<const kvstore::DriverSpec>,
+                              DriverSpecPtrNonNullDirectSerializer>;
+
+using DriverSpecPtrNonNullSerializer = NonNullIndirectPointerSerializer<
+    internal::IntrusivePtr<const kvstore::DriverSpec>,
+    DriverSpecPtrNonNullDirectSerializer>;
+
+struct DriverPtrNonNullDirectSerializer {
+  [[nodiscard]] static bool Encode(EncodeSink& sink,
+                                   const kvstore::DriverPtr& value) {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto driver_spec, value->spec(retain_context),
+                                 (sink.Fail(_), false));
+    return DriverSpecPtrNonNullSerializer().Encode(sink, driver_spec);
+  }
+  [[nodiscard]] static bool Decode(DecodeSource& source,
+                                   kvstore::DriverPtr& value) {
+    kvstore::DriverSpecPtr driver_spec;
+    if (!DriverSpecPtrNonNullSerializer().Decode(source, driver_spec)) {
+      return false;
+    }
+    TENSORSTORE_ASSIGN_OR_RETURN(value,
+                                 kvstore::Open(std::move(driver_spec)).result(),
+                                 (source.Fail(_), false));
+    return true;
+  }
+};
+
+using DriverPtrSerializer =
+    IndirectPointerSerializer<kvstore::DriverPtr,
+                              DriverPtrNonNullDirectSerializer>;
+}  // namespace
+
+}  // namespace serialization
+
 namespace internal_json_binding {
 TENSORSTORE_DEFINE_JSON_BINDER(
     KvStoreSpecAndPathJsonBinder,
@@ -428,3 +473,21 @@ TENSORSTORE_DEFINE_JSON_BINDER(
 }  // namespace internal_json_binding
 
 }  // namespace tensorstore
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::kvstore::DriverSpecPtr,
+    tensorstore::serialization::DriverSpecPtrSerializer())
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::kvstore::DriverPtr,
+    tensorstore::serialization::DriverPtrSerializer())
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::kvstore::Spec,
+    tensorstore::serialization::ApplyMembersSerializer<
+        tensorstore::kvstore::Spec>())
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::kvstore::KvStore,
+    tensorstore::serialization::ApplyMembersSerializer<
+        tensorstore::kvstore::KvStore>())

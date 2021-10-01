@@ -18,6 +18,8 @@
 #include <string_view>
 
 #include "absl/time/time.h"
+#include "tensorstore/serialization/absl_time.h"
+#include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
@@ -136,3 +138,13 @@ bool StorageGeneration::NotEqualOrUnspecified(
 }
 
 }  // namespace tensorstore
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::StorageGeneration,
+    tensorstore::serialization::ApplyMembersSerializer<
+        tensorstore::StorageGeneration>())
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::TimestampedStorageGeneration,
+    tensorstore::serialization::ApplyMembersSerializer<
+        tensorstore::TimestampedStorageGeneration>())
