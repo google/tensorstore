@@ -17,6 +17,11 @@
 #include <algorithm>
 #include <ostream>
 
+#include "absl/status/status.h"
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/span.h"
+#include "tensorstore/util/status.h"
+
 namespace tensorstore {
 namespace internal_box {
 
@@ -44,4 +49,35 @@ bool IsFinite(BoxView<> box) {
 }
 
 }  // namespace internal_box
+
+namespace serialization {
+
+namespace internal_serialization {
+bool EncodeBoxView(EncodeSink& sink, BoxView<> box) {
+  return serialization::EncodeTuple(sink, box.origin(), box.shape());
+}
+
+bool DecodeBoxView(DecodeSource& source, MutableBoxView<> box) {
+  return serialization::DecodeTuple(source, box.origin(), box.shape());
+}
+}  // namespace internal_serialization
+
+bool RankSerializer::Encode(EncodeSink& sink, DimensionIndex rank) {
+  assert(IsValidRank(rank));
+  return sink.writer().WriteByte(static_cast<uint8_t>(rank));
+}
+
+bool RankSerializer::Decode(DecodeSource& source, DimensionIndex& rank) {
+  uint8_t v;
+  if (!source.reader().ReadByte(v)) return false;
+  if (v > kMaxRank) {
+    source.Fail(DecodeError(
+        tensorstore::StrCat("Invalid rank value: ", static_cast<size_t>(v))));
+  }
+  rank = static_cast<DimensionIndex>(v);
+  return true;
+}
+
+}  // namespace serialization
+
 }  // namespace tensorstore

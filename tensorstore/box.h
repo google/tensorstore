@@ -79,6 +79,7 @@
 ///     // Assigns `d` to the intersection of `(a_origin,a_shape)` and `b`.
 ///     Box d(2);
 ///     Intersect(BoxView(a_origin, a_shape), b, d);
+
 #include <cassert>
 #include <iosfwd>
 #include <type_traits>
@@ -90,6 +91,7 @@
 #include "tensorstore/internal/multi_vector.h"
 #include "tensorstore/internal/multi_vector_view.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/span.h"
@@ -830,6 +832,40 @@ std::enable_if_t<HasBoxDomain<BoxType>::value, bool> ContainsPartial(
   return internal_box::ContainsPartial(
       BoxView<BoxType::static_rank>(GetBoxDomainOf(box)), span(indices));
 }
+
+namespace serialization {
+
+struct RankSerializer {
+  [[nodiscard]] static bool Encode(EncodeSink& sink, DimensionIndex rank);
+  [[nodiscard]] static bool Decode(DecodeSource& source, DimensionIndex& rank);
+};
+
+namespace internal_serialization {
+
+[[nodiscard]] bool EncodeBoxView(EncodeSink& sink, BoxView<> box);
+[[nodiscard]] bool DecodeBoxView(DecodeSource& source, MutableBoxView<> box);
+}  // namespace internal_serialization
+
+template <DimensionIndex Rank>
+struct Serializer<Box<Rank>, std::enable_if_t<!std::is_empty_v<Box<Rank>>>> {
+  [[nodiscard]] static bool Encode(EncodeSink& sink, const Box<Rank>& value) {
+    if constexpr (Rank < 0) {
+      if (!RankSerializer::Encode(sink, value.rank())) return false;
+    }
+    return internal_serialization::EncodeBoxView(sink, value);
+  }
+
+  [[nodiscard]] static bool Decode(DecodeSource& source, Box<Rank>& value) {
+    if constexpr (Rank < 0) {
+      DimensionIndex rank;
+      if (!RankSerializer::Decode(source, rank)) return false;
+      value.set_rank(rank);
+    }
+    return internal_serialization::DecodeBoxView(source, value);
+  }
+};
+
+}  // namespace serialization
 
 }  // namespace tensorstore
 

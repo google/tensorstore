@@ -93,9 +93,12 @@ tensorstore_cc_library(
         "//tensorstore/internal:gdb_scripting",
         "//tensorstore/internal:multi_vector",
         "//tensorstore/internal:multi_vector_view",
+        "//tensorstore/serialization",
         "//tensorstore/util:constant_vector",
         "//tensorstore/util:extents",
         "//tensorstore/util:span",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -106,6 +109,8 @@ tensorstore_cc_test(
     deps = [
         ":box",
         ":rank",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:test_util",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",

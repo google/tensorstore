@@ -16,7 +16,10 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/box.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
@@ -36,6 +39,7 @@ using tensorstore::MutableBoxView;
 using tensorstore::span;
 using tensorstore::StaticRankCast;
 using tensorstore::unchecked;
+using tensorstore::serialization::TestSerializationRoundTrip;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 
@@ -768,6 +772,16 @@ TEST(BoxTest, IsFinite) {
   EXPECT_TRUE(IsFinite(Box<1>({1}, {4})));
   EXPECT_FALSE(IsFinite(Box<3>({1, -kInfIndex, 3}, {4, 5, 6})));
   EXPECT_FALSE(IsFinite(Box<3>({1, kInfIndex - 5, 3}, {4, 6, 6})));
+}
+
+TEST(BoxSerializationTest, StaticRank) {
+  TestSerializationRoundTrip(Box<0>());
+  TestSerializationRoundTrip(Box<3>({1, 2, 3}, {4, 5, 6}));
+}
+
+TEST(BoxSerializationTest, DynamicRank) {
+  TestSerializationRoundTrip(Box<>());
+  TestSerializationRoundTrip(Box({1, 2, 3}, {4, 5, 6}));
 }
 
 }  // namespace
