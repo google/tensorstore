@@ -115,6 +115,7 @@
 #include <atomic>
 #include <cassert>
 #include <cstddef>
+#include <memory>
 #include <type_traits>
 #include <utility>
 
@@ -483,6 +484,20 @@ inline IntrusivePtr<T, R> dynamic_pointer_cast(IntrusivePtr<U, R> p) {
   } else {
     return IntrusivePtr<T, R>(std::move(new_pointer), adopt_object_ref);
   }
+}
+
+/// Converts an `IntrusivePtr` to a `shared_ptr` that shares ownership.
+///
+/// A single reference count is owned by all copies of the returned
+/// `shared_ptr`.  When the last copy is destroyed, the intrusive reference
+/// count is decremented.
+///
+/// This requires an allocation for the `shared_ptr` control block.
+template <typename T, typename Traits>
+std::shared_ptr<T> IntrusiveToShared(internal::IntrusivePtr<T, Traits> p) {
+  auto* ptr = p.get();
+  return std::shared_ptr<T>(
+      std::make_shared<internal::IntrusivePtr<T, Traits>>(std::move(p)), ptr);
 }
 
 }  // namespace internal
