@@ -207,7 +207,7 @@ tensorstore_cc_library(
     hdrs = ["data_type_endian_conversion.h"],
     deps = [
         ":elementwise_function",
-        ":endian_elementwise_conversion",
+        ":unaligned_data_type_functions",
         "//tensorstore:array",
         "//tensorstore:data_type",
         "//tensorstore:strided_layout",
@@ -216,7 +216,6 @@ tensorstore_cc_library(
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/strings:cord",
     ],
@@ -290,6 +289,23 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "unaligned_data_type_functions",
+    srcs = ["unaligned_data_type_functions.cc"],
+    hdrs = ["unaligned_data_type_functions.h"],
+    deps = [
+        ":elementwise_function",
+        ":endian_elementwise_conversion",
+        "//tensorstore:data_type",
+        "//tensorstore:index",
+        "//tensorstore/serialization",
+        "//tensorstore/util:endian",
+        "//tensorstore/util:status",
+        "//tensorstore/util:utf8_string",
+        "@com_github_nlohmann_json//:nlohmann_json",
+    ],
+)
+
+tensorstore_cc_library(
     name = "decoded_matches",
     testonly = 1,
     srcs = ["decoded_matches.cc"],
@@ -358,9 +374,13 @@ tensorstore_cc_library(
     hdrs = ["endian_elementwise_conversion.h"],
     deps = [
         ":elementwise_function",
+        ":riegeli_json_input",
+        ":riegeli_json_output",
         "//tensorstore:index",
+        "//tensorstore/serialization:riegeli_delimited",
         "//tensorstore/util:endian",
         "//tensorstore/util:status",
+        "//tensorstore/util:utf8_string",
     ],
 )
 

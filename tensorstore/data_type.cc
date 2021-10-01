@@ -23,6 +23,7 @@
 #include "tensorstore/internal/json_value_as.h"
 #include "tensorstore/internal/preprocessor.h"
 #include "tensorstore/internal/utf8.h"
+#include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
@@ -434,6 +435,39 @@ Result<DataTypeConversionLookupResult> GetDataTypeConverterOrError(
   return lookup_result;
 }
 
+absl::Status NonSerializableDataTypeError(DataType dtype) {
+  return absl::InvalidArgumentError(tensorstore::StrCat(
+      "Cannot serialize custom data type: ", dtype->type.name()));
+}
 }  // namespace internal
+
+namespace serialization {
+bool Serializer<DataType>::Encode(EncodeSink& sink, const DataType& value) {
+  if (!value.valid()) {
+    return serialization::Encode(sink, std::string_view());
+  }
+  if (value.id() == DataTypeId::custom) {
+    sink.Fail(internal::NonSerializableDataTypeError(value));
+    return false;
+  }
+  return serialization::Encode(sink, value.name());
+}
+
+bool Serializer<DataType>::Decode(DecodeSource& source, DataType& value) {
+  std::string_view name;
+  if (!serialization::Decode(source, name)) return false;
+  if (name.empty()) {
+    value = DataType();
+    return true;
+  }
+  value = GetDataType(name);
+  if (!value.valid()) {
+    source.Fail(absl::InvalidArgumentError(
+        tensorstore::StrCat("Invalid data type: ", name)));
+    return false;
+  }
+  return true;
+}
+}  // namespace serialization
 
 }  // namespace tensorstore

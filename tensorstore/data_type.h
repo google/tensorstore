@@ -33,6 +33,7 @@
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/type_traits.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/bfloat16.h"
@@ -156,6 +157,11 @@ enum class DataTypeId {
 
 inline constexpr size_t kNumDataTypeIds =
     static_cast<size_t>(DataTypeId::num_ids);
+
+/// Indicates whether an element type can be treated as trivial.
+template <typename T>
+constexpr inline bool IsTrivial =
+    std::is_trivially_destructible_v<T>&& std::is_trivially_copyable_v<T>;
 
 namespace internal_data_type {
 
@@ -1138,6 +1144,11 @@ constexpr DataType kDataTypes[] = {
 #undef TENSORSTORE_INTERNAL_DO_DATA_TYPE
 };
 
+namespace internal {
+absl::Status NonSerializableDataTypeError(DataType dtype);
+}  // namespace internal
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::DataType)
 
 #endif  //  TENSORSTORE_DATA_TYPE_H_

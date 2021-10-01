@@ -45,26 +45,32 @@ inline std::ostream& operator<<(std::ostream& os, endian e) {
 
 namespace internal {
 
-/// Swaps endianness.  There is no alignment requirement on `source` or `dest`.
-template <std::size_t ElementSize>
+/// Swaps endianness of a single 1-, 2-, 4-, or 8-byte value.
+///
+/// There is no alignment requirement on `source` or `dest`.
+///
+/// \tparam ElementSize Size in bytes of the value.
+/// \param source Pointer to source element of `ElementSize` bytes.
+/// \param dest Pointer to destination element of `ElementSize` bytes.
+template <size_t ElementSize>
 inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(const void* source,
                                                              void* dest) {
   static_assert((ElementSize == 1 || ElementSize == 2 || ElementSize == 4 ||
                  ElementSize == 8),
                 "ElementSize must be 1, 2, 4, or 8.");
-  if (ElementSize == 1) {
+  if constexpr (ElementSize == 1) {
     std::memcpy(dest, source, 1);
-  } else if (ElementSize == 2) {
+  } else if constexpr (ElementSize == 2) {
     std::uint16_t temp;
     std::memcpy(&temp, source, ElementSize);
     temp = absl::gbswap_16(temp);
     std::memcpy(dest, &temp, ElementSize);
-  } else if (ElementSize == 4) {
+  } else if constexpr (ElementSize == 4) {
     std::uint32_t temp;
     std::memcpy(&temp, source, ElementSize);
     temp = absl::gbswap_32(temp);
     std::memcpy(dest, &temp, ElementSize);
-  } else if (ElementSize == 8) {
+  } else if constexpr (ElementSize == 8) {
     std::uint64_t temp;
     std::memcpy(&temp, source, ElementSize);
     temp = absl::gbswap_64(temp);
@@ -72,11 +78,54 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(const void* source,
   }
 }
 
-/// Swaps endianness in-place.  There is no alignment requirement on `data`.
-template <std::size_t ElementSize>
+/// Swaps endianness for a contiguous array of `Count` sub-elements.
+///
+/// This is used for swapping the endianness of data types like
+/// `std::complex<T>`; in that case, `SubElementSize = sizeof(T)` and
+/// `Count = 2`.
+///
+/// In generic code, this can also be used with `SubElementSize = 1` as an
+/// equivalent for `std::memcpy(dest, source, Count)`.
+///
+/// \tparam SubElementSize Size in bytes of each sub-element.
+/// \tparam Count Number of elements.
+/// \param source Pointer to source array of `SubElementSize*Count` bytes.
+/// \param dest Pointer to destination array of `SubElementSize*Count` bytes.
+template <size_t SubElementSize, size_t Count>
+inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(const void* source,
+                                                             void* dest) {
+  if constexpr (SubElementSize == 1) {
+    std::memcpy(dest, source, Count);
+  } else {
+    for (size_t i = 0; i < Count; ++i) {
+      SwapEndianUnaligned<SubElementSize>(source, dest);
+      source = reinterpret_cast<const char*>(source) + SubElementSize;
+      dest = reinterpret_cast<char*>(dest) + SubElementSize;
+    }
+  }
+}
+
+/// Swaps endianness in-place.
+///
+/// There is no alignment requirement on `data`.
+///
+/// This is equivalent to `SwapEndianUnaligned<ElementSize>(data, data)`.
+template <size_t ElementSize>
 inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnalignedInplace(
     void* data) {
   SwapEndianUnaligned<ElementSize>(data, data);
+}
+
+/// Swaps endianness in-place for a contiguous array of `Count` elements.
+///
+/// There is no alignment requirement on `data`.
+///
+/// This is equivalent to
+/// `SwapEndianUnaligned<SubElementSize, Count>(data, data)`.
+template <size_t SubElementSize, size_t Count>
+inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnalignedInplace(
+    void* data) {
+  SwapEndianUnaligned<SubElementSize, Count>(data, data);
 }
 
 }  // namespace internal

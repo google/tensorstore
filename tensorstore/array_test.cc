@@ -14,10 +14,21 @@
 
 #include "tensorstore/array.h"
 
+#include <random>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/random/bit_gen_ref.h"
+#include "absl/random/random.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/box.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/index_transform_testutil.h"
+#include "tensorstore/internal/data_type_random_generator.h"
+#include "tensorstore/internal/test_util.h"
+#include "tensorstore/serialization/batch.h"
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
@@ -79,6 +90,10 @@ using tensorstore::unchecked;
 using tensorstore::ValidateShapeBroadcast;
 using tensorstore::view;
 using tensorstore::zero_origin;
+using tensorstore::serialization::DecodeBatch;
+using tensorstore::serialization::EncodeBatch;
+using tensorstore::serialization::SerializationRoundTrip;
+using tensorstore::serialization::TestSerializationRoundTrip;
 using testing::ElementsAre;
 
 namespace array_metafunctions_tests {
@@ -1895,6 +1910,86 @@ TEST(UnbroadcastArrayTest, Basic) {
   EXPECT_EQ(orig_array, unbroadcast_array2);
   EXPECT_EQ(orig_array.pointer(), unbroadcast_array2.pointer());
   EXPECT_EQ(orig_array.layout(), unbroadcast_array2.layout());
+}
+
+TEST(ArraySerializationTest, ZeroOrigin) {
+  tensorstore::SharedArray<int, 2> array =
+      tensorstore::MakeArray<int>({{1, 2, 3}, {4, 5, 6}});
+  TestSerializationRoundTrip(array);
+  TestSerializationRoundTrip(tensorstore::SharedArray<void, 2>(array));
+  TestSerializationRoundTrip(tensorstore::SharedArray<int>(array));
+  TestSerializationRoundTrip(tensorstore::SharedArray<void>(array));
+}
+
+TEST(ArraySerializationTest, OffsetOrigin) {
+  tensorstore::SharedOffsetArray<int, 2> array =
+      tensorstore::MakeOffsetArray<int>({7, 8}, {{1, 2, 3}, {4, 5, 6}});
+  TestSerializationRoundTrip(array);
+  TestSerializationRoundTrip(tensorstore::SharedOffsetArray<void, 2>(array));
+  TestSerializationRoundTrip(tensorstore::SharedOffsetArray<int>(array));
+  TestSerializationRoundTrip(tensorstore::SharedOffsetArray<void>(array));
+}
+
+// Tests that singleton dimensions (with zero stride) are correctly preserved.
+TEST(ArraySerializationTest, ZeroStrides) {
+  int data[] = {1, 2, 3, 4, 5, 6};
+  tensorstore::SharedArray<int> array(
+      std::shared_ptr<int>(std::shared_ptr<void>(), &data[0]),
+      StridedLayout<>({kInfIndex + 1, 2, 3, kInfIndex + 1},
+                      {0, 3 * sizeof(int), sizeof(int), 0}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto copy, SerializationRoundTrip(array));
+  ASSERT_EQ(array.layout(), copy.layout());
+  EXPECT_EQ(array, copy);
+}
+
+TEST(ArraySerializationTest, DataTypeMismatch) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded,
+                                   EncodeBatch(MakeArray<int>({1, 2, 3})));
+  SharedArray<float> array;
+  EXPECT_THAT(
+      DecodeBatch(encoded, array),
+      MatchesStatus(absl::StatusCode::kDataLoss,
+                    "Expected data type of float32 but received: int32; .*"));
+}
+
+TEST(ArraySerializationTest, RankMismatch) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded,
+                                   EncodeBatch(MakeArray<int>({1, 2, 3})));
+  SharedArray<int, 2> array;
+  EXPECT_THAT(DecodeBatch(encoded, array),
+              MatchesStatus(absl::StatusCode::kDataLoss,
+                            "Expected rank of 2 but received: 1; .*"));
+}
+
+class RandomDataSerializationTest
+    : public ::testing::TestWithParam<tensorstore::DataType> {};
+
+INSTANTIATE_TEST_SUITE_P(DataTypes, RandomDataSerializationTest,
+                         ::testing::ValuesIn(tensorstore::kDataTypes));
+
+TEST_P(RandomDataSerializationTest, COrder) {
+  auto dtype = GetParam();
+  for (int iteration = 0; iteration < 100; ++iteration) {
+    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+        "TENSORSTORE_ARRAY_SERIALIZATION_TEST_SEED")};
+    auto box = tensorstore::internal::MakeRandomBox(gen);
+    auto array =
+        tensorstore::internal::MakeRandomArray(gen, box, dtype, c_order);
+    TestSerializationRoundTrip(array);
+    tensorstore::serialization::TestSerializationRoundTripCorrupt(array);
+  }
+}
+
+TEST_P(RandomDataSerializationTest, FOrder) {
+  auto dtype = GetParam();
+  for (int iteration = 0; iteration < 100; ++iteration) {
+    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+        "TENSORSTORE_ARRAY_SERIALIZATION_TEST_SEED")};
+    auto box = tensorstore::internal::MakeRandomBox(gen);
+    auto array =
+        tensorstore::internal::MakeRandomArray(gen, box, dtype, fortran_order);
+    TestSerializationRoundTrip(array);
+  }
 }
 
 }  // namespace

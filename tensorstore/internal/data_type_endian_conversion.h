@@ -15,46 +15,16 @@
 #ifndef TENSORSTORE_INTERNAL_DATA_TYPE_ENDIAN_CONVERSION_H_
 #define TENSORSTORE_INTERNAL_DATA_TYPE_ENDIAN_CONVERSION_H_
 
-#include <array>
-
 #include "absl/strings/cord.h"
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
-#include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/internal/unaligned_data_type_functions.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal {
-
-/// Functions for endian conversion and unaligned copying for a particular data
-/// type.
-struct UnalignedDataTypeFunctions {
-  /// Swaps endianness in place.  No alignment requirement.
-  ///
-  /// If the data type does not require endian conversion (e.g. uint8), equal to
-  /// `nullptr`.
-  const internal::ElementwiseFunction<1, Status*>* swap_endian_inplace =
-      nullptr;
-
-  /// Swaps endianness, copying from first argument to second.  No alignment
-  /// requirement.
-  ///
-  /// If the data type does not require endian conversion (e.g. uint8), equal to
-  /// `copy`.
-  const internal::ElementwiseFunction<2, Status*>* swap_endian = nullptr;
-
-  /// Copies potentially unaligned data from first argument to second.
-  ///
-  /// If the data type is a non-trivial type (e.g. `string` or `json`), equal to
-  /// `nullptr`.
-  const internal::ElementwiseFunction<2, Status*>* copy = nullptr;
-};
-
-/// Functions for each canonical data type.
-extern const std::array<UnalignedDataTypeFunctions, kNumDataTypeIds>
-    kUnalignedDataTypeFunctions;
 
 /// Copies `source` to `target` with the specified `target_endian`.
 ///

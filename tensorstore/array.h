@@ -32,6 +32,7 @@
 #include "tensorstore/internal/meta.h"
 #include "tensorstore/internal/unowned_to_shared.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/element_pointer.h"
@@ -1801,6 +1802,63 @@ Result<SharedOffsetArray<const void>> BroadcastArray(
 /// return value has no effect.
 SharedArray<const void> UnbroadcastArray(
     SharedOffsetArrayView<const void> source);
+
+namespace internal_array {
+
+/// Encodes an array to `sink`.
+///
+/// \param sink Encode sink to use.
+/// \param array The array to write, must be valid.
+/// \param origin_kind Indicates whether `array.origin()` may be non-zero.  The
+///     same origin must be specified to `DecodeArray`.
+[[nodiscard]] bool EncodeArray(serialization::EncodeSink& sink,
+                               OffsetArrayView<const void> array,
+                               ArrayOriginKind origin_kind);
+
+/// Decodes an array from `source`.
+///
+/// \tparam OriginKind Origin kind, must match `origin_kind` passed to
+///     `EncodeArray`.
+/// \param source Decode source to use.
+/// \param array[out] Set to the decoded array.
+/// \param data_type_constraint If a valid data type is specified, decoding will
+///     fail if the data type does not match.
+/// \param rank_constraint If a value other than `dynamic_rank` is specified ,
+///     decoding will fail if the rank does not match.
+template <ArrayOriginKind OriginKind>
+struct DecodeArray {
+  [[nodiscard]] static bool Decode(
+      serialization::DecodeSource& source,
+      SharedArray<void, dynamic_rank, OriginKind>& array,
+      DataType data_type_constraint, DimensionIndex rank_constraint);
+};
+
+extern template struct DecodeArray<zero_origin>;
+extern template struct DecodeArray<offset_origin>;
+}  // namespace internal_array
+
+namespace serialization {
+
+template <typename Element, DimensionIndex Rank, ArrayOriginKind OriginKind>
+struct Serializer<Array<Shared<Element>, Rank, OriginKind>> {
+  [[nodiscard]] static bool Encode(
+      EncodeSink& sink, const Array<Shared<Element>, Rank, OriginKind>& value) {
+    return internal_array::EncodeArray(sink, value, OriginKind);
+  }
+  [[nodiscard]] static bool Decode(
+      DecodeSource& source, Array<Shared<Element>, Rank, OriginKind>& value) {
+    SharedArray<void, dynamic_rank, OriginKind> array;
+    if (!internal_array::DecodeArray<OriginKind>::Decode(
+            source, array, dtype_v<Element>, NormalizeRankSpec(Rank))) {
+      return false;
+    }
+    value = tensorstore::StaticCast<SharedArray<Element, Rank, OriginKind>,
+                                    unchecked>(array);
+    return true;
+  }
+};
+
+}  // namespace serialization
 
 }  // namespace tensorstore
 

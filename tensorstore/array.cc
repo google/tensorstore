@@ -17,8 +17,12 @@
 #include <algorithm>
 #include <limits>
 
+#include "tensorstore/box.h"
 #include "tensorstore/data_type_conversion.h"
 #include "tensorstore/internal/element_copy_function.h"
+#include "tensorstore/internal/unaligned_data_type_functions.h"
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/span.h"
 #include "tensorstore/util/internal/iterate_impl.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -300,5 +304,97 @@ bool AreArraysSameValueEqual(const OffsetArrayView<const void>& a,
                                      b)
       .success;
 }
+
+namespace internal_array {
+
+bool EncodeArray(serialization::EncodeSink& sink,
+                 OffsetArrayView<const void> array,
+                 ArrayOriginKind origin_kind) {
+  if (!array.dtype().valid()) {
+    sink.Fail(absl::InvalidArgumentError(
+        "Cannot serialize array with unspecified data type"));
+    return false;
+  }
+  if (!serialization::Encode(sink, array.dtype())) return false;
+  if (!serialization::RankSerializer::Encode(sink, array.rank())) return false;
+  if (!serialization::Encode(sink, array.shape())) return false;
+  if (origin_kind == offset_origin) {
+    if (!serialization::Encode(sink, array.origin())) return false;
+  }
+  const DimensionIndex rank = array.rank();
+  // Record which dimensions have non-zero stride.
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    if (!serialization::Encode(sink, array.byte_strides()[i] != 0)) {
+      return false;
+    }
+  }
+  return internal::IterateOverArrays(
+             {&internal::kUnalignedDataTypeFunctions[static_cast<size_t>(
+                                                         array.dtype().id())]
+                   .write_native_endian,
+              &sink.writer()},
+             /*status=*/nullptr, {c_order, skip_repeated_elements}, array)
+      .success;
+}
+
+template <ArrayOriginKind OriginKind>
+bool DecodeArray<OriginKind>::Decode(
+    serialization::DecodeSource& source,
+    SharedArray<void, dynamic_rank, OriginKind>& array,
+    DataType data_type_constraint, DimensionIndex rank_constraint) {
+  DataType dtype;
+  if (!serialization::Decode(source, dtype)) return false;
+  if (!dtype.valid()) {
+    source.Fail(absl::DataLossError(
+        "Cannot deserialize array with unspecified data type"));
+    return false;
+  }
+  if (data_type_constraint.valid() && data_type_constraint != dtype) {
+    source.Fail(absl::DataLossError(
+        tensorstore::StrCat("Expected data type of ", data_type_constraint,
+                            " but received: ", dtype)));
+    return false;
+  }
+  DimensionIndex rank;
+  if (!serialization::RankSerializer::Decode(source, rank)) return false;
+  if (rank_constraint != dynamic_rank && rank != rank_constraint) {
+    source.Fail(absl::DataLossError(tensorstore::StrCat(
+        "Expected rank of ", rank_constraint, " but received: ", rank)));
+    return false;
+  }
+  array.layout().set_rank(rank);
+  if (!serialization::Decode(source, array.shape())) return false;
+  if constexpr (OriginKind == offset_origin) {
+    if (!serialization::Decode(source, array.origin())) return false;
+  }
+  Index num_bytes = dtype.valid() ? dtype.size() : 0;
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    bool non_zero;
+    if (!serialization::Decode(source, non_zero)) return false;
+    array.byte_strides()[i] = non_zero;
+    if (non_zero) {
+      if (internal::MulOverflow(num_bytes, array.shape()[i], &num_bytes)) {
+        source.Fail(serialization::DecodeError(
+            tensorstore::StrCat("Invalid array shape ", array.shape())));
+        return false;
+      }
+    }
+  }
+  array.element_pointer() = tensorstore::AllocateArrayElementsLike<void>(
+      array.layout(), array.byte_strides().data(),
+      {c_order, skip_repeated_elements}, default_init, dtype);
+  return internal::IterateOverArrays(
+             {&internal::kUnalignedDataTypeFunctions[static_cast<size_t>(
+                                                         array.dtype().id())]
+                   .read_native_endian,
+              &source.reader()},
+             /*status=*/nullptr, {c_order, skip_repeated_elements}, array)
+      .success;
+}
+
+template struct DecodeArray<zero_origin>;
+template struct DecodeArray<offset_origin>;
+
+}  // namespace internal_array
 
 }  // namespace tensorstore

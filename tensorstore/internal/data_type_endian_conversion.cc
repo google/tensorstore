@@ -14,16 +14,14 @@
 
 #include "tensorstore/internal/data_type_endian_conversion.h"
 
-#include <array>
 #include <cassert>
 #include <complex>
 
 #include "absl/algorithm/container.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/elementwise_function.h"
-#include "tensorstore/internal/endian_elementwise_conversion.h"
+#include "tensorstore/internal/unaligned_data_type_functions.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/endian.h"
@@ -33,56 +31,6 @@
 
 namespace tensorstore {
 namespace internal {
-
-namespace {
-
-template <typename T>
-struct SwapEndianSizes {
-  constexpr static size_t element_size = sizeof(T);
-  constexpr static size_t num_elements = 1;
-};
-
-template <typename T>
-struct SwapEndianSizes<std::complex<T>> {
-  constexpr static size_t element_size = sizeof(T);
-  constexpr static size_t num_elements = 2;
-};
-
-template <typename T>
-constexpr bool CanSwapEndian = std::is_trivial_v<T>;
-
-template <>
-constexpr bool CanSwapEndian<float16_t> = true;
-
-template <>
-constexpr bool CanSwapEndian<bfloat16_t> = true;
-
-}  // namespace
-
-const std::array<UnalignedDataTypeFunctions, kNumDataTypeIds>
-    kUnalignedDataTypeFunctions = MapCanonicalDataTypes([](auto dtype) {
-      using T = typename decltype(dtype)::Element;
-      UnalignedDataTypeFunctions functions;
-      if constexpr (CanSwapEndian<T>) {
-        using Sizes = SwapEndianSizes<T>;
-        functions.copy = GetElementwiseFunction<CopyUnalignedLoopTemplate<
-            Sizes::element_size * Sizes::num_elements>>();
-        if constexpr (Sizes::element_size == 1) {
-          // No endian conversion required.
-          functions.swap_endian = functions.copy;
-        } else {
-          functions.swap_endian =
-              GetElementwiseFunction<SwapEndianUnalignedLoopTemplate<
-                  Sizes::element_size, Sizes::num_elements>>();
-          functions.swap_endian_inplace =
-              GetElementwiseFunction<SwapEndianUnalignedInplaceLoopTemplate<
-                  Sizes::element_size, Sizes::num_elements>>();
-        }
-      } else {
-        // Non-trivial types are not used with these functions.
-      }
-      return functions;
-    });
 
 void EncodeArray(ArrayView<const void> source, ArrayView<void> target,
                  endian target_endian) {

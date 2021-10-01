@@ -22,6 +22,8 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -32,11 +34,14 @@ using tensorstore::DataTypeIdOf;
 using tensorstore::dtype_v;
 using tensorstore::Index;
 using tensorstore::IsElementType;
+using tensorstore::IsTrivial;
 using tensorstore::MatchesStatus;
 using tensorstore::StaticDataTypeCast;
 using tensorstore::unchecked;
 using tensorstore::internal::IterationBufferKind;
 using tensorstore::internal::IterationBufferPointer;
+using tensorstore::serialization::SerializationRoundTrip;
+using tensorstore::serialization::TestSerializationRoundTrip;
 
 using namespace tensorstore::data_types;  // NOLINT
 
@@ -451,6 +456,8 @@ TEST(DataTypeTest, GetDataType) {
   EXPECT_EQ(dtype_v<uint32_t>, GetDataType("uint32"));
   EXPECT_EQ(dtype_v<int64_t>, GetDataType("int64"));
   EXPECT_EQ(dtype_v<uint64_t>, GetDataType("uint64"));
+  EXPECT_EQ(dtype_v<bfloat16_t>, GetDataType("bfloat16"));
+  EXPECT_EQ(dtype_v<float16_t>, GetDataType("float16"));
   EXPECT_EQ(dtype_v<float32_t>, GetDataType("float32"));
   EXPECT_EQ(dtype_v<float64_t>, GetDataType("float64"));
   EXPECT_EQ(dtype_v<complex64_t>, GetDataType("complex64"));
@@ -483,5 +490,30 @@ static_assert(sizeof(long) != 4 ||
 static_assert(sizeof(long) == 4 || DataTypeIdOf<long> == DataTypeIdOf<int64_t>);
 static_assert(sizeof(long) == 4 ||
               DataTypeIdOf<unsigned long> == DataTypeIdOf<uint64_t>);
+
+TEST(SerializationTest, Valid) {
+  TestSerializationRoundTrip(DataType());
+  for (DataType dtype : tensorstore::kDataTypes) {
+    TestSerializationRoundTrip(dtype);
+  }
+}
+
+TEST(SerializationTest, Invalid) {
+  EXPECT_THAT(SerializationRoundTrip(DataType(dtype_v<X>)),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Cannot serialize custom data type: .*"));
+}
+
+static_assert(IsTrivial<bool>);
+static_assert(IsTrivial<bfloat16_t>);
+static_assert(IsTrivial<float16_t>);
+static_assert(IsTrivial<float32_t>);
+static_assert(IsTrivial<float64_t>);
+static_assert(IsTrivial<uint64_t>);
+static_assert(IsTrivial<complex64_t>);
+static_assert(IsTrivial<complex128_t>);
+static_assert(!IsTrivial<string_t>);
+static_assert(!IsTrivial<ustring_t>);
+static_assert(!IsTrivial<json_t>);
 
 }  // namespace
