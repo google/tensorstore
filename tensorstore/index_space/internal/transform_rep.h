@@ -622,21 +622,22 @@ class TransformAccess {
   }
 
   template <ContainerKind TargetCKind, typename T>
-  static std::enable_if_t<TargetCKind == view, TransformRep::Ptr<TargetCKind>>
-  rep_ptr(const T& x) {
-    return rep(x);
-  }
-
-  template <ContainerKind TargetCKind, typename T>
-  static std::enable_if_t<TargetCKind == container,
-                          TransformRep::Ptr<TargetCKind>>
-  rep_ptr(T&& x) {
-    return TransformRep::Ptr<>(std::forward<T>(x).rep_);
+  static auto rep_ptr(T&& x) {
+    if constexpr (TargetCKind == view) {
+      return rep(x);
+    } else {
+      return TransformRep::Ptr<>(std::forward<T>(x).rep_);
+    }
   }
 
   template <typename T>
-  static auto transform(T&& x) -> decltype((std::declval<T>().transform_)) {
-    return std::forward<T>(x).transform_;
+  static decltype(auto) rep_ptr(T&& x) {
+    return (std::forward<T>(x).rep_);
+  }
+
+  template <typename T>
+  static decltype(auto) transform(T&& x) {
+    return (std::forward<T>(x).transform_);
   }
 
   template <typename T>

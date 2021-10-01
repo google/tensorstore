@@ -20,6 +20,9 @@
 #include "tensorstore/box.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_identifier.h"
+#include "tensorstore/index_space/json.h"
+#include "tensorstore/serialization/json.h"
+#include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -524,5 +527,81 @@ Result<IndexTransform<>> ComposeOptionalTransforms(IndexTransform<> b_to_c,
   if (!a_to_b.valid()) return b_to_c;
   return ComposeTransforms(std::move(b_to_c), std::move(a_to_b));
 }
+
+namespace internal_index_space {
+
+bool IndexTransformNonNullSerializer::Encode(serialization::EncodeSink& sink,
+                                             IndexTransformView<> value) {
+  return serialization::Encode(sink, ::nlohmann::json(value));
+}
+
+bool IndexTransformNonNullSerializer::Decode(
+    serialization::DecodeSource& source,
+    internal_index_space::TransformRep::Ptr<>& value) const {
+  ::nlohmann::json json;
+  if (!serialization::Decode(source, json)) return false;
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      value,
+      internal_index_space::ParseIndexTransformFromJson(
+          json, input_rank_constraint, output_rank_constraint),
+      (source.Fail(_), false));
+  return true;
+}
+
+bool IndexTransformSerializer::Encode(serialization::EncodeSink& sink,
+                                      IndexTransformView<> value) {
+  return serialization::MaybeNullSerializer<IndexTransformView<>,
+                                            IndexTransformNonNullSerializer,
+                                            serialization::IsValid>()
+      .Encode(sink, value);
+}
+
+bool IndexTransformSerializer::Decode(
+    serialization::DecodeSource& source,
+    internal_index_space::TransformRep::Ptr<>& value) const {
+  return serialization::MaybeNullSerializer<
+             internal_index_space::TransformRep::Ptr<>,
+             IndexTransformNonNullSerializer>{
+      IndexTransformNonNullSerializer{input_rank_constraint,
+                                      output_rank_constraint}}
+      .Decode(source, value);
+}
+
+bool IndexDomainNonNullSerializer::Encode(serialization::EncodeSink& sink,
+                                          IndexDomainView<> value) {
+  return serialization::Encode(sink, ::nlohmann::json(value));
+}
+
+bool IndexDomainNonNullSerializer::Decode(
+    serialization::DecodeSource& source,
+    internal_index_space::TransformRep::Ptr<>& value) const {
+  ::nlohmann::json json;
+  if (!serialization::Decode(source, json)) return false;
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      value,
+      internal_index_space::ParseIndexDomainFromJson(json, rank_constraint),
+      (source.Fail(_), false));
+  return true;
+}
+
+bool IndexDomainSerializer::Encode(serialization::EncodeSink& sink,
+                                   IndexDomainView<> value) {
+  return serialization::MaybeNullSerializer<IndexDomainView<>,
+                                            IndexDomainNonNullSerializer,
+                                            serialization::IsValid>()
+      .Encode(sink, value);
+}
+
+bool IndexDomainSerializer::Decode(
+    serialization::DecodeSource& source,
+    internal_index_space::TransformRep::Ptr<>& value) const {
+  return serialization::MaybeNullSerializer<
+             internal_index_space::TransformRep::Ptr<>,
+             IndexDomainNonNullSerializer>{
+      IndexDomainNonNullSerializer{rank_constraint}}
+      .Decode(source, value);
+}
+
+}  // namespace internal_index_space
 
 }  // namespace tensorstore

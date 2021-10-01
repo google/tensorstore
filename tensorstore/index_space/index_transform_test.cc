@@ -23,6 +23,8 @@
 #include "tensorstore/array.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -59,6 +61,7 @@ using tensorstore::StrCat;
 using tensorstore::unchecked;
 using tensorstore::view;
 using tensorstore::internal_index_space::TransformAccess;
+using tensorstore::serialization::TestSerializationRoundTrip;
 
 TEST(IndexTransformTest, Equality) {
   // Two invalid transforms are equal.
@@ -995,6 +998,17 @@ TEST(IndexDomainTest, WithImplicitDimensionsStaticRank) {
       expected_domain,
       WithImplicitDimensions(IndexDomain<3>(tensorstore::StaticRank<3>{}),
                              DimensionSet({0, 1, 1}), DimensionSet({1, 0, 1})));
+}
+
+TEST(IndexTransformSerializationTest, Basic) {
+  TestSerializationRoundTrip(tensorstore::IndexTransform<>());
+  TestSerializationRoundTrip(tensorstore::IdentityTransform(5));
+}
+
+TEST(IndexDomainSerializationTest, Basic) {
+  TestSerializationRoundTrip(tensorstore::IndexDomain<>());
+  TestSerializationRoundTrip(
+      tensorstore::IndexDomain<>(tensorstore::IdentityTransform(5).domain()));
 }
 
 }  // namespace

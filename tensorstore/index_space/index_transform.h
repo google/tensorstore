@@ -26,6 +26,7 @@
 #include "tensorstore/internal/gdb_scripting.h"
 #include "tensorstore/internal/string_like.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/dimension_set.h"
 
@@ -1570,6 +1571,98 @@ IndexDomain<Rank> WithImplicitDimensions(IndexDomain<Rank, CKind> domain,
       TransformAccess::transform(std::move(domain)), implicit_lower_bounds,
       implicit_upper_bounds));
 }
+
+namespace internal_index_space {
+
+/// Serializer for non-null `IndexDomain` values.
+///
+/// This is used by the Python bindings, where the null `IndexDomain`
+/// representation is not used, and instead a null `IndexDomain` is indicated by
+/// the Python `None` value.
+struct IndexDomainNonNullSerializer {
+  DimensionIndex rank_constraint = dynamic_rank;
+  [[nodiscard]] static bool Encode(serialization::EncodeSink& sink,
+                                   IndexDomainView<> value);
+  [[nodiscard]] bool Decode(
+      serialization::DecodeSource& source,
+      internal_index_space::TransformRep::Ptr<>& value) const;
+  [[nodiscard]] bool Decode(serialization::DecodeSource& source,
+                            IndexDomain<>& value) const {
+    return Decode(source,
+                  TransformAccess::rep_ptr(TransformAccess::transform(value)));
+  }
+};
+
+struct IndexDomainSerializer {
+  DimensionIndex rank_constraint = dynamic_rank;
+  [[nodiscard]] static bool Encode(serialization::EncodeSink& sink,
+                                   IndexDomainView<> value);
+  [[nodiscard]] bool Decode(
+      serialization::DecodeSource& source,
+      internal_index_space::TransformRep::Ptr<>& value) const;
+};
+
+/// Serializer for non-null `IndexTransform` values.
+///
+/// This is used by the Python bindings, where the null `IndexTransform`
+/// representation is not used, and instead a null `IndexTransform` is indicated
+/// by the Python `None` value.
+struct IndexTransformNonNullSerializer {
+  DimensionIndex input_rank_constraint = dynamic_rank;
+  DimensionIndex output_rank_constraint = dynamic_rank;
+  [[nodiscard]] static bool Encode(serialization::EncodeSink& sink,
+                                   IndexTransformView<> value);
+  [[nodiscard]] bool Decode(
+      serialization::DecodeSource& source,
+      internal_index_space::TransformRep::Ptr<>& value) const;
+  [[nodiscard]] bool Decode(serialization::DecodeSource& source,
+                            IndexTransform<>& value) const {
+    return Decode(source, TransformAccess::rep_ptr(value));
+  }
+};
+
+struct IndexTransformSerializer {
+  DimensionIndex input_rank_constraint = dynamic_rank;
+  DimensionIndex output_rank_constraint = dynamic_rank;
+  [[nodiscard]] static bool Encode(serialization::EncodeSink& sink,
+                                   IndexTransformView<> value);
+  [[nodiscard]] bool Decode(
+      serialization::DecodeSource& source,
+      internal_index_space::TransformRep::Ptr<>& value) const;
+};
+
+}  // namespace internal_index_space
+
+namespace serialization {
+
+template <DimensionIndex Rank, ContainerKind CKind>
+struct Serializer<IndexDomain<Rank, CKind>> {
+  [[nodiscard]] static bool Encode(EncodeSink& sink, IndexDomainView<> value) {
+    return internal_index_space::IndexDomainSerializer::Encode(sink, value);
+  }
+  [[nodiscard]] static bool Decode(DecodeSource& source,
+                                   IndexDomain<Rank>& value) {
+    using internal_index_space::TransformAccess;
+    return internal_index_space::IndexDomainSerializer{Rank}.Decode(
+        source, TransformAccess::rep_ptr(TransformAccess::transform(value)));
+  }
+};
+
+template <DimensionIndex InputRank, DimensionIndex OutputRank,
+          ContainerKind CKind>
+struct Serializer<IndexTransform<InputRank, OutputRank, CKind>> {
+  [[nodiscard]] static bool Encode(EncodeSink& sink,
+                                   IndexTransformView<> value) {
+    return internal_index_space::IndexTransformSerializer::Encode(sink, value);
+  }
+  [[nodiscard]] static bool Decode(
+      DecodeSource& source, IndexTransform<InputRank, OutputRank>& value) {
+    return internal_index_space::IndexTransformSerializer{InputRank, OutputRank}
+        .Decode(source, internal_index_space::TransformAccess::rep_ptr(value));
+  }
+};
+
+}  // namespace serialization
 
 }  // namespace tensorstore
 

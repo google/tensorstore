@@ -358,6 +358,8 @@ tensorstore_cc_library(
         "//tensorstore/internal:memory",
         "//tensorstore/internal:string_like",
         "//tensorstore/internal:type_traits",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:json",
         "//tensorstore/util:bit_span",
         "//tensorstore/util:bit_vec",
         "//tensorstore/util:constant_bit_vector",
@@ -402,6 +404,8 @@ tensorstore_cc_test(
     deps = [
         ":index_transform",
         "//tensorstore:array",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:test_util",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
