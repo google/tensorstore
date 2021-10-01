@@ -102,6 +102,9 @@ tensorstore_cc_library(
     srcs = ["riegeli_delimited.cc"],
     hdrs = ["riegeli_delimited.h"],
     deps = [
+        "//tensorstore/internal:utf8",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
         "@com_google_riegeli//riegeli/bytes:reader",
         "@com_google_riegeli//riegeli/bytes:writer",

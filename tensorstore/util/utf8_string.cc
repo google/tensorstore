@@ -12,34 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/serialization/riegeli_delimited.h"
+#include "tensorstore/util/utf8_string.h"
 
-#include <string>
-
-#include "absl/status/status.h"
-#include "riegeli/bytes/reader.h"
 #include "tensorstore/internal/utf8.h"
+#include "tensorstore/serialization/riegeli_delimited.h"
+#include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace serialization {
 
-bool ReadDelimitedUtf8(riegeli::Reader& reader, std::string& dest) {
-  if (!serialization::ReadDelimited(reader, dest)) return false;
-  if (!internal::IsValidUtf8(dest)) {
-    reader.Fail(absl::DataLossError(tensorstore::StrCat(
-        "String is not valid utf-8: ", tensorstore::QuoteString(dest))));
-    return false;
-  }
-  return true;
+bool Serializer<Utf8String>::Encode(EncodeSink& sink, const Utf8String& value) {
+  return serialization::WriteDelimited(sink.writer(), value.utf8);
 }
 
-namespace internal_serialization {
-void FailInvalidSize(riegeli::Reader& reader) {
-  reader.Fail(absl::DataLossError("Failed to read size value as varint"));
+bool Serializer<Utf8String>::Decode(DecodeSource& source, Utf8String& value) {
+  return serialization::ReadDelimitedUtf8(source.reader(), value.utf8);
 }
-}  // namespace internal_serialization
 
 }  // namespace serialization
 }  // namespace tensorstore

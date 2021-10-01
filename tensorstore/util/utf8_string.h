@@ -18,6 +18,8 @@
 #include <ostream>
 #include <string>
 
+#include "tensorstore/serialization/fwd.h"
+
 namespace tensorstore {
 
 /// Wrapper around `std::string` to indicate a UTF-8 encoded string.
@@ -44,10 +46,19 @@ struct Utf8String {
   friend std::ostream& operator<<(std::ostream& os, const Utf8String& s) {
     return os << s.utf8;
   }
+
+  /// Reflection support.
+  static constexpr auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.utf8);
+  };
 };
 
 static_assert(sizeof(Utf8String) == sizeof(std::string), "");
 
 }  // namespace tensorstore
+
+/// The string content is not validated when encoding, but is validated when
+/// decoding.
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::Utf8String)
 
 #endif  // TENSORSTORE_UTIL_UTF8_STRING_H_

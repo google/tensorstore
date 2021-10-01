@@ -93,6 +93,10 @@ template <typename Src>
   return serialization::ReadSize(reader, size) && reader.Read(size, dest);
 }
 
+/// Reads a length-delimited string as written by `WriteDelimited` and validates
+/// that it is UTF-8.
+bool ReadDelimitedUtf8(riegeli::Reader& reader, std::string& dest);
+
 }  // namespace serialization
 }  // namespace tensorstore
 

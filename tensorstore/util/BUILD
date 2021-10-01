@@ -742,7 +742,29 @@ tensorstore_cc_test(
 
 tensorstore_cc_library(
     name = "utf8_string",
+    srcs = ["utf8_string.cc"],
     hdrs = ["utf8_string.h"],
+    deps = [
+        ":quote_string",
+        ":status",
+        ":str_cat",
+        "//tensorstore/internal:utf8",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:riegeli_delimited",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "utf8_string_test",
+    size = "small",
+    srcs = ["utf8_string_test.cc"],
+    deps = [
+        ":status_testutil",
+        ":utf8_string",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:test_util",
+        "@com_google_googletest//:gtest_main",
+    ],
 )
 
 tensorstore_cc_library(
