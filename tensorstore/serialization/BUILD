@@ -51,6 +51,41 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "json",
+    srcs = ["json.cc"],
+    hdrs = [
+        "json.h",
+        "json_bindable.h",
+    ],
+    deps = [
+        ":serialization",
+        "//tensorstore/internal:json",
+        "//tensorstore/internal:json_fwd",
+        "//tensorstore/internal:riegeli_json_input",
+        "//tensorstore/internal:riegeli_json_output",
+        "//tensorstore/util:status",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "json_test",
+    size = "small",
+    srcs = ["json_test.cc"],
+    deps = [
+        ":json",
+        ":serialization",
+        ":test_util",
+        "//tensorstore/internal:json_gtest",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "registry",
     srcs = ["registry.cc"],
     hdrs = ["registry.h"],
