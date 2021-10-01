@@ -110,6 +110,20 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "protobuf",
+    srcs = ["protobuf.cc"],
+    hdrs = ["protobuf.h"],
+    deps = [
+        ":serialization",
+        "@com_google_absl//absl/status",
+        "@com_google_protobuf//:protobuf_lite",
+        "@com_google_riegeli//riegeli/bytes:limiting_reader",
+        "@com_google_riegeli//riegeli/messages:message_parse",
+        "@com_google_riegeli//riegeli/messages:message_serialize",
+    ],
+)
+
+tensorstore_cc_library(
     name = "registry",
     srcs = ["registry.cc"],
     hdrs = ["registry.h"],

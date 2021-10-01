@@ -35,3 +35,8 @@ def tensorstore_cc_binary(copts = None, **kwargs):
         copts = get_tensorstore_copts(copts),
         **kwargs
     )
+
+def tensorstore_proto_library(has_services = None, **kwargs):
+    native.proto_library(**kwargs)
+
+tensorstore_cc_proto_library = native.cc_proto_library
