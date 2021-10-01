@@ -20,6 +20,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/serialization/fwd.h"
 
 namespace tensorstore {
 
@@ -111,6 +112,25 @@ class CodecSpec : public internal::AtomicReferenceCount<CodecSpec> {
   }
 };
 
+namespace internal {
+struct CodecSpecPtrNonNullDirectSerializer {
+  [[nodiscard]] static bool Encode(serialization::EncodeSink& sink,
+                                   const CodecSpec::Ptr& value);
+  [[nodiscard]] static bool Decode(serialization::DecodeSource& source,
+                                   CodecSpec::Ptr& value);
+
+  // Also support `IntrusivePtr<CodecSpec>` for use by the Python bindings.
+  [[nodiscard]] static bool Encode(
+      serialization::EncodeSink& sink,
+      const internal::IntrusivePtr<CodecSpec>& value);
+  [[nodiscard]] static bool Decode(serialization::DecodeSource& source,
+                                   internal::IntrusivePtr<CodecSpec>& value);
+};
+}  // namespace internal
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::CodecSpec::Ptr)
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal::IntrusivePtr<tensorstore::CodecSpec>)
 
 #endif  // TENSORSTORE_DRIVER_ENCODING_SPEC_H_

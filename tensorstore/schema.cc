@@ -34,6 +34,8 @@
 #include "tensorstore/internal/json_unit.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/serialization/json_bindable.h"
+#include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/unit.h"
@@ -584,5 +586,8 @@ absl::Status ChooseReadWriteChunkGrid(MutableBoxView<> chunk_template,
 }
 
 }  // namespace internal
-
 }  // namespace tensorstore
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::Schema,
+    tensorstore::serialization::JsonBindableSerializer<tensorstore::Schema>())

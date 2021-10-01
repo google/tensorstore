@@ -26,6 +26,8 @@
 #include "tensorstore/index_space/json.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/test_util.h"
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -746,6 +748,50 @@ TEST(ChooseReadWriteChunkGridTest, NoConstraints) {
       ChooseReadWriteChunkGrid(
           {{"chunk_layout", {{"chunk", {{"elements", 64 * 64 * 64}}}}}}, 3),
       ::testing::Optional(Box({64, 64, 64})));
+}
+
+TEST(SchemaSerializationTest, SerializationRoundTrip) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(  //
+      auto schema,                   //
+      tensorstore::Schema::FromJson({
+          {"rank", 3},
+          {"dtype", "uint8"},
+          {"domain",
+           {{"labels", {"x", "y", "z"}},
+            {"inclusive_min", {1, 2, 3}},
+            {"exclusive_max", {5, 6, 7}}}},
+          {"chunk_layout",
+           {
+               {"codec_chunk",
+                {
+                    {"elements_soft_constraint", 20},
+                    {"aspect_ratio", {1, 2, 3}},
+                    {"shape", {nullptr, 4, 5}},
+                }},
+               {"read_chunk",
+                {
+                    {"elements", 30},
+                    {"aspect_ratio", {4, 5, 6}},
+                    {"shape_soft_constraint", {6, nullptr, 7}},
+                }},
+               {"write_chunk",
+                {
+                    {"elements", 40},
+                    {"aspect_ratio_soft_constraint", {7, 8, 9}},
+                    {"shape", {8, 9, nullptr}},
+                }},
+               {"grid_origin", {nullptr, nullptr, 11}},
+               {"inner_order_soft_constraint", {2, 0, 1}},
+           }},
+          {"codec",
+           {
+               {"driver", "zarr"},
+               {"compressor", nullptr},
+               {"filters", nullptr},
+           }},
+          {"fill_value", 5},
+      }));
+  tensorstore::serialization::TestSerializationRoundTrip(schema);
 }
 
 }  // namespace

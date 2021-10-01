@@ -32,6 +32,8 @@
 #include "tensorstore/index_space/index_transform_testutil.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/test_util.h"
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/result.h"
@@ -1808,6 +1810,24 @@ TEST(ChunkLayoutGridTest, Json) {
       },
       tensorstore::internal_json_binding::DefaultBinder<>,
       tensorstore::IncludeDefaults{false});
+}
+
+TEST(ChunkLayoutSerializationTest, SerializationRoundTrip) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(  //
+      auto chunk_layout,             //
+      tensorstore::ChunkLayout::FromJson({
+          {"grid_origin", {nullptr, nullptr, 3}},
+          {"grid_origin_soft_constraint", {4, nullptr, nullptr}},
+          {"write_chunk",
+           {{"elements_soft_constraint", 1000}, {"shape", {5, nullptr, 6}}}},
+          {"read_chunk",
+           {{"elements", 100},
+            {"shape_soft_constraint", {nullptr, 10, nullptr}},
+            {"aspect_ratio", {nullptr, 1, 2}}}},
+          {"codec_chunk", {{"aspect_ratio_soft_constraint", {nullptr, 2, 1}}}},
+          {"inner_order", {2, 1, 0}},
+      }));
+  tensorstore::serialization::TestSerializationRoundTrip(chunk_layout);
 }
 
 }  // namespace

@@ -31,6 +31,7 @@
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/schema.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/unit.h"
@@ -336,7 +337,8 @@ absl::Status ChooseReadWriteChunkGrid(MutableBoxView<> chunk_template,
                                       const Schema& schema);
 
 }  // namespace internal
-
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::Schema)
 
 #endif  // TENSORSTORE_SCHEMA_H_

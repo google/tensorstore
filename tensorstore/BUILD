@@ -154,6 +154,8 @@ tensorstore_cc_library(
         "//tensorstore/internal:integer_range",
         "//tensorstore/internal:json",
         "//tensorstore/internal:maybe_hard_constraint",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:json",
         "//tensorstore/util:constant_vector",
         "//tensorstore/util:dimension_set",
         "//tensorstore/util:division",
@@ -176,6 +178,8 @@ tensorstore_cc_test(
         "//tensorstore/index_space:index_transform_testutil",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/internal:test_util",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:test_util",
         "//tensorstore/util:division",
         "//tensorstore/util:iterate_over_index_range",
         "//tensorstore/util:result",
@@ -742,6 +746,21 @@ tensorstore_cc_library(
         "//tensorstore/internal:json",
         "//tensorstore/internal:json_registry",
         "//tensorstore/internal:no_destructor",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:json",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "codec_spec_test",
+    size = "small",
+    srcs = ["codec_spec_test.cc"],
+    deps = [
+        ":codec_spec",
+        "//tensorstore/driver/zarr",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:test_util",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -766,6 +785,8 @@ tensorstore_cc_library(
         "//tensorstore/internal:json_array",
         "//tensorstore/internal:json_unit",
         "//tensorstore/internal:type_traits",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:json",
         "//tensorstore/util:dimension_set",
         "//tensorstore/util:division",
         "//tensorstore/util:status",
@@ -787,6 +808,8 @@ tensorstore_cc_test(
         "//tensorstore/index_space:index_transform_testutil",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/internal:test_util",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:test_util",
         "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/random:bit_gen_ref",

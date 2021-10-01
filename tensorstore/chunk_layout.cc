@@ -29,6 +29,8 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/dimension_indexed_json_binder.h"
 #include "tensorstore/internal/json.h"
+#include "tensorstore/serialization/json_bindable.h"
+#include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/division.h"
@@ -2024,3 +2026,8 @@ absl::Status ChunkLayout::GetChunkTemplate(Usage usage,
 }
 
 }  // namespace tensorstore
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::ChunkLayout,
+    tensorstore::serialization::JsonBindableSerializer<
+        tensorstore::ChunkLayout>())

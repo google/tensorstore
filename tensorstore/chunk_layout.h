@@ -26,6 +26,7 @@
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/internal/maybe_hard_constraint.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/result.h"
 
@@ -1065,7 +1066,8 @@ absl::Status ChooseReadWriteChunkGrid(const ChunkLayout& constraints,
                                       BoxView<> domain,
                                       MutableBoxView<> chunk_template);
 }  // namespace internal
-
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::ChunkLayout)
 
 #endif  // TENSORSTORE_CHUNK_LAYOUT_H_

@@ -20,6 +20,8 @@
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/internal/no_destructor.h"
+#include "tensorstore/serialization/json_bindable.h"
+#include "tensorstore/serialization/serialization.h"
 
 namespace tensorstore {
 namespace internal {
@@ -101,4 +103,48 @@ std::ostream& operator<<(std::ostream& os, const CodecSpec::Ptr& codec) {
   return os << json_result->dump();
 }
 
+namespace internal {
+
+bool CodecSpecPtrNonNullDirectSerializer::Encode(
+    serialization::EncodeSink& sink, const CodecSpec::Ptr& value) {
+  assert(value);
+  return serialization::JsonBindableSerializer<CodecSpec::Ptr>::Encode(sink,
+                                                                       value);
+}
+
+bool CodecSpecPtrNonNullDirectSerializer::Encode(
+    serialization::EncodeSink& sink,
+    const internal::IntrusivePtr<CodecSpec>& value) {
+  return Encode(sink, CodecSpec::Ptr(value));
+}
+
+bool CodecSpecPtrNonNullDirectSerializer::Decode(
+    serialization::DecodeSource& source, CodecSpec::Ptr& value) {
+  if (!serialization::JsonBindableSerializer<CodecSpec::Ptr>::Decode(source,
+                                                                     value)) {
+    return false;
+  }
+  if (!value.valid()) {
+    source.Fail(absl::DataLossError("Expected non-null CodecSpec"));
+    return false;
+  }
+  return true;
+}
+
+bool CodecSpecPtrNonNullDirectSerializer::Decode(
+    serialization::DecodeSource& source,
+    internal::IntrusivePtr<CodecSpec>& value) {
+  CodecSpec::Ptr temp;
+  if (!Decode(source, temp)) return false;
+  value = internal::const_pointer_cast<CodecSpec>(std::move(temp));
+  return true;
+}
+
+}  // namespace internal
+
 }  // namespace tensorstore
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::CodecSpec::Ptr,
+    tensorstore::serialization::JsonBindableSerializer<
+        tensorstore::CodecSpec::Ptr>())
