@@ -20,6 +20,31 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "registry",
+    srcs = ["registry.cc"],
+    hdrs = ["registry.h"],
+    deps = [
+        ":serialization",
+        "//tensorstore/internal:heterogeneous_container",
+        "//tensorstore/internal:logging",
+        "//tensorstore/internal:no_destructor",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "registry_test",
+    size = "small",
+    srcs = ["registry_test.cc"],
+    deps = [
+        ":registry",
+        ":serialization",
+        ":test_util",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "result",
     hdrs = ["result.h"],
     deps = [
