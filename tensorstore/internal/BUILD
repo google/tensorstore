@@ -1672,6 +1672,42 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "riegeli_json_input",
+    srcs = ["riegeli_json_input.cc"],
+    hdrs = ["riegeli_json_input.h"],
+    deps = [
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_riegeli//riegeli/bytes:reader",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "riegeli_json_output",
+    srcs = ["riegeli_json_output.cc"],
+    hdrs = ["riegeli_json_output.h"],
+    deps = [
+        ":unowned_to_shared",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_riegeli//riegeli/bytes:writer",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "riegeli_json_test",
+    size = "small",
+    srcs = ["riegeli_json_test.cc"],
+    deps = [
+        ":json_gtest",
+        ":riegeli_json_input",
+        ":riegeli_json_output",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:string_reader",
+        "@com_google_riegeli//riegeli/bytes:string_writer",
+    ],
+)
+
+tensorstore_cc_library(
     name = "source_location",
     hdrs = ["source_location.h"],
 )
