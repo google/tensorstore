@@ -30,9 +30,12 @@
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
+class Context;
+
 namespace internal {
 class ContextResourceCreationContext;
 class ContextSpecBuilder;
@@ -563,7 +566,59 @@ struct ResourceJsonBinderImpl {
   }
 };
 
+/// Type-erased encode function used by the serializer for
+/// `Context::Resource<Provider>` defined in `context.h`.
+[[nodiscard]] bool EncodeContextResourceOrSpec(
+    serialization::EncodeSink& sink,
+    const internal_context::ResourceOrSpecPtr& resource);
+
+/// Type-erased decode function used by the serializer for
+/// `Context::Resource<Provider>` defined in `context.h`.
+[[nodiscard]] bool DecodeContextResourceOrSpec(
+    serialization::DecodeSource& source, std::string_view provider_id,
+    internal_context::ResourceOrSpecPtr& resource);
+
+/// Direct serializer for non-null `ContextSpecImplPtr`.  This should normally
+/// be used via `IndirectPointerSerializer` or
+/// `NonNullIndirectPointerSerializer`.
+struct ContextSpecImplPtrNonNullDirectSerializer {
+  [[nodiscard]] static bool Encode(
+      serialization::EncodeSink& sink,
+      const internal_context::ContextSpecImplPtr& value);
+  [[nodiscard]] static bool Decode(serialization::DecodeSource& source,
+                                   internal_context::ContextSpecImplPtr& value);
+};
+
+/// Direct serializer for non-null `ContextImplPtr`.This should normally
+/// be used via `IndirectPointerSerializer` or
+/// `NonNullIndirectPointerSerializer`.
+struct ContextImplPtrNonNullDirectSerializer {
+  [[nodiscard]] static bool Encode(
+      serialization::EncodeSink& sink,
+      const internal_context::ContextImplPtr& value);
+
+  [[nodiscard]] static bool Decode(serialization::DecodeSource& source,
+                                   internal_context::ContextImplPtr& value);
+};
+
+/// Directly serializes a non-null context resource with dynamic `provider_id`.
+/// This should normally be used via `IndirectPointerSerializer` or
+/// `NonNullIndirectPointerSerializer`.
+struct UntypedContextResourceImplPtrNonNullDirectSerializer {
+  [[nodiscard]] static bool Encode(
+      serialization::EncodeSink& sink,
+      const internal_context::ResourceImplWeakPtr& value);
+  [[nodiscard]] static bool Decode(
+      serialization::DecodeSource& source,
+      internal_context::ResourceImplWeakPtr& value);
+};
+
 }  // namespace internal_context
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_context::ContextSpecImplPtr)
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_context::ContextImplPtr)
 
 #endif  // TENSORSTORE_CONTEXT_IMPL_BASE_H_

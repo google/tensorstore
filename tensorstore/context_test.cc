@@ -24,6 +24,9 @@
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/std_tuple.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
@@ -49,6 +52,7 @@ using tensorstore::internal::ContextResourceCreationContext;
 using tensorstore::internal::ContextResourceRegistration;
 using tensorstore::internal::ContextResourceTraits;
 using tensorstore::internal::ContextSpecBuilder;
+using tensorstore::serialization::SerializationRoundTrip;
 namespace jb = tensorstore::internal_json_binding;
 
 struct IntResource : public ContextResourceTraits<IntResource> {
@@ -737,6 +741,110 @@ TEST(ContextSpecBuilderTest, PartiallyBound) {
               ::testing::Optional(MatchesJson("nested_resource#b")));
   EXPECT_THAT(new_resource_spec2.ToJson(),
               ::testing::Optional(MatchesJson("nested_resource#0")));
+}
+
+TEST(ContextSpecSerializationTest, Empty) {
+  // Test empty spec
+  Context::Spec spec;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_copy,
+                                   SerializationRoundTrip(spec));
+  EXPECT_THAT(spec.ToJson(),
+              ::testing::Optional(MatchesJson(::nlohmann::json::object_t())));
+}
+
+TEST(ContextSpecSerializationTest, NonEmpty) {
+  ::nlohmann::json json_spec{
+      {"int_resource", ::nlohmann::json::object_t()},
+      {"int_resource#a", "int_resource"},
+      {"int_resource#b", ::nlohmann::json::object_t()},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   Context::Spec::FromJson(json_spec));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_copy,
+                                   SerializationRoundTrip(spec));
+  EXPECT_THAT(spec.ToJson(), ::testing::Optional(MatchesJson(json_spec)));
+}
+
+TEST(ContextSerializationTest, Null) {
+  Context context;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context_copy,
+                                   SerializationRoundTrip(context));
+  EXPECT_FALSE(context);
+}
+
+TEST(ContextSerializationTest, NonNull) {
+  ::nlohmann::json parent_json_spec{
+      {"int_resource#c", ::nlohmann::json::object_t()},
+  };
+  ::nlohmann::json child_json_spec{
+      {"int_resource", ::nlohmann::json::object_t()},
+      {"int_resource#a", "int_resource"},
+      {"int_resource#b", ::nlohmann::json::object_t()},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto parent_spec,
+                                   Context::Spec::FromJson(parent_json_spec));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto child_spec,
+                                   Context::Spec::FromJson(child_json_spec));
+  Context parent_context(parent_spec);
+  Context child_context(child_spec, parent_context);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto child_context_copy,
+                                   SerializationRoundTrip(child_context));
+  EXPECT_THAT(child_context_copy.spec().ToJson(),
+              ::testing::Optional(child_json_spec));
+  EXPECT_THAT(child_context_copy.parent().spec().ToJson(),
+              ::testing::Optional(parent_json_spec));
+  EXPECT_FALSE(child_context_copy.parent().parent());
+}
+
+TEST(ContextSerializationTest, Shared) {
+  ::nlohmann::json parent_json_spec{
+      {"int_resource#c", {{"value", 7}}},
+  };
+  ::nlohmann::json child_json_spec{
+      {"int_resource", {{"value", 5}}},
+      {"int_resource#a", "int_resource"},
+      {"int_resource#b", {{"value", 6}}},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto parent_spec,
+                                   Context::Spec::FromJson(parent_json_spec));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto child_spec,
+                                   Context::Spec::FromJson(child_json_spec));
+  Context parent_context(parent_spec);
+  Context child_context(child_spec, parent_context);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto res_parent,
+                                   parent_context.GetResource<IntResource>());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto res_child,
+                                   child_context.GetResource<IntResource>());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto res_a, child_context.GetResource<IntResource>("int_resource#a"));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto res_b, child_context.GetResource<IntResource>("int_resource#b"));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto res_c_child,
+      child_context.GetResource<IntResource>("int_resource#c"));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto res_c_parent,
+      parent_context.GetResource<IntResource>("int_resource#c"));
+  EXPECT_EQ(res_child, res_a);
+  EXPECT_EQ(res_c_child, res_c_parent);
+  EXPECT_NE(res_child, res_parent);
+  EXPECT_NE(res_a, res_b);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto copy, SerializationRoundTrip(std::make_tuple(
+                     parent_context, child_context, res_parent, res_child,
+                     res_a, res_b, res_c_child, res_c_parent)));
+  auto [copy_parent_context, copy_child_context, copy_res_parent,
+        copy_res_child, copy_res_a, copy_res_b, copy_res_c_child,
+        copy_res_c_parent] = copy;
+  EXPECT_EQ(copy_parent_context, copy_child_context.parent());
+  EXPECT_THAT(copy_child_context.GetResource<IntResource>("int_resource#a"),
+              ::testing::Optional(copy_res_a));
+  EXPECT_THAT(copy_child_context.GetResource<IntResource>("int_resource#b"),
+              ::testing::Optional(copy_res_b));
+  EXPECT_THAT(copy_child_context.GetResource<IntResource>("int_resource#c"),
+              ::testing::Optional(copy_res_c_child));
+  EXPECT_THAT(copy_parent_context.GetResource<IntResource>("int_resource#c"),
+              ::testing::Optional(copy_res_c_parent));
 }
 
 }  // namespace

@@ -23,6 +23,9 @@
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/no_destructor.h"
+#include "tensorstore/serialization/json.h"
+#include "tensorstore/serialization/json_bindable.h"
+#include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
@@ -823,5 +826,414 @@ void StripContext(ResourceOrSpecPtr& spec) {
           : static_cast<ResourceSpecImplBase&>(*spec).provider_->id_);
 }
 
+namespace {
+
+/// Verifies that `provider_id` matches the provider id specified by the context
+/// resource key given by `key`.
+///
+/// In the case of a match, returns `true`.  In the case of a mismatch, sets
+/// `source` to an unealthy state and returns `false`.
+[[nodiscard]] bool VerifyProviderIdMatch(serialization::DecodeSource& source,
+                                         std::string_view provider_id,
+                                         std::string_view key) {
+  if (internal_context::ParseResourceProvider(key) == provider_id) {
+    return true;
+  }
+  source.Fail(serialization::DecodeError(tensorstore::StrCat(
+      "Context resource key ", tensorstore::QuoteString(key),
+      " does not match expected provider ",
+      tensorstore::QuoteString(provider_id))));
+  return false;
+}
+
+/// Serializer for a context resource spec (guaranteed not to be a bound
+/// resource) with a provider id that is known prior to decoding.
+///
+/// The resource spec is simply encoded via its JSON representation.
+struct ContextResourceSpecImplSerializer {
+  [[nodiscard]] static bool Encode(
+      serialization::EncodeSink& sink,
+      const internal_context::ResourceSpecImplPtr& value,
+      JsonSerializationOptions json_serialization_options = {}) {
+    if (!serialization::EncodeTuple(sink, value->is_default_, value->key_)) {
+      return false;
+    }
+    if (value->is_default_) return true;
+    ::nlohmann::json json;
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        json, value->ToJson(json_serialization_options), (sink.Fail(_), false));
+    assert(!json.is_discarded());
+    return serialization::Encode(sink, json);
+  }
+  [[nodiscard]] bool Decode(
+      serialization::DecodeSource& source,
+      internal_context::ResourceSpecImplPtr& value,
+      JsonSerializationOptions json_serialization_options = {}) {
+    bool is_default;
+    std::string_view key;
+    if (!serialization::DecodeTuple(source, is_default, key)) return false;
+    // Warning: `key` is valid only until the next use of `source`.
+    if (!key.empty() && !VerifyProviderIdMatch(source, provider_id, key)) {
+      return false;
+    }
+    if (is_default) {
+      auto& provider = internal_context::GetProviderOrDie(provider_id);
+      value = MakeDefaultResourceSpec(provider, key);
+    } else {
+      // Make a copy of `key`, since `key` is only valid until the next use of
+      // `source`.
+      std::string key_copy(key);
+      ::nlohmann::json json_spec;
+      if (!serialization::Decode(source, json_spec)) return false;
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          value,
+          internal_context::ResourceSpecFromJson(provider_id, json_spec,
+                                                 json_serialization_options),
+          (source.Fail(_), false));
+      value->key_ = std::move(key_copy);
+    }
+    return true;
+  }
+  std::string_view provider_id;
+};
+
+[[nodiscard]] bool EncodeContextSpecBuilder(
+    serialization::EncodeSink& sink, internal::ContextSpecBuilder&& builder);
+
+[[nodiscard]] bool DecodeContextSpecBuilder(
+    serialization::DecodeSource& source,
+    internal_context::ContextImplPtr& context);
+
+/// Serializer for a context resource (guaranteed not to be an unbound resource
+/// spec) with a provider id that is known prior to decoding.
+struct ContextResourceImplSerializer {
+  [[nodiscard]] static bool Encode(
+      serialization::EncodeSink& sink,
+      const internal_context::ResourceImplWeakPtr& value) {
+    auto creator = internal_context::GetCreator(*value);
+    if (!serialization::Encode(sink, creator)) return false;
+    if (creator) {
+      assert(!value->spec_->key_.empty());
+      return serialization::Encode(sink, value->spec_->key_);
+    }
+    auto builder = internal::ContextSpecBuilder::Make();
+    auto spec = value->UnbindContext(builder);
+    if (!internal_context::EncodeContextSpecBuilder(sink, std::move(builder))) {
+      return false;
+    }
+    return ContextResourceSpecImplSerializer::Encode(sink, spec);
+  }
+
+  [[nodiscard]] bool Decode(
+      serialization::DecodeSource& source,
+      internal_context::ResourceImplWeakPtr& value) const {
+    internal_context::ContextImplPtr creator;
+    if (!serialization::Decode(source, creator)) return false;
+    if (creator) {
+      return DecodeByReferenceToExistingContext(source, *creator, value);
+    }
+
+    // Decode by spec.
+
+    internal_context::ContextImplPtr context_impl;
+    if (!internal_context::DecodeContextSpecBuilder(source, context_impl)) {
+      return false;
+    }
+    internal_context::ResourceSpecImplPtr resource_spec;
+    if (!ContextResourceSpecImplSerializer{provider_id}.Decode(source,
+                                                               resource_spec)) {
+      return false;
+    }
+    // Don't set key until after getting the resource, since
+    // `GetOrCreateResource` expects any `resource_spec` with a key to be
+    // internal to the same `context_impl`.
+    std::string key;
+    std::swap(key, resource_spec->key_);
+    TENSORSTORE_ASSIGN_OR_RETURN(value,
+                                 internal_context::GetOrCreateResource(
+                                     *context_impl, *resource_spec, nullptr),
+                                 (source.Fail(_), false));
+    resource_spec->key_ = std::move(key);
+    return true;
+  }
+
+  [[nodiscard]] bool DecodeByReferenceToExistingContext(
+      serialization::DecodeSource& source,
+      internal_context::ContextImpl& creator,
+      internal_context::ResourceImplWeakPtr& value) const {
+    std::string_view key;
+    if (!serialization::Decode(source, key)) return false;
+    if (!VerifyProviderIdMatch(source, provider_id, key)) return false;
+    // Warning: `key` is valid only until the next use of `source`.
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto spec, internal_context::ResourceSpecFromJson(provider_id, key, {}),
+        (source.Fail(_), false));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        value, internal_context::GetOrCreateResource(creator, *spec, nullptr),
+        (source.Fail(_), false));
+    return true;
+  }
+
+  std::string_view provider_id;
+};
+
+/// Encodes resources added to a `ContextSpecBuilder`.
+///
+/// This is used to encode the resources transitively required by another
+/// resource.
+///
+/// Resources are encoded indirectly, meaning a given resource is only encoded
+/// once even if referenced multiple times.
+///
+/// \param sink Encode sink to use.
+/// \param builder Context spec builder to encode, must be the last remaining
+///     reference.
+bool EncodeContextSpecBuilder(serialization::EncodeSink& sink,
+                              internal::ContextSpecBuilder&& builder) {
+  std::vector<
+      std::pair<internal_context::ResourceImplWeakPtr,
+                internal::IntrusivePtr<internal_context::BuilderResourceSpec>>>
+      deps;
+  auto& resources = internal_context::Access::impl(builder)->resources_;
+  deps.reserve(resources.size());
+  // Make a copy of the resources before destroying `builder`.
+  for (auto& [resource, entry] : resources) {
+    deps.emplace_back(resource, entry.spec);
+    entry.shared = true;
+  }
+  TENSORSTORE_CHECK(internal_context::Access::impl(builder)->use_count() == 1);
+  // Rely on builder's destructor to update all of the spec keys in
+  // `deps`.
+  builder = internal::ContextSpecBuilder();
+  if (!serialization::WriteSize(sink.writer(), deps.size())) return false;
+  for (size_t i = 0; i < deps.size(); ++i) {
+    auto& [dep_resource, dep_spec] = deps[i];
+    if (!serialization::Encode(sink, dep_spec->underlying_spec_->key_)) {
+      return false;
+    }
+    if (!sink.Indirect(dep_resource, ContextResourceImplSerializer{})) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/// Decodes a single context resource that was encoded by
+/// `EncodeContextSpecBuilder`.
+[[nodiscard]] bool DecodeContextResourceInContextSpecBuilder(
+    serialization::DecodeSource& source,
+    internal_context::ContextImpl& context_impl) {
+  std::string key;
+  if (!serialization::Decode(source, key)) return false;
+  internal_context::ResourceImplWeakPtr resource;
+  std::string_view provider_id = internal_context::ParseResourceProvider(key);
+  if (!source.Indirect(resource, ContextResourceImplSerializer{provider_id})) {
+    return false;
+  }
+  if (resource->spec_->provider_->id_ != provider_id) {
+    source.Fail(serialization::DecodeError(tensorstore::StrCat(
+        "Context resource has provider id ",
+        tensorstore::QuoteString(resource->spec_->provider_->id_),
+        " but expected ", tensorstore::QuoteString(provider_id))));
+    return false;
+  }
+  auto container = std::make_unique<internal_context::ResourceContainer>();
+  if (resource->spec_->key_ != key) {
+    // Wrap the spec in a `BuilderResourceSpec` in order to allow it to be
+    // stored under a different key.
+    container->spec_.reset(new internal_context::BuilderResourceSpec);
+    container->spec_->provider_ = resource->spec_->provider_;
+    container->spec_->key_ = std::move(key);
+    static_cast<internal_context::BuilderResourceSpec&>(*container->spec_)
+        .underlying_spec_ = resource->spec_;
+  } else {
+    container->spec_ = resource->spec_;
+  }
+  container->result_.emplace(resource.get());
+  if (!context_impl.spec_->resources_.emplace(container->spec_).second) {
+    // Keys are not unique.
+    source.Fail(absl::DataLossError(
+        tensorstore::StrCat("Duplicate context resource key in Context spec ",
+                            tensorstore::QuoteString(container->spec_->key_))));
+    return false;
+  }
+  [[maybe_unused]] bool inserted_resource =
+      context_impl.resources_.emplace(std::move(container)).second;
+  // Insertion that can't fail since we already determined the spec key is
+  // unique.
+  assert(inserted_resource);
+  return true;
+}
+
+/// Decodes context resources encoded by `EncodeContextSpecBuilder`.
+bool DecodeContextSpecBuilder(serialization::DecodeSource& source,
+                              internal_context::ContextImplPtr& context) {
+  size_t count;
+  if (!serialization::ReadSize(source.reader(), count)) return false;
+  internal_context::ContextImplPtr context_impl(
+      new internal_context::ContextImpl);
+  context_impl->spec_.reset(new internal_context::ContextSpecImpl);
+  context_impl->root_ = context_impl.get();
+  while (count--) {
+    if (!DecodeContextResourceInContextSpecBuilder(source, *context_impl)) {
+      return false;
+    }
+  }
+  context = std::move(context_impl);
+  return true;
+}
+
+[[nodiscard]] bool EncodeContextResource(
+    serialization::EncodeSink& sink,
+    const internal_context::ResourceImplWeakPtr& resource) {
+  return serialization::IndirectPointerSerializer<
+             internal_context::ResourceImplWeakPtr,
+             ContextResourceImplSerializer>()
+      .Encode(sink, resource);
+}
+
+[[nodiscard]] bool DecodeContextResource(
+    serialization::DecodeSource& source, std::string_view provider_id,
+    internal_context::ResourceImplWeakPtr& resource) {
+  return serialization::IndirectPointerSerializer<
+             internal_context::ResourceImplWeakPtr,
+             ContextResourceImplSerializer>{{provider_id}}
+      .Decode(source, resource);
+}
+
+}  // namespace
+
+bool EncodeContextResourceOrSpec(
+    serialization::EncodeSink& sink,
+    const internal_context::ResourceOrSpecPtr& resource) {
+  const bool is_resource = internal_context::IsResource(resource.get());
+  if (!serialization::Encode(sink, is_resource)) return false;
+  if (is_resource) {
+    return EncodeContextResource(
+        sink, internal_context::ResourceImplWeakPtr(
+                  static_cast<internal_context::ResourceImplBase*>(
+                      resource.get().get())));
+  } else {
+    return ContextResourceSpecImplSerializer::Encode(
+        sink, internal_context::ResourceSpecImplPtr(
+                  static_cast<internal_context::ResourceSpecImplBase*>(
+                      resource.get().get())));
+  }
+}
+
+bool DecodeContextResourceOrSpec(
+    serialization::DecodeSource& source, std::string_view provider_id,
+    internal_context::ResourceOrSpecPtr& resource) {
+  bool is_resource;
+  if (!serialization::Decode(source, is_resource)) return false;
+  if (is_resource) {
+    internal_context::ResourceImplWeakPtr resource_ptr;
+    if (!DecodeContextResource(source, provider_id, resource_ptr)) return false;
+    resource = internal_context::ToResourceOrSpecPtr(std::move(resource_ptr));
+  } else {
+    internal_context::ResourceSpecImplPtr spec_ptr;
+    if (!ContextResourceSpecImplSerializer{provider_id}.Decode(source,
+                                                               spec_ptr)) {
+      return false;
+    }
+    resource = internal_context::ToResourceOrSpecPtr(std::move(spec_ptr));
+  }
+  return true;
+}
+
+bool ContextSpecImplPtrNonNullDirectSerializer::Encode(
+    serialization::EncodeSink& sink,
+    const internal_context::ContextSpecImplPtr& value) {
+  Context::Spec spec;
+  internal_context::Access::impl(spec) = value;
+  return serialization::JsonBindableSerializer<Context::Spec>::Encode(sink,
+                                                                      spec);
+}
+
+bool ContextSpecImplPtrNonNullDirectSerializer::Decode(
+    serialization::DecodeSource& source,
+    internal_context::ContextSpecImplPtr& value) {
+  Context::Spec spec;
+  if (!serialization::JsonBindableSerializer<Context::Spec>::Decode(source,
+                                                                    spec)) {
+    return false;
+  }
+  value = internal_context::Access::impl(spec);
+  return true;
+}
+
+bool ContextImplPtrNonNullDirectSerializer::Encode(
+    serialization::EncodeSink& sink,
+    const internal_context::ContextImplPtr& value) {
+  return serialization::EncodeTuple(sink, value->spec_, value->parent_);
+}
+
+bool ContextImplPtrNonNullDirectSerializer::Decode(
+    serialization::DecodeSource& source,
+    internal_context::ContextImplPtr& value) {
+  Context::Spec spec;
+  Context parent;
+  if (!serialization::DecodeTuple(source, spec, parent)) return false;
+  Context context(std::move(spec), std::move(parent));
+  value = std::move(internal_context::Access::impl(context));
+  return true;
+}
+
+bool UntypedContextResourceImplPtrNonNullDirectSerializer::Encode(
+    serialization::EncodeSink& sink,
+    const internal_context::ResourceImplWeakPtr& value) {
+  std::string_view provider_id = value->spec_->provider_->id_;
+  if (!serialization::Encode(sink, provider_id)) return false;
+  return ContextResourceImplSerializer{provider_id}.Encode(sink, value);
+}
+
+bool UntypedContextResourceImplPtrNonNullDirectSerializer::Decode(
+    serialization::DecodeSource& source,
+    internal_context::ResourceImplWeakPtr& value) {
+  std::string provider_id;
+  if (!serialization::Decode(source, provider_id)) return false;
+  if (!internal_context::GetProvider(provider_id)) {
+    source.Fail(internal_context::ProviderNotRegisteredError(provider_id));
+    return false;
+  }
+  return ContextResourceImplSerializer{provider_id}.Decode(source, value);
+}
+
 }  // namespace internal_context
+
+namespace serialization {
+
+bool Serializer<Context::Spec>::Encode(EncodeSink& sink,
+                                       const Context::Spec& value) {
+  return serialization::Encode(sink, internal_context::Access::impl(value));
+}
+
+bool Serializer<Context::Spec>::Decode(DecodeSource& source,
+                                       Context::Spec& value) {
+  return serialization::Decode(source, internal_context::Access::impl(value));
+}
+
+bool Serializer<Context>::Encode(EncodeSink& sink, const Context& value) {
+  return serialization::Encode(sink, internal_context::Access::impl(value));
+}
+
+bool Serializer<Context>::Decode(DecodeSource& source, Context& value) {
+  return serialization::Decode(source, internal_context::Access::impl(value));
+}
+
+}  // namespace serialization
 }  // namespace tensorstore
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_context::ContextSpecImplPtr,
+    (tensorstore::serialization::IndirectPointerSerializer<
+        tensorstore::internal_context::ContextSpecImplPtr,
+        tensorstore::internal_context::
+            ContextSpecImplPtrNonNullDirectSerializer>{}))
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_context::ContextImplPtr,
+    (tensorstore::serialization::IndirectPointerSerializer<
+        tensorstore::internal_context::ContextImplPtr,
+        tensorstore::internal_context::
+            ContextImplPtrNonNullDirectSerializer>{}))

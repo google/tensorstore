@@ -25,6 +25,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/serialization/fwd.h"
 
 namespace tensorstore {
 
@@ -642,7 +643,27 @@ void Context::Resource<Provider>::UnbindContext(
   *this = context_spec_builder.AddResource(*this);
 }
 
+namespace serialization {
+
+template <typename Provider>
+struct Serializer<Context::Resource<Provider>> {
+  [[nodiscard]] static bool Encode(EncodeSink& sink,
+                                   const Context::Resource<Provider>& value) {
+    return internal_context::EncodeContextResourceOrSpec(
+        sink, internal_context::Access::impl(value));
+  }
+  [[nodiscard]] static bool Decode(DecodeSource& source,
+                                   Context::Resource<Provider>& value) {
+    return internal_context::DecodeContextResourceOrSpec(
+        source, Provider::id, internal_context::Access::impl(value));
+  }
+};
+
+}  // namespace serialization
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::Context::Spec)
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::Context)
 
 namespace std {
 /// Specialization of `std::pointer_traits` for `Context::Resource`.
