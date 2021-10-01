@@ -5,6 +5,30 @@ package(default_visibility = ["//visibility:public"])
 licenses(["notice"])
 
 tensorstore_cc_library(
+    name = "absl_time",
+    srcs = ["absl_time.cc"],
+    hdrs = ["absl_time.h"],
+    deps = [
+        ":serialization",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "absl_time_test",
+    size = "small",
+    srcs = ["absl_time_test.cc"],
+    deps = [
+        ":absl_time",
+        ":serialization",
+        ":test_util",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "batch",
     srcs = ["batch.cc"],
     hdrs = ["batch.h"],
