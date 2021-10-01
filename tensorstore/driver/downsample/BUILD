@@ -36,6 +36,7 @@ tensorstore_cc_library(
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:nditerable_transformed_array",
+        "//tensorstore/serialization",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "@com_google_absl//absl/base:core_headers",

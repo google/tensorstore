@@ -19,6 +19,7 @@
 #include "tensorstore/index_space/json.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_same.h"
+#include "tensorstore/serialization/serialization.h"
 
 namespace tensorstore {
 
@@ -147,26 +148,39 @@ void Spec::StripContext() {
 
 namespace internal {
 Result<Spec> GetSpec(const DriverHandle& handle, SpecRequestOptions&& options) {
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto open_transaction,
-      internal::AcquireOpenTransactionPtrOrError(handle.transaction));
   Spec spec;
-  auto& transformed_driver_spec = internal_spec::SpecAccess::impl(spec);
   TENSORSTORE_ASSIGN_OR_RETURN(
-      transformed_driver_spec,
-      handle.driver->GetBoundSpec(std::move(open_transaction),
-                                  handle.transform));
-  // `ApplyContextBindingMode` and `TransformAndApplyOptions` are both
-  // copy-on-write operations that will reset
-  // `transformed_driver_spec.driver_spec` to a new copy if necessary, but in
-  // this case, as there should only be a single reference, no copy will
-  // actually be required.
-  internal::ApplyContextBindingMode(spec, options.context_binding_mode,
-                                    /*default_mode=*/ContextBindingMode::strip);
-  TENSORSTORE_RETURN_IF_ERROR(internal::TransformAndApplyOptions(
-      transformed_driver_spec, std::move(options)));
+      internal_spec::SpecAccess::impl(spec),
+      internal::GetTransformedDriverSpec(handle, std::move(options)));
   return spec;
 }
+
+bool SpecNonNullSerializer::Encode(serialization::EncodeSink& sink,
+                                   const Spec& value) {
+  return serialization::Encode(
+      sink, internal_spec::SpecAccess::impl(value),
+      internal::TransformedDriverSpecNonNullSerializer{});
+}
+
+bool SpecNonNullSerializer::Decode(serialization::DecodeSource& source,
+                                   Spec& value) {
+  return serialization::Decode(
+      source, internal_spec::SpecAccess::impl(value),
+      internal::TransformedDriverSpecNonNullSerializer{});
+}
+
 }  // namespace internal
+
+namespace serialization {
+
+bool Serializer<Spec>::Encode(EncodeSink& sink, const Spec& value) {
+  return serialization::Encode(sink, internal_spec::SpecAccess::impl(value));
+}
+
+bool Serializer<Spec>::Decode(DecodeSource& source, Spec& value) {
+  return serialization::Decode(source, internal_spec::SpecAccess::impl(value));
+}
+
+}  // namespace serialization
 
 }  // namespace tensorstore

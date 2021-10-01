@@ -32,6 +32,8 @@
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/json_registry.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/serialization/registry.h"
+#include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
@@ -113,7 +115,7 @@ class RegisteredDriverBase {
 ///   in `options` in place to `spec`.
 ///
 ///     static absl::Status ApplyOptions(
-///         SpecData& spec, SpecConvertOptions&& options);
+///         SpecData& spec, SpecOptions&& options);
 ///
 /// - The static `GetEffectiveSchema` method should return the effective schema.
 ///
@@ -147,7 +149,7 @@ class RegisteredDriverBase {
 ///     Result<IndexTransform<>> GetBoundSpecData(
 ///         internal::OpenTransactionPtr transaction,
 ///         SpecData& spec,
-///         IndexTransformView<> transform) const;
+///         IndexTransformView<> transform);
 ///
 /// \tparam Derived The derived driver type.
 /// \tparam Parent The super class, must equal or be derived from
@@ -216,6 +218,7 @@ class RegisteredDriver : public Parent, RegisteredDriverBase {
     static_assert(std::is_base_of_v<internal::DriverSpecCommonData, SpecData>);
 
    public:
+    constexpr static std::string_view id = Derived::id;
     DriverSpec::Ptr Clone() const override {
       IntrusivePtr<DriverSpecImpl> new_spec(new DriverSpecImpl);
       new_spec->data_ = data_;
@@ -285,11 +288,18 @@ class RegisteredDriver : public Parent, RegisteredDriverBase {
 
     SpecData& data() override { return data_; }
 
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.context_spec_, x.data_);
+    };
+
     SpecData data_;
   };
 
   template <typename>
   friend class DriverRegistration;
+
+  template <typename>
+  friend class SerializationOnlyDriverRegistration;
 };
 
 /// Smart pointer to `const T` owned by a `DriverSpec`.
@@ -343,10 +353,24 @@ class DriverRegistration {
     GetDriverRegistry().Register<Spec>(
         Derived::id,
         internal_json_binding::Projection(&Spec::data_, Derived::json_binder));
+    serialization::Register<DriverSpecPtr, Spec>();
+  }
+};
+
+template <typename Derived>
+class SerializationOnlyDriverRegistration {
+ public:
+  SerializationOnlyDriverRegistration() {
+    using Spec = typename Derived::DriverSpecImpl;
+    serialization::Register<DriverSpecPtr, Spec>();
   }
 };
 
 }  // namespace internal
+
+extern template serialization::Registry&
+serialization::GetRegistry<internal::DriverSpecPtr>();
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_DRIVER_REGISTRY_H_

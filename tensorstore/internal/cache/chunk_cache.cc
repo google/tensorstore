@@ -725,7 +725,7 @@ void ChunkCacheDriver::Read(
     OpenTransactionPtr transaction, IndexTransform<> transform,
     AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) {
   cache_->Read(std::move(transaction), component_index_, std::move(transform),
-               data_staleness_bound_, std::move(receiver));
+               data_staleness_bound_.time, std::move(receiver));
 }
 
 void ChunkCacheDriver::Write(

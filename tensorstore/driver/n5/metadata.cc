@@ -30,6 +30,8 @@
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_metadata_matching.h"
 #include "tensorstore/internal/type_traits.h"
+#include "tensorstore/serialization/fwd.h"
+#include "tensorstore/serialization/json_bindable.h"
 #include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
@@ -656,3 +658,8 @@ Status ValidateDataType(DataType dtype) {
 
 }  // namespace internal_n5
 }  // namespace tensorstore
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_n5::N5MetadataConstraints,
+    tensorstore::serialization::JsonBindableSerializer<
+        tensorstore::internal_n5::N5MetadataConstraints>())

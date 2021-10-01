@@ -212,6 +212,8 @@ tensorstore_cc_library(
         "//tensorstore/internal:dimension_indexed_json_binder",
         "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal:json",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:json",
         "//tensorstore/util:endian",
         "//tensorstore/util:result",
         "@com_github_nlohmann_json//:nlohmann_json",

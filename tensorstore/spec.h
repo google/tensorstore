@@ -27,6 +27,7 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/spec_impl.h"
 #include "tensorstore/util/result.h"
 
@@ -196,7 +197,17 @@ namespace internal {
 ///
 /// Refer to that method documentation for details.
 Result<Spec> GetSpec(const DriverHandle& handle, SpecRequestOptions&& options);
+
+struct SpecNonNullSerializer {
+  [[nodiscard]] static bool Encode(serialization::EncodeSink& sink,
+                                   const Spec& value);
+  [[nodiscard]] static bool Decode(serialization::DecodeSource& source,
+                                   Spec& value);
+};
+
 }  // namespace internal
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::Spec)
 
 #endif  // TENSORSTORE_SPEC_H_

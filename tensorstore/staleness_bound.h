@@ -17,6 +17,7 @@
 
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/type_traits.h"
 
 namespace tensorstore {
 
@@ -106,32 +107,32 @@ struct RecheckCached : public RecheckCacheOption {
   }
 };
 
-class StalenessBound : public absl::Time {
+class StalenessBound {
  public:
   /// The default StalenessBound of `absl::InfiniteFuture()` ensures data is
   /// never stale.
-  StalenessBound() : absl::Time(absl::InfiniteFuture()) {}
+  StalenessBound() = default;
 
   StalenessBound(RecheckCacheOption option)
-      : absl::Time(option.time),
+      : time(option.time),
         bounded_by_open_time(option.flags == RecheckCacheOption::kAtOpen) {}
 
-  StalenessBound(absl::Time newer_than_time) : absl::Time(newer_than_time) {}
+  StalenessBound(absl::Time newer_than_time) : time(newer_than_time) {}
 
   StalenessBound(absl::Duration duration_before_now)
-      : absl::Time(absl::Now() - duration_before_now) {}
+      : time(absl::Now() - duration_before_now) {}
 
   /// Overload for the benefit of GoogleTest.
   friend std::ostream& operator<<(std::ostream& os,
                                   const StalenessBound& bound) {
-    return os << static_cast<const absl::Time&>(bound);
+    return os << bound.time;
   }
 
   /// Returns the effective bound given the specified open time.
   StalenessBound BoundAtOpen(absl::Time open_time) const {
     StalenessBound result = *this;
     if (result.bounded_by_open_time) {
-      static_cast<absl::Time&>(result) = open_time;
+      result.time = open_time;
     }
     return result;
   }
@@ -143,10 +144,25 @@ class StalenessBound : public absl::Time {
     return b;
   }
 
+  /// Time bound.
+  absl::Time time = absl::InfiniteFuture();
+
   /// Specifies whether this `StalenessBound` was initialized with an "open
   /// time".  When serializing back to JSON, such a bound is recorded specially
   /// rather than as a timestamp.
   bool bounded_by_open_time = false;
+
+  friend bool operator==(const StalenessBound& a, const StalenessBound& b) {
+    return a.time == b.time && a.bounded_by_open_time == b.bounded_by_open_time;
+  }
+
+  friend bool operator!=(const StalenessBound& a, const StalenessBound& b) {
+    return !(a == b);
+  }
+
+  static constexpr auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.time, x.bounded_by_open_time);
+  };
 };
 
 /// Combines staleness bound for metadata and data.
@@ -178,6 +194,10 @@ struct StalenessBounds {
     return StalenessBounds(metadata.BoundAtOpen(open_time),
                            data.BoundAtOpen(open_time));
   }
+
+  static constexpr auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.metadata, x.data);
+  };
 };
 
 }  // namespace tensorstore

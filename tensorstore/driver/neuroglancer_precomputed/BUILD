@@ -99,6 +99,8 @@ tensorstore_cc_library(
         "//tensorstore/internal:json",
         "//tensorstore/internal:json_metadata_matching",
         "//tensorstore/internal:logging",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:json",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:span_json",

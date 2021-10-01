@@ -45,27 +45,30 @@ TEST(StalenessBoundJsonBinderTest, FromJson) {
   tensorstore::TestJsonBinderFromJson<StalenessBound>({
       {false,
        ::testing::Optional(::testing::AllOf(
-           StalenessBound{absl::InfinitePast()},
+           ::testing::Field(&StalenessBound::time, absl::InfinitePast()),
            ::testing::Field(&StalenessBound::bounded_by_open_time, false)))},
       {true,
        ::testing::Optional(::testing::AllOf(
-           StalenessBound{absl::InfiniteFuture()},
+           ::testing::Field(&StalenessBound::time, absl::InfiniteFuture()),
            ::testing::Field(&StalenessBound::bounded_by_open_time, false)))},
       {"open", ::testing::Optional(::testing::Field(
                    &StalenessBound::bounded_by_open_time, true))},
       {0, ::testing::Optional(::testing::AllOf(
-              StalenessBound{absl::UnixEpoch()},
+              ::testing::Field(&StalenessBound::time, absl::UnixEpoch()),
               ::testing::Field(&StalenessBound::bounded_by_open_time, false)))},
       {1, ::testing::Optional(::testing::AllOf(
-              StalenessBound{absl::UnixEpoch() + absl::Seconds(1)},
+              ::testing::Field(&StalenessBound::time,
+                               absl::UnixEpoch() + absl::Seconds(1)),
               ::testing::Field(&StalenessBound::bounded_by_open_time, false)))},
       {1u,
        ::testing::Optional(::testing::AllOf(
-           StalenessBound{absl::UnixEpoch() + absl::Seconds(1)},
+           ::testing::Field(&StalenessBound::time,
+                            absl::UnixEpoch() + absl::Seconds(1)),
            ::testing::Field(&StalenessBound::bounded_by_open_time, false)))},
       {1.5,
        ::testing::Optional(::testing::AllOf(
-           StalenessBound{absl::UnixEpoch() + absl::Milliseconds(1500)},
+           ::testing::Field(&StalenessBound::time,
+                            absl::UnixEpoch() + absl::Milliseconds(1500)),
            ::testing::Field(&StalenessBound::bounded_by_open_time, false)))},
   });
 }

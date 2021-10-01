@@ -28,6 +28,9 @@
 #include "tensorstore/internal/json_metadata_matching.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/schema.h"
+#include "tensorstore/serialization/fwd.h"
+#include "tensorstore/serialization/json_bindable.h"
+#include "tensorstore/serialization/std_map.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span_json.h"
@@ -1530,3 +1533,8 @@ const internal::CodecSpecRegistration<NeuroglancerPrecomputedCodecSpec>
 
 }  // namespace internal_neuroglancer_precomputed
 }  // namespace tensorstore
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_neuroglancer_precomputed::OpenConstraints,
+    tensorstore::serialization::JsonBindableSerializer<
+        tensorstore::internal_neuroglancer_precomputed::OpenConstraints>())

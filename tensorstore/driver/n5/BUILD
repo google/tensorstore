@@ -209,6 +209,8 @@ tensorstore_cc_library(
         "//tensorstore/internal:json",
         "//tensorstore/internal:json_metadata_matching",
         "//tensorstore/internal:type_traits",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:json",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:span",

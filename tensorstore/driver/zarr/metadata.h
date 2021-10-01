@@ -31,6 +31,7 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/driver/zarr/dtype.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/result.h"
 
@@ -246,5 +247,8 @@ bool IsMetadataCompatible(const ZarrMetadata& a, const ZarrMetadata& b);
 
 }  // namespace internal_zarr
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_zarr::ZarrPartialMetadata)
 
 #endif  // TENSORSTORE_DRIVER_ZARR_METADATA_H_

@@ -59,6 +59,7 @@
 #include "tensorstore/read_write_options.h"
 #include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
@@ -111,6 +112,7 @@ using DriverSpecPtr = IntrusivePtr<const DriverSpec>;
 
 template <typename Driver>
 struct HandleBase {
+  bool valid() const { return static_cast<bool>(driver); }
   ReadWritePtr<Driver> driver;
 
   /// Transform to apply to `driver`.  Note that read and write operations do
@@ -130,6 +132,10 @@ using DriverHandle = HandleBase<Driver>;
 class DriverSpecCommonData {
  public:
   Schema schema;
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.schema);
+  };
 };
 
 /// Abstract base class representing a TensorStore driver specification, for
@@ -284,6 +290,8 @@ struct ContextBindingTraits<DriverSpecPtr> {
 /// If `transform.valid()`, `transform.output_rank()` must equal
 /// `driver_spec->schema().rank()`.
 struct TransformedDriverSpec {
+  bool valid() const { return static_cast<bool>(driver_spec); }
+
   DriverSpecPtr driver_spec;
   IndexTransform<> transform;
 
@@ -297,6 +305,8 @@ struct TransformedDriverSpec {
   void UnbindContext(const ContextSpecBuilder& context_builder = {}) {
     DriverSpecUnbindContext(driver_spec, context_builder);
   }
+
+  void StripContext() { DriverSpecStripContext(driver_spec); }
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(x.driver_spec, x.transform);
@@ -678,12 +688,48 @@ Result<DimensionUnitsVector> GetDimensionUnits(const Driver::Handle& handle);
 
 Result<Schema> GetSchema(const Driver::Handle& handle);
 
+Result<TransformedDriverSpec> GetTransformedDriverSpec(
+    const DriverHandle& handle, SpecRequestOptions&& options);
+
+struct TransformedDriverSpecNonNullSerializer {
+  [[nodiscard]] static bool Encode(serialization::EncodeSink& sink,
+                                   const TransformedDriverSpec& value);
+  [[nodiscard]] static bool Decode(serialization::DecodeSource& source,
+                                   TransformedDriverSpec& value);
+};
+
+struct DriverHandleNonNullSerializer {
+  [[nodiscard]] static bool Encode(serialization::EncodeSink& sink,
+                                   const DriverHandle& value);
+  [[nodiscard]] static bool Decode(serialization::DecodeSource& source,
+                                   DriverHandle& value);
+};
+
+[[nodiscard]] bool DecodeDriverHandle(serialization::DecodeSource& source,
+                                      DriverHandle& value,
+                                      DataType data_type_constraint,
+                                      DimensionIndex rank_constraint,
+                                      ReadWriteMode mode_constraint);
+
+[[nodiscard]] bool DecodeNonNullDriverHandle(
+    serialization::DecodeSource& source, DriverHandle& value,
+    DataType data_type_constraint, DimensionIndex rank_constraint,
+    ReadWriteMode mode_constraint);
+
 }  // namespace internal
 namespace internal_json_binding {
 template <>
 inline constexpr auto DefaultBinder<internal::TransformedDriverSpec> =
     internal::TransformedDriverSpecJsonBinder;
 }  // namespace internal_json_binding
+
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal::DriverSpecPtr)
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal::TransformedDriverSpec)
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal::DriverHandle)
 
 #endif  // TENSORSTORE_DRIVER_DRIVER_H_

@@ -27,6 +27,7 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/read_write_options.h"
 #include "tensorstore/resize_options.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/tensorstore_impl.h"
 #include "tensorstore/util/future.h"
@@ -637,6 +638,44 @@ Copy(Source&& source, Target&& target, CopyOptions options = {}) {
       },
       std::forward<Source>(source), std::forward<Target>(target));
 }
+
+namespace internal {
+template <typename Element = void, DimensionIndex Rank = dynamic_rank,
+          ReadWriteMode Mode = ReadWriteMode::dynamic>
+struct TensorStoreNonNullSerializer {
+  [[nodiscard]] static bool Encode(
+      serialization::EncodeSink& sink,
+      const TensorStore<Element, Rank, Mode>& value) {
+    return internal::DriverHandleNonNullSerializer::Encode(
+        sink, internal::TensorStoreAccess::handle(value));
+  }
+  [[nodiscard]] static bool Decode(serialization::DecodeSource& source,
+                                   TensorStore<Element, Rank, Mode>& value) {
+    return internal::DecodeNonNullDriverHandle(
+        source, internal::TensorStoreAccess::handle(value), dtype_v<Element>,
+        Rank, Mode);
+  }
+};
+}  // namespace internal
+
+namespace serialization {
+
+template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
+struct Serializer<TensorStore<Element, Rank, Mode>> {
+  [[nodiscard]] static bool Encode(
+      EncodeSink& sink, const TensorStore<Element, Rank, Mode>& value) {
+    return serialization::Serializer<internal::DriverHandle>::Encode(
+        sink, internal::TensorStoreAccess::handle(value));
+  }
+  [[nodiscard]] static bool Decode(DecodeSource& source,
+                                   TensorStore<Element, Rank, Mode>& value) {
+    return internal::DecodeDriverHandle(
+        source, internal::TensorStoreAccess::handle(value), dtype_v<Element>,
+        Rank, Mode);
+  }
+};
+
+}  // namespace serialization
 
 }  // namespace tensorstore
 

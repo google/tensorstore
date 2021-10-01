@@ -550,6 +550,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:json_same",
         "//tensorstore/internal:type_traits",
         "//tensorstore/kvstore",
+        "//tensorstore/serialization",
         "//tensorstore/util:result",
         "@com_github_nlohmann_json//:nlohmann_json",
     ],
@@ -566,6 +567,8 @@ tensorstore_cc_test(
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/kvstore/memory",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:test_util",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
@@ -577,7 +580,10 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "staleness_bound",
     hdrs = ["staleness_bound.h"],
-    deps = ["@com_google_absl//absl/time"],
+    deps = [
+        "//tensorstore/internal:type_traits",
+        "@com_google_absl//absl/time",
+    ],
 )
 
 tensorstore_cc_library(
@@ -662,6 +668,7 @@ tensorstore_cc_library(
         "//tensorstore/driver",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transformed_array",
+        "//tensorstore/serialization",
         "//tensorstore/util:future",
     ],
 )
@@ -813,6 +820,28 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/random:bit_gen_ref",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "tensorstore_serialization_test",
+    size = "small",
+    srcs = ["tensorstore_serialization_test.cc"],
+    deps = [
+        ":context",
+        ":open",
+        ":spec",
+        ":tensorstore",
+        "//tensorstore/driver/array",
+        "//tensorstore/driver/n5",
+        "//tensorstore/internal:test_util",
+        "//tensorstore/kvstore/file",
+        "//tensorstore/kvstore/memory",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:test_util",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )

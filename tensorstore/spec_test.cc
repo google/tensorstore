@@ -20,6 +20,8 @@
 #include <gtest/gtest.h>
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
@@ -41,6 +43,8 @@ using tensorstore::Spec;
 using tensorstore::StaticDataType;
 using tensorstore::StaticRankCast;
 using tensorstore::StrCat;
+using tensorstore::serialization::SerializationRoundTrip;
+using tensorstore::serialization::TestSerializationRoundTrip;
 
 TEST(SpecTest, Invalid) {
   Spec spec;
@@ -266,6 +270,20 @@ TEST(SpecTest, PreserveBoundContextResources) {
           {"context",
            {{"data_copy_concurrency", ::nlohmann::json::object_t()}}},
       })));
+}
+
+TEST(SpecSerializationTest, Invalid) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto invalid_spec,
+                                   SerializationRoundTrip(tensorstore::Spec()));
+  EXPECT_FALSE(invalid_spec.valid());
+}
+
+TEST(SpecSerializationTest, Valid) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec,
+      tensorstore::Spec::FromJson(
+          {{"driver", "array"}, {"array", {1, 2, 3}}, {"dtype", "int32"}}));
+  TestSerializationRoundTrip(spec);
 }
 
 }  // namespace

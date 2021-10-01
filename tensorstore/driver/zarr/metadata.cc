@@ -26,6 +26,8 @@
 #include "tensorstore/internal/dimension_indexed_json_binder.h"
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/json.h"
+#include "tensorstore/serialization/fwd.h"
+#include "tensorstore/serialization/json_bindable.h"
 
 namespace tensorstore {
 namespace internal_zarr {
@@ -449,3 +451,8 @@ void EncodeCacheKeyAdl(std::string* out, const ZarrMetadata& metadata) {
 
 }  // namespace internal_zarr
 }  // namespace tensorstore
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_zarr::ZarrPartialMetadata,
+    tensorstore::serialization::JsonBindableSerializer<
+        tensorstore::internal_zarr::ZarrPartialMetadata>())

@@ -28,6 +28,7 @@
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
+#include "tensorstore/serialization/std_vector.h"
 #include "tensorstore/spec.h"
 
 namespace tensorstore {

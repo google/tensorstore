@@ -43,6 +43,7 @@
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/serialization/absl_time.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/util/bit_span.h"
 #include "tensorstore/util/future.h"

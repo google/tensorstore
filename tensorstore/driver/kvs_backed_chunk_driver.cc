@@ -338,7 +338,7 @@ Future<IndexTransform<>> DriverBase::ResolveBounds(
                                          component_index, std::move(transform),
                                          options);
       },
-      cache->metadata_cache_entry_->Read(metadata_staleness_bound));
+      cache->metadata_cache_entry_->Read(metadata_staleness_bound.time));
 }
 
 namespace {
@@ -830,7 +830,8 @@ struct GetMetadataForOpen {
                        HandleReadMetadata{std::move(state)}),
           std::move(promise),
           base.metadata_cache_entry_->Read(
-              base.spec_->staleness.metadata.BoundAtOpen(base.request_time_)));
+              base.spec_->staleness.metadata.BoundAtOpen(base.request_time_)
+                  .time));
       return;
     }
     // `tensorstore::Open` ensures that at least one of `OpenMode::create` and

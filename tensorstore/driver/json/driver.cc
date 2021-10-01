@@ -23,6 +23,7 @@
 #include "tensorstore/internal/json_pointer.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/staleness_bound_json_binder.h"
+#include "tensorstore/serialization/absl_time.h"
 #include "tensorstore/util/sender.h"
 
 namespace tensorstore {
@@ -428,14 +429,14 @@ void JsonDriver::Read(
           auto node, GetTransactionNode(*cache_entry_, transaction));
       auto read_future = node->changes_.CanApplyUnconditionally(json_pointer_)
                              ? MakeReadyFuture()
-                             : node->Read(data_staleness_);
+                             : node->Read(data_staleness_.time);
       chunk.impl = ReadChunkTransactionImpl{
           std::move(node), internal::Driver::PtrT<JsonDriver>(this)};
       return read_future;
     } else {
       chunk.impl =
           ReadChunkImpl{cache_entry_, internal::Driver::PtrT<JsonDriver>(this)};
-      return cache_entry_->Read(data_staleness_);
+      return cache_entry_->Read(data_staleness_.time);
     }
   }();
   read_future.ExecuteWhenReady(

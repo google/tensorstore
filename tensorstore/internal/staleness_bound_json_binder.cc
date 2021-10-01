@@ -33,7 +33,7 @@ TENSORSTORE_DEFINE_JSON_BINDER(
           const double t = static_cast<double>(*j);
           *obj = absl::UnixEpoch() + absl::Seconds(t);
         } else if (*j == "open") {
-          static_cast<absl::Time&>(*obj) = absl::InfiniteFuture();
+          obj->time = absl::InfiniteFuture();
           obj->bounded_by_open_time = true;
         } else {
           return internal_json::ExpectedError(*j,
@@ -43,7 +43,7 @@ TENSORSTORE_DEFINE_JSON_BINDER(
         if (obj->bounded_by_open_time) {
           *j = "open";
         } else {
-          const absl::Time& t = *obj;
+          const absl::Time& t = obj->time;
           if (t == absl::InfiniteFuture()) {
             *j = true;
           } else if (t == absl::InfinitePast()) {

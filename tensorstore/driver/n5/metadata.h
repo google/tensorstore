@@ -24,6 +24,7 @@
 #include "tensorstore/driver/n5/compressor.h"
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/schema.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -234,5 +235,8 @@ Status ValidateDataType(DataType dtype);
 
 }  // namespace internal_n5
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_n5::N5MetadataConstraints)
 
 #endif  // TENSORSTORE_DRIVER_N5_METADATA_H_
