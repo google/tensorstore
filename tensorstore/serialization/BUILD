@@ -20,6 +20,37 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "function",
+    srcs = ["function.cc"],
+    hdrs = ["function.h"],
+    deps = [
+        ":serialization",
+        "//tensorstore/internal:heterogeneous_container",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:logging",
+        "//tensorstore/internal:no_destructor",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "function_test",
+    size = "small",
+    srcs = ["function_test.cc"],
+    deps = [
+        ":function",
+        ":serialization",
+        ":test_util",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "registry",
     srcs = ["registry.cc"],
     hdrs = ["registry.h"],
