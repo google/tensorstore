@@ -43,16 +43,15 @@ bool ProtobufSerializer::Decode(DecodeSource& source,
                                 google::protobuf::MessageLite& value) {
   size_t size;
   if (!serialization::ReadSize(source.reader(), size)) return false;
-  riegeli::LimitingReader limiting_reader(&source.reader(), size);
   riegeli::ParseOptions options;
   options.set_partial(true);
-  auto status = riegeli::ParseFromReader(limiting_reader, value, options);
+  auto status = riegeli::ParseFromReader(
+      riegeli::LimitingReader(
+          &source.reader(),
+          riegeli::LimitingReaderBase::Options().set_exact_length(size)),
+      value, options);
   if (!status.ok()) {
     source.Fail(std::move(status));
-    return false;
-  }
-  if (!limiting_reader.VerifyEndAndClose()) {
-    source.Fail(limiting_reader.status());
     return false;
   }
   return true;
