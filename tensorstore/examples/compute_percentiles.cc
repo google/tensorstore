@@ -23,6 +23,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/examples/data_type_invoker.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -52,25 +53,8 @@ using ::tensorstore::Index;
 using ::tensorstore::MaybeAnnotateStatus;
 using ::tensorstore::StrCat;
 using ::tensorstore::WriteFutures;
-
-// Calls F with comparable data types.
-template <typename Fn>
-absl::Status TryInvokeWithType(::tensorstore::DataType dtype, Fn fn) {
-#define INVOKE_WITH_TYPE(T, ...)     \
-  case tensorstore::DataTypeId::T: { \
-    return fn(::tensorstore::T{});   \
-  }
-
-  switch (dtype.id()) {
-    TENSORSTORE_FOR_EACH_DATA_TYPE(INVOKE_WITH_TYPE)
-    default:
-      break;
-  }
-  return absl::InvalidArgumentError(
-      StrCat("Could not invoke with data type:", dtype.name()));
-
-#undef INVOKE_WITH_TYPE
-}
+using ::tensorstore_examples::DataTypeIdOf;
+using ::tensorstore_examples::MakeDataTypeInvoker;
 
 template <typename T>
 struct SupportsLess {
@@ -163,7 +147,7 @@ absl::Status ComputeQuantiles(InputArray& input,
   //
   // sort_values is invoked via TryInvokeWithDataTypeCast which manages
   // the dtype() based dispatch.
-  auto sort_values = [&values](auto t) {
+  auto sort_values = MakeDataTypeInvoker([](auto t, auto& values) {
     using T = decltype(t);
     if constexpr (SupportsLess<T>()) {
       T* begin = static_cast<T*>(values.data());
@@ -172,7 +156,7 @@ absl::Status ComputeQuantiles(InputArray& input,
       return absl::OkStatus();
     }
     return absl::InvalidArgumentError("unsortable type");
-  };
+  });
 
   for (Index x = 0; x < shape[0]; ++x) {
     // Copy input[x, :] into the values.
@@ -183,7 +167,7 @@ absl::Status ComputeQuantiles(InputArray& input,
 
     // Sort the data.
     TENSORSTORE_RETURN_IF_ERROR(
-        TryInvokeWithType(values.dtype(), sort_values),
+        sort_values(DataTypeIdOf(values), values),
         MaybeAnnotateStatus(_, "ComputeQuantiles sorting values"));
 
     // Materialize the indices data into the output.
@@ -217,14 +201,14 @@ absl::Status ValidateRun(const InputArray& input, const OutputArray& output,
   if (input.dtype() != output.dtype()) {
     errors.push_back("input and output have mismatching datatypes");
   }
-  auto status = TryInvokeWithType(input.dtype(), [](auto t) {
+  auto is_sortable = MakeDataTypeInvoker([](auto t) {
     using T = decltype(t);
     if constexpr (SupportsLess<T>()) {
       return absl::OkStatus();
     }
     return absl::InvalidArgumentError("unsortable type");
   });
-  if (!status.ok()) {
+  if (!is_sortable(DataTypeIdOf(input)).ok()) {
     errors.push_back("datatype is not natively sortable");
   }
 

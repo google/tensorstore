@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <algorithm>
 #include <iostream>
 
+#include "absl/functional/function_ref.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
@@ -94,6 +96,141 @@ tensorstore::SharedArray<int, 2> ApplyKernel(
   return dest;
 }
 
+using AffineWarpGridFunction = absl::FunctionRef<void(
+    tensorstore::BoxView<2>,  // mapping box for current block
+    size_t,                   // y-strides of block data.
+    double*  // block data, a y-major pointer to an array of x,y coordinates
+    )>;
+
+// AffineWarpGrid computes the grid mapping input pixels in the
+// range [0..maxx,0..maxy] to an output space. For mapping from
+// an output space to an image, see AffineWarpInverseGrid.
+//
+//  [ x']   [  m00  m01  m02  ] [ x ]   [ m00x + m01y + m02 ]
+//  [ y'] = [  m10  m11  m12  ] [ y ] = [ m10x + m11y + m12 ]
+//
+// Since x, y typically have a range of 0..n, we can simplify the
+// grid construction by precomputing the m00x, m10x, m01y, m11y
+//
+// Real use cases should use opencv or similar to achieve this.
+void AffineWarpGrid(size_t xmax, size_t ymax,
+                    tensorstore::span<const double, 6> M,
+                    AffineWarpGridFunction fn) {
+  using tensorstore::Index;
+  constexpr size_t kBlockSize = 32;
+  double mx[kBlockSize * 2];
+  double yx[kBlockSize * kBlockSize * 2];
+
+  size_t bxstep = std::min(kBlockSize, xmax);
+  size_t bystep = std::min(kBlockSize, ymax);
+
+  // Loop over the input range from [0,0],[xmax,ymax], subdivided into
+  // simple blocks.
+  for (size_t y = 0; y < ymax; y += bystep) {
+    for (size_t x = 0; x < xmax; x += bxstep) {
+      size_t bx = std::min(bxstep, xmax - x);
+      size_t by = std::min(bystep, ymax - y);
+
+      for (size_t x1 = 0; x1 < bx; x1++) {
+        mx[x1 * 2] = M[0] * (x1 + x);      // m00x
+        mx[x1 * 2 + 1] = M[3] * (x1 + x);  // m10x
+      }
+
+      for (size_t y1 = 0; y1 < by; y1++) {
+        double m01y = M[1] * (y1 + y);
+        double m11y = M[4] * (y1 + y);
+
+        auto* ptr = &yx[kBlockSize * 2 * y1];
+        for (size_t x1 = 0; x1 < bx; x1++) {
+          *(ptr++) = mx[x1 * 2] + m01y + M[2];      // x
+          *(ptr++) = mx[x1 * 2 + 1] + m11y + M[5];  // y
+        }
+      }
+
+      fn(tensorstore::BoxView({static_cast<Index>(x), static_cast<Index>(y)},
+                              {static_cast<Index>(bx), static_cast<Index>(by)}),
+         kBlockSize, yx);
+    }
+  }
+}
+
+// AffineWarpInverseGrid computes the inverse mapping from AffineWarpGrid,
+// so it can be used to map from a destination image to a souce image.
+void AffineWarpInverseGrid(size_t xmax, size_t ymax,
+                           tensorstore::span<const double, 6> M,
+                           AffineWarpGridFunction fn) {
+  double inv[6];
+  memcpy(inv, M.data(), sizeof(inv));
+
+  // Invert the matrix to apply it to the output.
+  double d = inv[0] * inv[4] - inv[1] * inv[3];
+  d = (d != 0) ? 1.0 / d : 0;
+  double a11 = inv[4] * d;
+  double a22 = inv[0] * d;
+  inv[0] = a11;
+  inv[1] *= -d;
+  inv[3] *= -d;
+  inv[4] = a22;
+  double b1 = -inv[0] * inv[2] - inv[1] * inv[5];
+  double b2 = -inv[3] * inv[2] - inv[4] * inv[5];
+  inv[2] = b1;
+  inv[5] = b2;
+
+  return AffineWarpGrid(xmax, ymax, inv, std::move(fn));
+}
+
+//  [ x']   [  m00  m01  m02  ] [ x ]   [ m00x + m01y + m02 ]
+//  [ y'] = [  m10  m11  m12  ] [ y ] = [ m10x + m11y + m12 ]
+inline std::pair<double, double> AffinePoint(
+    size_t x, size_t y, tensorstore::span<const double, 6> M) {
+  return {M[0] * x + M[1] * y + M[2], M[3] * x + M[4] * y + M[5]};
+}
+
+template <typename T>
+T clamp(T x, T l, T h) {
+  return (x < l) ? l : (x >= h) ? h : x;
+}
+
+tensorstore::SharedArray<int, 2> AffineWarp(
+    const tensorstore::ArrayView<const int, 2> in,
+    tensorstore::span<const double, 6> M) {
+  const auto origin = AffinePoint(in.origin()[0], in.origin()[1], M);
+  assert(origin.first == 0);
+  assert(origin.second == 0);
+  const auto shape = AffinePoint(in.shape()[0], in.shape()[1], M);
+
+  auto output = tensorstore::AllocateArray<int>(
+      {static_cast<Index>(shape.first), static_cast<Index>(shape.second)},
+      tensorstore::ContiguousLayoutOrder::c, tensorstore::value_init);
+
+  // Use the inverse grid to generate a mapping from our output to
+  // our input; otherwise we'd use a forward mapping.
+  AffineWarpInverseGrid(
+      output.shape()[0], output.shape()[1], M,
+      [&](tensorstore::BoxView<2> box, size_t stride, double* data) {
+        auto o = box.origin();
+        auto s = box.shape();
+
+        Index lx = in.origin()[0];
+        Index ly = in.origin()[1];
+        Index ux = in.origin()[0] + in.shape()[0] - 1;
+        Index uy = in.origin()[1] + in.shape()[1] - 1;
+        for (Index y1 = 0; y1 < s[1]; y1++) {
+          auto* ptr = &data[stride * 2 * y1];
+          for (Index x1 = 0; x1 < s[0]; x1++) {
+            // Use a simple NN function to compute the source pixel.
+            double x = *ptr++;
+            double y = *ptr++;
+            auto ix = clamp(static_cast<Index>(x + 0.5), lx, ux);
+            auto iy = clamp(static_cast<Index>(y + 0.5), ly, uy);
+            output(o[0] + x1, o[1] + y1) = in(ix, iy);
+          }
+        }
+      });
+
+  return output;
+}
+
 template <typename T, tensorstore::DimensionIndex N>
 void PrintCSVArray(tensorstore::ArrayView<T, N> data) {
   // Iterate over the shape of the data array, which gives us one
@@ -158,5 +295,15 @@ int main(int argc, char** argv) {
   //
   // FIXME: tensorstore::MakeArrayView(SharedArray<T, N>{}) fails.
   PrintCSVArray(result.array_view());
+  std::cout << std::endl;
+
+  // Scale by 2 Kernel.
+  const double M[6] = {
+      2., 0,  0,  //
+      0,  2., 0,  //
+  };
+
+  auto new_result = AffineWarp(tensorstore::MakeArrayView(image), M);
+  PrintCSVArray(new_result.array_view());
   std::cout << std::endl;
 }

@@ -7,7 +7,10 @@ licenses(["notice"])
 tensorstore_cc_test(
     name = "compute_percentiles",
     size = "small",
-    srcs = ["compute_percentiles.cc"],
+    srcs = [
+        "compute_percentiles.cc",
+        "data_type_invoker.h",
+    ],
     tags = ["manual"],
     deps = [
         "//tensorstore",
@@ -68,6 +71,7 @@ tensorstore_cc_binary(
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/util:iterate_over_index_range",
         "//tensorstore/util:status",
+        "@com_google_absl//absl/functional:function_ref",
     ],
 )
 
