@@ -45,7 +45,8 @@ namespace kvstore {
 /// in `transaction.h`.
 class ReadModifyWriteTarget {
  public:
-  using TransactionalReadOptions = KeyValueStoreCommonReadOptions;
+  using TransactionalReadOptions =
+      ::tensorstore::kvstore::TransactionalReadOptions;
   using ReadReceiver = AnyReceiver<absl::Status, ReadResult>;
 
   /// Reads from the KeyValueStore.
@@ -117,7 +118,7 @@ class ReadModifyWriteSource {
   /// If `staleness_bound < absl::Now()` is specified, the value to writeback
   /// may be conditioned on a cached existing read state, as long as it is not
   /// older than `staleness_bound`.
-  struct WritebackOptions : public KeyValueStoreCommonReadOptions {
+  struct WritebackOptions : public TransactionalReadOptions {
     /// Specifies additional constraints the writeback value that must be
     /// provided.
     WritebackMode writeback_mode;

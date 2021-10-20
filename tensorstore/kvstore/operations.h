@@ -31,8 +31,9 @@
 namespace tensorstore {
 namespace kvstore {
 
-/// Read options used for both transactional and non-transactional reads.
-struct KeyValueStoreCommonReadOptions {
+/// Read options for non-transactional reads.
+/// See also `TransactionalReadOptions`
+struct ReadOptions {
   /// The read is aborted if the generation associated with the stored `key`
   /// matches `if_not_equal`.  The special values of
   /// `StorageGeneration::Unknown()` (the default) or
@@ -46,10 +47,7 @@ struct KeyValueStoreCommonReadOptions {
   /// `Read` request was made, i.e. it is equivalent to specifying the value of
   /// `absl::Now()` just before invoking `Read`.
   absl::Time staleness_bound{absl::InfiniteFuture()};
-};
 
-/// Read options for non-transactional reads.
-struct ReadOptions : public KeyValueStoreCommonReadOptions {
   /// The read is aborted if the generation associated with `key` does not
   /// match `if_equal`.  This is primarily useful in conjunction with a
   /// `byte_range` request to ensure consistency.
@@ -65,6 +63,24 @@ struct ReadOptions : public KeyValueStoreCommonReadOptions {
 
   /// Specifies the byte range.
   OptionalByteRangeRequest byte_range;
+};
+
+/// Read options for transactional reads.
+/// See also `ReadOptions`
+struct TransactionalReadOptions {
+  /// The read is aborted if the generation associated with the stored `key`
+  /// matches `if_not_equal`.  The special values of
+  /// `StorageGeneration::Unknown()` (the default) or
+  /// `StorageGeneration::NoValue()` disable this condition.
+  StorageGeneration if_not_equal;
+
+  /// Cached data may be used without validation if not older than
+  /// `staleness_bound`.  Cached data older than `staleness_bound` must be
+  /// validated before being returned.  A value of `absl::InfiniteFuture()` (the
+  /// default) indicates that the result must be current as of the time the
+  /// `Read` request was made, i.e. it is equivalent to specifying the value of
+  /// `absl::Now()` just before invoking `Read`.
+  absl::Time staleness_bound{absl::InfiniteFuture()};
 };
 
 struct WriteOptions {
