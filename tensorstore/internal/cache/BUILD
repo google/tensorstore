@@ -204,7 +204,20 @@ tensorstore_cc_library(
 tensorstore_cc_library(
     name = "cache_key",
     hdrs = ["cache_key.h"],
-    deps = ["//tensorstore/util/apply_members"],
+    deps = [
+        "//tensorstore/util/apply_members",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "cache_key_test",
+    srcs = ["cache_key_test.cc"],
+    deps = [
+        ":cache_key",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
 )
 
 tensorstore_cc_library(

@@ -52,6 +52,31 @@ using rfc3339_time_binder::Rfc3339TimeBinder;
 template <>
 constexpr inline auto DefaultBinder<absl::Time> = Rfc3339TimeBinder;
 
+namespace duration_binder {
+constexpr inline auto DurationBinder = [](auto is_loading, const auto& options,
+                                          auto* obj,
+                                          ::nlohmann::json* j) -> Status {
+  if constexpr (is_loading) {
+    if (!j->is_string()) {
+      return internal_json::ExpectedError(*j, "Duration formatted as a string");
+    }
+    std::string error;
+    if (absl::ParseDuration(j->get_ref<std::string const&>(), obj)) {
+      return absl::OkStatus();
+    }
+    return internal_json::ExpectedError(*j, "Duration formatted as a string");
+  } else {
+    *j = absl::FormatDuration(*obj);
+    return absl::OkStatus();
+  }
+};
+
+}  // namespace duration_binder
+using duration_binder::DurationBinder;
+
+template <>
+constexpr inline auto DefaultBinder<absl::Duration> = DurationBinder;
+
 }  // namespace internal_json_binding
 }  // namespace tensorstore
 

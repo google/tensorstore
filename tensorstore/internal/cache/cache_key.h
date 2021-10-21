@@ -21,6 +21,7 @@
 #include <type_traits>
 #include <typeinfo>
 
+#include "absl/time/time.h"
 #include "tensorstore/util/apply_members/apply_members.h"
 
 namespace tensorstore {
@@ -59,6 +60,14 @@ inline void EncodeCacheKeyAdl(std::string* out, std::string_view k) {
 
 inline void EncodeCacheKeyAdl(std::string* out, const std::type_info& t) {
   EncodeCacheKey(out, t.name());
+}
+
+inline void EncodeCacheKeyAdl(std::string* out, const absl::Duration& d) {
+  if (d == absl::InfiniteDuration()) {
+    EncodeCacheKey(out, "inf");
+  } else {
+    EncodeCacheKey(out, absl::ToInt64Nanoseconds(d));
+  }
 }
 
 template <typename T>
