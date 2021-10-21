@@ -23,7 +23,7 @@
 
 #include "absl/base/attributes.h"
 #include "tensorstore/util/bit_span.h"
-#include "tensorstore/util/bit_vec_impl.h"
+#include "tensorstore/util/bit_vec_impl.h"  // IWYU pragma: export
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {

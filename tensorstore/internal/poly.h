@@ -100,7 +100,7 @@
 #include <typeinfo>
 #include <utility>
 
-#include "tensorstore/internal/poly_impl.h"
+#include "tensorstore/internal/poly_impl.h"  // IWYU pragma: export
 #include "tensorstore/internal/type_traits.h"
 
 namespace tensorstore {

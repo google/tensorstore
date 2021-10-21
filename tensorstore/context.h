@@ -17,15 +17,23 @@
 
 /// \file Interfaces for creating and using context resources.
 
-#include <memory>
+#include <assert.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <utility>
+
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
-#include "tensorstore/context_impl_base.h"
+#include "tensorstore/context_impl_base.h"  // IWYU pragma: export
 #include "tensorstore/internal/cache/cache_key.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/fwd.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 

@@ -151,6 +151,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/status/status.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/intrusive_ptr.h"
@@ -160,7 +161,7 @@
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/execution.h"
 #include "tensorstore/util/executor.h"
-#include "tensorstore/util/future_impl.h"
+#include "tensorstore/util/future_impl.h"  // IWYU pragma: export
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 

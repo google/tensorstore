@@ -20,9 +20,15 @@
 /// Context implementation details and forward declarations required by
 /// `context.h`.
 
-#include <string>
-#include <type_traits>
+// IWYU pragma: private, include "third_party/tensorstore/context.h"
 
+#include <memory>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
+
+#include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/attributes.h"

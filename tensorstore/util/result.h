@@ -20,13 +20,14 @@
 #include <utility>
 
 #include "absl/base/optimization.h"
+#include "absl/status/status.h"
 #include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/preprocessor.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/execution.h"
-#include "tensorstore/util/result_impl.h"
+#include "tensorstore/util/result_impl.h"  // IWYU pragma: export
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
