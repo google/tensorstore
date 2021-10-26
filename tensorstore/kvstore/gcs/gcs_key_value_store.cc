@@ -112,8 +112,8 @@ struct GcsUserProjectResource
     return jb::Object(
         jb::Member("project_id", jb::Projection(&Spec::project_id)));
   }
-  static Result<Spec> Create(const Spec& spec,
-                             internal::ContextResourceCreationContext context) {
+  static Result<Resource> Create(
+      const Spec& spec, internal::ContextResourceCreationContext context) {
     return spec;
   }
   static Spec GetSpec(const Spec& spec,
@@ -138,8 +138,8 @@ struct GcsRequestRetries
                                   jb::DefaultValue([](auto* v) { *v = 32; },
                                                    jb::Integer<int64_t>(1)))));
   }
-  static Result<Spec> Create(const Spec& spec,
-                             internal::ContextResourceCreationContext context) {
+  static Result<Resource> Create(
+      const Spec& spec, internal::ContextResourceCreationContext context) {
     return spec;
   }
   static Spec GetSpec(const Spec& spec,
