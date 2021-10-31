@@ -24,14 +24,41 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "python/tensorstore/garbage_collection.h"
+#include "tensorstore/tensorstore.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
 
+struct PythonTensorStoreObject
+    : public GarbageCollectedPythonObject<PythonTensorStoreObject,
+                                          TensorStore<>> {
+  constexpr static const char python_type_name[] = "tensorstore.TensorStore";
+};
+
+using PythonTensorStore = PythonTensorStoreObject::Handle;
+
 void RegisterTensorStoreBindings(pybind11::module m, Executor defer);
 
 }  // namespace internal_python
 }  // namespace tensorstore
+
+namespace pybind11 {
+namespace detail {
+
+template <>
+struct type_caster<tensorstore::internal_python::PythonTensorStoreObject>
+    : public tensorstore::internal_python::StaticHeapTypeCaster<
+          tensorstore::internal_python::PythonTensorStoreObject> {};
+
+template <typename Element, tensorstore::DimensionIndex Rank,
+          tensorstore::ReadWriteMode Mode>
+struct type_caster<tensorstore::TensorStore<Element, Rank, Mode>>
+    : public tensorstore::internal_python::GarbageCollectedObjectCaster<
+          tensorstore::internal_python::PythonTensorStoreObject> {};
+
+}  // namespace detail
+}  // namespace pybind11
 
 #endif  // THIRD_PARTY_PY_TENSORSTORE_TENSORSTORE_CLASS_H_

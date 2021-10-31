@@ -68,10 +68,10 @@ namespace py = ::pybind11;
 namespace {
 
 WriteFutures IssueCopyOrWrite(
-    TensorStore<> self,
-    std::variant<TensorStore<>, ArrayArgumentPlaceholder> source) {
-  if (auto* store = std::get_if<TensorStore<>>(&source)) {
-    return tensorstore::Copy(*store, self);
+    const TensorStore<>& self,
+    std::variant<PythonTensorStoreObject*, ArrayArgumentPlaceholder> source) {
+  if (auto* store = std::get_if<PythonTensorStoreObject*>(&source)) {
+    return tensorstore::Copy((**store).value, self);
   } else {
     auto& source_obj = std::get_if<ArrayArgumentPlaceholder>(&source)->value;
     SharedArray<const void> source_array;
@@ -156,11 +156,10 @@ constexpr auto ForwardSpecRequestSetters = [](auto callback,
            spec_setters::SetRetainContext{}, spec_setters::SetUnbindContext{});
 };
 
-using TensorStoreCls =
-    py::class_<TensorStore<>, std::shared_ptr<TensorStore<>>>;
+using TensorStoreCls = py::class_<PythonTensorStoreObject>;
 
-auto MakeTensorStoreClass(py::module m) {
-  return TensorStoreCls(m, "TensorStore", R"(
+TensorStoreCls MakeTensorStoreClass(py::module m) {
+  auto cls = PythonTensorStoreObject::Define(R"(
 Asynchronous multi-dimensional array handle.
 
 Examples:
@@ -223,11 +222,14 @@ Examples:
 Group:
   Core
 )");
+  m.attr("TensorStore") = cls;
+  return cls;
 }
 
 void DefineTensorStoreAttributes(TensorStoreCls& cls) {
+  using Self = PythonTensorStoreObject;
   cls.def_property_readonly(
-      "rank", [](const TensorStore<>& self) { return self.rank(); },
+      "rank", [](Self& self) { return self.value.rank(); },
       R"(Number of dimensions in the domain.
 
 This is equivalent to :python:`self.domain.rank`.
@@ -244,7 +246,7 @@ Group:
 )");
 
   cls.def_property_readonly(
-      "ndim", [=](const TensorStore<>& self) { return self.rank(); },
+      "ndim", [](Self& self) { return self.value.rank(); },
       R"(
 Alias for :py:obj:`.rank`.
 
@@ -260,8 +262,7 @@ Group:
 )");
 
   cls.def_property_readonly(
-      "domain",
-      [](const TensorStore<>& self) -> IndexDomain<> { return self.domain(); },
+      "domain", [](Self& self) -> IndexDomain<> { return self.value.domain(); },
       R"(
 Domain of the array.
 
@@ -291,7 +292,7 @@ Group:
 )");
 
   cls.def_property_readonly(
-      "dtype", [](const TensorStore<>& self) { return self.dtype(); }, R"(
+      "dtype", [](Self& self) { return self.value.dtype(); }, R"(
 Data type of the array.
 
 Example:
@@ -402,21 +403,21 @@ Group:
 
     cls.def(
         "spec",
-        [](const TensorStore<>& self,
-           KeywordArgument<decltype(param_def)>... kwarg) {
+        [](Self& self, KeywordArgument<decltype(param_def)>... kwarg) -> Spec {
           SpecRequestOptions options;
           ApplyKeywordArguments<decltype(param_def)...>(options, kwarg...);
-          return self.spec(std::move(options));
+          return ValueOrThrow(self.value.spec(std::move(options)));
         },
         doc.c_str(), py::kw_only(), MakeKeywordArgumentPyArg(param_def)...);
   });
 
   cls.def_property_readonly(
       "mode",
-      [](const TensorStore<>& self) {
+      [](Self& self) {
         std::string mode;
-        if (!!(self.read_write_mode() & ReadWriteMode::read)) mode += "r";
-        if (!!(self.read_write_mode() & ReadWriteMode::write)) mode += "w";
+        if (!!(self.value.read_write_mode() & ReadWriteMode::read)) mode += "r";
+        if (!!(self.value.read_write_mode() & ReadWriteMode::write))
+          mode += "w";
         return mode;
       },
       R"(
@@ -440,8 +441,8 @@ Group:
 
   cls.def_property_readonly(
       "readable",
-      [](const TensorStore<>& self) {
-        return !!(self.read_write_mode() & ReadWriteMode::read);
+      [](Self& self) {
+        return !!(self.value.read_write_mode() & ReadWriteMode::read);
       },
       R"(
 Indicates if reading is supported.
@@ -453,8 +454,8 @@ Group:
 
   cls.def_property_readonly(
       "writable",
-      [](const TensorStore<>& self) {
-        return !!(self.read_write_mode() & ReadWriteMode::write);
+      [](Self& self) {
+        return !!(self.value.read_write_mode() & ReadWriteMode::write);
       },
       R"(
 Indicates if writing is supported.
@@ -464,17 +465,20 @@ Group:
 
 )");
 
-  cls.def("__repr__", [](const TensorStore<>& self) -> std::string {
+  cls.def("__repr__", [](Self& self) -> std::string {
     return internal_python::PrettyPrintJsonAsPythonRepr(
-        self.spec(tensorstore::unbind_context) |
+        self.value.spec(tensorstore::unbind_context) |
             [](const auto& spec) { return spec.ToJson(); },
         "TensorStore(", ")");
   });
 
   cls.def(
       "read",
-      [](const TensorStore<>& self, ContiguousLayoutOrder order) {
-        return tensorstore::Read<zero_origin>(self, {order});
+      [](Self& self, ContiguousLayoutOrder order)
+          -> PythonFutureWrapper<SharedArray<void>> {
+        return PythonFutureWrapper<SharedArray<void>>(
+            tensorstore::Read<zero_origin>(self.value, {order}),
+            self.reference_manager);
       },
       R"(
 Reads the data within the current domain.
@@ -546,9 +550,12 @@ Group:
 
   cls.def(
       "write",
-      [](const TensorStore<>& self,
-         std::variant<TensorStore<>, ArrayArgumentPlaceholder> source) {
-        return IssueCopyOrWrite(std::move(self), std::move(source));
+      [](Self& self,
+         std::variant<PythonTensorStoreObject*, ArrayArgumentPlaceholder>
+             source) {
+        return PythonWriteFutures(
+            IssueCopyOrWrite(self.value, std::move(source)),
+            self.reference_manager);
       },
       R"(
 Writes to the current domain.
@@ -737,10 +744,10 @@ writes to be read:
 
   cls.def(
       "__array__",
-      [](const TensorStore<>& self, std::optional<py::dtype> dtype,
+      [](Self& self, std::optional<py::dtype> dtype,
          std::optional<py::object> context) {
         return ValueOrThrow(internal_python::InterruptibleWait(
-            tensorstore::Read<zero_origin>(self)));
+            tensorstore::Read<zero_origin>(self.value)));
       },
       R"(
 Automatic conversion to `numpy.ndarray` for interoperability with NumPy.
@@ -790,12 +797,15 @@ Group:
 
   cls.def(
       "resolve",
-      [](const TensorStore<>& self, bool fix_resizable_bounds) {
+      [](Self& self,
+         bool fix_resizable_bounds) -> PythonFutureWrapper<TensorStore<>> {
         ResolveBoundsOptions options = {};
         if (fix_resizable_bounds) {
           options.mode = options.mode | tensorstore::fix_resizable_bounds;
         }
-        return tensorstore::ResolveBounds(self, options);
+        return PythonFutureWrapper<TensorStore<>>(
+            tensorstore::ResolveBounds(self.value, options),
+            self.reference_manager);
       },
       R"(
 Obtains updated bounds, subject to the cache policy.
@@ -807,8 +817,8 @@ Group:
 
   cls.def(
       "astype",
-      [](const TensorStore<>& self, DataTypeLike target_dtype) {
-        return ValueOrThrow(tensorstore::Cast(self, target_dtype.value));
+      [](Self& self, DataTypeLike target_dtype) {
+        return ValueOrThrow(tensorstore::Cast(self.value, target_dtype.value));
       },
       R"(
 Returns a read/write view as the specified data type.
@@ -831,8 +841,7 @@ Group:
       py::arg("dtype"));
 
   cls.def_property_readonly(
-      "chunk_layout",
-      [](const TensorStore<>& self) { return self.chunk_layout(); },
+      "chunk_layout", [](Self& self) { return self.value.chunk_layout(); },
       R"(
 :ref:`Chunk layout<chunk-layout>` of the TensorStore.
 
@@ -863,9 +872,8 @@ Group:
 
   cls.def_property_readonly(
       "codec",
-      [](const TensorStore<>& self)
-          -> std::optional<internal::IntrusivePtr<const CodecSpec>> {
-        auto codec = ValueOrThrow(self.codec());
+      [](Self& self) -> std::optional<internal::IntrusivePtr<const CodecSpec>> {
+        auto codec = ValueOrThrow(self.value.codec());
         if (!codec.valid()) return std::nullopt;
         return codec;
       },
@@ -901,12 +909,14 @@ Example:
       'filters': None,
     })
 
+Group:
+  Accessors
 )");
 
   cls.def_property_readonly(
       "fill_value",
-      [](const TensorStore<>& self) -> std::optional<SharedArray<const void>> {
-        auto fill_value = ValueOrThrow(self.fill_value());
+      [](Self& self) -> std::optional<SharedArray<const void>> {
+        auto fill_value = ValueOrThrow(self.value.fill_value());
         if (!fill_value.valid()) return std::nullopt;
         return fill_value;
       },
@@ -934,13 +944,15 @@ Example:
     >>> store.fill_value
     array(42, dtype=uint32)
 
+Group:
+  Accessors
 )");
 
   cls.def_property_readonly(
       "dimension_units",
-      [](const TensorStore<>& self) -> HomogeneousTuple<std::optional<Unit>> {
+      [](Self& self) -> HomogeneousTuple<std::optional<Unit>> {
         return internal_python::SpanToHomogeneousTuple<std::optional<Unit>>(
-            ValueOrThrow(self.dimension_units()));
+            ValueOrThrow(self.value.dimension_units()));
       },
       R"(
 Physical units of each dimension of the domain.
@@ -967,13 +979,13 @@ Example:
     >>> store.dimension_units
     (Unit(5, "nm"), Unit(8, "nm"))
 
+Group:
+  Accessors
 )");
 
   cls.def_property_readonly(
       "schema",
-      [](const TensorStore<>& self) -> Schema {
-        return ValueOrThrow(self.schema());
-      },
+      [](Self& self) -> Schema { return ValueOrThrow(self.value.schema()); },
       R"(
 :ref:`Schema<schema>` of this TensorStore.
 
@@ -1023,17 +1035,22 @@ Example:
    Each access to this property results in a new copy of the schema.  Modifying
    that copying by calling `Schema.update` does not affect this TensorStore.
 
+Group:
+  Accessors
+
 )");
 
-  EnablePicklingFromSerialization(cls,
-                                  internal::TensorStoreNonNullSerializer<>{});
+  EnableGarbageCollectedObjectPicklingFromSerialization(
+      cls, internal::TensorStoreNonNullSerializer<>{});
 
   cls.attr("__iter__") = py::none();
 
   cls.def_property_readonly(
       "transaction",
-      [](const TensorStore<>& self) {
-        return internal::TransactionState::ToCommitPtr(self.transaction());
+      [](Self& self) -> std::optional<internal::TransactionState::CommitPtr> {
+        if (self.value.transaction() == no_transaction) return std::nullopt;
+        return internal::TransactionState::ToCommitPtr(
+            self.value.transaction());
       },
       R"(
 Associated transaction used for read/write operations.
@@ -1045,10 +1062,12 @@ Group:
 
   cls.def(
       "with_transaction",
-      [](const TensorStore<>& self,
-         internal::TransactionState::CommitPtr transaction) {
-        return ValueOrThrow(self | internal::TransactionState::ToTransaction(
-                                       std::move(transaction)));
+      [](Self& self,
+         std::optional<internal::TransactionState::CommitPtr> transaction) {
+        if (!transaction) transaction.emplace();
+        return ValueOrThrow(
+            self.value |
+            internal::TransactionState::ToTransaction(std::move(*transaction)));
       },
       R"(Returns a transaction-bound view of this TensorStore.
 
@@ -1840,28 +1859,28 @@ See also:
 
 )"},
       },
-      [](std::shared_ptr<TensorStore<>> self) {
-        return internal::TensorStoreAccess::handle(*self).transform;
+      [](Self& self) {
+        return internal::TensorStoreAccess::handle(self.value).transform;
       },
-      [](std::shared_ptr<TensorStore<>> self, IndexTransform<> new_transform) {
-        auto handle = internal::TensorStoreAccess::handle(*self);
+      [](Self& self, IndexTransform<> new_transform) -> PythonTensorStore {
+        auto handle = internal::TensorStoreAccess::handle(self.value);
         handle.transform = std::move(new_transform);
         return internal::TensorStoreAccess::Construct<TensorStore<>>(
             std::move(handle));
       },
-      [](TensorStore<> self,
-         std::variant<TensorStore<>, ArrayArgumentPlaceholder> source) {
+      [](Self& self,
+         std::variant<PythonTensorStoreObject*, ArrayArgumentPlaceholder>
+             source) {
         ValueOrThrow(internal_python::InterruptibleWait(
-            IssueCopyOrWrite(std::move(self), std::move(source))
-                .commit_future));
+            IssueCopyOrWrite(self.value, std::move(source)).commit_future));
       });
 }
 
 void DefineTensorStoreFunctions(py::module m) {
   m.def(
       "cast",
-      [](const TensorStore<>& store, DataTypeLike target_dtype) {
-        return ValueOrThrow(tensorstore::Cast(store, target_dtype.value));
+      [](PythonTensorStoreObject& store, DataTypeLike target_dtype) {
+        return ValueOrThrow(tensorstore::Cast(store.value, target_dtype.value));
       },
       R"(
 Returns a read/write view as the specified data type.
@@ -1893,7 +1912,7 @@ Group:
   m.def(
       "array",
       [](ArrayArgumentPlaceholder array, std::optional<DataTypeLike> dtype,
-         internal_context::ContextImplPtr context) -> TensorStore<> {
+         internal_context::ContextImplPtr context) {
         if (!context) {
           context = internal_context::Access::impl(Context::Default());
         }
@@ -2248,11 +2267,13 @@ Group:
 )";
     m.def(
         "open",
-        [](const SpecLike& spec,
-           KeywordArgument<decltype(param_def)>... kwarg) {
+        [](SpecLike spec, KeywordArgument<decltype(param_def)>... kwarg)
+            -> PythonFutureWrapper<TensorStore<>> {
           TransactionalOpenOptions options;
           ApplyKeywordArguments<decltype(param_def)...>(options, kwarg...);
-          return tensorstore::Open(std::move(spec.value), std::move(options));
+          return PythonFutureWrapper<TensorStore<>>(
+              tensorstore::Open(std::move(spec.spec), std::move(options)),
+              std::move(spec.reference_manager));
         },
         doc.c_str(), py::arg("spec"), py::kw_only(),
         MakeKeywordArgumentPyArg(param_def)...);

@@ -62,7 +62,10 @@ pytype_strict_test(
     args = select({
         ":no_minify_setting": ["--no-minify"],
         "//conditions:default": [],
-    }),
+    }) + [
+        # Treat warnings as errors
+        "-W",
+    ],
     data = [":doc_sources"],
     python_version = "PY3",
     tags = ["manual"],

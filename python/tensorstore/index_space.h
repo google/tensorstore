@@ -122,7 +122,7 @@ void DefineIndexingMethods(
           Self self, SubscriptType subscript) {
         auto transform =
             modify_transform(get_transform(self), std::move(subscript));
-        return apply_transform(std::move(self), std::move(transform));
+        return apply_transform(std::forward<Self>(self), std::move(transform));
       },
       doc_strings[0], py::arg(subscript_name));
 
@@ -139,8 +139,9 @@ void DefineIndexingMethods(
                                             decltype(assign)>>::type source) {
           auto transform =
               modify_transform(get_transform(self), std::move(subscript));
-          return assign(apply_transform(std::move(self), std::move(transform)),
-                        source);
+          return assign(
+              apply_transform(std::forward<Self>(self), std::move(transform)),
+              source);
         },
         doc_strings[doc_string_index++], py::arg("transform"),
         py::arg("source"));
@@ -231,8 +232,9 @@ void DefineIndexTransformOperations(
                                      std::move(spec_transform));
           }(),
           StatusExceptionPolicy::kIndexError);
-      return assign(apply_transform(std::move(self), std::move(transform)),
-                    source);
+      return assign(
+          apply_transform(std::forward<Self>(self), std::move(transform)),
+          source);
     };
   };
   DefineNumpyIndexingMethods(
@@ -252,7 +254,7 @@ void DefineIndexTransformOperations(
                                        std::move(spec_transform));
             }(),
             StatusExceptionPolicy::kIndexError);
-        return apply_transform(std::move(self), std::move(transform));
+        return apply_transform(std::forward<Self>(self), std::move(transform));
       },
       DirectAssignMethod(assign)...);
 
@@ -266,7 +268,7 @@ void DefineIndexTransformOperations(
           reversed_dims[i] = rank - 1 - i;
         }
         return apply_transform(
-            std::move(self),
+            std::forward<Self>(self),
             ValueOrThrow(std::move(transform) |
                          tensorstore::Dims(reversed_dims).Transpose()));
       },

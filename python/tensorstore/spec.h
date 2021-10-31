@@ -28,6 +28,7 @@
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/context.h"
 #include "python/tensorstore/data_type.h"
+#include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/keyword_arguments.h"
 #include "python/tensorstore/sequence_parameter.h"
@@ -41,10 +42,18 @@ namespace internal_python {
 
 void RegisterSpecBindings(pybind11::module m, Executor defer);
 
+struct PythonSpecObject
+    : public GarbageCollectedPythonObject<PythonSpecObject, Spec> {
+  constexpr static const char python_type_name[] = "tensorstore.Spec";
+};
+
+using PythonSpec = PythonSpecObject::Handle;
+
 /// Wrapper type used to indicate parameters that may be specified either as
 /// `tensorstore.Spec` objects or json values.
 struct SpecLike {
-  Spec value;
+  Spec spec;
+  PythonObjectReferenceManager reference_manager;
 };
 
 // Keyword argument ParamDef types for `Schema`
@@ -308,7 +317,7 @@ struct SetRetainContext
 Retain all bound context resources (e.g. specific concurrency pools, specific
 cache pools).
 
-The resultant `~tensorstore.Spec` may be used to re-open the
+The resultant :py:obj:`~tensorstore.Spec` may be used to re-open the
 :py:obj:`~tensorstore.TensorStore` using the identical context resources.
 
 Specifying a value of :python:`False` has no effect.
@@ -385,9 +394,17 @@ struct type_caster<tensorstore::internal_python::SpecLike> {
   PYBIND11_TYPE_CASTER(tensorstore::internal_python::SpecLike,
                        _("Union[tensorstore.Spec, Any]"));
   bool load(handle src, bool convert);
-  static handle cast(tensorstore::internal_python::SpecLike value,
-                     return_value_policy policy, handle parent);
 };
+
+template <>
+struct type_caster<tensorstore::internal_python::PythonSpecObject>
+    : public tensorstore::internal_python::StaticHeapTypeCaster<
+          tensorstore::internal_python::PythonSpecObject> {};
+
+template <>
+struct type_caster<tensorstore::Spec>
+    : public tensorstore::internal_python::GarbageCollectedObjectCaster<
+          tensorstore::internal_python::PythonSpecObject> {};
 
 }  // namespace detail
 }  // namespace pybind11

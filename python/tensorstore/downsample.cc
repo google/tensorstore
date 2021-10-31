@@ -21,6 +21,7 @@
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/status.h"
+#include "python/tensorstore/tensorstore_class.h"
 #include "tensorstore/downsample.h"
 #include "tensorstore/downsample_method.h"
 #include "tensorstore/driver/downsample/downsample_method_json_binder.h"
@@ -36,10 +37,10 @@ void RegisterDownsampleBindings(pybind11::module m, Executor defer) {
   defer([m]() mutable {
     m.def(
         "downsample",
-        [](const TensorStore<>& base, std::vector<Index> downsample_factors,
-           DownsampleMethod method) -> TensorStore<> {
-          return ValueOrThrow(tensorstore::Downsample(
-              std::move(base), downsample_factors, method));
+        [](PythonTensorStoreObject& base, std::vector<Index> downsample_factors,
+           DownsampleMethod method) -> PythonTensorStore {
+          return TensorStore<>(ValueOrThrow(
+              tensorstore::Downsample(base.value, downsample_factors, method)));
         },
         R"(
 Returns a virtual :ref:`downsampled view<driver/downsample>` of a :py:obj:`TensorStore`.
@@ -54,10 +55,10 @@ Overload:
 
     m.def(
         "downsample",
-        [](const Spec& base, std::vector<Index> downsample_factors,
-           DownsampleMethod method) -> Spec {
+        [](PythonSpecObject& base, std::vector<Index> downsample_factors,
+           DownsampleMethod method) -> PythonSpec {
           return ValueOrThrow(
-              tensorstore::Downsample(base, downsample_factors, method));
+              tensorstore::Downsample(base.value, downsample_factors, method));
         },
         R"(
 Returns a virtual :ref:`downsampled view<driver/downsample>` view of a :py:obj:`Spec`.

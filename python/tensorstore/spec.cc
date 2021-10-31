@@ -54,13 +54,10 @@ namespace py = pybind11;
 
 namespace {
 
-template <typename Self>
-constexpr auto GetOptionalRank =
-    [](Self self) -> std::optional<DimensionIndex> {
-  const DimensionIndex rank = self.rank();
+std::optional<DimensionIndex> RankToOptional(DimensionIndex rank) {
   if (rank == dynamic_rank) return std::nullopt;
   return rank;
-};
+}
 
 std::optional<HomogeneousTuple<std::optional<Unit>>> GetDimensionUnits(
     DimensionIndex rank, span<const std::optional<Unit>> units) {
@@ -82,8 +79,10 @@ constexpr auto WithSpecKeywordArguments = [](auto callback,
       spec_setters::SetContext{});
 };
 
+using SpecCls = py::class_<PythonSpecObject>;
+
 auto MakeSpecClass(py::module m) {
-  return py::class_<Spec>(m, "Spec", R"(
+  auto cls = PythonSpecObject::Define(R"(
 Specification for opening or creating a :py:obj:`.TensorStore`.
 
 Group:
@@ -102,13 +101,18 @@ Comparison operators
 ====================
 
 )");
+  m.attr("Spec") = cls;
+  return cls;
 }
 
-void DefineSpecAttributes(py::class_<Spec>& cls) {
-  cls.def(py::init([](::nlohmann::json json) {
-            return ValueOrThrow(Spec::FromJson(std::move(json)));
-          }),
-          R"(
+void DefineSpecAttributes(SpecCls& cls) {
+  using Self = PythonSpecObject;
+  cls.def(
+      "__new__",
+      [](py::handle cls, ::nlohmann::json json) {
+        return ValueOrThrow(Spec::FromJson(std::move(json)));
+      },
+      R"(
 Constructs from the :json:schema:`JSON representation<TensorStore>`.
 
 Example:
@@ -118,7 +122,7 @@ Example:
   Spec({'driver': 'n5', 'kvstore': {'driver': 'memory'}})
 
 )",
-          py::arg("json"));
+      py::arg("json"));
 
   WithSpecKeywordArguments([&](auto... param_def) {
     std::string doc = R"(
@@ -151,18 +155,18 @@ Group:
 )";
     cls.def(
         "update",
-        [](Spec& self, KeywordArgument<decltype(param_def)>... kwarg) {
+        [](Self& self, KeywordArgument<decltype(param_def)>... kwarg) {
           SpecConvertOptions options;
           ApplyKeywordArguments<decltype(param_def)...>(options, kwarg...);
-          ThrowStatusException(self.Set(std::move(options)));
+          ThrowStatusException(self.value.Set(std::move(options)));
         },
         doc.c_str(), py::kw_only(), MakeKeywordArgumentPyArg(param_def)...);
   });
 
   cls.def_property_readonly(
       "dtype",
-      [](const Spec& self) -> std::optional<DataType> {
-        if (self.dtype().valid()) return self.dtype();
+      [](Self& self) -> std::optional<DataType> {
+        if (auto dtype = self.value.dtype(); dtype.valid()) return dtype;
         return std::nullopt;
       },
       R"(
@@ -192,8 +196,9 @@ Group:
 
   cls.def_property_readonly(
       "transform",
-      [](const Spec& self) -> std::optional<IndexTransform<>> {
-        if (self.transform().valid()) return self.transform();
+      [](Self& self) -> std::optional<IndexTransform<>> {
+        if (auto transform = self.value.transform(); transform.valid())
+          return transform;
         return std::nullopt;
       },
       R"(
@@ -238,8 +243,9 @@ Group:
 
   cls.def_property_readonly(
       "domain",
-      [](const Spec& self) -> std::optional<IndexDomain<>> {
-        if (self.transform().valid()) return self.transform().domain();
+      [](Self& self) -> std::optional<IndexDomain<>> {
+        if (auto transform = self.value.transform(); transform.valid())
+          return transform.domain();
         return std::nullopt;
       },
       R"(
@@ -268,8 +274,9 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly("rank", GetOptionalRank<const Spec&>,
-                            R"(
+  cls.def_property_readonly(
+      "rank", [](Self& self) { return RankToOptional(self.value.rank()); },
+      R"(
 Returns the rank of the domain, or `None` if unspecified.
 
 Example:
@@ -294,8 +301,9 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly("ndim", GetOptionalRank<const Spec&>,
-                            R"(
+  cls.def_property_readonly(
+      "ndim", [](Self& self) { return RankToOptional(self.value.rank()); },
+      R"(
 Alias for :py:obj:`.rank`.
 
 Example:
@@ -321,7 +329,7 @@ Group:
 )");
 
   cls.def_property_readonly(
-      "schema", [](const Spec& self) { return ValueOrThrow(self.schema()); },
+      "schema", [](Self& self) { return ValueOrThrow(self.value.schema()); },
       R"(
 Effective :ref:`schema<schema>`, including any constraints implied by driver-specific options.
 
@@ -367,8 +375,8 @@ Group:
 
   cls.def_property_readonly(
       "domain",
-      [](const Spec& self) -> std::optional<IndexDomain<>> {
-        auto domain = ValueOrThrow(self.domain());
+      [](Self& self) -> std::optional<IndexDomain<>> {
+        auto domain = ValueOrThrow(self.value.domain());
         if (!domain.valid()) return std::nullopt;
         return domain;
       },
@@ -405,8 +413,8 @@ Group:
 
   cls.def_property_readonly(
       "chunk_layout",
-      [](const Spec& self) -> ChunkLayout {
-        return ValueOrThrow(self.chunk_layout());
+      [](Self& self) -> ChunkLayout {
+        return ValueOrThrow(self.value.chunk_layout());
       },
       R"(
 
@@ -440,9 +448,8 @@ Group:
 
   cls.def_property_readonly(
       "codec",
-      [](const Spec& self)
-          -> std::optional<internal::IntrusivePtr<const CodecSpec>> {
-        auto codec = ValueOrThrow(self.codec());
+      [](Self& self) -> std::optional<internal::IntrusivePtr<const CodecSpec>> {
+        auto codec = ValueOrThrow(self.value.codec());
         if (!codec.valid()) return std::nullopt;
         return internal::IntrusivePtr<const CodecSpec>(std::move(codec));
       },
@@ -477,8 +484,8 @@ Group:
 
   cls.def_property_readonly(
       "fill_value",
-      [](const Spec& self) -> std::optional<SharedArray<const void>> {
-        auto fill_value = ValueOrThrow(self.fill_value());
+      [](Self& self) -> std::optional<SharedArray<const void>> {
+        auto fill_value = ValueOrThrow(self.value.fill_value());
         if (!fill_value.valid()) return std::nullopt;
         return SharedArray<const void>(std::move(fill_value));
       },
@@ -515,10 +522,9 @@ Group:
 
   cls.def_property_readonly(
       "dimension_units",
-      [](const Spec& self)
-          -> std::optional<HomogeneousTuple<std::optional<Unit>>> {
+      [](Self& self) -> std::optional<HomogeneousTuple<std::optional<Unit>>> {
         return internal_python::GetDimensionUnits(
-            self.rank(), ValueOrThrow(self.dimension_units()));
+            self.value.rank(), ValueOrThrow(self.value.dimension_units()));
       },
       R"(
 
@@ -552,8 +558,9 @@ Group:
 
   cls.def(
       "to_json",
-      [](const Spec& self, bool include_defaults) {
-        return ValueOrThrow(self.ToJson({IncludeDefaults{include_defaults}}));
+      [](Self& self, bool include_defaults) {
+        return ValueOrThrow(
+            self.value.ToJson({IncludeDefaults{include_defaults}}));
       },
       R"(
 Converts to the :json:schema:`JSON representation<TensorStore>`.
@@ -585,7 +592,7 @@ Group:
       py::arg("include_defaults") = false);
 
   cls.def(
-      "copy", [](const Spec& self) { return self; }, R"(
+      "copy", [](Self& self) { return self.value; }, R"(
 Returns a copy of the spec.
 
 Example:
@@ -603,19 +610,20 @@ Group:
   Accessors
 )");
 
-  cls.def("__copy__", [](const Spec& self) { return self; });
+  cls.def("__copy__", [](Self& self) { return self.value; });
 
   cls.def(
-      "__deepcopy__", [](const Spec& self, py::dict memo) { return self; },
+      "__deepcopy__",
+      [](Self& self, py::dict memo) { return self.value; },
       py::arg("memo"));
 
   cls.def(
       "__repr__",
-      [](const Spec& self) {
+      [](Self& self) {
         JsonSerializationOptions options;
         options.preserve_bound_context_resources_ = true;
         return internal_python::PrettyPrintJsonAsPythonRepr(
-            self.ToJson(options), "Spec(", ")");
+            self.value.ToJson(options), "Spec(", ")");
       },
       R"(
 Returns a string representation based on the :json:schema:`JSON representation<TensorStore>`.
@@ -650,10 +658,10 @@ Example:
 
   cls.def(
       "__eq__",
-      [](const Spec& self, const Spec& other) { return self == other; },
+      [](Self& self, Self& other) { return self.value == other.value; },
       py::arg("other"),
       R"(
-Compares with another `Spec` for equality based on the :json:schema:`JSON representation<TensorStore>`.
+Compares with another :py:obj:`Spec` for equality based on the :json:schema:`JSON representation<TensorStore>`.
 
 The comparison is based on the JSON representation, except that any bound
 context resources are compared by identity (not by their JSON representation).
@@ -671,7 +679,8 @@ Example:
 
 )");
 
-  EnablePicklingFromSerialization(cls, internal::SpecNonNullSerializer{});
+  EnableGarbageCollectedObjectPicklingFromSerialization(
+      cls, internal::SpecNonNullSerializer{});
 
   cls.attr("__iter__") = py::none();
 
@@ -981,14 +990,15 @@ See also:
 )"},
       },
       /*get_transform=*/
-      [](const Spec& self) {
-        return ValueOrThrow(self.GetTransformForIndexingOperation());
+      [](Self& self) {
+        return ValueOrThrow(self.value.GetTransformForIndexingOperation());
       },
       /*apply_transform=*/
-      [](Spec self, IndexTransform<> new_transform) {
-        internal_spec::SpecAccess::impl(self).transform =
+      [](Self& self, IndexTransform<> new_transform) {
+        Spec copy = self.value;
+        internal_spec::SpecAccess::impl(copy).transform =
             std::move(new_transform);
-        return self;
+        return PythonSpec(std::move(copy));
       });
 }
 
@@ -1093,8 +1103,9 @@ Group:
     }
   });
 
-  cls.def_property_readonly("rank", GetOptionalRank<const Self&>,
-                            R"(
+  cls.def_property_readonly(
+      "rank", [](const Self& self) { return RankToOptional(self.rank()); },
+      R"(
 Rank of the schema, or `None` if unspecified.
 
 Example:
@@ -1110,8 +1121,9 @@ Group:
   Accessors
 )");
 
-  cls.def_property_readonly("ndim", GetOptionalRank<const Self&>,
-                            R"(
+  cls.def_property_readonly(
+      "ndim", [](const Self& self) { return RankToOptional(self.rank()); },
+      R"(
 Alias for :py:obj:`.rank`.
 
 Example:
@@ -1644,7 +1656,7 @@ See also:
       [](const Self& self, const Self& other) { return self == other; },
       py::arg("other"),
       R"(
-Compares with another `Schema` for equality based on the :json:schema:`JSON representation<Schema>`.
+Compares with another :py:obj:`Schema` for equality based on the :json:schema:`JSON representation<Schema>`.
 
 The comparison is based on the JSON representation.
 
@@ -1723,25 +1735,22 @@ namespace detail {
 
 bool type_caster<tensorstore::internal_python::SpecLike>::load(handle src,
                                                                bool convert) {
+  using tensorstore::internal_python::PythonSpecObject;
   // Handle the case that `src` is already a Python-wrapped
   // `tensorstore::Spec`.
-  if (pybind11::isinstance<tensorstore::Spec>(src)) {
-    value.value = pybind11::cast<tensorstore::Spec>(src);
+  if (Py_TYPE(src.ptr()) == PythonSpecObject::python_type) {
+    auto& obj = *reinterpret_cast<PythonSpecObject*>(src.ptr());
+    value.spec = obj.value;
+    value.reference_manager = obj.reference_manager;
     return true;
   }
   if (!convert) return false;
   // Attempt to convert argument to `::nlohmann::json`, then to
   // `tensorstore::Spec`.
-  value.value =
+  value.spec =
       tensorstore::internal_python::ValueOrThrow(tensorstore::Spec::FromJson(
           tensorstore::internal_python::PyObjectToJson(src)));
   return true;
-}
-
-handle type_caster<tensorstore::internal_python::SpecLike>::cast(
-    tensorstore::internal_python::SpecLike value, return_value_policy policy,
-    handle parent) {
-  return pybind11::cast(std::move(value.value));
 }
 
 }  // namespace detail

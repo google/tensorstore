@@ -208,6 +208,64 @@ void EnablePicklingFromSerialization(pybind11::class_<T, Extra...>& cls,
   EnablePicklingFromSerialization<T>(cls, serializer);
 }
 
+/// Defines the specified function as the `_unpickle` member of `cls`, and
+/// ensures that this member is itself picklable as a global.
+///
+/// This is used by `EnableGarbageCollectedObjectPicklingFromSerialization` to
+/// define the unpickle implementation that is referenced by the return value of
+/// the `__reduce__` function that it also defines.  See that function for
+/// details.
+void DefineUnpickleMethod(pybind11::handle cls, pybind11::object function);
+
+/// Defines pickling support for a class defined using
+/// `GarbageCollectedPythonObject` using the specified serializer.
+///
+/// For a type to be compatible with the `pickle` module, it can define a
+/// `__reduce__` method:
+///
+/// https://docs.python.org/3/library/pickle.html#object.__reduce__
+///
+/// In particular, the non-static `__reduce__` method must return a picklable
+/// tuple, where the first element is a callable object, and the second element
+/// is a tuple of arguments with which to invoke that callable.
+///
+/// Therefore, this function defines both a `__reduce__` method as well as a
+/// static `_unpickle` method that is used as the callable.  The tuple of
+/// arguments (that will be passed to the `_unpickle` method) always consists of
+/// a single `PyList` object returned by `EncodePickle`.
+///
+/// To work around https://github.com/pybind/pybind11/issues/2722 we define the
+/// `_unpickle` method in a special way to ensure it is itself picklable, see
+/// the implementation of `DefineUnpickleMethod` for details.
+///
+/// \param cls Pybind11 class binding on which to install the pickling support.
+/// \param serializer Serializer to use, must be compatible with the
+///     `Self::ContainedValue` type.
+template <typename Self, typename Serializer = serialization::Serializer<
+                             typename Self::ContainedValue>>
+void EnableGarbageCollectedObjectPicklingFromSerialization(
+    pybind11::class_<Self>& cls, Serializer serializer = {}) {
+  using ContainedValue = typename Self::ContainedValue;
+  static_assert(
+      std::is_base_of_v<GarbageCollectedPythonObject<Self, ContainedValue>,
+                        Self>);
+
+  cls.def("__reduce__", [serializer](Self& self) {
+    auto cls = pybind11::handle(reinterpret_cast<PyObject*>(Self::python_type));
+    auto reduce_val = MakeReduceSingleArgumentReturnValue(
+        cls.attr("_unpickle"), EncodePickle(self.value, serializer));
+    if (!reduce_val) throw pybind11::error_already_set();
+    return reduce_val;
+  });
+
+  DefineUnpickleMethod(
+      cls, pybind11::cpp_function([serializer](pybind11::object rep) {
+        ContainedValue value;
+        DecodePickle<ContainedValue>(rep, value, serializer);
+        return typename Self::Handle(std::move(value));
+      }));
+}
+
 /// Registers (private) global bindings needed by serialization.
 ///
 /// This is to be called exactly once during module initialization.

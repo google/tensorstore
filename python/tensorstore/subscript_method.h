@@ -36,7 +36,7 @@ namespace internal_python {
 
 template <typename Parent, typename Tag>
 struct GetItemHelper {
-  Parent parent;
+  pybind11::object parent;
 };
 
 /// Metafunction for inferring the `N`th parameter type of a function type.
@@ -56,7 +56,10 @@ template <typename Self, typename Func, typename R, typename OrigSelf,
           typename... Arg>
 struct ParentForwardingFunc<Self, Func, R(OrigSelf, Arg...)> {
   R operator()(Self self, Arg... arg) {
-    return func(self.parent, std::forward<Arg>(arg)...);
+    pybind11::detail::make_caster<OrigSelf> conv;
+    return func(pybind11::detail::cast_op<OrigSelf>(
+                    pybind11::detail::load_type(conv, self.parent)),
+                std::forward<Arg>(arg)...);
   }
   Func func;
 };
@@ -74,12 +77,13 @@ struct GetItemHelperClass {
   ///     of type `Parent` that refers to the parent object (not the wrapper
   ///     class).
   template <typename Func, typename... Options>
-  GetItemHelperClass& def(const char* name, Func func, Options&&... options) {
+  GetItemHelperClass& def(const char* name, Func func,
+                          const Options&... options) {
     class_wrapper.def(
         name,
         ParentForwardingFunc<const GetItemHelper<Parent, Tag>&, Func>{
             std::move(func)},
-        std::forward<Options>(options)...);
+        options...);
     return *this;
   }
 };
@@ -101,12 +105,13 @@ GetItemHelperClass<Parent, Tag> DefineSubscriptMethod(
     pybind11::class_<T, options...>* c, const char* method_name,
     const char* helper_class_name) {
   using Helper = GetItemHelper<Parent, Tag>;
+  // TODO(jbms): add garbage collection support
   pybind11::class_<Helper> helper_class(*c, helper_class_name);
-  c->def_property_readonly(method_name,
-                           [](Parent self) { return Helper{std::move(self)}; });
+  c->def_property_readonly(method_name, [](pybind11::object self) {
+    return Helper{std::move(self)};
+  });
   helper_class.def("__repr__", [method_name](const Helper& self) {
-    return StrCat(pybind11::repr(pybind11::cast(self.parent)), ".",
-                  method_name);
+    return StrCat(pybind11::repr(self.parent), ".", method_name);
   });
   helper_class.attr("__iter__") = pybind11::none();
   return {helper_class};

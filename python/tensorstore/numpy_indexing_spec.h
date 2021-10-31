@@ -116,7 +116,7 @@ void DefineNumpyIndexingMethodsForMode(
       "__getitem__",
       [func](Self self, NumpyIndexingSpecPlaceholder indices) {
         indices.mode = Mode;
-        return func(std::move(self), std::move(indices));
+        return func(std::forward<Self>(self), std::move(indices));
       },
       doc_strings[0], pybind11::arg("indices"));
   // Defined as separate function, rather than expanded inline within `,` fold
@@ -132,7 +132,7 @@ void DefineNumpyIndexingMethodsForMode(
 
         ) {
           indices.mode = Mode;
-          return assign(std::move(self), std::move(indices), source);
+          return assign(std::forward<Self>(self), std::move(indices), source);
         },
         doc_strings[doc_string_index++], pybind11::arg("indices"),
         pybind11::arg("source"));

@@ -92,19 +92,6 @@ struct type_caster<tensorstore::internal_python::PythonWriteFuturesObject>
     : public tensorstore::internal_python::StaticHeapTypeCaster<
           tensorstore::internal_python::PythonWriteFuturesObject> {};
 
-template <>
-struct type_caster<tensorstore::WriteFutures> {
-  PYBIND11_TYPE_CASTER(tensorstore::WriteFutures,
-                       _("tensorstore.WriteFutures"));
-
-  static handle cast(const tensorstore::WriteFutures& write_futures,
-                     return_value_policy policy, handle parent) {
-    return pybind11::cast(tensorstore::internal_python::PythonWriteFutures(
-                              write_futures, {}))
-        .release();
-  }
-};
-
 }  // namespace detail
 }  // namespace pybind11
 

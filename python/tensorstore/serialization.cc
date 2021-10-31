@@ -206,6 +206,67 @@ PyTypeObject EncodableObjectType = [] {
   return t;
 }();
 
+/// Python object representation used by `GlobalPicklableFunction`.  Refer to
+/// the documentation of that function for details.
+struct GlobalPicklableFunctionObject {
+  // clang-format off
+  PyObject_HEAD
+  PyObject* module;
+  PyObject* qualname;
+  PyObject* function;
+  // clang-format on
+};
+
+PyMemberDef GlobalPicklableFunction_members[] = {
+    {"__module__", T_OBJECT, offsetof(GlobalPicklableFunctionObject, module),
+     READONLY},
+    {"__qualname__", T_OBJECT,
+     offsetof(GlobalPicklableFunctionObject, qualname), READONLY},
+    {nullptr},
+};
+
+PyMethodDef GlobalPicklableFunction_methods[] = {
+    // Function called to pickle a `tensorstore._GlobalPicklableFunction`
+    // object.
+    {"__reduce__",
+     [](PyObject* self, PyObject* ignored) -> PyObject* {
+       auto& obj = *reinterpret_cast<GlobalPicklableFunctionObject*>(self);
+       Py_INCREF(obj.qualname);
+       return obj.qualname;
+     },
+     METH_NOARGS, ""},
+    {nullptr}, /*sentinel*/
+};
+
+PyTypeObject GlobalPicklableFunctionObjectType = [] {
+  PyTypeObject t = {PyVarObject_HEAD_INIT(nullptr, 0)};
+  t.tp_name = "tensorstore._GlobalPicklableFunction";
+  t.tp_basicsize = sizeof(GlobalPicklableFunctionObject);
+  t.tp_itemsize = 0;
+  t.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC;
+  t.tp_traverse = [](PyObject* self, visitproc visit, void* arg) -> int {
+    auto& obj = *reinterpret_cast<GlobalPicklableFunctionObject*>(self);
+    Py_VISIT(obj.function);
+    return 0;
+  };
+  t.tp_dealloc = [](PyObject* self) {
+    PyObject_GC_UnTrack(self);
+    auto& obj = *reinterpret_cast<GlobalPicklableFunctionObject*>(self);
+    Py_XDECREF(obj.module);
+    Py_XDECREF(obj.qualname);
+    Py_XDECREF(obj.function);
+    Py_TYPE(self)->tp_free(self);
+  };
+  t.tp_call = [](PyObject* self, PyObject* args,
+                 PyObject* kwargs) -> PyObject* {
+    auto& obj = *reinterpret_cast<GlobalPicklableFunctionObject*>(self);
+    return PyObject_Call(obj.function, args, kwargs);
+  };
+  t.tp_methods = GlobalPicklableFunction_methods;
+  t.tp_members = GlobalPicklableFunction_members;
+  return t;
+}();
+
 class PickleEncodeSink final : public serialization::EncodeSink {
  public:
   PickleEncodeSink(riegeli::Writer& writer, pybind11::handle rep) noexcept
@@ -314,7 +375,32 @@ class PickleDecodeSource final : public serialization::DecodeSource {
   size_t indirect_index_;
 };
 
+/// Returns a callable object that can be pickled as a global variable.
+///
+/// This is a workaround for https://github.com/pybind/pybind11/issues/2722
+pybind11::object MakeGlobalPicklableFunction(pybind11::object module,
+                                             pybind11::object qualname,
+                                             pybind11::object function) {
+  auto self = py::reinterpret_steal<py::object>(
+      GlobalPicklableFunctionObjectType.tp_alloc(
+          &GlobalPicklableFunctionObjectType, 0));
+  if (!self) throw py::error_already_set();
+  auto& obj = *reinterpret_cast<GlobalPicklableFunctionObject*>(self.ptr());
+  obj.module = module.release().ptr();
+  obj.qualname = qualname.release().ptr();
+  obj.function = function.release().ptr();
+  return self;
+}
+
 }  // namespace
+
+void DefineUnpickleMethod(pybind11::handle cls, pybind11::object function) {
+  auto qualname = py::reinterpret_steal<py::str>(
+      PyUnicode_FromFormat("%U._unpickle", cls.attr("__qualname__").ptr()));
+  if (!qualname) throw py::error_already_set();
+  cls.attr("_unpickle") = MakeGlobalPicklableFunction(
+      cls.attr("__module__"), std::move(qualname), std::move(function));
+}
 
 pybind11::object BytesFromCord(const absl::Cord& cord) noexcept {
   auto obj = py::reinterpret_steal<py::object>(
@@ -386,6 +472,9 @@ void RegisterSerializationBindings(pybind11::module_ m, Executor defer) {
     throw py::error_already_set();
   }
   if (PyType_Ready(&EncodableObjectType) != 0) {
+    throw py::error_already_set();
+  }
+  if (PyType_Ready(&GlobalPicklableFunctionObjectType) != 0) {
     throw py::error_already_set();
   }
   m.attr("_Decodable") = py::reinterpret_borrow<py::object>(
