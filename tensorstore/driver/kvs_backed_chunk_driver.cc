@@ -1318,6 +1318,15 @@ DataCache* DriverBase::cache() const {
   return static_cast<DataCache*>(internal::ChunkCacheDriver::cache());
 }
 
+void DriverBase::GarbageCollectionBase::Visit(
+    garbage_collection::GarbageCollectionVisitor& visitor,
+    const DriverBase& value) {
+  auto* cache = value.cache();
+  auto* metadata_cache = cache->metadata_cache();
+  garbage_collection::GarbageCollectionVisit(visitor,
+                                             *metadata_cache->base_store());
+}
+
 namespace jb = tensorstore::internal_json_binding;
 TENSORSTORE_DEFINE_JSON_BINDER(
     SpecJsonBinder,

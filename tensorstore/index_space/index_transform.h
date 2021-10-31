@@ -29,6 +29,7 @@
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 
 TENSORSTORE_GDB_AUTO_SCRIPT("index_space_gdb.py")
 
@@ -1663,6 +1664,21 @@ struct Serializer<IndexTransform<InputRank, OutputRank, CKind>> {
 };
 
 }  // namespace serialization
+
+namespace garbage_collection {
+
+template <DimensionIndex Rank, ContainerKind CKind>
+struct GarbageCollection<IndexDomain<Rank, CKind>> {
+  constexpr static bool required() { return false; }
+};
+
+template <DimensionIndex InputRank, DimensionIndex OutputRank,
+          ContainerKind CKind>
+struct GarbageCollection<IndexTransform<InputRank, OutputRank, CKind>> {
+  constexpr static bool required() { return false; }
+};
+
+}  // namespace garbage_collection
 
 }  // namespace tensorstore
 

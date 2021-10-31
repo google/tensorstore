@@ -64,6 +64,7 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/sender.h"
 #include "tensorstore/util/status.h"
 
@@ -240,6 +241,9 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   /// spec if there is none.
   virtual kvstore::Spec GetKvstore() const = 0;
 
+  virtual void GarbageCollectionVisit(
+      garbage_collection::GarbageCollectionVisitor& visitor) const = 0;
+
   /// Returns the common spec data (stored as a member of the derived type).
   virtual DriverSpecCommonData& data() = 0;
 
@@ -379,6 +383,10 @@ class Driver : public AtomicReferenceCount<Driver> {
   ///     domain expected by the driver.
   virtual Result<TransformedDriverSpec> GetBoundSpec(
       internal::OpenTransactionPtr transaction, IndexTransformView<> transform);
+
+  /// Visits any objects that may be tracked by a garbage collector.
+  virtual void GarbageCollectionVisit(
+      garbage_collection::GarbageCollectionVisitor& visitor) const = 0;
 
   /// Returns the chunk layout.
   ///
@@ -730,6 +738,15 @@ TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
     tensorstore::internal::TransformedDriverSpec)
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal::DriverHandle)
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::internal::DriverSpecPtr)
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::internal::Driver)
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::internal::DriverPtr)
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_SPECIALIZATION(
     tensorstore::internal::DriverHandle)
 
 #endif  // TENSORSTORE_DRIVER_DRIVER_H_

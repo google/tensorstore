@@ -105,6 +105,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span_json",
         "//tensorstore/util:status",
+        "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/status",

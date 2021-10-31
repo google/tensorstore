@@ -50,6 +50,11 @@ class ChunkErrorDriver : public tensorstore::internal::Driver {
                                       absl::UnknownError("Chunk error"));
     tensorstore::execution::set_stopping(receiver);
   }
+  void GarbageCollectionVisit(
+      tensorstore::garbage_collection::GarbageCollectionVisitor& visitor)
+      const final {
+    // No-op
+  }
   tensorstore::Executor data_copy_executor() override {
     return tensorstore::InlineExecutor{};
   }

@@ -34,6 +34,7 @@
 #include "tensorstore/open_mode.h"
 #include "tensorstore/serialization/registry.h"
 #include "tensorstore/serialization/serialization.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
@@ -151,6 +152,18 @@ class RegisteredDriverBase {
 ///         SpecData& spec,
 ///         IndexTransformView<> transform);
 ///
+/// - A valid specialization of
+///   `tensorstore::garbage_collection::GarbageCollection<Derived>` must exist.
+///   If there are no members that require garbage collection support,
+///   `TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED` may be used.
+///   Otherwise, this may be accomplished either by defining a specialization
+///   manually, or defining an `ApplyMembers` static member.
+///
+/// - A valid specialization of
+///   `tensorstore::serialization::Serializer<SpecData>` must exist.  In most
+///   cases this is done implicitly by defining the `SpecData::ApplyMembers`
+///   function.
+///
 /// \tparam Derived The derived driver type.
 /// \tparam Parent The super class, must equal or be derived from
 ///     `internal::Driver` (for example, may be `ChunkCacheDriver`).
@@ -174,6 +187,12 @@ class RegisteredDriver : public Parent, RegisteredDriverBase {
                                                       spec->data_, transform));
     transformed_spec.driver_spec = std::move(spec);
     return transformed_spec;
+  }
+
+  void GarbageCollectionVisit(
+      garbage_collection::GarbageCollectionVisitor& visitor) const override {
+    garbage_collection::GarbageCollectionVisit(
+        visitor, *static_cast<const Derived*>(this));
   }
 
   /// Builder class that may be used to construct a DriverSpec directly for the
@@ -284,6 +303,11 @@ class RegisteredDriver : public Parent, RegisteredDriverBase {
           },
           Derived::Open(std::move(transaction), std::move(data_ptr),
                         read_write_mode));
+    }
+
+    void GarbageCollectionVisit(
+        garbage_collection::GarbageCollectionVisitor& visitor) const override {
+      garbage_collection::GarbageCollectionVisit(visitor, data_);
     }
 
     SpecData& data() override { return data_; }

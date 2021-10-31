@@ -175,33 +175,19 @@ class MockKeyValueStore : public kvstore::Driver {
     AnyFlowReceiver<Status, Key> receiver;
   };
 
-  Future<ReadResult> Read(Key key, ReadOptions options) override {
-    auto [promise, future] = PromiseFuturePair<ReadResult>::Make();
-    read_requests.push(
-        {std::move(promise), std::move(key), std::move(options)});
-    return future;
-  }
+  Future<ReadResult> Read(Key key, ReadOptions options) override;
 
   Future<TimestampedStorageGeneration> Write(Key key,
                                              std::optional<Value> value,
-                                             WriteOptions options) override {
-    auto [promise, future] =
-        PromiseFuturePair<TimestampedStorageGeneration>::Make();
-    write_requests.push({std::move(promise), std::move(key), std::move(value),
-                         std::move(options)});
-    return future;
-  }
+                                             WriteOptions options) override;
 
   void ListImpl(ListOptions options,
-                AnyFlowReceiver<Status, Key> receiver) override {
-    list_requests.push({options, std::move(receiver)});
-  }
+                AnyFlowReceiver<Status, Key> receiver) override;
 
-  Future<void> DeleteRange(KeyRange range) override {
-    auto [promise, future] = PromiseFuturePair<void>::Make();
-    delete_range_requests.push({std::move(promise), std::move(range)});
-    return future;
-  }
+  Future<void> DeleteRange(KeyRange range) override;
+
+  void GarbageCollectionVisit(
+      garbage_collection::GarbageCollectionVisitor& visitor) const final;
 
   ConcurrentQueue<ReadRequest> read_requests;
   ConcurrentQueue<WriteRequest> write_requests;

@@ -129,6 +129,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/std_tuple.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -145,6 +146,8 @@ class SerializableFunctionBase
   virtual ~SerializableFunctionBase();
   virtual bool Encode(EncodeSink& sink) const = 0;
   virtual ErasedFunction erased_function() const = 0;
+  virtual void GarbageCollectionVisit(
+      garbage_collection::GarbageCollectionVisitor& visitor) const = 0;
 };
 
 /// Registers a serializable function.
@@ -154,10 +157,9 @@ struct RegisteredSerializableFunction {
   using ErasedFunction = SerializableFunctionBase::ErasedFunction;
   using DecodeFunction = bool (*)(DecodeSource& source,
                                   SerializableFunctionBase::Ptr& impl);
-  RegisteredSerializableFunction(ErasedFunction function,
-                                 const std::type_info* signature,
+  RegisteredSerializableFunction(const std::type_info* signature,
                                  std::string_view id, DecodeFunction decode)
-      : function(function), signature(signature), id(id), decode(decode) {
+      : signature(signature), id(id), decode(decode) {
     RegisterSerializableFunction(*this);
   }
   RegisteredSerializableFunction(const RegisteredSerializableFunction&) =
@@ -171,7 +173,6 @@ struct RegisteredSerializableFunction {
 
   Key key() const { return {*signature, id}; }
 
-  ErasedFunction function;
   const std::type_info* signature;
   std::string_view id;
   DecodeFunction decode;
@@ -215,19 +216,25 @@ class SerializableFunctionImpl : public SerializableFunctionBase {
     return serialization::Decode(
         source, static_cast<SerializableFunctionImpl&>(*impl).func_);
   }
-  bool Encode(EncodeSink& sink) const override {
+
+  bool Encode(EncodeSink& sink) const final {
     return serialization::EncodeTuple(sink, registry_entry_.id, func_);
   }
-  ErasedFunction erased_function() const override {
-    return registry_entry_.function;
+
+  ErasedFunction erased_function() const final {
+    return reinterpret_cast<ErasedFunction>(&SerializableFunctionImpl::Invoke);
+  }
+
+  void GarbageCollectionVisit(
+      garbage_collection::GarbageCollectionVisitor& visitor) const final {
+    garbage_collection::GarbageCollectionVisit(visitor, func_);
   }
 
   TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS
   internal::DefaultConstructibleFunctionIfEmpty<T> func_;
 
   static inline const RegisteredSerializableFunction registry_entry_{
-      reinterpret_cast<ErasedFunction>(&SerializableFunctionImpl::Invoke),
-      &typeid(R (*)(Arg...)),
+      &typeid(R(*)(Arg...)),
       GetFunctionId<T>(),
       &SerializableFunctionImpl::Decode,
   };
@@ -235,6 +242,8 @@ class SerializableFunctionImpl : public SerializableFunctionBase {
 
 class NonSerializableFunctionBase : public SerializableFunctionBase {
   bool Encode(EncodeSink& sink) const final;
+  void GarbageCollectionVisit(
+      garbage_collection::GarbageCollectionVisitor& visitor) const final;
 };
 
 template <typename T, typename R, typename... Arg>
@@ -320,6 +329,8 @@ class SerializableFunction<R(Arg...)> {
  private:
   internal_serialization::SerializableFunctionBase::Ptr impl_;
   friend struct Serializer<SerializableFunction<R(Arg...)>>;
+  friend struct garbage_collection::GarbageCollection<
+      SerializableFunction<R(Arg...)>>;
 };
 
 template <typename R, typename... Arg>
@@ -411,6 +422,17 @@ BindBack(const Func& func, const BoundArg&... bound_arg)
 
 using serialization::NonSerializable;       // NOLINT(misc-unused-using-decls)
 using serialization::SerializableFunction;  // NOLINT(misc-unused-using-decls)
+
+namespace garbage_collection {
+template <typename R, typename... Arg>
+struct GarbageCollection<serialization::SerializableFunction<R(Arg...)>> {
+  static void Visit(
+      GarbageCollectionVisitor& visitor,
+      const serialization::SerializableFunction<R(Arg...)>& value) {
+    value.impl_->GarbageCollectionVisit(visitor);
+  }
+};
+}  // namespace garbage_collection
 
 }  // namespace tensorstore
 

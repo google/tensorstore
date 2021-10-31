@@ -103,6 +103,7 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:sender",
         "//tensorstore/util:status",
+        "//tensorstore/util/garbage_collection",
     ],
 )
 

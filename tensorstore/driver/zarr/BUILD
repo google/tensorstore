@@ -216,6 +216,7 @@ tensorstore_cc_library(
         "//tensorstore/serialization:json",
         "//tensorstore/util:endian",
         "//tensorstore/util:result",
+        "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/strings",

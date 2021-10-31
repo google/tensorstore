@@ -375,8 +375,20 @@ class N5Driver::OpenState : public N5Driver::OpenStateBase {
   }
 };
 
-const internal::DriverRegistration<N5Driver> registration;
-
 }  // namespace
 }  // namespace internal_n5
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::internal_n5::N5Driver)
+// Use default garbage collection implementation provided by
+// kvs_backed_chunk_driver (just handles the kvstore)
+TENSORSTORE_DEFINE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::internal_n5::N5Driver,
+    tensorstore::internal_n5::N5Driver::GarbageCollectionBase)
+
+namespace {
+const tensorstore::internal::DriverRegistration<
+    tensorstore::internal_n5::N5Driver>
+    registration;
+}  // namespace

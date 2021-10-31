@@ -447,6 +447,7 @@ struct DriverPtrNonNullDirectSerializer {
 using DriverPtrSerializer =
     IndirectPointerSerializer<kvstore::DriverPtr,
                               DriverPtrNonNullDirectSerializer>;
+
 }  // namespace
 
 }  // namespace serialization
@@ -491,3 +492,28 @@ TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
     tensorstore::kvstore::KvStore,
     tensorstore::serialization::ApplyMembersSerializer<
         tensorstore::kvstore::KvStore>())
+
+TENSORSTORE_DEFINE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::kvstore::Driver,
+    tensorstore::garbage_collection::PolymorphicGarbageCollection<
+        tensorstore::kvstore::Driver>)
+
+TENSORSTORE_DEFINE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::kvstore::DriverSpec,
+    tensorstore::garbage_collection::PolymorphicGarbageCollection<
+        tensorstore::kvstore::DriverSpec>)
+
+TENSORSTORE_DEFINE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::kvstore::Spec,
+    tensorstore::garbage_collection::ApplyMembersGarbageCollection<
+        tensorstore::kvstore::Spec>)
+
+TENSORSTORE_DEFINE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::kvstore::DriverSpecPtr,
+    tensorstore::garbage_collection::IndirectPointerGarbageCollection<
+        tensorstore::kvstore::DriverSpecPtr>)
+
+TENSORSTORE_DEFINE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::kvstore::KvStore,
+    tensorstore::garbage_collection::ApplyMembersGarbageCollection<
+        tensorstore::kvstore::KvStore>)

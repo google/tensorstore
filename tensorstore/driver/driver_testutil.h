@@ -163,6 +163,9 @@ class MockDriver : public Driver {
   void Write(internal::OpenTransactionPtr transaction,
              IndexTransform<> transform, WriteChunkReceiver receiver) override;
 
+  void GarbageCollectionVisit(
+      garbage_collection::GarbageCollectionVisitor& visitor) const override;
+
   Executor data_copy_executor() override { return executor_; }
 
   TensorStore<> Wrap(IndexTransform<> transform = {});

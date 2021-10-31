@@ -28,6 +28,7 @@
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -1069,5 +1070,6 @@ absl::Status ChooseReadWriteChunkGrid(const ChunkLayout& constraints,
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::ChunkLayout)
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(tensorstore::ChunkLayout)
 
 #endif  // TENSORSTORE_CHUNK_LAYOUT_H_

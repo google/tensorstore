@@ -21,6 +21,7 @@
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/fwd.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 
 namespace tensorstore {
 
@@ -131,6 +132,10 @@ struct CodecSpecPtrNonNullDirectSerializer {
 
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::CodecSpec::Ptr)
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal::IntrusivePtr<tensorstore::CodecSpec>)
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(tensorstore::CodecSpec::Ptr)
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
     tensorstore::internal::IntrusivePtr<tensorstore::CodecSpec>)
 
 #endif  // TENSORSTORE_DRIVER_ENCODING_SPEC_H_

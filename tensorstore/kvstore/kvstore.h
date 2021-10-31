@@ -19,6 +19,8 @@
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/serialization/fwd.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/option.h"
 
 namespace tensorstore {
@@ -126,5 +128,7 @@ using kvstore::KvStore;
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::kvstore::KvStore)
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::kvstore::KvStore)
 
 #endif  // TENSORSTORE_KVSTORE_KVSTORE_H_

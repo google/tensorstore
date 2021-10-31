@@ -508,6 +508,28 @@ class DriverBase : public internal::ChunkCacheDriver {
 
   KvStore GetKvstore() override;
 
+  /// Base class intended for use in implementing
+  /// `tensorstore::garbage_collection::GarbageCollection<Derived>`
+  /// specializations for `Derived` driver types.
+  ///
+  /// This handles the base kvstore which was used to open the driver.
+  ///
+  /// For `Derived` driver (and associated derived `DataCache` and
+  /// `MetadataCache`) types with no additional data members that require
+  /// garbage collection support, it is sufficient to define an empty
+  /// `GarbageCollection` specialization that simply inherits from this type:
+  ///
+  ///     TENSORSTORE_DEFINE_GARBAGE_COLLECTION_SPECIALIZATION(
+  ///         Derived, Derived::GarbageCollection)
+  ///
+  /// Otherwise, you should define a `Visit` function that visits any additional
+  /// data members that require garbage collection support and then calls this
+  /// `Visit` function.
+  struct GarbageCollectionBase {
+    static void Visit(garbage_collection::GarbageCollectionVisitor& visitor,
+                      const DriverBase& value);
+  };
+
  private:
   StalenessBound metadata_staleness_bound_;
 };

@@ -212,6 +212,16 @@ class TestCache : public TestCacheBase {
   }
 };
 
+class TestDriver : public tensorstore::internal::ChunkCacheDriver {
+ public:
+  using tensorstore::internal::ChunkCacheDriver::ChunkCacheDriver;
+  void GarbageCollectionVisit(
+      tensorstore::garbage_collection::GarbageCollectionVisitor& visitor)
+      const final {
+    // No-op
+  }
+};
+
 template <typename T>
 ElementCopyFunction GetCopyFunction() {
   [[maybe_unused]] const auto copy_func =
@@ -263,9 +273,8 @@ std::vector<Index> ParseKey(std::string_view key) {
 
 Driver::Ptr MakeDriver(CachePtr<ChunkCache> cache, size_t component_index = 0,
                        StalenessBound data_staleness = {}) {
-  return Driver::Ptr(
-      new ChunkCacheDriver(cache, component_index, data_staleness),
-      tensorstore::ReadWriteMode::read_write);
+  return Driver::Ptr(new TestDriver(cache, component_index, data_staleness),
+                     tensorstore::ReadWriteMode::read_write);
 }
 
 class ChunkCacheTest : public ::testing::Test {

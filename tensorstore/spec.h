@@ -29,6 +29,7 @@
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/spec_impl.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -209,5 +210,6 @@ struct SpecNonNullSerializer {
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::Spec)
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_SPECIALIZATION(tensorstore::Spec)
 
 #endif  // TENSORSTORE_SPEC_H_

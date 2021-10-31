@@ -811,7 +811,14 @@ class FileKeyValueStore
   SpecData spec_;
 };
 
-const internal_kvstore::DriverRegistration<FileKeyValueStore> registration;
-
 }  // namespace
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
+    tensorstore::FileKeyValueStore)
+
+namespace {
+const tensorstore::internal_kvstore::DriverRegistration<
+    tensorstore::FileKeyValueStore>
+    registration;
+}  // namespace

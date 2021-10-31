@@ -479,9 +479,6 @@ absl::Status MemoryDriver::TransactionalDeleteRange(
                                                            std::move(range));
 }
 
-// Registers the driver.
-const internal_kvstore::DriverRegistration<MemoryDriver> registration;
-
 }  // namespace
 
 kvstore::DriverPtr GetMemoryKeyValueStore(bool atomic) {
@@ -496,3 +493,12 @@ kvstore::DriverPtr GetMemoryKeyValueStore(bool atomic) {
 }
 
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(tensorstore::MemoryDriver)
+
+// Registers the driver.
+namespace {
+const tensorstore::internal_kvstore::DriverRegistration<
+    tensorstore::MemoryDriver>
+    registration;
+}  // namespace

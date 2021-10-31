@@ -39,6 +39,7 @@
 #include "tensorstore/open_mode.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -379,6 +380,9 @@ GetChunksPerVolumeShardFunction(const ShardingSpec& sharding_spec,
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_neuroglancer_precomputed::OpenConstraints)
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
     tensorstore::internal_neuroglancer_precomputed::OpenConstraints)
 
 #endif  // TENSORSTORE_DRIVER_NEUROGLANCER_PRECOMPUTED_METADATA_H_

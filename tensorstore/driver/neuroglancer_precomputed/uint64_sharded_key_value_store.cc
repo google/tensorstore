@@ -90,6 +90,11 @@ class MinishardIndexKeyValueStore : public kvstore::Driver {
             GetShardKey(sharding_spec_, key_prefix_, split_info.shard)));
   }
 
+  void GarbageCollectionVisit(
+      garbage_collection::GarbageCollectionVisitor& visitor) const final {
+    // No-op
+  }
+
   kvstore::Driver* base() { return base_.get(); }
   const ShardingSpec& sharding_spec() { return sharding_spec_; }
   const std::string& key_prefix() const { return key_prefix_; }
@@ -1055,6 +1060,11 @@ class ShardedKeyValueStore : public kvstore::Driver {
         " in ",
         base_kvstore_driver()->DescribeKey(
             GetShardKey(sharding_spec, key_prefix(), shard_info.shard)));
+  }
+
+  void GarbageCollectionVisit(
+      garbage_collection::GarbageCollectionVisitor& visitor) const final {
+    // No-op
   }
 
   kvstore::Driver* base_kvstore_driver() const {

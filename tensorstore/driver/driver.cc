@@ -30,6 +30,7 @@
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/registry.h"
 #include "tensorstore/serialization/serialization.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
 
 namespace tensorstore {
 namespace internal {
@@ -1472,6 +1473,19 @@ template serialization::Registry&
 serialization::GetRegistry<internal::DriverSpecPtr>();
 
 }  // namespace serialization
+
+namespace garbage_collection {
+void GarbageCollection<internal::DriverHandle>::Visit(
+    GarbageCollectionVisitor& visitor, const internal::DriverHandle& value) {
+  garbage_collection::GarbageCollectionVisit(visitor, value.driver);
+}
+void GarbageCollection<internal::DriverSpecPtr>::Visit(
+    GarbageCollectionVisitor& visitor, const internal::DriverSpecPtr& value) {
+  if (!value) return;
+  visitor.Indirect<PolymorphicGarbageCollection<internal::DriverSpec>>(*value);
+}
+}  // namespace garbage_collection
+
 }  // namespace tensorstore
 
 TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
@@ -1489,3 +1503,13 @@ TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
         tensorstore::internal::DriverHandle,
         tensorstore::internal::DriverHandleNonNullSerializer,
         tensorstore::serialization::IsValid>()))
+
+TENSORSTORE_DEFINE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::internal::Driver,
+    tensorstore::garbage_collection::PolymorphicGarbageCollection<
+        tensorstore::internal::Driver>)
+
+TENSORSTORE_DEFINE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::internal::DriverPtr,
+    tensorstore::garbage_collection::IndirectPointerGarbageCollection<
+        tensorstore::internal::DriverPtr>)

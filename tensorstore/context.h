@@ -33,6 +33,7 @@
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/fwd.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -668,10 +669,21 @@ struct Serializer<Context::Resource<Provider>> {
 };
 
 }  // namespace serialization
+
+namespace garbage_collection {
+template <typename Provider>
+struct GarbageCollection<Context::Resource<Provider>> {
+  constexpr static bool required() { return false; }
+};
+}  // namespace garbage_collection
+
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::Context::Spec)
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::Context)
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(tensorstore::Context::Spec)
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(tensorstore::Context)
 
 namespace std {
 /// Specialization of `std::pointer_traits` for `Context::Resource`.

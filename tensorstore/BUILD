@@ -31,6 +31,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
+        "//tensorstore/util/garbage_collection",
     ],
 )
 
@@ -109,6 +110,7 @@ tensorstore_cc_library(
         "//tensorstore/util:extents",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
+        "//tensorstore/util/garbage_collection",
         "@com_google_absl//absl/status",
     ],
 )
@@ -161,6 +163,7 @@ tensorstore_cc_library(
         "//tensorstore/util:division",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
+        "//tensorstore/util/garbage_collection",
     ],
 )
 
@@ -223,6 +226,7 @@ tensorstore_cc_library(
         "//tensorstore/serialization:json",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
+        "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
@@ -554,6 +558,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore",
         "//tensorstore/serialization",
         "//tensorstore/util:result",
+        "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:nlohmann_json",
     ],
 )
@@ -688,6 +693,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:mutex",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
+        "//tensorstore/util/garbage_collection",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/synchronization",
@@ -757,6 +763,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:no_destructor",
         "//tensorstore/serialization",
         "//tensorstore/serialization:json",
+        "//tensorstore/util/garbage_collection",
     ],
 )
 
@@ -800,6 +807,7 @@ tensorstore_cc_library(
         "//tensorstore/util:division",
         "//tensorstore/util:status",
         "//tensorstore/util:unit",
+        "//tensorstore/util/garbage_collection",
         "@com_google_absl//absl/status",
     ],
 )

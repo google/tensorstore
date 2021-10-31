@@ -392,8 +392,6 @@ Result<SharedArray<const void>> ArrayDriver::SpecGetFillValue(
   return {std::in_place};
 }
 
-const internal::DriverRegistration<ArrayDriver> driver_registration;
-
 }  // namespace
 
 template <ArrayOriginKind OriginKind>
@@ -469,3 +467,12 @@ Result<tensorstore::Spec> SpecFromArray(SharedOffsetArrayView<const void> array,
 }
 
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
+    tensorstore::internal::ArrayDriver)
+
+namespace {
+const tensorstore::internal::DriverRegistration<
+    tensorstore::internal::ArrayDriver>
+    driver_registration;
+}  // namespace

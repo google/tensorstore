@@ -56,6 +56,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "//tensorstore/util/garbage_collection",
         "@com_google_absl//absl/status",
     ],
 )
@@ -154,6 +155,7 @@ tensorstore_cc_library(
     deps = [
         ":serialization",
         ":status",
+        "//tensorstore/internal:attributes",
         "//tensorstore/util:result",
     ],
 )

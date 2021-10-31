@@ -30,6 +30,7 @@
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/serialization/registry.h"
 #include "tensorstore/serialization/serialization.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
 
 namespace tensorstore {
 namespace internal_kvstore {
@@ -169,6 +170,12 @@ class RegisteredDriver : public Parent {
     return spec;
   }
 
+  void GarbageCollectionVisit(
+      garbage_collection::GarbageCollectionVisitor& visitor) const override {
+    garbage_collection::GarbageCollectionVisit(
+        visitor, *static_cast<const Derived*>(this));
+  }
+
  private:
   template <typename>
   friend class DriverRegistration;
@@ -251,6 +258,11 @@ class RegisteredDriverSpec : public DriverSpec {
     open_state.promise_ = std::move(promise);
     Derived::Open(std::move(open_state));
     return future;
+  }
+
+  void GarbageCollectionVisit(
+      garbage_collection::GarbageCollectionVisitor& visitor) const override {
+    garbage_collection::GarbageCollectionVisit(visitor, data_);
   }
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {

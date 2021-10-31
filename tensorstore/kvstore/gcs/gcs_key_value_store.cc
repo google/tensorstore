@@ -939,7 +939,14 @@ Future<void> GcsKeyValueStore::DeleteRange(KeyRange range) {
   return future;
 }
 
-const internal_kvstore::DriverRegistration<GcsKeyValueStore> registration;
-
 }  // namespace
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
+    tensorstore::GcsKeyValueStore)
+
+namespace {
+const tensorstore::internal_kvstore::DriverRegistration<
+    tensorstore::GcsKeyValueStore>
+    registration;
+}  // namespace

@@ -94,6 +94,7 @@
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/extents.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/span.h"
 
 TENSORSTORE_GDB_AUTO_SCRIPT("multi_vector_gdb.py")
@@ -866,6 +867,16 @@ struct Serializer<Box<Rank>, std::enable_if_t<!std::is_empty_v<Box<Rank>>>> {
 };
 
 }  // namespace serialization
+
+namespace garbage_collection {
+
+template <DimensionIndex Rank>
+struct GarbageCollection<Box<Rank>,
+                         std::enable_if_t<!std::is_empty_v<Box<Rank>>>> {
+  constexpr static bool required() { return false; }
+};
+
+}  // namespace garbage_collection
 
 }  // namespace tensorstore
 

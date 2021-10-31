@@ -37,7 +37,7 @@ class CastDriver
   struct SpecData : public DriverSpecCommonData {
     TransformedDriverSpec base;
 
-    constexpr static auto ApplyMembers = [](auto& x, auto f) {
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
       return f(internal::BaseCast<internal::DriverSpecCommonData>(x), x.base);
     };
   };
@@ -216,6 +216,11 @@ class CastDriver
                                 inclusive_min, exclusive_max,
                                 std::move(options));
   }
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.base_driver_, x.target_dtype_, x.input_conversion_,
+             x.output_conversion_);
+  };
 
   Driver::Ptr base_driver_;
   DataType target_dtype_;

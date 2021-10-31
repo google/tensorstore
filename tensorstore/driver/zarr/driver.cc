@@ -472,8 +472,6 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
   }
 };
 
-const internal::DriverRegistration<ZarrDriver> registration;
-
 }  // namespace
 
 std::string EncodeChunkIndices(span<const Index> indices,
@@ -492,3 +490,17 @@ std::string EncodeChunkIndices(span<const Index> indices,
 
 }  // namespace internal_zarr
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::internal_zarr::ZarrDriver)
+// Use default garbage collection implementation provided by
+// kvs_backed_chunk_driver (just handles the kvstore)
+TENSORSTORE_DEFINE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::internal_zarr::ZarrDriver,
+    tensorstore::internal_zarr::ZarrDriver::GarbageCollectionBase)
+
+namespace {
+const tensorstore::internal::DriverRegistration<
+    tensorstore::internal_zarr::ZarrDriver>
+    registration;
+}  // namespace

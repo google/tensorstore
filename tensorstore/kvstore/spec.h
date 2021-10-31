@@ -26,6 +26,7 @@
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/option.h"
 
 namespace tensorstore {
@@ -274,5 +275,7 @@ TENSORSTORE_DECLARE_JSON_BINDER(KvStoreSpecAndPathJsonBinder, kvstore::Spec,
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::kvstore::Spec)
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::kvstore::Spec)
 
 #endif  // TENSORSTORE_KVSTORE_SPEC_H_

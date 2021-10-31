@@ -30,6 +30,7 @@
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/serialization/std_vector.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/util/garbage_collection/std_vector.h"
 
 namespace tensorstore {
 
@@ -346,6 +347,11 @@ class DownsampleDriver
   Future<IndexTransform<>> ResolveBounds(OpenTransactionPtr transaction,
                                          IndexTransform<> transform,
                                          ResolveBoundsOptions options) override;
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.base_driver_, x.base_transform_, x.downsample_factors_,
+             x.downsample_method_);
+  };
 
   Driver::Ptr base_driver_;
   IndexTransform<> base_transform_;

@@ -201,6 +201,12 @@ class BenchmarkCache : public tensorstore::internal::ChunkCache {
 class TestDriver : public ChunkCacheDriver {
  public:
   using ChunkCacheDriver::ChunkCacheDriver;
+
+  void GarbageCollectionVisit(
+      tensorstore::garbage_collection::GarbageCollectionVisitor& visitor)
+      const final {
+    // No-op
+  }
 };
 
 class CopyBenchmarkRunner {

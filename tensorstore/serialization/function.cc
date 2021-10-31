@@ -34,6 +34,11 @@ bool NonSerializableFunctionBase::Encode(EncodeSink& sink) const {
   return false;
 }
 
+void NonSerializableFunctionBase::GarbageCollectionVisit(
+    garbage_collection::GarbageCollectionVisitor& visitor) const {
+  // No-op: assume garbage collection is not supported by this type.
+}
+
 using SerializableFunctionRegistry =
     internal::HeterogeneousHashSet<const RegisteredSerializableFunction*,
                                    RegisteredSerializableFunction::Key,

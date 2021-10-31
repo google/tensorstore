@@ -617,9 +617,24 @@ class NeuroglancerPrecomputedDriver::OpenState
   std::array<Index, 3> chunk_size_xyz_;
 };
 
-const internal::DriverRegistration<NeuroglancerPrecomputedDriver> registration;
-
 }  // namespace
-
 }  // namespace internal_neuroglancer_precomputed
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::internal_neuroglancer_precomputed::
+        NeuroglancerPrecomputedDriver)
+// Use default garbage collection implementation provided by
+// kvs_backed_chunk_driver (just handles the kvstore)
+TENSORSTORE_DEFINE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::internal_neuroglancer_precomputed::
+        NeuroglancerPrecomputedDriver,
+    tensorstore::internal_neuroglancer_precomputed::
+        NeuroglancerPrecomputedDriver::GarbageCollectionBase)
+
+namespace {
+const tensorstore::internal::DriverRegistration<
+    tensorstore::internal_neuroglancer_precomputed::
+        NeuroglancerPrecomputedDriver>
+    registration;
+}  // namespace

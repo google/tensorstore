@@ -34,6 +34,7 @@
 #include "tensorstore/internal/intrusive_red_black_tree.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -920,5 +921,9 @@ absl::Status ChangeTransaction(Transaction& transaction,
 }  // namespace internal
 
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
+    tensorstore::internal::TransactionState)
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(tensorstore::Transaction)
 
 #endif  // TENSORSTORE_TRANSACTION_IMPL_H_

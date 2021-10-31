@@ -37,6 +37,7 @@
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/element_traits.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -1859,6 +1860,22 @@ struct Serializer<Array<Shared<Element>, Rank, OriginKind>> {
 };
 
 }  // namespace serialization
+
+namespace garbage_collection {
+
+template <typename Element, DimensionIndex Rank, ArrayOriginKind OriginKind>
+struct GarbageCollection<Array<Shared<Element>, Rank, OriginKind>> {
+  // TODO(jbms): Should visit the shared_ptr.
+  //
+  // The Python API sometimes creates `SharedArray` objects where the
+  // `shared_ptr` owns a Python object (typically a PyArray object).  There is a
+  // possibility of creating a reference cycle, though it is not particularly
+  // likely, since it requires subclassing `numpy.ndarray`.  Therefore, for now
+  // we don't attempt to handle that case.
+  constexpr static bool required() { return false; }
+};
+
+}  // namespace garbage_collection
 
 }  // namespace tensorstore
 

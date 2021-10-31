@@ -670,6 +670,11 @@ void MockDriver::Write(internal::OpenTransactionPtr transaction,
                                    std::move(receiver)});
 }
 
+void MockDriver::GarbageCollectionVisit(
+    garbage_collection::GarbageCollectionVisitor& visitor) const {
+  // No-op
+}
+
 TensorStore<> MockDriver::Wrap(IndexTransform<> transform) {
   if (!transform.valid()) transform = IdentityTransform(rank_);
   return TensorStoreAccess::Construct<TensorStore<>>(

@@ -22,6 +22,7 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 
 namespace tensorstore {
 namespace kvstore {
@@ -76,6 +77,9 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   ///
   /// \pre All context resources must be bound.
   virtual Future<DriverPtr> DoOpen() const = 0;
+
+  virtual void GarbageCollectionVisit(
+      garbage_collection::GarbageCollectionVisitor& visitor) const = 0;
 
  private:
   friend class DriverSpecPtr;
@@ -294,6 +298,9 @@ class Driver {
   /// automatically by `internal_kvstore::RegisteredDriver` in `registry.h`.
   virtual Result<DriverSpecPtr> GetBoundSpec() const;
 
+  virtual void GarbageCollectionVisit(
+      garbage_collection::GarbageCollectionVisitor& visitor) const = 0;
+
   virtual ~Driver();
 
  private:
@@ -338,5 +345,12 @@ Open(DriverSpecPtr spec, Option&&... option) {
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
     tensorstore::kvstore::DriverSpecPtr)
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::kvstore::DriverPtr)
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::kvstore::DriverSpec)
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::kvstore::Driver)
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_SPECIALIZATION(
+    tensorstore::kvstore::DriverSpecPtr)
 
 #endif  // TENSORSTORE_KVSTORE_DRIVER_H_

@@ -542,6 +542,38 @@ Result<std::map<kvstore::Key, kvstore::Value>> GetMap(const KvStore& store) {
   return result;
 }
 
+Future<kvstore::ReadResult> MockKeyValueStore::Read(Key key,
+                                                    ReadOptions options) {
+  auto [promise, future] = PromiseFuturePair<ReadResult>::Make();
+  read_requests.push({std::move(promise), std::move(key), std::move(options)});
+  return future;
+}
+
+Future<TimestampedStorageGeneration> MockKeyValueStore::Write(
+    Key key, std::optional<Value> value, WriteOptions options) {
+  auto [promise, future] =
+      PromiseFuturePair<TimestampedStorageGeneration>::Make();
+  write_requests.push({std::move(promise), std::move(key), std::move(value),
+                       std::move(options)});
+  return future;
+}
+
+void MockKeyValueStore::ListImpl(ListOptions options,
+                                 AnyFlowReceiver<Status, Key> receiver) {
+  list_requests.push({options, std::move(receiver)});
+}
+
+Future<void> MockKeyValueStore::DeleteRange(KeyRange range) {
+  auto [promise, future] = PromiseFuturePair<void>::Make();
+  delete_range_requests.push({std::move(promise), std::move(range)});
+  return future;
+}
+
+void MockKeyValueStore::GarbageCollectionVisit(
+    garbage_collection::GarbageCollectionVisitor& visitor) const {
+  // No-op
+}
+
 namespace {
 struct MockKeyValueStoreResourceTraits
     : public ContextResourceTraits<MockKeyValueStoreResource> {
@@ -616,10 +648,15 @@ class RegisteredMockKeyValueStore
   Context::Resource<MockKeyValueStoreResource> base_;
 };
 
-const internal_kvstore::DriverRegistration<RegisteredMockKeyValueStore>
-    mock_key_value_store_driver_registration;
-
 }  // namespace
-
 }  // namespace internal
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
+    tensorstore::internal::RegisteredMockKeyValueStore)
+
+namespace {
+const tensorstore::internal_kvstore::DriverRegistration<
+    tensorstore::internal::RegisteredMockKeyValueStore>
+    mock_key_value_store_driver_registration;
+}  // namespace

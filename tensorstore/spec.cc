@@ -20,6 +20,7 @@
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_same.h"
 #include "tensorstore/serialization/serialization.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
 
 namespace tensorstore {
 
@@ -182,5 +183,14 @@ bool Serializer<Spec>::Decode(DecodeSource& source, Spec& value) {
 }
 
 }  // namespace serialization
+
+namespace garbage_collection {
+
+void GarbageCollection<Spec>::Visit(GarbageCollectionVisitor& visitor,
+                                    const Spec& value) {
+  garbage_collection::GarbageCollectionVisit(
+      visitor, internal_spec::SpecAccess::impl(value));
+}
+}  // namespace garbage_collection
 
 }  // namespace tensorstore

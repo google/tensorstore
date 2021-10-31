@@ -677,6 +677,17 @@ struct Serializer<TensorStore<Element, Rank, Mode>> {
 
 }  // namespace serialization
 
+namespace garbage_collection {
+template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
+struct GarbageCollection<TensorStore<Element, Rank, Mode>> {
+  static void Visit(GarbageCollectionVisitor& visitor,
+                    const TensorStore<Element, Rank, Mode>& value) {
+    return GarbageCollection<internal::DriverHandle>::Visit(
+        visitor, internal::TensorStoreAccess::handle(value));
+  }
+};
+}  // namespace garbage_collection
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_TENSORSTORE_H_

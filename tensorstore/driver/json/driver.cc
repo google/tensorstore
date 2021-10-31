@@ -521,6 +521,24 @@ void JsonDriver::Write(
       std::move(cell_transform));
 }
 
+}  // namespace
+}  // namespace internal
+
+namespace garbage_collection {
+template <>
+struct GarbageCollection<internal::JsonDriver> {
+  static void Visit(GarbageCollectionVisitor& visitor,
+                    const internal::JsonDriver& value) {
+    auto& cache = GetOwningCache(*value.cache_entry_);
+    return garbage_collection::GarbageCollectionVisit(visitor,
+                                                      *cache.kvstore_driver());
+  }
+};
+}  // namespace garbage_collection
+
+namespace internal {
+namespace {
+
 const internal::DriverRegistration<JsonDriver> driver_registration;
 
 }  // namespace

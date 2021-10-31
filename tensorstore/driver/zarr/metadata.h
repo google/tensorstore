@@ -33,6 +33,7 @@
 #include "tensorstore/driver/zarr/dtype.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/endian.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -249,6 +250,9 @@ bool IsMetadataCompatible(const ZarrMetadata& a, const ZarrMetadata& b);
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_zarr::ZarrPartialMetadata)
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
     tensorstore::internal_zarr::ZarrPartialMetadata)
 
 #endif  // TENSORSTORE_DRIVER_ZARR_METADATA_H_

@@ -26,6 +26,7 @@
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/strided_layout.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
@@ -237,6 +238,9 @@ Status ValidateDataType(DataType dtype);
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_n5::N5MetadataConstraints)
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
     tensorstore::internal_n5::N5MetadataConstraints)
 
 #endif  // TENSORSTORE_DRIVER_N5_METADATA_H_
