@@ -38,17 +38,24 @@ namespace pybind11 {
 namespace detail {
 
 handle
-type_caster<tensorstore::internal_python::GilSafePythonValueOrException>::cast(
-    const tensorstore::internal_python::GilSafePythonValueOrException& result,
+type_caster<tensorstore::internal_python::PythonValueOrExceptionWeakRef>::cast(
+    const tensorstore::internal_python::PythonValueOrExceptionWeakRef& obj,
     return_value_policy policy, handle parent) {
-  tensorstore::internal_python::PythonValueOrException v = *result;
-  if (!v.value.ptr()) {
-    assert(v.error_type.ptr());
-    ::PyErr_Restore(v.error_type.release().ptr(), v.error_value.release().ptr(),
-                    v.error_traceback.release().ptr());
-    throw error_already_set();
+  if (obj.value) {
+    return obj.value.get_value_or_none().inc_ref();
   }
-  return v.value.release().ptr();
+  auto error_type =
+      reinterpret_borrow<object>(obj.error_type.get_value_or_null());
+  auto error_value =
+      reinterpret_borrow<object>(obj.error_value.get_value_or_null());
+  auto error_traceback =
+      reinterpret_borrow<object>(obj.error_traceback.get_value_or_null());
+  if (!error_type || !error_value) {
+    throw value_error("internal error: weak referent destroyed");
+  }
+  ::PyErr_Restore(error_type.release().ptr(), error_value.release().ptr(),
+                  error_traceback.release().ptr());
+  throw error_already_set();
 }
 
 }  // namespace detail

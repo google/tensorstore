@@ -316,7 +316,7 @@ class _MemberDocumenterEntry(NamedTuple):
 
 
 _INIT_SUFFIX = '.__init__'
-
+_NEW_SUFFIX = '.__new__'
 _CLASS_GETITEM_SUFFIX = '.__class_getitem__'
 
 
@@ -333,7 +333,8 @@ def _get_python_object_name_for_signature(entry: _MemberDocumenterEntry) -> str:
 
   if full_name.endswith(_INIT_SUFFIX):
     full_name = full_name[:-len(_INIT_SUFFIX)]
-
+  elif full_name.endswith(_NEW_SUFFIX):
+    full_name = full_name[:-len(_NEW_SUFFIX)]
   elif full_name.endswith(_CLASS_GETITEM_SUFFIX):
     full_name = full_name[:-len(_CLASS_GETITEM_SUFFIX)]
 
@@ -363,6 +364,7 @@ def _ensure_module_name_in_signature(
 
 MEMBER_NAME_TO_GROUP_NAME_MAP = {
     '__init__': 'Constructors',
+    '__new__': 'Constructors',
     '__class_getitem__': 'Constructors',
     '__eq__': 'Comparison operators',
     '__str__': 'String representation',
@@ -591,7 +593,8 @@ class TensorstorePythonApidoc(sphinx.util.docutils.SphinxDirective):
 
     if entry.subscript:
       _mark_subscript_parameterlist(node)
-    if entry.full_name.endswith(_INIT_SUFFIX):
+    if (entry.full_name.endswith(_INIT_SUFFIX) or
+        entry.full_name.endswith(_NEW_SUFFIX)):
       _clean_init_signature(node)
     if entry.full_name.endswith(_CLASS_GETITEM_SUFFIX):
       _clean_class_getitem_signature(node)
@@ -1062,7 +1065,14 @@ def _prepare_documenter_docstring(entry: _MemberDocumenterEntry) -> None:
     entry: Entry to prepare.
   """
 
-  if entry.overload and entry.overload.overload_id is not None:
+  if (entry.overload and
+      (entry.overload.overload_id is not None or
+       # For methods, we don't need `ModuleAnalyzer`, so it is safe to always
+       # override the normal mechanism of obtaining the docstring.
+       # Additionally, for `__init__` and `__new__` we need to specify the
+       # docstring explicitly to work around
+       # https://github.com/sphinx-doc/sphinx/pull/9518.
+       isinstance(entry.documenter, sphinx.ext.autodoc.MethodDocumenter))):
     # Force autodoc to use the overload-specific signature.  autodoc already
     # has an internal mechanism for overriding the docstrings based on the
     # `_new_docstrings` member.

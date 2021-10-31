@@ -49,14 +49,16 @@
 namespace tensorstore {
 namespace internal_python {
 
-/// Wrapper for a `pybind11::object` that displays as a `Callable` type.
+/// Wrapper for a `pybind11::handle` that displays as a `Callable` type.
 template <typename R, typename... Arg>
 struct Callable {
-  pybind11::object value;
+  pybind11::handle value;
   constexpr static auto tensorstore_pybind11_type_name_override =
       pybind11::detail::_("Callable[[") +
       pybind11::detail::concat(pybind11::detail::make_caster<Arg>::name...) +
-      pybind11::detail::_("], ") + pybind11::detail::make_caster<R>::name +
+      pybind11::detail::_("], ") +
+      pybind11::detail::make_caster<std::conditional_t<
+          std::is_void_v<R>, pybind11::detail::void_type, R>>::name +
       pybind11::detail::_("]");
 };
 

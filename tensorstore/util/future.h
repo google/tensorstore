@@ -1195,6 +1195,24 @@ inline absl::Status GetStatus(const ReadyFuture<T>& future) {
   return tensorstore::GetStatus(future.result());
 }
 
+namespace internal_future {
+
+/// Executes `callback` with the signature `void (FutureStatePointer)` when
+/// `state` becomes ready.
+template <class Callback>
+FutureCallbackRegistration UntypedExecuteWhenReady(FutureStatePointer state,
+                                                   Callback&& callback) {
+  if (!state->ready()) {
+    using Impl = UntypedReadyCallback<internal::remove_cvref_t<Callback>>;
+    auto* impl = new Impl(state.get(), std::forward<Callback>(callback));
+    return FutureAccess::Construct<FutureCallbackRegistration>(
+        state.release()->RegisterReadyCallback(impl));
+  }
+  std::forward<Callback>(callback)(std::move(state));
+  return FutureCallbackRegistration();
+}
+}  // namespace internal_future
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_FUTURE_H_

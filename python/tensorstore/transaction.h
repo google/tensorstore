@@ -31,7 +31,7 @@ namespace internal_python {
 
 void RegisterTransactionBindings(pybind11::module m, Executor defer);
 
-template <typename T>
+template <typename T = internal::TransactionState>
 using TransactionCommitPtrWorkaround =
     internal::IntrusivePtr<T,
                            internal::TransactionState::CommitPtr::traits_type>;

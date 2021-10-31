@@ -147,3 +147,24 @@ def test_coroutine_no_event_loop_specified():
 
   with pytest.raises(ValueError, match='no event loop specified'):
     ts.Future(do_async())
+
+
+def test_gc_result_cycle(gc_tester):
+  obj = []
+  f = ts.Future(obj)
+  obj.append(f)
+  gc_tester(f)
+
+
+def test_gc_callback_cycle(gc_tester):
+
+  def callback(f):
+    del f
+    pass
+
+  promise, future = ts.Promise.new()
+  future.add_done_callback(callback)
+  callback.future = future
+  callback.promise = promise
+
+  gc_tester(future)

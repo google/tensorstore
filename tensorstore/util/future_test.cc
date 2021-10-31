@@ -1740,4 +1740,28 @@ TEST(FutureTest, ReturnIfError) {
   EXPECT_EQ(true, do_test());
 }
 
+TEST(FutureTest, UntypedExecuteWhenReadyAlreadyDone) {
+  Future<int> f(3);
+  bool ran = false;
+  tensorstore::internal_future::UntypedExecuteWhenReady(
+      FutureAccess::rep_pointer(f),
+      [&](tensorstore::internal_future::FutureStatePointer state) {
+        ran = true;
+      });
+  EXPECT_TRUE(ran);
+}
+
+TEST(FutureTest, UntypedExecuteWhenReadyNotAlreadyDone) {
+  auto [promise, future] = PromiseFuturePair<int>::Make();
+  bool ran = false;
+  tensorstore::internal_future::UntypedExecuteWhenReady(
+      FutureAccess::rep_pointer(future),
+      [&](tensorstore::internal_future::FutureStatePointer state) {
+        ran = true;
+      });
+  EXPECT_FALSE(ran);
+  promise.SetResult(5);
+  EXPECT_TRUE(ran);
+}
+
 }  // namespace

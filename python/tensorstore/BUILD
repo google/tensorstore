@@ -33,6 +33,7 @@ pybind11_py_extension(
         ":dim_expression",
         ":downsample",
         ":future",
+        ":garbage_collection",
         ":gil_safe",
         ":index_space",
         ":numpy",
@@ -79,6 +80,14 @@ pytype_strict_binary(
         "@pypa_ipython//:ipython",
         "@pypa_numpy//:numpy",
     ],
+)
+
+py_library(
+    name = "conftest",
+    testonly = True,
+    srcs = ["tests/conftest.py"],
+    srcs_version = "PY3ONLY",
+    deps = ["@pypa_pytest//:pytest"],
 )
 
 tensorstore_pytest_test(
@@ -336,6 +345,7 @@ pybind11_cc_library(
         ":array_type_caster",
         ":context",
         ":data_type",
+        ":garbage_collection",
         ":homogeneous_tuple",
         ":index",
         ":index_space",
@@ -397,6 +407,7 @@ pybind11_cc_library(
         ":context",
         ":data_type",
         ":future",
+        ":garbage_collection",
         ":gil_safe",
         ":homogeneous_tuple",
         ":index_space",
@@ -453,6 +464,7 @@ pybind11_cc_library(
     deps = [
         ":python_imports",
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/util/garbage_collection",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
@@ -461,10 +473,27 @@ pybind11_cc_library(
 )
 
 pybind11_cc_library(
+    name = "garbage_collection",
+    srcs = ["garbage_collection.cc"],
+    hdrs = ["garbage_collection.h"],
+    deps = [
+        ":define_heap_type",
+        ":gil_safe",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:tagged_ptr",
+        "//tensorstore/util/garbage_collection",
+        "@com_github_pybind_pybind11//:pybind11",
+        "@com_google_absl//absl/container:flat_hash_set",
+    ],
+)
+
+pybind11_cc_library(
     name = "future",
     srcs = ["future.cc"],
     hdrs = ["future.h"],
     deps = [
+        ":define_heap_type",
+        ":garbage_collection",
         ":gil_safe",
         ":python_imports",
         ":python_value_or_exception",
@@ -486,6 +515,7 @@ pybind11_cc_library(
     srcs = ["python_value_or_exception.cc"],
     hdrs = ["python_value_or_exception.h"],
     deps = [
+        ":garbage_collection",
         ":gil_safe",
         ":status",
         "//tensorstore/util:result",
@@ -604,7 +634,10 @@ tensorstore_pytest_test(
     name = "future_test",
     size = "small",
     srcs = ["tests/future_test.py"],
-    deps = [":tensorstore"],
+    deps = [
+        ":conftest",
+        ":tensorstore",
+    ],
 )
 
 tensorstore_pytest_test(
@@ -639,6 +672,14 @@ tensorstore_pytest_test(
 )
 
 pybind11_cc_library(
+    name = "define_heap_type",
+    hdrs = ["define_heap_type.h"],
+    deps = [
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+)
+
+pybind11_cc_library(
     name = "transaction",
     srcs = ["transaction.cc"],
     hdrs = ["transaction.h"],
@@ -659,6 +700,7 @@ pybind11_cc_library(
         ":result_type_caster",
         ":spec",
         ":status",
+        ":tensorstore_class",
         "//tensorstore:downsample",
         "//tensorstore:downsample_method",
         "//tensorstore:spec",

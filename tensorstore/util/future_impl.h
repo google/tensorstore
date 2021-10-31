@@ -568,6 +568,34 @@ class ReadyCallback final : public ReadyCallbackBase {
   };
 };
 
+template <typename Callback>
+class UntypedReadyCallback final : public ReadyCallbackBase {
+ public:
+  template <typename U>
+  explicit UntypedReadyCallback(FutureStateBase* state, U&& u)
+      : ReadyCallbackBase(state), callback_(std::forward<U>(u)) {}
+
+  void OnReady() noexcept override {
+    std::move(callback_)(TakeStatePointer());
+    callback_.~Callback();
+  }
+
+  void OnUnregistered() noexcept override {
+    TakeStatePointer();
+    callback_.~Callback();
+  }
+  void DestroyCallback() noexcept override { delete this; }
+
+  ~UntypedReadyCallback() override {}
+
+ private:
+  // We store the Callback in a union in order to disable the automatic
+  // invocation of the constructor and destructor.
+  union {
+    Callback callback_;
+  };
+};
+
 /// Implements a promise callback for use with ExecuteWhenForced.
 /// \tparam T The value type of the promise.
 /// \tparam Callback Type of unary function object called with a `Promise<T>`

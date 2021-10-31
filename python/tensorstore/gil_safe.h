@@ -27,6 +27,7 @@
 
 #include "absl/status/status.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -209,6 +210,35 @@ absl::Status PythonExitingError();
 void SetupExitHandler();
 
 }  // namespace internal_python
+
+namespace garbage_collection {
+template <typename T>
+struct GarbageCollection<internal_python::GilSafeHolder<T>> {
+  static void Visit(GarbageCollectionVisitor& visitor,
+                    const internal_python::GilSafeHolder<T>& value) {
+    garbage_collection::GarbageCollectionVisit(visitor, *value);
+  }
+};
+}  // namespace garbage_collection
 }  // namespace tensorstore
+
+namespace pybind11 {
+namespace detail {
+
+template <typename T>
+struct type_caster<tensorstore::internal_python::GilSafeHolder<T>> {
+  using value_conv = make_caster<T>;
+  PYBIND11_TYPE_CASTER(tensorstore::internal_python::GilSafeHolder<T>,
+                       value_conv::name);
+
+  static handle cast(
+      const tensorstore::internal_python::GilSafeHolder<T>& value,
+      return_value_policy policy, handle parent) {
+    return value_conv::cast(*value, policy, parent);
+  }
+};
+
+}  // namespace detail
+}  // namespace pybind11
 
 #endif  // THIRD_PARTY_PY_TENSORSTORE_GIL_SAFE_H_

@@ -22,6 +22,30 @@
 /// respectively).
 ///
 /// This is used to expose all of the Future-based TensorStore APIs to Python.
+///
+/// Note regarding garbage collection:
+///
+/// `tensorstore::Future<T>` inherently supports shared ownership of the `T`
+/// object.  Consequently, as noted in `garbage_collection.h`, strong references
+/// to Python objects must not be held by C++ types with shared ownership.
+/// Therefore, the type `T` must not hold strong references to Python objects,
+/// except where the lifetime of the `tensorstore::Future` object is strictly
+/// managed.
+///
+/// Types like `tensorstore::TensorStore<>` and `tensorstore::Spec` *are* safe
+/// to use with `tensorstore::Future` because they hold only weak references to
+/// Python objects (via `PythonWeakRef`).  Additionally, any type `T` used with
+/// `tensorstore::Future` must be safe to destroy without holding the GIL.
+///
+/// To ensure weak references to Python objects remain valid,
+/// `PythonFutureObject` holds a `PythonObjectReferenceManager` which maintains
+/// the necessary references.  Before the associated `Future` becomes ready, it
+/// holds any references needed by the asynchronous operation responsible for
+/// computing the result.  For example, the `PythonFutureObject` returned by
+/// `tensorstore.open` holds any references needed by the `tensorstore.Spec`.
+/// Once the `Future` becomes ready, the `PythonFutureObject` discards any
+/// references needed by the asynchronous operation, and instead holds any
+/// references needed by the result.
 
 #include <pybind11/pybind11.h>
 // Other headers must be included after pybind11 to ensure header-order
@@ -35,6 +59,8 @@
 #include <vector>
 
 #include "absl/functional/function_ref.h"
+#include "python/tensorstore/define_heap_type.h"
+#include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/python_value_or_exception.h"
 #include "python/tensorstore/result_type_caster.h"
@@ -104,64 +130,55 @@ struct AbstractEventLoopParameter {
       pybind11::detail::_("asyncio.AbstractEventLoop");
 };
 
-/// Base class that represents a Future exposed to Python.
+/// Python wrapper object type for `tensorstore::Future`.
 ///
 /// This provides an interface similar to the `concurrent.futures.Future` Python
 /// type, but also is directly compatible with asyncio (via `await`).
 ///
 /// The value type is erased.
 ///
-/// For each concrete value type `T`, the actual run time type is the derived
-/// class `PythonFuture<T>`.
-class PythonFutureBase : public std::enable_shared_from_this<PythonFutureBase> {
- public:
-  PythonFutureBase();
-
-  /// Returns `true` if the underlying Future is ready (either with a value or
-  /// an error) or already cancelled.
-  virtual bool done() const = 0;
-
-  /// Calls `Force` on the underlying `Future`.
-  virtual void force() = 0;
-
-  /// Waits for the Future to be done (interruptible by `KeyboardInterrupt`).
-  /// If it has finished with a value, returns `None`.  Otherwise, returns the
-  /// Python exception object representing the error.
+/// This class is defined using the Python C API directly rather than using
+/// pybind11, because the additional indirection used by pybind11 makes it
+/// difficult to manage the lifetime and garbage collection correctly.
+struct PythonFutureObject {
+  /// Python type object corresponding to this object type.
   ///
-  /// If the deadline is exceeded, raises `TimeoutError`.
-  virtual pybind11::object exception(absl::Time deadline) = 0;
+  /// This is initialized during the tensorstore module initialization by
+  /// `RegisterFutureBindings`.
+  static PyTypeObject* python_type;
 
-  /// Waits for the Future to be done (interruptible by `KeyboardInterrupt`).
-  /// Returns the value if the Future completed successfully, otherwise throws
-  /// an exception that maps to the corresponding Python exception.
-  ///
-  /// If the deadline is exceeded, raises `TimeoutError`.
-  virtual pybind11::object result(absl::Time deadline) = 0;
+  constexpr static const char python_type_name[] = "tensorstore.Future";
 
-  /// Returns `true` if the Future was cancelled.
-  virtual bool cancelled() const = 0;
+  /// Defines Python-related operations specific to a particular value type.
+  struct Vtable {
+    /// Converts a successful result to a Python object.
+    ///
+    /// Throws a pybind11-translatable exception if conversion fails or if the
+    /// result is an error.
+    ///
+    /// \pre The future is ready.
+    using GetResult = pybind11::object (*)(internal_future::FutureStateBase&);
 
-  /// Attempts to cancel the `Future`.  Returns `true` if the `Future` is not
-  /// already done.  It is possible that any computation corresponding to the
-  /// Future may still continue, however.
-  virtual bool cancel() = 0;
+    /// Converts an error result to a Python object.
+    ///
+    /// Returns `None` if there was a successful result.
+    ///
+    /// \pre The future is ready.
+    using GetException =
+        pybind11::object (*)(internal_future::FutureStateBase&);
 
-  /// Adds a nullary callback to be invoked when the Future is done.
-  virtual void add_done_callback(pybind11::object callback) = 0;
+    /// Maps this Future by converting the result to a Python object.
+    using GetPythonValueFuture =
+        Future<GilSafePythonHandle> (*)(internal_future::FutureStateBase&);
 
-  /// Removes any previously-registered callback identical to `callback`.
-  /// Returns the number of callbacks removed.
-  virtual std::size_t remove_done_callback(pybind11::object callback);
+    GetResult get_result;
+    GetException get_exception;
+    GetPythonValueFuture get_python_value_future;
+  };
 
-  /// Returns a corresponding `asyncio`-compatible future object.
-  pybind11::object get_await_result();
-
-  /// Returns a Future that resolves directly to the Python value or exception.
-  virtual Future<const GilSafePythonValueOrException>
-  GetPythonValueOrExceptionFuture() = 0;
-
-  virtual ~PythonFutureBase();
-
+  /// Base class for node in linked list of cancel callbacks.  By having this
+  /// separate base class rather than just using `CancelCallback`, we avoid
+  /// storing a useless `callback` in the head node.
   struct CancelCallbackBase {
     CancelCallbackBase* next;
     CancelCallbackBase* prev;
@@ -170,11 +187,11 @@ class PythonFutureBase : public std::enable_shared_from_this<PythonFutureBase> {
   struct CancelCallback : public CancelCallbackBase {
     using Accessor =
         internal::intrusive_linked_list::MemberAccessor<CancelCallbackBase>;
-    explicit CancelCallback(PythonFutureBase* base,
+    explicit CancelCallback(PythonFutureObject* base,
                             absl::FunctionRef<void()> callback)
         : callback(callback) {
       internal::intrusive_linked_list::InsertBefore(
-          Accessor{}, &base->cancel_callbacks_, this);
+          Accessor{}, &base->cpp_data.cancel_callbacks, this);
     }
     ~CancelCallback() {
       internal::intrusive_linked_list::Remove(Accessor{}, this);
@@ -182,19 +199,216 @@ class PythonFutureBase : public std::enable_shared_from_this<PythonFutureBase> {
     absl::FunctionRef<void()> callback;
   };
 
- protected:
+  struct CppData {
+    /// Operations specified to the value type.
+    const Vtable* vtable;
+
+    internal_future::FutureStatePointer state;
+    /// Callbacks to be invoked when the future becomes ready.  Guarded by the
+    /// GIL.
+    std::vector<pybind11::object> callbacks;
+    /// Registration of `ExecuteWhenReady` callback used when `callbacks_` is
+    /// non-empty.  Guarded by the GIL.
+    FutureCallbackRegistration registration;
+    /// Linked list of callbacks to be invoked when cancelled.  Guarded by the
+    /// GIL.
+    CancelCallbackBase cancel_callbacks;
+    /// Holds strong references to objects weakly referenced by either the value
+    /// that has been set (if done), or by the asynchronous operation
+    /// responsible for setting the value (if not yet done).
+    PythonObjectReferenceManager reference_manager;
+  };
+
+  // clang-format off
+  PyObject_HEAD
+  CppData cpp_data;
+  PyObject *weakrefs;
+  // clang-format on
+
   void RunCallbacks();
   void RunCancelCallbacks();
 
-  /// Callbacks to be invoked when the future becomes ready.  Guarded by the
-  /// GIL.
-  std::vector<pybind11::object> callbacks_;
-  /// Registration of `ExecuteWhenReady` callback used when `callbacks_` is
-  /// non-empty.  Guarded by the GIL.
-  FutureCallbackRegistration registration_;
-  /// Linked list of callbacks to be invoked when cancelled.  Guarded by the
-  /// GIL.
-  CancelCallbackBase cancel_callbacks_;
+  /// Attempts to cancel the `Future`.  Returns `true` if the `Future` is not
+  /// already done.  It is possible that any computation corresponding to the
+  /// Future may still continue, however.
+  bool Cancel();
+
+  /// Calls `Force` on the underlying `Future`.
+  void Force();
+
+  /// Returns a corresponding `asyncio`-compatible future object.
+  pybind11::object GetAwaitable();
+
+  /// Adds a nullary callback to be invoked when the Future is done.
+  void AddDoneCallback(pybind11::handle callback);
+
+  /// Removes any previously-registered callback identical to `callback`.
+  /// Returns the number of callbacks removed.
+  size_t RemoveDoneCallback(pybind11::handle callback);
+
+  /// Waits for the Future to be done (interruptible by `KeyboardInterrupt`).
+  /// Returns the value if the Future completed successfully, otherwise throws
+  /// an exception that maps to the corresponding Python exception.
+  ///
+  /// If the deadline is exceeded, raises `TimeoutError`.
+  pybind11::object GetResult(absl::Time deadline);
+
+  /// Waits for the Future to be done (interruptible by `KeyboardInterrupt`).
+  /// If it has finished with a value, returns `None`.  Otherwise, returns the
+  /// Python exception object representing the error.
+  ///
+  /// If the deadline is exceeded, raises `TimeoutError`.
+  pybind11::object GetException(absl::Time deadline);
+
+  /// Returns `true` if the Future was cancelled.
+  bool cancelled() { return !cpp_data.state; }
+
+  /// Returns `true` if the underlying Future is ready (either with a value or
+  /// an error) or already cancelled.
+  bool done() const { return !cpp_data.state || cpp_data.state->ready(); }
+
+  /// Returns a Future that resolves directly to the Python value.
+  Future<GilSafePythonHandle> GetPythonValueFuture();
+
+  /// Invokes the visitor on each Python object directly owned by this object,
+  /// as required by the `tp_traverse` protocol.
+  ///
+  /// This is invoked by the `tp_traverse` method for `tensorstore.Future`,
+  /// which is called by the garbage collector to determine which objects are
+  /// reachable from this object.
+  int TraversePythonReferences(visitproc visit, void* arg);
+
+  /// Clears Python references directly owned by this object, as required by the
+  /// `tp_clear` protocol.
+  ///
+  /// This is invoked by the `tp_clear` method for `tensorstore.Future`, which
+  /// is called by the garbage collector to break a reference cycle that
+  /// contains this object.
+  ///
+  /// This leaves the object in a valid state, but all callbacks are
+  /// unregistered and the accessor methods will behave as if the future was
+  /// cancelled.
+  int ClearPythonReferences();
+
+  /// Creates a PythonFutureObject wrapper for the given `future`.
+  ///
+  /// \param future The future to wrap.
+  /// \param manager Specifies initial object references to hold.  These are
+  ///     dropped when `future` becomes ready.
+  template <typename T>
+  static pybind11::object Make(Future<T> future,
+                               PythonObjectReferenceManager manager = {}) {
+    return MakeInternal<std::remove_cv_t<T>>(std::move(future),
+                                             std::move(manager));
+  }
+
+  template <typename T>
+  static pybind11::object MakeInternal(
+      Future<const T> future, PythonObjectReferenceManager manager = {}) {
+    static constexpr Vtable vtable = {
+        /*.get_result=*/[](internal_future::FutureStateBase& state)
+                            -> pybind11::object {
+          return pybind11::cast(
+              static_cast<internal_future::FutureStateType<T>&>(state).result);
+        },
+        /*.get_exception=*/
+        [](internal_future::FutureStateBase& state) -> pybind11::object {
+          auto& result =
+              static_cast<internal_future::FutureStateType<T>&>(state).result;
+          if (result.has_value()) {
+            if constexpr (std::is_same_v<
+                              T, GilSafePythonValueOrExceptionWeakRef>) {
+              auto& value = **result;
+              if (!value.value) {
+                return pybind11::reinterpret_borrow<pybind11::object>(
+                    value.error_value.get_value_or_none());
+              }
+            }
+            return pybind11::none();
+          }
+          return GetStatusPythonException(result.status());
+        },
+        /*.get_python_value_future=*/
+        [](internal_future::FutureStateBase& state)
+            -> Future<GilSafePythonHandle> {
+          return MapFuture(
+              InlineExecutor{},
+              [](const Result<T>& result) -> Result<GilSafePythonHandle> {
+                if (!result.ok()) return result.status();
+                ExitSafeGilScopedAcquire gil;
+                if (!gil.acquired()) {
+                  return PythonExitingError();
+                }
+                GilSafePythonHandle obj;
+
+                // Convert `result` rather than `*result` to account
+                // for `T=void`.
+                if (internal_python::CallAndSetErrorIndicator([&] {
+                      obj = GilSafePythonHandle(
+                          pybind11::cast(result).release().ptr(),
+                          internal::adopt_object_ref);
+                    })) {
+                  return internal_python::GetStatusFromPythonException();
+                }
+                return obj;
+              },
+              internal_future::FutureAccess::Construct<Future<const T>>(
+                  internal_future::FutureStatePointer(&state)));
+        },
+    };
+    assert(future.valid());
+    pybind11::object self = pybind11::reinterpret_steal<pybind11::object>(
+        python_type->tp_alloc(python_type, 0));
+    if (!self) throw pybind11::error_already_set();
+    auto& obj = *reinterpret_cast<PythonFutureObject*>(self.ptr());
+    auto& cpp_data = obj.cpp_data;
+    cpp_data.vtable = &vtable;
+    cpp_data.state = internal_future::FutureAccess::rep_pointer(future);
+    cpp_data.reference_manager = std::move(manager);
+    cpp_data.registration = std::move(future).ExecuteWhenReady(
+        [&obj](ReadyFuture<const T> future) mutable {
+          ExitSafeGilScopedAcquire gil;
+          if (!gil.acquired()) return;
+          if (!obj.cpp_data.state) return;
+          assert(Py_REFCNT(reinterpret_cast<PyObject*>(&obj)) > 0);
+          auto keep_alive = pybind11::reinterpret_borrow<pybind11::object>(
+              reinterpret_cast<PyObject*>(&obj));
+          auto& r = future.result();
+          if constexpr (!std::is_void_v<T>) {
+            if (r.ok()) {
+              obj.cpp_data.reference_manager.Update(*r);
+            }
+          }
+          obj.RunCallbacks();
+        });
+    PyObject_GC_Track(self.ptr());
+    return self;
+  }
+};
+
+/// Python wrapper object type for `tensorstore::Promise`.
+struct PythonPromiseObject {
+  /// Python type object corresponding to this object type.
+  ///
+  /// This is initialized during the tensorstore module initialization by
+  /// `RegisterFutureBindings`.
+  static PyTypeObject* python_type;
+
+  constexpr static const char python_type_name[] = "tensorstore.Promise";
+
+  struct CppData {
+    Promise<GilSafePythonValueOrExceptionWeakRef> promise;
+
+    /// Holds strong references to objects weakly referenced by the value that
+    /// has been set (if done).
+    PythonObjectReferenceManager reference_manager;
+  };
+
+  // clang-format off
+  PyObject_HEAD
+  CppData cpp_data;
+  PyObject *weakrefs;
+  // clang-format on
 };
 
 /// Waits for an event to occur, but supports interruption due to a Python
@@ -227,11 +441,9 @@ class PythonFutureBase : public std::enable_shared_from_this<PythonFutureBase> {
 ///
 /// This function factors out the type-independent, platform-dependent logic
 /// from the `PythonFuture<T>::WaitForResult` method defined below.
-void InterruptibleWaitImpl(absl::FunctionRef<FutureCallbackRegistration(
-                               absl::FunctionRef<void()> notify_done)>
-                               register_listener,
+void InterruptibleWaitImpl(internal_future::FutureStateBase& future,
                            absl::Time deadline,
-                           PythonFutureBase* python_future);
+                           PythonFutureObject* python_future);
 
 /// Waits for the Future to be ready, but supports interruption by operating
 /// system signals.
@@ -246,132 +458,12 @@ void InterruptibleWaitImpl(absl::FunctionRef<FutureCallbackRegistration(
 template <typename T>
 typename Future<T>::result_type& InterruptibleWait(
     const Future<T>& future, absl::Time deadline = absl::InfiniteFuture(),
-    PythonFutureBase* python_future = nullptr) {
-  assert(future.valid());
-  if (!future.ready()) {
-    {
-      GilScopedRelease gil_release;
-      future.Force();
-    }
-    internal_python::InterruptibleWaitImpl(
-        [&](auto signal) {
-          return future.ExecuteWhenReady(
-              [signal = std::move(signal)](ReadyFuture<const T> f) {
-                signal();
-              });
-        },
-        deadline, python_future);
-  }
+    PythonFutureObject* python_future = nullptr) {
+  internal_python::InterruptibleWaitImpl(
+      *internal_future::FutureAccess::rep_pointer(future), deadline,
+      python_future);
   return future.result();
 }
-
-template <typename T>
-class PythonFuture : public PythonFutureBase {
- public:
-  PythonFuture(Future<const T> future) : future_(std::move(future)) {}
-
-  bool done() const override { return !future_.valid() || future_.ready(); }
-
-  void force() override {
-    if (!done()) {
-      // Use copy of `future_`, since `future_` may be modified by another
-      // thread calling `PythonFuture::cancel` once GIL is released.
-      auto future_copy = future_;
-      GilScopedRelease gil_release;
-      future_copy.Force();
-    }
-  }
-
-  bool cancelled() const override { return !future_.valid(); }
-
-  Future<const T> WaitForResult(absl::Time deadline) {
-    // Copy `future_`, since `future_` may be modified by another threading
-    // calling `PythonFuture::cancel` once GIL is released.
-    auto future_copy = future_;
-    internal_python::InterruptibleWait(future_copy, deadline, this);
-    return future_copy;
-  }
-
-  pybind11::object exception(absl::Time deadline) override {
-    if (!future_.valid()) return GetCancelledError();
-    auto future = WaitForResult(deadline);
-    auto& result = future.result();
-    if (result.has_value()) {
-      if constexpr (std::is_same_v<T, GilSafePythonValueOrException>) {
-        if (!(**result).value.ptr()) {
-          return (**result).error_value;
-        }
-      }
-      return pybind11::none();
-    }
-    return GetStatusPythonException(result.status());
-  }
-
-  pybind11::object result(absl::Time deadline) override {
-    if (!future_.valid()) ThrowCancelledError();
-    auto future = WaitForResult(deadline);
-    return pybind11::cast(future.result());
-  }
-
-  bool cancel() override {
-    if (!future_.valid() || future_.ready()) {
-      return false;
-    }
-    future_ = Future<const T>{};
-    registration_.Unregister();
-    RunCancelCallbacks();
-    RunCallbacks();
-    return true;
-  }
-
-  void add_done_callback(pybind11::object callback) override {
-    if (done()) {
-      callback(pybind11::cast(shared_from_this()));
-      return;
-    }
-    callbacks_.push_back(callback);
-    if (callbacks_.size() == 1) {
-      registration_.Unregister();
-      auto self = std::static_pointer_cast<PythonFuture<T>>(shared_from_this());
-      registration_ = future_.ExecuteWhenReady([self](Future<const T> future) {
-        ExitSafeGilScopedAcquire gil;
-        if (gil.acquired()) {
-          self->RunCallbacks();
-        }
-      });
-      // Set up `ExecuteWhenReady` registration before calling `force`, since
-      // `force` releases the GIL.
-      force();
-    }
-  }
-
-  Future<const GilSafePythonValueOrException> GetPythonValueOrExceptionFuture()
-      override {
-    if constexpr (std::is_same_v<GilSafePythonValueOrException, T>) {
-      return future_;
-    } else {
-      return MapFuture(
-          InlineExecutor{},
-          [](const Result<T>& result) -> Result<GilSafePythonValueOrException> {
-            if (!result.ok()) return result.status();
-            ExitSafeGilScopedAcquire gil;
-            if (!gil.acquired()) {
-              return PythonExitingError();
-            }
-            // Convert `result` rather than `*result` to account
-            // for `T=void`.
-            return GilSafePythonValueOrException(
-                PythonValueOrException::FromValue(result));
-          },
-          future_);
-    }
-  }
-
-  ~PythonFuture() override = default;
-
- private:
-  Future<const T> future_;
-};
 
 void RegisterFutureBindings(pybind11::module m, Executor defer);
 
@@ -382,16 +474,16 @@ void RegisterFutureBindings(pybind11::module m, Executor defer);
 /// \param loop Python object of type `asyncio.AbstractEventLoop` or `None`.  If
 ///     `None`, an exception is thrown if `src` is a coroutine.  Otherwise, if
 ///     `src` is a coroutine, it is run using `loop`.
-/// \param future Set to the future on success.
-/// \returns `true` if `src` could be converted to a `Future`, or `false`
-///     otherwise.  The error indicator is never set upon return.
+/// \returns `pybind11::object` pointing to a `PythonFutureObject` if `src`
+///     could be converted to a `Future`, or `nullptr` otherwise.  The error
+///     indicator is never set upon return.
 /// \throws An exception if `src` if an error occurs in invoking `asyncio`
 ///     (unlikely).
 ///
 /// If `src` resolves to an exception, the future resolves to an error.  Python
 /// exceptions are stored via pickling if possible.
-bool TryConvertToFuture(pybind11::handle src, pybind11::handle loop,
-                        std::shared_ptr<PythonFutureBase>& future);
+pybind11::object TryConvertToFuture(pybind11::handle src,
+                                    pybind11::handle loop);
 
 /// Converts a `FutureLike` Python object to a `Future` with the specified
 /// result type.
@@ -412,10 +504,10 @@ bool TryConvertToFuture(pybind11::handle src, pybind11::handle loop,
 template <typename T>
 Future<T> ConvertToFuture(pybind11::handle src, pybind11::handle loop) {
   if (!src.ptr()) return internal_python::GetStatusFromPythonException();
-  std::shared_ptr<PythonFutureBase> python_future_base;
+  pybind11::object python_future;
   Future<T> future;
   if (CallAndSetErrorIndicator([&] {
-        if (!TryConvertToFuture(src, loop, python_future_base)) {
+        if (!(python_future = TryConvertToFuture(src, loop))) {
           // Attempt to convert the value directly.
           future = pybind11::cast<T>(src);
         }
@@ -425,13 +517,46 @@ Future<T> ConvertToFuture(pybind11::handle src, pybind11::handle loop) {
   if (future.valid()) return future;
   return MapFutureValue(
       InlineExecutor{},
-      [](const GilSafePythonValueOrException& v) -> Result<T> {
+      [](const GilSafePythonHandle& v) -> Result<T> {
         ExitSafeGilScopedAcquire gil;
         if (!gil.acquired()) return PythonExitingError();
-        return Result<T>(*v);
+        Result<T> obj;
+        if (internal_python::CallAndSetErrorIndicator(
+                [&] { obj = pybind11::cast<T>(pybind11::handle(v.get())); })) {
+          obj = GetStatusFromPythonException();
+        }
+        return obj;
       },
-      python_future_base->GetPythonValueOrExceptionFuture());
+      reinterpret_cast<PythonFutureObject*>(python_future.ptr())
+          ->GetPythonValueFuture());
 }
+
+/// Wrapper that holds a `pybind11::object` but which displays in
+/// pybind11-generated type signatures as `tensorstore.Future[T]`.
+///
+/// Provides convenient interface for creating a newly-allocated
+/// `PythonFutureObject`.
+template <typename T>
+struct PythonFutureWrapper {
+  pybind11::object value;
+
+  PythonFutureWrapper() = default;
+  explicit PythonFutureWrapper(pybind11::object value)
+      : value(std::move(value)) {}
+  explicit PythonFutureWrapper(Future<const T> future,
+                               PythonObjectReferenceManager manager)
+      : value(PythonFutureObject::Make(std::move(future), std::move(manager))) {
+  }
+
+  constexpr static auto tensorstore_pybind11_type_name_override =
+      pybind11::detail::_("tensorstore.Future[") +
+      pybind11::detail::make_caster<std::conditional_t<
+          std::is_void_v<T>, pybind11::detail::void_type, T>>::name +
+      pybind11::detail::_("]");
+};
+
+using UntypedFutureWrapper = StaticHeapTypeWrapper<PythonFutureObject>;
+using PromiseWrapper = StaticHeapTypeWrapper<PythonPromiseObject>;
 
 }  // namespace internal_python
 }  // namespace tensorstore
@@ -441,23 +566,35 @@ namespace detail {
 
 /// Defines automatic mapping of `tensorstore::Future<T>` to
 /// `tensorstore::internal_python::PythonFuture<T>`.
+///
+/// Note that this must not be used if Python objects need to be kept alive via
+/// a `PythonObjectReferenceManager` before the future becomes ready.  In that
+/// case use `PythonFutureWrapper` instead.
 template <typename T>
 struct type_caster<tensorstore::Future<T>> {
   using FutureType = tensorstore::Future<T>;
   using value_conv = make_caster<typename FutureType::result_type>;
 
   PYBIND11_TYPE_CASTER(FutureType,
-                       _("tensorstore.Future[") + value_conv::name + _("]"));
+                       tensorstore::internal_python::PythonFutureWrapper<
+                           T>::tensorstore_pybind11_type_name_override);
 
   static handle cast(const FutureType& future, return_value_policy policy,
                      handle parent) {
-    return pybind11::cast(
-               std::shared_ptr<tensorstore::internal_python::PythonFutureBase>(
-                   std::make_shared<tensorstore::internal_python::PythonFuture<
-                       std::remove_const_t<T>>>(future)))
+    return tensorstore::internal_python::PythonFutureObject::Make(future)
         .release();
   }
 };
+
+template <>
+struct type_caster<tensorstore::internal_python::PythonFutureObject>
+    : public tensorstore::internal_python::StaticHeapTypeCaster<
+          tensorstore::internal_python::PythonFutureObject> {};
+
+template <>
+struct type_caster<tensorstore::internal_python::PythonPromiseObject>
+    : public tensorstore::internal_python::StaticHeapTypeCaster<
+          tensorstore::internal_python::PythonPromiseObject> {};
 
 }  // namespace detail
 }  // namespace pybind11

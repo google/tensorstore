@@ -29,6 +29,7 @@
 #include "python/tensorstore/dim_expression.h"
 #include "python/tensorstore/downsample.h"
 #include "python/tensorstore/future.h"
+#include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/python_imports.h"
@@ -72,6 +73,7 @@ PYBIND11_MODULE(_tensorstore, m) {
 
   internal_python::InitializePythonImports();
   internal_python::SetupExitHandler();
+  internal_python::RegisterGarbageCollectionBindings();
 
   std::vector<ExecutorTask> deferred_registration_tasks;
 

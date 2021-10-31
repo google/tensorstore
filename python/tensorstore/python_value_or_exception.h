@@ -19,6 +19,7 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/status.h"
 #include "tensorstore/util/result.h"
@@ -26,13 +27,38 @@
 namespace tensorstore {
 namespace internal_python {
 
+template <typename Object>
+struct PythonValueOrExceptionBase {
+  /// If this holds a value, `value` is non-null and `error_type`,
+  /// `error_value`, and `error_traceback` are null.
+  Object value;
+
+  /// If this holds an exception, `error_type`, `error_value`, and
+  /// `error_traceback` are set, an `value` is null.
+  Object error_type;
+  Object error_value;
+  Object error_traceback;
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.value, x.error_type, x.error_value, x.error_traceback);
+  };
+};
+
 /// Special type capable of holding any Python value or exception.  This
 /// (wrapped by `GilSafeHolder`) is used as the result type for
 /// `Promise`/`Future` pairs created by Python.
 ///
 /// Note: This type cannot safely be copied or destroyed unless the GIL is held.
 /// To avoid that restriction, use `GilSafePythonValueOrException`.
-struct PythonValueOrException {
+struct PythonValueOrException
+    : public PythonValueOrExceptionBase<pybind11::object> {
+  PythonValueOrException() = default;
+
+  /// Constructs from a Python value.
+  explicit PythonValueOrException(pybind11::object obj) {
+    this->value = std::move(obj);
+  }
+
   /// Constructs from an arbitrary C++ value.
   ///
   /// If conversion to a Python object fails, the returned
@@ -63,19 +89,34 @@ struct PythonValueOrException {
     }
     return GetStatusFromPythonException(error_value);
   }
-
-  /// If this holds a value, `value` is non-null and `error_type`,
-  /// `error_value`, and `error_traceback` are null.
-  pybind11::object value;
-
-  /// If this holds an exception, `error_type`, `error_value`, and
-  /// `error_traceback` are set, an `value` is null.
-  pybind11::object error_type;
-  pybind11::object error_value;
-  pybind11::object error_traceback;
 };
 
-using GilSafePythonValueOrException = GilSafeHolder<PythonValueOrException>;
+/// Same as `PythonValueOrException`, but holds weak references rather than
+/// strong references.
+///
+/// When wrapped by `GilSafeHolder`, this is suitable for use with
+/// `PythonFutureObject`, whereas `PythonValueOrException` is not.
+struct PythonValueOrExceptionWeakRef
+    : public PythonValueOrExceptionBase<PythonWeakRef> {
+  PythonValueOrExceptionWeakRef() = default;
+  explicit PythonValueOrExceptionWeakRef(PythonObjectReferenceManager& manager,
+                                         const PythonValueOrException& obj) {
+    if (obj.value) {
+      value = PythonWeakRef(manager, obj.value);
+      return;
+    }
+    error_type = PythonWeakRef(manager, obj.error_type);
+    error_value = PythonWeakRef(manager, obj.error_value);
+    if (obj.error_traceback) {
+      error_traceback = PythonWeakRef(manager, obj.error_traceback);
+    }
+  }
+};
+
+/// Used to represent an arbitrary Python value or exception as the value type
+/// of a `PythonFutureObject`.
+using GilSafePythonValueOrExceptionWeakRef =
+    GilSafeHolder<PythonValueOrExceptionWeakRef>;
 
 }  // namespace internal_python
 }  // namespace tensorstore
@@ -84,15 +125,15 @@ namespace pybind11 {
 namespace detail {
 
 /// Defines automatic mapping of
-/// `tensorstore::internal_python::PythonValueOrException` to the contained
-/// Python value or exception.
+/// `tensorstore::internal_python::PythonValueOrExceptionWeakRef` to the
+/// contained Python value or exception.
 template <>
 struct type_caster<
-    tensorstore::internal_python::GilSafePythonValueOrException> {
+    tensorstore::internal_python::PythonValueOrExceptionWeakRef> {
   PYBIND11_TYPE_CASTER(
-      tensorstore::internal_python::GilSafePythonValueOrException, _("Any"));
+      tensorstore::internal_python::PythonValueOrExceptionWeakRef, _("Any"));
   static handle cast(
-      const tensorstore::internal_python::GilSafePythonValueOrException& result,
+      const tensorstore::internal_python::PythonValueOrExceptionWeakRef& obj,
       return_value_policy policy, handle parent);
 };
 

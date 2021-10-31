@@ -34,14 +34,49 @@
 namespace tensorstore {
 namespace internal_python {
 
+/// Python object type corresponding to `tensorstore::WriteFutures`.
+struct PythonWriteFuturesObject {
+  /// Python type object corresponding to this object type.
+  ///
+  /// This is initialized during the tensorstore module initialization by
+  /// `RegisterWriteFuturesBindings`.
+  static PyTypeObject* python_type;
+
+  constexpr static const char python_type_name[] = "tensorstore.WriteFutures";
+
+  // clang-format off
+  PyObject_HEAD
+  PyObject *weakrefs;
+  PyObject *copy_future;
+  PyObject *commit_future;
+  // clang-format on
+
+  PythonFutureObject& copy_future_obj() const {
+    return *reinterpret_cast<PythonFutureObject*>(copy_future);
+  }
+
+  PythonFutureObject& commit_future_obj() const {
+    return *reinterpret_cast<PythonFutureObject*>(commit_future);
+  }
+};
+
+/// Interface for converting a `WriteFutures` object to a newly-allocated
+/// `PythonWriteFuturesObject`.
+///
+/// This may be used as a return type in pybind11-bound functions.
 struct PythonWriteFutures {
-  explicit PythonWriteFutures(WriteFutures write_futures)
-      : copy_future(std::make_shared<PythonFuture<void>>(
-            std::move(write_futures.copy_future))),
-        commit_future(std::make_shared<PythonFuture<void>>(
-            std::move(write_futures.commit_future))) {}
-  std::shared_ptr<PythonFutureBase> copy_future;
-  std::shared_ptr<PythonFutureBase> commit_future;
+  pybind11::object value;
+
+  /// Enables pybind11 type_caster support.
+  constexpr static auto tensorstore_pybind11_type_name_override =
+      pybind11::detail::_(PythonWriteFuturesObject::python_type_name);
+
+  PythonWriteFutures() = default;
+  explicit PythonWriteFutures(pybind11::object value)
+      : value(std::move(value)) {}
+
+  explicit PythonWriteFutures(WriteFutures write_futures,
+                              const PythonObjectReferenceManager& manager);
 };
 
 void RegisterWriteFuturesBindings(pybind11::module m, Executor defer);
@@ -53,14 +88,19 @@ namespace pybind11 {
 namespace detail {
 
 template <>
+struct type_caster<tensorstore::internal_python::PythonWriteFuturesObject>
+    : public tensorstore::internal_python::StaticHeapTypeCaster<
+          tensorstore::internal_python::PythonWriteFuturesObject> {};
+
+template <>
 struct type_caster<tensorstore::WriteFutures> {
   PYBIND11_TYPE_CASTER(tensorstore::WriteFutures,
                        _("tensorstore.WriteFutures"));
 
   static handle cast(const tensorstore::WriteFutures& write_futures,
                      return_value_policy policy, handle parent) {
-    return pybind11::cast(
-               tensorstore::internal_python::PythonWriteFutures{write_futures})
+    return pybind11::cast(tensorstore::internal_python::PythonWriteFutures(
+                              write_futures, {}))
         .release();
   }
 };
