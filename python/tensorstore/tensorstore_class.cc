@@ -34,6 +34,7 @@
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/keyword_arguments.h"
 #include "python/tensorstore/result_type_caster.h"
+#include "python/tensorstore/serialization.h"
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/tensorstore_class.h"
 #include "python/tensorstore/transaction.h"
@@ -1024,25 +1025,8 @@ Example:
 
 )");
 
-  cls.def(py::pickle(
-      [](const TensorStore<>& self) -> py::tuple {
-        auto spec = ValueOrThrow(self.spec(tensorstore::retain_context));
-        return py::make_tuple(
-            internal_python::PickleWithNestedContext(std::move(spec)),
-            static_cast<int>(self.read_write_mode()));
-      },
-      [](py::tuple t) -> tensorstore::TensorStore<> {
-        auto spec = internal_python::UnpickleWithNestedContext<Spec>(t[0]);
-        auto read_write_mode = static_cast<ReadWriteMode>(
-            py::cast<int>(t[1]) & static_cast<int>(ReadWriteMode::read_write));
-        if (read_write_mode == ReadWriteMode::dynamic) {
-          throw py::value_error(
-              "Invalid ReadWriteMode encountered unpickling TensorStore");
-        }
-        py::gil_scoped_release gil_release;
-        return ValueOrThrow(
-            tensorstore::Open(std::move(spec), read_write_mode).result());
-      }));
+  EnablePicklingFromSerialization(cls,
+                                  internal::TensorStoreNonNullSerializer<>{});
 
   cls.attr("__iter__") = py::none();
 

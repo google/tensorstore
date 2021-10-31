@@ -66,8 +66,10 @@
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/type_name_override.h"
+#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/intrusive_linked_list.h"
 #include "tensorstore/internal/logging.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
@@ -130,6 +132,23 @@ struct AbstractEventLoopParameter {
       pybind11::detail::_("asyncio.AbstractEventLoop");
 };
 
+/// Holds an `asyncio.AbstractEventLoop` object.
+///
+/// Since the event loop is a property of the current thread environment, it
+/// does not make sense to actually serialize the event loop in any way.
+/// Instead, serialization is a no-op, and deserialization just returns the
+/// current thread's event loop, or None if there is none.
+///
+/// This is normally held via `GilSafeHolder`.
+struct SerializableAbstractEventLoop {
+  PythonWeakRef obj;
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.obj);
+  };
+};
+
+/// Base class that represents a Future exposed to Python.
 /// Python wrapper object type for `tensorstore::Future`.
 ///
 /// This provides an interface similar to the `concurrent.futures.Future` Python
@@ -560,6 +579,9 @@ using PromiseWrapper = StaticHeapTypeWrapper<PythonPromiseObject>;
 
 }  // namespace internal_python
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_python::SerializableAbstractEventLoop)
 
 namespace pybind11 {
 namespace detail {

@@ -107,7 +107,7 @@ def test_pickle():
   x = ts.IndexTransform(
       input_inclusive_min=[1, 2, -1],
       implicit_lower_bounds=[1, 0, 0],
-      input_shape=[3, 2, 2],
+      input_shape=[3, 2, 4],
       implicit_upper_bounds=[0, 1, 0],
       input_labels=['x', 'y', 'z'],
       output=[
@@ -116,7 +116,7 @@ def test_pickle():
           ts.OutputIndexMap(
               offset=1,
               stride=-2,
-              index_array=[[[1, 2]]],
+              index_array=[[[-10, 1, 2, 20]]],
               index_range=ts.Dim(inclusive_min=-3, exclusive_max=10),
           ),
       ],

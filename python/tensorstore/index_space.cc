@@ -40,6 +40,7 @@
 #include "python/tensorstore/python_imports.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/sequence_parameter.h"
+#include "python/tensorstore/serialization.h"
 #include "python/tensorstore/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
@@ -313,27 +314,6 @@ std::string OutputIndexMapToString(const OutputIndexMap& m) {
                     ", index_range=", m.index_range, ")");
   }
   TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
-}
-
-py::tuple PickleIndexInterval(IndexInterval interval) {
-  return py::make_tuple(interval.inclusive_min(), interval.size());
-}
-
-IndexInterval UnpickleIndexInterval(py::tuple t) {
-  return ValueOrThrow(
-      IndexInterval::Sized(py::cast<Index>(t[0]), py::cast<Index>(t[1])));
-}
-
-py::tuple PickleIndexDomainDimension(const IndexDomainDimension<>& x) {
-  return py::make_tuple(PickleIndexInterval(x.interval()), x.implicit_lower(),
-                        x.implicit_upper(), std::string(x.label()));
-}
-
-IndexDomainDimension<> UnpickleIndexDomainDimension(py::tuple t) {
-  return IndexDomainDimension<>{OptionallyImplicitIndexInterval{
-                                    UnpickleIndexInterval(py::tuple(t[0])),
-                                    py::cast<bool>(t[1]), py::cast<bool>(t[2])},
-                                py::cast<std::string>(t[3])};
 }
 
 using OutputIndexMapRangeContainer =
@@ -831,11 +811,8 @@ This is simply the product of the extents in :py:obj:`.shape`.)");
       [](const IndexDomain<>& self, py::dict memo) { return self; },
       py::arg("memo"));
 
-  cls.def(py::pickle(
-      [](const IndexDomain<>& self) -> py::tuple {
-        return py::tuple(py::cast(self));
-      },
-      [](py::tuple t) -> IndexDomain<> { return py::cast<IndexDomain<>>(t); }));
+  EnablePicklingFromSerialization(
+      cls, internal_index_space::IndexDomainNonNullSerializer{});
 
   py::implicitly_convertible<std::vector<IndexDomainDimension<>>,
                              IndexDomain<>>();
@@ -1374,20 +1351,8 @@ Group:
       [](const IndexTransform<>& self, py::dict memo) { return self; },
       py::arg("memo"));
 
-  cls.def(py::pickle(
-      [](const IndexTransform<>& self) -> py::tuple {
-        return py::make_tuple(py::tuple(py::cast(IndexDomain<>(self.domain()))),
-                              py::tuple(py::cast(OutputIndexMapRangeContainer(
-                                  self.output_index_maps()))));
-      },
-      [](py::tuple t) -> IndexTransform<> {
-        const auto domain = py::cast<IndexDomain<>>(t[0]);
-        auto output = py::cast<std::vector<OutputIndexMap>>(t[1]);
-        IndexTransformBuilder<> builder(domain.rank(), output.size());
-        builder.input_domain(domain);
-        SetOutputIndexMaps(std::move(output), &builder);
-        return ValueOrThrow(builder.Finalize());
-      }));
+  EnablePicklingFromSerialization(
+      cls, internal_index_space::IndexTransformNonNullSerializer{});
 
   cls.attr("__iter__") = py::none();
 
@@ -2290,8 +2255,7 @@ Group:
       [](const IndexDomainDimension<>& self, py::dict memo) { return self; },
       py::arg("memo"));
 
-  cls.def(
-      py::pickle(&PickleIndexDomainDimension, &UnpickleIndexDomainDimension));
+  EnablePicklingFromSerialization(cls);
 }
 
 auto MakeOutputIndexMapClass(py::module m) {

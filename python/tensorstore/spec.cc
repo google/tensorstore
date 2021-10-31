@@ -30,6 +30,7 @@
 #include "python/tensorstore/intrusive_ptr_holder.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/result_type_caster.h"
+#include "python/tensorstore/serialization.h"
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/unit.h"
 #include "tensorstore/data_type.h"
@@ -670,13 +671,7 @@ Example:
 
 )");
 
-  cls.def(py::pickle(
-      [](const Spec& self) -> py::tuple {
-        return internal_python::PickleWithNestedContext(self);
-      },
-      [](py::tuple t) {
-        return internal_python::UnpickleWithNestedContext<Spec>(std::move(t));
-      }));
+  EnablePicklingFromSerialization(cls, internal::SpecNonNullSerializer{});
 
   cls.attr("__iter__") = py::none();
 
@@ -1664,11 +1659,7 @@ Example:
 
 )");
 
-  cls.def(
-      py::pickle([](const Self& self) { return ValueOrThrow(self.ToJson()); },
-                 [](::nlohmann::json json) -> Self {
-                   return ValueOrThrow(Self::FromJson(std::move(json)));
-                 }));
+  EnablePicklingFromSerialization(cls);
 }
 
 using ClsCodecSpec = py::class_<CodecSpec, internal::IntrusivePtr<CodecSpec>>;
@@ -1710,14 +1701,8 @@ Converts to the :json:schema:`JSON representation<Codec>`.
 )",
       py::arg("include_defaults") = false);
 
-  cls.def(py::pickle(
-      [](internal::IntrusivePtr<CodecSpec> self) {
-        return ValueOrThrow(CodecSpec::Ptr(std::move(self)).ToJson());
-      },
-      [](::nlohmann::json json) -> internal::IntrusivePtr<CodecSpec> {
-        return internal::const_pointer_cast<CodecSpec>(
-            ValueOrThrow(CodecSpec::Ptr::FromJson(std::move(json))));
-      }));
+  EnablePicklingFromSerialization<internal::IntrusivePtr<CodecSpec>>(
+      cls, internal::CodecSpecPtrNonNullDirectSerializer{});
 }
 
 }  // namespace

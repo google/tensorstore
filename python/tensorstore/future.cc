@@ -1036,4 +1036,23 @@ py::object GetCurrentThreadAsyncioEventLoop() {
 }
 
 }  // namespace internal_python
+
+namespace serialization {
+
+bool Serializer<internal_python::SerializableAbstractEventLoop>::Encode(
+    EncodeSink& sink,
+    const internal_python::SerializableAbstractEventLoop& value) {
+  // Serialization is a no-op.
+  return true;
+}
+
+bool Serializer<internal_python::SerializableAbstractEventLoop>::Decode(
+    DecodeSource& source,
+    internal_python::SerializableAbstractEventLoop& value) {
+  value.obj = internal_python::GetCurrentThreadAsyncioEventLoop();
+  return true;
+}
+
+}  // namespace serialization
+
 }  // namespace tensorstore

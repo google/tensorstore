@@ -30,6 +30,7 @@
 #include <nlohmann/json.hpp>
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/json_type_caster.h"
+#include "python/tensorstore/serialization.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/quote_string.h"
@@ -153,9 +154,7 @@ Overload:
     return StrCat("dtype(", QuoteString(self.name()), ")");
   });
 
-  cls.def(
-      py::pickle([](DataType self) { return std::string(self.name()); },
-                 [](std::string name) { return GetDataTypeOrThrow(name); }));
+  EnablePicklingFromSerialization(cls);
 
   cls.def("to_json", [](DataType self) { return std::string(self.name()); });
 

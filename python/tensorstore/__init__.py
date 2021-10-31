@@ -17,6 +17,7 @@ import abc as _abc
 import collections.abc as _collections_abc
 
 from ._tensorstore import *
+from ._tensorstore import _Decodable
 
 newaxis = None
 """Alias for `None` used in `indexing expressions<python-indexing>` to specify a new singleton dimension.

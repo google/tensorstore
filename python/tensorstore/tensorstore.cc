@@ -33,6 +33,7 @@
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/python_imports.h"
+#include "python/tensorstore/serialization.h"
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/tensorstore_class.h"
 #include "python/tensorstore/transaction.h"
@@ -99,6 +100,7 @@ PYBIND11_MODULE(_tensorstore, m) {
   RegisterFutureBindings(m, defer);
   RegisterWriteFuturesBindings(m, defer);
   RegisterDownsampleBindings(m, defer);
+  RegisterSerializationBindings(m, defer);
 
   for (auto& task : deferred_registration_tasks) {
     task();

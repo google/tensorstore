@@ -24,6 +24,7 @@
 
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/result_type_caster.h"
+#include "python/tensorstore/serialization.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/unit.h"
 #include "tensorstore/internal/json_unit.h"
@@ -261,11 +262,7 @@ Group:
 
 )");
 
-  cls.def(py::pickle(
-      [](const Unit& self) { return ValueOrThrow(jb::ToJson(self)); },
-      [](::nlohmann::json json) {
-        return ValueOrThrow(jb::FromJson<Unit>(std::move(json)));
-      }));
+  EnablePicklingFromSerialization(cls);
 }
 
 }  // namespace
