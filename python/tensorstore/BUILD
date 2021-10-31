@@ -53,7 +53,7 @@ pybind11_cc_library(
     srcs = ["numpy.cc"],
     textual_hdrs = ["numpy.h"],
     deps = [
-        "@local_config_python//:python_headers",  # buildcleaner: keep
+        "@com_github_pybind_pybind11//:pybind11",
         "@pypa_numpy//:headers",
     ],
 )

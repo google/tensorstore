@@ -32,17 +32,11 @@
 // functions as macros that call the real API function by way of that global
 // variable.
 
-#include <locale>
-// Include `<locale>` before <Python.h> to avoid build failure in macOS.
-
-#include <cmath>
-// Include `<cmath>` before `Python.h` to avoid build failure on MSVC.  Note:
-// This header does not actually require `<cmath>`, but including `<cmath>`
-// after `Python.h` does not work properly on MSVC.  Therefore, we include it
-// here to ensure the proper ordering for those files that #include this header
-// and require it.
-
-#include <Python.h>
+#include <pybind11/pybind11.h>
+// Other headers must be included after pybind11 to ensure header-order
+// inclusion constraints are satisfied.  We actually only need the normal Python
+// C API, not pybind11, but we rely on pybind11 to define appropriate macros to
+// avoid build failures when including `<Python.h>`.
 
 #ifdef PyArray_Type
 #error "Numpy cannot be included before numpy.h."
