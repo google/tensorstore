@@ -491,6 +491,14 @@ static_assert(sizeof(long) == 4 || DataTypeIdOf<long> == DataTypeIdOf<int64_t>);
 static_assert(sizeof(long) == 4 ||
               DataTypeIdOf<unsigned long> == DataTypeIdOf<uint64_t>);
 
+TEST(DataTypesOrder, Valid) {
+  // Ensure that the kDataTypes is in the same order as the enum.
+  for (size_t i = 0; i < tensorstore::kNumDataTypeIds; i++) {
+    EXPECT_EQ(tensorstore::kDataTypes[i].id(),
+              static_cast<tensorstore::DataTypeId>(i));
+  }
+}
+
 TEST(SerializationTest, Valid) {
   TestSerializationRoundTrip(DataType());
   for (DataType dtype : tensorstore::kDataTypes) {

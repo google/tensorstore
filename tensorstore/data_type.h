@@ -15,6 +15,27 @@
 #ifndef TENSORSTORE_DATA_TYPE_H_
 #define TENSORSTORE_DATA_TYPE_H_
 
+/// \file
+/// Defines data type aliases and supporting classes used by tensorstore.
+/// Generic data type operations are available using the `DataType` class,
+/// which may represent built-in or custom data types.
+///
+/// The type `void` in this use is synonymous with a dynamic type.
+///
+/// Each built-in data type has:
+///
+/// * An enum `id` field in `DataTypeId` named of `DataTypeId::x_t`, which
+///   is returned by `DataTypeIdOf<T>`
+///
+/// * A `StaticDataType<T>` class with pre-defined operations which is
+///   implicitly convertible to `DataType`, and where the type or value is
+///   returned by `dtype_t<T>` and `dtype_v<T>`, respectively.
+///
+/// * An entry in the `kDataTypes` array corresponding to the enum value.
+///
+/// Dynamic named lookup of a `DataType` is available via `GetDataType(name)`.
+///
+
 #include <algorithm>
 #include <complex>
 #include <cstddef>
@@ -57,7 +78,6 @@
 #endif
 
 namespace tensorstore {
-
 namespace data_types {
 /// Boolean value (always represented as 0 or 1).
 using bool_t = bool;
@@ -93,6 +113,43 @@ using json_t = ::nlohmann::json;
 }  // namespace data_types
 using namespace data_types;  // NOLINT
 
+// Define a DataTypeId `x_t` corresponding to each C++ type `tensorstore::x_t`
+// defined above.
+enum class DataTypeId {
+  custom = -1,
+  bool_t,
+  char_t,
+  byte_t,
+  int8_t,
+  uint8_t,
+  int16_t,
+  uint16_t,
+  int32_t,
+  uint32_t,
+  int64_t,
+  uint64_t,
+  float16_t,
+  bfloat16_t,
+  float32_t,
+  float64_t,
+  complex64_t,
+  complex128_t,
+  string_t,
+  ustring_t,
+  json_t,
+  num_ids
+};
+
+inline constexpr size_t kNumDataTypeIds =
+    static_cast<size_t>(DataTypeId::num_ids);
+
+/// Indicates whether an element type can be treated as trivial.
+template <typename T>
+constexpr inline bool IsTrivial =
+    std::is_trivially_destructible_v<T>&& std::is_trivially_copyable_v<T>;
+
+/// TENSORSTORE_FOR_EACH_DATA_TYPE(X, ...) macros will instantiate
+/// X(datatype, ...) for each tensorstore data type.
 #define TENSORSTORE_FOR_EACH_BYTE_DATA_TYPE(X, ...) \
   X(char_t, ##__VA_ARGS__)                          \
   X(byte_t, ##__VA_ARGS__)                          \
@@ -132,10 +189,10 @@ using namespace data_types;  // NOLINT
   X(json_t, ##__VA_ARGS__)                                 \
   /**/
 
-/// Permits nested expansions.
-#define TENSORSTORE_FOR_EACH_BYTE_DATA_TYPE_ID() \
-  TENSORSTORE_FOR_EACH_BYTE_DATA_TYPE
-
+/// Generates the indicated data_type name, permitting nested
+/// macro expansion. Used, for example, in generating the
+/// conversion specializations between data types.
+/// The _BYTE_ and other variants are unused.
 #define TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE_ID() \
   TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE
 
@@ -145,23 +202,6 @@ using namespace data_types;  // NOLINT
 #define TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE_ID() \
   TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE
 
-enum class DataTypeId {
-  custom = -1,
-// Define a DataTypeId `x_t` corresponding to each C++ type `tensorstore::x_t`
-// defined above.
-#define TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID(T, ...) T,
-  TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID)
-#undef TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID
-      num_ids,
-};
-
-inline constexpr size_t kNumDataTypeIds =
-    static_cast<size_t>(DataTypeId::num_ids);
-
-/// Indicates whether an element type can be treated as trivial.
-template <typename T>
-constexpr inline bool IsTrivial =
-    std::is_trivially_destructible_v<T>&& std::is_trivially_copyable_v<T>;
 
 namespace internal_data_type {
 
@@ -583,7 +623,8 @@ constexpr std::string_view GetTypeName() {
 TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE_NAME)
 #undef TENSORSTORE_INTERNAL_DO_DATA_TYPE_NAME
 
-/// Compares two values arrays for equality.
+/// Compares two values for equality. For comparable types, this
+/// is the same as `operator==`.
 template <typename T>
 bool CompareEqual(const T& a, const T& b) {
   if constexpr (internal::IsEqualityComparable<T>::value) {
