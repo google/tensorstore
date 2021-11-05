@@ -224,9 +224,8 @@ struct WriteSwapEndianLoopTemplate {
                       internal::IterationBufferKind::kContiguous) {
       // Fast path: source array is contiguous and byte swapping is not
       // required.
-      if (!writer.Write(std::string_view(
-              reinterpret_cast<const char*>(source.pointer.get()),
-              count * sizeof(Element)))) {
+      if (!writer.Write(reinterpret_cast<const char*>(source.pointer.get()),
+                        count * sizeof(Element))) {
         return 0;
       }
     } else {

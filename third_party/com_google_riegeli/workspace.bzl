@@ -22,9 +22,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_riegeli",
-        sha256 = "ac16b9ac09338c0b2971c2e97583c6c61cd9e0addb945cf037531aefcf568fbc",
-        strip_prefix = "riegeli-36e220cd77bf83e3399f60e78d561e3820ba025d",
+        sha256 = "b91c67efb60905d9d3f37951c288da4556710cc84ec61f9697ebdc700635726d",
+        strip_prefix = "riegeli-b15854f6cac8e2d6076ca11b7533765f85e27d98",
         urls = [
-            "https://github.com/google/riegeli/archive/36e220cd77bf83e3399f60e78d561e3820ba025d.tar.gz",  # master(2021-10-06)
+            "https://github.com/google/riegeli/archive/b15854f6cac8e2d6076ca11b7533765f85e27d98.tar.gz",  # master(2021-11-05)
         ],
     )

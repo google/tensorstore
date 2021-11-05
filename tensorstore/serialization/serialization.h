@@ -447,8 +447,8 @@ constexpr inline bool IsNonSerializableLike = IsNonSerializer<Serializer<T>>;
 template <typename T>
 struct MemcpySerializer {
   [[nodiscard]] static bool Encode(EncodeSink& sink, const T& value) {
-    return sink.writer().Write(
-        std::string_view(reinterpret_cast<const char*>(&value), sizeof(T)));
+    return sink.writer().Write(reinterpret_cast<const char*>(&value),
+                               sizeof(T));
   }
   [[nodiscard]] static bool Decode(DecodeSource& source, T& value) {
     return source.reader().Read(sizeof(T), reinterpret_cast<char*>(&value));

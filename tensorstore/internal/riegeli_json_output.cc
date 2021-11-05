@@ -28,7 +28,7 @@ struct RiegeliJsonOutputAdapter
   RiegeliJsonOutputAdapter(riegeli::Writer& writer) : writer_(writer) {}
   void write_character(char c) final { writer_.WriteChar(c); }
   void write_characters(const char* s, size_t length) final {
-    writer_.Write(std::string_view(s, length));
+    writer_.Write(s, length);
   }
 
   riegeli::Writer& writer_;
