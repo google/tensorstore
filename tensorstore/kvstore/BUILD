@@ -199,6 +199,7 @@ tensorstore_cc_library(
         "//tensorstore/util:sync_flow_sender",
         "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/status",

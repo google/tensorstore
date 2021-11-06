@@ -1,5 +1,6 @@
 #include "tensorstore/kvstore/transaction.h"
 
+#include "absl/container/btree_map.h"
 #include "absl/functional/function_ref.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/kvstore/driver.h"
@@ -98,7 +99,7 @@ void EntryDone(SinglePhaseMutation& single_phase_mutation, bool error,
 /// `TENSORSTORE_INTERNAL_KVSTORETORE_TRANSACTION_DEBUG` is defined.
 [[maybe_unused]] void CheckInvariants(MultiPhaseMutation& multi_phase,
                                       bool commit_started) {
-  std::map<size_t, size_t> phase_entry_count;
+  absl::btree_map<size_t, size_t> phase_entry_count;
   for (auto* single_phase_mutation = &multi_phase.phases_;;) {
     if (single_phase_mutation != &multi_phase.phases_) {
       assert(single_phase_mutation->phase_number_ >
