@@ -1841,13 +1841,15 @@ extern template struct DecodeArray<offset_origin>;
 namespace serialization {
 
 template <typename Element, DimensionIndex Rank, ArrayOriginKind OriginKind>
-struct Serializer<Array<Shared<Element>, Rank, OriginKind>> {
+struct Serializer<Array<Shared<Element>, Rank, OriginKind, container>> {
   [[nodiscard]] static bool Encode(
-      EncodeSink& sink, const Array<Shared<Element>, Rank, OriginKind>& value) {
+      EncodeSink& sink,
+      const Array<Shared<Element>, Rank, OriginKind, container>& value) {
     return internal_array::EncodeArray(sink, value, OriginKind);
   }
   [[nodiscard]] static bool Decode(
-      DecodeSource& source, Array<Shared<Element>, Rank, OriginKind>& value) {
+      DecodeSource& source,
+      Array<Shared<Element>, Rank, OriginKind, container>& value) {
     SharedArray<void, dynamic_rank, OriginKind> array;
     if (!internal_array::DecodeArray<OriginKind>::Decode(
             source, array, dtype_v<Element>, NormalizeRankSpec(Rank))) {
@@ -1856,6 +1858,15 @@ struct Serializer<Array<Shared<Element>, Rank, OriginKind>> {
     value = tensorstore::StaticCast<SharedArray<Element, Rank, OriginKind>,
                                     unchecked>(array);
     return true;
+  }
+};
+
+template <typename Element, DimensionIndex Rank, ArrayOriginKind OriginKind>
+struct Serializer<Array<Shared<Element>, Rank, OriginKind, view>> {
+  [[nodiscard]] static bool Encode(
+      EncodeSink& sink,
+      const Array<Shared<Element>, Rank, OriginKind, view>& value) {
+    return internal_array::EncodeArray(sink, value, OriginKind);
   }
 };
 

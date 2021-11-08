@@ -1,0 +1,68 @@
+// Copyright 2021 The TensorStore Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package tensorstore.proto;
+
+import "tensorstore/proto/array.proto";
+import "tensorstore/proto/index_transform.proto";
+
+message Schema {
+  optional int32 rank = 1;
+  optional string dtype = 2;
+
+  optional IndexDomain domain = 3;
+
+  /// Specifies a chunk layout or constraints on a chunk layout.
+  optional ChunkLayout chunk_layout = 4;
+
+  /// Specifies a codec. Since this is driver-dependent, encoded as json.
+  optional bytes codec = 6;
+
+  repeated OptionalUnit dimension_unit = 7;
+
+  optional Array fill_value = 8;
+}
+
+message ChunkLayout {
+  message Grid {
+    repeated int64 shape = 1 [packed = true];
+    repeated double aspect_ratio = 2 [packed = true];
+    optional uint64 elements = 3;
+
+    optional int32 aspect_ratio_soft_constraint_bitset = 4;
+    optional int32 shape_soft_constraint_bitset = 5;
+    optional bool elements_soft_constraint = 6;
+  }
+  repeated int64 grid_origin = 1 [packed = true];
+  repeated uint32 inner_order = 2 [packed = true];
+
+  optional int32 grid_origin_soft_constraint_bitset = 3;
+  optional bool inner_order_soft_constraint = 4;
+
+  optional Grid write_chunk = 5;
+  optional Grid read_chunk = 6;
+  optional Grid codec_chunk = 7;
+}
+
+// Represents a physical unit, such as "nm" or "3nm" or "3 m/s".
+//
+// A unit is defined by a numeric `multiplier`, represented as a double, and a
+// `base_unit`, represented as a string.  An empty string as the `base_unit`
+// indicates a dimensionless quantity.
+message OptionalUnit {
+  optional double multiplier = 1;
+  optional string base_unit = 2;
+}
