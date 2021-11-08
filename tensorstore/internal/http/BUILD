@@ -101,6 +101,7 @@ tensorstore_cc_test(
     deps = [
         ":http",
         "//tensorstore/util:status",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_googletest//:gtest_main",
     ],
 )

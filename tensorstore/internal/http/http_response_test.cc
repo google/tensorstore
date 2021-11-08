@@ -18,6 +18,7 @@
 #include <utility>
 
 #include <gtest/gtest.h>
+#include "absl/container/flat_hash_set.h"
 #include "tensorstore/util/status.h"
 
 using tensorstore::internal_http::AppendHeaderData;
@@ -87,7 +88,7 @@ TEST(HttpResponseCodeToStatusTest, AllCodes) {
   using tensorstore::internal_http::HttpResponseCodeToStatus;
 
   // OK responses
-  std::set<int> seen;
+  absl::flat_hash_set<int> seen;
   for (auto code : {200, 201, 204, 206}) {
     seen.insert(code);
     EXPECT_TRUE(HttpResponseCodeToStatus({code, {}, {}}).ok()) << code;
