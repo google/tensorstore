@@ -25,6 +25,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:unowned_to_shared",
         "//tensorstore/serialization",
         "//tensorstore/util:assert_macros",
+        "//tensorstore/util:dimension_set",
         "//tensorstore/util:element_pointer",
         "//tensorstore/util:element_traits",
         "//tensorstore/util:iterate",
@@ -32,6 +33,8 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
+        "@com_google_riegeli//riegeli/varint:varint_reading",
+        "@com_google_riegeli//riegeli/varint:varint_writing",
     ],
 )
 

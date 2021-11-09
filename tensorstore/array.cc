@@ -17,12 +17,15 @@
 #include <algorithm>
 #include <limits>
 
+#include "riegeli/varint/varint_reading.h"
+#include "riegeli/varint/varint_writing.h"
 #include "tensorstore/box.h"
 #include "tensorstore/data_type_conversion.h"
 #include "tensorstore/internal/element_copy_function.h"
 #include "tensorstore/internal/unaligned_data_type_functions.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/span.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/internal/iterate_impl.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -321,13 +324,16 @@ bool EncodeArray(serialization::EncodeSink& sink,
   if (origin_kind == offset_origin) {
     if (!serialization::Encode(sink, array.origin())) return false;
   }
+  // Record the zero byte_strides.
   const DimensionIndex rank = array.rank();
-  // Record which dimensions have non-zero stride.
-  for (DimensionIndex i = 0; i < rank; ++i) {
-    if (!serialization::Encode(sink, array.byte_strides()[i] != 0)) {
-      return false;
-    }
+  DimensionSet zero_byte_strides(false);
+  for (DimensionIndex i = 0; i < rank; i++) {
+    zero_byte_strides[i] =
+        (array.byte_strides()[i] == 0 && array.shape()[i] != 1);
   }
+  if (!riegeli::WriteVarint32(zero_byte_strides.bits(), sink.writer()))
+    return false;
+
   return internal::IterateOverArrays(
              {&internal::kUnalignedDataTypeFunctions[static_cast<size_t>(
                                                          array.dtype().id())]
@@ -367,12 +373,16 @@ bool DecodeArray<OriginKind>::Decode(
   if constexpr (OriginKind == offset_origin) {
     if (!serialization::Decode(source, array.origin())) return false;
   }
+  DimensionSet::Bits bits;
+  if (!riegeli::ReadVarint32(source.reader(), bits)) return false;
+  DimensionSet zero_byte_strides = DimensionSet::FromBits(bits);
+
   Index num_bytes = dtype.valid() ? dtype.size() : 0;
   for (DimensionIndex i = 0; i < rank; ++i) {
-    bool non_zero;
-    if (!serialization::Decode(source, non_zero)) return false;
-    array.byte_strides()[i] = non_zero;
-    if (non_zero) {
+    if (zero_byte_strides[i]) {
+      array.byte_strides()[i] = 0;
+    } else {
+      array.byte_strides()[i] = 1;
       if (internal::MulOverflow(num_bytes, array.shape()[i], &num_bytes)) {
         source.Fail(serialization::DecodeError(
             tensorstore::StrCat("Invalid array shape ", array.shape())));
