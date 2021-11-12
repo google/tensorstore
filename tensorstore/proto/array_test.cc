@@ -14,18 +14,24 @@
 
 #include "tensorstore/proto/array.h"
 
+#include <memory>
 #include <random>
+#include <string>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/array_testutil.h"
+#include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform_testutil.h"
 #include "tensorstore/internal/data_type_random_generator.h"
 #include "tensorstore/internal/test_util.h"
+#include "tensorstore/proto/array.pb.h"
 #include "tensorstore/proto/protobuf_matchers.h"
-#include "tensorstore/proto/test_util.h"
 #include "tensorstore/strided_layout.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -35,8 +41,12 @@ using tensorstore::Index;
 using tensorstore::kInfIndex;
 using tensorstore::MatchesStatus;
 using tensorstore::ParseArrayFromProto;
-using tensorstore::ParseProtoOrDie;
 using tensorstore::StridedLayout;
+
+template <typename Proto>
+Proto ParseProtoOrDie(const std::string& asciipb) {
+  return protobuf_matchers::internal::MakePartialProtoFromAscii<Proto>(asciipb);
+}
 
 template <typename T>
 auto DoEncode(const T& array) {

@@ -14,26 +14,28 @@
 
 #include "tensorstore/proto/schema.h"
 
+#include <string>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/index_space/dim_expression.h"
-#include "tensorstore/index_space/index_domain_builder.h"
-#include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/proto/index_transform.pb.h"
+#include "absl/status/status.h"
 #include "tensorstore/proto/protobuf_matchers.h"
-#include "tensorstore/proto/test_util.h"
+#include "tensorstore/proto/schema.pb.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
 using protobuf_matchers::EqualsProto;
 using tensorstore::MatchesStatus;
-using tensorstore::ParseProtoOrDie;
 using tensorstore::ParseSchemaFromProto;
 using tensorstore::Schema;
+
+template <typename Proto>
+Proto ParseProtoOrDie(const std::string& asciipb) {
+  return protobuf_matchers::internal::MakePartialProtoFromAscii<Proto>(asciipb);
+}
 
 auto DoEncode(const Schema& schema) {
   ::tensorstore::proto::Schema proto;

@@ -14,16 +14,24 @@
 
 #include "tensorstore/proto/index_transform.h"
 
+#include <string>
+#include <type_traits>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/proto/index_transform.pb.h"
 #include "tensorstore/proto/protobuf_matchers.h"
-#include "tensorstore/proto/test_util.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -42,7 +50,11 @@ using tensorstore::kInfIndex;
 using tensorstore::MatchesStatus;
 using tensorstore::ParseIndexDomainFromProto;
 using tensorstore::ParseIndexTransformFromProto;
-using tensorstore::ParseProtoOrDie;
+
+template <typename Proto>
+Proto ParseProtoOrDie(const std::string& asciipb) {
+  return protobuf_matchers::internal::MakePartialProtoFromAscii<Proto>(asciipb);
+}
 
 IndexTransform<> MakeLabeledExampleTransform() {
   return tensorstore::IndexTransformBuilder<4, 3>()

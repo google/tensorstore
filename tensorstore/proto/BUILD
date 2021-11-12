@@ -63,18 +63,24 @@ tensorstore_cc_library(
 
 tensorstore_cc_test(
     name = "array_test",
+    size = "small",
     srcs = ["array_test.cc"],
     deps = [
         ":array",
+        ":array_cc_proto",
         ":protobuf_matchers",
-        ":test_util",
-        "//tensorstore:array_testutil",
+        "//tensorstore:array",
+        "//tensorstore:contiguous_layout",
+        "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:strided_layout",
         "//tensorstore/index_space:index_transform_testutil",
         "//tensorstore/internal:data_type_random_generator",
+        "//tensorstore/internal:logging",
         "//tensorstore/internal:test_util",
+        "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -106,17 +112,23 @@ tensorstore_cc_library(
 
 tensorstore_cc_test(
     name = "index_transform_test",
+    size = "small",
     srcs = ["index_transform_test.cc"],
     deps = [
         ":index_transform",
         ":index_transform_cc_proto",
         ":protobuf_matchers",
-        ":test_util",
+        "//tensorstore:array",
+        "//tensorstore:box",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore:rank",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:logging",
         "//tensorstore/util:result",
-        "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -154,29 +166,18 @@ tensorstore_cc_library(
 
 tensorstore_cc_test(
     name = "schema_test",
+    size = "small",
     srcs = ["schema_test.cc"],
     deps = [
-        ":index_transform_cc_proto",
         ":protobuf_matchers",
         ":schema",
-        ":test_util",
+        ":schema_cc_proto",
         "//tensorstore:schema",
-        "//tensorstore/index_space:dim_expression",
-        "//tensorstore/index_space:index_transform",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "//tensorstore/util:status_testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "test_util",
-    testonly = 1,
-    hdrs = ["test_util.h"],
-    deps = [
         "//tensorstore/internal:logging",
-        "@com_google_protobuf//:protobuf",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -192,5 +193,64 @@ tensorstore_cc_library(
         "@com_google_googletest//:gtest",
         "@com_google_protobuf//:protobuf",
         "@com_google_re2//:re2",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "proto_util",
+    srcs = ["proto_util.cc"],
+    hdrs = ["proto_util.h"],
+    deps = [
+        "//tensorstore/internal:logging",
+        "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "proto_util_test",
+    size = "small",
+    srcs = ["proto_util_test.cc"],
+    deps = [
+        ":array_cc_proto",
+        ":proto_util",
+        ":protobuf_matchers",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "proto_binder",
+    srcs = ["proto_binder.cc"],
+    hdrs = ["proto_binder.h"],
+    deps = [
+        ":proto_util",
+        "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal:arena",
+        "//tensorstore/internal:json",
+        "//tensorstore/internal:json_fwd",
+        "//tensorstore/internal:json_value_as",
+        "//tensorstore/internal:path",
+        "//tensorstore/internal:type_traits",
+        "//tensorstore/util:str_cat",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "proto_binder_test",
+    size = "small",
+    srcs = ["proto_binder_test.cc"],
+    deps = [
+        ":array_cc_proto",
+        ":proto_binder",
+        ":protobuf_matchers",
+        "//tensorstore:json_serialization_options",
+        "//tensorstore/internal:json_fwd",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
     ],
 )
