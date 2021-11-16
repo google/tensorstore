@@ -1,0 +1,85 @@
+load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix", "template_rule")
+
+licenses(["notice"])  # BSD/MIT-like license
+
+exports_files(["LICENSE"])
+
+
+libpng_copts = select({
+        ":windows": ["-DPNG_INTEL_SSE_OPT=1"],
+        "//conditions:default": [],
+    })
+
+libpng_linkopts = select({
+        ":windows": [],
+        "//conditions:default": ["-lm"],
+    })
+
+
+cc_library_with_strip_include_prefix(
+    name = "png",
+    srcs = [
+        "png.c",
+        "pngdebug.h",
+        "pngerror.c",
+        "pngget.c",
+        "pnginfo.h",
+        "pnglibconf.h",
+        "pngmem.c",
+        "pngpread.c",
+        "pngpriv.h",
+        "pngread.c",
+        "pngrio.c",
+        "pngrtran.c",
+        "pngrutil.c",
+        "pngset.c",
+        "pngstruct.h",
+        "pngtrans.c",
+        "pngwio.c",
+        "pngwrite.c",
+        "pngwtran.c",
+        "pngwutil.c",
+    ] + select({
+        ":windows": [
+            "intel/intel_init.c",
+            "intel/filter_sse2_intrinsics.c",
+        ],
+        ":linux_ppc64le": [
+            "powerpc/powerpc_init.c",
+            "powerpc/filter_vsx_intrinsics.c",
+        ],
+        "//conditions:default": [
+        ],
+    }),
+    hdrs = [
+        "png.h",
+        "pngconf.h",
+    ],
+    copts = libpng_copts,
+    strip_include_prefix = "",
+    linkopts = libpng_linkopts,
+    visibility = ["//visibility:public"],
+    deps = ["@net_zlib//:zlib"],
+)
+
+
+PNG_IN_SUBSTITUTIONS = {
+    "PNG_ZLIB_VERNUM 0": "PNG_ZLIB_VERNUM 0x12b0",
+}
+
+template_rule(
+    name = "png_config",
+    src = "scripts/pnglibconf.h.prebuilt",
+    out = "pnglibconf.h",
+    substitutions = PNG_IN_SUBSTITUTIONS,
+)
+
+config_setting(
+    name = "windows",
+    values = {"cpu": "x64_windows"},
+)
+
+config_setting(
+    name = "linux_ppc64le",
+    values = {"cpu": "ppc"},
+)

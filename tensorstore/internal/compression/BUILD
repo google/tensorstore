@@ -225,3 +225,38 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "png",
+    srcs = ["png.cc"],
+    hdrs = ["png.h"],
+    deps = [
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/functional:function_ref",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:writer",
+        "@png",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "png_test",
+    size = "small",
+    srcs = ["png_test.cc"],
+    deps = [
+        ":png",
+        "//tensorstore:array",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
