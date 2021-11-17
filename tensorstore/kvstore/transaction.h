@@ -631,6 +631,34 @@ absl::Status AddDeleteRange(Driver* driver,
   return absl::OkStatus();
 }
 
+/// Performs a read via a `ReadModifyWrite` operation in an existing
+/// transaction.
+///
+/// This may be used to perform a simple read within the context of a
+/// transaction.
+///
+/// This guarantees consistent reads: the transaction will fail to commit if the
+/// generation for `key` changes after it is read.
+///
+/// Warning: Currently each call to this function consumes a small amount of
+/// additional memory that is not released until the transaction is committed.
+Future<ReadResult> ReadViaExistingTransaction(
+    Driver* driver, internal::OpenTransactionPtr& transaction, size_t& phase,
+    Key key, kvstore::TransactionalReadOptions options);
+
+/// Performs a write via a `ReadModifyWrite` operation in an existing
+/// transaction.
+///
+/// This may be used to perform a simple write within the context of a
+/// transaction.
+Future<TimestampedStorageGeneration> WriteViaExistingTransaction(
+    Driver* driver, internal::OpenTransactionPtr& transaction, size_t& phase,
+    Key key, std::optional<Value> value, WriteOptions options);
+
+/// Performs a write via a `ReadModifyWrite` operation in a new transaction.
+///
+/// This may be used by drivers that rely on transactions for all operations in
+/// order to implement the non-transactional `Driver::Write` operation.
 Future<TimestampedStorageGeneration> WriteViaTransaction(
     Driver* driver, Key key, std::optional<Value> value, WriteOptions options);
 

@@ -36,6 +36,7 @@
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/collecting_sender.h"
 #include "tensorstore/util/executor.h"
@@ -188,10 +189,14 @@ Driver::~Driver() = default;
 Future<KvStore> Open(Spec spec, OpenOptions&& options) {
   return MapFutureValue(
       InlineExecutor{},
-      [path = std::move(spec.path)](DriverPtr& driver) {
-        return KvStore(std::move(driver), std::move(path));
+      [path = std::move(spec.path),
+       transaction =
+           std::move(options.transaction)](DriverPtr& driver) mutable {
+        return KvStore(std::move(driver), std::move(path),
+                       std::move(transaction));
       },
-      kvstore::Open(std::move(spec.driver), std::move(options)));
+      kvstore::Open(std::move(spec.driver),
+                    static_cast<DriverOpenOptions&&>(options)));
 }
 
 Future<KvStore> Open(::nlohmann::json json_spec, OpenOptions&& options) {
@@ -211,7 +216,7 @@ OpenDriverCache& GetOpenDriverCache() {
 }
 }  // namespace
 
-Future<DriverPtr> Open(DriverSpecPtr spec, OpenOptions&& options) {
+Future<DriverPtr> Open(DriverSpecPtr spec, DriverOpenOptions&& options) {
   TENSORSTORE_RETURN_IF_ERROR(spec.BindContext(options.context));
   return MapFutureValue(
       InlineExecutor{},
@@ -361,16 +366,60 @@ void Spec::StripContext() { driver.StripContext(); }
 
 Future<ReadResult> Read(const KvStore& store, std::string_view key,
                         ReadOptions options) {
-  return store.driver->Read(tensorstore::StrCat(store.path, key),
-                            std::move(options));
+  auto full_key = tensorstore::StrCat(store.path, key);
+  if (store.transaction == no_transaction) {
+    // Regular non-transactional read.
+    return store.driver->Read(std::move(full_key), std::move(options));
+  }
+  if (!StorageGeneration::IsUnknown(options.if_equal)) {
+    return absl::UnimplementedError(
+        "if_equal condition not supported for transactional reads");
+  }
+  if (options.byte_range.inclusive_min || options.byte_range.exclusive_max) {
+    return absl::UnimplementedError(
+        "byte_range restriction not supported for transactional reads");
+  }
+  TransactionalReadOptions transactional_read_options;
+  transactional_read_options.if_not_equal = std::move(options.if_not_equal);
+  transactional_read_options.staleness_bound = options.staleness_bound;
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto open_transaction,
+      internal::AcquireOpenTransactionPtrOrError(store.transaction));
+  size_t phase;
+  return internal_kvstore::ReadViaExistingTransaction(
+      store.driver.get(), open_transaction, phase, std::move(full_key),
+      std::move(transactional_read_options));
 }
 
 Future<TimestampedStorageGeneration> Write(const KvStore& store,
                                            std::string_view key,
                                            std::optional<Value> value,
                                            WriteOptions options) {
-  return store.driver->Write(tensorstore::StrCat(store.path, key),
-                             std::move(value), std::move(options));
+  auto full_key = tensorstore::StrCat(store.path, key);
+  if (store.transaction == no_transaction) {
+    // Regular non-transactional write.
+    return store.driver->Write(std::move(full_key), std::move(value),
+                               std::move(options));
+  }
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto open_transaction,
+      internal::AcquireOpenTransactionPtrOrError(store.transaction));
+  size_t phase;
+  // Drop the write future; the transactional write completes as soon as the
+  // write is applied to the transaction.
+  auto future = internal_kvstore::WriteViaExistingTransaction(
+      store.driver.get(), open_transaction, phase, std::move(full_key),
+      std::move(value), std::move(options));
+  if (future.ready()) {
+    // An error must have occurred, since a successful write can complete until
+    // the transaction is committed, and the transaction cannot commit while we
+    // hold an open transaction reference.
+    assert(!future.result().ok());
+    return future;
+  }
+  // Just return a dummy stamp; the actual write won't complete until the
+  // transaction is committed.
+  return TimestampedStorageGeneration();
 }
 
 Future<TimestampedStorageGeneration> Delete(const KvStore& store,
@@ -380,8 +429,15 @@ Future<TimestampedStorageGeneration> Delete(const KvStore& store,
 }
 
 Future<void> DeleteRange(const KvStore& store, KeyRange range) {
-  return store.driver->DeleteRange(
-      KeyRange::AddPrefix(store.path, std::move(range)));
+  range = KeyRange::AddPrefix(store.path, std::move(range));
+  if (store.transaction == no_transaction) {
+    return store.driver->DeleteRange(std::move(range));
+  }
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto open_transaction,
+      internal::AcquireOpenTransactionPtrOrError(store.transaction));
+  return store.driver->TransactionalDeleteRange(open_transaction,
+                                                std::move(range));
 }
 
 namespace {
@@ -393,18 +449,29 @@ void AddListOptionsPrefix(ListOptions& options, std::string_view path) {
 
 void List(const KvStore& store, ListOptions options,
           AnyFlowReceiver<Status, Key> receiver) {
+  if (store.transaction != no_transaction) {
+    execution::submit(ErrorSender{absl::UnimplementedError(
+                          "transactional list not supported")},
+                      FlowSingleReceiver{std::move(receiver)});
+    return;
+  }
   AddListOptionsPrefix(options, store.path);
   store.driver->ListImpl(std::move(options), std::move(receiver));
 }
 
 AnyFlowSender<absl::Status, Key> List(const KvStore& store,
                                       ListOptions options) {
+  if (store.transaction != no_transaction) {
+    return ErrorSender{
+        absl::UnimplementedError("transactional list not supported")};
+  }
   AddListOptionsPrefix(options, store.path);
   return store.driver->List(std::move(options));
 }
 
 bool operator==(const KvStore& a, const KvStore& b) {
-  return a.driver == b.driver && a.path == b.path;
+  return a.driver == b.driver && a.path == b.path &&
+         a.transaction == b.transaction;
 }
 
 }  // namespace kvstore

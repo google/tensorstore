@@ -316,7 +316,7 @@ class Driver {
 ///
 /// \param spec Driver specification.
 /// \param options Options for opening the spec.
-Future<DriverPtr> Open(DriverSpecPtr spec, OpenOptions&& options);
+Future<DriverPtr> Open(DriverSpecPtr spec, DriverOpenOptions&& options);
 
 /// Opens a `Driver` based on an already-parsed `DriverSpec` and an optional
 /// sequence of options.
@@ -329,12 +329,12 @@ Future<DriverPtr> Open(DriverSpecPtr spec, OpenOptions&& options);
 ///   remain unmodified.  If not specified, `Context::Default()` is used.
 ///
 /// \param spec Driver specification.
-/// \param option Any option compatible with `OpenOptions`.
+/// \param option Any option compatible with `DriverOpenOptions`.
 template <typename... Option>
-static std::enable_if_t<IsCompatibleOptionSequence<OpenOptions, Option...>,
-                        Future<DriverPtr>>
+static std::enable_if_t<
+    IsCompatibleOptionSequence<DriverOpenOptions, Option...>, Future<DriverPtr>>
 Open(DriverSpecPtr spec, Option&&... option) {
-  OpenOptions options;
+  DriverOpenOptions options;
   (options.Set(option), ...);
   return Open(std::move(spec), std::move(options));
 }

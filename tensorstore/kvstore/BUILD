@@ -254,3 +254,16 @@ tensorstore_cc_library(
     ],
     alwayslink = True,
 )
+
+tensorstore_cc_test(
+    name = "transaction_test",
+    size = "small",
+    srcs = ["transaction_test.cc"],
+    deps = [
+        ":test_util",
+        "//tensorstore:transaction",
+        "//tensorstore/kvstore/memory",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

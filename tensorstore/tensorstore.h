@@ -251,7 +251,10 @@ class TensorStore {
   ///
   /// If the driver does not use a key-value store, returns a null (invalid)
   /// key-value store.
-  KvStore kvstore() const { return handle_.driver->GetKvstore(); }
+  ///
+  /// If a `transaction` is bound to this TensorStore, the same transaction will
+  /// be bound to the returned key-value store.
+  KvStore kvstore() const { return internal::GetKvstore(handle_); }
 
   /// Returns the schema for this TensorStore.
   ///

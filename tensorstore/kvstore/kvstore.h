@@ -20,6 +20,7 @@
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/serialization/fwd.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/option.h"
 
@@ -42,15 +43,27 @@ struct SpecRequestOptions {
 template <>
 constexpr inline bool SpecRequestOptions::IsOption<ContextBindingMode> = true;
 
-/// Combines a `Driver::Ptr` with a string path that serves as a key prefix.
+/// Combines a `Driver::Ptr` with a string path that serves as a key prefix, and
+/// an optional transaction.
 class KvStore : public KvStorePathBase<DriverPtr> {
  public:
-  using KvStorePathBase<DriverPtr>::KvStorePathBase;
+  KvStore() = default;
 
-  /// Returns a Spec that can be used to re-open this Path.
+  KvStore(DriverPtr driver) : KvStorePathBase<DriverPtr>(std::move(driver)) {}
+
+  explicit KvStore(DriverPtr driver, Transaction transaction = no_transaction)
+      : KvStorePathBase<DriverPtr>(std::move(driver)),
+        transaction(std::move(transaction)) {}
+
+  explicit KvStore(DriverPtr driver, std::string path,
+                   Transaction transaction = no_transaction)
+      : KvStorePathBase<DriverPtr>(std::move(driver), std::move(path)),
+        transaction(std::move(transaction)) {}
+
+  /// Returns a Spec that can be used to re-open this `KvStore`.
   ///
-  /// Options that modify the returned `Spec::Path` may be specified in any
-  /// order.  Refer to `KeyValueStore::spec` for details on supported options.
+  /// Options that modify the returned `Spec` may be specified in any order.
+  /// Refer to `kvstore::Driver::spec` for details on supported options.
   ///
   /// \param option Any option compatible with `SpecRequestOptions`.
   /// \error `absl::StatusCode::kUnimplemented` if a JSON representation is
@@ -74,11 +87,61 @@ class KvStore : public KvStorePathBase<DriverPtr> {
   friend bool operator!=(const KvStore& a, const KvStore& b) {
     return !(a == b);
   }
+
+  /// Returns the corresponding non-transactional `KvStore`.
+  KvStore non_transactional() const& { return KvStore(driver, path); }
+
+  KvStore non_transactional() && {
+    return KvStore(std::move(driver), std::move(path));
+  }
+
+  /// Changes to a new transaction.
+  ///
+  /// Fails if `store` is already associated with an uncommitted transaction.
+  ///
+  /// This is intended to be used with the "pipeline" `operator|` or
+  /// `ChainResult`.
+  ///
+  /// Example:
+  ///
+  ///     tensorstore::KvStore store = ...;
+  ///     auto transaction = tensorstore::Transaction(tensorstore::isolated);
+  ///     TENSORSTORE_ASSIGN_OR_RETURN(store, store | transaction);
+  ///
+  friend Result<KvStore> ApplyTensorStoreTransaction(KvStore store,
+                                                     Transaction transaction) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        internal::ChangeTransaction(store.transaction, std::move(transaction)));
+    return store;
+  }
+
+  /// "Pipeline" operator.
+  ///
+  /// In the expression  `x | y`, if
+  ///   * y is a function having signature `Result<U>(T)`
+  ///
+  /// Then operator| applies y to the value of x, returning a
+  /// Result<U>. See tensorstore::Result operator| for examples.
+  template <typename Func>
+  PipelineResultType<const KvStore&, Func> operator|(Func&& func) const& {
+    return std::forward<Func>(func)(*this);
+  }
+  template <typename Func>
+  PipelineResultType<KvStore&&, Func> operator|(Func&& func) && {
+    return std::forward<Func>(func)(std::move(*this));
+  }
+
+  /// Bound transaction to use for I/O.
+  Transaction transaction = no_transaction;
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.driver, x.path, x.transaction);
+  };
 };
 
-/// Driver-agnostic options that may be specified when opening a `KvStore`.
+/// Driver-agnostic options that may be specified when opening a `Driver`.
 /// Refer to the documentation of `kvstore::Open` for details.
-struct OpenOptions {
+struct DriverOpenOptions {
   Context context;
 
   template <typename T>
@@ -87,18 +150,50 @@ struct OpenOptions {
   void Set(Context value) { context = std::move(value); }
 };
 
-template <>
-constexpr inline bool OpenOptions::IsOption<Context> = true;
+/// Driver-agnostic options that may be specified when opening a `KvStore`.
+/// Refer to the documentation of `kvstore::Open` for details.
+struct OpenOptions : public DriverOpenOptions {
+  Transaction transaction = no_transaction;
 
-/// Opens a `KeyValueStore` based on an already-parsed `Spec`.
+  template <typename T>
+  constexpr static bool IsOption = DriverOpenOptions::IsOption<T>;
+
+  using DriverOpenOptions::Set;
+
+  void Set(Transaction transaction) {
+    this->transaction = std::move(transaction);
+  }
+};
+
+template <>
+constexpr inline bool DriverOpenOptions::IsOption<Context> = true;
+template <>
+constexpr inline bool OpenOptions::IsOption<Transaction> = true;
+
+/// Opens a `KvStore` based on an already-parsed `Spec`.
 ///
-/// \param spec KeyValueStore path specification.
+/// \param spec KvStore specification.
 /// \param options Options for opening the spec.
 Future<KvStore> Open(Spec spec, OpenOptions&& options);
 
 /// Same as above, but first parses `json_spec` into a `Spec`.
 Future<KvStore> Open(::nlohmann::json json_spec, OpenOptions&& options);
 
+/// Opens a `KvStore` based on an already-parsed `kvstore::Spec` and an optional
+/// sequence of options.
+///
+/// Options may be specified in any order, and are identified by their type.
+/// Supported option types are:
+///
+/// - Context: specifies the context in which to obtain any unbound context
+///   resources in `spec`.  Any already-bound context resources in `spec`
+///   remain unmodified.  If not specified, `Context::Default()` is used.
+///
+/// - Transaction: specifies a transaction to bind to the returned `KvStore`.
+///   Currently this does not affect the open operation itself.
+///
+/// \param spec Driver specification.
+/// \param option Any option compatible with `OpenOptions`.
 template <typename... Option>
 static std::enable_if_t<IsCompatibleOptionSequence<OpenOptions, Option...>,
                         Future<KvStore>>

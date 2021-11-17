@@ -1328,6 +1328,15 @@ Result<Schema> GetSchema(const Driver::Handle& handle) {
   return schema;
 }
 
+KvStore GetKvstore(const DriverHandle& handle) {
+  if (!handle.valid()) return {};
+  auto kvs = handle.driver->GetKvstore();
+  if (kvs.valid()) {
+    kvs.transaction = handle.transaction;
+  }
+  return kvs;
+}
+
 Result<TransformedDriverSpec> GetTransformedDriverSpec(
     const DriverHandle& handle, SpecRequestOptions&& options) {
   TENSORSTORE_ASSIGN_OR_RETURN(

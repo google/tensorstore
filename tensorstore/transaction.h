@@ -25,6 +25,7 @@
 #include <iosfwd>
 
 #include "absl/status/status.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/transaction_impl.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
@@ -305,5 +306,7 @@ inline TransactionState::CommitPtr TransactionState::ToCommitPtr(
 }  // namespace internal
 
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::Transaction)
 
 #endif  // TENSORSTORE_TRANSACTION_H_

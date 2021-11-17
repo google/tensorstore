@@ -15,6 +15,7 @@
 #include "tensorstore/transaction.h"
 
 #include "absl/functional/function_ref.h"
+#include "tensorstore/serialization/serialization.h"
 #include "tensorstore/transaction_impl.h"
 
 namespace tensorstore {
@@ -582,5 +583,20 @@ std::ostream& operator<<(std::ostream& os, TransactionMode mode) {
       return os << "unknown(" << static_cast<int>(mode) << ")";
   }
 }
+
+namespace serialization {
+bool Serializer<Transaction>::Encode(EncodeSink& sink,
+                                     const Transaction& value) {
+  if (value != no_transaction) {
+    sink.Fail(absl::InvalidArgumentError("Cannot serialize bound transaction"));
+    return false;
+  }
+  return true;
+}
+
+bool Serializer<Transaction>::Decode(DecodeSource& sink, Transaction& value) {
+  return true;
+}
+}  // namespace serialization
 
 }  // namespace tensorstore

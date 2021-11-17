@@ -1250,132 +1250,269 @@ absl::Status GetNonAtomicReadModifyWriteError(
   }
   return absl::OkStatus();
 }
-}  // namespace
 
-Future<TimestampedStorageGeneration> WriteViaTransaction(
-    Driver* driver, Key key, std::optional<Value> value, WriteOptions options) {
-  using ReadModifyWriteTarget = ReadModifyWriteTarget;
-  class Node : public internal::TransactionState::Node,
-               public ReadModifyWriteSource {
-   public:
-    Node()
-        :  // No associated data.
-          internal::TransactionState::Node(nullptr) {}
+/// `TransactionState::Node` type used to represent a
+/// `ReadViaExistingTransaction` operation.
+class ReadViaExistingTransactionNode : public internal::TransactionState::Node,
+                                       public ReadModifyWriteSource {
+ public:
+  ReadViaExistingTransactionNode()
+      :  // No associated data.
+        internal::TransactionState::Node(nullptr) {}
 
-    // Implementation of `TransactionState::Node` requirements:
+  // Implementation of `TransactionState::Node` requirements:
 
-    void PrepareForCommit() override {
-      // Ensure `this` is not destroyed before `Commit` is called if
-      // `WritebackSuccess` or `WritebackError` is triggered synchronously from
-      // a transaction node on which `Commit` happens to be called first.
-      intrusive_ptr_increment(this);
-      this->PrepareDone();
-      this->ReadyForCommit();
-    }
+  void PrepareForCommit() override {
+    // Ensure `this` is not destroyed before `Commit` is called if
+    // `WritebackSuccess` or `WritebackError` is triggered synchronously from
+    // a transaction node on which `Commit` happens to be called first.
+    intrusive_ptr_increment(this);
+    this->PrepareDone();
+    this->ReadyForCommit();
+  }
 
-    void Commit() override { intrusive_ptr_decrement(this); }
+  void Commit() override { intrusive_ptr_decrement(this); }
 
-    void Abort() override { AbortDone(); }
+  void Abort() override { AbortDone(); }
 
-    // Implementation of `ReadModifyWriteSource` interface:
+  // Implementation of `ReadModifyWriteSource` interface:
 
-    void KvsSetTarget(ReadModifyWriteTarget& target) override {
-      target_ = &target;
-    }
-    void KvsInvalidateReadState() override {}
-    void KvsWriteback(
-        ReadModifyWriteSource::WritebackOptions options,
-        ReadModifyWriteSource::WritebackReceiver receiver) override {
-      if (!StorageGeneration::IsConditional(read_result_.stamp.generation)) {
-        // Writeback is unconditional.  Therefore, we never need to request the
-        // existing read state.
-        execution::set_value(receiver, read_result_);
+  void KvsSetTarget(ReadModifyWriteTarget& target) override {
+    target_ = &target;
+  }
+  void KvsInvalidateReadState() override {}
+  void KvsWriteback(
+      ReadModifyWriteSource::WritebackOptions options,
+      ReadModifyWriteSource::WritebackReceiver receiver) override {
+    ReadModifyWriteTarget::TransactionalReadOptions read_options = options;
+
+    if (options.writeback_mode !=
+        ReadModifyWriteSource::kSpecifyUnchangedWriteback) {
+      // If `expected_stamp_.generation` is clean, then there are no prior
+      // modifications.  In that case writeback can proceed immediately without
+      // a prior read request.
+      TimestampedStorageGeneration expected_stamp;
+      {
+        absl::MutexLock lock(&mutex_);
+        expected_stamp = expected_stamp_;
+      }
+      if (StorageGeneration::IsClean(expected_stamp.generation) &&
+          expected_stamp.time >= read_options.staleness_bound) {
+        // Nothing to write back, just need to verify generation.
+        execution::set_value(receiver, ReadResult{ReadResult::kUnspecified,
+                                                  {},
+                                                  std::move(expected_stamp)});
         return;
       }
-      // Writeback is conditional.  We have to perform a read request in order
-      // to determine an up-to-date writeback value (which may be required by a
-      // subsequent read-modify-write operation layered on top of this
-      // operation).
-      ReadModifyWriteTarget::TransactionalReadOptions read_options;
-      read_options.if_not_equal =
-          StorageGeneration::Clean(read_result_.stamp.generation);
-      read_options.staleness_bound = options.staleness_bound;
-      struct ReadReceiverImpl {
-        Node& source_;
-        ReadModifyWriteSource::WritebackReceiver receiver_;
-        void set_value(ReadResult read_result) {
-          auto& existing_generation = source_.read_result_.stamp.generation;
-          auto clean_generation = StorageGeneration::Clean(existing_generation);
-          // Check if the new read generation matches the condition specified in
-          // the read request.
-          if (read_result.stamp.generation == clean_generation ||
-              // As a special case, if the user specified
-              // `if_equal=StorageGeneration::NoValue()`, then match based on
-              // the `state` rather than the exact generation, since it is valid
-              // for a missing value to have a generation other than
-              // `StorageGeneration::NoValue()`.  For example,
-              // `Uint64ShardedKeyValueStore` uses the generation of the shard
-              // even for missing keys.
-              (source_.if_equal_no_value_ &&
-               read_result.state == ReadResult::kMissing)) {
-            // Read generation matches, store the updated stamp.  Normally this
-            // will just store an updated time, but in the `if_equal_no_value_`
-            // case, this may also store an updated generation.
-            source_.read_result_.stamp = std::move(read_result.stamp);
-            source_.read_result_.stamp.generation.MarkDirty();
-          } else {
-            // Read generation does not match.  Since the constraint was
-            // violated, we will instead just provide the existing read value as
-            // the writeback value.  The fact that
-            // `source_.read_result_.stamp.generation` is not marked dirty
-            // indicates to the transaction machinery that writeback is not
-            // actually necessary.
-            assert(
-                !StorageGeneration::IsNewlyDirty(read_result.stamp.generation));
-            source_.read_result_ = std::move(read_result);
-            source_.if_equal_no_value_ = false;
-          }
-          execution::set_value(receiver_, source_.read_result_);
-        }
-        void set_cancel() { execution::set_cancel(receiver_); }
-        void set_error(absl::Status error) {
-          execution::set_error(receiver_, std::move(error));
-        }
-      };
-      target_->KvsRead(std::move(read_options),
-                       ReadReceiverImpl{*this, std::move(receiver)});
     }
-    void KvsWritebackError() override { this->CommitDone(); }
-    void KvsRevoke() override {}
-    void KvsWritebackSuccess(TimestampedStorageGeneration new_stamp) override {
-      if (!StorageGeneration::IsNewlyDirty(read_result_.stamp.generation)) {
-        new_stamp = TimestampedStorageGeneration{};
-      } else if (new_stamp.time == absl::InfiniteFuture()) {
-        new_stamp.generation = StorageGeneration::Invalid();
+
+    // Read request is needed to verify/update existing value.
+
+    struct ReadReceiverImpl {
+      ReadViaExistingTransactionNode& node_;
+      ReadModifyWriteSource::WritebackReceiver receiver_;
+      void set_value(ReadResult read_result) {
+        bool mismatch;
+        {
+          absl::MutexLock lock(&node_.mutex_);
+          mismatch = !StorageGeneration::EqualOrUnspecified(
+              read_result.stamp.generation, node_.expected_stamp_.generation);
+        }
+        if (mismatch) {
+          execution::set_error(receiver_,
+                               absl::AbortedError("Generation mismatch"));
+          return;
+        }
+        execution::set_value(receiver_, std::move(read_result));
       }
-      promise_.SetResult(std::move(new_stamp));
-      this->CommitDone();
+      void set_cancel() { execution::set_cancel(receiver_); }
+      void set_error(absl::Status error) {
+        execution::set_error(receiver_, std::move(error));
+      }
+    };
+    target_->KvsRead(std::move(read_options),
+                     ReadReceiverImpl{*this, std::move(receiver)});
+  }
+  void KvsWritebackError() override { this->CommitDone(); }
+  void KvsRevoke() override {}
+  void KvsWritebackSuccess(TimestampedStorageGeneration new_stamp) override {
+    this->CommitDone();
+  }
+
+  absl::Mutex mutex_;
+
+  /// Expected read generation.
+  ///
+  /// If not equal to `StorageGeneration::Unknown()`, `Commit` will fail if
+  /// this does not match.
+  TimestampedStorageGeneration expected_stamp_;
+
+  ReadModifyWriteTarget* target_;
+};
+}  // namespace
+
+Future<ReadResult> ReadViaExistingTransaction(
+    Driver* driver, internal::OpenTransactionPtr& transaction, size_t& phase,
+    Key key, kvstore::TransactionalReadOptions options) {
+  auto [promise, future] = PromiseFuturePair<ReadResult>::Make();
+  using Node = ReadViaExistingTransactionNode;
+  // It is sufficient to use `WeakTransactionNodePtr`, since the transaction is
+  // already kept open by the `transaction` pointer.
+  internal::WeakTransactionNodePtr<Node> node;
+  node.reset(new Node);
+  TENSORSTORE_RETURN_IF_ERROR(
+      driver->ReadModifyWrite(transaction, phase, std::move(key), *node));
+  node->SetTransaction(*transaction);
+  node->SetPhase(phase);
+  TENSORSTORE_RETURN_IF_ERROR(node->Register());
+  struct InitialReadReceiverImpl {
+    internal::OpenTransactionNodePtr<Node> node_;
+    Promise<ReadResult> promise_;
+
+    void set_value(ReadResult read_result) {
+      {
+        absl::MutexLock lock(&node_->mutex_);
+        node_->expected_stamp_ = read_result.stamp;
+      }
+      promise_.SetResult(std::move(read_result));
     }
-
-    /// Promise that will be marked ready when the write operation is committed
-    /// (or fails).
-    Promise<TimestampedStorageGeneration> promise_;
-
-    /// Either the original write request, or the most recent read result.
-    ///
-    /// If the `if_equal` constraint is found to be violated, then we store the
-    /// new read result here, because the result of "writeback" will actually
-    /// just be the existing read result (since the requested conditional write
-    /// will have no effect).
-    ReadResult read_result_;
-
-    /// If `true`, `if_equal=StorageGeneration::NoValue()` was specified, and it
-    /// has not yet been found to have been violated (`read_result_` still
-    /// contains the original write value).
-    bool if_equal_no_value_;
-
-    ReadModifyWriteTarget* target_;
+    void set_cancel() {}
+    void set_error(absl::Status error) { promise_.SetResult(std::move(error)); }
   };
+  node->target_->KvsRead(std::move(options),
+                         InitialReadReceiverImpl{
+                             internal::OpenTransactionNodePtr<Node>(node.get()),
+                             std::move(promise)});
+  return future;
+}
+
+namespace {
+/// `TransactionState::Node` type used to represent a
+/// `WriteViaExistingTransaction` operation.
+class WriteViaExistingTransactionNode : public internal::TransactionState::Node,
+                                        public ReadModifyWriteSource {
+ public:
+  WriteViaExistingTransactionNode()
+      :  // No associated data.
+        internal::TransactionState::Node(nullptr) {}
+
+  // Implementation of `TransactionState::Node` requirements:
+
+  void PrepareForCommit() override {
+    // Ensure `this` is not destroyed before `Commit` is called if
+    // `WritebackSuccess` or `WritebackError` is triggered synchronously from
+    // a transaction node on which `Commit` happens to be called first.
+    intrusive_ptr_increment(this);
+    this->PrepareDone();
+    this->ReadyForCommit();
+  }
+
+  void Commit() override { intrusive_ptr_decrement(this); }
+
+  void Abort() override { AbortDone(); }
+
+  // Implementation of `ReadModifyWriteSource` interface:
+
+  void KvsSetTarget(ReadModifyWriteTarget& target) override {
+    target_ = &target;
+  }
+  void KvsInvalidateReadState() override {}
+  void KvsWriteback(
+      ReadModifyWriteSource::WritebackOptions options,
+      ReadModifyWriteSource::WritebackReceiver receiver) override {
+    if (!StorageGeneration::IsConditional(read_result_.stamp.generation)) {
+      // Writeback is unconditional.  Therefore, the existing read state does
+      // not need to be requested.
+      execution::set_value(receiver, read_result_);
+      return;
+    }
+    // Writeback is conditional.  A read request must be performed in order to
+    // determine an up-to-date writeback value (which may be required by a
+    // subsequent read-modify-write operation layered on top of this operation).
+    ReadModifyWriteTarget::TransactionalReadOptions read_options;
+    read_options.if_not_equal =
+        StorageGeneration::Clean(read_result_.stamp.generation);
+    read_options.staleness_bound = options.staleness_bound;
+    struct ReadReceiverImpl {
+      WriteViaExistingTransactionNode& source_;
+      ReadModifyWriteSource::WritebackReceiver receiver_;
+      void set_value(ReadResult read_result) {
+        auto& existing_generation = source_.read_result_.stamp.generation;
+        auto clean_generation = StorageGeneration::Clean(existing_generation);
+        // Check if the new read generation matches the condition specified in
+        // the read request.
+        if (read_result.stamp.generation == clean_generation ||
+            // As a special case, if the user specified
+            // `if_equal=StorageGeneration::NoValue()`, then match based on
+            // the `state` rather than the exact generation, since it is valid
+            // for a missing value to have a generation other than
+            // `StorageGeneration::NoValue()`.  For example,
+            // `Uint64ShardedKeyValueStore` uses the generation of the shard
+            // even for missing keys.
+            (source_.if_equal_no_value_ &&
+             read_result.state == ReadResult::kMissing)) {
+          // Read generation matches, store the updated stamp.  Normally this
+          // will just store an updated time, but in the `if_equal_no_value_`
+          // case, this may also store an updated generation.
+          source_.read_result_.stamp = std::move(read_result.stamp);
+          source_.read_result_.stamp.generation.MarkDirty();
+        } else {
+          // Read generation does not match.  Since the constraint was violated,
+          // just provide the existing read value as the writeback value.  The
+          // fact that `source_.read_result_.stamp.generation` is not marked
+          // dirty indicates to the transaction machinery that writeback is not
+          // actually necessary.
+          assert(
+              !StorageGeneration::IsNewlyDirty(read_result.stamp.generation));
+          source_.read_result_ = std::move(read_result);
+          source_.if_equal_no_value_ = false;
+        }
+        execution::set_value(receiver_, source_.read_result_);
+      }
+      void set_cancel() { execution::set_cancel(receiver_); }
+      void set_error(absl::Status error) {
+        execution::set_error(receiver_, std::move(error));
+      }
+    };
+    target_->KvsRead(std::move(read_options),
+                     ReadReceiverImpl{*this, std::move(receiver)});
+  }
+  void KvsWritebackError() override { this->CommitDone(); }
+  void KvsRevoke() override {}
+  void KvsWritebackSuccess(TimestampedStorageGeneration new_stamp) override {
+    if (!StorageGeneration::IsNewlyDirty(read_result_.stamp.generation)) {
+      new_stamp = TimestampedStorageGeneration{};
+    } else if (new_stamp.time == absl::InfiniteFuture()) {
+      new_stamp.generation = StorageGeneration::Invalid();
+    }
+    promise_.SetResult(std::move(new_stamp));
+    this->CommitDone();
+  }
+
+  /// Promise that will be marked ready when the write operation is committed
+  /// (or fails).
+  Promise<TimestampedStorageGeneration> promise_;
+
+  /// Either the original write request, or the most recent read result.
+  ///
+  /// If the `if_equal` constraint is found to be violated, then the new read
+  /// result is stored here, because the result of "writeback" will actually
+  /// just be the existing read result (since the requested conditional write
+  /// will have no effect).
+  ReadResult read_result_;
+
+  /// If `true`, `if_equal=StorageGeneration::NoValue()` was specified, and it
+  /// has not yet been found to have been violated (`read_result_` still
+  /// contains the original write value).
+  bool if_equal_no_value_;
+
+  ReadModifyWriteTarget* target_;
+};
+}  // namespace
+
+Future<TimestampedStorageGeneration> WriteViaExistingTransaction(
+    Driver* driver, internal::OpenTransactionPtr& transaction, size_t& phase,
+    Key key, std::optional<Value> value, WriteOptions options) {
   ReadResult read_result;
   if (value) {
     read_result.state = ReadResult::kValue;
@@ -1394,13 +1531,12 @@ Future<TimestampedStorageGeneration> WriteViaTransaction(
   read_result.stamp.generation.MarkDirty();
   auto [promise, future] =
       PromiseFuturePair<TimestampedStorageGeneration>::Make();
+  using Node = WriteViaExistingTransactionNode;
   internal::WeakTransactionNodePtr<Node> node;
   node.reset(new Node);
   node->promise_ = promise;
   node->read_result_ = std::move(read_result);
   node->if_equal_no_value_ = if_equal_no_value;
-  internal::OpenTransactionPtr transaction;
-  size_t phase;
   TENSORSTORE_RETURN_IF_ERROR(
       driver->ReadModifyWrite(transaction, phase, std::move(key), *node));
   node->SetTransaction(*transaction);
@@ -1408,6 +1544,14 @@ Future<TimestampedStorageGeneration> WriteViaTransaction(
   TENSORSTORE_RETURN_IF_ERROR(node->Register());
   LinkError(std::move(promise), transaction->future());
   return future;
+}
+
+Future<TimestampedStorageGeneration> WriteViaTransaction(
+    Driver* driver, Key key, std::optional<Value> value, WriteOptions options) {
+  internal::OpenTransactionPtr transaction;
+  size_t phase;
+  return WriteViaExistingTransaction(driver, transaction, phase, std::move(key),
+                                     std::move(value), std::move(options));
 }
 
 }  // namespace internal_kvstore
@@ -1446,5 +1590,4 @@ absl::Status Driver::TransactionalDeleteRange(
 }
 
 }  // namespace kvstore
-
 }  // namespace tensorstore

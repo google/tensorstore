@@ -696,6 +696,9 @@ Result<DimensionUnitsVector> GetDimensionUnits(const Driver::Handle& handle);
 
 Result<Schema> GetSchema(const Driver::Handle& handle);
 
+/// Returns the associated kvstore, with transaction bound.
+KvStore GetKvstore(const DriverHandle& handle);
+
 Result<TransformedDriverSpec> GetTransformedDriverSpec(
     const DriverHandle& handle, SpecRequestOptions&& options);
 

@@ -694,6 +694,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:intrusive_red_black_tree",
         "//tensorstore/internal:mutex",
+        "//tensorstore/serialization",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util/garbage_collection",
