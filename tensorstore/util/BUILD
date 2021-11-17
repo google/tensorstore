@@ -793,3 +793,24 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "rational",
+    hdrs = ["rational.h"],
+    deps = [
+        ":division",
+        "//tensorstore/internal:integer_overflow",
+        "//tensorstore/serialization",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "rational_test",
+    size = "small",
+    srcs = ["rational_test.cc"],
+    deps = [
+        ":rational",
+        ":str_cat",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

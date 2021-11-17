@@ -2020,3 +2020,31 @@ tensorstore_cc_library(
         "//tensorstore/util:unit",
     ],
 )
+
+tensorstore_cc_library(
+    name = "json_rational",
+    hdrs = ["json_rational.h"],
+    deps = [
+        ":json",
+        "//tensorstore/util:rational",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "json_rational_test",
+    size = "small",
+    srcs = ["json_rational_test.cc"],
+    deps = [
+        ":json_gtest",
+        ":json_rational",
+        "//tensorstore/util:rational",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
