@@ -164,23 +164,22 @@ class JsonCache : public JsonCacheBase, public AsyncInitializedCacheMixin {
   Context::Resource<internal::CachePoolResource> cache_pool_;
 };
 
-class JsonDriver
-    : public RegisteredDriver<JsonDriver, /*Parent=*/internal::Driver> {
+class JsonDriverSpec
+    : public RegisteredDriverSpec<JsonDriverSpec,
+                                  /*Parent=*/internal::DriverSpec> {
  public:
   constexpr static char id[] = "json";
 
-  struct SpecData : public internal::DriverSpecCommonData {
-    kvstore::Spec store;
-    Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency;
-    Context::Resource<CachePoolResource> cache_pool;
-    StalenessBound data_staleness;
-    std::string json_pointer;
+  kvstore::Spec store;
+  Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency;
+  Context::Resource<CachePoolResource> cache_pool;
+  StalenessBound data_staleness;
+  std::string json_pointer;
 
-    constexpr static auto ApplyMembers = [](auto& x, auto f) {
-      return f(internal::BaseCast<internal::DriverSpecCommonData>(x), x.store,
-               x.data_copy_concurrency, x.cache_pool, x.data_staleness,
-               x.json_pointer);
-    };
+  constexpr static auto ApplyMembers = [](auto& x, auto f) {
+    return f(internal::BaseCast<internal::DriverSpec>(x), x.store,
+             x.data_copy_concurrency, x.cache_pool, x.data_staleness,
+             x.json_pointer);
   };
 
   static absl::Status ValidateSchema(Schema& schema) {
@@ -196,58 +195,59 @@ class JsonDriver
     return absl::OkStatus();
   }
 
-  constexpr static auto json_binder = jb::Sequence(
+  constexpr static auto default_json_binder = jb::Sequence(
       jb::Initialize([](auto* obj) -> absl::Status {
         return ValidateSchema(obj->schema);
       }),
       jb::Member(DataCopyConcurrencyResource::id,
-                 jb::Projection(&SpecData::data_copy_concurrency)),
+                 jb::Projection<&JsonDriverSpec::data_copy_concurrency>()),
       jb::Member(internal::CachePoolResource::id,
-                 jb::Projection(&SpecData::cache_pool)),
-      jb::Projection<&SpecData::store>(jb::KvStoreSpecAndPathJsonBinder),
-      jb::Member("recheck_cached_data",
-                 jb::Projection(&SpecData::data_staleness,
-                                jb::DefaultValue([](auto* obj) {
-                                  obj->bounded_by_open_time = true;
-                                }))),
+                 jb::Projection<&JsonDriverSpec::cache_pool>()),
+      jb::Projection<&JsonDriverSpec::store>(jb::KvStoreSpecAndPathJsonBinder),
       jb::Member(
-          "json_pointer",
-          jb::Projection(&SpecData::json_pointer,
-                         jb::Validate(
-                             [](const auto& options, auto* obj) {
-                               return tensorstore::json_pointer::Validate(*obj);
-                             },
-                             jb::DefaultInitializedValue()))));
+          "recheck_cached_data",
+          jb::Projection<&JsonDriverSpec::data_staleness>(jb::DefaultValue(
+              [](auto* obj) { obj->bounded_by_open_time = true; }))),
+      jb::Member("json_pointer",
+                 jb::Projection<&JsonDriverSpec::json_pointer>(jb::Validate(
+                     [](const auto& options, auto* obj) {
+                       return tensorstore::json_pointer::Validate(*obj);
+                     },
+                     jb::DefaultInitializedValue()))));
 
-  static absl::Status ApplyOptions(SpecData& spec, SpecOptions&& options) {
+  absl::Status ApplyOptions(SpecOptions&& options) override {
     if (options.recheck_cached_data.specified()) {
-      spec.data_staleness = StalenessBound(options.recheck_cached_data);
+      data_staleness = StalenessBound(options.recheck_cached_data);
     } else if (options.recheck_cached_data.specified()) {
-      spec.data_staleness = StalenessBound(options.recheck_cached_metadata);
+      data_staleness = StalenessBound(options.recheck_cached_metadata);
     }
     if (options.kvstore.valid()) {
-      if (spec.store.valid()) {
+      if (store.valid()) {
         return absl::InvalidArgumentError("\"kvstore\" is already specified");
       }
-      spec.store = std::move(options.kvstore);
+      store = std::move(options.kvstore);
     }
     return ValidateSchema(options);
   }
 
-  static Result<IndexDomain<>> SpecGetDomain(const SpecData& spec) {
-    return IndexDomain<>(0);
-  }
+  Result<IndexDomain<>> GetDomain() const override { return IndexDomain<>(0); }
 
-  static Result<ChunkLayout> SpecGetChunkLayout(const SpecData& spec) {
+  Result<ChunkLayout> GetChunkLayout() const override {
     ChunkLayout layout;
     layout.Set(RankConstraint{0}).IgnoreError();
     return layout;
   }
 
-  static kvstore::Spec SpecGetKvstore(const SpecData& spec) {
-    return spec.store;
-  }
+  kvstore::Spec GetKvstore() const override { return store; }
 
+  Future<internal::Driver::Handle> Open(
+      internal::OpenTransactionPtr transaction,
+      ReadWriteMode read_write_mode) const override;
+};
+
+class JsonDriver : public RegisteredDriver<JsonDriver,
+                                           /*Parent=*/internal::Driver> {
+ public:
   KvStore GetKvstore() override;
 
   Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override {
@@ -256,14 +256,9 @@ class JsonDriver
     return layout | transform;
   }
 
-  static Future<internal::Driver::Handle> Open(
+  Result<TransformedDriverSpec> GetBoundSpec(
       internal::OpenTransactionPtr transaction,
-      internal::RegisteredDriverOpener<SpecData> spec,
-      ReadWriteMode read_write_mode);
-
-  Result<IndexTransform<>> GetBoundSpecData(
-      internal::OpenTransactionPtr transaction, SpecData& spec,
-      IndexTransformView<> transform) const;
+      IndexTransformView<> transform) override;
 
   DataType dtype() override { return dtype_v<json_t>; }
   DimensionIndex rank() override { return 0; }  // COV_NF_LINE
@@ -284,26 +279,25 @@ class JsonDriver
   std::string json_pointer_;
 };
 
-Future<internal::Driver::Handle> JsonDriver::Open(
+Future<internal::Driver::Handle> JsonDriverSpec::Open(
     internal::OpenTransactionPtr transaction,
-    internal::RegisteredDriverOpener<SpecData> spec,
-    ReadWriteMode read_write_mode) {
+    ReadWriteMode read_write_mode) const {
   if (read_write_mode == ReadWriteMode::dynamic) {
     read_write_mode = ReadWriteMode::read_write;
   }
-  if (!spec->store.valid()) {
+  if (!store.valid()) {
     return absl::InvalidArgumentError("\"kvstore\" must be specified");
   }
   std::string cache_identifier;
   auto request_time = absl::Now();
-  internal::EncodeCacheKey(&cache_identifier, spec->store.driver,
-                           spec->data_copy_concurrency);
+  internal::EncodeCacheKey(&cache_identifier, store.driver,
+                           data_copy_concurrency);
   auto cache = internal::GetOrCreateAsyncInitializedCache<JsonCache>(
-      **spec->cache_pool, cache_identifier,
+      **cache_pool, cache_identifier,
       [&] {
         auto cache = std::make_unique<JsonCache>();
-        cache->data_copy_concurrency_ = spec->data_copy_concurrency;
-        cache->cache_pool_ = spec->cache_pool;
+        cache->data_copy_concurrency_ = data_copy_concurrency;
+        cache->cache_pool_ = cache_pool;
         return cache;
       },
       [&](Promise<void> initialize_promise, CachePtr<JsonCache> cache) {
@@ -313,12 +307,12 @@ Future<internal::Driver::Handle> JsonDriver::Open(
                                        ReadyFuture<kvstore::DriverPtr> future) {
               cache->SetKvStoreDriver(std::move(*future.result()));
             },
-            initialize_promise, kvstore::Open(spec->store.driver));
+            initialize_promise, kvstore::Open(store.driver));
       });
   internal::Driver::PtrT<JsonDriver> driver(new JsonDriver, read_write_mode);
-  driver->cache_entry_ = GetCacheEntry(cache, spec->store.path);
-  driver->json_pointer_ = spec->json_pointer;
-  driver->data_staleness_ = spec->data_staleness.BoundAtOpen(request_time);
+  driver->cache_entry_ = GetCacheEntry(cache, store.path);
+  driver->json_pointer_ = json_pointer;
+  driver->data_staleness_ = data_staleness.BoundAtOpen(request_time);
   return PromiseFuturePair<internal::Driver::Handle>::LinkError(
              internal::Driver::Handle{std::move(driver), IdentityTransform(0),
                                       internal::TransactionState::ToTransaction(
@@ -327,20 +321,24 @@ Future<internal::Driver::Handle> JsonDriver::Open(
       .future;
 }
 
-Result<IndexTransform<>> JsonDriver::GetBoundSpecData(
-    internal::OpenTransactionPtr transaction, SpecData& spec,
-    IndexTransformView<> transform) const {
+Result<TransformedDriverSpec> JsonDriver::GetBoundSpec(
+    internal::OpenTransactionPtr transaction, IndexTransformView<> transform) {
+  auto driver_spec = DriverSpec::Make<JsonDriverSpec>();
+  driver_spec->context_binding_state_ = ContextBindingState::bound;
   auto& cache = GetOwningCache(*cache_entry_);
-  TENSORSTORE_ASSIGN_OR_RETURN(spec.store.driver,
+  TENSORSTORE_ASSIGN_OR_RETURN(driver_spec->store.driver,
                                cache.kvstore_driver()->GetBoundSpec());
-  spec.store.path = cache_entry_->key();
-  spec.data_copy_concurrency = cache.data_copy_concurrency_;
-  spec.cache_pool = cache.cache_pool_;
-  spec.data_staleness = data_staleness_;
-  spec.json_pointer = json_pointer_;
-  spec.schema.Set(RankConstraint{0}).IgnoreError();
-  spec.schema.Set(dtype_v<json_t>).IgnoreError();
-  return transform;
+  driver_spec->store.path = cache_entry_->key();
+  driver_spec->data_copy_concurrency = cache.data_copy_concurrency_;
+  driver_spec->cache_pool = cache.cache_pool_;
+  driver_spec->data_staleness = data_staleness_;
+  driver_spec->json_pointer = json_pointer_;
+  driver_spec->schema.Set(RankConstraint{0}).IgnoreError();
+  driver_spec->schema.Set(dtype_v<json_t>).IgnoreError();
+  TransformedDriverSpec spec;
+  spec.driver_spec = std::move(driver_spec);
+  spec.transform = std::move(transform);
+  return spec;
 }
 
 KvStore JsonDriver::GetKvstore() {
@@ -539,7 +537,7 @@ struct GarbageCollection<internal::JsonDriver> {
 namespace internal {
 namespace {
 
-const internal::DriverRegistration<JsonDriver> driver_registration;
+const internal::DriverRegistration<JsonDriverSpec> driver_registration;
 
 }  // namespace
 

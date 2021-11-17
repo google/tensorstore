@@ -25,6 +25,8 @@
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/executor.h"
@@ -958,6 +960,19 @@ TEST(ArrayTest, SpecFromArrayWithDimensionUnits) {
   EXPECT_THAT(
       store.dimension_units(),
       ::testing::Optional(::testing::ElementsAre(tensorstore::Unit("5nm"))));
+}
+
+TEST(ArraySerializationTest, SerializationRoundTest) {
+  ::nlohmann::json json_spec{
+      {"driver", "array"},
+      {"array", 42},
+      {"dtype", "uint32"},
+      {"transform", {{"input_rank", 0}}},
+      {"context", {{"data_copy_concurrency", {{"limit", 1}}}}}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(json_spec));
+  tensorstore::serialization::TestSerializationRoundTrip(spec);
+  tensorstore::TestJsonBinderRoundTrip<tensorstore::Spec>({{spec, json_spec}});
 }
 
 }  // namespace open_tests

@@ -79,7 +79,7 @@ Result<ResizeParameters> GetResizeParameters(
                         })
           .result());
   auto driver = tensorstore::internal::static_pointer_cast<
-      tensorstore::internal_kvs_backed_chunk_driver::DriverBase>(
+      tensorstore::internal_kvs_backed_chunk_driver::KvsDriverBase>(
       tensorstore::internal::TensorStoreAccess::handle(store).driver);
   return tensorstore::internal_kvs_backed_chunk_driver::GetResizeParameters(
       driver->cache(), &metadata, driver->component_index(), transform,

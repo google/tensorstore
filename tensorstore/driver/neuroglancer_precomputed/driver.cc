@@ -41,13 +41,75 @@ namespace {
 
 namespace jb = tensorstore::internal_json_binding;
 
-struct SpecData : public internal_kvs_backed_chunk_driver::SpecData {
+using internal_kvs_backed_chunk_driver::KvsDriverSpec;
+
+class NeuroglancerPrecomputedDriverSpec
+    : public internal::RegisteredDriverSpec<NeuroglancerPrecomputedDriverSpec,
+                                            KvsDriverSpec> {
+ public:
+  using Base = internal::RegisteredDriverSpec<NeuroglancerPrecomputedDriverSpec,
+                                              KvsDriverSpec>;
+  constexpr static char id[] = "neuroglancer_precomputed";
+
   OpenConstraints open_constraints;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
-    return f(internal::BaseCast<internal_kvs_backed_chunk_driver::SpecData>(x),
-             x.open_constraints);
+    return f(internal::BaseCast<KvsDriverSpec>(x), x.open_constraints);
   };
+
+  static inline const auto default_json_binder = jb::Sequence(
+      internal_kvs_backed_chunk_driver::SpecJsonBinder,
+      [](auto is_loading, auto options, auto* obj, auto* j) {
+        options.Set(obj->schema.dtype());
+        return jb::DefaultBinder<>(is_loading, options, &obj->open_constraints,
+                                   j);
+      },
+      jb::Initialize([](auto* obj) {
+        TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(RankConstraint{4}));
+        TENSORSTORE_RETURN_IF_ERROR(
+            obj->schema.Set(obj->open_constraints.multiscale.dtype));
+        return absl::OkStatus();
+      }));
+
+  absl::Status ApplyOptions(SpecOptions&& options) override {
+    if (options.minimal_spec) {
+      open_constraints.scale = ScaleMetadataConstraints{};
+      open_constraints.multiscale = MultiscaleMetadataConstraints{};
+    }
+    return Base::ApplyOptions(std::move(options));
+  }
+
+  Result<IndexDomain<>> GetDomain() const override {
+    return GetEffectiveDomain(/*existing_metadata=*/nullptr, open_constraints,
+                              schema);
+  }
+
+  Result<CodecSpec::Ptr> GetCodec() const override {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto codec,
+                                 GetEffectiveCodec(open_constraints, schema));
+    return CodecSpec::Ptr(std::move(codec));
+  }
+
+  Result<ChunkLayout> GetChunkLayout() const override {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto domain_and_chunk_layout,
+        GetEffectiveDomainAndChunkLayout(/*existing_metadata=*/nullptr,
+                                         open_constraints, schema));
+    return domain_and_chunk_layout.second;
+  }
+
+  Result<SharedArray<const void>> GetFillValue(
+      IndexTransformView<> transform) const override {
+    return {std::in_place};
+  }
+
+  Result<DimensionUnitsVector> GetDimensionUnits() const override {
+    return GetEffectiveDimensionUnits(open_constraints, schema);
+  }
+
+  Future<internal::Driver::Handle> Open(
+      internal::OpenTransactionPtr transaction,
+      ReadWriteMode read_write_mode) const override;
 };
 
 Result<std::shared_ptr<const MultiscaleMetadata>> ParseEncodedMetadata(
@@ -234,11 +296,10 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
   }
 
   absl::Status GetBoundSpecData(
-      internal_kvs_backed_chunk_driver::SpecData& spec_base,
-      const void* metadata_ptr,
+      KvsDriverSpec& spec_base, const void* metadata_ptr,
       [[maybe_unused]] std::size_t component_index) override {
     assert(component_index == 0);
-    auto& spec = static_cast<SpecData&>(spec_base);
+    auto& spec = static_cast<NeuroglancerPrecomputedDriverSpec&>(spec_base);
     const auto& metadata =
         *static_cast<const MultiscaleMetadata*>(metadata_ptr);
     const auto& scale = metadata.scales[scale_index_];
@@ -410,69 +471,14 @@ class ShardedDataCache : public DataCacheBase {
 
 class NeuroglancerPrecomputedDriver
     : public internal_kvs_backed_chunk_driver::RegisteredKvsDriver<
-          NeuroglancerPrecomputedDriver> {
+          NeuroglancerPrecomputedDriver, NeuroglancerPrecomputedDriverSpec> {
   using Base = internal_kvs_backed_chunk_driver::RegisteredKvsDriver<
-      NeuroglancerPrecomputedDriver>;
+      NeuroglancerPrecomputedDriver, NeuroglancerPrecomputedDriverSpec>;
 
  public:
   using Base::Base;
 
-  constexpr static char id[] = "neuroglancer_precomputed";
-
-  using SpecData = internal_neuroglancer_precomputed::SpecData;
-
-  static inline const auto json_binder = jb::Sequence(
-      internal_kvs_backed_chunk_driver::SpecJsonBinder,
-      [](auto is_loading, auto options, auto* obj, auto* j) {
-        options.Set(obj->schema.dtype());
-        return jb::DefaultBinder<>(is_loading, options, &obj->open_constraints,
-                                   j);
-      },
-      jb::Initialize([](SpecData* obj) {
-        TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(RankConstraint{4}));
-        TENSORSTORE_RETURN_IF_ERROR(
-            obj->schema.Set(obj->open_constraints.multiscale.dtype));
-        return absl::OkStatus();
-      }));
-
   class OpenState;
-
-  static absl::Status ApplyOptions(SpecData& spec, SpecOptions&& options) {
-    if (options.minimal_spec) {
-      spec.open_constraints.scale = ScaleMetadataConstraints{};
-      spec.open_constraints.multiscale = MultiscaleMetadataConstraints{};
-    }
-    return Base::ApplyOptions(spec, std::move(options));
-  }
-
-  static Result<IndexDomain<>> SpecGetDomain(const SpecData& spec) {
-    return GetEffectiveDomain(/*existing_metadata=*/nullptr,
-                              spec.open_constraints, spec.schema);
-  }
-
-  static Result<CodecSpec::Ptr> SpecGetCodec(const SpecData& spec) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto codec, GetEffectiveCodec(spec.open_constraints, spec.schema));
-    return CodecSpec::Ptr(std::move(codec));
-  }
-
-  static Result<ChunkLayout> SpecGetChunkLayout(const SpecData& spec) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto domain_and_chunk_layout,
-        GetEffectiveDomainAndChunkLayout(/*existing_metadata=*/nullptr,
-                                         spec.open_constraints, spec.schema));
-    return domain_and_chunk_layout.second;
-  }
-
-  static Result<SharedArray<const void>> SpecGetFillValue(
-      const SpecData& spec, IndexTransformView<> transform) {
-    return {std::in_place};
-  }
-
-  static Result<DimensionUnitsVector> SpecGetDimensionUnits(
-      const SpecData& spec) {
-    return GetEffectiveDimensionUnits(spec.open_constraints, spec.schema);
-  }
 
   Result<DimensionUnitsVector> GetDimensionUnits() override {
     auto* cache = static_cast<DataCacheBase*>(this->cache());
@@ -617,6 +623,13 @@ class NeuroglancerPrecomputedDriver::OpenState
   std::array<Index, 3> chunk_size_xyz_;
 };
 
+Future<internal::Driver::Handle> NeuroglancerPrecomputedDriverSpec::Open(
+    internal::OpenTransactionPtr transaction,
+    ReadWriteMode read_write_mode) const {
+  return NeuroglancerPrecomputedDriver::Open(std::move(transaction), this,
+                                             read_write_mode);
+}
+
 }  // namespace
 }  // namespace internal_neuroglancer_precomputed
 }  // namespace tensorstore
@@ -635,6 +648,6 @@ TENSORSTORE_DEFINE_GARBAGE_COLLECTION_SPECIALIZATION(
 namespace {
 const tensorstore::internal::DriverRegistration<
     tensorstore::internal_neuroglancer_precomputed::
-        NeuroglancerPrecomputedDriver>
+        NeuroglancerPrecomputedDriverSpec>
     registration;
 }  // namespace

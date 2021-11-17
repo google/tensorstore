@@ -129,16 +129,6 @@ struct HandleBase {
 /// a transaction to use.
 using DriverHandle = HandleBase<Driver>;
 
-/// Members common to all driver spec and bound driver spec types.
-class DriverSpecCommonData {
- public:
-  Schema schema;
-
-  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
-    return f(x.schema);
-  };
-};
-
 /// Abstract base class representing a TensorStore driver specification, for
 /// creating a `Driver` from a JSON representation.
 ///
@@ -163,6 +153,14 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   /// DriverSpec objects are logically immutable and always managed by
   /// reference-counted smart pointer.
   using Ptr = IntrusivePtr<const DriverSpec>;
+
+  template <typename T>
+  using PtrT = IntrusivePtr<T>;
+
+  template <typename T, typename... U>
+  static PtrT<T> Make(U&&... u) {
+    return PtrT<T>(new T(std::forward<U>(u)...));
+  }
 
   virtual ~DriverSpec();
 
@@ -222,49 +220,59 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   virtual Future<DriverHandle> Open(OpenTransactionPtr transaction,
                                     ReadWriteMode read_write_mode) const = 0;
 
-  /// Returns the domain, or a null domain if unknown.
-  virtual Result<IndexDomain<>> GetDomain() const = 0;
+  /// Returns the effective domain, or a null domain if unknown.
+  ///
+  /// By default, returns `schema.domain()`.
+  virtual Result<IndexDomain<>> GetDomain() const;
 
-  /// Returns the chunk layout.
-  virtual Result<ChunkLayout> GetChunkLayout() const = 0;
+  /// Returns the effective chunk layout.
+  ///
+  /// By default, returns `schema.chunk_layout()`.
+  virtual Result<ChunkLayout> GetChunkLayout() const;
 
-  /// Returns the codec spec.
-  virtual Result<CodecSpec::Ptr> GetCodec() const = 0;
+  /// Returns the effective codec spec.
+  ///
+  /// By default, returns `schema.codec()`.
+  virtual Result<CodecSpec::Ptr> GetCodec() const;
 
-  /// Returns the fill value.
+  /// Returns the effective fill value.
+  ///
+  /// By default, returns `schema.fill_value()`.
   virtual Result<SharedArray<const void>> GetFillValue(
-      IndexTransformView<> transform) const = 0;
+      IndexTransformView<> transform) const;
 
-  virtual Result<DimensionUnitsVector> GetDimensionUnits() const = 0;
+  /// Returns the effective dimension units.
+  ///
+  /// By default, returns `schema.dimension_units()`.
+  virtual Result<DimensionUnitsVector> GetDimensionUnits() const;
 
   /// Returns the associated KeyValueStore path spec, or an invalid (null) path
   /// spec if there is none.
-  virtual kvstore::Spec GetKvstore() const = 0;
+  ///
+  /// By default returns a null spec.
+  virtual kvstore::Spec GetKvstore() const;
 
   virtual void GarbageCollectionVisit(
       garbage_collection::GarbageCollectionVisitor& visitor) const = 0;
 
-  /// Returns the common spec data (stored as a member of the derived type).
-  virtual DriverSpecCommonData& data() = 0;
+  virtual std::string_view GetId() const = 0;
 
-  /// Returns the stored schema.
-  ///
-  /// Note that this may not include information represented by driver-specific
-  /// metadata or other options.
-  ///
-  /// To obtain the effective schema including any constraints implied by
-  /// driver-specific metadata, call `GetEffectiveSchema` instead.
-  Schema& schema() { return data().schema; }
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    // Exclude `context_binding_state_` because it is handled specially.
+    return f(x.schema, x.context_spec_);
+  };
 
-  const Schema& schema() const {
-    return const_cast<DriverSpec&>(*this).data().schema;
-  }
+  Schema schema;
 
   /// Specifies any context resource overrides.
   Context::Spec context_spec_;
 
   ContextBindingState context_binding_state_ = ContextBindingState::unknown;
 };
+
+template <>
+struct ContextBindingTraits<DriverSpec>
+    : public NoOpContextBindingTraits<DriverSpec> {};
 
 absl::Status DriverSpecBindContext(DriverSpecPtr& spec, const Context& context);
 void DriverSpecUnbindContext(DriverSpecPtr& spec,

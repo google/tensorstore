@@ -44,24 +44,16 @@ DriverRegistry& GetDriverRegistry() {
 
 DriverSpec::~DriverSpec() = default;
 
-Result<IndexDomain<>> RegisteredDriverBase::SpecGetDomain(
-    const DriverSpecCommonData& spec) {
-  return spec.schema.domain();
+Result<IndexDomain<>> DriverSpec::GetDomain() const { return schema.domain(); }
+
+Result<ChunkLayout> DriverSpec::GetChunkLayout() const {
+  return schema.chunk_layout();
 }
 
-Result<ChunkLayout> RegisteredDriverBase::SpecGetChunkLayout(
-    const DriverSpecCommonData& spec) {
-  return spec.schema.chunk_layout();
-}
+Result<CodecSpec::Ptr> DriverSpec::GetCodec() const { return schema.codec(); }
 
-Result<CodecSpec::Ptr> RegisteredDriverBase::SpecGetCodec(
-    const DriverSpecCommonData& spec) {
-  return spec.schema.codec();
-}
-
-Result<SharedArray<const void>> RegisteredDriverBase::SpecGetFillValue(
-    const DriverSpecCommonData& spec, IndexTransformView<> transform) {
-  auto& schema = spec.schema;
+Result<SharedArray<const void>> DriverSpec::GetFillValue(
+    IndexTransformView<> transform) const {
   auto fill_value = schema.fill_value();
   if (!fill_value.valid()) return {std::in_place};
   if (!transform.valid()) {
@@ -71,15 +63,11 @@ Result<SharedArray<const void>> RegisteredDriverBase::SpecGetFillValue(
                                            schema.domain());
 }
 
-Result<DimensionUnitsVector> RegisteredDriverBase::SpecGetDimensionUnits(
-    const DriverSpecCommonData& spec) {
-  return DimensionUnitsVector(spec.schema.dimension_units());
+Result<DimensionUnitsVector> DriverSpec::GetDimensionUnits() const {
+  return DimensionUnitsVector(schema.dimension_units());
 }
 
-kvstore::Spec RegisteredDriverBase::SpecGetKvstore(
-    const DriverSpecCommonData& spec) {
-  return {};
-}
+kvstore::Spec DriverSpec::GetKvstore() const { return {}; }
 
 absl::Status ApplyOptions(DriverSpec::Ptr& spec, SpecOptions&& options) {
   if (spec->use_count() != 1) spec = spec->Clone();
@@ -147,7 +135,7 @@ Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
   TENSORSTORE_ASSIGN_OR_RETURN(auto dimension_units,
                                spec.driver_spec->GetDimensionUnits());
   if (dimension_units.empty()) {
-    if (const DimensionIndex rank = spec.driver_spec->schema().rank();
+    if (const DimensionIndex rank = spec.driver_spec->schema.rank();
         rank != dynamic_rank) {
       dimension_units.resize(rank);
     }
@@ -162,8 +150,8 @@ Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
 Result<Schema> GetEffectiveSchema(const TransformedDriverSpec& spec) {
   if (!spec.driver_spec) return {std::in_place};
   Schema schema;
-  TENSORSTORE_RETURN_IF_ERROR(schema.Set(spec.driver_spec->schema().dtype()));
-  TENSORSTORE_RETURN_IF_ERROR(schema.Set(spec.driver_spec->schema().rank()));
+  TENSORSTORE_RETURN_IF_ERROR(schema.Set(spec.driver_spec->schema.dtype()));
+  TENSORSTORE_RETURN_IF_ERROR(schema.Set(spec.driver_spec->schema.rank()));
   {
     TENSORSTORE_ASSIGN_OR_RETURN(auto domain, GetEffectiveDomain(spec));
     TENSORSTORE_RETURN_IF_ERROR(schema.Set(domain));
@@ -193,7 +181,7 @@ Result<Schema> GetEffectiveSchema(const TransformedDriverSpec& spec) {
 
 DimensionIndex GetRank(const TransformedDriverSpec& spec) {
   if (spec.transform.valid()) return spec.transform.input_rank();
-  if (spec.driver_spec) return spec.driver_spec->schema().rank();
+  if (spec.driver_spec) return spec.driver_spec->schema.rank();
   return dynamic_rank;
 }
 
@@ -224,17 +212,25 @@ Future<Driver::Handle> OpenDriver(OpenTransactionPtr transaction,
 Future<Driver::Handle> OpenDriver(OpenTransactionPtr transaction,
                                   TransformedDriverSpec bound_spec,
                                   ReadWriteMode read_write_mode) {
-  return MapFutureValue(
+  return MapFuture(
       InlineExecutor{},
-      [transform = std::move(bound_spec.transform)](
-          Driver::Handle handle) mutable -> Result<Driver::Handle> {
+      [transform = std::move(bound_spec.transform),
+       id = bound_spec.driver_spec->GetId()](
+          Result<Driver::Handle>& handle) mutable -> Result<Driver::Handle> {
+        if (!handle.ok()) {
+          return tensorstore::MaybeAnnotateStatus(
+              handle.status(),
+              tensorstore::StrCat("Error opening ",
+                                  tensorstore::QuoteString(id), " driver"));
+        }
         if (transform.valid()) {
           TENSORSTORE_ASSIGN_OR_RETURN(
-              handle.transform,
-              tensorstore::ComposeTransforms(std::move(handle.transform),
+              handle->transform,
+              tensorstore::ComposeTransforms(std::move(handle->transform),
                                              std::move(transform)));
         }
-        return handle;
+        // Move handle out of the `Future`.
+        return std::move(handle);
       },
       bound_spec.driver_spec->Open(std::move(transaction), read_write_mode));
 }
@@ -320,26 +316,22 @@ TENSORSTORE_DEFINE_JSON_BINDER(
               },
               jb::Sequence(
                   jb::Initialize([](DriverSpec* x) {
-                    internal_context::Access::context_binding_state(*x) =
-                        ContextBindingState::unbound;
+                    x->context_binding_state_ = ContextBindingState::unbound;
                   }),
                   jb::Member("context",
                              jb::Projection(
                                  &DriverSpec::context_spec_,
                                  internal::ContextSpecDefaultableJsonBinder)),
                   jb::Member("schema",
-                             jb::Projection(
-                                 [](auto& x) -> decltype(auto) {
-                                   return (x.schema());
-                                 },
+                             jb::Projection<&DriverSpec::schema>(
                                  SchemaExcludingRankAndDtypeJsonBinder())),
-                  jb::Member("dtype",
-                             jb::GetterSetter(
-                                 [](auto& x) { return x.schema().dtype(); },
-                                 [](auto& x, DataType value) {
-                                   return x.schema().Set(value);
-                                 },
-                                 jb::ConstrainedDataTypeJsonBinder)))),
+                  jb::Member(
+                      "dtype",
+                      jb::GetterSetter([](auto& x) { return x.schema.dtype(); },
+                                       [](auto& x, DataType value) {
+                                         return x.schema.Set(value);
+                                       },
+                                       jb::ConstrainedDataTypeJsonBinder)))),
           jb::OptionalMember("transform",
                              jb::Projection(&TransformedDriverSpec::transform)),
           jb::OptionalMember(
@@ -349,7 +341,7 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                     return obj.transform.valid()
                                ? static_cast<DimensionIndex>(dynamic_rank)
                                : static_cast<DimensionIndex>(
-                                     obj.driver_spec->schema().rank());
+                                     obj.driver_spec->schema.rank());
                   },
                   [](const auto& obj, DimensionIndex rank) {
                     if (rank != dynamic_rank) {
@@ -363,8 +355,7 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                       } else {
                         TENSORSTORE_RETURN_IF_ERROR(
                             const_cast<DriverSpec&>(*obj.driver_spec)
-                                .schema()
-                                .Set(RankConstraint{rank}));
+                                .schema.Set(RankConstraint{rank}));
                       }
                     }
                     return absl::OkStatus();
@@ -373,8 +364,7 @@ TENSORSTORE_DEFINE_JSON_BINDER(
           jb::Initialize([](auto* obj) {
             if (!obj->transform.valid()) return absl::OkStatus();
             return const_cast<DriverSpec&>(*obj->driver_spec)
-                .schema()
-                .Set(RankConstraint{obj->transform.output_rank()});
+                .schema.Set(RankConstraint{obj->transform.output_rank()});
           }),
           jb::Projection(&TransformedDriverSpec::driver_spec,
                          registry.RegisteredObjectBinder()),

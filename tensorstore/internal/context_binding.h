@@ -99,13 +99,8 @@
 namespace tensorstore {
 namespace internal {
 
-/// Traits type that may be specialized for a given `Spec` type to define
-/// context binding/unbinding operations.
-///
-/// This default definition handles the trivial case where the `Spec` type
-/// contains no context resources.
-template <typename Spec, typename SFINAE = void>
-struct ContextBindingTraits {
+template <typename Spec>
+struct NoOpContextBindingTraits {
   /// Resolves context resources in `spec` using `context.
   static Status Bind(Spec& spec, const Context& context) {
     return absl::OkStatus();
@@ -117,6 +112,14 @@ struct ContextBindingTraits {
   /// Resets context resources in `spec` to default resource specs.
   static void Strip(Spec& spec) {}
 };
+
+/// Traits type that may be specialized for a given `Spec` type to define
+/// context binding/unbinding operations.
+///
+/// This default definition handles the trivial case where the `Spec` type
+/// contains no context resources.
+template <typename Spec, typename SFINAE = void>
+struct ContextBindingTraits : public NoOpContextBindingTraits<Spec> {};
 
 /// Specialization of `ContextBindingTraits` for `Context::Resource`.
 template <typename Provider>

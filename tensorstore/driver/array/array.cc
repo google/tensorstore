@@ -65,30 +65,104 @@
 // values.
 
 namespace tensorstore {
-namespace internal {
+namespace internal_array_driver {
 namespace {
+
+using internal::Arena;
+using internal::DataCopyConcurrencyResource;
+using internal::NDIterable;
+using internal::ReadChunk;
+using internal::WriteChunk;
 
 namespace jb = tensorstore::internal_json_binding;
 
-/// Defines the "array" TensorStore driver.
-class ArrayDriver
-    : public RegisteredDriver<ArrayDriver, /*Parent=*/internal::Driver> {
+Result<ChunkLayout> GetChunkLayoutFromStridedLayout(
+    StridedLayoutView<> strided_layout) {
+  ChunkLayout layout;
+  const DimensionIndex rank = strided_layout.rank();
+  layout.Set(RankConstraint(rank)).IgnoreError();
+  DimensionIndex inner_order[kMaxRank];
+  SetPermutationFromStridedLayout(strided_layout, span(inner_order, rank));
+  TENSORSTORE_RETURN_IF_ERROR(
+      layout.Set(ChunkLayout::InnerOrder(span(inner_order, rank))));
+  TENSORSTORE_RETURN_IF_ERROR(
+      layout.Set(ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(rank))));
+  TENSORSTORE_RETURN_IF_ERROR(layout.Finalize());
+  return layout;
+}
+
+class ArrayDriverSpec
+    : public internal::RegisteredDriverSpec<ArrayDriverSpec,
+                                            /*Parent=*/internal::DriverSpec> {
  public:
   /// Specifies the string identifier under which the driver will be registered.
   constexpr static char id[] = "array";
 
-  /// RegisteredDriver types must define a `SpecData` class specifying the
-  /// parameters and resources necessary to create/open the driver.
-  struct SpecData : public internal::DriverSpecCommonData {
-    Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency;
-    SharedArray<const void> array;
+  Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency;
+  SharedArray<const void> array;
 
-    constexpr static auto ApplyMembers = [](auto& x, auto f) {
-      return f(internal::BaseCast<internal::DriverSpecCommonData>(x),
-               x.data_copy_concurrency, x.array);
-    };
+  constexpr static auto ApplyMembers = [](auto& x, auto f) {
+    return f(internal::BaseCast<internal::DriverSpec>(x),
+             x.data_copy_concurrency, x.array);
   };
 
+  /// JSON binder, required by `RegisteredDriver`.
+  constexpr static auto default_json_binder = jb::Object(
+      jb::Initialize([](auto* obj) -> Status {
+        if (!obj->schema.dtype().valid()) {
+          return absl::InvalidArgumentError("dtype must be specified");
+        }
+        return absl::OkStatus();
+      }),
+      jb::Member(DataCopyConcurrencyResource::id,
+                 jb::Projection<&ArrayDriverSpec::data_copy_concurrency>()),
+      jb::Member("array",
+                 [](auto is_loading, const auto& options, auto* obj, auto* j) {
+                   return jb::Projection<&ArrayDriverSpec::array>(
+                       jb::NestedVoidArray(obj->schema.dtype(),
+                                           obj->schema.rank()))(
+                       is_loading, options, obj, j);
+                 }),
+      jb::Initialize([](auto* obj) {
+        // `jb::NestedArray` ensures that the array rank is compatible with
+        // `obj->rank`.
+        assert(AreStaticRanksCompatible(obj->array.rank(), obj->schema.rank()));
+        obj->schema.Set(RankConstraint{obj->array.rank()}).IgnoreError();
+      }));
+
+  absl::Status ApplyOptions(SpecOptions&& options) override {
+    if (options.kvstore.valid()) {
+      return absl::InvalidArgumentError(
+          "\"kvstore\" not supported by \"array\" driver");
+    }
+    return schema.Set(static_cast<Schema&&>(options));
+  }
+
+  Result<IndexDomain<>> GetDomain() const override {
+    return IndexDomain(array.shape());
+  }
+
+  Result<ChunkLayout> GetChunkLayout() const override {
+    return GetChunkLayoutFromStridedLayout(array.layout());
+  }
+
+  Result<CodecSpec::Ptr> GetCodec() const override { return {std::in_place}; }
+
+  Result<SharedArray<const void>> GetFillValue(
+      IndexTransformView<> transform) const override {
+    return {std::in_place};
+  }
+
+  Future<internal::DriverHandle> Open(
+      internal::OpenTransactionPtr transaction,
+      ReadWriteMode read_write_mode) const override;
+};
+
+/// Defines the "array" TensorStore driver.
+class ArrayDriver
+    : public internal::RegisteredDriver<ArrayDriver,
+                                        /*Parent=*/internal::Driver> {
+ public:
   explicit ArrayDriver(
       Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency,
       SharedArray<void> data, DimensionUnitsVector dimension_units)
@@ -99,39 +173,14 @@ class ArrayDriver
     assert(data_copy_concurrency_.has_resource());
   }
 
-  /// JSON binder for `SpecData`, required by `RegisteredDriver`.
-  constexpr static auto json_binder = jb::Object(
-      jb::Initialize([](auto* obj) -> Status {
-        if (!obj->schema.dtype().valid()) {
-          return absl::InvalidArgumentError("dtype must be specified");
-        }
-        return absl::OkStatus();
-      }),
-      jb::Member(DataCopyConcurrencyResource::id,
-                 jb::Projection(&SpecData::data_copy_concurrency)),
-      jb::Member("array",
-                 [](auto is_loading, const auto& options, auto* obj, auto* j) {
-                   return jb::Projection(
-                       &SpecData::array,
-                       jb::NestedVoidArray(obj->schema.dtype(),
-                                           obj->schema.rank()))(
-                       is_loading, options, obj, j);
-                 }),
-      jb::Initialize([](SpecData* obj) {
-        // `jb::NestedArray` ensures that the array rank is compatible with
-        // `obj->rank`.
-        assert(AreStaticRanksCompatible(obj->array.rank(), obj->schema.rank()));
-        obj->schema.Set(RankConstraint{obj->array.rank()}).IgnoreError();
-      }));
-
-  using Ptr = Driver::PtrT<ArrayDriver>;
+  using Ptr = internal::Driver::PtrT<ArrayDriver>;
 
   void Read(
-      OpenTransactionPtr transaction, IndexTransform<> transform,
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
       AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) override;
 
   void Write(
-      OpenTransactionPtr transaction, IndexTransform<> transform,
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
       AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) override;
 
   DataType dtype() override { return data_.dtype(); }
@@ -142,35 +191,13 @@ class ArrayDriver
     return data_copy_concurrency_->executor;
   }
 
-  static Status ApplyOptions(SpecData& spec, SpecOptions&& options) {
-    if (options.kvstore.valid()) {
-      return absl::InvalidArgumentError(
-          "\"kvstore\" not supported by \"array\" driver");
-    }
-    return spec.schema.Set(static_cast<Schema&&>(options));
-  }
-
-  static Result<IndexDomain<>> SpecGetDomain(const SpecData& spec);
-
-  static Result<ChunkLayout> SpecGetChunkLayout(const SpecData& spec);
-
-  static Result<CodecSpec::Ptr> SpecGetCodec(const SpecData& spec);
-
-  static Result<SharedArray<const void>> SpecGetFillValue(
-      const SpecData& spec, IndexTransformView<> transform);
-
-  Result<IndexTransform<>> GetBoundSpecData(
-      internal::OpenTransactionPtr transaction, SpecData& spec,
-      IndexTransformView<> transform);
+  Result<internal::TransformedDriverSpec> GetBoundSpec(
+      internal::OpenTransactionPtr transaction,
+      IndexTransformView<> transform) override;
 
   Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override;
 
   Result<DimensionUnitsVector> GetDimensionUnits() override;
-
-  static Future<internal::Driver::Handle> Open(
-      internal::OpenTransactionPtr transaction,
-      internal::RegisteredDriverOpener<SpecData> spec,
-      ReadWriteMode read_write_mode);
 
  private:
   Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency_;
@@ -190,9 +217,9 @@ absl::Status TransactionError() {
 }
 
 void ArrayDriver::Read(
-    OpenTransactionPtr transaction, IndexTransform<> transform,
+    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
     AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) {
-  // Implementation of `tensorstore::internal::ReadChunk::Impl` Poly interface.
+  // Implementation of `tensorstore::ReadChunk::Impl` Poly interface.
   struct ChunkImpl {
     ArrayDriver::Ptr self;
 
@@ -224,7 +251,7 @@ void ArrayDriver::Read(
 }
 
 void ArrayDriver::Write(
-    OpenTransactionPtr transaction, IndexTransform<> transform,
+    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
     AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) {
   // Implementation of `tensorstore::internal::WriteChunk::Impl` Poly interface.
   struct ChunkImpl {
@@ -244,7 +271,7 @@ void ArrayDriver::Write(
 
     WriteChunk::EndWriteResult operator()(
         WriteChunk::EndWrite, IndexTransformView<> chunk_transform,
-        NDIterable::IterationLayoutView layout,
+        internal::NDIterable::IterationLayoutView layout,
         span<const Index> write_end_position, Arena* arena) {
       return {};
     }
@@ -264,10 +291,11 @@ void ArrayDriver::Write(
   execution::set_stopping(receiver);
 }
 
-Result<IndexTransform<>> ArrayDriver::GetBoundSpecData(
-    internal::OpenTransactionPtr transaction, SpecData& spec,
-    IndexTransformView<> transform) {
+Result<internal::TransformedDriverSpec> ArrayDriver::GetBoundSpec(
+    internal::OpenTransactionPtr transaction, IndexTransformView<> transform) {
   if (transaction) return TransactionError();
+  auto driver_spec = internal::DriverSpec::Make<ArrayDriverSpec>();
+  driver_spec->context_binding_state_ = ContextBindingState::bound;
   SharedArray<const void> array;
   {
     absl::ReaderMutexLock lock(&mutex_);
@@ -295,27 +323,17 @@ Result<IndexTransform<>> ArrayDriver::GetBoundSpecData(
       ++output_dim;
     }
   }
-  spec.array = std::move(new_array);
-  spec.data_copy_concurrency = data_copy_concurrency_;
-  spec.schema.Set(spec.array.dtype()).IgnoreError();
-  spec.schema.Set(RankConstraint{spec.array.rank()}).IgnoreError();
-  spec.schema.Set(Schema::DimensionUnits(dimension_units_)).IgnoreError();
-  return transform_builder.Finalize();
-}
-
-Result<ChunkLayout> GetChunkLayoutFromStridedLayout(
-    StridedLayoutView<> strided_layout) {
-  ChunkLayout layout;
-  const DimensionIndex rank = strided_layout.rank();
-  layout.Set(RankConstraint(rank)).IgnoreError();
-  DimensionIndex inner_order[kMaxRank];
-  SetPermutationFromStridedLayout(strided_layout, span(inner_order, rank));
-  TENSORSTORE_RETURN_IF_ERROR(
-      layout.Set(ChunkLayout::InnerOrder(span(inner_order, rank))));
-  TENSORSTORE_RETURN_IF_ERROR(
-      layout.Set(ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(rank))));
-  TENSORSTORE_RETURN_IF_ERROR(layout.Finalize());
-  return layout;
+  driver_spec->array = std::move(new_array);
+  driver_spec->data_copy_concurrency = data_copy_concurrency_;
+  driver_spec->schema.Set(driver_spec->array.dtype()).IgnoreError();
+  driver_spec->schema.Set(RankConstraint{driver_spec->array.rank()})
+      .IgnoreError();
+  driver_spec->schema.Set(Schema::DimensionUnits(dimension_units_))
+      .IgnoreError();
+  internal::TransformedDriverSpec spec;
+  spec.driver_spec = std::move(driver_spec);
+  TENSORSTORE_ASSIGN_OR_RETURN(spec.transform, transform_builder.Finalize());
+  return spec;
 }
 
 Result<ChunkLayout> ArrayDriver::GetChunkLayout(
@@ -329,15 +347,13 @@ Result<DimensionUnitsVector> ArrayDriver::GetDimensionUnits() {
   return dimension_units_;
 }
 
-Future<internal::Driver::Handle> ArrayDriver::Open(
+Future<internal::Driver::Handle> ArrayDriverSpec::Open(
     internal::OpenTransactionPtr transaction,
-    internal::RegisteredDriverOpener<SpecData> spec,
-    ReadWriteMode read_write_mode) {
+    ReadWriteMode read_write_mode) const {
   if (transaction) return TransactionError();
   if (read_write_mode == ReadWriteMode::dynamic) {
     read_write_mode = ReadWriteMode::read_write;
   }
-  const auto& schema = spec->schema;
   if (schema.fill_value().valid()) {
     return absl::InvalidArgumentError("fill_value not supported");
   }
@@ -345,16 +361,15 @@ Future<internal::Driver::Handle> ArrayDriver::Open(
     return absl::InvalidArgumentError("codec not supported");
   }
   if (IndexDomainView<> domain = schema.domain();
-      domain.valid() && domain.box() != spec->array.domain()) {
+      domain.valid() && domain.box() != array.domain()) {
     return absl::InvalidArgumentError(
         tensorstore::StrCat("Mismatch between domain in schema { ", domain,
-                            " } and array { ", spec->array.domain(), " }"));
+                            " } and array { ", array.domain(), " }"));
   }
   if (auto schema_chunk_layout = schema.chunk_layout();
       schema_chunk_layout.rank() != dynamic_rank) {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        auto chunk_layout,
-        GetChunkLayoutFromStridedLayout(spec->array.layout()));
+        auto chunk_layout, GetChunkLayoutFromStridedLayout(array.layout()));
     TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(schema.chunk_layout()));
     if (chunk_layout.write_chunk_shape().hard_constraint ||
         chunk_layout.read_chunk_shape().hard_constraint ||
@@ -363,36 +378,23 @@ Future<internal::Driver::Handle> ArrayDriver::Open(
           tensorstore::StrCat("chunking not supported"));
     }
   }
-  DimensionUnitsVector dimension_units(spec->array.rank());
+  DimensionUnitsVector dimension_units(array.rank());
   if (auto schema_units = schema.dimension_units(); schema_units.valid()) {
     MergeDimensionUnits(dimension_units, schema_units).IgnoreError();
   }
   return internal::Driver::Handle{
-      Ptr(new ArrayDriver(spec->data_copy_concurrency,
-                          tensorstore::MakeCopy(spec->array),
+      internal::Driver::Ptr(
+          new ArrayDriver(data_copy_concurrency, tensorstore::MakeCopy(array),
                           std::move(dimension_units)),
           read_write_mode),
-      tensorstore::IdentityTransform(spec->array.shape())};
-}
-
-Result<IndexDomain<>> ArrayDriver::SpecGetDomain(const SpecData& spec) {
-  return IndexDomain(spec.array.shape());
-}
-
-Result<ChunkLayout> ArrayDriver::SpecGetChunkLayout(const SpecData& spec) {
-  return GetChunkLayoutFromStridedLayout(spec.array.layout());
-}
-
-Result<CodecSpec::Ptr> ArrayDriver::SpecGetCodec(const SpecData& spec) {
-  return {std::in_place};
-}
-
-Result<SharedArray<const void>> ArrayDriver::SpecGetFillValue(
-    const SpecData& spec, IndexTransformView<> transform) {
-  return {std::in_place};
+      tensorstore::IdentityTransform(array.shape())};
 }
 
 }  // namespace
+
+}  // namespace internal_array_driver
+
+namespace internal {
 
 template <ArrayOriginKind OriginKind>
 Result<internal::Driver::Handle> MakeArrayDriver(
@@ -422,7 +424,7 @@ Result<internal::Driver::Handle> MakeArrayDriver(
   }
   return internal::Driver::Handle{
       Driver::Ptr(
-          new ArrayDriver(
+          new internal_array_driver::ArrayDriver(
               context.GetResource<DataCopyConcurrencyResource>().value(),
               std::move(zero_origin_array), std::move(dimension_units)),
           ReadWriteMode::read_write),
@@ -442,12 +444,12 @@ TENSORSTORE_INTERNAL_DO_INSTANTIATE(offset_origin)
 
 Result<tensorstore::Spec> SpecFromArray(SharedOffsetArrayView<const void> array,
                                         DimensionUnitsVector dimension_units) {
-  using internal::ArrayDriver;
   using internal_spec::SpecAccess;
   Spec spec;
   auto& impl = SpecAccess::impl(spec);
-  auto driver_spec = ArrayDriver::DriverSpecBuilder::Make();
-  driver_spec.context_binding_state() = ContextBindingState::unbound;
+  auto driver_spec =
+      internal::DriverSpec::Make<internal_array_driver::ArrayDriverSpec>();
+  driver_spec->context_binding_state_ = ContextBindingState::unbound;
   driver_spec->schema.Set(RankConstraint{array.rank()}).IgnoreError();
   driver_spec->schema.Set(array.dtype()).IgnoreError();
   if (!dimension_units.empty()) {
@@ -462,17 +464,17 @@ Result<tensorstore::Spec> SpecFromArray(SharedOffsetArrayView<const void> array,
   TENSORSTORE_ASSIGN_OR_RETURN(
       driver_spec->array,
       (tensorstore::ArrayOriginCast<zero_origin, container>(std::move(array))));
-  impl.driver_spec = std::move(driver_spec).Build();
+  impl.driver_spec = std::move(driver_spec);
   return spec;
 }
 
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
-    tensorstore::internal::ArrayDriver)
+    tensorstore::internal_array_driver::ArrayDriver)
 
 namespace {
 const tensorstore::internal::DriverRegistration<
-    tensorstore::internal::ArrayDriver>
+    tensorstore::internal_array_driver::ArrayDriverSpec>
     driver_registration;
 }  // namespace

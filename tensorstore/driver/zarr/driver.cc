@@ -90,45 +90,38 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
 
 namespace jb = tensorstore::internal_json_binding;
 
-class ZarrDriver
-    : public internal_kvs_backed_chunk_driver::RegisteredKvsDriver<ZarrDriver> {
-  using Base =
-      internal_kvs_backed_chunk_driver::RegisteredKvsDriver<ZarrDriver>;
+using internal_kvs_backed_chunk_driver::KvsDriverSpec;
 
+class ZarrDriverSpec
+    : public internal::RegisteredDriverSpec<ZarrDriverSpec,
+                                            /*Parent=*/KvsDriverSpec> {
  public:
-  using Base::Base;
-
-  class OpenState;
-
+  using Base = internal::RegisteredDriverSpec<ZarrDriverSpec,
+                                              /*Parent=*/KvsDriverSpec>;
   constexpr static char id[] = "zarr";
 
-  struct SpecData : public internal_kvs_backed_chunk_driver::SpecData {
-    ZarrPartialMetadata partial_metadata;
-    SelectedField selected_field;
+  ZarrPartialMetadata partial_metadata;
+  SelectedField selected_field;
 
-    constexpr static auto ApplyMembers = [](auto& x, auto f) {
-      return f(
-          internal::BaseCast<internal_kvs_backed_chunk_driver::SpecData>(x),
-          x.partial_metadata, x.selected_field);
-    };
+  constexpr static auto ApplyMembers = [](auto& x, auto f) {
+    return f(internal::BaseCast<KvsDriverSpec>(x), x.partial_metadata,
+             x.selected_field);
   };
-
-  static Status ApplyOptions(SpecData& spec, SpecOptions&& options) {
+  Status ApplyOptions(SpecOptions&& options) override {
     if (options.minimal_spec) {
-      spec.partial_metadata = ZarrPartialMetadata{};
+      partial_metadata = ZarrPartialMetadata{};
     }
-    return Base::ApplyOptions(spec, std::move(options));
+    return Base::ApplyOptions(std::move(options));
   }
 
-  static Result<SpecRankAndFieldInfo> GetSpecInfo(const SpecData& spec) {
-    return GetSpecRankAndFieldInfo(spec.partial_metadata, spec.selected_field,
-                                   spec.schema);
+  Result<SpecRankAndFieldInfo> GetSpecInfo() const {
+    return GetSpecRankAndFieldInfo(partial_metadata, selected_field, schema);
   }
 
-  static inline const auto json_binder = jb::Sequence(
+  static inline const auto default_json_binder = jb::Sequence(
       internal_kvs_backed_chunk_driver::SpecJsonBinder,
-      jb::Member("metadata", jb::Projection(&SpecData::partial_metadata,
-                                            jb::DefaultInitializedValue())),
+      jb::Member("metadata", jb::Projection<&ZarrDriverSpec::partial_metadata>(
+                                 jb::DefaultInitializedValue())),
       // Deprecated `key_encoding` property.
       jb::LoadSave(jb::OptionalMember(
           "key_encoding",
@@ -146,12 +139,11 @@ class ZarrDriver
                 return absl::OkStatus();
               },
               DimensionSeparatorJsonBinder))),
-      jb::Member("field",
-                 jb::Projection(&SpecData::selected_field,
-                                jb::DefaultValue<jb::kNeverIncludeDefaults>(
-                                    [](auto* obj) { *obj = std::string{}; }))),
+      jb::Member("field", jb::Projection<&ZarrDriverSpec::selected_field>(
+                              jb::DefaultValue<jb::kNeverIncludeDefaults>(
+                                  [](auto* obj) { *obj = std::string{}; }))),
       jb::Initialize([](auto* obj) {
-        TENSORSTORE_ASSIGN_OR_RETURN(auto info, GetSpecInfo(*obj));
+        TENSORSTORE_ASSIGN_OR_RETURN(auto info, obj->GetSpecInfo());
         if (info.full_rank != dynamic_rank) {
           TENSORSTORE_RETURN_IF_ERROR(
               obj->schema.Set(RankConstraint(info.full_rank)));
@@ -162,37 +154,34 @@ class ZarrDriver
         return absl::OkStatus();
       }));
 
-  static Result<IndexDomain<>> SpecGetDomain(const SpecData& spec) {
-    TENSORSTORE_ASSIGN_OR_RETURN(auto info, GetSpecInfo(spec));
-    return GetDomainFromMetadata(info, spec.partial_metadata.shape,
-                                 spec.schema);
+  Result<IndexDomain<>> GetDomain() const override {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto info, GetSpecInfo());
+    return GetDomainFromMetadata(info, partial_metadata.shape, schema);
   }
 
-  static Result<CodecSpec::Ptr> SpecGetCodec(const SpecData& spec) {
+  Result<CodecSpec::Ptr> GetCodec() const override {
     auto codec_spec = CodecSpec::Make<ZarrCodecSpec>();
-    codec_spec->compressor = spec.partial_metadata.compressor;
-    TENSORSTORE_RETURN_IF_ERROR(codec_spec->MergeFrom(spec.schema.codec()));
+    codec_spec->compressor = partial_metadata.compressor;
+    TENSORSTORE_RETURN_IF_ERROR(codec_spec->MergeFrom(schema.codec()));
     return codec_spec;
   }
 
-  static Result<ChunkLayout> SpecGetChunkLayout(const SpecData& spec) {
-    auto chunk_layout = spec.schema.chunk_layout();
-    TENSORSTORE_ASSIGN_OR_RETURN(auto info, GetSpecInfo(spec));
-    TENSORSTORE_RETURN_IF_ERROR(
-        SetChunkLayoutFromMetadata(info, spec.partial_metadata.chunks,
-                                   spec.partial_metadata.order, chunk_layout));
+  Result<ChunkLayout> GetChunkLayout() const override {
+    auto chunk_layout = schema.chunk_layout();
+    TENSORSTORE_ASSIGN_OR_RETURN(auto info, GetSpecInfo());
+    TENSORSTORE_RETURN_IF_ERROR(SetChunkLayoutFromMetadata(
+        info, partial_metadata.chunks, partial_metadata.order, chunk_layout));
     return chunk_layout;
   }
 
-  static Result<SharedArray<const void>> SpecGetFillValue(
-      const SpecData& spec, IndexTransformView<> transform) {
-    SharedArrayView<const void> fill_value = spec.schema.fill_value();
+  Result<SharedArray<const void>> GetFillValue(
+      IndexTransformView<> transform) const override {
+    SharedArrayView<const void> fill_value = schema.fill_value();
 
-    const auto& metadata = spec.partial_metadata;
+    const auto& metadata = partial_metadata;
     if (metadata.dtype && metadata.fill_value) {
       TENSORSTORE_ASSIGN_OR_RETURN(
-          size_t field_index,
-          GetFieldIndex(*metadata.dtype, spec.selected_field));
+          size_t field_index, GetFieldIndex(*metadata.dtype, selected_field));
       fill_value = (*metadata.fill_value)[field_index];
     }
 
@@ -218,6 +207,22 @@ class ZarrDriver
         IndexDomain(span(pseudo_shape, output_rank)));
   }
 
+  Future<internal::Driver::Handle> Open(
+      internal::OpenTransactionPtr transaction,
+      ReadWriteMode read_write_mode) const override;
+};
+
+class ZarrDriver : public internal_kvs_backed_chunk_driver::RegisteredKvsDriver<
+                       ZarrDriver, ZarrDriverSpec> {
+  using Base =
+      internal_kvs_backed_chunk_driver::RegisteredKvsDriver<ZarrDriver,
+                                                            ZarrDriverSpec>;
+
+ public:
+  using Base::Base;
+
+  class OpenState;
+
   Result<SharedArray<const void>> GetFillValue(
       IndexTransformView<> transform) override {
     const auto& metadata = *static_cast<const ZarrMetadata*>(
@@ -235,6 +240,12 @@ class ZarrDriver
                                              output_domain);
   }
 };
+
+Future<internal::Driver::Handle> ZarrDriverSpec::Open(
+    internal::OpenTransactionPtr transaction,
+    ReadWriteMode read_write_mode) const {
+  return ZarrDriver::Open(std::move(transaction), this, read_write_mode);
+}
 
 class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
   using Base = internal_kvs_backed_chunk_driver::DataCache;
@@ -366,10 +377,10 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
         key_prefix_, EncodeChunkIndices(cell_indices, dimension_separator_));
   }
 
-  absl::Status GetBoundSpecData(
-      internal_kvs_backed_chunk_driver::SpecData& spec_base,
-      const void* metadata_ptr, std::size_t component_index) override {
-    auto& spec = static_cast<ZarrDriver::SpecData&>(spec_base);
+  absl::Status GetBoundSpecData(KvsDriverSpec& spec_base,
+                                const void* metadata_ptr,
+                                std::size_t component_index) override {
+    auto& spec = static_cast<ZarrDriverSpec&>(spec_base);
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
     spec.selected_field = EncodeSelectedField(component_index, metadata.dtype);
     auto& pm = spec.partial_metadata;
@@ -501,6 +512,6 @@ TENSORSTORE_DEFINE_GARBAGE_COLLECTION_SPECIALIZATION(
 
 namespace {
 const tensorstore::internal::DriverRegistration<
-    tensorstore::internal_zarr::ZarrDriver>
+    tensorstore::internal_zarr::ZarrDriverSpec>
     registration;
 }  // namespace

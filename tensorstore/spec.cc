@@ -112,7 +112,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
 Result<IndexTransform<>> Spec::GetTransformForIndexingOperation() const {
   if (impl_.transform.valid()) return impl_.transform;
   if (impl_.driver_spec) {
-    const DimensionIndex rank = impl_.driver_spec->schema().rank();
+    const DimensionIndex rank = impl_.driver_spec->schema.rank();
     if (rank != dynamic_rank) {
       return IdentityTransform(rank);
     }

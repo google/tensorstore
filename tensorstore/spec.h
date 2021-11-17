@@ -49,7 +49,7 @@ class Spec {
   ///
   /// If the data type is unknown, returns the invalid data type.
   DataType dtype() const {
-    return impl_.driver_spec ? impl_.driver_spec->schema().dtype() : DataType();
+    return impl_.driver_spec ? impl_.driver_spec->schema.dtype() : DataType();
   }
 
   /// Returns the rank of the TensorStore, or `dynamic_rank` if unknown.

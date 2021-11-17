@@ -313,14 +313,14 @@ Result<ChunkLayout> DataCache::GetChunkLayout(size_t component_index) {
   return GetChunkLayout(initial_metadata_.get(), component_index);
 }
 
-Future<IndexTransform<>> DriverBase::ResolveBounds(
+Future<IndexTransform<>> KvsDriverBase::ResolveBounds(
     internal::OpenTransactionPtr transaction, IndexTransform<> transform,
     ResolveBoundsOptions options) {
   return ResolveBounds(std::move(transaction), std::move(transform),
                        metadata_staleness_bound_, options);
 }
 
-Future<IndexTransform<>> DriverBase::ResolveBounds(
+Future<IndexTransform<>> KvsDriverBase::ResolveBounds(
     internal::OpenTransactionPtr transaction, IndexTransform<> transform,
     StalenessBound metadata_staleness_bound, ResolveBoundsOptions options) {
   auto* cache = this->cache();
@@ -518,7 +518,7 @@ struct ResolveBoundsForDeleteAndResizeContinuation {
 };
 }  // namespace
 
-Future<IndexTransform<>> DriverBase::Resize(
+Future<IndexTransform<>> KvsDriverBase::Resize(
     internal::OpenTransactionPtr transaction, IndexTransform<> transform,
     span<const Index> inclusive_min, span<const Index> exclusive_max,
     ResizeOptions options) {
@@ -563,8 +563,8 @@ Future<IndexTransform<>> DriverBase::Resize(
   return std::move(pair.future);
 }
 
-Result<IndexTransform<>> DriverBase::GetBoundSpecData(
-    internal::OpenTransactionPtr transaction, SpecData& spec,
+Result<IndexTransform<>> KvsDriverBase::GetBoundSpecData(
+    internal::OpenTransactionPtr transaction, KvsDriverSpec& spec,
     IndexTransformView<> transform_view) {
   auto* cache = this->cache();
   auto* metadata_cache = cache->metadata_cache();
@@ -605,33 +605,31 @@ Result<IndexTransform<>> DriverBase::GetBoundSpecData(
   return transform;
 }
 
-Status DriverBase::ApplyOptions(SpecData& spec, SpecOptions&& options) {
+Status KvsDriverSpec::ApplyOptions(SpecOptions&& options) {
   if (options.recheck_cached_data.specified()) {
-    spec.staleness.data = StalenessBound(options.recheck_cached_data);
+    staleness.data = StalenessBound(options.recheck_cached_data);
   }
   if (options.recheck_cached_metadata.specified()) {
-    spec.staleness.metadata = StalenessBound(options.recheck_cached_metadata);
+    staleness.metadata = StalenessBound(options.recheck_cached_metadata);
   }
   if (options.kvstore.valid()) {
-    if (spec.store.valid()) {
+    if (store.valid()) {
       return absl::InvalidArgumentError("\"kvstore\" is already specified");
     }
-    spec.store = std::move(options.kvstore);
+    store = std::move(options.kvstore);
   }
-  TENSORSTORE_RETURN_IF_ERROR(spec.schema.Set(static_cast<Schema&&>(options)));
-  return spec.OpenModeSpec::ApplyOptions(options);
+  TENSORSTORE_RETURN_IF_ERROR(schema.Set(static_cast<Schema&&>(options)));
+  return OpenModeSpec::ApplyOptions(options);
 }
 
-Result<CodecSpec::Ptr> DriverBase::GetCodec() {
+Result<CodecSpec::Ptr> KvsDriverBase::GetCodec() {
   auto* cache = this->cache();
   return cache->GetCodec(cache->initial_metadata_.get(), component_index());
 }
 
-kvstore::Spec DriverBase::SpecGetKvstore(const SpecData& spec) {
-  return spec.store;
-}
+kvstore::Spec KvsDriverSpec::GetKvstore() const { return store; }
 
-KvStore DriverBase::GetKvstore() {
+KvStore KvsDriverBase::GetKvstore() {
   auto* cache = this->cache();
   auto* metadata_cache = cache->metadata_cache();
   return KvStore{kvstore::DriverPtr(metadata_cache->base_store()),
@@ -1308,19 +1306,19 @@ Result<ResizeParameters> GetResizeParameters(
       /*.shrink_only=*/(options.mode & shrink_only) == shrink_only};
 }
 
-DriverBase::DriverBase(Initializer&& initializer)
+KvsDriverBase::KvsDriverBase(Initializer&& initializer)
     : internal::ChunkCacheDriver(std::move(initializer.cache),
                                  initializer.component_index,
                                  initializer.staleness_bounds.data),
       metadata_staleness_bound_(initializer.staleness_bounds.metadata) {}
 
-DataCache* DriverBase::cache() const {
+DataCache* KvsDriverBase::cache() const {
   return static_cast<DataCache*>(internal::ChunkCacheDriver::cache());
 }
 
-void DriverBase::GarbageCollectionBase::Visit(
+void KvsDriverBase::GarbageCollectionBase::Visit(
     garbage_collection::GarbageCollectionVisitor& visitor,
-    const DriverBase& value) {
+    const KvsDriverBase& value) {
   auto* cache = value.cache();
   auto* metadata_cache = cache->metadata_cache();
   garbage_collection::GarbageCollectionVisit(visitor,
@@ -1332,25 +1330,23 @@ TENSORSTORE_DEFINE_JSON_BINDER(
     SpecJsonBinder,
     jb::Sequence(
         jb::Member(internal::DataCopyConcurrencyResource::id,
-                   jb::Projection(&SpecData::data_copy_concurrency)),
+                   jb::Projection<&KvsDriverSpec::data_copy_concurrency>()),
         jb::Member(internal::CachePoolResource::id,
-                   jb::Projection(&SpecData::cache_pool)),
-        jb::Projection<&SpecData::store>(jb::KvStoreSpecAndPathJsonBinder),
+                   jb::Projection<&KvsDriverSpec::cache_pool>()),
+        jb::Projection<&KvsDriverSpec::store>(jb::KvStoreSpecAndPathJsonBinder),
         jb::Initialize([](auto* obj) {
           internal::EnsureDirectoryPath(obj->store.path);
           return absl::OkStatus();
         }),
-        jb::Projection(
-            &SpecData::staleness,
-            jb::Sequence(
-                jb::Member("recheck_cached_metadata",
-                           jb::Projection(&StalenessBounds::metadata,
-                                          jb::DefaultValue([](auto* obj) {
-                                            obj->bounded_by_open_time = true;
-                                          }))),
-                jb::Member("recheck_cached_data",
-                           jb::Projection(&StalenessBounds::data,
-                                          jb::DefaultInitializedValue())))),
+        jb::Projection<&KvsDriverSpec::staleness>(jb::Sequence(
+            jb::Member("recheck_cached_metadata",
+                       jb::Projection(&StalenessBounds::metadata,
+                                      jb::DefaultValue([](auto* obj) {
+                                        obj->bounded_by_open_time = true;
+                                      }))),
+            jb::Member("recheck_cached_data",
+                       jb::Projection(&StalenessBounds::data,
+                                      jb::DefaultInitializedValue())))),
         internal::OpenModeSpecJsonBinder));
 
 }  // namespace internal_kvs_backed_chunk_driver

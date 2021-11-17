@@ -56,8 +56,8 @@ namespace internal_kvs_backed_chunk_driver {
 /// the driver registry.
 ///
 /// This inherits from `DriverConstraints` as required by the driver registry.
-struct SpecData : public internal::DriverSpecCommonData,
-                  public internal::OpenModeSpec {
+struct KvsDriverSpec : public internal::DriverSpec,
+                       public internal::OpenModeSpec {
   kvstore::Spec store;
   Context::Resource<internal::DataCopyConcurrencyResource>
       data_copy_concurrency;
@@ -65,15 +65,19 @@ struct SpecData : public internal::DriverSpecCommonData,
   StalenessBounds staleness;
 
   static constexpr auto ApplyMembers = [](auto& x, auto f) {
-    return f(internal::BaseCast<internal::DriverSpecCommonData>(x),
+    return f(internal::BaseCast<internal::DriverSpec>(x),
              internal::BaseCast<internal::OpenModeSpec>(x), x.store,
              x.data_copy_concurrency, x.cache_pool, x.staleness);
   };
+
+  kvstore::Spec GetKvstore() const override;
+
+  absl::Status ApplyOptions(SpecOptions&& options) override;
 };
 
 /// JSON binder for the base `SpecData` type, must be called by the
 /// driver-specific JSON binders.
-TENSORSTORE_DECLARE_JSON_BINDER(SpecJsonBinder, SpecData,
+TENSORSTORE_DECLARE_JSON_BINDER(SpecJsonBinder, KvsDriverSpec,
                                 JsonSerializationOptions,
                                 JsonSerializationOptions,
                                 ::nlohmann::json::object_t);
@@ -247,7 +251,7 @@ class MetadataCache : public MetadataCacheBase,
   const Executor& executor() { return data_copy_concurrency_->executor; }
 
   /// Key-value store from which `kvstore_driver()` was derived.  Used only by
-  /// `DriverBase::GetBoundSpecData`.  A driver implementation may apply some
+  /// `KvsDriverBase::GetBoundSpecData`.  A driver implementation may apply some
   /// type of adapter to the `kvstore_driver()` in order to retrieve metadata by
   /// overriding the default implementation of
   /// `OpenState::GetMetadataKeyValueStore`.
@@ -309,7 +313,7 @@ class DataCache : public DataCacheBase {
   ///     derived type.
   /// \param metadata Non-null pointer to metadata of type `Metadata`.
   /// \param component_index The ChunkCache component index.
-  virtual Status GetBoundSpecData(SpecData& spec, const void* metadata,
+  virtual Status GetBoundSpecData(KvsDriverSpec& spec, const void* metadata,
                                   std::size_t component_index) = 0;
 
   /// Returns the chunk layout for the specified component.
@@ -452,7 +456,7 @@ class DataCache : public DataCacheBase {
 /// Private data members of `OpenState`.
 struct PrivateOpenState {
   internal::OpenTransactionPtr transaction_;
-  internal::RegisteredDriverOpener<SpecData> spec_;
+  internal::DriverSpec::PtrT<const KvsDriverSpec> spec_;
   ReadWriteMode read_write_mode_;
   std::string metadata_cache_key_;
   /// Pointer to `MetadataCache::Entry`, but upcast to type
@@ -465,14 +469,14 @@ struct PrivateOpenState {
 
 /// Base class of `RegisteredKvsDriver<Derived>` that defines methods that don't
 /// depend on the `Derived` class type.
-class DriverBase : public internal::ChunkCacheDriver {
+class KvsDriverBase : public internal::ChunkCacheDriver {
  public:
   struct Initializer {
     internal::CachePtr<DataCache> cache;
     std::size_t component_index;
     StalenessBounds staleness_bounds;
   };
-  explicit DriverBase(Initializer&& initializer);
+  explicit KvsDriverBase(Initializer&& initializer);
 
   /// Forwards to `ResolveBound` overload below with
   /// `metadata_staleness_bound_`.
@@ -497,14 +501,10 @@ class DriverBase : public internal::ChunkCacheDriver {
   }
 
   Result<IndexTransform<>> GetBoundSpecData(
-      internal::OpenTransactionPtr transaction, SpecData& spec,
+      internal::OpenTransactionPtr transaction, KvsDriverSpec& spec,
       IndexTransformView<> transform);
 
-  static absl::Status ApplyOptions(SpecData& spec, SpecOptions&& options);
-
   Result<CodecSpec::Ptr> GetCodec() override;
-
-  static kvstore::Spec SpecGetKvstore(const SpecData& spec);
 
   KvStore GetKvstore() override;
 
@@ -527,7 +527,7 @@ class DriverBase : public internal::ChunkCacheDriver {
   /// `Visit` function.
   struct GarbageCollectionBase {
     static void Visit(garbage_collection::GarbageCollectionVisitor& visitor,
-                      const DriverBase& value);
+                      const KvsDriverBase& value);
   };
 
  private:
@@ -551,7 +551,7 @@ class OpenState : public internal::AtomicReferenceCount<OpenState>,
 
   struct Initializer {
     internal::OpenTransactionPtr transaction;
-    internal::RegisteredDriverOpener<SpecData> spec;
+    internal::DriverSpec::PtrT<const KvsDriverSpec> spec;
     ReadWriteMode read_write_mode;
   };
 
@@ -646,9 +646,10 @@ class OpenState : public internal::AtomicReferenceCount<OpenState>,
   /// class.
   ///
   /// Defined automatically by `RegisteredOpenState`.
-  virtual DriverBase* AllocateDriver(DriverBase::Initializer&& initializer) = 0;
+  virtual KvsDriverBase* AllocateDriver(
+      KvsDriverBase::Initializer&& initializer) = 0;
 
-  const SpecData& spec() const { return *spec_; }
+  const KvsDriverSpec& spec() const { return *spec_; }
 
   /// Returns the data copy executor.
   const Executor& executor() const {
@@ -725,28 +726,12 @@ Future<internal::Driver::Handle> OpenDriver(OpenState::Ptr open_state);
 ///
 ///     class Derived
 ///         : public internal_kvs_backed_chunk_driver::RegisteredKvsDriver<
-///                      Derived> {
+///                      Derived, DerivedSpec> {
 ///       using Base = internal_kvs_backed_chunk_driver::RegisteredKvsDriver<
-///                        Derived>;
+///                        Derived, DerivedSpec>;
 ///      public:
 ///       // Must inherit the constructors.
 ///       using Base::Base;
-///
-///       // Specifies the driver identifier.
-///       constexpr static char id[] = "...";
-///
-///       // Defines the specification used to open the driver.
-///       struct SpecData
-///         : public internal_kvs_backed_chunk_driver::SpecData {
-///         // ...
-///         constexpr static auto ApplyMembers = [](auto& x, auto f) {
-///           return f(
-///               internal::BaseCast<
-///                   internal_kvs_backed_chunk_driver::SpecData>(
-///                   x),
-///               ...);
-///         };
-///       };
 ///
 ///       // Defines the `OpenState` class used to open the driver.  It must
 ///       // inherit from `Base::OpenStateBase`, inherit its constructors, and
@@ -760,22 +745,10 @@ Future<internal::Driver::Handle> OpenDriver(OpenState::Ptr open_state);
 ///
 ///         // ...
 ///       };
-///
-///       // Defines the JSON binder for `SpecData`.
-///       static inline const auto json_binder = jb::Sequence(
-///           internal_kvs_backed_chunk_driver::SpecJsonBinder,
-///           ...);
-///
-///
-///       // Applies the specified options in place to `spec`.
-///       static Status ApplyOptions(SpecData& spec,
-///                                  SpecOptions&& options);
-///     };
-///
-template <typename Derived>
+template <typename Derived, typename DerivedSpec>
 class RegisteredKvsDriver
-    : public internal::RegisteredDriver<Derived, DriverBase> {
-  using Base = internal::RegisteredDriver<Derived, DriverBase>;
+    : public internal::RegisteredDriver<Derived, KvsDriverBase> {
+  using Base = internal::RegisteredDriver<Derived, KvsDriverBase>;
 
  public:
   using Base::Base;
@@ -784,6 +757,9 @@ class RegisteredKvsDriver
   /// driver implementations.
   class OpenStateBase : public internal_kvs_backed_chunk_driver::OpenState {
    public:
+    static_assert(std::is_base_of_v<KvsDriverBase, Derived>);
+    static_assert(std::is_base_of_v<KvsDriverSpec, DerivedSpec>);
+
     using internal_kvs_backed_chunk_driver::OpenState::OpenState;
 
     /// Returns a reference to the bound spec data of type `Derived::SpecData`
@@ -792,35 +768,42 @@ class RegisteredKvsDriver
     /// This is intended to be called by the derived class to implement the
     /// `OpenState` interface.
     decltype(auto) spec() const {
-      using SpecData = typename Derived::SpecData;
-      return static_cast<const SpecData&>(
+      return static_cast<const DerivedSpec&>(
           internal_kvs_backed_chunk_driver::OpenState::spec());
     }
 
     /// Returns a newly allocated object of the `Derived` driver type, as
     /// required by `internal_kvs_backed_chunk_driver::Driver`.
-    DriverBase* AllocateDriver(DriverBase::Initializer&& initializer) override {
+    KvsDriverBase* AllocateDriver(
+        KvsDriverBase::Initializer&& initializer) override {
       return new Derived(std::move(initializer));
     }
   };
 
-  using DriverBase::SpecGetKvstore;
+  Result<internal::TransformedDriverSpec> GetBoundSpec(
+      internal::OpenTransactionPtr transaction,
+      IndexTransformView<> transform) override {
+    auto driver_spec = KvsDriverSpec::Make<DerivedSpec>();
+    driver_spec->context_binding_state_ = ContextBindingState::bound;
+    internal::TransformedDriverSpec spec;
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        spec.transform, this->GetBoundSpecData(std::move(transaction),
+                                               *driver_spec, transform));
+    spec.driver_spec = std::move(driver_spec);
+    return spec;
+  }
 
   /// Implements the `Open` method required by `internal::RegisteredDriver` in
   /// terms of `internal_kvs_backed_chunk_driver::OpenDriver`.
-  template <typename Spec>
   static Future<internal::Driver::Handle> Open(
-      internal::OpenTransactionPtr transaction,
-      internal::RegisteredDriverOpener<Spec> spec,
+      internal::OpenTransactionPtr transaction, const DerivedSpec* spec,
       ReadWriteMode read_write_mode) {
-    // We have to use a template parameter because `Derived` is incomplete when
-    // `RegisteredKvsDriver` is instantiated.
-    static_assert(std::is_same_v<Spec, typename Derived::SpecData>);
     return internal_kvs_backed_chunk_driver::OpenDriver(
         internal_kvs_backed_chunk_driver::OpenState::Ptr(
             new typename Derived::OpenState(
                 internal_kvs_backed_chunk_driver::OpenState::Initializer{
-                    std::move(transaction), std::move(spec),
+                    std::move(transaction),
+                    internal::DriverSpec::PtrT<const DerivedSpec>(spec),
                     read_write_mode})));
   }
 };

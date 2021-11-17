@@ -39,13 +39,80 @@ namespace jb = tensorstore::internal_json_binding;
 
 constexpr const char kMetadataKey[] = "attributes.json";
 
-struct SpecData : public internal_kvs_backed_chunk_driver::SpecData {
+using internal_kvs_backed_chunk_driver::KvsDriverSpec;
+
+class N5DriverSpec
+    : public internal::RegisteredDriverSpec<N5DriverSpec,
+                                            /*Parent=*/KvsDriverSpec> {
+ public:
+  constexpr static char id[] = "n5";
+
+  using Base = internal::RegisteredDriverSpec<N5DriverSpec,
+                                              /*Parent=*/KvsDriverSpec>;
+
   N5MetadataConstraints metadata_constraints;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
-    return f(internal::BaseCast<internal_kvs_backed_chunk_driver::SpecData>(x),
-             x.metadata_constraints);
+    return f(internal::BaseCast<KvsDriverSpec>(x), x.metadata_constraints);
   };
+
+  static inline const auto default_json_binder = jb::Sequence(
+      jb::Validate(
+          [](const auto& options, auto* obj) {
+            if (obj->schema.dtype().valid()) {
+              return ValidateDataType(obj->schema.dtype());
+            }
+            return absl::OkStatus();
+          },
+          internal_kvs_backed_chunk_driver::SpecJsonBinder),
+      jb::Member(
+          "metadata",
+          jb::Validate(
+              [](const auto& options, auto* obj) {
+                TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
+                    obj->metadata_constraints.dtype.value_or(DataType())));
+                TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
+                    RankConstraint{obj->metadata_constraints.rank}));
+                return absl::OkStatus();
+              },
+              jb::Projection<&N5DriverSpec::metadata_constraints>(
+                  jb::DefaultInitializedValue()))));
+
+  absl::Status ApplyOptions(SpecOptions&& options) override {
+    if (options.minimal_spec) {
+      metadata_constraints = N5MetadataConstraints{};
+    }
+    return Base::ApplyOptions(std::move(options));
+  }
+
+  Result<IndexDomain<>> GetDomain() const override {
+    return GetEffectiveDomain(metadata_constraints, schema);
+  }
+
+  Result<CodecSpec::Ptr> GetCodec() const override {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto codec, GetEffectiveCodec(metadata_constraints, schema));
+    return CodecSpec::Ptr(std::move(codec));
+  }
+
+  Result<ChunkLayout> GetChunkLayout() const override {
+    return GetEffectiveChunkLayout(metadata_constraints, schema);
+  }
+
+  Result<SharedArray<const void>> GetFillValue(
+      IndexTransformView<> transform) const override {
+    return {std::in_place};
+  }
+
+  Result<DimensionUnitsVector> GetDimensionUnits() const override {
+    return GetEffectiveDimensionUnits(metadata_constraints.rank,
+                                      metadata_constraints.units_and_resolution,
+                                      schema.dimension_units());
+  }
+
+  Future<internal::Driver::Handle> Open(
+      internal::OpenTransactionPtr transaction,
+      ReadWriteMode read_write_mode) const override;
 };
 
 Result<std::shared_ptr<const N5Metadata>> ParseEncodedMetadata(
@@ -202,11 +269,10 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     return builder.Finalize();
   }
 
-  Status GetBoundSpecData(internal_kvs_backed_chunk_driver::SpecData& spec_base,
-                          const void* metadata_ptr,
+  Status GetBoundSpecData(KvsDriverSpec& spec_base, const void* metadata_ptr,
                           std::size_t component_index) override {
     assert(component_index == 0);
-    auto& spec = static_cast<SpecData&>(spec_base);
+    auto& spec = static_cast<N5DriverSpec&>(spec_base);
     const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
     auto& constraints = spec.metadata_constraints;
     constraints.shape = metadata.shape;
@@ -241,74 +307,16 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
   std::string key_prefix_;
 };
 
-class N5Driver
-    : public internal_kvs_backed_chunk_driver::RegisteredKvsDriver<N5Driver> {
-  using Base = internal_kvs_backed_chunk_driver::RegisteredKvsDriver<N5Driver>;
+class N5Driver : public internal_kvs_backed_chunk_driver::RegisteredKvsDriver<
+                     N5Driver, N5DriverSpec> {
+  using Base =
+      internal_kvs_backed_chunk_driver::RegisteredKvsDriver<N5Driver,
+                                                            N5DriverSpec>;
 
  public:
   using Base::Base;
 
-  constexpr static char id[] = "n5";
-
-  using SpecData = internal_n5::SpecData;
-
-  static inline const auto json_binder = jb::Sequence(
-      jb::Validate(
-          [](const auto& options, auto* obj) {
-            if (obj->schema.dtype().valid()) {
-              return ValidateDataType(obj->schema.dtype());
-            }
-            return absl::OkStatus();
-          },
-          internal_kvs_backed_chunk_driver::SpecJsonBinder),
-      jb::Member(
-          "metadata",
-          jb::Validate(
-              [](const auto& options, auto* obj) {
-                TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
-                    obj->metadata_constraints.dtype.value_or(DataType())));
-                TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
-                    RankConstraint{obj->metadata_constraints.rank}));
-                return absl::OkStatus();
-              },
-              jb::Projection(&SpecData::metadata_constraints,
-                             jb::DefaultInitializedValue()))));
-
   class OpenState;
-
-  static absl::Status ApplyOptions(SpecData& spec, SpecOptions&& options) {
-    if (options.minimal_spec) {
-      spec.metadata_constraints = N5MetadataConstraints{};
-    }
-    return Base::ApplyOptions(spec, std::move(options));
-  }
-
-  static Result<IndexDomain<>> SpecGetDomain(const SpecData& spec) {
-    return GetEffectiveDomain(spec.metadata_constraints, spec.schema);
-  }
-
-  static Result<CodecSpec::Ptr> SpecGetCodec(const SpecData& spec) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto codec, GetEffectiveCodec(spec.metadata_constraints, spec.schema));
-    return CodecSpec::Ptr(std::move(codec));
-  }
-
-  static Result<ChunkLayout> SpecGetChunkLayout(const SpecData& spec) {
-    return GetEffectiveChunkLayout(spec.metadata_constraints, spec.schema);
-  }
-
-  static Result<SharedArray<const void>> SpecGetFillValue(
-      const SpecData& spec, IndexTransformView<> transform) {
-    return {std::in_place};
-  }
-
-  static Result<DimensionUnitsVector> SpecGetDimensionUnits(
-      const SpecData& spec) {
-    return GetEffectiveDimensionUnits(
-        spec.metadata_constraints.rank,
-        spec.metadata_constraints.units_and_resolution,
-        spec.schema.dimension_units());
-  }
 
   Result<DimensionUnitsVector> GetDimensionUnits() override {
     auto* cache = static_cast<DataCache*>(this->cache());
@@ -375,6 +383,12 @@ class N5Driver::OpenState : public N5Driver::OpenStateBase {
   }
 };
 
+Future<internal::Driver::Handle> N5DriverSpec::Open(
+    internal::OpenTransactionPtr transaction,
+    ReadWriteMode read_write_mode) const {
+  return N5Driver::Open(std::move(transaction), this, read_write_mode);
+}
+
 }  // namespace
 }  // namespace internal_n5
 }  // namespace tensorstore
@@ -389,6 +403,6 @@ TENSORSTORE_DEFINE_GARBAGE_COLLECTION_SPECIALIZATION(
 
 namespace {
 const tensorstore::internal::DriverRegistration<
-    tensorstore::internal_n5::N5Driver>
+    tensorstore::internal_n5::N5DriverSpec>
     registration;
 }  // namespace

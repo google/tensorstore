@@ -59,6 +59,8 @@ tensorstore_cc_test(
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/internal:elementwise_function",
         "//tensorstore/internal:json_gtest",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:test_util",
         "//tensorstore/util:executor",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
