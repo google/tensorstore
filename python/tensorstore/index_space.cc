@@ -454,14 +454,47 @@ Overload:
           py::kw_only(), py::arg("json"));
 
   cls.def_property_readonly("rank", &IndexDomain<>::rank,
-                            "Number of dimensions in the index space.");
+                            R"(
+Number of dimensions in the index space.
+
+Example:
+
+  >>> domain = ts.IndexDomain(shape=[100, 200, 300])
+  >>> domain.rank
+  3
+
+Group:
+  Accessors
+)");
 
   cls.def_property_readonly("ndim", &IndexDomain<>::rank,
-                            "Alias for :py:obj:`.rank`.");
+                            R"(
+Alias for :py:obj:`.rank`.
+
+Example:
+
+  >>> domain = ts.IndexDomain(shape=[100, 200, 300])
+  >>> domain.ndim
+  3
+
+Group:
+  Accessors
+)");
 
   cls.def(
       "__len__", [](const IndexDomain<>& d) { return d.rank(); },
-      "Returns the number of dimensions (:py:obj:`.rank`).");
+      R"(
+Returns the number of dimensions (:py:obj:`.rank`).
+
+Example:
+
+  >>> domain = ts.IndexDomain(shape=[100, 200, 300])
+  >>> len(domain)
+  3
+
+Group:
+  Sequence accessors
+)");
 
   cls.def(
       "__getitem__",
@@ -494,6 +527,9 @@ Examples:
 
 Overload:
   identifier
+
+Group:
+  Sequence accessors
 )",
       py::arg("identifier"));
 
@@ -535,6 +571,9 @@ Examples:
 
 Overload:
   selection
+
+Group:
+  Indexing
 )",
       py::arg("selection"));
 
@@ -628,6 +667,9 @@ Note:
 
 Overload:
   domain
+
+Group:
+  Indexing
 )",
       py::arg("other"));
 
@@ -676,6 +718,9 @@ Note:
 
 Overload:
   expr
+
+Group:
+  Indexing
 )",
       py::arg("expr"));
 
@@ -685,7 +730,7 @@ Overload:
         return tensorstore::IntersectIndexDomains(self, b);
       },
       R"(
-Intersect with another domain.
+Intersects with another domain.
 
 The ``implicit`` flag that corresponds to the selected bound is propagated.
 
@@ -700,6 +745,8 @@ Example:
     >>> a.intersect(ts.IndexDomain(shape=[2, 3, 4]))
     { "x": [1, 2), "y": [2, 3), [3, 4) }
 
+Group:
+  Geometric operations
 )",
       py::arg("other"));
 
@@ -709,7 +756,7 @@ Example:
         return tensorstore::HullIndexDomains(self, b);
       },
       R"(
-Hull (minimum containing box) with another domain.
+Computes the hull (minimum containing box) with another domain.
 
 The ``implicit`` flag that corresponds to the selected bound is propagated.
 
@@ -724,6 +771,8 @@ Example:
     >>> a.hull(ts.IndexDomain(shape=[2, 3, 4]))
     { "x": [0, 4), "y": [0, 5), [0, 6) }
 
+Group:
+  Geometric operations
 )",
       py::arg("other"));
 
@@ -732,7 +781,18 @@ Example:
       [](const IndexDomain<>& self) {
         return SpanToHomogeneousTuple<Index>(self.origin());
       },
-      "Inclusive lower bound of the domain.");
+      R"(
+Inclusive lower bound of the domain.
+
+Example:
+
+    >>> domain = ts.IndexDomain(inclusive_min=[1, 2, 3], shape=[3, 4, 5])
+    >>> domain.origin
+    (1, 2, 3)
+
+Group:
+  Accessors
+)");
 
   cls.def_property_readonly(
       "inclusive_min",
@@ -741,6 +801,15 @@ Example:
       },
       R"(
 Inclusive lower bound of the domain, alias of :py:obj:`.origin`.
+
+Example:
+
+    >>> domain = ts.IndexDomain(inclusive_min=[1, 2, 3], shape=[3, 4, 5])
+    >>> domain.inclusive_min
+    (1, 2, 3)
+
+Group:
+  Accessors
 )");
 
   cls.def_property_readonly(
@@ -748,23 +817,70 @@ Inclusive lower bound of the domain, alias of :py:obj:`.origin`.
       [](const IndexDomain<>& self) {
         return SpanToHomogeneousTuple<Index>(self.shape());
       },
-      "Shape of the domain.");
+      R"(
+Shape of the domain.
+
+Example:
+
+    >>> domain = ts.IndexDomain(inclusive_min=[1, 2, 3], shape=[3, 4, 5])
+    >>> domain.shape
+    (3, 4, 5)
+
+Group:
+  Accessors
+)");
 
   cls.def_property_readonly(
       "exclusive_max",
       [](const IndexDomain<>& self) { return GetExclusiveMax(self); },
-      "Exclusive upper bound of the domain.");
+      R"(
+Exclusive upper bound of the domain.
+
+Example:
+
+    >>> domain = ts.IndexDomain(inclusive_min=[1, 2, 3], shape=[3, 4, 5])
+    >>> domain.exclusive_max
+    (4, 6, 8)
+
+Group:
+  Accessors
+)");
 
   cls.def_property_readonly(
       "inclusive_max",
       [](const IndexDomain<>& self) { return GetInclusiveMax(self); },
-      "Inclusive upper bound of the domain.");
+      R"(
+Inclusive upper bound of the domain.
+
+Example:
+
+    >>> domain = ts.IndexDomain(inclusive_min=[1, 2, 3], shape=[3, 4, 5])
+    >>> domain.inclusive_max
+    (3, 5, 7)
+
+Group:
+  Accessors
+)");
 
   cls.def_property_readonly(
       "labels",
       [](const IndexDomain<>& d) { return SpanToHomogeneousTuple(d.labels()); },
       R"(
 :ref:`Dimension labels<dimension-labels>` for each dimension.
+
+Example:
+
+    >>> domain = ts.IndexDomain(inclusive_min=[1, 2, 3], shape=[3, 4, 5])
+    >>> domain.labels
+    ('', '', '')
+    >>> domain = ts.IndexDomain(inclusive_min=[1, 2, 3],
+    ...                         shape=[3, 4, 5],
+    ...                         labels=['x', 'y', 'z'])
+    >>> domain.labels
+    ('x', 'y', 'z')
+
+Group:
+  Accessors
 )");
 
   cls.def_property_readonly(
@@ -774,6 +890,28 @@ Inclusive lower bound of the domain, alias of :py:obj:`.origin`.
       },
       R"(
 Indicates whether the lower bound of each dimension is :ref:`implicit or explicit<implicit-bounds>`.
+
+Example:
+
+    >>> domain = ts.IndexDomain(rank=3)
+    >>> domain.implicit_lower_bounds
+    (True, True, True)
+    >>> domain = ts.IndexDomain(inclusive_min=[2, 3, 4])
+    >>> domain.implicit_lower_bounds
+    (False, False, False)
+    >>> domain = ts.IndexDomain(exclusive_max=[2, 3, 4])
+    >>> domain.implicit_lower_bounds
+    (True, True, True)
+    >>> domain = ts.IndexDomain(shape=[4, 5, 6])
+    >>> domain.implicit_lower_bounds
+    (False, False, False)
+    >>> domain = ts.IndexDomain(inclusive_min=[4, 5, 6],
+    ...                         implicit_lower_bounds=[False, True, False])
+    >>> domain.implicit_lower_bounds
+    (False, True, False)
+
+Group:
+  Accessors
 )");
 
   cls.def_property_readonly(
@@ -783,13 +921,42 @@ Indicates whether the lower bound of each dimension is :ref:`implicit or explici
       },
       R"(
 Indicates whether the upper bound of each dimension is :ref:`implicit or explicit<implicit-bounds>`.
+
+Example:
+
+    >>> domain = ts.IndexDomain(rank=3)
+    >>> domain.implicit_upper_bounds
+    (True, True, True)
+    >>> domain = ts.IndexDomain(shape=[2, 3, 4])
+    >>> domain.implicit_upper_bounds
+    (False, False, False)
+    >>> domain = ts.IndexDomain(inclusive_min=[4, 5, 6])
+    >>> domain.implicit_upper_bounds
+    (True, True, True)
+    >>> domain = ts.IndexDomain(exclusive_max=[4, 5, 6],
+    ...                         implicit_upper_bounds=[False, True, False])
+    >>> domain.implicit_upper_bounds
+    (False, True, False)
+
+Group:
+  Accessors
 )");
 
   cls.def_property_readonly(
       "size", [](const IndexDomain<>& self) { return self.num_elements(); },
       R"(Total number of elements in the domain.
 
-This is simply the product of the extents in :py:obj:`.shape`.)");
+This is simply the product of the extents in :py:obj:`.shape`.
+
+Example:
+
+    >>> domain = ts.IndexDomain(inclusive_min=[1, 2, 3], shape=[3, 4, 5])
+    >>> domain.size
+    60
+
+Group:
+  Accessors
+)");
 
   cls.def_property_readonly(
       "index_exp",
@@ -857,7 +1024,12 @@ Group:
   cls.def(
       "to_json",
       [](const IndexDomain<>& self) { return ::nlohmann::json(self); },
-      "Returns the :json:schema:`JSON representation<IndexDomain>`.");
+      R"(
+Returns the :json:schema:`JSON representation<IndexDomain>`.
+
+Group:
+  Accessors
+)");
 
   cls.def("__eq__", [](const IndexDomain<>& self, const IndexDomain<>& other) {
     return self == other;
@@ -1127,7 +1299,7 @@ Group:
 
   cls.def_property_readonly("input_rank", &IndexTransform<>::input_rank,
                             R"(
-Rank of input space.
+Rank of the input space.
 
 Example:
 
@@ -1143,7 +1315,7 @@ Group:
 
   cls.def_property_readonly("output_rank", &IndexTransform<>::output_rank,
                             R"(
-Rank of output space.
+Rank of the output space.
 
 Example:
 
@@ -1160,7 +1332,7 @@ Group:
 
   cls.def_property_readonly("ndim", &IndexTransform<>::input_rank,
                             R"(
-Alias for :py:obj:`.input_rank`.
+Rank of the input space, alias for :py:obj:`.input_rank`.
 
 Example:
 
@@ -1182,6 +1354,8 @@ Group:
       R"(
 Inclusive lower bound of the input domain.
 
+Alias for the :py:obj:`~tensorstore.IndexDomain.origin` property of the :py:obj:`.domain`.
+
 Example:
 
     >>> transform = ts.IndexTransform(input_inclusive_min=[1, 2, 3],
@@ -1201,6 +1375,8 @@ Group:
       },
       R"(
 Inclusive lower bound of the input domain, alias for :py:obj:`.input_origin`.
+
+Alias for the :py:obj:`~tensorstore.IndexDomain.inclusive_min` property of the :py:obj:`.domain`.
 
 Example:
 
@@ -1222,6 +1398,8 @@ Group:
       R"(
 Shape of the input domain.
 
+Alias for the :py:obj:`~tensorstore.IndexDomain.shape` property of the :py:obj:`.domain`.
+
 Example:
 
     >>> transform = ts.IndexTransform(input_shape=[3, 4, 5])
@@ -1240,6 +1418,8 @@ Group:
       },
       R"(
 Exclusive upper bound of the input domain.
+
+Alias for the :py:obj:`~tensorstore.IndexDomain.exclusive_max` property of the :py:obj:`.domain`.
 
 Example:
 
@@ -1261,6 +1441,15 @@ Group:
       R"(
 Inclusive upper bound of the input domain.
 
+Alias for the :py:obj:`~tensorstore.IndexDomain.inclusive_max` property of the :py:obj:`.domain`.
+
+Example:
+
+    >>> transform = ts.IndexTransform(input_inclusive_min=[1, 2, 3],
+    ...                               input_shape=[3, 4, 5])
+    >>> transform.input_inclusive_max
+    (3, 5, 7)
+
 Group:
   Accessors
 
@@ -1272,7 +1461,17 @@ Group:
         return SpanToHomogeneousTuple(t.input_labels());
       },
       R"(
-Input dimension labels.
+:ref:`Dimension labels<dimension-labels>` for each input dimension.
+
+Alias for the :py:obj:`~tensorstore.IndexDomain.labels` property of the :py:obj:`.domain`.
+
+Example:
+
+    >>> transform = ts.IndexTransform(input_inclusive_min=[1, 2, 3],
+    ...                               input_shape=[3, 4, 5],
+    ...                               input_labels=['x', 'y', 'z'])
+    >>> transform.input_labels
+    ('x', 'y', 'z')
 
 Group:
   Accessors
@@ -1285,7 +1484,29 @@ Group:
         return GetBitVector(t.implicit_lower_bounds());
       },
       R"(
-Implicit lower bounds.
+Indicates whether the lower bound of each input dimension is :ref:`implicit or explicit<implicit-bounds>`.
+
+Alias for the :py:obj:`~tensorstore.IndexDomain.implicit_lower_bounds` property of the :py:obj:`.domain`.
+
+Example:
+
+    >>> transform = ts.IndexTransform(input_rank=3)
+    >>> transform.implicit_lower_bounds
+    (True, True, True)
+    >>> transform = ts.IndexTransform(input_inclusive_min=[2, 3, 4])
+    >>> transform.implicit_lower_bounds
+    (False, False, False)
+    >>> transform = ts.IndexTransform(input_exclusive_max=[2, 3, 4])
+    >>> transform.implicit_lower_bounds
+    (True, True, True)
+    >>> transform = ts.IndexTransform(input_shape=[4, 5, 6])
+    >>> transform.implicit_lower_bounds
+    (False, False, False)
+    >>> transform = ts.IndexTransform(
+    ...     input_inclusive_min=[4, 5, 6],
+    ...     implicit_lower_bounds=[False, True, False])
+    >>> transform.implicit_lower_bounds
+    (False, True, False)
 
 Group:
   Accessors
@@ -1298,7 +1519,26 @@ Group:
         return GetBitVector(t.implicit_upper_bounds());
       },
       R"(
-Implicit upper bounds.
+Indicates whether the upper bound of each input dimension is :ref:`implicit or explicit<implicit-bounds>`.
+
+Alias for the :py:obj:`~tensorstore.IndexDomain.implicit_upper_bounds` property of the :py:obj:`.domain`.
+
+Example:
+
+    >>> transform = ts.IndexTransform(input_rank=3)
+    >>> transform.implicit_upper_bounds
+    (True, True, True)
+    >>> transform = ts.IndexTransform(input_shape=[2, 3, 4])
+    >>> transform.implicit_upper_bounds
+    (False, False, False)
+    >>> transform = ts.IndexTransform(input_inclusive_min=[4, 5, 6])
+    >>> transform.implicit_upper_bounds
+    (True, True, True)
+    >>> transform = ts.IndexTransform(
+    ...     input_exclusive_max=[4, 5, 6],
+    ...     implicit_upper_bounds=[False, True, False])
+    >>> transform.implicit_upper_bounds
+    (False, True, False)
 
 Group:
   Accessors
@@ -1352,7 +1592,6 @@ Example:
 
 Group:
   Accessors
-
 )");
 
   cls.def(

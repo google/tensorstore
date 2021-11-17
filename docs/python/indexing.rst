@@ -1277,3 +1277,7 @@ indexing<python-numpy-style-indexing>` applied directly to a
 
 Index transforms
 ----------------
+
+The :py:obj:`tensorstore.IndexTransform` class represents an :ref:`index
+transform<index-transform>` from an input space to an output space, and provides
+a normalized representation of any composition of indexing operations.
