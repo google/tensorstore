@@ -348,8 +348,8 @@ Result<TransformRep::Ptr<>> MakeTransformFromIndexVectorArray(
 
 Result<IndexTransform<>> ApplyIndexArraySlice(
     IndexTransform<> transform, DimensionIndexBuffer* dimensions,
-    span<const SharedArrayView<const Index>> index_arrays,
-    bool outer_indexing) {
+    span<const SharedArrayView<const Index>> index_arrays, bool outer_indexing,
+    bool domain_only) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto other_transform,
       outer_indexing
@@ -361,14 +361,14 @@ Result<IndexTransform<>> ApplyIndexArraySlice(
       auto new_rep,
       ComposeTransforms(TransformAccess::rep(transform),
                         /*can_move_from_b_to_c=*/false, other_transform.get(),
-                        /*can_move_from_a_to_b=*/true));
+                        /*can_move_from_a_to_b=*/true, domain_only));
   return TransformAccess::Make<IndexTransform<>>(std::move(new_rep));
 }
 
 Result<IndexTransform<>> ApplyIndexVectorArraySlice(
     IndexTransform<> transform, DimensionIndexBuffer* dimensions,
     DimensionIndex vector_dimension,
-    const SharedArrayView<const Index>& index_vector_array) {
+    const SharedArrayView<const Index>& index_vector_array, bool domain_only) {
   TENSORSTORE_ASSIGN_OR_RETURN(auto other_transform,
                                MakeTransformFromIndexVectorArray(
                                    TransformAccess::rep(transform), dimensions,
@@ -377,7 +377,7 @@ Result<IndexTransform<>> ApplyIndexVectorArraySlice(
       auto new_rep,
       ComposeTransforms(TransformAccess::rep(transform),
                         /*can_move_from_b_to_c=*/false, other_transform.get(),
-                        /*can_move_from_a_to_b=*/true));
+                        /*can_move_from_a_to_b=*/true, domain_only));
   return TransformAccess::Make<IndexTransform<>>(std::move(new_rep));
 }
 

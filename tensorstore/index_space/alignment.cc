@@ -133,9 +133,7 @@ Result<IndexTransform<>> AlignDomainTo(IndexDomainView<> source,
   const DimensionIndex target_rank = target.rank();
   auto alignment =
       internal_index_space::TransformRep::Allocate(target_rank, source_rank);
-  CopyTransformRepDomain(
-      TransformAccess::rep(TransformAccess::transform(target)),
-      alignment.get());
+  CopyTransformRepDomain(TransformAccess::rep(target), alignment.get());
   alignment->output_rank = source_rank;
   const auto maps = alignment->output_index_maps();
   span<const Index> source_origin = source.origin();

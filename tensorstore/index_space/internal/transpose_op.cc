@@ -85,13 +85,13 @@ void PermuteArrayInPlace(Source array, Temp temp_array,
 }
 
 TransformRep::Ptr<> PermuteDimsOutOfPlace(
-    TransformRep* original, span<const DimensionIndex> permutation) {
+    TransformRep* original, span<const DimensionIndex> permutation,
+    bool domain_only) {
   const DimensionIndex input_rank = original->input_rank;
-  const DimensionIndex output_rank = original->output_rank;
+  const DimensionIndex output_rank = domain_only ? 0 : original->output_rank;
   assert(permutation.size() == input_rank);
 
-  auto result =
-      TransformRep::Allocate(original->input_rank, original->output_rank);
+  auto result = TransformRep::Allocate(original->input_rank, output_rank);
   result->input_rank = input_rank;
   result->output_rank = output_rank;
 
@@ -152,7 +152,11 @@ TransformRep::Ptr<> PermuteDimsOutOfPlace(
 }
 
 TransformRep::Ptr<> PermuteDimsInplace(TransformRep::Ptr<> rep,
-                                       span<const DimensionIndex> permutation) {
+                                       span<const DimensionIndex> permutation,
+                                       bool domain_only) {
+  if (domain_only) {
+    ResetOutputIndexMaps(rep.get());
+  }
   const DimensionIndex input_rank = rep->input_rank;
   const DimensionIndex output_rank = rep->output_rank;
   assert(permutation.size() == input_rank);
@@ -213,11 +217,12 @@ TransformRep::Ptr<> PermuteDimsInplace(TransformRep::Ptr<> rep,
 /// \pre `rep != nullptr`
 /// \pre `permutation.size() == rep->input_rank`
 TransformRep::Ptr<> PermuteDims(TransformRep::Ptr<> rep,
-                                span<const DimensionIndex> permutation) {
+                                span<const DimensionIndex> permutation,
+                                bool domain_only) {
   if (rep->is_unique()) {
-    return PermuteDimsInplace(std::move(rep), permutation);
+    return PermuteDimsInplace(std::move(rep), permutation, domain_only);
   } else {
-    return PermuteDimsOutOfPlace(rep.get(), permutation);
+    return PermuteDimsOutOfPlace(rep.get(), permutation, domain_only);
   }
 }
 
@@ -225,26 +230,30 @@ TransformRep::Ptr<> PermuteDims(TransformRep::Ptr<> rep,
 
 Result<IndexTransform<>> ApplyMoveDimsTo(IndexTransform<> transform,
                                          DimensionIndexBuffer* dimensions,
-                                         DimensionIndex target) {
+                                         DimensionIndex target,
+                                         bool domain_only) {
   const DimensionIndex input_rank = transform.input_rank();
   absl::FixedArray<DimensionIndex, internal::kNumInlinedDims> permutation(
       input_rank);
   TENSORSTORE_RETURN_IF_ERROR(
       MakePermutationFromMoveDimsTarget(dimensions, target, permutation));
-  return TransformAccess::Make<IndexTransform<>>(PermuteDims(
-      TransformAccess::rep_ptr<container>(std::move(transform)), permutation));
+  return TransformAccess::Make<IndexTransform<>>(
+      PermuteDims(TransformAccess::rep_ptr<container>(std::move(transform)),
+                  permutation, domain_only));
 }
 
 Result<IndexTransform<>> ApplyTranspose(IndexTransform<> transform,
-                                        DimensionIndexBuffer* dimensions) {
+                                        DimensionIndexBuffer* dimensions,
+                                        bool domain_only) {
   if (static_cast<DimensionIndex>(dimensions->size()) !=
       transform.input_rank()) {
     return absl::InvalidArgumentError(
         StrCat("Number of dimensions (", dimensions->size(),
                ") must equal input_rank (", transform.input_rank(), ")."));
   }
-  TransformRep::Ptr<> rep = PermuteDims(
-      TransformAccess::rep_ptr<container>(std::move(transform)), *dimensions);
+  TransformRep::Ptr<> rep =
+      PermuteDims(TransformAccess::rep_ptr<container>(std::move(transform)),
+                  *dimensions, domain_only);
   std::iota(dimensions->begin(), dimensions->end(),
             static_cast<DimensionIndex>(0));
   return TransformAccess::Make<IndexTransform<>>(std::move(rep));
@@ -252,7 +261,7 @@ Result<IndexTransform<>> ApplyTranspose(IndexTransform<> transform,
 
 Result<IndexTransform<>> ApplyTransposeTo(
     IndexTransform<> transform, DimensionIndexBuffer* dimensions,
-    span<const DimensionIndex> target_dimensions) {
+    span<const DimensionIndex> target_dimensions, bool domain_only) {
   const DimensionIndex input_rank = transform.input_rank();
   if (static_cast<DimensionIndex>(dimensions->size()) !=
       target_dimensions.size()) {
@@ -288,16 +297,18 @@ Result<IndexTransform<>> ApplyTransposeTo(
     while (permutation[target_dim] != -1) ++target_dim;
     permutation[target_dim] = orig_dim;
   }
-  return TransformAccess::Make<IndexTransform<>>(PermuteDims(
-      TransformAccess::rep_ptr<container>(std::move(transform)), permutation));
+  return TransformAccess::Make<IndexTransform<>>(
+      PermuteDims(TransformAccess::rep_ptr<container>(std::move(transform)),
+                  permutation, domain_only));
 }
 
 Result<IndexTransform<>> ApplyTransposeToDynamic(
     IndexTransform<> transform, DimensionIndexBuffer* dimensions,
-    span<const DynamicDimSpec> target_dim_specs) {
+    span<const DynamicDimSpec> target_dim_specs, bool domain_only) {
   if (target_dim_specs.size() == 1) {
     if (auto* target = std::get_if<DimensionIndex>(&target_dim_specs.front())) {
-      return ApplyMoveDimsTo(std::move(transform), dimensions, *target);
+      return ApplyMoveDimsTo(std::move(transform), dimensions, *target,
+                             domain_only);
     }
   }
   DimensionIndexBuffer target_dimensions;
@@ -313,7 +324,8 @@ Result<IndexTransform<>> ApplyTransposeToDynamic(
           "Target dimensions cannot be specified by label");
     }
   }
-  return ApplyTransposeTo(std::move(transform), dimensions, target_dimensions);
+  return ApplyTransposeTo(std::move(transform), dimensions, target_dimensions,
+                          domain_only);
 }
 
 }  // namespace internal_index_space

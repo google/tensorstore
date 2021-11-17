@@ -56,6 +56,8 @@ namespace internal_index_space {
 ///     `dimensions->size()`.
 /// \param stride_vector Either a scalar, or a vector of size
 ///     `dimensions->size()`.
+/// \param domain_only Indicates the output dimensions of `transform` should be
+///     ignored, and returned transform should have an output rank of 0.
 /// \pre `transform.valid()`
 /// \pre Each `index` in `*dimensions` must be unique and satisfy `0 <= index`
 ///     and `index < transform.input_rank()`.
@@ -75,7 +77,7 @@ Result<IndexTransform<>> ApplyIntervalSliceOp(
     IntervalForm interval_form, bool translate,
     IndexVectorOrScalarView start_vector,
     IndexVectorOrScalarView stop_or_size_vector,
-    IndexVectorOrScalarView stride_vector);
+    IndexVectorOrScalarView stride_vector, bool domain_only = false);
 
 /// Type representing the {Translate,}{Closed,HalfOpen,Sized}Interval
 /// operations.
@@ -113,12 +115,13 @@ struct IntervalSliceOp {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* dimensions) const {
-    return ApplyIntervalSliceOp(std::move(transform), dimensions, interval_form,
-                                translate,
-                                IndexVectorOrScalarView(start_vector),
-                                IndexVectorOrScalarView(stop_or_size_vector),
-                                IndexVectorOrScalarView(stride_vector));
+                                 DimensionIndexBuffer* dimensions,
+                                 bool domain_only) const {
+    return ApplyIntervalSliceOp(
+        std::move(transform), dimensions, interval_form, translate,
+        IndexVectorOrScalarView(start_vector),
+        IndexVectorOrScalarView(stop_or_size_vector),
+        IndexVectorOrScalarView(stride_vector), domain_only);
   }
 
   /// The form of the interval (sized, closed, or half-open), which specifies
@@ -145,6 +148,8 @@ struct IntervalSliceOp {
 ///     dimensions in the result.
 /// \param strides The vector of strides corresponding to the specified
 ///     dimensions.
+/// \param domain_only Indicates the output dimensions of `transform` should be
+///     ignored, and returned transform should have an output rank of 0.
 /// \pre `transform.valid()`
 /// \pre Each `index` in `*dimensions` must be unique and satisfy `0 <= index`
 ///     and `index < transform.input_rank()`.
@@ -154,7 +159,8 @@ struct IntervalSliceOp {
 /// \error `absl::StatusCode::kInvalidArgument` if a stride value is `0`.
 Result<IndexTransform<>> ApplyStrideOp(IndexTransform<> transform,
                                        DimensionIndexBuffer* dimensions,
-                                       IndexVectorOrScalarView strides);
+                                       IndexVectorOrScalarView strides,
+                                       bool domain_only);
 
 /// Type representing the DimExpression::Stride operation.
 /// \tparam StrideVector The container type for the strides vector.  Must
@@ -184,9 +190,10 @@ struct StrideOp {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* dimensions) const {
+                                 DimensionIndexBuffer* dimensions,
+                                 bool domain_only) const {
     return ApplyStrideOp(std::move(transform), dimensions,
-                         IndexVectorOrScalarView(stride_vector));
+                         IndexVectorOrScalarView(stride_vector), domain_only);
   }
 
   StrideVector stride_vector;
@@ -217,11 +224,12 @@ struct BoxSliceOp {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* dimensions) const {
-    return ApplyIntervalSliceOp(std::move(transform), dimensions,
-                                IntervalForm::sized, translate,
-                                IndexVectorOrScalarView(box.origin()),
-                                IndexVectorOrScalarView(box.shape()), 1);
+                                 DimensionIndexBuffer* dimensions,
+                                 bool domain_only) const {
+    return ApplyIntervalSliceOp(
+        std::move(transform), dimensions, IntervalForm::sized, translate,
+        IndexVectorOrScalarView(box.origin()),
+        IndexVectorOrScalarView(box.shape()), 1, domain_only);
   }
 
   BoxView<Rank> box;

@@ -40,6 +40,8 @@ namespace internal_index_space {
 ///     already correspond to the indices of the new dimensions in the result.
 /// \param labels The vector of labels corresponding to the specified
 ///     dimensions.
+/// \param domain_only Indicates the output dimensions of `transform` should be
+///     ignored, and returned transform should have an output rank of 0.
 /// \pre `transform.valid()`
 /// \pre Each `index` in `*dimensions` must be unique and satisfy `0 <= index`
 ///     and `index < transform.input_rank()`.
@@ -48,7 +50,8 @@ namespace internal_index_space {
 ///     dimensions->size()`.
 Result<IndexTransform<>> ApplyLabel(IndexTransform<> transform,
                                     DimensionIndexBuffer* dimensions,
-                                    internal::StringLikeSpan labels);
+                                    internal::StringLikeSpan labels,
+                                    bool domain_only);
 
 /// Type representing a Label operation.
 /// \tparam Labels The container type for the label vector, Must be convertible
@@ -76,9 +79,10 @@ struct LabelOp {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* dimensions) const {
+                                 DimensionIndexBuffer* dimensions,
+                                 bool domain_only) const {
     return ApplyLabel(std::move(transform), dimensions,
-                      internal::StringLikeSpan(labels));
+                      internal::StringLikeSpan(labels), domain_only);
   }
 
   Labels labels;

@@ -70,12 +70,12 @@ Status TranslateOutputOffsetsUsingInputOffsets(TransformRep* transform,
 Result<IndexTransform<>> ApplyTranslate(IndexTransform<> transform,
                                         DimensionIndexBuffer* dimensions,
                                         IndexVectorOrScalarView offsets,
-                                        bool translate_to) {
+                                        bool translate_to, bool domain_only) {
   const DimensionIndex num_dims = dimensions->size();
   const DimensionIndex input_rank = transform.input_rank();
   TENSORSTORE_RETURN_IF_ERROR(CheckIndexVectorSize(offsets, num_dims));
-  TransformRep::Ptr<> rep =
-      MutableRep(TransformAccess::rep_ptr<container>(std::move(transform)));
+  TransformRep::Ptr<> rep = MutableRep(
+      TransformAccess::rep_ptr<container>(std::move(transform)), domain_only);
   const auto input_domain = rep->input_domain(input_rank);
 
   // Maps input dimensions to the corresponding offset in `offsets`.

@@ -66,14 +66,41 @@ void TestDimExpressionInplace(
   auto original_copy = MakeNewTransformCopy(original_transform);
   tensorstore::DimensionIndexBuffer dimensions;
   TransformRep* rep = TransformAccess::rep(original_copy);
-  auto result_transform_inplace =
-      expression(std::move(original_copy), &dimensions).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto result_transform_inplace,
+      expression(std::move(original_copy), &dimensions));
   const bool operated_in_place =
       (rep == TransformAccess::rep(result_transform_inplace));
   EXPECT_EQ(can_operate_in_place, operated_in_place);
   EXPECT_EQ(expected_new_transform, result_transform_inplace);
   EXPECT_THAT(dimensions,
               testing::ElementsAreArray(expected_new_dimension_selection));
+}
+
+/// Same as above, but for IndexDomain rather than IndexTransform.
+template <typename OriginalDomain, typename Expression, typename ExpectedResult>
+void TestDimExpressionInplaceDomainOnly(
+    const OriginalDomain& original_domain, const Expression& expression,
+    std::vector<DimensionIndex> expected_new_dimension_selection,
+    const ExpectedResult& expected_new_domain, bool can_operate_in_place) {
+  auto original_copy =
+      MakeNewTransformCopy<IndexDomain<OriginalDomain::static_rank>>(
+          original_domain);
+  tensorstore::DimensionIndexBuffer dimensions;
+  TransformRep* rep = TransformAccess::rep(original_copy);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto result_domain_inplace,
+      expression(std::move(original_copy), &dimensions));
+  const bool operated_in_place =
+      (rep == TransformAccess::rep(result_domain_inplace));
+  EXPECT_EQ(can_operate_in_place, operated_in_place);
+  EXPECT_EQ(expected_new_domain, result_domain_inplace);
+  EXPECT_THAT(dimensions,
+              testing::ElementsAreArray(expected_new_dimension_selection));
+  if (result_domain_inplace != original_domain) {
+    TransformRep* new_rep = TransformAccess::rep(result_domain_inplace);
+    EXPECT_EQ(0, new_rep->output_rank);
+  }
 }
 
 /// Tests applying a `DimExpression` to a transform out of place.
@@ -104,6 +131,32 @@ void TestDimExpressionOutOfPlace(
               testing::ElementsAreArray(expected_new_dimension_selection));
 }
 
+template <typename OriginalDomain, typename Expression, typename ExpectedResult>
+void TestDimExpressionOutOfPlaceDomainOnly(
+    const OriginalDomain& original_domain, const Expression& expression,
+    std::vector<DimensionIndex> expected_new_dimension_selection,
+    const ExpectedResult& expected_new_domain) {
+  auto original_copy =
+      MakeNewTransformCopy<IndexDomain<OriginalDomain::static_rank>>(
+          original_domain);
+  tensorstore::DimensionIndexBuffer dimensions;
+  auto result_domain = expression(original_domain, &dimensions).value();
+  CheckSameTypes<decltype(result_domain),
+                 IndexDomain<ExpectedResult::static_rank>>();
+  if (original_domain != expected_new_domain) {
+    EXPECT_NE(TransformAccess::rep(result_domain),
+              TransformAccess::rep(original_domain));
+  }
+  EXPECT_EQ(expected_new_domain, result_domain);
+  EXPECT_EQ(original_copy, original_domain);
+  EXPECT_THAT(dimensions,
+              testing::ElementsAreArray(expected_new_dimension_selection));
+  TransformRep* new_rep = TransformAccess::rep(result_domain);
+  if (TransformAccess::rep(original_domain) != new_rep) {
+    EXPECT_EQ(0, new_rep->output_rank);
+  }
+}
+
 /// Tests applying a `DimExpression` to a transform directly.
 ///
 /// This tests both in place and out of place application of the
@@ -128,9 +181,15 @@ void TestDimExpressionOutOfPlaceAndInplace(
   TestDimExpressionOutOfPlace(original_transform, expression,
                               expected_new_dimension_selection,
                               expected_new_transform);
+  TestDimExpressionOutOfPlaceDomainOnly(original_transform.domain(), expression,
+                                        expected_new_dimension_selection,
+                                        expected_new_transform.domain());
   TestDimExpressionInplace(original_transform, expression,
                            expected_new_dimension_selection,
                            expected_new_transform, can_operate_in_place);
+  TestDimExpressionInplaceDomainOnly(
+      original_transform.domain(), expression, expected_new_dimension_selection,
+      expected_new_transform.domain(), can_operate_in_place);
 }
 
 /// Tests that `equivalent_indices` specifies pairs of equivalent input indices
@@ -222,7 +281,7 @@ void TestDimExpressionError(const OriginalTransform& original_transform,
                             const Expression& expression,
                             absl::StatusCode error_code,
                             const std::string& message_pattern) {
-  auto original_copy = original_transform;
+  auto original_copy = MakeNewTransformCopy(original_transform);
 
   // Check out-of-place implementation.
   auto result = expression(original_transform);
@@ -234,6 +293,26 @@ void TestDimExpressionError(const OriginalTransform& original_transform,
   auto inplace_result = expression(std::move(original_copy));
   EXPECT_THAT(inplace_result,
               tensorstore::MatchesStatus(error_code, message_pattern));
+}
+
+template <typename OriginalTransform, typename Expression,
+          typename ExpectedDomain>
+void TestDimExpressionErrorTransformOnly(
+    const OriginalTransform& original_transform, const Expression& expression,
+    absl::StatusCode error_code, const std::string& message_pattern,
+    const ExpectedDomain& expected_domain) {
+  TestDimExpressionError(original_transform, expression, error_code,
+                         message_pattern);
+
+  // Check out-of-place implementation.
+  auto original_copy = MakeNewTransformCopy(original_transform);
+
+  EXPECT_THAT(expression(original_transform.domain()),
+              ::testing::Optional(expected_domain));
+
+  // Check in-place implementation.
+  EXPECT_THAT(expression(std::move(original_copy).domain()),
+              ::testing::Optional(expected_domain));
 }
 
 }  // namespace internal_index_space

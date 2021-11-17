@@ -50,6 +50,8 @@ namespace internal_index_space {
 /// \param outer_indexing If `false`, the behavior is as specified for
 ///     DimExpression::IndexArraySlice.  If `true`, the behavior is as specified
 ///     for DimExpression::OuterIndexArraySlice.
+/// \param domain_only Indicates the output dimensions of `transform` should be
+///     ignored, and returned transform should have an output rank of 0.
 /// \returns The new index transform.
 /// \error `absl::StatusCode::kInvalidArgument` if `index_arrays.size()` is not
 ///     equal to `dimensions->size()`.
@@ -63,7 +65,8 @@ namespace internal_index_space {
 ///     computing the new transform.
 Result<IndexTransform<>> ApplyIndexArraySlice(
     IndexTransform<> transform, DimensionIndexBuffer* dimensions,
-    span<const SharedArrayView<const Index>> index_arrays, bool outer_indexing);
+    span<const SharedArrayView<const Index>> index_arrays, bool outer_indexing,
+    bool domain_only = false);
 
 /// Type representing the IndexArraySlice and OuterIndexArraySlice operations.
 /// \tparam OuterIndexing Specifies whether joint or outer indexing is used.
@@ -102,9 +105,10 @@ struct IndexArraySliceOp {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* dimensions) const {
+                                 DimensionIndexBuffer* dimensions,
+                                 bool domain_only) const {
     return ApplyIndexArraySlice(std::move(transform), dimensions, index_arrays,
-                                OuterIndexing);
+                                OuterIndexing, domain_only);
   }
 
   IndexArrays index_arrays;
@@ -123,6 +127,8 @@ struct IndexArraySliceOp {
 ///     to the selected dimensions.  May be a negative value, as supported by
 ///     NormalizeDimensionIndex.
 /// \param index_vector_array The array of index vectors.
+/// \param domain_only Indicates the output dimensions of `transform` should be
+///     ignored, and returned transform should have an output rank of 0.
 /// \pre `transform.valid()`
 /// \returns The new index transform.
 /// \error `absl::StatusCode::kInvalidArgument` if
@@ -137,7 +143,8 @@ struct IndexArraySliceOp {
 Result<IndexTransform<>> ApplyIndexVectorArraySlice(
     IndexTransform<> transform, DimensionIndexBuffer* dimensions,
     DimensionIndex vector_dimension,
-    const SharedArrayView<const Index>& index_vector_array);
+    const SharedArrayView<const Index>& index_vector_array,
+    bool domain_only = false);
 
 /// Type representing the IndexVectorArraySlice operation.
 /// \tparam IndexVectorArrayRank Static rank of the index vector array.
@@ -159,9 +166,11 @@ struct IndexVectorArraySliceOp {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* dimensions) const {
+                                 DimensionIndexBuffer* dimensions,
+                                 bool domain_only) const {
     return ApplyIndexVectorArraySlice(std::move(transform), dimensions,
-                                      vector_dimension, index_vector_array);
+                                      vector_dimension, index_vector_array,
+                                      domain_only);
   }
 
   /// The index vector array.

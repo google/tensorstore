@@ -22,10 +22,12 @@ namespace internal_index_space {
 
 Result<IndexTransform<>> ApplyChangeImplicitState(
     IndexTransform<> transform, DimensionIndexBuffer* dimensions, bool implicit,
-    bool lower, bool upper) {
-  if (!lower && !upper) return transform;
-  TransformRep::Ptr<> rep =
-      MutableRep(TransformAccess::rep_ptr<container>(std::move(transform)));
+    bool lower, bool upper, bool domain_only) {
+  if (!lower && !upper) {
+    return transform;
+  }
+  TransformRep::Ptr<> rep = MutableRep(
+      TransformAccess::rep_ptr<container>(std::move(transform)), domain_only);
   if (implicit) {
     // Verify that there are no index array maps that are indexed by a dimension
     // in `*dimensions`.

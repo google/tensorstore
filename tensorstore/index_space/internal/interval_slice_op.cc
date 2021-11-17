@@ -191,15 +191,15 @@ Result<IndexTransform<>> ApplyIntervalSliceOp(
     IntervalForm interval_form, bool translate,
     IndexVectorOrScalarView start_vector,
     IndexVectorOrScalarView stop_or_size_vector,
-    IndexVectorOrScalarView stride_vector) {
+    IndexVectorOrScalarView stride_vector, bool domain_only) {
   const DimensionIndex num_dims = dimensions->size();
   const DimensionIndex input_rank = transform.input_rank();
   TENSORSTORE_RETURN_IF_ERROR(CheckIndexVectorSize(start_vector, num_dims));
   TENSORSTORE_RETURN_IF_ERROR(
       CheckIndexVectorSize(stop_or_size_vector, num_dims));
   TENSORSTORE_RETURN_IF_ERROR(CheckIndexVectorSize(stride_vector, num_dims));
-  TransformRep::Ptr<> rep =
-      MutableRep(TransformAccess::rep_ptr<container>(std::move(transform)));
+  TransformRep::Ptr<> rep = MutableRep(
+      TransformAccess::rep_ptr<container>(std::move(transform)), domain_only);
   absl::FixedArray<InputDimensionIntervalSliceInfo, internal::kNumInlinedDims>
       input_dimension_info(input_rank);
   // Computes slicing parameters and updates `input_origin` and `input_shape`.
@@ -213,12 +213,13 @@ Result<IndexTransform<>> ApplyIntervalSliceOp(
 
 Result<IndexTransform<>> ApplyStrideOp(IndexTransform<> transform,
                                        DimensionIndexBuffer* dimensions,
-                                       IndexVectorOrScalarView strides) {
+                                       IndexVectorOrScalarView strides,
+                                       bool domain_only) {
   const DimensionIndex num_dims = dimensions->size();
   const DimensionIndex input_rank = transform.input_rank();
   TENSORSTORE_RETURN_IF_ERROR(CheckIndexVectorSize(strides, num_dims));
-  TransformRep::Ptr<> rep =
-      MutableRep(TransformAccess::rep_ptr<container>(std::move(transform)));
+  TransformRep::Ptr<> rep = MutableRep(
+      TransformAccess::rep_ptr<container>(std::move(transform)), domain_only);
   absl::FixedArray<InputDimensionIntervalSliceInfo, internal::kNumInlinedDims>
       input_dimension_info(input_rank, InputDimensionIntervalSliceInfo{0, 1});
   const auto compute_input_domain = [&](DimensionIndex i,

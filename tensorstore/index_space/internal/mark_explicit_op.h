@@ -42,13 +42,15 @@ namespace internal_index_space {
 ///     specified dimensions.
 /// \param upper If `true`, change the implicit state of the upper bounds of the
 ///     specified dimensions.
+/// \param domain_only Indicates the output dimensions of `transform` should be
+///     ignored, and returned transform should have an output rank of 0.
 /// \pre `transform.valid()`
 /// \pre Each `index` in `*dimensions` must be unique and satisfy `0 <= index`
 ///     and `index < transform.input_rank()`.
 /// \returns The new index transform.
 Result<IndexTransform<>> ApplyChangeImplicitState(
     IndexTransform<> transform, DimensionIndexBuffer* dimensions, bool implicit,
-    bool lower, bool upper);
+    bool lower, bool upper, bool domain_only = false);
 
 /// Type representing a {Unsafe,}MarkBounds{Explicit,Implicit} operation.
 struct ChangeImplicitStateOp {
@@ -65,9 +67,11 @@ struct ChangeImplicitStateOp {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* dimensions) const {
+                                 DimensionIndexBuffer* dimensions,
+                                 bool domain_only) const {
     return ApplyChangeImplicitState(std::move(transform), dimensions,
-                                    /*implicit=*/implicit, lower, upper);
+                                    /*implicit=*/implicit, lower, upper,
+                                    domain_only);
   }
 
   bool implicit;

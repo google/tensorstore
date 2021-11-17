@@ -42,6 +42,8 @@ namespace internal_index_space {
 ///     `dimensions`.  A negative number `-n` is equivalent to
 ///     `transform.input_rank() - n`.  Dimensions not in `dimensions` remain in
 ///     the same relative order.
+/// \param domain_only Indicates the output dimensions of `transform` should be
+///     ignored, and returned transform should have an output rank of 0.
 /// \pre `transform.valid()`
 /// \pre Each `index` in `*dimensions` must be unique and satisfy `0 <= index`
 ///     and `index < transform.input_rank()`.
@@ -52,7 +54,7 @@ namespace internal_index_space {
 ///     unique or does not satisfy `0 <= index < transform.input_rank()`.
 Result<IndexTransform<>> ApplyTransposeTo(
     IndexTransform<> transform, DimensionIndexBuffer* dimensions,
-    span<const DimensionIndex> target_dimensions);
+    span<const DimensionIndex> target_dimensions, bool domain_only);
 
 /// Returns a new index transform with the dimensions permuted according to a
 /// dynamic target specification.
@@ -70,12 +72,14 @@ Result<IndexTransform<>> ApplyTransposeTo(
 ///     dimensions in the new transform.
 /// \param target_dim_specs The target dimension specifiers.  Must not specify
 ///     any dimensions by label.
+/// \param domain_only Indicates the output dimensions of `transform` should be
+///     ignored, and returned transform should have an output rank of 0.
 /// \pre `transform.valid()`
 /// \error `absl::StatusCode::kInvalidArgument` if `target_dimensions` specifies
 ///     any dimensions by label.
 Result<IndexTransform<>> ApplyTransposeToDynamic(
     IndexTransform<> transform, DimensionIndexBuffer* dimensions,
-    span<const DynamicDimSpec> target_dim_specs);
+    span<const DynamicDimSpec> target_dim_specs, bool domain_only);
 
 /// Type representing the `DimExpression::Transpose(target_dimensions)`
 /// operation.
@@ -104,9 +108,10 @@ struct TransposeToOp {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* dimensions) const {
-    return ApplyTransposeTo(std::move(transform), dimensions,
-                            target_dimensions);
+                                 DimensionIndexBuffer* dimensions,
+                                 bool domain_only) const {
+    return ApplyTransposeTo(std::move(transform), dimensions, target_dimensions,
+                            domain_only);
   }
 
   Container target_dimensions;
@@ -121,6 +126,8 @@ struct TransposeToOp {
 /// \param dimensions[in,out] Must be non-null.  On input, specifies the
 ///     dimension index of `transform` corresponding to each dimension of the
 ///     new transform.  On return, set to `0, ..., transform->input_rank()-1`.
+/// \param domain_only Indicates the output dimensions of `transform` should be
+///     ignored, and returned transform should have an output rank of 0.
 /// \pre `transform.valid()`
 /// \pre Each `index` in `*dimensions` must be unique and satisfy `0 <= index`
 ///     and `index < transform.input_rank()`.
@@ -128,7 +135,8 @@ struct TransposeToOp {
 /// \error `absl::StatusCode::kInvalidArgument` if
 ///     `dimensions->size() != transform.input_rank()`.
 Result<IndexTransform<>> ApplyTranspose(IndexTransform<> transform,
-                                        DimensionIndexBuffer* dimensions);
+                                        DimensionIndexBuffer* dimensions,
+                                        bool domain_only);
 
 /// Empty type representing the `DimExpression::Transpose()` operation.
 struct TransposeOp {
@@ -148,8 +156,9 @@ struct TransposeOp {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* dimensions) const {
-    return ApplyTranspose(std::move(transform), dimensions);
+                                 DimensionIndexBuffer* dimensions,
+                                 bool domain_only) const {
+    return ApplyTranspose(std::move(transform), dimensions, domain_only);
   }
 };
 
@@ -167,6 +176,8 @@ struct TransposeOp {
 ///     `target` is the new index of the first selected dimension.  If
 ///     `target < 0`, `target + transform.input_rank()` is the new index of the
 ///     last selected dimension.
+/// \param domain_only Indicates the output dimensions of `transform` should be
+///     ignored, and returned transform should have an output rank of 0.
 /// \pre Each `index` in `*dimensions` must be unique and satisfy `0 <= index`
 ///     and `index < transform.input_rank()`.
 /// \returns The new index transform.
@@ -174,7 +185,8 @@ struct TransposeOp {
 ///     `dimensions->size() != transform.input_rank()`.
 Result<IndexTransform<>> ApplyMoveDimsTo(IndexTransform<> transform,
                                          DimensionIndexBuffer* dimensions,
-                                         DimensionIndex target);
+                                         DimensionIndex target,
+                                         bool domain_only);
 
 /// Type representing the DimExpression::MoveTo{,Front,Back} operations.
 struct MoveToOp {
@@ -191,8 +203,10 @@ struct MoveToOp {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* dimensions) const {
-    return ApplyMoveDimsTo(std::move(transform), dimensions, target);
+                                 DimensionIndexBuffer* dimensions,
+                                 bool domain_only) const {
+    return ApplyMoveDimsTo(std::move(transform), dimensions, target,
+                           domain_only);
   }
 
   DimensionIndex target;

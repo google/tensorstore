@@ -17,6 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/dim_expression_testutil.h"
 #include "tensorstore/util/status.h"
@@ -27,6 +28,7 @@ using tensorstore::AllDims;
 using tensorstore::DimensionIndex;
 using tensorstore::Dims;
 using tensorstore::Index;
+using tensorstore::IndexDomainBuilder;
 using tensorstore::IndexInterval;
 using tensorstore::IndexTransformBuilder;
 using tensorstore::kInfIndex;
@@ -301,13 +303,15 @@ TEST(SingleIndexSliceTest, EmptyDomain) {
                     /*equivalent_indices=*/{});
 }
 
-TEST(SingleIndexSliceTest, ErrorHandling) {
+TEST(ErrorHandlingTest, DimensionSelectionRankMismatch) {
   TestDimExpressionError(IndexTransformBuilder<1, 1>().Finalize().value(),
                          AllDims().IndexSlice(span<const Index>({1, 2})),
                          absl::StatusCode::kInvalidArgument,
                          "Number of dimensions .* does not match number of "
                          "indices .*");
+}
 
+TEST(ErrorHandlingTest, OutOfBounds) {
   TestDimExpressionError(IndexTransformBuilder<1, 1>()
                              .input_origin({-10})
                              .input_shape({15})
@@ -316,7 +320,9 @@ TEST(SingleIndexSliceTest, ErrorHandling) {
                          AllDims().IndexSlice({5}),
                          absl::StatusCode::kOutOfRange,
                          "Slice mismatch: .* is outside valid domain .*");
+}
 
+TEST(ErrorHandlingTest, OutOfBoundsInfinity) {
   TestDimExpressionError(IndexTransformBuilder<1, 1>()
                              .input_origin({-kInfIndex})
                              .input_shape({15})
@@ -325,8 +331,10 @@ TEST(SingleIndexSliceTest, ErrorHandling) {
                          AllDims().IndexSlice({-kInfIndex}),
                          absl::StatusCode::kOutOfRange,
                          "Slice mismatch: .* is outside valid domain .*");
+}
 
-  TestDimExpressionError(
+TEST(ErrorHandlingTest, SingleInputDimensionMapIntegerOverflow) {
+  TestDimExpressionErrorTransformOnly(
       IndexTransformBuilder<1, 1>()
           .input_origin({0})
           .input_shape({10})
@@ -335,9 +343,12 @@ TEST(SingleIndexSliceTest, ErrorHandling) {
           .Finalize()
           .value(),
       AllDims().IndexSlice({1}), absl::StatusCode::kInvalidArgument,
-      "Integer overflow computing offset for output dimension.*");
+      "Integer overflow computing offset for output dimension.*",
+      IndexDomainBuilder<0>().Finalize().value());
+}
 
-  TestDimExpressionError(
+TEST(ErrorHandlingTest, IndexArrayMapIntegerOverflow) {
+  TestDimExpressionErrorTransformOnly(
       IndexTransformBuilder<1, 1>()
           .input_origin({0})
           .input_shape({3})
@@ -346,9 +357,12 @@ TEST(SingleIndexSliceTest, ErrorHandling) {
           .Finalize()
           .value(),
       AllDims().IndexSlice({1}), absl::StatusCode::kInvalidArgument,
-      "Integer overflow computing offset for output dimension.*");
+      "Integer overflow computing offset for output dimension.*",
+      IndexDomainBuilder<0>().Finalize().value());
+}
 
-  TestDimExpressionError(
+TEST(ErrorHandlingTest, IndexArrayMapOutOfBounds) {
+  TestDimExpressionErrorTransformOnly(
       IndexTransformBuilder<1, 1>()
           .input_origin({0})
           .input_shape({3})
@@ -357,7 +371,8 @@ TEST(SingleIndexSliceTest, ErrorHandling) {
           .Finalize()
           .value(),
       AllDims().IndexSlice({1}), absl::StatusCode::kOutOfRange,
-      "Index .* is outside valid range .*");
+      "Index .* is outside valid range .*",
+      IndexDomainBuilder<0>().Finalize().value());
 }
 
 }  // namespace

@@ -227,10 +227,9 @@ Result<IndexDomain<Rank>> ParseIndexDomain(
     const ::nlohmann::json& j,
     StaticOrDynamicRank<Rank> rank = GetDefaultRank<Rank>()) {
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto transform, internal_index_space::ParseIndexDomainFromJson(j, rank));
-  return IndexDomain<Rank>(
-      internal_index_space::TransformAccess::Make<IndexTransform<Rank>>(
-          std::move(transform)));
+      auto rep, internal_index_space::ParseIndexDomainFromJson(j, rank));
+  return internal_index_space::TransformAccess::Make<IndexDomain<Rank>>(
+      std::move(rep));
 }
 
 namespace internal_json_binding {

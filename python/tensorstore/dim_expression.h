@@ -100,9 +100,12 @@ class PythonDimExpression {
   ///     invokes a parent operation, it must specify `top_level=false`.  This
   ///     option is checked by `DimensionSelection::Apply` in order to return an
   ///     error if no operations are specified.
+  /// \param domain_only Indicates the output dimensions of `transform` should
+  ///     be ignored, and returned transform should have an output rank of 0.
   virtual Result<IndexTransform<>> Apply(IndexTransform<> transform,
                                          DimensionIndexBuffer* dimensions,
-                                         bool top_level) const = 0;
+                                         bool top_level,
+                                         bool domain_only) const = 0;
 
   virtual ~PythonDimExpression() = default;
 };
@@ -119,7 +122,8 @@ class DimensionSelection : public PythonDimExpression {
   /// `transform` unmodified.
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
                                  DimensionIndexBuffer* dimensions,
-                                 bool top_level) const override;
+                                 bool top_level,
+                                 bool domain_only) const override;
 
   /// Specifies the dimension selection.
   std::vector<DynamicDimSpec> dims;

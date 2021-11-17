@@ -359,7 +359,7 @@ class IndexDomainBuilder {
   /// \error `absl::StatusCode::kInvalidArgument` if the domain is invalid.
   Result<IndexDomain<Rank>> Finalize() {
     TENSORSTORE_ASSIGN_OR_RETURN(auto transform, builder_.Finalize());
-    return IndexDomain<Rank>(transform);
+    return std::move(transform).domain();
   }
 
  private:

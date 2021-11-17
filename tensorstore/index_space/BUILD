@@ -319,6 +319,7 @@ tensorstore_cc_library(
         "json.cc",
     ],
     hdrs = [
+        "index_domain.h",
         "index_domain_builder.h",
         "index_transform.h",
         "index_transform_builder.h",
@@ -866,6 +867,7 @@ tensorstore_cc_test(
         ":dim_expression_testutil",
         ":index_transform",
         "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )

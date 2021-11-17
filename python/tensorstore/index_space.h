@@ -203,7 +203,7 @@ void DefineIndexTransformOperations(
               GilScopedRelease gil_release;
               DimensionIndexBuffer dims;
               return expr.Apply(std::move(transform), &dims,
-                                /*top_level=*/true);
+                                /*top_level=*/true, /*domain_only=*/false);
             }(),
             StatusExceptionPolicy::kIndexError);
       },

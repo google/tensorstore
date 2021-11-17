@@ -42,6 +42,8 @@ namespace internal_index_space {
 /// \param dimensions[in,out] The dimensions from which to extract the diagonal.
 ///     Must be non-null.  On return, `*dimensions` contains the single value
 ///     `0`, corresponding to the index of the new diagonal dimension.
+/// \param domain_only Indicates the output dimensions of `transform` should be
+///     ignored, and returned transform should have an output rank of 0.
 /// \pre `transform.valid()`
 /// \pre Each `index` in `*dimensions` must be unique and satisfy `0 <= index`
 ///     and `index < transform.input_rank()`.
@@ -49,7 +51,8 @@ namespace internal_index_space {
 ///     for consistency with other operations, but an error Result is never
 ///     returned.
 Result<IndexTransform<>> ApplyDiagonal(IndexTransform<> transform,
-                                       DimensionIndexBuffer* dimensions);
+                                       DimensionIndexBuffer* dimensions,
+                                       bool domain_only);
 
 /// Empty type representing a Diagonal operation.  The dimensions from which to
 /// extract the diagonal are specified by the dimension selection.
@@ -67,8 +70,9 @@ struct DiagonalOp {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* dimensions) const {
-    return ApplyDiagonal(std::move(transform), dimensions);
+                                 DimensionIndexBuffer* dimensions,
+                                 bool domain_only) const {
+    return ApplyDiagonal(std::move(transform), dimensions, domain_only);
   }
 };
 

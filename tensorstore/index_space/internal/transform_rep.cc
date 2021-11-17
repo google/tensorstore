@@ -220,24 +220,50 @@ void MoveTransformRep(TransformRep* source, TransformRep* dest) {
   CopyInputLabels(source, dest, /*can_move=*/true);
 }
 
-TransformRep::Ptr<> MutableRep(TransformRep::Ptr<> ptr) {
-  if (!ptr || ptr.get() == &rank_zero_transform_data || ptr->is_unique()) {
+void ResetOutputIndexMaps(TransformRep* ptr) {
+  auto output_index_maps = ptr->output_index_maps();
+  for (DimensionIndex output_dim = 0, output_rank = ptr->output_rank;
+       output_dim < output_rank; ++output_dim) {
+    output_index_maps[output_dim].SetConstant();
+  }
+  ptr->output_rank = 0;
+}
+
+TransformRep::Ptr<> MutableRep(TransformRep::Ptr<> ptr, bool domain_only) {
+  if (!ptr || ptr.get() == &rank_zero_transform_data) return ptr;
+  if (ptr->is_unique()) {
+    if (domain_only) {
+      ResetOutputIndexMaps(ptr.get());
+      ptr->output_rank = 0;
+    }
     return ptr;
   }
-  auto new_rep = TransformRep::Allocate(ptr->input_rank, ptr->output_rank);
-  CopyTransformRep(ptr.get(), new_rep.get());
-  return new_rep;
+  if (domain_only) {
+    auto new_rep = TransformRep::Allocate(ptr->input_rank, 0);
+    CopyTransformRepDomain(ptr.get(), new_rep.get());
+    new_rep->output_rank = 0;
+    return new_rep;
+  } else {
+    auto new_rep = TransformRep::Allocate(ptr->input_rank, ptr->output_rank);
+    CopyTransformRep(ptr.get(), new_rep.get());
+    return new_rep;
+  }
 }
 
 TransformRep::Ptr<> NewOrMutableRep(TransformRep* ptr,
                                     DimensionIndex input_rank_capacity,
-                                    DimensionIndex output_rank_capacity) {
+                                    DimensionIndex output_rank_capacity,
+                                    bool domain_only) {
   assert(ptr);
   if (ptr->input_rank_capacity >= input_rank_capacity &&
       ptr->output_rank_capacity >= output_rank_capacity && ptr->is_unique()) {
+    if (domain_only) {
+      ResetOutputIndexMaps(ptr);
+    }
     return TransformRep::Ptr<>(ptr);
   } else {
-    return TransformRep::Allocate(input_rank_capacity, output_rank_capacity);
+    return TransformRep::Allocate(input_rank_capacity,
+                                  domain_only ? 0 : output_rank_capacity);
   }
 }
 
@@ -522,10 +548,36 @@ bool IsUnlabeled(span<const std::string> labels) {
                      [](std::string_view s) { return s.empty(); });
 }
 
+DimensionSet GetIndexArrayInputDimensions(TransformRep* transform) {
+  DimensionSet set;
+  const DimensionIndex output_rank = transform->output_rank;
+  const DimensionIndex input_rank = transform->input_rank;
+  auto output_maps = transform->output_index_maps();
+  for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
+    auto& map = output_maps[output_dim];
+    if (map.method() != OutputIndexMethod::array) continue;
+    const auto& index_array_data = map.index_array_data();
+    for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {
+      if (index_array_data.byte_strides[input_dim] != 0) {
+        set[input_dim] = true;
+      }
+    }
+  }
+  return set;
+}
+
 TransformRep::Ptr<> WithImplicitDimensions(TransformRep::Ptr<> transform,
                                            DimensionSet implicit_lower_bounds,
-                                           DimensionSet implicit_upper_bounds) {
-  transform = MutableRep(std::move(transform));
+                                           DimensionSet implicit_upper_bounds,
+                                           bool domain_only) {
+  transform = MutableRep(std::move(transform), domain_only);
+  if (!domain_only && (implicit_lower_bounds || implicit_upper_bounds)) {
+    // Ensure all dimensions on which an index array depends remain explicit.
+    auto index_array_dims =
+        internal_index_space::GetIndexArrayInputDimensions(transform.get());
+    implicit_lower_bounds &= ~index_array_dims;
+    implicit_upper_bounds &= ~index_array_dims;
+  }
   transform->implicit_bitvector =
       static_cast<uint64_t>(implicit_lower_bounds.bits()) |
       (static_cast<uint64_t>(implicit_upper_bounds.bits()) << kMaxRank);
@@ -584,6 +636,14 @@ void DebugCheckInvariants(TransformRep* rep) {
         break;
       }
     }
+  }
+
+  // Validate that no index arrays remain allocated
+  for (DimensionIndex output_dim = output_rank,
+                      output_rank_capacity = rep->output_rank_capacity;
+       output_dim < output_rank_capacity; ++output_dim) {
+    assert(rep->output_index_maps()[output_dim].method() !=
+           OutputIndexMethod::array);
   }
 }
 #endif

@@ -116,25 +116,43 @@ class DimExpressionHelper {
        GetStaticSelectionRank<Op...>(InputRank) >= -1),
       IndexTransform<GetNewStaticInputRank<Op...>(InputRank), OutputRank>>;
 
+  /// Type of index domain obtained by applying a DimExpression.
+  ///
+  /// \tparam Rank static rank of the index domain to which the DimExpression
+  ///     will be applied.
+  /// \tparam Op... Sequence of operations that will be applied.
+  /// \schecks `Rank` is compatible with `DimExpression<Op...>`.
+  template <DimensionIndex Rank, typename... Op>
+  using NewDomainType =
+      std::enable_if_t<(sizeof...(Op) > 1 &&
+                        // Note: Condition below is always satisfied; the real
+                        // test is whether `GetStaticSelectionRank` is a valid
+                        // constant expression.
+                        GetStaticSelectionRank<Op...>(Rank) >= -1),
+                       IndexDomain<GetNewStaticInputRank<Op...>(Rank)>>;
+
   /// Applies a DimExpression to an index transform.
   template <typename LastOp, typename PriorOp0, typename PriorOp1,
             typename... PriorOp>
   static Result<IndexTransform<>> Apply(
       const DimExpression<LastOp, PriorOp0, PriorOp1, PriorOp...>& expr,
-      IndexTransform<> transform, DimensionIndexBuffer* dimensions) {
+      IndexTransform<> transform, DimensionIndexBuffer* dimensions,
+      bool domain_only) {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        transform, Apply(expr.parent_, std::move(transform), dimensions));
-    return expr.last_op_.Apply(std::move(transform), dimensions);
+        transform,
+        Apply(expr.parent_, std::move(transform), dimensions, domain_only));
+    return expr.last_op_.Apply(std::move(transform), dimensions, domain_only);
   }
 
   /// Overload for the base case of a single operation.
   template <typename DimensionSelection, typename Op>
   static Result<IndexTransform<>> Apply(
       const DimExpression<Op, DimensionSelection>& expr,
-      IndexTransform<> transform, DimensionIndexBuffer* dimensions) {
+      IndexTransform<> transform, DimensionIndexBuffer* dimensions,
+      bool domain_only) {
     TENSORSTORE_RETURN_IF_ERROR(GetDimensions<Op::selected_dimensions_are_new>(
         expr.parent_.last_op_, transform, dimensions));
-    return expr.last_op_.Apply(std::move(transform), dimensions);
+    return expr.last_op_.Apply(std::move(transform), dimensions, domain_only);
   }
 
   /// Recursive helper function used by GetNewStaticInputRank.

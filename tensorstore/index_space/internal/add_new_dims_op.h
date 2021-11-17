@@ -37,6 +37,8 @@ namespace internal_index_space {
 /// \param dimensions[in] Non-null pointer to the list of indices of the new
 ///     dimensions.  The value is not modified, since these indices already
 ///     correspond to the indices of the new dimensions in the result.
+/// \param domain_only Indicates the output dimensions of `transform` should be
+///     ignored, and returned transform should have an output rank of 0.
 /// \pre `transform.valid()`
 /// \pre Each `index` in `*dimensions` must be unique and satisfy: `0 <= index`
 ///     and `index < transform.input_rank() + dimensions->size()`.
@@ -44,7 +46,8 @@ namespace internal_index_space {
 ///     for consistency with other operations, but an error Result is never
 ///     returned.
 Result<IndexTransform<>> ApplyAddNewDims(IndexTransform<> transform,
-                                         DimensionIndexBuffer* dimensions);
+                                         DimensionIndexBuffer* dimensions,
+                                         bool domain_only);
 
 /// Empty type representing an AddDims operation.  The new dummy dimensions to
 /// add are specified by the dimension selection.
@@ -62,8 +65,9 @@ struct AddNewDimsOp {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* dimensions) const {
-    return ApplyAddNewDims(std::move(transform), dimensions);
+                                 DimensionIndexBuffer* dimensions,
+                                 bool domain_only) const {
+    return ApplyAddNewDims(std::move(transform), dimensions, domain_only);
   }
 };
 

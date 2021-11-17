@@ -356,7 +356,7 @@ void DefineIndexDomainAttributes(py::class_<IndexDomain<>>& cls) {
             exclusive_max, "exclusive_max", inclusive_max, "inclusive_max",
             shape, "shape", implicit_upper_bounds, labels, "labels",
             /*output_rank=*/0);
-        return IndexDomain<>(ValueOrThrow(builder.Finalize()));
+        return ValueOrThrow(builder.Finalize()).domain();
       }),
       R"(
 Constructs an index domain from component vectors.
@@ -414,7 +414,7 @@ Overload:
           implicit_lower_bounds[i] = d.implicit_lower();
           implicit_upper_bounds[i] = d.implicit_upper();
         }
-        return IndexDomain<>(ValueOrThrow(builder.Finalize()));
+        return ValueOrThrow(builder.Finalize()).domain();
       }),
       R"(
 Constructs an index domain from a :py:class`.Dim` sequence.
@@ -581,9 +581,11 @@ Group:
       "__getitem__",
       [](const IndexDomain<>& self,
          const IndexDomain<>& other) -> IndexDomain<> {
-        return IndexDomain<>(ValueOrThrow(
-            other(internal_index_space::TransformAccess::transform(self)),
-            StatusExceptionPolicy::kIndexError));
+        return ValueOrThrow(
+                   other(
+                       internal_index_space::TransformAccess::transform(self)),
+                   StatusExceptionPolicy::kIndexError)
+            .domain();
       },
       R"(
 Slices this domain by another domain.
@@ -678,10 +680,12 @@ Group:
       [](const IndexDomain<>& self, const PythonDimExpression& expr) {
         GilScopedRelease gil_release;
         DimensionIndexBuffer dims;
-        return IndexDomain<>(ValueOrThrow(
-            expr.Apply(internal_index_space::TransformAccess::transform(self),
-                       &dims, /*top_level=*/true),
-            StatusExceptionPolicy::kIndexError));
+        return ValueOrThrow(
+                   expr.Apply(
+                       internal_index_space::TransformAccess::transform(self),
+                       &dims, /*top_level=*/true, /*domain_only=*/true),
+                   StatusExceptionPolicy::kIndexError)
+            .domain();
       },
       R"(
 Transforms the domain by a :ref:`dimension expression<python-dim-expressions>`.
@@ -723,6 +727,56 @@ Group:
   Indexing
 )",
       py::arg("expr"));
+
+  cls.def(
+      "__getitem__",
+      [](const IndexDomain<>& self, const IndexTransform<>& transform) {
+        GilScopedRelease gil_release;
+        return ValueOrThrow(self | transform,
+                            StatusExceptionPolicy::kIndexError);
+      },
+      R"(
+Transforms the domain using an explicit :ref:`index transform<index-transform>`.
+
+Example:
+
+    >>> domain = ts.IndexDomain(inclusive_min=[1, 2, 3],
+    ...                         exclusive_max=[6, 7, 8])
+    >>> transform = ts.IndexTransform(
+    ...     input_rank=4,
+    ...     output=[
+    ...         ts.OutputIndexMap(offset=5, input_dimension=3),
+    ...         ts.OutputIndexMap(offset=-7, input_dimension=0),
+    ...         ts.OutputIndexMap(offset=3, input_dimension=1),
+    ...     ])
+    >>> domain[transform]
+    { [9, 14), [0, 5), (-inf*, +inf*), [-4, 1) }
+
+Args:
+
+  transform: Index transform, :python:`transform.output_rank` must equal
+    :python:`self.rank`.
+
+Returns:
+
+  New domain of rank :python:`transform.input_rank`.
+
+Note:
+
+   This is equivalent to composing an identity transform over :python:`self`
+   with :py:param:`.transform`,
+   i.e. :python:`ts.IndexTransform(self)[transform].domain`.  Consequently,
+   operations that primarily affect the output index mappings, like
+   :ref:`integer array indexing<python-indexing-integer-array>`, are not very
+   useful, though they are still permitted.
+
+Overload:
+  transform
+
+Group:
+  Indexing
+)",
+      py::arg("transform"));
 
   cls.def(
       "intersect",

@@ -502,7 +502,8 @@ TEST(IndexTransformBuilderTest, InputDomain) {
                                          .implicit_upper_bounds({1, 0})
                                          .input_labels({"x", "y"})
                                          .Finalize()
-                                         .value());
+                                         .value()
+                                         .domain());
 
   auto t =
       IndexTransformBuilder<>(2, 2).input_domain(domain).Finalize().value();

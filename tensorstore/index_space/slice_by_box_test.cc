@@ -153,7 +153,6 @@ TEST(IndexDomainSliceByBoxTest, Simple) {
       auto expected_domain,
       IndexDomainBuilder(3).bounds(box).labels({"x", "y", "z"}).Finalize());
 
-  // TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto new_domain, box(domain));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto new_domain,
                                    domain | tensorstore::BoxView<>(box));
   EXPECT_EQ(expected_domain, new_domain);

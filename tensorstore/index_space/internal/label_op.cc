@@ -21,14 +21,15 @@ namespace internal_index_space {
 
 Result<IndexTransform<>> ApplyLabel(IndexTransform<> transform,
                                     DimensionIndexBuffer* dimensions,
-                                    internal::StringLikeSpan labels) {
+                                    internal::StringLikeSpan labels,
+                                    bool domain_only) {
   if (dimensions->size() != static_cast<std::size_t>(labels.size())) {
     return absl::InvalidArgumentError(
         StrCat("Number of dimensions (", dimensions->size(),
                ") does not match number of labels (", labels.size(), ")."));
   }
-  auto rep =
-      MutableRep(TransformAccess::rep_ptr<container>(std::move(transform)));
+  auto rep = MutableRep(
+      TransformAccess::rep_ptr<container>(std::move(transform)), domain_only);
   const DimensionIndex input_rank = rep->input_rank;
   span<std::string> input_labels = rep->input_labels().first(input_rank);
   for (DimensionIndex i = 0;

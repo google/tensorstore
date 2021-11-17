@@ -48,6 +48,8 @@ namespace internal_index_space {
 ///     shifted by the corresponding offsets.  If `true`, the domains of the
 ///     specified dimensions are shifted to have origins equal to the
 ///     corresponding offsets.
+/// \param domain_only Indicates the output dimensions of `transform` should be
+///     ignored, and returned transform should have an output rank of 0.
 /// \pre `transform.valid()`
 /// \pre Each `index` in `*dimensions` must be unique and satisfy `0 <= index`
 ///     and `index < transform.input_rank()`.
@@ -62,7 +64,8 @@ namespace internal_index_space {
 Result<IndexTransform<>> ApplyTranslate(IndexTransform<> transform,
                                         DimensionIndexBuffer* dimensions,
                                         IndexVectorOrScalarView offsets,
-                                        bool translate_to);
+                                        bool translate_to,
+                                        bool domain_only = false);
 
 /// Type representing the DimExpression::TranslateBy and
 /// DimExpression::TranslateTo operations.
@@ -94,9 +97,11 @@ struct TranslateOp {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* dimensions) const {
+                                 DimensionIndexBuffer* dimensions,
+                                 bool domain_only) const {
     return ApplyTranslate(std::move(transform), dimensions,
-                          IndexVectorOrScalarView(offset_or_origin_vector), To);
+                          IndexVectorOrScalarView(offset_or_origin_vector), To,
+                          domain_only);
   }
 
   OffsetOrOriginVector offset_or_origin_vector;

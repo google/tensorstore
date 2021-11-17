@@ -17,9 +17,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/dim_expression_testutil.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_testutil.h"
 
 namespace {
 
@@ -27,6 +29,7 @@ using tensorstore::AllDims;
 using tensorstore::DimensionIndex;
 using tensorstore::Dims;
 using tensorstore::Index;
+using tensorstore::IndexDomainBuilder;
 using tensorstore::IndexTransformBuilder;
 using tensorstore::kImplicit;
 using tensorstore::kInfIndex;
@@ -34,6 +37,7 @@ using tensorstore::kInfSize;
 using tensorstore::kMaxFiniteIndex;
 using tensorstore::kMinFiniteIndex;
 using tensorstore::MakeArray;
+using tensorstore::MatchesStatus;
 using tensorstore::span;
 using tensorstore::internal_index_space::EquivalentIndices;
 using tensorstore::internal_index_space::TestDimExpression;
@@ -465,6 +469,36 @@ TEST(TranslateToTest, ErrorHandling) {
           .value(),
       AllDims().TranslateTo(std::numeric_limits<Index>::max()),
       absl::StatusCode::kOutOfRange, "Origin [0-9]+ is outside valid range .*");
+}
+
+TEST(TranslateToTest, IndexDomain) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto domain,
+      IndexDomainBuilder<3>().origin({1, 2, 3}).shape({6, 7, 8}).Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto translated_domain,
+      IndexDomainBuilder<3>().origin({4, 5, 6}).shape({6, 7, 8}).Finalize());
+  EXPECT_THAT(domain | AllDims().TranslateTo({4, 5, 6}),
+              ::testing::Optional(translated_domain));
+}
+
+TEST(TranslateToTest, IndexDomainOverflow) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto transform,
+      IndexTransformBuilder(1, 1)
+          .input_shape({10})
+          .output_single_input_dimension(0, kMaxFiniteIndex, kMaxFiniteIndex, 0)
+          .Finalize());
+  auto domain = transform.domain();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto translated_domain,
+      IndexDomainBuilder(1).origin({-5}).shape({10}).Finalize());
+  EXPECT_THAT(transform | AllDims().TranslateTo({-5}),
+              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  // Tests that integer overflow does not occur, because output dimensions are
+  // ignored.
+  EXPECT_THAT(domain | AllDims().TranslateTo({-5}),
+              ::testing::Optional(translated_domain));
 }
 
 }  // namespace

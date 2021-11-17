@@ -42,6 +42,9 @@ template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 class IndexTransform;
 
+template <DimensionIndex Rank, ContainerKind CKind>
+class IndexDomain;
+
 namespace internal_index_space {
 
 struct IndexArrayData {
@@ -512,8 +515,16 @@ void MoveTransformRep(TransformRep* source, TransformRep* dest);
 /// If `ptr->reference_count == 1`, returns `ptr`.  Otherwise, returns a
 /// newly-allocated copy.
 ///
+/// \param ptr Existing transform.
+/// \param domain_only If true, the returned transform will have an output rank
+///     of 0.
 /// \dchecks `ptr != nullptr`
-TransformRep::Ptr<> MutableRep(TransformRep::Ptr<> ptr);
+TransformRep::Ptr<> MutableRep(TransformRep::Ptr<> ptr,
+                               bool domain_only = false);
+
+/// Resets all output index maps to constant maps, freeing any associated index
+/// arrays.
+void ResetOutputIndexMaps(TransformRep* ptr);
 
 /// Returns a transform with the specified capacities.
 ///
@@ -527,11 +538,16 @@ TransformRep::Ptr<> MutableRep(TransformRep::Ptr<> ptr);
 /// \param ptr Non-null pointer to an existing transform.
 /// \param input_rank_capacity Required input rank capacity.
 /// \param output_rank_capacity Required output rank capacity.
+/// \param domain_only If true, `output_rank_capacity` is ignored and taken to
+///     be 0 instead.  Additionally, if the existing `ptr` is returned, all of
+///     its output index maps are reset in order to free any associated index
+///     arrays.
 /// \dchecks `ptr != nullptr`
 /// \returns A non-null transform pointer.
 TransformRep::Ptr<> NewOrMutableRep(TransformRep* ptr,
                                     DimensionIndex input_rank_capacity,
-                                    DimensionIndex output_rank_capacity);
+                                    DimensionIndex output_rank_capacity,
+                                    bool domain_only = false);
 
 /// Returns `true` if at least one dimension has an explicit zero-size domain,
 /// i.e. the domain is empty and it cannot be resized to become non-empty.
@@ -575,11 +591,16 @@ void PrintToOstream(std::ostream& os, TransformRep* transform);
 /// \param transform Pointer to the representation, may be `nullptr`.
 void PrintDomainToOstream(std::ostream& os, TransformRep* transform);
 
+/// Returns the set of input dimensions on which any index array output index
+/// map depends.
+DimensionSet GetIndexArrayInputDimensions(TransformRep* transform);
+
 /// Returns a copy of `transform` with `implicit_lower_bounds` and
 /// `implicit_upper_bounds` set to the specified values.
 TransformRep::Ptr<> WithImplicitDimensions(TransformRep::Ptr<> transform,
                                            DimensionSet implicit_lower_bounds,
-                                           DimensionSet implicit_upper_bounds);
+                                           DimensionSet implicit_upper_bounds,
+                                           bool domain_only);
 
 /// Computes the `output_indices` corresponding to the given `input_indices`.
 ///
@@ -635,9 +656,17 @@ class TransformAccess {
     return (std::forward<T>(x).rep_);
   }
 
-  template <typename T>
-  static decltype(auto) transform(T&& x) {
-    return (std::forward<T>(x).transform_);
+  template <DimensionIndex Rank, ContainerKind CKind>
+  static IndexTransform<Rank, dynamic_rank, view> transform(
+      const IndexDomain<Rank, CKind>& x) {
+    return Make<IndexTransform<Rank, dynamic_rank, view>>(rep(x));
+  }
+
+  template <DimensionIndex Rank>
+  static IndexTransform<Rank, dynamic_rank, container> transform(
+      IndexDomain<Rank, container>&& x) {
+    return Make<IndexTransform<Rank, dynamic_rank, container>>(
+        std::move(x.rep_));
   }
 
   template <typename T>

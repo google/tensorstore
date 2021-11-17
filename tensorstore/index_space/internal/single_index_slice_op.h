@@ -42,6 +42,8 @@ namespace internal_index_space {
 /// \pre `transform.valid()`
 /// \pre Each `index` in `*dimensions` must be unique and satisfy `0 <= index`
 ///     and `index < transform.input_rank()`.
+/// \param domain_only Indicates the output dimensions of `transform` should be
+///     ignored, and returned transform should have an output rank of 0.
 /// \returns The new index transform.
 /// \error `absl::StatusCode::kInvalidArgument` if `indices.size()` is not
 ///     compatible with `dimensions->size()`.
@@ -50,7 +52,8 @@ namespace internal_index_space {
 ///     computing the new transform.
 Result<IndexTransform<>> ApplySingleIndexSlice(IndexTransform<> transform,
                                                DimensionIndexBuffer* dimensions,
-                                               IndexVectorOrScalarView indices);
+                                               IndexVectorOrScalarView indices,
+                                               bool domain_only);
 
 /// Type representing the IndexSlice operation.
 /// \tparam Indices Container type for the indices vector.  Must satisfy
@@ -80,9 +83,10 @@ struct SingleIndexSliceOp {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* dimensions) const {
+                                 DimensionIndexBuffer* dimensions,
+                                 bool domain_only) const {
     return ApplySingleIndexSlice(std::move(transform), dimensions,
-                                 IndexVectorOrScalarView(indices));
+                                 IndexVectorOrScalarView(indices), domain_only);
   }
 
   Indices indices;

@@ -723,7 +723,7 @@ IndexDomain<> DownsampleDomain(IndexDomain<> base_domain,
   const auto& labels = base_domain.labels();
   std::copy(labels.begin(), labels.end(), rep->input_labels().begin());
   internal_index_space::DebugCheckInvariants(rep.get());
-  return IndexDomain<>(TransformAccess::Make<IndexTransform<>>(std::move(rep)));
+  return TransformAccess::Make<IndexDomain<>>(std::move(rep));
 }
 
 IndexTransform<> GetDownsampledDomainIdentityTransform(

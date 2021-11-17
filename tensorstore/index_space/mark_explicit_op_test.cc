@@ -20,6 +20,7 @@
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/dim_expression_testutil.h"
 
@@ -28,10 +29,11 @@ namespace {
 using tensorstore::DimensionIndex;
 using tensorstore::Dims;
 using tensorstore::Index;
+using tensorstore::IndexDomainBuilder;
 using tensorstore::IndexTransformBuilder;
 using tensorstore::MakeArray;
 using tensorstore::internal_index_space::TestDimExpression;
-using tensorstore::internal_index_space::TestDimExpressionError;
+using tensorstore::internal_index_space::TestDimExpressionErrorTransformOnly;
 
 TEST(MarkBoundsExplicitTest, Example) {
   const auto original_transform = IndexTransformBuilder<3, 3>()
@@ -206,7 +208,7 @@ TEST(UnsafeMarkBoundsImplicitTest, IndexArray) {
 }
 
 TEST(UnsafeMarkBoundsImplicitTest, IndexArrayInvalid) {
-  TestDimExpressionError(
+  TestDimExpressionErrorTransformOnly(
       IndexTransformBuilder(2, 1)
           .input_shape({2, 3})
           .output_index_array(0, 0, 1, MakeArray<Index>({{1, 2, 3}}))
@@ -215,7 +217,13 @@ TEST(UnsafeMarkBoundsImplicitTest, IndexArrayInvalid) {
       Dims(1).UnsafeMarkBoundsImplicit(/*lower=*/false, /*upper=*/true),
       absl::StatusCode::kInvalidArgument,
       "Cannot mark input dimension 1 as having implicit bounds because it "
-      "indexes the index array map for output dimension 0");
+      "indexes the index array map for output dimension 0",
+      /*expected_domain=*/
+      IndexDomainBuilder(2)
+          .shape({2, 3})
+          .implicit_upper_bounds({0, 1})
+          .Finalize()
+          .value());
 }
 
 TEST(MarkBoundsExplicitTest, LowerOnly) {

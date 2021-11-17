@@ -101,6 +101,7 @@ class DimExpression;
 template <typename LastOp, typename... PriorOp>
 class DimExpression<LastOp, PriorOp...> {
   using DimExpressionHelper = internal_index_space::DimExpressionHelper;
+  using Access = internal_index_space::TransformAccess;
   using Parent = DimExpression<PriorOp...>;
 
   /// The static rank of the dimension selection, as determined without knowing
@@ -1613,6 +1614,12 @@ class DimExpression<LastOp, PriorOp...> {
       DimExpressionHelper::NewTransformType<InputRank, OutputRank, LastOp,
                                             PriorOp...>;
 
+  /// Type alias for the new domain type that results from applying this
+  /// DimExpression to an index domain with the specified `Rank`.
+  template <DimensionIndex Rank>
+  using NewDomainType =
+      DimExpressionHelper::NewDomainType<Rank, LastOp, PriorOp...>;
+
   /// Applies this DimExpression to the specified index transform.
   ///
   /// \requires This DimExpression contains at least one operation.
@@ -1630,10 +1637,33 @@ class DimExpression<LastOp, PriorOp...> {
       DimensionIndexBuffer* selection_output =
           &internal::GetLValue(DimensionIndexBuffer())) const {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        auto result, DimExpressionHelper::Apply(*this, std::move(transform),
-                                                selection_output));
+        auto result,
+        DimExpressionHelper::Apply(*this, std::move(transform),
+                                   selection_output, /*domain_only=*/false));
     return NewTransformType<InputRank, OutputRank>(unchecked,
                                                    std::move(result));
+  }
+
+  /// Applies this DimExpression to the specified index domain.
+  ///
+  /// \requires This DimExpression contains at least one operation.
+  /// \param domain The index domain to which this DimExpression is applied.
+  /// \param[out] selection_output Optional.  If specified, filled with the
+  ///     indices of the new dimension selection after applying this
+  ///     DimExpression.
+  /// \returns The new index domain, or any error caused by the initial
+  ///     dimension selection or one of the chained operations.
+  template <DimensionIndex Rank, ContainerKind CKind>
+  Result<NewDomainType<Rank>> operator()(
+      IndexDomain<Rank, CKind> domain,
+      DimensionIndexBuffer* selection_output =
+          &internal::GetLValue(DimensionIndexBuffer())) const {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto result,
+        DimExpressionHelper::Apply(*this, Access::transform(std::move(domain)),
+                                   selection_output, /*domain_only=*/true));
+    return Access::Make<NewDomainType<Rank>>(
+        Access::rep_ptr(std::move(result)));
   }
 
   /// Applies this DimExpression to an object with an associated index space

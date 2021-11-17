@@ -71,7 +71,7 @@ std::string DimensionSelection::repr() const {
 
 Result<IndexTransform<>> DimensionSelection::Apply(
     IndexTransform<> transform, DimensionIndexBuffer* dimensions,
-    bool top_level) const {
+    bool top_level, bool domain_only) const {
   if (top_level) {
     return absl::InvalidArgumentError(
         "Must specify at least one operation in dimension expression");
@@ -98,13 +98,13 @@ class PythonTranslateOp : public PythonDimExpression {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* buffer,
-                                 bool top_level) const override {
+                                 DimensionIndexBuffer* buffer, bool top_level,
+                                 bool domain_only) const override {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        transform,
-        parent_->Apply(std::move(transform), buffer, /*top_level=*/false));
-    return internal_index_space::ApplyTranslate(std::move(transform), buffer,
-                                                indices_, translate_to_);
+        transform, parent_->Apply(std::move(transform), buffer,
+                                  /*top_level=*/false, domain_only));
+    return internal_index_space::ApplyTranslate(
+        std::move(transform), buffer, indices_, translate_to_, domain_only);
   }
 
  private:
@@ -127,13 +127,13 @@ class PythonStrideOp : public PythonDimExpression {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* buffer,
-                                 bool top_level) const override {
+                                 DimensionIndexBuffer* buffer, bool top_level,
+                                 bool domain_only) const override {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        transform,
-        parent_->Apply(std::move(transform), buffer, /*top_level=*/false));
+        transform, parent_->Apply(std::move(transform), buffer,
+                                  /*top_level=*/false, domain_only));
     return internal_index_space::ApplyStrideOp(std::move(transform), buffer,
-                                               strides_);
+                                               strides_, domain_only);
   }
 
  private:
@@ -158,13 +158,13 @@ class PythonLabelOp : public PythonDimExpression {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* buffer,
-                                 bool top_level) const override {
+                                 DimensionIndexBuffer* buffer, bool top_level,
+                                 bool domain_only) const override {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        transform,
-        parent_->Apply(std::move(transform), buffer, /*top_level=*/false));
+        transform, parent_->Apply(std::move(transform), buffer,
+                                  /*top_level=*/false, domain_only));
     return internal_index_space::ApplyLabel(std::move(transform), buffer,
-                                            span(labels_));
+                                            span(labels_), domain_only);
   }
 
  private:
@@ -183,12 +183,13 @@ class PythonDiagonalOp : public PythonDimExpression {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* buffer,
-                                 bool top_level) const override {
+                                 DimensionIndexBuffer* buffer, bool top_level,
+                                 bool domain_only) const override {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        transform,
-        parent_->Apply(std::move(transform), buffer, /*top_level=*/false));
-    return internal_index_space::ApplyDiagonal(std::move(transform), buffer);
+        transform, parent_->Apply(std::move(transform), buffer,
+                                  /*top_level=*/false, domain_only));
+    return internal_index_space::ApplyDiagonal(std::move(transform), buffer,
+                                               domain_only);
   }
 
  private:
@@ -211,13 +212,13 @@ class PythonTransposeOp : public PythonDimExpression {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* buffer,
-                                 bool top_level) const override {
+                                 DimensionIndexBuffer* buffer, bool top_level,
+                                 bool domain_only) const override {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        transform,
-        parent_->Apply(std::move(transform), buffer, /*top_level=*/false));
+        transform, parent_->Apply(std::move(transform), buffer,
+                                  /*top_level=*/false, domain_only));
     return internal_index_space::ApplyTransposeToDynamic(
-        std::move(transform), buffer, target_dim_specs_);
+        std::move(transform), buffer, target_dim_specs_, domain_only);
   }
 
  private:
@@ -239,15 +240,16 @@ class PythonIndexOp : public PythonDimExpression {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* buffer,
-                                 bool top_level) const override {
+                                 DimensionIndexBuffer* buffer, bool top_level,
+                                 bool domain_only) const override {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        transform,
-        parent_->Apply(std::move(transform), buffer, /*top_level=*/false));
+        transform, parent_->Apply(std::move(transform), buffer,
+                                  /*top_level=*/false, domain_only));
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto new_transform,
         ToIndexTransform(spec_, transform.domain(), buffer));
-    return ComposeTransforms(transform, std::move(new_transform));
+    return internal_index_space::ComposeTransforms(
+        std::move(transform), std::move(new_transform), domain_only);
   }
 
  private:
@@ -269,12 +271,13 @@ class PythonInitialIndexOp : public PythonDimExpression {
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* buffer,
-                                 bool top_level) const override {
+                                 DimensionIndexBuffer* buffer, bool top_level,
+                                 bool domain_only) const override {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto new_transform,
         ToIndexTransform(spec_, transform.domain(), parent_->dims, buffer));
-    return ComposeTransforms(transform, std::move(new_transform));
+    return internal_index_space::ComposeTransforms(
+        transform, std::move(new_transform), domain_only);
   }
 
  private:

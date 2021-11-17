@@ -33,11 +33,11 @@ namespace {
 /// \dchecks `result->input_rank_capacity >= new_input_rank`.
 /// \dchecks `result->output_rank_capacity >= original->output_rank`.
 void AddNewDims(TransformRep* original, TransformRep* result,
-                DimensionIndexBuffer* dimensions) {
+                DimensionIndexBuffer* dimensions, bool domain_only) {
   const DimensionIndex orig_input_rank = original->input_rank;
   const DimensionIndex new_input_rank = orig_input_rank + dimensions->size();
   assert(result->input_rank_capacity >= new_input_rank);
-  const DimensionIndex output_rank = original->output_rank;
+  const DimensionIndex output_rank = domain_only ? 0 : original->output_rank;
   assert(result->output_rank_capacity >= output_rank);
   // Maps an input dimension of the new transform to the corresponding input
   // dimension of the existing transform; `-1` indicates a new, dummy dimension
@@ -132,13 +132,16 @@ void AddNewDims(TransformRep* original, TransformRep* result,
 }  // namespace
 
 Result<IndexTransform<>> ApplyAddNewDims(IndexTransform<> transform,
-                                         DimensionIndexBuffer* dimensions) {
+                                         DimensionIndexBuffer* dimensions,
+                                         bool domain_only) {
   const DimensionIndex new_input_rank =
       transform.input_rank() + dimensions->size();
   TENSORSTORE_RETURN_IF_ERROR(ValidateRank(new_input_rank));
-  auto new_rep = NewOrMutableRep(TransformAccess::rep(transform),
-                                 new_input_rank, transform.output_rank());
-  AddNewDims(TransformAccess::rep(transform), new_rep.get(), dimensions);
+  auto new_rep =
+      NewOrMutableRep(TransformAccess::rep(transform), new_input_rank,
+                      transform.output_rank(), domain_only);
+  AddNewDims(TransformAccess::rep(transform), new_rep.get(), dimensions,
+             domain_only);
   internal_index_space::DebugCheckInvariants(new_rep.get());
   return TransformAccess::Make<IndexTransform<>>(std::move(new_rep));
 }

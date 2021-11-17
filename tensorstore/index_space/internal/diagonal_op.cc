@@ -37,10 +37,12 @@ void ShiftRangeForwardByOne(R range) {
 ///     the new transform.  May alias `original`.
 /// \param dimensions[in,out] Must be non-null.  On input, specifies the
 ///     dimensions from which to extract the diagonal.  On return, set to `{0}`.
+/// \param domain_only Indicates whether the output dimensions of `original`
+///     should be ignored.
 void ExtractDiagonal(TransformRep* original, TransformRep* result,
-                     DimensionIndexBuffer* dimensions) {
+                     DimensionIndexBuffer* dimensions, bool domain_only) {
   const DimensionIndex orig_input_rank = original->input_rank;
-  const DimensionIndex output_rank = original->output_rank;
+  const DimensionIndex output_rank = domain_only ? 0 : original->output_rank;
   const DimensionIndex new_input_rank =
       orig_input_rank - dimensions->size() + 1;
   assert(result->input_rank_capacity >= new_input_rank);
@@ -178,13 +180,14 @@ void ExtractDiagonal(TransformRep* original, TransformRep* result,
 }  // namespace
 
 Result<IndexTransform<>> ApplyDiagonal(IndexTransform<> transform,
-                                       DimensionIndexBuffer* dimensions) {
+                                       DimensionIndexBuffer* dimensions,
+                                       bool domain_only) {
   TransformRep* rep = TransformAccess::rep(transform);
   const DimensionIndex new_input_rank =
       rep->input_rank - dimensions->size() + 1;
   TransformRep::Ptr<> new_rep =
-      NewOrMutableRep(rep, new_input_rank, rep->output_rank);
-  ExtractDiagonal(rep, new_rep.get(), dimensions);
+      NewOrMutableRep(rep, new_input_rank, rep->output_rank, domain_only);
+  ExtractDiagonal(rep, new_rep.get(), dimensions, domain_only);
   internal_index_space::DebugCheckInvariants(new_rep.get());
   return TransformAccess::Make<IndexTransform<>>(std::move(new_rep));
 }

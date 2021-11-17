@@ -14,6 +14,7 @@
 
 #include "tensorstore/index_space/internal/compose_transforms.h"
 
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/propagate_bounds.h"
 #include "tensorstore/index_space/internal/transform_array.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
@@ -41,11 +42,13 @@ bool IsSingletonIndexArrayMap(StridedLayoutView<> layout) {
 
 }  // namespace
 
-Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
-                         TransformRep* a_to_b, bool can_move_from_a_to_b,
-                         TransformRep* a_to_c) {
-  assert(b_to_c != nullptr && a_to_b != nullptr && a_to_c != nullptr &&
-         b_to_c->output_rank <= a_to_c->output_rank_capacity &&
+absl::Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
+                               TransformRep* a_to_b, bool can_move_from_a_to_b,
+                               TransformRep* a_to_c, bool domain_only) {
+  assert(b_to_c != nullptr && a_to_b != nullptr && a_to_c != nullptr);
+  const DimensionIndex a_to_c_output_rank =
+      domain_only ? 0 : b_to_c->output_rank;
+  assert(a_to_c_output_rank <= a_to_c->output_rank_capacity &&
          a_to_b->output_rank == b_to_c->input_rank &&
          a_to_b->input_rank <= a_to_c->input_rank_capacity);
   // Aliasing of `a_to_c` is not allowed unless it has maximum input/output
@@ -59,7 +62,7 @@ Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
   const DimensionIndex c_rank = b_to_c->output_rank;
 
   a_to_c->input_rank = a_rank;
-  a_to_c->output_rank = c_rank;
+  a_to_c->output_rank = a_to_c_output_rank;
 
   CopyInputLabels(a_to_b, a_to_c,
                   /*can_move=*/can_move_from_a_to_b);
@@ -67,19 +70,24 @@ Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
   BoxView<> b_to_c_domain = b_to_c->input_domain(b_rank);
   MutableBoxView<> a_to_c_domain = a_to_c->input_domain(a_rank);
 
-  span<const OutputIndexMap> b_to_c_output_index_maps =
-      b_to_c->output_index_maps().first(c_rank);
-  span<const OutputIndexMap> a_to_b_output_index_maps =
-      a_to_b->output_index_maps().first(b_rank);
-  span<OutputIndexMap> a_to_c_output_index_maps =
-      a_to_c->output_index_maps().first(c_rank);
-
   // Compute the input domain of the new `a_to_c` transform.
   TENSORSTORE_RETURN_IF_ERROR(
       PropagateBounds(b_to_c_domain, b_to_c->implicit_lower_bounds(b_rank),
                       b_to_c->implicit_upper_bounds(b_rank), a_to_b,
                       a_to_c_domain, a_to_c->implicit_lower_bounds(a_rank),
                       a_to_c->implicit_upper_bounds(a_rank)));
+
+  if (domain_only) {
+    internal_index_space::DebugCheckInvariants(a_to_c);
+    return absl::OkStatus();
+  }
+
+  span<const OutputIndexMap> b_to_c_output_index_maps =
+      b_to_c->output_index_maps().first(c_rank);
+  span<const OutputIndexMap> a_to_b_output_index_maps =
+      a_to_b->output_index_maps().first(b_rank);
+  span<OutputIndexMap> a_to_c_output_index_maps =
+      a_to_c->output_index_maps().first(c_rank);
 
   const bool a_to_c_domain_is_explicitly_empty =
       IsDomainExplicitlyEmpty(a_to_c);
@@ -235,7 +243,8 @@ Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
 Result<TransformRep::Ptr<>> ComposeTransforms(TransformRep* b_to_c,
                                               bool can_move_from_b_to_c,
                                               TransformRep* a_to_b,
-                                              bool can_move_from_a_to_b) {
+                                              bool can_move_from_a_to_b,
+                                              bool domain_only) {
   assert(b_to_c);
   assert(a_to_b);
   const DimensionIndex a_rank = a_to_b->input_rank;
@@ -247,10 +256,26 @@ Result<TransformRep::Ptr<>> ComposeTransforms(TransformRep* b_to_c,
                " transform cannot be composed with rank ", a_rank, " -> ",
                b_rank, " transform."));
   }
-  auto data = TransformRep::Allocate(a_rank, c_rank);
-  TENSORSTORE_RETURN_IF_ERROR(ComposeTransforms(
-      b_to_c, can_move_from_b_to_c, a_to_b, can_move_from_a_to_b, data.get()));
+  auto data = TransformRep::Allocate(a_rank, domain_only ? 0 : c_rank);
+  TENSORSTORE_RETURN_IF_ERROR(ComposeTransforms(b_to_c, can_move_from_b_to_c,
+                                                a_to_b, can_move_from_a_to_b,
+                                                data.get(), domain_only));
   return data;
+}
+
+Result<IndexTransform<dynamic_rank, dynamic_rank, container>> ComposeTransforms(
+    IndexTransform<dynamic_rank, dynamic_rank, container> b_to_c,
+    IndexTransform<dynamic_rank, dynamic_rank, container> a_to_b,
+    bool domain_only) {
+  auto b_to_c_rep = TransformAccess::rep(b_to_c);
+  auto a_to_b_rep = TransformAccess::rep(a_to_b);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto a_to_c_rep,
+      internal_index_space::ComposeTransforms(
+          b_to_c_rep,
+          /*can_move_from_b_to_c=*/b_to_c_rep->is_unique(), a_to_b_rep,
+          /*can_move_from_a_to_b=*/a_to_b_rep->is_unique(), domain_only));
+  return TransformAccess::Make<IndexTransform<>>(std::move(a_to_c_rep));
 }
 
 }  // namespace internal_index_space

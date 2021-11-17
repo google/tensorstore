@@ -127,7 +127,8 @@ Result<SingletonSlicingInfo> GetSingletonSlicingInfo(
 ///     an integer overflow occurs.
 Status PerformSingleIndexSlice(TransformRep* original_transform,
                                TransformRep* new_transform,
-                               const SingletonSlicingInfo& info) {
+                               const SingletonSlicingInfo& info,
+                               bool domain_only) {
   const DimensionIndex original_input_rank = original_transform->input_rank;
   const DimensionIndex new_input_rank = info.new_input_rank;
   span<const InputDimensionSingletonSliceInfo> original_input_dimension_info =
@@ -149,7 +150,8 @@ Status PerformSingleIndexSlice(TransformRep* original_transform,
     }
     ++new_input_dim;
   }
-  const DimensionIndex output_rank = original_transform->output_rank;
+  const DimensionIndex output_rank =
+      domain_only ? 0 : original_transform->output_rank;
   span<const OutputIndexMap> original_maps =
       original_transform->output_index_maps().first(output_rank);
   span<OutputIndexMap> new_maps =
@@ -260,16 +262,17 @@ Status PerformSingleIndexSlice(TransformRep* original_transform,
 }
 }  // namespace
 
-Result<IndexTransform<>> ApplySingleIndexSlice(
-    IndexTransform<> transform, DimensionIndexBuffer* dimensions,
-    IndexVectorOrScalarView indices) {
+Result<IndexTransform<>> ApplySingleIndexSlice(IndexTransform<> transform,
+                                               DimensionIndexBuffer* dimensions,
+                                               IndexVectorOrScalarView indices,
+                                               bool domain_only) {
   TransformRep* rep = TransformAccess::rep(transform);
   auto slicing_info = GetSingletonSlicingInfo(rep, dimensions, indices);
   if (!slicing_info) return slicing_info.status();
-  auto new_rep =
-      NewOrMutableRep(rep, slicing_info->new_input_rank, rep->output_rank);
+  auto new_rep = NewOrMutableRep(rep, slicing_info->new_input_rank,
+                                 rep->output_rank, domain_only);
   TENSORSTORE_RETURN_IF_ERROR(
-      PerformSingleIndexSlice(rep, new_rep.get(), *slicing_info));
+      PerformSingleIndexSlice(rep, new_rep.get(), *slicing_info, domain_only));
   return TransformAccess::Make<IndexTransform<>>(new_rep);
 }
 

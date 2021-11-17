@@ -522,7 +522,8 @@ TEST(IndexDomainTest, CompareEqual) {
                         .input_labels({"x", "y"})
                         .output_constant(0, 1)
                         .Finalize()
-                        .value());
+                        .value()
+                        .domain());
   // Differs from d2 only in `input_origin`.
   auto d4 = IndexDomainBuilder<2>()
                 .origin({1, 3})
@@ -964,6 +965,31 @@ TEST(IndexTransformTest, WithImplicitDimensions) {
                              DimensionSet({1, 0, 1})));
 }
 
+// Tests that input dimensions used by index array output index maps remain
+// explicit.
+TEST(IndexTransformTest, WithImplicitDimensionsIndexArray) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto expected_transform,
+      IndexTransformBuilder(1, 1)
+          .input_shape({3})
+          .output_index_array(0, 0, 1, MakeArray<Index>({0, 1, 2}))
+          .Finalize());
+  EXPECT_EQ(expected_transform,
+            WithImplicitDimensions(expected_transform, DimensionSet({1}),
+                                   DimensionSet({1})));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_domain,
+                                   IndexDomainBuilder(1)
+                                       .shape({3})
+                                       .implicit_lower_bounds({1})
+                                       .implicit_upper_bounds({1})
+                                       .Finalize());
+  // Verify that bounds are marked implicit when applied to just the domain.
+  EXPECT_EQ(expected_domain,
+            WithImplicitDimensions(expected_transform.domain(),
+                                   DimensionSet({1}), DimensionSet({1})));
+}
+
 TEST(IndexTransformTest, WithImplicitDimensionsStaticRank) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_transform,
                                    (IndexTransformBuilder<3, 3>()
@@ -998,6 +1024,27 @@ TEST(IndexDomainTest, WithImplicitDimensionsStaticRank) {
       expected_domain,
       WithImplicitDimensions(IndexDomain<3>(tensorstore::StaticRank<3>{}),
                              DimensionSet({0, 1, 1}), DimensionSet({1, 0, 1})));
+}
+
+TEST(IndexDomainTest, ApplyIndexTransform) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto domain,
+      IndexDomainBuilder<3>().origin({1, 2, 3}).shape({5, 5, 5}).Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto transform, (IndexTransformBuilder<4, 3>()
+                           // output_dim, offset, stride, input_dim
+                           .output_single_input_dimension(0, 5, 1, 3)
+                           .output_single_input_dimension(1, -7, 1, 0)
+                           .output_single_input_dimension(2, 3, 1, 1)
+                           .Finalize()));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_domain,
+                                   IndexDomainBuilder<4>()
+                                       .origin({9, 0, -kInfIndex, -4})
+                                       .shape({5, 5, tensorstore::kInfSize, 5})
+                                       .implicit_lower_bounds({0, 0, 1, 0})
+                                       .implicit_upper_bounds({0, 0, 1, 0})
+                                       .Finalize());
+  EXPECT_THAT(domain | transform, ::testing::Optional(expected_domain));
 }
 
 TEST(IndexTransformSerializationTest, Basic) {

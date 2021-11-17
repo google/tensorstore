@@ -160,6 +160,14 @@ Result<IndexTransform<>> SliceByBox(IndexTransform<> transform,
   return TransformAccess::Make<IndexTransform<>>(std::move(rep));
 }
 
+Result<IndexDomain<>> SliceByBox(IndexDomain<> domain, BoxView<> box) {
+  // FIXME
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto transform, internal_index_space::SliceByBox(
+                          TransformAccess::transform(std::move(domain)), box));
+  return std::move(transform).domain();
+}
+
 }  // namespace internal_index_space
 
 Result<bool> GetOutputRange(IndexTransformView<> transform,
@@ -429,9 +437,8 @@ inline Result<IndexDomain<>> MergeIndexDomainsImpl(IndexDomainView<> a,
     }
   }
   internal_index_space::DebugCheckInvariants(new_rep.get());
-  return IndexDomain<>(
-      internal_index_space::TransformAccess::Make<IndexTransform<>>(
-          std::move(new_rep)));
+  return internal_index_space::TransformAccess::Make<IndexDomain<>>(
+      std::move(new_rep));
 }
 }  // namespace
 
