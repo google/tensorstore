@@ -1159,8 +1159,8 @@ static absl::Status TransformInputVector(
 ///     `kDefaultValue`
 /// \param transform The transform.
 /// \param one_to_one_input_dims Must be equal to
-///     `GetOneToOneInputDimensions(transform)`.  This is a parameter to avoid
-///     having to redundantly compute it multiple times.
+///     `GetOneToOneInputDimensions(transform).one_to_one`.  This is a parameter
+///     to avoid having to redundantly compute it multiple times.
 /// \param out_vec Vector of constraint values of length
 ///     `transform.output_rank()`.
 /// \param out_hard_constraint Indicates which elements of `out_vec` are hard
@@ -1305,7 +1305,7 @@ Result<ChunkLayout> ApplyIndexTransform(IndexTransformView<> transform,
         {input_constraints.storage_->inner_order(), input_rank});
   }
   DimensionSet one_to_one_input_dims =
-      internal::GetOneToOneInputDimensions(transform);
+      internal::GetOneToOneInputDimensions(transform).one_to_one;
   TENSORSTORE_RETURN_IF_ERROR(
       TransformOutputVector<OriginValueTraits>(
           transform, one_to_one_input_dims,

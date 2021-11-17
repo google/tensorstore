@@ -1540,10 +1540,31 @@ Status PropagateInputDomainResizeToOutput(
 
 namespace internal {
 
+struct OneToOneInputDimensions {
+  /// Input dimensions that correspond one-to-one with output dimensions
+  /// (i.e. referenced by a single `single_input_dimension` output index map).
+  DimensionSet one_to_one;
+  /// Input dimensions not in `one_to_one` that are referenced by any output
+  /// index map.
+  DimensionSet non_one_to_one;
+
+  constexpr DimensionSet referenced() const {
+    return one_to_one | non_one_to_one;
+  }
+};
+
 /// Returns the set of input dimensions that map to a unique output dimension
 /// via a `single_input_dimension` output index map, and do not affect any other
 /// output dimensions.
-DimensionSet GetOneToOneInputDimensions(IndexTransformView<> transform);
+///
+/// \param transform Index transform for which to determine the one-to-one input
+///     dimensions.
+/// \param require_unit_stride If `true`, only consider input dimensions
+///     one-to-one if the stride is +/-1 (i.e. the output index map is
+///     invertible).
+/// \returns The set of input dimensions that are one-to-one.
+OneToOneInputDimensions GetOneToOneInputDimensions(
+    IndexTransformView<> transform, bool require_unit_stride = false);
 
 }  // namespace internal
 

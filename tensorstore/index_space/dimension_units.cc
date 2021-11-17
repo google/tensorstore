@@ -62,7 +62,7 @@ DimensionUnitsVector TransformOutputDimensionUnits(
                        output_rank = transform.output_rank();
   assert(output_units.size() == output_rank);
   DimensionSet one_to_one_input_dims =
-      internal::GetOneToOneInputDimensions(transform);
+      internal::GetOneToOneInputDimensions(transform).one_to_one;
   std::optional<Unit> input_units[kMaxRank];
   for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
     const auto& output_unit = output_units[output_dim];
