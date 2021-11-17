@@ -791,6 +791,65 @@ Indicates whether the upper bound of each dimension is :ref:`implicit or explici
 
 This is simply the product of the extents in :py:obj:`.shape`.)");
 
+  cls.def_property_readonly(
+      "index_exp",
+      [](const IndexDomain<>& self) -> HomogeneousTuple<py::slice> {
+        const DimensionIndex rank = self.rank();
+        py::tuple t(rank);
+
+        const auto get_bound = [&](Index value, Index inf) -> py::object {
+          if (value == inf) return py::none();
+          if (value < 0) {
+            throw py::value_error(tensorstore::StrCat(
+                "Cannot convert domain ", self,
+                " with negative bounds to index expression"));
+          }
+          return py::int_(value);
+        };
+
+        for (DimensionIndex i = 0; i < rank; ++i) {
+          IndexInterval interval = self[i];
+          t[i] = py::slice(get_bound(interval.inclusive_min(), -kInfIndex),
+                           get_bound(interval.exclusive_max(), +kInfIndex + 1),
+                           py::none());
+        }
+        return {t};
+      },
+      R"(
+Equivalent NumPy-compatible :py:obj:`index expression<numpy.s_>`.
+
+The index expression consists of a :py:obj:`tuple` of :py:obj:`.rank`
+:py:obj:`slice` objects that specify the lower and upper bounds for each
+dimension, where an infinite bound in the domain corresponds to a bound of
+:py:obj:`None` in the :py:obj:`slice` object.
+
+The index expression can be used with this library as a
+:ref:`NumPy-style indexing expression<python-numpy-style-indexing>` or to
+directly index a `NumPy array<numpy.ndarray>`.
+
+Example:
+
+    >>> ts.IndexDomain(rank=2).index_exp
+    (slice(None, None, None), slice(None, None, None))
+    >>> ts.IndexDomain(inclusive_min=[1, 2], exclusive_max=[5, 10]).index_exp
+    (slice(1, 5, None), slice(2, 10, None))
+    >>> arr = np.array([[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]])
+    >>> domain = ts.IndexDomain(inclusive_min=[0, 2], shape=[3, 2])
+    >>> arr[domain.index_exp]
+    array([[3, 4],
+           [8, 9]])
+
+Raises:
+  ValueError: If any finite bound in :py:obj:`.inclusive_min` or
+    :py:obj:`.exclusive_max` is negative.  In this case the index expression
+    would not actually NumPy-compatible since NumPy does not support actual
+    negative indices, and instead interprets negative numbers as counting from
+    the end.
+
+Group:
+  Accessors
+)");
+
   cls.def(
       "__repr__", [](const IndexDomain<>& d) { return StrCat(d); },
       "Returns the string representation.");
