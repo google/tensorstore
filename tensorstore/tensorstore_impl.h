@@ -15,9 +15,12 @@
 #ifndef TENSORSTORE_TENSORSTORE_IMPL_H_
 #define TENSORSTORE_TENSORSTORE_IMPL_H_
 
+// IWYU pragma: private, include "third_party/tensorstore/tensorstore.h"
+
 #include "tensorstore/data_type_conversion.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/read_write_options.h"

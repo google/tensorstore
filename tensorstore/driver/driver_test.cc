@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include "tensorstore/array.h"
 #include "tensorstore/context.h"
+#include "tensorstore/driver/write.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/util/executor.h"

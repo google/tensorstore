@@ -23,6 +23,7 @@
 #include "tensorstore/driver/downsample/downsample_util.h"
 #include "tensorstore/driver/downsample/grid_occupancy_map.h"
 #include "tensorstore/driver/driver.h"
+#include "tensorstore/driver/read.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
@@ -42,7 +43,6 @@ using internal::NDIterable;
 using internal::OpenTransactionPtr;
 using internal::ReadChunk;
 using internal::TransformedDriverSpec;
-using internal::WriteChunk;
 
 namespace jb = tensorstore::internal_json_binding;
 

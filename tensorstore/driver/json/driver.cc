@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "tensorstore/driver/driver.h"
+
 #include "tensorstore/driver/json/json_change_map.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/internal/cache/async_cache.h"

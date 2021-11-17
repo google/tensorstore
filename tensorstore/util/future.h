@@ -1213,6 +1213,21 @@ FutureCallbackRegistration UntypedExecuteWhenReady(FutureStatePointer state,
 }
 }  // namespace internal_future
 
+namespace internal {
+
+/// If `promise` does not already have a result set, sets its result to `status`
+/// and sets `promise.result_needed() = false`.
+///
+/// This does not cause `promise.ready()` to become `true`.  The corresponding
+/// `Future` will become ready when the last `Promise` reference is released.
+template <typename T>
+void SetErrorWithoutCommit(const Promise<T>& promise, Status error) {
+  if (internal_future::FutureAccess::rep(promise).LockResult()) {
+    promise.raw_result() = std::move(error);
+  }
+}
+
+}  // namespace internal
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_FUTURE_H_

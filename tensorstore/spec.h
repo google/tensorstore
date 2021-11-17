@@ -20,7 +20,7 @@
 
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type.h"
-#include "tensorstore/driver/driver.h"
+#include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/type_traits.h"

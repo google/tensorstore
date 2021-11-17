@@ -23,19 +23,17 @@
 /// of type `DriverRegistration<Derived>` to register it.
 ///
 
-#include <string>
 #include <string_view>
-#include <type_traits>
 
+#include "absl/status/status.h"
 #include "tensorstore/context.h"
-#include "tensorstore/driver/driver.h"
+#include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/internal/context_binding.h"
+#include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/internal/json_registry.h"
-#include "tensorstore/open_mode.h"
+#include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/registry.h"
-#include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
-#include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
 namespace internal {

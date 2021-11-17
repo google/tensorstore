@@ -68,14 +68,13 @@ TEST(ArrayDriverTest, Read) {
           .value();
   std::vector<ReadProgress> read_progress;
   auto dest_array = tensorstore::AllocateArray<int>(array.domain());
-  auto future = tensorstore::internal::DriverRead(
+  TENSORSTORE_ASSERT_OK(tensorstore::internal::DriverRead(
       /*executor=*/tensorstore::InlineExecutor{},
       /*source=*/transformed_driver,
       /*target=*/dest_array,
       {/*.progress_function=*/[&read_progress](ReadProgress progress) {
         read_progress.push_back(progress);
-      }});
-  EXPECT_EQ(absl::OkStatus(), GetStatus(future.result()));
+      }}));
   EXPECT_EQ(array, dest_array);
   EXPECT_THAT(read_progress, ::testing::ElementsAre(ReadProgress{6, 6}));
 }
@@ -88,16 +87,17 @@ TEST(ArrayDriverTest, ReadIntoNewArray) {
       tensorstore::internal::MakeArrayDriver<offset_origin>(context, array)
           .value();
   std::vector<ReadProgress> read_progress;
-  auto future = tensorstore::internal::DriverRead(
-      /*executor=*/tensorstore::InlineExecutor{},
-      /*source=*/transformed_driver,
-      /*target_dtype=*/array.dtype(),
-      /*target_layout_order=*/tensorstore::c_order,
-      {/*.progress_function=*/[&read_progress](ReadProgress progress) {
-        read_progress.push_back(progress);
-      }});
-  EXPECT_EQ(absl::OkStatus(), GetStatus(future.result()));
-  EXPECT_EQ(array, future.value());
+  EXPECT_THAT(
+      tensorstore::internal::DriverReadIntoNewArray(
+          /*executor=*/tensorstore::InlineExecutor{},
+          /*source=*/transformed_driver,
+          /*target_dtype=*/array.dtype(),
+          /*target_layout_order=*/tensorstore::c_order,
+          {/*.progress_function=*/[&read_progress](ReadProgress progress) {
+            read_progress.push_back(progress);
+          }})
+          .result(),
+      ::testing::Optional(array));
   EXPECT_THAT(read_progress, ::testing::ElementsAre(ReadProgress{6, 6}));
 }
 

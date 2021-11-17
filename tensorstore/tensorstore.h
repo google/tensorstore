@@ -18,7 +18,10 @@
 #include <string>
 
 #include "tensorstore/chunk_layout.h"
+#include "tensorstore/driver/copy.h"
 #include "tensorstore/driver/driver.h"
+#include "tensorstore/driver/read.h"
+#include "tensorstore/driver/write.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
@@ -29,7 +32,7 @@
 #include "tensorstore/resize_options.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/spec.h"
-#include "tensorstore/tensorstore_impl.h"
+#include "tensorstore/tensorstore_impl.h"  // IWYU pragma: export
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
@@ -558,7 +561,7 @@ Read(Source&& source, ReadIntoNewArrayOptions options = {}) {
         using Store = UnwrapResultType<internal::remove_cvref_t<Source>>;
         return internal_tensorstore::MapArrayFuture<
             typename Store::Element, Store::static_rank, OriginKind>(
-            internal::DriverRead(
+            internal::DriverReadIntoNewArray(
                 internal::TensorStoreAccess::handle(
                     std::forward<decltype(unwrapped_source)>(unwrapped_source)),
                 std::move(options)));

@@ -25,17 +25,16 @@
 
 #include <mutex>
 
-#include "tensorstore/data_type.h"
+#include "absl/status/status.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/arena.h"
-#include "tensorstore/internal/element_copy_function.h"
-#include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/lock_collection.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/poly.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/sender.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal {
