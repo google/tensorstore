@@ -29,6 +29,7 @@
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/intrusive_ptr_holder.h"
 #include "python/tensorstore/json_type_caster.h"
+#include "python/tensorstore/kvstore.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/spec.h"
@@ -76,7 +77,7 @@ constexpr auto WithSpecKeywordArguments = [](auto callback,
       callback, other_param..., spec_setters::SetOpen{},
       spec_setters::SetCreate{}, spec_setters::SetDeleteExisting{},
       spec_setters::SetUnbindContext{}, spec_setters::SetStripContext{},
-      spec_setters::SetContext{});
+      spec_setters::SetContext{}, spec_setters::SetKvstore{});
 };
 
 using SpecCls = py::class_<PythonSpecObject>;
@@ -159,6 +160,7 @@ Group:
           SpecConvertOptions options;
           ApplyKeywordArguments<decltype(param_def)...>(options, kwarg...);
           ThrowStatusException(self.value.Set(std::move(options)));
+          self.UpdatePythonRefs();
         },
         doc.c_str(), py::kw_only(), MakeKeywordArgumentPyArg(param_def)...);
   });
@@ -556,6 +558,37 @@ Group:
 
 )");
 
+  cls.def_property_readonly(
+      "kvstore",
+      [](Self& self) -> std::optional<kvstore::Spec> {
+        auto kvstore = self.value.kvstore();
+        if (!kvstore.valid()) return std::nullopt;
+        return kvstore;
+      },
+      R"(
+
+Spec of the associated key-value store used as the underlying storage.
+
+Equal to :python:`None` if the driver does not use a key-value store or the
+key-value store has not been specified.
+
+Example:
+
+  >>> spec = ts.Spec({
+  ...     'driver': 'n5',
+  ...     'kvstore': {
+  ...         'driver': 'memory',
+  ...         'path': 'abc/',
+  ...     },
+  ... })
+  >>> spec.kvstore
+  KvStore.Spec({'driver': 'memory', 'path': 'abc/'})
+
+Group:
+  Accessors
+
+)");
+
   cls.def(
       "to_json",
       [](Self& self, bool include_defaults) {
@@ -613,8 +646,7 @@ Group:
   cls.def("__copy__", [](Self& self) { return self.value; });
 
   cls.def(
-      "__deepcopy__",
-      [](Self& self, py::dict memo) { return self.value; },
+      "__deepcopy__", [](Self& self, py::dict memo) { return self.value; },
       py::arg("memo"));
 
   cls.def(

@@ -2,6 +2,7 @@ load(":pybind11.bzl", "pybind11_cc_googletest_test", "pybind11_cc_library", "pyb
 load(":pytest.bzl", "tensorstore_pytest_test")
 load(":pytype.bzl", "pytype_strict_binary")
 load("//docs:doctest.bzl", "doctest_test")
+load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -36,6 +37,7 @@ pybind11_py_extension(
         ":garbage_collection",
         ":gil_safe",
         ":index_space",
+        ":kvstore",
         ":numpy",
         ":python_imports",
         ":serialization",
@@ -354,6 +356,7 @@ pybind11_cc_library(
         ":intrusive_ptr_holder",
         ":json_type_caster",
         ":keyword_arguments",
+        ":kvstore",
         ":result_type_caster",
         ":sequence_parameter",
         ":serialization",
@@ -417,6 +420,7 @@ pybind11_cc_library(
         ":index_space",
         ":json_type_caster",
         ":keyword_arguments",
+        ":kvstore",
         ":result_type_caster",
         ":serialization",
         ":spec",
@@ -811,4 +815,34 @@ pybind11_cc_library(
         "@com_google_riegeli//riegeli/bytes:string_reader",
         "@local_config_python//:python_headers",  # build_cleaner: keep
     ],
+)
+
+pybind11_cc_library(
+    name = "kvstore",
+    srcs = ["kvstore.cc"],
+    hdrs = ["kvstore.h"],
+    deps = [
+        ":context",
+        ":future",
+        ":garbage_collection",
+        ":json_type_caster",
+        ":keyword_arguments",
+        ":result_type_caster",
+        ":serialization",
+        ":status",
+        ":time",
+        ":transaction",
+        "//tensorstore/internal:json_pprint_python",
+        "//tensorstore/kvstore",
+        "//tensorstore/util:executor",
+        "//tensorstore/util/garbage_collection",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "time",
+    srcs = ["time.cc"],
+    hdrs = ["time.h"],
+    deps = ["@com_google_absl//absl/time"],
 )

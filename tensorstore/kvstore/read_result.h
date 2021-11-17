@@ -93,6 +93,11 @@ struct ReadResult {
     return !(a == b);
   }
   friend std::ostream& operator<<(std::ostream& os, const ReadResult& x);
+
+  // Reflection support.
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.state, x.value, x.stamp);
+  };
 };
 
 }  // namespace kvstore

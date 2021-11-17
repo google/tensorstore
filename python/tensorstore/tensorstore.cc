@@ -32,6 +32,7 @@
 #include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/index_space.h"
+#include "python/tensorstore/kvstore.h"
 #include "python/tensorstore/python_imports.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/spec.h"
@@ -96,6 +97,7 @@ PYBIND11_MODULE(_tensorstore, m) {
   RegisterSpecBindings(m, defer);
   RegisterChunkLayoutBindings(m, defer);
   RegisterUnitBindings(m, defer);
+  RegisterKvStoreBindings(m, defer);
   RegisterTransactionBindings(m, defer);
   RegisterFutureBindings(m, defer);
   RegisterWriteFuturesBindings(m, defer);

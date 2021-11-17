@@ -31,6 +31,7 @@
 #include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/keyword_arguments.h"
+#include "python/tensorstore/kvstore.h"
 #include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/unit.h"
 #include "tensorstore/schema.h"
@@ -375,6 +376,26 @@ created as specified, but won't be overridden by :py:param:`.context`.
   template <typename Self>
   static absl::Status Apply(Self& self, type value) {
     return self.Set(WrapImpl(std::move(value)));
+  }
+};
+
+struct SetKvstore {
+  using type = PythonKvStoreSpecObject*;
+  static constexpr const char* name = "kvstore";
+  static constexpr const char* doc = R"(
+
+Sets the associated key-value store used as the underlying storage.
+
+If the :py:obj:`~tensorstore.Spec.kvstore` has already been set, it is
+overridden.
+
+It is an error to specify this if the TensorStore driver does not use a
+key-value store.
+
+)";
+  template <typename Self>
+  static absl::Status Apply(Self& self, type value) {
+    return self.Set(value->value);
   }
 };
 

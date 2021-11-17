@@ -33,6 +33,7 @@
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/keyword_arguments.h"
+#include "python/tensorstore/kvstore.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/spec.h"
@@ -128,8 +129,9 @@ default, the open is non-transactional.
 
 .. note::
 
-   To perform transactional operations using a TensorStore that was previously
-   opened without a transaction, use :py:obj:`TensorStore.with_transaction`.
+   To perform transactional operations using a :py:obj:`TensorStore` that was
+   previously opened without a transaction, use
+   :py:obj:`TensorStore.with_transaction`.
 
 )";
   template <typename Self>
@@ -146,7 +148,8 @@ constexpr auto ForwardOpenSetters = [](auto callback, auto... other_param) {
       callback, other_param..., open_setters::SetRead{},
       open_setters::SetWrite{}, open_setters::SetOpen{},
       open_setters::SetCreate{}, open_setters::SetDeleteExisting{},
-      open_setters::SetContext{}, open_setters::SetTransaction{});
+      open_setters::SetContext{}, open_setters::SetTransaction{},
+      spec_setters::SetKvstore{});
 };
 
 constexpr auto ForwardSpecRequestSetters = [](auto callback,
@@ -317,7 +320,7 @@ Group:
 
   ForwardSpecRequestSetters([&](auto... param_def) {
     std::string doc = R"(
-Spec that may be used to re-open or re-create the array.
+Spec that may be used to re-open or re-create the TensorStore.
 
 Example:
 
@@ -978,6 +981,42 @@ Example:
     ...     dimension_units=['5nm', '8nm'])
     >>> store.dimension_units
     (Unit(5, "nm"), Unit(8, "nm"))
+
+Group:
+  Accessors
+)");
+
+  cls.def_property_readonly(
+      "kvstore",
+      [](Self& self) -> std::optional<KvStore> {
+        auto kvstore = self.value.kvstore();
+        if (!kvstore.valid()) return std::nullopt;
+        return kvstore;
+      },
+      R"(
+Associated key-value store used as the underlying storage.
+
+Equal to :python:`None` if the driver does not use a key-value store.
+
+Example:
+
+    >>> store = await ts.open(
+    ...     {
+    ...         'driver': 'n5',
+    ...         'kvstore': {
+    ...             'driver': 'memory',
+    ...             'path': 'abc/',
+    ...         }
+    ...     },
+    ...     create=True,
+    ...     shape=[100, 200],
+    ...     dtype=ts.uint32,
+    ... )
+    >>> store.kvstore
+    KvStore({'context': {'memory_key_value_store': {}}, 'driver': 'memory', 'path': 'abc/'})
+
+If a :py:obj:`.transaction` is bound to this :py:obj:`.TensorStore`, the same
+transaction will also be bound to the returned :py:obj:`KvStore`.
 
 Group:
   Accessors
