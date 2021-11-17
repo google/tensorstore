@@ -268,6 +268,26 @@ Result<SharedOffsetArray<const void>> BroadcastArray(
   return target;
 }
 
+namespace internal_array {
+void UnbroadcastStridedLayout(StridedLayoutView<> layout,
+                              span<Index> unbroadcast_shape,
+                              span<Index> unbroadcast_byte_strides) {
+  assert(unbroadcast_shape.size() == layout.rank());
+  assert(unbroadcast_byte_strides.size() == layout.rank());
+  for (DimensionIndex i = 0; i < layout.rank(); ++i) {
+    Index byte_stride = layout.byte_strides()[i];
+    Index size = layout.shape()[i];
+    if (byte_stride == 0) {
+      size = 1;
+    } else if (size == 1) {
+      byte_stride = 0;
+    }
+    unbroadcast_shape[i] = size;
+    unbroadcast_byte_strides[i] = byte_stride;
+  }
+}
+}  // namespace internal_array
+
 SharedArray<const void> UnbroadcastArray(
     SharedOffsetArrayView<const void> source) {
   DimensionIndex new_rank = 0;
@@ -279,18 +299,11 @@ SharedArray<const void> UnbroadcastArray(
 
   SharedArray<const void> new_array;
   new_array.layout().set_rank(new_rank);
-  for (DimensionIndex new_dim = 0; new_dim < new_rank; ++new_dim) {
-    const DimensionIndex orig_dim = source.rank() + new_dim - new_rank;
-    Index byte_stride = source.byte_strides()[orig_dim];
-    Index size = source.shape()[orig_dim];
-    if (byte_stride == 0) {
-      size = 1;
-    } else if (size == 1) {
-      byte_stride = 0;
-    }
-    new_array.shape()[new_dim] = size;
-    new_array.byte_strides()[new_dim] = byte_stride;
-  }
+  internal_array::UnbroadcastStridedLayout(
+      StridedLayoutView<>(
+          new_rank, source.shape().data() + source.rank() - new_rank,
+          source.byte_strides().data() + source.rank() - new_rank),
+      new_array.shape(), new_array.byte_strides());
   new_array.element_pointer() =
       AddByteOffset(std::move(source.element_pointer()),
                     source.layout().origin_byte_offset());

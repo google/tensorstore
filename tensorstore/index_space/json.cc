@@ -141,7 +141,7 @@ struct TransformParserOutput {
   Index stride = 1;
   std::optional<DimensionIndex> input_dimension;
   IndexInterval index_array_bounds;
-  SharedArray<const Index, dynamic_rank, zero_origin> index_array;
+  SharedArray<const Index, dynamic_rank> index_array;
 };
 
 struct TransformParserData {
@@ -464,21 +464,9 @@ TransformParserData MakeIndexTransformViewDataForSaving(
       }
       case OutputIndexMethod::array: {
         all_identity = false;
-        output.index_array.layout().set_rank(input_rank);
         const auto index_array_data = map.index_array();
-        for (DimensionIndex input_dim = 0; input_dim < input_rank;
-             ++input_dim) {
-          output.index_array.shape()[input_dim] =
-              index_array_data.byte_strides()[input_dim] == 0
-                  ? 1
-                  : input_domain.shape()[input_dim];
-          output.index_array.byte_strides()[input_dim] =
-              index_array_data.byte_strides()[input_dim];
-        }
-        output.index_array.element_pointer() = AddByteOffset(
-            index_array_data.element_pointer(),
-            IndexInnerProduct(input_rank, input_domain.origin().data(),
-                              index_array_data.byte_strides().data()));
+        output.index_array = UnbroadcastArrayPreserveRank(
+            UnownedToShared(index_array_data.array_ref()));
         // If `index_array` contains values outside `index_range`, encode
         // `index_range` as well to avoid expanding the range.
         IndexInterval index_range = index_array_data.index_range();

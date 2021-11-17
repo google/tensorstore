@@ -661,6 +661,7 @@ tensorstore_cc_test(
         ":index_transform",
         "//tensorstore:array",
         "//tensorstore:strided_layout",
+        "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
         "@com_google_googletest//:gtest_main",
     ],

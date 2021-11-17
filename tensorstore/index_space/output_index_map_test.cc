@@ -22,6 +22,7 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/strided_layout.h"
+#include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace {
@@ -292,6 +293,29 @@ TEST(OutputIndexMapTest, DynamicRanks) {
               &index_array_ref.shared_array_ref()(1, 2, 3));
     EXPECT_EQ(expected_layout, index_array_ref.shared_array_ref().layout());
   }
+}
+
+TEST(OutputIndexMapTest, Unbroadcast) {
+  auto index_array = tensorstore::MakeArray<Index>({{{5}, {6}, {7}, {8}}});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto t, IndexTransformBuilder(3, 4)
+                  .input_origin({1, 2, 3})
+                  .input_shape({4, 4, 3})
+                  .output_constant(0, 10)
+                  .output_single_input_dimension(1, 20, 2, 2)
+                  .output_index_array(2, 30, 3, index_array)
+                  .Finalize());
+  auto map = t.output_index_maps()[2];
+  EXPECT_THAT(map.index_array().array_ref(),
+              MakeOffsetArray<Index>(
+                  {1, 2, 3}, {
+                                 {{5, 5, 5}, {6, 6, 6}, {7, 7, 7}, {8, 8, 8}},
+                                 {{5, 5, 5}, {6, 6, 6}, {7, 7, 7}, {8, 8, 8}},
+                                 {{5, 5, 5}, {6, 6, 6}, {7, 7, 7}, {8, 8, 8}},
+                                 {{5, 5, 5}, {6, 6, 6}, {7, 7, 7}, {8, 8, 8}},
+                             }));
+  EXPECT_THAT(UnbroadcastArrayPreserveRank(map.index_array().array_ref()),
+              index_array);
 }
 
 }  // namespace

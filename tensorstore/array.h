@@ -1792,6 +1792,20 @@ Result<SharedArray<const void>> BroadcastArray(
 Result<SharedOffsetArray<const void>> BroadcastArray(
     SharedOffsetArrayView<const void> source, BoxView<> target_domain);
 
+namespace internal_array {
+/// Converts zero-stride dimensions (with non-zero size) to have an extent of 1,
+/// and size 1 dimensions to have a byte stride of 0.
+///
+/// \param layout Existing layout.
+/// \param unbroadcast_shape[out] Array of size `layout.rank()` to be filled
+///     with the unbroadcast shape.
+/// \param unbroadcast_byte_strides[out] Array of size `layout.rank()` to be
+///     filled with the unbroadcast byte strides.
+void UnbroadcastStridedLayout(StridedLayoutView<> layout,
+                              span<Index> unbroadcast_shape,
+                              span<Index> unbroadcast_byte_strides);
+}  // namespace internal_array
+
 /// Converts zero-stride dimensions (with non-zero size) to have an extent of 1,
 /// removes leading singleton dimensions, and translates the origin to 0.
 ///
@@ -1803,6 +1817,31 @@ Result<SharedOffsetArray<const void>> BroadcastArray(
 /// return value has no effect.
 SharedArray<const void> UnbroadcastArray(
     SharedOffsetArrayView<const void> source);
+
+/// Converts zero-stride dimensions (with non-zero size) to have an extent of 1,
+/// and translates the origin to 0.
+///
+/// Unlike `UnbroadcastArray`, leading singleton dimensions are retained.
+///
+/// If `source` has shared ownership of the array data, the returned array
+/// shares a reference to the data.
+template <typename ElementTag, DimensionIndex Rank, ContainerKind CKind,
+          ArrayOriginKind OriginKind>
+Array<ElementTag, (Rank < 0 ? dynamic_rank(kMaxRank) : Rank)>
+UnbroadcastArrayPreserveRank(
+    const Array<ElementTag, Rank, OriginKind, CKind>& source) {
+  Array<ElementTag, (Rank < 0 ? dynamic_rank(kMaxRank) : Rank)> unbroadcast;
+  const DimensionIndex rank = source.rank();
+  unbroadcast.layout().set_rank(rank);
+  internal_array::UnbroadcastStridedLayout(
+      StridedLayoutView<>(source.rank(), source.shape().data(),
+                          source.byte_strides().data()),
+      unbroadcast.shape(), unbroadcast.byte_strides());
+  unbroadcast.element_pointer() =
+      AddByteOffset(std::move(source.element_pointer()),
+                    source.layout().origin_byte_offset());
+  return unbroadcast;
+}
 
 namespace internal_array {
 

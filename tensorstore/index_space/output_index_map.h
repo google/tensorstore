@@ -58,7 +58,8 @@ class OutputIndexMapRef {
       return {element_pointer(), layout()};
     }
 
-    /// Returns the element pointer to the start of the index array.
+    /// Returns the element pointer to the 0 position (not necessarily the
+    /// origin) of the index array.
     const SharedElementPointer<const Index>& element_pointer() const {
       return index_array_data_->element_pointer;
     }

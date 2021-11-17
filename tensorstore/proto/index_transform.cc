@@ -254,29 +254,13 @@ void EncodeToProto(proto::IndexTransform& proto,  // NOLINT
         all_identity = false;
 
         const auto index_array_data = map.index_array();
-        auto input_domain = t.input_domain();
+        auto index_array =
+            UnbroadcastArrayPreserveRank(index_array_data.array_ref());
 
-        // Construct a SharedArray from the input array mapping.
-        SharedArray<const Index, dynamic_rank, zero_origin> index_array;
-        index_array.layout().set_rank(input_rank);
-        for (DimensionIndex input_dim = 0; input_dim < input_rank;
-             ++input_dim) {
-          index_array.shape()[input_dim] =
-              index_array_data.byte_strides()[input_dim] == 0
-                  ? 1
-                  : input_domain.shape()[input_dim];
-          index_array.byte_strides()[input_dim] =
-              index_array_data.byte_strides()[input_dim];
-        }
-        index_array.element_pointer() = AddByteOffset(
-            index_array_data.element_pointer(),
-            IndexInnerProduct(input_rank, input_domain.origin().data(),
-                              index_array_data.byte_strides().data()));
-        // Serialize to protos.
+        // Store the unbroadcast shape.
         auto* out_array = out_proto->mutable_index_array();
-        for (DimensionIndex input_dim = 0; input_dim < input_rank;
-             input_dim++) {
-          out_array->add_shape(index_array.shape()[input_dim]);
+        for (Index size : index_array.shape()) {
+          out_array->add_shape(size);
         }
 
         // If `index_array` contains values outside `index_range`, encode
@@ -288,12 +272,10 @@ void EncodeToProto(proto::IndexTransform& proto,  // NOLINT
           out_proto->set_index_array_exclusive_max(index_range.exclusive_max());
         }
 
-        // Construct a SharedArray from the input array mapping.
-        auto pointer = index_array.byte_strided_origin_pointer();
-        const auto num_elements = index_array.num_elements();
-        for (DimensionIndex j = 0; j < num_elements; j++) {
-          out_array->add_data(pointer.get()[j]);
-        }
+        // Store the index array data.
+        IterateOverArrays(
+            [&](const Index* value) { out_array->add_data(*value); }, c_order,
+            index_array);
         break;
       }
     }

@@ -1912,6 +1912,19 @@ TEST(UnbroadcastArrayTest, Basic) {
   EXPECT_EQ(orig_array.layout(), unbroadcast_array2.layout());
 }
 
+TEST(UnbroadcastArrayTest, PreserveRank) {
+  auto orig_array = MakeArray<int>({{{1, 2}}, {{3, 4}}, {{5, 6}}});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto broadcast_array1,
+      BroadcastArray(orig_array, BoxView<>({1, 3, 1, 2})));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto broadcast_array2,
+      BroadcastArray(orig_array, BoxView<>({1, 2, 3, 4}, {2, 3, 2, 2})));
+  auto unbroadcast_array2 = UnbroadcastArrayPreserveRank(broadcast_array2);
+  EXPECT_EQ(unbroadcast_array2.pointer(), broadcast_array1.pointer());
+  EXPECT_EQ(unbroadcast_array2.layout(), broadcast_array1.layout());
+}
+
 TEST(ArraySerializationTest, ZeroOrigin) {
   tensorstore::SharedArray<int, 2> array =
       tensorstore::MakeArray<int>({{1, 2, 3}, {4, 5, 6}});
