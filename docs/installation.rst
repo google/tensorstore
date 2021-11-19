@@ -226,7 +226,7 @@ version for your operating system.  Bazelisk requires Python to run.
 
    If you have not already done so, you need to run the
    :file:`/Applications/Python 3.{x}/Install Certificates.command` script in
-   your Python installation directory.  Refer to the the documentation at
+   your Python installation directory.  Refer to the documentation at
    :file:`/Applications/Python 3.{x}/ReadMe.rtf` for more information.
 
 TensorStore depends on a number of third-party libraries.  By default, these
