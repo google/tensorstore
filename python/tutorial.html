@@ -26,7 +26,7 @@
 <span class=gp>... </span>    <span class=s1>&#39;driver&#39;</span><span class=p>:</span> <span class=s1>&#39;n5&#39;</span><span class=p>,</span>
 <span class=gp>... </span>    <span class=s1>&#39;kvstore&#39;</span><span class=p>:</span> <span class=p>{</span>
 <span class=gp>... </span>        <span class=s1>&#39;driver&#39;</span><span class=p>:</span> <span class=s1>&#39;file&#39;</span><span class=p>,</span>
-<span class=gp>... </span>        <span class=s1>&#39;path&#39;</span><span class=p>:</span> <span class=s1>&#39;/tmp/dataset&#39;</span><span class=p>,</span>
+<span class=gp>... </span>        <span class=s1>&#39;path&#39;</span><span class=p>:</span> <span class=s1>&#39;/tmp/dataset/&#39;</span><span class=p>,</span>
 <span class=gp>... </span>    <span class=p>},</span>
 <span class=gp>... </span>    <span class=s1>&#39;metadata&#39;</span><span class=p>:</span> <span class=p>{</span>
 <span class=gp>... </span>        <span class=s1>&#39;compression&#39;</span><span class=p>:</span> <span class=p>{</span>
@@ -40,7 +40,7 @@
 <span class=gp>... </span>    <span class=s1>&#39;delete_existing&#39;</span><span class=p>:</span> <span class=kc>True</span><span class=p>,</span>
 <span class=gp>... </span><span class=p>})</span><span class=o>.</span><span class=n>result</span><span class=p>()</span>
 </code></pre></div> </div> <p>Asynchronously write to to a sub-region:</p> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><code><span class=gp>&gt;&gt;&gt; </span><span class=n>write_future</span> <span class=o>=</span> <span class=n>dataset</span><span class=p>[</span><span class=mi>80</span><span class=p>:</span><span class=mi>82</span><span class=p>,</span> <span class=mi>99</span><span class=p>:</span><span class=mi>102</span><span class=p>]</span><span class=o>.</span><span class=n>write</span><span class=p>([[</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>],</span> <span class=p>[</span><span class=mi>4</span><span class=p>,</span> <span class=mi>5</span><span class=p>,</span> <span class=mi>6</span><span class=p>]])</span>
-</code></pre></div> </div> <p>Wait for the write to complete using <a class="reference internal" href=api/tensorstore.Future.result.html title="tensorstore.Future.result (Python method)"><code class="xref py py-obj docutils literal notranslate"><span class=pre>tensorstore.Future.result</span></code></a>:</p> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><code><span class=gp>&gt;&gt;&gt; </span><span class=n>write_future</span><span class=o>.</span><span class=n>result</span><span class=p>()</span>
+</code></pre></div> </div> <p>Wait for the write to complete using <a class="reference internal" href=api/tensorstore.Future.result.html title="tensorstore.Future.result (Python method) — Blocks until the asynchronous operation completes, and returns the result."><code class="xref py py-obj docutils literal notranslate"><span class=pre>tensorstore.Future.result</span></code></a>:</p> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><code><span class=gp>&gt;&gt;&gt; </span><span class=n>write_future</span><span class=o>.</span><span class=n>result</span><span class=p>()</span>
 </code></pre></div> </div> <p>In an <a class="reference external" href=https://docs.python.org/3/reference/compound_stmts.html#async title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class=pre>async</span></code></a> function (or with top-level <a class="reference external" href=https://docs.python.org/3/reference/expressions.html#await title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class=pre>await</span></code></a> support), <a class="reference external" href=https://docs.python.org/3/reference/expressions.html#await title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class=pre>await</span></code></a> can also be used for interoperability with <a class="reference external" href=https://docs.python.org/3/library/asyncio.html#module-asyncio title="(in Python v3.9)"><code class="xref any docutils literal notranslate"><span class=pre>asyncio</span></code></a>:</p> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><code><span class=gp>&gt;&gt;&gt; </span><span class=k>await</span> <span class=n>write_future</span>
 </code></pre></div> </div> <p>Subscript assignment can also be used to write synchronously:</p> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><code><span class=gp>&gt;&gt;&gt; </span><span class=n>dataset</span><span class=p>[</span><span class=mi>80</span><span class=p>:</span><span class=mi>82</span><span class=p>,</span> <span class=mi>99</span><span class=p>:</span><span class=mi>102</span><span class=p>]</span> <span class=o>=</span> <span class=p>[[</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>],</span> <span class=p>[</span><span class=mi>4</span><span class=p>,</span> <span class=mi>5</span><span class=p>,</span> <span class=mi>6</span><span class=p>]]</span>
 </code></pre></div> </div> <p>Read back a larger region that contains the region that was written (positions not written have the fill value of <code class="docutils literal notranslate"><span class=pre>0</span></code>):</p> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><code><span class=gp>&gt;&gt;&gt; </span><span class=n>dataset</span><span class=p>[</span><span class=mi>80</span><span class=p>:</span><span class=mi>83</span><span class=p>,</span> <span class=mi>99</span><span class=p>:</span><span class=mi>102</span><span class=p>]</span><span class=o>.</span><span class=n>read</span><span class=p>()</span><span class=o>.</span><span class=n>result</span><span class=p>()</span>
@@ -54,8 +54,8 @@
 <span class=gp>... </span>    <span class=s1>&#39;kvstore&#39;</span><span class=p>:</span> <span class=p>{</span>
 <span class=gp>... </span>        <span class=s1>&#39;driver&#39;</span><span class=p>:</span> <span class=s1>&#39;gcs&#39;</span><span class=p>,</span>
 <span class=gp>... </span>        <span class=s1>&#39;bucket&#39;</span><span class=p>:</span> <span class=s1>&#39;neuroglancer-janelia-flyem-hemibrain&#39;</span><span class=p>,</span>
+<span class=gp>... </span>        <span class=s1>&#39;path&#39;</span><span class=p>:</span> <span class=s1>&#39;v1.1/segmentation/&#39;</span><span class=p>,</span>
 <span class=gp>... </span>    <span class=p>},</span>
-<span class=gp>... </span>    <span class=s1>&#39;path&#39;</span><span class=p>:</span> <span class=s1>&#39;v1.1/segmentation&#39;</span><span class=p>,</span>
 <span class=gp>... </span>    <span class=c1># Use 100MB in-memory cache.</span>
 <span class=gp>... </span>    <span class=s1>&#39;context&#39;</span><span class=p>:</span> <span class=p>{</span>
 <span class=gp>... </span>        <span class=s1>&#39;cache_pool&#39;</span><span class=p>:</span> <span class=p>{</span>
@@ -81,9 +81,9 @@
 <span class=go>  &#39;kvstore&#39;: {</span>
 <span class=go>    &#39;bucket&#39;: &#39;neuroglancer-janelia-flyem-hemibrain&#39;,</span>
 <span class=go>    &#39;driver&#39;: &#39;gcs&#39;,</span>
+<span class=go>    &#39;path&#39;: &#39;v1.1/segmentation/&#39;,</span>
 <span class=go>  },</span>
 <span class=go>  &#39;multiscale_metadata&#39;: {&#39;num_channels&#39;: 1, &#39;type&#39;: &#39;segmentation&#39;},</span>
-<span class=go>  &#39;path&#39;: &#39;v1.1/segmentation&#39;,</span>
 <span class=go>  &#39;recheck_cached_data&#39;: &#39;open&#39;,</span>
 <span class=go>  &#39;scale_index&#39;: 0,</span>
 <span class=go>  &#39;scale_metadata&#39;: {</span>
@@ -131,9 +131,9 @@
 <span class=go>  &#39;kvstore&#39;: {</span>
 <span class=go>    &#39;bucket&#39;: &#39;neuroglancer-janelia-flyem-hemibrain&#39;,</span>
 <span class=go>    &#39;driver&#39;: &#39;gcs&#39;,</span>
+<span class=go>    &#39;path&#39;: &#39;v1.1/segmentation/&#39;,</span>
 <span class=go>  },</span>
 <span class=go>  &#39;multiscale_metadata&#39;: {&#39;num_channels&#39;: 1, &#39;type&#39;: &#39;segmentation&#39;},</span>
-<span class=go>  &#39;path&#39;: &#39;v1.1/segmentation&#39;,</span>
 <span class=go>  &#39;recheck_cached_data&#39;: &#39;open&#39;,</span>
 <span class=go>  &#39;scale_index&#39;: 0,</span>
 <span class=go>  &#39;scale_metadata&#39;: {</span>
