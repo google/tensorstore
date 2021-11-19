@@ -18,7 +18,7 @@ load(
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
-# Use libpng from a github mirror rather than "https://git.code.sf.net/p/libpng/code"
+# Use libpng from a github mirror rather than https://git.code.sf.net/p/libpng/code
 # since it's much easier to download.
 def repo():
     maybe(
