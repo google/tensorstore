@@ -70,7 +70,8 @@ Status TranslateOutputOffsetsUsingInputOffsets(TransformRep* transform,
 Result<IndexTransform<>> ApplyTranslate(IndexTransform<> transform,
                                         DimensionIndexBuffer* dimensions,
                                         IndexVectorOrScalarView offsets,
-                                        bool translate_to, bool domain_only) {
+                                        TranslateOpKind kind,
+                                        bool domain_only) {
   const DimensionIndex num_dims = dimensions->size();
   const DimensionIndex input_rank = transform.input_rank();
   TENSORSTORE_RETURN_IF_ERROR(CheckIndexVectorSize(offsets, num_dims));
@@ -86,12 +87,27 @@ Result<IndexTransform<>> ApplyTranslate(IndexTransform<> transform,
     const DimensionIndex input_dim = (*dimensions)[i];
     Index offset = offsets[i];
     if (offset == kImplicit) continue;
-    const auto old_interval = input_domain[input_dim];
-    TENSORSTORE_ASSIGN_OR_RETURN(IndexInterval new_interval,
-                                 translate_to
-                                     ? ShiftIntervalTo(old_interval, offset)
-                                     : ShiftInterval(old_interval, offset));
-    if (translate_to) offset -= old_interval.inclusive_min();
+    const IndexInterval old_interval = input_domain[input_dim];
+    IndexInterval new_interval;
+    switch (kind) {
+      case TranslateOpKind::kTranslateTo: {
+        TENSORSTORE_ASSIGN_OR_RETURN(new_interval,
+                                     ShiftIntervalTo(old_interval, offset));
+        offset = new_interval.inclusive_min() - old_interval.inclusive_min();
+        break;
+      }
+      case TranslateOpKind::kTranslateBackwardBy: {
+        // Can't overflow since we already checked for `offset == kImplicit`
+        // above.
+        offset = -offset;
+      }
+        [[fallthrough]];
+      case TranslateOpKind::kTranslateBy: {
+        TENSORSTORE_ASSIGN_OR_RETURN(new_interval,
+                                     ShiftInterval(old_interval, offset));
+        break;
+      }
+    }
     input_domain[input_dim] = new_interval;
     input_offsets[input_dim] = offset;
   }

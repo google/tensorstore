@@ -135,6 +135,12 @@ class DimExpression<LastOp, PriorOp...> {
   using TranslateByOpExpr =
       IndexVectorOpExpr<internal_index_space::TranslateByOp, IndexVector>;
 
+  /// Defines the return type for TranslateBackwardBy.
+  template <typename IndexVector>
+  using TranslateBackwardByOpExpr =
+      IndexVectorOpExpr<internal_index_space::TranslateBackwardByOp,
+                        IndexVector>;
+
   /// Defines the return type for TranslateTo.
   template <typename IndexVector>
   using TranslateToOpExpr =
@@ -315,6 +321,67 @@ class DimExpression<LastOp, PriorOp...> {
   /// Overload that permits the offset vector to be specified as a braced list.
   template <DimensionIndex Rank>
   TranslateByOpExpr<const Index (&)[Rank]> TranslateBy(
+      const Index (&offsets)[Rank]) const {
+    return {{span(offsets)}, *this};
+  }
+
+  /// Translates (shifts) the domains of the selected input dimensions backwards
+  /// by the specified `offsets` vector; the output range remains the same.
+  ///
+  /// Given an `existing` transform with input rank `m` and the selected `dims`
+  /// vector, the new index transform maps an `input` vector of size `m` to:
+  ///
+  ///     existing(input + full_offsets)
+  ///
+  /// where `full_offsets` is a vector of size `m` with
+  /// `full_offsets[i] = offsets[j]` if `dims[j] == i`, and
+  /// `full_offsets[i] = 0` if `i` is not in `dims`.  An offset of `kImplicit`
+  /// is treated as `0`.
+  ///
+  /// The new dimension selection is the same as the prior dimension selection,
+  /// with a static rank equal to the merged static rank of the prior dimension
+  /// selection and the static extent of the `offsets` vector.
+  ///
+  /// The input domain for each selected dimension is shifted by calling
+  /// ShiftIntervalBackward.
+  ///
+  /// For example: `Dims(0, 2).TranslateBackwardBy({10, 20})` has the following
+  /// effects:
+  ///
+  /// *                   | Prior                  | New
+  /// ------------------- | ---                    | ---
+  /// Dimension selection | {0, 2}                 | {0, 2}
+  /// Input domain        | [1, 3], [2, 5], [3, 4] | [-9, -7], [2, 5], [-17,-16]
+  /// Labels              | {"x", "y", "z"}        | {"x", "y", "z"}
+  /// Equiv. input indices| {2, 3, 3}              | {-8, 3, -17}
+  /// Equiv. input indices| {x, y, z}              | {x - 10, y, z - 20}
+  ///
+  /// where `x` is any index in `[1, 3]`, `y` is any index in `[2, 5]`, and `z`
+  /// is any index in `[3, 4]`.
+  ///
+  /// \requires `Offsets` satisfies the IsIndexVectorOrScalar concept with a
+  ///     static extent compatible with the static rank of the dimension
+  ///     selection.
+  /// \param offsets The offset vector by which to shift the input domains of
+  ///     the selected dimensions.  May be a braced list,
+  ///     e.g. `TranslateBackwardBy({1, 2, 3})`.  May also be a scalar,
+  ///     e.g. `TranslateBackwardBy(5)`, in which case the same offset is used
+  ///     for all selected dimensions.
+  /// \error `absl::StatusCode::kInvalidArgument` if the extent of the `offsets`
+  ///     vector is not equal to the number of selected dimensions.
+  /// \error `absl::StatusCode::kOutOfRange` if the shift offset is outside
+  ///     `[kMinFiniteIndex, kMaxFiniteIndex]`.
+  /// \error `absl::StatusCode::kInvalidArgument` if a shifted interval is
+  ///     outside the valid range.
+  template <typename Offsets>
+  TranslateBackwardByOpExpr<Offsets> TranslateBackwardBy(
+      const Offsets& offsets) const {
+    return {{offsets}, *this};
+  }
+
+  /// Overload that permits the offset vector to be specified as a braced list.
+  template <DimensionIndex Rank>
+  TranslateBackwardByOpExpr<const Index (&)[Rank]> TranslateBackwardBy(
       const Index (&offsets)[Rank]) const {
     return {{span(offsets)}, *this};
   }

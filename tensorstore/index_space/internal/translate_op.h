@@ -16,8 +16,8 @@
 #define TENSORSTORE_INDEX_SPACE_INTERNAL_TRANSLATE_OP_H_
 
 /// \file
-/// Implementation of the DimExpression::TranslateTo and,
-/// DimExpression::TranslateBy operations.
+///
+/// Implementation of the DimExpression::Translate{To,By,BackwardBy} operations.
 
 // IWYU pragma: private, include "third_party/tensorstore/index_space/dim_expression.h"
 
@@ -31,6 +31,16 @@
 namespace tensorstore {
 namespace internal_index_space {
 
+/// Specifies the meaning of the `offsets` vector for `ApplyTranslate`.
+enum class TranslateOpKind {
+  /// Translate the domain to the origin indicated by the offset.
+  kTranslateTo,
+  /// Translate the domain forward by the offset.
+  kTranslateBy,
+  /// Translate the domain backward by the offset.
+  kTranslateBackwardBy,
+};
+
 /// Returns a new index transform with the domains of the specified input
 /// dimensions shifted by the specified offsets.
 ///
@@ -42,12 +52,9 @@ namespace internal_index_space {
 ///     dimensions for which to shift the domains.  The value is not modified,
 ///     since these indices already correspond to the indices of those
 ///     dimensions in the result.
-/// \param offsets The vector of offsets (if `translate_to == false`) or origins
-///     (if `translate_to == true`) corresponding to the specified dimensions.
-/// \param translate_to If `false`, the domains of the specified dimensions are
-///     shifted by the corresponding offsets.  If `true`, the domains of the
-///     specified dimensions are shifted to have origins equal to the
-///     corresponding offsets.
+/// \param offsets The vector of offsets (if `kind != kTranslateTo`) or origins
+///     (if `kind == kTranslateTo`) corresponding to the specified dimensions.
+/// \param kind Specifies the meaning of `offsets`.
 /// \param domain_only Indicates the output dimensions of `transform` should be
 ///     ignored, and returned transform should have an output rank of 0.
 /// \pre `transform.valid()`
@@ -56,7 +63,7 @@ namespace internal_index_space {
 /// \returns The new index transform.
 /// \error `absl::StatusCode::kInvalidArgument` if `offsets.size()` is not
 ///     compatible with `dimensions->size()`.
-/// \error `absl::StatusCode::kInvalidArgument` if `translate_to == true` and
+/// \error `absl::StatusCode::kInvalidArgument` if `kind == kTranslateTo` and
 ///     the existing origin of one of the dimensions is `-kInfIndex`.
 /// \error `absl::StatusCode::kOutOfRange` if an invalid offset is specified.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs
@@ -64,15 +71,14 @@ namespace internal_index_space {
 Result<IndexTransform<>> ApplyTranslate(IndexTransform<> transform,
                                         DimensionIndexBuffer* dimensions,
                                         IndexVectorOrScalarView offsets,
-                                        bool translate_to,
+                                        TranslateOpKind kind,
                                         bool domain_only = false);
 
-/// Type representing the DimExpression::TranslateBy and
-/// DimExpression::TranslateTo operations.
+/// Type representing the DimExpression::Translate{To,By,BackwardBy} operations.
 /// \tparam OffsetOrOriginVector The container type for the offset or origin
 ///     vector.  Must satisfy IsIndexVectorOrScalar.
-/// \tparam To Corresponds to the `translate_to` parameter of ApplyTranslate.
-template <typename OffsetOrOriginVector, bool To>
+/// \tparam Kind Corresponds to the `kind` parameter of ApplyTranslate.
+template <typename OffsetOrOriginVector, TranslateOpKind Kind>
 struct TranslateOp {
   static constexpr bool selected_dimensions_are_new = false;
 
@@ -100,18 +106,22 @@ struct TranslateOp {
                                  DimensionIndexBuffer* dimensions,
                                  bool domain_only) const {
     return ApplyTranslate(std::move(transform), dimensions,
-                          IndexVectorOrScalarView(offset_or_origin_vector), To,
-                          domain_only);
+                          IndexVectorOrScalarView(offset_or_origin_vector),
+                          Kind, domain_only);
   }
 
   OffsetOrOriginVector offset_or_origin_vector;
 };
 
 template <typename Offsets>
-using TranslateToOp = TranslateOp<Offsets, true>;
+using TranslateToOp = TranslateOp<Offsets, TranslateOpKind::kTranslateTo>;
 
 template <typename Offsets>
-using TranslateByOp = TranslateOp<Offsets, false>;
+using TranslateByOp = TranslateOp<Offsets, TranslateOpKind::kTranslateBy>;
+
+template <typename Offsets>
+using TranslateBackwardByOp =
+    TranslateOp<Offsets, TranslateOpKind::kTranslateBackwardBy>;
 
 }  // namespace internal_index_space
 }  // namespace tensorstore

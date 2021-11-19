@@ -79,6 +79,43 @@ TEST(TranslateByTest, Example) {
                     /*equivalent_indices=*/equivalent_indices);
 }
 
+TEST(TranslateBackwardByTest, Example) {
+  const auto original_transform = IndexTransformBuilder<3, 3>()
+                                      .input_origin({1, 2, 3})
+                                      .input_shape({3, 4, 2})
+                                      .input_labels({"x", "y", "z"})
+                                      .output_identity_transform()
+                                      .Finalize()
+                                      .value();
+  const auto expected_new_transform =
+      IndexTransformBuilder<3, 3>()
+          .input_origin({-9, 2, -17})
+          .input_shape({3, 4, 2})
+          .input_labels({"x", "y", "z"})
+          .output_single_input_dimension(0, 10, 1, 0)
+          .output_single_input_dimension(1, 1)
+          .output_single_input_dimension(2, 20, 1, 2)
+          .Finalize()
+          .value();
+  const EquivalentIndices equivalent_indices = {
+      {{2, 3, 3}, {-8, 3, -17}},
+  };
+  TestDimExpression(/*original_transform=*/original_transform,
+                    /*expression=*/Dims(0, 2).TranslateBackwardBy({10, 20}),
+                    /*expected_new_dimension_selection=*/{0, 2},
+                    /*expected_identity_new_transform=*/expected_new_transform,
+                    /*expected_new_transform=*/expected_new_transform,
+                    /*equivalent_indices=*/equivalent_indices);
+
+  // Test using labels to select dimensions.
+  TestDimExpression(/*original_transform=*/original_transform,
+                    /*expression=*/Dims("x", "z").TranslateBackwardBy({10, 20}),
+                    /*expected_new_dimension_selection=*/{0, 2},
+                    /*expected_identity_new_transform=*/expected_new_transform,
+                    /*expected_new_transform=*/expected_new_transform,
+                    /*equivalent_indices=*/equivalent_indices);
+}
+
 TEST(TranslateToTest, Example) {
   const auto original_transform = IndexTransformBuilder<3, 3>()
                                       .input_origin({1, 2, 3})

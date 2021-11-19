@@ -81,19 +81,30 @@ Result<IndexTransform<>> DimensionSelection::Apply(
   return transform;
 }
 
+using internal_index_space::TranslateOpKind;
+
 /// Python equivalent of `tensorstore::internal_index_space::TranslateOp`.
 class PythonTranslateOp : public PythonDimExpression {
  public:
   explicit PythonTranslateOp(std::shared_ptr<const PythonDimExpression> parent,
                              IndexVectorOrScalarContainer indices,
-                             bool translate_to)
-      : parent_(std::move(parent)),
-        indices_(std::move(indices)),
-        translate_to_(translate_to) {}
+                             TranslateOpKind kind)
+      : parent_(std::move(parent)), indices_(std::move(indices)), kind_(kind) {}
+
+  std::string_view op_suffix() const {
+    switch (kind_) {
+      case TranslateOpKind::kTranslateTo:
+        return "to";
+      case TranslateOpKind::kTranslateBy:
+        return "by";
+      case TranslateOpKind::kTranslateBackwardBy:
+        return "backward_by";
+    }
+  }
 
   std::string repr() const override {
     return StrCat(
-        parent_->repr(), ".translate_", translate_to_ ? "to" : "by", "[",
+        parent_->repr(), ".translate_", op_suffix(), "[",
         IndexVectorRepr(indices_, /*implicit=*/true, /*subscript=*/true), "]");
   }
 
@@ -103,14 +114,14 @@ class PythonTranslateOp : public PythonDimExpression {
     TENSORSTORE_ASSIGN_OR_RETURN(
         transform, parent_->Apply(std::move(transform), buffer,
                                   /*top_level=*/false, domain_only));
-    return internal_index_space::ApplyTranslate(
-        std::move(transform), buffer, indices_, translate_to_, domain_only);
+    return internal_index_space::ApplyTranslate(std::move(transform), buffer,
+                                                indices_, kind_, domain_only);
   }
 
  private:
   std::shared_ptr<const PythonDimExpression> parent_;
   IndexVectorOrScalarContainer indices_;
-  bool translate_to_;
+  TranslateOpKind kind_;
 };
 
 /// Python equivalent of `tensorstore::internal_index_space::StrideOp`.
@@ -777,7 +788,7 @@ Group:
               -> std::shared_ptr<PythonDimExpression> {
             return std::make_shared<PythonTranslateOp>(
                 std::move(self), ToIndexVectorOrScalarContainer(indices),
-                /*translate_to=*/true);
+                /*kind=*/TranslateOpKind::kTranslateTo);
           },
           R"(
 Translates the domains of the selected input dimensions to the specified
@@ -853,7 +864,7 @@ Group:
               -> std::shared_ptr<PythonDimExpression> {
             return std::make_shared<PythonTranslateOp>(
                 std::move(self), ToIndexVectorOrScalarContainer(offsets),
-                /*translate_to=*/false);
+                TranslateOpKind::kTranslateBy);
           },
           R"(
 Translates (shifts) the domains of the selected input dimensions by the
@@ -893,6 +904,82 @@ Examples:
      Output index maps:
        out[0] = -10 + 1 * in[0]
        out[1] = -10 + 1 * in[1]
+       out[2] = 0 + 1 * in[2]
+
+The new dimension selection is the same as the prior dimension selection.
+
+Args:
+
+  offsets: The offsets for each of the selected dimensions.  May also be a
+    scalar, e.g. :python:`5`, in which case the same offset is used for all
+    selected dimensions.  Specifying :python:`None` for a given dimension
+    (equivalent to specifying an offset of :python:`0`) leaves the origin of
+    that dimension unchanged.
+
+Returns:
+  Dimension expression with the translation operation added.
+
+Raises:
+
+  IndexError:
+    If the number origins does not match the number of selected dimensions.
+
+Group:
+  Operations
+
+)",
+          py::arg("offsets"));
+
+  DefineSubscriptMethod<std::shared_ptr<PythonDimExpression>,
+                        struct TranslateBackwardByTag>(
+      &cls, "translate_backward_by", "_TranslateBackwardBy")
+      .def(
+          "__getitem__",
+          +[](std::shared_ptr<PythonDimExpression> self,
+              OptionallyImplicitIndexVectorOrScalarContainer offsets)
+              -> std::shared_ptr<PythonDimExpression> {
+            return std::make_shared<PythonTranslateOp>(
+                std::move(self), ToIndexVectorOrScalarContainer(offsets),
+                TranslateOpKind::kTranslateBackwardBy);
+          },
+          R"(
+Translates (shifts) the domains of the selected input dimensions backward by the
+specified offsets, without affecting the output range.
+
+Examples:
+
+   >>> transform = ts.IndexTransform(input_inclusive_min=[2, 3, 4],
+   ...                               input_shape=[4, 5, 6],
+   ...                               input_labels=['x', 'y', 'z'])
+   >>> transform[ts.d['x', 'y'].translate_backward_by[10, 20]]
+   Rank 3 -> 3 index space transform:
+     Input domain:
+       0: [-8, -4) "x"
+       1: [-17, -12) "y"
+       2: [4, 10) "z"
+     Output index maps:
+       out[0] = 10 + 1 * in[0]
+       out[1] = 20 + 1 * in[1]
+       out[2] = 0 + 1 * in[2]
+   >>> transform[ts.d['x', 'y'].translate_backward_by[10, None]]
+   Rank 3 -> 3 index space transform:
+     Input domain:
+       0: [-8, -4) "x"
+       1: [3, 8) "y"
+       2: [4, 10) "z"
+     Output index maps:
+       out[0] = 10 + 1 * in[0]
+       out[1] = 0 + 1 * in[1]
+       out[2] = 0 + 1 * in[2]
+   >>> transform[ts.d['x', 'y'].translate_backward_by[10]]
+   Rank 3 -> 3 index space transform:
+     Input domain:
+       0: [-8, -4) "x"
+       1: [-7, -2) "y"
+       2: [4, 10) "z"
+     Output index maps:
+       out[0] = 10 + 1 * in[0]
+       out[1] = 10 + 1 * in[1]
        out[2] = 0 + 1 * in[2]
 
 The new dimension selection is the same as the prior dimension selection.
