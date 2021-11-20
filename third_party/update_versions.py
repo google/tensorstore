@@ -33,6 +33,127 @@ from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
 
+class WorkspaceFile:
+  """Holds the contents of a workspace.bzl file and the parse methods."""
+  URL_RE = re.compile(r'"(https://[^"]*)"')
+  STRIP_PREFIX_RE = re.compile('strip_prefix = "([^"]*)-([^-"]*)"')
+  SHA256_RE = re.compile('sha256 = "([^"]*)"')
+  GITHUB_REPO_RE = re.compile(
+      r'https://(?:api\.)?github\.com/(?:repos/)?([^/]+)/([^/]+)/(.*)')
+  DATE_RE = re.compile(r'# ([a-z\-_]+)\(([0-9]{4}-[0-9]{2}-[0-9]{2})\)$',
+                       re.MULTILINE)
+
+  def __init__(self, name: str, filename: pathlib.Path):
+    self._name = name
+    self._filename = filename
+    self._content = filename.read_text()
+    self._is_release_asset = False
+    self._tag = ''
+    self._suffix = 'zip'
+    self._github_fields_updated = False
+
+  def _update_github_fields(self):
+    """Updates the .github properties.
+
+       Extract .githuib_ fields from url formats like:
+https://github.com/protocolbuffers/protobuf/releases/download/v3.19.1/protobuf-cpp-3.19.1.tar.gz",
+https://api.github.com/repos/abseil/abseil-cpp/tarball/20211102.0
+https://api.github.com/repos/abseil/abseil-cpp/tarball/refs/tags/20211102.0
+https://github.com/pybind/pybind11/archive/refs/tags/archive/pr2672_test_unique_ptr_member.zip
+https://github.com/pybind/pybind11/archive/56322dafc9d4d248c46bd1755568df01fbea4994.tar.gz
+"""
+    if self._github_fields_updated:
+      return
+    self._github_fields_updated = True  # run_once
+    repo_m = self.GITHUB_REPO_RE.fullmatch(self.url)
+    if not repo_m:
+      raise ValueError(f'{self.url} does not appear to be a github url')
+    self._github_org = str(repo_m.group(1))
+    self._github_repo = str(repo_m.group(2))
+    path = str(repo_m.group(3))
+    if not path:
+      return
+    m = re.search(r'(tarball|zipball)/(.*)', path)
+    if m:
+      self._tag = str(m.group(2))
+      self._suffix = {'zipball': 'zip', 'tarball': 'tar.gz'}[m.group(1)]
+      return
+    m = re.search(r'archive/(.*)\.(tar\.gz|zip)', path)
+    if m:
+      self._tag = str(m.group(1))
+      self._suffix = str(m.group(2))
+      return
+    m = re.search(r'releases/download/([^/]+)/(.*)\.(tar\.gz|zip)', path)
+    if m:
+      self._is_release_asset = True
+      self._tag = str(m.group(1))
+      self._suffix = str(m.group(3))
+      return
+
+  @property
+  def name(self):
+    return self._name
+
+  @property
+  def content(self):
+    return self._content
+
+  @property
+  def url(self):
+    if not self.url_m:
+      return None
+    return str(self.url_m.group(1))
+
+  @property
+  def github_org(self):
+    self._update_github_fields()
+    return self._github_org
+
+  @property
+  def github_repo(self):
+    self._update_github_fields()
+    return self._github_repo
+
+  @property
+  def github_tag(self):
+    self._update_github_fields()
+    return self._tag
+
+  @property
+  def suffix(self):
+    self._update_github_fields()
+    return self._suffix
+
+  @property
+  def is_release_asset(self):
+    self._update_github_fields()
+    return self._is_release_asset
+
+  @property
+  def is_github_commit(self):
+    return re.fullmatch('[0-9a-f]{40}', self.github_tag) is not None
+
+  @property
+  @functools.cache
+  def url_m(self):
+    return self.URL_RE.search(self._content)
+
+  @property
+  @functools.cache
+  def sha256_m(self):
+    return self.SHA256_RE.search(self._content)
+
+  @property
+  @functools.cache
+  def strip_prefix_m(self):
+    return self.STRIP_PREFIX_RE.search(self._content)
+
+  @property
+  @functools.cache
+  def date_m(self):
+    return self.DATE_RE.search(self._content, re.MULTILINE)
+
+
 @functools.cache
 def _get_session():
   s = requests.Session()
@@ -98,52 +219,6 @@ def make_url_pattern(url: str, version: str) -> str:
       replacement_temp, '([^/"\']+)')
 
 
-class WorkspaceFile:
-  """Holds the contents of a workspace.bzl file and the parse methods."""
-  URL_RE = re.compile(r'"(https://[^"]*)"')
-  STRIP_PREFIX_RE = re.compile('strip_prefix = "([^"]*)-([^-"]*)"')
-  SHA256_RE = re.compile('sha256 = "([^"]*)"')
-  DATE_RE = re.compile(r'# ([a-z\-_]+)\(([0-9]{4}-[0-9]{2}-[0-9]{2})\)$',
-                       re.MULTILINE)
-
-  def __init__(self, name: str, filename: pathlib.Path):
-    self._name = name
-    self._filename = filename
-    self._content = filename.read_text()
-
-  @property
-  def name(self):
-    return self._name
-
-  @property
-  def content(self):
-    return self._content
-
-  @property
-  def url(self):
-    return str(self.url_m.group(1))
-
-  @property
-  @functools.cache
-  def url_m(self):
-    return self.URL_RE.search(self._content)
-
-  @property
-  @functools.cache
-  def sha256_m(self):
-    return self.SHA256_RE.search(self._content)
-
-  @property
-  @functools.cache
-  def strip_prefix_m(self):
-    return self.STRIP_PREFIX_RE.search(self._content)
-
-  @property
-  @functools.cache
-  def date_m(self):
-    return self.DATE_RE.search(self._content, re.MULTILINE)
-
-
 @functools.cache
 def github_releases(github_org, github_repo):
   uri = f'https://api.github.com/repos/{github_org}/{github_repo}/releases'
@@ -188,98 +263,79 @@ def update_github_workspace(
     tuple of (new_url, new_version, new_date)
   """
 
+  github_org = workspace.github_org
+  github_repo = workspace.github_repo
+
   # url refers to a "release" asset, so look at the "release" download
   # page for a later version of that asset.
   def _try_update_release_asset():
-    github_release_m = re.fullmatch(
-        r'https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/(.*)',
-        workspace.url)
-    if not github_release_m:
+    if not workspace.is_release_asset:
       return None
-    github_org = github_release_m.group(1)
-    github_repo = github_release_m.group(2)
-    github_tag = github_release_m.group(3)
-    if github_tag.startswith('v'):
-      existing_version = github_tag[1:]
-    else:
-      existing_version = github_tag
+    existing_version = workspace.github_tag
+    if existing_version.startswith('v'):
+      existing_version = existing_version[1:]
+
     new_url, new_version = get_latest_download(
         f'https://github.com/{github_org}/{github_repo}/releases/',
         make_url_pattern(workspace.url, existing_version))
     return (new_url, new_version, None)
 
-  # url refers to a non-released tag or hash.
-  # The DATE_RE comment may include a branch that it was pulled from.
-  def _try_update_based_on_tag():
-    github_m = re.fullmatch(
-        r'https://github\.com/([^/]+)/([^/]+)/archive/(.*)\.(tar\.gz|zip)',
-        workspace.url)
-    if not github_m:
+  # url refers to specific commit on a branch, and the workspace.bzl file has a
+  # branch(date) comment, so look for a later commit on the branch.
+  def _try_update_based_on_branch():
+    if not workspace.is_github_commit:
       return None
-    github_org = github_m.group(1)
-    github_repo = github_m.group(2)
-    github_tag = github_m.group(3)
-    github_ext = github_m.group(4)
-
-    new_version = None
-    new_date = None
-    new_url = None
+    if not workspace.date_m:
+      print(
+          f'{workspace.name} appears to be a commit reference without a branch')
+      return None
+    branch = str(workspace.date_m.group(1))
+    key = f'refs/heads/{branch}'
 
     all_refs = git_references(github_org, github_repo)
-
-    if re.fullmatch('[0-9a-f]{40}', github_tag):
-      if workspace.date_m is None:
-        return None
-      branch = str(workspace.date_m.group(1))
-      key = 'refs/heads/' + branch
-      if key not in all_refs:
-        print(
-            f'{workspace.name} appears to be missing branch "{branch}" on https://github.com/{github_org}/{github_repo}'
-        )
-        return None
-      new_version = all_refs[key]
-      new_date = branch + '(' + time.strftime('%Y-%m-%d') + ')'
-      tag_prefix = ''
-    else:
-      if workspace.strip_prefix_m:
-        name = str(workspace.strip_prefix_m.group(1))
-      else:
-        name = None
-
-      if github_tag.startswith('v'):
-        tag_prefix = 'v'
-      elif name is not None and github_tag.startswith(name + '-'):
-        tag_prefix = name + '-'
-      else:
-        tag_prefix = ''
-      ref_prefix = 'refs/tags/' + tag_prefix
-
-      # Sort the versions and chose the "latest"
-      versions = []
-      for ref_name in all_refs:
-        if not ref_name.startswith(ref_prefix):
-          continue
-        ver_str = ref_name[len(ref_prefix):]
-        v = packaging.version.parse(ver_str)
-        versions.append((v, ver_str))
-      versions.sort()
-
-      new_version = versions[-1][1]
-      new_date = None
-    new_url = f'https://github.com/{github_org}/{github_repo}/archive/{tag_prefix}{new_version}.{github_ext}'
+    if key not in all_refs:
+      print(
+          f'{workspace.name} appears to be missing branch "{branch}" on https://github.com/{github_org}/{github_repo}'
+      )
+      return None
+    new_version = all_refs[key]
+    new_url = f'https://github.com/{github_org}/{github_repo}/archive/{new_version}.{workspace.suffix}'
+    new_date = branch + '(' + time.strftime('%Y-%m-%d') + ')'
     return (new_url, new_version, new_date)
 
-  # retgrieve the latest release based on the github api releases
-  def _try_update_to_latest_release():
-    m = re.fullmatch(
-        r'https://(?:api\.)?github\.com/(?:repos/)?([^/]+)/([^/]+)/.*\.(tar\.gz|zip)',
-        workspace.url)
-    if not m:
-      return None
-    github_org = str(m.group(1))
-    github_repo = str(m.group(2))
-    github_ext = str(m.group(3))
+  # url refers to some tag rather than a commit, look for a later tag with
+  # the same prefix as the currently selected tag.
+  def _try_update_tag():
+    if workspace.strip_prefix_m:
+      name = str(workspace.strip_prefix_m.group(1))
+    else:
+      name = None
 
+    if workspace.github_tag.startswith('v'):
+      tag_prefix = 'v'
+    elif name is not None and workspace.github_tag.startswith(name + '-'):
+      tag_prefix = name + '-'
+    else:
+      tag_prefix = ''
+    ref_prefix = 'refs/tags/' + tag_prefix
+
+    # Sort the versions and chose the "latest"
+    versions = []
+    for ref_name in git_references(github_org, github_repo):
+      if not ref_name.startswith(ref_prefix):
+        continue
+      ver_str = ref_name[len(ref_prefix):]
+      v = packaging.version.parse(ver_str)
+      versions.append((v, ver_str))
+    if not versions:
+      return None
+    versions.sort()
+    new_version = versions[-1][1]
+    new_url = f'https://github.com/{github_org}/{github_repo}/archive/{tag_prefix}{new_version}.{workspace.suffix}'
+    return (new_url, new_version, None)
+
+  # retrieve the latest release based on the github api
+  def _try_update_to_latest_release():
     all_releases = github_releases(github_org, github_repo)
     if not all_releases:
       return None
@@ -291,11 +347,12 @@ def update_github_workspace(
       if not v.is_prerelease:
         versions.append((v, x))
     versions.sort()
-
-    new_version = all_releases[versions[-1][1]]['tag_name']
-    new_url = f'https://github.com/{github_org}/{github_repo}/archive/refs/tags/{new_version}.{github_ext}'
-    # We could extract url and date, but that requires updating all the matching
-    # regexes since the github api download urls look like:
+    idx = versions[-1][1]
+    new_version = all_releases[idx]['tag_name']
+    new_url = f'https://github.com/{github_org}/{github_repo}/archive/refs/tags/{new_version}.{workspace.suffix}'
+    # We could extract url and date, but api.github.com maybe throttled (it is
+    # for non asset requests) and may require additional updates to regexes to
+    # match github api download urls, which look like:
     # https://api.github.com/repos/abseil/abseil-cpp/tarball/refs/tags/20211102
     # url = all_releases[0]['tarball_url' if tarball else 'zipball_url']
     # date = dateutil.parser.isoparse(all_releases[0]['created_at'])
@@ -305,9 +362,18 @@ def update_github_workspace(
   if not tmp and github_release:
     tmp = _try_update_to_latest_release()
   if not tmp:
-    tmp = _try_update_based_on_tag()
+    tmp = _try_update_based_on_branch()
+  if not tmp:
+    tmp = _try_update_tag()
   if not tmp and not github_release:
     tmp = _try_update_to_latest_release()
+
+  if not tmp:
+    return None
+
+  if tmp[1] == workspace.github_tag:
+    return (workspace.url, workspace.github_tag, None)
+
   return tmp
 
 
@@ -330,6 +396,9 @@ def update_non_github_workspace(
       os.path.dirname(workspace.url) + '/',
       make_url_pattern(workspace.url, existing_version))
 
+  if new_version == existing_version:
+    return (workspace.url, new_version, None)
+
   return (new_url, new_version, None)
 
 
@@ -345,7 +414,12 @@ def update_workspace(workspace_bzl_file: pathlib.Path, identifier: str,
   """
   workspace = WorkspaceFile(identifier, workspace_bzl_file)
 
-  if workspace.url.startswith('https://github.com/'):
+  if not workspace.url:
+    print('Workspace url not found: %r' % (identifier,))
+    return
+
+  if (workspace.url.startswith('https://github.com/') or
+      workspace.url.startswith('https://api.github.com/')):
     new = update_github_workspace(workspace, github_release)
   else:
     new = update_non_github_workspace(workspace)
@@ -354,7 +428,7 @@ def update_workspace(workspace_bzl_file: pathlib.Path, identifier: str,
   new_url, new_version, new_date = new if new else (None, None, None)
 
   if new_url is None:
-    print('Unable to update: %r' % (identifier,))
+    print('Failed to update: %r' % (identifier,))
     print('   Old URL: %s' % (url,))
     return
 
