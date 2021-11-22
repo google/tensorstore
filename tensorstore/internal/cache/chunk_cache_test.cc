@@ -232,9 +232,18 @@ ElementCopyFunction GetCopyFunction() {
 TEST(ChunkGridSpecificationTest, Basic) {
   ChunkGridSpecification grid({ChunkGridSpecification::Component{
       SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  EXPECT_EQ(1, grid.components[0].rank());
   EXPECT_EQ(1, grid.components[0].fill_value.rank());
   EXPECT_EQ(1, grid.components[0].chunked_to_cell_dimensions.size());
   EXPECT_EQ(1, grid.chunk_shape.size());
+
+  absl::InlinedVector<Index, 1> origin;
+  origin.resize(grid.components[0].rank());
+
+  grid.GetComponentOrigin(0, span<const Index>({0}), origin);
+  EXPECT_THAT(origin, testing::ElementsAre(0));
+  grid.GetComponentOrigin(0, span<const Index>({1}), origin);
+  EXPECT_THAT(origin, testing::ElementsAre(2));
 }
 
 TEST(ChunkGridSpecificationTest, MoreComplicated) {
@@ -256,9 +265,20 @@ TEST(ChunkGridSpecificationTest, MoreComplicated) {
   EXPECT_THAT(grid.chunk_shape, testing::ElementsAre(4, 3, 2));
 
   EXPECT_EQ(4, grid.components[0].fill_value.rank());
+  EXPECT_EQ(4, grid.components[0].rank());
   EXPECT_EQ(3, grid.components[0].chunked_to_cell_dimensions.size());
   EXPECT_THAT(grid.components[0].chunked_to_cell_dimensions,
               testing::ElementsAre(3, 2, 1));
+
+  absl::InlinedVector<Index, 4> origin;
+  origin.resize(grid.components[0].rank());
+  grid.GetComponentOrigin(0, span<const Index>({0, 0, 0}), origin);
+  EXPECT_THAT(origin, testing::ElementsAre(0, 0, 0, 0));
+
+  grid.GetComponentOrigin(0, span<const Index>({1, 1, 1}), origin);
+  EXPECT_THAT(origin, testing::ElementsAre(0, 2, 3, 4));
+  grid.GetComponentOrigin(0, span<const Index>({3, 2, 1}), origin);
+  EXPECT_THAT(origin, testing::ElementsAre(0, 2, 6, 12));
 }
 
 std::vector<Index> ParseKey(std::string_view key) {

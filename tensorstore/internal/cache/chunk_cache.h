@@ -184,6 +184,21 @@ struct ChunkGridSpecification {
 
   /// Returns the number of chunked dimensions.
   DimensionIndex grid_rank() const { return chunk_shape.size(); }
+
+  /// Computes the origin of a cell for a particular component array at the
+  /// specified grid position.
+  ///
+  /// \param component_index Index of the component.
+  /// \param cell_indices Pointer to array of length `rank()` specifying the
+  ///     grid position.
+  /// \param origin[out] Non-null pointer to array of length
+  ///     `components[component_index].rank()`.
+  /// \post `origin[i] == 0` for all unchunked dimensions `i`
+  /// \post `origin[component_spec.chunked_to_cell_dimensions[j]]` equals
+  ///     `cell_indices[j] * spec.chunk_shape[j]` for all grid dimensions `j`.
+  void GetComponentOrigin(const size_t component_index,
+                          span<const Index> cell_indices,
+                          span<Index> origin) const;
 };
 
 /// Cache for chunked multi-dimensional arrays.

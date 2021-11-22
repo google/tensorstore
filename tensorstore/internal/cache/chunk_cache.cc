@@ -102,36 +102,25 @@ ChunkGridSpecification::ChunkGridSpecification(Components components_arg)
 #endif  // !defined(NDEBUG)
 }
 
-namespace {
-
-/// Computes the origin of a cell for a particular component array at the
-/// specified grid position.
-///
-/// \param spec Grid specification.
-/// \param component_spec Component specification.
-/// \param cell_indices Pointer to array of length `spec.rank()` specifying the
-///     grid position.
-/// \param origin[out] Non-null pointer to array of length
-///     `component_spec.rank()`.
-/// \post `origin[i] == 0` for all unchunked dimensions `i`
-/// \post `origin[component_spec.chunked_to_cell_dimensions[j]]` equals
-///     `cell_indices[j] * spec.chunk_shape[j]` for all grid dimensions `j`.
-void GetComponentOrigin(const ChunkGridSpecification& spec,
-                        const ChunkGridSpecification::Component& component_spec,
-                        span<const Index> cell_indices, span<Index> origin) {
-  assert(spec.rank() == cell_indices.size());
+void ChunkGridSpecification::GetComponentOrigin(const size_t component_index,
+                                                span<const Index> cell_indices,
+                                                span<Index> origin) const {
+  assert(rank() == cell_indices.size());
+  assert(component_index < components.size());
+  const auto& component_spec = components[component_index];
   assert(component_spec.rank() == origin.size());
-  std::fill_n(origin.begin(), component_spec.rank(), Index(0));
+  std::fill_n(origin.begin(), origin.size(), Index(0));
   for (DimensionIndex chunk_dim_i = 0;
        chunk_dim_i < static_cast<DimensionIndex>(
                          component_spec.chunked_to_cell_dimensions.size());
        ++chunk_dim_i) {
     const DimensionIndex cell_dim_i =
         component_spec.chunked_to_cell_dimensions[chunk_dim_i];
-    origin[cell_dim_i] =
-        cell_indices[chunk_dim_i] * spec.chunk_shape[chunk_dim_i];
+    origin[cell_dim_i] = cell_indices[chunk_dim_i] * chunk_shape[chunk_dim_i];
   }
 }
+
+namespace {
 
 /// Returns `true` if all components of `node` have been fully overwritten.
 ///
@@ -146,7 +135,7 @@ bool IsFullyOverwritten(ChunkCache::TransactionNode& node) {
        component_index != num_components; ++component_index) {
     const auto& component_spec = component_specs[component_index];
     origin.resize(component_spec.rank());
-    GetComponentOrigin(grid, component_spec, cell_indices, origin);
+    grid.GetComponentOrigin(component_index, cell_indices, origin);
     if (!node.components()[component_index].write_state.IsFullyOverwritten(
             component_spec, origin)) {
       return false;
@@ -214,8 +203,8 @@ struct ReadChunkImpl {
     const auto& component_spec =
         GetOwningCache(*entry).grid().components[component_index];
     absl::FixedArray<Index, kNumInlinedDims> origin(component_spec.rank());
-    GetComponentOrigin(GetOwningCache(*entry).grid(), component_spec,
-                       entry->cell_indices(), origin);
+    GetOwningCache(*entry).grid().GetComponentOrigin(
+        component_index, entry->cell_indices(), origin);
     auto read_array = ChunkCache::GetReadComponent(
         AsyncCache::ReadLock<ChunkCache::ReadData>(*entry).data(),
         component_index);
@@ -270,8 +259,8 @@ struct ReadChunkTransactionImpl {
         GetOwningCache(entry).grid().components[component_index];
     auto& component = node->components()[component_index];
     absl::FixedArray<Index, kNumInlinedDims> origin(component_spec.rank());
-    GetComponentOrigin(GetOwningCache(entry).grid(), component_spec,
-                       entry.cell_indices(), origin);
+    GetOwningCache(entry).grid().GetComponentOrigin(
+        component_index, entry.cell_indices(), origin);
     SharedArrayView<const void> read_array;
     StorageGeneration read_generation;
     // Copy the shared_ptr to the immutable cached chunk data for the node.  If
@@ -424,8 +413,8 @@ struct WriteChunkImpl {
     auto& entry = GetOwningEntry(*node);
     const auto component_spec = entry.component_specs()[component_index];
     absl::FixedArray<Index, kNumInlinedDims> origin(component_spec.rank());
-    GetComponentOrigin(GetOwningCache(entry).grid(), component_spec,
-                       entry.cell_indices(), origin);
+    GetOwningCache(entry).grid().GetComponentOrigin(
+        component_index, entry.cell_indices(), origin);
     node->MarkSizeUpdated();
     return node->components()[component_index].BeginWrite(
         component_spec, origin, std::move(chunk_transform), arena);
@@ -439,8 +428,8 @@ struct WriteChunkImpl {
     auto& entry = GetOwningEntry(*node);
     const auto& component_spec = entry.component_specs()[component_index];
     absl::FixedArray<Index, kNumInlinedDims> origin(component_spec.rank());
-    GetComponentOrigin(GetOwningCache(entry).grid(), component_spec,
-                       entry.cell_indices(), origin);
+    GetOwningCache(entry).grid().GetComponentOrigin(
+        component_index, entry.cell_indices(), origin);
     const bool modified = node->components()[component_index].EndWrite(
         component_spec, origin, chunk_transform, layout, write_end_position,
         arena);
@@ -567,7 +556,7 @@ void ChunkCache::TransactionNode::Delete() {
        component_index != num_components; ++component_index) {
     const auto& component_spec = grid.components[component_index];
     origin.resize(component_spec.rank());
-    GetComponentOrigin(grid, component_spec, cell_indices, origin);
+    grid.GetComponentOrigin(component_index, cell_indices, origin);
     // There is no need to check the reference count of the component data array
     // (i.e. to check for a concurrent read) because this doesn't modify the
     // data array, it just resets the data pointer to `nullptr`.
@@ -624,7 +613,7 @@ ChunkCache::WritebackSnapshot::WritebackSnapshot(
     auto& component_spec = component_specs[component_i];
     auto& component = node.components()[component_i];
     origin.resize(component_spec.rank());
-    GetComponentOrigin(cache.grid(), component_spec, cell_indices, origin);
+    cache.grid().GetComponentOrigin(component_i, cell_indices, origin);
     auto component_snapshot = component.GetArrayForWriteback(
         component_spec, origin,
         GetReadComponent(read_state.data(), component_i),
