@@ -17,13 +17,16 @@
 import argparse
 import functools
 import hashlib
+import io
 import os
 import pathlib
 import re
 import subprocess
+import tarfile
 import time
 from typing import Optional, Tuple
 import urllib.parse
+import zipfile
 
 import lxml.etree
 import lxml.html
@@ -49,7 +52,6 @@ class WorkspaceFile:
     self._content = filename.read_text()
     self._is_release_asset = False
     self._tag = ''
-    self._suffix = 'zip'
     self._github_fields_updated = False
 
   def _update_github_fields(self):
@@ -76,18 +78,15 @@ https://github.com/pybind/pybind11/archive/56322dafc9d4d248c46bd1755568df01fbea4
     m = re.search(r'(tarball|zipball)/(.*)', path)
     if m:
       self._tag = str(m.group(2))
-      self._suffix = {'zipball': 'zip', 'tarball': 'tar.gz'}[m.group(1)]
       return
     m = re.search(r'archive/(.*)\.(tar\.gz|zip)', path)
     if m:
       self._tag = str(m.group(1))
-      self._suffix = str(m.group(2))
       return
     m = re.search(r'releases/download/([^/]+)/(.*)\.(tar\.gz|zip)', path)
     if m:
       self._is_release_asset = True
       self._tag = str(m.group(1))
-      self._suffix = str(m.group(3))
       return
 
   @property
@@ -120,9 +119,13 @@ https://github.com/pybind/pybind11/archive/56322dafc9d4d248c46bd1755568df01fbea4
     return self._tag
 
   @property
+  @functools.cache
   def suffix(self):
-    self._update_github_fields()
-    return self._suffix
+    if self.url.find('.tar.gz') != -1 or self.url.find('/tarball/') != -1:
+      return 'tar.gz'
+    if self.url.find('/zipball/') != -1 or self.url.find('.zip') != -1:
+      return 'zip'
+    return 'unknown'
 
   @property
   def is_release_asset(self):
@@ -283,15 +286,14 @@ def update_github_workspace(
   # url refers to specific commit on a branch, and the workspace.bzl file has a
   # branch(date) comment, so look for a later commit on the branch.
   def _try_update_based_on_branch():
-    if not workspace.is_github_commit:
-      return None
     if not workspace.date_m:
-      print(
-          f'{workspace.name} appears to be a commit reference without a branch')
+      if workspace.is_github_commit:
+        print(
+            f'{workspace.name} appears to be a commit reference without a branch'
+        )
       return None
     branch = str(workspace.date_m.group(1))
     key = f'refs/heads/{branch}'
-
     all_refs = git_references(github_org, github_repo)
     if key not in all_refs:
       print(
@@ -442,10 +444,24 @@ def update_workspace(workspace_bzl_file: pathlib.Path, identifier: str,
   if dry_run:
     return
 
-  r = requests.get(new_url)
+  # Retrieve the new repository to checksum and extract
+  # the repository prefix.
+  r = _get_session().get(new_url)
   r.raise_for_status()
   new_h = hashlib.sha256(r.content).hexdigest()
 
+  folder = None
+  if workspace.suffix == 'zip':
+    with zipfile.ZipFile(io.BytesIO(r.content)) as z:
+      folder = z.namelist()[0]
+  else:
+    with tarfile.open(fileobj=io.BytesIO(r.content)) as t:
+      folder = t.getnames()[0]
+  end = folder.find('/')
+  if end != -1:
+    folder = folder[0:end]
+
+  # Update the workspace content and write it out
   new_workspace_content = workspace.content
   new_workspace_content = new_workspace_content.replace(url, new_url)
 
@@ -454,11 +470,9 @@ def update_workspace(workspace_bzl_file: pathlib.Path, identifier: str,
       workspace.sha256_m.group(0), 'sha256 = "' + new_h + '"')
 
   # update strip_prefix =
-  if new_version is not None and workspace.strip_prefix_m:
-    name = workspace.strip_prefix_m.group(1)
+  if workspace.strip_prefix_m:
     new_workspace_content = new_workspace_content.replace(
-        workspace.strip_prefix_m.group(0),
-        'strip_prefix = "' + name + '-' + new_version + '"')
+        workspace.strip_prefix_m.group(0), f'strip_prefix = "{folder}"')
 
   # update date comment
   if new_date is not None and workspace.date_m:
