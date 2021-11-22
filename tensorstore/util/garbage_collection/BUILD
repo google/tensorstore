@@ -17,7 +17,14 @@ tensorstore_cc_library(
         "std_tuple.h",
         "std_vector.h",
     ],
-    deps = ["//tensorstore/util/apply_members"],
+    deps = [
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/util:result",
+        "//tensorstore/util/apply_members",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/time",
+    ],
 )
 
 tensorstore_cc_library(

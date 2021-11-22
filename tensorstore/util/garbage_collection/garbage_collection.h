@@ -51,26 +51,15 @@
 #include <memory>
 #include <string>
 
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/time/time.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/util/apply_members/apply_members.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
-
-namespace absl {
-class Cord;
-class Time;
-class Duration;
-class Status;
-}  // namespace absl
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
-
-template <typename T>
-class Result;
-
-namespace internal {
-template <typename T, typename Traits>
-class IntrusivePtr;
-}  // namespace internal
-
 namespace garbage_collection {
 
 /// Indicates whether `T` potentially requires garbage collection.
