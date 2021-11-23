@@ -785,7 +785,7 @@ Group:
           PythonObjectReferenceManager reference_manager;
           if (auto* p = std::get_if<PythonKvStoreSpecObject*>(&spec_like)) {
             spec = (**p).value;
-            reference_manager = (**p).reference_manager;
+            reference_manager = (**p).reference_manager();
           } else if (auto* p = std::get_if<::nlohmann::json>(&spec_like)) {
             spec = ValueOrThrow(kvstore::Spec::FromJson(std::move(*p)));
           }

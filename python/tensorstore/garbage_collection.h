@@ -204,6 +204,9 @@ struct GarbageCollectedPythonObjectHandle;
 ///     specialized.
 template <typename DerivedPythonObject, typename T>
 struct GarbageCollectedPythonObject {
+  using aligned_reference_manager_t =
+      std::aligned_storage_t<sizeof(PythonObjectReferenceManager),
+                             alignof(PythonObjectReferenceManager)>;
   using ContainedValue = T;
 
   // The constructor is never called since this is allocated and
@@ -222,9 +225,14 @@ struct GarbageCollectedPythonObject {
   // clang-format off
   PyObject_HEAD
   PyObject *weakrefs;
-  PythonObjectReferenceManager reference_manager;
+  aligned_reference_manager_t aligned_reference_manager;
   T value;
   // clang-format on
+
+  PythonObjectReferenceManager& reference_manager() {
+    return *reinterpret_cast<PythonObjectReferenceManager*>(
+        &aligned_reference_manager);
+  }
 
   /// Updates the `reference_manager` to hold strong references to all Python
   /// objects referenced by the contained object.
@@ -233,7 +241,7 @@ struct GarbageCollectedPythonObject {
   /// contained object changes.
   ///
   /// \threadsafety The GIL must be held.
-  void UpdatePythonRefs() { reference_manager.Update(value); }
+  void UpdatePythonRefs() { reference_manager().Update(value); }
 
   /// Defines the Python type corresponding to `DerivedPythonObject`.
   ///
@@ -258,8 +266,7 @@ struct GarbageCollectedPythonObject {
     };
     spec.slots = slots;
     auto cls = DefineHeapType<DerivedPythonObject>(spec);
-    python_type->tp_weaklistoffset =
-        offsetof(GarbageCollectedPythonObject, weakrefs);
+    python_type->tp_weaklistoffset = offsetof(DerivedPythonObject, weakrefs);
     return cls;
   }
 
@@ -268,7 +275,7 @@ struct GarbageCollectedPythonObject {
     PyObject* ptr = PyType_GenericAlloc(type, nitems);
     if (!ptr) return nullptr;
     auto& obj = *reinterpret_cast<GarbageCollectedPythonObject*>(ptr);
-    new (&obj.reference_manager) PythonObjectReferenceManager;
+    new (&obj.aligned_reference_manager) PythonObjectReferenceManager;
     new (&obj.value) T;
     return ptr;
   }
@@ -282,7 +289,7 @@ struct GarbageCollectedPythonObject {
     if (obj.weakrefs) PyObject_ClearWeakRefs(self);
 
     obj.value.~T();
-    obj.reference_manager.~PythonObjectReferenceManager();
+    obj.reference_manager().~PythonObjectReferenceManager();
     PyTypeObject* type = Py_TYPE(self);
     type->tp_free(self);
     Py_DECREF(type);
@@ -290,12 +297,12 @@ struct GarbageCollectedPythonObject {
 
   static int Traverse(PyObject* self, visitproc visit, void* arg) {
     auto& obj = *reinterpret_cast<GarbageCollectedPythonObject*>(self);
-    return obj.reference_manager.Traverse(visit, arg);
+    return obj.reference_manager().Traverse(visit, arg);
   }
 
   static int Clear(PyObject* self) {
     auto& obj = *reinterpret_cast<GarbageCollectedPythonObject*>(self);
-    obj.reference_manager.Clear();
+    obj.reference_manager().Clear();
     return 0;
   }
 };

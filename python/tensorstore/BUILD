@@ -241,6 +241,7 @@ pybind11_cc_library(
         "//tensorstore/index_space:dimension_identifier",
         "//tensorstore/index_space:dimension_index_buffer",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/util:assert_macros",
         "//tensorstore/util:executor",
         "//tensorstore/util:result",
         "//tensorstore/util:span",

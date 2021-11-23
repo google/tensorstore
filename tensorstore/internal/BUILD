@@ -152,7 +152,10 @@ tensorstore_cc_library(
     testonly = 1,
     srcs = ["concurrent_testutil.cc"],
     hdrs = ["concurrent_testutil.h"],
-    deps = ["//tensorstore/util:assert_macros"],
+    deps = [
+        ":logging",
+        "//tensorstore/util:assert_macros",
+    ],
 )
 
 tensorstore_cc_library(

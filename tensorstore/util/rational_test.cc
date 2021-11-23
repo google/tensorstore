@@ -266,13 +266,16 @@ TEST(RationalTest, AssignArithmetic) {
   r *= r;
   EXPECT_EQ(r, rational_type(64, 9));
 
-  r /= r;
+  rational_type s = r;  //  avoid -Wno-self-assign
+  r /= s;
   EXPECT_EQ(r, rational_type(1, 1));
 
-  r -= r;
+  s = r;
+  r -= s;
   EXPECT_EQ(r, rational_type(0, 1));
 
-  EXPECT_TRUE((r /= r).is_nan());
+  s = r;
+  EXPECT_TRUE((r /= s).is_nan());
 }
 
 TEST(RationalTest, Ostream) {

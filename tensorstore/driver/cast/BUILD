@@ -55,6 +55,7 @@ tensorstore_cc_test(
         "//tensorstore/driver/array",
         "//tensorstore/driver/zarr",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:json_gtest",
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:result",
         "//tensorstore/util:status",

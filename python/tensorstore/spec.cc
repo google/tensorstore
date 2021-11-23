@@ -1773,7 +1773,7 @@ bool type_caster<tensorstore::internal_python::SpecLike>::load(handle src,
   if (Py_TYPE(src.ptr()) == PythonSpecObject::python_type) {
     auto& obj = *reinterpret_cast<PythonSpecObject*>(src.ptr());
     value.spec = obj.value;
-    value.reference_manager = obj.reference_manager;
+    value.reference_manager = obj.reference_manager();
     return true;
   }
   if (!convert) return false;

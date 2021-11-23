@@ -481,7 +481,7 @@ Group:
           -> PythonFutureWrapper<SharedArray<void>> {
         return PythonFutureWrapper<SharedArray<void>>(
             tensorstore::Read<zero_origin>(self.value, {order}),
-            self.reference_manager);
+            self.reference_manager());
       },
       R"(
 Reads the data within the current domain.
@@ -558,7 +558,7 @@ Group:
              source) {
         return PythonWriteFutures(
             IssueCopyOrWrite(self.value, std::move(source)),
-            self.reference_manager);
+            self.reference_manager());
       },
       R"(
 Writes to the current domain.
@@ -808,7 +808,7 @@ Group:
         }
         return PythonFutureWrapper<TensorStore<>>(
             tensorstore::ResolveBounds(self.value, options),
-            self.reference_manager);
+            self.reference_manager());
       },
       R"(
 Obtains updated bounds, subject to the cache policy.

@@ -66,7 +66,9 @@ void TestConcurrent(std::size_t num_iterations, Initialize initialize,
     while (counter.load() < (iteration + 1) * counts_per_iteration) continue;
     finalize();
   }
-  for (auto& t : threads) t.join();
+  for (auto& t : threads) {
+    t.join();
+  }
 }
 
 /// Same as above, but invokes `concurrent_op(Is)` concurrently for each index

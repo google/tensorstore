@@ -15,14 +15,16 @@
 load("//third_party:repo.bzl", "third_party_http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
+# REPO_BRANCH = master
+
 def repo():
     maybe(
         third_party_http_archive,
         name = "com_github_pybind_pybind11",
-        strip_prefix = "pybind11-d58699c9ab9d20010b15aa38382ad517a8280179",
+        strip_prefix = "pybind11-2.8.1",
         urls = [
-            "https://github.com/pybind/pybind11/archive/d58699c9ab9d20010b15aa38382ad517a8280179.tar.gz",  # master(2021-09-24)
+            "https://github.com/pybind/pybind11/archive/v2.8.1.tar.gz",
         ],
-        sha256 = "ddf32c7ceb3d7deae98f04c85c5607a6d3092f809a686ee72b1b3c528ff27b75",
+        sha256 = "f1bcc07caa568eb312411dde5308b1e250bd0e1bc020fae855bf9f43209940cc",
         build_file = Label("//third_party:com_github_pybind_pybind11/bundled.BUILD.bazel"),
     )

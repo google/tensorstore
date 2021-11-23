@@ -508,7 +508,7 @@ class Rational {
     int n = std::min(max_exponent + 1, max_exponent + exponent);
 
     I numerator = static_cast<I>(std::round(std::ldexp(mantissa, n)));
-    I denominator = I(1) << n - exponent;
+    I denominator = I(1) << (n - exponent);
     return {numerator, denominator};
   }
 

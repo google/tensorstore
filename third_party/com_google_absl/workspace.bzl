@@ -18,13 +18,15 @@ load(
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
+# REPO_BRANCH = master
+
 def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_absl",
-        sha256 = "e58391417b1be3968d1805059d6586b19db557eabbe756635003c09b1ae13583",
-        strip_prefix = "abseil-cpp-1ce4ceca2b2931bc4d7e470228c2dbb2f3dfea0f",
+        strip_prefix = "abseil-cpp-20211102.0",
         urls = [
-            "https://github.com/abseil/abseil-cpp/archive/1ce4ceca2b2931bc4d7e470228c2dbb2f3dfea0f.tar.gz",  # master(2021-09-23)
+            "https://github.com/abseil/abseil-cpp/archive/20211102.0.tar.gz",
         ],
+        sha256 = "dcf71b9cba8dc0ca9940c4b316a0c796be8fab42b070bb6b7cab62b48f0e66c4",
     )

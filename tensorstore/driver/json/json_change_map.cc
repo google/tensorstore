@@ -41,7 +41,8 @@ Result<::nlohmann::json> JsonChangeMap::Apply(
         json_pointer::Dereference(existing, sub_value_pointer,
                                   json_pointer::kSimulateCreate),
         ConvertInvalidArgumentToFailedPrecondition(_));
-    return changes_it->second;
+    // avoid basic_json::operator ValueType()
+    return {std::in_place, changes_it->second};
   }
 
   // `sub_value_pointer` is not exactly present in the map.
@@ -62,7 +63,7 @@ Result<::nlohmann::json> JsonChangeMap::Apply(
           json_pointer::Dereference(existing, prev_it->first,
                                     json_pointer::kSimulateCreate),
           ConvertInvalidArgumentToFailedPrecondition(_));
-      return *modified_value;
+      return {std::in_place, *modified_value};
     }
   }
 

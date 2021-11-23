@@ -22,11 +22,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "org_nghttp2",
-        strip_prefix = "nghttp2-1.45.1",
+        strip_prefix = "nghttp2-1.46.0",
         urls = [
-            "https://github.com/nghttp2/nghttp2/releases/download/v1.45.1/nghttp2-1.45.1.tar.gz",
+            "https://github.com/nghttp2/nghttp2/releases/download/v1.46.0/nghttp2-1.46.0.tar.gz",
         ],
-        sha256 = "2379ebeff7b02e14b9a414551d73540ddce5442bbecda2748417e8505916f3e7",
+        sha256 = "4b6d11c85f2638531d1327fe1ed28c1e386144e8841176c04153ed32a4878208",
         build_file = Label("//third_party:org_nghttp2/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:org_nghttp2/system.BUILD.bazel"),
     )

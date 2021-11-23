@@ -18,11 +18,13 @@ load(
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
+# REPO_BRANCH = main
+
 def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_googletest",
-        urls = ["https://github.com/google/googletest/archive/e4717df71a4f45bf9f0ac88c6cd9846a0bc248dd.zip"],  # master(2021-09-23)
-        sha256 = "d93d26595d52d30acce7e8096006e2f3053433163ff3c59bba32033c9a32ef55",
-        strip_prefix = "googletest-e4717df71a4f45bf9f0ac88c6cd9846a0bc248dd",
+        urls = ["https://github.com/google/googletest/archive/3e0e32ba300ce8afe695ad3ba7e81b21b7cf237a.zip"],  # main(2021-11-20)
+        sha256 = "84bf0acb4a7ed172ffdd806bb3bef76ad705f4ea63ac7175cd7c86df2a017d17",
+        strip_prefix = "googletest-3e0e32ba300ce8afe695ad3ba7e81b21b7cf237a",
     )

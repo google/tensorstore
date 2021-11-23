@@ -21,6 +21,7 @@
 #include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/json.h"
+#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/open.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/util/result.h"
@@ -31,7 +32,6 @@ namespace {
 
 using tensorstore::Cast;
 using tensorstore::ChunkLayout;
-using tensorstore::Context;
 using tensorstore::DataTypeConversionFlags;
 using tensorstore::DimensionIndex;
 using tensorstore::dtype_v;
@@ -284,7 +284,7 @@ TEST(CastTest, Int32ToStringDynamic) {
             MakeArray<std::string>({"1", "2", "3"}));
   EXPECT_THAT(
       cast_store.spec().value().ToJson({tensorstore::IncludeDefaults{false}}),
-      ::nlohmann::json(
+      ::testing::Optional(tensorstore::MatchesJson(
           {{"driver", "cast"},
            {"dtype", "string"},
            {"transform",
@@ -294,7 +294,7 @@ TEST(CastTest, Int32ToStringDynamic) {
                 {"driver", "array"},
                 {"array", {1, 2, 3}},
                 {"dtype", "int32"},
-            }}}));
+            }}})));
 }
 
 TEST(CastTest, StringToInt32Dynamic) {
@@ -407,9 +407,9 @@ TEST(CastTest, ComposeTransforms) {
                {"output", {{{"input_dimension", 0}, {"offset", -2}}}}}},
              {"dtype", "int32"}}}})
           .result());
-  EXPECT_EQ(
+  EXPECT_THAT(
       store.spec().value().ToJson({tensorstore::IncludeDefaults{false}}),
-      ::nlohmann::json(
+      ::testing::Optional(tensorstore::MatchesJson(
           {{"driver", "cast"},
            {"base",
             {
@@ -424,7 +424,7 @@ TEST(CastTest, ComposeTransforms) {
                                  .input_shape({3})
                                  .output_single_input_dimension(0, -10, 1, 0)
                                  .Finalize()
-                                 .value())}}));
+                                 .value())}})));
 }
 
 TEST(CastTest, ComposeTransformsError) {

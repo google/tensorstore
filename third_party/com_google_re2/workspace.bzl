@@ -18,18 +18,15 @@ load(
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
+# REPO_BRANCH = abseil
+
 def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_re2",
-        sha256 = "65417692fc6b7bea928cbfee7d3ef71a609fea847e288700d387f7603545c853",
-        strip_prefix = "re2-b15818e68cfdb6576622e2f680e91707c60e7449",
+        strip_prefix = "re2-4bb7b2e8b04c9c2483196a34217bab6fd355e35d",
         urls = [
-            "https://github.com/google/re2/archive/b15818e68cfdb6576622e2f680e91707c60e7449.tar.gz",  # abseil(2021-09-14)
+            "https://github.com/google/re2/archive/4bb7b2e8b04c9c2483196a34217bab6fd355e35d.tar.gz",  # abseil(2021-11-20)
         ],
-        patches = [
-            # re2 uses rules_cc, but we just use the native c++ rules.
-            "//third_party:com_google_re2/patches/remove_rules_cc_dependency.diff",
-        ],
-        patch_args = ["-p1"],
+        sha256 = "f68f7dfc693f11209fd74c88ca2ec7809d3fff4cfda8319b215f3bacf742e7ee",
     )
