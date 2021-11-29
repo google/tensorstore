@@ -6,6 +6,7 @@
 
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
+#include "google/protobuf/text_format.h"
 #include "google/protobuf/util/json_util.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -78,7 +79,9 @@ absl::Status AsciiProtoBinderBase::operator()(std::false_type,
                                               const NoOptions& options,
                                               const google::protobuf::Message* obj,
                                               ::nlohmann::json* j) const {
-  *j = obj->DebugString();
+  std::string obj_text;
+  google::protobuf::TextFormat::PrintToString(*obj, &obj_text);
+  *j = obj_text;
   return absl::OkStatus();
 }
 
