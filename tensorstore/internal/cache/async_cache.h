@@ -461,6 +461,10 @@ class AsyncCache : public Cache {
     Result<OpenTransactionNodePtr<TransactionNode>> GetTransactionNodeImpl(
         OpenTransactionPtr& transaction);
 
+#ifdef TENSORSTORE_ASYNC_CACHE_DEBUG
+    ~Entry();
+#endif
+
     /// Protects access to all other members.  Also protects access to the
     /// `read_request_state_` of all associated `TransactionNode` objects.
     absl::Mutex mutex_;

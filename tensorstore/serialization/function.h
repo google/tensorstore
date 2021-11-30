@@ -318,6 +318,10 @@ class SerializableFunction<R(Arg...)> {
                                                                       Arg...>(
             std::move(func))) {}
 
+  /// Returns true if this is a valid function that may be invoked, false if
+  /// this is a default-constructed "null" function that must not be invoked.
+  explicit operator bool() const { return static_cast<bool>(impl_); }
+
   R operator()(Arg... arg) const {
     assert(impl_);
     auto function = impl_->erased_function();
@@ -429,6 +433,7 @@ struct GarbageCollection<serialization::SerializableFunction<R(Arg...)>> {
   static void Visit(
       GarbageCollectionVisitor& visitor,
       const serialization::SerializableFunction<R(Arg...)>& value) {
+    if (!value) return;
     value.impl_->GarbageCollectionVisit(visitor);
   }
 };

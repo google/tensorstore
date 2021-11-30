@@ -13,6 +13,7 @@ DRIVERS = [
     "json",
     "n5",
     "neuroglancer_precomputed",
+    "virtual_chunked",
     "zarr",
 ]
 

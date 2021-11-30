@@ -820,9 +820,16 @@ void AsyncCache::TransactionNode::InvalidateReadState() {
 }
 
 AsyncCache::TransactionNode::~TransactionNode() {
+  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "~TransactionNode");
   Cache::PinnedEntry(static_cast<Cache::Entry*>(associated_data()),
                      adopt_object_ref);
 }
+
+#ifdef TENSORSTORE_ASYNC_CACHE_DEBUG
+AsyncCache::Entry::~Entry() {
+  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "~Entry");
+}
+#endif
 
 }  // namespace internal
 }  // namespace tensorstore

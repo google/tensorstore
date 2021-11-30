@@ -198,6 +198,34 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "virtual_chunked",
+    srcs = ["//tensorstore/driver/virtual_chunked:virtual_chunked.cc"],
+    hdrs = ["virtual_chunked.h"],
+    deps = [
+        ":array",
+        ":box",
+        ":context",
+        ":staleness_bound",
+        ":tensorstore",
+        ":transaction",
+        "//tensorstore/driver",
+        "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:data_copy_concurrency_resource",
+        "//tensorstore/internal/cache:cache_pool_resource",
+        "//tensorstore/internal/cache:chunk_cache",
+        "//tensorstore/kvstore:generation",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:absl_time",
+        "//tensorstore/serialization:function",
+        "//tensorstore/util:executor",
+        "//tensorstore/util:option",
+        "//tensorstore/util/garbage_collection",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_library(
     name = "container_kind",
     hdrs = ["container_kind.h"],
 )

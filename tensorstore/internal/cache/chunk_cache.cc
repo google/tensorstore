@@ -437,7 +437,9 @@ struct WriteChunkImpl {
     if (modified && IsFullyOverwritten(*node)) {
       node->SetUnconditional();
     }
-    if (modified) return {absl::OkStatus(), node->transaction()->future()};
+    if (modified) {
+      return {node->OnModified(), node->transaction()->future()};
+    }
     return {};
   }
 };
@@ -544,7 +546,7 @@ PinnedCacheEntry<ChunkCache> ChunkCache::GetEntryForCell(
   return GetCacheEntry(this, key);
 }
 
-void ChunkCache::TransactionNode::Delete() {
+absl::Status ChunkCache::TransactionNode::Delete() {
   UniqueWriterLock lock(*this);
   this->MarkSizeUpdated();
   this->is_modified = true;
@@ -564,12 +566,13 @@ void ChunkCache::TransactionNode::Delete() {
                                                              origin);
   }
   SetUnconditional();
+  return OnModified();
 }
 
 Future<const void> ChunkCache::Entry::Delete(OpenTransactionPtr transaction) {
   TENSORSTORE_ASSIGN_OR_RETURN(auto node,
                                GetTransactionNode(*this, transaction));
-  node->Delete();
+  TENSORSTORE_RETURN_IF_ERROR(node->Delete());
   return node->transaction()->future();
 }
 
@@ -635,6 +638,10 @@ ChunkCache::TransactionNode::TransactionNode(Entry& entry)
   for (size_t i = 0; i < component_specs.size(); ++i) {
     components_.emplace_back(component_specs[i].rank());
   }
+}
+
+absl::Status ChunkCache::TransactionNode::OnModified() {
+  return absl::OkStatus();
 }
 
 namespace {
@@ -739,6 +746,8 @@ Result<ChunkLayout> ChunkCache::GetChunkLayout(size_t component_index) {
   tensorstore::SetPermutation(c_order, span(inner_order, rank));
   TENSORSTORE_RETURN_IF_ERROR(
       layout.Set(ChunkLayout::InnerOrder(span(inner_order, rank))));
+  TENSORSTORE_RETURN_IF_ERROR(
+      layout.Set(ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(rank))));
   TENSORSTORE_RETURN_IF_ERROR(
       layout.Set(ChunkLayout::WriteChunkShape(component_spec.shape())));
   TENSORSTORE_RETURN_IF_ERROR(layout.Finalize());

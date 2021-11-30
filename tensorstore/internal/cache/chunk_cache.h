@@ -244,7 +244,7 @@ class ChunkCache : public AsyncCache {
     span<Component> components() { return components_; }
 
     /// Overwrites all components with the fill value.
-    void Delete();
+    absl::Status Delete();
 
     std::size_t ComputeWriteStateSizeInBytes() override;
 
@@ -258,6 +258,12 @@ class ChunkCache : public AsyncCache {
     void SetUnconditional() {
       unconditional_.store(true, std::memory_order_relaxed);
     }
+
+    /// Called after this transaction node is modified.
+    ///
+    /// By default just returns `absl::OkStatus()`, but may be overridden by a
+    /// derived class, e.g. to call `MarkAsTerminal()`.
+    virtual absl::Status OnModified();
 
     void DoApply(ApplyOptions options, ApplyReceiver receiver) override;
 
