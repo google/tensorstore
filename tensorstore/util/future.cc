@@ -21,6 +21,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/const_init.h"
+#include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_linked_list.h"
@@ -464,6 +465,75 @@ ReadyFuture<const void> MakeReadyFuture() {
   static internal::NoDestructor<ReadyFuture<const void>> future{
       MakeReadyFuture<void>(MakeResult())};
   return *future;
+}
+
+Future<void> WaitAllFuture(tensorstore::span<Future<void>> futures) {
+  auto& f = futures;
+  switch (f.size()) {
+    case 0:
+      return MakeReadyFuture<void>(absl::OkStatus());
+    case 1:
+      return f[0];
+    case 2:
+      return PromiseFuturePair<void>::LinkError(absl::OkStatus(), f[0], f[1])
+          .future;
+    case 3:
+      return PromiseFuturePair<void>::LinkError(absl::OkStatus(), f[0], f[1],
+                                                f[2])
+          .future;
+    case 4:
+      return PromiseFuturePair<void>::LinkError(absl::OkStatus(), f[0], f[1],
+                                                f[2], f[3])
+          .future;
+    case 5:
+      return PromiseFuturePair<void>::LinkError(absl::OkStatus(), f[0], f[1],
+                                                f[2], f[3], f[4])
+          .future;
+    case 6:
+      return PromiseFuturePair<void>::LinkError(absl::OkStatus(), f[0], f[1],
+                                                f[2], f[3], f[4], f[5])
+          .future;
+    case 7:
+      return PromiseFuturePair<void>::LinkError(absl::OkStatus(), f[0], f[1],
+                                                f[2], f[3], f[4], f[5], f[6])
+          .future;
+    default:
+      break;
+  }
+  auto [promise, result] = PromiseFuturePair<void>::LinkError(
+      absl::OkStatus(), f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7]);
+  for (;;) {
+    f = f.subspan(8);
+    switch (f.size()) {
+      case 0:
+        return result;
+      case 1:
+        LinkError(promise, f[0]);
+        return result;
+      case 2:
+        LinkError(promise, f[0], f[1]);
+        return result;
+      case 3:
+        LinkError(promise, f[0], f[1], f[2]);
+        return result;
+      case 4:
+        LinkError(promise, f[0], f[1], f[2], f[3]);
+        return result;
+      case 5:
+        LinkError(promise, f[0], f[1], f[2], f[3], f[4]);
+        return result;
+      case 6:
+        LinkError(promise, f[0], f[1], f[2], f[3], f[4], f[5]);
+        return result;
+      case 7:
+        LinkError(promise, f[0], f[1], f[2], f[3], f[4], f[5], f[6]);
+        return result;
+      default:
+        LinkError(promise, f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7]);
+        break;
+    }
+  }
+  TENSORSTORE_UNREACHABLE;
 }
 
 }  // namespace tensorstore

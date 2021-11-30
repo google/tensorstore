@@ -1016,8 +1016,12 @@ class PromiseFuturePair {
   static std::enable_if_t<std::is_constructible<Result<T>, ResultInit>::value,
                           PromiseFuturePair>
   LinkError(ResultInit&& result_init, Future<FutureValue>... future) {
-    return LinkValue(std::forward<ResultInit>(result_init),
-                     internal_future::NoOpCallback{}, std::move(future)...);
+    return MakeFromState(
+        internal_future::MakeLinkedFutureState<
+            internal_future::FutureLinkPropagateFirstErrorPolicy, T,
+            FutureValue...>::Make(std::move(future)...,
+                                  internal_future::NoOpCallback{},
+                                  std::forward<ResultInit>(result_init)));
   }
 
  private:
@@ -1030,6 +1034,32 @@ class PromiseFuturePair {
                     state, internal::adopt_object_ref))};
   }
 };
+
+/// Creates a `future` tied to the completion of all the provided `future`
+/// objects.
+///
+/// As with the `Link` variants. the first error result encountered among
+/// the `fuiture` objects will be automatically propagated. Unlike `Link`, there
+/// is no mechanism to remove the link.
+///
+/// \param future The futures to be linked.
+/// \returns A Future propagating any error state.
+template <typename... FutureValue>
+Future<void> WaitAllFuture(Future<FutureValue>... future) {
+  return PromiseFuturePair<void>::LinkError(absl::OkStatus(),
+                                            std::move(future)...)
+      .future;
+}
+
+/// Creates a `future` tied to the completion of all the provided `futures`
+/// objects.
+///
+/// As with the `Link` variants. the first error result encountered among
+/// the `future` objects will be automatically propagated.
+///
+/// \param futures The futures to be linked.
+/// \returns A Future propagating any error state.
+Future<void> WaitAllFuture(tensorstore::span<Future<void>> futures);
 
 /// Returns a `Future` that resolves to the result of calling
 /// `callback(future.result()...)` when all of the specified `future` objects

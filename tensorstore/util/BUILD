@@ -414,6 +414,7 @@ tensorstore_cc_test(
         ":str_cat",
         "//tensorstore/internal:concurrent_testutil",
         "//tensorstore/internal:type_traits",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],

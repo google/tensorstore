@@ -26,6 +26,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/concurrent_testutil.h"
@@ -1404,6 +1405,24 @@ TEST(LinkErrorTest, ConcurrentForceAndSetError) {
       [&] { pairB.promise.SetResult(absl::UnknownError("")); });
 }
 
+TEST(LinkErrorTest, LinkErrorVoidImmediateSuccessFailure) {
+  auto [promise, future] = PromiseFuturePair<void>::Make();
+  LinkError(std::move(promise), MakeReadyFuture<void>(absl::OkStatus()),
+            MakeReadyFuture<void>(absl::OkStatus()));
+
+  ASSERT_TRUE(future.ready());
+  EXPECT_FALSE(future.result().ok());
+}
+
+TEST(LinkErrorTest, LinkErrorVoidImmediateSuccessOk) {
+  auto [promise, future] = PromiseFuturePair<void>::Make(absl::OkStatus());
+  LinkError(std::move(promise), MakeReadyFuture<void>(absl::OkStatus()),
+            MakeReadyFuture<void>(absl::OkStatus()));
+
+  ASSERT_TRUE(future.ready());
+  EXPECT_TRUE(future.result().ok());
+}
+
 TEST(PromiseFuturePairTest, LinkImmediateSuccess) {
   auto future = PromiseFuturePair<int>::Link(
                     [](Promise<int> p, ReadyFuture<int> f) {
@@ -1573,6 +1592,63 @@ TEST(PromiseFuturePairTest, LinkDestroyCallback) {
   pair1.promise.SetResult(1);
   EXPECT_EQ(true, *sentinel);
   EXPECT_EQ(1, sentinel.use_count());
+}
+
+// Tests that WaitAllFuture works with no futures.
+TEST(WaitAllFuture, NoFuturesSpan) {
+  std::vector<Future<void>> futures;
+  auto future = WaitAllFuture(futures);
+  ASSERT_TRUE(future.ready());
+  ASSERT_TRUE(future.result().ok());
+}
+
+TEST(WaitAllFuture, ReadyFuture) {
+  auto future = WaitAllFuture(MakeReadyFuture<void>(absl::OkStatus()),
+                              MakeReadyFuture<void>(absl::OkStatus()));
+  ASSERT_TRUE(future.ready());
+  EXPECT_TRUE(future.result().ok());
+
+  future = WaitAllFuture(MakeReadyFuture<void>(absl::OkStatus()),
+                         MakeReadyFuture<void>(absl::OkStatus()),
+                         MakeReadyFuture<void>(absl::InternalError("")));
+  ASSERT_TRUE(future.ready());
+  ASSERT_FALSE(future.result().ok());
+}
+
+TEST(WaitAllFuture, ReadyFutureSpanError) {
+  std::vector<Future<void>> futures{MakeReadyFuture<void>(absl::OkStatus()),
+                                    MakeReadyFuture<void>(absl::OkStatus())};
+  auto future = WaitAllFuture(futures);
+  ASSERT_TRUE(future.ready());
+  EXPECT_TRUE(future.result().ok());
+
+  futures.push_back(MakeReadyFuture<void>(absl::InternalError("")));
+  future = WaitAllFuture(futures);
+  ASSERT_TRUE(future.ready());
+  ASSERT_FALSE(future.result().ok());
+}
+
+TEST(WaitAllFuture, ReadyFutureSpan) {
+  std::vector<Future<void>> futures;
+  for (int i = 0; i < 16; i++) {
+    auto future = WaitAllFuture(futures);
+    ASSERT_TRUE(future.ready());
+    EXPECT_TRUE(future.result().ok());
+    futures.emplace_back(MakeReadyFuture<void>(absl::OkStatus()));
+  }
+}
+
+TEST(WaitAllFuture, NonVoidFuture) {
+  auto a = PromiseFuturePair<int>::Make();
+  auto b = PromiseFuturePair<int>::Make();
+
+  auto future = WaitAllFuture(a.future, b.future);
+  ASSERT_FALSE(future.ready());
+  a.promise.SetResult(2);
+  ASSERT_FALSE(future.ready());
+  b.promise.SetResult(absl::InternalError(""));
+  ASSERT_TRUE(future.ready());
+  EXPECT_FALSE(future.result().ok());
 }
 
 // Tests that MapFuture works with no futures.
