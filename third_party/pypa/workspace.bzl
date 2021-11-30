@@ -19,6 +19,7 @@ def repo():
     repo_pypa_backcall()
     repo_pypa_certifi()
     repo_pypa_charset_normalizer()
+    repo_pypa_cloudpickle()
     repo_pypa_colorama()
     repo_pypa_crcmod()
     repo_pypa_decorator()
@@ -221,6 +222,14 @@ def repo_pypa_charset_normalizer():
         name = "pypa_charset_normalizer",
         target = "charset_normalizer",
         requirement = "charset-normalizer==2.0.6",
+    )
+
+def repo_pypa_cloudpickle():
+    maybe(
+        third_party_python_package,
+        name = "pypa_cloudpickle",
+        target = "cloudpickle",
+        requirement = "cloudpickle==2.0.0",
     )
 
 def repo_pypa_colorama():

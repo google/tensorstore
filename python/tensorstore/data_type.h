@@ -96,6 +96,14 @@ constexpr std::array<int, kNumDataTypeIds> kNumpyTypeNumForDataTypeId = [] {
   return array;
 }();
 
+/// Returns `true` if the in-memory representation of `d` is the same in C++ and
+/// NumPy.
+constexpr inline bool CanDataTypeShareMemoryWithNumpy(DataType d) {
+  DataTypeId id = d.id();
+  if (id == DataTypeId::custom) return false;
+  return kNumpyTypeNumForDataTypeId[static_cast<size_t>(id)] != NPY_OBJECT;
+}
+
 using tensorstore::GetDataType;
 
 /// Returns the DataType if valid.

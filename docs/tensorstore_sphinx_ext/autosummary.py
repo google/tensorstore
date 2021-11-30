@@ -863,8 +863,6 @@ _EXCLUDED_SPECIAL_MEMBERS = frozenset([
     # Exclude pickling members since they are never documented.
     '__getstate__',
     '__setstate__',
-    # Exclude __repr__ since it is not interesting
-    '__repr__',
 ])
 
 
@@ -1107,13 +1105,16 @@ def _is_conditionally_documented_entry(entry: _MemberDocumenterEntry):
 def _get_member_overloads(
     entry: _MemberDocumenterEntry) -> Iterator[_MemberDocumenterEntry]:
   """Returns the list of overloads for a given entry."""
+
+  if entry.name in _EXCLUDED_SPECIAL_MEMBERS:
+    return
+
   overloads = _get_overloads_from_documenter(entry.documenter)
   for overload in overloads:
     # Shallow copy the documenter.  Certain methods on the documenter mutate it,
     # and we don't want those mutations to affect other overloads.
     new_entry = entry._replace(overload=overload,
                                documenter=copy.copy(entry.documenter))
-
     if _is_conditionally_documented_entry(new_entry):
       # Only document this entry if it has a docstring.
       _prepare_documenter_docstring(new_entry)

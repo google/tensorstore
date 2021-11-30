@@ -24,6 +24,7 @@
 // inclusion constraints are satisfied.
 
 #include "python/tensorstore/chunk_layout.h"
+#include "python/tensorstore/virtual_chunked.h"
 #include "python/tensorstore/context.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/dim_expression.h"
@@ -102,6 +103,7 @@ PYBIND11_MODULE(_tensorstore, m) {
   RegisterFutureBindings(m, defer);
   RegisterWriteFuturesBindings(m, defer);
   RegisterDownsampleBindings(m, defer);
+  RegisterVirtualChunkedBindings(m, defer);
   RegisterSerializationBindings(m, defer);
 
   for (auto& task : deferred_registration_tasks) {

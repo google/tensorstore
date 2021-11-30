@@ -145,7 +145,8 @@ constexpr const internal::ElementwiseFunction<2, Status*>*
 #undef TENSORSTORE_INTERNAL_DO_CONVERT
 };
 
-pybind11::object GetNumpyObjectArrayImpl(SharedArrayView<const void> source) {
+pybind11::object GetNumpyObjectArrayImpl(SharedArrayView<const void> source,
+                                         bool is_const) {
   ssize_t target_shape_ssize_t[NPY_MAXDIMS];
   std::copy(source.shape().begin(), source.shape().end(), target_shape_ssize_t);
   auto array_obj = py::reinterpret_steal<py::array>(PyArray_NewFromDescr(
@@ -170,6 +171,10 @@ pybind11::object GetNumpyObjectArrayImpl(SharedArrayView<const void> source) {
       /*constraints=*/skip_repeated_elements,
       {{source.dtype().size(), sizeof(PyObject*)}});
   if (!iterate_result.success) throw py::error_already_set();
+  if (is_const) {
+    PyArray_CLEARFLAGS(reinterpret_cast<PyArrayObject*>(array_obj.ptr()),
+                       NPY_ARRAY_WRITEABLE);
+  }
   return std::move(array_obj);
 }
 
@@ -238,7 +243,7 @@ pybind11::object GetNumpyArrayImpl(SharedArrayView<const void> value,
   if (const DataTypeId id = value.dtype().id();
       id != DataTypeId::custom &&
       kConvertDataTypeToNumpyObjectArray[static_cast<size_t>(id)]) {
-    return GetNumpyObjectArrayImpl(value);
+    return GetNumpyObjectArrayImpl(value, is_const);
   }
   ssize_t shape[NPY_MAXDIMS];
   ssize_t strides[NPY_MAXDIMS];
@@ -263,6 +268,19 @@ pybind11::object GetNumpyArrayImpl(SharedArrayView<const void> value,
           .release()
           .ptr());
   return std::move(obj);
+}
+
+void CopyFromNumpyArray(pybind11::handle src, ArrayView<void> out) {
+  // TODO(jbms): Avoid an extra copy
+  SharedArray<const void> temp_src;
+  ConvertToArray(src, &temp_src, /*data_type_constraint=*/out.dtype(),
+                 /*min_rank=*/out.rank(), /*max_rank=*/out.rank());
+  if (!internal::RangesEqual(temp_src.shape(), out.shape())) {
+    throw py::value_error(tensorstore::StrCat(
+        "Cannot copy source array of shape ", temp_src.shape(),
+        " to target array of shape ", out.shape()));
+  }
+  CopyArray(temp_src, out);
 }
 
 ContiguousLayoutOrder GetContiguousLayoutOrderOrThrow(pybind11::handle obj) {

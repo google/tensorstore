@@ -157,6 +157,15 @@ std::conditional_t<NoThrow, bool, void> ConvertToArray(
   }
 }
 
+/// Copies a NumPy array to `out`.
+///
+/// Throws an exception if `src` is not a NumPy array with shape and data type
+/// compatible with `out`.
+///
+/// \param src Handle to source NumPy array.
+/// \param out Target array.
+void CopyFromNumpyArray(pybind11::handle src, ArrayView<void> out);
+
 /// Wraps an unvalidated `py::object` but displays as "array_like" in pybind11
 /// function signatures.
 ///

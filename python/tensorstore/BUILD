@@ -45,6 +45,7 @@ pybind11_py_extension(
         ":tensorstore_class",
         ":transaction",
         ":unit",
+        ":virtual_chunked",
         ":write_futures",
         "//tensorstore:all_drivers",
         "//tensorstore/util:executor",
@@ -846,4 +847,39 @@ tensorstore_cc_library(
     srcs = ["time.cc"],
     hdrs = ["time.h"],
     deps = ["@com_google_absl//absl/time"],
+)
+
+pybind11_cc_library(
+    name = "virtual_chunked",
+    srcs = ["virtual_chunked.cc"],
+    hdrs = ["virtual_chunked.h"],
+    deps = [
+        ":array_type_caster",
+        ":future",
+        ":gil_safe",
+        ":result_type_caster",
+        ":serialization",
+        ":spec",
+        ":status",
+        ":tensorstore_class",
+        ":time",
+        ":transaction",
+        ":type_name_override",
+        "//tensorstore:virtual_chunked",
+        "//tensorstore/index_space:index_transform",
+        "//tensorstore/util:executor",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+)
+
+tensorstore_pytest_test(
+    name = "virtual_chunked_test",
+    size = "small",
+    srcs = ["tests/virtual_chunked_test.py"],
+    deps = [
+        ":conftest",
+        ":tensorstore",
+        "@pypa_cloudpickle//:cloudpickle",
+        "@pypa_numpy//:numpy",
+    ],
 )

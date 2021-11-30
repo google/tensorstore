@@ -2,3 +2,4 @@
 numpy
 pytest
 pytest-asyncio
+cloudpickle
