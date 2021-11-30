@@ -48,9 +48,6 @@
 namespace tensorstore {
 namespace internal {
 
-class KvsBackedTestCache;
-
-using KvsBackedTestCacheBase = KvsBackedCache<KvsBackedTestCache, AsyncCache>;
 
 /// Cache that may be used for testing `KvsBackedCache` and transactional
 /// `KeyValueStore` operations.
@@ -58,8 +55,9 @@ using KvsBackedTestCacheBase = KvsBackedCache<KvsBackedTestCache, AsyncCache>;
 /// This class simply caches the stored value directly; the encoding and
 /// decoding operations are identity transforms.  A missing value in the
 /// `KeyValueStore` is cached as an empty string.
-class KvsBackedTestCache : public KvsBackedTestCacheBase {
-  using Base = KvsBackedTestCacheBase;
+class KvsBackedTestCache
+    : public KvsBackedCache<KvsBackedTestCache, AsyncCache> {
+  using Base = KvsBackedCache<KvsBackedTestCache, AsyncCache>;
 
  public:
   using Base::Base;

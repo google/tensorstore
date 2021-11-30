@@ -239,9 +239,6 @@ class MinishardIndexKeyValueStore : public kvstore::Driver {
   ShardingSpec sharding_spec_;
 };
 
-class MinishardIndexCache;
-using MinishardIndexCacheBase =
-    internal::KvsBackedCache<MinishardIndexCache, internal::AsyncCache>;
 
 /// Caches minishard indexes.
 ///
@@ -250,8 +247,11 @@ using MinishardIndexCacheBase =
 /// `memcpy`), specifying a shard and minishard number.
 ///
 /// This cache is only used for reading.
-class MinishardIndexCache : public MinishardIndexCacheBase {
-  using Base = MinishardIndexCacheBase;
+class MinishardIndexCache
+    : public internal::KvsBackedCache<MinishardIndexCache,
+                                      internal::AsyncCache> {
+  using Base =
+      internal::KvsBackedCache<MinishardIndexCache, internal::AsyncCache>;
 
  public:
   using ReadData = std::vector<MinishardIndexEntry>;
@@ -329,10 +329,6 @@ MinishardAndChunkId GetMinishardAndChunkId(std::string_view key) {
           {absl::big_endian::Load64(key.data() + 8)}};
 }
 
-class ShardedKeyValueStoreWriteCache;
-using ShardedKeyValueStoreWriteCacheBase =
-    internal::KvsBackedCache<ShardedKeyValueStoreWriteCache,
-                             internal::AsyncCache>;
 
 /// Cache used to buffer writes to the KeyValueStore.
 ///
@@ -344,8 +340,10 @@ using ShardedKeyValueStoreWriteCacheBase =
 /// existing shard and store it within the cache entry.  This data is discarded
 /// once writeback completes.
 class ShardedKeyValueStoreWriteCache
-    : public ShardedKeyValueStoreWriteCacheBase {
-  using Base = ShardedKeyValueStoreWriteCacheBase;
+    : public internal::KvsBackedCache<ShardedKeyValueStoreWriteCache,
+                                      internal::AsyncCache> {
+  using Base = internal::KvsBackedCache<ShardedKeyValueStoreWriteCache,
+                                        internal::AsyncCache>;
 
  public:
   using ReadData = EncodedChunks;

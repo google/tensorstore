@@ -42,6 +42,8 @@ namespace internal {
 template <typename Derived, typename Parent>
 class AggregateWritebackCache : public Parent {
  public:
+  using Parent::Parent;
+
   class TransactionNode : public Parent::TransactionNode {
    public:
     using Parent::TransactionNode::TransactionNode;
@@ -89,8 +91,6 @@ class AggregateWritebackCache : public Parent {
     /// including the memory allocated directly by the `std::vector`.
     size_t pending_writes_size = 0;
   };
-
-  using Parent::Parent;
 };
 
 }  // namespace internal

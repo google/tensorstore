@@ -101,11 +101,6 @@ enum AtomicUpdateConstraint {
   kRequireMissing,
 };
 
-class MetadataCache;
-using MetadataCacheBase = internal::AggregateWritebackCache<
-    MetadataCache,
-    internal::KvsBackedCache<MetadataCache, internal::AsyncCache>>;
-
 /// Caches metadata associated with a kvstore-backed chunk driver.  Driver
 /// implementations must define a derived type that inherits from this class to
 /// perform driver-specific metadata handling.
@@ -121,9 +116,14 @@ using MetadataCacheBase = internal::AggregateWritebackCache<
 /// representation.
 ///
 /// Implicitly, instances of this class assume a particular `Metadata` type.
-class MetadataCache : public MetadataCacheBase,
-                      public internal::AsyncInitializedCacheMixin {
-  using Base = MetadataCacheBase;
+class MetadataCache
+    : public internal::AggregateWritebackCache<
+          MetadataCache,
+          internal::KvsBackedCache<MetadataCache, internal::AsyncCache>>,
+      public internal::AsyncInitializedCacheMixin {
+  using Base = internal::AggregateWritebackCache<
+      MetadataCache,
+      internal::KvsBackedCache<MetadataCache, internal::AsyncCache>>;
 
  public:
   using MetadataPtr = std::shared_ptr<const void>;
@@ -261,9 +261,6 @@ class MetadataCache : public MetadataCacheBase,
   Context::Resource<internal::CachePoolResource> cache_pool_;
 };
 
-class DataCache;
-using DataCacheBase = internal::KvsBackedCache<DataCache, internal::ChunkCache>;
-
 /// Inherits from `ChunkCache` and represents one or more chunked arrays that
 /// are stored within the same set of chunks.
 ///
@@ -271,8 +268,9 @@ using DataCacheBase = internal::KvsBackedCache<DataCache, internal::ChunkCache>;
 /// `DataCache` in order to perform driver-specific data handling.
 ///
 /// Implicitly, instances of this class assume a particular `Metadata` type.
-class DataCache : public DataCacheBase {
-  using Base = DataCacheBase;
+class DataCache
+    : public internal::KvsBackedCache<DataCache, internal::ChunkCache> {
+  using Base = internal::KvsBackedCache<DataCache, internal::ChunkCache>;
 
  public:
   using MetadataPtr = MetadataCache::MetadataPtr;

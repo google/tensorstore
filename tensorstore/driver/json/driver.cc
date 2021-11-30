@@ -47,15 +47,15 @@ Result<::nlohmann::json> DecodeJson(const std::optional<absl::Cord>& data) {
   return raw_data;
 }
 
-class JsonCache;
-using JsonCacheBase = internal::KvsBackedCache<JsonCache, internal::AsyncCache>;
-class JsonCache : public JsonCacheBase, public AsyncInitializedCacheMixin {
-  using Base = JsonCacheBase;
+class JsonCache
+    : public internal::KvsBackedCache<JsonCache, internal::AsyncCache>,
+      public AsyncInitializedCacheMixin {
+  using Base = internal::KvsBackedCache<JsonCache, internal::AsyncCache>;
 
  public:
   using ReadData = ::nlohmann::json;
 
-  JsonCache() : JsonCacheBase(kvstore::DriverPtr()) {}
+  JsonCache() : Base(kvstore::DriverPtr()) {}
 
   class Entry : public Base::Entry {
    public:

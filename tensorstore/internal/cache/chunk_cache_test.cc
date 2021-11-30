@@ -161,11 +161,9 @@ std::string EncodeKey(span<const Index> indices) {
   return absl::StrJoin(indices, ",");
 }
 
-class TestCache;
-using TestCacheBase =
-    tensorstore::internal::KvsBackedCache<TestCache, ChunkCache>;
-class TestCache : public TestCacheBase {
-  using Base = TestCacheBase;
+class TestCache
+    : public tensorstore::internal::KvsBackedCache<TestCache, ChunkCache> {
+  using Base = tensorstore::internal::KvsBackedCache<TestCache, ChunkCache>;
 
  public:
   using Base::Base;
