@@ -244,11 +244,11 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   std::string GetChunkStorageKey(const void* metadata,
                                  span<const Index> cell_indices) override {
-    std::string key = key_prefix_;
-    std::string_view sep = "";
-    for (const Index x : cell_indices) {
-      absl::StrAppend(&key, sep, x);
-      sep = "/";
+    // Use "0" for rank 0 as a special case.
+    std::string key =
+        StrCat(key_prefix_, cell_indices.empty() ? 0 : cell_indices[0]);
+    for (DimensionIndex i = 1; i < cell_indices.size(); ++i) {
+      StrAppend(&key, "/", cell_indices[i]);
     }
     return key;
   }

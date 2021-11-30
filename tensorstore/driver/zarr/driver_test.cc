@@ -671,6 +671,49 @@ TEST(ZarrDriverTest, CreateBigEndian) {
       }));
 }
 
+TEST(ZarrDriverTest, CreateRank0) {
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", "<i2"},
+           {"shape", ::nlohmann::json::array_t()},
+           {"chunks", ::nlohmann::json::array_t()},
+       }},
+      {"create", true},
+  };
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto ts, tensorstore::Open(json_spec, context).result());
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Write(tensorstore::MakeScalarArray<int16_t>(42), ts));
+  // Check that key value store has expected contents.
+  EXPECT_THAT(
+      GetMap(kvstore::Open({{"driver", "memory"}}, context).value()).value(),
+      UnorderedElementsAreArray({
+          Pair("prefix/.zarray",  //
+               ::testing::MatcherCast<absl::Cord>(ParseJsonMatches({
+                   {"zarr_format", 2},
+                   {"order", "C"},
+                   {"filters", nullptr},
+                   {"fill_value", nullptr},
+                   {"compressor", nullptr},
+                   {"dtype", "<i2"},
+                   {"shape", ::nlohmann::json::array_t()},
+                   {"chunks", ::nlohmann::json::array_t()},
+                   {"dimension_separator", "."},
+               }))),
+          Pair("prefix/0",  //
+               ::testing::MatcherCast<absl::Cord>(Bytes({42, 0}))),
+      }));
+}
+
 TEST(ZarrDriverTest, CreateBfloat16) {
   using tensorstore::bfloat16_t;
   ::nlohmann::json json_spec{

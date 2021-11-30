@@ -487,14 +487,11 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
 
 std::string EncodeChunkIndices(span<const Index> indices,
                                DimensionSeparator dimension_separator) {
+  // Use "0" for rank 0 as a special case.
   const char separator = GetDimensionSeparatorChar(dimension_separator);
-  std::string key;
-  for (DimensionIndex i = 0; i < indices.size(); ++i) {
-    if (i != 0) {
-      StrAppend(&key, separator, indices[i]);
-    } else {
-      StrAppend(&key, indices[i]);
-    }
+  std::string key = (indices.empty() ? "0" : StrCat(indices[0]));
+  for (DimensionIndex i = 1; i < indices.size(); ++i) {
+    StrAppend(&key, separator, indices[i]);
   }
   return key;
 }

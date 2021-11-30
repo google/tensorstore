@@ -303,6 +303,43 @@ TEST(N5DriverTest, Create) {
   }
 }
 
+TEST(N5DriverTest, CreateRank0) {
+  ::nlohmann::json json_spec{
+      {"driver", "n5"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
+      {"metadata",
+       {
+           {"compression", {{"type", "raw"}}},
+           {"dataType", "int16"},
+           {"dimensions", ::nlohmann::json::array_t()},
+           {"blockSize", ::nlohmann::json::array_t()},
+       }},
+      {"create", true},
+  };
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto ts, tensorstore::Open(json_spec, context).result());
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Write(tensorstore::MakeScalarArray<int16_t>(42), ts));
+  // Check that key value store has expected contents.
+  EXPECT_THAT(
+      GetMap(kvstore::Open({{"driver", "memory"}}, context).value()).value(),
+      UnorderedElementsAreArray({
+          Pair("prefix/attributes.json",  //
+               ::testing::MatcherCast<absl::Cord>(ParseJsonMatches({
+                   {"compression", {{"type", "raw"}}},
+                   {"dataType", "int16"},
+                   {"dimensions", ::nlohmann::json::array_t()},
+                   {"blockSize", ::nlohmann::json::array_t()},
+               }))),
+          Pair("prefix/0", MatchesRawChunk({}, {0, 42})),
+      }));
+}
+
 ::nlohmann::json GetBasicResizeMetadata() {
   return {
       {"compression", {{"type", "raw"}}},
