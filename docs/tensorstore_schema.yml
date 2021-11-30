@@ -29,6 +29,16 @@ properties:
   transform:
     $ref: IndexTransform
     title: Specifies a transform.
+  schema:
+    $ref: Schema
+    title: Specifies constraints on the schema.
+    description: |
+      When opening an existing array, specifies constraints on the existing
+      schema; opening will fail if the constraints do not match.  Any soft
+      constraints specified in the :json:schema:`~Schema.chunk_layout` are
+      ignored.  When creating a new array, a suitable schema will be selected
+      automatically based on the specified schema constraints in combination
+      with any driver-specific constraints.
 required:
 - driver
 definitions:
