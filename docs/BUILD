@@ -68,7 +68,11 @@ pytype_strict_test(
     ],
     data = [":doc_sources"],
     python_version = "PY3",
-    tags = ["manual"],
+    tags = [
+        "manual",
+        "nosan",
+        "optonly",
+    ],
     deps = [
         "//docs/tensorstore_sphinx_ext:autodoc",
         "//docs/tensorstore_sphinx_ext:autosummary",

@@ -93,7 +93,7 @@ def run(args, extra_args):
 
   # Setup common to all platforms
 
-  env["CIBW_SKIP"] = "cp27-* cp35-* cp36-* pp* *_i686 *-win32"
+  env["CIBW_SKIP"] = "cp27-* cp35-* cp36-* pp* *_i686 *-win32 *-musllinux*"
   env["CIBW_TEST_COMMAND"] = (
       "python -m pytest {project}/python/tensorstore/tests -vv -s")
   env["CIBW_MANYLINUX_X86_64_IMAGE"] = "manylinux2014"

@@ -1,2 +1,2 @@
-# DO NOT EDIT: Generated from cibuildwheel_requirements.txt by generate_workspace.bzl
-cibuildwheel==2.1.2
+# DO NOT EDIT: Generated from cibuildwheel_requirements.txt by generate_workspace.py
+cibuildwheel==2.3.0

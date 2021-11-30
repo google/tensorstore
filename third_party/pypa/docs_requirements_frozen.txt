@@ -1,7 +1,7 @@
-# DO NOT EDIT: Generated from docs_requirements.txt by generate_workspace.bzl
+# DO NOT EDIT: Generated from docs_requirements.txt by generate_workspace.py
 sphinx==4.2.0
-jsonschema==3.2.0
-pyyaml==5.4.1
+jsonschema==4.2.1
+pyyaml==6.0
 docutils==0.17.1
 htmlmin==0.1.12
 markupsafe==2.0.1

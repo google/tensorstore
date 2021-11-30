@@ -1,2 +1,2 @@
-# DO NOT EDIT: Generated from doctest_requirements.txt by generate_workspace.bzl
+# DO NOT EDIT: Generated from doctest_requirements.txt by generate_workspace.py
 yapf==0.31.0
