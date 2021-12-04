@@ -25,6 +25,7 @@
 
 #include "python/tensorstore/define_heap_type.h"
 #include "python/tensorstore/future.h"
+#include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/python_imports.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -1049,6 +1050,7 @@ bool Serializer<internal_python::SerializableAbstractEventLoop>::Encode(
 bool Serializer<internal_python::SerializableAbstractEventLoop>::Decode(
     DecodeSource& source,
     internal_python::SerializableAbstractEventLoop& value) {
+  internal_python::GilScopedAcquire gil_acquire;
   value.obj = internal_python::GetCurrentThreadAsyncioEventLoop();
   return true;
 }

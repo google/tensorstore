@@ -18,6 +18,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "python/tensorstore/garbage_collection.h"
+#include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/serialization.h"
 #include "riegeli/bytes/cord_writer.h"
@@ -275,6 +276,7 @@ class PickleEncodeSink final : public serialization::EncodeSink {
   bool DoIndirect(const std::type_info& type,
                   ErasedEncodeWrapperFunction encode,
                   std::shared_ptr<void> object) override {
+    GilScopedAcquire gil_acquire;
     py::object python_object;
     if (type == typeid(PythonWeakRef)) {
       // Special case: reference to actual Python object.  Just store the Python
@@ -328,6 +330,7 @@ class PickleDecodeSource final : public serialization::DecodeSource {
   bool DoIndirect(const std::type_info& type,
                   ErasedDecodeWrapperFunction decode,
                   std::shared_ptr<void>& value) override {
+    GilScopedAcquire gil_acquire;
     if (indirect_index_ >= PyList_GET_SIZE(rep_.ptr())) {
       Fail(serialization::DecodeError(
           "Expected additional indirect object reference"));
@@ -421,7 +424,12 @@ Result<pybind11::object> PickleEncodeImpl(
   absl::Cord cord;
   riegeli::CordWriter writer(&cord);
   PickleEncodeSink sink(writer, rep);
-  if (!encode(sink) || !sink.Close()) return sink.status();
+  if (![&] {
+        GilScopedRelease gil_release;
+        return encode(sink);
+      }() ||
+      !sink.Close())
+    return sink.status();
   auto bytes_obj = BytesFromCord(cord);
   if (!bytes_obj) return {std::in_place};
   PyList_SET_ITEM(rep.ptr(), 0, bytes_obj.release().ptr());
@@ -448,7 +456,7 @@ absl::Status PickleDecodeImpl(
   riegeli::StringReader<std::string_view> reader{
       std::string_view(PyBytes_AS_STRING(s), PyBytes_GET_SIZE(s))};
   PickleDecodeSource source(reader, rep);
-  if (!decode(source)) {
+  if (GilScopedRelease gil_release; !decode(source)) {
     serialization::internal_serialization::FailEof(source);
     return source.status();
   }
@@ -489,6 +497,7 @@ namespace serialization {
 
 bool Serializer<internal_python::PythonWeakRef>::Encode(
     EncodeSink& sink, const internal_python::PythonWeakRef& value) {
+  internal_python::GilScopedAcquire gil_acquire;
   return sink.DoIndirect(
       typeid(internal_python::PythonWeakRef),
       [](EncodeSink& sink, const std::shared_ptr<void>& erased_value) {
@@ -501,6 +510,7 @@ bool Serializer<internal_python::PythonWeakRef>::Encode(
 
 bool Serializer<internal_python::PythonWeakRef>::Decode(
     DecodeSource& source, internal_python::PythonWeakRef& value) {
+  internal_python::GilScopedAcquire gil_acquire;
   std::shared_ptr<void> temp;
   if (!source.DoIndirect(
           typeid(internal_python::PythonWeakRef),
