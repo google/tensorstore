@@ -157,7 +157,7 @@ async def test_string_write():
   string representation as Python.
   """
 
-  arr = np.zeros(shape=(2,), dtype=np.object)
+  arr = np.zeros(shape=(2,), dtype=object)
 
   async def do_write(domain, array, write_params):
     del write_params
