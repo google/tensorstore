@@ -35,12 +35,16 @@ using tensorstore::Result;
 using tensorstore::UnwrapQualifiedResultType;
 using tensorstore::UnwrapResultType;
 
-static_assert(std::is_convertible<Result<int>, Result<float>>::value, "");
+static_assert(std::is_convertible_v<Result<int>, Result<float>>, "");
+static_assert(!std::is_convertible_v<Result<int>, Result<std::string>>, "");
+static_assert(std::is_same_v<int, Result<int>::value_type>, "");
 
-static_assert(!std::is_convertible<Result<int>, Result<std::string>>::value,
+/// validate some internal helper methods.
+static_assert(!tensorstore::internal_result::is_result_status_or_inplace<int>,
               "");
-
-static_assert(std::is_same<int, Result<int>::value_type>::value, "");
+static_assert(
+    tensorstore::internal_result::is_result_status_or_inplace<Result<void>>,
+    "");
 
 TEST(ResultTest, ConstructDefault) {
   Result<int> result{std::in_place};
@@ -81,7 +85,7 @@ TEST(ResultDeathTest, ConstructStatusHasNoValue) {
   Result<int> result(status);
 
   ASSERT_DEATH(result.value(), "");
-  ASSERT_DEATH(static_cast<const Result<int>&>(result).value(), "");
+  ASSERT_DEATH(static_cast<const Result<int> &>(result).value(), "");
   ASSERT_DEATH(std::move(result).value(), "My custom error message");
 }
 
@@ -189,15 +193,19 @@ TEST(ResultTest, ConstructCopyFailure) {
 }
 
 TEST(ResultTest, Comparison) {
-  // Compare with value.
+  // Compare with same type.
   const Result<int> r(1);
+  EXPECT_EQ(true, r == Result<int>(1));
+  EXPECT_EQ(false, r != Result<int>(1));
+  EXPECT_EQ(true, Result<int>{std::in_place} == Result<int>{std::in_place});
+  EXPECT_EQ(false, Result<int>{std::in_place} == r);
+  EXPECT_EQ(false, Result<int>{std::in_place} == r);
+
+  // Compare with different type
   EXPECT_EQ(true, r == Result<float>(1));
   EXPECT_EQ(false, r != Result<float>(1));
   EXPECT_EQ(false, Result<int>(2) == Result<float>(1));
   EXPECT_EQ(true, Result<int>(2) != Result<float>(1));
-  EXPECT_EQ(true, Result<int>{std::in_place} == Result<int>{std::in_place});
-  EXPECT_EQ(false, Result<int>{std::in_place} == r);
-  EXPECT_EQ(false, Result<int>{std::in_place} == r);
 
   Result<int> err{absl::UnknownError("Message")};
   Result<int> err2 = err;
@@ -221,6 +229,7 @@ TEST(ResultTest, Comparison) {
   Result<void> err3 = absl::UnknownError("Message");
   EXPECT_TRUE(rv == rv);
   EXPECT_FALSE(rv != rv);
+  EXPECT_TRUE(rv == Result<void>(std::in_place));
   EXPECT_TRUE(err3 == err3);
   EXPECT_FALSE(err3 != err3);
   EXPECT_FALSE(rv == err3);
@@ -472,43 +481,43 @@ TEST(ResultTest, Message) {
 
 TEST(ResultTest, Value) {
   static_assert(
-      std::is_same<decltype(std::declval<const Result<int>&>().value()),
-                   const int&>::value,
+      std::is_same_v<decltype(std::declval<const Result<int> &>().value()),
+                     const int &>,
       "");
   static_assert(
-      std::is_same<decltype(std::declval<Result<int>&>().value()), int&>::value,
+      std::is_same_v<decltype(std::declval<Result<int> &>().value()), int &>,
       "");
   static_assert(
-      std::is_same<decltype(std::declval<Result<int>&&>().value()), int>::value,
+      std::is_same_v<decltype(std::declval<Result<int> &&>().value()), int>,
       "");
 
-  static_assert(std::is_same<decltype(*std::declval<const Result<int>&>()),
-                             const int&>::value,
+  static_assert(std::is_same_v<decltype(*std::declval<const Result<int> &>()),
+                               const int &>,
                 "");
-  static_assert(
-      std::is_same<decltype(*std::declval<Result<int>&>()), int&>::value, "");
+  static_assert(std::is_same_v<decltype(*std::declval<Result<int> &>()), int &>,
+                "");
 
   static_assert(
-      std::is_same<decltype(std::declval<const Result<int>&>().operator->()),
-                   const int*>::value,
+      std::is_same_v<decltype(std::declval<const Result<int> &>().operator->()),
+                     const int *>,
       "");
   static_assert(
-      std::is_same<decltype(std::declval<Result<int>&>().operator->()),
-                   int*>::value,
+      std::is_same_v<decltype(std::declval<Result<int> &>().operator->()),
+                     int *>,
       "");
 
   Result<int> result = 3;
   EXPECT_EQ(3, result.value());
   EXPECT_EQ(3, *result);
   EXPECT_EQ(3, result.value_or(4));
-  EXPECT_EQ(3, static_cast<const Result<int>&>(result).value());
+  EXPECT_EQ(3, static_cast<const Result<int> &>(result).value());
   EXPECT_EQ(3, std::move(result).value());
 
   std::vector<int> vec{1, 2, 3};
-  const int* data = vec.data();
+  const int *data = vec.data();
   Result<std::vector<int>> result2(std::move(vec));
   EXPECT_EQ(3, result2->size());
-  EXPECT_EQ(3, static_cast<const Result<std::vector<int>>&>(result2)->size());
+  EXPECT_EQ(3, static_cast<const Result<std::vector<int>> &>(result2)->size());
   std::vector<int> vec2 = std::move(result2).value();
   EXPECT_EQ(data, vec2.data());
 }
@@ -665,10 +674,10 @@ TEST(ResultVoidTest, ReturnVoid) {
 struct MoveOnly {
   MoveOnly(int value) : value(value) {}
 
-  MoveOnly(MoveOnly const&) = delete;
-  MoveOnly& operator=(const MoveOnly&) = delete;
-  MoveOnly(MoveOnly&&) = default;
-  MoveOnly& operator=(MoveOnly&&) = default;
+  MoveOnly(MoveOnly const &) = delete;
+  MoveOnly &operator=(const MoveOnly &) = delete;
+  MoveOnly(MoveOnly &&) = default;
+  MoveOnly &operator=(MoveOnly &&) = default;
 
   int value;
 };
@@ -759,10 +768,10 @@ TEST(ResultTest, MoveOnlyFunc) {
 struct CopyOnly {
   CopyOnly(int value) : value(value) {}
 
-  CopyOnly(CopyOnly const&) = default;
-  CopyOnly& operator=(const CopyOnly&) = default;
-  CopyOnly(CopyOnly&&) = delete;
-  CopyOnly& operator=(CopyOnly&&) = delete;
+  CopyOnly(CopyOnly const &) = default;
+  CopyOnly &operator=(const CopyOnly &) = default;
+  CopyOnly(CopyOnly &&) = delete;
+  CopyOnly &operator=(CopyOnly &&) = delete;
 
   int value;
 };
@@ -834,13 +843,13 @@ struct Explicit {
   explicit Explicit(MoveOnly v) : value(v.value) {}
   explicit Explicit(CopyOnly v) : value(v.value) {}
 
-  Explicit(const Explicit& x) : value(x.value) {}
-  Explicit& operator=(const Explicit& x) {
+  Explicit(const Explicit &x) : value(x.value) {}
+  Explicit &operator=(const Explicit &x) {
     value = x.value;
     return *this;
   }
-  Explicit(Explicit&& x) : value(x.value) {}
-  Explicit& operator=(Explicit&& x) {
+  Explicit(Explicit &&x) : value(x.value) {}
+  Explicit &operator=(Explicit &&x) {
     value = std::move(x).value;
     return *this;
   }
@@ -1051,26 +1060,36 @@ TEST(ResultTest, AssignOrReturnAnnotate) {
 
 /// FIXME: Is FlatMapResultType pulling it's weight?
 
-static_assert(std::is_same<UnwrapResultType<int>, int>::value);
-static_assert(std::is_same<UnwrapResultType<Result<int>>, int>::value);
-static_assert(std::is_same<UnwrapResultType<absl::Status>, void>::value);
-static_assert(
-    std::is_same<UnwrapQualifiedResultType<absl::Status>, void>::value);
-static_assert(std::is_same<UnwrapQualifiedResultType<Result<int>>, int>::value);
-static_assert(
-    std::is_same<UnwrapQualifiedResultType<Result<int>&>, int&>::value);
-static_assert(std::is_same<UnwrapQualifiedResultType<const Result<int>&>,
-                           const int&>::value);
+static_assert(std::is_same_v<UnwrapResultType<int>, int>);
+static_assert(std::is_same_v<UnwrapResultType<Result<int>>, int>);
+static_assert(std::is_same_v<UnwrapResultType<absl::Status>, void>);
+static_assert(std::is_same_v<UnwrapQualifiedResultType<absl::Status>, void>);
+static_assert(std::is_same_v<UnwrapQualifiedResultType<Result<int>>, int>);
+static_assert(std::is_same_v<UnwrapQualifiedResultType<Result<int> &>, int &>);
+static_assert(std::is_same_v<UnwrapQualifiedResultType<const Result<int> &>,
+                             const int &>);
 
 static_assert(
-    std::is_same<UnwrapQualifiedResultType<Result<int>&&>, int&&>::value);
+    std::is_same_v<UnwrapQualifiedResultType<Result<int> &&>, int &&>);
 
 /// FIXME: Typically a meta-function like FlatResult would be named MakeResult<>
 /// or similar.
 
-static_assert(std::is_same<FlatResult<Result<int>>, Result<int>>::value);
+static_assert(std::is_same_v<int, typename tensorstore::internal_result::
+                                      UnwrapResultHelper<int>::type>,
+              "");
 
-static_assert(std::is_same<FlatResult<int>, Result<int>>::value);
+static_assert(
+    std::is_same_v<Result<int>, typename tensorstore::internal_result::
+                                    UnwrapResultHelper<int>::result_type>,
+    "");
+
+static_assert(std::is_same_v<Result<int>, FlatResult<Result<int>>>);
+static_assert(std::is_same_v<Result<int>, FlatResult<int>>);
+static_assert(
+    std::is_same_v<Result<int>,
+                   tensorstore::FlatResult<std::invoke_result_t<int()>>>,
+    "");
 
 TEST(ChainResultTest, Example) {
   auto func1 = [](int x) -> float { return 1.0f + x; };
@@ -1172,6 +1191,78 @@ TEST(ResultTest, DefaultConstruct) {
   Result<int> r;
   ASSERT_FALSE(r.has_value());
   EXPECT_EQ(absl::UnknownError(""), r.status());
+}
+
+TEST(ResultTest, ConstructVoidOk) {
+  Result<int> r(3);
+  Result<void> s(r);
+  ASSERT_TRUE(s.has_value());
+}
+
+TEST(ResultTest, MoveConstructVoidOk) {
+  Result<int> r(3);
+  Result<void> s(std::move(r));
+  ASSERT_TRUE(s.has_value());
+}
+
+TEST(ResultTest, ConstructVoid) {
+  Result<int> r(absl::InvalidArgumentError("abc"));
+  Result<void> s(r);
+  ASSERT_FALSE(s.has_value());
+  EXPECT_EQ(absl::InvalidArgumentError("abc"), s.status());
+}
+
+TEST(ResultTest, MoveConstructVoid) {
+  Result<int> r;
+  Result<void> s(std::move(r));
+  ASSERT_FALSE(s.has_value());
+  EXPECT_EQ(absl::UnknownError(""), s.status());
+}
+
+TEST(ResultTest, AssignmentConstructVoidOk) {
+  Result<int> r(3);
+  Result<void> s = r;
+  ASSERT_TRUE(s.has_value());
+}
+
+TEST(ResultTest, AssignmentConstructVoid) {
+  Result<int> r;
+  Result<void> s = r;
+  ASSERT_FALSE(s.has_value());
+}
+
+TEST(ResultTest, AssignmentVoidOk) {
+  Result<int> r(3);
+  Result<void> s;
+  ASSERT_FALSE(s.has_value());
+  s = r;
+  ASSERT_TRUE(s.has_value());
+}
+
+TEST(ResultTest, AssignmentVoid) {
+  Result<int> r(absl::InvalidArgumentError("abc"));
+  Result<void> s;
+  ASSERT_FALSE(s.has_value());
+  s = r;
+  ASSERT_FALSE(s.has_value());
+  EXPECT_EQ(absl::InvalidArgumentError("abc"), s.status());
+}
+
+TEST(ResultTest, MoveAssignmentVoidOk) {
+  Result<int> r(3);
+  Result<void> s;
+  ASSERT_FALSE(s.has_value());
+  s = std::move(r);
+  ASSERT_TRUE(s.has_value());
+}
+
+TEST(ResultTest, MoveAssignmentVoid) {
+  Result<int> r(absl::InvalidArgumentError("abc"));
+  Result<void> s;
+  ASSERT_FALSE(s.has_value());
+  s = std::move(r);
+  ASSERT_FALSE(s.has_value());
+  EXPECT_EQ(absl::InvalidArgumentError("abc"), s.status());
 }
 
 }  // namespace

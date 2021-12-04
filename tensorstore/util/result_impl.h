@@ -16,6 +16,7 @@
 #define TENSORSTORE_RESULT_IMPL_H_
 
 #include <new>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -34,6 +35,27 @@ template <typename T>
 class Result;
 
 namespace internal_result {
+
+/// Result type traits helper structs for UnwrapResultType / FlatResultType.
+template <typename T>
+struct UnwrapResultHelper {
+  static_assert(std::is_same_v<T, internal::remove_cvref_t<T>>,
+                "Type argument to UnwrapResultType must be unqualified.");
+  using type = T;
+  using result_type = Result<T>;
+};
+
+template <typename T>
+struct UnwrapResultHelper<Result<T>> {
+  using type = T;
+  using result_type = Result<T>;
+};
+
+template <>
+struct UnwrapResultHelper<absl::Status> {
+  using type = void;
+  using result_type = Result<void>;
+};
 
 // Tag types to select internal constructors.
 struct status_t {};
@@ -220,7 +242,7 @@ struct ResultStorage : public ResultStorageBase<T> {
 // ----------------------------------------------------------------
 
 template <typename T,
-          bool = std::is_void<T>::value || std::is_copy_constructible<T>::value>
+          bool = std::is_void_v<T> || std::is_copy_constructible_v<T>>
 struct CopyCtorBase {
   CopyCtorBase() = default;
   CopyCtorBase(const CopyCtorBase&) = default;
@@ -239,7 +261,7 @@ struct CopyCtorBase<T, false> {
 };
 
 template <typename T,
-          bool = std::is_void<T>::value || std::is_move_constructible<T>::value>
+          bool = std::is_void_v<T> || std::is_move_constructible_v<T>>
 struct MoveCtorBase {
   MoveCtorBase() = default;
   MoveCtorBase(const MoveCtorBase&) = default;
@@ -257,9 +279,9 @@ struct MoveCtorBase<T, false> {
   MoveCtorBase& operator=(MoveCtorBase&&) = default;
 };
 
-template <typename T, bool = std::is_void<T>::value ||
-                             (std::is_copy_constructible<T>::value &&
-                              std::is_copy_assignable<T>::value)>
+template <typename T,
+          bool = std::is_void_v<T> || (std::is_copy_constructible_v<T> &&
+                                       std::is_copy_assignable_v<T>)>
 struct CopyAssignBase {
   CopyAssignBase() = default;
   CopyAssignBase(const CopyAssignBase&) = default;
@@ -277,9 +299,9 @@ struct CopyAssignBase<T, false> {
   CopyAssignBase& operator=(CopyAssignBase&&) = default;
 };
 
-template <typename T, bool = std::is_void<T>::value ||
-                             (std::is_move_constructible<T>::value &&
-                              std::is_move_assignable<T>::value)>
+template <typename T,
+          bool = std::is_void_v<T> || (std::is_move_constructible_v<T> &&
+                                       std::is_move_assignable_v<T>)>
 struct MoveAssignBase {
   MoveAssignBase() = default;
   MoveAssignBase(const MoveAssignBase&) = default;
@@ -297,24 +319,52 @@ struct MoveAssignBase<T, false> {
   MoveAssignBase& operator=(MoveAssignBase&&) = delete;
 };
 
-// Whether T is constructible from Result<U>.
-template <typename T, typename U>
-struct is_constructible_from_result
-    : std::integral_constant<
-          bool, std::is_constructible<T, Result<U>&>::value ||
-                    std::is_constructible<T, Result<U>&&>::value ||
-                    std::is_constructible<T, const Result<U>&>::value ||
-                    std::is_constructible<T, const Result<U>&&>::value> {};
-
 // Whether T is constructible or convertible from Result<U>.
 template <typename T, typename U>
-struct is_constructible_convertible_from_result
-    : std::integral_constant<
-          bool, is_constructible_from_result<T, U>::value ||
-                    std::is_convertible<Result<U>&, T>::value ||
-                    std::is_convertible<Result<U>&&, T>::value ||
-                    std::is_convertible<const Result<U>&, T>::value ||
-                    std::is_convertible<const Result<U>&&, T>::value> {};
+constexpr inline bool is_constructible_convertible_from = std::disjunction<
+    std::is_constructible<T, U&>, std::is_constructible<T, const U&>,
+    std::is_constructible<T, U&&>, std::is_constructible<T, const U&&>,
+    std::is_convertible<U&, T>, std::is_convertible<const U&&, T>,
+    std::is_convertible<U&, T>, std::is_convertible<const U&&, T>>::value;
+
+// Metafunction for Result value constructor SFINAE overloads exclusions.
+// These should parallel the other value constructors.
+template <typename T>
+constexpr inline bool is_result_status_or_inplace = false;
+template <typename T>
+constexpr inline bool is_result_status_or_inplace<Result<T>> = true;
+template <>
+constexpr inline bool is_result_status_or_inplace<absl::Status> = true;
+template <>
+constexpr inline bool is_result_status_or_inplace<std::in_place_t> = true;
+
+// Define metafunctions to avoid the liberal MSVC error C2938:
+// 'std::enable_if_t<false,bool>' : Failed to specialize alias template
+// This happens, for instance, when using SFINAE on std::is_void_v<T>
+// where T is a class template parameter.
+
+// Metafunction for enabling the Result<T>::Result(Result<U>) constructor
+// overloads.
+template <typename T, typename U>
+constexpr inline bool result_conversion = !std::is_same_v<T, U>;
+template <typename U>
+constexpr inline bool result_conversion<void, U> = false;
+
+// Metafunction for enabling the Result<void>::Result(Result<U>) constructor
+// overloads.
+template <typename T, typename U>
+constexpr inline bool result_void_conversion = false;
+template <typename U>
+constexpr inline bool result_void_conversion<void, U> = true;
+template <>
+constexpr inline bool result_void_conversion<void, void> = false;
+
+// Metafunction for enabling the Result<T>::Result(U) constructor overloads.
+template <typename T, typename U>
+constexpr inline bool value_conversion =
+    !is_result_status_or_inplace<internal::remove_cvref_t<U>>;
+template <typename U>
+constexpr inline bool value_conversion<void, U> = false;
 
 }  // namespace internal_result
 }  // namespace tensorstore

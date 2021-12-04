@@ -14,6 +14,7 @@
 
 /// Non-compile test for result.h.
 
+#include <any>
 #include <utility>
 
 #include "tensorstore/util/result.h"
@@ -32,6 +33,10 @@ struct X {
   X(Result<int>) {}
 };
 
+struct Z {
+  Z& operator=(Result<int>) { return *this; }
+};
+
 void BasicNonCompile() {
   Result<void> v = MakeResult();
   EXPECT_NON_COMPILE("value_or", v.value_or());
@@ -40,23 +45,27 @@ void BasicNonCompile() {
   Result<int> int_result(3);
 
   // Result<W> requires use of the in_place constructor.
-  EXPECT_NON_COMPILE("", Result<W>{int_result});
+  EXPECT_NON_COMPILE("no matching", Result<W>{int_result});
   EXPECT_NON_COMPILE("no viable conversion", Result<W> y = int_result);
 
   // Result<X> requires use of the in_place constructor.
-  EXPECT_NON_COMPILE("", Result<X>{int_result});
+  EXPECT_NON_COMPILE("no matching", Result<X>{int_result});
   EXPECT_NON_COMPILE("no viable conversion", Result<X> y = int_result);
 
-  // Result<void> lacks comparison operators.
-  Result<void> r{std::in_place};
-  EXPECT_NON_COMPILE("", r == Result<void>(std::in_place));
+  // Result<Z> is not assignable.
+  EXPECT_NON_COMPILE("no viable overload", Result<Z> z; z = int_result);
+
+  // Ambiguous cases
+  EXPECT_NON_COMPILE("no matching", Result<std::any> s(Result<int>(3)););
+  EXPECT_NON_COMPILE("no matching", Result<std::any> s(int_result););
+  EXPECT_NON_COMPILE("no viable overload", Result<std::any> s; s = int_result;);
 
   /// FIXME: The semantics of Result<const X> need additional thought.
-  EXPECT_NON_COMPILE("", Result<const int>{std::in_place});
+  EXPECT_NON_COMPILE("static_assert", Result<const int>{std::in_place});
 
   /// FIXME: Properly specialize on <const void> vs. <void>.
   /// This is in addition to enabling const, above.
-  EXPECT_NON_COMPILE("", Result<const void>{std::in_place});
+  EXPECT_NON_COMPILE("static_assert", Result<const void>{std::in_place});
 }
 
 }  // namespace

@@ -371,7 +371,7 @@ TEST(FromArrayTest, ReadAlignByLabel) {
   auto context = Context::Default();
   auto store = tensorstore::FromArray(context, array).value();
   auto dest_array = tensorstore::AllocateArray<int>({3, 2});
-  auto future =
+  tensorstore::Future<void> future =
       Read(ChainResult(store, tensorstore::AllDims().Label("x", "y")),
            ChainResult(dest_array, tensorstore::AllDims().Label("y", "x")));
   EXPECT_EQ(absl::OkStatus(), GetStatus(future.result()));

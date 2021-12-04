@@ -61,6 +61,27 @@ struct CallbackPointerTraits;
 using CallbackPointer =
     internal::IntrusivePtr<CallbackBase, CallbackPointerTraits>;
 
+template <typename T>
+struct UnwrapFutureHelper {
+  using type = std::remove_cv_t<T>;
+};
+
+template <typename T>
+struct UnwrapFutureHelper<Future<T>> {
+  using type = std::remove_cv_t<T>;
+};
+
+template <typename T>
+struct UnwrapFutureHelper<ReadyFuture<T>> {
+  using type = std::remove_cv_t<T>;
+};
+
+template <typename T>
+struct UnwrapFutureHelper<Result<T>> {
+  // Result<T> requires `T` to be unqualified.
+  using type = T;
+};
+
 /// FutureAccess mediates access to internal implementation details for
 /// some parts of Future/Promise which allows constructing and converting
 /// Future/Promise data.
@@ -1474,26 +1495,25 @@ struct MakeLinkedFutureState<Policy, PromiseValue> {
   }
 };
 
+// Metafunction for Future value constructor SFINAE overloads exclusions.
+// These should parallel the other value constructors.
 template <typename T>
-struct UnwrapFutureHelper {
-  using type = std::remove_cv_t<T>;
-};
+constexpr inline bool is_result_status_or_future = false;
+template <typename T>
+constexpr inline bool is_result_status_or_future<Future<T>> = true;
+template <typename T>
+constexpr inline bool is_result_status_or_future<Result<T>> = true;
+template <>
+constexpr inline bool is_result_status_or_future<absl::Status> = true;
 
-template <typename T>
-struct UnwrapFutureHelper<Future<T>> {
-  using type = std::remove_cv_t<T>;
-};
-
-template <typename T>
-struct UnwrapFutureHelper<ReadyFuture<T>> {
-  using type = std::remove_cv_t<T>;
-};
-
-template <typename T>
-struct UnwrapFutureHelper<Result<T>> {
-  // Result<T> requires `T` to be unqualified.
-  using type = T;
-};
+// Metafunction for enabling the Future<T>::Future(U) constructor overloads.
+template <typename T, typename U>
+constexpr inline bool value_conversion =
+    !is_result_status_or_future<internal::remove_cvref_t<U>>;
+template <typename U>
+constexpr inline bool value_conversion<void, U> = false;
+template <typename U>
+constexpr inline bool value_conversion<const void, U> = false;
 
 }  // namespace internal_future
 }  // namespace tensorstore

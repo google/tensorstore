@@ -43,31 +43,6 @@ struct IsResult : public std::false_type {};
 template <typename T>
 struct IsResult<Result<T>> : public std::true_type {};
 
-namespace internal_result {
-
-/// Result type traits helper structs for UnwrapResultType / FlatResultType.
-template <typename T>
-struct UnwrapResultHelper {
-  static_assert(std::is_same<T, internal::remove_cvref_t<T>>::value,
-                "Type argument to UnwrapResultType must be unqualified.");
-  using type = T;
-  using result_type = Result<T>;
-};
-
-template <typename T>
-struct UnwrapResultHelper<Result<T>> {
-  using type = T;
-  using result_type = Result<T>;
-};
-
-template <>
-struct UnwrapResultHelper<absl::Status> {
-  using type = void;
-  using result_type = Result<void>;
-};
-
-}  // namespace internal_result
-
 /// UnwrapResultType<T> maps
 ///
 ///   Result<T> -> T
@@ -122,7 +97,14 @@ using std::in_place_t;
 /// otherwise non-error Status initilization is nonsensical because it
 /// does not provide a value.
 ///
+/// Conversion from `Result<T>` to `Result<void>` is allowed; the status
+/// is retained but any value is discarded by such a conversion.
+///
 /// There are quite a few similar classes extant:
+///
+/// Assignment operators always destroy the existing value and
+/// reconstruct the value. This may be surprising, since it is unlike
+/// std::optional and many other monadic C++ types.
 ///
 /// * The StatusOr concept used by Google protocol buffers.
 /// * A std::variant<T, Status>, except that it allows T=void.
@@ -163,7 +145,10 @@ class Result : private internal_result::ResultStorage<T>,
   template <typename U>
   using rebind = Result<U>;
 
+  ~Result() = default;
+
   /// Constructs an error Result with a code of `absl::StatusCode::kUnknown`.
+  /// FIXME: Mark explicit.
   Result() : Base(internal_result::noinit_t{}) {
     this->construct_status(absl::UnknownError(""));
   }
@@ -172,8 +157,13 @@ class Result : private internal_result::ResultStorage<T>,
   Result(const Result& src) = default;
   Result(Result&& src) = default;
 
-  /// \brief Construct a Result<T> with a Status.
-  /// \requires `!status` unless T is void.
+  Result& operator=(const Result& src) = default;
+  Result& operator=(Result&& src) = default;
+
+  /// absl::Status construtors.
+
+  /// \brief Construct a Result<T> with an an absl::Status code.
+  /// \pre `!status` unless T is void.
   Result(const absl::Status& status) : Base(internal_result::noinit_t{}) {
     if constexpr (std::is_void_v<value_type>) {
       if (status.ok()) {
@@ -191,105 +181,14 @@ class Result : private internal_result::ResultStorage<T>,
       if (status.ok()) {
         this->construct_value();
       } else {
-        this->construct_status(status);
+        this->construct_status(std::move(status));
       }
     } else {
-      this->construct_status(status);
+      this->construct_status(std::move(status));
       TENSORSTORE_CHECK(!status.ok());
     }
   }
 
-  /// \brief Constructs a non-empty `Result` direct-initialized value of type
-  /// `T` from the arguments `std::forward<Args>(args)...`  within the `Result`.
-  template <typename... Args>
-  Result(in_place_t, Args&&... args)
-      : Base(internal_result::value_t(), std::forward<Args>(args)...) {}
-
-  /// Constructs a non-empty `Result` direct-initialized value of type `T` from
-  /// the arguments of an initializer_list and `std::forward<Args>(args)...`.
-  template <typename U, typename... Args>
-  Result(in_place_t, std::initializer_list<U> il, Args&&... args)
-      : Base(internal_result::value_t(), il, std::forward<Args>(args)...) {}
-
-  /// \brief Value constructor (implicit)
-  template <
-      typename U,
-      std::enable_if_t<
-          (!IsResult<internal::remove_cvref_t<U>>::value &&  //
-           !std::is_same<absl::Status, internal::remove_cvref_t<U>>::value &&
-           std::is_convertible<U&&, T>::value  //
-           )>* = nullptr>
-  Result(U&& v) : Base(internal_result::value_t(), std::forward<U>(v)) {}
-
-  /// \brief Value constructor (explicit)
-  template <
-      typename U,
-      std::enable_if_t<
-          (!IsResult<internal::remove_cvref_t<U>>::value &&  //
-           !std::is_same<absl::Status, internal::remove_cvref_t<U>>::value &&
-           !std::is_convertible<U&&, T>::value &&  //
-           std::is_constructible<T, U&&>::value    //
-           )>* = nullptr>
-  explicit Result(U&& v)
-      : Base(internal_result::value_t(), std::forward<U>(v)) {}
-
-  /// FIXME: Allow explicit cast Result<T> -> Result<void>.
-
-  /// \brief Converting copy constructor (implicit)
-  template <typename U,
-            std::enable_if_t<
-                (!internal_result::is_constructible_convertible_from_result<
-                     value_type, U>::value &&
-                 std::is_convertible<const U&, value_type>::value  //
-                 )>* = nullptr>
-  Result(const Result<U>& rhs) : Base(internal_result::noinit_t{}) {
-    construct_from(rhs);
-  }
-
-  /// \brief Converting copy constructor (explicit)
-  template <typename U,
-            std::enable_if_t<
-                (!internal_result::is_constructible_convertible_from_result<
-                     value_type, U>::value &&
-                 !std::is_convertible<const U&, value_type>::value &&  //
-                 std::is_constructible<T, const U&>::value             //
-                 )>* = nullptr>
-  explicit Result(const Result<U>& rhs) : Base(internal_result::noinit_t{}) {
-    construct_from(rhs);
-  }
-
-  /// \brief Converting move constructor (implicit)
-  template <typename U,
-            std::enable_if_t<
-                (!internal_result::is_constructible_convertible_from_result<
-                     value_type, U>::value &&
-                 std::is_convertible<U&&, value_type>::value  //
-                 )>* = nullptr>
-  Result(Result<U>&& rhs) : Base(internal_result::noinit_t{}) {
-    construct_from(std::move(rhs));
-  }
-
-  /// \brief Converting move constructor (explicit)
-  template <typename U,
-            std::enable_if_t<
-                (!internal_result::is_constructible_convertible_from_result<
-                     value_type, U>::value &&
-                 !std::is_convertible<U&&, value_type>::value &&  //
-                 std::is_constructible<value_type, U&&>::value    //
-                 )>* = nullptr>
-  explicit Result(Result<U>&& rhs) : Base(internal_result::noinit_t{}) {
-    construct_from(std::move(rhs));
-  }
-
-  ~Result() = default;
-
-  // Assignment Operators
-
-  /// Copy and move assignment operators, standard semantics
-  Result& operator=(const Result& src) = default;
-  Result& operator=(Result&& src) = default;
-
-  /// \brief Copy and move assignment for Status.
   Result& operator=(const absl::Status& status) {
     this->Construct(status);
     return *this;
@@ -299,34 +198,187 @@ class Result : private internal_result::ResultStorage<T>,
     return *this;
   }
 
-  /// \brief Value assignment
-  /// These assignment operators always destroy the existing value and
-  /// reconstruct the value. This may be surprising, since it is unlike
-  /// std::optional and many other monadic C++ types.
-  template <typename U>
-  typename std::enable_if_t<
-      (!IsResult<internal::remove_cvref_t<U>>::value &&
-       !std::is_same<absl::Status, internal::remove_cvref_t<U>>::value &&
-       std::is_constructible<value_type, U&&>::value),
-      Result&>
-  operator=(U&& v) {
-    this->emplace_value(std::forward<U>(v));
-    return *this;
+  /// Converting constructors
+
+  /// Constructs a Result<T> from a Result<U> when T is constructible
+  /// from U with implicit and explicit specializations.
+  ///
+  /// Disallowed when T is constructible from Result<U>.
+
+  /// \brief Converting copy constructor (implicit)
+  template <
+      typename U,
+      std::enable_if_t<
+          (internal_result::result_conversion<T, U> &&  //
+           std::is_constructible_v<
+               T, std::add_const_t<std::add_lvalue_reference_t<U>>> &&  //
+           std::is_convertible_v<
+               std::add_const_t<std::add_lvalue_reference_t<U>>, T> &&        //
+           !internal_result::is_constructible_convertible_from<T, Result<U>>  //
+           )>* = nullptr>
+  Result(const Result<U>& rhs) : Base(internal_result::noinit_t{}) {
+    construct_from(rhs);
   }
 
-  template <typename U>
-  typename std::enable_if_t<std::is_constructible<value_type, const U&>::value,
-                            Result&>
-  operator=(const Result<U>& rhs) {
+  /// \brief Converting copy constructor (explicit)
+  template <
+      typename U,
+      std::enable_if_t<
+          (internal_result::result_conversion<T, U> &&  //
+           std::is_constructible_v<
+               T, std::add_const_t<std::add_lvalue_reference_t<U>>> &&  //
+           !std::is_convertible_v<
+               std::add_const_t<std::add_lvalue_reference_t<U>>, T> &&        //
+           !internal_result::is_constructible_convertible_from<T, Result<U>>  //
+           )>* = nullptr>
+  explicit Result(const Result<U>& rhs) : Base(internal_result::noinit_t{}) {
+    construct_from(rhs);
+  }
+
+  /// \brief Converting move constructor (implicit)
+  template <
+      typename U,
+      std::enable_if_t<
+          (internal_result::result_conversion<T, U> &&                        //
+           std::is_constructible_v<T, std::add_rvalue_reference_t<U>> &&      //
+           std::is_convertible_v<std::add_rvalue_reference_t<U>, T> &&        //
+           !internal_result::is_constructible_convertible_from<T, Result<U>>  //
+           )>* = nullptr>
+  Result(Result<U>&& rhs) : Base(internal_result::noinit_t{}) {
+    construct_from(std::move(rhs));
+  }
+
+  /// \brief Converting move constructor (explicit)
+  template <
+      typename U,
+      std::enable_if_t<
+          (internal_result::result_conversion<T, U> &&                        //
+           std::is_constructible_v<T, std::add_rvalue_reference_t<U>> &&      //
+           !std::is_convertible_v<std::add_rvalue_reference_t<U>, T> &&       //
+           !internal_result::is_constructible_convertible_from<T, Result<U>>  //
+           )>* = nullptr>
+  explicit Result(Result<U>&& rhs) : Base(internal_result::noinit_t{}) {
+    construct_from(std::move(rhs));
+  }
+
+  /// \brief Converting assignment operator
+  template <
+      typename U,
+      std::enable_if_t<
+          (internal_result::result_conversion<T, U> &&  //
+           std::is_convertible_v<
+               std::add_const_t<std::add_lvalue_reference_t<U>>, T> &&        //
+           !internal_result::is_constructible_convertible_from<T, Result<U>>  //
+           )>* = nullptr>
+  Result& operator=(const Result<U>& rhs) {
     this->assign_from(rhs);
     return *this;
   }
 
-  template <typename U>
-  typename std::enable_if_t<std::is_constructible<value_type, U&&>::value,
-                            Result&>
-  operator=(Result<U>&& rhs) {
+  template <
+      typename U,
+      std::enable_if_t<
+          (!internal_result::result_conversion<T, U> &&                      //
+           !std::is_same_v<T, U> &&                                          //
+           std::is_convertible_v<std::add_rvalue_reference_t<U>, T> &&       //
+           !internal_result::is_constructible_convertible_from<T, Result<U>  //
+                                                               >)>* = nullptr>
+  Result& operator=(Result<U>&& rhs) {
     this->assign_from(std::move(rhs));
+    return *this;
+  }
+
+  /// \brief Constructs a Result<void> from a Result<U>.
+  template <typename V,  //
+            std::enable_if_t<internal_result::result_void_conversion<T, V>>* =
+                nullptr>
+  Result(const Result<V>& rhs) : Base(internal_result::noinit_t{}) {
+    if (rhs.has_value()) {
+      this->construct_value();
+    } else {
+      this->construct_status(rhs.status());
+    }
+  }
+  template <typename V,  //
+            std::enable_if_t<internal_result::result_void_conversion<T, V>>* =
+                nullptr>
+  Result(Result<V>&& rhs) : Base(internal_result::noinit_t{}) {
+    if (rhs.has_value()) {
+      this->construct_value();
+    } else {
+      this->construct_status(std::move(rhs).status());
+    }
+  }
+
+  /// \brief Conversion to Result<void> assignment.
+  template <typename V,  //
+            std::enable_if_t<internal_result::result_void_conversion<T, V>>* =
+                nullptr>
+  Result& operator=(const Result<V>& rhs) {
+    if (rhs.has_value()) {
+      this->emplace_value();
+    } else {
+      this->assign_status(rhs.status());
+    }
+    return *this;
+  }
+
+  template <typename V,  //
+            std::enable_if_t<internal_result::result_void_conversion<T, V>>* =
+                nullptr>
+  Result& operator=(Result<V>&& rhs) {
+    if (rhs.has_value()) {
+      this->emplace_value();
+    } else {
+      this->assign_status(std::move(rhs).status());
+    }
+    return *this;
+  }
+
+  /// Forwarding constructors.
+
+  /// \brief Constructs a non-empty `Result` direct-initialized value of type
+  /// `T` from the arguments `std::forward<Args>(args)...`  within the `Result`.
+  template <typename... Args>
+  Result(in_place_t, Args&&... args)
+      : Base(internal_result::value_t{}, std::forward<Args>(args)...) {}
+
+  /// Constructs a non-empty `Result` direct-initialized value of type `T` from
+  /// the arguments of an initializer_list and `std::forward<Args>(args)...`.
+  template <typename U, typename... Args>
+  Result(in_place_t, std::initializer_list<U> il, Args&&... args)
+      : Base(internal_result::value_t{}, il, std::forward<Args>(args)...) {}
+
+  /// Single value forwarding constructors
+
+  /// Disallowed when T is constructible from Result<U> except when T is U.
+  /// Disallowed when absl::Status is constructible from U except when T is U.
+
+  /// \brief Value constructor (implicit)
+  template <typename U,
+            std::enable_if_t<(internal_result::value_conversion<T, U> &&
+                              std::is_constructible_v<T, U&&> &&
+                              std::is_convertible_v<U&&, T>  //
+                              )>* = nullptr>
+  Result(U&& v) : Base(internal_result::value_t{}, std::forward<U>(v)) {}
+
+  /// \brief Value constructor (explicit)
+  template <typename U,
+            std::enable_if_t<(internal_result::value_conversion<T, U> &&
+                              std::is_constructible_v<T, U&&> &&
+                              !std::is_convertible_v<U&&, T>  //
+                              )>* = nullptr>
+  explicit Result(U&& v)
+      : Base(internal_result::value_t{}, std::forward<U>(v)) {}
+
+  /// \brief Value assignment
+  template <typename U,
+            std::enable_if_t<(internal_result::value_conversion<T, U> &&
+                              std::is_constructible_v<T, U&&> &&
+                              std::is_convertible_v<U&&, T>  //
+                              )>* = nullptr>
+  Result& operator=(U&& v) {
+    this->emplace_value(std::forward<U>(v));
     return *this;
   }
 
@@ -339,9 +391,9 @@ class Result : private internal_result::ResultStorage<T>,
   ///   opt.emplace(arg1,arg2,arg3);  // Constructs Foo(arg1,arg2,arg3)
   ///
   template <typename... Args>
-  typename std::enable_if_t<((std::is_void_v<value_type> &&
+  typename std::enable_if_t<((std::is_same<void, T>::value &&
                               sizeof...(Args) == 0) ||
-                             std::is_constructible_v<value_type, Args&&...>),
+                             std::is_constructible_v<T, Args&&...>),
                             reference_type>
   emplace(Args&&... args) {
     this->emplace_value(std::forward<Args>(args)...);
@@ -352,8 +404,7 @@ class Result : private internal_result::ResultStorage<T>,
 
   template <typename U, typename... Args>
   typename std::enable_if_t<
-      std::is_constructible<value_type, std::initializer_list<U>&,
-                            Args&&...>::value,
+      std::is_constructible_v<T, std::initializer_list<U>&, Args&&...>,
       reference_type>
   emplace(std::initializer_list<U> il, Args&&... args) {
     this->emplace_value(il, std::forward<Args>(args)...);
@@ -388,37 +439,36 @@ class Result : private internal_result::ResultStorage<T>,
 
   template <typename U>
   std::enable_if_t<
-      (std::is_void<U>::value && std::is_void<T>::value) ||
-      std::is_constructible<T, std::add_lvalue_reference_t<const U>>::value>
+      (std::is_same_v<void, T> && std::is_same_v<void, U>) ||
+      std::is_constructible_v<T, std::add_lvalue_reference_t<const U>>>
   Construct(const Result<U>& u) {
     *this = u;
   }
 
   template <typename U>
-  std::enable_if_t<
-      (std::is_void<U>::value && std::is_void<T>::value) ||
-      std::is_constructible<T, std::add_rvalue_reference_t<U>>::value>
+  std::enable_if_t<(std::is_same_v<void, T> && std::is_same_v<void, U>) ||
+                   std::is_constructible_v<T, std::add_rvalue_reference_t<U>>>
   Construct(Result<U>&& u) {
     *this = std::move(u);
   }
 
   template <typename U>
   std::enable_if_t<!IsResult<internal::remove_cvref_t<U>>::value &&
-                   std::is_constructible<T, U&&>::value>
+                   std::is_constructible_v<T, U&&>>
   Construct(U&& u) {
     this->emplace_value(std::forward<U>(u));
   }
 
   template <typename... Args>
-  std::enable_if_t<(std::is_void<T>::value && sizeof...(Args) == 0) ||
-                   std::is_constructible<T, Args&&...>::value>
+  std::enable_if_t<(std::is_same_v<void, T> && sizeof...(Args) == 0) ||
+                   std::is_constructible_v<T, Args&&...>>
   Construct(in_place_t, Args&&... args) {
     this->emplace_value(std::forward<Args>(args)...);
   }
 
   template <typename U, typename... Args>
   std::enable_if_t<
-      std::is_constructible<T, std::initializer_list<U>, Args&&...>::value>
+      std::is_constructible_v<T, std::initializer_list<U>, Args&&...>>
   Construct(in_place_t, std::initializer_list<U> il, Args&&... args) {
     this->emplace_value(il, std::forward<Args>(args)...);
   }
@@ -519,7 +569,7 @@ class Result : private internal_result::ResultStorage<T>,
     return static_cast<Func&&>(func)(value());
   }
   template <typename Func>
-  inline FlatResult<std::invoke_result_t<Func&&, value_type>>  //
+  inline FlatResult<std::invoke_result_t<Func&&, T>>  //
   operator|(Func&& func) && {
     if (!ok()) return status();
     return static_cast<Func&&>(func)(value());
@@ -553,9 +603,8 @@ class Result : private internal_result::ResultStorage<T>,
   /// This destroys any existing value/error and constructs the contained value
   /// from `v...`.
   template <typename... V>
-  friend std::enable_if_t<((std::is_void<value_type>::value &&
-                            sizeof...(V) == 0) ||
-                           std::is_constructible<value_type, V&&...>::value)>
+  friend std::enable_if_t<((std::is_same_v<void, T> && sizeof...(V) == 0) ||
+                           std::is_constructible_v<T, V&&...>)>
   set_value(Result& result, V&&... v) {
     result.emplace(std::forward<V>(v)...);
   }
@@ -633,8 +682,8 @@ class Result : private internal_result::ResultStorage<T>,
 
 /// \brief Checks if two Result values are equal.
 template <typename T, typename U>
-std::enable_if_t<
-    std::is_same<bool, decltype(std::declval<T>() == std::declval<U>())>::value,
+inline std::enable_if_t<
+    std::is_same_v<bool, decltype(std::declval<T>() == std::declval<U>())>,
     bool>
 operator==(const Result<T>& a, const Result<U>& b) {
   if (a.has_value() != b.has_value()) {
@@ -643,59 +692,43 @@ operator==(const Result<T>& a, const Result<U>& b) {
   return a.has_value() ? a.value() == b.value() : a.status() == b.status();
 }
 
-inline bool operator==(const Result<void>& a, const Result<void>& b) {
+template <typename T, typename U>
+inline std::enable_if_t<(std::is_same_v<void, T> && std::is_same_v<void, U>),
+                        bool>
+operator==(const Result<T>& a, const Result<U>& b) {
   return (a.has_value() == b.has_value()) &&
          (a.has_value() || (a.status() == b.status()));
 }
 
-/// \brief Checks if two Result values are not equal.
 template <typename T, typename U>
-std::enable_if_t<
-    std::is_same<bool, decltype(std::declval<T>() == std::declval<U>())>::value,
-    bool>
-operator!=(const Result<T>& a, const Result<U>& b) {
-  return !(a == b);
-}
-
-inline bool operator!=(const Result<void>& a, const Result<void>& b) {
-  return !(a == b);
-}
-
-/// \brief Checks if a Result has a success value equal to a given value.
-template <typename T, typename U>
-std::enable_if_t<
-    std::is_same<bool, decltype(std::declval<T>() == std::declval<U>())>::value,
+inline std::enable_if_t<
+    std::is_same_v<bool, decltype(std::declval<T>() == std::declval<U>())>,
     bool>
 operator==(const Result<T>& a, const U& b) {
-  return a && a.value() == b;
+  return a.has_value() ? (a.value() == b) : false;
 }
 
-/// \brief Checks if a Result does not have a success value equal to a given
-/// value.
 template <typename T, typename U>
-std::enable_if_t<
-    std::is_same<bool, decltype(std::declval<T>() == std::declval<U>())>::value,
+inline std::enable_if_t<
+    std::is_same_v<bool, decltype(std::declval<T>() == std::declval<U>())>,
     bool>
-operator!=(const Result<T>& a, const U& b) {
+operator==(const T& a, const Result<U>& b) {
+  return b.has_value() ? (b.value() == a) : false;
+}
+
+/// \brief Checks if two Result values are not equal.
+template <typename T, typename U>
+inline bool operator!=(const Result<T>& a, const Result<U>& b) {
   return !(a == b);
 }
 
-/// \brief Checks if a Result has a success value equal to a given value.
 template <typename T, typename U>
-std::enable_if_t<
-    std::is_same<bool, decltype(std::declval<T>() == std::declval<U>())>::value,
-    bool>
-operator==(const U& b, const Result<T>& a) {
-  return a && a.value() == b;
+inline bool operator!=(const Result<T>& a, const U& b) {
+  return !(a == b);
 }
 
-/// \brief Checks if a Result does not have a success value equal to a given
-/// value.
 template <typename T, typename U>
-std::enable_if_t<
-    std::is_same<bool, decltype(std::declval<T>() == std::declval<U>())>::value,
-    bool>
-operator!=(const U& b, const Result<T>& a) {
+inline bool operator!=(const T& a, const Result<U>& b) {
   return !(a == b);
 }
 

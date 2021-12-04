@@ -427,7 +427,7 @@ Future<void> MemoryDriver::DeleteRange(KeyRange range) {
     auto it_range = data.Find(range);
     data.values.erase(it_range.first, it_range.second);
   }
-  return MakeResult();
+  return absl::OkStatus();  // Converted to a ReadyFuture.
 }
 
 void MemoryDriver::ListImpl(ListOptions options,

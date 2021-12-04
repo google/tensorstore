@@ -769,7 +769,7 @@ class FileKeyValueStore
   }
 
   Future<void> DeleteRange(KeyRange range) override {
-    if (range.empty()) return MakeResult();
+    if (range.empty()) return absl::OkStatus();  // Converted to a ReadyFuture.
     TENSORSTORE_RETURN_IF_ERROR(ValidateKeyRange(range));
     return PromiseFuturePair<void>::Link(
                WithExecutor(executor(), DeleteRangeTask{std::move(range)}))

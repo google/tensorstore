@@ -277,8 +277,10 @@ class FutureCallbackRegistration {
 ///     result value type is `Result<remove_const_t<T>>`.
 template <typename T>
 class Promise {
-  static_assert(!std::is_reference<T>::value,
-                "T must not be a reference type.");
+  static_assert(!std::is_reference_v<T>, "T must not be a reference type.");
+  static_assert(!IsFuture<T>, "T may not be a Future type.");
+  static_assert(!IsResult<T>::value, "T may not be a Result type.");
+
   using SharedState = internal_future::FutureStateType<T>;
 
  public:
@@ -303,9 +305,9 @@ class Promise {
   /// Assigns from a compatible `Promise`.
   /// \tparam U The source value type.
   /// \requires `IsFutureConvertible<U, T>::value`.
-  template <typename U>
-  std::enable_if_t<IsFutureConvertible<U, T>::value, Promise&> operator=(
-      Promise<U> x) noexcept {
+  template <typename U,
+            std::enable_if_t<IsFutureConvertible<U, T>::value>* = nullptr>
+  Promise& operator=(Promise<U> x) noexcept {
     rep_ = std::move(internal_future::FutureAccess::rep_pointer(x));
     return *this;
   }
@@ -350,7 +352,7 @@ class Promise {
   /// \returns `true` if the result was not already set.
   template <typename... U>
   std::enable_if_t<(!std::is_const<T>::value &&
-                    (std::is_constructible<result_type, U...>::value)),
+                    std::is_constructible<result_type, U...>::value),
                    bool>
   SetResult(U&&... u) const noexcept {
     return rep().SetResult(std::forward<U>(u)...);
@@ -465,14 +467,15 @@ class Promise {
   template <typename... V>
   friend std::enable_if_t<
       (!std::is_const<T>::value &&
-       std::is_constructible<result_type, std::in_place_t, V...>::value)>
+       std::is_constructible<result_type, std::in_place_t, V...>::value),
+      void>
   set_value(const Promise& promise, V&&... v) {
     promise.SetResult(std::in_place, std::forward<V>(v)...);
   }
 
   /// Implements the Receiver `set_error` operation.
   template <typename... V>
-  friend void set_error(const Promise& promise, Status error) {
+  friend void set_error(const Promise& promise, absl::Status error) {
     promise.SetResult(std::move(error));
   }
 
@@ -500,7 +503,7 @@ class Promise {
 ///
 /// \tparam T The value type.
 template <typename T, typename... U>
-std::enable_if_t<std::is_constructible<Result<T>, U...>::value, ReadyFuture<T>>
+std::enable_if_t<std::is_constructible_v<Result<T>, U...>, ReadyFuture<T>>
 MakeReadyFuture(U&&... u) {
   auto pair = PromiseFuturePair<T>::Make(std::forward<U>(u)...);
   // Release the reference to the promise, which makes the future ready.
@@ -518,8 +521,10 @@ ReadyFuture<const void> MakeReadyFuture();
 ///     result value type is `Result<remove_const_t<T>>`.
 template <typename T>
 class Future {
-  static_assert(!std::is_reference<T>::value,
-                "T must not be a reference type.");
+  static_assert(!std::is_reference_v<T>, "T must not be a reference type.");
+  static_assert(!IsFuture<T>, "T may not be a Future type.");
+  static_assert(!IsResult<T>::value, "T may not be a Result type.");
+
   using SharedState = internal_future::FutureStateType<T>;
 
  public:
@@ -533,13 +538,30 @@ class Future {
   /// \post `!valid()`.
   Future() = default;
 
-  /// Constructs a ready Future from any value that can be implicitly converted
-  /// to `result_type`.
-  template <
-      typename U,
-      std::enable_if_t<std::is_convertible<U&&, result_type>::value>* = nullptr>
-  Future(U&& u)
-      : Future(MakeReadyFuture<std::remove_const_t<T>>(std::forward<U>(u))) {}
+  Future(const Future&) = default;
+  Future(Future&&) = default;
+  Future& operator=(const Future& src) = default;
+  Future& operator=(Future&& src) = default;
+
+  /// Constructs from a compatible `Future`.
+  /// \tparam U The source value type.
+  /// \requires `IsFutureConvertible<U, T>::value`.
+  template <typename U,
+            std::enable_if_t<(!std::is_same_v<U, T> &&
+                              IsFutureConvertible<U, T>::value)>* = nullptr>
+  Future(Future<U> x) noexcept
+      : rep_(std::move(internal_future::FutureAccess::rep_pointer(x))) {}
+
+  /// Assigns from a compatible `Future`.
+  /// \tparam U The source value type.
+  /// \requires `IsFutureConvertible<U, T>::value`.
+  template <typename U,
+            std::enable_if_t<!std::is_same_v<U, T> &&
+                             IsFutureConvertible<U, T>::value>* = nullptr>
+  Future& operator=(Future<U> x) noexcept {
+    rep_ = std::move(internal_future::FutureAccess::rep_pointer(x));
+    return *this;
+  }
 
   /// Constructs a Future from a `Result<Future<U>>`, where `U` is `T` or
   /// `const U` is `T`.
@@ -561,23 +583,38 @@ class Future {
     }
   }
 
-  /// Constructs from a compatible `Future`.
-  /// \tparam U The source value type.
-  /// \requires `IsFutureConvertible<U, T>::value`.
+  /// Construct a ready Future from absl::Status, Result, or values implicitly
+  /// converted to result_type.
+
+  /// \brief Construct a Future<T> with an an absl::Status code.
+  /// \requires `!status` unless T is void.
+  Future(const absl::Status& status)
+      : Future(MakeReadyFuture<std::remove_const_t<T>>(status)) {}
+
+  Future(absl::Status&& status)
+      : Future(MakeReadyFuture<std::remove_const_t<T>>(std::move(status))) {}
+
+  /// Result constructors
+  /// \brief Construct a Future<T> from a Result<U>.
   template <typename U,
             std::enable_if_t<IsFutureConvertible<U, T>::value>* = nullptr>
-  Future(Future<U> x) noexcept
-      : rep_(std::move(internal_future::FutureAccess::rep_pointer(x))) {}
+  Future(const Result<U>& result)
+      : Future(MakeReadyFuture<std::remove_const_t<T>>(result)) {}
 
-  /// Assigns from a compatible `Future`.
-  /// \tparam U The source value type.
-  /// \requires `IsFutureConvertible<U, T>::value`.
-  template <typename U>
-  std::enable_if_t<IsFutureConvertible<U, T>::value, Future&> operator=(
-      Future<U> x) noexcept {
-    rep_ = std::move(internal_future::FutureAccess::rep_pointer(x));
-    return *this;
-  }
+  template <typename U,
+            std::enable_if_t<IsFutureConvertible<U, T>::value>* = nullptr>
+  Future(Result<U>&& result)
+      : Future(MakeReadyFuture<std::remove_const_t<T>>(std::move(result))) {}
+
+  /// Value constructors
+  /// \brief Construct a Future<T> from a value convertible to a Result<T>.
+  template <typename V,
+            std::enable_if_t<(internal_future::value_conversion<T, V> &&
+                              std::is_convertible_v<V&&, result_type>  //
+                              )>* = nullptr>
+  Future(V&& value)
+      : Future(
+            MakeReadyFuture<std::remove_const_t<T>>(std::forward<V>(value))) {}
 
   /// Ignores the future. This method signals intent to ignore the result
   /// to suppress compiler warnings from [[nodiscard]].
@@ -744,6 +781,11 @@ class ReadyFuture : public Future<T> {
   /// Constructs an invalid ReadyFuture.
   ReadyFuture() = default;
 
+  ReadyFuture(const ReadyFuture&) = default;
+  ReadyFuture(ReadyFuture&&) = default;
+  ReadyFuture& operator=(const ReadyFuture& src) = default;
+  ReadyFuture& operator=(ReadyFuture&& src) = default;
+
   /// Constructs a ReadyFuture from an existing Future, which must either be
   /// invalid or ready.
   ///
@@ -755,25 +797,28 @@ class ReadyFuture : public Future<T> {
   }
 
   /// Constructs a ReadyFuture from an existing ReadyFuture.
-  template <typename SourceT,
-            std::enable_if_t<IsFutureConvertible<SourceT, T>::value>* = nullptr>
-  ReadyFuture(ReadyFuture<SourceT> other) : Future<T>(std::move(other)) {}
+  template <typename U,
+            std::enable_if_t<(!std::is_same_v<T, U> &&
+                              IsFutureConvertible<U, T>::value)>* = nullptr>
+  ReadyFuture(ReadyFuture<U> other) : Future<T>(std::move(other)) {}
 
   /// Assigns a ReadyFuture from an existing ReadyFuture.
-  template <typename SourceT>
-  std::enable_if_t<IsFutureConvertible<SourceT, T>::value, ReadyFuture&>
-  operator=(ReadyFuture<SourceT> other) {
+  template <typename U,
+            std::enable_if_t<(!std::is_same_v<T, U> &&
+                              IsFutureConvertible<U, T>::value)>* = nullptr>
+  ReadyFuture& operator=(ReadyFuture<U> other) {
     Future<T>::operator=(std::move(other));
     return *this;
   }
 
-  /// Returns a reference to the result, guaranteed not to block.
+  /// Returns a reference to the result, guaranteed not to
+  /// block.
   result_type& result() const {
     return internal_future::FutureAccess::rep(*this).result;
   }
 
-  /// Returns a reference to the value contained in the result, guaranteed not
-  /// to block.
+  /// Returns a reference to the value contained in the
+  /// result, guaranteed not to block.
   std::add_lvalue_reference_t<T> value() const { return result().value(); }
 
  private:
@@ -902,10 +947,9 @@ class PromiseFuturePair {
   /// calling `Promise::SetResult`) before the last Promise reference is
   /// released.
   template <typename... ResultInit>
-  static std::enable_if_t<
-      (sizeof...(ResultInit) > 0 &&
-       std::is_constructible<Result<T>, ResultInit...>::value),
-      PromiseFuturePair>
+  static std::enable_if_t<(sizeof...(ResultInit) > 0 &&
+                           std::is_constructible_v<Result<T>, ResultInit...>),
+                          PromiseFuturePair>
   Make(ResultInit&&... init) {
     auto* state = new StateType(std::forward<ResultInit>(init)...);
     return MakeFromState(state);
@@ -1013,7 +1057,7 @@ class PromiseFuturePair {
   ///
   /// \returns The promise/future pair.
   template <typename ResultInit, typename... FutureValue>
-  static std::enable_if_t<std::is_constructible<Result<T>, ResultInit>::value,
+  static std::enable_if_t<std::is_constructible_v<Result<T>, ResultInit>,
                           PromiseFuturePair>
   LinkError(ResultInit&& result_init, Future<FutureValue>... future) {
     return MakeFromState(
