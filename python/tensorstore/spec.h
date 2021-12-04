@@ -46,6 +46,7 @@ void RegisterSpecBindings(pybind11::module m, Executor defer);
 struct PythonSpecObject
     : public GarbageCollectedPythonObject<PythonSpecObject, Spec> {
   constexpr static const char python_type_name[] = "tensorstore.Spec";
+  ~PythonSpecObject() = delete;
 };
 
 using PythonSpec = PythonSpecObject::Handle;

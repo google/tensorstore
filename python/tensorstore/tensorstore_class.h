@@ -35,6 +35,7 @@ struct PythonTensorStoreObject
     : public GarbageCollectedPythonObject<PythonTensorStoreObject,
                                           TensorStore<>> {
   constexpr static const char python_type_name[] = "tensorstore.TensorStore";
+  ~PythonTensorStoreObject() = delete;
 };
 
 using PythonTensorStore = PythonTensorStoreObject::Handle;

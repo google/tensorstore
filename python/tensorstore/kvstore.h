@@ -38,6 +38,7 @@ struct PythonKvStoreSpecObject
     : public GarbageCollectedPythonObject<PythonKvStoreSpecObject,
                                           kvstore::Spec> {
   constexpr static const char python_type_name[] = "tensorstore.KvStore.Spec";
+  ~PythonKvStoreSpecObject() = delete;
 };
 
 using PythonKvStoreSpec = PythonKvStoreSpecObject::Handle;
@@ -45,6 +46,7 @@ using PythonKvStoreSpec = PythonKvStoreSpecObject::Handle;
 struct PythonKvStoreObject
     : public GarbageCollectedPythonObject<PythonKvStoreObject, KvStore> {
   constexpr static const char python_type_name[] = "tensorstore.KvStore";
+  ~PythonKvStoreObject() = delete;
 };
 
 using PythonKvStore = PythonKvStoreObject::Handle;
