@@ -1425,10 +1425,10 @@ bool CastToDimensionSelection(py::handle src, DimensionSelection& out) {
     // Copy new references to elements to temporary vector to ensure they remain
     // valid even after possibly running Python code.
     std::vector<py::object> seq_objs;
-    ssize_t seq_size = PySequence_Fast_GET_SIZE(seq.ptr());
+    Py_ssize_t seq_size = PySequence_Fast_GET_SIZE(seq.ptr());
     seq_objs.reserve(seq_size);
     PyObject** elems = PySequence_Fast_ITEMS(seq.ptr());
-    for (ssize_t i = 0; i < seq_size; ++i) {
+    for (Py_ssize_t i = 0; i < seq_size; ++i) {
       seq_objs.push_back(py::reinterpret_borrow<py::object>(elems[i]));
     }
     for (const auto& obj : seq_objs) {
@@ -1468,7 +1468,7 @@ handle type_caster<tensorstore::internal_python::DimensionSelectionLike>::cast(
 
 bool type_caster<tensorstore::DimRangeSpec>::load(handle src, bool convert) {
   if (!PySlice_Check(src.ptr())) return false;
-  ssize_t start, stop, step;
+  Py_ssize_t start, stop, step;
   if (PySlice_Unpack(src.ptr(), &start, &stop, &step) != 0) {
     return false;
   }

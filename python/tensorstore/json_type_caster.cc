@@ -123,7 +123,7 @@ namespace {
     ::nlohmann::json::array_t arr;
     // Check size on every iteration of loop because size may change during loop
     // due to possible calls back to Python code.
-    for (ssize_t i = 0; i < PySequence_Fast_GET_SIZE(h.ptr()); ++i) {
+    for (Py_ssize_t i = 0; i < PySequence_Fast_GET_SIZE(h.ptr()); ++i) {
       arr.push_back(PyObjectToJson(py::reinterpret_borrow<py::object>(
                                        PySequence_Fast_GET_ITEM(h.ptr(), i)),
                                    max_depth - 1));
@@ -132,7 +132,7 @@ namespace {
   }
   if (py::isinstance<py::dict>(h)) {
     ::nlohmann::json::object_t obj;
-    ssize_t pos = 0;
+    Py_ssize_t pos = 0;
     PyObject* key;
     PyObject* value;
     while (PyDict_Next(h.ptr(), &pos, &key, &value)) {
@@ -149,9 +149,9 @@ namespace {
   // Handle numpy array.
   if (py::isinstance<py::array>(h)) {
     ::nlohmann::json::array_t arr;
-    ssize_t size = PySequence_Size(h.ptr());
+    Py_ssize_t size = PySequence_Size(h.ptr());
     if (size == -1) throw py::error_already_set();
-    for (ssize_t i = 0; i < size; ++i) {
+    for (Py_ssize_t i = 0; i < size; ++i) {
       arr.push_back(PyObjectToJson(
           py::reinterpret_steal<py::object>(PySequence_GetItem(h.ptr(), i)),
           max_depth - 1));

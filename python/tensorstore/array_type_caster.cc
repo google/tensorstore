@@ -96,7 +96,7 @@ struct ConvertFromObject {
   bool operator()(PyObject** from, string_t* to,
                   absl::Status* status) noexcept {
     char* buffer;
-    ssize_t length;
+    Py_ssize_t length;
     if (::PyBytes_AsStringAndSize(*from, &buffer, &length) == -1) {
       ex = std::make_exception_ptr(py::error_already_set());
       return false;
@@ -106,7 +106,7 @@ struct ConvertFromObject {
   }
   bool operator()(PyObject** from, ustring_t* to,
                   absl::Status* status) noexcept {
-    ssize_t length;
+    Py_ssize_t length;
     const char* buffer = ::PyUnicode_AsUTF8AndSize(*from, &length);
     if (!buffer) {
       ex = std::make_exception_ptr(py::error_already_set());
@@ -147,7 +147,7 @@ constexpr const internal::ElementwiseFunction<2, Status*>*
 
 pybind11::object GetNumpyObjectArrayImpl(SharedArrayView<const void> source,
                                          bool is_const) {
-  ssize_t target_shape_ssize_t[NPY_MAXDIMS];
+  Py_ssize_t target_shape_ssize_t[NPY_MAXDIMS];
   std::copy(source.shape().begin(), source.shape().end(), target_shape_ssize_t);
   auto array_obj = py::reinterpret_steal<py::array>(PyArray_NewFromDescr(
       &PyArray_Type, PyArray_DescrFromType(NPY_OBJECT),
@@ -245,8 +245,8 @@ pybind11::object GetNumpyArrayImpl(SharedArrayView<const void> value,
       kConvertDataTypeToNumpyObjectArray[static_cast<size_t>(id)]) {
     return GetNumpyObjectArrayImpl(value, is_const);
   }
-  ssize_t shape[NPY_MAXDIMS];
-  ssize_t strides[NPY_MAXDIMS];
+  Py_ssize_t shape[NPY_MAXDIMS];
+  Py_ssize_t strides[NPY_MAXDIMS];
   std::copy_n(value.shape().data(), value.rank(), shape);
   std::copy_n(value.byte_strides().data(), value.rank(), strides);
   int flags = 0;

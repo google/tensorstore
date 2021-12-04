@@ -1334,7 +1334,7 @@ bool type_caster<tensorstore::kvstore::ReadResult::State>::load(handle src,
                                                                 bool convert) {
   using State = tensorstore::kvstore::ReadResult::State;
   const char* s;
-  ssize_t size;
+  Py_ssize_t size;
   s = PyUnicode_AsUTF8AndSize(src.ptr(), &size);
   if (!s) {
     PyErr_Clear();

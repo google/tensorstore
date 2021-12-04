@@ -127,7 +127,7 @@ NumpyIndexingSpec ParseIndexingSpec(pybind11::handle obj,
     // indices; instead, they are treated as rank-0 boolean arrays.
     if (PyLong_CheckExact(term.ptr()) ||
         (!PyBool_Check(term.ptr()) && !PyArray_Check(term.ptr()))) {
-      ssize_t x = PyNumber_AsSsize_t(term.ptr(), PyExc_IndexError);
+      Py_ssize_t x = PyNumber_AsSsize_t(term.ptr(), PyExc_IndexError);
       if (x != -1 || !PyErr_Occurred()) {
         return builder.AddIndex(static_cast<Index>(x));
       }

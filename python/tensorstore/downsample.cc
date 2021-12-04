@@ -84,7 +84,7 @@ bool type_caster<tensorstore::DownsampleMethod>::load(handle src,
   std::string_view s;
   if (!PyUnicode_Check(src.ptr())) return false;
   if (PyUnicode_READY(src.ptr()) != 0) throw error_already_set();
-  ssize_t size;
+  Py_ssize_t size;
   const char* data = PyUnicode_AsUTF8AndSize(src.ptr(), &size);
   if (!data) throw error_already_set();
   s = std::string_view(data, size);
