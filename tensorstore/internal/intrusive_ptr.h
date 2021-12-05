@@ -226,9 +226,6 @@ struct DefaultIntrusivePtrTraits {
   }
 };
 
-template <typename T, typename R>
-class IntrusivePtr;
-
 /// Tag type to indicate that a new reference to a given object should be
 /// acquired.
 struct acquire_object_ref_t {
@@ -243,6 +240,9 @@ struct adopt_object_ref_t {
 
 constexpr acquire_object_ref_t acquire_object_ref{};
 constexpr adopt_object_ref_t adopt_object_ref{};
+
+template <typename T, typename R>
+class IntrusivePtr;
 
 template <typename T>
 struct IsIntrusivePtr : public std::false_type {};
@@ -311,9 +311,13 @@ class IntrusivePtr {
 
   /// Constructs from a given pointer.  If `p` is not null, acquires a new
   /// reference to `p` by calling `R::increment(p)`.
-  explicit IntrusivePtr(pointer p,
-                        acquire_object_ref_t = acquire_object_ref) noexcept
-      : ptr_(p) {
+  explicit IntrusivePtr(pointer p) noexcept : ptr_(p) {
+    if (ptr_) R::increment(ptr_);
+  }
+
+  /// Constructs from a given pointer.  If `p` is not null, acquires a new
+  /// reference to `p` by calling `R::increment(p)`.
+  explicit IntrusivePtr(pointer p, acquire_object_ref_t) noexcept : ptr_(p) {
     if (ptr_) R::increment(ptr_);
   }
 
@@ -382,7 +386,8 @@ class IntrusivePtr {
   /// Assigns the stored pointer to `rhs`, and calls `R::increment` on `rhs` if
   /// non-null.  If the prior stored pointer was non-null, calls `R::decrement`
   /// on it.
-  void reset(pointer rhs, acquire_object_ref_t = acquire_object_ref) {
+  void reset(pointer rhs) { IntrusivePtr(rhs, acquire_object_ref).swap(*this); }
+  void reset(pointer rhs, acquire_object_ref_t) {
     IntrusivePtr(rhs, acquire_object_ref).swap(*this);
   }
 
@@ -493,11 +498,29 @@ inline IntrusivePtr<T, R> dynamic_pointer_cast(IntrusivePtr<U, R> p) {
 /// count is decremented.
 ///
 /// This requires an allocation for the `shared_ptr` control block.
+///
+/// Example:
+///   auto x = IntrusiveToShared(p);  //  'x' is a std::shared_ptr<T>
 template <typename T, typename Traits>
 std::shared_ptr<T> IntrusiveToShared(internal::IntrusivePtr<T, Traits> p) {
   auto* ptr = p.get();
   return std::shared_ptr<T>(
       std::make_shared<internal::IntrusivePtr<T, Traits>>(std::move(p)), ptr);
+}
+
+/// Creates an `IntrusivePtr<T>` while avoiding issues creating temporaries
+/// during the construction process, a shorthand for
+/// `IntrusivePtr<T, R>(new T(...), acquire_object_ref)`.
+///
+/// Example:
+///   auto p = MakeIntrusivePtr<X>(args...);
+///   // 'p' is an IntrusivePtr<X, DefaultIntrusivePtrTraits>
+///
+///   auto px = MakeIntrusivePtr<X, XTraits>(5);
+///   // 'px' is an IntrusivePtr<X, XTraits>
+template <typename T, typename R = DefaultIntrusivePtrTraits, typename... Args>
+inline IntrusivePtr<T, R> MakeIntrusivePtr(Args&&... args) {
+  return IntrusivePtr<T, R>(new T(std::forward<Args>(args)...));
 }
 
 }  // namespace internal

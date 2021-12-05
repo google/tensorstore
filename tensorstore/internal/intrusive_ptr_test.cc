@@ -329,11 +329,18 @@ TEST(IntrusivePtrTest, DynamicPointerCastFailure) {
   EXPECT_EQ(nullptr, p2.get());
 }
 
+TEST(IntrusivePtrTest, MakeIntrusive) {
+  auto x = tensorstore::internal::MakeIntrusivePtr<X>();
+  EXPECT_EQ(1, x->use_count());
+  EXPECT_NE(nullptr, x.get());
+}
+
 }  // namespace default_behavior
 
 namespace custom_increment_decrement_functions {
 class X {
  public:
+  X(int v) : v_(v) {}
   virtual ~X() = default;
   friend void intrusive_ptr_increment(X* p) { ++p->ref_count_; }
   friend void intrusive_ptr_decrement(X* p) {
@@ -342,24 +349,38 @@ class X {
     }
   }
   std::uint32_t ref_count_{0};
+  int v_{0};
 };
 
 class Y : public X {
-  // ...
+ public:
+  using X::X;
 };
 
 TEST(IntrusivePtrTest, CustomIncrementDecrementFunctions) {
-  IntrusivePtr<X> x1(new X);
+  IntrusivePtr<X> x1(new X(1));
   EXPECT_EQ(1, x1->ref_count_);
 
   IntrusivePtr<X> x2 = x1;
   EXPECT_EQ(2, x2->ref_count_);
 
-  IntrusivePtr<Y> y1(new Y);
+  IntrusivePtr<Y> y1(new Y(2));
   IntrusivePtr<X> y2 = y1;
   IntrusivePtr<Y> y3 = dynamic_pointer_cast<Y>(y2);
   EXPECT_EQ(y2, y1);
   EXPECT_EQ(y3, y1);
+}
+
+TEST(IntrusivePtrTest, MakeIntrusiveWithCustomIncrementDecrement) {
+  auto x = tensorstore::internal::MakeIntrusivePtr<X>(1);
+  EXPECT_EQ(1, x->ref_count_);
+  EXPECT_NE(nullptr, x.get());
+  EXPECT_EQ(1, x->v_);
+
+  auto y = tensorstore::internal::MakeIntrusivePtr<Y>(2);
+  EXPECT_EQ(1, y->ref_count_);
+  EXPECT_NE(nullptr, y.get());
+  EXPECT_EQ(2, y->v_);
 }
 
 }  // namespace custom_increment_decrement_functions
@@ -369,12 +390,16 @@ namespace custom_traits {
 class X {
  public:
   // ...
+  X(int v) : v_(v) {}
   virtual ~X() = default;
+
   std::uint32_t ref_count_{0};
+  int v_{0};
 };
 
 class Y : public X {
-  // ...
+ public:
+  using X::X;
 };
 
 struct XTraits {
@@ -387,17 +412,29 @@ struct XTraits {
 };
 
 TEST(IntrusivePtrTest, CustomTraits) {
-  IntrusivePtr<X, XTraits> x1(new X);
+  IntrusivePtr<X, XTraits> x1(new X(2));
   EXPECT_EQ(1, x1->ref_count_);
 
   IntrusivePtr<X, XTraits> x2 = x1;
   EXPECT_EQ(2, x2->ref_count_);
 
-  IntrusivePtr<Y, XTraits> y1(new Y);
+  IntrusivePtr<Y, XTraits> y1(new Y(3));
   IntrusivePtr<X, XTraits> y2 = y1;
   IntrusivePtr<Y, XTraits> y3 = dynamic_pointer_cast<Y>(y2);
   EXPECT_EQ(y2, y1);
   EXPECT_EQ(y3, y1);
+}
+
+TEST(IntrusivePtrTest, MakeIntrusiveWithCustomTraits) {
+  auto x = tensorstore::internal::MakeIntrusivePtr<X, XTraits>(2);
+  EXPECT_EQ(1, x->ref_count_);
+  EXPECT_NE(nullptr, x.get());
+  EXPECT_EQ(2, x->v_);
+
+  auto y = tensorstore::internal::MakeIntrusivePtr<Y, XTraits>(3);
+  EXPECT_EQ(1, y->ref_count_);
+  EXPECT_NE(nullptr, y.get());
+  EXPECT_EQ(3, y->v_);
 }
 
 struct InvokeInDestructorType
