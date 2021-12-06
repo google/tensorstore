@@ -279,7 +279,7 @@ template <typename T>
 class Promise {
   static_assert(!std::is_reference_v<T>, "T must not be a reference type.");
   static_assert(!IsFuture<T>, "T may not be a Future type.");
-  static_assert(!IsResult<T>::value, "T may not be a Result type.");
+  static_assert(!IsResult<T>, "T may not be a Result type.");
 
   using SharedState = internal_future::FutureStateType<T>;
 
@@ -523,7 +523,7 @@ template <typename T>
 class Future {
   static_assert(!std::is_reference_v<T>, "T must not be a reference type.");
   static_assert(!IsFuture<T>, "T may not be a Future type.");
-  static_assert(!IsResult<T>::value, "T may not be a Result type.");
+  static_assert(!IsResult<T>, "T may not be a Result type.");
 
   using SharedState = internal_future::FutureStateType<T>;
 

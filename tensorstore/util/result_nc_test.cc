@@ -66,6 +66,16 @@ void BasicNonCompile() {
   /// FIXME: Properly specialize on <const void> vs. <void>.
   /// This is in addition to enabling const, above.
   EXPECT_NON_COMPILE("static_assert", Result<const void>{std::in_place});
+
+  // Result<Result<>> Omits some constructor forms.
+  EXPECT_NON_COMPILE("no matching", Result<Result<int>> r(Result<int>(3)););
+  EXPECT_NON_COMPILE("no viable conversion",
+                     Result<Result<int>> r = Result<int>(3););
+
+  // Result<std::unique_ptr<int>> copy-ctor/copy-assignment unavailable.
+  std::unique_ptr<int> ptr;
+  EXPECT_NON_COMPILE("no matching", Result<std::unique_ptr<int>> r(ptr););
+  EXPECT_NON_COMPILE("no viable", Result<std::unique_ptr<int>> r; r = ptr;);
 }
 
 }  // namespace

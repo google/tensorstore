@@ -1153,10 +1153,10 @@ CopyTransformedArray(const SourceResult& source, const DestResult& dest) {
       "Arrays must have compatible ranks.");
   static_assert(!std::is_const<typename Dest::Element>::value,
                 "Dest array must have a non-const element type.");
-  if constexpr (IsResult<SourceResult>::value) {
+  if constexpr (IsResult<SourceResult>) {
     if (!source.ok()) return source.status();
   }
-  if constexpr (IsResult<DestResult>::value) {
+  if constexpr (IsResult<DestResult>) {
     if (!dest.ok()) return dest.status();
   }
   return internal_index_space::CopyTransformedArrayImpl(UnwrapResult(source),

@@ -980,59 +980,6 @@ TEST(ResultTest, MakeResult) {
   }
 }
 
-// Tests of Result::Construct.
-
-TEST(ResultConstructTest, AssignStatusCopy) {
-  Result<int> res = absl::UnknownError("");
-  const absl::Status status(absl::StatusCode::kUnknown, "new");
-  res.Construct(status);
-  EXPECT_FALSE(res);
-  EXPECT_EQ(status, res.status());
-}
-
-TEST(ResultConstructTest, AssignStatusMove) {
-  Result<int> res = absl::UnknownError("");
-  absl::Status status(absl::StatusCode::kUnknown, "new");
-  res.Construct(absl::UnknownError("new"));
-  EXPECT_FALSE(res);
-  EXPECT_EQ(status, res.status());
-}
-
-TEST(ResultConstructTest, AssignResultCopy) {
-  Result<int> res = absl::UnknownError("");
-  Result<int> other(3);
-  res.Construct(other);
-  EXPECT_EQ(res, other);
-}
-
-TEST(ResultConstructTest, AssignResultMove) {
-  Result<int> res = absl::UnknownError("");
-  Result<int> other(3);
-  res.Construct(Result<int>(3));
-  EXPECT_EQ(res, other);
-}
-
-TEST(ResultConstructTest, AssignValue) {
-  Result<int> res = absl::UnknownError("");
-  Result<int> other(3);
-  res.Construct(3);
-  EXPECT_EQ(res, other);
-}
-
-TEST(ResultConstructTest, AssignInPlace) {
-  Result<int> res = absl::UnknownError("");
-  Result<int> other(3);
-  res.Construct(tensorstore::in_place, 3);
-  EXPECT_EQ(res, other);
-}
-
-TEST(ResultConstructTest, AssignInPlaceInitializerList) {
-  Result<std::vector<int>> res = absl::UnknownError("");
-  Result<std::vector<int>> other(tensorstore::in_place, {1, 2, 3});
-  res.Construct(tensorstore::in_place, {1, 2, 3});
-  EXPECT_EQ(res, other);
-}
-
 TEST(ResultTest, AssignOrReturn) {
   const auto Helper = [](Result<int> r) {
     TENSORSTORE_ASSIGN_OR_RETURN(auto x, r);

@@ -686,7 +686,11 @@ class FutureState : public FutureStateBase {
   template <typename... Args>
   bool SetResult(Args&&... args) noexcept {
     if (!this->LockResult()) return false;
-    result.Construct(std::forward<Args>(args)...);
+    // Destroy/construct Result<T> in-place.
+    result.~Result<T>();
+    ::new (static_cast<void*>(&this->result))
+        Result<T>(std::forward<Args>(args)...);
+
     // FIXME: Handle exceptions thrown by `Construct`.
     this->CommitResult();
     return true;

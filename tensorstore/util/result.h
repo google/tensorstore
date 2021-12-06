@@ -35,13 +35,11 @@ namespace tensorstore {
 template <typename T>
 class [[nodiscard]] Result;
 
-/// Bool-valued metafunction that evaluates to `true` if `T` is an instance of
-/// `Result`.
+/// IsResult evaluates to `true` if `T` is an instance of `Result`.
 template <typename T>
-struct IsResult : public std::false_type {};
-
+constexpr inline bool IsResult = false;
 template <typename T>
-struct IsResult<Result<T>> : public std::true_type {};
+constexpr inline bool IsResult<Result<T>> = true;
 
 /// UnwrapResultType<T> maps
 ///
@@ -72,7 +70,7 @@ using FlatMapResultType = Result<MapType<UnwrapResultType<T>...>>;
 /// Type alias used by initial overloads of the "Pipeline" operator|.
 template <typename T, typename Func>
 using PipelineResultType =
-    std::enable_if_t<IsResult<std::invoke_result_t<Func&&, T>>::value,
+    std::enable_if_t<IsResult<std::invoke_result_t<Func&&, T>>,
                      std::invoke_result_t<Func&&, T>>;
 
 // in_place and in_place_type are disambiguation tags that can be passed to the
@@ -128,7 +126,6 @@ class Result : private internal_result::ResultStorage<T>,
                private internal_result::MoveAssignBase<T> {
   static_assert(!std::is_reference_v<T>, "T must not be a reference");
   static_assert(!std::is_array_v<T>, "T must not be a C array type");
-
   static_assert(!std::is_const_v<T> && !std::is_volatile_v<T>,
                 "T must not be cv-qualified");
 
@@ -148,15 +145,13 @@ class Result : private internal_result::ResultStorage<T>,
   ~Result() = default;
 
   /// Constructs an error Result with a code of `absl::StatusCode::kUnknown`.
-  /// FIXME: Mark explicit.
-  Result() : Base(internal_result::noinit_t{}) {
+  explicit Result() : Base(internal_result::noinit_t{}) {
     this->construct_status(absl::UnknownError(""));
   }
 
   /// Copy and move constructors, standard semantics
   Result(const Result& src) = default;
   Result(Result&& src) = default;
-
   Result& operator=(const Result& src) = default;
   Result& operator=(Result&& src) = default;
 
@@ -168,33 +163,43 @@ class Result : private internal_result::ResultStorage<T>,
     if constexpr (std::is_void_v<value_type>) {
       if (status.ok()) {
         this->construct_value();
-      } else {
-        this->construct_status(status);
+        return;
       }
-    } else {
-      this->construct_status(status);
-      TENSORSTORE_CHECK(!status.ok());
     }
+    TENSORSTORE_CHECK(!status.ok());
+    this->construct_status(status);
   }
   Result(absl::Status&& status) : Base(internal_result::noinit_t{}) {
     if constexpr (std::is_void_v<value_type>) {
       if (status.ok()) {
         this->construct_value();
-      } else {
-        this->construct_status(std::move(status));
+        return;
       }
-    } else {
-      this->construct_status(std::move(status));
-      TENSORSTORE_CHECK(!status.ok());
     }
+    TENSORSTORE_CHECK(!status.ok());
+    this->construct_status(status);
   }
 
   Result& operator=(const absl::Status& status) {
-    this->Construct(status);
+    if constexpr (std::is_void_v<value_type>) {
+      if (status.ok()) {
+        this->emplace_value();
+        return *this;
+      }
+    }
+    TENSORSTORE_CHECK(!status.ok());
+    this->assign_status(status);
     return *this;
   }
   Result& operator=(absl::Status&& status) {
-    this->Construct(std::move(status));
+    if constexpr (std::is_void_v<value_type>) {
+      if (status.ok()) {
+        this->emplace_value();
+        return *this;
+      }
+    }
+    TENSORSTORE_CHECK(!status.ok());
+    this->assign_status(std::move(status));
     return *this;
   }
 
@@ -409,68 +414,6 @@ class Result : private internal_result::ResultStorage<T>,
   emplace(std::initializer_list<U> il, Args&&... args) {
     this->emplace_value(il, std::forward<Args>(args)...);
     return this->value_;
-  }
-
-  void Construct(const absl::Status& status) {
-    if constexpr (std::is_void_v<value_type>) {
-      if (status.ok()) {
-        this->emplace_value();
-      } else {
-        this->assign_status(status);
-      }
-    } else {
-      TENSORSTORE_CHECK(!status.ok());
-      this->assign_status(status);
-    }
-  }
-
-  void Construct(absl::Status&& status) {
-    if constexpr (std::is_void_v<value_type>) {
-      if (status.ok()) {
-        this->emplace_value();
-      } else {
-        this->assign_status(status);
-      }
-    } else {
-      TENSORSTORE_CHECK(!status.ok());
-      this->assign_status(status);
-    }
-  }
-
-  template <typename U>
-  std::enable_if_t<
-      (std::is_same_v<void, T> && std::is_same_v<void, U>) ||
-      std::is_constructible_v<T, std::add_lvalue_reference_t<const U>>>
-  Construct(const Result<U>& u) {
-    *this = u;
-  }
-
-  template <typename U>
-  std::enable_if_t<(std::is_same_v<void, T> && std::is_same_v<void, U>) ||
-                   std::is_constructible_v<T, std::add_rvalue_reference_t<U>>>
-  Construct(Result<U>&& u) {
-    *this = std::move(u);
-  }
-
-  template <typename U>
-  std::enable_if_t<!IsResult<internal::remove_cvref_t<U>>::value &&
-                   std::is_constructible_v<T, U&&>>
-  Construct(U&& u) {
-    this->emplace_value(std::forward<U>(u));
-  }
-
-  template <typename... Args>
-  std::enable_if_t<(std::is_same_v<void, T> && sizeof...(Args) == 0) ||
-                   std::is_constructible_v<T, Args&&...>>
-  Construct(in_place_t, Args&&... args) {
-    this->emplace_value(std::forward<Args>(args)...);
-  }
-
-  template <typename U, typename... Args>
-  std::enable_if_t<
-      std::is_constructible_v<T, std::initializer_list<U>, Args&&...>>
-  Construct(in_place_t, std::initializer_list<U> il, Args&&... args) {
-    this->emplace_value(il, std::forward<Args>(args)...);
   }
 
   /// Ignores the result. This method signals intent to ignore the result
@@ -812,7 +755,7 @@ FlatResult<std::invoke_result_t<Func&&, UnwrapQualifiedResultType<T>...>>
 MapResult(Func&& func, T&&... arg) {
   absl::Status status;
   if (!([&] {
-        if constexpr (IsResult<internal::remove_cvref_t<T>>::value) {
+        if constexpr (IsResult<internal::remove_cvref_t<T>>) {
           if (!arg.ok()) {
             status = arg.status();
             return false;
@@ -895,7 +838,7 @@ internal_result::ChainResultType<T, Func0, Func...> ChainResult(
 #define TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_IMPL(temp, decl, expr,      \
                                                    error_expr, ...)       \
   auto temp = (expr);                                                     \
-  static_assert(tensorstore::IsResult<decltype(temp)>::value,             \
+  static_assert(tensorstore::IsResult<decltype(temp)>,                    \
                 "TENSORSTORE_ASSIGN_OR_RETURN requires a Result value."); \
   if (ABSL_PREDICT_FALSE(!temp)) {                                        \
     auto _ = std::move(temp).status();                                    \
