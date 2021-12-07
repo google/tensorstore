@@ -39,6 +39,7 @@
 #include "tensorstore/util/str_cat.h"
 
 namespace {
+using tensorstore::AnyFuture;
 using tensorstore::Future;
 using tensorstore::FutureCallbackRegistration;
 using tensorstore::InlineExecutor;
@@ -1608,7 +1609,7 @@ TEST(PromiseFuturePairTest, LinkDestroyCallback) {
 
 // Tests that WaitAllFuture works with no futures.
 TEST(WaitAllFuture, NoFuturesSpan) {
-  std::vector<Future<void>> futures;
+  std::vector<AnyFuture> futures;
   auto future = WaitAllFuture(futures);
   ASSERT_TRUE(future.ready());
   ASSERT_TRUE(future.result().ok());
@@ -1628,8 +1629,8 @@ TEST(WaitAllFuture, ReadyFuture) {
 }
 
 TEST(WaitAllFuture, ReadyFutureSpanError) {
-  std::vector<Future<void>> futures{MakeReadyFuture<void>(absl::OkStatus()),
-                                    MakeReadyFuture<void>(absl::OkStatus())};
+  std::vector<AnyFuture> futures{MakeReadyFuture<void>(absl::OkStatus()),
+                                 MakeReadyFuture<void>(absl::OkStatus())};
   auto future = WaitAllFuture(futures);
   ASSERT_TRUE(future.ready());
   EXPECT_TRUE(future.result().ok());
@@ -1641,7 +1642,7 @@ TEST(WaitAllFuture, ReadyFutureSpanError) {
 }
 
 TEST(WaitAllFuture, ReadyFutureSpan) {
-  std::vector<Future<void>> futures;
+  std::vector<AnyFuture> futures;
   for (int i = 0; i < 16; i++) {
     auto future = WaitAllFuture(futures);
     ASSERT_TRUE(future.ready());
@@ -1831,22 +1832,14 @@ TEST(FutureTest, ReturnIfError) {
 TEST(FutureTest, UntypedExecuteWhenReadyAlreadyDone) {
   Future<int> f(3);
   bool ran = false;
-  tensorstore::internal_future::UntypedExecuteWhenReady(
-      FutureAccess::rep_pointer(f),
-      [&](tensorstore::internal_future::FutureStatePointer state) {
-        ran = true;
-      });
+  f.UntypedExecuteWhenReady([&](AnyFuture f) { ran = true; });
   EXPECT_TRUE(ran);
 }
 
 TEST(FutureTest, UntypedExecuteWhenReadyNotAlreadyDone) {
   auto [promise, future] = PromiseFuturePair<int>::Make();
   bool ran = false;
-  tensorstore::internal_future::UntypedExecuteWhenReady(
-      FutureAccess::rep_pointer(future),
-      [&](tensorstore::internal_future::FutureStatePointer state) {
-        ran = true;
-      });
+  future.UntypedExecuteWhenReady([&](AnyFuture f) { ran = true; });
   EXPECT_FALSE(ran);
   promise.SetResult(5);
   EXPECT_TRUE(ran);

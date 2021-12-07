@@ -467,13 +467,13 @@ ReadyFuture<const void> MakeReadyFuture() {
   return *future;
 }
 
-Future<void> WaitAllFuture(tensorstore::span<Future<void>> futures) {
+Future<void> WaitAllFuture(tensorstore::span<const AnyFuture> futures) {
   auto& f = futures;
   switch (f.size()) {
     case 0:
       return MakeReadyFuture<void>(absl::OkStatus());
     case 1:
-      return f[0];
+      return PromiseFuturePair<void>::LinkError(absl::OkStatus(), f[0]).future;
     case 2:
       return PromiseFuturePair<void>::LinkError(absl::OkStatus(), f[0], f[1])
           .future;

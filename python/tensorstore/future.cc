@@ -221,6 +221,7 @@ pybind11::object GetCancelledError() {
   return python_imports.asyncio_cancelled_error_class(py::none());
 }
 
+// FIXME: Change to AnyFuture.
 void InterruptibleWaitImpl(internal_future::FutureStateBase& future,
                            absl::Time deadline,
                            PythonFutureObject* python_future) {
@@ -237,11 +238,10 @@ void InterruptibleWaitImpl(internal_future::FutureStateBase& future,
     cancel_callback.emplace(python_future, notify_done);
   }
   ScopedFutureCallbackRegistration registration{
-      internal_future::UntypedExecuteWhenReady(
-          internal_future::FutureStatePointer(&future),
-          [&event](internal_future::FutureStatePointer future) {
-            event.Set();
-          })};
+      internal_future::FutureAccess::Construct<AnyFuture>(
+          internal_future::FutureStatePointer(&future))
+          .UntypedExecuteWhenReady([&event](auto future) { event.Set(); })};
+
   while (true) {
     ScopedEventWaitResult wait_result;
     {

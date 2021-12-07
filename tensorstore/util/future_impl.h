@@ -37,6 +37,7 @@
 
 namespace tensorstore {
 
+class [[nodiscard]] AnyFuture;
 template <typename T>
 class [[nodiscard]] Future;
 template <typename T>
@@ -101,7 +102,29 @@ class FutureAccess {
   static auto rep_pointer(T&& x) -> decltype((std::declval<T>().rep_)) {
     return std::forward<T>(x).rep_;
   }
+
+  template <typename T>
+  using SharedStateType =
+      internal::remove_cvref_t<decltype(FutureAccess::rep(std::declval<T>()))>;
 };
+
+// Metafunction to select the ReadyFuture<T> type for a given future.
+template <typename T>
+struct ReadyFutureTypeImpl {
+  using type = AnyFuture;
+};
+template <typename T>
+struct ReadyFutureTypeImpl<Future<T>> {
+  using type = ReadyFuture<T>;
+};
+template <typename T>
+struct ReadyFutureTypeImpl<ReadyFuture<T>> {
+  using type = ReadyFuture<T>;
+};
+
+template <typename T>
+using ReadyFutureType =
+    typename ReadyFutureTypeImpl<internal::remove_cvref_t<T>>::type;
 
 /// Returns a pointer to the Mutex guarding the callback lists for `ptr`.
 ///
@@ -152,6 +175,9 @@ class FutureStateBase {
  public:
   FutureStateBase();
   virtual ~FutureStateBase();
+
+  virtual bool has_value() = 0;
+  virtual absl::Status GetStatusCopy() = 0;
 
   /// Registers a ready callback.
   ///
@@ -402,6 +428,46 @@ using FutureStatePointer =
 using PromiseStatePointer =
     internal::IntrusivePtr<FutureStateBase, PromisePointerTraits>;
 
+/// Implementation of `FutureStateBase` with a concrete type, `T`.
+/// All future objects use an instance of FutureState as selected by
+/// the `FutureStateType` metafunction.
+template <typename T>
+class FutureState : public FutureStateBase {
+ public:
+  template <typename... Args>
+  bool SetResult(Args&&... args) noexcept {
+    if (!this->LockResult()) return false;
+    // Destroy/construct Result<T> in-place.
+    result.~Result<T>();
+    ::new (static_cast<void*>(&this->result))
+        Result<T>(std::forward<Args>(args)...);
+
+    // FIXME: Handle exceptions thrown by `Construct`.
+    this->CommitResult();
+    return true;
+  }
+
+  template <typename... Args>
+  explicit FutureState(Args&&... args) : result(std::forward<Args>(args)...) {}
+
+  ~FutureState() override {}
+
+  bool has_value() final { return result.has_value(); };
+  absl::Status GetStatusCopy() final {
+    // FIXME: This should be a feature of Result<T>
+    if (result.has_value()) return absl::OkStatus();
+    return result.status();
+  }
+
+  Result<T> result;
+};
+
+template <typename T>
+using FutureStateType = FutureState<std::remove_const_t<T>>;
+
+template <typename T>
+using ResultType = internal::CopyQualifiers<T, Result<std::remove_const_t<T>>>;
+
 /// Base class representing a registered callback in the
 /// FutureStateBase::ready_callbacks_ or FutureStateBase::promise_callbacks_
 /// list.
@@ -557,19 +623,21 @@ class ResultNotNeededCallbackBase : public CallbackBase {
 };
 
 /// Implements a future callback for use with ExecuteWhenReady.
-/// \tparam T The value type of the future.
+/// \tparam ReadyType The `ReadyFuture<T>` or `AnyFuture` type.
 /// \tparam Callback Type of unary function object called with a
-///     `ReadyFuture<T>` when the future becomes ready.
-template <typename T, typename Callback>
+///     `ReadyType` when the future becomes ready.
+template <typename ReadyType, typename Callback>
 class ReadyCallback final : public ReadyCallbackBase {
  public:
+  static_assert(std::is_base_of_v<AnyFuture, ReadyType>);
+
   template <typename U>
   explicit ReadyCallback(FutureStateBase* state, U&& u)
       : ReadyCallbackBase(state), callback_(std::forward<U>(u)) {}
 
   void OnReady() noexcept override {
     std::move(callback_)(
-        FutureAccess::Construct<ReadyFuture<T>>(TakeStatePointer()));
+        FutureAccess::Construct<ReadyType>(TakeStatePointer()));
     callback_.~Callback();
   }
 
@@ -580,34 +648,6 @@ class ReadyCallback final : public ReadyCallbackBase {
   void DestroyCallback() noexcept override { delete this; }
 
   ~ReadyCallback() override {}
-
- private:
-  // We store the Callback in a union in order to disable the automatic
-  // invocation of the constructor and destructor.
-  union {
-    Callback callback_;
-  };
-};
-
-template <typename Callback>
-class UntypedReadyCallback final : public ReadyCallbackBase {
- public:
-  template <typename U>
-  explicit UntypedReadyCallback(FutureStateBase* state, U&& u)
-      : ReadyCallbackBase(state), callback_(std::forward<U>(u)) {}
-
-  void OnReady() noexcept override {
-    std::move(callback_)(TakeStatePointer());
-    callback_.~Callback();
-  }
-
-  void OnUnregistered() noexcept override {
-    TakeStatePointer();
-    callback_.~Callback();
-  }
-  void DestroyCallback() noexcept override { delete this; }
-
-  ~UntypedReadyCallback() override {}
 
  private:
   // We store the Callback in a union in order to disable the automatic
@@ -678,38 +718,6 @@ struct ResultNotNeededCallback final : public ResultNotNeededCallbackBase {
   };
 };
 
-/// Class template that extends `FutureStateBase` with a concrete value type
-/// `T`.
-template <typename T>
-class FutureState : public FutureStateBase {
- public:
-  template <typename... Args>
-  bool SetResult(Args&&... args) noexcept {
-    if (!this->LockResult()) return false;
-    // Destroy/construct Result<T> in-place.
-    result.~Result<T>();
-    ::new (static_cast<void*>(&this->result))
-        Result<T>(std::forward<Args>(args)...);
-
-    // FIXME: Handle exceptions thrown by `Construct`.
-    this->CommitResult();
-    return true;
-  }
-
-  template <typename... Args>
-  explicit FutureState(Args&&... args) : result(std::forward<Args>(args)...) {}
-
-  ~FutureState() override {}
-
-  Result<T> result;
-};
-
-template <typename T>
-using FutureStateType = FutureState<std::remove_const_t<T>>;
-
-template <typename T>
-using ResultType = internal::CopyQualifiers<T, Result<std::remove_const_t<T>>>;
-
 /// A FutureLinkReadyCallback is created for each future associated with a
 /// FutureLink, and is contained (as a base class) within the FutureLink.  It is
 /// registered as an ExecuteWhenReady callback in order to trigger the
@@ -719,12 +727,13 @@ using ResultType = internal::CopyQualifiers<T, Result<std::remove_const_t<T>>>;
 ///
 /// \tparam LinkType The instance of the FutureLink class template that inherits
 ///     from this type.
-/// \tparam T The value type of the Future to which this callback is bound.
+/// \tparam SharedState The `FutureState<T>` or `FutureStateBase` of the Future
+///     bound to the callback.
 /// \tparam I Unique identifier within the FutureLink.
-template <typename LinkType, typename T, std::size_t I>
+template <typename LinkType, typename SharedState, std::size_t I>
 class FutureLinkReadyCallback : public ReadyCallbackBase {
  public:
-  using SharedState = FutureStateType<T>;
+  static_assert(std::is_base_of_v<FutureStateBase, SharedState>);
 
   explicit FutureLinkReadyCallback(FutureStateBase* shared_state)
       : ReadyCallbackBase(shared_state) {}
@@ -742,6 +751,10 @@ class FutureLinkReadyCallback : public ReadyCallbackBase {
   }
 };
 
+template <typename LinkType, typename F, std::size_t I>
+using FutureLinkReadyCallbackType =
+    FutureLinkReadyCallback<LinkType, FutureAccess::SharedStateType<F>, I>;
+
 /// A FutureLinkForceCallback is contained (as a base class) within a FutureLink
 /// and registered as a ExecuteWhenForced/ExecuteWhenNotNeeded callback on the
 /// promise associated with the FutureLink.
@@ -753,11 +766,11 @@ class FutureLinkReadyCallback : public ReadyCallbackBase {
 ///
 /// \tparam LinkType The instance of the FutureLink class template that inherits
 ///     from this type.
-/// \tparam T The value type of the Promise to which this callback is bound.
-template <typename LinkType, typename T>
+/// \tparam SharedState The `FutureState<T>` or `FutureStateBase` of the Promise
+///     bound to the callback.
+template <typename LinkType, typename SharedState>
 class FutureLinkForceCallback : public ForceCallbackBase {
  public:
-  using SharedState = FutureStateType<T>;
   explicit FutureLinkForceCallback(FutureStateBase* shared_state)
       : ForceCallbackBase({shared_state, CallbackBase::kLinkCallback}) {}
 
@@ -773,6 +786,10 @@ class FutureLinkForceCallback : public ForceCallbackBase {
     return static_cast<SharedState*>(CallbackBase::shared_state());
   }
 };
+
+template <typename LinkType, typename P>
+using FutureLinkForceCallbackType =
+    FutureLinkForceCallback<LinkType, FutureAccess::SharedStateType<P>>;
 
 /// Base class for FutureLink that holds an atomic bitvector used to track the
 /// state of the FutureLink.
@@ -862,31 +879,30 @@ class FutureLinkBase {
 /// may optionally mark the promise_state ready, and returns `true` if the link
 /// should not be cancelled.
 
-/// Policy that causes the callback to be invoked when all the linked futures
-/// become ready.
+/// A FutureLinkPolicy that causes the callback to be invoked when all the
+/// linked futures become ready.
 struct FutureLinkAllReadyPolicy {
   static bool OnFutureReady(void* future_state, void* promise_state) {
     return true;
   }
 };
 
-/// Policy that causes the callback to be invoked when all the linked futures
-/// become ready in a success state.  If any future becomes ready in an error
-/// state, the promise result is set to the error and the FutureLink is
-/// unregistered.
+/// A FutureLinkPolicy that causes the callback to be invoked when all the
+/// linked futures become ready in a success state.  If any future becomes ready
+/// in an error state, the promise result is set to the error and the FutureLink
+/// is unregistered.
 struct FutureLinkPropagateFirstErrorPolicy {
-  template <typename FutureValue, typename PromiseValue>
-  static bool OnFutureReady(FutureState<FutureValue>* future_state,
+  template <typename PromiseValue>
+  static bool OnFutureReady(FutureStateBase* future_state,
                             FutureState<PromiseValue>* promise_state) {
-    if (future_state->result) return true;
-    promise_state->SetResult(tensorstore::GetStatus(future_state->result));
+    if (future_state->has_value()) return true;
+    promise_state->SetResult(future_state->GetStatusCopy());
     return false;
   }
 };
 
 template <typename Policy, typename Deleter, typename Callback,
-          typename PromiseValue, typename IndexSequence,
-          typename... FutureValue>
+          typename PromiseValue, typename IndexSequence, typename... Futures>
 class FutureLink;
 
 /// Default Deleter for use with FutureLink that simply calls `delete`.
@@ -938,19 +954,18 @@ using CallbackHolder =
                        NonEmptyCallbackHolder<T>>;
 
 /// Alias that supplies the absl::index_sequence corresponding to the
-/// `FutureValue...` pack.
+/// `Futures...` pack.
 template <typename Policy, typename Deleter, typename Callback,
-          typename PromiseValue, typename... FutureValue>
+          typename PromiseValue, typename... Futures>
 using FutureLinkType =
     FutureLink<Policy, Deleter, Callback, PromiseValue,
                // Note: We use `absl::index_sequence` rather than
                // `std::index_sequence` to work around Clang bug
                // https://bugs.llvm.org/show_bug.cgi?id=42757.
-               absl::make_index_sequence<sizeof...(FutureValue)>,
-               FutureValue...>;
+               absl::make_index_sequence<sizeof...(Futures)>, Futures...>;
 
 /// A FutureLink ties a `Promise<PromiseValue>` to one or more
-/// `Future<FutureValue>...` objects and a `Callback`.
+/// `Futures...` objects and a `Callback`.
 ///
 /// 1. If all of the futures become ready, the `Callback` is invoked, and the
 ///    FutureLink is unregistered.
@@ -981,14 +996,14 @@ using FutureLinkType =
 /// \tparam Deleter A function object type that can be called with a pointer to
 ///     this `FutureLink` object.
 /// \tparam Callback A function object type that can be called with
-///     `(Promise<PromiseValue>, ReadyFuture<FutureValue>...)`.
+///     `(Promise<PromiseValue>, Futures::ReadyFutureType...)`.
 /// \tparam PromiseValue Value type of the promise.
-/// \tparam FutureValue Value type of the future.
-/// \tparam Is Must equal `0, ..., sizeof...(FutureValue)-1`.
+/// \tparam Futures Future<T> or AnyFuture of each linked future.
+/// \tparam Is Must equal `0, ..., sizeof...(Futures)-1`.
 template <typename Policy, typename Deleter, typename Callback,
-          typename PromiseValue, typename... FutureValue, std::size_t... Is>
+          typename PromiseValue, typename... Futures, std::size_t... Is>
 class FutureLink<Policy, Deleter, Callback, PromiseValue,
-                 absl::index_sequence<Is...>, FutureValue...>
+                 absl::index_sequence<Is...>, Futures...>
     : public FutureLinkBase,
       /// Inherit from the CallbackHolder, which holds the callback (if
       /// non-empty), in order to take advantage of empty base optimization,
@@ -999,21 +1014,23 @@ class FutureLink<Policy, Deleter, Callback, PromiseValue,
       /// optimization.
       public Deleter,
       /// Inherit from a single FutureLinkForceCallback and from a unique
-      /// FutureLinkReadyCallback for each `Future<FutureValue)...` (uniquely
+      /// FutureLinkReadyCallback for each `Futures...` (uniquely
       /// identified by `Is...`).  Compared to using a std::tuple, this allows
       /// converting from a pointer to the
       /// `FutureLinkForceCallback`/`FutureLinkReadyCallback` to a pointer to
       /// the `FutureLink` without the need to store an extra pointer and
       /// without resorting to offsetof tricks.
-      public FutureLinkForceCallback<
-          FutureLinkType<Policy, Deleter, Callback, PromiseValue,
-                         FutureValue...>,
-          PromiseValue>,
-      public FutureLinkReadyCallback<
-          FutureLinkType<Policy, Deleter, Callback, PromiseValue,
-                         FutureValue...>,
-          FutureValue, Is>... {
-  static_assert(sizeof...(FutureValue) <= kMaxNumFutures, "");
+      public FutureLinkForceCallbackType<
+          FutureLinkType<Policy, Deleter, Callback, PromiseValue, Futures...>,
+          Promise<PromiseValue>>,
+      public FutureLinkReadyCallbackType<
+          FutureLinkType<Policy, Deleter, Callback, PromiseValue, Futures...>,
+          Futures, Is>... {
+  static_assert(sizeof...(Futures) <= kMaxNumFutures, "");
+
+  static_assert((std::is_same_v<Futures, internal::remove_cvref_t<Futures>> &&
+                 ...),
+                "FutureLink requires non cv-ref qualified Futures");
 
   // The promise and each of the futures have reference counts.  Additionally,
   // the FutureLinkForceCallback and each FutureLinkReadyCallback also have
@@ -1073,24 +1090,23 @@ class FutureLink<Policy, Deleter, Callback, PromiseValue,
   //    DestroyCallback methods is called.
  public:
   template <typename... CallbackInit>
-  explicit FutureLink(Promise<PromiseValue> promise,
-                      Future<FutureValue>... future, Deleter deleter,
-                      CallbackInit&&... arg)
-      : FutureLinkBase(sizeof...(FutureValue)),
+  explicit FutureLink(Promise<PromiseValue> promise, Futures... future,
+                      Deleter deleter, CallbackInit&&... arg)
+      : FutureLinkBase(sizeof...(Futures)),
         CallbackHolder<Callback>(std::forward<CallbackInit>(arg)...),
         Deleter(std::move(deleter)),
         // The FutureLinkForceCallback constructor initializes the stored
         // `shared_state` pointer but does not register the callback with its
         // promise.  That is done in the `RegisterLink` method below after the
         // FutureLinkReadyCallback objects have been initialized and registered.
-        FutureLinkForceCallback<FutureLink, PromiseValue>(
+        FutureLinkForceCallbackType<FutureLink, Promise<PromiseValue>>(
             // Detach the promise reference to transfer ownership to this
             // FutureLink.
             FutureAccess::rep_pointer(promise).release()),
         // The FutureLinkReadyCallback constructor initializes the stores
         // `shared_state` pointer but does not register the callback with its
         // future.  This is done in the `RegisterLink` method below.
-        FutureLinkReadyCallback<FutureLink, FutureValue, Is>(
+        FutureLinkReadyCallbackType<FutureLink, Futures, Is>(
             // Detach the future reference to transfer ownership to the
             // FutureLinkForceCallback.
             FutureAccess::rep_pointer(future).release())... {}
@@ -1161,19 +1177,20 @@ class FutureLink<Policy, Deleter, Callback, PromiseValue,
   }
 
   /// Returns a non-null pointer to the force callback.
-  FutureLinkForceCallback<FutureLink, PromiseValue>* ForceCallback() {
+  FutureLinkForceCallbackType<FutureLink, Promise<PromiseValue>>*
+  ForceCallback() {
     return this;
   }
 
-  template <typename T, std::size_t I>
-  FutureLinkReadyCallback<FutureLink, T, I>* ReadyCallback() {
+  template <typename F, std::size_t I>
+  FutureLinkReadyCallbackType<FutureLink, F, I>* ReadyCallback() {
     return this;
   }
 
   /// Invokes `func` with a pointer to each of the ready callbacks.
   template <typename Func>
   ABSL_ATTRIBUTE_ALWAYS_INLINE void ForEachReadyCallback(Func func) {
-    (func(ReadyCallback<FutureValue, Is>()), ...);
+    (func(ReadyCallback<Futures, Is>()), ...);
   }
 
   /// Called by the FutureLinkForceCallback::OnForced method when the linked
@@ -1196,7 +1213,8 @@ class FutureLink<Policy, Deleter, Callback, PromiseValue,
 
   /// Called when one of the linked futures becomes ready.
   template <typename T>
-  void OnFutureReady(FutureState<T>* future_state) {
+  void OnFutureReady(T* future_state) {
+    static_assert(std::is_base_of_v<FutureStateBase, T>);
     if (Policy::OnFutureReady(future_state, ForceCallback()->shared_state())) {
       OnFutureReadyForCallback();
     } else {
@@ -1233,9 +1251,9 @@ class FutureLink<Policy, Deleter, Callback, PromiseValue,
     callback_getter.get()(
         FutureAccess::Construct<Promise<PromiseValue>>(PromiseStatePointer(
             ForceCallback()->shared_state(), internal::adopt_object_ref)),
-        FutureAccess::Construct<ReadyFuture<FutureValue>>(
-            FutureStatePointer(ReadyCallback<FutureValue, Is>()->shared_state(),
-                               internal::adopt_object_ref))...);
+        (FutureAccess::Construct<ReadyFutureType<Futures>>(
+            FutureStatePointer(ReadyCallback<Futures, Is>()->shared_state(),
+                               internal::adopt_object_ref)))...);
     DestroyUserCallback();
 
     // Any concurrent attempts from another thread to unregister the link while
@@ -1310,24 +1328,27 @@ class FutureLink<Policy, Deleter, Callback, PromiseValue,
 
 enum class FutureErrorPropagationResult { kReady, kNotReady, kError };
 
+/// Evaluate the curent set of Futures against the FutureLinkPolicy before
+/// constructing a link to see if a link is necessary.
+///
+/// \return FutureErrorPropagationResult::kNotReady when a link must be created.
+/// \tparam Policy A FutureLinkPolicy to evaluate against.
 template <typename Policy>
 FutureErrorPropagationResult PropagateFutureError(void* promise) {
   return FutureErrorPropagationResult::kReady;
 }
 
-template <typename Policy, typename T, typename U>
-FutureErrorPropagationResult PropagateFutureError(FutureState<T>* promise,
-                                                  FutureState<U>* future) {
+template <typename Policy, typename P, typename U>
+FutureErrorPropagationResult PropagateFutureError(P* promise, U* future) {
   if (!future->ready()) return FutureErrorPropagationResult::kNotReady;
   return Policy::OnFutureReady(future, promise)
              ? FutureErrorPropagationResult::kReady
              : FutureErrorPropagationResult::kError;
 }
 
-template <typename Policy, typename T, typename U0, typename... U>
-FutureErrorPropagationResult PropagateFutureError(FutureState<T>* promise,
-                                                  FutureState<U0>* future0,
-                                                  FutureState<U>*... future) {
+template <typename Policy, typename P, typename U0, typename... U>
+FutureErrorPropagationResult PropagateFutureError(P* promise, U0* future0,
+                                                  U*... future) {
   const auto result = PropagateFutureError<Policy>(promise, future0);
   if (result == FutureErrorPropagationResult::kError) return result;
   return std::max(result, PropagateFutureError<Policy>(promise, future...));
@@ -1338,28 +1359,37 @@ FutureErrorPropagationResult PropagateFutureError(FutureState<T>* promise,
 ///
 /// \tparam Policy A type that models the FutureLinkPolicy concept.
 /// \tparam Callback A function object type that can be called with
-///     `(Promise<PromiseValue>, ReadyFuture<FutureValue>...)`.
+///     `(Promise<PromiseValue>, Futures::ReadyFutureType...)`.
 /// \tparam PromiseValue Value type of the promise.
-/// \tparam FutureValue Value type of the future.
+/// \tparam Futures Future<T> or AnyFuture of each future.
 template <typename Policy, typename Callback, typename PromiseValue,
-          typename... FutureValue>
+          typename... Futures>
 CallbackPointer MakeLink(Callback&& callback, Promise<PromiseValue> promise,
-                         Future<FutureValue>... future) {
+                         Futures&&... future) {
   if (!promise.result_needed()) return {};
+  // Evaluate the policy before constructing the Link.
   switch (PropagateFutureError<Policy>(&FutureAccess::rep(promise),
                                        &FutureAccess::rep(future)...)) {
-    case FutureErrorPropagationResult::kReady:
-      std::forward<Callback>(callback)(
-          std::move(promise), ReadyFuture<FutureValue>(std::move(future))...);
-      return {};
     case FutureErrorPropagationResult::kError:
+      // Policy indicated an error on a 'ready' future state.
+      // No Link is required, and the policy should have already initialized
+      // the promise.
+      assert(promise.ready());
+      return {};
+    case FutureErrorPropagationResult::kReady:
+      // The Policy is immediately invokable, avoid creating a link and invoke
+      // the callback directly. The callback should set the promise value.
+      std::forward<Callback>(callback)(
+          std::move(promise),
+          ReadyFutureType<Futures>(std::forward<Futures>(future))...);
       return {};
     case FutureErrorPropagationResult::kNotReady: {
+      // The Policy is not yet ready, construct a link that defers execution.
       auto link = new internal_future::FutureLinkType<
           Policy, DefaultFutureLinkDeleter, internal::remove_cvref_t<Callback>,
-          PromiseValue, FutureValue...>(std::move(promise),
-                                        std::move(future)..., {},
-                                        std::forward<Callback>(callback));
+          PromiseValue, internal::remove_cvref_t<Futures>...>(
+          std::move(promise), std::forward<Futures>(future)..., {},
+          std::forward<Callback>(callback));
       link->RegisterLink();
       return link->GetCallbackPointer();
     }
@@ -1389,17 +1419,17 @@ struct NoOpCallback {
 };
 
 template <typename Policy, typename Callback, typename PromiseValue,
-          typename... FutureValue>
+          typename... Futures>
 class LinkedFutureState;
 
 class LinkedFutureStateDeleter {
  public:
   template <typename Policy, typename Callback, typename PromiseValue,
-            typename... FutureValue>
+            typename... Futures>
   void operator()(FutureLinkType<Policy, LinkedFutureStateDeleter, Callback,
-                                 PromiseValue, FutureValue...>* x) const {
-    static_cast<
-        LinkedFutureState<Policy, Callback, PromiseValue, FutureValue...>*>(x)
+                                 PromiseValue, Futures...>* x) const {
+    static_cast<LinkedFutureState<Policy, Callback, PromiseValue, Futures...>*>(
+        x)
         ->DestroyLink();
   }
 };
@@ -1410,27 +1440,30 @@ class LinkedFutureStateDeleter {
 ///
 /// \tparam Policy A type that models the FutureLinkPolicy concept.
 /// \tparam Callback A function object type that can be called with
-///     `(Promise<PromiseValue>, ReadyFuture<FutureValue>...)`.
+///     `(Promise<PromiseValue>, Futures::ReadyFutureType...)`.
 /// \tparam PromiseValue Value type of the promise.
-/// \tparam FutureValue Value type of the future.
+/// \tparam Futures Future<T> or AnyFuture of each future.
 template <typename Policy, typename Callback, typename PromiseValue,
-          typename... FutureValue>
+          typename... Futures>
 class LinkedFutureState
     : public FutureState<PromiseValue>,
       public FutureLinkType<Policy, LinkedFutureStateDeleter, Callback,
-                            PromiseValue, FutureValue...> {
-  static_assert(sizeof...(FutureValue) > 0,
+                            PromiseValue, Futures...> {
+  static_assert(sizeof...(Futures) > 0,
                 "LinkedFutureState requires at least one Future.");
+  static_assert((std::is_same_v<Futures, internal::remove_cvref_t<Futures>> &&
+                 ...),
+                "LinkedFutureState requires non cv-ref qualified Futures");
+
   using FutureStateType = FutureState<PromiseValue>;
   using FutureLink = FutureLinkType<Policy, LinkedFutureStateDeleter, Callback,
-                                    PromiseValue, FutureValue...>;
+                                    PromiseValue, Futures...>;
 
  public:
   /// Constructs the LinkedFutureState with the callback initialized from
   /// `callback_init` and the result initialized from `result_init...`.
   template <typename CallbackInit, typename... ResultInit>
-  explicit LinkedFutureState(Future<FutureValue>... future,
-                             CallbackInit&& callback_init,
+  explicit LinkedFutureState(Futures... future, CallbackInit&& callback_init,
                              ResultInit&&... result_init)
       : FutureStateType(std::forward<ResultInit>(result_init)...),
         FutureLink(FutureAccess::Construct<Promise<PromiseValue>>((
@@ -1455,30 +1488,38 @@ class LinkedFutureState
 /// Interface for making a FutureState that is linked to zero or more futures
 /// according to `Policy`.
 ///
+/// Unlike `MakeLink`, this does not evaluate the Policy against the futures
+/// before determining whether to construct the link, as the primary use is to
+/// construct Links where the future values are known to be unset such as when
+/// constructing a new FuturePromisePair.
+///
 /// This is defined as a class with a nested `Make` function in order to allow
-/// partial specialization and to accommodate both the `FutureValue...` and
+/// partial specialization and to accommodate both the `Futures...` and
 /// `ResultInit...` template parameter packs.
 ///
 /// \tparam Policy A type that models the FutureLinkPolicy concept.
 /// \tparam PromiseValue Value type of the promise.
-/// \tparam FutureValue Value type of the future.
-template <typename Policy, typename PromiseValue, typename... FutureValue>
+/// \tparam Futures Future<T> or AnyFuture of each future.
+template <typename Policy, typename PromiseValue, typename... Futures>
 struct MakeLinkedFutureState {
+  static_assert((std::is_same_v<Futures, internal::remove_cvref_t<Futures>> &&
+                 ...),
+                "LinkedFutureState requires non cv-ref qualified futures");
+
   /// Returns a new `FutureState<PromiseValue>` where the promise has been
   /// linked via `Callback` to `future...`.
   ///
   /// The promise result is initialized with `result_init...`.
   ///
   /// \tparam Callback A function object type that can be called with
-  ///     `(Promise<PromiseValue>, ReadyFuture<FutureValue>...)`.
+  ///     `(Promise<PromiseValue>, Futures::ReadyFutureType...)`.
   template <typename Callback, typename... ResultInit>
-  static FutureState<PromiseValue>* Make(Future<FutureValue>... future,
-                                         Callback&& callback,
+  static FutureState<PromiseValue>* Make(Futures... future, Callback&& callback,
                                          ResultInit&&... result_init) {
     return new internal_future::LinkedFutureState<
-        Policy, internal::remove_cvref_t<Callback>, PromiseValue,
-        FutureValue...>(std::move(future)..., std::forward<Callback>(callback),
-                        std::forward<ResultInit>(result_init)...);
+        Policy, internal::remove_cvref_t<Callback>, PromiseValue, Futures...>(
+        std::move(future)..., std::forward<Callback>(callback),
+        std::forward<ResultInit>(result_init)...);
   }
 };
 

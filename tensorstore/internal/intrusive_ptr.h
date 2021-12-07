@@ -323,7 +323,8 @@ class IntrusivePtr {
 
   /// Constructs from a given pointer without acquiring a new reference.  If `p`
   /// is not null, this implicitly adopts an existing reference to `p`.
-  explicit IntrusivePtr(pointer p, adopt_object_ref_t) noexcept : ptr_(p) {}
+  constexpr explicit IntrusivePtr(pointer p, adopt_object_ref_t) noexcept
+      : ptr_(p) {}
 
   /// Copy constructs from `rhs`.  If `rhs` is not null, acquires a new
   /// reference to `rhs.get()` by calling `R::increment(rhs.get())`.
@@ -399,17 +400,17 @@ class IntrusivePtr {
   }
 
   /// Returns `true` if the stored pointer is non-null.
-  explicit operator bool() const { return static_cast<bool>(get()); }
+  constexpr explicit operator bool() const { return static_cast<bool>(ptr_); }
 
-  pointer get() const noexcept { return ptr_; }
+  constexpr pointer get() const noexcept { return ptr_; }
 
-  pointer operator->() const {
+  constexpr pointer operator->() const {
     pointer ptr = get();
     assert(static_cast<bool>(ptr));
     return ptr;
   }
 
-  element_type& operator*() const {
+  constexpr element_type& operator*() const {
     pointer ptr = get();
     assert(static_cast<bool>(ptr));
     return *ptr;
@@ -418,13 +419,16 @@ class IntrusivePtr {
   /// Assigns the stored pointer to null, and returns the prior value.
   ///
   /// `R::decrement` is not called.
-  pointer release() noexcept {
+  constexpr pointer release() noexcept {
     pointer ptr = get();
     ptr_ = pointer{};
     return ptr;
   }
 
-  void swap(IntrusivePtr& rhs) noexcept { std::swap(ptr_, rhs.ptr_); }
+  void swap(IntrusivePtr& rhs) noexcept {
+    // FIXME: std::swap constexpr in C++20
+    std::swap(ptr_, rhs.ptr_);
+  }
 
   /// Abseil hash support.
   template <typename H>

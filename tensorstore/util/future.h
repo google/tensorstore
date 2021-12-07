@@ -167,6 +167,7 @@
 
 namespace tensorstore {
 
+class [[nodiscard]] AnyFuture;
 template <typename T>
 class [[nodiscard]] Future;
 template <typename T>
@@ -176,9 +177,9 @@ class [[nodiscard]] PromiseFuturePair;
 template <typename T>
 class [[nodiscard]] ReadyFuture;
 
+/// IsFuture<T> evaluates to `true` if T is a `Future`.
 template <typename T>
 constexpr inline bool IsFuture = false;
-
 template <typename T>
 constexpr inline bool IsFuture<Future<T>> = true;
 template <typename T>
@@ -488,9 +489,9 @@ class Promise {
  private:
   explicit Promise(internal_future::PromiseStatePointer rep)
       : rep_(std::move(rep)) {}
+
   friend class internal_future::FutureAccess;
   constexpr SharedState& rep() const {
-    assert(rep_);
     return static_cast<SharedState&>(*rep_);
   }
   internal_future::PromiseStatePointer rep_;
@@ -515,12 +516,107 @@ MakeReadyFuture(U&&... u) {
 /// and avoids allocations.
 ReadyFuture<const void> MakeReadyFuture();
 
+/// Generic consumer interface to a one-time channel.
+class AnyFuture {
+  using SharedState = internal_future::FutureStateBase;
+
+ public:
+  /// Constructs an invalid `AnyFuture`.
+  /// \post `!valid()`.
+  explicit AnyFuture() = default;
+
+  AnyFuture(const AnyFuture&) = default;
+  AnyFuture(AnyFuture&&) = default;
+  AnyFuture& operator=(const AnyFuture&) = default;
+  AnyFuture& operator=(AnyFuture&&) = default;
+
+  /// Ignores the future. This method signals intent to ignore the result
+  /// to suppress compiler warnings from [[nodiscard]].
+  inline void IgnoreFuture() const {}
+
+  /// Resets this Future to be invalid.
+  /// \post `!valid()`.
+  void reset() noexcept { rep_.reset(); }
+
+  /// Returns `true` if this `Future` refers to a valid shared state.
+  bool valid() const noexcept { return static_cast<bool>(rep_); }
+
+  /// Returns `true` if the result is ready.
+  /// \dchecks `valid()`
+  /// \remark Once this returns `true` for a given shared state, it will never
+  ///     return `false`.
+  bool ready() const noexcept { return rep().ready(); }
+
+  /// Calls `Force()`, and waits until `ready() == true`.
+  ///
+  /// \dchecks `valid()`
+  void Wait() const noexcept { rep().Wait(); }
+
+  /// Waits for up to the specified duration for the result to be ready.
+  /// \dchecks `valid()`
+  /// \returns `ready()`.
+  bool WaitFor(absl::Duration duration) const noexcept {
+    return rep().WaitFor(duration);
+  }
+
+  /// Waits until the specified time for the result to be ready.
+  /// \dchecks `valid()`
+  /// \returns `ready()`.
+  bool WaitUntil(absl::Time deadline) const noexcept {
+    return rep().WaitUntil(deadline);
+  }
+
+  /// Calls any `Force` callbacks registered on the associated `Promise`, if
+  /// they have not already been called.
+  ///
+  /// Commonly, this will trigger deferred work to begin.
+  ///
+  /// \dchecks `valid()`
+  void Force() const noexcept { return rep().Force(); }
+
+  /// Calls `Force()`, waits for the result to be ready, and returns OkStatus
+  /// (when a value is present) or a copy of result.status().
+  ///
+  /// \dchecks `valid()`
+  absl::Status status() const {
+    Wait();
+    return rep().GetStatusCopy();
+  }
+
+  /// Executes `callback` with the signature `void (AnyFuture)` when
+  /// `state` becomes ready.
+  template <class Callback>
+  FutureCallbackRegistration UntypedExecuteWhenReady(Callback&& callback) {
+    static_assert(std::is_invocable_v<Callback, AnyFuture>);
+    if (!rep_->ready()) {
+      using Impl =
+          internal_future::ReadyCallback<AnyFuture,
+                                         internal::remove_cvref_t<Callback>>;
+      return internal_future::FutureAccess::Construct<
+          FutureCallbackRegistration>(rep_->RegisterReadyCallback(
+          new Impl(rep_.release(), std::forward<Callback>(callback))));
+    }
+    std::forward<Callback>(callback)(std::move(*this));
+    return FutureCallbackRegistration();
+  }
+
+ protected:
+  friend class internal_future::FutureAccess;
+
+  explicit AnyFuture(internal_future::FutureStatePointer rep)
+      : rep_(std::move(rep)) {}
+
+  constexpr internal_future::FutureStateBase& rep() const { return *rep_; }
+
+  internal_future::FutureStatePointer rep_;
+};
+
 /// "Consumer" interface to a one-time channel.
 ///
 /// \tparam T Specifies the type of the value to be transmitted.  The actual
 ///     result value type is `Result<remove_const_t<T>>`.
 template <typename T>
-class Future {
+class Future : public AnyFuture {
   static_assert(!std::is_reference_v<T>, "T must not be a reference type.");
   static_assert(!IsFuture<T>, "T may not be a Future type.");
   static_assert(!IsResult<T>, "T may not be a Result type.");
@@ -549,8 +645,7 @@ class Future {
   template <typename U,
             std::enable_if_t<(!std::is_same_v<U, T> &&
                               IsFutureConvertible<U, T>::value)>* = nullptr>
-  Future(Future<U> x) noexcept
-      : rep_(std::move(internal_future::FutureAccess::rep_pointer(x))) {}
+  Future(Future<U> x) noexcept : AnyFuture(std::move(x)) {}
 
   /// Assigns from a compatible `Future`.
   /// \tparam U The source value type.
@@ -618,39 +713,35 @@ class Future {
 
   /// Ignores the future. This method signals intent to ignore the result
   /// to suppress compiler warnings from [[nodiscard]].
-  void IgnoreFuture() const {}
+  inline void IgnoreFuture() const {}
 
   /// Resets this Future to be invalid.
   /// \post `!valid()`.
-  void reset() noexcept { rep_.reset(); }
+  using AnyFuture::reset;
 
   /// Returns `true` if this `Future` refers to a valid shared state.
-  bool valid() const noexcept { return static_cast<bool>(rep_); }
+  using AnyFuture::valid;
 
   /// Returns `true` if the result is ready.
   /// \dchecks `valid()`
   /// \remark Once this returns `true` for a given shared state, it will never
   ///     return `false`.
-  bool ready() const noexcept { return rep().ready(); }
+  using AnyFuture::ready;
 
   /// Calls `Force()`, and waits until `ready() == true`.
   ///
   /// \dchecks `valid()`
-  void Wait() const noexcept { rep().Wait(); }
+  using AnyFuture::Wait;
 
   /// Waits for up to the specified duration for the result to be ready.
   /// \dchecks `valid()`
   /// \returns `ready()`.
-  bool WaitFor(absl::Duration duration) const noexcept {
-    return rep().WaitFor(duration);
-  }
+  using AnyFuture::WaitFor;
 
   /// Waits until the specified time for the result to be ready.
   /// \dchecks `valid()`
   /// \returns `ready()`.
-  bool WaitUntil(absl::Time deadline) const noexcept {
-    return rep().WaitUntil(deadline);
-  }
+  using AnyFuture::WaitUntil;
 
   /// Calls any `Force` callbacks registered on the associated `Promise`, if
   /// they have not already been called.
@@ -658,7 +749,7 @@ class Future {
   /// Commonly, this will trigger deferred work to begin.
   ///
   /// \dchecks `valid()`
-  void Force() const noexcept { rep().Force(); }
+  using AnyFuture::Force;
 
   /// Registers a callback to invoke when `ready()` becomes `true`.
   ///
@@ -672,9 +763,11 @@ class Future {
   ///     the registered callback is ever actually invoked.
   template <class Callback>
   FutureCallbackRegistration ExecuteWhenReady(Callback&& callback) && {
+    static_assert(std::is_invocable_v<Callback, ReadyFuture<T>>);
     if (!rep_->ready()) {
       using Impl =
-          internal_future::ReadyCallback<T, internal::remove_cvref_t<Callback>>;
+          internal_future::ReadyCallback<ReadyFuture<T>,
+                                         internal::remove_cvref_t<Callback>>;
       return internal_future::FutureAccess::Construct<
           FutureCallbackRegistration>(rep_->RegisterReadyCallback(
           new Impl(rep_.release(), std::forward<Callback>(callback))));
@@ -705,6 +798,9 @@ class Future {
     return result().value();
   }
 
+  /// Returns a copy of `result().status()`
+  using AnyFuture::status;
+
   /// Makes `Future<T>` model the `Sender<Status, T>` concept.
   ///
   /// The `set_value`, `set_error` or `set_cancel` function is called on the
@@ -729,13 +825,12 @@ class Future {
 
  private:
   explicit Future(internal_future::FutureStatePointer rep)
-      : rep_(std::move(rep)) {}
+      : AnyFuture(std::move(rep)) {}
+
   friend class internal_future::FutureAccess;
   constexpr SharedState& rep() const {
-    assert(rep_);
     return static_cast<SharedState&>(*rep_);
   }
-  internal_future::FutureStatePointer rep_;
 };
 
 template <typename T>
@@ -745,20 +840,19 @@ Future(const Result<T>& result) -> Future<T>;
 
 /// Returns `true` if both futures refer to the same shared state, or are both
 /// invalid.
-template <typename T, typename U>
-inline bool HaveSameSharedState(const Future<T>& a, const Future<U>& b) {
+inline bool HaveSameSharedState(const AnyFuture& a, const AnyFuture& b) {
   return internal_future::FutureAccess::rep_pointer(a).get() ==
          internal_future::FutureAccess::rep_pointer(b).get();
 }
 
-template <typename T, typename U>
-inline bool HaveSameSharedState(const Promise<T>& a, const Future<U>& b) {
+template <typename T>
+inline bool HaveSameSharedState(const Promise<T>& a, const AnyFuture& b) {
   return internal_future::FutureAccess::rep_pointer(a).get() ==
          internal_future::FutureAccess::rep_pointer(b).get();
 }
 
-template <typename T, typename U>
-inline bool HaveSameSharedState(const Future<T>& a, const Promise<U>& b) {
+template <typename T>
+inline bool HaveSameSharedState(const AnyFuture& a, const Promise<T>& b) {
   return internal_future::FutureAccess::rep_pointer(a).get() ==
          internal_future::FutureAccess::rep_pointer(b).get();
 }
@@ -828,6 +922,24 @@ class ReadyFuture : public Future<T> {
             std::move(rep))) {}
 };
 
+/// SFINAE-enabled aliases to workaround MSVC errors
+/// These aliases resolve to `R` when `Futures...` are subclasses of AnyFuture,
+/// and when `Callback` is callable by the corresponding ReadyFutureType.
+template <typename R, typename Callback, typename PromiseType,
+          typename... Futures>
+using LinkReturnType = std::enable_if_t<
+    ((std::is_base_of<AnyFuture, internal::remove_cvref_t<Futures>>::value &&
+      ...) &&
+     std::is_invocable_v<Callback, PromiseType,
+                         internal_future::ReadyFutureType<Futures>...>),
+    R>;
+
+template <typename R, typename... Futures>
+using LinkErrorReturnType = std::enable_if_t<
+    (std::is_base_of<AnyFuture, internal::remove_cvref_t<Futures>>::value &&
+     ...),
+    R>;
+
 /// Creates a "link", which ties a `promise` to one or more `future` objects and
 /// a `callback`.
 ///
@@ -855,42 +967,44 @@ class ReadyFuture : public Future<T> {
 ///     link.
 /// \remark A common use case is to call `promise.SetResult` within the callback
 ///     function, but this is not required.
-template <typename Callback, typename PromiseValue, typename... FutureValue>
-std::enable_if_t<std::is_invocable_v<Callback, Promise<PromiseValue>,
-                                     ReadyFuture<FutureValue>...>,
-                 FutureCallbackRegistration>
-Link(Callback&& callback, Promise<PromiseValue> promise,
-     Future<FutureValue>... future) {
+template <typename Callback, typename PromiseValue, typename... Futures>
+LinkReturnType<FutureCallbackRegistration, Callback, Promise<PromiseValue>,
+               Futures...>
+Link(Callback&& callback, Promise<PromiseValue> promise, Futures&&... future) {
   return internal_future::FutureAccess::Construct<FutureCallbackRegistration>(
       internal_future::MakeLink<internal_future::FutureLinkAllReadyPolicy>(
           std::forward<Callback>(callback), std::move(promise),
-          std::move(future)...));
+          std::forward<Futures>(future)...));
 }
 
 /// Same as `Link`, except that the `callback` is called only if the `future`
 /// objects become ready with a non-error result.  The first error result
 /// encountered among the `future` objects will be automatically propagated to
 /// the `promise`.
-template <typename Callback, typename PromiseValue, typename... FutureValue>
-std::enable_if_t<std::is_invocable_v<Callback, Promise<PromiseValue>,
-                                     ReadyFuture<FutureValue>...>,
-                 FutureCallbackRegistration>
+template <typename Callback, typename PromiseValue, typename... Futures>
+LinkReturnType<FutureCallbackRegistration, Callback, Promise<PromiseValue>,
+               Futures...>
 LinkValue(Callback&& callback, Promise<PromiseValue> promise,
-          Future<FutureValue>... future) {
+          Futures&&... future) {
   return internal_future::FutureAccess::Construct<FutureCallbackRegistration>(
       internal_future::MakeLink<
           internal_future::FutureLinkPropagateFirstErrorPolicy>(
           std::forward<Callback>(callback), std::move(promise),
-          std::move(future)...));
+          std::forward<Futures>(future)...));
 }
 
-/// Same as `LinkValue`, except that no callback function is called in the case
-/// that all `future` objects are successfully resolved.
-template <typename PromiseValue, typename... FutureValue>
-FutureCallbackRegistration LinkError(Promise<PromiseValue> promise,
-                                     Future<FutureValue>... future) {
-  return LinkValue(internal_future::NoOpCallback{}, std::move(promise),
-                   std::move(future)...);
+/// Same as `Link`, except that no callback function is called in the case
+/// that all `future` objects are successfully resolved. The first error result
+/// encountered among the `future` objects will be automatically propagated to
+/// the `promise`.
+template <typename PromiseValue, typename... Futures>
+LinkErrorReturnType<FutureCallbackRegistration, Futures...>  //
+LinkError(Promise<PromiseValue> promise, Futures&&... future) {
+  return internal_future::FutureAccess::Construct<FutureCallbackRegistration>(
+      internal_future::MakeLink<
+          internal_future::FutureLinkPropagateFirstErrorPolicy>(
+          internal_future::NoOpCallback{}, std::move(promise),
+          std::forward<Futures>(future)...));
 }
 
 /// Creates a link that moves a future result to a promise.
@@ -976,31 +1090,27 @@ class PromiseFuturePair {
   ///     `promise` and the specified `future` objects once they become ready.
   /// \param future The future objects to link.
   /// \returns The promise/future pair.
-  template <typename Callback, typename... FutureValue>
-  static std::enable_if_t<
-      std::is_invocable_v<Callback, PromiseType, ReadyFuture<FutureValue>...>,
-      PromiseFuturePair>
-  Link(Callback&& callback, Future<FutureValue>... future) {
-    return MakeFromState(
-        internal_future::MakeLinkedFutureState<
-            internal_future::FutureLinkAllReadyPolicy, T,
-            FutureValue...>::Make(std::move(future)...,
+  template <typename Callback, typename... Futures>
+  static LinkReturnType<PromiseFuturePair, Callback, PromiseType, Futures...>
+  Link(Callback&& callback, Futures&&... future) {
+    return MakeFromState(internal_future::MakeLinkedFutureState<
+                         internal_future::FutureLinkAllReadyPolicy, T,
+                         internal::remove_cvref_t<Futures>...>::
+                             Make(std::forward<Futures>(future)...,
                                   std::forward<Callback>(callback)));
   }
 
   /// Same as the `Link` function defined above, but initializes the Future
   /// result using `result_init`.
-  template <typename ResultInit, typename Callback, typename... FutureValue>
+  template <typename ResultInit, typename Callback, typename... Futures>
   static std::enable_if_t<
-      std::is_invocable_v<Callback, PromiseType, ReadyFuture<FutureValue>...> &&
-          std::is_constructible_v<Result<T>, ResultInit>,
-      PromiseFuturePair>
-  Link(ResultInit&& result_init, Callback&& callback,
-       Future<FutureValue>... future) {
-    return MakeFromState(
-        internal_future::MakeLinkedFutureState<
-            internal_future::FutureLinkAllReadyPolicy, T,
-            FutureValue...>::Make(std::move(future)...,
+      std::is_constructible_v<Result<T>, ResultInit>,
+      LinkReturnType<PromiseFuturePair, Callback, PromiseType, Futures...>>
+  Link(ResultInit&& result_init, Callback&& callback, Futures&&... future) {
+    return MakeFromState(internal_future::MakeLinkedFutureState<
+                         internal_future::FutureLinkAllReadyPolicy, T,
+                         internal::remove_cvref_t<Futures>...>::
+                             Make(std::forward<Futures>(future)...,
                                   std::forward<Callback>(callback),
                                   std::forward<ResultInit>(result_init)));
   }
@@ -1015,31 +1125,28 @@ class PromiseFuturePair {
   ///     return pair;
   ///
   /// \returns The promise/future pair.
-  template <typename Callback, typename... FutureValue>
-  static std::enable_if_t<
-      std::is_invocable_v<Callback, PromiseType, ReadyFuture<FutureValue>...>,
-      PromiseFuturePair>
-  LinkValue(Callback&& callback, Future<FutureValue>... future) {
-    return MakeFromState(
-        internal_future::MakeLinkedFutureState<
-            internal_future::FutureLinkPropagateFirstErrorPolicy, T,
-            FutureValue...>::Make(std::move(future)...,
+  template <typename Callback, typename... Futures>
+  static LinkReturnType<PromiseFuturePair, Callback, PromiseType, Futures...>
+  LinkValue(Callback&& callback, Futures&&... future) {
+    return MakeFromState(internal_future::MakeLinkedFutureState<
+                         internal_future::FutureLinkPropagateFirstErrorPolicy,
+                         T, internal::remove_cvref_t<Futures>...>::
+                             Make(std::forward<Futures>(future)...,
                                   std::forward<Callback>(callback)));
   }
 
   /// Same as `LinkValue` function defined above, but initializes the Future
   /// result using `result_init`.
-  template <typename ResultInit, typename Callback, typename... FutureValue>
+  template <typename ResultInit, typename Callback, typename... Futures>
   static std::enable_if_t<
-      std::is_invocable_v<Callback, PromiseType, ReadyFuture<FutureValue>...> &&
-          std::is_constructible_v<Result<T>, ResultInit>,
-      PromiseFuturePair>
+      std::is_constructible_v<Result<T>, ResultInit>,
+      LinkReturnType<PromiseFuturePair, Callback, PromiseType, Futures...>>
   LinkValue(ResultInit&& result_init, Callback&& callback,
-            Future<FutureValue>... future) {
-    return MakeFromState(
-        internal_future::MakeLinkedFutureState<
-            internal_future::FutureLinkPropagateFirstErrorPolicy, T,
-            FutureValue...>::Make(std::move(future)...,
+            Futures&&... future) {
+    return MakeFromState(internal_future::MakeLinkedFutureState<
+                         internal_future::FutureLinkPropagateFirstErrorPolicy,
+                         T, internal::remove_cvref_t<Futures>...>::
+                             Make(std::forward<Futures>(future)...,
                                   std::forward<Callback>(callback),
                                   std::forward<ResultInit>(result_init)));
   }
@@ -1056,14 +1163,14 @@ class PromiseFuturePair {
   ///     return pair;
   ///
   /// \returns The promise/future pair.
-  template <typename ResultInit, typename... FutureValue>
+  template <typename ResultInit, typename... Futures>
   static std::enable_if_t<std::is_constructible_v<Result<T>, ResultInit>,
-                          PromiseFuturePair>
-  LinkError(ResultInit&& result_init, Future<FutureValue>... future) {
-    return MakeFromState(
-        internal_future::MakeLinkedFutureState<
-            internal_future::FutureLinkPropagateFirstErrorPolicy, T,
-            FutureValue...>::Make(std::move(future)...,
+                          LinkErrorReturnType<PromiseFuturePair, Futures...>>
+  LinkError(ResultInit&& result_init, Futures&&... future) {
+    return MakeFromState(internal_future::MakeLinkedFutureState<
+                         internal_future::FutureLinkPropagateFirstErrorPolicy,
+                         T, internal::remove_cvref_t<Futures>...>::
+                             Make(std::forward<Futures>(future)...,
                                   internal_future::NoOpCallback{},
                                   std::forward<ResultInit>(result_init)));
   }
@@ -1088,10 +1195,14 @@ class PromiseFuturePair {
 ///
 /// \param future The futures to be linked.
 /// \returns A Future propagating any error state.
-template <typename... FutureValue>
-Future<void> WaitAllFuture(Future<FutureValue>... future) {
+template <typename... Futures>
+std::enable_if_t<
+    (std::is_base_of<AnyFuture, internal::remove_cvref_t<Futures>>::value &&
+     ...),
+    Future<void>>
+WaitAllFuture(Futures&&... future) {
   return PromiseFuturePair<void>::LinkError(absl::OkStatus(),
-                                            std::move(future)...)
+                                            std::forward<Futures>(future)...)
       .future;
 }
 
@@ -1103,7 +1214,7 @@ Future<void> WaitAllFuture(Future<FutureValue>... future) {
 ///
 /// \param futures The futures to be linked.
 /// \returns A Future propagating any error state.
-Future<void> WaitAllFuture(tensorstore::span<Future<void>> futures);
+Future<void> WaitAllFuture(tensorstore::span<const AnyFuture> futures);
 
 /// Returns a `Future` that resolves to the result of calling
 /// `callback(future.result()...)` when all of the specified `future` objects
@@ -1259,33 +1370,9 @@ void SetDeferredResult(const Promise<T>& promise, U&& result) {
 }
 
 /// Waits for the future to be ready and returns the status.
-template <typename T>
-inline absl::Status GetStatus(const Future<T>& future) {
-  return tensorstore::GetStatus(future.result());
+inline absl::Status GetStatus(const AnyFuture& future) {
+  return future.status();
 }
-
-template <typename T>
-inline absl::Status GetStatus(const ReadyFuture<T>& future) {
-  return tensorstore::GetStatus(future.result());
-}
-
-namespace internal_future {
-
-/// Executes `callback` with the signature `void (FutureStatePointer)` when
-/// `state` becomes ready.
-template <class Callback>
-FutureCallbackRegistration UntypedExecuteWhenReady(FutureStatePointer state,
-                                                   Callback&& callback) {
-  if (!state->ready()) {
-    using Impl = UntypedReadyCallback<internal::remove_cvref_t<Callback>>;
-    auto* impl = new Impl(state.get(), std::forward<Callback>(callback));
-    return FutureAccess::Construct<FutureCallbackRegistration>(
-        state.release()->RegisterReadyCallback(impl));
-  }
-  std::forward<Callback>(callback)(std::move(state));
-  return FutureCallbackRegistration();
-}
-}  // namespace internal_future
 
 namespace internal {
 
