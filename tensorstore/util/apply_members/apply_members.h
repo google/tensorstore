@@ -27,6 +27,12 @@
 /// type-specific serialization, context binding, and cache key computation
 /// operations based on a single `ApplyMembers` definition.
 ///
+/// ApplyMembers is used to support the following mechanisms:
+/// * ContextBindingTraits: internal/context_binding.h
+/// * GarbageCollection: util/garbage_collection/garbage_collection.h
+/// * Serializer: serialization/serialization.h
+/// * EncodeCacheKey: internal/cache/cache_key.h
+///
 /// Separate headers provide support for certain standard types:
 ///
 ///   - std::tuple: std_tuple.h
@@ -51,7 +57,7 @@
 ///         return f(self.x, self.y);
 ///       };
 ///     };
-
+///
 #include <type_traits>
 #include <utility>
 
