@@ -130,10 +130,10 @@ struct CopyState : public internal::AtomicReferenceCount<CopyState> {
     }
   };
   Executor executor;
-  Driver::Ptr source_driver;
+  DriverPtr source_driver;
   internal::OpenTransactionPtr source_transaction;
   DataTypeConversionLookupResult data_type_conversion;
-  Driver::Ptr target_driver;
+  DriverPtr target_driver;
   internal::OpenTransactionPtr target_transaction;
   IndexTransform<> target_transform;
   DomainAlignmentOptions alignment_options;

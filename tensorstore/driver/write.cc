@@ -119,7 +119,7 @@ struct WriteState : public internal::AtomicReferenceCount<WriteState> {
   Executor executor;
   NormalizedTransformedArray<Shared<const void>> source;
   DataTypeConversionLookupResult data_type_conversion;
-  Driver::Ptr target_driver;
+  DriverPtr target_driver;
   internal::OpenTransactionPtr target_transaction;
   DomainAlignmentOptions alignment_options;
   Promise<void> copy_promise;

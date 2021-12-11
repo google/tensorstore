@@ -24,6 +24,7 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/driver.h"
+#include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/queue_testutil.h"
@@ -136,7 +137,12 @@ Future<std::vector<std::pair<ReadChunk, IndexTransform<>>>> CollectReadChunks(
 /// Mock TensorStore driver that records Read/Write requests in a queue.
 class MockDriver : public Driver {
  public:
-  using Ptr = PtrT<MockDriver>;
+  template <typename... Args>
+  static ReadWritePtr<MockDriver> Make(ReadWriteMode read_write_mode,
+                                       Args&&... args) {
+    return MakeReadWritePtr<MockDriver>(read_write_mode,
+                                        std::forward<Args>(args)...);
+  }
 
   explicit MockDriver(DataType dtype, DimensionIndex rank,
                       Executor data_copy_executor = InlineExecutor{})

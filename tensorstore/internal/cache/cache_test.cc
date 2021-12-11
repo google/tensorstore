@@ -729,12 +729,14 @@ TEST(CacheTest, CacheDependsOnOtherCache) {
                                                {cache_a.get(), cache_b.get()});
 }
 
+constexpr static int kDefaultIterations = 500;
+
 TEST(CacheTest, ConcurrentGetCacheEntry) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   auto cache = GetTestCache(pool.get(), "cache");
   PinnedCacheEntry<TestCache> pinned_entries[3];
   TestConcurrent(
-      /*num_iterations=*/1000,
+      kDefaultIterations,
       /*initialize=*/[] {},
       /*finalize=*/
       [&] {
@@ -760,7 +762,7 @@ TEST(CacheTest, ConcurrentGetCache) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   CachePtr<TestCache> caches[3];
   TestConcurrent(
-      /*num_iterations=*/1000,
+      kDefaultIterations,
       /*initialize=*/[] {},
       /*finalize=*/
       [&] {
@@ -786,7 +788,7 @@ TEST(CacheTest, ConcurrentReleaseCache) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   CachePtr<TestCache> caches[3];
   TestConcurrent(
-      /*num_iterations=*/1000,
+      kDefaultIterations,
       /*initialize=*/
       [&] {
         EXPECT_EQ(1, GetPoolImpl(pool)->strong_references_.load());
@@ -813,7 +815,7 @@ TEST(CacheTest, ConcurrentGetReleaseCache) {
     auto cache = GetTestCache(pool.get(), "cache");
   };
   TestConcurrent(
-      /*num_iterations=*/1000,
+      kDefaultIterations,
       /*initialize=*/
       [&] {
         EXPECT_EQ(1, GetPoolImpl(pool)->strong_references_.load());
@@ -829,7 +831,7 @@ TEST(CacheTest, ConcurrentReleaseCacheEntry) {
   auto cache = GetTestCache(pool.get(), "cache");
   PinnedCacheEntry<TestCache> pinned_entries[3];
   TestConcurrent(
-      /*num_iterations=*/1000,
+      kDefaultIterations,
       /*initialize=*/
       [&] {
         EXPECT_EQ(1, GetPoolImpl(pool)->strong_references_.load());
@@ -859,7 +861,7 @@ TEST(CacheTest, ConcurrentGetReleaseCacheEntry) {
     auto entry = GetCacheEntry(cache, "a");
   };
   TestConcurrent(
-      /*num_iterations=*/1000,
+      kDefaultIterations,
       /*initialize=*/
       [&] {
         EXPECT_EQ(1, GetPoolImpl(pool)->strong_references_.load());

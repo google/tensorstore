@@ -26,6 +26,8 @@ TestConcurrentLock::~TestConcurrentLock() {
   ::CloseHandle(mutex_);
 }
 
+void MaybeYield() { ::Sleep(0); }
+
 }  // namespace internal
 }  // namespace tensorstore
 #endif

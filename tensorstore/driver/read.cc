@@ -98,7 +98,7 @@ template <typename PromiseValue>
 struct ReadState
     : public internal::AtomicReferenceCount<ReadState<PromiseValue>> {
   Executor executor;
-  Driver::Ptr source_driver;
+  DriverPtr source_driver;
   internal::OpenTransactionPtr source_transaction;
   DataTypeConversionLookupResult data_type_conversion;
   NormalizedTransformedArray<Shared<void>> target;

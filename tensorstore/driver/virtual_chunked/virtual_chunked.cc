@@ -614,10 +614,9 @@ Result<internal::Driver::Handle> VirtualChunkedDriver::OpenFromSpecData(
   ReadWriteMode read_write_mode =
       (cache->read_function_ ? ReadWriteMode::read : ReadWriteMode{}) |
       (cache->write_function_ ? ReadWriteMode::write : ReadWriteMode{});
-  handle.driver = internal::DriverPtr(
-      new VirtualChunkedDriver(std::move(cache), /*component_index=*/0,
-                               spec.data_staleness.BoundAtOpen(absl::Now())),
-      read_write_mode);
+  handle.driver = internal::MakeReadWritePtr<VirtualChunkedDriver>(
+      read_write_mode, std::move(cache), /*component_index=*/0,
+      spec.data_staleness.BoundAtOpen(absl::Now()));
 
   return handle;
 }

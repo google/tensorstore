@@ -141,7 +141,10 @@ MatchesKvsReadResultAborted(
 /// `KeyValueStore`, and to inject errors to test error handling.
 class MockKeyValueStore : public kvstore::Driver {
  public:
-  using Ptr = PtrT<MockKeyValueStore>;
+  using MockPtr = IntrusivePtr<MockKeyValueStore>;
+  static MockKeyValueStore::MockPtr Make() {
+    return MakeIntrusivePtr<MockKeyValueStore>();
+  }
 
   struct ReadRequest {
     Promise<ReadResult> promise;
@@ -224,7 +227,7 @@ class MockKeyValueStore : public kvstore::Driver {
 ///
 struct MockKeyValueStoreResource {
   static constexpr char id[] = "mock_key_value_store";
-  using Resource = MockKeyValueStore::Ptr;
+  using Resource = MockKeyValueStore::MockPtr;
 };
 
 }  // namespace internal

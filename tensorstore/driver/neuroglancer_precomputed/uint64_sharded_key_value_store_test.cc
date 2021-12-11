@@ -25,6 +25,7 @@
 #include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/compression/zlib.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/thread_pool.h"
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -625,7 +626,7 @@ class UnderlyingKeyValueStoreTest : public ::testing::Test {
   ShardingSpec sharding_spec =
       ShardingSpec::FromJson(sharding_spec_json).value();
   CachePool::StrongPtr cache_pool = CachePool::Make(kSmallCacheLimits);
-  MockKeyValueStore::Ptr mock_store{new MockKeyValueStore};
+  MockKeyValueStore::MockPtr mock_store = MockKeyValueStore::Make();
   kvstore::DriverPtr GetStore(
       tensorstore::neuroglancer_uint64_sharded::GetMaxChunksPerShardFunction
           get_max_chunks_per_shard = {}) {
@@ -1449,7 +1450,7 @@ class ReadModifyWriteTest : public ::testing::Test {
       {"minishard_index_encoding", "raw"}};
   ShardingSpec sharding_spec =
       ShardingSpec::FromJson(sharding_spec_json).value();
-  MockKeyValueStore::Ptr mock_store{new MockKeyValueStore};
+  MockKeyValueStore::MockPtr mock_store = MockKeyValueStore::Make();
   tensorstore::kvstore::DriverPtr memory_store =
       tensorstore::GetMemoryKeyValueStore();
 

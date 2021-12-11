@@ -36,9 +36,10 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
+using ::tensorstore::internal::IntrusivePtr;
+
 namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
-
 namespace {
 
 /// Read-only KeyValueStore for retrieving a minishard index
@@ -117,8 +118,8 @@ class MinishardIndexKeyValueStore : public kvstore::Driver {
     //
     //    c. Otherwise, decode the byte range of the minishard index.
     //
-    // 2. Request the minishard index from the byte range specified in the shard
-    //    index.
+    // 2. Request the minishard index from the byte range specified in the
+    //    shard index.
     //
     //    a. If the generation has changed (concurrent modification of the
     //       shard), retry starting at step 1.
@@ -128,7 +129,7 @@ class MinishardIndexKeyValueStore : public kvstore::Driver {
     //
     //    c.  Otherwise, return the encoded minishard index.
     struct MinishardIndexReadyCallback {
-      PtrT<MinishardIndexKeyValueStore> self;
+      internal::IntrusivePtr<MinishardIndexKeyValueStore> self;
       ChunkSplitShardInfo split_info;
 
       void operator()(Promise<kvstore::ReadResult> promise,
@@ -159,7 +160,7 @@ class MinishardIndexKeyValueStore : public kvstore::Driver {
     };
 
     struct ShardIndexReadyCallback {
-      PtrT<MinishardIndexKeyValueStore> self;
+      IntrusivePtr<MinishardIndexKeyValueStore> self;
       ChunkSplitShardInfo split_info;
       absl::Time staleness_bound;
       static void SetError(const Promise<kvstore::ReadResult>& promise,
@@ -224,10 +225,10 @@ class MinishardIndexKeyValueStore : public kvstore::Driver {
     options.byte_range = {split_info.minishard * 16,
                           (split_info.minishard + 1) * 16};
     const auto staleness_bound = options.staleness_bound;
-    Link(WithExecutor(
-             executor_,
-             ShardIndexReadyCallback{PtrT<MinishardIndexKeyValueStore>(this),
-                                     split_info, staleness_bound}),
+    Link(WithExecutor(executor_,
+                      ShardIndexReadyCallback{
+                          IntrusivePtr<MinishardIndexKeyValueStore>(this),
+                          split_info, staleness_bound}),
          std::move(promise),
          base_->Read(GetShardKey(sharding_spec_, key_prefix_, split_info.shard),
                      std::move(options)));
@@ -239,12 +240,11 @@ class MinishardIndexKeyValueStore : public kvstore::Driver {
   ShardingSpec sharding_spec_;
 };
 
-
 /// Caches minishard indexes.
 ///
 /// Each cache entry corresponds to a particular minishard within a particular
-/// shard.  The entry keys directly encode `ChunkCombinedShardInfo` values (via
-/// `memcpy`), specifying a shard and minishard number.
+/// shard.  The entry keys directly encode `ChunkCombinedShardInfo` values
+/// (via `memcpy`), specifying a shard and minishard number.
 ///
 /// This cache is only used for reading.
 class MinishardIndexCache
@@ -329,7 +329,6 @@ MinishardAndChunkId GetMinishardAndChunkId(std::string_view key) {
           {absl::big_endian::Load64(key.data() + 8)}};
 }
 
-
 /// Cache used to buffer writes to the KeyValueStore.
 ///
 /// Each cache entry correspond to a particular shard.  The entry key directly
@@ -399,7 +398,7 @@ class ShardedKeyValueStoreWriteCache
       // Can safely access `data` after releasing `lock`.
       lock.unlock();
       // Can call `EncodeShard` synchronously without using our executor since
-      // `DoEncode` is already guaranteed to be called from our executor anyway.
+      // `DoEncode` is already guaranteed to be called from our executor.
       execution::set_value(
           receiver, EncodeShard(GetOwningCache(*this).sharding_spec(), *data));
     }

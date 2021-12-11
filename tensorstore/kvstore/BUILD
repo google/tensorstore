@@ -262,6 +262,7 @@ tensorstore_cc_test(
     deps = [
         ":test_util",
         "//tensorstore:transaction",
+        "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",

@@ -583,7 +583,7 @@ struct MockKeyValueStoreResourceTraits
   static constexpr auto JsonBinder() { return jb::Object(); }
   static Result<Resource> Create(const Spec& spec,
                                  ContextResourceCreationContext context) {
-    return Resource(new MockKeyValueStore);
+    return MockKeyValueStore::Make();
   }
 
   static Spec GetSpec(const Resource& resource,

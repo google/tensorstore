@@ -15,7 +15,9 @@
 #include "tensorstore/driver/cast/cast.h"
 
 #include "absl/status/status.h"
+#include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/registry.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/nditerable_data_type_conversion.h"
 #include "tensorstore/internal/type_traits.h"
@@ -23,13 +25,12 @@
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
-
 namespace internal_cast_driver {
-
 namespace {
 
 using internal::Arena;
 using internal::DataTypeConversionLookupResult;
+using internal::IntrusivePtr;
 using internal::LockCollection;
 using internal::NDIterable;
 using internal::OpenTransactionPtr;
@@ -140,8 +141,6 @@ class CastDriver
     : public internal::RegisteredDriver<CastDriver,
                                         /*Parent=*/internal::Driver> {
  public:
-  using Ptr = internal::Driver::PtrT<CastDriver>;
-
   Result<TransformedDriverSpec> GetBoundSpec(
       internal::OpenTransactionPtr transaction,
       IndexTransformView<> transform) override {
@@ -192,7 +191,7 @@ class CastDriver
 
   KvStore GetKvstore() override { return base_driver_->GetKvstore(); }
 
-  explicit CastDriver(internal::Driver::Ptr base, DataType target_dtype,
+  explicit CastDriver(internal::DriverPtr base, DataType target_dtype,
                       DataTypeConversionLookupResult input_conversion,
                       DataTypeConversionLookupResult output_conversion)
       : base_driver_(std::move(base)),
@@ -237,7 +236,7 @@ class CastDriver
              x.output_conversion_);
   };
 
-  internal::Driver::Ptr base_driver_;
+  internal::DriverPtr base_driver_;
   DataType target_dtype_;
   DataTypeConversionLookupResult input_conversion_;
   DataTypeConversionLookupResult output_conversion_;
@@ -245,7 +244,7 @@ class CastDriver
 
 // Implementation of `tensorstore::internal::ReadChunk::Impl` Poly interface.
 struct ReadChunkImpl {
-  CastDriver::Ptr self;
+  IntrusivePtr<CastDriver> self;
   ReadChunk::Impl base;
 
   absl::Status operator()(internal::LockCollection& lock_collection) {
@@ -265,7 +264,7 @@ struct ReadChunkImpl {
 
 // Implementation of `tensorstore::internal::WriteChunk::Impl` Poly interface.
 struct WriteChunkImpl {
-  CastDriver::Ptr self;
+  IntrusivePtr<CastDriver> self;
   WriteChunk::Impl base;
 
   absl::Status operator()(internal::LockCollection& lock_collection) {
@@ -294,7 +293,7 @@ struct WriteChunkImpl {
 
 template <typename Chunk, typename ChunkImpl>
 struct ChunkReceiverAdapter {
-  CastDriver::Ptr self;
+  IntrusivePtr<CastDriver> self;
   AnyFlowReceiver<Status, Chunk, IndexTransform<>> base;
   template <typename CancelReceiver>
   void set_starting(CancelReceiver receiver) {
@@ -323,7 +322,7 @@ void CastDriver::Read(
     AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) {
   base_driver_->Read(std::move(transaction), std::move(transform),
                      ChunkReceiverAdapter<ReadChunk, ReadChunkImpl>{
-                         Ptr(this), std::move(receiver)});
+                         IntrusivePtr<CastDriver>(this), std::move(receiver)});
 }
 
 void CastDriver::Write(
@@ -331,7 +330,7 @@ void CastDriver::Write(
     AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) {
   base_driver_->Write(std::move(transaction), std::move(transform),
                       ChunkReceiverAdapter<WriteChunk, WriteChunkImpl>{
-                          Ptr(this), std::move(receiver)});
+                          IntrusivePtr<CastDriver>(this), std::move(receiver)});
 }
 
 const internal::DriverRegistration<CastDriverSpec> driver_registration;
@@ -391,11 +390,9 @@ Result<Driver::Handle> MakeCastDriver(Driver::Handle base,
       auto conversions, GetCastDataTypeConversions(
                             base.driver->dtype(), target_dtype,
                             base.driver.read_write_mode(), read_write_mode));
-  base.driver =
-      internal::Driver::Ptr(new internal_cast_driver::CastDriver(
-                                std::move(base.driver), target_dtype,
-                                conversions.input, conversions.output),
-                            conversions.mode);
+  base.driver = internal::MakeReadWritePtr<internal_cast_driver::CastDriver>(
+      conversions.mode, std::move(base.driver), target_dtype, conversions.input,
+      conversions.output);
   return base;
 }
 

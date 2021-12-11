@@ -67,6 +67,7 @@
 // https://cloud.google.com/storage/docs/best-practices#uploading
 // https://cloud.google.com/storage/docs/json_api/v1/
 
+using tensorstore::internal::IntrusivePtr;
 using tensorstore::internal_http::HttpRequest;
 using tensorstore::internal_http::HttpRequestBuilder;
 using tensorstore::internal_http::HttpResponse;
@@ -330,8 +331,6 @@ class GcsKeyValueStore
                              spec.retries->max_retries);
   }
 
-  using Ptr = PtrT<GcsKeyValueStore>;
-
   /// The resource_root is the url used to read data and metadata from the GCS
   /// bucket.
   const std::string& resource_root() const { return resource_root_; }
@@ -444,7 +443,7 @@ class GcsKeyValueStore
 /// A ReadTask is a function object used to satisfy a
 /// GcsKeyValueStore::Read request.
 struct ReadTask {
-  GcsKeyValueStore::Ptr owner;
+  IntrusivePtr<GcsKeyValueStore> owner;
   std::string resource;
   kvstore::ReadOptions options;
 
@@ -534,8 +533,8 @@ Future<kvstore::ReadResult> GcsKeyValueStore::Read(Key key,
   std::string resource = tensorstore::internal::JoinPath(resource_root_, "/o/",
                                                          encoded_object_name);
   return MapFuture(executor(),
-                   ReadTask{GcsKeyValueStore::Ptr(this), std::move(resource),
-                            std::move(options)});
+                   ReadTask{IntrusivePtr<GcsKeyValueStore>(this),
+                            std::move(resource), std::move(options)});
 }
 
 /// A WriteTask is a function object used to satisfy a
@@ -543,7 +542,7 @@ Future<kvstore::ReadResult> GcsKeyValueStore::Read(Key key,
 struct WriteTask {
   using Value = kvstore::Value;
 
-  GcsKeyValueStore::Ptr owner;
+  IntrusivePtr<GcsKeyValueStore> owner;
   std::string encoded_object_name;
   Value value;
   kvstore::WriteOptions options;
@@ -631,7 +630,7 @@ struct WriteTask {
 /// A DeleteTask is a function object used to satisfy a
 /// GcsKeyValueStore::Delete request.
 struct DeleteTask {
-  GcsKeyValueStore::Ptr owner;
+  IntrusivePtr<GcsKeyValueStore> owner;
   std::string resource;
   kvstore::WriteOptions options;
 
@@ -703,15 +702,15 @@ Future<TimestampedStorageGeneration> GcsKeyValueStore::Write(
       tensorstore::internal_http::CurlEscapeString(key);
   if (value) {
     return MapFuture(
-        executor(),
-        WriteTask{GcsKeyValueStore::Ptr(this), std::move(encoded_object_name),
-                  std::move(*value), std::move(options)});
+        executor(), WriteTask{IntrusivePtr<GcsKeyValueStore>(this),
+                              std::move(encoded_object_name), std::move(*value),
+                              std::move(options)});
   } else {
     std::string resource = tensorstore::internal::JoinPath(
         resource_root_, "/o/", encoded_object_name);
-    return MapFuture(
-        executor(), DeleteTask{GcsKeyValueStore::Ptr(this), std::move(resource),
-                               std::move(options)});
+    return MapFuture(executor(),
+                     DeleteTask{IntrusivePtr<GcsKeyValueStore>(this),
+                                std::move(resource), std::move(options)});
   }
 }
 
@@ -737,7 +736,7 @@ std::string BuildListQueryParameters(const KeyRange& range,
 
 template <typename Receiver>
 struct ListState : public internal::AtomicReferenceCount<ListState<Receiver>> {
-  GcsKeyValueStore::Ptr owner;
+  IntrusivePtr<GcsKeyValueStore> owner;
   Executor executor;
   std::string resource;
   std::string query_parameters;
@@ -773,7 +772,7 @@ constexpr static auto GcsListResponsePayloadBinder = jb::Object(
 template <typename Receiver>
 struct ListOp {
   using State = ListState<Receiver>;
-  internal::IntrusivePtr<State> state;
+  IntrusivePtr<State> state;
 
   inline absl::Status maybe_cancelled() {
     return state->is_cancelled() ? absl::CancelledError("") : absl::OkStatus();
@@ -888,8 +887,8 @@ struct ListReceiver {
 void GcsKeyValueStore::ListImpl(ListOptions options,
                                 AnyFlowReceiver<absl::Status, Key> receiver) {
   using State = ListState<ListReceiver>;
-  internal::IntrusivePtr<State> state(new State);
-  state->owner = GcsKeyValueStore::Ptr{this};
+  auto state = internal::MakeIntrusivePtr<State>();
+  state->owner = IntrusivePtr<GcsKeyValueStore>(this);
   state->executor = executor();
   state->resource = tensorstore::internal::JoinPath(resource_root_, "/o");
   state->query_parameters =
@@ -897,13 +896,13 @@ void GcsKeyValueStore::ListImpl(ListOptions options,
   state->receiver.receiver = std::move(receiver);
   state->receiver.strip_prefix_length = options.strip_prefix_length;
 
-  executor()(ListOp<ListReceiver>{state});
+  executor()(ListOp<ListReceiver>{std::move(state)});
 }
 
 // Receiver used by `DeleteRange` for processing the results from `List`.
 struct DeleteRangeListReceiver {
   Promise<void> promise_;
-  GcsKeyValueStore::Ptr owner_;
+  IntrusivePtr<GcsKeyValueStore> owner;
   FutureCallbackRegistration cancel_registration_;
 
   void set_starting(AnyCancelReceiver cancel) {
@@ -911,7 +910,7 @@ struct DeleteRangeListReceiver {
   }
 
   void set_value(std::string key) {
-    LinkError(promise_, owner_->Delete(std::move(key)));
+    LinkError(promise_, owner->Delete(std::move(key)));
   }
 
   void set_error(absl::Status error) {
@@ -934,8 +933,9 @@ Future<void> GcsKeyValueStore::DeleteRange(KeyRange range) {
       PromiseFuturePair<void>::Make(tensorstore::MakeResult());
   ListOptions list_options;
   list_options.range = std::move(range);
-  ListImpl(list_options, DeleteRangeListReceiver{std::move(promise),
-                                                 GcsKeyValueStore::Ptr(this)});
+  ListImpl(list_options,
+           DeleteRangeListReceiver{std::move(promise),
+                                   IntrusivePtr<GcsKeyValueStore>(this)});
   return future;
 }
 

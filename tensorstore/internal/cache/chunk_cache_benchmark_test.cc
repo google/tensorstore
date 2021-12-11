@@ -288,7 +288,7 @@ class CopyBenchmarkRunner {
   BenchmarkConfig config;
   tensorstore::internal::CachePool::StrongPtr pool;
   tensorstore::internal::CachePtr<BenchmarkCache> cache;
-  tensorstore::internal::Driver::Ptr driver;
+  tensorstore::internal::DriverPtr driver;
   tensorstore::IndexTransform<> transform;
   tensorstore::SharedArray<void> array;
   tensorstore::IndexTransform<> offset_transform;

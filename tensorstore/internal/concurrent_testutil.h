@@ -34,6 +34,12 @@ class TestConcurrentLock {
  private:
   void* mutex_;
 };
+
+// On WIN32, Calls ::Sleep(0) which gives another thread a chance to run.
+void MaybeYield();
+#else
+// On non-WIN32 does nothing.
+inline void MaybeYield() {}
 #endif
 
 /// Repeatedly calls `initialize()`, then calls `concurrent_ops()...`
@@ -52,9 +58,12 @@ void TestConcurrent(std::size_t num_iterations, Initialize initialize,
   constexpr std::size_t counts_per_iteration = sizeof...(ConcurrentOps) + 1;
   // Start one thread for each concurrent operation.
   std::thread threads[]{std::thread([&] {
+    MaybeYield();
     for (std::size_t iteration = 0; iteration < num_iterations; ++iteration) {
-      // Spin until `initialize` has run for this iteration.
-      while (counter.load() < iteration * counts_per_iteration + 1) continue;
+      // Spin/yield until `initialize` has run for this iteration.
+      const std::size_t watermark = iteration * counts_per_iteration + 1;
+      while (counter.load() < watermark) MaybeYield();
+
       concurrent_ops();
       ++counter;
     }
@@ -62,8 +71,11 @@ void TestConcurrent(std::size_t num_iterations, Initialize initialize,
   for (std::size_t iteration = 0; iteration < num_iterations; ++iteration) {
     initialize();
     ++counter;
-    // Spin until all concurrent operations have run for this iteration.
-    while (counter.load() < (iteration + 1) * counts_per_iteration) continue;
+
+    // Spin/yield until all concurrent operations have run for this iteration.
+    const std::size_t watermark = (iteration + 1) * counts_per_iteration;
+    while (counter.load() < watermark) MaybeYield();
+
     finalize();
   }
   for (auto& t : threads) {

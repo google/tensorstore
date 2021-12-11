@@ -20,6 +20,7 @@ tensorstore_cc_library(
     hdrs = ["memory_key_value_store.h"],
     deps = [
         "//tensorstore:context",
+        "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",

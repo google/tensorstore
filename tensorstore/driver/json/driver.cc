@@ -14,6 +14,7 @@
 
 #include "tensorstore/driver/driver.h"
 
+#include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/json/json_change_map.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/internal/cache/async_cache.h"
@@ -311,7 +312,7 @@ Future<internal::Driver::Handle> JsonDriverSpec::Open(
             },
             initialize_promise, kvstore::Open(store.driver));
       });
-  internal::Driver::PtrT<JsonDriver> driver(new JsonDriver, read_write_mode);
+  auto driver = internal::MakeReadWritePtr<JsonDriver>(read_write_mode);
   driver->cache_entry_ = GetCacheEntry(cache, store.path);
   driver->json_pointer_ = json_pointer;
   driver->data_staleness_ = data_staleness.BoundAtOpen(request_time);
@@ -355,7 +356,7 @@ KvStore JsonDriver::GetKvstore() {
 /// This implements the `tensorstore::internal::ReadChunk::Impl` Poly interface.
 struct ReadChunkImpl {
   PinnedCacheEntry<JsonCache> entry;
-  internal::Driver::PtrT<JsonDriver> driver;
+  IntrusivePtr<JsonDriver> driver;
 
   absl::Status operator()(internal::LockCollection& lock_collection) const {
     // No locks need to be held throughout read operation.  A temporary lock is
@@ -390,7 +391,7 @@ struct ReadChunkImpl {
 /// This implements the `tensorstore::internal::ReadChunk::Impl` Poly interface.
 struct ReadChunkTransactionImpl {
   OpenTransactionNodePtr<JsonCache::TransactionNode> node;
-  internal::Driver::PtrT<JsonDriver> driver;
+  IntrusivePtr<JsonDriver> driver;
 
   absl::Status operator()(internal::LockCollection& lock_collection) const {
     // No locks need to be held throughout read operation.  A temporary lock is
@@ -430,12 +431,11 @@ void JsonDriver::Read(
       auto read_future = node->changes_.CanApplyUnconditionally(json_pointer_)
                              ? MakeReadyFuture()
                              : node->Read(data_staleness_.time);
-      chunk.impl = ReadChunkTransactionImpl{
-          std::move(node), internal::Driver::PtrT<JsonDriver>(this)};
+      chunk.impl = ReadChunkTransactionImpl{std::move(node),
+                                            IntrusivePtr<JsonDriver>(this)};
       return read_future;
     } else {
-      chunk.impl =
-          ReadChunkImpl{cache_entry_, internal::Driver::PtrT<JsonDriver>(this)};
+      chunk.impl = ReadChunkImpl{cache_entry_, IntrusivePtr<JsonDriver>(this)};
       return cache_entry_->Read(data_staleness_.time);
     }
   }();
@@ -461,7 +461,7 @@ void JsonDriver::Read(
 struct WriteChunkImpl {
   PinnedCacheEntry<JsonCache> entry;
   OpenTransactionPtr transaction;
-  internal::Driver::PtrT<JsonDriver> driver;
+  IntrusivePtr<JsonDriver> driver;
   // Temporary value that will be modified by writer.
   ::nlohmann::json value;
 
@@ -516,7 +516,7 @@ void JsonDriver::Write(
   execution::set_value(
       FlowSingleReceiver{std::move(receiver)},
       WriteChunk{WriteChunkImpl{cache_entry_, std::move(transaction),
-                                internal::Driver::PtrT<JsonDriver>(this)},
+                                IntrusivePtr<JsonDriver>(this)},
                  std::move(transform)},
       std::move(cell_transform));
 }

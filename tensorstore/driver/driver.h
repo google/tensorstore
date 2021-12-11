@@ -77,17 +77,13 @@ namespace internal {
 /// representation.
 ///
 /// Driver objects must always be heap allocated and managed using intrusive
-/// reference counting through a Driver::Ptr.
+/// reference counting through a DriverPtr.
 ///
-/// Users are not required to manually hold a Driver::Ptr while operations are
+/// Users are not required to manually hold a DriverPtr while operations are
 /// outstanding.
 class Driver : public AtomicReferenceCount<Driver> {
  public:
-  template <typename T>
-  using PtrT = ReadWritePtr<T>;
-  using Ptr = PtrT<Driver>;
   using Handle = DriverHandle;
-
   using Spec = DriverSpec;
 
   /// Returns the element representation.

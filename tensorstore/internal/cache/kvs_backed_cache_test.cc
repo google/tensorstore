@@ -76,7 +76,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
 class MockStoreTest : public ::testing::Test {
  protected:
   CachePool::StrongPtr pool = CachePool::Make(CachePool::Limits{});
-  MockKeyValueStore::Ptr mock_store{new MockKeyValueStore};
+  MockKeyValueStore::MockPtr mock_store = MockKeyValueStore::Make();
   kvstore::DriverPtr memory_store = tensorstore::GetMemoryKeyValueStore();
 
   tensorstore::internal::CachePtr<KvsBackedTestCache> GetCache(
@@ -799,7 +799,8 @@ TEST_F(MockStoreTest, MultiPhaseDeleteRangeAndWrite) {
 
 TEST_F(MockStoreTest, MultipleKeyValueStoreAtomicError) {
   auto transaction = Transaction(tensorstore::atomic_isolated);
-  MockKeyValueStore::Ptr mock_store2{new MockKeyValueStore};
+  auto mock_store2 = MockKeyValueStore::Make();
+
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto open_transaction,

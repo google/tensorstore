@@ -48,8 +48,6 @@ namespace kvstore {
 /// `registry.h` serves as the corresponding `DriverSpec` implementation.
 class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
  public:
-  using Ptr = DriverSpecPtr;
-
   virtual ~DriverSpec();
 
   /// Resolves any context references using `context`.
@@ -71,7 +69,7 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   virtual std::string_view driver_id() const = 0;
 
   /// Returns a copy of this spec, used to implement copy-on-write behavior.
-  virtual Ptr Clone() const = 0;
+  virtual DriverSpecPtr Clone() const = 0;
 
   /// Opens a `Driver` using this spec.
   ///
@@ -117,11 +115,6 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
 /// a `Driver` object does not cancel outstanding operations.
 class Driver {
  public:
-  template <typename T>
-  using PtrT = internal::IntrusivePtr<T>;
-
-  using Ptr = PtrT<Driver>;
-
   using ReadResult = kvstore::ReadResult;
   using ReadOptions = kvstore::ReadOptions;
   using WriteOptions = kvstore::WriteOptions;

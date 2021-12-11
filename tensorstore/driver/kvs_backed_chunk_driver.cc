@@ -720,7 +720,7 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
         .IgnoreFuture();
   }
 
-  internal::Driver::Ptr driver(
+  internal::DriverPtr driver(
       state->AllocateDriver(
           {std::move(chunk_cache), component_index,
            base.spec_->staleness.BoundAtOpen(base.request_time_)}),

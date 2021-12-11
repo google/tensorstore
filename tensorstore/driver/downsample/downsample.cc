@@ -23,21 +23,24 @@
 #include "tensorstore/driver/downsample/downsample_util.h"
 #include "tensorstore/driver/downsample/grid_occupancy_map.h"
 #include "tensorstore/driver/driver.h"
+#include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/read.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/serialization/std_vector.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/util/garbage_collection/std_vector.h"
 
 namespace tensorstore {
-
 namespace internal_downsample {
 namespace {
 
+using internal::DriverPtr;
+using internal::IntrusivePtr;
 using internal::LockCollection;
 using internal::NDIterable;
 using internal::OpenTransactionPtr;
@@ -263,8 +266,6 @@ class DownsampleDriver
     : public internal::RegisteredDriver<DownsampleDriver,
                                         /*Parent=*/internal::Driver> {
  public:
-  using Ptr = internal::Driver::PtrT<DownsampleDriver>;
-
   Result<TransformedDriverSpec> GetBoundSpec(
       internal::OpenTransactionPtr transaction,
       IndexTransformView<> transform) override {
@@ -338,7 +339,7 @@ class DownsampleDriver
     return base_transform_ | tensorstore::AllDims().Stride(downsample_factors_);
   }
 
-  explicit DownsampleDriver(Driver::Ptr base, IndexTransform<> base_transform,
+  explicit DownsampleDriver(DriverPtr base, IndexTransform<> base_transform,
                             span<const Index> downsample_factors,
                             DownsampleMethod downsample_method)
       : base_driver_(std::move(base)),
@@ -367,7 +368,7 @@ class DownsampleDriver
              x.downsample_method_);
   };
 
-  Driver::Ptr base_driver_;
+  DriverPtr base_driver_;
   IndexTransform<> base_transform_;
   std::vector<Index> downsample_factors_;
   DownsampleMethod downsample_method_;
@@ -378,7 +379,8 @@ Future<IndexTransform<>> DownsampleDriver::ResolveBounds(
     ResolveBoundsOptions options) {
   return MapFutureValue(
       InlineExecutor{},
-      [self = Ptr(this), transform = std::move(transform)](
+      [self = IntrusivePtr<DownsampleDriver>(this),
+       transform = std::move(transform)](
           IndexTransform<> base_transform) -> Result<IndexTransform<>> {
         Box<dynamic_rank(internal::kNumInlinedDims)> downsampled_bounds(
             base_transform.input_rank());
@@ -445,8 +447,7 @@ Future<IndexTransform<>> DownsampleDriver::ResolveBounds(
 ///        we emit a separate chunk that provides a downsampled view of that
 ///        cell of `data_buffer_`.
 struct ReadState : public internal::AtomicReferenceCount<ReadState> {
-  using Ptr = internal::IntrusivePtr<ReadState>;
-  DownsampleDriver::Ptr self_;
+  IntrusivePtr<DownsampleDriver> self_;
 
   /// Receiver of downsampled chunks.
   AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver_;
@@ -635,7 +636,7 @@ void ReadState::EmitBufferedChunkForBox(BoxView<> base_domain) {
   ReadChunk downsampled_chunk;
   downsampled_chunk.transform =
       IdentityTransform(request_transform.domain().box());
-  downsampled_chunk.impl = BufferedReadChunkImpl{ReadState::Ptr(this)};
+  downsampled_chunk.impl = BufferedReadChunkImpl{IntrusivePtr<ReadState>(this)};
   execution::set_value(receiver_, std::move(downsampled_chunk),
                        std::move(request_transform));
 }
@@ -761,12 +762,13 @@ bool MaybeEmitIndependentReadChunk(
           base_chunk.transform.domain().box());
     }
   }
+
   internal::ReadChunk downsampled_chunk;
   auto request_transform = GetDownsampledRequestIdentityTransform(
       base_chunk.transform.domain().box(), state.downsample_factors_,
       state.self_->downsample_method_, state.original_input_rank_);
-  downsampled_chunk.impl =
-      IndependentReadChunkImpl{ReadState::Ptr(&state), std::move(base_chunk)};
+  downsampled_chunk.impl = IndependentReadChunkImpl{
+      internal::IntrusivePtr<ReadState>(&state), std::move(base_chunk)};
   downsampled_chunk.transform =
       IdentityTransform(request_transform.domain().box());
   execution::set_value(state.receiver_, std::move(downsampled_chunk),
@@ -778,7 +780,9 @@ bool MaybeEmitIndependentReadChunk(
     // the executor.  We implicitly transfer ownership of a
     // `chunks_in_progress_` reference.
     state.self_->data_copy_executor()(
-        [state = ReadState::Ptr(&state)] { state->EmitBufferedChunks(); });
+        [state = internal::IntrusivePtr<ReadState>(&state)] {
+          state->EmitBufferedChunks();
+        });
   } else {
     std::lock_guard<ReadState> guard(state);
     --state.chunks_in_progress_;
@@ -789,7 +793,7 @@ bool MaybeEmitIndependentReadChunk(
 /// `Driver::ReadChunkReceiver` implementation passed to `base_driver_->Read`
 /// that handles downsampling the stream of chunks from the base driver.
 struct ReadReceiverImpl {
-  ReadState::Ptr state_;
+  internal::IntrusivePtr<ReadState> state_;
 
   void set_starting(AnyCancelReceiver on_cancel) {
     {
@@ -879,7 +883,7 @@ void DownsampleDriver::Read(
   }
   auto base_resolve_future = base_driver_->ResolveBounds(
       transaction, base_transform_, {fix_resizable_bounds});
-  ReadState::Ptr state(new ReadState);
+  auto state = internal::MakeIntrusivePtr<ReadState>();
   state->self_.reset(this);
   state->original_input_rank_ = transform.input_rank();
   state->receiver_ = std::move(receiver);
@@ -955,10 +959,9 @@ Result<Driver::Handle> MakeDownsampleDriver(
       internal_downsample::GetDownsampledDomainIdentityTransform(
           base.transform.domain(), downsample_factors, downsample_method);
   base.driver =
-      Driver::Ptr(new internal_downsample::DownsampleDriver(
-                      std::move(base.driver), std::move(base.transform),
-                      downsample_factors, downsample_method),
-                  ReadWriteMode::read);
+      internal::MakeReadWritePtr<internal_downsample::DownsampleDriver>(
+          ReadWriteMode::read, std::move(base.driver),
+          std::move(base.transform), downsample_factors, downsample_method);
   base.transform = std::move(downsampled_domain);
   return base;
 }

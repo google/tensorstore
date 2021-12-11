@@ -342,7 +342,7 @@ TEST(ZarrDriverTest, MetadataCache) {
 class MockKeyValueStoreTest : public ::testing::Test {
  protected:
   Context context = Context::Default();
-  MockKeyValueStore::Ptr mock_key_value_store =
+  tensorstore::internal::MockKeyValueStore::MockPtr mock_key_value_store =
       *context.GetResource<tensorstore::internal::MockKeyValueStoreResource>()
            .value();
   tensorstore::kvstore::DriverPtr memory_store =

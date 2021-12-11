@@ -679,7 +679,7 @@ TensorStore<> MockDriver::Wrap(IndexTransform<> transform) {
   if (!transform.valid()) transform = IdentityTransform(rank_);
   return TensorStoreAccess::Construct<TensorStore<>>(
       tensorstore::internal::Driver::Handle{
-          tensorstore::internal::Driver::Ptr(this, ReadWriteMode::read_write),
+          tensorstore::internal::DriverPtr(this, ReadWriteMode::read_write),
           std::move(transform)});
 }
 

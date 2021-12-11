@@ -31,6 +31,7 @@ tensorstore_cc_library(
         "//tensorstore:open_mode",
         "//tensorstore:spec",
         "//tensorstore/driver",
+        "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json",
         "//tensorstore/internal:nditerable_data_type_conversion",
         "//tensorstore/internal:type_traits",

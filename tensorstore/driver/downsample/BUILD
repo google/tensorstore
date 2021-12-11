@@ -35,6 +35,7 @@ tensorstore_cc_library(
         "//tensorstore/driver",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:nditerable_transformed_array",
         "//tensorstore/serialization",
         "//tensorstore/util:result",

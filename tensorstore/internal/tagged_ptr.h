@@ -63,11 +63,14 @@ class TaggedPtr {
 
   constexpr TaggedPtr() noexcept : value_(0) {}
 
+  /// Constructs from a nullptr.
+  constexpr TaggedPtr(std::nullptr_t) noexcept : value_(0) {}
+
   /// Constructs from a nullptr and tag.
   /// \dchecks `(tag >> TagBits) == 0`.
   /// \post `this->get() == nullptr`.
   /// \post `this->tag() == tag`.
-  constexpr TaggedPtr(std::nullptr_t, std::uintptr_t tag = 0) noexcept
+  constexpr TaggedPtr(std::nullptr_t, std::uintptr_t tag) noexcept
       : value_(tag) {
     assert((tag & kPointerMask) == 0);
   }

@@ -48,6 +48,8 @@
 #include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/sync_flow_sender.h"
 
+using ::tensorstore::internal::IntrusivePtr;
+
 namespace tensorstore {
 namespace kvstore {
 
@@ -285,13 +287,13 @@ void Driver::ListImpl(ListOptions options,
 
 AnyFlowSender<Status, Key> Driver::List(ListOptions options) {
   struct ListSender {
-    Ptr self;
+    IntrusivePtr<Driver> self;
     ListOptions options;
     void submit(AnyFlowReceiver<Status, Key> receiver) {
       self->ListImpl(options, std::move(receiver));
     }
   };
-  return ListSender{Ptr(this), std::move(options)};
+  return ListSender{IntrusivePtr<Driver>(this), std::move(options)};
 }
 
 std::string Driver::DescribeKey(std::string_view key) {

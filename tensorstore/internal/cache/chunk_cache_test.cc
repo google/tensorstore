@@ -37,6 +37,7 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/driver.h"
+#include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -103,9 +104,12 @@ using tensorstore::internal::ChunkCacheDriver;
 using tensorstore::internal::ChunkGridSpecification;
 using tensorstore::internal::Driver;
 using tensorstore::internal::ElementCopyFunction;
+using tensorstore::internal::MakeReadWritePtr;
 using tensorstore::internal::MockKeyValueStore;
 using tensorstore::internal::PinnedCacheEntry;
+using tensorstore::internal::ReadWritePtr;
 using tensorstore::internal::SimpleElementwiseFunction;
+
 using testing::ElementsAre;
 
 /// Decodes component arrays encoded as native-endian C order.
@@ -289,10 +293,12 @@ std::vector<Index> ParseKey(std::string_view key) {
   return result;
 }
 
-Driver::Ptr MakeDriver(CachePtr<ChunkCache> cache, size_t component_index = 0,
-                       StalenessBound data_staleness = {}) {
-  return Driver::Ptr(new TestDriver(cache, component_index, data_staleness),
-                     tensorstore::ReadWriteMode::read_write);
+ReadWritePtr<TestDriver> MakeDriver(CachePtr<ChunkCache> cache,
+                                    size_t component_index = 0,
+                                    StalenessBound data_staleness = {}) {
+  return MakeReadWritePtr<TestDriver>(tensorstore::ReadWriteMode::read_write,
+                                      std::move(cache), component_index,
+                                      data_staleness);
 }
 
 class ChunkCacheTest : public ::testing::Test {
@@ -303,7 +309,7 @@ class ChunkCacheTest : public ::testing::Test {
   std::optional<ChunkGridSpecification> grid;
 
   kvstore::DriverPtr memory_store = tensorstore::GetMemoryKeyValueStore();
-  MockKeyValueStore::Ptr mock_store{new MockKeyValueStore};
+  MockKeyValueStore::MockPtr mock_store = MockKeyValueStore::Make();
 
   std::vector<ChunkCache::ReadData> GetChunk(
       const std::vector<Index>& indices) {

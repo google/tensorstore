@@ -306,8 +306,13 @@ class IntrusivePtr {
   using traits_type = R;
   using pointer = typename R::template pointer<T>;
 
+  ~IntrusivePtr() {
+    if (pointer p = get()) R::decrement(p);
+  }
+
   /// Constructs a null pointer.
-  constexpr IntrusivePtr() noexcept : ptr_(pointer{}) {}
+  constexpr IntrusivePtr() noexcept : ptr_(nullptr) {}
+  constexpr IntrusivePtr(std::nullptr_t) noexcept : ptr_(nullptr) {}
 
   /// Constructs from a given pointer.  If `p` is not null, acquires a new
   /// reference to `p` by calling `R::increment(p)`.
@@ -331,51 +336,43 @@ class IntrusivePtr {
   IntrusivePtr(const IntrusivePtr& rhs) noexcept
       : IntrusivePtr(rhs.get(), acquire_object_ref) {}
 
-  template <typename U,
-            std::enable_if_t<std::is_convertible<
-                typename R::template pointer<U>, pointer>::value>* = nullptr>
-  IntrusivePtr(const IntrusivePtr<U, R>& rhs)
-      : IntrusivePtr(rhs.get(), acquire_object_ref) {}
-
-  /// Move constructs from `rhs`.  If `rhs` is not null, transfers ownership of
-  /// a reference from `rhs` to `*this`.
-  IntrusivePtr(IntrusivePtr&& rhs) noexcept
-      : IntrusivePtr(rhs.release(), adopt_object_ref) {}
-
-  template <typename U,
-            std::enable_if_t<std::is_convertible<
-                typename R::template pointer<U>, pointer>::value>* = nullptr>
-  IntrusivePtr(IntrusivePtr<U, R>&& rhs) noexcept
-      : IntrusivePtr(rhs.release(), adopt_object_ref) {}
-
-  ~IntrusivePtr() {
-    if (pointer p = get()) R::decrement(p);
-  }
-
-  IntrusivePtr& operator=(const IntrusivePtr& rhs) {
+  IntrusivePtr& operator=(const IntrusivePtr& rhs) noexcept {
     IntrusivePtr(rhs).swap(*this);
     return *this;
   }
 
-  template <typename U>
-  std::enable_if_t<
-      std::is_convertible<typename R::template pointer<U>, pointer>::value,
-      IntrusivePtr&>
-  operator=(const IntrusivePtr<U, R>& rhs) {
+  template <typename U,
+            std::enable_if_t<std::is_convertible<
+                typename R::template pointer<U>, pointer>::value>* = nullptr>
+  IntrusivePtr(const IntrusivePtr<U, R>& rhs) noexcept
+      : IntrusivePtr(rhs.get(), acquire_object_ref) {}
+
+  template <typename U, typename = std::enable_if_t<std::is_convertible<
+                            typename R::template pointer<U>, pointer>::value>>
+  IntrusivePtr& operator=(const IntrusivePtr<U, R>& rhs) noexcept {
+    IntrusivePtr(rhs).swap(*this);
+    return *this;
+  }
+
+  /// Move constructs from `rhs`.  If `rhs` is not null, transfers ownership of
+  /// a reference from `rhs` to `*this`.
+  constexpr IntrusivePtr(IntrusivePtr&& rhs) noexcept
+      : IntrusivePtr(rhs.release(), adopt_object_ref) {}
+
+  constexpr IntrusivePtr& operator=(IntrusivePtr&& rhs) noexcept {
     IntrusivePtr(std::move(rhs)).swap(*this);
     return *this;
   }
 
-  IntrusivePtr& operator=(IntrusivePtr&& rhs) noexcept {
-    IntrusivePtr(std::move(rhs)).swap(*this);
-    return *this;
-  }
+  template <typename U,
+            std::enable_if_t<std::is_convertible<
+                typename R::template pointer<U>, pointer>::value>* = nullptr>
+  constexpr IntrusivePtr(IntrusivePtr<U, R>&& rhs) noexcept
+      : IntrusivePtr(rhs.release(), adopt_object_ref) {}
 
-  template <typename U>
-  std::enable_if_t<
-      std::is_convertible<typename R::template pointer<U>, pointer>::value,
-      IntrusivePtr&>
-  operator=(IntrusivePtr<U, R>&& rhs) noexcept {
+  template <typename U, typename = std::enable_if_t<std::is_convertible<
+                            typename R::template pointer<U>, pointer>::value>>
+  constexpr IntrusivePtr& operator=(IntrusivePtr<U, R>&& rhs) noexcept {
     IntrusivePtr(std::move(rhs)).swap(*this);
     return *this;
   }
@@ -383,6 +380,7 @@ class IntrusivePtr {
   /// Assigns the stored pointer to null.  If the prior stored pointer was
   /// non-null, calls `R::decrement` on it.
   void reset() noexcept { IntrusivePtr().swap(*this); }
+  void reset(std::nullptr_t) noexcept { IntrusivePtr().swap(*this); }
 
   /// Assigns the stored pointer to `rhs`, and calls `R::increment` on `rhs` if
   /// non-null.  If the prior stored pointer was non-null, calls `R::decrement`

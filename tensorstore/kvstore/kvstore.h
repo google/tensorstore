@@ -43,7 +43,7 @@ struct SpecRequestOptions {
 template <>
 constexpr inline bool SpecRequestOptions::IsOption<ContextBindingMode> = true;
 
-/// Combines a `Driver::Ptr` with a string path that serves as a key prefix, and
+/// Combines a `DriverPtr` with a string path that serves as a key prefix, and
 /// an optional transaction.
 class KvStore : public KvStorePathBase<DriverPtr> {
  public:

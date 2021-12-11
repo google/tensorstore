@@ -30,6 +30,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -482,7 +483,7 @@ absl::Status MemoryDriver::TransactionalDeleteRange(
 }  // namespace
 
 kvstore::DriverPtr GetMemoryKeyValueStore(bool atomic) {
-  kvstore::Driver::PtrT<MemoryDriver> ptr(new MemoryDriver);
+  auto ptr = internal::MakeIntrusivePtr<MemoryDriver>();
   ptr->spec_.memory_key_value_store =
       Context::Default()
           .GetResource(

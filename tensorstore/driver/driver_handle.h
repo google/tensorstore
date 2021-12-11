@@ -32,20 +32,88 @@ struct ReadWritePtrTraits
   using pointer = TaggedPtr<U, 2>;
 };
 
+/// ReadWritePtr is an intrusive tagged pointer where the tag carries the
+/// ReadWriteMode flag.
 template <typename T>
 class ReadWritePtr : public IntrusivePtr<T, ReadWritePtrTraits> {
   using Base = IntrusivePtr<T, ReadWritePtrTraits>;
 
  public:
-  using Base::Base;
+  using element_type = T;
+  using traits_type = ReadWritePtrTraits;
+  using pointer = typename ReadWritePtrTraits::template pointer<T>;
+
+  constexpr ReadWritePtr() noexcept : Base() {}
+  constexpr ReadWritePtr(std::nullptr_t) noexcept : Base(nullptr) {}
+
+  explicit ReadWritePtr(T* ptr, ReadWriteMode read_write_mode) noexcept
+      : ReadWritePtr(ptr, read_write_mode, acquire_object_ref) {}
+
+  explicit ReadWritePtr(pointer ptr, acquire_object_ref_t) noexcept
+      : Base(ptr, acquire_object_ref) {}
+
   explicit ReadWritePtr(T* ptr, ReadWriteMode read_write_mode,
-                        acquire_object_ref_t = acquire_object_ref) noexcept
-      : Base({ptr, static_cast<uintptr_t>(read_write_mode)},
-             acquire_object_ref) {}
-  explicit ReadWritePtr(T* ptr, ReadWriteMode read_write_mode,
-                        adopt_object_ref_t) noexcept
-      : Base({ptr, static_cast<uintptr_t>(read_write_mode)}, adopt_object_ref) {
+                        acquire_object_ref_t) noexcept
+      : ReadWritePtr({ptr, static_cast<uintptr_t>(read_write_mode)},
+                     acquire_object_ref) {}
+
+  constexpr explicit ReadWritePtr(pointer ptr, adopt_object_ref_t) noexcept
+      : Base(ptr, adopt_object_ref) {}
+
+  constexpr explicit ReadWritePtr(T* ptr, ReadWriteMode read_write_mode,
+                                  adopt_object_ref_t) noexcept
+      : ReadWritePtr({ptr, static_cast<uintptr_t>(read_write_mode)},
+                     adopt_object_ref) {}
+
+  /// Default copy and move constructors.
+  ReadWritePtr(const ReadWritePtr& rhs) noexcept = default;
+  ReadWritePtr& operator=(const ReadWritePtr& rhs) noexcept = default;
+  constexpr ReadWritePtr(ReadWritePtr&& rhs) noexcept = default;
+  constexpr ReadWritePtr& operator=(ReadWritePtr&& rhs) noexcept = default;
+
+  /// Copy constructs from `rhs`.  If `rhs` is not null, acquires a new
+  /// reference to `rhs.get()` by calling `R::increment(rhs.get())`.
+  template <typename U,
+            std::enable_if_t<std::is_convertible<
+                typename traits_type::template pointer<U>, pointer>::value>* =
+                nullptr>
+  ReadWritePtr(const ReadWritePtr<U>& rhs) noexcept
+      : Base(rhs.get(), acquire_object_ref) {}
+
+  template <typename U,
+            std::enable_if_t<std::is_convertible<
+                typename traits_type::template pointer<U>, pointer>::value>* =
+                nullptr>
+  ReadWritePtr& operator=(const ReadWritePtr<U>& rhs) {
+    ReadWritePtr(rhs).swap(*this);
+    return *this;
   }
+
+  /// Move constructs from `rhs`.  If `rhs` is not null, transfers ownership of
+  /// a reference from `rhs` to `*this`.
+  template <typename U, typename = std::enable_if_t<std::is_convertible<
+                            traits_type::template pointer<U>, pointer>::value>>
+  constexpr ReadWritePtr(ReadWritePtr<U>&& rhs) noexcept
+      : Base(rhs.release(), adopt_object_ref) {}
+
+  template <typename U, typename = std::enable_if_t<std::is_convertible<
+                            traits_type::template pointer<U>, pointer>::value>>
+  constexpr ReadWritePtr& operator=(ReadWritePtr<U>&& rhs) noexcept {
+    ReadWritePtr(std::move(rhs)).swap(*this);
+    return *this;
+  }
+
+  // Methods inherited from IntrusivePtr<T>:
+  // reset()
+  // release()
+  // swap()
+  // operator bool()
+  // get()
+  // operator->()
+  // operator*()
+  // operator==()
+  // operator!=()
+
   ReadWriteMode read_write_mode() const {
     return static_cast<ReadWriteMode>(this->get().tag());
   }
@@ -53,6 +121,24 @@ class ReadWritePtr : public IntrusivePtr<T, ReadWritePtrTraits> {
     *this = ReadWritePtr(this->release(), read_write_mode, adopt_object_ref);
   }
 };
+
+/// Creates an `ReadWritePtr<T>` while avoiding issues creating temporaries
+/// during the construction process, a shorthand for
+/// `ReadWritePtr<T>(new T(...), mode, acquire_object_ref)`.
+///
+///  mode is one of ReadWriteMode::dynamic, ReadWriteMode::read,
+///  ReadWriteMode::write, ReadWriteMode::read_write.
+///
+/// Example:
+///   auto p = MakeReadWritePtr<X>(ReadWriteMode::read, args...);
+///   // 'p' is an ReadWritePtr<X>
+///   EXPECT_EQ(p.read_write_mode(), ReadWriteMode::read);
+///
+template <typename T, typename... Args>
+inline ReadWritePtr<T> MakeReadWritePtr(ReadWriteMode mode, Args&&... args) {
+  return ReadWritePtr<T>(new T(std::forward<Args>(args)...), mode,
+                         acquire_object_ref);
+}
 
 template <typename T, typename U>
 inline ReadWritePtr<T> static_pointer_cast(ReadWritePtr<U> p) {
@@ -76,7 +162,7 @@ struct HandleBase {
   Transaction transaction{no_transaction};
 };
 
-/// Pairs a `Driver::Ptr` with an `IndexTransform<>` to apply to the driver and
+/// Pairs a `DriverPtr` with an `IndexTransform<>` to apply to the driver and
 /// a transaction to use.
 using DriverHandle = HandleBase<Driver>;
 

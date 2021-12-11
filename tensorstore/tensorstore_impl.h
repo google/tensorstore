@@ -192,7 +192,7 @@ Future<SharedArray<Element, Rank, OriginKind>> MapArrayFuture(
 
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
 struct IndexTransformFutureCallback {
-  internal::Driver::Ptr driver;
+  internal::DriverPtr driver;
   Transaction transaction;
   TensorStore<Element, Rank, Mode> operator()(IndexTransform<>& transform) {
     return TensorStoreAccess::Construct<TensorStore<Element, Rank, Mode>>(

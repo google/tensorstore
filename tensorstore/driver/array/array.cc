@@ -18,6 +18,7 @@
 #include "tensorstore/array.h"
 #include "tensorstore/data_type_conversion.h"
 #include "tensorstore/driver/driver.h"
+#include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -70,6 +71,7 @@ namespace {
 
 using internal::Arena;
 using internal::DataCopyConcurrencyResource;
+using internal::IntrusivePtr;
 using internal::NDIterable;
 using internal::ReadChunk;
 using internal::WriteChunk;
@@ -173,8 +175,6 @@ class ArrayDriver
     assert(data_copy_concurrency_.has_resource());
   }
 
-  using Ptr = internal::Driver::PtrT<ArrayDriver>;
-
   void Read(
       internal::OpenTransactionPtr transaction, IndexTransform<> transform,
       AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) override;
@@ -221,7 +221,7 @@ void ArrayDriver::Read(
     AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) {
   // Implementation of `tensorstore::ReadChunk::Impl` Poly interface.
   struct ChunkImpl {
-    ArrayDriver::Ptr self;
+    IntrusivePtr<ArrayDriver> self;
 
     absl::Status operator()(internal::LockCollection& lock_collection) {
       lock_collection.RegisterShared(self->mutex_);
@@ -243,7 +243,8 @@ void ArrayDriver::Read(
   } else {
     auto cell_transform = IdentityTransform(transform.input_domain());
     execution::set_value(receiver,
-                         ReadChunk{ChunkImpl{Ptr(this)}, std::move(transform)},
+                         ReadChunk{ChunkImpl{IntrusivePtr<ArrayDriver>(this)},
+                                   std::move(transform)},
                          std::move(cell_transform));
     execution::set_done(receiver);
   }
@@ -255,7 +256,7 @@ void ArrayDriver::Write(
     AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) {
   // Implementation of `tensorstore::internal::WriteChunk::Impl` Poly interface.
   struct ChunkImpl {
-    ArrayDriver::Ptr self;
+    IntrusivePtr<ArrayDriver> self;
 
     absl::Status operator()(internal::LockCollection& lock_collection) {
       lock_collection.RegisterExclusive(self->mutex_);
@@ -284,7 +285,8 @@ void ArrayDriver::Write(
     execution::set_error(receiver, TransactionError());
   } else {
     execution::set_value(receiver,
-                         WriteChunk{ChunkImpl{Ptr(this)}, std::move(transform)},
+                         WriteChunk{ChunkImpl{IntrusivePtr<ArrayDriver>(this)},
+                                    std::move(transform)},
                          std::move(cell_transform));
     execution::set_done(receiver);
   }
@@ -383,10 +385,9 @@ Future<internal::Driver::Handle> ArrayDriverSpec::Open(
     MergeDimensionUnits(dimension_units, schema_units).IgnoreError();
   }
   return internal::Driver::Handle{
-      internal::Driver::Ptr(
-          new ArrayDriver(data_copy_concurrency, tensorstore::MakeCopy(array),
-                          std::move(dimension_units)),
-          read_write_mode),
+      internal::MakeReadWritePtr<ArrayDriver>(
+          read_write_mode, data_copy_concurrency, tensorstore::MakeCopy(array),
+          std::move(dimension_units)),
       tensorstore::IdentityTransform(array.shape())};
 }
 
@@ -423,11 +424,10 @@ Result<internal::Driver::Handle> MakeArrayDriver(
             std::move(array))));
   }
   return internal::Driver::Handle{
-      Driver::Ptr(
-          new internal_array_driver::ArrayDriver(
-              context.GetResource<DataCopyConcurrencyResource>().value(),
-              std::move(zero_origin_array), std::move(dimension_units)),
-          ReadWriteMode::read_write),
+      internal::MakeReadWritePtr<internal_array_driver::ArrayDriver>(
+          ReadWriteMode::read_write,
+          context.GetResource<DataCopyConcurrencyResource>().value(),
+          std::move(zero_origin_array), std::move(dimension_units)),
       std::move(transform)};
 }
 

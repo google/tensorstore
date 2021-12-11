@@ -291,6 +291,7 @@ tensorstore_cc_test(
     deps = [
         ":uint64_sharded_key_value_store",
         "//tensorstore/internal:global_initializer",
+        "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:thread_pool",
         "//tensorstore/internal/cache",
         "//tensorstore/internal/cache:kvs_backed_cache_testutil",

@@ -215,7 +215,7 @@ class DriverOpenState {
   const SpecData& spec() const { return spec_->data_; }
 
  private:
-  Driver::PtrT<Derived> driver_;
+  internal::IntrusivePtr<Derived> driver_;
   Promise<DriverPtr> promise_;
   internal::IntrusivePtr<const RegisteredDriverSpec<Derived>> spec_;
 };

@@ -16,6 +16,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/status_testutil.h"
@@ -33,7 +34,7 @@ using tensorstore::internal::MatchesKvsReadResult;
 using tensorstore::internal::MockKeyValueStore;
 
 TEST(KvStoreTest, WriteThenRead) {
-  MockKeyValueStore::Ptr mock_driver{new MockKeyValueStore};
+  auto mock_driver = MockKeyValueStore::Make();
 
   Transaction txn(tensorstore::isolated);
 
@@ -59,7 +60,7 @@ TEST(KvStoreTest, WriteThenRead) {
 }
 
 TEST(KvStoreTest, Read) {
-  MockKeyValueStore::Ptr mock_driver{new MockKeyValueStore};
+  auto mock_driver = MockKeyValueStore::Make();
 
   Transaction txn(tensorstore::isolated);
 
@@ -97,7 +98,7 @@ TEST(KvStoreTest, Read) {
 }
 
 TEST(KvStoreTest, ReadInvalidOptionIfEqual) {
-  MockKeyValueStore::Ptr mock_driver{new MockKeyValueStore};
+  auto mock_driver = MockKeyValueStore::Make();
 
   Transaction txn(tensorstore::isolated);
 
@@ -110,7 +111,7 @@ TEST(KvStoreTest, ReadInvalidOptionIfEqual) {
 }
 
 TEST(KvStoreTest, ReadInvalidOptionByteRange) {
-  MockKeyValueStore::Ptr mock_driver{new MockKeyValueStore};
+  auto mock_driver = MockKeyValueStore::Make();
 
   Transaction txn(tensorstore::isolated);
 
@@ -123,7 +124,7 @@ TEST(KvStoreTest, ReadInvalidOptionByteRange) {
 }
 
 TEST(KvStoreTest, ReadMismatch) {
-  MockKeyValueStore::Ptr mock_driver{new MockKeyValueStore};
+  auto mock_driver = MockKeyValueStore::Make();
 
   Transaction txn(tensorstore::isolated);
 
@@ -178,7 +179,7 @@ TEST(KvStoreTest, ReadMismatch) {
 }
 
 TEST(KvStoreTest, ListInvalid) {
-  MockKeyValueStore::Ptr mock_driver{new MockKeyValueStore};
+  auto mock_driver = MockKeyValueStore::Make();
 
   Transaction txn(tensorstore::isolated);
   KvStore store(mock_driver, "", txn);
