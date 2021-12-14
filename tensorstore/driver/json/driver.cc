@@ -219,10 +219,17 @@ class JsonDriverSpec
                      jb::DefaultInitializedValue()))));
 
   absl::Status ApplyOptions(SpecOptions&& options) override {
+    // A json driver contains both the data and the metadata, so set the
+    // staleness bound to the maximum of requested data and metadata staleness.
     if (options.recheck_cached_data.specified()) {
       data_staleness = StalenessBound(options.recheck_cached_data);
-    } else if (options.recheck_cached_data.specified()) {
-      data_staleness = StalenessBound(options.recheck_cached_metadata);
+    }
+    if (options.recheck_cached_metadata.specified()) {
+      StalenessBound bound(options.recheck_cached_metadata);
+      if (!options.recheck_cached_data.specified() ||
+          bound.time > data_staleness.time) {
+        data_staleness = std::move(bound);
+      }
     }
     if (options.kvstore.valid()) {
       if (store.valid()) {

@@ -136,6 +136,7 @@ Result<DimensionUnitsVector> Driver::GetDimensionUnits() {
 Future<IndexTransform<>> Driver::ResolveBounds(OpenTransactionPtr transaction,
                                                IndexTransform<> transform,
                                                ResolveBoundsOptions options) {
+  assert(transform.output_rank() == rank());
   return std::move(transform);
 }
 

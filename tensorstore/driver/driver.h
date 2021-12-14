@@ -200,6 +200,12 @@ class Driver : public AtomicReferenceCount<Driver> {
 
   /// Resolves implicit bounds of `transform`.
   ///
+  /// Typically `ResolveBounds` is called before reading with a transform
+  /// composed from the initial DriverHandle transform, so the ranks should
+  /// already match. When called with an identity transform of rank(), the
+  /// returned transform should be a transform with the domain set to the
+  /// current bounds.
+  ///
   /// \dchecks `transform.output_rank() == rank()`.
   /// \returns A copy of `transform` with implicit bounds possibly updated.
   /// \error If explicit bounds of `transform` are incompatible with the

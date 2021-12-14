@@ -175,6 +175,10 @@ class ArrayDriver
     assert(data_copy_concurrency_.has_resource());
   }
 
+  Future<IndexTransform<>> ResolveBounds(
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      ResolveBoundsOptions options) override;
+
   void Read(
       internal::OpenTransactionPtr transaction, IndexTransform<> transform,
       AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) override;
@@ -214,6 +218,14 @@ class ArrayDriver
 absl::Status TransactionError() {
   return absl::UnimplementedError(
       "\"array\" driver does not support transactions");
+}
+
+Future<IndexTransform<>> ArrayDriver::ResolveBounds(
+    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+    ResolveBoundsOptions options) {
+  if (transaction) return TransactionError();
+  return PropagateExplicitBoundsToTransform(data_.domain(),
+                                            std::move(transform));
 }
 
 void ArrayDriver::Read(

@@ -876,6 +876,34 @@ TEST(ArrayTest, SpecRankPropagation) {
   EXPECT_EQ(1, spec.rank());
 }
 
+TEST(ArrayDriverHandle, OpenResolveBounds) {
+  ::nlohmann::json json_spec{
+      {"driver", "array"},
+      {"array", {{1, 2, 3}, {4, 5, 6}}},
+      {"dtype", "uint32"},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(json_spec));
+
+  tensorstore::TransactionalOpenOptions options;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto handle,
+      tensorstore::internal::OpenDriver(
+          std::move(tensorstore::internal_spec::SpecAccess::impl(spec)),
+          std::move(options))
+          .result());
+
+  // Validates that an identity transform of rank returns the array bounds.
+  auto transform_result =
+      handle.driver
+          ->ResolveBounds(
+              {}, tensorstore::IdentityTransform(handle.driver->rank()), {})
+          .result();
+
+  EXPECT_THAT(transform_result->input_origin(), ::testing::ElementsAre(0, 0));
+  EXPECT_THAT(transform_result->input_shape(), ::testing::ElementsAre(2, 3));
+}
+
 TEST(ArrayTest, SpecFromArray) {
   auto orig_array = tensorstore::MakeOffsetArray<float>({2}, {1, 2, 3});
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
