@@ -148,8 +148,9 @@ inline ReadWritePtr<T> static_pointer_cast(ReadWritePtr<U> p) {
 class Driver;
 using DriverPtr = ReadWritePtr<Driver>;
 
-template <typename Driver>
-struct HandleBase {
+/// Pairs a `ReadWritePtr<Driver>` with an `IndexTransform<>` to apply to the
+/// driver and a transaction to use.
+struct DriverHandle {
   bool valid() const { return static_cast<bool>(driver); }
   ReadWritePtr<Driver> driver;
 
@@ -161,10 +162,6 @@ struct HandleBase {
   /// Transaction to use.
   Transaction transaction{no_transaction};
 };
-
-/// Pairs a `DriverPtr` with an `IndexTransform<>` to apply to the driver and
-/// a transaction to use.
-using DriverHandle = HandleBase<Driver>;
 
 }  // namespace internal
 }  // namespace tensorstore
