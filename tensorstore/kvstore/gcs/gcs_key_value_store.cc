@@ -24,6 +24,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
@@ -467,6 +468,21 @@ struct ReadTask {
       TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
       HttpRequestBuilder request_builder("GET", media_url);
       if (auth_header) request_builder.AddHeader(*auth_header);
+      // For requests to buckets that are publicly readable, GCS may return a
+      // stale response unless it is prohibited by the cache-control header.
+      if (options.staleness_bound != absl::InfinitePast()) {
+        absl::Time now;
+        if (options.staleness_bound == absl::InfiniteFuture() ||
+            (now = absl::Now()) <= options.staleness_bound) {
+          request_builder.AddHeader("cache-control: no-cache");
+        } else {
+          // Since max-age is specified as an integer number of seconds, always
+          // round down to ensure our requirement is met.
+          request_builder.AddHeader(
+              absl::StrFormat("cache-control: max-age=%d",
+                              ToInt64Seconds(now - options.staleness_bound)));
+        }
+      }
       if (options.byte_range.inclusive_min != 0 ||
           options.byte_range.exclusive_max) {
         request_builder.AddHeader(
@@ -488,6 +504,37 @@ struct ReadTask {
     });
 
     TENSORSTORE_RETURN_IF_ERROR(retry_status);
+
+    // Parse `Date` header from response to correctly handle cached responses.
+    // The GCS servers always send a `date` header.
+    {
+      absl::Time response_date;
+      auto date_it = httpresponse.headers.find("date");
+      if (date_it == httpresponse.headers.end()) {
+        return absl::InvalidArgumentError("Missing \"date\" response header");
+      }
+      if (!absl::ParseTime(internal_http::kHttpTimeFormat, date_it->second,
+                           &response_date, /*err=*/nullptr) ||
+          response_date == absl::InfiniteFuture() ||
+          response_date == absl::InfinitePast()) {
+        return absl::InvalidArgumentError(
+            tensorstore::StrCat("Invalid \"date\" response header: ",
+                                tensorstore::QuoteString(date_it->second)));
+      }
+      if (response_date < read_result.stamp.time) {
+        if (options.staleness_bound < read_result.stamp.time &&
+            response_date < options.staleness_bound) {
+          // `response_date` does not satisfy the `staleness_bound` requirement,
+          // possibly due to time skew.  Due to the way we compute `max-age` in
+          // the request header, in the case of time skew it is correct to just
+          // use `staleness_bound` instead.
+          read_result.stamp.time = options.staleness_bound;
+        } else {
+          read_result.stamp.time = response_date;
+        }
+      }
+    }
+
     switch (httpresponse.status_code) {
       case 204:
       case 404:

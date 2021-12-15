@@ -86,6 +86,13 @@ class HttpRequestBuilder {
 /// Returns an HTTP Range header for requesting the specified byte range.
 std::string GetRangeHeader(OptionalByteRangeRequest byte_range);
 
+/// `strptime`-compatible format string for the HTTP date header.
+///
+/// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Date
+///
+/// Note that the time zone is always UTC and is specified as "GMT".
+constexpr const char kHttpTimeFormat[] = "%a, %d %b %E4Y %H:%M:%S GMT";
+
 }  // namespace internal_http
 }  // namespace tensorstore
 

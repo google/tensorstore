@@ -188,7 +188,7 @@ GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
     return HandleInsertRequest(path, params, payload);
   } else if (absl::StartsWith(path, "/o/") && request.method() == "GET") {
     // GET request on an object.
-    return HandleGetRequest(path, params);
+    return HandleGetRequest(path, params, request.headers());
   } else if (absl::StartsWith(path, "/o/") && request.method() == "DELETE") {
     // DELETE request on an object.
     return HandleDeleteRequest(path, params);
@@ -247,7 +247,10 @@ GCSMockStorageBucket::HandleListRequest(std::string_view path,
   ::nlohmann::json result{{"kind", "storage#objects"}};
   ::nlohmann::json::array_t items;
   for (; object_it != object_end_it; ++object_it) {
-    items.push_back(ObjectMetadata(object_it->second));
+    if (object_it->second.is_deleted()) continue;
+    // List response is never cached.
+    items.push_back(
+        ObjectMetadata(object_it->first, object_it->second.versions.back()));
     if (maxResults-- <= 0) break;
   }
   result["items"] = std::move(items);
@@ -283,12 +286,13 @@ GCSMockStorageBucket::HandleInsertRequest(std::string_view path,
     if (parsed_parameters.ifGenerationMatch.has_value()) {
       const std::int64_t v = parsed_parameters.ifGenerationMatch.value();
       if (v == 0) {
-        if (it != data_.end()) {
+        if (it != data_.end() && !it->second.is_deleted()) {
           // Live version => failure
           return HttpResponse{412, absl::Cord()};
         }
         // No live versions => success;
-      } else if (it == data_.end() || v != it->second.generation) {
+      } else if (it == data_.end() ||
+                 v != it->second.versions.back().generation) {
         // generation does not match.
         return HttpResponse{412, absl::Cord()};
       }
@@ -296,30 +300,59 @@ GCSMockStorageBucket::HandleInsertRequest(std::string_view path,
 
     if (parsed_parameters.ifGenerationNotMatch.has_value()) {
       const std::int64_t v = parsed_parameters.ifGenerationNotMatch.value();
-      if (it != data_.end() && v == it->second.generation) {
+      if (it != data_.end() && !it->second.is_deleted() &&
+          v == it->second.versions.back().generation) {
         // generation matches.
         return HttpResponse{412, absl::Cord()};
       }
     }
 
     auto& obj = data_[name];
-    if (obj.name.empty()) {
-      obj.name = std::move(name);
-    }
-    obj.generation = ++next_generation_;
-    obj.data = payload;
+    obj.deleted_time = absl::InfiniteFuture();
+    auto& version = obj.versions.emplace_back();
+    version.generation = ++next_generation_;
+    version.data = payload;
+    version.time = absl::Now();
 
-    TENSORSTORE_LOG("Uploaded: ", obj.name, " ", obj.generation);
+    TENSORSTORE_LOG("Uploaded: ", name, " ", version.generation);
 
-    return ObjectMetadataResponse(obj);
+    return ObjectMetadataResponse(name, version);
   } while (false);
 
   return HttpResponse{404, absl::Cord()};
 }
 
 std::variant<std::monostate, HttpResponse, absl::Status>
-GCSMockStorageBucket::HandleGetRequest(std::string_view path,
-                                       const ParamMap& params) {
+GCSMockStorageBucket::HandleGetRequest(
+    std::string_view path, const ParamMap& params,
+    const std::vector<std::string>& headers) {
+  constexpr std::string_view kNoCacheHeader = "cache-control: no-cache";
+  constexpr std::string_view kMaxAgeHeaderPrefix = "cache-control: max-age=";
+
+  bool no_cache = false;
+  std::optional<int64_t> max_age;
+  for (std::string header : headers) {
+    absl::AsciiStrToLower(&header);
+    if (header == kNoCacheHeader) {
+      no_cache = true;
+    } else if (absl::StartsWith(header, kMaxAgeHeaderPrefix)) {
+      if (!absl::SimpleAtoi(
+              std::string_view(header).substr(kMaxAgeHeaderPrefix.size()),
+              &max_age.emplace())) {
+        return HttpResponse{400, absl::Cord()};
+      }
+    }
+  }
+
+  absl::Time staleness_bound;
+  if (no_cache) {
+    staleness_bound = absl::InfiniteFuture();
+  } else if (max_age) {
+    staleness_bound = absl::Now() - absl::Seconds(*max_age);
+  } else {
+    staleness_bound = absl::InfinitePast();
+  }
+
   // https://cloud.google.com/storage/docs/json_api/v1/objects/get
   path.remove_prefix(3);  // remove /o/
   std::string name = internal_http::CurlUnescapeString(path);
@@ -332,42 +365,66 @@ GCSMockStorageBucket::HandleGetRequest(std::string_view path,
     }
   }
 
-  do {
-    auto it = data_.find(name);
+  auto it = data_.find(name);
 
+  Object::Version* version = nullptr;
+  // Pick oldest version that matches cache-control header.
+  if (it != data_.end() &&
+      (it->second.deleted_time > staleness_bound || !it->second.is_deleted())) {
+    auto version_it = it->second.versions.end() - 1;
+    while (version_it->time > staleness_bound &&
+           version_it != it->second.versions.begin()) {
+      --version_it;
+    }
+    version = &*version_it;
+  }
+
+  absl::Time response_date;
+  if (version) {
+    response_date =
+        std::max(version->time, std::min(staleness_bound, absl::Now()));
+  } else {
+    response_date = absl::Now();
+  }
+
+  auto response = [&]() -> HttpResponse {
     if (parsed_parameters.ifGenerationMatch.has_value()) {
       const std::int64_t v = parsed_parameters.ifGenerationMatch.value();
       if (v == 0) {
-        if (it != data_.end()) {
+        if (version) {
           // Live version => failure
-          return HttpResponse{412, absl::Cord()};
+          return {412};
         }
         // No live versions => success;
-        return HttpResponse{204, absl::Cord()};
-      } else if (it == data_.end() || v != it->second.generation) {
+        return {204};
+      } else if (!version || v != version->generation) {
         // generation does not match.
-        return HttpResponse{412, absl::Cord()};
+        return {412};
       }
     }
-    if (it == data_.end()) break;
+    if (!version) {
+      return {404};
+    }
 
     if (parsed_parameters.ifGenerationNotMatch.has_value()) {
       const std::int64_t v = parsed_parameters.ifGenerationNotMatch.value();
-      if (v == it->second.generation) {
+      if (v == version->generation) {
         // generation matches.
-        return HttpResponse{304, absl::Cord()};
+        return {304};
       }
     }
 
     /// Not a media request.
     auto alt = params.find("alt");
     if (params.empty() || alt == params.end() || alt->second != "media") {
-      return ObjectMetadataResponse(it->second);
+      return ObjectMetadataResponse(it->first, *version);
     }
-    return ObjectMediaResponse(it->second);
-  } while (false);
-
-  return HttpResponse{404, absl::Cord()};
+    return ObjectMediaResponse(*version);
+  }();
+  response.headers.emplace(
+      "date", absl::FormatTime(internal_http::kHttpTimeFormat, response_date,
+                               absl::UTCTimeZone()));
+  return response;
 }
 
 std::variant<std::monostate, HttpResponse, absl::Status>
@@ -387,22 +444,22 @@ GCSMockStorageBucket::HandleDeleteRequest(std::string_view path,
 
   do {
     auto it = data_.find(name);
-    if (it == data_.end()) {
+    if (it == data_.end() || it->second.is_deleted()) {
       // No live versions => 404.
       break;
     }
 
     if (parsed_parameters.ifGenerationMatch.has_value()) {
       const std::int64_t v = parsed_parameters.ifGenerationMatch.value();
-      if (v == 0 || v != it->second.generation) {
+      if (v == 0 || v != it->second.versions.back().generation) {
         // Live version, but generation does not match.
         return HttpResponse{412, absl::Cord()};
       }
     }
 
-    TENSORSTORE_LOG("Deleted: ", name, " ", it->second.generation);
-
-    data_.erase(it);
+    TENSORSTORE_LOG("Deleted: ", name, " ",
+                    it->second.versions.back().generation);
+    it->second.deleted_time = absl::Now();
     return HttpResponse{204, absl::Cord()};
   } while (false);
 
@@ -410,8 +467,8 @@ GCSMockStorageBucket::HandleDeleteRequest(std::string_view path,
 }
 
 HttpResponse GCSMockStorageBucket::ObjectMetadataResponse(
-    const Object& object) {
-  std::string data = ObjectMetadata(object).dump();
+    std::string_view name, const Object::Version& object) {
+  std::string data = ObjectMetadata(name, object).dump();
   HttpResponse response{200, absl::Cord(std::move(data))};
   response.headers.insert(
       {"content-length", absl::StrCat(response.payload.size())});
@@ -419,14 +476,15 @@ HttpResponse GCSMockStorageBucket::ObjectMetadataResponse(
   return response;
 }
 
-::nlohmann::json GCSMockStorageBucket::ObjectMetadata(const Object& object) {
+::nlohmann::json GCSMockStorageBucket::ObjectMetadata(
+    std::string_view name, const Object::Version& object) {
   return {
       {"kind", "storage#object"},
-      {"id", absl::StrCat(bucket_, "/", object.name, "/", object.generation)},
+      {"id", absl::StrCat(bucket_, "/", name, "/", object.generation)},
       {"selfLink",
        absl::StrCat("https://www.googleapis.com/storage/v1/b/", bucket_, "/o/",
-                    internal_http::CurlEscapeString(object.name))},
-      {"name", object.name},
+                    internal_http::CurlEscapeString(name))},
+      {"name", name},
       {"bucket", bucket_},
       {"generation", absl::StrCat(object.generation)},
       {"metageneration", "1"},
@@ -438,13 +496,13 @@ HttpResponse GCSMockStorageBucket::ObjectMetadataResponse(
       {"size", absl::StrCat(object.data.size())},
       {"mediaLink",
        absl::StrCat("https://www.googleapis.com/download/storage/v1/b/",
-                    bucket_, "/o/",
-                    internal_http::CurlEscapeString(object.name),
+                    bucket_, "/o/", internal_http::CurlEscapeString(name),
                     "?generation=", object.generation, "&alt=media")},
   };
 }
 
-HttpResponse GCSMockStorageBucket::ObjectMediaResponse(const Object& object) {
+HttpResponse GCSMockStorageBucket::ObjectMediaResponse(
+    const Object::Version& object) {
   HttpResponse response{200, object.data};
   response.headers.insert(
       {"content-length", absl::StrCat(response.payload.size())});

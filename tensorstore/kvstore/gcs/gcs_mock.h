@@ -38,11 +38,21 @@ namespace tensorstore {
 /// GCS requests.
 class GCSMockStorageBucket {
  public:
-  // An individual data object with a name, value, and generation.
+  // An individual data object one or more versions.
   struct Object {
-    std::string name;
-    absl::Cord data;
-    int64_t generation;
+    struct Version {
+      // Data for this version.
+      absl::Cord data;
+      // Generation for this version.
+      int64_t generation;
+      // Time at which this version was created.
+      absl::Time time;
+    };
+    std::vector<Version> versions;
+    // Time at which this object was most recently deleted.
+    absl::Time deleted_time = absl::InfiniteFuture();
+
+    bool is_deleted() const { return deleted_time != absl::InfiniteFuture(); }
   };
 
   using ParamMap = std::map<std::string_view, std::string>;
@@ -82,19 +92,23 @@ class GCSMockStorageBucket {
 
   // Get an object, which might be the data or the metadata.
   std::variant<std::monostate, internal_http::HttpResponse, Status>
-  HandleGetRequest(std::string_view path, const ParamMap& params);
+  HandleGetRequest(std::string_view path, const ParamMap& params,
+                   const std::vector<std::string>& headers);
 
   // Delete an object.
   std::variant<std::monostate, internal_http::HttpResponse, Status>
   HandleDeleteRequest(std::string_view path, const ParamMap& params);
 
   // Construct an ojbect metadata response.
-  internal_http::HttpResponse ObjectMetadataResponse(const Object& object);
+  internal_http::HttpResponse ObjectMetadataResponse(
+      std::string_view name, const Object::Version& object);
 
   // Construct an object media response.
-  internal_http::HttpResponse ObjectMediaResponse(const Object& object);
+  internal_http::HttpResponse ObjectMediaResponse(
+      const Object::Version& object);
 
-  ::nlohmann::json ObjectMetadata(const Object& object);
+  ::nlohmann::json ObjectMetadata(std::string_view name,
+                                  const Object::Version& object);
 
   // Triggers a guaranteed error for the next `count` requests.
   void TriggerErrors(int64_t count) {
