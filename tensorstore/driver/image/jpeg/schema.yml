@@ -1,0 +1,48 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: driver/jpeg
+allOf:
+- $ref: TensorStore
+- type: object
+  properties:
+    driver:
+      const: jpeg
+    dtype:
+      const: uint8
+      description: |
+        Optional.  If specified, must be :json:`"uint8"`.
+    rank:
+      const: 0
+      description: |
+        Optional.  If specified, must be :json:`3`.
+    kvstore:
+      $ref: KvStore
+      description: >-
+        Specifies the underlying storage mechanism.
+    cache_pool:
+      $ref: ContextResource
+      description: >-
+        Specifies or references a previously defined `Context.cache_pool`.  It
+        is normally more convenient to specify a default `~Context.cache_pool`
+        in the `.context`.
+      default: cache_pool
+    data_copy_concurrency:
+      $ref: ContextResource
+      description: >-
+        Specifies or references a previously defined
+        `Context.data_copy_concurrency`.  It is normally more
+        convenient to specify a default `~Context.data_copy_concurrency` in
+        the `.context`.
+      default: data_copy_concurrency
+    quality:
+      type: number
+      default: 75
+      description: |
+        Unused. JPEG Encoding quality in the range 0..100.
+  required:
+  - kvstore
+examples:
+- driver: jpeg
+  "kvstore":
+    driver: gcs
+    bucket: my-bucket
+    path: path/to/image.jpeg

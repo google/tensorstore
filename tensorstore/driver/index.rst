@@ -17,6 +17,8 @@ Single file drivers
    :maxdepth: 1
 
    json/index
+   image/png/index
+   image/jpeg/index
 
 .. _chunked-drivers:
 

@@ -15,6 +15,8 @@ DRIVERS = [
     "neuroglancer_precomputed",
     "virtual_chunked",
     "zarr",
+    "image/jpeg",
+    "image/png",
 ]
 
 DOCTEST_SOURCES = glob([
