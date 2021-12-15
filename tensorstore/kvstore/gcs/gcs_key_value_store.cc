@@ -359,8 +359,7 @@ class GcsKeyValueStore
   Result<std::optional<std::string>> GetAuthHeader() {
     absl::MutexLock lock(&auth_provider_mutex_);
     if (!auth_provider_) {
-      auto result =
-          tensorstore::internal_oauth2::GetGoogleAuthProvider(transport_);
+      auto result = tensorstore::internal_oauth2::GetSharedGoogleAuthProvider();
       if (!result.ok() && absl::IsNotFound(result.status())) {
         auth_provider_ = nullptr;
       } else {
@@ -438,7 +437,7 @@ class GcsKeyValueStore
   absl::Mutex auth_provider_mutex_;
   // Optional state indicates whether the provider has been obtained.  A nullptr
   // provider is valid and indicates to use anonymous access.
-  std::optional<std::unique_ptr<internal_oauth2::AuthProvider>> auth_provider_;
+  std::optional<std::shared_ptr<internal_oauth2::AuthProvider>> auth_provider_;
 };
 
 /// A ReadTask is a function object used to satisfy a

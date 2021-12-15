@@ -41,6 +41,7 @@
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/mutex.h"
+#include "tensorstore/internal/oauth2/google_auth_provider.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/gcs/gcs_mock.h"
 #include "tensorstore/kvstore/generation.h"
@@ -134,8 +135,12 @@ class MyMockTransport : public HttpTransport {
 struct DefaultHttpTransportSetter {
   DefaultHttpTransportSetter(std::shared_ptr<HttpTransport> transport) {
     SetDefaultHttpTransport(transport);
+    tensorstore::internal_oauth2::ResetSharedGoogleAuthProvider();
   }
-  ~DefaultHttpTransportSetter() { SetDefaultHttpTransport(nullptr); }
+  ~DefaultHttpTransportSetter() {
+    tensorstore::internal_oauth2::ResetSharedGoogleAuthProvider();
+    SetDefaultHttpTransport(nullptr);
+  }
 };
 
 TEST(GcsKeyValueStoreTest, BadBucketNames) {

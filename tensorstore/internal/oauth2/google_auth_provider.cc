@@ -210,6 +210,17 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider(
       "Could not locate the credentials file and not running on GCE.");
 }
 
+struct SharedGoogleAuthProviderState {
+  absl::Mutex mutex;
+  std::optional<Result<std::shared_ptr<AuthProvider>>> auth_provider
+      ABSL_GUARDED_BY(mutex);
+};
+
+SharedGoogleAuthProviderState& GetSharedGoogleAuthProviderState() {
+  static internal::NoDestructor<SharedGoogleAuthProviderState> state;
+  return *state;
+}
+
 }  // namespace
 
 void RegisterGoogleAuthProvider(GoogleAuthProvider provider, int priority) {
@@ -231,6 +242,21 @@ Result<std::unique_ptr<AuthProvider>> GetGoogleAuthProvider(
     }
   }
   return internal_oauth2::GetDefaultGoogleAuthProvider(std::move(transport));
+}
+
+Result<std::shared_ptr<AuthProvider>> GetSharedGoogleAuthProvider() {
+  auto& state = GetSharedGoogleAuthProviderState();
+  absl::MutexLock lock(&state.mutex);
+  if (!state.auth_provider) {
+    state.auth_provider.emplace(GetGoogleAuthProvider());
+  }
+  return *state.auth_provider;
+}
+
+void ResetSharedGoogleAuthProvider() {
+  auto& state = GetSharedGoogleAuthProviderState();
+  absl::MutexLock lock(&state.mutex);
+  state.auth_provider = std::nullopt;
 }
 
 }  // namespace internal_oauth2
