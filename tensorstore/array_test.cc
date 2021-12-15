@@ -662,9 +662,12 @@ TEST(SharedArrayTest, ConstructAndAssign) {
 
 TEST(ArrayTest, SubArray) {
   auto array = MakeArray<int>({{1, 2, 3}, {4, 5, 6}});
+  EXPECT_THAT(array.shape(), ElementsAre(2, 3));
+
   EXPECT_EQ(1, array.pointer().use_count());
   auto sub_array = SubArray<container>(array, {1});
   static_assert(std::is_same<decltype(sub_array), Array<int, 1>>::value, "");
+  EXPECT_THAT(sub_array.shape(), ElementsAre(3));
   EXPECT_EQ(array.data() + 3, sub_array.data());
   EXPECT_EQ(StridedLayout<1>({3}, {sizeof(int)}), sub_array.layout());
 
