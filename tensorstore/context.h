@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 #include "absl/status/status.h"
@@ -462,33 +463,17 @@ inline bool GetRecordBindingState(const internal::ContextSpecBuilder& builder) {
 void SetRecordBindingState(internal::ContextSpecBuilder& builder,
                            bool record_binding_state);
 
-/// Binds context resources within a type that supports a nested `context`, such
-/// as `Spec` and `kvstore::Spec`.
-///
-/// This properly takes into account `IsPartialBindingContext(context)`.
-///
-/// \param context The context to bind.
-/// \param context_spec The nested context spec.
-/// \param callback Callback with signature
-///     `absl::Status (const Context& context)`, called to bind resources within
-///     the type.
-template <typename Callback>
-absl::Status BindWithNestedContext(const Context& context,
-                                   Context::Spec& context_spec,
-                                   Callback callback) {
-  if (IsPartialBindingContext(context)) {
-    return callback(context);
-  }
-  Context child_context(context_spec, context);
-  TENSORSTORE_RETURN_IF_ERROR(callback(child_context));
-  context_spec = {};
-  return absl::OkStatus();
-}
-
 /// Binds context resources with a copy-on-write pointer type that has a nested
 /// `context_spec_` and `context_binding_state_`.
 ///
 /// This is used for `DriverSpecPtr` and `kvstore::DriverSpecPtr`.
+///
+/// \param ptr Object to bind, typically a `DriverSpecPtr` or
+///     `kvstore::DriverSpecPtr`.
+/// \param context The context to bind.
+/// \requires `ptr->Clone()` returns a copy of the object of type `Ptr`
+/// \requires `ptr->use_count()` returns the reference count.
+/// \requires `ptr->BindContext(const Context&)` method.
 template <typename Ptr>
 absl::Status BindContextCopyOnWriteWithNestedContext(Ptr& ptr,
                                                      const Context& context) {
@@ -504,35 +489,34 @@ absl::Status BindContextCopyOnWriteWithNestedContext(Ptr& ptr,
   using T = internal::remove_cvref_t<decltype(*ptr)>;
   auto& obj = const_cast<T&>(*ptr);
   Access::context_binding_state(obj) = ContextBindingState::unknown;
-  TENSORSTORE_RETURN_IF_ERROR(internal::BindWithNestedContext(
-      context ? context : Context::Default(), Access::context_spec(obj),
-      [&](const Context& child_context) {
-        return obj.BindContext(child_context);
-      }));
-  if (!context || !IsPartialBindingContext(context)) {
+
+  // Binds context resources via Ptr::BindContext
+  // Takes into account `IsPartialBindingContext(context)`
+  if (context && IsPartialBindingContext(context)) {
+    // Partial binding; avoid constructing a child context.
+    TENSORSTORE_RETURN_IF_ERROR(obj.BindContext(context));
+  } else {
+    // Full binding uses a child context.
+    Context child_context(Access::context_spec(obj),
+                          context ? context : Context::Default());
+    TENSORSTORE_RETURN_IF_ERROR(obj.BindContext(child_context));
+    Access::context_spec(obj) = {};
     Access::context_binding_state(obj) = ContextBindingState::bound;
   }
   return absl::OkStatus();
 }
 
-/// Inverse of `BindWithNestedContext`.
-///
-/// \param context_builder Context builder to use.
-/// \param context_spec The nested context spec.
-/// \param callback Callback with signature
-///     `void (const internal::ContextSpecBuilder& context_builder)`, called to
-///     unbind resources within the type.
-template <typename Callback>
-void UnbindWithNestedContext(
-    const internal::ContextSpecBuilder& context_builder,
-    Context::Spec& context_spec, Callback callback) {
-  auto child_builder = internal::ContextSpecBuilder::Make(
-      context_builder, std::move(context_spec));
-  context_spec = child_builder.spec();
-  callback(child_builder);
-}
-
 /// Inverse of `BindContextCopyOnWriteWithNestedContext`.
+///
+/// Unbinds resources by calling ptr->UnbindContext(const
+/// internal::ContextSpecBuilder&)
+///
+/// \param ptr  Object to unbind, typically a `DriverSpecPtr` or
+///      `kvstore::DriverSpecPtr`.
+/// \param context_builder The ContextBuilder used for unbinding.
+/// \requires `ptr->Clone()` returns a copy of the object of type `Ptr`
+/// \requires `ptr->use_count()` returns the reference count.
+/// \requires `ptr->UnbindContext(const ContextSpecBuilder&)` method.
 template <typename Ptr>
 void UnbindContextCopyOnWriteWithNestedContext(
     Ptr& ptr, const ContextSpecBuilder& context_builder) {
@@ -548,11 +532,12 @@ void UnbindContextCopyOnWriteWithNestedContext(
   }
   using T = internal::remove_cvref_t<decltype(*ptr)>;
   auto& obj = const_cast<T&>(*ptr);
-  internal::UnbindWithNestedContext(
-      context_builder, Access::context_spec(obj),
-      [&](const internal::ContextSpecBuilder& child_builder) {
-        obj.UnbindContext(child_builder);
-      });
+  // Unbinds context resources via Ptr::UnbindContext
+  auto child_builder = internal::ContextSpecBuilder::Make(
+      context_builder, std::move(Access::context_spec(obj)));
+  Access::context_spec(obj) = child_builder.spec();
+  obj.UnbindContext(
+      const_cast<const internal::ContextSpecBuilder&>(child_builder));
   Access::context_binding_state(obj) = ContextBindingState::unbound;
 }
 
