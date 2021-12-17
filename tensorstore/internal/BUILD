@@ -175,11 +175,15 @@ tensorstore_cc_test(
 
 tensorstore_cc_library(
     name = "context_binding",
-    hdrs = ["context_binding.h"],
+    hdrs = [
+        "context_binding.h",
+        "context_binding_vector.h",
+    ],
     deps = [
         "//tensorstore:context",
         "//tensorstore/util:status",
         "//tensorstore/util/apply_members",
+        "@com_google_absl//absl/status",
     ],
 )
 
