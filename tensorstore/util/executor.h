@@ -78,10 +78,20 @@ class ExecutorBoundFunction {
 /// Returns an instance of FunctionWithExecutor that invokes the given function
 /// `func` in the specified executor.  Any arguments are forwarded.
 template <typename Executor, typename Function>
-ExecutorBoundFunction<internal::remove_cvref_t<Executor>,
-                      internal::remove_cvref_t<Function>>
+std::enable_if_t<
+    !std::is_same<internal::remove_cvref_t<Executor>, InlineExecutor>::value,
+    ExecutorBoundFunction<internal::remove_cvref_t<Executor>,
+                          internal::remove_cvref_t<Function>>>
 WithExecutor(Executor&& executor, Function&& function) {
   return {std::forward<Executor>(executor), std::forward<Function>(function)};
+}
+
+template <typename Executor, typename Function>
+std::enable_if_t<
+    std::is_same<internal::remove_cvref_t<Executor>, InlineExecutor>::value,
+    Function&&>
+WithExecutor(Executor&& executor, Function&& function) {
+  return std::forward<Function>(function);
 }
 
 }  // namespace tensorstore
