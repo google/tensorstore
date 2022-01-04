@@ -80,12 +80,6 @@ Status CurlCodeToStatus(CURLcode code, std::string_view);
 /// Returns a Status object for a corresponding CURLcode.
 Status CurlMCodeToStatus(CURLMcode code, std::string_view);
 
-/// URL-escapes a string.
-std::string CurlEscapeString(std::string_view s);
-
-/// URL-unescapes a string.
-std::string CurlUnescapeString(std::string_view s);
-
 template <typename T>
 inline void CurlEasySetopt(CURL* handle, CURLoption option, T value) {
   auto e = curl_easy_setopt(handle, option, value);

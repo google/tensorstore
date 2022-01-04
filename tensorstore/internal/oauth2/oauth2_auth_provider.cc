@@ -22,7 +22,6 @@
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -42,9 +41,9 @@ namespace {
 // Construct the refresh token payload once when the OAuth2AuthProvider
 // is created & cache the value.
 std::string MakePayload(const internal_oauth2::RefreshToken& creds) {
-  auto client_id = internal_http::CurlEscapeString(creds.client_id);
-  auto client_secret = internal_http::CurlEscapeString(creds.client_secret);
-  auto refresh_token = internal_http::CurlEscapeString(creds.refresh_token);
+  auto client_id = internal::PercentEncodeUriComponent(creds.client_id);
+  auto client_secret = internal::PercentEncodeUriComponent(creds.client_secret);
+  auto refresh_token = internal::PercentEncodeUriComponent(creds.refresh_token);
   return absl::StrCat("grant_type=refresh_token", "&client_id=", client_id,
                       "&client_secret=", client_secret,
                       "&refresh_token=", refresh_token);

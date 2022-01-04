@@ -23,15 +23,6 @@ tensorstore_cc_library(
     ],
 )
 
-tensorstore_cc_test(
-    name = "curl_handle_test",
-    srcs = ["curl_handle_test.cc"],
-    deps = [
-        ":curl_handle",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
 tensorstore_cc_library(
     name = "curl_transport",
     srcs = [
@@ -66,8 +57,8 @@ tensorstore_cc_library(
         "http_transport.h",
     ],
     deps = [
-        ":curl_handle",
         "//tensorstore/internal:logging",
+        "//tensorstore/internal:path",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",

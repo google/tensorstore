@@ -119,6 +119,7 @@
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/registry.h"
+#include "tensorstore/kvstore/url_registry.h"
 #include "tensorstore/util/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -752,6 +753,10 @@ class FileKeyValueStoreSpec
   static constexpr char id[] = "file";
 
   Future<kvstore::DriverPtr> DoOpen() const override;
+
+  Result<std::string> ToUrl(std::string_view path) const override {
+    return tensorstore::StrCat(id, "://", internal::PercentEncodeUriPath(path));
+  }
 };
 
 class FileKeyValueStore
@@ -821,6 +826,22 @@ Future<kvstore::DriverPtr> FileKeyValueStoreSpec::DoOpen() const {
   return driver_ptr;
 }
 
+Result<kvstore::Spec> ParseFileUrl(std::string_view url) {
+  auto driver_spec = internal::MakeIntrusivePtr<FileKeyValueStoreSpec>();
+  driver_spec->data_.file_io_concurrency =
+      Context::Resource<internal::FileIoConcurrencyResource>::DefaultSpec();
+  auto parsed = internal::ParseGenericUri(url);
+  assert(parsed.scheme == tensorstore::FileKeyValueStoreSpec::id);
+  if (!parsed.query.empty()) {
+    return absl::InvalidArgumentError("Query string not supported");
+  }
+  if (!parsed.fragment.empty()) {
+    return absl::InvalidArgumentError("Fragment identifier not supported");
+  }
+  return {std::in_place, std::move(driver_spec),
+          internal::PercentDecode(parsed.authority_and_path)};
+}
+
 }  // namespace
 }  // namespace tensorstore
 
@@ -831,4 +852,8 @@ namespace {
 const tensorstore::internal_kvstore::DriverRegistration<
     tensorstore::FileKeyValueStoreSpec>
     registration;
+
+const tensorstore::internal_kvstore::UrlSchemeRegistration
+    url_scheme_registration{tensorstore::FileKeyValueStoreSpec::id,
+                            tensorstore::ParseFileUrl};
 }  // namespace

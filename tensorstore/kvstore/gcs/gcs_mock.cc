@@ -37,7 +37,6 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::internal_http::CurlUnescapeString;
 using tensorstore::internal_http::HttpRequest;
 using tensorstore::internal_http::HttpResponse;
 
@@ -88,8 +87,10 @@ GCSMockStorageBucket::GCSMockStorageBucket(
     std::string_view bucket,
     std::optional<std::string> requestor_pays_project_id)
     : bucket_(bucket),
-      bucket_path_(absl::StrCat("/storage/v1/b/", bucket)),
-      upload_path_(absl::StrCat("/upload/storage/v1/b/", bucket)),
+      bucket_prefix_(
+          absl::StrCat("storage.googleapis.com/storage/v1/b/", bucket)),
+      upload_prefix_(
+          absl::StrCat("storage.googleapis.com/upload/storage/v1/b/", bucket)),
       requestor_pays_project_id_(std::move(requestor_pays_project_id)) {}
 
 // Responds to a "www.google.apis/storage/v1/b/bucket" request.
@@ -110,19 +111,18 @@ Future<HttpResponse> GCSMockStorageBucket::IssueRequest(
 
 std::variant<std::monostate, HttpResponse, absl::Status>
 GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
-  std::string_view scheme, host, path;
-  tensorstore::internal::ParseURI(request.url(), &scheme, &host, &path);
-
-  if (host != "storage.googleapis.com") {
+  bool is_upload = false;
+  auto parsed = internal::ParseGenericUri(request.url());
+  if (parsed.scheme != "https") {
     return {};
   }
-  bool is_upload = false;
-  if (absl::StartsWith(path, bucket_path_)) {
+  std::string_view path = parsed.authority_and_path;
+  if (absl::StartsWith(path, bucket_prefix_)) {
     // Bucket path.
-    path.remove_prefix(bucket_path_.size());
-  } else if (absl::StartsWith(path, upload_path_)) {
+    path.remove_prefix(bucket_prefix_.size());
+  } else if (absl::StartsWith(path, upload_prefix_)) {
     // Upload path.
-    path.remove_prefix(upload_path_.size());
+    path.remove_prefix(upload_prefix_.size());
     is_upload = true;
   } else {
     // Neither download nor upload path.
@@ -145,21 +145,14 @@ GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
     return HttpResponse{429, absl::Cord()};
   }
 
-  // Remove the query parameter substring.
-  std::string_view query;
-  for (auto idx = path.find('?'); idx != std::string_view::npos;) {
-    query = path.substr(idx + 1);
-    path.remove_suffix(1 + query.size());
-    break;
-  }
-
   // Parse the query params.
   std::map<std::string_view, std::string> params;
-  if (!query.empty()) {
-    for (std::string_view kv : absl::StrSplit(query, absl::ByChar('&'))) {
+  if (!parsed.query.empty()) {
+    for (std::string_view kv :
+         absl::StrSplit(parsed.query, absl::ByChar('&'))) {
       std::pair<std::string_view, std::string_view> split =
           absl::StrSplit(kv, absl::MaxSplits('=', 1));
-      params[split.first] = CurlUnescapeString(split.second);
+      params[split.first] = internal::PercentDecode(split.second);
     }
   }
 
@@ -355,7 +348,7 @@ GCSMockStorageBucket::HandleGetRequest(
 
   // https://cloud.google.com/storage/docs/json_api/v1/objects/get
   path.remove_prefix(3);  // remove /o/
-  std::string name = internal_http::CurlUnescapeString(path);
+  std::string name = internal::PercentDecode(path);
 
   QueryParameters parsed_parameters;
   {
@@ -432,7 +425,7 @@ GCSMockStorageBucket::HandleDeleteRequest(std::string_view path,
                                           const ParamMap& params) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/delete
   path.remove_prefix(3);  // remove /o/
-  std::string name = internal_http::CurlUnescapeString(path);
+  std::string name = internal::PercentDecode(path);
 
   QueryParameters parsed_parameters;
   {
@@ -483,7 +476,7 @@ HttpResponse GCSMockStorageBucket::ObjectMetadataResponse(
       {"id", absl::StrCat(bucket_, "/", name, "/", object.generation)},
       {"selfLink",
        absl::StrCat("https://www.googleapis.com/storage/v1/b/", bucket_, "/o/",
-                    internal_http::CurlEscapeString(name))},
+                    internal::PercentEncodeUriComponent(name))},
       {"name", name},
       {"bucket", bucket_},
       {"generation", absl::StrCat(object.generation)},
@@ -496,7 +489,7 @@ HttpResponse GCSMockStorageBucket::ObjectMetadataResponse(
       {"size", absl::StrCat(object.data.size())},
       {"mediaLink",
        absl::StrCat("https://www.googleapis.com/download/storage/v1/b/",
-                    bucket_, "/o/", internal_http::CurlEscapeString(name),
+                    bucket_, "/o/", internal::PercentEncodeUriComponent(name),
                     "?generation=", object.generation, "&alt=media")},
   };
 }

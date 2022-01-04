@@ -136,28 +136,6 @@ Status CurlMCodeToStatus(CURLMcode code, std::string_view detail) {
                                           detail.empty() ? "" : ": ", detail));
 }
 
-std::string CurlEscapeString(std::string_view s) {
-  // FIXME: curl_easy_escape returns a nullptr on failure.
-  // https://curl.haxx.se/libcurl/c/curl_easy_escape.html
-  char* ptr = curl_easy_escape(nullptr, s.data(), static_cast<int>(s.length()));
-  std::string data(ptr);
-  curl_free(ptr);
-  return data;
-}
-
-/// URL-unescapes a string.
-std::string CurlUnescapeString(std::string_view s) {
-  // FIXME: curl_easy_unescape can only handle up to INT_MAX length,
-  // and it returns a nullptr on failures.
-  // https://curl.haxx.se/libcurl/c/curl_easy_unescape.html
-  int len = 0;
-  char* ptr =
-      curl_easy_unescape(nullptr, s.data(), static_cast<int>(s.length()), &len);
-  std::string data(ptr, len);
-  curl_free(ptr);
-  return data;
-}
-
 int32_t CurlGetResponseCode(CURL* handle) {
   long code = 0;  // NOLINT
   auto e = curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &code);

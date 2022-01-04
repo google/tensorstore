@@ -26,3 +26,28 @@ definitions:
       specifications reference the same `Context.memory_key_value_store`, they
       all refer to the same in-memory set of key/value pairs.
     type: object
+  url:
+    $id: KvStoreUrl/memory
+    allOf:
+    - $ref: KvStoreUrl
+    - type: string
+    type: string
+    title: |
+      ``memory://`` KvStore URL scheme
+    description: |
+      In-memory key-value stores may be specified using the custom
+      :file:`memory://{path}` URL syntax.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - :json:`"memory://"`
+              - :json:`{"driver": "memory"}`
+            * - :json:`"memory://path/to/dataset"`
+              - :json:`{"driver": "memory", "path": "path/to/dataset"}`

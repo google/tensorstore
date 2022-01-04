@@ -234,6 +234,12 @@ class Spec : public KvStorePathBase<DriverSpecPtr> {
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(Spec, JsonSerializationOptions,
                                           JsonSerializationOptions)
+
+  /// Parses a `kvstore::Spec` from its URL representation.
+  static Result<Spec> FromUrl(std::string_view url);
+
+  /// Returns the URL representation of this spec, if supported.
+  Result<std::string> ToUrl() const;
 };
 
 }  // namespace kvstore

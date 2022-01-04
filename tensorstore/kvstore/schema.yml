@@ -1,8 +1,9 @@
 $schema: http://json-schema.org/draft-07/schema#
 $id: KvStore
+title: Key-value store specification.
 description: |
-  Common properties supported by all key-value stores.  Refer to the :ref:`driver
-  documentation<key-value-store-drivers>` for the supported
+  This describes the common properties supported by all key-value stores.  Refer
+  to the :ref:`driver documentation<key-value-store-drivers>` for the supported
   `.driver` identifiers and driver-specific properties.
 type: object
 properties:
@@ -22,3 +23,16 @@ properties:
     description: Specifies context resources that augment/override the parent context.
 required:
 - driver
+definitions:
+  url:
+    $id: KvStoreUrl
+    type: string
+    title: URL representation of a key-value store.
+    description: |
+      In addition to the `JSON object<KvStore>` representation, a key-value
+      store may be specified more concisely by a URL.
+
+      .. warning::
+
+         The URL representation of a key-value store specification may exclude
+         certain parameters, such as concurrency limits.

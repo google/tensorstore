@@ -150,6 +150,7 @@ tensorstore_cc_library(
     srcs = [
         "kvstore.cc",
         "transaction.cc",
+        "url_registry.cc",
     ],
     hdrs = [
         "driver.h",
@@ -160,6 +161,7 @@ tensorstore_cc_library(
         "registry.h",
         "spec.h",
         "transaction.h",
+        "url_registry.h",
     ],
     local_defines = select({
         ":transaction_debug_setting": ["TENSORSTORE_INTERNAL_KVSTORE_TRANSACTION_DEBUG"],
@@ -205,6 +207,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
     ],
 )

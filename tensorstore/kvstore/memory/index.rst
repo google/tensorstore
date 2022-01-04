@@ -10,3 +10,6 @@ support for multi-key transactions.
 .. json:schema:: kvstore/memory
 
 .. json:schema:: Context.memory_key_value_store
+
+.. json:schema:: KvStoreUrl/memory
+

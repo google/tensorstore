@@ -78,16 +78,17 @@ class MetadataMockTransport : public HttpTransport {
                                     absl::Cord payload,
                                     absl::Duration request_timeout,
                                     absl::Duration connect_timeout) override {
-    std::string_view scheme, host, path;
-    tensorstore::internal::ParseURI(request.url(), &scheme, &host, &path);
+    auto parsed = tensorstore::internal::ParseGenericUri(request.url());
 
-    if (host != "metadata.google.internal") {
+    if (!absl::StartsWith(parsed.authority_and_path,
+                          "metadata.google.internal/")) {
       return absl::UnimplementedError("Mock cannot satisfy the request.");
     }
 
     // Respond with the GCE OAuth2 token
-    if (path == std::string_view("/computeMetadata/v1/instance/"
-                                 "service-accounts/user@nowhere.com/token")) {
+    if (parsed.authority_and_path ==
+        "metadata.google.internal/computeMetadata/v1/instance/"
+        "service-accounts/user@nowhere.com/token") {
       return HttpResponse{
           200,
           absl::Cord(
@@ -95,8 +96,9 @@ class MetadataMockTransport : public HttpTransport {
     }
 
     // Respond with the GCE context metadata.
-    if (absl::StartsWith(path,
-                         "/computeMetadata/v1/instance/service-accounts/"
+    if (absl::StartsWith(parsed.authority_and_path,
+                         "metadata.google.internal/computeMetadata/v1/instance/"
+                         "service-accounts/"
                          "default/?recursive=true")) {
       return HttpResponse{
           200, absl::Cord(
@@ -472,12 +474,12 @@ class MyConcurrentMockTransport : public MyMockTransport {
                                     absl::Cord payload,
                                     absl::Duration request_timeout,
                                     absl::Duration connect_timeout) override {
-    std::string_view scheme, host, path;
-    tensorstore::internal::ParseURI(request.url(), &scheme, &host, &path);
+    auto parsed = tensorstore::internal::ParseGenericUri(request.url());
 
     // Don't do concurrency test on auth requests, as those don't happen
     // concurrently.
-    if (host != "metadata.google.internal") {
+    if (!absl::StartsWith(parsed.authority_and_path,
+                          "metadata.google.internal/")) {
       {
         absl::MutexLock lock(&concurrent_request_mutex_);
         ++cur_concurrent_requests_;
@@ -729,6 +731,27 @@ TEST(GcsKeyValueStoreTest, StaleResponse) {
         MatchesKvsReadResult(kvstore::ReadResult::kMissing, stamp3.generation,
                              ::testing::Ge(intermediate3)));
   }
+}
+
+TEST(GcsKeyValueStoreTest, UrlRoundtrip) {
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "gcs"}, {"bucket", "my-bucket"}, {"path", "abc"}},
+      "gs://my-bucket/abc");
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "gcs"}, {"bucket", "my-bucket"}, {"path", "abc def"}},
+      "gs://my-bucket/abc%20def");
+}
+
+TEST(GcsKeyValueStoreTest, InvalidUri) {
+  EXPECT_THAT(kvstore::Spec::FromUrl("gs://bucket:xyz"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: Invalid GCS bucket name: \"bucket:xyz\""));
+  EXPECT_THAT(kvstore::Spec::FromUrl("gs://bucket?query"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: Query string not supported"));
+  EXPECT_THAT(kvstore::Spec::FromUrl("gs://bucket#fragment"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: Fragment identifier not supported"));
 }
 
 }  // namespace

@@ -78,3 +78,35 @@ definitions:
         description: >-
           Maximum number of attempts in the case of transient errors.
         default: 32
+  url:
+    $id: KvStoreUrl/gs
+    allOf:
+    - $ref: KvStoreUrl
+    - type: string
+    title: |
+      ``gs://`` KvStore URL scheme
+    description: |
+      Google Cloud Storage-based key-value stores may be specified using the
+      :file:`gs://{bucket}/{path}` URL syntax, as supported by `gsutil
+      <https://cloud.google.com/storage/docs/gsutil>`__.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - :json:`"gs://my-bucket"`
+              - .. code-block:: json
+
+                   {"driver": "gcs",
+                    "bucket": "my-bucket"}
+            * - :json:`"gs://bucket/path/to/dataset"`
+              - .. code-block:: json
+
+                   {"driver": "gcs",
+                    "bucket": "my-bucket",
+                    "path": "path/to/dataset"}

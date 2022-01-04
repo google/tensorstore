@@ -69,19 +69,18 @@ Open the dataset asynchronously to obtain a :py:obj:`tensorstore.Future`:
    >>> import tensorstore as ts
    >>> import numpy as np
    >>> dataset_future = ts.open({
-   ...     'driver': 'neuroglancer_precomputed',
-   ...     'kvstore': {
-   ...         'driver': 'gcs',
-   ...         'bucket': 'neuroglancer-janelia-flyem-hemibrain',
-   ...         'path': 'v1.1/segmentation/',
-   ...     },
+   ...     'driver':
+   ...         'neuroglancer_precomputed',
+   ...     'kvstore':
+   ...         'gs://neuroglancer-janelia-flyem-hemibrain/v1.1/segmentation/',
    ...     # Use 100MB in-memory cache.
    ...     'context': {
    ...         'cache_pool': {
    ...             'total_bytes_limit': 100_000_000
    ...         }
    ...     },
-   ...     'recheck_cached_data': 'open',
+   ...     'recheck_cached_data':
+   ...         'open',
    ... })
    >>> dataset_future
    <tensorstore.Future object at 0x...>

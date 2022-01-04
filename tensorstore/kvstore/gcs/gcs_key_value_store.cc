@@ -35,7 +35,6 @@
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/concurrency_resource_provider.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -52,6 +51,7 @@
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/registry.h"
+#include "tensorstore/kvstore/url_registry.h"
 #include "tensorstore/util/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -333,6 +333,10 @@ class GcsKeyValueStoreSpec
  public:
   static constexpr char id[] = "gcs";
   Future<kvstore::DriverPtr> DoOpen() const override;
+  Result<std::string> ToUrl(std::string_view path) const override {
+    return tensorstore::StrCat("gs://", data_.bucket, "/",
+                               internal::PercentEncodeUriPath(path));
+  }
 };
 
 /// Implements the KeyValueStore interface for storing tensorstore data into a
@@ -445,7 +449,7 @@ Future<kvstore::DriverPtr> GcsKeyValueStoreSpec::DoOpen() const {
   driver->transport_ = internal_http::GetDefaultHttpTransport();
   if (const auto& project_id = data_.user_project->project_id) {
     driver->encoded_user_project_ =
-        tensorstore::internal_http::CurlEscapeString(*project_id);
+        internal::PercentEncodeUriComponent(*project_id);
   }
   return driver;
 }
@@ -585,7 +589,7 @@ Future<kvstore::ReadResult> GcsKeyValueStore::Read(Key key,
   TENSORSTORE_RETURN_IF_ERROR(
       ValidateObjectAndStorageGeneration(key, options.if_not_equal));
 
-  auto encoded_object_name = tensorstore::internal_http::CurlEscapeString(key);
+  auto encoded_object_name = internal::PercentEncodeUriComponent(key);
   std::string resource = tensorstore::internal::JoinPath(resource_root_, "/o/",
                                                          encoded_object_name);
   return MapFuture(executor(),
@@ -754,8 +758,7 @@ Future<TimestampedStorageGeneration> GcsKeyValueStore::Write(
   TENSORSTORE_RETURN_IF_ERROR(
       ValidateObjectAndStorageGeneration(key, options.if_equal));
 
-  std::string encoded_object_name =
-      tensorstore::internal_http::CurlEscapeString(key);
+  std::string encoded_object_name = internal::PercentEncodeUriComponent(key);
   if (value) {
     return MapFuture(
         executor(), WriteTask{IntrusivePtr<GcsKeyValueStore>(this),
@@ -774,14 +777,12 @@ std::string BuildListQueryParameters(const KeyRange& range,
                                      std::optional<int> max_results) {
   std::string result;
   if (!range.inclusive_min.empty()) {
-    result = StrCat(
-        "startOffset=",
-        tensorstore::internal_http::CurlEscapeString(range.inclusive_min));
+    result = StrCat("startOffset=",
+                    internal::PercentEncodeUriComponent(range.inclusive_min));
   }
   if (!range.exclusive_max.empty()) {
-    absl::StrAppend(
-        &result, (result.empty() ? "" : "&"), "endOffset=",
-        tensorstore::internal_http::CurlEscapeString(range.exclusive_max));
+    absl::StrAppend(&result, (result.empty() ? "" : "&"), "endOffset=",
+                    internal::PercentEncodeUriComponent(range.exclusive_max));
   }
   if (max_results.has_value()) {
     absl::StrAppend(&result, (result.empty() ? "" : "&"),
@@ -995,6 +996,37 @@ Future<void> GcsKeyValueStore::DeleteRange(KeyRange range) {
   return future;
 }
 
+Result<kvstore::Spec> ParseGcsUrl(std::string_view url) {
+  auto parsed = internal::ParseGenericUri(url);
+  assert(parsed.scheme == "gs");
+  if (!parsed.query.empty()) {
+    return absl::InvalidArgumentError("Query string not supported");
+  }
+  if (!parsed.fragment.empty()) {
+    return absl::InvalidArgumentError("Fragment identifier not supported");
+  }
+  size_t end_of_bucket = parsed.authority_and_path.find('/');
+  std::string_view bucket = parsed.authority_and_path.substr(0, end_of_bucket);
+  if (!IsValidBucketName(bucket)) {
+    return absl::InvalidArgumentError(
+        StrCat("Invalid GCS bucket name: ", QuoteString(bucket)));
+  }
+  std::string_view encoded_path =
+      (end_of_bucket == std::string_view::npos)
+          ? std::string_view{}
+          : parsed.authority_and_path.substr(end_of_bucket + 1);
+  auto driver_spec = internal::MakeIntrusivePtr<GcsKeyValueStoreSpec>();
+  driver_spec->data_.bucket = bucket;
+  driver_spec->data_.request_concurrency =
+      Context::Resource<GcsRequestConcurrencyResource>::DefaultSpec();
+  driver_spec->data_.user_project =
+      Context::Resource<GcsUserProjectResource>::DefaultSpec();
+  driver_spec->data_.retries =
+      Context::Resource<GcsRequestRetries>::DefaultSpec();
+  return {std::in_place, std::move(driver_spec),
+          internal::PercentDecode(encoded_path)};
+}
+
 }  // namespace
 }  // namespace tensorstore
 
@@ -1005,4 +1037,6 @@ namespace {
 const tensorstore::internal_kvstore::DriverRegistration<
     tensorstore::GcsKeyValueStoreSpec>
     registration;
+const tensorstore::internal_kvstore::UrlSchemeRegistration
+    url_scheme_registration{"gs", tensorstore::ParseGcsUrl};
 }  // namespace

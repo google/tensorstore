@@ -21,8 +21,8 @@
 #include <vector>
 
 #include "absl/strings/str_cat.h"
-#include "tensorstore/internal/http/curl_handle.h"  // for CurlEscapeString
 #include "tensorstore/internal/logging.h"
+#include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -51,9 +51,9 @@ HttpRequestBuilder& HttpRequestBuilder::AddHeader(std::string header) {
 
 HttpRequestBuilder& HttpRequestBuilder::AddQueryParameter(
     std::string_view key, std::string_view value) {
-  std::string parameter =
-      absl::StrCat(query_parameter_separator_, CurlEscapeString(key), "=",
-                   CurlEscapeString(value));
+  std::string parameter = absl::StrCat(
+      query_parameter_separator_, internal::PercentEncodeUriComponent(key), "=",
+      internal::PercentEncodeUriComponent(value));
   query_parameter_separator_ = "&";
   request_.url_.append(parameter);
   return *this;

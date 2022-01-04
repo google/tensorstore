@@ -506,4 +506,22 @@ TEST(FileKeyValueStoreTest, InvalidSpec) {
       MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
+TEST(FileKeyValueStoreTest, UrlRoundtrip) {
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip({{"driver", "file"}},
+                                                       "file://");
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "file"}, {"path", "/abc/"}}, "file:///abc/");
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "file"}, {"path", "/abc def/"}}, "file:///abc%20def/");
+}
+
+TEST(FileKeyValueStoreTest, InvalidUri) {
+  EXPECT_THAT(kvstore::Spec::FromUrl("file://abc?query"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: Query string not supported"));
+  EXPECT_THAT(kvstore::Spec::FromUrl("file://abc#fragment"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: Fragment identifier not supported"));
+}
+
 }  // namespace

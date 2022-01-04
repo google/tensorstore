@@ -14,6 +14,8 @@ machines to a network filesystem is also safe.
 
 .. json:schema:: kvstore/file
 
+.. json:schema:: KvStoreUrl/file
+
 Limitations
 -----------
 

@@ -307,8 +307,9 @@ def _is_object_with_properties(schema_node: JsonSchema) -> bool:
   """
   if not isinstance(schema_node, dict):
     return False
-  return ('allOf' in schema_node or (schema_node.get('type') == 'object' and
-                                     schema_node.get('properties', {})))
+  return (('type' not in schema_node and 'allOf' in schema_node) or
+          (schema_node.get('type') == 'object' and
+           schema_node.get('properties', {})))
 
 
 def _is_object_array_with_properties(schema_node: JsonSchema):
@@ -542,7 +543,7 @@ class JsonSchemaDirective(sphinx.directives.ObjectDescription):
         result.append(self._json_literal(x))
       return result
     t = schema_node.get('type')
-    if 'allOf' in schema_node:
+    if 'allOf' in schema_node and t is None:
       t = 'object'
     if t == 'integer' or t == 'number':
       explicit_lower = True
@@ -766,12 +767,18 @@ class JsonSchemaDirective(sphinx.directives.ObjectDescription):
       if not related:
         return
       result.append(docutils.nodes.rubric(label, label))
-      p = docutils.nodes.paragraph()
-      for i, schema_id in enumerate(related):
-        if i != 0:
-          p += docutils.nodes.Text(' ')
+      bullet_list = docutils.nodes.bullet_list()
+      for schema_id in related:
+        related_schema = _json_schema_id_map[schema_id].schema
+        list_item = docutils.nodes.list_item()
+        bullet_list += list_item
+        p = docutils.nodes.paragraph()
+        list_item += p
         p += self._inline_text(f':json:schema:`{schema_id}`')
-      result.append(p)
+        related_title = related_schema.get('title')
+        if related_title:
+          p += self._inline_text(f' — {related_title}')
+      result.append(bullet_list)
 
     _render_related_type_list(
         _json_schema_supertype_map.get(self._schema_entry.id), 'Extends')

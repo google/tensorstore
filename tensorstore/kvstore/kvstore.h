@@ -83,6 +83,9 @@ class KvStore : public KvStorePathBase<DriverPtr> {
   /// \param option Options that may modify the returned `Spec`.
   Result<Spec> spec(SpecRequestOptions&& options) const;
 
+  /// Returns the URL representation if available.
+  Result<std::string> ToUrl() const;
+
   friend bool operator==(const KvStore& a, const KvStore& b);
   friend bool operator!=(const KvStore& a, const KvStore& b) {
     return !(a == b);
@@ -176,7 +179,8 @@ constexpr inline bool OpenOptions::IsOption<Transaction> = true;
 /// \param options Options for opening the spec.
 Future<KvStore> Open(Spec spec, OpenOptions&& options);
 
-/// Same as above, but first parses `json_spec` into a `Spec`.
+/// Same as above, but first parses `json_spec` (which may also be a URL) into a
+/// `Spec`.
 Future<KvStore> Open(::nlohmann::json json_spec, OpenOptions&& options);
 
 /// Opens a `KvStore` based on an already-parsed `kvstore::Spec` and an optional
@@ -203,7 +207,7 @@ Open(Spec spec, Option&&... option) {
   return kvstore::Open(std::move(spec), std::move(options));
 }
 
-/// Same as above, but first parses the `Spec` from JSON.
+/// Same as above, but first parses the `Spec` from JSON or URL.
 ///
 /// \param j JSON specification.
 /// \param option Any option compatible with `OpenOptions`.

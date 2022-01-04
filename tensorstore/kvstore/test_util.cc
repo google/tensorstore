@@ -529,6 +529,17 @@ void TestKeyValueStoreSpecRoundtrip(
   }
 }
 
+void TestKeyValueStoreUrlRoundtrip(::nlohmann::json json_spec,
+                                   std::string_view url) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_from_json,
+                                   kvstore::Spec::FromJson(json_spec));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_from_url,
+                                   kvstore::Spec::FromUrl(url));
+  EXPECT_THAT(spec_from_json.ToUrl(), ::testing::Optional(url));
+  EXPECT_THAT(spec_from_url.ToJson(),
+              ::testing::Optional(MatchesJson(json_spec)));
+}
+
 Result<std::map<kvstore::Key, kvstore::Value>> GetMap(const KvStore& store) {
   TENSORSTORE_ASSIGN_OR_RETURN(auto keys, ListFuture(store).result());
   std::map<kvstore::Key, kvstore::Value> result;

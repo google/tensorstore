@@ -21,3 +21,5 @@ Drivers
    gcs/index
 
 .. json:schema:: KvStore
+
+.. json:schema:: KvStoreUrl

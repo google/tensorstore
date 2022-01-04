@@ -33,12 +33,14 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/transaction.h"
+#include "tensorstore/kvstore/url_registry.h"
 #include "tensorstore/util/execution.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
@@ -150,6 +152,12 @@ class MemoryDriverSpec
   static constexpr char id[] = "memory";
 
   Future<kvstore::DriverPtr> DoOpen() const override;
+
+  Result<std::string> ToUrl(std::string_view path) const override {
+    std::string encoded_path;
+    internal::PercentEncodeUriPath(path, encoded_path);
+    return tensorstore::StrCat(id, "://", encoded_path);
+  }
 };
 
 /// Defines the "memory" KeyValueStore driver.
@@ -484,15 +492,28 @@ absl::Status MemoryDriver::TransactionalDeleteRange(
                                                            std::move(range));
 }
 
+Result<kvstore::Spec> ParseMemoryUrl(std::string_view url) {
+  auto parsed = internal::ParseGenericUri(url);
+  assert(parsed.scheme == tensorstore::MemoryDriverSpec::id);
+  if (!parsed.query.empty()) {
+    return absl::InvalidArgumentError("Query string not supported");
+  }
+  if (!parsed.fragment.empty()) {
+    return absl::InvalidArgumentError("Fragment identifier not supported");
+  }
+  auto driver_spec = internal::MakeIntrusivePtr<MemoryDriverSpec>();
+  driver_spec->data_.memory_key_value_store =
+      Context::Resource<MemoryKeyValueStoreResource>::DefaultSpec();
+  return {std::in_place, std::move(driver_spec),
+          internal::PercentDecode(parsed.authority_and_path)};
+}
+
 }  // namespace
 
 kvstore::DriverPtr GetMemoryKeyValueStore(bool atomic) {
   auto ptr = internal::MakeIntrusivePtr<MemoryDriver>();
   ptr->spec_.memory_key_value_store =
-      Context::Default()
-          .GetResource(
-              Context::Resource<MemoryKeyValueStoreResource>::DefaultSpec())
-          .value();
+      Context::Default().GetResource<MemoryKeyValueStoreResource>().value();
   ptr->spec_.atomic = atomic;
   return ptr;
 }
@@ -506,4 +527,8 @@ namespace {
 const tensorstore::internal_kvstore::DriverRegistration<
     tensorstore::MemoryDriverSpec>
     registration;
+
+const tensorstore::internal_kvstore::UrlSchemeRegistration
+    url_scheme_registration{tensorstore::MemoryDriverSpec::id,
+                            tensorstore::ParseMemoryUrl};
 }  // namespace

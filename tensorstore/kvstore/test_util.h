@@ -80,6 +80,11 @@ void TestKeyValueStoreSpecRoundtrip(
     ::nlohmann::json json_spec,
     const KeyValueStoreSpecRoundtripOptions& options = {});
 
+/// Tests that the KvStore spec constructed from `json_spec` corresponds to the
+/// URL representation `url`.
+void TestKeyValueStoreUrlRoundtrip(::nlohmann::json json_spec,
+                                   std::string_view url);
+
 /// Returns the contents of `kv_store` as an `std::map`.
 Result<std::map<kvstore::Key, kvstore::Value>> GetMap(const KvStore& store);
 

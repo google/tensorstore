@@ -20,7 +20,6 @@
 #include <variant>
 #include <vector>
 
-#include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/result.h"

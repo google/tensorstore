@@ -17,14 +17,17 @@
 #include <string>
 #include <string_view>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-using tensorstore::internal::CreateURI;
 using tensorstore::internal::EnsureDirectoryPath;
 using tensorstore::internal::EnsureNonDirectoryPath;
 using tensorstore::internal::JoinPath;
-using tensorstore::internal::ParseURI;
+using tensorstore::internal::ParseGenericUri;
 using tensorstore::internal::PathDirnameBasename;
+using tensorstore::internal::PercentDecode;
+using tensorstore::internal::PercentEncodeUriComponent;
+using tensorstore::internal::PercentEncodeUriPath;
 
 namespace {
 
@@ -76,62 +79,6 @@ TEST(PathTest, PathDirnameBasename) {
 
   EXPECT_EQ("/", PathDirnameBasename("///bar").first);
   EXPECT_EQ("bar", PathDirnameBasename("///bar").second);
-}
-
-#define EXPECT_PARSE_URI(uri, scheme, host, path)                  \
-  do {                                                             \
-    EXPECT_EQ(uri, CreateURI(scheme, host, path));                 \
-    std::string_view s, h, p;                                      \
-    std::string_view u(uri);                                       \
-    ParseURI(u, &s, &h, &p);                                       \
-    EXPECT_EQ(scheme, s) << "s=" << s << " h=" << h << " p=" << p; \
-    EXPECT_EQ(host, h) << "s=" << s << " h=" << h << " p=" << p;   \
-    EXPECT_EQ(path, p) << "s=" << s << " h=" << h << " p=" << p;   \
-    EXPECT_LE(u.begin(), s.begin());                               \
-    EXPECT_GE(u.end(), s.begin());                                 \
-    EXPECT_LE(u.begin(), s.end());                                 \
-    EXPECT_GE(u.end(), s.end());                                   \
-    EXPECT_LE(u.begin(), h.begin());                               \
-    EXPECT_GE(u.end(), h.begin());                                 \
-    EXPECT_LE(u.begin(), h.end());                                 \
-    EXPECT_GE(u.end(), h.end());                                   \
-    EXPECT_LE(u.begin(), p.begin());                               \
-    EXPECT_GE(u.end(), p.begin());                                 \
-    EXPECT_LE(u.begin(), p.end());                                 \
-    EXPECT_GE(u.end(), p.end());                                   \
-  } while (0)
-
-TEST(PathTest, ParseURI) {
-  EXPECT_PARSE_URI("http://foo", "http", "foo", "");
-  EXPECT_PARSE_URI("/encrypted/://foo", "", "", "/encrypted/://foo");
-  EXPECT_PARSE_URI("/usr/local/foo", "", "", "/usr/local/foo");
-  EXPECT_PARSE_URI("file:///usr/local/foo", "file", "", "/usr/local/foo");
-  EXPECT_PARSE_URI("local.file:///usr/local/foo", "local.file", "",
-                   "/usr/local/foo");
-
-  EXPECT_PARSE_URI("a-b:///foo", "a-b", "", "/foo");
-  EXPECT_PARSE_URI("a=b:///foo", "", "", "a=b:///foo");
-
-  EXPECT_PARSE_URI(":///foo", "", "", ":///foo");
-  EXPECT_PARSE_URI("9dfd:///foo", "", "", "9dfd:///foo");
-  EXPECT_PARSE_URI("file:", "", "", "file:");
-  EXPECT_PARSE_URI("file:/", "", "", "file:/");
-  EXPECT_PARSE_URI("hdfs://localhost:8020/path/to/file", "hdfs",
-                   "localhost:8020", "/path/to/file");
-  EXPECT_PARSE_URI("hdfs://localhost:8020", "hdfs", "localhost:8020", "");
-  EXPECT_PARSE_URI("hdfs://localhost:8020/", "hdfs", "localhost:8020", "/");
-}
-
-TEST(PathTest, ParseURIMissingParams) {
-  std::string_view s, h, p;
-  ParseURI("http://foo/bar", &s, nullptr, nullptr);
-  EXPECT_EQ("http", s);
-
-  ParseURI("http://foo/bar", nullptr, &h, nullptr);
-  EXPECT_EQ("foo", h);
-
-  ParseURI("http://foo/bar", nullptr, nullptr, &p);
-  EXPECT_EQ("/bar", p);
 }
 
 TEST(EnsureDirectoryPathTest, EmptyString) {
@@ -186,6 +133,106 @@ TEST(EnsureNonDirectoryPathTest, NonEmptyWithSlashes) {
   std::string path = "abc////";
   EnsureNonDirectoryPath(path);
   EXPECT_EQ("abc", path);
+}
+
+TEST(PercentDecodeTest, NoOp) {
+  std::string_view s = "abcd %zz %%";
+  EXPECT_THAT(PercentDecode(s), ::testing::Eq(s));
+}
+
+TEST(PercentDecodeTest, EscapeSequenceInMiddle) {
+  EXPECT_THAT(PercentDecode("abc%20efg"), ::testing::Eq("abc efg"));
+}
+
+TEST(PercentDecodeTest, EscapeSequenceAtEnd) {
+  EXPECT_THAT(PercentDecode("abc%20"), ::testing::Eq("abc "));
+}
+
+TEST(PercentDecodeTest, EscapeSequenceLetter) {
+  EXPECT_THAT(PercentDecode("abc%fF"), ::testing::Eq("abc\xff"));
+}
+
+TEST(PercentEncodeUriPathTest, NoOp) {
+  std::string_view s =
+      "abcdefghijklmnopqrstuvwxyz"
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      "0123456789"
+      "-_.!~*'():@&=+$,;/";
+  EXPECT_THAT(PercentEncodeUriPath(s), ::testing::Eq(s));
+}
+
+TEST(PercentEncodeUriPathTest, Percent) {
+  EXPECT_THAT(PercentEncodeUriPath("%"), ::testing::Eq("%25"));
+}
+
+TEST(PercentEncodeUriPathTest, NonAscii) {
+  EXPECT_THAT(PercentEncodeUriPath("\xff"), ::testing::Eq("%FF"));
+}
+
+TEST(PercentEncodeUriComponentTest, NoOp) {
+  std::string_view s =
+      "abcdefghijklmnopqrstuvwxyz"
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      "0123456789"
+      "-_.!~*'()";
+  EXPECT_THAT(PercentEncodeUriComponent(s), ::testing::Eq(s));
+}
+
+TEST(PercentEncodeUriComponentTest, Percent) {
+  EXPECT_THAT(PercentEncodeUriComponent("%"), ::testing::Eq("%25"));
+}
+
+TEST(PercentEncodeUriComponentTest, NonAscii) {
+  EXPECT_THAT(PercentEncodeUriComponent("\xff"), ::testing::Eq("%FF"));
+}
+
+TEST(ParseGenericUriTest, PathOnly) {
+  auto parsed = ParseGenericUri("/abc/def");
+  EXPECT_EQ("", parsed.scheme);
+  EXPECT_EQ("/abc/def", parsed.authority_and_path);
+  EXPECT_EQ("", parsed.query);
+  EXPECT_EQ("", parsed.fragment);
+}
+
+TEST(ParseGenericUriTest, GsScheme) {
+  auto parsed = ParseGenericUri("gs://bucket/path");
+  EXPECT_EQ("gs", parsed.scheme);
+  EXPECT_EQ("bucket/path", parsed.authority_and_path);
+  EXPECT_EQ("", parsed.query);
+  EXPECT_EQ("", parsed.fragment);
+}
+
+TEST(ParseGenericUriTest, SchemeAuthorityPathQuery) {
+  auto parsed = ParseGenericUri("http://host:port/path?query");
+  EXPECT_EQ("http", parsed.scheme);
+  EXPECT_EQ("host:port/path", parsed.authority_and_path);
+  EXPECT_EQ("query", parsed.query);
+  EXPECT_EQ("", parsed.fragment);
+}
+
+TEST(ParseGenericUriTest, SchemeAuthorityPathFragment) {
+  auto parsed = ParseGenericUri("http://host:port/path#fragment");
+  EXPECT_EQ("http", parsed.scheme);
+  EXPECT_EQ("host:port/path", parsed.authority_and_path);
+  EXPECT_EQ("", parsed.query);
+  EXPECT_EQ("fragment", parsed.fragment);
+}
+
+TEST(ParseGenericUriTest, SchemeAuthorityPathQueryFragment) {
+  auto parsed = ParseGenericUri("http://host:port/path?query#fragment");
+  EXPECT_EQ("http", parsed.scheme);
+  EXPECT_EQ("host:port/path", parsed.authority_and_path);
+  EXPECT_EQ("query", parsed.query);
+  EXPECT_EQ("fragment", parsed.fragment);
+}
+
+// Tests that any "?" after the first "#" is treated as part of the fragment.
+TEST(ParseGenericUriTest, SchemeAuthorityPathFragmentQuery) {
+  auto parsed = ParseGenericUri("http://host:port/path#fragment?query");
+  EXPECT_EQ("http", parsed.scheme);
+  EXPECT_EQ("host:port/path", parsed.authority_and_path);
+  EXPECT_EQ("", parsed.query);
+  EXPECT_EQ("fragment?query", parsed.fragment);
 }
 
 }  // namespace

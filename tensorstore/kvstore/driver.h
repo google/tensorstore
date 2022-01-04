@@ -69,6 +69,9 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   /// Returns the driver identifier.
   virtual std::string_view driver_id() const = 0;
 
+  /// Returns the URL
+  virtual Result<std::string> ToUrl(std::string_view path) const;
+
   /// Returns a copy of this spec, used to implement copy-on-write behavior.
   virtual DriverSpecPtr Clone() const = 0;
 

@@ -246,6 +246,40 @@ void DefineKvStoreAttributes(KvStoreCls& cls) {
       R"(
 Path prefix within the base key-value store.
 
+Example:
+
+    >>> store = await ts.KvStore.open({
+    ...     'driver': 'gcs',
+    ...     'bucket': 'my-bucket',
+    ...     'path': 'path/to/object'
+    ... })
+    >>> store.spec()
+    KvStore.Spec({'bucket': 'my-bucket', 'driver': 'gcs', 'path': 'path/to/object'})
+    >>> store.path
+    'path/to/object'
+
+Group:
+  Accessors
+)");
+
+  cls.def_property_readonly(
+      "url",
+      [](Self& self) -> std::string {
+        return ValueOrThrow(self.value.ToUrl());
+      },
+      R"(
+:json:schema:`URL representation<KvStoreUrl>` of the key-value store specification.
+
+Example:
+
+    >>> store = await ts.KvStore.open({
+    ...     'driver': 'gcs',
+    ...     'bucket': 'my-bucket',
+    ...     'path': 'path/to/object'
+    ... })
+    >>> store.url
+    'gs://my-bucket/path/to/object'
+
 Group:
   Accessors
 )");
@@ -754,7 +788,7 @@ Group:
     std::string doc = R"(
 Opens a key-value store.
 
-Example:
+Example of opening from a :json:schema:`JSON KvStore spec<KvStore>`:
 
     >>> kvstore = await ts.KvStore.open({'driver': 'memory', 'path': 'abc/'})
     >>> await kvstore.write(b'x', b'y')
@@ -762,9 +796,23 @@ Example:
     >>> await kvstore.read(b'x')
     KvStore.ReadResult(state='value', value=b'y', stamp=KvStore.TimestampedStorageGeneration(b'...', ...))
 
+Example of opening from a :json:schema:`URL<KvStoreUrl>`:
+
+    >>> kvstore = await ts.KvStore.open('memory://abc/')
+    >>> kvstore.spec()
+    KvStore.Spec({'driver': 'memory', 'path': 'abc/'})
+
+Example of opening from an existing :py:obj:`KvStore.Spec`:
+
+    >>> spec = ts.KvStore.Spec({'driver': 'memory', 'path': 'abc/'})
+    >>> kvstore = await ts.KvStore.open(spec)
+    >>> kvstore.spec()
+    KvStore.Spec({'driver': 'memory', 'path': 'abc/'})
+
 Args:
 
-  spec: Key-value store spec to open.  May also be specified as :json:schema:`JSON<KvStore>`.
+  spec: Key-value store spec to open.  May also be specified as
+    :json:schema:`JSON<KvStore>` or a :json:schema:`URL<KvStoreUrl>`.
 
 )";
     AppendKeywordArgumentDocs(doc, param_def...);
@@ -920,6 +968,34 @@ Group:
       R"(
 Path prefix within the base key-value store.
 
+Example:
+
+    >>> spec = ts.KvStore.Spec({'driver': 'file', 'path': '/tmp/data'})
+    >>> spec.path
+    '/tmp/data'
+
+Group:
+  Accessors
+)");
+
+  cls.def_property_readonly(
+      "url",
+      [](Self& self) -> std::string {
+        return ValueOrThrow(self.value.ToUrl());
+      },
+      R"(
+:json:schema:`URL representation<KvStoreUrl>` of the key-value store specification.
+
+Example:
+
+    >>> spec = ts.KvStore.Spec({
+    ...     'driver': 'gcs',
+    ...     'bucket': 'my-bucket',
+    ...     'path': 'path/to/object'
+    ... })
+    >>> spec.url
+    'gs://my-bucket/path/to/object'
+
 Group:
   Accessors
 )");
@@ -977,11 +1053,17 @@ Group:
         return ValueOrThrow(kvstore::Spec::FromJson(std::move(json_spec)));
       },
       py::arg("json"), R"(
-Constructs from the :json:schema:`JSON representation<KvStore>`.
+Constructs from the :json:schema:`JSON representation<KvStore>` or a :json:schema:`URL<KvStoreUrl>`.
 
-Example:
+Example of constructing from the :json:schema:`JSON representation<KvStore>`:
 
     >>> spec = ts.KvStore.Spec({'driver': 'file', 'path': '/tmp/data/'})
+    >>> spec
+    KvStore.Spec({'driver': 'file', 'path': '/tmp/data/'})
+
+Example of constructing from a :json:schema:`URL<KvStoreUrl>`:
+
+    >>> spec = ts.KvStore.Spec('file:///tmp/data/')
     >>> spec
     KvStore.Spec({'driver': 'file', 'path': '/tmp/data/'})
 

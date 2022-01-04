@@ -22,6 +22,7 @@ tensorstore_cc_library(
         "//tensorstore:context",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json",
+        "//tensorstore/internal:path",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",

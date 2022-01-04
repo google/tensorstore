@@ -31,7 +31,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:path",
         "//tensorstore/internal:retry",
         "//tensorstore/internal/http",
-        "//tensorstore/internal/http:curl_handle",
         "//tensorstore/internal/http:curl_transport",
         "//tensorstore/internal/oauth2",
         "//tensorstore/internal/oauth2:google_auth_provider",

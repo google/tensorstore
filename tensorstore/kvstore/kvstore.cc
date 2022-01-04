@@ -25,6 +25,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
+#include "absl/synchronization/mutex.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/intrusive_ptr.h"
@@ -75,6 +76,10 @@ void intrusive_ptr_decrement(Driver* p) {
 
 DriverSpec::~DriverSpec() = default;
 
+Result<std::string> DriverSpec::ToUrl(std::string_view path) const {
+  return absl::UnimplementedError("URL representation not supported");
+}
+
 ContextBindingState DriverSpecPtr::context_binding_state() const {
   return get()->context_binding_state_;
 }
@@ -91,6 +96,11 @@ Result<Spec> KvStore::spec(SpecRequestOptions&& options) const {
   TENSORSTORE_ASSIGN_OR_RETURN(auto driver_spec,
                                driver->spec(std::move(options)));
   return Spec(std::move(driver_spec), path);
+}
+
+Result<std::string> KvStore::ToUrl() const {
+  TENSORSTORE_ASSIGN_OR_RETURN(auto spec, this->spec());
+  return spec.ToUrl();
 }
 
 Result<DriverSpecPtr> Driver::spec(SpecRequestOptions&& options) const {
@@ -112,6 +122,12 @@ void Driver::EncodeCacheKey(std::string* out) const {
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Spec, [](auto is_loading,
                                                 const auto& options, auto* obj,
                                                 auto* j) {
+  if constexpr (is_loading) {
+    if (auto* s = j->template get_ptr<const std::string*>()) {
+      TENSORSTORE_ASSIGN_OR_RETURN(*obj, Spec::FromUrl(*s));
+      return absl::OkStatus();
+    }
+  }
   namespace jb = tensorstore::internal_json_binding;
   auto& registry = internal_kvstore::GetDriverRegistry();
   return jb::NestedContextJsonBinder(jb::Object(
@@ -365,6 +381,13 @@ void Spec::UnbindContext(const internal::ContextSpecBuilder& context_builder) {
 }
 
 void Spec::StripContext() { driver.StripContext(); }
+
+Result<std::string> Spec::ToUrl() const {
+  if (!driver) {
+    return absl::InvalidArgumentError("Invalid kvstore spec");
+  }
+  return driver->ToUrl(path);
+}
 
 Future<ReadResult> Read(const KvStore& store, std::string_view key,
                         ReadOptions options) {

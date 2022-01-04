@@ -364,4 +364,22 @@ TEST(MemoryKeyValueStoreTest, KvStoreSerialization) {
               ::testing::Optional(MatchesJson(json_spec)));
 }
 
+TEST(MemoryKeyValueStoreTest, UrlRoundtrip) {
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip({{"driver", "memory"}},
+                                                       "memory://");
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "memory"}, {"path", "abc/"}}, "memory://abc/");
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "memory"}, {"path", "abc def/"}}, "memory://abc%20def/");
+}
+
+TEST(MemoryKeyValueStoreTest, InvalidUri) {
+  EXPECT_THAT(kvstore::Spec::FromUrl("memory://abc?query"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: Query string not supported"));
+  EXPECT_THAT(kvstore::Spec::FromUrl("memory://abc#fragment"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: Fragment identifier not supported"));
+}
+
 }  // namespace

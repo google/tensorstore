@@ -56,18 +56,26 @@ std::string JoinPath(const T&... args) {
 std::pair<std::string_view, std::string_view> PathDirnameBasename(
     std::string_view path);
 
-// Create a URI from a `scheme`, `host`, and `path`. If the scheme
-// is empty, then the result is the path.
-std::string CreateURI(std::string_view scheme, std::string_view host,
-                      std::string_view path);
+struct ParsedGenericUri {
+  /// Portion of URI before the initial "://", or empty if there is no "://".
+  std::string_view scheme;
 
-// Parse a `uri`, populating the `scheme`, `host`, and `path`.
-// If the `uri` is invalid, then the scheme and host are set as empty strings,
-// and the entire `uri` is returned as a path.
-//
-// If the `uri` has no path, then the scheme and host are set, but no path.
-void ParseURI(std::string_view uri, std::string_view* scheme,
-              std::string_view* host, std::string_view* path);
+  /// Portion of URI after the initial "://" (or from the beginning if there is
+  /// no "://") and before the first `?` or `#`.  Not percent decoded.
+  std::string_view authority_and_path;
+
+  /// Portion of URI after the first `?` but before the first `#`.  Not percent
+  /// decoded.
+  std::string_view query;
+
+  /// Portion of URI after the first `#`.  Not percent decoded.
+  std::string_view fragment;
+};
+
+/// Parses a "generic" URI of the form
+/// `<scheme>://<authority-and-path>?<query>#<fragment>` where the `?<query>`
+/// and `#<fragment>` portions are optional.
+ParsedGenericUri ParseGenericUri(std::string_view uri);
 
 /// Joins `component` to the end of `path`, adding a '/'-separator between them
 /// if both are non-empty and `path` does not in end '/' and `component` does
@@ -80,6 +88,58 @@ void EnsureDirectoryPath(std::string& path);
 
 /// Ensure that `path` does not end in '/'.
 void EnsureNonDirectoryPath(std::string& path);
+
+/// Decodes "%XY" sequences in `src`, where `X` and `Y` are hex digits, to the
+/// corresponding character `\xXY`.  "%" characters not followed by 2 hex digits
+/// are left unchanged.
+///
+/// Assigns the decoded result to `dest`.
+void PercentDecode(std::string_view src, std::string& dest);
+
+/// Same as above but returns the decoded result.
+std::string PercentDecode(std::string_view src);
+
+/// Percent-encodes characters not allowed in the URI path component, as defined
+/// by RFC2396:
+///
+/// https://datatracker.ietf.org/doc/html/rfc2396
+///
+/// Allowed characters are:
+///
+/// - Unreserved characters: `unreserved` as defined by RFC2396
+///   https://datatracker.ietf.org/doc/html/rfc2396#section-2.3
+///   a-z, A-Z, 0-9, "-", "_", ".", "!", "~", "*", "'", "(", ")"
+///
+/// - Path characters: `pchar` as defined by RFC2396
+///   https://datatracker.ietf.org/doc/html/rfc2396#section-3.3
+///   ":", "@", "&", "=", "+", "$", ","
+///
+/// - Path segment parameter separator:
+///   https://datatracker.ietf.org/doc/html/rfc2396#section-3.3
+///   ";"
+///
+/// - Path segment separator:
+///   https://datatracker.ietf.org/doc/html/rfc2396#section-3.3
+///   "/"
+void PercentEncodeUriPath(std::string_view src, std::string& dest);
+
+/// Same as above but returns the encoded result.
+std::string PercentEncodeUriPath(std::string_view src);
+
+/// Percent-encodes characters not in the unreserved set, as defined by RFC2396:
+///
+/// Allowed characters are:
+///
+/// - Unreserved characters: `unreserved` as defined by RFC2396
+///   https://datatracker.ietf.org/doc/html/rfc2396#section-2.3
+///   a-z, A-Z, 0-9, "-", "_", ".", "!", "~", "*", "'", "(", ")"
+///
+/// This is equivalent to the ECMAScript `encodeURIComponent` function:
+/// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
+void PercentEncodeUriComponent(std::string_view src, std::string& dest);
+
+/// Same as above but returns the encoded result.
+std::string PercentEncodeUriComponent(std::string_view src);
 
 }  // namespace internal
 }  // namespace tensorstore

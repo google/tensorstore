@@ -7,7 +7,9 @@ allOf:
 - type: object
   properties:
     kvstore:
-      $ref: KvStore
+      oneOf:
+      - $ref: KvStore
+      - $ref: KvStoreUrl
       description: >-
         Specifies the underlying storage mechanism.
     path:

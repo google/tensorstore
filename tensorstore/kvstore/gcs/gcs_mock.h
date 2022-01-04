@@ -118,8 +118,8 @@ class GCSMockStorageBucket {
 
  private:
   const std::string bucket_;
-  const std::string bucket_path_;
-  const std::string upload_path_;
+  const std::string bucket_prefix_;
+  const std::string upload_prefix_;
   const std::optional<std::string> requestor_pays_project_id_;
   absl::Mutex mutex_;
   int64_t next_generation_ = 123;
