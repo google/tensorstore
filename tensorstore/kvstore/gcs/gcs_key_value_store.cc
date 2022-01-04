@@ -286,52 +286,61 @@ bool IsRetriable(const absl::Status& status) {
           status.code() == absl::StatusCode::kUnavailable);
 }
 
-/// Implements the KeyValueStore interface for storing tensorstore data into a
-/// GCS storage bucket.
-class GcsKeyValueStore
-    : public internal_kvstore::RegisteredDriver<GcsKeyValueStore> {
- public:
-  static constexpr char id[] = "gcs";
+struct GcsKeyValueStoreSpecData {
+  std::string bucket;
+  Context::Resource<GcsRequestConcurrencyResource> request_concurrency;
+  Context::Resource<GcsUserProjectResource> user_project;
+  Context::Resource<GcsRequestRetries> retries;
 
-  struct SpecData {
-    std::string bucket;
-    Context::Resource<GcsRequestConcurrencyResource> request_concurrency;
-    Context::Resource<GcsUserProjectResource> user_project;
-    Context::Resource<GcsRequestRetries> retries;
-
-    constexpr static auto ApplyMembers = [](auto& x, auto f) {
-      return f(x.bucket, x.request_concurrency, x.user_project, x.retries);
-    };
+  constexpr static auto ApplyMembers = [](auto& x, auto f) {
+    return f(x.bucket, x.request_concurrency, x.user_project, x.retries);
   };
 
-  constexpr static auto json_binder = jb::Object(
+  friend void EncodeCacheKeyAdl(std::string* out,
+                                const GcsKeyValueStoreSpecData& spec) {
+    internal::EncodeCacheKey(out, spec.bucket, spec.request_concurrency,
+                             spec.user_project->project_id,
+                             spec.retries->max_retries);
+  }
+
+  constexpr static auto default_json_binder = jb::Object(
       // Bucket is specified in the `spec` since it identifies the resource
       // being accessed.
       jb::Member("bucket",
-                 jb::Projection(
-                     &SpecData::bucket, jb::Validate([](const auto& options,
-                                                        const std::string* x) {
+                 jb::Projection<&GcsKeyValueStoreSpecData::bucket>(jb::Validate(
+                     [](const auto& options, const std::string* x) {
                        if (!IsValidBucketName(*x)) {
                          return absl::InvalidArgumentError(StrCat(
                              "Invalid GCS bucket name: ", QuoteString(*x)));
                        }
                        return absl::OkStatus();
                      }))),
-      jb::Member(GcsRequestConcurrencyResource::id,
-                 jb::Projection(&SpecData::request_concurrency)),
+      jb::Member(
+          GcsRequestConcurrencyResource::id,
+          jb::Projection<&GcsKeyValueStoreSpecData::request_concurrency>()),
       // `user_project` project ID to use for billing is obtained from the
       // `context` since it is not part of the identity of the resource being
       // accessed.
       jb::Member(GcsUserProjectResource::id,
-                 jb::Projection(&SpecData::user_project)),
-      jb::Member(GcsRequestRetries::id, jb::Projection(&SpecData::retries)));
+                 jb::Projection<&GcsKeyValueStoreSpecData::user_project>()),
+      jb::Member(GcsRequestRetries::id,
+                 jb::Projection<&GcsKeyValueStoreSpecData::retries>()));
+};
 
-  static void EncodeCacheKey(std::string* out, const SpecData& spec) {
-    internal::EncodeCacheKey(out, spec.bucket, spec.request_concurrency,
-                             spec.user_project->project_id,
-                             spec.retries->max_retries);
-  }
+class GcsKeyValueStoreSpec
+    : public internal_kvstore::RegisteredDriverSpec<GcsKeyValueStoreSpec,
+                                                    GcsKeyValueStoreSpecData> {
+ public:
+  static constexpr char id[] = "gcs";
+  Future<kvstore::DriverPtr> DoOpen() const override;
+};
 
+/// Implements the KeyValueStore interface for storing tensorstore data into a
+/// GCS storage bucket.
+class GcsKeyValueStore
+    : public internal_kvstore::RegisteredDriver<GcsKeyValueStore,
+                                                GcsKeyValueStoreSpec> {
+ public:
   /// The resource_root is the url used to read data and metadata from the GCS
   /// bucket.
   const std::string& resource_root() const { return resource_root_; }
@@ -373,18 +382,6 @@ class GcsKeyValueStore
 
   const Executor& executor() const {
     return spec_.request_concurrency->executor;
-  }
-
-  static void Open(internal_kvstore::DriverOpenState<GcsKeyValueStore> state) {
-    auto& d = state.driver();
-    d.spec_ = state.spec();
-    d.resource_root_ = BucketResourceRoot(d.spec_.bucket);
-    d.upload_root_ = BucketUploadRoot(d.spec_.bucket);
-    d.transport_ = internal_http::GetDefaultHttpTransport();
-    if (const auto& user_project = d.spec_.user_project->project_id) {
-      d.encoded_user_project_ =
-          tensorstore::internal_http::CurlEscapeString(*user_project);
-    }
   }
 
   absl::Status GetBoundSpecData(SpecData& spec) const {
@@ -439,6 +436,19 @@ class GcsKeyValueStore
   // provider is valid and indicates to use anonymous access.
   std::optional<std::shared_ptr<internal_oauth2::AuthProvider>> auth_provider_;
 };
+
+Future<kvstore::DriverPtr> GcsKeyValueStoreSpec::DoOpen() const {
+  auto driver = internal::MakeIntrusivePtr<GcsKeyValueStore>();
+  driver->spec_ = data_;
+  driver->resource_root_ = BucketResourceRoot(data_.bucket);
+  driver->upload_root_ = BucketUploadRoot(data_.bucket);
+  driver->transport_ = internal_http::GetDefaultHttpTransport();
+  if (const auto& project_id = data_.user_project->project_id) {
+    driver->encoded_user_project_ =
+        tensorstore::internal_http::CurlEscapeString(*project_id);
+  }
+  return driver;
+}
 
 /// A ReadTask is a function object used to satisfy a
 /// GcsKeyValueStore::Read request.
@@ -993,6 +1003,6 @@ TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
 
 namespace {
 const tensorstore::internal_kvstore::DriverRegistration<
-    tensorstore::GcsKeyValueStore>
+    tensorstore::GcsKeyValueStoreSpec>
     registration;
 }  // namespace

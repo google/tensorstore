@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_KVSTORE_DRIVER_H_
 #define TENSORSTORE_KVSTORE_DRIVER_H_
 
+#include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
@@ -79,15 +80,8 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   virtual void GarbageCollectionVisit(
       garbage_collection::GarbageCollectionVisitor& visitor) const = 0;
 
- private:
   friend class DriverSpecPtr;
   friend class Spec;
-
-  template <typename, typename>
-  friend class internal_kvstore::RegisteredDriver;
-  template <typename>
-  friend class internal_kvstore::RegisteredDriverSpec;
-  friend class internal_context::Access;
 
   /// Specifies context resource overrides.
   Context::Spec context_spec_;

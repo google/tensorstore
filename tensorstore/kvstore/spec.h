@@ -130,9 +130,9 @@ void EncodeCacheKeyAdl(std::string* out, const DriverPtr& ptr);
 }  // namespace kvstore
 
 namespace internal_kvstore {
-template <typename Derived, typename Parent>
+template <typename Derived, typename DerivedSpec, typename Parent>
 class RegisteredDriver;
-template <typename Derived>
+template <typename Derived, typename SpecDataT, typename Parent>
 class RegisteredDriverSpec;
 }  // namespace internal_kvstore
 

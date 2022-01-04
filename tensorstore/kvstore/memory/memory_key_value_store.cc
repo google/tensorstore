@@ -120,39 +120,46 @@ struct MemoryKeyValueStoreResource
 const internal::ContextResourceRegistration<MemoryKeyValueStoreResource>
     resource_registration;
 
-/// Defines the "memory" KeyValueStore driver.
-///
-/// This also serves as documentation of how to implement a KeyValueStore
-/// driver.
-class MemoryDriver : public internal_kvstore::RegisteredDriver<MemoryDriver> {
+/// Data members for `MemoryDriverSpec`.
+struct MemoryDriverSpecData {
+  Context::Resource<MemoryKeyValueStoreResource> memory_key_value_store;
+
+  bool atomic = true;
+
+  /// Make this type compatible with `tensorstore::ApplyMembers`.
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    // `x` is a reference to a `SpecData` object.  This function must invoke
+    // `f` with a reference to each member of `x`.
+    return f(x.memory_key_value_store, x.atomic);
+  };
+
+  /// Must specify a JSON binder.
+  constexpr static auto default_json_binder = jb::Object(
+      jb::Member(
+          MemoryKeyValueStoreResource::id,
+          jb::Projection<&MemoryDriverSpecData::memory_key_value_store>()),
+      jb::Member("atomic", jb::Projection<&MemoryDriverSpecData::atomic>(
+                               jb::DefaultValue([](auto* y) { *y = true; }))));
+};
+
+class MemoryDriverSpec
+    : public internal_kvstore::RegisteredDriverSpec<MemoryDriverSpec,
+                                                    MemoryDriverSpecData> {
  public:
   /// Specifies the string identifier under which the driver will be registered.
   static constexpr char id[] = "memory";
 
-  /// KeyValueStore types must define a `SpecData` class.
-  struct SpecData {
-    Context::Resource<MemoryKeyValueStoreResource> memory_key_value_store;
+  Future<kvstore::DriverPtr> DoOpen() const override;
+};
 
-    bool atomic = true;
-
-    /// Make this type compatible with `tensorstore::ApplyMembers`.
-    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
-      // `x` is a reference to a `SpecData` object.  This function must invoke
-      // `f` with a reference to each member of `x`.
-      return f(x.memory_key_value_store, x.atomic);
-    };
-  };
-
-  static_assert(SupportsApplyMembers<SpecData>);
-
-  /// Must specify a JSON binder for the `SpecData` type.
-  constexpr static auto json_binder = jb::Object(
-      jb::Member(MemoryKeyValueStoreResource::id,
-                 jb::Projection(&SpecData::memory_key_value_store)),
-      jb::Member("atomic",
-                 jb::Projection(&SpecData::atomic,
-                                jb::DefaultValue([](auto* y) { *y = true; }))));
-
+/// Defines the "memory" KeyValueStore driver.
+///
+/// This also serves as documentation of how to implement a KeyValueStore
+/// driver.
+class MemoryDriver
+    : public internal_kvstore::RegisteredDriver<MemoryDriver,
+                                                MemoryDriverSpec> {
+ public:
   Future<ReadResult> Read(Key key, ReadOptions options) override;
 
   Future<TimestampedStorageGeneration> Write(Key key,
@@ -181,17 +188,8 @@ class MemoryDriver : public internal_kvstore::RegisteredDriver<MemoryDriver> {
   /// `Context`.
   StoredKeyValuePairs& data() { return **spec_.memory_key_value_store; }
 
-  /// Initiates opening a driver.
-  static void Open(internal_kvstore::DriverOpenState<MemoryDriver> state) {
-    // For the "memory" driver, this simply involves copying
-    state.driver().spec_ = state.spec();
-    // For drivers implementations for which opening is asynchronous, operations
-    // may be linked (via the `Link` function in `future.h`) to
-    // `state.promise()` in order to propagate cancellation.
-  }
-
   /// Obtains a `BoundSpec` representation from an open `Driver`.
-  absl::Status GetBoundSpecData(SpecData& spec) const {
+  absl::Status GetBoundSpecData(MemoryDriverSpecData& spec) const {
     // `spec` is returned via an out parameter rather than returned via a
     // `Result`, as that simplifies use cases involving composition via
     // inheritance.
@@ -203,6 +201,12 @@ class MemoryDriver : public internal_kvstore::RegisteredDriver<MemoryDriver> {
   /// store a copy of the `BoundSpecData` as a member.
   SpecData spec_;
 };
+
+Future<kvstore::DriverPtr> MemoryDriverSpec::DoOpen() const {
+  auto driver = internal::MakeIntrusivePtr<MemoryDriver>();
+  driver->spec_ = data_;
+  return driver;
+}
 
 using BufferedReadModifyWriteEntry =
     internal_kvstore::AtomicMultiPhaseMutation::BufferedReadModifyWriteEntry;
@@ -500,6 +504,6 @@ TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(tensorstore::MemoryDriver)
 // Registers the driver.
 namespace {
 const tensorstore::internal_kvstore::DriverRegistration<
-    tensorstore::MemoryDriver>
+    tensorstore::MemoryDriverSpec>
     registration;
 }  // namespace

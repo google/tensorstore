@@ -718,17 +718,11 @@ struct ListTask {
   }
 };
 
-class FileKeyValueStore
-    : public internal_kvstore::RegisteredDriver<FileKeyValueStore> {
- public:
-  static constexpr char id[] = "file";
+struct FileKeyValueStoreSpecData {
+  Context::Resource<internal::FileIoConcurrencyResource> file_io_concurrency;
 
-  struct SpecData {
-    Context::Resource<internal::FileIoConcurrencyResource> file_io_concurrency;
-
-    constexpr static auto ApplyMembers = [](auto& x, auto f) {
-      return f(x.file_io_concurrency);
-    };
+  constexpr static auto ApplyMembers = [](auto& x, auto f) {
+    return f(x.file_io_concurrency);
   };
 
   // TODO(jbms): Storing a UNIX path as a JSON string presents a challenge
@@ -746,10 +740,24 @@ class FileKeyValueStore
   // including base64-encoding, or using NUL as an escape sequence (taking
   // advantage of the fact that valid paths on all operating systems
   // cannot contain NUL characters).
-  constexpr static auto json_binder =
-      jb::Object(jb::Member(internal::FileIoConcurrencyResource::id,
-                            jb::Projection(&SpecData::file_io_concurrency)));
+  constexpr static auto default_json_binder = jb::Object(jb::Member(
+      internal::FileIoConcurrencyResource::id,
+      jb::Projection<&FileKeyValueStoreSpecData::file_io_concurrency>()));
+};
 
+class FileKeyValueStoreSpec
+    : public internal_kvstore::RegisteredDriverSpec<FileKeyValueStoreSpec,
+                                                    FileKeyValueStoreSpecData> {
+ public:
+  static constexpr char id[] = "file";
+
+  Future<kvstore::DriverPtr> DoOpen() const override;
+};
+
+class FileKeyValueStore
+    : public internal_kvstore::RegisteredDriver<FileKeyValueStore,
+                                                FileKeyValueStoreSpec> {
+ public:
   Future<ReadResult> Read(Key key, ReadOptions options) override {
     TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
     return MapFuture(executor(), ReadTask{std::move(key), std::move(options)});
@@ -799,17 +807,19 @@ class FileKeyValueStore
     return tensorstore::StrCat("local file ", tensorstore::QuoteString(key));
   }
 
-  static void Open(internal_kvstore::DriverOpenState<FileKeyValueStore> state) {
-    state.driver().spec_ = state.spec();
-  }
-
-  absl::Status GetBoundSpecData(SpecData& spec) const {
+  absl::Status GetBoundSpecData(FileKeyValueStoreSpecData& spec) const {
     spec = spec_;
     return absl::OkStatus();
   }
 
   SpecData spec_;
 };
+
+Future<kvstore::DriverPtr> FileKeyValueStoreSpec::DoOpen() const {
+  auto driver_ptr = internal::MakeIntrusivePtr<FileKeyValueStore>();
+  driver_ptr->spec_ = data_;
+  return driver_ptr;
+}
 
 }  // namespace
 }  // namespace tensorstore
@@ -819,6 +829,6 @@ TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
 
 namespace {
 const tensorstore::internal_kvstore::DriverRegistration<
-    tensorstore::FileKeyValueStore>
+    tensorstore::FileKeyValueStoreSpec>
     registration;
 }  // namespace

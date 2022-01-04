@@ -594,26 +594,35 @@ struct MockKeyValueStoreResourceTraits
 const ContextResourceRegistration<MockKeyValueStoreResourceTraits>
     mock_key_value_store_resource_registration;
 
-class RegisteredMockKeyValueStore
-    : public internal_kvstore::RegisteredDriver<RegisteredMockKeyValueStore> {
+struct RegisteredMockKeyValueStoreSpecData {
+  Context::Resource<MockKeyValueStoreResource> base;
+
+  static constexpr auto default_json_binder = jb::Object(
+      jb::Member(MockKeyValueStoreResource::id,
+                 jb::Projection<&RegisteredMockKeyValueStoreSpecData::base>()));
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.base);
+  };
+};
+
+class RegisteredMockKeyValueStoreSpec
+    : public internal_kvstore::RegisteredDriverSpec<
+          RegisteredMockKeyValueStoreSpec,
+          RegisteredMockKeyValueStoreSpecData> {
  public:
   static constexpr char id[] = "mock_key_value_store";
-  using SpecData = Context::Resource<MockKeyValueStoreResource>;
 
-  static constexpr auto json_binder =
-      jb::Object(jb::Member(MockKeyValueStoreResource::id));
+  Future<kvstore::DriverPtr> DoOpen() const override;
+};
 
-  static void EncodeCacheKey(std::string* out, const SpecData& data) {
-    tensorstore::internal::EncodeCacheKey(out, data);
-  }
-
-  static void Open(
-      internal_kvstore::DriverOpenState<RegisteredMockKeyValueStore> state) {
-    state.driver().base_ = state.spec();
-  }
-
-  absl::Status GetBoundSpecData(SpecData& spec) const {
-    spec = base_;
+class RegisteredMockKeyValueStore
+    : public internal_kvstore::RegisteredDriver<
+          RegisteredMockKeyValueStore, RegisteredMockKeyValueStoreSpec> {
+ public:
+  absl::Status GetBoundSpecData(
+      RegisteredMockKeyValueStoreSpecData& spec) const {
+    spec.base = base_;
     return absl::OkStatus();
   }
 
@@ -644,9 +653,14 @@ class RegisteredMockKeyValueStore
 
   MockKeyValueStore* base() { return base_->get(); }
 
- private:
   Context::Resource<MockKeyValueStoreResource> base_;
 };
+
+Future<kvstore::DriverPtr> RegisteredMockKeyValueStoreSpec::DoOpen() const {
+  auto driver = MakeIntrusivePtr<RegisteredMockKeyValueStore>();
+  driver->base_ = data_.base;
+  return driver;
+}
 
 }  // namespace
 }  // namespace internal
@@ -657,6 +671,6 @@ TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
 
 namespace {
 const tensorstore::internal_kvstore::DriverRegistration<
-    tensorstore::internal::RegisteredMockKeyValueStore>
+    tensorstore::internal::RegisteredMockKeyValueStoreSpec>
     mock_key_value_store_driver_registration;
 }  // namespace
