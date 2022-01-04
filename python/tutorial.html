@@ -50,19 +50,18 @@
 </code></pre></div> </div> <h2 id=reading-the-janelia-flyem-hemibrain-dataset>Reading the Janelia FlyEM Hemibrain dataset<a class=headerlink href=#reading-the-janelia-flyem-hemibrain-dataset title="Permalink to this headline">¶</a></h2> <p>This example demonstrates accessing the <a class="reference external" href=https://www.janelia.org/project-team/flyem/hemibrain>Janelia FlyeEM Hemibrain 1.1 segmentation</a> using the <a class="reference internal" href=../driver/neuroglancer_precomputed/index.html#neuroglancer-precomputed-driver><span class="std std-ref">neuroglancer_precomputed Driver</span></a>.</p> <p>While this dataset is public, the <a class="reference internal" href=../kvstore/gcs/index.html#gcs-kvstore-driver><span class="std std-ref">gcs Key-Value Store driver</span></a> currently requires that you supply <a class="reference internal" href=../kvstore/gcs/index.html#gcs-authentication><span class="std std-ref">Google Cloud credentials</span></a>.</p> <p>Open the dataset asynchronously to obtain a <a class="reference internal" href=api/tensorstore.Future.html title="tensorstore.Future (Python class) — Handle for consuming the result of an asynchronous operation."><code class="xref py py-obj docutils literal notranslate"><span class=pre>tensorstore.Future</span></code></a>:</p> <div class="highlight-pycon3 notranslate"><div class=highlight><pre><span></span><code><span class=gp>&gt;&gt;&gt; </span><span class=kn>import</span> <span class=nn>tensorstore</span> <span class=k>as</span> <span class=nn>ts</span>
 <span class=gp>&gt;&gt;&gt; </span><span class=kn>import</span> <span class=nn>numpy</span> <span class=k>as</span> <span class=nn>np</span>
 <span class=gp>&gt;&gt;&gt; </span><span class=n>dataset_future</span> <span class=o>=</span> <span class=n>ts</span><span class=o>.</span><span class=n>open</span><span class=p>({</span>
-<span class=gp>... </span>    <span class=s1>&#39;driver&#39;</span><span class=p>:</span> <span class=s1>&#39;neuroglancer_precomputed&#39;</span><span class=p>,</span>
-<span class=gp>... </span>    <span class=s1>&#39;kvstore&#39;</span><span class=p>:</span> <span class=p>{</span>
-<span class=gp>... </span>        <span class=s1>&#39;driver&#39;</span><span class=p>:</span> <span class=s1>&#39;gcs&#39;</span><span class=p>,</span>
-<span class=gp>... </span>        <span class=s1>&#39;bucket&#39;</span><span class=p>:</span> <span class=s1>&#39;neuroglancer-janelia-flyem-hemibrain&#39;</span><span class=p>,</span>
-<span class=gp>... </span>        <span class=s1>&#39;path&#39;</span><span class=p>:</span> <span class=s1>&#39;v1.1/segmentation/&#39;</span><span class=p>,</span>
-<span class=gp>... </span>    <span class=p>},</span>
+<span class=gp>... </span>    <span class=s1>&#39;driver&#39;</span><span class=p>:</span>
+<span class=gp>... </span>        <span class=s1>&#39;neuroglancer_precomputed&#39;</span><span class=p>,</span>
+<span class=gp>... </span>    <span class=s1>&#39;kvstore&#39;</span><span class=p>:</span>
+<span class=gp>... </span>        <span class=s1>&#39;gs://neuroglancer-janelia-flyem-hemibrain/v1.1/segmentation/&#39;</span><span class=p>,</span>
 <span class=gp>... </span>    <span class=c1># Use 100MB in-memory cache.</span>
 <span class=gp>... </span>    <span class=s1>&#39;context&#39;</span><span class=p>:</span> <span class=p>{</span>
 <span class=gp>... </span>        <span class=s1>&#39;cache_pool&#39;</span><span class=p>:</span> <span class=p>{</span>
 <span class=gp>... </span>            <span class=s1>&#39;total_bytes_limit&#39;</span><span class=p>:</span> <span class=mi>100_000_000</span>
 <span class=gp>... </span>        <span class=p>}</span>
 <span class=gp>... </span>    <span class=p>},</span>
-<span class=gp>... </span>    <span class=s1>&#39;recheck_cached_data&#39;</span><span class=p>:</span> <span class=s1>&#39;open&#39;</span><span class=p>,</span>
+<span class=gp>... </span>    <span class=s1>&#39;recheck_cached_data&#39;</span><span class=p>:</span>
+<span class=gp>... </span>        <span class=s1>&#39;open&#39;</span><span class=p>,</span>
 <span class=gp>... </span><span class=p>})</span>
 <span class=gp>&gt;&gt;&gt; </span><span class=n>dataset_future</span>
 <span class=go>&lt;tensorstore.Future object at 0x...&gt;</span>
