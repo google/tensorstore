@@ -18,12 +18,21 @@
 
 #include "tensorstore/internal/os_error_code.h"
 
+// Extension point used internally at Google to support lightweight fibers.
+namespace {
+class PotentiallyBlockingRegion {
+ public:
+  ~PotentiallyBlockingRegion() {}
+};
+}
+
 namespace tensorstore {
 namespace internal_file_util {
 
 UniqueFileDescriptor OpenFileForWriting(const std::string& path) {
   UniqueFileDescriptor fd;
   const auto attempt_open = [&] {
+    PotentiallyBlockingRegion region;
     fd.reset(::open(path.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, 0666));
   };
 #ifndef __APPLE__
@@ -44,6 +53,7 @@ UniqueFileDescriptor OpenFileForWriting(const std::string& path) {
 }
 
 bool FileLockTraits::Acquire(int fd) {
+  PotentiallyBlockingRegion region;
   while (true) {
     // This blocks until the lock is acquired (SETLKW).  If any signal is
     // received by the current thread, `fcntl` returns `EINTR`.
@@ -94,6 +104,7 @@ void FileLockTraits::Close(int fd) {
 }
 
 bool DirectoryIterator::Next() {
+  PotentiallyBlockingRegion region;
   e = ::readdir(dir.get());
   return e != nullptr;
 }
@@ -101,6 +112,7 @@ bool DirectoryIterator::Next() {
 /// IsDirectoryAt returns whethere the `name` at the given directory fd is a
 /// directory or not by using fstatat.
 bool IsDirectoryAt(int dir_fd, const char* name) {
+  PotentiallyBlockingRegion region;
   struct ::stat statbuf;
   if (::fstatat(dir_fd, name, &statbuf, AT_SYMLINK_NOFOLLOW) != 0) {
     // Error stating file, assume it's not a directory.
@@ -116,11 +128,13 @@ bool DirectoryIterator::is_directory() const {
 }
 
 DirectoryIterator::Entry DirectoryIterator::GetEntry() const {
+  PotentiallyBlockingRegion region;
   return {::dirfd(dir.get()), e->d_name};
 }
 
 bool DirectoryIterator::Make(Entry entry,
                              std::unique_ptr<DirectoryIterator>* new_iterator) {
+  PotentiallyBlockingRegion region;
   UniqueFileDescriptor new_dir(
       ::openat(entry.dir_fd, entry.name,
                O_RDONLY | O_DIRECTORY | O_CLOEXEC |
