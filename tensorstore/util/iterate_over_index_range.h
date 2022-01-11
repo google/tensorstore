@@ -95,22 +95,23 @@ struct IterateOverIndexRangeHelper {
 ///
 /// For example:
 ///
-/// `IterateOverIndexRange<c_order>(span({0, 0}), span({2, 3}), func)`
+/// `IterateOverIndexRange<ContiguousLayoutOrder::c>(
+///      span({0, 0}), span({2, 3}), func)`
 /// invokes:
 ///
 ///     `func({0, 0})`, `func({0, 1})`, `func({0, 2})`,
 ///     `func({1, 0})`, `func({1, 1})`, `func({1, 2})`.
 ///
-/// `IterateOverIndexRange<fortran_order>(span({0, 0}),
-///                                       span({2, 3}),
-///                                       func)`
+/// `IterateOverIndexRange<ContiguousLayoutOrder::fortran>(
+///      span({0, 0}), span({2, 3}), func)`
 /// invokes:
 ///
 ///     `func({0, 0})`, `func({1, 0})`,
 ///     `func({0, 1})`, `func({1, 1})`,
 ///     `func({0, 2})`, `func({1, 2})`.
 ///
-/// `IterateOverIndexRange<c_order>(span({0, 1}), span({2, 2}), func)`
+/// `IterateOverIndexRange<ContiguousLayoutOrder::c>(
+///      span({0, 1}), span({2, 2}), func)`
 /// invokes:
 ///
 ///     `func({0, 1})`, `func({0, 2})`,
@@ -166,12 +167,14 @@ IterateOverIndexRange(const BoxType& box, Func&& func,
 ///
 /// For example:
 ///
-/// `IterateOverIndexRange<c_order>(span({2, 3}), func)` invokes:
+/// `IterateOverIndexRange<ContiguousLayoutOrder::c>(span({2, 3}), func)`
+/// invokes:
 ///
 ///     `func({0, 0})`, `func({0, 1})`, `func({0, 2})`,
 ///     `func({1, 0})`, `func({1, 1})`, `func({1, 2})`.
 ///
-/// `IterateOverIndexRange<fortran_order>(span({2, 3}), func)` invokes:
+/// `IterateOverIndexRange<ContiguousLayoutOrder::fortran>(span({2, 3}), func)`
+/// invokes:
 ///
 ///     `func({0, 0})`, `func({1, 0})`,
 ///     `func({0, 1})`, `func({1, 1})`,
