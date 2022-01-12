@@ -1280,8 +1280,8 @@ TEST(LinkTest, ConcurrentForceAndSetReady) {
         pair1 = PromiseFuturePair<int>::Make(1);
         pair2 = PromiseFuturePair<int>::Make();
         pair3 = PromiseFuturePair<int>::Make();
-        Link(pair2.promise, pair1.future);
-        Link(pair3.promise, pair2.future);
+        LinkResult(pair2.promise, pair1.future);
+        LinkResult(pair3.promise, pair2.future);
       },
       /*finalize=*/[&] {},  //
       // Concurrently:
@@ -1309,7 +1309,7 @@ TEST(LinkTest, NoCallback) {
   // Test unlinking before the future becomes ready.
   {
     auto [linked_promise, linked_future] = PromiseFuturePair<int>::Make();
-    auto link = Link(linked_promise, future);
+    auto link = LinkResult(linked_promise, future);
     EXPECT_FALSE(linked_future.ready());
     link.Unregister();
     linked_future.Force();
@@ -1320,7 +1320,7 @@ TEST(LinkTest, NoCallback) {
   // Test forcing.
   {
     auto [linked_promise, linked_future] = PromiseFuturePair<int>::Make();
-    auto link = Link(linked_promise, future);
+    auto link = LinkResult(linked_promise, future);
     EXPECT_FALSE(linked_future.ready());
     linked_future.Force();
     ASSERT_TRUE(linked_future.ready());
@@ -1331,7 +1331,7 @@ TEST(LinkTest, NoCallback) {
   // Test linking after the future is ready.
   {
     auto [linked_promise, linked_future] = PromiseFuturePair<int>::Make();
-    auto link = Link(linked_promise, future);
+    auto link = LinkResult(linked_promise, future);
     ASSERT_TRUE(linked_future.ready());
     EXPECT_THAT(linked_future.result(), ::testing::Optional(5));
   }

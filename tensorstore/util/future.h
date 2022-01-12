@@ -977,10 +977,19 @@ Link(Callback&& callback, Promise<PromiseValue> promise, Futures&&... future) {
           std::forward<Futures>(future)...));
 }
 
+/// Creates a "link", which ties a `promise` to one or more `future` objects and
+/// a `callback`.
+///
 /// Same as `Link`, except that the `callback` is called only if the `future`
 /// objects become ready with a non-error result.  The first error result
 /// encountered among the `future` objects will be automatically propagated to
 /// the `promise`.
+///
+/// \param callback The function to be invoked.
+/// \param promise The promise to be linked.
+/// \param future The futures to be linked.
+/// \returns A FutureCallbackRegistration handle that can be used to remove this
+///     link.
 template <typename Callback, typename PromiseValue, typename... Futures>
 LinkReturnType<FutureCallbackRegistration, Callback, Promise<PromiseValue>,
                Futures...>
@@ -993,10 +1002,18 @@ LinkValue(Callback&& callback, Promise<PromiseValue> promise,
           std::forward<Futures>(future)...));
 }
 
+/// Creates a "link", which ties a `promise` to one or more `future` objects and
+/// a `callback`.
+///
 /// Same as `Link`, except that no callback function is called in the case
 /// that all `future` objects are successfully resolved. The first error result
 /// encountered among the `future` objects will be automatically propagated to
 /// the `promise`.
+///
+/// \param promise The promise to be linked.
+/// \param future The futures to be linked.
+/// \returns A FutureCallbackRegistration handle that can be used to remove this
+///     link.
 template <typename PromiseValue, typename... Futures>
 LinkErrorReturnType<FutureCallbackRegistration, Futures...>  //
 LinkError(Promise<PromiseValue> promise, Futures&&... future) {
@@ -1007,7 +1024,7 @@ LinkError(Promise<PromiseValue> promise, Futures&&... future) {
           std::forward<Futures>(future)...));
 }
 
-/// Creates a link that moves a future result to a promise.
+/// Creates a Link that moves a single Future's result to a Promise.
 ///
 /// While this link remains in effect, invokes:
 /// `promise.SetResult(future.result())` when `future` becomes ready.  If
@@ -1022,7 +1039,7 @@ LinkError(Promise<PromiseValue> promise, Futures&&... future) {
 /// removed.
 ///
 /// \param promise The promise to be linked.
-/// \param future The futures to be linked.
+/// \param future The future to be linked.
 /// \returns A FutureCallbackRegistration handle that can be used to remove this
 ///     link.
 template <typename PromiseValue, typename FutureValue>
@@ -1030,7 +1047,7 @@ std::enable_if_t<
     std::is_constructible_v<internal_future::ResultType<PromiseValue>,
                             internal_future::ResultType<FutureValue>>,
     FutureCallbackRegistration>
-Link(Promise<PromiseValue> promise, Future<FutureValue> future) {
+LinkResult(Promise<PromiseValue> promise, Future<FutureValue> future) {
   return Link(
       [](Promise<PromiseValue> promise, ReadyFuture<FutureValue> future) {
         promise.SetResult(std::move(future.result()));
@@ -1243,7 +1260,7 @@ MapFuture(Executor&& executor, Callback&& callback,
                     Future<FutureValue>... future) {
       if (!promise.result_needed()) return;
       if constexpr (IsFuture<R>) {
-        Link(std::move(promise), callback(future.result()...));
+        LinkResult(std::move(promise), callback(future.result()...));
       } else {
         promise.SetResult(callback(future.result()...));
       }
@@ -1294,7 +1311,7 @@ MapFutureValue(Executor&& executor, Callback&& callback,
                     Future<FutureValue>... future) {
       if (!promise.result_needed()) return;
       if constexpr (IsFuture<R>) {
-        Link(std::move(promise), callback(future.result().value()...));
+        LinkResult(std::move(promise), callback(future.result().value()...));
       } else {
         promise.SetResult(callback(future.result().value()...));
       }

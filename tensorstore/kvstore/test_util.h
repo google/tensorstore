@@ -156,7 +156,7 @@ class MockKeyValueStore : public kvstore::Driver {
     Key key;
     ReadOptions options;
     void operator()(kvstore::DriverPtr target) const {
-      Link(promise, target->Read(key, options));
+      LinkResult(promise, target->Read(key, options));
     }
   };
 
@@ -166,7 +166,7 @@ class MockKeyValueStore : public kvstore::Driver {
     std::optional<Value> value;
     WriteOptions options;
     void operator()(kvstore::DriverPtr target) const {
-      Link(promise, target->Write(key, value, options));
+      LinkResult(promise, target->Write(key, value, options));
     }
   };
 
@@ -174,7 +174,7 @@ class MockKeyValueStore : public kvstore::Driver {
     Promise<void> promise;
     KeyRange range;
     void operator()(kvstore::DriverPtr target) const {
-      Link(promise, target->DeleteRange(range));
+      LinkResult(promise, target->DeleteRange(range));
     }
   };
 
