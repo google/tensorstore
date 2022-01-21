@@ -233,6 +233,7 @@ Synchronous I/O
 ---------------
 
 )");
+  DisallowInstantiationFromPython(cls);
   m.attr("KvStore") = cls;
   return cls;
 }

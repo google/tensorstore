@@ -225,6 +225,7 @@ Examples:
 Group:
   Core
 )");
+  DisallowInstantiationFromPython(cls);
   m.attr("TensorStore") = cls;
   return cls;
 }

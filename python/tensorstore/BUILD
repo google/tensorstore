@@ -687,6 +687,7 @@ tensorstore_pytest_test(
 
 pybind11_cc_library(
     name = "define_heap_type",
+    srcs = ["define_heap_type.cc"],
     hdrs = ["define_heap_type.h"],
     deps = [
         "@com_github_pybind_pybind11//:pybind11",
@@ -839,6 +840,15 @@ pybind11_cc_library(
         "//tensorstore/util:executor",
         "//tensorstore/util/garbage_collection",
         "@com_github_pybind_pybind11//:pybind11",
+    ],
+)
+
+tensorstore_pytest_test(
+    name = "kvstore_test",
+    size = "small",
+    srcs = ["tests/kvstore_test.py"],
+    deps = [
+        ":tensorstore",
     ],
 )
 

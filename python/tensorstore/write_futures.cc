@@ -97,6 +97,7 @@ Group:
   auto cls = DefineHeapType<PythonWriteFuturesObject>(spec);
   PythonWriteFuturesObject::python_type->tp_weaklistoffset =
       offsetof(PythonWriteFuturesObject, weakrefs);
+  DisallowInstantiationFromPython(cls);
   m.attr("WriteFutures") = cls;
   return cls;
 }

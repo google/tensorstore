@@ -936,6 +936,7 @@ Group:
   auto cls = DefineHeapType<PythonPromiseObject>(spec);
   PythonPromiseObject::python_type->tp_weaklistoffset =
       offsetof(PythonPromiseObject, weakrefs);
+  DisallowInstantiationFromPython(cls);
   m.attr("Promise") = cls;
   return cls;
 }

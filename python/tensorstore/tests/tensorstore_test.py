@@ -322,3 +322,8 @@ async def test_write_string():
                           np.array([b"foo", b"x", b"y"], dtype=object))
   with pytest.raises(TypeError):
     t[1] = "abc"
+
+
+def test_instantiation():
+  with pytest.raises(TypeError):
+    ts.TensorStore()

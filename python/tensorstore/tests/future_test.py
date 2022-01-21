@@ -14,6 +14,7 @@
 
 import asyncio
 import os
+import pickle
 import time
 import signal
 import threading
@@ -168,3 +169,21 @@ def test_gc_callback_cycle(gc_tester):
   callback.promise = promise
 
   gc_tester(future)
+
+
+def test_promise_instantiation():
+  with pytest.raises(TypeError):
+    ts.Promise()
+
+
+def test_write_futures_instantiation():
+  with pytest.raises(TypeError):
+    ts.WriteFutures()
+
+
+def test_pickle_failure():
+  p, f = ts.Promise.new()
+  with pytest.raises(TypeError):
+    pickle.dumps(p)
+  with pytest.raises(TypeError):
+    pickle.dumps(f)

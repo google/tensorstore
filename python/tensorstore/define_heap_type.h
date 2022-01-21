@@ -152,6 +152,16 @@ pybind11::class_<T> DefineHeapType(PyType_Spec& spec) {
       pybind11::handle(reinterpret_cast<PyObject*>(T::python_type))));
 }
 
+/// Prevents objects of the specified type from being instantiated via a call to
+/// the type object.
+///
+/// By default heap types inherit the `__new__` method from their parent class
+/// if it is not explicitly overridden.  This can lead to an improperly
+/// initialized object being exposed to Python.
+///
+/// https://bugs.python.org/msg391598
+void DisallowInstantiationFromPython(pybind11::handle type_object);
+
 }  // namespace internal_python
 }  // namespace tensorstore
 
