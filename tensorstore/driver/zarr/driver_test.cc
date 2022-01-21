@@ -303,6 +303,99 @@ TEST(ZarrDriverTest, Create) {
   }
 }
 
+// Tests that a non-default `metadata_key` value in the spec works.
+TEST(ZarrDriverTest, CreateWithMetadataKey) {
+  ::nlohmann::json json_spec = GetJsonSpec();
+  json_spec["metadata_key"] = "zarray";
+
+  auto context = Context::Default();
+  // Create the store.
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write)
+            .result());
+    // Issue a valid write.
+    TENSORSTORE_EXPECT_OK(tensorstore::Write(
+        tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
+        store | tensorstore::AllDims().TranslateSizedInterval({9, 8}, {2, 3})));
+
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto spec, store.spec(tensorstore::MinimalSpec{true}));
+    EXPECT_THAT(spec.ToJson(),
+                ::testing::Optional(MatchesJson(
+                    {{"driver", "zarr"},
+                     {"kvstore", {{"driver", "memory"}, {"path", "prefix/"}}},
+                     {"dtype", "int16"},
+                     {"transform",
+                      {{"input_inclusive_min", {0, 0}},
+                       {"input_exclusive_max", {{100}, {100}}}}},
+                     {"metadata_key", "zarray"}})));
+  }
+
+  // Check that key value store has expected contents.
+  EXPECT_THAT(
+      GetMap(kvstore::Open({{"driver", "memory"}}, context).value()).value(),
+      UnorderedElementsAreArray({
+          Pair("prefix/zarray",  //
+               ::testing::MatcherCast<absl::Cord>(ParseJsonMatches({
+                   {"zarr_format", 2},
+                   {"order", "C"},
+                   {"filters", nullptr},
+                   {"fill_value", nullptr},
+                   {"compressor",
+                    {{"id", "blosc"},
+                     {"blocksize", 0},
+                     {"clevel", 5},
+                     {"cname", "lz4"},
+                     {"shuffle", -1}}},
+                   {"dtype", "<i2"},
+                   {"shape", {100, 100}},
+                   {"chunks", {3, 2}},
+                   {"dimension_separator", "."},
+               }))),
+          Pair("prefix/3.4",    //
+               DecodedMatches(  //
+                   Bytes({1, 0, 2, 0, 4, 0, 5, 0, 0, 0, 0, 0}),
+                   tensorstore::blosc::Decode)),
+          Pair("prefix/3.5",    //
+               DecodedMatches(  //
+                   Bytes({3, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0}),
+                   tensorstore::blosc::Decode)),
+      }));
+
+  // Check that attempting to create the store again fails.
+  EXPECT_THAT(
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result(),
+      MatchesStatus(absl::StatusCode::kAlreadyExists,
+                    "Error opening \"zarr\" driver: "
+                    "Error writing \"prefix/zarray\""));
+
+  // Check that create or open succeeds.
+  TENSORSTORE_EXPECT_OK(tensorstore::Open(
+      json_spec, context,
+      tensorstore::OpenMode::create | tensorstore::OpenMode::open,
+      tensorstore::ReadWriteMode::read_write));
+
+  // Check that open succeeds.
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
+                          tensorstore::ReadWriteMode::read_write)
+            .result());
+    EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
+                    store | tensorstore::AllDims().TranslateSizedInterval(
+                                {9, 7}, {3, 5}))
+                    .result(),
+                ::testing::Optional(tensorstore::MakeArray<std::int16_t>(
+                    {{0, 1, 2, 3, 0}, {0, 4, 5, 6, 0}, {0, 0, 0, 0, 0}})));
+  }
+}
+
 // Tests that the metadata cache avoids repeated requests.
 TEST(ZarrDriverTest, MetadataCache) {
   Context context = Context::Default();

@@ -39,7 +39,7 @@ namespace tensorstore {
 namespace internal_zarr {
 
 namespace {
-constexpr const char kZarrMetadataKey[] = ".zarray";
+constexpr const char kDefaultMetadataKey[] = ".zarray";
 
 inline char GetDimensionSeparatorChar(DimensionSeparator dimension_separator) {
   return dimension_separator == DimensionSeparator::kDotSeparated ? '.' : '/';
@@ -73,7 +73,7 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
  public:
   using Base::Base;
   std::string GetMetadataStorageKey(std::string_view entry_key) override {
-    return tensorstore::StrCat(entry_key, kZarrMetadataKey);
+    return std::string(entry_key);
   }
 
   Result<MetadataPtr> DecodeMetadata(std::string_view entry_key,
@@ -102,6 +102,7 @@ class ZarrDriverSpec
 
   ZarrPartialMetadata partial_metadata;
   SelectedField selected_field;
+  std::string metadata_key;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(internal::BaseCast<KvsDriverSpec>(x), x.partial_metadata,
@@ -122,6 +123,10 @@ class ZarrDriverSpec
       internal_kvs_backed_chunk_driver::SpecJsonBinder,
       jb::Member("metadata", jb::Projection<&ZarrDriverSpec::partial_metadata>(
                                  jb::DefaultInitializedValue())),
+      jb::Member("metadata_key",
+                 jb::Projection<&ZarrDriverSpec::metadata_key>(
+                     jb::DefaultValue<jb::kNeverIncludeDefaults>(
+                         [](auto* obj) { *obj = kDefaultMetadataKey; }))),
       // Deprecated `key_encoding` property.
       jb::LoadSave(jb::OptionalMember(
           "key_encoding",
@@ -252,12 +257,14 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
  public:
   explicit DataCache(Initializer initializer, std::string key_prefix,
-                     DimensionSeparator dimension_separator)
+                     DimensionSeparator dimension_separator,
+                     std::string metadata_key)
       : Base(initializer,
              GetChunkGridSpecification(*static_cast<const ZarrMetadata*>(
                  initializer.metadata.get()))),
         key_prefix_(std::move(key_prefix)),
-        dimension_separator_(dimension_separator) {}
+        dimension_separator_(dimension_separator),
+        metadata_key_(std::move(metadata_key)) {}
 
   Status ValidateMetadataCompatibility(const void* existing_metadata_ptr,
                                        const void* new_metadata_ptr) override {
@@ -383,6 +390,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     auto& spec = static_cast<ZarrDriverSpec&>(spec_base);
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
     spec.selected_field = EncodeSelectedField(component_index, metadata.dtype);
+    spec.metadata_key = metadata_key_;
     auto& pm = spec.partial_metadata;
     pm.rank = metadata.rank;
     pm.zarr_format = metadata.zarr_format;
@@ -419,6 +427,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
  private:
   std::string key_prefix_;
   DimensionSeparator dimension_separator_;
+  std::string metadata_key_;
 };
 
 class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
@@ -429,7 +438,9 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     return spec().store.path;
   }
 
-  std::string GetMetadataCacheEntryKey() override { return spec().store.path; }
+  std::string GetMetadataCacheEntryKey() override {
+    return tensorstore::StrCat(spec().store.path, spec().metadata_key);
+  }
 
   std::unique_ptr<internal_kvs_backed_chunk_driver::MetadataCache>
   GetMetadataCache(MetadataCache::Initializer initializer) override {
@@ -457,7 +468,7 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     internal::EncodeCacheKey(
         &result, spec.store.path,
         GetDimensionSeparator(spec.partial_metadata, zarr_metadata),
-        zarr_metadata);
+        zarr_metadata, spec.metadata_key);
     return result;
   }
 
@@ -467,7 +478,8 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
         *static_cast<const ZarrMetadata*>(initializer.metadata.get());
     return std::make_unique<DataCache>(
         std::move(initializer), spec().store.path,
-        GetDimensionSeparator(spec().partial_metadata, metadata));
+        GetDimensionSeparator(spec().partial_metadata, metadata),
+        spec().metadata_key);
   }
 
   Result<std::size_t> GetComponentIndex(const void* metadata_ptr,

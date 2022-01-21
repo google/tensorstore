@@ -93,6 +93,18 @@ allOf:
               The default value of :json:`"."` corresponds to the default encoding
               used by Zarr, while :json:`"/"` corresponds to the encoding used by
               :py:obj:`zarr.storage.NestedDirectoryStore`.
+    metadata_key:
+      type: string
+      default: ".zarray"
+      title: Specifies the key under which to store the array metadata in JSON format.
+      description: |
+        By default, the array metadata is stored under the ``.zarray`` key as
+        required by the `Zarr storage specification
+        <https://zarr.readthedocs.io/en/stable/spec/v2.html#metadata>`__.  In
+        rare cases it may be useful to specify a non-default value,
+        e.g. :json:`"zarray"` to avoid problems caused by the leading dot.
+        However, be aware that specifying a non-default value breaks
+        compatibility with other zarr implementations.
     key_encoding:
       enum:
       - .
