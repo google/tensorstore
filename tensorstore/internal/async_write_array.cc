@@ -105,13 +105,22 @@ AsyncWriteArray::MaskedArray::GetArrayForWriteback(
       // Case 1: array was fully overwritten by the fill value using
       // `WriteFillValue`.
       writeback.array = spec.fill_value;
+      writeback.must_store = false;
     } else {
       // Case 2: array is unmodified.
       assert(IsUnmodified());
       if (read_array.data()) {
-        writeback.array = read_array;
+        writeback.must_store =
+            spec.store_if_equal_to_fill_value ||
+            !AreArraysSameValueEqual(read_array, spec.fill_value);
+        if (!writeback.must_store) {
+          writeback.array = spec.fill_value;
+        } else {
+          writeback.array = read_array;
+        }
       } else {
         writeback.array = spec.fill_value;
+        writeback.must_store = false;
       }
     }
   } else {
@@ -135,12 +144,13 @@ AsyncWriteArray::MaskedArray::GetArrayForWriteback(
                             : ArrayView<const void>(spec.fill_value),
                         writeback_element_pointer, mask);
     }
-  }
-  writeback.equals_fill_value =
-      AreArraysSameValueEqual(writeback.array, spec.fill_value);
-  if (writeback.equals_fill_value) {
-    data = nullptr;
-    writeback.array = spec.fill_value;
+    writeback.must_store =
+        spec.store_if_equal_to_fill_value ||
+        !AreArraysSameValueEqual(writeback.array, spec.fill_value);
+    if (!writeback.must_store) {
+      data = nullptr;
+      writeback.array = spec.fill_value;
+    }
   }
   return writeback;
 }

@@ -446,9 +446,13 @@ scalar (rank 0).  For `structured data types
 <https://zarr.readthedocs.io/en/stable/spec/v2.html#data-type-encoding>`_, the
 :json:schema:`Schema.fill_value` must be broadcastable to the subarray shape.
 
+As an optimization, chunks that are entirely equal to the fill value are not
+stored.
+
 The zarr format allows the fill value to be unspecified, indicated by a
 :json:schema:`driver/zarr.metadata.fill_value` of :json:`null`.  In that case,
-TensorStore always uses a fill value of :json:`0`.
+TensorStore always uses a fill value of :json:`0`.  However, in this case
+explicitly-written all-zero chunks are still stored.
 
 Limitations
 -----------

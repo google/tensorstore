@@ -621,7 +621,7 @@ ChunkCache::WritebackSnapshot::WritebackSnapshot(
         component_spec, origin,
         GetReadComponent(read_state.data(), component_i),
         read_state.stamp().generation);
-    if (!component_snapshot.equals_fill_value) {
+    if (component_snapshot.must_store) {
       if (!new_read_data_) {
         new_read_data_ = internal::make_shared_for_overwrite<ReadData[]>(
             component_specs.size());

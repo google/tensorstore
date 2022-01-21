@@ -80,6 +80,14 @@ struct AsyncWriteArray {
     /// `fill_value`.
     Box<> component_bounds;
 
+    /// If `true`, indicates that the array should be stored even if it equals
+    /// the fill value.  By default (when set to `false`), when preparing a
+    /// writeback snapshot, if the value of the array is equal to the fill
+    /// value, a null array is substituted.  Note that even if set to `true`, if
+    /// the array is never written, or explicitly set to the fill value via a
+    /// call to `WriteFillValue`, then it won't be stored.
+    bool store_if_equal_to_fill_value = false;
+
     /// Returns the shape of the array.
     span<const Index> shape() const { return fill_value.shape(); }
 
@@ -130,8 +138,18 @@ struct AsyncWriteArray {
   struct WritebackData {
     /// Array with shape and data type matching that of the associated `Spec`.
     SharedArrayView<const void> array;
-    /// If `true`, `array` is equal to the `fill_value of the associated `Spec`.
-    bool equals_fill_value;
+    /// Indicates that the array must be stored.
+    ///
+    /// The conditions under which this is set to `true` depend on the value of
+    /// `store_if_equal_to_fill_value`:
+    ///
+    /// - If `store_if_equal_to_fill_value == false`, this is `true` if, and
+    ///   only if, `array` is not equal to the `fill_value`.
+    ///
+    /// - If `store_if_equal_to_fill_value == true`, this is `true` if there is
+    ///   an existing read value or any writes have been performed that were not
+    ///   overwritten by an explicit call to `WriteFillValue`.
+    bool must_store;
   };
 
   /// Represents an array with an associated mask indicating the positions that

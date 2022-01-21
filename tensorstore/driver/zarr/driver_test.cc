@@ -2519,6 +2519,42 @@ TEST(DriverTest, FillValueFieldShape) {
                   tensorstore::MakeArray<int16_t>({{1, 3, 2}, {4, 6, 5}})));
 }
 
+// Tests that all-zero chunks are written if the fill value is unspecified.
+TEST(DriverTest, FillValueUnspecifiedWriteTest) {
+  ::nlohmann::json json_spec{{"driver", "zarr"},
+                             {"metadata", {{"compressor", nullptr}}},
+                             {"kvstore", {{"driver", "memory"}}}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(json_spec, tensorstore::dtype_v<uint8_t>,
+                                    tensorstore::RankConstraint{0},
+                                    tensorstore::OpenMode::create)
+                      .result());
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Write(tensorstore::MakeScalarArray<uint8_t>(0), store));
+  EXPECT_THAT(GetMap(store.kvstore()),
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  Pair(".zarray", ::testing::_), Pair("0", Bytes({0})))));
+}
+
+// Tests that all-zero chunks are not written if the fill value is specified as
+// 0.
+TEST(DriverTest, FillValueSpecifiedWriteTest) {
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"metadata",
+       {{"compressor", nullptr}, {"dtype", "|u1"}, {"fill_value", 0}}},
+      {"kvstore", {{"driver", "memory"}}}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(json_spec, tensorstore::RankConstraint{0},
+                                    tensorstore::OpenMode::create)
+                      .result());
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Write(tensorstore::MakeScalarArray<uint8_t>(0), store));
+  EXPECT_THAT(GetMap(store.kvstore()),
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  Pair(".zarray", ::testing::_))));
+}
+
 TEST(DriverTest, InvalidCodec) {
   EXPECT_THAT(tensorstore::Open(
                   {

@@ -39,6 +39,7 @@ using tensorstore::Index;
 using tensorstore::kInfIndex;
 using tensorstore::kInfSize;
 using tensorstore::MakeArray;
+using tensorstore::MakeScalarArray;
 using tensorstore::span;
 using tensorstore::internal::Arena;
 
@@ -135,7 +136,7 @@ TEST(MaskedArrayTest, Basic) {
         spec, origin, /*read_array=*/{},
         /*read_state_already_integrated=*/false);
     EXPECT_EQ(spec.fill_value, writeback_data.array);
-    EXPECT_TRUE(writeback_data.equals_fill_value);
+    EXPECT_FALSE(writeback_data.must_store);
   }
 
   {
@@ -143,7 +144,7 @@ TEST(MaskedArrayTest, Basic) {
         spec, origin, /*read_array=*/fill_value_copy,
         /*read_state_already_integrated=*/false);
     EXPECT_EQ(spec.fill_value, writeback_data.array);
-    EXPECT_TRUE(writeback_data.equals_fill_value);
+    EXPECT_FALSE(writeback_data.must_store);
   }
 
   {
@@ -151,7 +152,7 @@ TEST(MaskedArrayTest, Basic) {
         spec, origin, read_array,
         /*read_state_already_integrated=*/false);
     EXPECT_EQ(read_array, writeback_data.array);
-    EXPECT_FALSE(writeback_data.equals_fill_value);
+    EXPECT_TRUE(writeback_data.must_store);
   }
 
   // Write a zero-size region to test handling of a write that does not modify
@@ -194,7 +195,7 @@ TEST(MaskedArrayTest, Basic) {
     auto writeback_data = write_state.GetArrayForWriteback(
         spec, origin, /*read_array=*/{},
         /*read_state_already_integrated=*/false);
-    EXPECT_FALSE(writeback_data.equals_fill_value);
+    EXPECT_TRUE(writeback_data.must_store);
     EXPECT_EQ(MakeArray<int32_t>({{9, 2, 3}, {4, 7, 8}}), writeback_data.array);
   }
 
@@ -202,7 +203,7 @@ TEST(MaskedArrayTest, Basic) {
     auto writeback_data = write_state.GetArrayForWriteback(
         spec, origin, read_array,
         /*read_state_already_integrated=*/true);
-    EXPECT_FALSE(writeback_data.equals_fill_value);
+    EXPECT_TRUE(writeback_data.must_store);
     // Data is not updated due to `read_state_already_integrated`.
     EXPECT_EQ(MakeArray<int32_t>({{9, 2, 3}, {4, 7, 8}}), writeback_data.array);
   }
@@ -211,7 +212,7 @@ TEST(MaskedArrayTest, Basic) {
     auto writeback_data = write_state.GetArrayForWriteback(
         spec, origin, read_array,
         /*read_state_already_integrated=*/false);
-    EXPECT_FALSE(writeback_data.equals_fill_value);
+    EXPECT_TRUE(writeback_data.must_store);
     EXPECT_EQ(MakeArray<int32_t>({{9, 12, 13}, {14, 7, 8}}),
               writeback_data.array);
   }
@@ -230,7 +231,7 @@ TEST(MaskedArrayTest, Basic) {
     auto writeback_data = write_state.GetArrayForWriteback(
         spec, origin, read_array,
         /*read_state_already_integrated=*/false);
-    EXPECT_FALSE(writeback_data.equals_fill_value);
+    EXPECT_TRUE(writeback_data.must_store);
     EXPECT_EQ(MakeArray<int32_t>({{10, 10, 10}, {9, 7, 8}}),
               writeback_data.array);
   }
@@ -244,7 +245,7 @@ TEST(MaskedArrayTest, Basic) {
     auto writeback_data = write_state.GetArrayForWriteback(
         spec, origin, read_array,
         /*read_state_already_integrated=*/false);
-    EXPECT_TRUE(writeback_data.equals_fill_value);
+    EXPECT_FALSE(writeback_data.must_store);
     EXPECT_EQ(spec.fill_value, writeback_data.array);
     // Data array no longer allocated.
     EXPECT_FALSE(write_state.data);
@@ -268,7 +269,7 @@ TEST(MaskedArrayTest, Basic) {
     auto writeback_data = write_state.GetArrayForWriteback(
         spec, origin, read_array,
         /*read_state_already_integrated=*/false);
-    EXPECT_TRUE(writeback_data.equals_fill_value);
+    EXPECT_FALSE(writeback_data.must_store);
     EXPECT_EQ(spec.fill_value, writeback_data.array);
     // Data array still not allocated.
     EXPECT_FALSE(write_state.data);
@@ -295,6 +296,34 @@ TEST(MaskedArrayTest, PartialChunk) {
             tensorstore::MakeOffsetArray<int32_t>({-1, 0}, {{7, 8, 9}}),
             /*expected_modified=*/true);
   EXPECT_TRUE(write_state.IsFullyOverwritten(spec, origin));
+}
+
+// Tests that `store_if_equal_to_fill_value==true` is correctly handled.
+TEST(MaskedArrayTest, StoreIfEqualToFillValue) {
+  auto fill_value = MakeScalarArray<int32_t>(42);
+  tensorstore::Box<> component_bounds;
+  Spec spec(fill_value, component_bounds);
+  spec.store_if_equal_to_fill_value = true;
+  MaskedArray write_state(0);
+  // Fully overwrite the portion within `component_bounds`.
+  TestWrite(&write_state, spec, {}, tensorstore::MakeScalarArray<int32_t>(42),
+            /*expected_modified=*/true);
+  {
+    auto writeback_data = write_state.GetArrayForWriteback(
+        spec, /*origin=*/{}, /*read_array=*/{},
+        /*read_state_already_integrated=*/false);
+    EXPECT_EQ(fill_value, writeback_data.array);
+    EXPECT_TRUE(writeback_data.must_store);
+  }
+
+  auto read_array = MakeScalarArray<int32_t>(50);
+  {
+    auto writeback_data = write_state.GetArrayForWriteback(
+        spec, /*origin=*/{}, read_array,
+        /*read_state_already_integrated=*/false);
+    EXPECT_EQ(fill_value, writeback_data.array);
+    EXPECT_TRUE(writeback_data.must_store);
+  }
 }
 
 TEST(AsyncWriteArrayTest, Basic) {
@@ -327,7 +356,7 @@ TEST(AsyncWriteArrayTest, Basic) {
     auto writeback_data = async_write_array.GetArrayForWriteback(
         spec, origin, read_array,
         /*read_generation=*/StorageGeneration::FromString("b"));
-    EXPECT_FALSE(writeback_data.equals_fill_value);
+    EXPECT_TRUE(writeback_data.must_store);
     // Writeback reflects updated `read_array`.
     EXPECT_EQ(read_array, writeback_data.array);
     EXPECT_EQ(StorageGeneration::Invalid(), async_write_array.read_generation);
@@ -386,7 +415,7 @@ TEST(AsyncWriteArrayTest, Basic) {
     auto writeback_data = async_write_array.GetArrayForWriteback(
         spec, origin, read_array,
         /*read_generation=*/StorageGeneration::FromString("a"));
-    EXPECT_FALSE(writeback_data.equals_fill_value);
+    EXPECT_TRUE(writeback_data.must_store);
     // Writeback does not reflect updated `read_array`.
     EXPECT_EQ(MakeArray<int32_t>({{7, 2, 3}, {4, 5, 6}}), writeback_data.array);
   }
@@ -414,7 +443,7 @@ TEST(AsyncWriteArrayTest, Basic) {
     auto writeback_data = async_write_array.GetArrayForWriteback(
         spec, origin, read_array,
         /*read_generation=*/StorageGeneration::FromString("c"));
-    EXPECT_FALSE(writeback_data.equals_fill_value);
+    EXPECT_TRUE(writeback_data.must_store);
     // Writeback reflects updated `read_array`.
     EXPECT_EQ(MakeArray<int32_t>({{7, 22, 23}, {24, 25, 26}}),
               writeback_data.array);
