@@ -142,7 +142,7 @@ struct CopyState : public internal::AtomicReferenceCount<CopyState> {
   IntrusivePtr<CommitState> commit_state{new CommitState};
 
   void SetError(Status error) {
-    SetErrorWithoutCommit(copy_promise, std::move(error));
+    SetDeferredResult(copy_promise, std::move(error));
   }
 };
 

@@ -108,9 +108,7 @@ struct ReadState
   std::atomic<Index> copied_elements{0};
   Index total_elements;
 
-  void SetError(Status error) {
-    SetErrorWithoutCommit(promise, std::move(error));
-  }
+  void SetError(Status error) { SetDeferredResult(promise, std::move(error)); }
 
   void UpdateProgress(Index num_elements) {
     if (!read_progress_function) return;

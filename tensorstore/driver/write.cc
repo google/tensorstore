@@ -127,7 +127,7 @@ struct WriteState : public internal::AtomicReferenceCount<WriteState> {
   IntrusivePtr<CommitState> commit_state{new CommitState};
 
   void SetError(Status error) {
-    SetErrorWithoutCommit(copy_promise, std::move(error));
+    SetDeferredResult(copy_promise, std::move(error));
   }
 };
 
