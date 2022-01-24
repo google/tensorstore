@@ -231,7 +231,9 @@ class FutureStateBase {
   /// by the `kResultLocked` bit in `state_`).
   ///
   /// The first call to this method returns `true`, all subsequent calls return
-  /// `false`.
+  /// `false`.  If a call returns true, then MarkResultWritten() or
+  /// MarkResultWrittenAndCommitResult() must be called after result has been
+  /// updated.
   ///
   /// This unregisters all promise callbacks, and prevents any new promise
   /// callbacks from being registered.
@@ -243,11 +245,18 @@ class FutureStateBase {
   ///     `CommitResult()` is called.
   bool LockResult() noexcept;
 
+  /// Mark a result as being available (as indicated by the `kResultWritten` bit
+  /// in `state_`). May only be called when LockResult() returned true.
+  ///
+  /// If kReady has already been set, then the future callbacks are invoked.
+  /// \dchecks `LockResult()` must have been called previously.
+  void MarkResultWritten() noexcept;
+
   /// Release the exclusive lock used for setting the result (as indicated by
   /// the `kReady` bit in `state_`).
   ///
-  /// The first time this function is called, the future callbacks are invoked.
-  /// Subsequent calls have no effect.
+  /// The first time this function is called, if kResultWritten has been set,
+  /// then the future callbacks are invoked. Subsequent calls have no effect.
   ///
   /// \dchecks `LockResult()` must have been called previously.
   /// \post `ready() == true`.
@@ -255,11 +264,24 @@ class FutureStateBase {
   /// \returns `true` if this was the first call to this function.
   bool CommitResult() noexcept;
 
+  /// Combines MarkResultWritten with CommitResult.
+  /// May only be called when LockResult() returned true.
+  ///
+  /// Updates the `kReady` and `kResultWritten` bits in `state_`.
+  /// Invokes the future callbacks.
+  ///
+  /// \dchecks `LockResult()` must have been called previously.
+  /// \dchecks `MarkResultWritten()` must not have been called previously.
+  void MarkResultWrittenAndCommitResult() noexcept;
+
   /// Marks the result as ready without modifying it.
   bool SetReady() noexcept {
-    if (!this->LockResult()) return false;
-    this->CommitResult();
-    return true;
+    if (this->LockResult()) {
+      this->MarkResultWrittenAndCommitResult();
+      return true;
+    } else {
+      return this->CommitResult();
+    }
   }
 
   /// If `state_` is `kInitial`, atomically changes the state to
@@ -286,7 +308,8 @@ class FutureStateBase {
   ///
   /// \threadsafety Thread safe.
   bool ready() const noexcept {
-    return (state_.load(std::memory_order_acquire) & kReady) != 0;
+    return (state_.load(std::memory_order_acquire) & kResultWrittenAndReady) ==
+           kResultWrittenAndReady;
   }
 
   /// Returns `true` if there are any remaining `Future` objects or ready
@@ -380,9 +403,19 @@ class FutureStateBase {
   /// callbacks.
   constexpr static uint32_t kResultLocked = 8;
 
-  /// The result has been set.  The thread that sets kReady is responsible for
-  /// running the future callbacks.
-  constexpr static uint32_t kReady = 16;
+  /// The result has been set.
+  /// If kReady has been set, then the thread that sets kResultWritten is
+  /// responsible for running the future callbacks.
+  constexpr static uint32_t kResultWritten = 16;
+
+  /// The future has been marked ready.
+  /// If kResultWritten has been set, then the thread that sets kReady is
+  /// responsible for running the future callbacks.
+  constexpr static uint32_t kReady = 32;
+
+  /// The result has been written and the future has been marked ready.
+  /// When both bits are set, then the future callbacks are running or complete.
+  constexpr static uint32_t kResultWrittenAndReady = kResultWritten | kReady;
 
   /// Contains one of the state values.
   std::atomic<uint32_t> state_;
@@ -443,7 +476,7 @@ class FutureState : public FutureStateBase {
         Result<T>(std::forward<Args>(args)...);
 
     // FIXME: Handle exceptions thrown by `Construct`.
-    this->CommitResult();
+    this->MarkResultWrittenAndCommitResult();
     return true;
   }
 

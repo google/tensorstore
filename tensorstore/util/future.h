@@ -1378,11 +1378,15 @@ Future<T> MakeSenderFuture(Sender sender) {
 /// If `promise` does not already have a result set, sets its result to `result`
 /// and sets `promise.result_needed() = false`.
 ///
-/// This does not cause `promise.ready()` to become `true`.
+/// This does not cause `promise.ready()` to become `true`.  The corresponding
+/// `Future` will become ready when the last `Promise` reference is released
+/// or when `promise.SetReady()` is called.
 template <typename T, typename U>
 void SetDeferredResult(const Promise<T>& promise, U&& result) {
-  if (internal_future::FutureAccess::rep(promise).LockResult()) {
+  auto& rep = internal_future::FutureAccess::rep(promise);
+  if (rep.LockResult()) {
     promise.raw_result() = std::forward<U>(result);
+    rep.MarkResultWritten();
   }
 }
 
@@ -1398,10 +1402,13 @@ namespace internal {
 ///
 /// This does not cause `promise.ready()` to become `true`.  The corresponding
 /// `Future` will become ready when the last `Promise` reference is released.
+/// TODO: Remove this; it is redundant with `SetDeferredResult`.
 template <typename T>
 void SetErrorWithoutCommit(const Promise<T>& promise, Status error) {
-  if (internal_future::FutureAccess::rep(promise).LockResult()) {
+  auto& rep = internal_future::FutureAccess::rep(promise);
+  if (rep.LockResult()) {
     promise.raw_result() = std::move(error);
+    rep.MarkResultWritten();
   }
 }
 

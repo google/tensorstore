@@ -187,8 +187,11 @@ FutureStateBase::FutureStateBase()
 namespace {
 
 void NoMorePromiseReferences(FutureStateBase* shared_state) {
-  shared_state->LockResult();
-  shared_state->CommitResult();
+  if (shared_state->LockResult()) {
+    shared_state->MarkResultWrittenAndCommitResult();
+  } else {
+    shared_state->CommitResult();
+  }
   shared_state->ReleaseCombinedReference();
 }
 
@@ -418,12 +421,33 @@ bool FutureStateBase::LockResult() noexcept {
   return true;
 }
 
+void FutureStateBase::MarkResultWritten() noexcept {
+  const StateValue prior_state = state_.fetch_or(kResultWritten);
+  assert(prior_state & kResultLocked);
+  assert((prior_state & kResultWritten) == 0);
+  if (prior_state & kReady) {
+    RunReadyCallbacks(this);
+  }
+}
+
 bool FutureStateBase::CommitResult() noexcept {
   const StateValue prior_state = state_.fetch_or(kReady);
-  assert(prior_state & kResultLocked);
   if (prior_state & kReady) return false;
-  RunReadyCallbacks(this);
+  if (prior_state & kResultWritten) {
+    RunReadyCallbacks(this);
+  }
   return true;
+}
+
+void FutureStateBase::MarkResultWrittenAndCommitResult() noexcept {
+  [[maybe_unused]] const StateValue prior_state =
+      state_.fetch_or(kResultWrittenAndReady);
+  assert(prior_state & kResultLocked);
+  assert((prior_state & kResultWritten) == 0);
+  // MarkResultWrittenAndCommitResult must only be called after `LockResult()`
+  // returned true, so at least one of {kReady, kWrittenResult} was set by the
+  // thread and it takes ownership of RunReadyCallbacks(this).
+  RunReadyCallbacks(this);
 }
 
 bool FutureStateBase::WaitFor(absl::Duration duration) noexcept {

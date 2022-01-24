@@ -1819,6 +1819,20 @@ TEST(FutureTest, SetDeferredResultAfterReady) {
   EXPECT_THAT(future.result(), ::testing::Optional(1));
 }
 
+TEST(FutureTest, SetDeferredResultSetReady) {
+  auto [promise, future] = PromiseFuturePair<int>::Make();
+  int value = 1;
+  future.ExecuteWhenReady(
+      [&](ReadyFuture<int> r) { value *= (r.result().ok()) ? 2 : 3; });
+
+  SetDeferredResult(promise, absl::InternalError("1"));
+  SetDeferredResult(promise, absl::InternalError("2"));
+  promise.SetReady();
+  future.Wait();
+
+  // promise & future refs still exist.
+  EXPECT_EQ(3, value);
+}
 // Tests that `RETURN_IF_ERROR` saves the status before the expression lifetime
 // ends.
 TEST(FutureTest, ReturnIfError) {
