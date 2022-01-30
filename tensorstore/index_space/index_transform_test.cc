@@ -952,6 +952,58 @@ TEST(IntersectIndexDomains, Basic) {
               ::testing::Optional(domain6));
 }
 
+TEST(ConstrainIndexDomain, Basic) {
+  using tensorstore::ConstrainIndexDomain;
+  EXPECT_THAT(ConstrainIndexDomain(IndexDomain<>(), IndexDomain<>()),
+              ::testing::Optional(IndexDomain<>()));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto domain1, IndexDomainBuilder(3)
+                        .implicit_lower_bounds({0, 0, 0})
+                        .implicit_upper_bounds({0, 0, 1})
+                        .origin({1, kMinFiniteIndex, -kInfIndex})
+                        .inclusive_max({10, kInfIndex, kMaxFiniteIndex})
+                        .labels({"x", "", ""})
+                        .Finalize());
+
+  EXPECT_THAT(ConstrainIndexDomain(IndexDomain<>(), domain1),
+              ::testing::Optional(domain1));
+  EXPECT_THAT(ConstrainIndexDomain(domain1, IndexDomain<>()),
+              ::testing::Optional(domain1));
+  EXPECT_THAT(ConstrainIndexDomain(domain1, domain1),
+              ::testing::Optional(domain1));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto domain2,
+                                   IndexDomainBuilder(4).Finalize());
+
+  EXPECT_THAT(ConstrainIndexDomain(domain1, domain2),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Cannot constrain index domain \\{ .* \\} with "
+                            "index domain \\{ .* \\}: "
+                            "Ranks do not match"));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto domain3, IndexDomainBuilder(3)
+                        .implicit_lower_bounds({0, 1, 1})
+                        .implicit_upper_bounds({1, 1, 1})
+                        .origin({0, -kInfIndex, -100})
+                        .inclusive_max({9, kMaxFiniteIndex, kInfIndex})
+                        .labels({"x", "y", ""})
+                        .Finalize());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto domain4, IndexDomainBuilder(3)
+                        .implicit_lower_bounds({0, 0, 1})
+                        .implicit_upper_bounds({1, 1, 1})
+                        .origin({0, kMinFiniteIndex, -100})
+                        .inclusive_max({9, kMaxFiniteIndex, kMaxFiniteIndex})
+                        .labels({"x", "y", ""})
+                        .Finalize());
+
+  EXPECT_THAT(ConstrainIndexDomain(domain3, domain1),
+              ::testing::Optional(domain4));
+}
+
 TEST(IndexTransformTest, WithImplicitDimensions) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_transform,
                                    IndexTransformBuilder(3, 3)

@@ -96,10 +96,9 @@
 /// of multiple tensorstores.
 
 #include "absl/functional/function_ref.h"
-#include "tensorstore/array.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
@@ -131,6 +130,23 @@ namespace internal {
 Status PartitionIndexTransformOverRegularGrid(
     span<const DimensionIndex> grid_output_dimensions,
     span<const Index> grid_cell_shape, IndexTransformView<> transform,
+    absl::FunctionRef<Status(span<const Index> grid_cell_indices,
+                             IndexTransformView<> cell_transform)>
+        func);
+
+/// Partitions the input domain of a given `transform` from an input space
+/// "full" to an output space "output" based on potentially irregular grid
+/// specified by `output_to_grid_cell`, which maps from a given dimension and
+/// output_index to a grid cell and optional cell bounds.
+///
+/// For each grid cell index vector `h` in `H`, calls
+///   `func(h, cell_transform[h])`.
+///
+Status PartitionIndexTransformOverGrid(
+    span<const DimensionIndex> grid_output_dimensions,
+    absl::FunctionRef<Index(DimensionIndex, Index, IndexInterval*)>
+        output_to_grid_cell,
+    IndexTransformView<> transform,
     absl::FunctionRef<Status(span<const Index> grid_cell_indices,
                              IndexTransformView<> cell_transform)>
         func);

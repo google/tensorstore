@@ -406,24 +406,6 @@ Status GenerateIndexArrayOutputIndices(OutputIndexMapRef<> map,
   return absl::OkStatus();
 }
 
-/// Converts output indices to grid indices of a regular grid.
-///
-/// \param output_indices[in,out] Non-null pointer to array of shape
-///     `{num_positions}` with stride (in elements, not bytes) `stride` between
-///     consecutive elements.  On invocation, contains the output indices.  On
-///     return, contains the corresponding grid indices.
-/// \param stride Stride of `output_indices` array.
-/// \param num_positions Extent of `output_indices` array.
-/// \param cell_size The size of the grid cell.
-void ConvertOutputIndicesToCellIndices(Index* output_indices, Index stride,
-                                       Index num_positions, Index cell_size) {
-  for (Index* end = output_indices + num_positions * stride;
-       output_indices != end; output_indices += stride) {
-    auto& x = *output_indices;
-    x = FloorOfRatio(x, cell_size);
-  }
-}
-
 /// Computes the product of `input_shape[d]` for `d` in `dims`.
 ///
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
@@ -463,8 +445,8 @@ Result<Index> ProductOfIndirectExtents(span<const Index> input_shape,
 Result<std::vector<Index>> GenerateIndexArraySetGridCellIndices(
     span<const DimensionIndex> grid_dims, span<const DimensionIndex> input_dims,
     span<const DimensionIndex> grid_output_dimensions,
-    span<const Index> grid_cell_shape, IndexTransformView<> index_transform,
-    Index num_positions) {
+    OutputToGridCellFn output_to_grid_cell,
+    IndexTransformView<> index_transform, Index num_positions) {
   // Logically represents a row-major array of shape `{num_positions,
   // grid_dims.size()}` containing the partial grid cell index vectors for each
   // position.
@@ -489,8 +471,13 @@ Result<std::vector<Index>> GenerateIndexArraySetGridCellIndices(
           GenerateIndexArrayOutputIndices(map, input_dims, index_transform,
                                           cur_cell_indices, grid_dims.size()));
     }
-    ConvertOutputIndicesToCellIndices(cur_cell_indices, grid_dims.size(),
-                                      num_positions, grid_cell_shape[grid_dim]);
+
+    // Convert the output indices to grid cell indices
+    for (Index* end = cur_cell_indices + num_positions * grid_dims.size();
+         cur_cell_indices != end; cur_cell_indices += grid_dims.size()) {
+      *cur_cell_indices =
+          output_to_grid_cell(grid_dim, *cur_cell_indices, nullptr);
+    }
   }
   return temp_cell_indices;
 }
@@ -734,7 +721,8 @@ SharedArray<Index, 2> GenerateIndexArraySetPartitionedInputIndices(
 Status FillIndexArraySetData(
     IndexTransformGridPartition::IndexArraySet* index_array_set,
     span<const DimensionIndex> grid_output_dimensions,
-    span<const Index> grid_cell_shape, IndexTransformView<> index_transform) {
+    OutputToGridCellFn output_to_grid_cell,
+    IndexTransformView<> index_transform) {
   // Compute the total number of distinct partial input index vectors in the
   // input domain subset.  This allows us to terminate early if it equals 0, and
   // avoids the need for computing it and checking for overflow in each of the
@@ -754,7 +742,7 @@ Status FillIndexArraySetData(
       std::vector<Index> temp_cell_indices,
       GenerateIndexArraySetGridCellIndices(
           index_array_set->grid_dimensions, index_array_set->input_dimensions,
-          grid_output_dimensions, grid_cell_shape, index_transform,
+          grid_output_dimensions, output_to_grid_cell, index_transform,
           num_positions));
 
   // Compute `index_array_set->grid_cell_indices`, the sorted array of the
@@ -797,8 +785,8 @@ Status FillIndexArraySetData(
 ///     out-of-bounds index.
 Status GenerateIndexTransformGridPartitionData(
     span<const DimensionIndex> grid_output_dimensions,
-    span<const Index> grid_cell_shape, IndexTransformView<> index_transform,
-    IndexTransformGridPartition* output) {
+    OutputToGridCellFn output_to_grid_cell,
+    IndexTransformView<> index_transform, IndexTransformGridPartition* output) {
   return ForEachConnectedSet(
       grid_output_dimensions, index_transform.output_index_maps(),
       output->temp_buffer_,
@@ -817,18 +805,17 @@ Status GenerateIndexTransformGridPartitionData(
         set->input_dimensions = input_dims;
         set->grid_dimensions = grid_dims;
         return FillIndexArraySetData(set, grid_output_dimensions,
-                                     grid_cell_shape, index_transform);
+                                     output_to_grid_cell, index_transform);
       });
 }
 }  // namespace
 
-Status PrePartitionIndexTransformOverRegularGrid(
+Status PrePartitionIndexTransformOverGrid(
     IndexTransformView<> index_transform,
     span<const DimensionIndex> grid_output_dimensions,
-    span<const Index> grid_cell_shape,
+    OutputToGridCellFn output_to_grid_cell,
     std::optional<IndexTransformGridPartition>* result) {
   assert(result != nullptr);
-  assert(grid_output_dimensions.size() == grid_cell_shape.size());
   const DimensionIndex input_rank = index_transform.input_rank();
 
   // Check that the input domains are all bounded.
@@ -858,9 +845,9 @@ Status PrePartitionIndexTransformOverRegularGrid(
   }
 
   // Compute the IndexTransformGridPartition structure.
-  result->emplace(index_transform.input_rank(), grid_cell_shape.size());
+  result->emplace(index_transform.input_rank(), grid_output_dimensions.size());
   return internal_grid_partition::GenerateIndexTransformGridPartitionData(
-      grid_output_dimensions, grid_cell_shape, index_transform,
+      grid_output_dimensions, output_to_grid_cell, index_transform,
       &result->value());
 }
 

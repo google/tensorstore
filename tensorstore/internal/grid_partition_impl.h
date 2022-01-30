@@ -25,9 +25,12 @@
 
 #include "absl/container/fixed_array.h"
 #include "absl/container/inlined_vector.h"
+#include "absl/functional/function_ref.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/util/division.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -149,31 +152,62 @@ class IndexTransformGridPartition {
       index_array_sets_;
 };
 
-/// Precomputes a data structure for partitioning an index transform by a
-/// regular multi-dimensional grid.
+/// For a given DimensionIndex dimension, returns the cell index corresponding
+/// to the output_index, optionally filling the bounds for the cell.
+using OutputToGridCellFn =
+    absl::FunctionRef<Index(DimensionIndex /*dim*/, Index /*output_index*/,
+                            IndexInterval* /*cell_bounds*/)>;
+
+/// RegularGridRef is a functor that supplies a grid cell index as well as grid
+/// cell bounds for PartitionIndexTransformOverGrid.
 ///
-/// The grid is a multi-dimensional grid with the specified `grid_cell_shape`.
-/// The mapping from grid dimensions to output dimensions of the index transform
-/// is specified by the `grid_output_dimensions` array.  The grid extends from
-/// -inf to +inf over all grid dimensions.  The grid cell with index vector `v`
-/// corresponds to the hyperrectangle with inclusive lower bound `v *
-/// grid_cell_shape` and exclusive upper bound `(v + 1) * grid_cell_shape`.
+/// Conceptually it describes a grid which extends from -inf to +inf over all
+/// grid dimensions. The grid cell with index vector `v` corresponds to the
+/// hyperrectangle with inclusive lower bound `v * grid_cell_shape` and
+/// exclusive upper bound `(v + 1) * grid_cell_shape`.
+struct RegularGridRef {
+  span<const Index> grid_cell_shape;
+
+  DimensionIndex rank() const { return grid_cell_shape.size(); }
+
+  /// Converts output indices to grid indices of a regular grid.
+  /// Returns the cell index and cell bounds.
+  Index operator()(DimensionIndex dim, Index output_index,
+                   IndexInterval* cell_bounds) const {
+    Index cell_index = FloorOfRatio(output_index, grid_cell_shape[dim]);
+    if (cell_bounds) {
+      *cell_bounds = IndexInterval::UncheckedSized(
+          cell_index * grid_cell_shape[dim], grid_cell_shape[dim]);
+    }
+    return cell_index;
+  }
+};
+
+/// Precomputes a data structure for partitioning an index transform by a
+/// multi-dimensional grid.
+///
+/// The grid is a multi-dimensional grid where the mapping function
+/// `output_to_grid_cell` maps from the {dimension, index} pair to a cell
+/// index for that dimension.  The mapping from grid dimensions to output
+/// dimensions of the index transform is specified by the
+/// `grid_output_dimensions` array.
 ///
 /// \param index_transform The index transform to partition.
 /// \param grid_output_dimensions The sequence of output dimensions of
 ///     `index_transform` corresponding to the grid over which the index
 ///     transform is to be partitioned.
-/// \param grid_cell_shape The shape of a grid cell.
+/// \param output_to_grid_cell Function to translate from output index to
+///     a grid cell.
 /// \param result[out] Non-null pointer to result.
 /// \error `absl::StatusCode::kInvalidArgument` if any input dimension of
 ///     `index_transform` has an unbounded domain.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
 /// \error `absl::StatusCode::kOutOfRange` if an index array contains an
 ///     out-of-bounds index.
-Status PrePartitionIndexTransformOverRegularGrid(
+Status PrePartitionIndexTransformOverGrid(
     IndexTransformView<> index_transform,
     span<const DimensionIndex> grid_output_dimensions,
-    span<const Index> grid_cell_shape,
+    OutputToGridCellFn output_to_grid_cell,
     std::optional<IndexTransformGridPartition>* result);
 
 }  // namespace internal_grid_partition

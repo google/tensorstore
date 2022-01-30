@@ -52,7 +52,7 @@ using StridedSet = IndexTransformGridPartition::StridedSet;
 struct ConnectedSetIterateParameters {
   const IndexTransformGridPartition& info;
   span<const DimensionIndex> grid_output_dimensions;
-  span<const Index> grid_cell_shape;
+  OutputToGridCellFn output_to_grid_cell;
   IndexTransformView<> transform;
   absl::FunctionRef<Status(span<const Index> grid_cell_indices,
                            IndexTransformView<> cell_transform)>
@@ -165,7 +165,7 @@ class ConnectedSetIterateHelper {
  public:
   explicit ConnectedSetIterateHelper(ConnectedSetIterateParameters params)
       : params_(std::move(params)),
-        grid_cell_indices_(params_.grid_cell_shape.size()),
+        grid_cell_indices_(params_.grid_output_dimensions.size()),
         cell_transform_(InitializeCellTransform(
             params_.info,
             internal_index_space::TransformAccess::rep(params_.transform))) {
@@ -185,15 +185,15 @@ class ConnectedSetIterateHelper {
   ///
   /// This function is used only by the constructor.
   void InitializeGridCellIndices() {
-    for (DimensionIndex grid_dim = 0; grid_dim < params_.grid_cell_shape.size();
-         ++grid_dim) {
+    for (DimensionIndex grid_dim = 0;
+         grid_dim < params_.grid_output_dimensions.size(); ++grid_dim) {
       const DimensionIndex output_dim =
           params_.grid_output_dimensions[grid_dim];
       const OutputIndexMapRef<> map =
           params_.transform.output_index_map(output_dim);
       if (map.method() != OutputIndexMethod::constant) continue;
       grid_cell_indices_[grid_dim] =
-          FloorOfRatio(map.offset(), params_.grid_cell_shape[grid_dim]);
+          params_.output_to_grid_cell(grid_dim, map.offset(), nullptr);
     }
   }
 
@@ -298,15 +298,13 @@ class ConnectedSetIterateHelper {
       // index corresponding to `input_index`, and constrain `restricted_domain`
       // to the range of this grid cell.
       for (const DimensionIndex grid_dim : strided_set.grid_dimensions) {
-        const Index cell_size = params_.grid_cell_shape[grid_dim];
         const DimensionIndex output_dim =
             params_.grid_output_dimensions[grid_dim];
         const OutputIndexMapRef<> map =
             params_.transform.output_index_map(output_dim);
-        const Index cell_index = grid_cell_indices_[grid_dim] =
-            FloorOfRatio(input_index * map.stride() + map.offset(), cell_size);
-        const IndexInterval cell_range =
-            IndexInterval::UncheckedSized(cell_index * cell_size, cell_size);
+        IndexInterval cell_range;
+        grid_cell_indices_[grid_dim] = params_.output_to_grid_cell(
+            grid_dim, input_index * map.stride() + map.offset(), &cell_range);
         // The check in PrePartitionIndexTransformOverRegularGrid guarantees
         // that GetAffineTransformDomain is successful.
         const IndexInterval cell_domain =
@@ -350,8 +348,8 @@ class ConnectedSetIterateHelper {
   absl::FixedArray<Index, internal::kNumInlinedDims> grid_cell_indices_;
 
   // This stores the current value of `cell_transform[h]`, as defined in
-  // grid_partition.h, for `h = grid_cell_indices_`.  This is modified in place
-  // while iterating over all values for grid_cell_indices_.
+  // grid_partition.h, for `h = grid_cell_indices_`.  This is modified in
+  // place while iterating over all values for grid_cell_indices_.
   internal_index_space::TransformRep::Ptr<> cell_transform_;
 };
 
@@ -360,25 +358,39 @@ class ConnectedSetIterateHelper {
 
 namespace internal {
 
+Status PartitionIndexTransformOverGrid(
+    span<const DimensionIndex> grid_output_dimensions,
+    absl::FunctionRef<Index(DimensionIndex, Index, IndexInterval*)>
+        output_to_grid_cell,
+    IndexTransformView<> transform,
+    absl::FunctionRef<Status(span<const Index> grid_cell_indices,
+                             IndexTransformView<> cell_transform)>
+        func) {
+  std::optional<internal_grid_partition::IndexTransformGridPartition>
+      partition_info;
+  auto status = internal_grid_partition::PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, output_to_grid_cell, &partition_info);
+
+  if (!status.ok()) return status;
+  return internal_grid_partition::ConnectedSetIterateHelper(
+             {/*.info=*/*partition_info,
+              /*.grid_output_dimensions=*/grid_output_dimensions,
+              /*.output_to_grid_cell=*/output_to_grid_cell,
+              /*.transform=*/transform,
+              /*.func=*/std::move(func)})
+      .Iterate();
+}
+
 Status PartitionIndexTransformOverRegularGrid(
     span<const DimensionIndex> grid_output_dimensions,
     span<const Index> grid_cell_shape, IndexTransformView<> transform,
     absl::FunctionRef<Status(span<const Index> grid_cell_indices,
                              IndexTransformView<> cell_transform)>
         func) {
-  std::optional<internal_grid_partition::IndexTransformGridPartition>
-      partition_info;
-  auto status =
-      internal_grid_partition::PrePartitionIndexTransformOverRegularGrid(
-          transform, grid_output_dimensions, grid_cell_shape, &partition_info);
-  if (!status.ok()) return status;
-  return internal_grid_partition::ConnectedSetIterateHelper(
-             {/*.info=*/*partition_info,
-              /*.grid_output_dimensions=*/grid_output_dimensions,
-              /*.grid_cell_shape=*/grid_cell_shape,
-              /*.transform=*/transform,
-              /*.func=*/std::move(func)})
-      .Iterate();
+  assert(grid_cell_shape.size() == grid_output_dimensions.size());
+  internal_grid_partition::RegularGridRef grid{grid_cell_shape};
+  return PartitionIndexTransformOverGrid(grid_output_dimensions, grid,
+                                         transform, std::move(func));
 }
 
 }  // namespace internal

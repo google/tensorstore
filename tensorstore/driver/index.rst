@@ -9,6 +9,7 @@ Drivers
    cast/index
    downsample/index
    array/index
+   stack/index
 
 Single file drivers
 -------------------

@@ -337,6 +337,13 @@ class span : private internal_span::SpanBase<T, Extent> {
     assert(!empty());
     return *(data() + (size() - 1));
   }
+
+  // Support for absl::Hash.
+  template <typename H>
+  friend H AbslHashValue(H h, span v) {
+    return H::combine(H::combine_contiguous(std::move(h), v.data(), v.size()),
+                      v.size());
+  }
 };
 
 template <typename T>

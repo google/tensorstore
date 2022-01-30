@@ -484,8 +484,33 @@ Result<IndexDomain<>> IntersectIndexDomains(IndexDomainView<> a,
   return result;
 }
 
-namespace internal {
+Result<IndexDomain<>> ConstrainIndexDomain(IndexDomainView<> a,
+                                           IndexDomainView<> b) {
+  auto result = MergeIndexDomainsImpl(
+      a, b,
+      [](OptionallyImplicitIndexInterval ai, OptionallyImplicitIndexInterval bi)
+          -> Result<OptionallyImplicitIndexInterval> {
+        const bool constrain_lower =
+            ai.implicit_lower() && ai.inclusive_min() == -kInfIndex;
+        const bool constrain_upper =
+            ai.implicit_upper() && ai.inclusive_max() == kInfIndex;
 
+        return OptionallyImplicitIndexInterval{
+            IndexInterval::UncheckedClosed(
+                constrain_lower ? bi.inclusive_min() : ai.inclusive_min(),
+                constrain_upper ? bi.inclusive_max() : ai.inclusive_max()),
+            constrain_lower ? bi.implicit_lower() : ai.implicit_lower(),
+            constrain_upper ? bi.implicit_upper() : ai.implicit_upper()};
+      });
+  if (!result.ok()) {
+    return tensorstore::MaybeAnnotateStatus(
+        result.status(), tensorstore::StrCat("Cannot constrain index domain ",
+                                             a, " with index domain ", b));
+  }
+  return result;
+}
+
+namespace internal {
 OneToOneInputDimensions GetOneToOneInputDimensions(
     IndexTransformView<> transform, bool require_unit_stride) {
   DimensionSet non_one_to_one_input_dims;

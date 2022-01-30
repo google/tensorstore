@@ -503,6 +503,32 @@ Result<IndexDomain<>> HullIndexDomains(IndexDomainView<> a,
 Result<IndexDomain<>> IntersectIndexDomains(IndexDomainView<> a,
                                             IndexDomainView<> b);
 
+/// Constrains index domain a by b.
+///
+/// If both `a` and `b` are null, returns a null index domain.
+///
+/// If exactly one of `a` and `b` is non-null, returns the non-null domain.
+///
+/// Otherwise, `a` and `b` must be compatible:
+///
+/// - `a.rank() == b.rank()`
+///
+/// - For all dimension `i` for which
+///   `!a.labels()[i].empty() && !b.labels()[i].empty()`,
+///   `a.labels[i] == b.labels[i]`.
+///
+/// In the resulting IndexDomain, if a bound in a is both implicit and infinite,
+/// then the bound from b is used, otherwise the bound of a is used.
+///
+/// \param a IndexDomain to intersect.
+/// \param b Other IndexDomain to intersect.
+/// \returns The intersected domain, or a null domain if `a` and `b` are both
+///          null.
+/// \error `absl::StatusCode::kInvalidArgument` if `a` and `b` are not
+///     compatible.
+Result<IndexDomain<>> ConstrainIndexDomain(IndexDomainView<> a,
+                                           IndexDomainView<> b);
+
 namespace internal_index_space {
 std::string DescribeDomainForCast(DimensionIndex rank);
 }  // namespace internal_index_space

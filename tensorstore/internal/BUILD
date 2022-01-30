@@ -501,6 +501,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/hash",
     ],
 )
@@ -511,6 +512,7 @@ tensorstore_cc_test(
     srcs = ["grid_partition_impl_test.cc"],
     deps = [
         ":grid_partition_impl",
+        ":irregular_grid",
         "//tensorstore:array",
         "//tensorstore:index",
         "//tensorstore:index_interval",
@@ -530,6 +532,7 @@ tensorstore_cc_test(
     srcs = ["grid_partition_test.cc"],
     deps = [
         ":grid_partition",
+        ":irregular_grid",
         ":memory",
         "//tensorstore:array",
         "//tensorstore:index",
@@ -647,6 +650,35 @@ tensorstore_cc_test(
     deps = [
         ":intrusive_red_black_tree",
         "@com_google_absl//absl/random",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "irregular_grid",
+    srcs = ["irregular_grid.cc"],
+    hdrs = ["irregular_grid.h"],
+    deps = [
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore/index_space:index_transform",
+        "//tensorstore/util:span",
+        "@com_google_absl//absl/container:inlined_vector",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "irregular_grid_test",
+    srcs = ["irregular_grid_test.cc"],
+    deps = [
+        ":grid_partition",
+        ":grid_partition_impl",
+        ":irregular_grid",
+        "//tensorstore:box",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore/index_space:index_transform",
+        "//tensorstore/util:span",
         "@com_google_googletest//:gtest_main",
     ],
 )

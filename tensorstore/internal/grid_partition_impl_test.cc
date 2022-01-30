@@ -26,6 +26,7 @@
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/internal/irregular_grid.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -92,12 +93,31 @@ using tensorstore::IndexTransformBuilder;
 using tensorstore::kInfIndex;
 using tensorstore::MakeArray;
 using tensorstore::MatchesStatus;
-using tensorstore::Result;
 using tensorstore::span;
+using tensorstore::internal::IrregularGrid;
 using tensorstore::internal_grid_partition::IndexTransformGridPartition;
-using tensorstore::internal_grid_partition::
-    PrePartitionIndexTransformOverRegularGrid;
+using tensorstore::internal_grid_partition::PrePartitionIndexTransformOverGrid;
+using tensorstore::internal_grid_partition::RegularGridRef;
 using ::testing::ElementsAre;
+
+TEST(RegularGridTest, Basic) {
+  std::vector<Index> grid_cell_shape{1, 2, 3};
+  RegularGridRef grid{grid_cell_shape};
+  EXPECT_EQ(3, grid.rank());
+
+  IndexInterval grid_cell;
+  EXPECT_EQ(grid(0, 7, &grid_cell), 7);
+  EXPECT_EQ(grid_cell, IndexInterval::UncheckedSized(7, 1));
+  EXPECT_EQ(grid(1, 7, &grid_cell), 3);
+  EXPECT_EQ(grid_cell, IndexInterval::UncheckedSized(6, 2));
+  EXPECT_EQ(grid(2, 7, &grid_cell), 2);
+  EXPECT_EQ(grid_cell, IndexInterval::UncheckedSized(6, 3));
+}
+
+TEST(RegularGridTest, Empty) {
+  RegularGridRef grid;
+  EXPECT_EQ(0, grid.rank());
+}
 
 // Tests that if there are no grid dimensions, the result has no connected sets.
 TEST(PrePartitionIndexTransformOverRegularGridTest, NoGridDimensions) {
@@ -110,8 +130,9 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, NoGridDimensions) {
   span<const DimensionIndex> grid_output_dimensions;
   span<const Index> grid_cell_shape;
   std::optional<IndexTransformGridPartition> partitioned;
-  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
-      transform, grid_output_dimensions, grid_cell_shape, &partitioned));
+  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, RegularGridRef{grid_cell_shape},
+      &partitioned));
   EXPECT_THAT(partitioned->strided_sets(), ElementsAre());
   EXPECT_THAT(partitioned->index_array_sets(), ElementsAre());
 }
@@ -128,8 +149,9 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, NoConnectedSets) {
   const DimensionIndex grid_output_dimensions[] = {0};
   const Index grid_cell_shape[] = {2};
   std::optional<IndexTransformGridPartition> partitioned;
-  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
-      transform, grid_output_dimensions, grid_cell_shape, &partitioned));
+  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, RegularGridRef{grid_cell_shape},
+      &partitioned));
   EXPECT_THAT(partitioned->strided_sets(), ElementsAre());
   EXPECT_THAT(partitioned->index_array_sets(), ElementsAre());
 }
@@ -147,8 +169,9 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, StridedSingleSet) {
   const DimensionIndex grid_output_dimensions[] = {0};
   const Index grid_cell_shape[] = {2};
   std::optional<IndexTransformGridPartition> partitioned;
-  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
-      transform, grid_output_dimensions, grid_cell_shape, &partitioned));
+  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, RegularGridRef{grid_cell_shape},
+      &partitioned));
   EXPECT_THAT(partitioned->strided_sets(),
               ElementsAre(IndexTransformGridPartition::StridedSet{
                   /*.grid_dimensions=*/span<const DimensionIndex>({0}),
@@ -176,8 +199,9 @@ TEST(PrePartitionIndexTransformOverRegularGridTest,
   const DimensionIndex grid_output_dimensions[] = {2, 0};
   const Index grid_cell_shape[] = {5, 10};
   std::optional<IndexTransformGridPartition> partitioned;
-  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
-      transform, grid_output_dimensions, grid_cell_shape, &partitioned));
+  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, RegularGridRef{grid_cell_shape},
+      &partitioned));
   EXPECT_THAT(
       partitioned->strided_sets(),
       ElementsAre(IndexTransformGridPartition::StridedSet{
@@ -204,8 +228,9 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, DiagonalStridedSet) {
   const DimensionIndex grid_output_dimensions[] = {0, 1};
   const Index grid_cell_shape[] = {5, 10};
   std::optional<IndexTransformGridPartition> partitioned;
-  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
-      transform, grid_output_dimensions, grid_cell_shape, &partitioned));
+  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, RegularGridRef{grid_cell_shape},
+      &partitioned));
   EXPECT_THAT(partitioned->strided_sets(),
               ElementsAre(IndexTransformGridPartition::StridedSet{
                   /*.grid_dimensions=*/span<const DimensionIndex>({0, 1}),
@@ -228,8 +253,9 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, DiagonalStridedSets) {
   const DimensionIndex grid_output_dimensions[] = {2, 0, 1};
   const Index grid_cell_shape[] = {5, 10, 15};
   std::optional<IndexTransformGridPartition> partitioned;
-  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
-      transform, grid_output_dimensions, grid_cell_shape, &partitioned));
+  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, RegularGridRef{grid_cell_shape},
+      &partitioned));
   EXPECT_THAT(
       partitioned->strided_sets(),
       ElementsAre(IndexTransformGridPartition::StridedSet{
@@ -255,8 +281,9 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, SingleIndexArrayDimension) {
   const DimensionIndex grid_output_dimensions[] = {0};
   const Index grid_cell_shape[] = {4};
   std::optional<IndexTransformGridPartition> partitioned;
-  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
-      transform, grid_output_dimensions, grid_cell_shape, &partitioned));
+  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, RegularGridRef{grid_cell_shape},
+      &partitioned));
   EXPECT_THAT(
       partitioned->index_array_sets(),
       ElementsAre(IndexTransformGridPartition::IndexArraySet{
@@ -280,14 +307,15 @@ TEST(PrePartitionIndexTransformOverRegularGridTest,
           .input_origin({0})
           .input_shape({4})
           .output_index_array(0, 5, 2, MakeArray<Index>({1, 9, 8, 4}))
-          .output_single_input_dimension(1, 3, 5, 0)
+          .output_single_input_dimension(1, 3, 5, 0)  // 3..18 step 5
           .Finalize()
           .value();
   const DimensionIndex grid_output_dimensions[] = {1, 0};
   const Index grid_cell_shape[] = {10, 4};
   std::optional<IndexTransformGridPartition> partitioned;
-  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
-      transform, grid_output_dimensions, grid_cell_shape, &partitioned));
+  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, RegularGridRef{grid_cell_shape},
+      &partitioned));
   // Input indices are:                         {0,  1,  2,  3}
 
   // Output indices for output dimension 1 are: {3,  8, 13, 18}
@@ -328,8 +356,9 @@ TEST(PrePartitionIndexTransformOverRegularGridTest,
   const DimensionIndex grid_output_dimensions[] = {0, 1};
   const Index grid_cell_shape[] = {3, 1};
   std::optional<IndexTransformGridPartition> partitioned;
-  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
-      transform, grid_output_dimensions, grid_cell_shape, &partitioned));
+  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, RegularGridRef{grid_cell_shape},
+      &partitioned));
   // Input indices for input dimension 1 are:   {0,  1,  2}
 
   // Output indices for output dimension 0 are: {0,  1,  2}
@@ -370,8 +399,9 @@ TEST(PrePartitionIndexTransformOverRegularGridTest,
   const DimensionIndex grid_output_dimensions[] = {1, 0};
   const Index grid_cell_shape[] = {3, 5};
   std::optional<IndexTransformGridPartition> partitioned;
-  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverRegularGrid(
-      transform, grid_output_dimensions, grid_cell_shape, &partitioned));
+  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, RegularGridRef{grid_cell_shape},
+      &partitioned));
   EXPECT_THAT(
       partitioned->index_array_sets(),
       ElementsAre(IndexTransformGridPartition::IndexArraySet{
@@ -395,8 +425,9 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, UnboundedDomain) {
   const DimensionIndex grid_output_dimensions[] = {0};
   const Index grid_cell_shape[] = {5};
   std::optional<IndexTransformGridPartition> partitioned;
-  auto status = PrePartitionIndexTransformOverRegularGrid(
-      transform, grid_output_dimensions, grid_cell_shape, &partitioned);
+  auto status = PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, RegularGridRef{grid_cell_shape},
+      &partitioned);
   EXPECT_THAT(status,
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Input dimension 0 has unbounded domain .*"));
@@ -414,8 +445,9 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, IndexArrayOutOfBounds) {
   const DimensionIndex grid_output_dimensions[] = {0};
   const Index grid_cell_shape[] = {5};
   std::optional<IndexTransformGridPartition> partitioned;
-  auto status = PrePartitionIndexTransformOverRegularGrid(
-      transform, grid_output_dimensions, grid_cell_shape, &partitioned);
+  auto status = PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, RegularGridRef{grid_cell_shape},
+      &partitioned);
   EXPECT_THAT(status,
               MatchesStatus(absl::StatusCode::kOutOfRange,
                             "Index 2 is outside valid range \\[3, 11\\)"));
@@ -435,9 +467,150 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, StridedDimensionOverflow) {
   const DimensionIndex grid_output_dimensions[] = {1, 0};
   const Index grid_cell_shape[] = {10, 4};
   std::optional<IndexTransformGridPartition> partitioned;
-  auto status = PrePartitionIndexTransformOverRegularGrid(
-      transform, grid_output_dimensions, grid_cell_shape, &partitioned);
+  auto status = PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, RegularGridRef{grid_cell_shape},
+      &partitioned);
   EXPECT_THAT(status, MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(PrePartitionIndexTransformOverGridTest, SingleIndexArrayDimension) {
+  auto transform =
+      tensorstore::IndexTransformBuilder<>(1, 1)
+          .input_origin({0})
+          .input_shape({4})
+          .output_index_array(0, 5, 2, MakeArray<Index>({1, 9, 8, 4}))
+          .Finalize()
+          .value();
+  const DimensionIndex grid_output_dimensions[] = {0};
+
+  std::vector<Index> dimension0{-1, 5, 10};
+  IrregularGrid grid{{dimension0}};
+
+  std::optional<IndexTransformGridPartition> partitioned;
+  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, grid, &partitioned));
+  EXPECT_THAT(
+      partitioned->index_array_sets(),
+      ElementsAre(IndexTransformGridPartition::IndexArraySet{
+          /*.grid_dimensions=*/span<const DimensionIndex>({0}),
+          /*.input_dimensions=*/span<const DimensionIndex>({0}),
+          /*.grid_cell_indices=*/{1, 2},
+          /*.partitioned_input_indices=*/MakeArray<Index>({{0}, {1}, {2}, {3}}),
+          /*.grid_cell_partition_offsets=*/{0, 1}}));
+  EXPECT_THAT(partitioned->strided_sets(), ElementsAre());
+}
+
+TEST(PrePartitionIndexTransformOverGridTest, IndexArrayAndStridedDimension) {
+  auto transform =
+      tensorstore::IndexTransformBuilder<>(1, 2)
+          .input_origin({0})
+          .input_shape({4})
+          .output_index_array(0, 5, 2, MakeArray<Index>({1, 9, 8, 4}))
+          .output_single_input_dimension(1, 3, 5, 0)  // 3..18 step 5
+          .Finalize()
+          .value();
+  const DimensionIndex grid_output_dimensions[] = {1, 0};
+
+  std::vector<Index> dimension0{-1, 6, 9, 15};
+  std::vector<Index> dimension1{10, 11, 15, 22};
+  IrregularGrid grid({dimension0, dimension1});
+
+  std::optional<IndexTransformGridPartition> partitioned;
+  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, grid, &partitioned));
+  // Input indices are:                         {0,  1,  2,  3}
+
+  // Output indices for output dimension 1 are: {3,  8, 13, 18}
+  // Note: output dimension 1 is grid dimension 0.
+
+  // Output indices for output dimension 0 are: {7, 23, 21, 13}
+  // Note: output dimension 0 is grid dimension 1.
+
+  // Cell indices for grid dimension 0 are:     {0,   1,  2,  3}
+  // Cell indices for grid dimension 1 are:     {-1,  3,  2,  1}
+  EXPECT_THAT(
+      partitioned->index_array_sets(),
+      ElementsAre(IndexTransformGridPartition::IndexArraySet{
+          /*.grid_dimensions=*/span<const DimensionIndex>({0, 1}),
+          /*.input_dimensions=*/span<const DimensionIndex>({0}),
+          /*.grid_cell_indices=*/{0, -1, 1, 3, 2, 2, 3, 1},
+          /*.partitioned_input_indices=*/MakeArray<Index>({{0}, {1}, {2}, {3}}),
+          /*.grid_cell_partition_offsets=*/{0, 1, 2, 3}}));
+  EXPECT_THAT(partitioned->strided_sets(), ElementsAre());
+}
+
+TEST(PrePartitionIndexTransformOverGridTest,
+     IndexArrayAndStridedDimensionIndependent) {
+  auto transform =
+      tensorstore::IndexTransformBuilder<>(2, 2)
+          .input_origin({0, 0})
+          .input_shape({2, 3})
+          .output_single_input_dimension(0, 1)
+          .output_index_array(1, 0, 1, MakeArray<Index>({{0}, {0}}))
+          .Finalize()
+          .value();
+  const DimensionIndex grid_output_dimensions[] = {0, 1};
+
+  std::vector<Index> dimension0{1, 2, 3, 7};
+  std::vector<Index> dimension1{-1, 0, 2, 4, 5};
+  IrregularGrid grid({dimension0, dimension1});
+
+  std::optional<IndexTransformGridPartition> partitioned;
+  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, grid, &partitioned));
+  // Input indices for input dimension 1 are:   {0,  1,  2}
+
+  // Output indices for output dimension 0 are: {0,  1,  2}
+  // Note: output dimension 0 is grid dimension 0.
+
+  // Input indices for input dimension 0 are:   {0,  1}
+
+  // Output indices for output dimension 1 are: {0,  0}
+  // Note: output dimension 1 is grid dimension 1.
+
+  // Cell indices for grid dimension 0 are:     {-1, 0, 1}
+  // Cell indices for grid dimension 1 are:     {1}
+  EXPECT_THAT(partitioned->index_array_sets(),
+              ElementsAre(IndexTransformGridPartition::IndexArraySet{
+                  /*.grid_dimensions=*/span<const DimensionIndex>({1}),
+                  /*.input_dimensions=*/span<const DimensionIndex>({0}),
+                  /*.grid_cell_indices=*/{1},
+                  /*.partitioned_input_indices=*/MakeArray<Index>({{0}, {1}}),
+                  /*.grid_cell_partition_offsets=*/{0}}));
+  EXPECT_THAT(partitioned->strided_sets(),
+              ElementsAre(IndexTransformGridPartition::StridedSet{
+                  /*.grid_dimensions=*/span<const DimensionIndex>({0}),
+                  /*.input_dimension=*/1}));
+}
+
+TEST(PrePartitionIndexTransformOverGridTest,
+     TwoOutputsTwoDimensionalIndexArrays) {
+  auto transform =
+      tensorstore::IndexTransformBuilder<>(2, 2)
+          .input_origin({-1, 2})
+          .input_shape({2, 3})
+          .output_index_array(0, 5, 2, MakeArray<Index>({{1, 2, 3}, {3, 4, 5}}))
+          .output_index_array(1, 2, 1, MakeArray<Index>({{5, 9, 1}, {8, 2, 3}}))
+          .Finalize()
+          .value();
+  const DimensionIndex grid_output_dimensions[] = {1, 0};
+  std::vector<Index> dimension0{1, 2, 3, 7, 10};
+  std::vector<Index> dimension1{-1, 0, 2, 4, 5, 8};
+  IrregularGrid grid{{dimension0, dimension1}};
+
+  std::optional<IndexTransformGridPartition> partitioned;
+  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, grid, &partitioned));
+  EXPECT_THAT(
+      partitioned->index_array_sets(),
+      ElementsAre(IndexTransformGridPartition::IndexArraySet{
+          /*.grid_dimensions=*/span<const DimensionIndex>({0, 1}),
+          /*.input_dimensions=*/span<const DimensionIndex>({0, 1}),
+          /*.grid_cell_indices=*/{2, 5, 3, 4, 4, 5},
+          /*.partitioned_input_indices=*/
+          MakeArray<Index>({{-1, 4}, {0, 3}, {0, 4}, {-1, 2}, {-1, 3}, {0, 2}}),
+          /*.grid_cell_partition_offsets=*/{0, 3, 4}}));
+  EXPECT_THAT(partitioned->strided_sets(), ElementsAre());
 }
 
 }  // namespace

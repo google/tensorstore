@@ -1,0 +1,39 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: driver/stack
+allOf:
+  - $ref: TensorStore
+  - type: object
+    properties:
+      driver:
+        const: stack
+      layers:
+        type: array
+        items: {  $ref: TensorStore }
+        title: |
+          Array of layered tensorstore drivers.
+        description: |
+          The stack driver maps each nested driver in `.layers` to the  position
+          described by the layer transform. All layers must have the same `dtype`
+          as well as compatible domains.
+      schema:
+        $ref: Schema
+    required:
+      - layers
+examples:
+  - {
+      "driver": "stack",
+      "layers":
+        [
+          { "driver": "array", "array": [1, 2, 3], "dtype": "int32" },
+          {
+            "driver": "array",
+            "array": [4, 5, 6],
+            "dtype": "int32",
+            "transform":
+              {
+                "input_inclusive_min": 3,
+                "output": { "input_dimension": 0, "offset": -3 },
+              },
+          },
+        ],
+    }

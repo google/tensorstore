@@ -10,13 +10,14 @@ DRIVERS = [
     "array",
     "cast",
     "downsample",
+    "image/jpeg",
+    "image/png",
     "json",
     "n5",
     "neuroglancer_precomputed",
+    "stack",
     "virtual_chunked",
     "zarr",
-    "image/jpeg",
-    "image/png",
 ]
 
 DOCTEST_SOURCES = glob([
