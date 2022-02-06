@@ -1,4 +1,5 @@
 load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix", "template_rule")
+load("@com_google_tensorstore//:rules_nasm.bzl", "nasm_library")
 
 licenses(["notice"])
 
@@ -121,14 +122,15 @@ cc_library_with_strip_include_prefix(
         ":armeabi-v7a": [":simd_armv7a"],
         ":arm64-v8a": [":simd_armv8a"],
         ":linux_ppc64le": [":simd_altivec"],
-        ":windows": [":simd_win_x86_64"],
+        ":windows": [":simd_x86_64"],
         "//conditions:default": [":simd_none"],
     }),
 )
 
+# SIMD support
 cc_library(
-    name = "simd_altivec",
-    srcs = [
+    name = "simd_common",
+    hdrs = [
         "jchuff.h",
         "jconfig.h",
         "jdct.h",
@@ -139,6 +141,24 @@ cc_library(
         "jpeglib.h",
         "jsimd.h",
         "jsimddct.h",
+    ],
+    copts = libjpegturbo_copts,
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "simd_none",
+    srcs = [
+        "jsimd_none.c",
+    ],
+    copts = libjpegturbo_copts,
+    deps = [":simd_common"],
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "simd_altivec",
+    srcs = [
         "simd/jsimd.h",
         "simd/powerpc/jccolor-altivec.c",
         "simd/powerpc/jcgray-altivec.c",
@@ -162,84 +182,43 @@ cc_library(
         "simd/powerpc/jsimd_altivec.h",
     ],
     copts = libjpegturbo_copts,
+    deps = [":simd_common"],
+    visibility = ["//visibility:private"],
 )
-
-SRCS_SIMD_COMMON = [
-    "jchuff.h",
-    "jconfig.h",
-    "jconfigint.h",
-    "jdct.h",
-    "jerror.h",
-    "jinclude.h",
-    "jmorecfg.h",
-    "jpegint.h",
-    "jpeglib.h",
-    "jsimddct.h",
-    "jsimd.h",
-    "simd/jsimd.h",
-]
 
 cc_library(
     name = "simd_x86_64",
+    hdrs = [
+        "jconfigint.h",
+    ],
     srcs = [
-        "simd/x86_64/jccolor-avx2.o",
-        "simd/x86_64/jccolor-sse2.o",
-        "simd/x86_64/jcgray-avx2.o",
-        "simd/x86_64/jcgray-sse2.o",
-        "simd/x86_64/jchuff-sse2.o",
-        "simd/x86_64/jcphuff-sse2.o",
-        "simd/x86_64/jcsample-avx2.o",
-        "simd/x86_64/jcsample-sse2.o",
-        "simd/x86_64/jdcolor-avx2.o",
-        "simd/x86_64/jdcolor-sse2.o",
-        "simd/x86_64/jdmerge-avx2.o",
-        "simd/x86_64/jdmerge-sse2.o",
-        "simd/x86_64/jdsample-avx2.o",
-        "simd/x86_64/jdsample-sse2.o",
-        "simd/x86_64/jfdctflt-sse.o",
-        "simd/x86_64/jfdctfst-sse2.o",
-        "simd/x86_64/jfdctint-avx2.o",
-        "simd/x86_64/jfdctint-sse2.o",
-        "simd/x86_64/jidctflt-sse2.o",
-        "simd/x86_64/jidctfst-sse2.o",
-        "simd/x86_64/jidctint-avx2.o",
-        "simd/x86_64/jidctint-sse2.o",
-        "simd/x86_64/jidctred-sse2.o",
-        "simd/x86_64/jquantf-sse2.o",
-        "simd/x86_64/jquanti-avx2.o",
-        "simd/x86_64/jquanti-sse2.o",
+        "simd/jsimd.h",
         "simd/x86_64/jsimd.c",
-        "simd/x86_64/jsimdcpu.o",
-    ] + SRCS_SIMD_COMMON,
+    ],
     copts = libjpegturbo_copts,
+    deps = [
+        ":simd_common",
+        ":simd_x86_64_asm",
+    ],
     linkstatic = 1,
+    visibility = ["//visibility:private"],
 )
 
-genrule(
-    name = "simd_x86_64_assemblage23",
+nasm_library(
+    name = "simd_x86_64_asm",
     srcs = [
-        "jconfig.h",
-        "jconfigint.h",
-        "simd/x86_64/jccolext-avx2.asm",
-        "simd/x86_64/jccolext-sse2.asm",
         "simd/x86_64/jccolor-avx2.asm",
         "simd/x86_64/jccolor-sse2.asm",
         "simd/x86_64/jcgray-avx2.asm",
         "simd/x86_64/jcgray-sse2.asm",
-        "simd/x86_64/jcgryext-avx2.asm",
-        "simd/x86_64/jcgryext-sse2.asm",
         "simd/x86_64/jchuff-sse2.asm",
         "simd/x86_64/jcphuff-sse2.asm",
         "simd/x86_64/jcsample-avx2.asm",
         "simd/x86_64/jcsample-sse2.asm",
-        "simd/x86_64/jdcolext-avx2.asm",
-        "simd/x86_64/jdcolext-sse2.asm",
         "simd/x86_64/jdcolor-avx2.asm",
         "simd/x86_64/jdcolor-sse2.asm",
         "simd/x86_64/jdmerge-avx2.asm",
         "simd/x86_64/jdmerge-sse2.asm",
-        "simd/x86_64/jdmrgext-avx2.asm",
-        "simd/x86_64/jdmrgext-sse2.asm",
         "simd/x86_64/jdsample-avx2.asm",
         "simd/x86_64/jdsample-sse2.asm",
         "simd/x86_64/jfdctflt-sse.asm",
@@ -255,52 +234,30 @@ genrule(
         "simd/x86_64/jquanti-avx2.asm",
         "simd/x86_64/jquanti-sse2.asm",
         "simd/x86_64/jsimdcpu.asm",
+    ],
+    includes = [
+        "jconfig.h",
+        "jconfigint.h",
         "simd/nasm/jcolsamp.inc",
         "simd/nasm/jdct.inc",
         "simd/nasm/jsimdcfg.inc",
         "simd/nasm/jsimdcfg.inc.h",
         "simd/nasm/jsimdext.inc",
+        # The non-ext .asm files with the similar name %include these
+        "simd/x86_64/jccolext-avx2.asm",
+        "simd/x86_64/jccolext-sse2.asm",
+        "simd/x86_64/jcgryext-avx2.asm",
+        "simd/x86_64/jcgryext-sse2.asm",
+        "simd/x86_64/jdcolext-avx2.asm",
+        "simd/x86_64/jdcolext-sse2.asm",
+        "simd/x86_64/jdmrgext-avx2.asm",
+        "simd/x86_64/jdmrgext-sse2.asm",
     ],
-    outs = [
-        "simd/x86_64/jccolor-avx2.o",
-        "simd/x86_64/jccolor-sse2.o",
-        "simd/x86_64/jcgray-avx2.o",
-        "simd/x86_64/jcgray-sse2.o",
-        "simd/x86_64/jchuff-sse2.o",
-        "simd/x86_64/jcphuff-sse2.o",
-        "simd/x86_64/jcsample-avx2.o",
-        "simd/x86_64/jcsample-sse2.o",
-        "simd/x86_64/jdcolor-avx2.o",
-        "simd/x86_64/jdcolor-sse2.o",
-        "simd/x86_64/jdmerge-avx2.o",
-        "simd/x86_64/jdmerge-sse2.o",
-        "simd/x86_64/jdsample-avx2.o",
-        "simd/x86_64/jdsample-sse2.o",
-        "simd/x86_64/jfdctflt-sse.o",
-        "simd/x86_64/jfdctfst-sse2.o",
-        "simd/x86_64/jfdctint-avx2.o",
-        "simd/x86_64/jfdctint-sse2.o",
-        "simd/x86_64/jidctflt-sse2.o",
-        "simd/x86_64/jidctfst-sse2.o",
-        "simd/x86_64/jidctint-avx2.o",
-        "simd/x86_64/jidctint-sse2.o",
-        "simd/x86_64/jidctred-sse2.o",
-        "simd/x86_64/jquantf-sse2.o",
-        "simd/x86_64/jquanti-avx2.o",
-        "simd/x86_64/jquanti-sse2.o",
-        "simd/x86_64/jsimdcpu.o",
-    ],
-    cmd = "for out in $(OUTS); do\n" +
-          "  $(location @nasm//:nasm) -f elf64" +
-          "    -DELF -DPIC -D__x86_64__" +
-          "    -I $$(dirname $(location jconfig.h))/" +
-          "    -I $$(dirname $(location jconfigint.h))/" +
-          "    -I $$(dirname $(location simd/nasm/jsimdcfg.inc.h))/" +
-          "    -I $$(dirname $(location simd/x86_64/jccolext-sse2.asm))/" +
-          "    -o $$out" +
-          "    $$(dirname $(location simd/x86_64/jccolext-sse2.asm))/$$(basename $${out%.o}.asm)\n" +
-          "done",
-    tools = ["@nasm"],
+    deps = [":simd_common"],
+    flags = select({
+        ":windows": ["-DWIN64", "-D__x86_64__", "-fwin64", "-w+all"],
+        "//conditions:default": ["-DELF", "-DPIC", "-D__x86_64__", "-felf64", "-w+all"],
+    }),
 )
 
 template_rule(
@@ -325,6 +282,7 @@ cc_library(
     name = "neon-compat_hdr",
     hdrs = ["neon-compat.h"],
     copts = libjpegturbo_copts,
+    visibility = ["//visibility:private"],
 )
 
 SRCS_SIMD_ARM = [
@@ -359,13 +317,17 @@ cc_library(
     srcs = [
         "simd/arm/aarch32/jsimd.c",
         "simd/arm/aarch32/jchuff-neon.c",
-    ] + SRCS_SIMD_COMMON + SRCS_SIMD_ARM,
+        "simd/jsimd.h",
+    ] + SRCS_SIMD_ARM,
     hdrs = [
         "simd/arm/aarch32/jccolext-neon.c",
     ] + HDRS_SIMD_ARM,
     copts = libjpegturbo_copts,
     visibility = ["//visibility:private"],
-    deps = [":neon-compat_hdr"],
+    deps = [
+        ":neon-compat_hdr",
+        ":simd_common",
+    ],
 )
 
 cc_library(
@@ -373,152 +335,17 @@ cc_library(
     srcs = [
         "simd/arm/aarch64/jsimd.c",
         "simd/arm/aarch64/jchuff-neon.c",
-    ] + SRCS_SIMD_COMMON + SRCS_SIMD_ARM,
+        "simd/jsimd.h",
+    ] + SRCS_SIMD_ARM,
     hdrs = [
         "simd/arm/aarch64/jccolext-neon.c",
     ] + HDRS_SIMD_ARM,
     copts = libjpegturbo_copts,
     visibility = ["//visibility:private"],
-    deps = [":neon-compat_hdr"],
-)
-
-cc_library(
-    name = "simd_win_x86_64",
-    srcs = [
-        "simd/x86_64/jccolor-avx2.obj",
-        "simd/x86_64/jccolor-sse2.obj",
-        "simd/x86_64/jcgray-avx2.obj",
-        "simd/x86_64/jcgray-sse2.obj",
-        "simd/x86_64/jchuff-sse2.obj",
-        "simd/x86_64/jcphuff-sse2.obj",
-        "simd/x86_64/jcsample-avx2.obj",
-        "simd/x86_64/jcsample-sse2.obj",
-        "simd/x86_64/jdcolor-avx2.obj",
-        "simd/x86_64/jdcolor-sse2.obj",
-        "simd/x86_64/jdmerge-avx2.obj",
-        "simd/x86_64/jdmerge-sse2.obj",
-        "simd/x86_64/jdsample-avx2.obj",
-        "simd/x86_64/jdsample-sse2.obj",
-        "simd/x86_64/jfdctflt-sse.obj",
-        "simd/x86_64/jfdctfst-sse2.obj",
-        "simd/x86_64/jfdctint-avx2.obj",
-        "simd/x86_64/jfdctint-sse2.obj",
-        "simd/x86_64/jidctflt-sse2.obj",
-        "simd/x86_64/jidctfst-sse2.obj",
-        "simd/x86_64/jidctint-avx2.obj",
-        "simd/x86_64/jidctint-sse2.obj",
-        "simd/x86_64/jidctred-sse2.obj",
-        "simd/x86_64/jquantf-sse2.obj",
-        "simd/x86_64/jquanti-avx2.obj",
-        "simd/x86_64/jquanti-sse2.obj",
-        "simd/x86_64/jsimd.c",
-        "simd/x86_64/jsimdcpu.obj",
-    ] + SRCS_SIMD_COMMON,
-    copts = libjpegturbo_copts,
-)
-
-genrule(
-    name = "simd_win_x86_64_assemble",
-    srcs = [
-        "jconfig.h",
-        "jconfigint.h",
-        "simd/x86_64/jccolext-avx2.asm",
-        "simd/x86_64/jccolext-sse2.asm",
-        "simd/x86_64/jccolor-avx2.asm",
-        "simd/x86_64/jccolor-sse2.asm",
-        "simd/x86_64/jcgray-avx2.asm",
-        "simd/x86_64/jcgray-sse2.asm",
-        "simd/x86_64/jcgryext-avx2.asm",
-        "simd/x86_64/jcgryext-sse2.asm",
-        "simd/x86_64/jchuff-sse2.asm",
-        "simd/x86_64/jcphuff-sse2.asm",
-        "simd/x86_64/jcsample-avx2.asm",
-        "simd/x86_64/jcsample-sse2.asm",
-        "simd/x86_64/jdcolext-avx2.asm",
-        "simd/x86_64/jdcolext-sse2.asm",
-        "simd/x86_64/jdcolor-avx2.asm",
-        "simd/x86_64/jdcolor-sse2.asm",
-        "simd/x86_64/jdmerge-avx2.asm",
-        "simd/x86_64/jdmerge-sse2.asm",
-        "simd/x86_64/jdmrgext-avx2.asm",
-        "simd/x86_64/jdmrgext-sse2.asm",
-        "simd/x86_64/jdsample-avx2.asm",
-        "simd/x86_64/jdsample-sse2.asm",
-        "simd/x86_64/jfdctflt-sse.asm",
-        "simd/x86_64/jfdctfst-sse2.asm",
-        "simd/x86_64/jfdctint-avx2.asm",
-        "simd/x86_64/jfdctint-sse2.asm",
-        "simd/x86_64/jidctflt-sse2.asm",
-        "simd/x86_64/jidctfst-sse2.asm",
-        "simd/x86_64/jidctint-avx2.asm",
-        "simd/x86_64/jidctint-sse2.asm",
-        "simd/x86_64/jidctred-sse2.asm",
-        "simd/x86_64/jquantf-sse2.asm",
-        "simd/x86_64/jquanti-avx2.asm",
-        "simd/x86_64/jquanti-sse2.asm",
-        "simd/x86_64/jsimdcpu.asm",
-        "simd/nasm/jcolsamp.inc",
-        "simd/nasm/jdct.inc",
-        "simd/nasm/jsimdcfg.inc",
-        "simd/nasm/jsimdcfg.inc.h",
-        "simd/nasm/jsimdext.inc",
+    deps = [
+        ":neon-compat_hdr",
+        ":simd_common",
     ],
-    outs = [
-        "simd/x86_64/jccolor-avx2.obj",
-        "simd/x86_64/jccolor-sse2.obj",
-        "simd/x86_64/jcgray-avx2.obj",
-        "simd/x86_64/jcgray-sse2.obj",
-        "simd/x86_64/jchuff-sse2.obj",
-        "simd/x86_64/jcphuff-sse2.obj",
-        "simd/x86_64/jcsample-avx2.obj",
-        "simd/x86_64/jcsample-sse2.obj",
-        "simd/x86_64/jdcolor-avx2.obj",
-        "simd/x86_64/jdcolor-sse2.obj",
-        "simd/x86_64/jdmerge-avx2.obj",
-        "simd/x86_64/jdmerge-sse2.obj",
-        "simd/x86_64/jdsample-avx2.obj",
-        "simd/x86_64/jdsample-sse2.obj",
-        "simd/x86_64/jfdctflt-sse.obj",
-        "simd/x86_64/jfdctfst-sse2.obj",
-        "simd/x86_64/jfdctint-avx2.obj",
-        "simd/x86_64/jfdctint-sse2.obj",
-        "simd/x86_64/jidctflt-sse2.obj",
-        "simd/x86_64/jidctfst-sse2.obj",
-        "simd/x86_64/jidctint-avx2.obj",
-        "simd/x86_64/jidctint-sse2.obj",
-        "simd/x86_64/jidctred-sse2.obj",
-        "simd/x86_64/jquantf-sse2.obj",
-        "simd/x86_64/jquanti-avx2.obj",
-        "simd/x86_64/jquanti-sse2.obj",
-        "simd/x86_64/jsimdcpu.obj",
-    ],
-    cmd = "for out in $(OUTS); do\n" +
-          "  $(location @nasm//:nasm) -fwin64 -DWIN64 -D__x86_64__" +
-          "    -I $$(dirname $(location simd/x86_64/jccolext-sse2.asm))/" +
-          "    -I $$(dirname $(location simd/nasm/jdct.inc))/" +
-          "    -I $$(dirname $(location simd/nasm/jdct.inc))/../../win/" +
-          "    -o $$out" +
-          "    $$(dirname $(location simd/x86_64/jccolext-sse2.asm))/$$(basename $${out%.obj}.asm)\n" +
-          "done",
-    tools = ["@nasm"],
-)
-
-cc_library(
-    name = "simd_none",
-    srcs = [
-        "jchuff.h",
-        "jconfig.h",
-        "jdct.h",
-        "jerror.h",
-        "jinclude.h",
-        "jmorecfg.h",
-        "jpegint.h",
-        "jpeglib.h",
-        "jsimd.h",
-        "jsimd_none.c",
-        "jsimddct.h",
-    ],
-    copts = libjpegturbo_copts,
 )
 
 template_rule(
