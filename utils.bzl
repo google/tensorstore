@@ -81,7 +81,7 @@ def package_relative_path(path):
 # and replaces them with the corresponding values.
 #
 # Typical usage:
-#   load("/tools/build_rules/template_rule", "expand_header_template")
+#   load("@com_google_tensorstore//:utils.bzl", "template_rule")
 #   template_rule(
 #       name = "ExpandMyTemplate",
 #       src = "my.template",
@@ -122,6 +122,15 @@ template_rule = rule(
 
 # Workaround https://github.com/bazelbuild/bazel/issues/6337 by declaring
 # the dependencies without strip_include_prefix.
+#
+# Typical usage:
+#   load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
+#   cc_library_with_strip_include_prefix(
+#       name = "my_library",
+#       hdrs = [ "include/foo.h" ],
+#       strip_include_prefix = "include",
+#   )
+#
 def cc_library_with_strip_include_prefix(name, hdrs, deps = None, **kwargs):
     strip_include_prefix_name = name + "_strip_include_prefix_hack"
     if deps == None:
