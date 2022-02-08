@@ -32,11 +32,19 @@ nasm_library(
 def _nasm_one_file(ctx):
     src = ctx.file.src
     out = ctx.outputs.out
-    args = ctx.actions.args()
+    raw_includes = ctx.attr.raw_includes
 
-    # Add -I<directory> for all include directories.
-    directories = depset([x.dirname for x in ctx.files.includes])
-    for h in directories.to_list():
+    # Compute the set of -I<> directories as the dirname of each include
+    # as well as the prefix of the path to the include.
+    includes = [x.dirname for x in ctx.files.includes]
+    for i in range(0, len(raw_includes)):
+        raw = raw_includes[i]
+        path = ctx.files.includes[i].path
+        if path.endswith(raw):
+            includes.append(path[:-len(raw)].rstrip("/"))
+
+    args = ctx.actions.args()
+    for h in depset(includes).to_list():
         args.add("-I" + h + "/")
 
     args.add_all(ctx.attr.flags)
@@ -49,7 +57,7 @@ def _nasm_one_file(ctx):
         executable = ctx.executable._nasm,
         arguments = [args],
         mnemonic = "NasmCompile",
-        progress_message = "Assembling " + src.path + " to create " + out.path,
+        progress_message = "Assembling " + src.short_path + " to create " + out.path,
     )
 
 nasm_one_file = rule(
@@ -57,6 +65,7 @@ nasm_one_file = rule(
         "src": attr.label(allow_single_file = [".asm"]),
         "includes": attr.label_list(allow_files = True),
         "flags": attr.string_list(),
+        "raw_includes": attr.string_list(),
         "_nasm": attr.label(
             default = "@nasm//:nasm",
             executable = True,
@@ -67,20 +76,19 @@ nasm_one_file = rule(
     implementation = _nasm_one_file,
 )
 
-def nasm_library(name, srcs = [], includes = [], flags = [], deps = [], hdrs = [], copts = []):
+def nasm_library(name, srcs = [], includes = [], flags = [], linkstatic = 1, **kwargs):
     for src in srcs:
         nasm_one_file(
             name = src[:-len(".asm")],
             src = src,
             includes = includes,
             flags = flags,
+            raw_includes = includes,
         )
 
     native.cc_library(
         name = name,
         srcs = [src.replace(".asm", ".o") for src in srcs],
-        hdrs = hdrs,
-        copts = copts,
-        deps = deps,
-        linkstatic = 1,
+        linkstatic = linkstatic,
+        **kwargs
     )
