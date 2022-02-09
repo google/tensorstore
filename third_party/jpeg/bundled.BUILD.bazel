@@ -1,5 +1,8 @@
 load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix", "template_rule")
 load("@com_google_tensorstore//:rules_nasm.bzl", "nasm_library")
+load("@bazel_skylib//lib:selects.bzl", "selects")
+
+package(default_visibility = ["//visibility:private"])
 
 licenses(["notice"])
 
@@ -12,10 +15,6 @@ WIN_COPTS = [
 
 libjpegturbo_copts = select({
     ":windows": WIN_COPTS,
-    "//conditions:default": [
-        "-w",
-    ],
-}) + select({
     ":armeabi-v7a": [
         "-D__ARM_NEON__",
         "-DNEON_INTRINSICS",
@@ -23,15 +22,20 @@ libjpegturbo_copts = select({
         "-mfpu=neon",
         "-mfloat-abi=softfp",
         "-fprefetch-loop-arrays",
+        "-w",
     ],
-    ":arm64-v8a": [
+    ":arm64": [
         "-DNEON_INTRINSICS",
+        "-w",
     ],
     ":linux_ppc64le": [
         "-mcpu=power8",
         "-mtune=power8",
+        "-w",
     ],
-    "//conditions:default": [],
+    "//conditions:default": [
+        "-w",
+    ],
 })
 
 cc_library_with_strip_include_prefix(
@@ -120,7 +124,7 @@ cc_library_with_strip_include_prefix(
     deps = select({
         ":k8": [":simd_x86_64"],
         ":armeabi-v7a": [":simd_armv7a"],
-        ":arm64-v8a": [":simd_armv8a"],
+        ":arm64": [":simd_armv8a"],
         ":linux_ppc64le": [":simd_altivec"],
         ":windows": [":simd_x86_64"],
         "//conditions:default": [":simd_none"],
@@ -143,7 +147,6 @@ cc_library(
         "jsimddct.h",
     ],
     copts = libjpegturbo_copts,
-    visibility = ["//visibility:private"],
 )
 
 cc_library(
@@ -153,7 +156,6 @@ cc_library(
     ],
     copts = libjpegturbo_copts,
     deps = [":simd_common"],
-    visibility = ["//visibility:private"],
 )
 
 cc_library(
@@ -183,7 +185,6 @@ cc_library(
     ],
     copts = libjpegturbo_copts,
     deps = [":simd_common"],
-    visibility = ["//visibility:private"],
 )
 
 cc_library(
@@ -201,8 +202,16 @@ cc_library(
         ":simd_x86_64_asm",
     ],
     linkstatic = 1,
-    visibility = ["//visibility:private"],
 )
+
+NASM_FLAGS = [
+    "-w+all",
+    "-D__x86_64__",
+] + select({
+    "@platforms//os:windows": ["-fwin64", "-DWIN64"],
+    "@platforms//os:macos": ["-fmacho64", "-DMACHO", "-DPIC"],
+    "//conditions:default": ["-felf64", "-DELF", "-DPIC"],
+})
 
 nasm_library(
     name = "simd_x86_64_asm",
@@ -254,10 +263,7 @@ nasm_library(
         "simd/x86_64/jdmrgext-sse2.asm",
     ],
     deps = [":simd_common"],
-    flags = select({
-        ":windows": ["-DWIN64", "-D__x86_64__", "-fwin64", "-w+all"],
-        "//conditions:default": ["-DELF", "-DPIC", "-D__x86_64__", "-felf64", "-w+all"],
-    }),
+    flags = NASM_FLAGS,
 )
 
 template_rule(
@@ -282,7 +288,6 @@ cc_library(
     name = "neon-compat_hdr",
     hdrs = ["neon-compat.h"],
     copts = libjpegturbo_copts,
-    visibility = ["//visibility:private"],
 )
 
 SRCS_SIMD_ARM = [
@@ -299,6 +304,8 @@ SRCS_SIMD_ARM = [
     "simd/arm/jidctint-neon.c",
     "simd/arm/jidctred-neon.c",
     "simd/arm/jquanti-neon.c",
+    "jconfig.h",
+    "jconfigint.h",
 ]
 
 # .c files in the following list are used like .h files in that they are
@@ -323,7 +330,6 @@ cc_library(
         "simd/arm/aarch32/jccolext-neon.c",
     ] + HDRS_SIMD_ARM,
     copts = libjpegturbo_copts,
-    visibility = ["//visibility:private"],
     deps = [
         ":neon-compat_hdr",
         ":simd_common",
@@ -341,7 +347,6 @@ cc_library(
         "simd/arm/aarch64/jccolext-neon.c",
     ] + HDRS_SIMD_ARM,
     copts = libjpegturbo_copts,
-    visibility = ["//visibility:private"],
     deps = [
         ":neon-compat_hdr",
         ":simd_common",
@@ -476,7 +481,7 @@ genrule(
         ":windows": "cp $(location jconfig_win.h) $@",
         ":k8": "cp $(location jconfig_nowin_simd.h) $@",
         ":armeabi-v7a": "cp $(location jconfig_nowin_simd.h) $@",
-        ":arm64-v8a": "cp $(location jconfig_nowin_simd.h) $@",
+        ":arm64": "cp $(location jconfig_nowin_simd.h) $@",
         ":linux_ppc64le": "cp $(location jconfig_nowin_simd.h) $@",
         "//conditions:default": "cp $(location jconfig_nowin_nosimd.h) $@",
     }),
@@ -576,16 +581,6 @@ config_setting(
 )
 
 config_setting(
-    name = "armeabi-v7a",
-    values = {"cpu": "armeabi-v7a"},
-)
-
-config_setting(
-    name = "arm64-v8a",
-    values = {"cpu": "arm64-v8a"},
-)
-
-config_setting(
     name = "windows",
     values = {"cpu": "x64_windows"},
 )
@@ -593,4 +588,40 @@ config_setting(
 config_setting(
     name = "linux_ppc64le",
     values = {"cpu": "ppc"},
+)
+
+config_setting(
+    name = "armeabi-v7a",
+    values = {"cpu": "armeabi-v7a"},
+)
+
+# arm64 variants.
+config_setting(
+    name = "cpu_aarch64",
+    values = {"cpu": "aarch64"},
+)
+
+config_setting(
+    name = "cpu_arm64_v8a",
+    values = {"cpu": "arm64-v8a"},
+)
+
+config_setting(
+    name = "cpu_darwin_arm64",
+    values = {"cpu": "darwin_arm64"},
+)
+
+config_setting(
+    name = "cpu_darwin_arm64e",
+    values = {"cpu": "darwin_arm64e"},
+)
+
+selects.config_setting_group(
+    name = "arm64",
+    match_any = [
+        ":cpu_aarch64",
+        ":cpu_arm64_v8a",
+        ":cpu_darwin_arm64",
+        ":cpu_darwin_arm64e",
+    ],
 )
