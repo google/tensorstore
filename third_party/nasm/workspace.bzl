@@ -20,10 +20,10 @@ def repo():
         third_party_http_archive,
         name = "nasm",
         urls = [
-            "https://www.nasm.us/pub/nasm/releasebuilds/2.13.03/nasm-2.13.03.tar.bz2",
+            "https://www.nasm.us/pub/nasm/releasebuilds/2.15.05/nasm-2.15.05.tar.bz2",
         ],
-        sha256 = "63ec86477ad3f0f6292325fd89e1d93aea2e2fd490070863f17d48f7cd387011",
-        strip_prefix = "nasm-2.13.03",
-        build_file = Label("//third_party:nasm/bundled.BUILD.bazel"),
+        sha256 = "3c4b8339e5ab54b1bcb2316101f8985a5da50a3f9e504d43fa6f35668bee2fd0",
+        strip_prefix = "nasm-2.15.05",
+        build_file = Label("//third_party:nasm/nasm.BUILD.bazel"),
         system_build_file = Label("//third_party:nasm/system.BUILD.bazel"),
     )
