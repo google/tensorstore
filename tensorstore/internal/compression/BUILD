@@ -260,3 +260,35 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "avif",
+    srcs = ["avif.cc"],
+    hdrs = ["avif.h"],
+    deps = [
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/functional:function_ref",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+        "@org_aomedia_avif//:avif",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "avif_test",
+    size = "small",
+    srcs = ["avif_test.cc"],
+    deps = [
+        ":avif",
+        "//tensorstore:array",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

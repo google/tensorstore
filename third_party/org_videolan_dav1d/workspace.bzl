@@ -18,20 +18,16 @@ load(
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
-# Use libpng from a github mirror rather than https://git.code.sf.net/p/libpng/code
-# since it's much easier to download.
+#   Canonical location for dav1d codec is https://code.videolan.org/videolan/dav1d
+
 def repo():
     maybe(
         third_party_http_archive,
-        # Note: The generic name "png" is used in place of the more canonical
-        # "org_libjpng" because this repository may actually refer to the
-        # system png.
-        name = "png",
+        name = "org_videolan_dav1d",
+        sha256 = "59a5fc9cc5d8ea780ad71ede6d589ed33fb5179d87780dcf80a00ee854952935",
+        strip_prefix = "dav1d-0.9.2",
         urls = [
-            "https://github.com/glennrp/libpng/archive/v1.6.37.tar.gz",
+            "https://github.com/videolan/dav1d/archive/0.9.2.tar.gz",
         ],
-        sha256 = "ca74a0dace179a8422187671aee97dd3892b53e168627145271cad5b5ac81307",
-        strip_prefix = "libpng-1.6.37",
-        build_file = Label("//third_party:png/png.BUILD.bazel"),
-        system_build_file = Label("//third_party:png/system.BUILD.bazel"),
+        build_file = Label("//third_party:org_videolan_dav1d/dav1d.BUILD.bazel"),
     )

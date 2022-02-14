@@ -1,11 +1,11 @@
 $schema: http://json-schema.org/draft-07/schema#
-$id: driver/jpeg
+$id: driver/avif
 allOf:
 - $ref: TensorStore
 - type: object
   properties:
     driver:
-      const: jpeg
+      const: avif
     dtype:
       const: uint8
       description: |
@@ -33,13 +33,18 @@ allOf:
         convenient to specify a default `~Context.data_copy_concurrency` in
         the `.context`.
       default: data_copy_concurrency
-    quality:
+    quantizer:
       type: number
-      default: 75
+      default: "0"
       description: |
-        Unused. JPEG Encoding quality in the range 0..100.
+        Unused. AVIF quantization. Lower values are higher quality.
+    speed:
+      type: number
+      default: "6"
+      description: |
+        Unused. AVIF speed setting.
   required:
   - kvstore
 examples:
-- driver: jpeg
-  "kvstore": "gs://my-bucket/path-to-image.jpg"
+- driver: avif
+  "kvstore": "gs://my-bucket/path-to-image.avif"

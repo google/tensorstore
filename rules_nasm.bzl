@@ -14,6 +14,8 @@
 
 """Functions to build a library using NASM from multiple asm files
 
+For flags, see: https://nasm.us/doc/nasmdoc2.html
+
 Example:
 
 nasm_library(
@@ -32,7 +34,7 @@ nasm_library(
 def _nasm_one_file(ctx):
     src = ctx.file.src
     out = ctx.outputs.out
-    raw_includes = ctx.attr.raw_includes
+    raw_includes = ctx.attr.raw_includes_
 
     # Compute the set of -I<> directories as the dirname of each include
     # as well as the prefix of the path to the include.
@@ -46,9 +48,10 @@ def _nasm_one_file(ctx):
     args = ctx.actions.args()
     for h in depset(includes).to_list():
         args.add("-I" + h + "/")
-
     args.add_all(ctx.attr.flags)
     args.add_all(["-o", out.path])
+    if ctx.file.pre_include:
+        args.add_all(["-p", ctx.file.pre_include.path])
     args.add(src.path)
     inputs = [src] + ctx.files.includes
     ctx.actions.run(
@@ -65,7 +68,8 @@ nasm_one_file = rule(
         "src": attr.label(allow_single_file = [".asm"]),
         "includes": attr.label_list(allow_files = True),
         "flags": attr.string_list(),
-        "raw_includes": attr.string_list(),
+        "pre_include": attr.label(allow_single_file = [".asm"]),
+        "raw_includes_": attr.string_list(),
         "_nasm": attr.label(
             default = "@nasm//:nasm",
             executable = True,
@@ -76,14 +80,15 @@ nasm_one_file = rule(
     implementation = _nasm_one_file,
 )
 
-def nasm_library(name, srcs = [], includes = [], flags = [], linkstatic = 1, **kwargs):
+def nasm_library(name, srcs = [], includes = [], flags = [], pre_include = None, linkstatic = 1, **kwargs):
     for src in srcs:
         nasm_one_file(
             name = src[:-len(".asm")],
             src = src,
             includes = includes,
             flags = flags,
-            raw_includes = includes,
+            pre_include = pre_include,
+            raw_includes_ = includes,
         )
 
     native.cc_library(

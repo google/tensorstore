@@ -1,4 +1,4 @@
-# Copyright 2021 The TensorStore Authors
+# Copyright 2020 The TensorStore Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,26 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Examples of building libavif using bazel are hard to find.
+# https://github.com/tensorflow/io
+
 load(
     "//third_party:repo.bzl",
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
-# Use libpng from a github mirror rather than https://git.code.sf.net/p/libpng/code
-# since it's much easier to download.
 def repo():
     maybe(
         third_party_http_archive,
-        # Note: The generic name "png" is used in place of the more canonical
-        # "org_libjpng" because this repository may actually refer to the
-        # system png.
-        name = "png",
+        name = "org_aomedia_avif",
         urls = [
-            "https://github.com/glennrp/libpng/archive/v1.6.37.tar.gz",
+            "https://github.com/AOMediaCodec/libavif/archive/d9cffc5f46b62aeff46eebf51449726386d6c485.tar.gz",
         ],
-        sha256 = "ca74a0dace179a8422187671aee97dd3892b53e168627145271cad5b5ac81307",
-        strip_prefix = "libpng-1.6.37",
-        build_file = Label("//third_party:png/png.BUILD.bazel"),
-        system_build_file = Label("//third_party:png/system.BUILD.bazel"),
+        strip_prefix = "libavif-d9cffc5f46b62aeff46eebf51449726386d6c485",
+        build_file = Label("//third_party:org_aomedia_avif/libavif.BUILD.bazel"),
     )

@@ -4,17 +4,15 @@ licenses(["notice"])  # BSD/MIT-like license
 
 exports_files(["LICENSE"])
 
-
 libpng_copts = select({
-        ":windows": ["-DPNG_INTEL_SSE_OPT=1"],
-        "//conditions:default": [],
-    })
+    ":windows": ["-DPNG_INTEL_SSE_OPT=1"],
+    "//conditions:default": [],
+})
 
 libpng_linkopts = select({
-        ":windows": [],
-        "//conditions:default": ["-lm"],
-    })
-
+    ":windows": [],
+    "//conditions:default": ["-lm"],
+})
 
 cc_library_with_strip_include_prefix(
     name = "png",
@@ -48,8 +46,13 @@ cc_library_with_strip_include_prefix(
             "powerpc/powerpc_init.c",
             "powerpc/filter_vsx_intrinsics.c",
         ],
-        "//conditions:default": [
+        ":arm64": [
+            "arm/arm_init.c",
+            "arm/filter_neon.S",
+            "arm/filter_neon_intrinsics.c",
+            "arm/palette_neon_intrinsics.c",
         ],
+        "//conditions:default": [],
     }),
     hdrs = [
         "png.h",
@@ -61,7 +64,6 @@ cc_library_with_strip_include_prefix(
     visibility = ["//visibility:public"],
     deps = ["@net_zlib//:zlib"],
 )
-
 
 PNG_IN_SUBSTITUTIONS = {
     "PNG_ZLIB_VERNUM 0": "PNG_ZLIB_VERNUM 0x12b0",
@@ -82,4 +84,10 @@ config_setting(
 config_setting(
     name = "linux_ppc64le",
     values = {"cpu": "ppc"},
+)
+
+# Config settings
+alias(
+    name = "arm64",
+    actual = "@com_google_tensorstore//:arm64",
 )

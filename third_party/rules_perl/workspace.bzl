@@ -18,20 +18,19 @@ load(
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
-# Use libpng from a github mirror rather than https://git.code.sf.net/p/libpng/code
-# since it's much easier to download.
+# REPO = https://github.com/bazelbuild/rules_perl/refs/head/main
+
 def repo():
     maybe(
         third_party_http_archive,
-        # Note: The generic name "png" is used in place of the more canonical
-        # "org_libjpng" because this repository may actually refer to the
-        # system png.
-        name = "png",
+        name = "rules_perl",
         urls = [
-            "https://github.com/glennrp/libpng/archive/v1.6.37.tar.gz",
+            "https://github.com/bazelbuild/rules_perl/archive/e288d228930c83081a697076f7fa8e7f08b52a3a.tar.gz",
         ],
-        sha256 = "ca74a0dace179a8422187671aee97dd3892b53e168627145271cad5b5ac81307",
-        strip_prefix = "libpng-1.6.37",
-        build_file = Label("//third_party:png/png.BUILD.bazel"),
-        system_build_file = Label("//third_party:png/system.BUILD.bazel"),
+        sha256 = "ff85afdf3e6f1cb49fdfba89c8954935598f31380134d57341ae8bcba978260a",
+        strip_prefix = "rules_perl-e288d228930c83081a697076f7fa8e7f08b52a3a",
+        patches = [
+            "//third_party:rules_perl/patches/pull_request_38.diff",
+        ],
+        patch_args = ["-p1"],
     )

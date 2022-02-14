@@ -1,0 +1,104 @@
+diff --git a/BUILD b/BUILD
+index cb50d19..06b1815 100644
+--- a/BUILD
++++ b/BUILD
+@@ -24,24 +24,40 @@ toolchain_type(
+         toolchain(
+             name = "{os}_toolchain".format(os = os),
+             exec_compatible_with = [
+-                "@platforms//os:{os}".format(os = os if os != "darwin" else "osx"),
++                "@platforms//os:{os}".format(os = os),
+                 "@platforms//cpu:x86_64",
+             ],
+             target_compatible_with = [
+-                "@platforms//os:{os}".format(os = os if os != "darwin" else "osx"),
++                "@platforms//os:{os}".format(os = os),
+                 "@platforms//cpu:x86_64",
+             ],
+-            toolchain = "{os}_toolchain_impl".format(os = os),
++            toolchain = ":{os}_toolchain_impl".format(os = os),
+             toolchain_type = ":toolchain_type",
+         ),
+     )
+     for os in [
+-        "darwin",
+         "linux",
+         "windows",
+     ]
+ ]
+ 
++perl_toolchain(
++    name = "darwin_toolchain_impl",
++    runtime = ["@perl_darwin_2level//:runtime"],
++)
++
++toolchain(
++    name = "darwin_toolchain",
++    toolchain_type = "@rules_perl//:toolchain_type",
++    exec_compatible_with = [
++        "@platforms//os:osx",
++    ],
++    target_compatible_with = [
++        "@platforms//os:osx",
++    ],
++    toolchain = ":darwin_toolchain_impl",
++)
++
+ # This rule exists so that the current perl toolchain can be used in the `toolchains` attribute of
+ # other rules, such as genrule. It allows exposing a perl_toolchain after toolchain resolution has
+ # happened, to a rule which expects a concrete implementation of a toolchain, rather than a
+
+
+diff --git a/perl/deps.bzl b/perl/deps.bzl
+index dd574e4..16b7f59 100644
+--- a/perl/deps.bzl
++++ b/perl/deps.bzl
+@@ -17,7 +17,7 @@ def perl_register_toolchains():
+     )
+ 
+     perl_download(
+-        name = "perl_darwin_amd64",
++        name = "perl_darwin_2level",
+         strip_prefix = "perl-darwin-2level",
+         sha256 = "9ede6e5200d2b69524ed8074edbcddf8c4c3e8f67a756edce133cabaa4ad2347",
+         urls = [
+
+diff --git a/perl/toolchain.bzl b/perl/toolchain.bzl
+index bffa550..bad1674 100644
+--- a/perl/toolchain.bzl
++++ b/perl/toolchain.bzl
+@@ -42,6 +42,7 @@ def _perl_toolchain_impl(ctx):
+ 
+     return [
+         platform_common.ToolchainInfo(
++            name = ctx.label.name,
+             perl_runtime = PerlRuntimeInfo(
+                 interpreter = interpreter_cmd,
+                 xsubpp = xsubpp_cmd,
+@@ -71,7 +72,7 @@ perl_toolchain = rule(
+ )
+ 
+ def _current_perl_toolchain_impl(ctx):
+-    toolchain = ctx.toolchains[str(Label("//:toolchain_type"))]
++    toolchain = ctx.toolchains["@rules_perl//:toolchain_type"]
+ 
+     return [
+         toolchain,
+@@ -80,6 +81,7 @@ def _current_perl_toolchain_impl(ctx):
+             runfiles = ctx.runfiles(
+                 files = toolchain.perl_runtime.runtime,
+             ),
++            files = depset(toolchain.perl_runtime.runtime),
+         ),
+     ]
+ 
+@@ -91,7 +93,5 @@ def _current_perl_toolchain_impl(ctx):
+ # See https://github.com/bazelbuild/bazel/issues/14009#issuecomment-921960766
+ current_perl_toolchain = rule(
+     implementation = _current_perl_toolchain_impl,
+-    toolchains = [
+-        str(Label("//:toolchain_type")),
+-    ],
++    toolchains = ["@rules_perl//:toolchain_type"],
+ )
+

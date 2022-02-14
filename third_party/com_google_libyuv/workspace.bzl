@@ -18,20 +18,15 @@ load(
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
-# Use libpng from a github mirror rather than https://git.code.sf.net/p/libpng/code
-# since it's much easier to download.
 def repo():
     maybe(
         third_party_http_archive,
-        # Note: The generic name "png" is used in place of the more canonical
-        # "org_libjpng" because this repository may actually refer to the
-        # system png.
-        name = "png",
+        name = "com_google_libyuv",
         urls = [
-            "https://github.com/glennrp/libpng/archive/v1.6.37.tar.gz",
+            "http://storage.googleapis.com/tensorstore-bazel-mirror/chromium.googlesource.com/libyuv/libyuv/+archive/2525698acba9bf9b701ba6b4d9584291a1f62257.tar.gz",
+            # "https://chromium.googlesource.com/libyuv/libyuv/+archive/2525698acba9bf9b701ba6b4d9584291a1f62257.tar.gz",
         ],
-        sha256 = "ca74a0dace179a8422187671aee97dd3892b53e168627145271cad5b5ac81307",
-        strip_prefix = "libpng-1.6.37",
-        build_file = Label("//third_party:png/png.BUILD.bazel"),
-        system_build_file = Label("//third_party:png/system.BUILD.bazel"),
+        # googlesource does not cache archive files; the sha256 is only valid for the mirror.
+        sha256 = "43dfa4511332424dfad1ce48be645bb063faf0e48f0b3e6c07c2cb308db80f9e",
+        build_file = Label("//third_party:com_google_libyuv/libyuv.BUILD.bazel"),
     )

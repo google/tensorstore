@@ -9,3 +9,9 @@ filegroup(
         "**/system.BUILD.bazel",
     ]),
 )
+
+# Expose files named *.template. This is used by the org_aomedia_aom build.
+filegroup(
+    name = "templates",
+    srcs = glob(["**/*.template"]),
+)

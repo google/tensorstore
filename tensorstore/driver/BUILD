@@ -10,6 +10,7 @@ DRIVERS = [
     "array",
     "cast",
     "downsample",
+    "image/avif",
     "image/jpeg",
     "image/png",
     "json",

@@ -74,6 +74,7 @@ tensorstore_cc_test(
         "//tensorstore:open",
         "//tensorstore:progress",
         "//tensorstore:strided_layout",
+        "//tensorstore/driver/image/avif",  # build_cleaner: keep
         "//tensorstore/driver/image/jpeg",  # build_cleaner: keep
         "//tensorstore/driver/image/png",  # build_cleaner: keep
         "//tensorstore/index_space:dim_expression",

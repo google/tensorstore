@@ -42,7 +42,4 @@ allOf:
   - kvstore
 examples:
 - driver: png
-  "kvstore":
-    driver: gcs
-    bucket: my-bucket
-    path: path/to/image.png
+  "kvstore": "gs://my-bucket/path-to-image.png"

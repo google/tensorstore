@@ -1,0 +1,25 @@
+# Description:
+#   The libyuv package provides implementation yuv image conversion, rotation
+#   and scaling.
+
+load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+exports_files(["LICENSE"])
+
+cc_library_with_strip_include_prefix(
+    name = "libyuv",
+    srcs = glob(
+        [
+            "source/*.cc",
+            "include/libyuv/*.h",
+        ],
+    ),
+    hdrs = ["include/libyuv.h"] + glob([
+        "include/libyuv/*.h",
+    ]),
+    strip_include_prefix = "include",
+)

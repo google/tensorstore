@@ -1,0 +1,543 @@
+# Bazel BUILD file for dav1d.
+#
+# Canonical location for dav1d codec is https://code.videolan.org/videolan/dav1d
+#
+load("@com_google_tensorstore//:rules_nasm.bzl", "nasm_library")
+load("@com_google_tensorstore//:utils.bzl", "template_rule")
+
+package(default_visibility = ["//visibility:private"])
+
+licenses(["notice"])  # BSD license
+
+exports_files(["COPYING"])
+
+cc_library(
+    name = "dav1d",
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-ldl"],
+    }),
+    deps = [
+        ":dav1d_core",
+        ":dav1d_entrypoints",
+        ":dav1d_16bit",
+        ":dav1d_8bit",
+        ":headers",
+    ] + select({
+        ":arm64": [],
+        "//conditions:default": [":dav1d_asm_x86"],
+    }),
+    visibility = ["//visibility:public"],
+)
+
+X86_ASM_SRCS = [
+    "src/x86/cpuid.asm",
+    "src/x86/msac.asm",
+    "src/x86/refmvs.asm",
+    "src/x86/cdef_avx2.asm",
+    "src/x86/itx_avx2.asm",
+    "src/x86/looprestoration_avx2.asm",
+    "src/x86/cdef_sse.asm",
+    "src/x86/itx_sse.asm",
+    "src/x86/cdef_avx512.asm",
+    "src/x86/mc_avx512.asm",
+    "src/x86/mc_avx2.asm",
+    "src/x86/film_grain_avx2.asm",
+    "src/x86/ipred_avx2.asm",
+    "src/x86/loopfilter_avx2.asm",
+    "src/x86/film_grain_sse.asm",
+    "src/x86/ipred_sse.asm",
+    "src/x86/loopfilter_sse.asm",
+    "src/x86/looprestoration_sse.asm",
+    "src/x86/mc_sse.asm",
+    "src/x86/cdef16_avx2.asm",
+    "src/x86/film_grain16_avx2.asm",
+    "src/x86/ipred16_avx2.asm",
+    "src/x86/itx16_avx2.asm",
+    "src/x86/loopfilter16_avx2.asm",
+    "src/x86/looprestoration16_avx2.asm",
+    "src/x86/mc16_avx2.asm",
+    "src/x86/cdef16_sse.asm",
+    "src/x86/film_grain16_sse.asm",
+    "src/x86/ipred16_sse.asm",
+    "src/x86/itx16_sse.asm",
+    "src/x86/loopfilter16_sse.asm",
+    "src/x86/looprestoration16_sse.asm",
+    "src/x86/mc16_sse.asm",
+]
+
+ARM_ASM_SRCS = [
+    "src/arm/cpu.c",
+    "src/arm/refmvs_init.c",
+    "src/arm/64/itx.S",
+    "src/arm/64/looprestoration_common.S",
+    "src/arm/64/msac.S",
+    "src/arm/64/refmvs.S",
+    "src/arm/64/cdef.S",
+    "src/arm/64/film_grain.S",
+    "src/arm/64/ipred.S",
+    "src/arm/64/loopfilter.S",
+    "src/arm/64/looprestoration.S",
+    "src/arm/64/mc.S",
+    "src/arm/64/cdef16.S",
+    "src/arm/64/film_grain16.S",
+    "src/arm/64/ipred16.S",
+    "src/arm/64/itx16.S",
+    "src/arm/64/loopfilter16.S",
+    "src/arm/64/looprestoration16.S",
+    "src/arm/64/mc16.S",
+]
+
+X86_TMPL_SRCS = [
+    "src/x86/cdef_init_tmpl.c",
+    "src/x86/film_grain_init_tmpl.c",
+    "src/x86/ipred_init_tmpl.c",
+    "src/x86/itx_init_tmpl.c",
+    "src/x86/loopfilter_init_tmpl.c",
+    "src/x86/looprestoration_init_tmpl.c",
+    "src/x86/mc_init_tmpl.c",
+]
+
+ARM_TMPL_SRCS = [
+    "src/arm/cdef_init_tmpl.c",
+    "src/arm/film_grain_init_tmpl.c",
+    "src/arm/ipred_init_tmpl.c",
+    "src/arm/itx_init_tmpl.c",
+    "src/arm/loopfilter_init_tmpl.c",
+    "src/arm/looprestoration_init_tmpl.c",
+    "src/arm/mc_init_tmpl.c",
+]
+
+# TMPL_SRCS are compiled for BITDEPTH=8 and BITDEPTH=16
+TMPL_SRCS = [
+    "src/cdef_apply_tmpl.c",
+    "src/cdef_tmpl.c",
+    "src/fg_apply_tmpl.c",
+    "src/film_grain_tmpl.c",
+    "src/ipred_prepare_tmpl.c",
+    "src/ipred_tmpl.c",
+    "src/itx_tmpl.c",
+    "src/lf_apply_tmpl.c",
+    "src/loopfilter_tmpl.c",
+    "src/looprestoration_tmpl.c",
+    "src/lr_apply_tmpl.c",
+    "src/mc_tmpl.c",
+    "src/recon_tmpl.c",
+] + select({
+    ":arm64": ARM_TMPL_SRCS,
+    "//conditions:default": X86_TMPL_SRCS,
+})
+
+ENTRYPOINT_SRCS = [
+    "src/lib.c",  #entrypoint
+    "src/thread_task.c",  # entrypoint
+]
+
+DAV1D_SRCS = [
+    "src/cdf.c",
+    "src/cpu.c",
+    "src/data.c",
+    "src/decode.c",
+    "src/dequant_tables.c",
+    "src/getbits.c",
+    "src/intra_edge.c",
+    "src/itx_1d.c",
+    "src/lf_mask.c",
+    "src/log.c",
+    "src/mem.c",
+    "src/msac.c",
+    "src/obu.c",
+    "src/picture.c",
+    "src/qm.c",
+    "src/ref.c",
+    "src/refmvs.c",
+    "src/scan.c",
+    "src/tables.c",
+    "src/warpmv.c",
+    "src/wedge.c",
+] + select({
+    "@platforms//os:windows": [
+        "src/win32/thread.c",
+    ],
+    "//conditions:default": [],
+}) + select({
+    ":arm64": ARM_ASM_SRCS,
+    "//conditions:default": [
+        "src/x86/cpu.c",
+        "src/x86/msac_init.c",
+        "src/x86/refmvs_init.c",
+    ],
+})
+
+TEXTUAL_HDRS = select({
+    ":arm64": glob(["src/*.h", "src/arm/*.h"]) + [
+        "src/arm/asm.S",
+        "src/arm/64/util.S",
+        "src/arm/64/cdef_tmpl.S",
+        "src/arm/64/looprestoration_tmpl.S",
+    ],
+    "//conditions:default": glob(["src/*.h", "src/x86/*.h"]),
+})
+
+# Notes on copts/defines for x86:
+#
+# STACK_ALIGNMENT: Misalignment (or missing flags) can cause hard to diagnose
+# errors that are a result of stack corruption.
+#
+# x86 Windows platform uses 16-byte stack alignment.
+# x86 Unix-like platforms should be configured for 32-byte stack alignment.
+# The -mstackrealign flag in :dav1d_entrypoints allows realignment to happen
+# there, so functions then rely on the proper stack alignment.
+#
+# -fvisibility=hidden: The NASM function symbols are marked .hidden, so the
+# other libraries should be built with this flag and `linkstatic = 1` in order to
+# resolve symbols properly. When the hidden symbols are not found the linker
+# may present an error like "requires dynamic R_X86_64_PC32 reloc against
+# 'dav1d_filter_intra_taps' which may overflow at runtime".
+# Try to `objdump -x` the object files to determine if that's happening.
+#
+
+MSVC_COPTS = [
+    "/W3",
+    "/wd4028",
+    "/wd4090",
+    "/wd4996",
+    "-D_POSIX_C_SOURCE=200112L",
+]
+
+COMMON_COPTS = [
+    "-std=c99",
+    "-fomit-frame-pointer",
+    "-ffast-math",
+    "-fPIC",
+    "-fvisibility=hidden",
+]
+
+ARM64_COPTS = COMMON_COPTS + [
+    "-DNEON_INTRINSICS",
+]
+
+X86_COPTS = COMMON_COPTS + [
+    "-msse2",
+    "-mfpmath=sse",
+]
+
+CLANG_ALIGN_OPTS = ["-mstack-alignment=32"]
+CLANG_REALIGN_OPTS = ["-mstackrealign"]
+GCC_ALIGN_OPTS = ["-mpreferred-stack-boundary=6"]
+GCC_REALIGN_OPTS = ["-mincoming-stack-boundary=4"]
+
+REALIGN_OPTS = select({
+    ":linux_x86_64_clang": CLANG_REALIGN_OPTS,
+    ":linux_x86_64_gcc": GCC_REALIGN_OPTS,
+    ":macos_x86_64": CLANG_REALIGN_OPTS,
+    "//conditions:default": [],
+})
+
+COPTS = select({
+    ":windows_x86_64_msvc": MSVC_COPTS,
+    ":linux_x86_64_clang": X86_COPTS + CLANG_ALIGN_OPTS + [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_GNU_SOURCE",
+    ],
+    ":linux_x86_64_gcc": X86_COPTS + GCC_ALIGN_OPTS + [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_GNU_SOURCE",
+    ],
+    ":macos_x86_64": X86_COPTS + CLANG_ALIGN_OPTS + [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_DARWIN_C_SOURCE",
+    ],
+    ":macos_arm64": ARM64_COPTS + [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_DARWIN_C_SOURCE",
+    ],
+    ":linux_arm64_clang": ARM64_COPTS + [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_GNU_SOURCE",
+    ],
+    ":linux_arm64_gcc": ARM64_COPTS + [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_GNU_SOURCE",
+    ],
+})
+
+cc_library(
+    name = "dav1d_core",
+    srcs = DAV1D_SRCS,
+    copts = COPTS,
+    textual_hdrs = TEXTUAL_HDRS,
+    deps = [
+        ":headers",
+    ],
+    alwayslink = 1,
+    linkstatic = 1,
+)
+
+cc_library(
+    name = "dav1d_entrypoints",
+    srcs = ENTRYPOINT_SRCS,
+    textual_hdrs = TEXTUAL_HDRS,
+    deps = [":headers"],
+    copts = COPTS + REALIGN_OPTS,
+    alwayslink = 1,
+    linkstatic = 1,
+)
+
+cc_library(
+    name = "dav1d_8bit",
+    srcs = TMPL_SRCS,
+    textual_hdrs = TEXTUAL_HDRS,
+    copts = COPTS + [
+        "-DBITDEPTH=8",
+    ],
+    deps = [":headers"],
+    alwayslink = 1,
+    linkstatic = 1,
+)
+
+cc_library(
+    name = "dav1d_16bit",
+    srcs = TMPL_SRCS,
+    textual_hdrs = TEXTUAL_HDRS,
+    copts = COPTS + [
+        "-DBITDEPTH=16",
+    ],
+    deps = [":headers"],
+    alwayslink = 1,
+    linkstatic = 1,
+)
+
+NASM_FLAGS = [
+    "-w-macro-params-legacy",
+    "-w-orphan-labels",
+] + select({
+    "@platforms//os:windows": ["-fwin64"],
+    "@platforms//os:macos": ["-fmacho64"],
+    "//conditions:default": ["-felf64"],
+})
+
+nasm_library(
+    name = "dav1d_asm_x86",
+    srcs = X86_ASM_SRCS,
+    includes = [
+        "build/config.asm",
+        "src/ext/x86/x86inc.asm",
+        "src/meson.build",  # To get -Isrc/, as that is the root of the exports.
+    ],
+    flags = [
+        "-s",
+        "-w-macro-params-legacy",
+        "-w-orphan-labels",
+    ] + select({
+        "@platforms//os:windows": ["-fwin64"],
+        "@platforms//os:macos": ["-fmacho64"],
+        "//conditions:default": ["-felf64"],
+    }),
+    linkstatic = 1,
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "headers",
+    hdrs = [
+        "build/config.h",
+        "build/vcs_version.h",
+        "build/version.h",
+        "include/dav1d/common.h",
+        "include/dav1d/data.h",
+        "include/dav1d/dav1d.h",
+        "include/dav1d/headers.h",
+        "include/dav1d/picture.h",
+        "include/common/attributes.h",
+        "include/common/intops.h",
+        "include/common/frame.h",
+        "include/common/validate.h",
+        # "include/compat/getopt.h",
+        "include/common/bitdepth.h",
+        "include/common/dump.h",
+        "include/compat/msvc/stdatomic.h",
+        # "include/compat/gcc/stdatomic.h",
+    ],
+    includes = [
+        "build",
+        "include",
+        "include/dav1d",
+    ] + select({
+        "@platforms//os:windows": ["include/compat/msvc"],
+        "//conditions:default": [],
+    }),
+    copts = COPTS,
+)
+
+template_rule(
+    name = "build_version_h",
+    src = "include/dav1d/version.h.in",
+    out = "build/version.h",
+    substitutions = {
+        "@DAV1D_API_VERSION_MAJOR@": "5",
+        "@DAV1D_API_VERSION_MINOR@": "1",
+        "@DAV1D_API_VERSION_PATCH@": "1",
+    },
+)
+
+template_rule(
+    name = "build_vcs_version_h",
+    src = "include/vcs_version.h.in",
+    out = "build/vcs_version.h",
+    substitutions = {
+        "@VCS_TAG@": "0.9.2",
+    },
+)
+
+X86_64_CONFIG_ASM = "\n\n".join([
+    "; Generated by dav1d.BUILD.bazel",
+    "%define ARCH_X86_32 0",
+    "%define ARCH_X86_64 1",
+    "%define HAVE_AVX512ICL 0",
+    "%define PIC 1",
+    "%define private_prefix dav1d",
+    "",
+])
+
+ALIGN32_CONFIG_ASM = "\n\n".join([
+    "%define STACK_ALIGNMENT 32",
+    "",
+])
+
+ALIGN16_CONFIG_ASM = "\n\n".join([
+    "%define STACK_ALIGNMENT 16",
+    "",
+])
+
+DARWIN_CONFIG_ASM = "\n\n".join([
+    "%define STACK_ALIGNMENT 32",
+    "%define PREFIX 1",
+    "",
+])
+
+CONFIG_ASM = select({
+    "@platforms//os:windows": X86_64_CONFIG_ASM + ALIGN16_CONFIG_ASM,
+    "@platforms//os:macos": X86_64_CONFIG_ASM + DARWIN_CONFIG_ASM,
+    "//conditions:default": X86_64_CONFIG_ASM + ALIGN32_CONFIG_ASM,
+})
+
+genrule(
+    name = "config_asm",
+    outs = ["build/config.asm"],
+    cmd = "cat <<'EOF' >$@ \n" + CONFIG_ASM + "\nEOF\n",
+)
+
+CONFIG_START_H = "\n".join([
+    "// Autogenerated by dav1d.BUILD.bazel",
+    "#ifndef _DAV1D_CONFIG_H_",
+    "#define _DAV1D_CONFIG_H_",
+    "#pragma once",
+    "",
+])
+
+X86_64_CONFIG_H = "\n".join([
+    "#define ARCH_AARCH64 0",
+    "#define ARCH_ARM 0",
+    "#define ARCH_X86 1",
+    "#define ARCH_X86_32 0",
+    "#define ARCH_X86_64 1",
+    "#define HAVE_AVX512ICL 0",
+    "#define ARCH_PPC64LE 0",
+    "",
+    "#define HAVE_ASM 1",
+    "",
+])
+
+ALIGN32_CONFIG_H = "\n#define STACK_ALIGNMENT 32\n"
+ALIGN16_CONFIG_H = "\n#define STACK_ALIGNMENT 16\n"
+
+DARWIN_CONFIG_H = "\n#define PREFIX 1\n"
+
+ARM64_CONFIG_H = "\n".join([
+    "#pragma once",
+    "",
+    "#define ARCH_AARCH64 1",
+    "#define ARCH_ARM 0",
+    "#define ARCH_X86 0",
+    "#define ARCH_X86_32 0",
+    "#define ARCH_X86_64 0",
+    "#define ARCH_PPC64LE 0",
+    "",
+    "#define HAVE_ASM 1",
+    "#define HAVE_AS_FUNC 0",
+    "",
+])
+
+CONFIG_END_H = "\n".join([
+    "",
+    "#define CONFIG_16BPC 1",
+    "#define CONFIG_8BPC 1",
+    "#define CONFIG_LOG 0",
+    "#define ENDIANNESS_BIG 0",
+    "",
+    "#if defined(_MSC_VER)",
+    "#  define HAVE_ALIGNED_MALLOC 1",
+    "#  define HAVE_IO_H 1",
+    "#  define UNICODE 1",
+    "#  define _CRT_DECLARE_NONSTDC_NAMES 1",
+    "#  define _UNICODE 1",
+    "#  define fseeko _fseeki64",
+    "#  define ftello _ftelli64",
+    "#else",
+    "#  define HAVE_CLOCK_GETTIME 1",
+    "#  define HAVE_DLSYM 1",
+    "#  define HAVE_POSIX_MEMALIGN 1",
+    "#  define HAVE_UNISTD_H 1",
+    "#endif",
+    "",
+    "#endif  // _DAV1D_CONFIG_H_",
+    "",
+])
+
+CONFIG_H = CONFIG_START_H + select({
+    ":linux_x86_64_clang": X86_64_CONFIG_H + ALIGN32_CONFIG_H,
+    ":linux_arm64_clang": ARM64_CONFIG_H,
+    ":linux_x86_64_gcc": X86_64_CONFIG_H + ALIGN32_CONFIG_H,
+    ":linux_arm64_gcc": ARM64_CONFIG_H,
+    ":macos_x86_64": X86_64_CONFIG_H + ALIGN32_CONFIG_H + DARWIN_CONFIG_H,
+    ":macos_arm64": ARM64_CONFIG_H + DARWIN_CONFIG_H,
+    ":windows_x86_64_msvc": X86_64_CONFIG_H + ALIGN16_CONFIG_H,
+    "//conditions:default": "#error \"bad config\"",
+}) + CONFIG_END_H
+
+genrule(
+    name = "config_h",
+    outs = ["build/config.h"],
+    cmd = "cat <<'EOF' >$@ \n" + CONFIG_H + "\nEOF\n",
+)
+
+# Config settings
+[
+    alias(
+        name = name,
+        actual = "@com_google_tensorstore//:{target}".format(target = name),
+    )
+    for name in [
+        "linux_x86_64_clang",
+        "linux_arm64_clang",
+        "linux_x86_64_gcc",
+        "linux_arm64_gcc",
+        "macos_x86_64",
+        "macos_arm64",
+        "windows_x86_64_msvc",
+        "arm64",
+        "x86_64",
+    ]
+]
+
+# This shared library aids in debugging shared library builds for dav1d, which
+# happens when bundling with tensorstore.so python extension.
+# @org_videolan_dav1d//:dav1d_shared
+cc_binary(
+    name = "dav1d_shared",
+    deps = [
+        ":dav1d",
+    ],
+    linkshared = 1,
+)
