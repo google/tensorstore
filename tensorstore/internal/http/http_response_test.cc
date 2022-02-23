@@ -117,7 +117,7 @@ TEST(HttpResponseCodeToStatusTest, AllCodes) {
               HttpResponseCodeToStatus({code, {}, {}}).code())
         << code;
   }
-  for (auto code : {308, 409, 429, 500, 502, 503, 504}) {
+  for (auto code : {308, 408, 409, 429, 500, 502, 503, 504}) {
     seen.insert(code);
     EXPECT_EQ(absl::StatusCode::kUnavailable,
               HttpResponseCodeToStatus({code, {}, {}}).code())

@@ -32,8 +32,9 @@ bool DefaultIsRetriable(const Status& status);
 /// up to max_delay_time.
 Status RetryWithBackoff(
     std::function<Status()> function, int max_retries,
-    absl::Duration initial_delay_time = absl::Milliseconds(10),
-    absl::Duration max_delay_time = absl::Seconds(1),
+    absl::Duration initial_delay,  // GCS recommends absl::Seconds(1)
+    absl::Duration max_delay,      // GCS recommends absl::Seconds(32)
+    absl::Duration jitter,         // GCS recommends absl::Seconds(1)
     std::function<bool(const Status&)> is_retriable = DefaultIsRetriable);
 
 }  // namespace internal

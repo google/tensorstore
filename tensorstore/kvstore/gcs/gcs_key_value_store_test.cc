@@ -81,14 +81,15 @@ class MetadataMockTransport : public HttpTransport {
     auto parsed = tensorstore::internal::ParseGenericUri(request.url());
 
     if (!absl::StartsWith(parsed.authority_and_path,
-                          "metadata.google.internal/")) {
+                          "metadata.google.internal")) {
       return absl::UnimplementedError("Mock cannot satisfy the request.");
     }
 
     // Respond with the GCE OAuth2 token
-    if (parsed.authority_and_path ==
-        "metadata.google.internal/computeMetadata/v1/instance/"
-        "service-accounts/user@nowhere.com/token") {
+    constexpr char kOAuthPath[] =
+        "metadata.google.internal/computeMetadata/v1/"
+        "instance/service-accounts/user@nowhere.com/token";
+    if (absl::StartsWith(parsed.authority_and_path, kOAuthPath)) {
       return HttpResponse{
           200,
           absl::Cord(
@@ -96,10 +97,10 @@ class MetadataMockTransport : public HttpTransport {
     }
 
     // Respond with the GCE context metadata.
-    if (absl::StartsWith(parsed.authority_and_path,
-                         "metadata.google.internal/computeMetadata/v1/instance/"
-                         "service-accounts/"
-                         "default/?recursive=true")) {
+    constexpr char kServiceAccountPath[] =
+        "metadata.google.internal/computeMetadata/v1/"
+        "instance/service-accounts/default/";
+    if (absl::StartsWith(parsed.authority_and_path, kServiceAccountPath)) {
       return HttpResponse{
           200, absl::Cord(
                    R"({ "email": "user@nowhere.com", "scopes": [ "test" ] })")};
@@ -145,8 +146,17 @@ struct DefaultHttpTransportSetter {
   }
 };
 
+Context DefaultTestContext() {
+  // Opens the gcs driver with small exponential backoff values.
+  return Context{Context::Spec::FromJson({{"gcs_request_retries",
+                                           {{"max_retries", 3},
+                                            {"initial_delay", "1ms"},
+                                            {"max_delay", "10ms"}}}})
+                     .value()};
+}
+
 TEST(GcsKeyValueStoreTest, BadBucketNames) {
-  auto context = Context::Default();
+  auto context = DefaultTestContext();
   for (auto bucket :
        {"a", "_abc", "abc_", "ABC", "a..b", "a.-.b",
         "a."
@@ -173,7 +183,7 @@ TEST(GcsKeyValueStoreTest, BadObjectNames) {
   GCSMockStorageBucket bucket("my-bucket");
   mock_transport->buckets_.push_back(&bucket);
 
-  auto context = Context::Default();
+  auto context = DefaultTestContext();
 
   // https://www.googleapis.com/kvstore/v1/b/my-project/o/test
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -208,7 +218,7 @@ TEST(GcsKeyValueStoreTest, Basic) {
   GCSMockStorageBucket bucket("my-bucket");
   mock_transport->buckets_.push_back(&bucket);
 
-  auto context = Context::Default();
+  auto context = DefaultTestContext();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
@@ -223,6 +233,8 @@ TEST(GcsKeyValueStoreTest, Basic) {
 TEST(GcsKeyValueStoreTest, Retry) {
   for (int max_retries : {2, 3, 4}) {
     for (bool fail : {false, true}) {
+      TENSORSTORE_LOG(max_retries, fail ? " fail" : " success");
+
       // Setup mocks for:
       // https://www.googleapis.com/kvstore/v1/b/my-bucket/o/test
       auto mock_transport = std::make_shared<MyMockTransport>();
@@ -233,14 +245,17 @@ TEST(GcsKeyValueStoreTest, Retry) {
 
       auto context = Context::Default();
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-          auto store,
-          kvstore::Open(
-              {{"driver", "gcs"},
-               {"bucket", "my-bucket"},
-               {"context",
-                {{"gcs_request_retries", {{"max_retries", max_retries}}}}}},
-              context)
-              .result());
+          auto store, kvstore::Open({{"driver", "gcs"},
+                                     {"bucket", "my-bucket"},
+                                     {"context",
+                                      {
+                                          {"gcs_request_retries",
+                                           {{"max_retries", max_retries},
+                                            {"initial_delay", "1ms"},
+                                            {"max_delay", "10ms"}}},
+                                      }}},
+                                    context)
+                          .result());
       if (fail) {
         bucket.TriggerErrors(max_retries);
         EXPECT_THAT(kvstore::Read(store, "x").result(),
@@ -262,7 +277,7 @@ TEST(GcsKeyValueStoreTest, List) {
   GCSMockStorageBucket bucket("my-bucket");
   mock_transport->buckets_.push_back(&bucket);
 
-  auto context = Context::Default();
+  auto context = DefaultTestContext();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
@@ -406,7 +421,7 @@ TEST(GcsKeyValueStoreTest, InvalidSpec) {
   auto mock_transport = std::make_shared<MyMockTransport>();
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
 
-  auto context = tensorstore::Context::Default();
+  auto context = DefaultTestContext();
 
   // Test with extra key.
   EXPECT_THAT(
@@ -437,13 +452,29 @@ TEST(GcsKeyValueStoreTest, RequestorPays) {
 
   const auto TestWrite = [&](Context context, auto bucket2_status_matcher) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto store1,
-        kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket1"}}, context)
-            .result());
+        auto store1, kvstore::Open({{"driver", "gcs"},
+                                    {"bucket", "my-bucket1"},
+                                    {"context",
+                                     {
+                                         {"gcs_request_retries",
+                                          {{"max_retries", 3},
+                                           {"initial_delay", "1ms"},
+                                           {"max_delay", "10ms"}}},
+                                     }}},
+                                   context)
+                         .result());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto store2,
-        kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket2"}}, context)
-            .result());
+        auto store2, kvstore::Open({{"driver", "gcs"},
+                                    {"bucket", "my-bucket2"},
+                                    {"context",
+                                     {
+                                         {"gcs_request_retries",
+                                          {{"max_retries", 3},
+                                           {"initial_delay", "1ms"},
+                                           {"max_delay", "10ms"}}},
+                                     }}},
+                                   context)
+                         .result());
     TENSORSTORE_EXPECT_OK(kvstore::Write(store1, "abc", absl::Cord("xyz")));
     EXPECT_THAT(GetStatus(kvstore::Write(store2, "abc", absl::Cord("xyz"))),
                 bucket2_status_matcher);
@@ -520,12 +551,14 @@ TEST(GcsKeyValueStoreTest, Concurrency) {
 
   const auto TestConcurrency = [&](size_t limit) {
     mock_transport->reset(limit);
-    Context context{Context::Spec::FromJson(
-                        {{"gcs_request_concurrency", {{"limit", limit}}}})
-                        .value()};
+    auto context = DefaultTestContext();
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store,
-        kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+        kvstore::Open(
+            {{"driver", "gcs"},
+             {"bucket", "my-bucket"},
+             {"context", {{"gcs_request_concurrency", {{"limit", limit}}}}}},
+            context)
             .result());
 
     std::vector<tensorstore::Future<kvstore::ReadResult>> futures;
@@ -550,7 +583,7 @@ TEST(GcsKeyValueStoreTest, DeletePrefix) {
   GCSMockStorageBucket bucket("my-bucket");
   mock_transport->buckets_.push_back(&bucket);
 
-  auto context = Context::Default();
+  auto context = DefaultTestContext();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
@@ -565,7 +598,7 @@ TEST(GcsKeyValueStoreTest, DeleteRange) {
   GCSMockStorageBucket bucket("my-bucket");
   mock_transport->buckets_.push_back(&bucket);
 
-  auto context = Context::Default();
+  auto context = DefaultTestContext();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
@@ -580,7 +613,7 @@ TEST(GcsKeyValueStoreTest, DeleteRangeToEnd) {
   GCSMockStorageBucket bucket("my-bucket");
   mock_transport->buckets_.push_back(&bucket);
 
-  auto context = Context::Default();
+  auto context = DefaultTestContext();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
@@ -595,7 +628,7 @@ TEST(GcsKeyValueStoreTest, DeleteRangeFromBeginning) {
   GCSMockStorageBucket bucket("my-bucket");
   mock_transport->buckets_.push_back(&bucket);
 
-  auto context = Context::Default();
+  auto context = DefaultTestContext();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
@@ -629,7 +662,7 @@ TEST(GcsKeyValueStoreTest, DeleteRangeCancellation) {
   GCSMockStorageBucket bucket("my-bucket");
   mock_transport->buckets_.push_back(&bucket);
 
-  auto context = Context::Default();
+  auto context = DefaultTestContext();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       kvstore::Open(
@@ -652,9 +685,9 @@ TEST(GcsKeyValueStoreTest, DeleteRangeCancellation) {
   }
   mock_transport->cancellation_notification_.Notify();
   // FIXME(jbms): Unfortunately our cancellation mechanism does not permit
-  // waiting for the cancellation to complete, so we must use a delay as a hack.
-  // Note that if the delay is not long enough, the test may pass spuriously,
-  // but it won't fail spuriously.
+  // waiting for the cancellation to complete, so we must use a delay as a
+  // hack. Note that if the delay is not long enough, the test may pass
+  // spuriously, but it won't fail spuriously.
   absl::SleepFor(absl::Milliseconds(100));
   EXPECT_GE(1, mock_transport->total_delete_requests_.load());
   EXPECT_THAT(ListFuture(store).result(),
@@ -668,7 +701,7 @@ TEST(GcsKeyValueStoreTest, StaleResponse) {
   GCSMockStorageBucket bucket("my-bucket");
   mock_transport->buckets_.push_back(&bucket);
 
-  auto context = Context::Default();
+  auto context = DefaultTestContext();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
@@ -678,9 +711,9 @@ TEST(GcsKeyValueStoreTest, StaleResponse) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto stamp1, kvstore::Write(store, "a", absl::Cord("xyz")).result());
   auto intermediate1 = tensorstore::internal::UniqueNow();
-  // Since staleness bounds are encoded via integer number of `max-age` seconds,
-  // and date header is also in seconds, ensure there is at least a 2 second
-  // gap.
+  // Since staleness bounds are encoded via integer number of `max-age`
+  // seconds, and date header is also in seconds, ensure there is at least a 2
+  // second gap.
   absl::SleepFor(absl::Seconds(2));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto stamp2, kvstore::Write(store, "a", absl::Cord("abc")).result());

@@ -92,7 +92,8 @@ bool IsRunningOnGce(internal_http::HttpTransport* transport) {
     return internal_http::HttpResponseCodeToStatus(response);
   };
   auto status = internal::RetryWithBackoff(
-      issue_request, 3, absl::Milliseconds(10), absl::Seconds(1));
+      issue_request, 3, /*initial_delay=*/absl::Milliseconds(10),
+      /*max_delay=*/absl::Seconds(1), /*jitter=*/absl::Milliseconds(10));
 
   return status.ok();
 }

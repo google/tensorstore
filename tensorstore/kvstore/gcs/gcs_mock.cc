@@ -131,6 +131,7 @@ GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
 
   absl::MutexLock l(&mutex_);
 
+  // https://cloud.google.com/storage/docs/request-rate
   // GCS can "randomly" return an HTTP 429.
   // In actuality, a 429 is based on the request rate for a resource, etc.
   bool trigger_error = false;

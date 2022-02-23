@@ -39,14 +39,17 @@ bool DefaultIsRetriable(const absl::Status& status) {
 
 absl::Status RetryWithBackoff(
     std::function<absl::Status()> function, int max_retries,
-    absl::Duration initial_delay_time, absl::Duration max_delay_time,
+    absl::Duration initial_delay, absl::Duration max_delay,
+    absl::Duration jitter,
     std::function<bool(const absl::Status&)> is_retriable) {
-  assert(initial_delay_time >= absl::ZeroDuration());
-  assert(max_delay_time >= initial_delay_time);
+  assert(initial_delay > absl::ZeroDuration());
+  assert(max_delay >= initial_delay);
   assert(max_retries >= 0);
 
   std::optional<absl::BitGen> rng;
   absl::Status status;
+
+  int64_t multiple = 1;
   for (int retries = 0; retries < max_retries; retries++) {
     status = function();
     if (status.ok() || !is_retriable(status)) {
@@ -54,16 +57,14 @@ absl::Status RetryWithBackoff(
     }
 
     // Compute backoff.
-    auto delay = absl::ZeroDuration();
-    if (initial_delay_time > absl::ZeroDuration()) {
-      int64_t jitter = ToInt64Microseconds(initial_delay_time) *
-                       ((retries > 1) ? (1 << (retries - 1)) : 1);
-      jitter = std::max(jitter, static_cast<int64_t>(1000));
-      delay = initial_delay_time * (1 << retries);
+    auto delay = initial_delay * multiple;
+    multiple <<= 1;
+    if (jitter >= absl::Microseconds(1)) {
       if (!rng) rng.emplace();
-      delay += absl::Microseconds(absl::Uniform(*rng, 0, jitter));
-      if (delay > max_delay_time) delay = max_delay_time;
+      delay += absl::Microseconds(
+          absl::Uniform(*rng, 0, absl::ToInt64Microseconds(jitter)));
     }
+    if (delay > max_delay) delay = max_delay;
 
     // NOTE: Figure out a way to enable better logging when we want it.
     if (false) {

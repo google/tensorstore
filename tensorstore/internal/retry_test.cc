@@ -39,7 +39,8 @@ TEST(RetryTest, ImmediateSuccess) {
   };
 
   auto status =
-      RetryWithBackoff(f, 1, absl::ZeroDuration(), absl::ZeroDuration());
+      RetryWithBackoff(f, 1, absl::Microseconds(1), absl::Microseconds(1),
+                       /*jitter=*/absl::ZeroDuration());
   EXPECT_TRUE(status.ok());
   EXPECT_TRUE(results.empty());
 }
@@ -51,7 +52,9 @@ TEST(RetryTest, NeverSuccess) {
     return absl::UnavailableError("Not available.");
   };
 
-  auto status = RetryWithBackoff(f, 100, absl::ZeroDuration());
+  auto status =
+      RetryWithBackoff(f, 100, absl::Microseconds(1), absl::Microseconds(1),
+                       /*jitter=*/absl::ZeroDuration());
   EXPECT_FALSE(status.ok());
   EXPECT_EQ(100, calls);
 }
@@ -68,7 +71,8 @@ TEST(RetryTest, EventualSuccess_NoSleep) {
   };
 
   auto status =
-      RetryWithBackoff(f, 10, absl::ZeroDuration(), absl::ZeroDuration());
+      RetryWithBackoff(f, 10, absl::Microseconds(1), absl::Microseconds(1),
+                       /*jitter=*/absl::ZeroDuration());
   EXPECT_TRUE(status.ok());
   EXPECT_TRUE(results.empty());
 }
@@ -85,7 +89,8 @@ TEST(RetryTest, EventualSuccess_Sleep) {
   };
   auto before = absl::Now();
   auto status =
-      RetryWithBackoff(f, 10, absl::Microseconds(10), absl::Microseconds(100));
+      RetryWithBackoff(f, 10, absl::Microseconds(10), absl::Microseconds(100),
+                       /*jitter=*/absl::Microseconds(1));
   auto after = absl::Now();
 
   EXPECT_TRUE(status.ok());

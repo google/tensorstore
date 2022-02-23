@@ -70,6 +70,8 @@ definitions:
     $id: Context.gcs_request_retries
     description: |
       Specifies retry parameters for handling transient network errors.
+      An exponential delay is added between consecutive retry attempts. The
+      default values are appropriate for GCS.
     type: object
     properties:
       max_retries:
@@ -78,6 +80,16 @@ definitions:
         description: >-
           Maximum number of attempts in the case of transient errors.
         default: 32
+      initial_delay:
+        type: string
+        description: >-
+          Initial backoff delay for transient errors.
+        default: "1s"
+      max_delay:
+        type: string
+        description: >-
+          Maximum backoff delay for transient errors.
+        default: "32s"
   url:
     $id: KvStoreUrl/gs
     allOf:

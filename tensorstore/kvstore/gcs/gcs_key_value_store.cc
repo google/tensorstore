@@ -32,6 +32,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/internal/absl_time_json_binder.h"
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/concurrency_resource_provider.h"
 #include "tensorstore/internal/env.h"
@@ -130,15 +131,28 @@ struct GcsRequestRetries
   static constexpr char id[] = "gcs_request_retries";
   struct Spec {
     int64_t max_retries = 32;
+    absl::Duration initial_delay = absl::Seconds(1);
+    absl::Duration max_delay = absl::Seconds(32);
   };
   using Resource = Spec;
   static Spec Default() { return {}; }
   static constexpr auto JsonBinder() {
     return jb::Object(
-        jb::Member("max_retries",
+        jb::Member("max_retries",  //
                    jb::Projection(&Spec::max_retries,
                                   jb::DefaultValue([](auto* v) { *v = 32; },
-                                                   jb::Integer<int64_t>(1)))));
+                                                   jb::Integer<int64_t>(1)))),
+        jb::Member(
+            "initial_delay",  //
+            jb::Projection(&Spec::initial_delay, jb::DefaultValue([](auto* v) {
+              *v = absl::Seconds(1);
+            }))),
+        jb::Member(
+            "max_delay",  //
+            jb::Projection(&Spec::max_delay, jb::DefaultValue([](auto* v) {
+              *v = absl::Seconds(32);
+            }))) /**/
+    );
   }
   static Result<Resource> Create(
       const Spec& spec, internal::ContextResourceCreationContext context) {
@@ -422,10 +436,12 @@ class GcsKeyValueStore
     return result;
   }
 
+  // https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
   absl::Status RetryRequestWithBackoff(std::function<absl::Status()> function) {
     return internal::RetryWithBackoff(
         std::move(function), spec_.retries->max_retries,
-        absl::Milliseconds(100), absl::Seconds(5), IsRetriable);
+        spec_.retries->initial_delay, spec_.retries->max_delay,
+        spec_.retries->initial_delay, IsRetriable);
   }
 
   SpecData spec_;
