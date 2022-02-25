@@ -136,7 +136,6 @@ tensorstore_cc_library(
     ],
     deps = [
         ":json",
-        ":poly",
         ":thread_pool",
         ":type_traits",
         "//tensorstore:context",
@@ -892,8 +891,8 @@ tensorstore_cc_library(
         ":intrusive_ptr",
         ":json",
         ":logging",
-        ":poly",
         "//tensorstore:json_serialization_options",
+        "//tensorstore/internal/poly",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
@@ -1598,7 +1597,6 @@ tensorstore_cc_library(
         ":intrusive_ptr",
         ":mutex",
         ":no_destructor",
-        ":poly",
         "//tensorstore/util:assert_macros",
         "//tensorstore/util:executor",
         "@com_google_absl//absl/base:core_headers",
@@ -1660,28 +1658,6 @@ tensorstore_cc_test(
     srcs = ["path_test.cc"],
     deps = [
         ":path",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "poly",
-    srcs = [
-        "poly.cc",
-        "poly_impl.h",
-    ],
-    hdrs = ["poly.h"],
-    deps = [":type_traits"],
-)
-
-tensorstore_cc_test(
-    name = "poly_test",
-    size = "small",
-    srcs = ["poly_test.cc"],
-    deps = [
-        ":poly",
-        "//tensorstore/util:result",
-        "@com_google_absl//absl/functional:function_ref",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -1853,7 +1829,6 @@ tensorstore_cc_library(
     testonly = 1,
     srcs = ["thread_pool_test.cc"],
     deps = [
-        ":poly",
         "//tensorstore/util:executor",
         "@com_google_absl//absl/synchronization",
         "@com_google_googletest//:gtest_main",

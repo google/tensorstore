@@ -310,8 +310,8 @@ tensorstore_cc_library(
     hdrs = ["executor.h"],
     deps = [
         "//tensorstore/internal:attributes",
-        "//tensorstore/internal:poly",
         "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/poly",
     ],
 )
 
@@ -576,7 +576,7 @@ tensorstore_cc_library(
     deps = [
         ":execution",
         ":executor",
-        "//tensorstore/internal:poly",
+        "//tensorstore/internal/poly",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/utility",
     ],
@@ -591,7 +591,6 @@ tensorstore_cc_test(
         ":executor",
         ":sender",
         ":sender_testutil",
-        "//tensorstore/internal:poly",
         "@com_google_googletest//:gtest_main",
     ],
 )

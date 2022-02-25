@@ -62,7 +62,6 @@
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
-#include "tensorstore/internal/poly.h"
 #include "tensorstore/internal/staleness_bound_json_binder.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/driver.h"

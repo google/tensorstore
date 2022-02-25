@@ -27,7 +27,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:json",
         "//tensorstore/internal:os_error_code",
         "//tensorstore/internal:path",
-        "//tensorstore/internal:poly",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/cache:cache_key",
         "//tensorstore/kvstore",

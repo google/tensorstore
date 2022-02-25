@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/poly.h"
+#include "tensorstore/internal/poly/poly.h"
 
 #include <functional>
 #include <memory>
@@ -26,10 +26,10 @@
 #include "tensorstore/util/result.h"
 
 namespace {
-using tensorstore::internal::Poly;
 using tensorstore::internal_poly::CallPolyApplyResult;
 using tensorstore::internal_poly::HasPolyApply;
 using tensorstore::internal_poly::IsCallPolyApplyResultConvertible;
+using tensorstore::poly::Poly;
 
 struct GetWidth {};
 struct GetHeight {};
@@ -71,6 +71,48 @@ TEST(PolyTest, Example) {
   rect(Scale{}, 2);
   EXPECT_EQ(12, rect(GetWidth{}));
   EXPECT_EQ(14, rect(GetHeight{}));
+}
+
+TEST(PolyTest, Interface) {
+  // Using poly to define a golang-style interface type.
+  // The drawback to this is that the methods have to be defined as operator()
+  // overload sets, and Poly cannot detect named functions.
+  class RectangleInterface {
+   public:
+    RectangleInterface(PolyRectangle poly) : poly(std::move(poly)) {}
+    operator PolyRectangle() { return poly; }
+
+    double GetHeight() const { return poly(::GetHeight{}); }
+    double GetWidth() const { return poly(::GetWidth{}); }
+    double GetArea() const { return GetHeight() * GetWidth(); }
+
+    void Scale(double scalar) { poly(::Scale{}, scalar); }
+
+   private:
+    PolyRectangle poly;
+  };
+
+  // No heap allocation because `sizeof(Square) <= sizeof(double)`.
+  {
+    RectangleInterface rect(Square{5});
+    EXPECT_EQ(5, rect.GetWidth());
+    EXPECT_EQ(5, rect.GetHeight());
+    EXPECT_EQ(25, rect.GetArea());
+    rect.Scale(2);
+    EXPECT_EQ(10, rect.GetWidth());
+    EXPECT_EQ(10, rect.GetHeight());
+  }
+
+  // Heap-allocated because `sizeof(Rectangle) > sizeof(double)`.
+  {
+    RectangleInterface rect(Rectangle{6, 7});
+    EXPECT_EQ(6, rect.GetWidth());
+    EXPECT_EQ(7, rect.GetHeight());
+    EXPECT_EQ(42, rect.GetArea());
+    rect.Scale(2);
+    EXPECT_EQ(12, rect.GetWidth());
+    EXPECT_EQ(14, rect.GetHeight());
+  }
 }
 
 std::string Foo(Poly<0, true, std::string()> poly) { return "Text: " + poly(); }

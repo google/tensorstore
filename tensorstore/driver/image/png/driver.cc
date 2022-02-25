@@ -26,7 +26,6 @@
 #include "tensorstore/internal/compression/png.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/memory.h"
-#include "tensorstore/internal/poly.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/result.h"

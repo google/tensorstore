@@ -91,7 +91,7 @@
 #include "tensorstore/internal/cache/cache_pool_limits.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
-#include "tensorstore/internal/poly.h"
+#include "tensorstore/internal/poly/poly.h"
 
 namespace tensorstore {
 namespace internal {
@@ -253,7 +253,7 @@ class CacheEntry : private internal_cache::CacheEntryImpl {
   /// Specifies an optional size update to be done with an optional lock
   /// hand-off.
   struct SizeUpdate {
-    using Lock = Poly<0, /*Copyable=*/false>;
+    using Lock = poly::Poly<0, /*Copyable=*/false>;
 
     /// Object whose destructor releases the lock that protects the entry state
     /// "S" corresponding to `new_size`.

@@ -92,19 +92,18 @@
 ///   Folly Poly:
 ///   https://github.com/facebook/folly/blob/master/folly/docs/Poly.md
 
-#ifndef TENSORSTORE_INTERNAL_POLY_H_
-#define TENSORSTORE_INTERNAL_POLY_H_
+#ifndef TENSORSTORE_INTERNAL_POLY_POLY_H_
+#define TENSORSTORE_INTERNAL_POLY_POLY_H_
 
 #include <cstddef>
 #include <type_traits>
 #include <typeinfo>
 #include <utility>
 
-#include "tensorstore/internal/poly_impl.h"  // IWYU pragma: export
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/poly/poly_impl.h"  // IWYU pragma: export
 
 namespace tensorstore {
-namespace internal {
+namespace poly {
 
 /// Evaluates to `true` if `T` is compatible with the specified function call or
 /// PolyApply signatures.
@@ -220,10 +219,11 @@ class Poly
       // `std::is_copy_constructible` being instantiated before `Poly` is
       // complete.
       std::disjunction<
-          std::is_same<Poly, remove_cvref_t<T>>,
+          std::is_same<Poly, internal_poly::remove_cvref_t<T>>,
           std::conjunction<
-              IsCompatibleWithPoly<remove_cvref_t<T>, Copyable, Signature...>,
-              std::is_constructible<remove_cvref_t<T>, T&&>>>;
+              IsCompatibleWithPoly<internal_poly::remove_cvref_t<T>, Copyable,
+                                   Signature...>,
+              std::is_constructible<internal_poly::remove_cvref_t<T>, T&&>>>;
 
   /// Constructs in a null state.
   ///
@@ -243,7 +243,8 @@ class Poly
   template <typename T,
             std::enable_if_t<IsCompatibleAndConstructible<T>::value>* = nullptr>
   Poly(T&& obj)
-      : Poly(std::in_place_type_t<remove_cvref_t<T>>{}, std::forward<T>(obj)) {}
+      : Poly(std::in_place_type_t<internal_poly::remove_cvref_t<T>>{},
+             std::forward<T>(obj)) {}
 
   /// Constructs an object of type `T` from `arg...`.
   ///
@@ -309,7 +310,8 @@ class Poly
             std::enable_if_t<IsCompatibleAndConstructible<T>::value>* = nullptr>
   void emplace(T&& obj) {
     storage_.Destroy();
-    Construct(std::in_place_type_t<remove_cvref_t<T>>{}, std::forward<T>(obj));
+    Construct(std::in_place_type_t<internal_poly::remove_cvref_t<T>>{},
+              std::forward<T>(obj));
   }
 
   /// For each `Signature...`, a corresponding `operator()` overload is defined
@@ -382,7 +384,7 @@ class Poly
   Storage storage_;
 };
 
-}  // namespace internal
+}  // namespace poly
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_POLY_H_
+#endif  // TENSORSTORE_INTERNAL_POLY_POLY_H_

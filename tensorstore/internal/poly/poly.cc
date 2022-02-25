@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/poly.h"
+#include "tensorstore/internal/poly/poly.h"
 
 namespace tensorstore {
 namespace internal_poly {

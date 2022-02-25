@@ -20,7 +20,6 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/internal/poly.h"
 #include "tensorstore/util/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/sender_testutil.h"

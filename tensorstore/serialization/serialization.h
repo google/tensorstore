@@ -120,7 +120,7 @@
 #include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/memory.h"
-#include "tensorstore/internal/poly.h"
+#include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/riegeli_delimited.h"
@@ -228,9 +228,9 @@ class EncodeSink {
   /// This uses `Poly` rather than `absl::FunctionView` because `DoIndirect` is
   /// not required to call the function before returning.
   using ErasedEncodeWrapperFunction =
-      internal::Poly<0, /*Copyable=*/true,
-                     bool(EncodeSink& sink,
-                          const std::shared_ptr<void>& erased_value) const>;
+      poly::Poly<0, /*Copyable=*/true,
+                 bool(EncodeSink& sink,
+                      const std::shared_ptr<void>& erased_value) const>;
 
   /// Writes a type-erased indirect object reference.
   ///

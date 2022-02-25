@@ -33,7 +33,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal:json",
         "//tensorstore/internal:memory",
-        "//tensorstore/internal:poly",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/cache:cache_pool_resource",
         "//tensorstore/internal/compression:avif",

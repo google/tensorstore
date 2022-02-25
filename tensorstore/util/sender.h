@@ -120,7 +120,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/utility/utility.h"
-#include "tensorstore/internal/poly.h"
+#include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/util/execution.h"
 #include "tensorstore/util/executor.h"
 
@@ -155,27 +155,26 @@ class NullSender {
 
 /// Type-erased container for a move-only nullary function used by FlowReceiver
 /// implementations to request cancellation.
-using AnyCancelReceiver = internal::Poly<0, /*Copyable=*/false, void()>;
+using AnyCancelReceiver = poly::Poly<0, /*Copyable=*/false, void()>;
 
 namespace internal_sender {
 
 /// Used to implement `AnyReceiver` defined below.
 template <typename E, typename... V>
-using ReceiverPoly = internal::Poly<sizeof(void*) * 2, /*Copyable=*/false,
-                                    void(internal_execution::set_value_t, V...),
-                                    void(internal_execution::set_error_t, E),
-                                    void(internal_execution::set_cancel_t)>;
+using ReceiverPoly = poly::Poly<sizeof(void*) * 2, /*Copyable=*/false,
+                                void(internal_execution::set_value_t, V...),
+                                void(internal_execution::set_error_t, E),
+                                void(internal_execution::set_cancel_t)>;
 
 /// Used to implement `AnyFlowReceiver` defined below.
 template <typename E, typename... V>
 using FlowReceiverPoly =
-    internal::Poly<sizeof(void*) * 2, /*Copyable=*/false,
-                   void(internal_execution::set_starting_t,
-                        AnyCancelReceiver up),
-                   void(internal_execution::set_value_t, V...),
-                   void(internal_execution::set_done_t),
-                   void(internal_execution::set_error_t, E),
-                   void(internal_execution::set_stopping_t)>;
+    poly::Poly<sizeof(void*) * 2, /*Copyable=*/false,
+               void(internal_execution::set_starting_t, AnyCancelReceiver up),
+               void(internal_execution::set_value_t, V...),
+               void(internal_execution::set_done_t),
+               void(internal_execution::set_error_t, E),
+               void(internal_execution::set_stopping_t)>;
 }  // namespace internal_sender
 
 /// Type-erased container for any type that models the `Receiver<E, V...>`
@@ -241,14 +240,14 @@ namespace internal_sender {
 /// Used to implement `AnySender` defined below.
 template <typename E, typename... V>
 using SenderPoly =
-    internal::Poly<(sizeof(V) + ... + 0), /*Copyable=*/false,
-                   void(internal_execution::submit_t, AnyReceiver<E, V...>)>;
+    poly::Poly<(sizeof(V) + ... + 0), /*Copyable=*/false,
+               void(internal_execution::submit_t, AnyReceiver<E, V...>)>;
 
 /// Used to implement `AnyFlowSender` defined below.
 template <typename E, typename... V>
-using FlowSenderPoly = internal::Poly<(sizeof(V) + ... + 0), /*Copyable=*/false,
-                                      void(internal_execution::submit_t,
-                                           AnyFlowReceiver<E, V...>)>;
+using FlowSenderPoly =
+    poly::Poly<(sizeof(V) + ... + 0), /*Copyable=*/false,
+               void(internal_execution::submit_t, AnyFlowReceiver<E, V...>)>;
 
 }  // namespace internal_sender
 

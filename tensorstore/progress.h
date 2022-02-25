@@ -18,7 +18,7 @@
 #include <iosfwd>
 
 #include "tensorstore/index.h"
-#include "tensorstore/internal/poly.h"
+#include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
@@ -103,13 +103,13 @@ inline absl::Status GetStatus(const WriteFutures& future) {
 }
 
 using ReadProgressFunction =
-    internal::Poly<sizeof(void*) * 2, /*Copyable=*/false, void(ReadProgress)>;
+    poly::Poly<sizeof(void*) * 2, /*Copyable=*/false, void(ReadProgress)>;
 
 using WriteProgressFunction =
-    internal::Poly<sizeof(void*) * 2, /*Copyable=*/false, void(WriteProgress)>;
+    poly::Poly<sizeof(void*) * 2, /*Copyable=*/false, void(WriteProgress)>;
 
 using CopyProgressFunction =
-    internal::Poly<sizeof(void*) * 2, /*Copyable=*/false, void(CopyProgress)>;
+    poly::Poly<sizeof(void*) * 2, /*Copyable=*/false, void(CopyProgress)>;
 
 }  // namespace tensorstore
 

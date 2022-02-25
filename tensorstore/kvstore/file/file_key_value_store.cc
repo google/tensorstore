@@ -110,7 +110,6 @@
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/internal/os_error_code.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/internal/poly.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/file/unique_handle.h"

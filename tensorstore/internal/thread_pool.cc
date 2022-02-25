@@ -25,7 +25,6 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/no_destructor.h"
-#include "tensorstore/internal/poly.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/executor.h"
 

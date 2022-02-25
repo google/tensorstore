@@ -52,7 +52,6 @@
 #include "tensorstore/internal/masked_array.h"
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/meta.h"
-#include "tensorstore/internal/poly.h"
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/internal/thread_pool.h"
 #include "tensorstore/kvstore/generation.h"

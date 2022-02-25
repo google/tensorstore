@@ -498,7 +498,7 @@ tensorstore_cc_library(
     hdrs = ["progress.h"],
     deps = [
         ":index",
-        "//tensorstore/internal:poly",
+        "//tensorstore/internal/poly",
         "//tensorstore/util:future",
     ],
 )

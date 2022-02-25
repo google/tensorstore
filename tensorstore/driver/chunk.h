@@ -31,7 +31,7 @@
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/lock_collection.h"
 #include "tensorstore/internal/nditerable.h"
-#include "tensorstore/internal/poly.h"
+#include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -41,32 +41,32 @@ namespace internal {
 
 struct ReadChunk {
   struct BeginRead {};
-  using Impl =
-      Poly<sizeof(void*) * 2,
-           /*Copyable=*/true,  //
-           /// Registers any necessary locks that must be acquired before
-           /// calling the `BeginRead` overload.
-           ///
-           /// When operating on multiple chunks at once (e.g. reading from one
-           /// chunk and writing to another), this method will first be called
-           /// on all chunks to collect the required locks, then all requested
-           /// locks will be acquired in a deadlock-free way.
-           absl::Status(LockCollection& lock_collection),
+  using Impl = poly::Poly<
+      sizeof(void*) * 2,
+      /*Copyable=*/true,  //
+      /// Registers any necessary locks that must be acquired before
+      /// calling the `BeginRead` overload.
+      ///
+      /// When operating on multiple chunks at once (e.g. reading from one
+      /// chunk and writing to another), this method will first be called
+      /// on all chunks to collect the required locks, then all requested
+      /// locks will be acquired in a deadlock-free way.
+      absl::Status(LockCollection& lock_collection),
 
-           /// Returns a readable view of the data.
-           ///
-           /// The locks registered by the `LockCollection` overload above will
-           /// be held when this function is called and won't be released until
-           /// after the returned `NDIterable` is destroyed.
-           ///
-           /// \param chunk_transform Transform with a range that is a subset of
-           ///     `transform`.
-           /// \param arena Non-null pointer to allocation arena.  Must remain
-           ///     valid until the returned `NDIterable` is destroyed.
-           /// \returns An NDIterable with a shape of
-           ///     `chunk_transform.input_shape()`.
-           Result<NDIterable::Ptr>(BeginRead, IndexTransform<> chunk_transform,
-                                   Arena* arena)>;
+      /// Returns a readable view of the data.
+      ///
+      /// The locks registered by the `LockCollection` overload above will
+      /// be held when this function is called and won't be released until
+      /// after the returned `NDIterable` is destroyed.
+      ///
+      /// \param chunk_transform Transform with a range that is a subset of
+      ///     `transform`.
+      /// \param arena Non-null pointer to allocation arena.  Must remain
+      ///     valid until the returned `NDIterable` is destroyed.
+      /// \returns An NDIterable with a shape of
+      ///     `chunk_transform.input_shape()`.
+      Result<NDIterable::Ptr>(BeginRead, IndexTransform<> chunk_transform,
+                              Arena* arena)>;
 
   /// Type-erased chunk implementation.  In the case of the chunks produced by
   /// `ChunkCache::Read`, for example, the contained object holds a
@@ -103,60 +103,60 @@ struct WriteChunk {
     Future<const void> commit_future;
   };
 
-  using Impl =
-      Poly<sizeof(void*) * 2,
-           /*Copyable=*/true,  //
+  using Impl = poly::Poly<
+      sizeof(void*) * 2,
+      /*Copyable=*/true,  //
 
-           /// Registers any necessary locks that must be acquired before
-           /// calling the `BeginWrite` overload.
-           ///
-           /// When operating on multiple chunks at once (e.g. reading from one
-           /// chunk and writing to another), this method will first be called
-           /// on all chunks to collect the required locks, then all requested
-           /// locks will be acquired in a deadlock-free way.
-           absl::Status(LockCollection& lock_collection),
+      /// Registers any necessary locks that must be acquired before
+      /// calling the `BeginWrite` overload.
+      ///
+      /// When operating on multiple chunks at once (e.g. reading from one
+      /// chunk and writing to another), this method will first be called
+      /// on all chunks to collect the required locks, then all requested
+      /// locks will be acquired in a deadlock-free way.
+      absl::Status(LockCollection& lock_collection),
 
-           /// Returns a write-only iterable that may be used to write data to
-           /// the chunk.
-           ///
-           /// The locks registered by the `LockCollection` overload above will
-           /// be held when this function is called and won't be released until
-           /// after `EndWrite` is called.
-           ///
-           /// The returned `NDIterable` may be iterated using any single
-           /// compatible layout, but must be written in such a way the set of
-           /// modified positions is equal to a prefix of positions accessed by
-           /// a single compatible layout.
-           ///
-           /// \param chunk_transform Transform with a range that is a subset of
-           ///     `transform`.
-           /// \param arena Non-null pointer to allocation arena that may be
-           ///     used for allocating memory.  Must remain valid until after
-           ///     `EndWrite` is called.
-           /// \returns An NDIterable with a shape of
-           ///     `chunk_transform.input_shape()`.
-           Result<NDIterable::Ptr>(BeginWrite, IndexTransform<> chunk_transform,
-                                   Arena* area),
+      /// Returns a write-only iterable that may be used to write data to
+      /// the chunk.
+      ///
+      /// The locks registered by the `LockCollection` overload above will
+      /// be held when this function is called and won't be released until
+      /// after `EndWrite` is called.
+      ///
+      /// The returned `NDIterable` may be iterated using any single
+      /// compatible layout, but must be written in such a way the set of
+      /// modified positions is equal to a prefix of positions accessed by
+      /// a single compatible layout.
+      ///
+      /// \param chunk_transform Transform with a range that is a subset of
+      ///     `transform`.
+      /// \param arena Non-null pointer to allocation arena that may be
+      ///     used for allocating memory.  Must remain valid until after
+      ///     `EndWrite` is called.
+      /// \returns An NDIterable with a shape of
+      ///     `chunk_transform.input_shape()`.
+      Result<NDIterable::Ptr>(BeginWrite, IndexTransform<> chunk_transform,
+                              Arena* area),
 
-           /// Finalize the write started by a successful call to `BeginWrite`.
-           /// This must be called exactly once after each successful call to
-           /// `BeginWrite`.  If `BeginWrite` returns an error `Status`, this
-           /// method must not be called.
-           ///
-           /// The `NDIterable::Ptr` returned by `BeginWrite` must be destroyed
-           /// before calling this method.
-           ///
-           /// \param chunk_transform Same transform supplied to prior call to
-           ///     `BeginWrite`.
-           /// \param layout Iteration layout used for writing to the
-           ///     `NDIterable` returned by `BeginWrite`.
-           /// \param write_end_position One past the last position (with
-           ///     respect to `layout`) that was modified.
-           /// \param arena Non-null pointer to allocation arena that may be
-           ///     used for allocating memory.
-           EndWriteResult(EndWrite, IndexTransformView<> chunk_transform,
-                          NDIterable::IterationLayoutView layout,
-                          span<const Index> write_end_position, Arena* arena)>;
+      /// Finalize the write started by a successful call to `BeginWrite`.
+      /// This must be called exactly once after each successful call to
+      /// `BeginWrite`.  If `BeginWrite` returns an error `Status`, this
+      /// method must not be called.
+      ///
+      /// The `NDIterable::Ptr` returned by `BeginWrite` must be destroyed
+      /// before calling this method.
+      ///
+      /// \param chunk_transform Same transform supplied to prior call to
+      ///     `BeginWrite`.
+      /// \param layout Iteration layout used for writing to the
+      ///     `NDIterable` returned by `BeginWrite`.
+      /// \param write_end_position One past the last position (with
+      ///     respect to `layout`) that was modified.
+      /// \param arena Non-null pointer to allocation arena that may be
+      ///     used for allocating memory.
+      EndWriteResult(EndWrite, IndexTransformView<> chunk_transform,
+                     NDIterable::IterationLayoutView layout,
+                     span<const Index> write_end_position, Arena* arena)>;
 
   /// Type-erased chunk implementation.  In the case of the chunks produced by
   /// `ChunkCache::Write`, for example, the contained object holds a

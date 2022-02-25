@@ -36,7 +36,6 @@
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/memory.h"
-#include "tensorstore/internal/poly.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/open.h"

@@ -21,7 +21,6 @@
 
 #include <gtest/gtest.h>
 #include "absl/synchronization/notification.h"
-#include "tensorstore/internal/poly.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {

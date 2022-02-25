@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_POLY_IMPL_H_
-#define TENSORSTORE_INTERNAL_POLY_IMPL_H_
+#ifndef TENSORSTORE_INTERNAL_POLY_POLY_IMPL_H_
+#define TENSORSTORE_INTERNAL_POLY_POLY_IMPL_H_
 
 /// \file
 /// Implementation details for poly.h
@@ -58,20 +58,23 @@
 /// `S1...`, is not supported without double wrapping, even though it could be
 /// done by constructing a vtable at run time.
 
-// IWYU pragma: private, include "third_party/tensorstore/internal/poly.h"
+// IWYU pragma: private, include "third_party/tensorstore/internal/poly/poly.h"
 
 #include <cassert>
 #include <cstddef>
+#include <limits>
 #include <type_traits>
 #include <typeinfo>
 #include <utility>
 
-#include "tensorstore/internal/type_traits.h"
-
 namespace tensorstore {
 namespace internal_poly {
 
-using internal::remove_cvref_t;
+/// Type alias that removes both reference and const/volatile qualification.
+///
+/// Equivalent to C++20 `std::remove_cvref_t`.
+template <typename T>
+using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
 
 /// Alias that evaluates to the return type of an unqualified `PolyApply` call
 /// (found via ADL) with the specified arguments.
@@ -110,6 +113,14 @@ CallPolyApply(Self&& self, Arg&&... arg) {
   return std::forward<Self>(self)(std::forward<Arg>(arg)...);
 }
 
+/// Bool-valued metafunction equivalent to:
+/// `std::is_convertible<From, To>::value || std::is_void<To>::value`.
+template <typename From, typename To>
+struct IsConvertibleOrVoid : public std::is_convertible<From, To> {};
+
+template <typename From>
+struct IsConvertibleOrVoid<From, void> : public std::true_type {};
+
 /// Alias that evaluates to the return type of `CallPolyApply` when invoked with
 /// `Arg...`.
 template <typename... Arg>
@@ -122,8 +133,7 @@ struct IsCallPolyApplyResultConvertibleHelper : public std::false_type {};
 template <typename Self, typename R, typename... Arg>
 struct IsCallPolyApplyResultConvertibleHelper<
     std::void_t<CallPolyApplyResult<Self, Arg...>>, Self, R, Arg...>
-    : public internal::IsConvertibleOrVoid<CallPolyApplyResult<Self, Arg...>,
-                                           R> {};
+    : public IsConvertibleOrVoid<CallPolyApplyResult<Self, Arg...>, R> {};
 
 /// `bool`-valued metafunction that evaluates to `true` if
 /// `CallPolyApplyResult<Self, Arg...>` is valid and convertible to `R` (if `R`
@@ -562,4 +572,4 @@ class Storage<InlineSize, true> : public Storage<InlineSize, false> {
 }  // namespace internal_poly
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_POLY_IMPL_H_
+#endif  // TENSORSTORE_INTERNAL_POLY_POLY_IMPL_H_

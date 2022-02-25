@@ -24,7 +24,6 @@
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_bindable.h"
-#include "tensorstore/internal/poly.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
 

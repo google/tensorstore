@@ -24,7 +24,7 @@
 #include <utility>
 
 #include "tensorstore/internal/attributes.h"
-#include "tensorstore/internal/poly.h"
+#include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/internal/type_traits.h"
 
 namespace tensorstore {
@@ -37,8 +37,8 @@ namespace tensorstore {
 /// thread.  The return value of the supplied function is ignored.
 
 /// Type-erased executor type.
-using ExecutorTask = internal::Poly<0, /*Copyable=*/false, void()>;
-using Executor = internal::Poly<0, /*Copyable=*/true, void(ExecutorTask) const>;
+using ExecutorTask = poly::Poly<0, /*Copyable=*/false, void()>;
+using Executor = poly::Poly<0, /*Copyable=*/true, void(ExecutorTask) const>;
 
 /// Executor that simply executes functions immediately in the current thread.
 class InlineExecutor {

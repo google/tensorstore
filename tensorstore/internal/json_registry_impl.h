@@ -27,7 +27,7 @@
 #include "tensorstore/internal/heterogeneous_container.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json.h"
-#include "tensorstore/internal/poly.h"
+#include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/json_serialization_options.h"
 
 namespace tensorstore {
@@ -71,12 +71,11 @@ class JsonRegistryImpl {
     /// JSON binder, where `obj` is a non-null pointer to `BasePtr` holding a
     /// non-null pointer to `T`, and `options` is a pointer to `LoadOptions` or
     /// `SaveOptions` depending on the type of `is_loading`.
-    internal::Poly<
-        0, /*Copyable=*/false,
-        absl::Status(std::true_type is_loading, const void* options,
-                     const void* obj, ::nlohmann::json::object_t*) const,
-        absl::Status(std::false_type is_loading, const void* options,
-                     const void* obj, ::nlohmann::json::object_t*) const>
+    poly::Poly<0, /*Copyable=*/false,
+               absl::Status(std::true_type is_loading, const void* options,
+                            const void* obj, ::nlohmann::json::object_t*) const,
+               absl::Status(std::false_type is_loading, const void* options,
+                            const void* obj, ::nlohmann::json::object_t*) const>
         binder;
   };
 

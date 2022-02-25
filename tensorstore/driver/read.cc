@@ -40,7 +40,6 @@
 #include "tensorstore/internal/nditerable_data_type_conversion.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/nditerable_util.h"
-#include "tensorstore/internal/poly.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/open_mode.h"
