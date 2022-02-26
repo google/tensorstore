@@ -67,10 +67,10 @@
 #include "tensorstore/staleness_bound.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/assert_macros.h"
+#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/sender.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 

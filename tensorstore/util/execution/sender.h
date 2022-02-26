@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_UTIL_SENDER_H_
-#define TENSORSTORE_UTIL_SENDER_H_
+#ifndef TENSORSTORE_UTIL_EXECUTION_SENDER_H_
+#define TENSORSTORE_UTIL_EXECUTION_SENDER_H_
 
 /// \file
 /// Asynchronous channel interfaces.
@@ -112,6 +112,10 @@
 ///
 /// The experimental implementation:
 /// https://github.com/facebook/folly/tree/master/folly/experimental/pushmi
+///
+/// P2300R4: std::execution
+/// http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2300r4.html
+/// https://github.com/brycelelbach/wg21_p2300_std_execution
 
 #include <atomic>
 #include <iterator>
@@ -121,8 +125,7 @@
 #include "absl/base/attributes.h"
 #include "absl/utility/utility.h"
 #include "tensorstore/internal/poly/poly.h"
-#include "tensorstore/util/execution.h"
-#include "tensorstore/util/executor.h"
+#include "tensorstore/util/execution/execution.h"
 
 namespace tensorstore {
 
@@ -293,7 +296,7 @@ class AnyFlowSender : public internal_sender::FlowSenderPoly<E, V...> {
 
 /// Sender that adapts an existing `sender` to invoke its `submit` function with
 /// the specified `executor`.
-template <typename Sender, typename Executor = tensorstore::Executor>
+template <typename Sender, typename Executor>
 struct SenderWithExecutor {
   Executor executor;
   Sender sender;
@@ -421,4 +424,4 @@ struct RangeFlowSender {
 
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_UTIL_SENDER_H_
+#endif  // TENSORSTORE_UTIL_EXECUTION_SENDER_H_

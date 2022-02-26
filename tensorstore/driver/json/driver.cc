@@ -27,7 +27,7 @@
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/staleness_bound_json_binder.h"
 #include "tensorstore/serialization/absl_time.h"
-#include "tensorstore/util/sender.h"
+#include "tensorstore/util/execution/sender.h"
 
 namespace tensorstore {
 namespace internal {

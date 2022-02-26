@@ -20,7 +20,7 @@
 #include <utility>
 
 #include "tensorstore/internal/mutex.h"
-#include "tensorstore/util/execution.h"
+#include "tensorstore/util/execution/execution.h"
 
 namespace tensorstore {
 

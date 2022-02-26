@@ -41,10 +41,10 @@
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/kvstore/url_registry.h"
-#include "tensorstore/util/execution.h"
+#include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/sender.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {

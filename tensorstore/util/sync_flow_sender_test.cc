@@ -20,8 +20,8 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/util/execution.h"
-#include "tensorstore/util/sender_testutil.h"
+#include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/sender_testutil.h"
 
 namespace {
 

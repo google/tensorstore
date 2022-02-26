@@ -28,10 +28,10 @@
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
-#include "tensorstore/util/execution.h"
+#include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/sender.h"
+#include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/sender.h"
-#include "tensorstore/util/sender_testutil.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/util/sender.h"
+#include "tensorstore/util/execution/sender.h"
 
 #include <string>
 #include <utility>
@@ -20,9 +20,9 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/util/execution.h"
+#include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/executor.h"
-#include "tensorstore/util/sender_testutil.h"
 
 namespace {
 
@@ -175,7 +175,8 @@ TEST(SenderWithExecutorTest, SetValue) {
   QueueExecutor executor{&queue};
   tensorstore::execution::submit(
       tensorstore::SenderWithExecutor<
-          tensorstore::ValueSender<int, std::string>>{executor, {3, "hello"}},
+          tensorstore::ValueSender<int, std::string>, tensorstore::Executor>{
+          executor, {3, "hello"}},
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_EQ(1, queue.size());
@@ -190,8 +191,8 @@ TEST(SenderWithExecutorTest, AnySenderSetValue) {
   tensorstore::execution::submit(
       tensorstore::AnySender<int, int, std::string>(
           tensorstore::SenderWithExecutor<
-              tensorstore::ValueSender<int, std::string>>{executor,
-                                                          {3, "hello"}}),
+              tensorstore::ValueSender<int, std::string>,
+              tensorstore::Executor>{executor, {3, "hello"}}),
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_EQ(1, queue.size());
@@ -204,8 +205,8 @@ TEST(SenderWithExecutorTest, SetError) {
   std::vector<std::string> log;
   QueueExecutor executor{&queue};
   tensorstore::execution::submit(
-      tensorstore::SenderWithExecutor<tensorstore::ErrorSender<int>>{executor,
-                                                                     {3}},
+      tensorstore::SenderWithExecutor<tensorstore::ErrorSender<int>,
+                                      tensorstore::Executor>{executor, {3}},
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_EQ(1, queue.size());
@@ -219,8 +220,9 @@ TEST(SenderWithExecutorTest, AnySenderSetError) {
   QueueExecutor executor{&queue};
   tensorstore::execution::submit(
       tensorstore::AnySender<int>(
-          tensorstore::SenderWithExecutor<tensorstore::ErrorSender<int>>{
-              executor, {3}}),
+          tensorstore::SenderWithExecutor<tensorstore::ErrorSender<int>,
+                                          tensorstore::Executor>{executor,
+                                                                 {3}}),
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_EQ(1, queue.size());
@@ -233,7 +235,8 @@ TEST(SenderWithExecutorTest, SetCancel) {
   std::vector<std::string> log;
   QueueExecutor executor{&queue};
   tensorstore::execution::submit(
-      tensorstore::SenderWithExecutor<tensorstore::CancelSender>{executor},
+      tensorstore::SenderWithExecutor<tensorstore::CancelSender,
+                                      tensorstore::Executor>{executor},
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_EQ(1, queue.size());
@@ -247,7 +250,8 @@ TEST(SenderWithExecutorTest, AnySenderSetCancel) {
   QueueExecutor executor{&queue};
   tensorstore::execution::submit(
       tensorstore::AnySender<int>(
-          tensorstore::SenderWithExecutor<tensorstore::CancelSender>{executor}),
+          tensorstore::SenderWithExecutor<tensorstore::CancelSender,
+                                          tensorstore::Executor>{executor}),
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_EQ(1, queue.size());

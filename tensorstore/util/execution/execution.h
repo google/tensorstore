@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_UTIL_EXECUTION_H_
-#define TENSORSTORE_UTIL_EXECUTION_H_
+#ifndef TENSORSTORE_UTIL_EXECUTION_EXECUTION_H_
+#define TENSORSTORE_UTIL_EXECUTION_EXECUTION_H_
 
 /// \file
 /// Defines the customization points used by the Sender and Receiver concepts.
@@ -90,4 +90,4 @@ constexpr internal_execution::set_stopping_t set_stopping = {};
 }  // namespace execution
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_UTIL_EXECUTION_H_
+#endif  // TENSORSTORE_UTIL_EXECUTION_EXECUTION_H_

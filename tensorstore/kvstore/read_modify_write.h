@@ -19,7 +19,7 @@
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
-#include "tensorstore/util/sender.h"
+#include "tensorstore/util/execution/sender.h"
 
 namespace tensorstore {
 namespace kvstore {

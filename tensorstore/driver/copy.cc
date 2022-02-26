@@ -40,10 +40,10 @@
 #include "tensorstore/read_write_options.h"
 #include "tensorstore/resize_options.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/sender.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {

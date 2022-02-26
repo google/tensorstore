@@ -116,7 +116,9 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "collecting_sender",
     hdrs = ["collecting_sender.h"],
-    deps = [":execution"],
+    deps = [
+        "//tensorstore/util/execution",
+    ],
 )
 
 tensorstore_cc_test(
@@ -125,10 +127,10 @@ tensorstore_cc_test(
     srcs = ["collecting_sender_test.cc"],
     deps = [
         ":collecting_sender",
-        ":execution",
-        ":sender",
-        ":sender_testutil",
         ":span",
+        "//tensorstore/util/execution",
+        "//tensorstore/util/execution:sender",
+        "//tensorstore/util/execution:sender_testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -297,15 +299,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "execution",
-    hdrs = ["execution.h"],
-    deps = [
-        "//tensorstore/internal:type_traits",
-        "@com_google_absl//absl/base:core_headers",
-    ],
-)
-
-tensorstore_cc_library(
     name = "executor",
     hdrs = ["executor.h"],
     deps = [
@@ -363,7 +356,6 @@ tensorstore_cc_library(
     ],
     deps = [
         ":assert_macros",
-        ":execution",
         ":executor",
         ":result",
         ":status",
@@ -375,6 +367,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:tagged_ptr",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal:void_wrapper",
+        "//tensorstore/util/execution",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/synchronization",
@@ -388,12 +381,12 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["future_sender_test.cc"],
     deps = [
-        ":execution",
         ":future",
         ":result",
-        ":sender",
-        ":sender_testutil",
         ":status",
+        "//tensorstore/util/execution",
+        "//tensorstore/util/execution:sender",
+        "//tensorstore/util/execution:sender_testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -519,12 +512,12 @@ tensorstore_cc_library(
     ],
     deps = [
         ":assert_macros",
-        ":execution",
         ":status",
         "//tensorstore/internal:attributes",
         "//tensorstore/internal:logging",
         "//tensorstore/internal:preprocessor",
         "//tensorstore/internal:type_traits",
+        "//tensorstore/util/execution",
         "@com_google_absl//absl/base:config",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
@@ -547,11 +540,11 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["result_sender_test.cc"],
     deps = [
-        ":execution",
         ":result",
-        ":sender",
-        ":sender_testutil",
         ":status",
+        "//tensorstore/util/execution",
+        "//tensorstore/util/execution:sender",
+        "//tensorstore/util/execution:sender_testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -567,45 +560,6 @@ tensorstore_cc_test(
         ":status",
         ":status_testutil",
         "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "sender",
-    hdrs = ["sender.h"],
-    deps = [
-        ":execution",
-        ":executor",
-        "//tensorstore/internal/poly",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/utility",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "sender_test",
-    size = "small",
-    srcs = ["sender_test.cc"],
-    deps = [
-        ":execution",
-        ":executor",
-        ":sender",
-        ":sender_testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "sender_testutil",
-    testonly = 1,
-    hdrs = ["sender_testutil.h"],
-    deps = [
-        ":sender",
-        ":str_cat",
-        ":sync_flow_sender",
-        "//tensorstore/internal:mutex",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/synchronization",
     ],
 )
 
@@ -705,8 +659,8 @@ tensorstore_cc_library(
     name = "sync_flow_sender",
     hdrs = ["sync_flow_sender.h"],
     deps = [
-        ":execution",
         "//tensorstore/internal:mutex",
+        "//tensorstore/util/execution",
     ],
 )
 
@@ -715,9 +669,9 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["sync_flow_sender_test.cc"],
     deps = [
-        ":execution",
-        ":sender_testutil",
         ":sync_flow_sender",
+        "//tensorstore/util/execution",
+        "//tensorstore/util/execution:sender_testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )

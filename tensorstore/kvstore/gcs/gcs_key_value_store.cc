@@ -53,7 +53,7 @@
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/url_registry.h"
-#include "tensorstore/util/execution.h"
+#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"

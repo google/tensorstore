@@ -25,8 +25,8 @@
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/sender.h"
 
 namespace tensorstore {
 namespace kvstore {

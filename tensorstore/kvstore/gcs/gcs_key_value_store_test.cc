@@ -48,10 +48,10 @@
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/test_util.h"
-#include "tensorstore/util/execution.h"
+#include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/sender_testutil.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 

@@ -36,7 +36,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache:cache_pool_resource",
         "//tensorstore/internal/cache:kvs_backed_cache",
         "//tensorstore/serialization:absl_time",
-        "//tensorstore/util:sender",
+        "//tensorstore/util/execution:sender",
     ],
     alwayslink = True,
 )

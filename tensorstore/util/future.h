@@ -159,7 +159,7 @@
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/internal/void_wrapper.h"
 #include "tensorstore/util/assert_macros.h"
-#include "tensorstore/util/execution.h"
+#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future_impl.h"  // IWYU pragma: export
 #include "tensorstore/util/result.h"
