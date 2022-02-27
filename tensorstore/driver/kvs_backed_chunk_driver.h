@@ -197,7 +197,6 @@ class MetadataCache
     void DoDecode(std::optional<absl::Cord> value,
                   DecodeReceiver receiver) override;
     void DoEncode(std::shared_ptr<const void> data,
-                  UniqueWriterLock<AsyncCache::TransactionNode> lock,
                   EncodeReceiver receiver) override;
     std::string GetKeyValueStoreKey() override;
 
@@ -429,7 +428,6 @@ class DataCache
     void DoDecode(std::optional<absl::Cord> value,
                   DecodeReceiver receiver) override;
     void DoEncode(std::shared_ptr<const ReadData> data,
-                  UniqueWriterLock<AsyncCache::TransactionNode> lock,
                   EncodeReceiver receiver) override;
     std::string GetKeyValueStoreKey() override;
   };

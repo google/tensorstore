@@ -72,11 +72,8 @@ void KvsBackedTestCache::Entry::DoDecode(std::optional<absl::Cord> value,
       receiver, std::make_shared<absl::Cord>(value.value_or(absl::Cord())));
 }
 
-void KvsBackedTestCache::Entry::DoEncode(
-    std::shared_ptr<const absl::Cord> data,
-    UniqueWriterLock<AsyncCache::TransactionNode> lock,
-    EncodeReceiver receiver) {
-  lock.unlock();
+void KvsBackedTestCache::Entry::DoEncode(std::shared_ptr<const absl::Cord> data,
+                                         EncodeReceiver receiver) {
   if (!data) {
     execution::set_value(receiver, std::nullopt);
   } else {
@@ -120,9 +117,7 @@ Future<absl::Cord> KvsBackedTestCache::Entry::ReadValue(
 
     void set_cancel() { TENSORSTORE_UNREACHABLE; }
     void set_error(absl::Status status) { promise_.SetResult(status); }
-    void set_value(AsyncCache::ReadState update,
-                   UniqueWriterLock<AsyncCache::TransactionNode> lock) {
-      lock.unlock();
+    void set_value(AsyncCache::ReadState update) {
       promise_.SetResult(*static_cast<const ReadData*>(update.data.get()));
     }
   };
@@ -139,8 +134,7 @@ void KvsBackedTestCache::TransactionNode::DoApply(ApplyOptions options,
                                                   ApplyReceiver receiver) {
   if (options.validate_only && validators.empty()) {
     execution::set_value(
-        receiver, ReadState{{}, TimestampedStorageGeneration::Unconditional()},
-        UniqueWriterLock<TransactionNode>{});
+        receiver, ReadState{{}, TimestampedStorageGeneration::Unconditional()});
     return;
   }
   auto continuation = [this, receiver = std::move(receiver)](
@@ -175,8 +169,7 @@ void KvsBackedTestCache::TransactionNode::DoApply(ApplyOptions options,
     }
     encoded.Append(value);
     read_state.data = std::make_shared<absl::Cord>(encoded);
-    return execution::set_value(receiver, std::move(read_state),
-                                UniqueWriterLock<TransactionNode>{});
+    return execution::set_value(receiver, std::move(read_state));
   };
   if ([&] {
         UniqueWriterLock lock(*this);

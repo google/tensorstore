@@ -278,11 +278,7 @@ void VirtualChunkedCache::TransactionNode::InitiateWriteback(
     absl::Time staleness_bound) {
   struct ApplyReceiver {
     TransactionNode& self;
-    void set_value(
-        AsyncCache::ReadState update,
-        tensorstore::UniqueWriterLock<AsyncCache::TransactionNode> lock) {
-      // We can safely access `update` even after releasing `lock`.
-      lock.unlock();
+    void set_value(AsyncCache::ReadState update) {
       GetOwningCache(self).executor()(
           [node = &self, update = std::move(update)] {
             auto* read_data = static_cast<const ReadData*>(update.data.get());

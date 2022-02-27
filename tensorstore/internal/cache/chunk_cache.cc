@@ -654,8 +654,7 @@ void ChunkCache::TransactionNode::DoApply(ApplyOptions options,
                                           ApplyReceiver receiver) {
   if (options.validate_only) {
     execution::set_value(
-        receiver, ReadState{{}, TimestampedStorageGeneration::Unconditional()},
-        UniqueWriterLock<TransactionNode>{});
+        receiver, ReadState{{}, TimestampedStorageGeneration::Unconditional()});
     return;
   }
   auto continuation = WithExecutor(
@@ -672,17 +671,16 @@ void ChunkCache::TransactionNode::DoApply(ApplyOptions options,
           read_state.stamp = TimestampedStorageGeneration::Unconditional();
         }
         std::shared_ptr<const void> new_data;
-        UniqueWriterLock<AsyncCache::TransactionNode> lock;
         if (is_modified) {
           // Protect against concurrent calls to `DoApply`, since this may
           // modify the write arrays to incorporate the read state.
-          lock = UniqueWriterLock<AsyncCache::TransactionNode>(*this);
+          UniqueWriterLock<AsyncCache::TransactionNode> lock(*this);
           WritebackSnapshot snapshot(
               *this, AsyncCache::ReadView<ReadData>(read_state));
           read_state.data = std::move(snapshot.new_read_data());
           read_state.stamp.generation.MarkDirty();
         }
-        execution::set_value(receiver, std::move(read_state), std::move(lock));
+        execution::set_value(receiver, std::move(read_state));
       });
   if (IsCommitUnconditional(*this)) {
     continuation(MakeReadyFuture());

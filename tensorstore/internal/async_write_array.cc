@@ -124,9 +124,6 @@ AsyncWriteArray::MaskedArray::GetArrayForWriteback(
       }
     }
   } else {
-    SharedElementPointer<void> writeback_element_pointer(data, spec.dtype());
-    writeback.array =
-        SharedArrayView<void>(writeback_element_pointer, spec.write_layout());
     if (!read_state_already_integrated &&
         // If any elements in the array haven't been written, fill them from
         // `read_array` or `spec.fill_value`.  Compare
@@ -137,13 +134,16 @@ AsyncWriteArray::MaskedArray::GetArrayForWriteback(
         // the consumer of the `WritebackData` stores out-of-bounds data as
         // well.
         mask.num_masked_elements != spec.num_elements()) {
+      EnsureWritable(spec);
       // Array was only partially written.
       RebaseMaskedArray(BoxView<>(origin, spec.shape()),
                         read_array.data()
                             ? ArrayView<const void>(read_array)
                             : ArrayView<const void>(spec.fill_value),
-                        writeback_element_pointer, mask);
+                        {data, spec.dtype()}, mask);
     }
+    writeback.array = SharedArrayView<void>(
+        SharedElementPointer<void>(data, spec.dtype()), spec.write_layout());
     writeback.must_store =
         spec.store_if_equal_to_fill_value ||
         !AreArraysSameValueEqual(writeback.array, spec.fill_value);
@@ -166,6 +166,17 @@ std::size_t AsyncWriteArray::MaskedArray::EstimateSizeInBytes(
     total += num_elements * sizeof(bool);
   }
   return total;
+}
+
+void AsyncWriteArray::MaskedArray::EnsureWritable(const Spec& spec) {
+  assert(data);
+  auto dtype = spec.dtype();
+  auto new_data = spec.AllocateAndConstructBuffer();
+  dtype->copy_assign[IterationBufferKind::kContiguous](
+      /*context=*/nullptr, spec.num_elements(),
+      IterationBufferPointer(data.get(), dtype.size()),
+      IterationBufferPointer(new_data.get(), dtype.size()), /*status=*/nullptr);
+  data = std::move(new_data);
 }
 
 Result<NDIterable::Ptr> AsyncWriteArray::MaskedArray::BeginWrite(
@@ -215,35 +226,6 @@ bool AsyncWriteArray::MaskedArray::EndWrite(
 void AsyncWriteArray::MaskedArray::Clear() {
   mask.Reset();
   data = nullptr;
-}
-
-void AsyncWriteArray::MaskedArray::RebaseOnto(
-    const Spec& spec, span<const Index> origin,
-    MaskedArray&& prior_masked_array) {
-  if (data) {
-    if (prior_masked_array.data) {
-      RebaseMaskedArray(
-          BoxView(origin, spec.shape()),
-          ArrayView<const void>(
-              ElementPointer<const void>(prior_masked_array.data, spec.dtype()),
-              spec.write_layout()),
-          ElementPointer<void>(data, spec.dtype()), mask);
-    } else if (prior_masked_array.IsFullyOverwritten(spec, origin)) {
-      // `prior_masked_array` implicitly contains the fill value.
-      RebaseMaskedArray(BoxView(origin, spec.shape()), spec.fill_value,
-                        ElementPointer<void>(data, spec.dtype()), mask);
-    } else {
-      assert(prior_masked_array.IsUnmodified());
-    }
-    UnionMasks(BoxView(origin, spec.shape()), &mask, &prior_masked_array.mask);
-  } else if (IsUnmodified()) {
-    data = std::move(prior_masked_array.data);
-    mask = std::move(prior_masked_array.mask);
-  } else {
-    assert(IsFullyOverwritten(spec, origin));
-    // Implicitly contains the fill value.
-  }
-  prior_masked_array.Clear();
 }
 
 AsyncWriteArray::AsyncWriteArray(DimensionIndex rank) : write_state(rank) {}

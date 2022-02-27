@@ -725,8 +725,7 @@ class AsyncCache : public Cache {
     /// cleanup), but must ensure this base class method is called.
     virtual void WritebackError();
 
-    using ApplyReceiver =
-        AnyReceiver<absl::Status, ReadState, UniqueWriterLock<TransactionNode>>;
+    using ApplyReceiver = AnyReceiver<absl::Status, ReadState>;
 
     struct ApplyOptions {
       /// Returned `ReadStateUpdate` must reflect an existing read state that is

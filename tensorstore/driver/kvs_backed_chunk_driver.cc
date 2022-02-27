@@ -992,8 +992,7 @@ void MetadataCache::TransactionNode::DoApply(ApplyOptions options,
       read_state.stamp.generation.MarkDirty();
       read_state.data = std::move(new_data);
     }
-    execution::set_value(receiver, std::move(read_state),
-                         UniqueWriterLock<AsyncCache::TransactionNode>{});
+    execution::set_value(receiver, std::move(read_state));
   };
   this->Read(options.staleness_bound)
       .ExecuteWhenReady(WithExecutor(GetOwningCache(*this).executor(),
@@ -1007,12 +1006,8 @@ void MetadataCache::TransactionNode::InvalidateReadState() {
   this->updated_metadata_ = nullptr;
 }
 
-void MetadataCache::Entry::DoEncode(
-    std::shared_ptr<const void> data,
-    UniqueWriterLock<AsyncCache::TransactionNode> lock,
-    EncodeReceiver receiver) {
-  // We can safely access `data` even after releasing `lock`.
-  lock.unlock();
+void MetadataCache::Entry::DoEncode(std::shared_ptr<const void> data,
+                                    EncodeReceiver receiver) {
   TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "Encoding metadata");
   auto& entry = GetOwningEntry(*this);
   auto& cache = GetOwningCache(entry);
@@ -1056,12 +1051,9 @@ void DataCache::Entry::DoDecode(std::optional<absl::Cord> value,
   });
 }
 
-void DataCache::Entry::DoEncode(
-    std::shared_ptr<const ReadData> data,
-    UniqueWriterLock<AsyncCache::TransactionNode> lock,
-    EncodeReceiver receiver) {
+void DataCache::Entry::DoEncode(std::shared_ptr<const ReadData> data,
+                                EncodeReceiver receiver) {
   if (!data) {
-    lock.unlock();
     execution::set_value(receiver, std::nullopt);
     return;
   }
@@ -1083,7 +1075,6 @@ void DataCache::Entry::DoEncode(
   auto encoded_result =
       cache.EncodeChunk(cache.initial_metadata_.get(), entry.cell_indices(),
                         component_arrays_unowned);
-  lock.unlock();
   if (!encoded_result.ok()) {
     execution::set_error(receiver, std::move(encoded_result).status());
     return;

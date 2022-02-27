@@ -168,9 +168,7 @@ class BenchmarkCache : public tensorstore::internal::ChunkCache {
     void Commit() override {
       struct ApplyReceiver {
         TransactionNode* self_;
-        void set_value(
-            AsyncCache::ReadState update,
-            tensorstore::UniqueWriterLock<AsyncCache::TransactionNode> lock) {
+        void set_value(AsyncCache::ReadState update) {
           if (update.data) {
             auto* read_data = static_cast<const ReadData*>(update.data.get());
             const auto component_specs = self_->component_specs();

@@ -180,7 +180,6 @@ class KvsBackedCache : public Parent {
     /// executor for any expensive computations.
     virtual void DoEncode(
         std::shared_ptr<const typename Derived::ReadData> read_data,
-        UniqueWriterLock<AsyncCache::TransactionNode> lock,
         EncodeReceiver receiver) {
       TENSORSTORE_UNREACHABLE;
     }
@@ -289,17 +288,14 @@ class KvsBackedCache : public Parent {
           execution::set_error(receiver_, std::move(error));
         }
         void set_cancel() { TENSORSTORE_UNREACHABLE; }
-        void set_value(AsyncCache::ReadState update,
-                       UniqueWriterLock<AsyncCache::TransactionNode> lock) {
+        void set_value(AsyncCache::ReadState update) {
           if (!StorageGeneration::NotEqualOrUnspecified(update.stamp.generation,
                                                         if_not_equal_)) {
-            lock.unlock();
             return execution::set_cancel(receiver_);
           }
           if (!StorageGeneration::IsInnerLayerDirty(update.stamp.generation) &&
               writeback_mode_ !=
                   ReadModifyWriteSource::kSpecifyUnchangedWriteback) {
-            lock.unlock();
             if (self_->transaction()->commit_started()) {
               self_->new_data_ = std::move(update.data);
             }
@@ -310,7 +306,7 @@ class KvsBackedCache : public Parent {
               std::static_pointer_cast<const typename Derived::ReadData>(
                   update.data);
           GetOwningEntry(*self_).DoEncode(
-              std::move(update_data), std::move(lock),
+              std::move(update_data),
               EncodeReceiverImpl{self_, std::move(update),
                                  std::move(receiver_)});
         }

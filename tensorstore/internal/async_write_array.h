@@ -138,6 +138,7 @@ struct AsyncWriteArray {
   struct WritebackData {
     /// Array with shape and data type matching that of the associated `Spec`.
     SharedArrayView<const void> array;
+
     /// Indicates that the array must be stored.
     ///
     /// The conditions under which this is set to `true` depend on the value of
@@ -234,13 +235,6 @@ struct AsyncWriteArray {
     /// Resets to unmodified state.
     void Clear();
 
-    /// Fill unmasked positions of `data` from `prior_masked_array.data`, and
-    /// union `prior_masked_array.mask` into `mask`.
-    ///
-    /// Clears `prior_masked_array`.
-    void RebaseOnto(const Spec& spec, span<const Index> origin,
-                    MaskedArray&& prior_masked_array);
-
     /// Returns a snapshot to use to write back the current modifications.
     ///
     /// The returned array references `data`, so the caller should ensure that
@@ -253,6 +247,10 @@ struct AsyncWriteArray {
         const Spec& spec, span<const Index> origin,
         const SharedArrayView<const void>& read_array,
         bool read_state_already_integrated = false);
+
+   private:
+    /// Ensures that `data` can be written, copying it if necessary.
+    void EnsureWritable(const Spec& spec);
   };
 
   /// Modifications to the read state.

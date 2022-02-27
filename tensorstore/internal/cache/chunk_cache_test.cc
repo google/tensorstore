@@ -189,15 +189,12 @@ class TestCache
     }
 
     // DoEncode implementation required by `KvsBackedCache`.
-    void DoEncode(
-        std::shared_ptr<const ReadData> data,
-        tensorstore::UniqueWriterLock<AsyncCache::TransactionNode> lock,
-        EncodeReceiver receiver) override {
+    void DoEncode(std::shared_ptr<const ReadData> data,
+                  EncodeReceiver receiver) override {
       std::optional<absl::Cord> encoded;
       if (data) {
         encoded = EncodeRaw(GetOwningCache(*this).grid(), data.get());
       }
-      lock.unlock();
       tensorstore::execution::set_value(receiver, std::move(encoded));
     }
 

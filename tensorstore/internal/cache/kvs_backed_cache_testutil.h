@@ -109,7 +109,6 @@ class KvsBackedTestCache
                   DecodeReceiver receiver) override;
 
     void DoEncode(std::shared_ptr<const absl::Cord> data,
-                  UniqueWriterLock<AsyncCache::TransactionNode> lock,
                   EncodeReceiver receiver) override;
   };
 

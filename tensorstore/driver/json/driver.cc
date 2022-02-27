@@ -75,9 +75,7 @@ class JsonCache
           });
     }
     void DoEncode(std::shared_ptr<const ReadData> data,
-                  UniqueWriterLock<AsyncCache::TransactionNode> lock,
                   EncodeReceiver receiver) override {
-      lock.unlock();
       const auto& json_value = *data;
       if (json_value.is_discarded()) {
         execution::set_value(receiver, std::nullopt);
@@ -144,8 +142,7 @@ class JsonCache
           read_state.data =
               std::make_shared<::nlohmann::json>(std::move(new_json));
         }
-        execution::set_value(receiver, std::move(read_state),
-                             UniqueWriterLock<AsyncCache::TransactionNode>{});
+        execution::set_value(receiver, std::move(read_state));
       };
       (unconditional ? MakeReadyFuture() : this->Read(options.staleness_bound))
           .ExecuteWhenReady(WithExecutor(GetOwningCache(*this).executor(),

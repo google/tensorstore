@@ -238,9 +238,7 @@ class ImageCache : public internal::KvsBackedCache<ImageCache<Specialization>,
     }
 
     void DoEncode(std::shared_ptr<const ReadData> data,
-                  UniqueWriterLock<internal::AsyncCache::TransactionNode> lock,
                   EncodeReceiver receiver) override {
-      lock.unlock();
       auto encode_result =
           GetOwningCache(*this).specialization_.EncodeImage(*data);
       if (!encode_result.ok()) {

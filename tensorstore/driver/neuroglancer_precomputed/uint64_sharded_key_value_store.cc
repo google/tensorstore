@@ -394,10 +394,7 @@ class ShardedKeyValueStoreWriteCache
     }
 
     void DoEncode(std::shared_ptr<const EncodedChunks> data,
-                  UniqueWriterLock<AsyncCache::TransactionNode> lock,
                   EncodeReceiver receiver) override {
-      // Can safely access `data` after releasing `lock`.
-      lock.unlock();
       // Can call `EncodeShard` synchronously without using our executor since
       // `DoEncode` is already guaranteed to be called from our executor.
       execution::set_value(
@@ -721,9 +718,8 @@ void MergeForWriteback(ShardedKeyValueStoreWriteCache::TransactionNode& node,
     update.stamp.generation.MarkDirty();
   }
   update.data = std::make_shared<EncodedChunks>(std::move(chunks));
-  execution::set_value(
-      std::exchange(node.apply_receiver_, {}), std::move(update),
-      UniqueWriterLock<internal::AsyncCache::TransactionNode>{});
+  execution::set_value(std::exchange(node.apply_receiver_, {}),
+                       std::move(update));
 }
 
 }  // namespace
