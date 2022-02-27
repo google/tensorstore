@@ -249,6 +249,9 @@ Future<DriverPtr> Open(DriverSpecPtr spec, DriverOpenOptions&& options) {
         auto& open_cache = GetOpenDriverCache();
         absl::MutexLock lock(&open_cache.mutex);
         auto p = open_cache.map.emplace(cache_key, driver.get());
+        if (p.second) {
+          driver->cache_identifier_ = std::move(cache_key);
+        }
 #ifdef TENSORSTORE_KVSTORE_OPEN_CACHE_DEBUG
         if (p.second) {
           TENSORSTORE_LOG("Inserted kvstore into cache: ",
@@ -264,20 +267,19 @@ Future<DriverPtr> Open(DriverSpecPtr spec, DriverOpenOptions&& options) {
 
 void Driver::DestroyLastReference() {
   auto& open_cache = GetOpenDriverCache();
-  std::string cache_key;
-  this->EncodeCacheKey(&cache_key);
-  {
+  if (!cache_identifier_.empty()) {
     absl::MutexLock lock(&open_cache.mutex);
     if (reference_count_.fetch_sub(1, std::memory_order_acq_rel) != 1) {
       // Another reference was added concurrently.  Don't destroy.
       return;
     }
-    auto it = open_cache.map.find(cache_key);
-    if (it != open_cache.map.end() && it->second == this) {
+    auto it = open_cache.map.find(cache_identifier_);
+    if (it != open_cache.map.end()) {
+      assert(it->second == this);
       open_cache.map.erase(it);
 #ifdef TENSORSTORE_KVSTORE_OPEN_CACHE_DEBUG
       TENSORSTORE_LOG("Removed kvstore from open cache: ",
-                      QuoteString(cache_key));
+                      QuoteString(cache_identifier_));
 #endif
     }
   }

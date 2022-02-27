@@ -299,6 +299,9 @@ class Driver {
 
   virtual ~Driver();
 
+  // Treat as private: Identifier in the open kvstore cache.
+  std::string cache_identifier_;
+
  private:
   void DestroyLastReference();
 
