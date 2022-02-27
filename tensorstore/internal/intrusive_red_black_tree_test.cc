@@ -150,7 +150,7 @@ struct Set {
     if (!node) {
       result = false;
     } else {
-      tree.Remove(node);
+      tree.Remove(*node);
       delete node;
       CheckTreeInvariants();
       result = true;
@@ -186,7 +186,7 @@ struct Set {
                              elements_b.end());
     EXPECT_THAT(combined_elements, ::testing::ElementsAreArray(orig_elements));
     if (split_result.center) {
-      tree = Tree::Join(split_result.trees[0], split_result.center,
+      tree = Tree::Join(split_result.trees[0], *split_result.center,
                         split_result.trees[1]);
     } else {
       tree = Tree::Join(split_result.trees[0], split_result.trees[1]);
@@ -214,7 +214,7 @@ struct Set {
   ~Set() {
     for (auto it = tree.begin(); it != tree.end();) {
       auto next = std::next(it);
-      tree.Remove(it);
+      tree.Remove(*it);
       delete &*it;
       it = next;
     }
@@ -345,7 +345,7 @@ struct MultiSet {
   ~MultiSet() {
     for (auto it = tree.begin(); it != tree.end();) {
       auto next = std::next(it);
-      tree.Remove(it);
+      tree.Remove(*it);
       delete &*it;
       it = next;
     }

@@ -105,8 +105,9 @@ void EntryDone(SinglePhaseMutation& single_phase_mutation, bool error,
       assert(single_phase_mutation->phase_number_ >
              single_phase_mutation->prev_->phase_number_);
     }
-    for (MutationEntry *tree_entry = single_phase_mutation->entries_.begin(),
-                       *tree_next;
+    for (MutationEntry *
+             tree_entry = single_phase_mutation->entries_.begin().to_pointer(),
+            *tree_next;
          tree_entry; tree_entry = tree_next) {
       ++phase_entry_count[tree_entry->single_phase_mutation().phase_number_];
       if (commit_started) {
@@ -116,7 +117,7 @@ void EntryDone(SinglePhaseMutation& single_phase_mutation, bool error,
                single_phase_mutation == multi_phase.phases_.prev_);
       }
       tree_next =
-          MutationEntryTree::Traverse(tree_entry, MutationEntryTree::kRight);
+          MutationEntryTree::Traverse(*tree_entry, MutationEntryTree::kRight);
       if (tree_next) {
         assert(tree_next->key_ > tree_entry->key_);
         if (tree_entry->entry_type() != kReadModifyWrite) {
@@ -251,7 +252,7 @@ DeleteRangeEntry* InsertDeleteRangeEntry(
   assert(entry_type == kDeleteRange || entry_type == kDeleteRangePlaceholder);
   auto* entry = MakeDeleteRangeEntry(entry_type, assigned_single_phase_mutation,
                                      std::move(range));
-  insert_single_phase_mutation.entries_.Insert(position, entry);
+  insert_single_phase_mutation.entries_.Insert(position, *entry);
   return entry;
 }
 
@@ -646,7 +647,7 @@ void DestroyPhaseEntries(SinglePhaseMutation& single_phase_mutation) {
        tree_entry != single_phase_mutation.entries_.end();
        tree_entry = tree_next) {
     tree_next = std::next(tree_entry);
-    single_phase_mutation.entries_.Remove(tree_entry);
+    single_phase_mutation.entries_.Remove(*tree_entry);
     if (tree_entry->entry_type() == kReadModifyWrite) {
       DestroyReadModifyWriteSequence(
           static_cast<ReadModifyWriteEntry*>(&*tree_entry));
@@ -657,8 +658,8 @@ void DestroyPhaseEntries(SinglePhaseMutation& single_phase_mutation) {
                next;
            entry != dr_entry.superseded_.end(); entry = next) {
         next = std::next(entry);
-        dr_entry.superseded_.Remove(entry);
-        DestroyReadModifyWriteSequence(entry);
+        dr_entry.superseded_.Remove(*entry);
+        DestroyReadModifyWriteSequence(entry.to_pointer());
       }
       delete &dr_entry;
     }
@@ -833,8 +834,8 @@ void MultiPhaseMutation::CommitNextPhase() {
           // Save next entry pointer since we may remove this entry below.
           next = std::next(entry);
           if (&entry->single_phase_mutation() != last_phase) {
-            last_phase->entries_.Remove(entry);
-            InsertIntoPriorPhase(entry);
+            last_phase->entries_.Remove(*entry);
+            InsertIntoPriorPhase(entry.to_pointer());
           }
         }
       }
@@ -893,14 +894,15 @@ MultiPhaseMutation::ReadModifyWriteStatus MultiPhaseMutation::ReadModifyWrite(
     // No existing `ReadModifyWriteEntry` or `DeleteRangeEntry` covering `key`
     // was found.
     const bool was_empty = single_phase_mutation.entries_.empty();
-    single_phase_mutation.entries_.Insert(find_result.insert_position(), entry);
+    single_phase_mutation.entries_.Insert(find_result.insert_position(),
+                                          *entry);
     return was_empty ? ReadModifyWriteStatus::kAddedFirst
                      : ReadModifyWriteStatus::kAddedSubsequent;
   }
 
   // Existing `ReadModifyWriteEntry` or `DeleteRangeEntry` covering `key` was
   // found.
-  single_phase_mutation.entries_.Replace(find_result.node, entry);
+  single_phase_mutation.entries_.Replace(*find_result.node, *entry);
   if (find_result.node->entry_type() == kReadModifyWrite) {
     // New entry supersedes existing entry.
     auto* existing_entry = static_cast<ReadModifyWriteEntry*>(find_result.node);
@@ -974,7 +976,7 @@ MultiPhaseMutation::ReadModifyWriteStatus MultiPhaseMutation::ReadModifyWrite(
     // "Right" interval is non-empty.  Re-use the existing entry for the
     // right interval.
     single_phase_mutation.entries_.Insert({entry, MutationEntryTree::kRight},
-                                          existing_entry);
+                                          *existing_entry);
     existing_entry->superseded_ = std::move(split_result.trees[1]);
   } else {
     assert(split_result.trees[1].empty());
@@ -1019,7 +1021,7 @@ void MultiPhaseMutation::DeleteRange(KeyRange range) {
   // `DeleteRangeEntry` node containing `range`.
   DeleteRangeEntry insert_placeholder;
   single_phase_mutation.entries_.Insert(find_result.insert_position(),
-                                        &insert_placeholder);
+                                        insert_placeholder);
   for (MutationEntry *existing_entry = find_result.found_node(), *next;
        existing_entry; existing_entry = next) {
     if (KeyRange::CompareKeyAndExclusiveMax(existing_entry->key_,
@@ -1027,8 +1029,8 @@ void MultiPhaseMutation::DeleteRange(KeyRange range) {
       break;
     }
     next =
-        MutationEntryTree::Traverse(existing_entry, MutationEntryTree::kRight);
-    single_phase_mutation.entries_.Remove(existing_entry);
+        MutationEntryTree::Traverse(*existing_entry, MutationEntryTree::kRight);
+    single_phase_mutation.entries_.Remove(*existing_entry);
     if (existing_entry->entry_type() == kReadModifyWrite) {
       auto* existing_rmw_entry =
           static_cast<ReadModifyWriteEntry*>(existing_entry);
@@ -1103,7 +1105,7 @@ void MultiPhaseMutation::DeleteRange(KeyRange range) {
                                      std::move(range));
   }
   new_entry->superseded_ = std::move(superseded);
-  single_phase_mutation.entries_.Replace(&insert_placeholder, new_entry);
+  single_phase_mutation.entries_.Replace(insert_placeholder, *new_entry);
 }
 
 std::string MultiPhaseMutation::DescribeFirstEntry() {
@@ -1238,10 +1240,10 @@ absl::Status GetNonAtomicReadModifyWriteError(
     // must still be at least two entries, since the number of entries can
     // only decrease due to a `DeleteRange` operation, which is not
     // supported for an atomic transaction.
-    MutationEntry* e0 = single_phase_mutation.entries_.begin();
+    MutationEntry* e0 = single_phase_mutation.entries_.begin().to_pointer();
     assert(e0);
     MutationEntry* e1 =
-        MutationEntryTree::Traverse(e0, MutationEntryTree::kRight);
+        MutationEntryTree::Traverse(*e0, MutationEntryTree::kRight);
     assert(e1);
     auto error = internal::TransactionState::Node::GetAtomicError(
         DescribeEntry(*e0), DescribeEntry(*e1));

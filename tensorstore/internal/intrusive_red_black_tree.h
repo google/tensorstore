@@ -136,13 +136,19 @@ class Iterator {
 
   Iterator(Node* node = nullptr) : node_(node) {}
 
-  operator Node*() const { return node_; }
+  /// Returns `true` if this is not an end sentinel.
+  explicit operator bool() const { return static_cast<bool>(node_); }
+
+  /// Returns the node pointer to which this iterator corresponds, or `nullptr`
+  /// if this iterator is an end sentinel.
+  Node* to_pointer() const { return node_; }
 
   Node* operator->() const { return node_; }
   Node& operator*() const { return *node_; }
 
   Iterator& operator++() {
-    node_ = Tree::Traverse(node_, Dir);
+    assert(node_ != nullptr);
+    node_ = Tree::Traverse(*node_, Dir);
     return *this;
   }
 
@@ -153,7 +159,8 @@ class Iterator {
   }
 
   Iterator& operator--() {
-    node_ = Tree::Traverse(node_, !Dir);
+    assert(node_ != nullptr);
+    node_ = Tree::Traverse(*node_, !Dir);
     return *this;
   }
 
@@ -280,15 +287,15 @@ class Tree {
   /// comparison function may be determined by calling `Find`.
   ///
   /// \param position The position at which to insert `new_node`.
-  /// \param new_node The new node to insert.  Must not be null.
-  void Insert(InsertPosition position, Node* new_node);
+  /// \param new_node The new node to insert.
+  void Insert(InsertPosition position, Node& new_node);
 
   /// Inserts a node at the beginning or end of the tree.
   ///
   /// \param dir If equal to `kLeft`, insert at the beginning.  If equal to
   ///     `kRight`, insert at the end.
-  /// \param new_node The node to insert.  Must not be null.
-  void InsertExtreme(Direction dir, Node* new_node);
+  /// \param new_node The node to insert.
+  void InsertExtreme(Direction dir, Node& new_node);
 
   /// Inserts a node in the tree, or returns an existing node.
   ///
@@ -310,7 +317,7 @@ class Tree {
   /// This is the inverse of `Split`.
   ///
   /// \param a_tree One of the trees to join.
-  /// \param center The node indicating the split point, must be non-null.
+  /// \param center The node indicating the split point.
   /// \param b_tree The other tree to join.
   /// \param a_dir If equal to `kLeft`, `a_tree` will be ordered before
   ///     `center`, and `b_tree` will be ordered after `center`.  If equal to
@@ -320,7 +327,7 @@ class Tree {
   ///     `center`, and `b_tree` if `a_dir == kLeft`, or the concatenation of
   ///     `b_tree`, `center`, and `a_tree` if `a_dir == kRight`.
   /// \post `a_tree.empty() && b_tree.empty()`
-  static Tree Join(Tree& a_tree, Node* center, Tree& b_tree,
+  static Tree Join(Tree& a_tree, Node& center, Tree& b_tree,
                    Direction a_dir = kLeft);
 
   /// Joins/concatenates two trees.
@@ -338,13 +345,12 @@ class Tree {
   ///
   /// This is the inverse of `Join`.
   ///
-  /// \param center The split point, must be non-null and contained in this
-  ///     tree.
+  /// \param center The split point, must be contained in this tree.
   /// \returns Two trees, the first containing all nodes ordered before
   ///     `center`, and the second containing all nodes ordered after `center`.
   ///     The `center` node itself is not contained in either tree.
   /// \post `this->empty() == true`
-  std::array<Tree, 2> Split(Node* center);
+  std::array<Tree, 2> Split(Node& center);
 
   /// Specifies the result of a `FindSplit` operation.
   struct FindSplitResult {
@@ -378,25 +384,25 @@ class Tree {
   /// \param replacement The new node to insert in place of `existing`.
   /// \pre `!IsDisconnected(existing) && IsDisconnected(replacement)`
   /// \post `IsDisconnected(existing) && !IsDisconnected(replacement)`
-  void Replace(Node* existing, Node* replacement);
+  void Replace(Node& existing, Node& replacement);
 
   /// Returns `true` if `node` is not contained in a tree.
   ///
   /// \param node The node.
-  static bool IsDisconnected(Node* node);
+  static bool IsDisconnected(Node& node);
 
   /// Removes a node from the tree (does not deallocate it).
   ///
   /// \pre `node` is contained in the tree.
   /// \post `IsDisconnected(node)`
-  void Remove(Node* node);
+  void Remove(Node& node);
 
   /// Returns the node before/after `x` in the in-order traversal.
   ///
-  /// \param x Current traversal node.  Must be non-null.
+  /// \param x Current traversal node.
   /// \param dir If `kLeft`, return the node before `x`.  Otherwise, return the
   ///     node after `x`.
-  static Node* Traverse(Node* x, Direction dir);
+  static Node* Traverse(Node& x, Direction dir);
 
   Node* root() { return Downcast(root_); }
 
@@ -548,16 +554,16 @@ typename Tree<Node, Tag>::FindResult Tree<Node, Tag>::FindBound(
 }
 
 template <typename Node, typename Tag>
-void Tree<Node, Tag>::Insert(InsertPosition position, Node* new_node) {
+void Tree<Node, Tag>::Insert(InsertPosition position, Node& new_node) {
   ops::Insert(root_, Upcast(position.adjacent), position.direction,
-              Upcast(new_node));
+              Upcast(&new_node));
 }
 
 template <typename Node, typename Tag>
-Tree<Node, Tag> Tree<Node, Tag>::Join(Tree& a_tree, Node* center, Tree& b_tree,
+Tree<Node, Tag> Tree<Node, Tag>::Join(Tree& a_tree, Node& center, Tree& b_tree,
                                       Direction a_dir) {
   Tree<Node, Tag> joined;
-  joined.root_ = ops::Join(a_tree.root_, center, b_tree.root_, a_dir);
+  joined.root_ = ops::Join(a_tree.root_, &center, b_tree.root_, a_dir);
   a_tree.root_ = nullptr;
   b_tree.root_ = nullptr;
   return joined;
@@ -574,8 +580,8 @@ Tree<Node, Tag> Tree<Node, Tag>::Join(Tree& a_tree, Tree& b_tree,
 }
 
 template <typename Node, typename Tag>
-std::array<Tree<Node, Tag>, 2> Tree<Node, Tag>::Split(Node* center) {
-  auto split_nodes = ops::Split(root_, center);
+std::array<Tree<Node, Tag>, 2> Tree<Node, Tag>::Split(Node& center) {
+  auto split_nodes = ops::Split(root_, &center);
   root_ = nullptr;
   std::array<Tree<Node, Tag>, 2> split_trees;
   split_trees[0].root_ = split_nodes[0];
@@ -600,8 +606,8 @@ typename Tree<Node, Tag>::FindSplitResult Tree<Node, Tag>::FindSplit(
 }
 
 template <typename Node, typename Tag>
-void Tree<Node, Tag>::InsertExtreme(Direction dir, Node* new_node) {
-  ops::InsertExtreme(root_, dir, Upcast(new_node));
+void Tree<Node, Tag>::InsertExtreme(Direction dir, Node& new_node) {
+  ops::InsertExtreme(root_, dir, Upcast(&new_node));
 }
 
 template <typename Node, typename Tag>
@@ -611,18 +617,18 @@ std::pair<Node*, bool> Tree<Node, Tag>::FindOrInsert(Compare compare,
   auto find_result = Find(std::move(compare));
   if (find_result.found) return {find_result.node, false};
   auto* new_node = make_node();
-  Insert(find_result.insert_position(), new_node);
+  Insert(find_result.insert_position(), *new_node);
   return {new_node, true};
 }
 
 template <typename Node, typename Tag>
-void Tree<Node, Tag>::Remove(Node* node) {
-  ops::Remove(root_, Upcast(node));
+void Tree<Node, Tag>::Remove(Node& node) {
+  ops::Remove(root_, Upcast(&node));
 }
 
 template <typename Node, typename Tag>
-void Tree<Node, Tag>::Replace(Node* existing, Node* replacement) {
-  ops::Replace(root_, Upcast(existing), Upcast(replacement));
+void Tree<Node, Tag>::Replace(Node& existing, Node& replacement) {
+  ops::Replace(root_, Upcast(&existing), Upcast(&replacement));
 }
 
 template <typename Node, typename Tag>
@@ -631,13 +637,13 @@ Node* Tree<Node, Tag>::ExtremeNode(Direction dir) {
 }
 
 template <typename Node, typename Tag>
-bool Tree<Node, Tag>::IsDisconnected(Node* node) {
-  return ops::IsDisconnected(Upcast(node));
+bool Tree<Node, Tag>::IsDisconnected(Node& node) {
+  return ops::IsDisconnected(Upcast(&node));
 }
 
 template <typename Node, typename Tag>
-Node* Tree<Node, Tag>::Traverse(Node* x, Direction dir) {
-  return Downcast(ops::Traverse(Upcast(x), dir));
+Node* Tree<Node, Tag>::Traverse(Node& x, Direction dir) {
+  return Downcast(ops::Traverse(Upcast(&x), dir));
 }
 
 }  // namespace intrusive_red_black_tree

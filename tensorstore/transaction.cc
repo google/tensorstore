@@ -190,8 +190,8 @@ void TransactionState::ExecuteAbort() {
   size_t count = 0;
   for (Node *next, *node = nodes_.ExtremeNode(Tree::kLeft); node; node = next) {
     // Save `next` node before removing the current node.
-    next = Tree::Traverse(node, Tree::kRight);
-    nodes_.Remove(node);
+    next = Tree::Traverse(*node, Tree::kRight);
+    nodes_.Remove(*node);
     node->Abort();
     ++count;
   }
@@ -262,7 +262,7 @@ void TransactionState::ContinuePrepareForCommit(Node* node,
       // continue the commit process when called.
       return;
     }
-    node = Tree::Traverse(node, Tree::kRight);
+    node = Tree::Traverse(*node, Tree::kRight);
   }
 }
 
@@ -290,10 +290,10 @@ void TransactionState::DecrementNodesPendingReadyForCommit() {
   size_t count = 0;
   while (true) {
     // Save next node before removing `node`.
-    Node* next = Tree::Traverse(node, Tree::kRight);
+    Node* next = Tree::Traverse(*node, Tree::kRight);
     // Nodes destroy themselves when they finish committing; remove them before
     // commit starts since that avoids the need for locks.
-    nodes_.Remove(node);
+    nodes_.Remove(*node);
     ++count;
     node->Commit();
     if (!next || next->phase() != current_phase) break;
@@ -478,7 +478,7 @@ void TransactionState::Node::PrepareDone() {
     // Caller of `PrepareForCommit` will continue the commit.
     return;
   }
-  transaction.ContinuePrepareForCommit(Tree::Traverse(this, Tree::kRight),
+  transaction.ContinuePrepareForCommit(Tree::Traverse(*this, Tree::kRight),
                                        this->phase());
 }
 

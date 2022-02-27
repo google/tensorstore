@@ -362,10 +362,10 @@ void EntryOrNodeReadError(EntryOrNode& entry_or_node, absl::Status error) {
 }
 
 void RemoveTransactionFromMap(TransactionNode& node) {
-  if (TransactionTree::IsDisconnected(&node)) {
+  if (TransactionTree::IsDisconnected(node)) {
     return;
   }
-  GetOwningEntry(node).transactions_.Remove(&node);
+  GetOwningEntry(node).transactions_.Remove(node);
 }
 
 class TransactionNodeDestroyer {
@@ -744,7 +744,7 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
         // Existing node is from a previous phase or has been revoked, and
         // must be replaced by a new node.
         auto* new_node = MakeNode();
-        transactions_.Replace(candidate_node, new_node);
+        transactions_.Replace(*candidate_node, *new_node);
         candidate_node = new_node;
       }
       // Note: `IntrusivePtr::reset` is safe to call on a moved-from `node`
