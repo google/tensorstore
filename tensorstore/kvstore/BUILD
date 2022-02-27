@@ -101,7 +101,10 @@ tensorstore_cc_library(
     name = "key_range",
     srcs = ["key_range.cc"],
     hdrs = ["key_range.h"],
-    deps = ["//tensorstore/util:quote_string"],
+    deps = [
+        "//tensorstore/util:quote_string",
+        "@com_google_absl//absl/strings",
+    ],
 )
 
 tensorstore_cc_test(

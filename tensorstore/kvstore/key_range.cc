@@ -19,6 +19,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/strings/match.h"
 #include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
@@ -153,6 +154,27 @@ KeyRange KeyRange::AddPrefix(std::string_view prefix, KeyRange range) {
     range.exclusive_max = KeyRange::PrefixExclusiveMax(std::string(prefix));
   } else {
     range.exclusive_max.insert(0, prefix);
+  }
+  return range;
+}
+
+KeyRange KeyRange::RemovePrefix(std::string_view prefix, KeyRange range) {
+  if (prefix.empty()) return range;
+  if (prefix >= range.inclusive_min) {
+    range.inclusive_min.clear();
+  } else {
+    if (!absl::StartsWith(range.inclusive_min, prefix)) return EmptyRange();
+    range.inclusive_min.erase(0, prefix.size());
+  }
+  int c = CompareKeyAndExclusiveMax(prefix, range.exclusive_max);
+  if (c < 0) {
+    if (absl::StartsWith(range.exclusive_max, prefix)) {
+      range.exclusive_max.erase(0, prefix.size());
+    } else {
+      range.exclusive_max.clear();
+    }
+  } else {
+    return EmptyRange();
   }
   return range;
 }

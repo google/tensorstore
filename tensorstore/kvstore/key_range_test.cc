@@ -167,4 +167,34 @@ TEST(KeyRangeTest, CompareExclusiveMax) {
   EXPECT_THAT(KeyRange::CompareExclusiveMax("", "a"), ::testing::Gt(0));
 }
 
+TEST(KeyRangeTest, AddPrefix) {
+  EXPECT_THAT(KeyRange::AddPrefix("", KeyRange("a", "b")),
+              ::testing::Eq(KeyRange("a", "b")));
+  EXPECT_THAT(KeyRange::AddPrefix("x", KeyRange("a", "b")),
+              ::testing::Eq(KeyRange("xa", "xb")));
+  EXPECT_THAT(KeyRange::AddPrefix("x", KeyRange("a", "")),
+              ::testing::Eq(KeyRange("xa", "y")));
+}
+
+TEST(KeyRangeTest, EmptyRange) {
+  auto range = KeyRange::EmptyRange();
+  EXPECT_TRUE(range.empty());
+  EXPECT_EQ(range.inclusive_min, range.exclusive_max);
+}
+
+TEST(KeyRangeTest, RemovePrefix) {
+  EXPECT_THAT(KeyRange::RemovePrefix("", KeyRange("a", "b")),
+              ::testing::Eq(KeyRange("a", "b")));
+  EXPECT_THAT(KeyRange::RemovePrefix("a/", KeyRange("a/b", "a/d")),
+              ::testing::Eq(KeyRange("b", "d")));
+  EXPECT_THAT(KeyRange::RemovePrefix("a/b", KeyRange("a/b", "a/d")),
+              ::testing::Eq(KeyRange()));
+  EXPECT_THAT(KeyRange::RemovePrefix("a/d", KeyRange("a/b", "a/d")),
+              ::testing::Eq(KeyRange::EmptyRange()));
+  EXPECT_THAT(KeyRange::RemovePrefix("a/bc", KeyRange("a/b", "a/bcb")),
+              ::testing::Eq(KeyRange("", "b")));
+  EXPECT_THAT(KeyRange::RemovePrefix("x", KeyRange("xa", "y")),
+              ::testing::Eq(KeyRange("a", "")));
+}
+
 }  // namespace

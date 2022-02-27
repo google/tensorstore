@@ -41,6 +41,11 @@ class KeyRange {
   /// Constructs the range containing all keys.
   KeyRange() = default;
 
+  /// Returns a range that contains no keys.
+  static KeyRange EmptyRange() {
+    return KeyRange(std::string(1, '\0'), std::string(1, '\0'));
+  }
+
   /// Constructs the specified range.
   explicit KeyRange(std::string inclusive_min, std::string exclusive_max)
       : inclusive_min(std::move(inclusive_min)),
@@ -50,6 +55,17 @@ class KeyRange {
   static KeyRange Prefix(std::string prefix);
 
   static KeyRange AddPrefix(std::string_view prefix, KeyRange range);
+
+  /// Returns the range corresponding to the set of keys `k` for which
+  /// `prefix + k` is a member of `range`.
+  ///
+  /// For example:
+  ///
+  /// RemovePrefix("a/", KeyRange("a/b", "a/d")) -> KeyRange("b", "d")
+  /// RemovePrefix("a/b", KeyRange("a/b", "a/d")) -> KeyRange()
+  /// RemovePrefix("a/d", KeyRange("a/b", "a/d")) -> EmptyRange()
+  /// RemovePrefix("a/bc", KeyRange("a/b", "a/bb")) -> KeyRange("", "b")
+  static KeyRange RemovePrefix(std::string_view prefix, KeyRange range);
 
   /// Returns the key that occurs immediately after `key`.
   ///
