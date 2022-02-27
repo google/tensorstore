@@ -102,7 +102,7 @@
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
-#include "tensorstore/internal/cache/cache_key.h"
+#include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/file_io_concurrency_resource.h"
 #include "tensorstore/internal/flat_cord_builder.h"

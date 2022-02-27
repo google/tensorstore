@@ -252,7 +252,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal:tagged_ptr",
         "//tensorstore/internal:type_traits",
-        "//tensorstore/internal/cache:cache_key",
+        "//tensorstore/internal/cache_key",
         "//tensorstore/serialization",
         "//tensorstore/serialization:json",
         "//tensorstore/util:quote_string",

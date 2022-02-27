@@ -28,7 +28,7 @@
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context_impl_base.h"  // IWYU pragma: export
-#include "tensorstore/internal/cache/cache_key.h"
+#include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/internal/type_traits.h"
@@ -182,11 +182,6 @@ class Context {
 
     friend bool operator!=(const Resource& a, const Resource& b) {
       return !(a == b);
-    }
-
-    friend void EncodeCacheKeyAdl(std::string* out, const Resource& resource) {
-      internal::EncodeCacheKey(
-          out, reinterpret_cast<std::uintptr_t>(resource.get()));
     }
 
     Result<::nlohmann::json> ToJson(
@@ -661,6 +656,17 @@ struct GarbageCollection<Context::Resource<Provider>> {
   constexpr static bool required() { return false; }
 };
 }  // namespace garbage_collection
+
+namespace internal {
+template <typename Provider>
+struct CacheKeyEncoder<Context::Resource<Provider>> {
+  static void Encode(std::string* out,
+                     const Context::Resource<Provider>& value) {
+    internal::EncodeCacheKey(out,
+                             reinterpret_cast<std::uintptr_t>(value.get()));
+  }
+};
+}  // namespace internal
 
 }  // namespace tensorstore
 

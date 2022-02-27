@@ -30,6 +30,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:json",
         "//tensorstore/internal:path",
         "//tensorstore/internal:retry",
+        "//tensorstore/internal/cache_key",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:curl_transport",
         "//tensorstore/internal/oauth2",

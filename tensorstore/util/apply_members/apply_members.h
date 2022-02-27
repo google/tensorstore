@@ -31,7 +31,7 @@
 /// * ContextBindingTraits: internal/context_binding.h
 /// * GarbageCollection: util/garbage_collection/garbage_collection.h
 /// * Serializer: serialization/serialization.h
-/// * EncodeCacheKey: internal/cache/cache_key.h
+/// * EncodeCacheKey: internal/cache_key/cache_key.h
 ///
 /// Separate headers provide support for certain standard types:
 ///

@@ -33,6 +33,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/absl_time_json_binder.h"
+#include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/concurrency_resource_provider.h"
 #include "tensorstore/internal/env.h"
@@ -309,13 +310,6 @@ struct GcsKeyValueStoreSpecData {
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(x.bucket, x.request_concurrency, x.user_project, x.retries);
   };
-
-  friend void EncodeCacheKeyAdl(std::string* out,
-                                const GcsKeyValueStoreSpecData& spec) {
-    internal::EncodeCacheKey(out, spec.bucket, spec.request_concurrency,
-                             spec.user_project->project_id,
-                             spec.retries->max_retries);
-  }
 
   constexpr static auto default_json_binder = jb::Object(
       // Bucket is specified in the `spec` since it identifies the resource

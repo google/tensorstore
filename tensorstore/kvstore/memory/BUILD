@@ -50,7 +50,7 @@ tensorstore_cc_test(
         ":memory",
         "//tensorstore:context",
         "//tensorstore/internal:json_gtest",
-        "//tensorstore/internal/cache:cache_key",
+        "//tensorstore/internal/cache_key",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/serialization",
         "//tensorstore/serialization:test_util",
