@@ -871,6 +871,31 @@ internal_result::ChainResultType<T, Func0, Func...> ChainResult(
 // Note: the use of `TENSORSTORE_PP_EXPAND` above is a workaround for MSVC 2019
 // preprocessor limitations.
 
+#define TENSORSTORE_INTERNAL_CHECK_OK_AND_ASSIGN_IMPL(temp, decl, expr)      \
+  auto temp = (expr);                                                        \
+  static_assert(tensorstore::IsResult<decltype(temp)>,                       \
+                "TENSORSTORE_CHECK_OK_AND_ASSIGN requires a Result value."); \
+  if (ABSL_PREDICT_FALSE(!temp)) {                                           \
+    TENSORSTORE_CHECK_OK(temp.status());                                     \
+  }                                                                          \
+  decl = std::move(*temp);
+
+/// Convenience macro for checking errors when calling a function that returns a
+/// `Result`.
+///
+/// This macro generates multiple statements and should be invoked as follows:
+///
+///     Result<int> GetSomeResult();
+///
+///     TENSORSTORE_CHECK_OK_AND_ASSIGN(int x, GetSomeResult());
+///
+/// If the expression returns a `Result` with a value, it is assigned to `decl`.
+/// Otherwise, the error is logged and the program is terminated.
+#define TENSORSTORE_CHECK_OK_AND_ASSIGN(decl, ...)                         \
+  TENSORSTORE_PP_EXPAND(TENSORSTORE_INTERNAL_CHECK_OK_AND_ASSIGN_IMPL(     \
+      TENSORSTORE_PP_CAT(tensorstore_check_ok_or_return_, __LINE__), decl, \
+      __VA_ARGS__))
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_RESULT_H_
