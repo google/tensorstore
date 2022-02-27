@@ -3,7 +3,7 @@ load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefi
 package(default_visibility = ["//visibility:public"])
 
 cc_library_with_strip_include_prefix(
-    name = "zstd",
+    name = "zstdlib",
     srcs = glob(
         [
             "lib/*.h",

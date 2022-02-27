@@ -160,7 +160,7 @@ cc_library_with_strip_include_prefix(
     deps = [
         ":blosc_common",
         ":shuffle",
-        "@com_facebook_zstd//:zstd",
+        "@net_zstd//:zstdlib",
         "@com_google_snappy//:snappy",
         "@net_zlib//:zlib",
         "@org_lz4//:lz4",
