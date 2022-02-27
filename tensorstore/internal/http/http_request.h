@@ -92,6 +92,10 @@ std::string GetRangeHeader(OptionalByteRangeRequest byte_range);
 /// Note that the time zone is always UTC and is specified as "GMT".
 constexpr const char kHttpTimeFormat[] = "%a, %d %b %E4Y %H:%M:%S GMT";
 
+/// Adds a `cache-control` header consistent with `staleness_bound`.
+void AddStalenessBoundCacheControlHeader(HttpRequestBuilder& request_builder,
+                                         const absl::Time& staleness_bound);
+
 }  // namespace internal_http
 }  // namespace tensorstore
 

@@ -513,11 +513,15 @@ void TestKeyValueStoreSpecRoundtrip(
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         derived_spec, spec.ToJson(options.json_serialization_options));
     EXPECT_THAT(derived_spec, MatchesJson(json_spec));
-    ASSERT_THAT(kvstore::Write(store, key, value).result(),
-                MatchesRegularTimestampedStorageGeneration());
-    EXPECT_THAT(kvstore::Read(store, key).result(),
-                MatchesKvsReadResult(value));
+    if (options.check_write_read) {
+      ASSERT_THAT(kvstore::Write(store, key, value).result(),
+                  MatchesRegularTimestampedStorageGeneration());
+      EXPECT_THAT(kvstore::Read(store, key).result(),
+                  MatchesKvsReadResult(value));
+    }
   }
+
+  ASSERT_TRUE(options.check_write_read || !options.check_data_persists);
 
   // Reopen and verify contents.
   if (options.check_data_persists) {
@@ -527,6 +531,18 @@ void TestKeyValueStoreSpecRoundtrip(
     EXPECT_THAT(kvstore::Read(store, key).result(),
                 MatchesKvsReadResult(value));
   }
+}
+
+void TestKeyValueStoreSpecRoundtripNormalize(
+    ::nlohmann::json json_spec, ::nlohmann::json normalized_json_spec) {
+  SCOPED_TRACE(tensorstore::StrCat("json_spec=", json_spec.dump()));
+  SCOPED_TRACE(tensorstore::StrCat("normalized_json_spec=",
+                                   normalized_json_spec.dump()));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   kvstore::Open(json_spec).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store.spec());
+  EXPECT_THAT(spec.ToJson(),
+              ::testing::Optional(MatchesJson(normalized_json_spec)));
 }
 
 void TestKeyValueStoreUrlRoundtrip(::nlohmann::json json_spec,

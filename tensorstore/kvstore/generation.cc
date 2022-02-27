@@ -137,6 +137,18 @@ bool StorageGeneration::NotEqualOrUnspecified(
          generation.value != if_not_equal.value;
 }
 
+std::string_view StorageGeneration::DecodeString(
+    const StorageGeneration& generation) {
+  std::string_view s = generation.value;
+  if (s.empty()) return {};
+  while (true) {
+    bool start_of_tags = static_cast<bool>(s.back() & kBaseGeneration);
+    s.remove_suffix(1);
+    if (start_of_tags || s.empty()) break;
+  }
+  return s;
+}
+
 }  // namespace tensorstore
 
 TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(

@@ -1707,6 +1707,16 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "retries_context_resource",
+    hdrs = ["retries_context_resource.h"],
+    deps = [
+        ":absl_time_json_binder",
+        ":json",
+        "//tensorstore:context",
+    ],
+)
+
+tensorstore_cc_library(
     name = "riegeli_json_input",
     srcs = ["riegeli_json_input.cc"],
     hdrs = ["riegeli_json_input.h"],

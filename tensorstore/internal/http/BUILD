@@ -68,6 +68,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
     ],
 )
@@ -98,7 +99,7 @@ tensorstore_cc_test(
     ],
 )
 
-cc_test(
+tensorstore_cc_test(
     name = "curl_transport_test",
     srcs = ["curl_transport_test.cc"],
     deps = [
@@ -112,5 +113,29 @@ cc_test(
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
         "@org_nghttp2//:nghttp2",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "http_header",
+    srcs = ["http_header.cc"],
+    hdrs = ["http_header.h"],
+    deps = [
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
+        "@com_google_re2//:re2",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "http_header_test",
+    size = "small",
+    srcs = ["http_header_test.cc"],
+    deps = [
+        ":http_header",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
     ],
 )

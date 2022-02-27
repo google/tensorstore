@@ -74,4 +74,22 @@ TEST(TimestampedStorageGenerationSerializationTest, Basic) {
       StorageGeneration::FromUint64(12345), absl::InfiniteFuture()));
 }
 
+TEST(StorageGenerationTest, IsCleanValidValue) {
+  EXPECT_FALSE(
+      StorageGeneration::IsCleanValidValue(StorageGeneration::Unknown()));
+  EXPECT_FALSE(
+      StorageGeneration::IsCleanValidValue(StorageGeneration::NoValue()));
+  EXPECT_FALSE(
+      StorageGeneration::IsCleanValidValue(StorageGeneration::Invalid()));
+  EXPECT_TRUE(StorageGeneration::IsCleanValidValue(
+      StorageGeneration::FromString("abc")));
+  EXPECT_TRUE(
+      StorageGeneration::IsCleanValidValue(StorageGeneration::FromUint64(42)));
+}
+
+TEST(StorageGenerationTest, DecodeString) {
+  EXPECT_EQ("abc", StorageGeneration::DecodeString(
+                       StorageGeneration::FromString("abc")));
+}
+
 }  // namespace

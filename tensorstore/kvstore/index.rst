@@ -19,6 +19,7 @@ Drivers
    memory/index
    file/index
    gcs/index
+   http/index
 
 .. json:schema:: KvStore
 

@@ -176,6 +176,19 @@ struct StorageGeneration {
   /// Returns a base generation that encodes the specified string.
   static StorageGeneration FromString(std::string_view s);
 
+  /// Returns `true` if this is a clean base generation, not locally-modified,
+  /// not `StorageGeneration::NoValue()` and not `StorageGeneration::Invalid()`.
+  ///
+  /// This is equivalent to checking if `generation` could have resulted from a
+  /// call to `FromString`.
+  static bool IsCleanValidValue(const StorageGeneration& generation) {
+    return !generation.value.empty() &&
+           generation.value.back() == kBaseGeneration;
+  }
+
+  /// Inverse of `FromString`.
+  static std::string_view DecodeString(const StorageGeneration& generation);
+
   /// Returns a base generation that encodes one or more trivial values via
   /// memcpy.
   ///
@@ -210,8 +223,15 @@ struct StorageGeneration {
     return gen;
   }
 
+  /// Returns a generation that is marked as locally modified but conditioned on
+  /// `generation`.
   static StorageGeneration Dirty(StorageGeneration generation);
 
+  /// Returns the "clean" base generation on which `generation` is based.
+  ///
+  /// If `generation` is already a "clean" state, it is returned as is.  If
+  /// `generation` indicates local modifications, returns the generation on
+  /// which those local modifications are conditioned.
   static StorageGeneration Clean(StorageGeneration generation);
 
   /// Determines if two generations are equivalent by comparing their canonical
@@ -238,16 +258,32 @@ struct StorageGeneration {
   static bool NotEqualOrUnspecified(const StorageGeneration& generation,
                                     const StorageGeneration& if_not_equal);
 
+  /// Returns `true` if `generation` is equal to the special
+  /// `StorageGeneration::Unknown()` value, i.e. an empty string.
+  ///
+  /// This usually indicates an unspecified generation; in `if_equal` and
+  /// `if_not_equal` conditions, it indicates that the condition does not apply.
   static bool IsUnknown(const StorageGeneration& generation) {
     return generation.value.empty();
   }
 
+  /// Returns `true` if `generation` represents a "clean" state without any
+  /// local modifications.
+  ///
+  /// Note that this returns `true` for `StorageGeneration::NoValue()` and
+  /// `StorageGeneration::Invalid()`.  See also `IsCleanValidValue`.
   static bool IsClean(const StorageGeneration& generation) {
     return !generation.value.empty() &&
            (generation.value.back() & (kBaseGeneration | kDirty)) ==
                kBaseGeneration;
   }
 
+  /// Returns `true` if `generation` is equal to the special `NoValue()`
+  /// generation.
+  ///
+  /// While all kvstore drivers support `StorageGeneration::NoValue()` in
+  /// `if_equal` and `if_not_equal` conditions, some kvstore drivers may return
+  /// a different generation for missing values.
   static bool IsNoValue(const StorageGeneration& generation) {
     return generation.value.size() == 1 &&
            generation.value[0] == (kNoValue | kBaseGeneration);

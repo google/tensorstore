@@ -32,7 +32,6 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
-#include "tensorstore/internal/absl_time_json_binder.h"
 #include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/concurrency_resource_provider.h"
@@ -47,6 +46,7 @@
 #include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/internal/retries_context_resource.h"
 #include "tensorstore/internal/retry.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/gcs/object_metadata.h"
@@ -127,42 +127,8 @@ struct GcsUserProjectResource
 };
 
 /// Specifies a limit on the number of retries.
-struct GcsRequestRetries
-    : public internal::ContextResourceTraits<GcsRequestRetries> {
+struct GcsRequestRetries : public internal::RetriesResource<GcsRequestRetries> {
   static constexpr char id[] = "gcs_request_retries";
-  struct Spec {
-    int64_t max_retries = 32;
-    absl::Duration initial_delay = absl::Seconds(1);
-    absl::Duration max_delay = absl::Seconds(32);
-  };
-  using Resource = Spec;
-  static Spec Default() { return {}; }
-  static constexpr auto JsonBinder() {
-    return jb::Object(
-        jb::Member("max_retries",  //
-                   jb::Projection(&Spec::max_retries,
-                                  jb::DefaultValue([](auto* v) { *v = 32; },
-                                                   jb::Integer<int64_t>(1)))),
-        jb::Member(
-            "initial_delay",  //
-            jb::Projection(&Spec::initial_delay, jb::DefaultValue([](auto* v) {
-              *v = absl::Seconds(1);
-            }))),
-        jb::Member(
-            "max_delay",  //
-            jb::Projection(&Spec::max_delay, jb::DefaultValue([](auto* v) {
-              *v = absl::Seconds(32);
-            }))) /**/
-    );
-  }
-  static Result<Resource> Create(
-      const Spec& spec, internal::ContextResourceCreationContext context) {
-    return spec;
-  }
-  static Spec GetSpec(const Spec& spec,
-                      const internal::ContextSpecBuilder& builder) {
-    return spec;
-  }
 };
 
 struct GcsRequestConcurrencyResourceTraits
@@ -335,6 +301,11 @@ struct GcsKeyValueStoreSpecData {
                  jb::Projection<&GcsKeyValueStoreSpecData::retries>()));
 };
 
+std::string GetGcsUrl(std::string_view bucket, std::string_view path) {
+  return tensorstore::StrCat("gs://", bucket, "/",
+                             internal::PercentEncodeUriPath(path));
+}
+
 class GcsKeyValueStoreSpec
     : public internal_kvstore::RegisteredDriverSpec<GcsKeyValueStoreSpec,
                                                     GcsKeyValueStoreSpecData> {
@@ -342,8 +313,7 @@ class GcsKeyValueStoreSpec
   static constexpr char id[] = "gcs";
   Future<kvstore::DriverPtr> DoOpen() const override;
   Result<std::string> ToUrl(std::string_view path) const override {
-    return tensorstore::StrCat("gs://", data_.bucket, "/",
-                               internal::PercentEncodeUriPath(path));
+    return GetGcsUrl(data_.bucket, path);
   }
 };
 
@@ -402,8 +372,7 @@ class GcsKeyValueStore
   }
 
   std::string DescribeKey(std::string_view key) override {
-    return tensorstore::QuoteString(
-        tensorstore::StrCat("gs://", spec_.bucket, "/", key));
+    return GetGcsUrl(spec_.bucket, key);
   }
 
   // Wrap transport to allow our old mocking to work.
@@ -493,19 +462,8 @@ struct ReadTask {
       if (auth_header) request_builder.AddHeader(*auth_header);
       // For requests to buckets that are publicly readable, GCS may return a
       // stale response unless it is prohibited by the cache-control header.
-      if (options.staleness_bound != absl::InfinitePast()) {
-        absl::Time now;
-        if (options.staleness_bound == absl::InfiniteFuture() ||
-            (now = absl::Now()) <= options.staleness_bound) {
-          request_builder.AddHeader("cache-control: no-cache");
-        } else {
-          // Since max-age is specified as an integer number of seconds, always
-          // round down to ensure our requirement is met.
-          request_builder.AddHeader(
-              absl::StrFormat("cache-control: max-age=%d",
-                              ToInt64Seconds(now - options.staleness_bound)));
-        }
-      }
+      internal_http::AddStalenessBoundCacheControlHeader(
+          request_builder, options.staleness_bound);
       if (options.byte_range.inclusive_min != 0 ||
           options.byte_range.exclusive_max) {
         request_builder.AddHeader(

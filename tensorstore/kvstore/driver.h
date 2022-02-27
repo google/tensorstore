@@ -51,6 +51,12 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
  public:
   virtual ~DriverSpec();
 
+  /// Normalizes the spec and `path`, possibly by moving information between the
+  /// path and driver spec.  This is used by the `http` driver.
+  ///
+  /// The default implementation simply returns `absl::OkStatus()`.
+  virtual absl::Status NormalizeSpec(std::string& path);
+
   /// Resolves any context references using `context`.
   virtual absl::Status BindContext(const Context& context) = 0;
 

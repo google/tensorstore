@@ -8,6 +8,7 @@ licenses(["notice"])
 DRIVERS = [
     "file",
     "gcs",
+    "http",
     "memory",
 ]
 

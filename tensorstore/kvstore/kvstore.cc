@@ -76,6 +76,10 @@ void intrusive_ptr_decrement(Driver* p) {
 
 DriverSpec::~DriverSpec() = default;
 
+absl::Status DriverSpec::NormalizeSpec(std::string& path) {
+  return absl::OkStatus();
+}
+
 Result<std::string> DriverSpec::ToUrl(std::string_view path) const {
   return absl::UnimplementedError("URL representation not supported");
 }
@@ -147,8 +151,9 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Spec, [](auto is_loading,
                              jb::DefaultInitializedValue())),
       [&](auto is_loading, const auto& options, auto* obj, auto* j) {
         if constexpr (is_loading) {
-          return registry.RegisteredObjectBinder()(
-              is_loading, {options, obj->path}, &obj->driver, j);
+          TENSORSTORE_RETURN_IF_ERROR(registry.RegisteredObjectBinder()(
+              is_loading, {options, obj->path}, &obj->driver, j));
+          return const_cast<DriverSpec&>(*obj->driver).NormalizeSpec(obj->path);
         } else {
           return registry.RegisteredObjectBinder()(is_loading, options,
                                                    &obj->driver, j);

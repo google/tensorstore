@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -70,6 +71,22 @@ std::string GetRangeHeader(OptionalByteRangeRequest byte_range) {
                   *byte_range.exclusive_max - 1);
   } else {
     return StrCat("Range: bytes=", byte_range.inclusive_min, "-");
+  }
+}
+
+void AddStalenessBoundCacheControlHeader(HttpRequestBuilder& request_builder,
+                                         const absl::Time& staleness_bound) {
+  if (staleness_bound != absl::InfinitePast()) {
+    absl::Time now;
+    if (staleness_bound == absl::InfiniteFuture() ||
+        (now = absl::Now()) <= staleness_bound) {
+      request_builder.AddHeader("cache-control: no-cache");
+    } else {
+      // Since max-age is specified as an integer number of seconds, always
+      // round down to ensure our requirement is met.
+      request_builder.AddHeader(absl::StrFormat(
+          "cache-control: max-age=%d", ToInt64Seconds(now - staleness_bound)));
+    }
   }
 }
 

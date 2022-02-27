@@ -69,7 +69,11 @@ void TestKeyValueStoreDeleteRangeFromBeginning(const KvStore& store);
 struct KeyValueStoreSpecRoundtripOptions {
   kvstore::SpecRequestOptions spec_request_options;
   JsonSerializationOptions json_serialization_options;
+  // Checks reading and writing.
+  bool check_write_read = true;
+
   // Checks that data persists after re-opening from the returned spec.
+  // Requires `check_write_read == true`.
   bool check_data_persists = true;
 };
 
@@ -84,6 +88,10 @@ void TestKeyValueStoreSpecRoundtrip(
 /// URL representation `url`.
 void TestKeyValueStoreUrlRoundtrip(::nlohmann::json json_spec,
                                    std::string_view url);
+
+/// Tests that `json_spec` round trips to `normalized_json_spec`.
+void TestKeyValueStoreSpecRoundtripNormalize(
+    ::nlohmann::json json_spec, ::nlohmann::json normalized_json_spec);
 
 /// Returns the contents of `kv_store` as an `std::map`.
 Result<std::map<kvstore::Key, kvstore::Value>> GetMap(const KvStore& store);
