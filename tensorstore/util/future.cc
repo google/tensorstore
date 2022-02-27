@@ -21,6 +21,8 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/const_init.h"
+#include "absl/base/optimization.h"
+#include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
@@ -38,10 +40,15 @@ namespace internal_future {
 /// unregistration was requested.
 static CallbackListNode unregister_requested;
 
+struct ABSL_CACHELINE_ALIGNED CacheLineAlignedMutex {
+  absl::Mutex mutex{absl::kConstInit};
+};
+
+constexpr size_t kNumMutexes = 64;
+
 absl::Mutex* GetMutex(FutureStateBase* ptr) {
-  // FIXME: Use more than one mutex.
-  ABSL_CONST_INIT static absl::Mutex mutex(absl::kConstInit);
-  return &mutex;
+  ABSL_CONST_INIT static CacheLineAlignedMutex mutexes[kNumMutexes];
+  return &mutexes[absl::HashOf(ptr) % kNumMutexes].mutex;
 }
 
 using CallbackListAccessor =
