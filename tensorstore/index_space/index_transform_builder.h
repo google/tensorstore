@@ -799,7 +799,7 @@ class IndexTransformBuilder {
                           ? internal::kNumInlinedDims
                           : (OutputRank == 0 ? 1 : OutputRank)>
       output_index_maps_;
-  IntervalForm interval_form_;
+  IntervalForm interval_form_ = IntervalForm::sized;
   internal_index_space::BuilderFlags flags_ =
       internal_index_space::BuilderFlags::kDefault;
 
