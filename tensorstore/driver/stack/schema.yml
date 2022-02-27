@@ -15,8 +15,13 @@ allOf:
           The stack driver maps each nested driver in `.layers` to the  position
           described by the layer transform. All layers must have the same `dtype`
           as well as compatible domains.
-      schema:
-        $ref: Schema
+      data_copy_concurrency:
+        $ref: ContextResource
+        description: >-
+          Specifies or references a previously defined
+          `Context.data_copy_concurrency`.  It is normally more convenient to
+          specify a default `~Context.data_copy_concurrency` in the `.context`.
+        default: data_copy_concurrency
     required:
       - layers
 examples:
