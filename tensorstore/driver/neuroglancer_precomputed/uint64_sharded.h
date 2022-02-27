@@ -151,6 +151,10 @@ struct MinishardIndexEntry {
                          const MinishardIndexEntry& b) {
     return !(a == b);
   }
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.chunk_id, x.byte_range);
+  };
 };
 
 /// Specifies the start and end offsets of the minishard index for a particular

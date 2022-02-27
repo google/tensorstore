@@ -407,12 +407,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "estimate_heap_usage",
-    hdrs = ["estimate_heap_usage.h"],
-    deps = ["@com_google_absl//absl/strings:cord"],
-)
-
-tensorstore_cc_library(
     name = "exception_macros",
     hdrs = ["exception_macros.h"],
     deps = [

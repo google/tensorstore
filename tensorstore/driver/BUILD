@@ -250,6 +250,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache:chunk_cache",
         "//tensorstore/internal/cache:kvs_backed_cache",
         "//tensorstore/internal/cache_key",
+        "//tensorstore/internal/estimate_heap_usage",
         "//tensorstore/kvstore",
         "//tensorstore/serialization:absl_time",
         "//tensorstore/util:bit_span",

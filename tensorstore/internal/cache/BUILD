@@ -170,7 +170,7 @@ tensorstore_cc_library(
     deps = [
         ":async_cache",
         ":cache",
-        "//tensorstore/internal:estimate_heap_usage",
+        "//tensorstore/internal/estimate_heap_usage",
     ],
 )
 

@@ -37,6 +37,7 @@
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
+#include "tensorstore/internal/estimate_heap_usage/std_vector.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_bindable.h"
 #include "tensorstore/internal/open_mode_spec.h"
@@ -807,6 +808,17 @@ class RegisteredKvsDriver
 };
 
 }  // namespace internal_kvs_backed_chunk_driver
+
+namespace internal {
+// `MetadataCache::PendingWrite` stores some dynamically allocated state but it
+// is not practical to track the memory usage for the purposes of caching and in
+// any case the memory usage should be negligible.
+template <>
+struct HeapUsageEstimator<
+    internal_kvs_backed_chunk_driver::MetadataCache::PendingWrite> {
+  constexpr static bool MayUseHeapMemory() { return false; }
+};
+}  // namespace internal
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_DRIVER_KVS_BACKED_CHUNK_DRIVER_H_

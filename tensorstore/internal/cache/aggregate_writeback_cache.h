@@ -24,7 +24,7 @@
 
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
-#include "tensorstore/internal/estimate_heap_usage.h"
+#include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
 
 namespace tensorstore {
 namespace internal {

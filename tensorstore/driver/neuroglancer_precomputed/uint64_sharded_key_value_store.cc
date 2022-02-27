@@ -26,7 +26,8 @@
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
 #include "tensorstore/internal/compression/zlib.h"
-#include "tensorstore/internal/estimate_heap_usage.h"
+#include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
+#include "tensorstore/internal/estimate_heap_usage/std_vector.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/transaction.h"
@@ -270,7 +271,7 @@ class MinishardIndexCache
 
     std::size_t ComputeReadDataSizeInBytes(const void* read_data) override {
       return internal::EstimateHeapUsage(
-          static_cast<const ReadData*>(read_data));
+          *static_cast<const ReadData*>(read_data));
     }
 
     void DoDecode(std::optional<absl::Cord> value,

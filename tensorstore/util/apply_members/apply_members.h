@@ -32,6 +32,7 @@
 /// * GarbageCollection: util/garbage_collection/garbage_collection.h
 /// * Serializer: serialization/serialization.h
 /// * EncodeCacheKey: internal/cache_key/cache_key.h
+/// * EstimateHeapUsage: internal/estimate_heap_usage/estimate_heap_usage.h
 ///
 /// Separate headers provide support for certain standard types:
 ///
