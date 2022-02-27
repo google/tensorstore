@@ -132,6 +132,12 @@ struct Set {
     return result;
   }
 
+  Node* FindNode(int key) {
+    auto* node = tree.Find(CompareToKey(key)).found_node();
+    assert(node);
+    return node;
+  }
+
   bool Insert(int key) {
     auto [node, inserted] = tree.FindOrInsert(CompareToKey(key), [&] {
       auto* n = new Node;
@@ -237,6 +243,10 @@ TEST(SetTest, SimpleInsert1) {
 
 TEST(SetTest, SimpleInsert2) {
   Set rbtree_set;
+  Set::Tree::Range empty_range = rbtree_set.tree;
+  EXPECT_TRUE(empty_range.empty());
+  EXPECT_EQ(empty_range, empty_range);
+
   rbtree_set.Insert(5);
   rbtree_set.CheckElements();
   rbtree_set.CheckSplitJoin();
@@ -258,6 +268,23 @@ TEST(SetTest, SimpleInsert2) {
   rbtree_set.Insert(0);
   rbtree_set.CheckElements();
   rbtree_set.CheckSplitJoin();
+
+  Set::Tree::Range full_range = rbtree_set.tree;
+  EXPECT_FALSE(full_range.empty());
+  EXPECT_EQ(full_range, full_range);
+  EXPECT_NE(full_range, empty_range);
+  EXPECT_EQ(full_range.begin(), rbtree_set.tree.begin());
+  EXPECT_EQ(full_range.end(), rbtree_set.tree.end());
+
+  Set::Tree::Range partial_range(rbtree_set.FindNode(1),
+                                 rbtree_set.FindNode(5));
+  EXPECT_NE(partial_range, full_range);
+  EXPECT_NE(partial_range, empty_range);
+  std::set<int> partial_elements;
+  for (auto& node : partial_range) {
+    partial_elements.insert(node.value);
+  }
+  EXPECT_THAT(partial_elements, ::testing::ElementsAre(1, 3));
 }
 
 TEST(SetTest, RandomInsert) {

@@ -182,6 +182,49 @@ class Iterator {
   Node* node_;
 };
 
+/// C++ range-based-for loop-compatible range for iterating over an interval
+/// within a tree.
+///
+/// This is similar to the C++20
+/// `std::ranges::subrange<Iterator<Node, Tag, Dir>>` type but is available in
+/// C++17.
+///
+/// Example:
+///
+///     Tree::Range range(tree.Find(predicate).found_node(), nullptr);
+///     for (auto &node : range) {
+///       // ...
+///     }
+template <typename Node, typename Tag = void, Direction Dir = kRight>
+class Range {
+ public:
+  using Tree = intrusive_red_black_tree::Tree<Node, Tag>;
+  using value_type = Node;
+  using reference = Node&;
+  using pointer = Node*;
+  using difference_type = std::ptrdiff_t;
+  using iterator = Iterator<Node, Tag, Dir>;
+
+  explicit Range(Node* begin, Node* end) : begin_(begin), end_(end) {}
+  Range(iterator begin, iterator end) : begin_(begin), end_(end) {}
+  Range(Tree& tree) : begin_(tree.ExtremeNode(!Dir)), end_(nullptr) {}
+
+  iterator begin() const { return begin_; }
+  iterator end() const { return end_; }
+
+  bool empty() const { return begin_ == end_; }
+
+  friend bool operator==(const Range& a, const Range& b) {
+    return a.begin_ == b.begin_ && a.end_ == b.end_;
+  }
+
+  friend bool operator!=(const Range& a, const Range& b) { return !(a == b); }
+
+ private:
+  Node* begin_;
+  Node* end_;
+};
+
 /// Position at which to insert a node into a tree.
 template <typename Node>
 struct InsertPosition {
@@ -228,6 +271,7 @@ class Tree {
  public:
   using NodeBase = intrusive_red_black_tree::NodeBase<Tag>;
   using iterator = Iterator<Node, Tag>;
+  using Range = intrusive_red_black_tree::Range<Node, Tag>;
   using InsertPosition = intrusive_red_black_tree::InsertPosition<Node>;
   using FindResult = intrusive_red_black_tree::FindResult<Node>;
 
