@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_INTERNAL_INTEGER_OVERFLOW_H_
 #define TENSORSTORE_INTERNAL_INTEGER_OVERFLOW_H_
 
+#include <limits>
 #include <type_traits>
 
 #include "absl/base/attributes.h"
@@ -90,6 +91,17 @@ constexpr bool AddOverflow(T a, T b, T* result) {
   return (a > 0 && (b > std::numeric_limits<T>::max() - a)) ||
          (a < 0 && (b < std::numeric_limits<T>::min() - a));
 #endif
+}
+
+/// Returns the result of adding `a` and `b`, saturating on overflow.
+template <typename T>
+constexpr T AddSaturate(T a, T b) {
+  T result;
+  if (AddOverflow(a, b, &result)) {
+    result = (b >= 0 ? std::numeric_limits<T>::max()
+                     : std::numeric_limits<T>::min());
+  }
+  return result;
 }
 
 /// Sets `*result` to the result of subtracting `a` and `b` with infinite

@@ -23,6 +23,7 @@ namespace {
 
 using tensorstore::Index;
 using tensorstore::internal::AddOverflow;
+using tensorstore::internal::AddSaturate;
 using tensorstore::internal::MulOverflow;
 using tensorstore::internal::SubOverflow;
 using tensorstore::internal::wrap_on_overflow::Add;
@@ -134,6 +135,13 @@ TEST(AddOverflow, Int32) {
   b = 0x40000000;
   EXPECT_EQ(true, AddOverflow(a, b, &c));
   EXPECT_EQ(std::int32_t{-0x80000000LL}, c);
+}
+
+TEST(AddSaturate, Int32) {
+  EXPECT_EQ(0x7fffffff, AddSaturate<int32_t>(0x40000000, 0x3fffffff));
+  EXPECT_EQ(0x7fffffff, AddSaturate<int32_t>(0x40000000, 0x40000000));
+  EXPECT_EQ(-0x80000000, AddSaturate<int32_t>(-0x40000000, -0x40000000));
+  EXPECT_EQ(-0x80000000, AddSaturate<int32_t>(-0x40000000, -0x41000000));
 }
 
 TEST(SubOverflow, Uint32) {
