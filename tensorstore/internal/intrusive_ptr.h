@@ -148,6 +148,12 @@ class AtomicReferenceCount {
     return ref_count_.load(std::memory_order_acquire);
   }
 
+  template <typename D>
+  friend bool IncrementReferenceCountIfNonZero(
+      const AtomicReferenceCount<D>& base);
+  template <typename D>
+  friend bool DecrementReferenceCount(const AtomicReferenceCount<D>& base);
+
   /// Increments the reference count.
   ///
   /// This function is called by `DefaultIntrusivePtrTraits`.
@@ -160,15 +166,12 @@ class AtomicReferenceCount {
   ///
   /// This function is called by `DefaultIntrusivePtrTraits`.
   friend void intrusive_ptr_decrement(const AtomicReferenceCount* p) noexcept {
-    if (p->ref_count_.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+    if (DecrementReferenceCount(*p)) {
       delete static_cast<const Derived*>(p);
     }
   }
 
  private:
-  template <typename D>
-  friend bool IncrementReferenceCountIfNonZero(
-      const AtomicReferenceCount<D>& base);
   mutable std::atomic<std::uint32_t> ref_count_{0};
 };
 
@@ -181,6 +184,13 @@ inline bool IncrementReferenceCountIfNonZero(
   } while (!base.ref_count_.compare_exchange_weak(count, count + 1,
                                                   std::memory_order_acq_rel));
   return true;
+}
+
+/// Decrements the reference count of `base` and returns `true` if it reaches
+/// zero.
+template <typename Derived>
+inline bool DecrementReferenceCount(const AtomicReferenceCount<Derived>& base) {
+  return base.ref_count_.fetch_sub(1, std::memory_order_acq_rel) == 1;
 }
 
 /// Decrements `reference_count` if the result will be non-zero.
