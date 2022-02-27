@@ -202,6 +202,7 @@ tensorstore_cc_library(
         "std_pair.h",
         "std_set.h",
         "std_tuple.h",
+        "std_variant.h",
         "std_vector.h",
     ],
     deps = [

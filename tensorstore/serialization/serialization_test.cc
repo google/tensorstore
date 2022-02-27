@@ -19,6 +19,7 @@
 #include <set>
 #include <string>
 #include <tuple>
+#include <variant>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -27,6 +28,7 @@
 #include "tensorstore/serialization/std_optional.h"
 #include "tensorstore/serialization/std_set.h"
 #include "tensorstore/serialization/std_tuple.h"
+#include "tensorstore/serialization/std_variant.h"
 #include "tensorstore/serialization/std_vector.h"
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/result.h"
@@ -141,6 +143,18 @@ struct Foo {
 TEST(SerializationTest, ApplyMembers) {
   TestSerializationRoundTrip(Foo{"xyz", "abcd"});
   TestSerializationRoundTrip(Foo{"", "abcd"});
+}
+
+TEST(SerialiationTest, Optional) {
+  TestSerializationRoundTrip(std::optional<int>());
+  TestSerializationRoundTrip(std::optional<int>(42));
+}
+
+TEST(SerialiationTest, Variant) {
+  TestSerializationRoundTrip(std::variant<int, std::string>(42));
+  TestSerializationRoundTrip(std::variant<int, std::string>("abc"));
+  TestSerializationRoundTrip(std::variant<int, int>(std::in_place_index<1>, 1));
+  TestSerializationRoundTrip(std::variant<int, int>(std::in_place_index<0>, 0));
 }
 
 static_assert(!IsNonSerializableLike<Foo>);
