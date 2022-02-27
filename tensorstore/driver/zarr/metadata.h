@@ -229,8 +229,9 @@ inline auto FillValueJsonBinder(const ZarrDType& dtype) {
 /// \param components Vector of per-field arrays.
 /// \dchecks `components.size() == metadata.dtype.fields.size()`
 /// \returns The encoded chunk.
-Result<absl::Cord> EncodeChunk(const ZarrMetadata& metadata,
-                               span<const ArrayView<const void>> components);
+Result<absl::Cord> EncodeChunk(
+    const ZarrMetadata& metadata,
+    span<const SharedArrayView<const void>> components);
 
 /// Decodes an encoded zarr chunk into per-field arrays.
 ///

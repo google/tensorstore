@@ -266,7 +266,7 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
 
   Result<absl::Cord> EncodeChunk(
       const void* metadata, span<const Index> chunk_indices,
-      span<const ArrayView<const void>> component_arrays) override {
+      span<const SharedArrayView<const void>> component_arrays) override {
     assert(component_arrays.size() == 1);
     return internal_neuroglancer_precomputed::EncodeChunk(
         chunk_indices, *static_cast<const MultiscaleMetadata*>(metadata),

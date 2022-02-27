@@ -398,20 +398,56 @@ Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
   return field_arrays;
 }
 
-Result<absl::Cord> EncodeChunk(const ZarrMetadata& metadata,
-                               span<const ArrayView<const void>> components) {
-  const size_t num_fields = metadata.dtype.fields.size();
+namespace {
+bool SingleArrayMatchesEncodedRepresentation(
+    const ZarrMetadata& metadata,
+    const SharedArrayView<const void>& component) {
+  auto& field = metadata.dtype.fields[0];
+  if (field.endian != endian::native) return false;
+  return internal::RangesEqual(
+      component.byte_strides(),
+      metadata.chunk_layout.fields[0].encoded_chunk_layout.byte_strides());
+}
+
+absl::Cord MakeCordFromSharedPtr(std::shared_ptr<const void> ptr, size_t size) {
+  std::string_view s(static_cast<const char*>(ptr.get()), size);
+  return absl::MakeCordFromExternal(
+      s, [ptr = std::move(ptr)](std::string_view s) mutable { ptr.reset(); });
+}
+
+absl::Cord MakeCordFromContiguousArray(
+    const SharedArrayView<const void>& array) {
+  return MakeCordFromSharedPtr(array.pointer(),
+                               array.num_elements() * array.dtype().size());
+}
+
+absl::Cord CopyComponentsToEncodedLayout(
+    const ZarrMetadata& metadata,
+    span<const SharedArrayView<const void>> components) {
   internal::FlatCordBuilder output_builder(
       metadata.chunk_layout.bytes_per_chunk);
   ByteStridedPointer<void> data_ptr = output_builder.data();
-  for (size_t field_i = 0; field_i < num_fields; ++field_i) {
+  for (size_t field_i = 0; field_i < components.size(); ++field_i) {
     const auto& field = metadata.dtype.fields[field_i];
     const auto& field_layout = metadata.chunk_layout.fields[field_i];
     ArrayView<void> encoded_array{{data_ptr + field.byte_offset, field.dtype},
                                   field_layout.encoded_chunk_layout};
     internal::EncodeArray(components[field_i], encoded_array, field.endian);
   }
-  auto output = std::move(output_builder).Build();
+  return std::move(output_builder).Build();
+}
+}  // namespace
+
+Result<absl::Cord> EncodeChunk(
+    const ZarrMetadata& metadata,
+    span<const SharedArrayView<const void>> components) {
+  absl::Cord output;
+  if (components.size() == 1 &&
+      SingleArrayMatchesEncodedRepresentation(metadata, components[0])) {
+    output = MakeCordFromContiguousArray(components[0]);
+  } else {
+    output = CopyComponentsToEncodedLayout(metadata, components);
+  }
   if (metadata.compressor) {
     absl::Cord encoded;
     TENSORSTORE_RETURN_IF_ERROR(metadata.compressor->Encode(

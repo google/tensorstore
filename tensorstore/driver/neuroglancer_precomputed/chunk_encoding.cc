@@ -195,7 +195,7 @@ Result<SharedArrayView<const void>> DecodeChunk(
 }
 
 absl::Cord EncodeRawChunk(DataType dtype, span<const Index, 4> shape,
-                          ArrayView<const void> array) {
+                          const SharedArrayView<const void>& array) {
   ArrayView<const void> partial_source(
       array.element_pointer(),
       StridedLayoutView<>(shape, array.byte_strides()));
@@ -257,7 +257,7 @@ Result<absl::Cord> EncodeCompressedSegmentationChunk(
 Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
                                const MultiscaleMetadata& metadata,
                                std::size_t scale_index,
-                               ArrayView<const void> array) {
+                               const SharedArrayView<const void>& array) {
   const auto& scale_metadata = metadata.scales[scale_index];
   std::array<Index, 4> partial_chunk_shape;
   GetChunkShape(chunk_indices, metadata, scale_index,

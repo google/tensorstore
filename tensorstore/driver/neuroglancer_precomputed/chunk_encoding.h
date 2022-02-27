@@ -53,7 +53,7 @@ Result<SharedArrayView<const void>> DecodeChunk(
 Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
                                const MultiscaleMetadata& metadata,
                                std::size_t scale_index,
-                               ArrayView<const void> array);
+                               const SharedArrayView<const void>& array);
 
 }  // namespace internal_neuroglancer_precomputed
 }  // namespace tensorstore

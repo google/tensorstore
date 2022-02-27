@@ -375,7 +375,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   Result<absl::Cord> EncodeChunk(
       const void* metadata, span<const Index> chunk_indices,
-      span<const ArrayView<const void>> component_arrays) override {
+      span<const SharedArrayView<const void>> component_arrays) override {
     return internal_zarr::EncodeChunk(
         *static_cast<const ZarrMetadata*>(metadata), component_arrays);
   }

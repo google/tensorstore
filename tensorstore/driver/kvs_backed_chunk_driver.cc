@@ -1063,18 +1063,17 @@ void DataCache::Entry::DoEncode(std::shared_ptr<const ReadData> data,
   // `ArrayView<const void>`.
   auto* components = data.get();
   const auto component_specs = this->component_specs();
-  absl::FixedArray<ArrayView<const void>, 2> component_arrays_unowned(
+  absl::FixedArray<SharedArrayView<const void>, 2> component_arrays(
       component_specs.size());
-  for (size_t i = 0; i < component_arrays_unowned.size(); ++i) {
+  for (size_t i = 0; i < component_arrays.size(); ++i) {
     if (components[i].valid()) {
-      component_arrays_unowned[i] = components[i];
+      component_arrays[i] = components[i];
     } else {
-      component_arrays_unowned[i] = component_specs[i].fill_value;
+      component_arrays[i] = component_specs[i].fill_value;
     }
   }
-  auto encoded_result =
-      cache.EncodeChunk(cache.initial_metadata_.get(), entry.cell_indices(),
-                        component_arrays_unowned);
+  auto encoded_result = cache.EncodeChunk(
+      cache.initial_metadata_.get(), entry.cell_indices(), component_arrays);
   if (!encoded_result.ok()) {
     execution::set_error(receiver, std::move(encoded_result).status());
     return;

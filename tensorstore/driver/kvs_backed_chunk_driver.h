@@ -417,7 +417,7 @@ class DataCache
   ///     where `grid = GetChunkGridSpecification(metadata)`.
   virtual Result<absl::Cord> EncodeChunk(
       const void* metadata, span<const Index> chunk_indices,
-      span<const ArrayView<const void>> component_arrays) = 0;
+      span<const SharedArrayView<const void>> component_arrays) = 0;
 
   // The members below are implementation details not relevant to derived class
   // driver implementations.
