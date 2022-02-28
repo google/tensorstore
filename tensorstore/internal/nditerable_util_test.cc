@@ -36,25 +36,33 @@ using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 
 TEST(GetNDIterationBlockSize, Basic) {
+#ifndef TENSORSTORE_INTERNAL_NDITERABLE_TEST_UNIT_BLOCK_SIZE
+  constexpr auto expected_block_size = [](Index block_size) {
+    return block_size;
+  };
+#else
+  constexpr auto expected_block_size = [](Index block_size) { return 1; };
+#endif
   // If no temporary buffer is required, uses the full extent of the last
   // dimension.
-  EXPECT_EQ(1000000,
+  EXPECT_EQ(expected_block_size(1000000),
             GetNDIterationBlockSize(/*working_memory_bytes_per_element=*/0,
                                     span<const Index>({3, 4, 1000000})));
 
   // Block size is limited by the extent of the last dimension.
-  EXPECT_EQ(15, GetNDIterationBlockSize(/*working_memory_bytes_per_element=*/1,
-                                        span<const Index>({3, 4, 15})));
+  EXPECT_EQ(expected_block_size(15),
+            GetNDIterationBlockSize(/*working_memory_bytes_per_element=*/1,
+                                    span<const Index>({3, 4, 15})));
 
-  EXPECT_EQ(32 * 1024,
+  EXPECT_EQ(expected_block_size(32 * 1024),
             GetNDIterationBlockSize(/*working_memory_bytes_per_element=*/1,
                                     span<const Index>({3, 4, 1000000})));
 
-  EXPECT_EQ(1024,
+  EXPECT_EQ(expected_block_size(1024),
             GetNDIterationBlockSize(/*working_memory_bytes_per_element=*/32,
                                     span<const Index>({3, 4, 1000000})));
 
-  EXPECT_EQ(512,
+  EXPECT_EQ(expected_block_size(512),
             GetNDIterationBlockSize(/*working_memory_bytes_per_element=*/64,
                                     span<const Index>({3, 4, 1000000})));
 }

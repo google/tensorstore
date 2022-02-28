@@ -375,11 +375,12 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
           } else {
             // Index array depends on the last iteration dimension.
             // Incorporate it into `offsets_array`.
+            Index block_start = indices.back();
             for (Index i = 0; i < block_size; ++i) {
               const Index cur_contribution = wrap_on_overflow::Multiply(
                   output_byte_stride,
                   index_array_pointer[wrap_on_overflow::Multiply(
-                      i, last_index_array_byte_stride)]);
+                      i + block_start, last_index_array_byte_stride)]);
               offsets_array[i] =
                   wrap_on_overflow::Add(offsets_array[i], cur_contribution);
             }

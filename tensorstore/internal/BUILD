@@ -1,10 +1,35 @@
 load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 package(
     default_visibility = ["//visibility:public"],
 )
 
 licenses(["notice"])
+
+# To debug using a forced block size of 1, specify:
+# bazel build --//tensorstore/internal:nditerable_test_unit_block_size
+#
+# This will significantly harm performance but is useful for exposing bugs in
+# NDIterable implementations
+# (e.g. https://github.com/google/tensorstore/issues/31).
+bool_flag(
+    name = "nditerable_test_unit_block_size",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "nditerable_test_unit_block_size_setting",
+    flag_values = {
+        ":nditerable_test_unit_block_size": "True",
+    },
+    visibility = ["//tensorstore:internal_packages"],
+)
+
+NDITERABLE_TEST_UNIT_BLOCK_SIZE_DEFINES = select({
+    "nditerable_test_unit_block_size_setting": ["TENSORSTORE_INTERNAL_NDITERABLE_TEST_UNIT_BLOCK_SIZE"],
+    "//conditions:default": [],
+})
 
 tensorstore_cc_library(
     name = "absl_time_json_binder",
@@ -1248,6 +1273,7 @@ tensorstore_cc_test(
     name = "nditerable_array_test",
     size = "small",
     srcs = ["nditerable_array_test.cc"],
+    local_defines = NDITERABLE_TEST_UNIT_BLOCK_SIZE_DEFINES,
     deps = [
         ":arena",
         ":elementwise_function",
@@ -1530,6 +1556,7 @@ tensorstore_cc_library(
     name = "nditerable_util",
     srcs = ["nditerable_util.cc"],
     hdrs = ["nditerable_util.h"],
+    local_defines = NDITERABLE_TEST_UNIT_BLOCK_SIZE_DEFINES,
     deps = [
         ":arena",
         ":elementwise_function",
@@ -1549,6 +1576,7 @@ tensorstore_cc_test(
     name = "nditerable_util_test",
     size = "small",
     srcs = ["nditerable_util_test.cc"],
+    local_defines = NDITERABLE_TEST_UNIT_BLOCK_SIZE_DEFINES,
     deps = [
         ":nditerable_util",
         "//tensorstore:index",

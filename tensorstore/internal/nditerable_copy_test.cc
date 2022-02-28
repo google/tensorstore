@@ -161,4 +161,59 @@ TEST(NDIterableCopyTest, ExternalBuffer) {
   }
 }
 
+class MaybeUnitBlockSizeTest : public ::testing::TestWithParam<bool> {
+ public:
+  MaybeUnitBlockSizeTest() {
+#ifndef NDEBUG
+    tensorstore::internal::SetNDIterableTestUnitBlockSize(GetParam());
+#endif
+  }
+  ~MaybeUnitBlockSizeTest() {
+#ifndef NDEBUG
+    tensorstore::internal::SetNDIterableTestUnitBlockSize(false);
+#endif
+  }
+};
+
+INSTANTIATE_TEST_SUITE_P(NormalBlockSize, MaybeUnitBlockSizeTest,
+                         ::testing::Values(false));
+
+#ifndef NDEBUG
+INSTANTIATE_TEST_SUITE_P(UnitBlockSize, MaybeUnitBlockSizeTest,
+                         ::testing::Values(true));
+#endif
+
+// Tests copying from a transformed array, where the inner dimension depends on
+// an index array of length exceeding the buffer size of 2048.
+//
+// https://github.com/google/tensorstore/issues/31
+TEST_P(MaybeUnitBlockSizeTest, InnerIndexArray) {
+  constexpr size_t length = 5000;
+  auto source = tensorstore::AllocateArray<int>({length});
+  auto dest = tensorstore::AllocateArray<int>({length});
+  auto expected = tensorstore::AllocateArray<int>({length});
+  auto indices = tensorstore::AllocateArray<int64_t>({length});
+  for (int i = 0; i < length; ++i) {
+    source(i) = -i;
+    dest(i) = 42;
+    indices(i) = length - 1 - i;
+    expected(i) = -(length - 1 - i);
+  }
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      tensorstore::TransformedArray<Shared<const int>> tsource,
+      source | tensorstore::Dims(0).IndexArraySlice(indices));
+  tensorstore::TransformedArray<Shared<int>> tdest = dest;
+
+  tensorstore::internal::Arena arena;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto source_iterable, GetTransformedArrayNDIterable(tsource, &arena));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto dest_iterable, GetTransformedArrayNDIterable(tdest, &arena));
+  TENSORSTORE_ASSERT_OK(tensorstore::internal::NDIterableCopier(
+                            *source_iterable, *dest_iterable, dest.shape(),
+                            /*constraints=*/{}, &arena)
+                            .Copy());
+  EXPECT_EQ(expected, dest);
+}
+
 }  // namespace

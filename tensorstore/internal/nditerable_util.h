@@ -140,6 +140,10 @@ struct NDIterationBufferInfo {
 
 /// Computes the block size to use for iteration that is L1-cache efficient.
 ///
+/// For testing purposes, the behavior may be overridden to always return 1 by
+/// calling `SetNDIterableTestUnitBlockSize(true)` or defining the
+/// `TENSORSTORE_INTERNAL_NDITERABLE_TEST_UNIT_BLOCK_SIZE` preprocessor macro.
+///
 /// \param working_memory_bytes_per_element The number of bytes of temporary
 ///     buffer space required for each block element.
 /// \param iteration_shape The simplified iteration shape, must have
@@ -494,6 +498,19 @@ class DefaultNDIterableArena {
   unsigned char buffer_[48 * 1024];
   tensorstore::internal::Arena arena_;
 };
+
+#ifndef NDEBUG
+/// If `value` is `true`, forces `GetNDIterationBlockSize` to always return 1.
+///
+/// Note that if `TENSORSTORE_INTERNAL_NDITERABLE_TEST_UNIT_BLOCK_SIZE` is
+/// defined, `GetNDIterationBlockSize` always returns 1 and calling this
+/// function has no effect.
+///
+/// Should only be used for testing purposes, and should not be called
+/// concurrently from multiple threads, or while any other thread is executing
+/// NDIterable code.
+void SetNDIterableTestUnitBlockSize(bool value);
+#endif
 
 }  // namespace internal
 }  // namespace tensorstore

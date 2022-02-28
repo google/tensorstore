@@ -29,6 +29,11 @@ namespace tensorstore {
 namespace internal {
 
 namespace {
+
+#ifndef NDEBUG
+bool nditerable_use_unit_block_size = false;
+#endif
+
 template <bool Full>
 void GetNDIterationLayoutInfo(const NDIterableLayoutConstraint& iterable,
                               span<const Index> shape,
@@ -142,6 +147,14 @@ void GetNDIterationLayoutInfo(const NDIterableLayoutConstraint& iterable,
 
 Index GetNDIterationBlockSize(std::ptrdiff_t working_memory_bytes_per_element,
                               span<const Index> iteration_shape) {
+#ifdef TENSORSTORE_INTERNAL_NDITERABLE_TEST_UNIT_BLOCK_SIZE
+  return 1;
+#else
+#if !defined(NDEBUG)
+  if (nditerable_use_unit_block_size) {
+    return 1;
+  }
+#endif
   // TODO(jbms): maybe choose based on actual L1 cache size.
   constexpr Index kTargetMemoryUsage = 32 * 1024;
   const Index last_dimension_size = iteration_shape.back();
@@ -153,6 +166,7 @@ Index GetNDIterationBlockSize(std::ptrdiff_t working_memory_bytes_per_element,
         std::max(Index(8),
                  kTargetMemoryUsage / Index(working_memory_bytes_per_element)));
   }
+#endif
 }
 
 Index GetNDIterationBlockSize(const NDIterableBufferConstraint& iterable,
@@ -171,6 +185,12 @@ void GetNDIterationBufferInfo(const NDIterableBufferConstraint& iterable,
   buffer_info->block_size =
       GetNDIterationBlockSize(iterable, layout, buffer_info->buffer_kind);
 }
+
+#ifndef NDEBUG
+void SetNDIterableTestUnitBlockSize(bool value) {
+  nditerable_use_unit_block_size = value;
+}
+#endif
 
 }  // namespace internal
 }  // namespace tensorstore

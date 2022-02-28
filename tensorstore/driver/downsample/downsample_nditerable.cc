@@ -483,7 +483,9 @@ struct DownsampleImpl {
 
         // Handle `output_index=0` specially to account for `base_block_offset`.
         for (Index offset = 0;
-             offset < inner_downsample_factor - base_block_offset; ++offset) {
+             offset < inner_downsample_factor - base_block_offset &&
+             offset - base_block_offset < base_block_size;
+             ++offset) {
           Traits::ProcessInput(
               acc, /*output_index=*/0,
               *ArrayAccessor::template GetPointerAtOffset<Element>(
