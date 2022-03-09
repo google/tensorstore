@@ -54,8 +54,8 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/str_cat.h"
 
-namespace kvstore = tensorstore::kvstore;
 using tensorstore::CompletionNotifyingReceiver;
 using tensorstore::Context;
 using tensorstore::Future;
@@ -63,13 +63,19 @@ using tensorstore::GCSMockStorageBucket;
 using tensorstore::KeyRange;
 using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
+using tensorstore::StrCat;
 using tensorstore::internal::MatchesKvsReadResult;
 using tensorstore::internal_http::HttpRequest;
 using tensorstore::internal_http::HttpResponse;
 using tensorstore::internal_http::HttpTransport;
 using tensorstore::internal_http::SetDefaultHttpTransport;
 
+namespace kvstore = tensorstore::kvstore;
+
 namespace {
+
+static constexpr char kUriScheme[] = "gs";
+static constexpr char kDriver[] = "gcs";
 
 // Responds to a "metadata.google.internal" request.
 class MetadataMockTransport : public HttpTransport {
@@ -163,13 +169,15 @@ TEST(GcsKeyValueStoreTest, BadBucketNames) {
         "0123456789123456789012345678912345678901234567891234567890"
         "1234567891234567890123456789123456789012345678912345678901"
         "23456789123456789.b"}) {
-    EXPECT_FALSE(kvstore::Open({{"driver", "gcs"}, {"bucket", bucket}}, context)
-                     .result())
+    EXPECT_FALSE(
+        kvstore::Open({{"driver", kDriver}, {"bucket", bucket}}, context)
+            .result())
         << "bucket: " << bucket;
   }
   for (auto bucket : {"abc", "abc.1-2_3.abc"}) {
-    EXPECT_TRUE(kvstore::Open({{"driver", "gcs"}, {"bucket", bucket}}, context)
-                    .result())
+    EXPECT_TRUE(
+        kvstore::Open({{"driver", kDriver}, {"bucket", bucket}}, context)
+            .result())
         << "bucket: " << bucket;
   }
 }
@@ -188,7 +196,7 @@ TEST(GcsKeyValueStoreTest, BadObjectNames) {
   // https://www.googleapis.com/kvstore/v1/b/my-project/o/test
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+      kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
           .result());
   EXPECT_THAT(kvstore::Read(store, ".").result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
@@ -221,12 +229,12 @@ TEST(GcsKeyValueStoreTest, Basic) {
   auto context = DefaultTestContext();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+      kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
           .result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store.spec());
   EXPECT_THAT(spec.ToJson(tensorstore::IncludeDefaults{false}),
               ::testing::Optional(
-                  MatchesJson({{"driver", "gcs"}, {"bucket", "my-bucket"}})));
+                  MatchesJson({{"driver", kDriver}, {"bucket", "my-bucket"}})));
   tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
 }
 
@@ -245,7 +253,7 @@ TEST(GcsKeyValueStoreTest, Retry) {
 
       auto context = Context::Default();
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-          auto store, kvstore::Open({{"driver", "gcs"},
+          auto store, kvstore::Open({{"driver", kDriver},
                                      {"bucket", "my-bucket"},
                                      {"context",
                                       {
@@ -280,7 +288,7 @@ TEST(GcsKeyValueStoreTest, List) {
   auto context = DefaultTestContext();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+      kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
           .result());
 
   // Listing an empty bucket via `List` works.
@@ -414,7 +422,7 @@ TEST(GcsKeyValueStoreTest, SpecRoundtrip) {
   mock_transport->buckets_.push_back(&bucket);
 
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(
-      {{"driver", "gcs"}, {"bucket", "my-bucket"}});
+      {{"driver", kDriver}, {"bucket", "my-bucket"}});
 }
 
 TEST(GcsKeyValueStoreTest, InvalidSpec) {
@@ -426,18 +434,18 @@ TEST(GcsKeyValueStoreTest, InvalidSpec) {
   // Test with extra key.
   EXPECT_THAT(
       kvstore::Open(
-          {{"driver", "gcs"}, {"bucket", "my-bucket"}, {"extra", "key"}},
+          {{"driver", kDriver}, {"bucket", "my-bucket"}, {"extra", "key"}},
           context)
           .result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument));
 
   // Test with missing `"bucket"` key.
-  EXPECT_THAT(kvstore::Open({{"driver", "gcs"}}, context).result(),
+  EXPECT_THAT(kvstore::Open({{"driver", kDriver}}, context).result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 
   // Test with invalid `"bucket"` key.
   EXPECT_THAT(
-      kvstore::Open({{"driver", "gcs"}, {"bucket", 5}}, context).result(),
+      kvstore::Open({{"driver", kDriver}, {"bucket", 5}}, context).result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
@@ -452,7 +460,7 @@ TEST(GcsKeyValueStoreTest, RequestorPays) {
 
   const auto TestWrite = [&](Context context, auto bucket2_status_matcher) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto store1, kvstore::Open({{"driver", "gcs"},
+        auto store1, kvstore::Open({{"driver", kDriver},
                                     {"bucket", "my-bucket1"},
                                     {"context",
                                      {
@@ -464,7 +472,7 @@ TEST(GcsKeyValueStoreTest, RequestorPays) {
                                    context)
                          .result());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto store2, kvstore::Open({{"driver", "gcs"},
+        auto store2, kvstore::Open({{"driver", kDriver},
                                     {"bucket", "my-bucket2"},
                                     {"context",
                                      {
@@ -555,7 +563,7 @@ TEST(GcsKeyValueStoreTest, Concurrency) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store,
         kvstore::Open(
-            {{"driver", "gcs"},
+            {{"driver", kDriver},
              {"bucket", "my-bucket"},
              {"context", {{"gcs_request_concurrency", {{"limit", limit}}}}}},
             context)
@@ -586,7 +594,7 @@ TEST(GcsKeyValueStoreTest, DeletePrefix) {
   auto context = DefaultTestContext();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+      kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
           .result());
   tensorstore::internal::TestKeyValueStoreDeletePrefix(store);
 }
@@ -601,7 +609,7 @@ TEST(GcsKeyValueStoreTest, DeleteRange) {
   auto context = DefaultTestContext();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+      kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
           .result());
   tensorstore::internal::TestKeyValueStoreDeleteRange(store);
 }
@@ -616,7 +624,7 @@ TEST(GcsKeyValueStoreTest, DeleteRangeToEnd) {
   auto context = DefaultTestContext();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+      kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
           .result());
   tensorstore::internal::TestKeyValueStoreDeleteRangeToEnd(store);
 }
@@ -631,7 +639,7 @@ TEST(GcsKeyValueStoreTest, DeleteRangeFromBeginning) {
   auto context = DefaultTestContext();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+      kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
           .result());
   tensorstore::internal::TestKeyValueStoreDeleteRangeFromBeginning(store);
 }
@@ -667,7 +675,7 @@ TEST(GcsKeyValueStoreTest, DeleteRangeCancellation) {
       auto store,
       kvstore::Open(
           {
-              {"driver", "gcs"},
+              {"driver", kDriver},
               {"bucket", "my-bucket"},
               {"context", {{"gcs_request_concurrency", {{"limit", 1}}}}},
           },
@@ -704,7 +712,7 @@ TEST(GcsKeyValueStoreTest, StaleResponse) {
   auto context = DefaultTestContext();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      kvstore::Open({{"driver", "gcs"}, {"bucket", "my-bucket"}}, context)
+      kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
           .result());
 
   auto time0 = absl::Now();
@@ -768,21 +776,21 @@ TEST(GcsKeyValueStoreTest, StaleResponse) {
 
 TEST(GcsKeyValueStoreTest, UrlRoundtrip) {
   tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
-      {{"driver", "gcs"}, {"bucket", "my-bucket"}, {"path", "abc"}},
-      "gs://my-bucket/abc");
+      {{"driver", kDriver}, {"bucket", "my-bucket"}, {"path", "abc"}},
+      StrCat(kUriScheme, "://my-bucket/abc"));
   tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
-      {{"driver", "gcs"}, {"bucket", "my-bucket"}, {"path", "abc def"}},
-      "gs://my-bucket/abc%20def");
+      {{"driver", kDriver}, {"bucket", "my-bucket"}, {"path", "abc def"}},
+      StrCat(kUriScheme, "://my-bucket/abc%20def"));
 }
 
 TEST(GcsKeyValueStoreTest, InvalidUri) {
-  EXPECT_THAT(kvstore::Spec::FromUrl("gs://bucket:xyz"),
+  EXPECT_THAT(kvstore::Spec::FromUrl(StrCat(kUriScheme, "://bucket:xyz")),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*: Invalid GCS bucket name: \"bucket:xyz\""));
-  EXPECT_THAT(kvstore::Spec::FromUrl("gs://bucket?query"),
+  EXPECT_THAT(kvstore::Spec::FromUrl(StrCat(kUriScheme, "://bucket?query")),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*: Query string not supported"));
-  EXPECT_THAT(kvstore::Spec::FromUrl("gs://bucket#fragment"),
+  EXPECT_THAT(kvstore::Spec::FromUrl(StrCat(kUriScheme, "://bucket#fragment")),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*: Fragment identifier not supported"));
 }

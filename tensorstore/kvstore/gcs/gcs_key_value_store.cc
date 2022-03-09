@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include <atomic>
-#include <iterator>
-#include <memory>
+#include <functional>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -22,10 +22,9 @@
 #include <vector>
 
 #include "absl/status/status.h"
-#include "absl/strings/ascii.h"
-#include "absl/strings/match.h"
+#include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
-#include "absl/strings/str_split.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -49,14 +48,19 @@
 #include "tensorstore/internal/retries_context_resource.h"
 #include "tensorstore/internal/retry.h"
 #include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/gcs/object_metadata.h"
+#include "tensorstore/kvstore/gcs/validate.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/registry.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/url_registry.h"
 #include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -75,6 +79,9 @@ using tensorstore::internal_http::HttpRequest;
 using tensorstore::internal_http::HttpRequestBuilder;
 using tensorstore::internal_http::HttpResponse;
 using tensorstore::internal_http::HttpTransport;
+using tensorstore::internal_storage_gcs::IsValidBucketName;
+using tensorstore::internal_storage_gcs::IsValidObjectName;
+using tensorstore::internal_storage_gcs::IsValidStorageGeneration;
 using tensorstore::internal_storage_gcs::ObjectMetadata;
 using tensorstore::internal_storage_gcs::ParseObjectMetadata;
 
@@ -82,6 +89,10 @@ using tensorstore::internal_storage_gcs::ParseObjectMetadata;
 // #define TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS
 // Uncomment to log all http responses
 // #define TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES
+
+namespace {
+static constexpr char kUriScheme[] = "gs";
+}  // namespace
 
 namespace tensorstore {
 namespace {
@@ -142,72 +153,6 @@ const internal::ContextResourceRegistration<GcsUserProjectResource>
     gcs_user_project_registration;
 const internal::ContextResourceRegistration<GcsRequestRetries>
     gcs_request_retries_registration;
-
-// Returns whether the bucket name is valid.
-// https://cloud.google.com/storage/docs/naming#requirements
-bool IsValidBucketName(std::string_view bucket) {
-  // Buckets containing dots can contain up to 222 characters.
-  if (bucket.size() < 3 || bucket.size() > 222) return false;
-
-  // Bucket names must start and end with a number or letter.
-  if (!absl::ascii_isdigit(*bucket.begin()) &&
-      !absl::ascii_islower(*bucket.begin())) {
-    return false;
-  }
-  if (!absl::ascii_isdigit(*bucket.rbegin()) &&
-      !absl::ascii_islower(*bucket.rbegin())) {
-    return false;
-  }
-
-  for (std::string_view v : absl::StrSplit(bucket, absl::ByChar('.'))) {
-    if (v.empty()) return false;
-    if (v.size() > 63) return false;
-    if (*v.begin() == '-') return false;
-    if (*v.rbegin() == '-') return false;
-
-    for (std::string_view::size_type i = 0; i < v.size(); i++) {
-      // Bucket names must contain only lowercase letters, numbers,
-      // dashes (-), underscores (_), and dots (.).
-      // Names containing dots require verification.
-      const auto ch = v[i];
-      if (ch != '-' && ch != '_' && !absl::ascii_isdigit(ch) &&
-          !absl::ascii_islower(ch)) {
-        return false;
-      }
-    }
-  }
-
-  // Not validated:
-  // Bucket names cannot begin with the "goog" prefix.
-  // Bucket names cannot contain "google" or close misspellings, such as
-  // "g00gle".
-  // NOTE: ip-address-style bucket names are also invalid, but not checked here.
-  return true;
-}
-
-// Returns whether the object name is a valid GCS object name.
-bool IsValidObjectName(std::string_view name) {
-  if (name == "." || name == "..") return false;
-  if (absl::StartsWith(name, ".well-known/acme-challenge")) return false;
-  if (name.find('\r') != std::string_view::npos) return false;
-  if (name.find('\n') != std::string_view::npos) return false;
-  // TODO: Validate that object is a correct utf-8 string.
-  return true;
-}
-
-/// Returns an error Status when either the object name or the StorageGeneration
-/// are not legal values for the GCS storage backend.
-absl::Status ValidateObjectAndStorageGeneration(std::string_view object,
-                                                const StorageGeneration& gen) {
-  if (!IsValidObjectName(object)) {
-    return absl::InvalidArgumentError("Invalid GCS object name");
-  }
-  if (!StorageGeneration::IsUnknown(gen) &&
-      !StorageGeneration::IsNoValue(gen) && !StorageGeneration::IsUint64(gen)) {
-    return absl::InvalidArgumentError("Malformed StorageGeneration");
-  }
-  return absl::OkStatus();
-}
 
 /// Adds the generation query parameter to the provided url.
 bool AddGenerationParam(std::string* url, const bool has_query,
@@ -302,7 +247,7 @@ struct GcsKeyValueStoreSpecData {
 };
 
 std::string GetGcsUrl(std::string_view bucket, std::string_view path) {
-  return tensorstore::StrCat("gs://", bucket, "/",
+  return tensorstore::StrCat(kUriScheme, "://", bucket, "/",
                              internal::PercentEncodeUriPath(path));
 }
 
@@ -311,6 +256,7 @@ class GcsKeyValueStoreSpec
                                                     GcsKeyValueStoreSpecData> {
  public:
   static constexpr char id[] = "gcs";
+
   Future<kvstore::DriverPtr> DoOpen() const override;
   Result<std::string> ToUrl(std::string_view path) const override {
     return GetGcsUrl(data_.bucket, path);
@@ -554,8 +500,13 @@ struct ReadTask {
 
 Future<kvstore::ReadResult> GcsKeyValueStore::Read(Key key,
                                                    ReadOptions options) {
-  TENSORSTORE_RETURN_IF_ERROR(
-      ValidateObjectAndStorageGeneration(key, options.if_not_equal));
+  if (!IsValidObjectName(key)) {
+    return absl::InvalidArgumentError("Invalid GCS object name");
+  }
+  if (!IsValidStorageGeneration(options.if_equal) ||
+      !IsValidStorageGeneration(options.if_not_equal)) {
+    return absl::InvalidArgumentError("Malformed StorageGeneration");
+  }
 
   auto encoded_object_name = internal::PercentEncodeUriComponent(key);
   std::string resource = tensorstore::internal::JoinPath(resource_root_, "/o/",
@@ -723,8 +674,12 @@ struct DeleteTask {
 
 Future<TimestampedStorageGeneration> GcsKeyValueStore::Write(
     Key key, std::optional<Value> value, WriteOptions options) {
-  TENSORSTORE_RETURN_IF_ERROR(
-      ValidateObjectAndStorageGeneration(key, options.if_equal));
+  if (!IsValidObjectName(key)) {
+    return absl::InvalidArgumentError("Invalid GCS object name");
+  }
+  if (!IsValidStorageGeneration(options.if_equal)) {
+    return absl::InvalidArgumentError("Malformed StorageGeneration");
+  }
 
   std::string encoded_object_name = internal::PercentEncodeUriComponent(key);
   if (value) {
@@ -966,7 +921,7 @@ Future<void> GcsKeyValueStore::DeleteRange(KeyRange range) {
 
 Result<kvstore::Spec> ParseGcsUrl(std::string_view url) {
   auto parsed = internal::ParseGenericUri(url);
-  assert(parsed.scheme == "gs");
+  assert(parsed.scheme == kUriScheme);
   if (!parsed.query.empty()) {
     return absl::InvalidArgumentError("Query string not supported");
   }
@@ -1006,5 +961,5 @@ const tensorstore::internal_kvstore::DriverRegistration<
     tensorstore::GcsKeyValueStoreSpec>
     registration;
 const tensorstore::internal_kvstore::UrlSchemeRegistration
-    url_scheme_registration{"gs", tensorstore::ParseGcsUrl};
+    url_scheme_registration{kUriScheme, tensorstore::ParseGcsUrl};
 }  // namespace

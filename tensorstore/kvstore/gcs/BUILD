@@ -22,6 +22,7 @@ tensorstore_cc_library(
     ],
     hdrs = ["object_metadata.h"],
     deps = [
+        ":validate",
         "//tensorstore:context",
         "//tensorstore/internal:absl_time_json_binder",
         "//tensorstore/internal:concurrency_resource",
@@ -46,9 +47,12 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution",
+        "//tensorstore/util/execution:sender",
+        "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
@@ -84,6 +88,7 @@ tensorstore_cc_test(
         "//tensorstore/util:future",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "//tensorstore/util:str_cat",
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:sender_testutil",
         "@com_github_nlohmann_json//:nlohmann_json",
@@ -107,6 +112,31 @@ tensorstore_cc_test(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "validate",
+    srcs = [
+        "validate.cc",
+    ],
+    hdrs = ["validate.h"],
+    deps = [
+        "//tensorstore/internal:utf8",
+        "//tensorstore/kvstore:generation",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "validate_test",
+    size = "small",
+    srcs = [
+        "validate_test.cc",
+    ],
+    deps = [
+        ":validate",
         "@com_google_googletest//:gtest_main",
     ],
 )

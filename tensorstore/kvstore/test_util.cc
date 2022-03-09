@@ -212,7 +212,8 @@ void TestKeyValueStoreConditionalReadOps(
                                MatchesTimestampedStorageGeneration(
                                    ::testing::Not(mismatch))));
 
-  TENSORSTORE_LOG("Test conditional read, matching `if_not_equal` generation");
+  TENSORSTORE_LOG("Test conditional read, matching `if_not_equal` generation ",
+                  write_result->generation);
   {
     kvstore::ReadOptions options;
     options.if_not_equal = write_result->generation;
@@ -238,7 +239,8 @@ void TestKeyValueStoreConditionalReadOps(
                 MatchesKvsReadResult(value, write_result->generation));
   }
 
-  TENSORSTORE_LOG("Test conditional read, matching `if_equal` generation");
+  TENSORSTORE_LOG("Test conditional read, matching `if_equal` generation ",
+                  write_result->generation);
   {
     kvstore::ReadOptions options;
     options.if_equal = write_result->generation;
@@ -311,7 +313,8 @@ void TestKeyValueStoreConditionalWriteOps(
       kvstore::Write(store, key2, value, {mismatch}).result(),
       MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
 
-  TENSORSTORE_LOG("Test conditional write, matching generation");
+  TENSORSTORE_LOG("Test conditional write, matching generation ",
+                  write_result->generation);
   {
     auto write_conditional =
         kvstore::Write(store, key2, value, {write_result->generation}).result();
