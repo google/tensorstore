@@ -13,6 +13,8 @@
 # limitations under the License.
 """Tests for tensorstore.KvStore."""
 
+import pickle
+
 import pytest
 import tensorstore as ts
 
@@ -20,3 +22,15 @@ import tensorstore as ts
 def test_instantiation():
   with pytest.raises(TypeError):
     ts.KvStore()
+
+
+def test_spec_pickle():
+  kv_spec = ts.KvStore.Spec('memory://')
+  assert ts.KvStore.Spec.__module__ == 'tensorstore'
+  assert ts.KvStore.Spec.__qualname__ == 'KvStore.Spec'
+  assert pickle.loads(pickle.dumps(kv_spec)).to_json() == kv_spec.to_json()
+
+
+def test_pickle():
+  kv = ts.KvStore.open('memory://').result()
+  assert pickle.loads(pickle.dumps(kv)).url == 'memory://'

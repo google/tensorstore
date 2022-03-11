@@ -904,6 +904,10 @@ KvStoreSpecCls MakeKvStoreSpecClass(KvStoreCls& kvstore_cls) {
 Parsed representation of a :json:schema:`JSON key-value store<KvStore>` specification.
 )");
   kvstore_cls.attr("Spec") = cls;
+  // These properties don't get set correctly by default for nested classes, and
+  // are needed for pickling to work correctly.
+  cls.attr("__module__") = "tensorstore";
+  cls.attr("__qualname__") = "KvStore.Spec";
   return cls;
 }
 
