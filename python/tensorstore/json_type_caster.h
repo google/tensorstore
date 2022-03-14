@@ -38,7 +38,7 @@ pybind11::object JsonToPyObject(const ::nlohmann::json& value) noexcept;
 ///
 /// In addition to built-in `int`, `str`, `bool`, `dict`, `list`, `tuple`, and
 /// `None` types, NumPy array_like types and array scalars are also supported.
-::nlohmann::json PyObjectToJson(pybind11::handle h, int max_depth = 20);
+::nlohmann::json PyObjectToJson(pybind11::handle h, int max_depth = 100);
 
 }  // namespace internal_python
 }  // namespace tensorstore
