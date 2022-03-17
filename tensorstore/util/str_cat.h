@@ -57,6 +57,28 @@ auto ToAlphaNumOrString(const T& x) {
   }
 }
 
+/// Converts std::tuple<...> values to strings.
+template <typename... T>
+std::string ToAlphaNumOrString(const std::tuple<T...>& x) {
+  return std::apply(
+      [](const auto&... item) {
+        std::string result = "{";
+        size_t i = 0;
+        (absl::StrAppend(&result, ToAlphaNumOrString(item),
+                         (++i == sizeof...(item) ? "}" : ", ")),
+         ...);
+        return result;
+      },
+      x);
+}
+
+/// Converts std::pair<...> values to strings.
+template <typename A, typename B>
+std::string ToAlphaNumOrString(const std::pair<A, B>& x) {
+  return absl::StrCat("{", ToAlphaNumOrString(x.first), ", ",
+                      ToAlphaNumOrString(x.second), "}");
+}
+
 }  // namespace internal
 
 /// Prints a string representation of a span.

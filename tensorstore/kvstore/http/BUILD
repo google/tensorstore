@@ -32,6 +32,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:curl_transport",
         "//tensorstore/internal/http:http_header",
+        "//tensorstore/internal/metrics",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",

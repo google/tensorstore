@@ -108,6 +108,7 @@
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/os_error_code.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/type_traits.h"
@@ -132,6 +133,19 @@
 #include "tensorstore/kvstore/file/posix_file_util.h"
 #include "tensorstore/kvstore/file/windows_file_util.h"
 
+using tensorstore::internal::GetLastErrorCode;
+using tensorstore::internal::GetOsErrorStatusCode;
+using tensorstore::internal::OsErrorCode;
+using tensorstore::internal::StatusFromOsError;
+using tensorstore::internal_file_util::FileDescriptor;
+using tensorstore::internal_file_util::FileInfo;
+using tensorstore::internal_file_util::GetFileInfo;
+using tensorstore::internal_file_util::IsKeyValid;
+using tensorstore::internal_file_util::kLockSuffix;
+using tensorstore::internal_file_util::LongestDirectoryPrefix;
+using tensorstore::internal_file_util::UniqueFileDescriptor;
+using tensorstore::kvstore::ReadResult;
+
 namespace tensorstore {
 
 /// On FreeBSD and Mac OS X, `flock` can safely be used instead of open file
@@ -155,21 +169,15 @@ namespace tensorstore {
 /// `MapFuture`.
 
 namespace {
-
-using internal::GetLastErrorCode;
-using internal::GetOsErrorStatusCode;
-using internal::OsErrorCode;
-using internal::StatusFromOsError;
-using internal_file_util::FileDescriptor;
-using internal_file_util::FileInfo;
-using internal_file_util::GetFileInfo;
-using internal_file_util::IsKeyValid;
-using internal_file_util::kLockSuffix;
-using internal_file_util::LongestDirectoryPrefix;
-using internal_file_util::UniqueFileDescriptor;
-using kvstore::ReadResult;
-
 namespace jb = tensorstore::internal_json_binding;
+
+auto& file_bytes_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/file/bytes_read",
+    "Bytes read by the file kvstore driver");
+
+auto& file_bytes_written = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/file/bytes_written",
+    "Bytes written by the file kvstore driver");
 
 Status ValidateKey(std::string_view key) {
   if (!IsKeyValid(key, kLockSuffix)) {
@@ -339,6 +347,7 @@ struct ReadTask {
           fd.get(), buffer.data() + offset, buffer.size() - offset,
           byte_range.inclusive_min + offset);
       if (n > 0) {
+        file_bytes_read.IncrementBy(n);
         offset += n;
         continue;
       }
@@ -476,6 +485,7 @@ struct WriteTask {
             std::ptrdiff_t n =
                 internal_file_util::WriteToFile(fd, chunk.data(), chunk.size());
             if (n > 0) {
+              file_bytes_written.IncrementBy(n);
               value_remaining -= n;
               absl::Cord::Advance(&char_it, n);
               continue;

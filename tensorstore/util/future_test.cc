@@ -30,6 +30,8 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/concurrent_testutil.h"
+#include "tensorstore/internal/metrics/collect.h"
+#include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future_impl.h"
@@ -1865,6 +1867,25 @@ TEST(FutureTest, FutureResultFuture) {
   Future<int> f(rf);
   promise.SetResult(5);
   EXPECT_EQ(5, f.value());
+}
+
+TEST(FutureTest, Live) {
+  auto& registry = tensorstore::internal_metrics::GetMetricRegistry();
+  EXPECT_EQ(0,
+            std::get<int64_t>(
+                registry.Collect("/tensorstore/futures/live").gauges[0].value));
+
+  /// While the future is active we expect that the live metric has a value.
+  {
+    auto [promise, future] = PromiseFuturePair<int>::Make();
+    EXPECT_NE(
+        0, std::get<int64_t>(
+               registry.Collect("/tensorstore/futures/live").gauges[0].value));
+  }
+
+  EXPECT_EQ(0,
+            std::get<int64_t>(
+                registry.Collect("/tensorstore/futures/live").gauges[0].value));
 }
 
 }  // namespace

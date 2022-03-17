@@ -15,8 +15,11 @@
 #include "tensorstore/util/str_cat.h"
 
 #include <complex>
+#include <optional>
 #include <ostream>
 #include <string>
+#include <tuple>
+#include <utility>
 
 #include <gtest/gtest.h>
 
@@ -60,6 +63,19 @@ TEST(StrCat, Null) { EXPECT_EQ("null", tensorstore::StrCat(nullptr)); }
 
 TEST(StrCat, Unprintable) {
   EXPECT_EQ("<unprintable>", tensorstore::StrCat(X{5}));
+}
+
+TEST(StrCat, Tuple) {
+  EXPECT_EQ("{1, 2, abc}", tensorstore::StrCat(std::make_tuple(1, 2.0, "abc")));
+}
+
+TEST(StrCat, Pair) {
+  EXPECT_EQ("{2, abc}", tensorstore::StrCat(std::make_pair(2.0, "abc")));
+}
+
+TEST(StrCat, Optional) {
+  std::optional<int> x = 1;
+  EXPECT_EQ("<unprintable>", tensorstore::StrCat(x));
 }
 
 TEST(SpanTest, Ostream) {

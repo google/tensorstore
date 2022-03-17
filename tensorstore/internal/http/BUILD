@@ -37,6 +37,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:env",
         "//tensorstore/internal:logging",
         "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal/metrics",
         "//tensorstore/util:future",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/synchronization",

@@ -42,6 +42,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
 #include "tensorstore/internal/path.h"
@@ -97,6 +98,18 @@ static constexpr char kUriScheme[] = "gs";
 namespace tensorstore {
 namespace {
 namespace jb = tensorstore::internal_json_binding;
+
+auto& gcs_bytes_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/gcs/bytes_read",
+    "Bytes read by the gcs kvstore driver");
+
+auto& gcs_bytes_written = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/gcs/bytes_written",
+    "Bytes written by the gcs kvstore driver");
+
+auto& gcs_retries = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/gcs/retries",
+    "Count of all retried GCS requests (read/write/delete)");
 
 std::string_view GetGcsBaseUrl() {
   static std::string url = []() -> std::string {
@@ -208,8 +221,12 @@ std::string BucketUploadRoot(std::string_view bucket) {
 
 /// Returns whether the Status is a retriable request.
 bool IsRetriable(const absl::Status& status) {
-  return (status.code() == absl::StatusCode::kDeadlineExceeded ||
-          status.code() == absl::StatusCode::kUnavailable);
+  if (status.code() == absl::StatusCode::kDeadlineExceeded ||
+      status.code() == absl::StatusCode::kUnavailable) {
+    gcs_retries.Increment();
+    return true;
+  }
+  return false;
 }
 
 struct GcsKeyValueStoreSpecData {
@@ -432,6 +449,8 @@ struct ReadTask {
 
     TENSORSTORE_RETURN_IF_ERROR(retry_status);
 
+    gcs_bytes_read.IncrementBy(httpresponse.payload.size());
+
     // Parse `Date` header from response to correctly handle cached responses.
     // The GCS servers always send a `date` header.
     {
@@ -592,6 +611,8 @@ struct WriteTask {
           return r;
         }
     }
+
+    gcs_bytes_written.IncrementBy(value.size());
 
     // TODO: Avoid parsing the entire metadata & only extract the
     // generation field.

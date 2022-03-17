@@ -29,6 +29,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:path",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/cache_key",
+        "//tensorstore/internal/metrics",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",

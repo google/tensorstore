@@ -39,6 +39,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/retries_context_resource.h"
 #include "tensorstore/internal/retry.h"
@@ -64,6 +65,10 @@ using tensorstore::internal_http::HttpTransport;
 namespace tensorstore {
 namespace {
 namespace jb = tensorstore::internal_json_binding;
+
+auto& http_bytes_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/http/bytes_read",
+    "Bytes read by the http kvstore driver");
 
 struct HttpRequestConcurrencyResource : public internal::ConcurrencyResource {
   static constexpr char id[] = "http_request_concurrency";
@@ -276,6 +281,8 @@ struct ReadTask {
     });
 
     TENSORSTORE_RETURN_IF_ERROR(retry_status);
+
+    http_bytes_read.IncrementBy(httpresponse.payload.size());
 
     // Parse `Date` header from response to correctly handle cached responses.
     {

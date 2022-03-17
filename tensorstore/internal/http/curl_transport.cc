@@ -16,6 +16,7 @@
 
 #include <stdlib.h>
 
+#include <clocale>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -33,12 +34,32 @@
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/logging.h"
+#include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
 namespace internal_http {
 namespace {
+
+auto& http_request_started = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/http/request_started", "HTTP requests started");
+
+auto& http_request_completed = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/http/request_completed", "HTTP requests completed");
+
+auto& http_request_errors = internal_metrics::Counter<int64_t, int>::New(
+    "/tensorstore/http/request_errors", "code", "HTTP requests with errors");
+
+auto& http_request_bytes = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/http/request_bytes", "HTTP request bytes transmitted");
+
+auto& http_response_bytes = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/http/response_bytes", "HTTP response bytes received");
+
+auto& http_active = internal_metrics::Gauge<int64_t>::New(
+    "/tensorstore/http/active", "HTTP requests considered active");
 
 // Cached configuration from environment variables.
 struct CurlConfig {
@@ -195,12 +216,14 @@ struct CurlRequestState {
   }
 
   size_t WriteCallback(std::string_view data) {
+    http_response_bytes.IncrementBy(data.size());
     response_.payload.Append(data);
     return data.size();
   }
 
   size_t ReadCallback(char* data, size_t size) {
     size_t n = std::min(size, payload_remaining_);
+    http_request_bytes.IncrementBy(n);
     internal::CopyCordToSpan(payload_it_, {data, static_cast<ptrdiff_t>(n)});
     payload_remaining_ -= n;
     return n;
@@ -306,6 +329,7 @@ Future<HttpResponse> MultiTransportImpl::StartRequest(
     const HttpRequest& request, absl::Cord payload,
     absl::Duration request_timeout, absl::Duration connect_timeout) {
   auto state = std::make_unique<CurlRequestState>(factory_.get());
+  http_request_started.Increment();
   state->Setup(request, std::move(payload), request_timeout, connect_timeout);
   state->SetHTTP2();
 
@@ -346,10 +370,13 @@ void MultiTransportImpl::FinishRequest(CURL* e, CURLcode code) {
 
   curl_multi_remove_handle(multi_.get(), e);
 
+  http_request_completed.Increment();
+
   if (code != CURLE_OK) {
     state->promise_.SetResult(state->CurlCodeToStatus(code));
   } else {
     state->response_.status_code = CurlGetResponseCode(e);
+    http_request_errors.Increment(state->response_.status_code);
     state->promise_.SetResult(std::move(state->response_));
   }
 }
@@ -378,6 +405,7 @@ void MultiTransportImpl::Run() {
         }
       }
       pending_requests_.clear();
+      http_active.Set(active_requests);
 
       if (active_requests == 0) {
         // Shutdown has been requested.
@@ -399,6 +427,7 @@ void MultiTransportImpl::Run() {
            curl_multi_perform(multi_.get(), &active_requests)) {
       /* loop */
     }
+    http_active.Set(active_requests);
 
     // Try to read any messages in the queue.
     for (;;) {

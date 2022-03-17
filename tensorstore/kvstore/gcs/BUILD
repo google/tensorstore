@@ -35,6 +35,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/internal/metrics",
         "//tensorstore/internal/oauth2",
         "//tensorstore/internal/oauth2:google_auth_provider",
         "//tensorstore/kvstore",

@@ -28,13 +28,17 @@
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_linked_list.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/void_wrapper.h"
 #include "tensorstore/util/future_impl.h"
 
 namespace tensorstore {
-
 namespace internal_future {
+namespace {
+auto& live_futures = internal_metrics::Gauge<int64_t>::New(
+    "/tensorstore/futures/live", "Live futures");
+}
 
 /// Special value to which CallbackListNode::next points to indicate that
 /// unregistration was requested.
@@ -189,6 +193,7 @@ FutureStateBase::FutureStateBase()
       future_reference_count_(1) {
   Initialize(CallbackListAccessor{}, &ready_callbacks_);
   Initialize(CallbackListAccessor{}, &promise_callbacks_);
+  live_futures.Increment();
 }
 
 namespace {
@@ -488,6 +493,7 @@ void FutureStateBase::Wait() noexcept {
 FutureStateBase::~FutureStateBase() {
   assert(promise_callbacks_.next == &promise_callbacks_);
   assert(ready_callbacks_.next == &ready_callbacks_);
+  live_futures.Decrement();
 }
 
 }  // namespace internal_future
