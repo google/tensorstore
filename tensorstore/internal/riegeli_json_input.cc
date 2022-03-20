@@ -41,7 +41,7 @@ bool ReadJson(riegeli::Reader& reader, ::nlohmann::json& value,
       RiegeliJsonInputAdapter{reader}, nullptr, /*allow_exceptions=*/false,
       ignore_comments)
       .parse(/*strict=*/true, value);
-  if (value.is_discarded() || !reader.healthy()) {
+  if (value.is_discarded() || !reader.ok()) {
     reader.Fail(absl::DataLossError("Failed to parse JSON"));
     return false;
   }
@@ -57,7 +57,7 @@ bool ReadCbor(riegeli::Reader& reader, ::nlohmann::json& value, bool strict,
            RiegeliJsonInputAdapter{reader})
            .sax_parse(::nlohmann::detail::input_format_t::cbor, &sdp, strict,
                       tag_handler) ||
-      !reader.healthy()) {
+      !reader.ok()) {
     reader.Fail(absl::DataLossError("Failed to parse CBOR"));
     return false;
   }

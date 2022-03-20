@@ -44,7 +44,7 @@ bool WriteJson(riegeli::Writer& writer, const ::nlohmann::json& value,
       internal::UnownedToShared(&output_adapter), indent_char, error_handler);
   s.dump(value, /*pretty_print=*/indent >= 0, ensure_ascii,
          static_cast<unsigned int>(std::max(0, indent)));
-  return writer.healthy();
+  return writer.ok();
 }
 
 bool WriteCbor(riegeli::Writer& writer, const ::nlohmann::json& value) {
@@ -57,7 +57,7 @@ bool WriteCbor(riegeli::Writer& writer, const ::nlohmann::json& value) {
   ::nlohmann::detail::binary_writer<::nlohmann::json, char>(
       internal::UnownedToShared(&output_adapter))
       .write_cbor(value);
-  return writer.healthy();
+  return writer.ok();
 }
 
 }  // namespace internal
