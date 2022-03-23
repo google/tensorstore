@@ -79,7 +79,7 @@
 #endif
 
 namespace tensorstore {
-namespace data_types {
+
 /// Boolean value (always represented as 0 or 1).
 using bool_t = bool;
 /// Single ASCII/UTF-8 code unit.  Primarily intended to represent fixed-width
@@ -99,7 +99,6 @@ using uint64_t = std::uint64_t;
 // TODO(jbms): consider adding 128-bit integer types
 /// Floating-point types.
 using float16_t = half_float::half;
-using bfloat16_t = tensorstore::bfloat16_t;
 using float32_t = float;
 using float64_t = double;
 /// Complex types.
@@ -111,8 +110,6 @@ using string_t = std::string;
 using ustring_t = Utf8String;
 /// JSON value.
 using json_t = ::nlohmann::json;
-}  // namespace data_types
-using namespace data_types;  // NOLINT
 
 // Define a DataTypeId `x_t` corresponding to each C++ type `tensorstore::x_t`
 // defined above.

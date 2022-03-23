@@ -29,21 +29,31 @@
 namespace {
 
 using tensorstore::AllocateAndConstructShared;
+using tensorstore::bfloat16_t;
+using tensorstore::bool_t;
+using tensorstore::byte_t;
+using tensorstore::char_t;
+using tensorstore::complex128_t;
+using tensorstore::complex64_t;
 using tensorstore::DataType;
 using tensorstore::DataTypeIdOf;
 using tensorstore::dtype_v;
+using tensorstore::float16_t;
+using tensorstore::float32_t;
+using tensorstore::float64_t;
 using tensorstore::Index;
 using tensorstore::IsElementType;
 using tensorstore::IsTrivial;
+using tensorstore::json_t;
 using tensorstore::MatchesStatus;
 using tensorstore::StaticDataTypeCast;
+using tensorstore::string_t;
 using tensorstore::unchecked;
+using tensorstore::ustring_t;
 using tensorstore::internal::IterationBufferKind;
 using tensorstore::internal::IterationBufferPointer;
 using tensorstore::serialization::SerializationRoundTrip;
 using tensorstore::serialization::TestSerializationRoundTrip;
-
-using namespace tensorstore::data_types;  // NOLINT
 
 namespace is_element_type_tests {
 struct ClassT {};
