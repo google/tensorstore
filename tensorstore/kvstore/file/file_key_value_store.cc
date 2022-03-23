@@ -179,7 +179,7 @@ auto& file_bytes_written = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/file/bytes_written",
     "Bytes written by the file kvstore driver");
 
-Status ValidateKey(std::string_view key) {
+absl::Status ValidateKey(std::string_view key) {
   if (!IsKeyValid(key, kLockSuffix)) {
     return absl::InvalidArgumentError(
         absl::StrCat("Invalid key: ", tensorstore::QuoteString(key)));
@@ -200,10 +200,10 @@ StorageGeneration GetFileGeneration(const FileInfo& info) {
                                        internal_file_util::GetMTime(info));
 }
 
-/// Returns a Status for the current errno value. The message is composed
+/// Returns a absl::Status for the current errno value. The message is composed
 /// by catenation of the provided string parts.
-Status StatusFromErrno(std::string_view a = {}, std::string_view b = {},
-                       std::string_view c = {}, std::string_view d = {}) {
+absl::Status StatusFromErrno(std::string_view a = {}, std::string_view b = {},
+                             std::string_view c = {}, std::string_view d = {}) {
   return StatusFromOsError(GetLastErrorCode(), a, b, c, d);
 }
 
@@ -285,7 +285,8 @@ Result<UniqueFileDescriptor> OpenParentDirectory(std::string path) {
   }
 }
 
-Status VerifyRegularFile(FileDescriptor fd, FileInfo* info, const char* path) {
+absl::Status VerifyRegularFile(FileDescriptor fd, FileInfo* info,
+                               const char* path) {
   if (!internal_file_util::GetFileInfo(fd, info)) {
     return StatusFromErrno("Error getting file information: ", path);
   }
@@ -560,9 +561,10 @@ struct PathRangeVisitor {
 
   std::vector<PendingDir> pending_dirs;
 
-  Status Visit(absl::FunctionRef<bool()> is_cancelled,
-               absl::FunctionRef<Status()> handle_file_at,
-               absl::FunctionRef<Status(bool fully_contained)> handle_dir_at) {
+  absl::Status Visit(
+      absl::FunctionRef<bool()> is_cancelled,
+      absl::FunctionRef<absl::Status()> handle_file_at,
+      absl::FunctionRef<absl::Status(bool fully_contained)> handle_dir_at) {
     auto status = VisitImpl(is_cancelled, handle_file_at, handle_dir_at);
     if (!status.ok()) {
       return MaybeAnnotateStatus(status,
@@ -571,10 +573,10 @@ struct PathRangeVisitor {
     return absl::OkStatus();
   }
 
-  Status VisitImpl(
+  absl::Status VisitImpl(
       absl::FunctionRef<bool()> is_cancelled,
-      absl::FunctionRef<Status()> handle_file_at,
-      absl::FunctionRef<Status(bool fully_contained)> handle_dir_at) {
+      absl::FunctionRef<absl::Status()> handle_file_at,
+      absl::FunctionRef<absl::Status(bool fully_contained)> handle_dir_at) {
     // First, try and open the prefix as a directory.
     TENSORSTORE_RETURN_IF_ERROR(EnqueueDirectory());
 
@@ -799,7 +801,7 @@ class FileKeyValueStore
   }
 
   void ListImpl(ListOptions options,
-                AnyFlowReceiver<Status, Key> receiver) override {
+                AnyFlowReceiver<absl::Status, Key> receiver) override {
     if (options.range.empty()) {
       execution::set_starting(receiver, [] {});
       execution::set_done(receiver);

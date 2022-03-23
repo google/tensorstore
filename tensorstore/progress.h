@@ -17,6 +17,7 @@
 
 #include <iosfwd>
 
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/util/future.h"
@@ -75,7 +76,7 @@ struct [[nodiscard]] WriteFutures {
       : copy_future(std::move(copy_future)),
         commit_future(std::move(commit_future)) {}
 
-  WriteFutures(Status status)
+  WriteFutures(absl::Status status)
       : copy_future(status), commit_future(copy_future) {}
 
   WriteFutures(Result<WriteFutures> result) {

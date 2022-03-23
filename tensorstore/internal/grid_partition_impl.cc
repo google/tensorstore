@@ -26,6 +26,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/hash/hash.h"
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index.h"
@@ -92,17 +93,17 @@ namespace {
 ///     as a temporary buffer.  The spans passed to `set_callback` will refer to
 ///     memory in this buffer.
 /// \param set_callback Function with a signature compatible with:
-///     `Status (span<const DimensionIndex> input_dims,
+///     `absl::Status (span<const DimensionIndex> input_dims,
 ///              span<const DimensionIndex> grid_dims,
 ///              bool has_array)`.  This function is called for each connected.
 ///     Any error returned causes iteration to stop.
 /// \return The error value returned by the last call to `set_callback`, or
-///     `Status()` on success.
+///     `absl::Status()` on success.
 template <typename SetCallbackFn>
-Status ForEachConnectedSet(span<const DimensionIndex> grid_output_dimensions,
-                           OutputIndexMapRange<> output_index_maps,
-                           span<DimensionIndex> temp_buffer,
-                           SetCallbackFn set_callback) {
+absl::Status ForEachConnectedSet(
+    span<const DimensionIndex> grid_output_dimensions,
+    OutputIndexMapRange<> output_index_maps, span<DimensionIndex> temp_buffer,
+    SetCallbackFn set_callback) {
   const DimensionIndex input_rank = output_index_maps.input_rank();
   assert(temp_buffer.size() >= input_rank + grid_output_dimensions.size());
   const span<DimensionIndex> input_dims = temp_buffer.first(input_rank);
@@ -309,10 +310,10 @@ OutputIt FillWithTiledStridedRange(T start, T size, Stride stride,
 ///     to be filled with the output indices.
 /// \param output_stride Stride (in elements, not bytes) of the innermost
 ///     dimension of `output_indices`.
-/// \returns `Status()` on success.
+/// \returns `absl::Status()` on success.
 /// \error `absl::StatusCode::kOutOfRange` if `map` has an invalid `offset`.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
-Status GenerateSingleInputDimensionOutputIndices(
+absl::Status GenerateSingleInputDimensionOutputIndices(
     OutputIndexMapRef<> map, span<const DimensionIndex> input_dims,
     IndexTransformView<> index_transform, Index* output_indices,
     Index output_stride) {
@@ -366,14 +367,13 @@ Status GenerateSingleInputDimensionOutputIndices(
 ///     to be filled with the output indices.
 /// \param output_stride Stride (in elements, not bytes) of the innermost
 ///     dimension of `output_indices`.
-/// \returns `Status()` on success.
+/// \returns `absl::Status()` on success.
 /// \error `absl::StatusCode::kOutOfRange` if `map` contains an invalid index.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
-Status GenerateIndexArrayOutputIndices(OutputIndexMapRef<> map,
-                                       span<const DimensionIndex> input_dims,
-                                       IndexTransformView<> index_transform,
-                                       Index* output_indices,
-                                       Index output_stride) {
+absl::Status GenerateIndexArrayOutputIndices(
+    OutputIndexMapRef<> map, span<const DimensionIndex> input_dims,
+    IndexTransformView<> index_transform, Index* output_indices,
+    Index output_stride) {
   assert(map.method() == OutputIndexMethod::array);
   absl::FixedArray<Index, internal::kNumInlinedDims> output_byte_strides(
       index_transform.input_rank(), 0);
@@ -718,7 +718,7 @@ SharedArray<Index, 2> GenerateIndexArraySetPartitionedInputIndices(
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
 /// \error `absl::StatusCode::kOutOfRange` if an index array contains an
 ///     out-of-bounds index.
-Status FillIndexArraySetData(
+absl::Status FillIndexArraySetData(
     IndexTransformGridPartition::IndexArraySet* index_array_set,
     span<const DimensionIndex> grid_output_dimensions,
     OutputToGridCellFn output_to_grid_cell,
@@ -783,7 +783,7 @@ Status FillIndexArraySetData(
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
 /// \error `absl::StatusCode::kOutOfRange` if an index array contains an
 ///     out-of-bounds index.
-Status GenerateIndexTransformGridPartitionData(
+absl::Status GenerateIndexTransformGridPartitionData(
     span<const DimensionIndex> grid_output_dimensions,
     OutputToGridCellFn output_to_grid_cell,
     IndexTransformView<> index_transform, IndexTransformGridPartition* output) {
@@ -791,7 +791,8 @@ Status GenerateIndexTransformGridPartitionData(
       grid_output_dimensions, index_transform.output_index_maps(),
       output->temp_buffer_,
       [&](span<const DimensionIndex> input_dims,
-          span<const DimensionIndex> grid_dims, bool has_array) -> Status {
+          span<const DimensionIndex> grid_dims,
+          bool has_array) -> absl::Status {
         if (!has_array) {
           // The connected set contains only `single_input_dimension`
           // dependencies.
@@ -810,7 +811,7 @@ Status GenerateIndexTransformGridPartitionData(
 }
 }  // namespace
 
-Status PrePartitionIndexTransformOverGrid(
+absl::Status PrePartitionIndexTransformOverGrid(
     IndexTransformView<> index_transform,
     span<const DimensionIndex> grid_output_dimensions,
     OutputToGridCellFn output_to_grid_cell,

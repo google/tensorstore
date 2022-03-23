@@ -14,6 +14,7 @@
 
 #include "tensorstore/driver/zarr/spec.h"
 
+#include "absl/status/status.h"
 #include "tensorstore/codec_spec_registry.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/internal/json.h"
@@ -73,8 +74,8 @@ void GetChunkInnerOrder(DimensionIndex chunked_rank,
   }
 }
 
-Status ValidateMetadata(const ZarrMetadata& metadata,
-                        const ZarrPartialMetadata& constraints) {
+absl::Status ValidateMetadata(const ZarrMetadata& metadata,
+                              const ZarrPartialMetadata& constraints) {
   if (constraints.shape && *constraints.shape != metadata.shape) {
     return MetadataMismatchError("shape", *constraints.shape, metadata.shape);
   }

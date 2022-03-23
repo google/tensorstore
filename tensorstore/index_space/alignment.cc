@@ -18,13 +18,15 @@
 #include <numeric>
 
 #include "absl/container/fixed_array.h"
+#include "absl/status/status.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 
 namespace tensorstore {
 
-Status AlignDimensionsTo(IndexDomainView<> source, IndexDomainView<> target,
-                         span<DimensionIndex> source_matches,
-                         DomainAlignmentOptions options) {
+absl::Status AlignDimensionsTo(IndexDomainView<> source,
+                               IndexDomainView<> target,
+                               span<DimensionIndex> source_matches,
+                               DomainAlignmentOptions options) {
   assert(source.valid());
   assert(target.valid());
   const DimensionIndex source_rank = source.rank();

@@ -16,6 +16,7 @@
 #define TENSORSTORE_INDEX_SPACE_INTERNAL_ITERATE_IMPL_H_
 
 #include "absl/container/fixed_array.h"
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
@@ -137,7 +138,7 @@ struct SingleArrayIterationState {
 ///     contained within the domain of the array.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs
 ///     computing the result.
-Status InitializeSingleArrayIterationState(
+absl::Status InitializeSingleArrayIterationState(
     OffsetArrayView<const void> array, TransformRep* transform,
     const Index* iteration_origin, const Index* iteration_shape,
     SingleArrayIterationState* single_array_state,
@@ -145,7 +146,7 @@ Status InitializeSingleArrayIterationState(
 
 /// Equivalent to calling the overload above with an `array` with an element
 /// pointer of `element_pointer`, an unbounded domain, and all 1 byte strides.
-Status InitializeSingleArrayIterationState(
+absl::Status InitializeSingleArrayIterationState(
     ElementPointer<const void> element_pointer, TransformRep* transform,
     const Index* iteration_origin, const Index* iteration_shape,
     SingleArrayIterationState* single_array_state,
@@ -390,7 +391,8 @@ template <std::size_t Arity>
 ArrayIterateResult IterateUsingSimplifiedLayout(
     const SimplifiedDimensionIterationOrder& layout,
     span<const Index> input_shape,
-    internal::ElementwiseClosure<Arity, Status*> closure, Status* status,
+    internal::ElementwiseClosure<Arity, absl::Status*> closure,
+    absl::Status* status,
     span<std::optional<SingleArrayIterationState>, Arity> single_array_states,
     std::array<std::ptrdiff_t, Arity> element_sizes);
 

@@ -170,6 +170,7 @@ tensorstore_cc_library(
         "//tensorstore/util:constant_vector",
         "//tensorstore/util:division",
         "//tensorstore/util:future",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
     alwayslink = 1,
@@ -240,6 +241,7 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "@com_google_absl//absl/functional:function_ref",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -281,6 +283,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/base:endian",
+        "@com_google_absl//absl/status",
     ],
 )
 

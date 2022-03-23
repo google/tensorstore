@@ -17,6 +17,7 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/index_space/dim_expression.h"
 
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
@@ -25,39 +26,39 @@
 namespace tensorstore {
 namespace internal_index_space {
 
-Status GetDimensions(IndexTransformView<> transform,
-                     span<const DimensionIndex> dimensions,
-                     DimensionIndexBuffer* result);
+absl::Status GetDimensions(IndexTransformView<> transform,
+                           span<const DimensionIndex> dimensions,
+                           DimensionIndexBuffer* result);
 
-Status GetNewDimensions(DimensionIndex input_rank,
-                        span<const DimensionIndex> dimensions,
-                        DimensionIndexBuffer* result);
+absl::Status GetNewDimensions(DimensionIndex input_rank,
+                              span<const DimensionIndex> dimensions,
+                              DimensionIndexBuffer* result);
 
-Status GetDimensions(IndexTransformView<> transform,
-                     span<const DimensionIdentifier> dimensions,
-                     DimensionIndexBuffer* result);
+absl::Status GetDimensions(IndexTransformView<> transform,
+                           span<const DimensionIdentifier> dimensions,
+                           DimensionIndexBuffer* result);
 
-Status GetDimensions(span<const std::string> labels,
-                     span<const DynamicDimSpec> dimensions,
-                     DimensionIndexBuffer* result);
+absl::Status GetDimensions(span<const std::string> labels,
+                           span<const DynamicDimSpec> dimensions,
+                           DimensionIndexBuffer* result);
 
-Status GetNewDimensions(DimensionIndex input_rank,
-                        span<const DynamicDimSpec> dimensions,
-                        DimensionIndexBuffer* result);
+absl::Status GetNewDimensions(DimensionIndex input_rank,
+                              span<const DynamicDimSpec> dimensions,
+                              DimensionIndexBuffer* result);
 
-Status GetAllDimensions(DimensionIndex input_rank,
-                        DimensionIndexBuffer* result);
+absl::Status GetAllDimensions(DimensionIndex input_rank,
+                              DimensionIndexBuffer* result);
 
 template <typename Container>
 class DimensionList {
  public:
-  Status GetDimensions(IndexTransformView<> transform,
-                       DimensionIndexBuffer* buffer) const {
+  absl::Status GetDimensions(IndexTransformView<> transform,
+                             DimensionIndexBuffer* buffer) const {
     return internal_index_space::GetDimensions(transform, container, buffer);
   }
 
-  Status GetNewDimensions(DimensionIndex input_rank,
-                          DimensionIndexBuffer* buffer) const {
+  absl::Status GetNewDimensions(DimensionIndex input_rank,
+                                DimensionIndexBuffer* buffer) const {
     static_assert(
         std::is_same<typename Container::value_type, DimensionIndex>::value,
         "New dimensions must be specified by index.");
@@ -75,8 +76,8 @@ class DimensionList {
 
 class AllDims {
  public:
-  Status GetDimensions(IndexTransformView<> transform,
-                       DimensionIndexBuffer* buffer) const {
+  absl::Status GetDimensions(IndexTransformView<> transform,
+                             DimensionIndexBuffer* buffer) const {
     return internal_index_space::GetAllDimensions(transform.input_rank(),
                                                   buffer);
   }
@@ -93,13 +94,13 @@ class DynamicDims {
       std::is_same<DynamicDimSpec, typename Container::value_type>::value, "");
 
  public:
-  Status GetDimensions(IndexTransformView<> transform,
-                       DimensionIndexBuffer* buffer) const {
+  absl::Status GetDimensions(IndexTransformView<> transform,
+                             DimensionIndexBuffer* buffer) const {
     return internal_index_space::GetDimensions(transform.input_labels(),
                                                container, buffer);
   }
-  Status GetNewDimensions(DimensionIndex input_rank,
-                          DimensionIndexBuffer* buffer) const {
+  absl::Status GetNewDimensions(DimensionIndex input_rank,
+                                DimensionIndexBuffer* buffer) const {
     return internal_index_space::GetNewDimensions(input_rank, container,
                                                   buffer);
   }

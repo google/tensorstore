@@ -22,6 +22,7 @@
 #include <array>
 #include <utility>
 
+#include "absl/status/status.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/arena.h"
@@ -318,7 +319,7 @@ struct NDIteratorsWithManagedBuffers {
   /// \returns `true` if `GetBlock` succeeded (returned `block_size`) for all of
   ///     the iterators, `false` otherwise.
   bool GetBlock(span<const Index> indices, DimensionIndex block_size,
-                Status* status) {
+                absl::Status* status) {
     for (size_t i = 0; i < Arity; ++i) {
       if (iterators_[i]->GetBlock(indices, block_size, get_block_pointers_[i],
                                   status) != block_size) {
@@ -339,7 +340,7 @@ struct NDIteratorsWithManagedBuffers {
   /// \returns The minimum number of elements successfully updated in all
   ///     iterators (equal to `block_size` on success).
   Index UpdateBlock(span<const Index> indices, DimensionIndex block_size,
-                    Status* status) {
+                    absl::Status* status) {
     Index n = block_size;
     for (size_t i = 0; i < Arity; ++i) {
       n = std::min(n,
@@ -369,11 +370,11 @@ struct NDIteratorsWithManagedBuffers {
 ///     Arena arena;
 ///     NDIterable::Ptr iterable_a = ...;
 ///     NDIterable::Ptr iterable_b = ...;
-///     ElementwiseClosure<2, Status*> closure = ...;
+///     ElementwiseClosure<2, absl::Status*> closure = ...;
 ///     MultiNDIterator<2> multi_iterator(
 ///         shape, constraints, {{ iterable_a.get(), iterable_b.get() }},
 ///         &arena);
-///     Status status;
+///     absl::Status status;
 ///     for (Index block_size = multi_iterator.ResetAtBeginning();
 ///          block_size;
 ///          block_size = multi_iterator.StepForward(block_size)) {
@@ -413,12 +414,12 @@ struct MultiNDIterator : public NDIterationInfo<Full>,
             iterables, this->buffer_layout_view(), allocator),
         NDIterationPositionStepper(this->iteration_shape, this->block_size) {}
 
-  bool GetBlock(Index cur_size, Status* status) {
+  bool GetBlock(Index cur_size, absl::Status* status) {
     return NDIteratorsWithManagedBuffers<Arity>::GetBlock(
         this->position(), this->block_size, status);
   }
 
-  Index UpdateBlock(Index cur_size, Status* status) {
+  Index UpdateBlock(Index cur_size, absl::Status* status) {
     return NDIteratorsWithManagedBuffers<Arity>::UpdateBlock(
         this->position(), this->block_size, status);
   }

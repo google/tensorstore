@@ -15,6 +15,7 @@
 #include "tensorstore/index_space/internal/translate_op.h"
 
 #include "absl/container/fixed_array.h"
+#include "absl/status/status.h"
 #include "tensorstore/internal/integer_overflow.h"
 
 namespace tensorstore {
@@ -31,8 +32,8 @@ namespace {
 ///     for the shift in the input domain.
 ///
 /// This is a helper function used by `ApplyTranslate`.
-Status TranslateOutputOffsetsUsingInputOffsets(TransformRep* transform,
-                                               const Index* input_offsets) {
+absl::Status TranslateOutputOffsetsUsingInputOffsets(
+    TransformRep* transform, const Index* input_offsets) {
   const DimensionIndex output_rank = transform->output_rank;
   const DimensionIndex input_rank = transform->input_rank;
   span<OutputIndexMap> maps = transform->output_index_maps().first(output_rank);

@@ -26,7 +26,7 @@ namespace internal {
 /// Validates that non-empty labels are unique.
 ///
 /// \param labels The sequence of labels to validate.
-/// \returns `Status()` if valid.
+/// \returns `absl::Status()` if valid.
 /// \error `absl::StatusCode::kInvalidArgument` if there is a non-unique label.
 absl::Status ValidateDimensionLabelsAreUnique(span<const std::string> labels);
 

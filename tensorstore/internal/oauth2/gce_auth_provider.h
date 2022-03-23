@@ -19,6 +19,7 @@
 #include <set>
 #include <string>
 
+#include "absl/status/status.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -49,7 +50,7 @@ class GceAuthProvider : public AuthProvider {
   Result<BearerTokenWithExpiration> GetToken() override;
 
   /// \brief Refresh the token from the GCE Metadata service.
-  Status Refresh();
+  absl::Status Refresh();
 
   bool IsExpired() { return clock_() > (expiration_ - kExpirationMargin); }
 
@@ -61,7 +62,7 @@ class GceAuthProvider : public AuthProvider {
                                                            bool recursive);
 
  private:
-  Status RetrieveServiceAccountInfo();
+  absl::Status RetrieveServiceAccountInfo();
 
   std::string service_account_email_;
   std::set<std::string> scopes_;

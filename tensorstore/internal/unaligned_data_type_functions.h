@@ -17,6 +17,7 @@
 
 #include <array>
 
+#include "absl/status/status.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
@@ -33,7 +34,7 @@ struct UnalignedDataTypeFunctions {
   ///
   /// If the data type does not require endian conversion (e.g. uint8), equal to
   /// `nullptr`.
-  const internal::ElementwiseFunction<1, Status*>* swap_endian_inplace =
+  const internal::ElementwiseFunction<1, absl::Status*>* swap_endian_inplace =
       nullptr;
 
   /// Swaps endianness, copying from first argument to second.  No alignment
@@ -41,13 +42,13 @@ struct UnalignedDataTypeFunctions {
   ///
   /// If the data type does not require endian conversion (e.g. uint8), equal to
   /// `copy`.
-  const internal::ElementwiseFunction<2, Status*>* swap_endian = nullptr;
+  const internal::ElementwiseFunction<2, absl::Status*>* swap_endian = nullptr;
 
   /// Copies potentially unaligned data from first argument to second.
   ///
   /// If the data type is a non-trivial type (e.g. `string` or `json`), equal to
   /// `nullptr`.
-  const internal::ElementwiseFunction<2, Status*>* copy = nullptr;
+  const internal::ElementwiseFunction<2, absl::Status*>* copy = nullptr;
 
   /// For trivial types, writes to a `riegeli::Writer` without swapping byte
   /// order.  For non-trivial types, writes to a `riegeli::Writer` using a
@@ -63,19 +64,19 @@ struct UnalignedDataTypeFunctions {
   ///
   /// The `context` points to a `riegeli::Writer`.  The `absl::Status` parameter
   /// is ignored.
-  internal::ElementwiseFunction<1, Status*> write_swapped_endian;
+  internal::ElementwiseFunction<1, absl::Status*> write_swapped_endian;
 
   /// Reads the result of `write_native_endian` from a `riegeli::Reader`.
   ///
   /// The `context` points to a `riegeli::Reader`.  The `absl::Status` parameter
   /// is ignored.
-  internal::ElementwiseFunction<1, Status*> read_native_endian;
+  internal::ElementwiseFunction<1, absl::Status*> read_native_endian;
 
   /// Decodes the result of `write_swap_endian` from a `riegeli::Reader`.
   ///
   /// The `context` points to a `riegeli::Reader`.  The `absl::Status` parameter
   /// is ignored.
-  internal::ElementwiseFunction<1, Status*> read_swapped_endian;
+  internal::ElementwiseFunction<1, absl::Status*> read_swapped_endian;
 };
 
 /// Functions for each canonical data type.

@@ -52,7 +52,7 @@
 ///
 ///     template <>
 ///     struct ContextBindingTraits<Nested> {
-///       static Status Bind(Nested& spec, const Context& context) {
+///       static absl::Status Bind(Nested& spec, const Context& context) {
 ///         TENSORSTORE_RETURN_IF_ERROR(spec.baz.Bind(context));
 ///         return absl::OkStatus();
 ///       }
@@ -68,7 +68,7 @@
 ///
 ///     template <>
 ///     struct ContextBindingTraits<SpecData> {
-///       static Status Bind(SpecData& spec, const Context& context) {
+///       static absl::Status Bind(SpecData& spec, const Context& context) {
 ///         TENSORSTORE_RETURN_IF_ERROR(spec.foo.Bind(context));
 ///         TENSORSTORE_RETURN_IF_ERROR(spec.bar.Bind(context));
 ///         TENSORSTORE_RETURN_IF_ERROR(
@@ -92,6 +92,7 @@
 
 #include <type_traits>
 
+#include "absl/status/status.h"
 #include "tensorstore/context.h"
 #include "tensorstore/util/apply_members/apply_members.h"
 #include "tensorstore/util/status.h"
@@ -102,7 +103,7 @@ namespace internal {
 template <typename Spec>
 struct NoOpContextBindingTraits {
   /// Resolves context resources in `spec` using `context.
-  static Status Bind(Spec& spec, const Context& context) {
+  static absl::Status Bind(Spec& spec, const Context& context) {
     return absl::OkStatus();
   }
 
@@ -125,7 +126,7 @@ struct ContextBindingTraits : public NoOpContextBindingTraits<Spec> {};
 template <typename Provider>
 struct ContextBindingTraits<Context::Resource<Provider>> {
   using Spec = Context::Resource<Provider>;
-  static Status Bind(Spec& spec, const Context& context) {
+  static absl::Status Bind(Spec& spec, const Context& context) {
     return spec.BindContext(context);
   }
   static void Unbind(Spec& spec, const ContextSpecBuilder& builder) {
@@ -141,9 +142,9 @@ struct ContextBindingTraits<Context::Resource<Provider>> {
 template <class Spec>
 struct ContextBindingTraits<Spec,
                             std::enable_if_t<SupportsApplyMembers<Spec>>> {
-  static Status Bind(Spec& spec, const Context& context) {
+  static absl::Status Bind(Spec& spec, const Context& context) {
     return ApplyMembers<Spec>::Apply(spec, [&context](auto&&... spec_member) {
-      Status status;
+      absl::Status status;
       (void)((status = ContextBindingTraits<
                   remove_cvref_t<decltype(spec_member)>>::Bind(spec_member,
                                                                context))

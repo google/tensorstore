@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_INTERNAL_MASKED_ARRAY_TESTUTIL_H_
 #define TENSORSTORE_INTERNAL_MASKED_ARRAY_TESTUTIL_H_
 
+#include "absl/status/status.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
@@ -30,7 +31,7 @@ namespace internal {
 /// because the array may have been modified even in the case of an error, or
 /// may have not been modified even in the case of success.
 struct MaskedArrayWriteResult {
-  Status status;
+  absl::Status status;
   bool modified;
 };
 

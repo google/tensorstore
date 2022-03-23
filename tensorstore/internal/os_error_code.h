@@ -53,8 +53,8 @@ std::string GetOsErrorMessage(OsErrorCode error);
 /// Converts a system error code to the corresponding `absl::StatusCode`.
 absl::StatusCode GetOsErrorStatusCode(OsErrorCode error);
 
-/// Returns a Status from an OS error. The message is composed by catenation of
-/// the provided string parts.
+/// Returns an `absl::Status` from an OS error. The message is composed by
+/// catenation of the provided string parts.
 absl::Status StatusFromOsError(OsErrorCode error_code, std::string_view a = {},
                                std::string_view b = {}, std::string_view c = {},
                                std::string_view d = {});

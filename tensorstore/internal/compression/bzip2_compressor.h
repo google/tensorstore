@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <string>
 
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "tensorstore/internal/compression/bzip2.h"
 #include "tensorstore/internal/compression/json_specified_compressor.h"
@@ -30,14 +31,14 @@ namespace internal {
 class Bzip2Compressor : public internal::JsonSpecifiedCompressor,
                         public bzip2::Options {
  public:
-  Status Encode(const absl::Cord& input, absl::Cord* output,
-                std::size_t element_size) const override {
+  absl::Status Encode(const absl::Cord& input, absl::Cord* output,
+                      std::size_t element_size) const override {
     // element_size is not used for bzip2 compression.
     bzip2::Encode(input, output, *this);
     return absl::OkStatus();
   }
-  Status Decode(const absl::Cord& input, absl::Cord* output,
-                std::size_t element_size) const override {
+  absl::Status Decode(const absl::Cord& input, absl::Cord* output,
+                      std::size_t element_size) const override {
     // element_size is not used for bzip2 compression.
     return bzip2::Decode(input, output);
   }

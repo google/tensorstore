@@ -21,6 +21,7 @@
 #include <memory>
 #include <string>
 
+#include "absl/status/status.h"
 #include "tensorstore/box.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
 #include "tensorstore/index.h"
@@ -57,12 +58,12 @@ namespace internal_kvs_backed_chunk_driver {
 /// \dchecks `current_domain.rank() == new_exclusive_max.size()`
 /// \dchecks `current_domain.rank() == inclusive_min_constraint.size()`
 /// \dchecks `current_domain.rank() == exclusive_max_constraint.size()`
-Status ValidateResizeConstraints(BoxView<> current_domain,
-                                 span<const Index> new_inclusive_min,
-                                 span<const Index> new_exclusive_max,
-                                 span<const Index> inclusive_min_constraint,
-                                 span<const Index> exclusive_max_constraint,
-                                 bool expand_only, bool shrink_only);
+absl::Status ValidateResizeConstraints(
+    BoxView<> current_domain, span<const Index> new_inclusive_min,
+    span<const Index> new_exclusive_max,
+    span<const Index> inclusive_min_constraint,
+    span<const Index> exclusive_max_constraint, bool expand_only,
+    bool shrink_only);
 
 /// Specifies how to resize a DataCache.
 struct ResizeParameters {

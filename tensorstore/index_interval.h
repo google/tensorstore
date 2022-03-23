@@ -20,6 +20,7 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/status/status.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
 #include "tensorstore/serialization/fwd.h"
@@ -394,9 +395,9 @@ Result<IndexInterval> ShiftIntervalBackward(IndexInterval interval,
 Result<IndexInterval> ShiftIntervalTo(IndexInterval interval, Index origin);
 
 /// Checks that `interval.Contains(index)`.
-/// \returns `Status()` on success.
+/// \returns `absl::OkStatus()` on success.
 /// \error `absl::StatusCode::kOutOfRange` on failure.
-Status CheckContains(IndexInterval interval, Index index);
+absl::Status CheckContains(IndexInterval interval, Index index);
 
 enum class IntervalForm { sized, closed, half_open };
 
@@ -873,12 +874,12 @@ Result<std::pair<OptionallyImplicitIndexInterval, Index>> ExtractStridedSlice(
 ///     `*new_domain` to the corresponding index in `orig`.
 /// \error `absl::StatusCode:kInvalidArgument` or
 ///     `absl::StatusCode::kOutOfRange` if the slice is not valid.
-Status ComputeStridedSliceMap(OptionallyImplicitIndexInterval orig,
-                              IntervalForm interval_form,
-                              Index translate_origin_to, Index start,
-                              Index stop_or_size, Index stride,
-                              OptionallyImplicitIndexInterval* new_domain,
-                              Index* output_offset);
+absl::Status ComputeStridedSliceMap(OptionallyImplicitIndexInterval orig,
+                                    IntervalForm interval_form,
+                                    Index translate_origin_to, Index start,
+                                    Index stop_or_size, Index stride,
+                                    OptionallyImplicitIndexInterval* new_domain,
+                                    Index* output_offset);
 
 /// Computes the largest possible domain such that the affine-transformed range
 /// is contained within `interval`.

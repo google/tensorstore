@@ -306,13 +306,14 @@ constexpr bool IsModePossible(ReadWriteMode mode, ReadWriteMode constraint) {
 
 /// Verifies that `mode` includes `ReadWriteMode::read`.
 /// \error `absl::StatusCode::kInvalidArgument` if condition is not satisfied.
-Status ValidateSupportsRead(ReadWriteMode mode);
+absl::Status ValidateSupportsRead(ReadWriteMode mode);
 
 /// Verifies that `mode` includes `ReadWriteMode::write`.
 /// \error `absl::StatusCode::kInvalidArgument` if condition is not satisfied.
-Status ValidateSupportsWrite(ReadWriteMode mode);
+absl::Status ValidateSupportsWrite(ReadWriteMode mode);
 
-Status ValidateSupportsModes(ReadWriteMode mode, ReadWriteMode required_modes);
+absl::Status ValidateSupportsModes(ReadWriteMode mode,
+                                   ReadWriteMode required_modes);
 
 }  // namespace internal
 }  // namespace tensorstore

@@ -23,6 +23,7 @@
 #include <string_view>
 #include <variant>
 
+#include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -78,25 +79,25 @@ class GCSMockStorageBucket {
       absl::Duration request_timeout, absl::Duration connect_timeout);
 
   // Main entry-point for matching requests.
-  std::variant<std::monostate, internal_http::HttpResponse, Status> Match(
+  std::variant<std::monostate, internal_http::HttpResponse, absl::Status> Match(
       const internal_http::HttpRequest& request, absl::Cord payload);
 
   // List objects in the bucket.
-  std::variant<std::monostate, internal_http::HttpResponse, Status>
+  std::variant<std::monostate, internal_http::HttpResponse, absl::Status>
   HandleListRequest(std::string_view path, const ParamMap& params);
 
   // Insert an object into the bucket.
-  std::variant<std::monostate, internal_http::HttpResponse, Status>
+  std::variant<std::monostate, internal_http::HttpResponse, absl::Status>
   HandleInsertRequest(std::string_view path, const ParamMap& params,
                       absl::Cord payload);
 
   // Get an object, which might be the data or the metadata.
-  std::variant<std::monostate, internal_http::HttpResponse, Status>
+  std::variant<std::monostate, internal_http::HttpResponse, absl::Status>
   HandleGetRequest(std::string_view path, const ParamMap& params,
                    const std::vector<std::string>& headers);
 
   // Delete an object.
-  std::variant<std::monostate, internal_http::HttpResponse, Status>
+  std::variant<std::monostate, internal_http::HttpResponse, absl::Status>
   HandleDeleteRequest(std::string_view path, const ParamMap& params);
 
   // Construct an ojbect metadata response.

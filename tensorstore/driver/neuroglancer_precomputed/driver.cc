@@ -14,6 +14,7 @@
 
 #include "tensorstore/driver/driver.h"
 
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
@@ -187,8 +188,9 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
     }};
   }
 
-  Status ValidateMetadataCompatibility(const void* existing_metadata_ptr,
-                                       const void* new_metadata_ptr) override {
+  absl::Status ValidateMetadataCompatibility(
+      const void* existing_metadata_ptr,
+      const void* new_metadata_ptr) override {
     const auto& existing_metadata =
         *static_cast<const MultiscaleMetadata*>(existing_metadata_ptr);
     const auto& new_metadata =

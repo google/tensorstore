@@ -94,6 +94,7 @@ tensorstore_cc_binary(
     deps = [
         "//tensorstore/util:result",
         "//tensorstore/util:status",
+        "@com_google_absl//absl/status",
     ],
 )
 

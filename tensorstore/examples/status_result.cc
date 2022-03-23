@@ -14,6 +14,7 @@
 
 #include <iostream>
 
+#include "absl/status/status.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -119,7 +120,7 @@ int main(int argc, char** argv) {
   }
 
   // Using Result<T>. Result<T> is similar in many ways to
-  // std::expected<T, tensorstore::Status>.
+  // std::expected<T, absl::Status>.
   {
     ReturnResult(20).IgnoreResult();
     auto result = ReturnResult(15);

@@ -253,7 +253,7 @@ struct ContextBindingTraits;
 template <>
 struct ContextBindingTraits<kvstore::DriverSpecPtr, /*SFINAE=*/void> {
   using Spec = kvstore::DriverSpecPtr;
-  static Status Bind(Spec& spec, const Context& context) {
+  static absl::Status Bind(Spec& spec, const Context& context) {
     if (!spec) return absl::OkStatus();
     return spec.BindContext(context);
   }

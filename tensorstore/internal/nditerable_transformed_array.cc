@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "absl/container/fixed_array.h"
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
@@ -328,7 +329,8 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
     }
 
     Index GetBlock(span<const Index> indices, Index block_size,
-                   IterationBufferPointer* pointer, Status* status) override {
+                   IterationBufferPointer* pointer,
+                   absl::Status* status) override {
       IterationBufferPointer block_pointer = pointer_;
       // Add the contribution from the direct array byte strides (corresponding
       // to `single_input_dimension` output index maps).

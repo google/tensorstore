@@ -14,6 +14,7 @@
 
 #include "tensorstore/driver/array/array.h"
 
+#include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/array.h"
 #include "tensorstore/data_type_conversion.h"
@@ -110,7 +111,7 @@ class ArrayDriverSpec
 
   /// JSON binder, required by `RegisteredDriver`.
   constexpr static auto default_json_binder = jb::Object(
-      jb::Initialize([](auto* obj) -> Status {
+      jb::Initialize([](auto* obj) -> absl::Status {
         if (!obj->schema.dtype().valid()) {
           return absl::InvalidArgumentError("dtype must be specified");
         }
@@ -179,13 +180,15 @@ class ArrayDriver
       internal::OpenTransactionPtr transaction, IndexTransform<> transform,
       ResolveBoundsOptions options) override;
 
-  void Read(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) override;
+  void Read(internal::OpenTransactionPtr transaction,
+            IndexTransform<> transform,
+            AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
+      override;
 
-  void Write(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) override;
+  void Write(internal::OpenTransactionPtr transaction,
+             IndexTransform<> transform,
+             AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>
+                 receiver) override;
 
   DataType dtype() override { return data_.dtype(); }
 
@@ -230,7 +233,7 @@ Future<IndexTransform<>> ArrayDriver::ResolveBounds(
 
 void ArrayDriver::Read(
     internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-    AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) {
+    AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
   // Implementation of `tensorstore::ReadChunk::Impl` Poly interface.
   struct ChunkImpl {
     IntrusivePtr<ArrayDriver> self;
@@ -265,7 +268,7 @@ void ArrayDriver::Read(
 
 void ArrayDriver::Write(
     internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-    AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) {
+    AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver) {
   // Implementation of `tensorstore::internal::WriteChunk::Impl` Poly interface.
   struct ChunkImpl {
     IntrusivePtr<ArrayDriver> self;

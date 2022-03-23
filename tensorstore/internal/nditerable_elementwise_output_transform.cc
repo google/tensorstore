@@ -17,6 +17,7 @@
 #include <array>
 #include <utility>
 
+#include "absl/status/status.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/arena.h"
@@ -35,7 +36,7 @@ namespace {
 struct ElementwiseOutputTransformNDIterator
     : public NDIterator::Base<ElementwiseOutputTransformNDIterator> {
   explicit ElementwiseOutputTransformNDIterator(
-      const NDIterable* output, ElementwiseClosure<2, Status*> closure,
+      const NDIterable* output, ElementwiseClosure<2, absl::Status*> closure,
       NDIterable::IterationBufferKindLayoutView layout,
       ArenaAllocator<> allocator)
       : output_(span(&output, 1), layout, allocator),
@@ -47,7 +48,8 @@ struct ElementwiseOutputTransformNDIterator
   }
 
   Index UpdateBlock(span<const Index> indices, Index block_size,
-                    IterationBufferPointer pointer, Status* status) override {
+                    IterationBufferPointer pointer,
+                    absl::Status* status) override {
     if (!output_.GetBlock(indices, block_size, status)) {
       return 0;
     }
@@ -58,7 +60,7 @@ struct ElementwiseOutputTransformNDIterator
 
   NDIteratorsWithManagedBuffers<1> output_;
   void* context_;
-  SpecializedElementwiseFunctionPointer<2, Status*> elementwise_function_;
+  SpecializedElementwiseFunctionPointer<2, absl::Status*> elementwise_function_;
 };
 
 struct ElementwiseOutputTransformNDIterable
@@ -68,10 +70,9 @@ struct ElementwiseOutputTransformNDIterable
   using Base = NDIterablesWithManagedBuffers<
       std::array<NDIterable::Ptr, 1>,
       NDIterable::Base<ElementwiseOutputTransformNDIterable>>;
-  ElementwiseOutputTransformNDIterable(NDIterable::Ptr output,
-                                       DataType input_dtype,
-                                       ElementwiseClosure<2, Status*> closure,
-                                       ArenaAllocator<> allocator)
+  ElementwiseOutputTransformNDIterable(
+      NDIterable::Ptr output, DataType input_dtype,
+      ElementwiseClosure<2, absl::Status*> closure, ArenaAllocator<> allocator)
       : Base{{{std::move(output)}}},
         input_dtype_(input_dtype),
         closure_(closure),
@@ -89,14 +90,14 @@ struct ElementwiseOutputTransformNDIterable
   }
 
   DataType input_dtype_;
-  ElementwiseClosure<2, Status*> closure_;
+  ElementwiseClosure<2, absl::Status*> closure_;
   ArenaAllocator<> allocator_;
 };
 }  // namespace
 
 NDIterable::Ptr GetElementwiseOutputTransformNDIterable(
     NDIterable::Ptr output, DataType input_dtype,
-    ElementwiseClosure<2, Status*> closure, Arena* arena) {
+    ElementwiseClosure<2, absl::Status*> closure, Arena* arena) {
   return MakeUniqueWithVirtualIntrusiveAllocator<
       ElementwiseOutputTransformNDIterable>(
       ArenaAllocator<>(arena), std::move(output), input_dtype, closure);

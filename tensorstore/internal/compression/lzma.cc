@@ -14,6 +14,7 @@
 
 #include "tensorstore/internal/compression/lzma.h"
 
+#include "absl/status/status.h"
 #include "tensorstore/internal/compression/cord_stream_manager.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/status.h"
@@ -47,8 +48,8 @@ struct BufferManager {
   return r;
 }
 
-/// Returns the Status associated with a liblzma error.
-Status GetInitErrorStatus(::lzma_ret r) {
+/// Returns the absl::Status associated with a liblzma error.
+absl::Status GetInitErrorStatus(::lzma_ret r) {
   switch (r) {
     case LZMA_OK:
       return absl::OkStatus();
@@ -61,7 +62,7 @@ Status GetInitErrorStatus(::lzma_ret r) {
   }
 }
 
-Status GetEncodeErrorStatus(::lzma_ret r) {
+absl::Status GetEncodeErrorStatus(::lzma_ret r) {
   switch (r) {
     case LZMA_STREAM_END:
       return absl::OkStatus();
@@ -74,7 +75,7 @@ Status GetEncodeErrorStatus(::lzma_ret r) {
   }
 }
 
-Status GetDecodeErrorStatus(::lzma_ret r) {
+absl::Status GetDecodeErrorStatus(::lzma_ret r) {
   switch (r) {
     case LZMA_STREAM_END:
       return absl::OkStatus();
@@ -93,14 +94,15 @@ Status GetDecodeErrorStatus(::lzma_ret r) {
 }
 
 namespace xz {
-Status Encode(const absl::Cord& input, absl::Cord* output, Options options) {
+absl::Status Encode(const absl::Cord& input, absl::Cord* output,
+                    Options options) {
   lzma::BufferManager manager(input, output);
   ::lzma_ret err =
       ::lzma_easy_encoder(&manager.stream, options.preset, options.check);
   if (err != LZMA_OK) return lzma::GetInitErrorStatus(err);
   return lzma::GetEncodeErrorStatus(manager.Process());
 }
-Status Decode(const absl::Cord& input, absl::Cord* output) {
+absl::Status Decode(const absl::Cord& input, absl::Cord* output) {
   lzma::BufferManager manager(input, output);
   ::lzma_ret err = ::lzma_stream_decoder(
       &manager.stream, /*memlimit=*/std::numeric_limits<std::uint64_t>::max(),

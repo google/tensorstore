@@ -44,6 +44,7 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "@com_google_absl//absl/container:fixed_array",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -135,6 +136,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -176,6 +178,7 @@ tensorstore_cc_library(
         ":dimension_index_buffer",
         ":index_transform",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest",
     ],
 )
@@ -193,6 +196,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -230,6 +234,7 @@ tensorstore_cc_library(
         ":dimension_index_buffer",
         ":index_transform",
         "//tensorstore:index",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -439,6 +444,7 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -471,6 +477,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "@com_google_absl//absl/container:fixed_array",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -714,6 +721,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
         "@com_google_absl//absl/container:fixed_array",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -822,6 +830,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:tagged_ptr",
         "//tensorstore/util:iterate",
         "//tensorstore/util:result",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -855,6 +864,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
         "@com_google_absl//absl/container:fixed_array",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -884,6 +894,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
         "@com_google_absl//absl/container:fixed_array",
+        "@com_google_absl//absl/status",
     ],
 )
 

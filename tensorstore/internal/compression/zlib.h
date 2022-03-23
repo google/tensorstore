@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <string>
 
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "tensorstore/util/status.h"
 
@@ -54,7 +55,7 @@ void Encode(const absl::Cord& input, absl::Cord* output,
 ///     appended.
 /// \param use_gzip_header Specifies the header type with which `input` was
 ///     encoded.
-/// \returns `Status()` on success.
+/// \returns `absl::Status()` on success.
 /// \error `absl::StatusCode::kInvalidArgument` if `input` is corrupt.
 absl::Status Decode(const absl::Cord& input, absl::Cord* output,
                     bool use_gzip_header);

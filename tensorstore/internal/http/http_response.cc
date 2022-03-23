@@ -178,7 +178,7 @@ std::size_t AppendHeaderData(std::multimap<std::string, std::string>& headers,
   return size;
 }
 
-Status HttpResponseCodeToStatus(const HttpResponse& response) {
+absl::Status HttpResponseCodeToStatus(const HttpResponse& response) {
   auto code = HttpResponseCodeToStatusCode(response);
   if (code == absl::StatusCode::kOk) {
     return absl::OkStatus();
@@ -192,7 +192,7 @@ Status HttpResponseCodeToStatus(const HttpResponse& response) {
                                                     : " with body: "),
                    response.payload.Subcord(0, pos).Flatten());
 
-  // TODO: use Status::SetPayload to store the http response code.
+  // TODO: use absl::Status::SetPayload to store the http response code.
   return absl::Status(code, message);
 }
 

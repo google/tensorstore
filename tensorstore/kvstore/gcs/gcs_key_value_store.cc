@@ -219,7 +219,7 @@ std::string BucketUploadRoot(std::string_view bucket) {
                              "/b/", bucket);
 }
 
-/// Returns whether the Status is a retriable request.
+/// Returns whether the absl::Status is a retriable request.
 bool IsRetriable(const absl::Status& status) {
   if (status.code() == absl::StatusCode::kDeadlineExceeded ||
       status.code() == absl::StatusCode::kUnavailable) {

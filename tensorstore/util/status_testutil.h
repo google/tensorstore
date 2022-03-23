@@ -16,13 +16,14 @@
 #define TENSORSTORE_UTIL_STATUS_TESTUTIL_H_
 
 /// \file
-/// Implements GMock matchers for Status and Result.
+/// Implements GMock matchers for absl::Status and Result.
 
 #include <ostream>
 #include <string>
 #include <system_error>  // NOLINT
 
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -34,7 +35,7 @@ class ErrorCodeMatchesStatusMatcher {
   ErrorCodeMatchesStatusMatcher(absl::StatusCode status_code,
                                 const std::string& message_pattern);
 
-  bool MatchAndExplain(const Status& status,
+  bool MatchAndExplain(const absl::Status& status,
                        ::testing::MatchResultListener* listener) const;
 
   template <typename T>

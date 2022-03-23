@@ -206,13 +206,13 @@ class CastDriver
     return base_driver_->data_copy_executor();
   }
 
-  void Read(
-      OpenTransactionPtr transaction, IndexTransform<> transform,
-      AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) override;
+  void Read(OpenTransactionPtr transaction, IndexTransform<> transform,
+            AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
+      override;
 
-  void Write(
-      OpenTransactionPtr transaction, IndexTransform<> transform,
-      AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) override;
+  void Write(OpenTransactionPtr transaction, IndexTransform<> transform,
+             AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>
+                 receiver) override;
 
   Future<IndexTransform<>> ResolveBounds(
       OpenTransactionPtr transaction, IndexTransform<> transform,
@@ -294,7 +294,7 @@ struct WriteChunkImpl {
 template <typename Chunk, typename ChunkImpl>
 struct ChunkReceiverAdapter {
   IntrusivePtr<CastDriver> self;
-  AnyFlowReceiver<Status, Chunk, IndexTransform<>> base;
+  AnyFlowReceiver<absl::Status, Chunk, IndexTransform<>> base;
   template <typename CancelReceiver>
   void set_starting(CancelReceiver receiver) {
     tensorstore::execution::set_starting(base, std::move(receiver));
@@ -310,7 +310,7 @@ struct ChunkReceiverAdapter {
 
   void set_done() { tensorstore::execution::set_done(base); }
 
-  void set_error(Status status) {
+  void set_error(absl::Status status) {
     tensorstore::execution::set_error(base, std::move(status));
   }
 
@@ -319,7 +319,7 @@ struct ChunkReceiverAdapter {
 
 void CastDriver::Read(
     OpenTransactionPtr transaction, IndexTransform<> transform,
-    AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) {
+    AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
   base_driver_->Read(std::move(transaction), std::move(transform),
                      ChunkReceiverAdapter<ReadChunk, ReadChunkImpl>{
                          IntrusivePtr<CastDriver>(this), std::move(receiver)});
@@ -327,7 +327,7 @@ void CastDriver::Read(
 
 void CastDriver::Write(
     OpenTransactionPtr transaction, IndexTransform<> transform,
-    AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) {
+    AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver) {
   base_driver_->Write(std::move(transaction), std::move(transform),
                       ChunkReceiverAdapter<WriteChunk, WriteChunkImpl>{
                           IntrusivePtr<CastDriver>(this), std::move(receiver)});

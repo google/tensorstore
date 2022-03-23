@@ -39,10 +39,12 @@ namespace tensorstore {
 namespace internal_json {
 
 /// Retuns an error message for a json value with the expected type.
-Status ExpectedError(const ::nlohmann::json& j, std::string_view type_name);
+absl::Status ExpectedError(const ::nlohmann::json& j,
+                           std::string_view type_name);
 
 /// Returns an error message indicating that json field validation failed.
-Status ValidationError(const ::nlohmann::json& j, std::string_view type_name);
+absl::Status ValidationError(const ::nlohmann::json& j,
+                             std::string_view type_name);
 
 /// GetTypeName returns the expected json field type name for error messages.
 inline constexpr const char* GetTypeName(
@@ -83,8 +85,8 @@ inline constexpr const char* GetTypeName(...) { return nullptr; }
 /// Defined as a class to simplify explicit instantiation.
 template <typename T>
 struct JsonRequireIntegerImpl {
-  static Status Execute(const ::nlohmann::json& json, T* result, bool strict,
-                        T min_value, T max_value);
+  static absl::Status Execute(const ::nlohmann::json& json, T* result,
+                              bool strict, T min_value, T max_value);
 };
 }  // namespace internal_json
 
@@ -141,7 +143,7 @@ std::optional<std::string> JsonValueAs<std::string>(const ::nlohmann::json& j,
 /// \param strict If `true`, string conversions and double -> integer
 ///     conversions are not permitted.
 template <typename T, typename ValidateFn>
-std::enable_if_t<!std::is_same<ValidateFn, bool>::value, Status>
+std::enable_if_t<!std::is_same<ValidateFn, bool>::value, absl::Status>
 JsonRequireValueAs(const ::nlohmann::json& j, T* result, ValidateFn is_valid,
                    bool strict = false) {
   auto value = internal::JsonValueAs<T>(j, strict);
@@ -162,8 +164,8 @@ JsonRequireValueAs(const ::nlohmann::json& j, T* result, ValidateFn is_valid,
 
 /// As above, omitting the validation function.
 template <typename T>
-Status JsonRequireValueAs(const ::nlohmann::json& j, T* result,
-                          bool strict = false) {
+absl::Status JsonRequireValueAs(const ::nlohmann::json& j, T* result,
+                                bool strict = false) {
   return JsonRequireValueAs(
       j, result, [](const T&) { return true; }, strict);
 }
@@ -179,10 +181,10 @@ Status JsonRequireValueAs(const ::nlohmann::json& j, T* result,
 ///     permitted.
 /// \param min_value The minimum allowed value (inclusive).
 /// \param max_value The maximum allowed value (inclusive).
-/// \returns `Status()` if successful.
+/// \returns `absl::Status()` if successful.
 /// \error `absl::StatusCode::kInvalidArgument` on failure.
 template <typename T>
-Status JsonRequireInteger(
+absl::Status JsonRequireInteger(
     const ::nlohmann::json& json, T* result, bool strict = false,
     type_identity_t<T> min_value = std::numeric_limits<T>::min(),
     type_identity_t<T> max_value = std::numeric_limits<T>::max()) {

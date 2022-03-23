@@ -44,7 +44,7 @@ class JsonSpecifiedCompressor
   /// \param element_bytes Specifies the element size as a hint to the
   ///     compressor, e.g. `4` if `input` is actually a sequence of `int32_t`
   ///     values.  Must be `> 0`.
-  /// \returns `Status()` on success, or an error if encoding fails.
+  /// \returns `absl::Status()` on success, or an error if encoding fails.
   virtual absl::Status Encode(const absl::Cord& input, absl::Cord* output,
                               std::size_t element_bytes) const = 0;
 
@@ -56,7 +56,7 @@ class JsonSpecifiedCompressor
   /// \param element_bytes Specifies the element size as a hint to the
   ///     compressor, e.g. `4` if `input` is actually a sequence of `int32_t`
   ///     values.  Must be `> 0`.
-  /// \returns `Status()` on success, or an error if decoding fails.
+  /// \returns `absl::Status()` on success, or an error if decoding fails.
   /// \error `absl::StatusCode::kInvalidArgument` if `input` is invalid.
   virtual absl::Status Decode(const absl::Cord& input, absl::Cord* output,
                               std::size_t element_bytes) const = 0;

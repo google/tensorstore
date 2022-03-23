@@ -22,6 +22,7 @@
 
 #include "absl/base/config.h"
 #include "absl/base/optimization.h"
+#include "absl/status/status.h"
 #include "absl/utility/utility.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/assert_macros.h"
@@ -67,7 +68,7 @@ struct noinit_t {};
 // ----------------------------------------------------------------
 
 // ResultStorageBase
-// * Owns the underlying Status and T data objects.
+// * Owns the underlying absl::Status and T data objects.
 // * Specialized construction and assignment for T=void vs. non-void.
 //
 template <class T>
@@ -109,7 +110,7 @@ struct ResultStorageBase {
   union {
     dummy dummy_;  // for constexpr initialization.
     T value_;
-    Status status_;
+    absl::Status status_;
   };
   bool has_value_;
 };
@@ -149,7 +150,7 @@ struct ResultStorageBase<void> {
   struct dummy {};
   union {
     dummy value_;  // for constexpr initialization.
-    Status status_;
+    absl::Status status_;
   };
   bool has_value_;
 };
@@ -212,7 +213,7 @@ struct ResultStorage : public ResultStorageBase<T> {
   template <typename... Args>
   void construct_status(Args&&... args) noexcept {
     ::new (static_cast<void*>(&this->status_))
-        Status(std::forward<Args>(args)...);
+        absl::Status(std::forward<Args>(args)...);
     this->has_value_ = false;
   }
 

@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_KVSTORE_DRIVER_H_
 #define TENSORSTORE_KVSTORE_DRIVER_H_
 
+#include "absl/status/status.h"
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -207,14 +208,14 @@ class Driver {
 
   /// Implementation of `List` that driver implementations must define.
   virtual void ListImpl(ListOptions options,
-                        AnyFlowReceiver<Status, Key> receiver);
+                        AnyFlowReceiver<absl::Status, Key> receiver);
 
   /// List keys in the key-value store.
   ///
   /// The keys are emitted in arbitrary order.
   ///
   /// This simply forwards to `ListImpl`.
-  AnyFlowSender<Status, Key> List(ListOptions options);
+  AnyFlowSender<absl::Status, Key> List(ListOptions options);
 
   /// Returns a Spec that can be used to re-open this key-value store.
   ///

@@ -23,6 +23,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/queue_testutil.h"
@@ -188,7 +189,7 @@ class MockKeyValueStore : public kvstore::Driver {
 
   struct ListRequest {
     ListOptions options;
-    AnyFlowReceiver<Status, Key> receiver;
+    AnyFlowReceiver<absl::Status, Key> receiver;
   };
 
   Future<ReadResult> Read(Key key, ReadOptions options) override;
@@ -198,7 +199,7 @@ class MockKeyValueStore : public kvstore::Driver {
                                              WriteOptions options) override;
 
   void ListImpl(ListOptions options,
-                AnyFlowReceiver<Status, Key> receiver) override;
+                AnyFlowReceiver<absl::Status, Key> receiver) override;
 
   Future<void> DeleteRange(KeyRange range) override;
 

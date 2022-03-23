@@ -23,6 +23,7 @@
 #include <type_traits>
 
 #include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
@@ -69,7 +70,7 @@ Result<::nlohmann::json> JsonEncodeNestedArray(ArrayView<const void> array);
 /// \param decode_element Function that decodes a single JSON.  On success, it
 ///     should decode the JSON value `v` and stores the result in `out`, which
 ///     is a non-null output pointer to a value of the type corresponding to
-///     `dtype`.  On failure, it should return an error `Status` value.
+///     `dtype`.  On failure, it should return an error `absl::Status` value.
 /// \returns The parsed array on success, or the first error returned by
 ///     `decode_element`.
 /// \dchecks `dtype.valid()`
@@ -77,7 +78,7 @@ Result<::nlohmann::json> JsonEncodeNestedArray(ArrayView<const void> array);
 ///     uniform shape.
 Result<SharedArray<void>> JsonParseNestedArray(
     const ::nlohmann::json& j_root, DataType dtype,
-    absl::FunctionRef<Status(const ::nlohmann::json& v, void* out)>
+    absl::FunctionRef<absl::Status(const ::nlohmann::json& v, void* out)>
         decode_element);
 
 /// Parses a multi-dimensional array from a nested JSON array.
@@ -122,7 +123,7 @@ namespace internal_json_binding {
 constexpr auto NestedVoidArray(DataType dtype,
                                DimensionIndex rank_constraint = dynamic_rank) {
   return [=](auto is_loading, const auto& options, auto* obj,
-             ::nlohmann::json* j) -> Status {
+             ::nlohmann::json* j) -> absl::Status {
     using Element = typename internal::remove_cvref_t<
         std::remove_pointer_t<decltype(obj)>>::Element;
     static_assert(std::is_void_v<Element>,
@@ -140,7 +141,7 @@ constexpr auto NestedVoidArray(DataType dtype,
 /// Returns a binder for a nested JSON array.
 constexpr auto NestedArray(DimensionIndex rank_constraint = dynamic_rank) {
   return [=](auto is_loading, const auto& options, auto* obj,
-             ::nlohmann::json* j) -> Status {
+             ::nlohmann::json* j) -> absl::Status {
     using Element = typename internal::remove_cvref_t<
         std::remove_pointer_t<decltype(obj)>>::Element;
     static_assert(!std::is_void_v<Element>,

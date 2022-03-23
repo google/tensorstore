@@ -14,12 +14,13 @@
 
 #include "tensorstore/tensorstore.h"
 
+#include "absl/status/status.h"
 #include "tensorstore/data_type_conversion.h"
 
 namespace tensorstore {
 
 namespace internal_tensorstore {
-Status ResizeRankError(DimensionIndex rank) {
+absl::Status ResizeRankError(DimensionIndex rank) {
   return absl::InvalidArgumentError(
       StrCat("inclusive_min and exclusive_max must have rank ", rank));
 }

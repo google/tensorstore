@@ -74,7 +74,7 @@ pybind11::object GetStatusPythonException(
 /// `ThrowStatusException` may be used to re-throw it.
 ///
 /// The pickled representation of the exception is stored as an additional
-/// payload in the returned `Status` object.
+/// payload in the returned `absl::Status` object.
 ///
 /// \param exc Python exception, or `nullptr` to indicate that the currently set
 ///     Python exception should be converted.

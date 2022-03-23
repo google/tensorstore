@@ -17,6 +17,7 @@
 
 #include <utility>
 
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/util/iterate.h"
@@ -27,21 +28,22 @@ namespace tensorstore {
 namespace internal {
 
 /// Returns the number of elements successfully copied.  If not equal to the
-/// number requested, the Status out parameter may be used to indicate an error.
+/// number requested, the absl::Status out parameter may be used to indicate an
+/// error.
 ///
 /// Elements should either be successfully copied, or be left untouched.
-using ElementCopyFunction = internal::ElementwiseFunction<2, Status*>;
+using ElementCopyFunction = internal::ElementwiseFunction<2, absl::Status*>;
 
-inline Status GetElementCopyErrorStatus(Status status) {
+inline absl::Status GetElementCopyErrorStatus(absl::Status status) {
   return status.ok() ? absl::UnknownError("Data conversion failure.") : status;
 }
 
-inline Status GetElementCopyErrorStatus(
-    Result<ArrayIterateResult>&& iterate_result, Status&& status) {
+inline absl::Status GetElementCopyErrorStatus(
+    Result<ArrayIterateResult>&& iterate_result, absl::Status&& status) {
   return !iterate_result.ok()
              ? iterate_result.status()
              : (iterate_result->success
-                    ? Status()
+                    ? absl::Status()
                     : GetElementCopyErrorStatus(std::move(status)));
 }
 

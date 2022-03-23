@@ -21,7 +21,7 @@
 namespace tensorstore {
 namespace serialization {
 
-/// Serializer for `Status` values that must not equal `absl::OkStatus()`.
+/// Serializer for `absl::Status` values that must not equal `absl::OkStatus()`.
 struct ErrorStatusSerializer {
   [[nodiscard]] static bool Encode(EncodeSink& sink,
                                    const absl::Status& status);

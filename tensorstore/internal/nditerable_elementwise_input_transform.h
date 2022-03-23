@@ -17,6 +17,7 @@
 
 #include <array>
 
+#include "absl/status/status.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/elementwise_function.h"
@@ -47,7 +48,7 @@ namespace internal {
 template <std::size_t Arity>
 NDIterable::Ptr GetElementwiseInputTransformNDIterable(
     std::array<NDIterable::Ptr, Arity - 1> inputs, DataType output_dtype,
-    ElementwiseClosure<Arity, Status*> closure, Arena* arena);
+    ElementwiseClosure<Arity, absl::Status*> closure, Arena* arena);
 
 }  // namespace internal
 }  // namespace tensorstore

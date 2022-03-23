@@ -17,6 +17,7 @@
 
 #include <string>
 
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/codec_spec.h"
@@ -157,8 +158,8 @@ class N5CodecSpec : public CodecSpec {
 };
 
 /// Validates that `metadata` is consistent with `constraints`.
-Status ValidateMetadata(const N5Metadata& metadata,
-                        const N5MetadataConstraints& constraints);
+absl::Status ValidateMetadata(const N5Metadata& metadata,
+                              const N5MetadataConstraints& constraints);
 
 /// Converts `metadata_constraints` to a full metadata object.
 ///
@@ -232,7 +233,7 @@ Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
 /// Validates that `dtype` is supported by N5.
 ///
 /// \dchecks `dtype.valid()`
-Status ValidateDataType(DataType dtype);
+absl::Status ValidateDataType(DataType dtype);
 
 }  // namespace internal_n5
 }  // namespace tensorstore

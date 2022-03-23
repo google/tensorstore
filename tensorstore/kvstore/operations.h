@@ -19,6 +19,7 @@
 #include <optional>
 #include <string_view>
 
+#include "absl/status/status.h"
 #include "absl/time/time.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
@@ -128,7 +129,7 @@ Future<void> DeleteRange(const KvStore& store, KeyRange range);
 
 /// Lists keys relative to `path`.
 void List(const KvStore& store, ListOptions options,
-          AnyFlowReceiver<Status, Key> receiver);
+          AnyFlowReceiver<absl::Status, Key> receiver);
 
 AnyFlowSender<absl::Status, Key> List(const KvStore& store,
                                       ListOptions options);

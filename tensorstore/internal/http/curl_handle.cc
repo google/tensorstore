@@ -81,8 +81,8 @@ std::string GetCurlUserAgentSuffix() {
   return agent;
 }
 
-/// Returns a Status object for a corresponding CURLcode.
-Status CurlCodeToStatus(CURLcode code, std::string_view detail) {
+/// Returns a absl::Status object for a corresponding CURLcode.
+absl::Status CurlCodeToStatus(CURLcode code, std::string_view detail) {
   // Constant errors:
 
   auto error_code = absl::StatusCode::kUnknown;
@@ -121,13 +121,14 @@ Status CurlCodeToStatus(CURLcode code, std::string_view detail) {
     default:
       break;
   }
-  return Status(error_code, absl::StrCat("CURL error[", code, "] ",
-                                         curl_easy_strerror(code),
-                                         detail.empty() ? "" : ": ", detail));
+  return absl::Status(
+      error_code,
+      absl::StrCat("CURL error[", code, "] ", curl_easy_strerror(code),
+                   detail.empty() ? "" : ": ", detail));
 }
 
-/// Returns a Status object for a corresponding CURLcode.
-Status CurlMCodeToStatus(CURLMcode code, std::string_view detail) {
+/// Returns a absl::Status object for a corresponding CURLcode.
+absl::Status CurlMCodeToStatus(CURLMcode code, std::string_view detail) {
   if (code == CURLM_OK) {
     return absl::OkStatus();
   }

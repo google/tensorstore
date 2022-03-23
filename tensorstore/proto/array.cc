@@ -53,12 +53,13 @@ struct WriteProtoContext {
 
 template <typename Element>
 struct WriteProtoDataLoopTemplate {
-  using ElementwiseFunctionType = internal::ElementwiseFunction<1, Status*>;
+  using ElementwiseFunctionType =
+      internal::ElementwiseFunction<1, absl::Status*>;
 
   template <typename ArrayAccessor>
   static Index Loop(void* context, Index count,
                     internal::IterationBufferPointer source,
-                    Status* /*status*/) {
+                    absl::Status* /*status*/) {
     auto& fn = *reinterpret_cast<WriteProtoContext*>(context);
     for (Index i = 0; i < count; ++i) {
       fn(*ArrayAccessor::template GetPointerAtOffset<Element>(source, i));
@@ -112,11 +113,12 @@ struct ReadProtoContext {
 
 template <typename Element>
 struct ReadProtoDataLoopTemplate {
-  using ElementwiseFunctionType = internal::ElementwiseFunction<1, Status*>;
+  using ElementwiseFunctionType =
+      internal::ElementwiseFunction<1, absl::Status*>;
   template <typename ArrayAccessor>
   static Index Loop(void* context, Index count,
                     internal::IterationBufferPointer source,
-                    Status* /*status*/) {
+                    absl::Status* /*status*/) {
     auto& fn = *reinterpret_cast<ReadProtoContext*>(context);
     for (Index i = 0; i < count; ++i) {
       fn(*ArrayAccessor::template GetPointerAtOffset<Element>(source, i));
@@ -130,8 +132,8 @@ struct ReadProtoDataLoopTemplate {
 /// is to use the serialization functions for that type. This fallback is
 /// used for bytes, complex, json, etc.
 struct ProtoArrayDataTypeFunctions {
-  const internal::ElementwiseFunction<1, Status*>* write_fn = nullptr;
-  const internal::ElementwiseFunction<1, Status*>* read_fn = nullptr;
+  const internal::ElementwiseFunction<1, absl::Status*>* write_fn = nullptr;
+  const internal::ElementwiseFunction<1, absl::Status*>* read_fn = nullptr;
 };
 
 const std::array<ProtoArrayDataTypeFunctions, kNumDataTypeIds> kProtoFunctions =

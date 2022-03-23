@@ -14,6 +14,7 @@
 
 #include "tensorstore/driver/driver.h"
 
+#include "absl/status/status.h"
 #include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/json/json_change_map.h"
 #include "tensorstore/driver/registry.h"
@@ -274,12 +275,14 @@ class JsonDriver : public RegisteredDriver<JsonDriver,
     return GetOwningCache(*cache_entry_).executor();
   }
 
-  void Read(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) override;
-  void Write(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) override;
+  void Read(internal::OpenTransactionPtr transaction,
+            IndexTransform<> transform,
+            AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
+      override;
+  void Write(internal::OpenTransactionPtr transaction,
+             IndexTransform<> transform,
+             AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>
+                 receiver) override;
 
   PinnedCacheEntry<JsonCache> cache_entry_;
   StalenessBound data_staleness_;
@@ -425,7 +428,7 @@ struct ReadChunkTransactionImpl {
 
 void JsonDriver::Read(
     internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-    AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) {
+    AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
   ReadChunk chunk;
   chunk.transform = std::move(transform);
   auto read_future = [&]() -> Future<const void> {
@@ -515,7 +518,7 @@ struct WriteChunkImpl {
 
 void JsonDriver::Write(
     internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-    AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) {
+    AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver) {
   auto cell_transform = IdentityTransform(transform.domain());
   execution::set_value(
       FlowSingleReceiver{std::move(receiver)},

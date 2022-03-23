@@ -47,6 +47,7 @@
 #include <typeindex>
 #include <typeinfo>
 
+#include "absl/status/status.h"
 #include <half.hpp>
 #include "tensorstore/internal/bit_operations.h"
 #include "tensorstore/internal/elementwise_function.h"
@@ -201,7 +202,6 @@ constexpr inline bool IsTrivial =
 
 #define TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE_ID() \
   TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE
-
 
 namespace internal_data_type {
 
@@ -416,20 +416,20 @@ struct DataTypeOperations {
   /// initialization.
   ///
   /// \note For primitive types, this assigns to zero.
-  using InitializeFunction = ElementwiseFunction<1, Status*>;
+  using InitializeFunction = ElementwiseFunction<1, absl::Status*>;
   InitializeFunction initialize;
 
   /// Copy assign elements from one array to another.
-  using CopyAssignFunction = ElementwiseFunction<2, Status*>;
+  using CopyAssignFunction = ElementwiseFunction<2, absl::Status*>;
   CopyAssignFunction copy_assign;
 
   /// Move assign elements from one array to another.
-  using MoveAssignFunction = ElementwiseFunction<2, Status*>;
+  using MoveAssignFunction = ElementwiseFunction<2, absl::Status*>;
   MoveAssignFunction move_assign;
 
   /// Copy assign elements from one array to another where a third mask array is
   /// `false`.
-  using CopyAssignUnmaskedFunction = ElementwiseFunction<3, Status*>;
+  using CopyAssignUnmaskedFunction = ElementwiseFunction<3, absl::Status*>;
   CopyAssignUnmaskedFunction copy_assign_unmasked;
 
   /// Append a string representation of an element to `*result`.
@@ -437,7 +437,7 @@ struct DataTypeOperations {
   AppendToStringFunction append_to_string;
 
   /// Compares two strided arrays for equality.
-  using CompareEqualFunction = ElementwiseFunction<2, Status*>;
+  using CompareEqualFunction = ElementwiseFunction<2, absl::Status*>;
   CompareEqualFunction compare_equal;
 
   /// Compares two strided arrays for equality, taking into account negative
@@ -451,7 +451,7 @@ struct DataTypeOperations {
 
   struct CanonicalConversionOperations {
     // Function for converting to/from canonical data type.
-    using ConvertFunction = ElementwiseFunction<2, Status*>;
+    using ConvertFunction = ElementwiseFunction<2, absl::Status*>;
     std::array<ConvertFunction, kNumDataTypeIds> convert;
     std::array<DataTypeConversionFlags, kNumDataTypeIds> flags;
   };
@@ -470,7 +470,7 @@ struct DataTypeOperations {
 /// `data_type_conversion.h`.
 struct DataTypeConversionLookupResult {
   /// Valid only if the `flags` value includes `kSupported`.
-  ElementwiseClosure<2, Status*> closure;
+  ElementwiseClosure<2, absl::Status*> closure;
   DataTypeConversionFlags flags;
 };
 
@@ -696,54 +696,56 @@ struct DataTypeSimpleOperationsImpl {
 template <typename T>
 struct DataTypeElementwiseOperationsImpl {
   struct InitializeImpl {
-    void operator()(T* dest, Status*) const { *dest = T(); }
+    void operator()(T* dest, absl::Status*) const { *dest = T(); }
   };
 
   struct CopyAssignImpl {
-    void operator()(const T* source, T* dest, Status*) const {
+    void operator()(const T* source, T* dest, absl::Status*) const {
       *dest = *source;
     }
   };
 
   struct MoveAssignImpl {
-    void operator()(T* source, T* dest, Status*) const {
+    void operator()(T* source, T* dest, absl::Status*) const {
       *dest = std::move(*source);
     }
   };
 
   struct CopyAssignUnmaskedImpl {
-    void operator()(const T* source, T* dest, const bool* mask, Status*) const {
+    void operator()(const T* source, T* dest, const bool* mask,
+                    absl::Status*) const {
       if (!*mask) *dest = *source;
     }
   };
 
   struct CompareEqualImpl {
-    bool operator()(const T* source, const T* dest, Status*) const {
+    bool operator()(const T* source, const T* dest, absl::Status*) const {
       return internal_data_type::CompareEqual<T>(*source, *dest);
     }
   };
 
   struct CompareSameValueImpl {
-    bool operator()(const T* source, const T* dest, Status*) const {
+    bool operator()(const T* source, const T* dest, absl::Status*) const {
       return internal_data_type::CompareSameValue<T>(*source, *dest);
     }
   };
 
   using Initialize =
-      internal::SimpleElementwiseFunction<InitializeImpl(T), Status*>;
+      internal::SimpleElementwiseFunction<InitializeImpl(T), absl::Status*>;
 
   using CopyAssign =
-      internal::SimpleElementwiseFunction<CopyAssignImpl(const T, T), Status*>;
+      internal::SimpleElementwiseFunction<CopyAssignImpl(const T, T),
+                                          absl::Status*>;
   using MoveAssign =
-      internal::SimpleElementwiseFunction<MoveAssignImpl(T, T), Status*>;
+      internal::SimpleElementwiseFunction<MoveAssignImpl(T, T), absl::Status*>;
 
   using CopyAssignUnmasked = internal::SimpleElementwiseFunction<
-      CopyAssignUnmaskedImpl(const T, T, const bool), Status*>;
+      CopyAssignUnmaskedImpl(const T, T, const bool), absl::Status*>;
   using CompareEqual =
       internal::SimpleElementwiseFunction<CompareEqualImpl(const T, const T),
-                                          Status*>;
+                                          absl::Status*>;
   using CompareSameValue = internal::SimpleElementwiseFunction<
-      CompareSameValueImpl(const T, const T), Status*>;
+      CompareSameValueImpl(const T, const T), absl::Status*>;
 };
 
 template <typename T>

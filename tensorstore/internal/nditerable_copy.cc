@@ -21,6 +21,7 @@
 #include <utility>
 
 #include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/arena.h"
@@ -131,7 +132,7 @@ NDIteratorCopyManager::NDIteratorCopyManager(
   constexpr static CopyImpl kCopyImpls[] = {
       // kBoth
       [](NDIteratorCopyManager* self, span<const Index> indices,
-         Index block_size, Status* status) -> Index {
+         Index block_size, absl::Status* status) -> Index {
         IterationBufferPointer input_pointer, output_pointer;
         block_size =
             self->input_->GetBlock(indices, block_size, &input_pointer, status);
@@ -144,7 +145,7 @@ NDIteratorCopyManager::NDIteratorCopyManager(
       },
       // kInput
       [](NDIteratorCopyManager* self, span<const Index> indices,
-         Index block_size, Status* status) -> Index {
+         Index block_size, absl::Status* status) -> Index {
         IterationBufferPointer pointer;
         block_size =
             self->input_->GetBlock(indices, block_size, &pointer, status);
@@ -154,7 +155,7 @@ NDIteratorCopyManager::NDIteratorCopyManager(
       },
       // kOutput
       [](NDIteratorCopyManager* self, span<const Index> indices,
-         Index block_size, Status* status) -> Index {
+         Index block_size, absl::Status* status) -> Index {
         IterationBufferPointer pointer;
         block_size =
             self->output_->GetBlock(indices, block_size, &pointer, status);
@@ -164,7 +165,7 @@ NDIteratorCopyManager::NDIteratorCopyManager(
       },
       // kExternal
       [](NDIteratorCopyManager* self, span<const Index> indices,
-         Index block_size, Status* status) -> Index {
+         Index block_size, absl::Status* status) -> Index {
         block_size = self->input_->GetBlock(
             indices, block_size, &self->buffer_manager_.buffer_pointers()[0][0],
             status);
@@ -200,12 +201,12 @@ NDIterableCopier::NDIterableCopier(
           iterable_copy_manager,
           {layout_info_.layout_view(), stepper_.block_size()}, arena) {}
 
-Status NDIterableCopier::Copy() {
+absl::Status NDIterableCopier::Copy() {
   if (layout_info_.empty) {
     std::fill(stepper_.position().begin(), stepper_.position().end(), 0);
     return absl::OkStatus();
   }
-  Status copy_status;
+  absl::Status copy_status;
   for (Index block_size = stepper_.ResetAtBeginning(); block_size;) {
     const Index n = iterator_copy_manager_.Copy(stepper_.position(), block_size,
                                                 &copy_status);

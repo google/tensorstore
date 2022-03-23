@@ -22,6 +22,7 @@
 #include <memory>
 #include <type_traits>
 
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -650,7 +651,7 @@ TransformedArray<Shared<Element>, Rank, LayoutCKind> UnownedToShared(
 ///       // ...
 ///     }
 ///
-///     Status ProcessArray(TransformedArrayView<void, 2> array) {
+///     absl::Status ProcessArray(TransformedArrayView<void, 2> array) {
 ///       TENSORSTORE_ASSIGN_OR_RETURN(
 ///           NormalizedTransformedArray<void, 2> normalized,
 ///           MakeNormalizedTransformedArray(array));
@@ -1115,8 +1116,8 @@ MakeCopy(const A& transformed_array, IterationConstraints constraints = {
 }
 
 namespace internal_index_space {
-Status CopyTransformedArrayImpl(TransformedArrayView<const void> source,
-                                TransformedArrayView<void> dest);
+absl::Status CopyTransformedArrayImpl(TransformedArrayView<const void> source,
+                                      TransformedArrayView<void> dest);
 }
 
 /// Copies from one transformed array to another, possibly converting the data
@@ -1124,7 +1125,7 @@ Status CopyTransformedArrayImpl(TransformedArrayView<const void> source,
 ///
 /// \param source The source transformed array.
 /// \param dest The destination transformed array.
-/// \returns `Status()` on success.
+/// \returns `absl::Status()` on success.
 /// \error `absl::StatusCode::kInvalidArgument` if `source` and `dest` do not
 /// have
 ///     the same rank.
@@ -1144,7 +1145,7 @@ template <typename SourceResult, typename DestResult>
 std::enable_if_t<
     (IsTransformedArrayLike<UnwrapResultType<SourceResult>>::value &&
      IsTransformedArrayLike<UnwrapResultType<DestResult>>::value),
-    Status>
+    absl::Status>
 CopyTransformedArray(const SourceResult& source, const DestResult& dest) {
   using Source = UnwrapResultType<SourceResult>;
   using Dest = UnwrapResultType<DestResult>;
@@ -1240,7 +1241,7 @@ namespace internal {
 /// Internal untyped interface to tensorstore::IterateOverTransformedArrays.
 template <std::size_t Arity>
 Result<ArrayIterateResult> IterateOverTransformedArrays(
-    ElementwiseClosure<Arity, Status*> closure, Status* status,
+    ElementwiseClosure<Arity, absl::Status*> closure, absl::Status* status,
     IterationConstraints constraints,
     span<const TransformedArrayView<const void>, Arity> transformed_arrays);
 
@@ -1260,9 +1261,9 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
 ///     `IsTransformedArrayLike<UnwrapResultType<Array>>`.
 /// \param func The element-wise function.  Must return `void` or a type
 ///     explicitly convertible to `bool` when invoked as
-///     `func(Array::Element*..., Status*)`.  Iteration stops if it returns
-///     `false`.
-/// \param status Status pointer to pass to `func`.
+///     `func(Array::Element*..., absl::Status*)`.  Iteration stops if it
+///     returns `false`.
+/// \param status absl::Status pointer to pass to `func`.
 /// \param iteration_order Specifies constraints on the iteration order, and
 ///     whether repeated elements may be skipped.  If
 ///     `constraints.can_skip_repeated_elements()`, the element-wise function
@@ -1292,11 +1293,11 @@ template <typename Func, typename... Array>
 std::enable_if_t<
     ((IsTransformedArrayLike<UnwrapResultType<Array>>::value && ...) &&
      std::is_constructible_v<
-         bool,
-         internal::Void::WrappedType<std::invoke_result_t<
-             Func&, typename UnwrapResultType<Array>::Element*..., Status*>>>),
+         bool, internal::Void::WrappedType<std::invoke_result_t<
+                   Func&, typename UnwrapResultType<Array>::Element*...,
+                   absl::Status*>>>),
     Result<ArrayIterateResult>>
-IterateOverTransformedArrays(Func&& func, Status* status,
+IterateOverTransformedArrays(Func&& func, absl::Status* status,
                              IterationConstraints constraints,
                              const Array&... array) {
   static_assert(
@@ -1308,7 +1309,7 @@ IterateOverTransformedArrays(Func&& func, Status* status,
             internal::SimpleElementwiseFunction<
                 std::remove_reference_t<Func>(
                     typename UnwrapResultType<Array>::Element...),
-                Status*>::Closure(&func),
+                absl::Status*>::Closure(&func),
             status, constraints,
             span<const TransformedArrayView<const void>, sizeof...(Array)>(
                 {TransformedArray(unwrapped_array)...}));
@@ -1316,7 +1317,7 @@ IterateOverTransformedArrays(Func&& func, Status* status,
       array...);
 }
 
-/// Same as above, except that `func` is called without an extra `Status`
+/// Same as above, except that `func` is called without an extra `absl::Status`
 /// pointer.
 template <typename Func, typename... Array>
 std::enable_if_t<
@@ -1334,12 +1335,12 @@ IterateOverTransformedArrays(Func&& func, IterationConstraints constraints,
       [&](auto&&... unwrapped_array) {
         const auto func_wrapper =
             [&func](typename UnwrapResultType<Array>::Element*... ptr,
-                    Status*) { return func(ptr...); };
+                    absl::Status*) { return func(ptr...); };
         return internal::IterateOverTransformedArrays<sizeof...(Array)>(
             internal::SimpleElementwiseFunction<
                 decltype(func_wrapper)(
                     typename UnwrapResultType<Array>::Element...),
-                Status*>::Closure(&func_wrapper),
+                absl::Status*>::Closure(&func_wrapper),
             /*status=*/nullptr, constraints,
             span<const TransformedArrayView<const void>, sizeof...(Array)>(
                 {TransformedArrayView<const void>(unwrapped_array)...}));

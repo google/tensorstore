@@ -20,6 +20,7 @@
 #include <array>
 
 #include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/util/iterate.h"
 
@@ -78,7 +79,7 @@ class StridedLayoutFunctionApplyer {
   explicit StridedLayoutFunctionApplyer(
       span<const Index> shape, std::array<const Index*, Arity> strides,
       IterationConstraints constraints,
-      ElementwiseClosure<Arity, Status*> function,
+      ElementwiseClosure<Arity, absl::Status*> function,
       std::array<std::ptrdiff_t, Arity> element_sizes);
 
   /// Precomputes an iteration layout using the specified dimension order.
@@ -90,14 +91,14 @@ class StridedLayoutFunctionApplyer {
   explicit StridedLayoutFunctionApplyer(
       const Index* shape, span<const DimensionIndex> dimension_order,
       std::array<const Index*, Arity> strides,
-      ElementwiseClosure<Arity, Status*> function,
+      ElementwiseClosure<Arity, absl::Status*> function,
       std::array<std::ptrdiff_t, Arity> element_sizes);
 
   /// Invokes the element-wise function for each tuple of elements, using the
   /// specified base pointers.
   ArrayIterateResult operator()(
       std::array<ByteStridedPointer<void>, Arity> pointers,
-      Status* status) const;
+      absl::Status* status) const;
 
   DimensionIndex outer_rank() const {
     return static_cast<DimensionIndex>(iteration_layout_.size());
@@ -110,7 +111,7 @@ class StridedLayoutFunctionApplyer {
   internal_iterate::StridedIterationLayout<Arity> iteration_layout_;
   internal_iterate::InnerShapeAndStrides<Arity, 1> inner_layout_;
   void* context_;
-  SpecializedElementwiseFunctionPointer<Arity, Status*> callback_;
+  SpecializedElementwiseFunctionPointer<Arity, absl::Status*> callback_;
 };
 
 }  // namespace internal

@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <optional>
 
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/driver/zarr/compressor.h"
@@ -52,8 +53,8 @@ class ZarrCodecSpec : public CodecSpec {
 /// \returns `OkStatus()` if `metadata` is consistent.
 /// \error `absl::StatusCode::kFailedPrecondition` if `metadata` is
 ///     inconsistent.
-Status ValidateMetadata(const ZarrMetadata& metadata,
-                        const ZarrPartialMetadata& constraints);
+absl::Status ValidateMetadata(const ZarrMetadata& metadata,
+                              const ZarrPartialMetadata& constraints);
 
 /// An empty string indicates the singleton field if the dtype does not have
 /// fields.

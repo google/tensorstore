@@ -21,6 +21,7 @@
 #include <utility>
 
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
@@ -28,7 +29,7 @@ namespace internal {
 
 namespace {
 using DecodeFunction =
-    std::function<Status(const absl::Cord& input, absl::Cord* output)>;
+    std::function<absl::Status(const absl::Cord& input, absl::Cord* output)>;
 
 class Matcher : public ::testing::MatcherInterface<absl::Cord> {
  public:

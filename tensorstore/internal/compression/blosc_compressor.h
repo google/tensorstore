@@ -21,6 +21,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/status/status.h"
 #include <blosc.h>
 #include "tensorstore/internal/compression/blosc.h"
 #include "tensorstore/internal/compression/json_specified_compressor.h"
@@ -32,15 +33,15 @@ namespace internal {
 
 class BloscCompressor : public internal::JsonSpecifiedCompressor {
  public:
-  Status Encode(const absl::Cord& input, absl::Cord* output,
-                std::size_t element_size) const override {
+  absl::Status Encode(const absl::Cord& input, absl::Cord* output,
+                      std::size_t element_size) const override {
     return blosc::Encode(
         input, output,
         blosc::Options{codec.c_str(), level, shuffle, blocksize, element_size});
   }
 
-  Status Decode(const absl::Cord& input, absl::Cord* output,
-                std::size_t element_size) const override {
+  absl::Status Decode(const absl::Cord& input, absl::Cord* output,
+                      std::size_t element_size) const override {
     return blosc::Decode(input, output);
   }
 

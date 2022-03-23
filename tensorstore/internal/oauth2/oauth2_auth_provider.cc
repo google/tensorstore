@@ -19,6 +19,7 @@
 #include <memory>
 #include <utility>
 
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "tensorstore/internal/env.h"
@@ -84,7 +85,7 @@ Result<HttpResponse> OAuth2AuthProvider::IssueRequest(std::string_view method,
       .result();
 }
 
-Status OAuth2AuthProvider::Refresh() {
+absl::Status OAuth2AuthProvider::Refresh() {
   const auto now = clock_();
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto response, IssueRequest("POST", uri_, absl::Cord(refresh_payload_)));

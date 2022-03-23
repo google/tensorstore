@@ -25,6 +25,7 @@
 #include <string_view>
 
 #include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
 #include "tensorstore/box.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
@@ -311,8 +312,9 @@ class DataCache
   ///     derived type.
   /// \param metadata Non-null pointer to metadata of type `Metadata`.
   /// \param component_index The ChunkCache component index.
-  virtual Status GetBoundSpecData(KvsDriverSpec& spec, const void* metadata,
-                                  std::size_t component_index) = 0;
+  virtual absl::Status GetBoundSpecData(KvsDriverSpec& spec,
+                                        const void* metadata,
+                                        std::size_t component_index) = 0;
 
   /// Returns the chunk layout for the specified component.
   ///
@@ -368,10 +370,10 @@ class DataCache
   ///     `Metadata`.
   /// \param existing_metadata Non-null pointer to new metadata, of type
   ///     `Metadata`.
-  /// \returns `Status()` if compatible.
+  /// \returns `absl::Status()` if compatible.
   /// \error `absl::StatusCode::kFailedPrecondition` if not compatible.
-  virtual Status ValidateMetadataCompatibility(const void* existing_metadata,
-                                               const void* new_metadata) = 0;
+  virtual absl::Status ValidateMetadataCompatibility(
+      const void* existing_metadata, const void* new_metadata) = 0;
 
   /// Returns a transform from the "external" index space visible in the `Spec`
   /// to the index space of component `component_index` in the `ChunkCache`.

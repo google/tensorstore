@@ -23,6 +23,7 @@
 
 #include "absl/container/fixed_array.h"
 #include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
@@ -54,8 +55,8 @@ struct ConnectedSetIterateParameters {
   span<const DimensionIndex> grid_output_dimensions;
   OutputToGridCellFn output_to_grid_cell;
   IndexTransformView<> transform;
-  absl::FunctionRef<Status(span<const Index> grid_cell_indices,
-                           IndexTransformView<> cell_transform)>
+  absl::FunctionRef<absl::Status(span<const Index> grid_cell_indices,
+                                 IndexTransformView<> cell_transform)>
       func;
 };
 
@@ -176,7 +177,7 @@ class ConnectedSetIterateHelper {
   ///
   /// This is implemented by recursively iterating over the partitions of each
   /// connected set.
-  Status Iterate() { return IterateOverIndexArraySets(0); }
+  absl::Status Iterate() { return IterateOverIndexArraySets(0); }
 
  private:
   /// Sets the fixed grid cell indices for all grid dimensions that do not
@@ -213,7 +214,7 @@ class ConnectedSetIterateHelper {
   /// \param set_i The next index array connected set over which to iterate, in
   ///     the range `[0, info.index_array_sets().size()]`.
   /// \returns The return value of the last recursively call.
-  Status IterateOverIndexArraySets(DimensionIndex set_i) {
+  absl::Status IterateOverIndexArraySets(DimensionIndex set_i) {
     if (set_i == params_.info.index_array_sets().size()) {
       return IterateOverStridedSets(0);
     }
@@ -279,7 +280,7 @@ class ConnectedSetIterateHelper {
   ///     range `[0, info.strided_sets().size()]`.
   /// \returns The return value of the last recursive call, or the last call to
   ///     `InvokeCallback`.
-  Status IterateOverStridedSets(DimensionIndex set_i) {
+  absl::Status IterateOverStridedSets(DimensionIndex set_i) {
     if (set_i == params_.info.strided_sets().size()) return InvokeCallback();
     const StridedSet strided_set = params_.info.strided_sets()[set_i];
     const IndexInterval domain =
@@ -327,10 +328,10 @@ class ConnectedSetIterateHelper {
 
   /// Calls the iteration callback function.
   ///
-  /// If an error `Status` is returned, iteration should stop.
+  /// If an error `absl::Status` is returned, iteration should stop.
   ///
   /// \error Any error returned by the iteration callback function.
-  Status InvokeCallback() {
+  absl::Status InvokeCallback() {
     internal_index_space::DebugCheckInvariants(cell_transform_.get());
     auto status = params_.func(
         grid_cell_indices_,
@@ -358,13 +359,13 @@ class ConnectedSetIterateHelper {
 
 namespace internal {
 
-Status PartitionIndexTransformOverGrid(
+absl::Status PartitionIndexTransformOverGrid(
     span<const DimensionIndex> grid_output_dimensions,
     absl::FunctionRef<Index(DimensionIndex, Index, IndexInterval*)>
         output_to_grid_cell,
     IndexTransformView<> transform,
-    absl::FunctionRef<Status(span<const Index> grid_cell_indices,
-                             IndexTransformView<> cell_transform)>
+    absl::FunctionRef<absl::Status(span<const Index> grid_cell_indices,
+                                   IndexTransformView<> cell_transform)>
         func) {
   std::optional<internal_grid_partition::IndexTransformGridPartition>
       partition_info;
@@ -381,11 +382,11 @@ Status PartitionIndexTransformOverGrid(
       .Iterate();
 }
 
-Status PartitionIndexTransformOverRegularGrid(
+absl::Status PartitionIndexTransformOverRegularGrid(
     span<const DimensionIndex> grid_output_dimensions,
     span<const Index> grid_cell_shape, IndexTransformView<> transform,
-    absl::FunctionRef<Status(span<const Index> grid_cell_indices,
-                             IndexTransformView<> cell_transform)>
+    absl::FunctionRef<absl::Status(span<const Index> grid_cell_indices,
+                                   IndexTransformView<> cell_transform)>
         func) {
   assert(grid_cell_shape.size() == grid_output_dimensions.size());
   internal_grid_partition::RegularGridRef grid{grid_cell_shape};

@@ -14,6 +14,7 @@
 
 #include "tensorstore/util/internal/iterate.h"
 
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/iterate_impl.h"
@@ -52,7 +53,7 @@ namespace {
 /// `(array.element_pointer(), transform)` is assumed to be a valid
 /// `NormalizedTransformedArray`.
 template <bool UseStridedLayout>
-Status InitializeSingleArrayIterationStateImpl(
+absl::Status InitializeSingleArrayIterationStateImpl(
     OffsetArrayView<const void, (UseStridedLayout ? dynamic_rank : 0)> array,
     TransformRep* transform, const Index* iteration_origin,
     const Index* iteration_shape, SingleArrayIterationState* single_array_state,
@@ -228,7 +229,7 @@ Status InitializeSingleArrayIterationStateImpl(
 
 }  // namespace
 
-Status InitializeSingleArrayIterationState(
+absl::Status InitializeSingleArrayIterationState(
     OffsetArrayView<const void> array, TransformRep* transform,
     const Index* iteration_origin, const Index* iteration_shape,
     SingleArrayIterationState* single_array_state,
@@ -238,7 +239,7 @@ Status InitializeSingleArrayIterationState(
       input_dimension_flags);
 }
 
-Status InitializeSingleArrayIterationState(
+absl::Status InitializeSingleArrayIterationState(
     ElementPointer<const void> element_pointer, TransformRep* transform,
     const Index* iteration_origin, const Index* iteration_shape,
     SingleArrayIterationState* single_array_state,
@@ -314,7 +315,8 @@ template <std::size_t Arity>
 ArrayIterateResult IterateUsingSimplifiedLayout(
     const SimplifiedDimensionIterationOrder& layout,
     span<const Index> input_shape,
-    internal::ElementwiseClosure<Arity, Status*> closure, Status* status,
+    internal::ElementwiseClosure<Arity, absl::Status*> closure,
+    absl::Status* status,
     span<std::optional<SingleArrayIterationState>, Arity> single_array_states,
     std::array<std::ptrdiff_t, Arity> element_sizes) {
   const Index final_indexed_dim_size =
@@ -410,7 +412,8 @@ ArrayIterateResult IterateUsingSimplifiedLayout(
   template ArrayIterateResult IterateUsingSimplifiedLayout<Arity>(           \
       const SimplifiedDimensionIterationOrder& layout,                       \
       span<const Index> input_shape,                                         \
-      internal::ElementwiseClosure<Arity, Status*> closure, Status* status,  \
+      internal::ElementwiseClosure<Arity, absl::Status*> closure,            \
+      absl::Status* status,                                                  \
       span<std::optional<SingleArrayIterationState>, Arity>                  \
           single_array_states,                                               \
       std::array<std::ptrdiff_t, Arity> element_sizes);
@@ -420,7 +423,7 @@ TENSORSTORE_INTERNAL_FOR_EACH_ARITY(
 
 }  // namespace internal_index_space
 
-Status ValidateIndexArrayBounds(
+absl::Status ValidateIndexArrayBounds(
     IndexInterval bounds,
     ArrayView<const Index, dynamic_rank, offset_origin> index_array) {
   const auto finite_bounds = FiniteSubset(bounds);

@@ -18,6 +18,7 @@
 #include <complex>
 
 #include "absl/algorithm/container.h"
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/elementwise_function.h"
@@ -53,13 +54,13 @@ void EncodeArray(ArrayView<const void> source, ArrayView<void> target,
 namespace {
 static_assert(sizeof(bool) == 1);
 struct DecodeBoolArray {
-  void operator()(unsigned char* source, bool* output, Status*) const {
+  void operator()(unsigned char* source, bool* output, absl::Status*) const {
     *output = static_cast<bool>(*source);
   }
 };
 
 struct DecodeBoolArrayInplace {
-  void operator()(unsigned char* source, Status*) const {
+  void operator()(unsigned char* source, absl::Status*) const {
     *source = static_cast<bool>(*source);
   }
 };
@@ -78,7 +79,7 @@ void DecodeArray(ArrayView<const void> source, endian source_endian,
   // 0 or 1.
   internal::IterateOverStridedLayouts<2>(
       {/*function=*/SimpleElementwiseFunction<
-           DecodeBoolArray(unsigned char, bool), Status*>(),
+           DecodeBoolArray(unsigned char, bool), absl::Status*>(),
        /*context=*/nullptr},
       /*status=*/nullptr, source.shape(),
       {{const_cast<void*>(source.data()), target.data()}},
@@ -101,11 +102,11 @@ void DecodeArray(SharedArrayView<void>* source, endian source_endian,
                     return (byte_stride % dtype->alignment) == 0;
                   })) {
     // Source array is already suitably aligned.  Can decode in place.
-    const ElementwiseFunction<1, Status*>* convert_func = nullptr;
+    const ElementwiseFunction<1, absl::Status*>* convert_func = nullptr;
     if (dtype.id() == DataTypeId::bool_t) {
       convert_func =
           SimpleElementwiseFunction<DecodeBoolArrayInplace(unsigned char),
-                                    Status*>();
+                                    absl::Status*>();
     } else if (source_endian != endian::native &&
                functions.swap_endian_inplace) {
       convert_func = functions.swap_endian_inplace;

@@ -118,9 +118,9 @@
 ///
 ///     struct CallWithStatusContext {
 ///       using ElementwiseFunctionType = ElementwiseFunction<1>;
-///       ElementwiseFunction<1, Status*> orig_function;
+///       ElementwiseFunction<1, absl::Status*> orig_function;
 ///       void *orig_context;
-///       Status status;
+///       absl::Status status;
 ///       struct LoopTemplate {
 ///         template <typename ArrayAccessor>
 ///         static Index Loop(void* void_context, Index count,
@@ -137,7 +137,7 @@
 ///
 /// Then `wrapper_function` can be used with a context pointer of
 /// `&wrapper_context` to invoke `orig_function` with an extra pointer to a
-/// `Status`.
+/// `absl::Status`.
 
 #include <array>
 #include <cstddef>
@@ -145,6 +145,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/type_traits.h"

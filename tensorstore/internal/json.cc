@@ -28,6 +28,7 @@
 
 #include "absl/container/inlined_vector.h"
 #include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
@@ -40,22 +41,22 @@
 namespace tensorstore {
 namespace internal_json {
 
-Status MaybeAnnotateMemberError(const Status& status,
-                                std::string_view member_name) {
+absl::Status MaybeAnnotateMemberError(const absl::Status& status,
+                                      std::string_view member_name) {
   if (status.ok()) return status;
   return MaybeAnnotateStatus(
       status, StrCat("Error parsing object member ", QuoteString(member_name)));
 }
 
-Status MaybeAnnotateMemberConvertError(const Status& status,
-                                       std::string_view member_name) {
+absl::Status MaybeAnnotateMemberConvertError(const absl::Status& status,
+                                             std::string_view member_name) {
   if (status.ok()) return status;
   return MaybeAnnotateStatus(status, StrCat("Error converting object member ",
                                             QuoteString(member_name)));
 }
 
-Status MaybeAnnotateArrayElementError(const Status& status, std::size_t i,
-                                      bool is_loading) {
+absl::Status MaybeAnnotateArrayElementError(const absl::Status& status,
+                                            std::size_t i, bool is_loading) {
   return MaybeAnnotateStatus(
       status,
       tensorstore::StrCat("Error ", is_loading ? "parsing" : "converting",
@@ -73,7 +74,7 @@ namespace internal {
   }
   return ::nlohmann::json(::nlohmann::json::value_t::discarded);
 }
-Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj) {
+absl::Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj) {
   return absl::InvalidArgumentError(
       StrCat("Object includes extra members: ",
              absl::StrJoin(j_obj, ",", [](std::string* out, const auto& p) {
@@ -85,11 +86,11 @@ Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj) {
   return ::nlohmann::json::parse(str, nullptr, false);
 }
 
-Status JsonParseArray(
+absl::Status JsonParseArray(
     const ::nlohmann::json& j,
-    absl::FunctionRef<Status(std::ptrdiff_t size)> size_callback,
-    absl::FunctionRef<Status(const ::nlohmann::json& value,
-                             std::ptrdiff_t index)>
+    absl::FunctionRef<absl::Status(std::ptrdiff_t size)> size_callback,
+    absl::FunctionRef<absl::Status(const ::nlohmann::json& value,
+                                   std::ptrdiff_t index)>
         element_callback) {
   const auto* j_array = j.get_ptr<const ::nlohmann::json::array_t*>();
   if (!j_array) {
@@ -107,8 +108,8 @@ Status JsonParseArray(
   return absl::OkStatus();
 }
 
-Status JsonValidateArrayLength(std::ptrdiff_t parsed_size,
-                               std::ptrdiff_t expected_size) {
+absl::Status JsonValidateArrayLength(std::ptrdiff_t parsed_size,
+                                     std::ptrdiff_t expected_size) {
   if (parsed_size != expected_size) {
     return absl::InvalidArgumentError(StrCat("Array has length ", parsed_size,
                                              " but should have length ",

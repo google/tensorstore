@@ -16,6 +16,7 @@
 
 #include <system_error>  // NOLINT
 
+#include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/quote_string.h"
@@ -96,8 +97,9 @@ bool operator==(const DimRangeSpec& a, const DimRangeSpec& b) {
          a.exclusive_stop == b.exclusive_stop && a.step == b.step;
 }
 
-Status NormalizeDimRangeSpec(const DimRangeSpec& spec, DimensionIndex rank,
-                             DimensionIndexBuffer* result) {
+absl::Status NormalizeDimRangeSpec(const DimRangeSpec& spec,
+                                   DimensionIndex rank,
+                                   DimensionIndexBuffer* result) {
   const DimensionIndex step = spec.step;
   if (step == 0) {
     return absl::InvalidArgumentError("step must not be 0");
@@ -134,34 +136,34 @@ Status NormalizeDimRangeSpec(const DimRangeSpec& spec, DimensionIndex rank,
   return absl::OkStatus();
 }
 
-Status NormalizeDynamicDimSpec(const DynamicDimSpec& spec,
-                               span<const std::string> labels,
-                               DimensionIndexBuffer* result) {
+absl::Status NormalizeDynamicDimSpec(const DynamicDimSpec& spec,
+                                     span<const std::string> labels,
+                                     DimensionIndexBuffer* result) {
   struct Visitor {
     span<const std::string> labels;
     DimensionIndexBuffer* result;
-    Status operator()(DimensionIndex i) const {
+    absl::Status operator()(DimensionIndex i) const {
       TENSORSTORE_ASSIGN_OR_RETURN(DimensionIndex index,
                                    NormalizeDimensionIndex(i, labels.size()));
       result->push_back(index);
       return absl::OkStatus();
     }
-    Status operator()(const std::string& label) const {
+    absl::Status operator()(const std::string& label) const {
       TENSORSTORE_ASSIGN_OR_RETURN(DimensionIndex index,
                                    NormalizeDimensionLabel(label, labels));
       result->push_back(index);
       return absl::OkStatus();
     }
-    Status operator()(const DimRangeSpec& s) const {
+    absl::Status operator()(const DimRangeSpec& s) const {
       return NormalizeDimRangeSpec(s, labels.size(), result);
     }
   };
   return std::visit(Visitor{labels, result}, spec);
 }
 
-Status NormalizeDynamicDimSpecs(span<const DynamicDimSpec> specs,
-                                span<const std::string> labels,
-                                DimensionIndexBuffer* result) {
+absl::Status NormalizeDynamicDimSpecs(span<const DynamicDimSpec> specs,
+                                      span<const std::string> labels,
+                                      DimensionIndexBuffer* result) {
   for (const auto& spec : specs) {
     TENSORSTORE_RETURN_IF_ERROR(NormalizeDynamicDimSpec(spec, labels, result));
   }

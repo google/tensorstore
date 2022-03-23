@@ -23,21 +23,24 @@
 #include <system_error>  // NOLINT
 #include <utility>
 
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "tensorstore/internal/source_location.h"
 
 namespace tensorstore {
 
-Status MaybeAnnotateStatus(const Status& status, std::string_view message) {
+absl::Status MaybeAnnotateStatus(const absl::Status& status,
+                                 std::string_view message) {
   if (status.ok()) return status;
   if (status.message().empty()) {
-    return Status(status.code(), message);
+    return absl::Status(status.code(), message);
   }
-  return Status(status.code(), absl::StrCat(message, ": ", status.message()));
+  return absl::Status(status.code(),
+                      absl::StrCat(message, ": ", status.message()));
 }
 
 namespace internal {
-[[noreturn]] void FatalStatus(const char* message, const Status& status,
+[[noreturn]] void FatalStatus(const char* message, const absl::Status& status,
                               SourceLocation loc) {
   std::fprintf(stderr, "%s:%d: %s: %s\n", loc.file_name(), loc.line(), message,
                status.ToString().c_str());

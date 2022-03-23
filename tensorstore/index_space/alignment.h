@@ -19,6 +19,7 @@
 /// Utilities for aligning (and NumPy-style "broadcasting" of) the dimensions
 /// between index transforms.
 
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/util/result.h"
@@ -166,9 +167,9 @@ Result<IndexTransform<>> AlignDomainTo(
 /// \dchecks `source.valid()`
 /// \dchecks `target.valid()`
 /// \dchecks `source_matches.size() == source.rank()`
-/// \returns `Status()` on success.
+/// \returns `absl::Status()` on success.
 /// \error `absl::StatusCode::kInvalidArgument` if matching fails.
-Status AlignDimensionsTo(
+absl::Status AlignDimensionsTo(
     IndexDomainView<> source, IndexDomainView<> target,
     span<DimensionIndex> source_matches,
     DomainAlignmentOptions options = DomainAlignmentOptions::all);

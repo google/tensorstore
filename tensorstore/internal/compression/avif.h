@@ -18,6 +18,7 @@
 #include <stddef.h>
 
 #include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -51,10 +52,10 @@ namespace avif {
 ///     image.
 /// \returns `OkStatus()` on success, or the error returned by `validate_size`.
 /// \error `absl::StatusCode::kInvalidArgument` if the source data is corrupt.
-Status Decode(const absl::Cord& input,
-              absl::FunctionRef<Result<unsigned char*>(
-                  size_t width, size_t height, size_t num_components)>
-                  allocate_buffer);
+absl::Status Decode(const absl::Cord& input,
+                    absl::FunctionRef<Result<unsigned char*>(
+                        size_t width, size_t height, size_t num_components)>
+                        allocate_buffer);
 
 struct EncodeOptions {
   /// Quality, with ranges from 0 (lossless) to 63 (worst) inclusive.
@@ -84,9 +85,9 @@ struct EncodeOptions {
 /// \param output[out] Output buffer to which encoded PNG will be appended.
 /// \error `absl::StatusCode::kInvalidArgument` if the source image array has
 ///     invalid dimensions.
-Status Encode(const unsigned char* source, size_t width, size_t height,
-              size_t num_components, const EncodeOptions& options,
-              absl::Cord* output);
+absl::Status Encode(const unsigned char* source, size_t width, size_t height,
+                    size_t num_components, const EncodeOptions& options,
+                    absl::Cord* output);
 
 }  // namespace avif
 }  // namespace tensorstore

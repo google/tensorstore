@@ -320,7 +320,7 @@ class ImageDriver
 
   void Read(internal::OpenTransactionPtr transaction,
             IndexTransform<> transform,
-            AnyFlowReceiver<Status, internal::ReadChunk, IndexTransform<>>
+            AnyFlowReceiver<absl::Status, internal::ReadChunk, IndexTransform<>>
                 receiver) override;
 
   internal::PinnedCacheEntry<CacheType> cache_entry_;
@@ -485,7 +485,8 @@ struct ReadChunkImpl {
 template <typename Specialization>
 void ImageDriver<Specialization>::Read(
     internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-    AnyFlowReceiver<Status, internal::ReadChunk, IndexTransform<>> receiver) {
+    AnyFlowReceiver<absl::Status, internal::ReadChunk, IndexTransform<>>
+        receiver) {
   if (transaction) {
     execution::set_starting(receiver, [] {});
     execution::set_error(

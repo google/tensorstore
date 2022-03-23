@@ -14,6 +14,7 @@
 
 #include "tensorstore/driver/driver.h"
 
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
@@ -160,8 +161,9 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
                  *static_cast<const N5Metadata*>(initializer.metadata.get()))),
         key_prefix_(std::move(key_prefix)) {}
 
-  Status ValidateMetadataCompatibility(const void* existing_metadata_ptr,
-                                       const void* new_metadata_ptr) override {
+  absl::Status ValidateMetadataCompatibility(
+      const void* existing_metadata_ptr,
+      const void* new_metadata_ptr) override {
     const auto& existing_metadata =
         *static_cast<const N5Metadata*>(existing_metadata_ptr);
     const auto& new_metadata =
@@ -269,8 +271,9 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     return builder.Finalize();
   }
 
-  Status GetBoundSpecData(KvsDriverSpec& spec_base, const void* metadata_ptr,
-                          std::size_t component_index) override {
+  absl::Status GetBoundSpecData(KvsDriverSpec& spec_base,
+                                const void* metadata_ptr,
+                                std::size_t component_index) override {
     assert(component_index == 0);
     auto& spec = static_cast<N5DriverSpec&>(spec_base);
     const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);

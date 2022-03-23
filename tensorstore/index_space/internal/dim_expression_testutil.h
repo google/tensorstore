@@ -21,6 +21,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/util/status_testutil.h"
@@ -206,9 +207,9 @@ void TestTransformEquivalentIndices(
   for (const auto& pair : equivalent_indices) {
     std::vector<Index> out_a(transform_a.output_rank());
     std::vector<Index> out_b(transform_b.output_rank());
-    ASSERT_EQ(Status(), transform_a.TransformIndices(pair.first, out_a))
+    ASSERT_EQ(absl::Status(), transform_a.TransformIndices(pair.first, out_a))
         << "Input=" << ::testing::PrintToString(pair.first);
-    ASSERT_EQ(Status(), transform_b.TransformIndices(pair.second, out_b))
+    ASSERT_EQ(absl::Status(), transform_b.TransformIndices(pair.second, out_b))
         << "Input=" << ::testing::PrintToString(pair.second);
     EXPECT_EQ(out_a, out_b) << "Inputs=" << ::testing::PrintToString(pair);
   }

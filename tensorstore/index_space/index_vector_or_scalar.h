@@ -18,6 +18,7 @@
 #include <type_traits>
 #include <variant>
 
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/span.h"
@@ -93,8 +94,8 @@ class IndexVectorOrScalarView {
   Index size_or_scalar;
 };
 
-Status CheckIndexVectorSize(IndexVectorOrScalarView indices,
-                            DimensionIndex size);
+absl::Status CheckIndexVectorSize(IndexVectorOrScalarView indices,
+                                  DimensionIndex size);
 
 }  // namespace internal_index_space
 }  // namespace tensorstore

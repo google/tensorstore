@@ -34,22 +34,25 @@
 
 namespace tensorstore {
 
-using Status = absl::Status;
-
 // If status is not `ok()`, then annotate the status message.
-Status MaybeAnnotateStatus(const Status& status, std::string_view message);
+absl::Status MaybeAnnotateStatus(const absl::Status& status,
+                                 std::string_view message);
 
-/// Overload for the case of a bare Status argument.
+/// Overload for the case of a bare absl::Status argument.
 /// \returns `status`
-inline const Status& GetStatus(const Status& status) { return status; }
-inline Status GetStatus(Status&& status) { return std::move(status); }
+inline const absl::Status& GetStatus(const absl::Status& status) {
+  return status;
+}
+inline absl::Status GetStatus(absl::Status&& status) {
+  return std::move(status);
+}
 
-/// Returns `f(args...)`, converting a `void` return to `Status`.
+/// Returns `f(args...)`, converting a `void` return to `absl::Status`.
 template <typename F, typename... Args>
-inline Status InvokeForStatus(F&& f, Args&&... args) {
+inline absl::Status InvokeForStatus(F&& f, Args&&... args) {
   using R = std::invoke_result_t<F&&, Args&&...>;
   static_assert(std::is_void_v<R> ||
-                std::is_same_v<internal::remove_cvref_t<R>, Status>);
+                std::is_same_v<internal::remove_cvref_t<R>, absl::Status>);
   if constexpr (std::is_void_v<R>) {
     std::invoke(static_cast<F&&>(f), static_cast<Args&&>(args)...);
     return absl::OkStatus();
@@ -70,20 +73,20 @@ inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
 }
 
 namespace internal {
-[[noreturn]] void FatalStatus(const char* message, const Status& status,
+[[noreturn]] void FatalStatus(const char* message, const absl::Status& status,
                               SourceLocation loc
                                   TENSORSTORE_LOC_CURRENT_DEFAULT_ARG);
 
 }  // namespace internal
 }  // namespace tensorstore
 
-/// Returns the specified Status value if it is an error value.
+/// Returns the specified absl::Status value if it is an error value.
 ///
 /// Example:
 ///
-///     Status GetSomeStatus();
+///     absl::Status GetSomeStatus();
 ///
-///     Status Bar() {
+///     absl::Status Bar() {
 ///       TENSORSTORE_RETURN_IF_ERROR(GetSomeStatus());
 ///       // More code
 ///       return absl::OkStatus();
@@ -99,7 +102,8 @@ namespace internal {
 ///     TENSORSTORE_RETURN_IF_ERROR(GetSomeStatus(),
 ///                                 MakeReadyFuture(_));
 ///
-/// \remark You must ensure that the Status expression does not contain any
+/// \remark You must ensure that the absl::Status expression does not contain
+/// any
 ///     commas outside parentheses (such as in a template argument list), by
 ///     adding extra parentheses as needed.
 #define TENSORSTORE_RETURN_IF_ERROR(...) \
@@ -121,7 +125,7 @@ namespace internal {
 // that temporary lifetime extension applies while we evaluate the condition.
 #define TENSORSTORE_CHECK_OK(...)                                            \
   do {                                                                       \
-    [](const ::tensorstore::Status& tensorstore_check_ok_condition) {        \
+    [](const ::absl::Status& tensorstore_check_ok_condition) {               \
       if (ABSL_PREDICT_FALSE(!tensorstore_check_ok_condition.ok())) {        \
         ::tensorstore::internal::FatalStatus("Status not ok: " #__VA_ARGS__, \
                                              tensorstore_check_ok_condition, \

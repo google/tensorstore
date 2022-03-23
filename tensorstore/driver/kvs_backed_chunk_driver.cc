@@ -15,6 +15,7 @@
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
 
 #include "absl/container/fixed_array.h"
+#include "absl/status/status.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver_impl.h"
 #include "tensorstore/internal/box_difference.h"
 #include "tensorstore/internal/cache/async_initialized_cache_mixin.h"
@@ -121,9 +122,9 @@ const char invalid_metadata = 0;
 ///     affected region, or the inclusive lower bound of the out-of-bounds
 ///     region.
 /// \dchecks `affected_inclusive_min != affected_exclusive_max`.
-Status ShapeConstraintError(DimensionIndex output_dim,
-                            DimensionIndex affected_inclusive_min,
-                            DimensionIndex affected_exclusive_max) {
+absl::Status ShapeConstraintError(DimensionIndex output_dim,
+                                  DimensionIndex affected_inclusive_min,
+                                  DimensionIndex affected_exclusive_max) {
   assert(affected_inclusive_min != affected_exclusive_max);
   if (affected_inclusive_min < affected_exclusive_max) {
     return absl::FailedPreconditionError(
@@ -161,9 +162,9 @@ IndexInterval GetNewIndexInterval(IndexInterval existing,
 ///     length `current_domain.rank()`.
 /// \dchecks `current_domain.rank() == inclusive_min_constraint.size()`
 /// \dchecks `current_domain.rank() == exclusive_max_constraint.size()`
-/// \return `Status()` if compatible.
+/// \return `absl::Status()` if compatible.
 /// \error `absl::StatusCode::kFailedPrecondition` if not compatible.
-Status ValidateResizeDomainConstraint(
+absl::Status ValidateResizeDomainConstraint(
     BoxView<> current_domain, span<const Index> inclusive_min_constraint,
     span<const Index> exclusive_max_constraint) {
   assert(current_domain.rank() == inclusive_min_constraint.size());
@@ -202,10 +203,9 @@ Status ValidateResizeDomainConstraint(
 ///     satisfied.
 /// \dchecks `current_domain.rank() == new_inclusive_min.size()`
 /// \dchecks `current_domain.rank() == new_exclusive_max.size()`
-Status ValidateExpandShrinkConstraints(BoxView<> current_domain,
-                                       span<const Index> new_inclusive_min,
-                                       span<const Index> new_exclusive_max,
-                                       bool expand_only, bool shrink_only) {
+absl::Status ValidateExpandShrinkConstraints(
+    BoxView<> current_domain, span<const Index> new_inclusive_min,
+    span<const Index> new_exclusive_max, bool expand_only, bool shrink_only) {
   assert(current_domain.rank() == new_inclusive_min.size());
   assert(current_domain.rank() == new_exclusive_max.size());
   for (DimensionIndex i = 0; i < current_domain.rank(); ++i) {
@@ -445,7 +445,7 @@ Future<const void> DeleteChunksForResize(
   assert(current_bounds.rank() == rank);
   assert(new_inclusive_min.size() == rank);
   assert(new_exclusive_max.size() == rank);
-  auto pair = PromiseFuturePair<void>::Make(MakeResult(Status()));
+  auto pair = PromiseFuturePair<void>::Make(MakeResult(absl::Status()));
   pair.future.Force();
   Box<dynamic_rank(internal::kNumInlinedDims)> current_grid_bounds(rank);
   Box<dynamic_rank(internal::kNumInlinedDims)> new_grid_bounds(rank);
@@ -605,7 +605,7 @@ Result<IndexTransform<>> KvsDriverBase::GetBoundSpecData(
   return transform;
 }
 
-Status KvsDriverSpec::ApplyOptions(SpecOptions&& options) {
+absl::Status KvsDriverSpec::ApplyOptions(SpecOptions&& options) {
   if (options.recheck_cached_data.specified()) {
     staleness.data = StalenessBound(options.recheck_cached_data);
   }
@@ -675,7 +675,7 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
                                base.metadata_cache_key_);
     }
   }
-  Status data_key_value_store_status;
+  absl::Status data_key_value_store_status;
   auto chunk_cache =
       (*state->cache_pool())
           ->GetCache<DataCache>(
@@ -1172,12 +1172,12 @@ Result<IndexTransform<>> ResolveBoundsFromMetadata(
       std::move(transform));
 }
 
-Status ValidateResizeConstraints(BoxView<> current_domain,
-                                 span<const Index> new_inclusive_min,
-                                 span<const Index> new_exclusive_max,
-                                 span<const Index> inclusive_min_constraint,
-                                 span<const Index> exclusive_max_constraint,
-                                 bool expand_only, bool shrink_only) {
+absl::Status ValidateResizeConstraints(
+    BoxView<> current_domain, span<const Index> new_inclusive_min,
+    span<const Index> new_exclusive_max,
+    span<const Index> inclusive_min_constraint,
+    span<const Index> exclusive_max_constraint, bool expand_only,
+    bool shrink_only) {
   TENSORSTORE_RETURN_IF_ERROR(ValidateResizeDomainConstraint(
       current_domain, inclusive_min_constraint, exclusive_max_constraint));
   TENSORSTORE_RETURN_IF_ERROR(ValidateExpandShrinkConstraints(

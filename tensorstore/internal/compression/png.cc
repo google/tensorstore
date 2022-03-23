@@ -71,9 +71,9 @@ void set_png_warning(png_structp png_ptr, png_const_charp error_message) {
 
 }  // namespace
 
-Status Encode(const unsigned char* source, size_t width, size_t height,
-              size_t num_components, const EncodeOptions& options,
-              absl::Cord* output) {
+absl::Status Encode(const unsigned char* source, size_t width, size_t height,
+                    size_t num_components, const EncodeOptions& options,
+                    absl::Cord* output) {
   if (num_components < 1 || num_components > 4) {
     return absl::InvalidArgumentError(
         "PNG encoding requires between 1 and 4 components");
@@ -142,10 +142,10 @@ Status Encode(const unsigned char* source, size_t width, size_t height,
   return absl::OkStatus();
 }
 
-Status Decode(const absl::Cord& input,
-              absl::FunctionRef<Result<unsigned char*>(
-                  size_t width, size_t height, size_t num_components)>
-                  validate_size) {
+absl::Status Decode(const absl::Cord& input,
+                    absl::FunctionRef<Result<unsigned char*>(
+                        size_t width, size_t height, size_t num_components)>
+                        validate_size) {
   png_structp png_ptr =
       png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
   if (!png_ptr) {

@@ -20,6 +20,7 @@
 #include <system_error>  // NOLINT
 
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
@@ -30,7 +31,8 @@ ErrorCodeMatchesStatusMatcher::ErrorCodeMatchesStatusMatcher(
     : status_code_(status_code), message_pattern_(message_pattern) {}
 
 bool ErrorCodeMatchesStatusMatcher::MatchAndExplain(
-    const Status& status, ::testing::MatchResultListener* listener) const {
+    const absl::Status& status,
+    ::testing::MatchResultListener* listener) const {
   auto message = status.message();
   return status.code() == status_code_ &&
          std::regex_match(std::begin(message), std::end(message),

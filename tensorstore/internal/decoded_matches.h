@@ -20,6 +20,7 @@
 #include <string_view>
 
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
@@ -39,7 +40,8 @@ namespace internal {
 ///                                &blosc::Decode));
 ::testing::Matcher<absl::Cord> DecodedMatches(
     ::testing::Matcher<absl::Cord> value_matcher,
-    std::function<Status(const absl::Cord& input, absl::Cord* output)> decoder);
+    std::function<absl::Status(const absl::Cord& input, absl::Cord* output)>
+        decoder);
 
 }  // namespace internal
 }  // namespace tensorstore

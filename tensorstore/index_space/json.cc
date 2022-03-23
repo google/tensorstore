@@ -232,7 +232,7 @@ constexpr auto UpperBoundsBinder(ElementBinder element_binder) {
 constexpr auto IndexTransformParser(
     bool is_transform, DimensionIndex input_rank_constraint = dynamic_rank) {
   return [=](auto is_loading, const auto& options, auto* obj,
-             ::nlohmann::json::object_t* j) -> Status {
+             ::nlohmann::json::object_t* j) -> absl::Status {
     using T = TransformParserData;
 
     auto* keys =
@@ -315,7 +315,7 @@ constexpr auto IndexTransformParser(
 constexpr auto IndexTransformOutputParser(
     DimensionIndex output_rank_constraint = dynamic_rank) {
   return [=](auto is_loading, const auto& options, auto* obj,
-             ::nlohmann::json::object_t* j) -> Status {
+             ::nlohmann::json::object_t* j) -> absl::Status {
     return jb::Sequence(
         jb::Member("output", jb::Projection(&TransformParserData::output,
                                             jb::Optional(jb::Array(

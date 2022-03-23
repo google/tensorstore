@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <string>
 
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "tensorstore/internal/compression/json_specified_compressor.h"
 #include "tensorstore/internal/compression/lzma.h"
@@ -30,12 +31,12 @@ namespace internal {
 class XzCompressor : public internal::JsonSpecifiedCompressor,
                      public tensorstore::lzma::xz::Options {
  public:
-  Status Encode(const absl::Cord& input, absl::Cord* output,
-                std::size_t element_size) const override {
+  absl::Status Encode(const absl::Cord& input, absl::Cord* output,
+                      std::size_t element_size) const override {
     return tensorstore::lzma::xz::Encode(input, output, *this);
   }
-  Status Decode(const absl::Cord& input, absl::Cord* output,
-                std::size_t element_size) const override {
+  absl::Status Decode(const absl::Cord& input, absl::Cord* output,
+                      std::size_t element_size) const override {
     return tensorstore::lzma::xz::Decode(input, output);
   }
 };

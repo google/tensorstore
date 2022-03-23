@@ -18,6 +18,7 @@
 #include <numeric>
 
 #include "absl/container/fixed_array.h"
+#include "absl/status/status.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/index_transform.h"
 
@@ -25,9 +26,9 @@ namespace tensorstore {
 namespace internal_index_space {
 namespace {
 
-Status MakePermutationFromMoveDimsTarget(DimensionIndexBuffer* dimensions,
-                                         DimensionIndex target,
-                                         span<DimensionIndex> permutation) {
+absl::Status MakePermutationFromMoveDimsTarget(
+    DimensionIndexBuffer* dimensions, DimensionIndex target,
+    span<DimensionIndex> permutation) {
   if (dimensions->empty()) {
     std::iota(permutation.begin(), permutation.end(),
               static_cast<DimensionIndex>(0));

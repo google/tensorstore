@@ -18,6 +18,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace {
@@ -27,7 +28,7 @@ using tensorstore::InvokeForStatus;
 using tensorstore::MaybeAnnotateStatus;
 
 TEST(StatusTest, StrCat) {
-  const Status s = absl::UnknownError("Message");
+  const absl::Status s = absl::UnknownError("Message");
   EXPECT_THAT(s.ToString(), testing::HasSubstr("UNKNOWN: Message"));
   EXPECT_THAT(tensorstore::StrCat(s), testing::HasSubstr("UNKNOWN: Message"));
 }
@@ -46,7 +47,7 @@ TEST(StatusTest, InvokeForStatus) {
   EXPECT_EQ(absl::OkStatus(), InvokeForStatus(a, 1));
   EXPECT_EQ(1, count);
 
-  auto b = [&](int i, Status s) {
+  auto b = [&](int i, absl::Status s) {
     count += i;
     return s;
   };
@@ -64,21 +65,21 @@ TEST(StatusTest, InvokeForStatus) {
 }
 
 TEST(StatusTest, ReturnIfError) {
-  const auto Helper = [](Status s) {
+  const auto Helper = [](absl::Status s) {
     TENSORSTORE_RETURN_IF_ERROR(s);
     return absl::UnknownError("No error");
   };
-  EXPECT_EQ(absl::UnknownError("No error"), Helper(Status()));
+  EXPECT_EQ(absl::UnknownError("No error"), Helper(absl::Status()));
   EXPECT_EQ(absl::UnknownError("Got error"),
             Helper(absl::UnknownError("Got error")));
 }
 
 TEST(StatusTest, ReturnIfErrorAnnotate) {
-  const auto Helper = [](Status s) {
+  const auto Helper = [](absl::Status s) {
     TENSORSTORE_RETURN_IF_ERROR(s, MaybeAnnotateStatus(_, "Annotated"));
     return absl::UnknownError("No error");
   };
-  EXPECT_EQ(absl::UnknownError("No error"), Helper(Status()));
+  EXPECT_EQ(absl::UnknownError("No error"), Helper(absl::Status()));
   EXPECT_EQ(absl::UnknownError("Annotated: Got error"),
             Helper(absl::UnknownError("Got error")));
 }

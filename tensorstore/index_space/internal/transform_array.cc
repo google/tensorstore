@@ -14,6 +14,7 @@
 
 #include "tensorstore/index_space/internal/transform_array.h"
 
+#include "absl/status/status.h"
 #include "tensorstore/index_space/internal/iterate_impl.h"
 #include "tensorstore/index_space/internal/propagate_bounds.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
@@ -110,7 +111,7 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
 
     new_element_pointer = internal::AllocateAndConstructSharedElements(
         ProductOfExtents(span(new_shape)), default_init, array.dtype());
-    const Status init_status =
+    const absl::Status init_status =
         internal_index_space::InitializeSingleArrayIterationState(
             ArrayView<void, dynamic_rank, offset_origin>(
                 AddByteOffset(ElementPointer<void>(new_element_pointer),
@@ -152,7 +153,7 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
         ProductOfExtents(span(new_shape)), default_init, array.dtype());
     const Index new_origin_offset =
         IndexInnerProduct(input_rank, result_byte_strides, result_origin);
-    const Status init_status =
+    const absl::Status init_status =
         internal_index_space::InitializeSingleArrayIterationState(
             ArrayView<void, dynamic_rank, offset_origin>(
                 AddByteOffset(ElementPointer<void>(new_element_pointer),

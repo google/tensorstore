@@ -18,6 +18,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/result.h"
@@ -95,12 +96,13 @@ class StaticBinder {
   using JsonValue = JsonValueType;
 
  private:
-  using LoadFunction = Status (*)(std::true_type,
-                                  const FromJsonOptions& options, T* obj,
-                                  JsonValue* j, ExtraValue*... extra);
-  using SaveFunction = Status (*)(std::false_type, const ToJsonOptions& options,
-                                  const T* obj, JsonValue* j,
-                                  ExtraValue*... extra);
+  using LoadFunction = absl::Status (*)(std::true_type,
+                                        const FromJsonOptions& options, T* obj,
+                                        JsonValue* j, ExtraValue*... extra);
+  using SaveFunction = absl::Status (*)(std::false_type,
+                                        const ToJsonOptions& options,
+                                        const T* obj, JsonValue* j,
+                                        ExtraValue*... extra);
 
  public:
   template <typename Binder, typename = std::enable_if_t<
@@ -108,13 +110,15 @@ class StaticBinder {
                                   std::is_convertible_v<Binder, SaveFunction>)>>
   StaticBinder(Binder binder) : load_(binder), save_(binder) {}
 
-  Status operator()(std::true_type is_loading, const FromJsonOptions& options,
-                    T* obj, JsonValue* j, ExtraValue*... extra) const {
+  absl::Status operator()(std::true_type is_loading,
+                          const FromJsonOptions& options, T* obj, JsonValue* j,
+                          ExtraValue*... extra) const {
     return load_(is_loading, options, obj, j, extra...);
   }
 
-  Status operator()(std::false_type is_loading, const ToJsonOptions& options,
-                    const T* obj, JsonValue* j, ExtraValue*... extra) const {
+  absl::Status operator()(std::false_type is_loading,
+                          const ToJsonOptions& options, const T* obj,
+                          JsonValue* j, ExtraValue*... extra) const {
     return save_(is_loading, options, obj, j, extra...);
   }
 

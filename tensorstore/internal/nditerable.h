@@ -29,6 +29,7 @@
 
 #include <memory>
 
+#include "absl/status/status.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/arena.h"
@@ -113,7 +114,7 @@ class NDIterator {
   /// \remark The default implementation just returns `block_size`.  Except for
   ///     write-only iterators with `external == true`, it must be overridden.
   virtual Index GetBlock(span<const Index> indices, Index block_size,
-                         IterationBufferPointer* pointer, Status* status);
+                         IterationBufferPointer* pointer, absl::Status* status);
 
   /// Updates the block at the specified location.
   ///
@@ -135,7 +136,8 @@ class NDIterator {
   /// \remark The default implementation just returns `block_size`, and need not
   ///     be overridden by read-only iterators.
   virtual Index UpdateBlock(span<const Index> indices, Index block_size,
-                            IterationBufferPointer pointer, Status* status);
+                            IterationBufferPointer pointer,
+                            absl::Status* status);
 
   /// Needed by `VirtualDestroyDeleter`.
   virtual void Destroy() = 0;

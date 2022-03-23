@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INDEX_TRANSFORM_H_
 #define TENSORSTORE_INDEX_SPACE_INDEX_TRANSFORM_H_
 
+#include "absl/status/status.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/internal/compose_transforms.h"
@@ -319,8 +320,8 @@ class IndexTransform {
   ///     within the domain (implicit bounds are ignored).
   /// \error `absl::StatusCode::kOutOfRange` if an array output index map
   ///     results in an index outside its `index_range` constraint.
-  Status TransformIndices(span<const Index, InputRank> input_indices,
-                          span<Index, OutputRank> output_indices) const {
+  absl::Status TransformIndices(span<const Index, InputRank> input_indices,
+                                span<Index, OutputRank> output_indices) const {
     return internal_index_space::TransformIndices(
         Access::rep(*this), input_indices, output_indices);
   }
@@ -711,7 +712,7 @@ Result<IndexTransform<Rank, Rank>> InverseTransform(
 ///     not influence the inferred bounds).  Those must be checked separately.
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
-Status PropagateBounds(
+absl::Status PropagateBounds(
     internal::type_identity_t<BoxView<OutputRank>> b_domain,
     internal::type_identity_t<BitSpan<const std::uint64_t, OutputRank>>
         b_implicit_lower_bounds,
@@ -736,7 +737,7 @@ Status PropagateBounds(
 /// validate constant output index maps.
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
-Status PropagateBounds(
+absl::Status PropagateBounds(
     internal::type_identity_t<BoxView<OutputRank>> b_domain,
     internal::type_identity_t<BitSpan<const std::uint64_t, OutputRank>>
         b_implicit_lower_bounds,
@@ -753,7 +754,7 @@ Status PropagateBounds(
 /// `b_implicit_upper_bounds` are assumed to be all `false`.
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
-Status PropagateExplicitBounds(
+absl::Status PropagateExplicitBounds(
     internal::type_identity_t<BoxView<OutputRank>> b_domain,
     const IndexTransform<InputRank, OutputRank, CKind> a_to_b,
     internal::type_identity_t<MutableBoxView<InputRank>> a_domain) {
@@ -955,7 +956,7 @@ MakeCopy(const Array& array,
 /// `index_array`.
 ///
 /// \error `absl::StatusCode::kOutOfRange` if an index is out of bounds.
-Status ValidateIndexArrayBounds(
+absl::Status ValidateIndexArrayBounds(
     IndexInterval bounds,
     ArrayView<const Index, dynamic_rank, offset_origin> index_array);
 
@@ -1005,7 +1006,7 @@ namespace internal_index_space {
 ///     indicate no change.
 /// \param requested_exclusive_max New exclusive max value, or `kImplicit` to
 ///     indicate no change.
-/// \returns `Status()` if the request is valid.
+/// \returns `absl::Status()` if the request is valid.
 /// \error `absl::StatusCode::kInvalidArgument` if `requested_inclusive_min` is
 ///     not equal to `kImplicit`, `-kInfIndex`, or a finite index value.
 /// \error `absl::StatusCode::kInvalidArgument` if `requested_exclusive_max` is
@@ -1017,7 +1018,7 @@ namespace internal_index_space {
 ///     kImplicit` and `!input_domain.implicit_lower()`.
 /// \error `absl::StatusCode::kInvalidArgument` if `requested_exclusive_max !=
 ///     kImplicit` and `!input_domain.implicit_upper()`.
-Status ValidateInputDimensionResize(
+absl::Status ValidateInputDimensionResize(
     OptionallyImplicitIndexInterval input_domain, Index requested_inclusive_min,
     Index requested_exclusive_max);
 }  // namespace internal_index_space
@@ -1052,14 +1053,14 @@ Status ValidateInputDimensionResize(
 ///     set to `true` if all bounds in `new_output_inclusive_min` and
 ///     `new_output_exclusive_max` are `kImplicit`, and is set to `false`
 ///     otherwise.
-/// \returns `Status()` on success.
+/// \returns `absl::Status()` on success.
 /// \error `absl::StatusCode::kFailedPrecondition` if `can_resize_tied_bounds ==
 ///     false` and the resize would affect positions outside the range of
 ///     `transform`.
 /// \error `absl::StatusCode::kInvalidArgument` if the requested bound are
 ///     invalid or incompatible with `transform`.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
-Status PropagateInputDomainResizeToOutput(
+absl::Status PropagateInputDomainResizeToOutput(
     IndexTransformView<> transform,
     span<const Index> requested_input_inclusive_min,
     span<const Index> requested_input_exclusive_max,

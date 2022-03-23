@@ -21,6 +21,7 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
@@ -111,7 +112,7 @@ Result<HttpResponse> GceAuthProvider::IssueRequest(std::string path,
   return transport_->IssueRequest(request_builder.BuildRequest(), {}).result();
 }
 
-Status GceAuthProvider::RetrieveServiceAccountInfo() {
+absl::Status GceAuthProvider::RetrieveServiceAccountInfo() {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto response,
       IssueRequest(
@@ -137,7 +138,7 @@ Status GceAuthProvider::RetrieveServiceAccountInfo() {
   return absl::OkStatus();
 }
 
-Status GceAuthProvider::Refresh() {
+absl::Status GceAuthProvider::Refresh() {
   TENSORSTORE_RETURN_IF_ERROR(RetrieveServiceAccountInfo());
 
   const auto now = clock_();

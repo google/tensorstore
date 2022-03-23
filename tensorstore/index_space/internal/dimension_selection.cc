@@ -16,6 +16,7 @@
 
 #include <numeric>
 
+#include "absl/status/status.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -24,8 +25,8 @@
 namespace tensorstore {
 namespace internal_index_space {
 
-Status CheckAndNormalizeDimensions(DimensionIndex input_rank,
-                                   span<DimensionIndex> dimensions) {
+absl::Status CheckAndNormalizeDimensions(DimensionIndex input_rank,
+                                         span<DimensionIndex> dimensions) {
   if (dimensions.size() > input_rank) {
     return absl::InvalidArgumentError(
         StrCat("Number of dimensions (", dimensions.size(),
@@ -54,22 +55,22 @@ Status CheckAndNormalizeDimensions(DimensionIndex input_rank,
   return absl::OkStatus();
 }
 
-Status GetDimensions(DimensionIndex input_rank,
-                     span<const DimensionIndex> dimensions,
-                     DimensionIndexBuffer* result) {
+absl::Status GetDimensions(DimensionIndex input_rank,
+                           span<const DimensionIndex> dimensions,
+                           DimensionIndexBuffer* result) {
   result->assign(dimensions.begin(), dimensions.end());
   return CheckAndNormalizeDimensions(input_rank, *result);
 }
 
-Status GetDimensions(IndexTransformView<> transform,
-                     span<const DimensionIndex> dimensions,
-                     DimensionIndexBuffer* result) {
+absl::Status GetDimensions(IndexTransformView<> transform,
+                           span<const DimensionIndex> dimensions,
+                           DimensionIndexBuffer* result) {
   return GetDimensions(transform.input_rank(), dimensions, result);
 }
 
-Status GetDimensions(IndexTransformView<> transform,
-                     span<const DimensionIdentifier> dimensions,
-                     DimensionIndexBuffer* result) {
+absl::Status GetDimensions(IndexTransformView<> transform,
+                           span<const DimensionIdentifier> dimensions,
+                           DimensionIndexBuffer* result) {
   const DimensionIndex input_rank = transform.input_rank();
   result->resize(dimensions.size());
   span<const std::string> input_labels = transform.input_labels();
@@ -81,22 +82,22 @@ Status GetDimensions(IndexTransformView<> transform,
   return CheckAndNormalizeDimensions(input_rank, *result);
 }
 
-Status GetNewDimensions(DimensionIndex input_rank,
-                        span<const DimensionIndex> dimensions,
-                        DimensionIndexBuffer* result) {
+absl::Status GetNewDimensions(DimensionIndex input_rank,
+                              span<const DimensionIndex> dimensions,
+                              DimensionIndexBuffer* result) {
   return GetDimensions(input_rank + dimensions.size(), dimensions, result);
 }
 
-Status GetAllDimensions(DimensionIndex input_rank,
-                        DimensionIndexBuffer* result) {
+absl::Status GetAllDimensions(DimensionIndex input_rank,
+                              DimensionIndexBuffer* result) {
   result->resize(input_rank);
   std::iota(result->begin(), result->end(), static_cast<DimensionIndex>(0));
   return absl::OkStatus();
 }
 
-Status GetDimensions(span<const std::string> labels,
-                     span<const DynamicDimSpec> dimensions,
-                     DimensionIndexBuffer* result) {
+absl::Status GetDimensions(span<const std::string> labels,
+                           span<const DynamicDimSpec> dimensions,
+                           DimensionIndexBuffer* result) {
   result->clear();
   TENSORSTORE_RETURN_IF_ERROR(
       NormalizeDynamicDimSpecs(dimensions, labels, result));
@@ -149,9 +150,9 @@ Result<DimensionIndex> GetNumNewDimensions(const DimRangeSpec& spec) {
 }
 }  // namespace
 
-Status GetNewDimensions(DimensionIndex input_rank,
-                        span<const DynamicDimSpec> dimensions,
-                        DimensionIndexBuffer* result) {
+absl::Status GetNewDimensions(DimensionIndex input_rank,
+                              span<const DynamicDimSpec> dimensions,
+                              DimensionIndexBuffer* result) {
   // First compute the new rank.
   DimensionIndex new_rank = input_rank;
   for (const auto& spec : dimensions) {
@@ -170,19 +171,19 @@ Status GetNewDimensions(DimensionIndex input_rank,
     DimensionIndex new_rank;
     DimensionIndexBuffer* result;
 
-    Status operator()(DimensionIndex i) const {
+    absl::Status operator()(DimensionIndex i) const {
       TENSORSTORE_ASSIGN_OR_RETURN(DimensionIndex index,
                                    NormalizeDimensionIndex(i, new_rank));
       result->push_back(index);
       return absl::OkStatus();
     }
 
-    Status operator()(const std::string& label) const {
+    absl::Status operator()(const std::string& label) const {
       return absl::InvalidArgumentError(
           "New dimensions cannot be specified by label");
     }
 
-    Status operator()(const DimRangeSpec& s) const {
+    absl::Status operator()(const DimRangeSpec& s) const {
       return NormalizeDimRangeSpec(s, new_rank, result);
     }
   };

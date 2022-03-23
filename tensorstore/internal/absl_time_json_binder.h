@@ -19,6 +19,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/status/status.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json.h"
@@ -27,9 +28,9 @@ namespace tensorstore {
 namespace internal_json_binding {
 
 namespace rfc3339_time_binder {
-constexpr inline auto Rfc3339TimeBinder = [](auto is_loading,
-                                             const auto& options, auto* obj,
-                                             ::nlohmann::json* j) -> Status {
+constexpr inline auto Rfc3339TimeBinder =
+    [](auto is_loading, const auto& options, auto* obj,
+       ::nlohmann::json* j) -> absl::Status {
   if constexpr (is_loading) {
     if (!j->is_string()) {
       return internal_json::ExpectedError(*j,
@@ -55,7 +56,7 @@ constexpr inline auto DefaultBinder<absl::Time> = Rfc3339TimeBinder;
 namespace duration_binder {
 constexpr inline auto DurationBinder = [](auto is_loading, const auto& options,
                                           auto* obj,
-                                          ::nlohmann::json* j) -> Status {
+                                          ::nlohmann::json* j) -> absl::Status {
   if constexpr (is_loading) {
     if (!j->is_string()) {
       return internal_json::ExpectedError(*j, "Duration formatted as a string");

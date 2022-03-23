@@ -269,6 +269,7 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/status",
     ],
     alwayslink = True,
 )
@@ -301,8 +302,6 @@ tensorstore_cc_library(
         "//tensorstore:context",
         "//tensorstore:data_type",
         "//tensorstore:index",
-        "//tensorstore:open_mode",
-        "//tensorstore:spec",
         "//tensorstore/driver",
         "//tensorstore/driver:kvs_backed_chunk_driver",
         "//tensorstore/index_space:index_transform",
@@ -313,10 +312,9 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache:chunk_cache",
         "//tensorstore/internal/cache_key",
         "//tensorstore/kvstore",
-        "//tensorstore/util:bit_span",
         "//tensorstore/util:future",
         "//tensorstore/util:span",
-        "//tensorstore/util:status",
+        "@com_google_absl//absl/status",
     ],
     alwayslink = 1,
 )

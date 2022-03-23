@@ -22,6 +22,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/status/status.h"
 #include <curl/curl.h>  // IWYU pragma: export
 #include "tensorstore/internal/attributes.h"
 #include "tensorstore/util/assert_macros.h"
@@ -74,11 +75,11 @@ std::shared_ptr<CurlHandleFactory> GetDefaultCurlHandleFactory();
 /// Returns the default GetCurlUserAgentSuffix.
 std::string GetCurlUserAgentSuffix();
 
-/// Returns a Status object for a corresponding CURLcode.
-Status CurlCodeToStatus(CURLcode code, std::string_view);
+/// Returns a absl::Status object for a corresponding CURLcode.
+absl::Status CurlCodeToStatus(CURLcode code, std::string_view);
 
-/// Returns a Status object for a corresponding CURLcode.
-Status CurlMCodeToStatus(CURLMcode code, std::string_view);
+/// Returns a absl::Status object for a corresponding CURLcode.
+absl::Status CurlMCodeToStatus(CURLMcode code, std::string_view);
 
 template <typename T>
 inline void CurlEasySetopt(CURL* handle, CURLoption option, T value) {

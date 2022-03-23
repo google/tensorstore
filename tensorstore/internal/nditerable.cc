@@ -14,6 +14,7 @@
 
 #include "tensorstore/internal/nditerable.h"
 
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/util/span.h"
@@ -28,12 +29,14 @@ NDIterableLayoutConstraint::~NDIterableLayoutConstraint() = default;
 NDIterableBufferConstraint::~NDIterableBufferConstraint() = default;
 
 Index NDIterator::GetBlock(span<const Index> indices, Index block_size,
-                           IterationBufferPointer* pointer, Status* status) {
+                           IterationBufferPointer* pointer,
+                           absl::Status* status) {
   return block_size;
 }
 
 Index NDIterator::UpdateBlock(span<const Index> indices, Index block_size,
-                              IterationBufferPointer pointer, Status* status) {
+                              IterationBufferPointer pointer,
+                              absl::Status* status) {
   return block_size;
 }
 

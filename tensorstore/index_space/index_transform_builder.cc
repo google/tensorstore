@@ -14,6 +14,7 @@
 
 #include "tensorstore/index_space/index_transform_builder.h"
 
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
 #include "tensorstore/internal/dimension_labels.h"
@@ -33,7 +34,7 @@ void InitializeTransformRepForBuilder(TransformRep* data) {
   }
 }
 
-Status SetOutputIndexMapsAndValidateTransformRep(
+absl::Status SetOutputIndexMapsAndValidateTransformRep(
     TransformRep* data, span<const OutputIndexMapInitializer> output_index_maps,
     IntervalForm interval_form, BuilderFlags flags) {
   const DimensionIndex input_rank = data->input_rank;

@@ -28,6 +28,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/result.h"
@@ -104,8 +105,8 @@ class ShardEncoder {
   ///     from an existing shard.
   /// \pre `Finalize()` was not called previously, and no prior method call
   ///     returned an error.
-  Status WriteIndexedEntry(std::uint64_t minishard, ChunkId chunk_id,
-                           const absl::Cord& data, bool compress);
+  absl::Status WriteIndexedEntry(std::uint64_t minishard, ChunkId chunk_id,
+                                 const absl::Cord& data, bool compress);
 
   /// Writes an additional chunk of data to the shard data file, but does not
   /// include it in the index under a particular `chunk_id` key.
@@ -142,7 +143,7 @@ class ShardEncoder {
   /// is non-empty.
   ///
   /// \pre `Finalize()` was not called previously.
-  Status FinalizeMinishard();
+  absl::Status FinalizeMinishard();
 
   ShardingSpec sharding_spec_;
   WriteFunction write_function_;

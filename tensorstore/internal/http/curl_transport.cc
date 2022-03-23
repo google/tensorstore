@@ -255,7 +255,7 @@ struct CurlRequestState {
     CurlEasySetopt(handle_.get(), CURLOPT_FORBID_REUSE, 1);
   }
 
-  Status CurlCodeToStatus(CURLcode code) {
+  absl::Status CurlCodeToStatus(CURLcode code) {
     if (code == CURLE_OK) {
       return absl::OkStatus();
     }

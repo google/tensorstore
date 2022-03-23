@@ -77,9 +77,9 @@ std::string GetSupportedDataTypes() {
       });
 }
 
-Status ValidateEncodingDataType(ScaleMetadata::Encoding encoding,
-                                DataType dtype,
-                                std::optional<Index> num_channels) {
+absl::Status ValidateEncodingDataType(ScaleMetadata::Encoding encoding,
+                                      DataType dtype,
+                                      std::optional<Index> num_channels) {
   switch (encoding) {
     case ScaleMetadata::Encoding::raw:
       break;
@@ -108,7 +108,7 @@ Status ValidateEncodingDataType(ScaleMetadata::Encoding encoding,
   return absl::OkStatus();
 }
 
-Status CheckScaleBounds(BoxView<3> box) {
+absl::Status CheckScaleBounds(BoxView<3> box) {
   for (int i = 0; i < 3; ++i) {
     if (!IndexInterval::ValidSized(box.origin()[i], box.shape()[i]) ||
         !IsFinite(box[i])) {
@@ -121,7 +121,7 @@ Status CheckScaleBounds(BoxView<3> box) {
   return absl::OkStatus();
 }
 
-Status ValidateChunkSize(
+absl::Status ValidateChunkSize(
     span<const Index, 3> chunk_size, span<const Index, 3> shape,
     const std::variant<NoShardingSpec, ShardingSpec>& sharding) {
   if (std::holds_alternative<NoShardingSpec>(sharding)) {
@@ -180,7 +180,7 @@ constexpr static auto EncodingJsonBinder = [](auto maybe_optional) {
                            maybe_optional(ScaleMetatadaEncodingBinder()))),
         jb::Member("jpeg_quality",
                    [maybe_optional](auto is_loading, const auto& options,
-                                    auto* obj, auto* j) -> Status {
+                                    auto* obj, auto* j) -> absl::Status {
                      if constexpr (is_loading) {
                        if (j->is_discarded()) return absl::OkStatus();
                        if (obj->encoding != ScaleMetadata::Encoding::jpeg) {
@@ -235,7 +235,7 @@ constexpr auto ScaleMetadataCommon(MaybeOptional maybe_optional) {
         jb::Member(
             "compressed_segmentation_block_size",
             [maybe_optional](auto is_loading, const auto& options, auto* obj,
-                             auto* j) -> Status {
+                             auto* j) -> absl::Status {
               if constexpr (is_loading) {
                 if (obj->encoding !=
                     ScaleMetadata::Encoding::compressed_segmentation) {
@@ -396,7 +396,7 @@ constexpr static auto OpenConstraintsBinder = jb::Object(
                 &OpenConstraints::scale,
                 jb::DefaultInitializedValue<jb::kNeverIncludeDefaults>()))));
 
-Status ValidateScaleConstraintsForOpen(
+absl::Status ValidateScaleConstraintsForOpen(
     const ScaleMetadataConstraints& constraints,
     const ScaleMetadata& metadata) {
   if (constraints.key && *constraints.key != metadata.key) {
@@ -449,7 +449,7 @@ Status ValidateScaleConstraintsForOpen(
                                           metadata.extra_attributes);
 }
 
-Status ValidateMultiscaleConstraintsForOpen(
+absl::Status ValidateMultiscaleConstraintsForOpen(
     const MultiscaleMetadataConstraints& constraints,
     const MultiscaleMetadata& metadata) {
   if (constraints.dtype.valid() && constraints.dtype != metadata.dtype) {
@@ -487,7 +487,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ScaleMetadataConstraints,
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(OpenConstraints, OpenConstraintsBinder)
 
-Status ValidateMetadataCompatibility(
+absl::Status ValidateMetadataCompatibility(
     const MultiscaleMetadata& existing_metadata,
     const MultiscaleMetadata& new_metadata, std::size_t scale_index,
     const std::array<Index, 3>& chunk_size) {
@@ -1304,7 +1304,7 @@ std::string ResolveScaleKey(std::string_view key_prefix,
   return absl::StrJoin(output_parts, "/");
 }
 
-Status ValidateDataType(DataType dtype) {
+absl::Status ValidateDataType(DataType dtype) {
   assert(dtype.valid());
   if (!absl::c_linear_search(kSupportedDataTypes, dtype.id())) {
     return absl::InvalidArgumentError(

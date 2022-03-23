@@ -17,6 +17,7 @@
 
 #include <functional>
 
+#include "absl/status/status.h"
 #include "absl/time/time.h"
 #include "tensorstore/util/status.h"
 
@@ -25,17 +26,17 @@ namespace internal {
 
 /// DefaultIsRetriable is the default function to return whether a
 /// status-response is retriable.
-bool DefaultIsRetriable(const Status& status);
+bool DefaultIsRetriable(const absl::Status& status);
 
 /// \brieff RetryWithBackoff retries `function` up to max_retries times.
 /// Applies exponential backoff + jitter between each retry attempt,
 /// up to max_delay_time.
-Status RetryWithBackoff(
-    std::function<Status()> function, int max_retries,
+absl::Status RetryWithBackoff(
+    std::function<absl::Status()> function, int max_retries,
     absl::Duration initial_delay,  // GCS recommends absl::Seconds(1)
     absl::Duration max_delay,      // GCS recommends absl::Seconds(32)
     absl::Duration jitter,         // GCS recommends absl::Seconds(1)
-    std::function<bool(const Status&)> is_retriable = DefaultIsRetriable);
+    std::function<bool(const absl::Status&)> is_retriable = DefaultIsRetriable);
 
 }  // namespace internal
 }  // namespace tensorstore

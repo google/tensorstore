@@ -17,6 +17,7 @@
 
 #include <type_traits>
 
+#include "absl/status/status.h"
 #include "tensorstore/context.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/open_mode.h"
@@ -28,11 +29,11 @@
 namespace tensorstore {
 
 namespace internal_open {
-Status InvalidModeError(ReadWriteMode mode, ReadWriteMode static_mode);
-Status ValidateDataTypeAndRank(DataType expected_dtype,
-                               DimensionIndex expected_rank,
-                               DataType actual_dtype,
-                               DimensionIndex actual_rank);
+absl::Status InvalidModeError(ReadWriteMode mode, ReadWriteMode static_mode);
+absl::Status ValidateDataTypeAndRank(DataType expected_dtype,
+                                     DimensionIndex expected_rank,
+                                     DataType actual_dtype,
+                                     DimensionIndex actual_rank);
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
 Future<TensorStore<Element, Rank, Mode>> ConvertTensorStoreFuture(
     Future<internal::Driver::Handle> future) {

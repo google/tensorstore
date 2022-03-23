@@ -21,6 +21,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
@@ -62,7 +63,7 @@ class NDIterableDataTypeConversionTest : public ::testing::TestWithParam<bool> {
  protected:
   tensorstore::internal::Arena arena;
 
-  std::pair<Status, SharedArray<const void>> Convert(
+  std::pair<absl::Status, SharedArray<const void>> Convert(
       TransformedArrayView<Shared<const void>> source, DataType target_dtype) {
     tensorstore::internal::Arena arena;
     auto target =
@@ -85,7 +86,7 @@ class NDIterableDataTypeConversionTest : public ::testing::TestWithParam<bool> {
     tensorstore::internal::NDIterableCopier copier(
         *source_iterable, *target_iterable, target.shape(),
         tensorstore::c_order, &arena);
-    Status status = copier.Copy();
+    absl::Status status = copier.Copy();
     return std::make_pair(status, target);
   }
 };

@@ -20,6 +20,7 @@
 #include <iosfwd>
 #include <optional>
 
+#include "absl/status/status.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
@@ -183,7 +184,7 @@ namespace internal {
 ///     element types of the arrays.
 template <std::size_t Arity>
 ArrayIterateResult IterateOverStridedLayouts(
-    ElementwiseClosure<Arity, Status*> closure, Status* status,
+    ElementwiseClosure<Arity, absl::Status*> closure, absl::Status* status,
     span<const Index> shape,
     std::array<ByteStridedPointer<void>, Arity> pointers,
     std::array<const Index*, Arity> strides, IterationConstraints constraints,

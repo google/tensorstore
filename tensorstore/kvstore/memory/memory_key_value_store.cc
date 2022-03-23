@@ -177,7 +177,7 @@ class MemoryDriver
   Future<void> DeleteRange(KeyRange range) override;
 
   void ListImpl(ListOptions options,
-                AnyFlowReceiver<Status, Key> receiver) override;
+                AnyFlowReceiver<absl::Status, Key> receiver) override;
 
   absl::Status ReadModifyWrite(internal::OpenTransactionPtr& transaction,
                                size_t& phase, Key key,
@@ -444,7 +444,7 @@ Future<void> MemoryDriver::DeleteRange(KeyRange range) {
 }
 
 void MemoryDriver::ListImpl(ListOptions options,
-                            AnyFlowReceiver<Status, Key> receiver) {
+                            AnyFlowReceiver<absl::Status, Key> receiver) {
   auto& data = this->data();
   std::atomic<bool> cancelled{false};
   execution::set_starting(receiver, [&cancelled] {

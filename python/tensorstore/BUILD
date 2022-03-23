@@ -340,6 +340,7 @@ pybind11_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_github_pybind_pybind11//:pybind11",
+        "@com_google_absl//absl/status",
     ],
 )
 

@@ -37,6 +37,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache:kvs_backed_cache",
         "//tensorstore/serialization:absl_time",
         "//tensorstore/util/execution:sender",
+        "@com_google_absl//absl/status",
     ],
     alwayslink = True,
 )

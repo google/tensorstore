@@ -20,16 +20,16 @@
 namespace tensorstore {
 namespace internal_open {
 
-Status InvalidModeError(ReadWriteMode mode, ReadWriteMode static_mode) {
+absl::Status InvalidModeError(ReadWriteMode mode, ReadWriteMode static_mode) {
   return absl::InvalidArgumentError(StrCat("Run-time mode ", mode,
                                            " does not match compile-time mode ",
                                            static_mode));
 }
 
-Status ValidateDataTypeAndRank(DataType expected_dtype,
-                               DimensionIndex expected_rank,
-                               DataType actual_dtype,
-                               DimensionIndex actual_rank) {
+absl::Status ValidateDataTypeAndRank(DataType expected_dtype,
+                                     DimensionIndex expected_rank,
+                                     DataType actual_dtype,
+                                     DimensionIndex actual_rank) {
   if (!tensorstore::IsRankExplicitlyConvertible(expected_rank, actual_rank)) {
     return absl::FailedPreconditionError(tensorstore::StrCat(
         "Expected rank of ", expected_rank, " but received: ", actual_rank));

@@ -20,6 +20,7 @@
 
 #include <type_traits>
 
+#include "absl/status/status.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_vector_or_scalar.h"
@@ -177,9 +178,9 @@ class DimExpressionHelper {
   /// This is used to obtain the initial dimension selection for most
   /// operations.
   template <bool SelectedDimensionsAreNew, typename DimensionSelection>
-  static std::enable_if_t<!SelectedDimensionsAreNew, Status> GetDimensions(
-      const DimensionSelection& selection, IndexTransformView<> transform,
-      DimensionIndexBuffer* output) {
+  static std::enable_if_t<!SelectedDimensionsAreNew, absl::Status>
+  GetDimensions(const DimensionSelection& selection,
+                IndexTransformView<> transform, DimensionIndexBuffer* output) {
     return selection.GetDimensions(transform, output);
   }
 
@@ -188,7 +189,7 @@ class DimExpressionHelper {
   /// This is used to obtain the initial dimension selection for the AddNew
   /// operation.
   template <bool SelectedDimensionsAreNew, typename DimensionSelection>
-  static std::enable_if_t<SelectedDimensionsAreNew, Status> GetDimensions(
+  static std::enable_if_t<SelectedDimensionsAreNew, absl::Status> GetDimensions(
       const DimensionSelection& selection, IndexTransformView<> transform,
       DimensionIndexBuffer* output) {
     return selection.GetNewDimensions(transform.input_rank(), output);
@@ -212,8 +213,8 @@ class DimExpressionHelper {
 template <bool Condition>
 struct ConditionalApplyIndexTransformResult {
   template <typename Expr, typename Transformable>
-  using type = decltype(
-      ApplyIndexTransform(std::declval<Expr>(), std::declval<Transformable>()));
+  using type = decltype(ApplyIndexTransform(std::declval<Expr>(),
+                                            std::declval<Transformable>()));
 };
 template <>
 struct ConditionalApplyIndexTransformResult<false> {};

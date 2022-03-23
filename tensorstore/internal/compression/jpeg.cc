@@ -17,6 +17,7 @@
 #include <csetjmp>
 
 #include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include <jerror.h>
 #include <jpeglib.h>
@@ -76,7 +77,7 @@ struct JpegStateWrapper {
 
   T cinfo;
   std::jmp_buf jmpbuf;
-  Status status;
+  absl::Status status;
   ::jpeg_error_mgr jerr;
 };
 
@@ -199,10 +200,10 @@ struct CordDestManager {
 
 }  // namespace
 
-Status Decode(const absl::Cord& input,
-              absl::FunctionRef<Result<unsigned char*>(
-                  size_t width, size_t height, size_t num_components)>
-                  validate_size) {
+absl::Status Decode(const absl::Cord& input,
+                    absl::FunctionRef<Result<unsigned char*>(
+                        size_t width, size_t height, size_t num_components)>
+                        validate_size) {
   JpegStateWrapper<::jpeg_decompress_struct> state;
   CordSourceManager source_manager(input);
   // Wrap actual logic in lambda to avoid having any non-trivial local variables
@@ -250,9 +251,9 @@ Status Decode(const absl::Cord& input,
   return MaybeAnnotateStatus(state.status, "Error decoding JPEG");
 }
 
-Status Encode(const unsigned char* source, size_t width, size_t height,
-              size_t num_components, const EncodeOptions& options,
-              absl::Cord* output) {
+absl::Status Encode(const unsigned char* source, size_t width, size_t height,
+                    size_t num_components, const EncodeOptions& options,
+                    absl::Cord* output) {
   assert(options.quality >= 0 && options.quality <= 100);
   if (width > std::numeric_limits<JDIMENSION>::max() ||
       height > std::numeric_limits<JDIMENSION>::max()) {

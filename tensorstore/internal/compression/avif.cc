@@ -84,9 +84,9 @@ avifResult AvifRead(avifIO* io, uint32_t readFlags, uint64_t offset,
 
 }  // namespace
 
-Status Encode(const unsigned char* source, size_t width, size_t height,
-              size_t num_components, const EncodeOptions& options,
-              absl::Cord* output) {
+absl::Status Encode(const unsigned char* source, size_t width, size_t height,
+                    size_t num_components, const EncodeOptions& options,
+                    absl::Cord* output) {
   if (num_components < 1 || num_components > 4) {
     return absl::InvalidArgumentError(
         "AVIF encoding requires between 1 and 4 components");
@@ -235,10 +235,10 @@ Status Encode(const unsigned char* source, size_t width, size_t height,
   return absl::OkStatus();
 }
 
-Status Decode(const absl::Cord& input,
-              absl::FunctionRef<Result<unsigned char*>(
-                  size_t width, size_t height, size_t num_components)>
-                  allocate_buffer) {
+absl::Status Decode(const absl::Cord& input,
+                    absl::FunctionRef<Result<unsigned char*>(
+                        size_t width, size_t height, size_t num_components)>
+                        allocate_buffer) {
   if (input.empty()) {
     return absl::InvalidArgumentError("Cannot decode an AVIF from empty data");
   }

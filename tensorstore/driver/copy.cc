@@ -140,7 +140,7 @@ struct CopyState : public internal::AtomicReferenceCount<CopyState> {
   Promise<void> commit_promise;
   IntrusivePtr<CommitState> commit_state{new CommitState};
 
-  void SetError(Status error) {
+  void SetError(absl::Status error) {
     SetDeferredResult(copy_promise, std::move(error));
   }
 };
@@ -231,7 +231,7 @@ struct CopyWriteChunkReceiver {
   }
   void set_stopping() { cancel_registration(); }
   void set_done() {}
-  void set_error(Status error) { state->SetError(std::move(error)); }
+  void set_error(absl::Status error) { state->SetError(std::move(error)); }
   void set_value(WriteChunk write_chunk, IndexTransform<> cell_transform) {
     // Map the portion of the `read_chunk` that corresponds to this
     // `write_chunk` to the index space expected by `write_chunk`, and produce
@@ -290,7 +290,7 @@ struct CopyReadChunkReceiver {
   }
   void set_stopping() { cancel_registration(); }
   void set_done() {}
-  void set_error(Status error) { state->SetError(std::move(error)); }
+  void set_error(absl::Status error) { state->SetError(std::move(error)); }
   void set_value(ReadChunk chunk, IndexTransform<> cell_transform) {
     // Defer actual work to executor.
     //

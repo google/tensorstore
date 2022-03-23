@@ -14,6 +14,7 @@
 
 #include "tensorstore/internal/compression/bzip2.h"
 
+#include "absl/status/status.h"
 #include "tensorstore/internal/compression/cord_stream_manager.h"
 #include "tensorstore/util/status.h"
 
@@ -59,7 +60,7 @@ void Encode(const absl::Cord& input, absl::Cord* output,
   }
 }
 
-Status Decode(const absl::Cord& input, absl::Cord* output) {
+absl::Status Decode(const absl::Cord& input, absl::Cord* output) {
   bz_stream stream = {};
   StreamManager stream_manager(stream, input, output);
   int err = BZ2_bzDecompressInit(&stream, /*verbosity=*/0,

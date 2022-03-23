@@ -16,6 +16,7 @@
 
 #include <ostream>
 
+#include "absl/status/status.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/division.h"
@@ -275,7 +276,7 @@ Result<IndexInterval> ShiftIntervalTo(IndexInterval interval, Index origin) {
   return ShiftInterval(interval, offset);
 }
 
-Status CheckContains(IndexInterval interval, Index index) {
+absl::Status CheckContains(IndexInterval interval, Index index) {
   if (Contains(interval, index)) return absl::OkStatus();
   return absl::OutOfRangeError(
       StrCat("Index ", index, " is outside valid range ", interval));
@@ -390,12 +391,12 @@ ExtractSizedStridedSlice(OptionallyImplicitIndexInterval orig, Index start,
   return ExtractStridedSlice(orig, IntervalForm::sized, start, size, stride);
 }
 
-Status ComputeStridedSliceMap(OptionallyImplicitIndexInterval orig,
-                              IntervalForm interval_form,
-                              Index translate_origin_to, Index start,
-                              Index stop_or_size, Index stride,
-                              OptionallyImplicitIndexInterval* new_domain,
-                              Index* output_offset) {
+absl::Status ComputeStridedSliceMap(OptionallyImplicitIndexInterval orig,
+                                    IntervalForm interval_form,
+                                    Index translate_origin_to, Index start,
+                                    Index stop_or_size, Index stride,
+                                    OptionallyImplicitIndexInterval* new_domain,
+                                    Index* output_offset) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto new_interval_and_adjusted_start,
       ExtractStridedSlice(orig, interval_form, start, stop_or_size, stride));

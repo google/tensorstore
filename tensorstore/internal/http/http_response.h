@@ -20,6 +20,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/status.h"
@@ -39,8 +40,9 @@ struct HttpResponse {
   std::multimap<std::string, std::string> headers;
 };
 
-/// Returns a Status object for a corresponding HttpResponse.status_code.
-Status HttpResponseCodeToStatus(const HttpResponse& response);
+/// Returns an `absl::Status` object for a corresponding
+/// HttpResponse.status_code.
+absl::Status HttpResponseCodeToStatus(const HttpResponse& response);
 
 /// Determines the portion of the response, if any, that corresponds to the
 /// requested byte range, based on the presence of an HTTP 206 Partial Content

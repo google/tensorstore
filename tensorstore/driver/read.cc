@@ -107,7 +107,9 @@ struct ReadState
   std::atomic<Index> copied_elements{0};
   Index total_elements;
 
-  void SetError(Status error) { SetDeferredResult(promise, std::move(error)); }
+  void SetError(absl::Status error) {
+    SetDeferredResult(promise, std::move(error));
+  }
 
   void UpdateProgress(Index num_elements) {
     if (!read_progress_function) return;
@@ -130,7 +132,7 @@ struct ReadChunkOp {
         auto target,
         ApplyIndexTransform(std::move(cell_transform), state->target),
         state->SetError(_));
-    Status copy_status =
+    absl::Status copy_status =
         internal::CopyReadChunk(chunk.impl, std::move(chunk.transform),
                                 state->data_type_conversion, target);
     if (copy_status.ok()) {
@@ -153,7 +155,7 @@ struct ReadChunkReceiver {
   }
   void set_stopping() { cancel_registration(); }
   void set_done() {}
-  void set_error(Status error) { state->SetError(std::move(error)); }
+  void set_error(absl::Status error) { state->SetError(std::move(error)); }
   void set_value(ReadChunk chunk, IndexTransform<> cell_transform) {
     // Defer all work to the executor, because we don't know on which thread
     // this may be called.

@@ -16,14 +16,15 @@
 
 #include <system_error>  // NOLINT
 
+#include "absl/status/status.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
 
-Status CheckIndexVectorSize(IndexVectorOrScalarView indices,
-                            DimensionIndex size) {
+absl::Status CheckIndexVectorSize(IndexVectorOrScalarView indices,
+                                  DimensionIndex size) {
   if (indices.pointer && indices.size_or_scalar != size)
     return absl::InvalidArgumentError(StrCat(
         "Number of dimensions (", size, ") does not match number of indices (",

@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_INTERNAL_NDITERABLE_ELEMENTWISE_OUTPUT_TRANSFORM_H_
 #define TENSORSTORE_INTERNAL_NDITERABLE_ELEMENTWISE_OUTPUT_TRANSFORM_H_
 
+#include "absl/status/status.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/elementwise_function.h"
@@ -45,7 +46,7 @@ namespace internal {
 /// \param arena Arena that may be used for memory allocation.
 NDIterable::Ptr GetElementwiseOutputTransformNDIterable(
     NDIterable::Ptr output, DataType input_dtype,
-    ElementwiseClosure<2, Status*> closure, Arena* arena);
+    ElementwiseClosure<2, absl::Status*> closure, Arena* arena);
 
 }  // namespace internal
 }  // namespace tensorstore

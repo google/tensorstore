@@ -17,6 +17,7 @@
 
 #include <array>
 
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/riegeli_json_input.h"
@@ -39,10 +40,10 @@ namespace internal {
 /// \param NumSubElements Number of sub-elements in each element.
 template <size_t SubElementSize, size_t NumSubElements = 1>
 struct SwapEndianUnalignedInplaceLoopTemplate {
-  using ElementwiseFunctionType = ElementwiseFunction<1, Status*>;
+  using ElementwiseFunctionType = ElementwiseFunction<1, absl::Status*>;
   template <typename ArrayAccessor>
   static Index Loop(void* context, Index count, IterationBufferPointer pointer,
-                    Status* /*status*/) {
+                    absl::Status* /*status*/) {
     // Type used as a placeholder for a value of size
     // `SubElementSize*NumElements` without an alignment requirement.  To avoid
     // running afoul of C++ strict aliasing rules, this type should not actually
@@ -86,10 +87,10 @@ struct SwapEndianUnalignedInplaceLoopTemplate {
 /// \param NumSubElements Number of sub-elements in each element.
 template <size_t SubElementSize, size_t NumSubElements = 1>
 struct SwapEndianUnalignedLoopTemplate {
-  using ElementwiseFunctionType = ElementwiseFunction<2, Status*>;
+  using ElementwiseFunctionType = ElementwiseFunction<2, absl::Status*>;
   template <typename ArrayAccessor>
   static Index Loop(void* context, Index count, IterationBufferPointer source,
-                    IterationBufferPointer dest, Status* /*status*/) {
+                    IterationBufferPointer dest, absl::Status* /*status*/) {
     // Type used as a placeholder for a value of size
     // `SubElementSize*NumSubElements` without an alignment requirement.  To
     // avoid running afoul of C++ strict aliasing rules, this type should not
@@ -161,10 +162,10 @@ struct NonTrivialDataTypeSerializer<::nlohmann::json> {
 /// `NonTrivialDataTypeSerializer<Element>::Read`.
 template <typename Element>
 struct WriteNonTrivialLoopTemplate {
-  using ElementwiseFunctionType = ElementwiseFunction<1, Status*>;
+  using ElementwiseFunctionType = ElementwiseFunction<1, absl::Status*>;
   template <typename ArrayAccessor>
   static Index Loop(void* context, Index count, IterationBufferPointer source,
-                    Status* /*status*/) {
+                    absl::Status* /*status*/) {
     auto& writer = *reinterpret_cast<riegeli::Writer*>(context);
     for (Index i = 0; i < count; ++i) {
       if (!NonTrivialDataTypeSerializer<Element>::Write(
@@ -181,10 +182,10 @@ struct WriteNonTrivialLoopTemplate {
 /// `NonTrivialDataTypeSerializer<Element>::Write`.
 template <typename Element>
 struct ReadNonTrivialLoopTemplate {
-  using ElementwiseFunctionType = ElementwiseFunction<1, Status*>;
+  using ElementwiseFunctionType = ElementwiseFunction<1, absl::Status*>;
   template <typename ArrayAccessor>
   static Index Loop(void* context, Index count, IterationBufferPointer source,
-                    Status* /*status*/) {
+                    absl::Status* /*status*/) {
     auto& reader = *reinterpret_cast<riegeli::Reader*>(context);
     for (Index i = 0; i < count; ++i) {
       if (!NonTrivialDataTypeSerializer<Element>::Read(
@@ -214,10 +215,10 @@ template <size_t SubElementSize, size_t NumSubElements>
 struct WriteSwapEndianLoopTemplate {
   using Element = std::array<unsigned char, SubElementSize * NumSubElements>;
 
-  using ElementwiseFunctionType = ElementwiseFunction<1, Status*>;
+  using ElementwiseFunctionType = ElementwiseFunction<1, absl::Status*>;
   template <typename ArrayAccessor>
   static Index Loop(void* context, Index count, IterationBufferPointer source,
-                    Status* /*status*/) {
+                    absl::Status* /*status*/) {
     auto& writer = *reinterpret_cast<riegeli::Writer*>(context);
     if constexpr (SubElementSize == 1 &&
                   ArrayAccessor::buffer_kind ==
@@ -275,10 +276,10 @@ struct ReadSwapEndianLoopTemplate {
   static_assert(!IsBool || (SubElementSize == 1 && NumSubElements == 1));
   using Element = std::array<unsigned char, SubElementSize * NumSubElements>;
 
-  using ElementwiseFunctionType = ElementwiseFunction<1, Status*>;
+  using ElementwiseFunctionType = ElementwiseFunction<1, absl::Status*>;
   template <typename ArrayAccessor>
   static Index Loop(void* context, Index count, IterationBufferPointer source,
-                    Status* /*status*/) {
+                    absl::Status* /*status*/) {
     auto& reader = *reinterpret_cast<riegeli::Reader*>(context);
     if constexpr (SubElementSize == 1 &&
                   ArrayAccessor::buffer_kind ==

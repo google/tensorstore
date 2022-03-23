@@ -21,6 +21,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
@@ -41,7 +42,7 @@ using tensorstore::internal::NDIterableCopier;
 using ::testing::_;
 using ::testing::Pair;
 
-/// Returns the `Status` returned by `Copy()` and the final
+/// Returns the `absl::Status` returned by `Copy()` and the final
 /// `copier.stepper().position()` value.
 template <typename Func, typename SourceArray, typename DestArray>
 std::pair<absl::Status, std::vector<Index>> TestCopy(

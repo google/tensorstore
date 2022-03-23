@@ -16,6 +16,8 @@
 
 #include <ostream>
 
+#include "absl/status/status.h"
+
 namespace tensorstore {
 
 std::string_view to_string(ReadWriteMode mode) {
@@ -56,20 +58,21 @@ std::ostream& operator<<(std::ostream& os, OpenMode mode) {
 }
 
 namespace internal {
-Status ValidateSupportsRead(ReadWriteMode mode) {
+absl::Status ValidateSupportsRead(ReadWriteMode mode) {
   return !(mode & ReadWriteMode::read)
              ? absl::InvalidArgumentError("Source does not support reading.")
-             : Status();
+             : absl::Status();
 }
 
-Status ValidateSupportsWrite(ReadWriteMode mode) {
+absl::Status ValidateSupportsWrite(ReadWriteMode mode) {
   return !(mode & ReadWriteMode::write)
              ? absl::InvalidArgumentError(
                    "Destination does not support writing.")
-             : Status();
+             : absl::Status();
 }
 
-Status ValidateSupportsModes(ReadWriteMode mode, ReadWriteMode required_modes) {
+absl::Status ValidateSupportsModes(ReadWriteMode mode,
+                                   ReadWriteMode required_modes) {
   if ((mode & required_modes) != required_modes) {
     if (!!(required_modes & ReadWriteMode::read) &&
         !(mode & ReadWriteMode::read)) {

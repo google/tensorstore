@@ -30,6 +30,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/box.h"
 #include "tensorstore/codec_spec.h"
@@ -216,11 +217,11 @@ std::string GetMetadataCompatibilityKey(const MultiscaleMetadata& metadata,
 /// the same scale of `new_metadata`.
 ///
 /// \pre `scale_index < existing_metadata.scales.size()`
-/// \returns `Status()` on success.
+/// \returns `absl::Status()` on success.
 /// \error `absl::StatusCode::kFailedPrecondition` if
 ///     `scale_index >= new_metadata.scales.size()` or the scales are not
 ///     compatible.
-Status ValidateMetadataCompatibility(
+absl::Status ValidateMetadataCompatibility(
     const MultiscaleMetadata& existing_metadata,
     const MultiscaleMetadata& new_metadata, std::size_t scale_index,
     const std::array<Index, 3>& chunk_size);
@@ -318,7 +319,7 @@ std::string ResolveScaleKey(std::string_view key_prefix,
 /// format.
 ///
 /// \dchecks `dtype.valid()`
-Status ValidateDataType(DataType dtype);
+absl::Status ValidateDataType(DataType dtype);
 
 /// Returns the number of bits used for each index in the compressed Z index
 /// representation of chunk indices.

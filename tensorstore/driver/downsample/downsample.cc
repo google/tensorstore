@@ -17,6 +17,7 @@
 #include <mutex>
 
 #include "absl/base/thread_annotations.h"
+#include "absl/status/status.h"
 #include "tensorstore/driver/downsample/downsample_array.h"
 #include "tensorstore/driver/downsample/downsample_method_json_binder.h"
 #include "tensorstore/driver/downsample/downsample_nditerable.h"
@@ -355,9 +356,9 @@ class DownsampleDriver
     return base_driver_->data_copy_executor();
   }
 
-  void Read(
-      OpenTransactionPtr transaction, IndexTransform<> transform,
-      AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) override;
+  void Read(OpenTransactionPtr transaction, IndexTransform<> transform,
+            AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
+      override;
 
   Future<IndexTransform<>> ResolveBounds(OpenTransactionPtr transaction,
                                          IndexTransform<> transform,
@@ -450,7 +451,7 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
   IntrusivePtr<DownsampleDriver> self_;
 
   /// Receiver of downsampled chunks.
-  AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver_;
+  AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver_;
 
   /// Protects access to most other members.
   absl::Mutex mutex_;
@@ -870,7 +871,7 @@ struct ReadReceiverImpl {
 
 void DownsampleDriver::Read(
     OpenTransactionPtr transaction, IndexTransform<> transform,
-    AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) {
+    AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
   if (downsample_method_ == DownsampleMethod::kStride) {
     // Stride-based downsampling just relies on the normal `IndexTransform`
     // machinery.

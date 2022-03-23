@@ -96,11 +96,11 @@
 ///
 ///
 ///
-/// The `tensorstore::Result<T>` type models both `Sender<Status, T>` and
-/// `Receiver<Status, T>`.  The `tensorstore::Future<T>` type models
-/// `Sender<Status, T>`, while `tensorstore::Promise<T>` models
-/// `Receiver<Status, T>`.  The `MakeSenderFuture` function defined in future.h
-/// converts any `Sender<Status, T>` into a `Future<T>`:
+/// The `tensorstore::Result<T>` type models both `Sender<absl::Status, T>` and
+/// `Receiver<absl::Status, T>`.  The `tensorstore::Future<T>` type models
+/// `Sender<absl::Status, T>`, while `tensorstore::Promise<T>` models
+/// `Receiver<absl::Status, T>`.  The `MakeSenderFuture` function defined in
+/// future.h converts any `Sender<absl::Status, T>` into a `Future<T>`:
 ///
 /// Heavily inspired by:
 ///
@@ -123,6 +123,7 @@
 #include <utility>
 
 #include "absl/base/attributes.h"
+#include "absl/status/status.h"
 #include "absl/utility/utility.h"
 #include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/util/execution/execution.h"

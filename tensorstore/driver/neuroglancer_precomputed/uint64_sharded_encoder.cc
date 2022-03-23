@@ -15,6 +15,7 @@
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded_encoder.h"
 
 #include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
 #include "tensorstore/internal/compression/zlib.h"
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/util/endian.h"
@@ -70,7 +71,7 @@ ShardEncoder::ShardEncoder(const ShardingSpec& sharding_spec, absl::Cord& out)
 namespace {
 Result<std::uint64_t> EncodeData(
     const absl::Cord& input, ShardingSpec::DataEncoding encoding,
-    absl::FunctionRef<Status(const absl::Cord& buffer)> write_function) {
+    absl::FunctionRef<absl::Status(const absl::Cord& buffer)> write_function) {
   auto encoded = EncodeData(input, encoding);
   if (auto status = write_function(encoded); status.ok()) {
     return encoded.size();
@@ -80,7 +81,7 @@ Result<std::uint64_t> EncodeData(
 }
 }  // namespace
 
-Status ShardEncoder::FinalizeMinishard() {
+absl::Status ShardEncoder::FinalizeMinishard() {
   if (minishard_index_.empty()) return absl::OkStatus();
   auto uncompressed_minishard_index = EncodeMinishardIndex(minishard_index_);
   TENSORSTORE_ASSIGN_OR_RETURN(
@@ -122,9 +123,10 @@ Result<ByteRange> ShardEncoder::WriteUnindexedEntry(std::uint64_t minishard,
   return ByteRange{start_offset, data_file_offset_};
 }
 
-Status ShardEncoder::WriteIndexedEntry(std::uint64_t minishard,
-                                       ChunkId chunk_id, const absl::Cord& data,
-                                       bool compress) {
+absl::Status ShardEncoder::WriteIndexedEntry(std::uint64_t minishard,
+                                             ChunkId chunk_id,
+                                             const absl::Cord& data,
+                                             bool compress) {
   TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
                                WriteUnindexedEntry(minishard, data, compress));
   minishard_index_.push_back({chunk_id, byte_range});

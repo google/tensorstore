@@ -39,6 +39,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:json_array",
         "//tensorstore/internal:nditerable_transformed_array",
         "//tensorstore/internal:type_traits",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/synchronization",
     ],
     alwayslink = 1,

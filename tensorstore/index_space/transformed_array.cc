@@ -14,6 +14,7 @@
 
 #include "tensorstore/index_space/transformed_array.h"
 
+#include "absl/status/status.h"
 #include "tensorstore/data_type_conversion.h"
 #include "tensorstore/index_space/internal/iterate_impl.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
@@ -54,11 +55,11 @@ void MultiplyByteStridesIntoOutputIndexMaps(TransformRep* transform,
 }
 }  // namespace
 
-Status CopyTransformedArrayImpl(TransformedArrayView<const void> source,
-                                TransformedArrayView<void> dest) {
+absl::Status CopyTransformedArrayImpl(TransformedArrayView<const void> source,
+                                      TransformedArrayView<void> dest) {
   TENSORSTORE_ASSIGN_OR_RETURN(auto r, internal::GetDataTypeConverterOrError(
                                            source.dtype(), dest.dtype()));
-  Status status;
+  absl::Status status;
   using TA = TransformedArrayView<const void>;
   TENSORSTORE_ASSIGN_OR_RETURN(auto iterate_result,
                                internal::IterateOverTransformedArrays<2>(
@@ -110,7 +111,7 @@ namespace internal {
 
 template <std::size_t Arity>
 Result<ArrayIterateResult> IterateOverTransformedArrays(
-    ElementwiseClosure<Arity, Status*> closure, Status* status,
+    ElementwiseClosure<Arity, absl::Status*> closure, absl::Status* status,
     IterationConstraints constraints,
     span<const TransformedArrayView<const void>, Arity> transformed_arrays) {
   if (Arity == 0) return ArrayIterateResult{/*.success=*/true, /*.count=*/0};
@@ -215,7 +216,7 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
 
 #define TENSORSTORE_DO_INSTANTIATE_ITERATE_OVER_TRANSFORMED_ARRAYS(Arity)      \
   template Result<ArrayIterateResult> IterateOverTransformedArrays<Arity>(     \
-      ElementwiseClosure<Arity, Status*> closure, Status * status,             \
+      ElementwiseClosure<Arity, absl::Status*> closure, absl::Status * status, \
       IterationConstraints constraints,                                        \
       span<const TransformedArrayView<const void>, Arity> transformed_arrays); \
   /**/

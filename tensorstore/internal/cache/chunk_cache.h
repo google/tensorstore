@@ -51,6 +51,7 @@
 #include <vector>
 
 #include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
@@ -332,10 +333,10 @@ class ChunkCache : public AsyncCache {
   /// \param staleness Cached data older than `staleness` will not be returned
   ///     without being rechecked.
   /// \param receiver Receiver for the chunks.
-  void Read(internal::OpenTransactionPtr transaction,
-            std::size_t component_index, IndexTransform<> transform,
-            absl::Time staleness,
-            AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver);
+  void Read(
+      internal::OpenTransactionPtr transaction, std::size_t component_index,
+      IndexTransform<> transform, absl::Time staleness,
+      AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver);
 
   /// Implements the behavior of `Driver::Write` for a given component array.
   ///
@@ -349,9 +350,10 @@ class ChunkCache : public AsyncCache {
   ///     `[0, grid().components.size())`.
   /// \param transform The transform to apply.
   /// \param receiver Receiver for the chunks.
-  void Write(internal::OpenTransactionPtr transaction,
-             std::size_t component_index, IndexTransform<> transform,
-             AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver);
+  void Write(
+      internal::OpenTransactionPtr transaction, std::size_t component_index,
+      IndexTransform<> transform,
+      AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver);
 
   /// Returns the entry for the specified grid cell.  If it does not already
   /// exist, it will be created.
@@ -405,14 +407,14 @@ class ChunkCacheDriver : public Driver {
   DimensionIndex rank() override;
 
   /// Simply forwards to `ChunkCache::Read`.
-  void Read(
-      OpenTransactionPtr transaction, IndexTransform<> transform,
-      AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) override;
+  void Read(OpenTransactionPtr transaction, IndexTransform<> transform,
+            AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
+      override;
 
   /// Simply forwards to `ChunkCache::Write`.
-  void Write(
-      OpenTransactionPtr transaction, IndexTransform<> transform,
-      AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) override;
+  void Write(OpenTransactionPtr transaction, IndexTransform<> transform,
+             AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>
+                 receiver) override;
 
   std::size_t component_index() const { return component_index_; }
 

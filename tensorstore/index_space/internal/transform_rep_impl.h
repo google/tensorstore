@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INTERNAL_TRANSFORM_REP_IMPL_H_
 #define TENSORSTORE_INDEX_SPACE_INTERNAL_TRANSFORM_REP_IMPL_H_
 
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
@@ -45,8 +46,9 @@ void CopyInputLabels(TransformRep* source, TransformRep* dest, bool can_move);
 ///
 /// \dchecks `inner.rank() == combined.rank()`.
 template <typename Predicate>
-Status ValidateAndIntersectBounds(BoxView<> inner, MutableBoxView<> combined,
-                                  Predicate predicate) {
+absl::Status ValidateAndIntersectBounds(BoxView<> inner,
+                                        MutableBoxView<> combined,
+                                        Predicate predicate) {
   assert(inner.rank() == combined.rank());
   std::string error;
   for (DimensionIndex dim = 0; dim < inner.rank(); ++dim) {
@@ -79,9 +81,10 @@ Status ValidateAndIntersectBounds(BoxView<> inner, MutableBoxView<> combined,
 /// \error `absl::StatusCode::kOutOfRange` if `index` is not contained within
 ///    `bounds`.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
-Status ReplaceZeroRankIndexArrayIndexMap(Index index, IndexInterval bounds,
-                                         Index* output_offset,
-                                         Index* output_stride);
+absl::Status ReplaceZeroRankIndexArrayIndexMap(Index index,
+                                               IndexInterval bounds,
+                                               Index* output_offset,
+                                               Index* output_stride);
 
 }  // namespace internal_index_space
 }  // namespace tensorstore

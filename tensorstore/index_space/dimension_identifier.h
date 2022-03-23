@@ -21,6 +21,7 @@
 #include <string_view>
 #include <variant>
 
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/util/result.h"
@@ -186,10 +187,11 @@ struct DimRangeSpec {
 /// \param spec The dimension range specification.
 /// \param rank Number of dimensions.
 /// \param result[out] Non-null pointer to result vector.
-/// \returns `Status()` on success.
+/// \returns `absl::Status()` on success.
 /// \error `absl::StatusCode::kInvalidArgument` if `spec` is invalid.
-Status NormalizeDimRangeSpec(const DimRangeSpec& spec, DimensionIndex rank,
-                             DimensionIndexBuffer* result);
+absl::Status NormalizeDimRangeSpec(const DimRangeSpec& spec,
+                                   DimensionIndex rank,
+                                   DimensionIndexBuffer* result);
 
 /// Specifies a dimension by index or label or a range of dimensions.
 ///
@@ -217,17 +219,17 @@ using DynamicDimSpec = std::variant<DimensionIndex, std::string, DimRangeSpec>;
 /// \param spec The dimension specification.
 /// \param labels Vector of length ` rank` specifying the dimension labels.
 /// \param result[out] Non-null pointer to result vector.
-/// \returns `Status()` on success.
+/// \returns `absl::Status()` on success.
 /// \error `absl::StatusCode::kInvalidArgument` if `spec` is invalid.
-Status NormalizeDynamicDimSpec(const DynamicDimSpec& spec,
-                               span<const std::string> labels,
-                               DimensionIndexBuffer* result);
+absl::Status NormalizeDynamicDimSpec(const DynamicDimSpec& spec,
+                                     span<const std::string> labels,
+                                     DimensionIndexBuffer* result);
 
 /// Equivalent to calling `NormalizeDynamicDimSpec(spec, labels, result)` for
 /// each `spec` in `specs`.
-Status NormalizeDynamicDimSpecs(span<const DynamicDimSpec> specs,
-                                span<const std::string> labels,
-                                DimensionIndexBuffer* result);
+absl::Status NormalizeDynamicDimSpecs(span<const DynamicDimSpec> specs,
+                                      span<const std::string> labels,
+                                      DimensionIndexBuffer* result);
 
 }  // namespace tensorstore
 

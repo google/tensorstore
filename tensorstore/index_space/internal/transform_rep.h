@@ -21,6 +21,7 @@
 #include <memory>
 #include <string>
 
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index.h"
@@ -612,8 +613,9 @@ TransformRep::Ptr<> WithImplicitDimensions(TransformRep::Ptr<> transform,
 ///     within the domain (implicit bounds are ignored).
 /// \error `absl::StatusCode::kOutOfRange` if an array output index map results
 ///     in an index outside its `index_range` constraint.
-Status TransformIndices(TransformRep* data, span<const Index> input_indices,
-                        span<Index> output_indices);
+absl::Status TransformIndices(TransformRep* data,
+                              span<const Index> input_indices,
+                              span<Index> output_indices);
 
 /// Returns a transform with `input_rank==dims.size()` and `output_rank==0` in
 /// which dimension `i` has the domain of dimension `dims[i]` of `*rep`.

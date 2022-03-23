@@ -14,12 +14,13 @@
 
 #include "tensorstore/static_cast.h"
 
+#include "absl/status/status.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_cast {
-Status CastError(std::string_view source_description,
-                 std::string_view target_description) {
+absl::Status CastError(std::string_view source_description,
+                       std::string_view target_description) {
   return absl::InvalidArgumentError(
       StrCat("Cannot cast ", source_description, " to ", target_description));
 }

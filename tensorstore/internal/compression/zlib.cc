@@ -14,6 +14,7 @@
 
 #include "tensorstore/internal/compression/zlib.h"
 
+#include "absl/status/status.h"
 #include "tensorstore/internal/compression/cord_stream_manager.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/status.h"
@@ -56,12 +57,12 @@ struct DeflateOp {
 /// \param level Compression level, must be in the range [0, 9].
 /// \param use_gzip_header If `true`, use gzip header.  Otherwise, use zlib
 ///     header.
-/// \returns `Status()` on success.
+/// \returns `absl::Status()` on success.
 /// \error `absl::StatusCode::kInvalidArgument` if decoding fails due to input
 ///     input.
 template <typename Op>
-Status ProcessZlib(const absl::Cord& input, absl::Cord* output, int level,
-                   bool use_gzip_header) {
+absl::Status ProcessZlib(const absl::Cord& input, absl::Cord* output, int level,
+                         bool use_gzip_header) {
   z_stream s = {};
   internal::CordStreamManager<z_stream, /*BufferSize=*/16 * 1024>
       stream_manager(s, input, output);
@@ -111,8 +112,8 @@ void Encode(const absl::Cord& input, absl::Cord* output,
       .IgnoreError();
 }
 
-Status Decode(const absl::Cord& input, absl::Cord* output,
-              bool use_gzip_header) {
+absl::Status Decode(const absl::Cord& input, absl::Cord* output,
+                    bool use_gzip_header) {
   return ProcessZlib<InflateOp>(input, output, 0, use_gzip_header);
 }
 

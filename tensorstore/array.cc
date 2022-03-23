@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <limits>
 
+#include "absl/status/status.h"
 #include "riegeli/varint/varint_reading.h"
 #include "riegeli/varint/varint_writing.h"
 #include "tensorstore/box.h"
@@ -54,12 +55,12 @@ void CopyArrayImplementation(
                               dest);
 }
 
-Status CopyConvertedArrayImplementation(
+absl::Status CopyConvertedArrayImplementation(
     const ArrayView<const void, dynamic_rank, offset_origin>& source,
     const ArrayView<void, dynamic_rank, offset_origin>& dest) {
   TENSORSTORE_ASSIGN_OR_RETURN(auto r, internal::GetDataTypeConverterOrError(
                                            source.dtype(), dest.dtype()));
-  Status status;
+  absl::Status status;
   if (!internal::IterateOverArrays(r.closure,
                                    /*status=*/&status,
                                    /*constraints=*/skip_repeated_elements,
@@ -120,7 +121,7 @@ std::string DescribeForCast(DataType dtype, DimensionIndex rank) {
                 " and ", StaticCastTraits<DimensionIndex>::Describe(rank));
 }
 
-Status ArrayOriginCastError(span<const Index> shape) {
+absl::Status ArrayOriginCastError(span<const Index> shape) {
   return absl::InvalidArgumentError(StrCat("Cannot translate array with shape ",
                                            shape, " to have zero origin."));
 }

@@ -589,7 +589,7 @@ Future<TimestampedStorageGeneration> MockKeyValueStore::Write(
 }
 
 void MockKeyValueStore::ListImpl(ListOptions options,
-                                 AnyFlowReceiver<Status, Key> receiver) {
+                                 AnyFlowReceiver<absl::Status, Key> receiver) {
   list_requests.push({options, std::move(receiver)});
 }
 
@@ -667,7 +667,7 @@ class RegisteredMockKeyValueStore
   }
 
   void ListImpl(ListOptions options,
-                AnyFlowReceiver<Status, Key> receiver) override {
+                AnyFlowReceiver<absl::Status, Key> receiver) override {
     base()->ListImpl(std::move(options), std::move(receiver));
   }
 

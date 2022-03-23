@@ -29,7 +29,8 @@
 namespace tensorstore {
 namespace internal_json {
 
-Status ExpectedError(const ::nlohmann::json& j, std::string_view type_name) {
+absl::Status ExpectedError(const ::nlohmann::json& j,
+                           std::string_view type_name) {
   if (j.is_discarded()) {
     return absl::InvalidArgumentError(
         StrCat("Expected ", type_name, ", but member is missing"));
@@ -38,15 +39,16 @@ Status ExpectedError(const ::nlohmann::json& j, std::string_view type_name) {
       StrCat("Expected ", type_name, ", but received: ", j.dump()));
 }
 
-Status ValidationError(const ::nlohmann::json& j, std::string_view type_name) {
+absl::Status ValidationError(const ::nlohmann::json& j,
+                             std::string_view type_name) {
   return absl::InvalidArgumentError(
       StrCat("Validation of ", type_name, " failed, received: ", j.dump()));
 }
 
 template <typename T>
-Status JsonRequireIntegerImpl<T>::Execute(const ::nlohmann::json& json,
-                                          T* result, bool strict, T min_value,
-                                          T max_value) {
+absl::Status JsonRequireIntegerImpl<T>::Execute(const ::nlohmann::json& json,
+                                                T* result, bool strict,
+                                                T min_value, T max_value) {
   if (auto x = internal::JsonValueAs<T>(json, strict)) {
     if (*x >= min_value && *x <= max_value) {
       *result = *x;

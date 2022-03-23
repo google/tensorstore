@@ -18,6 +18,7 @@
 
 #include "absl/algorithm/container.h"
 #include "absl/base/internal/endian.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include "tensorstore/codec_spec_registry.h"
 #include "tensorstore/index_space/index_domain_builder.h"
@@ -309,8 +310,8 @@ Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
   return full_cord;
 }
 
-Status ValidateMetadata(const N5Metadata& metadata,
-                        const N5MetadataConstraints& constraints) {
+absl::Status ValidateMetadata(const N5Metadata& metadata,
+                              const N5MetadataConstraints& constraints) {
   if (constraints.shape && !absl::c_equal(metadata.shape, *constraints.shape)) {
     return MetadataMismatchError("dimensions", *constraints.shape,
                                  metadata.shape);
@@ -647,7 +648,7 @@ absl::Status ValidateMetadataSchema(const N5Metadata& metadata,
   return absl::OkStatus();
 }
 
-Status ValidateDataType(DataType dtype) {
+absl::Status ValidateDataType(DataType dtype) {
   if (!absl::c_linear_search(kSupportedDataTypes, dtype.id())) {
     return absl::InvalidArgumentError(
         StrCat(dtype, " data type is not one of the supported data types: ",

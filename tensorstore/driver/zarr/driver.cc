@@ -16,6 +16,7 @@
 
 #include <vector>
 
+#include "absl/status/status.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
@@ -108,7 +109,7 @@ class ZarrDriverSpec
     return f(internal::BaseCast<KvsDriverSpec>(x), x.partial_metadata,
              x.selected_field);
   };
-  Status ApplyOptions(SpecOptions&& options) override {
+  absl::Status ApplyOptions(SpecOptions&& options) override {
     if (options.minimal_spec) {
       partial_metadata = ZarrPartialMetadata{};
     }
@@ -266,8 +267,9 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
         dimension_separator_(dimension_separator),
         metadata_key_(std::move(metadata_key)) {}
 
-  Status ValidateMetadataCompatibility(const void* existing_metadata_ptr,
-                                       const void* new_metadata_ptr) override {
+  absl::Status ValidateMetadataCompatibility(
+      const void* existing_metadata_ptr,
+      const void* new_metadata_ptr) override {
     assert(existing_metadata_ptr);
     assert(new_metadata_ptr);
     const auto& existing_metadata =

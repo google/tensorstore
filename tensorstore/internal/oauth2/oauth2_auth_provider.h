@@ -19,6 +19,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/status/status.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -50,7 +51,7 @@ class OAuth2AuthProvider : public AuthProvider {
   Result<BearerTokenWithExpiration> GetToken() override;
 
   /// \brief Refresh the OAuth2 token.
-  Status Refresh();
+  absl::Status Refresh();
 
   bool IsExpired() { return clock_() > (expiration_ - kExpirationMargin); }
 

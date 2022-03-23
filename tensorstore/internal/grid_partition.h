@@ -96,6 +96,7 @@
 /// of multiple tensorstores.
 
 #include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -120,18 +121,18 @@ namespace internal {
 /// \param transform The index transform from "full" to "output".  Must be
 ///     valid.
 /// \param func The function to be called for each partition.  May return an
-///     error `Status` to abort the iteration.
-/// \returns `Status()` on success, or the last error returned by `func`.
+///     error `absl::Status` to abort the iteration.
+/// \returns `absl::Status()` on success, or the last error returned by `func`.
 /// \error `absl::StatusCode::kInvalidArgument` if any input dimension of
 ///     `transform` has an unbounded domain.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
 /// \error `absl::StatusCode::kOutOfRange` if an index array contains an
 ///     out-of-bounds index.
-Status PartitionIndexTransformOverRegularGrid(
+absl::Status PartitionIndexTransformOverRegularGrid(
     span<const DimensionIndex> grid_output_dimensions,
     span<const Index> grid_cell_shape, IndexTransformView<> transform,
-    absl::FunctionRef<Status(span<const Index> grid_cell_indices,
-                             IndexTransformView<> cell_transform)>
+    absl::FunctionRef<absl::Status(span<const Index> grid_cell_indices,
+                                   IndexTransformView<> cell_transform)>
         func);
 
 /// Partitions the input domain of a given `transform` from an input space
@@ -142,13 +143,13 @@ Status PartitionIndexTransformOverRegularGrid(
 /// For each grid cell index vector `h` in `H`, calls
 ///   `func(h, cell_transform[h])`.
 ///
-Status PartitionIndexTransformOverGrid(
+absl::Status PartitionIndexTransformOverGrid(
     span<const DimensionIndex> grid_output_dimensions,
     absl::FunctionRef<Index(DimensionIndex, Index, IndexInterval*)>
         output_to_grid_cell,
     IndexTransformView<> transform,
-    absl::FunctionRef<Status(span<const Index> grid_cell_indices,
-                             IndexTransformView<> cell_transform)>
+    absl::FunctionRef<absl::Status(span<const Index> grid_cell_indices,
+                                   IndexTransformView<> cell_transform)>
         func);
 
 }  // namespace internal

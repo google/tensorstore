@@ -33,6 +33,7 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
+        "@com_google_absl//absl/status",
         "@com_google_riegeli//riegeli/varint:varint_reading",
         "@com_google_riegeli//riegeli/varint:varint_writing",
     ],
@@ -337,6 +338,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util:utf8_string",
         "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/status",
         "@net_sourceforge_half//:half",
     ],
 )
@@ -398,6 +400,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -459,7 +462,6 @@ tensorstore_cc_library(
         ":spec",
         ":tensorstore",
         "//tensorstore/driver",
-        "//tensorstore/kvstore",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
@@ -500,6 +502,7 @@ tensorstore_cc_library(
         ":index",
         "//tensorstore/internal/poly",
         "//tensorstore/util:future",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -631,6 +634,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/util:result",
         "//tensorstore/util:status",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -708,6 +712,7 @@ tensorstore_cc_library(
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/serialization",
         "//tensorstore/util:future",
+        "@com_google_absl//absl/status",
     ],
 )
 

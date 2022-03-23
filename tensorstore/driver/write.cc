@@ -125,7 +125,7 @@ struct WriteState : public internal::AtomicReferenceCount<WriteState> {
   Promise<void> commit_promise;
   IntrusivePtr<CommitState> commit_state{new CommitState};
 
-  void SetError(Status error) {
+  void SetError(absl::Status error) {
     SetDeferredResult(copy_promise, std::move(error));
   }
 };
@@ -217,7 +217,7 @@ struct WriteChunkReceiver {
   }
   void set_stopping() { cancel_registration(); }
   void set_done() {}
-  void set_error(Status error) { state->SetError(std::move(error)); }
+  void set_error(absl::Status error) { state->SetError(std::move(error)); }
   void set_value(WriteChunk chunk, IndexTransform<> cell_transform) {
     // Defer all work to the executor, because we don't know on which thread
     // this may be called.

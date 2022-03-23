@@ -18,6 +18,7 @@
 
 #include <utility>
 
+#include "absl/status/status.h"
 #include "absl/time/clock.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_handle.h"
@@ -84,7 +85,7 @@ Result<HttpResponse> GoogleServiceAccountAuthProvider::IssueRequest(
       .result();
 }
 
-Status GoogleServiceAccountAuthProvider::Refresh() {
+absl::Status GoogleServiceAccountAuthProvider::Refresh() {
   const auto now = clock_();
 
   // Try service account credentials.

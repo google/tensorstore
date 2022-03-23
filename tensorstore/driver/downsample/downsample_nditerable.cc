@@ -823,7 +823,8 @@ class DownsampledNDIterator : public NDIterator::Base<DownsampledNDIterator> {
   }
 
   Index GetBlock(span<const Index> indices, Index block_size,
-                 IterationBufferPointer* pointer, Status* status) override {
+                 IterationBufferPointer* pointer,
+                 absl::Status* status) override {
     const DimensionIndex num_downsample_dims = num_downsample_dims_;
     const DimensionIndex base_iteration_rank = base_iteration_rank_;
     const DimensionIndex base_iter_dim_offset =

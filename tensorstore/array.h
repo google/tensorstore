@@ -27,6 +27,7 @@
 #include <limits>
 #include <type_traits>
 
+#include "absl/status/status.h"
 #include "tensorstore/box.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/meta.h"
@@ -70,7 +71,7 @@ void CopyArrayImplementation(
     const Array<void, dynamic_rank, offset_origin, view>& dest);
 
 /// Copies `source` to `dest` with optional data type conversion.
-Status CopyConvertedArrayImplementation(
+absl::Status CopyConvertedArrayImplementation(
     const Array<const void, dynamic_rank, offset_origin, view>& source,
     const Array<void, dynamic_rank, offset_origin, view>& dest);
 
@@ -364,7 +365,7 @@ void PrintToOstream(
     std::ostream& os,
     const ArrayView<const void, dynamic_rank, offset_origin>& array);
 std::string DescribeForCast(DataType dtype, DimensionIndex rank);
-Status ArrayOriginCastError(span<const Index> shape);
+absl::Status ArrayOriginCastError(span<const Index> shape);
 }  // namespace internal_array
 
 /// Represents a pointer to an in-memory multi-dimensional array with an
@@ -1466,8 +1467,9 @@ namespace internal {
 /// Internal untyped interface for iterating over arrays.
 template <typename... Array>
 ArrayIterateResult IterateOverArrays(
-    ElementwiseClosure<sizeof...(Array), Status*> closure, Status* status,
-    IterationConstraints constraints, const Array&... array) {
+    ElementwiseClosure<sizeof...(Array), absl::Status*> closure,
+    absl::Status* status, IterationConstraints constraints,
+    const Array&... array) {
   TENSORSTORE_CHECK(ArraysHaveSameShapes(array...));
   const std::array<std::ptrdiff_t, sizeof...(Array)> element_sizes{
       {array.dtype().size()...}};
@@ -1488,9 +1490,9 @@ ArrayIterateResult IterateOverArrays(
 /// \requires The `Array` types must satisfy `IsArray<Array>` and have
 ///     compatible static ranks.
 /// \param func The element-wise function.  Must return `void` or `bool` when
-///     invoked as `func(Array::Element*..., Status*)`.  Iteration stops if the
-///     return value is `false`.
-/// \param status The Status pointer to pass through the `func`.
+///     invoked as `func(Array::Element*..., absl::Status*)`.  Iteration stops
+///     if the return value is `false`.
+/// \param status The absl::Status pointer to pass through the `func`.
 /// \param iteration_order Specifies constraints on the iteration order, and
 ///     whether repeated elements may be skipped.  If
 ///     `constraints.can_skip_repeated_elements()`, the element-wise function
@@ -1506,21 +1508,22 @@ ArrayIterateResult IterateOverArrays(
 ///     and the number of elements processed.
 /// \checks `ArraysHaveSameShapes(array...)`
 template <typename Func, typename... Array>
-std::enable_if_t<((IsArray<Array>::value && ...) &&
-                  std::is_constructible_v<
-                      bool, internal::Void::WrappedType<std::invoke_result_t<
-                                Func&, typename Array::Element*..., Status*>>>),
-                 ArrayIterateResult>
-IterateOverArrays(Func&& func, Status* status, IterationConstraints constraints,
-                  const Array&... array) {
+std::enable_if_t<
+    ((IsArray<Array>::value && ...) &&
+     std::is_constructible_v<
+         bool, internal::Void::WrappedType<std::invoke_result_t<
+                   Func&, typename Array::Element*..., absl::Status*>>>),
+    ArrayIterateResult>
+IterateOverArrays(Func&& func, absl::Status* status,
+                  IterationConstraints constraints, const Array&... array) {
   return internal::IterateOverArrays(
       internal::SimpleElementwiseFunction<std::remove_reference_t<Func>(
                                               typename Array::Element...),
-                                          Status*>::Closure(&func),
+                                          absl::Status*>::Closure(&func),
       status, constraints, array...);
 }
 
-/// Same as above, except that `func` is called without an extra `Status*`
+/// Same as above, except that `func` is called without an extra `absl::Status*`
 /// argument.
 template <typename Func, typename... Array>
 std::enable_if_t<((IsArray<Array>::value && ...) &&
@@ -1530,13 +1533,12 @@ std::enable_if_t<((IsArray<Array>::value && ...) &&
                  ArrayIterateResult>
 IterateOverArrays(Func&& func, IterationConstraints constraints,
                   const Array&... array) {
-  const auto func_wrapper = [&func](typename Array::Element*... ptr, Status*) {
-    return func(ptr...);
-  };
+  const auto func_wrapper = [&func](typename Array::Element*... ptr,
+                                    absl::Status*) { return func(ptr...); };
   return internal::IterateOverArrays(
-      internal::SimpleElementwiseFunction<decltype(func_wrapper)(
-                                              typename Array::Element...),
-                                          Status*>::Closure(&func_wrapper),
+      internal::SimpleElementwiseFunction<
+          decltype(func_wrapper)(typename Array::Element...),
+          absl::Status*>::Closure(&func_wrapper),
       /*status=*/nullptr, constraints, array...);
 }
 
@@ -1569,7 +1571,7 @@ CopyArray(const Source& source, const Dest& dest) {
 /// \error `absl::StatusCode::kInvalidArgument` if the conversion is not
 ///     supported or fails.
 template <typename Source, typename Dest>
-Status CopyConvertedArray(const Source& source, const Dest& dest) {
+absl::Status CopyConvertedArray(const Source& source, const Dest& dest) {
   static_assert(IsArray<Source>::value, "Source must be an instance of Array");
   static_assert(IsArray<Dest>::value, "Dest must be an instance of Array");
   static_assert(

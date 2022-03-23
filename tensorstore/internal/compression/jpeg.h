@@ -16,6 +16,7 @@
 #define TENSORSTORE_INTERNAL_COMPRESSION_JPEG_H_
 
 #include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -39,12 +40,13 @@ struct EncodeOptions {
 ///     size `width * height * num_components` that will be treated as a C order
 ///     `(height, width, num_components)` array in which to store the decoded
 ///     image.
-/// \returns `Status()` on success, or the error returned by `validate_size`.
-/// \error `absl::StatusCode::kInvalidArgument` if the source data is corrupt.
-Status Decode(const absl::Cord& input,
-              absl::FunctionRef<Result<unsigned char*>(
-                  size_t width, size_t height, size_t num_components)>
-                  validate_size);
+/// \returns `absl::Status()` on success, or the error returned by
+/// `validate_size`. \error `absl::StatusCode::kInvalidArgument` if the source
+/// data is corrupt.
+absl::Status Decode(const absl::Cord& input,
+                    absl::FunctionRef<Result<unsigned char*>(
+                        size_t width, size_t height, size_t num_components)>
+                        validate_size);
 
 /// Encodes a source array in JPEG format.
 ///
@@ -57,9 +59,9 @@ Status Decode(const absl::Cord& input,
 /// \param output[out] Output buffer to which encoded JPEG will be appended.
 /// \error `absl::StatusCode::kInvalidArgument` if the source image array has
 ///     invalid dimensions.
-Status Encode(const unsigned char* source, size_t width, size_t height,
-              size_t num_components, const EncodeOptions& options,
-              absl::Cord* output);
+absl::Status Encode(const unsigned char* source, size_t width, size_t height,
+                    size_t num_components, const EncodeOptions& options,
+                    absl::Cord* output);
 
 }  // namespace jpeg
 }  // namespace tensorstore

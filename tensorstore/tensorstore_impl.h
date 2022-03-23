@@ -17,6 +17,7 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/tensorstore.h"
 
+#include "absl/status/status.h"
 #include "tensorstore/data_type_conversion.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/index.h"
@@ -203,7 +204,7 @@ struct IndexTransformFutureCallback {
   }
 };
 
-Status ResizeRankError(DimensionIndex rank);
+absl::Status ResizeRankError(DimensionIndex rank);
 
 std::string DescribeForCast(DataType dtype, DimensionIndex rank,
                             ReadWriteMode mode);

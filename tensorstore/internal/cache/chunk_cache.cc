@@ -27,6 +27,7 @@
 #include "absl/base/thread_annotations.h"
 #include "absl/container/fixed_array.h"
 #include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
@@ -283,7 +284,7 @@ struct ReadChunkTransactionImpl {
 
 /// Shared state used while `Read` is in progress.
 struct ReadOperationState : public AtomicReferenceCount<ReadOperationState> {
-  using Receiver = AnyFlowReceiver<Status, ReadChunk, IndexTransform<>>;
+  using Receiver = AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>>;
   struct SharedReceiver : public AtomicReferenceCount<SharedReceiver> {
     Receiver receiver;
   };
@@ -452,7 +453,7 @@ ChunkCache::ChunkCache(ChunkGridSpecification grid, Executor executor)
 void ChunkCache::Read(
     OpenTransactionPtr transaction, std::size_t component_index,
     IndexTransform<> transform, absl::Time staleness,
-    AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) {
+    AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
   assert(component_index >= 0 && component_index < grid().components.size());
   const auto& component_spec = grid().components[component_index];
   IntrusivePtr<ReadOperationState> state(
@@ -502,7 +503,7 @@ void ChunkCache::Read(
 void ChunkCache::Write(
     OpenTransactionPtr transaction, std::size_t component_index,
     IndexTransform<> transform,
-    AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) {
+    AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver) {
   assert(component_index >= 0 && component_index < grid().components.size());
   // In this implementation, chunks are always available for writing
   // immediately.  The entire stream of chunks is sent to the receiver before
@@ -510,7 +511,7 @@ void ChunkCache::Write(
   const auto& component_spec = grid().components[component_index];
   std::atomic<bool> cancelled{false};
   execution::set_starting(receiver, [&cancelled] { cancelled = true; });
-  Status status = PartitionIndexTransformOverRegularGrid(
+  absl::Status status = PartitionIndexTransformOverRegularGrid(
       component_spec.chunked_to_cell_dimensions, grid().chunk_shape, transform,
       [&](span<const Index> grid_cell_indices,
           IndexTransformView<> cell_transform) {
@@ -717,14 +718,14 @@ DimensionIndex ChunkCacheDriver::rank() {
 
 void ChunkCacheDriver::Read(
     OpenTransactionPtr transaction, IndexTransform<> transform,
-    AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) {
+    AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
   cache_->Read(std::move(transaction), component_index_, std::move(transform),
                data_staleness_bound_.time, std::move(receiver));
 }
 
 void ChunkCacheDriver::Write(
     OpenTransactionPtr transaction, IndexTransform<> transform,
-    AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver) {
+    AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver) {
   cache_->Write(std::move(transaction), component_index_, std::move(transform),
                 std::move(receiver));
 }

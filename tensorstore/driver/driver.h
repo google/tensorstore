@@ -42,6 +42,7 @@
 
 #include <utility>
 
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
@@ -155,7 +156,7 @@ class Driver : public AtomicReferenceCount<Driver> {
   virtual Executor data_copy_executor() = 0;
 
   using ReadChunkReceiver =
-      AnyFlowReceiver<Status, ReadChunk, IndexTransform<>>;
+      AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>>;
 
   /// Requests a partition of the output range of `transform` into chunks that
   /// may each be read synchronously and atomically.
@@ -177,7 +178,7 @@ class Driver : public AtomicReferenceCount<Driver> {
                     IndexTransform<> transform, ReadChunkReceiver receiver);
 
   using WriteChunkReceiver =
-      AnyFlowReceiver<Status, WriteChunk, IndexTransform<>>;
+      AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>;
 
   /// Requests a partition of the output range of `transform` into chunks that
   /// may each be written synchronously and atomically.

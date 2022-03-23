@@ -459,10 +459,10 @@ class Promise {
   }
 
   /// The `set_value`, `set_error`, and `set_cancel` functions defined below
-  /// make `Promise<T>` model the `Receiver<Status, T>` concept.  Calling any of
-  /// these methods has no effect if the promise is already in a ready state.
-  /// This implies that calling any of these functions after they have already
-  /// been called on a given Promise has no effect.
+  /// make `Promise<T>` model the `Receiver<absl::Status, T>` concept.  Calling
+  /// any of these methods has no effect if the promise is already in a ready
+  /// state. This implies that calling any of these functions after they have
+  /// already been called on a given Promise has no effect.
 
   /// Implements the Receiver `set_value` operation.
   template <typename... V>
@@ -801,7 +801,7 @@ class Future : public AnyFuture {
   /// Returns a copy of `result().status()`
   using AnyFuture::status;
 
-  /// Makes `Future<T>` model the `Sender<Status, T>` concept.
+  /// Makes `Future<T>` model the `Sender<absl::Status, T>` concept.
   ///
   /// The `set_value`, `set_error` or `set_cancel` function is called on the
   /// specified `receiver` once the future becomes ready.  It is valid to call
@@ -810,7 +810,7 @@ class Future : public AnyFuture {
   friend std::void_t<decltype(execution::set_value, std::declval<Receiver&>(),
                               std::declval<T>()),
                      decltype(execution::set_error, std::declval<Receiver&>(),
-                              std::declval<Status>()),
+                              std::declval<absl::Status>()),
                      decltype(execution::set_cancel, std::declval<Receiver&>())>
   submit(const Future& future, Receiver receiver) {
     struct Callback {
@@ -1332,22 +1332,22 @@ MapFutureValue(Executor&& executor, Callback&& callback,
 ///     Future<int> future = ...;
 ///     auto mapped_future = MapFutureError(
 ///         InlineExecutor{},
-///         [](const Status& status) -> Result<int> {
+///         [](const absl::Status& status) -> Result<int> {
 ///           return status.Annotate("Error doing xxx");
 ///         }, future);
 ///
 /// \param executor Executor to use to run `func`.
 /// \param func Unary function to apply to the error status of `future`.  Must
-///     have a signature compatible with `Result<T>(Status)`.
+///     have a signature compatible with `Result<T>(absl::Status)`.
 /// \param future The future to transform.
 /// \returns A future that becomes ready when `future` is ready.  If
 ///     `future.result()` is in a success state, the result of the returned
 ///     future is a copy of `future.result()`.  Otherwise, the result is equal
 ///     to `func(future.result().status())`.
 template <typename Executor, typename T, typename Func>
-std::enable_if_t<
-    std::is_convertible_v<std::invoke_result_t<Func&&, Status>, Result<T>>,
-    Future<T>>
+std::enable_if_t<std::is_convertible_v<
+                     std::invoke_result_t<Func&&, absl::Status>, Result<T>>,
+                 Future<T>>
 MapFutureError(Executor&& executor, Func func, Future<T> future) {
   struct Callback : public std::tuple<Func> {
     Result<T> operator()(Result<T> result) {
@@ -1361,7 +1361,7 @@ MapFutureError(Executor&& executor, Func func, Future<T> future) {
                    std::move(future));
 }
 
-/// Converts an arbitrary `Sender<Status, T>` into a `Future<T>`.
+/// Converts an arbitrary `Sender<absl::Status, T>` into a `Future<T>`.
 template <typename T, typename Sender>
 Future<T> MakeSenderFuture(Sender sender) {
   auto pair = PromiseFuturePair<T>::Make();

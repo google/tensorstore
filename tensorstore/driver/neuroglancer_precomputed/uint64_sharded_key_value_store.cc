@@ -20,6 +20,7 @@
 
 #include "absl/algorithm/container.h"
 #include "absl/base/internal/endian.h"
+#include "absl/status/status.h"
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded.h"
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded_decoder.h"
 #include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded_encoder.h"
@@ -165,7 +166,7 @@ class MinishardIndexKeyValueStore : public kvstore::Driver {
       ChunkSplitShardInfo split_info;
       absl::Time staleness_bound;
       static void SetError(const Promise<kvstore::ReadResult>& promise,
-                           Status error) {
+                           absl::Status error) {
         promise.SetResult(MaybeAnnotateStatus(
             ConvertInvalidArgumentToFailedPrecondition(std::move(error)),
             StrCat("Error retrieving shard index entry")));
@@ -954,9 +955,9 @@ class ShardedKeyValueStore : public kvstore::Driver {
   }
 
   void ListImpl(ListOptions options,
-                AnyFlowReceiver<Status, Key> receiver) override {
+                AnyFlowReceiver<absl::Status, Key> receiver) override {
     struct State {
-      explicit State(AnyFlowReceiver<Status, Key>&& receiver,
+      explicit State(AnyFlowReceiver<absl::Status, Key>&& receiver,
                      ListOptions options)
           : receiver_(std::move(receiver)), options_(std::move(options)) {
         auto [promise, future] = PromiseFuturePair<void>::Make(MakeResult());
@@ -976,7 +977,7 @@ class ShardedKeyValueStore : public kvstore::Driver {
         }
         execution::set_stopping(receiver_);
       }
-      AnyFlowReceiver<Status, Key> receiver_;
+      AnyFlowReceiver<absl::Status, Key> receiver_;
       Promise<void> promise_;
       Future<void> future_;
       ListOptions options_;

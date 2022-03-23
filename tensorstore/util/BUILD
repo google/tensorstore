@@ -433,6 +433,7 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore/internal:elementwise_function",
         "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/utility",
     ],
 )
@@ -643,6 +644,7 @@ tensorstore_cc_test(
     deps = [
         ":status",
         ":str_cat",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -655,6 +657,7 @@ tensorstore_cc_library(
     deps = [
         ":result",
         ":status",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest",
     ],
 )

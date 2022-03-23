@@ -344,9 +344,9 @@ class StackDriver
                                          IndexTransform<> transform,
                                          ResolveBoundsOptions options) override;
 
-  void Read(
-      OpenTransactionPtr transaction, IndexTransform<> transform,
-      AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) override;
+  void Read(OpenTransactionPtr transaction, IndexTransform<> transform,
+            AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
+      override;
 
   void Write(OpenTransactionPtr transaction, IndexTransform<> transform,
              WriteChunkReceiver receiver) override;
@@ -473,7 +473,7 @@ struct SetPromiseOnRelease
       : state(std::move(s)), promise(std::move(p)) {}
   ~SetPromiseOnRelease() { promise.SetReady(); }
 
-  inline void SetError(Status error) {
+  inline void SetError(absl::Status error) {
     SetDeferredResult(promise, std::move(error));
   }
 };
@@ -494,7 +494,9 @@ struct ForwardingLayerReceiver {
   }
   void set_stopping() { cancel_registration(); }
   void set_done() {}
-  void set_error(Status error) { set_promise->SetError(std::move(error)); }
+  void set_error(absl::Status error) {
+    set_promise->SetError(std::move(error));
+  }
   void set_value(ChunkType chunk, IndexTransform<> cell_transform) {
     execution::set_value(set_promise->state->receiver, std::move(chunk),
                          std::move(cell_transform));
@@ -595,7 +597,7 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
 
   IntrusivePtr<StackDriver> self;
   OpenTransactionPtr transaction;
-  AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver;
+  AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver;
   IndexTransform<> transform;
 
   // Initiate the read of an individual transform; dispatched by AfterOpenOp
@@ -620,7 +622,7 @@ struct UnmappedReadOp {
 
 void StackDriver::Read(
     OpenTransactionPtr transaction, IndexTransform<> transform,
-    AnyFlowReceiver<Status, ReadChunk, IndexTransform<>> receiver) {
+    AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
   auto state = MakeIntrusivePtr<ReadState>();
   state->self = IntrusivePtr<StackDriver>(this);
   state->receiver = std::move(receiver);
@@ -653,7 +655,7 @@ struct WriteState : public internal::AtomicReferenceCount<WriteState> {
 
   IntrusivePtr<StackDriver> self;
   OpenTransactionPtr transaction;
-  AnyFlowReceiver<Status, WriteChunk, IndexTransform<>> receiver;
+  AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver;
   IndexTransform<> transform;
 
   // Initiate the write of an individual transform; dispatched by AfterOpenOp

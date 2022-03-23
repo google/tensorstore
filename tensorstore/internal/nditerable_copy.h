@@ -25,6 +25,7 @@
 
 #include <array>
 
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/elementwise_function.h"
@@ -120,7 +121,8 @@ struct NDIteratorCopyManager {
   ///     on success).  If less than `block_size`, `*status` may be set to an
   ///     error, or may be left unchanged to indicate a default/unspecified
   ///     error.
-  Index Copy(span<const Index> indices, Index block_size, Status* status) {
+  Index Copy(span<const Index> indices, Index block_size,
+             absl::Status* status) {
     return copy_impl_(this, indices, block_size, status);
   }
 
@@ -129,9 +131,10 @@ struct NDIteratorCopyManager {
   NDIterator::Ptr output_;
   using CopyImpl = Index (*)(NDIteratorCopyManager* self,
                              span<const Index> indices, Index block_size,
-                             Status* status);
+                             absl::Status* status);
   CopyImpl copy_impl_;
-  SpecializedElementwiseFunctionPointer<2, Status*> copy_elements_function_;
+  SpecializedElementwiseFunctionPointer<2, absl::Status*>
+      copy_elements_function_;
   NDIteratorExternalBufferManager<1, 2> buffer_manager_;
 };
 
@@ -168,7 +171,7 @@ struct NDIterableCopier {
   /// Attempts to copy from `source` to `dest`.
   ///
   /// Leaves `stepper()` at one past the last position copied.
-  Status Copy();
+  absl::Status Copy();
 
   /// Returns the layout used for copying.
   const NDIterationLayoutInfo<>& layout_info() const { return layout_info_; }

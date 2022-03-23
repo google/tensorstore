@@ -92,7 +92,7 @@ const internal::ContextResourceRegistration<
 const internal::ContextResourceRegistration<HttpRequestRetries>
     http_request_retries_registration;
 
-/// Returns whether the Status is a retriable request.
+/// Returns whether the absl::Status is a retriable request.
 bool IsRetriable(const absl::Status& status) {
   return (status.code() == absl::StatusCode::kDeadlineExceeded ||
           status.code() == absl::StatusCode::kUnavailable);

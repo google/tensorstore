@@ -26,6 +26,7 @@
 #include "absl/container/fixed_array.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
@@ -204,7 +205,7 @@ struct RegularGridRef {
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
 /// \error `absl::StatusCode::kOutOfRange` if an index array contains an
 ///     out-of-bounds index.
-Status PrePartitionIndexTransformOverGrid(
+absl::Status PrePartitionIndexTransformOverGrid(
     IndexTransformView<> index_transform,
     span<const DimensionIndex> grid_output_dimensions,
     OutputToGridCellFn output_to_grid_cell,

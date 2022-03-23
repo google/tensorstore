@@ -23,6 +23,7 @@
 #include "absl/container/fixed_array.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
@@ -126,7 +127,7 @@ Result<::nlohmann::json> JsonEncodeNestedArray(ArrayView<const void> array) {
                                              " to JSON is not implemented"));
   }
   bool error = false;
-  Status status;
+  absl::Status status;
   ::nlohmann::json j = internal::JsonEncodeNestedArray(
       array, [&](const void* ptr) -> ::nlohmann::json {
         if ((convert.flags & DataTypeConversionFlags::kCanReinterpretCast) ==

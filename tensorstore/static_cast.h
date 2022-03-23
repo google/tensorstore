@@ -49,6 +49,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include "absl/status/status.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -163,8 +164,8 @@ struct CastImpl;
 
 /// Returns an `absl::StatusCode::kInvalidArgument` error that includes the
 /// source and target descriptions.
-Status CastError(std::string_view source_description,
-                 std::string_view target_description);
+absl::Status CastError(std::string_view source_description,
+                       std::string_view target_description);
 
 /// Specialization for `Checking == checked`.
 template <>
@@ -268,11 +269,11 @@ using SupportedCastResultType = std::enable_if_t<
 ///     `ArrayView<int, 3>`.
 /// \tparam Checking Specifies whether to validate the cast at run time.  If
 ///     equal to `CastChecking::checked` (the default), the return type is
-///     `Result<Target>` and an error `Status` is returned if the cast is not
-///     valid.  If equal to `CastChecking::unchecked`, the return type is a bare
-///     `Target` cast is validated in debug mode only via an `assert`.  A value
-///     of `CastChecking::unchecked` may be more conveniently specified using
-///     the special tag value `tensorstore::unchecked`.
+///     `Result<Target>` and an error `absl::Status` is returned if the cast is
+///     not valid.  If equal to `CastChecking::unchecked`, the return type is a
+///     bare `Target` cast is validated in debug mode only via an `assert`.  A
+///     value of `CastChecking::unchecked` may be more conveniently specified
+///     using the special tag value `tensorstore::unchecked`.
 /// \param source Source value.
 /// \requires `IsCastConstructible<Target, SourceRef>`
 template <typename Target, CastChecking Checking = CastChecking::checked,

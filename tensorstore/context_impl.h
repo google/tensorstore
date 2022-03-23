@@ -21,6 +21,7 @@
 /// `context.cc` and by the Python Context bindings.
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/heterogeneous_container.h"
@@ -147,7 +148,7 @@ std::string_view ParseResourceProvider(std::string_view key);
 
 /// Returns an error indicating that the specified context resource key does not
 /// specify a known provider.
-Status ProviderNotRegisteredError(std::string_view key);
+absl::Status ProviderNotRegisteredError(std::string_view key);
 
 /// Converts a JSON spec to an anonymous context resource spec.
 Result<ResourceSpecImplPtr> ResourceSpecFromJson(

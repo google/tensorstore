@@ -302,17 +302,17 @@ Future<void> Driver::DeleteRange(KeyRange range) {
 }
 
 void Driver::ListImpl(ListOptions options,
-                      AnyFlowReceiver<Status, Key> receiver) {
+                      AnyFlowReceiver<absl::Status, Key> receiver) {
   execution::submit(FlowSingleSender{ErrorSender{absl::UnimplementedError(
                         "KeyValueStore does not support listing")}},
                     std::move(receiver));
 }
 
-AnyFlowSender<Status, Key> Driver::List(ListOptions options) {
+AnyFlowSender<absl::Status, Key> Driver::List(ListOptions options) {
   struct ListSender {
     IntrusivePtr<Driver> self;
     ListOptions options;
-    void submit(AnyFlowReceiver<Status, Key> receiver) {
+    void submit(AnyFlowReceiver<absl::Status, Key> receiver) {
       self->ListImpl(options, std::move(receiver));
     }
   };
@@ -480,7 +480,7 @@ void AddListOptionsPrefix(ListOptions& options, std::string_view path) {
 }  // namespace
 
 void List(const KvStore& store, ListOptions options,
-          AnyFlowReceiver<Status, Key> receiver) {
+          AnyFlowReceiver<absl::Status, Key> receiver) {
   if (store.transaction != no_transaction) {
     execution::submit(ErrorSender{absl::UnimplementedError(
                           "transactional list not supported")},

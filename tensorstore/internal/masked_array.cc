@@ -23,6 +23,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/container/fixed_array.h"
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
@@ -54,7 +55,7 @@ namespace {
 
 /// Unary function that sets every element to `true`.
 struct SetMask {
-  void operator()(bool* x, Status*) const { *x = true; }
+  void operator()(bool* x, absl::Status*) const { *x = true; }
 };
 
 /// Unary function that sets every element to `true`, and increments
@@ -141,7 +142,7 @@ std::unique_ptr<bool[], FreeDeleter> CreateMaskArray(
   ByteStridedPointer<bool> start = result.get();
   start += GetRelativeOffset(box.origin(), mask_region.origin(), byte_strides);
   internal::IterateOverArrays(
-      internal::SimpleElementwiseFunction<SetMask(bool), Status*>{},
+      internal::SimpleElementwiseFunction<SetMask(bool), absl::Status*>{},
       /*status=*/nullptr,
       /*constraints=*/skip_repeated_elements,
       ArrayView<bool>(start.get(),
@@ -318,7 +319,7 @@ bool WriteToMask(MaskData* mask, BoxView<> output_box,
 
     NDIterationPositionStepper stepper(layout.iteration_shape, mask_block_size);
 
-    Status mask_copy_status;
+    absl::Status mask_copy_status;
 
     SetMaskAndCountChanged set_mask_context;
     constexpr ElementwiseFunction<1> set_mask_func =

@@ -91,9 +91,9 @@ using std::in_place_t;
 /// Use `Result<T>{in_place, ...}` or `Result<T>{Status(...)}`
 /// to construct a Result with the desired state.
 ///
-/// Initialization with a non-error Status is only allowed for Result<void>,
-/// otherwise non-error Status initilization is nonsensical because it
-/// does not provide a value.
+/// Initialization with a non-error absl::Status is only allowed for
+/// Result<void>, otherwise non-error absl::Status initilization is nonsensical
+/// because it does not provide a value.
 ///
 /// Conversion from `Result<T>` to `Result<void>` is allowed; the status
 /// is retained but any value is discarded by such a conversion.
@@ -533,13 +533,13 @@ class Result : private internal_result::ResultStorage<T>,
   /// FIXME: Result::map()
 
   /// The `set_value`, `set_cancel`, `set_error`, and `submit` functions defined
-  /// below make `Result<T>` model the `Receiver<Status, T>` and
-  /// `Sender<Status, T>` concepts.
+  /// below make `Result<T>` model the `Receiver<absl::Status, T>` and
+  /// `Sender<absl::Status, T>` concepts.
   ///
   /// These are defined as friend functions rather than member functions to
   /// allow `std::reference_wrapper<Result<T>>` and other types implicitly
-  /// convertible to `Result<T>` to also model `Receiver<Status, T>` and
-  /// `Sender<Status, T>`.
+  /// convertible to `Result<T>` to also model `Receiver<absl::Status, T>` and
+  /// `Sender<absl::Status, T>`.
 
   /// Implements the Receiver `set_value` operation.
   ///
@@ -705,19 +705,19 @@ inline Result<U> MakeResult(absl::Status status) {
 
 /// FIXME: It would be nice if the naming convention for UnwrapResult
 /// and GetStatus were the same. I think that I'd prefer UnwrapStatus()
-/// to return a Status type() and UnwrapResult() to return a value type.
+/// to return a absl::Status type() and UnwrapResult() to return a value type.
 
 /// Returns the error status of `Result`, or `absl::OkStatus()` if `Result` has
 /// a value.
 /// \returns `result.status()`
 template <typename T>
 inline absl::Status GetStatus(const Result<T>& result) {
-  return result.has_value() ? Status() : result.status();
+  return result.has_value() ? absl::Status() : result.status();
 }
 
 template <typename T>
 inline absl::Status GetStatus(Result<T>&& result) {
-  return result.has_value() ? Status() : std::move(result).status();
+  return result.has_value() ? absl::Status() : std::move(result).status();
 }
 
 /// UnwrapResult returns the value contained by the Result<T> instance,
@@ -749,7 +749,8 @@ inline T&& UnwrapResult(Result<T>&& t) {
 ///
 /// \returns `std::forward<Func>(func)(UnwrapResult(std::forward<T>(arg))...)`
 ///     if no `Result`-wrapped `arg` is an in error state.  Otherwise, returns
-///     the error Status of the first `Result`-wrapped `arg` in an error state.
+///     the error `absl::Status` of the first `Result`-wrapped `arg` in an error
+///     state.
 template <typename Func, typename... T>
 FlatResult<std::invoke_result_t<Func&&, UnwrapQualifiedResultType<T>...>>
 MapResult(Func&& func, T&&... arg) {
@@ -858,8 +859,8 @@ internal_result::ChainResultType<T, Func0, Func...> ChainResult(
 ///     TENSORSTORE_ASSIGN_OR_RETURN(int x, GetSomeResult());
 ///
 /// An optional third argument specifies the return expression in the case of an
-/// error.  A variable `_` bound to the error Status value is in scope within
-/// this expression.  For example:
+/// error.  A variable `_` bound to the error absl::Status value is in scope
+/// within this expression.  For example:
 ///
 ///     TENSORSTORE_ASSIGN_OR_RETURN(int x, GetSomeResult(),
 ///                                  _.Annotate("Context message"));

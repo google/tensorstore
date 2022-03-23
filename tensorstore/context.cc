@@ -14,6 +14,7 @@
 
 #include "tensorstore/context.h"
 
+#include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/context_impl.h"
@@ -403,7 +404,7 @@ std::string_view ParseResourceProvider(std::string_view key) {
   return key.substr(0, key.find('#'));
 }
 
-Status ProviderNotRegisteredError(std::string_view key) {
+absl::Status ProviderNotRegisteredError(std::string_view key) {
   return absl::InvalidArgumentError(
       StrCat("Invalid context resource identifier: ", QuoteString(key)));
 }
@@ -510,7 +511,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     Context::Spec,
     jb::Compose<::nlohmann::json::object_t>([](auto is_loading,
                                                const auto& options, auto* obj,
-                                               auto* j_obj) -> Status {
+                                               auto* j_obj) -> absl::Status {
       if constexpr (is_loading) {
         obj->impl_.reset(new internal_context::ContextSpecImpl);
         obj->impl_->resources_.reserve(j_obj->size());

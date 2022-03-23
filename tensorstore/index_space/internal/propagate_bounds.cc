@@ -15,6 +15,7 @@
 #include "tensorstore/index_space/internal/propagate_bounds.h"
 
 #include "absl/container/fixed_array.h"
+#include "absl/status/status.h"
 #include "tensorstore/index_space/internal/identity_transform.h"
 #include "tensorstore/util/bit_vec.h"
 #include "tensorstore/util/constant_bit_vector.h"
@@ -22,10 +23,10 @@
 namespace tensorstore {
 namespace internal_index_space {
 
-Status PropagateBounds(BoxView<> b,
-                       BitSpan<const std::uint64_t> b_implicit_lower_bounds,
-                       BitSpan<const std::uint64_t> b_implicit_upper_bounds,
-                       TransformRep* a_to_b, MutableBoxView<> a) {
+absl::Status PropagateBounds(
+    BoxView<> b, BitSpan<const std::uint64_t> b_implicit_lower_bounds,
+    BitSpan<const std::uint64_t> b_implicit_upper_bounds, TransformRep* a_to_b,
+    MutableBoxView<> a) {
   assert(b_implicit_lower_bounds.size() == b.rank());
   assert(b_implicit_upper_bounds.size() == b.rank());
   if (!a_to_b) {
@@ -148,8 +149,8 @@ Status PropagateBounds(BoxView<> b,
   return absl::OkStatus();
 }
 
-Status PropagateExplicitBounds(BoxView<> b, TransformRep* a_to_b,
-                               MutableBoxView<> a) {
+absl::Status PropagateExplicitBounds(BoxView<> b, TransformRep* a_to_b,
+                                     MutableBoxView<> a) {
   auto explicit_vec = GetConstantBitVector<std::uint64_t, false>(b.rank());
   return PropagateBounds(b, explicit_vec, explicit_vec, a_to_b, a);
 }
@@ -218,12 +219,11 @@ void PropagateImplicitBoundState(
 }
 }  // namespace
 
-Status PropagateBounds(BoxView<> b,
-                       BitSpan<const std::uint64_t> b_implicit_lower_bounds,
-                       BitSpan<const std::uint64_t> b_implicit_upper_bounds,
-                       TransformRep* a_to_b, MutableBoxView<> a,
-                       BitSpan<std::uint64_t> a_implicit_lower_bounds,
-                       BitSpan<std::uint64_t> a_implicit_upper_bounds) {
+absl::Status PropagateBounds(
+    BoxView<> b, BitSpan<const std::uint64_t> b_implicit_lower_bounds,
+    BitSpan<const std::uint64_t> b_implicit_upper_bounds, TransformRep* a_to_b,
+    MutableBoxView<> a, BitSpan<std::uint64_t> a_implicit_lower_bounds,
+    BitSpan<std::uint64_t> a_implicit_upper_bounds) {
   PropagateImplicitBoundState(b.rank(), b_implicit_lower_bounds,
                               b_implicit_upper_bounds, a_to_b, a.rank(),
                               a_implicit_lower_bounds, a_implicit_upper_bounds);

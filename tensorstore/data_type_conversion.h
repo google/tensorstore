@@ -17,6 +17,7 @@
 
 #include <type_traits>
 
+#include "absl/status/status.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/preprocessor.h"
@@ -25,7 +26,7 @@ namespace tensorstore {
 
 template <typename From, typename To>
 struct ConvertDataType {
-  void operator()(const From* from, To* to, Status* status) const {
+  void operator()(const From* from, To* to, absl::Status* status) const {
     *to = static_cast<To>(*from);
   }
 };
@@ -106,8 +107,8 @@ DataTypeConversionLookupResult GetDataTypeConverter(DataType from, DataType to);
 ///     specified, `kSupported` is always assumed.
 /// \dchecks `from.valid()`
 /// \dchecks `to.valid()`
-/// \returns `Status()` if the conversion is supported with the specified
-///     `required_flags`.
+/// \returns `absl::OkStatus()` if the conversion is supported with the
+///     specified `required_flags`.
 /// \error `absl::StatusCode::kInvalidArgument` if the conversion is not
 ///     supported.
 Result<DataTypeConversionLookupResult> GetDataTypeConverterOrError(
@@ -123,10 +124,10 @@ std::enable_if_t<((DataTypeConversionTraits<From, To>::flags &
                     DataTypeConversionFlags::kCanReinterpretCast)) ==
                       DataTypeConversionFlags::kSupported &&
                   !std::is_same_v<From, To>),
-                 internal::ElementwiseFunction<2, Status*>>
+                 internal::ElementwiseFunction<2, absl::Status*>>
 GetConvertFunction() {
   return internal::SimpleElementwiseFunction<
-      ConvertDataType<From, To>(From, const To), Status*>();
+      ConvertDataType<From, To>(From, const To), absl::Status*>();
 }
 
 template <typename From, typename To>
@@ -135,7 +136,7 @@ std::enable_if_t<((DataTypeConversionTraits<From, To>::flags &
                     DataTypeConversionFlags::kCanReinterpretCast)) !=
                       DataTypeConversionFlags::kSupported ||
                   std::is_same_v<From, To>),
-                 internal::ElementwiseFunction<2, Status*>>
+                 internal::ElementwiseFunction<2, absl::Status*>>
 GetConvertFunction() {
   return {};
 }

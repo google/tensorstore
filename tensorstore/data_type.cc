@@ -17,6 +17,7 @@
 #include <cstring>
 #include <new>
 
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type_conversion.h"
 #include "tensorstore/internal/exception_macros.h"
@@ -185,28 +186,31 @@ void ComplexToString(std::complex<T> x, std::string* out) {
 
 template <typename T>
 struct ConvertDataType<std::complex<T>, json_t> {
-  void operator()(const std::complex<T>* from, json_t* to, Status*) const {
+  void operator()(const std::complex<T>* from, json_t* to,
+                  absl::Status*) const {
     *to = json_t::array_t{from->real(), from->imag()};
   }
 };
 
 template <typename T>
 struct ConvertDataType<std::complex<T>, string_t> {
-  void operator()(const std::complex<T>* from, string_t* to, Status*) const {
+  void operator()(const std::complex<T>* from, string_t* to,
+                  absl::Status*) const {
     ComplexToString(*from, to);
   }
 };
 
 template <typename T>
 struct ConvertDataType<std::complex<T>, ustring_t> {
-  void operator()(const std::complex<T>* from, ustring_t* to, Status*) const {
+  void operator()(const std::complex<T>* from, ustring_t* to,
+                  absl::Status*) const {
     ComplexToString(*from, &to->utf8);
   }
 };
 
 template <>
 struct ConvertDataType<float16_t, json_t> {
-  void operator()(const float16_t* from, json_t* to, Status*) const {
+  void operator()(const float16_t* from, json_t* to, absl::Status*) const {
     *to = static_cast<double>(*from);
   }
 };
@@ -215,7 +219,7 @@ namespace internal_data_type {
 
 struct JsonIntegerConvertDataType {
   template <typename To>
-  bool operator()(const json_t* from, To* to, Status* status) const {
+  bool operator()(const json_t* from, To* to, absl::Status* status) const {
     auto s = internal::JsonRequireInteger(*from, to, /*strict=*/false);
     if (s.ok()) return true;
     *status = s;
@@ -225,7 +229,7 @@ struct JsonIntegerConvertDataType {
 
 struct JsonFloatConvertDataType {
   template <typename To>
-  bool operator()(const json_t* from, To* to, Status* status) const {
+  bool operator()(const json_t* from, To* to, absl::Status* status) const {
     double value;
     auto s = internal::JsonRequireValueAs(*from, &value, /*strict=*/false);
     if (s.ok()) {
@@ -239,21 +243,21 @@ struct JsonFloatConvertDataType {
 
 struct ComplexNumericConvertDataType {
   template <typename T, typename To>
-  void operator()(const std::complex<T>* from, To* to, Status*) const {
+  void operator()(const std::complex<T>* from, To* to, absl::Status*) const {
     *to = static_cast<To>(from->real());
   }
 };
 
 struct NumericStringConvertDataType {
   template <typename From>
-  void operator()(const From* from, string_t* to, Status*) const {
+  void operator()(const From* from, string_t* to, absl::Status*) const {
     NumberToString(*from, to);
   }
 };
 
 struct NumericUstringConvertDataType {
   template <typename From>
-  void operator()(const From* from, ustring_t* to, Status*) const {
+  void operator()(const From* from, ustring_t* to, absl::Status*) const {
     NumberToString(*from, &to->utf8);
   }
 };
@@ -276,7 +280,7 @@ struct NumericUstringConvertDataType {
 
 template <>
 struct ConvertDataType<ustring_t, json_t> {
-  void operator()(const ustring_t* from, json_t* to, Status*) const {
+  void operator()(const ustring_t* from, json_t* to, absl::Status*) const {
     *to = from->utf8;
   }
 };
@@ -324,7 +328,7 @@ TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
 
 template <>
 struct ConvertDataType<json_t, bool> {
-  bool operator()(const json_t* from, bool* to, Status* status) const {
+  bool operator()(const json_t* from, bool* to, absl::Status* status) const {
     auto s = internal::JsonRequireValueAs(*from, to, /*strict=*/false);
     if (s.ok()) return true;
     *status = s;
@@ -334,7 +338,8 @@ struct ConvertDataType<json_t, bool> {
 
 template <>
 struct ConvertDataType<json_t, string_t> {
-  bool operator()(const json_t* from, string_t* to, Status* status) const {
+  bool operator()(const json_t* from, string_t* to,
+                  absl::Status* status) const {
     auto s = internal::JsonRequireValueAs(*from, to, /*strict=*/false);
     if (s.ok()) return true;
     *status = s;
@@ -344,7 +349,8 @@ struct ConvertDataType<json_t, string_t> {
 
 template <>
 struct ConvertDataType<json_t, ustring_t> {
-  bool operator()(const json_t* from, ustring_t* to, Status* status) const {
+  bool operator()(const json_t* from, ustring_t* to,
+                  absl::Status* status) const {
     auto s = internal::JsonRequireValueAs(*from, &to->utf8, /*strict=*/false);
     if (s.ok()) return true;
     *status = s;
@@ -354,7 +360,8 @@ struct ConvertDataType<json_t, ustring_t> {
 
 template <>
 struct ConvertDataType<string_t, ustring_t> {
-  bool operator()(const string_t* from, ustring_t* to, Status* status) const {
+  bool operator()(const string_t* from, ustring_t* to,
+                  absl::Status* status) const {
     if (internal::IsValidUtf8(*from)) {
       to->utf8 = *from;
       return true;
@@ -366,7 +373,8 @@ struct ConvertDataType<string_t, ustring_t> {
 
 template <>
 struct ConvertDataType<string_t, json_t> {
-  bool operator()(const string_t* from, json_t* to, Status* status) const {
+  bool operator()(const string_t* from, json_t* to,
+                  absl::Status* status) const {
     if (internal::IsValidUtf8(*from)) {
       *to = *from;
       return true;

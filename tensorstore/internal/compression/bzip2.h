@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <string>
 
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "tensorstore/util/status.h"
 
@@ -47,7 +48,7 @@ void Encode(const absl::Cord& input, absl::Cord* output,
 /// \param output[in,out] Output cord to which decompressed data will be
 ///     appended.
 /// \error `absl::StatusCode::kInvalidArgument` if `input` is corrupt.
-Status Decode(const absl::Cord& input, absl::Cord* output);
+absl::Status Decode(const absl::Cord& input, absl::Cord* output);
 
 }  // namespace bzip2
 }  // namespace tensorstore

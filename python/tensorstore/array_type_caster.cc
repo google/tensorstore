@@ -26,6 +26,7 @@
 #include <string>
 #include <utility>
 
+#include "absl/status/status.h"
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/json_type_caster.h"
@@ -62,10 +63,10 @@ struct ConvertToObject {
 };
 
 template <typename T>
-constexpr const internal::ElementwiseFunction<2, Status*>*
+constexpr const internal::ElementwiseFunction<2, absl::Status*>*
 GetConvertToNumpyObjectArrayFunction() {
   if constexpr (std::is_invocable_v<const ConvertToObject&, const T*>) {
-    const auto func = [](const T* from, PyObject** to, Status* status) {
+    const auto func = [](const T* from, PyObject** to, absl::Status* status) {
       if (auto obj = ConvertToObject()(from)) {
         Py_XDECREF(std::exchange(*to, obj.release().ptr()));
         return true;
@@ -73,12 +74,12 @@ GetConvertToNumpyObjectArrayFunction() {
       return false;
     };
     return internal::SimpleElementwiseFunction<decltype(func)(T, PyObject*),
-                                               Status*>();
+                                               absl::Status*>();
   }
   return nullptr;
 }
 
-constexpr const internal::ElementwiseFunction<2, Status*>*
+constexpr const internal::ElementwiseFunction<2, absl::Status*>*
     kConvertDataTypeToNumpyObjectArray[kNumDataTypeIds] = {
 #define TENSORSTORE_INTERNAL_DO_CONVERT(T, ...) \
   GetConvertToNumpyObjectArrayFunction<T>(),
@@ -127,17 +128,17 @@ struct ConvertFromObject {
 };
 
 template <typename T>
-constexpr const internal::ElementwiseFunction<2, Status*>*
+constexpr const internal::ElementwiseFunction<2, absl::Status*>*
 GetConvertFromNumpyObjectArrayFunction() {
   if constexpr (std::is_invocable_v<ConvertFromObject&, PyObject**, T*,
                                     absl::Status*>) {
     return internal::SimpleElementwiseFunction<ConvertFromObject(PyObject*, T),
-                                               Status*>();
+                                               absl::Status*>();
   }
   return nullptr;
 }
 
-constexpr const internal::ElementwiseFunction<2, Status*>*
+constexpr const internal::ElementwiseFunction<2, absl::Status*>*
     kConvertDataTypeFromNumpyObjectArray[kNumDataTypeIds] = {
 #define TENSORSTORE_INTERNAL_DO_CONVERT(T, ...) \
   GetConvertFromNumpyObjectArrayFunction<T>(),

@@ -15,6 +15,7 @@
 #include "tensorstore/index_space/internal/single_index_slice_op.h"
 
 #include "absl/container/fixed_array.h"
+#include "absl/status/status.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
 #include "tensorstore/internal/integer_overflow.h"
 
@@ -123,12 +124,13 @@ Result<SingletonSlicingInfo> GetSingletonSlicingInfo(
 ///     alias `original_transform`.
 /// \param original_input_dimension_info A pointer to the array returned from
 ///     `GetSingletonSlicingInfo`.
-/// \returns `Status()` on success, or `absl::StatusCode::kInvalidArgument` if
+/// \returns `absl::Status()` on success, or
+/// `absl::StatusCode::kInvalidArgument` if
 ///     an integer overflow occurs.
-Status PerformSingleIndexSlice(TransformRep* original_transform,
-                               TransformRep* new_transform,
-                               const SingletonSlicingInfo& info,
-                               bool domain_only) {
+absl::Status PerformSingleIndexSlice(TransformRep* original_transform,
+                                     TransformRep* new_transform,
+                                     const SingletonSlicingInfo& info,
+                                     bool domain_only) {
   const DimensionIndex original_input_rank = original_transform->input_rank;
   const DimensionIndex new_input_rank = info.new_input_rank;
   span<const InputDimensionSingletonSliceInfo> original_input_dimension_info =

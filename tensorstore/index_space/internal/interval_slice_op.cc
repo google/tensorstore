@@ -15,6 +15,7 @@
 #include "tensorstore/index_space/internal/interval_slice_op.h"
 
 #include "absl/container/fixed_array.h"
+#include "absl/status/status.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/util/division.h"
@@ -54,7 +55,7 @@ struct InputDimensionIntervalSliceInfo {
 ///     length `dimensions->size()`).
 /// \param stride_vector[in] Specifies the vector of strides (of length
 ///     `dimensions->size()`).
-/// \returns `Status()` if the specified slice is valid.
+/// \returns `absl::Status()` if the specified slice is valid.
 /// \error `absl::StatusCode::kInvalidArgument` if the size of `start_vector`,
 ///     `stop_or_size_vector`, or `stride_vector` is not compatible with
 ///     `dimensions->size()`.
@@ -65,7 +66,7 @@ struct InputDimensionIntervalSliceInfo {
 /// \error `absl::StatusCode::kOutOfRange` if the specified interval is invalid.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs while
 ///     computing the result.
-Status GetIntervalSliceInfo(
+absl::Status GetIntervalSliceInfo(
     span<InputDimensionIntervalSliceInfo> dimension_info,
     TransformRep* transform, span<const DimensionIndex> dimensions,
     IntervalForm interval_form, bool translate,

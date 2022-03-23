@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INTERNAL_COMPOSE_TRANSFORMS_H_
 #define TENSORSTORE_INDEX_SPACE_INTERNAL_COMPOSE_TRANSFORMS_H_
 
+#include "absl/status/status.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 
 namespace tensorstore {
@@ -34,7 +35,7 @@ namespace internal_index_space {
 /// \dchecks `b_to_c->input_rank == a_to_b->output_rank`.
 /// \dchecks `a_to_c->output_rank_capacity >= b_to_c->output_rank`.
 /// \dchecks `a_to_c->input_rank_capacity >= a_to_b->input_rank`.
-/// \returns A success `Status()` or error.
+/// \returns A success `absl::Status()` or error.
 absl::Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
                                TransformRep* a_to_b, bool can_move_from_a_to_b,
                                TransformRep* a_to_c, bool domain_only = false);

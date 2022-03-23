@@ -14,6 +14,7 @@
 
 #include "tensorstore/internal/compression/blosc.h"
 
+#include "absl/status/status.h"
 #include <blosc.h>
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/util/status.h"
@@ -21,8 +22,8 @@
 namespace tensorstore {
 namespace blosc {
 
-Status Encode(const absl::Cord& input, absl::Cord* output,
-              const Options& options) {
+absl::Status Encode(const absl::Cord& input, absl::Cord* output,
+                    const Options& options) {
   if (input.size() > BLOSC_MAX_BUFFERSIZE) {
     return absl::InvalidArgumentError(
         StrCat("Blosc compression input of ", input.size(),
@@ -49,7 +50,7 @@ Status Encode(const absl::Cord& input, absl::Cord* output,
   return absl::OkStatus();
 }
 
-Status Decode(const absl::Cord& input, absl::Cord* output) {
+absl::Status Decode(const absl::Cord& input, absl::Cord* output) {
   size_t nbytes;
   // Blosc requires a contiguous input and output buffer.
   absl::Cord input_copy(input);

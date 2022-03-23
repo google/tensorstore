@@ -18,6 +18,7 @@
 #include <type_traits>
 
 #include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/deep_copy_transform_rep_ptr.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
@@ -861,10 +862,11 @@ void InitializeTransformRepForBuilder(TransformRep* data);
 /// \param output_index_maps Array of length `data->output_rank()`.
 /// \param interval_form Specifies the interpretation of `data->input_shape()`.
 /// \param flags Specifies which fields have been set.
-/// \returns `Status()` if the resulting transform is valid, or an error Status
+/// \returns `absl::Status()` if the resulting transform is valid, or an error
+/// absl::Status
 ///     otherwise.  In the case of an error return, the output index maps of
 ///     `data` are left in an unspecified state.
-Status SetOutputIndexMapsAndValidateTransformRep(
+absl::Status SetOutputIndexMapsAndValidateTransformRep(
     TransformRep* data, span<const OutputIndexMapInitializer> output_index_maps,
     IntervalForm interval_form, BuilderFlags flags);
 

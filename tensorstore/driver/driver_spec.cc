@@ -226,7 +226,7 @@ auto SchemaExcludingRankAndDtypeJsonBinder() {
 TENSORSTORE_DEFINE_JSON_BINDER(
     TransformedDriverSpecJsonBinder,
     [](auto is_loading, const auto& options, auto* obj,
-       ::nlohmann::json* j) -> Status {
+       ::nlohmann::json* j) -> absl::Status {
       auto& registry = internal::GetDriverRegistry();
       return jb::NestedContextJsonBinder(jb::Object(
           jb::Member("driver",

@@ -19,6 +19,7 @@
 #include <cassert>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
@@ -81,7 +82,8 @@ class StridedIteratorImpl : public NDIterator::Base<StridedIteratorImpl> {
   }
 
   Index GetBlock(span<const Index> indices, Index block_size,
-                 IterationBufferPointer* pointer, Status* status) override {
+                 IterationBufferPointer* pointer,
+                 absl::Status* status) override {
     *pointer = IterationBufferPointer{
         data_ + IndexInnerProduct(indices.size(), byte_strides_.data(),
                                   indices.data()),
@@ -113,7 +115,8 @@ class IndexedIteratorImpl : public NDIterator::Base<IndexedIteratorImpl> {
   }
 
   Index GetBlock(span<const Index> indices, Index block_size,
-                 IterationBufferPointer* pointer, Status* status) override {
+                 IterationBufferPointer* pointer,
+                 absl::Status* status) override {
     *pointer = IterationBufferPointer{
         data_ +
             IndexInnerProduct(indices.size(), buffer_.data(), indices.data()),

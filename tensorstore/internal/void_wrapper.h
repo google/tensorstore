@@ -18,6 +18,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/status/status.h"
+
 namespace tensorstore {
 namespace internal {
 
@@ -27,8 +29,8 @@ namespace internal {
 /// Various iteration facilities in this library support an element-wise
 /// callback function that may return a value that is either `void` or
 /// convertible to `bool`.  A value convertible to `false` causes iteration to
-/// stop and the returned value (which may be a `Status` type, for example) is
-/// returned back to the caller of the iteration facility.
+/// stop and the returned value (which may be a `absl::Status` type, for
+/// example) is returned back to the caller of the iteration facility.
 ///
 /// `void` can only be used as a type in very limited ways in C++, which makes
 /// generic programming involving `void` cumbersome.  To simplify the

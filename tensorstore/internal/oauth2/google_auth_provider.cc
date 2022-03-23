@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
@@ -86,7 +87,7 @@ bool IsRunningOnGce(internal_http::HttpTransport* transport) {
   request_builder.AddHeader("Metadata-Flavor: Google");
   auto request = request_builder.BuildRequest();
 
-  const auto issue_request = [&request, transport]() -> Status {
+  const auto issue_request = [&request, transport]() -> absl::Status {
     TENSORSTORE_ASSIGN_OR_RETURN(auto response,
                                  transport->IssueRequest(request, {}).result());
     return internal_http::HttpResponseCodeToStatus(response);
@@ -157,7 +158,7 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider(
   }
 
   // 2. Attempt to read the well-known credentials file.
-  Status status;
+  absl::Status status;
   auto credentials_filename = GetEnvironmentVariableFileName();
   if (!credentials_filename) {
     TENSORSTORE_LOG("Credentials file not found. ",

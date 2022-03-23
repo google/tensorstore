@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "absl/container/fixed_array.h"
+#include "absl/status/status.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
 #include "tensorstore/internal/dimension_labels.h"
@@ -480,8 +481,9 @@ Result<Index> OutputIndexMap::operator()(
   return base_output_index * stride() + offset();
 }
 
-Status TransformIndices(TransformRep* data, span<const Index> input_indices,
-                        span<Index> output_indices) {
+absl::Status TransformIndices(TransformRep* data,
+                              span<const Index> input_indices,
+                              span<Index> output_indices) {
   assert(data && data->input_rank == input_indices.size() &&
          data->output_rank == output_indices.size());
   const DimensionIndex output_rank = data->output_rank;
@@ -506,9 +508,10 @@ Status TransformIndices(TransformRep* data, span<const Index> input_indices,
   return absl::OkStatus();
 }
 
-Status ReplaceZeroRankIndexArrayIndexMap(Index index, IndexInterval bounds,
-                                         Index* output_offset,
-                                         Index* output_stride) {
+absl::Status ReplaceZeroRankIndexArrayIndexMap(Index index,
+                                               IndexInterval bounds,
+                                               Index* output_offset,
+                                               Index* output_stride) {
   TENSORSTORE_RETURN_IF_ERROR(CheckContains(bounds, index));
   Index new_offset;
   if (internal::MulOverflow(index, *output_stride, &new_offset) ||

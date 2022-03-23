@@ -17,6 +17,7 @@
 #include <numeric>
 
 #include "absl/container/fixed_array.h"
+#include "absl/status/status.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_identifier.h"
@@ -223,7 +224,7 @@ Result<bool> GetOutputRange(IndexTransformView<> transform,
 }
 
 namespace internal_index_space {
-Status ValidateInputDimensionResize(
+absl::Status ValidateInputDimensionResize(
     OptionallyImplicitIndexInterval input_domain, Index requested_inclusive_min,
     Index requested_exclusive_max) {
   if (requested_inclusive_min != kImplicit &&
@@ -256,7 +257,7 @@ Status ValidateInputDimensionResize(
 }
 }  // namespace internal_index_space
 
-Status PropagateInputDomainResizeToOutput(
+absl::Status PropagateInputDomainResizeToOutput(
     IndexTransformView<> transform,
     span<const Index> requested_input_inclusive_min,
     span<const Index> requested_input_exclusive_max,

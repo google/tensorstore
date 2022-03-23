@@ -140,7 +140,7 @@ struct WriteChunk {
 
       /// Finalize the write started by a successful call to `BeginWrite`.
       /// This must be called exactly once after each successful call to
-      /// `BeginWrite`.  If `BeginWrite` returns an error `Status`, this
+      /// `BeginWrite`.  If `BeginWrite` returns an error `absl::Status`, this
       /// method must not be called.
       ///
       /// The `NDIterable::Ptr` returned by `BeginWrite` must be destroyed

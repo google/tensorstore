@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include <lzma.h>
 #include "tensorstore/util/status.h"
@@ -46,16 +47,17 @@ struct Options {
 /// \param input Input to encode.
 /// \param output[in,out] Output cord to which compressed data will be appended.
 /// \param options Specifies the compression options.
-Status Encode(const absl::Cord& input, absl::Cord* output, Options options);
+absl::Status Encode(const absl::Cord& input, absl::Cord* output,
+                    Options options);
 
 /// Decompresses `input` and appends the result to `*output`.
 ///
 /// \param input Input to decode.
 /// \param output[in,out] Output cord to which decompressed data will be
 ///     appended.
-/// \returns `Status()` on success.
+/// \returns `absl::Status()` on success.
 /// \error `absl::StatusCode::kInvalidArgument` if `input` is corrupt.
-Status Decode(const absl::Cord& input, absl::Cord* output);
+absl::Status Decode(const absl::Cord& input, absl::Cord* output);
 
 }  // namespace xz
 }  // namespace lzma
