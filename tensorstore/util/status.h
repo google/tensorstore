@@ -47,6 +47,8 @@ inline absl::Status GetStatus(absl::Status&& status) {
   return std::move(status);
 }
 
+namespace internal {
+
 /// Returns `f(args...)`, converting a `void` return to `absl::Status`.
 template <typename F, typename... Args>
 inline absl::Status InvokeForStatus(F&& f, Args&&... args) {
@@ -72,7 +74,6 @@ inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
   return status;
 }
 
-namespace internal {
 [[noreturn]] void FatalStatus(const char* message, const absl::Status& status,
                               SourceLocation loc
                                   TENSORSTORE_LOC_CURRENT_DEFAULT_ARG);

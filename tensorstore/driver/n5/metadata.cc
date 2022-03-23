@@ -612,7 +612,7 @@ absl::Status ValidateMetadataSchema(const N5Metadata& metadata,
     auto codec = GetCodecFromMetadata(metadata);
     TENSORSTORE_RETURN_IF_ERROR(
         codec.MergeFrom(schema_codec),
-        ConvertInvalidArgumentToFailedPrecondition(
+        internal::ConvertInvalidArgumentToFailedPrecondition(
             tensorstore::MaybeAnnotateStatus(
                 _, "codec from metadata does not match codec in schema")));
   }
@@ -636,7 +636,7 @@ absl::Status ValidateMetadataSchema(const N5Metadata& metadata,
     DimensionUnitsVector schema_units_vector(schema_units);
     TENSORSTORE_RETURN_IF_ERROR(
         MergeDimensionUnits(schema_units_vector, dimension_units),
-        ConvertInvalidArgumentToFailedPrecondition(_));
+        internal::ConvertInvalidArgumentToFailedPrecondition(_));
     if (schema_units_vector != dimension_units) {
       return absl::FailedPreconditionError(
           tensorstore::StrCat("Dimension units in metadata ",

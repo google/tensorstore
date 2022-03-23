@@ -40,7 +40,7 @@ Result<::nlohmann::json> JsonChangeMap::Apply(
     TENSORSTORE_RETURN_IF_ERROR(
         json_pointer::Dereference(existing, sub_value_pointer,
                                   json_pointer::kSimulateCreate),
-        ConvertInvalidArgumentToFailedPrecondition(_));
+        internal::ConvertInvalidArgumentToFailedPrecondition(_));
     // avoid basic_json::operator ValueType()
     return {std::in_place, changes_it->second};
   }
@@ -62,7 +62,7 @@ Result<::nlohmann::json> JsonChangeMap::Apply(
       TENSORSTORE_RETURN_IF_ERROR(
           json_pointer::Dereference(existing, prev_it->first,
                                     json_pointer::kSimulateCreate),
-          ConvertInvalidArgumentToFailedPrecondition(_));
+          internal::ConvertInvalidArgumentToFailedPrecondition(_));
       return {std::in_place, *modified_value};
     }
   }
@@ -98,7 +98,7 @@ Result<::nlohmann::json> JsonChangeMap::Apply(
                               std::string_view(changes_it->first)
                                   .substr(sub_value_pointer.size()),
                               changes_it->second),
-        ConvertInvalidArgumentToFailedPrecondition(_));
+        internal::ConvertInvalidArgumentToFailedPrecondition(_));
   }
   return new_value;
 }

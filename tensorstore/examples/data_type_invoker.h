@@ -18,10 +18,10 @@ struct DataTypeInvokerFn {
 
   template <typename... Args>
   inline absl::Status operator()(tensorstore::DataTypeId id, Args&&... args) {
-#define INVOKE_WITH_TYPE(T, ...)                                         \
-  case tensorstore::DataTypeId::T: {                                     \
-    return tensorstore::InvokeForStatus(fn, tensorstore::T{},            \
-                                        std::forward<Args...>(args)...); \
+#define INVOKE_WITH_TYPE(T, ...)                               \
+  case tensorstore::DataTypeId::T: {                           \
+    return tensorstore::internal::InvokeForStatus(             \
+        fn, tensorstore::T{}, std::forward<Args...>(args)...); \
   }
 
     switch (id) {

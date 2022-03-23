@@ -294,7 +294,7 @@ constexpr auto GetterSetter(Get get, Set set, Binder binder = DefaultBinder<>) {
           T>;
       Projected projected;
       TENSORSTORE_RETURN_IF_ERROR(binder(is_loading, options, &projected, j));
-      return tensorstore::InvokeForStatus(set, *obj, std::move(projected));
+      return internal::InvokeForStatus(set, *obj, std::move(projected));
     } else {
       auto&& projected = std::invoke(get, *obj);
       return binder(is_loading, options, &projected, j);
@@ -662,7 +662,7 @@ constexpr auto DefaultValue(GetDefault get_default,
     using T = std::remove_const_t<std::remove_pointer_t<decltype(obj)>>;
     if constexpr (is_loading) {
       if (j->is_discarded()) {
-        return tensorstore::InvokeForStatus(get_default, obj);
+        return internal::InvokeForStatus(get_default, obj);
       }
       return binder(is_loading, options, obj, j);
     } else {
@@ -679,7 +679,7 @@ constexpr auto DefaultValue(GetDefault get_default,
       T default_obj;
       // If `get_default` fails, just use original value.
       ::nlohmann::json default_j;
-      if (tensorstore::InvokeForStatus(get_default, &default_obj).ok() &&
+      if (internal::InvokeForStatus(get_default, &default_obj).ok() &&
           binder(is_loading, options, &default_obj, &default_j).ok() &&
           internal_json::JsonSame(default_j, *j)) {
         // Successfully obtained default value matches original value.
@@ -738,7 +738,7 @@ constexpr auto DefaultPredicate(GetDefault get_default, IsDefault is_default,
              ::nlohmann::json* j) -> absl::Status {
     if constexpr (is_loading) {
       if (j->is_discarded()) {
-        return tensorstore::InvokeForStatus(get_default, obj);
+        return internal::InvokeForStatus(get_default, obj);
       }
       return binder(is_loading, options, obj, j);
     } else {
@@ -1116,7 +1116,7 @@ struct ArrayBinderImpl {
       }
       const size_t size = j_arr->size();
       TENSORSTORE_RETURN_IF_ERROR(
-          tensorstore::InvokeForStatus(set_size, *obj, size));
+          internal::InvokeForStatus(set_size, *obj, size));
     } else {
       const auto size = get_size(*obj);
       if constexpr (kDiscardEmpty) {
@@ -1325,7 +1325,7 @@ constexpr auto Validate(Validator validator, Binder binder = DefaultBinder<>) {
              auto* j) -> absl::Status {
     if constexpr (is_loading) {
       TENSORSTORE_RETURN_IF_ERROR(binder(is_loading, options, obj, j));
-      return tensorstore::InvokeForStatus(validator, options, obj);
+      return internal::InvokeForStatus(validator, options, obj);
     } else {
       return binder(is_loading, options, obj, j);
     }
@@ -1348,7 +1348,7 @@ constexpr auto Initialize(Initializer initializer) {
   return [=](auto is_loading, const auto& options, [[maybe_unused]] auto* obj,
              auto*) -> absl::Status {
     if constexpr (is_loading) {
-      return tensorstore::InvokeForStatus(initializer, obj);
+      return internal::InvokeForStatus(initializer, obj);
     } else {
       return absl::OkStatus();
     }

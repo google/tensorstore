@@ -44,6 +44,8 @@ namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
 namespace {
 
+using internal::ConvertInvalidArgumentToFailedPrecondition;
+
 /// Read-only KeyValueStore for retrieving a minishard index
 ///
 /// The key is a `ChunkCombinedShardInfo` (in native memory layout).  The value

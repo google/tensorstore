@@ -958,9 +958,9 @@ void MetadataCache::Entry::DoDecode(std::optional<absl::Cord> value,
           result.ok()) {
         new_metadata = std::move(*result);
       } else {
-        execution::set_error(receiver,
-                             ConvertInvalidArgumentToFailedPrecondition(
-                                 std::move(result).status()));
+        execution::set_error(
+            receiver, internal::ConvertInvalidArgumentToFailedPrecondition(
+                          std::move(result).status()));
         return;
       }
     }
@@ -1037,8 +1037,9 @@ void DataCache::Entry::DoDecode(std::optional<absl::Cord> value,
     auto decoded_result = cache.DecodeChunk(
         cache.initial_metadata_.get(), this->cell_indices(), std::move(*value));
     if (!decoded_result.ok()) {
-      execution::set_error(receiver, ConvertInvalidArgumentToFailedPrecondition(
-                                         std::move(decoded_result).status()));
+      execution::set_error(receiver,
+                           internal::ConvertInvalidArgumentToFailedPrecondition(
+                               std::move(decoded_result).status()));
       return;
     }
     const size_t num_components = this->component_specs().size();

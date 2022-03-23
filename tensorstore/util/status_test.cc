@@ -24,8 +24,8 @@
 namespace {
 
 using absl::Status;
-using tensorstore::InvokeForStatus;
 using tensorstore::MaybeAnnotateStatus;
+using tensorstore::internal::InvokeForStatus;
 
 TEST(StatusTest, StrCat) {
   const absl::Status s = absl::UnknownError("Message");
