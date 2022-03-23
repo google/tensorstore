@@ -43,15 +43,6 @@ namespace internal_span {
 
 template <typename SourceElement, std::ptrdiff_t SourceExtent,
           typename DestElement, std::ptrdiff_t DestExtent>
-struct IsSpanConvertible
-    : public std::integral_constant<
-          bool,
-          (std::is_convertible<SourceElement (*)[], DestElement (*)[]>::value &&
-           (SourceExtent == DestExtent || SourceExtent == dynamic_extent ||
-            DestExtent == dynamic_extent))> {};
-
-template <typename SourceElement, std::ptrdiff_t SourceExtent,
-          typename DestElement, std::ptrdiff_t DestExtent>
 struct IsSpanImplicitlyConvertible
     : public std::integral_constant<
           bool,
@@ -120,54 +111,19 @@ struct SpanTypeHelper<T, std::void_t<internal_span::ContainerElementType<T>>> {
   constexpr static std::ptrdiff_t extent = dynamic_extent;
 };
 
-// SpanBase owns the data and size members of a tensorstore::span<T>.
-// It uses partial-specialization to avoid storing the length in the
-// explicit-extent case.
-template <typename T, std::ptrdiff_t Extent>
-class SpanBase {
- protected:
-  static_assert(Extent >= 0, "Extent must be non-negative or -1.");
-
-  using index_type = std::ptrdiff_t;
-  using pointer = T*;
-
-  constexpr SpanBase() noexcept = default;
-
-  constexpr SpanBase(pointer ptr, index_type count) noexcept : data_(ptr) {
-    assert(count == Extent);
-  }
-
-  constexpr static index_type size() noexcept { return Extent; }
-  constexpr pointer data() const noexcept { return data_; }
-
-  T* data_ = nullptr;
-};
-
-template <typename T>
-class SpanBase<T, dynamic_extent> {
- protected:
-  using index_type = std::ptrdiff_t;
-  using pointer = T*;
-
-  constexpr SpanBase() noexcept = default;
-
-  constexpr SpanBase(pointer ptr, index_type count) noexcept
-      : data_(ptr), size_(count) {
-    assert(count >= 0);
-  }
-
-  constexpr index_type size() const noexcept { return size_; }
-  constexpr pointer data() const noexcept { return data_; }
-
-  T* data_ = nullptr;
-  index_type size_ = 0;
-};
+constexpr inline ptrdiff_t SubspanExtent(ptrdiff_t extent, ptrdiff_t offset,
+                                         ptrdiff_t count) {
+  return count == dynamic_extent && extent == dynamic_extent ? dynamic_extent
+         : count == dynamic_extent                           ? extent - offset
+                                                             : count;
+}
 
 }  // namespace internal_span
 
 template <typename T, std::ptrdiff_t Extent>
-class span : private internal_span::SpanBase<T, Extent> {
-  using Base = internal_span::SpanBase<T, Extent>;
+class span {
+  static_assert(Extent == dynamic_extent || Extent >= 0,
+                "Extent must be non-negative or -1.");
 
  public:
   using element_type = T;
@@ -185,60 +141,68 @@ class span : private internal_span::SpanBase<T, Extent> {
 
   static constexpr std::ptrdiff_t extent = Extent;
 
-  constexpr span() noexcept = default;
+  constexpr span() noexcept : data_(nullptr), size_{} {}
   constexpr span(pointer ptr TENSORSTORE_LIFETIME_BOUND,
                  index_type count) noexcept
-      : Base(ptr, count) {}
+      : data_(ptr), size_{} {
+    if constexpr (Extent == dynamic_extent) {
+      assert(count >= 0);
+      size_ = count;
+    } else {
+      assert(count == Extent);
+    }
+  }
 
-  // Add an extra dummy template parameter to ensure this overload ranks lower
-  // than the (pointer, index_type) overload in the case of a call of the form
-  // (pointer, 0).
-  //
-  // See https://github.com/Microsoft/GSL/issues/541.
-  template <typename U = void>
+  template <
+      // Add an extra dummy template parameter to ensure this overload ranks
+      // lower than the (pointer, index_type) overload in the case of a call of
+      // the form (pointer, 0).
+      //
+      // See https://github.com/Microsoft/GSL/issues/541.
+      typename = void>
   constexpr span(pointer begin TENSORSTORE_LIFETIME_BOUND,
                  pointer end TENSORSTORE_LIFETIME_BOUND) noexcept
-      : Base(begin, end - begin) {}
+      : span(begin, end - begin) {}
 
   template <std::size_t N, typename = std::enable_if_t<
                                (Extent == dynamic_extent || Extent == N)>>
   constexpr span(T (&arr TENSORSTORE_LIFETIME_BOUND)[N]) noexcept
-      : Base(arr, N) {}
-
+      : span(arr, N) {}
   template <std::size_t N, typename = std::enable_if_t<
-                               Extent == dynamic_extent || Extent == N>>
+                               (Extent == dynamic_extent || Extent == N)>>
   constexpr span(
       std::array<value_type, N>& arr TENSORSTORE_LIFETIME_BOUND) noexcept
-      : Base(arr.data(), N) {}
-
+      : span(arr.data(), N) {}
   template <
       std::size_t N, typename U = T,
       typename = std::enable_if_t<std::is_const_v<U> &&
                                   (Extent == dynamic_extent || Extent == N)>>
   constexpr span(
       const std::array<value_type, N>& arr TENSORSTORE_LIFETIME_BOUND) noexcept
-      : Base(arr.data(), N) {}
+      : span(arr.data(), N) {}
 
   template <typename Container,
             typename = internal_span::EnableIfCompatibleContainer<T, Container>>
   constexpr span(Container& cont TENSORSTORE_LIFETIME_BOUND)
-      : Base(cont.data(), cont.size()) {}
-
+      : span(cont.data(), cont.size()) {}
   template <
       typename Container,
       typename = internal_span::EnableIfCompatibleContainer<T, const Container>>
   constexpr span(const Container& cont TENSORSTORE_LIFETIME_BOUND)
-      : Base(cont.data(), cont.size()) {}
+      : span(cont.data(), cont.size()) {}
 
   template <
       typename U, std::ptrdiff_t N,
       typename = std::enable_if_t<
           internal_span::IsSpanImplicitlyConvertible<U, N, T, Extent>::value>>
   constexpr span(const span<U, N>& other) noexcept
-      : Base(other.data(), other.size()) {}
+      : span(other.data(), other.size()) {}
 
-  using Base::data;
-  using Base::size;
+  /// Returns a pointer to the first element.
+  constexpr pointer data() const noexcept { return data_; }
+
+  /// Returns the size.
+  constexpr index_type size() const noexcept { return size_; }
 
   constexpr bool empty() const noexcept { return size() == 0; }
 
@@ -288,10 +252,7 @@ class span : private internal_span::SpanBase<T, Extent> {
 
   template <std::ptrdiff_t Offset, std::ptrdiff_t Count = dynamic_extent>
   constexpr span<element_type,
-                 (Count == dynamic_extent && Extent == dynamic_extent
-                      ? dynamic_extent
-                  : Count == dynamic_extent ? Extent - Offset
-                                            : Count)>
+                 internal_span::SubspanExtent(Extent, Offset, Count)>
   subspan() const {
     static_assert(Offset >= 0, "Offset must be non-negative.");
     static_assert(Count == dynamic_extent || Count >= 0,
@@ -344,6 +305,17 @@ class span : private internal_span::SpanBase<T, Extent> {
     return H::combine(H::combine_contiguous(std::move(h), v.data(), v.size()),
                       v.size());
   }
+
+ private:
+  T* data_ = nullptr;
+  // Note: To avoid miscompilation by MSVC, we must not specify a default member
+  // initializer for `size_`.
+  //
+  // https://developercommunity.visualstudio.com/t/miscompilation-with-msvcno-unique-address-and-defa/1699750
+  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS
+  std::conditional_t<Extent == dynamic_extent, ptrdiff_t,
+                     std::integral_constant<ptrdiff_t, Extent>>
+      size_;
 };
 
 template <typename T>

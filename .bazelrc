@@ -43,3 +43,6 @@ build:macos --features=-supports_dynamic_linker
 # symlinks.
 startup --windows_enable_symlinks
 build:windows --enable_runfiles=true --build_python_zip=false
+
+# Disable warning regarding `msvc::no_unique_address`
+build:windows --copt=/wd4848

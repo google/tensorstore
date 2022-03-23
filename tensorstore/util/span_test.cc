@@ -80,7 +80,6 @@ std::vector<int> MakeRamp(int len, int offset = 0) {
 
 namespace compile_time_convertibility_tests {
 static_assert(IsSpanImplicitlyConvertible<int, 3, const int, 3>::value, "");
-static_assert(span<int, 3>::size() == 3, "");
 static_assert(std::is_convertible<span<int, 3>, span<const int, 3>>::value, "");
 static_assert(!std::is_convertible<span<const int, 3>, span<int, 3>>::value,
               "");
