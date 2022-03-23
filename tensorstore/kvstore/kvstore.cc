@@ -268,6 +268,9 @@ Future<DriverPtr> Open(DriverSpecPtr spec, DriverOpenOptions&& options) {
 void Driver::DestroyLastReference() {
   auto& open_cache = GetOpenDriverCache();
   if (!cache_identifier_.empty()) {
+    // Hold `open_cache.mutex` while decrementing the count to zero, to ensure
+    // that it does not concurrently increase due to being retrieved from the
+    // cache.
     absl::MutexLock lock(&open_cache.mutex);
     if (reference_count_.fetch_sub(1, std::memory_order_acq_rel) != 1) {
       // Another reference was added concurrently.  Don't destroy.
@@ -281,6 +284,13 @@ void Driver::DestroyLastReference() {
       TENSORSTORE_LOG("Removed kvstore from open cache: ",
                       QuoteString(cache_identifier_));
 #endif
+    }
+  } else {
+    // Not stored in the open kvstore cache.  We can just decrement the
+    // reference count to 0.
+    if (reference_count_.fetch_sub(1, std::memory_order_acq_rel) != 1) {
+      // Another reference was added concurrently.  Don't destroy.
+      return;
     }
   }
   delete this;
