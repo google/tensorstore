@@ -53,12 +53,11 @@ struct Void {
 
   /// Type alias that maps `void` -> `Void`, and otherwise `T` -> `T`.
   template <typename T>
-  using WrappedType = std::conditional_t<std::is_void<T>::value, Void, T>;
+  using WrappedType = std::conditional_t<std::is_void_v<T>, Void, T>;
 
   /// Type alias that maps `Void` -> `void`, and otherwise `T` -> `T`.
   template <typename T>
-  using UnwrappedType =
-      std::conditional_t<std::is_same<T, Void>::value, void, T>;
+  using UnwrappedType = std::conditional_t<std::is_same_v<T, Void>, void, T>;
 
   /// Invokes `func` with `args` (using perfect forwarding), and returns the
   /// result if it is not `void`, or otherwise returns `Void{}`.
@@ -66,8 +65,8 @@ struct Void {
   /// This overload is used in the case that the return type of `func` is
   /// `void`.
   template <typename Func, typename... Args>
-  static std::enable_if_t<
-      std::is_void<std::invoke_result_t<Func, Args...>>::value, Void>
+  static std::enable_if_t<std::is_void_v<std::invoke_result_t<Func, Args...>>,
+                          Void>
   CallAndWrap(Func&& func, Args&&... args) {
     std::forward<Func>(func)(std::forward<Args>(args)...);
     return {};
@@ -75,9 +74,8 @@ struct Void {
 
   /// Overload for the case that the return type of `func` is not `void`.
   template <typename Func, typename... Args>
-  static std::enable_if_t<
-      !std::is_void<std::invoke_result_t<Func, Args...>>::value,
-      std::invoke_result_t<Func, Args...>>
+  static std::enable_if_t<!std::is_void_v<std::invoke_result_t<Func, Args...>>,
+                          std::invoke_result_t<Func, Args...>>
   CallAndWrap(Func&& func, Args&&... args) {
     return std::forward<Func>(func)(std::forward<Args>(args)...);
   }

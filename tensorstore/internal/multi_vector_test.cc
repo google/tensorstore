@@ -128,16 +128,12 @@ TYPED_TEST(MultiVectorDynamicTest, Basic) {
   using T0 = typename D::Element0;
   using T1 = typename D::Element1;
   using Access = MultiVectorAccess<Container>;
+  static_assert(std::is_same_v<T0, typename Access::template ElementType<0>>);
+  static_assert(std::is_same_v<T1, typename Access::template ElementType<1>>);
   static_assert(
-      std::is_same<T0, typename Access::template ElementType<0>>::value);
+      std::is_same_v<const T0, typename Access::template ConstElementType<0>>);
   static_assert(
-      std::is_same<T1, typename Access::template ElementType<1>>::value);
-  static_assert(
-      std::is_same<const T0,
-                   typename Access::template ConstElementType<0>>::value);
-  static_assert(
-      std::is_same<const T1,
-                   typename Access::template ConstElementType<1>>::value);
+      std::is_same_v<const T1, typename Access::template ConstElementType<1>>);
 
   // Test default construction.
   Container vec;
@@ -226,21 +222,17 @@ TYPED_TEST(MultiVectorStaticTest, Basic) {
   using D = Decompose<Container>;
   using T0 = typename D::Element0;
   using T1 = typename D::Element1;
+  static_assert(std::is_same_v<T0, typename Access::template ElementType<0>>);
+  static_assert(std::is_same_v<T1, typename Access::template ElementType<1>>);
   static_assert(
-      std::is_same<T0, typename Access::template ElementType<0>>::value);
+      std::is_same_v<const T0, typename Access::template ConstElementType<0>>);
   static_assert(
-      std::is_same<T1, typename Access::template ElementType<1>>::value);
-  static_assert(
-      std::is_same<const T0,
-                   typename Access::template ConstElementType<0>>::value);
-  static_assert(
-      std::is_same<const T1,
-                   typename Access::template ConstElementType<1>>::value);
+      std::is_same_v<const T1, typename Access::template ConstElementType<1>>);
 
   // Test default construction.
   Container vec;
-  static_assert(std::is_same<std::integral_constant<std::ptrdiff_t, 2>,
-                             decltype(Access::GetExtent(vec))>::value);
+  static_assert(std::is_same_v<std::integral_constant<std::ptrdiff_t, 2>,
+                               decltype(Access::GetExtent(vec))>);
   EXPECT_EQ(2, Access::GetExtent(vec));
 
   // Test Resize (no op).

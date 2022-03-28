@@ -97,9 +97,9 @@ class IndexDomainBuilder {
   /// \remarks Calling this method after it has already been called simply
   ///     overrides the previous value.
   template <typename Indices>
-  std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                       Rank, Indices>::value,
-                   IndexDomainBuilder&>
+  std::enable_if_t<
+      internal_index_space::IsStaticExtentCompatibleWithRange<Rank, Indices>,
+      IndexDomainBuilder&>
   origin(const Indices& indices) {
     builder_.input_origin(indices);
     return *this;
@@ -131,9 +131,9 @@ class IndexDomainBuilder {
   /// \remarks Calling this method after the upper bound has already been
   ///     specified simply overrides the previous value.
   template <typename Indices>
-  std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                       Rank, Indices>::value,
-                   IndexDomainBuilder&>
+  std::enable_if_t<
+      internal_index_space::IsStaticExtentCompatibleWithRange<Rank, Indices>,
+      IndexDomainBuilder&>
   shape(const Indices& indices) {
     builder_.input_shape(indices);
     return *this;
@@ -164,9 +164,9 @@ class IndexDomainBuilder {
   /// \remarks Calling this method after the upper bound has already been
   ///     specified simply overrides the previous value.
   template <typename Indices>
-  std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                       Rank, Indices>::value,
-                   IndexDomainBuilder&>
+  std::enable_if_t<
+      internal_index_space::IsStaticExtentCompatibleWithRange<Rank, Indices>,
+      IndexDomainBuilder&>
   exclusive_max(const Indices& indices) {
     builder_.input_exclusive_max(indices);
     return *this;
@@ -199,9 +199,9 @@ class IndexDomainBuilder {
   /// \remarks Calling this method after the upper bound of the input domain has
   ///     already been specified simply overrides the previous value.
   template <typename Indices>
-  std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                       Rank, Indices>::value,
-                   IndexDomainBuilder&>
+  std::enable_if_t<
+      internal_index_space::IsStaticExtentCompatibleWithRange<Rank, Indices>,
+      IndexDomainBuilder&>
   inclusive_max(const Indices& indices) {
     builder_.input_inclusive_max(indices);
     return *this;
@@ -230,7 +230,7 @@ class IndexDomainBuilder {
   /// \remarks Calling this method after the lower and/or upper bounds of the
   ///     have already been specified simply overrides the previous values.
   template <typename BoxLike>
-  std::enable_if_t<IsBoxLikeImplicitlyConvertibleToRank<BoxLike, Rank>::value,
+  std::enable_if_t<IsBoxLikeImplicitlyConvertibleToRank<BoxLike, Rank>,
                    IndexDomainBuilder&>
   bounds(const BoxLike& box) {
     builder_.input_bounds(box);
@@ -269,9 +269,9 @@ class IndexDomainBuilder {
   /// \remarks Calling this method after it has already been called simply
   ///     overrides the previous value.
   template <typename Labels>
-  std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                       Rank, Labels>::value,
-                   IndexDomainBuilder&>
+  std::enable_if_t<
+      internal_index_space::IsStaticExtentCompatibleWithRange<Rank, Labels>,
+      IndexDomainBuilder&>
   labels(const Labels& labels) {
     builder_.input_labels(labels);
     return *this;

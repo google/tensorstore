@@ -31,47 +31,46 @@ using tensorstore::span;
 // initial static buffer of length 32.
 TEST(GetConstantVectorTest, RunTimeLengthInt) {
   auto x = GetConstantVector<int, 3>(5);
-  static_assert(std::is_same<decltype(x), span<const int>>::value, "");
+  static_assert(std::is_same_v<decltype(x), span<const int>>);
   EXPECT_THAT(x, ::testing::ElementsAreArray(std::vector<int>(5, 3)));
 }
 
 // Tests with a length of 0 specified at run time.
 TEST(GetConstantVectorTest, ZeroRunTimeLengthInt) {
   auto x = GetConstantVector<int, 3>(0);
-  static_assert(std::is_same<decltype(x), span<const int>>::value, "");
+  static_assert(std::is_same_v<decltype(x), span<const int>>);
   EXPECT_EQ(0, x.size());
 }
 
 // Tests with a static length.
 TEST(GetConstantVectorTest, StaticLengthInt) {
   constexpr auto x = GetConstantVector<int, 3, 5>();
-  static_assert(std::is_same<decltype(x), const span<const int, 5>>::value, "");
+  static_assert(std::is_same_v<decltype(x), const span<const int, 5>>);
   EXPECT_THAT(x, ::testing::ElementsAreArray(std::vector<int>(5, 3)));
 }
 
 // Tests with a static length specified using a StaticRank value.
 TEST(GetConstantVectorTest, StaticLengthIntUsingStaticRankValue) {
   constexpr auto x = GetConstantVector<int, 3>(tensorstore::StaticRank<5>{});
-  static_assert(std::is_same<decltype(x), const span<const int, 5>>::value, "");
+  static_assert(std::is_same_v<decltype(x), const span<const int, 5>>);
   EXPECT_THAT(x, ::testing::ElementsAreArray(std::vector<int>(5, 3)));
 }
 
 // Tests with a static length of 0.
 TEST(GetConstantVectorTest, StaticZeroLengthInt) {
   constexpr auto x = GetConstantVector<int, 3, 0>();
-  static_assert(std::is_same<decltype(x), const span<const int, 0>>::value, "");
+  static_assert(std::is_same_v<decltype(x), const span<const int, 0>>);
 }
 
 TEST(GetDefaultStringVectorTest, StaticLength) {
   auto x = tensorstore::GetDefaultStringVector<2>();
-  static_assert(std::is_same<decltype(x), span<const std::string, 2>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(x), span<const std::string, 2>>);
   EXPECT_THAT(x, ::testing::ElementsAre("", ""));
 }
 
 TEST(GetDefaultStringVectorTest, DynamicLength) {
   auto x = tensorstore::GetDefaultStringVector(2);
-  static_assert(std::is_same<decltype(x), span<const std::string>>::value, "");
+  static_assert(std::is_same_v<decltype(x), span<const std::string>>);
   EXPECT_THAT(x, ::testing::ElementsAre("", ""));
 }
 

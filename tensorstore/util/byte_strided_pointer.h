@@ -41,37 +41,39 @@ class ByteStridedPointer {
   using difference_type = std::ptrdiff_t;
 
   constexpr static size_t alignment =
-      alignof(std::conditional_t<std::is_void<T>::value, char, T>);
+      alignof(std::conditional_t<std::is_void_v<T>, char, T>);
 
   /// Default initialization, leaves the wrapped raw pointer in an uninitialized
   /// state.
   ByteStridedPointer() = default;
 
-  template <typename U,
-            std::enable_if_t<IsElementTypeImplicitlyConvertible<U, T>::value>* =
-                nullptr>
+  template <
+      typename U,
+      std::enable_if_t<IsElementTypeImplicitlyConvertible<U, T>>* = nullptr>
   ByteStridedPointer(U* value)
       : value_(reinterpret_cast<std::uintptr_t>(value)) {
     assert(value_ % alignment == 0);
   }
 
-  template <typename U, std::enable_if_t<IsElementTypeOnlyExplicitlyConvertible<
-                            U, T>::value>* = nullptr>
+  template <
+      typename U,
+      std::enable_if_t<IsElementTypeOnlyExplicitlyConvertible<U, T>>* = nullptr>
   explicit ByteStridedPointer(U* value)
       : value_(reinterpret_cast<std::uintptr_t>(value)) {
     assert(value_ % alignment == 0);
   }
 
-  template <typename U,
-            std::enable_if_t<IsElementTypeImplicitlyConvertible<U, T>::value>* =
-                nullptr>
+  template <
+      typename U,
+      std::enable_if_t<IsElementTypeImplicitlyConvertible<U, T>>* = nullptr>
   ByteStridedPointer(ByteStridedPointer<U> value)
       : value_(reinterpret_cast<std::uintptr_t>(value.get())) {
     assert(value_ % alignment == 0);
   }
 
-  template <typename U, std::enable_if_t<IsElementTypeOnlyExplicitlyConvertible<
-                            U, T>::value>* = nullptr>
+  template <
+      typename U,
+      std::enable_if_t<IsElementTypeOnlyExplicitlyConvertible<U, T>>* = nullptr>
   explicit ByteStridedPointer(ByteStridedPointer<U> value)
       : value_(reinterpret_cast<std::uintptr_t>(value.get())) {
     assert(value_ % alignment == 0);
@@ -93,16 +95,17 @@ class ByteStridedPointer {
 
   operator T*() const { return get(); }
 
-  template <typename U, std::enable_if_t<IsElementTypeOnlyExplicitlyConvertible<
-                            T, U>::value>* = nullptr>
+  template <
+      typename U,
+      std::enable_if_t<IsElementTypeOnlyExplicitlyConvertible<T, U>>* = nullptr>
   explicit operator U*() const {
     return static_cast<U*>(get());
   }
 
   /// Increments the raw pointer by `byte_offset` bytes.
   template <typename Integer>
-  std::enable_if_t<std::is_integral<Integer>::value, ByteStridedPointer&>
-  operator+=(Integer byte_offset) {
+  std::enable_if_t<std::is_integral_v<Integer>, ByteStridedPointer&> operator+=(
+      Integer byte_offset) {
     value_ = internal::wrap_on_overflow::Add(
         value_, static_cast<std::uintptr_t>(byte_offset));
     assert(value_ % alignment == 0);
@@ -111,8 +114,8 @@ class ByteStridedPointer {
 
   /// Decrements the raw pointer by `byte_offset` bytes.
   template <typename Integer>
-  std::enable_if_t<std::is_integral<Integer>::value, ByteStridedPointer&>
-  operator-=(Integer byte_offset) {
+  std::enable_if_t<std::is_integral_v<Integer>, ByteStridedPointer&> operator-=(
+      Integer byte_offset) {
     value_ = internal::wrap_on_overflow::Subtract(
         value_, static_cast<std::uintptr_t>(byte_offset));
     assert(value_ % alignment == 0);
@@ -122,7 +125,7 @@ class ByteStridedPointer {
   /// Returns a reference to the element starting at the specified `byte_offset`
   /// relative to `get()`.
   template <typename Integer>
-  std::enable_if_t<std::is_integral<Integer>::value, T>& operator[](
+  std::enable_if_t<std::is_integral_v<Integer>, T>& operator[](
       Integer byte_offset) const {
     ByteStridedPointer x = *this;
     x += byte_offset;
@@ -130,36 +133,38 @@ class ByteStridedPointer {
     return *x;
   }
 
+  template <typename U>
+  friend std::ptrdiff_t operator-(ByteStridedPointer<T> a,
+                                  ByteStridedPointer<U> b) {
+    return reinterpret_cast<const char*>(a.get()) -
+           reinterpret_cast<const char*>(b.get());
+  }
+
+  template <typename Integer>
+  friend std::enable_if_t<std::is_integral_v<Integer>, ByteStridedPointer<T>>
+  operator+(ByteStridedPointer<T> ptr, Integer byte_offset) {
+    ptr += static_cast<std::uintptr_t>(byte_offset);
+    return ptr;
+  }
+  template <typename Integer>
+  friend inline std::enable_if_t<std::is_integral_v<Integer>,
+                                 ByteStridedPointer<T>>
+  operator+(Integer byte_offset, ByteStridedPointer<T> ptr) {
+    ptr += static_cast<std::uintptr_t>(byte_offset);
+    return ptr;
+  }
+
+  template <typename Integer>
+  friend inline std::enable_if_t<std::is_integral_v<Integer>,
+                                 ByteStridedPointer<T>>
+  operator-(ByteStridedPointer<T> ptr, Integer byte_offset) {
+    ptr -= static_cast<std::uintptr_t>(byte_offset);
+    return ptr;
+  }
+
  private:
   std::uintptr_t value_;
 };
-
-template <typename T, typename U>
-std::ptrdiff_t operator-(ByteStridedPointer<T> a, ByteStridedPointer<U> b) {
-  return reinterpret_cast<const char*>(a.get()) -
-         reinterpret_cast<const char*>(b.get());
-}
-
-template <typename T, typename Integer>
-inline std::enable_if_t<std::is_integral<Integer>::value, ByteStridedPointer<T>>
-operator+(ByteStridedPointer<T> ptr, Integer byte_offset) {
-  ptr += static_cast<std::uintptr_t>(byte_offset);
-  return ptr;
-}
-
-template <typename T, typename Integer>
-inline std::enable_if_t<std::is_integral<Integer>::value, ByteStridedPointer<T>>
-operator+(Integer byte_offset, ByteStridedPointer<T> ptr) {
-  ptr += static_cast<std::uintptr_t>(byte_offset);
-  return ptr;
-}
-
-template <typename T, typename Integer>
-inline std::enable_if_t<std::is_integral<Integer>::value, ByteStridedPointer<T>>
-operator-(ByteStridedPointer<T> ptr, Integer byte_offset) {
-  ptr -= static_cast<std::uintptr_t>(byte_offset);
-  return ptr;
-}
 
 // We don't explicitly define comparison operators, because comparison
 // operations work without any explicit definition based on the conversion to a

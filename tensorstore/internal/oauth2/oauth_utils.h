@@ -59,7 +59,7 @@ Result<GoogleServiceAccountCredentials> ParseGoogleServiceAccountCredentials(
     std::string_view source);
 
 template <typename T>
-std::enable_if_t<std::is_same<T, ::nlohmann::json>::value,
+std::enable_if_t<std::is_same_v<T, ::nlohmann::json>,
                  Result<GoogleServiceAccountCredentials>>
 ParseGoogleServiceAccountCredentials(const T& json) {
   return ParseGoogleServiceAccountCredentialsImpl(json);
@@ -76,7 +76,7 @@ Result<RefreshToken> ParseRefreshTokenImpl(const ::nlohmann::json& credentials);
 Result<RefreshToken> ParseRefreshToken(std::string_view source);
 
 template <typename T>
-std::enable_if_t<std::is_same<T, ::nlohmann::json>::value, Result<RefreshToken>>
+std::enable_if_t<std::is_same_v<T, ::nlohmann::json>, Result<RefreshToken>>
 ParseRefreshToken(const T& json) {
   return ParseRefreshTokenImpl(json);
 }
@@ -93,8 +93,7 @@ Result<OAuthResponse> ParseOAuthResponseImpl(
 Result<OAuthResponse> ParseOAuthResponse(std::string_view source);
 
 template <typename T>
-std::enable_if_t<std::is_same<T, ::nlohmann::json>::value,
-                 Result<OAuthResponse>>
+std::enable_if_t<std::is_same_v<T, ::nlohmann::json>, Result<OAuthResponse>>
 ParseOAuthResponse(const T& json) {
   return ParseOAuthResponseImpl(json);
 }

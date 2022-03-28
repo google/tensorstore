@@ -211,7 +211,7 @@ class Poly
 
   /// `bool`-valued metafunction that evaluates to `true` if
   /// `IsCompatible<remove_cvref_t<T>>` and
-  /// `std::is_constructible<remove_cvref_t<T>, T&&>` are both `true`.
+  /// `std::is_constructible_v<remove_cvref_t<T>, T&&>` are both `true`.
   template <typename T>
   using IsCompatibleAndConstructible =
       // Prevent instantiation of `IsCompatibleWithPoly` and `is_constructible`
@@ -252,10 +252,9 @@ class Poly
   ///
   /// \requires `IsCompatible<T>`.
   /// \post `bool(*this) == true`
-  template <
-      typename T, typename... U,
-      std::enable_if_t<(IsCompatible<T>::value &&
-                        std::is_constructible<T, U&&...>::value)>* = nullptr>
+  template <typename T, typename... U,
+            std::enable_if_t<(IsCompatible<T>::value &&
+                              std::is_constructible_v<T, U&&...>)>* = nullptr>
   Poly(std::in_place_type_t<T> in_place, U&&... arg) {
     Construct(in_place, std::forward<U>(arg)...);
   }
@@ -291,10 +290,9 @@ class Poly
   ///
   /// \returns A reference to the contained object.
   /// \post `bool(*this) == true`.
-  template <
-      typename T, typename... U,
-      std::enable_if_t<(IsCompatible<T>::value &&
-                        std::is_constructible<T, U&&...>::value)>* = nullptr>
+  template <typename T, typename... U,
+            std::enable_if_t<(IsCompatible<T>::value &&
+                              std::is_constructible_v<T, U&&...>)>* = nullptr>
   void emplace(U&&... arg) {
     storage_.Destroy();
     Construct(std::in_place_type_t<T>{}, std::forward<U>(arg)...);

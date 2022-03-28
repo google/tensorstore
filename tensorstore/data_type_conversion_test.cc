@@ -67,7 +67,7 @@ template <typename From, typename To>
 void TestUnsupported() {
   static_assert(DataTypeConversionTraits<From, To>::flags ==
                 DataTypeConversionFlags{});
-  static_assert(!IsDataTypeConversionSupported<From, To>::value);
+  static_assert(!IsDataTypeConversionSupported<From, To>);
   auto r = GetDataTypeConverter(dtype_v<From>, dtype_v<To>);
   EXPECT_EQ(DataTypeConversionFlags{}, r.flags);
 }
@@ -79,12 +79,12 @@ Result<To> TestConversion(
       StrCat("TestConversion<To=", dtype_v<To>, ", From=", dtype_v<From>, ">")
           .c_str());
   flags = flags | kSupported;
-  if (!std::is_same<To, From>::value) {
+  if constexpr (!std::is_same_v<To, From>) {
     EXPECT_EQ(flags, (DataTypeConversionTraits<From, To>::flags));
   }
   EXPECT_EQ(!!(flags & kSafeAndImplicit),
-            (IsDataTypeConversionSupported<From, To, kSafeAndImplicit>::value));
-  EXPECT_TRUE((IsDataTypeConversionSupported<From, To>::value));
+            (IsDataTypeConversionSupported<From, To, kSafeAndImplicit>));
+  EXPECT_TRUE((IsDataTypeConversionSupported<From, To>));
   auto r = GetDataTypeConverter(dtype_v<From>, dtype_v<To>);
   EXPECT_EQ(flags, r.flags);
   To value;

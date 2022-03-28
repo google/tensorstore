@@ -58,87 +58,79 @@ T ProductOfExtents(span<T, Extent> s) {
 /// `span`-compatible with a `value_type` convertible without narrowing to
 /// `Index` and a static `extent` compatible with `Rank`.
 template <DimensionIndex Rank, typename Indices, typename = void>
-struct IsCompatibleFullIndexVector : public std::false_type {};
+constexpr inline bool IsCompatibleFullIndexVector = false;
 
 template <DimensionIndex Rank, typename Indices>
-struct IsCompatibleFullIndexVector<
-    Rank, Indices, std::void_t<internal::ConstSpanType<Indices>>>
-    : public std::integral_constant<
-          bool, AreStaticRanksCompatible(
-                    Rank, internal::ConstSpanType<Indices>::extent) &&
-                    internal::IsIndexPack<typename internal::ConstSpanType<
-                        Indices>::value_type>::value> {};
+constexpr inline bool IsCompatibleFullIndexVector<
+    Rank, Indices, std::void_t<internal::ConstSpanType<Indices>>> =
+    AreStaticRanksCompatible(Rank, internal::ConstSpanType<Indices>::extent) &&
+    internal::IsIndexPack<
+        typename internal::ConstSpanType<Indices>::value_type>;
 
 /// Bool-valued metafunction that evaluates to `true` if `Indices` is
 /// `span`-compatible with a `value_type` convertible without narrowing to
 /// `Index` and a static `extent` implicitly compatible with `Rank`.
 template <DimensionIndex Rank, typename Indices, typename = void>
-struct IsImplicitlyCompatibleFullIndexVector : public std::false_type {};
+constexpr inline bool IsImplicitlyCompatibleFullIndexVector = false;
 
 template <DimensionIndex Rank, typename Indices>
-struct IsImplicitlyCompatibleFullIndexVector<
-    Rank, Indices, std::void_t<internal::ConstSpanType<Indices>>>
-    : public std::integral_constant<
-          bool, IsRankImplicitlyConvertible(
-                    internal::ConstSpanType<Indices>::extent, Rank) &&
-                    internal::IsIndexPack<typename internal::ConstSpanType<
-                        Indices>::value_type>::value> {};
+constexpr inline bool IsImplicitlyCompatibleFullIndexVector<
+    Rank, Indices, std::void_t<internal::ConstSpanType<Indices>>> =
+    IsRankImplicitlyConvertible(internal::ConstSpanType<Indices>::extent,
+                                Rank) &&
+    internal::IsIndexPack<
+        typename internal::ConstSpanType<Indices>::value_type>;
 
 /// Bool-valued metafunction that evaluates to `true` if `Indices` is
 /// `span`-compatible with a `value_type` convertible without narrowing to
 /// `Index` and a static `extent <= Rank`.
 template <DimensionIndex Rank, typename Indices, typename = void>
-struct IsCompatiblePartialIndexVector : public std::false_type {};
+constexpr inline bool IsCompatiblePartialIndexVector = false;
 
 template <DimensionIndex Rank, typename Indices>
-struct IsCompatiblePartialIndexVector<
-    Rank, Indices, std::void_t<internal::ConstSpanType<Indices>>>
-    : public std::integral_constant<
-          bool, IsStaticRankGreaterEqual(
-                    Rank, internal::ConstSpanType<Indices>::extent) &&
-                    internal::IsIndexPack<typename internal::ConstSpanType<
-                        Indices>::value_type>::value> {};
+constexpr inline bool IsCompatiblePartialIndexVector<
+    Rank, Indices, std::void_t<internal::ConstSpanType<Indices>>> =
+    IsStaticRankGreaterEqual(Rank, internal::ConstSpanType<Indices>::extent) &&
+    internal::IsIndexPack<
+        typename internal::ConstSpanType<Indices>::value_type>;
 
 /// Bool-valued metafunction that evaluates to `true` if every `IndexType` is
 /// convertible without narrowing to `Index`, and `sizeof...(IndexType)` is
 /// compatible with `Rank`.
 template <DimensionIndex Rank, typename... IndexType>
-struct IsCompatibleFullIndexPack
-    : std::integral_constant<
-          bool, AreStaticRanksCompatible(Rank, sizeof...(IndexType)) &&
-                    internal::IsIndexPack<IndexType...>::value> {};
+constexpr inline bool IsCompatibleFullIndexPack =
+    AreStaticRanksCompatible(Rank, sizeof...(IndexType)) &&
+    internal::IsIndexPack<IndexType...>;
 
 /// Bool-valued metafunction that evaluates to `true` if `Indices` is
 /// `span`-compatible with a `value_type` convertible without narrowing to
 /// `Index`.
 template <typename Indices, typename = void>
-struct IsIndexConvertibleVector : public std::false_type {};
+constexpr inline bool IsIndexConvertibleVector = false;
 
 template <typename Indices>
-struct IsIndexConvertibleVector<Indices,
-                                std::void_t<internal::ConstSpanType<Indices>>>
-    : public internal::IsIndexPack<
-          typename internal::ConstSpanType<Indices>::value_type> {};
+constexpr inline bool IsIndexConvertibleVector<
+    Indices, std::void_t<internal::ConstSpanType<Indices>>> =
+    internal::IsIndexPack<
+        typename internal::ConstSpanType<Indices>::value_type>;
 
 /// Bool-valued metafunction that evaluates to `true` if `Indices` is
 /// `span`-compatible with a `value_type` of `Index`.
 template <typename Indices, typename = Index>
-struct IsIndexVector : public std::false_type {};
+constexpr inline bool IsIndexVector = false;
 
 template <typename Indices>
-struct IsIndexVector<Indices,
-                     typename internal::ConstSpanType<Indices>::value_type>
-    : public std::true_type {};
+constexpr inline bool IsIndexVector<
+    Indices, typename internal::ConstSpanType<Indices>::value_type> = true;
 
 /// Bool-valued metafunction that evaluates to `true` if `Indices` is
 /// `span`-compatible with an `element_type` of `Index`.
 template <typename Indices, typename = Index>
-struct IsMutableIndexVector : public std::false_type {};
+constexpr inline bool IsMutableIndexVector = false;
 
 template <typename Indices>
-struct IsMutableIndexVector<Indices,
-                            typename internal::SpanType<Indices>::element_type>
-    : public std::true_type {};
+constexpr inline bool IsMutableIndexVector<
+    Indices, typename internal::SpanType<Indices>::element_type> = true;
 
 namespace internal_extents {
 /// Implementation detail for SpanStaticExtent.

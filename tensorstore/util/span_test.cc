@@ -79,70 +79,50 @@ std::vector<int> MakeRamp(int len, int offset = 0) {
 }
 
 namespace compile_time_convertibility_tests {
-static_assert(IsSpanImplicitlyConvertible<int, 3, const int, 3>::value, "");
-static_assert(std::is_convertible<span<int, 3>, span<const int, 3>>::value, "");
-static_assert(!std::is_convertible<span<const int, 3>, span<int, 3>>::value,
-              "");
-static_assert(!std::is_convertible<span<int, 3>, span<float, 3>>::value, "");
-static_assert(!std::is_convertible<span<int, 3>, span<int, 2>>::value, "");
-static_assert(!std::is_convertible<span<int, 3>, span<float, 2>>::value, "");
-static_assert(!std::is_convertible<span<int, 3>, span<const float, 3>>::value,
-              "");
-static_assert(std::is_convertible<std::array<int, 3>&, span<int, 3>>::value,
-              "");
-static_assert(std::is_convertible<std::array<int, 3>&, span<int>>::value, "");
+static_assert(IsSpanImplicitlyConvertible<int, 3, const int, 3>);
+static_assert(std::is_convertible_v<span<int, 3>, span<const int, 3>>);
+static_assert(!std::is_convertible_v<span<const int, 3>, span<int, 3>>);
+static_assert(!std::is_convertible_v<span<int, 3>, span<float, 3>>);
+static_assert(!std::is_convertible_v<span<int, 3>, span<int, 2>>);
+static_assert(!std::is_convertible_v<span<int, 3>, span<float, 2>>);
+static_assert(!std::is_convertible_v<span<int, 3>, span<const float, 3>>);
+static_assert(std::is_convertible_v<std::array<int, 3>&, span<int, 3>>);
+static_assert(std::is_convertible_v<std::array<int, 3>&, span<int>>);
+static_assert(std::is_convertible_v<std::array<int, 3>, span<const int, 3>>);
+static_assert(std::is_convertible_v<std::array<int, 3>, span<const int>>);
 static_assert(
-    std::is_convertible<std::array<int, 3>, span<const int, 3>>::value, "");
-static_assert(std::is_convertible<std::array<int, 3>, span<const int>>::value,
-              "");
-static_assert(
-    std::is_convertible<const std::array<int, 3>, span<const int, 3>>::value,
-    "");
-static_assert(
-    std::is_convertible<const std::array<int, 3>, span<const int>>::value, "");
-static_assert(
-    !std::is_convertible<const std::array<int, 3>, span<int, 3>>::value, "");
-static_assert(
-    !std::is_convertible<std::array<const int, 3>, span<int, 3>>::value, "");
-static_assert(!std::is_convertible<std::array<float, 3>, span<int, 3>>::value,
-              "");
-static_assert(!std::is_convertible<std::array<float, 3>, span<int, 4>>::value,
-              "");
+    std::is_convertible_v<const std::array<int, 3>, span<const int, 3>>);
+static_assert(std::is_convertible_v<const std::array<int, 3>, span<const int>>);
+static_assert(!std::is_convertible_v<const std::array<int, 3>, span<int, 3>>);
+static_assert(!std::is_convertible_v<std::array<const int, 3>, span<int, 3>>);
+static_assert(!std::is_convertible_v<std::array<float, 3>, span<int, 3>>);
+static_assert(!std::is_convertible_v<std::array<float, 3>, span<int, 4>>);
 }  // namespace compile_time_convertibility_tests
 
 namespace deduction_guide_tests {
 static_assert(
-    std::is_same<decltype(span(std::declval<int*>(), 3)), span<int>>::value,
-    "");
+    std::is_same_v<decltype(span(std::declval<int*>(), 3)), span<int>>);
 static_assert(
-    std::is_same<decltype(span(std::declval<int*>(), std::declval<int*>())),
-                 span<int>>::value,
-    "");
-static_assert(std::is_same<decltype(span(std::declval<std::vector<int>>())),
-                           span<const int>>::value,
-              "");
-static_assert(std::is_same<decltype(span(std::declval<std::vector<int>&>())),
-                           span<int>>::value,
-              "");
-static_assert(std::is_same<decltype(span(std::declval<std::string>())),
-                           span<const char>>::value,
-              "");
-static_assert(std::is_same<decltype(span(std::declval<std::array<int, 3>&>())),
-                           span<int, 3>>::value,
-              "");
-static_assert(std::is_same<decltype(span(std::declval<std::array<int, 3>>())),
-                           span<const int, 3>>::value,
-              "");
+    std::is_same_v<decltype(span(std::declval<int*>(), std::declval<int*>())),
+                   span<int>>);
+static_assert(std::is_same_v<decltype(span(std::declval<std::vector<int>>())),
+                             span<const int>>);
+static_assert(std::is_same_v<decltype(span(std::declval<std::vector<int>&>())),
+                             span<int>>);
+static_assert(std::is_same_v<decltype(span(std::declval<std::string>())),
+                             span<const char>>);
 static_assert(
-    std::is_same<decltype(span(std::declval<const std::array<int, 3>>())),
-                 span<const int, 3>>::value,
-    "");
-static_assert(std::is_same<decltype(span(std::declval<const int (&)[3]>())),
-                           span<const int, 3>>::value,
-              "");
-static_assert(std::is_same<decltype(span(std::declval<span<int, 4>>())),
-                           span<int, 4>>::value,
-              "");
+    std::is_same_v<decltype(span(std::declval<std::array<int, 3>&>())),
+                   span<int, 3>>);
+static_assert(std::is_same_v<decltype(span(std::declval<std::array<int, 3>>())),
+                             span<const int, 3>>);
+static_assert(
+    std::is_same_v<decltype(span(std::declval<const std::array<int, 3>>())),
+                   span<const int, 3>>);
+static_assert(std::is_same_v<decltype(span(std::declval<const int (&)[3]>())),
+                             span<const int, 3>>);
+static_assert(
+    std::is_same_v<decltype(span(std::declval<span<int, 4>>())), span<int, 4>>);
 }  // namespace deduction_guide_tests
 
 namespace span_constructor_tests {
@@ -291,11 +271,11 @@ TEST(SpanTest, Iterators) {
   int arr[] = {1, 2, 3};
   span<int, 3> s1(arr);
   EXPECT_EQ(&arr[0], s1.begin());
-  static_assert(std::is_same<int*, decltype(s1.begin())>::value, "");
-  static_assert(std::is_same<int*, decltype(s1.end())>::value, "");
+  static_assert(std::is_same_v<int*, decltype(s1.begin())>);
+  static_assert(std::is_same_v<int*, decltype(s1.end())>);
   EXPECT_EQ(&arr[0], s1.cbegin());
-  static_assert(std::is_same<const int*, decltype(s1.cend())>::value, "");
-  static_assert(std::is_same<const int*, decltype(s1.cbegin())>::value, "");
+  static_assert(std::is_same_v<const int*, decltype(s1.cend())>);
+  static_assert(std::is_same_v<const int*, decltype(s1.cbegin())>);
   EXPECT_EQ(arr + 3, s1.end());
   EXPECT_EQ(arr + 3, s1.cend());
 }
@@ -304,8 +284,8 @@ TEST(SpanTest, Subscript) {
   int arr[] = {1, 2, 3};
   const span<int, 3> s(arr);
   const span<const int, 3> s2(arr);
-  static_assert(std::is_same<int&, decltype(s[0])>::value, "");
-  static_assert(std::is_same<const int&, decltype(s2[0])>::value, "");
+  static_assert(std::is_same_v<int&, decltype(s[0])>);
+  static_assert(std::is_same_v<const int&, decltype(s2[0])>);
   EXPECT_EQ(2, s[1]);
 }
 
@@ -314,7 +294,7 @@ TEST(SpanTest, FirstStaticStatic) {
   int arr[] = {1, 2, 3};
   span<int, 3> s(arr);
   auto s2 = s.first<2>();
-  static_assert(std::is_same<span<int, 2>, decltype(s2)>::value, "");
+  static_assert(std::is_same_v<span<int, 2>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr, 2));
 }
 
@@ -322,7 +302,7 @@ TEST(SpanTest, FirstStaticDynamic) {
   int arr[] = {1, 2, 3};
   span<int, 3> s(arr);
   auto s2 = s.first(2);
-  static_assert(std::is_same<span<int>, decltype(s2)>::value, "");
+  static_assert(std::is_same_v<span<int>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr, 2));
 }
 
@@ -330,7 +310,7 @@ TEST(SpanTest, FirstDynamicStatic) {
   int arr[] = {1, 2, 3};
   span<int> s(arr);
   auto s2 = s.first<2>();
-  static_assert(std::is_same<span<int, 2>, decltype(s2)>::value, "");
+  static_assert(std::is_same_v<span<int, 2>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr, 2));
 }
 
@@ -338,7 +318,7 @@ TEST(SpanTest, FirstDynamicDynamic) {
   int arr[] = {1, 2, 3};
   span<int> s(arr);
   auto s2 = s.first(2);
-  static_assert(std::is_same<span<int>, decltype(s2)>::value, "");
+  static_assert(std::is_same_v<span<int>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr, 2));
 }
 }  // namespace first_tests
@@ -348,7 +328,7 @@ TEST(SpanTest, LastStaticStatic) {
   int arr[] = {1, 2, 3};
   span<int, 3> s(arr);
   auto s2 = s.last<2>();
-  static_assert(std::is_same<span<int, 2>, decltype(s2)>::value, "");
+  static_assert(std::is_same_v<span<int, 2>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr + 1, 2));
 }
 
@@ -356,7 +336,7 @@ TEST(SpanTest, LastStaticDynamic) {
   int arr[] = {1, 2, 3};
   span<int, 3> s(arr);
   auto s2 = s.last(2);
-  static_assert(std::is_same<span<int>, decltype(s2)>::value, "");
+  static_assert(std::is_same_v<span<int>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr + 1, 2));
 }
 
@@ -364,7 +344,7 @@ TEST(SpanTest, LastDynamicStatic) {
   int arr[] = {1, 2, 3};
   span<int> s(arr);
   auto s2 = s.last<2>();
-  static_assert(std::is_same<span<int, 2>, decltype(s2)>::value, "");
+  static_assert(std::is_same_v<span<int, 2>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr + 1, 2));
 }
 
@@ -372,7 +352,7 @@ TEST(SpanTest, LastDynamicDynamic) {
   int arr[] = {1, 2, 3};
   span<int> s(arr);
   auto s2 = s.last(2);
-  static_assert(std::is_same<span<int>, decltype(s2)>::value, "");
+  static_assert(std::is_same_v<span<int>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr + 1, 2));
 }
 }  // namespace last_tests
@@ -502,7 +482,7 @@ TEST(SpanTest, SubspanStaticStaticStatic) {
   int arr[] = {1, 2, 3};
   span<int, 3> s(arr);
   auto s2 = s.subspan<1, 1>();
-  static_assert(std::is_same<span<int, 1>, decltype(s2)>::value, "");
+  static_assert(std::is_same_v<span<int, 1>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr + 1, 1));
 }
 
@@ -510,7 +490,7 @@ TEST(SpanTest, SubspanStaticStaticDynamic) {
   int arr[] = {1, 2, 3};
   span<int, 3> s(arr);
   auto s2 = s.subspan<1>();
-  static_assert(std::is_same<span<int, 2>, decltype(s2)>::value, "");
+  static_assert(std::is_same_v<span<int, 2>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr + 1, 2));
 }
 
@@ -518,7 +498,7 @@ TEST(SpanTest, SubspanStaticDynamicDynamic) {
   int arr[] = {1, 2, 3};
   span<int, 3> s(arr);
   auto s2 = s.subspan(1, 1);
-  static_assert(std::is_same<span<int>, decltype(s2)>::value, "");
+  static_assert(std::is_same_v<span<int>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr + 1, 1));
 }
 
@@ -526,7 +506,7 @@ TEST(SpanTest, SubspanStaticDynamic) {
   int arr[] = {1, 2, 3};
   span<int, 3> s(arr);
   auto s2 = s.subspan(1);
-  static_assert(std::is_same<span<int>, decltype(s2)>::value, "");
+  static_assert(std::is_same_v<span<int>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr + 1, 2));
 }
 
@@ -534,7 +514,7 @@ TEST(SpanTest, SubspanDynamicStaticStatic) {
   int arr[] = {1, 2, 3};
   span<int> s(arr);
   auto s2 = s.subspan<1, 1>();
-  static_assert(std::is_same<span<int, 1>, decltype(s2)>::value, "");
+  static_assert(std::is_same_v<span<int, 1>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr + 1, 1));
 }
 
@@ -542,7 +522,7 @@ TEST(SpanTest, SubspanDynamicStaticDynamic) {
   int arr[] = {1, 2, 3};
   span<int> s(arr);
   auto s2 = s.subspan<1>();
-  static_assert(std::is_same<span<int>, decltype(s2)>::value, "");
+  static_assert(std::is_same_v<span<int>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr + 1, 2));
 }
 
@@ -550,7 +530,7 @@ TEST(SpanTest, SubspanDynamicDynamicDynamic) {
   int arr[] = {1, 2, 3};
   span<int> s(arr);
   auto s2 = s.subspan(1, 1);
-  static_assert(std::is_same<span<int>, decltype(s2)>::value, "");
+  static_assert(std::is_same_v<span<int>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr + 1, 1));
 }
 
@@ -558,7 +538,7 @@ TEST(SpanTest, SubspanDynamicDynamic) {
   int arr[] = {1, 2, 3};
   span<int> s(arr);
   auto s2 = s.subspan(1);
-  static_assert(std::is_same<span<int>, decltype(s2)>::value, "");
+  static_assert(std::is_same_v<span<int>, decltype(s2)>);
   EXPECT_THAT(s2, SpanIs(arr + 1, 2));
 }
 }  // namespace subspan_tests
@@ -645,9 +625,7 @@ TEST(SpanTest, RangesEqual) {
 namespace tuple_tests {
 static_assert(std::tuple_size<span<int, 3>>::value == 3, "");
 static_assert(
-    std::is_same<int,
-                 typename std::tuple_element<1, span<int, 3>>::type>::value,
-    "");
+    std::is_same_v<int, typename std::tuple_element<1, span<int, 3>>::type>);
 
 TEST(SpanTest, Get) {
   int arr[] = {1, 2, 3};
@@ -661,15 +639,14 @@ namespace static_or_dynamic_extent_tests {
 TEST(GetStaticOrDynamicExtentTest, Static) {
   int arr[] = {1, 2, 3};
   auto extent = GetStaticOrDynamicExtent(span(arr));
-  static_assert(std::is_same<decltype(extent),
-                             std::integral_constant<std::ptrdiff_t, 3>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(extent),
+                               std::integral_constant<std::ptrdiff_t, 3>>);
   EXPECT_EQ(3, extent);
 }
 TEST(GetStaticOrDynamicExtentTest, Dynamic) {
   int arr[] = {1, 2, 3};
   auto extent = GetStaticOrDynamicExtent(span<const int>(arr));
-  static_assert(std::is_same<decltype(extent), std::ptrdiff_t>::value, "");
+  static_assert(std::is_same_v<decltype(extent), std::ptrdiff_t>);
   EXPECT_EQ(3, extent);
 }
 }  // namespace static_or_dynamic_extent_tests

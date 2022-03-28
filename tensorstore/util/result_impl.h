@@ -367,6 +367,15 @@ constexpr inline bool value_conversion =
 template <typename U>
 constexpr inline bool value_conversion<void, U> = false;
 
+/// Checks if `T` is equality comparable with `U`, but in the case that `U` is
+/// itself an instance of `Result`, evaluates to `false` and avoids overload
+/// resolution in order to prevent infinite SFINAE recursion.
+template <typename T, typename U>
+constexpr inline bool IsEqualityComparableIfNotResult =
+    internal::IsEqualityComparable<T, U>;
+template <typename T, typename U>
+constexpr inline bool IsEqualityComparableIfNotResult<T, Result<U>> = false;
+
 }  // namespace internal_result
 }  // namespace tensorstore
 

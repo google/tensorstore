@@ -74,16 +74,14 @@ class ReadWritePtr : public IntrusivePtr<T, ReadWritePtrTraits> {
   /// Copy constructs from `rhs`.  If `rhs` is not null, acquires a new
   /// reference to `rhs.get()` by calling `R::increment(rhs.get())`.
   template <typename U,
-            std::enable_if_t<std::is_convertible<
-                typename traits_type::template pointer<U>, pointer>::value>* =
-                nullptr>
+            std::enable_if_t<std::is_convertible_v<
+                typename traits_type::template pointer<U>, pointer>>* = nullptr>
   ReadWritePtr(const ReadWritePtr<U>& rhs) noexcept
       : Base(rhs.get(), acquire_object_ref) {}
 
   template <typename U,
-            std::enable_if_t<std::is_convertible<
-                typename traits_type::template pointer<U>, pointer>::value>* =
-                nullptr>
+            std::enable_if_t<std::is_convertible_v<
+                typename traits_type::template pointer<U>, pointer>>* = nullptr>
   ReadWritePtr& operator=(const ReadWritePtr<U>& rhs) {
     ReadWritePtr(rhs).swap(*this);
     return *this;
@@ -91,13 +89,13 @@ class ReadWritePtr : public IntrusivePtr<T, ReadWritePtrTraits> {
 
   /// Move constructs from `rhs`.  If `rhs` is not null, transfers ownership of
   /// a reference from `rhs` to `*this`.
-  template <typename U, typename = std::enable_if_t<std::is_convertible<
-                            traits_type::template pointer<U>, pointer>::value>>
+  template <typename U, typename = std::enable_if_t<std::is_convertible_v<
+                            traits_type::template pointer<U>, pointer>>>
   constexpr ReadWritePtr(ReadWritePtr<U>&& rhs) noexcept
       : Base(rhs.release(), adopt_object_ref) {}
 
-  template <typename U, typename = std::enable_if_t<std::is_convertible<
-                            traits_type::template pointer<U>, pointer>::value>>
+  template <typename U, typename = std::enable_if_t<std::is_convertible_v<
+                            traits_type::template pointer<U>, pointer>>>
   constexpr ReadWritePtr& operator=(ReadWritePtr<U>&& rhs) noexcept {
     ReadWritePtr(std::move(rhs)).swap(*this);
     return *this;

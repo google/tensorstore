@@ -335,9 +335,8 @@ TEST(FromArrayTest, Read) {
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
   auto context = Context::Default();
   auto store = tensorstore::FromArray(context, array).value();
-  static_assert(std::is_same<TensorStore<int, 2, ReadWriteMode::read_write>,
-                             decltype(store)>::value,
-                "");
+  static_assert(std::is_same_v<TensorStore<int, 2, ReadWriteMode::read_write>,
+                               decltype(store)>);
   std::vector<ReadProgress> read_progress;
   auto dest_array = tensorstore::AllocateArray<int>(array.domain());
   TENSORSTORE_ASSERT_OK(

@@ -41,90 +41,87 @@ using tensorstore::SubtractStaticRanks;
 using tensorstore::unchecked;
 
 // Static rank conversion tests
-static_assert(IsRankImplicitlyConvertible(3, 3), "");
-static_assert(IsRankImplicitlyConvertible(3, dynamic_rank), "");
-static_assert(IsRankImplicitlyConvertible(dynamic_rank, dynamic_rank), "");
-static_assert(!IsRankImplicitlyConvertible(3, 2), "");
-static_assert(!IsRankImplicitlyConvertible(dynamic_rank, 3), "");
+static_assert(IsRankImplicitlyConvertible(3, 3));
+static_assert(IsRankImplicitlyConvertible(3, dynamic_rank));
+static_assert(IsRankImplicitlyConvertible(dynamic_rank, dynamic_rank));
+static_assert(!IsRankImplicitlyConvertible(3, 2));
+static_assert(!IsRankImplicitlyConvertible(dynamic_rank, 3));
 
-static_assert(IsRankExplicitlyConvertible(3, 3), "");
-static_assert(IsRankExplicitlyConvertible(dynamic_rank, dynamic_rank), "");
-static_assert(IsRankExplicitlyConvertible(dynamic_rank, 3), "");
-static_assert(IsRankExplicitlyConvertible(3, dynamic_rank), "");
-static_assert(!IsRankExplicitlyConvertible(3, 2), "");
+static_assert(IsRankExplicitlyConvertible(3, 3));
+static_assert(IsRankExplicitlyConvertible(dynamic_rank, dynamic_rank));
+static_assert(IsRankExplicitlyConvertible(dynamic_rank, 3));
+static_assert(IsRankExplicitlyConvertible(3, dynamic_rank));
+static_assert(!IsRankExplicitlyConvertible(3, 2));
 
-static_assert(AddStaticRanks(2, 3) == 5, "");
-static_assert(AddStaticRanks(2, 3, 4) == 9, "");
-static_assert(AddStaticRanks(2) == 2, "");
-static_assert(AddStaticRanks() == 0, "");
-static_assert(AddStaticRanks(dynamic_rank, 3) == dynamic_rank, "");
-static_assert(AddStaticRanks(3, dynamic_rank) == dynamic_rank, "");
-static_assert(AddStaticRanks(dynamic_rank, dynamic_rank) == dynamic_rank, "");
+static_assert(AddStaticRanks(2, 3) == 5);
+static_assert(AddStaticRanks(2, 3, 4) == 9);
+static_assert(AddStaticRanks(2) == 2);
+static_assert(AddStaticRanks() == 0);
+static_assert(AddStaticRanks(dynamic_rank, 3) == dynamic_rank);
+static_assert(AddStaticRanks(3, dynamic_rank) == dynamic_rank);
+static_assert(AddStaticRanks(dynamic_rank, dynamic_rank) == dynamic_rank);
 
-static_assert(SubtractStaticRanks(5, 2) == 3, "");
-static_assert(SubtractStaticRanks(dynamic_rank, 3) == dynamic_rank, "");
-static_assert(SubtractStaticRanks(3, dynamic_rank) == dynamic_rank, "");
-static_assert(SubtractStaticRanks(dynamic_rank, dynamic_rank) == dynamic_rank,
-              "");
+static_assert(SubtractStaticRanks(5, 2) == 3);
+static_assert(SubtractStaticRanks(dynamic_rank, 3) == dynamic_rank);
+static_assert(SubtractStaticRanks(3, dynamic_rank) == dynamic_rank);
+static_assert(SubtractStaticRanks(dynamic_rank, dynamic_rank) == dynamic_rank);
 
-static_assert(MinStaticRank(3, 5) == 3, "");
-static_assert(MinStaticRank(dynamic_rank, 5) == 5, "");
-static_assert(MinStaticRank(5, dynamic_rank) == 5, "");
-static_assert(MinStaticRank(dynamic_rank, dynamic_rank) == dynamic_rank, "");
-static_assert(MinStaticRank(3, 5, dynamic_rank) == 3, "");
-static_assert(MinStaticRank(3) == 3, "");
-static_assert(MinStaticRank() == dynamic_rank, "");
+static_assert(MinStaticRank(3, 5) == 3);
+static_assert(MinStaticRank(dynamic_rank, 5) == 5);
+static_assert(MinStaticRank(5, dynamic_rank) == 5);
+static_assert(MinStaticRank(dynamic_rank, dynamic_rank) == dynamic_rank);
+static_assert(MinStaticRank(3, 5, dynamic_rank) == 3);
+static_assert(MinStaticRank(3) == 3);
+static_assert(MinStaticRank() == dynamic_rank);
 
-static_assert(MaxStaticRank(3, 5) == 5, "");
-static_assert(MaxStaticRank(dynamic_rank, 5) == 5, "");
-static_assert(MaxStaticRank(5, dynamic_rank) == 5, "");
-static_assert(MaxStaticRank(dynamic_rank, dynamic_rank) == dynamic_rank, "");
-static_assert(MaxStaticRank(3, 5, dynamic_rank) == 5, "");
-static_assert(MaxStaticRank(3) == 3, "");
-static_assert(MaxStaticRank() == dynamic_rank, "");
+static_assert(MaxStaticRank(3, 5) == 5);
+static_assert(MaxStaticRank(dynamic_rank, 5) == 5);
+static_assert(MaxStaticRank(5, dynamic_rank) == 5);
+static_assert(MaxStaticRank(dynamic_rank, dynamic_rank) == dynamic_rank);
+static_assert(MaxStaticRank(3, 5, dynamic_rank) == 5);
+static_assert(MaxStaticRank(3) == 3);
+static_assert(MaxStaticRank() == dynamic_rank);
 
-static_assert(IsStaticRankLess(1, 2) == true, "");
-static_assert(IsStaticRankLess(1, 1) == false, "");
-static_assert(IsStaticRankLess(dynamic_rank, 2) == true, "");
-static_assert(IsStaticRankLess(1, dynamic_rank) == true, "");
-static_assert(IsStaticRankLess(dynamic_rank, dynamic_rank) == true, "");
+static_assert(IsStaticRankLess(1, 2) == true);
+static_assert(IsStaticRankLess(1, 1) == false);
+static_assert(IsStaticRankLess(dynamic_rank, 2) == true);
+static_assert(IsStaticRankLess(1, dynamic_rank) == true);
+static_assert(IsStaticRankLess(dynamic_rank, dynamic_rank) == true);
 
-static_assert(IsStaticRankLessEqual(1, 2) == true, "");
-static_assert(IsStaticRankLessEqual(1, 1) == true, "");
-static_assert(IsStaticRankLessEqual(1, 0) == false, "");
-static_assert(IsStaticRankLessEqual(dynamic_rank, 2) == true, "");
-static_assert(IsStaticRankLessEqual(1, dynamic_rank) == true, "");
-static_assert(IsStaticRankLessEqual(dynamic_rank, dynamic_rank) == true, "");
+static_assert(IsStaticRankLessEqual(1, 2) == true);
+static_assert(IsStaticRankLessEqual(1, 1) == true);
+static_assert(IsStaticRankLessEqual(1, 0) == false);
+static_assert(IsStaticRankLessEqual(dynamic_rank, 2) == true);
+static_assert(IsStaticRankLessEqual(1, dynamic_rank) == true);
+static_assert(IsStaticRankLessEqual(dynamic_rank, dynamic_rank) == true);
 
-static_assert(IsStaticRankGreater(2, 1) == true, "");
-static_assert(IsStaticRankGreater(1, 1) == false, "");
-static_assert(IsStaticRankGreater(dynamic_rank, 2) == true, "");
-static_assert(IsStaticRankGreater(1, dynamic_rank) == true, "");
-static_assert(IsStaticRankGreater(dynamic_rank, dynamic_rank) == true, "");
+static_assert(IsStaticRankGreater(2, 1) == true);
+static_assert(IsStaticRankGreater(1, 1) == false);
+static_assert(IsStaticRankGreater(dynamic_rank, 2) == true);
+static_assert(IsStaticRankGreater(1, dynamic_rank) == true);
+static_assert(IsStaticRankGreater(dynamic_rank, dynamic_rank) == true);
 
-static_assert(IsStaticRankGreaterEqual(2, 1) == true, "");
-static_assert(IsStaticRankGreaterEqual(1, 1) == true, "");
-static_assert(IsStaticRankGreaterEqual(0, 1) == false, "");
-static_assert(IsStaticRankGreaterEqual(dynamic_rank, 2) == true, "");
-static_assert(IsStaticRankGreaterEqual(1, dynamic_rank) == true, "");
-static_assert(IsStaticRankGreaterEqual(dynamic_rank, dynamic_rank) == true, "");
+static_assert(IsStaticRankGreaterEqual(2, 1) == true);
+static_assert(IsStaticRankGreaterEqual(1, 1) == true);
+static_assert(IsStaticRankGreaterEqual(0, 1) == false);
+static_assert(IsStaticRankGreaterEqual(dynamic_rank, 2) == true);
+static_assert(IsStaticRankGreaterEqual(1, dynamic_rank) == true);
+static_assert(IsStaticRankGreaterEqual(dynamic_rank, dynamic_rank) == true);
 
 TEST(RankCastTest, Basic) {
   auto x =
       StaticRankCast<3>(std::integral_constant<DimensionIndex, 3>()).value();
-  static_assert(std::is_same<decltype(x),
-                             std::integral_constant<DimensionIndex, 3>>::value,
-                "");
+  static_assert(
+      std::is_same_v<decltype(x), std::integral_constant<DimensionIndex, 3>>);
   auto y = StaticRankCast<dynamic_rank>(x).value();
   EXPECT_EQ(3, y);
-  static_assert(std::is_same<decltype(y), DimensionIndex>::value, "");
+  static_assert(std::is_same_v<decltype(y), DimensionIndex>);
   auto a = StaticRankCast<3>(DimensionIndex(3)).value();
   auto b = StaticRankCast<dynamic_rank>(DimensionIndex(3)).value();
 
-  static_assert(std::is_same<decltype(a),
-                             std::integral_constant<DimensionIndex, 3>>::value,
-                "");
-  static_assert(std::is_same<decltype(b), DimensionIndex>::value, "");
+  static_assert(
+      std::is_same_v<decltype(a), std::integral_constant<DimensionIndex, 3>>);
+  static_assert(std::is_same_v<decltype(b), DimensionIndex>);
 
   EXPECT_THAT((StaticRankCast<3>(DimensionIndex(2))),
               MatchesStatus(absl::StatusCode::kInvalidArgument,

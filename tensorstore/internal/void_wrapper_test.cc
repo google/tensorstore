@@ -24,12 +24,12 @@ namespace {
 using tensorstore::internal::Void;
 
 // Tests for WrappedType.
-static_assert(std::is_same<Void, Void::WrappedType<void>>::value, "");
-static_assert(std::is_same<int, Void::WrappedType<int>>::value, "");
+static_assert(std::is_same_v<Void, Void::WrappedType<void>>);
+static_assert(std::is_same_v<int, Void::WrappedType<int>>);
 
 // Tests for UnwrappedType.
-static_assert(std::is_same<void, Void::UnwrappedType<Void>>::value, "");
-static_assert(std::is_same<int, Void::UnwrappedType<int>>::value, "");
+static_assert(std::is_same_v<void, Void::UnwrappedType<Void>>);
+static_assert(std::is_same_v<int, Void::UnwrappedType<int>>);
 
 TEST(VoidWrapperTest, BoolConversion) {
   // Void converts to `true`.
@@ -53,7 +53,7 @@ TEST(VoidWrapperTest, CallAndWrap) {
   };
 
   auto result = Void::CallAndWrap(void_func, 4);
-  static_assert(std::is_same<decltype(result), Void>::value, "");
+  static_assert(std::is_same_v<decltype(result), Void>);
   EXPECT_EQ(4, value);
 
   EXPECT_EQ(3, Void::CallAndWrap(int_func, 5));

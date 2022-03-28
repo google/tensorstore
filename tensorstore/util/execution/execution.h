@@ -36,30 +36,30 @@ namespace internal_execution {
 /// point as well, which is used by the type-erased containers. The function
 /// object class `NAME ## _t` itself serves as the first argument for tag
 /// dispatching.
-#define TENSORSTORE_INTERNAL_DEFINE_EXECUTION_CUSTOMIZTION_POINT(NAME)         \
-  TENSORSTORE_INTERNAL_DEFINE_HAS_METHOD(NAME)                                 \
-  TENSORSTORE_INTERNAL_DEFINE_HAS_ADL_FUNCTION(NAME)                           \
-  struct NAME##_t {                                                            \
-    template <typename Self, typename... Arg>                                  \
-    ABSL_ATTRIBUTE_ALWAYS_INLINE                                               \
-        std::enable_if_t<HasMethod##NAME<void, Self&, Arg&&...>::value>        \
-        operator()(Self&& self, Arg&&... arg) const {                          \
-      self.NAME(std::forward<Arg>(arg)...);                                    \
-    }                                                                          \
-    template <typename Self, typename... Arg>                                  \
-    ABSL_ATTRIBUTE_ALWAYS_INLINE                                               \
-        std::enable_if_t<(!HasMethod##NAME<void, Self&, Arg&&...>::value &&    \
-                          HasAdlFunction##NAME<void, Self&, Arg&&...>::value)> \
-        operator()(Self&& self, Arg&&... arg) const {                          \
-      NAME(self, std::forward<Arg>(arg)...);                                   \
-    }                                                                          \
-    template <typename Self, typename... Arg>                                  \
-    friend ABSL_ATTRIBUTE_ALWAYS_INLINE decltype(std::declval<NAME##_t>()(     \
-        std::declval<Self&>(), std::declval<Arg>()...))                        \
-    PolyApply(Self& self, NAME##_t, Arg&&... arg) {                            \
-      NAME##_t{}(self, std::forward<Arg>(arg)...);                             \
-    }                                                                          \
-  };                                                                           \
+#define TENSORSTORE_INTERNAL_DEFINE_EXECUTION_CUSTOMIZTION_POINT(NAME)     \
+  TENSORSTORE_INTERNAL_DEFINE_HAS_METHOD(NAME)                             \
+  TENSORSTORE_INTERNAL_DEFINE_HAS_ADL_FUNCTION(NAME)                       \
+  struct NAME##_t {                                                        \
+    template <typename Self, typename... Arg>                              \
+    ABSL_ATTRIBUTE_ALWAYS_INLINE                                           \
+        std::enable_if_t<HasMethod##NAME<void, Self&, Arg&&...>>           \
+        operator()(Self&& self, Arg&&... arg) const {                      \
+      self.NAME(std::forward<Arg>(arg)...);                                \
+    }                                                                      \
+    template <typename Self, typename... Arg>                              \
+    ABSL_ATTRIBUTE_ALWAYS_INLINE                                           \
+        std::enable_if_t<(!HasMethod##NAME<void, Self&, Arg&&...> &&       \
+                          HasAdlFunction##NAME<void, Self&, Arg&&...>)>    \
+        operator()(Self&& self, Arg&&... arg) const {                      \
+      NAME(self, std::forward<Arg>(arg)...);                               \
+    }                                                                      \
+    template <typename Self, typename... Arg>                              \
+    friend ABSL_ATTRIBUTE_ALWAYS_INLINE decltype(std::declval<NAME##_t>()( \
+        std::declval<Self&>(), std::declval<Arg>()...))                    \
+    PolyApply(Self& self, NAME##_t, Arg&&... arg) {                        \
+      NAME##_t{}(self, std::forward<Arg>(arg)...);                         \
+    }                                                                      \
+  };                                                                       \
   /**/
 
 TENSORSTORE_INTERNAL_DEFINE_EXECUTION_CUSTOMIZTION_POINT(submit)

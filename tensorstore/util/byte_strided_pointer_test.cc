@@ -26,38 +26,27 @@ using tensorstore::ByteStridedPointer;
 struct Base {};
 struct Derived : Base {};
 
-static_assert(std::is_convertible<int *, ByteStridedPointer<int>>::value, "");
-static_assert(std::is_constructible<int *, ByteStridedPointer<void>>::value,
-              "");
+static_assert(std::is_convertible_v<int*, ByteStridedPointer<int>>);
+static_assert(std::is_constructible_v<int*, ByteStridedPointer<void>>);
+static_assert(!std::is_constructible_v<int*, ByteStridedPointer<const void>>);
+static_assert(std::is_convertible_v<ByteStridedPointer<int>, int*>);
+static_assert(std::is_convertible_v<ByteStridedPointer<int>, const int*>);
 static_assert(
-    !std::is_constructible<int *, ByteStridedPointer<const void>>::value, "");
-static_assert(std::is_convertible<ByteStridedPointer<int>, int *>::value, "");
-static_assert(std::is_convertible<ByteStridedPointer<int>, const int *>::value,
-              "");
-static_assert(std::is_convertible<ByteStridedPointer<int>,
-                                  ByteStridedPointer<void>>::value,
-              "");
-static_assert(std::is_convertible<ByteStridedPointer<const int>,
-                                  ByteStridedPointer<const void>>::value,
-              "");
-static_assert(!std::is_convertible<ByteStridedPointer<const int>,
-                                   ByteStridedPointer<void>>::value,
-              "");
-static_assert(!std::is_convertible<ByteStridedPointer<void>,
-                                   ByteStridedPointer<int>>::value,
-              "");
-static_assert(std::is_constructible<ByteStridedPointer<int>,
-                                    ByteStridedPointer<void>>::value,
-              "");
-static_assert(!std::is_convertible<ByteStridedPointer<const int>,
-                                   ByteStridedPointer<const float>>::value,
-              "");
-static_assert(!std::is_convertible<ByteStridedPointer<Derived>,
-                                   ByteStridedPointer<Base>>::value,
-              "");
-static_assert(!std::is_convertible<ByteStridedPointer<Base>,
-                                   ByteStridedPointer<Derived>>::value,
-              "");
+    std::is_convertible_v<ByteStridedPointer<int>, ByteStridedPointer<void>>);
+static_assert(std::is_convertible_v<ByteStridedPointer<const int>,
+                                    ByteStridedPointer<const void>>);
+static_assert(!std::is_convertible_v<ByteStridedPointer<const int>,
+                                     ByteStridedPointer<void>>);
+static_assert(
+    !std::is_convertible_v<ByteStridedPointer<void>, ByteStridedPointer<int>>);
+static_assert(
+    std::is_constructible_v<ByteStridedPointer<int>, ByteStridedPointer<void>>);
+static_assert(!std::is_convertible_v<ByteStridedPointer<const int>,
+                                     ByteStridedPointer<const float>>);
+static_assert(!std::is_convertible_v<ByteStridedPointer<Derived>,
+                                     ByteStridedPointer<Base>>);
+static_assert(!std::is_convertible_v<ByteStridedPointer<Base>,
+                                     ByteStridedPointer<Derived>>);
 
 TEST(ByteStridedPointerTest, DefaultConstructor) {
   // Just check that it compiles.
@@ -79,7 +68,7 @@ TEST(ByteStridedPointerTest, ConstructFromRawConvertImplicit) {
 
 TEST(ByteStridedPointerTest, ConstructFromRawConvertExplicit) {
   int value;
-  ByteStridedPointer<const int> ptr(static_cast<void *>(&value));
+  ByteStridedPointer<const int> ptr(static_cast<void*>(&value));
   EXPECT_EQ(&value, ptr.get());
 }
 
@@ -117,14 +106,14 @@ TEST(ByteStridedPointerTest, Dereference) {
 TEST(ByteStridedPointerTest, CastImplicit) {
   int value = 3;
   ByteStridedPointer<const int> x(&value);
-  const int *p = x;
+  const int* p = x;
   EXPECT_EQ(&value, p);
 }
 
 TEST(ByteStridedPointerTest, CastExplicit) {
   int value = 3;
   ByteStridedPointer<void> x(&value);
-  const int *p = static_cast<const int *>(x);
+  const int* p = static_cast<const int*>(x);
   EXPECT_EQ(&value, p);
 }
 

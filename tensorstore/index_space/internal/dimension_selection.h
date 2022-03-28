@@ -60,7 +60,7 @@ class DimensionList {
   absl::Status GetNewDimensions(DimensionIndex input_rank,
                                 DimensionIndexBuffer* buffer) const {
     static_assert(
-        std::is_same<typename Container::value_type, DimensionIndex>::value,
+        std::is_same_v<typename Container::value_type, DimensionIndex>,
         "New dimensions must be specified by index.");
     return internal_index_space::GetNewDimensions(input_rank, container,
                                                   buffer);
@@ -90,8 +90,7 @@ class AllDims {
 
 template <typename Container>
 class DynamicDims {
-  static_assert(
-      std::is_same<DynamicDimSpec, typename Container::value_type>::value, "");
+  static_assert(std::is_same_v<DynamicDimSpec, typename Container::value_type>);
 
  public:
   absl::Status GetDimensions(IndexTransformView<> transform,
@@ -114,32 +113,31 @@ class DynamicDims {
 };
 
 template <typename T>
-struct IsDimensionIdentifier : public std::false_type {};
+constexpr inline bool IsDimensionIdentifier = false;
 
 template <>
-struct IsDimensionIdentifier<DimensionIndex> : public std::true_type {};
+constexpr inline bool IsDimensionIdentifier<DimensionIndex> = true;
 
 template <>
-struct IsDimensionIdentifier<DimensionIdentifier> : public std::true_type {};
+constexpr inline bool IsDimensionIdentifier<DimensionIdentifier> = true;
 
 template <typename Dimensions,
           typename DimensionsSpan = internal::ConstSpanType<Dimensions>>
-using DimensionListFromSpanType = std::enable_if_t<
-    IsDimensionIdentifier<typename DimensionsSpan::value_type>::value,
-    DimensionList<DimensionsSpan>>;
+using DimensionListFromSpanType =
+    std::enable_if_t<IsDimensionIdentifier<typename DimensionsSpan::value_type>,
+                     DimensionList<DimensionsSpan>>;
 
 template <typename... DimensionId>
 using DimensionsFromPackType = std::conditional_t<
-    internal::IsPackConvertibleWithoutNarrowing<DimensionIndex,
-                                                DimensionId...>::value,
+    internal::IsPackConvertibleWithoutNarrowing<DimensionIndex, DimensionId...>,
     DimensionList<std::array<DimensionIndex, sizeof...(DimensionId)>>,
     std::conditional_t<
         internal::IsPackConvertibleWithoutNarrowing<DimensionIdentifier,
-                                                    DimensionId...>::value,
+                                                    DimensionId...>,
         DimensionList<std::array<DimensionIdentifier, sizeof...(DimensionId)>>,
         std::enable_if_t<
             internal::IsPackConvertibleWithoutNarrowing<DynamicDimSpec,
-                                                        DimensionId...>::value,
+                                                        DimensionId...>,
             DynamicDims<std::array<DynamicDimSpec, sizeof...(DimensionId)>>>>>;
 
 }  // namespace internal_index_space

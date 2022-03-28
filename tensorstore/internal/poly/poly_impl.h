@@ -91,13 +91,13 @@ struct HasPolyApplyHelper<std::void_t<PolyApplyResult<Arg...>>, Arg...>
 /// `bool`-valued metafunction that evaluates to `true` if an unqualified call
 /// to `PolyApply` (found via ADL) with the specified arguments is valid.
 template <typename... Arg>
-using HasPolyApply = HasPolyApplyHelper<void, Arg...>;
+constexpr inline bool HasPolyApply = HasPolyApplyHelper<void, Arg...>::value;
 
 /// Forwards to unqualified `PolyApply` (found via ADL).
 ///
 /// \requires A matching overload of `PolyApply` exists..
 template <typename Self, typename... Arg>
-std::enable_if_t<HasPolyApply<Self&&, Arg&&...>::value,
+std::enable_if_t<HasPolyApply<Self&&, Arg&&...>,
                  PolyApplyResult<Self&&, Arg&&...>>
 CallPolyApply(Self&& self, Arg&&... arg) {
   return PolyApply(std::forward<Self>(self), std::forward<Arg>(arg)...);
@@ -107,19 +107,19 @@ CallPolyApply(Self&& self, Arg&&... arg) {
 /// \requires A matching overload of `operator()` exists.
 /// \requires A matching overload of `PolyApply` does not exist.
 template <typename Self, typename... Arg>
-std::enable_if_t<!HasPolyApply<Self&&, Arg&&...>::value,
+std::enable_if_t<!HasPolyApply<Self&&, Arg&&...>,
                  std::invoke_result_t<Self, Arg...>>
 CallPolyApply(Self&& self, Arg&&... arg) {
   return std::forward<Self>(self)(std::forward<Arg>(arg)...);
 }
 
 /// Bool-valued metafunction equivalent to:
-/// `std::is_convertible<From, To>::value || std::is_void<To>::value`.
+/// `std::is_convertible_v<From, To> || std::is_void_v<To>`.
 template <typename From, typename To>
-struct IsConvertibleOrVoid : public std::is_convertible<From, To> {};
+constexpr inline bool IsConvertibleOrVoid = std::is_convertible_v<From, To>;
 
 template <typename From>
-struct IsConvertibleOrVoid<From, void> : public std::true_type {};
+constexpr inline bool IsConvertibleOrVoid<From, void> = true;
 
 /// Alias that evaluates to the return type of `CallPolyApply` when invoked with
 /// `Arg...`.
@@ -133,7 +133,8 @@ struct IsCallPolyApplyResultConvertibleHelper : public std::false_type {};
 template <typename Self, typename R, typename... Arg>
 struct IsCallPolyApplyResultConvertibleHelper<
     std::void_t<CallPolyApplyResult<Self, Arg...>>, Self, R, Arg...>
-    : public IsConvertibleOrVoid<CallPolyApplyResult<Self, Arg...>, R> {};
+    : std::integral_constant<
+          bool, IsConvertibleOrVoid<CallPolyApplyResult<Self, Arg...>, R>> {};
 
 /// `bool`-valued metafunction that evaluates to `true` if
 /// `CallPolyApplyResult<Self, Arg...>` is valid and convertible to `R` (if `R`

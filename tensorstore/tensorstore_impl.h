@@ -55,11 +55,10 @@ class TensorStoreAccess {
 /// Bool-valued metafunction that evaluates to `true` if `T` is an instance of
 /// the `TensorStore`class template.
 template <typename T>
-struct IsTensorStore : public std::false_type {};
+constexpr inline bool IsTensorStore = false;
 
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
-struct IsTensorStore<TensorStore<Element, Rank, Mode>> : public std::true_type {
-};
+constexpr inline bool IsTensorStore<TensorStore<Element, Rank, Mode>> = true;
 
 /// Bool-valued metafunction that evaluates to `true` if `SourceElement`,
 /// `SourceRank`, and `SourceMode` are implicitly convertible to
@@ -67,12 +66,10 @@ struct IsTensorStore<TensorStore<Element, Rank, Mode>> : public std::true_type {
 template <typename SourceElement, DimensionIndex SourceRank,
           ReadWriteMode SourceMode, typename TargetElement,
           DimensionIndex TargetRank, ReadWriteMode TargetMode>
-struct IsTensorStoreImplicitlyConvertible
-    : public std::integral_constant<
-          bool, (IsRankImplicitlyConvertible(SourceRank, TargetRank) &&
-                 (SourceMode & TargetMode) == TargetMode &&
-                 IsElementTypeImplicitlyConvertible<SourceElement,
-                                                    TargetElement>::value)> {};
+constexpr inline bool IsTensorStoreImplicitlyConvertible =
+    (IsRankImplicitlyConvertible(SourceRank, TargetRank) &&
+     (SourceMode & TargetMode) == TargetMode &&
+     IsElementTypeImplicitlyConvertible<SourceElement, TargetElement>);
 
 /// Bool-valued metafunction that evaluates to `true` if `SourceElement`,
 /// `SourceRank`, and `SourceMode` are `StaticCast` convertible to
@@ -80,53 +77,52 @@ struct IsTensorStoreImplicitlyConvertible
 template <typename SourceElement, DimensionIndex SourceRank,
           ReadWriteMode SourceMode, typename TargetElement,
           DimensionIndex TargetRank, ReadWriteMode TargetMode>
-struct IsTensorStoreCastConvertible
-    : public std::integral_constant<
-          bool, (IsRankExplicitlyConvertible(SourceRank, TargetRank) &&
-                 IsModeExplicitlyConvertible(SourceMode, TargetMode) &&
-                 IsElementTypeExplicitlyConvertible<SourceElement,
-                                                    TargetElement>::value)> {};
+constexpr inline bool IsTensorStoreCastConvertible =
+    (IsRankExplicitlyConvertible(SourceRank, TargetRank) &&
+     IsModeExplicitlyConvertible(SourceMode, TargetMode) &&
+     IsElementTypeExplicitlyConvertible<SourceElement, TargetElement>);
 
 /// Bool-valued metafunction that evaluates to `true` if `ArrayLike` satisfies
 /// `IsTransformedArrayLike` and has a non-`const` `Element` type.
 ///
 /// This is used by `EnableIfCanCopyTensorStoreToArray`.
 template <typename ArrayLike, typename = std::true_type>
-struct IsNonConstArrayLike : public std::false_type {};
+constexpr inline bool IsNonConstArrayLike = false;
 
 template <typename ArrayLike>
-struct IsNonConstArrayLike<ArrayLike,
-                           typename IsTransformedArrayLike<ArrayLike>::type>
-    : public std::integral_constant<
-          bool, !std::is_const<typename ArrayLike::Element>::value> {};
+constexpr inline bool IsNonConstArrayLike<
+    ArrayLike,
+    std::integral_constant<bool, static_cast<bool>(
+                                     IsTransformedArrayLike<ArrayLike>)>> =
+    !std::is_const_v<typename ArrayLike::Element>;
 
 /// Bool-valued metafunction that evaluates to `true` if `Store` satisfies
 /// `IsTensorStore` and has a `Mode` compatible with `ModeMask`.
 template <typename Store, ReadWriteMode ModeMask>
-struct IsTensorStoreThatSupportsMode : public std::false_type {};
+constexpr inline bool IsTensorStoreThatSupportsMode = false;
 
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode,
           ReadWriteMode ModeMask>
-struct IsTensorStoreThatSupportsMode<TensorStore<Element, Rank, Mode>, ModeMask>
-    : public std::integral_constant<bool, (Mode == ReadWriteMode::dynamic ||
-                                           (Mode & ModeMask) == ModeMask)> {};
+constexpr inline bool
+    IsTensorStoreThatSupportsMode<TensorStore<Element, Rank, Mode>, ModeMask> =
+        (Mode == ReadWriteMode::dynamic || (Mode & ModeMask) == ModeMask);
 
 /// Bool-valued metafunction that evaluates to `true` if `A` and `B` satisfy
 /// `IsTransformedArrayLike` or `IsTensorStore` and the data type of `A` is
 /// implicitly convertible to the data type of `B`.
 template <typename A, typename B, typename = std::true_type>
-struct AreElementTypesCompatible : public std::false_type {};
+constexpr inline bool AreElementTypesCompatible = false;
 
 template <typename A, typename B>
-struct AreElementTypesCompatible<
+constexpr inline bool AreElementTypesCompatible<
     A, B,
     std::integral_constant<
-        bool, ((IsTransformedArrayLike<A>::value || IsTensorStore<A>::value) &&
-               (IsTransformedArrayLike<B>::value || IsTensorStore<B>::value))>>
-    : public IsDataTypeConversionSupported<
-          std::remove_const_t<typename A::Element>,
-          std::remove_const_t<typename B::Element>,
-          DataTypeConversionFlags::kSafeAndImplicit> {};
+        bool,
+        static_cast<bool>((IsTransformedArrayLike<A> || IsTensorStore<A>)&&(
+            IsTransformedArrayLike<B> || IsTensorStore<B>))>> =
+    IsDataTypeConversionSupported<std::remove_const_t<typename A::Element>,
+                                  std::remove_const_t<typename B::Element>,
+                                  DataTypeConversionFlags::kSafeAndImplicit>;
 
 /// Evaluates to `X` if the constraints required for `tensorstore::Read` are
 /// satisfied.
@@ -134,9 +130,9 @@ struct AreElementTypesCompatible<
 /// Used to specify the return type of `tensorstore::Read`.
 template <typename Source, typename Dest, typename X>
 using EnableIfCanCopyTensorStoreToArray = std::enable_if_t<
-    (IsTensorStoreThatSupportsMode<Source, ReadWriteMode::read>::value &&
-     IsTransformedArrayLike<Dest>::value && IsNonConstArrayLike<Dest>::value &&
-     AreElementTypesCompatible<Source, Dest>::value),
+    (IsTensorStoreThatSupportsMode<Source, ReadWriteMode::read> &&
+     IsTransformedArrayLike<Dest> && IsNonConstArrayLike<Dest> &&
+     AreElementTypesCompatible<Source, Dest>),
     X>;
 
 /// Evaluates to `X` if the constraints required for `tensorstore::Write` are
@@ -145,9 +141,8 @@ using EnableIfCanCopyTensorStoreToArray = std::enable_if_t<
 /// Used to specify the return type of `tensorstore::Write`.
 template <typename Source, typename Dest, typename X>
 using EnableIfCanCopyArrayToTensorStore = std::enable_if_t<
-    (IsTensorStoreThatSupportsMode<Dest, ReadWriteMode::write>::value &&
-     IsTransformedArrayLike<Source>::value &&
-     AreElementTypesCompatible<Source, Dest>::value),
+    (IsTensorStoreThatSupportsMode<Dest, ReadWriteMode::write> &&
+     IsTransformedArrayLike<Source> && AreElementTypesCompatible<Source, Dest>),
     X>;
 
 /// Evaluates to `X` if the constraints required for `tensorstore::Copy` are
@@ -156,16 +151,16 @@ using EnableIfCanCopyArrayToTensorStore = std::enable_if_t<
 /// Used to specify the return type of `tensorstore::Copy`.
 template <typename Source, typename Dest, typename X>
 using EnableIfCanCopyTensorStoreToTensorStore = std::enable_if_t<
-    (IsTensorStoreThatSupportsMode<Source, ReadWriteMode::read>::value &&
-     IsTensorStoreThatSupportsMode<Dest, ReadWriteMode::write>::value &&
-     AreElementTypesCompatible<Source, Dest>::value),
+    (IsTensorStoreThatSupportsMode<Source, ReadWriteMode::read> &&
+     IsTensorStoreThatSupportsMode<Dest, ReadWriteMode::write> &&
+     AreElementTypesCompatible<Source, Dest>),
     X>;
 
 /// Evaluates to the return type of `Read` (for a new target array) if the
 /// constrains are satisfied.
 template <ArrayOriginKind OriginKind, typename Store>
 using ReadTensorStoreIntoNewArrayResult = std::enable_if_t<
-    internal::IsTensorStoreThatSupportsMode<Store, ReadWriteMode::read>::value,
+    internal::IsTensorStoreThatSupportsMode<Store, ReadWriteMode::read>,
     Future<
         SharedArray<typename Store::Element, Store::static_rank, OriginKind>>>;
 

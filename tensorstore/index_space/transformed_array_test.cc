@@ -42,33 +42,24 @@ using tensorstore::StaticDataTypeCast;
 using tensorstore::StaticRankCast;
 using tensorstore::TransformedArray;
 
-static_assert(
-    std::is_convertible<tensorstore::TransformedSharedArray<int, 1>,
-                        tensorstore::TransformedArrayView<int, 1>>::value,
-    "");
+static_assert(std::is_convertible_v<tensorstore::TransformedSharedArray<int, 1>,
+                                    tensorstore::TransformedArrayView<int, 1>>);
 
 static_assert(
-    !std::is_convertible<tensorstore::TransformedArrayView<int, 1>,
-                         tensorstore::TransformedSharedArray<int, 1>>::value,
-    "");
-static_assert(
-    !std::is_convertible<tensorstore::TransformedArrayView<int, 1>,
-                         tensorstore::TransformedArray<int, 1>>::value,
-    "");
+    !std::is_convertible_v<tensorstore::TransformedArrayView<int, 1>,
+                           tensorstore::TransformedSharedArray<int, 1>>);
+static_assert(!std::is_convertible_v<tensorstore::TransformedArrayView<int, 1>,
+                                     tensorstore::TransformedArray<int, 1>>);
 
 static_assert(
-    std::is_constructible<tensorstore::TransformedArray<int, 1>,
-                          tensorstore::TransformedArrayView<int, 1>>::value,
-    "");
+    std::is_constructible_v<tensorstore::TransformedArray<int, 1>,
+                            tensorstore::TransformedArrayView<int, 1>>);
 static_assert(
-    std::is_same<typename tensorstore::TransformedArrayView<int, 1>::
-                     template RebindContainerKind<tensorstore::container>,
-                 tensorstore::TransformedArray<int, 1>>::value,
-    "");
+    std::is_same_v<typename tensorstore::TransformedArrayView<int, 1>::
+                       template RebindContainerKind<tensorstore::container>,
+                   tensorstore::TransformedArray<int, 1>>);
 
-static_assert(
-    tensorstore::HasBoxDomain<tensorstore::TransformedArray<int, 1>>::value,
-    "");
+static_assert(tensorstore::HasBoxDomain<tensorstore::TransformedArray<int, 1>>);
 
 template <typename TA>
 std::vector<const typename TA::Element*> GetPointers(const TA& a) {
@@ -278,18 +269,14 @@ TYPED_TEST(TransformedArrayConstructorTest,
 TEST(TransformedArrayTest, Array) {
   auto a = MakeOffsetArray<int>({3}, {1, 2, 3});
   auto ta = tensorstore::TransformedArray(a);
-  static_assert(
-      std::is_same<decltype(ta),
-                   tensorstore::TransformedSharedArray<int, 1>>::value,
-      "");
+  static_assert(std::is_same_v<decltype(ta),
+                               tensorstore::TransformedSharedArray<int, 1>>);
   EXPECT_EQ(a, ta.untransformed_array());
   auto a_copy = a;
   EXPECT_EQ(3, a.pointer().use_count());
   auto tb = tensorstore::TransformedArray(std::move(a_copy));
-  static_assert(
-      std::is_same<decltype(tb),
-                   tensorstore::TransformedSharedArray<int, 1>>::value,
-      "");
+  static_assert(std::is_same_v<decltype(tb),
+                               tensorstore::TransformedSharedArray<int, 1>>);
   EXPECT_EQ(3, a.pointer().use_count());
   EXPECT_FALSE(a_copy.valid());  // NOLINT
 }
@@ -298,18 +285,14 @@ TEST(TransformedArrayTest, TransformedArray) {
   auto a = MakeOffsetArray<int>({3}, {1, 2, 3});
   auto ta = tensorstore::TransformedArray(a);
   auto tb = tensorstore::TransformedArray(ta);
-  static_assert(
-      std::is_same<decltype(tb),
-                   tensorstore::TransformedSharedArray<int, 1>>::value,
-      "");
+  static_assert(std::is_same_v<decltype(tb),
+                               tensorstore::TransformedSharedArray<int, 1>>);
   EXPECT_EQ(a, tb.untransformed_array());
   auto ta_copy = ta;
   EXPECT_EQ(4, a.pointer().use_count());
   auto tc = tensorstore::TransformedArray(std::move(ta_copy));
-  static_assert(
-      std::is_same<decltype(tc),
-                   tensorstore::TransformedSharedArray<int, 1>>::value,
-      "");
+  static_assert(std::is_same_v<decltype(tc),
+                               tensorstore::TransformedSharedArray<int, 1>>);
   EXPECT_EQ(a.element_pointer(), tc.element_pointer());
   EXPECT_EQ(a, tc.untransformed_array());
   EXPECT_EQ(4, a.pointer().use_count());
@@ -334,10 +317,8 @@ TEST(TransformedArrayTest, ArrayAndTransform) {
                .Finalize()
                .value();
   auto ta = tensorstore::TransformedArray(a, t);
-  static_assert(
-      std::is_same<decltype(ta),
-                   tensorstore::TransformedSharedArray<int, 1>>::value,
-      "");
+  static_assert(std::is_same_v<decltype(ta),
+                               tensorstore::TransformedSharedArray<int, 1>>);
   EXPECT_EQ(a, ta.base_array());
   EXPECT_EQ(t, ta.transform());
   EXPECT_THAT(ta.labels(), ::testing::ElementsAre("a"));
@@ -432,11 +413,9 @@ TEST(TransformedArrayTest, MaterializeConstraints) {
         {
           SCOPED_TRACE("Materialize");
           auto new_array = transformed_array.Materialize(constraints);
-          static_assert(
-              std::is_same<
-                  decltype(new_array),
-                  Result<tensorstore::SharedOffsetArray<const int, 3>>>::value,
-              "");
+          static_assert(std::is_same_v<
+                        decltype(new_array),
+                        Result<tensorstore::SharedOffsetArray<const int, 3>>>);
           ValidateCopy(new_array, expected_byte_strides);
         }
         // Test MakeCopy
@@ -445,10 +424,8 @@ TEST(TransformedArrayTest, MaterializeConstraints) {
           auto new_array =
               MakeCopy(transformed_array, constraints.iteration_constraints());
           static_assert(
-              std::is_same<
-                  decltype(new_array),
-                  Result<tensorstore::SharedOffsetArray<int, 3>>>::value,
-              "");
+              std::is_same_v<decltype(new_array),
+                             Result<tensorstore::SharedOffsetArray<int, 3>>>);
           ValidateCopy(new_array, expected_byte_strides);
         }
       };
@@ -653,8 +630,7 @@ TEST(TransformedArrayTest, StaticDataTypeCast) {
   TransformedArray<void, 1> ta = ta_orig;
   auto ta_int = StaticDataTypeCast<std::int32_t>(ta);
   static_assert(
-      std::is_same<decltype(ta_int), Result<TransformedArray<int, 1>>>::value,
-      "");
+      std::is_same_v<decltype(ta_int), Result<TransformedArray<int, 1>>>);
   ASSERT_TRUE(ta_int);
   EXPECT_THAT(GetPointers(*ta_int),
               ::testing::ElementsAreArray(GetPointers(ta_orig)));
@@ -665,9 +641,8 @@ TEST(TransformedArrayTest, StaticRankCast) {
       MakeArray<std::int32_t>({3, 4});
   auto ta1 = StaticRankCast<1>(ta);
   static_assert(
-      std::is_same<decltype(ta1),
-                   Result<TransformedArray<Shared<std::int32_t>, 1>>>::value,
-      "");
+      std::is_same_v<decltype(ta1),
+                     Result<TransformedArray<Shared<std::int32_t>, 1>>>);
   ASSERT_TRUE(ta1);
   EXPECT_THAT(GetPointers(*ta1), ::testing::ElementsAreArray(GetPointers(ta)));
   EXPECT_THAT(
@@ -692,11 +667,9 @@ TEST(NormalizedTransformedArrayTest, StaticDataTypeCast) {
       MakeArray<std::int32_t>({3, 4}));
   NormalizedTransformedArray<Shared<void>, 1> ta = ta_orig;
   auto ta_int = StaticDataTypeCast<std::int32_t>(ta);
-  static_assert(
-      std::is_same<
-          decltype(ta_int),
-          Result<NormalizedTransformedArray<Shared<std::int32_t>, 1>>>::value,
-      "");
+  static_assert(std::is_same_v<
+                decltype(ta_int),
+                Result<NormalizedTransformedArray<Shared<std::int32_t>, 1>>>);
   ASSERT_TRUE(ta_int);
   EXPECT_THAT(GetPointers(*ta_int),
               ::testing::ElementsAreArray(GetPointers(ta_orig)));
@@ -707,11 +680,9 @@ TEST(NormalizedTransformedArrayTest, StaticRankCast) {
       tensorstore::MakeNormalizedTransformedArray(
           MakeArray<std::int32_t>({3, 4}));
   auto ta1 = StaticRankCast<1>(ta);
-  static_assert(
-      std::is_same<
-          decltype(ta1),
-          Result<NormalizedTransformedArray<Shared<std::int32_t>, 1>>>::value,
-      "");
+  static_assert(std::is_same_v<
+                decltype(ta1),
+                Result<NormalizedTransformedArray<Shared<std::int32_t>, 1>>>);
   ASSERT_TRUE(ta1);
   EXPECT_THAT(GetPointers(*ta1), ::testing::ElementsAreArray(GetPointers(ta)));
   EXPECT_THAT(

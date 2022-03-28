@@ -280,16 +280,14 @@ inline constexpr DataTypeId DataTypeIdOf =
 /// enumeration type.  A type of `void` or `const void` indicates a type-erased
 /// element type.
 template <typename T>
-struct IsElementType
-    : public std::integral_constant<
-          bool, (!std::is_volatile<T>::value &&
-                 // This is defined in terms of these exclusions, rather than
-                 // inclusions based on e.g. `std::is_fundamental`, because
-                 // `std::is_fundamental` excludes certain special types like
-                 // `__int128_t` and `_Float16` that we wish to support.
-                 !std::is_reference<T>::value &&
-                 !std::is_function<std::remove_const_t<T>>::value &&
-                 !std::is_array<std::remove_const_t<T>>::value)> {};
+constexpr inline bool IsElementType =
+    (!std::is_volatile_v<T> &&
+     // This is defined in terms of these exclusions, rather than
+     // inclusions based on e.g. `std::is_fundamental`, because
+     // `std::is_fundamental` excludes certain special types like
+     // `__int128_t` and `_Float16` that we wish to support.
+     !std::is_reference_v<T> && !std::is_function_v<std::remove_const_t<T>> &&
+     !std::is_array_v<std::remove_const_t<T>>);
 
 /// Specifies traits for the conversion from one data type to another.
 enum class DataTypeConversionFlags : unsigned char {
@@ -624,7 +622,7 @@ TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE_NAME)
 /// is the same as `operator==`.
 template <typename T>
 bool CompareEqual(const T& a, const T& b) {
-  if constexpr (internal::IsEqualityComparable<T>::value) {
+  if constexpr (internal::IsEqualityComparable<T>) {
     return a == b;
   }
   return false;
@@ -640,7 +638,7 @@ bool CompareEqual(const T& a, const T& b) {
 /// representations of NaN, and this functions treats all of them as equal.
 template <typename T>
 bool CompareSameValue(const T& a, const T& b) {
-  if constexpr (internal::IsEqualityComparable<T>::value) {
+  if constexpr (internal::IsEqualityComparable<T>) {
     return a == b;
   }
   return false;
@@ -812,9 +810,9 @@ class StaticDataType {
 
  public:
   using Element = T;
-  static_assert(std::is_same<T, std::decay_t<T>>::value,
+  static_assert(std::is_same_v<T, std::decay_t<T>>,
                 "T must be an unqualified type.");
-  static_assert(IsElementType<T>::value, "T must satisfy IsElementType.");
+  static_assert(IsElementType<T>, "T must satisfy IsElementType.");
 
   constexpr StaticDataType() = default;
 
@@ -1027,7 +1025,7 @@ template <typename T = void>
 std::shared_ptr<T> AllocateAndConstructShared(
     std::ptrdiff_t n, ElementInitialization initialization = default_init,
     dtype_t<T> r = dtype_v<T>) {
-  static_assert(std::is_same<std::remove_cv_t<T>, T>::value,
+  static_assert(std::is_same_v<std::remove_cv_t<T>, T>,
                 "Element type T must not have cv qualifiers.");
   return std::static_pointer_cast<T>(
       AllocateAndConstructShared<void>(n, initialization, r));
@@ -1044,7 +1042,7 @@ inline bool IsPossiblySameDataType(DataType a, DataType b) {
 template <typename T, typename U>
 constexpr inline bool IsPossiblySameDataType(StaticDataType<T> a,
                                              StaticDataType<U> b) {
-  return std::is_same<T, U>::value;
+  return std::is_same_v<T, U>;
 }
 
 /// Evaluates to a type similar to `SourceRef` but with a static data type of
@@ -1105,7 +1103,7 @@ SupportedCastResultType<RebindDataType<SourceRef, TargetElement>, SourceRef,
 StaticDataTypeCast(SourceRef&& source) {
   using Source = internal::remove_cvref_t<SourceRef>;
   static_assert(IsElementTypeExplicitlyConvertible<typename Source::Element,
-                                                   TargetElement>::value,
+                                                   TargetElement>,
                 "StaticDataTypeCast cannot cast away const qualification");
   return StaticCast<RebindDataType<SourceRef, TargetElement>, Checking>(
       std::forward<SourceRef>(source));
@@ -1134,7 +1132,7 @@ inline SupportedCastResultType<RebindDataType<SourceRef, TargetElement>,
 ConstDataTypeCast(SourceRef&& source) {
   using Source = internal::remove_cvref_t<SourceRef>;
   static_assert(
-      std::is_same<const typename Source::Element, const TargetElement>::value,
+      std::is_same_v<const typename Source::Element, const TargetElement>,
       "ConstDataTypeCast can only change const qualification");
   return StaticCast<RebindDataType<SourceRef, TargetElement>,
                     CastChecking::unchecked>(std::forward<SourceRef>(source));

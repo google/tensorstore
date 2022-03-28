@@ -116,8 +116,7 @@ struct DefaultStaticCastTraits {
   /// The `DefaultStaticCastTraits` implementation returns
   /// `T(unchecked, std::forward<SourceRef>(source))`.
   template <typename SourceRef>
-  static std::enable_if_t<
-      std::is_constructible<T, unchecked_t, SourceRef>::value, T>
+  static std::enable_if_t<std::is_constructible_v<T, unchecked_t, SourceRef>, T>
   Construct(SourceRef&& source) {
     return T(unchecked, std::forward<SourceRef>(source));
   }
@@ -214,26 +213,26 @@ struct CastImpl<CastChecking::unchecked, true> {
 
 template <typename Target, typename SourceRef, CastChecking Checking,
           bool IsSame =
-              std::is_same<Target, internal::remove_cvref_t<SourceRef>>::value>
+              std::is_same_v<Target, internal::remove_cvref_t<SourceRef>>>
 using CastImplType =
     internal_cast::CastImpl<Checking,
                             (Checking == CastChecking::unchecked && IsSame)>;
 
 template <typename Target, typename SourceRef, typename ReturnType = Target>
-struct IsCastConstructible : public std::false_type {};
+constexpr inline bool IsCastConstructible = false;
 
 template <typename Target, typename SourceRef>
-struct IsCastConstructible<Target, SourceRef,
-                           decltype(StaticCastTraits<Target>::Construct(
-                               std::declval<SourceRef>()))>
-    : public std::true_type {};
+constexpr inline bool IsCastConstructible<
+    Target, SourceRef,
+    decltype(StaticCastTraits<Target>::Construct(std::declval<SourceRef>()))> =
+    true;
 
 }  // namespace internal_cast
 
 /// `bool`-valued metafunction that evaluates to `true` if a value of type
 /// `SourceRef&&` can be converted to a type of `Target` using `StaticCast`.
 template <typename Target, typename SourceRef>
-using IsCastConstructible =
+constexpr inline bool IsCastConstructible =
     internal_cast::IsCastConstructible<Target, SourceRef>;
 
 /// Evaluates to the result of casting a value of type `SourceRef&&` to `Target`
@@ -243,7 +242,7 @@ using IsCastConstructible =
 template <typename Target, typename SourceRef,
           CastChecking Checking = CastChecking::unchecked>
 using SupportedCastResultType = std::enable_if_t<
-    IsCastConstructible<Target, SourceRef>::value,
+    IsCastConstructible<Target, SourceRef>,
     typename internal_cast::CastImplType<
         Target, SourceRef, Checking>::template ResultType<SourceRef, Target>>;
 

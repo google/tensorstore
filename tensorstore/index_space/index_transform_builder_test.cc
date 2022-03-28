@@ -55,7 +55,7 @@ TEST(IndexTransformTest, BuilderValid) {
           .output_index_array(3, 7, 9, index_array, IndexInterval::Closed(0, 3))
           .Finalize()
           .value();
-  static_assert(std::is_same<decltype(t), IndexTransform<3, 4>>::value, "");
+  static_assert(std::is_same_v<decltype(t), IndexTransform<3, 4>>);
   EXPECT_THAT(t.input_origin(), ::testing::ElementsAre(1, 2, 3));
   EXPECT_THAT(t.input_shape(), ::testing::ElementsAre(2, 2, 4));
   EXPECT_THAT(t.input_labels(), ::testing::ElementsAre("x", "y", "z"));

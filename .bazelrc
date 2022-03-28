@@ -46,3 +46,6 @@ build:windows --enable_runfiles=true --build_python_zip=false
 
 # Disable warning regarding `msvc::no_unique_address`
 build:windows --copt=/wd4848
+
+# Make MSVC conform to the C++ standard regarding hidden friends
+build:windows --copt=/Zc:hiddenFriend

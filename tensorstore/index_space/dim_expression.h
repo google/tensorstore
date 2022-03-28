@@ -46,9 +46,8 @@ namespace tensorstore {
 /// Bool-valued metafunction that evaluates to `true` if `T` is an array type
 /// convertible to `SharedArrayView<const Index>`.
 template <typename T>
-using IsIndexArray =
-    std::conjunction<IsArray<T>,
-                     std::is_convertible<T, SharedArrayView<const Index>>>;
+constexpr inline bool IsIndexArray =
+    IsArray<T> && std::is_convertible_v<T, SharedArrayView<const Index>>;
 
 template <typename... Op>
 class DimExpression;
@@ -162,11 +161,11 @@ class DimExpression<LastOp, PriorOp...> {
       IndexVectorOpExpr<internal_index_space::IntervalSliceOp, IndexVector...>;
 
   template <typename BoxType>
-  using BoxSliceOpExpr = NewExpr<std::enable_if_t<
-      (IsBoxLike<BoxType>::value &&
-       IsRankExplicitlyConvertible(static_selection_rank::value,
-                                   BoxType::static_rank)),
-      internal_index_space::BoxSliceOp<BoxType::static_rank>>>;
+  using BoxSliceOpExpr = NewExpr<
+      std::enable_if_t<(IsBoxLike<BoxType> && IsRankExplicitlyConvertible(
+                                                  static_selection_rank::value,
+                                                  BoxType::static_rank)),
+                       internal_index_space::BoxSliceOp<BoxType::static_rank>>>;
 
   /// Defines the return type for IndexArraySlice with a parameter pack of index
   /// arrays.
@@ -175,7 +174,7 @@ class DimExpression<LastOp, PriorOp...> {
       sizeof...(IndexArray) >= 1 &&
           IsRankExplicitlyConvertible(sizeof...(IndexArray),
                                       static_selection_rank::value) &&
-          (IsIndexArray<IndexArray>::value && ...) &&
+          (IsIndexArray<IndexArray> && ...) &&
           AreStaticRanksCompatible(IndexArray::static_rank...),
       NewExpr<internal_index_space::IndexArraySliceOp<
           /*OuterIndexing=*/false, MaxStaticRank(IndexArray::static_rank...),
@@ -193,7 +192,7 @@ class DimExpression<LastOp, PriorOp...> {
   using IndexArrayOuterSliceOpExpr = std::enable_if_t<
       IsRankExplicitlyConvertible(sizeof...(IndexArray),
                                   static_selection_rank::value) &&
-          (IsIndexArray<IndexArray>::value && ...),
+          (IsIndexArray<IndexArray> && ...),
       NewExpr<internal_index_space::IndexArraySliceOp<
           /*OuterIndexing=*/true, AddStaticRanks(IndexArray::static_rank...),
           std::array<SharedArrayView<const Index>, sizeof...(IndexArray)>>>>;
@@ -217,16 +216,15 @@ class DimExpression<LastOp, PriorOp...> {
   /// converted to a `span`.
   template <typename Labels,
             typename LabelsSpan = internal::ConstSpanType<Labels>>
-  using LabelSpanOpExpr = std::enable_if_t<
-      internal::IsStringLike<typename LabelsSpan::value_type>::value,
-      LabelOpExpr<LabelsSpan, LabelsSpan::extent>>;
+  using LabelSpanOpExpr =
+      std::enable_if_t<internal::IsStringLike<typename LabelsSpan::value_type>,
+                       LabelOpExpr<LabelsSpan, LabelsSpan::extent>>;
 
   /// Defines the return type for Label, where the labels are specified as an
   /// argument pack.
   template <typename... Label>
   using LabelPackOpExpr = std::enable_if_t<
-      internal::IsPackConvertibleWithoutNarrowing<std::string_view,
-                                                  Label...>::value,
+      internal::IsPackConvertibleWithoutNarrowing<std::string_view, Label...>,
       LabelOpExpr<std::array<std::string_view, sizeof...(Label)>,
                   sizeof...(Label)>>;
 
@@ -248,8 +246,7 @@ class DimExpression<LastOp, PriorOp...> {
   using TransposeToOpExpr = std::enable_if_t<
       (IsRankExplicitlyConvertible(TargetDimsSpan::extent,
                                    static_selection_rank::value) &&
-       std::is_same<typename TargetDimsSpan::value_type,
-                    DimensionIndex>::value),
+       std::is_same_v<typename TargetDimsSpan::value_type, DimensionIndex>),
       NewExpr<internal_index_space::TransposeToOp<TargetDimsSpan>>>;
 
   /// Defines the return type for {Unsafe,}MarkBounds{Explicit,Implicit}.
@@ -259,7 +256,7 @@ class DimExpression<LastOp, PriorOp...> {
   /// Defines the return type for IndexVectorArraySlice.
   template <typename IndexVectorArray>
   using IndexVectorArraySliceOpExpr =
-      std::enable_if_t<IsIndexArray<IndexVectorArray>::value &&
+      std::enable_if_t<IsIndexArray<IndexVectorArray> &&
                            IsStaticRankGreater(IndexVectorArray::static_rank,
                                                0),
                        NewExpr<internal_index_space::IndexVectorArraySliceOp<
@@ -1737,7 +1734,7 @@ class DimExpression<LastOp, PriorOp...> {
   /// that supports `ApplyIndexTransform`.
   template <typename Transformable>
   internal_index_space::EnableIfApplyIndexTransformResult<
-      !IsIndexTransform<internal::remove_cvref_t<Transformable>>::value,
+      !IsIndexTransform<internal::remove_cvref_t<Transformable>>,
       const DimExpression&, Transformable>
   operator()(Transformable&& transformable) const {
     return ApplyIndexTransform(*this,

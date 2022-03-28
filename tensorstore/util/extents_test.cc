@@ -37,80 +37,68 @@ using tensorstore::ProductOfExtents;
 using tensorstore::span;
 using tensorstore::SpanStaticExtent;
 
-static_assert(IsCompatibleFullIndexVector<3, int (&)[3]>::value, "");
-static_assert(IsCompatibleFullIndexVector<dynamic_extent, int (&)[3]>::value,
-              "");
-static_assert(IsCompatibleFullIndexVector<3, span<int, 3>>::value, "");
-static_assert(IsCompatibleFullIndexVector<3, span<int>>::value, "");
-static_assert(IsCompatibleFullIndexVector<dynamic_extent, span<int>>::value,
-              "");
-static_assert(IsCompatibleFullIndexVector<dynamic_extent, span<int, 3>>::value,
-              "");
-static_assert(!IsCompatibleFullIndexVector<3, span<int, 2>>::value, "");
-static_assert(!IsCompatibleFullIndexVector<3, span<float, 3>>::value, "");
-static_assert(!IsCompatibleFullIndexVector<3, span<float, 2>>::value, "");
+static_assert(IsCompatibleFullIndexVector<3, int (&)[3]>);
+static_assert(IsCompatibleFullIndexVector<dynamic_extent, int (&)[3]>);
+static_assert(IsCompatibleFullIndexVector<3, span<int, 3>>);
+static_assert(IsCompatibleFullIndexVector<3, span<int>>);
+static_assert(IsCompatibleFullIndexVector<dynamic_extent, span<int>>);
+static_assert(IsCompatibleFullIndexVector<dynamic_extent, span<int, 3>>);
+static_assert(!IsCompatibleFullIndexVector<3, span<int, 2>>);
+static_assert(!IsCompatibleFullIndexVector<3, span<float, 3>>);
+static_assert(!IsCompatibleFullIndexVector<3, span<float, 2>>);
 
-static_assert(IsCompatiblePartialIndexVector<3, int (&)[3]>::value, "");
-static_assert(IsCompatiblePartialIndexVector<4, int (&)[3]>::value, "");
-static_assert(IsCompatiblePartialIndexVector<dynamic_extent, int (&)[3]>::value,
-              "");
-static_assert(IsCompatiblePartialIndexVector<3, span<int, 3>>::value, "");
-static_assert(IsCompatiblePartialIndexVector<4, span<int, 3>>::value, "");
-static_assert(IsCompatiblePartialIndexVector<3, span<int>>::value, "");
-static_assert(IsCompatiblePartialIndexVector<dynamic_extent, span<int>>::value,
-              "");
+static_assert(IsCompatiblePartialIndexVector<3, int (&)[3]>);
+static_assert(IsCompatiblePartialIndexVector<4, int (&)[3]>);
+static_assert(IsCompatiblePartialIndexVector<dynamic_extent, int (&)[3]>);
+static_assert(IsCompatiblePartialIndexVector<3, span<int, 3>>);
+static_assert(IsCompatiblePartialIndexVector<4, span<int, 3>>);
+static_assert(IsCompatiblePartialIndexVector<3, span<int>>);
+static_assert(IsCompatiblePartialIndexVector<dynamic_extent, span<int>>);
+static_assert(IsCompatiblePartialIndexVector<dynamic_extent, span<int, 3>>);
+static_assert(!IsCompatiblePartialIndexVector<3, span<int, 4>>);
+static_assert(!IsCompatiblePartialIndexVector<3, span<float, 3>>);
+static_assert(!IsCompatiblePartialIndexVector<3, span<float, 2>>);
+
+static_assert(IsImplicitlyCompatibleFullIndexVector<3, int (&)[3]>);
 static_assert(
-    IsCompatiblePartialIndexVector<dynamic_extent, span<int, 3>>::value, "");
-static_assert(!IsCompatiblePartialIndexVector<3, span<int, 4>>::value, "");
-static_assert(!IsCompatiblePartialIndexVector<3, span<float, 3>>::value, "");
-static_assert(!IsCompatiblePartialIndexVector<3, span<float, 2>>::value, "");
+    IsImplicitlyCompatibleFullIndexVector<dynamic_extent, int (&)[3]>);
+static_assert(IsImplicitlyCompatibleFullIndexVector<3, span<int, 3>>);
+static_assert(IsImplicitlyCompatibleFullIndexVector<dynamic_extent, span<int>>);
+static_assert(!IsImplicitlyCompatibleFullIndexVector<3, span<int>>);
+static_assert(!IsImplicitlyCompatibleFullIndexVector<3, span<float, 3>>);
+static_assert(!IsImplicitlyCompatibleFullIndexVector<3, span<float, 2>>);
 
-static_assert(IsImplicitlyCompatibleFullIndexVector<3, int (&)[3]>::value, "");
-static_assert(
-    IsImplicitlyCompatibleFullIndexVector<dynamic_extent, int (&)[3]>::value,
-    "");
-static_assert(IsImplicitlyCompatibleFullIndexVector<3, span<int, 3>>::value,
-              "");
-static_assert(
-    IsImplicitlyCompatibleFullIndexVector<dynamic_extent, span<int>>::value,
-    "");
-static_assert(!IsImplicitlyCompatibleFullIndexVector<3, span<int>>::value, "");
-static_assert(!IsImplicitlyCompatibleFullIndexVector<3, span<float, 3>>::value,
-              "");
-static_assert(!IsImplicitlyCompatibleFullIndexVector<3, span<float, 2>>::value,
-              "");
+static_assert(IsIndexConvertibleVector<span<int>>);
+static_assert(IsIndexConvertibleVector<span<int, 3>>);
+static_assert(IsIndexConvertibleVector<std::vector<int>>);
+static_assert(!IsIndexConvertibleVector<span<float, 3>>);
 
-static_assert(IsIndexConvertibleVector<span<int>>::value, "");
-static_assert(IsIndexConvertibleVector<span<int, 3>>::value, "");
-static_assert(IsIndexConvertibleVector<std::vector<int>>::value, "");
-static_assert(!IsIndexConvertibleVector<span<float, 3>>::value, "");
+static_assert(IsIndexVector<span<Index>>);
+static_assert(IsIndexVector<span<Index, 3>>);
+static_assert(IsIndexVector<span<const Index>>);
+static_assert(IsIndexVector<span<const Index, 3>>);
+static_assert(IsIndexVector<span<const Index>>);
+static_assert(IsIndexVector<std::vector<Index>>);
+static_assert(IsIndexVector<const std::vector<Index>>);
+static_assert(!IsIndexVector<span<int, 3>>);
+static_assert(!IsIndexVector<span<float>>);
 
-static_assert(IsIndexVector<span<Index>>::value, "");
-static_assert(IsIndexVector<span<Index, 3>>::value, "");
-static_assert(IsIndexVector<span<const Index>>::value, "");
-static_assert(IsIndexVector<span<const Index, 3>>::value, "");
-static_assert(IsIndexVector<span<const Index>>::value, "");
-static_assert(IsIndexVector<std::vector<Index>>::value, "");
-static_assert(IsIndexVector<const std::vector<Index>>::value, "");
-static_assert(!IsIndexVector<span<int, 3>>::value, "");
-static_assert(!IsIndexVector<span<float>>::value, "");
+static_assert(IsMutableIndexVector<span<Index>>);
+static_assert(IsMutableIndexVector<span<Index, 3>>);
+static_assert(!IsMutableIndexVector<span<const Index>>);
+static_assert(!IsMutableIndexVector<span<const Index, 3>>);
+static_assert(IsMutableIndexVector<std::vector<Index>&>);
+static_assert(!IsMutableIndexVector<const std::vector<Index>>);
+static_assert(!IsMutableIndexVector<span<int, 3>>);
+static_assert(!IsMutableIndexVector<span<float>>);
 
-static_assert(IsMutableIndexVector<span<Index>>::value, "");
-static_assert(IsMutableIndexVector<span<Index, 3>>::value, "");
-static_assert(!IsMutableIndexVector<span<const Index>>::value, "");
-static_assert(!IsMutableIndexVector<span<const Index, 3>>::value, "");
-static_assert(IsMutableIndexVector<std::vector<Index>&>::value, "");
-static_assert(!IsMutableIndexVector<const std::vector<Index>>::value, "");
-static_assert(!IsMutableIndexVector<span<int, 3>>::value, "");
-static_assert(!IsMutableIndexVector<span<float>>::value, "");
-
-static_assert(SpanStaticExtent<std::vector<int>>() == dynamic_extent, "");
-static_assert(SpanStaticExtent<span<int, 3>>() == 3, "");
-static_assert(SpanStaticExtent<span<int>>() == dynamic_extent, "");
+static_assert(SpanStaticExtent<std::vector<int>>() == dynamic_extent);
+static_assert(SpanStaticExtent<span<int, 3>>() == 3);
+static_assert(SpanStaticExtent<span<int>>() == dynamic_extent);
 
 static_assert(SpanStaticExtent<std::vector<int>, span<int>>() == dynamic_extent,
               "");
-static_assert(SpanStaticExtent<span<int, 3>, span<float, 3>>() == 3, "");
+static_assert(SpanStaticExtent<span<int, 3>, span<float, 3>>() == 3);
 
 TEST(ProductOfExtentsTest, Basic) {
   EXPECT_EQ(1, ProductOfExtents(span<int, 0>()));

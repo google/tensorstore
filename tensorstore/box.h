@@ -109,27 +109,23 @@ class Box;
 
 namespace internal_box {
 
+// Metafunction for optionally const-qualified types equal to `0` if not
+// box-like, `1` if const box-like, and `2` if mutable box-like.
 template <typename T>
-struct IsBoxLikeHelper : std::false_type {};
+constexpr inline int IsBoxLikeHelper = 0;
 
 template <DimensionIndex Rank>
-struct IsBoxLikeHelper<Box<Rank>> : std::true_type {};
+constexpr inline int IsBoxLikeHelper<const Box<Rank>> = 1;
+
+template <DimensionIndex Rank>
+constexpr inline int IsBoxLikeHelper<Box<Rank>> = 2;
 
 template <DimensionIndex Rank, bool Mutable>
-struct IsBoxLikeHelper<BoxView<Rank, Mutable>> : std::true_type {};
+constexpr inline int IsBoxLikeHelper<BoxView<Rank, Mutable>> = Mutable ? 2 : 1;
 
-template <typename T>
-struct IsMutableBoxLikeHelper : public std::false_type {};
-
-template <DimensionIndex Rank>
-struct IsMutableBoxLikeHelper<Box<Rank>> : public std::true_type {};
-
-template <DimensionIndex Rank>
-struct IsMutableBoxLikeHelper<BoxView<Rank, true>> : public std::true_type {};
-
-template <DimensionIndex Rank>
-struct IsMutableBoxLikeHelper<const BoxView<Rank, true>>
-    : public std::true_type {};
+template <DimensionIndex Rank, bool Mutable>
+constexpr inline int IsBoxLikeHelper<const BoxView<Rank, Mutable>> =
+    Mutable ? 2 : 1;
 
 std::string DescribeForCast(DimensionIndex rank);
 
@@ -138,37 +134,34 @@ std::string DescribeForCast(DimensionIndex rank);
 /// Metafunction that evaluates to `true` if, and only if, `T` is an optionally
 /// cvref-qualified Box or BoxView instance.
 template <typename T>
-using IsBoxLike = internal_box::IsBoxLikeHelper<internal::remove_cvref_t<T>>;
+constexpr inline bool IsBoxLike =
+    internal_box::IsBoxLikeHelper<internal::remove_cvref_t<T>> != 0;
 
 /// Metafunction that evaluates to `true` if, and only if, `T` is an optionally
 /// ref-qualified non-const Box or MutableBoxView instance.
 template <typename T>
-using IsMutableBoxLike =
-    internal_box::IsMutableBoxLikeHelper<std::remove_reference_t<T>>;
+constexpr inline bool IsMutableBoxLike =
+    internal_box::IsBoxLikeHelper<std::remove_reference_t<T>> == 2;
 
 /// Metafunction that evaluates to `true` if, and only if, `T` is a Box-like
 /// type with a `static_rank` implicitly convertible to `Rank`.
 template <typename T, DimensionIndex Rank, typename = void>
-struct IsBoxLikeImplicitlyConvertibleToRank : public std::false_type {};
+constexpr inline bool IsBoxLikeImplicitlyConvertibleToRank = false;
 
 template <typename T, DimensionIndex Rank>
-struct IsBoxLikeImplicitlyConvertibleToRank<
-    T, Rank, std::enable_if_t<IsBoxLike<T>::value>>
-    : public std::integral_constant<
-          bool, IsRankImplicitlyConvertible(
-                    internal::remove_cvref_t<T>::static_rank, Rank)> {};
+constexpr inline bool IsBoxLikeImplicitlyConvertibleToRank<
+    T, Rank, std::enable_if_t<IsBoxLike<T>>> =
+    IsRankImplicitlyConvertible(internal::remove_cvref_t<T>::static_rank, Rank);
 
 /// Metafunction that evaluates to `true` if, and only if, `T` is a Box-like
 /// type with a `static_rank` explicitly convertible to `Rank`.
 template <typename T, DimensionIndex Rank, typename = void>
-struct IsBoxLikeExplicitlyConvertibleToRank : public std::false_type {};
+constexpr inline bool IsBoxLikeExplicitlyConvertibleToRank = false;
 
 template <typename T, DimensionIndex Rank>
-struct IsBoxLikeExplicitlyConvertibleToRank<
-    T, Rank, std::enable_if_t<IsBoxLike<T>::value>>
-    : public std::integral_constant<
-          bool, IsRankExplicitlyConvertible(
-                    internal::remove_cvref_t<T>::static_rank, Rank)> {};
+constexpr inline bool IsBoxLikeExplicitlyConvertibleToRank<
+    T, Rank, std::enable_if_t<IsBoxLike<T>>> =
+    IsRankExplicitlyConvertible(internal::remove_cvref_t<T>::static_rank, Rank);
 
 namespace internal_box {
 std::ostream& PrintToOstream(std::ostream& os,
@@ -232,10 +225,9 @@ class Box : public internal_box::BoxStorage<Rank> {
   ///     extents implicitly convertible to `static_rank` and element types
   ///     convertible without narrowing to `Index`.
   template <typename OriginVec, typename ShapeVec,
-            typename = std::enable_if_t<(IsImplicitlyCompatibleFullIndexVector<
-                                             static_rank, OriginVec>::value &&
-                                         IsImplicitlyCompatibleFullIndexVector<
-                                             static_rank, ShapeVec>::value)>>
+            typename = std::enable_if_t<(
+                IsImplicitlyCompatibleFullIndexVector<static_rank, OriginVec> &&
+                IsImplicitlyCompatibleFullIndexVector<static_rank, ShapeVec>)>>
   explicit Box(OriginVec origin, ShapeVec shape) {
     Access::Assign(this, span(origin), span(shape));
   }
@@ -248,8 +240,7 @@ class Box : public internal_box::BoxStorage<Rank> {
   /// \requires `OriginT` and `ShapeT` are convertible without narrowing to
   ///     `Index`.
   template <typename OriginT, typename ShapeT,
-            typename =
-                std::enable_if_t<internal::IsIndexPack<OriginT, ShapeT>::value>>
+            typename = std::enable_if_t<internal::IsIndexPack<OriginT, ShapeT>>>
   explicit Box(RankType rank, OriginT* origin, ShapeT* shape) {
     Access::Assign(this, rank, origin, shape);
   }
@@ -271,8 +262,8 @@ class Box : public internal_box::BoxStorage<Rank> {
 
   /// Constructs from a shape vector.
   template <typename ShapeVec,
-            typename = std::enable_if_t<IsImplicitlyCompatibleFullIndexVector<
-                static_rank, ShapeVec>::value>>
+            typename = std::enable_if_t<
+                IsImplicitlyCompatibleFullIndexVector<static_rank, ShapeVec>>>
   explicit Box(const ShapeVec& shape)
       : Box(GetStaticOrDynamicExtent(span(shape)),
             GetConstantVector<Index, 0>(GetStaticOrDynamicExtent(span(shape)))
@@ -282,14 +273,14 @@ class Box : public internal_box::BoxStorage<Rank> {
   /// Constructs from another Box-like type with a compatible rank.
   template <typename BoxType,
             std::enable_if_t<IsBoxLikeImplicitlyConvertibleToRank<
-                BoxType, static_rank>::value>* = nullptr>
+                BoxType, static_rank>>* = nullptr>
   explicit Box(const BoxType& other)
       : Box(other.rank(), other.origin().data(), other.shape().data()) {}
 
   /// Unchecked conversion.
   template <typename BoxType,
-            typename = std::enable_if_t<IsBoxLikeExplicitlyConvertibleToRank<
-                BoxType, static_rank>::value>>
+            typename = std::enable_if_t<
+                IsBoxLikeExplicitlyConvertibleToRank<BoxType, static_rank>>>
   explicit Box(unchecked_t, const BoxType& other)
       : Box(StaticRankCast<static_rank, unchecked>(other.rank()),
             other.origin().data(), other.shape().data()) {}
@@ -299,8 +290,8 @@ class Box : public internal_box::BoxStorage<Rank> {
 
   /// Assigns from another Box-like type with a compatible rank.
   template <typename BoxType>
-  std::enable_if_t<
-      IsBoxLikeImplicitlyConvertibleToRank<BoxType, static_rank>::value, Box&>
+  std::enable_if_t<IsBoxLikeImplicitlyConvertibleToRank<BoxType, static_rank>,
+                   Box&>
   operator=(const BoxType& other) {
     Access::Assign(this, other.rank(), other.origin().data(),
                    other.shape().data());
@@ -399,15 +390,15 @@ template <DimensionIndex Rank>
 Box(std::integral_constant<DimensionIndex, Rank> rank) -> Box<Rank>;
 
 template <typename Shape,
-          std::enable_if_t<IsIndexConvertibleVector<Shape>::value>* = nullptr>
+          std::enable_if_t<IsIndexConvertibleVector<Shape>>* = nullptr>
 Box(const Shape& shape) -> Box<SpanStaticExtent<Shape>::value>;
 
 template <DimensionIndex Rank>
 Box(const Index (&shape)[Rank]) -> Box<Rank>;
 
 template <typename Origin, typename Shape,
-          std::enable_if_t<(IsIndexConvertibleVector<Origin>::value &&
-                            IsIndexConvertibleVector<Shape>::value)>* = nullptr>
+          std::enable_if_t<(IsIndexConvertibleVector<Origin> &&
+                            IsIndexConvertibleVector<Shape>)>* = nullptr>
 Box(const Origin& origin, const Shape& shape)
     -> Box<SpanStaticExtent<Origin, Shape>::value>;
 
@@ -517,20 +508,20 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   ///
   /// \requires If `Mutable == true`, `BoxType` must be a mutable Box-like type
   ///     (such as a non-const `Box` reference or a `MutableBoxView`).
-  template <typename BoxType,
-            typename = std::enable_if_t<
-                (IsBoxLike<BoxType>::value &&
-                 (!Mutable || IsMutableBoxLike<BoxType>::value) &&
-                 IsRankImplicitlyConvertible(
-                     internal::remove_cvref_t<BoxType>::static_rank, Rank))>>
+  template <
+      typename BoxType,
+      typename = std::enable_if_t<
+          (IsBoxLike<BoxType> &&
+           (!Mutable || IsMutableBoxLike<BoxType>)&&IsRankImplicitlyConvertible(
+               internal::remove_cvref_t<BoxType>::static_rank, Rank))>>
   BoxView(BoxType&& other)
       : BoxView(other.rank(), other.origin().data(), other.shape().data()) {}
 
   /// Unchecked conversion.
   template <typename BoxType,
             typename = std::enable_if_t<
-                (IsBoxLikeExplicitlyConvertibleToRank<BoxType, Rank>::value &&
-                 (!Mutable || IsMutableBoxLike<BoxType>::value))>>
+                (IsBoxLikeExplicitlyConvertibleToRank<BoxType, Rank> &&
+                 (!Mutable || IsMutableBoxLike<BoxType>))>>
   explicit BoxView(unchecked_t, BoxType&& other)
       : BoxView(StaticRankCast<Rank, unchecked>(other.rank()),
                 other.origin().data(), other.shape().data()) {}
@@ -540,15 +531,15 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   ///
   /// \requires If `Mutable == true`, `BoxType` must be a mutable Box-like type
   ///     (such as a non-const `Box` reference or a `MutableBoxView`).
-  template <typename BoxType,
-            std::enable_if_t<
-                (IsBoxLike<internal::remove_cvref_t<BoxType>>::value &&
-                 (!Mutable ||
-                  IsMutableBoxLike<std::remove_reference_t<BoxType>>::value) &&
+  template <
+      typename BoxType,
+      std::enable_if_t<
+          (IsBoxLike<internal::remove_cvref_t<BoxType>> &&
+           (!Mutable || IsMutableBoxLike<std::remove_reference_t<BoxType>>)&&
 
-                 IsRankImplicitlyConvertible(
-                     internal::remove_cvref_t<BoxType>::static_rank, Rank))>* =
-                nullptr>
+           IsRankImplicitlyConvertible(
+               internal::remove_cvref_t<BoxType>::static_rank, Rank))>* =
+          nullptr>
   BoxView& operator=(BoxType&& other) {
     *this = BoxView(other);
     return *this;
@@ -588,9 +579,11 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   /// \requires `Mutable == true`.
   /// \requires `BoxType::static_rank` must be implicitly compatible with `Rank`
   /// \dchecks `other.rank() == rank()`.
-  template <typename BoxType>
-  std::enable_if_t<(Mutable &&
-                    IsBoxLikeImplicitlyConvertibleToRank<BoxType, Rank>::value)>
+  template <typename BoxType,
+            // Use extra template parameter to make condition dependent.
+            bool SfinaeMutable = Mutable>
+  std::enable_if_t<(SfinaeMutable &&
+                    IsBoxLikeImplicitlyConvertibleToRank<BoxType, Rank>)>
   DeepAssign(const BoxType& other) const {
     assert(other.rank() == rank());
     std::copy_n(other.origin().begin(), rank(), origin().begin());
@@ -637,10 +630,9 @@ BoxView(Box<Rank>& box) -> BoxView<NormalizeRankSpec(Rank), true>;
 template <DimensionIndex Rank>
 BoxView(const Box<Rank>& box) -> BoxView<NormalizeRankSpec(Rank)>;
 
-template <typename Shape,
-          std::enable_if_t<IsIndexVector<Shape>::value>* = nullptr>
-BoxView(Shape&& shape) -> BoxView<SpanStaticExtent<Shape>::value,
-                                  std::is_const_v<IsMutableIndexVector<Shape>>>;
+template <typename Shape, std::enable_if_t<IsIndexVector<Shape>>* = nullptr>
+BoxView(Shape&& shape)
+    -> BoxView<SpanStaticExtent<Shape>::value, IsMutableIndexVector<Shape>>;
 
 template <DimensionIndex Rank>
 BoxView(const Index (&shape)[Rank]) -> BoxView<Rank>;
@@ -649,12 +641,11 @@ template <DimensionIndex Rank>
 BoxView(Index (&shape)[Rank]) -> BoxView<Rank, true>;
 
 template <typename Origin, typename Shape,
-          std::enable_if_t<(IsIndexVector<Origin>::value &&
-                            IsIndexVector<Shape>::value)>* = nullptr>
+          std::enable_if_t<(IsIndexVector<Origin> && IsIndexVector<Shape>)>* =
+              nullptr>
 BoxView(Origin&& origin, Shape&& shape)
     -> BoxView<SpanStaticExtent<Origin, Shape>::value,
-               (IsMutableIndexVector<Origin>::value &&
-                IsMutableIndexVector<Shape>::value)>;
+               (IsMutableIndexVector<Origin> && IsMutableIndexVector<Shape>)>;
 
 template <DimensionIndex Rank>
 BoxView(const Index (&origin)[Rank], const Index (&shape)[Rank])
@@ -694,7 +685,7 @@ struct StaticCastTraits<Box<Rank>> : public DefaultStaticCastTraits<Box<Rank>> {
 };
 
 template <typename BoxA, typename BoxB>
-std::enable_if_t<(IsBoxLike<BoxA>::value && IsBoxLike<BoxB>::value &&
+std::enable_if_t<(IsBoxLike<BoxA> && IsBoxLike<BoxB> &&
                   AreStaticRanksCompatible(BoxA::static_rank,
                                            BoxB::static_rank)),
                  bool>
@@ -703,7 +694,7 @@ operator==(const BoxA& box_a, const BoxB& box_b) {
 }
 
 template <typename BoxA, typename BoxB>
-std::enable_if_t<(IsBoxLike<BoxA>::value && IsBoxLike<BoxB>::value &&
+std::enable_if_t<(IsBoxLike<BoxA> && IsBoxLike<BoxB> &&
                   AreStaticRanksCompatible(BoxA::static_rank,
                                            BoxB::static_rank)),
                  bool>
@@ -715,18 +706,17 @@ operator!=(const BoxA& box_a, const BoxB& box_b) {
 /// `tensorstore::GetBoxDomainOf` when called with a parameter of type
 /// `const T&` returns a Box-like type.
 template <typename T>
-struct HasBoxDomain : public std::false_type {};
+constexpr inline bool HasBoxDomain = false;
 
 template <DimensionIndex Rank>
-struct HasBoxDomain<Box<Rank>> : std::true_type {};
+constexpr inline bool HasBoxDomain<Box<Rank>> = true;
 
 template <DimensionIndex Rank, bool Mutable>
-struct HasBoxDomain<BoxView<Rank, Mutable>> : std::true_type {};
+constexpr inline bool HasBoxDomain<BoxView<Rank, Mutable>> = true;
 
 /// Implements the `HasBoxDomain` concept for `Box` and `BoxView`.
 template <typename BoxType>
-inline std::enable_if_t<IsBoxLike<BoxType>::value,
-                        BoxView<BoxType::static_rank>>
+inline std::enable_if_t<IsBoxLike<BoxType>, BoxView<BoxType::static_rank>>
 GetBoxDomainOf(const BoxType& box) {
   return box;
 }
@@ -768,8 +758,7 @@ bool ContainsPartial(const BoxView<BoxRank>& box,
 ///
 /// \param box A Box-like type or a type with a Box domain.
 template <typename BoxType>
-std::enable_if_t<HasBoxDomain<BoxType>::value, bool> IsFinite(
-    const BoxType& box) {
+std::enable_if_t<HasBoxDomain<BoxType>, bool> IsFinite(const BoxType& box) {
   return internal_box::IsFinite(GetBoxDomainOf(box));
 }
 
@@ -781,8 +770,7 @@ std::enable_if_t<HasBoxDomain<BoxType>::value, bool> IsFinite(
 /// \param indices A `span`-compatible sequence with `value_type` convertible
 ///     without narrowing to `Index`.
 template <typename BoxType, typename Indices>
-std::enable_if_t<(HasBoxDomain<BoxType>::value &&
-                  IsIndexConvertibleVector<Indices>::value),
+std::enable_if_t<(HasBoxDomain<BoxType> && IsIndexConvertibleVector<Indices>),
                  bool>
 Contains(const BoxType& box, const Indices& indices) {
   return internal_box::Contains(
@@ -792,7 +780,7 @@ Contains(const BoxType& box, const Indices& indices) {
 /// Overload that can be called using a braced list to specify the index vector,
 /// e.g. `Contains(box, {1, 2, 3})`.
 template <typename BoxType, DimensionIndex IndicesRank>
-std::enable_if_t<HasBoxDomain<BoxType>::value, bool> Contains(
+std::enable_if_t<HasBoxDomain<BoxType>, bool> Contains(
     const BoxType& box, const Index (&indices)[IndicesRank]) {
   return internal_box::Contains(
       BoxView<BoxType::static_rank>(GetBoxDomainOf(box)), span(indices));
@@ -800,8 +788,7 @@ std::enable_if_t<HasBoxDomain<BoxType>::value, bool> Contains(
 
 /// Returns `true` if `inner` is a subset of `outer`.
 template <typename OuterBox, typename InnerBox>
-std::enable_if_t<(HasBoxDomain<OuterBox>::value && IsBoxLike<InnerBox>::value),
-                 bool>
+std::enable_if_t<(HasBoxDomain<OuterBox> && IsBoxLike<InnerBox>), bool>
 Contains(const OuterBox& outer, const InnerBox& inner) {
   return internal_box::Contains(
       BoxView<OuterBox::static_rank>(GetBoxDomainOf(outer)),
@@ -816,8 +803,7 @@ Contains(const OuterBox& outer, const InnerBox& inner) {
 /// \param indices A `span`-compatible sequence with `value_type` convertible
 ///     without narrowing to `Index`.
 template <typename BoxType, typename Indices>
-std::enable_if_t<(HasBoxDomain<BoxType>::value &&
-                  IsIndexConvertibleVector<Indices>::value),
+std::enable_if_t<(HasBoxDomain<BoxType> && IsIndexConvertibleVector<Indices>),
                  bool>
 ContainsPartial(const BoxType& box, const Indices& indices) {
   return internal_box::ContainsPartial(
@@ -828,7 +814,7 @@ ContainsPartial(const BoxType& box, const Indices& indices) {
 /// Overload that can be called using a braced list to specify the index vector,
 /// e.g. `ContainsPartial(box, {1, 2, 3})`.
 template <typename BoxType, DimensionIndex IndicesRank>
-std::enable_if_t<HasBoxDomain<BoxType>::value, bool> ContainsPartial(
+std::enable_if_t<HasBoxDomain<BoxType>, bool> ContainsPartial(
     const BoxType& box, const Index (&indices)[IndicesRank]) {
   return internal_box::ContainsPartial(
       BoxView<BoxType::static_rank>(GetBoxDomainOf(box)), span(indices));

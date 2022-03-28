@@ -32,31 +32,25 @@ using ::testing::ElementsAre;
 
 static_assert(
     MultiVectorAccess<MultiVectorViewStorage<3, int, float>>::static_extent ==
-        3,
-    "");
+    3);
 static_assert(
-    MultiVectorAccess<MultiVectorViewStorage<3, int, float>>::num_vectors == 2,
-    "");
+    MultiVectorAccess<MultiVectorViewStorage<3, int, float>>::num_vectors == 2);
 
 TEST(MultiVectorViewStorageTest, StaticExtent2) {
   using Container = MultiVectorViewStorage<2, float, int>;
   using Access = MultiVectorAccess<Container>;
   static_assert(
-      std::is_same<float, typename Access::template ElementType<0>>::value, "");
+      std::is_same_v<float, typename Access::template ElementType<0>>);
+  static_assert(std::is_same_v<int, typename Access::template ElementType<1>>);
   static_assert(
-      std::is_same<int, typename Access::template ElementType<1>>::value, "");
+      std::is_same_v<float, typename Access::template ConstElementType<0>>);
   static_assert(
-      std::is_same<float, typename Access::template ConstElementType<0>>::value,
-      "");
-  static_assert(
-      std::is_same<int, typename Access::template ConstElementType<1>>::value,
-      "");
+      std::is_same_v<int, typename Access::template ConstElementType<1>>);
 
   // Test default construction.
   Container vec;
-  static_assert(std::is_same<std::integral_constant<std::ptrdiff_t, 2>,
-                             decltype(Access::GetExtent(vec))>::value,
-                "");
+  static_assert(std::is_same_v<std::integral_constant<std::ptrdiff_t, 2>,
+                               decltype(Access::GetExtent(vec))>);
   EXPECT_EQ(2, Access::GetExtent(vec));
   EXPECT_EQ(nullptr, Access::template get<0>(&vec).data());
   EXPECT_EQ(nullptr, Access::template get<1>(&vec).data());
@@ -83,21 +77,17 @@ TEST(MultiVectorViewStorageTest, StaticExtent0) {
   using Container = MultiVectorViewStorage<0, float, int>;
   using Access = MultiVectorAccess<Container>;
   static_assert(
-      std::is_same<float, typename Access::template ElementType<0>>::value, "");
+      std::is_same_v<float, typename Access::template ElementType<0>>);
+  static_assert(std::is_same_v<int, typename Access::template ElementType<1>>);
   static_assert(
-      std::is_same<int, typename Access::template ElementType<1>>::value, "");
+      std::is_same_v<float, typename Access::template ConstElementType<0>>);
   static_assert(
-      std::is_same<float, typename Access::template ConstElementType<0>>::value,
-      "");
-  static_assert(
-      std::is_same<int, typename Access::template ConstElementType<1>>::value,
-      "");
+      std::is_same_v<int, typename Access::template ConstElementType<1>>);
 
   // Test default construction.
   Container vec;
-  static_assert(std::is_same<std::integral_constant<std::ptrdiff_t, 0>,
-                             decltype(Access::GetExtent(vec))>::value,
-                "");
+  static_assert(std::is_same_v<std::integral_constant<std::ptrdiff_t, 0>,
+                               decltype(Access::GetExtent(vec))>);
   EXPECT_EQ(0, Access::GetExtent(vec));
   EXPECT_EQ(nullptr, Access::template get<0>(&vec).data());
   EXPECT_EQ(nullptr, Access::template get<1>(&vec).data());
@@ -116,21 +106,17 @@ TEST(MultiVectorViewStorageTest, DynamicExtent) {
   using Container = MultiVectorViewStorage<dynamic_rank, float, int>;
   using Access = MultiVectorAccess<Container>;
   static_assert(
-      std::is_same<float, typename Access::template ElementType<0>>::value, "");
+      std::is_same_v<float, typename Access::template ElementType<0>>);
+  static_assert(std::is_same_v<int, typename Access::template ElementType<1>>);
   static_assert(
-      std::is_same<int, typename Access::template ElementType<1>>::value, "");
+      std::is_same_v<float, typename Access::template ConstElementType<0>>);
   static_assert(
-      std::is_same<float, typename Access::template ConstElementType<0>>::value,
-      "");
-  static_assert(
-      std::is_same<int, typename Access::template ConstElementType<1>>::value,
-      "");
+      std::is_same_v<int, typename Access::template ConstElementType<1>>);
 
   // Test default construction.
   Container vec;
   static_assert(
-      std::is_same<std::ptrdiff_t, decltype(Access::GetExtent(vec))>::value,
-      "");
+      std::is_same_v<std::ptrdiff_t, decltype(Access::GetExtent(vec))>);
   EXPECT_EQ(0, Access::GetExtent(vec));
   EXPECT_EQ(nullptr, Access::template get<0>(&vec).data());
   EXPECT_EQ(nullptr, Access::template get<1>(&vec).data());

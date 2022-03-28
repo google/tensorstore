@@ -44,40 +44,38 @@ class NormalizedTransformedArray;
 /// Bool-valued metafunction that evaluates to `true` if `T` is an instance of
 /// `TransformedArray`.
 template <typename T>
-struct IsTransformedArray : public std::false_type {};
+constexpr inline bool IsTransformedArray = false;
 
 template <typename ElementTagType, DimensionIndex Rank,
           ContainerKind LayoutCKind>
-struct IsTransformedArray<TransformedArray<ElementTagType, Rank, LayoutCKind>>
-    : public std::true_type {};
+constexpr inline bool
+    IsTransformedArray<TransformedArray<ElementTagType, Rank, LayoutCKind>> =
+        true;
 
 /// Bool-valued metafunction that evaluates to `true` if `T` is an instance of
 /// `NormalizedTransformedArray`.
 template <typename T>
-struct IsNormalizedTransformedArray : public std::false_type {};
+constexpr inline bool IsNormalizedTransformedArray = false;
 
 template <typename ElementTagType, DimensionIndex Rank,
           ContainerKind LayoutCKind>
-struct IsNormalizedTransformedArray<
-    NormalizedTransformedArray<ElementTagType, Rank, LayoutCKind>>
-    : public std::true_type {};
+constexpr inline bool IsNormalizedTransformedArray<
+    NormalizedTransformedArray<ElementTagType, Rank, LayoutCKind>> = true;
 
 /// Bool-valued metafunction that evaluates to `true` if `T` satisfies
 /// `IsArray`, `IsTransformedArray`, or `IsNormalizedTransformedArray`.
 template <typename T>
-struct IsTransformedArrayLike : public IsArray<T> {};
+constexpr inline bool IsTransformedArrayLike = IsArray<T>;
 
 template <typename ElementTagType, DimensionIndex Rank,
           ContainerKind LayoutCKind>
-struct IsTransformedArrayLike<
-    TransformedArray<ElementTagType, Rank, LayoutCKind>>
-    : public std::true_type {};
+constexpr inline bool IsTransformedArrayLike<
+    TransformedArray<ElementTagType, Rank, LayoutCKind>> = true;
 
 template <typename ElementTagType, DimensionIndex Rank,
           ContainerKind LayoutCKind>
-struct IsTransformedArrayLike<
-    NormalizedTransformedArray<ElementTagType, Rank, LayoutCKind>>
-    : public std::true_type {};
+constexpr inline bool IsTransformedArrayLike<
+    NormalizedTransformedArray<ElementTagType, Rank, LayoutCKind>> = true;
 
 /// View through an index transform of an in-memory array.
 ///
@@ -144,7 +142,7 @@ template <typename ElementTagType, DimensionIndex Rank,
 class TransformedArray {
   using Access = internal_index_space::TransformedArrayAccess;
   using LayoutStorage = Access::LayoutStorage<Rank, LayoutCKind>;
-  static_assert(IsElementTag<ElementTagType>::value,
+  static_assert(IsElementTag<ElementTagType>,
                 "ElementTagType must be an ElementTag type.");
   static_assert(Rank == dynamic_rank || Rank >= 0,
                 "Rank must be dynamic_rank or >= 0.");
@@ -197,10 +195,10 @@ class TransformedArray {
   ///     `A` to `UntransformedArray<A::array_origin_kind>` is explicit.
   template <
       typename A,
-      std::enable_if_t<(IsArray<internal::remove_cvref_t<A>>::value &&
-                        std::is_convertible<
-                            A, UntransformedArray<internal::remove_cvref_t<
-                                   A>::array_origin_kind>>::value)>* = nullptr>
+      std::enable_if_t<
+          (IsArray<internal::remove_cvref_t<A>> &&
+           std::is_convertible_v<A, UntransformedArray<internal::remove_cvref_t<
+                                        A>::array_origin_kind>>)>* = nullptr>
   TransformedArray(A&& array) noexcept
       : TransformedArray(Access::construct_array_tag{},
                          std::forward<A>(array)) {}
@@ -208,12 +206,11 @@ class TransformedArray {
   /// Overload that handles the explicit conversion case.
   template <
       typename A,
-      std::enable_if_t<(IsArray<internal::remove_cvref_t<A>>::value &&
-                        std::is_constructible<UntransformedArray<offset_origin>,
-                                              A&&>::value &&
-                        !std::is_convertible<
-                            A, UntransformedArray<internal::remove_cvref_t<
-                                   A>::array_origin_kind>>::value)>* = nullptr>
+      std::enable_if_t<(
+          IsArray<internal::remove_cvref_t<A>> &&
+          std::is_constructible_v<UntransformedArray<offset_origin>, A&&> &&
+          !std::is_convertible_v<A, UntransformedArray<internal::remove_cvref_t<
+                                        A>::array_origin_kind>>)>* = nullptr>
   explicit TransformedArray(A&& array) noexcept
       : TransformedArray(Access::construct_array_tag{},
                          std::forward<A>(array)) {}
@@ -224,11 +221,11 @@ class TransformedArray {
   ///     `ElementPointer` and `static_rank`.
   /// \pre `array.dtype()` is compatible with `Element`.
   /// \pre `array.rank()` is compatible with `Rank`.
-  template <
-      typename A,
-      std::enable_if_t<(IsArray<internal::remove_cvref_t<A>>::value &&
-                        IsCastConstructible<UntransformedArray<offset_origin>,
-                                            A&&>::value)>* = nullptr>
+  template <typename A,
+            std::enable_if_t<(
+                IsArray<internal::remove_cvref_t<A>> &&
+                IsCastConstructible<UntransformedArray<offset_origin>, A&&>)>* =
+                nullptr>
   explicit TransformedArray(unchecked_t, A&& array) noexcept
       : TransformedArray(Access::construct_array_tag{},
                          std::forward<A>(array)) {}
@@ -245,7 +242,7 @@ class TransformedArray {
   /// \requires `Transform` is constructible from `T`.
   template <typename P, typename T,
             std::enable_if_t<internal::IsPairImplicitlyConvertible<
-                P, T, ElementPointer, Transform>::value>* = nullptr>
+                P, T, ElementPointer, Transform>>* = nullptr>
   TransformedArray(P&& element_pointer, T&& transform) noexcept
       : TransformedArray(Access::construct_element_pointer_tag{},
                          std::forward<P>(element_pointer),
@@ -270,13 +267,13 @@ class TransformedArray {
   template <
       typename A, typename T,
       std::enable_if_t<
-          (IsArray<internal::remove_cvref_t<A>>::value &&
-           IsIndexTransform<internal::remove_cvref_t<T>>::value &&
+          (IsArray<internal::remove_cvref_t<A>> &&
+           IsIndexTransform<internal::remove_cvref_t<T>> &&
            (internal::remove_cvref_t<T>::static_output_rank ==
             internal::remove_cvref_t<A>::static_rank) &&
            internal::IsPairImplicitlyConvertible<
                A, T, BaseArray<internal::remove_cvref_t<A>::array_origin_kind>,
-               Transform>::value)>* = nullptr>
+               Transform>)>* = nullptr>
   TransformedArray(A&& array, T&& transform)
       : TransformedArray(Access::construct_base_array_transform_tag{},
                          std::forward<A>(array), std::forward<T>(transform)) {}
@@ -285,13 +282,13 @@ class TransformedArray {
   template <
       typename A, typename T,
       std::enable_if_t<
-          (IsArray<internal::remove_cvref_t<A>>::value &&
-           IsIndexTransform<internal::remove_cvref_t<T>>::value &&
+          (IsArray<internal::remove_cvref_t<A>> &&
+           IsIndexTransform<internal::remove_cvref_t<T>> &&
            (internal::remove_cvref_t<T>::static_output_rank ==
             internal::remove_cvref_t<A>::static_rank) &&
            internal::IsPairOnlyExplicitlyConvertible<
                A, T, BaseArray<internal::remove_cvref_t<A>::array_origin_kind>,
-               Transform>::value)>* = nullptr>
+               Transform>)>* = nullptr>
   explicit TransformedArray(A&& array, T&& transform)
       : TransformedArray(Access::construct_base_array_transform_tag{},
                          std::forward<A>(array), std::forward<T>(transform)) {}
@@ -307,13 +304,12 @@ class TransformedArray {
   template <
       typename Other,
       std::enable_if_t<
-          (IsTransformedArray<internal::remove_cvref_t<Other>>::value &&
+          (IsTransformedArray<internal::remove_cvref_t<Other>> &&
            internal::IsPairImplicitlyConvertible<
                typename internal::remove_cvref_t<Other>::ElementPointer,
                typename internal::remove_cvref_t<
                    Other>::template UntransformedArray<offset_origin>,
-               ElementPointer, UntransformedArray<offset_origin>>::value)>* =
-          nullptr>
+               ElementPointer, UntransformedArray<offset_origin>>)>* = nullptr>
   TransformedArray(Other&& other) noexcept
       : TransformedArray(Access::construct_tag{}, std::forward<Other>(other)) {}
 
@@ -321,13 +317,12 @@ class TransformedArray {
   template <
       typename Other,
       std::enable_if_t<
-          (IsTransformedArray<internal::remove_cvref_t<Other>>::value &&
+          (IsTransformedArray<internal::remove_cvref_t<Other>> &&
            internal::IsPairOnlyExplicitlyConvertible<
                typename internal::remove_cvref_t<Other>::ElementPointer,
                typename internal::remove_cvref_t<
                    Other>::template UntransformedArray<offset_origin>,
-               ElementPointer, UntransformedArray<offset_origin>>::value)>* =
-          nullptr>
+               ElementPointer, UntransformedArray<offset_origin>>)>* = nullptr>
   explicit TransformedArray(Other&& other) noexcept
       : TransformedArray(Access::construct_tag{}, std::forward<Other>(other)) {}
 
@@ -338,11 +333,10 @@ class TransformedArray {
   template <
       typename Other,
       std::enable_if_t<
-          (IsNormalizedTransformedArray<
-               internal::remove_cvref_t<Other>>::value &&
-           std::is_convertible<
+          (IsNormalizedTransformedArray<internal::remove_cvref_t<Other>> &&
+           std::is_convertible_v<
                typename internal::remove_cvref_t<Other>::ElementPointer,
-               ElementPointer>::value &&
+               ElementPointer> &&
            IsRankImplicitlyConvertible(
                internal::remove_cvref_t<Other>::static_rank, Rank))>* = nullptr>
   TransformedArray(Other&& other) noexcept
@@ -359,20 +353,19 @@ class TransformedArray {
   template <
       typename Other,
       std::enable_if_t<
-          ((IsTransformedArray<internal::remove_cvref_t<Other>>::value ||
-            IsNormalizedTransformedArray<
-                internal::remove_cvref_t<Other>>::value) &&
-           IsCastConstructible<ElementPointer,
-                               typename internal::remove_cvref_t<
-                                   Other>::ElementPointer>::value &&
+          ((IsTransformedArray<internal::remove_cvref_t<Other>> ||
+            IsNormalizedTransformedArray<internal::remove_cvref_t<
+                Other>>)&&IsCastConstructible<ElementPointer,
+                                              typename internal::remove_cvref_t<
+                                                  Other>::ElementPointer> &&
            IsRankExplicitlyConvertible(
                internal::remove_cvref_t<Other>::static_rank, Rank))>* = nullptr>
   explicit TransformedArray(unchecked_t, Other&& other) noexcept
       : TransformedArray(Access::construct_tag{}, std::forward<Other>(other)) {}
 
   /// Copy or move assigns from another transformed array or array.
-  template <typename Other, std::enable_if_t<std::is_constructible<
-                                TransformedArray, Other&&>::value>* = nullptr>
+  template <typename Other, std::enable_if_t<std::is_constructible_v<
+                                TransformedArray, Other&&>>* = nullptr>
   TransformedArray& operator=(Other&& other) noexcept {
     std::destroy_at(this);
     // TODO(jbms): handle exceptions
@@ -548,18 +541,16 @@ class TransformedArray {
         layout_(Access::construct_base_array_transform_tag{},
                 std::forward<A>(array).layout(), std::forward<T>(transform)) {}
 
-  template <typename Other,
-            std::enable_if_t<IsTransformedArray<
-                internal::remove_cvref_t<Other>>::value>* = nullptr>
+  template <typename Other, std::enable_if_t<IsTransformedArray<
+                                internal::remove_cvref_t<Other>>>* = nullptr>
   explicit TransformedArray(Access::construct_tag, Other&& other)
       : element_pointer_(unchecked,
                          std::forward<Other>(other).element_pointer()),
         layout_(Access::construct_tag{},
                 Access::layout(std::forward<Other>(other))) {}
 
-  template <typename Other,
-            std::enable_if_t<IsNormalizedTransformedArray<
-                internal::remove_cvref_t<Other>>::value>* = nullptr>
+  template <typename Other, std::enable_if_t<IsNormalizedTransformedArray<
+                                internal::remove_cvref_t<Other>>>* = nullptr>
   explicit TransformedArray(Access::construct_tag, Other&& other)
       : element_pointer_(unchecked,
                          std::forward<Other>(other).element_pointer()),
@@ -588,7 +579,7 @@ class TransformedArray {
 /// caller can ensure that the array data remains valid as long as required by
 /// the callee.
 template <typename Element, DimensionIndex Rank, ContainerKind LayoutCKind>
-std::enable_if_t<!IsShared<Element>::value,
+std::enable_if_t<!IsShared<Element>,
                  TransformedArray<Shared<Element>, Rank, LayoutCKind>>
 UnownedToShared(TransformedArray<Element, Rank, LayoutCKind> array) {
   using internal_index_space::TransformedArrayAccess;
@@ -608,7 +599,7 @@ UnownedToShared(TransformedArray<Element, Rank, LayoutCKind> array) {
 /// after the element data to which it points becomes invalid.
 template <typename T, typename Element, DimensionIndex Rank,
           ContainerKind LayoutCKind>
-std::enable_if_t<!IsShared<Element>::value,
+std::enable_if_t<!IsShared<Element>,
                  TransformedArray<Shared<Element>, Rank, LayoutCKind>>
 UnownedToShared(const std::shared_ptr<T>& owned,
                 TransformedArray<Element, Rank, LayoutCKind> array) {
@@ -668,7 +659,7 @@ TransformedArray<Shared<Element>, Rank, LayoutCKind> UnownedToShared(
 template <typename ElementTagType, DimensionIndex Rank,
           ContainerKind LayoutCKind>
 class NormalizedTransformedArray {
-  static_assert(IsElementTag<ElementTagType>::value,
+  static_assert(IsElementTag<ElementTagType>,
                 "ElementTagType must be an ElementTag type.");
   static_assert(Rank == dynamic_rank || Rank >= 0,
                 "Rank must be dynamic_rank or >= 0.");
@@ -714,7 +705,7 @@ class NormalizedTransformedArray {
   /// \requires `Transform` is constructible from `T`.
   template <typename P, typename T,
             std::enable_if_t<internal::IsPairImplicitlyConvertible<
-                P, T, ElementPointer, Transform>::value>* = nullptr>
+                P, T, ElementPointer, Transform>>* = nullptr>
   NormalizedTransformedArray(P&& element_pointer, T&& transform) noexcept
       : element_pointer_(std::forward<P>(element_pointer)),
         transform_(std::forward<T>(transform)) {}
@@ -724,13 +715,12 @@ class NormalizedTransformedArray {
   /// \requires `ElementPointer` is constructible from `Other::ElementPointer`.
   /// \requires `Transform` is constructible from `Other::Transform`.
   template <typename Other,
-            std::enable_if_t<
-                (IsNormalizedTransformedArray<
-                     internal::remove_cvref_t<Other>>::value &&
-                 internal::IsPairImplicitlyConvertible<
-                     typename internal::remove_cvref_t<Other>::ElementPointer,
-                     typename internal::remove_cvref_t<Other>::Transform,
-                     ElementPointer, Transform>::value)>* = nullptr>
+            std::enable_if_t<(
+                IsNormalizedTransformedArray<internal::remove_cvref_t<Other>> &&
+                internal::IsPairImplicitlyConvertible<
+                    typename internal::remove_cvref_t<Other>::ElementPointer,
+                    typename internal::remove_cvref_t<Other>::Transform,
+                    ElementPointer, Transform>)>* = nullptr>
   NormalizedTransformedArray(Other&& other) noexcept
       : element_pointer_(std::forward<Other>(other).element_pointer()),
         transform_(std::forward<Other>(other).transform()) {}
@@ -743,15 +733,12 @@ class NormalizedTransformedArray {
   /// `Other::Transform`.
   template <
       typename Other,
-      std::enable_if_t<
-          (IsNormalizedTransformedArray<
-               internal::remove_cvref_t<Other>>::value &&
-           IsCastConstructible<ElementPointer,
-                               typename internal::remove_cvref_t<
-                                   Other>::ElementPointer>::value &&
-           IsCastConstructible<Transform, typename internal::remove_cvref_t<
-                                              Other>::Transform>::value)>* =
-          nullptr>
+      std::enable_if_t<(
+          IsNormalizedTransformedArray<internal::remove_cvref_t<Other>> &&
+          IsCastConstructible<ElementPointer, typename internal::remove_cvref_t<
+                                                  Other>::ElementPointer> &&
+          IsCastConstructible<Transform, typename internal::remove_cvref_t<
+                                             Other>::Transform>)>* = nullptr>
   explicit NormalizedTransformedArray(unchecked_t, Other&& other) noexcept
       : element_pointer_(unchecked,
                          std::forward<Other>(other).element_pointer()),
@@ -759,8 +746,8 @@ class NormalizedTransformedArray {
 
   /// Copy or move assigns from another normalized transformed array.
   template <typename Other,
-            std::enable_if_t<std::is_constructible<NormalizedTransformedArray,
-                                                   Other&&>::value>* = nullptr>
+            std::enable_if_t<std::is_constructible_v<NormalizedTransformedArray,
+                                                     Other&&>>* = nullptr>
   NormalizedTransformedArray& operator=(Other&& other) noexcept {
     element_pointer_ = std::forward<Other>(other).element_pointer();
     transform_ = std::forward<Other>(other).transform();
@@ -866,7 +853,7 @@ class NormalizedTransformedArray {
 /// the caller can ensure that the array data remains valid as long as required
 /// by the callee.
 template <typename Element, DimensionIndex Rank, ContainerKind LayoutCKind>
-std::enable_if_t<!IsShared<Element>::value,
+std::enable_if_t<!IsShared<Element>,
                  NormalizedTransformedArray<Shared<Element>, Rank, LayoutCKind>>
 UnownedToShared(NormalizedTransformedArray<Element, Rank, LayoutCKind> array) {
   return NormalizedTransformedArray<Shared<Element>, Rank, LayoutCKind>(
@@ -882,7 +869,7 @@ UnownedToShared(NormalizedTransformedArray<Element, Rank, LayoutCKind> array) {
 /// after the element data to which it points becomes invalid.
 template <typename T, typename Element, DimensionIndex Rank,
           ContainerKind LayoutCKind>
-std::enable_if_t<!IsShared<Element>::value,
+std::enable_if_t<!IsShared<Element>,
                  NormalizedTransformedArray<Shared<Element>, Rank, LayoutCKind>>
 UnownedToShared(const std::shared_ptr<T>& owned,
                 NormalizedTransformedArray<Element, Rank, LayoutCKind> array) {
@@ -920,8 +907,8 @@ struct StaticCastTraits<
 /// Specializes the HasBoxDomain metafunction for TransformedArray.
 template <typename ElementTagType, DimensionIndex Rank,
           ContainerKind LayoutCKind>
-struct HasBoxDomain<TransformedArray<ElementTagType, Rank, LayoutCKind>>
-    : public std::true_type {};
+constexpr inline bool
+    HasBoxDomain<TransformedArray<ElementTagType, Rank, LayoutCKind>> = true;
 
 /// Implements the HasBoxDomain concept for `TransformedArray`.
 template <typename ElementTagType, DimensionIndex Rank,
@@ -934,9 +921,8 @@ BoxView<Rank> GetBoxDomainOf(
 /// Specializes the HasBoxDomain metafunction for `NormalizedTransformedArray`.
 template <typename ElementTagType, DimensionIndex Rank,
           ContainerKind LayoutCKind>
-struct HasBoxDomain<
-    NormalizedTransformedArray<ElementTagType, Rank, LayoutCKind>>
-    : public std::true_type {};
+constexpr inline bool HasBoxDomain<
+    NormalizedTransformedArray<ElementTagType, Rank, LayoutCKind>> = true;
 
 /// Implements the HasBoxDomain concept for `NormalizedTransformedArray`.
 template <typename ElementTagType, DimensionIndex Rank,
@@ -967,7 +953,7 @@ using TransformedSharedArrayView =
 /// \requires `A` satisfies `IsArray`.
 template <typename A>
 using TransformedArrayTypeFromArray =
-    std::enable_if_t<IsArray<A>::value,
+    std::enable_if_t<IsArray<A>,
                      TransformedArray<typename A::ElementTag, A::static_rank,
                                       A::layout_container_kind>>;
 
@@ -993,7 +979,7 @@ TransformedArray(
 /// \requires `A` satisfies `IsArray`.
 template <typename A>
 std::enable_if_t<
-    IsArray<internal::remove_cvref_t<A>>::value,
+    IsArray<internal::remove_cvref_t<A>>,
     NormalizedTransformedArray<typename internal::remove_cvref_t<A>::ElementTag,
                                internal::remove_cvref_t<A>::static_rank>>
 MakeNormalizedTransformedArray(A&& array) {
@@ -1009,7 +995,7 @@ MakeNormalizedTransformedArray(A&& array) {
 ///
 /// \requires `A` satisfies `IsTransformedArray`.
 template <typename A>
-std::enable_if_t<IsTransformedArray<internal::remove_cvref_t<A>>::value,
+std::enable_if_t<IsTransformedArray<internal::remove_cvref_t<A>>,
                  Result<NormalizedTransformedArray<
                      typename internal::remove_cvref_t<A>::ElementTag,
                      internal::remove_cvref_t<A>::static_rank>>>
@@ -1021,8 +1007,7 @@ MakeNormalizedTransformedArray(A&& array) {
 /// No-op overload that handles the case of an argument that is already a
 /// normalized transformed array.
 template <typename A>
-std::enable_if_t<
-    IsNormalizedTransformedArray<internal::remove_cvref_t<A>>::value, A&&>
+std::enable_if_t<IsNormalizedTransformedArray<internal::remove_cvref_t<A>>, A&&>
 MakeNormalizedTransformedArray(A&& array) {
   return std::forward<A>(array);
 }
@@ -1038,7 +1023,7 @@ MakeNormalizedTransformedArray(A&& array) {
 /// \requires `A::static_rank == T::static_output_rank`.
 template <typename A, typename T>
 using NormalizedTransformedArrayTypeFromArrayAndTransform = std::enable_if_t<
-    (IsArray<A>::value && IsIndexTransform<T>::value &&
+    (IsArray<A> && IsIndexTransform<T> &&
      A::static_rank == T::static_output_rank),
     NormalizedTransformedArray<typename A::ElementTag, T::static_input_rank,
                                container>>;
@@ -1058,8 +1043,7 @@ using NormalizedTransformedArrayTypeFromArrayAndTransform = std::enable_if_t<
 ///     equal `transform.output_rank()`.
 template <typename L, typename T>
 inline std::enable_if_t<
-    (IsStridedLayout<L>::value &&
-     IsIndexTransform<internal::remove_cvref_t<T>>::value),
+    (IsStridedLayout<L> && IsIndexTransform<internal::remove_cvref_t<T>>),
     Result<IndexTransform<internal::remove_cvref_t<T>::static_input_rank,
                           L::static_rank>>>
 ComposeLayoutAndTransform(const L& layout, T&& transform) {
@@ -1106,7 +1090,7 @@ MakeNormalizedTransformedArray(A&& array, T&& transform) {
 /// \param constraints The constraints on the layout of the returned array.
 template <ArrayOriginKind OriginKind = offset_origin, typename A>
 inline std::enable_if_t<
-    (IsTransformedArray<A>::value || IsNormalizedTransformedArray<A>::value),
+    (IsTransformedArray<A> || IsNormalizedTransformedArray<A>),
     Result<SharedOffsetArray<std::remove_const_t<typename A::Element>,
                              A::static_rank>>>
 MakeCopy(const A& transformed_array, IterationConstraints constraints = {
@@ -1142,17 +1126,16 @@ absl::Status CopyTransformedArrayImpl(TransformedArrayView<const void> source,
 /// equal to, or
 ///     cannot be converted to, `dest.dtype()`
 template <typename SourceResult, typename DestResult>
-std::enable_if_t<
-    (IsTransformedArrayLike<UnwrapResultType<SourceResult>>::value &&
-     IsTransformedArrayLike<UnwrapResultType<DestResult>>::value),
-    absl::Status>
+std::enable_if_t<(IsTransformedArrayLike<UnwrapResultType<SourceResult>> &&
+                  IsTransformedArrayLike<UnwrapResultType<DestResult>>),
+                 absl::Status>
 CopyTransformedArray(const SourceResult& source, const DestResult& dest) {
   using Source = UnwrapResultType<SourceResult>;
   using Dest = UnwrapResultType<DestResult>;
   static_assert(
       IsRankExplicitlyConvertible(Dest::static_rank, Source::static_rank),
       "Arrays must have compatible ranks.");
-  static_assert(!std::is_const<typename Dest::Element>::value,
+  static_assert(!std::is_const_v<typename Dest::Element>,
                 "Dest array must have a non-const element type.");
   if constexpr (IsResult<SourceResult>) {
     if (!source.ok()) return source.status();
@@ -1172,13 +1155,13 @@ CopyTransformedArray(const SourceResult& source, const DestResult& dest) {
 /// arrays.
 template <typename Expr, typename T>
 internal_index_space::EnableIfTransformedArrayMapTransformResultType<
-    (IsTransformedArray<internal::remove_cvref_t<T>>::value ||
-     IsNormalizedTransformedArray<internal::remove_cvref_t<T>>::value),
+    (IsTransformedArray<internal::remove_cvref_t<T>> ||
+     IsNormalizedTransformedArray<internal::remove_cvref_t<T>>),
     internal::remove_cvref_t<T>, Expr>
 ApplyIndexTransform(Expr&& expr, T&& t) {
   return internal_index_space::TransformedArrayAccess::MapTransform(
-      /*normalized=*/IsNormalizedTransformedArray<
-          internal::remove_cvref_t<T>>{},
+      /*normalized=*/std::integral_constant<
+          bool, IsNormalizedTransformedArray<internal::remove_cvref_t<T>>>{},
       std::forward<T>(t), std::forward<Expr>(expr));
 }
 
@@ -1189,7 +1172,7 @@ ApplyIndexTransform(Expr&& expr, T&& t) {
 /// This definition allows DimExpression objects to be used with strided arrays.
 template <typename Expr, typename T>
 internal_index_space::EnableIfTransformedArrayMapTransformResultType<
-    IsArray<internal::remove_cvref_t<T>>::value,
+    IsArray<internal::remove_cvref_t<T>>,
     TransformedArrayTypeFromArray<internal::remove_cvref_t<T>>, Expr>
 ApplyIndexTransform(Expr&& expr, T&& t) {
   return internal_index_space::TransformedArrayAccess::MapTransform(
@@ -1207,7 +1190,7 @@ struct MaterializeFn {
 
   template <typename A>
   inline std::enable_if_t<
-      (IsTransformedArray<A>::value || IsNormalizedTransformedArray<A>::value),
+      (IsTransformedArray<A> || IsNormalizedTransformedArray<A>),
       decltype(std::declval<A>().template Materialize<OriginKind>())>
   operator()(const A& array) const {
     return array.template Materialize<OriginKind>(constraints);
@@ -1291,7 +1274,7 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
 ///     indices.
 template <typename Func, typename... Array>
 std::enable_if_t<
-    ((IsTransformedArrayLike<UnwrapResultType<Array>>::value && ...) &&
+    ((IsTransformedArrayLike<UnwrapResultType<Array>> && ...) &&
      std::is_constructible_v<
          bool, internal::Void::WrappedType<std::invoke_result_t<
                    Func&, typename UnwrapResultType<Array>::Element*...,
@@ -1321,7 +1304,7 @@ IterateOverTransformedArrays(Func&& func, absl::Status* status,
 /// pointer.
 template <typename Func, typename... Array>
 std::enable_if_t<
-    ((IsTransformedArrayLike<UnwrapResultType<Array>>::value && ...) &&
+    ((IsTransformedArrayLike<UnwrapResultType<Array>> && ...) &&
      std::is_constructible_v<
          bool, internal::Void::WrappedType<std::invoke_result_t<
                    Func&, typename UnwrapResultType<Array>::Element*...>>>),

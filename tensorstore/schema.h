@@ -219,8 +219,8 @@ class Schema {
 
   /// Transforms a `Schema` object by a `DimExpression`.
   template <typename Expr>
-  friend std::enable_if_t<
-      !IsIndexTransform<internal::remove_cvref_t<Expr>>::value, Result<Schema>>
+  friend std::enable_if_t<!IsIndexTransform<internal::remove_cvref_t<Expr>>,
+                          Result<Schema>>
   ApplyIndexTransform(Expr&& expr, Schema schema) {
     TENSORSTORE_ASSIGN_OR_RETURN(auto identity_transform,
                                  schema.GetTransformForIndexingOperation());

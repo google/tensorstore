@@ -79,7 +79,7 @@ class ExecutorBoundFunction {
 /// `func` in the specified executor.  Any arguments are forwarded.
 template <typename Executor, typename Function>
 std::enable_if_t<
-    !std::is_same<internal::remove_cvref_t<Executor>, InlineExecutor>::value,
+    !std::is_same_v<internal::remove_cvref_t<Executor>, InlineExecutor>,
     ExecutorBoundFunction<internal::remove_cvref_t<Executor>,
                           internal::remove_cvref_t<Function>>>
 WithExecutor(Executor&& executor, Function&& function) {
@@ -88,7 +88,7 @@ WithExecutor(Executor&& executor, Function&& function) {
 
 template <typename Executor, typename Function>
 std::enable_if_t<
-    std::is_same<internal::remove_cvref_t<Executor>, InlineExecutor>::value,
+    std::is_same_v<internal::remove_cvref_t<Executor>, InlineExecutor>,
     Function&&>
 WithExecutor(Executor&& executor, Function&& function) {
   return std::forward<Function>(function);

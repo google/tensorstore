@@ -31,74 +31,61 @@ struct Empty {
 };
 
 TEST(CompressedPair, FirstEmpty) {
-  static_assert(std::is_same<CompressedPair<Empty, int>,
-                             CompressedFirstEmptyPair<Empty, int>>::value,
-                "");
+  static_assert(std::is_same_v<CompressedPair<Empty, int>,
+                               CompressedFirstEmptyPair<Empty, int>>);
   CompressedPair<Empty, int> x;
   CompressedPair<Empty, int> x2(1, 2);
-  static_assert(std::is_same<decltype(x.first()), Empty>::value, "");
+  static_assert(std::is_same_v<decltype(x.first()), Empty>);
   static_assert(
-      std::is_same<
+      std::is_same_v<
           decltype(std::declval<const CompressedPair<Empty, int>&>().second()),
-          const int&>::value,
-      "");
-  static_assert(
-      std::is_same<decltype(
-                       std::declval<CompressedPair<Empty, int>>().second()),
-                   int&&>::value,
-      "");
-  static_assert(std::is_same<decltype(x.second()), int&>::value, "");
+          const int&>);
+  static_assert(std::is_same_v<
+                decltype(std::declval<CompressedPair<Empty, int>>().second()),
+                int&&>);
+  static_assert(std::is_same_v<decltype(x.second()), int&>);
   EXPECT_EQ(2, x2.second());
 }
 
 TEST(CompressedPair, SecondEmpty) {
-  static_assert(std::is_same<CompressedPair<int, Empty>,
-                             CompressedSecondEmptyPair<int, Empty>>::value,
-                "");
+  static_assert(std::is_same_v<CompressedPair<int, Empty>,
+                               CompressedSecondEmptyPair<int, Empty>>);
   CompressedPair<int, Empty> x;
   CompressedPair<int, Empty> x2(1, 2);
-  static_assert(std::is_same<decltype(x.second()), Empty>::value, "");
+  static_assert(std::is_same_v<decltype(x.second()), Empty>);
   static_assert(
-      std::is_same<
+      std::is_same_v<
           decltype(std::declval<const CompressedPair<int, Empty>&>().first()),
-          const int&>::value,
-      "");
+          const int&>);
   static_assert(
-      std::is_same<decltype(std::declval<CompressedPair<int, Empty>>().first()),
-                   int&&>::value,
-      "");
-  static_assert(std::is_same<decltype(x.first()), int&>::value, "");
+      std::is_same_v<
+          decltype(std::declval<CompressedPair<int, Empty>>().first()), int&&>);
+  static_assert(std::is_same_v<decltype(x.first()), int&>);
   EXPECT_EQ(1, x2.first());
 }
 
 TEST(CompressedPair, BothNonEmpty) {
-  static_assert(std::is_same<CompressedPair<int, float>,
-                             CompressedFirstSecondPair<int, float>>::value,
-                "");
+  static_assert(std::is_same_v<CompressedPair<int, float>,
+                               CompressedFirstSecondPair<int, float>>);
   CompressedPair<int, float> x;
   CompressedPair<int, float> x2(1, 2);
   static_assert(
-      std::is_same<
+      std::is_same_v<
           decltype(std::declval<const CompressedPair<int, float>&>().first()),
-          const int&>::value,
-      "");
+          const int&>);
   static_assert(
-      std::is_same<decltype(std::declval<CompressedPair<int, float>>().first()),
-                   int&&>::value,
-      "");
-  static_assert(std::is_same<decltype(x.first()), int&>::value, "");
+      std::is_same_v<
+          decltype(std::declval<CompressedPair<int, float>>().first()), int&&>);
+  static_assert(std::is_same_v<decltype(x.first()), int&>);
 
   static_assert(
-      std::is_same<
+      std::is_same_v<
           decltype(std::declval<const CompressedPair<int, float>&>().second()),
-          const float&>::value,
-      "");
-  static_assert(
-      std::is_same<decltype(
-                       std::declval<CompressedPair<int, float>>().second()),
-                   float&&>::value,
-      "");
-  static_assert(std::is_same<decltype(x.second()), float&>::value, "");
+          const float&>);
+  static_assert(std::is_same_v<
+                decltype(std::declval<CompressedPair<int, float>>().second()),
+                float&&>);
+  static_assert(std::is_same_v<decltype(x.second()), float&>);
 
   EXPECT_EQ(1, x2.first());
   EXPECT_EQ(2, x2.second());

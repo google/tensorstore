@@ -352,13 +352,13 @@ class IntrusivePtr {
   }
 
   template <typename U,
-            std::enable_if_t<std::is_convertible<
-                typename R::template pointer<U>, pointer>::value>* = nullptr>
+            std::enable_if_t<std::is_convertible_v<
+                typename R::template pointer<U>, pointer>>* = nullptr>
   IntrusivePtr(const IntrusivePtr<U, R>& rhs) noexcept
       : IntrusivePtr(rhs.get(), acquire_object_ref) {}
 
-  template <typename U, typename = std::enable_if_t<std::is_convertible<
-                            typename R::template pointer<U>, pointer>::value>>
+  template <typename U, typename = std::enable_if_t<std::is_convertible_v<
+                            typename R::template pointer<U>, pointer>>>
   IntrusivePtr& operator=(const IntrusivePtr<U, R>& rhs) noexcept {
     IntrusivePtr(rhs).swap(*this);
     return *this;
@@ -375,13 +375,13 @@ class IntrusivePtr {
   }
 
   template <typename U,
-            std::enable_if_t<std::is_convertible<
-                typename R::template pointer<U>, pointer>::value>* = nullptr>
+            std::enable_if_t<std::is_convertible_v<
+                typename R::template pointer<U>, pointer>>* = nullptr>
   constexpr IntrusivePtr(IntrusivePtr<U, R>&& rhs) noexcept
       : IntrusivePtr(rhs.release(), adopt_object_ref) {}
 
-  template <typename U, typename = std::enable_if_t<std::is_convertible<
-                            typename R::template pointer<U>, pointer>::value>>
+  template <typename U, typename = std::enable_if_t<std::is_convertible_v<
+                            typename R::template pointer<U>, pointer>>>
   constexpr IntrusivePtr& operator=(IntrusivePtr<U, R>&& rhs) noexcept {
     IntrusivePtr(std::move(rhs)).swap(*this);
     return *this;
@@ -464,19 +464,17 @@ inline T* to_address(const IntrusivePtr<T, R>& p) {
 }
 
 template <typename T, typename U, typename R>
-inline std::enable_if_t<
-    IsEqualityComparable<typename R::template pointer<T>,
-                         typename R::template pointer<U>>::value,
-    bool>
+inline std::enable_if_t<IsEqualityComparable<typename R::template pointer<T>,
+                                             typename R::template pointer<U>>,
+                        bool>
 operator==(const IntrusivePtr<T, R>& x, const IntrusivePtr<U, R>& y) {
   return x.get() == y.get();
 }
 
 template <typename T, typename U, typename R>
-inline std::enable_if_t<
-    IsEqualityComparable<typename R::template pointer<T>,
-                         typename R::template pointer<U>>::value,
-    bool>
+inline std::enable_if_t<IsEqualityComparable<typename R::template pointer<T>,
+                                             typename R::template pointer<U>>,
+                        bool>
 operator!=(const IntrusivePtr<T, R>& x, const IntrusivePtr<U, R>& y) {
   return x.get() != y.get();
 }

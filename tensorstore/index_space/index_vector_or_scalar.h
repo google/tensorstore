@@ -50,7 +50,9 @@ struct IsIndexVectorOrScalar : public std::false_type {};
 
 /// Specialization of IsIndexVectorOrScalar for the scalar case.
 template <typename T>
-struct IsIndexVectorOrScalar<T, typename internal::IsIndexPack<T>::type>
+struct IsIndexVectorOrScalar<
+    T,
+    std::integral_constant<bool, static_cast<bool>(internal::IsIndexPack<T>)>>
     : public std::true_type {
   using normalized_type = Index;
   constexpr static std::ptrdiff_t extent = dynamic_extent;
@@ -59,8 +61,12 @@ struct IsIndexVectorOrScalar<T, typename internal::IsIndexPack<T>::type>
 /// Specialization of IsIndexVectorOrScalar for the vector case.
 template <typename T>
 struct IsIndexVectorOrScalar<
-    T, typename std::is_same<typename internal::ConstSpanType<T>::value_type,
-                             Index>::type> : public std::true_type {
+    T,
+    std::integral_constant<
+        bool, static_cast<bool>(
+                  std::is_same_v<
+                      typename internal::ConstSpanType<T>::value_type, Index>)>>
+    : public std::true_type {
   using normalized_type = internal::ConstSpanType<T>;
   constexpr static std::ptrdiff_t extent = normalized_type::extent;
 };

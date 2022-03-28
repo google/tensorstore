@@ -147,7 +147,7 @@ IterateOverIndexRange(span<IndexType, Rank> origin, span<IndexType, Rank> shape,
 /// `IterateOverIndexRange<Order>(box.origin(), box.shape(), func)`.
 template <ContiguousLayoutOrder Order = ContiguousLayoutOrder::c,
           typename BoxType, typename Func>
-std::enable_if_t<IsBoxLike<BoxType>::value,
+std::enable_if_t<IsBoxLike<BoxType>,
                  internal_iterate::IterateOverIndexRangeResult<
                      Func, Index, BoxType::static_rank>>
 IterateOverIndexRange(const BoxType& box, Func&& func,

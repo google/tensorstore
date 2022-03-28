@@ -236,24 +236,21 @@ using OffsetArrayView = Array<Element, Rank, offset_origin, view>;
 template <typename SourceElement, DimensionIndex SourceRank,
           ArrayOriginKind SourceOriginKind, typename DestElement,
           DimensionIndex DestRank, ArrayOriginKind DestOriginKind>
-struct IsArrayExplicitlyConvertible
-    : public std::integral_constant<
-          bool,
-          IsElementTypeExplicitlyConvertible<SourceElement,
-                                             DestElement>::value &&
-              IsRankExplicitlyConvertible(SourceRank, DestRank) &&
-              IsArrayOriginKindConvertible(SourceOriginKind, DestOriginKind)> {
-};
+constexpr inline bool IsArrayExplicitlyConvertible =
+    IsElementTypeExplicitlyConvertible<SourceElement, DestElement> &&
+    IsRankExplicitlyConvertible(SourceRank, DestRank) &&
+    IsArrayOriginKindConvertible(SourceOriginKind, DestOriginKind);
 
 /// Bool-valued metafunction that is `true` if `T` is an instance of
 /// `SharedArray`, `SharedArrayView`, or `ArrayView`.
 template <typename T>
-struct IsArray : public std::false_type {};
+constexpr inline bool IsArray = false;
 
 template <typename ElementTagType, DimensionIndex Rank,
           ArrayOriginKind OriginKind, ContainerKind LayoutContainerKind>
-struct IsArray<Array<ElementTagType, Rank, OriginKind, LayoutContainerKind>>
-    : public std::true_type {};
+constexpr inline bool
+    IsArray<Array<ElementTagType, Rank, OriginKind, LayoutContainerKind>> =
+        true;
 
 /// Metafunction that computes the static rank of the sub-array obtained by
 /// indexing an array of the given `Rank` with an index vector of type
@@ -418,7 +415,7 @@ template <typename ElementTagType, DimensionIndex Rank = dynamic_rank,
 class Array {
  public:
   static_assert(IsValidRankSpec(Rank));
-  static_assert(IsElementTag<ElementTagType>::value,
+  static_assert(IsElementTag<ElementTagType>,
                 "ElementTagType must be an ElementTag type.");
   static_assert(LayoutContainerKind == container || Rank >= dynamic_rank,
                 "Rank must be dynamic_rank or >= 0.");
@@ -464,7 +461,7 @@ class Array {
   /// \post `this->layout() == StridedLayoutView<0>()`
   template <typename SourcePointer = ElementPointer,
             std::enable_if_t<
-                (std::is_convertible<SourcePointer, ElementPointer>::value &&
+                (std::is_convertible_v<SourcePointer, ElementPointer> &&
                  IsRankImplicitlyConvertible(0, static_rank))>* = nullptr>
   Array(SourcePointer element_pointer)
       : storage_(std::move(element_pointer), Layout()) {}
@@ -474,10 +471,10 @@ class Array {
   ///
   /// \post `this->element_pointer() == element_pointer`
   /// \post `this->layout() == layout`
-  template <typename SourcePointer = ElementPointer, typename SourceLayout,
-            std::enable_if_t<internal::IsPairImplicitlyConvertible<
-                SourcePointer, SourceLayout, ElementPointer, Layout>::value>* =
-                nullptr>
+  template <
+      typename SourcePointer = ElementPointer, typename SourceLayout,
+      std::enable_if_t<internal::IsPairImplicitlyConvertible<
+          SourcePointer, SourceLayout, ElementPointer, Layout>>* = nullptr>
   Array(SourcePointer element_pointer, SourceLayout&& layout)
       : storage_(std::move(element_pointer),
                  std::forward<SourceLayout>(layout)) {}
@@ -505,12 +502,12 @@ class Array {
   /// \remark The caller is responsible for ensuring that `shape` and `order`
   ///     are valid for `element_pointer`.  This function does not check them in
   ///     any way.
-  template <
-      typename SourcePointer = ElementPointer, typename Shape,
-      std::enable_if_t<(std::is_convertible_v<SourcePointer, ElementPointer> &&
-                        LayoutContainerKind == container &&
-                        IsImplicitlyCompatibleFullIndexVector<
-                            static_rank, Shape>::value)>* = nullptr>
+  template <typename SourcePointer = ElementPointer, typename Shape,
+            std::enable_if_t<
+                (std::is_convertible_v<SourcePointer, ElementPointer> &&
+                 LayoutContainerKind == container &&
+                 IsImplicitlyCompatibleFullIndexVector<static_rank, Shape>)>* =
+                nullptr>
   Array(SourcePointer element_pointer, const Shape& shape,
         ContiguousLayoutOrder order = c_order) {
     this->element_pointer() = std::move(element_pointer);
@@ -579,10 +576,10 @@ class Array {
   ///
   /// \post `this->element_pointer() == element_pointer`
   /// \post `this->layout() == layout`
-  template <typename SourcePointer = ElementPointer, typename SourceLayout,
-            std::enable_if_t<internal::IsPairOnlyExplicitlyConvertible<
-                SourcePointer, SourceLayout, ElementPointer, Layout>::value>* =
-                nullptr>
+  template <
+      typename SourcePointer = ElementPointer, typename SourceLayout,
+      std::enable_if_t<internal::IsPairOnlyExplicitlyConvertible<
+          SourcePointer, SourceLayout, ElementPointer, Layout>>* = nullptr>
   explicit Array(SourcePointer element_pointer, SourceLayout&& layout)
       : storage_(std::move(element_pointer),
                  std::forward<SourceLayout>(layout)) {}
@@ -594,11 +591,11 @@ class Array {
   /// \post this->layout() == other.layout()
   template <typename Other,
             std::enable_if_t<
-                (IsArray<internal::remove_cvref_t<Other>>::value &&
+                (IsArray<internal::remove_cvref_t<Other>> &&
                  internal::IsPairImplicitlyConvertible<
                      typename internal::remove_cvref_t<Other>::ElementPointer,
                      typename internal::remove_cvref_t<Other>::Layout,
-                     ElementPointer, Layout>::value)>* = nullptr>
+                     ElementPointer, Layout>)>* = nullptr>
   Array(Other&& other)
       : storage_(std::forward<Other>(other).element_pointer(),
                  std::forward<Other>(other).layout()) {}
@@ -609,11 +606,11 @@ class Array {
   /// \post this->layout() == other.layout()
   template <typename Other,
             std::enable_if_t<
-                (IsArray<internal::remove_cvref_t<Other>>::value &&
+                (IsArray<internal::remove_cvref_t<Other>> &&
                  internal::IsPairOnlyExplicitlyConvertible<
                      typename internal::remove_cvref_t<Other>::ElementPointer,
                      typename internal::remove_cvref_t<Other>::Layout,
-                     ElementPointer, Layout>::value)>* = nullptr>
+                     ElementPointer, Layout>)>* = nullptr>
   explicit Array(Other&& other)
       : storage_(std::forward<Other>(other).element_pointer(),
                  std::forward<Other>(other).layout()) {}
@@ -621,13 +618,12 @@ class Array {
   /// Unchecked conversion.
   template <
       typename Other,
-      std::enable_if_t<
-          (IsArray<internal::remove_cvref_t<Other>>::value &&
-           IsCastConstructible<ElementPointer,
-                               typename internal::remove_cvref_t<
-                                   Other>::ElementPointer>::value &&
-           IsCastConstructible<Layout, typename internal::remove_cvref_t<
-                                           Other>::Layout>::value)>* = nullptr>
+      std::enable_if_t<(
+          IsArray<internal::remove_cvref_t<Other>> &&
+          IsCastConstructible<ElementPointer, typename internal::remove_cvref_t<
+                                                  Other>::ElementPointer> &&
+          IsCastConstructible<Layout, typename internal::remove_cvref_t<
+                                          Other>::Layout>)>* = nullptr>
   explicit Array(unchecked_t, Other&& other)
       : storage_(unchecked, std::forward<Other>(other).element_pointer(),
                  std::forward<Other>(other).layout()) {}
@@ -635,11 +631,11 @@ class Array {
   /// Copy assigns from a compatible existing array.
   template <typename Other>
   std::enable_if_t<
-      (IsArray<internal::remove_cvref_t<Other>>::value &&
+      (IsArray<internal::remove_cvref_t<Other>> &&
        internal::IsPairAssignable<
            typename internal::remove_cvref_t<Other>::ElementPointer,
            typename internal::remove_cvref_t<Other>::Layout, ElementPointer,
-           Layout>::value),
+           Layout>),
       Array&>
   operator=(Other&& other) {
     element_pointer() = std::forward<Other>(other).element_pointer();
@@ -742,9 +738,11 @@ class Array {
   /// \pre CHECKs that span(indices).size() == rank()
   /// \pre 0 <= span(indices)[i] < shape()[i]
   /// \returns byte_strided_pointer()[layout()(indices)]
-  template <typename Indices>
-  std::enable_if_t<(!std::is_void_v<Element> &&
-                    IsCompatibleFullIndexVector<static_rank, Indices>::value),
+  template <typename Indices,
+            // Note: Use extra template parameter to make condition dependent.
+            bool SfinaeNotVoid = !std::is_void_v<Element>>
+  std::enable_if_t<(SfinaeNotVoid &&
+                    IsCompatibleFullIndexVector<static_rank, Indices>),
                    Element>&
   operator()(const Indices& indices) const {
     return byte_strided_pointer()[this->layout()(indices)];
@@ -757,9 +755,10 @@ class Array {
   /// \pre CHECKs that N == rank()
   /// \pre 0 <= indices[i] < shape()[i]
   /// \returns byte_strided_pointer()[layout()(indices)]
-  template <std::size_t N>
-  std::enable_if_t<(!std::is_void_v<Element> &&
-                    AreStaticRanksCompatible(static_rank, N)),
+  template <std::size_t N,
+            // Note: Use extra template parameter to make condition dependent.
+            bool SfinaeNotVoid = !std::is_void_v<Element>>
+  std::enable_if_t<(SfinaeNotVoid && AreStaticRanksCompatible(static_rank, N)),
                    Element>&
   operator()(const Index (&indices)[N]) const {
     return byte_strided_pointer()[this->layout()(indices)];
@@ -773,25 +772,20 @@ class Array {
   /// \checks that span({index...}).size() == rank()
   /// \dchecks 0 <= span({index...})[i] < shape()[i]
   /// \returns byte_strided_pointer()[layout()({index...})]
-  template <typename... IndexType>
-  std::enable_if_t<
-      (!std::is_void_v<Element> &&
-       IsCompatibleFullIndexPack<static_rank, IndexType...>::value),
-      Element>&
-  operator()(IndexType... index) const {
-    constexpr std::size_t N = sizeof...(IndexType);
-    const Index indices[N] = {index...};
-    return byte_strided_pointer()[this->layout()(indices)];
-  }
-
-  /// Returns a reference to the element at the specified indices.
-  ///
-  /// \dcheck CHECKs that `rank() == 0`.
-  template <int&... ExplicitArgumentBarrier, DimensionIndex R = static_rank>
-  std::enable_if_t<(!std::is_void_v<Element> && AreStaticRanksCompatible(R, 0)),
+  template <typename... IndexType,
+            // Note: Use extra template parameter to make condition dependent.
+            bool SfinaeNotVoid = !std::is_void_v<Element>>
+  std::enable_if_t<(SfinaeNotVoid &&
+                    IsCompatibleFullIndexPack<static_rank, IndexType...>),
                    Element>&
-  operator()() const {
-    return byte_strided_pointer()[this->layout()()];
+  operator()(IndexType... index) const {
+    if constexpr (sizeof...(IndexType) == 0) {
+      return byte_strided_pointer()[this->layout()()];
+    } else {
+      constexpr std::size_t N = sizeof...(IndexType);
+      const Index indices[N] = {index...};
+      return byte_strided_pointer()[this->layout()(indices)];
+    }
   }
 
   /// Returns a reference to the sub-array obtained by subscripting the first
@@ -857,7 +851,7 @@ class Array {
 
   /// Returns a SharedArray that represents the same array.
   const SharedArray<Element, Rank, OriginKind>& shared_array() const {
-    static_assert(IsShared<ElementTag>::value,
+    static_assert(IsShared<ElementTag>,
                   "Must use UnownedToShared to convert to SharedArray.");
     return *this;
   }
@@ -896,10 +890,9 @@ class Array {
     static_assert(IsRankExplicitlyConvertible(NormalizeRankSpec(Rank),
                                               NormalizeRankSpec(RankB)),
                   "tensorstore::Array ranks must be compatible.");
-    static_assert(
-        AreElementTypesCompatible<
-            Element, typename ElementTagTraits<ElementTagB>::Element>::value,
-        "tensorstore::Array element types must be compatible.");
+    static_assert(AreElementTypesCompatible<
+                      Element, typename ElementTagTraits<ElementTagB>::Element>,
+                  "tensorstore::Array element types must be compatible.");
     using ArrayType =
         ArrayView<const void, dynamic_rank,
                   ((OriginKind == OriginKindB) ? OriginKind : offset_origin)>;
@@ -941,7 +934,7 @@ Array(Pointer pointer,
     -> Array<DeducedElementTag<Pointer>, Rank, OriginKind, LayoutContainerKind>;
 
 template <typename Pointer, typename Shape,
-          std::enable_if_t<IsIndexConvertibleVector<Shape>::value>* = nullptr>
+          std::enable_if_t<IsIndexConvertibleVector<Shape>>* = nullptr>
 Array(Pointer pointer, const Shape& shape,
       ContiguousLayoutOrder order = c_order)
     -> Array<DeducedElementTag<Pointer>, SpanStaticExtent<Shape>::value>;
@@ -952,7 +945,7 @@ Array(Pointer pointer, const Index (&shape)[Rank],
     -> Array<DeducedElementTag<Pointer>, Rank>;
 
 template <typename Pointer, typename BoxLike,
-          std::enable_if_t<IsBoxLike<BoxLike>::value>* = nullptr>
+          std::enable_if_t<IsBoxLike<BoxLike>>* = nullptr>
 Array(Pointer pointer, const BoxLike& domain,
       ContiguousLayoutOrder order = c_order)
     -> Array<DeducedElementTag<Pointer>, BoxLike::static_rank, offset_origin>;
@@ -1011,7 +1004,7 @@ struct StaticCastTraits<
 ///     and `array.array_origin_kind == offset_origin`.
 template <ArrayOriginKind TargetOriginKind,
           ContainerKind LayoutContainerKind = view, typename A>
-std::enable_if_t<(IsArray<internal::remove_cvref_t<A>>::value &&
+std::enable_if_t<(IsArray<internal::remove_cvref_t<A>> &&
                   !IsArrayOriginKindConvertible(
                       internal::remove_cvref_t<A>::array_origin_kind,
                       TargetOriginKind)),
@@ -1035,7 +1028,7 @@ ArrayOriginCast(A&& array) {
 /// `array.array_origin_kind == zero_origin`.
 template <ArrayOriginKind TargetOriginKind,
           ContainerKind LayoutContainerKind = view, typename A>
-std::enable_if_t<(IsArray<internal::remove_cvref_t<A>>::value &&
+std::enable_if_t<(IsArray<internal::remove_cvref_t<A>> &&
                   IsArrayOriginKindConvertible(
                       internal::remove_cvref_t<A>::array_origin_kind,
                       TargetOriginKind)),
@@ -1055,7 +1048,7 @@ ArrayOriginCast(A&& array) {
 /// after the element data to which it points becomes invalid.
 template <typename Element, DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind LayoutCKind>
-std::enable_if_t<!IsShared<Element>::value,
+std::enable_if_t<(!IsShared<Element>),
                  SharedArray<Element, Rank, OriginKind, LayoutCKind>>
 UnownedToShared(Array<Element, Rank, OriginKind, LayoutCKind> array) {
   return {UnownedToShared(array.element_pointer()), std::move(array.layout())};
@@ -1069,7 +1062,7 @@ UnownedToShared(Array<Element, Rank, OriginKind, LayoutCKind> array) {
 /// after the element data to which it points becomes invalid.
 template <typename T, typename Element, DimensionIndex Rank,
           ArrayOriginKind OriginKind, ContainerKind LayoutCKind>
-std::enable_if_t<!IsShared<Element>::value,
+std::enable_if_t<(!IsShared<Element>),
                  SharedArray<Element, Rank, OriginKind, LayoutCKind>>
 UnownedToShared(const std::shared_ptr<T>& owned,
                 Array<Element, Rank, OriginKind, LayoutCKind> array) {
@@ -1326,10 +1319,9 @@ SharedArray<Element, internal::ConstSpanType<Extents>::extent> AllocateArray(
     ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c,
     ElementInitialization initialization = default_init,
     dtype_t<Element> dtype = dtype_v<Element>) {
-  static_assert(
-      internal::IsIndexPack<
-          typename internal::ConstSpanType<Extents>::value_type>::value,
-      "Extent type must be convertible without narrowing to Index.");
+  static_assert(internal::IsIndexPack<
+                    typename internal::ConstSpanType<Extents>::value_type>,
+                "Extent type must be convertible without narrowing to Index.");
   auto layout = StridedLayout(layout_order, dtype.size(), extents);
   return {internal::AllocateAndConstructSharedElements<Element>(
               layout.num_elements(), initialization, dtype),
@@ -1364,7 +1356,7 @@ SharedArray<Element, Rank> AllocateArray(
 /// \param dtype Optional.  Specifies the element type at run time.  Must be
 ///     specified if `Element` is `void`.
 template <typename Element = void, typename BoxType>
-std::enable_if_t<IsBoxLike<BoxType>::value,
+std::enable_if_t<IsBoxLike<BoxType>,
                  SharedArray<Element, BoxType::static_rank, offset_origin>>
 AllocateArray(const BoxType& domain,
               ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c,
@@ -1509,7 +1501,7 @@ ArrayIterateResult IterateOverArrays(
 /// \checks `ArraysHaveSameShapes(array...)`
 template <typename Func, typename... Array>
 std::enable_if_t<
-    ((IsArray<Array>::value && ...) &&
+    ((IsArray<Array> && ...) &&
      std::is_constructible_v<
          bool, internal::Void::WrappedType<std::invoke_result_t<
                    Func&, typename Array::Element*..., absl::Status*>>>),
@@ -1526,7 +1518,7 @@ IterateOverArrays(Func&& func, absl::Status* status,
 /// Same as above, except that `func` is called without an extra `absl::Status*`
 /// argument.
 template <typename Func, typename... Array>
-std::enable_if_t<((IsArray<Array>::value && ...) &&
+std::enable_if_t<((IsArray<Array> && ...) &&
                   std::is_constructible_v<
                       bool, internal::Void::WrappedType<std::invoke_result_t<
                                 Func&, typename Array::Element*...>>>),
@@ -1549,14 +1541,14 @@ IterateOverArrays(Func&& func, IterationConstraints constraints,
 ///
 /// \checks `ArraysHaveSameShapes(source, dest)`
 template <typename Source, typename Dest>
-std::enable_if_t<(IsArray<Source>::value && IsArray<Dest>::value), void>
-CopyArray(const Source& source, const Dest& dest) {
+std::enable_if_t<(IsArray<Source> && IsArray<Dest>), void> CopyArray(
+    const Source& source, const Dest& dest) {
   static_assert(
       IsArrayExplicitlyConvertible<typename Dest::Element, Dest::static_rank,
                                    zero_origin, typename Source::Element,
-                                   Source::static_rank, zero_origin>::value,
+                                   Source::static_rank, zero_origin>,
       "Arrays must have compatible ranks and element types.");
-  static_assert(!std::is_const<typename Dest::Element>::value,
+  static_assert(!std::is_const_v<typename Dest::Element>,
                 "Dest array must have a non-const element type.");
   internal_array::CopyArrayImplementation(source, dest);
 }
@@ -1572,12 +1564,12 @@ CopyArray(const Source& source, const Dest& dest) {
 ///     supported or fails.
 template <typename Source, typename Dest>
 absl::Status CopyConvertedArray(const Source& source, const Dest& dest) {
-  static_assert(IsArray<Source>::value, "Source must be an instance of Array");
-  static_assert(IsArray<Dest>::value, "Dest must be an instance of Array");
+  static_assert(IsArray<Source>, "Source must be an instance of Array");
+  static_assert(IsArray<Dest>, "Dest must be an instance of Array");
   static_assert(
       IsRankExplicitlyConvertible(Dest::static_rank, Source::static_rank),
       "Arrays must have compatible ranks.");
-  static_assert(!std::is_const<typename Dest::Element>::value,
+  static_assert(!std::is_const_v<typename Dest::Element>,
                 "Dest array must have a non-const element type.");
   return internal_array::CopyConvertedArrayImplementation(source, dest);
 }
@@ -1592,7 +1584,7 @@ absl::Status CopyConvertedArray(const Source& source, const Dest& dest) {
 ///     Otherwise, they will be allocated normally.  The default is `c_order`
 ///     and `include_repeated_elements`.
 template <int&... ExplicitArgumentBarrier, typename Source>
-std::enable_if_t<IsArray<Source>::value,
+std::enable_if_t<IsArray<Source>,
                  SharedArray<std::remove_cv_t<typename Source::Element>,
                              Source::static_rank, Source::array_origin_kind>>
 MakeCopy(const Source& source, IterationConstraints constraints = {
@@ -1647,8 +1639,9 @@ Result<SharedArray<void, Rank, OriginKind>> MakeCopy(
 /// Specializes the HasBoxDomain metafunction for Array.
 template <typename PointerType, DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind LayoutContainerKind>
-struct HasBoxDomain<Array<PointerType, Rank, OriginKind, LayoutContainerKind>>
-    : public std::true_type {};
+constexpr inline bool
+    HasBoxDomain<Array<PointerType, Rank, OriginKind, LayoutContainerKind>> =
+        true;
 
 /// Implements the HasBoxDomain concept for `Array`.
 template <typename PointerType, DimensionIndex Rank, ArrayOriginKind OriginKind,

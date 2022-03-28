@@ -22,15 +22,11 @@
 namespace {
 using tensorstore::internal::NoDestructor;
 
-static_assert(std::is_trivially_destructible<NoDestructor<std::string>>::value,
-              "");
+static_assert(std::is_trivially_destructible_v<NoDestructor<std::string>>);
 static_assert(
-    std::is_constructible<NoDestructor<std::string>, std::size_t, char>::value,
-    "");
-static_assert(
-    std::is_constructible<NoDestructor<std::string>, std::string>::value, "");
-static_assert(
-    std::is_constructible<NoDestructor<std::string>, const char*>::value, "");
+    std::is_constructible_v<NoDestructor<std::string>, std::size_t, char>);
+static_assert(std::is_constructible_v<NoDestructor<std::string>, std::string>);
+static_assert(std::is_constructible_v<NoDestructor<std::string>, const char*>);
 
 NoDestructor<std::string> test_obj("test");
 TEST(NoDestructorTest, Basic) {
@@ -39,12 +35,10 @@ TEST(NoDestructorTest, Basic) {
   auto& s_const_ref = *const_obj;
   auto s_ptr = test_obj.get();
   auto s_const_ptr = const_obj.get();
-  static_assert(std::is_same<const std::string*, decltype(s_const_ptr)>::value,
-                "");
-  static_assert(std::is_same<std::string*, decltype(s_ptr)>::value, "");
-  static_assert(std::is_same<const std::string&, decltype(s_const_ref)>::value,
-                "");
-  static_assert(std::is_same<std::string&, decltype(s_ref)>::value, "");
+  static_assert(std::is_same_v<const std::string*, decltype(s_const_ptr)>);
+  static_assert(std::is_same_v<std::string*, decltype(s_ptr)>);
+  static_assert(std::is_same_v<const std::string&, decltype(s_const_ref)>);
+  static_assert(std::is_same_v<std::string&, decltype(s_ref)>);
   EXPECT_EQ("test", s_ref);
   EXPECT_EQ(&s_ref, &s_const_ref);
   EXPECT_EQ(s_ptr, &s_ref);

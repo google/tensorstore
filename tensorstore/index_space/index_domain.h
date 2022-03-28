@@ -39,10 +39,10 @@ using IndexDomainView = IndexDomain<Rank, view>;
 /// Bool-valued metafunction that evaluates to `true` if `T` is an instance of
 /// `IndexDomain`.
 template <typename T>
-struct IsIndexDomain : public std::false_type {};
+constexpr inline bool IsIndexDomain = false;
 
 template <DimensionIndex Rank, ContainerKind CKind>
-struct IsIndexDomain<IndexDomain<Rank, CKind>> : public std::true_type {};
+constexpr inline bool IsIndexDomain<IndexDomain<Rank, CKind>> = true;
 
 namespace internal_index_space {
 Result<IndexTransform<dynamic_rank, dynamic_rank, container>>
@@ -383,13 +383,13 @@ class IndexDomain {
 template <typename Shape, typename ShapeSpan = internal::ConstSpanType<Shape>,
           DimensionIndex Rank = ShapeSpan::extent>
 using IdentityTransformFromShapeType =
-    std::enable_if_t<std::is_same<typename ShapeSpan::value_type, Index>::value,
+    std::enable_if_t<std::is_same_v<typename ShapeSpan::value_type, Index>,
                      IndexTransform<Rank, Rank, container>>;
 
 template <typename Labels,
           typename LabelsSpan = internal::ConstSpanType<Labels>>
 using IdentityTransformFromLabelsType = std::enable_if_t<
-    internal::IsStringLike<typename LabelsSpan::value_type>::value,
+    internal::IsStringLike<typename LabelsSpan::value_type>,
     IndexTransform<LabelsSpan::extent, LabelsSpan::extent, container>>;
 
 explicit IndexDomain(DimensionIndex)->IndexDomain<>;
@@ -414,8 +414,8 @@ explicit IndexDomain(const Labels& labels)
     -> IndexDomain<IdentityTransformFromLabelsType<Labels>::static_input_rank>;
 
 template <typename BoxType>
-explicit IndexDomain(const BoxType& box) -> IndexDomain<
-    std::enable_if_t<IsBoxLike<BoxType>::value, BoxType>::static_rank>;
+explicit IndexDomain(const BoxType& box)
+    -> IndexDomain<std::enable_if_t<IsBoxLike<BoxType>, BoxType>::static_rank>;
 
 explicit IndexDomain()->IndexDomain<>;
 

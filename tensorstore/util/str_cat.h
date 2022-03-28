@@ -45,9 +45,9 @@ auto ToAlphaNumOrString(const T& x) {
   if constexpr (std::is_same_v<T, std::nullptr_t>) {
     return "null";
   } else if constexpr (std::is_convertible_v<T, absl::AlphaNum> &&
-                       (!std::is_enum_v<T> || !IsOstreamable<T>::value)) {
+                       (!std::is_enum_v<T> || !IsOstreamable<T>)) {
     return absl::AlphaNum(x);
-  } else if constexpr (IsOstreamable<T>::value) {
+  } else if constexpr (IsOstreamable<T>) {
     // Note: Return type is `std::string` in this case.  If it were
     // `absl::AlphaNum`, the `AlphaNum` would hold an invalid reference to a
     // temporary string.
@@ -83,8 +83,8 @@ std::string ToAlphaNumOrString(const std::pair<A, B>& x) {
 
 /// Prints a string representation of a span.
 template <typename Element, std::ptrdiff_t N>
-std::enable_if_t<internal::IsOstreamable<Element>::value, std::ostream&>
-operator<<(std::ostream& os, span<Element, N> s) {
+std::enable_if_t<internal::IsOstreamable<Element>, std::ostream&> operator<<(
+    std::ostream& os, span<Element, N> s) {
   os << "{";
   std::ptrdiff_t size = s.size();
   for (std::ptrdiff_t i = 0; i < size; ++i) {

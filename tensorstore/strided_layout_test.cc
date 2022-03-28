@@ -60,51 +60,51 @@ using tensorstore::unchecked;
 using tensorstore::zero_origin;
 using tensorstore::internal::remove_cvref_t;
 
-static_assert(!IsStridedLayout<int>::value, "");
-static_assert(IsStridedLayout<StridedLayout<>>::value, "");
-static_assert(IsStridedLayout<StridedLayout<2, offset_origin>>::value, "");
-static_assert(IsStridedLayout<StridedLayoutView<>>::value, "");
-static_assert(IsStridedLayout<StridedLayoutView<2, offset_origin>>::value, "");
+static_assert(!IsStridedLayout<int>);
+static_assert(IsStridedLayout<StridedLayout<>>);
+static_assert(IsStridedLayout<StridedLayout<2, offset_origin>>);
+static_assert(IsStridedLayout<StridedLayoutView<>>);
+static_assert(IsStridedLayout<StridedLayoutView<2, offset_origin>>);
 
 // Tests the no-op overload of unchecked `StaticCast`.
 namespace dynamic_layout_cast_tests {
 template <typename T>
-using NoOpCheck =
-    std::is_same<T, decltype(StaticCast<remove_cvref_t<T>, unchecked>(
-                        std::declval<T>()))>;
+constexpr inline bool NoOpCheck =
+    std::is_same_v<T, decltype(StaticCast<remove_cvref_t<T>, unchecked>(
+                          std::declval<T>()))>;
 
-static_assert(NoOpCheck<const StridedLayout<2>&>::value, "");
-static_assert(NoOpCheck<StridedLayout<2>&>::value, "");
-static_assert(NoOpCheck<StridedLayout<2>&&>::value, "");
-static_assert(NoOpCheck<const StridedLayout<2, offset_origin>&>::value, "");
-static_assert(NoOpCheck<StridedLayout<2, offset_origin>&>::value, "");
-static_assert(NoOpCheck<StridedLayout<2, offset_origin>&&>::value, "");
+static_assert(NoOpCheck<const StridedLayout<2>&>);
+static_assert(NoOpCheck<StridedLayout<2>&>);
+static_assert(NoOpCheck<StridedLayout<2>&&>);
+static_assert(NoOpCheck<const StridedLayout<2, offset_origin>&>);
+static_assert(NoOpCheck<StridedLayout<2, offset_origin>&>);
+static_assert(NoOpCheck<StridedLayout<2, offset_origin>&&>);
 }  // namespace dynamic_layout_cast_tests
 
 // Tests the no-op overload of `StaticRankCast`.
 namespace dynamic_rank_cast_tests {
 template <typename T>
-using NoOpCheck =
-    std::is_same<T, decltype(StaticRankCast<remove_cvref_t<T>::static_rank,
-                                            unchecked>(std::declval<T>()))>;
+constexpr inline bool NoOpCheck =
+    std::is_same_v<T, decltype(StaticRankCast<remove_cvref_t<T>::static_rank,
+                                              unchecked>(std::declval<T>()))>;
 
-static_assert(NoOpCheck<const StridedLayout<2>&>::value, "");
-static_assert(NoOpCheck<StridedLayout<2>&>::value, "");
-static_assert(NoOpCheck<StridedLayout<2>&&>::value, "");
-static_assert(NoOpCheck<const StridedLayout<2, offset_origin>&>::value, "");
-static_assert(NoOpCheck<StridedLayout<2, offset_origin>&>::value, "");
-static_assert(NoOpCheck<StridedLayout<2, offset_origin>&&>::value, "");
+static_assert(NoOpCheck<const StridedLayout<2>&>);
+static_assert(NoOpCheck<StridedLayout<2>&>);
+static_assert(NoOpCheck<StridedLayout<2>&&>);
+static_assert(NoOpCheck<const StridedLayout<2, offset_origin>&>);
+static_assert(NoOpCheck<StridedLayout<2, offset_origin>&>);
+static_assert(NoOpCheck<StridedLayout<2, offset_origin>&&>);
 }  // namespace dynamic_rank_cast_tests
 
-static_assert(std::is_empty<StridedLayout<0>>::value, "");
-static_assert(std::is_empty<StridedLayoutView<0>>::value, "");
-static_assert(sizeof(Index) * 2 == sizeof(StridedLayout<1>), "");
-static_assert(sizeof(Index) * 4 == sizeof(StridedLayout<2>), "");
-static_assert(sizeof(Index*) * 2 == sizeof(StridedLayout<>), "");
-static_assert(sizeof(Index*) * 3 == sizeof(StridedLayoutView<>), "");
-static_assert(sizeof(Index*) * 2 == sizeof(StridedLayoutView<2>), "");
-static_assert(sizeof(Index*) * 3 == sizeof(StridedLayoutView<2, offset_origin>),
-              "");
+static_assert(std::is_empty_v<StridedLayout<0>>);
+static_assert(std::is_empty_v<StridedLayoutView<0>>);
+static_assert(sizeof(Index) * 2 == sizeof(StridedLayout<1>));
+static_assert(sizeof(Index) * 4 == sizeof(StridedLayout<2>));
+static_assert(sizeof(Index*) * 2 == sizeof(StridedLayout<>));
+static_assert(sizeof(Index*) * 3 == sizeof(StridedLayoutView<>));
+static_assert(sizeof(Index*) * 2 == sizeof(StridedLayoutView<2>));
+static_assert(sizeof(Index*) * 3 ==
+              sizeof(StridedLayoutView<2, offset_origin>));
 
 TEST(IndexInnerProductTest, Basic) {
   const Index a[] = {1, 2, 3};
@@ -131,128 +131,101 @@ TEST(IndexInnerProductTest, Span) {
 }
 
 namespace conversion_tests {
-using std::is_constructible;
-using std::is_convertible;
 using tensorstore::internal::IsOnlyExplicitlyConvertible;
 
 // Tests that StridedLayout is explicitly but not implicitly constructible from
 // any StridedLayoutView type with an implicitly convertible rank and origin
 // kind.
 static_assert(IsOnlyExplicitlyConvertible<  //
-                  StridedLayoutView<dynamic_rank, offset_origin>,
-                  StridedLayout<dynamic_rank, offset_origin>>::value,
-              "");
+              StridedLayoutView<dynamic_rank, offset_origin>,
+              StridedLayout<dynamic_rank, offset_origin>>);
 static_assert(IsOnlyExplicitlyConvertible<  //
-                  StridedLayoutView<2, offset_origin>,
-                  StridedLayout<dynamic_rank, offset_origin>>::value,
-              "");
+              StridedLayoutView<2, offset_origin>,
+              StridedLayout<dynamic_rank, offset_origin>>);
+static_assert(
+    IsOnlyExplicitlyConvertible<  //
+        StridedLayoutView<2, offset_origin>, StridedLayout<2, offset_origin>>);
 static_assert(IsOnlyExplicitlyConvertible<  //
-                  StridedLayoutView<2, offset_origin>,
-                  StridedLayout<2, offset_origin>>::value,
-              "");
+              StridedLayoutView<dynamic_rank, zero_origin>,
+              StridedLayout<dynamic_rank, offset_origin>>);
+static_assert(
+    IsOnlyExplicitlyConvertible<  //
+        StridedLayoutView<2, zero_origin>, StridedLayout<2, offset_origin>>);
 static_assert(IsOnlyExplicitlyConvertible<  //
-                  StridedLayoutView<dynamic_rank, zero_origin>,
-                  StridedLayout<dynamic_rank, offset_origin>>::value,
-              "");
+              StridedLayoutView<dynamic_rank, zero_origin>,
+              StridedLayout<dynamic_rank, zero_origin>>);
 static_assert(IsOnlyExplicitlyConvertible<  //
-                  StridedLayoutView<2, zero_origin>,
-                  StridedLayout<2, offset_origin>>::value,
-              "");
-static_assert(IsOnlyExplicitlyConvertible<  //
-                  StridedLayoutView<dynamic_rank, zero_origin>,
-                  StridedLayout<dynamic_rank, zero_origin>>::value,
-              "");
-static_assert(IsOnlyExplicitlyConvertible<  //
-                  StridedLayoutView<2, zero_origin>,
-                  StridedLayout<dynamic_rank, zero_origin>>::value,
-              "");
+              StridedLayoutView<2, zero_origin>,
+              StridedLayout<dynamic_rank, zero_origin>>);
 
 // Tests that StridedLayout is not explicitly constructible from a
 // StridedLayoutView with incompatible origin kind or rank.
-static_assert(!is_constructible<  //
-                  StridedLayout<dynamic_rank, zero_origin>,
-                  StridedLayoutView<dynamic_rank, offset_origin>>::value,
-              "");
-static_assert(!is_constructible<  //
-                  StridedLayout<2, zero_origin>,
-                  StridedLayoutView<dynamic_rank, zero_origin>>::value,
-              "");
-static_assert(!is_constructible<                  //
-                  StridedLayout<2, zero_origin>,  //
-                  StridedLayoutView<3, zero_origin>>::value,
-              "");
+static_assert(!std::is_constructible_v<  //
+              StridedLayout<dynamic_rank, zero_origin>,
+              StridedLayoutView<dynamic_rank, offset_origin>>);
+static_assert(!std::is_constructible_v<  //
+              StridedLayout<2, zero_origin>,
+              StridedLayoutView<dynamic_rank, zero_origin>>);
+static_assert(!std::is_constructible_v<       //
+              StridedLayout<2, zero_origin>,  //
+              StridedLayoutView<3, zero_origin>>);
 
 // Tests implicit conversion of zero-rank offset_origin layout to zero_origin
 // layout.
-static_assert(is_convertible<  //
-                  StridedLayoutView<0, offset_origin>,
-                  StridedLayout<dynamic_rank, zero_origin>>::value,
-              "");
-static_assert(is_convertible<  //
-                  StridedLayoutView<0, offset_origin>,
-                  StridedLayout<0, zero_origin>>::value,
-              "");
+static_assert(std::is_convertible_v<  //
+              StridedLayoutView<0, offset_origin>,
+              StridedLayout<dynamic_rank, zero_origin>>);
+static_assert(
+    std::is_convertible_v<  //
+        StridedLayoutView<0, offset_origin>, StridedLayout<0, zero_origin>>);
 
 // Tests implicit conversion of a StridedLayout to any StridedLayoutView with
 // compatible rank and origin kind.
-static_assert(is_convertible<                     //
-                  StridedLayout<2, zero_origin>,  //
-                  StridedLayoutView<2, zero_origin>>::value,
-              "");
-static_assert(is_convertible<                     //
-                  StridedLayout<2, zero_origin>,  //
-                  StridedLayoutView<dynamic_rank, zero_origin>>::value,
-              "");
-static_assert(is_convertible<                     //
-                  StridedLayout<2, zero_origin>,  //
-                  StridedLayoutView<2, offset_origin>>::value,
-              "");
-static_assert(is_convertible<                     //
-                  StridedLayout<2, zero_origin>,  //
-                  StridedLayoutView<dynamic_rank, offset_origin>>::value,
-              "");
-static_assert(is_convertible<                       //
-                  StridedLayout<2, offset_origin>,  //
-                  StridedLayoutView<dynamic_rank, offset_origin>>::value,
-              "");
-static_assert(is_convertible<                                  //
-                  StridedLayout<dynamic_rank, offset_origin>,  //
-                  StridedLayoutView<dynamic_rank, offset_origin>>::value,
-              "");
+static_assert(std::is_convertible_v<          //
+              StridedLayout<2, zero_origin>,  //
+              StridedLayoutView<2, zero_origin>>);
+static_assert(std::is_convertible_v<          //
+              StridedLayout<2, zero_origin>,  //
+              StridedLayoutView<dynamic_rank, zero_origin>>);
+static_assert(std::is_convertible_v<          //
+              StridedLayout<2, zero_origin>,  //
+              StridedLayoutView<2, offset_origin>>);
+static_assert(std::is_convertible_v<          //
+              StridedLayout<2, zero_origin>,  //
+              StridedLayoutView<dynamic_rank, offset_origin>>);
+static_assert(std::is_convertible_v<            //
+              StridedLayout<2, offset_origin>,  //
+              StridedLayoutView<dynamic_rank, offset_origin>>);
+static_assert(std::is_convertible_v<                       //
+              StridedLayout<dynamic_rank, offset_origin>,  //
+              StridedLayoutView<dynamic_rank, offset_origin>>);
 
 // Tests implicit conversion of a StridedLayout to any StridedLayout with
 // compatible rank and origin kind.
-static_assert(is_convertible<                     //
-                  StridedLayout<2, zero_origin>,  //
-                  StridedLayout<2, offset_origin>>::value,
-              "");
-static_assert(is_convertible<                     //
-                  StridedLayout<2, zero_origin>,  //
-                  StridedLayout<dynamic_rank, zero_origin>>::value,
-              "");
-static_assert(is_convertible<                     //
-                  StridedLayout<2, zero_origin>,  //
-                  StridedLayout<2, offset_origin>>::value,
-              "");
-static_assert(is_convertible<                     //
-                  StridedLayout<2, zero_origin>,  //
-                  StridedLayout<dynamic_rank, offset_origin>>::value,
-              "");
-static_assert(is_convertible<                       //
-                  StridedLayout<2, offset_origin>,  //
-                  StridedLayout<dynamic_rank, offset_origin>>::value,
-              "");
+static_assert(std::is_convertible_v<          //
+              StridedLayout<2, zero_origin>,  //
+              StridedLayout<2, offset_origin>>);
+static_assert(std::is_convertible_v<          //
+              StridedLayout<2, zero_origin>,  //
+              StridedLayout<dynamic_rank, zero_origin>>);
+static_assert(std::is_convertible_v<          //
+              StridedLayout<2, zero_origin>,  //
+              StridedLayout<2, offset_origin>>);
+static_assert(std::is_convertible_v<          //
+              StridedLayout<2, zero_origin>,  //
+              StridedLayout<dynamic_rank, offset_origin>>);
+static_assert(std::is_convertible_v<            //
+              StridedLayout<2, offset_origin>,  //
+              StridedLayout<dynamic_rank, offset_origin>>);
 
 // Tests implicit conversion of a zero-rank offset_origin layout to zero_origin
 // layout.
-static_assert(is_convertible<                       //
-                  StridedLayout<0, offset_origin>,  //
-                  StridedLayout<dynamic_rank, zero_origin>>::value,
-              "");
-static_assert(is_convertible<                       //
-                  StridedLayout<0, offset_origin>,  //
-                  StridedLayout<0, zero_origin>>::value,
-              "");
+static_assert(std::is_convertible_v<            //
+              StridedLayout<0, offset_origin>,  //
+              StridedLayout<dynamic_rank, zero_origin>>);
+static_assert(std::is_convertible_v<            //
+              StridedLayout<0, offset_origin>,  //
+              StridedLayout<0, zero_origin>>);
 }  // namespace conversion_tests
 
 TEST(StridedLayoutTest, DynamicRank0) {
@@ -428,14 +401,11 @@ TEST(StridedLayoutTest, StaticRank0) {
   EXPECT_TRUE(layout.shape().empty());
   EXPECT_TRUE(layout.byte_strides().empty());
 
-  static_assert(!std::is_assignable<StridedLayout<0>, StridedLayout<>>(), "");
-  static_assert(!std::is_assignable<StridedLayout<0>, StridedLayoutView<>>(),
-                "");
+  static_assert(!std::is_assignable_v<StridedLayout<0>, StridedLayout<>>);
+  static_assert(!std::is_assignable_v<StridedLayout<0>, StridedLayoutView<>>);
+  static_assert(!std::is_constructible_v<StridedLayout<0>, StridedLayout<1>>);
   static_assert(
-      !std::is_constructible<StridedLayout<0>, StridedLayout<1>>::value, "");
-  static_assert(
-      !std::is_constructible<StridedLayout<0>, StridedLayoutView<1>>::value,
-      "");
+      !std::is_constructible_v<StridedLayout<0>, StridedLayoutView<1>>);
 
   // Test constructing from zero-length shape and byte_strides spans.
   StridedLayout<0> layout3(span<const Index, 0>{}, span<const Index, 0>{});
@@ -476,15 +446,13 @@ TEST(StridedLayoutTest, ConstructStaticFromDynamic) {
   StridedLayout<> layout_d({1, 2}, {3, 4});
 
   auto layout_s = StaticRankCast<2>(layout_d).value();
-  static_assert(std::is_same<decltype(layout_s), StridedLayout<2>>::value, "");
+  static_assert(std::is_same_v<decltype(layout_s), StridedLayout<2>>);
   EXPECT_THAT(layout_s.shape(), ::testing::ElementsAreArray({1, 2}));
   EXPECT_THAT(layout_s.byte_strides(), ::testing::ElementsAreArray({3, 4}));
 
-  static_assert(
-      !std::is_constructible<StridedLayout<2>, StridedLayout<3>>::value, "");
+  static_assert(!std::is_constructible_v<StridedLayout<2>, StridedLayout<3>>);
 
-  static_assert(!std::is_assignable<StridedLayout<2>, StridedLayout<3>>::value,
-                "");
+  static_assert(!std::is_assignable_v<StridedLayout<2>, StridedLayout<3>>);
 
   // Test copy construct from another static layout.
   StridedLayout<2> layout_s2(layout_s);
@@ -492,15 +460,14 @@ TEST(StridedLayoutTest, ConstructStaticFromDynamic) {
   EXPECT_THAT(layout_s2.byte_strides(), ::testing::ElementsAreArray({3, 4}));
 
   // Check that explicit conversion from dynamic to static is not available.
-  static_assert(
-      !std::is_constructible<StridedLayout<2>, StridedLayout<>>::value, "");
+  static_assert(!std::is_constructible_v<StridedLayout<2>, StridedLayout<>>);
 }
 
 TEST(StridedLayoutTest, ConstructStaticFromDynamicStridedLayoutView) {
   StridedLayout<> layout_d({1, 2}, {3, 4});
   StridedLayoutView<> layout_ref = layout_d;
   auto layout_s = StaticCast<StridedLayout<2>>(layout_ref).value();
-  static_assert(std::is_same<decltype(layout_s), StridedLayout<2>>::value, "");
+  static_assert(std::is_same_v<decltype(layout_s), StridedLayout<2>>);
 
   EXPECT_THAT(layout_s.shape(), ::testing::ElementsAreArray({1, 2}));
   EXPECT_THAT(layout_s.byte_strides(), ::testing::ElementsAreArray({3, 4}));
@@ -511,16 +478,14 @@ TEST(StridedLayoutTest, ConstructStaticFromDynamicStridedLayoutView) {
   EXPECT_THAT(layout_s2.byte_strides(), ::testing::ElementsAreArray({3, 4}));
 
   static_assert(
-      !std::is_constructible<StridedLayout<2>, StridedLayoutView<3>>::value,
-      "");
+      !std::is_constructible_v<StridedLayout<2>, StridedLayoutView<3>>);
 }
 
 TEST(StridedLayoutTest, AssignStatic) {
   StridedLayout<> layout_d({1, 2}, {3, 4});
 
-  static_assert(!std::is_assignable<StridedLayout<2>, StridedLayout<>>(), "");
-  static_assert(!std::is_assignable<StridedLayout<2>, StridedLayoutView<>>(),
-                "");
+  static_assert(!std::is_assignable_v<StridedLayout<2>, StridedLayout<>>);
+  static_assert(!std::is_assignable_v<StridedLayout<2>, StridedLayoutView<>>);
 
   // Assign from StridedLayout<2>
   {
@@ -582,28 +547,20 @@ TEST(StridedLayoutViewTest, StaticConstructAndAssign) {
   }
 
   static_assert(
-      !std::is_convertible<StridedLayoutView<>, StridedLayoutView<2>>::value,
-      "");
+      !std::is_convertible_v<StridedLayoutView<>, StridedLayoutView<2>>);
+  static_assert(!std::is_convertible_v<StridedLayout<>, StridedLayoutView<2>>);
   static_assert(
-      !std::is_convertible<StridedLayout<>, StridedLayoutView<2>>::value, "");
+      !std::is_constructible_v<StridedLayoutView<2>, StridedLayoutView<3>>);
   static_assert(
-      !std::is_constructible<StridedLayoutView<2>, StridedLayoutView<3>>::value,
-      "");
+      !std::is_constructible_v<StridedLayoutView<2>, StridedLayoutView<>>);
   static_assert(
-      !std::is_constructible<StridedLayoutView<2>, StridedLayoutView<>>::value,
-      "");
+      !std::is_constructible_v<StridedLayoutView<2>, StridedLayout<>>);
   static_assert(
-      !std::is_constructible<StridedLayoutView<2>, StridedLayout<>>::value, "");
+      !std::is_assignable_v<StridedLayoutView<2>, StridedLayoutView<>>);
+  static_assert(!std::is_assignable_v<StridedLayoutView<2>, StridedLayout<>>);
+  static_assert(!std::is_assignable_v<StridedLayoutView<2>, StridedLayout<3>>);
   static_assert(
-      !std::is_assignable<StridedLayoutView<2>, StridedLayoutView<>>::value,
-      "");
-  static_assert(
-      !std::is_assignable<StridedLayoutView<2>, StridedLayout<>>::value, "");
-  static_assert(
-      !std::is_assignable<StridedLayoutView<2>, StridedLayout<3>>::value, "");
-  static_assert(
-      !std::is_assignable<StridedLayoutView<2>, StridedLayoutView<3>>::value,
-      "");
+      !std::is_assignable_v<StridedLayoutView<2>, StridedLayoutView<3>>);
 
   // Assign from another StridedLayoutView<2>.
   {
@@ -810,21 +767,21 @@ TEST(StridedLayoutViewTest, SubLayout) {
     StridedLayout<3> r({1, 2, 3}, {3, 4, 5});
     {
       auto s = GetSubLayoutView<0>(r);
-      static_assert(std::is_same<decltype(s), StridedLayoutView<3>>::value, "");
+      static_assert(std::is_same_v<decltype(s), StridedLayoutView<3>>);
       EXPECT_EQ(r.rank(), s.rank());
       EXPECT_EQ(r.shape().data(), s.shape().data());
       EXPECT_EQ(r.byte_strides().data(), s.byte_strides().data());
     }
     {
       auto s = GetSubLayoutView<1>(r);
-      static_assert(std::is_same<decltype(s), StridedLayoutView<2>>::value, "");
+      static_assert(std::is_same_v<decltype(s), StridedLayoutView<2>>);
       EXPECT_EQ(2, s.rank());
       EXPECT_EQ(r.shape().data() + 1, s.shape().data());
       EXPECT_EQ(r.byte_strides().data() + 1, s.byte_strides().data());
     }
     {
       auto s = GetSubLayoutView<2>(r);
-      static_assert(std::is_same<decltype(s), StridedLayoutView<1>>::value, "");
+      static_assert(std::is_same_v<decltype(s), StridedLayoutView<1>>);
 
       EXPECT_EQ(1, s.rank());
       EXPECT_EQ(r.shape().data() + 2, s.shape().data());
@@ -832,7 +789,7 @@ TEST(StridedLayoutViewTest, SubLayout) {
     }
     {
       auto s = GetSubLayoutView<3>(r);
-      static_assert(std::is_same<decltype(s), StridedLayoutView<0>>::value, "");
+      static_assert(std::is_same_v<decltype(s), StridedLayoutView<0>>);
 
       EXPECT_EQ(0, s.rank());
     }
@@ -843,7 +800,7 @@ TEST(StridedLayoutViewTest, SubLayout) {
     StridedLayout<3> r({1, 2, 3}, {3, 4, 5});
     {
       auto s = GetSubLayoutView(r, 0);
-      static_assert(std::is_same<decltype(s), StridedLayoutView<>>::value, "");
+      static_assert(std::is_same_v<decltype(s), StridedLayoutView<>>);
       EXPECT_EQ(r.rank(), s.rank());
       EXPECT_EQ(r.shape().data(), s.shape().data());
       EXPECT_EQ(r.byte_strides().data(), s.byte_strides().data());
@@ -871,21 +828,21 @@ TEST(StridedLayoutViewTest, SubLayout) {
     StridedLayout<> r({1, 2, 3}, {3, 4, 5});
     {
       auto s = GetSubLayoutView<0>(r);
-      static_assert(std::is_same<decltype(s), StridedLayoutView<>>::value, "");
+      static_assert(std::is_same_v<decltype(s), StridedLayoutView<>>);
       EXPECT_EQ(r.rank(), s.rank());
       EXPECT_EQ(r.shape().data(), s.shape().data());
       EXPECT_EQ(r.byte_strides().data(), s.byte_strides().data());
     }
     {
       auto s = GetSubLayoutView<1>(r);
-      static_assert(std::is_same<decltype(s), StridedLayoutView<>>::value, "");
+      static_assert(std::is_same_v<decltype(s), StridedLayoutView<>>);
       EXPECT_EQ(2, s.rank());
       EXPECT_EQ(r.shape().data() + 1, s.shape().data());
       EXPECT_EQ(r.byte_strides().data() + 1, s.byte_strides().data());
     }
     {
       auto s = GetSubLayoutView<2>(r);
-      static_assert(std::is_same<decltype(s), StridedLayoutView<>>::value, "");
+      static_assert(std::is_same_v<decltype(s), StridedLayoutView<>>);
 
       EXPECT_EQ(1, s.rank());
       EXPECT_EQ(r.shape().data() + 2, s.shape().data());
@@ -893,7 +850,7 @@ TEST(StridedLayoutViewTest, SubLayout) {
     }
     {
       auto s = GetSubLayoutView<3>(r);
-      static_assert(std::is_same<decltype(s), StridedLayoutView<>>::value, "");
+      static_assert(std::is_same_v<decltype(s), StridedLayoutView<>>);
       EXPECT_EQ(0, s.rank());
     }
   }
@@ -903,7 +860,7 @@ TEST(StridedLayoutViewTest, SubLayout) {
     StridedLayout<> r({1, 2, 3}, {3, 4, 5});
     {
       auto s = GetSubLayoutView(r, 0);
-      static_assert(std::is_same<decltype(s), StridedLayoutView<>>::value, "");
+      static_assert(std::is_same_v<decltype(s), StridedLayoutView<>>);
       EXPECT_EQ(r.rank(), s.rank());
       EXPECT_EQ(r.shape().data(), s.shape().data());
       EXPECT_EQ(r.byte_strides().data(), s.byte_strides().data());
@@ -949,7 +906,7 @@ TEST(StridedLayoutTest, COrderStatic) {
 TEST(StridedLayoutTest, COrderDynamic) {
   auto layout =
       StridedLayout(ContiguousLayoutOrder::c, 2, span<const Index>({3, 4, 5}));
-  static_assert(std::is_same<decltype(layout), StridedLayout<>>::value, "");
+  static_assert(std::is_same_v<decltype(layout), StridedLayout<>>);
   EXPECT_EQ(StridedLayout<3>({3, 4, 5}, {4 * 5 * 2, 5 * 2, 2}), layout);
 }
 
@@ -968,7 +925,7 @@ TEST(StridedLayoutTest, COrderVector) {
 
 TEST(StridedLayoutTest, FortranOrderDynamic) {
   auto layout = StridedLayout(ContiguousLayoutOrder::fortran, 2, {3, 4, 5});
-  static_assert(std::is_same<decltype(layout), StridedLayout<3>>::value, "");
+  static_assert(std::is_same_v<decltype(layout), StridedLayout<3>>);
   EXPECT_EQ(StridedLayout<3>({3, 4, 5}, {2, 3 * 2, 3 * 4 * 2}), layout);
 }
 
@@ -989,8 +946,7 @@ TEST(StridedLayoutViewTest, PrintToOstream) {
 TEST(StridedLayoutTest, Domain) {
   auto layout = StridedLayout(ContiguousLayoutOrder::fortran, 2, {3, 4, 5});
   auto box = layout.domain();
-  static_assert(std::is_same<decltype(box), tensorstore::BoxView<3>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(box), tensorstore::BoxView<3>>);
   EXPECT_THAT(box.shape(), ::testing::ElementsAreArray({3, 4, 5}));
   EXPECT_THAT(box.origin(), ::testing::ElementsAreArray({0, 0, 0}));
   EXPECT_EQ(box, GetBoxDomainOf(layout));
@@ -1116,8 +1072,7 @@ TEST(StridedLayoutTest, RankCastOffsetOrigin) {
                                                     byte_strides);
   auto layout2 = StaticRankCast<3>(layout).value();
   static_assert(
-      std::is_same<decltype(layout2), StridedLayout<3, offset_origin>>::value,
-      "");
+      std::is_same_v<decltype(layout2), StridedLayout<3, offset_origin>>);
   EXPECT_EQ(layout, layout2);
 }
 

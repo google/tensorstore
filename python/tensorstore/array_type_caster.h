@@ -70,14 +70,14 @@ std::shared_ptr<Element> GetSharedPtrFromNumpyArray(pybind11::array array_obj) {
 /// \tparam Element Element type, must be compatible with the data type of the
 ///     NumPy array.
 template <typename Element>
-std::enable_if_t<!std::is_void<Element>::value, SharedElementPointer<Element>>
+std::enable_if_t<!std::is_void_v<Element>, SharedElementPointer<Element>>
 GetSharedElementPointerFromNumpyArray(pybind11::array array_obj) {
   assert(GetDataTypeOrThrow(array_obj.dtype()) == dtype_v<Element>);
   return GetSharedPtrFromNumpyArray<Element>(std::move(array_obj));
 }
 
 template <typename Element>
-std::enable_if_t<std::is_void<Element>::value, SharedElementPointer<Element>>
+std::enable_if_t<std::is_void_v<Element>, SharedElementPointer<Element>>
 GetSharedElementPointerFromNumpyArray(pybind11::array array_obj) {
   auto dtype = GetDataTypeOrThrow(array_obj.dtype());
   return SharedElementPointer<Element>(

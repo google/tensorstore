@@ -237,11 +237,12 @@ class TransformedArrayAccess {
   ///     to be constructed from the existing layout.
   template <typename L, ContainerKind TargetContainerKind,
             typename LX = internal::remove_cvref_t<L>>
-  using TransformTaker = std::conditional_t<
-      (std::is_same<L, internal::remove_cvref_t<L>&&>::value &&
-       internal::remove_cvref_t<L>::layout_container_kind == container &&
-       TargetContainerKind == container),
-      TransformContainerTaker<LX>, TransformViewTaker<LX>>;
+  using TransformTaker =
+      std::conditional_t<(std::is_same_v<L, internal::remove_cvref_t<L>&&> &&
+                          internal::remove_cvref_t<L>::layout_container_kind ==
+                              container &&
+                          TargetContainerKind == container),
+                         TransformContainerTaker<LX>, TransformViewTaker<LX>>;
 
   /// Returns an IndexTransform that combines both `layout.transform()` and
   /// `layout.base_strided_layout()`.

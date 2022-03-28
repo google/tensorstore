@@ -38,7 +38,7 @@ using tensorstore::span;
 
 TEST(IdentityTransformTest, Static) {
   auto t = IdentityTransform<2>();
-  static_assert(std::is_same<decltype(t), IndexTransform<2, 2>>::value, "");
+  static_assert(std::is_same_v<decltype(t), IndexTransform<2, 2>>);
   EXPECT_EQ(IndexTransformBuilder<>(2, 2)
                 .implicit_lower_bounds({1, 1})
                 .implicit_upper_bounds({1, 1})
@@ -54,7 +54,7 @@ TEST(IdentityTransformTest, Static) {
 
 TEST(IdentityTransformTest, Dynamic) {
   auto t = IdentityTransform(2);
-  static_assert(std::is_same<decltype(t), IndexTransform<>>::value, "");
+  static_assert(std::is_same_v<decltype(t), IndexTransform<>>);
   EXPECT_EQ(IndexTransformBuilder<>(2, 2)
                 .implicit_lower_bounds({1, 1})
                 .implicit_upper_bounds({1, 1})
@@ -70,7 +70,7 @@ TEST(IdentityTransformTest, Dynamic) {
 
 TEST(IdentityTransformTest, LabeledCString) {
   auto t = IdentityTransform({"x", "y"});
-  static_assert(std::is_same<decltype(t), IndexTransform<2, 2>>::value, "");
+  static_assert(std::is_same_v<decltype(t), IndexTransform<2, 2>>);
   EXPECT_EQ(IndexTransformBuilder<>(2, 2)
                 .implicit_lower_bounds({1, 1})
                 .implicit_upper_bounds({1, 1})
@@ -87,7 +87,7 @@ TEST(IdentityTransformTest, LabeledCString) {
 
 TEST(IdentityTransformTest, LabeledStdString) {
   auto t = IdentityTransform({std::string("x"), std::string("y")});
-  static_assert(std::is_same<decltype(t), IndexTransform<2, 2>>::value, "");
+  static_assert(std::is_same_v<decltype(t), IndexTransform<2, 2>>);
   EXPECT_EQ(IndexTransformBuilder<>(2, 2)
                 .implicit_lower_bounds({1, 1})
                 .implicit_upper_bounds({1, 1})
@@ -104,7 +104,7 @@ TEST(IdentityTransformTest, LabeledStdString) {
 
 TEST(IndexTransformTest, LabeledStringView) {
   auto t = IdentityTransform({std::string_view("x"), std::string_view("y")});
-  static_assert(std::is_same<decltype(t), IndexTransform<2, 2>>::value, "");
+  static_assert(std::is_same_v<decltype(t), IndexTransform<2, 2>>);
   EXPECT_EQ(IndexTransformBuilder<>(2, 2)
                 .implicit_lower_bounds({1, 1})
                 .implicit_upper_bounds({1, 1})
@@ -157,7 +157,7 @@ TEST(IdentityTransformLikeTest, Array) {
 TEST(IdentityTransformTest, StaticBox) {
   auto box = Box({1, 2}, {3, 4});
   auto t = IdentityTransform(box);
-  static_assert(std::is_same<decltype(t), IndexTransform<2, 2>>::value, "");
+  static_assert(std::is_same_v<decltype(t), IndexTransform<2, 2>>);
   EXPECT_EQ(IndexTransformBuilder<>(2, 2)
                 .input_origin({1, 2})
                 .input_shape({3, 4})
@@ -167,7 +167,7 @@ TEST(IdentityTransformTest, StaticBox) {
                 .value(),
             t);
   EXPECT_EQ(box, t.domain().box());
-  static_assert(tensorstore::HasBoxDomain<IndexTransform<2, 2>>::value, "");
+  static_assert(tensorstore::HasBoxDomain<IndexTransform<2, 2>>);
   EXPECT_EQ(box, GetBoxDomainOf(t));
   auto d = IndexDomain(box);
   static_assert(std::is_same_v<decltype(d), IndexDomain<2>>);
@@ -176,7 +176,7 @@ TEST(IdentityTransformTest, StaticBox) {
 
 TEST(IdentityTransformTest, DynamicBox) {
   auto t = IdentityTransform(Box<>({1, 2}, {3, 4}));
-  static_assert(std::is_same<decltype(t), IndexTransform<>>::value, "");
+  static_assert(std::is_same_v<decltype(t), IndexTransform<>>);
   EXPECT_EQ(IndexTransformBuilder<>(2, 2)
                 .input_origin({1, 2})
                 .input_shape({3, 4})
@@ -192,7 +192,7 @@ TEST(IdentityTransformTest, DynamicBox) {
 
 TEST(IdentityTransformTest, FromShape) {
   auto t = IdentityTransform(span<const Index, 2>({2, 3}));
-  static_assert(std::is_same<decltype(t), IndexTransform<2, 2>>::value, "");
+  static_assert(std::is_same_v<decltype(t), IndexTransform<2, 2>>);
   EXPECT_EQ(IndexTransformBuilder<>(2, 2)
                 .input_origin({0, 0})
                 .input_shape({2, 3})
@@ -208,7 +208,7 @@ TEST(IdentityTransformTest, FromShape) {
 
 TEST(IdentityTransformTest, FromShapeBracedList) {
   auto t = IdentityTransform({2, 3});
-  static_assert(std::is_same<decltype(t), IndexTransform<2, 2>>::value, "");
+  static_assert(std::is_same_v<decltype(t), IndexTransform<2, 2>>);
   EXPECT_EQ(IndexTransformBuilder<>(2, 2)
                 .input_origin({0, 0})
                 .input_shape({2, 3})

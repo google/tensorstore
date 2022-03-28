@@ -29,24 +29,19 @@ namespace {
 using tensorstore::BitSpan;
 using tensorstore::BitVec;
 
-static_assert(!std::is_convertible<BitSpan<std::uint64_t, 3>, BitVec<>>::value,
-              "");
+static_assert(!std::is_convertible_v<BitSpan<std::uint64_t, 3>, BitVec<>>);
 
-static_assert(
-    std::is_constructible<BitVec<3>, BitSpan<std::uint32_t, 3>>::value, "");
+static_assert(std::is_constructible_v<BitVec<3>, BitSpan<std::uint32_t, 3>>);
 
-static_assert(std::is_constructible<BitVec<>, BitSpan<std::uint32_t, 3>>::value,
-              "");
+static_assert(std::is_constructible_v<BitVec<>, BitSpan<std::uint32_t, 3>>);
 
-static_assert(!std::is_constructible<BitVec<3>, BitVec<>>::value, "");
+static_assert(!std::is_constructible_v<BitVec<3>, BitVec<>>);
 
-static_assert(!std::is_constructible<BitVec<3>, BitSpan<std::uint32_t>>::value,
-              "");
+static_assert(!std::is_constructible_v<BitVec<3>, BitSpan<std::uint32_t>>);
 
-static_assert(
-    !std::is_constructible<BitVec<3>, BitSpan<std::uint32_t, 4>>::value, "");
+static_assert(!std::is_constructible_v<BitVec<3>, BitSpan<std::uint32_t, 4>>);
 
-static_assert(!std::is_constructible<BitVec<3>, BitVec<4>>::value, "");
+static_assert(!std::is_constructible_v<BitVec<3>, BitVec<4>>);
 
 TEST(BitVecTest, StaticDefaultConstruct) {
   BitVec<9> v;

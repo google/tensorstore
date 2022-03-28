@@ -103,14 +103,13 @@ void AssignRange(const Range& range, BitSpan<std::uint64_t> dest);
 /// `span`-compatible, or `Range` is `span`-compatible with a static
 /// extent compatible with `StaticExtent`.
 template <std::ptrdiff_t StaticExtent, typename Range, typename = void>
-struct IsStaticExtentCompatibleWithRange : public std::true_type {};
+constexpr inline bool IsStaticExtentCompatibleWithRange = true;
 
 template <std::ptrdiff_t StaticExtent, typename Range>
-struct IsStaticExtentCompatibleWithRange<
-    StaticExtent, Range, std::void_t<internal::ConstSpanType<Range>>>
-    : public std::integral_constant<
-          bool, IsRankExplicitlyConvertible(
-                    StaticExtent, internal::ConstSpanType<Range>::extent)> {};
+constexpr inline bool IsStaticExtentCompatibleWithRange<
+    StaticExtent, Range, std::void_t<internal::ConstSpanType<Range>>> =
+    IsRankExplicitlyConvertible(StaticExtent,
+                                internal::ConstSpanType<Range>::extent);
 
 }  // namespace internal_index_space
 
@@ -321,7 +320,7 @@ class IndexTransformBuilder {
   ///     overrides the previous value.
   template <typename Indices>
   std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                       InputRank, Indices>::value,
+                       InputRank, Indices>,
                    IndexTransformBuilder&>
   input_origin(const Indices& indices) {
     internal_index_space::AssignRange(indices, span<Index>(input_origin()));
@@ -360,7 +359,7 @@ class IndexTransformBuilder {
   ///     already been specified simply overrides the previous value.
   template <typename Indices>
   std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                       InputRank, Indices>::value,
+                       InputRank, Indices>,
                    IndexTransformBuilder&>
   input_shape(const Indices& indices) {
     internal_index_space::AssignRange(indices, span<Index>(input_shape()));
@@ -398,7 +397,7 @@ class IndexTransformBuilder {
   ///     already been specified simply overrides the previous value.
   template <typename Indices>
   std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                       InputRank, Indices>::value,
+                       InputRank, Indices>,
                    IndexTransformBuilder&>
   input_exclusive_max(const Indices& indices) {
     internal_index_space::AssignRange(indices,
@@ -438,7 +437,7 @@ class IndexTransformBuilder {
   ///     already been specified simply overrides the previous value.
   template <typename Indices>
   std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                       InputRank, Indices>::value,
+                       InputRank, Indices>,
                    IndexTransformBuilder&>
   input_inclusive_max(const Indices& indices) {
     internal_index_space::AssignRange(indices,
@@ -470,9 +469,8 @@ class IndexTransformBuilder {
   ///     input domain have already been specified simply overrides the previous
   ///     values.
   template <typename BoxLike>
-  std::enable_if_t<
-      IsBoxLikeImplicitlyConvertibleToRank<BoxLike, InputRank>::value,
-      IndexTransformBuilder&>
+  std::enable_if_t<IsBoxLikeImplicitlyConvertibleToRank<BoxLike, InputRank>,
+                   IndexTransformBuilder&>
   input_bounds(const BoxLike& box) {
     this->input_bounds().DeepAssign(box);
     return *this;
@@ -522,7 +520,7 @@ class IndexTransformBuilder {
   ///     overrides the previous value.
   template <typename Labels>
   std::enable_if_t<internal_index_space::IsStaticExtentCompatibleWithRange<
-                       InputRank, Labels>::value,
+                       InputRank, Labels>,
                    IndexTransformBuilder&>
   input_labels(const Labels& labels) {
     internal_index_space::AssignRange(labels,

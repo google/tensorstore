@@ -29,13 +29,11 @@ namespace tensorstore {
 //   T          -> const void
 //   const T    -> const void
 //   void       -> const void
-template <class Source, class Dest>
-struct IsElementTypeImplicitlyConvertible
-    : public std::integral_constant<
-          bool, (std::is_const<Source>::value <= std::is_const<Dest>::value) &&
-                    (std::is_same<const Source, const Dest>::value ||
-                     std::is_void<Source>::value < std::is_void<Dest>::value)> {
-};
+template <typename Source, typename Dest>
+constexpr inline bool IsElementTypeImplicitlyConvertible =
+    (std::is_const_v<Source> <= std::is_const_v<Dest>)&&  //
+    (std::is_same_v<const Source, const Dest> ||
+     std::is_void_v<Source> < std::is_void_v<Dest>);
 
 // Metafunction that evaluates to whether an array of Source-type elements is
 // explicitly BUT NOT implicitly convertible to an array of Dest-type elements.
@@ -49,11 +47,9 @@ struct IsElementTypeImplicitlyConvertible
 // Unlike the implicit conversions, these conversions are not statically known
 // to be valid, and should be checked at run-time.
 template <class Source, class Dest>
-struct IsElementTypeOnlyExplicitlyConvertible
-    : public std::integral_constant<bool, (std::is_void<Source>::value >
-                                           std::is_void<Dest>::value) &&
-                                              (std::is_const<Source>::value <=
-                                               std::is_const<Dest>::value)> {};
+constexpr inline bool IsElementTypeOnlyExplicitlyConvertible =
+    (std::is_void_v<Source> > std::is_void_v<Dest>)&&  //
+    (std::is_const_v<Source> <= std::is_const_v<Dest>);
 
 /// Metafunction that evaluates to whether an array of Source-type elements is
 /// implicitly or explicitly convertible to an array of Dest-type elements.
@@ -66,11 +62,10 @@ struct IsElementTypeOnlyExplicitlyConvertible
 ///   void -> const T
 ///   const void -> const T
 template <typename Source, typename Dest>
-struct IsElementTypeExplicitlyConvertible
-    : public std::integral_constant<
-          bool, (std::is_const<Source>::value <= std::is_const<Dest>::value) &&
-                    (std::is_void<Source>::value || std::is_void<Dest>::value ||
-                     std::is_same<const Source, const Dest>::value)> {};
+constexpr inline bool IsElementTypeExplicitlyConvertible =
+    (std::is_const_v<Source> <= std::is_const_v<Dest>)&&  //
+    (std::is_void_v<Source> || std::is_void_v<Dest> ||
+     std::is_same_v<const Source, const Dest>);
 
 /// Metafunction that evaluates to whether A and B could refer to the same type,
 /// ignoring const.
@@ -92,10 +87,9 @@ struct IsElementTypeExplicitlyConvertible
 /// (T, const U) -> false
 /// (const T, const U) -> false
 template <typename A, typename B>
-struct AreElementTypesCompatible
-    : public std::integral_constant<
-          bool, (std::is_void<A>::value || std::is_void<B>::value ||
-                 std::is_same<const A, const B>::value)> {};
+constexpr inline bool AreElementTypesCompatible =
+    (std::is_void_v<A> || std::is_void_v<B> ||
+     std::is_same_v<const A, const B>);
 
 }  // namespace tensorstore
 

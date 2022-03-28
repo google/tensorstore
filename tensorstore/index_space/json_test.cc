@@ -294,9 +294,8 @@ TEST(ParseIndexTransformTest, DynamicFromUnlabeled) {
 
 TEST(ParseIndexTransformTest, Static) {
   auto t = tensorstore::ParseIndexTransform<4, 3>(MakeLabeledExampleJson());
-  static_assert(std::is_same<decltype(t),
-                             Result<tensorstore::IndexTransform<4, 3>>>::value,
-                "");
+  static_assert(
+      std::is_same_v<decltype(t), Result<tensorstore::IndexTransform<4, 3>>>);
   EXPECT_EQ(MakeExampleTransform(), t);
 }
 

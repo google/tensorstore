@@ -36,7 +36,7 @@ Result<internal::Driver::Handle> MakeArrayDriver(
 /// Alias that evaluates to the TensorStore type corresponding to `Array`.
 ///
 /// \tparam Array The `Array` or `TransformedArray` type.
-/// \requires `IsTransformedArrayLike<Array>::value`.
+/// \requires `IsTransformedArrayLike<Array>`.
 template <typename Array>
 using TensorStoreFromArrayType = TensorStore<
     std::remove_const_t<typename Array::Element>, Array::static_rank,
@@ -49,10 +49,9 @@ using TensorStoreFromArrayType = TensorStore<
 /// \param array The array held by the `TensorStore`.
 /// \param dimension_units Optional dimension units.  If specified, the length
 ///     must equal `array.rank()`.
-/// \requires `IsArray<Array>::value`.
+/// \requires `IsArray<Array>`.
 template <typename Array>
-std::enable_if_t<(IsArray<Array>::value &&
-                  IsShared<typename Array::ElementTag>::value),
+std::enable_if_t<(IsArray<Array> && IsShared<typename Array::ElementTag>),
                  Result<TensorStoreFromArrayType<Array>>>
 FromArray(Context context, const Array& array,
           DimensionUnitsVector dimension_units = {}) {

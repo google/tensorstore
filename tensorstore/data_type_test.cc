@@ -59,24 +59,24 @@ namespace is_element_type_tests {
 struct ClassT {};
 union UnionT {};
 enum class EnumT {};
-static_assert(IsElementType<int>::value, "");
-static_assert(IsElementType<void>::value, "");
-static_assert(IsElementType<const void>::value, "");
-static_assert(IsElementType<const int>::value, "");
-static_assert(IsElementType<const int*>::value, "");
-static_assert(IsElementType<const int* const>::value, "");
-static_assert(!IsElementType<volatile int>::value, "");
-static_assert(!IsElementType<int[]>::value, "");
-static_assert(!IsElementType<int(int)>::value, "");
-static_assert(!IsElementType<int&>::value, "");
-static_assert(!IsElementType<const int&>::value, "");
-static_assert(!IsElementType<volatile int&>::value, "");
-static_assert(!IsElementType<int&&>::value, "");
-static_assert(IsElementType<ClassT>::value, "");
-static_assert(IsElementType<UnionT>::value, "");
-static_assert(IsElementType<EnumT>::value, "");
-static_assert(IsElementType<int ClassT::*>::value, "");
-static_assert(IsElementType<int (ClassT::*)(int)>::value, "");
+static_assert(IsElementType<int>);
+static_assert(IsElementType<void>);
+static_assert(IsElementType<const void>);
+static_assert(IsElementType<const int>);
+static_assert(IsElementType<const int*>);
+static_assert(IsElementType<const int* const>);
+static_assert(!IsElementType<volatile int>);
+static_assert(!IsElementType<int[]>);
+static_assert(!IsElementType<int(int)>);
+static_assert(!IsElementType<int&>);
+static_assert(!IsElementType<const int&>);
+static_assert(!IsElementType<volatile int&>);
+static_assert(!IsElementType<int&&>);
+static_assert(IsElementType<ClassT>);
+static_assert(IsElementType<UnionT>);
+static_assert(IsElementType<EnumT>);
+static_assert(IsElementType<int ClassT::*>);
+static_assert(IsElementType<int (ClassT::*)(int)>);
 }  // namespace is_element_type_tests
 
 struct X {
@@ -398,9 +398,8 @@ TEST(AllocateAndConsructSharedTest, Destructor) {
   {
     auto ptr = AllocateAndConstructShared<std::shared_ptr<int>>(
         1, tensorstore::default_init);
-    static_assert(std::is_same<std::shared_ptr<std::shared_ptr<int>>,
-                               decltype(ptr)>::value,
-                  "");
+    static_assert(
+        std::is_same_v<std::shared_ptr<std::shared_ptr<int>>, decltype(ptr)>);
     ptr.get()[0] = x;
     EXPECT_EQ(2, x.use_count());
   }

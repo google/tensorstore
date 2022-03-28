@@ -1471,18 +1471,14 @@ TEST(OptionallyImplicitIndexIntervalTest, Hash) {
   }));
 }
 
-static_assert(std::is_convertible<IndexDomainDimension<container>,
-                                  IndexDomainDimension<view>>::value,
-              "");
-static_assert(std::is_convertible<IndexDomainDimension<view>,
-                                  IndexDomainDimension<container>>::value,
-              "");
-static_assert(std::is_assignable<IndexDomainDimension<container>,
-                                 IndexDomainDimension<view>>::value,
-              "");
-static_assert(std::is_assignable<IndexDomainDimension<view>,
-                                 IndexDomainDimension<container>>::value,
-              "");
+static_assert(std::is_convertible_v<IndexDomainDimension<container>,
+                                    IndexDomainDimension<view>>);
+static_assert(std::is_convertible_v<IndexDomainDimension<view>,
+                                    IndexDomainDimension<container>>);
+static_assert(std::is_assignable_v<IndexDomainDimension<container>,
+                                   IndexDomainDimension<view>>);
+static_assert(std::is_assignable_v<IndexDomainDimension<view>,
+                                   IndexDomainDimension<container>>);
 
 TEST(IndexDomainDimensionTest, DefaultConstruct) {
   IndexDomainDimension<> d;

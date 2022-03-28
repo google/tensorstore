@@ -63,26 +63,22 @@ TEST(OutputIndexMapTest, StaticRanks) {
                .Finalize()
                .value();
   auto range = t.output_index_maps();
-  static_assert(std::is_same<decltype(range), OutputIndexMapRange<3, 4>>::value,
-                "");
-  static_assert(std::is_same<StaticRank<4>, decltype(range.size())>::value, "");
-  static_assert(
-      std::is_same<StaticRank<3>, decltype(range.input_rank())>::value, "");
+  static_assert(std::is_same_v<decltype(range), OutputIndexMapRange<3, 4>>);
+  static_assert(std::is_same_v<StaticRank<4>, decltype(range.size())>);
+  static_assert(std::is_same_v<StaticRank<3>, decltype(range.input_rank())>);
   // range.size() is equal to t.output_rank().
   EXPECT_EQ(4, range.size());
   EXPECT_EQ(3, range.input_rank());
   EXPECT_EQ(false, range.empty());
 
   auto it = range.begin();
-  static_assert(std::is_same<OutputIndexMapIterator<3>, decltype(it)>::value,
-                "");
+  static_assert(std::is_same_v<OutputIndexMapIterator<3>, decltype(it)>);
   EXPECT_EQ(range.begin(), it);
   EXPECT_NE(range.end(), it);
   EXPECT_EQ(range.end(), range.end());
   {
     auto output0 = *it;
-    static_assert(std::is_same<OutputIndexMapRef<3>, decltype(output0)>::value,
-                  "");
+    static_assert(std::is_same_v<OutputIndexMapRef<3>, decltype(output0)>);
     EXPECT_EQ(OutputIndexMethod::constant, output0.method());
     EXPECT_EQ(10, output0.offset());
   }
@@ -167,8 +163,7 @@ TEST(OutputIndexMapTest, StaticRanks) {
 
   {
     auto output1a = range.begin()[1];
-    static_assert(std::is_same<OutputIndexMapRef<3>, decltype(output1a)>::value,
-                  "");
+    static_assert(std::is_same_v<OutputIndexMapRef<3>, decltype(output1a)>);
     EXPECT_EQ(OutputIndexMethod::single_input_dimension, output1a.method());
     EXPECT_EQ(2, output1a.input_dimension());
     EXPECT_EQ(20, output1a.offset());
@@ -177,8 +172,7 @@ TEST(OutputIndexMapTest, StaticRanks) {
 
   {
     auto output1b = range[1];
-    static_assert(std::is_same<OutputIndexMapRef<3>, decltype(output1b)>::value,
-                  "");
+    static_assert(std::is_same_v<OutputIndexMapRef<3>, decltype(output1b)>);
     EXPECT_EQ(OutputIndexMethod::single_input_dimension, output1b.method());
     EXPECT_EQ(2, output1b.input_dimension());
     EXPECT_EQ(20, output1b.offset());
@@ -187,8 +181,7 @@ TEST(OutputIndexMapTest, StaticRanks) {
 
   {
     auto output1c = t.output_index_map(1);
-    static_assert(std::is_same<OutputIndexMapRef<3>, decltype(output1c)>::value,
-                  "");
+    static_assert(std::is_same_v<OutputIndexMapRef<3>, decltype(output1c)>);
     EXPECT_EQ(OutputIndexMethod::single_input_dimension, output1c.method());
     EXPECT_EQ(2, output1c.input_dimension());
     EXPECT_EQ(20, output1c.offset());
@@ -206,8 +199,7 @@ TEST(OutputIndexMapTest, StaticRanks) {
     EXPECT_EQ(IndexInterval::UncheckedClosed(3, 10),
               index_array_ref.index_range());
     static_assert(
-        std::is_same<StaticRank<3>, decltype(index_array_ref.rank())>::value,
-        "");
+        std::is_same_v<StaticRank<3>, decltype(index_array_ref.rank())>);
     const StridedLayout<3, offset_origin> expected_layout(
         {1, 2, 3}, {4, 4, 3}, {0, sizeof(Index), 0});
     EXPECT_EQ(expected_layout, index_array_ref.layout());
@@ -257,27 +249,23 @@ TEST(OutputIndexMapTest, DynamicRanks) {
                .Finalize()
                .value();
   auto range = t.output_index_maps();
-  static_assert(std::is_same<decltype(range), OutputIndexMapRange<>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(range), OutputIndexMapRange<>>);
   EXPECT_EQ(4, range.size());
   EXPECT_EQ(3, range.input_rank());
   EXPECT_EQ(false, range.empty());
 
   auto it = range.begin();
-  static_assert(std::is_same<OutputIndexMapIterator<>, decltype(it)>::value,
-                "");
+  static_assert(std::is_same_v<OutputIndexMapIterator<>, decltype(it)>);
   {
     auto output0 = *it;
-    static_assert(std::is_same<OutputIndexMapRef<>, decltype(output0)>::value,
-                  "");
+    static_assert(std::is_same_v<OutputIndexMapRef<>, decltype(output0)>);
     EXPECT_EQ(OutputIndexMethod::constant, output0.method());
     EXPECT_EQ(10, output0.offset());
   }
 
   {
     auto output2 = range[2];
-    static_assert(std::is_same<OutputIndexMapRef<>, decltype(output2)>::value,
-                  "");
+    static_assert(std::is_same_v<OutputIndexMapRef<>, decltype(output2)>);
     EXPECT_EQ(OutputIndexMethod::array, output2.method());
     EXPECT_EQ(30, output2.offset());
     EXPECT_EQ(3, output2.stride());

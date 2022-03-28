@@ -1212,4 +1212,8 @@ TEST(ResultTest, MoveAssignmentVoid) {
   EXPECT_EQ(absl::InvalidArgumentError("abc"), s.status());
 }
 
+struct NotEqualityComparable {};
+static_assert(!tensorstore::internal::IsEqualityComparable<
+              Result<NotEqualityComparable>, Result<NotEqualityComparable>>);
+
 }  // namespace

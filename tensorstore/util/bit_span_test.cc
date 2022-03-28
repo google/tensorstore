@@ -29,36 +29,28 @@ using tensorstore::BitRef;
 using tensorstore::BitSpan;
 using tensorstore::BitVectorSizeInBlocks;
 
-static_assert(std::is_convertible<BitRef<std::uint32_t>,
-                                  BitRef<const std::uint32_t>>::value,
-              "");
+static_assert(
+    std::is_convertible_v<BitRef<std::uint32_t>, BitRef<const std::uint32_t>>);
 
-static_assert(!std::is_convertible<BitRef<const std::uint32_t>,
-                                   BitRef<std::uint32_t>>::value,
-              "");
+static_assert(
+    !std::is_convertible_v<BitRef<const std::uint32_t>, BitRef<std::uint32_t>>);
 
-static_assert(std::is_convertible<BitIterator<std::uint32_t>,
-                                  BitIterator<const std::uint32_t>>::value,
-              "");
+static_assert(std::is_convertible_v<BitIterator<std::uint32_t>,
+                                    BitIterator<const std::uint32_t>>);
 
-static_assert(!std::is_convertible<BitIterator<const std::uint32_t>,
-                                   BitIterator<std::uint32_t>>::value,
-              "");
+static_assert(!std::is_convertible_v<BitIterator<const std::uint32_t>,
+                                     BitIterator<std::uint32_t>>);
 
-static_assert(std::is_convertible<BitSpan<std::uint32_t>,
-                                  BitSpan<const std::uint32_t>>::value,
-              "");
+static_assert(std::is_convertible_v<BitSpan<std::uint32_t>,
+                                    BitSpan<const std::uint32_t>>);
 
-static_assert(std::is_convertible<BitSpan<const std::uint32_t, 3>,
-                                  BitSpan<const std::uint32_t>>::value,
-              "");
+static_assert(std::is_convertible_v<BitSpan<const std::uint32_t, 3>,
+                                    BitSpan<const std::uint32_t>>);
 
-static_assert(std::is_convertible<BitSpan<std::uint32_t, 3>,
-                                  BitSpan<const std::uint32_t>>::value,
-              "");
+static_assert(std::is_convertible_v<BitSpan<std::uint32_t, 3>,
+                                    BitSpan<const std::uint32_t>>);
 
-static_assert(!std::is_assignable<BitRef<const std::uint32_t>, bool>::value,
-              "");
+static_assert(!std::is_assignable_v<BitRef<const std::uint32_t>, bool>);
 
 TEST(BitRefTest, Basic) {
   std::uint16_t data[2] = {0, 0};
@@ -129,13 +121,11 @@ TEST(BitIteratorTest, Basic) {
 
   {
     auto ref = *it;
-    static_assert(std::is_same<BitRef<std::uint16_t>, decltype(ref)>::value,
-                  "");
+    static_assert(std::is_same_v<BitRef<std::uint16_t>, decltype(ref)>);
     auto ref_subscript = it[0];
     auto ref_subscript2 = it2[17];
     static_assert(
-        std::is_same<BitRef<std::uint16_t>, decltype(ref_subscript)>::value,
-        "");
+        std::is_same_v<BitRef<std::uint16_t>, decltype(ref_subscript)>);
     EXPECT_FALSE(ref_subscript);
     EXPECT_FALSE(ref_subscript2);
     ref = true;
@@ -155,8 +145,7 @@ TEST(BitIteratorTest, Basic) {
 
   {
     auto ref = *const_it;
-    static_assert(
-        std::is_same<BitRef<const std::uint16_t>, decltype(ref)>::value, "");
+    static_assert(std::is_same_v<BitRef<const std::uint16_t>, decltype(ref)>);
     EXPECT_FALSE(ref);
     data[0] = 0x8 /*=0b1000*/;
     EXPECT_TRUE(ref);

@@ -81,7 +81,7 @@ class TaggedPtr {
   /// \post `this->get() == ptr`.
   /// \post `this->tag() == tag`.
   template <typename U,
-            std::enable_if_t<std::is_convertible<U*, T*>::value>* = nullptr>
+            std::enable_if_t<std::is_convertible_v<U*, T*>>* = nullptr>
   TaggedPtr(U* ptr, std::uintptr_t tag = 0) noexcept {
     assert((reinterpret_cast<std::uintptr_t>(static_cast<T*>(ptr)) &
             kTagMask) == 0 &&
@@ -94,7 +94,7 @@ class TaggedPtr {
   /// \post `this->get() == other.get()`.
   /// \post `this->tag() == other.tag()`.
   template <typename U,
-            std::enable_if_t<std::is_convertible<U*, T*>::value>* = nullptr>
+            std::enable_if_t<std::is_convertible_v<U*, T*>>* = nullptr>
   TaggedPtr(TaggedPtr<U, TagBits> other) noexcept
       : TaggedPtr(other.get(), other.tag()) {}
 
@@ -114,7 +114,7 @@ class TaggedPtr {
   /// \post `this->get() == ptr`.
   /// \post `this->tag() == 0`.
   template <typename U>
-  std::enable_if_t<std::is_convertible<U*, T*>::value, TaggedPtr&> operator=(
+  std::enable_if_t<std::is_convertible_v<U*, T*>, TaggedPtr&> operator=(
       U* ptr) noexcept {
     *this = TaggedPtr(ptr);
     return *this;

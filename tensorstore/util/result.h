@@ -224,8 +224,19 @@ class Result : private internal_result::ResultStorage<T>,
   Result(const Result<U>& rhs) : Base(internal_result::noinit_t{}) {
     construct_from(rhs);
   }
+  template <
+      typename U,
+      std::enable_if_t<
+          (internal_result::result_conversion<T, U> &&                        //
+           std::is_constructible_v<T, std::add_rvalue_reference_t<U>> &&      //
+           std::is_convertible_v<std::add_rvalue_reference_t<U>, T> &&        //
+           !internal_result::is_constructible_convertible_from<T, Result<U>>  //
+           )>* = nullptr>
+  Result(Result<U>&& rhs) : Base(internal_result::noinit_t{}) {
+    construct_from(std::move(rhs));
+  }
 
-  /// \brief Converting copy constructor (explicit)
+  // Explicit overload of above.
   template <
       typename U,
       std::enable_if_t<
@@ -240,20 +251,7 @@ class Result : private internal_result::ResultStorage<T>,
     construct_from(rhs);
   }
 
-  /// \brief Converting move constructor (implicit)
-  template <
-      typename U,
-      std::enable_if_t<
-          (internal_result::result_conversion<T, U> &&                        //
-           std::is_constructible_v<T, std::add_rvalue_reference_t<U>> &&      //
-           std::is_convertible_v<std::add_rvalue_reference_t<U>, T> &&        //
-           !internal_result::is_constructible_convertible_from<T, Result<U>>  //
-           )>* = nullptr>
-  Result(Result<U>&& rhs) : Base(internal_result::noinit_t{}) {
-    construct_from(std::move(rhs));
-  }
-
-  /// \brief Converting move constructor (explicit)
+  // Explicit overload of above.
   template <
       typename U,
       std::enable_if_t<
@@ -345,13 +343,13 @@ class Result : private internal_result::ResultStorage<T>,
   /// \brief Constructs a non-empty `Result` direct-initialized value of type
   /// `T` from the arguments `std::forward<Args>(args)...`  within the `Result`.
   template <typename... Args>
-  Result(in_place_t, Args&&... args)
+  Result(std::in_place_t, Args&&... args)
       : Base(internal_result::value_t{}, std::forward<Args>(args)...) {}
 
   /// Constructs a non-empty `Result` direct-initialized value of type `T` from
   /// the arguments of an initializer_list and `std::forward<Args>(args)...`.
   template <typename U, typename... Args>
-  Result(in_place_t, std::initializer_list<U> il, Args&&... args)
+  Result(std::in_place_t, std::initializer_list<U> il, Args&&... args)
       : Base(internal_result::value_t{}, il, std::forward<Args>(args)...) {}
 
   /// Single value forwarding constructors
@@ -396,11 +394,8 @@ class Result : private internal_result::ResultStorage<T>,
   ///   opt.emplace(arg1,arg2,arg3);  // Constructs Foo(arg1,arg2,arg3)
   ///
   template <typename... Args>
-  typename std::enable_if_t<((std::is_same<void, T>::value &&
-                              sizeof...(Args) == 0) ||
-                             std::is_constructible_v<T, Args&&...>),
-                            reference_type>
-  emplace(Args&&... args) {
+  reference_type emplace(Args&&... args) {
+    static_assert(sizeof...(Args) == 0 || !std::is_void_v<T>);
     this->emplace_value(std::forward<Args>(args)...);
     if constexpr (!std::is_void_v<value_type>) {
       return this->value_;
@@ -408,10 +403,7 @@ class Result : private internal_result::ResultStorage<T>,
   }
 
   template <typename U, typename... Args>
-  typename std::enable_if_t<
-      std::is_constructible_v<T, std::initializer_list<U>&, Args&&...>,
-      reference_type>
-  emplace(std::initializer_list<U> il, Args&&... args) {
+  reference_type emplace(std::initializer_list<U> il, Args&&... args) {
     this->emplace_value(il, std::forward<Args>(args)...);
     return this->value_;
   }
@@ -532,6 +524,74 @@ class Result : private internal_result::ResultStorage<T>,
   /// FIXME: Result::and_then()
   /// FIXME: Result::map()
 
+  /// Compares two results for equality.
+  ///
+  /// Two results are considered equal if:
+  ///
+  /// - they both contain error values that are equal; or
+  /// - they both contain values that are equal; or
+  /// - they both contain values of type `void`.
+  ///
+  /// \requires `T` and `U` are equality comparable or both `void`.
+  template <typename U>
+  friend std::enable_if_t<(internal::IsEqualityComparable<T, U> ||
+                           // Use `std::is_same_v<T, U>` rather than
+                           // `std::is_void_v<T>` to ensure condition is
+                           // dependent.
+                           (std::is_same_v<T, U> && std::is_void_v<U>)),
+                          bool>
+  operator==(const Result<T>& a, const Result<U>& b) {
+    if (a.has_value() != b.has_value()) {
+      return false;
+    }
+    if (!a.has_value()) {
+      return a.status() == b.status();
+    }
+    if constexpr (std::is_void_v<T>) {
+      return true;
+    } else {
+      return *a == *b;
+    }
+  }
+  template <typename U>
+  friend std::enable_if_t<
+      internal_result::IsEqualityComparableIfNotResult<T, U>, bool>
+  operator==(const Result<T>& a, const U& b) {
+    return a.has_value() ? (a.value() == b) : false;
+  }
+  template <typename U>
+  friend std::enable_if_t<
+      internal_result::IsEqualityComparableIfNotResult<T, U>, bool>
+  operator==(const U& a, const Result<T>& b) {
+    return b.has_value() ? (b.value() == a) : false;
+  }
+
+  /// Checks if two Result values are not equal.
+  ///
+  /// \requires `T` and `U` are equality comparable or both `void`.
+  template <typename U>
+  friend std::enable_if_t<(internal::IsEqualityComparable<T, U> ||
+                           // Use `std::is_same_v<T, U>` rather than
+                           // `std::is_void_v<T>` to ensure condition is
+                           // dependent.
+                           (std::is_same_v<T, U> && std::is_void_v<U>)),
+                          bool>
+  operator!=(const Result<T>& a, const Result<U>& b) {
+    return !(a == b);
+  }
+  template <typename U>
+  friend std::enable_if_t<
+      internal_result::IsEqualityComparableIfNotResult<T, U>, bool>
+  operator!=(const Result<T>& a, const U& b) {
+    return !(a == b);
+  }
+  template <typename U>
+  friend std::enable_if_t<
+      internal_result::IsEqualityComparableIfNotResult<T, U>, bool>
+  operator!=(const U& a, const Result<T>& b) {
+    return !(a == b);
+  }
+
   /// The `set_value`, `set_cancel`, `set_error`, and `submit` functions defined
   /// below make `Result<T>` model the `Receiver<absl::Status, T>` and
   /// `Sender<absl::Status, T>` concepts.
@@ -623,58 +683,6 @@ class Result : private internal_result::ResultStorage<T>,
   }
 };
 
-/// \brief Checks if two Result values are equal.
-template <typename T, typename U>
-inline std::enable_if_t<
-    std::is_same_v<bool, decltype(std::declval<T>() == std::declval<U>())>,
-    bool>
-operator==(const Result<T>& a, const Result<U>& b) {
-  if (a.has_value() != b.has_value()) {
-    return false;
-  }
-  return a.has_value() ? a.value() == b.value() : a.status() == b.status();
-}
-
-template <typename T, typename U>
-inline std::enable_if_t<(std::is_same_v<void, T> && std::is_same_v<void, U>),
-                        bool>
-operator==(const Result<T>& a, const Result<U>& b) {
-  return (a.has_value() == b.has_value()) &&
-         (a.has_value() || (a.status() == b.status()));
-}
-
-template <typename T, typename U>
-inline std::enable_if_t<
-    std::is_same_v<bool, decltype(std::declval<T>() == std::declval<U>())>,
-    bool>
-operator==(const Result<T>& a, const U& b) {
-  return a.has_value() ? (a.value() == b) : false;
-}
-
-template <typename T, typename U>
-inline std::enable_if_t<
-    std::is_same_v<bool, decltype(std::declval<T>() == std::declval<U>())>,
-    bool>
-operator==(const T& a, const Result<U>& b) {
-  return b.has_value() ? (b.value() == a) : false;
-}
-
-/// \brief Checks if two Result values are not equal.
-template <typename T, typename U>
-inline bool operator!=(const Result<T>& a, const Result<U>& b) {
-  return !(a == b);
-}
-
-template <typename T, typename U>
-inline bool operator!=(const Result<T>& a, const U& b) {
-  return !(a == b);
-}
-
-template <typename T, typename U>
-inline bool operator!=(const T& a, const Result<U>& b) {
-  return !(a == b);
-}
-
 /// Returns a Result<T> with a (possibly-default) value.
 /// Example:
 ///    Result<void> r = MakeResult();
@@ -685,22 +693,23 @@ inline Result<void> MakeResult() { return {std::in_place}; }
 template <int&... ExplicitArgumentBarrier, typename T>
 inline Result<typename tensorstore::internal::remove_cvref_t<T>> MakeResult(
     T&& t) {
-  return {in_place, std::forward<T>(t)};
+  return {std::in_place, std::forward<T>(t)};
 }
-
 template <typename U, typename... Args>
 inline Result<U> MakeResult(Args&&... args) {
-  return {in_place, std::forward<Args>(args)...};
+  return {std::in_place, std::forward<Args>(args)...};
 }
 
 /// Returns a Result corresponding to a success or error `status`.
+///
+/// \relates Result
+/// \id status
 inline Result<void> MakeResult(absl::Status status) {
   return Result<void>(std::move(status));
 }
-
 template <typename U>
 inline Result<U> MakeResult(absl::Status status) {
-  return status.ok() ? Result<U>(in_place) : Result<U>(std::move(status));
+  return status.ok() ? Result<U>(std::in_place) : Result<U>(std::move(status));
 }
 
 /// FIXME: It would be nice if the naming convention for UnwrapResult

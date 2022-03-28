@@ -108,19 +108,19 @@ inline T* StaticConstPointerCast(U* other) {
 }
 
 template <typename T, typename U>
-inline std::enable_if_t<std::is_convertible<U*, T*>::value, std::shared_ptr<T>>
+inline std::enable_if_t<std::is_convertible_v<U*, T*>, std::shared_ptr<T>>
 StaticConstPointerCast(const std::shared_ptr<U>& other) {
   return other;
 }
 
 template <typename T, typename U>
-inline std::enable_if_t<std::is_convertible<U*, T*>::value, std::shared_ptr<T>>
+inline std::enable_if_t<std::is_convertible_v<U*, T*>, std::shared_ptr<T>>
 StaticConstPointerCast(std::shared_ptr<U>&& other) {
   return std::move(other);
 }
 
 template <typename T, typename U>
-inline std::enable_if_t<!std::is_convertible<U*, T*>::value, std::shared_ptr<T>>
+inline std::enable_if_t<!std::is_convertible_v<U*, T*>, std::shared_ptr<T>>
 StaticConstPointerCast(const std::shared_ptr<U>& other) {
   return std::shared_ptr<T>(other, StaticConstPointerCast<T>(other.get()));
 }

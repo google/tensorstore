@@ -363,34 +363,30 @@ struct AddPolyApply {
   }
 };
 
-static_assert(HasPolyApply<AddPolyApply, int>::value, "");
-static_assert(!HasPolyApply<AddPolyApply, int, int>::value, "");
-static_assert(!HasPolyApply<Add, int>::value, "");
-static_assert(!HasPolyApply<Add, int, int>::value, "");
-static_assert(std::is_same<CallPolyApplyResult<AddPolyApply, int>, int>::value,
-              "");
+static_assert(HasPolyApply<AddPolyApply, int>);
+static_assert(!HasPolyApply<AddPolyApply, int, int>);
+static_assert(!HasPolyApply<Add, int>);
+static_assert(!HasPolyApply<Add, int, int>);
+static_assert(std::is_same_v<CallPolyApplyResult<AddPolyApply, int>, int>);
 static_assert(
-    std::is_same<CallPolyApplyResult<AddPolyApply, double>, double>::value, "");
-static_assert(std::is_same<CallPolyApplyResult<Add, int>, int>::value, "");
-static_assert(std::is_same<CallPolyApplyResult<Add, double>, double>::value,
-              "");
-static_assert(IsCallPolyApplyResultConvertible<Add, int, double>::value, "");
-static_assert(IsCallPolyApplyResultConvertible<Add, double, double>::value, "");
-static_assert(!IsCallPolyApplyResultConvertible<Add, int*, double>::value, "");
-static_assert(IsCallPolyApplyResultConvertible<Add, void, double>::value, "");
-static_assert(!IsCallPolyApplyResultConvertible<Add, void, int, int>::value,
-              "");
-static_assert(!IsCallPolyApplyResultConvertible<Add, int, int, int>::value, "");
+    std::is_same_v<CallPolyApplyResult<AddPolyApply, double>, double>);
+static_assert(std::is_same_v<CallPolyApplyResult<Add, int>, int>);
+static_assert(std::is_same_v<CallPolyApplyResult<Add, double>, double>);
+static_assert(IsCallPolyApplyResultConvertible<Add, int, double>::value);
+static_assert(IsCallPolyApplyResultConvertible<Add, double, double>::value);
+static_assert(!IsCallPolyApplyResultConvertible<Add, int*, double>::value);
+static_assert(IsCallPolyApplyResultConvertible<Add, void, double>::value);
+static_assert(!IsCallPolyApplyResultConvertible<Add, void, int, int>::value);
+static_assert(!IsCallPolyApplyResultConvertible<Add, int, int, int>::value);
 static_assert(
-    IsCallPolyApplyResultConvertible<AddPolyApply, int, double>::value, "");
+    IsCallPolyApplyResultConvertible<AddPolyApply, int, double>::value);
 static_assert(
-    IsCallPolyApplyResultConvertible<AddPolyApply, double, double>::value, "");
-static_assert(IsCallPolyApplyResultConvertible<AddPolyApply, void, int>::value,
-              "");
-static_assert(!IsCallPolyApplyResultConvertible<AddPolyApply, int*, int>::value,
-              "");
+    IsCallPolyApplyResultConvertible<AddPolyApply, double, double>::value);
+static_assert(IsCallPolyApplyResultConvertible<AddPolyApply, void, int>::value);
 static_assert(
-    !IsCallPolyApplyResultConvertible<AddPolyApply, void, int, int>::value, "");
+    !IsCallPolyApplyResultConvertible<AddPolyApply, int*, int>::value);
+static_assert(
+    !IsCallPolyApplyResultConvertible<AddPolyApply, void, int, int>::value);
 
 TEST(PolyTest, PolyApply) {
   auto amount = std::make_shared<int>(1);
@@ -412,10 +408,8 @@ TEST(PolyTest, MoveOnly) {
   };
 
   using PolyT = Poly<sizeof(Callable), false, int() const>;
-  static_assert(
-      !std::is_constructible<Poly<0, true, int() const>, Callable>::value, "");
-  static_assert(
-      std::is_constructible<Poly<0, false, int() const>, Callable>::value, "");
+  static_assert(!std::is_constructible_v<Poly<0, true, int() const>, Callable>);
+  static_assert(std::is_constructible_v<Poly<0, false, int() const>, Callable>);
   PolyT poly(Callable{std::unique_ptr<int>(new int(5))});
   auto poly2 = std::move(poly);
   EXPECT_FALSE(poly);  // NOLINT

@@ -56,50 +56,43 @@ using tensorstore::Result;
 using tensorstore::internal::TestConcurrent;
 using tensorstore::internal_future::FutureAccess;
 
-static_assert(IsFutureConvertible<int, const int>::value, "");
-static_assert(!IsFutureConvertible<const int, int>::value, "");
+static_assert(IsFutureConvertible<int, const int>);
+static_assert(!IsFutureConvertible<const int, int>);
 
-static_assert(std::is_same_v<decltype(FutureAccess::rep_pointer(
-                                 std::declval<Future<void>&>())),
-                             tensorstore::internal_future::FutureStatePointer&>,
-              "");
+static_assert(
+    std::is_same_v<
+        decltype(FutureAccess::rep_pointer(std::declval<Future<void>&>())),
+        tensorstore::internal_future::FutureStatePointer&>);
 static_assert(
     std::is_same_v<decltype(FutureAccess::rep_pointer(
                        std::declval<const Future<void>&>())),
-                   const tensorstore::internal_future::FutureStatePointer&>,
-    "");
+                   const tensorstore::internal_future::FutureStatePointer&>);
 static_assert(
     std::is_same_v<
         decltype(FutureAccess::rep_pointer(std::declval<Future<void>&&>())),
-        tensorstore::internal_future::FutureStatePointer&&>,
-    "");
+        tensorstore::internal_future::FutureStatePointer&&>);
 static_assert(
     std::is_same_v<
         decltype(FutureAccess::rep_pointer(std::declval<Promise<void>&>())),
-        tensorstore::internal_future::PromiseStatePointer&>,
-    "");
+        tensorstore::internal_future::PromiseStatePointer&>);
 static_assert(
     std::is_same_v<decltype(FutureAccess::rep_pointer(
                        std::declval<const Promise<void>&>())),
-                   const tensorstore::internal_future::PromiseStatePointer&>,
-    "");
+                   const tensorstore::internal_future::PromiseStatePointer&>);
 static_assert(
     std::is_same_v<
         decltype(FutureAccess::rep_pointer(std::declval<Promise<void>&&>())),
-        tensorstore::internal_future::PromiseStatePointer&&>,
-    "");
+        tensorstore::internal_future::PromiseStatePointer&&>);
 
 // Since Future<X> can be constructed from Result<X>, ensure that the reverse
 // is not true; otherwise Result<void> may have issues.
-static_assert(!std::is_constructible_v<Result<int>, Result<Future<int>>>, "");
-static_assert(!std::is_convertible_v<Result<int>, Result<Future<int>>>, "");
-static_assert(!std::is_assignable_v<Result<int>, Result<Future<int>>>, "");
+static_assert(!std::is_constructible_v<Result<int>, Result<Future<int>>>);
+static_assert(!std::is_convertible_v<Result<int>, Result<Future<int>>>);
+static_assert(!std::is_assignable_v<Result<int>, Result<Future<int>>>);
 
-static_assert(
-    std::is_same_v<
-        Result<Future<void>>,
-        tensorstore::FlatResult<std::invoke_result_t<Future<void>()>>>,
-    "");
+static_assert(std::is_same_v<
+              Result<Future<void>>,
+              tensorstore::FlatResult<std::invoke_result_t<Future<void>()>>>);
 
 TEST(FutureTest, Valid) {
   EXPECT_FALSE(Future<int>().valid());

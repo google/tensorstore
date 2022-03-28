@@ -43,26 +43,25 @@ using tensorstore::serialization::TestSerializationRoundTrip;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 
-static_assert(std::is_convertible<BoxView<3>, BoxView<>>::value, "");
-static_assert(!std::is_constructible<BoxView<3>, BoxView<>>::value, "");
-static_assert(!std::is_assignable<BoxView<3>, BoxView<>>::value, "");
-static_assert(!std::is_assignable<Box<3>, Box<>>::value, "");
-static_assert(!std::is_constructible<Box<3>, Box<>>::value, "");
-static_assert(!std::is_constructible<BoxView<3>, Box<>>::value, "");
-static_assert(
-    !std::is_constructible<MutableBoxView<3>, MutableBoxView<>>::value, "");
-static_assert(!std::is_constructible<MutableBoxView<3>, Box<>>::value, "");
-static_assert(std::is_constructible<MutableBoxView<3>, Box<3>&>::value, "");
+static_assert(std::is_convertible_v<BoxView<3>, BoxView<>>);
+static_assert(!std::is_constructible_v<BoxView<3>, BoxView<>>);
+static_assert(!std::is_assignable_v<BoxView<3>, BoxView<>>);
+static_assert(!std::is_assignable_v<Box<3>, Box<>>);
+static_assert(!std::is_constructible_v<Box<3>, Box<>>);
+static_assert(!std::is_constructible_v<BoxView<3>, Box<>>);
+static_assert(!std::is_constructible_v<MutableBoxView<3>, MutableBoxView<>>);
+static_assert(!std::is_constructible_v<MutableBoxView<3>, Box<>>);
+static_assert(std::is_constructible_v<MutableBoxView<3>, Box<3>&>);
 
-static_assert(IsCastConstructible<BoxView<3>, BoxView<>>::value, "");
-static_assert(IsCastConstructible<Box<3>, BoxView<>>::value, "");
-static_assert(IsCastConstructible<Box<3>, Box<>>::value, "");
-static_assert(IsCastConstructible<BoxView<>, BoxView<3>>::value, "");
-static_assert(IsCastConstructible<MutableBoxView<3>, Box<3>&>::value, "");
-static_assert(!IsCastConstructible<MutableBoxView<>, const Box<3>&>::value, "");
-static_assert(!IsCastConstructible<BoxView<2>, BoxView<3>>::value, "");
-static_assert(!IsCastConstructible<BoxView<2>, Box<3>>::value, "");
-static_assert(!IsCastConstructible<Box<3>, Box<2>>::value, "");
+static_assert(IsCastConstructible<BoxView<3>, BoxView<>>);
+static_assert(IsCastConstructible<Box<3>, BoxView<>>);
+static_assert(IsCastConstructible<Box<3>, Box<>>);
+static_assert(IsCastConstructible<BoxView<>, BoxView<3>>);
+static_assert(IsCastConstructible<MutableBoxView<3>, Box<3>&>);
+static_assert(!IsCastConstructible<MutableBoxView<>, const Box<3>&>);
+static_assert(!IsCastConstructible<BoxView<2>, BoxView<3>>);
+static_assert(!IsCastConstructible<BoxView<2>, Box<3>>);
+static_assert(!IsCastConstructible<Box<3>, Box<2>>);
 
 TEST(BoxTest, DefaultConstructDynamic) {
   Box<> box;
@@ -124,7 +123,7 @@ TEST(BoxTest, ConstructFromBoxView) {
 TEST(BoxTest, DeduceFromShapeArray) {
   const Index shape[] = {3, 4, 5};
   auto box = Box(shape);
-  static_assert(std::is_same<decltype(box), Box<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box), Box<3>>);
   EXPECT_THAT(box.origin(), ElementsAre(0, 0, 0));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
 }
@@ -132,7 +131,7 @@ TEST(BoxTest, DeduceFromShapeArray) {
 TEST(BoxTest, DeduceFromShapeSpanStatic) {
   const Index shape[] = {3, 4, 5};
   auto box = Box(span(shape));
-  static_assert(std::is_same<decltype(box), Box<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box), Box<3>>);
   EXPECT_THAT(box.origin(), ElementsAre(0, 0, 0));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
 }
@@ -140,7 +139,7 @@ TEST(BoxTest, DeduceFromShapeSpanStatic) {
 TEST(BoxTest, DeduceFromShapeSpanDynamic) {
   const Index shape[] = {3, 4, 5};
   auto box = Box(span<const Index>(shape));
-  static_assert(std::is_same<decltype(box), Box<>>::value, "");
+  static_assert(std::is_same_v<decltype(box), Box<>>);
   EXPECT_THAT(box.origin(), ElementsAre(0, 0, 0));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
 }
@@ -149,7 +148,7 @@ TEST(BoxTest, DeduceFromOriginAndShapeArrays) {
   const Index origin[] = {1, 2, 3};
   const Index shape[] = {3, 4, 5};
   auto box = Box(origin, shape);
-  static_assert(std::is_same<decltype(box), Box<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box), Box<3>>);
   EXPECT_THAT(box.origin(), ElementsAre(1, 2, 3));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
 }
@@ -158,7 +157,7 @@ TEST(BoxTest, DeduceFromOriginAndShapeSpansStatic) {
   const Index origin[] = {1, 2, 3};
   const Index shape[] = {3, 4, 5};
   auto box = Box(span(origin), span(shape));
-  static_assert(std::is_same<decltype(box), Box<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box), Box<3>>);
   EXPECT_THAT(box.origin(), ElementsAre(1, 2, 3));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
 }
@@ -167,7 +166,7 @@ TEST(BoxTest, DeduceFromOriginAndShapeDynamic) {
   const Index origin[] = {1, 2, 3};
   const Index shape[] = {3, 4, 5};
   auto box = Box(span<const Index>(origin), span<const Index>(shape));
-  static_assert(std::is_same<decltype(box), Box<>>::value, "");
+  static_assert(std::is_same_v<decltype(box), Box<>>);
   EXPECT_THAT(box.origin(), ElementsAre(1, 2, 3));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
 }
@@ -177,7 +176,7 @@ TEST(BoxTest, DeduceFromBoxView) {
   const Index shape[] = {3, 4, 5};
   BoxView<3> box(origin, shape);
   auto box2 = Box(box);
-  static_assert(std::is_same<decltype(box2), Box<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box2), Box<3>>);
   EXPECT_THAT(box2.shape(), ElementsAreArray(shape));
   EXPECT_THAT(box2.origin(), ElementsAreArray(origin));
 }
@@ -187,7 +186,7 @@ TEST(BoxTest, DeduceFromBox) {
   const Index shape[] = {3, 4, 5};
   Box<3> box(origin, shape);
   auto box2 = Box(box);
-  static_assert(std::is_same<decltype(box2), Box<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box2), Box<3>>);
   EXPECT_THAT(box2.shape(), ElementsAreArray(shape));
   EXPECT_THAT(box2.origin(), ElementsAreArray(origin));
 }
@@ -318,7 +317,7 @@ TEST(BoxViewTest, DynamicRankSpanConstruct) {
 TEST(BoxViewTest, DeduceFromShapeArray) {
   const Index shape[] = {3, 4, 5};
   auto box = BoxView(shape);
-  static_assert(std::is_same<decltype(box), BoxView<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box), BoxView<3>>);
   EXPECT_THAT(box.origin(), ElementsAre(0, 0, 0));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
 }
@@ -326,7 +325,7 @@ TEST(BoxViewTest, DeduceFromShapeArray) {
 TEST(BoxViewTest, DeduceFromShapeSpanStatic) {
   const Index shape[] = {3, 4, 5};
   auto box = BoxView(span(shape));
-  static_assert(std::is_same<decltype(box), BoxView<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box), BoxView<3>>);
   EXPECT_THAT(box.origin(), ElementsAre(0, 0, 0));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
 }
@@ -334,7 +333,7 @@ TEST(BoxViewTest, DeduceFromShapeSpanStatic) {
 TEST(BoxViewTest, DeduceFromShapeSpanDynamic) {
   const Index shape[] = {3, 4, 5};
   auto box = BoxView(span<const Index>(shape));
-  static_assert(std::is_same<decltype(box), BoxView<>>::value, "");
+  static_assert(std::is_same_v<decltype(box), BoxView<>>);
   EXPECT_THAT(box.origin(), ElementsAre(0, 0, 0));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
 }
@@ -343,7 +342,7 @@ TEST(BoxViewTest, DeduceFromOriginAndShapeArrays) {
   const Index origin[] = {1, 2, 3};
   const Index shape[] = {3, 4, 5};
   auto box = BoxView(origin, shape);
-  static_assert(std::is_same<decltype(box), BoxView<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box), BoxView<3>>);
   EXPECT_THAT(box.origin(), ElementsAre(1, 2, 3));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
 }
@@ -352,7 +351,7 @@ TEST(BoxViewTest, DeduceFromOriginAndShapeSpansStatic) {
   const Index origin[] = {1, 2, 3};
   const Index shape[] = {3, 4, 5};
   auto box = BoxView(span(origin), span(shape));
-  static_assert(std::is_same<decltype(box), BoxView<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box), BoxView<3>>);
   EXPECT_THAT(box.origin(), ElementsAre(1, 2, 3));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
 }
@@ -361,7 +360,7 @@ TEST(BoxViewTest, DeduceFromOriginAndShapeDynamic) {
   const Index origin[] = {1, 2, 3};
   const Index shape[] = {3, 4, 5};
   auto box = BoxView(span<const Index>(origin), span<const Index>(shape));
-  static_assert(std::is_same<decltype(box), BoxView<>>::value, "");
+  static_assert(std::is_same_v<decltype(box), BoxView<>>);
   EXPECT_THAT(box.origin(), ElementsAre(1, 2, 3));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
 }
@@ -371,7 +370,7 @@ TEST(BoxViewTest, DeduceFromBoxView) {
   const Index shape[] = {3, 4, 5};
   BoxView<3> box(origin, shape);
   auto box2 = BoxView(box);
-  static_assert(std::is_same<decltype(box2), BoxView<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box2), BoxView<3>>);
   EXPECT_THAT(box2.shape(), ElementsAreArray(shape));
   EXPECT_THAT(box2.origin(), ElementsAreArray(origin));
 }
@@ -381,7 +380,7 @@ TEST(BoxViewTest, DeduceFromBox) {
   const Index shape[] = {3, 4, 5};
   const Box<3> box(origin, shape);
   auto box2 = BoxView(box);
-  static_assert(std::is_same<decltype(box2), BoxView<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box2), BoxView<3>>);
   EXPECT_THAT(box2.shape(), ElementsAreArray(shape));
   EXPECT_THAT(box2.origin(), ElementsAreArray(origin));
 }
@@ -443,7 +442,7 @@ TEST(BoxViewTest, StaticRankCast) {
       StaticRankCast<2>(box),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Cannot cast box with rank of 3 to box with rank of 2"));
-  static_assert(std::is_same<decltype(box2), BoxView<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box2), BoxView<3>>);
   EXPECT_THAT(box2.shape(), ElementsAreArray(shape));
   EXPECT_THAT(box2.origin(), ElementsAreArray(origin));
 }
@@ -486,7 +485,7 @@ TEST(MutableBoxViewTest, DeduceFromOriginAndShapeArrays) {
   Index origin[] = {1, 2, 3};
   Index shape[] = {3, 4, 5};
   auto box = BoxView(origin, shape);
-  static_assert(std::is_same<decltype(box), MutableBoxView<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box), MutableBoxView<3>>);
   EXPECT_EQ(3, box.rank());
   EXPECT_EQ(box.origin().data(), origin);
   EXPECT_EQ(box.shape().data(), shape);
@@ -496,7 +495,7 @@ TEST(MutableBoxViewTest, DeduceFromOriginAndShapeSpansStatic) {
   Index origin[] = {1, 2, 3};
   Index shape[] = {3, 4, 5};
   auto box = BoxView(span(origin), span(shape));
-  static_assert(std::is_same<decltype(box), MutableBoxView<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box), MutableBoxView<3>>);
   EXPECT_EQ(3, box.rank());
   EXPECT_EQ(box.origin().data(), origin);
   EXPECT_EQ(box.shape().data(), shape);
@@ -506,7 +505,7 @@ TEST(MutableBoxViewTest, DeduceFromOriginAndShapeDynamic) {
   Index origin[] = {1, 2, 3};
   Index shape[] = {3, 4, 5};
   auto box = BoxView(span<Index>(origin), span<Index>(shape));
-  static_assert(std::is_same<decltype(box), MutableBoxView<>>::value, "");
+  static_assert(std::is_same_v<decltype(box), MutableBoxView<>>);
   EXPECT_EQ(3, box.rank());
   EXPECT_EQ(box.origin().data(), origin);
   EXPECT_EQ(box.shape().data(), shape);
@@ -517,7 +516,7 @@ TEST(MutableBoxViewTest, DeduceFromBox) {
   const Index shape[] = {3, 4, 5};
   Box<3> box(origin, shape);
   auto box2 = BoxView(box);
-  static_assert(std::is_same<decltype(box2), MutableBoxView<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box2), MutableBoxView<3>>);
   EXPECT_EQ(box2.shape().data(), box.shape().data());
   EXPECT_EQ(box2.origin().data(), box.origin().data());
 }
@@ -527,7 +526,7 @@ TEST(MutableBoxViewTest, DeduceFromMutableBoxView) {
   Index shape[] = {3, 4, 5};
   MutableBoxView<3> box(origin, shape);
   auto box2 = BoxView(box);
-  static_assert(std::is_same<decltype(box2), MutableBoxView<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box2), MutableBoxView<3>>);
   EXPECT_EQ(box2.shape().data(), box.shape().data());
   EXPECT_EQ(box2.origin().data(), box.origin().data());
 }
@@ -594,7 +593,7 @@ TEST(MutableBoxViewTest, StaticRankCast) {
   Index shape[] = {3, 4, 5};
   MutableBoxView<> box(origin, shape);
   auto box2 = StaticRankCast<3, unchecked>(box);
-  static_assert(std::is_same<decltype(box2), MutableBoxView<3>>::value, "");
+  static_assert(std::is_same_v<decltype(box2), MutableBoxView<3>>);
   EXPECT_THAT(box2.shape(), ElementsAreArray(shape));
   EXPECT_THAT(box2.origin(), ElementsAreArray(origin));
 }
@@ -727,10 +726,10 @@ TEST(BoxTest, Contains) {
 }
 
 TEST(BoxTest, GetBoxDomainOf) {
-  static_assert(!HasBoxDomain<int>::value, "");
-  static_assert(HasBoxDomain<BoxView<>>::value, "");
-  static_assert(HasBoxDomain<Box<>>::value, "");
-  static_assert(HasBoxDomain<MutableBoxView<>>::value, "");
+  static_assert(!HasBoxDomain<int>);
+  static_assert(HasBoxDomain<BoxView<>>);
+  static_assert(HasBoxDomain<Box<>>);
+  static_assert(HasBoxDomain<MutableBoxView<>>);
   Box<> box({1, 2}, {3, 4});
   BoxView<> view = box;
   EXPECT_EQ(box, GetBoxDomainOf(box));

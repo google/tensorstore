@@ -53,7 +53,7 @@ namespace internal {
 /// \param encode_element Function called to encode each element of the array.
 /// \returns The nested array JSON representation.
 template <typename A, typename F>
-std::enable_if_t<IsArray<A>::value, ::nlohmann::json> JsonEncodeNestedArray(
+std::enable_if_t<IsArray<A>, ::nlohmann::json> JsonEncodeNestedArray(
     const A& array, F encode_element) {
   return internal_json::JsonEncodeNestedArray(
       array, [encode_element](const void* value) {

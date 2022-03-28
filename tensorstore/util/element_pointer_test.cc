@@ -39,134 +39,100 @@ using tensorstore::Shared;
 using tensorstore::SharedElementPointer;
 using tensorstore::StaticDataTypeCast;
 
-static_assert(IsElementTag<int>::value, "");
-static_assert(IsElementTag<void>::value, "");
-static_assert(IsElementTag<const void>::value, "");
-static_assert(IsElementTag<int*>::value, "");
-static_assert(IsElementTag<const int>::value, "");
-static_assert(!IsElementTag<volatile int>::value, "");
-static_assert(!IsElementTag<int(int)>::value, "");
-static_assert(IsElementTag<int (*)(int)>::value, "");
-static_assert(IsElementTag<Shared<int>>::value, "");
-static_assert(!IsElementTag<const Shared<int>>::value, "");
-static_assert(!IsElementTag<Shared<Shared<int>>>::value, "");
-static_assert(!IsElementTag<Shared<const Shared<int>>>::value, "");
-static_assert(!IsElementTag<Shared<const Shared<Shared<int>>>>::value, "");
+static_assert(IsElementTag<int>);
+static_assert(IsElementTag<void>);
+static_assert(IsElementTag<const void>);
+static_assert(IsElementTag<int*>);
+static_assert(IsElementTag<const int>);
+static_assert(!IsElementTag<volatile int>);
+static_assert(!IsElementTag<int(int)>);
+static_assert(IsElementTag<int (*)(int)>);
+static_assert(IsElementTag<Shared<int>>);
+static_assert(!IsElementTag<const Shared<int>>);
+static_assert(!IsElementTag<Shared<Shared<int>>>);
+static_assert(!IsElementTag<Shared<const Shared<int>>>);
+static_assert(!IsElementTag<Shared<const Shared<Shared<int>>>>);
 
-static_assert(std::is_same<ElementTagTraits<int>::Pointer, int*>::value, "");
-static_assert(std::is_same<ElementTagTraits<int>::rebind<float>, float>::value,
-              "");
-static_assert(std::is_same<ElementTagTraits<Shared<int>>::Pointer,
-                           std::shared_ptr<int>>::value,
-              "");
-static_assert(std::is_same<ElementTagTraits<Shared<int>>::rebind<float>,
-                           Shared<float>>::value,
-              "");
-static_assert(std::is_same<PointerElementTag<int*>, int>::value, "");
+static_assert(std::is_same_v<ElementTagTraits<int>::Pointer, int*>);
+static_assert(std::is_same_v<ElementTagTraits<int>::rebind<float>, float>);
+static_assert(std::is_same_v<ElementTagTraits<Shared<int>>::Pointer,
+                             std::shared_ptr<int>>);
+static_assert(std::is_same_v<ElementTagTraits<Shared<int>>::rebind<float>,
+                             Shared<float>>);
+static_assert(std::is_same_v<PointerElementTag<int*>, int>);
 static_assert(
-    std::is_same<PointerElementTag<std::shared_ptr<int>>, Shared<int>>::value,
-    "");
+    std::is_same_v<PointerElementTag<std::shared_ptr<int>>, Shared<int>>);
 
 // ElementPointer conversion tests
 static_assert(
-    std::is_convertible<ElementPointer<int>, ElementPointer<const int>>::value,
-    "");
+    std::is_convertible_v<ElementPointer<int>, ElementPointer<const int>>);
 static_assert(
-    !std::is_convertible<ElementPointer<const int>, ElementPointer<int>>::value,
-    "");
+    !std::is_convertible_v<ElementPointer<const int>, ElementPointer<int>>);
+static_assert(std::is_convertible_v<ElementPointer<int>, ElementPointer<void>>);
 static_assert(
-    std::is_convertible<ElementPointer<int>, ElementPointer<void>>::value, "");
+    !std::is_convertible_v<ElementPointer<void>, ElementPointer<int>>);
 static_assert(
-    !std::is_convertible<ElementPointer<void>, ElementPointer<int>>::value, "");
+    !std::is_convertible_v<ElementPointer<const int>, ElementPointer<int>>);
 static_assert(
-    !std::is_convertible<ElementPointer<const int>, ElementPointer<int>>::value,
-    "");
-static_assert(!std::is_convertible<ElementPointer<const int>,
-                                   ElementPointer<void>>::value,
-              "");
-static_assert(std::is_convertible<ElementPointer<const int>,
-                                  ElementPointer<const void>>::value,
-              "");
-static_assert(std::is_convertible<int*, ElementPointer<int>>::value, "");
-static_assert(!std::is_convertible<const int*, ElementPointer<int>>::value, "");
-static_assert(std::is_convertible<const int*, ElementPointer<const int>>::value,
-              "");
-static_assert(std::is_convertible<int*, ElementPointer<void>>::value, "");
-static_assert(!std::is_convertible<const int*, ElementPointer<void>>::value,
-              "");
-static_assert(std::is_convertible<int*, ElementPointer<const int>>::value, "");
-static_assert(std::is_convertible<int*, ElementPointer<const void>>::value, "");
+    !std::is_convertible_v<ElementPointer<const int>, ElementPointer<void>>);
+static_assert(std::is_convertible_v<ElementPointer<const int>,
+                                    ElementPointer<const void>>);
+static_assert(std::is_convertible_v<int*, ElementPointer<int>>);
+static_assert(!std::is_convertible_v<const int*, ElementPointer<int>>);
+static_assert(std::is_convertible_v<const int*, ElementPointer<const int>>);
+static_assert(std::is_convertible_v<int*, ElementPointer<void>>);
+static_assert(!std::is_convertible_v<const int*, ElementPointer<void>>);
+static_assert(std::is_convertible_v<int*, ElementPointer<const int>>);
+static_assert(std::is_convertible_v<int*, ElementPointer<const void>>);
+static_assert(std::is_constructible_v<ElementPointer<void>, void*, DataType>);
 static_assert(
-    std::is_constructible<ElementPointer<void>, void*, DataType>::value, "");
-static_assert(
-    std::is_constructible<ElementPointer<const void>, void*, DataType>::value,
-    "");
+    std::is_constructible_v<ElementPointer<const void>, void*, DataType>);
 
-static_assert(!std::is_constructible<ElementPointer<void>, void*>::value, "");
+static_assert(!std::is_constructible_v<ElementPointer<void>, void*>);
 
 // SharedElementPointer conversion tests
-static_assert(std::is_convertible<SharedElementPointer<int>,
-                                  SharedElementPointer<const int>>::value,
-              "");
-static_assert(!std::is_convertible<SharedElementPointer<const int>,
-                                   SharedElementPointer<int>>::value,
-              "");
-static_assert(std::is_convertible<SharedElementPointer<int>,
-                                  SharedElementPointer<void>>::value,
-              "");
-static_assert(!std::is_convertible<SharedElementPointer<void>,
-                                   SharedElementPointer<int>>::value,
-              "");
-static_assert(!std::is_convertible<SharedElementPointer<const int>,
-                                   SharedElementPointer<int>>::value,
-              "");
-static_assert(!std::is_convertible<SharedElementPointer<const int>,
-                                   SharedElementPointer<void>>::value,
-              "");
-static_assert(std::is_convertible<SharedElementPointer<const int>,
-                                  SharedElementPointer<const void>>::value,
-              "");
+static_assert(std::is_convertible_v<SharedElementPointer<int>,
+                                    SharedElementPointer<const int>>);
+static_assert(!std::is_convertible_v<SharedElementPointer<const int>,
+                                     SharedElementPointer<int>>);
+static_assert(std::is_convertible_v<SharedElementPointer<int>,
+                                    SharedElementPointer<void>>);
+static_assert(!std::is_convertible_v<SharedElementPointer<void>,
+                                     SharedElementPointer<int>>);
+static_assert(!std::is_convertible_v<SharedElementPointer<const int>,
+                                     SharedElementPointer<int>>);
+static_assert(!std::is_convertible_v<SharedElementPointer<const int>,
+                                     SharedElementPointer<void>>);
+static_assert(std::is_convertible_v<SharedElementPointer<const int>,
+                                    SharedElementPointer<const void>>);
 static_assert(
-    std::is_convertible<std::shared_ptr<int>, SharedElementPointer<int>>::value,
-    "");
-static_assert(std::is_convertible<std::shared_ptr<const int>,
-                                  SharedElementPointer<const int>>::value,
-              "");
-static_assert(std::is_convertible<std::shared_ptr<int>,
-                                  SharedElementPointer<void>>::value,
-              "");
-static_assert(!std::is_convertible<std::shared_ptr<const int>,
-                                   SharedElementPointer<void>>::value,
-              "");
-static_assert(std::is_convertible<std::shared_ptr<int>,
-                                  SharedElementPointer<const int>>::value,
-              "");
-static_assert(std::is_convertible<std::shared_ptr<int>,
-                                  SharedElementPointer<const void>>::value,
-              "");
-static_assert(std::is_constructible<SharedElementPointer<void>,
-                                    std::shared_ptr<void>, DataType>::value,
-              "");
-static_assert(std::is_constructible<SharedElementPointer<const void>,
-                                    std::shared_ptr<void>, DataType>::value,
-              "");
+    std::is_convertible_v<std::shared_ptr<int>, SharedElementPointer<int>>);
+static_assert(std::is_convertible_v<std::shared_ptr<const int>,
+                                    SharedElementPointer<const int>>);
+static_assert(
+    std::is_convertible_v<std::shared_ptr<int>, SharedElementPointer<void>>);
+static_assert(!std::is_convertible_v<std::shared_ptr<const int>,
+                                     SharedElementPointer<void>>);
+static_assert(std::is_convertible_v<std::shared_ptr<int>,
+                                    SharedElementPointer<const int>>);
+static_assert(std::is_convertible_v<std::shared_ptr<int>,
+                                    SharedElementPointer<const void>>);
+static_assert(std::is_constructible_v<SharedElementPointer<void>,
+                                      std::shared_ptr<void>, DataType>);
+static_assert(std::is_constructible_v<SharedElementPointer<const void>,
+                                      std::shared_ptr<void>, DataType>);
 
 // SharedElementPointer -> ElementPointer conversion tests
 static_assert(
-    std::is_convertible<SharedElementPointer<int>, ElementPointer<int>>::value,
-    "");
-static_assert(std::is_convertible<SharedElementPointer<int>,
-                                  ElementPointer<const int>>::value,
-              "");
-static_assert(!std::is_convertible<SharedElementPointer<void>,
-                                   ElementPointer<const int>>::value,
-              "");
-static_assert(!std::is_constructible<ElementPointer<const int>,
-                                     SharedElementPointer<void>>::value,
-              "");
-static_assert(!std::is_constructible<ElementPointer<int>,
-                                     SharedElementPointer<const void>>::value,
-              "");
+    std::is_convertible_v<SharedElementPointer<int>, ElementPointer<int>>);
+static_assert(std::is_convertible_v<SharedElementPointer<int>,
+                                    ElementPointer<const int>>);
+static_assert(!std::is_convertible_v<SharedElementPointer<void>,
+                                     ElementPointer<const int>>);
+static_assert(!std::is_constructible_v<ElementPointer<const int>,
+                                       SharedElementPointer<void>>);
+static_assert(!std::is_constructible_v<ElementPointer<int>,
+                                       SharedElementPointer<const void>>);
 
 TEST(ElementPointerTest, StaticType) {
   {
@@ -211,8 +177,7 @@ TEST(ElementPointerTest, StaticType) {
   {
     auto p2 = tensorstore::StaticDataTypeCast<const float>(other);
     static_assert(
-        std::is_same<decltype(p2), Result<ElementPointer<const float>>>::value,
-        "");
+        std::is_same_v<decltype(p2), Result<ElementPointer<const float>>>);
     ASSERT_EQ(absl::OkStatus(), GetStatus(p2));
     EXPECT_EQ(&value, p2->data());
   }
@@ -227,21 +192,18 @@ TEST(ElementPointerTest, StaticType) {
     EXPECT_EQ(nullptr, p_const.data());
   }
 
-  static_assert(!std::is_assignable<ElementPointer<float>,
-                                    ElementPointer<const float>>::value,
-                "");
+  static_assert(!std::is_assignable_v<ElementPointer<float>,
+                                      ElementPointer<const float>>);
 
   static_assert(
-      !std::is_assignable<ElementPointer<int>, ElementPointer<float>>::value,
-      "");
+      !std::is_assignable_v<ElementPointer<int>, ElementPointer<float>>);
 
-  static_assert(!std::is_assignable<ElementPointer<int>, float*>::value, "");
-  static_assert(!std::is_assignable<ElementPointer<void>, void*>::value, "");
+  static_assert(!std::is_assignable_v<ElementPointer<int>, float*>);
+  static_assert(!std::is_assignable_v<ElementPointer<void>, void*>);
 
-  static_assert(!std::is_assignable<ElementPointer<const float>,
-                                    ElementPointer<const void>>::value,
-                "");
-  static_assert(!std::is_assignable<ElementPointer<float>, void*>::value, "");
+  static_assert(!std::is_assignable_v<ElementPointer<const float>,
+                                      ElementPointer<const void>>);
+  static_assert(!std::is_assignable_v<ElementPointer<float>, void*>);
 }
 
 TEST(ElementPointerTest, DynamicType) {
@@ -269,22 +231,17 @@ TEST(ElementPointerTest, DynamicType) {
     EXPECT_EQ(dtype_v<float>, p.dtype());
   }
 
-  static_assert(!std::is_assignable<ElementPointer<void>,
-                                    ElementPointer<const float>>::value,
-                "");
-  static_assert(!std::is_assignable<ElementPointer<void>,
-                                    SharedElementPointer<const float>>::value,
-                "");
+  static_assert(
+      !std::is_assignable_v<ElementPointer<void>, ElementPointer<const float>>);
+  static_assert(!std::is_assignable_v<ElementPointer<void>,
+                                      SharedElementPointer<const float>>);
 
-  static_assert(!std::is_assignable<ElementPointer<void>,
-                                    ElementPointer<const void>>::value,
-                "");
-  static_assert(!std::is_assignable<ElementPointer<void>,
-                                    SharedElementPointer<const void>>::value,
-                "");
-  static_assert(!std::is_assignable<ElementPointer<void>, void*>::value, "");
-  static_assert(!std::is_assignable<ElementPointer<void>, const float*>::value,
-                "");
+  static_assert(
+      !std::is_assignable_v<ElementPointer<void>, ElementPointer<const void>>);
+  static_assert(!std::is_assignable_v<ElementPointer<void>,
+                                      SharedElementPointer<const void>>);
+  static_assert(!std::is_assignable_v<ElementPointer<void>, void*>);
+  static_assert(!std::is_assignable_v<ElementPointer<void>, const float*>);
 
   // Copy construction
   {
@@ -404,8 +361,7 @@ TEST(SharedElementPointerTest, StaticType) {
     SharedElementPointer<void> shared_p_void = p;
     auto p_float = StaticDataTypeCast<float>(shared_p_void).value();
     static_assert(
-        std::is_same<decltype(p_float), SharedElementPointer<float>>::value,
-        "");
+        std::is_same_v<decltype(p_float), SharedElementPointer<float>>);
     EXPECT_EQ(value.get(), p_float.data());
   }
 
@@ -414,8 +370,7 @@ TEST(SharedElementPointerTest, StaticType) {
     float fvalue;
     auto f_pointer = UnownedToShared(ElementPointer<float>(&fvalue));
     static_assert(
-        std::is_same<decltype(f_pointer), SharedElementPointer<float>>::value,
-        "");
+        std::is_same_v<decltype(f_pointer), SharedElementPointer<float>>);
     EXPECT_EQ(&fvalue, f_pointer.data());
   }
 
@@ -467,12 +422,10 @@ TEST(SharedElementPointerTest, StaticType) {
     EXPECT_EQ(value.get(), p2_move.data());
   }
 
-  static_assert(!std::is_assignable<SharedElementPointer<float>,
-                                    SharedElementPointer<void>>::value,
-                "");
-  static_assert(!std::is_assignable<SharedElementPointer<float>,
-                                    std::shared_ptr<void>>::value,
-                "");
+  static_assert(!std::is_assignable_v<SharedElementPointer<float>,
+                                      SharedElementPointer<void>>);
+  static_assert(!std::is_assignable_v<SharedElementPointer<float>,
+                                      std::shared_ptr<void>>);
 }
 
 TEST(SharedElementPointerTest, DynamicType) {

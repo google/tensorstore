@@ -30,7 +30,7 @@ class CompressedFirstEmptyPair {
   CompressedFirstEmptyPair() = default;
   template <typename T, typename U>
   explicit CompressedFirstEmptyPair(T&&, U&& u) : second_(std::forward<U>(u)) {
-    static_assert(std::is_constructible<First, T&&>(),
+    static_assert(std::is_constructible_v<First, T&&>,
                   "First must be constructible from T&&.");
   }
   static constexpr First first() { return {}; }
@@ -49,7 +49,7 @@ class CompressedSecondEmptyPair {
   CompressedSecondEmptyPair() = default;
   template <typename T, typename U>
   explicit CompressedSecondEmptyPair(T&& t, U&&) : first_(std::forward<T>(t)) {
-    static_assert(std::is_constructible<Second, U&&>(),
+    static_assert(std::is_constructible_v<Second, U&&>,
                   "Second must be constructible from U&&.");
   }
   const First& first() const& { return first_; }

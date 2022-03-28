@@ -102,63 +102,50 @@ struct StaticCastTraits<Y<Extent>> {
 namespace {
 
 // Test IsCastConstructible
-static_assert(IsCastConstructible<X<3>, X<dynamic_extent>>::value, "");
-static_assert(IsCastConstructible<X<dynamic_extent>, X<3>>::value, "");
-static_assert(IsCastConstructible<X<3>, X<3>>::value, "");
-static_assert(!IsCastConstructible<X<3>, X<2>>::value, "");
+static_assert(IsCastConstructible<X<3>, X<dynamic_extent>>);
+static_assert(IsCastConstructible<X<dynamic_extent>, X<3>>);
+static_assert(IsCastConstructible<X<3>, X<3>>);
+static_assert(!IsCastConstructible<X<3>, X<2>>);
 
-static_assert(IsCastConstructible<Y<3>, Y<dynamic_extent>>::value, "");
-static_assert(IsCastConstructible<Y<dynamic_extent>, Y<3>>::value, "");
-static_assert(IsCastConstructible<Y<3>, Y<3>>::value, "");
-static_assert(!IsCastConstructible<Y<3>, Y<2>>::value, "");
+static_assert(IsCastConstructible<Y<3>, Y<dynamic_extent>>);
+static_assert(IsCastConstructible<Y<dynamic_extent>, Y<3>>);
+static_assert(IsCastConstructible<Y<3>, Y<3>>);
+static_assert(!IsCastConstructible<Y<3>, Y<2>>);
 
 // Test unchecked no-op casting result type.
-static_assert(
-    std::is_same<const X<3>&, decltype(StaticCast<X<3>, unchecked>(
-                                  std::declval<const X<3>&>()))>::value,
-    "");
-static_assert(std::is_same<X<3>&, decltype(StaticCast<X<3>, unchecked>(
-                                      std::declval<X<3>&>()))>::value,
-              "");
-static_assert(std::is_same<X<3>&&, decltype(StaticCast<X<3>, unchecked>(
-                                       std::declval<X<3>&&>()))>::value,
-              "");
+static_assert(std::is_same_v<const X<3>&, decltype(StaticCast<X<3>, unchecked>(
+                                              std::declval<const X<3>&>()))>);
+static_assert(std::is_same_v<X<3>&, decltype(StaticCast<X<3>, unchecked>(
+                                        std::declval<X<3>&>()))>);
+static_assert(std::is_same_v<X<3>&&, decltype(StaticCast<X<3>, unchecked>(
+                                         std::declval<X<3>&&>()))>);
 
 // Test unchecked regular result type.
 static_assert(
-    std::is_same<X<3>, decltype(StaticCast<X<3>, unchecked>(
-                           std::declval<const X<dynamic_extent>&>()))>::value,
-    "");
-static_assert(
-    std::is_same<X<3>, decltype(StaticCast<X<3>, unchecked>(
-                           std::declval<X<dynamic_extent>&>()))>::value,
-    "");
+    std::is_same_v<X<3>, decltype(StaticCast<X<3>, unchecked>(
+                             std::declval<const X<dynamic_extent>&>()))>);
+static_assert(std::is_same_v<X<3>, decltype(StaticCast<X<3>, unchecked>(
+                                       std::declval<X<dynamic_extent>&>()))>);
 
 // Test checked no-op casting result type.
-static_assert(
-    std::is_same<Result<X<3>>, decltype(StaticCast<X<3>>(
-                                   std::declval<const X<3>&>()))>::value,
-    "");
-static_assert(std::is_same<Result<X<3>>, decltype(StaticCast<X<3>>(
-                                             std::declval<X<3>&>()))>::value,
-              "");
+static_assert(std::is_same_v<Result<X<3>>, decltype(StaticCast<X<3>>(
+                                               std::declval<const X<3>&>()))>);
+static_assert(std::is_same_v<
+              Result<X<3>>, decltype(StaticCast<X<3>>(std::declval<X<3>&>()))>);
 
 // Test checked regular result type.
+static_assert(std::is_same_v<Result<X<3>>,
+                             decltype(StaticCast<X<3>>(
+                                 std::declval<const X<dynamic_extent>&>()))>);
 static_assert(
-    std::is_same<Result<X<3>>,
-                 decltype(StaticCast<X<3>>(
-                     std::declval<const X<dynamic_extent>&>()))>::value,
-    "");
-static_assert(
-    std::is_same<Result<X<3>>, decltype(StaticCast<X<3>>(
-                                   std::declval<X<dynamic_extent>&>()))>::value,
-    "");
+    std::is_same_v<Result<X<3>>, decltype(StaticCast<X<3>>(
+                                     std::declval<X<dynamic_extent>&>()))>);
 
 TEST(DefaultCastTraitsTest, Success) {
   std::vector<int> vec{1, 2, 3};
   X<dynamic_extent> x(vec);
   auto cast_result = StaticCast<X<3>>(x);
-  static_assert(std::is_same<decltype(cast_result), Result<X<3>>>::value, "");
+  static_assert(std::is_same_v<decltype(cast_result), Result<X<3>>>);
   ASSERT_TRUE(cast_result);
   EXPECT_EQ(vec.data(), cast_result->data.data());
 
@@ -166,7 +153,7 @@ TEST(DefaultCastTraitsTest, Success) {
   EXPECT_EQ(&noop_cast_result, &x);
 
   auto unchecked_cast_result = StaticCast<X<3>, unchecked>(x);
-  static_assert(std::is_same<decltype(unchecked_cast_result), X<3>>::value, "");
+  static_assert(std::is_same_v<decltype(unchecked_cast_result), X<3>>);
 }
 
 TEST(DefaultCastTraitsTest, CheckedFailure) {
@@ -189,7 +176,7 @@ TEST(CustomTraitsTest, Success) {
   std::vector<int> vec{1, 2, 3};
   Y<dynamic_extent> x(vec);
   auto cast_result = StaticCast<Y<3>>(x);
-  static_assert(std::is_same<decltype(cast_result), Result<Y<3>>>::value, "");
+  static_assert(std::is_same_v<decltype(cast_result), Result<Y<3>>>);
   ASSERT_TRUE(cast_result);
   EXPECT_EQ(vec.data(), cast_result->data.data());
 
@@ -197,7 +184,7 @@ TEST(CustomTraitsTest, Success) {
   EXPECT_EQ(&noop_cast_result, &x);
 
   auto unchecked_cast_result = StaticCast<Y<3>, unchecked>(x);
-  static_assert(std::is_same<decltype(unchecked_cast_result), Y<3>>::value, "");
+  static_assert(std::is_same_v<decltype(unchecked_cast_result), Y<3>>);
 }
 
 TEST(CustomTraitsTest, CheckedFailure) {

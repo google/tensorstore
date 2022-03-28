@@ -828,9 +828,8 @@ class ChunkLayout {
 
   /// Transforms a `ChunkLayout` object by a `DimExpression`.
   template <typename Expr>
-  friend std::enable_if_t<
-      !IsIndexTransform<internal::remove_cvref_t<Expr>>::value,
-      Result<ChunkLayout>>
+  friend std::enable_if_t<!IsIndexTransform<internal::remove_cvref_t<Expr>>,
+                          Result<ChunkLayout>>
   ApplyIndexTransform(Expr&& expr, ChunkLayout constraints) {
     DimensionIndex rank = constraints.rank();
     if (rank == dynamic_rank) {

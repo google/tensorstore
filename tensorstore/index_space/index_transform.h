@@ -49,12 +49,12 @@ using IndexTransformView = IndexTransform<InputRank, OutputRank, view>;
 /// Bool-valued metafunction that evaluates to `true` if `T` is an instance of
 /// `IndexTransform`.
 template <typename T>
-struct IsIndexTransform : public std::false_type {};
+constexpr inline bool IsIndexTransform = false;
 
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
-struct IsIndexTransform<IndexTransform<InputRank, OutputRank, CKind>>
-    : public std::true_type {};
+constexpr inline bool
+    IsIndexTransform<IndexTransform<InputRank, OutputRank, CKind>> = true;
 
 /// Composes two index transforms.
 ///
@@ -447,8 +447,8 @@ class IndexTransform {
 /// Specializes the HasBoxDomain metafunction for IndexTransform.
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
-struct HasBoxDomain<IndexTransform<InputRank, OutputRank, CKind>>
-    : public std::true_type {};
+constexpr inline bool
+    HasBoxDomain<IndexTransform<InputRank, OutputRank, CKind>> = true;
 
 /// Implements the HasBoxDomain concept for IndexTransformView and
 /// IndexTransform.
@@ -517,7 +517,7 @@ inline IndexTransform<> IdentityTransform(DimensionIndex rank) {
 /// The lower and upper bounds of the returned transform are explicit.
 template <typename BoxType>
 inline std::enable_if_t<
-    IsBoxLike<BoxType>::value,
+    IsBoxLike<BoxType>,
     IndexTransform<BoxType::static_rank, BoxType::static_rank>>
 IdentityTransform(const BoxType& domain) {
   return internal_index_space::TransformAccess::Make<
@@ -581,7 +581,7 @@ inline IndexTransform<Rank, Rank> IdentityTransform(
 ///
 /// The lower and upper bounds of the returned transform are explicit.
 template <typename Array>
-inline std::enable_if_t<IsArray<Array>::value,
+inline std::enable_if_t<IsArray<Array>,
                         IndexTransform<Array::static_rank, Array::static_rank>>
 IdentityTransformLike(const Array& array) {
   return IdentityTransform(array.domain());
@@ -885,7 +885,7 @@ PropagateExplicitBoundsToTransform(
 ///     `skip_repeated_elements`.
 template <ArrayOriginKind OriginKind = offset_origin, DimensionIndex InputRank,
           DimensionIndex OutputRank, ContainerKind CKind, typename Array>
-std::enable_if_t<(IsArray<Array>::value && OutputRank == Array::static_rank &&
+std::enable_if_t<(IsArray<Array> && OutputRank == Array::static_rank &&
                   OriginKind == offset_origin),
                  Result<SharedArray<const typename Array::Element, InputRank,
                                     offset_origin>>>
@@ -911,7 +911,7 @@ TransformArray(const Array& array,
 template <ArrayOriginKind OriginKind, DimensionIndex InputRank,
           DimensionIndex OutputRank, ContainerKind CKind, typename Array>
 std::enable_if_t<
-    (IsArray<Array>::value && OutputRank == Array::static_rank &&
+    (IsArray<Array> && OutputRank == Array::static_rank &&
      OriginKind == zero_origin),
     Result<SharedArray<const typename Array::Element, InputRank, zero_origin>>>
 TransformArray(const Array& array,
@@ -937,7 +937,7 @@ TransformArray(const Array& array,
 template <ArrayOriginKind OriginKind = offset_origin, DimensionIndex InputRank,
           DimensionIndex OutputRank, ContainerKind CKind, typename Array>
 std::enable_if_t<
-    (IsArray<Array>::value && OutputRank == Array::static_rank),
+    (IsArray<Array> && OutputRank == Array::static_rank),
     Result<SharedArray<std::remove_const_t<typename Array::Element>, InputRank,
                        OriginKind>>>
 MakeCopy(const Array& array,

@@ -43,33 +43,31 @@ namespace internal_span {
 
 template <typename SourceElement, std::ptrdiff_t SourceExtent,
           typename DestElement, std::ptrdiff_t DestExtent>
-struct IsSpanImplicitlyConvertible
-    : public std::integral_constant<
-          bool,
-          std::is_convertible<SourceElement (*)[], DestElement (*)[]>::value &&
-              (SourceExtent == DestExtent || DestExtent == dynamic_extent)> {};
+constexpr inline bool IsSpanImplicitlyConvertible =
+    std::is_convertible_v<SourceElement (*)[], DestElement (*)[]> &&
+    (SourceExtent == DestExtent || DestExtent == dynamic_extent);
 
 template <typename Container>
-struct IsArrayOrSpan : public std::false_type {};
+constexpr inline bool IsArrayOrSpan = false;
 
 template <typename T, std::size_t N>
-struct IsArrayOrSpan<std::array<T, N>> : public std::true_type {};
+constexpr inline bool IsArrayOrSpan<std::array<T, N>> = true;
 
 template <typename T, std::ptrdiff_t Extent>
-struct IsArrayOrSpan<span<T, Extent>> : public std::true_type {};
+constexpr inline bool IsArrayOrSpan<span<T, Extent>> = true;
 
 template <typename T, typename Container,
           typename Pointer = decltype(std::declval<Container>().data()),
           typename Size = decltype(std::declval<Container>().size())>
 using EnableIfCompatibleContainer = std::enable_if_t<
-    !IsArrayOrSpan<std::remove_cv_t<Container>>::value &&
-    std::is_convertible<std::remove_pointer_t<Pointer> (*)[], T (*)[]>::value>;
+    !IsArrayOrSpan<std::remove_cv_t<Container>> &&
+    std::is_convertible_v<std::remove_pointer_t<Pointer> (*)[], T (*)[]>>;
 
 template <typename Container,
           typename Pointer = decltype(std::declval<Container>().data()),
           typename Size = decltype(std::declval<Container>().size())>
 using ContainerElementType =
-    std::enable_if_t<!IsArrayOrSpan<std::remove_cv_t<Container>>::value,
+    std::enable_if_t<!IsArrayOrSpan<std::remove_cv_t<Container>>,
                      std::remove_pointer_t<Pointer>>;
 
 template <typename T, typename SFINAE = void>
@@ -191,10 +189,9 @@ class span {
   constexpr span(const Container& cont TENSORSTORE_LIFETIME_BOUND)
       : span(cont.data(), cont.size()) {}
 
-  template <
-      typename U, std::ptrdiff_t N,
-      typename = std::enable_if_t<
-          internal_span::IsSpanImplicitlyConvertible<U, N, T, Extent>::value>>
+  template <typename U, std::ptrdiff_t N,
+            typename = std::enable_if_t<
+                internal_span::IsSpanImplicitlyConvertible<U, N, T, Extent>>>
   constexpr span(const span<U, N>& other) noexcept
       : span(other.data(), other.size()) {}
 

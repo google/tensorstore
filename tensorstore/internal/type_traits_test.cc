@@ -34,71 +34,64 @@ using tensorstore::internal::remove_cvref_t;
 using tensorstore::internal::type_identity_t;
 using tensorstore::internal::TypePackElement;
 
-static_assert(std::is_same<FirstNonVoidType<void, int>, int>::value, "");
-static_assert(std::is_same<FirstNonVoidType<float, void>, float>::value, "");
-static_assert(std::is_same<FirstNonVoidType<float, int>, float>::value, "");
+static_assert(std::is_same_v<FirstNonVoidType<void, int>, int>);
+static_assert(std::is_same_v<FirstNonVoidType<float, void>, float>);
+static_assert(std::is_same_v<FirstNonVoidType<float, int>, float>);
 
 namespace equality_comparable_tests {
 struct X {};
 
-static_assert(IsEqualityComparable<float, float>::value, "");
-static_assert(IsEqualityComparable<float, int>::value, "");
-static_assert(!IsEqualityComparable<X, X>::value, "");
+static_assert(IsEqualityComparable<float, float>);
+static_assert(IsEqualityComparable<float, int>);
+static_assert(!IsEqualityComparable<X, X>);
 }  // namespace equality_comparable_tests
 
-static_assert(std::is_same<remove_cvref_t<const int&>, int>::value, "");
-static_assert(std::is_same<remove_cvref_t<int&&>, int>::value, "");
-static_assert(std::is_same<remove_cvref_t<const int&&>, int>::value, "");
-static_assert(std::is_same<remove_cvref_t<const volatile int&&>, int>::value,
-              "");
+static_assert(std::is_same_v<remove_cvref_t<const int&>, int>);
+static_assert(std::is_same_v<remove_cvref_t<int&&>, int>);
+static_assert(std::is_same_v<remove_cvref_t<const int&&>, int>);
+static_assert(std::is_same_v<remove_cvref_t<const volatile int&&>, int>);
 
-static_assert(std::is_same<CopyQualifiers<float, int>, int>::value, "");
-static_assert(std::is_same<CopyQualifiers<const float, int>, const int>::value,
-              "");
-static_assert(
-    std::is_same<CopyQualifiers<const float&, int>, const int&>::value, "");
-static_assert(std::is_same<CopyQualifiers<const float, int&>, const int>::value,
-              "");
-static_assert(std::is_same<CopyQualifiers<float&&, const int&>, int&&>::value,
-              "");
+static_assert(std::is_same_v<CopyQualifiers<float, int>, int>);
+static_assert(std::is_same_v<CopyQualifiers<const float, int>, const int>);
+static_assert(std::is_same_v<CopyQualifiers<const float&, int>, const int&>);
+static_assert(std::is_same_v<CopyQualifiers<const float, int&>, const int>);
+static_assert(std::is_same_v<CopyQualifiers<float&&, const int&>, int&&>);
 
-static_assert(std::is_same<int&, decltype(GetLValue(3))>::value, "");
-static_assert(std::is_same<int*, decltype(&GetLValue(3))>::value, "");
+static_assert(std::is_same_v<int&, decltype(GetLValue(3))>);
+static_assert(std::is_same_v<int*, decltype(&GetLValue(3))>);
 
-static_assert(std::is_same<FirstType<void>, void>::value, "");
-static_assert(std::is_same<FirstType<int, void>, int>::value, "");
+static_assert(std::is_same_v<FirstType<void>, void>);
+static_assert(std::is_same_v<FirstType<int, void>, int>);
 
-static_assert(IsConstConvertible<int, int>::value, "");
-static_assert(IsConstConvertible<void, void>::value, "");
-static_assert(IsConstConvertible<void, const void>::value, "");
-static_assert(IsConstConvertible<int, const int>::value, "");
-static_assert(!IsConstConvertible<const int, int>::value, "");
-static_assert(!IsConstConvertible<int, float>::value, "");
-static_assert(!IsConstConvertible<int, const float>::value, "");
-static_assert(!IsConstConvertible<int, const void>::value, "");
-static_assert(!IsConstConvertible<const int, void>::value, "");
-static_assert(!IsConstConvertible<int, void>::value, "");
+static_assert(IsConstConvertible<int, int>);
+static_assert(IsConstConvertible<void, void>);
+static_assert(IsConstConvertible<void, const void>);
+static_assert(IsConstConvertible<int, const int>);
+static_assert(!IsConstConvertible<const int, int>);
+static_assert(!IsConstConvertible<int, float>);
+static_assert(!IsConstConvertible<int, const float>);
+static_assert(!IsConstConvertible<int, const void>);
+static_assert(!IsConstConvertible<const int, void>);
+static_assert(!IsConstConvertible<int, void>);
 
-static_assert(IsConstConvertibleOrVoid<int, int>::value, "");
-static_assert(IsConstConvertibleOrVoid<int, const int>::value, "");
-static_assert(IsConstConvertibleOrVoid<int, void>::value, "");
-static_assert(IsConstConvertibleOrVoid<const int, void>::value, "");
-static_assert(IsConstConvertibleOrVoid<int, const void>::value, "");
-static_assert(!IsConstConvertibleOrVoid<const int, int>::value, "");
-static_assert(!IsConstConvertibleOrVoid<int, float>::value, "");
-static_assert(!IsConstConvertibleOrVoid<int, const float>::value, "");
+static_assert(IsConstConvertibleOrVoid<int, int>);
+static_assert(IsConstConvertibleOrVoid<int, const int>);
+static_assert(IsConstConvertibleOrVoid<int, void>);
+static_assert(IsConstConvertibleOrVoid<const int, void>);
+static_assert(IsConstConvertibleOrVoid<int, const void>);
+static_assert(!IsConstConvertibleOrVoid<const int, int>);
+static_assert(!IsConstConvertibleOrVoid<int, float>);
+static_assert(!IsConstConvertibleOrVoid<int, const float>);
 
-static_assert(std::is_same<TypePackElement<0, int, float>, int>::value, "");
-static_assert(std::is_same<TypePackElement<1, int, float>, float>::value, "");
+static_assert(std::is_same_v<TypePackElement<0, int, float>, int>);
+static_assert(std::is_same_v<TypePackElement<1, int, float>, float>);
 
 template <std::size_t I, typename... Ts>
 using NonBuiltinTypePackElement =
     typename std::tuple_element<I, std::tuple<Ts...>>::type;
 
-static_assert(
-    std::is_same<NonBuiltinTypePackElement<0, int, float>, int>::value, "");
-static_assert(
-    std::is_same<NonBuiltinTypePackElement<1, int, float>, float>::value, "");
+static_assert(std::is_same_v<NonBuiltinTypePackElement<0, int, float>, int>);
+static_assert(std::is_same_v<NonBuiltinTypePackElement<1, int, float>, float>);
 
 TEST(PossiblyEmptyObjectGetterTest, Basic) {
   struct Empty {
@@ -126,7 +119,7 @@ TEST(PossiblyEmptyObjectGetterTest, Basic) {
   }
 }
 
-static_assert(std::is_same<int, type_identity_t<int>>::value, "");
+static_assert(std::is_same_v<int, type_identity_t<int>>);
 
 namespace has {
 TENSORSTORE_INTERNAL_DEFINE_HAS_METHOD(Foo)
@@ -149,23 +142,20 @@ struct HasBarStruct {
   friend float* Bar(HasBarStruct, int, int) ABSL_ATTRIBUTE_UNUSED;
 };
 
-static_assert(has::HasMethodFoo<int*, HasFooStruct, int>::value, "");
-static_assert(has::HasMethodFoo<const int*, HasFooStruct, int>::value, "");
-static_assert(has::HasMethodFoo<void, HasFooStruct, int>::value, "");
-static_assert(has::HasMethodFoo<void, HasFooStruct, int, int>::value, "");
-static_assert(has::HasMethodFoo<float*, HasFooStruct, int, int>::value, "");
-static_assert(!has::HasMethodFoo<void, HasFooStruct, int, int, int>::value, "");
-static_assert(!has::HasMethodFoo<void, HasFooStruct>::value, "");
-static_assert(!has::HasMethodFoo<void, MissingStruct, int>::value, "");
-static_assert(has::HasAdlFunctionBar<void, HasBarStruct>::value, "");
-static_assert(!has::HasAdlFunctionBar<void, HasBarStruct, int>::value, "");
-static_assert(has::HasAdlFunctionBar<float*, HasBarStruct, int, int>::value,
-              "");
-static_assert(
-    has::HasAdlFunctionBar<const float*, HasBarStruct, int, int>::value, "");
-static_assert(has::HasAdlFunctionBar<void, HasBarStruct, int, int>::value, "");
-static_assert(!has::HasAdlFunctionBar<void, MissingStruct, int, int>::value,
-              "");
+static_assert(has::HasMethodFoo<int*, HasFooStruct, int>);
+static_assert(has::HasMethodFoo<const int*, HasFooStruct, int>);
+static_assert(has::HasMethodFoo<void, HasFooStruct, int>);
+static_assert(has::HasMethodFoo<void, HasFooStruct, int, int>);
+static_assert(has::HasMethodFoo<float*, HasFooStruct, int, int>);
+static_assert(!has::HasMethodFoo<void, HasFooStruct, int, int, int>);
+static_assert(!has::HasMethodFoo<void, HasFooStruct>);
+static_assert(!has::HasMethodFoo<void, MissingStruct, int>);
+static_assert(has::HasAdlFunctionBar<void, HasBarStruct>);
+static_assert(!has::HasAdlFunctionBar<void, HasBarStruct, int>);
+static_assert(has::HasAdlFunctionBar<float*, HasBarStruct, int, int>);
+static_assert(has::HasAdlFunctionBar<const float*, HasBarStruct, int, int>);
+static_assert(has::HasAdlFunctionBar<void, HasBarStruct, int, int>);
+static_assert(!has::HasAdlFunctionBar<void, MissingStruct, int, int>);
 
 namespace explict_conversion_tests {
 using tensorstore::internal::IsOnlyExplicitlyConvertible;
@@ -178,28 +168,27 @@ struct X {
   explicit X(float*) {}
 };
 
-static_assert(IsOnlyExplicitlyConvertible<float*, X>::value, "");
-static_assert(std::is_convertible<int, X>::value, "");
-static_assert(std::is_constructible<X, int>::value, "");
-static_assert(!IsOnlyExplicitlyConvertible<int, X>::value, "");
+static_assert(IsOnlyExplicitlyConvertible<float*, X>);
+static_assert(std::is_convertible_v<int, X>);
+static_assert(std::is_constructible_v<X, int>);
+static_assert(!IsOnlyExplicitlyConvertible<int, X>);
 
 struct Y {
   Y(int*) {}
   explicit Y(double*) {}
 };
 
-static_assert(IsPairImplicitlyConvertible<int, int*, X, Y>::value, "");
-static_assert(IsPairExplicitlyConvertible<int, int*, X, Y>::value, "");
-static_assert(IsPairExplicitlyConvertible<int, double*, X, Y>::value, "");
-static_assert(IsPairExplicitlyConvertible<float*, int*, X, Y>::value, "");
-static_assert(IsPairExplicitlyConvertible<float*, double*, X, Y>::value, "");
-static_assert(!IsPairImplicitlyConvertible<int, double*, X, Y>::value, "");
-static_assert(!IsPairImplicitlyConvertible<float*, int*, X, Y>::value, "");
-static_assert(!IsPairImplicitlyConvertible<float*, double*, X, Y>::value, "");
-static_assert(IsPairOnlyExplicitlyConvertible<int, double*, X, Y>::value, "");
-static_assert(IsPairOnlyExplicitlyConvertible<float*, int*, X, Y>::value, "");
-static_assert(IsPairOnlyExplicitlyConvertible<float*, double*, X, Y>::value,
-              "");
+static_assert(IsPairImplicitlyConvertible<int, int*, X, Y>);
+static_assert(IsPairExplicitlyConvertible<int, int*, X, Y>);
+static_assert(IsPairExplicitlyConvertible<int, double*, X, Y>);
+static_assert(IsPairExplicitlyConvertible<float*, int*, X, Y>);
+static_assert(IsPairExplicitlyConvertible<float*, double*, X, Y>);
+static_assert(!IsPairImplicitlyConvertible<int, double*, X, Y>);
+static_assert(!IsPairImplicitlyConvertible<float*, int*, X, Y>);
+static_assert(!IsPairImplicitlyConvertible<float*, double*, X, Y>);
+static_assert(IsPairOnlyExplicitlyConvertible<int, double*, X, Y>);
+static_assert(IsPairOnlyExplicitlyConvertible<float*, int*, X, Y>);
+static_assert(IsPairOnlyExplicitlyConvertible<float*, double*, X, Y>);
 
 }  // namespace explict_conversion_tests
 

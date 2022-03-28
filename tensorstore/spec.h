@@ -125,7 +125,7 @@ class Spec {
   ///     valid.
   template <typename Expr>
   friend internal::FirstType<
-      std::enable_if_t<!IsIndexTransform<internal::remove_cvref_t<Expr>>::value,
+      std::enable_if_t<!IsIndexTransform<internal::remove_cvref_t<Expr>>,
                        Result<Spec>>,
       decltype(ApplyIndexTransform(std::declval<Expr>(),
                                    std::declval<IndexTransform<>>()))>

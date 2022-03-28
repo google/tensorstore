@@ -99,63 +99,54 @@ using testing::ElementsAre;
 namespace array_metafunctions_tests {
 using tensorstore::IsArrayExplicitlyConvertible;
 static_assert(IsArrayExplicitlyConvertible<int, dynamic_rank, zero_origin,
-                                           const int, 2, zero_origin>::value,
-              "");
+                                           const int, 2, zero_origin>);
 static_assert(
     IsArrayExplicitlyConvertible<const void, dynamic_rank, zero_origin,
-                                 const int, 2, zero_origin>::value,
-    "");
+                                 const int, 2, zero_origin>);
 static_assert(
     IsArrayExplicitlyConvertible<const void, dynamic_rank, zero_origin,
-                                 const int, 2, offset_origin>::value,
-    "");
+                                 const int, 2, offset_origin>);
 static_assert(
     !IsArrayExplicitlyConvertible<const void, dynamic_rank, offset_origin,
-                                  const int, 2, zero_origin>::value,
-    "");
+                                  const int, 2, zero_origin>);
 static_assert(
     !IsArrayExplicitlyConvertible<const void, dynamic_rank, offset_origin,
-                                  const void, dynamic_rank, zero_origin>::value,
-    "");
+                                  const void, dynamic_rank, zero_origin>);
 static_assert(!IsArrayExplicitlyConvertible<const void, 2, zero_origin,
-                                            const void, 3, zero_origin>::value,
-              "");
+                                            const void, 3, zero_origin>);
 static_assert(!IsArrayExplicitlyConvertible<const int, 2, zero_origin,
-                                            const float, 2, zero_origin>::value,
-              "");
+                                            const float, 2, zero_origin>);
 
 }  // namespace array_metafunctions_tests
 
 namespace subarray_ref_tests {
 static_assert(SubArrayStaticRank<dynamic_rank, span<const Index, 2>>::value ==
-                  dynamic_rank,
-              "");
-static_assert(SubArrayStaticRank<5, span<const Index>>::value == dynamic_rank,
-              "");
-static_assert(SubArrayStaticRank<5, span<const Index, 3>>::value == 2, "");
+              dynamic_rank);
+static_assert(SubArrayStaticRank<5, span<const Index>>::value == dynamic_rank);
+static_assert(SubArrayStaticRank<5, span<const Index, 3>>::value == 2);
 }  // namespace subarray_ref_tests
 
 namespace strided_array_size_tests {
 // Just a shared_ptr
-static_assert(sizeof(SharedArray<float, 0>) == sizeof(void*) * 2, "");
+static_assert(sizeof(SharedArray<float, 0>) == sizeof(void*) * 2);
 
 // shared_ptr + 2 Index values
-static_assert(sizeof(SharedArray<float, 1>) == (sizeof(void*) * 4), "");
+static_assert(sizeof(SharedArray<float, 1>) == (sizeof(void*) * 4));
 
 // shared_ptr + DataType
-static_assert(sizeof(SharedArray<void, 0>) == (sizeof(void*) * 3), "");
+static_assert(sizeof(SharedArray<void, 0>) == (sizeof(void*) * 3));
 
 // shared_ptr + DataType + 2 Index values
-static_assert(sizeof(SharedArray<void, 1>) == (sizeof(void*) * 5), "");
+static_assert(sizeof(SharedArray<void, 1>) == (sizeof(void*) * 5));
 
 // shared_ptr + DataType + 1 DimensionIndex + 1 Index pointer
-static_assert(sizeof(SharedArray<void>) == (sizeof(void*) * 5), "");
+static_assert(sizeof(SharedArray<void>) == (sizeof(void*) * 5));
 
 // Just a raw pointer.
-static_assert(sizeof(ArrayView<float, 0>) == sizeof(void*), "");
+static_assert(sizeof(ArrayView<float, 0>) == sizeof(void*));
 
 // raw pointer + 2 Index pointers + 1 DimensionIndex
-static_assert(sizeof(ArrayView<float>) == sizeof(void*) * 4, "");
+static_assert(sizeof(ArrayView<float>) == sizeof(void*) * 4);
 
 // raw pointer + DataType + 2 Index pointers + 1 DimensionIndex
 static_assert(sizeof(ArrayView<void>) == sizeof(void*) * 5, "");
@@ -175,14 +166,14 @@ namespace make_array_ref_tests {
 TEST(MakeArrayViewTest, Scalar) {
   int value = 3;
   auto result = MakeScalarArrayView(value);
-  static_assert(std::is_same<decltype(result), ArrayView<int, 0>>::value, "");
+  static_assert(std::is_same_v<decltype(result), ArrayView<int, 0>>);
   EXPECT_EQ(&value, result.data());
 }
 
 TEST(MakeArrayViewTest, Span) {
   std::vector<int> values{1, 2, 3};
   auto result = MakeArrayView(values);
-  static_assert(std::is_same<decltype(result), SharedArray<int, 1>>::value, "");
+  static_assert(std::is_same_v<decltype(result), SharedArray<int, 1>>);
   EXPECT_EQ(values.data(), result.data());
   EXPECT_EQ(StridedLayout(ContiguousLayoutOrder::c, sizeof(int), {3}),
             result.layout());
@@ -192,38 +183,30 @@ TEST(MakeArrayViewTest, Span) {
 }
 
 // Test calls to MakeArrayView with a braced list.
-static_assert(std::is_same<ArrayView<const int, 1>,
-                           decltype(MakeArrayView({1, 2, 3}))>::value,
-              "");
+static_assert(std::is_same_v<ArrayView<const int, 1>,
+                             decltype(MakeArrayView({1, 2, 3}))>);
+static_assert(std::is_same_v<ArrayView<const int, 2>,
+                             decltype(MakeArrayView({{1, 2, 3}, {4, 5, 6}}))>);
 static_assert(
-    std::is_same<ArrayView<const int, 2>,
-                 decltype(MakeArrayView({{1, 2, 3}, {4, 5, 6}}))>::value,
-    "");
+    std::is_same_v<ArrayView<const int, 3>,
+                   decltype(MakeArrayView({{{1, 2, 3}}, {{4, 5, 6}}}))>);
 static_assert(
-    std::is_same<ArrayView<const int, 3>,
-                 decltype(MakeArrayView({{{1, 2, 3}}, {{4, 5, 6}}}))>::value,
-    "");
+    std::is_same_v<ArrayView<const int, 4>,
+                   decltype(MakeArrayView({{{{1, 2, 3}}, {{4, 5, 6}}}}))>);
 static_assert(
-    std::is_same<ArrayView<const int, 4>,
-                 decltype(MakeArrayView({{{{1, 2, 3}}, {{4, 5, 6}}}}))>::value,
-    "");
-static_assert(std::is_same<ArrayView<const int, 5>,
-                           decltype(MakeArrayView({{{{{1, 2, 3}},
-                                                     {{4, 5, 6}}}}}))>::value,
-              "");
-static_assert(std::is_same<ArrayView<const int, 6>,
-                           decltype(MakeArrayView({{{{{{1, 2, 3}},
-                                                      {{4, 5, 6}}}}}}))>::value,
-              "");
+    std::is_same_v<ArrayView<const int, 5>,
+                   decltype(MakeArrayView({{{{{1, 2, 3}}, {{4, 5, 6}}}}}))>);
+static_assert(
+    std::is_same_v<ArrayView<const int, 6>,
+                   decltype(MakeArrayView({{{{{{1, 2, 3}}, {{4, 5, 6}}}}}}))>);
 
 TEST(MakeArrayViewTest, Rank1Array) {
   int values[] = {1, 2, 3};
   const int cvalues[] = {1, 2, 3};
   auto result = MakeArrayView(values);
   auto cresult = MakeArrayView(cvalues);
-  static_assert(std::is_same<decltype(result), ArrayView<int, 1>>::value, "");
-  static_assert(std::is_same<decltype(cresult), ArrayView<const int, 1>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(result), ArrayView<int, 1>>);
+  static_assert(std::is_same_v<decltype(cresult), ArrayView<const int, 1>>);
   EXPECT_EQ(&values[0], result.data());
   EXPECT_EQ(&cvalues[0], cresult.data());
   auto layout = StridedLayout(ContiguousLayoutOrder::c, sizeof(int), {3});
@@ -237,9 +220,8 @@ TEST(MakeArrayViewTest, Rank2Array) {
   const int cvalues[2][3] = {{1, 2, 3}, {4, 5, 6}};
   auto result = MakeArrayView(values);
   auto cresult = MakeArrayView(cvalues);
-  static_assert(std::is_same<decltype(result), ArrayView<int, 2>>::value, "");
-  static_assert(std::is_same<decltype(cresult), ArrayView<const int, 2>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(result), ArrayView<int, 2>>);
+  static_assert(std::is_same_v<decltype(cresult), ArrayView<const int, 2>>);
   EXPECT_EQ(&values[0][0], result.data());
   EXPECT_EQ(&cvalues[0][0], cresult.data());
   auto layout = StridedLayout(ContiguousLayoutOrder::c, sizeof(int), {2, 3});
@@ -253,9 +235,8 @@ TEST(MakeArrayViewTest, Rank3Array) {
   const int cvalues[1][2][3] = {{{1, 2, 3}, {4, 5, 6}}};
   auto result = MakeArrayView(values);
   auto cresult = MakeArrayView(cvalues);
-  static_assert(std::is_same<decltype(result), ArrayView<int, 3>>::value, "");
-  static_assert(std::is_same<decltype(cresult), ArrayView<const int, 3>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(result), ArrayView<int, 3>>);
+  static_assert(std::is_same_v<decltype(cresult), ArrayView<const int, 3>>);
   EXPECT_EQ(&values[0][0][0], result.data());
   EXPECT_EQ(&cvalues[0][0][0], cresult.data());
   auto layout = StridedLayout(ContiguousLayoutOrder::c, sizeof(int), {1, 2, 3});
@@ -269,9 +250,8 @@ TEST(MakeArrayViewTest, Rank4Array) {
   const int cvalues[1][1][2][3] = {{{{1, 2, 3}, {4, 5, 6}}}};
   auto result = MakeArrayView(values);
   auto cresult = MakeArrayView(cvalues);
-  static_assert(std::is_same<decltype(result), ArrayView<int, 4>>::value, "");
-  static_assert(std::is_same<decltype(cresult), ArrayView<const int, 4>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(result), ArrayView<int, 4>>);
+  static_assert(std::is_same_v<decltype(cresult), ArrayView<const int, 4>>);
   EXPECT_EQ(&values[0][0][0][0], result.data());
   auto layout =
       StridedLayout(ContiguousLayoutOrder::c, sizeof(int), {1, 1, 2, 3});
@@ -285,9 +265,8 @@ TEST(MakeArrayViewTest, Rank5Array) {
   const int cvalues[1][1][1][2][3] = {{{{{1, 2, 3}, {4, 5, 6}}}}};
   auto result = MakeArrayView(values);
   auto cresult = MakeArrayView(cvalues);
-  static_assert(std::is_same<decltype(result), ArrayView<int, 5>>::value, "");
-  static_assert(std::is_same<decltype(cresult), ArrayView<const int, 5>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(result), ArrayView<int, 5>>);
+  static_assert(std::is_same_v<decltype(cresult), ArrayView<const int, 5>>);
   EXPECT_EQ(&values[0][0][0][0][0], result.data());
   auto layout =
       StridedLayout(ContiguousLayoutOrder::c, sizeof(int), {1, 1, 1, 2, 3});
@@ -302,9 +281,8 @@ TEST(MakeArrayViewTest, Rank6Array) {
       {{{{{1}, {2}, {3}}, {{4}, {5}, {6}}}}}};
   auto result = MakeArrayView(values);
   auto cresult = MakeArrayView(cvalues);
-  static_assert(std::is_same<decltype(result), ArrayView<int, 6>>::value, "");
-  static_assert(std::is_same<decltype(cresult), ArrayView<const int, 6>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(result), ArrayView<int, 6>>);
+  static_assert(std::is_same_v<decltype(cresult), ArrayView<const int, 6>>);
   EXPECT_EQ(&values[0][0][0][0][0][0], result.data());
   EXPECT_EQ(&cvalues[0][0][0][0][0][0], cresult.data());
   auto layout =
@@ -333,25 +311,19 @@ TEST(ArrayViewTest, ConstructDefault) {
 }
 
 TEST(ArrayViewTest, ConstructAndAssign) {
+  static_assert(!std::is_convertible_v<ArrayView<float>, ArrayView<float, 2>>);
+  static_assert(!std::is_convertible_v<ArrayView<float, 2>, ArrayView<int, 2>>);
   static_assert(
-      !std::is_convertible<ArrayView<float>, ArrayView<float, 2>>::value, "");
+      !std::is_constructible_v<ArrayView<float, 2>, ArrayView<const float, 2>>);
   static_assert(
-      !std::is_convertible<ArrayView<float, 2>, ArrayView<int, 2>>::value, "");
-  static_assert(!std::is_constructible<ArrayView<float, 2>,
-                                       ArrayView<const float, 2>>::value,
-                "");
+      !std::is_constructible_v<ArrayView<float, 2>, ArrayView<float, 3>>);
   static_assert(
-      !std::is_constructible<ArrayView<float, 2>, ArrayView<float, 3>>::value,
-      "");
-  static_assert(!std::is_assignable<ArrayView<float, 2>,
-                                    ArrayView<const float, 2>>::value,
-                "");
+      !std::is_assignable_v<ArrayView<float, 2>, ArrayView<const float, 2>>);
   static_assert(
-      !std::is_assignable<ArrayView<float, 2>, ArrayView<float, 3>>::value, "");
+      !std::is_assignable_v<ArrayView<float, 2>, ArrayView<float, 3>>);
+  static_assert(!std::is_assignable_v<ArrayView<float, 2>, ArrayView<int, 2>>);
   static_assert(
-      !std::is_assignable<ArrayView<float, 2>, ArrayView<int, 2>>::value, "");
-  static_assert(
-      !std::is_convertible<ArrayView<void, 2>, ArrayView<float, 2>>::value, "");
+      !std::is_convertible_v<ArrayView<void, 2>, ArrayView<float, 2>>);
   float data[2][3] = {{1, 2, 3}, {4, 5, 6}};
   ArrayView<float, 2> a = MakeArrayView(data);
 
@@ -366,7 +338,7 @@ TEST(ArrayViewTest, ConstructAndAssign) {
 
   {
     auto a3 = StaticDataTypeCast<float>(a2).value();
-    static_assert(std::is_same<decltype(a3), ArrayView<float>>::value, "");
+    static_assert(std::is_same_v<decltype(a3), ArrayView<float>>);
     EXPECT_EQ(a.data(), a3.data());
     EXPECT_EQ(a.layout(), a3.layout());
   }
@@ -390,10 +362,8 @@ TEST(ArrayViewTest, ConstructAndAssign) {
     EXPECT_EQ(a.layout(), a6.layout());
     EXPECT_EQ(dtype_v<float>, a6.dtype());
   }
-  static_assert(!std::is_assignable<ArrayView<float, 2>, ArrayView<float>>(),
-                "");
-  static_assert(!std::is_assignable<ArrayView<float, 2>, ArrayView<void>>(),
-                "");
+  static_assert(!std::is_assignable_v<ArrayView<float, 2>, ArrayView<float>>);
+  static_assert(!std::is_assignable_v<ArrayView<float, 2>, ArrayView<void>>);
   {
     ArrayView<float> a6;
     a6 = a;
@@ -408,7 +378,7 @@ TEST(ArrayViewTest, ConstructAndAssign) {
     EXPECT_EQ(a.layout(), a6.layout());
     EXPECT_EQ(dtype_v<float>, a6.dtype());
   }
-  static_assert(!std::is_assignable<ArrayView<float>, ArrayView<void>>(), "");
+  static_assert(!std::is_assignable_v<ArrayView<float>, ArrayView<void>>);
   {
     ArrayView<const void, 2> a6;
     a6 = a;
@@ -417,9 +387,9 @@ TEST(ArrayViewTest, ConstructAndAssign) {
     EXPECT_EQ(dtype_v<float>, a6.dtype());
   }
   static_assert(
-      !std::is_assignable<ArrayView<const void, 2>, ArrayView<float>>(), "");
+      !std::is_assignable_v<ArrayView<const void, 2>, ArrayView<float>>);
   static_assert(
-      !std::is_assignable<ArrayView<const void, 2>, ArrayView<void>>(), "");
+      !std::is_assignable_v<ArrayView<const void, 2>, ArrayView<void>>);
   /// Test UnownedToShared array conversion.
   {
     SharedArray<void> a3_arr(UnownedToShared(a2));
@@ -469,42 +439,29 @@ TEST(ArrayViewTest, StaticCast) {
 
 TEST(SharedArrayTest, ConstructAndAssign) {
   static_assert(
-      !std::is_convertible<SharedArray<float>, SharedArray<float, 2>>::value,
-      "");
-  static_assert(!std::is_convertible<const SharedArray<float>&,
-                                     SharedArray<float, 2>>::value,
-                "");
+      !std::is_convertible_v<SharedArray<float>, SharedArray<float, 2>>);
   static_assert(
-      !std::is_convertible<SharedArray<float, 2>, SharedArray<int, 2>>::value,
-      "");
-  static_assert(!std::is_constructible<SharedArray<float, 2>,
-                                       SharedArray<const float, 2>>::value,
-                "");
+      !std::is_convertible_v<const SharedArray<float>&, SharedArray<float, 2>>);
   static_assert(
-      !std::is_constructible<SharedArray<float, 2>,
-                             const SharedArray<const float, 2>&>::value,
-      "");
-  static_assert(!std::is_constructible<SharedArray<float, 2>,
-                                       SharedArray<float, 3>>::value,
-                "");
-  static_assert(!std::is_assignable<SharedArray<float, 2>,
-                                    SharedArray<const float, 2>>::value,
-                "");
+      !std::is_convertible_v<SharedArray<float, 2>, SharedArray<int, 2>>);
+  static_assert(!std::is_constructible_v<SharedArray<float, 2>,
+                                         SharedArray<const float, 2>>);
+  static_assert(!std::is_constructible_v<SharedArray<float, 2>,
+                                         const SharedArray<const float, 2>&>);
   static_assert(
-      !std::is_assignable<SharedArray<float, 2>, SharedArray<float, 3>>::value,
-      "");
+      !std::is_constructible_v<SharedArray<float, 2>, SharedArray<float, 3>>);
+  static_assert(!std::is_assignable_v<SharedArray<float, 2>,
+                                      SharedArray<const float, 2>>);
   static_assert(
-      !std::is_assignable<SharedArray<float, 2>, SharedArray<int, 2>>::value,
-      "");
-  static_assert(!std::is_assignable<SharedArray<float, 2>,
-                                    const SharedArray<int, 2>&>::value,
-                "");
+      !std::is_assignable_v<SharedArray<float, 2>, SharedArray<float, 3>>);
   static_assert(
-      !std::is_convertible<SharedArray<void, 2>, SharedArray<float, 2>>::value,
-      "");
+      !std::is_assignable_v<SharedArray<float, 2>, SharedArray<int, 2>>);
   static_assert(
-      !std::is_convertible<SharedArray<void, 2>, SharedArray<float, 2>>::value,
-      "");
+      !std::is_assignable_v<SharedArray<float, 2>, const SharedArray<int, 2>&>);
+  static_assert(
+      !std::is_convertible_v<SharedArray<void, 2>, SharedArray<float, 2>>);
+  static_assert(
+      !std::is_convertible_v<SharedArray<void, 2>, SharedArray<float, 2>>);
 
   float data[2][3] = {{1, 2, 3}, {4, 5, 6}};
   ArrayView<float, 2> a_ref = MakeArrayView(data);
@@ -549,9 +506,9 @@ TEST(SharedArrayTest, ConstructAndAssign) {
   }
 
   static_assert(
-      !std::is_assignable<SharedArray<float, 2>, SharedArray<float>>(), "");
-  static_assert(!std::is_assignable<SharedArray<float, 2>, SharedArray<void>>(),
-                "");
+      !std::is_assignable_v<SharedArray<float, 2>, SharedArray<float>>);
+  static_assert(
+      !std::is_assignable_v<SharedArray<float, 2>, SharedArray<void>>);
   {
     SharedArray<float> a6;
     a6 = a;
@@ -566,8 +523,7 @@ TEST(SharedArrayTest, ConstructAndAssign) {
     EXPECT_EQ(a.layout(), a6.layout());
     EXPECT_EQ(dtype_v<float>, a6.dtype());
   }
-  static_assert(!std::is_assignable<SharedArray<float>, SharedArray<void>>(),
-                "");
+  static_assert(!std::is_assignable_v<SharedArray<float>, SharedArray<void>>);
   {
     SharedArray<const void, 2> a6;
     a6 = a;
@@ -576,14 +532,12 @@ TEST(SharedArrayTest, ConstructAndAssign) {
     EXPECT_EQ(dtype_v<float>, a6.dtype());
   }
   static_assert(
-      !std::is_assignable<SharedArray<const void, 2>, SharedArray<void>>(), "");
+      !std::is_assignable_v<SharedArray<const void, 2>, SharedArray<void>>);
   static_assert(
-      !std::is_assignable<SharedArray<const void, 2>, SharedArray<float>>(),
-      "");
+      !std::is_assignable_v<SharedArray<const void, 2>, SharedArray<float>>);
   static_assert(
-      !std::is_assignable<SharedArray<float, 2>, SharedArray<float>>(), "");
-  static_assert(!std::is_assignable<SharedArray<float, 2>, ArrayView<float>>(),
-                "");
+      !std::is_assignable_v<SharedArray<float, 2>, SharedArray<float>>);
+  static_assert(!std::is_assignable_v<SharedArray<float, 2>, ArrayView<float>>);
 
   // Construct rank-0 array from just a pointer.
   {
@@ -666,14 +620,13 @@ TEST(ArrayTest, SubArray) {
 
   EXPECT_EQ(1, array.pointer().use_count());
   auto sub_array = SubArray<container>(array, {1});
-  static_assert(std::is_same<decltype(sub_array), Array<int, 1>>::value, "");
+  static_assert(std::is_same_v<decltype(sub_array), Array<int, 1>>);
   EXPECT_THAT(sub_array.shape(), ElementsAre(3));
   EXPECT_EQ(array.data() + 3, sub_array.data());
   EXPECT_EQ(StridedLayout<1>({3}, {sizeof(int)}), sub_array.layout());
 
   auto sub_array_view = SubArray<view>(array, {1});
-  static_assert(
-      std::is_same<decltype(sub_array_view), ArrayView<int, 1>>::value, "");
+  static_assert(std::is_same_v<decltype(sub_array_view), ArrayView<int, 1>>);
   EXPECT_EQ(array.data() + 3, sub_array_view.data());
   EXPECT_EQ(StridedLayout<1>({3}, {sizeof(int)}), sub_array_view.layout());
 }
@@ -682,16 +635,14 @@ TEST(ArrayTest, SharedSubArray) {
   auto array = MakeArray<int>({{1, 2, 3}, {4, 5, 6}});
   EXPECT_EQ(1, array.pointer().use_count());
   auto sub_array = SharedSubArray<container>(array, {1});
-  static_assert(std::is_same<decltype(sub_array), SharedArray<int, 1>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(sub_array), SharedArray<int, 1>>);
   EXPECT_EQ(2, array.pointer().use_count());
   EXPECT_EQ(array.data() + 3, sub_array.data());
   EXPECT_EQ(StridedLayout<1>({3}, {sizeof(int)}), sub_array.layout());
 
   auto sub_array_view = SharedSubArray<view>(array, {1});
   static_assert(
-      std::is_same<decltype(sub_array_view), SharedArrayView<int, 1>>::value,
-      "");
+      std::is_same_v<decltype(sub_array_view), SharedArrayView<int, 1>>);
   EXPECT_EQ(3, array.pointer().use_count());
   EXPECT_EQ(array.data() + 3, sub_array_view.data());
   EXPECT_EQ(StridedLayout<1>({3}, {sizeof(int)}), sub_array_view.layout());
@@ -704,80 +655,69 @@ TEST(ArrayTest, DynamicCast) {
   auto a_int = StaticRankCast<dynamic_rank>(a_int_2).value();
   EXPECT_EQ(a_int_2.layout(), a_int.layout());
   EXPECT_EQ(a_int_2.element_pointer(), a_int.element_pointer());
-  static_assert(std::is_same<decltype(a_int), ArrayView<int>>::value, "");
+  static_assert(std::is_same_v<decltype(a_int), ArrayView<int>>);
   StaticRankCast<dynamic_rank>(a_int).value();
 
   /// If a conversion is done, StaticRankCast returns by value.  However, for
   /// efficiency, a no-op StaticRankCast should just return an lvalue or rvalue
   /// reference to the argument.
   static_assert(
-      std::is_same<decltype(StaticRankCast<dynamic_rank, unchecked>(a_int)),
-                   ArrayView<int>&>::value,
-      "");
-  static_assert(std::is_same<decltype(StaticRankCast<dynamic_rank, unchecked>(
-                                 std::declval<const ArrayView<int>&>())),
-                             const ArrayView<int>&>::value,
-                "");
-  static_assert(std::is_same<decltype(StaticRankCast<dynamic_rank, unchecked>(
-                                 std::declval<ArrayView<int>>())),
-                             ArrayView<int>&&>::value,
-                "");
+      std::is_same_v<decltype(StaticRankCast<dynamic_rank, unchecked>(a_int)),
+                     ArrayView<int>&>);
+  static_assert(std::is_same_v<decltype(StaticRankCast<dynamic_rank, unchecked>(
+                                   std::declval<const ArrayView<int>&>())),
+                               const ArrayView<int>&>);
+  static_assert(std::is_same_v<decltype(StaticRankCast<dynamic_rank, unchecked>(
+                                   std::declval<ArrayView<int>>())),
+                               ArrayView<int>&&>);
 
   auto a_void_2 = StaticDataTypeCast<void>(a_int_2).value();
   EXPECT_EQ(a_int_2.layout(), a_void_2.layout());
   EXPECT_EQ(a_int_2.element_pointer(), a_void_2.element_pointer());
-  static_assert(std::is_same<decltype(a_void_2), ArrayView<void, 2>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(a_void_2), ArrayView<void, 2>>);
 
   StaticDataTypeCast<void>(a_void_2).value();
   static_assert(
-      std::is_same<decltype(StaticDataTypeCast<void, unchecked>(a_void_2)),
-                   ArrayView<void, 2>&>::value,
-      "");
-  static_assert(std::is_same<decltype(StaticDataTypeCast<void, unchecked>(
-                                 std::declval<const ArrayView<void, 2>&>())),
-                             const ArrayView<void, 2>&>::value,
-                "");
-  static_assert(std::is_same<decltype(StaticDataTypeCast<void, unchecked>(
-                                 std::declval<ArrayView<void, 2>>())),
-                             ArrayView<void, 2>&&>::value,
-                "");
+      std::is_same_v<decltype(StaticDataTypeCast<void, unchecked>(a_void_2)),
+                     ArrayView<void, 2>&>);
+  static_assert(std::is_same_v<decltype(StaticDataTypeCast<void, unchecked>(
+                                   std::declval<const ArrayView<void, 2>&>())),
+                               const ArrayView<void, 2>&>);
+  static_assert(std::is_same_v<decltype(StaticDataTypeCast<void, unchecked>(
+                                   std::declval<ArrayView<void, 2>>())),
+                               ArrayView<void, 2>&&>);
 
   auto a_void = StaticCast<ArrayView<void>>(a_int_2).value();
   EXPECT_EQ(a_int_2.layout(), a_void.layout());
   EXPECT_EQ(a_int_2.element_pointer(), a_void.element_pointer());
-  static_assert(std::is_same<decltype(a_void), ArrayView<void>>::value, "");
+  static_assert(std::is_same_v<decltype(a_void), ArrayView<void>>);
 
   StaticCast<ArrayView<void>>(a_void).value();
   static_assert(
-      std::is_same<decltype(StaticCast<ArrayView<void>, unchecked>(a_void)),
-                   ArrayView<void>&>::value,
-      "");
-  static_assert(std::is_same<decltype(StaticCast<ArrayView<void>, unchecked>(
-                                 std::declval<const ArrayView<void>&>())),
-                             const ArrayView<void>&>::value,
-                "");
-  static_assert(std::is_same<decltype(StaticCast<ArrayView<void>, unchecked>(
-                                 std::declval<ArrayView<void>>())),
-                             ArrayView<void>&&>::value,
-                "");
+      std::is_same_v<decltype(StaticCast<ArrayView<void>, unchecked>(a_void)),
+                     ArrayView<void>&>);
+  static_assert(std::is_same_v<decltype(StaticCast<ArrayView<void>, unchecked>(
+                                   std::declval<const ArrayView<void>&>())),
+                               const ArrayView<void>&>);
+  static_assert(std::is_same_v<decltype(StaticCast<ArrayView<void>, unchecked>(
+                                   std::declval<ArrayView<void>>())),
+                               ArrayView<void>&&>);
 
   auto b_int_2 =
       StaticCast<SharedArray<int, 2>>(UnownedToShared(a_void)).value();
   EXPECT_EQ(a_int_2.layout(), b_int_2.layout());
   EXPECT_EQ(a_int_2.element_pointer(), b_int_2.element_pointer());
-  static_assert(std::is_same<decltype(b_int_2), SharedArray<int, 2>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(b_int_2), SharedArray<int, 2>>);
 
   auto c_int_2 = StaticRankCast<2>(a_int).value();
   EXPECT_EQ(a_int_2.layout(), c_int_2.layout());
   EXPECT_EQ(a_int_2.element_pointer(), c_int_2.element_pointer());
-  static_assert(std::is_same<decltype(c_int_2), ArrayView<int, 2>>::value, "");
+  static_assert(std::is_same_v<decltype(c_int_2), ArrayView<int, 2>>);
 
   auto d_int_2 = StaticDataTypeCast<int>(a_void_2).value();
   EXPECT_EQ(a_int_2.layout(), d_int_2.layout());
   EXPECT_EQ(a_int_2.element_pointer(), d_int_2.element_pointer());
-  static_assert(std::is_same<decltype(d_int_2), ArrayView<int, 2>>::value, "");
+  static_assert(std::is_same_v<decltype(d_int_2), ArrayView<int, 2>>);
 }
 
 TEST(ArrayTest, OffsetOriginConstruct) {
@@ -902,7 +842,7 @@ TEST(ArrayTest, Indexing) {
 
   {
     auto a_sub = a[1];
-    static_assert(std::is_same<decltype(a_sub), ArrayView<int, 1>>::value, "");
+    static_assert(std::is_same_v<decltype(a_sub), ArrayView<int, 1>>);
     EXPECT_EQ(&data[1][0], a_sub.data());
     EXPECT_EQ(6, a_sub(2));
     EXPECT_EQ(a.shape().data() + 1, a_sub.shape().data());
@@ -911,7 +851,7 @@ TEST(ArrayTest, Indexing) {
 
   {
     auto a_sub = a[span<const Index>({1, 2})];
-    static_assert(std::is_same<decltype(a_sub), ArrayView<int>>::value, "");
+    static_assert(std::is_same_v<decltype(a_sub), ArrayView<int>>);
     EXPECT_EQ(0, a_sub.rank());
     EXPECT_EQ(&data[1][2], a_sub.data());
     EXPECT_EQ(6, a_sub());
@@ -919,7 +859,7 @@ TEST(ArrayTest, Indexing) {
 
   {
     auto a_sub = a[{1, 2}];
-    static_assert(std::is_same<decltype(a_sub), ArrayView<int, 0>>::value, "");
+    static_assert(std::is_same_v<decltype(a_sub), ArrayView<int, 0>>);
     EXPECT_EQ(0, a_sub.rank());
     EXPECT_EQ(&data[1][2], a_sub.data());
     EXPECT_EQ(6, a_sub());
@@ -928,7 +868,7 @@ TEST(ArrayTest, Indexing) {
   {
     ArrayView<int> a_d = a;
     auto a_sub = a_d[1];
-    static_assert(std::is_same<decltype(a_sub), ArrayView<int>>::value, "");
+    static_assert(std::is_same_v<decltype(a_sub), ArrayView<int>>);
     EXPECT_EQ(1, a_sub.rank());
     EXPECT_EQ(&data[1][0], a_sub.data());
     EXPECT_EQ(a_d.shape().data() + 1, a_sub.shape().data());
@@ -991,9 +931,8 @@ namespace allocate_and_construct_shared_elements_test {
 TEST(AllocateAndConstructSharedElementsTest, StaticType) {
   auto result =
       tensorstore::internal::AllocateAndConstructSharedElements<float>(3);
-  static_assert(std::is_same<decltype(result),
-                             tensorstore::SharedElementPointer<float>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(result),
+                               tensorstore::SharedElementPointer<float>>);
 
   EXPECT_NE(nullptr, result.data());
 }
@@ -1001,9 +940,8 @@ TEST(AllocateAndConstructSharedElementsTest, StaticType) {
 TEST(AllocateAndConstructSharedElementsTest, DynamicType) {
   auto result = tensorstore::internal::AllocateAndConstructSharedElements(
       3, tensorstore::default_init, dtype_v<float>);
-  static_assert(std::is_same<decltype(result),
-                             tensorstore::SharedElementPointer<void>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(result),
+                               tensorstore::SharedElementPointer<void>>);
 
   EXPECT_EQ(dtype_v<float>, result.dtype());
   EXPECT_NE(nullptr, result.data());
@@ -1565,11 +1503,10 @@ TEST(DynamicRankCastTest, Example) {
 TEST(SharedArrayTest, Domain) {
   SharedArray<int, 2> a = MakeArray<int>({{1, 2}, {3, 4}});
   auto box = a.domain();
-  static_assert(std::is_same<decltype(box), tensorstore::BoxView<2>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(box), tensorstore::BoxView<2>>);
   EXPECT_THAT(box.shape(), ::testing::ElementsAre(2, 2));
   EXPECT_THAT(box.origin(), ::testing::ElementsAre(0, 0));
-  static_assert(tensorstore::HasBoxDomain<SharedArray<int, 2>>::value, "");
+  static_assert(tensorstore::HasBoxDomain<SharedArray<int, 2>>);
   EXPECT_EQ(box, GetBoxDomainOf(a));
 }
 
@@ -1592,10 +1529,9 @@ void TestArrayOriginCastOffsetOriginToZeroOrigin() {
   SharedArray<int, 2, offset_origin, SourceLayoutCKind> source_copy = source;
   auto result =
       tensorstore::ArrayOriginCast<zero_origin, TargetLayoutCKind>(source);
-  static_assert(std::is_same<tensorstore::Result<tensorstore::SharedArray<
-                                 int, 2, zero_origin, TargetLayoutCKind>>,
-                             decltype(result)>::value,
-                "");
+  static_assert(std::is_same_v<tensorstore::Result<tensorstore::SharedArray<
+                                   int, 2, zero_origin, TargetLayoutCKind>>,
+                               decltype(result)>);
   EXPECT_EQ(MakeArray<int>({{1, 2, 3}, {4, 5, 6}}), *result);
 }
 
@@ -1607,10 +1543,9 @@ void TestArrayOriginCastImplicitCase(
   auto result =
       tensorstore::ArrayOriginCast<TargetOriginKind, TargetLayoutCKind>(source);
   static_assert(
-      std::is_same<tensorstore::Array<ElementTag, Rank, TargetOriginKind,
-                                      TargetLayoutCKind>,
-                   decltype(result)>::value,
-      "");
+      std::is_same_v<tensorstore::Array<ElementTag, Rank, TargetOriginKind,
+                                        TargetLayoutCKind>,
+                     decltype(result)>);
   EXPECT_EQ(source, result);
 }
 

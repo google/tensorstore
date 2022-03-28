@@ -34,7 +34,7 @@ using EquivalentIndices =
 
 template <typename A, typename B>
 inline void CheckSameTypes() {
-  static_assert(std::is_same<A, B>::value, "");
+  static_assert(std::is_same_v<A, B>);
 }
 
 template <typename Transform>

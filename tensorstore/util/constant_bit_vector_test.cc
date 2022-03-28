@@ -28,30 +28,26 @@ using tensorstore::GetConstantBitVector;
 TEST(GetConstantBitVectorTest, StaticExtentFalse) {
   constexpr auto v = GetConstantBitVector<std::uint64_t, false, 113>();
   static_assert(
-      std::is_same<decltype(v), const BitSpan<const std::uint64_t, 113>>::value,
-      "");
+      std::is_same_v<decltype(v), const BitSpan<const std::uint64_t, 113>>);
   EXPECT_THAT(v, ::testing::ElementsAreArray(std::vector<bool>(113, false)));
 }
 
 TEST(GetConstantBitVectorTest, StaticExtentTrue) {
   constexpr auto v = GetConstantBitVector<std::uint64_t, true, 113>();
   static_assert(
-      std::is_same<decltype(v), const BitSpan<const std::uint64_t, 113>>::value,
-      "");
+      std::is_same_v<decltype(v), const BitSpan<const std::uint64_t, 113>>);
   EXPECT_THAT(v, ::testing::ElementsAreArray(std::vector<bool>(113, true)));
 }
 
 TEST(GetConstantBitVectorTest, DynamicExtentFalse) {
   auto v = GetConstantBitVector<std::uint64_t, false>(113);
-  static_assert(std::is_same<decltype(v), BitSpan<const std::uint64_t>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(v), BitSpan<const std::uint64_t>>);
   EXPECT_THAT(v, ::testing::ElementsAreArray(std::vector<bool>(113, false)));
 }
 
 TEST(GetConstantBitVectorTest, DynamicExtentTrue) {
   auto v = GetConstantBitVector<std::uint64_t, true>(113);
-  static_assert(std::is_same<decltype(v), BitSpan<const std::uint64_t>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(v), BitSpan<const std::uint64_t>>);
   EXPECT_THAT(v, ::testing::ElementsAreArray(std::vector<bool>(113, true)));
 }
 

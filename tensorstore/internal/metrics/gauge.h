@@ -60,9 +60,8 @@ class GaugeCell;
 ///
 template <typename T, typename... Fields>
 class Gauge {
-  static_assert(std::is_same<T, int64_t>::value ||
-                std::is_same<T, double>::value);
-  using Cell = std::conditional_t<std::is_same<T, int64_t>::value,
+  static_assert(std::is_same_v<T, int64_t> || std::is_same_v<T, double>);
+  using Cell = std::conditional_t<std::is_same_v<T, int64_t>,
                                   GaugeCell<int64_t>, GaugeCell<double>>;
   using Impl = AbstractMetric<Cell, Fields...>;
 

@@ -97,7 +97,7 @@ class TensorStore {
             ReadWriteMode SourceMode,
             std::enable_if_t<(internal::IsTensorStoreImplicitlyConvertible<
                               SourceElement, SourceRank, SourceMode,  //
-                              Element, Rank, Mode>::value)>* = nullptr>
+                              Element, Rank, Mode>)>* = nullptr>
   TensorStore(TensorStore<SourceElement, SourceRank, SourceMode> other)
       : TensorStore(std::move(Access::handle(other))) {}
 
@@ -113,7 +113,7 @@ class TensorStore {
             ReadWriteMode SourceMode,
             std::enable_if_t<(internal::IsTensorStoreCastConvertible<
                               SourceElement, SourceRank, SourceMode,  //
-                              Element, Rank, Mode>::value)>* = nullptr>
+                              Element, Rank, Mode>)>* = nullptr>
   explicit TensorStore(unchecked_t,
                        TensorStore<SourceElement, SourceRank, SourceMode> other)
       : TensorStore(std::move(Access::handle(other))) {}
@@ -122,8 +122,8 @@ class TensorStore {
   template <typename SourceElement, DimensionIndex SourceRank,
             ReadWriteMode SourceMode,
             std::enable_if_t<internal::IsTensorStoreImplicitlyConvertible<
-                SourceElement, SourceRank, SourceMode, Element, Rank,
-                Mode>::value>* = nullptr>
+                SourceElement, SourceRank, SourceMode, Element, Rank, Mode>>* =
+                nullptr>
   TensorStore& operator=(
       TensorStore<SourceElement, SourceRank, SourceMode> other) {
     *this = TensorStore(std::move(other));
@@ -406,7 +406,7 @@ using TensorWriter = TensorStore<Element, Rank, ReadWriteMode::write>;
 /// \param store_result The TensorStore to resolve.  May be `Result`-wrapped.
 /// \param options Options for resolving bounds.
 template <typename StoreResult>
-std::enable_if_t<internal::IsTensorStore<UnwrapResultType<StoreResult>>::value,
+std::enable_if_t<internal::IsTensorStore<UnwrapResultType<StoreResult>>,
                  Future<UnwrapResultType<StoreResult>>>
 ResolveBounds(StoreResult store_result, ResolveBoundsOptions options = {}) {
   using Store = UnwrapResultType<StoreResult>;
@@ -458,7 +458,7 @@ ResolveBounds(StoreResult store_result, ResolveBoundsOptions options = {}) {
 /// \returns A future that becomes ready once the resize operation has completed
 ///     (successfully or unsuccessfully).
 template <typename StoreResult>
-std::enable_if_t<internal::IsTensorStore<UnwrapResultType<StoreResult>>::value,
+std::enable_if_t<internal::IsTensorStore<UnwrapResultType<StoreResult>>,
                  Future<UnwrapResultType<StoreResult>>>
 Resize(
     StoreResult store_result,

@@ -40,104 +40,99 @@ namespace internal {
 /// Type alias that evaluates to `A` if `A` is not `void`, otherwise to `B` if
 /// `B` is not `void`, otherwise results in a substitution failure.
 template <typename A, typename B>
-using FirstNonVoidType = typename std::conditional_t<
-    !std::is_void<A>::value, std::common_type<A>,
-    std::enable_if<!std::is_void<B>::value, B>>::type;
+using FirstNonVoidType =
+    typename std::conditional_t<!std::is_void_v<A>, std::common_type<A>,
+                                std::enable_if<!std::is_void_v<B>, B>>::type;
 
 /// Bool-valued metafunction that checks if `T == U` is convertible to `bool`.
 template <typename T, typename U = T, typename = void>
-struct IsEqualityComparable : public std::false_type {};
+constexpr inline bool IsEqualityComparable = false;
 
 template <typename T, typename U>
-struct IsEqualityComparable<
+constexpr inline bool IsEqualityComparable<
     T, U,
-    std::enable_if_t<std::is_convertible<
-        decltype(std::declval<T>() == std::declval<U>()), bool>::value>>
-    : public std::true_type {};
+    std::enable_if_t<std::is_convertible_v<
+        decltype(std::declval<T>() == std::declval<U>()), bool>>> = true;
 
 template <typename To, typename, typename... From>
-struct IsPackConvertibleWithoutNarrowingHelper : public std::false_type {};
+constexpr inline bool IsPackConvertibleWithoutNarrowingHelper = false;
 
 template <typename To, typename... From>
-struct IsPackConvertibleWithoutNarrowingHelper<
+constexpr inline bool IsPackConvertibleWithoutNarrowingHelper<
     To,
     std::void_t<decltype(std::initializer_list<To>{std::declval<From>()...})>,
-    From...> : public std::true_type {};
+    From...> = true;
 
 /// `bool`-valued metafunction that evaluates to `true` if, and only if,
 /// `Target` is constructible but not implicitly convertible from `Source`.
 template <typename Source, typename Target>
-struct IsOnlyExplicitlyConvertible
-    : public std::integral_constant<
-          bool, (std::is_constructible<Target, Source>::value &&
-                 !std::is_convertible<Source, Target>::value)> {};
+constexpr inline bool IsOnlyExplicitlyConvertible =
+    (std::is_constructible_v<Target, Source> &&
+     !std::is_convertible_v<Source, Target>);
 
 /// Bool-valued metafunction that evaluates to `true` if, and only if, all
 /// `From...` are convertible to `To` without narrowing.
 template <typename To, typename... From>
-using IsPackConvertibleWithoutNarrowing =
+constexpr inline bool IsPackConvertibleWithoutNarrowing =
     IsPackConvertibleWithoutNarrowingHelper<To, void, From...>;
 
 /// Bool-valued metafunction that evaluates to `true` if, and only if, all
 /// `IndexType...` are convertible to `Index` without narrowing.
 template <typename... IndexType>
-using IsIndexPack = IsPackConvertibleWithoutNarrowing<Index, IndexType...>;
+constexpr inline bool IsIndexPack =
+    IsPackConvertibleWithoutNarrowing<Index, IndexType...>;
 
 /// Bool-valued metafunction that evaluates to `true` if, and only if, `ASource`
 /// is implicitly convertible to `ADest` and `BSource` is implicitly convertible
 /// to `BDest`.
 template <typename ASource, typename BSource, typename ADest, typename BDest>
-struct IsPairImplicitlyConvertible
-    : public std::integral_constant<
-          bool, std::is_convertible<ASource, ADest>::value &&
-                    std::is_convertible<BSource, BDest>::value> {};
+constexpr inline bool IsPairImplicitlyConvertible =
+    std::is_convertible_v<ASource, ADest> &&
+    std::is_convertible_v<BSource, BDest>;
 
 /// Bool-valued metafunction that evaluates to `true` if, and only if, `ASource`
 /// is explicitly convertible to `ADest` and `BSource` is explicitly convertible
 /// to `BDest`.
 template <typename ASource, typename BSource, typename ADest, typename BDest>
-struct IsPairExplicitlyConvertible
-    : public std::integral_constant<
-          bool, std::is_constructible<ADest, ASource>::value &&
-                    std::is_constructible<BDest, BSource>::value> {};
+constexpr inline bool IsPairExplicitlyConvertible =
+    std::is_constructible_v<ADest, ASource> &&
+    std::is_constructible_v<BDest, BSource>;
 
-/// Bool-valued metafunction equivalent to `IsPairExplicitlyConvertible<ASource,
-/// BSource, ADest, BDest>::value && !IsPairImplicitlyConvertible<ASource,
-/// BSource, ADest, BDest>::value`.
+/// Bool-valued metafunction equivalent to
+/// `IsPairExplicitlyConvertible<ASource, BSource, ADest, BDest> &&
+/// !IsPairImplicitlyConvertible<ASource, BSource, ADest, BDest>`.
 template <typename ASource, typename BSource, typename ADest, typename BDest>
-struct IsPairOnlyExplicitlyConvertible
-    : public std::integral_constant<
-          bool,
-          IsPairExplicitlyConvertible<ASource, BSource, ADest, BDest>::value &&
-              !IsPairImplicitlyConvertible<ASource, BSource, ADest,
-                                           BDest>::value> {};
+constexpr inline bool IsPairOnlyExplicitlyConvertible =
+    IsPairExplicitlyConvertible<ASource, BSource, ADest, BDest> &&
+    !IsPairImplicitlyConvertible<ASource, BSource, ADest, BDest>;
 
-/// Bool-valued metafunction equivalent to `std::is_assignable<ADest&,
-/// ASource>::value && std::is_assignable<BDest&, BSource>::value`.
+/// Bool-valued metafunction equivalent to
+/// `std::is_assignable_v<ADest&, ASource> && std::is_assignable_v<BDest&,
+/// BSource>`.
 template <typename ASource, typename BSource, typename ADest, typename BDest>
-struct IsPairAssignable
-    : public std::integral_constant<
-          bool, std::is_assignable<ADest&, ASource>::value &&
-                    std::is_assignable<BDest&, BSource>::value> {};
+constexpr inline bool IsPairAssignable =
+    std::is_assignable_v<ADest&, ASource> &&
+    std::is_assignable_v<BDest&, BSource>;
 
 /// Bool-valued metafunction equivalent to:
-/// `std::is_convertible<From, To>::value || std::is_void<To>::value`.
+/// `std::is_convertible_v<From, To> || std::is_void_v<To>`.
 template <typename From, typename To>
-struct IsConvertibleOrVoid : public std::is_convertible<From, To> {};
+constexpr inline bool IsConvertibleOrVoid = std::is_convertible_v<From, To>;
 
 template <typename From>
-struct IsConvertibleOrVoid<From, void> : public std::true_type {};
+constexpr inline bool IsConvertibleOrVoid<From, void> = true;
 
 /// Bool-valued metafunction that evaluates to `true` if there is a suitable
 /// `operator<<` overload for writing a value of type `const T &` to an
 /// `std::ostream`.
 template <typename T, typename = void>
-struct IsOstreamable : public std::false_type {};
+constexpr inline bool IsOstreamable = false;
 
 template <typename T>
-struct IsOstreamable<T, std::void_t<decltype(std::declval<std::ostream&>()
-                                             << std ::declval<const T&>())>>
-    : public std::true_type {};
+constexpr inline bool
+    IsOstreamable<T, std::void_t<decltype(std::declval<std::ostream&>()
+                                          << std ::declval<const T&>())>> =
+        true;
 
 /// Type alias that removes both reference and const/volatile qualification.
 ///
@@ -204,20 +199,15 @@ using FirstType = T;
 /// Bool-valued metafunction that evaluates to `true` if, and only if, `Source`
 /// is the same as `Dest` or `const Source` is the same as `Dest`.
 template <typename Source, typename Dest>
-struct IsConstConvertible
-    : public std::integral_constant<bool,
-                                    (std::is_same<Source, Dest>::value ||
-                                     std::is_same<const Source, Dest>::value)> {
-};
+constexpr inline bool IsConstConvertible =
+    (std::is_same_v<Source, Dest> || std::is_same_v<const Source, Dest>);
 
 /// Bool-valued metafunction that evaluates to `true`, if, and only if`,
-/// `IsConstConvertible<Source, Dest>::value || std::is_void<Dest>::value`.
+/// `IsConstConvertible<Source, Dest> || std::is_void_v<Dest>`.
 template <typename Source, typename Dest>
-struct IsConstConvertibleOrVoid
-    : public std::integral_constant<bool,
-                                    (std::is_same<Source, Dest>::value ||
-                                     std::is_same<const Source, Dest>::value ||
-                                     std::is_void<Dest>::value)> {};
+constexpr inline bool IsConstConvertibleOrVoid =
+    (std::is_same_v<Source, Dest> || std::is_same_v<const Source, Dest> ||
+     std::is_void_v<Dest>);
 
 #ifdef TENSORSTORE_HAS_TYPE_PACK_ELEMENT
 template <std::size_t I, typename... Ts>
@@ -238,8 +228,8 @@ using TypePackElement = typename std::tuple_element<I, std::tuple<Ts...>>::type;
 /// to achieve this without relying on undefined behavior.
 template <typename T>
 class EmptyObject {
-  static_assert(std::is_empty<T>{}, "T must be an empty type.");
-  static_assert(std::is_standard_layout<T>{}, "T must be standard layout.");
+  static_assert(std::is_empty_v<T>, "T must be an empty type.");
+  static_assert(std::is_standard_layout_v<T>, "T must be standard layout.");
   // Define two structs, T1 and T2, that have a single member `c` as a common
   // initial sequence of non-static data members and bit-fields, and are
   // layout-compatible because this common initial sequence consists of every
@@ -314,7 +304,7 @@ class NonEmptyObjectGetter {
 ///
 ///     T& get(T* pointer);
 ///
-/// If `is_empty<T>::value`, `pointer` is ignored (and may be `nullptr`), and
+/// If `is_empty_v<T>`, `pointer` is ignored (and may be `nullptr`), and
 /// `get` returns a reference to a valid instance of `T` (with the same lifetime
 /// as the object upon which `get` was invoked).
 ///
@@ -325,7 +315,7 @@ class NonEmptyObjectGetter {
 /// to be specified if the type is in fact empty.
 template <typename T>
 using PossiblyEmptyObjectGetter =
-    std::conditional_t<std::is_empty<T>::value, EmptyObject<T>,
+    std::conditional_t<std::is_empty_v<T>, EmptyObject<T>,
                        NonEmptyObjectGetter>;
 
 template <typename T>
@@ -386,13 +376,17 @@ const Base& BaseCast(const Derived& derived) {
   return derived;
 }
 
+/// Hides a given type in the documentation.
+template <typename T>
+using Undocumented = T;
+
 }  // namespace internal
 }  // namespace tensorstore
 
-/// Defines a `bool`-valued metafunction `HasMethodNAME<R, T, Arg...>::value` in
-/// the enclosing namespace that evaluates to `true` if a method named `NAME`
-/// can be called with arguments `Arg&&...` on an object of type `T&&` and
-/// returns a value convertible to `R` (if `R` is `void`, the return type is
+/// Defines a `bool`-valued metafunction `HasMethodNAME<R, T, Arg...>` in the
+/// enclosing namespace that evaluates to `true` if a method named `NAME` can be
+/// called with arguments `Arg&&...` on an object of type `T&&` and returns a
+/// value convertible to `R` (if `R` is `void`, the return type is
 /// unconstrained).
 ///
 /// For example:
@@ -405,25 +399,30 @@ const Base& BaseCast(const Derived& derived) {
 ///       int Foo(const char *) &;
 ///     };
 ///
-///     static_assert(HasMethodFoo<int*, X, int>::value, "");
-///     static_assert(HasMethodFoo<int, X&, const char*>::value, "");
-///     static_assert(!HasMethodFoo<int, X, const char*>::value, "");
-///     static_assert(!HasMethodFoo<int*, const X, int>::value, "");
-///     static_assert(HasMethodFoo<void, X, int>::value, "");
-///     static_assert(!HasMethodFoo<float*, X, int>::value, "");
-///     static_assert(HasMethodFoo<float*, X, float>::value, "");
-///     static_assert(HasMethodFoo<void, X, float>::value, "");
-///     static_assert(!HasMethodFoo<void, X, const char*>::value, "");
-#define TENSORSTORE_INTERNAL_DEFINE_HAS_METHOD(NAME)                          \
-  template <typename, typename R, typename T, typename... Arg>                \
-  struct HasMethod0##NAME : std::false_type {};                               \
-  template <typename R, typename T, typename... Arg>                          \
-  struct HasMethod0##NAME<                                                    \
-      typename ::tensorstore::internal::IsConvertibleOrVoid<                  \
-          decltype(std::declval<T>().NAME(std::declval<Arg>()...)), R>::type, \
-      R, T, Arg...> : std::true_type {};                                      \
-  template <typename R, typename T, typename... Arg>                          \
-  using HasMethod##NAME = HasMethod0##NAME<std::true_type, R, T, Arg...>;     \
+///     static_assert(HasMethodFoo<int*, X, int>);
+///     static_assert(HasMethodFoo<int, X&, const char*>);
+///     static_assert(!HasMethodFoo<int, X, const char*>);
+///     static_assert(!HasMethodFoo<int*, const X, int>);
+///     static_assert(HasMethodFoo<void, X, int>);
+///     static_assert(!HasMethodFoo<float*, X, int>);
+///     static_assert(HasMethodFoo<float*, X, float>);
+///     static_assert(HasMethodFoo<void, X, float>);
+///     static_assert(!HasMethodFoo<void, X, const char*>);
+#define TENSORSTORE_INTERNAL_DEFINE_HAS_METHOD(NAME)                        \
+  template <typename, typename R, typename T, typename... Arg>              \
+  constexpr inline bool HasMethod0##NAME = false;                           \
+  template <typename R, typename T, typename... Arg>                        \
+  constexpr inline bool HasMethod0##NAME<                                   \
+      std::integral_constant<                                               \
+          bool,                                                             \
+          static_cast<bool>(                                                \
+              ::tensorstore::internal::IsConvertibleOrVoid<                 \
+                  decltype(std::declval<T>().NAME(std::declval<Arg>()...)), \
+                  R>)>,                                                     \
+      R, T, Arg...> = true;                                                 \
+  template <typename R, typename T, typename... Arg>                        \
+  constexpr inline bool HasMethod##NAME =                                   \
+      HasMethod0##NAME<std::true_type, R, T, Arg...>;                       \
   /**/
 
 /// Defines a `bool`-valued metafunction `HasAdlFunctionNAME<R, Arg...>::value`
@@ -440,23 +439,25 @@ const Base& BaseCast(const Derived& derived) {
 ///       friend float* Foo(X, float);
 ///     };
 ///
-///     static_assert(HasAdlFunctionFoo<int*, X, int>::value, "");
-///     static_assert(HasAdlFunctionFoo<void, X, int>::value, "");
-///     static_assert(!HasAdlFunctionFoo<float *, X, int>::value, "");
-///     static_assert(HasAdlFunctionFoo<float*, X, float>::value, "");
-///     static_assert(HasAdlFunctionFoo<void, X, float>::value, "");
-///     static_assert(!HasAdlFunctionFoo<void, X, const char*>::value, "");
-#define TENSORSTORE_INTERNAL_DEFINE_HAS_ADL_FUNCTION(NAME)   \
-  template <typename, typename R, typename... Arg>           \
-  struct HasAdlFunction0##NAME : std::false_type {};         \
-  template <typename R, typename... Arg>                     \
-  struct HasAdlFunction0##NAME<                              \
-      typename ::tensorstore::internal::IsConvertibleOrVoid< \
-          decltype(NAME(std::declval<Arg>()...)), R>::type,  \
-      R, Arg...> : std::true_type {};                        \
-  template <typename R, typename... Arg>                     \
-  using HasAdlFunction##NAME =                               \
-      HasAdlFunction0##NAME<std::true_type, R, Arg...>;      \
+///     static_assert(HasAdlFunctionFoo<int*, X, int>);
+///     static_assert(HasAdlFunctionFoo<void, X, int>);
+///     static_assert(!HasAdlFunctionFoo<float *, X, int>);
+///     static_assert(HasAdlFunctionFoo<float*, X, float>);
+///     static_assert(HasAdlFunctionFoo<void, X, float>);
+///     static_assert(!HasAdlFunctionFoo<void, X, const char*>);
+#define TENSORSTORE_INTERNAL_DEFINE_HAS_ADL_FUNCTION(NAME)                \
+  template <typename, typename R, typename... Arg>                        \
+  constexpr inline bool HasAdlFunction0##NAME = false;                    \
+  template <typename R, typename... Arg>                                  \
+  constexpr inline bool HasAdlFunction0##NAME<                            \
+      std::integral_constant<                                             \
+          bool,                                                           \
+          static_cast<bool>(::tensorstore::internal::IsConvertibleOrVoid< \
+                            decltype(NAME(std::declval<Arg>()...)), R>)>, \
+      R, Arg...> = true;                                                  \
+  template <typename R, typename... Arg>                                  \
+  constexpr inline bool HasAdlFunction##NAME =                            \
+      HasAdlFunction0##NAME<std::true_type, R, Arg...>;                   \
   /**/
 
 #endif  // TENSORSTORE_INTERNAL_TYPE_TRAITS_H_

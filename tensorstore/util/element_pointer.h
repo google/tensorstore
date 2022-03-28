@@ -46,29 +46,26 @@ class Shared;  // Intentionally left undefined.
 /// `bool`-valued metafunction that evaluates to `true` if `T` is `Shared<U>` or
 /// `const Shared<U>`.
 template <typename T>
-struct IsShared : public std::false_type {};
+constexpr inline bool IsShared = false;
 template <typename T>
-struct IsShared<Shared<T>> : public std::true_type {};
+constexpr inline bool IsShared<Shared<T>> = true;
 template <typename T>
-struct IsShared<const Shared<T>> : public std::true_type {};
+constexpr inline bool IsShared<const Shared<T>> = true;
 
 /// An ElementTag type is a type `T` or `Shared<T>` where `T` satisfies
 /// `IsElementType<T>`.  It specifies a pointer type of `T*` or
 /// `std::shared_ptr<T>`, respectively.
 template <typename T>
-struct IsElementTag
-    : public std::integral_constant<bool,
-                                    (IsElementType<T>::value &&
-                                     // Detect accidental `const`-qualification
-                                     // of `Shared<T>`.
-                                     !IsShared<T>::value)> {};
+constexpr inline bool IsElementTag = (IsElementType<T> &&
+                                      // Detect accidental `const`-qualification
+                                      // of `Shared<T>`.
+                                      !IsShared<T>);
 
 template <typename T>
-struct IsElementTag<Shared<T>>
-    : public std::integral_constant<bool, (IsElementType<T>::value &&
-                                           // Detect accidental nested
-                                           // `Shared<Shared<T>>`.
-                                           !IsShared<T>::value)> {};
+constexpr inline bool IsElementTag<Shared<T>> = (IsElementType<T> &&
+                                                 // Detect accidental nested
+                                                 // `Shared<Shared<T>>`.
+                                                 !IsShared<T>);
 
 /// Traits for element tag types.
 ///
@@ -79,7 +76,7 @@ struct IsElementTag<Shared<T>>
 /// \tparam T Type satisfying `IsElementTag<T>`.
 template <typename T>
 struct ElementTagTraits {
-  static_assert(IsElementTag<T>::value, "T must be an ElementTag type.");
+  static_assert(IsElementTag<T>, "T must be an ElementTag type.");
   using Element = T;
   using Pointer = T*;
   template <typename U>
@@ -88,7 +85,7 @@ struct ElementTagTraits {
 
 template <typename T>
 struct ElementTagTraits<Shared<T>> {
-  static_assert(IsElementTag<Shared<T>>::value,
+  static_assert(IsElementTag<Shared<T>>,
                 "Shared<T> must be an ElementTag type.");
   using Element = T;
   using Pointer = std::shared_ptr<T>;
@@ -129,79 +126,70 @@ using PointerElementTag = typename PointerElementTagType<T>::type;
 ///     shared_ptr<T>         -> U*
 ///     shared_ptr<T>         -> shared_ptr<U>
 ///
-/// where `IsElementTypeImplicitlyConvertible<T,U>::value` is `true`.
+/// where `IsElementTypeImplicitlyConvertible<T,U>` is `true`.
 template <typename SourcePointer, typename TargetPointer>
-struct IsArrayBasePointerConvertible : public std::false_type {};
+constexpr inline bool IsArrayBasePointerConvertible = false;
 
 template <typename SourceElement, typename TargetElement>
-struct IsArrayBasePointerConvertible<SourceElement*, TargetElement*>
-    : public IsElementTypeImplicitlyConvertible<SourceElement, TargetElement> {
-};
+constexpr inline bool
+    IsArrayBasePointerConvertible<SourceElement*, TargetElement*> =
+        IsElementTypeImplicitlyConvertible<SourceElement, TargetElement>;
 
 template <typename SourceElement, typename TargetElement>
-struct IsArrayBasePointerConvertible<ByteStridedPointer<SourceElement>,
-                                     TargetElement*>
-    : public IsElementTypeImplicitlyConvertible<SourceElement, TargetElement> {
-};
+constexpr inline bool IsArrayBasePointerConvertible<
+    ByteStridedPointer<SourceElement>, TargetElement*> =
+    IsElementTypeImplicitlyConvertible<SourceElement, TargetElement>;
 
 template <typename SourceElement, typename TargetElement>
-struct IsArrayBasePointerConvertible<std::shared_ptr<SourceElement>,
-                                     TargetElement*>
-    : public IsElementTypeImplicitlyConvertible<SourceElement, TargetElement> {
-};
+constexpr inline bool IsArrayBasePointerConvertible<
+    std::shared_ptr<SourceElement>, TargetElement*> =
+    IsElementTypeImplicitlyConvertible<SourceElement, TargetElement>;
 
 template <typename SourceElement, typename TargetElement>
-struct IsArrayBasePointerConvertible<std::shared_ptr<SourceElement>,
-                                     std::shared_ptr<TargetElement>>
-    : public IsElementTypeImplicitlyConvertible<SourceElement, TargetElement> {
-};
+constexpr inline bool IsArrayBasePointerConvertible<
+    std::shared_ptr<SourceElement>, std::shared_ptr<TargetElement>> =
+    IsElementTypeImplicitlyConvertible<SourceElement, TargetElement>;
 
 template <typename Source, typename Target>
-struct IsElementPointerCastConvertible : public std::false_type {};
+constexpr inline bool IsElementPointerCastConvertible = false;
 
 template <typename ElementTag>
 class ElementPointer;
 
 template <typename SourceTag, typename TargetTag>
-struct IsElementPointerCastConvertible<ElementPointer<SourceTag>,
-                                       ElementPointer<TargetTag>>
-    : public std::integral_constant<
-          bool, ((IsShared<SourceTag>::value >= IsShared<TargetTag>::value) &&
-                 IsElementTypeExplicitlyConvertible<
-                     std::remove_const_t<
-                         typename ElementTagTraits<SourceTag>::Element>,
-                     std::remove_const_t<typename ElementTagTraits<
-                         TargetTag>::Element>>::value)> {};
+constexpr inline bool IsElementPointerCastConvertible<
+    ElementPointer<SourceTag>, ElementPointer<TargetTag>> =
+    ((IsShared<SourceTag> >= IsShared<TargetTag>)&&  //
+     IsElementTypeExplicitlyConvertible<
+         std::remove_const_t<typename ElementTagTraits<SourceTag>::Element>,
+         std::remove_const_t<typename ElementTagTraits<TargetTag>::Element>>);
 
 /// `bool`-valued metafunction that evaluates to `true` if `T` is `Element*` or
 /// `std::shared_ptr<Element>`, where `Element` is non-`void`.
 template <typename T>
-struct IsNonVoidArrayBasePointer : public std::false_type {};
+constexpr inline bool IsNonVoidArrayBasePointer = false;
 
 template <typename T>
-struct IsNonVoidArrayBasePointer<T*>
-    : public std::integral_constant<bool, !std::is_void<T>::value> {};
+constexpr inline bool IsNonVoidArrayBasePointer<T*> = !std::is_void_v<T>;
 
 template <typename T>
-struct IsNonVoidArrayBasePointer<std::shared_ptr<T>>
-    : public std::integral_constant<bool, !std::is_void<T>::value> {};
+constexpr inline bool IsNonVoidArrayBasePointer<std::shared_ptr<T>> =
+    !std::is_void_v<T>;
 
 namespace internal_element_pointer {
 template <typename Target, typename Source>
-inline std::enable_if_t<
-    (std::is_pointer<Target>::value ==
-     std::is_pointer<internal::remove_cvref_t<Source>>::value),
-    Target>
+inline std::enable_if_t<(std::is_pointer_v<Target> ==
+                         std::is_pointer_v<internal::remove_cvref_t<Source>>),
+                        Target>
 ConvertPointer(Source&& x) {
   return internal::StaticConstPointerCast<
       typename std::pointer_traits<Target>::element_type>(
       static_cast<Source&&>(x));
 }
 template <typename Target, typename Source>
-inline std::enable_if_t<
-    (std::is_pointer<Target>::value >
-     std::is_pointer<internal::remove_cvref_t<Source>>::value),
-    Target>
+inline std::enable_if_t<(std::is_pointer_v<Target> >
+                         std::is_pointer_v<internal::remove_cvref_t<Source>>),
+                        Target>
 ConvertPointer(Source&& x) {
   return internal::StaticConstPointerCast<
       typename std::pointer_traits<Target>::element_type>(x.get());
@@ -216,10 +204,10 @@ class ElementPointer;
 /// `bool`-valued metafunction that evaluates to `true` if `T` is an instance of
 /// `ElementPointer`.
 template <typename T>
-struct IsElementPointer : public std::false_type {};
+constexpr inline bool IsElementPointer = false;
 
 template <typename PointerType>
-struct IsElementPointer<ElementPointer<PointerType>> : public std::true_type {};
+constexpr inline bool IsElementPointer<ElementPointer<PointerType>> = true;
 
 /// Pairs an array base pointer (either an `Element*` or an
 /// `std::shared_ptr<Element>`) with an `DataType` in order to support a dynamic
@@ -239,7 +227,7 @@ class ElementPointer {
   using Traits = ElementTagTraits<ElementTagType>;
 
  public:
-  static_assert(IsElementTag<ElementTagType>::value,
+  static_assert(IsElementTag<ElementTagType>,
                 "ElementTagType must be an ElementTag type.");
   using ElementTag = ElementTagType;
   using Pointer = typename Traits::Pointer;
@@ -263,22 +251,21 @@ class ElementPointer {
   ///
   /// \post this->pointer() == source.pointer()
   /// \post this->dtype() == source.dtype()
-  template <typename Source,
-            std::enable_if_t<
-                (IsElementPointer<internal::remove_cvref_t<Source>>::value &&
-                 IsArrayBasePointerConvertible<
-                     typename internal::remove_cvref_t<Source>::Pointer,
-                     Pointer>::value)>* = nullptr>
+  template <
+      typename Source,
+      std::enable_if_t<(IsElementPointer<internal::remove_cvref_t<Source>> &&
+                        IsArrayBasePointerConvertible<
+                            typename internal::remove_cvref_t<Source>::Pointer,
+                            Pointer>)>* = nullptr>
   ElementPointer(Source&& source)
       : storage_(source.dtype(),
                  internal_element_pointer::ConvertPointer<Pointer>(
                      std::forward<Source>(source).pointer())) {}
 
   /// Unchecked conversion.
-  template <
-      typename Source,
-      std::enable_if_t<IsElementPointerCastConvertible<
-          internal::remove_cvref_t<Source>, ElementPointer>::value>* = nullptr>
+  template <typename Source,
+            std::enable_if_t<IsElementPointerCastConvertible<
+                internal::remove_cvref_t<Source>, ElementPointer>>* = nullptr>
   explicit ElementPointer(unchecked_t, Source&& source)
       : storage_(DataType(unchecked, source.dtype()),
                  internal_element_pointer::ConvertPointer<Pointer>(
@@ -292,10 +279,9 @@ class ElementPointer {
   template <
       typename SourcePointer,
       std::enable_if_t<
-          IsNonVoidArrayBasePointer<
-              internal::remove_cvref_t<SourcePointer>>::value &&
+          IsNonVoidArrayBasePointer<internal::remove_cvref_t<SourcePointer>> &&
           IsArrayBasePointerConvertible<internal::remove_cvref_t<SourcePointer>,
-                                        Pointer>::value>* = nullptr>
+                                        Pointer>>* = nullptr>
   ElementPointer(SourcePointer&& pointer)
       : storage_(dtype_v<typename std::pointer_traits<
                      internal::remove_cvref_t<SourcePointer>>::element_type>,
@@ -309,10 +295,9 @@ class ElementPointer {
   /// \param dtype The element representation type.
   /// \post this->pointer() == pointer
   /// \post this->dtype() == dtype
-  template <
-      typename SourcePointer,
-      std::enable_if_t<IsArrayBasePointerConvertible<
-          internal::remove_cvref_t<SourcePointer>, Pointer>::value>* = nullptr>
+  template <typename SourcePointer,
+            std::enable_if_t<IsArrayBasePointerConvertible<
+                internal::remove_cvref_t<SourcePointer>, Pointer>>* = nullptr>
   ElementPointer(SourcePointer&& pointer,
                  dtype_t<typename std::pointer_traits<
                      internal::remove_cvref_t<SourcePointer>>::element_type>
@@ -323,7 +308,7 @@ class ElementPointer {
 
   /// Assigns from a `nullptr`, pointer type, or ElementPointer type.
   template <typename Source>
-  std::enable_if_t<std::is_constructible<ElementPointer, Source&&>::value,
+  std::enable_if_t<std::is_constructible_v<ElementPointer, Source&&>,
                    ElementPointer&>
   operator=(Source&& source) {
     return *this = ElementPointer(static_cast<Source&&>(source));
@@ -436,7 +421,7 @@ struct StaticCastTraits<ElementPointer<ElementTag>>
 /// SharedElementPointer that does manage ownership, because it does not perform
 /// any atomic reference count operations.
 template <typename Element>
-std::enable_if_t<!IsShared<Element>::value, ElementPointer<Shared<Element>>>
+std::enable_if_t<!IsShared<Element>, ElementPointer<Shared<Element>>>
 UnownedToShared(ElementPointer<Element> element_pointer) {
   return {internal::UnownedToShared(element_pointer.pointer()),
           element_pointer.dtype()};
@@ -450,7 +435,7 @@ UnownedToShared(ElementPointer<Element> element_pointer) {
 /// `SharedElementPointer` is not used after the element data to which it points
 /// becomes invalid.
 template <typename T, typename Element>
-std::enable_if_t<!IsShared<Element>::value, ElementPointer<Shared<Element>>>
+std::enable_if_t<!IsShared<Element>, ElementPointer<Shared<Element>>>
 UnownedToShared(const std::shared_ptr<T>& owned,
                 ElementPointer<Element> element_pointer) {
   return {std::shared_ptr<Element>(owned, element_pointer.pointer()),

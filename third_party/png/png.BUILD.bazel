@@ -59,14 +59,16 @@ cc_library_with_strip_include_prefix(
         "pngconf.h",
     ],
     copts = libpng_copts,
-    strip_include_prefix = "",
     linkopts = libpng_linkopts,
+    strip_include_prefix = "",
     visibility = ["//visibility:public"],
     deps = ["@net_zlib//:zlib"],
 )
 
 PNG_IN_SUBSTITUTIONS = {
-    "PNG_ZLIB_VERNUM 0": "PNG_ZLIB_VERNUM 0x12b0",
+    # Leave PNG_ZLIB_VERNUM set to 0 to disable zlib version consistency
+    # checking.  Bazel should already provide sufficient assurance of build
+    # consistency.
 }
 
 template_rule(

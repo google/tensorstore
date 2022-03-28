@@ -608,15 +608,13 @@ TEST(IndexDomainTest, ConvertRank) {
 
   // Test cast conversion from lvalue
   auto d2_cast = StaticRankCast<2>(d_dynamic);
-  static_assert(std::is_same<decltype(d2_cast), Result<IndexDomain<2>>>::value,
-                "");
+  static_assert(std::is_same_v<decltype(d2_cast), Result<IndexDomain<2>>>);
   EXPECT_EQ(d2_cast, d2);
 
   // Test cast conversion from rvalue
   auto d2_cast_rvalue = StaticRankCast<2>(IndexDomain<>(d_dynamic));
   static_assert(
-      std::is_same<decltype(d2_cast_rvalue), Result<IndexDomain<2>>>::value,
-      "");
+      std::is_same_v<decltype(d2_cast_rvalue), Result<IndexDomain<2>>>);
   EXPECT_EQ(d2_cast_rvalue, d2);
 
   // Test failed conversion.
@@ -661,9 +659,9 @@ TEST(IndexDomainTest, PrintToOstream) {
   EXPECT_EQ(R"({ "x": [1*, 4), "y": [2, 6*) })", StrCat(d2));
 }
 
-static_assert(IsIndexDomain<bool>::value == false, "");
-static_assert(IsIndexDomain<IndexDomain<3>>::value == true, "");
-static_assert(IsIndexDomain<IndexDomainView<3>>::value == true, "");
+static_assert(IsIndexDomain<bool> == false);
+static_assert(IsIndexDomain<IndexDomain<3>> == true);
+static_assert(IsIndexDomain<IndexDomainView<3>> == true);
 
 TEST(CastTest, IndexTransform) {
   auto t = IdentityTransform(span<const Index>({2, 3}));

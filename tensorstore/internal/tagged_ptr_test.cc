@@ -35,26 +35,21 @@ struct Y : public X {
   virtual ~Y() = default;
 };
 
-static_assert(!std::is_convertible<TaggedPtr<Y, 1>, TaggedPtr<Y, 2>>::value,
-              "");
-static_assert(std::is_convertible<TaggedPtr<Y, 2>, TaggedPtr<X, 2>>::value, "");
-static_assert(!std::is_convertible<TaggedPtr<Y, 1>, TaggedPtr<X, 2>>::value,
-              "");
-static_assert(std::is_convertible<Y*, TaggedPtr<X, 2>>::value, "");
-static_assert(!std::is_convertible<TaggedPtr<Y, 2>, TaggedPtr<Y, 1>>::value,
-              "");
-static_assert(!std::is_convertible<TaggedPtr<X, 2>, TaggedPtr<Y, 2>>::value,
-              "");
-static_assert(!std::is_convertible<TaggedPtr<X, 2>, TaggedPtr<Y, 1>>::value,
-              "");
-static_assert(!std::is_convertible<X*, TaggedPtr<Y, 2>>::value, "");
+static_assert(!std::is_convertible_v<TaggedPtr<Y, 1>, TaggedPtr<Y, 2>>);
+static_assert(std::is_convertible_v<TaggedPtr<Y, 2>, TaggedPtr<X, 2>>);
+static_assert(!std::is_convertible_v<TaggedPtr<Y, 1>, TaggedPtr<X, 2>>);
+static_assert(std::is_convertible_v<Y*, TaggedPtr<X, 2>>);
+static_assert(!std::is_convertible_v<TaggedPtr<Y, 2>, TaggedPtr<Y, 1>>);
+static_assert(!std::is_convertible_v<TaggedPtr<X, 2>, TaggedPtr<Y, 2>>);
+static_assert(!std::is_convertible_v<TaggedPtr<X, 2>, TaggedPtr<Y, 1>>);
+static_assert(!std::is_convertible_v<X*, TaggedPtr<Y, 2>>);
 
-static_assert(std::is_assignable<TaggedPtr<X, 2>, TaggedPtr<Y, 2>>::value, "");
-static_assert(!std::is_assignable<TaggedPtr<X, 2>, TaggedPtr<X, 1>>::value, "");
-static_assert(!std::is_assignable<TaggedPtr<X, 2>, TaggedPtr<Y, 1>>::value, "");
-static_assert(!std::is_assignable<TaggedPtr<Y, 2>, TaggedPtr<Y, 3>>::value, "");
-static_assert(!std::is_assignable<TaggedPtr<Y, 2>, TaggedPtr<X, 2>>::value, "");
-static_assert(!std::is_assignable<TaggedPtr<Y, 2>, TaggedPtr<X, 3>>::value, "");
+static_assert(std::is_assignable_v<TaggedPtr<X, 2>, TaggedPtr<Y, 2>>);
+static_assert(!std::is_assignable_v<TaggedPtr<X, 2>, TaggedPtr<X, 1>>);
+static_assert(!std::is_assignable_v<TaggedPtr<X, 2>, TaggedPtr<Y, 1>>);
+static_assert(!std::is_assignable_v<TaggedPtr<Y, 2>, TaggedPtr<Y, 3>>);
+static_assert(!std::is_assignable_v<TaggedPtr<Y, 2>, TaggedPtr<X, 2>>);
+static_assert(!std::is_assignable_v<TaggedPtr<Y, 2>, TaggedPtr<X, 3>>);
 
 TEST(TaggedPtr, DefaultConstruct) {
   TaggedPtr<X, 3> p;
@@ -207,8 +202,7 @@ TEST(IntrusivePtrTest, Basic) {
   EXPECT_EQ(5u, p3.get().tag());
 
   auto p4 = static_pointer_cast<const Y2>(p3);
-  static_assert(
-      std::is_same<TaggedIntrusivePtr<const Y2, 3>, decltype(p4)>::value, "");
+  static_assert(std::is_same_v<TaggedIntrusivePtr<const Y2, 3>, decltype(p4)>);
   EXPECT_EQ(4u, p4->use_count());
   EXPECT_EQ(x, p4.get().get());
   EXPECT_EQ(5u, p4.get().tag());

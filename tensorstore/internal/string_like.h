@@ -30,16 +30,16 @@ namespace internal {
 /// Bool-valued metafunction equal to `true` iff `T` is `std::string`,
 /// `std::string_view`, or `const char *`.
 template <typename T>
-struct IsStringLike : public std::false_type {};
+constexpr inline bool IsStringLike = false;
 
 template <>
-struct IsStringLike<std::string_view> : public std::true_type {};
+constexpr inline bool IsStringLike<std::string_view> = true;
 
 template <>
-struct IsStringLike<std::string> : public std::true_type {};
+constexpr inline bool IsStringLike<std::string> = true;
 
 template <>
-struct IsStringLike<const char*> : public std::true_type {};
+constexpr inline bool IsStringLike<const char*> = true;
 
 /// Holds a span of `std::string`, `std::string_view`, or `const char *`.
 class StringLikeSpan {

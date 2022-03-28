@@ -51,27 +51,26 @@ struct DataTypeConversionTraits {
 ///     e.g. `DataTypeConversionFlags::kSafeAndImplicit`.
 template <typename From, typename To,
           DataTypeConversionFlags AdditionalFlags = DataTypeConversionFlags{}>
-struct IsDataTypeConversionSupported
-    : public std::integral_constant<
-          bool, ((DataTypeConversionTraits<From, To>::flags &
-                  (DataTypeConversionFlags::kSupported | AdditionalFlags)) ==
-                 (DataTypeConversionFlags::kSupported | AdditionalFlags))> {};
+constexpr inline bool IsDataTypeConversionSupported =
+    ((DataTypeConversionTraits<From, To>::flags &
+      (DataTypeConversionFlags::kSupported | AdditionalFlags)) ==
+     (DataTypeConversionFlags::kSupported | AdditionalFlags));
 
 template <typename From, DataTypeConversionFlags AdditionalFlags>
-struct IsDataTypeConversionSupported<From, void, AdditionalFlags>
-    : public std::true_type {};
+constexpr inline bool
+    IsDataTypeConversionSupported<From, void, AdditionalFlags> = true;
 
 template <typename To, DataTypeConversionFlags AdditionalFlags>
-struct IsDataTypeConversionSupported<void, To, AdditionalFlags>
-    : public std::true_type {};
+constexpr inline bool IsDataTypeConversionSupported<void, To, AdditionalFlags> =
+    true;
 
 template <typename T, DataTypeConversionFlags AdditionalFlags>
-struct IsDataTypeConversionSupported<T, T, AdditionalFlags>
-    : public std::true_type {};
+constexpr inline bool IsDataTypeConversionSupported<T, T, AdditionalFlags> =
+    true;
 
 template <DataTypeConversionFlags AdditionalFlags>
-struct IsDataTypeConversionSupported<void, void, AdditionalFlags>
-    : public std::true_type {};
+constexpr inline bool
+    IsDataTypeConversionSupported<void, void, AdditionalFlags> = true;
 
 namespace internal {
 

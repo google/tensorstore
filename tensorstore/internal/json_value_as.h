@@ -107,7 +107,7 @@ namespace internal {
 ///     conversions are not permitted.
 template <typename T>
 std::optional<T> JsonValueAs(const ::nlohmann::json& j, bool strict = false) {
-  static_assert(!std::is_same<T, T>::value, "Target type not supported.");
+  static_assert(!std::is_same_v<T, T>, "Target type not supported.");
 }
 
 template <>
@@ -143,7 +143,7 @@ std::optional<std::string> JsonValueAs<std::string>(const ::nlohmann::json& j,
 /// \param strict If `true`, string conversions and double -> integer
 ///     conversions are not permitted.
 template <typename T, typename ValidateFn>
-std::enable_if_t<!std::is_same<ValidateFn, bool>::value, absl::Status>
+std::enable_if_t<!std::is_same_v<ValidateFn, bool>, absl::Status>
 JsonRequireValueAs(const ::nlohmann::json& j, T* result, ValidateFn is_valid,
                    bool strict = false) {
   auto value = internal::JsonValueAs<T>(j, strict);
@@ -188,10 +188,10 @@ absl::Status JsonRequireInteger(
     const ::nlohmann::json& json, T* result, bool strict = false,
     type_identity_t<T> min_value = std::numeric_limits<T>::min(),
     type_identity_t<T> max_value = std::numeric_limits<T>::max()) {
-  static_assert(std::is_signed<T>::value || std::is_unsigned<T>::value,
+  static_assert(std::is_signed_v<T> || std::is_unsigned_v<T>,
                 "T must be an integer type.");
   using U =
-      std::conditional_t<std::is_signed<T>::value, std::int64_t, std::uint64_t>;
+      std::conditional_t<std::is_signed_v<T>, std::int64_t, std::uint64_t>;
   U temp;
   auto status = internal_json::JsonRequireIntegerImpl<U>::Execute(
       json, &temp, strict, min_value, max_value);

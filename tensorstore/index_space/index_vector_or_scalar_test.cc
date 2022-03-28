@@ -35,47 +35,37 @@ using tensorstore::span;
 using tensorstore::internal_index_space::CheckIndexVectorSize;
 using tensorstore::internal_index_space::IndexVectorOrScalarView;
 
-static_assert(IsIndexVectorOrScalar<Index>::value == true, "");
+static_assert(IsIndexVectorOrScalar<Index>::value == true);
 
 // Scalar types permit conversions.
-static_assert(IsIndexVectorOrScalar<std::int32_t>::value == true, "");
-static_assert(IsIndexVectorOrScalar<float>::value == false, "");
+static_assert(IsIndexVectorOrScalar<std::int32_t>::value == true);
+static_assert(IsIndexVectorOrScalar<float>::value == false);
 static_assert(
-    std::is_same<typename IsIndexVectorOrScalar<std::int32_t>::normalized_type,
-                 Index>::value,
-    "");
-static_assert(IsIndexVectorOrScalar<std::int32_t>::extent == dynamic_extent,
-              "");
+    std::is_same_v<
+        typename IsIndexVectorOrScalar<std::int32_t>::normalized_type, Index>);
+static_assert(IsIndexVectorOrScalar<std::int32_t>::extent == dynamic_extent);
 
 // std::vector<std::int32_t> is not convertible to span<Index>.
-static_assert(IsIndexVectorOrScalar<std::vector<std::int32_t>>::value == false,
-              "");
-static_assert(IsIndexVectorOrScalar<const std::vector<Index>>::value == true,
-              "");
-static_assert(std::is_same<typename IsIndexVectorOrScalar<
-                               const std::vector<Index>>::normalized_type,
-                           span<const Index>>::value,
-              "");
+static_assert(IsIndexVectorOrScalar<std::vector<std::int32_t>>::value == false);
+static_assert(IsIndexVectorOrScalar<const std::vector<Index>>::value == true);
+static_assert(std::is_same_v<typename IsIndexVectorOrScalar<
+                                 const std::vector<Index>>::normalized_type,
+                             span<const Index>>);
 static_assert(IsIndexVectorOrScalar<const std::vector<Index>>::extent ==
-                  dynamic_extent,
-              "");
+              dynamic_extent);
 
-static_assert(IsIndexVectorOrScalar<span<const Index>>::value == true, "");
+static_assert(IsIndexVectorOrScalar<span<const Index>>::value == true);
 static_assert(
-    std::is_same<typename IsIndexVectorOrScalar<span<Index>>::normalized_type,
-                 span<const Index>>::value,
-    "");
+    std::is_same_v<typename IsIndexVectorOrScalar<span<Index>>::normalized_type,
+                   span<const Index>>);
 static_assert(IsIndexVectorOrScalar<span<const Index>>::extent ==
-                  dynamic_extent,
-              "");
+              dynamic_extent);
 
-static_assert(IsIndexVectorOrScalar<span<const Index, 5>>::value == true, "");
-static_assert(
-    std::is_same<
-        typename IsIndexVectorOrScalar<span<Index, 5>>::normalized_type,
-        span<const Index, 5>>::value,
-    "");
-static_assert(IsIndexVectorOrScalar<span<Index, 5>>::extent == 5, "");
+static_assert(IsIndexVectorOrScalar<span<const Index, 5>>::value == true);
+static_assert(std::is_same_v<
+              typename IsIndexVectorOrScalar<span<Index, 5>>::normalized_type,
+              span<const Index, 5>>);
+static_assert(IsIndexVectorOrScalar<span<Index, 5>>::extent == 5);
 
 TEST(IndexVectorOrScalarTest, Scalar) {
   IndexVectorOrScalarView v(5);
