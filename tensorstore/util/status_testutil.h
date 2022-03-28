@@ -57,18 +57,15 @@ class ErrorCodeMatchesStatusMatcher {
 MatchesStatus(absl::StatusCode status_code,
               const std::string& message_pattern = "[^]*");
 
+// Prints a debugging representation of a result.
 template <typename T>
 void PrintTo(const Result<T>& result, std::ostream* os) {
   if (result) {
-    *os << "Result{" << ::testing::PrintToString(*result) << "}";
-  } else {
-    *os << result.status();
-  }
-}
-
-inline void PrintTo(const Result<void>& result, std::ostream* os) {
-  if (result) {
-    *os << "Result{}";
+    if constexpr (std::is_void_v<T>) {
+      *os << "Result{}";
+    } else {
+      *os << "Result{" << ::testing::PrintToString(*result) << "}";
+    }
   } else {
     *os << result.status();
   }

@@ -25,10 +25,7 @@
 
 namespace {
 
-struct X {
-  ~X() {}
-  int value;
-};
+using tensorstore::internal::ToStringUsingOstream;
 
 enum class OstreamableEnum { value = 0 };
 enum class PlainEnum { value = 0 };
@@ -38,10 +35,9 @@ std::ostream& operator<<(std::ostream& os, OstreamableEnum e) {
 }
 
 TEST(ToStringUsingOstreamTest, Basic) {
-  EXPECT_EQ("hello", tensorstore::ToStringUsingOstream("hello"));
-  EXPECT_EQ("1", tensorstore::ToStringUsingOstream(1));
-  EXPECT_EQ("(1,2)",
-            tensorstore::ToStringUsingOstream(std::complex<float>(1, 2)));
+  EXPECT_EQ("hello", ToStringUsingOstream("hello"));
+  EXPECT_EQ("1", ToStringUsingOstream(1));
+  EXPECT_EQ("(1,2)", ToStringUsingOstream(std::complex<float>(1, 2)));
 }
 
 TEST(StrAppendTest, Basic) {
@@ -61,10 +57,6 @@ TEST(StrCat, Enum) {
 
 TEST(StrCat, Null) { EXPECT_EQ("null", tensorstore::StrCat(nullptr)); }
 
-TEST(StrCat, Unprintable) {
-  EXPECT_EQ("<unprintable>", tensorstore::StrCat(X{5}));
-}
-
 TEST(StrCat, Tuple) {
   EXPECT_EQ("{1, 2, abc}", tensorstore::StrCat(std::make_tuple(1, 2.0, "abc")));
 }
@@ -73,15 +65,12 @@ TEST(StrCat, Pair) {
   EXPECT_EQ("{2, abc}", tensorstore::StrCat(std::make_pair(2.0, "abc")));
 }
 
-TEST(StrCat, Optional) {
-  std::optional<int> x = 1;
-  EXPECT_EQ("<unprintable>", tensorstore::StrCat(x));
-}
-
 TEST(SpanTest, Ostream) {
   std::ostringstream ostr;
   ostr << tensorstore::span({1, 2, 3});
   EXPECT_EQ("{1, 2, 3}", ostr.str());
 }
+
+// TODO: Consider supporting std::optional
 
 }  // namespace

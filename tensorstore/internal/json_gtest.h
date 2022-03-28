@@ -63,7 +63,8 @@ void TestJsonBinderRoundTrip(
     ToJsonOptions to_json_options = IncludeDefaults{false},
     FromJsonOptions from_json_options = {}) {
   for (const auto& [value, j] : round_trips) {
-    SCOPED_TRACE(tensorstore::StrCat("value=", value, ", j=", j));
+    SCOPED_TRACE(tensorstore::StrCat("value=", ::testing::PrintToString(value),
+                                     ", j=", j));
     EXPECT_THAT(tensorstore::internal_json_binding::ToJson(value, binder,
                                                            to_json_options),
                 ::testing::Optional(MatchesJson(j)));

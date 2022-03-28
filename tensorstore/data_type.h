@@ -683,7 +683,9 @@ struct DataTypeSimpleOperationsImpl {
   }
 
   static void AppendToString(std::string* result, const void* ptr) {
-    tensorstore::StrAppend(result, *static_cast<const T*>(ptr));
+    if constexpr (internal::IsOstreamable<T>) {
+      tensorstore::StrAppend(result, *static_cast<const T*>(ptr));
+    }
   }
 };
 

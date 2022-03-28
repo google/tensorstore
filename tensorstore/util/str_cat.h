@@ -29,6 +29,8 @@
 
 namespace tensorstore {
 
+namespace internal {
+
 /// Converts the argument to a string representation using `operator<<`.
 template <typename T>
 std::string ToStringUsingOstream(const T& x) {
@@ -36,8 +38,6 @@ std::string ToStringUsingOstream(const T& x) {
   ostr << x;
   return ostr.str();
 }
-
-namespace internal {
 
 /// Converts arbitrary input values to a type supported by `absl::StrCat`.
 template <typename T>
@@ -47,13 +47,11 @@ auto ToAlphaNumOrString(const T& x) {
   } else if constexpr (std::is_convertible_v<T, absl::AlphaNum> &&
                        (!std::is_enum_v<T> || !IsOstreamable<T>)) {
     return absl::AlphaNum(x);
-  } else if constexpr (IsOstreamable<T>) {
+  } else {
     // Note: Return type is `std::string` in this case.  If it were
     // `absl::AlphaNum`, the `AlphaNum` would hold an invalid reference to a
     // temporary string.
-    return tensorstore::ToStringUsingOstream(x);
-  } else {
-    return "<unprintable>";
+    return internal::ToStringUsingOstream(x);
   }
 }
 
