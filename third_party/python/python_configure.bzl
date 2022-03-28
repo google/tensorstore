@@ -58,7 +58,8 @@ def _execute(
     result = repository_ctx.execute(cmdline)
     if result.stderr or not (empty_stdout_fine or result.stdout):
         _fail("\n".join([
-            error_msg.strip() if error_msg else "Repository command failed",
+            "Repository command failed: " + " ".join([repr(x) for x in cmdline]),
+            error_msg.strip() if error_msg else "",
             result.stderr.strip(),
             error_details if error_details else "",
         ]))
@@ -73,9 +74,12 @@ def _read_dir(repository_ctx, src_dir):
     """
     if _is_windows(repository_ctx):
         src_dir = src_dir.replace("/", "\\")
+        cmd_path = repository_ctx.which("cmd.exe")
+        if cmd_path == None:
+            cmd_path = "cmd.exe"
         find_result = _execute(
             repository_ctx,
-            ["cmd.exe", "/c", "dir", src_dir, "/b", "/s", "/a-d"],
+            [cmd_path, "/c", "dir", src_dir, "/b", "/s", "/a-d"],
             empty_stdout_fine = True,
         )
 
