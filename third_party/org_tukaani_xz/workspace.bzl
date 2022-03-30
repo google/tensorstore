@@ -14,6 +14,7 @@
 
 load("//third_party:repo.bzl", "third_party_http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
 
 def repo():
     maybe(
@@ -27,3 +28,10 @@ def repo():
         build_file = Label("//third_party:org_tukaani_xz/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:org_tukaani_xz/system.BUILD.bazel"),
     )
+
+# https://github.com/xz-mirror/xz/blob/master/CMakeLists.txt
+cmake_fetch_content_package(name = "xz")
+
+cmake_add_dep_mapping(target_mapping = {
+    "@org_tukaani_xz//:liblzma": "liblzma",
+})

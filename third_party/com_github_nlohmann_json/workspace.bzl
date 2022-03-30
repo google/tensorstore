@@ -17,6 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
 
 def repo():
     maybe(
@@ -28,3 +29,11 @@ def repo():
         sha256 = "61e605be15e88deeac4582aaf01c09d616f8302edde7adcaba9261ddc3b4ceca",
         build_file = Label("//third_party:com_github_nlohmann_json/bundled.BUILD.bazel"),
     )
+
+cmake_fetch_content_package(
+    name = "nlohmann_json",
+)
+
+cmake_add_dep_mapping(target_mapping = {
+    "@com_github_nlohmann_json//:nlohmann_json": "nlohmann_json::nlohmann_json",
+})

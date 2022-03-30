@@ -17,6 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
 
 # REPO_BRANCH = abseil
 
@@ -30,3 +31,9 @@ def repo():
         ],
         sha256 = "f68f7dfc693f11209fd74c88ca2ec7809d3fff4cfda8319b215f3bacf742e7ee",
     )
+
+cmake_fetch_content_package(name = "re2")
+
+cmake_add_dep_mapping(target_mapping = {
+    "@com_google_re2//:re2": "re2",
+})

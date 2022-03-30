@@ -20,6 +20,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
 
 def repo():
     maybe(
@@ -31,3 +32,15 @@ def repo():
         strip_prefix = "libavif-d9cffc5f46b62aeff46eebf51449726386d6c485",
         build_file = Label("//third_party:org_aomedia_avif/libavif.BUILD.bazel"),
     )
+
+cmake_fetch_content_package(
+    name = "avif",
+    settings = [
+        ("AVIF_BUILD_AOM", "ON"),
+        ("AVIF_CODEC_DAV1D", "OFF"),  # TODO: Change to ON
+    ],
+)
+
+cmake_add_dep_mapping(target_mapping = {
+    "@org_aomedia_avif//:avif": "avif",
+})

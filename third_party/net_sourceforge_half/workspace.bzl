@@ -17,6 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_external_project")
 
 def repo():
     maybe(
@@ -28,3 +29,12 @@ def repo():
         sha256 = "ad1788afe0300fa2b02b0d1df128d857f021f92ccf7c8bddd07812685fa07a25",
         build_file = Label("//third_party:net_sourceforge_half/bundled.BUILD.bazel"),
     )
+
+cmake_add_dep_mapping(target_mapping = {
+    "@net_sourceforge_half//:half": "Half::half",
+})
+
+cmake_external_project(
+    name = "Half",
+    settings = [],
+)

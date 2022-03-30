@@ -17,6 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
 
 def repo():
     maybe(
@@ -26,3 +27,10 @@ def repo():
         sha256 = "3da225763533aa179af8438e994842be5ca72e4a7fed4d7976dc66c8c4502f58",
         strip_prefix = "benchmark-1.6.0",
     )
+
+cmake_fetch_content_package(name = "benchmark")
+
+cmake_add_dep_mapping(target_mapping = {
+    "@com_google_benchmark//:benchmark": "benchmark::benchmark_main",
+    "@com_google_benchmark//:benchmark_main": "benchmark::benchmark_main",
+})

@@ -31,3 +31,19 @@ def repo():
         ],
         build_file = Label("//third_party:org_videolan_dav1d/dav1d.BUILD.bazel"),
     )
+
+#load("//:cmake_helpers.bzl", "cmake_external_project")
+#
+#cmake_raw("""
+#find_program(Meson_EXECUTABLE meson)
+#if(NOT Meson_EXECUTABLE)
+#  message(FATAL_ERROR "dav1d: Meson is required!")
+#endif()
+#""")
+#
+#cmake_external_project(
+#    name = "dav1d",
+#    settings = [],
+#    configure_command =
+#        "env CC=@CMAKE_C_COMPILER@ ${Meson_EXECUTABLE} --prefix=<INSTALL_DIR> <BINARY_DIR> <SOURCE_DIR>",
+#)

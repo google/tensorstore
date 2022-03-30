@@ -17,6 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:cmake_helpers.bzl", "cmake_fetch_content_package", "cmake_use_absl_style_mapping")
 
 # REPO_BRANCH = master
 
@@ -30,3 +31,20 @@ def repo():
         ],
         sha256 = "dcf71b9cba8dc0ca9940c4b316a0c796be8fab42b070bb6b7cab62b48f0e66c4",
     )
+
+# https://github.com/abseil/abseil-cpp/blob/master/CMake/README.md
+cmake_fetch_content_package(
+    name = "absl",
+    settings = [
+        ("ABSL_USE_EXTERNAL_GOOGLETEST", "ON"),
+        ("ABSL_BUILD_TESTING", "OFF"),
+        ("ABSL_FIND_GOOGLETEST", "OFF"),
+        ("ABSL_PROPAGATE_CXX_STD", "ON"),
+    ],
+)
+
+cmake_use_absl_style_mapping(
+    prefix_mapping = {
+        "@com_google_absl//absl": "absl",
+    },
+)

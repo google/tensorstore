@@ -17,6 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_find_package")
 
 # Use libpng from a github mirror rather than https://git.code.sf.net/p/libpng/code
 # since it's much easier to download.
@@ -35,3 +36,10 @@ def repo():
         build_file = Label("//third_party:png/png.BUILD.bazel"),
         system_build_file = Label("//third_party:png/system.BUILD.bazel"),
     )
+
+cmake_find_package(name = "PNG", fallback = True)
+
+cmake_add_dep_mapping(target_mapping = {
+    "@png//:png": "PNG::PNG",
+    "@png": "PNG::PNG",
+})

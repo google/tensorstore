@@ -17,6 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_find_package")
 
 def repo():
     maybe(
@@ -33,3 +34,14 @@ def repo():
         build_file = Label("//third_party:jpeg/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:jpeg/system.BUILD.bazel"),
     )
+
+# https://cmake.org/cmake/help/latest/module/FindJPEG.html
+cmake_find_package(
+    name = "JPEG",
+    fallback = True,
+)
+
+cmake_add_dep_mapping(target_mapping = {
+    "@jpeg//:jpeg": "JPEG::JPEG",
+    "@jpeg": "JPEG::JPEG",
+})

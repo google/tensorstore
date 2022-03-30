@@ -14,6 +14,7 @@
 
 load("//third_party:repo.bzl", "third_party_http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
 
 # REPO_BRANCH = master
 
@@ -28,3 +29,11 @@ def repo():
         sha256 = "f1bcc07caa568eb312411dde5308b1e250bd0e1bc020fae855bf9f43209940cc",
         build_file = Label("//third_party:com_github_pybind_pybind11/bundled.BUILD.bazel"),
     )
+
+cmake_fetch_content_package(
+    name = "pybind11",
+)
+
+cmake_add_dep_mapping(target_mapping = {
+    "@com_github_pybind_pybind11//:pybind11": "pybind11::module",
+})

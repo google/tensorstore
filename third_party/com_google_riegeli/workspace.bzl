@@ -17,6 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:cmake_helpers.bzl", "cmake_use_absl_style_mapping")
 
 # REPO_BRANCH = master
 
@@ -30,3 +31,9 @@ def repo():
         ],
         sha256 = "540f6ab50576b84c4592c60035b675e81fde08f363651b27191bfebe2fdae82a",
     )
+
+cmake_use_absl_style_mapping(
+    prefix_mapping = {
+        "@com_google_riegeli": "riegeli",
+    },
+)

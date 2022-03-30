@@ -17,6 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
 
 # REPO_BRANCH = master-with-bazel
 
@@ -37,3 +38,9 @@ def repo():
         ],
         patch_args = ["-p1"],
     )
+
+cmake_fetch_content_package(name = "BORINGSSL")
+
+cmake_add_dep_mapping(target_mapping = {
+    "@com_google_boringssl//:crypto": "BORINGSSL::crypto",
+})

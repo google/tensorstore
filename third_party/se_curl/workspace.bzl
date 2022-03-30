@@ -17,6 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_find_package")
 
 def repo():
     maybe(
@@ -30,3 +31,9 @@ def repo():
         build_file = Label("//third_party:se_curl/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:se_curl/system.BUILD.bazel"),
     )
+
+cmake_find_package(name = "CURL", fallback = True)
+
+cmake_add_dep_mapping(target_mapping = {
+    "@se_curl//:curl": "CURL::libcurl",
+})

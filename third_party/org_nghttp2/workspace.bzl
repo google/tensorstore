@@ -17,6 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
 
 def repo():
     maybe(
@@ -30,3 +31,10 @@ def repo():
         build_file = Label("//third_party:org_nghttp2/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:org_nghttp2/system.BUILD.bazel"),
     )
+
+# https://github.com/nghttp2/nghttp2/blob/master/CMakeLists.txt
+cmake_fetch_content_package(name = "nghttp2")
+
+cmake_add_dep_mapping(target_mapping = {
+    "@org_nghttp2//:nghttp2": "nghttp2",
+})

@@ -17,6 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping")
 
 def repo():
     maybe(
@@ -30,3 +31,7 @@ def repo():
         build_file = Label("//third_party:org_blosc_cblosc/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:org_blosc_cblosc/system.BUILD.bazel"),
     )
+
+cmake_add_dep_mapping(target_mapping = {
+    "@org_blosc_cblosc//:blosc": "blosc",
+})

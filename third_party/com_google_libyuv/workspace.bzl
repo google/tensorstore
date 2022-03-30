@@ -17,6 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
 
 def repo():
     maybe(
@@ -30,3 +31,9 @@ def repo():
         sha256 = "43dfa4511332424dfad1ce48be645bb063faf0e48f0b3e6c07c2cb308db80f9e",
         build_file = Label("//third_party:com_google_libyuv/libyuv.BUILD.bazel"),
     )
+
+cmake_fetch_content_package(name = "libyuv")
+
+cmake_add_dep_mapping(target_mapping = {
+    "@com_google_libyuv//:libyuv": "libyuv::libyuv",
+})
