@@ -18,6 +18,11 @@ The basic idea is that the BUILD, WORKSPACE, and workspace.bzl files include
 configuration using 'dummy' bazel macros that are then interpreted by this
 script to generate CMakeLists.txt files in each subdirectory.
 
+To use:
+
+  cd /path/to/tensorstore
+  CMake/bazel_to_cmake.py
+
 This is very much still a work in progress.
 """
 
