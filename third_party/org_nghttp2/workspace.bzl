@@ -33,7 +33,7 @@ def repo():
     )
 
 # https://github.com/nghttp2/nghttp2/blob/master/CMakeLists.txt
-cmake_fetch_content_package(name = "nghttp2")
+cmake_fetch_content_package(name = "org_nghttp2")
 
 cmake_add_dep_mapping(target_mapping = {
     "@org_nghttp2//:nghttp2": "nghttp2",

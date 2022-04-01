@@ -39,7 +39,7 @@ def repo():
         patch_args = ["-p1"],
     )
 
-cmake_fetch_content_package(name = "BORINGSSL")
+cmake_fetch_content_package(name = "com_google_boringssl")
 
 cmake_add_dep_mapping(target_mapping = {
     "@com_google_boringssl//:crypto": "BORINGSSL::crypto",

@@ -32,7 +32,16 @@ def repo():
         system_build_file = Label("//third_party:se_curl/system.BUILD.bazel"),
     )
 
-cmake_find_package(name = "CURL", fallback = True)
+cmake_find_package(
+    name = "CURL",
+    fallback = True,
+    settings = [
+        ("BUILD_CURL_EXE", "OFF"),
+        ("HTTP_ONLY", "ON"),
+        ("CURL_BROTLI", "ON"),
+        #        ("USE_NGHTTP2", "ON"),  # TODO: Enable this
+    ],
+)
 
 cmake_add_dep_mapping(target_mapping = {
     "@se_curl//:curl": "CURL::libcurl",

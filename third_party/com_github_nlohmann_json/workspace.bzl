@@ -17,7 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package", "cmake_raw")
 
 def repo():
     maybe(
@@ -31,9 +31,14 @@ def repo():
     )
 
 cmake_fetch_content_package(
-    name = "nlohmann_json",
+    name = "com_github_nlohmann_json",
 )
 
 cmake_add_dep_mapping(target_mapping = {
     "@com_github_nlohmann_json//:nlohmann_json": "nlohmann_json::nlohmann_json",
 })
+
+cmake_raw(
+    text = "# maybe_add_alias(nlohmann_json nlohmann_json::nlohmann_json)\n\n",
+    where = "FINAL",
+)

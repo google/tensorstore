@@ -22,7 +22,8 @@
 #
 
 # Uses CMake find_package(name) script to locate the package.
-# When fallback is true, conditionally downloads the package.
+# When fallback is true, tests whether the package is found and, if not,
+# uses FetchContent to download the required package.
 def cmake_find_package(
         name = None,
         version = None,
@@ -35,13 +36,7 @@ def cmake_find_package(
 def cmake_fetch_content_package(
         name = None,
         settings = None,
-        **kwargs):
-    return
-
-# Uses CMake ExternalProject script to locate the package.
-def cmake_external_project(
-        name = None,
-        settings = None,
+        make_available = True,
         **kwargs):
     return
 
@@ -54,14 +49,8 @@ def cmake_external_project(
 def cmake_add_dep_mapping(target_mapping = None):
     return
 
-# Sets up a mapping from a bazel package to a cmake library.
-# Generally assumes that the target mapping follows the pattern used by abseil CMake.
-#
-# cmake_use_absl_style_mapping(prefix_mapping={
-#        "@foo_bar_bazel": "foo"
-#     })
-def cmake_use_absl_style_mapping(prefix_mapping = None):
-    return
-
-def cmake_raw(text):
+# Adds raw text to the CMake file.
+# Example:
+#   cmake_raw(text="# Comment \n")
+def cmake_raw(text = None, where = None):
     return

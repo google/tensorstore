@@ -17,7 +17,6 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_fetch_content_package")
 
 def repo():
     maybe(
@@ -36,11 +35,14 @@ def repo():
     )
 
 # https://github.com/google/snappy/blob/main/CMakeLists.txt
-cmake_fetch_content_package(
-    name = "Snappy",
-    settings = [
-        ("SNAPPY_BUILD_TESTS", "OFF"),
-        ("SNAPPY_BUILD_BENCHMARKS", "OFF"),
-        ("SNAPPY_INSTALL", "OFF"),
-    ],
-)
+# Snappy is only used by blosc
+#
+# load("//:cmake_helpers.bzl", "cmake_fetch_content_package")
+# cmake_fetch_content_package(
+#    name = "com_google_snappy",
+#    settings = [
+#        ("SNAPPY_BUILD_TESTS", "OFF"),
+#        ("SNAPPY_BUILD_BENCHMARKS", "OFF"),
+#        ("SNAPPY_INSTALL", "OFF"),
+#    ],
+#)

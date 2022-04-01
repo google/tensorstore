@@ -30,7 +30,7 @@ def repo():
     )
 
 # https://github.com/xz-mirror/xz/blob/master/CMakeLists.txt
-cmake_fetch_content_package(name = "xz")
+cmake_fetch_content_package(name = "org_tukaani_xz")
 
 cmake_add_dep_mapping(target_mapping = {
     "@org_tukaani_xz//:liblzma": "liblzma",

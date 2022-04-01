@@ -31,7 +31,7 @@ def repo():
     )
 
 cmake_fetch_content_package(
-    name = "pybind11",
+    name = "com_github_pybind_pybind11",
 )
 
 cmake_add_dep_mapping(target_mapping = {

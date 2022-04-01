@@ -38,6 +38,9 @@ cmake_fetch_content_package(
     settings = [
         ("AVIF_BUILD_AOM", "ON"),
         ("AVIF_CODEC_DAV1D", "OFF"),  # TODO: Change to ON
+        ("AVIF_CODEC_AOM_DECODE", "ON"),
+        ("AVIF_CODEC_AOM_ENCODE", "ON"),
+        ("AVIF_LIBYUV_ENABLED", "ON"),
     ],
 )
 

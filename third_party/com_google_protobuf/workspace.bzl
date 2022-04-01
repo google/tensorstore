@@ -45,7 +45,11 @@ cmake_find_package(
     fallback = True,
     source_subdir = "cmake",
     settings = [
+        ("protobuf_INSTALL", "OFF"),
         ("protobuf_BUILD_TESTS", "OFF"),
+        ("protobuf_BUILD_CONFORMANCE", "OFF"),
+        ("protobuf_BUILD_EXAMPLES", "OFF"),
+        ("protobuf_VERBOSE", "ON"),
     ],
 )
 

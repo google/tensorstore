@@ -30,3 +30,10 @@ def repo():
         build_file = Label("//third_party:org_lz4/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:org_lz4/system.BUILD.bazel"),
     )
+
+# lz4 is only used by blosc
+#
+# load("//:cmake_helpers.bzl", "cmake_fetch_content_package")
+# cmake_fetch_content_package(
+#    name = "org_lz4",
+#)

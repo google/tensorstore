@@ -17,7 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_use_absl_style_mapping")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
 
 # REPO_BRANCH = master
 
@@ -32,8 +32,25 @@ def repo():
         sha256 = "540f6ab50576b84c4592c60035b675e81fde08f363651b27191bfebe2fdae82a",
     )
 
-cmake_use_absl_style_mapping(
-    prefix_mapping = {
-        "@com_google_riegeli": "riegeli",
-    },
+RIEGELI_CMAKE_MAPPING = {
+    "@com_google_riegeli//riegeli/bytes:cord_reader": "",
+    "@com_google_riegeli//riegeli/bytes:cord_writer": "",
+    "@com_google_riegeli//riegeli/bytes:limiting_reader": "",
+    "@com_google_riegeli//riegeli/bytes:reader": "",
+    "@com_google_riegeli//riegeli/bytes:string_reader": "",
+    "@com_google_riegeli//riegeli/bytes:string_writer": "",
+    "@com_google_riegeli//riegeli/bytes:writer": "",
+    "@com_google_riegeli//riegeli/messages:message_parse": "",
+    "@com_google_riegeli//riegeli/messages:message_serialize": "",
+    "@com_google_riegeli//riegeli/varint:varint_reading": "",
+    "@com_google_riegeli//riegeli/varint:varint_writing": "",
+}
+
+cmake_add_dep_mapping(target_mapping = RIEGELI_CMAKE_MAPPING)
+
+cmake_fetch_content_package(
+    name = "com_google_riegeli",
+    configure_command = "",
+    build_command = "",
+    make_available = False,
 )

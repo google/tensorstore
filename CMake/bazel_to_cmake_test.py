@@ -22,8 +22,27 @@ import bazel_to_cmake
 class BazelToCmakeTest(unittest.TestCase):
 
   def test_format_cmake_options(self):
+    # Empty
     self.assertEqual('', bazel_to_cmake.format_cmake_options(dict()))
+    # true-numeric is set.
     self.assertEqual(' FOO', bazel_to_cmake.format_cmake_options({'foo': 1}))
+    # Empty list is not set
+    self.assertEqual('', bazel_to_cmake.format_cmake_options({'foo': []}))
+    # False value is not set
+    self.assertEqual('', bazel_to_cmake.format_cmake_options({'foo': False}))
+    # Empty string is set
+    self.assertEqual('\n  FOO        ""',
+                     bazel_to_cmake.format_cmake_options({'foo': ''}))
+    # String with spaces is quoted.
+    self.assertEqual('\n  FOO        "a b"',
+                     bazel_to_cmake.format_cmake_options({'foo': 'a b'}))
+    # List with spaces is NOT quoted.
+    self.assertEqual('\n  FOO        a b',
+                     bazel_to_cmake.format_cmake_options({'foo': ['a b']}))
+    self.assertEqual('\n  FOO        a b',
+                     bazel_to_cmake.format_cmake_options({'foo': ['a', 'b']}))
+
+  def test_format_cmake_options_with_keys(self):
     self.assertEqual(' FOO',
                      bazel_to_cmake.format_cmake_options({'foo': 1}, ['FOO']))
     self.assertEqual('', bazel_to_cmake.format_cmake_options({'foo': 1},
@@ -35,24 +54,57 @@ class BazelToCmakeTest(unittest.TestCase):
     self.assertEqual('x::t_u_v',
                      bazel_to_cmake.format_project_target('x', ['t', 'u', 'v']))
 
-  def test_maybe_format_absl_target(self):
-    self.assertIsNone(
-        bazel_to_cmake.maybe_format_absl_target('@xyz//absl', 'absl',
-                                                '@ccc//absl/bar:foo'))
-    self.assertEqual(
-        'absl::foo',
-        bazel_to_cmake.maybe_format_absl_target('@xyz//absl', 'absl',
-                                                '@xyz//absl:foo'))
-    self.assertEqual(
-        'absl::bar',
-        bazel_to_cmake.maybe_format_absl_target('@xyz//absl', 'absl',
-                                                '@xyz//absl/bar:foo'))
+  def test_canonical_bazel_target(self):
+    self.assertEqual('@foo//bar:bar',
+                     bazel_to_cmake.canonical_bazel_target('@foo//bar'))
+    self.assertEqual('@foo//bar:baz',
+                     bazel_to_cmake.canonical_bazel_target('@foo//bar:baz'))
 
-  def test_cmake_script_builder_add_raw(self):
+  def test_bazel_target_to_path(self):
+    # No path elements
+    self.assertEqual(
+        'bar/baz/bazel.cc',
+        '/'.join(bazel_to_cmake.bazel_target_to_path('//bar/baz:bazel.cc')))
+    self.assertEqual(
+        'bar/baz/bazel.cc',
+        '/'.join(bazel_to_cmake.bazel_target_to_path(':bar/baz/bazel.cc')))
+    self.assertEqual('bazel.cc',
+                     '/'.join(bazel_to_cmake.bazel_target_to_path('bazel.cc')))
+
+    # path_elements not root
+    self.assertEqual(
+        'bar/baz/bazel.cc', '/'.join(
+            bazel_to_cmake.bazel_target_to_path('//bar/baz/bazel.cc',
+                                                ['fee', 'fie'])))
+    self.assertEqual(
+        'fee/fie/bar/baz/bazel.cc', '/'.join(
+            bazel_to_cmake.bazel_target_to_path(':bar/baz/bazel.cc',
+                                                ['fee', 'fie'])))
+
+    self.assertEqual(
+        'third_party/foo/a/bar.xyz', '/'.join(
+            bazel_to_cmake.bazel_target_to_path('//third_party:foo/a/bar.xyz',
+                                                ['third_party', 'foo'])))
+
+  def test_cmake_script_builder_addtext(self):
     x = bazel_to_cmake.CMakeScriptBuilder()
     self.assertEqual('', x.as_text())
-    x.add_raw('# foo\n')
+    x.addtext('# foo\n')
     self.assertEqual('# foo\n', x.as_text())
+
+  def test_cmake_script_builder_set(self):
+    x = bazel_to_cmake.CMakeScriptBuilder()
+    x.set('FOO', 'ON')
+    self.assertEqual('set(FOO          ON )\n', x.as_text())
+
+    x = bazel_to_cmake.CMakeScriptBuilder()
+    x.set('BAR', 'ON', 'CACHE')
+    self.assertEqual('set(BAR          ON CACHE INTERNAL "" )\n', x.as_text())
+
+    x = bazel_to_cmake.CMakeScriptBuilder()
+    x.set('BAZ', 'ON', 'FORCE')
+    self.assertEqual('set(BAZ          ON CACHE INTERNAL "" FORCE)\n',
+                     x.as_text())
 
   def test_cmake_script_builder_find_package(self):
     x = bazel_to_cmake.CMakeScriptBuilder()
@@ -76,18 +128,6 @@ class BazelToCmakeTest(unittest.TestCase):
         """include(FetchContent)
 
 FetchContent_Declare(
-  bar
-  URL        a
-  URL_HASH   SHA256=foo)
-""", x.as_text())
-
-  def test_cmake_script_builder_external_project_add(self):
-    x = bazel_to_cmake.CMakeScriptBuilder()
-    x.external_project_add('bar', {'url': 'a', 'URL_HASH': 'SHA256=foo'})
-    self.assertEqual(
-        """include(ExternalProject)
-
-ExternalProject_Add(
   bar
   URL        a
   URL_HASH   SHA256=foo)

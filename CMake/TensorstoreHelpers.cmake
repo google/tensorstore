@@ -39,7 +39,7 @@ include(CMakeParseArguments)
 #   This is to reduce namespace pollution.
 #
 # * Uses additional variables: TENSORSTORE_COMMON_INCLUDE_DIRS,
-#   TENSORSTORE_DEFAULT_LINKOPTS
+#   TENSORSTORE_DEFAULT_LINKOPTS, TENSORSTORE_ENABLE_INSTALL
 #
 #
 # tensorstore_cc_library(
@@ -82,7 +82,11 @@ function(tensorstore_cc_library)
     return()
   endif()
 
-  set(_NAME "tensorstore_${TENSORSTORE_CC_LIB_NAME}")
+  if(TENSORSTORE_ENABLE_INSTALL)
+    set(_NAME "${TENSORSTORE_CC_LIB_NAME}")
+  else()
+    set(_NAME "tensorstore_${TENSORSTORE_CC_LIB_NAME}")
+  endif()
 
   # Check if this is a header-only library
   # Note that as of February 2019, many popular OS's (for example, Ubuntu
@@ -114,7 +118,6 @@ function(tensorstore_cc_library)
     set(_build_type "static")
   endif()
 
-  # TODO: Generate pkg-config file for libraries
   if(NOT TENSORSTORE_CC_LIB_IS_INTERFACE)
     add_library(${_NAME})
     target_sources(${_NAME} PRIVATE ${TENSORSTORE_CC_LIB_SRCS} ${TENSORSTORE_CC_LIB_HDRS})
@@ -168,7 +171,60 @@ function(tensorstore_cc_library)
 
   endif()
 
+  # Add tensorstore:: alias.
   add_library(tensorstore::${TENSORSTORE_CC_LIB_NAME} ALIAS ${_NAME})
+
+  # Add install target
+  if(NOT TENSORSTORE_CC_LIB_TESTONLY AND TENSORSTORE_ENABLE_INSTALL)
+    install(TARGETS ${_NAME} EXPORT ${PROJECT_NAME}Targets
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    )
+  endif()
+
+  # Generate pkg-config for libraries.
+  if(NOT TENSORSTORE_CC_LIB_TESTONLY AND TENSORSTORE_ENABLE_INSTALL)
+    set(PC_VERSION "head")
+    foreach(dep ${TENSORSTORE_CC_LIB_DEPS})
+      if(${dep} MATCHES "^tensorstore::(.*)")
+      # Join deps with commas.
+        if(PC_DEPS)
+          set(PC_DEPS "${PC_DEPS},")
+        endif()
+        set(PC_DEPS "${PC_DEPS} tensorstore_${CMAKE_MATCH_1} = ${PC_VERSION}")
+      endif()
+    endforeach()
+    foreach(cflag ${TENSORSTORE_CC_LIB_COPTS})
+      if(${cflag} MATCHES "^(-Wno|/wd)")
+        # These flags are needed to suppress warnings that might fire in our headers.
+        set(PC_CFLAGS "${PC_CFLAGS} ${cflag}")
+      elseif(${cflag} MATCHES "^(-W|/w[1234eo])")
+        # Don't impose our warnings on others.
+      else()
+        set(PC_CFLAGS "${PC_CFLAGS} ${cflag}")
+      endif()
+    endforeach()
+
+    file(GENERATE
+         OUTPUT "${CMAKE_BINARY_DIR}/lib/pkgconfig/tensorstore_${_NAME}.pc"
+         CONTENT "\
+prefix=${CMAKE_INSTALL_PREFIX}\n\
+exec_prefix=\${prefix}\n\
+libdir=${CMAKE_INSTALL_FULL_LIBDIR}\n\
+includedir=${CMAKE_INSTALL_FULL_INCLUDEDIR}\n\
+\n\
+Name: tensorstore_${_NAME}\n\
+Description: Tensorstore ${_NAME} library\n\
+URL: https://google.github.io/tensorstore/\n\
+Version: ${PC_VERSION}\n\
+Requires:${PC_DEPS}\n\
+Libs: -L\${libdir} $<JOIN:${TENSORSTORE_CC_LIB_LINKOPTS}, > $<$<NOT:$<BOOL:${TENSORSTORE_CC_LIB_IS_INTERFACE}>>:-labsl_${_NAME}>\n\
+Cflags: -I\${includedir}${PC_CFLAGS}\n")
+
+    install(FILES "${CMAKE_BINARY_DIR}/lib/pkgconfig/tensorstore_${_NAME}.pc"
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
+  endif()
 
 endfunction()
 
@@ -258,11 +314,78 @@ function(tensorstore_cc_test)
   add_test(NAME ${_NAME} COMMAND ${_NAME})
 endfunction()
 
-
+# check_target(target)
+#   Errors if the targetg does not exist.
 function(check_target my_target)
   if(NOT TARGET ${my_target})
     message(FATAL_ERROR " TENSORSTORE: compiling tensorstore requires a
                    ${my_target} CMake target in your project,
                    see CMake/README.md for more details")
   endif(NOT TARGET ${my_target})
+endfunction()
+
+
+# maybe_add_alias(target alias)
+#   Attempts to add an alias for a target if the target does not exist.
+function(maybe_add_alias my_target my_alias)
+  if(NOT TARGET ${my_alias})
+    if(TARGET ${my_target})
+      add_library(${my_target} ALIAS ${my_alias})
+    endif(TARGET ${my_target})
+  endif(NOT TARGET ${my_alias})
+endfunction()
+
+
+# check_absl_target(target)
+#   Attempts to add an alias for an absl namespace target
+#   before running check_target(target)
+function(check_absl_target my_target)
+  string(FIND ${my_target} "::" _has_namespace)
+  if(${_has_namespace})
+    string(REPLACE "::" "_" _my_alias ${my_target})
+    maybe_add_alias(${my_target} ${_my_alias})
+  endif(${_has_namespace})
+
+  check_target("${my_target}")
+endfunction()
+
+
+# Helpers for debugging CMake
+
+# dump_cmake_variables()
+#   Dumps all the CMAKE variables.
+function(dump_cmake_variables)
+  # https://stackoverflow.com/questions/9298278/cmake-print-out-all-accessible-variables-in-a-script
+  get_cmake_property(_variableNames VARIABLES)
+  list (SORT _variableNames)
+  foreach (_variableName ${_variableNames})
+    if (ARGV0)
+      unset(MATCHED)
+      string(REGEX MATCH ${ARGV0} MATCHED ${_variableName})
+      if (NOT MATCHED)
+         continue()
+      endif()
+    endif()
+    message(STATUS "${_variableName}=${${_variableName}}")
+  endforeach()
+endfunction()
+
+# dump_cmake_targets( <DIRECTORY> )
+#   Dumps all the CMAKE targets under the <DIRECTORY>.
+function(dump_cmake_targets directory)
+  get_property(imported_targets DIRECTORY ${directory} PROPERTY IMPORTED_TARGETS)
+  foreach(_target ${imported_targets})
+    message(STATUS "+ ${_target}")
+  endforeach()
+
+  get_property(dir_targets DIRECTORY ${directory} PROPERTY BUILDSYSTEM_TARGETS)
+  foreach(_target ${dir_targets})
+    get_target_property(_type ${_target} TYPE)
+    message(STATUS "+ ${_target}  ${_type}")
+  endforeach()
+
+  get_property(sub_directories DIRECTORY ${directory} PROPERTY SUBDIRECTORIES)
+  foreach(directory ${sub_directories})
+    dump_cmake_targets(${directory})
+  endforeach()
 endfunction()

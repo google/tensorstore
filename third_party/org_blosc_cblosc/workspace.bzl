@@ -17,7 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_add_dep_mapping")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
 
 def repo():
     maybe(
@@ -35,3 +35,20 @@ def repo():
 cmake_add_dep_mapping(target_mapping = {
     "@org_blosc_cblosc//:blosc": "blosc",
 })
+
+cmake_fetch_content_package(
+    name = "org_blosc_cblosc",
+    settings = [
+        ("BUILD_SHARED", "OFF"),
+        ("BUILD_TESTS", "OFF"),
+        ("BUILD_FUZZERS", "OFF"),
+        ("BUILD_BENCHMARKS", "OFF"),
+        ("DEACTIVATE_SNAPPY", "OFF"),
+        ("TEST_INCLUDE_BENCH_SHUFFLE_1", "OFF"),
+        ("TEST_INCLUDE_BENCH_SHUFFLE_N", "OFF"),
+        ("TEST_INCLUDE_BENCH_BITSHUFFLE_1", "OFF"),
+        ("TEST_INCLUDE_BENCH_BITSHUFFLE_N", "OFF"),
+        ("SNAPPY_BUILD_TESTS", "OFF"),
+        ("SNAPPY_BUILD_BENCHMARKS", "OFF"),
+    ],
+)

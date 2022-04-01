@@ -32,7 +32,7 @@ def repo():
         sha256 = "f68f7dfc693f11209fd74c88ca2ec7809d3fff4cfda8319b215f3bacf742e7ee",
     )
 
-cmake_fetch_content_package(name = "re2")
+cmake_fetch_content_package(name = "com_google_re2")
 
 cmake_add_dep_mapping(target_mapping = {
     "@com_google_re2//:re2": "re2",

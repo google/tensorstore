@@ -28,7 +28,13 @@ def repo():
         strip_prefix = "benchmark-1.6.0",
     )
 
-cmake_fetch_content_package(name = "benchmark")
+cmake_fetch_content_package(
+    name = "com_google_benchmark",
+    settings = [
+        ("BENCHMARK_ENABLE_TESTING", "OFF"),
+        ("BENCHMARK_ENABLE_EXCEPTIONS", "OFF"),
+    ],
+)
 
 cmake_add_dep_mapping(target_mapping = {
     "@com_google_benchmark//:benchmark": "benchmark::benchmark_main",

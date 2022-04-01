@@ -21,7 +21,7 @@ script to generate CMakeLists.txt files in each subdirectory.
 To use:
 
   cd /path/to/tensorstore
-  CMake/bazel_to_cmake.py
+  python3 CMake/bazel_to_cmake.py
 
 This is very much still a work in progress.
 """
@@ -84,10 +84,11 @@ EXTERNAL_PROJECT_ADD_OPTIONS = FETCH_CONTENT_DECLARE_OPTIONS + [
 
 def format_cmake_options(options: Dict[str, Any],
                          keys: Optional[List[str]] = None) -> str:
+  """Formats a Dict as CMake options, optionally filtered to keys."""
   if not keys:
     keys = options.keys()
   entries = []
-  first_value = -1
+  first_str = -1  # track first string value for packing onto lines
   for k in keys:
     v = options.get(k, None)
     if v is None:
@@ -95,20 +96,31 @@ def format_cmake_options(options: Dict[str, Any],
       if v is None:
         continue
     k = k.upper()
+
     if isinstance(v, list):
-      v = " ".join(v)
-    if isinstance(v, str):
-      if first_value == -1:
-        first_value = len(entries)
+      if not v:
+        continue
+      if first_str == -1:
+        first_str = len(entries)
+      entries.append((k, " ".join(v)))
+    elif isinstance(v, str):
+      if first_str == -1:
+        first_str = len(entries)
+      if not v:
+        v = '""'
+      elif " " in v and v[0] != '"':
+        v = '"{v}"'.format(v=v)
       entries.append((k, v))
-    else:
+    elif v:
       entries.append((k, None))
+
   extra = ""
   for i in range(0, len(entries)):
     t = entries[i]
-    if first_value == -1 or i < first_value:
+    if first_str == -1 or i < first_str:
       extra += f" {t[0]}"
-    elif t[1]:
+      continue
+    if isinstance(t[1], str):
       extra += f"\n  {t[0]: <10} {t[1]}"
     else:
       extra += f"\n  {t[0]}"
@@ -121,35 +133,40 @@ class CMakeScriptBuilder:
   PART = """  %s
     %s
 """
+  FINAL = "FINAL"
 
   def __init__(self):
     self.includes = set()
-    self.entries = []
+    self.main = []
     self.make_available = set()
+    self.final = []
 
   def as_text(self) -> str:
     suffix = []
     if self.make_available:
       suffix = [
-          "\nFetchContent_MakeAvailable({x})\n".format(
-              x=" ".join(sorted(self.make_available)))
+          "\nFetchContent_MakeAvailable({x})".format(
+              x=" ".join(sorted(self.make_available))),
+          "\n\n",
       ]
-    return "".join(sorted(self.includes) + self.entries + suffix)
+    return "".join(sorted(self.includes) + self.main + suffix + self.final)
 
-  def add_raw(self, text: str):
+  def addtext(self, text: str, where: Optional[str] = None):
     """Adds raw text to the cmake file."""
-    self.entries.append(text)
+    if where == CMakeScriptBuilder.FINAL:
+      self.final.append(text)
+    else:
+      self.main.append(text)
 
   def set(self, variable: str, value: str, scope: str = ""):
     # https://cmake.org/cmake/help/latest/command/set.html
     if scope == "FORCE" or scope == "CACHE":
       force = "FORCE" if scope == "FORCE" else ""
-      self.entries.append(
-          f'set({variable: <12} {value} CACHE BOOL "" {force})\n')
+      self.addtext(f'set({variable: <12} {value} CACHE INTERNAL "" {force})\n')
     else:
       if scope != "PARENT_SCOPE":
         scope = ""
-      self.entries.append(f"set({variable: <12} {value} {scope})\n")
+      self.addtext(f"set({variable: <12} {value} {scope})\n")
 
   def add_subdirectory(self,
                        source_dir: str,
@@ -158,11 +175,12 @@ class CMakeScriptBuilder:
     # https://cmake.org/cmake/help/latest/command/add_subdirectory.html
     if not binary_dir:
       binary_dir = ""
-    self.entries.append("add_subdirectory({x})\n".format(x=" ".join(
-        filter(None, [
-            source_dir, binary_dir,
-            "EXCLUDE_FROM_ALL" if exclude_from_all else ""
-        ]))))
+    self.addtext(
+        "add_subdirectory({x})\n".format(x=" ".join(
+            filter(None, [
+                source_dir, binary_dir,
+                "EXCLUDE_FROM_ALL" if exclude_from_all else ""
+            ]))), self.FINAL)
 
   def find_package(
       self,  #
@@ -173,11 +191,12 @@ class CMakeScriptBuilder:
     if not version:
       version = ""
     extra = format_cmake_options(options, FIND_PACKAGE_OPTIONS)
-    self.entries.append("find_package({x})\n".format(
+    self.addtext("find_package({x})\n".format(
         x=" ".join(filter(None, [name, version, extra]))))
 
   def fetch_content_make_available(self, name: str):
     # https://cmake.org/cmake/help/latest/module/FetchContent.html
+    # https://github.com/Kitware/CMake/blob/master/Modules/FetchContent.cmake
     self.includes.add("include(FetchContent)\n")
     self.make_available.add(name)
 
@@ -185,22 +204,13 @@ class CMakeScriptBuilder:
     # https://cmake.org/cmake/help/latest/module/FetchContent.html
     self.includes.add("include(FetchContent)\n")
     extra = format_cmake_options(options, FETCH_CONTENT_DECLARE_OPTIONS)
-    self.entries.append(f"""
+    self.addtext(f"""
 FetchContent_Declare(
   {name}{extra})
 """)
 
-  def external_project_add(self, name: str, options: Dict[str, Any]):
-    # https://cmake.org/cmake/help/latest/module/ExternalProject.html
-    self.includes.add("include(ExternalProject)\n")
-    extra = format_cmake_options(options, EXTERNAL_PROJECT_ADD_OPTIONS)
-    self.entries.append(f"""
-ExternalProject_Add(
-  {name}{extra})
-""")
-
   def cc_test(self, name: str, srcs: List[str], deps: List[str]):
-    self.entries.append("""\n
+    self.addtext("""\n
 tensorstore_cc_test(
   NAME
     %s
@@ -225,7 +235,7 @@ tensorstore_cc_test(
     if is_public:
       rest += "  PUBLIC"
 
-    self.entries.append("""\n
+    self.addtext("""\n
 tensorstore_cc_library(
   NAME
     %s
@@ -253,18 +263,27 @@ def format_project_target(project: str, target: str) -> str:
   return "{project}::{target}".format(project=project, target="_".join(f))
 
 
-def maybe_format_absl_target(prefix: str, project: str,
-                             dep: str) -> Optional[str]:
-  """Absl-style CMake exposes one library target per subdirectory.
+def canonical_bazel_target(target: str) -> str:
+  """Returns the canonical bazel target name."""
+  a = target.rfind(":")
+  b = target.rfind("/")
+  if a > b:
+    return target
+  suffix = target[b + 1:]
+  return f"{target}:{suffix}"
 
-  The mapping target corresponds to the directory name. After removing
-  the prefix, the initial directory is used as the library target.
-  """
-  if not dep.startswith(prefix):
-    return None
-  dep = dep[len(prefix) + 1:]
-  paths = list(filter(None, re.split("[:/]+", dep)))
-  return format_project_target(project, paths[:1])
+
+def bazel_target_to_path(
+    target: str, path_elements: Optional[List[str]] = None) -> List[str]:
+  """Format bazel file target as a list of path elements."""
+  # target is rooted at the base of the repo.
+  if not path_elements:
+    path_elements = []
+  paths = list(filter(None, re.split("[:/]+", target)))
+  if target.startswith("//"):  # root label
+    return paths
+  else:  # local label
+    return path_elements + paths
 
 
 class Converter:
@@ -274,13 +293,13 @@ class Converter:
     self.workspace = ""
     self.errors = []
     self.dep_mapping = {}
-    self.absl_style_mapping = dict()
     # transient state
     self._filename = ""
     self._path_elements = []
     self._prefix_len = 0
     self._default_visibility = []
     self._builder = None
+    self._all_deps = set()
 
   def set_filename(self, filename: str, max_prefix: int = KEY_DEPTH):
     print(f"Processing {filename}")
@@ -308,6 +327,14 @@ class Converter:
   def filename(self) -> str:
     return self._filename
 
+  def _is_relative_path(self, path: List[str]) -> bool:
+    if len(path) < self._prefix_len:
+      return False
+    for i in range(self._prefix_len):
+      if path[i] != self._path_elements[i]:
+        return False
+    return True
+
   def _get_name(self, kwargs: Dict[str, Any]) -> str:
     """Format kwargs[name] as a cmake target name."""
     name = self._path_elements + [kwargs.get("name")]
@@ -317,33 +344,18 @@ class Converter:
 
   def _map_single_file(self, file: str) -> str:
     """Format bazel file target as a path."""
-    if file.startswith("//"):
-      paths = list(filter(None, re.split("[:/]+", file)))
-      if self.project in paths:
-        idx = paths.index(self.project) + 1
-        paths = paths[idx:]
-      if self._prefix_len > 0 and paths[0] != self._path_elements[0]:
-        return "/".join(paths)
-      if self._prefix_len > 1 and paths[1] == self._path_elements[1]:
-        return "/".join(paths[2:])
-      return "/".join(paths[1:])
-
-    if file.startswith(":"):
-      file = file[1:]
-    return "/".join(self._path_elements[self._prefix_len:] + [file])
+    paths = bazel_target_to_path(file, self._path_elements)
+    if self._is_relative_path(paths):
+      return "/".join(paths[self._prefix_len:])
+    return "/".join(["${CMAKE_SOURCE_DIR}"] + paths)
 
   def _map_files(self, files: List[str]) -> List[str]:
     return sorted(set(filter(None, [self._map_single_file(x) for x in files])))
 
   def _map_single_dep(self, dep: str) -> str:
+    dep = canonical_bazel_target(dep)
     if dep in self.dep_mapping:
       return self.dep_mapping[dep]
-
-    # handle external absl-style mappings
-    for k, v in self.absl_style_mapping.items():
-      f = maybe_format_absl_target(k, v, dep)
-      if f:
-        return f
 
     # handle mappings in the current path.
     if dep.startswith(":"):
@@ -364,10 +376,10 @@ class Converter:
     return dep
 
   def _get_deps(self, kwargs: Dict[str, Any]) -> List[str]:
-    return sorted(
-        set(
-            filter(None,
-                   [self._map_single_dep(x) for x in kwargs.get("deps", [])])))
+    deps = set(
+        filter(None, [self._map_single_dep(x) for x in kwargs.get("deps", [])]))
+    self._all_deps.update(deps)
+    return sorted(deps)
 
   def _adapt_to_package_options(self, kwargs: Dict[str, Any]):
     options = kwargs
@@ -379,7 +391,19 @@ class Converter:
     if sha256:
       del options["sha256"]
       options.update({"URL_HASH": f"SHA256={sha256}"})
-    #strip_prefix = kwargs.get("strip_prefix", "")
+
+    # TODO: Enable patching by default.
+    # Apparently this attempts to patch -populate
+    if kwargs.get("allow_patch", False):
+      patch_commands = []
+      for x in kwargs.get("patches", []):
+        patch_commands.append(
+            "patch < " + "/".join(["${CMAKE_SOURCE_DIR}"] +
+                                  bazel_target_to_path(x, self._path_elements)))
+      if patch_commands:
+        options.update({"PATCH_COMMAND": " && ".join(patch_commands)})
+
+    # strip_prefix = kwargs.get("strip_prefix", "")
     return options
 
   def add_find_package(self, name: str, version: str, fallback: bool,
@@ -389,7 +413,7 @@ class Converter:
       urls = kwargs.get("urls", [])
       if not urls:
         is_required = True
-    self._builder.add_raw("\n")
+    self._builder.addtext("\n")
 
     myargs = dict()
     myargs.update(kwargs)
@@ -398,36 +422,30 @@ class Converter:
     self._builder.find_package(name, version, myargs)
 
     if not is_required:
-      self._builder.add_raw("if(NOT ${%s_FOUND})\n" % name)
+      self._builder.addtext("if(NOT ${%s_FOUND})\n" % name)
       innername = kwargs.get("name", name)
       self._builder.fetch_content_declare(
           innername, self._adapt_to_package_options(kwargs))
-      self._builder.add_raw(f"FetchContent_MakeAvailable({innername})\n")
-      self._builder.add_raw("endif()\n\n")
+      self._builder.addtext(f"FetchContent_MakeAvailable({innername})\n")
+      self._builder.addtext("endif()\n\n")
 
   def add_fetch_content(self, name, kwargs: Dict[str, Any]):
     urls = kwargs.get("urls", [])
     if not urls:
       return
-    self._builder.add_raw("\n")
+    self._builder.addtext("\n")
     self._builder.fetch_content_declare(name,
                                         self._adapt_to_package_options(kwargs))
-    self._builder.fetch_content_make_available(name)
-
-  def add_external_project(self, name, kwargs: Dict[str, Any]):
-    urls = kwargs.get("urls", [])
-    if not urls:
-      return
-    self._builder.add_raw("\n")
-    self._builder.external_project_add(name,
-                                       self._adapt_to_package_options(kwargs))
+    make_available = kwargs.get("make_available", True)
+    if make_available:
+      self._builder.fetch_content_make_available(name)
 
   def add_settings(self, settings: List):
     for env in settings:
       try:
         self._builder.set(env[0], env[1], scope="FORCE")
       except:
-        converter.errors.append(f"Failed to set {env} in {self._filename}")
+        self.errors.append(f"Failed to set {env} in {self._filename}")
 
   def add_cc_test(self, **kwargs):
     """Generates a tensorstore_cc_test."""
@@ -436,7 +454,7 @@ class Converter:
     deps = self._get_deps(kwargs)
 
     if not srcs:
-      self._builder.add_raw(f"# Missing {name}\n")
+      self._builder.addtext(f"# Missing {name}\n")
     else:
       self._builder.cc_test(name, srcs, deps)
 
@@ -450,16 +468,16 @@ class Converter:
         kwargs.get("visibility", self._default_visibility))
     self._builder.cc_library(name, srcs, hdrs, deps, is_public)
 
-  def add_raw(self, text: str):
+  def addtext(self, text: str, where: Optional[str] = None):
     """Adds raw content to the CMakeLists.txt."""
     if text:
-      self._builder.add_raw(text)
+      self._builder.addtext(text, where)
 
   def add_todo(self, kwargs: Dict[str, Any]):
     """Generates a TODO comment in the CMakeLists.txt."""
     kind = sys._getframe(1).f_code.co_name  # annotate with rule name
     name = self._get_name(kwargs)
-    self.add_raw("\n# TODO: %s %s\n" % (kind, name))
+    self.addtext("\n# TODO: %s %s\n" % (kind, name))
 
 
 class BuildFileFunctions(dict):
@@ -468,7 +486,7 @@ class BuildFileFunctions(dict):
   def __init__(self, converter):
     super(BuildFileFunctions, self).__init__()
     self.converter = converter
-    self.converter.add_raw(f"\n# From {self.converter.filename}\n\n")
+    self.converter.addtext(f"\n# From {self.converter.filename}\n\n")
 
   def _unimplemented(self, *args, **kwargs):
     pass
@@ -540,7 +558,7 @@ class WorkspaceFileFunctions(dict):
   def __init__(self, converter):
     super(WorkspaceFileFunctions, self).__init__()
     self.converter = converter
-    self.converter.add_raw(f"\n# From {self.converter.filename}\n")
+    self.converter.addtext(f"\n# From {self.converter.filename}\n")
 
   def _unimplemented(self, *args, **kwargs):
     pass
@@ -568,22 +586,22 @@ class WorkspaceFileFunctions(dict):
   def workspace(self, **kwargs):
     self.converter.workspace = kwargs.get("name", "")
 
-  def cmake_add_dep_mapping(self, target_mapping):
-    for k in target_mapping:
-      self.converter.dep_mapping[k] = target_mapping[k]
+  def cmake_add_dep_mapping(self, **kwargs):
+    # stores the mapping from "canonical" bazel target to cmake target.
+    target_mapping = kwargs.get("target_mapping", {})
+    for k, v in target_mapping.items():
+      self.converter.dep_mapping[canonical_bazel_target(k)] = v
 
-  def cmake_use_absl_style_mapping(self, prefix_mapping):
-    self.converter.absl_style_mapping.update(prefix_mapping)
+  def cmake_raw(self, **kwargs):
+    text = kwargs.get("text", "")
+    where = kwargs.get("where", None)
+    self.converter.addtext(text, where)
 
-  def cmake_raw(self, text):
-    self.converter.add_raw(text)
-
-  def cmake_find_package(self,
-                         name=None,
-                         version=None,
-                         fallback=False,
-                         settings=None,
-                         **kwargs):
+  def cmake_find_package(self, **kwargs):
+    name = kwargs.get("name", None)
+    version = kwargs.get("version", None)
+    fallback = kwargs.get("fallback", False)
+    settings = kwargs.get("settings", None)
     if not name:
       return
     if settings:
@@ -604,7 +622,9 @@ class WorkspaceFileFunctions(dict):
     self["repo"]()
     self.maybe = tmp
 
-  def cmake_fetch_content_package(self, name=None, settings=None, **kwargs):
+  def cmake_fetch_content_package(self, **kwargs):
+    name = kwargs.get("name", None)
+    settings = kwargs.get("settings", None)
     if not name:
       return
     if settings:
@@ -617,25 +637,6 @@ class WorkspaceFileFunctions(dict):
       nonlocal myargs
       myargs.update(kwargs)
       self.converter.add_fetch_content(name, myargs)
-
-    tmp = self.maybe
-    self.maybe = types.MethodType(maybe, self)
-    self["repo"]()
-    self.maybe = tmp
-
-  def cmake_external_project(self, name=None, settings=None, **kwargs):
-    if not name:
-      return
-    if settings:
-      self.converter.add_settings(settings)
-    myargs = dict()
-    myargs.update(kwargs)
-
-    def maybe(self, fn, **kwargs):
-      nonlocal name
-      nonlocal myargs
-      myargs.update(kwargs)
-      self.converter.add_external_project(name, myargs)
 
     tmp = self.maybe
     self.maybe = types.MethodType(maybe, self)
@@ -707,22 +708,14 @@ def main():
   converter.set_builder(cmakelists.get_script_builder(tuple(["third_party"])))
 
   # Process WORKSPACE file. Currently only extracts project name.
-  try:
-    converter.set_filename("WORKSPACE")
-    exec(open(converter.filename).read(), WorkspaceFileFunctions(converter))
-  except Exception as e:
-    print(traceback.format_exc())
-    converter.errors.append(f"Error parsing {converter.filename}: {e}")
+  converter.set_filename("WORKSPACE")
+  exec(open(converter.filename).read(), WorkspaceFileFunctions(converter))
 
   # Process third_party workspace.bzl files to add cmake mappings.
   for wks in sorted(
       set(glob.glob("third_party/**/workspace.bzl", recursive=True))):
-    try:
-      converter.set_filename(wks)
-      exec(open(converter.filename).read(), WorkspaceFileFunctions(converter))
-    except Exception as e:
-      print(traceback.format_exc())
-      converter.errors.append(f"Error parsing {converter.filename}: {e}")
+    converter.set_filename(wks)
+    exec(open(converter.filename).read(), WorkspaceFileFunctions(converter))
 
   # Process BUILD files to add cmake mappings.
   for build in sorted(set(glob.glob("**/BUILD", recursive=True))):
@@ -744,9 +737,4 @@ def main():
 
 
 if __name__ == "__main__":
-  try:
-    sys.exit(main())
-  except Exception as e:
-    print(traceback.format_exc(), sys.stderr)
-    print(e, sys.stderr)
-  sys.exit(1)
+  sys.exit(main())

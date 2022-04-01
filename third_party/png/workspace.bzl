@@ -37,7 +37,10 @@ def repo():
         system_build_file = Label("//third_party:png/system.BUILD.bazel"),
     )
 
-cmake_find_package(name = "PNG", fallback = True)
+cmake_find_package(
+    name = "PNG",
+    fallback = True,
+)
 
 cmake_add_dep_mapping(target_mapping = {
     "@png//:png": "PNG::PNG",

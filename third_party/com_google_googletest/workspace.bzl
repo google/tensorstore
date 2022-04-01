@@ -17,7 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_find_package")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_find_package", "cmake_raw")
 
 # REPO_BRANCH = main
 
@@ -36,3 +36,12 @@ cmake_add_dep_mapping(target_mapping = {
 })
 
 cmake_find_package(name = "GTest", fallback = True)
+
+cmake_raw(text = """
+
+check_target(GTest::gtest)
+check_target(GTest::gtest_main)
+check_target(GTest::gmock)
+check_target(GTest::gmock_main)
+
+""", where = "FINAL")

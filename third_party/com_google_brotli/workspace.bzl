@@ -35,6 +35,6 @@ def repo():
     )
 
 cmake_fetch_content_package(
-    name = "brotli",
+    name = "com_google_brotli",
     settings = [("BROTLI_DISABLE_TESTS", "ON")],
 )
