@@ -28,13 +28,14 @@ This is very much still a work in progress.
 
 from __future__ import print_function
 
+import collections
 import glob
 import os
 import re
 import sys
 import traceback
 import types
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 # Only generate CMakeLists.txt for targets up to this depth, by default.
 # If the KEY_DEPTH is set to 1 (for tensorstore), the resulting file
@@ -133,40 +134,49 @@ class CMakeScriptBuilder:
   PART = """  %s
     %s
 """
-  FINAL = "FINAL"
 
   def __init__(self):
-    self.includes = set()
-    self.main = []
-    self.make_available = set()
-    self.final = []
+    self._includes: Set[str] = set()
+    self._sections: Dict[int, List[str]] = collections.defaultdict(lambda: [])
+    self._subdirs: List[str] = []
+    self._default_section = 1000
+
+  @property
+  def default_section(self) -> int:
+    return self._default_section
+
+  def set_default_section(self, section: int):
+    self._default_section = section
 
   def as_text(self) -> str:
-    suffix = []
-    if self.make_available:
-      suffix = [
-          "\nFetchContent_MakeAvailable({x})".format(
-              x=" ".join(sorted(self.make_available))),
-          "\n\n",
-      ]
-    return "".join(sorted(self.includes) + self.main + suffix + self.final)
+    sections = []
+    for k in sorted(set(self._sections.keys())):
+      sections.extend(self._sections[k])
 
-  def addtext(self, text: str, where: Optional[str] = None):
+    subdirs = [f"add_subdirectory({x})\n" for x in self._subdirs]
+    return "".join(sorted(self._includes) + sections + subdirs)
+
+  def addtext(self, text: str, section: Optional[int] = None):
     """Adds raw text to the cmake file."""
-    if where == CMakeScriptBuilder.FINAL:
-      self.final.append(text)
-    else:
-      self.main.append(text)
+    if not section:
+      section = self.default_section
+    self._sections[section].append(text)
 
-  def set(self, variable: str, value: str, scope: str = ""):
+  def set(self,
+          variable: str,
+          value: str,
+          scope: str = "",
+          section: Optional[int] = None):
     # https://cmake.org/cmake/help/latest/command/set.html
     if scope == "FORCE" or scope == "CACHE":
       force = "FORCE" if scope == "FORCE" else ""
-      self.addtext(f'set({variable: <12} {value} CACHE INTERNAL "" {force})\n')
+      self.addtext(
+          f'set({variable: <12} {value} CACHE INTERNAL "" {force})\n',
+          section=section)
     else:
       if scope != "PARENT_SCOPE":
         scope = ""
-      self.addtext(f"set({variable: <12} {value} {scope})\n")
+      self.addtext(f"set({variable: <12} {value} {scope})\n", section=section)
 
   def add_subdirectory(self,
                        source_dir: str,
@@ -175,41 +185,49 @@ class CMakeScriptBuilder:
     # https://cmake.org/cmake/help/latest/command/add_subdirectory.html
     if not binary_dir:
       binary_dir = ""
-    self.addtext(
-        "add_subdirectory({x})\n".format(x=" ".join(
-            filter(None, [
-                source_dir, binary_dir,
-                "EXCLUDE_FROM_ALL" if exclude_from_all else ""
-            ]))), self.FINAL)
+    self._subdirs.append(" ".join(
+        filter(None, [
+            source_dir, binary_dir,
+            "EXCLUDE_FROM_ALL" if exclude_from_all else ""
+        ])))
 
   def find_package(
       self,  #
       name: str,
       version: Optional[str],
-      options: Dict[str, Any]):
+      options: Dict[str, Any],
+      section: Optional[int] = None):
     # https://cmake.org/cmake/help/latest/command/find_package.html
     if not version:
       version = ""
     extra = format_cmake_options(options, FIND_PACKAGE_OPTIONS)
-    self.addtext("find_package({x})\n".format(
-        x=" ".join(filter(None, [name, version, extra]))))
+    self.addtext(
+        "find_package({x})\n".format(
+            x=" ".join(filter(None, [name, version, extra]))),
+        section=section)
 
-  def fetch_content_make_available(self, name: str):
+  def fetch_content_make_available(self,
+                                   name: str,
+                                   section: Optional[int] = None):
     # https://cmake.org/cmake/help/latest/module/FetchContent.html
     # https://github.com/Kitware/CMake/blob/master/Modules/FetchContent.cmake
-    self.includes.add("include(FetchContent)\n")
-    self.make_available.add(name)
+    self._includes.add("include(FetchContent)\n")
+    self.addtext(f"FetchContent_MakeAvailable({name})\n", section=section)
 
-  def fetch_content_declare(self, name: str, options: Dict[str, Any]):
+  def fetch_content_declare(self,
+                            name: str,
+                            options: Dict[str, Any],
+                            section: Optional[int] = None):
     # https://cmake.org/cmake/help/latest/module/FetchContent.html
-    self.includes.add("include(FetchContent)\n")
+    self._includes.add("include(FetchContent)\n")
     extra = format_cmake_options(options, FETCH_CONTENT_DECLARE_OPTIONS)
-    self.addtext(f"""
+    self.addtext(
+        f"""
 FetchContent_Declare(
   {name}{extra})
-""")
+""", section=section)
 
-  def cc_test(self, name: str, srcs: List[str], deps: List[str]):
+  def cc_test(self, name: str, srcs: Set[str], deps: Set[str]):
     self.addtext("""\n
 tensorstore_cc_test(
   NAME
@@ -221,17 +239,17 @@ tensorstore_cc_test(
   DEPS
     %s
 )
-""" % (name, self.INDENT.join(srcs), self.INDENT.join(deps)))
+""" % (name, self.INDENT.join(sorted(srcs)), self.INDENT.join(sorted(deps))))
 
-  def cc_library(self, name: str, srcs: List[str], hdrs: List[str],
-                 deps: List[str], is_public: bool):
+  def cc_library(self, name: str, srcs: Set[str], hdrs: Set[str],
+                 deps: Set[str], is_public: bool):
     rest = ""
     if srcs:
-      rest += self.PART % ("SRCS", self.INDENT.join(srcs))
+      rest += self.PART % ("SRCS", self.INDENT.join(sorted(srcs)))
     if hdrs:
-      rest += self.PART % ("HDRS", self.INDENT.join(hdrs))
+      rest += self.PART % ("HDRS", self.INDENT.join(sorted(hdrs)))
     if deps:
-      rest += self.PART % ("DEPS", self.INDENT.join(deps))
+      rest += self.PART % ("DEPS", self.INDENT.join(sorted(deps)))
     if is_public:
       rest += "  PUBLIC"
 
@@ -287,6 +305,7 @@ def bazel_target_to_path(
 
 
 class Converter:
+  FIRST_SECTION = 100
 
   def __init__(self, project):
     self.project = project
@@ -300,6 +319,7 @@ class Converter:
     self._default_visibility = []
     self._builder = None
     self._all_deps = set()
+    self._proto_libraries = dict()
 
   def set_filename(self, filename: str, max_prefix: int = KEY_DEPTH):
     print(f"Processing {filename}")
@@ -322,6 +342,15 @@ class Converter:
 
   def set_default_visibility(self, vis: List[str]):
     self._default_visibility = vis
+
+  @property
+  def default_section(self) -> int:
+    if not self._builder:
+      return 0
+    return self._builder.default_section
+
+  def set_default_section(self, section: int):
+    self._builder.set_default_section(section)
 
   @property
   def filename(self) -> str:
@@ -349,8 +378,8 @@ class Converter:
       return "/".join(paths[self._prefix_len:])
     return "/".join(["${CMAKE_SOURCE_DIR}"] + paths)
 
-  def _map_files(self, files: List[str]) -> List[str]:
-    return sorted(set(filter(None, [self._map_single_file(x) for x in files])))
+  def _map_files(self, files: List[str]) -> Set[str]:
+    return set(filter(None, [self._map_single_file(x) for x in files]))
 
   def _map_single_dep(self, dep: str) -> str:
     dep = canonical_bazel_target(dep)
@@ -375,11 +404,9 @@ class Converter:
     self.errors.append(f"Missing mapping for {dep} in {self._filename}")
     return dep
 
-  def _get_deps(self, kwargs: Dict[str, Any]) -> List[str]:
-    deps = set(
+  def _get_deps(self, kwargs: Dict[str, Any]) -> Set[str]:
+    return set(
         filter(None, [self._map_single_dep(x) for x in kwargs.get("deps", [])]))
-    self._all_deps.update(deps)
-    return sorted(deps)
 
   def _adapt_to_package_options(self, kwargs: Dict[str, Any]):
     options = kwargs
@@ -405,6 +432,17 @@ class Converter:
 
     # strip_prefix = kwargs.get("strip_prefix", "")
     return options
+
+  def addtext(self, text: str):
+    """Adds raw content to the CMakeLists.txt."""
+    if text:
+      self._builder.addtext(text)
+
+  def add_todo(self, kwargs: Dict[str, Any]):
+    """Generates a TODO comment in the CMakeLists.txt."""
+    kind = sys._getframe(1).f_code.co_name  # annotate with rule name
+    name = self._get_name(kwargs)
+    self.addtext("\n# TODO: %s %s\n" % (kind, name))
 
   def add_find_package(self, name: str, version: str, fallback: bool,
                        kwargs: Dict[str, Any]):
@@ -452,6 +490,7 @@ class Converter:
     name = self._get_name(kwargs)
     srcs = self._map_files(kwargs.get("srcs", []) + kwargs.get("hdrs", []))
     deps = self._get_deps(kwargs)
+    self._all_deps.update(deps)
 
     if not srcs:
       self._builder.addtext(f"# Missing {name}\n")
@@ -462,33 +501,68 @@ class Converter:
     """Generates a tensorstore_cc_library."""
     name = self._get_name(kwargs)
     deps = self._get_deps(kwargs)
+    self._all_deps.update(set(deps))
     srcs = self._map_files(kwargs.get("srcs", []))
     hdrs = self._map_files(kwargs.get("hdrs", []))
     is_public = is_visibility_public(
         kwargs.get("visibility", self._default_visibility))
     self._builder.cc_library(name, srcs, hdrs, deps, is_public)
 
-  def addtext(self, text: str, where: Optional[str] = None):
-    """Adds raw content to the CMakeLists.txt."""
-    if text:
-      self._builder.addtext(text, where)
-
-  def add_todo(self, kwargs: Dict[str, Any]):
-    """Generates a TODO comment in the CMakeLists.txt."""
-    kind = sys._getframe(1).f_code.co_name  # annotate with rule name
+  def first_pass_proto_library(self, kind: str, kwargs: Dict[str, Any]):
     name = self._get_name(kwargs)
-    self.addtext("\n# TODO: %s %s\n" % (kind, name))
+    if not name:
+      return
+    name = f"{self.project}::{name}"
+    deps = self._get_deps(kwargs)
+    if kind == "proto":
+      # Forward mapping
+      srcs = self._map_files(kwargs.get("srcs", []))
+      self._proto_libraries[(kind, name)] = (srcs, deps)
+      return
+    for x in deps:
+      # Reverse mapping
+      self._proto_libraries[(kind, x)] = name
+
+  def add_cc_proto_library(self, kwargs):
+    # All the proto_libraries should be registered at this point,
+    # So it should be possible to extract proto library mappings.
+    name = self._get_name(kwargs)
+    if not name:
+      return
+
+    protos = set()
+    deps = set()
+    for x in self._get_deps(kwargs):
+      t = self._proto_libraries[("proto", x)]
+      protos.update(t[0])  # srcs
+      for y in t[1]:  # deps
+        k = ("cc", y)
+        if k in self._proto_libraries:
+          deps.add(self._proto_libraries[k])
+
+    if deps:
+      deps = "\n  DEPS\n    %s" % CMakeScriptBuilder.INDENT.join(sorted(deps))
+    else:
+      deps = ""
+
+    self._builder.addtext("""\n
+tensorstore_proto_cc_library(
+  NAME
+    %s
+  PROTOS
+    %s%s
+  COPTS
+    $\x7bTENSORSTORE_DEFAULT_COPTS\x7d
+  LINKOPTS
+    $\x7bTENSORSTORE_DEFAULT_LINKOPTS\x7d
+  PUBLIC
+)
+""" % (name, CMakeScriptBuilder.INDENT.join(sorted(protos)), deps))
 
 
-class BuildFileFunctions(dict):
-  """Globals dict for exec('**/BUILD')."""
+class BazelGlobalsDict(dict):
 
-  def __init__(self, converter):
-    super(BuildFileFunctions, self).__init__()
-    self.converter = converter
-    self.converter.addtext(f"\n# From {self.converter.filename}\n\n")
-
-  def _unimplemented(self, *args, **kwargs):
+  def __init__(self):
     pass
 
   def __setitem__(self, key, val):
@@ -502,6 +576,9 @@ class BuildFileFunctions(dict):
       return dict.__getitem__(self, key)
     return self._unimplemented
 
+  def _unimplemented(self, *args, **kwargs):
+    pass
+
   def glob(self, *args, **kwargs):
     # NOTE: Non-trivial uses of glob() in BUILD files will need attention.
     return []
@@ -509,11 +586,20 @@ class BuildFileFunctions(dict):
   def select(self, arg_dict):
     return []
 
+  def load(self, *args):
+    pass
+
   def package_name(self, **kwargs):
     return ""
 
-  def load(self, *args):
-    pass
+
+class BuildFileFunctions(BazelGlobalsDict):
+  """Globals dict for exec('**/BUILD')."""
+
+  def __init__(self, converter):
+    super(BuildFileFunctions, self).__init__()
+    self.converter = converter
+    self.converter.addtext(f"\n# From {self.converter.filename}\n\n")
 
   def package(self, **kwargs):
     self.converter.set_default_visibility(kwargs.get("default_visibility", []))
@@ -542,40 +628,46 @@ class BuildFileFunctions(dict):
   def tensorstore_cc_library(self, **kwargs):
     self.converter.add_cc_library(**kwargs)
 
-  def tensorstore_cc_proto_library(self, **kwargs):
-    self.converter.add_todo(kwargs)
-
   def tensorstore_cc_test(self, **kwargs):
     self.converter.add_cc_test(**kwargs)
 
+  def tensorstore_cc_proto_library(self, **kwargs):
+    self.converter.add_cc_proto_library(kwargs)
+
+
+class BuildFileFirstPass(BazelGlobalsDict):
+  """First pass globasl dict for exec('**/BUILD'), which registers proto libraries."""
+
+  def __init__(self, converter):
+    super(BuildFileFirstPass, self).__init__()
+    self.converter = converter
+
   def tensorstore_proto_library(self, **kwargs):
-    self.converter.add_todo(kwargs)
+    self.converter.first_pass_proto_library("proto", kwargs)
+
+  def proto_library(self, **kwargs):
+    self.converter.first_pass_proto_library("proto", kwargs)
+
+  def tensorstore_cc_proto_library(self, **kwargs):
+    self.converter.first_pass_proto_library("cc", kwargs)
+
+  def cc_proto_library(self, **kwargs):
+    self.converter.first_pass_proto_library("cc", kwargs)
 
 
-class WorkspaceFileFunctions(dict):
+class WorkspaceFileFunctions(BazelGlobalsDict):
   """Globals dict for exec('WORKSPACE') and exec('workspace.bzl')."""
 
   def __init__(self, converter):
     super(WorkspaceFileFunctions, self).__init__()
     self.converter = converter
+    self._initial_comment_added = False
+
+  def _add_file_comment(self):
+    if self._initial_comment_added:
+      return
+    self._initial_comment_added = True
     self.converter.addtext(f"\n# From {self.converter.filename}\n")
-
-  def _unimplemented(self, *args, **kwargs):
-    pass
-
-  def __setitem__(self, key, val):
-    if not hasattr(self, key):
-      dict.__setitem__(self, key, val)
-
-  def __getitem__(self, key):
-    if hasattr(self, key):
-      return getattr(self, key)
-    if dict.__contains__(self, key):
-      return dict.__getitem__(self, key)
-    return self._unimplemented
-
-  def load(self, *args):
-    pass
 
   def third_party_http_archive(self):
     pass
@@ -592,12 +684,21 @@ class WorkspaceFileFunctions(dict):
     for k, v in target_mapping.items():
       self.converter.dep_mapping[canonical_bazel_target(k)] = v
 
+  def cmake_set_section(self, **kwargs):
+    section = kwargs.get("section", None)
+    if section:
+      self.converter.set_default_section(section)
+
+  def cmake_get_section(self) -> int:
+    return self.converter.default_section
+
   def cmake_raw(self, **kwargs):
+    self._add_file_comment()
     text = kwargs.get("text", "")
-    where = kwargs.get("where", None)
-    self.converter.addtext(text, where)
+    self.converter.addtext(text)
 
   def cmake_find_package(self, **kwargs):
+    self._add_file_comment()
     name = kwargs.get("name", None)
     version = kwargs.get("version", None)
     fallback = kwargs.get("fallback", False)
@@ -623,6 +724,7 @@ class WorkspaceFileFunctions(dict):
     self.maybe = tmp
 
   def cmake_fetch_content_package(self, **kwargs):
+    self._add_file_comment()
     name = kwargs.get("name", None)
     settings = kwargs.get("settings", None)
     if not name:
@@ -704,28 +806,47 @@ def main():
 
   # Initial configuration belonga to third_party/CMakeLists.txt
   # This is specified by the key tuple ('third_party')
+  section = 1000
   cmakelists = CMakeListSet()
-  converter.set_builder(cmakelists.get_script_builder(tuple(["third_party"])))
+  builder = cmakelists.get_script_builder(tuple(["third_party"]))
+  converter.set_builder(builder)
 
-  # Process WORKSPACE file. Currently only extracts project name.
-  converter.set_filename("WORKSPACE")
-  exec(open(converter.filename).read(), WorkspaceFileFunctions(converter))
+  # Collect WORKSPACE and workspace.bzl files.
+  workspace_files = ["WORKSPACE"] + sorted(
+      set(glob.glob("third_party/**/workspace.bzl", recursive=True)))
 
   # Process third_party workspace.bzl files to add cmake mappings.
-  for wks in sorted(
-      set(glob.glob("third_party/**/workspace.bzl", recursive=True))):
-    converter.set_filename(wks)
+  for workspace in workspace_files:
+    converter.set_filename(workspace)
+    builder.set_default_section(section)
+    section += 1000
     exec(open(converter.filename).read(), WorkspaceFileFunctions(converter))
 
-  # Process BUILD files to add cmake mappings.
+  # Process BUILD files to add cmake mappings. Do this in two passes, so the
+  # first pass can record dependency information used by protos.
+  build_files = []
   for build in sorted(set(glob.glob("**/BUILD", recursive=True))):
     if (build.find("tensorstore/") == -1 or build.find("examples/") >= 0 or
         build.find("docs/") >= 0 or build.find("python/") >= 0 or
         build.find("third_party/") >= 0):
       continue
     converter.set_filename(build)
-    converter.set_builder(
-        cmakelists.get_script_builder(converter.get_key_from_filename()))
+    my_builder = cmakelists.get_script_builder(
+        converter.get_key_from_filename())
+    converter.set_builder(my_builder)
+    # update section
+    section = my_builder.default_section + 1000
+    my_builder.set_default_section(section)
+    build_files.append((build, section))
+    exec(open(converter.filename).read(), BuildFileFirstPass(converter))
+
+  # Second pass. Uses section from build_files to ensure consistency
+  for build, section in build_files:
+    converter.set_filename(build)
+    my_builder = cmakelists.get_script_builder(
+        converter.get_key_from_filename())
+    my_builder.set_default_section(section)
+    converter.set_builder(my_builder)
     exec(open(converter.filename).read(), BuildFileFunctions(converter))
 
   if converter.errors:

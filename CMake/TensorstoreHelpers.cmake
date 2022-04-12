@@ -50,13 +50,14 @@ include(CMakeParseArguments)
 #   SRCS
 #     "a.cc"
 # )
+#
 # tensorstore_cc_library(
 #   NAME
 #     fantastic_lib
 #   SRCS
 #     "b.cc"
 #   DEPS
-#     tensorstore::awesome # not "awesome" !
+#     tensorstore::awesome   # not "awesome" !
 #   PUBLIC
 # )
 #
@@ -251,15 +252,6 @@ endfunction()
 #   GMOCK_INCLUDE_DIRS, GTEST_INCLUDE_DIRS
 #
 # Usage:
-# tensorstore_cc_library(
-#   NAME
-#     awesome
-#   HDRS
-#     "a.h"
-#   SRCS
-#     "a.cc"
-#   PUBLIC
-# )
 #
 # tensorstore_cc_test(
 #   NAME
@@ -313,6 +305,55 @@ function(tensorstore_cc_test)
 
   add_test(NAME ${_NAME} COMMAND ${_NAME})
 endfunction()
+
+
+# tensorstore_proto_cc_library()
+#
+# CMake function to imitate Bazel's proto_cc_library rule.
+#
+# Parameters:
+# NAME: name of target (see Usage below)
+# PROTOS: List of proto source files for the library
+# COPTS: List of private compile options
+# DEPS: List of other libraries to be linked in to the binary targets
+# DEFINES: List of public defines
+# LINKOPTS: List of link options
+#
+# Usage:
+#
+# tensorstore_proto_cc_library(
+#   NAME
+#     cool_cc_proto
+#   PROTOS
+#     "cool.proto"
+# )
+#
+function(tensorstore_proto_cc_library)
+
+  cmake_parse_arguments(TENSORSTORE_PROTO_CC_LIBRARY
+    ""
+    "NAME"
+    "PROTOS;DEPS;COPTS;DEFINES;LINKOPTS"
+    ${ARGN}
+  )
+
+  ts_protobuf_generate_cpp(_proto_srcs _proto_hdrs
+      ${TENSORSTORE_PROTO_CC_LIBRARY_PROTOS})
+
+  set_source_files_properties(${_proto_srcs} ${_proto_hdrs} PROPERTIES GENERATED TRUE)
+
+  tensorstore_cc_library(
+    NAME ${TENSORSTORE_PROTO_CC_LIBRARY_NAME}
+    SRCS "${_proto_srcs}"
+    HDRS "${_proto_hdrs}"
+    DEPS "${TENSORSTORE_PROTO_CC_LIBRARY_DEPS}"
+    COPTS "${TENSORSTORE_PROTO_CC_LIBRARY_COPTS}"
+    DEFINES "${TENSORSTORE_PROTO_CC_LIBRARY_DEFINES}"
+    LINKOPTS "${TENSORSTORE_PROTO_CC_LIBRARY_LINKOPTS}"
+  )
+
+endfunction()
+
 
 # check_target(target)
 #   Errors if the targetg does not exist.

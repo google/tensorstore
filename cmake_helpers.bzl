@@ -52,5 +52,21 @@ def cmake_add_dep_mapping(target_mapping = None):
 # Adds raw text to the CMake file.
 # Example:
 #   cmake_raw(text="# Comment \n")
-def cmake_raw(text = None, where = None):
+def cmake_raw(text = None):
     return
+
+# Sets the section for the current file.  (Only useful for workspace.bzl files)
+# The section controls the output order of subsequent CMake script.
+# By convention, each file has a default section.
+#
+# Example:
+#   cmake_set_section(section=20000)
+#   cmake_raw(text="# B \n")
+#   cmake_set_section(section=1)
+#   cmake_raw(text="# A \n")
+
+def cmake_set_section(section = None):
+    return
+
+def cmake_get_section():
+    return 0

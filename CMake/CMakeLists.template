@@ -68,6 +68,7 @@ include(CTest)
 include(CMakePackageConfigHelpers)
 include(CMakeDependentOption)
 include(TensorstoreHelpers)
+include(ProtobufHelpers)
 
 ##
 ## Using tensorstore targets

@@ -42,5 +42,5 @@ def repo():
 cmake_fetch_content_package(name = "com_google_boringssl")
 
 cmake_add_dep_mapping(target_mapping = {
-    "@com_google_boringssl//:crypto": "BORINGSSL::crypto",
+    "@com_google_boringssl//:crypto": "crypto",
 })

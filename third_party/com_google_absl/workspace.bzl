@@ -17,7 +17,7 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package", "cmake_raw")
+load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package", "cmake_raw", "cmake_set_section")
 
 # REPO_BRANCH = master
 
@@ -105,25 +105,28 @@ ABSL_CMAKE_MAPPING = {
     "@com_google_absl//absl/base:config": "absl::base",
 }
 
+cmake_set_section(section = 200)
+
 cmake_add_dep_mapping(target_mapping = ABSL_CMAKE_MAPPING)
 
 # https://github.com/abseil/abseil-cpp/blob/master/CMake/README.md
 cmake_fetch_content_package(
     name = "com_google_absl",
     settings = [
-        ("ABSL_USE_EXTERNAL_GOOGLETEST", "ON"),
-        ("ABSL_BUILD_TESTING", "OFF"),
-        ("ABSL_FIND_GOOGLETEST", "OFF"),
         ("ABSL_PROPAGATE_CXX_STD", "ON"),
+        ("ABSL_BUILD_TESTING", "OFF"),
+        ("ABSL_USE_EXTERNAL_GOOGLETEST", "ON"),
+        ("ABSL_FIND_GOOGLETEST", "OFF"),
     ],
 )
 
 # Ensure aliases exist.
+cmake_raw(text = "\n")
+
 [
     (
         cmake_raw(
             text = "check_absl_target({t})\n".format(t = v),
-            where = "FINAL",
         ),
     )
     for v in ABSL_CMAKE_MAPPING.values()

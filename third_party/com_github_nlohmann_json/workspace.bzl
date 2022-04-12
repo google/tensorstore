@@ -30,15 +30,30 @@ def repo():
         build_file = Label("//third_party:com_github_nlohmann_json/bundled.BUILD.bazel"),
     )
 
-cmake_fetch_content_package(
-    name = "com_github_nlohmann_json",
-)
-
 cmake_add_dep_mapping(target_mapping = {
     "@com_github_nlohmann_json//:nlohmann_json": "nlohmann_json::nlohmann_json",
 })
 
+cmake_fetch_content_package(
+    name = "com_github_nlohmann_json",
+    configure_command = "",
+    build_command = "",
+    make_available = False,
+)
+
 cmake_raw(
-    text = "# maybe_add_alias(nlohmann_json nlohmann_json::nlohmann_json)\n\n",
-    where = "FINAL",
+    text = """
+# nlohmann_json install doesn't work with FetchContent. :/
+
+FetchContent_GetProperties(com_github_nlohmann_json)
+if(NOT com_github_nlohmann_json_POPULATED)
+  FetchContent_Populate(com_github_nlohmann_json)
+endif()
+
+add_library(nlohmann_json INTERFACE)
+target_include_directories(nlohmann_json INTERFACE
+      "${com_github_nlohmann_json_SOURCE_DIR}/single_include")
+
+add_library(nlohmann_json::nlohmann_json ALIAS nlohmann_json)
+""",
 )
