@@ -1,4 +1,3 @@
-# Lint as: python3
 """Setup script for beam pipeline."""
 import setuptools
 
