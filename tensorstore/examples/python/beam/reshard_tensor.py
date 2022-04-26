@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """Library to reshard tensors from one block size to another.
 
 Reshards a tensor to a new subblock size.

@@ -6,7 +6,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """Compute percentiles in a 4D tensor.
 
 Given an XYZT scalar tensor, computes the percentile along the T axis.

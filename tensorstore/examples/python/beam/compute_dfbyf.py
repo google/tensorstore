@@ -6,7 +6,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """Compute the df/f given a f and a percentile tensor.
 
 Computes (f - percentile) / (smooth + percentile).
