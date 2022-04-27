@@ -19,12 +19,14 @@
 #include <set>
 #include <string>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/internal/oauth2/oauth_utils.h"
+#include "tensorstore/internal/oauth2/refreshable_auth_provider.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -34,27 +36,14 @@ namespace internal_oauth2 {
 /// Returns the hostname of the GCE metadata server.
 std::string GceMetadataHostname();
 
-class GceAuthProvider : public AuthProvider {
+class GceAuthProvider : public RefreshableAuthProvider {
  public:
   ~GceAuthProvider() override = default;
 
-  GceAuthProvider(std::shared_ptr<internal_http::HttpTransport> transport);
   GceAuthProvider(std::shared_ptr<internal_http::HttpTransport> transport,
-                  std::function<absl::Time()> clock);
+                  std::function<absl::Time()> clock = {});
 
   using AuthProvider::BearerTokenWithExpiration;
-
-  /// \brief Returns the short-term authentication bearer token.
-  ///
-  /// Safe for concurrent use by multiple threads.
-  Result<BearerTokenWithExpiration> GetToken() override;
-
-  /// \brief Refresh the token from the GCE Metadata service.
-  absl::Status Refresh();
-
-  bool IsExpired() { return clock_() > (expiration_ - kExpirationMargin); }
-
-  bool IsValid() { return !access_token_.empty() && !IsExpired(); }
 
  protected:
   // Issue an http request on the provided path.
@@ -62,16 +51,16 @@ class GceAuthProvider : public AuthProvider {
                                                            bool recursive);
 
  private:
-  absl::Status RetrieveServiceAccountInfo();
+  // Refresh the token from the GCE Metadata service.
+  absl::Status Refresh() override ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  std::string service_account_email_;
-  std::set<std::string> scopes_;
+  absl::Status RetrieveServiceAccountInfo()
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  std::string access_token_;
-  absl::Time expiration_;
+  std::string service_account_email_ ABSL_GUARDED_BY(mutex_);
+  std::set<std::string> scopes_ ABSL_GUARDED_BY(mutex_);
 
   std::shared_ptr<internal_http::HttpTransport> transport_;
-  std::function<absl::Time()> clock_;  // To mock the time.
 };
 
 }  // namespace internal_oauth2

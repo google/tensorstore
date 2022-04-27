@@ -23,6 +23,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/env.h"
@@ -82,24 +83,11 @@ std::string GceMetadataHostname() {
 }
 
 GceAuthProvider::GceAuthProvider(
-    std::shared_ptr<internal_http::HttpTransport> transport)
-    : GceAuthProvider(std::move(transport), &absl::Now) {}
-
-GceAuthProvider::GceAuthProvider(
     std::shared_ptr<internal_http::HttpTransport> transport,
     std::function<absl::Time()> clock)
-    : service_account_email_("default"),
-      expiration_(absl::InfinitePast()),
-      transport_(std::move(transport)),
-      clock_(std::move(clock)) {}
-
-Result<GceAuthProvider::BearerTokenWithExpiration> GceAuthProvider::GetToken() {
-  if (!IsValid()) {
-    auto status = Refresh();
-    TENSORSTORE_RETURN_IF_ERROR(status);
-  }
-  return BearerTokenWithExpiration{access_token_, expiration_};
-}
+    : RefreshableAuthProvider(std::move(clock)),
+      service_account_email_("default"),
+      transport_(std::move(transport)) {}
 
 Result<HttpResponse> GceAuthProvider::IssueRequest(std::string path,
                                                    bool recursive) {

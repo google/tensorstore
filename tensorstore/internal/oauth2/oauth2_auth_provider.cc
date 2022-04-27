@@ -21,7 +21,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
-#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
@@ -54,27 +54,12 @@ std::string MakePayload(const internal_oauth2::RefreshToken& creds) {
 
 OAuth2AuthProvider::OAuth2AuthProvider(
     const RefreshToken& creds, std::string uri,
-    std::shared_ptr<internal_http::HttpTransport> transport)
-    : OAuth2AuthProvider(creds, std::move(uri), std::move(transport),
-                         &absl::Now) {}
-
-OAuth2AuthProvider::OAuth2AuthProvider(
-    const RefreshToken& creds, std::string uri,
     std::shared_ptr<internal_http::HttpTransport> transport,
     std::function<absl::Time()> clock)
-    : refresh_payload_(MakePayload(creds)),
+    : RefreshableAuthProvider(std::move(clock)),
+      refresh_payload_(MakePayload(creds)),
       uri_(std::move(uri)),
-      expiration_(absl::InfinitePast()),
-      transport_(std::move(transport)),
-      clock_(std::move(clock)) {}
-
-Result<AuthProvider::BearerTokenWithExpiration> OAuth2AuthProvider::GetToken() {
-  if (!IsValid()) {
-    auto status = Refresh();
-    TENSORSTORE_RETURN_IF_ERROR(status);
-  }
-  return BearerTokenWithExpiration{access_token_, expiration_};
-}
+      transport_(std::move(transport)) {}
 
 Result<HttpResponse> OAuth2AuthProvider::IssueRequest(std::string_view method,
                                                       std::string_view uri,

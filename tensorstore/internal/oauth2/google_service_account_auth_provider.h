@@ -19,19 +19,21 @@
 #include <string>
 #include <string_view>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/internal/oauth2/oauth_utils.h"
+#include "tensorstore/internal/oauth2/refreshable_auth_provider.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_oauth2 {
 
-class GoogleServiceAccountAuthProvider : public AuthProvider {
+class GoogleServiceAccountAuthProvider : public RefreshableAuthProvider {
  public:
   using AccountCredentials = internal_oauth2::GoogleServiceAccountCredentials;
 
@@ -39,40 +41,24 @@ class GoogleServiceAccountAuthProvider : public AuthProvider {
 
   GoogleServiceAccountAuthProvider(
       const AccountCredentials& creds,
-      std::shared_ptr<internal_http::HttpTransport> transport);
-  GoogleServiceAccountAuthProvider(
-      const AccountCredentials& creds,
       std::shared_ptr<internal_http::HttpTransport> transport,
-      std::function<absl::Time()> clock);
+      std::function<absl::Time()> clock = {});
 
   using AuthProvider::BearerTokenWithExpiration;
-
-  /// \brief Returns the short-term authentication bearer token.
-  ///
-  /// Safe for concurrent use by multiple threads.
-  Result<BearerTokenWithExpiration> GetToken() override;
-
-  /// \brief Refresh the OAuth2 token for the service account.
-  absl::Status Refresh();
-
-  bool IsExpired() { return clock_() > (expiration_ - kExpirationMargin); }
-
-  bool IsValid() { return !access_token_.empty() && !IsExpired(); }
 
  protected:
   virtual Result<internal_http::HttpResponse> IssueRequest(
       std::string_view method, std::string_view uri, absl::Cord payload);
 
  private:
+  /// Refresh the OAuth2 token for the service account.
+  absl::Status Refresh() override ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
   const AccountCredentials creds_;
   std::string uri_;
   std::string scope_;
 
-  std::string access_token_;
-  absl::Time expiration_;
-
   std::shared_ptr<internal_http::HttpTransport> transport_;
-  std::function<absl::Time()> clock_;  // mock time.
 };
 
 }  // namespace internal_oauth2

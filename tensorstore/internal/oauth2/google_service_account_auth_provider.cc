@@ -51,30 +51,13 @@ constexpr char kOAuthScope[] = "https://www.googleapis.com/auth/cloud-platform";
 
 GoogleServiceAccountAuthProvider::GoogleServiceAccountAuthProvider(
     const AccountCredentials& creds,
-    std::shared_ptr<internal_http::HttpTransport> transport)
-    : GoogleServiceAccountAuthProvider(creds, std::move(transport),
-                                       &absl::Now) {}
-
-GoogleServiceAccountAuthProvider::GoogleServiceAccountAuthProvider(
-    const AccountCredentials& creds,
     std::shared_ptr<internal_http::HttpTransport> transport,
     std::function<absl::Time()> clock)
-    : creds_(creds),
+    : RefreshableAuthProvider(std::move(clock)),
+      creds_(creds),
       uri_(kOAuthV4Url),
       scope_(kOAuthScope),
-      expiration_(absl::InfinitePast()),
-      transport_(std::move(transport)),
-      clock_(std::move(clock)) {}
-
-Result<AuthProvider::BearerTokenWithExpiration>
-GoogleServiceAccountAuthProvider::GetToken() {
-  if (!IsValid()) {
-    auto status = Refresh();
-    TENSORSTORE_RETURN_IF_ERROR(status);
-  }
-
-  return BearerTokenWithExpiration{access_token_, expiration_};
-}
+      transport_(std::move(transport)) {}
 
 Result<HttpResponse> GoogleServiceAccountAuthProvider::IssueRequest(
     std::string_view method, std::string_view uri, absl::Cord payload) {
