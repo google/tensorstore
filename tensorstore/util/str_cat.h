@@ -80,6 +80,10 @@ std::string ToAlphaNumOrString(const std::pair<A, B>& x) {
 }  // namespace internal
 
 /// Prints a string representation of a span.
+///
+/// \requires `Element` supports ostream insertion.
+/// \relates span
+/// \id span
 template <typename Element, std::ptrdiff_t N>
 std::enable_if_t<internal::IsOstreamable<Element>, std::ostream&> operator<<(
     std::ostream& os, span<Element, N> s) {
@@ -95,6 +99,8 @@ std::enable_if_t<internal::IsOstreamable<Element>, std::ostream&> operator<<(
 /// Concatenates the string representation of `arg...` and returns the result.
 ///
 /// The string conversion is done exactly the same as for `StrAppend`.
+///
+/// \ingroup string-utilities
 template <typename... Arg>
 std::string StrCat(const Arg&... arg) {
   return absl::StrCat(internal::ToAlphaNumOrString(arg)...);
@@ -102,8 +108,21 @@ std::string StrCat(const Arg&... arg) {
 
 /// Appends a string representation of arg... to `*result`.
 ///
-/// The arguments are converted to a string representation using
-/// `absl::AlphaNum` if supported, or otherwise `ToStringUsingOstream`.
+/// The arguments are converted to a string representation as follows:
+///
+/// `std::string` and `std::string_view`
+///   Appended directly
+///
+/// Numerical types
+///   Converted to their usual string representation
+///
+/// All other types
+///   Converted using ostream `operator<<`.
+///
+/// Specifying an argument type that does not support `operator<<` results in a
+/// compile-time error.
+///
+/// \ingroup string-utilities
 template <typename... Arg>
 void StrAppend(std::string* result, const Arg&... arg) {
   return absl::StrAppend(result, internal::ToAlphaNumOrString(arg)...);
