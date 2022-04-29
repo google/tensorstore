@@ -36,11 +36,24 @@ namespace tensorstore {
 /// executor is called must either be invoked immediately (inline) or in another
 /// thread.  The return value of the supplied function is ignored.
 
-/// Type-erased executor type.
+/// Type-erased nullary function type that supports move construction.
+///
+/// \relates Executor
 using ExecutorTask = poly::Poly<0, /*Copyable=*/false, void()>;
+
+/// Function object that is callable with nullary noexcept functions.
+///
+/// Any `ExecutorTask` with which the executor is called must either be invoked
+/// immediately (inline) or in another thread.
+///
+/// The return value of the `ExecutorTask` is ignored.
+///
+/// \ingroup async
 using Executor = poly::Poly<0, /*Copyable=*/true, void(ExecutorTask) const>;
 
 /// Executor that simply executes functions immediately in the current thread.
+///
+/// \relates Executor
 class InlineExecutor {
  public:
   template <typename Func>
@@ -51,32 +64,41 @@ class InlineExecutor {
 
 /// Function object that invokes a given function using a given executor.  Any
 /// arguments are forwarded to the contained function.
+///
+/// \relates Executor
 template <typename ExecutorType, typename FunctionType>
 class ExecutorBoundFunction {
  public:
+  /// Executor type.
   using Executor = ExecutorType;
+
+  /// Function type.
   using Function = FunctionType;
 
-  /// Non-const overload.
   template <typename... T>
   std::enable_if_t<std::is_invocable_v<Function&, T...>>  //
   operator()(T&&... arg) {
     executor(std::bind(std::move(function), std::forward<T>(arg)...));
   }
-
-  /// Const overload.
   template <typename... T>
   std::enable_if_t<std::is_invocable_v<const Function&, T...>> operator()(
       T&&... arg) const {
     executor(std::bind(function, std::forward<T>(arg)...));
   }
 
+  /// Executor object.
   TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS Executor executor;
+
+  /// Function object.
   TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS Function function;
 };
 
-/// Returns an instance of FunctionWithExecutor that invokes the given function
-/// `func` in the specified executor.  Any arguments are forwarded.
+/// Returns an instance of `ExecutorBoundFunction` that invokes the given
+/// function `function` in the specified executor.
+///
+/// Any arguments are forwarded.
+///
+/// \relates Executor
 template <typename Executor, typename Function>
 std::enable_if_t<
     !std::is_same_v<internal::remove_cvref_t<Executor>, InlineExecutor>,
@@ -85,7 +107,6 @@ std::enable_if_t<
 WithExecutor(Executor&& executor, Function&& function) {
   return {std::forward<Executor>(executor), std::forward<Function>(function)};
 }
-
 template <typename Executor, typename Function>
 std::enable_if_t<
     std::is_same_v<internal::remove_cvref_t<Executor>, InlineExecutor>,
