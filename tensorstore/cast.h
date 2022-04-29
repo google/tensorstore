@@ -30,7 +30,7 @@ namespace tensorstore {
 /// input `store` supports the same mode and the necessary conversion is
 /// defined.
 ///
-/// For example:
+/// For example::
 ///
 ///     TensorStore<int32_t, 2, ReadWriteMode::read_write> a = ...;
 ///
@@ -53,10 +53,11 @@ namespace tensorstore {
 ///
 /// \tparam TargetElementType The target element type, must be unqualified.
 /// \param store The TensorStore to convert.
-/// \param dtype May be specified in order to allow `TargetElementType` to
-///     be inferred.
+/// \param target_dtype May be specified in order to allow `TargetElementType`
+///     to be inferred.
 /// \error `absl::StatusCode::kInvalidArgument` if neither reading nor writing
 ///     would be supported by the returned `TensorStore`.
+/// \relates TensorStore
 template <typename TargetElementType, int&... ExplicitArgumentBarrier,
           typename ElementType, DimensionIndex Rank, ReadWriteMode Mode>
 Result<TensorStore<
@@ -72,8 +73,6 @@ Cast(TensorStore<ElementType, Rank, Mode> store,
           tensorstore::internal::GetCastMode<ElementType, TargetElementType>(
               Mode)>>);
 }
-
-/// Same as above, but with the data type specified at run time.
 template <int&... ExplicitArgumentBarrier, typename ElementType,
           DimensionIndex Rank, ReadWriteMode Mode>
 Result<TensorStore<void, Rank,
