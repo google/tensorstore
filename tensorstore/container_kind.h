@@ -17,8 +17,21 @@
 
 namespace tensorstore {
 
-enum class ContainerKind { container, view };
+/// Specifies whether an object (e.g. strided layout) is stored by value or
+/// view/reference.
+///
+/// \ingroup array
+enum class ContainerKind {
+  /// Object is stored by value.
+  container,
+  /// Object is stored by reference.
+  view
+};
+
+/// \relates ContainerKind
 constexpr ContainerKind container = ContainerKind::container;
+
+/// \relates ContainerKind
 constexpr ContainerKind view = ContainerKind::view;
 
 }  // namespace tensorstore
